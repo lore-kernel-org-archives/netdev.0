@@ -1,56 +1,416 @@
-From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: Re: [PATCH 01/10] net: stmmac: Enable stmmac main clock
- when probing hardware
-Date: Thu, 12 Dec 2013 12:31:53 +0800
-Message-ID: <CAGb2v67TkxcMSrFsMtAy8TaMG_VZWt73xZZcuqkJ71VO4y=7_w@mail.gmail.com>
-References: <1386350983-13281-1-git-send-email-wens@csie.org>
- <1386350983-13281-2-git-send-email-wens@csie.org> <20131207103335.GL24519@lukather>
- <CAGb2v65YOSq_BMWSzSHX8w_hbo+0vwquBT2pnLuwNVZkWRfLvA@mail.gmail.com> <20131210200529.GD3651@lukather>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>, devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
-	Srinivas Kandagatla <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>
-To: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <linux-sunxi+bncBCMILY6JWQBBBTXYUSKQKGQE4RI3AYI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <20131210200529.GD3651@lukather>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: "H.K. Jerry Chu" <hkchu@google.com>
+Subject: [PATCH v3 net-next] net-gro: Prepare GRO stack for the upcoming tunneling support
+Date: Wed, 11 Dec 2013 20:53:45 -0800
+Message-ID: <1386824025-27413-1-git-send-email-hkchu@google.com>
+Cc: Jerry Chu <hkchu@google.com>
+To: edumazet@google.com, herbert@gondor.apana.org.au,
+	ogerlitz@mellanox.com, bhutchings@solarflare.com,
+	davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f202.google.com ([209.85.214.202]:63322 "EHLO
+	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751028Ab3LLExz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 23:53:55 -0500
+Received: by mail-ob0-f202.google.com with SMTP id gq1so1581419obb.5
+        for <netdev@vger.kernel.org>; Wed, 11 Dec 2013 20:53:55 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Jerry Chu <hkchu@google.com>
 
-On Wed, Dec 11, 2013 at 4:05 AM, Maxime Ripard
-<maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org> wrote:
-> Hi,
->
-> On Mon, Dec 09, 2013 at 10:43:29AM +0800, Chen-Yu Tsai wrote:
->> >> @@ -2759,15 +2760,18 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
->> >>               }
->> >>       }
->> >>
->> >> +     clk_disable_unprepare(priv->stmmac_clk);
->> >> +
->> >
->> > Hu? Why do you disable the clock? don't you need it afterwards?
->>
->> The clock is enabled in *_open (when the network interface is used),
->> and disabled in *_close.
->
-> Maybe it is the real issue then.
->
-> Why don't you move the clk_disable to _remove then?
+This patch modifies the GRO stack to avoid the use of "network_header"
+and associated macros like ip_hdr() and ipv6_hdr() in order to allow
+an arbitary number of IP hdrs (v4 or v6) to be used in the
+encapsulation chain. This lays the foundation for various IP
+tunneling support (IP-in-IP, GRE, VXLAN, SIT,...) to be added later.
 
-I wasn't sure this was the proper way. However, looking around, it
-seems other drivers enable the clock in, _probe, and disable it in
-_remove. I will modify stmmac to do so as well.
+With this patch, the GRO stack traversing now is mostly based on
+skb_gro_offset rather than special hdr offsets saved in skb (e.g.,
+skb->network_header). As a result all but the top layer (i.e., the
+the transport layer) must have hdrs of the same length in order for
+a pkt to be considered for aggregation. Therefore when adding a new
+encap layer (e.g., for tunneling), one must check and skip flows
+(e.g., by setting NAPI_GRO_CB(p)->same_flow to 0) that have a
+different hdr length.
 
+Note that unlike the network header, the transport header can and
+will continue to be set by the GRO code since there will be at
+most one "transport layer" in the encap chain.
 
-ChenYu
+Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
+Suggested-by: Eric Dumazet <edumazet@google.com>
+Reviewed-by: Eric Dumazet <edumazet@google.com>
+---
+ include/linux/netdevice.h |  2 +-
+ net/core/dev.c            | 76 ++++++++++++++++-------------------------------
+ net/ipv4/af_inet.c        | 25 ++++++++++++----
+ net/ipv4/tcp_offload.c    |  9 +++---
+ net/ipv6/ip6_offload.c    | 54 ++++++++++++++++++++++++++-------
+ net/ipv6/tcpv6_offload.c  |  6 ++--
+ 6 files changed, 97 insertions(+), 75 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 9d55e51..ba321f1b 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1673,7 +1673,7 @@ struct offload_callbacks {
+ 	int			(*gso_send_check)(struct sk_buff *skb);
+ 	struct sk_buff		**(*gro_receive)(struct sk_buff **head,
+ 					       struct sk_buff *skb);
+-	int			(*gro_complete)(struct sk_buff *skb);
++	int			(*gro_complete)(struct sk_buff *skb, int nhoff);
+ };
+ 
+ struct packet_offload {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6cc98dd..bd71bec 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3767,7 +3767,7 @@ static int napi_gro_complete(struct sk_buff *skb)
+ 		if (ptype->type != type || !ptype->callbacks.gro_complete)
+ 			continue;
+ 
+-		err = ptype->callbacks.gro_complete(skb);
++		err = ptype->callbacks.gro_complete(skb, 0);
+ 		break;
+ 	}
+ 	rcu_read_unlock();
+@@ -3833,6 +3833,23 @@ static void gro_list_prepare(struct napi_struct *napi, struct sk_buff *skb)
+ 	}
+ }
+ 
++static void skb_gro_reset_offset(struct sk_buff *skb)
++{
++	const struct skb_shared_info *pinfo = skb_shinfo(skb);
++	const skb_frag_t *frag0 = &pinfo->frags[0];
++
++	NAPI_GRO_CB(skb)->data_offset = 0;
++	NAPI_GRO_CB(skb)->frag0 = NULL;
++	NAPI_GRO_CB(skb)->frag0_len = 0;
++
++	if (skb_mac_header(skb) == skb_tail_pointer(skb) &&
++	    pinfo->nr_frags &&
++	    !PageHighMem(skb_frag_page(frag0))) {
++		NAPI_GRO_CB(skb)->frag0 = skb_frag_address(frag0);
++		NAPI_GRO_CB(skb)->frag0_len = skb_frag_size(frag0);
++	}
++}
++
+ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ {
+ 	struct sk_buff **pp = NULL;
+@@ -3848,6 +3865,7 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
+ 	if (skb_is_gso(skb) || skb_has_frag_list(skb))
+ 		goto normal;
+ 
++	skb_gro_reset_offset(skb);
+ 	gro_list_prepare(napi, skb);
+ 
+ 	rcu_read_lock();
+@@ -3953,27 +3971,8 @@ static gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
+ 	return ret;
+ }
+ 
+-static void skb_gro_reset_offset(struct sk_buff *skb)
+-{
+-	const struct skb_shared_info *pinfo = skb_shinfo(skb);
+-	const skb_frag_t *frag0 = &pinfo->frags[0];
+-
+-	NAPI_GRO_CB(skb)->data_offset = 0;
+-	NAPI_GRO_CB(skb)->frag0 = NULL;
+-	NAPI_GRO_CB(skb)->frag0_len = 0;
+-
+-	if (skb_mac_header(skb) == skb_tail_pointer(skb) &&
+-	    pinfo->nr_frags &&
+-	    !PageHighMem(skb_frag_page(frag0))) {
+-		NAPI_GRO_CB(skb)->frag0 = skb_frag_address(frag0);
+-		NAPI_GRO_CB(skb)->frag0_len = skb_frag_size(frag0);
+-	}
+-}
+-
+ gro_result_t napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ {
+-	skb_gro_reset_offset(skb);
+-
+ 	return napi_skb_finish(dev_gro_receive(napi, skb), skb);
+ }
+ EXPORT_SYMBOL(napi_gro_receive);
+@@ -4007,12 +4006,7 @@ static gro_result_t napi_frags_finish(struct napi_struct *napi, struct sk_buff *
+ {
+ 	switch (ret) {
+ 	case GRO_NORMAL:
+-	case GRO_HELD:
+-		skb->protocol = eth_type_trans(skb, skb->dev);
+-
+-		if (ret == GRO_HELD)
+-			skb_gro_pull(skb, -ETH_HLEN);
+-		else if (netif_receive_skb(skb))
++		if (netif_receive_skb(skb))
+ 			ret = GRO_DROP;
+ 		break;
+ 
+@@ -4021,6 +4015,7 @@ static gro_result_t napi_frags_finish(struct napi_struct *napi, struct sk_buff *
+ 		napi_reuse_skb(napi, skb);
+ 		break;
+ 
++	case GRO_HELD:
+ 	case GRO_MERGED:
+ 		break;
+ 	}
+@@ -4031,36 +4026,15 @@ static gro_result_t napi_frags_finish(struct napi_struct *napi, struct sk_buff *
+ static struct sk_buff *napi_frags_skb(struct napi_struct *napi)
+ {
+ 	struct sk_buff *skb = napi->skb;
+-	struct ethhdr *eth;
+-	unsigned int hlen;
+-	unsigned int off;
+ 
+ 	napi->skb = NULL;
+ 
+-	skb_reset_mac_header(skb);
+-	skb_gro_reset_offset(skb);
+-
+-	off = skb_gro_offset(skb);
+-	hlen = off + sizeof(*eth);
+-	eth = skb_gro_header_fast(skb, off);
+-	if (skb_gro_header_hard(skb, hlen)) {
+-		eth = skb_gro_header_slow(skb, hlen, off);
+-		if (unlikely(!eth)) {
+-			napi_reuse_skb(napi, skb);
+-			skb = NULL;
+-			goto out;
+-		}
++	if (unlikely(!pskb_may_pull(skb, sizeof(struct ethhdr)))) {
++		napi_reuse_skb(napi, skb);
++		return NULL;
+ 	}
++	skb->protocol = eth_type_trans(skb, skb->dev);
+ 
+-	skb_gro_pull(skb, sizeof(*eth));
+-
+-	/*
+-	 * This works because the only protocols we care about don't require
+-	 * special handling.  We'll fix it up properly at the end.
+-	 */
+-	skb->protocol = eth->h_proto;
+-
+-out:
+ 	return skb;
+ }
+ 
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 70011e0..ef4f9df 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1377,8 +1377,12 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
+ 		if (!NAPI_GRO_CB(p)->same_flow)
+ 			continue;
+ 
+-		iph2 = ip_hdr(p);
+-
++		iph2 = (struct iphdr *)(p->data + off);
++		/* The above works because, with the exception of the top
++		 * (inner most) layer, we only aggregate pkts with the same
++		 * hdr length so all the hdrs we'll need to verify will start
++		 * at the same offset.
++		 */
+ 		if ((iph->protocol ^ iph2->protocol) |
+ 		    ((__force u32)iph->saddr ^ (__force u32)iph2->saddr) |
+ 		    ((__force u32)iph->daddr ^ (__force u32)iph2->daddr)) {
+@@ -1397,6 +1401,11 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
+ 	}
+ 
+ 	NAPI_GRO_CB(skb)->flush |= flush;
++	skb_set_network_header(skb, off);
++	/* The above will be needed by the transport layer if there is one
++	 * immediately following this IP hdr.
++	 */
++
+ 	skb_gro_pull(skb, sizeof(*iph));
+ 	skb_set_transport_header(skb, skb_gro_offset(skb));
+ 
+@@ -1411,10 +1420,10 @@ out:
+ 	return pp;
+ }
+ 
+-static int inet_gro_complete(struct sk_buff *skb)
++static int inet_gro_complete(struct sk_buff *skb, int nhoff)
+ {
+-	__be16 newlen = htons(skb->len - skb_network_offset(skb));
+-	struct iphdr *iph = ip_hdr(skb);
++	__be16 newlen = htons(skb->len - nhoff);
++	struct iphdr *iph = (struct iphdr *)(skb->data + nhoff);
+ 	const struct net_offload *ops;
+ 	int proto = iph->protocol;
+ 	int err = -ENOSYS;
+@@ -1427,7 +1436,11 @@ static int inet_gro_complete(struct sk_buff *skb)
+ 	if (WARN_ON(!ops || !ops->callbacks.gro_complete))
+ 		goto out_unlock;
+ 
+-	err = ops->callbacks.gro_complete(skb);
++	/* Only need to add sizeof(*iph) to get to the next hdr below
++	 * because any hdr with option will have been flushed in
++	 * inet_gro_receive().
++	 */
++	err = ops->callbacks.gro_complete(skb, nhoff + sizeof(*iph));
+ 
+ out_unlock:
+ 	rcu_read_unlock();
+diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
+index 0560635..2658a27 100644
+--- a/net/ipv4/tcp_offload.c
++++ b/net/ipv4/tcp_offload.c
+@@ -240,7 +240,7 @@ int tcp_gro_complete(struct sk_buff *skb)
+ {
+ 	struct tcphdr *th = tcp_hdr(skb);
+ 
+-	skb->csum_start = skb_transport_header(skb) - skb->head;
++	skb->csum_start = (unsigned char *)th - skb->head;
+ 	skb->csum_offset = offsetof(struct tcphdr, check);
+ 	skb->ip_summed = CHECKSUM_PARTIAL;
+ 
+@@ -272,6 +272,7 @@ static int tcp_v4_gso_send_check(struct sk_buff *skb)
+ 
+ static struct sk_buff **tcp4_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ {
++	/* Use the IP hdr immediately proceeding for this transport */
+ 	const struct iphdr *iph = skb_gro_network_header(skb);
+ 	__wsum wsum;
+ 
+@@ -303,13 +304,13 @@ skip_csum:
+ 	return tcp_gro_receive(head, skb);
+ }
+ 
+-static int tcp4_gro_complete(struct sk_buff *skb)
++static int tcp4_gro_complete(struct sk_buff *skb, int thoff)
+ {
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	struct tcphdr *th = tcp_hdr(skb);
+ 
+-	th->check = ~tcp_v4_check(skb->len - skb_transport_offset(skb),
+-				  iph->saddr, iph->daddr, 0);
++	th->check = ~tcp_v4_check(skb->len - thoff, iph->saddr,
++				  iph->daddr, 0);
+ 	skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
+ 
+ 	return tcp_gro_complete(skb);
+diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+index 4b85169..7540a0e 100644
+--- a/net/ipv6/ip6_offload.c
++++ b/net/ipv6/ip6_offload.c
+@@ -154,6 +154,35 @@ out:
+ 	return segs;
+ }
+ 
++/* Return the total length of all the extension hdrs, following the same
++ * logic in ipv6_gso_pull_exthdrs() when parsing ext-hdrs.
++ */
++static int ipv6_exthdrs_len(struct ipv6hdr *iph,
++			    const struct net_offload **opps)
++{
++	struct ipv6_opt_hdr *opth = NULL;
++	int len = 0, proto, optlen;
++
++	proto = iph->nexthdr;
++	for (;;) {
++		if (proto != NEXTHDR_HOP) {
++			*opps = rcu_dereference(inet6_offloads[proto]);
++			if (unlikely(!(*opps)))
++				break;
++			if (!((*opps)->flags & INET6_PROTO_GSO_EXTHDR))
++				break;
++		}
++		if (opth == NULL)
++			opth = (void *)(iph+1);
++		else
++			opth = (void *)opth + optlen;
++		optlen = ipv6_optlen(opth);
++		len += optlen;
++		proto = opth->nexthdr;
++	}
++	return len;
++}
++
+ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
+ 					 struct sk_buff *skb)
+ {
+@@ -177,6 +206,7 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
+ 			goto out;
+ 	}
+ 
++	skb_set_network_header(skb, off);
+ 	skb_gro_pull(skb, sizeof(*iph));
+ 	skb_set_transport_header(skb, skb_gro_offset(skb));
+ 
+@@ -211,12 +241,16 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
+ 		if (!NAPI_GRO_CB(p)->same_flow)
+ 			continue;
+ 
+-		iph2 = ipv6_hdr(p);
++		iph2 = (struct ipv6hdr *)(p->data + off);
+ 		first_word = *(__be32 *)iph ^ *(__be32 *)iph2 ;
+ 
+-		/* All fields must match except length and Traffic Class. */
+-		if (nlen != skb_network_header_len(p) ||
+-		    (first_word & htonl(0xF00FFFFF)) ||
++		/* All fields must match except length and Traffic Class.
++		 * XXX skbs on the gro_list have all been parsed and pulled
++		 * already so we don't need to compare nlen
++		 * (nlen != (sizeof(*iph2) + ipv6_exthdrs_len(iph2, &ops)))
++		 * memcmp() alone below is suffcient, right?
++		 */
++		 if ((first_word & htonl(0xF00FFFFF)) ||
+ 		    memcmp(&iph->nexthdr, &iph2->nexthdr,
+ 			   nlen - offsetof(struct ipv6hdr, nexthdr))) {
+ 			NAPI_GRO_CB(p)->same_flow = 0;
+@@ -245,21 +279,21 @@ out:
+ 	return pp;
+ }
+ 
+-static int ipv6_gro_complete(struct sk_buff *skb)
++static int ipv6_gro_complete(struct sk_buff *skb, int nhoff)
+ {
+ 	const struct net_offload *ops;
+-	struct ipv6hdr *iph = ipv6_hdr(skb);
++	struct ipv6hdr *iph = (struct ipv6hdr *)(skb->data + nhoff);
+ 	int err = -ENOSYS;
+ 
+-	iph->payload_len = htons(skb->len - skb_network_offset(skb) -
+-				 sizeof(*iph));
++	iph->payload_len = htons(skb->len - nhoff - sizeof(*iph));
+ 
+ 	rcu_read_lock();
+-	ops = rcu_dereference(inet6_offloads[NAPI_GRO_CB(skb)->proto]);
++
++	nhoff += sizeof(*iph) + ipv6_exthdrs_len(iph, &ops);
+ 	if (WARN_ON(!ops || !ops->callbacks.gro_complete))
+ 		goto out_unlock;
+ 
+-	err = ops->callbacks.gro_complete(skb);
++	err = ops->callbacks.gro_complete(skb, nhoff);
+ 
+ out_unlock:
+ 	rcu_read_unlock();
+diff --git a/net/ipv6/tcpv6_offload.c b/net/ipv6/tcpv6_offload.c
+index 6d18157..0d78132 100644
+--- a/net/ipv6/tcpv6_offload.c
++++ b/net/ipv6/tcpv6_offload.c
+@@ -66,13 +66,13 @@ skip_csum:
+ 	return tcp_gro_receive(head, skb);
+ }
+ 
+-static int tcp6_gro_complete(struct sk_buff *skb)
++static int tcp6_gro_complete(struct sk_buff *skb, int thoff)
+ {
+ 	const struct ipv6hdr *iph = ipv6_hdr(skb);
+ 	struct tcphdr *th = tcp_hdr(skb);
+ 
+-	th->check = ~tcp_v6_check(skb->len - skb_transport_offset(skb),
+-				  &iph->saddr, &iph->daddr, 0);
++	th->check = ~tcp_v6_check(skb->len - thoff, &iph->saddr,
++				  &iph->daddr, 0);
+ 	skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
+ 
+ 	return tcp_gro_complete(skb);
+-- 
+1.8.5.1
