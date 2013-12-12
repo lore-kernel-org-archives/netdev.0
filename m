@@ -1,87 +1,57 @@
-From: Salam Noureddine <noureddine@aristanetworks.com>
-Subject: [PATCH 1/1] forcedeth: add MII ioctls support
-Date: Wed, 11 Dec 2013 22:18:09 -0800
-Message-ID: <1386829089-24477-1-git-send-email-noureddine@aristanetworks.com>
-Cc: Salam Noureddine <noureddine@aristanetworks.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Patrick McHardy <kaber@trash.net>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Peter Zijlstra <peterz@infradead.org>, netdev@vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [PATCH net-next 1/6] sched: remove get_stats from tc_action_ops
+Date: Wed, 11 Dec 2013 22:30:28 -0800
+Message-ID: <1386829833-4219-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:42494 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751165Ab3LLGS1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 01:18:27 -0500
-Received: by mail-pb0-f44.google.com with SMTP id rq2so11404396pbb.17
-        for <netdev@vger.kernel.org>; Wed, 11 Dec 2013 22:18:27 -0800 (PST)
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:51861 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751198Ab3LLGan (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 01:30:43 -0500
+Received: by mail-pd0-f170.google.com with SMTP id g10so10992822pdj.29
+        for <netdev@vger.kernel.org>; Wed, 11 Dec 2013 22:30:43 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+It is no longer used.
 
-Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- drivers/net/ethernet/nvidia/forcedeth.c |   34 +++++++++++++++++++++++++++++++
- 1 files changed, 34 insertions(+), 0 deletions(-)
+ include/net/act_api.h | 1 -
+ net/sched/act_api.c   | 4 ----
+ 2 files changed, 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index 2d045be..0d8c88a 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -5558,6 +5558,38 @@ static int nv_close(struct net_device *dev)
- 	return 0;
- }
+diff --git a/include/net/act_api.h b/include/net/act_api.h
+index 9e90fdf..04c6825 100644
+--- a/include/net/act_api.h
++++ b/include/net/act_api.h
+@@ -72,7 +72,6 @@ struct tc_action_ops {
+ 	__u32 	capab;  /* capabilities includes 4 bit version */
+ 	struct module		*owner;
+ 	int     (*act)(struct sk_buff *, const struct tc_action *, struct tcf_result *);
+-	int     (*get_stats)(struct sk_buff *, struct tc_action *);
+ 	int     (*dump)(struct sk_buff *, struct tc_action *, int, int);
+ 	int     (*cleanup)(struct tc_action *, int bind);
+ 	int     (*lookup)(struct tc_action *, u32);
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 4adbce8..51e28f7 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -637,10 +637,6 @@ int tcf_action_copy_stats(struct sk_buff *skb, struct tc_action *a,
+ 	if (err < 0)
+ 		goto errout;
  
-+static int nv_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
-+{
-+	int ret = 0;
-+	u32 val;
-+	struct fe_priv *np = netdev_priv(dev);
-+	struct mii_ioctl_data *data = (struct mii_ioctl_data *) &req->ifr_data;
-+
-+	switch (cmd) {
-+	case SIOCGMIIPHY:
-+		data->phy_id = np->phyaddr;
-+		break;
-+	case SIOCGMIIREG:
-+		spin_lock_irq(&np->lock);
-+		val = mii_rw(dev, np->phyaddr, data->reg_num & 0x1f, MII_READ);
-+		spin_unlock_irq(&np->lock);
-+		data->val_out = val;
-+		break;
-+	case SIOCSMIIREG:
-+		if (!capable(CAP_NET_ADMIN))
-+			return -EPERM;
-+		spin_lock_irq(&np->lock);
-+		ret = mii_rw(dev, np->phyaddr, data->reg_num & 0x1f,
-+			     data->val_in);
-+		spin_unlock_irq(&np->lock);
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+
-+	return ret;
-+}
-+
- static const struct net_device_ops nv_netdev_ops = {
- 	.ndo_open		= nv_open,
- 	.ndo_stop		= nv_close,
-@@ -5568,6 +5600,7 @@ static const struct net_device_ops nv_netdev_ops = {
- 	.ndo_fix_features	= nv_fix_features,
- 	.ndo_set_features	= nv_set_features,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_do_ioctl		= nv_ioctl,
- 	.ndo_set_mac_address	= nv_set_mac_address,
- 	.ndo_set_rx_mode	= nv_set_multicast,
- #ifdef CONFIG_NET_POLL_CONTROLLER
-@@ -5585,6 +5618,7 @@ static const struct net_device_ops nv_netdev_ops_optimized = {
- 	.ndo_fix_features	= nv_fix_features,
- 	.ndo_set_features	= nv_set_features,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_do_ioctl		= nv_ioctl,
- 	.ndo_set_mac_address	= nv_set_mac_address,
- 	.ndo_set_rx_mode	= nv_set_multicast,
- #ifdef CONFIG_NET_POLL_CONTROLLER
+-	if (a->ops != NULL && a->ops->get_stats != NULL)
+-		if (a->ops->get_stats(skb, a) < 0)
+-			goto errout;
+-
+ 	if (gnet_stats_copy_basic(&d, &h->tcf_bstats) < 0 ||
+ 	    gnet_stats_copy_rate_est(&d, &h->tcf_bstats,
+ 				     &h->tcf_rate_est) < 0 ||
 -- 
-1.7.4.4
+1.8.1.4
