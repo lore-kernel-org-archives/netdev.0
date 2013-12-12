@@ -1,69 +1,71 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Cache route in IP tunnels
-Date: Thu, 12 Dec 2013 15:24:23 -0800
-Message-ID: <1386890663.19078.110.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.DEB.2.02.1312112207400.27914@tomh.mtv.corp.google.com>
-	 <1386833838.19078.45.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131212.135433.87781160683841713.davem@davemloft.net>
-	 <CA+mtBx9GNG3XuyczBAJT4o2FnRBbHTV5U6PYnAJA1gf84ExeNQ@mail.gmail.com>
-	 <1386880196.19078.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+mtBx-hCve-NXDkQLv0bVrrESLOKPH17nzbhMAPORweFr11Og@mail.gmail.com>
-	 <1386882665.19078.97.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+mtBx9umr3CPysnKYPCv0NqJicg6rEo6Cg-scUTZWaya-Fz5A@mail.gmail.com>
+Subject: [PATCH net-next] pkt_sched: set root qdisc before change() in
+ attach_default_qdiscs()
+Date: Thu, 12 Dec 2013 15:41:56 -0800
+Message-ID: <1386891716.19078.119.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f178.google.com ([209.85.216.178]:41959 "EHLO
-	mail-qc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751579Ab3LLXY1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 18:24:27 -0500
-Received: by mail-qc0-f178.google.com with SMTP id i17so946674qcy.9
-        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 15:24:26 -0800 (PST)
-In-Reply-To: <CA+mtBx9umr3CPysnKYPCv0NqJicg6rEo6Cg-scUTZWaya-Fz5A@mail.gmail.com>
+Received: from mail-yh0-f43.google.com ([209.85.213.43]:54690 "EHLO
+	mail-yh0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751831Ab3LLXl7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 18:41:59 -0500
+Received: by mail-yh0-f43.google.com with SMTP id a41so967304yho.30
+        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 15:41:59 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-12-12 at 14:54 -0800, Tom Herbert wrote:
+From: Eric Dumazet <edumazet@google.com>
 
-> 
-> The test I'm running is over a single tunnel between two hosts, so all
-> packets will be hitting the same RX queue since we only steer by
-> 3-tuple hash. Clearing or not clearing hash will have no effect.
+After commit 95dc19299f74 ("pkt_sched: give visibility to mq slave
+qdiscs") we call disc_list_add() while the device qdisc might be
+the noop_qdisc one.
 
-If a single RX queue is used, how can you have contention on a
-spinlock ? A single CPU should be used.
+This shows up as duplicates in "tc qdisc show", as all inactive devices
+point to noop_qdisc.
 
+Fix this by setting dev->qdisc to the new qdisc before calling
+ops->change() in attach_default_qdiscs()
 
-> 
-> Nevertheless, I don't see how code how gro_cells_receive (called via
-> ip_tunnel_rcv) could have ever have worked right for tunnels. By the
-> time this function is called, we've probably already spread the
-> packets from RX queue across multiple CPUs via RPS/RFS. So putting
-> them back on a queue based on RX queue would be a source of
-> contention.  It seems like we should be using another per CPU backlog.
+Add a WARN_ON_ONCE() to catch any future similar problem.
 
-This is explained in c9e6bc644e557338221e75c242ab12c275a67d1b changelog
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/sched/sch_api.c     |    5 ++++-
+ net/sched/sch_generic.c |    2 +-
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
-I explicitly explained all this.
-
-The NAPI _is_ the backlog. But you need to avoid crossing cpus,
-obviously.
-
-If you spread the load on multiple cpus, you need to instruct the
-gro_cell layer to use a proper key to spread the load on different NAPI
-cells.
-
-At the time I did this work, I stated the best performance would be
-reached without playing with RPS and these awful IPI. Scheduler guys
-have hard time with RPS/RFS.
-
-This is all moot, as Jerry is working to do the GRO without having this
-extra layer.
-
-And RPS being done _after_ GRO, if you receive traffic on a single RX
-queue, you are stuck. Its actually easy to play on outer IP headers
-to get proper hash dispersion.
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 547b4a8..c31190e 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -273,8 +273,11 @@ static struct Qdisc *qdisc_match_from_root(struct Qdisc *root, u32 handle)
+ 
+ void qdisc_list_add(struct Qdisc *q)
+ {
++	struct Qdisc *root = qdisc_dev(q)->qdisc;
++
++	WARN_ON_ONCE(root == &noop_qdisc);
+ 	if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS))
+-		list_add_tail(&q->list, &qdisc_dev(q)->qdisc->list);
++		list_add_tail(&q->list, &root->list);
+ }
+ EXPORT_SYMBOL(qdisc_list_add);
+ 
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 6a91d7d..32bb942 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -718,8 +718,8 @@ static void attach_default_qdiscs(struct net_device *dev)
+ 	} else {
+ 		qdisc = qdisc_create_dflt(txq, &mq_qdisc_ops, TC_H_ROOT);
+ 		if (qdisc) {
+-			qdisc->ops->attach(qdisc);
+ 			dev->qdisc = qdisc;
++			qdisc->ops->attach(qdisc);
+ 		}
+ 	}
+ }
