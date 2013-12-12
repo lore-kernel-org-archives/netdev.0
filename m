@@ -1,25 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: eth: cpsw: 64-bit phys_addr_t and sparse cleanup
-Date: Wed, 11 Dec 2013 19:54:31 -0500 (EST)
-Message-ID: <20131211.195431.261557837240498212.davem@davemloft.net>
-References: <1386806287-6564-1-git-send-email-olof@lixom.net>
+Subject: Re: [PATCH v2 net-next] ipv6: router reachability probing
+Date: Wed, 11 Dec 2013 19:56:51 -0500 (EST)
+Message-ID: <20131211.195651.959794720995269703.davem@davemloft.net>
+References: <d483b5eedcbfedc2002c458b15586679e7795399.1386766078.git.jbenc@redhat.com>
+	<20131211231236.GA8953@lion.mk-sys.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-omap@vger.kernel.org
-To: olof@lixom.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386806287-6564-1-git-send-email-olof@lixom.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jbenc@redhat.com, netdev@vger.kernel.org,
+	hannes@stressinduktion.org, yoshfuji@linux-ipv6.org
+To: mkubecek@suse.cz
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60804 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751000Ab3LLA4x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 19:56:53 -0500
+In-Reply-To: <20131211231236.GA8953@lion.mk-sys.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Olof Johansson <olof@lixom.net>
-Date: Wed, 11 Dec 2013 15:58:07 -0800
+From: Michal Kubecek <mkubecek@suse.cz>
+Date: Thu, 12 Dec 2013 00:12:36 +0100
 
-> Minor fix for printk format of a phys_addr_t, and the switch of two local
-> functions to static since they're not used outside of the file.
-> 
-> Signed-off-by: Olof Johansson <olof@lixom.net>
+> Is it really the case in current mainline kernels? In my tests, this
+> behaviour in 3.0 kernel (SLES 11 SP3) was caused by the reference held
+> by struct dst_entry which caused that in neigh_periodic_work(),
+> n->refcnt was always bigger than one so that the neighbour entry was
+> never cleaned up.  But when I tested with 3.11.6 (OpenSuSE 13.1) where
+> neighbour is no longer cached in struct dst_entry, the neighbour was
+> cleaned up eventually and new lookup was performed.
 
-Applied.
+The detachment of neighbours from route entires has had many consequences,
+both desirable and undesirable.  This happens to be one of the former,
+fortunately :-)
