@@ -1,32 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v2] ipv6: log autoconfiguration failures
-Date: Thu, 12 Dec 2013 12:24:03 -0500 (EST)
-Message-ID: <20131212.122403.548901877993258405.davem@davemloft.net>
-References: <20131211192138.GB4675@order.stressinduktion.org>
-	<20131211.155452.558417595732985707.davem@davemloft.net>
-	<52A99DD0.9030007@redhat.com>
+Subject: Re: [PATCH] net/sched/sch_tbf.c: fix linking error
+Date: Thu, 12 Dec 2013 12:25:42 -0500 (EST)
+Message-ID: <20131212.122542.1538675820432940524.davem@davemloft.net>
+References: <1386851936-1582-1-git-send-email-qais.yousef@imgtec.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	jpirko@redhat.com
-To: dvlasenk@redhat.com
+Cc: yangyingliang@huawei.com, edumazet@google.com, jhs@mojatatu.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-next@vger.kernel.org
+To: qais.yousef@imgtec.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52A99DD0.9030007@redhat.com>
+In-Reply-To: <1386851936-1582-1-git-send-email-qais.yousef@imgtec.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Denys Vlasenko <dvlasenk@redhat.com>
-Date: Thu, 12 Dec 2013 12:28:16 +0100
+From: Qais Yousef <qais.yousef@imgtec.com>
+Date: Thu, 12 Dec 2013 12:38:56 +0000
 
-> Admins want to know why ipv6 autoconf didn't work, not so much
-> how many times it didn't work. This requires a text message.
+> ERROR: "__udivdi3" [net/sched/sch_tbf.ko] undefined!
+> 
+> introduced by: cc106e441a63 (net: sched: tbf: fix the calculation of max_size)
+> 
+> which adds a 64 by 32 bit division without using do_div().
+> Fix it by using do_div(len/ 53) instead of len/53.
+> 
+> Signed-off-by: Qais Yousef <qais.yousef@imgtec.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> Cc: linux-next@vger.kernel.org
+> ---
+> We caught this error on linux-next today. This is my quick attemp of a fix.
+> If it's not appropriate or doesn't make sense my apologies and feel free to
+> resend a better fix :)
 
-Again, they don't get this for ARP, or any other similar event.  Why
-is ipv6 autoconf so damn special that it demands unique treatment?
-
-I do not want each subsystem to decide their own custom way to
-notify people that some interesting event happened.  That's the
-worst possible user experience.
+This is already fixed in the net-next tree.
