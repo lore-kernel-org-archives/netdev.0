@@ -1,75 +1,303 @@
-From: Francesco Fusco <ffusco@redhat.com>
-Subject: [PATCH net-next v2 2/2] net: ovs: use CRC32 accelerated flow hash if available
-Date: Thu, 12 Dec 2013 16:09:06 +0100
-Message-ID: <1386860946-1621-3-git-send-email-ffusco@redhat.com>
+From: Francesco Fusco <ffusco-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next v2 1/2] lib: introduce arch optimized
+	hash library
+Date: Thu, 12 Dec 2013 16:09:05 +0100
+Message-ID: <1386860946-1621-2-git-send-email-ffusco@redhat.com>
 References: <1386860946-1621-1-git-send-email-ffusco@redhat.com>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Thomas Graf <tgraf@redhat.com>
-To: jesse@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9151 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751696Ab3LLPJQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Dec 2013 10:09:16 -0500
-In-Reply-To: <1386860946-1621-1-git-send-email-ffusco@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1386860946-1621-1-git-send-email-ffusco-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Currently OVS uses jhash2() for calculating flow hashes in its
-internal flow_hash() function. The performance of the flow_hash()
-function is critical, as the input data can be hundreds of bytes
-long.
+We introduce a new hashing library that is meant to be used in
+the contexts where speed is more important than uniformity of the
+hashed values. The hash library leverages architecture specific
+implementation to achieve high performance and fall backs to
+jhash() for the generic case.
 
-OVS is largely deployed in x86_64 based datacenters.  Therefore,
-we argue that the performance critical fast path of OVS should
-exploit underlying CPU features in order to reduce the per packet
-processing costs. We replace jhash2 with the hash implementation
-provided by the kernel hash lib, which exploits the crc32l
-instruction to achieve high performance
+On Intel-based x86 architectures, the library can exploit the crc32l
+instruction, part of the Intel SSE4.2 instruction set, if the
+instruction is supported by the processor. This implementation
+is twice as fast as the jhash() implementation on an i7 processor.
 
-Our patch greatly reduces the hash footprint from ~200 cycles of
-jhash2() to around ~90 cycles in case of ovs_flow_hash_crc()
-(measured with rdtsc over maximum length flow keys on an i7 Intel
-CPU).
+Additional architectures, such as Arm64 provide instructions for
+accelerating the computation of CRC, so they could be added as well
+in follow-up work.
 
-Additionally, we wrote a microbenchmark to stress the flow table
-performance. The benchmark inserts random flows into the flow
-hash and then performs lookups. Our hash deployed on a CRC32
-capable CPU reduces the lookup for 1000 flows, 100 masks from
-~10,100us to ~6,700us, for example.
-
-Thus, simply use the newly introduced arch_fast_hash2() as a
-drop-in replacement.
-
-Signed-off-by: Francesco Fusco <ffusco@redhat.com>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Thomas Graf <tgraf@redhat.com>
+Signed-off-by: Francesco Fusco <ffusco-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 ---
- net/openvswitch/flow_table.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ arch/x86/include/asm/hash.h |  7 ++++
+ arch/x86/lib/Makefile       |  2 +-
+ arch/x86/lib/hash.c         | 88 +++++++++++++++++++++++++++++++++++++++++++++
+ include/asm-generic/hash.h  |  9 +++++
+ include/linux/hash.h        | 36 +++++++++++++++++++
+ lib/Makefile                |  2 +-
+ lib/hash.c                  | 38 ++++++++++++++++++++
+ 7 files changed, 180 insertions(+), 2 deletions(-)
+ create mode 100644 arch/x86/include/asm/hash.h
+ create mode 100644 arch/x86/lib/hash.c
+ create mode 100644 include/asm-generic/hash.h
+ create mode 100644 lib/hash.c
 
-diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
-index e425427..0e720c3 100644
---- a/net/openvswitch/flow_table.c
-+++ b/net/openvswitch/flow_table.c
-@@ -25,7 +25,7 @@
- #include <linux/if_vlan.h>
- #include <net/llc_pdu.h>
- #include <linux/kernel.h>
--#include <linux/jhash.h>
+diff --git a/arch/x86/include/asm/hash.h b/arch/x86/include/asm/hash.h
+new file mode 100644
+index 0000000..e8c58f8
+--- /dev/null
++++ b/arch/x86/include/asm/hash.h
+@@ -0,0 +1,7 @@
++#ifndef _ASM_X86_HASH_H
++#define _ASM_X86_HASH_H
++
++struct fast_hash_ops;
++extern void setup_arch_fast_hash(struct fast_hash_ops *ops);
++
++#endif /* _ASM_X86_HASH_H */
+diff --git a/arch/x86/lib/Makefile b/arch/x86/lib/Makefile
+index 992d63b..eabcb6e 100644
+--- a/arch/x86/lib/Makefile
++++ b/arch/x86/lib/Makefile
+@@ -24,7 +24,7 @@ lib-$(CONFIG_SMP) += rwlock.o
+ lib-$(CONFIG_RWSEM_XCHGADD_ALGORITHM) += rwsem.o
+ lib-$(CONFIG_INSTRUCTION_DECODER) += insn.o inat.o
+ 
+-obj-y += msr.o msr-reg.o msr-reg-export.o
++obj-y += msr.o msr-reg.o msr-reg-export.o hash.o
+ 
+ ifeq ($(CONFIG_X86_32),y)
+         obj-y += atomic64_32.o
+diff --git a/arch/x86/lib/hash.c b/arch/x86/lib/hash.c
+new file mode 100644
+index 0000000..3056702
+--- /dev/null
++++ b/arch/x86/lib/hash.c
+@@ -0,0 +1,88 @@
++/*
++ * Some portions derived from code covered by the following notice:
++ *
++ * Copyright (c) 2010-2013 Intel Corporation. All rights reserved.
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *   * Redistributions of source code must retain the above copyright
++ *     notice, this list of conditions and the following disclaimer.
++ *   * Redistributions in binary form must reproduce the above copyright
++ *     notice, this list of conditions and the following disclaimer in
++ *     the documentation and/or other materials provided with the
++ *     distribution.
++ *   * Neither the name of Intel Corporation nor the names of its
++ *     contributors may be used to endorse or promote products derived
++ *     from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
 +#include <linux/hash.h>
- #include <linux/jiffies.h>
- #include <linux/llc.h>
- #include <linux/module.h>
-@@ -362,7 +362,7 @@ static u32 flow_hash(const struct sw_flow_key *key, int key_start,
- 	/* Make sure number of hash bytes are multiple of u32. */
- 	BUILD_BUG_ON(sizeof(long) % sizeof(u32));
++
++#include <asm/processor.h>
++#include <asm/cpufeature.h>
++#include <asm/hash.h>
++
++static inline u32 crc32_u32(u32 crc, u32 val)
++{
++	asm ("crc32l %1,%0\n" : "+r" (crc) : "rm" (val));
++	return crc;
++}
++
++static u32 intel_crc4_2_hash(const void *data, u32 len, u32 seed)
++{
++	const u32 *p32 = (const u32 *) data;
++	u32 i, tmp = 0;
++
++	for (i = 0; i < len / 4; i++)
++		seed = crc32_u32(*p32++, seed);
++
++	switch (3 - (len & 0x03)) {
++	case 0:
++		tmp |= *((const u8 *) p32 + 2) << 16;
++		/* fallthrough */
++	case 1:
++		tmp |= *((const u8 *) p32 + 1) << 8;
++		/* fallthrough */
++	case 2:
++		tmp |= *((const u8 *) p32);
++		seed = crc32_u32(tmp, seed);
++	default:
++		break;
++	}
++
++	return seed;
++}
++
++static u32 intel_crc4_2_hash2(const u32 *data, u32 len, u32 seed)
++{
++	const u32 *p32 = (const u32 *) data;
++	u32 i;
++
++	for (i = 0; i < len; i++)
++		seed = crc32_u32(*p32++, seed);
++
++	return seed;
++}
++
++void setup_arch_fast_hash(struct fast_hash_ops *ops)
++{
++	if (cpu_has_xmm4_2) {
++		ops->hash  = intel_crc4_2_hash;
++		ops->hash2 = intel_crc4_2_hash2;
++	}
++}
+diff --git a/include/asm-generic/hash.h b/include/asm-generic/hash.h
+new file mode 100644
+index 0000000..05cb342
+--- /dev/null
++++ b/include/asm-generic/hash.h
+@@ -0,0 +1,9 @@
++#ifndef __ASM_GENERIC_HASH_H
++#define __ASM_GENERIC_HASH_H
++
++struct arch_hash_ops;
++static inline void setup_arch_fast_hash(struct arch_hash_ops *ops)
++{
++}
++
++#endif /* __ASM_GENERIC_HASH_H */
+diff --git a/include/linux/hash.h b/include/linux/hash.h
+index f09a0ae..bd1754c 100644
+--- a/include/linux/hash.h
++++ b/include/linux/hash.h
+@@ -15,6 +15,7 @@
+  */
  
--	return jhash2(hash_key, hash_u32s, 0);
-+	return arch_fast_hash2(hash_key, hash_u32s, 0);
+ #include <asm/types.h>
++#include <asm/hash.h>
+ #include <linux/compiler.h>
+ 
+ /* 2^31 + 2^29 - 2^25 + 2^22 - 2^19 - 2^16 + 1 */
+@@ -78,4 +79,39 @@ static inline u32 hash32_ptr(const void *ptr)
+ #endif
+ 	return (u32)val;
  }
- 
- static int flow_key_start(const struct sw_flow_key *key)
++
++struct fast_hash_ops {
++	u32 (*hash)(const void *data, u32 len, u32 seed);
++	u32 (*hash2)(const u32 *data, u32 len, u32 seed);
++};
++
++/**
++ *	arch_fast_hash - Caclulates a hash over a given buffer that can have
++ *			 arbitrary size. This function will eventually use an
++ *			 architecture-optimized hashing implementation if
++ *			 available, and trades off distribution for speed.
++ *
++ *	@data: buffer to hash
++ *	@len: length of buffer in bytes
++ *	@seed: start seed
++ *
++ *	Returns 32bit hash.
++ */
++extern u32 arch_fast_hash(const void *data, u32 len, u32 seed);
++
++/**
++ *	arch_fast_hash2 - Caclulates a hash over a given buffer that has a
++ *			  size that is of a multiple of 32bit words. This
++ *			  function will eventually use an architecture-
++ *			  optimized hashing implementation if available,
++ *			  and trades off distribution for speed.
++ *
++ *	@data: buffer to hash (must be 32bit padded)
++ *	@len: number of 32bit words
++ *	@seed: start seed
++ *
++ *	Returns 32bit hash.
++ */
++extern u32 arch_fast_hash2(const u32 *data, u32 len, u32 seed);
++
+ #endif /* _LINUX_HASH_H */
+diff --git a/lib/Makefile b/lib/Makefile
+index a459c31..d0f79c5 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -26,7 +26,7 @@ obj-y += bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
+ 	 bust_spinlocks.o hexdump.o kasprintf.o bitmap.o scatterlist.o \
+ 	 gcd.o lcm.o list_sort.o uuid.o flex_array.o iovec.o clz_ctz.o \
+ 	 bsearch.o find_last_bit.o find_next_bit.o llist.o memweight.o kfifo.o \
+-	 percpu-refcount.o percpu_ida.o
++	 percpu-refcount.o percpu_ida.o hash.o
+ obj-y += string_helpers.o
+ obj-$(CONFIG_TEST_STRING_HELPERS) += test-string_helpers.o
+ obj-y += kstrtox.o
+diff --git a/lib/hash.c b/lib/hash.c
+new file mode 100644
+index 0000000..b89f06a
+--- /dev/null
++++ b/lib/hash.c
+@@ -0,0 +1,38 @@
++/* General purpose hashing library
++ *
++ * That's a start of a kernel hashing library, which can be extended
++ * with further algorithms in future. arch_fast_hash{2,}() will
++ * eventually resolve to an architecture optimized implementation.
++ *
++ * Copyright 2013 Francesco Fusco <ffusco-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
++ * Copyright 2013 Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
++ * Copyright 2013 Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
++ * Licensed under the GNU General Public License, version 2.0 (GPLv2)
++ */
++
++#include <linux/jhash.h>
++#include <linux/hash.h>
++
++static struct fast_hash_ops arch_hash_ops __read_mostly = {
++	.hash  = jhash,
++	.hash2 = jhash2,
++};
++
++u32 arch_fast_hash(const void *data, u32 len, u32 seed)
++{
++	return arch_hash_ops.hash(data, len, seed);
++}
++EXPORT_SYMBOL_GPL(arch_fast_hash);
++
++u32 arch_fast_hash2(const u32 *data, u32 len, u32 seed)
++{
++	return arch_hash_ops.hash2(data, len, seed);
++}
++EXPORT_SYMBOL_GPL(arch_fast_hash2);
++
++static int __init hashlib_init(void)
++{
++	setup_arch_fast_hash(&arch_hash_ops);
++	return 0;
++}
++early_initcall(hashlib_init);
 -- 
 1.8.3.1
