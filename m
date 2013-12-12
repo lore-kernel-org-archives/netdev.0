@@ -1,43 +1,41 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v2 net-next] packet: fix using smp_processor_id() in preemptible
- code
-Date: Thu, 12 Dec 2013 08:29:24 +0100
-Message-ID: <52A965D4.1090808@redhat.com>
-References: <1386828604.2584.13.camel@ThinkPad-T5421>  <52A83699.9010504@redhat.com> <1386888664.2586.3.camel@ThinkPad-T5421>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Cache route in IP tunnels
+Date: Wed, 11 Dec 2013 23:37:18 -0800
+Message-ID: <1386833838.19078.45.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.DEB.2.02.1312112207400.27914@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>, brouer@redhat.com,
-	davem@davemloft.net
-To: Li Zhong <zhong@linux.vnet.ibm.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34261 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751390Ab3LLH3i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Dec 2013 02:29:38 -0500
-In-Reply-To: <1386888664.2586.3.camel@ThinkPad-T5421>
+Received: from mail-pb0-f43.google.com ([209.85.160.43]:56132 "EHLO
+	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752255Ab3LLHhV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 02:37:21 -0500
+Received: by mail-pb0-f43.google.com with SMTP id rq2so32303pbb.30
+        for <netdev@vger.kernel.org>; Wed, 11 Dec 2013 23:37:20 -0800 (PST)
+In-Reply-To: <alpine.DEB.2.02.1312112207400.27914@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/12/2013 11:51 PM, Li Zhong wrote:
-> This patches tries to fix the following warning on next-1211 by
-> replacing smp_processor_id() with raw_smp_processor_id().
->
-> [   11.120893] BUG: using smp_processor_id() in preemptible [00000000] code: arping/3510
-> [   11.120913] caller is .packet_sendmsg+0xc14/0xe68
-> [   11.120920] CPU: 13 PID: 3510 Comm: arping Not tainted 3.13.0-rc3-next-20131211-dirty #1
-> [   11.120926] Call Trace:
-> [   11.120932] [c0000001f803f6f0] [c0000000000138dc] .show_stack+0x110/0x25c (unreliable)
-> [   11.120942] [c0000001f803f7e0] [c00000000083dd24] .dump_stack+0xa0/0x37c
-> [   11.120951] [c0000001f803f870] [c000000000493fd4] .debug_smp_processor_id+0xfc/0x12c
-> [   11.120959] [c0000001f803f900] [c0000000007eba78] .packet_sendmsg+0xc14/0xe68
-> [   11.120968] [c0000001f803fa80] [c000000000700968] .sock_sendmsg+0xa0/0xe0
-> [   11.120975] [c0000001f803fbf0] [c0000000007014d8] .SyS_sendto+0x100/0x148
-> [   11.120983] [c0000001f803fd60] [c0000000006fff10] .SyS_socketcall+0x1c4/0x2e8
-> [   11.120990] [c0000001f803fe30] [c00000000000a1e4] syscall_exit+0x0/0x9c
->
-> Signed-off-by: Li Zhong <zhong@linux.vnet.ibm.com>
+On Wed, 2013-12-11 at 22:17 -0800, Tom Herbert wrote:
+> Avoid doing a route lookup on every packet being tunneled.
+> 
+> In ip_tunnel.c cache the route returned from ip_route_output if
+> the tunnel is "connected", that is all the routing parameters are
+> taken from tunnel parms for a packet. Specifically, not NBMA tunnel
+> and tos is from tunnel parms (not inner packet).
+> 
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+Replacing per cpu dst (nh_pcpu_rth_output) with a single shared dst is
+not going to be better on SMP.
 
-Thanks !
+Do you have any performance data using multiqueue NIC, with say 32 cpus
+and 32 TX queues ?
+
+I suspect a high false sharing on dst refcount.
+
+Thanks
