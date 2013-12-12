@@ -1,27 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net-tg3: Initialize REG_BASE_ADDR at PCI config offset
- 120 to 0
-Date: Wed, 11 Dec 2013 19:35:35 -0500 (EST)
-Message-ID: <20131211.193535.1248497431790934663.davem@davemloft.net>
-References: <1386701379.1752.26.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	<20131210.222313.694303616856894486.davem@davemloft.net>
-	<1386804078.1752.58.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Wed, 11 Dec 2013 19:36:39 -0500 (EST)
+Message-ID: <20131211.193639.2058525533631918382.davem@davemloft.net>
+References: <20131212111539.cff1b2efe934c5cd7abbb822@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, natg@google.com,
-	nsujir@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mchan@broadcom.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386804078.1752.58.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jasowang@redhat.com,
+	wuzhy@linux.vnet.ibm.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20131212111539.cff1b2efe934c5cd7abbb822@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Michael Chan <mchan@broadcom.com>
-Date: Wed, 11 Dec 2013 15:21:18 -0800
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 12 Dec 2013 11:15:39 +1100
 
-> So it looks to me that we are in good shape.  Thanks.
+> Today's linux-next merge of the net-next tree got a conflict in
+> drivers/net/macvtap.c between commit ce232ce01d61 ("macvtap: signal
+> truncated packets") from the net tree and commit 55ec8e25cd97 ("macvtap:
+> remove unused parameter in macvtap_do_read()") from the net-next tree.
+> 
+> I fixed it up (see below) and can carry the fix as necessary (no action
+> is required).
 
-Thanks for checking this out, and providing such detailed
-analysis.
+The net-next commit in question was reverted last night.
