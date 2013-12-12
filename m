@@ -1,61 +1,53 @@
-From: Qais Yousef <Qais.Yousef@imgtec.com>
-Subject: RE: [PATCH] net/sched/sch_tbf.c: fix linking error
-Date: Thu, 12 Dec 2013 14:29:35 +0000
-Message-ID: <392C4BDEFF12D14FA57A3F30B283D7D13C8A24@LEMAIL01.le.imgtec.org>
-References: <1386851936-1582-1-git-send-email-qais.yousef@imgtec.com>
- <1386857899.19078.49.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next 01/15] i40e: fix null dereference
+Date: Thu, 12 Dec 2013 18:30:16 +0400
+Message-ID: <52A9C878.406@cogentembedded.com>
+References: <1386852051-27907-1-git-send-email-jeffrey.t.kirsher@intel.com> <1386852051-27907-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Yang Yingliang <yangyingliang@huawei.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386857899.19078.49.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f41.google.com ([209.85.215.41]:36214 "EHLO
+	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752027Ab3LLOaP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 09:30:15 -0500
+Received: by mail-la0-f41.google.com with SMTP id eo20so377229lab.28
+        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 06:30:13 -0800 (PST)
+In-Reply-To: <1386852051-27907-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiAxMiBEZWNlbWJlciAyMDEzIDE0OjE4
-DQo+IFRvOiBRYWlzIFlvdXNlZg0KPiBDYzogWWFuZyBZaW5nbGlhbmc7IEVyaWMgRHVtYXpldDsg
-SmFtYWwgSGFkaSBTYWxpbTsgRGF2aWQgUy4gTWlsbGVyOw0KPiBuZXRkZXZAdmdlci5rZXJuZWwu
-b3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBsaW51eC0NCj4gbmV4dEB2Z2VyLmtl
-cm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSF0gbmV0L3NjaGVkL3NjaF90YmYuYzogZml4
-IGxpbmtpbmcgZXJyb3INCj4gDQo+IE9uIFRodSwgMjAxMy0xMi0xMiBhdCAxMjozOCArMDAwMCwg
-UWFpcyBZb3VzZWYgd3JvdGU6DQo+ID4gRVJST1I6ICJfX3VkaXZkaTMiIFtuZXQvc2NoZWQvc2No
-X3RiZi5rb10gdW5kZWZpbmVkIQ0KPiA+DQo+ID4gaW50cm9kdWNlZCBieTogY2MxMDZlNDQxYTYz
-IChuZXQ6IHNjaGVkOiB0YmY6IGZpeCB0aGUgY2FsY3VsYXRpb24gb2YNCj4gPiBtYXhfc2l6ZSkN
-Cj4gPg0KPiA+IHdoaWNoIGFkZHMgYSA2NCBieSAzMiBiaXQgZGl2aXNpb24gd2l0aG91dCB1c2lu
-ZyBkb19kaXYoKS4NCj4gPiBGaXggaXQgYnkgdXNpbmcgZG9fZGl2KGxlbi8gNTMpIGluc3RlYWQg
-b2YgbGVuLzUzLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogUWFpcyBZb3VzZWYgPHFhaXMueW91
-c2VmQGltZ3RlYy5jb20+DQo+ID4gQ2M6IEVyaWMgRHVtYXpldCA8ZWR1bWF6ZXRAZ29vZ2xlLmNv
-bT4NCj4gPiBDYzogSmFtYWwgSGFkaSBTYWxpbSA8amhzQG1vamF0YXR1LmNvbT4NCj4gPiBDYzog
-IkRhdmlkIFMuIE1pbGxlciIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+DQo+ID4gQ2M6IG5ldGRldkB2
-Z2VyLmtlcm5lbC5vcmcNCj4gPiBDYzogbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiA+
-IENjOiBsaW51eC1uZXh0QHZnZXIua2VybmVsLm9yZw0KPiA+IC0tLQ0KPiA+IFdlIGNhdWdodCB0
-aGlzIGVycm9yIG9uIGxpbnV4LW5leHQgdG9kYXkuIFRoaXMgaXMgbXkgcXVpY2sgYXR0ZW1wIG9m
-IGEgZml4Lg0KPiA+IElmIGl0J3Mgbm90IGFwcHJvcHJpYXRlIG9yIGRvZXNuJ3QgbWFrZSBzZW5z
-ZSBteSBhcG9sb2dpZXMgYW5kIGZlZWwNCj4gPiBmcmVlIHRvIHJlc2VuZCBhIGJldHRlciBmaXgg
-OikNCj4gPg0KPiA+ICBuZXQvc2NoZWQvc2NoX3RiZi5jIHwgICAgNiArKysrLS0NCj4gPiAgMSBm
-aWxlcyBjaGFuZ2VkLCA0IGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pDQo+ID4NCj4gPiBk
-aWZmIC0tZ2l0IGEvbmV0L3NjaGVkL3NjaF90YmYuYyBiL25ldC9zY2hlZC9zY2hfdGJmLmMgaW5k
-ZXgNCj4gPiBhNDQ5MjhjLi43NzFjYmVjIDEwMDY0NA0KPiA+IC0tLSBhL25ldC9zY2hlZC9zY2hf
-dGJmLmMNCj4gPiArKysgYi9uZXQvc2NoZWQvc2NoX3RiZi5jDQo+ID4gQEAgLTEzMSw4ICsxMzEs
-MTAgQEAgc3RhdGljIHU2NCBwc2NoZWRfbnNfdDJsKGNvbnN0IHN0cnVjdA0KPiA+IHBzY2hlZF9y
-YXRlY2ZnICpyLA0KPiA+DQo+ID4gIAlkb19kaXYobGVuLCBOU0VDX1BFUl9TRUMpOw0KPiA+DQo+
-ID4gLQlpZiAodW5saWtlbHkoci0+bGlua2xheWVyID09IFRDX0xJTktMQVlFUl9BVE0pKQ0KPiA+
-IC0JCWxlbiA9IChsZW4gLyA1MykgKiA0ODsNCj4gPiArCWlmICh1bmxpa2VseShyLT5saW5rbGF5
-ZXIgPT0gVENfTElOS0xBWUVSX0FUTSkpIHsNCj4gPiArCQlkb19kaXYobGVuLCA1Myk7DQo+ID4g
-KwkJbGVuICo9IDQ4Ow0KPiA+ICsJfQ0KPiA+DQo+ID4gIAlpZiAobGVuID4gci0+b3ZlcmhlYWQp
-DQo+ID4gIAkJbGVuIC09IHItPm92ZXJoZWFkOw0KPiANCj4gVGhpcyBsb29rcyBsaWtlIHRoaXMg
-d2FzIGFscmVhZHkgZml4ZWQgeWVzdGVyZGF5IGluIERhdmlkIG5ldCB0cmVlIDoNCj4gDQo+IGh0
-dHA6Ly9naXQua2VybmVsLm9yZy9jZ2l0L2xpbnV4L2tlcm5lbC9naXQvZGF2ZW0vbmV0LmdpdC9j
-b21taXQvP2lkPWQ1NWQyODJlNg0KPiBhZjg4MTIwYWQ5MGU5M2E4OGY3MGUzMTE2ZGMwZTNkDQo+
-IA0KDQpBaCwgb2suIFRoYW5rcyBmb3IgY2hlY2tpbmcgdGhpcyBhbmQgc29ycnkgYWJvdXQgdGhl
-IG5vaXNlLg0KDQpRYWlzDQoNCg==
+Hello.
+
+On 12-12-2013 16:40, Jeff Kirsher wrote:
+
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+
+> If the vsi->tx_rings structure is NULL we don't want to panic.
+
+> Change-Id: Ic694f043701738c434e8ebe0caf0673f4410dc10
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>   drivers/net/ethernet/intel/i40e/i40e_main.c | 3 +++
+>   1 file changed, 3 insertions(+)
+
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> index a6291e2..1ef311a 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> @@ -354,6 +354,9 @@ static struct rtnl_link_stats64 *i40e_get_netdev_stats_struct(
+>   	struct rtnl_link_stats64 *vsi_stats = i40e_get_vsi_stats_struct(vsi);
+>   	int i;
+>
+> +	if (!vsi->tx_rings)
+> +		return stats;
+> +
+
+    This looks like a fix, so should go to net.git, not net-next.git?
+
+WBR, Sergei
