@@ -1,38 +1,55 @@
-From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-Subject: [PATCH] ipv6: fix incorrect type in initializer
-Date: Thu, 12 Dec 2013 11:41:21 +0100
-Message-ID: <1386844881-32017-1-git-send-email-florent.fourcot@enst-bretagne.fr>
-Cc: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fourcot.fr ([217.70.191.14]:37902 "EHLO olfflo.fourcot.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751380Ab3LLKlY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Dec 2013 05:41:24 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jacob Appelbaum <jacob@appelbaum.net>
+Subject: Re: [PATCH] TCP: add option for silent port knocking with integrity
+ protection
+Date: Thu, 12 Dec 2013 10:19:43 +0000
+Message-ID: <52A98DBF.4090702@appelbaum.net>
+References: <52A75EF8.3010308@in.tum.de> <20131211.150137.368953964178408437.davem@davemloft.net> <52A8C8B4.4060109@in.tum.de> <20131211122637.75b09074@nehalam.linuxnetplumber.net> <87bo0nulkt.fsf@tassilo.jf.intel.com> <52A8ECF5.3070604@in.tum.de> <20131212012317.GL21717@two.firstfloor.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Christian Grothoff <grothoff@in.tum.de>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, knock@gnunet.org
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131212012317.GL21717@two.firstfloor.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Introduced by 1397ed35f22d7c30d0b89ba74b6b7829220dfcfd
-  "ipv6: add flowinfo for tcp6 pkt_options for all cases"
+Andi Kleen:
+>> ... and then do the same for the first TCP packet with payload? And you
+> 
+> That gets passed through by the firewall rule.
+> 
+As an application developer, I find it very common for our users to have
+difficulty synchronizing userspace program needs and firewall rules.
+This option would greatly enable hiding of Tor bridges and other
+services where mere presence on the network is in itself a vulnerability.
 
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
----
- net/ipv6/ipv6_sockglue.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+>> seriously would consider that "safer" or "less error prone", starting
+> 
+> Yes the risk of adding exploitable holes to the kernel is signficantly
+> lower.
 
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index bc4d8a2..dac04d2 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -1035,7 +1035,7 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
- 				put_cmsg(&msg, SOL_IPV6, IPV6_2292HOPLIMIT, sizeof(hlim), &hlim);
- 			}
- 			if (np->rxopt.bits.rxflow) {
--				int flowinfo = np->rcv_flowinfo;
-+				__be32 flowinfo = np->rcv_flowinfo;
- 				put_cmsg(&msg, SOL_IPV6, IPV6_FLOWINFO, sizeof(flowinfo), &flowinfo);
- 			}
- 		}
--- 
-1.8.5.1
+In the case of a Tor bridge, when people are able to scan the entire
+internet, as they are, they find Tor bridges and then add those bridges
+to a database or to various national firewalls.
+
+Increasing scanning resistance improves the security of such bridges -
+though a passive (eg: sniffing) adversary may still discover such a
+bridge for blocking, this kernel modification has a second benefit - it
+will prevent most exploitable conditions from having an avenue of
+attack. Such an attacker, even if they know the IP of a bridge will need
+to find a way to break TLS or any of our other transport layer security
+protocol that we're using.
+
+I think that generally, I would prefer if the code didn't use MD5 but
+otherwise, I don't see any real disk of adding an exploitable hole. It
+seems silly to disable it by default though - ideally, I'd like a sysctl
+to ensure that Tor could use this without making the user recompile
+their kernel. That is more of a pain than running a userspace helper, I
+think.
+
+All the best,
+Jacob
