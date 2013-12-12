@@ -1,63 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net/sched/sch_tbf.c: fix linking error
-Date: Thu, 12 Dec 2013 06:18:19 -0800
-Message-ID: <1386857899.19078.49.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1386851936-1582-1-git-send-email-qais.yousef@imgtec.com>
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net] xen-netback: fix gso_prefix check
+Date: Thu, 12 Dec 2013 14:20:13 +0000
+Message-ID: <1386858013-20544-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Yang Yingliang <yangyingliang@huawei.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org
-To: Qais Yousef <qais.yousef@imgtec.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1386851936-1582-1-git-send-email-qais.yousef@imgtec.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:64376 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751395Ab3LLOUQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Dec 2013 09:20:16 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-12-12 at 12:38 +0000, Qais Yousef wrote:
-> ERROR: "__udivdi3" [net/sched/sch_tbf.ko] undefined!
-> 
-> introduced by: cc106e441a63 (net: sched: tbf: fix the calculation of max_size)
-> 
-> which adds a 64 by 32 bit division without using do_div().
-> Fix it by using do_div(len/ 53) instead of len/53.
-> 
-> Signed-off-by: Qais Yousef <qais.yousef@imgtec.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Cc: linux-next@vger.kernel.org
-> ---
-> We caught this error on linux-next today. This is my quick attemp of a fix.
-> If it's not appropriate or doesn't make sense my apologies and feel free to
-> resend a better fix :)
-> 
->  net/sched/sch_tbf.c |    6 ++++--
->  1 files changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-> index a44928c..771cbec 100644
-> --- a/net/sched/sch_tbf.c
-> +++ b/net/sched/sch_tbf.c
-> @@ -131,8 +131,10 @@ static u64 psched_ns_t2l(const struct psched_ratecfg *r,
->  
->  	do_div(len, NSEC_PER_SEC);
->  
-> -	if (unlikely(r->linklayer == TC_LINKLAYER_ATM))
-> -		len = (len / 53) * 48;
-> +	if (unlikely(r->linklayer == TC_LINKLAYER_ATM)) {
-> +		do_div(len, 53);
-> +		len *= 48;
-> +	}
->  
->  	if (len > r->overhead)
->  		len -= r->overhead;
+There is a mistake in checking the gso_prefix mask when passing large
+packets to a guest. The wrong shift is applied to the bit - the raw skb
+gso type is used rather then the translated one. This leads to large packets
+being handed to the guest without the GSO metadata. This patch fixes the
+check.
 
-This looks like this was already fixed yesterday in David net tree : 
+The mistake manifested as errors whilst running Microsoft HCK large packet
+offload tests between a pair of Windows 8 VMs. I have verified this patch
+fixes those errors.
 
-http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=d55d282e6af88120ad90e93a88f70e3116dc0e3d
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: David Vrabel <david.vrabel@citrix.com>
+---
+ drivers/net/xen-netback/netback.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 56c3e5a..999e290 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -452,7 +452,7 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+ 	}
+ 
+ 	/* Set up a GSO prefix descriptor, if necessary */
+-	if ((1 << skb_shinfo(skb)->gso_type) & vif->gso_prefix_mask) {
++	if ((1 << gso_type) & vif->gso_prefix_mask) {
+ 		req = RING_GET_REQUEST(&vif->rx, vif->rx.req_cons++);
+ 		meta = npo->meta + npo->meta_prod++;
+ 		meta->gso_type = gso_type;
+-- 
+1.7.10.4
