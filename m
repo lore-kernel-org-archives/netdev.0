@@ -1,71 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] pkt_sched: set root qdisc before change() in
- attach_default_qdiscs()
-Date: Thu, 12 Dec 2013 15:41:56 -0800
-Message-ID: <1386891716.19078.119.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: [PATCH net-next v2 0/9] xen-netback: TX grant mapping with SKBTX_DEV_ZEROCOPY instead of copy
+Date: Thu, 12 Dec 2013 23:48:08 +0000
+Message-ID: <1386892097-15502-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f43.google.com ([209.85.213.43]:54690 "EHLO
-	mail-yh0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751831Ab3LLXl7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 18:41:59 -0500
-Received: by mail-yh0-f43.google.com with SMTP id a41so967304yho.30
-        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 15:41:59 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
+To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+A long known problem of the upstream netback implementation that on the TX
+path (from guest to Dom0) it copies the whole packet from guest memory into
+Dom0. That simply became a bottleneck with 10Gb NICs, and generally it's a
+huge perfomance penalty. The classic kernel version of netback used grant
+mapping, and to get notified when the page can be unmapped, it used page
+destructors. Unfortunately that destructor is not an upstreamable solution.
+Ian Campbell's skb fragment destructor patch series [1] tried to solve this
+problem, however it seems to be very invasive on the network stack's code,
+and therefore haven't progressed very well.
+This patch series use SKBTX_DEV_ZEROCOPY flags to tell the stack it needs to
+know when the skb is freed up. That is the way KVM solved the same problem,
+and based on my initial tests it can do the same for us. Avoiding the extra
+copy boosted up TX throughput from 6.8 Gbps to 7.9 (I used a slower
+Interlagos box, both Dom0 and guest on upstream kernel, on the same NUMA node,
+running iperf 2.0.5, and the remote end was a bare metal box on the same 10Gb
+switch)
+Based on my investigations the packet get only copied if it is delivered to
+Dom0 stack, which is due to this [2] patch. That's a bit unfortunate, but
+luckily it doesn't cause a major regression for this usecase. In the future
+we should try to eliminate that copy somehow.
+There are a few spinoff tasks which will be addressed in separate patches:
+- grant copy the header directly instead of map and memcpy. This should help
+  us avoiding TLB flushing
+- use something else than ballooned pages
+- fix grant map to use page->index properly
+I will run some more extensive tests, but some basic XenRT tests were already
+passed with good results.
+I've tried to broke it down to smaller patches, with mixed results, so I
+welcome suggestions on that part as well:
+1: Introduce TX grant map definitions
+2: Change TX path from grant copy to mapping
+3: Remove old TX grant copy definitons and fix indentations
+4: Change RX path for mapped SKB fragments
+5: Add stat counters for zerocopy
+6: Handle guests with too many frags
+7: Add stat counters for frag_list skbs
+8: Timeout packets in RX path
+9: Aggregate TX unmap operations
 
-After commit 95dc19299f74 ("pkt_sched: give visibility to mq slave
-qdiscs") we call disc_list_add() while the device qdisc might be
-the noop_qdisc one.
+v2: I've fixed some smaller things, see the individual patches. I've added a
+few new stat counters, and handling the important use case when an older guest
+sends lots of slots. Instead of delayed copy now we timeout packets on the RX
+path, based on the assumption that otherwise packets should get stucked
+anywhere else. Finally some unmap batching to avoid too much TLB flush
 
-This shows up as duplicates in "tc qdisc show", as all inactive devices
-point to noop_qdisc.
+[1] http://lwn.net/Articles/491522/
+[2] https://lkml.org/lkml/2012/7/20/363
 
-Fix this by setting dev->qdisc to the new qdisc before calling
-ops->change() in attach_default_qdiscs()
-
-Add a WARN_ON_ONCE() to catch any future similar problem.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/sched/sch_api.c     |    5 ++++-
- net/sched/sch_generic.c |    2 +-
- 2 files changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 547b4a8..c31190e 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -273,8 +273,11 @@ static struct Qdisc *qdisc_match_from_root(struct Qdisc *root, u32 handle)
- 
- void qdisc_list_add(struct Qdisc *q)
- {
-+	struct Qdisc *root = qdisc_dev(q)->qdisc;
-+
-+	WARN_ON_ONCE(root == &noop_qdisc);
- 	if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS))
--		list_add_tail(&q->list, &qdisc_dev(q)->qdisc->list);
-+		list_add_tail(&q->list, &root->list);
- }
- EXPORT_SYMBOL(qdisc_list_add);
- 
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 6a91d7d..32bb942 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -718,8 +718,8 @@ static void attach_default_qdiscs(struct net_device *dev)
- 	} else {
- 		qdisc = qdisc_create_dflt(txq, &mq_qdisc_ops, TC_H_ROOT);
- 		if (qdisc) {
--			qdisc->ops->attach(qdisc);
- 			dev->qdisc = qdisc;
-+			qdisc->ops->attach(qdisc);
- 		}
- 	}
- }
+Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
