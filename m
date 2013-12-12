@@ -1,56 +1,92 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] packet: fix using smp_processor_id() in preemptible code
-Date: Thu, 12 Dec 2013 22:39:55 +0100
-Message-ID: <1386884395-12449-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, Li Zhong <zhong@linux.vnet.ibm.com>
-To: davem@davemloft.net
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next] bridge: allow local delivery when port is disabled
+Date: Thu, 12 Dec 2013 13:41:59 -0800
+Message-ID: <20131212134159.5bc985a9@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1128 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751991Ab3LLVkM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Dec 2013 16:40:12 -0500
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:63094 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751502Ab3LLVmE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 16:42:04 -0500
+Received: by mail-pb0-f50.google.com with SMTP id rr13so1256073pbb.37
+        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 13:42:02 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li Zhong <zhong@linux.vnet.ibm.com>
+When an Ethernet device is enslaved to a bridge, and the bridge STP
+detects loss of carrier (or operational state down), then normally
+packet reception is blocked.
 
-This patches fixes the following warning by replacing smp_processor_id()
-with raw_smp_processor_id():
+This breaks control applications like WPA which maybe expecting to
+receive packets to negotiate to bring link up. The bridge needs to
+block forwarding packets from these disabled ports, but there is no
+hard requirement to not allow local packet delivery.
 
-[   11.120893] BUG: using smp_processor_id() in preemptible [00000000] code: arping/3510
-[   11.120913] caller is .packet_sendmsg+0xc14/0xe68
-[   11.120920] CPU: 13 PID: 3510 Comm: arping Not tainted 3.13.0-rc3-next-20131211-dirty #1
-[   11.120926] Call Trace:
-[   11.120932] [c0000001f803f6f0] [c0000000000138dc] .show_stack+0x110/0x25c (unreliable)
-[   11.120942] [c0000001f803f7e0] [c00000000083dd24] .dump_stack+0xa0/0x37c
-[   11.120951] [c0000001f803f870] [c000000000493fd4] .debug_smp_processor_id+0xfc/0x12c
-[   11.120959] [c0000001f803f900] [c0000000007eba78] .packet_sendmsg+0xc14/0xe68
-[   11.120968] [c0000001f803fa80] [c000000000700968] .sock_sendmsg+0xa0/0xe0
-[   11.120975] [c0000001f803fbf0] [c0000000007014d8] .SyS_sendto+0x100/0x148
-[   11.120983] [c0000001f803fd60] [c0000000006fff10] .SyS_socketcall+0x1c4/0x2e8
-[   11.120990] [c0000001f803fe30] [c00000000000a1e4] syscall_exit+0x0/0x9c
+In this special case, packets are not forwarded (local delivery only),
+and only packet directed at the address of the Ethernet device are
+accepted (no promiscuous or other ports in bridge).
 
-Signed-off-by: Li Zhong <zhong@linux.vnet.ibm.com>
-Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+The existing code already allowed link-local-address packets in
+which is what STP uses to communicate with other bridges.
+
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: Felix Fietkau <nbd@openwrt.org>
+
 ---
- Just resending for Li with correct date.
+ net/bridge/br_input.c | 20 +++++++++++++++++---
+ 1 file changed, 17 insertions(+), 3 deletions(-)
 
- net/packet/af_packet.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 9d70f13..cc803c6 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -310,7 +310,7 @@ static bool packet_use_direct_xmit(const struct packet_sock *po)
- 
- static u16 packet_pick_tx_queue(struct net_device *dev)
- {
--	return (u16) smp_processor_id() % dev->real_num_tx_queues;
-+	return (u16) raw_smp_processor_id() % dev->real_num_tx_queues;
+--- a/net/bridge/br_input.c	2013-12-06 16:49:53.663016412 -0800
++++ b/net/bridge/br_input.c	2013-12-08 12:27:04.736572830 -0800
+@@ -152,6 +152,16 @@ static int br_handle_local_finish(struct
+ 	return 0;	 /* process further */
  }
  
- /* register_prot_hook must be invoked with the po->bind_lock held,
--- 
-1.8.3.1
++/* Deliver packet to local host only */
++static rx_handler_result_t br_local_only(struct sk_buff *skb)
++{
++	if (NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
++		    NULL, br_handle_local_finish))
++		return RX_HANDLER_CONSUMED; /* consumed by filter */
++	else
++		return RX_HANDLER_PASS;	/* continue processing */
++}
++
+ /*
+  * Return NULL if skb is handled
+  * note: already called with rcu_read_lock
+@@ -206,14 +216,8 @@ rx_handler_result_t br_handle_frame(stru
+ 				goto forward;
+ 		}
+ 
+-		/* Deliver packet to local host only */
+-		if (NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
+-			    NULL, br_handle_local_finish)) {
+-			return RX_HANDLER_CONSUMED; /* consumed by filter */
+-		} else {
+-			*pskb = skb;
+-			return RX_HANDLER_PASS;	/* continue processing */
+-		}
++		*pskb = skb;
++		return br_local_only(skb);
+ 	}
+ 
+ forward:
+@@ -235,6 +239,13 @@ forward:
+ 		NF_HOOK(NFPROTO_BRIDGE, NF_BR_PRE_ROUTING, skb, skb->dev, NULL,
+ 			br_handle_frame_finish);
+ 		break;
++
++	case BR_STATE_DISABLED:
++		if (skb->pkt_type == PACKET_HOST) {
++			*pskb = skb;
++			return br_local_only(skb);
++		}
++		/* fall through */
+ 	default:
+ drop:
+ 		kfree_skb(skb);
