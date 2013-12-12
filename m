@@ -1,76 +1,62 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/1] ipv6 addrconf:fix preferred lifetime state-changing
- behavior while valid_lft is infinity
-Date: Thu, 12 Dec 2013 18:06:56 +0400
-Message-ID: <52A9C300.2050403@cogentembedded.com>
-References: <20131212010348.GD4675@order.stressinduktion.org> <1386843347-2725-1-git-send-email-yazzep@gmail.com>
+Subject: Re: [net-next 11/15] i40e: debugfs command to change RSS queue count
+Date: Thu, 12 Dec 2013 18:13:58 +0400
+Message-ID: <52A9C4A6.9020409@cogentembedded.com>
+References: <1386852051-27907-1-git-send-email-jeffrey.t.kirsher@intel.com> <1386852051-27907-12-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
-To: yazzep@gmail.com, netdev@vger.kernel.org
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:47741 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751503Ab3LLOGy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 09:06:54 -0500
-Received: by mail-la0-f54.google.com with SMTP id b8so348950lan.13
-        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 06:06:52 -0800 (PST)
-In-Reply-To: <1386843347-2725-1-git-send-email-yazzep@gmail.com>
+Received: from mail-la0-f49.google.com ([209.85.215.49]:44436 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751461Ab3LLON4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 09:13:56 -0500
+Received: by mail-la0-f49.google.com with SMTP id er20so343867lab.22
+        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 06:13:54 -0800 (PST)
+In-Reply-To: <1386852051-27907-12-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hello.
 
-On 12-12-2013 14:15, yazzep@gmail.com wrote:
+On 12-12-2013 16:40, Jeff Kirsher wrote:
 
-> From: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
+> From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
->   Fixed a problem with setting the lifetime of an IPv6
->   address. When setting preferred_lft to a value not zero or
->   infinity, while valid_lft is infinity(0xffffffff) preferred
->   lifetime is set to forever and does not update. Therefore
->   preferred lifetime never becomes deprecated. valid lifetime
->   and preferred lifetime should be set independently, even if
->   valid lifetime is infinity, preferred lifetime must expire
->   correctly (meaning it must eventually become deprecated)
+> This is the 3rd of 3 patches that implements changing the number
+> of queues on the fly.
 
+> This patch adds the debugfs hook for calling the change queues
+> flow with a request to change the number of RSS queues.
 
-> Signed-off-by: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
+> This is intended to also be called eventually from ethtool.
+
+> Change-Id: Ib6b332f0ec8e58989ef8c65ec30079d01fdf6c9a
+> Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > ---
->   net/ipv6/addrconf.c |   34 ++++++++++++++++++++--------------
->   1 files changed, 20 insertions(+), 14 deletions(-)
+>   drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 12 ++++++++++++
+>   1 file changed, 12 insertions(+)
 
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 3c3425e..17b4097 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -948,18 +948,22 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
-[...]
-> +					if (ifp->valid_lft !=
-> +						INFINITY_LIFE_TIME) {
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+> index 9c675b5..3303b43 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+> @@ -1792,6 +1792,17 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+>   		}
+>   		kfree(buff);
+>   		buff = NULL;
+> +	} else if (strncmp(cmd_buf, "set rss_size", 12) == 0) {
+> +		u16 queue_count;
 
-    Please start the continuation line right under 'ifp', according to the 
-networking coding style -- this ways it's easier on the eyes and don't mix 
-with the following block.
+    Please insert empty line after declaration.
 
-> +						spin_lock(&ifa->lock);
-> +
-> +						lifetime = addrconf_timeout_fixup(
-> +								ifa->valid_lft,	HZ);
-> +						/*
-> +						 * Note: Because this address is
-
-    s/Because/because/, so that the grammar is correct.
-
-> +						 * not permanent, lifetime <
-> +						 * LONG_MAX / HZ here.
-> +						 */
-
-    Networking code assumes slightly other style of multi-line comments:
-
-/* bla
-  * bla
-  */
+> +		cnt = sscanf(&cmd_buf[12], "%hi", &queue_count);
 
 WBR, Sergei
