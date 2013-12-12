@@ -1,86 +1,61 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH v2 0/5] net: macb updates
-Date: Thu, 12 Dec 2013 15:28:43 +0100
-Message-ID: <52A9C81B.7050007@atmel.com>
-References: <1386720443-24100-1-git-send-email-soren.brinkmann@xilinx.com> <CAOesGMjcmeiBfc=EOvWazebg-9vnMuQtRC0aeHJy7Q=02RdRPA@mail.gmail.com>
+From: Qais Yousef <Qais.Yousef@imgtec.com>
+Subject: RE: [PATCH] net/sched/sch_tbf.c: fix linking error
+Date: Thu, 12 Dec 2013 14:29:35 +0000
+Message-ID: <392C4BDEFF12D14FA57A3F30B283D7D13C8A24@LEMAIL01.le.imgtec.org>
+References: <1386851936-1582-1-git-send-email-qais.yousef@imgtec.com>
+ <1386857899.19078.49.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Yang Yingliang <yangyingliang@huawei.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Michal Simek <michal.simek@xilinx.com>
-To: Olof Johansson <olof@lixom.net>,
-	Soren Brinkmann <soren.brinkmann@xilinx.com>,
-	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
-	boris brezillon <b.brezillon@overkiz.com>
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOesGMjcmeiBfc=EOvWazebg-9vnMuQtRC0aeHJy7Q=02RdRPA@mail.gmail.com>
+In-Reply-To: <1386857899.19078.49.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/12/2013 08:00, Olof Johansson :
-> Hi Soren,
->
-> On Tue, Dec 10, 2013 at 4:07 PM, Soren Brinkmann
-> <soren.brinkmann@xilinx.com> wrote:
->
->> Soren Brinkmann (5):
->>    net: macb: Adjust tx_clk when link speed changes
->
-> This patch causes build issues on some at91 platforms, namely
-> at91sam9263 that lacks programmable clocks. So it doesn't implement
-> clk_set_rate() and clk_round_rate().
->
-> I don't know if there's any reasonable config option to check for
-> (that wouldn't add at91-specific stuff to the driver which we don't
-> want). So I suspect the best way would be to implement dummy versions
-> for at91 when CONFIG_AT91_PROGRAMMABLE_CLOCKS isn't set.
->
-> Nicolas, you OK with that? It'd be something like the below
-> (copy-paste, whitespace damage, just RFC):
-
-Well, in fact I am thinking about simply removing this 
-AT91_PROGRAMMABLE_CLOCKS option out of the AT91 Kconfig.
-
-After all, when not specified, it only removes a few lines of code... 
-and that's it! For a so little benefit, I suspect it is sensible to 
-remove this option.
-I continue to discuss with AT91 active developers and write a patch soon.
-
-Thanks for the heads-up on this issue Olof.
-
-Bye,
-
-
-> diff --git a/arch/arm/mach-at91/clock.c b/arch/arm/mach-at91/clock.c
-> index 6b2630a..17c52a7 100644
-> --- a/arch/arm/mach-at91/clock.c
-> +++ b/arch/arm/mach-at91/clock.c
-> @@ -459,6 +459,22 @@ static void __init init_programmable_clock(struct clk *clk)
->          clk->rate_hz = parent->rate_hz / pmc_prescaler_divider(pckr);
->   }
->
-> +#else  /* CONFIG_AT91_PROGRAMMABLE_CLOCKS */
-> +
-> +int clk_set_rate(struct clk *clk, unsigned long rate)
-> +{
-> +       if (rate == clk_get_rate(clk))
-> +               return 0;
-> +
-> +       return -EINVAL;
-> +}
-> +
-> +long clk_round_rate(struct clk *clk, unsigned long rate)
-> +{
-> +       /* There's really nothing sane to return here. */
-> +       return clk_get_rate(clk);
-> +}
-> +
->   #endif /* CONFIG_AT91_PROGRAMMABLE_CLOCKS */
->
-
-
--- 
-Nicolas Ferre
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiAxMiBEZWNlbWJlciAyMDEzIDE0OjE4
+DQo+IFRvOiBRYWlzIFlvdXNlZg0KPiBDYzogWWFuZyBZaW5nbGlhbmc7IEVyaWMgRHVtYXpldDsg
+SmFtYWwgSGFkaSBTYWxpbTsgRGF2aWQgUy4gTWlsbGVyOw0KPiBuZXRkZXZAdmdlci5rZXJuZWwu
+b3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBsaW51eC0NCj4gbmV4dEB2Z2VyLmtl
+cm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSF0gbmV0L3NjaGVkL3NjaF90YmYuYzogZml4
+IGxpbmtpbmcgZXJyb3INCj4gDQo+IE9uIFRodSwgMjAxMy0xMi0xMiBhdCAxMjozOCArMDAwMCwg
+UWFpcyBZb3VzZWYgd3JvdGU6DQo+ID4gRVJST1I6ICJfX3VkaXZkaTMiIFtuZXQvc2NoZWQvc2No
+X3RiZi5rb10gdW5kZWZpbmVkIQ0KPiA+DQo+ID4gaW50cm9kdWNlZCBieTogY2MxMDZlNDQxYTYz
+IChuZXQ6IHNjaGVkOiB0YmY6IGZpeCB0aGUgY2FsY3VsYXRpb24gb2YNCj4gPiBtYXhfc2l6ZSkN
+Cj4gPg0KPiA+IHdoaWNoIGFkZHMgYSA2NCBieSAzMiBiaXQgZGl2aXNpb24gd2l0aG91dCB1c2lu
+ZyBkb19kaXYoKS4NCj4gPiBGaXggaXQgYnkgdXNpbmcgZG9fZGl2KGxlbi8gNTMpIGluc3RlYWQg
+b2YgbGVuLzUzLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogUWFpcyBZb3VzZWYgPHFhaXMueW91
+c2VmQGltZ3RlYy5jb20+DQo+ID4gQ2M6IEVyaWMgRHVtYXpldCA8ZWR1bWF6ZXRAZ29vZ2xlLmNv
+bT4NCj4gPiBDYzogSmFtYWwgSGFkaSBTYWxpbSA8amhzQG1vamF0YXR1LmNvbT4NCj4gPiBDYzog
+IkRhdmlkIFMuIE1pbGxlciIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+DQo+ID4gQ2M6IG5ldGRldkB2
+Z2VyLmtlcm5lbC5vcmcNCj4gPiBDYzogbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiA+
+IENjOiBsaW51eC1uZXh0QHZnZXIua2VybmVsLm9yZw0KPiA+IC0tLQ0KPiA+IFdlIGNhdWdodCB0
+aGlzIGVycm9yIG9uIGxpbnV4LW5leHQgdG9kYXkuIFRoaXMgaXMgbXkgcXVpY2sgYXR0ZW1wIG9m
+IGEgZml4Lg0KPiA+IElmIGl0J3Mgbm90IGFwcHJvcHJpYXRlIG9yIGRvZXNuJ3QgbWFrZSBzZW5z
+ZSBteSBhcG9sb2dpZXMgYW5kIGZlZWwNCj4gPiBmcmVlIHRvIHJlc2VuZCBhIGJldHRlciBmaXgg
+OikNCj4gPg0KPiA+ICBuZXQvc2NoZWQvc2NoX3RiZi5jIHwgICAgNiArKysrLS0NCj4gPiAgMSBm
+aWxlcyBjaGFuZ2VkLCA0IGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pDQo+ID4NCj4gPiBk
+aWZmIC0tZ2l0IGEvbmV0L3NjaGVkL3NjaF90YmYuYyBiL25ldC9zY2hlZC9zY2hfdGJmLmMgaW5k
+ZXgNCj4gPiBhNDQ5MjhjLi43NzFjYmVjIDEwMDY0NA0KPiA+IC0tLSBhL25ldC9zY2hlZC9zY2hf
+dGJmLmMNCj4gPiArKysgYi9uZXQvc2NoZWQvc2NoX3RiZi5jDQo+ID4gQEAgLTEzMSw4ICsxMzEs
+MTAgQEAgc3RhdGljIHU2NCBwc2NoZWRfbnNfdDJsKGNvbnN0IHN0cnVjdA0KPiA+IHBzY2hlZF9y
+YXRlY2ZnICpyLA0KPiA+DQo+ID4gIAlkb19kaXYobGVuLCBOU0VDX1BFUl9TRUMpOw0KPiA+DQo+
+ID4gLQlpZiAodW5saWtlbHkoci0+bGlua2xheWVyID09IFRDX0xJTktMQVlFUl9BVE0pKQ0KPiA+
+IC0JCWxlbiA9IChsZW4gLyA1MykgKiA0ODsNCj4gPiArCWlmICh1bmxpa2VseShyLT5saW5rbGF5
+ZXIgPT0gVENfTElOS0xBWUVSX0FUTSkpIHsNCj4gPiArCQlkb19kaXYobGVuLCA1Myk7DQo+ID4g
+KwkJbGVuICo9IDQ4Ow0KPiA+ICsJfQ0KPiA+DQo+ID4gIAlpZiAobGVuID4gci0+b3ZlcmhlYWQp
+DQo+ID4gIAkJbGVuIC09IHItPm92ZXJoZWFkOw0KPiANCj4gVGhpcyBsb29rcyBsaWtlIHRoaXMg
+d2FzIGFscmVhZHkgZml4ZWQgeWVzdGVyZGF5IGluIERhdmlkIG5ldCB0cmVlIDoNCj4gDQo+IGh0
+dHA6Ly9naXQua2VybmVsLm9yZy9jZ2l0L2xpbnV4L2tlcm5lbC9naXQvZGF2ZW0vbmV0LmdpdC9j
+b21taXQvP2lkPWQ1NWQyODJlNg0KPiBhZjg4MTIwYWQ5MGU5M2E4OGY3MGUzMTE2ZGMwZTNkDQo+
+IA0KDQpBaCwgb2suIFRoYW5rcyBmb3IgY2hlY2tpbmcgdGhpcyBhbmQgc29ycnkgYWJvdXQgdGhl
+IG5vaXNlLg0KDQpRYWlzDQoNCg==
