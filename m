@@ -1,303 +1,419 @@
-From: Francesco Fusco <ffusco-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next v2 1/2] lib: introduce arch optimized
-	hash library
-Date: Thu, 12 Dec 2013 16:09:05 +0100
-Message-ID: <1386860946-1621-2-git-send-email-ffusco@redhat.com>
-References: <1386860946-1621-1-git-send-email-ffusco@redhat.com>
+From: Shawn Bohrer <shawn.bohrer@gmail.com>
+Subject: Re: [PATCH RFC] mlx4_en: Add PTP hardware clock
+Date: Thu, 12 Dec 2013 09:28:15 -0600
+Message-ID: <20131212152815.GB3938@sbohrermbp13-local.rgmadvisors.com>
+References: <1386786265-6322-1-git-send-email-shawn.bohrer@gmail.com>
+ <20131211185438.GC4371@netboy>
+ <20131211212801.GB8283@sbohrermbp13-local.rgmadvisors.com>
+ <52A986CF.5030004@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1386860946-1621-1-git-send-email-ffusco-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
+	tomk@rgmadvisors.com, Shawn Bohrer <sbohrer@rgmadvisors.com>
+To: Hadar Hen Zion <hadarh@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f53.google.com ([209.85.213.53]:50474 "EHLO
+	mail-yh0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751488Ab3LLP2T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 10:28:19 -0500
+Received: by mail-yh0-f53.google.com with SMTP id b20so407439yha.12
+        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 07:28:18 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <52A986CF.5030004@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We introduce a new hashing library that is meant to be used in
-the contexts where speed is more important than uniformity of the
-hashed values. The hash library leverages architecture specific
-implementation to achieve high performance and fall backs to
-jhash() for the generic case.
+On Thu, Dec 12, 2013 at 11:50:07AM +0200, Hadar Hen Zion wrote:
+> On 12/11/2013 11:28 PM, Shawn Bohrer wrote:
+> >On Wed, Dec 11, 2013 at 07:54:39PM +0100, Richard Cochran wrote:
+> >>On Wed, Dec 11, 2013 at 12:24:25PM -0600, Shawn Bohrer wrote:
+> >>>From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+> >>>
+> >>>This adds a PHC to the mlx4_en driver.  This is largely based off of the
+> >>>e1000e driver (drivers/net/ethernet/intel/e1000e/ptp.c) which seemed
+> >>>very similar.  One thing I am unsure about is that in the e1000e driver
+> >>>they protect the timecounter code with a spinlock because the hardware
+> >>>reports the time in two 32bit registers.  The Mellanox code looks
+> >>>similar however the existing timecounter code in the mlx4_en driver
+> >>>wasn't protected with a lock so I left the lock out here as well.
+> >>
+> >>Before, there were only three call sites,
+> >>
+> >>grep -nH -e timecounter_ *
+> >>en_clock.c:108:	nsec = timecounter_cyc2time(&mdev->clock, timestamp);
+> >>en_clock.c:131:	timecounter_init(&mdev->clock, &mdev->cycles,
+> >>en_clock.c:148:		timecounter_read(&mdev->clock);
+> >>
+> >>and so perhaps the locking was unnecessary (but maybe not).
+> >>In any case, the code that you added definitely needs locks.
+> >>
+> >
+> >Yeah, that looked sketchy to me.  I've added the locks.
+> >
+> >>>Additionally here the mlx4_en_phc_adjfreq() method simply returns
+> >>>-EOPNOTSUPP because I don't have the relevant hardware documentation on
+> >>>how to do this.  I'm hoping one of the Mellanox developers can either
+> >>>provide this documentation or provide a patch to implement that
+> >>>function.
+> >>
+> >>Since the code already uses timecounter_read to convert clock ticks
+> >>into nanoseconds, why not simply adjust the 'mult' as other drivers
+> >>do?
+> >>
+> >>[ If the clock is easily adjustable in hardware, then, by all means,
+> >>   do it that way. ]
+> >
+> >Awesome, I totally missed this.  I've updated my code to do this for
+> >now and if there is a better way the Mellanox guys can chime in.
+> >
+> >>
+> >>>This is minimally tested at this point but Documentation/ptp/testptp
+> >>>appears to work on a Mellanox ConnectX-3 card.
+> >>
+> >>Once you have the adjustment in place, then you can try it with
+> >>linuxptp.
+> >
+> >Yep, that is the goal of this exercise.  I should have a v2 patch with
+> >these changes after I do some more testing.
+> >
+> >Thanks,
+> >Shawn
+> >--
+> >To unsubscribe from this list: send the line "unsubscribe netdev" in
+> >the body of a message to majordomo@vger.kernel.org
+> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >
+> 
+> Hi Shawn,
+> 
+> I'm a SW developer working in Mellanox SW team which is responsible
+> for upstream related tasks.
+> I already had this task assigned to me and I was planning to start
+> working on it soon. Anyway now when you already started working on
+> it I would like to work closely with you and complete the missing
+> parts. Please send me your v2 with the relevant fixes as discussed
+> in the above mails. I'll also do some testing.
 
-On Intel-based x86 architectures, the library can exploit the crc32l
-instruction, part of the Intel SSE4.2 instruction set, if the
-instruction is supported by the processor. This implementation
-is twice as fast as the jhash() implementation on an i7 processor.
+Below is v2.  It compiles, and boots, but linuxptp doesn't work yet
+and I haven't looked into why.  I think linuxptp is actually
+complaining about SIOCSHWTSTAMP not working as expected, but again I
+haven't really even started debugging yet.
 
-Additional architectures, such as Arm64 provide instructions for
-accelerating the computation of CRC, so they could be added as well
-in follow-up work.
 
-Signed-off-by: Francesco Fusco <ffusco-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+This adds a PHC to the mlx4_en driver.  This is largely based off of the
+e1000e driver (drivers/net/ethernet/intel/e1000e/ptp.c) which seemed
+very similar.
+
+Additionally here the mlx4_en_phc_adjfreq() method is implemented in
+software, but it may be possible to do this in hardware.
+
+This is minimally tested at this point but Documentation/ptp/testptp
+appears to work on a Mellanox ConnectX-3 card.
+
+Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
 ---
- arch/x86/include/asm/hash.h |  7 ++++
- arch/x86/lib/Makefile       |  2 +-
- arch/x86/lib/hash.c         | 88 +++++++++++++++++++++++++++++++++++++++++++++
- include/asm-generic/hash.h  |  9 +++++
- include/linux/hash.h        | 36 +++++++++++++++++++
- lib/Makefile                |  2 +-
- lib/hash.c                  | 38 ++++++++++++++++++++
- 7 files changed, 180 insertions(+), 2 deletions(-)
- create mode 100644 arch/x86/include/asm/hash.h
- create mode 100644 arch/x86/lib/hash.c
- create mode 100644 include/asm-generic/hash.h
- create mode 100644 lib/hash.c
+ drivers/net/ethernet/mellanox/mlx4/en_clock.c   |  192 ++++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    3 +
+ drivers/net/ethernet/mellanox/mlx4/en_main.c    |    3 +
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    6 +
+ 4 files changed, 196 insertions(+), 8 deletions(-)
 
-diff --git a/arch/x86/include/asm/hash.h b/arch/x86/include/asm/hash.h
-new file mode 100644
-index 0000000..e8c58f8
---- /dev/null
-+++ b/arch/x86/include/asm/hash.h
-@@ -0,0 +1,7 @@
-+#ifndef _ASM_X86_HASH_H
-+#define _ASM_X86_HASH_H
-+
-+struct fast_hash_ops;
-+extern void setup_arch_fast_hash(struct fast_hash_ops *ops);
-+
-+#endif /* _ASM_X86_HASH_H */
-diff --git a/arch/x86/lib/Makefile b/arch/x86/lib/Makefile
-index 992d63b..eabcb6e 100644
---- a/arch/x86/lib/Makefile
-+++ b/arch/x86/lib/Makefile
-@@ -24,7 +24,7 @@ lib-$(CONFIG_SMP) += rwlock.o
- lib-$(CONFIG_RWSEM_XCHGADD_ALGORITHM) += rwsem.o
- lib-$(CONFIG_INSTRUCTION_DECODER) += insn.o inat.o
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+index fd64410..9b0d515 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+@@ -103,17 +103,187 @@ void mlx4_en_fill_hwtstamps(struct mlx4_en_dev *mdev,
+ 			    struct skb_shared_hwtstamps *hwts,
+ 			    u64 timestamp)
+ {
++	unsigned long flags;
+ 	u64 nsec;
  
--obj-y += msr.o msr-reg.o msr-reg-export.o
-+obj-y += msr.o msr-reg.o msr-reg-export.o hash.o
++	spin_lock_irqsave(&mdev->clock_lock, flags);
+ 	nsec = timecounter_cyc2time(&mdev->clock, timestamp);
++	spin_unlock_irqrestore(&mdev->clock_lock, flags);
  
- ifeq ($(CONFIG_X86_32),y)
-         obj-y += atomic64_32.o
-diff --git a/arch/x86/lib/hash.c b/arch/x86/lib/hash.c
-new file mode 100644
-index 0000000..3056702
---- /dev/null
-+++ b/arch/x86/lib/hash.c
-@@ -0,0 +1,88 @@
-+/*
-+ * Some portions derived from code covered by the following notice:
-+ *
-+ * Copyright (c) 2010-2013 Intel Corporation. All rights reserved.
-+ * All rights reserved.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ *   * Redistributions of source code must retain the above copyright
-+ *     notice, this list of conditions and the following disclaimer.
-+ *   * Redistributions in binary form must reproduce the above copyright
-+ *     notice, this list of conditions and the following disclaimer in
-+ *     the documentation and/or other materials provided with the
-+ *     distribution.
-+ *   * Neither the name of Intel Corporation nor the names of its
-+ *     contributors may be used to endorse or promote products derived
-+ *     from this software without specific prior written permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#include <linux/hash.h>
-+
-+#include <asm/processor.h>
-+#include <asm/cpufeature.h>
-+#include <asm/hash.h>
-+
-+static inline u32 crc32_u32(u32 crc, u32 val)
-+{
-+	asm ("crc32l %1,%0\n" : "+r" (crc) : "rm" (val));
-+	return crc;
-+}
-+
-+static u32 intel_crc4_2_hash(const void *data, u32 len, u32 seed)
-+{
-+	const u32 *p32 = (const u32 *) data;
-+	u32 i, tmp = 0;
-+
-+	for (i = 0; i < len / 4; i++)
-+		seed = crc32_u32(*p32++, seed);
-+
-+	switch (3 - (len & 0x03)) {
-+	case 0:
-+		tmp |= *((const u8 *) p32 + 2) << 16;
-+		/* fallthrough */
-+	case 1:
-+		tmp |= *((const u8 *) p32 + 1) << 8;
-+		/* fallthrough */
-+	case 2:
-+		tmp |= *((const u8 *) p32);
-+		seed = crc32_u32(tmp, seed);
-+	default:
-+		break;
-+	}
-+
-+	return seed;
-+}
-+
-+static u32 intel_crc4_2_hash2(const u32 *data, u32 len, u32 seed)
-+{
-+	const u32 *p32 = (const u32 *) data;
-+	u32 i;
-+
-+	for (i = 0; i < len; i++)
-+		seed = crc32_u32(*p32++, seed);
-+
-+	return seed;
-+}
-+
-+void setup_arch_fast_hash(struct fast_hash_ops *ops)
-+{
-+	if (cpu_has_xmm4_2) {
-+		ops->hash  = intel_crc4_2_hash;
-+		ops->hash2 = intel_crc4_2_hash2;
-+	}
-+}
-diff --git a/include/asm-generic/hash.h b/include/asm-generic/hash.h
-new file mode 100644
-index 0000000..05cb342
---- /dev/null
-+++ b/include/asm-generic/hash.h
-@@ -0,0 +1,9 @@
-+#ifndef __ASM_GENERIC_HASH_H
-+#define __ASM_GENERIC_HASH_H
-+
-+struct arch_hash_ops;
-+static inline void setup_arch_fast_hash(struct arch_hash_ops *ops)
-+{
-+}
-+
-+#endif /* __ASM_GENERIC_HASH_H */
-diff --git a/include/linux/hash.h b/include/linux/hash.h
-index f09a0ae..bd1754c 100644
---- a/include/linux/hash.h
-+++ b/include/linux/hash.h
-@@ -15,6 +15,7 @@
-  */
- 
- #include <asm/types.h>
-+#include <asm/hash.h>
- #include <linux/compiler.h>
- 
- /* 2^31 + 2^29 - 2^25 + 2^22 - 2^19 - 2^16 + 1 */
-@@ -78,4 +79,39 @@ static inline u32 hash32_ptr(const void *ptr)
- #endif
- 	return (u32)val;
+ 	memset(hwts, 0, sizeof(struct skb_shared_hwtstamps));
+ 	hwts->hwtstamp = ns_to_ktime(nsec);
  }
+ 
++/**
++ * mlx4_en_remove_timestamp - disable PTP device
++ * @mdev: board private structure
++ *
++ * Stop the PTP support.
++ **/
++void mlx4_en_remove_timestamp(struct mlx4_en_dev *mdev)
++{
++	if (mdev->ptp_clock) {
++		ptp_clock_unregister(mdev->ptp_clock);
++		mdev->ptp_clock = NULL;
++		mlx4_info(mdev, "removed PHC\n");
++	}
++}
 +
-+struct fast_hash_ops {
-+	u32 (*hash)(const void *data, u32 len, u32 seed);
-+	u32 (*hash2)(const u32 *data, u32 len, u32 seed);
-+};
++void mlx4_en_ptp_overflow_check(struct mlx4_en_dev *mdev)
++{
++	bool timeout = time_is_before_jiffies(mdev->last_overflow_check +
++					      mdev->overflow_period);
++	unsigned long flags;
++
++	if (timeout) {
++		spin_lock_irqsave(&mdev->clock_lock, flags);
++		timecounter_read(&mdev->clock);
++		spin_unlock_irqrestore(&mdev->clock_lock, flags);
++		mdev->last_overflow_check = jiffies;
++	}
++}
 +
 +/**
-+ *	arch_fast_hash - Caclulates a hash over a given buffer that can have
-+ *			 arbitrary size. This function will eventually use an
-+ *			 architecture-optimized hashing implementation if
-+ *			 available, and trades off distribution for speed.
++ * mlx4_en_phc_adjfreq - adjust the frequency of the hardware clock
++ * @ptp: ptp clock structure
++ * @delta: Desired frequency change in parts per billion
 + *
-+ *	@data: buffer to hash
-+ *	@len: length of buffer in bytes
-+ *	@seed: start seed
-+ *
-+ *	Returns 32bit hash.
-+ */
-+extern u32 arch_fast_hash(const void *data, u32 len, u32 seed);
-+
-+/**
-+ *	arch_fast_hash2 - Caclulates a hash over a given buffer that has a
-+ *			  size that is of a multiple of 32bit words. This
-+ *			  function will eventually use an architecture-
-+ *			  optimized hashing implementation if available,
-+ *			  and trades off distribution for speed.
-+ *
-+ *	@data: buffer to hash (must be 32bit padded)
-+ *	@len: number of 32bit words
-+ *	@seed: start seed
-+ *
-+ *	Returns 32bit hash.
-+ */
-+extern u32 arch_fast_hash2(const u32 *data, u32 len, u32 seed);
-+
- #endif /* _LINUX_HASH_H */
-diff --git a/lib/Makefile b/lib/Makefile
-index a459c31..d0f79c5 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -26,7 +26,7 @@ obj-y += bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
- 	 bust_spinlocks.o hexdump.o kasprintf.o bitmap.o scatterlist.o \
- 	 gcd.o lcm.o list_sort.o uuid.o flex_array.o iovec.o clz_ctz.o \
- 	 bsearch.o find_last_bit.o find_next_bit.o llist.o memweight.o kfifo.o \
--	 percpu-refcount.o percpu_ida.o
-+	 percpu-refcount.o percpu_ida.o hash.o
- obj-y += string_helpers.o
- obj-$(CONFIG_TEST_STRING_HELPERS) += test-string_helpers.o
- obj-y += kstrtox.o
-diff --git a/lib/hash.c b/lib/hash.c
-new file mode 100644
-index 0000000..b89f06a
---- /dev/null
-+++ b/lib/hash.c
-@@ -0,0 +1,38 @@
-+/* General purpose hashing library
-+ *
-+ * That's a start of a kernel hashing library, which can be extended
-+ * with further algorithms in future. arch_fast_hash{2,}() will
-+ * eventually resolve to an architecture optimized implementation.
-+ *
-+ * Copyright 2013 Francesco Fusco <ffusco-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-+ * Copyright 2013 Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-+ * Copyright 2013 Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-+ * Licensed under the GNU General Public License, version 2.0 (GPLv2)
-+ */
-+
-+#include <linux/jhash.h>
-+#include <linux/hash.h>
-+
-+static struct fast_hash_ops arch_hash_ops __read_mostly = {
-+	.hash  = jhash,
-+	.hash2 = jhash2,
-+};
-+
-+u32 arch_fast_hash(const void *data, u32 len, u32 seed)
++ * Adjust the frequency of the PHC cycle counter by the indicated delta from
++ * the base frequency.
++ **/
++static int mlx4_en_phc_adjfreq(struct ptp_clock_info *ptp, s32 delta)
 +{
-+	return arch_hash_ops.hash(data, len, seed);
-+}
-+EXPORT_SYMBOL_GPL(arch_fast_hash);
++	u64 adj;
++	u32 diff, mult;
++	int neg_adj = 0;
++	unsigned long flags;
++	struct mlx4_en_dev *mdev = container_of(ptp, struct mlx4_en_dev,
++						ptp_clock_info);
 +
-+u32 arch_fast_hash2(const u32 *data, u32 len, u32 seed)
-+{
-+	return arch_hash_ops.hash2(data, len, seed);
-+}
-+EXPORT_SYMBOL_GPL(arch_fast_hash2);
++	if (delta < 0) {
++		neg_adj = 1;
++		delta = -delta;
++	}
++	mult = mdev->nominal_c_mult;
++	adj = mult;
++	adj *= delta;
++	diff = div_u64(adj, 1000000000ULL);
 +
-+static int __init hashlib_init(void)
-+{
-+	setup_arch_fast_hash(&arch_hash_ops);
++	spin_lock_irqsave(&mdev->clock_lock, flags);
++	timecounter_read(&mdev->clock);
++	mdev->cycles.mult = neg_adj ? mult - diff : mult + diff;
++	spin_unlock_irqrestore(&mdev->clock_lock, flags);
++
 +	return 0;
 +}
-+early_initcall(hashlib_init);
++
++/**
++ * mlx4_en_phc_adjtime - Shift the time of the hardware clock
++ * @ptp: ptp clock structure
++ * @delta: Desired change in nanoseconds
++ *
++ * Adjust the timer by resetting the timecounter structure.
++ **/
++static int mlx4_en_phc_adjtime(struct ptp_clock_info *ptp, s64 delta)
++{
++	struct mlx4_en_dev *mdev = container_of(ptp, struct mlx4_en_dev,
++						ptp_clock_info);
++	unsigned long flags;
++	s64 now;
++
++	spin_lock_irqsave(&mdev->clock_lock, flags);
++	now = timecounter_read(&mdev->clock);
++	now += delta;
++	timecounter_init(&mdev->clock, &mdev->cycles, now);
++	spin_unlock_irqrestore(&mdev->clock_lock, flags);
++
++	return 0;
++}
++
++/**
++ * mlx4_en_phc_gettime - Reads the current time from the hardware clock
++ * @ptp: ptp clock structure
++ * @ts: timespec structure to hold the current time value
++ *
++ * Read the timecounter and return the correct value in ns after converting
++ * it into a struct timespec.
++ **/
++static int mlx4_en_phc_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
++{
++	struct mlx4_en_dev *mdev = container_of(ptp, struct mlx4_en_dev,
++						ptp_clock_info);
++	unsigned long flags;
++	u32 remainder;
++	u64 ns;
++
++	spin_lock_irqsave(&mdev->clock_lock, flags);
++	ns = timecounter_read(&mdev->clock);
++	spin_unlock_irqrestore(&mdev->clock_lock, flags);
++
++	ts->tv_sec = div_u64_rem(ns, NSEC_PER_SEC, &remainder);
++	ts->tv_nsec = remainder;
++
++	return 0;
++}
++
++/**
++ * mlx4_en_phc_settime - Set the current time on the hardware clock
++ * @ptp: ptp clock structure
++ * @ts: timespec containing the new time for the cycle counter
++ *
++ * Reset the timecounter to use a new base value instead of the kernel
++ * wall timer value.
++ **/
++static int mlx4_en_phc_settime(struct ptp_clock_info *ptp,
++			       const struct timespec *ts)
++{
++	struct mlx4_en_dev *mdev = container_of(ptp, struct mlx4_en_dev,
++						ptp_clock_info);
++	u64 ns = timespec_to_ns(ts);
++	unsigned long flags;
++
++	/* reset the timecounter */
++	spin_lock_irqsave(&mdev->clock_lock, flags);
++	timecounter_init(&mdev->clock, &mdev->cycles, ns);
++	spin_unlock_irqrestore(&mdev->clock_lock, flags);
++
++	return 0;
++}
++
++/**
++ * mlx4_en_phc_enable - enable or disable an ancillary feature
++ * @ptp: ptp clock structure
++ * @request: Desired resource to enable or disable
++ * @on: Caller passes one to enable or zero to disable
++ *
++ * Enable (or disable) ancillary features of the PHC subsystem.
++ * Currently, no ancillary features are supported.
++ **/
++static int mlx4_en_phc_enable(struct ptp_clock_info __always_unused *ptp,
++			      struct ptp_clock_request __always_unused *request,
++			      int __always_unused on)
++{
++	return -EOPNOTSUPP;
++}
++
++static const struct ptp_clock_info mlx4_en_ptp_clock_info = {
++	.owner		= THIS_MODULE,
++	.max_adj	= 100000000,
++	.n_alarm	= 0,
++	.n_ext_ts	= 0,
++	.n_per_out	= 0,
++	.pps		= 0,
++	.adjfreq	= mlx4_en_phc_adjfreq,
++	.adjtime	= mlx4_en_phc_adjtime,
++	.gettime	= mlx4_en_phc_gettime,
++	.settime	= mlx4_en_phc_settime,
++	.enable		= mlx4_en_phc_enable,
++};
++
+ void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
+ {
+ 	struct mlx4_dev *dev = mdev->dev;
++	unsigned long flags;
+ 	u64 ns;
+ 
+ 	memset(&mdev->cycles, 0, sizeof(mdev->cycles));
+@@ -127,9 +297,12 @@ void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
+ 	mdev->cycles.shift = 14;
+ 	mdev->cycles.mult =
+ 		clocksource_khz2mult(1000 * dev->caps.hca_core_clock, mdev->cycles.shift);
++	mdev->nominal_c_mult = mdev->cycles.mult;
+ 
++	spin_lock_irqsave(&mdev->clock_lock, flags);
+ 	timecounter_init(&mdev->clock, &mdev->cycles,
+ 			 ktime_to_ns(ktime_get_real()));
++	spin_unlock_irqrestore(&mdev->clock_lock, flags);
+ 
+ 	/* Calculate period in seconds to call the overflow watchdog - to make
+ 	 * sure counter is checked at least once every wrap around.
+@@ -137,15 +310,18 @@ void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
+ 	ns = cyclecounter_cyc2ns(&mdev->cycles, mdev->cycles.mask);
+ 	do_div(ns, NSEC_PER_SEC / 2 / HZ);
+ 	mdev->overflow_period = ns;
+-}
+ 
+-void mlx4_en_ptp_overflow_check(struct mlx4_en_dev *mdev)
+-{
+-	bool timeout = time_is_before_jiffies(mdev->last_overflow_check +
+-					      mdev->overflow_period);
++	/* Configure the PHC */
++	mdev->ptp_clock_info = mlx4_en_ptp_clock_info;
++	snprintf(mdev->ptp_clock_info.name, 16, "mlx4 ptp");
+ 
+-	if (timeout) {
+-		timecounter_read(&mdev->clock);
+-		mdev->last_overflow_check = jiffies;
++	mdev->ptp_clock = ptp_clock_register(&mdev->ptp_clock_info,
++					     &mdev->pdev->dev);
++	if (IS_ERR(mdev->ptp_clock)) {
++		mdev->ptp_clock = NULL;
++		mlx4_err(mdev, "ptp_clock_register failed\n");
++	} else {
++		mlx4_info(mdev, "registered PHC clock\n");
+ 	}
++
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 0596f9f..3e8d336 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -1193,6 +1193,9 @@ static int mlx4_en_get_ts_info(struct net_device *dev,
+ 		info->rx_filters =
+ 			(1 << HWTSTAMP_FILTER_NONE) |
+ 			(1 << HWTSTAMP_FILTER_ALL);
++
++		if (mdev->ptp_clock)
++			info->phc_index = ptp_clock_index(mdev->ptp_clock);
+ 	}
+ 
+ 	return ret;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
+index 0d087b0..6268057 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
+@@ -196,6 +196,9 @@ static void mlx4_en_remove(struct mlx4_dev *dev, void *endev_ptr)
+ 		if (mdev->pndev[i])
+ 			mlx4_en_destroy_netdev(mdev->pndev[i]);
+ 
++	if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_TS)
++		mlx4_en_remove_timestamp(mdev);
++
+ 	flush_workqueue(mdev->workqueue);
+ 	destroy_workqueue(mdev->workqueue);
+ 	(void) mlx4_mr_free(dev, &mdev->mr);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index f3758de..2b4083f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -45,6 +45,7 @@
+ #include <linux/dcbnl.h>
+ #endif
+ #include <linux/cpu_rmap.h>
++#include <linux/ptp_clock_kernel.h>
+ 
+ #include <linux/mlx4/device.h>
+ #include <linux/mlx4/qp.h>
+@@ -373,10 +374,14 @@ struct mlx4_en_dev {
+ 	u32                     priv_pdn;
+ 	spinlock_t              uar_lock;
+ 	u8			mac_removed[MLX4_MAX_PORTS + 1];
++	spinlock_t		clock_lock;
++	u32			nominal_c_mult;
+ 	struct cyclecounter	cycles;
+ 	struct timecounter	clock;
+ 	unsigned long		last_overflow_check;
+ 	unsigned long		overflow_period;
++	struct ptp_clock	*ptp_clock;
++	struct ptp_clock_info	ptp_clock_info;
+ };
+ 
+ 
+@@ -786,6 +791,7 @@ void mlx4_en_fill_hwtstamps(struct mlx4_en_dev *mdev,
+ 			    struct skb_shared_hwtstamps *hwts,
+ 			    u64 timestamp);
+ void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev);
++void mlx4_en_remove_timestamp(struct mlx4_en_dev *mdev);
+ int mlx4_en_timestamp_config(struct net_device *dev,
+ 			     int tx_type,
+ 			     int rx_filter);
 -- 
-1.8.3.1
+1.7.7.6
