@@ -1,280 +1,152 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/15] i40e: reinit flow for the main VSI
-Date: Thu, 12 Dec 2013 04:40:45 -0800
-Message-ID: <1386852051-27907-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/15] i40e: init flow control settings to disabled
+Date: Thu, 12 Dec 2013 04:40:42 -0800
+Message-ID: <1386852051-27907-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1386852051-27907-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:26106 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751762Ab3LLMlE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Dec 2013 07:41:04 -0500
+	id S1751740Ab3LLMlB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Dec 2013 07:41:01 -0500
 In-Reply-To: <1386852051-27907-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-This patch is the first in a 3 series patchset to implement
-dynamically changing the queue count for the main VSI.
+Refactor flow control set up and disable L2 flow
+control by default.
 
-This patch starts by adding a reinit flow. This flow is designed
-to be able to change just the queue count and not the number of
-interrupt vectors that the device originally came up with.
-
-Change-Id: I0634aaebf7dc4dd6c66af8f9dbbef89d7beac438
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-Id: I2fe257b80df6d9a1e37deb4df118da8f8467040d
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 118 +++++++++++++++++++++++-----
- 1 file changed, 97 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 10 +++--
+ drivers/net/ethernet/intel/i40e/i40e_main.c    | 59 +++++++++++++++++++++++---
+ 2 files changed, 60 insertions(+), 9 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 9c380a8..fcb6def 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -276,12 +276,14 @@ static void i40e_get_pauseparam(struct net_device *netdev,
+ 		((hw_link_info->an_info & I40E_AQ_AN_COMPLETED) ?
+ 		  AUTONEG_ENABLE : AUTONEG_DISABLE);
+ 
+-	pause->rx_pause = 0;
+-	pause->tx_pause = 0;
+-	if (hw_link_info->an_info & I40E_AQ_LINK_PAUSE_RX)
++	if (hw->fc.current_mode == I40E_FC_RX_PAUSE) {
+ 		pause->rx_pause = 1;
+-	if (hw_link_info->an_info & I40E_AQ_LINK_PAUSE_TX)
++	} else if (hw->fc.current_mode == I40E_FC_TX_PAUSE) {
+ 		pause->tx_pause = 1;
++	} else if (hw->fc.current_mode == I40E_FC_FULL) {
++		pause->rx_pause = 1;
++		pause->tx_pause = 1;
++	}
+ }
+ 
+ static u32 i40e_get_msglevel(struct net_device *netdev)
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index b94783f..403984a 100644
+index ea9ef27..02873dc 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -48,7 +48,7 @@ static void i40e_vsi_reinit_locked(struct i40e_vsi *vsi);
- static void i40e_handle_reset_warning(struct i40e_pf *pf);
- static int i40e_add_vsi(struct i40e_vsi *vsi);
- static int i40e_add_veb(struct i40e_veb *veb, struct i40e_vsi *vsi);
--static int i40e_setup_pf_switch(struct i40e_pf *pf);
-+static int i40e_setup_pf_switch(struct i40e_pf *pf, bool reinit);
- static int i40e_setup_misc_vector(struct i40e_pf *pf);
- static void i40e_determine_queue_usage(struct i40e_pf *pf);
- static int i40e_setup_pf_filter_control(struct i40e_pf *pf);
-@@ -354,6 +354,9 @@ static struct rtnl_link_stats64 *i40e_get_netdev_stats_struct(
- 	struct rtnl_link_stats64 *vsi_stats = i40e_get_vsi_stats_struct(vsi);
- 	int i;
- 
-+	if (test_bit(__I40E_DOWN, &vsi->state))
-+		return stats;
-+
- 	if (!vsi->tx_rings)
- 		return stats;
- 
-@@ -4770,8 +4773,9 @@ static int i40e_prep_for_reset(struct i40e_pf *pf)
- /**
-  * i40e_reset_and_rebuild - reset and rebuid using a saved config
-  * @pf: board private structure
-+ * @reinit: if the Main VSI needs to re-initialized.
+@@ -6924,6 +6924,7 @@ int i40e_fetch_switch_configuration(struct i40e_pf *pf, bool printconfig)
   **/
--static void i40e_reset_and_rebuild(struct i40e_pf *pf)
-+static void i40e_reset_and_rebuild(struct i40e_pf *pf, bool reinit)
+ static int i40e_setup_pf_switch(struct i40e_pf *pf)
  {
- 	struct i40e_driver_version dv;
- 	struct i40e_hw *hw = &pf->hw;
-@@ -4819,7 +4823,7 @@ static void i40e_reset_and_rebuild(struct i40e_pf *pf)
- 	}
- 
- 	/* do basic switch setup */
--	ret = i40e_setup_pf_switch(pf);
-+	ret = i40e_setup_pf_switch(pf, reinit);
- 	if (ret)
- 		goto end_core_reset;
- 
-@@ -4910,7 +4914,7 @@ static void i40e_handle_reset_warning(struct i40e_pf *pf)
- 
- 	ret = i40e_prep_for_reset(pf);
- 	if (!ret)
--		i40e_reset_and_rebuild(pf);
-+		i40e_reset_and_rebuild(pf, false);
- }
- 
- /**
-@@ -5091,11 +5095,12 @@ static int i40e_set_num_rings_in_vsi(struct i40e_vsi *vsi)
- /**
-  * i40e_vsi_alloc_arrays - Allocate queue and vector pointer arrays for the vsi
-  * @type: VSI pointer
-+ * @alloc_qvectors: a bool to specify if q_vectors need to be allocated.
-  *
-  * On error: returns error code (negative)
-  * On success: returns 0
-  **/
--static int i40e_vsi_alloc_arrays(struct i40e_vsi *vsi)
-+static int i40e_vsi_alloc_arrays(struct i40e_vsi *vsi, bool alloc_qvectors)
- {
- 	int size;
- 	int ret = 0;
-@@ -5107,12 +5112,14 @@ static int i40e_vsi_alloc_arrays(struct i40e_vsi *vsi)
- 		return -ENOMEM;
- 	vsi->rx_rings = &vsi->tx_rings[vsi->alloc_queue_pairs];
- 
--	/* allocate memory for q_vector pointers */
--	size = sizeof(struct i40e_q_vectors *) * vsi->num_q_vectors;
--	vsi->q_vectors = kzalloc(size, GFP_KERNEL);
--	if (!vsi->q_vectors) {
--		ret = -ENOMEM;
--		goto err_vectors;
-+	if (alloc_qvectors) {
-+		/* allocate memory for q_vector pointers */
-+		size = sizeof(struct i40e_q_vectors *) * vsi->num_q_vectors;
-+		vsi->q_vectors = kzalloc(size, GFP_KERNEL);
-+		if (!vsi->q_vectors) {
-+			ret = -ENOMEM;
-+			goto err_vectors;
-+		}
- 	}
- 	return ret;
- 
-@@ -5182,7 +5189,7 @@ static int i40e_vsi_mem_alloc(struct i40e_pf *pf, enum i40e_vsi_type type)
- 	if (ret)
- 		goto err_rings;
- 
--	ret = i40e_vsi_alloc_arrays(vsi);
-+	ret = i40e_vsi_alloc_arrays(vsi, true);
- 	if (ret)
- 		goto err_rings;
- 
-@@ -5204,15 +5211,18 @@ unlock_pf:
- /**
-  * i40e_vsi_free_arrays - Free queue and vector pointer arrays for the VSI
-  * @type: VSI pointer
-+ * @free_qvectors: a bool to specify if q_vectors need to be freed.
-  *
-  * On error: returns error code (negative)
-  * On success: returns 0
-  **/
--static void i40e_vsi_free_arrays(struct i40e_vsi *vsi)
-+static void i40e_vsi_free_arrays(struct i40e_vsi *vsi, bool free_qvectors)
- {
- 	/* free the ring and vector containers */
--	kfree(vsi->q_vectors);
--	vsi->q_vectors = NULL;
-+	if (free_qvectors) {
-+		kfree(vsi->q_vectors);
-+		vsi->q_vectors = NULL;
-+	}
- 	kfree(vsi->tx_rings);
- 	vsi->tx_rings = NULL;
- 	vsi->rx_rings = NULL;
-@@ -5254,7 +5264,7 @@ static int i40e_vsi_clear(struct i40e_vsi *vsi)
- 	i40e_put_lump(pf->qp_pile, vsi->base_queue, vsi->idx);
- 	i40e_put_lump(pf->irq_pile, vsi->base_vector, vsi->idx);
- 
--	i40e_vsi_free_arrays(vsi);
-+	i40e_vsi_free_arrays(vsi, true);
- 
- 	pf->vsi[vsi->idx] = NULL;
- 	if (vsi->idx < pf->next_vsi)
-@@ -6276,6 +6286,69 @@ vector_setup_out:
- }
- 
- /**
-+ * i40e_vsi_reinit_setup - return and reallocate resources for a VSI
-+ * @vsi: pointer to the vsi.
-+ *
-+ * This re-allocates a vsi's queue resources.
-+ *
-+ * Returns pointer to the successfully allocated and configured VSI sw struct
-+ * on success, otherwise returns NULL on failure.
-+ **/
-+static struct i40e_vsi *i40e_vsi_reinit_setup(struct i40e_vsi *vsi)
-+{
-+	struct i40e_pf *pf = vsi->back;
-+	u8 enabled_tc;
-+	int ret;
-+
-+	i40e_put_lump(pf->qp_pile, vsi->base_queue, vsi->idx);
-+	i40e_vsi_clear_rings(vsi);
-+
-+	i40e_vsi_free_arrays(vsi, false);
-+	i40e_set_num_rings_in_vsi(vsi);
-+	ret = i40e_vsi_alloc_arrays(vsi, false);
-+	if (ret)
-+		goto err_vsi;
-+
-+	ret = i40e_get_lump(pf, pf->qp_pile, vsi->alloc_queue_pairs, vsi->idx);
-+	if (ret < 0) {
-+		dev_info(&pf->pdev->dev, "VSI %d get_lump failed %d\n",
-+			 vsi->seid, ret);
-+		goto err_vsi;
-+	}
-+	vsi->base_queue = ret;
-+
-+	/* Update the FW view of the VSI. Force a reset of TC and queue
-+	 * layout configurations.
-+	 */
-+	enabled_tc = pf->vsi[pf->lan_vsi]->tc_config.enabled_tc;
-+	pf->vsi[pf->lan_vsi]->tc_config.enabled_tc = 0;
-+	pf->vsi[pf->lan_vsi]->seid = pf->main_vsi_seid;
-+	i40e_vsi_config_tc(pf->vsi[pf->lan_vsi], enabled_tc);
-+
-+	/* assign it some queues */
-+	ret = i40e_alloc_rings(vsi);
-+	if (ret)
-+		goto err_rings;
-+
-+	/* map all of the rings to the q_vectors */
-+	i40e_vsi_map_rings_to_vectors(vsi);
-+	return vsi;
-+
-+err_rings:
-+	i40e_vsi_free_q_vectors(vsi);
-+	if (vsi->netdev_registered) {
-+		vsi->netdev_registered = false;
-+		unregister_netdev(vsi->netdev);
-+		free_netdev(vsi->netdev);
-+		vsi->netdev = NULL;
-+	}
-+	i40e_aq_delete_element(&pf->hw, vsi->seid, NULL);
-+err_vsi:
-+	i40e_vsi_clear(vsi);
-+	return NULL;
-+}
-+
-+/**
-  * i40e_vsi_setup - Set up a VSI by a given type
-  * @pf: board private structure
-  * @type: VSI type
-@@ -6918,10 +6991,11 @@ int i40e_fetch_switch_configuration(struct i40e_pf *pf, bool printconfig)
- /**
-  * i40e_setup_pf_switch - Setup the HW switch on startup or after reset
-  * @pf: board private structure
-+ * @reinit: if the Main VSI needs to re-initialized.
-  *
-  * Returns 0 on success, negative value on failure
-  **/
--static int i40e_setup_pf_switch(struct i40e_pf *pf)
-+static int i40e_setup_pf_switch(struct i40e_pf *pf, bool reinit)
- {
- 	u32 rxfc = 0, txfc = 0, rxfc_reg;
++	u32 rxfc, txfc, rxfc_reg;
  	int ret;
-@@ -6943,7 +7017,7 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf)
- 		i40e_fdir_setup(pf);
  
- 	/* first time setup */
--	if (pf->lan_vsi == I40E_NO_VSI) {
-+	if (pf->lan_vsi == I40E_NO_VSI || reinit) {
- 		struct i40e_vsi *vsi = NULL;
- 		u16 uplink_seid;
+ 	/* find out what's out there already */
+@@ -6994,20 +6995,65 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf)
+ 	i40e_aq_get_link_info(&pf->hw, true, NULL, NULL);
+ 	i40e_link_event(pf);
  
-@@ -6954,8 +7028,10 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf)
- 			uplink_seid = pf->veb[pf->lan_veb]->seid;
- 		else
- 			uplink_seid = pf->mac_seid;
--
--		vsi = i40e_vsi_setup(pf, I40E_VSI_MAIN, uplink_seid, 0);
-+		if (pf->lan_vsi == I40E_NO_VSI)
-+			vsi = i40e_vsi_setup(pf, I40E_VSI_MAIN, uplink_seid, 0);
-+		else if (reinit)
-+			vsi = i40e_vsi_reinit_setup(pf->vsi[pf->lan_vsi]);
- 		if (!vsi) {
- 			dev_info(&pf->pdev->dev, "setup of MAIN VSI failed\n");
- 			i40e_fdir_teardown(pf);
-@@ -7426,7 +7502,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_switch_setup;
+-	/* Initialize user-specifics link properties */
++	/* Initialize user-specific link properties */
+ 	pf->fc_autoneg_status = ((pf->hw.phy.link_info.an_info &
+ 				  I40E_AQ_AN_COMPLETED) ? true : false);
+-	pf->hw.fc.requested_mode = I40E_FC_DEFAULT;
+-	if (pf->hw.phy.link_info.an_info &
+-	   (I40E_AQ_LINK_PAUSE_TX | I40E_AQ_LINK_PAUSE_RX))
++	/* requested_mode is set in probe or by ethtool */
++	if (!pf->fc_autoneg_status)
++		goto no_autoneg;
++
++	if ((pf->hw.phy.link_info.an_info & I40E_AQ_LINK_PAUSE_TX) &&
++	    (pf->hw.phy.link_info.an_info & I40E_AQ_LINK_PAUSE_RX))
+ 		pf->hw.fc.current_mode = I40E_FC_FULL;
+ 	else if (pf->hw.phy.link_info.an_info & I40E_AQ_LINK_PAUSE_TX)
+ 		pf->hw.fc.current_mode = I40E_FC_TX_PAUSE;
+ 	else if (pf->hw.phy.link_info.an_info & I40E_AQ_LINK_PAUSE_RX)
+ 		pf->hw.fc.current_mode = I40E_FC_RX_PAUSE;
+ 	else
+-		pf->hw.fc.current_mode = I40E_FC_DEFAULT;
++		pf->hw.fc.current_mode = I40E_FC_NONE;
++
++	/* sync the flow control settings with the auto-neg values */
++	switch (pf->hw.fc.current_mode) {
++	case I40E_FC_FULL:
++		txfc = 1;
++		rxfc = 1;
++		break;
++	case I40E_FC_TX_PAUSE:
++		txfc = 1;
++		rxfc = 0;
++		break;
++	case I40E_FC_RX_PAUSE:
++		txfc = 0;
++		rxfc = 1;
++		break;
++	case I40E_FC_NONE:
++	case I40E_FC_DEFAULT:
++		txfc = 0;
++		rxfc = 0;
++		break;
++	case I40E_FC_PFC:
++		/* TBD */
++		break;
++	/* no default case, we have to handle all possibilities here */
++	}
++
++	wr32(&pf->hw, I40E_PRTDCB_FCCFG, txfc << I40E_PRTDCB_FCCFG_TFCE_SHIFT);
++
++	rxfc_reg = rd32(&pf->hw, I40E_PRTDCB_MFLCN) &
++		   ~I40E_PRTDCB_MFLCN_RFCE_MASK;
++	rxfc_reg |= (rxfc << I40E_PRTDCB_MFLCN_RFCE_SHIFT);
++
++	wr32(&pf->hw, I40E_PRTDCB_MFLCN, rxfc_reg);
+ 
++	goto fc_complete;
++
++no_autoneg:
++	/* disable L2 flow control, user can turn it on if they wish */
++	wr32(&pf->hw, I40E_PRTDCB_FCCFG, 0);
++	wr32(&pf->hw, I40E_PRTDCB_MFLCN, rd32(&pf->hw, I40E_PRTDCB_MFLCN) &
++					 ~I40E_PRTDCB_MFLCN_RFCE_MASK);
++
++fc_complete:
+ 	return ret;
+ }
+ 
+@@ -7301,6 +7347,9 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto err_pf_reset;
  	}
  
--	err = i40e_setup_pf_switch(pf);
-+	err = i40e_setup_pf_switch(pf, false);
- 	if (err) {
- 		dev_info(&pdev->dev, "setup_pf_switch failed: %d\n", err);
- 		goto err_vsis;
++	/* set up a default setting for link flow control */
++	pf->hw.fc.requested_mode = I40E_FC_NONE;
++
+ 	err = i40e_init_adminq(hw);
+ 	dev_info(&pdev->dev, "%s\n", i40e_fw_version_str(hw));
+ 	if (((hw->nvm.version & I40E_NVM_VERSION_HI_MASK)
 -- 
 1.8.3.1
