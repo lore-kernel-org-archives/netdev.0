@@ -1,41 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Cache route in IP tunnels
-Date: Wed, 11 Dec 2013 23:37:18 -0800
-Message-ID: <1386833838.19078.45.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.DEB.2.02.1312112207400.27914@tomh.mtv.corp.google.com>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: Re: [net 1/6] ipv4/ipv6: Fix FSF address in file headers
+Date: Thu, 12 Dec 2013 08:56:01 +0100
+Message-ID: <52A96C11.5070508@meshcoding.com>
+References: <1386350024-25308-1-git-send-email-jeffrey.t.kirsher@intel.com> <20131206.123855.1262992770410595267.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="TnP5slXkRrubRaGlEaNGqoolA8xlcviSH"
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
+To: David Miller <davem@davemloft.net>, jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:56132 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752255Ab3LLHhV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 02:37:21 -0500
-Received: by mail-pb0-f43.google.com with SMTP id rq2so32303pbb.30
-        for <netdev@vger.kernel.org>; Wed, 11 Dec 2013 23:37:20 -0800 (PST)
-In-Reply-To: <alpine.DEB.2.02.1312112207400.27914@tomh.mtv.corp.google.com>
+Received: from s3.neomailbox.net ([178.209.62.157]:21563 "EHLO
+	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751846Ab3LLH5S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 02:57:18 -0500
+In-Reply-To: <20131206.123855.1262992770410595267.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-12-11 at 22:17 -0800, Tom Herbert wrote:
-> Avoid doing a route lookup on every packet being tunneled.
-> 
-> In ip_tunnel.c cache the route returned from ip_route_output if
-> the tunnel is "connected", that is all the routing parameters are
-> taken from tunnel parms for a packet. Specifically, not NBMA tunnel
-> and tos is from tunnel parms (not inner packet).
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--TnP5slXkRrubRaGlEaNGqoolA8xlcviSH
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Replacing per cpu dst (nh_pcpu_rth_output) with a single shared dst is
-not going to be better on SMP.
+On 06/12/13 18:38, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Fri,  6 Dec 2013 09:13:39 -0800
+>=20
+>> Several files refer to an old address for the Free Software Foundation=
 
-Do you have any performance data using multiqueue NIC, with say 32 cpus
-and 32 TX queues ?
+>> in the file header comment.  Resolve by replacing the address with
+>> the URL <http://www.gnu.org/licenses/> so that we do not have to keep
+>> updating the header comments anytime the address changes.
+>>
+>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>=20
+> Applied.
 
-I suspect a high false sharing on dst refcount.
+By using this approach we make checkpatch unhappy again.
+What do we do? We forget about checkpatch?
 
-Thanks
+to follow checkpatch's suggestion we should remove from "You should
+have..." on.
+
+
+Cheers,
+
+
+--=20
+Antonio Quartulli
+
+
+--TnP5slXkRrubRaGlEaNGqoolA8xlcviSH
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJSqWwVAAoJEEKTMo6mOh1V4uUP/0a7f17n/q9dZiEazhND6s05
+unf0zlnE/TpuQTcuhQ/JI9SNS7whQRwJYY91wZFTVu/7dFItbZRC3I2R8vAen97I
+2YhnFG1dPF0BL/M6YCCMa4r7MvtLiSAHkiYK8rlA8vBAWUDQsu3ICICp87O1/qlu
+9Zbt9v+AX6eQp1+yMWbOLdIZYcj6KH4w3b7kpEWOBdME2S7ebsIDzJ4a/pzZRoH0
+PBNaGqEo5Kv6uQzBUnnXV0AdRqcKjc1Vby7sEVZL1rpo0N0vSE+qglc8HviTpMJq
+qSY1ABX7AG4q7hbEnP/5WkzWV4gZSVOqo/6+QT9hf1uYx/VXxkc0a8Gqkt4o3Y/V
+b7WGGObZbh35MTMhxbnCkykiNSaI2okTxgbhL2wc5l2Z6E2p6UEBnS55IDJZ2GVg
+O2mm5juK4nvAo7clV6+FZjWQ847IZ0hltbQpbfIbXT55bmMZrlWJIhqQFHqGspkJ
+SOpo7lgMt0QDHqd4823RRO3RkxKZlJaR9UUiMrt7T00BTDvzTrtoK4nIagf1f/JG
+Nty1UFkFMHkH2w8y/NL7yIYrXwlhMeIVet1gJD1VL8SNdT7N+Li2VtOyReuoByQX
+Y+8l3F3Hmo8k9523y2tl+SSyhPIc4aVySgkaY1dVbkAIqOf6PV4hSLbLemA1zNiR
++W3Ahn+DCjhNl52tVjU1
+=l4q5
+-----END PGP SIGNATURE-----
+
+--TnP5slXkRrubRaGlEaNGqoolA8xlcviSH--
