@@ -1,45 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ip_gre: fix msg_name parsing for recvfrom/recvmsg
-Date: Thu, 12 Dec 2013 15:34:29 -0500 (EST)
-Message-ID: <20131212.153429.1628298422222449867.davem@davemloft.net>
-References: <1386838432-18889-1-git-send-email-timo.teras@iki.fi>
+Subject: Re: [PATCH] net: make neigh_priv_len in struct net_device 16bit
+ instead of 8bit
+Date: Thu, 12 Dec 2013 15:35:26 -0500 (EST)
+Message-ID: <20131212.153526.1142755230387840010.davem@davemloft.net>
+References: <1386839759-24042-1-git-send-email-bigeasy@linutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, pshelar@nicira.com
-To: timo.teras@iki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rostedt@goodmis.org, tglx@linutronix.de
+To: bigeasy@linutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39578 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39586 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751608Ab3LLUed convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 15:34:33 -0500
-In-Reply-To: <1386838432-18889-1-git-send-email-timo.teras@iki.fi>
+	with ESMTP id S1751674Ab3LLUf2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 15:35:28 -0500
+In-Reply-To: <1386839759-24042-1-git-send-email-bigeasy@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Timo Ter=E4s <timo.teras@iki.fi>
-Date: Thu, 12 Dec 2013 10:53:52 +0200
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 12 Dec 2013 10:15:59 +0100
 
-> ipgre_header_parse() needs to parse the tunnel's ip header for gettin=
-g
-> the link-layer addresses, and uses mac_header to get the header. This
-> fixes setting mac_header on the receive path to original behaviour.
->=20
-> Bug added in commit c54419321455 (GRE: Refactor GRE tunneling code.)
->=20
-> Cc: Pravin B Shelar <pshelar@nicira.com>
-> Signed-off-by: Timo Ter=E4s <timo.teras@iki.fi>
-> ---
-> Alternate would be to do skb_reset_inner_headers() in ip_tunnel_rcv()=
- and
-> update ipgre_header_parse() to use skb_inner_network_header(). Though=
-, then
-> inner would then be referring to the "outer" headers.
->=20
-> If applied as-is, should go to -stable too.
+> neigh_priv_len is defined as u8. With all debug enabled struct
+> ipoib_neigh has 200 bytes. The largest part is sk_buff_head with 96
+> bytes and here the spinlock with 72 bytes.
+> The size value still fits in this u8 leaving some room for more.
+> 
+> On -RT struct ipoib_neigh put on weight and has 392 bytes. The main
+> reason is sk_buff_head with 288 and the fatty here is spinlock with 192
+> bytes. This does no longer fit into into neigh_priv_len and gcc
+> complains.
+> 
+> This patch changes neigh_priv_len from being 8bit to 16bit. Since the
+> following element (dev_id) is 16bit followed by a spinlock which is
+> aligned, the struct remains with a total size of 3200 (allmodconfig) /
+> 2048 (with as much debug off as possible) bytes on x86-64.
+> On x86-32 the struct is 1856 (allmodconfig) / 1216 (with as much debug
+> off as possible) bytes long. The numbers were gained with and without
+> the patch to prove that this change does not increase the size of the
+> struct.
+> 
+> Cc: Steven Rostedt <rostedt@goodmis.org>
+> Cc: Thomas Gleixner <tglx@linutronix.de>
+> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-Would skb_reset_mac_header() work just as equally?  I'd prefer that ove=
-r
-direct modification of skb->*_header values.
-
-Thanks.
+This is fine, applied, thanks.
