@@ -1,92 +1,51 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] bridge: allow local delivery when port is disabled
-Date: Thu, 12 Dec 2013 13:41:59 -0800
-Message-ID: <20131212134159.5bc985a9@nehalam.linuxnetplumber.net>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH 0/2] Display adjacent switch port's attributes
+Date: Thu, 12 Dec 2013 13:47:32 -0800
+Message-ID: <52AA2EF4.70300@intel.com>
+References: <1386768540-48188-1-git-send-email-raspl@linux.vnet.ibm.com> <20131211121357.4742d9e8@nehalam.linuxnetplumber.net> <52A9C0BE.5090801@linux.vnet.ibm.com> <20131212.122801.1249371766101769652.davem@davemloft.net> <52A9F7CD.5050904@intel.com> <CAGVrzcb47oUAn-5S=DpQkgPbMAwmBrfjUmfJroYiYX8mmRuORg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: raspl@linux.vnet.ibm.com, David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	blaschka@linux.vnet.ibm.com, netdev <netdev@vger.kernel.org>,
+	linux-s390@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:63094 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751502Ab3LLVmE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 16:42:04 -0500
-Received: by mail-pb0-f50.google.com with SMTP id rr13so1256073pbb.37
-        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 13:42:02 -0800 (PST)
+Received: from mga09.intel.com ([134.134.136.24]:65005 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751496Ab3LLVrd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Dec 2013 16:47:33 -0500
+In-Reply-To: <CAGVrzcb47oUAn-5S=DpQkgPbMAwmBrfjUmfJroYiYX8mmRuORg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When an Ethernet device is enslaved to a bridge, and the bridge STP
-detects loss of carrier (or operational state down), then normally
-packet reception is blocked.
+[...]
 
-This breaks control applications like WPA which maybe expecting to
-receive packets to negotiate to bring link up. The bridge needs to
-block forwarding packets from these disabled ports, but there is no
-hard requirement to not allow local packet delivery.
+>> Just to elaborate...
+>>
+>> Any application using lldp information will want to get events when
+>> TLVs change. Maybe you can contrive ethtool to do this but its going to
+>> be ugly. Netlink can support multicast events and applications can
+>> register for them. Also netlink's TLV format matches nicely with LLDPs
+>> TLV format.
+>
+> ethtool and netlink usually intersect for a few bits of information
+> such as link status for instance. It is useful to have this
+> information twice, with ethtool as a debugging aid, and via netlink to
+> take appropriate actions.
+>
+> Maybe we just need to be clear on what needs to be present in ethtool
+> only (configuration, static information) and see on a case-by-case
+> what needs to be present in both ethtool and netlink?
+>
 
-In this special case, packets are not forwarded (local delivery only),
-and only packet directed at the address of the Ethernet device are
-accepted (no promiscuous or other ports in bridge).
+OK if there is an enable/disable bit in ethtool that might make some
+sense. Or an error flag that is helpful to have.
 
-The existing code already allowed link-local-address packets in
-which is what STP uses to communicate with other bridges.
+In this case we are dealing with peer attributes which are dynamic and
+in my opinion should go into netlink and duplicating them in ethtool
+although possible doesn't seem very useful to me.
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-Signed-off-by: Felix Fietkau <nbd@openwrt.org>
-
----
- net/bridge/br_input.c | 20 +++++++++++++++++---
- 1 file changed, 17 insertions(+), 3 deletions(-)
-
---- a/net/bridge/br_input.c	2013-12-06 16:49:53.663016412 -0800
-+++ b/net/bridge/br_input.c	2013-12-08 12:27:04.736572830 -0800
-@@ -152,6 +152,16 @@ static int br_handle_local_finish(struct
- 	return 0;	 /* process further */
- }
- 
-+/* Deliver packet to local host only */
-+static rx_handler_result_t br_local_only(struct sk_buff *skb)
-+{
-+	if (NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
-+		    NULL, br_handle_local_finish))
-+		return RX_HANDLER_CONSUMED; /* consumed by filter */
-+	else
-+		return RX_HANDLER_PASS;	/* continue processing */
-+}
-+
- /*
-  * Return NULL if skb is handled
-  * note: already called with rcu_read_lock
-@@ -206,14 +216,8 @@ rx_handler_result_t br_handle_frame(stru
- 				goto forward;
- 		}
- 
--		/* Deliver packet to local host only */
--		if (NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
--			    NULL, br_handle_local_finish)) {
--			return RX_HANDLER_CONSUMED; /* consumed by filter */
--		} else {
--			*pskb = skb;
--			return RX_HANDLER_PASS;	/* continue processing */
--		}
-+		*pskb = skb;
-+		return br_local_only(skb);
- 	}
- 
- forward:
-@@ -235,6 +239,13 @@ forward:
- 		NF_HOOK(NFPROTO_BRIDGE, NF_BR_PRE_ROUTING, skb, skb->dev, NULL,
- 			br_handle_frame_finish);
- 		break;
-+
-+	case BR_STATE_DISABLED:
-+		if (skb->pkt_type == PACKET_HOST) {
-+			*pskb = skb;
-+			return br_local_only(skb);
-+		}
-+		/* fall through */
- 	default:
- drop:
- 		kfree_skb(skb);
+.John
