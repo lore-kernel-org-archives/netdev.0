@@ -1,128 +1,41 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH RFC 8/9] vti: Update the ipv4 side to use it's own receive
- hook.
-Date: Thu, 12 Dec 2013 17:26:55 +0100
-Message-ID: <52A9E3CF.7040204@6wind.com>
-References: <20131205120028.GW31491@secunet.com> <20131205120504.GE31491@secunet.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Daniel Andersson Tenninge <daniel.andersson.tenninge@ericsson.com>
+Subject: so_linger + shutdown() still sends a tcp fin on timeout
+Date: Thu, 12 Dec 2013 16:48:13 +0000
+Message-ID: <9D8F8769F710A44DA16BEA3DC7ABFF55097EE2D9@ESESSMB101.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christophe Gouault <christophe.gouault@6wind.com>,
-	Saurabh Mohan <saurabh.mohan@vyatta.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Anders Franzen <anders.franzen@ericsson.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:64509 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751554Ab3LLQ07 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 11:26:59 -0500
-Received: by mail-wi0-f176.google.com with SMTP id hq4so8940654wib.9
-        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 08:26:58 -0800 (PST)
-In-Reply-To: <20131205120504.GE31491@secunet.com>
+Received: from mailgw2.ericsson.se ([193.180.251.37]:42197 "EHLO
+	mailgw2.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751798Ab3LLRDS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 12:03:18 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 05/12/2013 13:05, Steffen Klassert a =E9crit :
-> With this patch, vti uses the IPsec protocol multiplexer to
-> register it's own receive side hooks for ESP and AH.
->
-> Vti now does the following on receive side:
->
-> 1. Do an input policy check for the IPsec packet we received.
->     This is required because this packet could be already
->     prosecces by IPsec, so an inbuond policy check is needed.
->
-> 2. Clean the skb to not leak informations on namespace
->     transitions.
->
-> 3. Mark the packet with the i_key. The policy and the state
->     must match this key now. Policy and state belong to the vti
->     namespace and policy enforcement is done at the further layers.
->
-> 4. Call the generic xfrm layer to do decryption and decapsulation.
->
-> 5. Wait for a callback from the xfrm layer to properly update
->     the device statistics.
->
-> On transmit side:
->
-> 1. Mark the packet with the o_key. The policy and the state
->     must match this key now.
->
-> 2. Do a xfrm_lookup on the original packet with the mark applied.
->
-> 3. Check if we got an IPsec route.
->
-> 4. Clean the skb to not leak informations on namespace
->     transitions.
->
-> 5. Attach the dst_enty we got from the xfrm_lookup to the skb.
->
-> 6. Call dst_output to do the IPsec processing.
->
-> 7. Do the device statistics.
->
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
->   net/ipv4/ip_vti.c |  124 +++++++++++++++++++++++++++++++++++++-----=
------------
->   1 file changed, 88 insertions(+), 36 deletions(-)
->
-> diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-> index 52b802a..fe3d3ab 100644
-> --- a/net/ipv4/ip_vti.c
-> +++ b/net/ipv4/ip_vti.c
-> @@ -41,6 +41,8 @@
->   #include <net/ip_tunnels.h>
->   #include <net/inet_ecn.h>
->   #include <net/xfrm.h>
-> +#include <net/esp.h>
-> +#include <net/ah.h>
->   #include <net/net_namespace.h>
->   #include <net/netns/generic.h>
->
-> @@ -49,7 +51,6 @@ static struct rtnl_link_ops vti_link_ops __read_mos=
-tly;
->   static int vti_net_id __read_mostly;
->   static int vti_tunnel_init(struct net_device *dev);
->
-> -/* We dont digest the packet therefore let the packet pass */
->   static int vti_rcv(struct sk_buff *skb)
->   {
->   	struct ip_tunnel *tunnel;
-> @@ -60,48 +61,72 @@ static int vti_rcv(struct sk_buff *skb)
->   	tunnel =3D ip_tunnel_lookup(itn, skb->dev->ifindex, TUNNEL_NO_KEY,
->   				  iph->saddr, iph->daddr, 0);
->   	if (tunnel !=3D NULL) {
-> -		struct pcpu_tstats *tstats;
-> -		u32 oldmark =3D skb->mark;
-> -		int ret;
-> +		if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
-> +			goto drop;
-> +
-> +		XFRM_TUNNEL_SKB_CB(skb)->tunnel =3D tunnel;
-> +
-> +		/* Partially clear the buffer, the rest is done by xfrm_input. */
-> +		if (!net_eq(tunnel->net, dev_net(tunnel->dev)))
-> +			skb_orphan(skb);
-> +		skb->tstamp.tv64 =3D 0;
-> +		skb->pkt_type =3D PACKET_HOST;
-> +		skb->skb_iif =3D 0;
-> +		nf_reset_trace(skb);
-> +		secpath_reset(skb);
-Is it not better to call skb_scrub_packet() (if necessary adding a new
-argument to skip some operations)?
-skb_scrub_packet() ensures to perform all needed operations when crossi=
-ng
-netns/tunnel.
-It also eases the maintenance and make the code more consistent: when a=
- bug is
-fixed in skb_scrub_packet() all users benefit from it (eg 239c78db9c41 =
-net:
-clear local_df when passing skb between namespaces), otherwise we will =
-always
-forget some users.
+Hi,
 
-Nicolas
+There seems to be a way in the kernel to avoid TCP sockets to end up in TIME-WAIT using the SO_LINGER setsockopt. Setting linger on but with timeout set to zero cause a call to close() to send out a TCP RST instead of FIN. Apparently some (including Apache Thrift) use this for short lived connections to avoid ending up with a lot of sockets in TIME-WAIT.
+
+However, if a call to shutdown() for both read and write (SHUT_RDWR) is made the TCP stack still closes the connection using FIN and if a subsequent call to close() is made before the connection is deleted an RST is sent. So a call to shutdown()+close() will tear down the TCP connection using FIN+RST. According to RFC1122 section 4.2.2.13 a connection can be close normally by sending a FIN or aborted by sending a RST.
+
+See http://pastebin.com/AzCCEbjJ for an example that will cause the kernel to send the following packets:
+
+17:41:53.627071 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [S], seq 2968732977, win 14120, options [mss 1412,sackOK,TS val 17286889 ecr 0,nop,wscale 4], length 0
+17:41:53.629052 IP 192.168.10.10.123 > 10.0.0.1.59968: Flags [S.], seq 1683464704, ack 2968732978, win 14480, options [mss 1460,sackOK,TS val17277856 ecr 17286889,nop,wscale 4], length 0
+17:41:53.629086 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [.], ack 1, win 883, options [nop,nop,TS val 17286890 ecr 17277856], length 0
+17:41:53.629151 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [P.], seq 1:7, ack 1, win 883, options [nop,nop,TS val 17286890 ecr 17277856], length 6
+17:41:53.629567 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [F.], seq 7, ack 1, win 883, options [nop,nop,TS val 17286890 ecr 17277856], length 0
+17:41:53.630040 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [R.], seq 8, ack 1, win 883, options [nop,nop,TS val 17286890 ecr 17277856], length 0
+17:41:53.630716 IP 192.168.10.10.123 > 10.0.0.1.59968: Flags [.], ack 7, win 905, options [nop,nop,TS val 17277856 ecr 17286890], length 0
+17:41:53.630736 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [R], seq 2968732984, win 0, length 0
+17:41:53.631799 IP 192.168.10.10.123 > 10.0.0.1.59968: Flags [F.], seq 1, ack 8, win 905, options [nop,nop,TS val 17277857 ecr 17286890], length 0
+17:41:53.631823 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [R], seq 2968732985, win 0, length 0
+
+Is this simply a miss in the shutdown procedure for TCP that doesn't check the linger option on the socket or are there more to it? Wouldn't it be better that a call to shutdown() checks the linger option and if set it closes with RST after timeout and a subsequent call to close only cleans up the socket if the connection already is closed.
+
+Regards,
+Daniel
