@@ -1,65 +1,105 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH 0/2] Display adjacent switch port's attributes
-Date: Thu, 12 Dec 2013 11:06:46 +0100
-Message-ID: <52A98AB6.3060405@6wind.com>
-References: <1386768540-48188-1-git-send-email-raspl@linux.vnet.ibm.com> <20131211121357.4742d9e8@nehalam.linuxnetplumber.net>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, bhutchings@solarflare.com,
-	blaschka@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	Stefan Raspl <raspl@linux.vnet.ibm.com>
+From: yazzep@gmail.com
+Subject: [PATCH 1/1] ipv6 addrconf:fix preferred lifetime state-changing behavior while valid_lft is infinity
+Date: Thu, 12 Dec 2013 19:15:47 +0900
+Message-ID: <1386843347-2725-1-git-send-email-yazzep@gmail.com>
+References: <20131212010348.GD4675@order.stressinduktion.org>
+Cc: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:56625 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751120Ab3LLKGv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 05:06:51 -0500
-Received: by mail-wg0-f47.google.com with SMTP id n12so178632wgh.2
-        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 02:06:50 -0800 (PST)
-In-Reply-To: <20131211121357.4742d9e8@nehalam.linuxnetplumber.net>
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:42148 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751311Ab3LLKQF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 05:16:05 -0500
+Received: by mail-pb0-f53.google.com with SMTP id ma3so253424pbc.40
+        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 02:16:03 -0800 (PST)
+In-Reply-To: <20131212010348.GD4675@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 11/12/2013 21:13, Stephen Hemminger a =E9crit :
-> On Wed, 11 Dec 2013 14:28:58 +0100
-> Stefan Raspl <raspl@linux.vnet.ibm.com> wrote:
->
->> This patch series adds a new callback for ethtool to display the adj=
-acent switch
->> port's attributes, as perceived by the NIC, e.g. through respective =
-LLDP message
->> exchanges.
->> A patch for the qeth device driver provides a sample exploiter for t=
-he new
->> functionality.
->> A new option for ethtool to display the settings will be posted in a=
- separate
->> patch.
->>
->> Best regards,
->> Stefan Raspl
->>
->> Stefan Raspl (2):
->>    ethtool: Add callback to indicate adjacent switch port attributes
->>    qeth: Display adjacent switch port attributes in ethtool
->>
->>   drivers/s390/net/qeth_core.h      |  7 ++++
->>   drivers/s390/net/qeth_core_main.c | 79 +++++++++++++++++++++++++++=
-++++++++++++
->>   drivers/s390/net/qeth_core_mpc.h  | 17 +++++++++
->>   drivers/s390/net/qeth_l2_main.c   |  1 +
->>   drivers/s390/net/qeth_l3_main.c   |  1 +
->>   include/linux/ethtool.h           |  3 ++
->>   include/uapi/linux/ethtool.h      | 35 +++++++++++++++++
->>   net/core/ethtool.c                | 22 +++++++++++
->>   8 files changed, 165 insertions(+)
->>
->
-> Why more ethtool and not netlink? ethtool is a brittle interface, non=
--extensible
-> and does not support notifications of changes.
-I agree with Stephen, netlink has more pros.
+From: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
+
+ Fixed a problem with setting the lifetime of an IPv6
+ address. When setting preferred_lft to a value not zero or
+ infinity, while valid_lft is infinity(0xffffffff) preferred
+ lifetime is set to forever and does not update. Therefore
+ preferred lifetime never becomes deprecated. valid lifetime
+ and preferred lifetime should be set independently, even if
+ valid lifetime is infinity, preferred lifetime must expire
+ correctly (meaning it must eventually become deprecated)
+
+
+Signed-off-by: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
+---
+ net/ipv6/addrconf.c |   34 ++++++++++++++++++++--------------
+ 1 files changed, 20 insertions(+), 14 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 3c3425e..17b4097 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -948,18 +948,22 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
+ 					if (!onlink)
+ 						onlink = -1;
+ 
+-					spin_lock(&ifa->lock);
+-
+-					lifetime = addrconf_timeout_fixup(ifa->valid_lft, HZ);
+-					/*
+-					 * Note: Because this address is
+-					 * not permanent, lifetime <
+-					 * LONG_MAX / HZ here.
+-					 */
+-					if (time_before(expires,
+-							ifa->tstamp + lifetime * HZ))
+-						expires = ifa->tstamp + lifetime * HZ;
+-					spin_unlock(&ifa->lock);
++					if (ifp->valid_lft !=
++						INFINITY_LIFE_TIME) {
++						spin_lock(&ifa->lock);
++
++						lifetime = addrconf_timeout_fixup(
++								ifa->valid_lft,	HZ);
++						/*
++						 * Note: Because this address is
++						 * not permanent, lifetime <
++						 * LONG_MAX / HZ here.
++						 */
++						if (time_before(expires,
++								ifa->tstamp + lifetime * HZ))
++							expires = ifa->tstamp +	lifetime * HZ;
++						spin_unlock(&ifa->lock);
++					}
+ 				}
+ 			}
+ 		}
+@@ -2415,7 +2419,6 @@ static int inet6_addr_add(struct net *net, int ifindex,
+ 	} else {
+ 		expires = 0;
+ 		flags = 0;
+-		ifa_flags |= IFA_F_PERMANENT;
+ 	}
+ 
+ 	timeout = addrconf_timeout_fixup(prefered_lft, HZ);
+@@ -3497,8 +3500,12 @@ restart:
+ 					ifp->flags |= IFA_F_DEPRECATED;
+ 				}
+ 
+-				if (time_before(ifp->tstamp + ifp->valid_lft * HZ, next))
+-					next = ifp->tstamp + ifp->valid_lft * HZ;
++				if (ifp->valid_lft != INFINITY_LIFE_TIME) {
++					if (time_before(ifp->tstamp +
++							ifp->valid_lft * HZ, next))
++						next = ifp->tstamp +
++							ifp->valid_lft * HZ;
++				}
+ 
+ 				spin_unlock(&ifp->lock);
+ 
+@@ -3635,7 +3642,6 @@ static int inet6_addr_modify(struct inet6_ifaddr *ifp, u32 ifa_flags,
+ 	} else {
+ 		expires = 0;
+ 		flags = 0;
+-		ifa_flags |= IFA_F_PERMANENT;
+ 	}
+ 
+ 	timeout = addrconf_timeout_fixup(prefered_lft, HZ);
