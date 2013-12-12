@@ -1,66 +1,292 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: so_linger + shutdown() still sends a tcp fin on timeout
-Date: Thu, 12 Dec 2013 15:09:01 -0500
-Message-ID: <52AA17DD.4020500@gmail.com>
-References: <9D8F8769F710A44DA16BEA3DC7ABFF55097EE2D9@ESESSMB101.ericsson.se>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next] igb: make local functions static and remove dead
+ code
+Date: Thu, 12 Dec 2013 12:09:16 -0800
+Message-ID: <20131212120916.688140d9@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Anders Franzen <anders.franzen@ericsson.com>
-To: Daniel Andersson Tenninge
-	<daniel.andersson.tenninge@ericsson.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f53.google.com ([209.85.213.53]:38228 "EHLO
-	mail-yh0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751761Ab3LLUJF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 15:09:05 -0500
-Received: by mail-yh0-f53.google.com with SMTP id b20so774660yha.12
-        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 12:09:03 -0800 (PST)
-In-Reply-To: <9D8F8769F710A44DA16BEA3DC7ABFF55097EE2D9@ESESSMB101.ericsson.se>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:65488 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751938Ab3LLUJT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 15:09:19 -0500
+Received: by mail-pd0-f176.google.com with SMTP id w10so1096899pde.21
+        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 12:09:18 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/12/2013 11:48 AM, Daniel Andersson Tenninge wrote:
-> Hi,
-> 
-> There seems to be a way in the kernel to avoid TCP sockets to end up in TIME-WAIT using the SO_LINGER setsockopt. Setting linger on but with timeout set to zero cause a call to close() to send out a TCP RST instead of FIN. Apparently some (including Apache Thrift) use this for short lived connections to avoid ending up with a lot of sockets in TIME-WAIT.
-> 
-> However, if a call to shutdown() for both read and write (SHUT_RDWR) is made the TCP stack still closes the connection using FIN and if a subsequent call to close() is made before the connection is deleted an RST is sent. So a call to shutdown()+close() will tear down the TCP connection using FIN+RST. According to RFC1122 section 4.2.2.13 a connection can be close normally by sending a FIN or aborted by sending a RST.
-> 
-> See http://pastebin.com/AzCCEbjJ for an example that will cause the kernel to send the following packets:
-> 
-> 17:41:53.627071 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [S], seq 2968732977, win 14120, options [mss 1412,sackOK,TS val 17286889 ecr 0,nop,wscale 4], length 0
-> 17:41:53.629052 IP 192.168.10.10.123 > 10.0.0.1.59968: Flags [S.], seq 1683464704, ack 2968732978, win 14480, options [mss 1460,sackOK,TS val17277856 ecr 17286889,nop,wscale 4], length 0
-> 17:41:53.629086 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [.], ack 1, win 883, options [nop,nop,TS val 17286890 ecr 17277856], length 0
-> 17:41:53.629151 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [P.], seq 1:7, ack 1, win 883, options [nop,nop,TS val 17286890 ecr 17277856], length 6
-> 17:41:53.629567 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [F.], seq 7, ack 1, win 883, options [nop,nop,TS val 17286890 ecr 17277856], length 0
-> 17:41:53.630040 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [R.], seq 8, ack 1, win 883, options [nop,nop,TS val 17286890 ecr 17277856], length 0
-> 17:41:53.630716 IP 192.168.10.10.123 > 10.0.0.1.59968: Flags [.], ack 7, win 905, options [nop,nop,TS val 17277856 ecr 17286890], length 0
-> 17:41:53.630736 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [R], seq 2968732984, win 0, length 0
-> 17:41:53.631799 IP 192.168.10.10.123 > 10.0.0.1.59968: Flags [F.], seq 1, ack 8, win 905, options [nop,nop,TS val 17277857 ecr 17286890], length 0
-> 17:41:53.631823 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [R], seq 2968732985, win 0, length 0
-> 
-> Is this simply a miss in the shutdown procedure for TCP that doesn't check the linger option on the socket or are there more to it? Wouldn't it be better that a call to shutdown() checks the linger option and if set it closes with RST after timeout and a subsequent call to close only cleans up the socket if the connection already is closed.
-> 
+Make local functions static, and remove unused e1000_write_sfp_data_byte.
 
-SO_LINGER typically only applies to close(), not shutdown.  I can
-see a valid scenario for the behavior you are describing.
-For example, if after SHUT_WR, the connection is not terminated
-for a specific period of time, the application may call close()
-and trigger a reset.
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Triggering RST on shutdown(SHUT_WR) seems counter-intuitive as
-the application usually wants to continue reading data.
+---
+ drivers/net/ethernet/intel/igb/e1000_82575.c |    6 +++---
+ drivers/net/ethernet/intel/igb/e1000_i210.c  |   18 +++++++++---------
+ drivers/net/ethernet/intel/igb/e1000_i210.h  |    9 ---------
+ drivers/net/ethernet/intel/igb/e1000_phy.c   |    2 +-
+ drivers/net/ethernet/intel/igb/e1000_phy.h   |    1 -
+ drivers/net/ethernet/intel/igb/igb.h         |    2 --
+ drivers/net/ethernet/intel/igb/igb_ptp.c     |    6 ++++--
+ 7 files changed, 17 insertions(+), 27 deletions(-)
 
-It might make sense on if SHUT_RDWR mask is used.
-
--vlad
-
-> Regards,
-> Daniel
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.c	2013-12-12 11:48:16.985856343 -0800
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.c	2013-12-12 11:57:00.077709911 -0800
+@@ -2677,7 +2677,7 @@ out:
+  *  Get EEE status by guessing based on whether Tx or Rx LPI indications have
+  *  been received.
+  **/
+-s32 igb_get_eee_status_i354(struct e1000_hw *hw, bool *status)
++static s32 igb_get_eee_status_i354(struct e1000_hw *hw, bool *status)
+ {
+ 	struct e1000_phy_info *phy = &hw->phy;
+ 	s32 ret_val = 0;
+@@ -2720,7 +2720,7 @@ static const u8 e1000_emc_therm_limit[4]
+  *
+  *  Updates the temperatures in mac.thermal_sensor_data
+  **/
+-s32 igb_get_thermal_sensor_data_generic(struct e1000_hw *hw)
++static s32 igb_get_thermal_sensor_data_generic(struct e1000_hw *hw)
+ {
+ 	s32 status = E1000_SUCCESS;
+ 	u16 ets_offset;
+@@ -2774,7 +2774,7 @@ s32 igb_get_thermal_sensor_data_generic(
+  *  Sets the thermal sensor thresholds according to the NVM map
+  *  and save off the threshold and location values into mac.thermal_sensor_data
+  **/
+-s32 igb_init_thermal_sensor_thresh_generic(struct e1000_hw *hw)
++static s32 igb_init_thermal_sensor_thresh_generic(struct e1000_hw *hw)
+ {
+ 	s32 status = E1000_SUCCESS;
+ 	u16 ets_offset;
+--- a/drivers/net/ethernet/intel/igb/e1000_i210.c	2013-12-12 11:48:16.985856343 -0800
++++ b/drivers/net/ethernet/intel/igb/e1000_i210.c	2013-12-12 11:57:00.077709911 -0800
+@@ -35,6 +35,8 @@
+ #include "e1000_hw.h"
+ #include "e1000_i210.h"
+ 
++static s32 igb_update_flash_i210(struct e1000_hw *hw);
++
+ /**
+  * igb_get_hw_semaphore_i210 - Acquire hardware semaphore
+  *  @hw: pointer to the HW structure
+@@ -111,7 +113,7 @@ static s32 igb_get_hw_semaphore_i210(str
+  *  Return successful if access grant bit set, else clear the request for
+  *  EEPROM access and return -E1000_ERR_NVM (-1).
+  **/
+-s32 igb_acquire_nvm_i210(struct e1000_hw *hw)
++static s32 igb_acquire_nvm_i210(struct e1000_hw *hw)
+ {
+ 	return igb_acquire_swfw_sync_i210(hw, E1000_SWFW_EEP_SM);
+ }
+@@ -123,7 +125,7 @@ s32 igb_acquire_nvm_i210(struct e1000_hw
+  *  Stop any current commands to the EEPROM and clear the EEPROM request bit,
+  *  then release the semaphores acquired.
+  **/
+-void igb_release_nvm_i210(struct e1000_hw *hw)
++static void igb_release_nvm_i210(struct e1000_hw *hw)
+ {
+ 	igb_release_swfw_sync_i210(hw, E1000_SWFW_EEP_SM);
+ }
+@@ -206,8 +208,8 @@ void igb_release_swfw_sync_i210(struct e
+  *  Reads a 16 bit word from the Shadow Ram using the EERD register.
+  *  Uses necessary synchronization semaphores.
+  **/
+-s32 igb_read_nvm_srrd_i210(struct e1000_hw *hw, u16 offset, u16 words,
+-			     u16 *data)
++static s32 igb_read_nvm_srrd_i210(struct e1000_hw *hw, u16 offset, u16 words,
++				  u16 *data)
+ {
+ 	s32 status = E1000_SUCCESS;
+ 	u16 i, count;
+@@ -306,8 +308,8 @@ out:
+  *  If error code is returned, data and Shadow RAM may be inconsistent - buffer
+  *  partially written.
+  **/
+-s32 igb_write_nvm_srwr_i210(struct e1000_hw *hw, u16 offset, u16 words,
+-			      u16 *data)
++static s32 igb_write_nvm_srwr_i210(struct e1000_hw *hw, u16 offset, u16 words,
++				   u16 *data)
+ {
+ 	s32 status = E1000_SUCCESS;
+ 	u16 i, count;
+@@ -555,7 +557,7 @@ s32 igb_read_invm_version(struct e1000_h
+  *  Calculates the EEPROM checksum by reading/adding each word of the EEPROM
+  *  and then verifies that the sum of the EEPROM is equal to 0xBABA.
+  **/
+-s32 igb_validate_nvm_checksum_i210(struct e1000_hw *hw)
++static s32 igb_validate_nvm_checksum_i210(struct e1000_hw *hw)
+ {
+ 	s32 status = E1000_SUCCESS;
+ 	s32 (*read_op_ptr)(struct e1000_hw *, u16, u16, u16 *);
+@@ -590,7 +592,7 @@ s32 igb_validate_nvm_checksum_i210(struc
+  *  up to the checksum.  Then calculates the EEPROM checksum and writes the
+  *  value to the EEPROM. Next commit EEPROM data onto the Flash.
+  **/
+-s32 igb_update_nvm_checksum_i210(struct e1000_hw *hw)
++static s32 igb_update_nvm_checksum_i210(struct e1000_hw *hw)
+ {
+ 	s32 ret_val = E1000_SUCCESS;
+ 	u16 checksum = 0;
+@@ -684,7 +686,7 @@ bool igb_get_flash_presence_i210(struct
+  *  @hw: pointer to the HW structure
+  *
+  **/
+-s32 igb_update_flash_i210(struct e1000_hw *hw)
++static s32 igb_update_flash_i210(struct e1000_hw *hw)
+ {
+ 	s32 ret_val = E1000_SUCCESS;
+ 	u32 flup;
+--- a/drivers/net/ethernet/intel/igb/e1000_i210.h	2013-12-12 11:48:16.985856343 -0800
++++ b/drivers/net/ethernet/intel/igb/e1000_i210.h	2013-12-12 11:57:00.077709911 -0800
+@@ -28,17 +28,8 @@
+ #ifndef _E1000_I210_H_
+ #define _E1000_I210_H_
+ 
+-s32 igb_update_flash_i210(struct e1000_hw *hw);
+-s32 igb_update_nvm_checksum_i210(struct e1000_hw *hw);
+-s32 igb_validate_nvm_checksum_i210(struct e1000_hw *hw);
+-s32 igb_write_nvm_srwr_i210(struct e1000_hw *hw, u16 offset, u16 words,
+-			    u16 *data);
+-s32 igb_read_nvm_srrd_i210(struct e1000_hw *hw, u16 offset, u16 words,
+-			   u16 *data);
+ s32 igb_acquire_swfw_sync_i210(struct e1000_hw *hw, u16 mask);
+ void igb_release_swfw_sync_i210(struct e1000_hw *hw, u16 mask);
+-s32 igb_acquire_nvm_i210(struct e1000_hw *hw);
+-void igb_release_nvm_i210(struct e1000_hw *hw);
+ s32 igb_valid_led_default_i210(struct e1000_hw *hw, u16 *data);
+ s32 igb_read_invm_version(struct e1000_hw *hw,
+ 			  struct e1000_fw_version *invm_ver);
+--- a/drivers/net/ethernet/intel/igb/e1000_phy.c	2013-12-12 11:48:16.985856343 -0800
++++ b/drivers/net/ethernet/intel/igb/e1000_phy.c	2013-12-12 11:59:29.503385535 -0800
+@@ -394,77 +394,6 @@ s32 igb_read_sfp_data_byte(struct e1000_
+ }
+ 
+ /**
+- *  e1000_write_sfp_data_byte - Writes SFP module data.
+- *  @hw: pointer to the HW structure
+- *  @offset: byte location offset to write to
+- *  @data: data to write
+- *
+- *  Writes one byte to SFP module data stored
+- *  in SFP resided EEPROM memory or SFP diagnostic area.
+- *  Function should be called with
+- *  E1000_I2CCMD_SFP_DATA_ADDR(<byte offset>) for SFP module database access
+- *  E1000_I2CCMD_SFP_DIAG_ADDR(<byte offset>) for SFP diagnostics parameters
+- *  access
+- **/
+-s32 e1000_write_sfp_data_byte(struct e1000_hw *hw, u16 offset, u8 data)
+-{
+-	u32 i = 0;
+-	u32 i2ccmd = 0;
+-	u32 data_local = 0;
+-
+-	if (offset > E1000_I2CCMD_SFP_DIAG_ADDR(255)) {
+-		hw_dbg("I2CCMD command address exceeds upper limit\n");
+-		return -E1000_ERR_PHY;
+-	}
+-	/* The programming interface is 16 bits wide
+-	 * so we need to read the whole word first
+-	 * then update appropriate byte lane and write
+-	 * the updated word back.
+-	 */
+-	/* Set up Op-code, EEPROM Address,in the I2CCMD
+-	 * register. The MAC will take care of interfacing
+-	 * with an EEPROM to write the data given.
+-	 */
+-	i2ccmd = ((offset << E1000_I2CCMD_REG_ADDR_SHIFT) |
+-		  E1000_I2CCMD_OPCODE_READ);
+-	/* Set a command to read single word */
+-	wr32(E1000_I2CCMD, i2ccmd);
+-	for (i = 0; i < E1000_I2CCMD_PHY_TIMEOUT; i++) {
+-		udelay(50);
+-		/* Poll the ready bit to see if lastly
+-		 * launched I2C operation completed
+-		 */
+-		i2ccmd = rd32(E1000_I2CCMD);
+-		if (i2ccmd & E1000_I2CCMD_READY) {
+-			/* Check if this is READ or WRITE phase */
+-			if ((i2ccmd & E1000_I2CCMD_OPCODE_READ) ==
+-			    E1000_I2CCMD_OPCODE_READ) {
+-				/* Write the selected byte
+-				 * lane and update whole word
+-				 */
+-				data_local = i2ccmd & 0xFF00;
+-				data_local |= data;
+-				i2ccmd = ((offset <<
+-					E1000_I2CCMD_REG_ADDR_SHIFT) |
+-					E1000_I2CCMD_OPCODE_WRITE | data_local);
+-				wr32(E1000_I2CCMD, i2ccmd);
+-			} else {
+-				break;
+-			}
+-		}
+-	}
+-	if (!(i2ccmd & E1000_I2CCMD_READY)) {
+-		hw_dbg("I2CCMD Write did not complete\n");
+-		return -E1000_ERR_PHY;
+-	}
+-	if (i2ccmd & E1000_I2CCMD_ERROR) {
+-		hw_dbg("I2CCMD Error bit set\n");
+-		return -E1000_ERR_PHY;
+-	}
+-	return 0;
+-}
+-
+-/**
+  *  igb_read_phy_reg_igp - Read igp PHY register
+  *  @hw: pointer to the HW structure
+  *  @offset: register offset to be read
+--- a/drivers/net/ethernet/intel/igb/e1000_phy.h	2013-12-12 11:48:16.985856343 -0800
++++ b/drivers/net/ethernet/intel/igb/e1000_phy.h	2013-12-12 11:57:00.077709911 -0800
+@@ -70,7 +70,6 @@ s32  igb_write_phy_reg_mdic(struct e1000
+ s32  igb_read_phy_reg_i2c(struct e1000_hw *hw, u32 offset, u16 *data);
+ s32  igb_write_phy_reg_i2c(struct e1000_hw *hw, u32 offset, u16 data);
+ s32  igb_read_sfp_data_byte(struct e1000_hw *hw, u16 offset, u8 *data);
+-s32  e1000_write_sfp_data_byte(struct e1000_hw *hw, u16 offset, u8 data);
+ s32  igb_copper_link_setup_82580(struct e1000_hw *hw);
+ s32  igb_get_phy_info_82580(struct e1000_hw *hw);
+ s32  igb_phy_force_speed_duplex_82580(struct e1000_hw *hw);
+--- a/drivers/net/ethernet/intel/igb/igb.h	2013-12-12 11:48:16.985856343 -0800
++++ b/drivers/net/ethernet/intel/igb/igb.h	2013-12-12 11:57:00.077709911 -0800
+@@ -522,9 +522,7 @@ void igb_set_fw_version(struct igb_adapt
+ void igb_ptp_init(struct igb_adapter *adapter);
+ void igb_ptp_stop(struct igb_adapter *adapter);
+ void igb_ptp_reset(struct igb_adapter *adapter);
+-void igb_ptp_tx_work(struct work_struct *work);
+ void igb_ptp_rx_hang(struct igb_adapter *adapter);
+-void igb_ptp_tx_hwtstamp(struct igb_adapter *adapter);
+ void igb_ptp_rx_rgtstamp(struct igb_q_vector *q_vector, struct sk_buff *skb);
+ void igb_ptp_rx_pktstamp(struct igb_q_vector *q_vector, unsigned char *va,
+ 			 struct sk_buff *skb);
+--- a/drivers/net/ethernet/intel/igb/igb_ptp.c	2013-12-12 11:48:16.985856343 -0800
++++ b/drivers/net/ethernet/intel/igb/igb_ptp.c	2013-12-12 11:57:00.077709911 -0800
+@@ -75,6 +75,8 @@
+ #define INCVALUE_82576			(16 << IGB_82576_TSYNC_SHIFT)
+ #define IGB_NBITS_82580			40
+ 
++static void igb_ptp_tx_hwtstamp(struct igb_adapter *adapter);
++
+ /* SYSTIM read access for the 82576 */
+ static cycle_t igb_ptp_read_82576(const struct cyclecounter *cc)
+ {
+@@ -372,7 +374,7 @@ static int igb_ptp_enable(struct ptp_clo
+  * This work function polls the TSYNCTXCTL valid bit to determine when a
+  * timestamp has been taken for the current stored skb.
+  **/
+-void igb_ptp_tx_work(struct work_struct *work)
++static void igb_ptp_tx_work(struct work_struct *work)
+ {
+ 	struct igb_adapter *adapter = container_of(work, struct igb_adapter,
+ 						   ptp_tx_work);
+@@ -466,7 +468,7 @@ void igb_ptp_rx_hang(struct igb_adapter
+  * available, then it must have been for this skb here because we only
+  * allow only one such packet into the queue.
+  **/
+-void igb_ptp_tx_hwtstamp(struct igb_adapter *adapter)
++static void igb_ptp_tx_hwtstamp(struct igb_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	struct skb_shared_hwtstamps shhwtstamps;
