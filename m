@@ -1,45 +1,42 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [patch net-next v2] ipv6: log autoconfiguration failures
-Date: Thu, 12 Dec 2013 12:58:18 -0500
-Message-ID: <52A9F93A.5040104@gmail.com>
-References: <1386762314-5149-1-git-send-email-dvlasenk@redhat.com>	<20131211192138.GB4675@order.stressinduktion.org>	<52A99B56.1070503@redhat.com> <20131212.122241.2022824170198915190.davem@davemloft.net>
+From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next v2 1/2] lib: introduce arch optimized
+	hash library
+Date: Thu, 12 Dec 2013 19:04:14 +0100
+Message-ID: <52A9FA9E.6090604@redhat.com>
+References: <1386860946-1621-1-git-send-email-ffusco@redhat.com>
+	<1386860946-1621-2-git-send-email-ffusco@redhat.com>
+	<52A9F84F.8060500@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, jpirko@redhat.com
-To: David Miller <davem@davemloft.net>, dvlasenk@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131212.122241.2022824170198915190.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <52A9F84F.8060500-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 12/12/2013 12:22 PM, David Miller wrote:
-> From: Denys Vlasenko <dvlasenk@redhat.com>
-> Date: Thu, 12 Dec 2013 12:17:42 +0100
-> 
->> I can easily imagine their frustration. Kernel _knows_ why
->> it didn't work, and it's not expected to normally pappen,
->> why didn't it tell anything about it?
-> 
-> Packets are dropped silently, ARP fails and entries go stale silently,
-> none of this is logged with kernel messages, why is ipv6 autoconf so
-> unique and important to justify different behavior?
+On 12/12/2013 06:54 PM, Nicolas Dichtel wrote:
+...
+> Is it possible to trace that this comes from the DPDK?
+> At least in the commit log, like it was done in the v1.
 
-But most of the changes from V2 report an actual error condition in
-the kernel: addr_len is not set correctly for the device type.
-These changes are worth keeping and not just as pr_debug.  Having
-a counter of these failures will not provide much useful data if you
-happen to have multiple such device and where one happens to work and
-the other doesn't (very unlikely, I know).
+Hm, that got lost; but we can put that back into the commit log.
+In any case, we properly included the header comment, of course.
 
-> 
-> Give it statistics just like we have for every other kind of similar
-> event.
+>> +static inline u32 crc32_u32(u32 crc, u32 val)
+>> +{
+>> +    asm ("crc32l %1,%0\n" : "+r" (crc) : "rm" (val));
+> I'm not an expert, but is it not possible to use intrisics functions, like it is
+> done in the original code?
 
-The fact that link-local address could not be generated for a specific
-device type does not lend itself well to counting.  There is no way
-from to tell from the counter which device does not support IPv6 autoconfig.
-
--vlad
+Intrinsics are not used/available in the kernel, so we used asm
+as everywhere else.
