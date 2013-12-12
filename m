@@ -1,62 +1,203 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net] xen-netback: fix gso_prefix check
-Date: Thu, 12 Dec 2013 14:44:16 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD01B0F2E@AMSPEX01CL01.citrite.net>
-References: <1386858013-20544-1-git-send-email-paul.durrant@citrix.com>
- <1386859342.18946.18.camel@kazak.uk.xensource.com>
+From: Stephane Grosjean <s.grosjean@peak-system.com>
+Subject: Re: [PATCH 3/3] net: can: peak_usb: Do not do dma on the stack
+Date: Thu, 12 Dec 2013 15:44:17 +0100
+Message-ID: <52A9CBC1.4080809@peak-system.com>
+References: <1370261733-22935-1-git-send-email-mkl@pengutronix.de>
+ <1370261733-22935-4-git-send-email-mkl@pengutronix.de>
+Reply-To: Stephane Grosjean <s.grosjean@peak-system.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:60960 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751474Ab3LLOoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 09:44:19 -0500
-In-Reply-To: <1386859342.18946.18.camel@kazak.uk.xensource.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-can@vger.kernel.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1370261733-22935-4-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwNCj4gU2Vu
-dDogMTIgRGVjZW1iZXIgMjAxMyAxNDo0Mg0KPiBUbzogUGF1bCBEdXJyYW50DQo+IENjOiB4ZW4t
-ZGV2ZWxAbGlzdHMueGVuLm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgV2VpIExpdTsgRGF2
-aWQgVnJhYmVsDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0XSB4ZW4tbmV0YmFjazogZml4IGdz
-b19wcmVmaXggY2hlY2sNCj4gDQo+IE9uIFRodSwgMjAxMy0xMi0xMiBhdCAxNDoyMCArMDAwMCwg
-UGF1bCBEdXJyYW50IHdyb3RlOg0KPiA+IFRoZXJlIGlzIGEgbWlzdGFrZSBpbiBjaGVja2luZyB0
-aGUgZ3NvX3ByZWZpeCBtYXNrIHdoZW4gcGFzc2luZyBsYXJnZQ0KPiA+IHBhY2tldHMgdG8gYSBn
-dWVzdC4gVGhlIHdyb25nIHNoaWZ0IGlzIGFwcGxpZWQgdG8gdGhlIGJpdCAtIHRoZSByYXcgc2ti
-DQo+ID4gZ3NvIHR5cGUgaXMgdXNlZCByYXRoZXIgdGhlbiB0aGUgdHJhbnNsYXRlZCBvbmUuIFRo
-aXMgbGVhZHMgdG8gbGFyZ2UgcGFja2V0cw0KPiA+IGJlaW5nIGhhbmRlZCB0byB0aGUgZ3Vlc3Qg
-d2l0aG91dCB0aGUgR1NPIG1ldGFkYXRhLiBUaGlzIHBhdGNoIGZpeGVzIHRoZQ0KPiA+IGNoZWNr
-Lg0KPiA+DQo+ID4gVGhlIG1pc3Rha2UgbWFuaWZlc3RlZCBhcyBlcnJvcnMgd2hpbHN0IHJ1bm5p
-bmcgTWljcm9zb2Z0IEhDSyBsYXJnZSBwYWNrZXQNCj4gPiBvZmZsb2FkIHRlc3RzIGJldHdlZW4g
-YSBwYWlyIG9mIFdpbmRvd3MgOCBWTXMuIEkgaGF2ZSB2ZXJpZmllZCB0aGlzIHBhdGNoDQo+ID4g
-Zml4ZXMgdGhvc2UgZXJyb3JzLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogUGF1bCBEdXJyYW50
-IDxwYXVsLmR1cnJhbnRAY2l0cml4LmNvbT4NCj4gPiBDYzogV2VpIExpdSA8d2VpLmxpdTJAY2l0
-cml4LmNvbT4NCj4gPiBDYzogSWFuIENhbXBiZWxsIDxpYW4uY2FtcGJlbGxAY2l0cml4LmNvbT4N
-Cj4gPiBDYzogRGF2aWQgVnJhYmVsIDxkYXZpZC52cmFiZWxAY2l0cml4LmNvbT4NCj4gPiAtLS0N
-Cj4gPiAgZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jIHwgICAgMiArLQ0KPiA+ICAx
-IGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKyksIDEgZGVsZXRpb24oLSkNCj4gPg0KPiA+IGRp
-ZmYgLS1naXQgYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9uZXRiYWNrLmMgYi9kcml2ZXJzL25l
-dC94ZW4tDQo+IG5ldGJhY2svbmV0YmFjay5jDQo+ID4gaW5kZXggNTZjM2U1YS4uOTk5ZTI5MCAx
-MDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9uZXRiYWNrLmMNCj4gPiAr
-KysgYi9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9uZXRiYWNrLmMNCj4gPiBAQCAtNDUyLDcgKzQ1
-Miw3IEBAIHN0YXRpYyBpbnQgeGVudmlmX2dvcF9za2Ioc3RydWN0IHNrX2J1ZmYgKnNrYiwNCj4g
-PiAgCX0NCj4gPg0KPiA+ICAJLyogU2V0IHVwIGEgR1NPIHByZWZpeCBkZXNjcmlwdG9yLCBpZiBu
-ZWNlc3NhcnkgKi8NCj4gPiAtCWlmICgoMSA8PCBza2Jfc2hpbmZvKHNrYiktPmdzb190eXBlKSAm
-IHZpZi0+Z3NvX3ByZWZpeF9tYXNrKSB7DQo+ID4gKwlpZiAoKDEgPDwgZ3NvX3R5cGUpICYgdmlm
-LT5nc29fcHJlZml4X21hc2spIHsNCj4gDQo+IGdzb190eXBlIGhlcmUgaXMgWEVOX05FVElGX0dT
-T19UWVBFX1RDUFY0LCB2aWYtPmdzb19wcmVmaXhfbWFzayBpcw0KPiBpbml0aWFsaXNlZCB3aXRo
-IEdTT19CSVQoVENQVjQpIGV0IGFsLiBXaGVyZQ0KPiAgICAgICAgICNkZWZpbmUgR1NPX0JJVCh0
-eXBlKSBcDQo+ICAgICAgICAgICAgICAgICAoMSA8PCBYRU5fTkVUSUZfR1NPX1RZUEVfICMjIHR5
-cGUpDQo+IA0KPiBTbywNCj4gQWNrZWQtYnk6IElhbiBDYW1wYmVsbCA8aWFuLmNhbXBiZWxsQGNp
-dHJpeC5jb20+DQo+IA0KPiBCdXQgaXQgbWlnaHQgYmUgbmljZSB0byB1c2UgQklUKCkgZnJvbSBi
-aXRvcHMuaCBmb3IgYm90aCBHU09fQklUIGFuZCB0aGUNCj4gY2hlY2ssIHNpbmNlIGl0IHRvb2sg
-bWUgcXVpdGUgYSBiaXQgb2Ygd2FuZGVyaW5nIGFyb3VuZCB0byBmaWd1cmUgb3V0DQo+IGhvdyB0
-aGVzZSBlbmRlZCB1cCB0aGUgc2FtZS4NCj4gDQoNCk9rLiBJJ2xsIGNvbWUgdXAgd2l0aCBhIHNl
-cGFyYXRlIHBhdGNoIGZvciB0aGF0Lg0KDQogIFBhdWwNCg==
+Hello Marc,
+
+Going back into linux-can peak_usb, and I'm currently having a quick=20
+look to what has changed during these several past months.
+I agree with the below patch that fixes the "DMAusage with USB core"=20
+issue, but - maybe I'm wrong - isn't there now amemory leak issue in=20
+"pcan_usb_pro_init()" function below?
+
+I mean, you now allocate "fi" and "bi" memory objects but, AFAIK, they=20
+aren't freed anywhere in the function, don't they?
+
+Regards,
+
+St=E9phane
+
+Le 03/06/2013 14:15, Marc Kleine-Budde a =E9crit :
+> smatch reports the following warnings:
+> drivers/net/can/usb/peak_usb/pcan_usb_pro.c:514 pcan_usb_pro_drv_load=
+ed() error: doing dma on the stack (buffer)
+> drivers/net/can/usb/peak_usb/pcan_usb_pro.c:878 pcan_usb_pro_init() e=
+rror: doing dma on the stack (&fi)
+> drivers/net/can/usb/peak_usb/pcan_usb_pro.c:889 pcan_usb_pro_init() e=
+rror: doing dma on the stack (&bi)
+>
+> See "Documentation/DMA-API-HOWTO.txt" section "What memory is DMA'abl=
+e?"
+>
+> Cc: Stephane Grosjean <s.grosjean@peak-system.com>
+> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> ---
+>   drivers/net/can/usb/peak_usb/pcan_usb_pro.c | 61 ++++++++++++++++++=
++----------
+>   drivers/net/can/usb/peak_usb/pcan_usb_pro.h |  1 +
+>   2 files changed, 41 insertions(+), 21 deletions(-)
+>
+> diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_pro.c b/drivers/ne=
+t/can/usb/peak_usb/pcan_usb_pro.c
+> index 30d79bf..8ee9d15 100644
+> --- a/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
+> +++ b/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
+> @@ -504,15 +504,24 @@ static int pcan_usb_pro_restart_async(struct pe=
+ak_usb_device *dev,
+>   	return usb_submit_urb(urb, GFP_ATOMIC);
+>   }
+>  =20
+> -static void pcan_usb_pro_drv_loaded(struct peak_usb_device *dev, int=
+ loaded)
+> +static int pcan_usb_pro_drv_loaded(struct peak_usb_device *dev, int =
+loaded)
+>   {
+> -	u8 buffer[16];
+> +	u8 *buffer;
+> +	int err;
+> +
+> +	buffer =3D kmalloc(PCAN_USBPRO_FCT_DRVLD_REQ_LEN, GFP_KERNEL);
+> +	if (!buffer)
+> +		return -ENOMEM;
+>  =20
+>   	buffer[0] =3D 0;
+>   	buffer[1] =3D !!loaded;
+>  =20
+> -	pcan_usb_pro_send_req(dev, PCAN_USBPRO_REQ_FCT,
+> -			      PCAN_USBPRO_FCT_DRVLD, buffer, sizeof(buffer));
+> +	err =3D pcan_usb_pro_send_req(dev, PCAN_USBPRO_REQ_FCT,
+> +				    PCAN_USBPRO_FCT_DRVLD, buffer,
+> +				    PCAN_USBPRO_FCT_DRVLD_REQ_LEN);
+> +	kfree(buffer);
+> +
+> +	return err;
+>   }
+>  =20
+>   static inline
+> @@ -851,21 +860,24 @@ static int pcan_usb_pro_stop(struct peak_usb_de=
+vice *dev)
+>    */
+>   static int pcan_usb_pro_init(struct peak_usb_device *dev)
+>   {
+> -	struct pcan_usb_pro_interface *usb_if;
+>   	struct pcan_usb_pro_device *pdev =3D
+>   			container_of(dev, struct pcan_usb_pro_device, dev);
+> +	struct pcan_usb_pro_interface *usb_if =3D NULL;
+> +	struct pcan_usb_pro_fwinfo *fi =3D NULL;
+> +	struct pcan_usb_pro_blinfo *bi =3D NULL;
+> +	int err;
+>  =20
+>   	/* do this for 1st channel only */
+>   	if (!dev->prev_siblings) {
+> -		struct pcan_usb_pro_fwinfo fi;
+> -		struct pcan_usb_pro_blinfo bi;
+> -		int err;
+> -
+>   		/* allocate netdevices common structure attached to first one */
+>   		usb_if =3D kzalloc(sizeof(struct pcan_usb_pro_interface),
+>   				 GFP_KERNEL);
+> -		if (!usb_if)
+> -			return -ENOMEM;
+> +		fi =3D kmalloc(sizeof(struct pcan_usb_pro_fwinfo), GFP_KERNEL);
+> +		bi =3D kmalloc(sizeof(struct pcan_usb_pro_blinfo), GFP_KERNEL);
+> +		if (!usb_if || !fi || !bi) {
+> +			err =3D -ENOMEM;
+> +			goto err_out;
+> +		}
+>  =20
+>   		/* number of ts msgs to ignore before taking one into account */
+>   		usb_if->cm_ignore_count =3D 5;
+> @@ -877,34 +889,34 @@ static int pcan_usb_pro_init(struct peak_usb_de=
+vice *dev)
+>   		 */
+>   		err =3D pcan_usb_pro_send_req(dev, PCAN_USBPRO_REQ_INFO,
+>   					    PCAN_USBPRO_INFO_FW,
+> -					    &fi, sizeof(fi));
+> +					    fi, sizeof(*fi));
+>   		if (err) {
+> -			kfree(usb_if);
+>   			dev_err(dev->netdev->dev.parent,
+>   				"unable to read %s firmware info (err %d)\n",
+>   				pcan_usb_pro.name, err);
+> -			return err;
+> +			goto err_out;
+>   		}
+>  =20
+>   		err =3D pcan_usb_pro_send_req(dev, PCAN_USBPRO_REQ_INFO,
+>   					    PCAN_USBPRO_INFO_BL,
+> -					    &bi, sizeof(bi));
+> +					    bi, sizeof(*bi));
+>   		if (err) {
+> -			kfree(usb_if);
+>   			dev_err(dev->netdev->dev.parent,
+>   				"unable to read %s bootloader info (err %d)\n",
+>   				pcan_usb_pro.name, err);
+> -			return err;
+> +			goto err_out;
+>   		}
+>  =20
+> +		/* tell the device the can driver is running */
+> +		err =3D pcan_usb_pro_drv_loaded(dev, 1);
+> +		if (err)
+> +			goto err_out;
+> +
+>   		dev_info(dev->netdev->dev.parent,
+>   		     "PEAK-System %s hwrev %u serial %08X.%08X (%u channels)\n",
+>   		     pcan_usb_pro.name,
+> -		     bi.hw_rev, bi.serial_num_hi, bi.serial_num_lo,
+> +		     bi->hw_rev, bi->serial_num_hi, bi->serial_num_lo,
+>   		     pcan_usb_pro.ctrl_count);
+> -
+> -		/* tell the device the can driver is running */
+> -		pcan_usb_pro_drv_loaded(dev, 1);
+>   	} else {
+>   		usb_if =3D pcan_usb_pro_dev_if(dev->prev_siblings);
+>   	}
+> @@ -916,6 +928,13 @@ static int pcan_usb_pro_init(struct peak_usb_dev=
+ice *dev)
+>   	pcan_usb_pro_set_led(dev, 0, 1);
+>  =20
+>   	return 0;
+> +
+> + err_out:
+> +	kfree(bi);
+> +	kfree(fi);
+> +	kfree(usb_if);
+> +
+> +	return err;
+>   }
+>  =20
+>   static void pcan_usb_pro_exit(struct peak_usb_device *dev)
+> diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_pro.h b/drivers/ne=
+t/can/usb/peak_usb/pcan_usb_pro.h
+> index a869918..32275af 100644
+> --- a/drivers/net/can/usb/peak_usb/pcan_usb_pro.h
+> +++ b/drivers/net/can/usb/peak_usb/pcan_usb_pro.h
+> @@ -29,6 +29,7 @@
+>  =20
+>   /* Vendor Request value for XXX_FCT */
+>   #define PCAN_USBPRO_FCT_DRVLD		5 /* tell device driver is loaded */
+> +#define PCAN_USBPRO_FCT_DRVLD_REQ_LEN	16
+>  =20
+>   /* PCAN_USBPRO_INFO_BL vendor request record type */
+>   struct __packed pcan_usb_pro_blinfo {
+
+--
+PEAK-System Technik GmbH, Otto-Roehm-Strasse 69, D-64293 Darmstadt=20
+Geschaeftsleitung: A.Gach/U.Wilhelm,St.Nr.:007/241/13586 FA Darmstadt=20
+HRB-9183 Darmstadt, Ust.IdNr.:DE 202220078, WEE-Reg.-Nr.: DE39305391=20
+Tel.+49 (0)6151-817320 / Fax:+49 (0)6151-817329, info@peak-system.com
