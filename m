@@ -1,69 +1,76 @@
-From: Stefan Raspl <raspl@linux.vnet.ibm.com>
-Subject: Re: [PATCH 0/2] Display adjacent switch port's attributes
-Date: Thu, 12 Dec 2013 14:57:18 +0100
-Message-ID: <52A9C0BE.5090801@linux.vnet.ibm.com>
-References: <1386768540-48188-1-git-send-email-raspl@linux.vnet.ibm.com> <20131211121357.4742d9e8@nehalam.linuxnetplumber.net>
-Reply-To: raspl@linux.vnet.ibm.com
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/1] ipv6 addrconf:fix preferred lifetime state-changing
+ behavior while valid_lft is infinity
+Date: Thu, 12 Dec 2013 18:06:56 +0400
+Message-ID: <52A9C300.2050403@cogentembedded.com>
+References: <20131212010348.GD4675@order.stressinduktion.org> <1386843347-2725-1-git-send-email-yazzep@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, bhutchings@solarflare.com,
-	blaschka@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
+To: yazzep@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp10.uk.ibm.com ([195.75.94.106]:45410 "EHLO
-	e06smtp10.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751492Ab3LLN5Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 08:57:24 -0500
-Received: from /spool/local
-	by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <raspl@linux.vnet.ibm.com>;
-	Thu, 12 Dec 2013 13:57:22 -0000
-In-Reply-To: <20131211121357.4742d9e8@nehalam.linuxnetplumber.net>
+Received: from mail-la0-f54.google.com ([209.85.215.54]:47741 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751503Ab3LLOGy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 09:06:54 -0500
+Received: by mail-la0-f54.google.com with SMTP id b8so348950lan.13
+        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 06:06:52 -0800 (PST)
+In-Reply-To: <1386843347-2725-1-git-send-email-yazzep@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 11.12.2013 21:13, schrieb Stephen Hemminger:
-> On Wed, 11 Dec 2013 14:28:58 +0100
-> Stefan Raspl <raspl@linux.vnet.ibm.com> wrote:
-> 
->> This patch series adds a new callback for ethtool to display the adjacent switch
->> port's attributes, as perceived by the NIC, e.g. through respective LLDP message
->> exchanges.
->> A patch for the qeth device driver provides a sample exploiter for the new
->> functionality.
->> A new option for ethtool to display the settings will be posted in a separate
->> patch.
->>
->> Best regards,
->> Stefan Raspl
->>
->> Stefan Raspl (2):
->>   ethtool: Add callback to indicate adjacent switch port attributes
->>   qeth: Display adjacent switch port attributes in ethtool
->>
->>  drivers/s390/net/qeth_core.h      |  7 ++++
->>  drivers/s390/net/qeth_core_main.c | 79 +++++++++++++++++++++++++++++++++++++++
->>  drivers/s390/net/qeth_core_mpc.h  | 17 +++++++++
->>  drivers/s390/net/qeth_l2_main.c   |  1 +
->>  drivers/s390/net/qeth_l3_main.c   |  1 +
->>  include/linux/ethtool.h           |  3 ++
->>  include/uapi/linux/ethtool.h      | 35 +++++++++++++++++
->>  net/core/ethtool.c                | 22 +++++++++++
->>  8 files changed, 165 insertions(+)
->>
-> 
-> Why more ethtool and not netlink? ethtool is a brittle interface, non-extensible
-> and does not support notifications of changes.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Hello.
 
-I agree, netlink would certainly be nice. But ethtool is the
-de-facto standard for now, and there doesn't seem to be a
-netlink-based alternative in sight - or is there?
-Offering a netlink based tool seems to be a different discussion,
-and if that takes shape, existing ethtool functionality (including
-this series) can and should be migrated.
+On 12-12-2013 14:15, yazzep@gmail.com wrote:
+
+> From: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
+
+>   Fixed a problem with setting the lifetime of an IPv6
+>   address. When setting preferred_lft to a value not zero or
+>   infinity, while valid_lft is infinity(0xffffffff) preferred
+>   lifetime is set to forever and does not update. Therefore
+>   preferred lifetime never becomes deprecated. valid lifetime
+>   and preferred lifetime should be set independently, even if
+>   valid lifetime is infinity, preferred lifetime must expire
+>   correctly (meaning it must eventually become deprecated)
+
+
+> Signed-off-by: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
+> ---
+>   net/ipv6/addrconf.c |   34 ++++++++++++++++++++--------------
+>   1 files changed, 20 insertions(+), 14 deletions(-)
+
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 3c3425e..17b4097 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -948,18 +948,22 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
+[...]
+> +					if (ifp->valid_lft !=
+> +						INFINITY_LIFE_TIME) {
+
+    Please start the continuation line right under 'ifp', according to the 
+networking coding style -- this ways it's easier on the eyes and don't mix 
+with the following block.
+
+> +						spin_lock(&ifa->lock);
+> +
+> +						lifetime = addrconf_timeout_fixup(
+> +								ifa->valid_lft,	HZ);
+> +						/*
+> +						 * Note: Because this address is
+
+    s/Because/because/, so that the grammar is correct.
+
+> +						 * not permanent, lifetime <
+> +						 * LONG_MAX / HZ here.
+> +						 */
+
+    Networking code assumes slightly other style of multi-line comments:
+
+/* bla
+  * bla
+  */
+
+WBR, Sergei
