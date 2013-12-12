@@ -1,84 +1,64 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
-Date: Thu, 12 Dec 2013 04:40:36 -0800
-Message-ID: <1386852051-27907-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 05/15] i40e: Tell the stack about our actual number of queues
+Date: Thu, 12 Dec 2013 04:40:41 -0800
+Message-ID: <1386852051-27907-6-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1386852051-27907-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:26106 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:4524 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751535Ab3LLMk6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Dec 2013 07:40:58 -0500
+	id S1751711Ab3LLMlB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Dec 2013 07:41:01 -0500
+In-Reply-To: <1386852051-27907-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e only (again).
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Jesse provides a fix for when tx_rings structure is NULL and we do not want
-to panic. Then refactors the flow control set up and disables L2 flow control
-by default.  Provides some trivial fixes as well as prevent compiler warnings.
-Then to align to similar behaviour in ixgbe, use the total number of CPUs in
-the system to suggest the number of transmit and receive queue pairs.
+Call the netif_set_real* functions in order to make sure
+the stack knows about how many queues we have, in order
+for RFS/RPS/XFS to work correctly.
 
-Shannon provides a i40e ethtool fix to get some more reasonable information
-reports back out to the ethtool.  In addition, fixes PF reset after offline
-test, where it reorders the test to put the register test last as it is the
-only one that needs a reset, and we wait to trigger the reset until after we
-clear the testing bit.  Lastly provides basic support for handling suspend
-and resume for now, later on Wake-On-LAN support will be added.
+Change-Id: Ib7a7b2792f80c5eef210dedf42cc6607d63953d2
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-Elizabeth Kappler adds netdev ops helper function.
-
-Anjali provides changes to tell the stack about our actual number of queues
-in order for RFS/RPS/XFS to work correctly.  Then provides several patches to
-implement dynamically changing the queue count for the main VSI.  Adds
-basic support for get/set channels for RSS so that the number of receive and
-transmit queue pair can be changed via ethtool.  Cleans up the use of
-rtnl_lock in the reset patch since it runs from a work time.
-
-Neerav Parikh cleans up the VF interface to remove FCoE code as this
-feature will not be supported on VF interfaces.
-
-The following are changes since commit c45f812f0280c13f1b7992be5e0de512312a9e8f:
-  8390 : Replace ei_debug with msg_enable/NETIF_MSG_* feature
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Anjali Singhai Jain (6):
-  i40e: Tell the stack about our actual number of queues
-  i40e: reinit flow for the main VSI
-  i40e: function to reconfigure RSS queues and rebuild
-  i40e: debugfs command to change RSS queue count
-  i40e: Add basic support for get/set channels for RSS
-  i40e: rtnl_lock in reset path fixes
-
-Elizabeth Kappler (1):
-  i40e: add netdev ops helper function
-
-Jesse Brandeburg (5):
-  i40e: fix null dereference
-  i40e: fix up some of the ethtool connection reporting
-  i40e: init flow control settings to disabled
-  i40e: trivial fixes
-  i40e: use same number of queues as CPUs
-
-Neerav Parikh (1):
-  i40e: Remove FCoE in i40e_virtchnl_pf.c code
-
-Shannon Nelson (2):
-  i40e: fix pf reset after offline test
-  i40e: support for suspend and resume
-
- drivers/net/ethernet/intel/i40e/i40e.h             |   6 +-
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |  22 +-
- drivers/net/ethernet/intel/i40e/i40e_diag.c        |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 146 +++++++-
- drivers/net/ethernet/intel/i40e/i40e_hmc.c         |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 380 ++++++++++++++++++---
- drivers/net/ethernet/intel/i40e/i40e_type.h        |   4 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  29 +-
- 8 files changed, 499 insertions(+), 92 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 591a6e3..ea9ef27 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -3969,6 +3969,15 @@ static int i40e_open(struct net_device *netdev)
+ 	if (err)
+ 		goto err_setup_rx;
+ 
++	/* Notify the stack of the actual queue counts. */
++	err = netif_set_real_num_tx_queues(netdev, pf->num_tx_queues);
++	if (err)
++		goto err_set_queues;
++
++	err = netif_set_real_num_rx_queues(netdev, pf->num_rx_queues);
++	if (err)
++		goto err_set_queues;
++
+ 	err = i40e_up_complete(vsi);
+ 	if (err)
+ 		goto err_up_complete;
+@@ -3985,6 +3994,7 @@ static int i40e_open(struct net_device *netdev)
+ 
+ err_up_complete:
+ 	i40e_down(vsi);
++err_set_queues:
+ 	i40e_vsi_free_irq(vsi);
+ err_setup_rx:
+ 	i40e_vsi_free_rx_resources(vsi);
 -- 
 1.8.3.1
