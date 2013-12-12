@@ -1,49 +1,67 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next RFC 0/5] xen-netback: TX grant mapping instead
- of copy
-Date: Thu, 12 Dec 2013 22:08:15 +0000
-Message-ID: <52AA33CF.6030004@citrix.com>
-References: <1383094220-14775-1-git-send-email-zoltan.kiss@citrix.com>		 <1383303035.672.29.camel@kazak.uk.xensource.com>		 <5273FA37.6020903@citrix.com>	 <1383821563.26213.168.camel@kazak.uk.xensource.com>	 <52977F5C.7090703@citrix.com> <1385660592.20209.27.camel@kazak.uk.xensource.com>
+From: Scott Feldman <sfeldma@cumulusnetworks.com>
+Subject: [PATCH net-next v2 0/8] bonding: add more netlink attributes
+Date: Thu, 12 Dec 2013 14:09:48 -0800
+Message-ID: <20131212214558.21629.92365.stgit@monster-03.cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<jonathan.davies@citrix.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1385660592.20209.27.camel@kazak.uk.xensource.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	shm@cumulusnetworks.com
+To: vfalico@redhat.com, fubar@us.ibm.com, andy@greyhouse.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:53228 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751496Ab3LLWJv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 17:09:51 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 28/11/13 17:43, Ian Campbell wrote:
-> On Thu, 2013-11-28 at 17:37 +0000, Zoltan Kiss wrote:
-> Routing/firewalling domUs is as valid as bridging. There is nothing in
-> the slightest bit suboptimal about it.
->
-> If this use case regresses with this approach then I'm afraid that
-> either needs to be addressed or a different approach considered.
->
->> Anyway, I will try this out, and see if it really copies everything, and
->> get some numbers as well.
->
-> Thanks.
+v2:
 
-Now I managed to try it out. As I expected, Dom0 does copy the mapped 
-page. The peak throuhput I could get was 6.6 Gbps, however it could keep 
-that only for short periods, I guess when the unmapping was ideally 
-batched. The average was 5.53.
-On the same machine the same 10 min iperf session, without my patches 
-made the peak 5.9 while the average was 5.65. Do you think it is an 
-acceptable regression?
-I used 3.12 Dom0 and guest kernel, the guest transmitted though a 10Gb 
-card to a bare metal box.
-I plan to look further if we can avoid somehow this:
+Addressed v1 review comments.  In particular, Jay's concern about
+current sysfs ordering limitations carrying over to iproute.  Netlink
+attributes are processed in a priority order in
+bond_netlink.c:bond_changelink().  Lower priority attributes can't undo
+higher priority attributes when attempting to set both with iproute
+command.  For example, this command will fail:
 
-https://lkml.org/lkml/2012/7/20/363
+  ip link add bond1 type bond mode active-backup miimon 10 arp_interval 10
 
-So then this scenario can benefit from grant mapping.
+Because we're trying to create a new bond to use incompatible miimon
+and ARP interval attributes.  However, if attributes are applied
+one-at-a-time, previously applied attributes can be overridden:
 
-Regards,
+  ip link add bond1 type bond mode active-backup miimon 10
+  ip link set dev bond1 type bond arp_interval 10
 
-Zoli
+These two commands succeed.  The bond is first created to use miimon.
+Next, the bond is converted to use ARP interval, which undoes miimon.
+
+v1:
+
+Following Jiri Pirko's lead, add more bonding netlink attributes.  Sending
+matching iproute2 patch separately.  sysfs access to attributes is
+retained.
+
+---
+
+Scott Feldman (8):
+      bonding: add miimon netlink support
+      bonding: add updelay netlink support
+      bonding: add downdelay netlink support
+      bonding: add use_carrier netlink support
+      bonding: add arp_interval netlink support
+      bonding: add arp_ip_target netlink support
+      bonding: add arp_validate netlink support
+      bonding: add arp_all_targets netlink support
+
+
+ drivers/net/bonding/bond_netlink.c |  157 ++++++++++++++++
+ drivers/net/bonding/bond_options.c |  324 +++++++++++++++++++++++++++++++++
+ drivers/net/bonding/bond_sysfs.c   |  349 +++++++++---------------------------
+ drivers/net/bonding/bonding.h      |   11 +
+ include/uapi/linux/if_link.h       |    8 +
+ 5 files changed, 578 insertions(+), 271 deletions(-)
+
+-- 
+Signature
