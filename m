@@ -1,92 +1,94 @@
-From: "Asano, Yasushi" <yasushi.asano@jp.fujitsu.com>
-Subject: RE: [PATCH 1/1] ipv6 addrconf:fix preferred lifetime state-changing
- behavior while valid_lft is infinity
-Date: Thu, 12 Dec 2013 10:46:23 +0000
-Message-ID: <4AE7B88EC8BA74469869BB7EEB7D66671BF67ADE@g01jpexmbyt23>
-References: <4AE7B88EC8BA74469869BB7EEB7D66671BF656D2@g01jpexmbyt23>
- <20131209234704.GF7396@order.stressinduktion.org>
- <4AE7B88EC8BA74469869BB7EEB7D66671BF674D0@g01jpexmbyt23>
- <20131212010348.GD4675@order.stressinduktion.org>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH v2 15/16] wl1251: Add sysfs file address for setting
+ permanent mac address
+Date: Thu, 12 Dec 2013 11:56:47 +0100
+Message-ID: <20131212105647.GA22471@amd.pavel.ucw.cz>
+References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
+ <201312101814.35112@pali>
+ <1386697762.30202.6.camel@dcbw.foobar.com>
+ <201312101852.17030@pali>
+ <1386796654.1516.268.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>,
+	Dan Williams <dcbw@redhat.com>, Kalle Valo <kvalo@adurom.com>,
+	Luciano Coelho <luca@coelho.fi>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
+	aaro.koskinen@iki.fi, sre@ring0.de, joni.lapilainen@gmail.com,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Felipe Contreras <felipe.contreras@gmail.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:38550 "EHLO
-	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751658Ab3LLKq2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 05:46:28 -0500
-Received: from m1.gw.fujitsu.co.jp (unknown [10.0.50.71])
-	by fgwmail5.fujitsu.co.jp (Postfix) with ESMTP id 887AC3EE166
-	for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 19:46:26 +0900 (JST)
-Received: from smail (m1 [127.0.0.1])
-	by outgoing.m1.gw.fujitsu.co.jp (Postfix) with ESMTP id 7932545DE5C
-	for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 19:46:26 +0900 (JST)
-Received: from s1.gw.fujitsu.co.jp (s1.gw.nic.fujitsu.com [10.0.50.91])
-	by m1.gw.fujitsu.co.jp (Postfix) with ESMTP id 643BF45DE55
-	for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 19:46:26 +0900 (JST)
-Received: from s1.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id 576601DB804C
-	for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 19:46:26 +0900 (JST)
-Received: from g01jpfmpwyt02.exch.g01.fujitsu.local (g01jpfmpwyt02.exch.g01.fujitsu.local [10.128.193.56])
-	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id 04A9EE08004
-	for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 19:46:26 +0900 (JST)
-In-Reply-To: <20131212010348.GD4675@order.stressinduktion.org>
-Content-Language: ja-JP
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:55943 "EHLO
+	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751222Ab3LLK4v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 05:56:51 -0500
+Content-Disposition: inline
+In-Reply-To: <1386796654.1516.268.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBIYW5uZXMgRnJlZGVyaWMgU293
-YSBbbWFpbHRvOmhhbm5lc0BzdHJlc3NpbmR1a3Rpb24ub3JnXQ0KPiBTZW50OiBUaHVyc2RheSwg
-RGVjZW1iZXIgMTIsIDIwMTMgMTA6MDQgQU0NCj4gVG86IEFzYW5vLCBZYXN1c2hpL+a1hemHjiDm
-ga3lj7INCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRD
-SCAxLzFdIGlwdjYgYWRkcmNvbmY6Zml4IHByZWZlcnJlZCBsaWZldGltZQ0KPiBzdGF0ZS1jaGFu
-Z2luZyBiZWhhdmlvciB3aGlsZSB2YWxpZF9sZnQgaXMgaW5maW5pdHkNCj4gSW1wb3J0YW5jZTog
-SGlnaA0KPiANCj4gT24gVGh1LCBEZWMgMTIsIDIwMTMgYXQgMTI6NTg6MTBBTSArMDAwMCwgQXNh
-bm8sIFlhc3VzaGkgd3JvdGU6DQo+ID4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+
-ID4gRnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZw0KPiA+ID4gW21haWx0bzpuZXRk
-ZXYtb3duZXJAdmdlci5rZXJuZWwub3JnXSBPbiBCZWhhbGYgT2YgSGFubmVzIEZyZWRlcmljIFNv
-d2ENCj4gPiA+IFNlbnQ6IFR1ZXNkYXksIERlY2VtYmVyIDEwLCAyMDEzIDg6NDcgQU0NCj4gPiA+
-IFRvOiBBc2FubywgWWFzdXNoaQ0KPiA+ID4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4g
-PiA+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggMS8xXSBpcHY2IGFkZHJjb25mOmZpeCBwcmVmZXJyZWQg
-bGlmZXRpbWUNCj4gPiA+IHN0YXRlLWNoYW5naW5nIGJlaGF2aW9yIHdoaWxlIHZhbGlkX2xmdCBp
-cyBpbmZpbml0eQ0KPiA+ID4gSW1wb3J0YW5jZTogSGlnaA0KPiA+ID4NCj4gPiA+IE9uIE1vbiwg
-RGVjIDA5LCAyMDEzIGF0IDA1OjU0OjM3QU0gKzAwMDAsIEFzYW5vLCBZYXN1c2hpIHdyb3RlOg0K
-PiA+ID4gPiBmcm9tOiBZYXN1c2hpIEFzYW5vICA8eWFzdXNoaS5hc2Fub0BqcC5mdWppdHN1LmNv
-bT4NCj4gPiA+ID4NCj4gPiA+ID4gVGhlcmUgaXMgYSBwcm9ibGVtIHdoZW4gc2V0dGluZyB0aGUg
-bGlmZXRpbWUgb2YgYW4gSVB2NiBhZGRyZXNzLg0KPiA+ID4gPiBXaGVuIEkgc2V0IHByZWZlcnJl
-ZF9sZnQgdG8gYSB2YWx1ZSBub3QgemVybyBvciBpbmZpbml0eSwgd2hpbGUgdmFsaWRfbGZ0DQo+
-ID4gPiBpcyBpbmZpbml0eSgweGZmZmZmZmZmKQ0KPiA+ID4gPiBwcmVmZXJyZWQgbGlmZXRpbWUg
-aXMgc2V0IHRvIGZvcmV2ZXIgYW5kIGRvZXMgbm90IHVwZGF0ZS4NCj4gPiA+ID4gVGhlcmVmb3Jl
-IHByZWZlcnJlZCBsaWZldGltZSBuZXZlciBiZWNvbWVzIGRlcHJlY2F0ZWQuDQo+ID4gPiA+DQo+
-ID4gPiA+IEkgdGhpbmsgdmFsaWQgbGlmZXRpbWUgYW5kIHByZWZlcnJlZCBsaWZldGltZSBzaG91
-bGQgYmUgc2V0DQo+IGluZGVwZW5kZW50bHksDQo+ID4gPiA+IGV2ZW4gaWYgdmFsaWQgbGlmZXRp
-bWUgaXMgaW5maW5pdHksIHByZWZlcnJlZCBsaWZldGltZSBtdXN0IGV4cGlyZQ0KPiA+ID4gY29y
-cmVjdGx5IChtZWFuaW5nIGl0IG11c3QgZXZlbnR1YWxseSBiZWNvbWUgZGVwcmVjYXRlZCkNCj4g
-PiA+ID4NCj4gPiA+ID4gSSBtYWRlIGEgcGF0Y2ggZm9yIDMuMTIgc3RhYmxlIHRvIHNvbHZlIHRo
-ZSBwcm9ibGVtLg0KPiA+ID4NCj4gPiA+IFRoaXMgaW5kZWVkIGNvdWxkIGJlIGltcHJvdmVkLiBU
-aGFua3MgZm9yIHRoZSBwYXRjaC4gQnV0IHlvdSBzaG91bGQNCj4gYmFzZQ0KPiA+ID4gaXQgb24g
-bmV0LW5leHQgc28gaXQgY2FuIGJlIGFwcGxpZWQgYW5kIHBsZWFzZSBjbGVhbiB1cCB0aGUgd2Fy
-bmluZ3MNCj4gPiA+IGFuZCBlcnJvcnMgaWYgeW91IHJ1biB0aGUgcGF0Y2ggdGhyb3VnaCAuL3Nj
-cmlwdHMvY2hlY2twYXRjaCAtLXN0cmljdC4NCj4gPiA+DQo+ID4gPiBUaGFuayB5b3UsDQo+ID4g
-Pg0KPiA+ID4gICBIYW5uZXMNCj4gPiA+DQo+ID4gSSBtYWRlIGEgcGF0Y2ggYmFzZWQgb24gbmV0
-LW5leHQgYW5kIGVtYWlsZWQgTUwgdXNpbmcgZ2l0IHNlbmQtZW1haWwgbGFzdA0KPiBuaWdodC4N
-Cj4gPg0KPiA+IFN1YmplY3Q6IFtQQVRDSCAxLzFdIGlwdjYgYWRkcmNvbmY6Zml4IHByZWZlcnJl
-ZCBsaWZldGltZSBzdGF0ZS1jaGFuZ2luZw0KPiBiZWhhdmlvciB3aGlsZSB2YWxpZF9sZnQgaXMg
-aW5maW5pdHkNCj4gPiBEYXRlOiBXZWQsIDExIERlYyAyMDEzIDE5OjU3OjMyICswOTAwDQo+ID4g
-TWVzc2FnZS1JRDoNCj4gPDEzODY3NTk0NTItMjIxNTktMS1naXQtc2VuZC1lbWFpbC15YXN1c2hp
-LmFzYW5vQGpwLmZ1aml0c3UuY29tPg0KPiA+IFgtTWFpbGVyOiBnaXQtc2VuZC1lbWFpbCAxLjcu
-MTIuNA0KPiA+DQo+ID4gVGhhbmsgeW91IGZvciB5b3VyIHRpbWUgYW5kIGFzc2lzdGFuY2UgcmVn
-YXJkaW5nIHRoaXMgbWF0dGVyLg0KPiA+IFlhc3VzaGkNCj4gDQo+IEh1Y2g/IEkgaGF2ZSBub3Qg
-c2VlbiBhbnl0aGluZyBub3IgaGFzIHBhdGNod29ya3M6DQo+IGh0dHA6Ly9wYXRjaHdvcmsub3ps
-YWJzLm9yZy9wcm9qZWN0L25ldGRldi9saXN0Lw0KPiANCj4gR3JlZXRpbmdzLA0KPiANCj4gICBI
-YW5uZXMNCg0KSSdtIHNvcnJ5LCBJIGNvdWxkbid0IHNlbmQgYW4gZW1haWwgY29ycmVjdGx5Lg0K
-SSB0cmllZCBpdCBhZ2Fpbi4gYnV0IEkgc2VudCB0aGUgZS1tYWlsIHR3aWNlIGJ5IG1pc3Rha2Uu
-IFNvcnJ5IGFnYWluLg0KDQpJIHNlbnQgYSBwYXRjaCBiYXNlZCBvbiAgbmV0LW5leHQNCg0KU3Vi
-amVjdDogW1BBVENIIDEvMV0gaXB2NiBhZGRyY29uZjpmaXggcHJlZmVycmVkIGxpZmV0aW1lIHN0
-YXRlLWNoYW5naW5nIGJlaGF2aW9yIHdoaWxlIHZhbGlkX2xmdCBpcyBpbmZpbml0eQ0KRGF0ZTog
-VGh1LCAxMiBEZWMgMjAxMyAxOToxNTo0NyArMDkwMA0KTWVzc2FnZS1JRDogPDEzODY4NDMzNDct
-MjcyNS0xLWdpdC1zZW5kLWVtYWlsLXlhenplcEBnbWFpbC5jb20+DQoNClRoYW5rIHlvdSBmb3Ig
-eW91ciB0aW1lIGFuZCBhc3Npc3RhbmNlIHJlZ2FyZGluZyB0aGlzIG1hdHRlci4NCllhc3VzaGkN
-Cg0K
+On Wed 2013-12-11 21:17:34, Ben Hutchings wrote:
+> On Tue, 2013-12-10 at 18:52 +0100, Pali Roh=E1r wrote:
+> > On Tuesday 10 December 2013 18:49:22 Dan Williams wrote:
+> > > On Tue, 2013-12-10 at 18:14 +0100, Pali Roh=E1r wrote:
+> > > > On Tuesday 10 December 2013 17:10:50 Pali Roh=E1r wrote:
+> > > > > On Tuesday 10 December 2013 16:49:23 Kalle Valo wrote:
+> > > > > > Pali Roh=E1r <pali.rohar@gmail.com> writes:
+> > > > > > > Driver wl1251 generating mac address randomly at
+> > > > > > > startup and there is no way to set permanent mac
+> > > > > > > address via SET_IEEE80211_PERM_ADDR. This patch
+> > > > > > > export sysfs file which can set permanent mac address
+> > > > > > > by userspace helper program. Patch is needed for
+> > > > > > > devices which do not store mac address in internal
+> > > > > > > wl1251 eeprom.
+> > > > > > >=20
+> > > > > > > Signed-off-by: Pali Roh=E1r <pali.rohar@gmail.com>
+> > > > > >=20
+> > > > > > We have ioctl() command for setting the mac address.
+> > > > >=20
+> > > > > Really? Is there ioctl for setting permanent mac address?
+> > > > > Can you show me it?
+> > > >=20
+> > > > Now I looked at it again and I did not found any ioctl for
+> > > > it. There is only ioctl cmd for getting address, not
+> > > > setting it.
+> > > >=20
+> > > > #define SIOCETHTOOL 0x8946
+> > > >=20
+> > > > /* Get permanent hardware address */
+> > > > #define ETHTOOL_GPERMADDR 0x00000020
+> > >=20
+> > > Yeah, because it's supposed to be permanent and unchanging.=20
+> > > Which means if there was an ioctl for it, that would be
+> > > contrary to the purpose of a permanent MAC address.
+> > >=20
+> > > I realize the N900 stores the WiFi MAC address completely
+> > > differently than many other systems, and that's why this
+> > > sysfs file was created.  I don't really have a great
+> > > converged solution for that, other than what you've currently
+> > > got, or perhaps adding SPERMADDR to ethtool.  One thing I
+> > > *would* like though, is a restriction on the sysfs file such
+> > > that if the permanent MAC is already set, it cannot be set
+> > > again.  Otherwise the permanent MAC address isn't permanent
+> > > at all.
+>=20
+> I'm really uncomfortable with the idea of involving userland in
+> establishing the 'permanent' MAC address.  (And from what I gather, t=
+he
+> Nokia software never did that but only used SIOCSIFHWADDR.)  It ought=
+ to
+> be set before the interface is ever registered.
+
+Which is hard to do on n900. What is the problem with userland setting
+permanent mac address?
+
+It is not used for security or anything...
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses=
+/blog.html
