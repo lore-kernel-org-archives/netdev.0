@@ -1,36 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] ipv6 addrconf:fix preferred lifetime
- state-changing behavior while valid_lft is infinity
-Date: Thu, 12 Dec 2013 12:19:17 -0500 (EST)
-Message-ID: <20131212.121917.1406764940497965422.davem@davemloft.net>
-References: <20131212010348.GD4675@order.stressinduktion.org>
-	<1386842500-2303-1-git-send-email-yasushi.asano@jp.fujitsu.com>
+Subject: Re: [patch net-next v2] ipv6: log autoconfiguration failures
+Date: Thu, 12 Dec 2013 12:22:41 -0500 (EST)
+Message-ID: <20131212.122241.2022824170198915190.davem@davemloft.net>
+References: <1386762314-5149-1-git-send-email-dvlasenk@redhat.com>
+	<20131211192138.GB4675@order.stressinduktion.org>
+	<52A99B56.1070503@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yasushi.asano@jp.fujitsu.com
-To: yazzep@gmail.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, jpirko@redhat.com
+To: dvlasenk@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38410 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38426 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751671Ab3LLRTU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 12:19:20 -0500
-In-Reply-To: <1386842500-2303-1-git-send-email-yasushi.asano@jp.fujitsu.com>
+	with ESMTP id S1751700Ab3LLRWo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 12:22:44 -0500
+In-Reply-To: <52A99B56.1070503@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: yazzep@gmail.com
-Date: Thu, 12 Dec 2013 19:01:40 +0900
+From: Denys Vlasenko <dvlasenk@redhat.com>
+Date: Thu, 12 Dec 2013 12:17:42 +0100
 
-> From: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
-> 
->  Fixed a problem with setting the lifetime of an IPv6
->  address. When setting preferred_lft to a value not zero or
->  infinity, while valid_lft is infinity(0xffffffff) preferred
->  lifetime is set to forever and does not update. Therefore
->  preferred lifetime never becomes deprecated. valid lifetime
->  and preferred lifetime should be set independently, even if
->  valid lifetime is infinity, preferred lifetime must expire
->  correctly (meaning it must eventually become deprecated)
+> I can easily imagine their frustration. Kernel _knows_ why
+> it didn't work, and it's not expected to normally pappen,
+> why didn't it tell anything about it?
 
-Please do not indent your entire commit message with a leading space.
+Packets are dropped silently, ARP fails and entries go stale silently,
+none of this is logged with kernel messages, why is ipv6 autoconf so
+unique and important to justify different behavior?
+
+Give it statistics just like we have for every other kind of similar
+event.
