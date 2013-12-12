@@ -1,62 +1,57 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH] sctp: loading sctp when load sctp_probe
-Date: Thu, 12 Dec 2013 20:32:36 +0800
-Message-ID: <52A9ACE4.3080506@huawei.com>
+From: Qais Yousef <qais.yousef@imgtec.com>
+Subject: [PATCH] net/sched/sch_tbf.c: fix linking error
+Date: Thu, 12 Dec 2013 12:38:56 +0000
+Message-ID: <1386851936-1582-1-git-send-email-qais.yousef@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:18291 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751683Ab3LLMdM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 07:33:12 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Qais Yousef <qais.yousef@imgtec.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <linux-next@vger.kernel.org>
+To: Yang Yingliang <yangyingliang@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-when I modprobe sctp_probe, it failed with "FATAL: ". I found that 
-sctp should load before sctp_probe register jprobe. So I add a
-sctp_setup_jprobe for loading 'sctp' when first failed to register
-jprobe, just do this similar to dccp_probe.
+ERROR: "__udivdi3" [net/sched/sch_tbf.ko] undefined!
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+introduced by: cc106e441a63 (net: sched: tbf: fix the calculation of max_size)
+
+which adds a 64 by 32 bit division without using do_div().
+Fix it by using do_div(len/ 53) instead of len/53.
+
+Signed-off-by: Qais Yousef <qais.yousef@imgtec.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: linux-next@vger.kernel.org
 ---
- net/sctp/probe.c | 13 ++++++++++++-
- 1 file changed, 12 insertions(+), 1 deletion(-)
+We caught this error on linux-next today. This is my quick attemp of a fix.
+If it's not appropriate or doesn't make sense my apologies and feel free to
+resend a better fix :)
 
-diff --git a/net/sctp/probe.c b/net/sctp/probe.c
-index 53c452e..cd9565a 100644
---- a/net/sctp/probe.c
-+++ b/net/sctp/probe.c
-@@ -182,6 +182,17 @@ static struct jprobe sctp_recv_probe = {
- 	.entry	= jsctp_sf_eat_sack,
- };
+ net/sched/sch_tbf.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index a44928c..771cbec 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -131,8 +131,10 @@ static u64 psched_ns_t2l(const struct psched_ratecfg *r,
  
-+static __init int sctp_setup_jprobe(void)
-+{
-+	int ret = register_jprobe(&sctp_recv_probe);
-+
-+	if (ret) {
-+		request_module("sctp");
-+		ret = register_jprobe(&sctp_recv_probe);
+ 	do_div(len, NSEC_PER_SEC);
+ 
+-	if (unlikely(r->linklayer == TC_LINKLAYER_ATM))
+-		len = (len / 53) * 48;
++	if (unlikely(r->linklayer == TC_LINKLAYER_ATM)) {
++		do_div(len, 53);
++		len *= 48;
 +	}
-+	return ret;
-+}
-+
- static __init int sctpprobe_init(void)
- {
- 	int ret = -ENOMEM;
-@@ -202,7 +213,7 @@ static __init int sctpprobe_init(void)
- 			 &sctpprobe_fops))
- 		goto free_kfifo;
  
--	ret = register_jprobe(&sctp_recv_probe);
-+	ret = sctp_setup_jprobe();
- 	if (ret)
- 		goto remove_proc;
- 
+ 	if (len > r->overhead)
+ 		len -= r->overhead;
 -- 
-1.7.12
+1.7.1
