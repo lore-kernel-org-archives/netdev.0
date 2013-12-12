@@ -1,64 +1,69 @@
-From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: cgroup filter on physics interface can't control container
-Date: Thu, 12 Dec 2013 20:18:07 +0800
-Message-ID: <52A9A97F.20902@huawei.com>
-References: <52A52BBF.6030105@huawei.com>
+From: Jacob Appelbaum <jacob@appelbaum.net>
+Subject: Re: [PATCH] TCP: add option for silent port knocking with integrity
+ protection
+Date: Thu, 12 Dec 2013 12:23:54 +0000
+Message-ID: <52A9AADA.5090603@appelbaum.net>
+References: <52A75EF8.3010308@in.tum.de> <20131211.150137.368953964178408437.davem@davemloft.net> <52A8C8B4.4060109@in.tum.de> <20131211122637.75b09074@nehalam.linuxnetplumber.net> <87bo0nulkt.fsf@tassilo.jf.intel.com> <52A8ECF5.3070604@in.tum.de> <20131212012317.GL21717@two.firstfloor.org> <52A98DBF.4090702@appelbaum.net> <52A9A17F.6050505@in.tum.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	honkiko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	"zhangwei\(Jovi\)" <jovi.zhangwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
-	Serge Hallyn <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>, <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <52A52BBF.6030105-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, knock@gnunet.org
+To: Christian Grothoff <grothoff@in.tum.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f182.google.com ([74.125.82.182]:48800 "EHLO
+	mail-we0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751507Ab3LLM2I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 07:28:08 -0500
+Received: by mail-we0-f182.google.com with SMTP id q59so352863wes.13
+        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 04:28:07 -0800 (PST)
+In-Reply-To: <52A9A17F.6050505@in.tum.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ping...
+Christian Grothoff:
+> On 12/12/2013 11:19 AM, Jacob Appelbaum wrote:
+>> I think that generally, I would prefer if the code didn't use MD5 but
+>> otherwise, I don't see any real risk of adding an exploitable hole. It
+>> seems silly to disable it by default though - ideally, I'd like a sysctl
+>> to ensure that Tor could use this without making the user recompile
+>> their kernel. That is more of a pain than running a userspace helper, I
+>> think.
+>>
+>> All the best,
+>> Jacob
+> 
+> Given that the output is truncated to 32 bits and that performance (SYN
+> flood) is also a concern, AND that the original TCP SQN generation is
+> also MD5-based (and we want to look the same), what disadvantage do you
+> see over MD5?  Given the truncation to 32 bits, I don't think a stronger
+> hash would do anything for us.
 
-On 2013/12/9 10:32, Libo Chen wrote:
-> hello network hackers,
+If we believe that MD5 is not secure, we should not use it. That others
+use it is not a strong reason to use it. Everyone should stop using MD5
+- especially truncated MD5. :)
+
 > 
-> 	A linux container was builded with veth pair(veth0 inside container, veth1 outside container),
+> As for it being disabled by default, we did this with respect to
+> kernel submission guidelines which we understood said that features
+> should _initially_ always be submitted with disabled-by-default
+> (presumably so that until they have stabilized, nobody is harmed
+> unless they explicitly activate the code).
 > 
-> the config as below:
-> 
->   lxc.network.type = veth
->   lxc.network.flags = up
->   lxc.network.link = br0  // base on eth0
->   lxc.network.name = eth0
->   lxc.network.ipv4 = 128.5.130.26/24
-> 
-> then I use tc command with cgroup filter on veth0, it works well. But when setting on eth0, it doesn`t work.
-> 
-> The reason is dev_forward_skb() in veth_xmit will call skb_scrub_packet and clean all information including skb->sk
-> in the skb, so if cls_cgroup_classify is working in serving softirq state, it will return failer, see below:
-> 
-> 	if (in_serving_softirq()) {
-> 		/* If there is an sk_classid we'll use that. */
-> 		if (!skb->sk)
-> 			return -1;
-> 		classid = skb->sk->sk_classid;
-> 	}
-> 
-> 
-> Qdisc with cgroup filter on physics interface can not control a container network, it is disappointed.
-> 
-> we can save sk_classid before skb_scrub_packet and restore it after that. Is it reasonable?  or any way to achieve this?
-> 
-> thanks,
-> Libo
-> 
+
+I think that is a fine reason at submission time but this should not be
+the default state for very long.
+
+> I don't see the point in having a sysctl, as applications have to
+> explicitly request it anyway.
+
+To have it supported and to have it enabled in the kernel are not
+exactly the same thing. It would be nice if it was available to everyone
+by default (likely with some CAP) and to enable it on a systemwide
+basis, one could simply flip a sysctl. One also needs to use it in an
+application, obviously.
+
+All the best,
+Jacob
