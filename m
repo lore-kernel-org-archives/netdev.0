@@ -1,64 +1,70 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/15] i40e: Tell the stack about our actual number of queues
-Date: Thu, 12 Dec 2013 04:40:41 -0800
-Message-ID: <1386852051-27907-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/15] i40e: use same number of queues as CPUs
+Date: Thu, 12 Dec 2013 04:40:44 -0800
+Message-ID: <1386852051-27907-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1386852051-27907-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:4524 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751711Ab3LLMlB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Dec 2013 07:41:01 -0500
+	id S1751685Ab3LLMlD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Dec 2013 07:41:03 -0500
 In-Reply-To: <1386852051-27907-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Call the netif_set_real* functions in order to make sure
-the stack knows about how many queues we have, in order
-for RFS/RPS/XFS to work correctly.
+The current driver default sets the number of transmit/receive
+queue pairs based on the current node's CPU count.
 
-Change-Id: Ib7a7b2792f80c5eef210dedf42cc6607d63953d2
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+A better method is to use the total number of CPUs in the system
+to suggest the number of queue pairs, which aligns better with
+the behavior of ixgbe, and also with the expectations of the
+kernel XPS and other subsystems in the stack.
+
+Change-Id: If3e20c7f100f13e51d69762594d948f247ffe0c8
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 591a6e3..ea9ef27 100644
+index 909b341..b94783f 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -3969,6 +3969,15 @@ static int i40e_open(struct net_device *netdev)
- 	if (err)
- 		goto err_setup_rx;
+@@ -5404,7 +5404,7 @@ static int i40e_init_msix(struct i40e_pf *pf)
+ 	/* The number of vectors we'll request will be comprised of:
+ 	 *   - Add 1 for "other" cause for Admin Queue events, etc.
+ 	 *   - The number of LAN queue pairs
+-	 *        already adjusted for the NUMA node
++	 *        already adjusted for the number of cpus in the system
+ 	 *        assumes symmetric Tx/Rx pairing
+ 	 *   - The number of VMDq pairs
+ 	 * Once we count this up, try the request.
+@@ -5731,8 +5731,7 @@ static int i40e_sw_init(struct i40e_pf *pf)
+ 				 pf->hw.func_caps.num_tx_qp);
+ 	if (pf->hw.func_caps.rss) {
+ 		pf->flags |= I40E_FLAG_RSS_ENABLED;
+-		pf->rss_size = min_t(int, pf->rss_size_max,
+-				     nr_cpus_node(numa_node_id()));
++		pf->rss_size = min_t(int, pf->rss_size_max, num_online_cpus());
+ 	} else {
+ 		pf->rss_size = 1;
+ 	}
+@@ -7067,7 +7066,7 @@ static u16 i40e_set_rss_size(struct i40e_pf *pf, int queues_left)
+ 	int num_tc0;
  
-+	/* Notify the stack of the actual queue counts. */
-+	err = netif_set_real_num_tx_queues(netdev, pf->num_tx_queues);
-+	if (err)
-+		goto err_set_queues;
-+
-+	err = netif_set_real_num_rx_queues(netdev, pf->num_rx_queues);
-+	if (err)
-+		goto err_set_queues;
-+
- 	err = i40e_up_complete(vsi);
- 	if (err)
- 		goto err_up_complete;
-@@ -3985,6 +3994,7 @@ static int i40e_open(struct net_device *netdev)
+ 	num_tc0 = min_t(int, queues_left, pf->rss_size_max);
+-	num_tc0 = min_t(int, num_tc0, nr_cpus_node(numa_node_id()));
++	num_tc0 = min_t(int, num_tc0, num_online_cpus());
+ 	num_tc0 = rounddown_pow_of_two(num_tc0);
  
- err_up_complete:
- 	i40e_down(vsi);
-+err_set_queues:
- 	i40e_vsi_free_irq(vsi);
- err_setup_rx:
- 	i40e_vsi_free_rx_resources(vsi);
+ 	return num_tc0;
 -- 
 1.8.3.1
