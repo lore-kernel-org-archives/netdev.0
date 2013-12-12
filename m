@@ -1,65 +1,49 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 0/2] Display adjacent switch port's attributes
-Date: Thu, 12 Dec 2013 22:00:51 +0000
-Message-ID: <1386885651.1516.321.camel@bwh-desktop.uk.level5networks.com>
-References: <1386768540-48188-1-git-send-email-raspl@linux.vnet.ibm.com>
-	 <20131211121357.4742d9e8@nehalam.linuxnetplumber.net>
-	 <52A9C0BE.5090801@linux.vnet.ibm.com>
-	 <20131212.122801.1249371766101769652.davem@davemloft.net>
-	 <52A9F7CD.5050904@intel.com>
-	 <CAGVrzcb47oUAn-5S=DpQkgPbMAwmBrfjUmfJroYiYX8mmRuORg@mail.gmail.com>
-	 <52AA2EF4.70300@intel.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next RFC 0/5] xen-netback: TX grant mapping instead
+ of copy
+Date: Thu, 12 Dec 2013 22:08:15 +0000
+Message-ID: <52AA33CF.6030004@citrix.com>
+References: <1383094220-14775-1-git-send-email-zoltan.kiss@citrix.com>		 <1383303035.672.29.camel@kazak.uk.xensource.com>		 <5273FA37.6020903@citrix.com>	 <1383821563.26213.168.camel@kazak.uk.xensource.com>	 <52977F5C.7090703@citrix.com> <1385660592.20209.27.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	<raspl@linux.vnet.ibm.com>, "David Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	<blaschka@linux.vnet.ibm.com>, netdev <netdev@vger.kernel.org>,
-	<linux-s390@vger.kernel.org>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:6052 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751566Ab3LLWA4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 17:00:56 -0500
-In-Reply-To: <52AA2EF4.70300@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1385660592.20209.27.camel@kazak.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-12-12 at 13:47 -0800, John Fastabend wrote:
-> [...]
-> 
-> >> Just to elaborate...
-> >>
-> >> Any application using lldp information will want to get events when
-> >> TLVs change. Maybe you can contrive ethtool to do this but its going to
-> >> be ugly. Netlink can support multicast events and applications can
-> >> register for them. Also netlink's TLV format matches nicely with LLDPs
-> >> TLV format.
-> >
-> > ethtool and netlink usually intersect for a few bits of information
-> > such as link status for instance. It is useful to have this
-> > information twice, with ethtool as a debugging aid, and via netlink to
-> > take appropriate actions.
-> >
-> > Maybe we just need to be clear on what needs to be present in ethtool
-> > only (configuration, static information) and see on a case-by-case
-> > what needs to be present in both ethtool and netlink?
-> >
-> 
-> OK if there is an enable/disable bit in ethtool that might make some
-> sense. Or an error flag that is helpful to have.
-> 
-> In this case we are dealing with peer attributes which are dynamic and
-> in my opinion should go into netlink and duplicating them in ethtool
-> although possible doesn't seem very useful to me.
+On 28/11/13 17:43, Ian Campbell wrote:
+> On Thu, 2013-11-28 at 17:37 +0000, Zoltan Kiss wrote:
+> Routing/firewalling domUs is as valid as bridging. There is nothing in
+> the slightest bit suboptimal about it.
+>
+> If this use case regresses with this approach then I'm afraid that
+> either needs to be addressed or a different approach considered.
+>
+>> Anyway, I will try this out, and see if it really copies everything, and
+>> get some numbers as well.
+>
+> Thanks.
 
-I agree with this - rtnetlink seems to make more sense.
+Now I managed to try it out. As I expected, Dom0 does copy the mapped 
+page. The peak throuhput I could get was 6.6 Gbps, however it could keep 
+that only for short periods, I guess when the unmapping was ideally 
+batched. The average was 5.53.
+On the same machine the same 10 min iperf session, without my patches 
+made the peak 5.9 while the average was 5.65. Do you think it is an 
+acceptable regression?
+I used 3.12 Dom0 and guest kernel, the guest transmitted though a 10Gb 
+card to a bare metal box.
+I plan to look further if we can avoid somehow this:
 
-Ben.
+https://lkml.org/lkml/2012/7/20/363
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+So then this scenario can benefit from grant mapping.
+
+Regards,
+
+Zoli
