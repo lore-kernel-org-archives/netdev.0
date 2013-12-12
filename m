@@ -1,65 +1,61 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH] net: Cache route in IP tunnels
-Date: Thu, 12 Dec 2013 12:19:41 -0800
-Message-ID: <CA+mtBx9GNG3XuyczBAJT4o2FnRBbHTV5U6PYnAJA1gf84ExeNQ@mail.gmail.com>
-References: <alpine.DEB.2.02.1312112207400.27914@tomh.mtv.corp.google.com>
-	<1386833838.19078.45.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20131212.135433.87781160683841713.davem@davemloft.net>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next v2 2/2] net: ovs: use CRC32 accelerated flow hash
+ if available
+Date: Thu, 12 Dec 2013 12:20:14 -0800
+Message-ID: <CAEP_g=-JBT_XVvwSa4xOwVoTysoL0Z8zJc-ERSHJc96+qrA99Q@mail.gmail.com>
+References: <1386860946-1621-1-git-send-email-ffusco@redhat.com> <1386860946-1621-3-git-send-email-ffusco@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Thomas Graf <tgraf@redhat.com>
+To: Francesco Fusco <ffusco@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:49709 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751708Ab3LLUTl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 15:19:41 -0500
-Received: by mail-ie0-f180.google.com with SMTP id tp5so1456154ieb.39
-        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 12:19:41 -0800 (PST)
-In-Reply-To: <20131212.135433.87781160683841713.davem@davemloft.net>
+Received: from na3sys009aog114.obsmtp.com ([74.125.149.211]:52492 "HELO
+	na3sys009aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751554Ab3LLUUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 15:20:35 -0500
+Received: by mail-ig0-f175.google.com with SMTP id j1so139845iga.2
+        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 12:20:34 -0800 (PST)
+In-Reply-To: <1386860946-1621-3-git-send-email-ffusco@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 12, 2013 at 10:54 AM, David Miller <davem@davemloft.net> wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 11 Dec 2013 23:37:18 -0800
+On Thu, Dec 12, 2013 at 7:09 AM, Francesco Fusco <ffusco@redhat.com> wrote:
+> Currently OVS uses jhash2() for calculating flow hashes in its
+> internal flow_hash() function. The performance of the flow_hash()
+> function is critical, as the input data can be hundreds of bytes
+> long.
 >
->> On Wed, 2013-12-11 at 22:17 -0800, Tom Herbert wrote:
->>> Avoid doing a route lookup on every packet being tunneled.
->>>
->>> In ip_tunnel.c cache the route returned from ip_route_output if
->>> the tunnel is "connected", that is all the routing parameters are
->>> taken from tunnel parms for a packet. Specifically, not NBMA tunnel
->>> and tos is from tunnel parms (not inner packet).
->>>
->>> Signed-off-by: Tom Herbert <therbert@google.com>
->>> ---
->>
->> Replacing per cpu dst (nh_pcpu_rth_output) with a single shared dst is
->> not going to be better on SMP.
->>
->> Do you have any performance data using multiqueue NIC, with say 32 cpus
->> and 32 TX queues ?
->>
->> I suspect a high false sharing on dst refcount.
+> OVS is largely deployed in x86_64 based datacenters.  Therefore,
+> we argue that the performance critical fast path of OVS should
+> exploit underlying CPU features in order to reduce the per packet
+> processing costs. We replace jhash2 with the hash implementation
+> provided by the kernel hash lib, which exploits the crc32l
+> instruction to achieve high performance
 >
-> First off I'm glad someone looked into this, I've been meaning to play
-> with this for a while.
+> Our patch greatly reduces the hash footprint from ~200 cycles of
+> jhash2() to around ~90 cycles in case of ovs_flow_hash_crc()
+> (measured with rdtsc over maximum length flow keys on an i7 Intel
+> CPU).
 >
-> Secondly, Eric's concern is valid but we should keep in mind that IPV6
-> tunnels do this kind of caching already so if it's undesirable we
-> should perhaps undo the caching there too.
+> Additionally, we wrote a microbenchmark to stress the flow table
+> performance. The benchmark inserts random flows into the flow
+> hash and then performs lookups. Our hash deployed on a CRC32
+> capable CPU reduces the lookup for 1000 flows, 100 masks from
+> ~10,100us to ~6,700us, for example.
 >
-We could also use a per CPU dst cache in the tunnel. Might be
-reasonable if people aren't configuring thousands of tunnels.
+> Thus, simply use the newly introduced arch_fast_hash2() as a
+> drop-in replacement.
+>
+> Signed-off-by: Francesco Fusco <ffusco@redhat.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Thomas Graf <tgraf@redhat.com>
 
-> But honestly I suspect that doing a lookup every packet is more
-> expensive than false sharing on a cache entry, but I'm happy to be
-> proven wrong :)
+Acked-by: Jesse Gross <jesse@nicira.com>
 
-My performance runs were inconclusive, but I assumed that caching in
-the tunnel would scale better with larger numbers of routes.
-
-btw, I needed to disable gro on the tun interface. With it enabled,
-performance in TCP_RR is abysmal. Looking into that.
+Out of curiosity, did you try using crc32q? OVS data structures are
+already aligned to 8 bytes. It would also be interesting to know if a
+parallelized implementation is worthwhile, although my guess is that
+the OVS flow key is not quite long enough.
