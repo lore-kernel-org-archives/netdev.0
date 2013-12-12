@@ -1,75 +1,69 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: loading sctp when load sctp_probe
-Date: Thu, 12 Dec 2013 08:54:06 -0500
-Message-ID: <20131212135406.GA783@hmsreliant.think-freely.org>
-References: <52A9ACE4.3080506@huawei.com>
+From: Stefan Raspl <raspl@linux.vnet.ibm.com>
+Subject: Re: [PATCH 0/2] Display adjacent switch port's attributes
+Date: Thu, 12 Dec 2013 14:57:18 +0100
+Message-ID: <52A9C0BE.5090801@linux.vnet.ibm.com>
+References: <1386768540-48188-1-git-send-email-raspl@linux.vnet.ibm.com> <20131211121357.4742d9e8@nehalam.linuxnetplumber.net>
+Reply-To: raspl@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Wang Weidong <wangweidong1@huawei.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, bhutchings@solarflare.com,
+	blaschka@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:54675 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750989Ab3LLNya (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 08:54:30 -0500
-Content-Disposition: inline
-In-Reply-To: <52A9ACE4.3080506@huawei.com>
+Received: from e06smtp10.uk.ibm.com ([195.75.94.106]:45410 "EHLO
+	e06smtp10.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751492Ab3LLN5Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 08:57:24 -0500
+Received: from /spool/local
+	by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <raspl@linux.vnet.ibm.com>;
+	Thu, 12 Dec 2013 13:57:22 -0000
+In-Reply-To: <20131211121357.4742d9e8@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 12, 2013 at 08:32:36PM +0800, Wang Weidong wrote:
-> when I modprobe sctp_probe, it failed with "FATAL: ". I found that 
-> sctp should load before sctp_probe register jprobe. So I add a
-> sctp_setup_jprobe for loading 'sctp' when first failed to register
-> jprobe, just do this similar to dccp_probe.
+Am 11.12.2013 21:13, schrieb Stephen Hemminger:
+> On Wed, 11 Dec 2013 14:28:58 +0100
+> Stefan Raspl <raspl@linux.vnet.ibm.com> wrote:
 > 
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
-> ---
->  net/sctp/probe.c | 13 ++++++++++++-
->  1 file changed, 12 insertions(+), 1 deletion(-)
+>> This patch series adds a new callback for ethtool to display the adjacent switch
+>> port's attributes, as perceived by the NIC, e.g. through respective LLDP message
+>> exchanges.
+>> A patch for the qeth device driver provides a sample exploiter for the new
+>> functionality.
+>> A new option for ethtool to display the settings will be posted in a separate
+>> patch.
+>>
+>> Best regards,
+>> Stefan Raspl
+>>
+>> Stefan Raspl (2):
+>>   ethtool: Add callback to indicate adjacent switch port attributes
+>>   qeth: Display adjacent switch port attributes in ethtool
+>>
+>>  drivers/s390/net/qeth_core.h      |  7 ++++
+>>  drivers/s390/net/qeth_core_main.c | 79 +++++++++++++++++++++++++++++++++++++++
+>>  drivers/s390/net/qeth_core_mpc.h  | 17 +++++++++
+>>  drivers/s390/net/qeth_l2_main.c   |  1 +
+>>  drivers/s390/net/qeth_l3_main.c   |  1 +
+>>  include/linux/ethtool.h           |  3 ++
+>>  include/uapi/linux/ethtool.h      | 35 +++++++++++++++++
+>>  net/core/ethtool.c                | 22 +++++++++++
+>>  8 files changed, 165 insertions(+)
+>>
 > 
-> diff --git a/net/sctp/probe.c b/net/sctp/probe.c
-> index 53c452e..cd9565a 100644
-> --- a/net/sctp/probe.c
-> +++ b/net/sctp/probe.c
-> @@ -182,6 +182,17 @@ static struct jprobe sctp_recv_probe = {
->  	.entry	= jsctp_sf_eat_sack,
->  };
->  
-> +static __init int sctp_setup_jprobe(void)
-> +{
-> +	int ret = register_jprobe(&sctp_recv_probe);
-> +
-> +	if (ret) {
-> +		request_module("sctp");
-> +		ret = register_jprobe(&sctp_recv_probe);
-> +	}
-> +	return ret;
-> +}
-> +
->  static __init int sctpprobe_init(void)
->  {
->  	int ret = -ENOMEM;
-> @@ -202,7 +213,7 @@ static __init int sctpprobe_init(void)
->  			 &sctpprobe_fops))
->  		goto free_kfifo;
->  
-> -	ret = register_jprobe(&sctp_recv_probe);
-> +	ret = sctp_setup_jprobe();
->  	if (ret)
->  		goto remove_proc;
->  
-> -- 
-> 1.7.12
-> 
-> 
-> 
-You need to check the return code of request_module.  if sctp.ko doesn't exist,
-you'll hit exactly the same problem.
+> Why more ethtool and not netlink? ethtool is a brittle interface, non-extensible
+> and does not support notifications of changes.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-You might consider also adding a MODULE_SOFTDEP macro in to the patch, so that
-the dependency is clearly visible in userspace to modprobe.
-
-Neil
+I agree, netlink would certainly be nice. But ethtool is the
+de-facto standard for now, and there doesn't seem to be a
+netlink-based alternative in sight - or is there?
+Offering a netlink based tool seems to be a different discussion,
+and if that takes shape, existing ethtool functionality (including
+this series) can and should be migrated.
