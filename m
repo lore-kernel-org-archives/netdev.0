@@ -1,7 +1,8 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v6 4/11] bonding: rebuild the lock use for bond_loadbalance_arp_mon()
-Date: Fri, 13 Dec 2013 10:19:50 +0800
-Message-ID: <52AA6EC6.9000402@huawei.com>
+Subject: [PATCH net-next v6 7/11] bonding: remove unwanted lock for bond enslave
+ and release
+Date: Fri, 13 Dec 2013 10:20:07 +0800
+Message-ID: <52AA6ED7.9050702@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,87 +13,144 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:28466 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751797Ab3LMCV5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 21:21:57 -0500
+Received: from szxga01-in.huawei.com ([119.145.14.64]:10708 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751776Ab3LMCWM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 21:22:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond_loadbalance_arp_mon() use the bond lock to protect the
-bond slave list, it is no effect, so I could use RTNL or RCU to
-replace it, considering the performance impact, the RCU is more
-better here, so the bond lock replace with the RCU.
+The bond_change_active_slave() and bond_select_active_slave()
+do't need bond lock anymore, so remove the unwanted bond lock
+for these two functions.
 
-The bond_select_active_slave() need RTNL and curr_slave_lock
-together, but there is no RTNL lock here, so add a rtnl_rtylock.
+The bond_select_active_slave() will release and acquire
+curr_slave_lock, so the curr_slave_lock need to protect
+the function.
+
+In bond enslave and bond release, the bond slave list is also
+protected by RTNL, so bond lock is no need to exist, remove
+the lock and clean the functions.
 
 Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
 Suggested-by: Veaceslav Falico <vfalico@redhat.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/bonding/bond_main.c | 18 ++++++++++++------
- 1 file changed, 12 insertions(+), 6 deletions(-)
+ drivers/net/bonding/bond_main.c | 27 ++++++---------------------
+ 1 file changed, 6 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index ab55429..1f5e709 100644
+index bad1bf9..1b1dd01 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -2415,12 +2415,12 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
- 	struct list_head *iter;
- 	int do_failover = 0;
+@@ -1589,11 +1589,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	bond_set_carrier(bond);
  
--	read_lock(&bond->lock);
--
- 	if (!bond_has_slaves(bond))
- 		goto re_arm;
- 
--	oldcurrent = bond->curr_active_slave;
-+	rcu_read_lock();
-+
-+	oldcurrent = ACCESS_ONCE(bond->curr_active_slave);
- 	/* see if any of the previous devices are up now (i.e. they have
- 	 * xmt and rcv traffic). the curr_active_slave does not come into
- 	 * the picture unless it is null. also, slave->jiffies is not needed
-@@ -2429,7 +2429,7 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
- 	 * TODO: what about up/down delay in arp mode? it wasn't here before
- 	 *       so it can wait
- 	 */
--	bond_for_each_slave(bond, slave, iter) {
-+	bond_for_each_slave_rcu(bond, slave, iter) {
- 		unsigned long trans_start = dev_trans_start(slave->dev);
- 
- 		if (slave->link != BOND_LINK_UP) {
-@@ -2491,7 +2491,14 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
- 			bond_arp_send_all(bond, slave);
+ 	if (USES_PRIMARY(bond->params.mode)) {
+-		read_lock(&bond->lock);
+ 		write_lock_bh(&bond->curr_slave_lock);
+ 		bond_select_active_slave(bond);
+ 		write_unlock_bh(&bond->curr_slave_lock);
+-		read_unlock(&bond->lock);
  	}
  
-+	rcu_read_unlock();
-+
- 	if (do_failover) {
-+		/* the bond_select_active_slave must hold RTNL
-+		 * and curr_slave_lock for write.
-+		 */
-+		if (!rtnl_trylock())
-+			goto re_arm;
- 		block_netpoll_tx();
+ 	pr_info("%s: enslaving %s as a%s interface with a%s link.\n",
+@@ -1613,19 +1611,13 @@ err_detach:
+ 		bond_hw_addr_flush(bond_dev, slave_dev);
+ 
+ 	vlan_vids_del_by_dev(slave_dev, bond_dev);
+-	write_lock_bh(&bond->lock);
+ 	if (bond->primary_slave == new_slave)
+ 		bond->primary_slave = NULL;
+ 	if (bond->curr_active_slave == new_slave) {
+-		bond_change_active_slave(bond, NULL);
+-		write_unlock_bh(&bond->lock);
+-		read_lock(&bond->lock);
+ 		write_lock_bh(&bond->curr_slave_lock);
++		bond_change_active_slave(bond, NULL);
+ 		bond_select_active_slave(bond);
+ 		write_unlock_bh(&bond->curr_slave_lock);
+-		read_unlock(&bond->lock);
+-	} else {
+-		write_unlock_bh(&bond->lock);
+ 	}
+ 	slave_disable_netpoll(new_slave);
+ 
+@@ -1690,20 +1682,16 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	}
+ 
+ 	block_netpoll_tx();
+-	write_lock_bh(&bond->lock);
+ 
+ 	slave = bond_get_slave_by_dev(bond, slave_dev);
+ 	if (!slave) {
+ 		/* not a slave of this bond */
+ 		pr_info("%s: %s not enslaved\n",
+ 			bond_dev->name, slave_dev->name);
+-		write_unlock_bh(&bond->lock);
+ 		unblock_netpoll_tx();
+ 		return -EINVAL;
+ 	}
+ 
+-	write_unlock_bh(&bond->lock);
+-
+ 	/* release the slave from its bond */
+ 	bond->slave_cnt--;
+ 
+@@ -1721,6 +1709,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 		 */
+ 		bond_3ad_unbind_slave(slave);
+ 	}
++	write_unlock_bh(&bond->lock);
+ 
+ 	pr_info("%s: releasing %s interface %s\n",
+ 		bond_dev->name,
+@@ -1743,8 +1732,11 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	if (bond->primary_slave == slave)
+ 		bond->primary_slave = NULL;
+ 
+-	if (oldcurrent == slave)
++	if (oldcurrent == slave) {
++		write_lock_bh(&bond->curr_slave_lock);
+ 		bond_change_active_slave(bond, NULL);
++		write_unlock_bh(&bond->curr_slave_lock);
++	}
+ 
+ 	if (bond_is_lb(bond)) {
+ 		/* Must be called only after the slave has been
+@@ -1752,9 +1744,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 		 * has been cleared (if our_slave == old_current),
+ 		 * but before a new active slave is selected.
+ 		 */
+-		write_unlock_bh(&bond->lock);
+ 		bond_alb_deinit_slave(bond, slave);
+-		write_lock_bh(&bond->lock);
+ 	}
+ 
+ 	if (all) {
+@@ -1765,15 +1755,11 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 		 * is no concern that another slave add/remove event
+ 		 * will interfere.
+ 		 */
+-		write_unlock_bh(&bond->lock);
+-		read_lock(&bond->lock);
  		write_lock_bh(&bond->curr_slave_lock);
  
-@@ -2499,14 +2506,13 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
+ 		bond_select_active_slave(bond);
  
  		write_unlock_bh(&bond->curr_slave_lock);
- 		unblock_netpoll_tx();
-+		rtnl_unlock();
+-		read_unlock(&bond->lock);
+-		write_lock_bh(&bond->lock);
  	}
  
- re_arm:
- 	if (bond->params.arp_interval)
- 		queue_delayed_work(bond->wq, &bond->arp_work,
- 				   msecs_to_jiffies(bond->params.arp_interval));
--
--	read_unlock(&bond->lock);
- }
+ 	if (!bond_has_slaves(bond)) {
+@@ -1788,7 +1774,6 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 		}
+ 	}
  
- /*
+-	write_unlock_bh(&bond->lock);
+ 	unblock_netpoll_tx();
+ 	synchronize_rcu();
+ 
 -- 
-1.8.2.1
+1.8.0
