@@ -1,92 +1,94 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next 3/6] openvswitch: Drop user features if old user space attempted to create datapath
-Date: Fri, 13 Dec 2013 15:22:19 +0100
-Message-ID: <e28d8f29aaa038bf4bc98abfc5a4cf054a07586d.1386943635.git.tgraf@suug.ch>
-References: <cover.1386943635.git.tgraf@suug.ch>
-Cc: dev@openvswitch.org, eric.dumazet@gmail.com, fleitner@redhat.com,
-	ffusco@redhat.com, dborkmann@redhat.com, bhutchings@solarflare.com,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: jesse@nicira.com
+From: Wang Weidong <weidong1991.wang@gmail.com>
+Subject: Re: [PATCH v2] sctp: loading sctp when load sctp_probe
+Date: Fri, 13 Dec 2013 22:41:11 +0800
+Message-ID: <52AB1C87.2010808@gmail.com>
+References: <52AA783A.7090502@huawei.com> <20131213122605.GA23384@hmsreliant.think-freely.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:43935 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752744Ab3LMOWm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 09:22:42 -0500
-In-Reply-To: <cover.1386943635.git.tgraf@suug.ch>
-In-Reply-To: <cover.1386943635.git.tgraf@suug.ch>
-References: <cover.1386943635.git.tgraf@suug.ch>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:39391 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752723Ab3LMOlY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 09:41:24 -0500
+In-Reply-To: <20131213122605.GA23384@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Drop user features if an outdated user space instance that does not
-understand the concept of user_features attempted to create a new
-datapath.
+From: Wang weidong <wangweidong1@huawei.com>
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- include/uapi/linux/openvswitch.h | 10 +++++++++-
- net/openvswitch/datapath.c       | 21 +++++++++++++++++++++
- 2 files changed, 30 insertions(+), 1 deletion(-)
+On 2013/12/13 20:26, Neil Horman wrote:
+> On Fri, Dec 13, 2013 at 11:00:10AM +0800, Wang Weidong wrote:
+>> when I modprobe sctp_probe, it failed with "FATAL: ". I found that
+>> sctp should load before sctp_probe register jprobe. So I add a
+>> sctp_setup_jprobe for loading 'sctp' when first failed to register
+>> jprobe, just do this similar to dccp_probe.
+>>
+>> v2: add MODULE_SOFTDEP and check of request_module, as suggested by Neil
+>>
+>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+>> ---
+>>   net/sctp/probe.c | 17 ++++++++++++++++-
+>>   1 file changed, 16 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/sctp/probe.c b/net/sctp/probe.c
+>> index 53c452e..5e68b94 100644
+>> --- a/net/sctp/probe.c
+>> +++ b/net/sctp/probe.c
+>> @@ -38,6 +38,7 @@
+>>   #include <net/sctp/sctp.h>
+>>   #include <net/sctp/sm.h>
+>>
+>> +MODULE_SOFTDEP("pre: sctp");
+>>   MODULE_AUTHOR("Wei Yongjun <yjwei@cn.fujitsu.com>");
+>>   MODULE_DESCRIPTION("SCTP snooper");
+>>   MODULE_LICENSE("GPL");
+>> @@ -182,6 +183,20 @@ static struct jprobe sctp_recv_probe = {
+>>   	.entry	= jsctp_sf_eat_sack,
+>>   };
+>>
+>> +static __init int sctp_setup_jprobe(void)
+>> +{
+>> +	int ret = register_jprobe(&sctp_recv_probe);
+>> +
+>> +	if (ret) {
+>> +		if (request_module("sctp"))
+>> +			goto out;
+>> +		ret = register_jprobe(&sctp_recv_probe);
+>> +	}
+>> +
+>> +out:
+>> +	return ret;
+>> +}
+>> +
+>>   static __init int sctpprobe_init(void)
+>>   {
+>>   	int ret = -ENOMEM;
+>> @@ -202,7 +217,7 @@ static __init int sctpprobe_init(void)
+>>   			 &sctpprobe_fops))
+>>   		goto free_kfifo;
+>>
+>> -	ret = register_jprobe(&sctp_recv_probe);
+>> +	ret = sctp_setup_jprobe();
+> You don't need to create your own function for this, you can collapse it down to
+> a call to try_then_request_module(regitser_jprobe(...), "sctp");
+> Neil
+>
+It looks good. Thanks. I will try to use it and fix in v3.
 
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index 07ef2c3..970553c 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -40,7 +40,15 @@ struct ovs_header {
- 
- #define OVS_DATAPATH_FAMILY  "ovs_datapath"
- #define OVS_DATAPATH_MCGROUP "ovs_datapath"
--#define OVS_DATAPATH_VERSION 0x1
-+
-+/* V2:
-+ *   - API users are expected to provide OVS_DP_ATTR_USER_FEATURES
-+ *     when creating the datapath.
-+ */
-+#define OVS_DATAPATH_VERSION 2
-+
-+/* First OVS datapath version to support features */
-+#define OVS_DP_VER_FEATURES 2
- 
- enum ovs_datapath_cmd {
- 	OVS_DP_CMD_UNSPEC,
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 95d4424..8eaa39a 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -1175,6 +1175,18 @@ static struct datapath *lookup_datapath(struct net *net,
- 	return dp ? dp : ERR_PTR(-ENODEV);
- }
- 
-+static void ovs_dp_reset_user_features(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct datapath *dp;
-+
-+	dp = lookup_datapath(sock_net(skb->sk), info->userhdr, info->attrs);
-+	if (!dp)
-+		return;
-+
-+	WARN(dp->user_features, "Dropping previously announced user features\n");
-+	dp->user_features = 0;
-+}
-+
- static void ovs_dp_change(struct datapath *dp, struct nlattr **a)
- {
- 	if (a[OVS_DP_ATTR_USER_FEATURES])
-@@ -1247,6 +1259,15 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
- 		if (err == -EBUSY)
- 			err = -EEXIST;
- 
-+		if (err == -EEXIST) {
-+			/* An outdated user space instance that does not understand
-+			 * the concept of user_features has attempted to create a new
-+			 * datapath and is likely to reuse it. Drop all user features.
-+			 */
-+			if (info->genlhdr->version < OVS_DP_VER_FEATURES)
-+				ovs_dp_reset_user_features(skb, info);
-+		}
-+
- 		goto err_destroy_ports_array;
- 	}
- 
--- 
-1.8.3.1
+Regards.
+Wang
+
+>
+>>   	if (ret)
+>>   		goto remove_proc;
+>>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
