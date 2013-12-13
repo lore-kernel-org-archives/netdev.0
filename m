@@ -1,36 +1,46 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next v3 6/6] net_sched: convert tcf_hashinfo to hlist
- and use rcu
-Date: Fri, 13 Dec 2013 13:44:45 -0800
-Message-ID: <CAM_iQpXNBdbtcu6gp5oDFLFW3BYHi7NGAC0ztsYGtVViRuM8MA@mail.gmail.com>
+Subject: Re: [PATCH net-next v3 1/6] net_sched: remove get_stats from tc_action_ops
+Date: Fri, 13 Dec 2013 13:50:17 -0800
+Message-ID: <CAM_iQpXBGouT+rj=QscwtiNCGdnNi=mJq4Df7xbkgygnMQEEMg@mail.gmail.com>
 References: <1386913673-8210-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1386913673-8210-7-git-send-email-xiyou.wangcong@gmail.com>
-	<1386917330.19078.141.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1386913673-8210-2-git-send-email-xiyou.wangcong@gmail.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B7489@saturn3.aculab.com>
+	<CAM_iQpVgo+nxN3eTRg_F9u+-k4ML+D3ZqsrAEOeLZwtU6dOk3g@mail.gmail.com>
+	<52AB7BC6.9050503@mojatatu.com>
+	<CAM_iQpWq64+Ae-ZESxGxGMLeFE2tRJeBGF+6E0-w5Qer2zk+3g@mail.gmail.com>
+	<52AB7ECB.30702@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
+Cc: David Laight <David.Laight@aculab.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:51812 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751407Ab3LMVoq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 16:44:46 -0500
-Received: by mail-ob0-f180.google.com with SMTP id wo20so2554806obc.39
-        for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 13:44:45 -0800 (PST)
-In-Reply-To: <1386917330.19078.141.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-oa0-f51.google.com ([209.85.219.51]:54887 "EHLO
+	mail-oa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750958Ab3LMVuS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 16:50:18 -0500
+Received: by mail-oa0-f51.google.com with SMTP id i7so2762665oag.10
+        for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 13:50:18 -0800 (PST)
+In-Reply-To: <52AB7ECB.30702@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 12, 2013 at 10:48 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2013-12-12 at 21:47 -0800, Cong Wang wrote:
->> So that we don't need to play with singly linked list
->> and of course we can use RCU+spinlock instead of rwlock
->> now.
+On Fri, Dec 13, 2013 at 1:40 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 12/13/13 16:34, Cong Wang wrote:
 >
-> Just replace the rwlock by spinlock, no need for RCU ?
+>> But no in-tree module implements it....
+>
+>
+> So? It is an API that is in there and expected by user space.
 
+I must miss something here...
 
-Good point! It seems this hash list is not on hot path, I think
-just spinlock should be enough.
+Before this patch:
+
+        if (a->ops != NULL && a->ops->get_stats != NULL)
+                if (a->ops->get_stats(skb, a) < 0)
+                        goto errout;
+
+since ->get_stats is always NULL,  after we remove it, no behavior
+is changed. So, how could this affect user-space?
