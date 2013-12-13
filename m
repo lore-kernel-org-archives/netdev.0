@@ -1,61 +1,31 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [PATCH] ipvs: avoid oops in nf_ct_seqadj_set when called from
-	ip_vs_ftp helper
-Date: Fri, 13 Dec 2013 22:37:48 +0100
-Message-ID: <20131213214023.14478.74738.stgit@dragon>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v3 1/6] net_sched: remove get_stats from tc_action_ops
+Date: Fri, 13 Dec 2013 16:40:27 -0500
+Message-ID: <52AB7ECB.30702@mojatatu.com>
+References: <1386913673-8210-1-git-send-email-xiyou.wangcong@gmail.com>	<1386913673-8210-2-git-send-email-xiyou.wangcong@gmail.com>	<AE90C24D6B3A694183C094C60CF0A2F6026B7489@saturn3.aculab.com>	<CAM_iQpVgo+nxN3eTRg_F9u+-k4ML+D3ZqsrAEOeLZwtU6dOk3g@mail.gmail.com>	<52AB7BC6.9050503@mojatatu.com> <CAM_iQpWq64+Ae-ZESxGxGMLeFE2tRJeBGF+6E0-w5Qer2zk+3g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	"Patrick McHardy" <kaber@trash.net>
-To: Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>,
-	lvs-devel@vger.kernel.org
+Cc: David Laight <David.Laight@aculab.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53784 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752524Ab3LMViH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Dec 2013 16:38:07 -0500
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:59628 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750930Ab3LMVk3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 16:40:29 -0500
+Received: by mail-ie0-f172.google.com with SMTP id qd12so3731145ieb.3
+        for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 13:40:28 -0800 (PST)
+In-Reply-To: <CAM_iQpWq64+Ae-ZESxGxGMLeFE2tRJeBGF+6E0-w5Qer2zk+3g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The IPVS FTP helper ip_vs_ftp can trigger an OOPS in nf_ct_seqadj_set,
-after commit 41d73ec053d2 (netfilter: nf_conntrack: make sequence
-number adjustments usuable without NAT).
+On 12/13/13 16:34, Cong Wang wrote:
 
-We can avoid the oops in nf_ct_seqadj_set() by in ip_vs_ftp_out()
-instead of calling nf_nat_mangle_tcp_packet() we simply call
-__nf_nat_mangle_tcp_packet() with a "false" last parameter, which
-indicate not invoking the seqadj code.
+> But no in-tree module implements it....
 
-After this fix, I've tested that FTP over IPVS, with module ip_vs_ftp
-loaded, works for both passive and active FTP.
+So? It is an API that is in there and expected by user space.
 
-Fixes: 41d73ec053d2 (netfilter: nf_conntrack: make sequence number adjustments usuable without NAT)
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-
----
-I'm uncertain if this is the correct fix.  Perhaps the ip_vs_ftp
-helper need to allocate/init the seqadj extension instead?
-
- net/netfilter/ipvs/ip_vs_ftp.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-index 77c1732..b8f9573 100644
---- a/net/netfilter/ipvs/ip_vs_ftp.c
-+++ b/net/netfilter/ipvs/ip_vs_ftp.c
-@@ -268,10 +268,10 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
- 			 * packet.
- 			 */
- 			rcu_read_lock();
--			ret = nf_nat_mangle_tcp_packet(skb, ct, ctinfo,
-+			ret = __nf_nat_mangle_tcp_packet(skb, ct, ctinfo,
- 						       iph->ihl * 4,
- 						       start-data, end-start,
--						       buf, buf_len);
-+						       buf, buf_len, false);
- 			rcu_read_unlock();
- 			if (ret) {
- 				ip_vs_nfct_expect_related(skb, ct, n_cp,
+cheers,
+jamal
