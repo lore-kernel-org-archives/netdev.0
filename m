@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net 2/3] bonding: protect port for bond_3ad_adapter_duplex_changed()
-Date: Fri, 13 Dec 2013 17:29:24 +0800
-Message-ID: <52AAD374.1000008@huawei.com>
+Subject: [PATCH net 0/3] bonding: add port protection for bond_3ad_xxx_change()
+Date: Fri, 13 Dec 2013 17:29:15 +0800
+Message-ID: <52AAD36B.40103@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -11,63 +11,33 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:38764 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751495Ab3LMJaI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 04:30:08 -0500
+Received: from szxga03-in.huawei.com ([119.145.14.66]:58366 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751618Ab3LMJag (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 04:30:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jay Vosburgh said that the bond_3ad_adapter_duplex_changed is
-called with RTNL only, and the function will modify the port's
-information with no further locking, it will not mutex against
-bond state machine and incoming LACPDU which do not hold RTNL,
-So I add __get_state_machine_lock to protect the port.
+Jay Vosburgh said that the bond_3ad_adapter_speed_changed and 
+bond_3ad_adapter_duplex_changed is called with RTNL only, and
+the functions will modify the port's information with no further
+locking, they will not mutex against bond state machine and
+incoming LACPDU which do not hold RTNL, So I add port lock to
+protect the port information.
 
-But it is not a critical bug, it exist since day one, and till
-now it has never been hit and reported, because changes to
-speed is very rare, and will not occur critical problem.
+But they are not critical bugs, they exist since day one, and till
+now they have never been hit and reported, because change for speed
+and duplex is very rare, and will not occur critical problem.
 
-The comments in the function is very old, cleanup it.
+The comments in the function is very old, cleanup the comments together.
 
-Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/bonding/bond_3ad.c | 11 ++++++++---
- 1 file changed, 8 insertions(+), 3 deletions(-)
+Ding Tianhong (3):
+  bonding: protect port for bond_3ad_adapter_speed_changed()
+  bonding: protect port for bond_3ad_adapter_duplex_changed()
+  bonding: protect port for bond_3ad_handle_link_change()
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 6405ce3..e851a67 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2234,20 +2234,25 @@ void bond_3ad_adapter_duplex_changed(struct slave *slave)
- 
- 	port = &(SLAVE_AD_INFO(slave).port);
- 
--	// if slave is null, the whole port is not initialized
-+	/* if slave is null, the whole port is not initialized */
- 	if (!port->slave) {
- 		pr_warning("%s: Warning: duplex changed for uninitialized port on %s\n",
- 			   slave->bond->dev->name, slave->dev->name);
- 		return;
- 	}
- 
-+	__get_state_machine_lock(port);
-+
- 	port->actor_admin_port_key &= ~AD_DUPLEX_KEY_BITS;
- 	port->actor_oper_port_key = port->actor_admin_port_key |=
- 		__get_duplex(port);
- 	pr_debug("Port %d changed duplex\n", port->actor_port_number);
--	// there is no need to reselect a new aggregator, just signal the
--	// state machines to reinitialize
-+	/* there is no need to reselect a new aggregator, just signal the
-+	 * state machines to reinitialize
-+	 */
- 	port->sm_vars |= AD_PORT_BEGIN;
-+
-+	__release_state_machine_lock(port);
- }
- 
- /**
+ drivers/net/bonding/bond_3ad.c | 45 +++++++++++++++++++++++++++++++-----------
+ 1 file changed, 33 insertions(+), 12 deletions(-)
+
 -- 
 1.8.0
