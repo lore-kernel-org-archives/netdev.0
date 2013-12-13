@@ -1,61 +1,57 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Mark Brown <broonie@kernel.org>
 Subject: Re: ipv6: fix headroom calculation in udp6_ufo_fragment
-Date: Fri, 13 Dec 2013 14:34:53 +0100
-Message-ID: <20131213133453.GB7332@order.stressinduktion.org>
+Date: Fri, 13 Dec 2013 13:42:05 +0000
+Message-ID: <20131213134205.GB11044@sirena.org.uk>
 References: <D00A5DFD97C44C4D820FC3A847C5D5750730630F@IRVEXCHMB14.corp.ad.broadcom.com>
+ <20131213133453.GB7332@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: 'Pravin B Shelar' <pshelar@nicira.com>,
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="41bjdpi19TcwJlr2"
+To: Mark Hambleton <mark.hambleton@broadcom.com>,
+	'Pravin B Shelar' <pshelar@nicira.com>,
 	'Saran Neti' <Saran.Neti@telus.com>,
 	"'David S. Miller'" <davem@davemloft.net>,
 	'Greg Kroah-Hartman' <gregkh@linuxfoundation.org>,
-	"Mark Brown (broonie@linaro.org)" <broonie@linaro.org>,
 	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
 	"'stable@vger.kernel.org'" <stable@vger.kernel.org>
-To: Mark Hambleton <mark.hambleton@broadcom.com>
 Return-path: <stable-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <D00A5DFD97C44C4D820FC3A847C5D5750730630F@IRVEXCHMB14.corp.ad.broadcom.com>
+In-Reply-To: <20131213133453.GB7332@order.stressinduktion.org>
 Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 13, 2013 at 01:01:59PM +0000, Mark Hambleton wrote:
-> Hi, 
-> 
-> Following a recent commit to LTS and upstream  I see the following warning emitted on an ARM32 build:
-> 
-> net/ipv6/udp_offload.c: In function 'udp6_ufo_fragment':
-> net/ipv6/udp_offload.c:88:22: error: comparison between pointer and integer [-Werror]
->   if (skb->mac_header < (tnl_hlen + frag_hdr_sz)) {
->                       ^
-> cc1: all warnings being treated as errors
-> make[2]: *** [net/ipv6/udp_offload.o] Error 1
-> make[1]: *** [net/ipv6] Error 2
-> 
->  The commit made the following changes:
-> 
-> -       if (skb_headroom(skb) < (tnl_hlen + frag_hdr_sz)) {
-> +       if (skb->mac_header < (tnl_hlen + frag_hdr_sz)) {
-> 
-> Now, because of some defines in skbuff.h :
-> 
-> #if BITS_PER_LONG > 32
-> #define NET_SKBUFF_DATA_USES_OFFSET 1
-> #endif
-> 
-> #ifdef NET_SKBUFF_DATA_USES_OFFSET
-> typedef unsigned int sk_buff_data_t;
-> #else
-> typedef unsigned char *sk_buff_data_t;
-> #endif
-> 
-> On an ARM32 system sk_buff_data_t would be a pointer (long being 32 bits), meaning that skb->mac_header is a pointer and that  you are comparing a pointer against a length, which doesn't look like it is correct to me?
-> 
-> I can see how this works when NET_SKBUFF_DATA_USES_OFFSET is defined, but is there a way to do this that works for both cases?
 
-Sorry, I don't know which version the LTS kernel is. Upstream does not use
-sk_buff_data_t for mac_header any more.
+--41bjdpi19TcwJlr2
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Something like that might help:
+On Fri, Dec 13, 2013 at 02:34:53PM +0100, Hannes Frederic Sowa wrote:
 
-(skb_mac_header(skb) < skb->head + tnl_hlen + frag_hdr_sz)
+> Sorry, I don't know which version the LTS kernel is. Upstream does not use
+> sk_buff_data_t for mac_header any more.
+
+This is with v3.10.
+
+--41bjdpi19TcwJlr2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBAgAGBQJSqw6qAAoJELSic+t+oim9HLgQAIQSOaRtx3Lv4UxsuZzLMf0T
+TIn51Jam9Xr1O6ztSwXclPXxhi02diwK+RPhYuJnUiOxSPURazrqO+h48O2r36D0
+dS9UTqLw3x5wZzRAbAKK1yJR1ODjR2vYnERQ4s/vKAcSwWTXRR/bciGV3l4xYN3e
+vDf12Jif8bjftgc4fulTK/QDg2puOCFAtX4Jc1aus7wqpq2W0KhO6j/VoU1g39iF
+y+mzUY4SJTl2GkNAkQz2HHtB0ToouppNH13hzeh4xA+RFgWzQKnuyayi48QO61aa
+9k2OGlA42sKaicdEjdFVbFDTOoIF65tYNbGuvoK3pyx/Zq29BJf/+5mFiPuLjWO+
+8e5dleuMR8Mkb0VhVfIIhsX57WNE/4A5PklgO7onHOMeI5OgSejEB3u2Z5JQWaj5
+e+y3f6paoKNVxFU6mztSJc8LA+5JEZryrcy+0fcKj/zrcdRyG6xDF7VQp3AE5qEr
+rKrx1SX0UpHuUACHz1XH+kQyqBvwy6M0oXEk0NyAeD+82M4uP2A4XRtHNO8jBXao
+YJHOo/W9Vc3Dp/MbpcZv4TjDp9pPlHFZUOmkr/pyxSI6g2aM1ff5Zzav4WJhwvye
+1DaPskk4L6GKIBzfzealfrR0wpYcrlF+ILFbFVsorzqRJndn5ibF4ovbM/FVj7vW
+6GPCtkjjrpMYNqavDZ17
+=+ZL8
+-----END PGP SIGNATURE-----
+
+--41bjdpi19TcwJlr2--
