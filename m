@@ -1,64 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: remove a bogus TSO split
-Date: Fri, 13 Dec 2013 06:54:09 -0800
-Message-ID: <1386946449.19078.147.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1386876523.19078.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CADVnQymwaUNVgzqM97vfb=nfMFzVWmK8wR7fQ8Wm3i_c8+Z0jA@mail.gmail.com>
+From: Mark Hambleton <mark.hambleton@broadcom.com>
+Subject: RE: ipv6: fix headroom calculation in udp6_ufo_fragment
+Date: Fri, 13 Dec 2013 15:00:37 +0000
+Message-ID: <D00A5DFD97C44C4D820FC3A847C5D575073065F5@IRVEXCHMB14.corp.ad.broadcom.com>
+References: <D00A5DFD97C44C4D820FC3A847C5D5750730630F@IRVEXCHMB14.corp.ad.broadcom.com>
+ <20131213133453.GB7332@order.stressinduktion.org>
+ <20131213134205.GB11044@sirena.org.uk>
+ <20131213141227.GC7332@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Van Jacobson <vanj@google.com>
-To: Neal Cardwell <ncardwell@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:48084 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752825Ab3LMOyL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 09:54:11 -0500
-Received: by mail-pa0-f46.google.com with SMTP id kl14so117876pab.19
-        for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 06:54:11 -0800 (PST)
-In-Reply-To: <CADVnQymwaUNVgzqM97vfb=nfMFzVWmK8wR7fQ8Wm3i_c8+Z0jA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: 'Pravin B Shelar' <pshelar@nicira.com>,
+	'Saran Neti' <Saran.Neti@telus.com>,
+	"'David S. Miller'" <davem@davemloft.net>,
+	'Greg Kroah-Hartman' <gregkh@linuxfoundation.org>,
+	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
+	"'stable@vger.kernel.org'" <stable@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Mark Brown <broonie@kernel.org>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20131213141227.GC7332@order.stressinduktion.org>
+Content-Language: en-US
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-12-13 at 09:15 -0500, Neal Cardwell wrote:
-
-> Seems like a nice improvement, but if we apply this patch then AFAICT
-> to get the Nagle-enabled case right we also have to update
-> tcp_minshall_update() to notice these new non-MSS-aligned segments
-> going out, and count those as non-full-size segments for the
-> minshall-nagle check (to ensure we have no more than one outstanding
-> un-ACKed sub-MSS packet). Maybe something like (please excuse the
-> formatting):
-> 
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 70e55d2..a2ec237 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -980,7 +980,8 @@ bool tcp_is_cwnd_limited(const struct sock *sk,
-> u32 in_flight);
->  static inline void tcp_minshall_update(struct tcp_sock *tp, unsigned int mss,
->                                        const struct sk_buff *skb)
->  {
-> -       if (skb->len < mss)
-> +       if (skb->len < mss ||
-> +           tcp_skb_pcount(skb) * tcp_skb_mss(skb) > skb->len)
->                 tp->snd_sml = TCP_SKB_CB(skb)->end_seq;
->  }
-
-Very good point Neal, but dont you think tcp_skb_mss(skb) is equal to
-mss at this point ? (We normally have synced with tso_segs =
-tcp_init_tso_segs(sk, skb, mss_now);)
-
-(Just trying to make this code more understandable...)
-
-Also I think we should move this helper out of include/net/tcp.h, we
-only use it from tcp_output.c
-
-I'll submit a v2, rewording the comment in front of
-tcp_mss_split_point()
-
-Thanks
+VGhhbmtzIQ0KDQpUaGF0IGZpeGVzIHRoZSB3YXJuaW5nIGFuZCBsb29rcyBsaWtlIGl0IHdpbGwg
+d29yay4NCg0KTWFyaw0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogSGFubmVz
+IEZyZWRlcmljIFNvd2EgW21haWx0bzpoYW5uZXNAc3RyZXNzaW5kdWt0aW9uLm9yZ10gDQpTZW50
+OiAxMyBEZWNlbWJlciAyMDEzIDE0OjEyDQpUbzogTWFyayBCcm93bg0KQ2M6IE1hcmsgSGFtYmxl
+dG9uOyAnUHJhdmluIEIgU2hlbGFyJzsgJ1NhcmFuIE5ldGknOyAnRGF2aWQgUy4gTWlsbGVyJzsg
+J0dyZWcgS3JvYWgtSGFydG1hbic7ICduZXRkZXZAdmdlci5rZXJuZWwub3JnJzsgJ3N0YWJsZUB2
+Z2VyLmtlcm5lbC5vcmcnDQpTdWJqZWN0OiBSZTogaXB2NjogZml4IGhlYWRyb29tIGNhbGN1bGF0
+aW9uIGluIHVkcDZfdWZvX2ZyYWdtZW50DQoNCk9uIEZyaSwgRGVjIDEzLCAyMDEzIGF0IDAxOjQy
+OjA1UE0gKzAwMDAsIE1hcmsgQnJvd24gd3JvdGU6DQo+IE9uIEZyaSwgRGVjIDEzLCAyMDEzIGF0
+IDAyOjM0OjUzUE0gKzAxMDAsIEhhbm5lcyBGcmVkZXJpYyBTb3dhIHdyb3RlOg0KPiANCj4gPiBT
+b3JyeSwgSSBkb24ndCBrbm93IHdoaWNoIHZlcnNpb24gdGhlIExUUyBrZXJuZWwgaXMuIFVwc3Ry
+ZWFtIGRvZXMgbm90IHVzZQ0KPiA+IHNrX2J1ZmZfZGF0YV90IGZvciBtYWNfaGVhZGVyIGFueSBt
+b3JlLg0KPiANCj4gVGhpcyBpcyB3aXRoIHYzLjEwLg0KDQpUaGUgY2hhbmdlIGhhcHBlbmQgaW4g
+My4xMS4gU28gSSBndWVzcyBpdCB3YXMgYW4gb3ZlcnNpZ2h0IHdoaWxlIGJhY2twb3J0aW5nLg0K
+Rm9sbG93aW5nIHBhdGNoIHNob3VsZCBoZWxwIGFuZCBzaG91bGQgZ2V0IGJhY2twb3J0ZWQgdG8g
+YWxsIHN0YWJsZSBrZXJuZWxzDQo8PSAzLjEwLg0KDQpbUEFUQ0ggc3RhYmxlXSBpcHY2OiBmaXgg
+aWxsZWdhbCBtYWNfaGVhZGVyIGNvbXBhcmlzb24gb24gMzJiaXQNCg0KU2lnbmVkLW9mZi1ieTog
+SGFubmVzIEZyZWRlcmljIFNvd2EgPGhhbm5lc0BzdHJlc3NpbmR1a3Rpb24ub3JnPg0KLS0tDQoN
+ClBhdGNoIGludGVuZGVkIGZvciBzdGFibGUga2VybmVsIDw9IDMuMTAuDQoNCiBuZXQvaXB2Ni91
+ZHBfb2ZmbG9hZC5jIHwgMiArLQ0KIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgMSBk
+ZWxldGlvbigtKQ0KDQpkaWZmIC0tZ2l0IGEvbmV0L2lwdjYvdWRwX29mZmxvYWQuYyBiL25ldC9p
+cHY2L3VkcF9vZmZsb2FkLmMNCmluZGV4IGU3MzU5ZjkuLmUxNWEzNTcgMTAwNjQ0DQotLS0gYS9u
+ZXQvaXB2Ni91ZHBfb2ZmbG9hZC5jDQorKysgYi9uZXQvaXB2Ni91ZHBfb2ZmbG9hZC5jDQpAQCAt
+OTAsNyArOTAsNyBAQCBzdGF0aWMgc3RydWN0IHNrX2J1ZmYgKnVkcDZfdWZvX2ZyYWdtZW50KHN0
+cnVjdCBza19idWZmICpza2IsDQogDQogCQkvKiBDaGVjayBpZiB0aGVyZSBpcyBlbm91Z2ggaGVh
+ZHJvb20gdG8gaW5zZXJ0IGZyYWdtZW50IGhlYWRlci4gKi8NCiAJCXRubF9obGVuID0gc2tiX3Ru
+bF9oZWFkZXJfbGVuKHNrYik7DQotCQlpZiAoc2tiLT5tYWNfaGVhZGVyIDwgKHRubF9obGVuICsg
+ZnJhZ19oZHJfc3opKSB7DQorCQlpZiAoc2tiX21hY19oZWFkZXIoc2tiKSA8IHNrYi0+aGVhZCAr
+IHRubF9obGVuICsgZnJhZ19oZHJfc3opIHsNCiAJCQlpZiAoZ3NvX3Bza2JfZXhwYW5kX2hlYWQo
+c2tiLCB0bmxfaGxlbiArIGZyYWdfaGRyX3N6KSkNCiAJCQkJZ290byBvdXQ7DQogCQl9DQotLSAN
+CjEuOC4zLjENCg0KDQoNCg==
