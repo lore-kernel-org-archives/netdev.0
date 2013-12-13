@@ -1,45 +1,83 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next v3 1/6] net_sched: remove get_stats from tc_action_ops
-Date: Fri, 13 Dec 2013 10:21:42 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7489@saturn3.aculab.com>
-References: <1386913673-8210-1-git-send-email-xiyou.wangcong@gmail.com> <1386913673-8210-2-git-send-email-xiyou.wangcong@gmail.com>
+From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Subject: Re: [PATCH RFC] ipv6: stable privacy addresses
+Date: Fri, 13 Dec 2013 11:33:23 +0100
+Message-ID: <52AAE273.7070806@enst-bretagne.fr>
+References: <20131213085549.GA3685@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "Jamal Hadi Salim" <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: "Cong Wang" <xiyou.wangcong@gmail.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fgont@si6networks.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:60505 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752188Ab3LMKWv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 05:22:51 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 02978-01 for <netdev@vger.kernel.org>;
- Fri, 13 Dec 2013 10:22:48 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1386913673-8210-2-git-send-email-xiyou.wangcong@gmail.com>
+Received: from fourcot.fr ([217.70.191.14]:48155 "EHLO olfflo.fourcot.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752582Ab3LMKd1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Dec 2013 05:33:27 -0500
+In-Reply-To: <20131213085549.GA3685@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Cong Wang
+
+> This is a preview for the interface I envison for IPv6 stable privacy
+> addresses.
+
+
+Great!
+
+> +stable_address_secret - UNSIGNED LONG
+> +	If stable privacy addresses are enabled then on the first
+> +	write to this file link-local addresses are generated and
+> +	router solicitions are send out. The generated addresses are
+
+s/solicitions/solicitations/
+
+> +	based on this secret.  If the same secret is reused across
+> +	reboots the generated addresses will be the same.
+> +
+
+Do you not provide a configuration via netlink for the secret?
+
+
+> +idgen_delay - INTEGER
+> +	Seconds to delay another attempt to generate a stable privacy address.
+
+Perhaps s/Seconds/Milliseconds/ ?
+
+
+
+> +config IPV6_ADDRESS_GEN_MODE_STABLE_PRIVACY_V1
+> +       bool "Stable privacy address generation v1"
+> +       help
+> +         Stable privacy address generation mode v1. Further
+> +         information can be found here:
+> +	 http://tools.ietf.org/html/draft-ietf-6man-stable-privacy-addresses-16
+> +
+> +	 This option may need support from distributions to install
+> +	 the stable secret early at boot up (otherwise link-local
+> +	 addresses will be generated too late). If you don't have
+> +	 services depending on link-local addresses on boot-up you can
+> +	 activate this mode and install the stable secret any time
+> +	 later by hand by writing it to
+> +	 /proc/sys/net/ipv6/stable_privacy_secret.
+> +
+
+Here is your documentation inconsistent with before. The right file is
+probably /proc/sys/net/ipv6/stable_address_secret
+
+You configuration is for all interfaces the same, isn't? I would like a
+configuration possibility per interface, to mix EUI64 and stable privacy
+addresses on the same device.
+
+In the same way, the configuration of the secret per interface could be
+useful (simple example: two NIC on the same LAN).
+
+
+> -static void addrconf_dad_stop(struct inet6_ifaddr *ifp, int dad_failed)
+> +static void addrconf_dad_stop(struct inet6_ifaddr *ifp, bool dad_failed)
 > 
-> It is not used.
-...
-> --- a/include/net/act_api.h
-> +++ b/include/net/act_api.h
-> @@ -72,7 +72,6 @@ struct tc_action_ops {
->  	__u32 	capab;  /* capabilities includes 4 bit version */
->  	struct module		*owner;
->  	int     (*act)(struct sk_buff *, const struct tc_action *, struct tcf_result *);
-> -	int     (*get_stats)(struct sk_buff *, struct tc_action *);
->  	int     (*dump)(struct sk_buff *, struct tc_action *, int, int);
->  	int     (*cleanup)(struct tc_action *, int bind);
->  	int     (*lookup)(struct tc_action *, u32);
 
-Deleting a field out of the middle of a list of function pointers
-seems dangerous.
+The passage of dad_failed from int to bool is not directly connected
+with this feature, can you maybe split it in another patch?
 
-	David
+
+Florent.
