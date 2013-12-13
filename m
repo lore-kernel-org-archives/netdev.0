@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v6 3/11] bonding: rebuild the lock use for bond_alb_monitor()
-Date: Fri, 13 Dec 2013 10:19:45 +0800
-Message-ID: <52AA6EC1.4070104@huawei.com>
+Subject: [PATCH net-next v6 2/11] bonding: rebuild the lock use for bond_mii_monitor()
+Date: Fri, 13 Dec 2013 10:19:39 +0800
+Message-ID: <52AA6EBB.1080201@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,111 +12,111 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:10739 "EHLO
+Received: from szxga01-in.huawei.com ([119.145.14.64]:11372 "EHLO
 	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751303Ab3LMCWQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 21:22:16 -0500
+	with ESMTP id S1751776Ab3LMCXh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 21:23:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond_alb_monitor use bond lock to protect the bond slave list,
-it is no effect here, we need to use RTNL or RCU to replace bond lock,
-the bond_alb_monitor will called 10 times one second, RTNL may loss
-performance here, so I replace bond lock with RCU to protect the
-bond slave list, also the RTNL is preserved, the logic of the monitor
-did not changed.
+The bond_mii_monitor() still use bond lock to protect bond slave list,
+it is no effect, I have 2 way to fix the problem, move the RTNL to the
+top of the function, or add RCU to protect the bond slave list,
+according to the Jay Vosburgh's opinion, 10 times one second is a
+truely big performance loss if use RTNL to protect the whole monitor,
+so I would take the advice and use RCU to protect the bond slave list.
 
-Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
+The bond_has_slave() will not protect by anything, there will no things
+happen if the slave list is be changed, unless the bond was free, but
+it will not happened before the monitor, the bond will closed before
+be freed.
+
+The peers notify for the bond will calling curr_active_slave, so
+derefence the slave to make sure we will accessing the same slave
+if the curr_active_slave changed, as the rcu dereference need in
+read-side critical sector and bond_change_active_slave() will call
+it with no RCU hold,  so add peer notify in rcu_read_lock which
+will be nested in monitor.
+
 Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
 Suggested-by: Veaceslav Falico <vfalico@redhat.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/bonding/bond_alb.c | 22 +++++++++-------------
- 1 file changed, 9 insertions(+), 13 deletions(-)
+ drivers/net/bonding/bond_main.c | 24 +++++++++++-------------
+ 1 file changed, 11 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 1fae915..8a85064 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -816,7 +816,7 @@ static void rlb_rebalance(struct bonding *bond)
- 	for (; hash_index != RLB_NULL_INDEX;
- 	     hash_index = client_info->used_next) {
- 		client_info = &(bond_info->rx_hashtbl[hash_index]);
--		assigned_slave = rlb_next_rx_slave(bond);
-+		assigned_slave = __rlb_next_rx_slave(bond);
- 		if (assigned_slave && (client_info->slave != assigned_slave)) {
- 			client_info->slave = assigned_slave;
- 			client_info->ntt = 1;
-@@ -1495,14 +1495,14 @@ void bond_alb_monitor(struct work_struct *work)
- 	struct list_head *iter;
- 	struct slave *slave;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 7d007d1..93b6eaa 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -815,7 +815,11 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+ 
+ static bool bond_should_notify_peers(struct bonding *bond)
+ {
+-	struct slave *slave = bond->curr_active_slave;
++	struct slave *slave;
++
++	rcu_read_lock();
++	slave = rcu_dereference(bond->curr_active_slave);
++	rcu_read_unlock();
+ 
+ 	pr_debug("bond_should_notify_peers: bond %s slave %s\n",
+ 		 bond->dev->name, slave ? slave->dev->name : "NULL");
+@@ -1919,7 +1923,7 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 
+ 	ignore_updelay = !bond->curr_active_slave ? true : false;
+ 
+-	bond_for_each_slave(bond, slave, iter) {
++	bond_for_each_slave_rcu(bond, slave, iter) {
+ 		slave->new_link = BOND_LINK_NOCHANGE;
+ 
+ 		link_state = bond_check_dev_link(bond, slave->dev, 0);
+@@ -2117,41 +2121,35 @@ void bond_mii_monitor(struct work_struct *work)
+ 	bool should_notify_peers = false;
+ 	unsigned long delay;
  
 -	read_lock(&bond->lock);
 -
- 	if (!bond_has_slaves(bond)) {
- 		bond_info->tx_rebalance_counter = 0;
- 		bond_info->lp_counter = 0;
+ 	delay = msecs_to_jiffies(bond->params.miimon);
+ 
+ 	if (!bond_has_slaves(bond))
  		goto re_arm;
- 	}
  
 +	rcu_read_lock();
 +
- 	bond_info->tx_rebalance_counter++;
- 	bond_info->lp_counter++;
+ 	should_notify_peers = bond_should_notify_peers(bond);
  
-@@ -1515,7 +1515,7 @@ void bond_alb_monitor(struct work_struct *work)
- 		 */
- 		read_lock(&bond->curr_slave_lock);
+ 	if (bond_miimon_inspect(bond)) {
+-		read_unlock(&bond->lock);
++		rcu_read_unlock();
  
--		bond_for_each_slave(bond, slave, iter)
-+		bond_for_each_slave_rcu(bond, slave, iter)
- 			alb_send_learning_packets(slave, slave->dev->dev_addr);
- 
- 		read_unlock(&bond->curr_slave_lock);
-@@ -1528,7 +1528,7 @@ void bond_alb_monitor(struct work_struct *work)
- 
- 		read_lock(&bond->curr_slave_lock);
- 
--		bond_for_each_slave(bond, slave, iter) {
-+		bond_for_each_slave_rcu(bond, slave, iter) {
- 			tlb_clear_slave(bond, slave, 1);
- 			if (slave == bond->curr_active_slave) {
- 				SLAVE_TLB_INFO(slave).load =
-@@ -1552,11 +1552,9 @@ void bond_alb_monitor(struct work_struct *work)
- 			 * dev_set_promiscuity requires rtnl and
- 			 * nothing else.  Avoid race with bond_close.
- 			 */
--			read_unlock(&bond->lock);
--			if (!rtnl_trylock()) {
--				read_lock(&bond->lock);
-+			rcu_read_unlock();
-+			if (!rtnl_trylock())
- 				goto re_arm;
--			}
- 
- 			bond_info->rlb_promisc_timeout_counter = 0;
- 
-@@ -1568,7 +1566,7 @@ void bond_alb_monitor(struct work_struct *work)
- 			bond_info->primary_is_promisc = 0;
- 
- 			rtnl_unlock();
+ 		/* Race avoidance with bond_close cancel of workqueue */
+ 		if (!rtnl_trylock()) {
 -			read_lock(&bond->lock);
-+			rcu_read_lock();
+ 			delay = 1;
+ 			should_notify_peers = false;
+ 			goto re_arm;
  		}
  
- 		if (bond_info->rlb_rebalance) {
-@@ -1590,11 +1588,9 @@ void bond_alb_monitor(struct work_struct *work)
- 			}
- 		}
- 	}
+-		read_lock(&bond->lock);
 -
-+	rcu_read_unlock();
+ 		bond_miimon_commit(bond);
+ 
+-		read_unlock(&bond->lock);
+ 		rtnl_unlock();	/* might sleep, hold no other locks */
+-		read_lock(&bond->lock);
+-	}
++	} else
++		rcu_read_unlock();
+ 
  re_arm:
- 	queue_delayed_work(bond->wq, &bond->alb_work, alb_delta_in_ticks);
--
--	read_unlock(&bond->lock);
- }
+ 	if (bond->params.miimon)
+ 		queue_delayed_work(bond->wq, &bond->mii_work, delay);
  
- /* assumption: called before the slave is attached to the bond
+-	read_unlock(&bond->lock);
+-
+ 	if (should_notify_peers) {
+ 		if (!rtnl_trylock())
+ 			return;
 -- 
-1.8.2.1
+1.8.0
