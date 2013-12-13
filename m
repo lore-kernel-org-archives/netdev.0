@@ -1,182 +1,41 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next v2 1/9] xen-netback: Introduce TX grant map
- definitions
-Date: Fri, 13 Dec 2013 19:14:23 +0000
-Message-ID: <20131213191423.GA12582@zion.uk.xensource.com>
-References: <1386892097-15502-1-git-send-email-zoltan.kiss@citrix.com>
- <1386892097-15502-2-git-send-email-zoltan.kiss@citrix.com>
- <20131213153138.GL21900@zion.uk.xensource.com>
- <52AB506E.3040509@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
+From: Levente Kurusa <levex@linux.com>
+Subject: [PATCH 1/4] net: phy: call put_device on device_register() failure
+Date: Fri, 13 Dec 2013 20:22:34 +0100
+Message-ID: <1386962557-8899-2-git-send-email-levex@linux.com>
+References: <1386962557-8899-1-git-send-email-levex@linux.com>
+Cc: Levente Kurusa <levex@linux.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
+	netdev@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <52AB506E.3040509@citrix.com>
+In-Reply-To: <1386962557-8899-1-git-send-email-levex@linux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 13, 2013 at 06:22:38PM +0000, Zoltan Kiss wrote:
-> On 13/12/13 15:31, Wei Liu wrote:
-> >On Thu, Dec 12, 2013 at 11:48:09PM +0000, Zoltan Kiss wrote:
-> >>This patch contains the new definitions necessary for grant mapping.
-> >>
-> >>v2:
-> >>- move unmapping to separate thread. The NAPI instance has to be scheduled
-> >>   even from thread context, which can cause huge delays
-> >>- that causes unfortunately bigger struct xenvif
-> >>- store grant handle after checking validity
-> >>
-> >
-> >If the size of xenvif really becomes a problem, you can try to make
-> >sratch space like struct gnttab_copy per-cpu. The downside is that
-> >approach requires much coding and carefully guard against race
-> >conditions. You would need to consider cost v.s. benefit.
-> 
-> I mentioned this because for the first series I had comments that I
-> should be more vigilant about this. At that time there was a problem
-> with struct xenvif allocation which was solved by now. My quick
-> calculation showed this patch will increase the size with ~15kb
-> 
+It is required to call put_device() if device_register() fails,
+so that we give up the last reference to the device. Calling put_device
+allows for mdiobus_release to be executed, kfreeing the bus.
 
-15kb doesn't seem a lot. And the fragmentation problem causing
-allocation failure was fixed. So I guess this won't be a problem.
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Grant Likely <grant.likely@secretlab.ca>
+Signed-off-by: Levente Kurusa <levex@linux.com>
+---
+ drivers/net/phy/mdio_bus.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-> >
-> >>Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-> >>
-> >>---
-> >[...]
-> >>  #define XENVIF_QUEUE_LENGTH 32
-> >>  #define XENVIF_NAPI_WEIGHT  64
-> >>diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> >>index c1b7a42..3ddc474 100644
-> >>--- a/drivers/net/xen-netback/netback.c
-> >>+++ b/drivers/net/xen-netback/netback.c
-> >>@@ -772,6 +772,20 @@ static struct page *xenvif_alloc_page(struct xenvif *vif,
-> >>  	return page;
-> >>  }
-> >>
-> >>+static inline void xenvif_tx_create_gop(struct xenvif *vif, u16 pending_idx,
-> >>+	       struct xen_netif_tx_request *txp,
-> >>+	       struct gnttab_map_grant_ref *gop)
-> >>+{
-> >>+	vif->pages_to_map[gop-vif->tx_map_ops] = vif->mmap_pages[pending_idx];
-> >>+	gnttab_set_map_op(gop, idx_to_kaddr(vif, pending_idx),
-> >>+			  GNTMAP_host_map | GNTMAP_readonly,
-> >>+			  txp->gref, vif->domid);
-> >>+
-> >>+	memcpy(&vif->pending_tx_info[pending_idx].req, txp,
-> >>+	       sizeof(*txp));
-> >>+
-> >>+}
-> >>+
-> >
-> >This helper function is not used until next patch. Probably you can move
-> >it to the second patch.
-> >
-> >The same applies to other helper functions as well. Move them to the
-> >patch they are used. It would be easier for people to review.
-> I just moved them here because the second patch is already huge, and
-> I couldn't have an idea to splice it up while keeping it bisectable
-> and logically consistent. As I mentioned, I welcome ideas about
-> that.
-> 
-
-My personal idea would be for a new feature it is not the size of a
-patch matters most, it's the logic matters most. So I'm fine with long
-consolidated patches. The incremental changes you made makes the patches
-hard to review IMHO.
-
-That's merely my personal opinion. Let's see what other people say.
-
-> >
-> >>  static struct gnttab_copy *xenvif_get_requests(struct xenvif *vif,
-> >>  					       struct sk_buff *skb,
-> >>  					       struct xen_netif_tx_request *txp,
-> >>@@ -1593,6 +1607,106 @@ static int xenvif_tx_submit(struct xenvif *vif)
-> >>  	return work_done;
-> >>  }
-> >>
-> >>+void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success)
-> >>+{
-> >
-> >Do we care about zerocopy_success? I don't see it used in this function.
-> It will be used in the 5th patch. Anyway, it's in the definition of
-> the zerocopy callback.
-> 
-
-Oh right, it is actually used. Then you should rearrange you series.
-Move the patches to add stats before this one, then provide a single
-patch for functions instead of making incremental changes.
-
-> >
-> >>+	unsigned long flags;
-> >>+	pending_ring_idx_t index;
-> >>+	u16 pending_idx = ubuf->desc;
-> >>+	struct pending_tx_info *temp =
-> >>+		container_of(ubuf, struct pending_tx_info, callback_struct);
-> >>+	struct xenvif *vif =
-> >>+		container_of(temp - pending_idx, struct xenvif,
-> >>+			pending_tx_info[0]);
-> >>+
-> >
-> >The third parameter to container_of should be the name of the member
-> >within the struct.
-> Here we have the pending_idx, so we get a pointer for the holding
-> struct pending_tx_info, then for the beginning of pending_tx_info
-> (temp - pending_idx), and then to the struct xenvif. It's a bit
-> tricky and not straightforward, I admit :)
-> 
-
-Well, macro trick. :-)
-
-> >
-> >>+	spin_lock_irqsave(&vif->dealloc_lock, flags);
-> >>+	do {
-> >>+		pending_idx = ubuf->desc;
-> >>+		ubuf = (struct ubuf_info *) ubuf->ctx;
-> >>+		index = pending_index(vif->dealloc_prod);
-> >>+		vif->dealloc_ring[index] = pending_idx;
-> >>+		/* Sync with xenvif_tx_action_dealloc:
-> >>+		 * insert idx then incr producer.
-> >>+		 */
-> >>+		smp_wmb();
-> >>+		vif->dealloc_prod++;
-> >>+	} while (ubuf);
-> >>+	wake_up(&vif->dealloc_wq);
-> >>+	spin_unlock_irqrestore(&vif->dealloc_lock, flags);
-[...]
-> >
-> >>+		smp_rmb();
-> >>+
-> >>+		while (dc != dp) {
-> >>+			pending_idx =
-> >>+				vif->dealloc_ring[pending_index(dc++)];
-> >>+
-> >>+			/* Already unmapped? */
-> >>+			if (vif->grant_tx_handle[pending_idx] ==
-> >>+				NETBACK_INVALID_HANDLE) {
-> >>+				netdev_err(vif->dev,
-> >>+					"Trying to unmap invalid handle! "
-> >>+					"pending_idx: %x\n", pending_idx);
-> >>+				continue;
-> >>+			}
-> >
-> >Should this be BUG_ON? AIUI this kthread should be the only one doing
-> >unmap, right?
-> The NAPI instance can do it as well if it is a small packet fits
-> into PKT_PROT_LEN. But still this scenario shouldn't really happen,
-> I was just not sure we have to crash immediately. Maybe handle it as
-> a fatal error and destroy the vif?
-> 
-
-It depends. If this is within the trust boundary, i.e. everything at the
-stage should have been sanitized then we should BUG_ON because there's
-clearly a bug somewhere in the sanitization process, or in the
-interaction of various backend routines.
-
-Wei.
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 5617876..b071af7 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -154,6 +154,7 @@ int mdiobus_register(struct mii_bus *bus)
+ 	err = device_register(&bus->dev);
+ 	if (err) {
+ 		pr_err("mii_bus %s failed to register\n", bus->id);
++		put_device(&bus->dev);
+ 		return -EINVAL;
+ 	}
+ 
+-- 
+1.8.3.1
