@@ -1,663 +1,165 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [PATCH net-next v3 4/6] net_sched: cls: refactor out struct tcf_ext_map
-Date: Thu, 12 Dec 2013 21:47:51 -0800
-Message-ID: <1386913673-8210-5-git-send-email-xiyou.wangcong@gmail.com>
-References: <1386913673-8210-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: [PATCH] sctp: Reorder 'struc association' members to reduce its size
+Date: Fri, 13 Dec 2013 13:51:04 +0800
+Message-ID: <52AAA048.2040704@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:52615 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751994Ab3LMFsG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 00:48:06 -0500
-Received: by mail-pd0-f170.google.com with SMTP id g10so1846691pdj.15
-        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 21:48:05 -0800 (PST)
-In-Reply-To: <1386913673-8210-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:43459 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750891Ab3LMF55 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 00:57:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These information can be saved in tcf_exts, and this will
-simplify the code.
+Members of 'struct association' are not in appropriate order to
+reuse compiler added padding on 64bit architectures. In this patch
+we reorder those struct members and help reduce the size of the
+structure from 2776 bytes to 2720 bytes on 64 bit architectures.
 
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 ---
- include/net/pkt_cls.h   | 34 ++++++++++++++++------------------
- net/sched/cls_api.c     | 32 +++++++++++++-------------------
- net/sched/cls_basic.c   | 14 +++++---------
- net/sched/cls_bpf.c     | 14 +++++---------
- net/sched/cls_cgroup.c  | 15 +++++----------
- net/sched/cls_flow.c    | 14 +++++---------
- net/sched/cls_fw.c      | 14 +++++---------
- net/sched/cls_route.c   | 14 +++++---------
- net/sched/cls_rsvp.h    | 14 +++++---------
- net/sched/cls_tcindex.c | 16 ++++++----------
- net/sched/cls_u32.c     | 14 +++++---------
- 11 files changed, 75 insertions(+), 120 deletions(-)
+ include/net/sctp/structs.h | 59 +++++++++++++++++++++++-----------------------
+ 1 file changed, 29 insertions(+), 30 deletions(-)
 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index a85264b..367f9d3 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -65,16 +65,23 @@ struct tcf_exts {
- 	__u32	type; /* for backward compat(TCA_OLD_COMPAT) */
- 	struct list_head head;
- #endif
--};
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 67b5d00..790fc42 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -1361,12 +1361,6 @@ struct sctp_association {
+ 
+ 	/* This is all information about our peer.  */
+ 	struct {
+-		/* rwnd
+-		 *
+-		 * Peer Rwnd   : Current calculated value of the peer's rwnd.
+-		 */
+-		__u32 rwnd;
 -
--/* Map to export classifier specific extension TLV types to the
-- * generic extensions API. Unsupported extensions must be set to 0.
-- */
--struct tcf_ext_map {
-+	/* Map to export classifier specific extension TLV types to the
-+	 * generic extensions API. Unsupported extensions must be set to 0.
-+	 */
- 	int action;
- 	int police;
- };
- 
-+static inline void tcf_exts_init(struct tcf_exts *exts, int action, int police)
-+{
-+#ifdef CONFIG_NET_CLS_ACT
-+	exts->type = 0;
-+	INIT_LIST_HEAD(&exts->head);
-+#endif
-+	exts->action = action;
-+	exts->police = police;
-+}
-+
- /**
-  * tcf_exts_is_predicative - check if a predicative extension is present
-  * @exts: tc filter extensions handle
-@@ -92,12 +99,6 @@ tcf_exts_is_predicative(struct tcf_exts *exts)
- #endif
- }
- 
--static inline void tcf_exts_init(struct tcf_exts *exts)
--{
--#ifdef CONFIG_NET_CLS_ACT
--	INIT_LIST_HEAD(&exts->head);
--#endif
--}
- /**
-  * tcf_exts_is_available - check if at least one extension is present
-  * @exts: tc filter extensions handle
-@@ -135,15 +136,12 @@ tcf_exts_exec(struct sk_buff *skb, struct tcf_exts *exts,
- 
- int tcf_exts_validate(struct net *net, struct tcf_proto *tp,
- 		      struct nlattr **tb, struct nlattr *rate_tlv,
--		      struct tcf_exts *exts,
--		      const struct tcf_ext_map *map);
-+		      struct tcf_exts *exts);
- void tcf_exts_destroy(struct tcf_proto *tp, struct tcf_exts *exts);
- void tcf_exts_change(struct tcf_proto *tp, struct tcf_exts *dst,
- 		     struct tcf_exts *src);
--int tcf_exts_dump(struct sk_buff *skb, struct tcf_exts *exts,
--		  const struct tcf_ext_map *map);
--int tcf_exts_dump_stats(struct sk_buff *skb, struct tcf_exts *exts,
--			const struct tcf_ext_map *map);
-+int tcf_exts_dump(struct sk_buff *skb, struct tcf_exts *exts);
-+int tcf_exts_dump_stats(struct sk_buff *skb, struct tcf_exts *exts);
- 
- /**
-  * struct tcf_pkt_info - packet information
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 7e5f296..e673bb1 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -507,18 +507,14 @@ void tcf_exts_destroy(struct tcf_proto *tp, struct tcf_exts *exts)
- EXPORT_SYMBOL(tcf_exts_destroy);
- 
- int tcf_exts_validate(struct net *net, struct tcf_proto *tp, struct nlattr **tb,
--		  struct nlattr *rate_tlv, struct tcf_exts *exts,
--		  const struct tcf_ext_map *map)
-+		  struct nlattr *rate_tlv, struct tcf_exts *exts)
- {
--	memset(exts, 0, sizeof(*exts));
--
- #ifdef CONFIG_NET_CLS_ACT
- 	{
- 		struct tc_action *act;
- 
--		INIT_LIST_HEAD(&exts->head);
--		if (map->police && tb[map->police]) {
--			act = tcf_action_init_1(net, tb[map->police], rate_tlv,
-+		if (exts->police && tb[exts->police]) {
-+			act = tcf_action_init_1(net, tb[exts->police], rate_tlv,
- 						"police", TCA_ACT_NOREPLACE,
- 						TCA_ACT_BIND);
- 			if (IS_ERR(act))
-@@ -526,9 +522,9 @@ int tcf_exts_validate(struct net *net, struct tcf_proto *tp, struct nlattr **tb,
- 
- 			act->type = exts->type = TCA_OLD_COMPAT;
- 			list_add(&act->list, &exts->head);
--		} else if (map->action && tb[map->action]) {
-+		} else if (exts->action && tb[exts->action]) {
- 			int err;
--			err = tcf_action_init(net, tb[map->action], rate_tlv,
-+			err = tcf_action_init(net, tb[exts->action], rate_tlv,
- 					      NULL, TCA_ACT_NOREPLACE,
- 					      TCA_ACT_BIND, &exts->head);
- 			if (err)
-@@ -536,8 +532,8 @@ int tcf_exts_validate(struct net *net, struct tcf_proto *tp, struct nlattr **tb,
- 		}
- 	}
- #else
--	if ((map->action && tb[map->action]) ||
--	    (map->police && tb[map->police]))
-+	if ((exts->action && tb[exts->action]) ||
-+	    (exts->police && tb[exts->police]))
- 		return -EOPNOTSUPP;
- #endif
- 
-@@ -564,11 +560,10 @@ EXPORT_SYMBOL(tcf_exts_change);
- #define tcf_exts_first_act(ext) \
- 		list_first_entry(&(exts)->head, struct tc_action, list)
- 
--int tcf_exts_dump(struct sk_buff *skb, struct tcf_exts *exts,
--		  const struct tcf_ext_map *map)
-+int tcf_exts_dump(struct sk_buff *skb, struct tcf_exts *exts)
- {
- #ifdef CONFIG_NET_CLS_ACT
--	if (map->action && !list_empty(&exts->head)) {
-+	if (exts->action && !list_empty(&exts->head)) {
- 		/*
- 		 * again for backward compatible mode - we want
- 		 * to work with both old and new modes of entering
-@@ -576,15 +571,15 @@ int tcf_exts_dump(struct sk_buff *skb, struct tcf_exts *exts,
+ 		/* transport_addr_list
+ 		 *
+ 		 * Peer	       : A list of SCTP transport addresses that the
+@@ -1384,6 +1378,12 @@ struct sctp_association {
  		 */
- 		struct nlattr *nest;
- 		if (exts->type != TCA_OLD_COMPAT) {
--			nest = nla_nest_start(skb, map->action);
-+			nest = nla_nest_start(skb, exts->action);
- 			if (nest == NULL)
- 				goto nla_put_failure;
- 			if (tcf_action_dump(skb, &exts->head, 0, 0) < 0)
- 				goto nla_put_failure;
- 			nla_nest_end(skb, nest);
--		} else if (map->police) {
-+		} else if (exts->police) {
- 			struct tc_action *act = tcf_exts_first_act(exts);
--			nest = nla_nest_start(skb, map->police);
-+			nest = nla_nest_start(skb, exts->police);
- 			if (nest == NULL)
- 				goto nla_put_failure;
- 			if (tcf_action_dump_old(skb, act, 0, 0) < 0)
-@@ -600,8 +595,7 @@ nla_put_failure: __attribute__ ((unused))
- EXPORT_SYMBOL(tcf_exts_dump);
+ 		struct list_head transport_addr_list;
  
++		/* rwnd
++		 *
++		 * Peer Rwnd   : Current calculated value of the peer's rwnd.
++		 */
++		__u32 rwnd;
++
+ 		/* transport_count
+ 		 *
+ 		 * Peer        : A count of the number of peer addresses
+@@ -1466,6 +1466,20 @@ struct sctp_association {
+ 		 */
+ 		struct sctp_tsnmap tsn_map;
  
--int tcf_exts_dump_stats(struct sk_buff *skb, struct tcf_exts *exts,
--			const struct tcf_ext_map *map)
-+int tcf_exts_dump_stats(struct sk_buff *skb, struct tcf_exts *exts)
- {
- #ifdef CONFIG_NET_CLS_ACT
- 	struct tc_action *a = tcf_exts_first_act(exts);
-diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
-index 7b9b460..b655203 100644
---- a/net/sched/cls_basic.c
-+++ b/net/sched/cls_basic.c
-@@ -34,11 +34,6 @@ struct basic_filter {
- 	struct list_head	link;
- };
++		/* This mask is used to disable sending the ASCONF chunk
++		 * with specified parameter to peer.
++		 */
++		__be16 addip_disabled_mask;
++
++		/* These are capabilities which our peer advertised.  */
++		__u8	ecn_capable:1,      /* Can peer do ECN? */
++			ipv4_address:1,     /* Peer understands IPv4 addresses? */
++			ipv6_address:1,     /* Peer understands IPv6 addresses? */
++			hostname_address:1, /* Peer understands DNS addresses? */
++			asconf_capable:1,   /* Does peer support ADDIP? */
++			prsctp_capable:1,   /* Can peer do PR-SCTP? */
++			auth_capable:1;     /* Is peer doing SCTP-AUTH? */
++
+ 		/* Ack State   : This flag indicates if the next received
+ 		 *             : packet is to be responded to with a
+ 		 *             : SACK. This is initializedto 0.  When a packet
+@@ -1480,25 +1494,11 @@ struct sctp_association {
+ 		__u32	sack_cnt;
+ 		__u32	sack_generation;
  
--static const struct tcf_ext_map basic_ext_map = {
--	.action = TCA_BASIC_ACT,
--	.police = TCA_BASIC_POLICE
--};
+-		/* These are capabilities which our peer advertised.  */
+-		__u8	ecn_capable:1,	    /* Can peer do ECN? */
+-			ipv4_address:1,	    /* Peer understands IPv4 addresses? */
+-			ipv6_address:1,	    /* Peer understands IPv6 addresses? */
+-			hostname_address:1, /* Peer understands DNS addresses? */
+-			asconf_capable:1,   /* Does peer support ADDIP? */
+-			prsctp_capable:1,   /* Can peer do PR-SCTP? */
+-			auth_capable:1;	    /* Is peer doing SCTP-AUTH? */
 -
- static int basic_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 			  struct tcf_result *res)
- {
-@@ -141,7 +136,8 @@ static int basic_set_parms(struct net *net, struct tcf_proto *tp,
- 	struct tcf_exts e;
- 	struct tcf_ematch_tree t;
+ 		__u32   adaptation_ind;	 /* Adaptation Code point. */
  
--	err = tcf_exts_validate(net, tp, tb, est, &e, &basic_ext_map);
-+	tcf_exts_init(&e, TCA_BASIC_ACT, TCA_BASIC_POLICE);
-+	err = tcf_exts_validate(net, tp, tb, est, &e);
- 	if (err < 0)
- 		return err;
- 
-@@ -191,7 +187,7 @@ static int basic_change(struct net *net, struct sk_buff *in_skb,
- 	if (f == NULL)
- 		goto errout;
- 
--	tcf_exts_init(&f->exts);
-+	tcf_exts_init(&f->exts, TCA_BASIC_ACT, TCA_BASIC_POLICE);
- 	err = -EINVAL;
- 	if (handle)
- 		f->handle = handle;
-@@ -264,13 +260,13 @@ static int basic_dump(struct tcf_proto *tp, unsigned long fh,
- 	    nla_put_u32(skb, TCA_BASIC_CLASSID, f->res.classid))
- 		goto nla_put_failure;
- 
--	if (tcf_exts_dump(skb, &f->exts, &basic_ext_map) < 0 ||
-+	if (tcf_exts_dump(skb, &f->exts) < 0 ||
- 	    tcf_em_tree_dump(skb, &f->ematches, TCA_BASIC_EMATCHES) < 0)
- 		goto nla_put_failure;
- 
- 	nla_nest_end(skb, nest);
- 
--	if (tcf_exts_dump_stats(skb, &f->exts, &basic_ext_map) < 0)
-+	if (tcf_exts_dump_stats(skb, &f->exts) < 0)
- 		goto nla_put_failure;
- 
- 	return skb->len;
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index 90fe275..00a5a58 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -46,11 +46,6 @@ static const struct nla_policy bpf_policy[TCA_BPF_MAX + 1] = {
- 				    .len = sizeof(struct sock_filter) * BPF_MAXINSNS },
- };
- 
--static const struct tcf_ext_map bpf_ext_map = {
--	.action = TCA_BPF_ACT,
--	.police = TCA_BPF_POLICE,
--};
+-		/* This mask is used to disable sending the ASCONF chunk
+-		 * with specified parameter to peer.
+-		 */
+-		__be16 addip_disabled_mask;
 -
- static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 			    struct tcf_result *res)
- {
-@@ -174,7 +169,8 @@ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
- 	if (!tb[TCA_BPF_OPS_LEN] || !tb[TCA_BPF_OPS] || !tb[TCA_BPF_CLASSID])
- 		return -EINVAL;
+ 		struct sctp_inithdr_host i;
+-		int cookie_len;
+ 		void *cookie;
++		int cookie_len;
  
--	ret = tcf_exts_validate(net, tp, tb, est, &exts, &bpf_ext_map);
-+	tcf_exts_init(&exts, TCA_BPF_ACT, TCA_BPF_POLICE);
-+	ret = tcf_exts_validate(net, tp, tb, est, &exts);
- 	if (ret < 0)
- 		return ret;
+ 		/* ADDIP Section 4.2 Upon reception of an ASCONF Chunk.
+ 		 * C1) ... "Peer-Serial-Number'. This value MUST be initialized to the
+@@ -1530,14 +1530,14 @@ struct sctp_association {
+ 	 */
+ 	sctp_state_t state;
  
-@@ -271,7 +267,7 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
- 	if (prog == NULL)
- 		return -ENOBUFS;
- 
--	tcf_exts_init(&prog->exts);
-+	tcf_exts_init(&prog->exts, TCA_BPF_ACT, TCA_BPF_POLICE);
- 	if (handle == 0)
- 		prog->handle = cls_bpf_grab_new_handle(tp, head);
- 	else
-@@ -326,12 +322,12 @@ static int cls_bpf_dump(struct tcf_proto *tp, unsigned long fh,
- 
- 	memcpy(nla_data(nla), prog->bpf_ops, nla_len(nla));
- 
--	if (tcf_exts_dump(skb, &prog->exts, &bpf_ext_map) < 0)
-+	if (tcf_exts_dump(skb, &prog->exts) < 0)
- 		goto nla_put_failure;
- 
- 	nla_nest_end(skb, nest);
- 
--	if (tcf_exts_dump_stats(skb, &prog->exts, &bpf_ext_map) < 0)
-+	if (tcf_exts_dump_stats(skb, &prog->exts) < 0)
- 		goto nla_put_failure;
- 
- 	return skb->len;
-diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-index e4fae03..f9d21258 100644
---- a/net/sched/cls_cgroup.c
-+++ b/net/sched/cls_cgroup.c
-@@ -172,11 +172,6 @@ static int cls_cgroup_init(struct tcf_proto *tp)
- 	return 0;
- }
- 
--static const struct tcf_ext_map cgroup_ext_map = {
--	.action = TCA_CGROUP_ACT,
--	.police = TCA_CGROUP_POLICE,
--};
+-	/* The cookie life I award for any cookie.  */
+-	ktime_t cookie_life;
 -
- static const struct nla_policy cgroup_policy[TCA_CGROUP_MAX + 1] = {
- 	[TCA_CGROUP_EMATCHES]	= { .type = NLA_NESTED },
- };
-@@ -203,7 +198,7 @@ static int cls_cgroup_change(struct net *net, struct sk_buff *in_skb,
- 		if (head == NULL)
- 			return -ENOBUFS;
+ 	/* Overall     : The overall association error count.
+ 	 * Error Count : [Clear this any time I get something.]
+ 	 */
+ 	int overall_error_count;
  
--		tcf_exts_init(&head->exts);
-+		tcf_exts_init(&head->exts, TCA_CGROUP_ACT, TCA_CGROUP_POLICE);
- 		head->handle = handle;
++	/* The cookie life I award for any cookie.  */
++	ktime_t cookie_life;
++
+ 	/* These are the association's initial, max, and min RTO values.
+ 	 * These values will be initialized by system defaults, but can
+ 	 * be modified via the SCTP_RTOINFO socket option.
+@@ -1592,10 +1592,9 @@ struct sctp_association {
+ 	/* Flags controlling Heartbeat, SACK delay, and Path MTU Discovery. */
+ 	__u32 param_flags;
  
- 		tcf_tree_lock(tp);
-@@ -219,8 +214,8 @@ static int cls_cgroup_change(struct net *net, struct sk_buff *in_skb,
- 	if (err < 0)
- 		return err;
- 
--	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e,
--				&cgroup_ext_map);
-+	tcf_exts_init(&e, TCA_CGROUP_ACT, TCA_CGROUP_POLICE);
-+	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e);
- 	if (err < 0)
- 		return err;
- 
-@@ -278,13 +273,13 @@ static int cls_cgroup_dump(struct tcf_proto *tp, unsigned long fh,
- 	if (nest == NULL)
- 		goto nla_put_failure;
- 
--	if (tcf_exts_dump(skb, &head->exts, &cgroup_ext_map) < 0 ||
-+	if (tcf_exts_dump(skb, &head->exts) < 0 ||
- 	    tcf_em_tree_dump(skb, &head->ematches, TCA_CGROUP_EMATCHES) < 0)
- 		goto nla_put_failure;
- 
- 	nla_nest_end(skb, nest);
- 
--	if (tcf_exts_dump_stats(skb, &head->exts, &cgroup_ext_map) < 0)
-+	if (tcf_exts_dump_stats(skb, &head->exts) < 0)
- 		goto nla_put_failure;
- 
- 	return skb->len;
-diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
-index 411e0d8..f9c8b05 100644
---- a/net/sched/cls_flow.c
-+++ b/net/sched/cls_flow.c
-@@ -56,11 +56,6 @@ struct flow_filter {
- 	u32			hashrnd;
- };
- 
--static const struct tcf_ext_map flow_ext_map = {
--	.action	= TCA_FLOW_ACT,
--	.police	= TCA_FLOW_POLICE,
--};
++	__u32 sackfreq;
+ 	/* SACK delay timeout */
+ 	unsigned long sackdelay;
+-	__u32 sackfreq;
 -
- static inline u32 addr_fold(void *addr)
- {
- 	unsigned long a = (unsigned long)addr;
-@@ -397,7 +392,8 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
- 			return -EOPNOTSUPP;
- 	}
  
--	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e, &flow_ext_map);
-+	tcf_exts_init(&e, TCA_FLOW_ACT, TCA_FLOW_POLICE);
-+	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e);
- 	if (err < 0)
- 		return err;
+ 	unsigned long timeouts[SCTP_NUM_TIMEOUT_TYPES];
+ 	struct timer_list timers[SCTP_NUM_TIMEOUT_TYPES];
+@@ -1603,12 +1602,12 @@ struct sctp_association {
+ 	/* Transport to which SHUTDOWN chunk was last sent.  */
+ 	struct sctp_transport *shutdown_last_sent_to;
  
-@@ -455,7 +451,7 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
- 
- 		f->handle = handle;
- 		f->mask	  = ~0U;
--		tcf_exts_init(&f->exts);
-+		tcf_exts_init(&f->exts, TCA_FLOW_ACT, TCA_FLOW_POLICE);
- 
- 		get_random_bytes(&f->hashrnd, 4);
- 		f->perturb_timer.function = flow_perturbation;
-@@ -609,7 +605,7 @@ static int flow_dump(struct tcf_proto *tp, unsigned long fh,
- 	    nla_put_u32(skb, TCA_FLOW_PERTURB, f->perturb_period / HZ))
- 		goto nla_put_failure;
- 
--	if (tcf_exts_dump(skb, &f->exts, &flow_ext_map) < 0)
-+	if (tcf_exts_dump(skb, &f->exts) < 0)
- 		goto nla_put_failure;
- #ifdef CONFIG_NET_EMATCH
- 	if (f->ematches.hdr.nmatches &&
-@@ -618,7 +614,7 @@ static int flow_dump(struct tcf_proto *tp, unsigned long fh,
- #endif
- 	nla_nest_end(skb, nest);
- 
--	if (tcf_exts_dump_stats(skb, &f->exts, &flow_ext_map) < 0)
-+	if (tcf_exts_dump_stats(skb, &f->exts) < 0)
- 		goto nla_put_failure;
- 
- 	return skb->len;
-diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
-index d1cebad..3f9cece 100644
---- a/net/sched/cls_fw.c
-+++ b/net/sched/cls_fw.c
-@@ -46,11 +46,6 @@ struct fw_filter {
- 	struct tcf_exts		exts;
- };
- 
--static const struct tcf_ext_map fw_ext_map = {
--	.action = TCA_FW_ACT,
--	.police = TCA_FW_POLICE
--};
+-	/* How many times have we resent a SHUTDOWN */
+-	int shutdown_retries;
 -
- static inline int fw_hash(u32 handle)
- {
- 	if (HTSIZE == 4096)
-@@ -200,7 +195,8 @@ fw_change_attrs(struct net *net, struct tcf_proto *tp, struct fw_filter *f,
- 	u32 mask;
- 	int err;
+ 	/* Transport to which INIT chunk was last sent.  */
+ 	struct sctp_transport *init_last_sent_to;
  
--	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e, &fw_ext_map);
-+	tcf_exts_init(&e, TCA_FW_ACT, TCA_FW_POLICE);
-+	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e);
- 	if (err < 0)
- 		return err;
++	/* How many times have we resent a SHUTDOWN */
++	int shutdown_retries;
++
+ 	/* Next TSN    : The next TSN number to be assigned to a new
+ 	 *	       : DATA chunk.  This is sent in the INIT or INIT
+ 	 *	       : ACK chunk to the peer and incremented each
+@@ -1813,8 +1812,8 @@ struct sctp_association {
+ 	 * after reaching 4294967295.
+ 	 */
+ 	__u32 addip_serial;
+-	union sctp_addr *asconf_addr_del_pending;
+ 	int src_out_of_asoc_ok;
++	union sctp_addr *asconf_addr_del_pending;
+ 	struct sctp_transport *new_transport;
  
-@@ -280,7 +276,7 @@ static int fw_change(struct net *net, struct sk_buff *in_skb,
- 	if (f == NULL)
- 		return -ENOBUFS;
- 
--	tcf_exts_init(&f->exts);
-+	tcf_exts_init(&f->exts, TCA_FW_ACT, TCA_FW_POLICE);
- 	f->id = handle;
- 
- 	err = fw_change_attrs(net, tp, f, tb, tca, base);
-@@ -360,12 +356,12 @@ static int fw_dump(struct tcf_proto *tp, unsigned long fh,
- 	    nla_put_u32(skb, TCA_FW_MASK, head->mask))
- 		goto nla_put_failure;
- 
--	if (tcf_exts_dump(skb, &f->exts, &fw_ext_map) < 0)
-+	if (tcf_exts_dump(skb, &f->exts) < 0)
- 		goto nla_put_failure;
- 
- 	nla_nest_end(skb, nest);
- 
--	if (tcf_exts_dump_stats(skb, &f->exts, &fw_ext_map) < 0)
-+	if (tcf_exts_dump_stats(skb, &f->exts) < 0)
- 		goto nla_put_failure;
- 
- 	return skb->len;
-diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
-index f1f1dfd..2473953 100644
---- a/net/sched/cls_route.c
-+++ b/net/sched/cls_route.c
-@@ -59,11 +59,6 @@ struct route4_filter {
- 
- #define ROUTE4_FAILURE ((struct route4_filter *)(-1L))
- 
--static const struct tcf_ext_map route_ext_map = {
--	.police = TCA_ROUTE4_POLICE,
--	.action = TCA_ROUTE4_ACT
--};
--
- static inline int route4_fastmap_hash(u32 id, int iif)
- {
- 	return id & 0xF;
-@@ -347,7 +342,8 @@ static int route4_set_parms(struct net *net, struct tcf_proto *tp,
- 	struct route4_bucket *b;
- 	struct tcf_exts e;
- 
--	err = tcf_exts_validate(net, tp, tb, est, &e, &route_ext_map);
-+	tcf_exts_init(&e, TCA_ROUTE4_ACT, TCA_ROUTE4_POLICE);
-+	err = tcf_exts_validate(net, tp, tb, est, &e);
- 	if (err < 0)
- 		return err;
- 
-@@ -481,7 +477,7 @@ static int route4_change(struct net *net, struct sk_buff *in_skb,
- 	if (f == NULL)
- 		goto errout;
- 
--	tcf_exts_init(&f->exts);
-+	tcf_exts_init(&f->exts, TCA_ROUTE4_ACT, TCA_ROUTE4_POLICE);
- 	err = route4_set_parms(net, tp, base, f, handle, head, tb,
- 		tca[TCA_RATE], 1);
- 	if (err < 0)
-@@ -590,12 +586,12 @@ static int route4_dump(struct tcf_proto *tp, unsigned long fh,
- 	    nla_put_u32(skb, TCA_ROUTE4_CLASSID, f->res.classid))
- 		goto nla_put_failure;
- 
--	if (tcf_exts_dump(skb, &f->exts, &route_ext_map) < 0)
-+	if (tcf_exts_dump(skb, &f->exts) < 0)
- 		goto nla_put_failure;
- 
- 	nla_nest_end(skb, nest);
- 
--	if (tcf_exts_dump_stats(skb, &f->exts, &route_ext_map) < 0)
-+	if (tcf_exts_dump_stats(skb, &f->exts) < 0)
- 		goto nla_put_failure;
- 
- 	return skb->len;
-diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
-index b1d3ce5..4f25c2a 100644
---- a/net/sched/cls_rsvp.h
-+++ b/net/sched/cls_rsvp.h
-@@ -116,11 +116,6 @@ static inline unsigned int hash_src(__be32 *src)
- 	return h & 0xF;
- }
- 
--static struct tcf_ext_map rsvp_ext_map = {
--	.police = TCA_RSVP_POLICE,
--	.action = TCA_RSVP_ACT
--};
--
- #define RSVP_APPLY_RESULT()				\
- {							\
- 	int r = tcf_exts_exec(skb, &f->exts, res);	\
-@@ -440,7 +435,8 @@ static int rsvp_change(struct net *net, struct sk_buff *in_skb,
- 	if (err < 0)
- 		return err;
- 
--	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e, &rsvp_ext_map);
-+	tcf_exts_init(&e, TCA_RSVP_ACT, TCA_RSVP_POLICE);
-+	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e);
- 	if (err < 0)
- 		return err;
- 
-@@ -471,7 +467,7 @@ static int rsvp_change(struct net *net, struct sk_buff *in_skb,
- 	if (f == NULL)
- 		goto errout2;
- 
--	tcf_exts_init(&f->exts);
-+	tcf_exts_init(&f->exts, TCA_RSVP_ACT, TCA_RSVP_POLICE);
- 	h2 = 16;
- 	if (tb[TCA_RSVP_SRC]) {
- 		memcpy(f->src, nla_data(tb[TCA_RSVP_SRC]), sizeof(f->src));
-@@ -634,12 +630,12 @@ static int rsvp_dump(struct tcf_proto *tp, unsigned long fh,
- 	    nla_put(skb, TCA_RSVP_SRC, sizeof(f->src), f->src))
- 		goto nla_put_failure;
- 
--	if (tcf_exts_dump(skb, &f->exts, &rsvp_ext_map) < 0)
-+	if (tcf_exts_dump(skb, &f->exts) < 0)
- 		goto nla_put_failure;
- 
- 	nla_nest_end(skb, nest);
- 
--	if (tcf_exts_dump_stats(skb, &f->exts, &rsvp_ext_map) < 0)
-+	if (tcf_exts_dump_stats(skb, &f->exts) < 0)
- 		goto nla_put_failure;
- 	return skb->len;
- 
-diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
-index c39bbfc..ffad187 100644
---- a/net/sched/cls_tcindex.c
-+++ b/net/sched/cls_tcindex.c
-@@ -50,11 +50,6 @@ struct tcindex_data {
- 	int fall_through;	/* 0: only classify if explicit match */
- };
- 
--static const struct tcf_ext_map tcindex_ext_map = {
--	.police = TCA_TCINDEX_POLICE,
--	.action = TCA_TCINDEX_ACT
--};
--
- static inline int
- tcindex_filter_is_set(struct tcindex_filter_result *r)
- {
-@@ -209,19 +204,20 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
- 	struct tcindex_filter *f = NULL; /* make gcc behave */
- 	struct tcf_exts e;
- 
--	err = tcf_exts_validate(net, tp, tb, est, &e, &tcindex_ext_map);
-+	tcf_exts_init(&e, TCA_TCINDEX_ACT, TCA_TCINDEX_POLICE);
-+	err = tcf_exts_validate(net, tp, tb, est, &e);
- 	if (err < 0)
- 		return err;
- 
- 	memcpy(&cp, p, sizeof(cp));
- 	memset(&new_filter_result, 0, sizeof(new_filter_result));
--	tcf_exts_init(&new_filter_result.exts);
-+	tcf_exts_init(&new_filter_result.exts, TCA_TCINDEX_ACT, TCA_TCINDEX_POLICE);
- 
- 	if (old_r)
- 		memcpy(&cr, r, sizeof(cr));
- 	else {
- 		memset(&cr, 0, sizeof(cr));
--		tcf_exts_init(&cr.exts);
-+		tcf_exts_init(&cr.exts, TCA_TCINDEX_ACT, TCA_TCINDEX_POLICE);
- 	}
- 
- 	if (tb[TCA_TCINDEX_HASH])
-@@ -471,11 +467,11 @@ static int tcindex_dump(struct tcf_proto *tp, unsigned long fh,
- 		    nla_put_u32(skb, TCA_TCINDEX_CLASSID, r->res.classid))
- 			goto nla_put_failure;
- 
--		if (tcf_exts_dump(skb, &r->exts, &tcindex_ext_map) < 0)
-+		if (tcf_exts_dump(skb, &r->exts) < 0)
- 			goto nla_put_failure;
- 		nla_nest_end(skb, nest);
- 
--		if (tcf_exts_dump_stats(skb, &r->exts, &tcindex_ext_map) < 0)
-+		if (tcf_exts_dump_stats(skb, &r->exts) < 0)
- 			goto nla_put_failure;
- 	}
- 
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index 492d9a6..20f2fb7 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -79,11 +79,6 @@ struct tc_u_common {
- 	u32			hgenerator;
- };
- 
--static const struct tcf_ext_map u32_ext_map = {
--	.action = TCA_U32_ACT,
--	.police = TCA_U32_POLICE
--};
--
- static inline unsigned int u32_hash_fold(__be32 key,
- 					 const struct tc_u32_sel *sel,
- 					 u8 fshift)
-@@ -496,7 +491,8 @@ static int u32_set_parms(struct net *net, struct tcf_proto *tp,
- 	int err;
- 	struct tcf_exts e;
- 
--	err = tcf_exts_validate(net, tp, tb, est, &e, &u32_ext_map);
-+	tcf_exts_init(&e, TCA_U32_ACT, TCA_U32_POLICE);
-+	err = tcf_exts_validate(net, tp, tb, est, &e);
- 	if (err < 0)
- 		return err;
- 
-@@ -646,7 +642,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
- 	n->ht_up = ht;
- 	n->handle = handle;
- 	n->fshift = s->hmask ? ffs(ntohl(s->hmask)) - 1 : 0;
--	tcf_exts_init(&n->exts);
-+	tcf_exts_init(&n->exts, TCA_U32_ACT, TCA_U32_POLICE);
- 
- #ifdef CONFIG_CLS_U32_MARK
- 	if (tb[TCA_U32_MARK]) {
-@@ -760,7 +756,7 @@ static int u32_dump(struct tcf_proto *tp, unsigned long fh,
- 			goto nla_put_failure;
- #endif
- 
--		if (tcf_exts_dump(skb, &n->exts, &u32_ext_map) < 0)
-+		if (tcf_exts_dump(skb, &n->exts) < 0)
- 			goto nla_put_failure;
- 
- #ifdef CONFIG_NET_CLS_IND
-@@ -779,7 +775,7 @@ static int u32_dump(struct tcf_proto *tp, unsigned long fh,
- 	nla_nest_end(skb, nest);
- 
- 	if (TC_U32_KEY(n->handle))
--		if (tcf_exts_dump_stats(skb, &n->exts, &u32_ext_map) < 0)
-+		if (tcf_exts_dump_stats(skb, &n->exts) < 0)
- 			goto nla_put_failure;
- 	return skb->len;
- 
+ 	/* SCTP AUTH: list of the endpoint shared keys.  These
 -- 
-1.8.1.4
+1.7.12
