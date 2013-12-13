@@ -1,51 +1,62 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [PATCH] net: unix: allow bind to fail on mutex lock
-Date: Fri, 13 Dec 2013 10:54:22 -0500
-Message-ID: <1386950062-19020-1-git-send-email-sasha.levin@oracle.com>
-Cc: edumazet@google.com, netdev@vger.kernel.org, xemul@parallels.com,
-	linux-kernel@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Maxime Bizon <mbizon@freebox.fr>
+Subject: Re: [PATCH 2/3] xfrm: Increase the garbage collector threshold
+Date: Fri, 13 Dec 2013 17:13:29 +0100
+Message-ID: <1386951209.25449.61.camel@sakura.staff.proxad.net>
+References: <1383294107-7509-1-git-send-email-steffen.klassert@secunet.com>
+	 <1383294107-7509-3-git-send-email-steffen.klassert@secunet.com>
+	 <1386686323.22947.26.camel@sakura.staff.proxad.net>
+	 <20131213101203.GO31491@secunet.com>
+Reply-To: mbizon@freebox.fr
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ANSI_X3.4-1968"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns.iliad.fr ([212.27.33.1]:52995 "EHLO ns.iliad.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752238Ab3LMQNb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Dec 2013 11:13:31 -0500
+In-Reply-To: <20131213101203.GO31491@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is similar to the set_peek_off patch where calling bind while the
-socket is stuck in unix_dgram_recvmsg() will block and cause a hung task
-spew after a while.
 
-This is also the last place that did a straightforward mutex_lock(), so
-there shouldn't be any more of these patches.
+On Fri, 2013-12-13 at 11:12 +0100, Steffen Klassert wrote:
 
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
----
- net/unix/af_unix.c |    8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+> Can you please be a bit more precise with your problem description?
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 7edbcd9..800ca61 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -720,7 +720,9 @@ static int unix_autobind(struct socket *sock)
- 	int err;
- 	unsigned int retries = 0;
- 
--	mutex_lock(&u->readlock);
-+	err = mutex_lock_interruptible(&u->readlock);
-+	if (err)
-+		return err;
- 
- 	err = 0;
- 	if (u->addr)
-@@ -879,7 +881,9 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 		goto out;
- 	addr_len = err;
- 
--	mutex_lock(&u->readlock);
-+	err = mutex_lock_interruptible(&u->readlock);
-+	if (err)
-+		goto out;
- 
- 	err = -EINVAL;
- 	if (u->addr)
+yes sorry I wasn't clear.
+
+I have a problem with an even simpler workload that the one using apache
+bench in the original bug report.
+
+I am using ipsec transport mode between two hosts and just run this on
+one side:
+
+  while :; do wget -O /dev/null http://remote_host/; done
+
+I was surprised to see it fails after only 1024 requests (ENOBUF on
+connect), and how long I had to wait to be able to do new requests.
+
+After debugging I saw that the xfrm gc was called but was not able to
+release anything.
+
+after running "ip route flush cache", which forces all ipv4 dst entries
+to be released, suddenly the xfrm gc had something to free, and xfrm
+entry count went to zero.
+
+So if it is correct that once a ipv4 dst entry exists, the xfrm entry
+cannot be gc-ed, then we need to make sure we allow more xfrm entries to
+be allocated than ipv4 dst.
+
+> This patch changes only the number of cache entries before
+> we start garbage collecting. It does not change anything
+> on the garbage collector itself.
+
+Yes my point was that it just hides another underlying problem.
+
 -- 
-1.7.10.4
+Maxime
