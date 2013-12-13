@@ -1,107 +1,99 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net] netvsc: don't flush peers notifying work during setting
- mtu
-Date: Fri, 13 Dec 2013 17:21:27 +0800
-Message-ID: <1386926487-30822-1-git-send-email-jasowang@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC] ipv6: stable privacy addresses
+Date: Fri, 13 Dec 2013 12:50:33 +0100
+Message-ID: <20131213115033.GA7332@order.stressinduktion.org>
+References: <20131213085549.GA3685@order.stressinduktion.org> <52AAE273.7070806@enst-bretagne.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jason Wang <jasowang@redhat.com>
-To: kys@microsoft.com, haiyangz@microsoft.com, devel@linuxdriverproject.org,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, fgont@si6networks.com
+To: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:52988 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751806Ab3LMLuf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 06:50:35 -0500
+Content-Disposition: inline
+In-Reply-To: <52AAE273.7070806@enst-bretagne.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There's a possible deadlock if we flush the peers notifying work during setting
-mtu:
+On Fri, Dec 13, 2013 at 11:33:23AM +0100, Florent Fourcot wrote:
+> Do you not provide a configuration via netlink for the secret?
 
-[   22.991149] ======================================================
-[   22.991173] [ INFO: possible circular locking dependency detected ]
-[   22.991198] 3.10.0-54.0.1.el7.x86_64.debug #1 Not tainted
-[   22.991219] -------------------------------------------------------
-[   22.991243] ip/974 is trying to acquire lock:
-[   22.991261]  ((&(&net_device_ctx->dwork)->work)){+.+.+.}, at: [<ffffffff8108af95>] flush_work+0x5/0x2e0
-[   22.991307]
-but task is already holding lock:
-[   22.991330]  (rtnl_mutex){+.+.+.}, at: [<ffffffff81539deb>] rtnetlink_rcv+0x1b/0x40
-[   22.991367]
-which lock already depends on the new lock.
+I definitely will provide a netlink interface. I already have a patch here but
+I am not sure how the interface will work out in the end. See below.
 
-[   22.991398]
-the existing dependency chain (in reverse order) is:
-[   22.991426]
--> #1 (rtnl_mutex){+.+.+.}:
-[   22.991449]        [<ffffffff810dfdd9>] __lock_acquire+0xb19/0x1260
-[   22.991477]        [<ffffffff810e0d12>] lock_acquire+0xa2/0x1f0
-[   22.991501]        [<ffffffff81673659>] mutex_lock_nested+0x89/0x4f0
-[   22.991529]        [<ffffffff815392b7>] rtnl_lock+0x17/0x20
-[   22.991552]        [<ffffffff815230b2>] netdev_notify_peers+0x12/0x30
-[   22.991579]        [<ffffffffa0340212>] netvsc_send_garp+0x22/0x30 [hv_netvsc]
-[   22.991610]        [<ffffffff8108d251>] process_one_work+0x211/0x6e0
-[   22.991637]        [<ffffffff8108d83b>] worker_thread+0x11b/0x3a0
-[   22.991663]        [<ffffffff81095e5d>] kthread+0xed/0x100
-[   22.991686]        [<ffffffff81681c6c>] ret_from_fork+0x7c/0xb0
-[   22.991715]
--> #0 ((&(&net_device_ctx->dwork)->work)){+.+.+.}:
-[   22.991715]        [<ffffffff810de817>] check_prevs_add+0x967/0x970
-[   22.991715]        [<ffffffff810dfdd9>] __lock_acquire+0xb19/0x1260
-[   22.991715]        [<ffffffff810e0d12>] lock_acquire+0xa2/0x1f0
-[   22.991715]        [<ffffffff8108afde>] flush_work+0x4e/0x2e0
-[   22.991715]        [<ffffffff8108e1b5>] __cancel_work_timer+0x95/0x130
-[   22.991715]        [<ffffffff8108e303>] cancel_delayed_work_sync+0x13/0x20
-[   22.991715]        [<ffffffffa03404e4>] netvsc_change_mtu+0x84/0x200 [hv_netvsc]
-[   22.991715]        [<ffffffff815233d4>] dev_set_mtu+0x34/0x80
-[   22.991715]        [<ffffffff8153bc2a>] do_setlink+0x23a/0xa00
-[   22.991715]        [<ffffffff8153d054>] rtnl_newlink+0x394/0x5e0
-[   22.991715]        [<ffffffff81539eac>] rtnetlink_rcv_msg+0x9c/0x260
-[   22.991715]        [<ffffffff8155cdd9>] netlink_rcv_skb+0xa9/0xc0
-[   22.991715]        [<ffffffff81539dfa>] rtnetlink_rcv+0x2a/0x40
-[   22.991715]        [<ffffffff8155c41d>] netlink_unicast+0xdd/0x190
-[   22.991715]        [<ffffffff8155c807>] netlink_sendmsg+0x337/0x750
-[   22.991715]        [<ffffffff8150d219>] sock_sendmsg+0x99/0xd0
-[   22.991715]        [<ffffffff8150d63e>] ___sys_sendmsg+0x39e/0x3b0
-[   22.991715]        [<ffffffff8150eba2>] __sys_sendmsg+0x42/0x80
-[   22.991715]        [<ffffffff8150ebf2>] SyS_sendmsg+0x12/0x20
-[   22.991715]        [<ffffffff81681d19>] system_call_fastpath+0x16/0x1b
+> > +config IPV6_ADDRESS_GEN_MODE_STABLE_PRIVACY_V1
+> > +       bool "Stable privacy address generation v1"
+> > +       help
+> > +         Stable privacy address generation mode v1. Further
+> > +         information can be found here:
+> > +	 http://tools.ietf.org/html/draft-ietf-6man-stable-privacy-addresses-16
+> > +
+> > +	 This option may need support from distributions to install
+> > +	 the stable secret early at boot up (otherwise link-local
+> > +	 addresses will be generated too late). If you don't have
+> > +	 services depending on link-local addresses on boot-up you can
+> > +	 activate this mode and install the stable secret any time
+> > +	 later by hand by writing it to
+> > +	 /proc/sys/net/ipv6/stable_privacy_secret.
+> > +
+> 
+> Here is your documentation inconsistent with before. The right file is
+> probably /proc/sys/net/ipv6/stable_address_secret
+> 
+> You configuration is for all interfaces the same, isn't? I would like a
+> configuration possibility per interface, to mix EUI64 and stable privacy
+> addresses on the same device.
 
-This is because we hold the rtnl_lock() before ndo_change_mtu() and try to flush
-the work in netvsc_change_mtu(), in the mean time, netdev_notify_peers() may be
-called from worker and also trying to hold the rtnl_lock. This will lead the
-flush won't succeed forever. Solve this by not canceling and flushing the work,
-this is safe because the transmission done by NETDEV_NOTIFY_PEERS was
-synchronized with the netif_tx_disable() called by netvsc_change_mtu().
+You mean like EUI-64 link-local and privacy-stable ones for global scope?
+This indeed does sound useful.
 
-Reported-by: Yaju Cao <yacao@redhat.com>
-Tested-by: Yaju Cao <yacao@redhat.com>
-Cc: K. Y. Srinivasan <kys@microsoft.com>
-Cc: Haiyang Zhang <haiyangz@microsoft.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-The patch is needed for stable.
----
- drivers/net/hyperv/netvsc_drv.c | 1 -
- 1 file changed, 1 deletion(-)
+> In the same way, the configuration of the secret per interface could be
+> useful (simple example: two NIC on the same LAN).
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 524f713..f813572 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -327,7 +327,6 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
- 		return -EINVAL;
- 
- 	nvdev->start_remove = true;
--	cancel_delayed_work_sync(&ndevctx->dwork);
- 	cancel_work_sync(&ndevctx->work);
- 	netif_tx_disable(ndev);
- 	rndis_filter_device_remove(hdev);
--- 
-1.8.3.2
+Hmm, I thought about that too, but have not found a valid reason to support
+it yet, given the numerous other configuration possibilities.
+
+My current problem is how to make this interface as robust as possible to
+use so that distributions can support it.
+
+I just started coding support for tracking DAD-errors accross reboots so
+e.g. if a privstbl address has two DAD conflicts before it stabilzes,
+it should get the same one after reboot. Ideally we would serialize
+this information into user-space and apply it on next boot. But what key
+should we use to store the dad-conflicts (MAC or interface name etc. or
+make it even configurable?). Should we store information on interfaces
+which are not yet registered too, or always kick link-local generation by
+hand? When should we store those numbers? If we only do that at shutdown
+time we may have lost some manually destroyed interfaces already.
+
+I have a similar problem with virtual interfaces. It would be better to
+identify them by name and not by mac-address. Also we should include the name
+in the hash, so we could have different kind of hashes per interface.
+
+The hash itself needs to be stable and one particular hash version must not get
+touched after release, otherwise we could change people's IPv6 addresses
+accross upgrades.
+
+The combination of all those options call for a very complex interface. In the
+end I hoped to get basic support into the kernel and leave complex policies to
+user-space (that's out of scope for this patch but I already have some ideas).
+
+> > -static void addrconf_dad_stop(struct inet6_ifaddr *ifp, int dad_failed)
+> > +static void addrconf_dad_stop(struct inet6_ifaddr *ifp, bool dad_failed)
+> > 
+> 
+> The passage of dad_failed from int to bool is not directly connected
+> with this feature, can you maybe split it in another patch?
+
+I guess I should do that. But in the end I am almost always too lazy to
+submit such patches then. ;)
+
+I'll also improve the documentation in the next versions, thanks for the
+corrections! It seems I did not update it regullary enough every time I did 
+change in the code.
+
+Thanks for review,
+
+  Hannes
