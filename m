@@ -1,123 +1,103 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: Re: [PATCH net-next] sch_tbf: add TBF_BURST/TBF_PBURST attribute
-Date: Fri, 13 Dec 2013 17:50:31 +0800
-Message-ID: <52AAD867.5030305@cn.fujitsu.com>
-References: <1386927716-7896-1-git-send-email-yangyingliang@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com
-To: Yang Yingliang <yangyingliang@huawei.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:51036 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752436Ab3LMJui convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 04:50:38 -0500
-In-Reply-To: <1386927716-7896-1-git-send-email-yangyingliang@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: freddy@asix.com.tw
+Subject: [PATCH 1/1] AX88179_178A: Add FLAG_HW_IPALIGN to determine whether reserving NET_IP_ALIGN bytes for an SKB.
+Date: Fri, 13 Dec 2013 17:25:08 +0800
+Message-ID: <1386926708-2343-1-git-send-email-freddy@asix.com.tw>
+Cc: Freddy Xin <freddy@asix.com.tw>
+To: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
+	louis@asix.com.tw, allan@asix.com.tw
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=E4=BA=8E 2013=E5=B9=B412=E6=9C=8813=E6=97=A5 17:41, Yang Yingliang =E5=
-=86=99=E9=81=93:
-> When we set burst to 1514 with low rate in userspace,
-> the kernel get a value of burst that less than 1514,
-> which doesn't work.
->=20
-> Because it may make some loss when transform burst
-> to buffer in userspace. This makes burst lose some
-> bytes, when the kernel transform the buffer back to
-> burst.
->=20
-> This patch adds two new attributes to support sending
-> burst/mtu to kernel directly to avoid the loss.
->=20
-> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-> ---
->  include/uapi/linux/pkt_sched.h |  2 ++
->  net/sched/sch_tbf.c            | 25 +++++++++++++++++++++----
->  2 files changed, 23 insertions(+), 4 deletions(-)
->=20
-> diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_=
-sched.h
-> index a806687..fd8e17e 100644
-> --- a/include/uapi/linux/pkt_sched.h
-> +++ b/include/uapi/linux/pkt_sched.h
-> @@ -173,6 +173,8 @@ enum {
->  	TCA_TBF_PTAB,
->  	TCA_TBF_RATE64,
->  	TCA_TBF_PRATE64,
-> +	TCA_TBF_BURST,
-> +	TCA_TBF_PBURST,
->  	__TCA_TBF_MAX,
->  };
-> =20
-> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-> index 887e672..a746049 100644
-> --- a/net/sched/sch_tbf.c
-> +++ b/net/sched/sch_tbf.c
-> @@ -307,6 +307,8 @@ static const struct nla_policy tbf_policy[TCA_TBF=
-_MAX + 1] =3D {
->  	[TCA_TBF_PTAB]	=3D { .type =3D NLA_BINARY, .len =3D TC_RTAB_SIZE },
->  	[TCA_TBF_RATE64]	=3D { .type =3D NLA_U64 },
->  	[TCA_TBF_PRATE64]	=3D { .type =3D NLA_U64 },
-> +	[TCA_TBF_BURST]		=3D { .type =3D NLA_U32 },
+From: Freddy Xin <freddy@asix.com.tw>
 
-This place should remove one tab.
+The AX88179_178A has a hardware feature that it can insert a
+2-bytes pseudo header in front of each received frame by setting
+the AX_RX_CTL_IPE bit. This feature is used to let the IP header
+be aligned on a doubleword-aligned address, so the rx_submit() of
+usbnet.c needn't reserve NET_IP_ALIGN bytes for an SKB in the case.
 
-Thanks,
-  Duan
+This patch adds a flag of driver_info "FLAG_HW_IPALIGN" which is
+used in rx_submit() of usbnet.c to determine whether reserving
+NET_IP_ALIGN bytes for an SKB.
 
-> +	[TCA_TBF_PBURST]	=3D { .type =3D NLA_U32 },
->  };
-> =20
->  static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
-> @@ -358,7 +360,11 @@ static int tbf_change(struct Qdisc *sch, struct =
-nlattr *opt)
->  		rate64 =3D nla_get_u64(tb[TCA_TBF_RATE64]);
->  	psched_ratecfg_precompute(&rate, &qopt->rate, rate64);
-> =20
-> -	max_size =3D min_t(u64, psched_ns_t2l(&rate, buffer), ~0U);
-> +	if (tb[TCA_TBF_BURST]) {
-> +		max_size =3D nla_get_u32(tb[TCA_TBF_BURST]);
-> +		buffer =3D psched_l2t_ns(&rate, max_size);
-> +	} else
-> +		max_size =3D min_t(u64, psched_ns_t2l(&rate, buffer), ~0U);
-> =20
->  	if (qopt->peakrate.rate) {
->  		if (tb[TCA_TBF_PRATE64])
-> @@ -371,7 +377,12 @@ static int tbf_change(struct Qdisc *sch, struct =
-nlattr *opt)
->  			goto done;
->  		}
-> =20
-> -		max_size =3D min_t(u64, max_size, psched_ns_t2l(&peak, mtu));
-> +		if (tb[TCA_TBF_PBURST]) {
-> +			u32 pburst =3D nla_get_u32(tb[TCA_TBF_PBURST]);
-> +			max_size =3D min_t(u32, max_size, pburst);
-> +			mtu =3D psched_l2t_ns(&peak, pburst);
-> +		} else
-> +			max_size =3D min_t(u64, max_size, psched_ns_t2l(&peak, mtu));
->  	}
-> =20
->  	if (max_size < psched_mtu(qdisc_dev(sch)))
-> @@ -391,9 +402,15 @@ static int tbf_change(struct Qdisc *sch, struct =
-nlattr *opt)
->  		q->qdisc =3D child;
->  	}
->  	q->limit =3D qopt->limit;
-> -	q->mtu =3D PSCHED_TICKS2NS(qopt->mtu);
-> +	if (tb[TCA_TBF_PBURST])
-> +		q->mtu =3D mtu;
-> +	else
-> +		q->mtu =3D PSCHED_TICKS2NS(qopt->mtu);
->  	q->max_size =3D max_size;
-> -	q->buffer =3D PSCHED_TICKS2NS(qopt->buffer);
-> +	if (tb[TCA_TBF_BURST])
-> +		q->buffer =3D buffer;
-> +	else
-> +		q->buffer =3D PSCHED_TICKS2NS(qopt->buffer);
->  	q->tokens =3D q->buffer;
->  	q->ptokens =3D q->mtu;
-> =20
->=20
+Signed-off-by: Freddy Xin <freddy@asix.com.tw>
+---
+ drivers/net/usb/ax88179_178a.c | 8 ++++----
+ drivers/net/usb/usbnet.c       | 5 ++++-
+ include/linux/usb/usbnet.h     | 3 +++
+ 3 files changed, 11 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
+index 8e8d0fc..04a2cc9 100644
+--- a/drivers/net/usb/ax88179_178a.c
++++ b/drivers/net/usb/ax88179_178a.c
+@@ -1374,7 +1374,7 @@ static const struct driver_info ax88179_info = {
+ 	.link_reset = ax88179_link_reset,
+ 	.reset = ax88179_reset,
+ 	.stop = ax88179_stop,
+-	.flags = FLAG_ETHER | FLAG_FRAMING_AX,
++	.flags = FLAG_ETHER | FLAG_FRAMING_AX | FLAG_HW_IPALIGN,
+ 	.rx_fixup = ax88179_rx_fixup,
+ 	.tx_fixup = ax88179_tx_fixup,
+ };
+@@ -1387,7 +1387,7 @@ static const struct driver_info ax88178a_info = {
+ 	.link_reset = ax88179_link_reset,
+ 	.reset = ax88179_reset,
+ 	.stop = ax88179_stop,
+-	.flags = FLAG_ETHER | FLAG_FRAMING_AX,
++	.flags = FLAG_ETHER | FLAG_FRAMING_AX | FLAG_HW_IPALIGN,
+ 	.rx_fixup = ax88179_rx_fixup,
+ 	.tx_fixup = ax88179_tx_fixup,
+ };
+@@ -1400,7 +1400,7 @@ static const struct driver_info sitecom_info = {
+ 	.link_reset = ax88179_link_reset,
+ 	.reset = ax88179_reset,
+ 	.stop = ax88179_stop,
+-	.flags = FLAG_ETHER | FLAG_FRAMING_AX,
++	.flags = FLAG_ETHER | FLAG_FRAMING_AX | FLAG_HW_IPALIGN,
+ 	.rx_fixup = ax88179_rx_fixup,
+ 	.tx_fixup = ax88179_tx_fixup,
+ };
+@@ -1413,7 +1413,7 @@ static const struct driver_info samsung_info = {
+ 	.link_reset = ax88179_link_reset,
+ 	.reset = ax88179_reset,
+ 	.stop = ax88179_stop,
+-	.flags = FLAG_ETHER | FLAG_FRAMING_AX,
++	.flags = FLAG_ETHER | FLAG_FRAMING_AX | FLAG_HW_IPALIGN,
+ 	.rx_fixup = ax88179_rx_fixup,
+ 	.tx_fixup = ax88179_tx_fixup,
+ };
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 8494bb5..8a618b8 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -473,7 +473,10 @@ static int rx_submit (struct usbnet *dev, struct urb *urb, gfp_t flags)
+ 		return -ENOLINK;
+ 	}
+ 
+-	skb = __netdev_alloc_skb_ip_align(dev->net, size, flags);
++	if (dev->driver_info->flags & FLAG_HW_IPALIGN)
++		skb = __netdev_alloc_skb(dev->net, size, flags);
++	else
++		skb = __netdev_alloc_skb_ip_align(dev->net, size, flags);
+ 	if (!skb) {
+ 		netif_dbg(dev, rx_err, dev->net, "no rx skb\n");
+ 		usbnet_defer_kevent (dev, EVENT_RX_MEMORY);
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index e303eef..e4855cf 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -116,6 +116,9 @@ struct driver_info {
+ #define FLAG_MULTI_PACKET	0x2000
+ #define FLAG_RX_ASSEMBLE	0x4000	/* rx packets may span >1 frames */
+ #define FLAG_NOARP		0x8000	/* device can't do ARP */
++#define FLAG_HW_IPALIGN		0x10000 /* hardware adds headers to let the
++					 * IP header align on a dword-aligned
++					 * address */
+ 
+ 	/* init device ... can sleep, or cause probe() failure */
+ 	int	(*bind)(struct usbnet *, struct usb_interface *);
+-- 
+1.8.3.2
