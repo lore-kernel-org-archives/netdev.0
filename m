@@ -1,62 +1,61 @@
-From: Mark Brown <broonie@kernel.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Subject: Re: ipv6: fix headroom calculation in udp6_ufo_fragment
-Date: Fri, 13 Dec 2013 13:14:45 +0000
-Message-ID: <20131213131445.GA22789@sirena.org.uk>
+Date: Fri, 13 Dec 2013 14:34:53 +0100
+Message-ID: <20131213133453.GB7332@order.stressinduktion.org>
 References: <D00A5DFD97C44C4D820FC3A847C5D5750730630F@IRVEXCHMB14.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="mP3DRpeJDSE+ciuQ"
+Content-Type: text/plain; charset=utf-8
 Cc: 'Pravin B Shelar' <pshelar@nicira.com>,
 	'Saran Neti' <Saran.Neti@telus.com>,
 	"'David S. Miller'" <davem@davemloft.net>,
 	'Greg Kroah-Hartman' <gregkh@linuxfoundation.org>,
-	'Hannes Frederic Sowa' <hannes@stressinduktion.org>,
+	"Mark Brown (broonie@linaro.org)" <broonie@linaro.org>,
 	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
 	"'stable@vger.kernel.org'" <stable@vger.kernel.org>
 To: Mark Hambleton <mark.hambleton@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cassiel.sirena.org.uk ([80.68.93.111]:34917 "EHLO
-	cassiel.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751994Ab3LMNO7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 08:14:59 -0500
+Return-path: <stable-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <D00A5DFD97C44C4D820FC3A847C5D5750730630F@IRVEXCHMB14.corp.ad.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---mP3DRpeJDSE+ciuQ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 On Fri, Dec 13, 2013 at 01:01:59PM +0000, Mark Hambleton wrote:
+> Hi, 
+> 
+> Following a recent commit to LTS and upstream  I see the following warning emitted on an ARM32 build:
+> 
+> net/ipv6/udp_offload.c: In function 'udp6_ufo_fragment':
+> net/ipv6/udp_offload.c:88:22: error: comparison between pointer and integer [-Werror]
+>   if (skb->mac_header < (tnl_hlen + frag_hdr_sz)) {
+>                       ^
+> cc1: all warnings being treated as errors
+> make[2]: *** [net/ipv6/udp_offload.o] Error 1
+> make[1]: *** [net/ipv6] Error 2
+> 
+>  The commit made the following changes:
+> 
+> -       if (skb_headroom(skb) < (tnl_hlen + frag_hdr_sz)) {
+> +       if (skb->mac_header < (tnl_hlen + frag_hdr_sz)) {
+> 
+> Now, because of some defines in skbuff.h :
+> 
+> #if BITS_PER_LONG > 32
+> #define NET_SKBUFF_DATA_USES_OFFSET 1
+> #endif
+> 
+> #ifdef NET_SKBUFF_DATA_USES_OFFSET
+> typedef unsigned int sk_buff_data_t;
+> #else
+> typedef unsigned char *sk_buff_data_t;
+> #endif
+> 
+> On an ARM32 system sk_buff_data_t would be a pointer (long being 32 bits), meaning that skb->mac_header is a pointer and that  you are comparing a pointer against a length, which doesn't look like it is correct to me?
+> 
+> I can see how this works when NET_SKBUFF_DATA_USES_OFFSET is defined, but is there a way to do this that works for both cases?
 
-> Following a recent commit to LTS and upstream  I see the following
-> warning emitted on an ARM32 build:
+Sorry, I don't know which version the LTS kernel is. Upstream does not use
+sk_buff_data_t for mac_header any more.
 
-That's 024abeeced731 in LTS and 0e033e04c2678 upstream (ipv6: fix
-headroom calculation in udp6_ufo_fragment).
+Something like that might help:
 
---mP3DRpeJDSE+ciuQ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBAgAGBQJSqwhCAAoJELSic+t+oim9lBcP/3h04Y9tjt5oB8/gTqPwLj8t
-Kuqk2WBc24n5RC1sMNOUJhwGjakitTjaSNgIxmm7Gq3iDRb9S7lQMlyNclX5ip0M
-+zhLL/pgnzWBrYMfjlQSDINKzPf5hfs8K5WA3Lafjz/CDIDJ8LNbbrFNaefE68+1
-wfbLcnxpaM0HXthBhx2+H+PQ3HJ24MaNsIHlyF26pMQzDziXvxfZGyXSOGwrk88T
-1QNNwxA6yqsllaYgBCydvZ1C7AaZFT3o9F3EHbFPFZnhl94fvOcwltju3Ao0sS4d
-pd4kfD6UbNfz3wTv6/xhpNDscKTA2hcAh8HF+VVEuTjwNtZPaVEIUJ51vu8oI065
-YFngTu1Bw2Fl300yJ8ox1x+XkxZBvhIVDnfBK16hdjk7jERHxq9AqxdrIF1AyTFV
-TQwixPO9OcgLRRJm8VlTX7614z41zsVx8vR1Rnq+QEKDtzHdtbmSGh1o262Ab+Gq
-ul1S0xpBEP8CeEHVFWtdK+ZW0jgHhU6ZKLsu95Xnt9vOnTTOYzAuu7jS69bl1gWH
-BRhuW2o+Ac1cgeN+2JlcYyMLb9qYWGfuu1x5LPNIia9P1q07OTmYidmrsQllIOAj
-IOK9xk9HEJRl70oZx5yRm3SkMKovhiAOiTjvYVMC2/0gin1Qat4IYXCSasTA8h90
-0L8oPGs0U7hPjIRspYVk
-=jlog
------END PGP SIGNATURE-----
-
---mP3DRpeJDSE+ciuQ--
+(skb_mac_header(skb) < skb->head + tnl_hlen + frag_hdr_sz)
