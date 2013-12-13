@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v6 10/11] bonding: remove unwanted lock for bond_store_primaryxxx()
-Date: Fri, 13 Dec 2013 10:20:22 +0800
-Message-ID: <52AA6EE6.2070300@huawei.com>
+Subject: [PATCH net-next v6 5/11] bonding: create bond_first_slave_rcu()
+Date: Fri, 13 Dec 2013 10:19:55 +0800
+Message-ID: <52AA6ECB.4020808@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,56 +12,88 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:19241 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:19245 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751742Ab3LMCVU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 21:21:20 -0500
+	with ESMTP id S1751802Ab3LMCVZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 21:21:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond_select_active_slave() will not release and acquire
-bond lock, so it is no need to read the bond lock for them,
-and the bond_store_primaryxxx() is already in RTNL, so remove the
-unwanted lock.
+The bond_first_slave_rcu() will be used to instead of bond_first_slave()
+in rcu_read_lock().
 
+According to the Jay Vosburgh's suggestion, the struct netdev_adjacent
+should hide from users who wanted to use it directly. so I package a
+new function to get the first slave of the bond.
+
+Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
 Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
 Suggested-by: Veaceslav Falico <vfalico@redhat.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/bonding/bond_sysfs.c | 4 ----
- 1 file changed, 4 deletions(-)
+ drivers/net/bonding/bonding.h |  4 ++++
+ include/linux/netdevice.h     |  1 +
+ net/core/dev.c                | 21 +++++++++++++++++++++
+ 3 files changed, 26 insertions(+)
 
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 75dc4d0..4838a97 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -1069,7 +1069,6 @@ static ssize_t bonding_store_primary(struct device *d,
- 	if (!rtnl_trylock())
- 		return restart_syscall();
- 	block_netpoll_tx();
--	read_lock(&bond->lock);
- 	write_lock_bh(&bond->curr_slave_lock);
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 77a07a1..9337f8a 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -91,6 +91,10 @@
+ 		netdev_adjacent_get_private(bond_slave_list(bond)->prev) : \
+ 		NULL)
  
- 	if (!USES_PRIMARY(bond->params.mode)) {
-@@ -1109,7 +1108,6 @@ static ssize_t bonding_store_primary(struct device *d,
- 		bond->dev->name, ifname, bond->dev->name);
- out:
- 	write_unlock_bh(&bond->curr_slave_lock);
--	read_unlock(&bond->lock);
- 	unblock_netpoll_tx();
- 	rtnl_unlock();
++/* Caller must have rcu_read_lock */
++#define bond_first_slave_rcu(bond) \
++	netdev_lower_get_first_private_rcu(bond->dev)
++
+ #define bond_is_first_slave(bond, pos) (pos == bond_first_slave(bond))
+ #define bond_is_last_slave(bond, pos) (pos == bond_last_slave(bond))
  
-@@ -1157,11 +1155,9 @@ static ssize_t bonding_store_primary_reselect(struct device *d,
- 		new_value);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 15fa01c..abfcfad 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2869,6 +2869,7 @@ void *netdev_lower_get_next_private_rcu(struct net_device *dev,
+ 	     priv = netdev_lower_get_next_private_rcu(dev, &(iter)))
  
- 	block_netpoll_tx();
--	read_lock(&bond->lock);
- 	write_lock_bh(&bond->curr_slave_lock);
- 	bond_select_active_slave(bond);
- 	write_unlock_bh(&bond->curr_slave_lock);
--	read_unlock(&bond->lock);
- 	unblock_netpoll_tx();
- out:
- 	rtnl_unlock();
+ void *netdev_adjacent_get_private(struct list_head *adj_list);
++void *netdev_lower_get_first_private_rcu(struct net_device *dev);
+ struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
+ struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
+ int netdev_upper_dev_link(struct net_device *dev, struct net_device *upper_dev);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 8ffc52e..51feddb 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4570,6 +4570,27 @@ void *netdev_lower_get_next_private_rcu(struct net_device *dev,
+ EXPORT_SYMBOL(netdev_lower_get_next_private_rcu);
+ 
+ /**
++ * netdev_lower_get_first_private_rcu - Get the first ->private from the
++ *				       lower neighbour list, RCU
++ *				       variant
++ * @dev: device
++ *
++ * Gets the first netdev_adjacent->private from the dev's lower neighbour
++ * list. The caller must hold RCU read lock.
++ */
++void *netdev_lower_get_first_private_rcu(struct net_device *dev)
++{
++	struct netdev_adjacent *lower;
++
++	lower = list_first_or_null_rcu(&dev->adj_list.lower,
++			struct netdev_adjacent, list);
++	if (lower)
++		return lower->private;
++	return NULL;
++}
++EXPORT_SYMBOL(netdev_lower_get_first_private_rcu);
++
++/**
+  * netdev_master_upper_dev_get_rcu - Get master upper device
+  * @dev: device
+  *
 -- 
 1.8.2.1
