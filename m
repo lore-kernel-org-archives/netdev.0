@@ -1,7 +1,7 @@
 From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH v2 0/5] net: phy: Ethernet PHY powerdown optimization
-Date: Fri, 13 Dec 2013 10:20:24 +0100
-Message-ID: <1386926429-28818-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Subject: [PATCH v2 5/5] net: phy: suspend phydev when going to HALTED
+Date: Fri, 13 Dec 2013 10:20:29 +0100
+Message-ID: <1386926429-28818-6-git-send-email-sebastian.hesselbarth@gmail.com>
 References: <1386513631-11284-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
 	David Miller <davem@davemloft.net>,
@@ -14,34 +14,13 @@ In-Reply-To: <1386513631-11284-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is v2 of the ethernet PHY power optimization patches to reduce
-power consumption of network PHYs with link that are either unused or
-the corresponding netdev is down.
+When phydev is going to HALTED state, we can try to suspend it to
+safe more power. phy_suspend helper will check if PHY can be suspended,
+so just call it when entering HALTED state.
 
-Compared to the last version, this patch set drops a patch to disable
-unused PHYs after late initcall, as it is not compatible with a modular
-mdio bus [1]. I'll investigate different ways to have a modular mdio bus
-driver get notified when driver loading is done.
-
-Again, a branch with v2 applied to v3.13-rc2 can also be found at
-https://github.com/shesselba/linux-dove.git topic/ethphy-power-v2
-
-[1] http://www.spinics.net/lists/arm-kernel/msg293028.html
-
-Sebastian Hesselbarth (5):
-  net: mv643xx_eth: properly start/stop phy device
-  net: phy: marvell: provide genphy suspend/resume
-  net: phy: provide phy_resume/phy_suspend helpers
-  net: phy: resume/suspend PHYs on attach/detach
-  net: phy: suspend phydev when going to HALTED
-
- drivers/net/ethernet/marvell/mv643xx_eth.c |    4 +++-
- drivers/net/phy/marvell.c                  |   22 ++++++++++++++++++++++
- drivers/net/phy/phy.c                      |    6 +++++-
- drivers/net/phy/phy_device.c               |   27 +++++++++++++++++++++++++++
- include/linux/phy.h                        |    2 ++
- 5 files changed, 59 insertions(+), 2 deletions(-)
-
+Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
 Cc: David Miller <davem@davemloft.net>
 Cc: Florian Fainelli <f.fainelli@gmail.com>
@@ -49,5 +28,40 @@ Cc: Mugunthan V N <mugunthanvnm@ti.com>
 Cc: netdev@vger.kernel.org
 Cc: linux-arm-kernel@lists.infradead.org
 Cc: linux-kernel@vger.kernel.org
+---
+ drivers/net/phy/phy.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 36c6994..6429942 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -740,7 +740,7 @@ void phy_state_machine(struct work_struct *work)
+ 	struct delayed_work *dwork = to_delayed_work(work);
+ 	struct phy_device *phydev =
+ 			container_of(dwork, struct phy_device, state_queue);
+-	int needs_aneg = 0;
++	int needs_aneg = 0, do_suspend = 0;
+ 	int err = 0;
+ 
+ 	mutex_lock(&phydev->lock);
+@@ -855,6 +855,7 @@ void phy_state_machine(struct work_struct *work)
+ 				phydev->link = 0;
+ 				netif_carrier_off(phydev->attached_dev);
+ 				phydev->adjust_link(phydev->attached_dev);
++				do_suspend = 1;
+ 			}
+ 			break;
+ 		case PHY_RESUMING:
+@@ -913,6 +914,9 @@ void phy_state_machine(struct work_struct *work)
+ 	if (needs_aneg)
+ 		err = phy_start_aneg(phydev);
+ 
++	if (do_suspend)
++		phy_suspend(phydev);
++
+ 	if (err < 0)
+ 		phy_error(phydev);
+ 
 -- 
 1.7.2.5
