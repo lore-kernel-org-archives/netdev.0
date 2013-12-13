@@ -1,62 +1,130 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next 0/6 v9] Open vSwitch zercopy upcall optimiziation
-Date: Fri, 13 Dec 2013 15:22:16 +0100
-Message-ID: <cover.1386943635.git.tgraf@suug.ch>
+Subject: [PATCH net-next 4/6] openvswitch: Pass datapath into userspace queue functions
+Date: Fri, 13 Dec 2013 15:22:20 +0100
+Message-ID: <b57ab263da3b567afc78f746bbddbd5cc3ebe87c.1386943635.git.tgraf@suug.ch>
+References: <cover.1386943635.git.tgraf@suug.ch>
 Cc: dev@openvswitch.org, eric.dumazet@gmail.com, fleitner@redhat.com,
 	ffusco@redhat.com, dborkmann@redhat.com, bhutchings@solarflare.com,
 	netdev@vger.kernel.org, davem@davemloft.net
 To: jesse@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:43930 "EHLO
+Received: from merlin.infradead.org ([205.233.59.134]:43934 "EHLO
 	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752607Ab3LMOWm (ORCPT
+	with ESMTP id S1752718Ab3LMOWm (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 09:22:42 -0500
+In-Reply-To: <cover.1386943635.git.tgraf@suug.ch>
+In-Reply-To: <cover.1386943635.git.tgraf@suug.ch>
+References: <cover.1386943635.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Series implementing a zerocopy method for OVS upcall messages. Based
-on top of commit: (''openvswitch: Enable memory mapped Netlink i/o'')
+Allows removing the net and dp_ifindex argument and simplify the
+code.
 
-Thomas Graf (6):
-  net: Export skb_zerocopy() to zerocopy from one skb to another
-  openvswitch: Allow user space to announce ability to accept unaligned
-    Netlink messages
-  openvswitch: Drop user features if old user space attempted to create
-    datapath
-  openvswitch: Pass datapath into userspace queue functions
-  openvswitch: Use skb_zerocopy() for upcall
-  openvswitch: Compute checksum in skb_gso_segment() if needed
-
- include/linux/skbuff.h               |   3 +
- include/uapi/linux/openvswitch.h     |  14 ++++-
- net/core/skbuff.c                    |  85 ++++++++++++++++++++++++++++
- net/netfilter/nfnetlink_queue_core.c |  59 ++-----------------
- net/openvswitch/datapath.c           | 106 ++++++++++++++++++++++++++---------
- net/openvswitch/datapath.h           |   2 +
- 6 files changed, 185 insertions(+), 84 deletions(-)
-
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
-V9: - Dropped patches 1-3 (merged)
-    - Dropped skb argument from upcall_msg_size()
-    - Dropped dp_ifindex and net argument from all queue functions
-    - Added patch to remove NETIF_F_HW_CSUM from __skb_gso_segment()
-V8: - Dropped patch adding NLM_F_REPLACE support, I'll pursue this in a
-      separate patch series. Addresses Jesse's comments.
-    - Improved comment describing OVS_DATAPATH_VERSION bump.
-V7: - removed unintential kernel-doc comment
-    - WARN_ONCE() -> WARN(), message on single line, added \n
-V6: - Added memory mapped netlink i/o support
-    - Drop user_features if old user space not aware of user features
-      reuses an existing datapath
-V5: - Removed padding requirement in user space
-    - Added OVS_DP_F_UNALIGNED flag let user space signal ability to
-      receive unaligned Netlink messages, fall back to linear copy
-      otherwise.
-V4: - Daniel Borkmann pointed out that the style in skbuff.h has changed
-      in net-next, adapted to no longer using extern in headers.
-V3: - Removed unneeded alignment of nlmsg_len after padding
-V2: - Added skb_zerocopy_headlen() to calculate headroom of destination
-      buffer. This also takes care of the from->head_frag issue.
-    - Attribute alignment for frag_list case
-    - API documentation
-    - performance data for CHECKSUM_PARTIAL tx case
+ net/openvswitch/datapath.c | 34 ++++++++++++++--------------------
+ 1 file changed, 14 insertions(+), 20 deletions(-)
+
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 8eaa39a..8f6318c 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -108,10 +108,9 @@ int lockdep_ovsl_is_held(void)
+ #endif
+ 
+ static struct vport *new_vport(const struct vport_parms *);
+-static int queue_gso_packets(struct net *, int dp_ifindex, struct sk_buff *,
++static int queue_gso_packets(struct datapath *dp, struct sk_buff *,
+ 			     const struct dp_upcall_info *);
+-static int queue_userspace_packet(struct net *, int dp_ifindex,
+-				  struct sk_buff *,
++static int queue_userspace_packet(struct datapath *dp, struct sk_buff *,
+ 				  const struct dp_upcall_info *);
+ 
+ /* Must be called with rcu_read_lock or ovs_mutex. */
+@@ -277,7 +276,6 @@ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
+ 		  const struct dp_upcall_info *upcall_info)
+ {
+ 	struct dp_stats_percpu *stats;
+-	int dp_ifindex;
+ 	int err;
+ 
+ 	if (upcall_info->portid == 0) {
+@@ -285,16 +283,10 @@ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
+ 		goto err;
+ 	}
+ 
+-	dp_ifindex = get_dpifindex(dp);
+-	if (!dp_ifindex) {
+-		err = -ENODEV;
+-		goto err;
+-	}
+-
+ 	if (!skb_is_gso(skb))
+-		err = queue_userspace_packet(ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
++		err = queue_userspace_packet(dp, skb, upcall_info);
+ 	else
+-		err = queue_gso_packets(ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
++		err = queue_gso_packets(dp, skb, upcall_info);
+ 	if (err)
+ 		goto err;
+ 
+@@ -310,8 +302,7 @@ err:
+ 	return err;
+ }
+ 
+-static int queue_gso_packets(struct net *net, int dp_ifindex,
+-			     struct sk_buff *skb,
++static int queue_gso_packets(struct datapath *dp, struct sk_buff *skb,
+ 			     const struct dp_upcall_info *upcall_info)
+ {
+ 	unsigned short gso_type = skb_shinfo(skb)->gso_type;
+@@ -327,7 +318,7 @@ static int queue_gso_packets(struct net *net, int dp_ifindex,
+ 	/* Queue all of the segments. */
+ 	skb = segs;
+ 	do {
+-		err = queue_userspace_packet(net, dp_ifindex, skb, upcall_info);
++		err = queue_userspace_packet(dp, skb, upcall_info);
+ 		if (err)
+ 			break;
+ 
+@@ -394,8 +385,7 @@ static size_t upcall_msg_size(const struct sk_buff *skb,
+ 	return size;
+ }
+ 
+-static int queue_userspace_packet(struct net *net, int dp_ifindex,
+-				  struct sk_buff *skb,
++static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+ 				  const struct dp_upcall_info *upcall_info)
+ {
+ 	struct ovs_header *upcall;
+@@ -403,11 +393,15 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
+ 	struct sk_buff *user_skb; /* to be queued to userspace */
+ 	struct nlattr *nla;
+ 	struct genl_info info = {
+-		.dst_sk = net->genl_sock,
++		.dst_sk = ovs_dp_get_net(dp)->genl_sock,
+ 		.snd_portid = upcall_info->portid,
+ 	};
+ 	size_t len;
+-	int err;
++	int err, dp_ifindex;
++
++	dp_ifindex = get_dpifindex(dp);
++	if (!dp_ifindex)
++		return -ENODEV;
+ 
+ 	if (vlan_tx_tag_present(skb)) {
+ 		nskb = skb_clone(skb, GFP_ATOMIC);
+@@ -452,7 +446,7 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
+ 	skb_copy_and_csum_dev(skb, nla_data(nla));
+ 
+ 	genlmsg_end(user_skb, upcall);
+-	err = genlmsg_unicast(net, user_skb, upcall_info->portid);
++	err = genlmsg_unicast(ovs_dp_get_net(dp), user_skb, upcall_info->portid);
+ 
+ out:
+ 	kfree_skb(nskb);
+-- 
+1.8.3.1
