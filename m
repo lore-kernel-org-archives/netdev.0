@@ -1,56 +1,286 @@
-From: Mark Hambleton <mark.hambleton@broadcom.com>
-Subject: RE: ipv6: fix headroom calculation in udp6_ufo_fragment
-Date: Fri, 13 Dec 2013 15:00:37 +0000
-Message-ID: <D00A5DFD97C44C4D820FC3A847C5D575073065F5@IRVEXCHMB14.corp.ad.broadcom.com>
-References: <D00A5DFD97C44C4D820FC3A847C5D5750730630F@IRVEXCHMB14.corp.ad.broadcom.com>
- <20131213133453.GB7332@order.stressinduktion.org>
- <20131213134205.GB11044@sirena.org.uk>
- <20131213141227.GC7332@order.stressinduktion.org>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: Re: [PATCH] ARM: at91: remove AT91_PROGRAMMABLE_CLOCKS configuration
+ option
+Date: Fri, 13 Dec 2013 16:18:25 +0100
+Message-ID: <20131213151721.GP14627@ns203013.ovh.net>
+References: <52A9C81B.7050007@atmel.com>
+ <1386864045-25198-1-git-send-email-nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: 'Pravin B Shelar' <pshelar@nicira.com>,
-	'Saran Neti' <Saran.Neti@telus.com>,
-	"'David S. Miller'" <davem@davemloft.net>,
-	'Greg Kroah-Hartman' <gregkh@linuxfoundation.org>,
-	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	"'stable@vger.kernel.org'" <stable@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Mark Brown <broonie@kernel.org>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20131213141227.GC7332@order.stressinduktion.org>
-Content-Language: en-US
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Olof Johansson <olof@lixom.net>, khilman@linaro.org,
+	Boris BREZILLON <b.brezillon@overkiz.com>,
+	Ludovic Desroches <ludovic.desroches@atmel.com>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 14.mo4.mail-out.ovh.net ([46.105.40.29]:52363 "EHLO
+	mo4.mail-out.ovh.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752196Ab3LMPSO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 10:18:14 -0500
+Received: from mail639.ha.ovh.net (b6.ovh.net [213.186.33.56])
+	by mo4.mail-out.ovh.net (Postfix) with SMTP id 949C3FFB2BE
+	for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 16:21:11 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <1386864045-25198-1-git-send-email-nicolas.ferre@atmel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhhbmtzIQ0KDQpUaGF0IGZpeGVzIHRoZSB3YXJuaW5nIGFuZCBsb29rcyBsaWtlIGl0IHdpbGwg
-d29yay4NCg0KTWFyaw0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogSGFubmVz
-IEZyZWRlcmljIFNvd2EgW21haWx0bzpoYW5uZXNAc3RyZXNzaW5kdWt0aW9uLm9yZ10gDQpTZW50
-OiAxMyBEZWNlbWJlciAyMDEzIDE0OjEyDQpUbzogTWFyayBCcm93bg0KQ2M6IE1hcmsgSGFtYmxl
-dG9uOyAnUHJhdmluIEIgU2hlbGFyJzsgJ1NhcmFuIE5ldGknOyAnRGF2aWQgUy4gTWlsbGVyJzsg
-J0dyZWcgS3JvYWgtSGFydG1hbic7ICduZXRkZXZAdmdlci5rZXJuZWwub3JnJzsgJ3N0YWJsZUB2
-Z2VyLmtlcm5lbC5vcmcnDQpTdWJqZWN0OiBSZTogaXB2NjogZml4IGhlYWRyb29tIGNhbGN1bGF0
-aW9uIGluIHVkcDZfdWZvX2ZyYWdtZW50DQoNCk9uIEZyaSwgRGVjIDEzLCAyMDEzIGF0IDAxOjQy
-OjA1UE0gKzAwMDAsIE1hcmsgQnJvd24gd3JvdGU6DQo+IE9uIEZyaSwgRGVjIDEzLCAyMDEzIGF0
-IDAyOjM0OjUzUE0gKzAxMDAsIEhhbm5lcyBGcmVkZXJpYyBTb3dhIHdyb3RlOg0KPiANCj4gPiBT
-b3JyeSwgSSBkb24ndCBrbm93IHdoaWNoIHZlcnNpb24gdGhlIExUUyBrZXJuZWwgaXMuIFVwc3Ry
-ZWFtIGRvZXMgbm90IHVzZQ0KPiA+IHNrX2J1ZmZfZGF0YV90IGZvciBtYWNfaGVhZGVyIGFueSBt
-b3JlLg0KPiANCj4gVGhpcyBpcyB3aXRoIHYzLjEwLg0KDQpUaGUgY2hhbmdlIGhhcHBlbmQgaW4g
-My4xMS4gU28gSSBndWVzcyBpdCB3YXMgYW4gb3ZlcnNpZ2h0IHdoaWxlIGJhY2twb3J0aW5nLg0K
-Rm9sbG93aW5nIHBhdGNoIHNob3VsZCBoZWxwIGFuZCBzaG91bGQgZ2V0IGJhY2twb3J0ZWQgdG8g
-YWxsIHN0YWJsZSBrZXJuZWxzDQo8PSAzLjEwLg0KDQpbUEFUQ0ggc3RhYmxlXSBpcHY2OiBmaXgg
-aWxsZWdhbCBtYWNfaGVhZGVyIGNvbXBhcmlzb24gb24gMzJiaXQNCg0KU2lnbmVkLW9mZi1ieTog
-SGFubmVzIEZyZWRlcmljIFNvd2EgPGhhbm5lc0BzdHJlc3NpbmR1a3Rpb24ub3JnPg0KLS0tDQoN
-ClBhdGNoIGludGVuZGVkIGZvciBzdGFibGUga2VybmVsIDw9IDMuMTAuDQoNCiBuZXQvaXB2Ni91
-ZHBfb2ZmbG9hZC5jIHwgMiArLQ0KIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgMSBk
-ZWxldGlvbigtKQ0KDQpkaWZmIC0tZ2l0IGEvbmV0L2lwdjYvdWRwX29mZmxvYWQuYyBiL25ldC9p
-cHY2L3VkcF9vZmZsb2FkLmMNCmluZGV4IGU3MzU5ZjkuLmUxNWEzNTcgMTAwNjQ0DQotLS0gYS9u
-ZXQvaXB2Ni91ZHBfb2ZmbG9hZC5jDQorKysgYi9uZXQvaXB2Ni91ZHBfb2ZmbG9hZC5jDQpAQCAt
-OTAsNyArOTAsNyBAQCBzdGF0aWMgc3RydWN0IHNrX2J1ZmYgKnVkcDZfdWZvX2ZyYWdtZW50KHN0
-cnVjdCBza19idWZmICpza2IsDQogDQogCQkvKiBDaGVjayBpZiB0aGVyZSBpcyBlbm91Z2ggaGVh
-ZHJvb20gdG8gaW5zZXJ0IGZyYWdtZW50IGhlYWRlci4gKi8NCiAJCXRubF9obGVuID0gc2tiX3Ru
-bF9oZWFkZXJfbGVuKHNrYik7DQotCQlpZiAoc2tiLT5tYWNfaGVhZGVyIDwgKHRubF9obGVuICsg
-ZnJhZ19oZHJfc3opKSB7DQorCQlpZiAoc2tiX21hY19oZWFkZXIoc2tiKSA8IHNrYi0+aGVhZCAr
-IHRubF9obGVuICsgZnJhZ19oZHJfc3opIHsNCiAJCQlpZiAoZ3NvX3Bza2JfZXhwYW5kX2hlYWQo
-c2tiLCB0bmxfaGxlbiArIGZyYWdfaGRyX3N6KSkNCiAJCQkJZ290byBvdXQ7DQogCQl9DQotLSAN
-CjEuOC4zLjENCg0KDQoNCg==
+On 17:00 Thu 12 Dec     , Nicolas Ferre wrote:
+> This AT91 specific Kconfig option removed the code that dealt with
+> programmable clocks. Each AT91 SoC embeds programmable clocks and
+> there is little gain to remove this code in case that such a clock
+> is not used.
+> If this option is not selected, it causes certain drivers to fail
+> to build. We simply remove this option instead of adding code just
+> to build a workaround.
+> 
+> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+Acked-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+
+Best Regards,
+J.
+> ---
+> Olof, Kevin,
+> 
+> This patch goes on top of the AT91 "cleanup" branch.
+> 
+> Bye,
+> 
+> 
+>  arch/arm/configs/at91_dt_defconfig          | 1 -
+>  arch/arm/configs/at91rm9200_defconfig       | 1 -
+>  arch/arm/configs/at91sam9260_9g20_defconfig | 1 -
+>  arch/arm/configs/at91sam9261_9g10_defconfig | 1 -
+>  arch/arm/configs/at91sam9g45_defconfig      | 1 -
+>  arch/arm/configs/at91sam9rl_defconfig       | 1 -
+>  arch/arm/configs/sama5_defconfig            | 1 -
+>  arch/arm/mach-at91/Kconfig                  | 6 ------
+>  arch/arm/mach-at91/clock.c                  | 6 ------
+>  arch/arm/mach-at91/pm.c                     | 3 ---
+>  drivers/clk/at91/Makefile                   | 3 +--
+>  drivers/clk/at91/pmc.c                      | 2 --
+>  drivers/clk/at91/pmc.h                      | 2 --
+>  sound/soc/atmel/Kconfig                     | 2 +-
+>  14 files changed, 2 insertions(+), 29 deletions(-)
+> 
+> diff --git a/arch/arm/configs/at91_dt_defconfig b/arch/arm/configs/at91_dt_defconfig
+> index 690e89273230..0b4e9b5210d8 100644
+> --- a/arch/arm/configs/at91_dt_defconfig
+> +++ b/arch/arm/configs/at91_dt_defconfig
+> @@ -22,7 +22,6 @@ CONFIG_SOC_AT91SAM9X5=y
+>  CONFIG_SOC_AT91SAM9N12=y
+>  CONFIG_MACH_AT91RM9200_DT=y
+>  CONFIG_MACH_AT91SAM9_DT=y
+> -CONFIG_AT91_PROGRAMMABLE_CLOCKS=y
+>  CONFIG_AT91_TIMER_HZ=128
+>  CONFIG_AEABI=y
+>  # CONFIG_OABI_COMPAT is not set
+> diff --git a/arch/arm/configs/at91rm9200_defconfig b/arch/arm/configs/at91rm9200_defconfig
+> index 75502c4d222c..bf057719dab0 100644
+> --- a/arch/arm/configs/at91rm9200_defconfig
+> +++ b/arch/arm/configs/at91rm9200_defconfig
+> @@ -31,7 +31,6 @@ CONFIG_MACH_YL9200=y
+>  CONFIG_MACH_CPUAT91=y
+>  CONFIG_MACH_ECO920=y
+>  CONFIG_MTD_AT91_DATAFLASH_CARD=y
+> -CONFIG_AT91_PROGRAMMABLE_CLOCKS=y
+>  CONFIG_AT91_TIMER_HZ=100
+>  # CONFIG_ARM_THUMB is not set
+>  CONFIG_PCCARD=y
+> diff --git a/arch/arm/configs/at91sam9260_9g20_defconfig b/arch/arm/configs/at91sam9260_9g20_defconfig
+> index 69b6928d3d9d..955dc480f3ee 100644
+> --- a/arch/arm/configs/at91sam9260_9g20_defconfig
+> +++ b/arch/arm/configs/at91sam9260_9g20_defconfig
+> @@ -28,7 +28,6 @@ CONFIG_MACH_PCONTROL_G20=y
+>  CONFIG_MACH_GSIA18S=y
+>  CONFIG_MACH_SNAPPER_9260=y
+>  CONFIG_MACH_AT91SAM9_DT=y
+> -CONFIG_AT91_PROGRAMMABLE_CLOCKS=y
+>  CONFIG_AT91_SLOW_CLOCK=y
+>  # CONFIG_ARM_THUMB is not set
+>  CONFIG_AEABI=y
+> diff --git a/arch/arm/configs/at91sam9261_9g10_defconfig b/arch/arm/configs/at91sam9261_9g10_defconfig
+> index 9d35cd81c611..f80e993b04ce 100644
+> --- a/arch/arm/configs/at91sam9261_9g10_defconfig
+> +++ b/arch/arm/configs/at91sam9261_9g10_defconfig
+> @@ -18,7 +18,6 @@ CONFIG_ARCH_AT91=y
+>  CONFIG_ARCH_AT91SAM9261=y
+>  CONFIG_MACH_AT91SAM9261EK=y
+>  CONFIG_MACH_AT91SAM9G10EK=y
+> -CONFIG_AT91_PROGRAMMABLE_CLOCKS=y
+>  # CONFIG_ARM_THUMB is not set
+>  CONFIG_AEABI=y
+>  # CONFIG_OABI_COMPAT is not set
+> diff --git a/arch/arm/configs/at91sam9g45_defconfig b/arch/arm/configs/at91sam9g45_defconfig
+> index 08166cd4e7d6..e181a50fd65a 100644
+> --- a/arch/arm/configs/at91sam9g45_defconfig
+> +++ b/arch/arm/configs/at91sam9g45_defconfig
+> @@ -18,7 +18,6 @@ CONFIG_ARCH_AT91=y
+>  CONFIG_ARCH_AT91SAM9G45=y
+>  CONFIG_MACH_AT91SAM9M10G45EK=y
+>  CONFIG_MACH_AT91SAM9_DT=y
+> -CONFIG_AT91_PROGRAMMABLE_CLOCKS=y
+>  CONFIG_AT91_SLOW_CLOCK=y
+>  CONFIG_AEABI=y
+>  # CONFIG_OABI_COMPAT is not set
+> diff --git a/arch/arm/configs/at91sam9rl_defconfig b/arch/arm/configs/at91sam9rl_defconfig
+> index 7cf87856d63c..7b6f131cecd6 100644
+> --- a/arch/arm/configs/at91sam9rl_defconfig
+> +++ b/arch/arm/configs/at91sam9rl_defconfig
+> @@ -13,7 +13,6 @@ CONFIG_MODULE_UNLOAD=y
+>  CONFIG_ARCH_AT91=y
+>  CONFIG_ARCH_AT91SAM9RL=y
+>  CONFIG_MACH_AT91SAM9RLEK=y
+> -CONFIG_AT91_PROGRAMMABLE_CLOCKS=y
+>  # CONFIG_ARM_THUMB is not set
+>  CONFIG_ZBOOT_ROM_TEXT=0x0
+>  CONFIG_ZBOOT_ROM_BSS=0x0
+> diff --git a/arch/arm/configs/sama5_defconfig b/arch/arm/configs/sama5_defconfig
+> index f6e78f83c3c3..dc3881e07630 100644
+> --- a/arch/arm/configs/sama5_defconfig
+> +++ b/arch/arm/configs/sama5_defconfig
+> @@ -20,7 +20,6 @@ CONFIG_ARCH_AT91=y
+>  CONFIG_SOC_SAM_V7=y
+>  CONFIG_SOC_SAMA5D3=y
+>  CONFIG_MACH_SAMA5_DT=y
+> -CONFIG_AT91_PROGRAMMABLE_CLOCKS=y
+>  CONFIG_AEABI=y
+>  # CONFIG_OABI_COMPAT is not set
+>  CONFIG_UACCESS_WITH_MEMCPY=y
+> diff --git a/arch/arm/mach-at91/Kconfig b/arch/arm/mach-at91/Kconfig
+> index aac7814db4f9..f1bf952da747 100644
+> --- a/arch/arm/mach-at91/Kconfig
+> +++ b/arch/arm/mach-at91/Kconfig
+> @@ -214,12 +214,6 @@ config MACH_SAMA5_DT
+>  
+>  comment "AT91 Feature Selections"
+>  
+> -config AT91_PROGRAMMABLE_CLOCKS
+> -	bool "Programmable Clocks"
+> -	help
+> -	  Select this if you need to program one or more of the PCK0..PCK3
+> -	  programmable clock outputs.
+> -
+>  config AT91_SLOW_CLOCK
+>  	bool "Suspend-to-RAM disables main oscillator"
+>  	depends on SUSPEND
+> diff --git a/arch/arm/mach-at91/clock.c b/arch/arm/mach-at91/clock.c
+> index 72b257944733..034529d801b2 100644
+> --- a/arch/arm/mach-at91/clock.c
+> +++ b/arch/arm/mach-at91/clock.c
+> @@ -330,8 +330,6 @@ EXPORT_SYMBOL(clk_get_rate);
+>  
+>  /*------------------------------------------------------------------------*/
+>  
+> -#ifdef CONFIG_AT91_PROGRAMMABLE_CLOCKS
+> -
+>  /*
+>   * For now, only the programmable clocks support reparenting (MCK could
+>   * do this too, with care) or rate changing (the PLLs could do this too,
+> @@ -459,8 +457,6 @@ static void __init init_programmable_clock(struct clk *clk)
+>  	clk->rate_hz = parent->rate_hz / pmc_prescaler_divider(pckr);
+>  }
+>  
+> -#endif	/* CONFIG_AT91_PROGRAMMABLE_CLOCKS */
+> -
+>  /*------------------------------------------------------------------------*/
+>  
+>  #ifdef CONFIG_DEBUG_FS
+> @@ -577,12 +573,10 @@ int __init clk_register(struct clk *clk)
+>  		clk->parent = &mck;
+>  		clk->mode = pmc_sys_mode;
+>  	}
+> -#ifdef CONFIG_AT91_PROGRAMMABLE_CLOCKS
+>  	else if (clk_is_programmable(clk)) {
+>  		clk->mode = pmc_sys_mode;
+>  		init_programmable_clock(clk);
+>  	}
+> -#endif
+>  
+>  	at91_clk_add(clk);
+>  
+> diff --git a/arch/arm/mach-at91/pm.c b/arch/arm/mach-at91/pm.c
+> index d43b79f56e94..590b52dea9f7 100644
+> --- a/arch/arm/mach-at91/pm.c
+> +++ b/arch/arm/mach-at91/pm.c
+> @@ -155,9 +155,6 @@ static int at91_pm_verify_clocks(void)
+>  		}
+>  	}
+>  
+> -	if (!IS_ENABLED(CONFIG_AT91_PROGRAMMABLE_CLOCKS))
+> -		return 1;
+> -
+>  	/* PCK0..PCK3 must be disabled, or configured to use clk32k */
+>  	for (i = 0; i < 4; i++) {
+>  		u32 css;
+> diff --git a/drivers/clk/at91/Makefile b/drivers/clk/at91/Makefile
+> index 0e92b716f934..46c1d3d0d66b 100644
+> --- a/drivers/clk/at91/Makefile
+> +++ b/drivers/clk/at91/Makefile
+> @@ -4,9 +4,8 @@
+>  
+>  obj-y += pmc.o
+>  obj-y += clk-main.o clk-pll.o clk-plldiv.o clk-master.o
+> -obj-y += clk-system.o clk-peripheral.o
+> +obj-y += clk-system.o clk-peripheral.o clk-programmable.o
+>  
+> -obj-$(CONFIG_AT91_PROGRAMMABLE_CLOCKS)	+= clk-programmable.o
+>  obj-$(CONFIG_HAVE_AT91_UTMI)		+= clk-utmi.o
+>  obj-$(CONFIG_HAVE_AT91_USB_CLK)		+= clk-usb.o
+>  obj-$(CONFIG_HAVE_AT91_SMD)		+= clk-smd.o
+> diff --git a/drivers/clk/at91/pmc.c b/drivers/clk/at91/pmc.c
+> index 7b9db603b936..11fceff8d9f1 100644
+> --- a/drivers/clk/at91/pmc.c
+> +++ b/drivers/clk/at91/pmc.c
+> @@ -279,7 +279,6 @@ static const struct of_device_id pmc_clk_ids[] __initdata = {
+>  		.data = of_at91sam9x5_clk_periph_setup,
+>  	},
+>  	/* Programmable clocks */
+> -#if defined(CONFIG_AT91_PROGRAMMABLE_CLOCKS)
+>  	{
+>  		.compatible = "atmel,at91rm9200-clk-programmable",
+>  		.data = of_at91rm9200_clk_prog_setup,
+> @@ -292,7 +291,6 @@ static const struct of_device_id pmc_clk_ids[] __initdata = {
+>  		.compatible = "atmel,at91sam9x5-clk-programmable",
+>  		.data = of_at91sam9x5_clk_prog_setup,
+>  	},
+> -#endif
+>  	/* UTMI clock */
+>  #if defined(CONFIG_HAVE_AT91_UTMI)
+>  	{
+> diff --git a/drivers/clk/at91/pmc.h b/drivers/clk/at91/pmc.h
+> index ba8d14233f80..441350983ccb 100644
+> --- a/drivers/clk/at91/pmc.h
+> +++ b/drivers/clk/at91/pmc.h
+> @@ -85,14 +85,12 @@ extern void __init of_at91rm9200_clk_periph_setup(struct device_node *np,
+>  extern void __init of_at91sam9x5_clk_periph_setup(struct device_node *np,
+>  						  struct at91_pmc *pmc);
+>  
+> -#if defined(CONFIG_AT91_PROGRAMMABLE_CLOCKS)
+>  extern void __init of_at91rm9200_clk_prog_setup(struct device_node *np,
+>  						struct at91_pmc *pmc);
+>  extern void __init of_at91sam9g45_clk_prog_setup(struct device_node *np,
+>  						 struct at91_pmc *pmc);
+>  extern void __init of_at91sam9x5_clk_prog_setup(struct device_node *np,
+>  						struct at91_pmc *pmc);
+> -#endif
+>  
+>  #if defined(CONFIG_HAVE_AT91_UTMI)
+>  extern void __init of_at91sam9x5_clk_utmi_setup(struct device_node *np,
+> diff --git a/sound/soc/atmel/Kconfig b/sound/soc/atmel/Kconfig
+> index e48d38a1b95c..e634eb78ed03 100644
+> --- a/sound/soc/atmel/Kconfig
+> +++ b/sound/soc/atmel/Kconfig
+> @@ -25,7 +25,7 @@ config SND_ATMEL_SOC_SSC
+>  
+>  config SND_AT91_SOC_SAM9G20_WM8731
+>  	tristate "SoC Audio support for WM8731-based At91sam9g20 evaluation board"
+> -	depends on ARCH_AT91 && ATMEL_SSC && SND_ATMEL_SOC && AT91_PROGRAMMABLE_CLOCKS
+> +	depends on ARCH_AT91 && ATMEL_SSC && SND_ATMEL_SOC
+>  	select SND_ATMEL_SOC_PDC
+>  	select SND_ATMEL_SOC_SSC
+>  	select SND_SOC_WM8731
+> -- 
+> 1.8.2.2
+> 
