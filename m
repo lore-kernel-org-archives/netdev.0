@@ -1,43 +1,62 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next v2 6/6] net_sched: convert tcf_hashinfo to
- hlist and use rcu
-Date: Fri, 13 Dec 2013 05:18:59 +0000 (UTC)
-Message-ID: <slrnlal66e.3h5.xiyou.wangcong@linux-6brj.site>
-References: <1386910604-1870-1-git-send-email-xiyou.wangcong@gmail.com>
- <1386910604-1870-7-git-send-email-xiyou.wangcong@gmail.com>
+Subject: [PATCH net-next v3 0/6] net_sched: some cleanup and improvments
+Date: Thu, 12 Dec 2013 21:47:47 -0800
+Message-ID: <1386913673-8210-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:60931 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750926Ab3LMFTZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Dec 2013 00:19:25 -0500
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1VrL9o-0001lw-0O
-	for netdev@vger.kernel.org; Fri, 13 Dec 2013 06:19:24 +0100
-Received: from c-24-5-209-215.hsd1.ca.comcast.net ([24.5.209.215])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 06:19:24 +0100
-Received: from xiyou.wangcong by c-24-5-209-215.hsd1.ca.comcast.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 06:19:24 +0100
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:46923 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751932Ab3LMFr7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 00:47:59 -0500
+Received: by mail-pb0-f45.google.com with SMTP id rp16so1928851pbb.4
+        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 21:47:58 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 13 Dec 2013 at 04:56 GMT, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->  {
-> -	rwlock_init(&hf->lock);
-> +	int i;
-> +
-> +	spin_lock_init(&hf->lock);
->  	hf->hmask = mask;
->  	hf->htab = kzalloc((mask + 1) * sizeof(struct tcf_common *),
->  			   GFP_KERNEL);
->  	if (!hf->htab)
->  		return -ENOMEM;
-> +	for (i = 0; i < mask + 1; i++)
-> +		INIT_HLIST_HEAD(&hf->htab[i]);
->  	return 0;
+Here are some cleanup and improvements for tc filters
+and tc actions.
 
-Oops, a new bug was introduced during my rebase...
+v2 -> v3:
+* fix a typo introduced during rebase
+
+v1 -> v2:
+* fix a smatch warning and a checkpatch warning
+* add a cover letter
+* add a missing synchronize_rcu()
+
+Cong Wang (6):
+  net_sched: remove get_stats from tc_action_ops
+  net_sched: act: use standard struct list_head
+  net_sched: mirred: remove action when the target device is gone
+  net_sched: cls: refactor out struct tcf_ext_map
+  net_sched: init struct tcf_hashinfo at register time
+  net_sched: convert tcf_hashinfo to hlist and use rcu
+
+ include/net/act_api.h          |  41 +++++++---
+ include/net/pkt_cls.h          |  37 +++++----
+ include/net/tc_act/tc_mirred.h |   4 +-
+ net/sched/act_api.c            | 180 ++++++++++++++++++-----------------------
+ net/sched/act_csum.c           |  13 ++-
+ net/sched/act_gact.c           |  13 ++-
+ net/sched/act_ipt.c            |  21 +++--
+ net/sched/act_mirred.c         |  31 ++++---
+ net/sched/act_nat.c            |  12 ++-
+ net/sched/act_pedit.c          |  12 ++-
+ net/sched/act_police.c         |  65 +++++++--------
+ net/sched/act_simple.c         |  20 ++---
+ net/sched/act_skbedit.c        |  13 ++-
+ net/sched/cls_api.c            |  80 +++++++++---------
+ net/sched/cls_basic.c          |  13 ++-
+ net/sched/cls_bpf.c            |  13 ++-
+ net/sched/cls_cgroup.c         |  14 ++--
+ net/sched/cls_flow.c           |  13 ++-
+ net/sched/cls_fw.c             |  13 ++-
+ net/sched/cls_route.c          |  13 ++-
+ net/sched/cls_rsvp.h           |  13 ++-
+ net/sched/cls_tcindex.c        |  17 ++--
+ net/sched/cls_u32.c            |  13 ++-
+ 23 files changed, 304 insertions(+), 360 deletions(-)
+
+-- 
+1.8.1.4
