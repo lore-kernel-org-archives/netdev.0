@@ -1,35 +1,59 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] TCP: add option for silent port knocking with integrity protection
-Date: Fri, 13 Dec 2013 04:07:11 +0100
-Message-ID: <20131213030711.GA30876@order.stressinduktion.org>
-References: <20131211.150137.368953964178408437.davem@davemloft.net> <52A8C8B4.4060109@in.tum.de> <20131211122637.75b09074@nehalam.linuxnetplumber.net> <87bo0nulkt.fsf@tassilo.jf.intel.com> <52A8ECF5.3070604@in.tum.de> <20131212012317.GL21717@two.firstfloor.org> <52A98DBF.4090702@appelbaum.net> <52A9A17F.6050505@in.tum.de> <1386858864.19078.60.camel@edumazet-glaptop2.roam.corp.google.com> <20131212154637.GG4675@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Christian Grothoff <grothoff@in.tum.de>,
-	Jacob Appelbaum <jacob@appelbaum.net>,
-	Andi Kleen <andi@firstfloor.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, knock@gnunet.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131212154637.GG4675@order.stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [PATCH net-next v2 0/6] net_sched: some cleanup and improvments
+Date: Thu, 12 Dec 2013 20:56:38 -0800
+Message-ID: <1386910604-1870-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:64505 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751805Ab3LME5A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 23:57:00 -0500
+Received: by mail-pb0-f45.google.com with SMTP id rp16so1843720pbb.32
+        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 20:57:00 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 12, 2013 at 04:46:37PM +0100, Hannes Frederic Sowa wrote:
-> On Thu, Dec 12, 2013 at 06:34:24AM -0800, Eric Dumazet wrote:
-> > With various proposals (like TCP minion), maybe its time to be able to
-> > implement part of TCP stack in user land (Keep the mux inside the
-> > kernel, and forward raw incoming packets to user land where all the
-> > crazy things can be done without kernel patching.)
-> 
-> Maybe this knocking scheme is implementable with a socket filter and we could
-> add a switch to tweak drop behaviour.
+Here are some cleanup and improvements for tc filters
+and tc actions.
 
-Just fyi, maybe it is useful. I haven't tested it:
+v1 -> v2:
+* fix a smatch warning and a checkpatch warning
+* add a cover letter
+* add a missing synchronize_rcu()
 
-For the sending side one could craft the handshake by hand (raw/packet
-sockets) and splice in an already established socket via tcp connection
-repair.
+Cong Wang (6):
+  net_sched: remove get_stats from tc_action_ops
+  net_sched: act: use standard struct list_head
+  net_sched: mirred: remove action when the target device is gone
+  net_sched: cls: refactor out struct tcf_ext_map
+  net_sched: init struct tcf_hashinfo at register time
+  net_sched: convert tcf_hashinfo to hlist and use rcu
+
+ include/net/act_api.h          |  41 +++++++---
+ include/net/pkt_cls.h          |  37 +++++----
+ include/net/tc_act/tc_mirred.h |   4 +-
+ net/sched/act_api.c            | 180 ++++++++++++++++++-----------------------
+ net/sched/act_csum.c           |  13 ++-
+ net/sched/act_gact.c           |  13 ++-
+ net/sched/act_ipt.c            |  21 +++--
+ net/sched/act_mirred.c         |  31 ++++---
+ net/sched/act_nat.c            |  12 ++-
+ net/sched/act_pedit.c          |  12 ++-
+ net/sched/act_police.c         |  65 +++++++--------
+ net/sched/act_simple.c         |  20 ++---
+ net/sched/act_skbedit.c        |  13 ++-
+ net/sched/cls_api.c            |  80 +++++++++---------
+ net/sched/cls_basic.c          |  13 ++-
+ net/sched/cls_bpf.c            |  13 ++-
+ net/sched/cls_cgroup.c         |  14 ++--
+ net/sched/cls_flow.c           |  13 ++-
+ net/sched/cls_fw.c             |  13 ++-
+ net/sched/cls_route.c          |  13 ++-
+ net/sched/cls_rsvp.h           |  13 ++-
+ net/sched/cls_tcindex.c        |  17 ++--
+ net/sched/cls_u32.c            |  13 ++-
+ 23 files changed, 304 insertions(+), 360 deletions(-)
+
+-- 
+1.8.1.4
