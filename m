@@ -1,75 +1,35 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH v2] sctp: loading sctp when load sctp_probe
-Date: Fri, 13 Dec 2013 11:00:10 +0800
-Message-ID: <52AA783A.7090502@huawei.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] TCP: add option for silent port knocking with integrity protection
+Date: Fri, 13 Dec 2013 04:07:11 +0100
+Message-ID: <20131213030711.GA30876@order.stressinduktion.org>
+References: <20131211.150137.368953964178408437.davem@davemloft.net> <52A8C8B4.4060109@in.tum.de> <20131211122637.75b09074@nehalam.linuxnetplumber.net> <87bo0nulkt.fsf@tassilo.jf.intel.com> <52A8ECF5.3070604@in.tum.de> <20131212012317.GL21717@two.firstfloor.org> <52A98DBF.4090702@appelbaum.net> <52A9A17F.6050505@in.tum.de> <1386858864.19078.60.camel@edumazet-glaptop2.roam.corp.google.com> <20131212154637.GG4675@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-sctp@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:34998 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751776Ab3LMDB2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 22:01:28 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Christian Grothoff <grothoff@in.tum.de>,
+	Jacob Appelbaum <jacob@appelbaum.net>,
+	Andi Kleen <andi@firstfloor.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, knock@gnunet.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131212154637.GG4675@order.stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-when I modprobe sctp_probe, it failed with "FATAL: ". I found that
-sctp should load before sctp_probe register jprobe. So I add a
-sctp_setup_jprobe for loading 'sctp' when first failed to register
-jprobe, just do this similar to dccp_probe.
+On Thu, Dec 12, 2013 at 04:46:37PM +0100, Hannes Frederic Sowa wrote:
+> On Thu, Dec 12, 2013 at 06:34:24AM -0800, Eric Dumazet wrote:
+> > With various proposals (like TCP minion), maybe its time to be able to
+> > implement part of TCP stack in user land (Keep the mux inside the
+> > kernel, and forward raw incoming packets to user land where all the
+> > crazy things can be done without kernel patching.)
+> 
+> Maybe this knocking scheme is implementable with a socket filter and we could
+> add a switch to tweak drop behaviour.
 
-v2: add MODULE_SOFTDEP and check of request_module, as suggested by Neil
+Just fyi, maybe it is useful. I haven't tested it:
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
----
- net/sctp/probe.c | 17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
-
-diff --git a/net/sctp/probe.c b/net/sctp/probe.c
-index 53c452e..5e68b94 100644
---- a/net/sctp/probe.c
-+++ b/net/sctp/probe.c
-@@ -38,6 +38,7 @@
- #include <net/sctp/sctp.h>
- #include <net/sctp/sm.h>
- 
-+MODULE_SOFTDEP("pre: sctp");
- MODULE_AUTHOR("Wei Yongjun <yjwei@cn.fujitsu.com>");
- MODULE_DESCRIPTION("SCTP snooper");
- MODULE_LICENSE("GPL");
-@@ -182,6 +183,20 @@ static struct jprobe sctp_recv_probe = {
- 	.entry	= jsctp_sf_eat_sack,
- };
- 
-+static __init int sctp_setup_jprobe(void)
-+{
-+	int ret = register_jprobe(&sctp_recv_probe);
-+
-+	if (ret) {
-+		if (request_module("sctp"))
-+			goto out;
-+		ret = register_jprobe(&sctp_recv_probe);
-+	}
-+
-+out:
-+	return ret;
-+}
-+
- static __init int sctpprobe_init(void)
- {
- 	int ret = -ENOMEM;
-@@ -202,7 +217,7 @@ static __init int sctpprobe_init(void)
- 			 &sctpprobe_fops))
- 		goto free_kfifo;
- 
--	ret = register_jprobe(&sctp_recv_probe);
-+	ret = sctp_setup_jprobe();
- 	if (ret)
- 		goto remove_proc;
- 
--- 
-1.7.12
+For the sending side one could craft the handshake by hand (raw/packet
+sockets) and splice in an already established socket via tcp connection
+repair.
