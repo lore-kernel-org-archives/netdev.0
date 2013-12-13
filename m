@@ -1,76 +1,48 @@
-From: "Dr. H. Nikolaus Schaller" <hns@goldelico.com>
-Subject: Re: [PATCH 1/1] hso: fix problem with wrong status code sent by OPTION GTM601 during RING indication
-Date: Fri, 13 Dec 2013 15:43:06 +0100
-Message-ID: <541AADAC-7D20-4410-90FC-3E354B0C1457@goldelico.com>
-References: <B1808224-5850-41E3-9A8F-0F350F84FF89@goldelico.com>
-Mime-Version: 1.0 (Apple Message framework v1085)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Belisko Marek <marek.belisko@gmail.com>
-To: Jan Dumon <j.dumon@option.com>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <B1808224-5850-41E3-9A8F-0F350F84FF89@goldelico.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Francesco Fusco <ffusco@redhat.com>
+Subject: Re: [PATCH net-next v2 2/2] net: ovs: use CRC32 accelerated flow
+ hash if available
+Date: Fri, 13 Dec 2013 15:53:48 +0100
+Message-ID: <52AB1F7C.1050606@redhat.com>
+References: <1386860946-1621-1-git-send-email-ffusco@redhat.com> <1386860946-1621-3-git-send-email-ffusco@redhat.com> <CAEP_g=-JBT_XVvwSa4xOwVoTysoL0Z8zJc-ERSHJc96+qrA99Q@mail.gmail.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7487@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Gross <jesse@nicira.com>, netdev <netdev@vger.kernel.org>,
+	dev@openvswitch.org, Daniel Borkmann <dborkman@redhat.com>,
+	Thomas Graf <tgraf@redhat.com>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:25803 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752825Ab3LMOyB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Dec 2013 09:54:01 -0500
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7487@saturn3.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 12/13/2013 11:01 AM, David Laight wrote:
+> My thoughts exactly.
+> Given this is a hash it could crc alternate words into separate
+> accumulators and the combine the values at the end.
+> That way you are still doing sequential accesses to the data.
+> (The crc instruction might be better than an xor for the combine.)
+> If the cpu has 3 execution units that can do crc, use them all.
+>
+> It might be that the hash function is now an insignificant cost.
+> Looking at how much hashing the data twice (discarding the first
+> result - assign to global volatile data) slows things down can
+> help determine this.
 
-Am 02.10.2013 um 09:00 schrieb Dr. H. Nikolaus Schaller:
+On i7 CPUs the crc32/crc64 instructions have a throughput
+of 1 cycle and a latency of 3 cycles [1], which means that 1) with this 
+code we pay 3 clocks per crc32 instruction, and 2) we could compute 
+three CRCs in parallel, each processing 1/3 of the data during the same 
+clock. This could in theory provide 3x the performance.
 
-> Hi Jan,
-> 
-> we are using a GTM601 modem (Firmware 1.7) for a while and have spotted an
-> issue that under some conditions the modem sends a packed wIndex over USB
-> that is rejected by the hso driver making troubles afterwards. Not rejecting makes
-> it work fine.
-> 
-> BR,
-> Nikolaus Schaller
-> 
-> ---
-> 
-> From f5c7e15b61f2ce4fe3105ff914f6bfaf5d74af0d Mon Sep 17 00:00:00 2001
-> From: "H. Nikolaus Schaller" <hns@goldelico.com>
-> Date: Thu, 15 Nov 2012 14:40:57 +0100
-> Subject: [PATCH 1/1] hso: fix problem with wrong status code sent by OPTION
-> GTM601 during RING indication
-> 
-> It has been observed that the GTM601 with 1.7 firmware sometimes sends a value
-> wIndex that has bit 0x04 set instead of being reset as the code expects. So we
-> mask it for the error check.
-> 
-> See http://lists.goldelico.com/pipermail/gta04-owner/2012-February/001643.html
-> 
-> Signed-off-by: NeilBrown <neilb@suse.de>
-> Signed-off-by: H. Nikolaus Schaller <hns@goldelico.de>
-> ---
-> drivers/net/usb/hso.c |    3 ++-
-> 1 files changed, 2 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> index cba1d46..d146e26 100644
-> --- a/drivers/net/usb/hso.c
-> +++ b/drivers/net/usb/hso.c
-> @@ -1503,7 +1503,8 @@ static void tiocmget_intr_callback(struct urb *urb)
-> 	if (serial_state_notification->bmRequestType != BM_REQUEST_TYPE ||
-> 	    serial_state_notification->bNotification != B_NOTIFICATION ||
-> 	    le16_to_cpu(serial_state_notification->wValue) != W_VALUE ||
-> -	    le16_to_cpu(serial_state_notification->wIndex) != W_INDEX ||
-> +	    (le16_to_cpu(serial_state_notification->wIndex) & ~0x4) !=
-> +		W_INDEX ||
-> 	    le16_to_cpu(serial_state_notification->wLength) != W_LENGTH) {
-> 		dev_warn(&usb->dev,
-> 			 "hso received invalid serial state notification\n");
-> -- 
-> 1.7.7.4
-> 
-> 
+For short keys (~100 bytes and less) there is chance that the 3x 
+theoretical speedup will be destroyed by the additional code required
+to compute boundaries, xor the results, etc. But as I already mentioned, 
+this is something to try.
 
-I have found this (better) proposal by OPTION, but wonder what did happen to it.
-It neither shows in mainline 3.13-rc nor linux-next:
-
-https://lkml.org/lkml/2013/10/9/263
-
-BR,
-Nikolaus
+[1] 
+http://www.intel.com/content/dam/www/public/us/en/documents/white-papers/fast-crc-computation-paper.pdf
