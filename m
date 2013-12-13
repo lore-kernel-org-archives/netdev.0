@@ -1,66 +1,107 @@
-From: Ian Campbell <ijc@hellion.org.uk>
-Subject: Bug#723177: Incompatible phys driven by Marvell phy driver?
-Date: Fri, 13 Dec 2013 11:06:04 +0000
-Message-ID: <1386932764.20787.85.camel@dagon.hellion.org.uk>
-Reply-To: Ian Campbell <ijc@hellion.org.uk>, 723177@bugs.debian.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net] netvsc: don't flush peers notifying work during setting
+ mtu
+Date: Fri, 13 Dec 2013 17:21:27 +0800
+Message-ID: <1386926487-30822-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Michal Simek <michal.simek@xilinx.com>, Stef van Os
- <stef.van.os@prodrive.nl>, Rick Hoover <RHoover@digilentinc.com>, Steven
- Wang <steven.wang@digilentinc.com>, Lars-Peter Clausen <lars@metafoo.de>,
- "David S. Miller" <davem@davemloft.net>, 723177@bugs.debian.org
-To: netdev@vger.kernel.org
-Return-path: <bounce-debian-bugs-dist=glddb-debian-bugs-dist=m.gmane.org@lists.debian.org>
-Resent-Message-ID: <handler.723177.B723177.138693278232760@bugs.debian.org>
-List-URL: <http://lists.debian.org/debian-bugs-dist/>
-List-Post: <mailto:debian-bugs-dist@lists.debian.org>
-List-Help: <mailto:debian-bugs-dist-request@lists.debian.org?subject=help>
-List-Subscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=subscribe>
-List-Unsubscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=unsubscribe>
+Cc: Jason Wang <jasowang@redhat.com>
+To: kys@microsoft.com, haiyangz@microsoft.com, devel@linuxdriverproject.org,
+ netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+There's a possible deadlock if we flush the peers notifying work during setting
+mtu:
 
-In Debian bug #723177[0] Lennert Buytenhek reports[1] that the Marvell
-phy driver tries to driver some Marvell phys which have differing
-register layouts:
-        
-        The problem here was that the Marvell PHY driver at some point supported
-        one or two specific Marvell ethernet PHY models, and people then started
-        blindly adding new PHY IDs to it without checking whether the already
-        supported PHYs and the PHYs for which support was being added had common
-        register layouts (and they didn't).
-        
-        The result is that on some of the very common Marvell PHYs that this
-        driver claims to support, the driver does sequences of register writes
-        that have entirely different effects than the intended ones, causing
-        various unintended side effects, including complete link failure, and
-        e.g. on the quad ethernet PHY on some of the mv78xx0 development
-        boards, having the Marvell PHY driver enabled causes link to flap on
-        the other three ports if you plug/unplug one of the ports because the
-        driver thinks it's a good idea to hard reset the whole chip under
-        these circumstances...
-        
-        What needs to be done is that someone with access to the relevant
-        Marvell datasheets fix the driver to behave according to which chip
-        it's being used on.  It's quite a bit of work to sort out this mess,
-        easily several tens of hours -- I started looking into it when I was
-        still at Marvell, but didn't get it done before leaving.
+[   22.991149] ======================================================
+[   22.991173] [ INFO: possible circular locking dependency detected ]
+[   22.991198] 3.10.0-54.0.1.el7.x86_64.debug #1 Not tainted
+[   22.991219] -------------------------------------------------------
+[   22.991243] ip/974 is trying to acquire lock:
+[   22.991261]  ((&(&net_device_ctx->dwork)->work)){+.+.+.}, at: [<ffffffff8108af95>] flush_work+0x5/0x2e0
+[   22.991307]
+but task is already holding lock:
+[   22.991330]  (rtnl_mutex){+.+.+.}, at: [<ffffffff81539deb>] rtnetlink_rcv+0x1b/0x40
+[   22.991367]
+which lock already depends on the new lock.
 
-I've tried to look into this but apparently most of the data sheets are
-not publicly available, so I cannot even determine which phy's are being
-driven incorrectly, let alone propose a fix. From my PoV it would be
-sufficient to remove the incorrect PHYs from the phy table until they
-are fixed properly.
+[   22.991398]
+the existing dependency chain (in reverse order) is:
+[   22.991426]
+-> #1 (rtnl_mutex){+.+.+.}:
+[   22.991449]        [<ffffffff810dfdd9>] __lock_acquire+0xb19/0x1260
+[   22.991477]        [<ffffffff810e0d12>] lock_acquire+0xa2/0x1f0
+[   22.991501]        [<ffffffff81673659>] mutex_lock_nested+0x89/0x4f0
+[   22.991529]        [<ffffffff815392b7>] rtnl_lock+0x17/0x20
+[   22.991552]        [<ffffffff815230b2>] netdev_notify_peers+0x12/0x30
+[   22.991579]        [<ffffffffa0340212>] netvsc_send_garp+0x22/0x30 [hv_netvsc]
+[   22.991610]        [<ffffffff8108d251>] process_one_work+0x211/0x6e0
+[   22.991637]        [<ffffffff8108d83b>] worker_thread+0x11b/0x3a0
+[   22.991663]        [<ffffffff81095e5d>] kthread+0xed/0x100
+[   22.991686]        [<ffffffff81681c6c>] ret_from_fork+0x7c/0xb0
+[   22.991715]
+-> #0 ((&(&net_device_ctx->dwork)->work)){+.+.+.}:
+[   22.991715]        [<ffffffff810de817>] check_prevs_add+0x967/0x970
+[   22.991715]        [<ffffffff810dfdd9>] __lock_acquire+0xb19/0x1260
+[   22.991715]        [<ffffffff810e0d12>] lock_acquire+0xa2/0x1f0
+[   22.991715]        [<ffffffff8108afde>] flush_work+0x4e/0x2e0
+[   22.991715]        [<ffffffff8108e1b5>] __cancel_work_timer+0x95/0x130
+[   22.991715]        [<ffffffff8108e303>] cancel_delayed_work_sync+0x13/0x20
+[   22.991715]        [<ffffffffa03404e4>] netvsc_change_mtu+0x84/0x200 [hv_netvsc]
+[   22.991715]        [<ffffffff815233d4>] dev_set_mtu+0x34/0x80
+[   22.991715]        [<ffffffff8153bc2a>] do_setlink+0x23a/0xa00
+[   22.991715]        [<ffffffff8153d054>] rtnl_newlink+0x394/0x5e0
+[   22.991715]        [<ffffffff81539eac>] rtnetlink_rcv_msg+0x9c/0x260
+[   22.991715]        [<ffffffff8155cdd9>] netlink_rcv_skb+0xa9/0xc0
+[   22.991715]        [<ffffffff81539dfa>] rtnetlink_rcv+0x2a/0x40
+[   22.991715]        [<ffffffff8155c41d>] netlink_unicast+0xdd/0x190
+[   22.991715]        [<ffffffff8155c807>] netlink_sendmsg+0x337/0x750
+[   22.991715]        [<ffffffff8150d219>] sock_sendmsg+0x99/0xd0
+[   22.991715]        [<ffffffff8150d63e>] ___sys_sendmsg+0x39e/0x3b0
+[   22.991715]        [<ffffffff8150eba2>] __sys_sendmsg+0x42/0x80
+[   22.991715]        [<ffffffff8150ebf2>] SyS_sendmsg+0x12/0x20
+[   22.991715]        [<ffffffff81681d19>] system_call_fastpath+0x16/0x1b
 
-I've CCd a bunch of people who have touched the driver, especially those
-adding new Phys in the last couple of years. Do any of you have
-sufficient access to datasheets to at least identify which PHYs might be
-driven incorrectly?
+This is because we hold the rtnl_lock() before ndo_change_mtu() and try to flush
+the work in netvsc_change_mtu(), in the mean time, netdev_notify_peers() may be
+called from worker and also trying to hold the rtnl_lock. This will lead the
+flush won't succeed forever. Solve this by not canceling and flushing the work,
+this is safe because the transmission done by NETDEV_NOTIFY_PEERS was
+synchronized with the netif_tx_disable() called by netvsc_change_mtu().
 
-Thanks,
-Ian.
+Reported-by: Yaju Cao <yacao@redhat.com>
+Tested-by: Yaju Cao <yacao@redhat.com>
+Cc: K. Y. Srinivasan <kys@microsoft.com>
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+The patch is needed for stable.
+---
+ drivers/net/hyperv/netvsc_drv.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-[0] http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=723177
-[1] http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=723177#50
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 524f713..f813572 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -327,7 +327,6 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ 		return -EINVAL;
+ 
+ 	nvdev->start_remove = true;
+-	cancel_delayed_work_sync(&ndevctx->dwork);
+ 	cancel_work_sync(&ndevctx->work);
+ 	netif_tx_disable(ndev);
+ 	rndis_filter_device_remove(hdev);
+-- 
+1.8.3.2
