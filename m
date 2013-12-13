@@ -1,122 +1,62 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next 5/6] openvswitch: Use skb_zerocopy() for upcall
-Date: Fri, 13 Dec 2013 15:22:21 +0100
-Message-ID: <4e20f317c2986047798b354a58883c0de3478eea.1386943635.git.tgraf@suug.ch>
-References: <cover.1386943635.git.tgraf@suug.ch>
+Subject: [PATCH net-next 0/6 v9] Open vSwitch zercopy upcall optimiziation
+Date: Fri, 13 Dec 2013 15:22:16 +0100
+Message-ID: <cover.1386943635.git.tgraf@suug.ch>
 Cc: dev@openvswitch.org, eric.dumazet@gmail.com, fleitner@redhat.com,
 	ffusco@redhat.com, dborkmann@redhat.com, bhutchings@solarflare.com,
 	netdev@vger.kernel.org, davem@davemloft.net
 To: jesse@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:43942 "EHLO
+Received: from merlin.infradead.org ([205.233.59.134]:43930 "EHLO
 	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752627Ab3LMOWo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 09:22:44 -0500
-In-Reply-To: <cover.1386943635.git.tgraf@suug.ch>
-In-Reply-To: <cover.1386943635.git.tgraf@suug.ch>
-References: <cover.1386943635.git.tgraf@suug.ch>
+	with ESMTP id S1752607Ab3LMOWm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 09:22:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use of skb_zerocopy() can avoid the expensive call to memcpy()
-when copying the packet data into the Netlink skb. Completes
-checksum through skb_checksum_help() if not already done in
-GSO segmentation.
+Series implementing a zerocopy method for OVS upcall messages. Based
+on top of commit: (''openvswitch: Enable memory mapped Netlink i/o'')
 
-Zerocopy is only performed if user space supported unaligned
-Netlink messages. memory mapped netlink i/o is preferred over
-zerocopy if it is set up.
+Thomas Graf (6):
+  net: Export skb_zerocopy() to zerocopy from one skb to another
+  openvswitch: Allow user space to announce ability to accept unaligned
+    Netlink messages
+  openvswitch: Drop user features if old user space attempted to create
+    datapath
+  openvswitch: Pass datapath into userspace queue functions
+  openvswitch: Use skb_zerocopy() for upcall
+  openvswitch: Compute checksum in skb_gso_segment() if needed
 
-Cost of upcall is significantly reduced from:
-+   7.48%       vhost-8471  [k] memcpy
-+   5.57%     ovs-vswitchd  [k] memcpy
-+   2.81%       vhost-8471  [k] csum_partial_copy_generic
+ include/linux/skbuff.h               |   3 +
+ include/uapi/linux/openvswitch.h     |  14 ++++-
+ net/core/skbuff.c                    |  85 ++++++++++++++++++++++++++++
+ net/netfilter/nfnetlink_queue_core.c |  59 ++-----------------
+ net/openvswitch/datapath.c           | 106 ++++++++++++++++++++++++++---------
+ net/openvswitch/datapath.h           |   2 +
+ 6 files changed, 185 insertions(+), 84 deletions(-)
 
-to:
-+   5.72%     ovs-vswitchd  [k] memcpy
-+   3.32%       vhost-5153  [k] memcpy
-+   0.68%       vhost-5153  [k] skb_zerocopy
-
-(megaflows disabled)
-
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- net/openvswitch/datapath.c | 37 +++++++++++++++++++++++++++++--------
- 1 file changed, 29 insertions(+), 8 deletions(-)
-
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 8f6318c..ffed1cd 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -371,11 +371,11 @@ static size_t key_attr_size(void)
- 		+ nla_total_size(28); /* OVS_KEY_ATTR_ND */
- }
- 
--static size_t upcall_msg_size(const struct sk_buff *skb,
--			      const struct nlattr *userdata)
-+static size_t upcall_msg_size(const struct nlattr *userdata,
-+			      unsigned int hdrlen)
- {
- 	size_t size = NLMSG_ALIGN(sizeof(struct ovs_header))
--		+ nla_total_size(skb->len) /* OVS_PACKET_ATTR_PACKET */
-+		+ nla_total_size(hdrlen) /* OVS_PACKET_ATTR_PACKET */
- 		+ nla_total_size(key_attr_size()); /* OVS_PACKET_ATTR_KEY */
- 
- 	/* OVS_PACKET_ATTR_USERDATA */
-@@ -397,6 +397,7 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
- 		.snd_portid = upcall_info->portid,
- 	};
- 	size_t len;
-+	unsigned int hlen;
- 	int err, dp_ifindex;
- 
- 	dp_ifindex = get_dpifindex(dp);
-@@ -421,7 +422,21 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
- 		goto out;
- 	}
- 
--	len = upcall_msg_size(skb, upcall_info->userdata);
-+	/* Complete checksum if needed */
-+	if (skb->ip_summed == CHECKSUM_PARTIAL &&
-+	    (err = skb_checksum_help(skb)))
-+		goto out;
-+
-+	/* Older versions of OVS user space enforce alignment of the last
-+	 * Netlink attribute to NLA_ALIGNTO which would require extensive
-+	 * padding logic. Only perform zerocopy if padding is not required.
-+	 */
-+	if (dp->user_features & OVS_DP_F_UNALIGNED)
-+		hlen = skb_zerocopy_headlen(skb);
-+	else
-+		hlen = skb->len;
-+
-+	len = upcall_msg_size(upcall_info->userdata, hlen);
- 	user_skb = genlmsg_new_unicast(len, &info, GFP_ATOMIC);
- 	if (!user_skb) {
- 		err = -ENOMEM;
-@@ -441,13 +456,19 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
- 			  nla_len(upcall_info->userdata),
- 			  nla_data(upcall_info->userdata));
- 
--	nla = __nla_reserve(user_skb, OVS_PACKET_ATTR_PACKET, skb->len);
-+	/* Only reserve room for attribute header, packet data is added
-+	 * in skb_zerocopy() */
-+	if (!(nla = nla_reserve(user_skb, OVS_PACKET_ATTR_PACKET, 0))) {
-+		err = -ENOBUFS;
-+		goto out;
-+	}
-+	nla->nla_len = nla_attr_size(skb->len);
- 
--	skb_copy_and_csum_dev(skb, nla_data(nla));
-+	skb_zerocopy(user_skb, skb, skb->len, hlen);
- 
--	genlmsg_end(user_skb, upcall);
--	err = genlmsg_unicast(ovs_dp_get_net(dp), user_skb, upcall_info->portid);
-+	((struct nlmsghdr *) user_skb->data)->nlmsg_len = user_skb->len;
- 
-+	err = genlmsg_unicast(ovs_dp_get_net(dp), user_skb, upcall_info->portid);
- out:
- 	kfree_skb(nskb);
- 	return err;
--- 
-1.8.3.1
+V9: - Dropped patches 1-3 (merged)
+    - Dropped skb argument from upcall_msg_size()
+    - Dropped dp_ifindex and net argument from all queue functions
+    - Added patch to remove NETIF_F_HW_CSUM from __skb_gso_segment()
+V8: - Dropped patch adding NLM_F_REPLACE support, I'll pursue this in a
+      separate patch series. Addresses Jesse's comments.
+    - Improved comment describing OVS_DATAPATH_VERSION bump.
+V7: - removed unintential kernel-doc comment
+    - WARN_ONCE() -> WARN(), message on single line, added \n
+V6: - Added memory mapped netlink i/o support
+    - Drop user_features if old user space not aware of user features
+      reuses an existing datapath
+V5: - Removed padding requirement in user space
+    - Added OVS_DP_F_UNALIGNED flag let user space signal ability to
+      receive unaligned Netlink messages, fall back to linear copy
+      otherwise.
+V4: - Daniel Borkmann pointed out that the style in skbuff.h has changed
+      in net-next, adapted to no longer using extern in headers.
+V3: - Removed unneeded alignment of nlmsg_len after padding
+V2: - Added skb_zerocopy_headlen() to calculate headroom of destination
+      buffer. This also takes care of the from->head_frag issue.
+    - Attribute alignment for frag_list case
+    - API documentation
+    - performance data for CHECKSUM_PARTIAL tx case
