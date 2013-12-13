@@ -1,46 +1,39 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next v2 2/6] net_sched: act: use standard struct list_head
-Date: Fri, 13 Dec 2013 10:46:28 -0800
-Message-ID: <CAM_iQpVL-dwiwTdVbvM3FPZfaJhSN_pRuB0-nm7sxrFtrSH-2A@mail.gmail.com>
-References: <1386910604-1870-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1386910604-1870-3-git-send-email-xiyou.wangcong@gmail.com>
-	<CABa6K_H_f_9sS4pH2gE2YD_KUHOVMGRwpy1x8Q-i3mFDEmQXjA@mail.gmail.com>
+Subject: Re: [PATCH net-next v3 2/6] net_sched: act: use standard struct list_head
+Date: Fri, 13 Dec 2013 10:48:09 -0800
+Message-ID: <CAM_iQpVYkvpEH91y-c9ng4fpB+sayiTXnkkszw1=RosazeFuBA@mail.gmail.com>
+References: <1386913673-8210-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1386913673-8210-3-git-send-email-xiyou.wangcong@gmail.com>
+	<52AAF8CB.6060006@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>
-To: Changli Gao <xiaosuo@gmail.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f44.google.com ([209.85.219.44]:34062 "EHLO
-	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753202Ab3LMSq3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 13:46:29 -0500
-Received: by mail-oa0-f44.google.com with SMTP id m1so2477026oag.17
-        for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 10:46:28 -0800 (PST)
-In-Reply-To: <CABa6K_H_f_9sS4pH2gE2YD_KUHOVMGRwpy1x8Q-i3mFDEmQXjA@mail.gmail.com>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:35007 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753166Ab3LMSsJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 13:48:09 -0500
+Received: by mail-ob0-f178.google.com with SMTP id uz6so2381231obc.9
+        for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 10:48:09 -0800 (PST)
+In-Reply-To: <52AAF8CB.6060006@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 12, 2013 at 10:32 PM, Changli Gao <xiaosuo@gmail.com> wrote:
-> On Fri, Dec 13, 2013 at 12:56 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+On Fri, Dec 13, 2013 at 4:08 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 12/13/13 00:47, Cong Wang wrote:
 >>
->> @@ -85,12 +86,18 @@ static inline int
->>  tcf_exts_is_predicative(struct tcf_exts *exts)
->>  {
->>  #ifdef CONFIG_NET_CLS_ACT
->> -       return !!exts->action;
->> +       return list_empty(&exts->head);
->>  #else
->>         return 0;
->>  #endif
->>  }
+>> Currently actions are chained by a singly linked list,
+>> therefore it is a bit hard to add and remove a specific
+>> entry. Convert it to struct list_head so that in the
+>> latter patch we can remove an action without finding
+>> its head.
 >>
 >
-> You missed a "!".
+> Looks reasonable - but can you find a more usable noun
+> than "head"?
 >
 
-
-Fixed.
-
-Thanks.
+My English is not good, I can only find "head" or "list" here,
+please suggest other better names?
