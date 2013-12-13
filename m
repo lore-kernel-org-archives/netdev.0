@@ -1,72 +1,45 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/2] netfilter fixes for net
-Date: Fri, 13 Dec 2013 19:24:57 +0100
-Message-ID: <1386959099-24582-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next v3 1/6] net_sched: remove get_stats from tc_action_ops
+Date: Fri, 13 Dec 2013 10:33:50 -0800
+Message-ID: <CAM_iQpVgo+nxN3eTRg_F9u+-k4ML+D3ZqsrAEOeLZwtU6dOk3g@mail.gmail.com>
+References: <1386913673-8210-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1386913673-8210-2-git-send-email-xiyou.wangcong@gmail.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B7489@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:49736 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752504Ab3LMSZI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Dec 2013 13:25:08 -0500
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:52456 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752470Ab3LMSdu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 13:33:50 -0500
+Received: by mail-ob0-f169.google.com with SMTP id wm4so2368654obc.28
+        for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 10:33:50 -0800 (PST)
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7489@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+On Fri, Dec 13, 2013 at 2:21 AM, David Laight <David.Laight@aculab.com> wrote:
+>> From: Cong Wang
+>>
+>> It is not used.
+> ...
+>> --- a/include/net/act_api.h
+>> +++ b/include/net/act_api.h
+>> @@ -72,7 +72,6 @@ struct tc_action_ops {
+>>       __u32   capab;  /* capabilities includes 4 bit version */
+>>       struct module           *owner;
+>>       int     (*act)(struct sk_buff *, const struct tc_action *, struct tcf_result *);
+>> -     int     (*get_stats)(struct sk_buff *, struct tc_action *);
+>>       int     (*dump)(struct sk_buff *, struct tc_action *, int, int);
+>>       int     (*cleanup)(struct tc_action *, int bind);
+>>       int     (*lookup)(struct tc_action *, u32);
+>
+> Deleting a field out of the middle of a list of function pointers
+> seems dangerous.
 
-The following patchset contains two Netfilter fixes for your net
-tree, they are:
-
-* Fix endianness in nft_reject, the NFTA_REJECT_TYPE netlink attributes
-  was not converted to network byte order as needed by all nfnetlink
-  subsystems, from Eric Leblond.
-
-* Restrict SYNPROXY target to INPUT and FORWARD chains, this avoid a
-  possible crash due to misconfigurations, from Patrick McHardy.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit 8afdd99a1315e759de04ad6e2344f0c5f17ecb1b:
-
-  udp: ipv4: fix an use after free in __udp4_lib_rcv() (2013-12-10 22:58:40 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-for you to fetch changes up to a3adadf3018102c24754e0b53a5515c40fbaff4a:
-
-  netfilter: nft_reject: fix endianness in dump function (2013-12-12 09:37:39 +0100)
-
-----------------------------------------------------------------
-Eric Leblond (1):
-      netfilter: nft_reject: fix endianness in dump function
-
-Patrick McHardy (1):
-      netfilter: SYNPROXY target: restrict to INPUT/FORWARD
-
- net/ipv4/netfilter/ipt_SYNPROXY.c    |    1 +
- net/ipv4/netfilter/nft_reject_ipv4.c |    2 +-
- net/ipv6/netfilter/ip6t_SYNPROXY.c   |    1 +
- 3 files changed, 3 insertions(+), 1 deletion(-)
-
-
-Eric Leblond (1):
-  netfilter: nft_reject: fix endianness in dump function
-
-Patrick McHardy (1):
-  netfilter: SYNPROXY target: restrict to INPUT/FORWARD
-
- net/ipv4/netfilter/ipt_SYNPROXY.c    |    1 +
- net/ipv4/netfilter/nft_reject_ipv4.c |    2 +-
- net/ipv6/netfilter/ip6t_SYNPROXY.c   |    1 +
- 3 files changed, 3 insertions(+), 1 deletion(-)
-
--- 
-1.7.10.4
+Why? Keep in mind that we don't need to worry about any
+out-of-tree modules. :)
