@@ -1,48 +1,64 @@
-From: Francesco Fusco <ffusco@redhat.com>
-Subject: Re: [PATCH net-next v2 2/2] net: ovs: use CRC32 accelerated flow
- hash if available
-Date: Fri, 13 Dec 2013 15:53:48 +0100
-Message-ID: <52AB1F7C.1050606@redhat.com>
-References: <1386860946-1621-1-git-send-email-ffusco@redhat.com> <1386860946-1621-3-git-send-email-ffusco@redhat.com> <CAEP_g=-JBT_XVvwSa4xOwVoTysoL0Z8zJc-ERSHJc96+qrA99Q@mail.gmail.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7487@saturn3.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: remove a bogus TSO split
+Date: Fri, 13 Dec 2013 06:54:09 -0800
+Message-ID: <1386946449.19078.147.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1386876523.19078.93.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CADVnQymwaUNVgzqM97vfb=nfMFzVWmK8wR7fQ8Wm3i_c8+Z0jA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jesse Gross <jesse@nicira.com>, netdev <netdev@vger.kernel.org>,
-	dev@openvswitch.org, Daniel Borkmann <dborkman@redhat.com>,
-	Thomas Graf <tgraf@redhat.com>
-To: David Laight <David.Laight@ACULAB.COM>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Nandita Dukkipati <nanditad@google.com>,
+	Van Jacobson <vanj@google.com>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25803 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752825Ab3LMOyB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Dec 2013 09:54:01 -0500
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7487@saturn3.aculab.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:48084 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752825Ab3LMOyL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 09:54:11 -0500
+Received: by mail-pa0-f46.google.com with SMTP id kl14so117876pab.19
+        for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 06:54:11 -0800 (PST)
+In-Reply-To: <CADVnQymwaUNVgzqM97vfb=nfMFzVWmK8wR7fQ8Wm3i_c8+Z0jA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/13/2013 11:01 AM, David Laight wrote:
-> My thoughts exactly.
-> Given this is a hash it could crc alternate words into separate
-> accumulators and the combine the values at the end.
-> That way you are still doing sequential accesses to the data.
-> (The crc instruction might be better than an xor for the combine.)
-> If the cpu has 3 execution units that can do crc, use them all.
->
-> It might be that the hash function is now an insignificant cost.
-> Looking at how much hashing the data twice (discarding the first
-> result - assign to global volatile data) slows things down can
-> help determine this.
+On Fri, 2013-12-13 at 09:15 -0500, Neal Cardwell wrote:
 
-On i7 CPUs the crc32/crc64 instructions have a throughput
-of 1 cycle and a latency of 3 cycles [1], which means that 1) with this 
-code we pay 3 clocks per crc32 instruction, and 2) we could compute 
-three CRCs in parallel, each processing 1/3 of the data during the same 
-clock. This could in theory provide 3x the performance.
+> Seems like a nice improvement, but if we apply this patch then AFAICT
+> to get the Nagle-enabled case right we also have to update
+> tcp_minshall_update() to notice these new non-MSS-aligned segments
+> going out, and count those as non-full-size segments for the
+> minshall-nagle check (to ensure we have no more than one outstanding
+> un-ACKed sub-MSS packet). Maybe something like (please excuse the
+> formatting):
+> 
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index 70e55d2..a2ec237 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -980,7 +980,8 @@ bool tcp_is_cwnd_limited(const struct sock *sk,
+> u32 in_flight);
+>  static inline void tcp_minshall_update(struct tcp_sock *tp, unsigned int mss,
+>                                        const struct sk_buff *skb)
+>  {
+> -       if (skb->len < mss)
+> +       if (skb->len < mss ||
+> +           tcp_skb_pcount(skb) * tcp_skb_mss(skb) > skb->len)
+>                 tp->snd_sml = TCP_SKB_CB(skb)->end_seq;
+>  }
 
-For short keys (~100 bytes and less) there is chance that the 3x 
-theoretical speedup will be destroyed by the additional code required
-to compute boundaries, xor the results, etc. But as I already mentioned, 
-this is something to try.
+Very good point Neal, but dont you think tcp_skb_mss(skb) is equal to
+mss at this point ? (We normally have synced with tso_segs =
+tcp_init_tso_segs(sk, skb, mss_now);)
 
-[1] 
-http://www.intel.com/content/dam/www/public/us/en/documents/white-papers/fast-crc-computation-paper.pdf
+(Just trying to make this code more understandable...)
+
+Also I think we should move this helper out of include/net/tcp.h, we
+only use it from tcp_output.c
+
+I'll submit a v2, rewording the comment in front of
+tcp_mss_split_point()
+
+Thanks
