@@ -1,106 +1,48 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net PATCH v2 1/1] drivers: net : cpsw: pass proper device name while requesting irq
-Date: Fri, 13 Dec 2013 14:35:27 +0530
-Message-ID: <1386925527-6706-1-git-send-email-mugunthanvnm@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <linux-omap@vger.kernel.org>,
-	George Cherian <george.cherian@ti.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:54733 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751182Ab3LMJFh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Dec 2013 04:05:37 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH linux-3.10.y] ip6tnl: fix use after free of fb_tnl_dev
+Date: Fri, 13 Dec 2013 10:06:35 +0100
+Message-ID: <1386925595-4995-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <20131212.153545.1184197791301496227.davem@davemloft.net>
+Cc: gregkh@linuxfoundation.org, rostedt@goodmis.org,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	williams@redhat.com, linux-rt-users@vger.kernel.org,
+	lclaudio@uudg.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20131212.153545.1184197791301496227.davem@davemloft.net>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: George Cherian <george.cherian@ti.com>
+The upstream commit bb8140947a24 ("ip6tnl: allow to use rtnl ops on fb tunnel")
+(backported into linux-3.10.y) left a bug which was fixed upstream by commit
+1e9f3d6f1c40 ("ip6tnl: fix use after free of fb_tnl_dev").
 
-During checking the interrupts with "cat /proc/interrupts", it is showing
-device name as (null), this change was done with commit id aa1a15e2d where
-request_irq is changed to devm_request_irq also changing the irq name from
-platform device name to net device name, but the net device is not
-registered at this point with the network frame work, so devm_request_irq
-is called with device name as NULL, by which it is showed as "(null)" in
-"cat /proc/interrupts". So this patch moved the devm_request_irq after
-the net device register so that the device name shows as eth*.
+The problem is a bit different in linux-3.10.y, because there is no x-netns
+support (upstream commit 0bd8762824e7 ("ip6tnl: add x-netns support")).
+When ip6_tunnel.ko is unloaded, FB device is deleted by rtnl_link_unregister()
+and then we try to delete it again in ip6_tnl_destroy_tunnels().
 
-Previous to this patch
-root@am335x-evm:~# cat /proc/interrupts
-           CPU0
- 28:       2265      INTC  12  edma
- 30:         80      INTC  14  edma_error
- 44:        345      INTC  28  mmc1
- 56:          0      INTC  40  (null)
- 57:       1794      INTC  41  (null)
- 58:          7      INTC  42  (null)
- 59:          0      INTC  43  (null)
+This patch removes the second deletion.
 
-With this patch
-root@am335x-evm:~# cat /proc/interrupts
-           CPU0
- 28:       2254      INTC  12  edma
- 30:         69      INTC  14  edma_error
- 44:        324      INTC  28  mmc1
- 56:          0      INTC  40  eth0
- 57:        271      INTC  41  eth0
- 58:          7      INTC  42  eth0
- 59:          0      INTC  43  eth0
-
-Signed-off-by: George Cherian <george.cherian@ti.com>
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+Reported-by: Steven Rostedt <rostedt@goodmis.org>
+Suggested-by: Steven Rostedt <rostedt@goodmis.org>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
-Changes from Initial version
-* Changed the commit message to hold more details of the commit changes
----
- drivers/net/ethernet/ti/cpsw.c | 26 +++++++++++++-------------
- 1 file changed, 13 insertions(+), 13 deletions(-)
+ net/ipv6/ip6_tunnel.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 5120d9c..d80dfce 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2103,19 +2103,6 @@ static int cpsw_probe(struct platform_device *pdev)
- 		goto clean_ale_ret;
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 0516ebbea80b..209bb4d6e188 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1711,8 +1711,6 @@ static void __net_exit ip6_tnl_destroy_tunnels(struct ip6_tnl_net *ip6n)
+ 		}
  	}
  
--	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k))) {
--		for (i = res->start; i <= res->end; i++) {
--			if (devm_request_irq(&pdev->dev, i, cpsw_interrupt, 0,
--					     dev_name(priv->dev), priv)) {
--				dev_err(priv->dev, "error attaching irq\n");
--				goto clean_ale_ret;
--			}
--			priv->irqs_table[k] = i;
--			priv->num_irqs = k + 1;
--		}
--		k++;
--	}
--
- 	ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+-	t = rtnl_dereference(ip6n->tnls_wc[0]);
+-	unregister_netdevice_queue(t->dev, &list);
+ 	unregister_netdevice_many(&list);
+ }
  
- 	ndev->netdev_ops = &cpsw_netdev_ops;
-@@ -2131,6 +2118,19 @@ static int cpsw_probe(struct platform_device *pdev)
- 		goto clean_ale_ret;
- 	}
- 
-+	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k))) {
-+		for (i = res->start; i <= res->end; i++) {
-+			if (devm_request_irq(&pdev->dev, i, cpsw_interrupt, 0,
-+					     dev_name(priv->dev), priv)) {
-+				dev_err(priv->dev, "error attaching irq\n");
-+				goto clean_ale_ret;
-+			}
-+			priv->irqs_table[k] = i;
-+			priv->num_irqs = k + 1;
-+		}
-+		k++;
-+	}
-+
- 	if (cpts_register(&pdev->dev, priv->cpts,
- 			  data->cpts_clock_mult, data->cpts_clock_shift))
- 		dev_err(priv->dev, "error registering cpts device\n");
 -- 
-1.8.5.1.93.g077f434
+1.8.4.1
