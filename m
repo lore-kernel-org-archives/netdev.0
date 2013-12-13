@@ -1,352 +1,331 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v3 6/6] net_sched: convert tcf_hashinfo to
- hlist and use rcu
-Date: Thu, 12 Dec 2013 22:48:50 -0800
-Message-ID: <1386917330.19078.141.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1386913673-8210-1-git-send-email-xiyou.wangcong@gmail.com>
-	 <1386913673-8210-7-git-send-email-xiyou.wangcong@gmail.com>
+From: tanxiaojun <tanxiaojun@huawei.com>
+Subject: [PATCH] fddi: cleanup unsigned to unsigned int/short
+Date: Fri, 13 Dec 2013 14:49:56 +0800
+Message-ID: <52AAAE14.9000301@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>, <arend@broadcom.com>, <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:42607 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751846Ab3LMGsw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 01:48:52 -0500
-Received: by mail-pd0-f177.google.com with SMTP id q10so1906627pdj.8
-        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 22:48:52 -0800 (PST)
-In-Reply-To: <1386913673-8210-7-git-send-email-xiyou.wangcong@gmail.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:27558 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750793Ab3LMGuv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 01:50:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-12-12 at 21:47 -0800, Cong Wang wrote:
-> So that we don't need to play with singly linked list
-> and of course we can use RCU+spinlock instead of rwlock
-> now.
+Use "unsigned int/short" instead of "unsigned", and change the type of
+iteration variable "i" to "unsigned int".
 
-Just replace the rwlock by spinlock, no need for RCU ?
+Signed-off-by: Tan Xiaojun <tanxiaojun@huawei.com>
+---
+ drivers/net/fddi/skfp/fplustm.c    | 24 +++++-----
+ drivers/net/fddi/skfp/h/supern_2.h | 96 +++++++++++++++++++-------------------
+ drivers/net/fddi/skfp/smt.c        |  2 +-
+ drivers/net/fddi/skfp/srf.c        | 24 +++++-----
+ 4 files changed, 73 insertions(+), 73 deletions(-)
 
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
->  include/net/act_api.h  | 16 +++++++-----
->  net/sched/act_api.c    | 71 +++++++++++++++++++++++---------------------------
->  net/sched/act_police.c | 47 ++++++++++++++-------------------
->  3 files changed, 62 insertions(+), 72 deletions(-)
-> 
-> diff --git a/include/net/act_api.h b/include/net/act_api.h
-> index 2678b67..18af68e 100644
-> --- a/include/net/act_api.h
-> +++ b/include/net/act_api.h
-> @@ -9,7 +9,7 @@
->  #include <net/pkt_sched.h>
->  
->  struct tcf_common {
-> -	struct tcf_common		*tcfc_next;
-> +	struct hlist_node		tcfc_head;
->  	u32				tcfc_index;
->  	int				tcfc_refcnt;
->  	int				tcfc_bindcnt;
-> @@ -22,7 +22,7 @@ struct tcf_common {
->  	spinlock_t			tcfc_lock;
->  	struct rcu_head			tcfc_rcu;
->  };
-> -#define tcf_next	common.tcfc_next
-> +#define tcf_head	common.tcfc_head
->  #define tcf_index	common.tcfc_index
->  #define tcf_refcnt	common.tcfc_refcnt
->  #define tcf_bindcnt	common.tcfc_bindcnt
-> @@ -36,9 +36,9 @@ struct tcf_common {
->  #define tcf_rcu		common.tcfc_rcu
->  
->  struct tcf_hashinfo {
-> -	struct tcf_common	**htab;
-> +	struct hlist_head	*htab;
->  	unsigned int		hmask;
-> -	rwlock_t		lock;
-> +	spinlock_t		lock;
->  };
->  
->  static inline unsigned int tcf_hash(u32 index, unsigned int hmask)
-> @@ -48,12 +48,16 @@ static inline unsigned int tcf_hash(u32 index, unsigned int hmask)
->  
->  static inline int tcf_hashinfo_init(struct tcf_hashinfo *hf, unsigned int mask)
->  {
-> -	rwlock_init(&hf->lock);
-> +	int i;
-> +
-> +	spin_lock_init(&hf->lock);
->  	hf->hmask = mask;
-> -	hf->htab = kzalloc((mask + 1) * sizeof(struct tcf_common *),
-> +	hf->htab = kzalloc((mask + 1) * sizeof(struct hlist_head),
->  			   GFP_KERNEL);
->  	if (!hf->htab)
->  		return -ENOMEM;
-> +	for (i = 0; i < mask + 1; i++)
-> +		INIT_HLIST_HEAD(&hf->htab[i]);
->  	return 0;
->  }
->  
-> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-> index 2641a8b..974e8f7 100644
-> --- a/net/sched/act_api.c
-> +++ b/net/sched/act_api.c
-> @@ -29,25 +29,17 @@
->  
->  void tcf_hash_destroy(struct tcf_common *p, struct tcf_hashinfo *hinfo)
->  {
-> -	unsigned int h = tcf_hash(p->tcfc_index, hinfo->hmask);
-> -	struct tcf_common **p1p;
-> -
-> -	for (p1p = &hinfo->htab[h]; *p1p; p1p = &(*p1p)->tcfc_next) {
-> -		if (*p1p == p) {
-> -			write_lock_bh(&hinfo->lock);
-> -			*p1p = p->tcfc_next;
-> -			write_unlock_bh(&hinfo->lock);
-> -			gen_kill_estimator(&p->tcfc_bstats,
-> -					   &p->tcfc_rate_est);
-> -			/*
-> -			 * gen_estimator est_timer() might access p->tcfc_lock
-> -			 * or bstats, wait a RCU grace period before freeing p
-> -			 */
-> -			kfree_rcu(p, tcfc_rcu);
-> -			return;
-> -		}
-> -	}
-> -	WARN_ON(1);
-> +	spin_lock_bh(&hinfo->lock);
-> +	hlist_del_rcu(&p->tcfc_head);
-> +	spin_unlock_bh(&hinfo->lock);
-> +	synchronize_rcu();
-
-Why is this needed ?
-
-> +	gen_kill_estimator(&p->tcfc_bstats,
-> +			   &p->tcfc_rate_est);
-> +	/*
-> +	 * gen_estimator est_timer() might access p->tcfc_lock
-> +	 * or bstats, wait a RCU grace period before freeing p
-> +	 */
-> +	kfree_rcu(p, tcfc_rcu);
->  }
->  EXPORT_SYMBOL(tcf_hash_destroy);
->  
-> @@ -73,18 +65,19 @@ EXPORT_SYMBOL(tcf_hash_release);
->  static int tcf_dump_walker(struct sk_buff *skb, struct netlink_callback *cb,
->  			   struct tc_action *a, struct tcf_hashinfo *hinfo)
->  {
-> +	struct hlist_head *head;
->  	struct tcf_common *p;
->  	int err = 0, index = -1, i = 0, s_i = 0, n_i = 0;
->  	struct nlattr *nest;
->  
-> -	read_lock_bh(&hinfo->lock);
-> +	rcu_read_lock_bh();
->  
->  	s_i = cb->args[0];
->  
->  	for (i = 0; i < (hinfo->hmask + 1); i++) {
-> -		p = hinfo->htab[tcf_hash(i, hinfo->hmask)];
-> +		head = &hinfo->htab[tcf_hash(i, hinfo->hmask)];
->  
-> -		for (; p; p = p->tcfc_next) {
-> +		hlist_for_each_entry_rcu(p, head, tcfc_head) {
->  			index++;
->  			if (index < s_i)
->  				continue;
-> @@ -107,7 +100,7 @@ static int tcf_dump_walker(struct sk_buff *skb, struct netlink_callback *cb,
->  		}
->  	}
->  done:
-> -	read_unlock_bh(&hinfo->lock);
-> +	rcu_read_unlock_bh();
->  	if (n_i)
->  		cb->args[0] += n_i;
->  	return n_i;
-> @@ -120,7 +113,9 @@ nla_put_failure:
->  static int tcf_del_walker(struct sk_buff *skb, struct tc_action *a,
->  			  struct tcf_hashinfo *hinfo)
->  {
-> -	struct tcf_common *p, *s_p;
-> +	struct hlist_head *head;
-> +	struct hlist_node *n;
-> +	struct tcf_common *p;
->  	struct nlattr *nest;
->  	int i = 0, n_i = 0;
->  
-> @@ -130,14 +125,11 @@ static int tcf_del_walker(struct sk_buff *skb, struct tc_action *a,
->  	if (nla_put_string(skb, TCA_KIND, a->ops->kind))
->  		goto nla_put_failure;
->  	for (i = 0; i < (hinfo->hmask + 1); i++) {
-> -		p = hinfo->htab[tcf_hash(i, hinfo->hmask)];
-> -
-> -		while (p != NULL) {
-> -			s_p = p->tcfc_next;
-> +		head = &hinfo->htab[tcf_hash(i, hinfo->hmask)];
-> +		hlist_for_each_entry_safe(p, n, head, tcfc_head) {
->  			if (ACT_P_DELETED == tcf_hash_release(p, 0, hinfo))
->  				module_put(a->ops->owner);
->  			n_i++;
-> -			p = s_p;
->  		}
->  	}
->  	if (nla_put_u32(skb, TCA_FCNT, n_i))
-> @@ -168,15 +160,15 @@ EXPORT_SYMBOL(tcf_generic_walker);
->  
->  struct tcf_common *tcf_hash_lookup(u32 index, struct tcf_hashinfo *hinfo)
->  {
-> -	struct tcf_common *p;
-> +	struct tcf_common *p = NULL;
-> +	struct hlist_head *head;
->  
-> -	read_lock_bh(&hinfo->lock);
-> -	for (p = hinfo->htab[tcf_hash(index, hinfo->hmask)]; p;
-> -	     p = p->tcfc_next) {
-> +	rcu_read_lock_bh();
-> +	head = &hinfo->htab[tcf_hash(index, hinfo->hmask)];
-> +	hlist_for_each_entry_rcu(p, head, tcfc_head)
->  		if (p->tcfc_index == index)
->  			break;
-> -	}
-> -	read_unlock_bh(&hinfo->lock);
-> +	rcu_read_unlock_bh();
->  
->  	return p;
->  }
-> @@ -236,6 +228,7 @@ struct tcf_common *tcf_hash_create(u32 index, struct nlattr *est,
->  		p->tcfc_bindcnt = 1;
->  
->  	spin_lock_init(&p->tcfc_lock);
-> +	INIT_HLIST_NODE(&p->tcfc_head);
->  	p->tcfc_index = index ? index : tcf_hash_new_index(idx_gen, hinfo);
->  	p->tcfc_tm.install = jiffies;
->  	p->tcfc_tm.lastuse = jiffies;
-> @@ -257,10 +250,10 @@ void tcf_hash_insert(struct tcf_common *p, struct tcf_hashinfo *hinfo)
->  {
->  	unsigned int h = tcf_hash(p->tcfc_index, hinfo->hmask);
->  
-> -	write_lock_bh(&hinfo->lock);
-> -	p->tcfc_next = hinfo->htab[h];
-> -	hinfo->htab[h] = p;
-> -	write_unlock_bh(&hinfo->lock);
-> +	spin_lock_bh(&hinfo->lock);
-> +	hlist_add_head_rcu(&p->tcfc_head, &hinfo->htab[h]);
-> +	spin_unlock_bh(&hinfo->lock);
-> +	synchronize_rcu();
-
-Why is this needed ?
-
->  }
->  EXPORT_SYMBOL(tcf_hash_insert);
->  
-> diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-> index f201576..26dffca 100644
-> --- a/net/sched/act_police.c
-> +++ b/net/sched/act_police.c
-> @@ -60,18 +60,19 @@ struct tc_police_compat {
->  static int tcf_act_police_walker(struct sk_buff *skb, struct netlink_callback *cb,
->  			      int type, struct tc_action *a)
->  {
-> +	struct hlist_head *head;
->  	struct tcf_common *p;
->  	int err = 0, index = -1, i = 0, s_i = 0, n_i = 0;
->  	struct nlattr *nest;
->  
-> -	read_lock_bh(&police_hash_info.lock);
-> +	rcu_read_lock_bh();
->  
->  	s_i = cb->args[0];
->  
->  	for (i = 0; i < (POL_TAB_MASK + 1); i++) {
-> -		p = police_hash_info.htab[tcf_hash(i, POL_TAB_MASK)];
-> +		head = &police_hash_info.htab[tcf_hash(i, POL_TAB_MASK)];
->  
-> -		for (; p; p = p->tcfc_next) {
-> +		hlist_for_each_entry_rcu(p, head, tcfc_head) {
->  			index++;
->  			if (index < s_i)
->  				continue;
-> @@ -94,7 +95,7 @@ static int tcf_act_police_walker(struct sk_buff *skb, struct netlink_callback *c
->  		}
->  	}
->  done:
-> -	read_unlock_bh(&police_hash_info.lock);
-> +	rcu_read_unlock_bh();
->  	if (n_i)
->  		cb->args[0] += n_i;
->  	return n_i;
-> @@ -106,25 +107,17 @@ nla_put_failure:
->  
->  static void tcf_police_destroy(struct tcf_police *p)
->  {
-> -	unsigned int h = tcf_hash(p->tcf_index, POL_TAB_MASK);
-> -	struct tcf_common **p1p;
-> -
-> -	for (p1p = &police_hash_info.htab[h]; *p1p; p1p = &(*p1p)->tcfc_next) {
-> -		if (*p1p == &p->common) {
-> -			write_lock_bh(&police_hash_info.lock);
-> -			*p1p = p->tcf_next;
-> -			write_unlock_bh(&police_hash_info.lock);
-> -			gen_kill_estimator(&p->tcf_bstats,
-> -					   &p->tcf_rate_est);
-> -			/*
-> -			 * gen_estimator est_timer() might access p->tcf_lock
-> -			 * or bstats, wait a RCU grace period before freeing p
-> -			 */
-> -			kfree_rcu(p, tcf_rcu);
-> -			return;
-> -		}
-> -	}
-> -	WARN_ON(1);
-> +	spin_lock_bh(&police_hash_info.lock);
-> +	hlist_del_rcu(&p->tcf_head);
-> +	spin_unlock_bh(&police_hash_info.lock);
-> +	synchronize_rcu();
-
-Why is this needed ?
-
-> +	gen_kill_estimator(&p->tcf_bstats,
-> +			   &p->tcf_rate_est);
-> +	/*
-> +	 * gen_estimator est_timer() might access p->tcf_lock
-> +	 * or bstats, wait a RCU grace period before freeing p
-> +	 */
-> +	kfree_rcu(p, tcf_rcu);
->  }
->  
->  static const struct nla_policy police_policy[TCA_POLICE_MAX + 1] = {
-> @@ -259,10 +252,10 @@ override:
->  	police->tcf_index = parm->index ? parm->index :
->  		tcf_hash_new_index(&police_idx_gen, &police_hash_info);
->  	h = tcf_hash(police->tcf_index, POL_TAB_MASK);
-> -	write_lock_bh(&police_hash_info.lock);
-> -	police->tcf_next = police_hash_info.htab[h];
-> -	police_hash_info.htab[h] = &police->common;
-> -	write_unlock_bh(&police_hash_info.lock);
-> +	spin_lock_bh(&police_hash_info.lock);
-> +	hlist_add_head_rcu(&police->tcf_head, &police_hash_info.htab[h]);
-> +	spin_unlock_bh(&police_hash_info.lock);
-> +	synchronize_rcu();
-
-Why is this needed ?
-
->  
->  	a->priv = police;
->  	return ret;
-
-
-Really, before sending RCU conversions, you need to understand how it
-works.
-
-There are plenty documentations and samples, I do not need to even
-explain more.
-
-Anyway, do you _really_ need RCU in management path at all ?
-
-RCU is generally harder to understand and maintain than plain
-traditional locking, so its use should be limited to the places
-it really is needed.
+diff --git a/drivers/net/fddi/skfp/fplustm.c b/drivers/net/fddi/skfp/fplustm.c
+index f839935..d918d8a 100644
+--- a/drivers/net/fddi/skfp/fplustm.c
++++ b/drivers/net/fddi/skfp/fplustm.c
+@@ -55,14 +55,14 @@ static	char cam_warning [] = "E_SMT_004: CAM still busy\n";
+ 
+ #define	DUMMY_READ()	smc->hw.mc_dummy = (u_short) inp(ADDR(B0_RAP))
+ 
+-#define	CHECK_NPP() {	unsigned k = 10000 ;\
++#define	CHECK_NPP() {	unsigned int k = 10000 ;\
+ 			while ((inpw(FM_A(FM_STMCHN)) & FM_SNPPND) && k) k--;\
+ 			if (!k) { \
+ 				SMT_PANIC(smc,SMT_E0130, SMT_E0130_MSG) ; \
+ 			}	\
+ 		}
+ 
+-#define	CHECK_CAM() {	unsigned k = 10 ;\
++#define	CHECK_CAM() {	unsigned int k = 10 ;\
+ 			while (!(inpw(FM_A(FM_AFSTAT)) & FM_DONE) && k) k--;\
+ 			if (!k) { \
+ 				SMT_PANIC(smc,SMT_E0131, SMT_E0131_MSG) ; \
+@@ -356,25 +356,25 @@ static	void set_formac_addr(struct s_smc *smc)
+ 	long	t_requ = smc->mib.m[MAC0].fddiMACT_Req ;
+ 
+ 	outpw(FM_A(FM_SAID),my_said) ;	/* set short address */
+-	outpw(FM_A(FM_LAIL),(unsigned)((smc->hw.fddi_home_addr.a[4]<<8) +
++	outpw(FM_A(FM_LAIL),(unsigned short)((smc->hw.fddi_home_addr.a[4]<<8) +
+ 					smc->hw.fddi_home_addr.a[5])) ;
+-	outpw(FM_A(FM_LAIC),(unsigned)((smc->hw.fddi_home_addr.a[2]<<8) +
++	outpw(FM_A(FM_LAIC),(unsigned short)((smc->hw.fddi_home_addr.a[2]<<8) +
+ 					smc->hw.fddi_home_addr.a[3])) ;
+-	outpw(FM_A(FM_LAIM),(unsigned)((smc->hw.fddi_home_addr.a[0]<<8) +
++	outpw(FM_A(FM_LAIM),(unsigned short)((smc->hw.fddi_home_addr.a[0]<<8) +
+ 					smc->hw.fddi_home_addr.a[1])) ;
+ 
+ 	outpw(FM_A(FM_SAGP),my_sagp) ;	/* set short group address */
+ 
+-	outpw(FM_A(FM_LAGL),(unsigned)((smc->hw.fp.group_addr.a[4]<<8) +
++	outpw(FM_A(FM_LAGL),(unsigned short)((smc->hw.fp.group_addr.a[4]<<8) +
+ 					smc->hw.fp.group_addr.a[5])) ;
+-	outpw(FM_A(FM_LAGC),(unsigned)((smc->hw.fp.group_addr.a[2]<<8) +
++	outpw(FM_A(FM_LAGC),(unsigned short)((smc->hw.fp.group_addr.a[2]<<8) +
+ 					smc->hw.fp.group_addr.a[3])) ;
+-	outpw(FM_A(FM_LAGM),(unsigned)((smc->hw.fp.group_addr.a[0]<<8) +
++	outpw(FM_A(FM_LAGM),(unsigned short)((smc->hw.fp.group_addr.a[0]<<8) +
+ 					smc->hw.fp.group_addr.a[1])) ;
+ 
+ 	/* set r_request regs. (MSW & LSW of TRT ) */
+-	outpw(FM_A(FM_TREQ1),(unsigned)(t_requ>>16)) ;
+-	outpw(FM_A(FM_TREQ0),(unsigned)t_requ) ;
++	outpw(FM_A(FM_TREQ1),(unsigned short)(t_requ>>16)) ;
++	outpw(FM_A(FM_TREQ0),(unsigned short)t_requ) ;
+ }
+ 
+ static void set_int(char *p, int l)
+@@ -394,10 +394,10 @@ static void set_int(char *p, int l)
+  *	append 'end of chain' pointer
+  */
+ static void copy_tx_mac(struct s_smc *smc, u_long td, struct fddi_mac *mac,
+-			unsigned off, int len)
++			unsigned int off, int len)
+ /* u_long td;		 transmit descriptor */
+ /* struct fddi_mac *mac; mac frame pointer */
+-/* unsigned off;	 start address within buffer memory */
++/* unsigned int off;	 start address within buffer memory */
+ /* int len ;		 length of the frame including the FC */
+ {
+ 	int	i ;
+diff --git a/drivers/net/fddi/skfp/h/supern_2.h b/drivers/net/fddi/skfp/h/supern_2.h
+index 0b73690..4ee360d 100644
+--- a/drivers/net/fddi/skfp/h/supern_2.h
++++ b/drivers/net/fddi/skfp/h/supern_2.h
+@@ -92,33 +92,33 @@
+ union rx_descr {
+ 	struct {
+ #ifdef	LITTLE_ENDIAN
+-	unsigned	rx_length :16 ;	/* frame length lower/upper byte */
+-	unsigned	rx_erfbb  :2 ;	/* received frame byte boundary */
+-	unsigned	rx_reserv2:2 ;	/* reserved */	
+-	unsigned	rx_sfrmty :3 ;	/* frame type bits */
+-	unsigned	rx_sadrrg :1 ;	/* DA == MA or broad-/multicast */
+-	unsigned	rx_sfrmerr:1 ;	/* received frame not valid */
+-	unsigned	rx_seac0  :1 ;	/* frame-copied  C-indicator */
+-	unsigned	rx_seac1  :1 ;	/* address-match A-indicator */
+-	unsigned	rx_seac2  :1 ;	/* frame-error   E-indicator */
+-	unsigned	rx_ssrcrtg:1 ;	/* == 1 SA has MSB set */
+-	unsigned	rx_reserv1:1 ;	/* reserved */	
+-	unsigned	rx_msrabt :1 ;	/* memory status receive abort */
+-	unsigned	rx_msvalid:1 ;	/* memory status valid */
++	unsigned int	rx_length :16 ;	/* frame length lower/upper byte */
++	unsigned int	rx_erfbb  :2 ;	/* received frame byte boundary */
++	unsigned int	rx_reserv2:2 ;	/* reserved */
++	unsigned int	rx_sfrmty :3 ;	/* frame type bits */
++	unsigned int	rx_sadrrg :1 ;	/* DA == MA or broad-/multicast */
++	unsigned int	rx_sfrmerr:1 ;	/* received frame not valid */
++	unsigned int	rx_seac0  :1 ;	/* frame-copied  C-indicator */
++	unsigned int	rx_seac1  :1 ;	/* address-match A-indicator */
++	unsigned int	rx_seac2  :1 ;	/* frame-error   E-indicator */
++	unsigned int	rx_ssrcrtg:1 ;	/* == 1 SA has MSB set */
++	unsigned int	rx_reserv1:1 ;	/* reserved */
++	unsigned int	rx_msrabt :1 ;	/* memory status receive abort */
++	unsigned int	rx_msvalid:1 ;	/* memory status valid */
+ #else
+-	unsigned	rx_msvalid:1 ;	/* memory status valid */
+-	unsigned	rx_msrabt :1 ;	/* memory status receive abort */
+-	unsigned	rx_reserv1:1 ;	/* reserved */	
+-	unsigned	rx_ssrcrtg:1 ;	/* == 1 SA has MSB set */
+-	unsigned	rx_seac2  :1 ;	/* frame-error   E-indicator */
+-	unsigned	rx_seac1  :1 ;	/* address-match A-indicator */
+-	unsigned	rx_seac0  :1 ;	/* frame-copied  C-indicator */
+-	unsigned	rx_sfrmerr:1 ;	/* received frame not valid */
+-	unsigned	rx_sadrrg :1 ;	/* DA == MA or broad-/multicast */
+-	unsigned	rx_sfrmty :3 ;	/* frame type bits */
+-	unsigned	rx_erfbb  :2 ;	/* received frame byte boundary */
+-	unsigned	rx_reserv2:2 ;	/* reserved */	
+-	unsigned	rx_length :16 ;	/* frame length lower/upper byte */
++	unsigned int	rx_msvalid:1 ;	/* memory status valid */
++	unsigned int	rx_msrabt :1 ;	/* memory status receive abort */
++	unsigned int	rx_reserv1:1 ;	/* reserved */
++	unsigned int	rx_ssrcrtg:1 ;	/* == 1 SA has MSB set */
++	unsigned int	rx_seac2  :1 ;	/* frame-error   E-indicator */
++	unsigned int	rx_seac1  :1 ;	/* address-match A-indicator */
++	unsigned int	rx_seac0  :1 ;	/* frame-copied  C-indicator */
++	unsigned int	rx_sfrmerr:1 ;	/* received frame not valid */
++	unsigned int	rx_sadrrg :1 ;	/* DA == MA or broad-/multicast */
++	unsigned int	rx_sfrmty :3 ;	/* frame type bits */
++	unsigned int	rx_erfbb  :2 ;	/* received frame byte boundary */
++	unsigned int	rx_reserv2:2 ;	/* reserved */
++	unsigned int	rx_length :16 ;	/* frame length lower/upper byte */
+ #endif
+ 	} r ;
+ 	long	i ;
+@@ -162,23 +162,23 @@ union rx_descr {
+ union tx_descr {
+ 	struct {
+ #ifdef	LITTLE_ENDIAN
+-	unsigned	tx_length:16 ;	/* frame length lower/upper byte */
+-	unsigned	tx_res	 :8 ;	/* reserved 	 (bit 16..23) */
+-	unsigned	tx_xmtabt:1 ;	/* transmit abort */
+-	unsigned	tx_nfcs  :1 ;	/* no frame check sequence */
+-	unsigned	tx_xdone :1 ;	/* give up token */
+-	unsigned	tx_rpxm  :2 ;	/* byte offset */
+-	unsigned	tx_pat1  :2 ;	/* must be TXP1 */
+-	unsigned	tx_more	 :1 ;	/* more frame in chain */
++	unsigned int	tx_length:16 ;	/* frame length lower/upper byte */
++	unsigned int	tx_res	 :8 ;	/* reserved 	 (bit 16..23) */
++	unsigned int	tx_xmtabt:1 ;	/* transmit abort */
++	unsigned int	tx_nfcs  :1 ;	/* no frame check sequence */
++	unsigned int	tx_xdone :1 ;	/* give up token */
++	unsigned int	tx_rpxm  :2 ;	/* byte offset */
++	unsigned int	tx_pat1  :2 ;	/* must be TXP1 */
++	unsigned int	tx_more	 :1 ;	/* more frame in chain */
+ #else
+-	unsigned	tx_more	 :1 ;	/* more frame in chain */
+-	unsigned	tx_pat1  :2 ;	/* must be TXP1 */
+-	unsigned	tx_rpxm  :2 ;	/* byte offset */
+-	unsigned	tx_xdone :1 ;	/* give up token */
+-	unsigned	tx_nfcs  :1 ;	/* no frame check sequence */
+-	unsigned	tx_xmtabt:1 ;	/* transmit abort */
+-	unsigned	tx_res	 :8 ;	/* reserved 	 (bit 16..23) */
+-	unsigned	tx_length:16 ;	/* frame length lower/upper byte */
++	unsigned int	tx_more	 :1 ;	/* more frame in chain */
++	unsigned int	tx_pat1  :2 ;	/* must be TXP1 */
++	unsigned int	tx_rpxm  :2 ;	/* byte offset */
++	unsigned int	tx_xdone :1 ;	/* give up token */
++	unsigned int	tx_nfcs  :1 ;	/* no frame check sequence */
++	unsigned int	tx_xmtabt:1 ;	/* transmit abort */
++	unsigned int	tx_res	 :8 ;	/* reserved 	 (bit 16..23) */
++	unsigned int	tx_length:16 ;	/* frame length lower/upper byte */
+ #endif
+ 	} t ;
+ 	long	i ;
+@@ -202,13 +202,13 @@ union tx_descr {
+ union tx_pointer {
+ 	struct t {
+ #ifdef	LITTLE_ENDIAN
+-	unsigned	tp_pointer:16 ;	/* pointer to tx_descr (low/high) */
+-	unsigned	tp_res	  :8 ;	/* reserved 	 (bit 16..23) */
+-	unsigned	tp_pattern:8 ;	/* fixed pattern (bit 24..31) */
++	unsigned int	tp_pointer:16 ;	/* pointer to tx_descr (low/high) */
++	unsigned int	tp_res	  :8 ;	/* reserved 	 (bit 16..23) */
++	unsigned int	tp_pattern:8 ;	/* fixed pattern (bit 24..31) */
+ #else
+-	unsigned	tp_pattern:8 ;	/* fixed pattern (bit 24..31) */
+-	unsigned	tp_res	  :8 ;	/* reserved 	 (bit 16..23) */
+-	unsigned	tp_pointer:16 ;	/* pointer to tx_descr (low/high) */
++	unsigned int	tp_pattern:8 ;	/* fixed pattern (bit 24..31) */
++	unsigned int	tp_res	  :8 ;	/* reserved 	 (bit 16..23) */
++	unsigned int	tp_pointer:16 ;	/* pointer to tx_descr (low/high) */
+ #endif
+ 	} t ;
+ 	long	i ;
+diff --git a/drivers/net/fddi/skfp/smt.c b/drivers/net/fddi/skfp/smt.c
+index 08d9432..9edada8 100644
+--- a/drivers/net/fddi/skfp/smt.c
++++ b/drivers/net/fddi/skfp/smt.c
+@@ -900,7 +900,7 @@ static void smt_send_rdf(struct s_smc *smc, SMbuf *rej, int fc, int reason,
+ 	rdf->version.v_pad2 = 0 ;
+ 
+ 	/* set P13 */
+-	if ((unsigned) frame_len <= SMT_MAX_INFO_LEN - sizeof(*rdf) +
++	if ((unsigned int) frame_len <= SMT_MAX_INFO_LEN - sizeof(*rdf) +
+ 		2*sizeof(struct smt_header))
+ 		len = frame_len ;
+ 	else
+diff --git a/drivers/net/fddi/skfp/srf.c b/drivers/net/fddi/skfp/srf.c
+index f6f7baf..cc27dea 100644
+--- a/drivers/net/fddi/skfp/srf.c
++++ b/drivers/net/fddi/skfp/srf.c
+@@ -73,7 +73,7 @@ void smt_init_evc(struct s_smc *smc)
+ {
+ 	struct s_srf_evc	*evc ;
+ 	const struct evc_init 	*init ;
+-	int			i ;
++	unsigned int		i ;
+ 	int			index ;
+ 	int			offset ;
+ 
+@@ -84,7 +84,7 @@ void smt_init_evc(struct s_smc *smc)
+ 	evc = smc->evcs ;
+ 	init = evc_inits ;
+ 
+-	for (i = 0 ; (unsigned) i < MAX_INIT_EVC ; i++) {
++	for (i = 0 ; i < MAX_INIT_EVC ; i++) {
+ 		for (index = 0 ; index < init->n ; index++) {
+ 			evc->evc_code = init->code ;
+ 			evc->evc_para = init->para ;
+@@ -98,7 +98,7 @@ void smt_init_evc(struct s_smc *smc)
+ 		init++ ;
+ 	}
+ 
+-	if ((unsigned) (evc - smc->evcs) > MAX_EVCS) {
++	if ((unsigned int) (evc - smc->evcs) > MAX_EVCS) {
+ 		SMT_PANIC(smc,SMT_E0127, SMT_E0127_MSG) ;
+ 	}
+ 
+@@ -139,7 +139,7 @@ void smt_init_evc(struct s_smc *smc)
+ 		offset++ ;
+ 	}
+ #ifdef	DEBUG
+-	for (i = 0, evc = smc->evcs ; (unsigned) i < MAX_EVCS ; i++, evc++) {
++	for (i = 0, evc = smc->evcs ; i < MAX_EVCS ; i++, evc++) {
+ 		if (SMT_IS_CONDITION(evc->evc_code)) {
+ 			if (!evc->evc_cond_state) {
+ 				SMT_PANIC(smc,SMT_E0128, SMT_E0128_MSG) ;
+@@ -160,10 +160,10 @@ void smt_init_evc(struct s_smc *smc)
+ 
+ static struct s_srf_evc *smt_get_evc(struct s_smc *smc, int code, int index)
+ {
+-	int			i ;
++	unsigned int		i ;
+ 	struct s_srf_evc	*evc ;
+ 
+-	for (i = 0, evc = smc->evcs ; (unsigned) i < MAX_EVCS ; i++, evc++) {
++	for (i = 0, evc = smc->evcs ; i < MAX_EVCS ; i++, evc++) {
+ 		if (evc->evc_code == code && evc->evc_index == index)
+ 			return evc;
+ 	}
+@@ -335,9 +335,9 @@ void smt_srf_event(struct s_smc *smc, int code, int index, int cond)
+ static void clear_all_rep(struct s_smc *smc)
+ {
+ 	struct s_srf_evc	*evc ;
+-	int			i ;
++	unsigned int		i ;
+ 
+-	for (i = 0, evc = smc->evcs ; (unsigned) i < MAX_EVCS ; i++, evc++) {
++	for (i = 0, evc = smc->evcs ; i < MAX_EVCS ; i++, evc++) {
+ 		evc->evc_rep_required = FALSE ;
+ 		if (SMT_IS_CONDITION(evc->evc_code))
+ 			*evc->evc_cond_state = FALSE ;
+@@ -348,10 +348,10 @@ static void clear_all_rep(struct s_smc *smc)
+ static void clear_reported(struct s_smc *smc)
+ {
+ 	struct s_srf_evc	*evc ;
+-	int			i ;
++	unsigned int		i ;
+ 
+ 	smc->srf.any_report = FALSE ;
+-	for (i = 0, evc = smc->evcs ; (unsigned) i < MAX_EVCS ; i++, evc++) {
++	for (i = 0, evc = smc->evcs ; i < MAX_EVCS ; i++, evc++) {
+ 		if (SMT_IS_CONDITION(evc->evc_code)) {
+ 			if (*evc->evc_cond_state == FALSE)
+ 				evc->evc_rep_required = FALSE ;
+@@ -375,7 +375,7 @@ static void smt_send_srf(struct s_smc *smc)
+ 	struct s_srf_evc	*evc ;
+ 	SK_LOC_DECL(struct s_pcon,pcon) ;
+ 	SMbuf			*mb ;
+-	int			i ;
++	unsigned int		i ;
+ 
+ 	static const struct fddi_addr SMT_SRF_DA = {
+ 		{ 0x80, 0x01, 0x43, 0x00, 0x80, 0x08 }
+@@ -405,7 +405,7 @@ static void smt_send_srf(struct s_smc *smc)
+ 	smt_add_para(smc,&pcon,(u_short) SMT_P1033,0,0) ;
+ 	smt_add_para(smc,&pcon,(u_short) SMT_P1034,0,0) ;
+ 
+-	for (i = 0, evc = smc->evcs ; (unsigned) i < MAX_EVCS ; i++, evc++) {
++	for (i = 0, evc = smc->evcs ; i < MAX_EVCS ; i++, evc++) {
+ 		if (evc->evc_rep_required) {
+ 			smt_add_para(smc,&pcon,evc->evc_para,
+ 				(int)evc->evc_index,0) ;
+-- 
+1.8.0
