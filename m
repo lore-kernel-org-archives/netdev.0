@@ -1,49 +1,55 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCHv2 net-next 0/5] pktgen IPsec support
-Date: Fri, 13 Dec 2013 16:56:24 +0800
-Message-ID: <52AACBB8.4060009@windriver.com>
-References: <1386323614-5077-1-git-send-email-fan.du@windriver.com>	<20131209.195854.223825767831436997.davem@davemloft.net>	<52A66C0D.4050409@windriver.com> <20131209.202321.2134510956668375662.davem@davemloft.net> <52A86BBE.1090408@mojatatu.com>
+From: Dan Williams <dan.j.williams@intel.com>
+Subject: [PATCH] dmaengine: fix sleep in atomic
+Date: Fri, 13 Dec 2013 01:01:18 -0800
+Message-ID: <20131213090100.23207.82563.stgit@viggo.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, <steffen.klassert@secunet.com>,
-	<netdev@vger.kernel.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dave.jiang@intel.com
+To: dmaengine@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:47436 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751957Ab3LMI4r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 03:56:47 -0500
-In-Reply-To: <52A86BBE.1090408@mojatatu.com>
+Received: from mga09.intel.com ([134.134.136.24]:16599 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752176Ab3LMJBT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Dec 2013 04:01:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46WIW, I will follow Dave's suggestion not to touch your original
-support at the first place no matter how below answer looks like.
+ BUG: sleeping function called from invalid context at mm/mempool.c:203
+ in_atomic(): 1, irqs_disabled(): 0, pid: 43502, name: linbug
+ no locks held by linbug/43502.
+ CPU: 7 PID: 43502 Comm: linbug Not tainted 3.13.0-rc1+ #15
+ Hardware name:
+  0000000000000010 ffff88005ebd1878 ffffffff8172d512 ffff8801752bc1c0
+  ffff8801752bc1c0 ffff88005ebd1898 ffffffff8109d1f6 ffff88005f9a3c58
+  ffff880177f0f080 ffff88005ebd1918 ffffffff81161f43 ffff88005ebd18f8
+ Call Trace:
+  [<ffffffff8172d512>] dump_stack+0x4e/0x68
+  [<ffffffff8109d1f6>] __might_sleep+0xe6/0x120
+  [<ffffffff81161f43>] mempool_alloc+0x93/0x170
+  [<ffffffff810c0c34>] ? mark_held_locks+0x74/0x140
+  [<ffffffff8118a826>] ? follow_page_mask+0x556/0x600
+  [<ffffffff814107ae>] dmaengine_get_unmap_data+0x2e/0x60
+  [<ffffffff81410f11>] dma_async_memcpy_pg_to_pg+0x41/0x1c0
+  [<ffffffff814110e0>] dma_async_memcpy_buf_to_pg+0x50/0x60
+  [<ffffffff81411bdc>] dma_memcpy_to_iovec+0xfc/0x190
+  [<ffffffff816163af>] dma_skb_copy_datagram_iovec+0x6f/0x2b0
 
-On 2013=E5=B9=B412=E6=9C=8811=E6=97=A5 21:42, Jamal Hadi Salim wrote:
-> On 12/09/13 20:23, David Miller wrote:
->
->> Maybe they didn't care about the checksum being correct in the
->> testbed they were using.
->
-> Thats correct. The point is to exercise the crypto code.
-> Please dont change this.
+Signed-off-by: Dan Williams <dan.j.williams@intel.com>
+---
+ drivers/dma/dmaengine.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-However exercising crypto engine on host running pktgen does *NOT* nece=
-ssary
-requiring bad IP checksum value and wrong total len value, because encr=
-yption
-has been done.
-
-I'm confused here with your test rationale, and what's wrong to use
-the right checksum/total length value? Please clear my puzzles.
-
-
-Thanks
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan
+diff --git a/drivers/dma/dmaengine.c b/drivers/dma/dmaengine.c
+index b601024f518c..ef63b9058f3c 100644
+--- a/drivers/dma/dmaengine.c
++++ b/drivers/dma/dmaengine.c
+@@ -1054,7 +1054,7 @@ dma_async_memcpy_pg_to_pg(struct dma_chan *chan, struct page *dest_pg,
+ 	dma_cookie_t cookie;
+ 	unsigned long flags;
+ 
+-	unmap = dmaengine_get_unmap_data(dev->dev, 2, GFP_NOIO);
++	unmap = dmaengine_get_unmap_data(dev->dev, 2, GFP_NOWAIT);
+ 	if (!unmap)
+ 		return -ENOMEM;
+ 
