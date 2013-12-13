@@ -1,77 +1,169 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH v2 net-next] tcp: remove a bogus TSO split
-Date: Fri, 13 Dec 2013 13:17:32 -0500
-Message-ID: <CADVnQy=ayiUVjXPscUkONDOGhfQ7xDyqn=KFzrndjw2mrPufrw@mail.gmail.com>
-References: <1386876523.19078.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1386958426.19078.162.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v2 1/9] xen-netback: Introduce TX grant map definitions
+Date: Fri, 13 Dec 2013 18:22:38 +0000
+Message-ID: <52AB506E.3040509@citrix.com>
+References: <1386892097-15502-1-git-send-email-zoltan.kiss@citrix.com> <1386892097-15502-2-git-send-email-zoltan.kiss@citrix.com> <20131213153138.GL21900@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Van Jacobson <vanj@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f52.google.com ([74.125.83.52]:53989 "EHLO
-	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752470Ab3LMSRd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 13:17:33 -0500
-Received: by mail-ee0-f52.google.com with SMTP id d17so1039054eek.11
-        for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 10:17:32 -0800 (PST)
-In-Reply-To: <1386958426.19078.162.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131213153138.GL21900@zion.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 13, 2013 at 1:13 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On 13/12/13 15:31, Wei Liu wrote:
+> On Thu, Dec 12, 2013 at 11:48:09PM +0000, Zoltan Kiss wrote:
+>> This patch contains the new definitions necessary for grant mapping.
+>>
+>> v2:
+>> - move unmapping to separate thread. The NAPI instance has to be scheduled
+>>    even from thread context, which can cause huge delays
+>> - that causes unfortunately bigger struct xenvif
+>> - store grant handle after checking validity
+>>
 >
-> While investigating performance problems on small RPC workloads,
-> I noticed linux TCP stack was always splitting the last TSO skb
-> into two parts (skbs). One being a multiple of MSS, and a small one
-> with the Push flag. This split is done even if TCP_NODELAY is set.
+> If the size of xenvif really becomes a problem, you can try to make
+> sratch space like struct gnttab_copy per-cpu. The downside is that
+> approach requires much coding and carefully guard against race
+> conditions. You would need to consider cost v.s. benefit.
+
+I mentioned this because for the first series I had comments that I 
+should be more vigilant about this. At that time there was a problem 
+with struct xenvif allocation which was solved by now. My quick 
+calculation showed this patch will increase the size with ~15kb
+
 >
-...
+>> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+>>
+>> ---
+> [...]
+>>   #define XENVIF_QUEUE_LENGTH 32
+>>   #define XENVIF_NAPI_WEIGHT  64
+>> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+>> index c1b7a42..3ddc474 100644
+>> --- a/drivers/net/xen-netback/netback.c
+>> +++ b/drivers/net/xen-netback/netback.c
+>> @@ -772,6 +772,20 @@ static struct page *xenvif_alloc_page(struct xenvif *vif,
+>>   	return page;
+>>   }
+>>
+>> +static inline void xenvif_tx_create_gop(struct xenvif *vif, u16 pending_idx,
+>> +	       struct xen_netif_tx_request *txp,
+>> +	       struct gnttab_map_grant_ref *gop)
+>> +{
+>> +	vif->pages_to_map[gop-vif->tx_map_ops] = vif->mmap_pages[pending_idx];
+>> +	gnttab_set_map_op(gop, idx_to_kaddr(vif, pending_idx),
+>> +			  GNTMAP_host_map | GNTMAP_readonly,
+>> +			  txp->gref, vif->domid);
+>> +
+>> +	memcpy(&vif->pending_tx_info[pending_idx].req, txp,
+>> +	       sizeof(*txp));
+>> +
+>> +}
+>> +
 >
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Nandita Dukkipati <nanditad@google.com>
-> Cc: Van Jacobson <vanj@google.com>
-> ---
-> v2: changed tcp_minshall_update() as Neal pointed out.
+> This helper function is not used until next patch. Probably you can move
+> it to the second patch.
+>
+> The same applies to other helper functions as well. Move them to the
+> patch they are used. It would be easier for people to review.
+I just moved them here because the second patch is already huge, and I 
+couldn't have an idea to splice it up while keeping it bisectable and 
+logically consistent. As I mentioned, I welcome ideas about that.
 
-It occurred to me after staring at this code a little longer that
-although the Nagle test is already done before the call to
-tcp_mss_split_point(), the tcp_nagle_check() is only run if
-tso_segs==1 and is only checking whether skb->len < mss_now, so the
-Nagle code currently is implicitly assuming that if there is an skb
-that is not an exact multiple of MSS, then the tcp_mss_split_point()
-will chop off the odd bytes at the end and we'll loop back to the top
-of the tcp_write_xmit() loop to make a Nagle decision on an skb that
-has tso_segs==1.
+>
+>>   static struct gnttab_copy *xenvif_get_requests(struct xenvif *vif,
+>>   					       struct sk_buff *skb,
+>>   					       struct xen_netif_tx_request *txp,
+>> @@ -1593,6 +1607,106 @@ static int xenvif_tx_submit(struct xenvif *vif)
+>>   	return work_done;
+>>   }
+>>
+>> +void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success)
+>> +{
+>
+> Do we care about zerocopy_success? I don't see it used in this function.
+It will be used in the 5th patch. Anyway, it's in the definition of the 
+zerocopy callback.
 
-So if we just make this improvement to tcp_mss_split_point() and the
-adjustment to tcp_minshall_update() (as in patch v2), we will still
-have broken Nagle behavior in a scenario like:
+>
+>> +	unsigned long flags;
+>> +	pending_ring_idx_t index;
+>> +	u16 pending_idx = ubuf->desc;
+>> +	struct pending_tx_info *temp =
+>> +		container_of(ubuf, struct pending_tx_info, callback_struct);
+>> +	struct xenvif *vif =
+>> +		container_of(temp - pending_idx, struct xenvif,
+>> +			pending_tx_info[0]);
+>> +
+>
+> The third parameter to container_of should be the name of the member
+> within the struct.
+Here we have the pending_idx, so we get a pointer for the holding struct 
+pending_tx_info, then for the beginning of pending_tx_info (temp - 
+pending_idx), and then to the struct xenvif. It's a bit tricky and not 
+straightforward, I admit :)
 
-- suppose MSS=1460 and Nagle is enabled (TCP_NODELAY is not set)
+>
+>> +	spin_lock_irqsave(&vif->dealloc_lock, flags);
+>> +	do {
+>> +		pending_idx = ubuf->desc;
+>> +		ubuf = (struct ubuf_info *) ubuf->ctx;
+>> +		index = pending_index(vif->dealloc_prod);
+>> +		vif->dealloc_ring[index] = pending_idx;
+>> +		/* Sync with xenvif_tx_action_dealloc:
+>> +		 * insert idx then incr producer.
+>> +		 */
+>> +		smp_wmb();
+>> +		vif->dealloc_prod++;
+>> +	} while (ubuf);
+>> +	wake_up(&vif->dealloc_wq);
+>> +	spin_unlock_irqrestore(&vif->dealloc_lock, flags);
+>> +}
+>> +
+>> +static inline void xenvif_tx_dealloc_action(struct xenvif *vif)
+>> +{
+>> +	struct gnttab_unmap_grant_ref *gop;
+>> +	pending_ring_idx_t dc, dp;
+>> +	u16 pending_idx, pending_idx_release[MAX_PENDING_REQS];
+>> +	unsigned int i = 0;
+>> +
+>> +	dc = vif->dealloc_cons;
+>> +	gop = vif->tx_unmap_ops;
+>> +
+>> +	/* Free up any grants we have finished using */
+>> +	do {
+>> +		dp = vif->dealloc_prod;
+>> +
+>> +		/* Ensure we see all indices enqueued by netif_idx_release(). */
+>
+> There is no netif_idx_release in netback code. :-)
+Oh yes, that's from the classic code, it should be 
+xenvif_zerocopy_callback. I will fix it.
 
-- suppose there is an outstanding un-ACKed small packet, so that
-tcp_minshall_check() returns true
-
-- user writes 2000 bytes
-
-- tso_segs is 2, so we do not call tcp_nagle_test()
-
-- new version of tcp_mss_split_point() sends out the full 2000 bytes,
-  leading to having 2 packets smaller than an MSS un-ACKed in the network,
-  violating the invariant the minshall/nagle code is trying to maintain
-  or having only one such packet un-ACKed in the network.
-
-Previously, tcp_mss_split_point() would have split off the 2000-1460
-bytes into a new skb, we would have looped back and executed the
-tcp_nagle_test() code and decided not to send that small sub-MSS
-2000-1460 packet.
-
-neal
+>
+>> +		smp_rmb();
+>> +
+>> +		while (dc != dp) {
+>> +			pending_idx =
+>> +				vif->dealloc_ring[pending_index(dc++)];
+>> +
+>> +			/* Already unmapped? */
+>> +			if (vif->grant_tx_handle[pending_idx] ==
+>> +				NETBACK_INVALID_HANDLE) {
+>> +				netdev_err(vif->dev,
+>> +					"Trying to unmap invalid handle! "
+>> +					"pending_idx: %x\n", pending_idx);
+>> +				continue;
+>> +			}
+>
+> Should this be BUG_ON? AIUI this kthread should be the only one doing
+> unmap, right?
+The NAPI instance can do it as well if it is a small packet fits into 
+PKT_PROT_LEN. But still this scenario shouldn't really happen, I was 
+just not sure we have to crash immediately. Maybe handle it as a fatal 
+error and destroy the vif?
