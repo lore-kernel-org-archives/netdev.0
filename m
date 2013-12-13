@@ -1,69 +1,104 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] tcp: remove a bogus TSO split
-Date: Fri, 13 Dec 2013 16:58:26 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B748E@saturn3.aculab.com>
-References: <1386876523.19078.93.camel@edumazet-glaptop2.roam.corp.google.com> <CADVnQymwaUNVgzqM97vfb=nfMFzVWmK8wR7fQ8Wm3i_c8+Z0jA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>,
-	"netdev" <netdev@vger.kernel.org>,
-	"Yuchung Cheng" <ycheng@google.com>,
-	"Nandita Dukkipati" <nanditad@google.com>,
-	"Van Jacobson" <vanj@google.com>
-To: "Neal Cardwell" <ncardwell@google.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>
+From: yazzep@gmail.com
+Subject: [PATCH 1/1] ipv6 addrconf:fix preferred lifetime state-changing behavior while valid_lft is infinity
+Date: Sat, 14 Dec 2013 02:33:48 +0900
+Message-ID: <1386956028-3463-1-git-send-email-yazzep@gmail.com>
+References: <1386843347-2725-1-git-send-email-yazzep@gmail.com>
+Cc: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:40128 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752018Ab3LMQ7h convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 11:59:37 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 11372-09 for <netdev@vger.kernel.org>;
- Fri, 13 Dec 2013 16:59:33 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <CADVnQymwaUNVgzqM97vfb=nfMFzVWmK8wR7fQ8Wm3i_c8+Z0jA@mail.gmail.com>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:36463 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753157Ab3LMReG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 12:34:06 -0500
+Received: by mail-pd0-f174.google.com with SMTP id y13so2731571pdi.5
+        for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 09:34:05 -0800 (PST)
+In-Reply-To: <1386843347-2725-1-git-send-email-yazzep@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Neal Cardwell
-...
-> Seems like a nice improvement, but if we apply this patch then AFAICT
-> to get the Nagle-enabled case right we also have to update
-> tcp_minshall_update() to notice these new non-MSS-aligned segments
-> going out, and count those as non-full-size segments for the
-> minshall-nagle check (to ensure we have no more than one outstanding
-> un-ACKed sub-MSS packet). Maybe something like (please excuse the
-> formatting):
+From: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
 
-This sort of begs the question about how Nagle should work.
-IIRC Nagle just suppresses short segments when there is unacked data? [1]
-
-If you have sent a TSO packet then nagle will always be 'waiting for an ack',
-so should only send full segments. What is questionable is whether you should
-send the final short segment, or buffer it waiting for further data from
-the application to fill the segment (or an ack from the remote system).
-
-If you split the data (as I think the code used to) then presumably
-with nagle the final short segment won't actually be sent (until timeout
-or an ack is received). So the transmitted segments are likely to all
-be full.
-
-OTOH with the change you'll send a partial segment.
-If this only happens when the tx socket buffer (etc) is empty it is probably
-an improvement!
-Run vi in a large window and page forwards, the data displayed is larger
-than a segment, so you have to wait for the nagle timeout before the entire
-screen is updated.
-Since the data is a single write() it would be a single TSO send - and
-you want it all to get sent.
-
-	David
+Fixed a problem with setting the lifetime of an IPv6
+address. When setting preferred_lft to a value not zero or
+infinity, while valid_lft is infinity(0xffffffff) preferred
+lifetime is set to forever and does not update. Therefore
+preferred lifetime never becomes deprecated. valid lifetime
+and preferred lifetime should be set independently, even if
+valid lifetime is infinity, preferred lifetime must expire
+correctly (meaning it must eventually become deprecated)
 
 
+Signed-off-by: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
+---
+ net/ipv6/addrconf.c | 37 +++++++++++++++++++++----------------
+ 1 file changed, 21 insertions(+), 16 deletions(-)
 
-[1] So that single characters typed into rlogin get sent together when
-the remote system finally finishes processing the previous one(s).
-While ftp can still send bulk data without waiting for responses.
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 3c3425e..00c135b 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -948,18 +948,21 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
+ 					if (!onlink)
+ 						onlink = -1;
+ 
+-					spin_lock(&ifa->lock);
+-
+-					lifetime = addrconf_timeout_fixup(ifa->valid_lft, HZ);
+-					/*
+-					 * Note: Because this address is
+-					 * not permanent, lifetime <
+-					 * LONG_MAX / HZ here.
+-					 */
+-					if (time_before(expires,
+-							ifa->tstamp + lifetime * HZ))
+-						expires = ifa->tstamp + lifetime * HZ;
+-					spin_unlock(&ifa->lock);
++					if (ifp->valid_lft !=
++					    INFINITY_LIFE_TIME) {
++						spin_lock(&ifa->lock);
++
++						lifetime = addrconf_timeout_fixup(
++								ifa->valid_lft,	HZ);
++						/* Note: because this address is
++						 * not permanent, lifetime <
++						 * LONG_MAX / HZ here.
++						 */
++						if (time_before(expires,
++								ifa->tstamp + lifetime * HZ))
++							expires = ifa->tstamp +	lifetime * HZ;
++						spin_unlock(&ifa->lock);
++					}
+ 				}
+ 			}
+ 		}
+@@ -2415,7 +2418,6 @@ static int inet6_addr_add(struct net *net, int ifindex,
+ 	} else {
+ 		expires = 0;
+ 		flags = 0;
+-		ifa_flags |= IFA_F_PERMANENT;
+ 	}
+ 
+ 	timeout = addrconf_timeout_fixup(prefered_lft, HZ);
+@@ -3497,8 +3499,12 @@ restart:
+ 					ifp->flags |= IFA_F_DEPRECATED;
+ 				}
+ 
+-				if (time_before(ifp->tstamp + ifp->valid_lft * HZ, next))
+-					next = ifp->tstamp + ifp->valid_lft * HZ;
++				if (ifp->valid_lft != INFINITY_LIFE_TIME) {
++					if (time_before(ifp->tstamp +
++							ifp->valid_lft * HZ, next))
++						next = ifp->tstamp +
++							ifp->valid_lft * HZ;
++				}
+ 
+ 				spin_unlock(&ifp->lock);
+ 
+@@ -3635,7 +3641,6 @@ static int inet6_addr_modify(struct inet6_ifaddr *ifp, u32 ifa_flags,
+ 	} else {
+ 		expires = 0;
+ 		flags = 0;
+-		ifa_flags |= IFA_F_PERMANENT;
+ 	}
+ 
+ 	timeout = addrconf_timeout_fixup(prefered_lft, HZ);
