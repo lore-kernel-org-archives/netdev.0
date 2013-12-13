@@ -1,138 +1,73 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH v2 2/5] net: phy: marvell: provide genphy suspend/resume
-Date: Fri, 13 Dec 2013 10:20:26 +0100
-Message-ID: <1386926429-28818-3-git-send-email-sebastian.hesselbarth@gmail.com>
-References: <1386513631-11284-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386513631-11284-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net 2/3] bonding: protect port for bond_3ad_adapter_duplex_changed()
+Date: Fri, 13 Dec 2013 17:29:24 +0800
+Message-ID: <52AAD374.1000008@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:38764 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751495Ab3LMJaI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 04:30:08 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Marvell PHYs support generic PHY suspend/resume, so provide those
-callbacks to all marvell specific drivers.
+Jay Vosburgh said that the bond_3ad_adapter_duplex_changed is
+called with RTNL only, and the function will modify the port's
+information with no further locking, it will not mutex against
+bond state machine and incoming LACPDU which do not hold RTNL,
+So I add __get_state_machine_lock to protect the port.
 
-Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+But it is not a critical bug, it exist since day one, and till
+now it has never been hit and reported, because changes to
+speed is very rare, and will not occur critical problem.
+
+The comments in the function is very old, cleanup it.
+
+Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
-Cc: David Miller <davem@davemloft.net>
-Cc: Florian Fainelli <f.fainelli@gmail.com>
-Cc: Mugunthan V N <mugunthanvnm@ti.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org
----
- drivers/net/phy/marvell.c |   22 ++++++++++++++++++++++
- 1 files changed, 22 insertions(+), 0 deletions(-)
+ drivers/net/bonding/bond_3ad.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 2e3c778e..bd37e45 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -894,6 +894,8 @@ static struct phy_driver marvell_drivers[] = {
- 		.read_status = &genphy_read_status,
- 		.ack_interrupt = &marvell_ack_interrupt,
- 		.config_intr = &marvell_config_intr,
-+		.resume = &genphy_resume,
-+		.suspend = &genphy_suspend,
- 		.driver = { .owner = THIS_MODULE },
- 	},
- 	{
-@@ -907,6 +909,8 @@ static struct phy_driver marvell_drivers[] = {
- 		.read_status = &genphy_read_status,
- 		.ack_interrupt = &marvell_ack_interrupt,
- 		.config_intr = &marvell_config_intr,
-+		.resume = &genphy_resume,
-+		.suspend = &genphy_suspend,
- 		.driver = { .owner = THIS_MODULE },
- 	},
- 	{
-@@ -920,6 +924,8 @@ static struct phy_driver marvell_drivers[] = {
- 		.read_status = &marvell_read_status,
- 		.ack_interrupt = &marvell_ack_interrupt,
- 		.config_intr = &marvell_config_intr,
-+		.resume = &genphy_resume,
-+		.suspend = &genphy_suspend,
- 		.driver = { .owner = THIS_MODULE },
- 	},
- 	{
-@@ -933,6 +939,8 @@ static struct phy_driver marvell_drivers[] = {
- 		.read_status = &genphy_read_status,
- 		.ack_interrupt = &marvell_ack_interrupt,
- 		.config_intr = &marvell_config_intr,
-+		.resume = &genphy_resume,
-+		.suspend = &genphy_suspend,
- 		.driver = {.owner = THIS_MODULE,},
- 	},
- 	{
-@@ -946,6 +954,8 @@ static struct phy_driver marvell_drivers[] = {
- 		.ack_interrupt = &marvell_ack_interrupt,
- 		.config_intr = &marvell_config_intr,
- 		.did_interrupt = &m88e1121_did_interrupt,
-+		.resume = &genphy_resume,
-+		.suspend = &genphy_suspend,
- 		.driver = { .owner = THIS_MODULE },
- 	},
- 	{
-@@ -961,6 +971,8 @@ static struct phy_driver marvell_drivers[] = {
- 		.did_interrupt = &m88e1121_did_interrupt,
- 		.get_wol = &m88e1318_get_wol,
- 		.set_wol = &m88e1318_set_wol,
-+		.resume = &genphy_resume,
-+		.suspend = &genphy_suspend,
- 		.driver = { .owner = THIS_MODULE },
- 	},
- 	{
-@@ -974,6 +986,8 @@ static struct phy_driver marvell_drivers[] = {
- 		.read_status = &genphy_read_status,
- 		.ack_interrupt = &marvell_ack_interrupt,
- 		.config_intr = &marvell_config_intr,
-+		.resume = &genphy_resume,
-+		.suspend = &genphy_suspend,
- 		.driver = { .owner = THIS_MODULE },
- 	},
- 	{
-@@ -987,6 +1001,8 @@ static struct phy_driver marvell_drivers[] = {
- 		.read_status = &genphy_read_status,
- 		.ack_interrupt = &marvell_ack_interrupt,
- 		.config_intr = &marvell_config_intr,
-+		.resume = &genphy_resume,
-+		.suspend = &genphy_suspend,
- 		.driver = { .owner = THIS_MODULE },
- 	},
- 	{
-@@ -1000,6 +1016,8 @@ static struct phy_driver marvell_drivers[] = {
- 		.read_status = &genphy_read_status,
- 		.ack_interrupt = &marvell_ack_interrupt,
- 		.config_intr = &marvell_config_intr,
-+		.resume = &genphy_resume,
-+		.suspend = &genphy_suspend,
- 		.driver = { .owner = THIS_MODULE },
- 	},
- 	{
-@@ -1013,6 +1031,8 @@ static struct phy_driver marvell_drivers[] = {
- 		.read_status = &genphy_read_status,
- 		.ack_interrupt = &marvell_ack_interrupt,
- 		.config_intr = &marvell_config_intr,
-+		.resume = &genphy_resume,
-+		.suspend = &genphy_suspend,
- 		.driver = { .owner = THIS_MODULE },
- 	},
- 	{
-@@ -1026,6 +1046,8 @@ static struct phy_driver marvell_drivers[] = {
- 		.ack_interrupt = &marvell_ack_interrupt,
- 		.config_intr = &marvell_config_intr,
- 		.did_interrupt = &m88e1121_did_interrupt,
-+		.resume = &genphy_resume,
-+		.suspend = &genphy_suspend,
- 		.driver = { .owner = THIS_MODULE },
- 	},
- };
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 6405ce3..e851a67 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2234,20 +2234,25 @@ void bond_3ad_adapter_duplex_changed(struct slave *slave)
+ 
+ 	port = &(SLAVE_AD_INFO(slave).port);
+ 
+-	// if slave is null, the whole port is not initialized
++	/* if slave is null, the whole port is not initialized */
+ 	if (!port->slave) {
+ 		pr_warning("%s: Warning: duplex changed for uninitialized port on %s\n",
+ 			   slave->bond->dev->name, slave->dev->name);
+ 		return;
+ 	}
+ 
++	__get_state_machine_lock(port);
++
+ 	port->actor_admin_port_key &= ~AD_DUPLEX_KEY_BITS;
+ 	port->actor_oper_port_key = port->actor_admin_port_key |=
+ 		__get_duplex(port);
+ 	pr_debug("Port %d changed duplex\n", port->actor_port_number);
+-	// there is no need to reselect a new aggregator, just signal the
+-	// state machines to reinitialize
++	/* there is no need to reselect a new aggregator, just signal the
++	 * state machines to reinitialize
++	 */
+ 	port->sm_vars |= AD_PORT_BEGIN;
++
++	__release_state_machine_lock(port);
+ }
+ 
+ /**
 -- 
-1.7.2.5
+1.8.0
