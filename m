@@ -1,40 +1,60 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v2 8/8] bonding: add arp_all_targets netlink
- support
-Date: Fri, 13 Dec 2013 08:30:39 +0100
-Message-ID: <20131213073039.GH2486@minipsycho.orion>
-References: <20131212221045.21629.50040.stgit@monster-03.cumulusnetworks.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] net: Cache route in IP tunnels
+Date: Fri, 13 Dec 2013 09:53:52 +0200 (EET)
+Message-ID: <alpine.LFD.2.10.1312130948220.2431@ja.home.ssi.bg>
+References: <alpine.DEB.2.02.1312112207400.27914@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vfalico@redhat.com, fubar@us.ibm.com, andy@greyhouse.net,
-	netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	shm@cumulusnetworks.com
-To: Scott Feldman <sfeldma@cumulusnetworks.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f175.google.com ([209.85.215.175]:54473 "EHLO
-	mail-ea0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752082Ab3LMHam (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 02:30:42 -0500
-Received: by mail-ea0-f175.google.com with SMTP id z10so672099ead.6
-        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 23:30:41 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20131212221045.21629.50040.stgit@monster-03.cumulusnetworks.com>
+Received: from ja.ssi.bg ([178.16.129.10]:42806 "EHLO ja.home.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750830Ab3LMHya (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Dec 2013 02:54:30 -0500
+In-Reply-To: <alpine.DEB.2.02.1312112207400.27914@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Dec 12, 2013 at 11:10:45PM CET, sfeldma@cumulusnetworks.com wrote:
->Add IFLA_BOND_ARP_ALL_TARGETS to allow get/set of bonding parameter
->arp_all_targets via netlink.
->
->Signed-off-by: Scott Feldman <sfeldma@cumulusnetworks.com>
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+	Hello,
 
->---
-> drivers/net/bonding/bond_netlink.c |   14 ++++++++++++++
-> drivers/net/bonding/bond_options.c |   11 +++++++++++
-> drivers/net/bonding/bond_sysfs.c   |   16 ++++++++++------
-> drivers/net/bonding/bonding.h      |    1 +
-> include/uapi/linux/if_link.h       |    1 +
-> 5 files changed, 37 insertions(+), 6 deletions(-)
->
+On Wed, 11 Dec 2013, Tom Herbert wrote:
+
+> +static inline void
+> +tunnel_dst_set(struct ip_tunnel *t, struct dst_entry *dst)
+> +{
+> +	struct dst_entry *old_dst;
+> +
+> +	spin_lock(&t->dst_lock);
+> +	old_dst = rcu_dereference_raw(t->dst_cache);
+> +	rcu_assign_pointer(t->dst_cache, dst);
+> +	dst_release(old_dst);
+> +	spin_unlock(&t->dst_lock);
+
+	It seems the func is also called by ip_tunnel_update(),
+do we need _bh locks in such case?
+
+> +}
+> +
+> +static inline void
+> +tunnel_dst_reset(struct ip_tunnel *t)
+> +{
+> +	tunnel_dst_set(t, NULL);
+> +}
+> +
+
+...
+
+> @@ -696,6 +750,7 @@ static void ip_tunnel_update(struct ip_tunnel_net *itn,
+>  		if (set_mtu)
+>  			dev->mtu = mtu;
+>  	}
+> +	tunnel_dst_reset(t);
+>  	netdev_state_change(dev);
+>  }
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
