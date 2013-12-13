@@ -1,39 +1,56 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH v2 net-next] ipv6: router reachability probing
-Date: Fri, 13 Dec 2013 13:51:16 +0100
-Message-ID: <20131213125116.GA28103@unicorn.suse.cz>
-References: <d483b5eedcbfedc2002c458b15586679e7795399.1386766078.git.jbenc@redhat.com>
- <20131211231236.GA8953@lion.mk-sys.cz>
- <20131212012115.GE4675@order.stressinduktion.org>
- <20131212091004.GA10703@unicorn.suse.cz>
- <20131212190810.GI4675@order.stressinduktion.org>
+From: Mark Hambleton <mark.hambleton@broadcom.com>
+Subject: ipv6: fix headroom calculation in udp6_ufo_fragment
+Date: Fri, 13 Dec 2013 13:01:59 +0000
+Message-ID: <D00A5DFD97C44C4D820FC3A847C5D5750730630F@IRVEXCHMB14.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Jiri Benc <jbenc@redhat.com>, netdev@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:39006 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751602Ab3LMMvT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Dec 2013 07:51:19 -0500
-Content-Disposition: inline
-In-Reply-To: <20131212190810.GI4675@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Mark Brown (broonie@linaro.org)" <broonie@linaro.org>,
+	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
+	"'stable@vger.kernel.org'" <stable@vger.kernel.org>
+To: 'Pravin B Shelar' <pshelar@nicira.com>,
+	'Saran Neti' <Saran.Neti@telus.com>,
+	"'David S. Miller'" <davem@davemloft.net>,
+	'Greg Kroah-Hartman' <gregkh@linuxfoundation.org>,
+	'Hannes Frederic Sowa' <hannes@stressinduktion.org>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 12, 2013 at 08:08:10PM +0100, Hannes Frederic Sowa wrote:
-> On Thu, Dec 12, 2013 at 10:10:05AM +0100, Michal Kubecek wrote:
-> > 
-> > On the other hand, the fix could be worth backporting to 3.4 stable
-> > (more general, pre-3.6 stable branches) as the problem is much more
-> > severe there.
-> 
-> Could you give it a try? I am not so sure if it really helps, maybe only in
-> cases where more than one router is available.
+Hi, 
 
-I'll send a backport next week so that there is enough time for a review
-before the original patch gets into mainline.
+Following a recent commit to LTS and upstream  I see the following warning emitted on an ARM32 build:
 
-                                                          Michal Kubecek
+net/ipv6/udp_offload.c: In function 'udp6_ufo_fragment':
+net/ipv6/udp_offload.c:88:22: error: comparison between pointer and integer [-Werror]
+  if (skb->mac_header < (tnl_hlen + frag_hdr_sz)) {
+                      ^
+cc1: all warnings being treated as errors
+make[2]: *** [net/ipv6/udp_offload.o] Error 1
+make[1]: *** [net/ipv6] Error 2
+
+ The commit made the following changes:
+
+-       if (skb_headroom(skb) < (tnl_hlen + frag_hdr_sz)) {
++       if (skb->mac_header < (tnl_hlen + frag_hdr_sz)) {
+
+Now, because of some defines in skbuff.h :
+
+#if BITS_PER_LONG > 32
+#define NET_SKBUFF_DATA_USES_OFFSET 1
+#endif
+
+#ifdef NET_SKBUFF_DATA_USES_OFFSET
+typedef unsigned int sk_buff_data_t;
+#else
+typedef unsigned char *sk_buff_data_t;
+#endif
+
+On an ARM32 system sk_buff_data_t would be a pointer (long being 32 bits), meaning that skb->mac_header is a pointer and that  you are comparing a pointer against a length, which doesn't look like it is correct to me?
+
+I can see how this works when NET_SKBUFF_DATA_USES_OFFSET is defined, but is there a way to do this that works for both cases?
+
+Hope this makes sense, 
+
+Mark
