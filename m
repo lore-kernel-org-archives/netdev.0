@@ -1,241 +1,116 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next v2 3/9] xen-netback: Remove old TX
-	grant copy definitons and fix indentations
-Date: Thu, 12 Dec 2013 23:48:11 +0000
-Message-ID: <1386892097-15502-4-git-send-email-zoltan.kiss@citrix.com>
-References: <1386892097-15502-1-git-send-email-zoltan.kiss@citrix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] pkt_sched: fq: more robust memory allocation
+Date: Thu, 12 Dec 2013 16:35:12 -0800
+Message-ID: <1386894912.19078.130.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
-To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1386892097-15502-1-git-send-email-zoltan.kiss@citrix.com>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:57745 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751678Ab3LMAf2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 19:35:28 -0500
+Received: by mail-ie0-f178.google.com with SMTP id lx4so1888984iec.9
+        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 16:35:28 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-These became obsolate with grant mapping. I've left intentionally the
-indentations in this way, to improve readability of previous patches.
+From: Eric Dumazet <edumazet@google.com>
 
-v2:
-- move the indentation fixup patch here
+This patch brings NUMA support and automatic fallback to vmalloc()
+in case kmalloc() failed to allocate FQ hash table.
 
-Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+NUMA support depends on XPS being setup for the device before
+qdisc allocation. After a XPS change, it might be worth creating
+qdisc hierarchy again.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/xen-netback/common.h  |   37 +------------------
- drivers/net/xen-netback/netback.c |   72 ++++++++-----------------------------
- 2 files changed, 15 insertions(+), 94 deletions(-)
+ net/sched/sch_fq.c |   30 ++++++++++++++++++++++++------
+ 1 file changed, 24 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 33cb12c..f286879 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -46,39 +46,9 @@
- #include <xen/xenbus.h>
- 
- typedef unsigned int pending_ring_idx_t;
--#define INVALID_PENDING_RING_IDX (~0U)
- 
--/* For the head field in pending_tx_info: it is used to indicate
-- * whether this tx info is the head of one or more coalesced requests.
-- *
-- * When head != INVALID_PENDING_RING_IDX, it means the start of a new
-- * tx requests queue and the end of previous queue.
-- *
-- * An example sequence of head fields (I = INVALID_PENDING_RING_IDX):
-- *
-- * ...|0 I I I|5 I|9 I I I|...
-- * -->|<-INUSE----------------
-- *
-- * After consuming the first slot(s) we have:
-- *
-- * ...|V V V V|5 I|9 I I I|...
-- * -----FREE->|<-INUSE--------
-- *
-- * where V stands for "valid pending ring index". Any number other
-- * than INVALID_PENDING_RING_IDX is OK. These entries are considered
-- * free and can contain any number other than
-- * INVALID_PENDING_RING_IDX. In practice we use 0.
-- *
-- * The in use non-INVALID_PENDING_RING_IDX (say 0, 5 and 9 in the
-- * above example) number is the index into pending_tx_info and
-- * mmap_pages arrays.
-- */
- struct pending_tx_info {
--	struct xen_netif_tx_request req; /* coalesced tx request */
--	pending_ring_idx_t head; /* head != INVALID_PENDING_RING_IDX
--				  * if it is head of one or more tx
--				  * reqs
--				  */
-+	struct xen_netif_tx_request req; /* tx request */
- 	/* callback data for released SKBs. The	callback is always
- 	 * xenvif_zerocopy_callback, ctx points to the next fragment, desc
- 	 * contains the pending_idx
-@@ -128,11 +98,6 @@ struct xenvif {
- 	struct pending_tx_info pending_tx_info[MAX_PENDING_REQS];
- 	grant_handle_t grant_tx_handle[MAX_PENDING_REQS];
- 
--	/* Coalescing tx requests before copying makes number of grant
--	 * copy ops greater or equal to number of slots required. In
--	 * worst case a tx request consumes 2 gnttab_copy.
--	 */
--	struct gnttab_copy tx_copy_ops[2*MAX_PENDING_REQS];
- 	struct gnttab_unmap_grant_ref tx_unmap_ops[MAX_PENDING_REQS];
- 	struct gnttab_map_grant_ref tx_map_ops[MAX_PENDING_REQS];
- 	/* passed to gnttab_[un]map_refs with pages under (un)mapping */
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 20352be..88a0fad 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -71,16 +71,6 @@ module_param(fatal_skb_slots, uint, 0444);
-  */
- #define XEN_NETBK_LEGACY_SLOTS_MAX XEN_NETIF_NR_SLOTS_MIN
- 
--/*
-- * If head != INVALID_PENDING_RING_IDX, it means this tx request is head of
-- * one or more merged tx requests, otherwise it is the continuation of
-- * previous tx request.
-- */
--static inline int pending_tx_is_head(struct xenvif *vif, RING_IDX idx)
--{
--	return vif->pending_tx_info[idx].head != INVALID_PENDING_RING_IDX;
--}
--
- static void xenvif_idx_release(struct xenvif *vif, u16 pending_idx,
- 			       u8 status);
- 
-@@ -762,19 +752,6 @@ static int xenvif_count_requests(struct xenvif *vif,
- 	return slots;
+diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
+index 95d843961907..c44ff5016b17 100644
+--- a/net/sched/sch_fq.c
++++ b/net/sched/sch_fq.c
+@@ -47,6 +47,7 @@
+ #include <linux/rbtree.h>
+ #include <linux/hash.h>
+ #include <linux/prefetch.h>
++#include <linux/vmalloc.h>
+ #include <net/netlink.h>
+ #include <net/pkt_sched.h>
+ #include <net/sock.h>
+@@ -578,15 +579,32 @@ static void fq_rehash(struct fq_sched_data *q,
+ 	q->stat_gc_flows += fcnt;
  }
  
--static struct page *xenvif_alloc_page(struct xenvif *vif,
--				      u16 pending_idx)
--{
--	struct page *page;
--
--	page = alloc_page(GFP_ATOMIC|__GFP_COLD);
--	if (!page)
--		return NULL;
--	vif->mmap_pages[pending_idx] = page;
--
--	return page;
--}
--
- static inline void xenvif_tx_create_gop(struct xenvif *vif, u16 pending_idx,
- 	       struct xen_netif_tx_request *txp,
- 	       struct gnttab_map_grant_ref *gop)
-@@ -797,13 +774,9 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
- 	struct skb_shared_info *shinfo = skb_shinfo(skb);
- 	skb_frag_t *frags = shinfo->frags;
- 	u16 pending_idx = *((u16 *)skb->data);
--	u16 head_idx = 0;
--	int slot, start;
--	struct page *page;
--	pending_ring_idx_t index, start_idx = 0;
--	uint16_t dst_offset;
-+	int start;
-+	pending_ring_idx_t index;
- 	unsigned int nr_slots;
--	struct pending_tx_info *first = NULL;
- 
- 	/* At this point shinfo->nr_frags is in fact the number of
- 	 * slots, which can be as large as XEN_NETBK_LEGACY_SLOTS_MAX.
-@@ -815,8 +788,8 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
- 
- 	for (shinfo->nr_frags = start; shinfo->nr_frags < nr_slots;
- 	     shinfo->nr_frags++, txp++, gop++) {
--				index = pending_index(vif->pending_cons++);
--				pending_idx = vif->pending_ring[index];
-+		index = pending_index(vif->pending_cons++);
-+		pending_idx = vif->pending_ring[index];
- 		xenvif_tx_create_gop(vif, pending_idx, txp, gop);
- 		frag_set_pending_idx(&frags[shinfo->nr_frags], pending_idx);
- 	}
-@@ -824,18 +797,6 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
- 	BUG_ON(shinfo->nr_frags > MAX_SKB_FRAGS);
- 
- 	return gop;
--err:
--	/* Unwind, freeing all pages and sending error responses. */
--	while (shinfo->nr_frags-- > start) {
--		xenvif_idx_release(vif,
--				frag_get_pending_idx(&frags[shinfo->nr_frags]),
--				XEN_NETIF_RSP_ERROR);
--	}
--	/* The head too, if necessary. */
--	if (start)
--		xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_ERROR);
--
--	return NULL;
- }
- 
- static int xenvif_tx_check_gop(struct xenvif *vif,
-@@ -848,7 +809,6 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
- 	struct pending_tx_info *tx_info;
- 	int nr_frags = shinfo->nr_frags;
- 	int i, err, start;
--	u16 peek; /* peek into next tx request */
- 
- 	/* Check status of header. */
- 	err = gop->status;
-@@ -870,14 +830,12 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
- 
- 	for (i = start; i < nr_frags; i++) {
- 		int j, newerr;
--		pending_ring_idx_t head;
- 
- 		pending_idx = frag_get_pending_idx(&shinfo->frags[i]);
- 		tx_info = &vif->pending_tx_info[pending_idx];
--		head = tx_info->head;
- 
- 		/* Check error status: if okay then remember grant handle. */
--			newerr = (++gop)->status;
-+		newerr = (++gop)->status;
- 
- 		if (likely(!newerr)) {
- 			if (vif->grant_tx_handle[pending_idx] !=
-@@ -1343,7 +1301,6 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif, int budget)
- 		(skb_queue_len(&vif->tx_queue) < budget)) {
- 		struct xen_netif_tx_request txreq;
- 		struct xen_netif_tx_request txfrags[XEN_NETBK_LEGACY_SLOTS_MAX];
--		struct page *page;
- 		struct xen_netif_extra_info extras[XEN_NETIF_EXTRA_TYPE_MAX-1];
- 		u16 pending_idx;
- 		RING_IDX idx;
-@@ -1705,18 +1662,17 @@ static void xenvif_idx_release(struct xenvif *vif, u16 pending_idx,
+-static int fq_resize(struct fq_sched_data *q, u32 log)
++static void fq_free(void *addr)
  {
- 	struct pending_tx_info *pending_tx_info;
- 	pending_ring_idx_t index;
--	u16 peek; /* peek into next tx request */
- 	unsigned long flags;
++	if (addr && is_vmalloc_addr(addr))
++		vfree(addr);
++	else
++		kfree(addr);
++}
++
++static int fq_resize(struct Qdisc *sch, u32 log)
++{
++	struct fq_sched_data *q = qdisc_priv(sch);
++	size_t sz = sizeof(struct rb_root) << log;
+ 	struct rb_root *array;
++	int node;
+ 	u32 idx;
  
--		pending_tx_info = &vif->pending_tx_info[pending_idx];
--		spin_lock_irqsave(&vif->response_lock, flags);
--		make_tx_response(vif, &pending_tx_info->req, status);
--		index = pending_index(vif->pending_prod);
--		vif->pending_ring[index] = pending_idx;
--		/* TX shouldn't use the index before we give it back here */
--		mb();
--		vif->pending_prod++;
--		spin_unlock_irqrestore(&vif->response_lock, flags);
-+	pending_tx_info = &vif->pending_tx_info[pending_idx];
-+	spin_lock_irqsave(&vif->response_lock, flags);
-+	make_tx_response(vif, &pending_tx_info->req, status);
-+	index = pending_index(vif->pending_prod);
-+	vif->pending_ring[index] = pending_idx;
-+	/* TX shouldn't use the index before we give it back here */
-+	mb();
-+	vif->pending_prod++;
-+	spin_unlock_irqrestore(&vif->response_lock, flags);
+ 	if (q->fq_root && log == q->fq_trees_log)
+ 		return 0;
+ 
+-	array = kmalloc(sizeof(struct rb_root) << log, GFP_KERNEL);
++	/* If XPS was setup, we can allocate memory on right NUMA node */
++	node = netdev_queue_numa_node_read(sch->dev_queue);
++
++	array = kmalloc_node(sz, GFP_KERNEL | __GFP_REPEAT | __GFP_NOWARN,
++			     node);
++	if (!array)
++		array = vmalloc_node(sz, node);
+ 	if (!array)
+ 		return -ENOMEM;
+ 
+@@ -595,7 +613,7 @@ static int fq_resize(struct fq_sched_data *q, u32 log)
+ 
+ 	if (q->fq_root) {
+ 		fq_rehash(q, q->fq_root, q->fq_trees_log, array, log);
+-		kfree(q->fq_root);
++		fq_free(q->fq_root);
+ 	}
+ 	q->fq_root = array;
+ 	q->fq_trees_log = log;
+@@ -676,7 +694,7 @@ static int fq_change(struct Qdisc *sch, struct nlattr *opt)
+ 	}
+ 
+ 	if (!err)
+-		err = fq_resize(q, fq_log);
++		err = fq_resize(sch, fq_log);
+ 
+ 	while (sch->q.qlen > sch->limit) {
+ 		struct sk_buff *skb = fq_dequeue(sch);
+@@ -697,7 +715,7 @@ static void fq_destroy(struct Qdisc *sch)
+ 	struct fq_sched_data *q = qdisc_priv(sch);
+ 
+ 	fq_reset(sch);
+-	kfree(q->fq_root);
++	fq_free(q->fq_root);
+ 	qdisc_watchdog_cancel(&q->watchdog);
  }
  
- void xenvif_idx_unmap(struct xenvif *vif, u16 pending_idx)
+@@ -723,7 +741,7 @@ static int fq_init(struct Qdisc *sch, struct nlattr *opt)
+ 	if (opt)
+ 		err = fq_change(sch, opt);
+ 	else
+-		err = fq_resize(q, q->fq_trees_log);
++		err = fq_resize(sch, q->fq_trees_log);
+ 
+ 	return err;
+ }
