@@ -1,60 +1,47 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] net: Cache route in IP tunnels
-Date: Fri, 13 Dec 2013 09:53:52 +0200 (EET)
-Message-ID: <alpine.LFD.2.10.1312130948220.2431@ja.home.ssi.bg>
-References: <alpine.DEB.2.02.1312112207400.27914@tomh.mtv.corp.google.com>
+From: =?UTF-8?q?Salva=20Peir=C3=B3?= <speiro@ai2.upv.es>
+Subject: =?UTF-8?q?=5BPATCH=5D=20hamradio/yam=3A=20fix=20info=20leak=20in=20ioctl?=
+Date: Fri, 13 Dec 2013 08:46:07 +0100
+Message-ID: <1386920767-27962-1-git-send-email-speiro@ai2.upv.es>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:42806 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750830Ab3LMHya (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Dec 2013 02:54:30 -0500
-In-Reply-To: <alpine.DEB.2.02.1312112207400.27914@tomh.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <security@kernel.org>, <linux-hams@vger.kernel.org>,
+	<netdev@vger.kernel.org>, Jean-Paul Roubelat <jpr@f6fbb.org>,
+	=?UTF-8?q?Salva=20Peir=C3=B3?= <speiro@ai2.upv.es>,
+	<stable@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-hams-owner@vger.kernel.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+The yam_ioctl() code fails to initialise the cmd field
+of the struct yamdrv_ioctl_cfg. Add an explicit memset(0)
+before filling the structure to avoid the 4-byte info leak.
 
-	Hello,
+Signed-off-by: Salva Peir=C3=B3 <speiro@ai2.upv.es>
+CC: <stable@vger.kernel.org>
+---
+ drivers/net/hamradio/yam.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-On Wed, 11 Dec 2013, Tom Herbert wrote:
-
-> +static inline void
-> +tunnel_dst_set(struct ip_tunnel *t, struct dst_entry *dst)
-> +{
-> +	struct dst_entry *old_dst;
-> +
-> +	spin_lock(&t->dst_lock);
-> +	old_dst = rcu_dereference_raw(t->dst_cache);
-> +	rcu_assign_pointer(t->dst_cache, dst);
-> +	dst_release(old_dst);
-> +	spin_unlock(&t->dst_lock);
-
-	It seems the func is also called by ip_tunnel_update(),
-do we need _bh locks in such case?
-
-> +}
-> +
-> +static inline void
-> +tunnel_dst_reset(struct ip_tunnel *t)
-> +{
-> +	tunnel_dst_set(t, NULL);
-> +}
-> +
-
-...
-
-> @@ -696,6 +750,7 @@ static void ip_tunnel_update(struct ip_tunnel_net *itn,
->  		if (set_mtu)
->  			dev->mtu = mtu;
->  	}
-> +	tunnel_dst_reset(t);
->  	netdev_state_change(dev);
->  }
-
-Regards
+diff --git a/drivers/net/hamradio/yam.c b/drivers/net/hamradio/yam.c
+index 1971411..bb02c8a 100644
+--- a/drivers/net/hamradio/yam.c
++++ b/drivers/net/hamradio/yam.c
+@@ -953,6 +953,7 @@ static int yam_ioctl(struct net_device *dev, struct=
+ ifreq *ifr, int cmd)
+ 	struct yamdrv_ioctl_mcs *ym;
+ 	int ioctl_cmd;
+=20
++	memset(&yi, 0, sizeof(yi));
+ 	if (copy_from_user(&ioctl_cmd, ifr->ifr_data, sizeof(int)))
+ 		 return -EFAULT;
+=20
+--=20
+1.7.10.4
 
 --
-Julian Anastasov <ja@ssi.bg>
+To unsubscribe from this list: send the line "unsubscribe linux-hams" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
