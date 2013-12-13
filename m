@@ -1,45 +1,33 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next v2 2/2] net: ovs: use CRC32 accelerated flow hash
- if available
-Date: Fri, 13 Dec 2013 13:12:12 -0800
-Message-ID: <CAEP_g=8R5T71tXOwW-s15jNsD5k2Pv6vD0JZEfEoAARC9BRZ_g@mail.gmail.com>
-References: <1386860946-1621-1-git-send-email-ffusco@redhat.com>
- <1386860946-1621-3-git-send-email-ffusco@redhat.com> <CAEP_g=-JBT_XVvwSa4xOwVoTysoL0Z8zJc-ERSHJc96+qrA99Q@mail.gmail.com>
- <52AAD98B.7030100@redhat.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v3 1/6] net_sched: remove get_stats from tc_action_ops
+Date: Fri, 13 Dec 2013 16:27:34 -0500
+Message-ID: <52AB7BC6.9050503@mojatatu.com>
+References: <1386913673-8210-1-git-send-email-xiyou.wangcong@gmail.com>	<1386913673-8210-2-git-send-email-xiyou.wangcong@gmail.com>	<AE90C24D6B3A694183C094C60CF0A2F6026B7489@saturn3.aculab.com> <CAM_iQpVgo+nxN3eTRg_F9u+-k4ML+D3ZqsrAEOeLZwtU6dOk3g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Thomas Graf <tgraf@redhat.com>
-To: Francesco Fusco <ffusco@redhat.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+	David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog117.obsmtp.com ([74.125.149.242]:45988 "HELO
-	na3sys009aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751507Ab3LMVMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 16:12:32 -0500
-Received: by mail-ie0-f172.google.com with SMTP id qd12so3674195ieb.17
-        for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 13:12:32 -0800 (PST)
-In-Reply-To: <52AAD98B.7030100@redhat.com>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:60651 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751696Ab3LMV1o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 16:27:44 -0500
+Received: by mail-ie0-f176.google.com with SMTP id at1so3550871iec.7
+        for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 13:27:44 -0800 (PST)
+In-Reply-To: <CAM_iQpVgo+nxN3eTRg_F9u+-k4ML+D3ZqsrAEOeLZwtU6dOk3g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 13, 2013 at 1:55 AM, Francesco Fusco <ffusco@redhat.com> wrote:
-> On 12/12/2013 09:20 PM, Jesse Gross wrote:
->>
->> Out of curiosity, did you try using crc32q? OVS data structures are
->> already aligned to 8 bytes. It would also be interesting to know if a
->> parallelized implementation is worthwhile, although my guess is that
->> the OVS flow key is not quite long enough.
->
->
-> We did not try with crc32q yet because we had the very same concerns.
-> In the general case, when the length of the key is not a multiple of 8
-> bytes, we will have to use the crc32q to process multiple 64 bit numbers,
-> then process the the rest with a crc32l. My guess is that the
-> performance benefit won't be that high.
+On 12/13/13 13:33, Cong Wang wrote:
 
-On 64-bit platforms, OVS already enforces alignment and multiples of 8
-bytes for flow keys. If we introduced a hash primitive that does 8
-bytes at a time instead of 4, there should be nothing extra to process
-(although I don't know how big the upside would be).
+> Why? Keep in mind that we don't need to worry about any
+> out-of-tree modules. :)
+
+This is an API that is used to export additional stats that
+are not generic.
+
+cheers,
+jamal
