@@ -1,32 +1,41 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCHv2 net-next 0/5] pktgen IPsec support
-Date: Fri, 13 Dec 2013 07:13:47 -0500
-Message-ID: <52AAF9FB.4040406@mojatatu.com>
-References: <1386323614-5077-1-git-send-email-fan.du@windriver.com>	<20131209.195854.223825767831436997.davem@davemloft.net>	<52A66C0D.4050409@windriver.com> <20131209.202321.2134510956668375662.davem@davemloft.net> <52A86BBE.1090408@mojatatu.com> <52AACBB8.4060009@windriver.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCH net-next 0/2] netfilter: IPv4/v6 IPcomp match support
+Date: Fri, 13 Dec 2013 20:18:00 +0800
+Message-ID: <1386937082-30412-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, steffen.klassert@secunet.com,
-	netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:61073 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752931Ab3LMMNu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 07:13:50 -0500
-Received: by mail-ie0-f177.google.com with SMTP id tp5so2627196ieb.22
-        for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 04:13:49 -0800 (PST)
-In-Reply-To: <52AACBB8.4060009@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <steffen.klassert@secunet.com>,
+	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/13/13 03:56, Fan Du wrote:
-> FWIW, I will follow Dave's suggestion not to touch your original
-> support at the first place no matter how below answer looks like.
->
+Hi,
 
-I think you missed the message. No one said dont add that feature,
-just dont make it default or remove the existing one.
+This patchset adds IPv4/v6 IPComp 'match' plugin to enables user setting
+ACTONs for IPcomp flows sepecified with SPI value.
 
-cheers,
-jamal
+Corresponding iptables patchset will be sent here after soon.
+
+Fan Du (2):
+  netfilter: add IPv4 IPComp extension match support
+  netfilter: add IPv6 IPComp extension match support
+
+ include/uapi/linux/netfilter_ipv4/ipt_comp.h  |   18 ++++
+ include/uapi/linux/netfilter_ipv6/ip6t_comp.h |   18 ++++
+ net/ipv4/netfilter/Kconfig                    |    9 ++
+ net/ipv4/netfilter/Makefile                   |    1 +
+ net/ipv4/netfilter/ipt_comp.c                 |  101 +++++++++++++++++++++++
+ net/ipv6/netfilter/Kconfig                    |    8 ++
+ net/ipv6/netfilter/Makefile                   |    1 +
+ net/ipv6/netfilter/ip6t_comp.c                |  110 +++++++++++++++++++++++++
+ 8 files changed, 266 insertions(+)
+ create mode 100644 include/uapi/linux/netfilter_ipv4/ipt_comp.h
+ create mode 100644 include/uapi/linux/netfilter_ipv6/ip6t_comp.h
+ create mode 100644 net/ipv4/netfilter/ipt_comp.c
+ create mode 100644 net/ipv6/netfilter/ip6t_comp.c
+
+-- 
+1.7.9.5
+
