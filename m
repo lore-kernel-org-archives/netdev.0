@@ -1,62 +1,83 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: Re: [PATCH 2/3] xfrm: Increase the garbage collector threshold
-Date: Fri, 13 Dec 2013 17:13:29 +0100
-Message-ID: <1386951209.25449.61.camel@sakura.staff.proxad.net>
-References: <1383294107-7509-1-git-send-email-steffen.klassert@secunet.com>
-	 <1383294107-7509-3-git-send-email-steffen.klassert@secunet.com>
-	 <1386686323.22947.26.camel@sakura.staff.proxad.net>
-	 <20131213101203.GO31491@secunet.com>
-Reply-To: mbizon@freebox.fr
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: sit tunnel slow since added GSO/TSO support
+Date: Fri, 13 Dec 2013 17:13:31 +0100
+Message-ID: <52AB322B.7030802@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ANSI_X3.4-1968"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Eric Dumazet <edumazet@google.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.iliad.fr ([212.27.33.1]:52995 "EHLO ns.iliad.fr"
+Received: from mx1.redhat.com ([209.132.183.28]:34372 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752238Ab3LMQNb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Dec 2013 11:13:31 -0500
-In-Reply-To: <20131213101203.GO31491@secunet.com>
+	id S1752270Ab3LMQNf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Dec 2013 11:13:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello,
 
-On Fri, 2013-12-13 at 11:12 +0100, Steffen Klassert wrote:
+I've been experimenting with IPIP and SIT tunnels. Both of them
+had the support for GSO/TSO added recently, by commits:
+  cb32f511a7 "ipip: add GSO/TSO support"
+  61c1db7fae "ipv6: sit: add GSO/TSO support"
 
-> Can you please be a bit more precise with your problem description?
+IPIP works fine for me.
 
-yes sorry I wasn't clear.
+I am seeing very low TCP performance with SIT if TSO is enabled on the
+SIT interface. It does not matter if the underlying hardware supports
+NETIF_F_GSO_SIT or not (I have tested with bnx2x and tg3).
 
-I have a problem with an even simpler workload that the one using apache
-bench in the original bug report.
+This is for example with TSO on a 1Gb interface:
 
-I am using ipsec transport mode between two hosts and just run this on
-one side:
+  $ netperf -H 2001:0DB8:1234::000e
+  MIGRATED TCP STREAM TEST from ::0 (::) port 0 AF_INET6 to 2001:0DB8:1234::000e () port 0 AF_INET6
+  Recv   Send    Send                          
+  Socket Socket  Message  Elapsed              
+  Size   Size    Size     Time     Throughput  
+  bytes  bytes   bytes    secs.    10^6bits/sec  
+  
+   87380  16384  16384    10.00      35.92
 
-  while :; do wget -O /dev/null http://remote_host/; done
+After "ethtool -K sittun tso off":
 
-I was surprised to see it fails after only 1024 requests (ENOBUF on
-connect), and how long I had to wait to be able to do new requests.
+  $ netperf -H 2001:0DB8:1234::000e
+  MIGRATED TCP STREAM TEST from ::0 (::) port 0 AF_INET6 to 2001:0DB8:1234::000e () port 0 AF_INET6
+  Recv   Send    Send                          
+  Socket Socket  Message  Elapsed              
+  Size   Size    Size     Time     Throughput  
+  bytes  bytes   bytes    secs.    10^6bits/sec  
+  
+   87380  16384  16384    10.01     706.86
 
-After debugging I saw that the xfrm gc was called but was not able to
-release anything.
+After looking into what was happening I discovered that in the
+TSO-enabled case big skbs enters into ipip6_tunnel_xmit() where they are
+dropped by this branch:
 
-after running "ip route flush cache", which forces all ipv4 dst entries
-to be released, suddenly the xfrm gc had something to free, and xfrm
-entry count went to zero.
+        if (df) {
+                /* ... */
+                if (skb->len > mtu) {
+                        icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+                        ip_rt_put(rt);
+                        goto tx_error;
+                }
+        }
 
-So if it is correct that once a ipv4 dst entry exists, the xfrm entry
-cannot be gc-ed, then we need to make sure we allow more xfrm entries to
-be allocated than ipv4 dst.
+After having looked at the meaning of "df" I found that I can use
+the "nopmtudisc" option when creating the sit tunnel to work around
+the problem:
+  ip tun add sittun mode sit remote $REMOTE local $LOCAL dev $IFACE nopmtudisc
 
-> This patch changes only the number of cache entries before
-> we start garbage collecting. It does not change anything
-> on the garbage collector itself.
+With "nopmtudisc" and TSO enabled:
 
-Yes my point was that it just hides another underlying problem.
+  $ netperf -H 2001:0DB8:1234::000e
+  MIGRATED TCP STREAM TEST from ::0 (::) port 0 AF_INET6 to 2001:0DB8:1234::000e () port 0 AF_INET6
+  Recv   Send    Send                          
+  Socket Socket  Message  Elapsed              
+  Size   Size    Size     Time     Throughput  
+  bytes  bytes   bytes    secs.    10^6bits/sec  
+  
+   87380  16384  16384    10.01     716.85 
 
--- 
-Maxime
+Regards,
+Michal
