@@ -1,102 +1,99 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH 2/2] netfilter: add IPv6 IPComp extension match support
-Date: Fri, 13 Dec 2013 20:18:02 +0800
-Message-ID: <1386937082-30412-3-git-send-email-fan.du@windriver.com>
+Subject: [PATCH 1/2] netfilter: add IPv4 IPComp extension match support
+Date: Fri, 13 Dec 2013 20:18:01 +0800
+Message-ID: <1386937082-30412-2-git-send-email-fan.du@windriver.com>
 References: <1386937082-30412-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <steffen.klassert@secunet.com>,
 	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
 To: <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:43122 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752286Ab3LMMSR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 07:18:17 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1386937082-30412-1-git-send-email-fan.du@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 With this plugin, user could specify IPComp tagged with certain
 CPI that host not interested will be DROPped or any other action.
 
 For example:
-ip6tables -A INPUT -p 108 -m ipcomp --ipcompspi 0x87 -j DROP
+iptables -A INPUT -p 108 -m ipcomp --ipcompspi 0x87 -j DROP
 
 Then input IPComp packet with CPI equates 0x87 will not reach
 upper layer anymore.
 
 Signed-off-by: Fan Du <fan.du@windriver.com>
 ---
- include/uapi/linux/netfilter_ipv6/ip6t_comp.h |   18 ++++
- net/ipv6/netfilter/Kconfig                    |    8 ++
- net/ipv6/netfilter/Makefile                   |    1 +
- net/ipv6/netfilter/ip6t_comp.c                |  110 +++++++++++++++++++++++++
- 4 files changed, 137 insertions(+)
- create mode 100644 include/uapi/linux/netfilter_ipv6/ip6t_comp.h
- create mode 100644 net/ipv6/netfilter/ip6t_comp.c
+ include/uapi/linux/netfilter_ipv4/ipt_comp.h |   18 +++++
+ net/ipv4/netfilter/Kconfig                   |    9 +++
+ net/ipv4/netfilter/Makefile                  |    1 +
+ net/ipv4/netfilter/ipt_comp.c                |  101 ++++++++++++++++++++++++++
+ 4 files changed, 129 insertions(+)
+ create mode 100644 include/uapi/linux/netfilter_ipv4/ipt_comp.h
+ create mode 100644 net/ipv4/netfilter/ipt_comp.c
 
-diff --git a/include/uapi/linux/netfilter_ipv6/ip6t_comp.h b/include/uapi/linux/netfilter_ipv6/ip6t_comp.h
+diff --git a/include/uapi/linux/netfilter_ipv4/ipt_comp.h b/include/uapi/linux/netfilter_ipv4/ipt_comp.h
 new file mode 100644
-index 0000000..f2eecdd
+index 0000000..37172fa
 --- /dev/null
-+++ b/include/uapi/linux/netfilter_ipv6/ip6t_comp.h
++++ b/include/uapi/linux/netfilter_ipv4/ipt_comp.h
 @@ -0,0 +1,18 @@
-+#ifndef _IP6T_COMP_H
-+#define _IP6T_COMP_H
++#ifndef _IPT_COMP_H
++#define _IPT_COMP_H
 +
 +#include <linux/types.h>
 +
-+struct ip6t_comp {
-+	__u32 spis[2];			/* Security Parameter Index */
-+	__u8  hdrres;			/* Test of the Reserved Filed */
-+	__u8  invflags;			/* Inverse flags */
++struct ipt_comp {
++	__u32 spis[2];	/* Security Parameter Index */
++	__u8 invflags;	/* Inverse flags */
++	__u8 hdrres;	/* Test of the Reserved Filed */
 +};
 +
-+#define IP6T_IPCOMP_SPI 0x01
-+#define IP6T_IPCOMP_RES 0x02
 +
-+#define IP6T_IPCOMP_INV_SPI	0x01	/* Invert the sense of spi. */
-+#define IP6T_IPCOMP_INV_MASK	0x03	/* All possible flags. */
 +
-+#endif /*_IP6T_COMP_H*/
-diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
-index 7702f9e..3f5e603 100644
---- a/net/ipv6/netfilter/Kconfig
-+++ b/net/ipv6/netfilter/Kconfig
-@@ -62,6 +62,14 @@ config IP6_NF_MATCH_AH
++/* Values for "invflags" field in struct ipt_comp. */
++#define IPT_IPCOMP_INV_SPI	0x01	/* Invert the sense of spi. */
++#define IPT_IPCOMP_INV_MASK	0x01	/* All possible flags. */
++
++#endif /*_IPT_COMP_H*/
+diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+index 40d5607..f71cf7b 100644
+--- a/net/ipv4/netfilter/Kconfig
++++ b/net/ipv4/netfilter/Kconfig
+@@ -81,6 +81,15 @@ config IP_NF_MATCH_AH
  
  	  To compile it as a module, choose M here.  If unsure, say N.
  
-+config IP6_NF_MATCH_IPCOMP
++config IP_NF_MATCH_IPCOMP
 +	tristate '"ipcomp" match support'
 +	depends on NETFILTER_ADVANCED
 +	help
-+	  This module allows one to match IPcomp packets.
++	  This match extension allows you to match a range of SPIs (Actually it's
++	  Compression Parameter Index(CPI) inside IPComp header of IPSec packets.
 +
 +	  To compile it as a module, choose M here.  If unsure, say N.
 +
- config IP6_NF_MATCH_EUI64
- 	tristate '"eui64" address check'
+ config IP_NF_MATCH_ECN
+ 	tristate '"ecn" match support'
  	depends on NETFILTER_ADVANCED
-diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
-index d1b4928..602ab70 100644
---- a/net/ipv6/netfilter/Makefile
-+++ b/net/ipv6/netfilter/Makefile
-@@ -30,6 +30,7 @@ obj-$(CONFIG_NFT_CHAIN_NAT_IPV6) += nft_chain_nat_ipv6.o
+diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
+index 19df72b..b67ecb8 100644
+--- a/net/ipv4/netfilter/Makefile
++++ b/net/ipv4/netfilter/Makefile
+@@ -45,6 +45,7 @@ obj-$(CONFIG_IP_NF_SECURITY) += iptable_security.o
  
  # matches
- obj-$(CONFIG_IP6_NF_MATCH_AH) += ip6t_ah.o
-+obj-$(CONFIG_IP6_NF_MATCH_IPCOMP) += ip6t_comp.o
- obj-$(CONFIG_IP6_NF_MATCH_EUI64) += ip6t_eui64.o
- obj-$(CONFIG_IP6_NF_MATCH_FRAG) += ip6t_frag.o
- obj-$(CONFIG_IP6_NF_MATCH_IPV6HEADER) += ip6t_ipv6header.o
-diff --git a/net/ipv6/netfilter/ip6t_comp.c b/net/ipv6/netfilter/ip6t_comp.c
+ obj-$(CONFIG_IP_NF_MATCH_AH) += ipt_ah.o
++obj-$(CONFIG_IP_NF_MATCH_IPCOMP) += ipt_comp.o
+ obj-$(CONFIG_IP_NF_MATCH_RPFILTER) += ipt_rpfilter.o
+ 
+ # targets
+diff --git a/net/ipv4/netfilter/ipt_comp.c b/net/ipv4/netfilter/ipt_comp.c
 new file mode 100644
-index 0000000..bd4a0ae
+index 0000000..7796e6e
 --- /dev/null
-+++ b/net/ipv6/netfilter/ip6t_comp.c
-@@ -0,0 +1,110 @@
++++ b/net/ipv4/netfilter/ipt_comp.c
+@@ -0,0 +1,101 @@
 +/*  Kernel module to match IPComp parameters
 + *
 + *  Copyright (C) 2013 WindRiver
@@ -105,7 +102,7 @@ index 0000000..bd4a0ae
 + *  Fan Du <fan.du@windriver.com>
 + *
 + *  Based on:
-+ *  net/ipv6/netfilter/ip6t_ah.c
++ *  net/ipv4/netfilter/ipt_ah.c
 + *
 + *  This program is free software; you can redistribute it and/or
 + *  modify it under the terms of the GNU General Public License
@@ -115,29 +112,23 @@ index 0000000..bd4a0ae
 +
 +
 +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++#include <linux/in.h>
 +#include <linux/module.h>
 +#include <linux/skbuff.h>
 +#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include <linux/types.h>
-+#include <net/checksum.h>
-+#include <net/ipv6.h>
 +
++#include <linux/netfilter_ipv4/ipt_comp.h>
 +#include <linux/netfilter/x_tables.h>
-+#include <linux/netfilter_ipv6/ip6_tables.h>
-+#include <linux/netfilter_ipv6/ip6t_comp.h>
 +
 +MODULE_LICENSE("GPL");
 +MODULE_AUTHOR("Fan Du <fan.du@windriver.com>");
-+MODULE_DESCRIPTION("Xtables: IPv6 IPsec-IPComp SPI match");
-+
++MODULE_DESCRIPTION("Xtables: IPv4 IPsec-IPComp SPI match");
 +
 +/* Returns 1 if the spi is matched by the range, 0 otherwise */
 +static inline bool
 +spi_match(u_int32_t min, u_int32_t max, u_int32_t spi, bool invert)
 +{
 +	bool r;
-+
 +	pr_debug("spi_match:%c 0x%x <= 0x%x <= 0x%x\n",
 +		 invert ? '!' : ' ', min, spi, max);
 +	r = (spi >= min && spi <= max) ^ invert;
@@ -145,67 +136,65 @@ index 0000000..bd4a0ae
 +	return r;
 +}
 +
-+static bool comp_mt6(const struct sk_buff *skb, struct xt_action_param *par)
++static bool comp_mt(const struct sk_buff *skb, struct xt_action_param *par)
 +{
-+	struct ip_comp_hdr _comp;
-+	const struct ip_comp_hdr *comp;
-+	const struct ip6t_comp *compinfo = par->matchinfo;
++	struct ip_comp_hdr _comphdr;
++	const struct ip_comp_hdr *chdr;
++	const struct ipt_comp *compinfo = par->matchinfo;
 +
-+	comp = skb_header_pointer(skb, par->thoff, sizeof(_comp), &_comp);
-+	if (comp == NULL) {
-+		par->hotdrop = true;
++	/* Must not be a fragment. */
++	if (par->fragoff != 0)
 +		return false;
++
++	chdr = skb_header_pointer(skb, par->thoff, sizeof(_comphdr), &_comphdr);
++	if (chdr == NULL) {
++		/* We've been asked to examine this packet, and we
++		 * can't.  Hence, no choice but to drop.
++		 */
++		pr_debug("Dropping evil IPComp tinygram.\n");
++		par->hotdrop = true;
++		return 0;
 +	}
 +
-+	pr_debug("IPv6 IPcomp SPI %u %04X ", ntohs(comp->cpi), ntohs(comp->cpi));
-+	pr_debug("RES %02X \n", comp->flags);
-+
-+	pr_debug("IPv6 IPcomp spi %02X ",
-+		 spi_match(compinfo->spis[0], compinfo->spis[1],
-+			   ntohs(comp->cpi),
-+			   !!(compinfo->invflags & IP6T_IPCOMP_INV_SPI)));
-+	pr_debug("res %02X %04X %02X\n",
-+		 compinfo->hdrres, comp->flags,
-+		 !(compinfo->hdrres && comp->flags));
-+
-+	return (comp != NULL) &&
-+		spi_match(compinfo->spis[0], compinfo->spis[1],
-+			  ntohs(comp->cpi),
-+			  !!(compinfo->invflags & IP6T_IPCOMP_INV_SPI)) &&
-+			  !(compinfo->hdrres && comp->flags);
++	return spi_match(compinfo->spis[0], compinfo->spis[1],
++			 ntohl(chdr->cpi << 16),
++			 !!(compinfo->invflags & IPT_IPCOMP_INV_SPI));
 +}
 +
-+static int comp_mt6_check(const struct xt_mtchk_param *par)
++static int comp_mt_check(const struct xt_mtchk_param *par)
 +{
-+	const struct ip6t_comp *compinfo = par->matchinfo;
++	const struct ipt_comp *compinfo = par->matchinfo;
 +
-+	if (compinfo->invflags & ~IP6T_IPCOMP_INV_MASK) {
++	/* Must specify no unknown invflags */
++	if (compinfo->invflags & ~IPT_IPCOMP_INV_MASK) {
 +		pr_debug("unknown flags %X\n", compinfo->invflags);
 +		return -EINVAL;
 +	}
 +	return 0;
 +}
 +
-+static struct xt_match comp_mt6_reg __read_mostly = {
++static struct xt_match comp_mt_reg __read_mostly = {
 +	.name		= "ipcomp",
-+	.family		= NFPROTO_IPV6,
-+	.match		= comp_mt6,
-+	.matchsize	= sizeof(struct ip6t_comp),
-+	.checkentry	= comp_mt6_check,
++	.family		= NFPROTO_IPV4,
++	.match		= comp_mt,
++	.matchsize	= sizeof(struct ipt_comp),
++	.proto		= IPPROTO_COMP,
++	.checkentry	= comp_mt_check,
 +	.me		= THIS_MODULE,
 +};
 +
-+static int __init comp_mt6_init(void)
++static int __init comp_mt_init(void)
 +{
-+	return xt_register_match(&comp_mt6_reg);
++	return xt_register_match(&comp_mt_reg);
 +}
 +
-+static void __exit comp_mt6_exit(void)
++static void __exit comp_mt_exit(void)
 +{
-+	xt_unregister_match(&comp_mt6_reg);
++	xt_unregister_match(&comp_mt_reg);
 +}
 +
-+module_init(comp_mt6_init);
-+module_exit(comp_mt6_exit);
++module_init(comp_mt_init);
++module_exit(comp_mt_exit);
 -- 
 1.7.9.5
+
