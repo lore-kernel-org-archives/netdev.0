@@ -1,91 +1,45 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-Subject: Re: [PATCH 07/10] ARM: dts: sun7i: cubietruck: Enable
- the GMAC
-Date: Fri, 13 Dec 2013 11:21:56 +0100
-Message-ID: <52AADFC4.1070003@st.com>
-References: <1386350983-13281-1-git-send-email-wens@csie.org> <1386350983-13281-8-git-send-email-wens@csie.org> <CAGVrzcb_r9_p4urz4XkE2A-G85KAHJa4PJ=Gt9a4RPYQNJ6j0g@mail.gmail.com> <CAGb2v64yFhkTXvdq=1VpemULhXew-5fvmSoTBzEb6iFDiSqy1Q@mail.gmail.com> <CAGVrzcaxV88dU3vEVGUiEQihUHLxq+QvQVQ6VvmOFVRsqbbX7w@mail.gmail.com>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next v3 1/6] net_sched: remove get_stats from tc_action_ops
+Date: Fri, 13 Dec 2013 10:21:42 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7489@saturn3.aculab.com>
+References: <1386913673-8210-1-git-send-email-xiyou.wangcong@gmail.com> <1386913673-8210-2-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
-	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	Srinivas Kandagatla <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBDB4X24GTMHRB4N7VOKQKGQEPL7QBVY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <CAGVrzcaxV88dU3vEVGUiEQihUHLxq+QvQVQ6VvmOFVRsqbbX7w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Jamal Hadi Salim" <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: "Cong Wang" <xiyou.wangcong@gmail.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:60505 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752188Ab3LMKWv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 05:22:51 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 02978-01 for <netdev@vger.kernel.org>;
+ Fri, 13 Dec 2013 10:22:48 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <1386913673-8210-2-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/7/2013 2:57 AM, Florian Fainelli wrote:
-> 2013/12/6 Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>:
->> On Sat, Dec 7, 2013 at 5:09 AM, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->>> 2013/12/6 Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>:
->>>> The CubieTruck uses the GMAC with an RGMII phy.
->>>>
->>>> Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
->>>> ---
->>>>   arch/arm/boot/dts/sun7i-a20-cubietruck.dts | 8 ++++++++
->>>>   1 file changed, 8 insertions(+)
->>>>
->>>> diff --git a/arch/arm/boot/dts/sun7i-a20-cubietruck.dts b/arch/arm/boot/dts/sun7i-a20-cubietruck.dts
->>>> index 8a1009d..af212a2 100644
->>>> --- a/arch/arm/boot/dts/sun7i-a20-cubietruck.dts
->>>> +++ b/arch/arm/boot/dts/sun7i-a20-cubietruck.dts
->>>> @@ -33,6 +33,14 @@
->>>>                          pinctrl-0 = <&uart0_pins_a>;
->>>>                          status = "okay";
->>>>                  };
->>>> +
->>>> +               gmac: ethernet@01c50000 {
->>>> +                       pinctrl-names = "default";
->>>> +                       pinctrl-0 = <&gmac_pins_rgmii>;
->>>> +                       snps,phy-addr = <1>;
->>>
->>> What is this snps,phy-addr property? Why is not a standard device tree
->>> node for an Ethernet PHY node used?
->>
->> This property is implemented by stmmac and documented in the DT
->> bindings. stmmac has not been updated to use Ethernet PHY nodes.
->
-> This driver property should be removed and deprecated since there is
-> an ePAPR standardized Ethernet PHY node. What I am worried here is the
-> loss of information, the standard Ethernet DT node allows to specify
-> much more information (clause, maximum speed, compatible string
-> etc...).
+> From: Cong Wang
+> 
+> It is not used.
+...
+> --- a/include/net/act_api.h
+> +++ b/include/net/act_api.h
+> @@ -72,7 +72,6 @@ struct tc_action_ops {
+>  	__u32 	capab;  /* capabilities includes 4 bit version */
+>  	struct module		*owner;
+>  	int     (*act)(struct sk_buff *, const struct tc_action *, struct tcf_result *);
+> -	int     (*get_stats)(struct sk_buff *, struct tc_action *);
+>  	int     (*dump)(struct sk_buff *, struct tc_action *, int, int);
+>  	int     (*cleanup)(struct tc_action *, int bind);
+>  	int     (*lookup)(struct tc_action *, u32);
 
+Deleting a field out of the middle of a list of function pointers
+seems dangerous.
 
-yes Florian you are right and I have already started updating the
-driver. I do not sure that I'll be able to send all the patches soon
-but for sure I can re-base them.
-
->>
->> Removing this property will not affect the function of the driver.
->> The driver probes its MDIO bus and selects the lowest available
->> address if not specified.
->
-> So if this is just giving the driver a hint on where to  probe for a
-> PHY on the MDIO bus, then let's drop it and use the standard DT node
-> no?
->
->>
->>>> +                       phy-mode = "rgmii";
->>>
->>> Especially since you use the relatively standard "phy-mode" property here?
->>
->> Used as specified in stmmac DT bindings.
->
-> That one is kind of okay because of_get_phy_mode() knows about it,
-> even though ePAPR states this should be "phy-connection-type", so I am
-> okay with keeping that one because current practice and helpers are
-> here.
->
+	David
