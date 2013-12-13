@@ -1,73 +1,107 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net 1/3] bonding: protect port for bond_3ad_adapter_speed_changed()
-Date: Fri, 13 Dec 2013 17:29:19 +0800
-Message-ID: <52AAD36F.3060801@huawei.com>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH net-next] sch_tbf: add TBF_BURST/TBF_PBURST attribute
+Date: Fri, 13 Dec 2013 17:41:56 +0800
+Message-ID: <1386927716-7896-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: <eric.dumazet@gmail.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:58580 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750830Ab3LMJbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 04:31:09 -0500
+Received: from szxga01-in.huawei.com ([119.145.14.64]:45093 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752217Ab3LMJm0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 04:42:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jay Vosburgh said that the bond_3ad_adapter_speed_changed is
-called with RTNL only, and the function will modify the port's
-information with no further locking, it will not mutex against
-bond state machine and incoming LACPDU which do not hold RTNL,
-So I add __get_state_machine_lock to protect the port.
+When we set burst to 1514 with low rate in userspace,
+the kernel get a value of burst that less than 1514,
+which doesn't work.
 
-But it is not a critical bug, it exist since day one, and till
-now it has never been hit and reported, because changes to
-speed is very rare, and will not occur critical problem.
+Because it may make some loss when transform burst
+to buffer in userspace. This makes burst lose some
+bytes, when the kernel transform the buffer back to
+burst.
 
-The comment in the function is very old, cleanup it.
+This patch adds two new attributes to support sending
+burst/mtu to kernel directly to avoid the loss.
 
-Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
 ---
- drivers/net/bonding/bond_3ad.c | 11 ++++++++---
- 1 file changed, 8 insertions(+), 3 deletions(-)
+ include/uapi/linux/pkt_sched.h |  2 ++
+ net/sched/sch_tbf.c            | 25 +++++++++++++++++++++----
+ 2 files changed, 23 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 187b1b7..6405ce3 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2201,20 +2201,25 @@ void bond_3ad_adapter_speed_changed(struct slave *slave)
+diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+index a806687..fd8e17e 100644
+--- a/include/uapi/linux/pkt_sched.h
++++ b/include/uapi/linux/pkt_sched.h
+@@ -173,6 +173,8 @@ enum {
+ 	TCA_TBF_PTAB,
+ 	TCA_TBF_RATE64,
+ 	TCA_TBF_PRATE64,
++	TCA_TBF_BURST,
++	TCA_TBF_PBURST,
+ 	__TCA_TBF_MAX,
+ };
  
- 	port = &(SLAVE_AD_INFO(slave).port);
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index 887e672..a746049 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -307,6 +307,8 @@ static const struct nla_policy tbf_policy[TCA_TBF_MAX + 1] = {
+ 	[TCA_TBF_PTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
+ 	[TCA_TBF_RATE64]	= { .type = NLA_U64 },
+ 	[TCA_TBF_PRATE64]	= { .type = NLA_U64 },
++	[TCA_TBF_BURST]		= { .type = NLA_U32 },
++	[TCA_TBF_PBURST]	= { .type = NLA_U32 },
+ };
  
--	// if slave is null, the whole port is not initialized
-+	/* if slave is null, the whole port is not initialized */
- 	if (!port->slave) {
- 		pr_warning("Warning: %s: speed changed for uninitialized port on %s\n",
- 			   slave->bond->dev->name, slave->dev->name);
- 		return;
+ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+@@ -358,7 +360,11 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 		rate64 = nla_get_u64(tb[TCA_TBF_RATE64]);
+ 	psched_ratecfg_precompute(&rate, &qopt->rate, rate64);
+ 
+-	max_size = min_t(u64, psched_ns_t2l(&rate, buffer), ~0U);
++	if (tb[TCA_TBF_BURST]) {
++		max_size = nla_get_u32(tb[TCA_TBF_BURST]);
++		buffer = psched_l2t_ns(&rate, max_size);
++	} else
++		max_size = min_t(u64, psched_ns_t2l(&rate, buffer), ~0U);
+ 
+ 	if (qopt->peakrate.rate) {
+ 		if (tb[TCA_TBF_PRATE64])
+@@ -371,7 +377,12 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 			goto done;
+ 		}
+ 
+-		max_size = min_t(u64, max_size, psched_ns_t2l(&peak, mtu));
++		if (tb[TCA_TBF_PBURST]) {
++			u32 pburst = nla_get_u32(tb[TCA_TBF_PBURST]);
++			max_size = min_t(u32, max_size, pburst);
++			mtu = psched_l2t_ns(&peak, pburst);
++		} else
++			max_size = min_t(u64, max_size, psched_ns_t2l(&peak, mtu));
  	}
  
-+	__get_state_machine_lock(port);
-+
- 	port->actor_admin_port_key &= ~AD_SPEED_KEY_BITS;
- 	port->actor_oper_port_key = port->actor_admin_port_key |=
- 		(__get_link_speed(port) << 1);
- 	pr_debug("Port %d changed speed\n", port->actor_port_number);
--	// there is no need to reselect a new aggregator, just signal the
--	// state machines to reinitialize
-+	/* there is no need to reselect a new aggregator, just signal the
-+	 * state machines to reinitialize
-+	 */
- 	port->sm_vars |= AD_PORT_BEGIN;
-+
-+	__release_state_machine_lock(port);
- }
+ 	if (max_size < psched_mtu(qdisc_dev(sch)))
+@@ -391,9 +402,15 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 		q->qdisc = child;
+ 	}
+ 	q->limit = qopt->limit;
+-	q->mtu = PSCHED_TICKS2NS(qopt->mtu);
++	if (tb[TCA_TBF_PBURST])
++		q->mtu = mtu;
++	else
++		q->mtu = PSCHED_TICKS2NS(qopt->mtu);
+ 	q->max_size = max_size;
+-	q->buffer = PSCHED_TICKS2NS(qopt->buffer);
++	if (tb[TCA_TBF_BURST])
++		q->buffer = buffer;
++	else
++		q->buffer = PSCHED_TICKS2NS(qopt->buffer);
+ 	q->tokens = q->buffer;
+ 	q->ptokens = q->mtu;
  
- /**
 -- 
 1.8.0
