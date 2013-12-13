@@ -1,40 +1,32 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next v3 3/6] net_sched: mirred: remove action when the target device is gone
-Date: Fri, 13 Dec 2013 12:12:24 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B748D@saturn3.aculab.com>
-References: <1386913673-8210-1-git-send-email-xiyou.wangcong@gmail.com> <1386913673-8210-4-git-send-email-xiyou.wangcong@gmail.com> <52AAF895.8090805@mojatatu.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCHv2 net-next 0/5] pktgen IPsec support
+Date: Fri, 13 Dec 2013 07:13:47 -0500
+Message-ID: <52AAF9FB.4040406@mojatatu.com>
+References: <1386323614-5077-1-git-send-email-fan.du@windriver.com>	<20131209.195854.223825767831436997.davem@davemloft.net>	<52A66C0D.4050409@windriver.com> <20131209.202321.2134510956668375662.davem@davemloft.net> <52A86BBE.1090408@mojatatu.com> <52AACBB8.4060009@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>
-To: "Jamal Hadi Salim" <jhs@mojatatu.com>,
-	"Cong Wang" <xiyou.wangcong@gmail.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, steffen.klassert@secunet.com,
+	netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:34524 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752900Ab3LMMNd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 07:13:33 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 29870-04 for <netdev@vger.kernel.org>;
- Fri, 13 Dec 2013 12:13:30 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <52AAF895.8090805@mojatatu.com>
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:61073 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752931Ab3LMMNu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 07:13:50 -0500
+Received: by mail-ie0-f177.google.com with SMTP id tp5so2627196ieb.22
+        for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 04:13:49 -0800 (PST)
+In-Reply-To: <52AACBB8.4060009@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Jamal Hadi Salim
-> Sent: 13 December 2013 12:08
-...
-> > -	int			tcfm_ok_push;
-> > +	unsigned int		tcfm_ok_push:1;
-> > +	unsigned int		tcfm_bind:1;
-> 
-> What has the above cleverness got to do with anything you intended?
+On 12/13/13 03:56, Fan Du wrote:
+> FWIW, I will follow Dave's suggestion not to touch your original
+> support at the first place no matter how below answer looks like.
+>
 
-Not even 'cleverness'.
-Using byte-sized fields is enough to stop the structure growing.
-Bit fields are usually not a good idea at all.
+I think you missed the message. No one said dont add that feature,
+just dont make it default or remove the existing one.
 
-	David
+cheers,
+jamal
