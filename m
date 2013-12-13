@@ -1,136 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: sit tunnel slow since added GSO/TSO support
-Date: Fri, 13 Dec 2013 14:54:28 -0800
-Message-ID: <1386975268.19078.190.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <52AB322B.7030802@redhat.com>
-	 <1386952124.19078.148.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Michal Schmidt <mschmidt@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f54.google.com ([209.85.213.54]:39664 "EHLO
-	mail-yh0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750958Ab3LMWyc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 17:54:32 -0500
-Received: by mail-yh0-f54.google.com with SMTP id z12so2046749yhz.41
-        for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 14:54:31 -0800 (PST)
-In-Reply-To: <1386952124.19078.148.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] [RXRPC]: do not unlock unheld spinlock in rxrpc_connect_exclusive()
+Date: Sat, 14 Dec 2013 02:56:09 +0400
+Message-ID: <1386975369-30837-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	David Howells <dhowells@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-12-13 at 08:28 -0800, Eric Dumazet wrote:
-> On Fri, 2013-12-13 at 17:13 +0100, Michal Schmidt wrote:
-> > Hello,
-> > 
-> > I've been experimenting with IPIP and SIT tunnels. Both of them
-> > had the support for GSO/TSO added recently, by commits:
-> >   cb32f511a7 "ipip: add GSO/TSO support"
-> >   61c1db7fae "ipv6: sit: add GSO/TSO support"
-> > 
-> > IPIP works fine for me.
-> > 
-> > I am seeing very low TCP performance with SIT if TSO is enabled on the
-> > SIT interface. It does not matter if the underlying hardware supports
-> > NETIF_F_GSO_SIT or not (I have tested with bnx2x and tg3).
-> 
-> Strange, my tests were done on bnx2x, and TSO was definitely working ...
-> 
-> I'll take a look, thanks !
+If rx->conn is not NULL, rxrpc_connect_exclusive() does not
+acquire the transport's client lock, but it still releases it.
 
-I tried the same setup than before and got good behavior on current
-net-next kernel
+The patch adds locking of the spinlock to this path.
 
-modprobe sit
-ip link set sit0 up
-ip -6 addr add dev sit0 2002:af6:1153::/64
-ip -6 ro add 2002:a00::/24 via fe80:: dev sit0
+Found by Linux Driver Verification project (linuxtesting.org).
 
-./netperf -H 2002:af6:1154::
-MIGRATED TCP STREAM TEST from ::0 (::) port 0 AF_INET6 to
-2002:af6:1154:: () port 0 AF_INET6
-Recv   Send    Send                          
-Socket Socket  Message  Elapsed              
-Size   Size    Size     Time     Throughput  
-bytes  bytes   bytes    secs.    10^6bits/sec  
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+---
+ net/rxrpc/ar-connection.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
- 87380  16384  16384    10.00    6703.45   
-
-14:51:59.664613 IP 10.246.17.83 > 10.246.17.84: IP6 2002:af6:1153::.47324 > 2002:af6:1154::.49917: S 4047734761:4047734761(0) win 28400 <mss 1420,sackOK,timestamp 3668787 0,nop,wscale 6>
-14:51:59.664791 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: S 850000541:850000541(0) ack 4047734762 win 28160 <mss 1420,sackOK,timestamp 3668673 3668787,nop,wscale 6>
-14:51:59.664825 IP 10.246.17.83 > 10.246.17.84: IP6 2002:af6:1153::.47324 > 2002:af6:1154::.49917: . ack 1 win 444 <nop,nop,timestamp 3668787 3668673>
-14:51:59.664854 IP 10.246.17.83 > 10.246.17.84: IP6 2002:af6:1153::.47324 > 2002:af6:1154::.49917: . 1:14081(14080) ack 1 win 444 <nop,nop,timestamp 3668787 3668673>
-14:51:59.665028 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 1409 win 484 <nop,nop,timestamp 3668673 3668787>
-14:51:59.665030 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 2817 win 528 <nop,nop,timestamp 3668673 3668787>
-14:51:59.665031 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 4225 win 572 <nop,nop,timestamp 3668673 3668787>
-14:51:59.665051 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 5633 win 616 <nop,nop,timestamp 3668673 3668787>
-14:51:59.665083 IP 10.246.17.83 > 10.246.17.84: IP6 2002:af6:1153::.47324 > 2002:af6:1154::.49917: . 14081:19713(5632) ack 1 win 444 <nop,nop,timestamp 3668788 3668673>
-14:51:59.665052 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 7041 win 660 <nop,nop,timestamp 3668673 3668787>
-14:51:59.665054 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 8449 win 704 <nop,nop,timestamp 3668673 3668787>
-14:51:59.665080 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 9857 win 748 <nop,nop,timestamp 3668674 3668787>
-14:51:59.665082 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 11265 win 792 <nop,nop,timestamp 3668674 3668787>
-14:51:59.665083 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 12673 win 836 <nop,nop,timestamp 3668674 3668787>
-14:51:59.665116 IP 10.246.17.83 > 10.246.17.84: IP6 2002:af6:1153::.47324 > 2002:af6:1154::.49917: . 19713:28161(8448) ack 1 win 444 <nop,nop,timestamp 3668788 3668673>
-14:51:59.665101 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 14081 win 880 <nop,nop,timestamp 3668674 3668787>
-14:51:59.665127 IP 10.246.17.83 > 10.246.17.84: IP6 2002:af6:1153::.47324 > 2002:af6:1154::.49917: . 28161:36609(8448) ack 1 win 444 <nop,nop,timestamp 3668788 3668674>
-14:51:59.665177 IP 10.246.17.83 > 10.246.17.84: IP6 2002:af6:1153::.47324 > 2002:af6:1154::.49917: . 36609:42241(5632) ack 1 win 444 <nop,nop,timestamp 3668788 3668674>
-14:51:59.665131 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 15489 win 924 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665133 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 16897 win 968 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665178 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 18305 win 1012 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665179 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 19713 win 1056 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665214 IP 10.246.17.83 > 10.246.17.84: IP6 2002:af6:1153::.47324 > 2002:af6:1154::.49917: . 42241:53505(11264) ack 1 win 444 <nop,nop,timestamp 3668788 3668674>
-14:51:59.665227 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 21121 win 1100 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665248 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 22529 win 1144 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665249 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 23937 win 1188 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665273 IP 10.246.17.83 > 10.246.17.84: IP6 2002:af6:1153::.47324 > 2002:af6:1154::.49917: . 53505:61953(8448) ack 1 win 444 <nop,nop,timestamp 3668788 3668674>
-14:51:59.665271 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 25345 win 1232 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665272 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 26753 win 1276 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665275 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 28161 win 1320 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665278 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 29569 win 1364 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665279 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 30977 win 1408 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665279 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 32385 win 1452 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665280 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 33793 win 1496 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665281 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 35201 win 1540 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665281 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 36609 win 1584 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665296 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 38017 win 1628 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665297 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 39425 win 1672 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665298 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 40833 win 1716 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665298 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 42241 win 1760 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665299 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 43649 win 1804 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665300 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 45057 win 1848 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665301 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 46465 win 1892 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665302 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 47873 win 1936 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665339 IP 10.246.17.83 > 10.246.17.84: IP6 2002:af6:1153::.47324 > 2002:af6:1154::.49917: . 61953:78849(16896) ack 1 win 444 <nop,nop,timestamp 3668788 3668674>
-14:51:59.665313 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 49281 win 1980 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665314 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 50689 win 2024 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665316 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 52097 win 2068 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665320 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 53505 win 2112 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665322 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 54913 win 2156 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665362 IP 10.246.17.83 > 10.246.17.84: IP6 2002:af6:1153::.47324 > 2002:af6:1154::.49917: . 78849:98561(19712) ack 1 win 444 <nop,nop,timestamp 3668788 3668674>
-14:51:59.665367 IP 10.246.17.83 > 10.246.17.84: IP6 2002:af6:1153::.47324 > 2002:af6:1154::.49917: P 98561:99969(1408) ack 1 win 444 <nop,nop,timestamp 3668788 3668674>
-14:51:59.665344 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 56321 win 2200 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665345 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 57729 win 2244 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665347 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 59137 win 2288 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665347 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 60545 win 2332 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665348 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 61953 win 2376 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665411 IP 10.246.17.83 > 10.246.17.84: IP6 2002:af6:1153::.47324 > 2002:af6:1154::.49917: . 99969:130945(30976) ack 1 win 444 <nop,nop,timestamp 3668788 3668674>
-14:51:59.665470 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 63361 win 2420 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665471 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 64769 win 2464 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665494 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 66177 win 2508 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665495 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 67585 win 2552 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665495 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 68993 win 2596 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665518 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 70401 win 2640 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665519 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 71809 win 2684 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665521 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 73217 win 2728 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665522 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 74625 win 2733 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665523 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 76033 win 2733 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665524 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 77441 win 2733 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665524 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 78849 win 2733 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665525 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 80257 win 2733 <nop,nop,timestamp 3668674 3668788>
-14:51:59.665525 IP 10.246.17.84 > 10.246.17.83: IP6 2002:af6:1154::.49917 > 2002:af6:1153::.47324: . ack 81665 win 2733 <nop,nop,timestamp 3668674 3668788>
-
-What am I missing ?
-
-Thanks !
+diff --git a/net/rxrpc/ar-connection.c b/net/rxrpc/ar-connection.c
+index 4106ca95ec86..4790140a1722 100644
+--- a/net/rxrpc/ar-connection.c
++++ b/net/rxrpc/ar-connection.c
+@@ -381,6 +381,11 @@ static int rxrpc_connect_exclusive(struct rxrpc_sock *rx,
+ 
+ 		rxrpc_assign_connection_id(conn);
+ 		rx->conn = conn;
++	} else {
++		spin_lock(&trans->client_lock);
++
++		_net("CONNECT EXCL old %d on TRANS %d",
++		     conn->debug_id, conn->trans->debug_id);
+ 	}
+ 
+ 	/* we've got a connection with a free channel and we can now attach the
+-- 
+1.8.3.2
