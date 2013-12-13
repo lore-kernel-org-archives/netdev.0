@@ -1,116 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] pkt_sched: fq: more robust memory allocation
-Date: Thu, 12 Dec 2013 16:35:12 -0800
-Message-ID: <1386894912.19078.130.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Li Zhong <zhong@linux.vnet.ibm.com>
+Subject: Re: [PATCH v2 net-next] packet: fix using smp_processor_id() in
+ preemptible code
+Date: Fri, 13 Dec 2013 09:49:45 +0800
+Message-ID: <1386899385.3575.2.camel@ThinkPad-T5421>
+References: <1386828604.2584.13.camel@ThinkPad-T5421>
+	 <52A83699.9010504@redhat.com>	<1386888664.2586.3.camel@ThinkPad-T5421>
+	 <20131212.161523.1172258207723966525.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Cc: dborkman@redhat.com, netdev@vger.kernel.org, brouer@redhat.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:57745 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751678Ab3LMAf2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 19:35:28 -0500
-Received: by mail-ie0-f178.google.com with SMTP id lx4so1888984iec.9
-        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 16:35:28 -0800 (PST)
+Received: from e23smtp08.au.ibm.com ([202.81.31.141]:38453 "EHLO
+	e23smtp08.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751566Ab3LMBt4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 20:49:56 -0500
+Received: from /spool/local
+	by e23smtp08.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <zhong@linux.vnet.ibm.com>;
+	Fri, 13 Dec 2013 11:49:53 +1000
+Received: from d23relay05.au.ibm.com (d23relay05.au.ibm.com [9.190.235.152])
+	by d23dlp02.au.ibm.com (Postfix) with ESMTP id 3D9202BB002D
+	for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 12:49:50 +1100 (EST)
+Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
+	by d23relay05.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id rBD1VQGK1704434
+	for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 12:31:26 +1100
+Received: from d23av01.au.ibm.com (localhost [127.0.0.1])
+	by d23av01.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id rBD1nmDV020076
+	for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 12:49:48 +1100
+In-Reply-To: <20131212.161523.1172258207723966525.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Thu, 2013-12-12 at 16:15 -0500, David Miller wrote:
+> From: Li Zhong <zhong@linux.vnet.ibm.com>
+> Date: Fri, 13 Dec 2013 06:51:04 +0800
+> 
+> Please fix the date on your computer.
+> 
+Oh, sorry about that, should be fixed this time. 
 
-This patch brings NUMA support and automatic fallback to vmalloc()
-in case kmalloc() failed to allocate FQ hash table.
+I saw Daniel helped to send one with the correct date.
 
-NUMA support depends on XPS being setup for the device before
-qdisc allocation. After a XPS change, it might be worth creating
-qdisc hierarchy again.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/sched/sch_fq.c |   30 ++++++++++++++++++++++++------
- 1 file changed, 24 insertions(+), 6 deletions(-)
-
-diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
-index 95d843961907..c44ff5016b17 100644
---- a/net/sched/sch_fq.c
-+++ b/net/sched/sch_fq.c
-@@ -47,6 +47,7 @@
- #include <linux/rbtree.h>
- #include <linux/hash.h>
- #include <linux/prefetch.h>
-+#include <linux/vmalloc.h>
- #include <net/netlink.h>
- #include <net/pkt_sched.h>
- #include <net/sock.h>
-@@ -578,15 +579,32 @@ static void fq_rehash(struct fq_sched_data *q,
- 	q->stat_gc_flows += fcnt;
- }
- 
--static int fq_resize(struct fq_sched_data *q, u32 log)
-+static void fq_free(void *addr)
- {
-+	if (addr && is_vmalloc_addr(addr))
-+		vfree(addr);
-+	else
-+		kfree(addr);
-+}
-+
-+static int fq_resize(struct Qdisc *sch, u32 log)
-+{
-+	struct fq_sched_data *q = qdisc_priv(sch);
-+	size_t sz = sizeof(struct rb_root) << log;
- 	struct rb_root *array;
-+	int node;
- 	u32 idx;
- 
- 	if (q->fq_root && log == q->fq_trees_log)
- 		return 0;
- 
--	array = kmalloc(sizeof(struct rb_root) << log, GFP_KERNEL);
-+	/* If XPS was setup, we can allocate memory on right NUMA node */
-+	node = netdev_queue_numa_node_read(sch->dev_queue);
-+
-+	array = kmalloc_node(sz, GFP_KERNEL | __GFP_REPEAT | __GFP_NOWARN,
-+			     node);
-+	if (!array)
-+		array = vmalloc_node(sz, node);
- 	if (!array)
- 		return -ENOMEM;
- 
-@@ -595,7 +613,7 @@ static int fq_resize(struct fq_sched_data *q, u32 log)
- 
- 	if (q->fq_root) {
- 		fq_rehash(q, q->fq_root, q->fq_trees_log, array, log);
--		kfree(q->fq_root);
-+		fq_free(q->fq_root);
- 	}
- 	q->fq_root = array;
- 	q->fq_trees_log = log;
-@@ -676,7 +694,7 @@ static int fq_change(struct Qdisc *sch, struct nlattr *opt)
- 	}
- 
- 	if (!err)
--		err = fq_resize(q, fq_log);
-+		err = fq_resize(sch, fq_log);
- 
- 	while (sch->q.qlen > sch->limit) {
- 		struct sk_buff *skb = fq_dequeue(sch);
-@@ -697,7 +715,7 @@ static void fq_destroy(struct Qdisc *sch)
- 	struct fq_sched_data *q = qdisc_priv(sch);
- 
- 	fq_reset(sch);
--	kfree(q->fq_root);
-+	fq_free(q->fq_root);
- 	qdisc_watchdog_cancel(&q->watchdog);
- }
- 
-@@ -723,7 +741,7 @@ static int fq_init(struct Qdisc *sch, struct nlattr *opt)
- 	if (opt)
- 		err = fq_change(sch, opt);
- 	else
--		err = fq_resize(q, q->fq_trees_log);
-+		err = fq_resize(sch, q->fq_trees_log);
- 
- 	return err;
- }
+Thanks, Zhong
