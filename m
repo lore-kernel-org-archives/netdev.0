@@ -1,47 +1,34 @@
-From: =?UTF-8?q?Salva=20Peir=C3=B3?= <speiro@ai2.upv.es>
-Subject: =?UTF-8?q?=5BPATCH=5D=20hamradio/yam=3A=20fix=20info=20leak=20in=20ioctl?=
-Date: Fri, 13 Dec 2013 08:46:07 +0100
-Message-ID: <1386920767-27962-1-git-send-email-speiro@ai2.upv.es>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next] netconf: add proxy-arp support
+Date: Fri, 13 Dec 2013 09:43:05 +0100
+Message-ID: <52AAC899.801@6wind.com>
+References: <20131212130650.52c7b267@nehalam.linuxnetplumber.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <security@kernel.org>, <linux-hams@vger.kernel.org>,
-	<netdev@vger.kernel.org>, Jean-Paul Roubelat <jpr@f6fbb.org>,
-	=?UTF-8?q?Salva=20Peir=C3=B3?= <speiro@ai2.upv.es>,
-	<stable@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-hams-owner@vger.kernel.org>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:55814 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752124Ab3LMInI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 03:43:08 -0500
+Received: by mail-wg0-f45.google.com with SMTP id y10so1571587wgg.24
+        for <netdev@vger.kernel.org>; Fri, 13 Dec 2013 00:43:07 -0800 (PST)
+In-Reply-To: <20131212130650.52c7b267@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The yam_ioctl() code fails to initialise the cmd field
-of the struct yamdrv_ioctl_cfg. Add an explicit memset(0)
-before filling the structure to avoid the 4-byte info leak.
+Le 12/12/2013 22:06, Stephen Hemminger a =E9crit :
+> Add support to netconf to show changes to proxy-arp status on a per
+> interface basis via netlink in a manner similar to forwarding
+> and reverse path state.
+>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Signed-off-by: Salva Peir=C3=B3 <speiro@ai2.upv.es>
-CC: <stable@vger.kernel.org>
----
- drivers/net/hamradio/yam.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/hamradio/yam.c b/drivers/net/hamradio/yam.c
-index 1971411..bb02c8a 100644
---- a/drivers/net/hamradio/yam.c
-+++ b/drivers/net/hamradio/yam.c
-@@ -953,6 +953,7 @@ static int yam_ioctl(struct net_device *dev, struct=
- ifreq *ifr, int cmd)
- 	struct yamdrv_ioctl_mcs *ym;
- 	int ioctl_cmd;
-=20
-+	memset(&yi, 0, sizeof(yi));
- 	if (copy_from_user(&ioctl_cmd, ifr->ifr_data, sizeof(int)))
- 		 return -EFAULT;
-=20
---=20
-1.7.10.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-hams" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I suppose that the iproute2 patch will follow.
+Do you plan to add PROXY_NDP too?
