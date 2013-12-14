@@ -1,63 +1,49 @@
-From: Rashika Kheria <rashika.kheria@gmail.com>
-Subject: [PATCH v2 4/9] drivers: net: Mark functions as static in
- stmmac_platform.c
-Date: Sat, 14 Dec 2013 17:51:35 +0530
-Message-ID: <ba057c47177ebc49d3b4a7042c23841a7aef821f.1386911124.git.rashika.kheria@gmail.com>
-References: <a610f6ee6bb992b91e43bdc851f3db62fc3decd5.1386911123.git.rashika.kheria@gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v3 1/6] net_sched: remove get_stats from tc_action_ops
+Date: Sat, 14 Dec 2013 07:22:26 -0500
+Message-ID: <52AC4D82.5070505@mojatatu.com>
+References: <52AB87EB.6040508@mojatatu.com>	<20131213.182325.2234215963739207753.davem@davemloft.net>	<52ABC975.2070308@mojatatu.com> <20131214.001529.1872893184686335778.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev@vger.kernel.org, josh@joshtriplett.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <a610f6ee6bb992b91e43bdc851f3db62fc3decd5.1386911123.git.rashika.kheria@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: xiyou.wangcong@gmail.com, David.Laight@aculab.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:64395 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752981Ab3LNMWa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Dec 2013 07:22:30 -0500
+Received: by mail-ie0-f173.google.com with SMTP id to1so4321112ieb.4
+        for <netdev@vger.kernel.org>; Sat, 14 Dec 2013 04:22:30 -0800 (PST)
+In-Reply-To: <20131214.001529.1872893184686335778.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch marks the function stmmac_pltfr_freeze() and
-stmmac_pltfr_restore() in stmmac_platform.c as static because they are
-not used outside this file.
+On 12/14/13 00:15, David Miller wrote:
 
-Thus, it also removes the following warnings in
-ethernet/stmicro/stmmac/stmmac_platform.c:
+> It is significantly different.
+>
+> It is an internal kernel interface that was never used.
 
-drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c:222:5: warning: n=
-o previous prototype for =E2=80=98stmmac_pltfr_freeze=E2=80=99 [-Wmissi=
-ng-prototypes]
-drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c:236:5: warning: n=
-o previous prototype for =E2=80=98stmmac_pltfr_restore=E2=80=99 [-Wmiss=
-ing-prototypes]
+It is not an internal API, Dave.
+It an external kernel module API that has been visible for many years.
+It provides "xstats" semantics - which is something an
+action user has high potential use for.
+It has been used in the past, just not by current in tree users.
 
-Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
-Reviewed-by: Josh Triplett <josh@joshtriplett.org>
----
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> You cannot argue that, because it might have generated a netlink
+> attribute had it been implemented, that userland has a dependency upon
+> it.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/dr=
-ivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 51c9069..38bd1f4 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -219,7 +219,7 @@ static int stmmac_pltfr_resume(struct device *dev)
- 	return stmmac_resume(ndev);
- }
-=20
--int stmmac_pltfr_freeze(struct device *dev)
-+static int stmmac_pltfr_freeze(struct device *dev)
- {
- 	int ret;
- 	struct plat_stmmacenet_data *plat_dat =3D dev_get_platdata(dev);
-@@ -233,7 +233,7 @@ int stmmac_pltfr_freeze(struct device *dev)
- 	return ret;
- }
-=20
--int stmmac_pltfr_restore(struct device *dev)
-+static int stmmac_pltfr_restore(struct device *dev)
- {
- 	struct plat_stmmacenet_data *plat_dat =3D dev_get_platdata(dev);
- 	struct net_device *ndev =3D dev_get_drvdata(dev);
---=20
-1.7.9.5
+The arguement is: it does expose some very strategically located
+attributes. "xstats" sit between basic stats and other attributes
+in the netlink layout (just as they do in qdisc and classes).
+Yes, no in tree users exist but this feature has been there for
+_a few years now_ and is not getting in the way of anything to
+deserve chopping down.
+
+Anyways, your call.
+
+cheers,
+jamal
