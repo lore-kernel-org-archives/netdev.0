@@ -1,52 +1,80 @@
-From: Rashika Kheria <rashika.kheria@gmail.com>
-Subject: [PATCH v2 9/9] drivers: net: Mark function xenvif_count_frag_slots()
- as static in netback.c
-Date: Sat, 14 Dec 2013 18:02:16 +0530
-Message-ID: <609db9fcc843525f9ca2f18673744cad2fb9fb8c.1386911124.git.rashika.kheria@gmail.com>
-References: <a610f6ee6bb992b91e43bdc851f3db62fc3decd5.1386911123.git.rashika.kheria@gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 1/3] can: mcp251x: Convert driver to use common clk framework
+Date: Sat, 14 Dec 2013 14:18:21 +0100
+Message-ID: <52AC5A9D.3010703@pengutronix.de>
+References: <1384332144-15211-1-git-send-email-shc_work@mail.ru> <528340A7.9080708@pengutronix.de> <20131214091507.35557bcf132c885cfba69008@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>, xen-devel@lists.xenproject.org,
-	netdev@vger.kernel.org, josh@joshtriplett.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <a610f6ee6bb992b91e43bdc851f3db62fc3decd5.1386911123.git.rashika.kheria@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="iCLSvHLgRmuMSIhaXwCub6i9wLvBE99jE"
+Cc: Russell King <linux@arm.linux.org.uk>, netdev@vger.kernel.org,
+	Haojian Zhuang <haojian.zhuang@gmail.com>,
+	linux-can@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Sascha Hauer <kernel@pengutronix.de>,
+	Eric Miao <eric.y.miao@gmail.com>,
+	Wolfgang Grandegger <wg@grandegger.com>, dbaryshkov@gmail.com
+To: Alexander Shiyan <shc_work@mail.ru>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20131214091507.35557bcf132c885cfba69008@mail.ru>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch marks the function xenvif_count_frag_slots() in netback.c as
-static because they are not used outside this file.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--iCLSvHLgRmuMSIhaXwCub6i9wLvBE99jE
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Thus, it also removes the following warning in xen-netback/netback.c:
-drivers/net/xen-netback/netback.c:218:14: warning: no previous prototyp=
-e for =E2=80=98xenvif_count_frag_slots=E2=80=99 [-Wmissing-prototypes]
+On 12/14/2013 06:15 AM, Alexander Shiyan wrote:
+> On Wed, 13 Nov 2013 10:04:39 +0100
+> Marc Kleine-Budde <mkl@pengutronix.de> wrote:
+>=20
+>> as this series adds device tree bindings, please add
+>> devicetree@vger.kernel.org on Cc for the whole series.
+>>
+>> On 11/13/2013 09:42 AM, Alexander Shiyan wrote:
+>>> This patch converts mcp251x driver to using common clk framework
+>>> for getting input frequency. The change was made for the preparation
+>>> of the driver work with the devicetree. As a result private header
+>>> for the driver is eliminated.
+>>> Additionally, all existing users of the driver was converted to use
+>>> this feature.
+>>>
+>>> Signed-off-by: Alexander Shiyan <shc_work@mail.ru>
+>>
+>> Looks good from my point of view. I'll take the whole series via the
+>> linux-can tree, if there are no objections. I'd like to have the pxa a=
+nd
+>> imx maintainer's Ack and an Ack from the DT list.
+>>
+>> Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
+>=20
+> Ping. Resend?
 
-Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
-Reviewed-by: Josh Triplett <josh@joshtriplett.org>
----
+Is Dmitry's comment still valid?
 
-This revision fixes the following issues of the previous revision:
-Change commit message subject
+PXA does not employ COMMON_CLK yet (WIP locally, but it is not finished
+yet), so clk_register_fixed() will probably fail.
 
- drivers/net/xen-netback/netback.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netbac=
-k/netback.c
-index 64f0e0d..9e4f399 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -215,7 +215,7 @@ struct xenvif_count_slot_state {
- 	bool head;
- };
-=20
--unsigned int xenvif_count_frag_slots(struct xenvif *vif,
-+static unsigned int xenvif_count_frag_slots(struct xenvif *vif,
- 				     unsigned long offset, unsigned long size,
- 				     struct xenvif_count_slot_state *state)
- {
+Marc
 --=20
-1.7.9.5
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--iCLSvHLgRmuMSIhaXwCub6i9wLvBE99jE
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlKsWqEACgkQjTAFq1RaXHOSLQCff6Srpy4oFdvJzJR4x62dLm0P
+1YYAnj+XEjR7rkUhWPvAAl7gGaugX4uo
+=SR8H
+-----END PGP SIGNATURE-----
+
+--iCLSvHLgRmuMSIhaXwCub6i9wLvBE99jE--
