@@ -1,48 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 1/6] net_sched: remove get_stats from
- tc_action_ops
-Date: Sat, 14 Dec 2013 00:15:29 -0500 (EST)
-Message-ID: <20131214.001529.1872893184686335778.davem@davemloft.net>
-References: <52AB87EB.6040508@mojatatu.com>
-	<20131213.182325.2234215963739207753.davem@davemloft.net>
-	<52ABC975.2070308@mojatatu.com>
+From: Alexander Shiyan <shc_work@mail.ru>
+Subject: Re: [PATCH 1/3] can: mcp251x: Convert driver to use common clk
+ framework
+Date: Sat, 14 Dec 2013 09:15:07 +0400
+Message-ID: <20131214091507.35557bcf132c885cfba69008@mail.ru>
+References: <1384332144-15211-1-git-send-email-shc_work@mail.ru>
+	<528340A7.9080708@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, David.Laight@aculab.com,
-	netdev@vger.kernel.org
-To: jhs@mojatatu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48370 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750803Ab3LNFPb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Dec 2013 00:15:31 -0500
-In-Reply-To: <52ABC975.2070308@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Russell King <linux@arm.linux.org.uk>, netdev@vger.kernel.org,
+	Haojian Zhuang <haojian.zhuang@gmail.com>,
+	linux-can@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Sascha Hauer <kernel@pengutronix.de>,
+	Eric Miao <eric.y.miao@gmail.com>,
+	Wolfgang Grandegger <wg@grandegger.com>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <528340A7.9080708@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Fri, 13 Dec 2013 21:59:01 -0500
+On Wed, 13 Nov 2013 10:04:39 +0100
+Marc Kleine-Budde <mkl@pengutronix.de> wrote:
 
-> On 12/13/13 18:23, David Miller wrote:
+> as this series adds device tree bindings, please add
+> devicetree@vger.kernel.org on Cc for the whole series.
 > 
->> Jamal, nobody implements this interface, therefore these extra
->> stats are _NEVER_ provided.
->>
->> This is the end of the discussion, when there are in-tree users
->> of this method you can add it back.
+> On 11/13/2013 09:42 AM, Alexander Shiyan wrote:
+> > This patch converts mcp251x driver to using common clk framework
+> > for getting input frequency. The change was made for the preparation
+> > of the driver work with the devicetree. As a result private header
+> > for the driver is eliminated.
+> > Additionally, all existing users of the driver was converted to use
+> > this feature.
+> > 
+> > Signed-off-by: Alexander Shiyan <shc_work@mail.ru>
 > 
-> Dave, I think that would be a good arguement if the feature was being
-> provided in a new set of patches today.
-> I dont see this as any different than removing an something from a
-> UAPI header nobody knows any user of.
+> Looks good from my point of view. I'll take the whole series via the
+> linux-can tree, if there are no objections. I'd like to have the pxa and
+> imx maintainer's Ack and an Ack from the DT list.
+> 
+> Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
 
-It is significantly different.
+Ping. Resend?
 
-It is an internal kernel interface that was never used.
-
-You cannot argue that, because it might have generated a netlink
-attribute had it been implemented, that userland has a dependency upon
-it.
-
-You simply can't.
+-- 
+Alexander Shiyan <shc_work@mail.ru>
