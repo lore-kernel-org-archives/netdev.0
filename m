@@ -1,49 +1,52 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v3 1/6] net_sched: remove get_stats from tc_action_ops
-Date: Sat, 14 Dec 2013 07:22:26 -0500
-Message-ID: <52AC4D82.5070505@mojatatu.com>
-References: <52AB87EB.6040508@mojatatu.com>	<20131213.182325.2234215963739207753.davem@davemloft.net>	<52ABC975.2070308@mojatatu.com> <20131214.001529.1872893184686335778.davem@davemloft.net>
+From: Rashika Kheria <rashika.kheria@gmail.com>
+Subject: [PATCH v2 5/9] drivers: net: Put prototype declaration for function
+ sbni_probe() in sbni.c
+Date: Sat, 14 Dec 2013 17:55:42 +0530
+Message-ID: <dd984c99d43214c39b23f95e9a58f3a675147e69.1386911124.git.rashika.kheria@gmail.com>
+References: <a610f6ee6bb992b91e43bdc851f3db62fc3decd5.1386911123.git.rashika.kheria@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, David.Laight@aculab.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:64395 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752981Ab3LNMWa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Dec 2013 07:22:30 -0500
-Received: by mail-ie0-f173.google.com with SMTP id to1so4321112ieb.4
-        for <netdev@vger.kernel.org>; Sat, 14 Dec 2013 04:22:30 -0800 (PST)
-In-Reply-To: <20131214.001529.1872893184686335778.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Sebastian Andrzej Siewior <sebastian@breakpoint.cc>,
+	Rashika Kheria <rashika.kheria@gmail.com>,
+	Sachin Kamat <sachin.kamat@linaro.org>, netdev@vger.kernel.org,
+	josh@joshtriplett.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <a610f6ee6bb992b91e43bdc851f3db62fc3decd5.1386911123.git.rashika.kheria@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/14/13 00:15, David Miller wrote:
+This patch declares the prototype for the function sbni_probe() in file=
+ sbni.c.
 
-> It is significantly different.
->
-> It is an internal kernel interface that was never used.
+Thus, it also removes the following warning in wan/sbni.c:
+drivers/net/wan/sbni.c:224:12: warning: no previous prototype for =E2=80=
+=98sbni_probe=E2=80=99 [-Wmissing-prototypes]
 
-It is not an internal API, Dave.
-It an external kernel module API that has been visible for many years.
-It provides "xstats" semantics - which is something an
-action user has high potential use for.
-It has been used in the past, just not by current in tree users.
+Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
+---
 
-> You cannot argue that, because it might have generated a netlink
-> attribute had it been implemented, that userland has a dependency upon
-> it.
+This revision fixes the following issues of the previous revision:
+Incorrect fix
 
-The arguement is: it does expose some very strategically located
-attributes. "xstats" sit between basic stats and other attributes
-in the netlink layout (just as they do in qdisc and classes).
-Yes, no in tree users exist but this feature has been there for
-_a few years now_ and is not getting in the way of anything to
-deserve chopping down.
+ drivers/net/wan/sbni.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-Anyways, your call.
-
-cheers,
-jamal
+diff --git a/drivers/net/wan/sbni.c b/drivers/net/wan/sbni.c
+index 388ddf6..5061ffd 100644
+--- a/drivers/net/wan/sbni.c
++++ b/drivers/net/wan/sbni.c
+@@ -221,6 +221,7 @@ static void __init sbni_devsetup(struct net_device =
+*dev)
+ 	dev->netdev_ops =3D &sbni_netdev_ops;
+ }
+=20
++int __init sbni_probe(int unit);
+ int __init sbni_probe(int unit)
+ {
+ 	struct net_device *dev;
+--=20
+1.7.9.5
