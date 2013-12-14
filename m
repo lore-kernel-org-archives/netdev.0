@@ -1,52 +1,49 @@
-From: Josh Triplett <josh@joshtriplett.org>
-Subject: Re: [PATCH v2 5/9] drivers: net: Put prototype declaration for
- function sbni_probe() in sbni.c
-Date: Sat, 14 Dec 2013 12:31:42 -0800
-Message-ID: <20131214203142.GG17601@leaf>
-References: <a610f6ee6bb992b91e43bdc851f3db62fc3decd5.1386911123.git.rashika.kheria@gmail.com>
- <dd984c99d43214c39b23f95e9a58f3a675147e69.1386911124.git.rashika.kheria@gmail.com>
+From: Martin Faecknitz <faecknitz@hotsplots.de>
+Subject: [PATCH net] bridge: br_handle_local_finish should not return zero
+Date: Sat, 14 Dec 2013 21:52:08 +0100
+Message-ID: <52ACC4F8.6080703@hotsplots.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Sebastian Andrzej Siewior <sebastian@breakpoint.cc>,
-	Sachin Kamat <sachin.kamat@linaro.org>, netdev@vger.kernel.org
-To: Rashika Kheria <rashika.kheria@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <dd984c99d43214c39b23f95e9a58f3a675147e69.1386911124.git.rashika.kheria@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx3.hotsplots.de ([89.238.64.218]:54538 "EHLO mx3.hotsplots.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754059Ab3LNVBQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Dec 2013 16:01:16 -0500
+Received: from [192.168.1.102] (p549FC516.dip0.t-ipconnect.de [84.159.197.22])
+	by mx3.hotsplots.de (Postfix) with ESMTPSA id 92D8D22464FB
+	for <netdev@vger.kernel.org>; Sat, 14 Dec 2013 21:51:43 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 14, 2013 at 05:55:42PM +0530, Rashika Kheria wrote:
-> This patch declares the prototype for the function sbni_probe() in fi=
-le sbni.c.
->=20
-> Thus, it also removes the following warning in wan/sbni.c:
-> drivers/net/wan/sbni.c:224:12: warning: no previous prototype for =E2=
-=80=98sbni_probe=E2=80=99 [-Wmissing-prototypes]
->=20
-> Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
+br_handle_local_finish is called by NF_HOOK(...) after accepting the packet. If
+the return value of NF_HOOK(...) is zero (i.e. the return value of
+br_handle_local_finish), the packet is passed to the network stack. This
+behavior conflicts with netfilter hooks which return NF_STOLEN/NF_QUEUE. In this
+case, NF_HOOK(...) returns also zero (see nf_hook_slow) but
+br_handle_local_finish was never called. The packet will still passed to the
+network stack.
 
-Reviewed-by: Josh Triplett <josh@joshtriplett.org>
+Signed-off-by: Martin Faecknitz
 
->  drivers/net/wan/sbni.c |    1 +
->  1 file changed, 1 insertion(+)
->=20
-> diff --git a/drivers/net/wan/sbni.c b/drivers/net/wan/sbni.c
-> index 388ddf6..5061ffd 100644
-> --- a/drivers/net/wan/sbni.c
-> +++ b/drivers/net/wan/sbni.c
-> @@ -221,6 +221,7 @@ static void __init sbni_devsetup(struct net_devic=
-e *dev)
->  	dev->netdev_ops =3D &sbni_netdev_ops;
->  }
-> =20
-> +int __init sbni_probe(int unit);
->  int __init sbni_probe(int unit)
->  {
->  	struct net_device *dev;
-> --=20
-> 1.7.9.5
->=20
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -149,7 +149,7 @@ static int br_handle_local_finish(struct sk_buff *skb)
+ 	br_vlan_get_tag(skb, &vid);
+ 	if (p->flags & BR_LEARNING)
+ 		br_fdb_update(p->br, p, eth_hdr(skb)->h_source, vid);
+-	return 0;	 /* process further */
++	return 1;	 /* process further */
+ }
+
+ /*
+@@ -208,7 +208,7 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
+
+ 		/* Deliver packet to local host only */
+ 		if (NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
+-			    NULL, br_handle_local_finish)) {
++			    NULL, br_handle_local_finish) != 1) {
+ 			return RX_HANDLER_CONSUMED; /* consumed by filter */
+ 		} else {
+ 			*pskb = skb;
