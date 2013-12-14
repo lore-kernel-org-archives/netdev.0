@@ -1,80 +1,79 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 1/3] can: mcp251x: Convert driver to use common clk framework
-Date: Sat, 14 Dec 2013 14:18:21 +0100
-Message-ID: <52AC5A9D.3010703@pengutronix.de>
-References: <1384332144-15211-1-git-send-email-shc_work@mail.ru> <528340A7.9080708@pengutronix.de> <20131214091507.35557bcf132c885cfba69008@mail.ru>
+From: Yuval Mintz <yuvalmin@broadcom.com>
+Subject: RE: bnx2x_sriov.c: Missing switch/case breaks?
+Date: Sat, 14 Dec 2013 13:26:19 +0000
+Message-ID: <979A8436335E3744ADCD3A9F2A2B68A52AF1A7FF@SJEXCHMB10.corp.ad.broadcom.com>
+References: <1386975703.2479.48.camel@joe-AO722>
+	 <979A8436335E3744ADCD3A9F2A2B68A52AF1A735@SJEXCHMB10.corp.ad.broadcom.com>
+ <1387004267.2276.7.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="iCLSvHLgRmuMSIhaXwCub6i9wLvBE99jE"
-Cc: Russell King <linux@arm.linux.org.uk>, netdev@vger.kernel.org,
-	Haojian Zhuang <haojian.zhuang@gmail.com>,
-	linux-can@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Sascha Hauer <kernel@pengutronix.de>,
-	Eric Miao <eric.y.miao@gmail.com>,
-	Wolfgang Grandegger <wg@grandegger.com>, dbaryshkov@gmail.com
-To: Alexander Shiyan <shc_work@mail.ru>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20131214091507.35557bcf132c885cfba69008@mail.ru>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ariel Elior <ariele@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:3413 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753855Ab3LNN0W convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Dec 2013 08:26:22 -0500
+In-Reply-To: <1387004267.2276.7.camel@joe-AO722>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---iCLSvHLgRmuMSIhaXwCub6i9wLvBE99jE
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+> > > Hi Ariel.
+> > >
+> > > I wrote a little checkpatch script to look for missing
+> > > switch/case breaks.
+> > >
+> > > http://www.kernelhub.org/?msg=379933&p=2
+> > >
+> > > There are _many_ instances of case blocks in sriov.c
+> > > that could be missing breaks as they use fall-throughs.
+> > >
+> > > It would be good if these are actually intended to be
+> > > fall-throughs to add a /* fall-through */ comment between
+> > > each case block.
+> > >
+> > Hi Joe,
+> 
+> Hi Yuval.
+> 
+> > The `vfop' part of the code contains a lot of usage of the
+> `bnx2x_vfop_finalize()',
+> > which either goto or return at the end of almost every case.
+> > "Normal" analysis tools/scripts fail to recognize them as  valid case
+> breaks.
+> >
+> > Adding `fallthrough' comments would make little sense, as this is not the
+> real
+> > behavior; Perhaps we need some alternative comment? (something in the
+> line
+> > of `macro case break')
+> 
+> No idea.  It's certainly an ugly macro.
+> 
 
-On 12/14/2013 06:15 AM, Alexander Shiyan wrote:
-> On Wed, 13 Nov 2013 10:04:39 +0100
-> Marc Kleine-Budde <mkl@pengutronix.de> wrote:
->=20
->> as this series adds device tree bindings, please add
->> devicetree@vger.kernel.org on Cc for the whole series.
->>
->> On 11/13/2013 09:42 AM, Alexander Shiyan wrote:
->>> This patch converts mcp251x driver to using common clk framework
->>> for getting input frequency. The change was made for the preparation
->>> of the driver work with the devicetree. As a result private header
->>> for the driver is eliminated.
->>> Additionally, all existing users of the driver was converted to use
->>> this feature.
->>>
->>> Signed-off-by: Alexander Shiyan <shc_work@mail.ru>
->>
->> Looks good from my point of view. I'll take the whole series via the
->> linux-can tree, if there are no objections. I'd like to have the pxa a=
-nd
->> imx maintainer's Ack and an Ack from the DT list.
->>
->> Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
->=20
-> Ping. Resend?
+True.
 
-Is Dmitry's comment still valid?
+> This does have a fallthrough path though when
+> (rc == 0  && next == VFOP_VERIFY_PEND) so
 
-PXA does not employ COMMON_CLK yet (WIP locally, but it is not finished
-yet), so clk_register_fixed() will probably fail.
+This is a very rare path - there's exactly one place in the bnx2x code
+Where `next == VFOP_VERIFY_PEND' (also notice this path prints an
+error, so this is obviously not the expected behaviour).
 
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+> maybe there should be a break after most all
+> uses of this macro anyway.  When next is
 
+Won't some static code analysis tools regard such `break' calls as
+unreachable code?
 
---iCLSvHLgRmuMSIhaXwCub6i9wLvBE99jE
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+> VFOP_VERIFY_PEND, then a "fall-through" comment
+> would be appropriate.
+> 
+> cheers, Joe
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlKsWqEACgkQjTAFq1RaXHOSLQCff6Srpy4oFdvJzJR4x62dLm0P
-1YYAnj+XEjR7rkUhWPvAAl7gGaugX4uo
-=SR8H
------END PGP SIGNATURE-----
-
---iCLSvHLgRmuMSIhaXwCub6i9wLvBE99jE--
+Thanks,
+Yuval
