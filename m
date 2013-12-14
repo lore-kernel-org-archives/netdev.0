@@ -1,33 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] pkt_sched: fq: more robust memory allocation
-Date: Sat, 14 Dec 2013 08:31:15 -0800
-Message-ID: <1387038675.19078.192.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1386894912.19078.130.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131214.011942.1693344941253042499.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: bnx2x_sriov.c: Missing switch/case breaks?
+Date: Sat, 14 Dec 2013 09:49:59 -0800
+Message-ID: <1387043399.2276.12.camel@joe-AO722>
+References: <1386975703.2479.48.camel@joe-AO722>
+	 <979A8436335E3744ADCD3A9F2A2B68A52AF1A735@SJEXCHMB10.corp.ad.broadcom.com>
+	 <1387004267.2276.7.camel@joe-AO722>
+	 <979A8436335E3744ADCD3A9F2A2B68A52AF1A7FF@SJEXCHMB10.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:33898 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753729Ab3LNQbR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Dec 2013 11:31:17 -0500
-Received: by mail-pa0-f41.google.com with SMTP id lf10so1254703pab.0
-        for <netdev@vger.kernel.org>; Sat, 14 Dec 2013 08:31:17 -0800 (PST)
-In-Reply-To: <20131214.011942.1693344941253042499.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ariel Elior <ariele@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Yuval Mintz <yuvalmin@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A52AF1A7FF@SJEXCHMB10.corp.ad.broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2013-12-14 at 01:19 -0500, David Miller wrote:
-
-> Eric, please make a "fq_alloc()" which does this:
+On Sat, 2013-12-14 at 13:26 +0000, Yuval Mintz wrote:
+> > > The `vfop' part of the code contains a lot of usage of the
+> > `bnx2x_vfop_finalize()',
+> > > which either goto or return at the end of almost every case.
+> > > "Normal" analysis tools/scripts fail to recognize them as  valid case
+> > breaks.
+> > >
+> > > Adding `fallthrough' comments would make little sense, as this is not the
+> > real
+> > > behavior; Perhaps we need some alternative comment? (something in the
+> > line
+> > > of `macro case break')
+> > 
+> > No idea.  It's certainly an ugly macro.
+> > 
 > 
-> 	x = kmalloc;
-> 	if (!x)
-> 		x = vmalloc;
+> True.
+[]
+> > maybe there should be a break after most all
+> > uses of this macro anyway.  When next is
 > 
-> dance, in order to complement fq_free().
+> Won't some static code analysis tools regard such `break' calls as
+> unreachable code?
 
-Sure, will do, thanks !
+I suppose that maybe true,
+but this could also work...
+
+		bnx2x_vfop_finalize(vf, vfop->rc, VFOP_CONT); 
+				/* Ugly goto|return macro, not fall-through */
+
+;)
