@@ -1,49 +1,44 @@
-From: Martin Faecknitz <faecknitz@hotsplots.de>
-Subject: [PATCH net] bridge: br_handle_local_finish should not return zero
-Date: Sat, 14 Dec 2013 21:52:08 +0100
-Message-ID: <52ACC4F8.6080703@hotsplots.de>
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: Re: sit tunnel slow since added GSO/TSO support
+Date: Sat, 14 Dec 2013 22:25:07 +0100
+Message-ID: <52ACCCB3.7010401@redhat.com>
+References: <52AB322B.7030802@redhat.com>	 <1386952124.19078.148.camel@edumazet-glaptop2.roam.corp.google.com> <1386975268.19078.190.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.hotsplots.de ([89.238.64.218]:54538 "EHLO mx3.hotsplots.de"
+Received: from mx1.redhat.com ([209.132.183.28]:23248 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754059Ab3LNVBQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Dec 2013 16:01:16 -0500
-Received: from [192.168.1.102] (p549FC516.dip0.t-ipconnect.de [84.159.197.22])
-	by mx3.hotsplots.de (Postfix) with ESMTPSA id 92D8D22464FB
-	for <netdev@vger.kernel.org>; Sat, 14 Dec 2013 21:51:43 +0100 (CET)
+	id S1751554Ab3LNVZI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Dec 2013 16:25:08 -0500
+In-Reply-To: <1386975268.19078.190.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-br_handle_local_finish is called by NF_HOOK(...) after accepting the packet. If
-the return value of NF_HOOK(...) is zero (i.e. the return value of
-br_handle_local_finish), the packet is passed to the network stack. This
-behavior conflicts with netfilter hooks which return NF_STOLEN/NF_QUEUE. In this
-case, NF_HOOK(...) returns also zero (see nf_hook_slow) but
-br_handle_local_finish was never called. The packet will still passed to the
-network stack.
+On 12/13/2013 11:54 PM, Eric Dumazet wrote:
+> I tried the same setup than before and got good behavior on current
+> net-next kernel
+>
+> modprobe sit
+> ip link set sit0 up
+> ip -6 addr add dev sit0 2002:af6:1153::/64
+> ip -6 ro add 2002:a00::/24 via fe80:: dev sit0
 
-Signed-off-by: Martin Faecknitz
+Eric,
+in my test I do not use sit0. I create a new tunnel interface:
+ip tun add sittun mode sit remote $REMOTE_IPV4 local $LOCAL_IPV4 \
+   dev $IFACE
 
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -149,7 +149,7 @@ static int br_handle_local_finish(struct sk_buff *skb)
- 	br_vlan_get_tag(skb, &vid);
- 	if (p->flags & BR_LEARNING)
- 		br_fdb_update(p->br, p, eth_hdr(skb)->h_source, vid);
--	return 0;	 /* process further */
-+	return 1;	 /* process further */
- }
+Looking at "ip tun show" I see that sit0 has the nopmtudisc option by 
+default, while sittun does not.
 
- /*
-@@ -208,7 +208,7 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
+As I wrote in my original message, using nopmtudisc when creating my 
+tunnel interface works around the problem.
 
- 		/* Deliver packet to local host only */
- 		if (NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
--			    NULL, br_handle_local_finish)) {
-+			    NULL, br_handle_local_finish) != 1) {
- 			return RX_HANDLER_CONSUMED; /* consumed by filter */
- 		} else {
- 			*pskb = skb;
+So I think nopmtudisc is the key difference in our setups.
+
+Regards,
+Michal
