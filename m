@@ -1,7 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 11/15] sfc: Store VPD serial number at probe time
-Date: Sat, 14 Dec 2013 23:05:38 +0000
-Message-ID: <1387062338.12172.69.camel@deadeye.wl.decadent.org.uk>
+Subject: [PATCH net-next 12/15] sfc: Associate primary and secondary
+ functions of controller
+Date: Sat, 14 Dec 2013 23:06:17 +0000
+Message-ID: <1387062377.12172.70.camel@deadeye.wl.decadent.org.uk>
 References: <1387061852.12172.58.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,128 +11,208 @@ Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
 	"Richard Cochran" <richardcochran@gmail.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17396 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:17420 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754148Ab3LNXFo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Dec 2013 18:05:44 -0500
+	with ESMTP id S1753863Ab3LNXGW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Dec 2013 18:06:22 -0500
 In-Reply-To: <1387061852.12172.58.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Original version by Stuart Hodgson.
+The primary function of an EF10 controller will share its clock
+device with other functions in the same domain (which we call
+secondary functions).  To this end, we need to associate functions
+on the same controller.
+
+We do not control probe order, so allow primary and secondary
+functions to appear in any order.  Maintain global lists of all
+primary functions and of unassociated secondary functions,
+and a list of secondary functions on each primary function.
+
+Use the VPD serial number to tell whether functions are part of the
+same controller.  VPD will not be readable by virtual functions, so
+this may need to be revisited later.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/efx.c        |   38 ++++++++++++++++++++++++++------
- drivers/net/ethernet/sfc/net_driver.h |    3 ++
- 2 files changed, 34 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/sfc/efx.c        |   77 +++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/sfc/falcon.c     |    2 +
+ drivers/net/ethernet/sfc/mcdi.c       |    4 ++
+ drivers/net/ethernet/sfc/net_driver.h |   10 ++++
+ 4 files changed, 93 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index b9929d9ed69d..5745a9fd034e 100644
+index 5745a9fd034e..d6a927021523 100644
 --- a/drivers/net/ethernet/sfc/efx.c
 +++ b/drivers/net/ethernet/sfc/efx.c
-@@ -2628,6 +2628,8 @@ static void efx_fini_struct(struct efx_nic *efx)
- 	for (i = 0; i < EFX_MAX_CHANNELS; i++)
- 		kfree(efx->channel[i]);
+@@ -1117,6 +1117,77 @@ static void efx_remove_port(struct efx_nic *efx)
+  *
+  **************************************************************************/
  
-+	kfree(efx->vpd_sn);
++static LIST_HEAD(efx_primary_list);
++static LIST_HEAD(efx_unassociated_list);
 +
- 	if (efx->workqueue) {
- 		destroy_workqueue(efx->workqueue);
- 		efx->workqueue = NULL;
-@@ -2699,12 +2701,12 @@ static void efx_pci_remove(struct pci_dev *pci_dev)
-  * always appear within the first 512 bytes.
-  */
- #define SFC_VPD_LEN 512
--static void efx_print_product_vpd(struct efx_nic *efx)
-+static void efx_probe_vpd_strings(struct efx_nic *efx)
++static bool efx_same_controller(struct efx_nic *left, struct efx_nic *right)
++{
++	return left->type == right->type &&
++		left->vpd_sn && right->vpd_sn &&
++		!strcmp(left->vpd_sn, right->vpd_sn);
++}
++
++static void efx_associate(struct efx_nic *efx)
++{
++	struct efx_nic *other, *next;
++
++	if (efx->primary == efx) {
++		/* Adding primary function; look for secondaries */
++
++		netif_dbg(efx, probe, efx->net_dev, "adding to primary list\n");
++		list_add_tail(&efx->node, &efx_primary_list);
++
++		list_for_each_entry_safe(other, next, &efx_unassociated_list,
++					 node) {
++			if (efx_same_controller(efx, other)) {
++				list_del(&other->node);
++				netif_dbg(other, probe, other->net_dev,
++					  "moving to secondary list of %s %s\n",
++					  pci_name(efx->pci_dev),
++					  efx->net_dev->name);
++				list_add_tail(&other->node,
++					      &efx->secondary_list);
++				other->primary = efx;
++			}
++		}
++	} else {
++		/* Adding secondary function; look for primary */
++
++		list_for_each_entry(other, &efx_primary_list, node) {
++			if (efx_same_controller(efx, other)) {
++				netif_dbg(efx, probe, efx->net_dev,
++					  "adding to secondary list of %s %s\n",
++					  pci_name(other->pci_dev),
++					  other->net_dev->name);
++				list_add_tail(&efx->node,
++					      &other->secondary_list);
++				efx->primary = other;
++				return;
++			}
++		}
++
++		netif_dbg(efx, probe, efx->net_dev,
++			  "adding to unassociated list\n");
++		list_add_tail(&efx->node, &efx_unassociated_list);
++	}
++}
++
++static void efx_dissociate(struct efx_nic *efx)
++{
++	struct efx_nic *other, *next;
++
++	list_del(&efx->node);
++	efx->primary = NULL;
++
++	list_for_each_entry_safe(other, next, &efx->secondary_list, node) {
++		list_del(&other->node);
++		netif_dbg(other, probe, other->net_dev,
++			  "moving to unassociated list\n");
++		list_add_tail(&other->node, &efx_unassociated_list);
++		other->primary = NULL;
++	}
++}
++
+ /* This configures the PCI device to enable I/O and DMA. */
+ static int efx_init_io(struct efx_nic *efx)
  {
- 	struct pci_dev *dev = efx->pci_dev;
- 	char vpd_data[SFC_VPD_LEN];
- 	ssize_t vpd_size;
--	int i, j;
-+	int ro_start, ro_size, i, j;
- 
- 	/* Get the vpd data from the device */
- 	vpd_size = pci_read_vpd(dev, 0, sizeof(vpd_data), vpd_data);
-@@ -2714,14 +2716,15 @@ static void efx_print_product_vpd(struct efx_nic *efx)
+@@ -2214,6 +2285,8 @@ static int efx_register_netdev(struct efx_nic *efx)
+ 			efx_init_tx_queue_core_txq(tx_queue);
  	}
  
- 	/* Get the Read only section */
--	i = pci_vpd_find_tag(vpd_data, 0, vpd_size, PCI_VPD_LRDT_RO_DATA);
--	if (i < 0) {
-+	ro_start = pci_vpd_find_tag(vpd_data, 0, vpd_size, PCI_VPD_LRDT_RO_DATA);
-+	if (ro_start < 0) {
- 		netif_err(efx, drv, efx->net_dev, "VPD Read-only not found\n");
- 		return;
- 	}
++	efx_associate(efx);
++
+ 	rtnl_unlock();
  
--	j = pci_vpd_lrdt_size(&vpd_data[i]);
--	i += PCI_VPD_LRDT_TAG_SIZE;
-+	ro_size = pci_vpd_lrdt_size(&vpd_data[ro_start]);
-+	j = ro_size;
-+	i = ro_start + PCI_VPD_LRDT_TAG_SIZE;
- 	if (i + j > vpd_size)
- 		j = vpd_size - i;
+ 	rc = device_create_file(&efx->pci_dev->dev, &dev_attr_phy_type);
+@@ -2227,6 +2300,7 @@ static int efx_register_netdev(struct efx_nic *efx)
  
-@@ -2741,6 +2744,27 @@ static void efx_print_product_vpd(struct efx_nic *efx)
+ fail_registered:
+ 	rtnl_lock();
++	efx_dissociate(efx);
+ 	unregister_netdevice(net_dev);
+ fail_locked:
+ 	efx->state = STATE_UNINIT;
+@@ -2568,6 +2642,8 @@ static int efx_init_struct(struct efx_nic *efx,
+ 	int i;
  
- 	netif_info(efx, drv, efx->net_dev,
- 		   "Part Number : %.*s\n", j, &vpd_data[i]);
+ 	/* Initialise common structures */
++	INIT_LIST_HEAD(&efx->node);
++	INIT_LIST_HEAD(&efx->secondary_list);
+ 	spin_lock_init(&efx->biu_lock);
+ #ifdef CONFIG_SFC_MTD
+ 	INIT_LIST_HEAD(&efx->mtd_list);
+@@ -2674,6 +2750,7 @@ static void efx_pci_remove(struct pci_dev *pci_dev)
+ 
+ 	/* Mark the NIC as fini, then stop the interface */
+ 	rtnl_lock();
++	efx_dissociate(efx);
+ 	dev_close(efx->net_dev);
+ 	efx_disable_interrupts(efx);
+ 	rtnl_unlock();
+diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
+index 4a9e05c82e2a..76699f4e6e04 100644
+--- a/drivers/net/ethernet/sfc/falcon.c
++++ b/drivers/net/ethernet/sfc/falcon.c
+@@ -2247,6 +2247,8 @@ static int falcon_probe_nic(struct efx_nic *efx)
+ 	struct falcon_board *board;
+ 	int rc;
+ 
++	efx->primary = efx; /* only one usable function per controller */
 +
-+	i = ro_start + PCI_VPD_LRDT_TAG_SIZE;
-+	j = ro_size;
-+	i = pci_vpd_find_info_keyword(vpd_data, i, j, "SN");
-+	if (i < 0) {
-+		netif_err(efx, drv, efx->net_dev, "Serial number not found\n");
-+		return;
-+	}
+ 	/* Allocate storage for hardware specific data */
+ 	nic_data = kzalloc(sizeof(*nic_data), GFP_KERNEL);
+ 	if (!nic_data)
+diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
+index 540f57915d6f..0d5d7b5325e8 100644
+--- a/drivers/net/ethernet/sfc/mcdi.c
++++ b/drivers/net/ethernet/sfc/mcdi.c
+@@ -102,6 +102,10 @@ int efx_mcdi_init(struct efx_nic *efx)
+ 		netif_err(efx, probe, efx->net_dev,
+ 			  "Host already registered with MCPU\n");
+ 
++	if (efx->mcdi->fn_flags &
++	    (1 << MC_CMD_DRV_ATTACH_EXT_OUT_FLAG_PRIMARY))
++		efx->primary = efx;
 +
-+	j = pci_vpd_info_field_size(&vpd_data[i]);
-+	i += PCI_VPD_INFO_FLD_HDR_SIZE;
-+	if (i + j > vpd_size) {
-+		netif_err(efx, drv, efx->net_dev, "Incomplete serial number\n");
-+		return;
-+	}
-+
-+	efx->vpd_sn = kmalloc(j + 1, GFP_KERNEL);
-+	if (!efx->vpd_sn)
-+		return;
-+
-+	snprintf(efx->vpd_sn, j + 1, "%s", &vpd_data[i]);
+ 	return 0;
  }
  
-
-@@ -2837,7 +2861,7 @@ static int efx_pci_probe(struct pci_dev *pci_dev,
- 	netif_info(efx, probe, efx->net_dev,
- 		   "Solarflare NIC detected\n");
- 
--	efx_print_product_vpd(efx);
-+	efx_probe_vpd_strings(efx);
- 
- 	/* Set up basic I/O (BAR mappings etc) */
- 	rc = efx_init_io(efx);
 diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 0d0e8eb88332..be8a616a1649 100644
+index be8a616a1649..653b8782c956 100644
 --- a/drivers/net/ethernet/sfc/net_driver.h
 +++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -771,6 +771,7 @@ struct vfdi_status;
-  * @local_lock: Mutex protecting %local_addr_list and %local_page_list.
-  * @peer_work: Work item to broadcast peer addresses to VMs.
-  * @ptp_data: PTP state data
-+ * @vpd_sn: Serial number read from VPD
-  * @monitor_work: Hardware monitor workitem
-  * @biu_lock: BIU (bus interface unit) lock
-  * @last_irq_cpu: Last CPU to handle a possible test interrupt.  This
-@@ -920,6 +921,8 @@ struct efx_nic {
+@@ -657,6 +657,13 @@ struct vfdi_status;
+  * struct efx_nic - an Efx NIC
+  * @name: Device name (net device name or bus id before net device registered)
+  * @pci_dev: The PCI device
++ * @node: List node for maintaning primary/secondary function lists
++ * @primary: &struct efx_nic instance for the primary function of this
++ *	controller.  May be the same structure, and may be %NULL if no
++ *	primary function is bound.  Serialised by rtnl_lock.
++ * @secondary_list: List of &struct efx_nic instances for the secondary PCI
++ *	functions of the controller, if this is for the primary function.
++ *	Serialised by rtnl_lock.
+  * @type: Controller type attributes
+  * @legacy_irq: IRQ number
+  * @workqueue: Workqueue for port reconfigures and the HW monitor.
+@@ -786,6 +793,9 @@ struct efx_nic {
+ 	/* The following fields should be written very rarely */
  
- 	struct efx_ptp_data *ptp_data;
- 
-+	char *vpd_sn;
-+
- 	/* The following fields may be written more often */
- 
- 	struct delayed_work monitor_work ____cacheline_aligned_in_smp;
+ 	char name[IFNAMSIZ];
++	struct list_head node;
++	struct efx_nic *primary;
++	struct list_head secondary_list;
+ 	struct pci_dev *pci_dev;
+ 	unsigned int port_num;
+ 	const struct efx_nic_type *type;
 
 
 -- 
