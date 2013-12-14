@@ -1,69 +1,27 @@
-From: Rashika Kheria <rashika.kheria@gmail.com>
-Subject: [PATCH v2 1/9] drivers: net: Remove unused function
- igb_get_eee_status_i354() in e1000_82575.c
-Date: Sat, 14 Dec 2013 17:44:36 +0530
-Message-ID: <a610f6ee6bb992b91e43bdc851f3db62fc3decd5.1386911123.git.rashika.kheria@gmail.com>
+From: Veronica Coxsome <VCoxsome@bmhsc.org>
+Subject: This is an Email Service Alert from Helpdesk
+Date: Sat, 14 Dec 2013 12:05:09 +0000
+Message-ID: <49B8F74AD1B0A54E8AB451EB4C50ACB52E47F17E@EXCHANGEDAG01.bmhsc.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: e1000-devel@lists.sourceforge.net, Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	josh@joshtriplett.org, John Ronciak <john.ronciak@intel.com>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.bmhsc.org ([67.238.81.72]:4617 "EHLO ironport.bmhsc.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752372Ab3LNMOs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Dec 2013 07:14:48 -0500
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhpcyBwYXRjaCByZW1vdmVzIHRoZSBmdW5jdGlvbiBpZ2JfZ2V0X2VlZV9zdGF0dXNfaTM1NCgp
-IGluCmUxMDAwXzgyNTc1LmMgYmVjYXVzZSBpdCBpcyB1bnVzZWQuCgpJdCB0aHVzIGVsaW1pbmF0
-ZXMgdGhlIGZvbGxvd2luZyB3YXJuaW5nIGluCmV0aGVybmV0L2ludGVsL2lnYi9lMTAwMF84MjU3
-NS5jOgpkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvZTEwMDBfODI1NzUuYzoyNTkxOjU6
-IHdhcm5pbmc6IG5vIHByZXZpb3VzIHByb3RvdHlwZSBmb3Ig4oCYaWdiX2dldF9lZWVfc3RhdHVz
-X2kzNTTigJkgWy1XbWlzc2luZy1wcm90b3R5cGVzXQoKU2lnbmVkLW9mZi1ieTogUmFzaGlrYSBL
-aGVyaWEgPHJhc2hpa2Eua2hlcmlhQGdtYWlsLmNvbT4KUmV2aWV3ZWQtYnk6IEpvc2ggVHJpcGxl
-dHQgPGpvc2hAam9zaHRyaXBsZXR0Lm9yZz4KLS0tCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRl
-bC9pZ2IvZTEwMDBfODI1NzUuYyB8ICAgMzIgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KIDEg
-ZmlsZSBjaGFuZ2VkLCAzMiBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9l
-dGhlcm5ldC9pbnRlbC9pZ2IvZTEwMDBfODI1NzUuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2lu
-dGVsL2lnYi9lMTAwMF84MjU3NS5jCmluZGV4IDQ3YzJkMTAuLjE4ZTUyMDAgMTAwNjQ0Ci0tLSBh
-L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9lMTAwMF84MjU3NS5jCisrKyBiL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9lMTAwMF84MjU3NS5jCkBAIC0yNTgwLDM4ICsyNTgw
-LDYgQEAgb3V0OgogCXJldHVybiByZXRfdmFsOwogfQogCi0vKioKLSAqICBpZ2JfZ2V0X2VlZV9z
-dGF0dXNfaTM1NCAtIEdldCBFRUUgc3RhdHVzCi0gKiAgQGh3OiBwb2ludGVyIHRvIHRoZSBIVyBz
-dHJ1Y3R1cmUKLSAqICBAc3RhdHVzOiBFRUUgc3RhdHVzCi0gKgotICogIEdldCBFRUUgc3RhdHVz
-IGJ5IGd1ZXNzaW5nIGJhc2VkIG9uIHdoZXRoZXIgVHggb3IgUnggTFBJIGluZGljYXRpb25zIGhh
-dmUKLSAqICBiZWVuIHJlY2VpdmVkLgotICoqLwotczMyIGlnYl9nZXRfZWVlX3N0YXR1c19pMzU0
-KHN0cnVjdCBlMTAwMF9odyAqaHcsIGJvb2wgKnN0YXR1cykKLXsKLQlzdHJ1Y3QgZTEwMDBfcGh5
-X2luZm8gKnBoeSA9ICZody0+cGh5OwotCXMzMiByZXRfdmFsID0gMDsKLQl1MTYgcGh5X2RhdGE7
-Ci0KLQkvKiBDaGVjayBpZiBFRUUgaXMgc3VwcG9ydGVkIG9uIHRoaXMgZGV2aWNlLiAqLwotCWlm
-ICgoaHctPnBoeS5tZWRpYV90eXBlICE9IGUxMDAwX21lZGlhX3R5cGVfY29wcGVyKSB8fAotCSAg
-ICAocGh5LT5pZCAhPSBNODhFMTU0M19FX1BIWV9JRCkpCi0JCWdvdG8gb3V0OwotCi0JcmV0X3Zh
-bCA9IGlnYl9yZWFkX3htZGlvX3JlZyhodywgRTEwMDBfUENTX1NUQVRVU19BRERSX0kzNTQsCi0J
-CQkJICAgICBFMTAwMF9QQ1NfU1RBVFVTX0RFVl9JMzU0LAotCQkJCSAgICAgJnBoeV9kYXRhKTsK
-LQlpZiAocmV0X3ZhbCkKLQkJZ290byBvdXQ7Ci0KLQkqc3RhdHVzID0gcGh5X2RhdGEgJiAoRTEw
-MDBfUENTX1NUQVRVU19UWF9MUElfUkNWRCB8Ci0JCQkgICAgICBFMTAwMF9QQ1NfU1RBVFVTX1JY
-X0xQSV9SQ1ZEKSA/IHRydWUgOiBmYWxzZTsKLQotb3V0OgotCXJldHVybiByZXRfdmFsOwotfQot
-CiBzdGF0aWMgY29uc3QgdTggZTEwMDBfZW1jX3RlbXBfZGF0YVs0XSA9IHsKIAlFMTAwMF9FTUNf
-SU5URVJOQUxfREFUQSwKIAlFMTAwMF9FTUNfRElPREUxX0RBVEEsCi0tIAoxLjcuOS41CgoKLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tClJhcGlkbHkgdHJvdWJsZXNob290IHByb2JsZW1zIGJlZm9yZSB0
-aGV5IGFmZmVjdCB5b3VyIGJ1c2luZXNzLiBNb3N0IElUIApvcmdhbml6YXRpb25zIGRvbid0IGhh
-dmUgYSBjbGVhciBwaWN0dXJlIG9mIGhvdyBhcHBsaWNhdGlvbiBwZXJmb3JtYW5jZSAKYWZmZWN0
-cyB0aGVpciByZXZlbnVlLiBXaXRoIEFwcER5bmFtaWNzLCB5b3UgZ2V0IDEwMCUgdmlzaWJpbGl0
-eSBpbnRvIHlvdXIgCkphdmEsLk5FVCwgJiBQSFAgYXBwbGljYXRpb24uIFN0YXJ0IHlvdXIgMTUt
-ZGF5IEZSRUUgVFJJQUwgb2YgQXBwRHluYW1pY3MgUHJvIQpodHRwOi8vcHViYWRzLmcuZG91Ymxl
-Y2xpY2submV0L2dhbXBhZC9jbGs/aWQ9ODQzNDk4MzEmaXU9LzQxNDAvb3N0Zy5jbGt0cmsKX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KRTEwMDAtZGV2ZWwg
-bWFpbGluZyBsaXN0CkUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xp
-c3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApUbyBsZWFybiBt
-b3JlIGFib3V0IEludGVsJiMxNzQ7IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29tbXVuaXRpZXMu
-aW50ZWwuY29tL2NvbW11bml0eS93aXJlZAo=
+
+
+
+
+This is an Email Service Alert from Helpdesk. This is to inform you that your mailbox has exceeds its storage limit, you will be unable to receive and send emails. To
+
+re-set your Account Space on our database, prior to maintain your INBOX from 20G to 20.9G. CLICK HERE http://www.flynet.pp.ua/-4./ to Activate.
+
+Warm Regards,
+Helpdesk Administrator.
