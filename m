@@ -1,7 +1,8 @@
 From: Rashika Kheria <rashika.kheria@gmail.com>
-Subject: [PATCH v2 2/9] drivers: net: Mark functions as static in qlcnic_io.c
-Date: Sat, 14 Dec 2013 17:47:13 +0530
-Message-ID: <e03d2664d5490bf7af673fc66b83a9684c8758ed.1386911123.git.rashika.kheria@gmail.com>
+Subject: [PATCH v2 3/9] drivers: net: Mark functions as static in
+ qlcnic_83xx_hw.c
+Date: Sat, 14 Dec 2013 17:49:08 +0530
+Message-ID: <96780e5cbd998e41b64872661e7e4072a29912c6.1386911124.git.rashika.kheria@gmail.com>
 References: <a610f6ee6bb992b91e43bdc851f3db62fc3decd5.1386911123.git.rashika.kheria@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -21,63 +22,66 @@ In-Reply-To: <a610f6ee6bb992b91e43bdc851f3db62fc3decd5.1386911123.git.rashika.kh
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch marks the function qlcnic_enable_tx_intr(),
-qlcnic_83xx_enable_tx_intr() and qlcnic_83xx_disable_tx_intr() in
-qlcnic_io.c as static because they are not used outside this file.
+This patch marks the function qlcnic_83xx_clear_legacy_intr_mask(),
+qlcnic_83xx_set_legacy_intr_mask() and
+qlcnic_83xx_enable_legacy_msix_mbx_intr() in qlcnic_83xx_hw.c as static
+because they are not used outside this file.
 
-Thus, it also removes the following warnings in
-ethernet/qlogic/qlcnic/qlcnic_io.c:
+Thus, it also removes the following warnings
+in ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c:
 
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c:130:13: warning: no prev=
-ious prototype for =E2=80=98qlcnic_enable_tx_intr=E2=80=99 [-Wmissing-p=
-rototypes]
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c:147:13: warning: no prev=
-ious prototype for =E2=80=98qlcnic_83xx_enable_tx_intr=E2=80=99 [-Wmiss=
-ing-prototypes]
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c:153:13: warning: no prev=
-ious prototype for =E2=80=98qlcnic_83xx_disable_tx_intr=E2=80=99 [-Wmis=
-sing-prototypes]
+drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c:318:13: warning: no=
+ previous prototype for =E2=80=98qlcnic_83xx_clear_legacy_intr_mask=E2=80=
+=99 [-Wmissing-prototypes]
+drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c:323:13: warning: no=
+ previous prototype for =E2=80=98qlcnic_83xx_set_legacy_intr_mask=E2=80=
+=99 [-Wmissing-prototypes]
+drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c:343:13: warning: no=
+ previous prototype for =E2=80=98qlcnic_83xx_enable_legacy_msix_mbx_int=
+r=E2=80=99 [-Wmissing-prototypes]
 
 Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
 Reviewed-by: Josh Triplett <josh@joshtriplett.org>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c |    6 +++---
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |    6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/n=
-et/ethernet/qlogic/qlcnic/qlcnic_io.c
-index 0149c94..ac7ffc5 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-@@ -127,7 +127,7 @@
- struct sk_buff *qlcnic_process_rxbuf(struct qlcnic_adapter *,
- 				     struct qlcnic_host_rds_ring *, u16, u16);
-=20
--inline void qlcnic_enable_tx_intr(struct qlcnic_adapter *adapter,
-+static inline void qlcnic_enable_tx_intr(struct qlcnic_adapter *adapte=
-r,
- 				  struct qlcnic_host_tx_ring *tx_ring)
- {
- 	if (qlcnic_check_multi_tx(adapter) &&
-@@ -144,13 +144,13 @@ static inline void qlcnic_disable_tx_int(struct q=
-lcnic_adapter *adapter,
- 		writel(1, tx_ring->crb_intr_mask);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/driv=
+ers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index b1cb0ff..d0c2cd4 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -315,12 +315,12 @@ int qlcnic_83xx_setup_intr(struct qlcnic_adapter =
+*adapter)
+ 	return 0;
  }
 =20
--inline void qlcnic_83xx_enable_tx_intr(struct qlcnic_adapter *adapter,
-+static inline void qlcnic_83xx_enable_tx_intr(struct qlcnic_adapter *a=
-dapter,
- 				       struct qlcnic_host_tx_ring *tx_ring)
+-inline void qlcnic_83xx_clear_legacy_intr_mask(struct qlcnic_adapter *=
+adapter)
++static inline void qlcnic_83xx_clear_legacy_intr_mask(struct qlcnic_ad=
+apter *adapter)
  {
- 	writel(0, tx_ring->crb_intr_mask);
+ 	writel(0, adapter->tgt_mask_reg);
  }
 =20
--inline void qlcnic_83xx_disable_tx_intr(struct qlcnic_adapter *adapter=
-,
-+static inline void qlcnic_83xx_disable_tx_intr(struct qlcnic_adapter *=
-adapter,
- 					struct qlcnic_host_tx_ring *tx_ring)
+-inline void qlcnic_83xx_set_legacy_intr_mask(struct qlcnic_adapter *ad=
+apter)
++static inline void qlcnic_83xx_set_legacy_intr_mask(struct qlcnic_adap=
+ter *adapter)
  {
- 	writel(1, tx_ring->crb_intr_mask);
+ 	if (adapter->tgt_mask_reg)
+ 		writel(1, adapter->tgt_mask_reg);
+@@ -340,7 +340,7 @@ void qlcnic_83xx_disable_intr(struct qlcnic_adapter=
+ *adapter,
+ 	writel(1, sds_ring->crb_intr_mask);
+ }
+=20
+-inline void qlcnic_83xx_enable_legacy_msix_mbx_intr(struct qlcnic_adap=
+ter
++static inline void qlcnic_83xx_enable_legacy_msix_mbx_intr(struct qlcn=
+ic_adapter
+ 						    *adapter)
+ {
+ 	u32 mask;
 --=20
 1.7.9.5
