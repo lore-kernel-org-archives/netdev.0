@@ -1,48 +1,44 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch net-next v3] ipv6: log autoconfiguration failures
-Date: Sat, 14 Dec 2013 11:39:29 +0100
-Message-ID: <20131214103929.GE23563@order.stressinduktion.org>
-References: <1386949547-23457-1-git-send-email-dvlasenk@redhat.com> <20131213.175709.414078764436451428.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: dvlasenk@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	jpirko@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131213.175709.414078764436451428.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 1/2] i40e: fix null dereference
+Date: Sat, 14 Dec 2013 03:26:45 -0800
+Message-ID: <1387020406-7964-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	jeffrey.t.kirsher@intel.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:2013 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753431Ab3LNL07 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Dec 2013 06:26:59 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 13, 2013 at 05:57:09PM -0500, David Miller wrote:
-> From: Denys Vlasenko <dvlasenk@redhat.com>
-> Date: Fri, 13 Dec 2013 16:45:47 +0100
-> 
-> > If ipv6 auto-configuration does not work, currently it's hard
-> > to track what's going on. This change adds log messages
-> > (at debug level) on every code path where ipv6 autoconf fails.
-> > 
-> > v3: changed pr_debug's to pr_warn's.
-> > 
-> > Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
-> 
-> I already made it clear I want to see statistics added instead of log
-> messages for this.
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Hmm... I gave this a bit more thought.
+If the vsi->tx_rings structure is NULL we don't want to panic.
 
-I would go with counters, too. What if we add something like per interface
-softerror states. So that we e.g. can see that one protocol had an error on an
-interface and it needs attention of an administrator?
+Change-Id: Ic694f043701738c434e8ebe0caf0673f4410dc10
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-E.g.
-
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP,SOFT_FAIL>
-
-Would catch the eyes more quickly. If counters are implemented we could
-do that completly in user space and add that flag as soon as one of the
-observed counters are above 0 (and of course, iproute needs colors).
-
-What do you think?
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index be15938..12b0932 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -354,6 +354,9 @@ static struct rtnl_link_stats64 *i40e_get_netdev_stats_struct(
+ 	struct rtnl_link_stats64 *vsi_stats = i40e_get_vsi_stats_struct(vsi);
+ 	int i;
+ 
++	if (!vsi->tx_rings)
++		return stats;
++
+ 	rcu_read_lock();
+ 	for (i = 0; i < vsi->num_queue_pairs; i++) {
+ 		struct i40e_ring *tx_ring, *rx_ring;
+-- 
+1.8.3.1
