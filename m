@@ -1,74 +1,48 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next 2/2] ipv4: new ip_no_pmtu_disc mode to always discard incoming frag needed msgs
-Date: Sat, 14 Dec 2013 05:13:45 +0100
-Message-ID: <20131214041345.GO23247@order.stressinduktion.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 1/6] net_sched: remove get_stats from
+ tc_action_ops
+Date: Sat, 14 Dec 2013 00:15:29 -0500 (EST)
+Message-ID: <20131214.001529.1872893184686335778.davem@davemloft.net>
+References: <52AB87EB.6040508@mojatatu.com>
+	<20131213.182325.2234215963739207753.davem@davemloft.net>
+	<52ABC975.2070308@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: xiyou.wangcong@gmail.com, David.Laight@aculab.com,
+	netdev@vger.kernel.org
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:54761 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753298Ab3LNENq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Dec 2013 23:13:46 -0500
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:48370 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750803Ab3LNFPb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Dec 2013 00:15:31 -0500
+In-Reply-To: <52ABC975.2070308@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This new mode discards all incoming fragmentation-needed notifications
-as I guess was originally intended with this knob. To not break backward
-compatibility too much, I only added a special case for mode 2 in the
-receiving path.
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Fri, 13 Dec 2013 21:59:01 -0500
 
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
+> On 12/13/13 18:23, David Miller wrote:
+> 
+>> Jamal, nobody implements this interface, therefore these extra
+>> stats are _NEVER_ provided.
+>>
+>> This is the end of the discussion, when there are in-tree users
+>> of this method you can add it back.
+> 
+> Dave, I think that would be a good arguement if the feature was being
+> provided in a new set of patches today.
+> I dont see this as any different than removing an something from a
+> UAPI header nobody knows any user of.
 
-I am sorry to create a merge conflict if the patch "ipv4: improve
-documentation of ip_no_pmtu_disc" gets applied to net first. David, can you
-handle that or can I help somehow?
+It is significantly different.
 
- Documentation/networking/ip-sysctl.txt | 10 ++++++++--
- net/ipv4/icmp.c                        |  4 +++-
- 2 files changed, 11 insertions(+), 3 deletions(-)
+It is an internal kernel interface that was never used.
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index f76d177..d71afa8 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -15,12 +15,18 @@ ip_default_ttl - INTEGER
- 	forwarded) IP packets. Should be between 1 and 255 inclusive.
- 	Default: 64 (as recommended by RFC1700)
- 
--ip_no_pmtu_disc - BOOLEAN
--	Disable Path MTU Discovery. If enabled and a
-+ip_no_pmtu_disc - INTEGER
-+	Disable Path MTU Discovery. If enabled in mode 1 and a
- 	fragmentation-required ICMP is received, the PMTU to this
- 	destination will be set to min_pmtu (see below). You will need
- 	to raise min_pmtu to the smallest interface MTU on your system
- 	manually if you want to avoid locally generated fragments.
-+
-+	In mode 2 incoming Path MTU Discovery messages will be
-+	discarded. Outgoing frames are handled the same as in mode 1,
-+	implicitly setting IP_PMTUDISC_DONT on every created socket.
-+
-+	Possible values: 0-2
- 	Default: FALSE
- 
- min_pmtu - INTEGER
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 1a4ee84..fb3c563 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -705,7 +705,9 @@ static void icmp_unreach(struct sk_buff *skb)
- 		case ICMP_PORT_UNREACH:
- 			break;
- 		case ICMP_FRAG_NEEDED:
--			if (net->ipv4.sysctl_ip_no_pmtu_disc) {
-+			if (net->ipv4.sysctl_ip_no_pmtu_disc == 2) {
-+				goto out;
-+			} else if (net->ipv4.sysctl_ip_no_pmtu_disc) {
- 				LIMIT_NETDEBUG(KERN_INFO pr_fmt("%pI4: fragmentation needed and DF set\n"),
- 					       &iph->daddr);
- 			} else {
--- 
-1.8.3.1
+You cannot argue that, because it might have generated a netlink
+attribute had it been implemented, that userland has a dependency upon
+it.
+
+You simply can't.
