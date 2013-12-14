@@ -1,160 +1,103 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 3/3] net: can: peak_usb: Do not do dma on the stack
-Date: Sat, 14 Dec 2013 14:37:19 +0100
-Message-ID: <52AC5F0F.20105@pengutronix.de>
-References: <1370261733-22935-1-git-send-email-mkl@pengutronix.de> <1370261733-22935-4-git-send-email-mkl@pengutronix.de> <52A9CBC1.4080809@peak-system.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: [BUG][3.10.15] reading from /proc/sys/net/netfilter/nf_log/*
+Date: Sat, 14 Dec 2013 10:10:42 -0500
+Message-ID: <20131214101042.5626c785@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="5Ud8ifPmqg814BjVfQpIc2xRaNn18etEV"
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
-To: Stephane Grosjean <s.grosjean@peak-system.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <52A9CBC1.4080809@peak-system.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Luis Claudio R. Goncalves" <lclaudio@uudg.org>,
+	Clark Williams <williams@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cdptpa-outbound-snat.email.rr.com ([107.14.166.226]:49885 "EHLO
+	cdptpa-oedge-vip.email.rr.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753597Ab3LNPKo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Dec 2013 10:10:44 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---5Ud8ifPmqg814BjVfQpIc2xRaNn18etEV
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+I'm trying to trace down a bug in 3.10.15 that our -rt patch is based
+on. It happens in our complex test environment and I'm having trouble
+reproducing it on my box.
 
-On 12/12/2013 03:44 PM, Stephane Grosjean wrote:
-> Going back into linux-can peak_usb, and I'm currently having a quick
-> look to what has changed during these several past months.
-> I agree with the below patch that fixes the "DMAusage with USB core"
-> issue, but - maybe I'm wrong - isn't there now amemory leak issue in
-> "pcan_usb_pro_init()" function below?
->=20
-> I mean, you now allocate "fi" and "bi" memory objects but, AFAIK, they
-> aren't freed anywhere in the function, don't they?
+When the test suite runs nfs-connectathon (I believe from LTP), then
+runs a module-load test (randomly loads and unloads modules), one of
+the files in  /proc/sys/net/netfilter/nf_log/ becomes corrupted and we
+get this crash:
 
-Thanks for pointing out.
-
-[...]
-
->> b/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
->> index 30d79bf..8ee9d15 100644
->> --- a/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
->> +++ b/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
-[...]
->> @@ -851,21 +860,24 @@ static int pcan_usb_pro_stop(struct
->> peak_usb_device *dev)
->>    */
->>   static int pcan_usb_pro_init(struct peak_usb_device *dev)
->>   {
->> -    struct pcan_usb_pro_interface *usb_if;
->>       struct pcan_usb_pro_device *pdev =3D
->>               container_of(dev, struct pcan_usb_pro_device, dev);
->> +    struct pcan_usb_pro_interface *usb_if =3D NULL;
->> +    struct pcan_usb_pro_fwinfo *fi =3D NULL;
->> +    struct pcan_usb_pro_blinfo *bi =3D NULL;
->> +    int err;
->>         /* do this for 1st channel only */
->>       if (!dev->prev_siblings) {
->> -        struct pcan_usb_pro_fwinfo fi;
->> -        struct pcan_usb_pro_blinfo bi;
->> -        int err;
->> -
->>           /* allocate netdevices common structure attached to first
->> one */
->>           usb_if =3D kzalloc(sizeof(struct pcan_usb_pro_interface),
->>                    GFP_KERNEL);
->> -        if (!usb_if)
->> -            return -ENOMEM;
->> +        fi =3D kmalloc(sizeof(struct pcan_usb_pro_fwinfo), GFP_KERNEL=
-);
->> +        bi =3D kmalloc(sizeof(struct pcan_usb_pro_blinfo), GFP_KERNEL=
-);
->> +        if (!usb_if || !fi || !bi) {
->> +            err =3D -ENOMEM;
->> +            goto err_out;
->> +        }
->>             /* number of ts msgs to ignore before taking one into
->> account */
->>           usb_if->cm_ignore_count =3D 5;
->> @@ -877,34 +889,34 @@ static int pcan_usb_pro_init(struct
->> peak_usb_device *dev)
->>            */
->>           err =3D pcan_usb_pro_send_req(dev, PCAN_USBPRO_REQ_INFO,
->>                           PCAN_USBPRO_INFO_FW,
->> -                        &fi, sizeof(fi));
->> +                        fi, sizeof(*fi));
->>           if (err) {
->> -            kfree(usb_if);
->>               dev_err(dev->netdev->dev.parent,
->>                   "unable to read %s firmware info (err %d)\n",
->>                   pcan_usb_pro.name, err);
->> -            return err;
->> +            goto err_out;
->>           }
->>             err =3D pcan_usb_pro_send_req(dev, PCAN_USBPRO_REQ_INFO,
->>                           PCAN_USBPRO_INFO_BL,
->> -                        &bi, sizeof(bi));
->> +                        bi, sizeof(*bi));
->>           if (err) {
->> -            kfree(usb_if);
->>               dev_err(dev->netdev->dev.parent,
->>                   "unable to read %s bootloader info (err %d)\n",
->>                   pcan_usb_pro.name, err);
->> -            return err;
->> +            goto err_out;
->>           }
->>   +        /* tell the device the can driver is running */
->> +        err =3D pcan_usb_pro_drv_loaded(dev, 1);
->> +        if (err)
->> +            goto err_out;
->> +
->>           dev_info(dev->netdev->dev.parent,
->>                "PEAK-System %s hwrev %u serial %08X.%08X (%u
->> channels)\n",
->>                pcan_usb_pro.name,
->> -             bi.hw_rev, bi.serial_num_hi, bi.serial_num_lo,
->> +             bi->hw_rev, bi->serial_num_hi, bi->serial_num_lo,
->>                pcan_usb_pro.ctrl_count);
->> -
->> -        /* tell the device the can driver is running */
->> -        pcan_usb_pro_drv_loaded(dev, 1);
->>       } else {
->>           usb_if =3D pcan_usb_pro_dev_if(dev->prev_siblings);
->>       }
->> @@ -916,6 +928,13 @@ static int pcan_usb_pro_init(struct
->> peak_usb_device *dev)
->>       pcan_usb_pro_set_led(dev, 0, 1);
->>         return 0;
->> +
->> + err_out:
->> +    kfree(bi);
->> +    kfree(fi);
->> +    kfree(usb_if);
->> +
->> +    return err;
->>   }
->>     static void pcan_usb_pro_exit(struct peak_usb_device *dev)
-
-I'll send a fix.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+BUG: unable to handle kernel paging request at ffffffffa06189f0 
+IP: [<ffffffff814b7904>] nf_log_proc_dostring+0x94/0x1a0 
+PGD 1a0d067 PUD 1a0e063 PMD 127d71067 PTE 0 
+Oops: 0000 [#1] PREEMPT SMP  
+Modules linked in: ts_kmp nf_conntrack_ipv4 nf_defrag_ipv4 nls_koi8_u nls_cp932 rpcsec_gss_krb5 auth_rpcgss oid_registry nfsv4 nfsv3 nfs_acl nfsv2 nfs lockd sunrpc nfnetlink_queue nfnetlink bluetooth cpufreq_ondemand ipv6 ppdev gpio_ich iTCO_wdt iTCO_vendor_support hp_wmi sparse_keymap rfkill coretemp acpi_cpufreq freq_table mperf microcode parport_pc parport pcspkr serio_raw lpc_ich sg snd_hda_codec_realtek snd_hda_intel snd_hda_codec snd_hwdep snd_seq snd_seq_device snd_pcm snd_timer snd soundcore snd_page_alloc i5k_amb i5000_edac edac_core shpchp tg3 ptp pps_core ext4 jbd2 mbcache sd_mod crc_t10dif sr_mod cdrom firewire_ohci firewire_core crc_itu_t mptsas mptscsih mptbase scsi_transport_sas ahci libahci pata_acpi ata_generic ata_piix floppy nouveau ttm drm_kms_helper drm hwmon i2c_algo_
+ bit i2c_core mxm_wmi video wmi dm_mirror dm_region_hash dm_log dm_mod [last unloaded: rmd128] 
+CPU: 7 PID: 22196 Comm: cat Not tainted 3.10.15-rt11.4.vanilla.el6rt.x86_64 #1 
+Hardware name: Hewlett-Packard HP xw8400 Workstation/0A08h, BIOS 786D5 v02.35 11/25/2008 
+task: ffff88012544ae20 ti: ffff880124f8e000 task.ti: ffff880124f8e000 
+RIP: 0010:[<ffffffff814b7904>]  [<ffffffff814b7904>] nf_log_proc_dostring+0x94/0x1a0 
+RSP: 0018:ffff880124f8fdd8  EFLAGS: 00010282 
+RAX: ffffffffa06189e0 RBX: ffffffff81cb7c80 RCX: ffff880124f8fe90 
+RDX: 00000000006ca000 RSI: 0000000000000000 RDI: ffffffff81ab2b00 
+RBP: ffff880124f8fe68 R08: ffff880124f8ff40 R09: 0000000000000000 
+R10: 0000000000008fff R11: 0000000000000246 R12: 0000000000000002 
+R13: ffffffff81aaef00 R14: 0000000000000002 R15: 00000000006ca000 
+FS:  00007fe090b5a700(0000) GS:ffff88012fdc0000(0000) knlGS:0000000000000000 
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033 
+CR2: ffffffffa06189f0 CR3: 0000000124e2e000 CR4: 00000000000007e0 
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000 
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400 
+Stack: 
+ ffff880124f8ff40 ffff880124f8fe90 ffffffff81cb7c80 0000000000000000 
+ ffff880124f8fe08 ffffffff81216788 ffff880124f8fe28 ffffffff81059270 
+ ffff880124be5440 ffffffff81cb7c80 ffff880124f8fe48 00000000190b4935 
+Call Trace: 
+ [<ffffffff81216788>] ? security_capable+0x18/0x20 
+ [<ffffffff81059270>] ? ns_capable+0x30/0x60 
+ [<ffffffff811eb1a2>] proc_sys_call_handler+0x92/0xd0 
+ [<ffffffff811eb211>] proc_sys_read+0x11/0x20 
+ [<ffffffff81179221>] vfs_read+0xb1/0x130 
+ [<ffffffff811796bf>] SyS_read+0x5f/0xa0 
+ [<ffffffff810ca5d6>] ? __audit_syscall_exit+0x236/0x2e0 
+ [<ffffffff81567399>] system_call_fastpath+0x16/0x1b 
+Code: 78 ff ff ff 4c 89 85 70 ff ff ff e8 b7 3d 0a 00 4b 8b 84 f5 d8 07 00 00 48 8b 8d 78 ff ff ff 4c 8b 85 70 ff ff ff 48 85 c0 74 54 <48> 8b 40 10 48 89 43 08 4c 89 fa 48 89 df 31 f6 e8 d7 08 ba ff  
+RIP  [<ffffffff814b7904>] nf_log_proc_dostring+0x94/0x1a0 
+ RSP <ffff880124f8fdd8> 
+CR2: ffffffffa06189f0 
+---[ end trace cae5dc9f8f8299f7 ]--- 
 
 
---5Ud8ifPmqg814BjVfQpIc2xRaNn18etEV
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+We added to the test suite code that reads the nf_log before and after
+the module-load test, and before we have this:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+# cat /proc/sys/net/netfilter/nf_log/*
+NONE
+NONE
+NONE
+NONE
+NONE
+nfnetlink_log
+NONE
+NONE
+NONE
+NONE
+NONE
+NONE
+NONE
 
-iEYEARECAAYFAlKsXw8ACgkQjTAFq1RaXHO5zACghNPs4g1lYu0UJvq23Te61ALu
-KE0An3ZHgzbQm3v5Aa6NH7A3AQcbyWIv
-=n8oC
------END PGP SIGNATURE-----
+And after the module-load test, it crashes when reading those files.
 
---5Ud8ifPmqg814BjVfQpIc2xRaNn18etEV--
+I'm not very familiar with netfilters, net namespaces or the
+netlink_log, so my question to you is, what does one do to get that
+"nfnetlink_log" to show up in the nf_log/* files? Loading nfnetlink_log
+module is not enough.
+
+Unfortunately, the test suite that triggers this is all automated and
+has a complex set up, so trying to figure it out from that is a huge
+undertaking, which is why I'm writing this email. Maybe someone here
+can see this and say, "Oh, to get that all you need to do is this ..."
+
+:-)
+
+Thanks, any help would be much appreciated.
+
+-- Steve
