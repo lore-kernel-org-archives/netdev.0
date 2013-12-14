@@ -1,53 +1,89 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH RFC 1/2] ipv6: add the IPV6_FL_F_REPLY flag to IPV6_FL_A_GET
-Date: Sat, 14 Dec 2013 10:56:50 +0100
-Message-ID: <20131214095650.GD23563@order.stressinduktion.org>
-References: <1386844697-31169-1-git-send-email-florent.fourcot@enst-bretagne.fr> <52A99262.1090001@enst-bretagne.fr>
+From: Ding Tianhong <dthxman@gmail.com>
+Subject: Re: [PATCH net-next v5 0/11] bonding: rebuild the lock use for bond
+ monitor
+Date: Sat, 14 Dec 2013 18:02:25 +0800
+Message-ID: <52AC2CB1.9090102@gmail.com>
+References: <52A7F148.6000302@huawei.com> <20131214.020149.2022684556057698333.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: fubar@us.ibm.com, andy@greyhouse.net, nikolay@redhat.com,
+	vfalico@redhat.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, dingtianhong@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:54991 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752080Ab3LNJ4v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Dec 2013 04:56:51 -0500
-Content-Disposition: inline
-In-Reply-To: <52A99262.1090001@enst-bretagne.fr>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:62987 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752258Ab3LNKOF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Dec 2013 05:14:05 -0500
+Received: by mail-pb0-f48.google.com with SMTP id md12so3583236pbc.35
+        for <netdev@vger.kernel.org>; Sat, 14 Dec 2013 02:14:04 -0800 (PST)
+In-Reply-To: <20131214.020149.2022684556057698333.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 12, 2013 at 11:39:30AM +0100, Florent Fourcot wrote:
-> There two patches extend the flow API. It adds three new actions with
-> IPV6_FLOWLABEL_MGR:
-> 
->  * setsockopt with IPV6_FL_A_GET and IPV6_FL_F_REPLY set:
->       enable the reply of flow label, packet are sent with the
->       last low label read in packet sent by remote device
->  * setsockopt with IPV6_FL_A_PUT and IPV6_FL_F_REPLY set:
->       disable the flow label reply
->  * getsockopt with IPV6_FL_A_GET and IPV6_FL_F_REPLY set:
->       get the flow label send by the remote device
+=E4=BA=8E 2013/12/14 15:01, David Miller =E5=86=99=E9=81=93:
+> From: Ding Tianhong <dingtianhong@huawei.com>
+> Date: Wed, 11 Dec 2013 12:59:52 +0800
+>=20
+>> Now the bond slave list is not protected by bond lock, only by RTNL,
+>> but the monitor still use the bond lock to protect the slave list,
+>> it is useless, according to the Veaceslav's opinion, there were
+>> three way to fix the protect problem:
+>>
+>> 1. add bond_master_upper_dev_link() and bond_upper_dev_unlink()
+>>    in bond->lock, but it is unsafe to call call_netdevice_notifiers(=
+)
+>>    in write lock.
+>> 2. remove unused bond->lock for monitor function, only use the exist
+>>    rtnl lock(), it will take performance loss in fast path.
+>> 3. use RCU to protect the slave list, of course, performance is bett=
+er,
+>>    but in slow path, it is ignored.
+>>
+>> obviously the solution 1 is not fit here, I will consider the 2 and =
+3
+>> solution. My principle is simple, if in fast path, RCU is better,
+>> otherwise in slow path, both is well, but according to the Jay Vosbu=
+rgh's
+>> opinion, the monitor will loss performace if use RTNL to protect the=
+ all
+>> slave list, so remove the bond lock and replace with RCU.
+>>
+>> The second problem is the curr_slave_lock for bond, it is too old an=
+d
+>> unwanted in many place, because the curr_active_slave would only be
+>> changed in 3 place:
+>>
+>> 1. enslave slave.
+>> 2. release slave.
+>> 3. change active slave.
+>>
+>> all above were already holding bond lock, RTNL and curr_slave_lock
+>> together, it is tedious and no need to add so mach lock, when change
+>> the curr_active_slave, you have to hold the RTNL and curr_slave_lock
+>> together, and when you read the curr_active_slave, RTNL or curr_slav=
+e_lock,
+>> any one of them is no problem.
+>>
+>> for the stability, I did not change the logic for the monitor,
+>> all change is clear and simple, I have test the patch set for lockde=
+p,
+>> it work well and stability.
+>=20
+> Series applied, thanks.
+> --
 
-Sorry, I am not up to date with flowlabel RFCs and applications. Couldn't
-such a feature get in the way of RSVP flow control if a remote side
-can dictate the label to use for the outgoing connection (I know, your
-implementation is opt-in, but I don't want to give application developers
-something at hand which could make their software difficult to operate
-in future).
+Hi David:
 
-> I'm not sure of the best way to do that. First, should we allocate a
-> real flow label in the global flow label? I don't think so, and it could
-> add hard issues with the system of permission/sharing.
+The last version of the patchset is v6, and the v6 is a little differen=
+t from v5,
+I think you have missed the last version, and found you applied the v5 =
+patchset.
 
-I wouldn't do that either. OTOH we are emitting frames with a flowlabel the
-flowmgr does not know about. :/
+Regards
+Ding
 
-> Second, I was not sure of the best way for the coverage for all TCP states.
-
-And why would you only support TCP? Wouldn't this work for connected UDP
-sockets, too?
-
-Greetings,
-
-  Hannes
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
