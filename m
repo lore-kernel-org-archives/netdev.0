@@ -1,44 +1,55 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: Re: sit tunnel slow since added GSO/TSO support
-Date: Sat, 14 Dec 2013 22:25:07 +0100
-Message-ID: <52ACCCB3.7010401@redhat.com>
-References: <52AB322B.7030802@redhat.com>	 <1386952124.19078.148.camel@edumazet-glaptop2.roam.corp.google.com> <1386975268.19078.190.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] ipvs: avoid oops in nf_ct_seqadj_set when called from
+ ip_vs_ftp helper
+Date: Sun, 15 Dec 2013 00:25:45 +0200 (EET)
+Message-ID: <alpine.LFD.2.10.1312142351130.1963@ja.home.ssi.bg>
+References: <20131213214023.14478.74738.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:23248 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751554Ab3LNVZI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Dec 2013 16:25:08 -0500
-In-Reply-To: <1386975268.19078.190.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20131213214023.14478.74738.stgit@dragon>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/13/2013 11:54 PM, Eric Dumazet wrote:
-> I tried the same setup than before and got good behavior on current
-> net-next kernel
->
-> modprobe sit
-> ip link set sit0 up
-> ip -6 addr add dev sit0 2002:af6:1153::/64
-> ip -6 ro add 2002:a00::/24 via fe80:: dev sit0
 
-Eric,
-in my test I do not use sit0. I create a new tunnel interface:
-ip tun add sittun mode sit remote $REMOTE_IPV4 local $LOCAL_IPV4 \
-   dev $IFACE
+	Hello,
 
-Looking at "ip tun show" I see that sit0 has the nopmtudisc option by 
-default, while sittun does not.
+On Fri, 13 Dec 2013, Jesper Dangaard Brouer wrote:
 
-As I wrote in my original message, using nopmtudisc when creating my 
-tunnel interface works around the problem.
+> The IPVS FTP helper ip_vs_ftp can trigger an OOPS in nf_ct_seqadj_set,
+> after commit 41d73ec053d2 (netfilter: nf_conntrack: make sequence
+> number adjustments usuable without NAT).
+> 
+> We can avoid the oops in nf_ct_seqadj_set() by in ip_vs_ftp_out()
+> instead of calling nf_nat_mangle_tcp_packet() we simply call
+> __nf_nat_mangle_tcp_packet() with a "false" last parameter, which
+> indicate not invoking the seqadj code.
+> 
+> After this fix, I've tested that FTP over IPVS, with module ip_vs_ftp
+> loaded, works for both passive and active FTP.
 
-So I think nopmtudisc is the key difference in our setups.
+	There is still a problem when RIP and VIP differ in
+text length because now ack_seq sent to RIP is not
+adjusted after receiving the the 227 Entering Passive Mode
+reply. I tried also to set *diff, ack_seq was corrected
+but the result was bad checksum.
 
-Regards,
-Michal
+> Fixes: 41d73ec053d2 (netfilter: nf_conntrack: make sequence number adjustments usuable without NAT)
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> 
+> ---
+> I'm uncertain if this is the correct fix.  Perhaps the ip_vs_ftp
+> helper need to allocate/init the seqadj extension instead?
+
+	Agreed, lets try nfct_seqadj_ext_add() + nf_ct_seqadj_init()
+if nfct_seqadj(ct) is NULL.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
