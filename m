@@ -1,79 +1,66 @@
-From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: RE: bnx2x_sriov.c: Missing switch/case breaks?
-Date: Sat, 14 Dec 2013 13:26:19 +0000
-Message-ID: <979A8436335E3744ADCD3A9F2A2B68A52AF1A7FF@SJEXCHMB10.corp.ad.broadcom.com>
-References: <1386975703.2479.48.camel@joe-AO722>
-	 <979A8436335E3744ADCD3A9F2A2B68A52AF1A735@SJEXCHMB10.corp.ad.broadcom.com>
- <1387004267.2276.7.camel@joe-AO722>
+From: =?UTF-8?B?QWxleGFuZGVyIFNoaXlhbg==?= <shc_work@mail.ru>
+Subject: =?UTF-8?B?UmU6IFtQQVRDSCAxLzNdIGNhbjogbWNwMjUxeDogQ29udmVydCBkcml2ZXIg?=
+ =?UTF-8?B?dG8gdXNlIGNvbW1vbiBjbGsgZnJhbWV3b3Jr?=
+Date: Sat, 14 Dec 2013 17:35:23 +0400
+Message-ID: <1387028123.883417068@f330.i.mail.ru>
+References: <1384332144-15211-1-git-send-email-shc_work@mail.ru>
+ <20131214091507.35557bcf132c885cfba69008@mail.ru>
+ <52AC5A9D.3010703@pengutronix.de>
+Reply-To: =?UTF-8?B?QWxleGFuZGVyIFNoaXlhbg==?= <shc_work@mail.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ariel Elior <ariele@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:3413 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753855Ab3LNN0W convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Dec 2013 08:26:22 -0500
-In-Reply-To: <1387004267.2276.7.camel@joe-AO722>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: =?UTF-8?B?UnVzc2VsbCBLaW5n?= <linux@arm.linux.org.uk>, dbaryshkov@gmail.com,
+ netdev@vger.kernel.org,
+ =?UTF-8?B?SGFvamlhbiBaaHVhbmc=?= <haojian.zhuang@gmail.com>,
+ linux-can@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ =?UTF-8?B?U2FzY2hhIEhhdWVy?= <kernel@pengutronix.de>,
+ =?UTF-8?B?RXJpYyBNaWFv?= <eric.y.miao@gmail.com>,
+ =?UTF-8?B?V29sZmdhbmcgR3JhbmRlZ2dlcg==?= <wg@grandegger.com>
+To: =?UTF-8?B?TWFyYyBLbGVpbmUtQnVkZGU=?= <mkl@pengutronix.de>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <52AC5A9D.3010703@pengutronix.de>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-> > > Hi Ariel.
-> > >
-> > > I wrote a little checkpatch script to look for missing
-> > > switch/case breaks.
-> > >
-> > > http://www.kernelhub.org/?msg=379933&p=2
-> > >
-> > > There are _many_ instances of case blocks in sriov.c
-> > > that could be missing breaks as they use fall-throughs.
-> > >
-> > > It would be good if these are actually intended to be
-> > > fall-throughs to add a /* fall-through */ comment between
-> > > each case block.
-> > >
-> > Hi Joe,
+> On 12/14/2013 06:15 AM, Alexander Shiyan wrote:
+> > On Wed, 13 Nov 2013 10:04:39 +0100
+> > Marc Kleine-Budde <mkl@pengutronix.de> wrote:
+> > 
+> >> as this series adds device tree bindings, please add
+> >> devicetree@vger.kernel.org on Cc for the whole series.
+> >>
+> >> On 11/13/2013 09:42 AM, Alexander Shiyan wrote:
+> >>> This patch converts mcp251x driver to using common clk framework
+> >>> for getting input frequency. The change was made for the preparation
+> >>> of the driver work with the devicetree. As a result private header
+> >>> for the driver is eliminated.
+> >>> Additionally, all existing users of the driver was converted to use
+> >>> this feature.
+> >>>
+> >>> Signed-off-by: Alexander Shiyan <shc_work@mail.ru>
+> >>
+> >> Looks good from my point of view. I'll take the whole series via the
+> >> linux-can tree, if there are no objections. I'd like to have the pxa and
+> >> imx maintainer's Ack and an Ack from the DT list.
+> >>
+> >> Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> > 
+> > Ping. Resend?
 > 
-> Hi Yuval.
+> Is Dmitry's comment still valid?
 > 
-> > The `vfop' part of the code contains a lot of usage of the
-> `bnx2x_vfop_finalize()',
-> > which either goto or return at the end of almost every case.
-> > "Normal" analysis tools/scripts fail to recognize them as  valid case
-> breaks.
-> >
-> > Adding `fallthrough' comments would make little sense, as this is not the
-> real
-> > behavior; Perhaps we need some alternative comment? (something in the
-> line
-> > of `macro case break')
-> 
-> No idea.  It's certainly an ugly macro.
-> 
+> PXA does not employ COMMON_CLK yet (WIP locally, but it is not finished
+> yet), so clk_register_fixed() will probably fail.
 
-True.
+OK, I'll make another version then.
 
-> This does have a fallthrough path though when
-> (rc == 0  && next == VFOP_VERIFY_PEND) so
-
-This is a very rare path - there's exactly one place in the bnx2x code
-Where `next == VFOP_VERIFY_PEND' (also notice this path prints an
-error, so this is obviously not the expected behaviour).
-
-> maybe there should be a break after most all
-> uses of this macro anyway.  When next is
-
-Won't some static code analysis tools regard such `break' calls as
-unreachable code?
-
-> VFOP_VERIFY_PEND, then a "fall-through" comment
-> would be appropriate.
-> 
-> cheers, Joe
-
-Thanks,
-Yuval
+---
