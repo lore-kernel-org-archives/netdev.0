@@ -1,66 +1,160 @@
-From: =?UTF-8?B?QWxleGFuZGVyIFNoaXlhbg==?= <shc_work@mail.ru>
-Subject: =?UTF-8?B?UmU6IFtQQVRDSCAxLzNdIGNhbjogbWNwMjUxeDogQ29udmVydCBkcml2ZXIg?=
- =?UTF-8?B?dG8gdXNlIGNvbW1vbiBjbGsgZnJhbWV3b3Jr?=
-Date: Sat, 14 Dec 2013 17:35:23 +0400
-Message-ID: <1387028123.883417068@f330.i.mail.ru>
-References: <1384332144-15211-1-git-send-email-shc_work@mail.ru>
- <20131214091507.35557bcf132c885cfba69008@mail.ru>
- <52AC5A9D.3010703@pengutronix.de>
-Reply-To: =?UTF-8?B?QWxleGFuZGVyIFNoaXlhbg==?= <shc_work@mail.ru>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 3/3] net: can: peak_usb: Do not do dma on the stack
+Date: Sat, 14 Dec 2013 14:37:19 +0100
+Message-ID: <52AC5F0F.20105@pengutronix.de>
+References: <1370261733-22935-1-git-send-email-mkl@pengutronix.de> <1370261733-22935-4-git-send-email-mkl@pengutronix.de> <52A9CBC1.4080809@peak-system.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?UnVzc2VsbCBLaW5n?= <linux@arm.linux.org.uk>, dbaryshkov@gmail.com,
- netdev@vger.kernel.org,
- =?UTF-8?B?SGFvamlhbiBaaHVhbmc=?= <haojian.zhuang@gmail.com>,
- linux-can@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- =?UTF-8?B?U2FzY2hhIEhhdWVy?= <kernel@pengutronix.de>,
- =?UTF-8?B?RXJpYyBNaWFv?= <eric.y.miao@gmail.com>,
- =?UTF-8?B?V29sZmdhbmcgR3JhbmRlZ2dlcg==?= <wg@grandegger.com>
-To: =?UTF-8?B?TWFyYyBLbGVpbmUtQnVkZGU=?= <mkl@pengutronix.de>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <52AC5A9D.3010703@pengutronix.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="5Ud8ifPmqg814BjVfQpIc2xRaNn18etEV"
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
+To: Stephane Grosjean <s.grosjean@peak-system.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <52A9CBC1.4080809@peak-system.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> On 12/14/2013 06:15 AM, Alexander Shiyan wrote:
-> > On Wed, 13 Nov 2013 10:04:39 +0100
-> > Marc Kleine-Budde <mkl@pengutronix.de> wrote:
-> > 
-> >> as this series adds device tree bindings, please add
-> >> devicetree@vger.kernel.org on Cc for the whole series.
-> >>
-> >> On 11/13/2013 09:42 AM, Alexander Shiyan wrote:
-> >>> This patch converts mcp251x driver to using common clk framework
-> >>> for getting input frequency. The change was made for the preparation
-> >>> of the driver work with the devicetree. As a result private header
-> >>> for the driver is eliminated.
-> >>> Additionally, all existing users of the driver was converted to use
-> >>> this feature.
-> >>>
-> >>> Signed-off-by: Alexander Shiyan <shc_work@mail.ru>
-> >>
-> >> Looks good from my point of view. I'll take the whole series via the
-> >> linux-can tree, if there are no objections. I'd like to have the pxa and
-> >> imx maintainer's Ack and an Ack from the DT list.
-> >>
-> >> Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
-> > 
-> > Ping. Resend?
-> 
-> Is Dmitry's comment still valid?
-> 
-> PXA does not employ COMMON_CLK yet (WIP locally, but it is not finished
-> yet), so clk_register_fixed() will probably fail.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--5Ud8ifPmqg814BjVfQpIc2xRaNn18etEV
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-OK, I'll make another version then.
+On 12/12/2013 03:44 PM, Stephane Grosjean wrote:
+> Going back into linux-can peak_usb, and I'm currently having a quick
+> look to what has changed during these several past months.
+> I agree with the below patch that fixes the "DMAusage with USB core"
+> issue, but - maybe I'm wrong - isn't there now amemory leak issue in
+> "pcan_usb_pro_init()" function below?
+>=20
+> I mean, you now allocate "fi" and "bi" memory objects but, AFAIK, they
+> aren't freed anywhere in the function, don't they?
 
----
+Thanks for pointing out.
+
+[...]
+
+>> b/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
+>> index 30d79bf..8ee9d15 100644
+>> --- a/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
+>> +++ b/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
+[...]
+>> @@ -851,21 +860,24 @@ static int pcan_usb_pro_stop(struct
+>> peak_usb_device *dev)
+>>    */
+>>   static int pcan_usb_pro_init(struct peak_usb_device *dev)
+>>   {
+>> -    struct pcan_usb_pro_interface *usb_if;
+>>       struct pcan_usb_pro_device *pdev =3D
+>>               container_of(dev, struct pcan_usb_pro_device, dev);
+>> +    struct pcan_usb_pro_interface *usb_if =3D NULL;
+>> +    struct pcan_usb_pro_fwinfo *fi =3D NULL;
+>> +    struct pcan_usb_pro_blinfo *bi =3D NULL;
+>> +    int err;
+>>         /* do this for 1st channel only */
+>>       if (!dev->prev_siblings) {
+>> -        struct pcan_usb_pro_fwinfo fi;
+>> -        struct pcan_usb_pro_blinfo bi;
+>> -        int err;
+>> -
+>>           /* allocate netdevices common structure attached to first
+>> one */
+>>           usb_if =3D kzalloc(sizeof(struct pcan_usb_pro_interface),
+>>                    GFP_KERNEL);
+>> -        if (!usb_if)
+>> -            return -ENOMEM;
+>> +        fi =3D kmalloc(sizeof(struct pcan_usb_pro_fwinfo), GFP_KERNEL=
+);
+>> +        bi =3D kmalloc(sizeof(struct pcan_usb_pro_blinfo), GFP_KERNEL=
+);
+>> +        if (!usb_if || !fi || !bi) {
+>> +            err =3D -ENOMEM;
+>> +            goto err_out;
+>> +        }
+>>             /* number of ts msgs to ignore before taking one into
+>> account */
+>>           usb_if->cm_ignore_count =3D 5;
+>> @@ -877,34 +889,34 @@ static int pcan_usb_pro_init(struct
+>> peak_usb_device *dev)
+>>            */
+>>           err =3D pcan_usb_pro_send_req(dev, PCAN_USBPRO_REQ_INFO,
+>>                           PCAN_USBPRO_INFO_FW,
+>> -                        &fi, sizeof(fi));
+>> +                        fi, sizeof(*fi));
+>>           if (err) {
+>> -            kfree(usb_if);
+>>               dev_err(dev->netdev->dev.parent,
+>>                   "unable to read %s firmware info (err %d)\n",
+>>                   pcan_usb_pro.name, err);
+>> -            return err;
+>> +            goto err_out;
+>>           }
+>>             err =3D pcan_usb_pro_send_req(dev, PCAN_USBPRO_REQ_INFO,
+>>                           PCAN_USBPRO_INFO_BL,
+>> -                        &bi, sizeof(bi));
+>> +                        bi, sizeof(*bi));
+>>           if (err) {
+>> -            kfree(usb_if);
+>>               dev_err(dev->netdev->dev.parent,
+>>                   "unable to read %s bootloader info (err %d)\n",
+>>                   pcan_usb_pro.name, err);
+>> -            return err;
+>> +            goto err_out;
+>>           }
+>>   +        /* tell the device the can driver is running */
+>> +        err =3D pcan_usb_pro_drv_loaded(dev, 1);
+>> +        if (err)
+>> +            goto err_out;
+>> +
+>>           dev_info(dev->netdev->dev.parent,
+>>                "PEAK-System %s hwrev %u serial %08X.%08X (%u
+>> channels)\n",
+>>                pcan_usb_pro.name,
+>> -             bi.hw_rev, bi.serial_num_hi, bi.serial_num_lo,
+>> +             bi->hw_rev, bi->serial_num_hi, bi->serial_num_lo,
+>>                pcan_usb_pro.ctrl_count);
+>> -
+>> -        /* tell the device the can driver is running */
+>> -        pcan_usb_pro_drv_loaded(dev, 1);
+>>       } else {
+>>           usb_if =3D pcan_usb_pro_dev_if(dev->prev_siblings);
+>>       }
+>> @@ -916,6 +928,13 @@ static int pcan_usb_pro_init(struct
+>> peak_usb_device *dev)
+>>       pcan_usb_pro_set_led(dev, 0, 1);
+>>         return 0;
+>> +
+>> + err_out:
+>> +    kfree(bi);
+>> +    kfree(fi);
+>> +    kfree(usb_if);
+>> +
+>> +    return err;
+>>   }
+>>     static void pcan_usb_pro_exit(struct peak_usb_device *dev)
+
+I'll send a fix.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--5Ud8ifPmqg814BjVfQpIc2xRaNn18etEV
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlKsXw8ACgkQjTAFq1RaXHO5zACghNPs4g1lYu0UJvq23Te61ALu
+KE0An3ZHgzbQm3v5Aa6NH7A3AQcbyWIv
+=n8oC
+-----END PGP SIGNATURE-----
+
+--5Ud8ifPmqg814BjVfQpIc2xRaNn18etEV--
