@@ -1,51 +1,30 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: bnx2x_sriov.c: Missing switch/case breaks?
-Date: Sat, 14 Dec 2013 09:49:59 -0800
-Message-ID: <1387043399.2276.12.camel@joe-AO722>
-References: <1386975703.2479.48.camel@joe-AO722>
-	 <979A8436335E3744ADCD3A9F2A2B68A52AF1A735@SJEXCHMB10.corp.ad.broadcom.com>
-	 <1387004267.2276.7.camel@joe-AO722>
-	 <979A8436335E3744ADCD3A9F2A2B68A52AF1A7FF@SJEXCHMB10.corp.ad.broadcom.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 1/4] net: phy: call put_device on device_register()
+ failure
+Date: Sat, 14 Dec 2013 09:25:45 -0800
+Message-ID: <20131214172545.GD22520@kroah.com>
+References: <1386959996-7958-1-git-send-email-levex@linux.com>
+ <1386959996-7958-2-git-send-email-levex@linux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Ariel Elior <ariele@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Yuval Mintz <yuvalmin@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
+	netdev@vger.kernel.org
+To: Levente Kurusa <levex@linux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A52AF1A7FF@SJEXCHMB10.corp.ad.broadcom.com>
+Content-Disposition: inline
+In-Reply-To: <1386959996-7958-2-git-send-email-levex@linux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2013-12-14 at 13:26 +0000, Yuval Mintz wrote:
-> > > The `vfop' part of the code contains a lot of usage of the
-> > `bnx2x_vfop_finalize()',
-> > > which either goto or return at the end of almost every case.
-> > > "Normal" analysis tools/scripts fail to recognize them as  valid case
-> > breaks.
-> > >
-> > > Adding `fallthrough' comments would make little sense, as this is not the
-> > real
-> > > behavior; Perhaps we need some alternative comment? (something in the
-> > line
-> > > of `macro case break')
-> > 
-> > No idea.  It's certainly an ugly macro.
-> > 
+On Fri, Dec 13, 2013 at 07:39:53PM +0100, Levente Kurusa wrote:
+> It is required to call put_device() if device_register() fails,
+> so that we give up the last reference to the device. Calling put_device
+> allows for mdiobus_release to be executed, kfreeing the bus.
 > 
-> True.
-[]
-> > maybe there should be a break after most all
-> > uses of this macro anyway.  When next is
-> 
-> Won't some static code analysis tools regard such `break' calls as
-> unreachable code?
+> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> Cc: Grant Likely <grant.likely@secretlab.ca>
+> Signed-off-by: Levente Kurusa <levex@linux.com>
 
-I suppose that maybe true,
-but this could also work...
-
-		bnx2x_vfop_finalize(vf, vfop->rc, VFOP_CONT); 
-				/* Ugly goto|return macro, not fall-through */
-
-;)
+Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
