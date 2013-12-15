@@ -1,354 +1,44 @@
 From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH 5/8] b44: add phylib support
-Date: Sun, 15 Dec 2013 19:42:02 +0100
-Message-ID: <1387132925-18651-6-git-send-email-hauke@hauke-m.de>
+Subject: [PATCH 6/8] b44: activate PHY when MAC is off
+Date: Sun, 15 Dec 2013 19:42:03 +0100
+Message-ID: <1387132925-18651-7-git-send-email-hauke@hauke-m.de>
 References: <1387132925-18651-1-git-send-email-hauke@hauke-m.de>
 Cc: zambrano@broadcom.com, netdev@vger.kernel.org,
 	Hauke Mehrtens <hauke@hauke-m.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:50615 "EHLO
+Received: from server19320154104.serverpool.info ([193.201.54.104]:50618 "EHLO
 	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751898Ab3LOSm3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 Dec 2013 13:42:29 -0500
+	id S1751962Ab3LOSma (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Dec 2013 13:42:30 -0500
 In-Reply-To: <1387132925-18651-1-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Most of the older home routers based on the Broadcom BCM47XX SoC series
-are using a MAC that is supported by b44. On most of these routers not
-the internal PHY of this MAC core is used, but a switch sometimes on an
-external chip or integrated into the same SoC as the Ethernet core.
-For this switch a special PHY driver is needed which should not be
-integrated into b44 as the same switches are also used by other
-Broadcom home networking SoCs which are using different Ethernet MAC
-drivers. This was tested with the b53 switch driver which is currently
-on its way to mainline.
-
-If the internal PHY is not used, b44 will now search on the MDIO bus
-for a phy and use the Linux phylib subsystem to register a driver.
-Support for the internal PHY must stay here, because there are some
-device which are suing the internal phy.
-
-With this patch we scan the mdio bus when the sprom or nvram says that
-the PHY address is 30, if a PHY was found at this address b44 uses it.
-
-This was tested with a BCM4704, BCM4712 and BCM5354.
+Without this patch we can not access the PHY when the MAC is switched
+off. This PHY access is needed to configure the switch, which is done
+through PHY registers.
 
 Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 ---
- drivers/net/ethernet/broadcom/Kconfig |    1 +
- drivers/net/ethernet/broadcom/b44.c   |  193 ++++++++++++++++++++++++++++++++-
- drivers/net/ethernet/broadcom/b44.h   |    3 +
- 3 files changed, 192 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/broadcom/b44.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
-index 2fa5b86..3f97d9f 100644
---- a/drivers/net/ethernet/broadcom/Kconfig
-+++ b/drivers/net/ethernet/broadcom/Kconfig
-@@ -23,6 +23,7 @@ config B44
- 	depends on SSB_POSSIBLE && HAS_DMA
- 	select SSB
- 	select MII
-+	select PHYLIB
- 	---help---
- 	  If you have a network (Ethernet) controller of this type, say Y
- 	  or M and read the Ethernet-HOWTO, available from
 diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
-index c19319c..7aa720e 100644
+index 7aa720e..7f243aa 100644
 --- a/drivers/net/ethernet/broadcom/b44.c
 +++ b/drivers/net/ethernet/broadcom/b44.c
-@@ -6,6 +6,7 @@
-  * Copyright (C) 2006 Felix Fietkau (nbd@openwrt.org)
-  * Copyright (C) 2006 Broadcom Corporation.
-  * Copyright (C) 2007 Michael Buesch <m@bues.ch>
-+ * Copyright (C) 2013 Hauke Mehrtens <hauke@hauke-m.de>
-  *
-  * Distribute under GPL.
-  */
-@@ -29,6 +30,7 @@
- #include <linux/dma-mapping.h>
- #include <linux/ssb/ssb.h>
- #include <linux/slab.h>
-+#include <linux/phy.h>
- 
- #include <asm/uaccess.h>
- #include <asm/io.h>
-@@ -316,6 +318,23 @@ static void b44_mdio_write_mii(struct net_device *dev, int phy_id, int location,
- 	__b44_writephy(bp, phy_id, location, val);
+@@ -1360,7 +1360,10 @@ static void b44_halt(struct b44 *bp)
+ 	bw32(bp, B44_MAC_CTRL, MAC_CTRL_PHY_PDOWN);
+ 	/* now reset the chip, but without enabling the MAC&PHY
+ 	 * part of it. This has to be done _after_ we shut down the PHY */
+-	b44_chip_reset(bp, B44_CHIP_RESET_PARTIAL);
++	if (bp->flags & B44_FLAG_EXTERNAL_PHY)
++		b44_chip_reset(bp, B44_CHIP_RESET_FULL);
++	else
++		b44_chip_reset(bp, B44_CHIP_RESET_PARTIAL);
  }
  
-+static int b44_mdio_read_phylib(struct mii_bus *bus, int phy_id, int location)
-+{
-+	u32 val;
-+	struct b44 *bp = bus->priv;
-+	int rc = __b44_readphy(bp, phy_id, location, &val);
-+	if (rc)
-+		return 0xffffffff;
-+	return val;
-+}
-+
-+static int b44_mdio_write_phylib(struct mii_bus *bus, int phy_id, int location,
-+				 u16 val)
-+{
-+	struct b44 *bp = bus->priv;
-+	return __b44_writephy(bp, phy_id, location, val);
-+}
-+
- static int b44_phy_reset(struct b44 *bp)
- {
- 	u32 val;
-@@ -523,10 +542,12 @@ static void b44_check_phy(struct b44 *bp)
- 
- 	if (bp->flags & B44_FLAG_EXTERNAL_PHY) {
- 		bp->flags |= B44_FLAG_100_BASE_T;
--		bp->flags |= B44_FLAG_FULL_DUPLEX;
- 		if (!netif_carrier_ok(bp->dev)) {
- 			u32 val = br32(bp, B44_TX_CTRL);
--			val |= TX_CTRL_DUPLEX;
-+			if (bp->flags & B44_FLAG_FULL_DUPLEX)
-+				val |= TX_CTRL_DUPLEX;
-+			else
-+				val &= ~TX_CTRL_DUPLEX;
- 			bw32(bp, B44_TX_CTRL, val);
- 			netif_carrier_on(bp->dev);
- 			b44_link_report(bp);
-@@ -1805,6 +1826,11 @@ static int b44_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct b44 *bp = netdev_priv(dev);
- 
-+	if (bp->flags & B44_FLAG_EXTERNAL_PHY) {
-+		BUG_ON(!bp->phydev);
-+		return phy_ethtool_gset(bp->phydev, cmd);
-+	}
-+
- 	cmd->supported = (SUPPORTED_Autoneg);
- 	cmd->supported |= (SUPPORTED_100baseT_Half |
- 			  SUPPORTED_100baseT_Full |
-@@ -1846,7 +1872,23 @@ static int b44_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- static int b44_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct b44 *bp = netdev_priv(dev);
--	u32 speed = ethtool_cmd_speed(cmd);
-+	u32 speed;
-+	int ret;
-+
-+	if (bp->flags & B44_FLAG_EXTERNAL_PHY) {
-+		BUG_ON(!bp->phydev);
-+		spin_lock_irq(&bp->lock);
-+		if (netif_running(dev))
-+			b44_setup_phy(bp);
-+
-+		ret = phy_ethtool_sset(bp->phydev, cmd);
-+
-+		spin_unlock_irq(&bp->lock);
-+
-+		return ret;
-+	}
-+
-+	speed = ethtool_cmd_speed(cmd);
- 
- 	/* We do not support gigabit. */
- 	if (cmd->autoneg == AUTONEG_ENABLE) {
-@@ -2076,7 +2118,6 @@ static const struct ethtool_ops b44_ethtool_ops = {
- 
- static int b44_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
--	struct mii_ioctl_data *data = if_mii(ifr);
- 	struct b44 *bp = netdev_priv(dev);
- 	int err = -EINVAL;
- 
-@@ -2084,7 +2125,12 @@ static int b44_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 		goto out;
- 
- 	spin_lock_irq(&bp->lock);
--	err = generic_mii_ioctl(&bp->mii_if, data, cmd, NULL);
-+	if (bp->flags & B44_FLAG_EXTERNAL_PHY) {
-+		BUG_ON(!bp->phydev);
-+		err = phy_mii_ioctl(bp->phydev, ifr, cmd);
-+	} else {
-+		err = generic_mii_ioctl(&bp->mii_if, if_mii(ifr), cmd, NULL);
-+	}
- 	spin_unlock_irq(&bp->lock);
- out:
- 	return err;
-@@ -2146,6 +2192,130 @@ static const struct net_device_ops b44_netdev_ops = {
- #endif
- };
- 
-+static void b44_adjust_link(struct net_device *dev)
-+{
-+	struct b44 *bp = netdev_priv(dev);
-+	struct phy_device *phydev = bp->phydev;
-+	bool status_changed = 0;
-+
-+	BUG_ON(!phydev);
-+
-+	if (bp->old_link != phydev->link) {
-+		status_changed = 1;
-+		bp->old_link = phydev->link;
-+	}
-+
-+	/* reflect duplex change */
-+	if (phydev->link) {
-+		if ((phydev->duplex == DUPLEX_HALF) &&
-+		    (bp->flags & B44_FLAG_FULL_DUPLEX)) {
-+			status_changed = 1;
-+			bp->flags &= ~B44_FLAG_FULL_DUPLEX;
-+		} else if ((phydev->duplex == DUPLEX_FULL) &&
-+			   !(bp->flags & B44_FLAG_FULL_DUPLEX)) {
-+			status_changed = 1;
-+			bp->flags |= B44_FLAG_FULL_DUPLEX;
-+		}
-+	}
-+
-+	if (status_changed) {
-+		b44_check_phy(bp);
-+		phy_print_status(phydev);
-+	}
-+}
-+
-+static int b44_register_phy_one(struct b44 *bp)
-+{
-+	struct mii_bus *mii_bus;
-+	struct ssb_device *sdev = bp->sdev;
-+	struct phy_device *phydev;
-+	int err;
-+
-+	mii_bus = mdiobus_alloc();
-+	if (!mii_bus) {
-+		dev_err(sdev->dev, "mdiobus_alloc() failed\n");
-+		err = -ENOMEM;
-+		goto err_out;
-+	}
-+
-+	mii_bus->priv = bp;
-+	mii_bus->read = b44_mdio_read_phylib;
-+	mii_bus->write = b44_mdio_write_phylib;
-+	mii_bus->name = "b44_eth_mii";
-+	mii_bus->parent = sdev->dev;
-+	mii_bus->phy_mask = ~(1 << bp->phy_addr);
-+	snprintf(mii_bus->id, MII_BUS_ID_SIZE, "%x", instance);
-+	mii_bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
-+	if (!mii_bus->irq) {
-+		dev_err(sdev->dev, "mii_bus irq allocation failed\n");
-+		err = -ENOMEM;
-+		goto err_out_mdiobus;
-+	}
-+
-+	memset(mii_bus->irq, PHY_POLL, sizeof(int) * PHY_MAX_ADDR);
-+
-+	bp->mii_bus = mii_bus;
-+
-+	err = mdiobus_register(mii_bus);
-+	if (err) {
-+		dev_err(sdev->dev, "failed to register MII bus\n");
-+		goto err_out_mdiobus_irq;
-+	}
-+
-+	phydev = bp->mii_bus->phy_map[bp->phy_addr];
-+	if (!phydev) {
-+		dev_err(sdev->dev, "could not find PHY at %i\n", bp->phy_addr);
-+		err = -ENODEV;
-+		goto err_out_mdiobus_unregister;
-+	}
-+
-+	err = phy_connect_direct(bp->dev, phydev, &b44_adjust_link,
-+				 PHY_INTERFACE_MODE_MII);
-+	if (err < 0) {
-+		dev_err(sdev->dev, "could not attach PHY at %i\n",
-+			bp->phy_addr);
-+		goto err_out_mdiobus_unregister;
-+	}
-+
-+	/* mask with MAC supported features */
-+	phydev->supported &= (SUPPORTED_100baseT_Half |
-+			      SUPPORTED_100baseT_Full |
-+			      SUPPORTED_Autoneg |
-+			      SUPPORTED_MII);
-+	phydev->advertising = phydev->supported;
-+
-+	bp->phydev = phydev;
-+	bp->old_link = 0;
-+	bp->phy_addr = phydev->addr;
-+
-+	dev_info(sdev->dev, "attached PHY driver [%s] (mii_bus:phy_addr=%s)\n",
-+		 phydev->drv->name, dev_name(&phydev->dev));
-+
-+	return 0;
-+
-+err_out_mdiobus_unregister:
-+	mdiobus_unregister(mii_bus);
-+
-+err_out_mdiobus_irq:
-+	kfree(mii_bus->irq);
-+
-+err_out_mdiobus:
-+	mdiobus_free(mii_bus);
-+
-+err_out:
-+	return err;
-+}
-+
-+static void b44_unregister_phy_one(struct b44 *bp)
-+{
-+	struct mii_bus *mii_bus = bp->mii_bus;
-+
-+	phy_disconnect(bp->phydev);
-+	mdiobus_unregister(mii_bus);
-+	kfree(mii_bus->irq);
-+	mdiobus_free(mii_bus);
-+}
-+
- static int b44_init_one(struct ssb_device *sdev,
- 			const struct ssb_device_id *ent)
- {
-@@ -2245,10 +2415,20 @@ static int b44_init_one(struct ssb_device *sdev,
- 	if (b44_phy_reset(bp) < 0)
- 		bp->phy_addr = B44_PHY_ADDR_NO_LOACL_PHY;
- 
-+	if (bp->flags & B44_FLAG_EXTERNAL_PHY) {
-+		err = b44_register_phy_one(bp);
-+		if (err) {
-+			dev_err(sdev->dev, "Cannot register PHY, aborting\n");
-+			goto err_out_unregister_netdev;
-+		}
-+	}
-+
- 	netdev_info(dev, "%s %pM\n", DRV_DESCRIPTION, dev->dev_addr);
- 
- 	return 0;
- 
-+err_out_unregister_netdev:
-+	unregister_netdev(dev);
- err_out_powerdown:
- 	ssb_bus_may_powerdown(sdev->bus);
- 
-@@ -2262,8 +2442,11 @@ out:
- static void b44_remove_one(struct ssb_device *sdev)
- {
- 	struct net_device *dev = ssb_get_drvdata(sdev);
-+	struct b44 *bp = netdev_priv(dev);
- 
- 	unregister_netdev(dev);
-+	if (bp->flags & B44_FLAG_EXTERNAL_PHY)
-+		b44_unregister_phy_one(bp);
- 	ssb_device_disable(sdev, 0);
- 	ssb_bus_may_powerdown(sdev->bus);
- 	free_netdev(dev);
-diff --git a/drivers/net/ethernet/broadcom/b44.h b/drivers/net/ethernet/broadcom/b44.h
-index e3ee9ca2..c5ec9b4 100644
---- a/drivers/net/ethernet/broadcom/b44.h
-+++ b/drivers/net/ethernet/broadcom/b44.h
-@@ -397,6 +397,9 @@ struct b44 {
- 	u32			tx_pending;
- 	u8			phy_addr;
- 	u8			force_copybreak;
-+	struct phy_device	*phydev;
-+	struct mii_bus		*mii_bus;
-+	int			old_link;
- 	struct mii_if_info	mii_if;
- };
- 
+ /* bp->lock is held. */
 -- 
 1.7.10.4
