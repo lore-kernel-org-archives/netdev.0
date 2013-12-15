@@ -1,60 +1,40 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv3 net-next 0/7] pktgen IPsec support
-Date: Sun, 15 Dec 2013 15:57:57 +0800
-Message-ID: <1387094284-2901-1-git-send-email-fan.du@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <steffen.klassert@secunet.com>, <hadi@cyberus.ca>,
-	<netdev@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:57163 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754052Ab3LOH7B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 02:59:01 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms+renesas@verge.net.au>
+Subject: [PATCH RFC 0/3] Add ethernet support for r7s72100
+Date: Sun, 15 Dec 2013 17:24:43 +0900
+Message-ID: <1387095886-15163-1-git-send-email-horms+renesas@verge.net.au>
+Cc: Magnus Damm <magnus.damm@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Simon Horman <horms+renesas@verge.net.au>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi, Dave
+Hi,
 
-Current pktgen IPsec supports only transport/ESP combinnation,
-This patchset enables user to do almost any IPsec transformation,
-both transport/tunnel mode, and AH/ESP/IPcomp type.
+this is a first pass at adding ethernet support to sh-pfc for
+the r7s72100 SoC.
 
-Below configuration has been tested, and using Wireshark could decrypt
-out plain text in good formation without any checksum/auth errors:
+It has been written with reference to the hardware documentation
+but not well tested.
 
-Mode/TYPE   AH  ESP 
-Transport   x   x   
-Tunnel      x   x   
+This series is based on the topic/r7s72100-v3.13-rc3-20131214v2
+tag in my renesas tree.
 
-ChangeLog
-v2:
-  Rebase patchset against newest net-next.
-  Patch1: Remove adding rebundant empty line spotted by Sergei.
-  Patch2: Use only one dst pointing into itself to save space.
+The first patch, for the sh_eth driver, applies cleanly to net-next.
 
-v3:
-  Align with David's requirement, that for user depends on orignal
-  a553e4a6317b2cfc7659542c10fe43184ffe53da ("IPSEC support") from
-  Jamal, their testbed configuration will not need to be changed. 
+Simon Horman (3):
+  sh_eth: Add support for r7s72100
+  ARM: shmobile: r7s72100: Add clock for r7s72100-gether
+  ARM: shmobile: genmai: Enable r7s72100-gether
 
-  Adding Patch2/7, Patch3/7 for statistic counting, as well as fixing
-  lock usage issue. 
-
-Fan Du (7):
-  {pktgen, xfrm} Correct xfrm state lock usage when transforming
-  {pktgen, xfrm} Add statistics counting when transforming
-  {pktgen, xfrm} Correct xfrm_state_lock usage in xfrm_stateonly_find
-  {pktgen, xfrm} Using "pgset spi xxx" to spedifiy SA for a given flow
-  {pktgen, xfrm} Construct skb dst for tunnel mode transformation
-  {pktgen, xfrm} Introduce xfrm_state_lookup_byspi for pktgen
-  {pktgen, xfrm} Show spi value properly when ipsec turned on
-
- include/net/xfrm.h    |    2 ++
- net/core/pktgen.c     |   80 ++++++++++++++++++++++++++++++++++++++++---------
- net/xfrm/xfrm_state.c |   26 ++++++++++++++--
- 3 files changed, 92 insertions(+), 16 deletions(-)
+ arch/arm/mach-shmobile/board-genmai.c   | 20 ++++++++++++++++++
+ arch/arm/mach-shmobile/clock-r7s72100.c |  5 ++++-
+ drivers/net/ethernet/renesas/sh_eth.c   | 37 ++++++++++++++++++++++++++++++---
+ drivers/net/ethernet/renesas/sh_eth.h   |  2 +-
+ 4 files changed, 59 insertions(+), 5 deletions(-)
 
 -- 
-1.7.9.5
+1.8.4
+
