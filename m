@@ -1,40 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net 2/2] igb: Fix for issue where values could be too high
- for udelay function.
-Date: Sat, 14 Dec 2013 23:00:20 -0500 (EST)
-Message-ID: <20131214.230020.446173956038919190.davem@davemloft.net>
-References: <1387020406-7964-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1387020406-7964-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v2 5/9] drivers: net: Put prototype declaration for
+ function sbni_probe() in sbni.c
+Date: Sat, 14 Dec 2013 23:01:10 -0500 (EST)
+Message-ID: <20131214.230110.112678868899487000.davem@davemloft.net>
+References: <dd984c99d43214c39b23f95e9a58f3a675147e69.1386911124.git.rashika.kheria@gmail.com>
+	<20131214.222658.766340465002992773.davem@davemloft.net>
+	<20131215034148.GA1573@leaf>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: carolyn.wyborny@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, stable@vger.kernel.org,
-	sunil.k.pandey@intel.com, kevin.b.smith@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53353 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753882Ab3LOEAW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Dec 2013 23:00:22 -0500
-In-Reply-To: <1387020406-7964-2-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: rashika.kheria@gmail.com, linux-kernel@vger.kernel.org,
+	sebastian@breakpoint.cc, sachin.kamat@linaro.org,
+	netdev@vger.kernel.org
+To: josh@joshtriplett.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131215034148.GA1573@leaf>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sat, 14 Dec 2013 03:26:46 -0800
-
-> From: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> 
-> This patch changes the igb_phy_has_link function to check the value of the
-> parameter before deciding to use udelay or mdelay in order to be sure that
-> the value is not too high for udelay function.
-> 
-> CC: stable kernel <stable@vger.kernel.org> # 3.9+
-> Signed-off-by: Sunil K Pandey <sunil.k.pandey@intel.com>
-> Signed-off-by: Kevin B Smith <kevin.b.smith@intel.com>
-> Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-
-Applied.
+RnJvbTogSm9zaCBUcmlwbGV0dCA8am9zaEBqb3NodHJpcGxldHQub3JnPg0KRGF0ZTogU2F0LCAx
+NCBEZWMgMjAxMyAxOTo0MTo0OSAtMDgwMA0KDQo+IE9uIFNhdCwgRGVjIDE0LCAyMDEzIGF0IDEw
+OjI2OjU4UE0gLTA1MDAsIERhdmlkIE1pbGxlciB3cm90ZToNCj4+IEZyb206IFJhc2hpa2EgS2hl
+cmlhIDxyYXNoaWthLmtoZXJpYUBnbWFpbC5jb20+DQo+PiBEYXRlOiBTYXQsIDE0IERlYyAyMDEz
+IDE3OjU1OjQyICswNTMwDQo+PiANCj4+ID4gVGhpcyBwYXRjaCBkZWNsYXJlcyB0aGUgcHJvdG90
+eXBlIGZvciB0aGUgZnVuY3Rpb24gc2JuaV9wcm9iZSgpIGluIGZpbGUgc2JuaS5jLg0KPj4gPiAN
+Cj4+ID4gVGh1cywgaXQgYWxzbyByZW1vdmVzIHRoZSBmb2xsb3dpbmcgd2FybmluZyBpbiB3YW4v
+c2JuaS5jOg0KPj4gPiBkcml2ZXJzL25ldC93YW4vc2JuaS5jOjIyNDoxMjogd2FybmluZzogbm8g
+cHJldmlvdXMgcHJvdG90eXBlIGZvciChc2JuaV9wcm9iZaIgWy1XbWlzc2luZy1wcm90b3R5cGVz
+XQ0KPj4gPiANCj4+ID4gU2lnbmVkLW9mZi1ieTogUmFzaGlrYSBLaGVyaWEgPHJhc2hpa2Eua2hl
+cmlhQGdtYWlsLmNvbT4NCj4+ID4gLS0tDQo+PiA+IA0KPj4gPiBUaGlzIHJldmlzaW9uIGZpeGVz
+IHRoZSBmb2xsb3dpbmcgaXNzdWVzIG9mIHRoZSBwcmV2aW91cyByZXZpc2lvbjoNCj4+ID4gSW5j
+b3JyZWN0IGZpeA0KPj4gPiANCj4+ID4gIGRyaXZlcnMvbmV0L3dhbi9zYm5pLmMgfCAgICAxICsN
+Cj4+ID4gIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKQ0KPj4gPiANCj4+ID4gZGlmZiAt
+LWdpdCBhL2RyaXZlcnMvbmV0L3dhbi9zYm5pLmMgYi9kcml2ZXJzL25ldC93YW4vc2JuaS5jDQo+
+PiA+IGluZGV4IDM4OGRkZjYuLjUwNjFmZmQgMTAwNjQ0DQo+PiA+IC0tLSBhL2RyaXZlcnMvbmV0
+L3dhbi9zYm5pLmMNCj4+ID4gKysrIGIvZHJpdmVycy9uZXQvd2FuL3NibmkuYw0KPj4gPiBAQCAt
+MjIxLDYgKzIyMSw3IEBAIHN0YXRpYyB2b2lkIF9faW5pdCBzYm5pX2RldnNldHVwKHN0cnVjdCBu
+ZXRfZGV2aWNlICpkZXYpDQo+PiA+ICAJZGV2LT5uZXRkZXZfb3BzID0gJnNibmlfbmV0ZGV2X29w
+czsNCj4+ID4gIH0NCj4+ID4gIA0KPj4gPiAraW50IF9faW5pdCBzYm5pX3Byb2JlKGludCB1bml0
+KTsNCj4+ID4gIGludCBfX2luaXQgc2JuaV9wcm9iZShpbnQgdW5pdCkNCj4+IA0KPj4gVGhpcyBp
+cyBub3QgdGhlIGNvcnJlY3Qgd2F5IHRvIGZpeCB0aGlzIGtpbmQgb2Ygd2FybmluZywgYW4gZXhw
+b3J0ZWQNCj4+IGZ1bmN0aW9uIG5lZWRzIHRvIGFwcGVhciBpbiBhIGhlYWRlciBmaWxlIHNvIHRo
+YXQgYm90aCB0aGUgZGVmaW5pdGlvbg0KPj4gYW5kIGFueSBjYWxsZXJzIG9mIHRoaXMgZnVuY3Rp
+b24gd2lsbCBzZWUgdGhlIHNhbWUgZGVjbGFyYXRpb24gaW4gdGhhdA0KPj4gaGVhZGVyIGZpbGUu
+DQo+IA0KPiBJdCBzaG91bGQsIHllczsgaG93ZXZlciwgaW4gdGhpcyBjYXNlLCB0aGUgZnVuY3Rp
+b24gaXMgb25lIG9mIHNldmVyYWwNCj4gZG96ZW4gdGhhdCBhcmUgZGlyZWN0bHkgcHJvdG90eXBl
+ZCBhbmQgdXNlZCBieSBkcml2ZXJzL25ldC9TcGFjZS5jLCBhbmQNCj4gdGhlcmUncyBubyBoZWFk
+ZXIgZmlsZSBwcm90b3R5cGluZyBhbnkgb2YgdGhvc2UgZnVuY3Rpb25zLg0KPiANCj4gRG8geW91
+IGhhdmUgYSBzdWdnZXN0aW9uIGZvciB3aGF0IGhlYWRlciBmaWxlIHNob3VsZCBjb250YWluIGEg
+cHJvdG90eXBlDQo+IGZvciB0aGlzIHByb2JlIGZ1bmN0aW9uPw0KDQpUaGVuIGNyZWF0ZSBhIFNw
+YWNlLmggZm9yIHRoaXMuDQoNCk90aGVyd2lzZSBpZiBzb21ldGhpbmcgYWNjaWRlbnRseSBtYWtl
+cyB0aGUgZnVuY3Rpb24gc2lnbmF0dXJlcyBub3QgbWF0Y2gNCmF0IHRoZSBjYWxsIHNpdGUgdnMu
+IHRoZSBkZWZpbml0aW9uLCBvciB2aWNlIHZlcnNhLCBub3RoaW5nIHdpbGwgY2F0Y2ggaXQuDQo=
