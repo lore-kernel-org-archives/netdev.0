@@ -1,83 +1,79 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 15/15] sfc: Remove unnecessary condition for
- processing the TX timestamp queue
-Date: Sat, 14 Dec 2013 23:07:36 +0000
-Message-ID: <1387062456.12172.73.camel@deadeye.wl.decadent.org.uk>
-References: <1387061852.12172.58.camel@deadeye.wl.decadent.org.uk>
+From: Christian Kujau <lists@nerdbynature.de>
+Subject: Re: 3.13-rc1: eth0 hw csum failure on powerpc (bisected)
+Date: Sat, 14 Dec 2013 16:40:39 -0800 (PST)
+Message-ID: <alpine.DEB.2.11.1312141622230.25690@trent.utfs.org>
+References: <alpine.DEB.2.11.1311300156380.31521@trent.utfs.org>
+ <alpine.DEB.2.11.1311300210360.31521@trent.utfs.org>
+ <alpine.DEB.2.11.1311301314220.31521__48727.6146108799$1385846242$gmane$org@trent.utfs.org>
+ <87vbz9pmud.fsf@igel.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
-	"Richard Cochran" <richardcochran@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17455 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753979Ab3LNXHk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Dec 2013 18:07:40 -0500
-In-Reply-To: <1387061852.12172.58.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+ LKML <linux-kernel@vger.kernel.org>, Alexander Graf <agraf@suse.de>
+To: Andreas Schwab <schwab@linux-m68k.org>, davem@davemloft.net
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <87vbz9pmud.fsf@igel.home>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/ptp.c |   16 ++++------------
- 1 files changed, 4 insertions(+), 12 deletions(-)
+On Sat, 30 Nov 2013 at 23:05, Andreas Schwab wrote:
+> >> > [...]
+> >> >  Freeing unused kernel memory: 204K (c06ea000 - c071d000)
+> >> >  eth0: hw csum failure
+> >> >  CPU: 0 PID: 0 Comm: swapper Not tainted 3.13.0-rc2 #1
+> >> >  Call Trace:
+> >> 
+> >> Btw, full dmesg & .config:  http://nerdbynature.de/bits/3.13-rc1/
+> >
+> > Oh, this has already been reported earlier this week:
+> >
+> > https://lists.ozlabs.org/pipermail/linuxppc-dev/2013-November/113584.html
+> 
+> No solution yet, though, 3.13-rc2 is still broken.
 
-diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
-index 06c6420f40d7..084e2d44790f 100644
---- a/drivers/net/ethernet/sfc/ptp.c
-+++ b/drivers/net/ethernet/sfc/ptp.c
-@@ -890,13 +890,10 @@ static enum ptp_packet_state efx_ptp_match_rx(struct efx_nic *efx,
- /* Process any queued receive events and corresponding packets
-  *
-  * q is returned with all the packets that are ready for delivery.
-- * true is returned if at least one of those packets requires
-- * synchronisation.
-  */
--static bool efx_ptp_process_events(struct efx_nic *efx, struct sk_buff_head *q)
-+static void efx_ptp_process_events(struct efx_nic *efx, struct sk_buff_head *q)
- {
- 	struct efx_ptp_data *ptp = efx->ptp_data;
--	bool rc = false;
- 	struct sk_buff *skb;
- 
- 	while ((skb = skb_dequeue(&ptp->rxq))) {
-@@ -907,7 +904,6 @@ static bool efx_ptp_process_events(struct efx_nic *efx, struct sk_buff_head *q)
- 			__skb_queue_tail(q, skb);
- 		} else if (efx_ptp_match_rx(efx, skb) ==
- 			   PTP_PACKET_STATE_MATCHED) {
--			rc = true;
- 			__skb_queue_tail(q, skb);
- 		} else if (time_after(jiffies, match->expiry)) {
- 			match->state = PTP_PACKET_STATE_TIMED_OUT;
-@@ -921,8 +917,6 @@ static bool efx_ptp_process_events(struct efx_nic *efx, struct sk_buff_head *q)
- 			break;
- 		}
- 	}
--
--	return rc;
- }
- 
- /* Complete processing of a received packet */
-@@ -1088,12 +1082,10 @@ static void efx_ptp_worker(struct work_struct *work)
- 	efx_ptp_drop_time_expired_events(efx);
- 
- 	__skb_queue_head_init(&tempq);
--	if (efx_ptp_process_events(efx, &tempq) ||
--	    !skb_queue_empty(&ptp_data->txq)) {
-+	efx_ptp_process_events(efx, &tempq);
- 
--		while ((skb = skb_dequeue(&ptp_data->txq)))
--			efx_ptp_xmit_skb(efx, skb);
--	}
-+	while ((skb = skb_dequeue(&ptp_data->txq)))
-+		efx_ptp_xmit_skb(efx, skb);
- 
- 	while ((skb = __skb_dequeue(&tempq)))
- 		efx_ptp_process_rx(efx, skb);
+As 3.13-rc3 was still broken, I tried a git-bisect, resulting in:
 
+
+018c5bba052b3a383d83cf0c756da0e7bc748397 is the first bad commit
+commit 018c5bba052b3a383d83cf0c756da0e7bc748397
+Author: David S. Miller <davem@davemloft.net>
+Date:   Fri Nov 15 21:11:16 2013 -0500
+
+    net: Handle CHECKSUM_COMPLETE more adequately in pskb_trim_rcsum().
+    
+    Currently pskb_trim_rcsum() just balks on CHECKSUM_COMPLETE packets
+    and remarks them as CHECKSUM_NONE, forcing a software checksum
+    validation later.
+    
+    We have all of the mechanics available to fixup the skb->csum value,
+    even for complicated fragmented packets, via the helpers
+    skb_checksum() and csum_sub().
+    
+    So just use them.
+    
+    Based upon a suggestion by Herbert Xu.
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+:040000 040000 14e295c30c2d2a1164f4eb70aaec821fbe288c01 456c666ebbb355292b683c71c85585fc6d07e852 M      include
+
+
+And sure enough, today's 3.13-rc3 with only that commit reverted boots 
+just fine on this PowerBook G4 system.
+
+Thanks,
+Christian
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+BOFH excuse #152:
+
+My pony-tail hit the on/off switch on the power strip.
