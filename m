@@ -1,62 +1,133 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCHv3 net-next 6/7] {pktgen, xfrm} Introduce xfrm_state_lookup_byspi
- for pktgen
-Date: Sun, 15 Dec 2013 23:42:38 +0300
-Message-ID: <52AE143E.3020807@cogentembedded.com>
-References: <1387094284-2901-1-git-send-email-fan.du@windriver.com> <1387094284-2901-7-git-send-email-fan.du@windriver.com>
+From: Rashika Kheria <rashika.kheria@gmail.com>
+Subject: =?UTF-8?q?=5BPATCH=5D=20drivers=3A=20ptp=3A=20Include=20new=20header=20file=20in=20ptp=5Fpch=2Ec?=
+Date: Mon, 16 Dec 2013 02:14:15 +0530
+Message-ID: <1387140255-11797-1-git-send-email-rashika.kheria@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, hadi@cyberus.ca,
-	netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:63667 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751631Ab3LOTmk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 14:42:40 -0500
-Received: by mail-la0-f42.google.com with SMTP id ec20so2362487lab.15
-        for <netdev@vger.kernel.org>; Sun, 15 Dec 2013 11:42:38 -0800 (PST)
-In-Reply-To: <1387094284-2901-7-git-send-email-fan.du@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: linux-kernel@vger.kernel.org,
+	Richard Cochran <richardcochran@gmail.com>,
+	Darren Hart <dvhart@linux.intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Joe Perches <joe@perches.com>,
+	Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+	Veaceslav Falico <vfalico@redhat.com>, netdev@vger.kernel.org,
+	josh@joshtriplett.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+Create a new header file include/linux/ptp_pch.h which contains
+prototype declaration of functions pch_ch_control_read(),
+pch_ch_control_write(), pch_ch_event_read(), pch_ch_event_write(),
+pch_src_uuid_lo_read(), pch_src_uuid_hi_read(), pch_rx_snap_read(),
+pch_tx_snap_read() and pch_set_station_address().
 
-On 12/15/2013 10:58 AM, Fan Du wrote:
+Include the new header file in drivers/ptp/ptp_pch.c and
+drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c because they
+use these functions. Remove these functions prototypes from header
+file drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h.
 
-> Introduce xfrm_state_lookup_byspi to find user specified by custom
-> from "pgset spi xxx". Using this scheme, any flow regardless its
-> saddr/daddr could be transform by SA specified with configurable
-> spi.
+This eliminates the following warnings in ptp_pch.c:
 
-> Signed-off-by: Fan Du <fan.du@windriver.com>
-[...]
+drivers/ptp/ptp_pch.c:194:5: warning: no previous prototype for =E2=80=98=
+pch_ch_control_read=E2=80=99 [-Wmissing-prototypes]
+drivers/ptp/ptp_pch.c:205:6: warning: no previous prototype for =E2=80=98=
+pch_ch_control_write=E2=80=99 [-Wmissing-prototypes]
+drivers/ptp/ptp_pch.c:213:5: warning: no previous prototype for =E2=80=98=
+pch_ch_event_read=E2=80=99 [-Wmissing-prototypes]
+drivers/ptp/ptp_pch.c:224:6: warning: no previous prototype for =E2=80=98=
+pch_ch_event_write=E2=80=99 [-Wmissing-prototypes]
+drivers/ptp/ptp_pch.c:232:5: warning: no previous prototype for =E2=80=98=
+pch_src_uuid_lo_read=E2=80=99 [-Wmissing-prototypes]
+drivers/ptp/ptp_pch.c:243:5: warning: no previous prototype for =E2=80=98=
+pch_src_uuid_hi_read=E2=80=99 [-Wmissing-prototypes]
+drivers/ptp/ptp_pch.c:254:5: warning: no previous prototype for =E2=80=98=
+pch_rx_snap_read=E2=80=99 [-Wmissing-prototypes]
+drivers/ptp/ptp_pch.c:271:5: warning: no previous prototype for =E2=80=98=
+pch_tx_snap_read=E2=80=99 [-Wmissing-prototypes]
+drivers/ptp/ptp_pch.c:312:5: warning: no previous prototype for =E2=80=98=
+pch_set_station_address=E2=80=99 [-Wmissing-prototypes]
 
-> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-> index eb70c23..ae268ff 100644
-> --- a/net/core/pktgen.c
-> +++ b/net/core/pktgen.c
-> @@ -2247,13 +2247,21 @@ static void get_ipsec_sa(struct pktgen_dev *pkt_dev, int flow)
->   	struct xfrm_state *x = pkt_dev->flows[flow].x;
->   	struct pktgen_net *pn = net_generic(dev_net(pkt_dev->odev), pg_net_id);
->   	if (!x) {
-> -		/*slow path: we dont already have xfrm_state*/
-> -		x = xfrm_stateonly_find(pn->net, DUMMY_MARK,
-> -					(xfrm_address_t *)&pkt_dev->cur_daddr,
-> -					(xfrm_address_t *)&pkt_dev->cur_saddr,
-> -					AF_INET,
-> -					pkt_dev->ipsmode,
-> -					pkt_dev->ipsproto, 0);
-> +
-> +		if (pkt_dev->spi) {
-> +			/* We need as quick as possible to find the right SA
-> +		 	 * Searching with minimum criteria to archieve this.
-> +		 	 */
-> +			x = xfrm_state_lookup_byspi(pn->net, htonl(pkt_dev->spi), AF_INET);
-> +		} else {
-> +			/*slow path: we dont already have xfrm_state*/
+Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
+---
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |    9 ---------
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |    1 +
+ drivers/ptp/ptp_pch.c                              |    1 +
+ include/linux/ptp_pch.h                            |   16 ++++++++++++=
+++++
+ 4 files changed, 18 insertions(+), 9 deletions(-)
+ create mode 100644 include/linux/ptp_pch.h
 
-    Could you insert spaces after /* and before */, while at it?
-
-WBR, Sergei
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h b/drivers/=
+net/ethernet/oki-semi/pch_gbe/pch_gbe.h
+index 2a900307..79533c8 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
+@@ -666,15 +666,6 @@ void pch_gbe_free_tx_resources(struct pch_gbe_adap=
+ter *adapter,
+ void pch_gbe_free_rx_resources(struct pch_gbe_adapter *adapter,
+ 			       struct pch_gbe_rx_ring *rx_ring);
+ void pch_gbe_update_stats(struct pch_gbe_adapter *adapter);
+-u32 pch_ch_control_read(struct pci_dev *pdev);
+-void pch_ch_control_write(struct pci_dev *pdev, u32 val);
+-u32 pch_ch_event_read(struct pci_dev *pdev);
+-void pch_ch_event_write(struct pci_dev *pdev, u32 val);
+-u32 pch_src_uuid_lo_read(struct pci_dev *pdev);
+-u32 pch_src_uuid_hi_read(struct pci_dev *pdev);
+-u64 pch_rx_snap_read(struct pci_dev *pdev);
+-u64 pch_tx_snap_read(struct pci_dev *pdev);
+-int pch_set_station_address(u8 *addr, struct pci_dev *pdev);
+=20
+ /* pch_gbe_param.c */
+ void pch_gbe_check_options(struct pch_gbe_adapter *adapter);
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/dri=
+vers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index 27ffe0e..03e2c14 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -24,6 +24,7 @@
+ #include <linux/net_tstamp.h>
+ #include <linux/ptp_classify.h>
+ #include <linux/gpio.h>
++#include <linux/ptp_pch.h>
+=20
+ #define DRV_VERSION     "1.01"
+ const char pch_driver_version[] =3D DRV_VERSION;
+diff --git a/drivers/ptp/ptp_pch.c b/drivers/ptp/ptp_pch.c
+index 71a2559..ec5cf7d 100644
+--- a/drivers/ptp/ptp_pch.c
++++ b/drivers/ptp/ptp_pch.c
+@@ -20,6 +20,7 @@
+  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-130=
+7, USA.
+  */
+=20
++#include <linux/ptp_pch.h>
+ #include <linux/device.h>
+ #include <linux/err.h>
+ #include <linux/init.h>
+diff --git a/include/linux/ptp_pch.h b/include/linux/ptp_pch.h
+new file mode 100644
+index 0000000..bd23d53
+--- /dev/null
++++ b/include/linux/ptp_pch.h
+@@ -0,0 +1,16 @@
++#include <linux/types.h>
++#include <linux/pci.h>
++
++/* Function prototype declaration common between
++ * drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c and
++ * drivers/ptp/ptp_pch.c.*/
++
++u32 pch_ch_control_read(struct pci_dev *pdev);
++void pch_ch_control_write(struct pci_dev *pdev, u32 val);
++u32 pch_ch_event_read(struct pci_dev *pdev);
++void pch_ch_event_write(struct pci_dev *pdev, u32 val);
++u32 pch_src_uuid_lo_read(struct pci_dev *pdev);
++u32 pch_src_uuid_hi_read(struct pci_dev *pdev);
++u64 pch_rx_snap_read(struct pci_dev *pdev);
++u64 pch_tx_snap_read(struct pci_dev *pdev);
++int pch_set_station_address(u8 *addr, struct pci_dev *pdev);
+--=20
+1.7.9.5
