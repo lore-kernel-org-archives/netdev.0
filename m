@@ -1,63 +1,71 @@
 From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: [PATCH 4/4] tcp: metrics: Dump info of the source-address in netlink-reply
-Date: Sun, 15 Dec 2013 13:10:44 +0100
-Message-ID: <1387109444-1104-5-git-send-email-christoph.paasch@uclouvain.be>
+Subject: [PATCH 3/4] tcp: metrics: Delete all entries matching a certain destination
+Date: Sun, 15 Dec 2013 13:10:43 +0100
+Message-ID: <1387109444-1104-4-git-send-email-christoph.paasch@uclouvain.be>
 References: <1387109444-1104-1-git-send-email-christoph.paasch@uclouvain.be>
 Cc: David Miller <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	Julian Anastasov <ja@ssi.bg>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:38502 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754443Ab3LOMLM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 07:11:12 -0500
-Received: by mail-ee0-f46.google.com with SMTP id d49so1667181eek.33
-        for <netdev@vger.kernel.org>; Sun, 15 Dec 2013 04:11:11 -0800 (PST)
+Received: from mail-ea0-f173.google.com ([209.85.215.173]:45404 "EHLO
+	mail-ea0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754361Ab3LOMLK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 07:11:10 -0500
+Received: by mail-ea0-f173.google.com with SMTP id o10so1679024eaj.32
+        for <netdev@vger.kernel.org>; Sun, 15 Dec 2013 04:11:09 -0800 (PST)
 In-Reply-To: <1387109444-1104-1-git-send-email-christoph.paasch@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+As we now can have multiple entries per destination-IP, the "ip
+tcp_metrics delete address ADDRESS" command should delete all of them.
+
 Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
 ---
- include/uapi/linux/tcp_metrics.h | 2 ++
- net/ipv4/tcp_metrics.c           | 6 ++++++
- 2 files changed, 8 insertions(+)
+ net/ipv4/tcp_metrics.c | 17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
 
-diff --git a/include/uapi/linux/tcp_metrics.h b/include/uapi/linux/tcp_metrics.h
-index cb5157b55f32..54a37b13f2c4 100644
---- a/include/uapi/linux/tcp_metrics.h
-+++ b/include/uapi/linux/tcp_metrics.h
-@@ -35,6 +35,8 @@ enum {
- 	TCP_METRICS_ATTR_FOPEN_SYN_DROPS,	/* u16, count of drops */
- 	TCP_METRICS_ATTR_FOPEN_SYN_DROP_TS,	/* msecs age */
- 	TCP_METRICS_ATTR_FOPEN_COOKIE,		/* binary */
-+	TCP_METRICS_ATTR_SADDR_IPV4,		/* u32 */
-+	TCP_METRICS_ATTR_SADDR_IPV6,		/* binary */
- 
- 	__TCP_METRICS_ATTR_MAX,
- };
 diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 8d544bb475dc..e150f264c8e2 100644
+index de32aa41a846..8d544bb475dc 100644
 --- a/net/ipv4/tcp_metrics.c
 +++ b/net/ipv4/tcp_metrics.c
-@@ -745,11 +745,17 @@ static int tcp_metrics_fill_info(struct sk_buff *msg,
- 		if (nla_put_be32(msg, TCP_METRICS_ATTR_ADDR_IPV4,
- 				tm->tcpm_daddr.addr.a4) < 0)
- 			goto nla_put_failure;
-+		if (nla_put_be32(msg, TCP_METRICS_ATTR_SADDR_IPV4,
-+				tm->tcpm_saddr.addr.a4) < 0)
-+			goto nla_put_failure;
- 		break;
- 	case AF_INET6:
- 		if (nla_put(msg, TCP_METRICS_ATTR_ADDR_IPV6, 16,
- 			    tm->tcpm_daddr.addr.a6) < 0)
- 			goto nla_put_failure;
-+		if (nla_put(msg, TCP_METRICS_ATTR_SADDR_IPV6, 16,
-+			    tm->tcpm_saddr.addr.a6) < 0)
-+			goto nla_put_failure;
- 		break;
- 	default:
- 		return -EAFNOSUPPORT;
+@@ -976,7 +976,7 @@ static int tcp_metrics_flush_all(struct net *net)
+ static int tcp_metrics_nl_cmd_del(struct sk_buff *skb, struct genl_info *info)
+ {
+ 	struct tcpm_hash_bucket *hb;
+-	struct tcp_metrics_block *tm;
++	struct tcp_metrics_block *tm, *tmlist = NULL;
+ 	struct tcp_metrics_block __rcu **pp;
+ 	struct inetpeer_addr daddr;
+ 	unsigned int hash;
+@@ -993,17 +993,22 @@ static int tcp_metrics_nl_cmd_del(struct sk_buff *skb, struct genl_info *info)
+ 	hb = net->ipv4.tcp_metrics_hash + hash;
+ 	pp = &hb->chain;
+ 	spin_lock_bh(&tcp_metrics_lock);
+-	for (tm = deref_locked_genl(*pp); tm;
+-	     pp = &tm->tcpm_next, tm = deref_locked_genl(*pp)) {
++	for (tm = deref_locked_genl(*pp); tm; tm = deref_locked_genl(*pp)) {
+ 		if (addr_same(&tm->tcpm_daddr, &daddr)) {
+ 			*pp = tm->tcpm_next;
+-			break;
++			tm->tcpm_next = tmlist;
++			tmlist = tm;
++		} else {
++			pp = &tm->tcpm_next;
+ 		}
+ 	}
+ 	spin_unlock_bh(&tcp_metrics_lock);
+-	if (!tm)
++	if (!tmlist)
+ 		return -ESRCH;
+-	kfree_rcu(tm, rcu_head);
++	for (tm = tmlist; tm; tm = tmlist) {
++		tmlist = tm->tcpm_next;
++		kfree_rcu(tm, rcu_head);
++	}
+ 	return 0;
+ }
+ 
 -- 
 1.8.3.2
