@@ -1,31 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Pull request: sfc-next 2013-12-14
-Date: Sat, 14 Dec 2013 22:34:11 -0500 (EST)
-Message-ID: <20131214.223411.1797561253025170369.davem@davemloft.net>
-References: <1387061852.12172.58.camel@deadeye.wl.decadent.org.uk>
+Subject: Re: 3.13-rc1: eth0 hw csum failure on powerpc (bisected)
+Date: Sat, 14 Dec 2013 22:34:53 -0500 (EST)
+Message-ID: <20131214.223453.1858856767733226007.davem@davemloft.net>
+References: <alpine.DEB.2.11.1311301314220.31521__48727.6146108799$1385846242$gmane$org@trent.utfs.org>
+	<87vbz9pmud.fsf@igel.home>
+	<alpine.DEB.2.11.1312141622230.25690@trent.utfs.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	richardcochran@gmail.com
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53273 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753596Ab3LODeN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Dec 2013 22:34:13 -0500
-In-Reply-To: <1387061852.12172.58.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: schwab@linux-m68k.org, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+	agraf@suse.de
+To: lists@nerdbynature.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.11.1312141622230.25690@trent.utfs.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Sat, 14 Dec 2013 22:57:32 +0000
+From: Christian Kujau <lists@nerdbynature.de>
+Date: Sat, 14 Dec 2013 16:40:39 -0800 (PST)
 
->   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
- ...
-> 1. Change PTP clock name to 'sfc'.
-> 2. Complete support for hardware timestamping and PTP clock on the
-> SFC9100 family.
-> 3. Various cleanups for the PTP code.
+> And sure enough, today's 3.13-rc3 with only that commit reverted boots 
+> just fine on this PowerBook G4 system.
 
-Pulled, thanks Ben.
+It's reverted in my 'net' tree, that tree simple hasn't been pushed to
+Linus just yet, please be patient.
