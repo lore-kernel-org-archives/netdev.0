@@ -1,100 +1,65 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] ipvs: avoid oops in nf_ct_seqadj_set when called from
- ip_vs_ftp helper
-Date: Sun, 15 Dec 2013 18:10:42 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1312151709260.6463@ja.home.ssi.bg>
-References: <20131213214023.14478.74738.stgit@dragon>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH net-next] ipv6: fix compiler warning in ipv6_exthdrs_len
+Date: Mon, 16 Dec 2013 00:20:22 +0800
+Message-ID: <CAPshTCj38XqrAMTKnGhw1bdWWrhHbzXpT8FNtDwd6_kJgLoeDg@mail.gmail.com>
+References: <1386824025-27413-1-git-send-email-hkchu@google.com>
+	<20131214062929.GA23563@order.stressinduktion.org>
+	<20131214.020211.969354536190248209.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20131213214023.14478.74738.stgit@dragon>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hannes@stressinduktion.org, Eric Dumazet <edumazet@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qe0-f50.google.com ([209.85.128.50]:53390 "EHLO
+	mail-qe0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751741Ab3LOQUX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 11:20:23 -0500
+Received: by mail-qe0-f50.google.com with SMTP id 1so3159604qec.37
+        for <netdev@vger.kernel.org>; Sun, 15 Dec 2013 08:20:23 -0800 (PST)
+In-Reply-To: <20131214.020211.969354536190248209.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sat, Dec 14, 2013 at 3:02 PM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Sat, 14 Dec 2013 07:29:29 +0100
+>
+>> Commit 299603e8370a93dd5d8e8d800f0dff1ce2c53d36 ("net-gro: Prepare G=
+RO
+>> stack for the upcoming tunneling support") used an uninitialized var=
+iable
+>> which leads to the following compiler warning:
+>>
+>> net/ipv6/ip6_offload.c: In function =91ipv6_gro_complete=92:
+>> net/ipv6/ip6_offload.c:178:24: warning: =91optlen=92 may be used uni=
+nitialized in this function [-Wmaybe-uninitialized]
+>>     opth =3D (void *)opth + optlen;
+>>                         ^
+>> net/ipv6/ip6_offload.c:164:22: note: =91optlen=92 was declared here
+>>   int len =3D 0, proto, optlen;
+>>                       ^
+>> Fix it up.
+>>
+>> Cc: Jerry Chu <hkchu@google.com>
+>> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>
+> Applied.
 
-	Hello,
+Please back out the above "fix" - it actually breaks the original code =
+because
+the fix will cause exthdrs_len to be one optlen short.
 
-On Fri, 13 Dec 2013, Jesper Dangaard Brouer wrote:
+There was no bug in the original code, just the compiler warning (and I=
+ do not
+get any warning, although I admit I did not run with the -W flag).
 
-> The IPVS FTP helper ip_vs_ftp can trigger an OOPS in nf_ct_seqadj_set,
-> after commit 41d73ec053d2 (netfilter: nf_conntrack: make sequence
-> number adjustments usuable without NAT).
-> 
-> We can avoid the oops in nf_ct_seqadj_set() by in ip_vs_ftp_out()
-> instead of calling nf_nat_mangle_tcp_packet() we simply call
-> __nf_nat_mangle_tcp_packet() with a "false" last parameter, which
-> indicate not invoking the seqadj code.
-> 
-> After this fix, I've tested that FTP over IPVS, with module ip_vs_ftp
-> loaded, works for both passive and active FTP.
-> 
-> Fixes: 41d73ec053d2 (netfilter: nf_conntrack: make sequence number adjustments usuable without NAT)
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> 
-> ---
-> I'm uncertain if this is the correct fix.  Perhaps the ip_vs_ftp
-> helper need to allocate/init the seqadj extension instead?
+In any case I will submit a revision shortly that will silent any
+warning if exists.
 
-	I hope I'll save you some time... What do you
-think about such change:
-
-[PATCH net] ipvs: use the new seqadj interface from ip_vs_ftp
-
-diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-index 77c1732..9c2074d 100644
---- a/net/netfilter/ipvs/ip_vs_ftp.c
-+++ b/net/netfilter/ipvs/ip_vs_ftp.c
-@@ -34,6 +34,7 @@
- #include <linux/netfilter.h>
- #include <net/netfilter/nf_conntrack.h>
- #include <net/netfilter/nf_conntrack_expect.h>
-+#include <net/netfilter/nf_conntrack_seqadj.h>
- #include <net/netfilter/nf_nat.h>
- #include <net/netfilter/nf_nat_helper.h>
- #include <linux/gfp.h>
-@@ -260,7 +261,8 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
- 		buf_len = strlen(buf);
- 
- 		ct = nf_ct_get(skb, &ctinfo);
--		if (ct && !nf_ct_is_untracked(ct) && nfct_nat(ct)) {
-+		if (ct && !nf_ct_is_untracked(ct) && nfct_nat(ct) &&
-+		    nfct_seqadj(ct)) {
- 			/* If mangling fails this function will return 0
- 			 * which will cause the packet to be dropped.
- 			 * Mangling can only fail under memory pressure,
-diff --git a/net/netfilter/ipvs/ip_vs_nfct.c b/net/netfilter/ipvs/ip_vs_nfct.c
-index c8beafd..5a355a4 100644
---- a/net/netfilter/ipvs/ip_vs_nfct.c
-+++ b/net/netfilter/ipvs/ip_vs_nfct.c
-@@ -63,6 +63,7 @@
- #include <net/ip_vs.h>
- #include <net/netfilter/nf_conntrack_core.h>
- #include <net/netfilter/nf_conntrack_expect.h>
-+#include <net/netfilter/nf_conntrack_seqadj.h>
- #include <net/netfilter/nf_conntrack_helper.h>
- #include <net/netfilter/nf_conntrack_zones.h>
- 
-@@ -97,6 +98,11 @@ ip_vs_update_conntrack(struct sk_buff *skb, struct ip_vs_conn *cp, int outin)
- 	if (CTINFO2DIR(ctinfo) != IP_CT_DIR_ORIGINAL)
- 		return;
- 
-+	/* Applications may adjust TCP seqs */
-+	if (cp->app && nf_ct_protonum(ct) == IPPROTO_TCP &&
-+	    !nfct_seqadj(ct) && !nfct_seqadj_ext_add(ct))
-+		return;
-+
- 	/*
- 	 * The connection is not yet in the hashtable, so we update it.
- 	 * CIP->VIP will remain the same, so leave the tuple in
--- 
-1.8.4.2
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Jerry
