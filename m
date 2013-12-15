@@ -1,64 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] udp: ipv4: do not use sk_dst_lock from softirq context
-Date: Sun, 15 Dec 2013 10:53:46 -0800
-Message-ID: <1387133626.19078.216.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/8] b44: cheek register instead of PHY address to detect
+ external PHY
+Date: Sun, 15 Dec 2013 23:04:12 +0300
+Message-ID: <52AE0B3C.1040107@cogentembedded.com>
+References: <1387132925-18651-1-git-send-email-hauke@hauke-m.de> <1387132925-18651-2-git-send-email-hauke@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Fengguang Wu <fengguang.wu@intel.com>
-To: David Miller <davem@davemloft.net>
+Cc: zambrano@broadcom.com, netdev@vger.kernel.org
+To: Hauke Mehrtens <hauke@hauke-m.de>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:53434 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751600Ab3LOSxs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 13:53:48 -0500
-Received: by mail-pb0-f42.google.com with SMTP id uo5so4615789pbc.1
-        for <netdev@vger.kernel.org>; Sun, 15 Dec 2013 10:53:47 -0800 (PST)
+Received: from mail-la0-f44.google.com ([209.85.215.44]:39006 "EHLO
+	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751574Ab3LOTEO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 14:04:14 -0500
+Received: by mail-la0-f44.google.com with SMTP id ep20so2378473lab.31
+        for <netdev@vger.kernel.org>; Sun, 15 Dec 2013 11:04:12 -0800 (PST)
+In-Reply-To: <1387132925-18651-2-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Hello.
 
-Using sk_dst_lock from softirq context is not supported right now.
+On 12/15/2013 09:41 PM, Hauke Mehrtens wrote:
 
-Instead of adding BH protection everywhere,
-udp_sk_rx_dst_set() can instead use xchg(), as suggested
-by David.
+    s/cheek/check/ in the subject. :-)
 
-Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-Fixes: 975022310233 ("udp: ipv4: must add synchronization in udp_sk_rx_dst_set()")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/udp.c |   13 ++++---------
- 1 file changed, 4 insertions(+), 9 deletions(-)
+> The Ethernet core supported by b44 supports an internal PHY integrated
+> into the mac core, which is supported by the b44 driver and an external
+> PHY to which the mac core is connected. This external PHY could be a
+> switch connected through MII, which is often the case when this core is
+> used on home routers. The usage of an external PHY was assumed when the
+> PHY address 30 was used and an internal PHY was assumed when the PHY
+> address was different. To verify that b44_phy_reset() was called and
+> checked if it worked, otherwise PHY address 30 was assumed, an external
+> PHY. It is better to check the register which says which PHY is
+> connected to the MAC instead of checking the PHY address.
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 62c19fdd102d..f140048334ce 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1600,20 +1600,15 @@ static void flush_stack(struct sock **stack, unsigned int count,
- }
- 
- /* For TCP sockets, sk_rx_dst is protected by socket lock
-- * For UDP, we use sk_dst_lock to guard against concurrent changes.
-+ * For UDP, we use xchg() to guard against concurrent changes.
-  */
- static void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst)
- {
- 	struct dst_entry *old;
- 
--	spin_lock(&sk->sk_dst_lock);
--	old = sk->sk_rx_dst;
--	if (likely(old != dst)) {
--		dst_hold(dst);
--		sk->sk_rx_dst = dst;
--		dst_release(old);
--	}
--	spin_unlock(&sk->sk_dst_lock);
-+	dst_hold(dst);
-+	old = xchg(&sk->sk_rx_dst, dst);
-+	dst_release(old);
- }
- 
- /*
+> This also changes B44_FLAG_INTERNAL_PHY to B44_FLAG_EXTERNAL_PHY, it is
+> easier to check.
+
+> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+
+WBR, Sergei
