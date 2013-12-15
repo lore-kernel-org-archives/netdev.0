@@ -1,39 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 1/6] net_sched: remove get_stats from
- tc_action_ops
-Date: Sat, 14 Dec 2013 22:26:07 -0500 (EST)
-Message-ID: <20131214.222607.1156830660558607966.davem@davemloft.net>
-References: <52ABC975.2070308@mojatatu.com>
-	<20131214.001529.1872893184686335778.davem@davemloft.net>
-	<52AC4D82.5070505@mojatatu.com>
+Subject: Re: [PATCH v2 5/9] drivers: net: Put prototype declaration for
+ function sbni_probe() in sbni.c
+Date: Sat, 14 Dec 2013 22:26:58 -0500 (EST)
+Message-ID: <20131214.222658.766340465002992773.davem@davemloft.net>
+References: <a610f6ee6bb992b91e43bdc851f3db62fc3decd5.1386911123.git.rashika.kheria@gmail.com>
+	<dd984c99d43214c39b23f95e9a58f3a675147e69.1386911124.git.rashika.kheria@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, David.Laight@aculab.com,
-	netdev@vger.kernel.org
-To: jhs@mojatatu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53202 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753575Ab3LOD0J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Dec 2013 22:26:09 -0500
-In-Reply-To: <52AC4D82.5070505@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: linux-kernel@vger.kernel.org, sebastian@breakpoint.cc,
+	sachin.kamat@linaro.org, netdev@vger.kernel.org,
+	josh@joshtriplett.org
+To: rashika.kheria@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <dd984c99d43214c39b23f95e9a58f3a675147e69.1386911124.git.rashika.kheria@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Sat, 14 Dec 2013 07:22:26 -0500
-
-> On 12/14/13 00:15, David Miller wrote:
-> 
->> It is significantly different.
->>
->> It is an internal kernel interface that was never used.
-> 
-> It is not an internal API, Dave.
-> It an external kernel module API that has been visible for many years.
-
-There are no stable kernel APIs, I'm sorry if this is news to
-you.
-
-Documentation/stable_api_nonsense.txt
+RnJvbTogUmFzaGlrYSBLaGVyaWEgPHJhc2hpa2Eua2hlcmlhQGdtYWlsLmNvbT4NCkRhdGU6IFNh
+dCwgMTQgRGVjIDIwMTMgMTc6NTU6NDIgKzA1MzANCg0KPiBUaGlzIHBhdGNoIGRlY2xhcmVzIHRo
+ZSBwcm90b3R5cGUgZm9yIHRoZSBmdW5jdGlvbiBzYm5pX3Byb2JlKCkgaW4gZmlsZSBzYm5pLmMu
+DQo+IA0KPiBUaHVzLCBpdCBhbHNvIHJlbW92ZXMgdGhlIGZvbGxvd2luZyB3YXJuaW5nIGluIHdh
+bi9zYm5pLmM6DQo+IGRyaXZlcnMvbmV0L3dhbi9zYm5pLmM6MjI0OjEyOiB3YXJuaW5nOiBubyBw
+cmV2aW91cyBwcm90b3R5cGUgZm9yIKFzYm5pX3Byb2JloiBbLVdtaXNzaW5nLXByb3RvdHlwZXNd
+DQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBSYXNoaWthIEtoZXJpYSA8cmFzaGlrYS5raGVyaWFAZ21h
+aWwuY29tPg0KPiAtLS0NCj4gDQo+IFRoaXMgcmV2aXNpb24gZml4ZXMgdGhlIGZvbGxvd2luZyBp
+c3N1ZXMgb2YgdGhlIHByZXZpb3VzIHJldmlzaW9uOg0KPiBJbmNvcnJlY3QgZml4DQo+IA0KPiAg
+ZHJpdmVycy9uZXQvd2FuL3NibmkuYyB8ICAgIDEgKw0KPiAgMSBmaWxlIGNoYW5nZWQsIDEgaW5z
+ZXJ0aW9uKCspDQo+IA0KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvd2FuL3NibmkuYyBiL2Ry
+aXZlcnMvbmV0L3dhbi9zYm5pLmMNCj4gaW5kZXggMzg4ZGRmNi4uNTA2MWZmZCAxMDA2NDQNCj4g
+LS0tIGEvZHJpdmVycy9uZXQvd2FuL3NibmkuYw0KPiArKysgYi9kcml2ZXJzL25ldC93YW4vc2Ju
+aS5jDQo+IEBAIC0yMjEsNiArMjIxLDcgQEAgc3RhdGljIHZvaWQgX19pbml0IHNibmlfZGV2c2V0
+dXAoc3RydWN0IG5ldF9kZXZpY2UgKmRldikNCj4gIAlkZXYtPm5ldGRldl9vcHMgPSAmc2JuaV9u
+ZXRkZXZfb3BzOw0KPiAgfQ0KPiAgDQo+ICtpbnQgX19pbml0IHNibmlfcHJvYmUoaW50IHVuaXQp
+Ow0KPiAgaW50IF9faW5pdCBzYm5pX3Byb2JlKGludCB1bml0KQ0KDQpUaGlzIGlzIG5vdCB0aGUg
+Y29ycmVjdCB3YXkgdG8gZml4IHRoaXMga2luZCBvZiB3YXJuaW5nLCBhbiBleHBvcnRlZA0KZnVu
+Y3Rpb24gbmVlZHMgdG8gYXBwZWFyIGluIGEgaGVhZGVyIGZpbGUgc28gdGhhdCBib3RoIHRoZSBk
+ZWZpbml0aW9uDQphbmQgYW55IGNhbGxlcnMgb2YgdGhpcyBmdW5jdGlvbiB3aWxsIHNlZSB0aGUg
+c2FtZSBkZWNsYXJhdGlvbiBpbiB0aGF0DQpoZWFkZXIgZmlsZS4NCg==
