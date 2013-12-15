@@ -1,260 +1,185 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next] ipv4: introduce ip_dst_mtu_secure and protect forwarding path against pmtu spoofing
-Date: Sun, 15 Dec 2013 03:23:36 +0100
-Message-ID: <20131215022336.GA27866@order.stressinduktion.org>
+Subject: [PATCH net-next] ipv6: support IPV6_PMTU_INTERFACE on sockets
+Date: Sun, 15 Dec 2013 03:41:14 +0100
+Message-ID: <20131215024114.GA1442@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: eric.dumazet@gmail.com, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:56224 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:56242 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753563Ab3LOCXi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Dec 2013 21:23:38 -0500
+	with ESMTP id S1753460Ab3LOClP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Dec 2013 21:41:15 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While forwarding we should not use the protocol path mtu to calculate
-the mtu for a forwarded packet but instead use the interface mtu.
+IPV6_PMTU_INTERFACE is the same as IPV6_PMTU_PROBE for ipv6. Add it
+nontheless for symmetry with IPv4 sockets. Also drop incoming MTU
+information if this mode is enabled.
 
-We mark forwarded skbs in ip_forward with IPSKB_FORWARDED which was
-introduced for multicast forwarding. But as it does not conflict with
-our usage in unicast code path it is perfect for reuse.
+The additional bit in ipv6_pinfo just eats in the padding behind the
+bitfield. There are no changes to the layout of the struct at all.
 
-I moved the functions ip_sk_accept_pmtu, ip_sk_use_pmtu and ip_skb_dst_mtu
-along with the new ip_dst_mtu_secure to net/ip.h to fix circular
-dependencies because of IPSKB_FORWARDED.
-
-Because someone might have written a software which does probe
-destinations manually and expects the kernel to honour those path mtus
-I introduced a new per-namespace "forwarding_uses_pmtu" knob so someone
-can disable this new behaviour. We also use mtus which are locked on a
-route for forwarding.
-
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: David Miller <davem@davemloft.net>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- Documentation/networking/ip-sysctl.txt | 12 ++++++++++++
- include/net/ip.h                       | 32 ++++++++++++++++++++++++++++++++
- include/net/netns/ipv4.h               |  1 +
- include/net/route.h                    | 19 +++----------------
- net/ipv4/ip_forward.c                  |  7 +++++--
- net/ipv4/ip_output.c                   |  8 +++++---
- net/ipv4/route.c                       |  3 ---
- net/ipv4/sysctl_net_ipv4.c             |  7 +++++++
- 8 files changed, 65 insertions(+), 24 deletions(-)
+ include/linux/ipv6.h     | 2 +-
+ include/net/ip6_route.h  | 7 ++++++-
+ include/uapi/linux/in6.h | 4 ++++
+ net/dccp/ipv6.c          | 3 +++
+ net/ipv6/ip6_output.c    | 6 +++---
+ net/ipv6/ipv6_sockglue.c | 2 +-
+ net/ipv6/tcp_ipv6.c      | 3 +++
+ net/ipv6/udp.c           | 5 ++++-
+ net/sctp/input.c         | 3 +++
+ 9 files changed, 28 insertions(+), 7 deletions(-)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index d71afa8..6ccc3bd 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -32,6 +32,18 @@ ip_no_pmtu_disc - INTEGER
- min_pmtu - INTEGER
- 	default 552 - minimum discovered Path MTU
- 
-+forwarding_uses_pmtu - BOOLEAN
-+	By default we don't trust protocol path mtus while forwarding
-+	because they could be easily forged and can lead to unwanted
-+	fragmentation by the router. If you have software which tries
-+	to discover path mtus by itself and depend on the kernel
-+	honouring this information you can enable the kernel to do so
-+	with this knob.
-+	Default: 0 (disabled)
-+	Possible values:
-+	0 - disabled
-+	1 - enabled
-+
- route/max_size - INTEGER
- 	Maximum number of routes allowed in the kernel.  Increase
- 	this when using large numbers of interfaces and/or routes.
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 5356644..58fbedc 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -263,6 +263,38 @@ int ip_dont_fragment(struct sock *sk, struct dst_entry *dst)
- 		 !(dst_metric_locked(dst, RTAX_MTU)));
- }
- 
-+static inline bool ip_sk_accept_pmtu(const struct sock *sk)
-+{
-+	return inet_sk(sk)->pmtudisc != IP_PMTUDISC_INTERFACE;
-+}
-+
-+static inline bool ip_sk_use_pmtu(const struct sock *sk)
-+{
-+	return inet_sk(sk)->pmtudisc < IP_PMTUDISC_PROBE;
-+}
-+static inline unsigned int ip_dst_mtu_secure(const struct dst_entry *dst,
-+					     bool forwarding)
-+{
-+	struct net *net = dev_net(dst->dev);
-+
-+	if (net->ipv4.sysctl_ip_fwd_use_pmtu ||
-+	    dst_metric_locked(dst, RTAX_MTU) ||
-+	    !forwarding)
-+		return dst_mtu(dst);
-+
-+	return min(dst->dev->mtu, IP_MAX_MTU);
-+}
-+
-+static inline unsigned int ip_skb_dst_mtu(const struct sk_buff *skb)
-+{
-+	if (!skb->sk || ip_sk_use_pmtu(skb->sk)) {
-+		bool forwarding = !!(IPCB(skb)->flags & IPSKB_FORWARDED);
-+		return ip_dst_mtu_secure(skb_dst(skb), forwarding);
-+	} else {
-+		return min(skb_dst(skb)->dev->mtu, IP_MAX_MTU);
-+	}
-+}
-+
- void __ip_select_ident(struct iphdr *iph, struct dst_entry *dst, int more);
- 
- static inline void ip_select_ident(struct sk_buff *skb, struct dst_entry *dst, struct sock *sk)
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 929a668..80f500a 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -70,6 +70,7 @@ struct netns_ipv4 {
- 
- 	int sysctl_tcp_ecn;
- 	int sysctl_ip_no_pmtu_disc;
-+	int sysctl_ip_fwd_use_pmtu;
- 
- 	kgid_t sysctl_ping_group_range[2];
- 
-diff --git a/include/net/route.h b/include/net/route.h
-index f68c167..0d4c9da 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -36,6 +36,9 @@
- #include <linux/cache.h>
- #include <linux/security.h>
- 
-+/* IPv4 datagram length is stored into 16bit field (tot_len) */
-+#define IP_MAX_MTU	0xFFFFU
-+
- #define RTO_ONLINK	0x01
- 
- #define RT_CONN_FLAGS(sk)   (RT_TOS(inet_sk(sk)->tos) | sock_flag(sk, SOCK_LOCALROUTE))
-@@ -313,20 +316,4 @@ static inline int ip4_dst_hoplimit(const struct dst_entry *dst)
- 	return hoplimit;
- }
- 
--static inline bool ip_sk_accept_pmtu(const struct sock *sk)
--{
--	return inet_sk(sk)->pmtudisc != IP_PMTUDISC_INTERFACE;
--}
--
--static inline bool ip_sk_use_pmtu(const struct sock *sk)
--{
--	return inet_sk(sk)->pmtudisc < IP_PMTUDISC_PROBE;
--}
--
--static inline int ip_skb_dst_mtu(const struct sk_buff *skb)
--{
--	return (!skb->sk || ip_sk_use_pmtu(skb->sk)) ?
--	       dst_mtu(skb_dst(skb)) : skb_dst(skb)->dev->mtu;
--}
--
- #endif	/* _ROUTE_H */
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 694de3b..66d027f 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -54,6 +54,7 @@ static int ip_forward_finish(struct sk_buff *skb)
- 
- int ip_forward(struct sk_buff *skb)
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 3fde066..7e1ded0 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -191,7 +191,7 @@ struct ipv6_pinfo {
+ 	/* sockopt flags */
+ 	__u16			recverr:1,
+ 	                        sndflow:1,
+-				pmtudisc:2,
++				pmtudisc:3,
+ 				ipv6only:1,
+ 				srcprefs:3,	/* 001: prefer temporary address
+ 						 * 010: prefer public address
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index 733747c..c2626ce 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -178,10 +178,15 @@ static inline int ip6_skb_dst_mtu(struct sk_buff *skb)
  {
-+	u32 mtu;
- 	struct iphdr *iph;	/* Our header */
- 	struct rtable *rt;	/* Route we use */
- 	struct ip_options *opt	= &(IPCB(skb)->opt);
-@@ -88,11 +89,13 @@ int ip_forward(struct sk_buff *skb)
- 	if (opt->is_strictroute && rt->rt_uses_gateway)
- 		goto sr_failed;
+ 	struct ipv6_pinfo *np = skb->sk ? inet6_sk(skb->sk) : NULL;
  
--	if (unlikely(skb->len > dst_mtu(&rt->dst) && !skb_is_gso(skb) &&
-+	IPCB(skb)->flags |= IPSKB_FORWARDED;
-+	mtu = ip_dst_mtu_secure(&rt->dst, true);
-+	if (unlikely(skb->len > mtu && !skb_is_gso(skb) &&
- 		     (ip_hdr(skb)->frag_off & htons(IP_DF))) && !skb->local_df) {
- 		IP_INC_STATS(dev_net(rt->dst.dev), IPSTATS_MIB_FRAGFAILS);
- 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
--			  htonl(dst_mtu(&rt->dst)));
-+			  htonl(mtu));
- 		goto drop;
- 	}
+-	return (np && np->pmtudisc == IPV6_PMTUDISC_PROBE) ?
++	return (np && np->pmtudisc >= IPV6_PMTUDISC_PROBE) ?
+ 	       skb_dst(skb)->dev->mtu : dst_mtu(skb_dst(skb));
+ }
  
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 9124027..180de0d 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -449,6 +449,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- 	__be16 not_last_frag;
- 	struct rtable *rt = skb_rtable(skb);
- 	int err = 0;
-+	bool forwarding = !!(IPCB(skb)->flags & IPSKB_FORWARDED);
++static inline bool ip6_sk_accept_pmtu(const struct sock *sk)
++{
++	return inet6_sk(sk)->pmtudisc != IPV6_PMTUDISC_INTERFACE;
++}
++
+ static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt)
+ {
+ 	return &rt->rt6i_gateway;
+diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
+index 440d5c4..f94f1d0 100644
+--- a/include/uapi/linux/in6.h
++++ b/include/uapi/linux/in6.h
+@@ -188,6 +188,10 @@ enum {
+ #define IPV6_PMTUDISC_WANT		1
+ #define IPV6_PMTUDISC_DO		2
+ #define IPV6_PMTUDISC_PROBE		3
++/* same as IPV6_PMTUDISC_PROBE, provided for symetry with IPv4
++ * also see comments on IP_PMTUDISC_INTERFACE
++ */
++#define IPV6_PMTUDISC_INTERFACE		4
  
- 	dev = rt->dst.dev;
+ /* Flowlabel */
+ #define IPV6_FLOWLABEL_MGR	32
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index 4ac71ff..b5ad684 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -141,6 +141,9 @@ static void dccp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 	if (type == ICMPV6_PKT_TOOBIG) {
+ 		struct dst_entry *dst = NULL;
  
-@@ -458,12 +459,13 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
++		if (!ip6_sk_accept_pmtu(sk))
++			goto out;
++
+ 		if (sock_owned_by_user(sk))
+ 			goto out;
+ 		if ((1 << sk->sk_state) & (DCCPF_LISTEN | DCCPF_CLOSED))
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 9a311cc..bc4e1bc 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1165,10 +1165,10 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
+ 		np->cork.hop_limit = hlimit;
+ 		np->cork.tclass = tclass;
+ 		if (rt->dst.flags & DST_XFRM_TUNNEL)
+-			mtu = np->pmtudisc == IPV6_PMTUDISC_PROBE ?
++			mtu = np->pmtudisc >= IPV6_PMTUDISC_PROBE ?
+ 			      rt->dst.dev->mtu : dst_mtu(&rt->dst);
+ 		else
+-			mtu = np->pmtudisc == IPV6_PMTUDISC_PROBE ?
++			mtu = np->pmtudisc >= IPV6_PMTUDISC_PROBE ?
+ 			      rt->dst.dev->mtu : dst_mtu(rt->dst.path);
+ 		if (np->frag_size < mtu) {
+ 			if (np->frag_size)
+@@ -1270,7 +1270,7 @@ alloc_new_skb:
+ 			if (skb == NULL || skb_prev == NULL)
+ 				ip6_append_data_mtu(&mtu, &maxfraglen,
+ 						    fragheaderlen, skb, rt,
+-						    np->pmtudisc ==
++						    np->pmtudisc >=
+ 						    IPV6_PMTUDISC_PROBE);
  
- 	iph = ip_hdr(skb);
+ 			skb_prev = skb;
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index 759fbf9..af0ecb9 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -722,7 +722,7 @@ done:
+ 	case IPV6_MTU_DISCOVER:
+ 		if (optlen < sizeof(int))
+ 			goto e_inval;
+-		if (val < IP_PMTUDISC_DONT || val > IP_PMTUDISC_PROBE)
++		if (val < IPV6_PMTUDISC_DONT || val > IPV6_PMTUDISC_INTERFACE)
+ 			goto e_inval;
+ 		np->pmtudisc = val;
+ 		retv = 0;
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index bd91e7f..f20eab3 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -398,6 +398,9 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 		if (sk->sk_state == TCP_LISTEN)
+ 			goto out;
  
-+	mtu = ip_dst_mtu_secure(&rt->dst, forwarding);
- 	if (unlikely(((iph->frag_off & htons(IP_DF)) && !skb->local_df) ||
- 		     (IPCB(skb)->frag_max_size &&
--		      IPCB(skb)->frag_max_size > dst_mtu(&rt->dst)))) {
-+		      IPCB(skb)->frag_max_size > mtu))) {
- 		IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
- 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
--			  htonl(ip_skb_dst_mtu(skb)));
-+			  htonl(mtu));
- 		kfree_skb(skb);
- 		return -EMSGSIZE;
- 	}
-@@ -473,7 +475,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- 	 */
++		if (!ip6_sk_accept_pmtu(sk))
++			goto out;
++
+ 		tp->mtu_info = ntohl(info);
+ 		if (!sock_owned_by_user(sk))
+ 			tcp_v6_mtu_reduced(sk);
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index bcd5699..ce3e7bc 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -538,8 +538,11 @@ void __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 	if (sk == NULL)
+ 		return;
  
- 	hlen = iph->ihl * 4;
--	mtu = dst_mtu(&rt->dst) - hlen;	/* Size of data space */
-+	mtu = mtu - hlen;	/* Size of data space */
- #ifdef CONFIG_BRIDGE_NETFILTER
- 	if (skb->nf_bridge)
- 		mtu -= nf_bridge_mtu_reduction(skb);
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index f8da282..25071b4 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -112,9 +112,6 @@
- #define RT_FL_TOS(oldflp4) \
- 	((oldflp4)->flowi4_tos & (IPTOS_RT_MASK | RTO_ONLINK))
+-	if (type == ICMPV6_PKT_TOOBIG)
++	if (type == ICMPV6_PKT_TOOBIG) {
++		if (!ip6_sk_accept_pmtu(sk))
++			goto out;
+ 		ip6_sk_update_pmtu(skb, sk, info);
++	}
+ 	if (type == NDISC_REDIRECT) {
+ 		ip6_sk_redirect(skb, sk);
+ 		goto out;
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index 2a192a7..042ec6c 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -389,6 +389,9 @@ void sctp_icmp_frag_needed(struct sock *sk, struct sctp_association *asoc,
+ 	if (!t || (t->pathmtu <= pmtu))
+ 		return;
  
--/* IPv4 datagram length is stored into 16bit field (tot_len) */
--#define IP_MAX_MTU	0xFFFF
--
- #define RT_GC_TIMEOUT (300*HZ)
- 
- static int ip_rt_max_size;
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index d7b63a6..56cc374 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -831,6 +831,13 @@ static struct ctl_table ipv4_net_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
-+	{
-+		.procname	= "forwarding_uses_pmtu",
-+		.data		= &init_net.ipv4.sysctl_ip_fwd_use_pmtu,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
- 	{ }
- };
- 
++	if (!ip6_sk_accept_pmtu(sk))
++		return;
++
+ 	if (sock_owned_by_user(sk)) {
+ 		asoc->pmtu_pending = 1;
+ 		t->pmtu_pending = 1;
 -- 
 1.8.3.1
