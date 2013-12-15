@@ -1,76 +1,51 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: __udp4_lib_rcv: inconsistent {SOFTIRQ-ON-W} -> {IN-SOFTIRQ-W}
- usage.
-Date: Sun, 15 Dec 2013 09:49:59 -0800
-Message-ID: <1387129799.19078.197.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20131215063925.GC26348@localhost>
+Subject: Re: [PATCH] udp: ipv4: must add synchronization in
+ udp_sk_rx_dst_set()
+Date: Sun, 15 Dec 2013 10:30:04 -0800
+Message-ID: <1387132204.19078.199.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1386727643.30495.363.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1386778205.30495.374.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1386802011.19078.4.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131211.202212.1810247707228138095.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Fengguang Wu <fengguang.wu@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131215063925.GC26348@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: sbohrer@rgmadvisors.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:55493 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751717Ab3LOSaH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 13:30:07 -0500
+Received: by mail-pb0-f50.google.com with SMTP id rr13so4537854pbb.23
+        for <netdev@vger.kernel.org>; Sun, 15 Dec 2013 10:30:06 -0800 (PST)
+In-Reply-To: <20131211.202212.1810247707228138095.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-12-15 at 14:39 +0800, Fengguang Wu wrote:
-> Greetings,
+On Wed, 2013-12-11 at 20:22 -0500, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 11 Dec 2013 14:46:51 -0800
 > 
-> I got the below dmesg and the first bad commit is
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > Unlike TCP, UDP input path does not hold the socket lock.
+> > 
+> > Before messing with sk->sk_rx_dst, we must use a spinlock, otherwise
+> > multiple cpus could leak a refcount.
+> > 
+> > This patch also takes care of renewing a stale dst entry.
+> > (When the sk->sk_rx_dst would not be used by IP early demux)
+> > 
+> > Fixes: 421b3885bf6d ("udp: ipv4: Add udp early demux")
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
 > 
-> commit 975022310233fb0f0193873d79a7b8438070fa82
-> Author:     Eric Dumazet <edumazet@google.com>
-> AuthorDate: Wed Dec 11 14:46:51 2013 -0800
-> Commit:     David S. Miller <davem@davemloft.net>
-> CommitDate: Wed Dec 11 20:21:10 2013 -0500
+> Applied.
 > 
->     udp: ipv4: must add synchronization in udp_sk_rx_dst_set()
->     
->     Unlike TCP, UDP input path does not hold the socket lock.
->     
->     Before messing with sk->sk_rx_dst, we must use a spinlock, otherwise
->     multiple cpus could leak a refcount.
->     
->     This patch also takes care of renewing a stale dst entry.
->     (When the sk->sk_rx_dst would not be used by IP early demux)
->     
->     Fixes: 421b3885bf6d ("udp: ipv4: Add udp early demux")
->     Signed-off-by: Eric Dumazet <edumazet@google.com>
->     Cc: Shawn Bohrer <sbohrer@rgmadvisors.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> +----------------------------------------------+----+
-> |                                              |    |
-> +----------------------------------------------+----+
-> | boot_successes                               | 0  |
-> | boot_failures                                | 19 |
-> | inconsistent_SOFTIRQ-ON-W-IN-SOFTIRQ-W_usage | 19 |
-> +----------------------------------------------+----+
-> 
-> [   23.564204] [ INFO: inconsistent lock state ]
-> [   23.564204] 3.13.0-rc3-00689-gb1daf37 #892 Not tainted
-> [   23.564204] ---------------------------------
-> [   23.564204] inconsistent {SOFTIRQ-ON-W} -> {IN-SOFTIRQ-W} usage.
-> [   23.564204] swapper/0/0 [HC0[0]:SC1[1]:HE1:SE0] takes:
-> [   23.564204]  (&(&sk->sk_dst_lock)->rlock){+.?...}, at: [<ffffffff81a27fe2>] __udp4_lib_rcv+0x569/0x79d
-> [   23.564204] {SOFTIRQ-ON-W} state was registered at:
-> [   23.564204]   [<ffffffff810b16b7>] __lock_acquire+0x96c/0x185f
-> [   23.564204]   [<ffffffff810b2c97>] lock_acquire+0xab/0x12e
-> [   23.564204]   [<ffffffff81af12d3>] _raw_spin_lock+0x3b/0x6d
-> [   23.564204]   [<ffffffff81a2f13d>] inet_bind+0x18d/0x1dc
-> [   23.564204]   [<ffffffff8199d62c>] kernel_bind+0x10/0x12
-> [   23.564204]   [<ffffffff81aae764>] xs_bind+0xa0/0x11e
-> [   23.564204]   [<ffffffff81ab0271>] xs_create_sock.isra.14+0x20b/0x230
-> [   23.564204]   [<ffffffff81ab047f>] xs_tcp_setup_socket+0x5f/0x3e5
-> [   23.564204]   [<ffffffff8108a0d7>] process_one_work+0x247/0x443
-> [   23.564204]   [<ffffffff8108aeac>] worker_thread+0x1d2/0x2bc
-> [   23.564204]   [<ffffffff81090228>] kthread+0xf9/0x101
-> [   23.564204]   [<ffffffff81af92fc>] ret_from_fork+0x7c/0xb0
+> Longterm, perhaps a candidate for using xchg() instead of this
+> spinlock?
 
-Oh well, I'll post a fix, thanks !
+Indeed... It appears sk_dst_lock should not be used from BH context
+anyway...
 
-As David suggested, we can use xchg() here anyway, instead of trying to
-share the spinlock for the two inet dst.
+I am sending a fix, thanks.
