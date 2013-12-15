@@ -1,7 +1,7 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv3 net-next 1/7] {pktgen, xfrm} Correct xfrm state lock usage when transforming
-Date: Sun, 15 Dec 2013 15:57:58 +0800
-Message-ID: <1387094284-2901-2-git-send-email-fan.du@windriver.com>
+Subject: [PATCHv3 net-next 3/7] {pktgen, xfrm} Correct xfrm_state_lock usage in xfrm_stateonly_find
+Date: Sun, 15 Dec 2013 15:58:00 +0800
+Message-ID: <1387094284-2901-4-git-send-email-fan.du@windriver.com>
 References: <1387094284-2901-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,132 +9,221 @@ Cc: <steffen.klassert@secunet.com>, <hadi@cyberus.ca>,
 	<netdev@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:57097 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:57096 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751147Ab3LOH64 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 02:58:56 -0500
+	with ESMTP id S1751732Ab3LOH6z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 02:58:55 -0500
 In-Reply-To: <1387094284-2901-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-xfrm_state lock protects its state, i.e., VALID/DEAD and statistics,
-not the transforming procedure, as both mode/type output functions
-are reentrant.
+Acquiring xfrm_state_lock in process context is expected to turn BH off,
+as this lock is also used in BH context, namely xfrm state timer handler.
+Otherwise it surprises LOCKDEP with below messages.
 
-Another issue is state lock can be used in BH context when state timer
-alarmed, after transformation in pktgen, update state statistics acquiring
-state lock should disabled BH context for a moment. Otherwise LOCKDEP
-critisize this:
-
-[   62.354339] pktgen: Packet Generator for packet performance testing. Version: 2.74
-[   62.655444]
-[   62.655448] =================================
-[   62.655451] [ INFO: inconsistent lock state ]
-[   62.655455] 3.13.0-rc2+ #70 Not tainted
-[   62.655457] ---------------------------------
-[   62.655459] inconsistent {IN-SOFTIRQ-W} -> {SOFTIRQ-ON-W} usage.
-[   62.655463] kpktgend_0/2764 [HC0[0]:SC0[0]:HE1:SE1] takes:
-[   62.655466]  (&(&x->lock)->rlock){+.?...}, at: [<ffffffffa00886f6>] pktgen_thread_worker+0x1796/0x1860 [pktgen]
-[   62.655479] {IN-SOFTIRQ-W} state was registered at:
-[   62.655484]   [<ffffffff8109a61d>] __lock_acquire+0x62d/0x1d70
-[   62.655492]   [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
-[   62.655498]   [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
-[   62.655505]   [<ffffffff816dc3a3>] xfrm_timer_handler+0x43/0x290
-[   62.655511]   [<ffffffff81059437>] __tasklet_hrtimer_trampoline+0x17/0x40
-[   62.655519]   [<ffffffff8105a1b7>] tasklet_hi_action+0xd7/0xf0
-[   62.655523]   [<ffffffff81059ac6>] __do_softirq+0xe6/0x2d0
-[   62.655526]   [<ffffffff8105a026>] irq_exit+0x96/0xc0
-[   62.655530]   [<ffffffff8177fd0a>] smp_apic_timer_interrupt+0x4a/0x60
-[   62.655537]   [<ffffffff8177e96f>] apic_timer_interrupt+0x6f/0x80
-[   62.655541]   [<ffffffff8100b7c6>] arch_cpu_idle+0x26/0x30
-[   62.655547]   [<ffffffff810ace28>] cpu_startup_entry+0x88/0x2b0
-[   62.655552]   [<ffffffff81761c3c>] rest_init+0xbc/0xd0
-[   62.655557]   [<ffffffff81ea5e5e>] start_kernel+0x3c4/0x3d1
-[   62.655583]   [<ffffffff81ea55a8>] x86_64_start_reservations+0x2a/0x2c
-[   62.655588]   [<ffffffff81ea569f>] x86_64_start_kernel+0xf5/0xfc
-[   62.655592] irq event stamp: 77
-[   62.655594] hardirqs last  enabled at (77): [<ffffffff810ab7f2>] vprintk_emit+0x1b2/0x520
-[   62.655597] hardirqs last disabled at (76): [<ffffffff810ab684>] vprintk_emit+0x44/0x520
-[   62.655601] softirqs last  enabled at (22): [<ffffffff81059b57>] __do_softirq+0x177/0x2d0
-[   62.655605] softirqs last disabled at (15): [<ffffffff8105a026>] irq_exit+0x96/0xc0
-[   62.655609]
-[   62.655609] other info that might help us debug this:
-[   62.655613]  Possible unsafe locking scenario:
-[   62.655613]
-[   62.655616]        CPU0
-[   62.655617]        ----
-[   62.655618]   lock(&(&x->lock)->rlock);
-[   62.655622]   <Interrupt>
-[   62.655623]     lock(&(&x->lock)->rlock);
-[   62.655626]
-[   62.655626]  *** DEADLOCK ***
-[   62.655626]
-[   62.655629] no locks held by kpktgend_0/2764.
-[   62.655631]
-[   62.655631] stack backtrace:
-[   62.655636] CPU: 0 PID: 2764 Comm: kpktgend_0 Not tainted 3.13.0-rc2+ #70
-[   62.655638] Hardware name: innotek GmbH VirtualBox, BIOS VirtualBox 12/01/2006
-[   62.655642]  ffffffff8216b7b0 ffff88001be43ab8 ffffffff8176af37 0000000000000007
-[   62.655652]  ffff88001c8d4fc0 ffff88001be43b18 ffffffff81766d78 0000000000000000
-[   62.655663]  ffff880000000001 ffff880000000001 ffffffff8101025f ffff88001be43b18
-[   62.655671] Call Trace:
-[   62.655680]  [<ffffffff8176af37>] dump_stack+0x46/0x58
-[   62.655685]  [<ffffffff81766d78>] print_usage_bug+0x1f1/0x202
-[   62.655691]  [<ffffffff8101025f>] ? save_stack_trace+0x2f/0x50
-[   62.655696]  [<ffffffff81099f8c>] mark_lock+0x28c/0x2f0
-[   62.655700]  [<ffffffff810994b0>] ? check_usage_forwards+0x150/0x150
-[   62.655704]  [<ffffffff8109a67a>] __lock_acquire+0x68a/0x1d70
-[   62.655712]  [<ffffffff81115b09>] ? irq_work_queue+0x69/0xb0
-[   62.655717]  [<ffffffff810ab7f2>] ? vprintk_emit+0x1b2/0x520
-[   62.655722]  [<ffffffff8109cec5>] ? trace_hardirqs_on_caller+0x105/0x1d0
-[   62.655730]  [<ffffffffa00886f6>] ? pktgen_thread_worker+0x1796/0x1860 [pktgen]
-[   62.655734]  [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
-[   62.655741]  [<ffffffffa00886f6>] ? pktgen_thread_worker+0x1796/0x1860 [pktgen]
-[   62.655745]  [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
-[   62.655752]  [<ffffffffa00886f6>] ? pktgen_thread_worker+0x1796/0x1860 [pktgen]
-[   62.655758]  [<ffffffffa00886f6>] pktgen_thread_worker+0x1796/0x1860 [pktgen]
-[   62.655766]  [<ffffffffa0087a79>] ? pktgen_thread_worker+0xb19/0x1860 [pktgen]
-[   62.655771]  [<ffffffff8109cf9d>] ? trace_hardirqs_on+0xd/0x10
-[   62.655777]  [<ffffffff81775410>] ? _raw_spin_unlock_irq+0x30/0x40
-[   62.655785]  [<ffffffff8151faa0>] ? e1000_clean+0x9d0/0x9d0
-[   62.655791]  [<ffffffff81094310>] ? __init_waitqueue_head+0x60/0x60
-[   62.655795]  [<ffffffff81094310>] ? __init_waitqueue_head+0x60/0x60
-[   62.655800]  [<ffffffffa0086f60>] ? mod_cur_headers+0x7f0/0x7f0 [pktgen]
-[   62.655806]  [<ffffffff81078f84>] kthread+0xe4/0x100
-[   62.655813]  [<ffffffff81078ea0>] ? flush_kthread_worker+0x170/0x170
-[   62.655819]  [<ffffffff8177dc6c>] ret_from_fork+0x7c/0xb0
-[   62.655824]  [<ffffffff81078ea0>] ? flush_kthread_worker+0x170/0x170
+[   81.422781] pktgen: Packet Generator for packet performance testing. Version: 2.74
+[   81.725194]
+[   81.725211] =========================================================
+[   81.725212] [ INFO: possible irq lock inversion dependency detected ]
+[   81.725215] 3.13.0-rc2+ #92 Not tainted
+[   81.725216] ---------------------------------------------------------
+[   81.725218] kpktgend_0/2780 just changed the state of lock:
+[   81.725220]  (xfrm_state_lock){+.+...}, at: [<ffffffff816dd751>] xfrm_stateonly_find+0x41/0x1f0
+[   81.725231] but this lock was taken by another, SOFTIRQ-safe lock in the past:
+[   81.725232]  (&(&x->lock)->rlock){+.-...}
+[   81.725232]
+[   81.725232] and interrupts could create inverse lock ordering between them.
+[   81.725232]
+[   81.725235]
+[   81.725235] other info that might help us debug this:
+[   81.725237]  Possible interrupt unsafe locking scenario:
+[   81.725237]
+[   81.725238]        CPU0                    CPU1
+[   81.725240]        ----                    ----
+[   81.725241]   lock(xfrm_state_lock);
+[   81.725243]                                local_irq_disable();
+[   81.725244]                                lock(&(&x->lock)->rlock);
+[   81.725246]                                lock(xfrm_state_lock);
+[   81.725248]   <Interrupt>
+[   81.725249]     lock(&(&x->lock)->rlock);
+[   81.725251]
+[   81.725251]  *** DEADLOCK ***
+[   81.725251]
+[   81.725254] no locks held by kpktgend_0/2780.
+[   81.725255]
+[   81.725255] the shortest dependencies between 2nd lock and 1st lock:
+[   81.725269]  -> (&(&x->lock)->rlock){+.-...} ops: 8 {
+[   81.725274]     HARDIRQ-ON-W at:
+[   81.725276]                       [<ffffffff8109a64b>] __lock_acquire+0x65b/0x1d70
+[   81.725282]                       [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
+[   81.725284]                       [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
+[   81.725289]                       [<ffffffff816dc3a3>] xfrm_timer_handler+0x43/0x290
+[   81.725292]                       [<ffffffff81059437>] __tasklet_hrtimer_trampoline+0x17/0x40
+[   81.725300]                       [<ffffffff8105a1b7>] tasklet_hi_action+0xd7/0xf0
+[   81.725303]                       [<ffffffff81059ac6>] __do_softirq+0xe6/0x2d0
+[   81.725305]                       [<ffffffff8105a026>] irq_exit+0x96/0xc0
+[   81.725308]                       [<ffffffff8177fd0a>] smp_apic_timer_interrupt+0x4a/0x60
+[   81.725313]                       [<ffffffff8177e96f>] apic_timer_interrupt+0x6f/0x80
+[   81.725316]                       [<ffffffff8100b7c6>] arch_cpu_idle+0x26/0x30
+[   81.725329]                       [<ffffffff810ace28>] cpu_startup_entry+0x88/0x2b0
+[   81.725333]                       [<ffffffff8102e5b0>] start_secondary+0x190/0x1f0
+[   81.725338]     IN-SOFTIRQ-W at:
+[   81.725340]                       [<ffffffff8109a61d>] __lock_acquire+0x62d/0x1d70
+[   81.725342]                       [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
+[   81.725344]                       [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
+[   81.725347]                       [<ffffffff816dc3a3>] xfrm_timer_handler+0x43/0x290
+[   81.725349]                       [<ffffffff81059437>] __tasklet_hrtimer_trampoline+0x17/0x40
+[   81.725352]                       [<ffffffff8105a1b7>] tasklet_hi_action+0xd7/0xf0
+[   81.725355]                       [<ffffffff81059ac6>] __do_softirq+0xe6/0x2d0
+[   81.725358]                       [<ffffffff8105a026>] irq_exit+0x96/0xc0
+[   81.725360]                       [<ffffffff8177fd0a>] smp_apic_timer_interrupt+0x4a/0x60
+[   81.725363]                       [<ffffffff8177e96f>] apic_timer_interrupt+0x6f/0x80
+[   81.725365]                       [<ffffffff8100b7c6>] arch_cpu_idle+0x26/0x30
+[   81.725368]                       [<ffffffff810ace28>] cpu_startup_entry+0x88/0x2b0
+[   81.725370]                       [<ffffffff8102e5b0>] start_secondary+0x190/0x1f0
+[   81.725373]     INITIAL USE at:
+[   81.725375]                      [<ffffffff8109a31a>] __lock_acquire+0x32a/0x1d70
+[   81.725385]                      [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
+[   81.725388]                      [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
+[   81.725390]                      [<ffffffff816dc3a3>] xfrm_timer_handler+0x43/0x290
+[   81.725394]                      [<ffffffff81059437>] __tasklet_hrtimer_trampoline+0x17/0x40
+[   81.725398]                      [<ffffffff8105a1b7>] tasklet_hi_action+0xd7/0xf0
+[   81.725401]                      [<ffffffff81059ac6>] __do_softirq+0xe6/0x2d0
+[   81.725404]                      [<ffffffff8105a026>] irq_exit+0x96/0xc0
+[   81.725407]                      [<ffffffff8177fd0a>] smp_apic_timer_interrupt+0x4a/0x60
+[   81.725409]                      [<ffffffff8177e96f>] apic_timer_interrupt+0x6f/0x80
+[   81.725412]                      [<ffffffff8100b7c6>] arch_cpu_idle+0x26/0x30
+[   81.725415]                      [<ffffffff810ace28>] cpu_startup_entry+0x88/0x2b0
+[   81.725417]                      [<ffffffff8102e5b0>] start_secondary+0x190/0x1f0
+[   81.725420]   }
+[   81.725421]   ... key      at: [<ffffffff8295b9c8>] __key.46349+0x0/0x8
+[   81.725445]   ... acquired at:
+[   81.725446]    [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
+[   81.725449]    [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
+[   81.725452]    [<ffffffff816dc057>] __xfrm_state_delete+0x37/0x140
+[   81.725454]    [<ffffffff816dc18c>] xfrm_state_delete+0x2c/0x50
+[   81.725456]    [<ffffffff816dc277>] xfrm_state_flush+0xc7/0x1b0
+[   81.725458]    [<ffffffffa005f6cc>] pfkey_flush+0x7c/0x100 [af_key]
+[   81.725465]    [<ffffffffa005efb7>] pfkey_process+0x1c7/0x1f0 [af_key]
+[   81.725468]    [<ffffffffa005f139>] pfkey_sendmsg+0x159/0x260 [af_key]
+[   81.725471]    [<ffffffff8162c16f>] sock_sendmsg+0xaf/0xc0
+[   81.725476]    [<ffffffff8162c99c>] SYSC_sendto+0xfc/0x130
+[   81.725479]    [<ffffffff8162cf3e>] SyS_sendto+0xe/0x10
+[   81.725482]    [<ffffffff8177dd12>] system_call_fastpath+0x16/0x1b
+[   81.725484]
+[   81.725486] -> (xfrm_state_lock){+.+...} ops: 11 {
+[   81.725490]    HARDIRQ-ON-W at:
+[   81.725493]                     [<ffffffff8109a64b>] __lock_acquire+0x65b/0x1d70
+[   81.725504]                     [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
+[   81.725507]                     [<ffffffff81774e4b>] _raw_spin_lock_bh+0x3b/0x70
+[   81.725510]                     [<ffffffff816dc1df>] xfrm_state_flush+0x2f/0x1b0
+[   81.725513]                     [<ffffffffa005f6cc>] pfkey_flush+0x7c/0x100 [af_key]
+[   81.725516]                     [<ffffffffa005efb7>] pfkey_process+0x1c7/0x1f0 [af_key]
+[   81.725519]                     [<ffffffffa005f139>] pfkey_sendmsg+0x159/0x260 [af_key]
+[   81.725522]                     [<ffffffff8162c16f>] sock_sendmsg+0xaf/0xc0
+[   81.725525]                     [<ffffffff8162c99c>] SYSC_sendto+0xfc/0x130
+[   81.725527]                     [<ffffffff8162cf3e>] SyS_sendto+0xe/0x10
+[   81.725530]                     [<ffffffff8177dd12>] system_call_fastpath+0x16/0x1b
+[   81.725533]    SOFTIRQ-ON-W at:
+[   81.725534]                     [<ffffffff8109a67a>] __lock_acquire+0x68a/0x1d70
+[   81.725537]                     [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
+[   81.725539]                     [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
+[   81.725541]                     [<ffffffff816dd751>] xfrm_stateonly_find+0x41/0x1f0
+[   81.725544]                     [<ffffffffa008af03>] mod_cur_headers+0x793/0x7f0 [pktgen]
+[   81.725547]                     [<ffffffffa008bca2>] pktgen_thread_worker+0xd42/0x1880 [pktgen]
+[   81.725550]                     [<ffffffff81078f84>] kthread+0xe4/0x100
+[   81.725555]                     [<ffffffff8177dc6c>] ret_from_fork+0x7c/0xb0
+[   81.725565]    INITIAL USE at:
+[   81.725567]                    [<ffffffff8109a31a>] __lock_acquire+0x32a/0x1d70
+[   81.725569]                    [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
+[   81.725572]                    [<ffffffff81774e4b>] _raw_spin_lock_bh+0x3b/0x70
+[   81.725574]                    [<ffffffff816dc1df>] xfrm_state_flush+0x2f/0x1b0
+[   81.725576]                    [<ffffffffa005f6cc>] pfkey_flush+0x7c/0x100 [af_key]
+[   81.725580]                    [<ffffffffa005efb7>] pfkey_process+0x1c7/0x1f0 [af_key]
+[   81.725583]                    [<ffffffffa005f139>] pfkey_sendmsg+0x159/0x260 [af_key]
+[   81.725586]                    [<ffffffff8162c16f>] sock_sendmsg+0xaf/0xc0
+[   81.725589]                    [<ffffffff8162c99c>] SYSC_sendto+0xfc/0x130
+[   81.725594]                    [<ffffffff8162cf3e>] SyS_sendto+0xe/0x10
+[   81.725597]                    [<ffffffff8177dd12>] system_call_fastpath+0x16/0x1b
+[   81.725599]  }
+[   81.725600]  ... key      at: [<ffffffff81cadef8>] xfrm_state_lock+0x18/0x50
+[   81.725606]  ... acquired at:
+[   81.725607]    [<ffffffff810995c0>] check_usage_backwards+0x110/0x150
+[   81.725609]    [<ffffffff81099e96>] mark_lock+0x196/0x2f0
+[   81.725611]    [<ffffffff8109a67a>] __lock_acquire+0x68a/0x1d70
+[   81.725614]    [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
+[   81.725616]    [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
+[   81.725627]    [<ffffffff816dd751>] xfrm_stateonly_find+0x41/0x1f0
+[   81.725629]    [<ffffffffa008af03>] mod_cur_headers+0x793/0x7f0 [pktgen]
+[   81.725632]    [<ffffffffa008bca2>] pktgen_thread_worker+0xd42/0x1880 [pktgen]
+[   81.725635]    [<ffffffff81078f84>] kthread+0xe4/0x100
+[   81.725637]    [<ffffffff8177dc6c>] ret_from_fork+0x7c/0xb0
+[   81.725640]
+[   81.725641]
+[   81.725641] stack backtrace:
+[   81.725645] CPU: 0 PID: 2780 Comm: kpktgend_0 Not tainted 3.13.0-rc2+ #92
+[   81.725647] Hardware name: innotek GmbH VirtualBox, BIOS VirtualBox 12/01/2006
+[   81.725649]  ffffffff82537b80 ffff880018199988 ffffffff8176af37 0000000000000007
+[   81.725652]  ffff8800181999f0 ffff8800181999d8 ffffffff81099358 ffffffff82537b80
+[   81.725655]  ffffffff81a32def ffff8800181999f4 0000000000000000 ffff880002cbeaa8
+[   81.725659] Call Trace:
+[   81.725664]  [<ffffffff8176af37>] dump_stack+0x46/0x58
+[   81.725667]  [<ffffffff81099358>] print_irq_inversion_bug.part.42+0x1e8/0x1f0
+[   81.725670]  [<ffffffff810995c0>] check_usage_backwards+0x110/0x150
+[   81.725672]  [<ffffffff81099e96>] mark_lock+0x196/0x2f0
+[   81.725675]  [<ffffffff810994b0>] ? check_usage_forwards+0x150/0x150
+[   81.725685]  [<ffffffff8109a67a>] __lock_acquire+0x68a/0x1d70
+[   81.725691]  [<ffffffff810899a5>] ? sched_clock_local+0x25/0x90
+[   81.725694]  [<ffffffff81089b38>] ? sched_clock_cpu+0xa8/0x120
+[   81.725697]  [<ffffffff8109a31a>] ? __lock_acquire+0x32a/0x1d70
+[   81.725699]  [<ffffffff816dd751>] ? xfrm_stateonly_find+0x41/0x1f0
+[   81.725702]  [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
+[   81.725704]  [<ffffffff816dd751>] ? xfrm_stateonly_find+0x41/0x1f0
+[   81.725707]  [<ffffffff810899a5>] ? sched_clock_local+0x25/0x90
+[   81.725710]  [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
+[   81.725712]  [<ffffffff816dd751>] ? xfrm_stateonly_find+0x41/0x1f0
+[   81.725715]  [<ffffffff810971ec>] ? lock_release_holdtime.part.26+0x1c/0x1a0
+[   81.725717]  [<ffffffff816dd751>] xfrm_stateonly_find+0x41/0x1f0
+[   81.725721]  [<ffffffffa008af03>] mod_cur_headers+0x793/0x7f0 [pktgen]
+[   81.725724]  [<ffffffffa008bca2>] pktgen_thread_worker+0xd42/0x1880 [pktgen]
+[   81.725727]  [<ffffffffa008ba71>] ? pktgen_thread_worker+0xb11/0x1880 [pktgen]
+[   81.725729]  [<ffffffff8109cf9d>] ? trace_hardirqs_on+0xd/0x10
+[   81.725733]  [<ffffffff81775410>] ? _raw_spin_unlock_irq+0x30/0x40
+[   81.725745]  [<ffffffff8151faa0>] ? e1000_clean+0x9d0/0x9d0
+[   81.725751]  [<ffffffff81094310>] ? __init_waitqueue_head+0x60/0x60
+[   81.725753]  [<ffffffff81094310>] ? __init_waitqueue_head+0x60/0x60
+[   81.725757]  [<ffffffffa008af60>] ? mod_cur_headers+0x7f0/0x7f0 [pktgen]
+[   81.725759]  [<ffffffff81078f84>] kthread+0xe4/0x100
+[   81.725762]  [<ffffffff81078ea0>] ? flush_kthread_worker+0x170/0x170
+[   81.725765]  [<ffffffff8177dc6c>] ret_from_fork+0x7c/0xb0
+[   81.725768]  [<ffffffff81078ea0>] ? flush_kthread_worker+0x170/0x170
 
 Signed-off-by: Fan Du <fan.du@windriver.com>
 ---
- net/core/pktgen.c |    5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ net/xfrm/xfrm_state.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index a797fff..b007586 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2487,8 +2487,6 @@ static int pktgen_output_ipsec(struct sk_buff *skb, struct pktgen_dev *pkt_dev)
- 	if (x->props.mode != XFRM_MODE_TRANSPORT)
- 		return 0;
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 68c2f35..f7cb4a3 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -900,7 +900,7 @@ xfrm_stateonly_find(struct net *net, u32 mark,
+ 	unsigned int h;
+ 	struct xfrm_state *rx = NULL, *x = NULL;
  
--	spin_lock(&x->lock);
--
- 	err = x->outer_mode->output(x, skb);
- 	if (err)
- 		goto error;
-@@ -2496,10 +2494,11 @@ static int pktgen_output_ipsec(struct sk_buff *skb, struct pktgen_dev *pkt_dev)
- 	if (err)
- 		goto error;
+-	spin_lock(&xfrm_state_lock);
++	spin_lock_bh(&xfrm_state_lock);
+ 	h = xfrm_dst_hash(net, daddr, saddr, reqid, family);
+ 	hlist_for_each_entry(x, net->xfrm.state_bydst+h, bydst) {
+ 		if (x->props.family == family &&
+@@ -918,7 +918,7 @@ xfrm_stateonly_find(struct net *net, u32 mark,
  
-+	spin_lock_bh(&x->lock);
- 	x->curlft.bytes += skb->len;
- 	x->curlft.packets++;
-+	spin_unlock_bh(&x->lock);
- error:
--	spin_unlock(&x->lock);
- 	return err;
- }
+ 	if (rx)
+ 		xfrm_state_hold(rx);
+-	spin_unlock(&xfrm_state_lock);
++	spin_unlock_bh(&xfrm_state_lock);
  
+ 
+ 	return rx;
 -- 
 1.7.9.5
