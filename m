@@ -1,55 +1,64 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net 2/2] igb: Fix for issue where values could be too high for
- udelay function.
-Date: Sun, 15 Dec 2013 22:52:37 +0300
-Message-ID: <52AE0885.4030906@cogentembedded.com>
-References: <1387020406-7964-1-git-send-email-jeffrey.t.kirsher@intel.com> <1387020406-7964-2-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] udp: ipv4: do not use sk_dst_lock from softirq context
+Date: Sun, 15 Dec 2013 10:53:46 -0800
+Message-ID: <1387133626.19078.216.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, stable@vger.kernel.org,
-	sunil.k.pandey@intel.com, kevin.b.smith@intel.com
-To: davem@davemloft.net, Carolyn Wyborny <carolyn.wyborny@intel.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1387020406-7964-2-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Fengguang Wu <fengguang.wu@intel.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f42.google.com ([209.85.160.42]:53434 "EHLO
+	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751600Ab3LOSxs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 13:53:48 -0500
+Received: by mail-pb0-f42.google.com with SMTP id uo5so4615789pbc.1
+        for <netdev@vger.kernel.org>; Sun, 15 Dec 2013 10:53:47 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Eric Dumazet <edumazet@google.com>
 
-On 12/14/2013 02:26 PM, Jeff Kirsher wrote:
+Using sk_dst_lock from softirq context is not supported right now.
 
-> From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Instead of adding BH protection everywhere,
+udp_sk_rx_dst_set() can instead use xchg(), as suggested
+by David.
 
-> This patch changes the igb_phy_has_link function to check the value of the
-> parameter before deciding to use udelay or mdelay in order to be sure that
-> the value is not too high for udelay function.
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Fixes: 975022310233 ("udp: ipv4: must add synchronization in udp_sk_rx_dst_set()")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/udp.c |   13 ++++---------
+ 1 file changed, 4 insertions(+), 9 deletions(-)
 
-> CC: stable kernel <stable@vger.kernel.org> # 3.9+
-> Signed-off-by: Sunil K Pandey <sunil.k.pandey@intel.com>
-> Signed-off-by: Kevin B Smith <kevin.b.smith@intel.com>
-> Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->   drivers/net/ethernet/intel/igb/e1000_phy.c | 5 ++++-
->   1 file changed, 4 insertions(+), 1 deletion(-)
-
-> diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
-> index c4c4fe3..ad2b74d 100644
-> --- a/drivers/net/ethernet/intel/igb/e1000_phy.c
-> +++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
-> @@ -1728,7 +1728,10 @@ s32 igb_phy_has_link(struct e1000_hw *hw, u32 iterations,
->   			 * ownership of the resources, wait and try again to
->   			 * see if they have relinquished the resources yet.
->   			 */
-> -			udelay(usec_interval);
-> +			if (usec_interval >= 1000)
-> +				mdelay(usec_interval/1000);
-
-    There should be spaces around / at least for consistency with the previous 
-line. Also, are you sure it shouldn't be mdelay(DIV_ROUND_UP(usec_interval, 
-1000))?
-
-WBR, Sergei
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 62c19fdd102d..f140048334ce 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1600,20 +1600,15 @@ static void flush_stack(struct sock **stack, unsigned int count,
+ }
+ 
+ /* For TCP sockets, sk_rx_dst is protected by socket lock
+- * For UDP, we use sk_dst_lock to guard against concurrent changes.
++ * For UDP, we use xchg() to guard against concurrent changes.
+  */
+ static void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst)
+ {
+ 	struct dst_entry *old;
+ 
+-	spin_lock(&sk->sk_dst_lock);
+-	old = sk->sk_rx_dst;
+-	if (likely(old != dst)) {
+-		dst_hold(dst);
+-		sk->sk_rx_dst = dst;
+-		dst_release(old);
+-	}
+-	spin_unlock(&sk->sk_dst_lock);
++	dst_hold(dst);
++	old = xchg(&sk->sk_rx_dst, dst);
++	dst_release(old);
+ }
+ 
+ /*
