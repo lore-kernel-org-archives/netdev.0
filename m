@@ -1,59 +1,187 @@
 From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: [PATCH 0/4] Make tcp-metrics source-address aware
-Date: Sun, 15 Dec 2013 13:10:40 +0100
-Message-ID: <1387109444-1104-1-git-send-email-christoph.paasch@uclouvain.be>
+Subject: [PATCH 2/4] tcp: metrics: Add source-address to tcp-metrics
+Date: Sun, 15 Dec 2013 13:10:42 +0100
+Message-ID: <1387109444-1104-3-git-send-email-christoph.paasch@uclouvain.be>
+References: <1387109444-1104-1-git-send-email-christoph.paasch@uclouvain.be>
 Cc: David Miller <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	Julian Anastasov <ja@ssi.bg>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:39002 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754028Ab3LOMLE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 07:11:04 -0500
-Received: by mail-ee0-f46.google.com with SMTP id d49so1642198eek.5
-        for <netdev@vger.kernel.org>; Sun, 15 Dec 2013 04:11:02 -0800 (PST)
+Received: from mail-ee0-f49.google.com ([74.125.83.49]:45928 "EHLO
+	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754352Ab3LOMLI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 07:11:08 -0500
+Received: by mail-ee0-f49.google.com with SMTP id c41so1682564eek.8
+        for <netdev@vger.kernel.org>; Sun, 15 Dec 2013 04:11:07 -0800 (PST)
+In-Reply-To: <1387109444-1104-1-git-send-email-christoph.paasch@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently tcp-metrics only stores per-destination addresses. This brings
-problems, when a host has multiple interfaces (e.g., a smartphone having
-WiFi/3G):
+We add the source-address to the tcp-metrics, so that different metrics
+will be used per source/destination-pair. We use the destination-hash to
+store the metric inside the hash-table. That way, deleting and dumping
+via "ip tcp_metrics" is easy.
 
-For example, a host contacting a server over WiFi will store the tcp-metrics
-per destination IP. If then the host contacts the same server over 3G, the 
-same tcp-metrics will be used, although the path-characteristics are completly
-different (e.g., the ssthresh is probably not the same).
+Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+---
+ net/ipv4/tcp_metrics.c | 34 +++++++++++++++++++++++++---------
+ 1 file changed, 25 insertions(+), 9 deletions(-)
 
-The same holds for the fast-open cookie. The server will generate a cookie
-based on our source-address. So, if we contact the same server with another
-source-IP we should request a new cookie.
-
-This patchset makes tcp-metrics source-address aware (Patch 1 and 2).
-
-Patches 3 and 4 handle the interface to "ip tcp_metrics". When deleting a
-metric based on the destination-IP, all entries will be removed (Patch 3).
-Further, a new attribute is added, so that the source-IP can be exposed to
-"ip tcp_metrics" (Patch 4).
-
-Note:
-"ip tcp_metrics show ADDRESS" will only display the first element among
-the entries for the specified destination-IP. It probably would be better to
-show all entries for the specified IP. However, I do not see how to achieve 
-this without fundamentally changing the netlink-API for the tcp-metrics.
-
-Suggestions are very welcome.
-
-
-Christoph Paasch (4):
-  tcp: metrics: rename tcpm_addr to tcpm_daddr
-  tcp: metrics: Add source-address to tcp-metrics
-  tcp: metrics: Delete all entries matching a certain destination
-  tcp: metrics: Dump info of the source-address in netlink-reply
-
- include/uapi/linux/tcp_metrics.h |   2 +
- net/ipv4/tcp_metrics.c           | 111 ++++++++++++++++++++++++---------------
- 2 files changed, 71 insertions(+), 42 deletions(-)
-
+diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+index f9b5f519a4ea..de32aa41a846 100644
+--- a/net/ipv4/tcp_metrics.c
++++ b/net/ipv4/tcp_metrics.c
+@@ -31,6 +31,7 @@ struct tcp_fastopen_metrics {
+ 
+ struct tcp_metrics_block {
+ 	struct tcp_metrics_block __rcu	*tcpm_next;
++	struct inetpeer_addr		tcpm_saddr;
+ 	struct inetpeer_addr		tcpm_daddr;
+ 	unsigned long			tcpm_stamp;
+ 	u32				tcpm_ts;
+@@ -131,6 +132,7 @@ static void tcpm_suck_dst(struct tcp_metrics_block *tm, struct dst_entry *dst,
+ }
+ 
+ static struct tcp_metrics_block *tcpm_new(struct dst_entry *dst,
++					  struct inetpeer_addr *saddr,
+ 					  struct inetpeer_addr *daddr,
+ 					  unsigned int hash,
+ 					  bool reclaim)
+@@ -155,6 +157,7 @@ static struct tcp_metrics_block *tcpm_new(struct dst_entry *dst,
+ 		if (!tm)
+ 			goto out_unlock;
+ 	}
++	tm->tcpm_saddr = *saddr;
+ 	tm->tcpm_daddr = *daddr;
+ 
+ 	tcpm_suck_dst(tm, dst, true);
+@@ -189,7 +192,8 @@ static struct tcp_metrics_block *tcp_get_encode(struct tcp_metrics_block *tm, in
+ 	return NULL;
+ }
+ 
+-static struct tcp_metrics_block *__tcp_get_metrics(const struct inetpeer_addr *daddr,
++static struct tcp_metrics_block *__tcp_get_metrics(const struct inetpeer_addr *saddr,
++						   const struct inetpeer_addr *daddr,
+ 						   struct net *net, unsigned int hash)
+ {
+ 	struct tcp_metrics_block *tm;
+@@ -197,7 +201,8 @@ static struct tcp_metrics_block *__tcp_get_metrics(const struct inetpeer_addr *d
+ 
+ 	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
+ 	     tm = rcu_dereference(tm->tcpm_next)) {
+-		if (addr_same(&tm->tcpm_daddr, daddr))
++		if (addr_same(&tm->tcpm_saddr, saddr) &&
++		    addr_same(&tm->tcpm_daddr, daddr))
+ 			break;
+ 		depth++;
+ 	}
+@@ -208,18 +213,21 @@ static struct tcp_metrics_block *__tcp_get_metrics_req(struct request_sock *req,
+ 						       struct dst_entry *dst)
+ {
+ 	struct tcp_metrics_block *tm;
+-	struct inetpeer_addr daddr;
++	struct inetpeer_addr saddr, daddr;
+ 	unsigned int hash;
+ 	struct net *net;
+ 
++	saddr.family = req->rsk_ops->family;
+ 	daddr.family = req->rsk_ops->family;
+ 	switch (daddr.family) {
+ 	case AF_INET:
++		saddr.addr.a4 = inet_rsk(req)->ir_loc_addr;
+ 		daddr.addr.a4 = inet_rsk(req)->ir_rmt_addr;
+ 		hash = (__force unsigned int) daddr.addr.a4;
+ 		break;
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	case AF_INET6:
++		*(struct in6_addr *)saddr.addr.a6 = inet_rsk(req)->ir_v6_loc_addr;
+ 		*(struct in6_addr *)daddr.addr.a6 = inet_rsk(req)->ir_v6_rmt_addr;
+ 		hash = ipv6_addr_hash(&inet_rsk(req)->ir_v6_rmt_addr);
+ 		break;
+@@ -233,7 +241,8 @@ static struct tcp_metrics_block *__tcp_get_metrics_req(struct request_sock *req,
+ 
+ 	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
+ 	     tm = rcu_dereference(tm->tcpm_next)) {
+-		if (addr_same(&tm->tcpm_daddr, &daddr))
++		if (addr_same(&tm->tcpm_saddr, &saddr) &&
++		    addr_same(&tm->tcpm_daddr, &daddr))
+ 			break;
+ 	}
+ 	tcpm_check_stamp(tm, dst);
+@@ -243,18 +252,21 @@ static struct tcp_metrics_block *__tcp_get_metrics_req(struct request_sock *req,
+ static struct tcp_metrics_block *__tcp_get_metrics_tw(struct inet_timewait_sock *tw)
+ {
+ 	struct tcp_metrics_block *tm;
+-	struct inetpeer_addr daddr;
++	struct inetpeer_addr saddr, daddr;
+ 	unsigned int hash;
+ 	struct net *net;
+ 
++	saddr.family = tw->tw_family;
+ 	daddr.family = tw->tw_family;
+ 	switch (daddr.family) {
+ 	case AF_INET:
++		saddr.addr.a4 = tw->tw_rcv_saddr;
+ 		daddr.addr.a4 = tw->tw_daddr;
+ 		hash = (__force unsigned int) daddr.addr.a4;
+ 		break;
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	case AF_INET6:
++		*(struct in6_addr *)saddr.addr.a6 = tw->tw_v6_rcv_saddr;
+ 		*(struct in6_addr *)daddr.addr.a6 = tw->tw_v6_daddr;
+ 		hash = ipv6_addr_hash(&tw->tw_v6_daddr);
+ 		break;
+@@ -268,7 +280,8 @@ static struct tcp_metrics_block *__tcp_get_metrics_tw(struct inet_timewait_sock
+ 
+ 	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
+ 	     tm = rcu_dereference(tm->tcpm_next)) {
+-		if (addr_same(&tm->tcpm_daddr, &daddr))
++		if (addr_same(&tm->tcpm_saddr, &saddr) &&
++		    addr_same(&tm->tcpm_daddr, &daddr))
+ 			break;
+ 	}
+ 	return tm;
+@@ -279,19 +292,22 @@ static struct tcp_metrics_block *tcp_get_metrics(struct sock *sk,
+ 						 bool create)
+ {
+ 	struct tcp_metrics_block *tm;
+-	struct inetpeer_addr daddr;
++	struct inetpeer_addr saddr, daddr;
+ 	unsigned int hash;
+ 	struct net *net;
+ 	bool reclaim;
+ 
++	saddr.family = sk->sk_family;
+ 	daddr.family = sk->sk_family;
+ 	switch (daddr.family) {
+ 	case AF_INET:
++		saddr.addr.a4 = inet_sk(sk)->inet_saddr;
+ 		daddr.addr.a4 = inet_sk(sk)->inet_daddr;
+ 		hash = (__force unsigned int) daddr.addr.a4;
+ 		break;
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	case AF_INET6:
++		*(struct in6_addr *)saddr.addr.a6 = sk->sk_v6_rcv_saddr;
+ 		*(struct in6_addr *)daddr.addr.a6 = sk->sk_v6_daddr;
+ 		hash = ipv6_addr_hash(&sk->sk_v6_daddr);
+ 		break;
+@@ -303,14 +319,14 @@ static struct tcp_metrics_block *tcp_get_metrics(struct sock *sk,
+ 	net = dev_net(dst->dev);
+ 	hash = hash_32(hash, net->ipv4.tcp_metrics_hash_log);
+ 
+-	tm = __tcp_get_metrics(&daddr, net, hash);
++	tm = __tcp_get_metrics(&saddr, &daddr, net, hash);
+ 	reclaim = false;
+ 	if (tm == TCP_METRICS_RECLAIM_PTR) {
+ 		reclaim = true;
+ 		tm = NULL;
+ 	}
+ 	if (!tm && create)
+-		tm = tcpm_new(dst, &daddr, hash, reclaim);
++		tm = tcpm_new(dst, &saddr, &daddr, hash, reclaim);
+ 	else
+ 		tcpm_check_stamp(tm, dst);
+ 
 -- 
 1.8.3.2
