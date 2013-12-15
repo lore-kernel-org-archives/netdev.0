@@ -1,112 +1,60 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv3 net-next 6/7] {pktgen, xfrm} Introduce xfrm_state_lookup_byspi for pktgen
-Date: Sun, 15 Dec 2013 15:58:03 +0800
-Message-ID: <1387094284-2901-7-git-send-email-fan.du@windriver.com>
-References: <1387094284-2901-1-git-send-email-fan.du@windriver.com>
+Subject: [PATCHv3 net-next 0/7] pktgen IPsec support
+Date: Sun, 15 Dec 2013 15:57:57 +0800
+Message-ID: <1387094284-2901-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <steffen.klassert@secunet.com>, <hadi@cyberus.ca>,
 	<netdev@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:38707 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751169Ab3LOH7G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 02:59:06 -0500
-In-Reply-To: <1387094284-2901-1-git-send-email-fan.du@windriver.com>
+Received: from mail.windriver.com ([147.11.1.11]:57163 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754052Ab3LOH7B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 02:59:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduce xfrm_state_lookup_byspi to find user specified by custom
-from "pgset spi xxx". Using this scheme, any flow regardless its
-saddr/daddr could be transform by SA specified with configurable
-spi.
+Hi, Dave
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
+Current pktgen IPsec supports only transport/ESP combinnation,
+This patchset enables user to do almost any IPsec transformation,
+both transport/tunnel mode, and AH/ESP/IPcomp type.
+
+Below configuration has been tested, and using Wireshark could decrypt
+out plain text in good formation without any checksum/auth errors:
+
+Mode/TYPE   AH  ESP 
+Transport   x   x   
+Tunnel      x   x   
+
+ChangeLog
+v2:
+  Rebase patchset against newest net-next.
+  Patch1: Remove adding rebundant empty line spotted by Sergei.
+  Patch2: Use only one dst pointing into itself to save space.
+
+v3:
+  Align with David's requirement, that for user depends on orignal
+  a553e4a6317b2cfc7659542c10fe43184ffe53da ("IPSEC support") from
+  Jamal, their testbed configuration will not need to be changed. 
+
+  Adding Patch2/7, Patch3/7 for statistic counting, as well as fixing
+  lock usage issue. 
+
+Fan Du (7):
+  {pktgen, xfrm} Correct xfrm state lock usage when transforming
+  {pktgen, xfrm} Add statistics counting when transforming
+  {pktgen, xfrm} Correct xfrm_state_lock usage in xfrm_stateonly_find
+  {pktgen, xfrm} Using "pgset spi xxx" to spedifiy SA for a given flow
+  {pktgen, xfrm} Construct skb dst for tunnel mode transformation
+  {pktgen, xfrm} Introduce xfrm_state_lookup_byspi for pktgen
+  {pktgen, xfrm} Show spi value properly when ipsec turned on
+
  include/net/xfrm.h    |    2 ++
- net/core/pktgen.c     |   22 +++++++++++++++-------
- net/xfrm/xfrm_state.c |   22 ++++++++++++++++++++++
- 3 files changed, 39 insertions(+), 7 deletions(-)
+ net/core/pktgen.c     |   80 ++++++++++++++++++++++++++++++++++++++++---------
+ net/xfrm/xfrm_state.c |   26 ++++++++++++++--
+ 3 files changed, 92 insertions(+), 16 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 6b82fdf..dfdfead 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1422,6 +1422,8 @@ struct xfrm_state *xfrm_stateonly_find(struct net *net, u32 mark,
- 				       xfrm_address_t *saddr,
- 				       unsigned short family,
- 				       u8 mode, u8 proto, u32 reqid);
-+struct xfrm_state *xfrm_state_lookup_byspi(struct net *net, __be32 spi,
-+					      unsigned short family);
- int xfrm_state_check_expire(struct xfrm_state *x);
- void xfrm_state_insert(struct xfrm_state *x);
- int xfrm_state_add(struct xfrm_state *x);
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index eb70c23..ae268ff 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2247,13 +2247,21 @@ static void get_ipsec_sa(struct pktgen_dev *pkt_dev, int flow)
- 	struct xfrm_state *x = pkt_dev->flows[flow].x;
- 	struct pktgen_net *pn = net_generic(dev_net(pkt_dev->odev), pg_net_id);
- 	if (!x) {
--		/*slow path: we dont already have xfrm_state*/
--		x = xfrm_stateonly_find(pn->net, DUMMY_MARK,
--					(xfrm_address_t *)&pkt_dev->cur_daddr,
--					(xfrm_address_t *)&pkt_dev->cur_saddr,
--					AF_INET,
--					pkt_dev->ipsmode,
--					pkt_dev->ipsproto, 0);
-+
-+		if (pkt_dev->spi) {
-+			/* We need as quick as possible to find the right SA
-+		 	 * Searching with minimum criteria to archieve this.
-+		 	 */
-+			x = xfrm_state_lookup_byspi(pn->net, htonl(pkt_dev->spi), AF_INET);
-+		} else {
-+			/*slow path: we dont already have xfrm_state*/
-+			x = xfrm_stateonly_find(pn->net, DUMMY_MARK,
-+						(xfrm_address_t *)&pkt_dev->cur_daddr,
-+						(xfrm_address_t *)&pkt_dev->cur_saddr,
-+						AF_INET,
-+						pkt_dev->ipsmode,
-+						pkt_dev->ipsproto, 0);
-+		}
- 		if (x) {
- 			pkt_dev->flows[flow].x = x;
- 			set_pkt_overhead(pkt_dev);
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index f7cb4a3..4a7800e 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -925,6 +925,28 @@ xfrm_stateonly_find(struct net *net, u32 mark,
- }
- EXPORT_SYMBOL(xfrm_stateonly_find);
- 
-+struct xfrm_state *xfrm_state_lookup_byspi(struct net *net, __be32 spi,
-+					      unsigned short family)
-+{
-+	struct xfrm_state *x;
-+	struct xfrm_state_walk *w;
-+
-+	spin_lock_bh(&xfrm_state_lock);
-+	list_for_each_entry(w, &net->xfrm.state_all, all) {
-+		x = container_of(w, struct xfrm_state, km);
-+		if (x->props.family != family ||
-+			x->id.spi != spi)
-+			continue;
-+ 
-+		spin_unlock_bh(&xfrm_state_lock);
-+		xfrm_state_hold(x);
-+		return x;
-+	}
-+	spin_unlock_bh(&xfrm_state_lock);
-+	return NULL;
-+}
-+EXPORT_SYMBOL(xfrm_state_lookup_byspi);
-+
- static void __xfrm_state_insert(struct xfrm_state *x)
- {
- 	struct net *net = xs_net(x);
 -- 
 1.7.9.5
