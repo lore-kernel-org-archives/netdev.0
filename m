@@ -1,48 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 0/4] Make tcp-metrics source-address aware
-Date: Sun, 15 Dec 2013 10:40:59 -0800
-Message-ID: <1387132859.19078.207.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1387109444-1104-1-git-send-email-christoph.paasch@uclouvain.be>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Julian Anastasov <ja@ssi.bg>
-To: Christoph Paasch <christoph.paasch@uclouvain.be>,
-	Yuchung Cheng <ycheng@google.com>
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: [PATCH 0/8] b44: add support for external PHY
+Date: Sun, 15 Dec 2013 19:41:57 +0100
+Message-ID: <1387132925-18651-1-git-send-email-hauke@hauke-m.de>
+Cc: zambrano@broadcom.com, netdev@vger.kernel.org,
+	Hauke Mehrtens <hauke@hauke-m.de>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:44757 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751831Ab3LOSlB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 13:41:01 -0500
-Received: by mail-pd0-f171.google.com with SMTP id z10so4422921pdj.30
-        for <netdev@vger.kernel.org>; Sun, 15 Dec 2013 10:41:00 -0800 (PST)
-In-Reply-To: <1387109444-1104-1-git-send-email-christoph.paasch@uclouvain.be>
+Received: from server19320154104.serverpool.info ([193.201.54.104]:50579 "EHLO
+	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751741Ab3LOSmQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Dec 2013 13:42:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-12-15 at 13:10 +0100, Christoph Paasch wrote:
-> Currently tcp-metrics only stores per-destination addresses. This brings
-> problems, when a host has multiple interfaces (e.g., a smartphone having
-> WiFi/3G):
-> 
-> For example, a host contacting a server over WiFi will store the tcp-metrics
-> per destination IP. If then the host contacts the same server over 3G, the 
-> same tcp-metrics will be used, although the path-characteristics are completly
-> different (e.g., the ssthresh is probably not the same).
+This adds support for an external phy connected to the mac controlled 
+by b44. This is used on home routers of the BCM47xx line where this MAC 
+core was used and is contended to an external switch core through MII. 
+These patches are in OpenWrt for some time and are tested by different 
+users with different devices.
 
-ssthresh caching is very problematic anyway.
+Hauke Mehrtens (8):
+  b44: cheek register instead of PHY address to detect external PHY
+  b44: rename B44_PHY_ADDR_NO_PHY to B44_PHY_ADDR_NO_LOCAL_PHY
+  b44: abort when no PHY is available at all
+  b44: rename b44_mii_{read,write} to b44_mdio_{read,write}_mii
+  b44: add phylib support
+  b44: activate PHY when MAC is off
+  b44: do not set PHY address to 30 for every ext PHY
+  b44: add dummy PHY device if we do not find any
 
-hystart is way better to probe the actual capacity, as the real network 
-conditions change every seconds or so.
+ drivers/net/ethernet/broadcom/Kconfig |    1 +
+ drivers/net/ethernet/broadcom/b44.c   |  254 ++++++++++++++++++++++++++++++---
+ drivers/net/ethernet/broadcom/b44.h   |   15 +-
+ 3 files changed, 244 insertions(+), 26 deletions(-)
 
-> 
-> The same holds for the fast-open cookie. The server will generate a cookie
-> based on our source-address. So, if we contact the same server with another
-> source-IP we should request a new cookie.
-
-Yuchung, what do you think ? I think this should already be handled
-gracefully, as client be behind a NAT device using a pool of external IP
-addresses ?
-
-Thanks Christoph !
+-- 
+1.7.10.4
