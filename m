@@ -1,34 +1,51 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v4 0/8] net_sched: some cleanup and improvments
-Date: Mon, 16 Dec 2013 07:45:24 -0500
-Message-ID: <52AEF5E4.5050408@mojatatu.com>
-References: <1387167311-14763-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH RFC v2 08/13] xfrm: Add xfrm_tunnel_skb_cb to the skb
+ common buffer
+Date: Mon, 16 Dec 2013 13:54:10 +0100
+Message-ID: <52AEF7F2.6040903@6wind.com>
+References: <20131216091835.GQ31491@secunet.com> <20131216092349.GY31491@secunet.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Christophe Gouault <christophe.gouault@6wind.com>,
+	Saurabh Mohan <saurabh.mohan@vyatta.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:39479 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753554Ab3LPMp2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 07:45:28 -0500
-Received: by mail-ig0-f169.google.com with SMTP id hk11so3671816igb.0
-        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 04:45:27 -0800 (PST)
-In-Reply-To: <1387167311-14763-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:44509 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753983Ab3LPMyN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 07:54:13 -0500
+Received: by mail-wi0-f179.google.com with SMTP id z2so2065308wiv.0
+        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 04:54:12 -0800 (PST)
+In-Reply-To: <20131216092349.GY31491@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/15/13 23:15, Cong Wang wrote:
-> Here are some cleanup and improvements for tc filters
-> and tc actions.
+Le 16/12/2013 10:23, Steffen Klassert a =E9crit :
+> IPsec vti_rcv needs to remind the tunnel pointer to
+> check it later at the vti_rcv_cb callback. So add
+> this pointer to the IPsec common buffer.
 >
-
-Thanks.
-I would like to run some tests I have and look closely -
-please give me some time; unfortunately I dont right away (yesterday was
-good for me); will do this week.
-
-
-cheers,
-jamal
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> ---
+>   include/net/xfrm.h |   29 +++++++++++++++++------------
+>   1 file changed, 17 insertions(+), 12 deletions(-)
+>
+> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+> index 2c39cd4..584d0ee4 100644
+> --- a/include/net/xfrm.h
+> +++ b/include/net/xfrm.h
+> @@ -600,16 +600,27 @@ struct xfrm_mgr {
+>   int xfrm_register_km(struct xfrm_mgr *km);
+>   int xfrm_unregister_km(struct xfrm_mgr *km);
+>
+> +struct xfrm_tunnel_skb_cb {
+> +	union {
+> +		struct inet_skb_parm h4;
+> +		struct inet6_skb_parm h6;
+> +        } header;
+Nitpicking: this line is aligned with spaces instead tabs (yes, it's
+a copy and paste ;-)).
