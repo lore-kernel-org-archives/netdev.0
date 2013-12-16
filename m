@@ -1,70 +1,65 @@
-From: Tan Xiaojun <tanxiaojun@huawei.com>
-Subject: [PATCH net-next] bridge: spelling fixes
-Date: Mon, 16 Dec 2013 21:32:46 +0800
-Message-ID: <52AF00FE.4090607@huawei.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 1/4] tipc: remove unnecessary variables and conditions
+Date: Mon, 16 Dec 2013 13:33:18 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7496@saturn3.aculab.com>
+References: <1387197631-17240-1-git-send-email-wangweidong1@huawei.com> <1387197631-17240-2-git-send-email-wangweidong1@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <bridge@lists.linux-foundation.org>, <netdev@vger.kernel.org>
-To: <stephen@networkplumber.org>, <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <erik.hugne@ericsson.com>, <maloy@donjonn.com>,
+	<netdev@vger.kernel.org>
+To: "Wang Weidong" <wangweidong1@huawei.com>, <jon.maloy@ericsson.com>,
+	<allan.stephens@windriver.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:4887 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753655Ab3LPNdD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 08:33:03 -0500
+Received: from mx0.aculab.com ([213.249.233.131]:41727 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754124Ab3LPNej convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 08:34:39 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 06420-03 for <netdev@vger.kernel.org>;
+ Mon, 16 Dec 2013 13:34:37 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <1387197631-17240-2-git-send-email-wangweidong1@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix spelling errors in bridge driver.
+> From: Wang Weidong
+> Sent: 16 December 2013 12:40
+> We remove a number of unnecessary variables and branches
+> in TIPC. This patch is cosmetic and does not change the
+> operation of TIPC in any way.
+> 
+...
+>  int __tipc_disconnect(struct tipc_port *tp_ptr)
+>  {
+> -	int res;
+> -
+>  	if (tp_ptr->connected) {
+>  		tp_ptr->connected = 0;
+>  		/* let timer expire on it's own to avoid deadlock! */
+>  		tipc_nodesub_unsubscribe(&tp_ptr->subscription);
+> -		res = 0;
+> -	} else {
+> -		res = -ENOTCONN;
+> +		return 0;
+>  	}
+> -	return res;
+> +
+> +	return -ENOTCONN;
+>  }
 
-Signed-off-by: Tan Xiaojun <tanxiaojun@huawei.com>
----
- net/bridge/br_forward.c | 2 +-
- net/bridge/br_if.c      | 2 +-
- net/bridge/br_vlan.c    | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+IMHO better coded as:
 
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index 4b81b14..96866aa 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -26,7 +26,7 @@ static int deliver_clone(const struct net_bridge_port *prev,
- 			 void (*__packet_hook)(const struct net_bridge_port *p,
- 					       struct sk_buff *skb));
- 
--/* Don't forward packets to originating port or forwarding diasabled */
-+/* Don't forward packets to originating port or forwarding disabled */
- static inline int should_deliver(const struct net_bridge_port *p,
- 				 const struct sk_buff *skb)
- {
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 4bf02ad..1f6bd1e 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -61,7 +61,7 @@ static int port_cost(struct net_device *dev)
- }
- 
- 
--/* Check for port carrier transistions. */
-+/* Check for port carrier transitions. */
- void br_port_carrier_check(struct net_bridge_port *p)
- {
- 	struct net_device *dev = p->dev;
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index af5ebd1..7ffc801 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -146,7 +146,7 @@ struct sk_buff *br_handle_vlan(struct net_bridge *br,
- 
- 	/* At this point, we know that the frame was filtered and contains
- 	 * a valid vlan id.  If the vlan id is set in the untagged bitmap,
--	 * send untagged; otherwise, send taged.
-+	 * send untagged; otherwise, send tagged.
- 	 */
- 	br_vlan_get_tag(skb, &vid);
- 	if (test_bit(vid, pv->untagged_bitmap))
--- 
-1.8.0
+	if (!tp_ptr->connected)
+		return -ENOTCON;
 
+	tp_ptr->connected = 0;
+	/* let timer expire on it's own to avoid deadlock! */
+	tipc_nodesub_unsubscribe(&tp_ptr->subscription);
+	return 0;
 
-.
+	David
+
+	
