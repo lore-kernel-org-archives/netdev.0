@@ -1,94 +1,77 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: Re: [PATCH v2] sctp: loading sctp when load sctp_probe
-Date: Mon, 16 Dec 2013 10:47:00 +0800
-Message-ID: <52AE69A4.7090806@huawei.com>
-References: <52AA783A.7090502@huawei.com> <20131213122605.GA23384@hmsreliant.think-freely.org>
+From: "H.K. Jerry Chu" <hkchu@google.com>
+Subject: [PATCH net-next] net-ipv6: Fix alleged compiler warning in ipv6_exthdrs_len()
+Date: Sun, 15 Dec 2013 18:48:07 -0800
+Message-ID: <1387162087-5072-1-git-send-email-hkchu@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-sctp@vger.kernel.org>
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Jerry Chu <hkchu@google.com>
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:42927 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751180Ab3LPCsF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 21:48:05 -0500
-In-Reply-To: <20131213122605.GA23384@hmsreliant.think-freely.org>
+Received: from mail-oa0-f74.google.com ([209.85.219.74]:41655 "EHLO
+	mail-oa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752210Ab3LPCsM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 21:48:12 -0500
+Received: by mail-oa0-f74.google.com with SMTP id o6so843638oag.3
+        for <netdev@vger.kernel.org>; Sun, 15 Dec 2013 18:48:12 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/12/13 20:26, Neil Horman wrote:
-> On Fri, Dec 13, 2013 at 11:00:10AM +0800, Wang Weidong wrote:
->> when I modprobe sctp_probe, it failed with "FATAL: ". I found that
->> sctp should load before sctp_probe register jprobe. So I add a
->> sctp_setup_jprobe for loading 'sctp' when first failed to register
->> jprobe, just do this similar to dccp_probe.
->>
->> v2: add MODULE_SOFTDEP and check of request_module, as suggested by Neil
->>
->> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
->> ---
->>  net/sctp/probe.c | 17 ++++++++++++++++-
->>  1 file changed, 16 insertions(+), 1 deletion(-)
->>
->> diff --git a/net/sctp/probe.c b/net/sctp/probe.c
->> index 53c452e..5e68b94 100644
->> --- a/net/sctp/probe.c
->> +++ b/net/sctp/probe.c
->> @@ -38,6 +38,7 @@
->>  #include <net/sctp/sctp.h>
->>  #include <net/sctp/sm.h>
->>  
->> +MODULE_SOFTDEP("pre: sctp");
->>  MODULE_AUTHOR("Wei Yongjun <yjwei@cn.fujitsu.com>");
->>  MODULE_DESCRIPTION("SCTP snooper");
->>  MODULE_LICENSE("GPL");
->> @@ -182,6 +183,20 @@ static struct jprobe sctp_recv_probe = {
->>  	.entry	= jsctp_sf_eat_sack,
->>  };
->>  
->> +static __init int sctp_setup_jprobe(void)
->> +{
->> +	int ret = register_jprobe(&sctp_recv_probe);
->> +
->> +	if (ret) {
->> +		if (request_module("sctp"))
->> +			goto out;
->> +		ret = register_jprobe(&sctp_recv_probe);
->> +	}
->> +
->> +out:
->> +	return ret;
->> +}
->> +
->>  static __init int sctpprobe_init(void)
->>  {
->>  	int ret = -ENOMEM;
->> @@ -202,7 +217,7 @@ static __init int sctpprobe_init(void)
->>  			 &sctpprobe_fops))
->>  		goto free_kfifo;
->>  
->> -	ret = register_jprobe(&sctp_recv_probe);
->> +	ret = sctp_setup_jprobe();
-> You don't need to create your own function for this, you can collapse it down to
-> a call to try_then_request_module(regitser_jprobe(...), "sctp");
-> Neil
-> 
-Hi Neil,
+=46rom: Jerry Chu <hkchu@google.com>
 
-I try to use try_then_request_module(!regitser_jprobe(...), "sctp"); I found that if
-I used this, I couldn't get the ture value which returned by register_jprobe(). Is the
-returned value not important? The problem("if sctp.ko doesn't exist") you had pointed out
-is exist as well.
+It was reported that Commit 299603e8370a93dd5d8e8d800f0dff1ce2c53d36
+("net-gro: Prepare GRO stack for the upcoming tunneling support")
+triggered a compiler warning in ipv6_exthdrs_len():
 
-Regards.
-Wang
-> 
->>  	if (ret)
->>  		goto remove_proc;
->>  
-> 
-> .
-> 
+net/ipv6/ip6_offload.c: In function =E2=80=98ipv6_gro_complete=E2=80=99=
+:
+net/ipv6/ip6_offload.c:178:24: warning: =E2=80=98optlen=E2=80=99 may be=
+ used uninitialized in this function [-Wmaybe-u
+    opth =3D (void *)opth + optlen;
+    			^
+    net/ipv6/ip6_offload.c:164:22: note: =E2=80=98optlen=E2=80=99 was d=
+eclared here
+    int len =3D 0, proto, optlen;
+                        ^
+Note that there was no real bug here - optlen was never uninitialized
+before use. (Was the version of gcc I used smarter to not complain?)
+
+Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
+---
+ net/ipv6/ip6_offload.c | 12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
+
+diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+index 08861f1..6fb4162 100644
+--- a/net/ipv6/ip6_offload.c
++++ b/net/ipv6/ip6_offload.c
+@@ -160,8 +160,8 @@ out:
+ static int ipv6_exthdrs_len(struct ipv6hdr *iph,
+ 			    const struct net_offload **opps)
+ {
+-	struct ipv6_opt_hdr *opth =3D NULL;
+-	int len =3D 0, optlen =3D 0, proto;
++	struct ipv6_opt_hdr *opth =3D (void *)iph;
++	int len =3D 0, proto, optlen =3D sizeof(*iph);
+=20
+ 	proto =3D iph->nexthdr;
+ 	for (;;) {
+@@ -172,12 +172,8 @@ static int ipv6_exthdrs_len(struct ipv6hdr *iph,
+ 			if (!((*opps)->flags & INET6_PROTO_GSO_EXTHDR))
+ 				break;
+ 		}
+-		if (opth =3D=3D NULL) {
+-			opth =3D (void *)(iph+1);
+-		} else {
+-			optlen =3D ipv6_optlen(opth);
+-			opth =3D (void *)opth + optlen;
+-		}
++		opth =3D (void *)opth + optlen;
++		optlen =3D ipv6_optlen(opth);
+ 		len +=3D optlen;
+ 		proto =3D opth->nexthdr;
+ 	}
+--=20
+1.8.5.1
