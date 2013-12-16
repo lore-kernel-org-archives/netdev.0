@@ -1,51 +1,49 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH RFC v2 08/13] xfrm: Add xfrm_tunnel_skb_cb to the skb
- common buffer
-Date: Mon, 16 Dec 2013 13:54:10 +0100
-Message-ID: <52AEF7F2.6040903@6wind.com>
-References: <20131216091835.GQ31491@secunet.com> <20131216092349.GY31491@secunet.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v3 2/3] packet: fill the gap of TPACKET_ALIGNMENT with
+ zeros
+Date: Mon, 16 Dec 2013 13:55:43 +0100
+Message-ID: <52AEF84F.1000604@redhat.com>
+References: <87ob4h6wq1.wl%atzm@stratosphere.co.jp> <52AED170.9020604@redhat.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7491@saturn3.aculab.com> <52AED46B.3090601@redhat.com> <87k3f56k8t.wl%atzm@stratosphere.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christophe Gouault <christophe.gouault@6wind.com>,
-	Saurabh Mohan <saurabh.mohan@vyatta.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Laight <David.Laight@ACULAB.COM>, netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>
+To: Atzm Watanabe <atzm@stratosphere.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:44509 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753983Ab3LPMyN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 07:54:13 -0500
-Received: by mail-wi0-f179.google.com with SMTP id z2so2065308wiv.0
-        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 04:54:12 -0800 (PST)
-In-Reply-To: <20131216092349.GY31491@secunet.com>
+Received: from mx1.redhat.com ([209.132.183.28]:28565 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753817Ab3LPMzy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Dec 2013 07:55:54 -0500
+In-Reply-To: <87k3f56k8t.wl%atzm@stratosphere.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 16/12/2013 10:23, Steffen Klassert a =E9crit :
-> IPsec vti_rcv needs to remind the tunnel pointer to
-> check it later at the vti_rcv_cb callback. So add
-> this pointer to the IPsec common buffer.
+On 12/16/2013 01:41 PM, Atzm Watanabe wrote:
+> At Mon, 16 Dec 2013 11:22:35 +0100,
+> Daniel Borkmann wrote:
+>>
+>> On 12/16/2013 11:16 AM, David Laight wrote:
+>>>>> +		memset(h.h2->tp_padding, 0,
+>>>>> +		       hdrlen - offsetof(struct tpacket2_hdr, tp_padding));
+>>>
+>>> What is wrong with 'sizeof h.h2->tp_padding' ?
+>>> The compiler will probably inline the memset into a couple of word
+>>> sized writes of zero - probably not measurable.
+>>> Not zeroing them might be leaking kernel memory contents (depends
+>>> where the memory came from - might just be stale packet data).
+>>
+>> The ring buffer memory we're operating on comes from mmap(2) btw.
 >
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
->   include/net/xfrm.h |   29 +++++++++++++++++------------
->   1 file changed, 17 insertions(+), 12 deletions(-)
->
-> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-> index 2c39cd4..584d0ee4 100644
-> --- a/include/net/xfrm.h
-> +++ b/include/net/xfrm.h
-> @@ -600,16 +600,27 @@ struct xfrm_mgr {
->   int xfrm_register_km(struct xfrm_mgr *km);
->   int xfrm_unregister_km(struct xfrm_mgr *km);
->
-> +struct xfrm_tunnel_skb_cb {
-> +	union {
-> +		struct inet_skb_parm h4;
-> +		struct inet6_skb_parm h6;
-> +        } header;
-Nitpicking: this line is aligned with spaces instead tabs (yes, it's
-a copy and paste ;-)).
+> Thank you for comments.
+> In struct tpacket2_hdr, it seems that a padding member was really
+> zeroing to fix information leak on commit
+> 13fcb7bd322164c67926ffe272846d4860196dc6 ("af_packet: prevent information leak").
+> So next time I'll try to zero tp_padding using sizof(h.h2->tp_padding)
+> David proposed.  If you have any thoughts on this please share it with me.
+
+Yep, 13fcb7bd was for struct tpacket_auxdata structure in packet_recvmsg()
+that sits on the stack and copied uninitialized data to user space. But,
+okay, lets go with the memset().
