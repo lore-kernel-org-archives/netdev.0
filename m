@@ -1,43 +1,54 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH] neigh: Netlink notification for administrative NUD state
- change
-Date: Mon, 16 Dec 2013 09:23:42 +0100
-Message-ID: <52AEB88E.2040004@6wind.com>
-References: <52ae21ac.oFg7QoGcVg2CCThY%gilligan@aristanetworks.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next v2 4/6] isdn: slight optimization of addr compare
+Date: Mon, 16 Dec 2013 16:24:40 +0800
+Message-ID: <52AEB8C8.4040409@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Bob Gilligan <gilligan@aristanetworks.com>, davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Karsten Keil <isdn@linux-pingi.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:35443 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751983Ab3LPIYs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 03:24:48 -0500
-Received: by mail-wi0-f182.google.com with SMTP id en1so1728193wid.9
-        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 00:24:47 -0800 (PST)
-In-Reply-To: <52ae21ac.oFg7QoGcVg2CCThY%gilligan@aristanetworks.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:23255 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752829Ab3LPIYw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 03:24:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 15/12/2013 22:39, Bob Gilligan a =E9crit :
->
-> The neighbour code sends up an RTM_NEWNEIGH netlink notification if
-> the NUD state of a neighbour cache entry is changed by a timer (e.g.
-> from REACHABLE to STALE), even if the lladdr of the entry has not
-> changed.
->
-> But an administrative change to the the NUD state of a neighbour cach=
-e
-> entry that does not change the lladdr (e.g. via "ip -4 neigh change
-> ...  nud ...") does not trigger a netlink notification.  This means
-> that netlink listeners will not hear about administrative NUD state
-> changes such as from a resolved state to PERMANENT.
->
-> This patch changes the neighbor code to generate an RTM_NEWNEIGH
-> message when the NUD state of an entry is changed administratively.
->
-> Signed-off-by: Bob Gilligan <gilligan@aristanetworks.com>
-Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Joe Perches add ether_addr_equal_unaligned to test if
+possibly unaligned to u16 Ethernet addresses are equal.
+
+If CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS is set, this uses
+the slightly faster generic routine ether_addr_equal,
+otherwise this uses memcmp.
+
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/isdn/i4l/isdn_net.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
+index 8b98d53..a0fb424 100644
+--- a/drivers/isdn/i4l/isdn_net.c
++++ b/drivers/isdn/i4l/isdn_net.c
+@@ -1371,7 +1371,7 @@ isdn_net_type_trans(struct sk_buff *skb, struct net_device *dev)
+ 	eth = eth_hdr(skb);
+ 
+ 	if (*eth->h_dest & 1) {
+-		if (memcmp(eth->h_dest, dev->broadcast, ETH_ALEN) == 0)
++		if (ether_addr_equal_unaligned(eth->h_dest, dev->broadcast))
+ 			skb->pkt_type = PACKET_BROADCAST;
+ 		else
+ 			skb->pkt_type = PACKET_MULTICAST;
+@@ -1382,7 +1382,7 @@ isdn_net_type_trans(struct sk_buff *skb, struct net_device *dev)
+ 	 */
+ 
+ 	else if (dev->flags & (IFF_PROMISC /*| IFF_ALLMULTI*/)) {
+-		if (memcmp(eth->h_dest, dev->dev_addr, ETH_ALEN))
++		if (!ether_addr_equal_unaligned(eth->h_dest, dev->dev_addr))
+ 			skb->pkt_type = PACKET_OTHERHOST;
+ 	}
+ 	if (ntohs(eth->h_proto) >= ETH_P_802_3_MIN)
+-- 
+1.8.0
