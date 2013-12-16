@@ -1,64 +1,91 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: [RFC] ipv6_get_ifaddr(), alway called with strict =1
-Date: Mon, 16 Dec 2013 12:07:32 -0800 (PST)
-Message-ID: <1387224452.59094.YahooMailBasic@web125502.mail.ne1.yahoo.com>
+From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [patch] Bluetooth: fix ->alloc_skb() error checking
+Date: Mon, 16 Dec 2013 23:28:58 +0300
+Message-ID: <20131216202857.GB19601@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm40.bullet.mail.ne1.yahoo.com ([98.138.229.33]:25805 "HELO
-	nm40.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752003Ab3LPUKa convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Dec 2013 15:10:30 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+There are two functions that implement ->alloc_skb().
 
-Doubtless, this argument is no more usefull.
+a2mp_cahan_alloc_skb_cb() returns NULL.
+l2cap_sock_alloc_skb_cb() returns an ERR_PTR.
 
-Any reason to keep it ?
+The callers all check for ERR_PTRs and don't check for NULL.  On the
+other hand bt_skb_alloc() and the core net alloc_skb() return NULL so
+returning an error pointer is inconsistent.  This confusion between some
+alloc_skb() functions returning ERR_PTR and some returning NULL has been
+a source of bugs such as 787949039fcd ('Bluetooth: fix return value
+check').  This patch makes ->alloc_skb() return NULL and changes the
+callers to match.
 
-=46ran=E7ois-Xavier
+Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 
----
-
-include/net/addrconf.h:struct inet6_ifaddr *ipv6_get_ifaddr(struct net =
-*net,
-include/net/addrconf.h-                              const struct in6_a=
-ddr *addr,
-include/net/addrconf.h-                              struct net_device =
-*dev, int strict);
---
-net/ipv6/addrconf.c:struct inet6_ifaddr *ipv6_get_ifaddr(struct net *ne=
-t, const struct in6_addr *addr,
-net/ipv6/addrconf.c-                                 struct net_device =
-*dev, int strict)
-net/ipv6/addrconf.c-{
---
-net/ipv6/addrconf.c:            ifp =3D ipv6_get_ifaddr(net, &addr, dev=
-, 1);
---
-net/ipv6/addrconf.c:    ifa =3D ipv6_get_ifaddr(net, pfx, dev, 1);
---
-net/ipv6/addrconf.c:    ifa =3D ipv6_get_ifaddr(net, addr, dev, 1);
---
-net/ipv6/ip6_output.c:          ifp =3D ipv6_get_ifaddr(net, &fl6->sadd=
-r,
-net/ipv6/ip6_output.c-                                (*dst)->dev, 1);
---
-net/ipv6/ndisc.c:       ifp =3D ipv6_get_ifaddr(dev_net(dev), solicited=
-_addr, dev, 1);
---
-net/ipv6/ndisc.c:               struct inet6_ifaddr *ifp =3D ipv6_get_i=
-faddr(dev_net(dev), saddr,
-net/ipv6/ndisc.c-                                                      =
-    dev, 1);
---
-net/ipv6/ndisc.c:       ifp =3D ipv6_get_ifaddr(dev_net(dev), &msg->tar=
-get, dev, 1);
---
-net/ipv6/ndisc.c:       ifp =3D ipv6_get_ifaddr(dev_net(dev), &msg->tar=
-get, dev, 1);
+diff --git a/net/bluetooth/l2cap_core.c b/net/bluetooth/l2cap_core.c
+index b0ad2c752d73..84c3ce04cb35 100644
+--- a/net/bluetooth/l2cap_core.c
++++ b/net/bluetooth/l2cap_core.c
+@@ -2341,8 +2341,8 @@ static inline int l2cap_skbuff_fromiovec(struct l2cap_chan *chan,
+ 
+ 		tmp = chan->ops->alloc_skb(chan, count,
+ 					   msg->msg_flags & MSG_DONTWAIT);
+-		if (IS_ERR(tmp))
+-			return PTR_ERR(tmp);
++		if (!tmp)
++			return -ENOMEM;
+ 
+ 		*frag = tmp;
+ 
+@@ -2379,8 +2379,8 @@ static struct sk_buff *l2cap_create_connless_pdu(struct l2cap_chan *chan,
+ 
+ 	skb = chan->ops->alloc_skb(chan, count + hlen,
+ 				   msg->msg_flags & MSG_DONTWAIT);
+-	if (IS_ERR(skb))
+-		return skb;
++	if (!skb)
++		return ERR_PTR(-ENOMEM);
+ 
+ 	skb->priority = priority;
+ 
+@@ -2413,8 +2413,8 @@ static struct sk_buff *l2cap_create_basic_pdu(struct l2cap_chan *chan,
+ 
+ 	skb = chan->ops->alloc_skb(chan, count + L2CAP_HDR_SIZE,
+ 				   msg->msg_flags & MSG_DONTWAIT);
+-	if (IS_ERR(skb))
+-		return skb;
++	if (skb)
++		return ERR_PTR(-ENOMEM);
+ 
+ 	skb->priority = priority;
+ 
+@@ -2457,8 +2457,8 @@ static struct sk_buff *l2cap_create_iframe_pdu(struct l2cap_chan *chan,
+ 
+ 	skb = chan->ops->alloc_skb(chan, count + hlen,
+ 				   msg->msg_flags & MSG_DONTWAIT);
+-	if (IS_ERR(skb))
+-		return skb;
++	if (!skb)
++		return ERR_PTR(-ENOMEM);
+ 
+ 	/* Create L2CAP header */
+ 	lh = (struct l2cap_hdr *) skb_put(skb, L2CAP_HDR_SIZE);
+@@ -2578,8 +2578,8 @@ static struct sk_buff *l2cap_create_le_flowctl_pdu(struct l2cap_chan *chan,
+ 
+ 	skb = chan->ops->alloc_skb(chan, count + hlen,
+ 				   msg->msg_flags & MSG_DONTWAIT);
+-	if (IS_ERR(skb))
+-		return skb;
++	if (!skb)
++		return ERR_PTR(-ENOMEM);
+ 
+ 	/* Create L2CAP header */
+ 	lh = (struct l2cap_hdr *) skb_put(skb, L2CAP_HDR_SIZE);
