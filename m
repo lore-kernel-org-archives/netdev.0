@@ -1,45 +1,94 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] xen-netback: fix fragments error handling in checksum_setup_ip()
-Date: Mon, 16 Dec 2013 10:45:05 +0800
-Message-ID: <CAPgLHd97T5bVtCEubkNqChBjSoA5V4Cka=ZQUn=JoYjPCuVE6A@mail.gmail.com>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: Re: [PATCH v2] sctp: loading sctp when load sctp_probe
+Date: Mon, 16 Dec 2013 10:47:00 +0800
+Message-ID: <52AE69A4.7090806@huawei.com>
+References: <52AA783A.7090502@huawei.com> <20131213122605.GA23384@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, xen-devel@lists.xenproject.org,
-	netdev@vger.kernel.org
-To: ian.campbell@citrix.com, wei.liu2@citrix.com,
-	paul.durrant@citrix.com, zoltan.kiss@citrix.com,
-	davem@davemloft.net
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-sctp@vger.kernel.org>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f49.google.com ([209.85.214.49]:63360 "EHLO
-	mail-bk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751180Ab3LPCpH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 21:45:07 -0500
-Received: by mail-bk0-f49.google.com with SMTP id my13so2080250bkb.8
-        for <netdev@vger.kernel.org>; Sun, 15 Dec 2013 18:45:05 -0800 (PST)
+Received: from szxga02-in.huawei.com ([119.145.14.65]:42927 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751180Ab3LPCsF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 21:48:05 -0500
+In-Reply-To: <20131213122605.GA23384@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On 2013/12/13 20:26, Neil Horman wrote:
+> On Fri, Dec 13, 2013 at 11:00:10AM +0800, Wang Weidong wrote:
+>> when I modprobe sctp_probe, it failed with "FATAL: ". I found that
+>> sctp should load before sctp_probe register jprobe. So I add a
+>> sctp_setup_jprobe for loading 'sctp' when first failed to register
+>> jprobe, just do this similar to dccp_probe.
+>>
+>> v2: add MODULE_SOFTDEP and check of request_module, as suggested by Neil
+>>
+>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+>> ---
+>>  net/sctp/probe.c | 17 ++++++++++++++++-
+>>  1 file changed, 16 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/sctp/probe.c b/net/sctp/probe.c
+>> index 53c452e..5e68b94 100644
+>> --- a/net/sctp/probe.c
+>> +++ b/net/sctp/probe.c
+>> @@ -38,6 +38,7 @@
+>>  #include <net/sctp/sctp.h>
+>>  #include <net/sctp/sm.h>
+>>  
+>> +MODULE_SOFTDEP("pre: sctp");
+>>  MODULE_AUTHOR("Wei Yongjun <yjwei@cn.fujitsu.com>");
+>>  MODULE_DESCRIPTION("SCTP snooper");
+>>  MODULE_LICENSE("GPL");
+>> @@ -182,6 +183,20 @@ static struct jprobe sctp_recv_probe = {
+>>  	.entry	= jsctp_sf_eat_sack,
+>>  };
+>>  
+>> +static __init int sctp_setup_jprobe(void)
+>> +{
+>> +	int ret = register_jprobe(&sctp_recv_probe);
+>> +
+>> +	if (ret) {
+>> +		if (request_module("sctp"))
+>> +			goto out;
+>> +		ret = register_jprobe(&sctp_recv_probe);
+>> +	}
+>> +
+>> +out:
+>> +	return ret;
+>> +}
+>> +
+>>  static __init int sctpprobe_init(void)
+>>  {
+>>  	int ret = -ENOMEM;
+>> @@ -202,7 +217,7 @@ static __init int sctpprobe_init(void)
+>>  			 &sctpprobe_fops))
+>>  		goto free_kfifo;
+>>  
+>> -	ret = register_jprobe(&sctp_recv_probe);
+>> +	ret = sctp_setup_jprobe();
+> You don't need to create your own function for this, you can collapse it down to
+> a call to try_then_request_module(regitser_jprobe(...), "sctp");
+> Neil
+> 
+Hi Neil,
 
-Fix to return -EPROTO error if fragments detected in checksum_setup_ip().
+I try to use try_then_request_module(!regitser_jprobe(...), "sctp"); I found that if
+I used this, I couldn't get the ture value which returned by register_jprobe(). Is the
+returned value not important? The problem("if sctp.ko doesn't exist") you had pointed out
+is exist as well.
 
-Fixes: 1431fb31ecba ('xen-netback: fix fragment detection in checksum setup')
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/net/xen-netback/netback.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 800496b..773b731 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -1099,6 +1099,9 @@ static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
- 
- 	err = -EPROTO;
- 
-+	if (fragment)
-+		goto out;
-+
- 	switch (ip_hdr(skb)->protocol) {
- 	case IPPROTO_TCP:
- 		err = maybe_pull_tail(skb,
+Regards.
+Wang
+> 
+>>  	if (ret)
+>>  		goto remove_proc;
+>>  
+> 
+> .
+> 
