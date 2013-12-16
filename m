@@ -1,44 +1,35 @@
-From: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH -next] openvswitch: remove duplicated include from
-	flow_table.c
-Date: Mon, 16 Dec 2013 14:06:15 +0800
-Message-ID: <CAPgLHd8m0t7F_N0m5skxHkoyZYjrkkyZDJEtWe_THj+wKSAPoA@mail.gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH 0/4 v3] net: Add rxhash utility hash functions
+Date: Sun, 15 Dec 2013 22:11:50 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1312152204580.20359@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org
-To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f201.google.com ([209.85.214.201]:42020 "EHLO
+	mail-ob0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750890Ab3LPGLw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 01:11:52 -0500
+Received: by mail-ob0-f201.google.com with SMTP id wp4so870004obc.2
+        for <netdev@vger.kernel.org>; Sun, 15 Dec 2013 22:11:51 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
+v3:
 
-Remove duplicated include.
+There's really nothing specific about rxhash that constrains
+it to be a value just for these receive path. Drop the 'rx'
+part in utility functions, including skb_get_rxhash. In subsequent
+patches, we can change the rxhash and l4_rxhash names also, as
+well as abstracting out the interface to the hash.
 
-Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
----
- net/openvswitch/flow_table.c | 2 --
- 1 file changed, 2 deletions(-)
+Added comments about hash types per feedback.
 
-diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
-index e425427..c686655 100644
---- a/net/openvswitch/flow_table.c
-+++ b/net/openvswitch/flow_table.c
-@@ -44,8 +44,6 @@
- #include <net/ipv6.h>
- #include <net/ndisc.h>
- 
--#include "datapath.h"
--
- #define TBL_MIN_BUCKETS		1024
- #define REHASH_INTERVAL		(10 * 60 * HZ)
- 
+In this version I'm omitting the changes to drivers to make the
+patch set manageable. Will add those changes in followup pathes.
+
+-----
+This patch series introduce skb_set_rxhash and skb_clear_rxhash
+which are called to set the rxhash (from network drivers) and
+to clear the rxhash. This API should be used instead of updating
+fields in the skbuff directly.
