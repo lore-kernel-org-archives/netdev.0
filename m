@@ -1,71 +1,141 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH -next] xen-netback: fix some error return code
-Date: Mon, 16 Dec 2013 14:12:40 +0000
-Message-ID: <1387203160.21086.1.camel@kazak.uk.xensource.com>
-References: <CAPgLHd9aQQq-gLuNzGaYP2TSz=5Xk_GqgS=MSrAB7Tnn0nCydw@mail.gmail.com>
-	 <20131216131313.GE12582@zion.uk.xensource.com>
-	 <1387201238.10247.37.camel@kazak.uk.xensource.com>
-	 <CAPgLHd_yD=s0xKXop8T47hvxw2MZD9PHZ9tKKB+45Y5uOHNUVQ@mail.gmail.com>
+From: Wang Weidong <weidong1991.wang@gmail.com>
+Subject: Re: [PATCH v2] sctp: loading sctp when load sctp_probe
+Date: Mon, 16 Dec 2013 22:14:55 +0800
+Message-ID: <52AF0ADF.7030704@gmail.com>
+References: <52AA783A.7090502@huawei.com> <20131213122605.GA23384@hmsreliant.think-freely.org> <52AE69A4.7090806@huawei.com> <20131216134814.GA19809@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>, <yongjun_wei@trendmicro.com.cn>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>
-To: Wei Yongjun <weiyj.lk@gmail.com>
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:6247 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753554Ab3LPOMn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Dec 2013 09:12:43 -0500
-In-Reply-To: <CAPgLHd_yD=s0xKXop8T47hvxw2MZD9PHZ9tKKB+45Y5uOHNUVQ@mail.gmail.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:36100 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753809Ab3LPOOb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 09:14:31 -0500
+In-Reply-To: <20131216134814.GA19809@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-12-16 at 21:57 +0800, Wei Yongjun wrote:
-> On 12/16/2013 09:40 PM, Ian Campbell wrote:
-> > On Mon, 2013-12-16 at 13:13 +0000, Wei Liu wrote:
-> >> On Mon, Dec 16, 2013 at 01:49:29PM +0800, Wei Yongjun wrote:
-> >>> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> >>>
-> >>> Fix to return -EPROTO error code instead of 0(overwrite by maybe_pull_tail())
-> >>> if skb_partial_csum_set() return false.
-> >>>
-> >>> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> >>> ---
-> >>>  drivers/net/xen-netback/netback.c | 16 ++++++++++++----
-> >>>  1 file changed, 12 insertions(+), 4 deletions(-)
-> >>>
-> >>> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> >>> index 800496b..b16daa7 100644
-> >>> --- a/drivers/net/xen-netback/netback.c
-> >>> +++ b/drivers/net/xen-netback/netback.c
-> >>> @@ -1108,8 +1108,10 @@ static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
-> >>>  			goto out;
-> >>>  
-> >>>  		if (!skb_partial_csum_set(skb, off,
-> >>> -					  offsetof(struct tcphdr, check)))
-> >>> +					  offsetof(struct tcphdr, check))) {
-> >>> +			err = -EPROTO;
-> >> Why is this needed? It is set to -EPROTO before the 'switch'.
-> > Agreed.
-> 
-> As I said in the description, err is overwrited to 0 by the above
-> 'err = maybe_pull_tail(...)' call in the same 'case XXX'.
-> Refer to the source code:
+From: Wang Weidong <wangweidong1@huawei.com>
 
-What tree/commit is this? Neither Linus', net or net-next look like this
-to me.
+On 2013/12/16 21:48, Neil Horman wrote:
+> On Mon, Dec 16, 2013 at 10:47:00AM +0800, Wang Weidong wrote:
+>> On 2013/12/13 20:26, Neil Horman wrote:
+>>> On Fri, Dec 13, 2013 at 11:00:10AM +0800, Wang Weidong wrote:
+>>>> when I modprobe sctp_probe, it failed with "FATAL: ". I found that
+>>>> sctp should load before sctp_probe register jprobe. So I add a
+>>>> sctp_setup_jprobe for loading 'sctp' when first failed to register
+>>>> jprobe, just do this similar to dccp_probe.
+>>>>
+>>>> v2: add MODULE_SOFTDEP and check of request_module, as suggested by Neil
+>>>>
+>>>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+>>>> ---
+>>>>   net/sctp/probe.c | 17 ++++++++++++++++-
+>>>>   1 file changed, 16 insertions(+), 1 deletion(-)
+>>>>
+>>>> diff --git a/net/sctp/probe.c b/net/sctp/probe.c
+>>>> index 53c452e..5e68b94 100644
+>>>> --- a/net/sctp/probe.c
+>>>> +++ b/net/sctp/probe.c
+>>>> @@ -38,6 +38,7 @@
+>>>>   #include <net/sctp/sctp.h>
+>>>>   #include <net/sctp/sm.h>
+>>>>
+>>>> +MODULE_SOFTDEP("pre: sctp");
+>>>>   MODULE_AUTHOR("Wei Yongjun <yjwei@cn.fujitsu.com>");
+>>>>   MODULE_DESCRIPTION("SCTP snooper");
+>>>>   MODULE_LICENSE("GPL");
+>>>> @@ -182,6 +183,20 @@ static struct jprobe sctp_recv_probe = {
+>>>>   	.entry	= jsctp_sf_eat_sack,
+>>>>   };
+>>>>
+>>>> +static __init int sctp_setup_jprobe(void)
+>>>> +{
+>>>> +	int ret = register_jprobe(&sctp_recv_probe);
+>>>> +
+>>>> +	if (ret) {
+>>>> +		if (request_module("sctp"))
+>>>> +			goto out;
+>>>> +		ret = register_jprobe(&sctp_recv_probe);
+>>>> +	}
+>>>> +
+>>>> +out:
+>>>> +	return ret;
+>>>> +}
+>>>> +
+>>>>   static __init int sctpprobe_init(void)
+>>>>   {
+>>>>   	int ret = -ENOMEM;
+>>>> @@ -202,7 +217,7 @@ static __init int sctpprobe_init(void)
+>>>>   			 &sctpprobe_fops))
+>>>>   		goto free_kfifo;
+>>>>
+>>>> -	ret = register_jprobe(&sctp_recv_probe);
+>>>> +	ret = sctp_setup_jprobe();
+>>> You don't need to create your own function for this, you can collapse it down to
+>>> a call to try_then_request_module(regitser_jprobe(...), "sctp");
+>>> Neil
+>>>
+>> Hi Neil,
+>>
+>> I try to use try_then_request_module(!regitser_jprobe(...), "sctp"); I found that if
+>> I used this, I couldn't get the ture value which returned by register_jprobe(). Is the
+>> returned value not important? The problem("if sctp.ko doesn't exist") you had pointed out
+>> is exist as well.
+>>
+>> Regards.
+>> Wang
+>
+> Not sure I follow.  There appear to be lots of examples in the kernel where
 
-> 
-> 1104                 err = maybe_pull_tail(skb,
-> 1105                                       off + sizeof(struct tcphdr),
-> 1106                                       MAX_IP_HDR_LEN);
-> 1107                 if (err < 0)
-> 1108                         goto out;
-> 1109 
-> 1110                 if (!skb_partial_csum_set(skb, off,
-> 1111                                           offsetof(struct tcphdr, check)))
-> 1112                         goto out;
-> 
-> 
-> 
+I do this just like the dccp/probe.c do. So I think it can be an example.
+
+> exactly what you are trying to do is done.  try_then_request_module calls your
+> requested method, and if it returns non-zero, calls request_module, then calls
+
+No actually. Just look the definition:
+#define try_then_request_module(x, mod...) \
+          ((x) ?: (__request_module(true, mod), (x)))
+if x return non-zero, it will return the value, not call request_module.
+
+> your requested method again, returning the final result.  What problem are you
+> running into?
+> Neil
+>
+
+So I only can use it like this:
+try_then_request_module(!regitser_jprobe(...), "sctp");
+
+when register_jprobe return 0 indicates success, I get the value is 1. It is OK.
+
+when register_jprobe is non-zero indicates failed, then calls request_module,
+and last calls register_jprobe. Here,
+1)maybe it will failed return non-zero, what I get the value is !register_jprobe
+is 0 with losing the value.
+2)request_module failed with the sctp is not exist, it will do the register_jprobe
+as well.
+
+Is there I am wrong somewhere?
+
+Regards.
+Wang
+
+>>>
+>>>>   	if (ret)
+>>>>   		goto remove_proc;
+>>>>
+>>>
+>>> .
+>>>
+>>
+>>
+>>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
