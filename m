@@ -1,68 +1,71 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] SCTP: Reduce log spamming for sctp setsockopt
-Date: Mon, 16 Dec 2013 09:17:27 -0800
-Message-ID: <1387214247.18217.49.camel@joe-AO722>
-References: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
-	 <1387206233.18217.21.camel@joe-AO722> <52AF18B7.6050602@redhat.com>
-	 <1387207301.18217.30.camel@joe-AO722> <52AF2001.2090108@redhat.com>
-	 <20131216160440.GE19809@hmsreliant.think-freely.org>
-	 <1387212635.18217.45.camel@joe-AO722>
-	 <20131216170254.GF19809@hmsreliant.think-freely.org>
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net-next] xen-netback: add gso_segs calculation
+Date: Mon, 16 Dec 2013 17:20:29 +0000
+Message-ID: <1387214429-4778-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0189.hostedemail.com ([216.40.44.189]:44275 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754583Ab3LPRRa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 12:17:30 -0500
-In-Reply-To: <20131216170254.GF19809@hmsreliant.think-freely.org>
+Received: from smtp.citrix.com ([66.165.176.89]:25595 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754965Ab3LPRUd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Dec 2013 12:20:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-12-16 at 12:02 -0500, Neil Horman wrote:
-> On Mon, Dec 16, 2013 at 08:50:35AM -0800, Joe Perches wrote:
-[]
-> > Does adding a couple of functions like:
-> > 
-> > void pr_warn_deprecated(const char *old, const char *new)
-> > {
-> > 	static DEFINE_RATELIMIT_STATE(_rs,
-> > 				      DEFAULT_RATELIMIT_INTERVAL,
-> > 				      DEFAULT_RATELIMIT_BURST);
-> > 
-> > 	if (!__ratelimit(&_rs))
-> > 		return;
-> > 
-> > 	if (new)
-> > 		printk(KERN_WARNING "%pf: Use of \"%s\" is deprecated - use \"%s\" instead\n",
-> > 				    __builtin_return_address(1), old, new); 
-> > 	else
-> > 		printk(KERN_WARNING "%pf: Use of \"%s\" is deprecated\n",
-> > 				    __builtin_return_address(1), old); 
-> > }
-> > 
-> > suit?  Other suggestions?
-> > 
-> 
-> i'm just doing this:
-> #define pr_warn_deprecated(fmt, ...) \
-> pr_warn_ratelimited("Deprecated: " fmt, ##__VA_ARGS__)
-> 
-> That will work for every form, giving consistency to the location of a single
-> word for ease of searching.  I don't really see the need to institutionalize
-> "use <blank> instead", since there may be no drop in replacement for something
-> that is deprecated.
+netback already has code which parses IPv4 and v6 headers to set up checksum
+offsets and these are always applied to GSO packets being sent from
+frontends. It's therefore suboptimal that GSOs are being marked
+SKB_GSO_DODGY to defer the gso_segs calculation when netback already has all
+necessary information to hand to do the calculation. This patch adds that
+calculation.
 
-That's what the test for non-null "new" was for
-but fine, it's your code.
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: David Vrabel <david.vrabel@citrix.com>
+---
+ drivers/net/xen-netback/netback.c |   17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
 
-Do what you think appropriate.
-
-Also, using pr_warn_once may be better.  Dunno.
-
-cheers, Joe
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 904e497..0af8d97 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1043,10 +1043,7 @@ static int xenvif_set_skb_gso(struct xenvif *vif,
+ 	}
+ 
+ 	skb_shinfo(skb)->gso_size = gso->u.gso.size;
+-
+-	/* Header must be checked, and gso_segs computed. */
+-	skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
+-	skb_shinfo(skb)->gso_segs = 0;
++	/* gso_segs will be calculated later */
+ 
+ 	return 0;
+ }
+@@ -1582,6 +1579,18 @@ static int xenvif_tx_submit(struct xenvif *vif, int budget)
+ 
+ 		skb_probe_transport_header(skb, 0);
+ 
++		/* If the packet is GSO then we will have just set up the
++		 * transport header offset in checksum_setup so it's now
++		 * straightforward to calculate gso_segs.
++		 */
++		if (skb_is_gso(skb)) {
++			int mss = skb_shinfo(skb)->gso_size;
++			int hdrlen = skb->transport_header + tcp_hdrlen(skb);
++
++			skb_shinfo(skb)->gso_segs =
++				DIV_ROUND_UP(skb->len - hdrlen, mss);
++		}
++
+ 		vif->dev->stats.rx_bytes += skb->len;
+ 		vif->dev->stats.rx_packets++;
+ 
+-- 
+1.7.10.4
