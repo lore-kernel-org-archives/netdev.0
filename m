@@ -1,90 +1,91 @@
-From: Nicolas Schichan <nschichan@freebox.fr>
-Subject: Re: Spurious timeouts in mvmdio
-Date: Mon, 16 Dec 2013 19:07:28 +0100
-Message-ID: <52AF4160.9080703@freebox.fr>
-References: <529CA42A.3040504@freebox.fr> <20131203122346.GD29282@titan.lakedaemon.net> <20131203124033.GT16735@n2100.arm.linux.org.uk> <abe249f5cba5c267e2c536bd62c57908@doppler.thel33t.co.uk> <529E5F03.8040607@gmail.com> <8d65780eb7bfe49bb0734a09f05f70a6@doppler.thel33t.co.uk> <529E66A4.4050000@gmail.com> <ae69666fd3b61411d7bbd9ac993cec13@doppler.thel33t.co.uk> <20131203234209.GW16735@n2100.arm.linux.org.uk>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next v2 6/9] xen-netback: Handle guests with too many
+ frags
+Date: Mon, 16 Dec 2013 18:09:08 +0000
+Message-ID: <20131216180908.GC25969@zion.uk.xensource.com>
+References: <1386892097-15502-1-git-send-email-zoltan.kiss@citrix.com>
+ <1386892097-15502-7-git-send-email-zoltan.kiss@citrix.com>
+ <20131213154307.GN21900@zion.uk.xensource.com>
+ <52AF2602.2000409@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <florian@openwrt.org>,
-	linux-arm-kernel@lists.infradead.org,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Leigh Brown <leigh@solinno.co.uk>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131203234209.GW16735@n2100.arm.linux.org.uk>
+Content-Disposition: inline
+In-Reply-To: <52AF2602.2000409@citrix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/04/2013 12:42 AM, Russell King - ARM Linux wrote:
-> Alternatively, code it like this instead.
->
->   drivers/net/ethernet/marvell/mvmdio.c |   32 +++++++++++++++-----------------
->   1 files changed, 15 insertions(+), 17 deletions(-)
->
-> diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-> index 7354960b583b..a6f59831fc5b 100644
-> --- a/drivers/net/ethernet/marvell/mvmdio.c
-> +++ b/drivers/net/ethernet/marvell/mvmdio.c
-> @@ -76,31 +76,29 @@ static int orion_mdio_wait_ready(struct mii_bus *bus)
->   {
->   	struct orion_mdio_dev *dev = bus->priv;
->   	unsigned long timeout = usecs_to_jiffies(MVMDIO_SMI_TIMEOUT);
-> -	unsigned long end = jiffies + timeout;
-> -	int timedout = 0;
->
-> -	while (1) {
-> -	        if (orion_mdio_smi_is_done(dev))
-> +	if (dev->err_interrupt > 0) {
-> +		if (wait_event_timeout(dev->smi_busy_wait,
-> +				       orion_mdio_smi_is_done(dev),
-> +				       1 + timeout))
->   			return 0;
-> -	        else if (timedout)
-> -			break;
-> +	} else {
-> +		unsigned long end = jiffies + timeout;
->
-> -	        if (dev->err_interrupt <= 0) {
-> -			usleep_range(MVMDIO_SMI_POLL_INTERVAL_MIN,
-> -				     MVMDIO_SMI_POLL_INTERVAL_MAX);
-> +		while (1) {
-> +	        	if (orion_mdio_smi_is_done(dev))
-> +				return 0;
->
->   			if (time_is_before_jiffies(end))
-> -				++timedout;
-> -	        } else {
-> -			wait_event_timeout(dev->smi_busy_wait,
-> -				           orion_mdio_smi_is_done(dev),
-> -				           timeout);
-> -
-> -			++timedout;
-> -	        }
-> +				break;
-> +
-> +			usleep_range(MVMDIO_SMI_POLL_INTERVAL_MIN,
-> +				     MVMDIO_SMI_POLL_INTERVAL_MAX);
-> +		}
->   	}
->
->   	dev_err(bus->parent, "Timeout: SMI busy for too long\n");
-> +
->   	return  -ETIMEDOUT;
->   }
+On Mon, Dec 16, 2013 at 04:10:42PM +0000, Zoltan Kiss wrote:
+> On 13/12/13 15:43, Wei Liu wrote:
+> >On Thu, Dec 12, 2013 at 11:48:14PM +0000, Zoltan Kiss wrote:
+> >>Xen network protocol had implicit dependency on MAX_SKB_FRAGS. Netback has to
+> >>handle guests sending up to XEN_NETBK_LEGACY_SLOTS_MAX slots. To achieve that:
+> >>- create a new skb
+> >>- map the leftover slots to its frags (no linear buffer here!)
+> >>- chain it to the previous through skb_shinfo(skb)->frag_list
+> >>- map them
+> >>- copy the whole stuff into a brand new skb and send it to the stack
+> >>- unmap the 2 old skb's pages
+> >>
+> >
+> >Do you see performance regression with this approach?
+> Well, it was pretty hard to reproduce that behaviour even with NFS.
+> I don't think it happens often enough that it causes a noticable
+> performance regression. Anyway, it would be just as slow as the
+> current grant copy with coalescing, maybe a bit slower due to the
+> unmapping. But at least we use a core network function to do the
+> coalescing.
+> Or, if you mean the generic performance, if this problem doesn't
+> appear, then no, I don't see performance regression.
+> 
 
-Hi Russell,
+OK, thanks for comfirming.
 
-I did not find any commit for this in 3.13-rc4.
+> >>Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> >>
+> >>---
+> >>  drivers/net/xen-netback/netback.c |   99 +++++++++++++++++++++++++++++++++++--
+> >>  1 file changed, 94 insertions(+), 5 deletions(-)
+> >>
+> >>diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> >>index e26cdda..f6ed1c8 100644
+> >>--- a/drivers/net/xen-netback/netback.c
+> >>+++ b/drivers/net/xen-netback/netback.c
+> >>@@ -906,11 +906,15 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
+> >>  	u16 pending_idx = *((u16 *)skb->data);
+> >>  	int start;
+> >>  	pending_ring_idx_t index;
+> >>-	unsigned int nr_slots;
+> >>+	unsigned int nr_slots, frag_overflow = 0;
+> >>
+> >>  	/* At this point shinfo->nr_frags is in fact the number of
+> >>  	 * slots, which can be as large as XEN_NETBK_LEGACY_SLOTS_MAX.
+> >>  	 */
+> >>+	if (shinfo->nr_frags > MAX_SKB_FRAGS) {
+> >>+		frag_overflow = shinfo->nr_frags - MAX_SKB_FRAGS;
+> >>+		shinfo->nr_frags = MAX_SKB_FRAGS;
+> >>+	}
+> >>  	nr_slots = shinfo->nr_frags;
+> >>
+> >
+> >It is also probably better to check whether shinfo->nr_frags is too
+> >large which makes frag_overflow > MAX_SKB_FRAGS. I know skb should be
+> >already be valid at this point but it wouldn't hurt to be more careful.
+> Ok, I've added this:
+> 	/* At this point shinfo->nr_frags is in fact the number of
+> 	 * slots, which can be as large as XEN_NETBK_LEGACY_SLOTS_MAX.
+> 	 */
+> +	if (shinfo->nr_frags > MAX_SKB_FRAGS) {
+> +		if (shinfo->nr_frags > XEN_NETBK_LEGACY_SLOTS_MAX) return NULL;
+> +		frag_overflow = shinfo->nr_frags - MAX_SKB_FRAGS;
+> 
 
-Would you prefer I submit my attempt at refactoring the 
-orion_mdio_wait_ready() code ?
+What I suggested is
 
-Regards,
+   BUG_ON(frag_overflow > MAX_SKB_FRAGS)
 
--- 
-Nicolas Schichan
-Freebox SAS
+Wei.
