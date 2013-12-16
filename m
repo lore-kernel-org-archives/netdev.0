@@ -1,82 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] xen-netback: add gso_segs calculation
-Date: Mon, 16 Dec 2013 10:23:57 -0800
-Message-ID: <1387218237.19078.247.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1387214429-4778-1-git-send-email-paul.durrant@citrix.com>
+From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Subject: Re: [PATCH RFC 1/2] ipv6: add the IPV6_FL_F_REPLY flag to IPV6_FL_A_GET
+Date: Mon, 16 Dec 2013 19:24:07 +0100
+Message-ID: <52AF4547.8020304@enst-bretagne.fr>
+References: <1386844697-31169-1-git-send-email-florent.fourcot@enst-bretagne.fr> <52A99262.1090001@enst-bretagne.fr> <20131214095650.GD23563@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Paul Durrant <paul.durrant@citrix.com>
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f44.google.com ([209.85.213.44]:50021 "EHLO
-	mail-yh0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755017Ab3LPSYB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 13:24:01 -0500
-Received: by mail-yh0-f44.google.com with SMTP id f64so4025776yha.3
-        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 10:24:00 -0800 (PST)
-In-Reply-To: <1387214429-4778-1-git-send-email-paul.durrant@citrix.com>
+Received: from fourcot.fr ([217.70.191.14]:51589 "EHLO olfflo.fourcot.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755017Ab3LPSYJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Dec 2013 13:24:09 -0500
+In-Reply-To: <20131214095650.GD23563@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-12-16 at 17:20 +0000, Paul Durrant wrote:
-> netback already has code which parses IPv4 and v6 headers to set up checksum
-> offsets and these are always applied to GSO packets being sent from
-> frontends. It's therefore suboptimal that GSOs are being marked
-> SKB_GSO_DODGY to defer the gso_segs calculation when netback already has all
-> necessary information to hand to do the calculation. This patch adds that
-> calculation.
+Hello,
+
+> Sorry, I am not up to date with flowlabel RFCs and applications. Couldn't
+> such a feature get in the way of RSVP flow control if a remote side
+> can dictate the label to use for the outgoing connection (I know, your
+> implementation is opt-in, but I don't want to give application developers
+> something at hand which could make their software difficult to operate
+> in future).
 > 
-> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-> Cc: Wei Liu <wei.liu2@citrix.com>
-> Cc: Ian Campbell <ian.campbell@citrix.com>
-> Cc: David Vrabel <david.vrabel@citrix.com>
-> ---
->  drivers/net/xen-netback/netback.c |   17 +++++++++++++----
->  1 file changed, 13 insertions(+), 4 deletions(-)
+
+You are right, it could be a problem. But Flow Label are not only
+specified for Quality of Service, and RFC's does not forbid this use case.
+Since this option is opt-in, it should not be a problem. It is already
+possible to set flow label with random values in an application. A
+developper can do getsocketopt(FLOWINFO_SEND), and set the flow label to
+the result (but it lost first packets of TCP handshakes).
+
+>> I'm not sure of the best way to do that. First, should we allocate a
+>> real flow label in the global flow label? I don't think so, and it could
+>> add hard issues with the system of permission/sharing.
 > 
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index 904e497..0af8d97 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -1043,10 +1043,7 @@ static int xenvif_set_skb_gso(struct xenvif *vif,
->  	}
->  
->  	skb_shinfo(skb)->gso_size = gso->u.gso.size;
-> -
-> -	/* Header must be checked, and gso_segs computed. */
-> -	skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
-> -	skb_shinfo(skb)->gso_segs = 0;
-> +	/* gso_segs will be calculated later */
->  
->  	return 0;
->  }
-> @@ -1582,6 +1579,18 @@ static int xenvif_tx_submit(struct xenvif *vif, int budget)
->  
->  		skb_probe_transport_header(skb, 0);
->  
-> +		/* If the packet is GSO then we will have just set up the
-> +		 * transport header offset in checksum_setup so it's now
-> +		 * straightforward to calculate gso_segs.
-> +		 */
-> +		if (skb_is_gso(skb)) {
-> +			int mss = skb_shinfo(skb)->gso_size;
-> +			int hdrlen = skb->transport_header + tcp_hdrlen(skb);
+> I wouldn't do that either. OTOH we are emitting frames with a flowlabel the
+> flowmgr does not know about. :/
+> 
 
-This means there is no headroom ?
+Hum, what is the best way in your opinion? It is not hard to allocate
+the flow label at the first received packet, but there are for me two
+issues.
+The most important problem is the "sharing" of flow label: what happens
+if we receive a packet with a already reserved label? Should we return
+an error to the user (and them, how to do that?), or can we ignore it.
 
-This is not what I am seeing in this driver, as it uses :
+The second issue is the renew/release of label, more particularly if the
+label sent by the remote device change.
 
-skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN);
 
-> +
-> +			skb_shinfo(skb)->gso_segs =
-> +				DIV_ROUND_UP(skb->len - hdrlen, mss);
-> +		}
-> +
->  		vif->dev->stats.rx_bytes += skb->len;
->  		vif->dev->stats.rx_packets++;
->  
+>> Second, I was not sure of the best way for the coverage for all TCP states.
+> 
+> And why would you only support TCP? Wouldn't this work for connected UDP
+> sockets, too?
+> 
+
+Actually, I began with TCP, but of course others transport protocols
+could support this feature. For the UDP case, it could be implemented in
+user space with recvmg/sendmsg (because there are no extra SYN/ACK/etc
+packets), but add this option in the kernel space is a good idea.
+
+Thanks for you feedbacks,
+
+Florent.
