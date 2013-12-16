@@ -1,36 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: NET 3.13.0-rc4 inconsistent lock state
- (&(&sk->sk_dst_lock)->rlock){+.?...}, at: [<ffffffff818a89e4>]
- __udp4_lib_rcv+0x9d4/0xa90
-Date: Mon, 16 Dec 2013 07:22:52 -0800
-Message-ID: <1387207372.19078.241.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <4810128955.20131216160609@eikelenboom.it>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] SCTP: Reduce log spamming for sctp setsockopt
+Date: Mon, 16 Dec 2013 15:24:48 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B749A@saturn3.aculab.com>
+References: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Paul Durrant <Paul.Durrant@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
-To: Sander Eikelenboom <linux@eikelenboom.it>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Vlad Yasevich" <vyasevich@gmail.com>,
+	"David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: "Neil Horman" <nhorman@tuxdriver.com>, <linux-sctp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:50164 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754327Ab3LPPW4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 10:22:56 -0500
-Received: by mail-pa0-f43.google.com with SMTP id bj1so3079960pad.2
-        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 07:22:55 -0800 (PST)
-In-Reply-To: <4810128955.20131216160609@eikelenboom.it>
+Received: from mx0.aculab.com ([213.249.233.131]:54835 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753978Ab3LPP0I convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 10:26:08 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 03931-03 for <netdev@vger.kernel.org>;
+ Mon, 16 Dec 2013 15:26:07 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-12-16 at 16:06 +0100, Sander Eikelenboom wrote:
-> On a Xen HVM guest i encountered this lock warning on boot, it looks like it's from the last net pull from Linus.
-> Not sure if it's the Xen-changes or the udp4 ones.
+> From: Neil Horman
+> During a recent discussion regarding some sctp socket options, it was noted that
+> we have several points at which we issue log warnings that can be flooded at an
+> unbounded rate by any user.  Fix this by converting all the pr_warns in the
+> sctp_setsockopt path to be pr_warn_ratelimited.
+> 
+> Note there are several debug level messages as well.  I'm leaving those alone,
+> as, if you turn on pr_debug, you likely want lots of verbosity.
+...
+> -		pr_warn("Use of struct sctp_assoc_value in delayed_ack socket option deprecated\n");
+> -		pr_warn("Use struct sctp_sack_info instead\n");
+> +		pr_warn_ratelimited("Use of struct sctp_assoc_value in delayed_ack socket option
+> deprecated\n");
+> +		pr_warn_ratelimited("Use struct sctp_sack_info instead\n");
 
-This is the fourth report of this problem.
+Do you need to send these as a single ratelimited message?
 
-http://patchwork.ozlabs.org/patch/301382/
-
-Thanks
+	David
