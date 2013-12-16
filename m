@@ -1,168 +1,124 @@
-From: Wang Weidong <weidong1991.wang@gmail.com>
-Subject: Re: [PATCH v2] sctp: loading sctp when load sctp_probe
-Date: Mon, 16 Dec 2013 22:49:46 +0800
-Message-ID: <52AF130A.1090503@gmail.com>
-References: <52AA783A.7090502@huawei.com> <20131213122605.GA23384@hmsreliant.think-freely.org> <52AE69A4.7090806@huawei.com> <20131216134814.GA19809@hmsreliant.think-freely.org> <52AF0ADF.7030704@gmail.com> <20131216143223.GB19809@hmsreliant.think-freely.org>
+From: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Subject: Re: [PATCH] ipvs: avoid oops in nf_ct_seqadj_set when called from
+ ip_vs_ftp helper
+Date: Mon, 16 Dec 2013 15:57:24 +0100
+Message-ID: <20131216155724.2a174830@redhat.com>
+References: <20131213214023.14478.74738.stgit@dragon>
+	<alpine.LFD.2.11.1312151709260.6463@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:65283 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753685Ab3LPOtX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 09:49:23 -0500
-In-Reply-To: <20131216143223.GB19809@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.11.1312151709260.6463@ja.home.ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wang Weidong <wangweidong1@huawei.com>
+On Sun, 15 Dec 2013 18:10:42 +0200 (EET)
+Julian Anastasov <ja@ssi.bg> wrote:
 
-On 2013/12/16 22:32, Neil Horman wrote:
-> On Mon, Dec 16, 2013 at 10:14:55PM +0800, Wang Weidong wrote:
->> From: Wang Weidong <wangweidong1@huawei.com>
->>
->> On 2013/12/16 21:48, Neil Horman wrote:
->>> On Mon, Dec 16, 2013 at 10:47:00AM +0800, Wang Weidong wrote:
->>>> On 2013/12/13 20:26, Neil Horman wrote:
->>>>> On Fri, Dec 13, 2013 at 11:00:10AM +0800, Wang Weidong wrote:
->>>>>> when I modprobe sctp_probe, it failed with "FATAL: ". I found that
->>>>>> sctp should load before sctp_probe register jprobe. So I add a
->>>>>> sctp_setup_jprobe for loading 'sctp' when first failed to register
->>>>>> jprobe, just do this similar to dccp_probe.
->>>>>>
->>>>>> v2: add MODULE_SOFTDEP and check of request_module, as suggested by Neil
->>>>>>
->>>>>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
->>>>>> ---
->>>>>>   net/sctp/probe.c | 17 ++++++++++++++++-
->>>>>>   1 file changed, 16 insertions(+), 1 deletion(-)
->>>>>>
->>>>>> diff --git a/net/sctp/probe.c b/net/sctp/probe.c
->>>>>> index 53c452e..5e68b94 100644
->>>>>> --- a/net/sctp/probe.c
->>>>>> +++ b/net/sctp/probe.c
->>>>>> @@ -38,6 +38,7 @@
->>>>>>   #include <net/sctp/sctp.h>
->>>>>>   #include <net/sctp/sm.h>
->>>>>>
->>>>>> +MODULE_SOFTDEP("pre: sctp");
->>>>>>   MODULE_AUTHOR("Wei Yongjun <yjwei@cn.fujitsu.com>");
->>>>>>   MODULE_DESCRIPTION("SCTP snooper");
->>>>>>   MODULE_LICENSE("GPL");
->>>>>> @@ -182,6 +183,20 @@ static struct jprobe sctp_recv_probe = {
->>>>>>   	.entry	= jsctp_sf_eat_sack,
->>>>>>   };
->>>>>>
->>>>>> +static __init int sctp_setup_jprobe(void)
->>>>>> +{
->>>>>> +	int ret = register_jprobe(&sctp_recv_probe);
->>>>>> +
->>>>>> +	if (ret) {
->>>>>> +		if (request_module("sctp"))
->>>>>> +			goto out;
->>>>>> +		ret = register_jprobe(&sctp_recv_probe);
->>>>>> +	}
->>>>>> +
->>>>>> +out:
->>>>>> +	return ret;
->>>>>> +}
->>>>>> +
->>>>>>   static __init int sctpprobe_init(void)
->>>>>>   {
->>>>>>   	int ret = -ENOMEM;
->>>>>> @@ -202,7 +217,7 @@ static __init int sctpprobe_init(void)
->>>>>>   			 &sctpprobe_fops))
->>>>>>   		goto free_kfifo;
->>>>>>
->>>>>> -	ret = register_jprobe(&sctp_recv_probe);
->>>>>> +	ret = sctp_setup_jprobe();
->>>>> You don't need to create your own function for this, you can collapse it down to
->>>>> a call to try_then_request_module(regitser_jprobe(...), "sctp");
->>>>> Neil
->>>>>
->>>> Hi Neil,
->>>>
->>>> I try to use try_then_request_module(!regitser_jprobe(...), "sctp"); I found that if
->>>> I used this, I couldn't get the ture value which returned by register_jprobe(). Is the
->>>> returned value not important? The problem("if sctp.ko doesn't exist") you had pointed out
->>>> is exist as well.
->>>>
->>>> Regards.
->>>> Wang
->>>
->>> Not sure I follow.  There appear to be lots of examples in the kernel where
->>
->> I do this just like the dccp/probe.c do. So I think it can be an example.
->>
->
-> Ah thats right, I remember doing this before now. My bad.
->
->>> exactly what you are trying to do is done.  try_then_request_module calls your
->>> requested method, and if it returns non-zero, calls request_module, then calls
->>
->> No actually. Just look the definition:
->> #define try_then_request_module(x, mod...) \
->>           ((x) ?: (__request_module(true, mod), (x)))
->> if x return non-zero, it will return the value, not call request_module.
->>
->>> your requested method again, returning the final result.  What problem are you
->>> running into?
->>> Neil
->>>
->>
->> So I only can use it like this:
->> try_then_request_module(!regitser_jprobe(...), "sctp");
->>
->> when register_jprobe return 0 indicates success, I get the value is 1. It is OK.
->>
->> when register_jprobe is non-zero indicates failed, then calls request_module,
->> and last calls register_jprobe. Here,
->> 1)maybe it will failed return non-zero, what I get the value is !register_jprobe
->> is 0 with losing the value.
->> 2)request_module failed with the sctp is not exist, it will do the register_jprobe
->> as well.
->>
->> Is there I am wrong somewhere?
->>
->
-> It really seems like there should be a way to roll up what you want into the
-> try_then_request_module macro.  What about:
->
-> ret = try_then_request_module((register_jprobe(...) == 0), "sctp");
->
-The first problem maybe exist. because the last value is x. So if use this
-it always return (register_jprobe(...) == 0) while the value is only 1 or 0.
+> On Fri, 13 Dec 2013, Jesper Dangaard Brouer wrote:
+> 
+> > The IPVS FTP helper ip_vs_ftp can trigger an OOPS in nf_ct_seqadj_set,
+> > after commit 41d73ec053d2 (netfilter: nf_conntrack: make sequence
+> > number adjustments usuable without NAT).
+> > 
+> > We can avoid the oops in nf_ct_seqadj_set() by in ip_vs_ftp_out()
+> > instead of calling nf_nat_mangle_tcp_packet() we simply call
+> > __nf_nat_mangle_tcp_packet() with a "false" last parameter, which
+> > indicate not invoking the seqadj code.
+> > 
+> > After this fix, I've tested that FTP over IPVS, with module ip_vs_ftp
+> > loaded, works for both passive and active FTP.
+> > 
+> > Fixes: 41d73ec053d2 (netfilter: nf_conntrack: make sequence number adjustments usuable without NAT)
+> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> > 
+> > ---
+> > I'm uncertain if this is the correct fix.  Perhaps the ip_vs_ftp
+> > helper need to allocate/init the seqadj extension instead?
+> 
+> 	I hope I'll save you some time... What do you
+> think about such change:
 
-> That seems like it should work.  It will mask the actual return value of
-> register_jprobe though I think, which kind of sucks.  Its almost like we need
-> another variant of this macro that accepts an expected condition result so the
-> macro can use it to compare, something like:
->
-> #define try_then_request_module_cond(x, result, mod...) \
-> 	((x) == (result) ?: __request_module(true, mod), (x)))
->
-> that would let you set an expected comparison value for your macro, but get the
-> result of the method if it still fails after the module is loaded, or if it
-> fails to load.
-
-I think this is a good idea.
-
->
-> Thats probably a cleanup for a second patch.  I think your version two is
-> probably as close as we're going to get right now.  So for v2:
->
-> Acked-by: Neil Horman <nhorman@tuxdriver.com>
->
-Thanks.
-
-Will you send the cleanup patch?
-
-Regards.
-Wang
+Thanks a lot!
 
 
-  
+> [PATCH net] ipvs: use the new seqadj interface from ip_vs_ftp
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+> index 77c1732..9c2074d 100644
+> --- a/net/netfilter/ipvs/ip_vs_ftp.c
+> +++ b/net/netfilter/ipvs/ip_vs_ftp.c
+> @@ -34,6 +34,7 @@
+>  #include <linux/netfilter.h>
+>  #include <net/netfilter/nf_conntrack.h>
+>  #include <net/netfilter/nf_conntrack_expect.h>
+> +#include <net/netfilter/nf_conntrack_seqadj.h>
+>  #include <net/netfilter/nf_nat.h>
+>  #include <net/netfilter/nf_nat_helper.h>
+>  #include <linux/gfp.h>
+> @@ -260,7 +261,8 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
+>  		buf_len = strlen(buf);
+>  
+>  		ct = nf_ct_get(skb, &ctinfo);
+> -		if (ct && !nf_ct_is_untracked(ct) && nfct_nat(ct)) {
+> +		if (ct && !nf_ct_is_untracked(ct) && nfct_nat(ct) &&
+> +		    nfct_seqadj(ct)) {
+
+If we add the other section, then this check should not be necessary.
+
+
+>  			/* If mangling fails this function will return 0
+>  			 * which will cause the packet to be dropped.
+>  			 * Mangling can only fail under memory pressure,
+> diff --git a/net/netfilter/ipvs/ip_vs_nfct.c b/net/netfilter/ipvs/ip_vs_nfct.c
+> index c8beafd..5a355a4 100644
+> --- a/net/netfilter/ipvs/ip_vs_nfct.c
+> +++ b/net/netfilter/ipvs/ip_vs_nfct.c
+> @@ -63,6 +63,7 @@
+>  #include <net/ip_vs.h>
+>  #include <net/netfilter/nf_conntrack_core.h>
+>  #include <net/netfilter/nf_conntrack_expect.h>
+> +#include <net/netfilter/nf_conntrack_seqadj.h>
+>  #include <net/netfilter/nf_conntrack_helper.h>
+>  #include <net/netfilter/nf_conntrack_zones.h>
+>  
+> @@ -97,6 +98,11 @@ ip_vs_update_conntrack(struct sk_buff *skb, struct ip_vs_conn *cp, int outin)
+>  	if (CTINFO2DIR(ctinfo) != IP_CT_DIR_ORIGINAL)
+>  		return;
+>  
+> +	/* Applications may adjust TCP seqs */
+> +	if (cp->app && nf_ct_protonum(ct) == IPPROTO_TCP &&
+> +	    !nfct_seqadj(ct) && !nfct_seqadj_ext_add(ct))
+> +		return;
+> +
+
+It will work.
+
+I'm just thinking if we will allocate a seqadj ext, in too many
+situations, were its not really needed... double checking, I see that
+"cp->app" will limit us a lot, as it seems that FTP is the only one
+using register_ip_vs_app(),
+
+And above this, we do check:
+	if (IP_VS_FWD_METHOD(cp) != IP_VS_CONN_F_MASQ)
+		return;
+So, we only do this for IPVS masq case, good.
+I think we are good.
+
+Now, I'm just wondering if SIP will work... (but I don't have a lab to
+test this).
+
+I'll submit a new patch/fix soon.
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
