@@ -1,115 +1,132 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: [PATCH v2 1/9] drivers: net: Remove unused function
- igb_get_eee_status_i354() in e1000_82575.c
-Date: Mon, 16 Dec 2013 18:17:40 +0000
-Message-ID: <9BBC4E0CF881AA4299206E2E1412B6264FA142AA@ORSMSX102.amr.corp.intel.com>
-References: <a610f6ee6bb992b91e43bdc851f3db62fc3decd5.1386911123.git.rashika.kheria@gmail.com>
- <9BBC4E0CF881AA4299206E2E1412B6264FA1408B@ORSMSX102.amr.corp.intel.com>
- <20131216174312.GA26982@jtriplet-mobl1>
+From: Leigh Brown <leigh@solinno.co.uk>
+Subject: Re: Spurious timeouts in mvmdio
+Date: Mon, 16 Dec 2013 18:28:03 +0000
+Message-ID: <a599b2acdb35fa014ed9480f367fe3a7@doppler.thel33t.co.uk>
+References: <529CA42A.3040504@freebox.fr>
+ <20131203122346.GD29282@titan.lakedaemon.net>
+ <20131203124033.GT16735@n2100.arm.linux.org.uk>
+ <abe249f5cba5c267e2c536bd62c57908@doppler.thel33t.co.uk>
+ <529E5F03.8040607@gmail.com>
+ <8d65780eb7bfe49bb0734a09f05f70a6@doppler.thel33t.co.uk>
+ <529E66A4.4050000@gmail.com>
+ <ae69666fd3b61411d7bbd9ac993cec13@doppler.thel33t.co.uk>
+ <20131203234209.GW16735@n2100.arm.linux.org.uk>
+ <52AF4160.9080703@freebox.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Rashika Kheria <rashika.kheria@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Dave, Tushar N" <tushar.n.dave@intel.com>,
-	"Abodunrin, Akeem G" <akeem.g.abodunrin@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Josh Triplett <josh@joshtriplett.org>
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Florian Fainelli <florian@openwrt.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Nicolas Schichan <nschichan@freebox.fr>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131216174312.GA26982@jtriplet-mobl1>
-Content-Language: en-US
+In-Reply-To: <52AF4160.9080703@freebox.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSm9zaCBUcmlwbGV0dCBb
-bWFpbHRvOmpvc2hAam9zaHRyaXBsZXR0Lm9yZ10NCj4gU2VudDogTW9uZGF5LCBEZWNlbWJlciAx
-NiwgMjAxMyA5OjQzIEFNDQo+IFRvOiBXeWJvcm55LCBDYXJvbHluDQo+IENjOiBSYXNoaWthIEto
-ZXJpYTsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsgS2lyc2hlciwgSmVmZnJleSBUOyBC
-cmFuZGVidXJnLA0KPiBKZXNzZTsgQWxsYW4sIEJydWNlIFc7IFNraWRtb3JlLCBEb25hbGQgQzsg
-Um9zZSwgR3JlZ29yeSBWOyBXYXNraWV3aWN6IEpyLA0KPiBQZXRlciBQOyBEdXljaywgQWxleGFu
-ZGVyIEg7IFJvbmNpYWssIEpvaG47IERhdmUsIFR1c2hhciBOOyBBYm9kdW5yaW4sIEFrZWVtDQo+
-IEc7IFZpY2ssIE1hdHRoZXc7IGUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldDsgbmV0
-ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIHYyIDEvOV0gZHJpdmVy
-czogbmV0OiBSZW1vdmUgdW51c2VkIGZ1bmN0aW9uDQo+IGlnYl9nZXRfZWVlX3N0YXR1c19pMzU0
-KCkgaW4gZTEwMDBfODI1NzUuYw0KPiANCj4gT24gTW9uLCBEZWMgMTYsIDIwMTMgYXQgMDU6MTE6
-MjVQTSArMDAwMCwgV3lib3JueSwgQ2Fyb2x5biB3cm90ZToNCj4gPiA+IC0tLS0tT3JpZ2luYWwg
-TWVzc2FnZS0tLS0tDQo+ID4gPiBGcm9tOiBSYXNoaWthIEtoZXJpYSBbbWFpbHRvOnJhc2hpa2Eu
-a2hlcmlhQGdtYWlsLmNvbV0NCj4gPiA+IFNlbnQ6IFNhdHVyZGF5LCBEZWNlbWJlciAxNCwgMjAx
-MyA0OjE1IEFNDQo+ID4gPiBUbzogbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiA+ID4g
-Q2M6IEtpcnNoZXIsIEplZmZyZXkgVDsgQnJhbmRlYnVyZywgSmVzc2U7IEFsbGFuLCBCcnVjZSBX
-OyBXeWJvcm55LA0KPiA+ID4gQ2Fyb2x5bjsgU2tpZG1vcmUsIERvbmFsZCBDOyBSb3NlLCBHcmVn
-b3J5IFY7IFdhc2tpZXdpY3ogSnIsIFBldGVyDQo+ID4gPiBQOyBEdXljaywgQWxleGFuZGVyIEg7
-IFJvbmNpYWssIEpvaG47IERhdmUsIFR1c2hhciBOOyBBYm9kdW5yaW4sDQo+ID4gPiBBa2VlbSBH
-OyBWaWNrLCBNYXR0aGV3OyBlMTAwMC0gZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Ow0KPiA+
-ID4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgam9zaEBqb3NodHJpcGxldHQub3JnDQo+ID4gPiBT
-dWJqZWN0OiBbUEFUQ0ggdjIgMS85XSBkcml2ZXJzOiBuZXQ6IFJlbW92ZSB1bnVzZWQgZnVuY3Rp
-b24NCj4gPiA+IGlnYl9nZXRfZWVlX3N0YXR1c19pMzU0KCkgaW4gZTEwMDBfODI1NzUuYw0KPiA+
-ID4NCj4gPiA+IFRoaXMgcGF0Y2ggcmVtb3ZlcyB0aGUgZnVuY3Rpb24gaWdiX2dldF9lZWVfc3Rh
-dHVzX2kzNTQoKSBpbg0KPiA+ID4gZTEwMDBfODI1NzUuYyBiZWNhdXNlIGl0IGlzIHVudXNlZC4N
-Cj4gPiA+DQo+ID4gPiBJdCB0aHVzIGVsaW1pbmF0ZXMgdGhlIGZvbGxvd2luZyB3YXJuaW5nIGlu
-DQo+ID4gPiBldGhlcm5ldC9pbnRlbC9pZ2IvZTEwMDBfODI1NzUuYzoNCj4gPiA+IGRyaXZlcnMv
-bmV0L2V0aGVybmV0L2ludGVsL2lnYi9lMTAwMF84MjU3NS5jOjI1OTE6NTogd2FybmluZzogbm8N
-Cj4gPiA+IHByZXZpb3VzIHByb3RvdHlwZSBmb3Ig4oCYaWdiX2dldF9lZWVfc3RhdHVzX2kzNTTi
-gJkNCj4gPiA+IFstV21pc3NpbmctcHJvdG90eXBlc10NCj4gPiA+DQo+ID4gPiBTaWduZWQtb2Zm
-LWJ5OiBSYXNoaWthIEtoZXJpYSA8cmFzaGlrYS5raGVyaWFAZ21haWwuY29tPg0KPiA+ID4gUmV2
-aWV3ZWQtYnk6IEpvc2ggVHJpcGxldHQgPGpvc2hAam9zaHRyaXBsZXR0Lm9yZz4NCj4gPiA+IC0t
-LQ0KPiA+ID4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9lMTAwMF84MjU3NS5jIHwg
-ICAzMiAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KPiA+ID4gIDEgZmlsZSBjaGFuZ2VkLCAz
-MiBkZWxldGlvbnMoLSkNCj4gPiA+DQo+ID4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvaW50ZWwvaWdiL2UxMDAwXzgyNTc1LmMNCj4gPiA+IGIvZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvaW50ZWwvaWdiL2UxMDAwXzgyNTc1LmMNCj4gPiA+IGluZGV4IDQ3YzJkMTAuLjE4ZTUyMDAg
-MTAwNjQ0DQo+ID4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvZTEwMDBf
-ODI1NzUuYw0KPiA+ID4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2UxMDAw
-XzgyNTc1LmMNCj4gPiA+IEBAIC0yNTgwLDM4ICsyNTgwLDYgQEAgb3V0Og0KPiA+ID4gIAlyZXR1
-cm4gcmV0X3ZhbDsNCj4gPiA+ICB9DQo+ID4gPg0KPiA+ID4gLS8qKg0KPiA+ID4gLSAqICBpZ2Jf
-Z2V0X2VlZV9zdGF0dXNfaTM1NCAtIEdldCBFRUUgc3RhdHVzDQo+ID4gPiAtICogIEBodzogcG9p
-bnRlciB0byB0aGUgSFcgc3RydWN0dXJlDQo+ID4gPiAtICogIEBzdGF0dXM6IEVFRSBzdGF0dXMN
-Cj4gPiA+IC0gKg0KPiA+ID4gLSAqICBHZXQgRUVFIHN0YXR1cyBieSBndWVzc2luZyBiYXNlZCBv
-biB3aGV0aGVyIFR4IG9yIFJ4IExQSQ0KPiA+ID4gaW5kaWNhdGlvbnMgaGF2ZQ0KPiA+ID4gLSAq
-ICBiZWVuIHJlY2VpdmVkLg0KPiA+ID4gLSAqKi8NCj4gPiA+IC1zMzIgaWdiX2dldF9lZWVfc3Rh
-dHVzX2kzNTQoc3RydWN0IGUxMDAwX2h3ICpodywgYm9vbCAqc3RhdHVzKSAtew0KPiA+ID4gLQlz
-dHJ1Y3QgZTEwMDBfcGh5X2luZm8gKnBoeSA9ICZody0+cGh5Ow0KPiA+ID4gLQlzMzIgcmV0X3Zh
-bCA9IDA7DQo+ID4gPiAtCXUxNiBwaHlfZGF0YTsNCj4gPiA+IC0NCj4gPiA+IC0JLyogQ2hlY2sg
-aWYgRUVFIGlzIHN1cHBvcnRlZCBvbiB0aGlzIGRldmljZS4gKi8NCj4gPiA+IC0JaWYgKChody0+
-cGh5Lm1lZGlhX3R5cGUgIT0gZTEwMDBfbWVkaWFfdHlwZV9jb3BwZXIpIHx8DQo+ID4gPiAtCSAg
-ICAocGh5LT5pZCAhPSBNODhFMTU0M19FX1BIWV9JRCkpDQo+ID4gPiAtCQlnb3RvIG91dDsNCj4g
-PiA+IC0NCj4gPiA+IC0JcmV0X3ZhbCA9IGlnYl9yZWFkX3htZGlvX3JlZyhodywgRTEwMDBfUENT
-X1NUQVRVU19BRERSX0kzNTQsDQo+ID4gPiAtCQkJCSAgICAgRTEwMDBfUENTX1NUQVRVU19ERVZf
-STM1NCwNCj4gPiA+IC0JCQkJICAgICAmcGh5X2RhdGEpOw0KPiA+ID4gLQlpZiAocmV0X3ZhbCkN
-Cj4gPiA+IC0JCWdvdG8gb3V0Ow0KPiA+ID4gLQ0KPiA+ID4gLQkqc3RhdHVzID0gcGh5X2RhdGEg
-JiAoRTEwMDBfUENTX1NUQVRVU19UWF9MUElfUkNWRCB8DQo+ID4gPiAtCQkJICAgICAgRTEwMDBf
-UENTX1NUQVRVU19SWF9MUElfUkNWRCkgPyB0cnVlIDogZmFsc2U7DQo+ID4gPiAtDQo+ID4gPiAt
-b3V0Og0KPiA+ID4gLQlyZXR1cm4gcmV0X3ZhbDsNCj4gPiA+IC19DQo+ID4gPiAtDQo+ID4gPiAg
-c3RhdGljIGNvbnN0IHU4IGUxMDAwX2VtY190ZW1wX2RhdGFbNF0gPSB7DQo+ID4gPiAgCUUxMDAw
-X0VNQ19JTlRFUk5BTF9EQVRBLA0KPiA+ID4gIAlFMTAwMF9FTUNfRElPREUxX0RBVEEsDQo+ID4g
-PiAtLQ0KPiA+ID4gMS43LjkuNQ0KPiA+DQo+ID4gTkFDSy4NCj4gPg0KPiA+IFRoYW5rcyBmb3Ig
-dGhlIHBhdGNoIFJhc2hpa2EsIGJ1dCB0aGlzIGlzIHRoZSBpbmNvcnJlY3QgZml4IGZvciB0aGlz
-DQo+ID4gd2FybmluZyAgVGhlIGZ1bmN0aW9uIGlzIGNhbGxlZCBpbiB0aGUgaWdiX3Byb2JlIGZ1
-bmN0aW9uLCBzbyB5b3UNCj4gPiBjYW5ub3QgcmVtb3ZlIGl0IGFuZCBJIHNlZSB0aGUgcHJvdG90
-eXBlIGluIHRoZSBlMTAwMF84MjU3NS5oIGZpbGUuDQo+ID4gQ2FuIHlvdSBkb3VibGUgY2hlY2sg
-eW91ciBzb3VyY2UgcHVsbD8NCj4gDQo+IEZyb20gdG9wLW9mLXRyZWUgbGludXguZ2l0Og0KPiAN
-Cj4gfi9zcmMvbGludXgkIGdpdCBncmVwIGlnYl9nZXRfZWVlX3N0YXR1c19pMzU0DQo+IGRyaXZl
-cnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9lMTAwMF84MjU3NS5jOiAqICBpZ2JfZ2V0X2VlZV9z
-dGF0dXNfaTM1NCAtIEdldA0KPiBFRUUgc3RhdHVzDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2lu
-dGVsL2lnYi9lMTAwMF84MjU3NS5jOnMzMmpqag0KPiBpZ2JfZ2V0X2VlZV9zdGF0dXNfaTM1NChz
-dHJ1Y3QgZTEwMDBfaHcgKmh3LCBib29sICpzdGF0dXMpDQo+IA0KPiBBIGNvbW1lbnQgYW5kIHRo
-ZSBmdW5jdGlvbiBpdHNlbGY7IG5vIG90aGVyIHJlZmVyZW5jZXMuICBJbiB3aGF0IHRyZWUgYXJl
-IHlvdQ0KPiBzZWVpbmcgYSByZWZlcmVuY2UgdG8gaWdiX2dldF9lZWVfc3RhdHVzX2kzNTQ/DQo+
-IA0KPiAtIEpvc2ggVHJpcGxldHQNCg0KVGhhbmtzIEpvc2gsDQoNCk15IG1pc3Rha2UuICBJIHdh
-cyBsb29raW5nIGF0IHRoZSAiZ2V0IiBub3QgInNldCIgZnVuY3Rpb24uICBIb3dldmVyLCB0aGlz
-IGlzIHN0aWxsIG5vdCB0aGUgcmlnaHQgZml4IGZvciB0aGUgZHJpdmVyIGFzIHRoZSBhY3R1YWwg
-cHJvYmxlbSBpcyB0aGUgbWlzc2luZyBjb2RlIHRoYXQgaXMgc3VwcG9zZWQgdG8gYmUgY2FsbGlu
-ZyB0aGF0IGZ1bmN0aW9uIGluIGlnYl9nZXRfZWVlIGluIGlnYl9ldGh0b29sLmMuICBUaGUgZnVu
-Y3Rpb24gbmVlZHMgdG8gc3RheS4gIEkgd2lsbCBzdWJtaXQgdGhlIGNvcnJlY3QgZml4IEFTQVAu
-DQoNClRoYW5rcywNCg0KQ2Fyb2x5bg0K
+On 2013-12-16 18:07, Nicolas Schichan wrote:
+> On 12/04/2013 12:42 AM, Russell King - ARM Linux wrote:
+>> Alternatively, code it like this instead.
+>> 
+>>   drivers/net/ethernet/marvell/mvmdio.c |   32 
+>> +++++++++++++++-----------------
+>>   1 files changed, 15 insertions(+), 17 deletions(-)
+>> 
+>> diff --git a/drivers/net/ethernet/marvell/mvmdio.c 
+>> b/drivers/net/ethernet/marvell/mvmdio.c
+>> index 7354960b583b..a6f59831fc5b 100644
+>> --- a/drivers/net/ethernet/marvell/mvmdio.c
+>> +++ b/drivers/net/ethernet/marvell/mvmdio.c
+>> @@ -76,31 +76,29 @@ static int orion_mdio_wait_ready(struct mii_bus 
+>> *bus)
+>>   {
+>>   	struct orion_mdio_dev *dev = bus->priv;
+>>   	unsigned long timeout = usecs_to_jiffies(MVMDIO_SMI_TIMEOUT);
+>> -	unsigned long end = jiffies + timeout;
+>> -	int timedout = 0;
+>> 
+>> -	while (1) {
+>> -	        if (orion_mdio_smi_is_done(dev))
+>> +	if (dev->err_interrupt > 0) {
+>> +		if (wait_event_timeout(dev->smi_busy_wait,
+>> +				       orion_mdio_smi_is_done(dev),
+>> +				       1 + timeout))
+>>   			return 0;
+>> -	        else if (timedout)
+>> -			break;
+>> +	} else {
+>> +		unsigned long end = jiffies + timeout;
+>> 
+>> -	        if (dev->err_interrupt <= 0) {
+>> -			usleep_range(MVMDIO_SMI_POLL_INTERVAL_MIN,
+>> -				     MVMDIO_SMI_POLL_INTERVAL_MAX);
+>> +		while (1) {
+>> +	        	if (orion_mdio_smi_is_done(dev))
+>> +				return 0;
+>> 
+>>   			if (time_is_before_jiffies(end))
+>> -				++timedout;
+>> -	        } else {
+>> -			wait_event_timeout(dev->smi_busy_wait,
+>> -				           orion_mdio_smi_is_done(dev),
+>> -				           timeout);
+>> -
+>> -			++timedout;
+>> -	        }
+>> +				break;
+>> +
+>> +			usleep_range(MVMDIO_SMI_POLL_INTERVAL_MIN,
+>> +				     MVMDIO_SMI_POLL_INTERVAL_MAX);
+>> +		}
+>>   	}
+>> 
+>>   	dev_err(bus->parent, "Timeout: SMI busy for too long\n");
+>> +
+>>   	return  -ETIMEDOUT;
+>>   }
+> 
+> Hi Russell,
+> 
+> I did not find any commit for this in 3.13-rc4.
+> 
+> Would you prefer I submit my attempt at refactoring the
+> orion_mdio_wait_ready() code ?
+
+I prefer this patch (which I think you originally proposed) because it 
+is just as
+correct and the code size is a bit smaller in arm mode, and the same 
+size in thumb
+mode (on my compiler gcc 4.7.2, at least).  I coded the loop in that way 
+to make it
+small.
+
+I don't mind submitting it to David as I made the mistake in the first 
+place.
+
+Regards,
+
+Leigh.
+
+diff --git a/drivers/net/ethernet/marvell/mvmdio.c 
+b/drivers/net/ethernet/marvell/mvmdio.c
+index 7354960..a42a750 100644
+--- a/drivers/net/ethernet/marvell/mvmdio.c
++++ b/drivers/net/ethernet/marvell/mvmdio.c
+@@ -92,6 +92,12 @@ static int orion_mdio_wait_ready(struct mii_bus *bus)
+  			if (time_is_before_jiffies(end))
+  				++timedout;
+  	        } else {
++			/* wait_event_timeout does not guarantee a delay of at
++			 * least one whole jiffie, so timeout must be no less
++			 * than two.
++			 */
++			 if (timeout < 2)
++			 	timeout = 2;
+  			wait_event_timeout(dev->smi_busy_wait,
+  				           orion_mdio_smi_is_done(dev),
+  				           timeout);
