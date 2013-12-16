@@ -1,83 +1,96 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: [PATCH v2 1/9] drivers: net: Remove unused function
- igb_get_eee_status_i354() in e1000_82575.c
-Date: Mon, 16 Dec 2013 17:11:25 +0000
-Message-ID: <9BBC4E0CF881AA4299206E2E1412B6264FA1408B@ORSMSX102.amr.corp.intel.com>
-References: <a610f6ee6bb992b91e43bdc851f3db62fc3decd5.1386911123.git.rashika.kheria@gmail.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v2 8/9] xen-netback: Timeout packets in RX path
+Date: Mon, 16 Dec 2013 17:16:17 +0000
+Message-ID: <52AF3561.9020904@citrix.com>
+References: <1386892097-15502-1-git-send-email-zoltan.kiss@citrix.com> <1386892097-15502-9-git-send-email-zoltan.kiss@citrix.com> <20131213154406.GO21900@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Dave, Tushar N" <tushar.n.dave@intel.com>,
-	"Abodunrin, Akeem G" <akeem.g.abodunrin@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"josh@joshtriplett.org" <josh@joshtriplett.org>
-To: Rashika Kheria <rashika.kheria@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <a610f6ee6bb992b91e43bdc851f3db62fc3decd5.1386911123.git.rashika.kheria@gmail.com>
-Content-Language: en-US
+In-Reply-To: <20131213154406.GO21900@zion.uk.xensource.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBSYXNoaWthIEtoZXJpYSBbbWFp
-bHRvOnJhc2hpa2Eua2hlcmlhQGdtYWlsLmNvbV0NCj4gU2VudDogU2F0dXJkYXksIERlY2VtYmVy
-IDE0LCAyMDEzIDQ6MTUgQU0NCj4gVG86IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcNCj4g
-Q2M6IEtpcnNoZXIsIEplZmZyZXkgVDsgQnJhbmRlYnVyZywgSmVzc2U7IEFsbGFuLCBCcnVjZSBX
-OyBXeWJvcm55LCBDYXJvbHluOw0KPiBTa2lkbW9yZSwgRG9uYWxkIEM7IFJvc2UsIEdyZWdvcnkg
-VjsgV2Fza2lld2ljeiBKciwgUGV0ZXIgUDsgRHV5Y2ssIEFsZXhhbmRlcg0KPiBIOyBSb25jaWFr
-LCBKb2huOyBEYXZlLCBUdXNoYXIgTjsgQWJvZHVucmluLCBBa2VlbSBHOyBWaWNrLCBNYXR0aGV3
-OyBlMTAwMC0NCj4gZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0OyBuZXRkZXZAdmdlci5rZXJu
-ZWwub3JnOyBqb3NoQGpvc2h0cmlwbGV0dC5vcmcNCj4gU3ViamVjdDogW1BBVENIIHYyIDEvOV0g
-ZHJpdmVyczogbmV0OiBSZW1vdmUgdW51c2VkIGZ1bmN0aW9uDQo+IGlnYl9nZXRfZWVlX3N0YXR1
-c19pMzU0KCkgaW4gZTEwMDBfODI1NzUuYw0KPiANCj4gVGhpcyBwYXRjaCByZW1vdmVzIHRoZSBm
-dW5jdGlvbiBpZ2JfZ2V0X2VlZV9zdGF0dXNfaTM1NCgpIGluIGUxMDAwXzgyNTc1LmMNCj4gYmVj
-YXVzZSBpdCBpcyB1bnVzZWQuDQo+IA0KPiBJdCB0aHVzIGVsaW1pbmF0ZXMgdGhlIGZvbGxvd2lu
-ZyB3YXJuaW5nIGluDQo+IGV0aGVybmV0L2ludGVsL2lnYi9lMTAwMF84MjU3NS5jOg0KPiBkcml2
-ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvZTEwMDBfODI1NzUuYzoyNTkxOjU6IHdhcm5pbmc6
-IG5vIHByZXZpb3VzDQo+IHByb3RvdHlwZSBmb3Ig4oCYaWdiX2dldF9lZWVfc3RhdHVzX2kzNTTi
-gJkgWy1XbWlzc2luZy1wcm90b3R5cGVzXQ0KPiANCj4gU2lnbmVkLW9mZi1ieTogUmFzaGlrYSBL
-aGVyaWEgPHJhc2hpa2Eua2hlcmlhQGdtYWlsLmNvbT4NCj4gUmV2aWV3ZWQtYnk6IEpvc2ggVHJp
-cGxldHQgPGpvc2hAam9zaHRyaXBsZXR0Lm9yZz4NCj4gLS0tDQo+ICBkcml2ZXJzL25ldC9ldGhl
-cm5ldC9pbnRlbC9pZ2IvZTEwMDBfODI1NzUuYyB8ICAgMzIgLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0NCj4gIDEgZmlsZSBjaGFuZ2VkLCAzMiBkZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYgLS1n
-aXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvZTEwMDBfODI1NzUuYw0KPiBiL2Ry
-aXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9lMTAwMF84MjU3NS5jDQo+IGluZGV4IDQ3YzJk
-MTAuLjE4ZTUyMDAgMTAwNjQ0DQo+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2ln
-Yi9lMTAwMF84MjU3NS5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9l
-MTAwMF84MjU3NS5jDQo+IEBAIC0yNTgwLDM4ICsyNTgwLDYgQEAgb3V0Og0KPiAgCXJldHVybiBy
-ZXRfdmFsOw0KPiAgfQ0KPiANCj4gLS8qKg0KPiAtICogIGlnYl9nZXRfZWVlX3N0YXR1c19pMzU0
-IC0gR2V0IEVFRSBzdGF0dXMNCj4gLSAqICBAaHc6IHBvaW50ZXIgdG8gdGhlIEhXIHN0cnVjdHVy
-ZQ0KPiAtICogIEBzdGF0dXM6IEVFRSBzdGF0dXMNCj4gLSAqDQo+IC0gKiAgR2V0IEVFRSBzdGF0
-dXMgYnkgZ3Vlc3NpbmcgYmFzZWQgb24gd2hldGhlciBUeCBvciBSeCBMUEkgaW5kaWNhdGlvbnMg
-aGF2ZQ0KPiAtICogIGJlZW4gcmVjZWl2ZWQuDQo+IC0gKiovDQo+IC1zMzIgaWdiX2dldF9lZWVf
-c3RhdHVzX2kzNTQoc3RydWN0IGUxMDAwX2h3ICpodywgYm9vbCAqc3RhdHVzKSAtew0KPiAtCXN0
-cnVjdCBlMTAwMF9waHlfaW5mbyAqcGh5ID0gJmh3LT5waHk7DQo+IC0JczMyIHJldF92YWwgPSAw
-Ow0KPiAtCXUxNiBwaHlfZGF0YTsNCj4gLQ0KPiAtCS8qIENoZWNrIGlmIEVFRSBpcyBzdXBwb3J0
-ZWQgb24gdGhpcyBkZXZpY2UuICovDQo+IC0JaWYgKChody0+cGh5Lm1lZGlhX3R5cGUgIT0gZTEw
-MDBfbWVkaWFfdHlwZV9jb3BwZXIpIHx8DQo+IC0JICAgIChwaHktPmlkICE9IE04OEUxNTQzX0Vf
-UEhZX0lEKSkNCj4gLQkJZ290byBvdXQ7DQo+IC0NCj4gLQlyZXRfdmFsID0gaWdiX3JlYWRfeG1k
-aW9fcmVnKGh3LCBFMTAwMF9QQ1NfU1RBVFVTX0FERFJfSTM1NCwNCj4gLQkJCQkgICAgIEUxMDAw
-X1BDU19TVEFUVVNfREVWX0kzNTQsDQo+IC0JCQkJICAgICAmcGh5X2RhdGEpOw0KPiAtCWlmIChy
-ZXRfdmFsKQ0KPiAtCQlnb3RvIG91dDsNCj4gLQ0KPiAtCSpzdGF0dXMgPSBwaHlfZGF0YSAmIChF
-MTAwMF9QQ1NfU1RBVFVTX1RYX0xQSV9SQ1ZEIHwNCj4gLQkJCSAgICAgIEUxMDAwX1BDU19TVEFU
-VVNfUlhfTFBJX1JDVkQpID8gdHJ1ZSA6IGZhbHNlOw0KPiAtDQo+IC1vdXQ6DQo+IC0JcmV0dXJu
-IHJldF92YWw7DQo+IC19DQo+IC0NCj4gIHN0YXRpYyBjb25zdCB1OCBlMTAwMF9lbWNfdGVtcF9k
-YXRhWzRdID0gew0KPiAgCUUxMDAwX0VNQ19JTlRFUk5BTF9EQVRBLA0KPiAgCUUxMDAwX0VNQ19E
-SU9ERTFfREFUQSwNCj4gLS0NCj4gMS43LjkuNQ0KDQpOQUNLLg0KDQpUaGFua3MgZm9yIHRoZSBw
-YXRjaCBSYXNoaWthLCBidXQgdGhpcyBpcyB0aGUgaW5jb3JyZWN0IGZpeCBmb3IgdGhpcyB3YXJu
-aW5nICBUaGUgZnVuY3Rpb24gaXMgY2FsbGVkIGluIHRoZSBpZ2JfcHJvYmUgZnVuY3Rpb24sIHNv
-IHlvdSBjYW5ub3QgcmVtb3ZlIGl0IGFuZCBJIHNlZSB0aGUgcHJvdG90eXBlIGluIHRoZSBlMTAw
-MF84MjU3NS5oIGZpbGUuICBDYW4geW91IGRvdWJsZSBjaGVjayB5b3VyIHNvdXJjZSBwdWxsPw0K
-DQpUaGFua3MsDQoNCkNhcm9seW4NCg0KQ2Fyb2x5biBXeWJvcm55IA0KTGludXggRGV2ZWxvcG1l
-bnQgDQpOZXR3b3JraW5nIERpdmlzaW9uIA0KSW50ZWwgQ29ycG9yYXRpb24gDQoNCg0KDQo=
+On 13/12/13 15:44, Wei Liu wrote:
+> On Thu, Dec 12, 2013 at 11:48:16PM +0000, Zoltan Kiss wrote:
+>> A malicious or buggy guest can leave its queue filled indefinitely, in which
+>> case qdisc start to queue packets for that VIF. If those packets came from an
+>> another guest, it can block its slots and prevent shutdown. To avoid that, we
+>> make sure the queue is drained in every 10 seconds
+>>
+>
+> Oh I see where the 10 second constraint in previous patch comes from.
+>
+> Could you define a macro for this constant then use it everywhere.
+Well, they are not entirely the same thing, but worth making them the 
+same. How about using "unmap_timeout > (rx_drain_timeout_msecs/1000)" in 
+xenvif_free()? Then netback won't complain about a stucked page if an 
+another guest is permitted to hold on to it.
+
+>
+>> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+>> ---
+> [...]
+>> +static void xenvif_wake_queue(unsigned long data)
+>> +{
+>> +	struct xenvif *vif = (struct xenvif *)data;
+>> +
+>> +	netdev_err(vif->dev, "timer fires\n");
+>
+> What timer? This error message needs to be more specific.
+I forgot to remove this, I used it for debugging only. The other message 
+2 line below is more important
+
+>
+>> +	if (netif_queue_stopped(vif->dev)) {
+>> +		netdev_err(vif->dev, "draining TX queue\n");
+>> +		netif_wake_queue(vif->dev);
+>> +	}
+>> +}
+>> +
+>>   static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>>   {
+>>   	struct xenvif *vif = netdev_priv(dev);
+>> @@ -141,8 +152,13 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>>   	 * then turn off the queue to give the ring a chance to
+>>   	 * drain.
+>>   	 */
+>> -	if (!xenvif_rx_ring_slots_available(vif, min_slots_needed))
+>> +	if (!xenvif_rx_ring_slots_available(vif, min_slots_needed)) {
+>> +		vif->wake_queue.function = xenvif_wake_queue;
+>> +		vif->wake_queue.data = (unsigned long)vif;
+>>   		xenvif_stop_queue(vif);
+>> +		mod_timer(&vif->wake_queue,
+>> +			jiffies + rx_drain_timeout_jiffies);
+>> +	}
+>>
+>
+> Do you need to use jiffies_64 instead of jiffies?
+Well, we don't use time_after_eq here, just set the timer. AFAIK that 
+should be OK.
+
+> This timer is only armed when ring is full. So what happens when the
+> ring is not full and some other parts of the system holds on to the
+> packets forever? Can this happen?
+This timer is not to protect the receiving guest, but to protect the 
+sender. If the ring is not full, then netback will put the packet there 
+and release the skb back.
+This patch is to replace delayed copy from classic kernel times. There 
+we handled this problem on the sender side: after a timer expired we 
+made a local copy of the packet and released back the pages. It had 
+stronger guarantees that a guest will always get back its pages, but it 
+also caused more unnecessary copies when the system is already loaded 
+and we should really thrash the packet. Unfortunately we can't do that 
+as the sender is no longer in control.
+Instead I choose this more lightweight solution, because practice said 
+an another guest's queue is the only place where the packet can get 
+stucked, especially if that guest is malicious, buggy, or too slow.
+Other parts (e.g. a driver) can also hold on the packet if they are 
+buggy, but then we should fix that bug rather than feed it with more 
+guest pages.
+
+Zoli
