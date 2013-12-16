@@ -1,56 +1,69 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: Re: [PATCH net-next] sch_tbf: add TBF_BURST/TBF_PBURST attribute
-Date: Mon, 16 Dec 2013 10:11:59 +0800
-Message-ID: <52AE616F.9050001@huawei.com>
-References: <1386927716-7896-1-git-send-email-yangyingliang@huawei.com> <52AAD867.5030305@cn.fujitsu.com>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH net-next] net-ipv6: Fix alleged compiler warning in ipv6_exthdrs_len()
+Date: Mon, 16 Dec 2013 10:30:26 +0800
+Message-ID: <CAPshTCjv44ypAjrv+0jJx08feBC-JsKaQAuLGD7SHNTssP1wEA@mail.gmail.com>
+References: <1387127947-2075-1-git-send-email-hkchu@google.com>
+	<20131215.203158.557626779911420893.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Cc: hannes@stressinduktion.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:36025 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751461Ab3LPCMO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 21:12:14 -0500
-In-Reply-To: <52AAD867.5030305@cn.fujitsu.com>
+Received: from mail-qc0-f178.google.com ([209.85.216.178]:54579 "EHLO
+	mail-qc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750772Ab3LPCa2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 21:30:28 -0500
+Received: by mail-qc0-f178.google.com with SMTP id i17so3250819qcy.23
+        for <netdev@vger.kernel.org>; Sun, 15 Dec 2013 18:30:26 -0800 (PST)
+In-Reply-To: <20131215.203158.557626779911420893.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/12/13 17:50, Duan Jiong wrote:
-> =E4=BA=8E 2013=E5=B9=B412=E6=9C=8813=E6=97=A5 17:41, Yang Yingliang =E5=
-=86=99=E9=81=93:
->> When we set burst to 1514 with low rate in userspace,
->> the kernel get a value of burst that less than 1514,
->> which doesn't work.
+On Mon, Dec 16, 2013 at 9:31 AM, David Miller <davem@davemloft.net> wro=
+te:
+> From: "H.K. Jerry Chu" <hkchu@google.com>
+> Date: Sun, 15 Dec 2013 09:19:07 -0800
+>
+>> From: Jerry Chu <hkchu@google.com>
 >>
->> Because it may make some loss when transform burst
->> to buffer in userspace. This makes burst lose some
->> bytes, when the kernel transform the buffer back to
->> burst.
+>> It was reported that Commit 299603e8370a93dd5d8e8d800f0dff1ce2c53d36
+>> ("net-gro: Prepare GRO stack for the upcoming tunneling support")
+>> triggered a compiler warning in ipv6_exthdrs_len():
 >>
->> This patch adds two new attributes to support sending
->> burst/mtu to kernel directly to avoid the loss.
+>> net/ipv6/ip6_offload.c: In function =91ipv6_gro_complete=92:
+>> net/ipv6/ip6_offload.c:178:24: warning: =91optlen=92 may be used uni=
+nitialized in this function [-Wmaybe-u
+>>     opth =3D (void *)opth + optlen;
+>>                       ^
+>>     net/ipv6/ip6_offload.c:164:22: note: =91optlen=92 was declared h=
+ere
+>>     int len =3D 0, proto, optlen;
+>>                         ^
+>> Note that there was no real bug here - optlen was never uninitialize=
+d
+>> before use. (Was the version of gcc I used smarter to not complain?)
 >>
->> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
->> ---
-[...]
->> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
->> index 887e672..a746049 100644
->> --- a/net/sched/sch_tbf.c
->> +++ b/net/sched/sch_tbf.c
->> @@ -307,6 +307,8 @@ static const struct nla_policy tbf_policy[TCA_TB=
-=46_MAX + 1] =3D {
->>  	[TCA_TBF_PTAB]	=3D { .type =3D NLA_BINARY, .len =3D TC_RTAB_SIZE }=
-,
->>  	[TCA_TBF_RATE64]	=3D { .type =3D NLA_U64 },
->>  	[TCA_TBF_PRATE64]	=3D { .type =3D NLA_U64 },
->> +	[TCA_TBF_BURST]		=3D { .type =3D NLA_U32 },
->=20
-> This place should remove one tab.
->=20
-> Thanks,
->   Duan
->=20
+>> Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>> Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
+>
+> What is this patch against?
+>
+> It gets rejects when I try to apply it both with Hannes's patch rever=
+ted
+> and without it reverted.
 
-OK, thanks!
+It was against net-next of a few days old (and w/o Hannes's patch):
+
+commit 68536053600425c24aba031c45f053d447eedd9c (netnext/master)
+Author: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Date:   Thu Dec 12 17:07:58 2013 +0100
+
+    ipv6: fix incorrect type in declaration
+
+I just did a git pull and will submit one against the latest net-next.
+(I did not see any conflict though. Not sure why you can't apply the pa=
+tch.)
+
+Jerry
