@@ -1,119 +1,83 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH v2 2/2] SCTP: Reduce log spamming for sctp setsockopt
-Date: Mon, 16 Dec 2013 12:06:45 -0500
-Message-ID: <1387213605-27206-3-git-send-email-nhorman@tuxdriver.com>
-References: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
- <1387213605-27206-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-sctp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:40162 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755037Ab3LPRH2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 12:07:28 -0500
-In-Reply-To: <1387213605-27206-1-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: [PATCH v2 1/9] drivers: net: Remove unused function
+ igb_get_eee_status_i354() in e1000_82575.c
+Date: Mon, 16 Dec 2013 17:11:25 +0000
+Message-ID: <9BBC4E0CF881AA4299206E2E1412B6264FA1408B@ORSMSX102.amr.corp.intel.com>
+References: <a610f6ee6bb992b91e43bdc851f3db62fc3decd5.1386911123.git.rashika.kheria@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Dave, Tushar N" <tushar.n.dave@intel.com>,
+	"Abodunrin, Akeem G" <akeem.g.abodunrin@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"josh@joshtriplett.org" <josh@joshtriplett.org>
+To: Rashika Kheria <rashika.kheria@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <a610f6ee6bb992b91e43bdc851f3db62fc3decd5.1386911123.git.rashika.kheria@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-During a recent discussion regarding some sctp socket options, it was noted that
-we have several points at which we issue log warnings that can be flooded at an
-unbounded rate by any user.  Fix this by converting all the pr_warns in the
-sctp_setsockopt path to be pr_warn_ratelimited.
-
-Note there are several debug level messages as well.  I'm leaving those alone,
-as, if you turn on pr_debug, you likely want lots of verbosity.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: Vlad Yasevich <vyasevich@gmail.com>
-CC: David Miller <davem@davemloft.net>
-CC: netdev@vger.kernel.org
-
----
-
-Change notes:
-
-V2)
-	* Based on suggestions from Daniel Borkman, and Joe Perches I'm creating
-and using a new pr_warn_deprecated macro
-
-	* Note from David Laight, The pr_warn statements come in pairs, and if
-one is printed through the ratelimit filter, the other should also be printed.
-Correct this by merging both calls into a single pr_warn_deprecated call.
----
- net/sctp/socket.c | 24 ++++++++++++------------
- 1 file changed, 12 insertions(+), 12 deletions(-)
-
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 42b709c..77815f5 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -2579,8 +2579,8 @@ static int sctp_setsockopt_delayed_ack(struct sock *sk,
- 		if (params.sack_delay == 0 && params.sack_freq == 0)
- 			return 0;
- 	} else if (optlen == sizeof(struct sctp_assoc_value)) {
--		pr_warn("Use of struct sctp_assoc_value in delayed_ack socket option deprecated\n");
--		pr_warn("Use struct sctp_sack_info instead\n");
-+		pr_warn_deprecated("Use of struct sctp_assoc_value in delayed_ack socket option.\n"
-+				   "Use struct sctp_sack_info instead\n");
- 		if (copy_from_user(&params, optval, optlen))
- 			return -EFAULT;
- 
-@@ -2995,8 +2995,8 @@ static int sctp_setsockopt_maxseg(struct sock *sk, char __user *optval, unsigned
- 	int val;
- 
- 	if (optlen == sizeof(int)) {
--		pr_warn("Use of int in maxseg socket option deprecated\n");
--		pr_warn("Use struct sctp_assoc_value instead\n");
-+		pr_warn_deprecated("Use of int in maxseg socket option.\n"
-+				   "Use struct sctp_assoc_value instead\n");
- 		if (copy_from_user(&val, optval, optlen))
- 			return -EFAULT;
- 		params.assoc_id = 0;
-@@ -3253,8 +3253,8 @@ static int sctp_setsockopt_maxburst(struct sock *sk,
- 	int assoc_id = 0;
- 
- 	if (optlen == sizeof(int)) {
--		pr_warn("Use of int in max_burst socket option deprecated\n");
--		pr_warn("Use struct sctp_assoc_value instead\n");
-+		pr_warn_deprecated("Use of int in max_burst socket option deprecated.\n"
-+				   "Use struct sctp_assoc_value instead\n");
- 		if (copy_from_user(&val, optval, optlen))
- 			return -EFAULT;
- 	} else if (optlen == sizeof(struct sctp_assoc_value)) {
-@@ -4574,8 +4574,8 @@ static int sctp_getsockopt_delayed_ack(struct sock *sk, int len,
- 		if (copy_from_user(&params, optval, len))
- 			return -EFAULT;
- 	} else if (len == sizeof(struct sctp_assoc_value)) {
--		pr_warn("Use of struct sctp_assoc_value in delayed_ack socket option deprecated\n");
--		pr_warn("Use struct sctp_sack_info instead\n");
-+		pr_warn_deprecated("Use of struct sctp_assoc_value in delayed_ack socket option.\n"
-+				   "Use struct sctp_sack_info instead\n");
- 		if (copy_from_user(&params, optval, len))
- 			return -EFAULT;
- 	} else
-@@ -5219,8 +5219,8 @@ static int sctp_getsockopt_maxseg(struct sock *sk, int len,
- 	struct sctp_association *asoc;
- 
- 	if (len == sizeof(int)) {
--		pr_warn("Use of int in maxseg socket option deprecated\n");
--		pr_warn("Use struct sctp_assoc_value instead\n");
-+		pr_warn_deprecated("Use of int in maxseg socket option.\n"
-+				   "Use struct sctp_assoc_value instead\n");
- 		params.assoc_id = 0;
- 	} else if (len >= sizeof(struct sctp_assoc_value)) {
- 		len = sizeof(struct sctp_assoc_value);
-@@ -5311,8 +5311,8 @@ static int sctp_getsockopt_maxburst(struct sock *sk, int len,
- 	struct sctp_association *asoc;
- 
- 	if (len == sizeof(int)) {
--		pr_warn("Use of int in max_burst socket option deprecated\n");
--		pr_warn("Use struct sctp_assoc_value instead\n");
-+		pr_warn_deprecated("Use of int in max_burst socket option.\n"
-+				   "Use struct sctp_assoc_value instead\n");
- 		params.assoc_id = 0;
- 	} else if (len >= sizeof(struct sctp_assoc_value)) {
- 		len = sizeof(struct sctp_assoc_value);
--- 
-1.8.3.1
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBSYXNoaWthIEtoZXJpYSBbbWFp
+bHRvOnJhc2hpa2Eua2hlcmlhQGdtYWlsLmNvbV0NCj4gU2VudDogU2F0dXJkYXksIERlY2VtYmVy
+IDE0LCAyMDEzIDQ6MTUgQU0NCj4gVG86IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcNCj4g
+Q2M6IEtpcnNoZXIsIEplZmZyZXkgVDsgQnJhbmRlYnVyZywgSmVzc2U7IEFsbGFuLCBCcnVjZSBX
+OyBXeWJvcm55LCBDYXJvbHluOw0KPiBTa2lkbW9yZSwgRG9uYWxkIEM7IFJvc2UsIEdyZWdvcnkg
+VjsgV2Fza2lld2ljeiBKciwgUGV0ZXIgUDsgRHV5Y2ssIEFsZXhhbmRlcg0KPiBIOyBSb25jaWFr
+LCBKb2huOyBEYXZlLCBUdXNoYXIgTjsgQWJvZHVucmluLCBBa2VlbSBHOyBWaWNrLCBNYXR0aGV3
+OyBlMTAwMC0NCj4gZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0OyBuZXRkZXZAdmdlci5rZXJu
+ZWwub3JnOyBqb3NoQGpvc2h0cmlwbGV0dC5vcmcNCj4gU3ViamVjdDogW1BBVENIIHYyIDEvOV0g
+ZHJpdmVyczogbmV0OiBSZW1vdmUgdW51c2VkIGZ1bmN0aW9uDQo+IGlnYl9nZXRfZWVlX3N0YXR1
+c19pMzU0KCkgaW4gZTEwMDBfODI1NzUuYw0KPiANCj4gVGhpcyBwYXRjaCByZW1vdmVzIHRoZSBm
+dW5jdGlvbiBpZ2JfZ2V0X2VlZV9zdGF0dXNfaTM1NCgpIGluIGUxMDAwXzgyNTc1LmMNCj4gYmVj
+YXVzZSBpdCBpcyB1bnVzZWQuDQo+IA0KPiBJdCB0aHVzIGVsaW1pbmF0ZXMgdGhlIGZvbGxvd2lu
+ZyB3YXJuaW5nIGluDQo+IGV0aGVybmV0L2ludGVsL2lnYi9lMTAwMF84MjU3NS5jOg0KPiBkcml2
+ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvZTEwMDBfODI1NzUuYzoyNTkxOjU6IHdhcm5pbmc6
+IG5vIHByZXZpb3VzDQo+IHByb3RvdHlwZSBmb3Ig4oCYaWdiX2dldF9lZWVfc3RhdHVzX2kzNTTi
+gJkgWy1XbWlzc2luZy1wcm90b3R5cGVzXQ0KPiANCj4gU2lnbmVkLW9mZi1ieTogUmFzaGlrYSBL
+aGVyaWEgPHJhc2hpa2Eua2hlcmlhQGdtYWlsLmNvbT4NCj4gUmV2aWV3ZWQtYnk6IEpvc2ggVHJp
+cGxldHQgPGpvc2hAam9zaHRyaXBsZXR0Lm9yZz4NCj4gLS0tDQo+ICBkcml2ZXJzL25ldC9ldGhl
+cm5ldC9pbnRlbC9pZ2IvZTEwMDBfODI1NzUuYyB8ICAgMzIgLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0NCj4gIDEgZmlsZSBjaGFuZ2VkLCAzMiBkZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYgLS1n
+aXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvZTEwMDBfODI1NzUuYw0KPiBiL2Ry
+aXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9lMTAwMF84MjU3NS5jDQo+IGluZGV4IDQ3YzJk
+MTAuLjE4ZTUyMDAgMTAwNjQ0DQo+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2ln
+Yi9lMTAwMF84MjU3NS5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9l
+MTAwMF84MjU3NS5jDQo+IEBAIC0yNTgwLDM4ICsyNTgwLDYgQEAgb3V0Og0KPiAgCXJldHVybiBy
+ZXRfdmFsOw0KPiAgfQ0KPiANCj4gLS8qKg0KPiAtICogIGlnYl9nZXRfZWVlX3N0YXR1c19pMzU0
+IC0gR2V0IEVFRSBzdGF0dXMNCj4gLSAqICBAaHc6IHBvaW50ZXIgdG8gdGhlIEhXIHN0cnVjdHVy
+ZQ0KPiAtICogIEBzdGF0dXM6IEVFRSBzdGF0dXMNCj4gLSAqDQo+IC0gKiAgR2V0IEVFRSBzdGF0
+dXMgYnkgZ3Vlc3NpbmcgYmFzZWQgb24gd2hldGhlciBUeCBvciBSeCBMUEkgaW5kaWNhdGlvbnMg
+aGF2ZQ0KPiAtICogIGJlZW4gcmVjZWl2ZWQuDQo+IC0gKiovDQo+IC1zMzIgaWdiX2dldF9lZWVf
+c3RhdHVzX2kzNTQoc3RydWN0IGUxMDAwX2h3ICpodywgYm9vbCAqc3RhdHVzKSAtew0KPiAtCXN0
+cnVjdCBlMTAwMF9waHlfaW5mbyAqcGh5ID0gJmh3LT5waHk7DQo+IC0JczMyIHJldF92YWwgPSAw
+Ow0KPiAtCXUxNiBwaHlfZGF0YTsNCj4gLQ0KPiAtCS8qIENoZWNrIGlmIEVFRSBpcyBzdXBwb3J0
+ZWQgb24gdGhpcyBkZXZpY2UuICovDQo+IC0JaWYgKChody0+cGh5Lm1lZGlhX3R5cGUgIT0gZTEw
+MDBfbWVkaWFfdHlwZV9jb3BwZXIpIHx8DQo+IC0JICAgIChwaHktPmlkICE9IE04OEUxNTQzX0Vf
+UEhZX0lEKSkNCj4gLQkJZ290byBvdXQ7DQo+IC0NCj4gLQlyZXRfdmFsID0gaWdiX3JlYWRfeG1k
+aW9fcmVnKGh3LCBFMTAwMF9QQ1NfU1RBVFVTX0FERFJfSTM1NCwNCj4gLQkJCQkgICAgIEUxMDAw
+X1BDU19TVEFUVVNfREVWX0kzNTQsDQo+IC0JCQkJICAgICAmcGh5X2RhdGEpOw0KPiAtCWlmIChy
+ZXRfdmFsKQ0KPiAtCQlnb3RvIG91dDsNCj4gLQ0KPiAtCSpzdGF0dXMgPSBwaHlfZGF0YSAmIChF
+MTAwMF9QQ1NfU1RBVFVTX1RYX0xQSV9SQ1ZEIHwNCj4gLQkJCSAgICAgIEUxMDAwX1BDU19TVEFU
+VVNfUlhfTFBJX1JDVkQpID8gdHJ1ZSA6IGZhbHNlOw0KPiAtDQo+IC1vdXQ6DQo+IC0JcmV0dXJu
+IHJldF92YWw7DQo+IC19DQo+IC0NCj4gIHN0YXRpYyBjb25zdCB1OCBlMTAwMF9lbWNfdGVtcF9k
+YXRhWzRdID0gew0KPiAgCUUxMDAwX0VNQ19JTlRFUk5BTF9EQVRBLA0KPiAgCUUxMDAwX0VNQ19E
+SU9ERTFfREFUQSwNCj4gLS0NCj4gMS43LjkuNQ0KDQpOQUNLLg0KDQpUaGFua3MgZm9yIHRoZSBw
+YXRjaCBSYXNoaWthLCBidXQgdGhpcyBpcyB0aGUgaW5jb3JyZWN0IGZpeCBmb3IgdGhpcyB3YXJu
+aW5nICBUaGUgZnVuY3Rpb24gaXMgY2FsbGVkIGluIHRoZSBpZ2JfcHJvYmUgZnVuY3Rpb24sIHNv
+IHlvdSBjYW5ub3QgcmVtb3ZlIGl0IGFuZCBJIHNlZSB0aGUgcHJvdG90eXBlIGluIHRoZSBlMTAw
+MF84MjU3NS5oIGZpbGUuICBDYW4geW91IGRvdWJsZSBjaGVjayB5b3VyIHNvdXJjZSBwdWxsPw0K
+DQpUaGFua3MsDQoNCkNhcm9seW4NCg0KQ2Fyb2x5biBXeWJvcm55IA0KTGludXggRGV2ZWxvcG1l
+bnQgDQpOZXR3b3JraW5nIERpdmlzaW9uIA0KSW50ZWwgQ29ycG9yYXRpb24gDQoNCg0KDQo=
