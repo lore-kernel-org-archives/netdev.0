@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 09/12] i40e: Add basic support for get/set channels for RSS
-Date: Mon, 16 Dec 2013 01:38:55 -0800
-Message-ID: <1387186738-13666-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 10/12] i40e: rtnl_lock in reset path fixes
+Date: Mon, 16 Dec 2013 01:38:56 -0800
+Message-ID: <1387186738-13666-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387186738-13666-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -9,9 +9,9 @@ Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:45386 "EHLO mga02.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:39292 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752940Ab3LPJjJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752958Ab3LPJjJ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 16 Dec 2013 04:39:09 -0500
 In-Reply-To: <1387186738-13666-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,125 +19,116 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Implement the number of receive/transmit queue pair being
-changed on the fly by ethtool.
+Any user-initiated path which eventually calls reset needs
+to hold the rtnl_lock, so add functionality to do that.
 
-Change-Id: I70df2363f1ca40b63610baa561c5b6b92b81bca7
+Be careful not to use the safe reset when cleaning up
+from the diagnostic tests, which avoids rtnl_lock
+recursion from ethtool.
+
+Protect the reset_task with rtnl_lock, since it runs from a work item.
+
+Change-Id: Ib6e7a3fb2966809db2daf35fd5a123ccdf6f6f0f
 Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 90 ++++++++++++++++++++++++++
- 1 file changed, 90 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e.h         |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c |  8 ++++----
+ drivers/net/ethernet/intel/i40e/i40e_main.c    | 19 ++++++++++++++++++-
+ 3 files changed, 23 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index fcb6def..d6681f6 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1472,6 +1472,94 @@ static int i40e_set_rxnfc(struct net_device *netdev, struct ethtool_rxnfc *cmd)
- 	return ret;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index eb1a3aa..24a47ee 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -502,6 +502,7 @@ int i40e_up(struct i40e_vsi *vsi);
+ void i40e_down(struct i40e_vsi *vsi);
+ extern const char i40e_driver_name[];
+ extern const char i40e_driver_version_str[];
++void i40e_do_reset_safe(struct i40e_pf *pf, u32 reset_flags);
+ void i40e_do_reset(struct i40e_pf *pf, u32 reset_flags);
+ void i40e_update_stats(struct i40e_vsi *vsi);
+ void i40e_update_eth_stats(struct i40e_vsi *vsi);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index 9c675b5..9a59dda 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -1462,19 +1462,19 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 		}
+ 	} else if (strncmp(cmd_buf, "pfr", 3) == 0) {
+ 		dev_info(&pf->pdev->dev, "forcing PFR\n");
+-		i40e_do_reset(pf, (1 << __I40E_PF_RESET_REQUESTED));
++		i40e_do_reset_safe(pf, (1 << __I40E_PF_RESET_REQUESTED));
+ 
+ 	} else if (strncmp(cmd_buf, "corer", 5) == 0) {
+ 		dev_info(&pf->pdev->dev, "forcing CoreR\n");
+-		i40e_do_reset(pf, (1 << __I40E_CORE_RESET_REQUESTED));
++		i40e_do_reset_safe(pf, (1 << __I40E_CORE_RESET_REQUESTED));
+ 
+ 	} else if (strncmp(cmd_buf, "globr", 5) == 0) {
+ 		dev_info(&pf->pdev->dev, "forcing GlobR\n");
+-		i40e_do_reset(pf, (1 << __I40E_GLOBAL_RESET_REQUESTED));
++		i40e_do_reset_safe(pf, (1 << __I40E_GLOBAL_RESET_REQUESTED));
+ 
+ 	} else if (strncmp(cmd_buf, "empr", 4) == 0) {
+ 		dev_info(&pf->pdev->dev, "forcing EMPR\n");
+-		i40e_do_reset(pf, (1 << __I40E_EMP_RESET_REQUESTED));
++		i40e_do_reset_safe(pf, (1 << __I40E_EMP_RESET_REQUESTED));
+ 
+ 	} else if (strncmp(cmd_buf, "read", 4) == 0) {
+ 		u32 address;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 73c9a20..19ad3c0 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -4132,6 +4132,19 @@ void i40e_do_reset(struct i40e_pf *pf, u32 reset_flags)
  }
  
-+/**
-+ * i40e_max_channels - get Max number of combined channels supported
-+ * @vsi: vsi pointer
-+ **/
-+static unsigned int i40e_max_channels(struct i40e_vsi *vsi)
-+{
-+	/* TODO: This code assumes DCB and FD is disabled for now. */
-+	return vsi->alloc_queue_pairs;
-+}
-+
-+/**
-+ * i40e_get_channels - Get the current channels enabled and max supported etc.
-+ * @netdev: network interface device structure
-+ * @ch: ethtool channels structure
+ /**
++ * i40e_do_reset_safe - Protected reset path for userland calls.
++ * @pf: board private structure
++ * @reset_flags: which reset is requested
 + *
-+ * We don't support separate tx and rx queues as channels. The other count
-+ * represents how many queues are being used for control. max_combined counts
-+ * how many queue pairs we can support. They may not be mapped 1 to 1 with
-+ * q_vectors since we support a lot more queue pairs than q_vectors.
 + **/
-+static void i40e_get_channels(struct net_device *dev,
-+			       struct ethtool_channels *ch)
++void i40e_do_reset_safe(struct i40e_pf *pf, u32 reset_flags)
 +{
-+	struct i40e_netdev_priv *np = netdev_priv(dev);
-+	struct i40e_vsi *vsi = np->vsi;
-+	struct i40e_pf *pf = vsi->back;
-+
-+	/* report maximum channels */
-+	ch->max_combined = i40e_max_channels(vsi);
-+
-+	/* report info for other vector */
-+	ch->other_count = (pf->flags & I40E_FLAG_FDIR_ENABLED) ? 1 : 0;
-+	ch->max_other = ch->other_count;
-+
-+	/* Note: This code assumes DCB is disabled for now. */
-+	ch->combined_count = vsi->num_queue_pairs;
++	rtnl_lock();
++	i40e_do_reset(pf, reset_flags);
++	rtnl_unlock();
 +}
 +
 +/**
-+ * i40e_set_channels - Set the new channels count.
-+ * @netdev: network interface device structure
-+ * @ch: ethtool channels structure
-+ *
-+ * The new channels count may not be the same as requested by the user
-+ * since it gets rounded down to a power of 2 value.
-+ **/
-+static int i40e_set_channels(struct net_device *dev,
-+			      struct ethtool_channels *ch)
-+{
-+	struct i40e_netdev_priv *np = netdev_priv(dev);
-+	unsigned int count = ch->combined_count;
-+	struct i40e_vsi *vsi = np->vsi;
-+	struct i40e_pf *pf = vsi->back;
-+	int new_count;
-+
-+	/* We do not support setting channels for any other VSI at present */
-+	if (vsi->type != I40E_VSI_MAIN)
-+		return -EINVAL;
-+
-+	/* verify they are not requesting separate vectors */
-+	if (!count || ch->rx_count || ch->tx_count)
-+		return -EINVAL;
-+
-+	/* verify other_count has not changed */
-+	if (ch->other_count != ((pf->flags & I40E_FLAG_FDIR_ENABLED) ? 1 : 0))
-+		return -EINVAL;
-+
-+	/* verify the number of channels does not exceed hardware limits */
-+	if (count > i40e_max_channels(vsi))
-+		return -EINVAL;
-+
-+	/* update feature limits from largest to smallest supported values */
-+	/* TODO: Flow director limit, DCB etc */
-+
-+	/* cap RSS limit */
-+	if (count > pf->rss_size_max)
-+		count = pf->rss_size_max;
-+
-+	/* use rss_reconfig to rebuild with new queue count and update traffic
-+	 * class queue mapping
-+	 */
-+	new_count = i40e_reconfig_rss_queues(pf, count);
-+	if (new_count > 1)
-+		return 0;
-+	else
-+		return -EINVAL;
-+}
-+
- static const struct ethtool_ops i40e_ethtool_ops = {
- 	.get_settings		= i40e_get_settings,
- 	.get_drvinfo		= i40e_get_drvinfo,
-@@ -1496,6 +1584,8 @@ static const struct ethtool_ops i40e_ethtool_ops = {
- 	.get_ethtool_stats	= i40e_get_ethtool_stats,
- 	.get_coalesce		= i40e_get_coalesce,
- 	.set_coalesce		= i40e_set_coalesce,
-+	.get_channels		= i40e_get_channels,
-+	.set_channels		= i40e_set_channels,
- 	.get_ts_info		= i40e_get_ts_info,
- };
+  * i40e_handle_lan_overflow_event - Handler for LAN queue overflow event
+  * @pf: board private structure
+  * @e: event info posted on ARQ
+@@ -4376,6 +4389,7 @@ static void i40e_reset_subtask(struct i40e_pf *pf)
+ {
+ 	u32 reset_flags = 0;
  
++	rtnl_lock();
+ 	if (test_bit(__I40E_REINIT_REQUESTED, &pf->state)) {
+ 		reset_flags |= (1 << __I40E_REINIT_REQUESTED);
+ 		clear_bit(__I40E_REINIT_REQUESTED, &pf->state);
+@@ -4398,7 +4412,7 @@ static void i40e_reset_subtask(struct i40e_pf *pf)
+ 	 */
+ 	if (test_bit(__I40E_RESET_INTR_RECEIVED, &pf->state)) {
+ 		i40e_handle_reset_warning(pf);
+-		return;
++		goto unlock;
+ 	}
+ 
+ 	/* If we're already down or resetting, just bail */
+@@ -4406,6 +4420,9 @@ static void i40e_reset_subtask(struct i40e_pf *pf)
+ 	    !test_bit(__I40E_DOWN, &pf->state) &&
+ 	    !test_bit(__I40E_CONFIG_BUSY, &pf->state))
+ 		i40e_do_reset(pf, reset_flags);
++
++unlock:
++	rtnl_unlock();
+ }
+ 
+ /**
 -- 
 1.8.3.1
