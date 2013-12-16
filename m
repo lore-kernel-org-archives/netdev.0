@@ -1,83 +1,64 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCHv2 net-next 3/3] xfrm: Add file to document IPsec corner
- case
-Date: Mon, 16 Dec 2013 10:46:22 +0100
-Message-ID: <20131216094622.GF31491@secunet.com>
-References: <1387099194-18540-1-git-send-email-fan.du@windriver.com>
- <1387099194-18540-4-git-send-email-fan.du@windriver.com>
+From: <erik.hugne@ericsson.com>
+Subject: [PATCH net-next] tipc: correctly unlink packets from deferred queue
+Date: Mon, 16 Dec 2013 10:46:25 +0100
+Message-ID: <1387187185-6914-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain
+Cc: <ying.xue@windriver.com>, <paul.gortmaker@windriver.com>,
+	<tipc-discussion@lists.sourceforge.net>,
+	Erik Hugne <erik.hugne@ericsson.com>
+To: <netdev@vger.kernel.org>, <jon.maloy@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:52659 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751184Ab3LPJqY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Dec 2013 04:46:24 -0500
-Content-Disposition: inline
-In-Reply-To: <1387099194-18540-4-git-send-email-fan.du@windriver.com>
+Received: from sessmg20.ericsson.net ([193.180.251.50]:50537 "EHLO
+	sessmg20.mgmt.ericsson.se" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752515Ab3LPJqm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 04:46:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 15, 2013 at 05:19:54PM +0800, Fan Du wrote:
-> Create Documentation/networking/ipsec.txt to document IPsec
-> corner issues and other info, which will be useful when user
-> deploying IPsec.
-> 
-> Signed-off-by: Fan Du <fan.du@windriver.com>
-> ---
->  Documentation/networking/ipsec.txt |   40 ++++++++++++++++++++++++++++++++++++
->  1 file changed, 40 insertions(+)
->  create mode 100644 Documentation/networking/ipsec.txt
-> 
-> diff --git a/Documentation/networking/ipsec.txt b/Documentation/networking/ipsec.txt
-> new file mode 100644
-> index 0000000..3b02806
-> --- /dev/null
-> +++ b/Documentation/networking/ipsec.txt
-> @@ -0,0 +1,40 @@
-> +
-> +Here documents known IPsec corner cases which need to be keep in mind when
-> +deploy various IPsec configuration in real world production environment.
-> +
-> +1. IPcomp: Small IP packet won't get compressed at sender, and failed on
-> +	   policy check on receiver.
-> +
-> +Quote from RFC3173:
-> +2.2. Non-Expansion Policy
-> +
-> +   If the total size of a compressed payload and the IPComp header, as
-> +   defined in section 3, is not smaller than the size of the original
-> +   payload, the IP datagram MUST be sent in the original non-compressed
-> +   form.  To clarify: If an IP datagram is sent non-compressed, no
-> +
-> +   IPComp header is added to the datagram.  This policy ensures saving
-> +   the decompression processing cycles and avoiding incurring IP
-> +   datagram fragmentation when the expanded datagram is larger than the
-> +   MTU.
-> +
-> +   Small IP datagrams are likely to expand as a result of compression.
-> +   Therefore, a numeric threshold should be applied before compression,
-> +   where IP datagrams of size smaller than the threshold are sent in the
-> +   original form without attempting compression.  The numeric threshold
-> +   is implementation dependent.
-> +
-> +Current IPComp implementation is indeed by the book, while as in practice
-> +when sending non-compressed packet to the peer(whether or not packet len
-> +is smaller than the threshold or the compressed len is large than original
-> +packet len), the packet is dropped when checking the policy as this packet
-> +matches the selector but not coming from any XFRM layer, i.e., with no
-> +security path. Such naked packet will not eventually make it to upper layer.
-> +The result is much more wired to the user when ping peer with different
-> +payload length.
-> +
-> +One workaround is try to set "level use" for each policy if user observed
-> +above scenario. The consequence of doing so is small packet(uncompressed)
-> +will skip policy checking on receiver side.
-> +
-> +
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-Please remove the empty lines at the end of the file.
+When we pull a packet from the deferred queue, the next
+pointer for the current packet being processed might still
+refer to deferred packets. This is incorrect, and will
+lead to an oops if the last fragment have once been put on
+the deferred queue, and at least one packet have been
+deferred after this fragment. The result of this is that
+the fragment chain linked together with the defer-queue.
 
-Also, it might be good to mention what the user exactly
-has configure do to get a workaround.
+We fix this by clearing the next pointer for the current
+packet being processed.
+
+[...] general protection fault: 0000
+[...]
+[...] ? trace_hardirqs_on+0xd/0x10
+[...] tipc_link_recv_fragment+0xd1/0x1b0 [tipc]
+[...] tipc_recv_msg+0x4e4/0x920 [tipc]
+[...] ? tipc_l2_rcv_msg+0x40/0x250 [tipc]
+[...] tipc_l2_rcv_msg+0xcc/0x250 [tipc]
+[...] ? tipc_l2_rcv_msg+0x40/0x250 [tipc]
+[...] __netif_receive_skb_core+0x80b/0xd00
+[...] ? __netif_receive_skb_core+0x144/0xd00
+[...] __netif_receive_skb+0x26/0x70
+[...] netif_receive_skb+0x2d/0x200
+
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+Reported-by: Ying Xue <ying.xue@windriver.com>
+---
+ net/tipc/link.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 3d73144..447e2c4 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1444,6 +1444,7 @@ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *b_ptr)
+ 		int type;
+ 
+ 		head = head->next;
++		buf->next = NULL;
+ 
+ 		/* Ensure bearer is still enabled */
+ 		if (unlikely(!b_ptr->active))
+-- 
+1.7.9.5
