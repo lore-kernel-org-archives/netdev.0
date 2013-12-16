@@ -1,96 +1,77 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 12/12] i40e: Remove FCoE in i40e_virtchnl_pf.c code
-Date: Mon, 16 Dec 2013 01:38:58 -0800
-Message-ID: <1387186738-13666-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 05/12] i40e: trivial fixes
+Date: Mon, 16 Dec 2013 01:38:51 -0800
+Message-ID: <1387186738-13666-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387186738-13666-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Neerav Parikh <Neerav.Parikh@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:29700 "EHLO mga14.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:10462 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752875Ab3LPJjL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Dec 2013 04:39:11 -0500
+	id S1752245Ab3LPJjI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Dec 2013 04:39:08 -0500
 In-Reply-To: <1387186738-13666-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neerav Parikh <Neerav.Parikh@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Remove FCoE code from the VF interface, as the feature will
-not be supported on VF interfaces.
+Prevent some compiler warnings and implement some other
+trivial fixes.
 
-Change-Id: Ie9db04fa2e37fa14ac3e73a9c20980348d931357
-Signed-off-by: Neerav Parikh <Neerav.Parikh@intel.com>
+Change-Id: I7f49d79b91b94df1ad4a8306a0410ed72238845f
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 29 ++--------------------
- 1 file changed, 2 insertions(+), 27 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_diag.c | 2 +-
+ drivers/net/ethernet/intel/i40e/i40e_hmc.c  | 2 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index e7bdd47..68e1f8e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -521,6 +521,7 @@ static int i40e_alloc_vsi_res(struct i40e_vf *vf, enum i40e_vsi_type type)
- 		f = i40e_add_filter(vsi, vf->default_lan_addr.addr,
- 				    0, true, false);
- 	}
-+
- 	if (!f) {
- 		dev_err(&pf->pdev->dev, "Unable to add ucast filter\n");
- 		ret = -ENOMEM;
-@@ -763,6 +764,7 @@ static void i40e_free_vf_res(struct i40e_vf *vf)
- 		vf->lan_vsi_index = 0;
- 		vf->lan_vsi_id = 0;
- 	}
-+
- 	/* reset some of the state varibles keeping
- 	 * track of the resources
- 	 */
-@@ -1777,30 +1779,6 @@ error_param:
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_diag.c b/drivers/net/ethernet/intel/i40e/i40e_diag.c
+index dc6c41f..98c1ef5 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_diag.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_diag.c
+@@ -119,7 +119,7 @@ i40e_status i40e_diag_eeprom_test(struct i40e_hw *hw)
  
- /**
-- * i40e_vc_fcoe_msg
-- * @vf: pointer to the vf info
-- * @msg: pointer to the msg buffer
-- * @msglen: msg length
-- *
-- * called from the vf for the fcoe msgs
-- **/
--static int i40e_vc_fcoe_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
--{
--	i40e_status aq_ret = 0;
--
--	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states) ||
--	    !test_bit(I40E_VF_STAT_FCOEENA, &vf->vf_states)) {
--		aq_ret = I40E_ERR_PARAM;
--		goto error_param;
--	}
--	aq_ret = I40E_ERR_NOT_IMPLEMENTED;
--
--error_param:
--	/* send the response to the vf */
--	return i40e_vc_send_resp_to_vf(vf, I40E_VIRTCHNL_OP_FCOE, aq_ret);
--}
--
--/**
-  * i40e_vc_validate_vf_msg
-  * @vf: pointer to the vf info
-  * @msg: pointer to the msg buffer
-@@ -1973,9 +1951,6 @@ int i40e_vc_process_vf_msg(struct i40e_pf *pf, u16 vf_id, u32 v_opcode,
- 	case I40E_VIRTCHNL_OP_GET_STATS:
- 		ret = i40e_vc_get_stats_msg(vf, msg, msglen);
- 		break;
--	case I40E_VIRTCHNL_OP_FCOE:
--		ret = i40e_vc_fcoe_msg(vf, msg, msglen);
--		break;
- 	case I40E_VIRTCHNL_OP_UNKNOWN:
- 	default:
- 		dev_err(&pf->pdev->dev,
+ 	/* read NVM control word and if NVM valid, validate EEPROM checksum*/
+ 	ret_code = i40e_read_nvm_word(hw, I40E_SR_NVM_CONTROL_WORD, &reg_val);
+-	if ((!ret_code) &&
++	if (!ret_code &&
+ 	    ((reg_val & I40E_SR_CONTROL_WORD_1_MASK) ==
+ 	     (0x01 << I40E_SR_CONTROL_WORD_1_SHIFT))) {
+ 		ret_code = i40e_validate_nvm_checksum(hw, NULL);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_hmc.c b/drivers/net/ethernet/intel/i40e/i40e_hmc.c
+index 901804a..bcedf3f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_hmc.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_hmc.c
+@@ -47,10 +47,10 @@ i40e_status i40e_add_sd_table_entry(struct i40e_hw *hw,
+ 					      u64 direct_mode_sz)
+ {
+ 	enum i40e_memory_type mem_type __attribute__((unused));
+-	i40e_status ret_code = 0;
+ 	struct i40e_hmc_sd_entry *sd_entry;
+ 	bool dma_mem_alloc_done = false;
+ 	struct i40e_dma_mem mem;
++	i40e_status ret_code;
+ 	u64 alloc_len;
+ 
+ 	if (NULL == hmc_info->sd_table.sd_entry) {
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 4d3a201..e8bb2bb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -6911,7 +6911,7 @@ int i40e_fetch_switch_configuration(struct i40e_pf *pf, bool printconfig)
+  **/
+ static int i40e_setup_pf_switch(struct i40e_pf *pf)
+ {
+-	u32 rxfc, txfc, rxfc_reg;
++	u32 rxfc = 0, txfc = 0, rxfc_reg;
+ 	int ret;
+ 
+ 	/* find out what's out there already */
 -- 
 1.8.3.1
