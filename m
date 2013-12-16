@@ -1,52 +1,60 @@
-From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Subject: RE: [PATCH 1/1] AX88179_178A: Add FLAG_HW_IPALIGN to determine whether reserving NET_IP_ALIGN bytes for an SKB.
-Date: Mon, 16 Dec 2013 10:09:40 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7490@saturn3.aculab.com>
-References: <1386926708-2343-1-git-send-email-freddy@asix.com.tw> <AE90C24D6B3A694183C094C60CF0A2F6026B748A@saturn3.aculab.com> <52AEA3A8.2020906@asix.com.tw>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH net-next RFC 0/5] xen-netback: TX grant mapping instead
+ of copy
+Date: Mon, 16 Dec 2013 10:14:27 +0000
+Message-ID: <1387188867.20076.46.camel@kazak.uk.xensource.com>
+References: <1383094220-14775-1-git-send-email-zoltan.kiss@citrix.com>
+			 <1383303035.672.29.camel@kazak.uk.xensource.com>
+			 <5273FA37.6020903@citrix.com>
+		 <1383821563.26213.168.camel@kazak.uk.xensource.com>
+		 <52977F5C.7090703@citrix.com>
+	 <1385660592.20209.27.camel@kazak.uk.xensource.com>
+	 <52AA33CF.6030004@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="UTF-8"
-Content-Transfer-Encoding: base64
-To: "Freddy Xin" <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <louis-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
-	<allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <52AEA3A8.2020906-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52AA33CF.6030004@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiBGcm9tOiBGcmVkZHkgWGluDQo+IE9uIDIwMTPlubQxMuaciDEz5pelIDE4OjM2LCBEYXZpZCBM
-YWlnaHQgd3JvdGU6DQo+ID4+IEZyb206IGZyZWRkeUBhc2l4LmNvbS50dw0KPiA+IC4uLg0KPiA+
-PiAtCXNrYiA9IF9fbmV0ZGV2X2FsbG9jX3NrYl9pcF9hbGlnbihkZXYtPm5ldCwgc2l6ZSwgZmxh
-Z3MpOw0KPiA+PiArCWlmIChkZXYtPmRyaXZlcl9pbmZvLT5mbGFncyAmIEZMQUdfSFdfSVBBTElH
-TikNCj4gPj4gKwkJc2tiID0gX19uZXRkZXZfYWxsb2Nfc2tiKGRldi0+bmV0LCBzaXplLCBmbGFn
-cyk7DQo+ID4+ICsJZWxzZQ0KPiA+PiArCQlza2IgPSBfX25ldGRldl9hbGxvY19za2JfaXBfYWxp
-Z24oZGV2LT5uZXQsIHNpemUsIGZsYWdzKTsNCj4gPiBHaXZlbiB0aGUgZGVmaW5pdGlvbjoNCj4g
-PiBzdGF0aWMgaW5saW5lIHN0cnVjdCBza19idWZmICpfX25ldGRldl9hbGxvY19za2JfaXBfYWxp
-Z24oc3RydWN0IG5ldF9kZXZpY2UgKmRldiwNCj4gPiAgICAgICAgICAgICAgICAgIHVuc2lnbmVk
-IGludCBsZW5ndGgsIGdmcF90IGdmcCkNCj4gPiB7DQo+ID4gICAgICAgICAgc3RydWN0IHNrX2J1
-ZmYgKnNrYiA9IF9fbmV0ZGV2X2FsbG9jX3NrYihkZXYsIGxlbmd0aCArIE5FVF9JUF9BTElHTiwg
-Z2ZwKTsNCj4gPg0KPiA+ICAgICAgICAgIGlmIChORVRfSVBfQUxJR04gJiYgc2tiKQ0KPiA+ICAg
-ICAgICAgICAgICAgICAgc2tiX3Jlc2VydmUoc2tiLCBORVRfSVBfQUxJR04pOw0KPiA+ICAgICAg
-ICAgIHJldHVybiBza2I7DQo+ID4gfQ0KPiA+DQo+ID4gSXQgcmVhbGx5IG91Z2h0IHRvIGJlIHBv
-c3NpYmxlIHRvIGNvZGUgdGhhdCB3aXRob3V0IGFuIGV4dHJhIGNvbmRpdGlvbmFsLg0KPiA+DQo+
-ID4gCURhdmlkDQo+DQo+IFRoZSBBWDg4MTc5XzE3OEEgZHJpdmVyIGRvIG5lZWQgdG8ga25vdyB0
-aGUgdmFsdWUgb2YgTkVUX0lQX0FMSUdODQo+IHRvIGRldGVybWluZSB3aGV0aGVyIGVuYWJsaW5n
-IHRoZSBmZWF0dXJlIHRoYXQgbWFrZXMgSVAgaGVhZGVyIGFsaWduDQo+IG9uIGEgZHdvcmQtYWxp
-Z25lZCBhZGRyZXNzLCBidXQgYWNjb3JkaW5nIHRvIHRoZSBjb21tZW50cyBmcm9tIERhdmlkDQo+
-IE1pbGxlciwgSSBuZWVkIHRvIGNvbnNpZGVyIGFsbCBzaXR1YXRpb25zLCBub3QganVzdCBmb3Ig
-dGhlIGNhc2UgdGhhdA0KPiBORVRfSVBfQUxJR04gaXMgemVybywgc28gdGhlIGNvbmRpdGlvbiBh
-ZGRlZCBpbiByeF9zdWJtaXQgaXMganVzdCB1c2VkIHRvDQo+IGRldGVybWluZSB3aGV0aGVyIHJl
-c2VydmluZyBORVRfSVBfQUxJR04gYnl0ZXMgZm9yIGVhY2ggU0tCLg0KDQpJIHdhcyB0aGlua2lu
-ZyBvZiBzb21ldGhpbmcgbGlrZToNCg0KCXNrYiA9IG5ldGRldl9hbGxvY19za2IoZGV2LCBsZW5n
-dGggKyBkZXYtPnNrYl9hbGlnbiwgZ2ZwKTsNCglpZiAoTkVUX0lQX0FMSUdOICYmIHNrYiAmJiAh
-KGV2LT5kcml2ZXJfZmxhZ3MgJiBGTEFHX0hXX0lQQUxJR04pKQ0KCQlza2JfcmVzZXJ2ZShza2Is
-IE5FVF9JUF9BTElHTik7DQoNCkl0IG1pZ2h0IGV2ZW4gYmUgcmVhc29uYWJsZSB0byByZW1vdmUg
-dGhlIGxlbmd0aCBhZGp1c3RtZW50IC0gcHJvdmlkZWQNCnRoYXQgYWxsIHRoZSBsYXRlciBjb2Rl
-IHVzZXMgdGhlIHNrYiBsZW5ndGguDQoNCglEYXZpZA0KDQo=
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Thu, 2013-12-12 at 22:08 +0000, Zoltan Kiss wrote:
+> On 28/11/13 17:43, Ian Campbell wrote:
+> > On Thu, 2013-11-28 at 17:37 +0000, Zoltan Kiss wrote:
+> > Routing/firewalling domUs is as valid as bridging. There is nothing in
+> > the slightest bit suboptimal about it.
+> >
+> > If this use case regresses with this approach then I'm afraid that
+> > either needs to be addressed or a different approach considered.
+> >
+> >> Anyway, I will try this out, and see if it really copies everything, and
+> >> get some numbers as well.
+> >
+> > Thanks.
+> 
+> Now I managed to try it out. As I expected, Dom0 does copy the mapped 
+> page. The peak throuhput I could get was 6.6 Gbps, however it could keep 
+> that only for short periods, I guess when the unmapping was ideally 
+> batched. The average was 5.53.
+> On the same machine the same 10 min iperf session, without my patches 
+> made the peak 5.9 while the average was 5.65. Do you think it is an 
+> acceptable regression?
+
+Well, it would of course be preferable to avoid it. I'm quite reluctant
+to see this scenario become a second class citizen.
+
+> I used 3.12 Dom0 and guest kernel, the guest transmitted though a 10Gb 
+> card to a bare metal box.
+> I plan to look further if we can avoid somehow this:
+> 
+> https://lkml.org/lkml/2012/7/20/363
+> 
+> So then this scenario can benefit from grant mapping.
+> 
+> Regards,
+> 
+> Zoli
