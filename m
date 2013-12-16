@@ -1,65 +1,153 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ipv6: sit: update mtu check to take care of gso packets
-Date: Mon, 16 Dec 2013 06:31:23 -0800
-Message-ID: <1387204283.19078.240.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <52AB322B.7030802@redhat.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2] sctp: loading sctp when load sctp_probe
+Date: Mon, 16 Dec 2013 09:32:23 -0500
+Message-ID: <20131216143223.GB19809@hmsreliant.think-freely.org>
+References: <52AA783A.7090502@huawei.com>
+ <20131213122605.GA23384@hmsreliant.think-freely.org>
+ <52AE69A4.7090806@huawei.com>
+ <20131216134814.GA19809@hmsreliant.think-freely.org>
+ <52AF0ADF.7030704@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Michal Schmidt <mschmidt@redhat.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Wang Weidong <weidong1991.wang@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:48777 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753781Ab3LPOb0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 09:31:26 -0500
-Received: by mail-pd0-f180.google.com with SMTP id q10so5414984pdj.11
-        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 06:31:26 -0800 (PST)
-In-Reply-To: <52AB322B.7030802@redhat.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:37781 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753685Ab3LPOcb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 09:32:31 -0500
+Content-Disposition: inline
+In-Reply-To: <52AF0ADF.7030704@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Mon, Dec 16, 2013 at 10:14:55PM +0800, Wang Weidong wrote:
+> From: Wang Weidong <wangweidong1@huawei.com>
+> 
+> On 2013/12/16 21:48, Neil Horman wrote:
+> >On Mon, Dec 16, 2013 at 10:47:00AM +0800, Wang Weidong wrote:
+> >>On 2013/12/13 20:26, Neil Horman wrote:
+> >>>On Fri, Dec 13, 2013 at 11:00:10AM +0800, Wang Weidong wrote:
+> >>>>when I modprobe sctp_probe, it failed with "FATAL: ". I found that
+> >>>>sctp should load before sctp_probe register jprobe. So I add a
+> >>>>sctp_setup_jprobe for loading 'sctp' when first failed to register
+> >>>>jprobe, just do this similar to dccp_probe.
+> >>>>
+> >>>>v2: add MODULE_SOFTDEP and check of request_module, as suggested by Neil
+> >>>>
+> >>>>Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+> >>>>---
+> >>>>  net/sctp/probe.c | 17 ++++++++++++++++-
+> >>>>  1 file changed, 16 insertions(+), 1 deletion(-)
+> >>>>
+> >>>>diff --git a/net/sctp/probe.c b/net/sctp/probe.c
+> >>>>index 53c452e..5e68b94 100644
+> >>>>--- a/net/sctp/probe.c
+> >>>>+++ b/net/sctp/probe.c
+> >>>>@@ -38,6 +38,7 @@
+> >>>>  #include <net/sctp/sctp.h>
+> >>>>  #include <net/sctp/sm.h>
+> >>>>
+> >>>>+MODULE_SOFTDEP("pre: sctp");
+> >>>>  MODULE_AUTHOR("Wei Yongjun <yjwei@cn.fujitsu.com>");
+> >>>>  MODULE_DESCRIPTION("SCTP snooper");
+> >>>>  MODULE_LICENSE("GPL");
+> >>>>@@ -182,6 +183,20 @@ static struct jprobe sctp_recv_probe = {
+> >>>>  	.entry	= jsctp_sf_eat_sack,
+> >>>>  };
+> >>>>
+> >>>>+static __init int sctp_setup_jprobe(void)
+> >>>>+{
+> >>>>+	int ret = register_jprobe(&sctp_recv_probe);
+> >>>>+
+> >>>>+	if (ret) {
+> >>>>+		if (request_module("sctp"))
+> >>>>+			goto out;
+> >>>>+		ret = register_jprobe(&sctp_recv_probe);
+> >>>>+	}
+> >>>>+
+> >>>>+out:
+> >>>>+	return ret;
+> >>>>+}
+> >>>>+
+> >>>>  static __init int sctpprobe_init(void)
+> >>>>  {
+> >>>>  	int ret = -ENOMEM;
+> >>>>@@ -202,7 +217,7 @@ static __init int sctpprobe_init(void)
+> >>>>  			 &sctpprobe_fops))
+> >>>>  		goto free_kfifo;
+> >>>>
+> >>>>-	ret = register_jprobe(&sctp_recv_probe);
+> >>>>+	ret = sctp_setup_jprobe();
+> >>>You don't need to create your own function for this, you can collapse it down to
+> >>>a call to try_then_request_module(regitser_jprobe(...), "sctp");
+> >>>Neil
+> >>>
+> >>Hi Neil,
+> >>
+> >>I try to use try_then_request_module(!regitser_jprobe(...), "sctp"); I found that if
+> >>I used this, I couldn't get the ture value which returned by register_jprobe(). Is the
+> >>returned value not important? The problem("if sctp.ko doesn't exist") you had pointed out
+> >>is exist as well.
+> >>
+> >>Regards.
+> >>Wang
+> >
+> >Not sure I follow.  There appear to be lots of examples in the kernel where
+> 
+> I do this just like the dccp/probe.c do. So I think it can be an example.
+> 
 
-While testing my changes for TSO support in SIT devices,
-I was using sit0 tunnel which appears to include nopmtudisc flag.
+Ah thats right, I remember doing this before now. My bad.
 
-But using :
+> >exactly what you are trying to do is done.  try_then_request_module calls your
+> >requested method, and if it returns non-zero, calls request_module, then calls
+> 
+> No actually. Just look the definition:
+> #define try_then_request_module(x, mod...) \
+>          ((x) ?: (__request_module(true, mod), (x)))
+> if x return non-zero, it will return the value, not call request_module.
+> 
+> >your requested method again, returning the final result.  What problem are you
+> >running into?
+> >Neil
+> >
+> 
+> So I only can use it like this:
+> try_then_request_module(!regitser_jprobe(...), "sctp");
+> 
+> when register_jprobe return 0 indicates success, I get the value is 1. It is OK.
+> 
+> when register_jprobe is non-zero indicates failed, then calls request_module,
+> and last calls register_jprobe. Here,
+> 1)maybe it will failed return non-zero, what I get the value is !register_jprobe
+> is 0 with losing the value.
+> 2)request_module failed with the sctp is not exist, it will do the register_jprobe
+> as well.
+> 
+> Is there I am wrong somewhere?
+> 
 
-ip tun add sittun mode sit remote $REMOTE_IPV4 local $LOCAL_IPV4 \
-   dev $IFACE
+It really seems like there should be a way to roll up what you want into the
+try_then_request_module macro.  What about:
 
-We get a tunnel which rejects too long packets because of the mtu check
-which is not yet GSO aware.
+ret = try_then_request_module((register_jprobe(...) == 0), "sctp");
 
-erd:~# ip tunnel
-sittun: ipv6/ip  remote 10.246.17.84  local 10.246.17.83  ttl inherit  6rd-prefix 2002::/16 
-sit0: ipv6/ip  remote any  local any  ttl 64  nopmtudisc 6rd-prefix 2002::/16 
+That seems like it should work.  It will mask the actual return value of
+register_jprobe though I think, which kind of sucks.  Its almost like we need
+another variant of this macro that accepts an expected condition result so the
+macro can use it to compare, something like:
 
-This patch is based on an excellent report from
-Michal Shmidt.
+#define try_then_request_module_cond(x, result, mod...) \
+	((x) == (result) ?: __request_module(true, mod), (x)))
 
-In the future, we probably want to extend the MTU check to do the
-right thing for GSO packets...
+that would let you set an expected comparison value for your macro, but get the
+result of the method if it still fails after the module is loaded, or if it
+fails to load.
 
-Fixes: ("61c1db7fae21 ipv6: sit: add GSO/TSO support")
-Reported-by: Michal Schmidt <mschmidt@redhat.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv6/sit.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Thats probably a cleanup for a second patch.  I think your version two is
+probably as close as we're going to get right now.  So for v2:
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 366fbba3359a..a710fdec42d3 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -924,7 +924,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 		if (tunnel->parms.iph.daddr && skb_dst(skb))
- 			skb_dst(skb)->ops->update_pmtu(skb_dst(skb), NULL, skb, mtu);
- 
--		if (skb->len > mtu) {
-+		if (skb->len > mtu && !skb_is_gso(skb)) {
- 			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
- 			ip_rt_put(rt);
- 			goto tx_error;
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
