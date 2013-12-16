@@ -1,44 +1,40 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH RFC 2/3] [RFC] ARM: shmobile: r7s72100: Add clock for
- r7s72100-gether
-Date: Mon, 16 Dec 2013 10:31:27 +0900
-Message-ID: <20131216013127.GB3192@verge.net.au>
-References: <1387095886-15163-1-git-send-email-horms+renesas@verge.net.au>
- <1387095886-15163-3-git-send-email-horms+renesas@verge.net.au>
- <52AE0EAB.5040808@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ipv6: revert misguided compiler warning fix
+ on ipv6_exthdrs_len
+Date: Sun, 15 Dec 2013 20:31:31 -0500 (EST)
+Message-ID: <20131215.203131.1945457036600976154.davem@davemloft.net>
+References: <CAPshTCj38XqrAMTKnGhw1bdWWrhHbzXpT8FNtDwd6_kJgLoeDg@mail.gmail.com>
+	<20131215171806.GA1715@order.stressinduktion.org>
+	<20131215172322.GB1715@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org, Magnus Damm <magnus.damm@gmail.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <52AE0EAB.5040808@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hkchu@google.com, edumazet@google.com, herbert@gondor.apana.org.au,
+	ogerlitz@mellanox.com, bhutchings@solarflare.com,
+	netdev@vger.kernel.org
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33167 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751969Ab3LPBbd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 20:31:33 -0500
+In-Reply-To: <20131215172322.GB1715@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 15, 2013 at 11:18:51PM +0300, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 12/15/2013 11:24 AM, Simon Horman wrote:
-> 
-> >Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> >---
-> >  arch/arm/mach-shmobile/clock-r7s72100.c | 5 ++++-
-> >  1 file changed, 4 insertions(+), 1 deletion(-)
-> 
-> >diff --git a/arch/arm/mach-shmobile/clock-r7s72100.c b/arch/arm/mach-shmobile/clock-r7s72100.c
-> >index 7b457ae..7bce0c1 100644
-> >--- a/arch/arm/mach-shmobile/clock-r7s72100.c
-> >+++ b/arch/arm/mach-shmobile/clock-r7s72100.c
-> [...]
-> >@@ -145,9 +146,10 @@ struct clk div4_clks[DIV4_NR] = {
-> >  };
-> >
-> >  enum { MSTP47, MSTP46, MSTP45, MSTP44, MSTP43, MSTP42, MSTP41, MSTP40,
-> >-	MSTP33,	MSTP_NR };
-> >+	MSTP33,	MSTP74, MSTP_NR };
-> 
->    Shouldn't MSTP74 be on a line of its own at the start of the *enum*?
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Sun, 15 Dec 2013 18:23:22 +0100
 
-Yes, thanks, I will fix that.
+> On Sun, Dec 15, 2013 at 06:18:06PM +0100, Hannes Frederic Sowa wrote:
+>> This essentlally reverts commit f52d81dc27c3456c702e83183035142c222acdc7
+>> ("ipv6: fix compiler warning in ipv6_exthdrs_len") and silences the
+>> warning with uninitialized_var.
+> 
+> David, please discard this. Jerry already posted a nicer cleanup.
+
+I can't resolve these two patches in any reasonable way.
+
+Specifically, whether I revert your patch or not, I cannot get Jerry's
+patch to apply cleanly.
+
+I can't figure out what Jerry's patch is against at all.
