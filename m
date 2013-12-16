@@ -1,48 +1,38 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH -next] xen-netback: fix some error return code
-Date: Mon, 16 Dec 2013 13:40:38 +0000
-Message-ID: <1387201238.10247.37.camel@kazak.uk.xensource.com>
-References: <CAPgLHd9aQQq-gLuNzGaYP2TSz=5Xk_GqgS=MSrAB7Tnn0nCydw@mail.gmail.com>
-	 <20131216131313.GE12582@zion.uk.xensource.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH next] tcp: use zero-window when free_space is low
+Date: Mon, 16 Dec 2013 05:41:20 -0800
+Message-ID: <1387201280.19078.223.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1387192557-9816-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyj.lk@gmail.com>, <yongjun_wei@trendmicro.com.cn>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>
-To: Wei Liu <wei.liu2@citrix.com>
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:54573 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753675Ab3LPNkl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Dec 2013 08:40:41 -0500
-In-Reply-To: <20131216131313.GE12582@zion.uk.xensource.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:60245 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753699Ab3LPNlX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 08:41:23 -0500
+Received: by mail-pa0-f46.google.com with SMTP id kl14so2929012pab.5
+        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 05:41:21 -0800 (PST)
+In-Reply-To: <1387192557-9816-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-12-16 at 13:13 +0000, Wei Liu wrote:
-> On Mon, Dec 16, 2013 at 01:49:29PM +0800, Wei Yongjun wrote:
-> > From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> > 
-> > Fix to return -EPROTO error code instead of 0(overwrite by maybe_pull_tail())
-> > if skb_partial_csum_set() return false.
-> > 
-> > Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> > ---
-> >  drivers/net/xen-netback/netback.c | 16 ++++++++++++----
-> >  1 file changed, 12 insertions(+), 4 deletions(-)
-> > 
-> > diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> > index 800496b..b16daa7 100644
-> > --- a/drivers/net/xen-netback/netback.c
-> > +++ b/drivers/net/xen-netback/netback.c
-> > @@ -1108,8 +1108,10 @@ static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
-> >  			goto out;
-> >  
-> >  		if (!skb_partial_csum_set(skb, off,
-> > -					  offsetof(struct tcphdr, check)))
-> > +					  offsetof(struct tcphdr, check))) {
-> > +			err = -EPROTO;
+On Mon, 2013-12-16 at 12:15 +0100, Florian Westphal wrote:
+> Currently the kernel tries to announce a zero window when free_space
+> is below the current receiver mss estimate.
 > 
-> Why is this needed? It is set to -EPROTO before the 'switch'.
+> When a sender is transmitting small packets, the receiver might be
+> unable to shrink the receive window, because
+> a) we cannot withdraw already-commited receive window, and,
+> b) we have to round the current rwin up to a multiple of the wscale factor,
+>    else we would shrink the current window.
+> 
+> This causes the receive buffer to fill up until the rmem limit is hit.
+> When this happens, we start dropping packets.
 
-Agreed.
+I do not really understand the issue.
+Do you have a packetdrill test to demonstrate it ?
+
+Thanks !
