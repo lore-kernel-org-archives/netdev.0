@@ -1,44 +1,61 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] SCTP: Reduce log spamming for sctp setsockopt
-Date: Mon, 16 Dec 2013 15:24:48 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B749A@saturn3.aculab.com>
-References: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "Vlad Yasevich" <vyasevich@gmail.com>,
-	"David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Neil Horman" <nhorman@tuxdriver.com>, <linux-sctp@vger.kernel.org>
+From: Matthew Whitehead <tedheadster@gmail.com>
+Subject: [PATCH net-next] 3c59x: Add software timestamping
+Date: Mon, 16 Dec 2013 10:20:26 -0500
+Message-ID: <1387207226-17076-1-git-send-email-tedheadster@gmail.com>
+Cc: Matthew Whitehead <tedheadster@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:54835 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753978Ab3LPP0I convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 10:26:08 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 03931-03 for <netdev@vger.kernel.org>;
- Mon, 16 Dec 2013 15:26:07 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:62813 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754537Ab3LPP1q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 10:27:46 -0500
+Received: by mail-ie0-f172.google.com with SMTP id qd12so6655617ieb.17
+        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 07:27:46 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Neil Horman
-> During a recent discussion regarding some sctp socket options, it was noted that
-> we have several points at which we issue log warnings that can be flooded at an
-> unbounded rate by any user.  Fix this by converting all the pr_warns in the
-> sctp_setsockopt path to be pr_warn_ratelimited.
-> 
-> Note there are several debug level messages as well.  I'm leaving those alone,
-> as, if you turn on pr_debug, you likely want lots of verbosity.
-...
-> -		pr_warn("Use of struct sctp_assoc_value in delayed_ack socket option deprecated\n");
-> -		pr_warn("Use struct sctp_sack_info instead\n");
-> +		pr_warn_ratelimited("Use of struct sctp_assoc_value in delayed_ack socket option
-> deprecated\n");
-> +		pr_warn_ratelimited("Use struct sctp_sack_info instead\n");
+Added software timestamping ability. Tested with linuxptp and synchronized
+clocks to an average of less than 200 microseconds on 10 megabit ethernet.
 
-Do you need to send these as a single ratelimited message?
+Tested on both Vortex and Boomerang models.
 
-	David
+Signed-off-by: Matthew Whitehead <tedheadster@gmail.com>
+---
+ drivers/net/ethernet/3com/3c59x.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
+index ad5272b..10ad402 100644
+--- a/drivers/net/ethernet/3com/3c59x.c
++++ b/drivers/net/ethernet/3com/3c59x.c
+@@ -2079,10 +2079,12 @@ vortex_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		iowrite16(len, ioaddr + Wn7_MasterLen);
+ 		spin_unlock_irq(&vp->window_lock);
+ 		vp->tx_skb = skb;
++		skb_tx_timestamp(skb);
+ 		iowrite16(StartDMADown, ioaddr + EL3_CMD);
+ 		/* netif_wake_queue() will be called at the DMADone interrupt. */
+ 	} else {
+ 		/* ... and the packet rounded to a doubleword. */
++		skb_tx_timestamp(skb);
+ 		iowrite32_rep(ioaddr + TX_FIFO, skb->data, (skb->len + 3) >> 2);
+ 		dev_kfree_skb (skb);
+ 		if (ioread16(ioaddr + TxFree) > 1536) {
+@@ -2212,6 +2214,7 @@ boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		prev_entry->status &= cpu_to_le32(~TxIntrUploaded);
+ #endif
+ 	}
++	skb_tx_timestamp(skb);
+ 	iowrite16(DownUnstall, ioaddr + EL3_CMD);
+ 	spin_unlock_irqrestore(&vp->lock, flags);
+ 	return NETDEV_TX_OK;
+@@ -2986,6 +2989,7 @@ static const struct ethtool_ops vortex_ethtool_ops = {
+ 	.nway_reset             = vortex_nway_reset,
+ 	.get_wol                = vortex_get_wol,
+ 	.set_wol                = vortex_set_wol,
++	.get_ts_info		= ethtool_op_get_ts_info,
+ };
+ 
+ #ifdef CONFIG_PCI
+-- 
+1.7.1
