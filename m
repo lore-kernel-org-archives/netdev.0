@@ -1,62 +1,101 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net PATCH 2/2] ipvs: correct usage/allocation of seqadj ext in ipvs
-Date: Mon, 16 Dec 2013 17:09:47 +0100
-Message-ID: <20131216160947.22853.1454.stgit@dragon>
-References: <20131216160840.22853.39918.stgit@dragon>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v2 6/9] xen-netback: Handle guests with too many
+ frags
+Date: Mon, 16 Dec 2013 16:10:42 +0000
+Message-ID: <52AF2602.2000409@citrix.com>
+References: <1386892097-15502-1-git-send-email-zoltan.kiss@citrix.com> <1386892097-15502-7-git-send-email-zoltan.kiss@citrix.com> <20131213154307.GN21900@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59040 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754636Ab3LPQJy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Dec 2013 11:09:54 -0500
-In-Reply-To: <20131216160840.22853.39918.stgit@dragon>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131213154307.GN21900@zion.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The IPVS FTP helper ip_vs_ftp could trigger an OOPS in nf_ct_seqadj_set,
-after commit 41d73ec053d2 (netfilter: nf_conntrack: make sequence number
-adjustments usuable without NAT).
+On 13/12/13 15:43, Wei Liu wrote:
+> On Thu, Dec 12, 2013 at 11:48:14PM +0000, Zoltan Kiss wrote:
+>> Xen network protocol had implicit dependency on MAX_SKB_FRAGS. Netback has to
+>> handle guests sending up to XEN_NETBK_LEGACY_SLOTS_MAX slots. To achieve that:
+>> - create a new skb
+>> - map the leftover slots to its frags (no linear buffer here!)
+>> - chain it to the previous through skb_shinfo(skb)->frag_list
+>> - map them
+>> - copy the whole stuff into a brand new skb and send it to the stack
+>> - unmap the 2 old skb's pages
+>>
+>
+> Do you see performance regression with this approach?
+Well, it was pretty hard to reproduce that behaviour even with NFS. I 
+don't think it happens often enough that it causes a noticable 
+performance regression. Anyway, it would be just as slow as the current 
+grant copy with coalescing, maybe a bit slower due to the unmapping. But 
+at least we use a core network function to do the coalescing.
+Or, if you mean the generic performance, if this problem doesn't appear, 
+then no, I don't see performance regression.
 
-This is because, the seqadj ext is now allocated dynamically, and the
-IPVS code didn't handle this situation.  Fix this in the IPVS nfct
-code by invoking the alloc function nfct_seqadj_ext_add().
+>> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+>>
+>> ---
+>>   drivers/net/xen-netback/netback.c |   99 +++++++++++++++++++++++++++++++++++--
+>>   1 file changed, 94 insertions(+), 5 deletions(-)
+>>
+>> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+>> index e26cdda..f6ed1c8 100644
+>> --- a/drivers/net/xen-netback/netback.c
+>> +++ b/drivers/net/xen-netback/netback.c
+>> @@ -906,11 +906,15 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
+>>   	u16 pending_idx = *((u16 *)skb->data);
+>>   	int start;
+>>   	pending_ring_idx_t index;
+>> -	unsigned int nr_slots;
+>> +	unsigned int nr_slots, frag_overflow = 0;
+>>
+>>   	/* At this point shinfo->nr_frags is in fact the number of
+>>   	 * slots, which can be as large as XEN_NETBK_LEGACY_SLOTS_MAX.
+>>   	 */
+>> +	if (shinfo->nr_frags > MAX_SKB_FRAGS) {
+>> +		frag_overflow = shinfo->nr_frags - MAX_SKB_FRAGS;
+>> +		shinfo->nr_frags = MAX_SKB_FRAGS;
+>> +	}
+>>   	nr_slots = shinfo->nr_frags;
+>>
+>
+> It is also probably better to check whether shinfo->nr_frags is too
+> large which makes frag_overflow > MAX_SKB_FRAGS. I know skb should be
+> already be valid at this point but it wouldn't hurt to be more careful.
+Ok, I've added this:
+	/* At this point shinfo->nr_frags is in fact the number of
+	 * slots, which can be as large as XEN_NETBK_LEGACY_SLOTS_MAX.
+	 */
++	if (shinfo->nr_frags > MAX_SKB_FRAGS) {
++		if (shinfo->nr_frags > XEN_NETBK_LEGACY_SLOTS_MAX) return NULL;
++		frag_overflow = shinfo->nr_frags - MAX_SKB_FRAGS;
 
-Fixes: 41d73ec053d2 (netfilter: nf_conntrack: make sequence number adjustments usuable without NAT)
-Suggested-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
 
- net/netfilter/ipvs/ip_vs_nfct.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_nfct.c b/net/netfilter/ipvs/ip_vs_nfct.c
-index d5f4151..5882bbf 100644
---- a/net/netfilter/ipvs/ip_vs_nfct.c
-+++ b/net/netfilter/ipvs/ip_vs_nfct.c
-@@ -62,6 +62,7 @@
- #include <net/ip_vs.h>
- #include <net/netfilter/nf_conntrack_core.h>
- #include <net/netfilter/nf_conntrack_expect.h>
-+#include <net/netfilter/nf_conntrack_seqadj.h>
- #include <net/netfilter/nf_conntrack_helper.h>
- #include <net/netfilter/nf_conntrack_zones.h>
- 
-@@ -96,6 +97,11 @@ ip_vs_update_conntrack(struct sk_buff *skb, struct ip_vs_conn *cp, int outin)
- 	if (CTINFO2DIR(ctinfo) != IP_CT_DIR_ORIGINAL)
- 		return;
- 
-+	/* Applications may adjust TCP seqs */
-+	if (cp->app && nf_ct_protonum(ct) == IPPROTO_TCP &&
-+	    !nfct_seqadj(ct) && !nfct_seqadj_ext_add(ct))
-+		return;
-+
- 	/*
- 	 * The connection is not yet in the hashtable, so we update it.
- 	 * CIP->VIP will remain the same, so leave the tuple in
+>
+>>   	/* Skip first skb fragment if it is on same page as header fragment. */
+>> @@ -926,6 +930,33 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
+>>
+>>   	BUG_ON(shinfo->nr_frags > MAX_SKB_FRAGS);
+>>
+>> +	if (frag_overflow) {
+>> +		struct sk_buff *nskb = alloc_skb(NET_SKB_PAD + NET_IP_ALIGN,
+>> +				GFP_ATOMIC | __GFP_NOWARN);
+>> +		if (unlikely(nskb == NULL)) {
+>> +			netdev_err(vif->dev,
+>> +				   "Can't allocate the frag_list skb.\n");
+>> +			return NULL;
+>> +		}
+>> +
+>> +		/* Packets passed to netif_rx() must have some headroom. */
+>> +		skb_reserve(nskb, NET_SKB_PAD + NET_IP_ALIGN);
+>> +
+>
+> The code to call alloc_skb and skb_reserve is copied from other
+> location. I would like to have a dedicated function to allocate skb in
+> netback if possible.
+OK
