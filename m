@@ -1,173 +1,96 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 11/12] i40e: support for suspend and resume
-Date: Mon, 16 Dec 2013 01:38:57 -0800
-Message-ID: <1387186738-13666-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 12/12] i40e: Remove FCoE in i40e_virtchnl_pf.c code
+Date: Mon, 16 Dec 2013 01:38:58 -0800
+Message-ID: <1387186738-13666-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387186738-13666-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Cc: Neerav Parikh <Neerav.Parikh@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:39292 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:29700 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753010Ab3LPJjL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752875Ab3LPJjL (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 16 Dec 2013 04:39:11 -0500
 In-Reply-To: <1387186738-13666-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Neerav Parikh <Neerav.Parikh@intel.com>
 
-Add basic support for handling suspend and resume.  We'll add
-Wake-on-LAN support later.
+Remove FCoE code from the VF interface, as the feature will
+not be supported on VF interfaces.
 
-Change-Id: Iea5e11c81bd9289a5bdbf086de8f626911a0b5ce
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-Id: Ie9db04fa2e37fa14ac3e73a9c20980348d931357
+Signed-off-by: Neerav Parikh <Neerav.Parikh@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c | 97 ++++++++++++++++++++++++++++-
- 2 files changed, 97 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 29 ++--------------------
+ 1 file changed, 2 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 24a47ee..40706c1 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -133,6 +133,7 @@ enum i40e_state_t {
- 	__I40E_GLOBAL_RESET_REQUESTED,
- 	__I40E_EMP_RESET_REQUESTED,
- 	__I40E_FILTER_OVERFLOW_PROMISC,
-+	__I40E_SUSPENDED,
- };
- 
- enum i40e_interrupt_policy {
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 19ad3c0..fba0aad 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7749,7 +7749,11 @@ static pci_ers_result_t i40e_pci_error_detected(struct pci_dev *pdev,
- 	dev_info(&pdev->dev, "%s: error %d\n", __func__, error);
- 
- 	/* shutdown all operations */
--	i40e_pf_quiesce_all_vsi(pf);
-+	if (!test_bit(__I40E_SUSPENDED, &pf->state)) {
-+		rtnl_lock();
-+		i40e_prep_for_reset(pf);
-+		rtnl_unlock();
-+	}
- 
- 	/* Request a slot reset */
- 	return PCI_ERS_RESULT_NEED_RESET;
-@@ -7812,9 +7816,95 @@ static void i40e_pci_error_resume(struct pci_dev *pdev)
- 	struct i40e_pf *pf = pci_get_drvdata(pdev);
- 
- 	dev_info(&pdev->dev, "%s\n", __func__);
-+	if (test_bit(__I40E_SUSPENDED, &pf->state))
-+		return;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index e7bdd47..68e1f8e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -521,6 +521,7 @@ static int i40e_alloc_vsi_res(struct i40e_vf *vf, enum i40e_vsi_type type)
+ 		f = i40e_add_filter(vsi, vf->default_lan_addr.addr,
+ 				    0, true, false);
+ 	}
 +
-+	rtnl_lock();
- 	i40e_handle_reset_warning(pf);
-+	rtnl_lock();
-+}
+ 	if (!f) {
+ 		dev_err(&pf->pdev->dev, "Unable to add ucast filter\n");
+ 		ret = -ENOMEM;
+@@ -763,6 +764,7 @@ static void i40e_free_vf_res(struct i40e_vf *vf)
+ 		vf->lan_vsi_index = 0;
+ 		vf->lan_vsi_id = 0;
+ 	}
 +
-+/**
-+ * i40e_shutdown - PCI callback for shutting down
-+ * @pdev: PCI device information struct
-+ **/
-+static void i40e_shutdown(struct pci_dev *pdev)
-+{
-+	struct i40e_pf *pf = pci_get_drvdata(pdev);
-+
-+	set_bit(__I40E_SUSPENDED, &pf->state);
-+	set_bit(__I40E_DOWN, &pf->state);
-+	rtnl_lock();
-+	i40e_prep_for_reset(pf);
-+	rtnl_unlock();
-+
-+	if (system_state == SYSTEM_POWER_OFF) {
-+		pci_wake_from_d3(pdev, false);    /* No WoL support yet */
-+		pci_set_power_state(pdev, PCI_D3hot);
-+	}
-+}
-+
-+#ifdef CONFIG_PM
-+/**
-+ * i40e_suspend - PCI callback for moving to D3
-+ * @pdev: PCI device information struct
-+ **/
-+static int i40e_suspend(struct pci_dev *pdev, pm_message_t state)
-+{
-+	struct i40e_pf *pf = pci_get_drvdata(pdev);
-+
-+	set_bit(__I40E_SUSPENDED, &pf->state);
-+	set_bit(__I40E_DOWN, &pf->state);
-+	rtnl_lock();
-+	i40e_prep_for_reset(pf);
-+	rtnl_unlock();
-+
-+	pci_wake_from_d3(pdev, false);    /* No WoL support yet */
-+	pci_set_power_state(pdev, PCI_D3hot);
-+
-+	return 0;
+ 	/* reset some of the state varibles keeping
+ 	 * track of the resources
+ 	 */
+@@ -1777,30 +1779,6 @@ error_param:
  }
  
-+/**
-+ * i40e_resume - PCI callback for waking up from D3
-+ * @pdev: PCI device information struct
-+ **/
-+static int i40e_resume(struct pci_dev *pdev)
-+{
-+	struct i40e_pf *pf = pci_get_drvdata(pdev);
-+	u32 err;
-+
-+	pci_set_power_state(pdev, PCI_D0);
-+	pci_restore_state(pdev);
-+	/* pci_restore_state() clears dev->state_saves, so
-+	 * call pci_save_state() again to restore it.
-+	 */
-+	pci_save_state(pdev);
-+
-+	err = pci_enable_device_mem(pdev);
-+	if (err) {
-+		dev_err(&pdev->dev,
-+			"%s: Cannot enable PCI device from suspend\n",
-+			__func__);
-+		return err;
-+	}
-+	pci_set_master(pdev);
-+
-+	/* no wakeup events while running */
-+	pci_wake_from_d3(pdev, false);
-+
-+	/* handling the reset will rebuild the device state */
-+	if (test_and_clear_bit(__I40E_SUSPENDED, &pf->state)) {
-+		clear_bit(__I40E_DOWN, &pf->state);
-+		rtnl_lock();
-+		i40e_reset_and_rebuild(pf, false);
-+		rtnl_unlock();
-+	}
-+
-+	return 0;
-+}
-+
-+#endif
- static const struct pci_error_handlers i40e_err_handler = {
- 	.error_detected = i40e_pci_error_detected,
- 	.slot_reset = i40e_pci_error_slot_reset,
-@@ -7826,6 +7916,11 @@ static struct pci_driver i40e_driver = {
- 	.id_table = i40e_pci_tbl,
- 	.probe    = i40e_probe,
- 	.remove   = i40e_remove,
-+#ifdef CONFIG_PM
-+	.suspend  = i40e_suspend,
-+	.resume   = i40e_resume,
-+#endif
-+	.shutdown = i40e_shutdown,
- 	.err_handler = &i40e_err_handler,
- 	.sriov_configure = i40e_pci_sriov_configure,
- };
+ /**
+- * i40e_vc_fcoe_msg
+- * @vf: pointer to the vf info
+- * @msg: pointer to the msg buffer
+- * @msglen: msg length
+- *
+- * called from the vf for the fcoe msgs
+- **/
+-static int i40e_vc_fcoe_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+-{
+-	i40e_status aq_ret = 0;
+-
+-	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states) ||
+-	    !test_bit(I40E_VF_STAT_FCOEENA, &vf->vf_states)) {
+-		aq_ret = I40E_ERR_PARAM;
+-		goto error_param;
+-	}
+-	aq_ret = I40E_ERR_NOT_IMPLEMENTED;
+-
+-error_param:
+-	/* send the response to the vf */
+-	return i40e_vc_send_resp_to_vf(vf, I40E_VIRTCHNL_OP_FCOE, aq_ret);
+-}
+-
+-/**
+  * i40e_vc_validate_vf_msg
+  * @vf: pointer to the vf info
+  * @msg: pointer to the msg buffer
+@@ -1973,9 +1951,6 @@ int i40e_vc_process_vf_msg(struct i40e_pf *pf, u16 vf_id, u32 v_opcode,
+ 	case I40E_VIRTCHNL_OP_GET_STATS:
+ 		ret = i40e_vc_get_stats_msg(vf, msg, msglen);
+ 		break;
+-	case I40E_VIRTCHNL_OP_FCOE:
+-		ret = i40e_vc_fcoe_msg(vf, msg, msglen);
+-		break;
+ 	case I40E_VIRTCHNL_OP_UNKNOWN:
+ 	default:
+ 		dev_err(&pf->pdev->dev,
 -- 
 1.8.3.1
