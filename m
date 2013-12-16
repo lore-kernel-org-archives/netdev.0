@@ -1,104 +1,50 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] SCTP: Reduce log spamming for sctp setsockopt
-Date: Mon, 16 Dec 2013 09:44:09 -0500
-Message-ID: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-sctp@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next v2 0/6] slight optimization of addr compare for
+ some modules
+Date: Mon, 16 Dec 2013 06:45:11 -0800
+Message-ID: <1387205111.18217.7.camel@joe-AO722>
+References: <52AEB8B3.5010405@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:37880 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754238Ab3LPOov (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 09:44:51 -0500
+Received: from smtprelay0200.hostedemail.com ([216.40.44.200]:37143 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754511Ab3LPOpO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 09:45:14 -0500
+In-Reply-To: <52AEB8B3.5010405@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-During a recent discussion regarding some sctp socket options, it was noted that
-we have several points at which we issue log warnings that can be flooded at an
-unbounded rate by any user.  Fix this by converting all the pr_warns in the
-sctp_setsockopt path to be pr_warn_ratelimited.
+On Mon, 2013-12-16 at 16:24 +0800, Ding Tianhong wrote:
+> Joe Perches add ether_addr_equal_unaligned to test if
+> possibly unaligned to u16 Ethernet addresses are equal.
+> 
+> If CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS is set, this uses
+> the slightly faster generic routine ether_addr_equal,
+> otherwise this uses memcmp.
+> 
+> So I replace memcmp with ether_addr_equal_unaligned in some place
+> for slight optimization.
 
-Note there are several debug level messages as well.  I'm leaving those alone,
-as, if you turn on pr_debug, you likely want lots of verbosity.
+Hi.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: Vlad Yasevich <vyasevich@gmail.com>
-CC: David Miller <davem@davemloft.net>
-CC: netdev@vger.kernel.org
----
- net/sctp/socket.c | 24 ++++++++++++------------
- 1 file changed, 12 insertions(+), 12 deletions(-)
+These seem like sensible cleanups, thanks, but
+my name doesn't need to go into the commit log
+multiple times like this.
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 42b709c..8261e69 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -2579,8 +2579,8 @@ static int sctp_setsockopt_delayed_ack(struct sock *sk,
- 		if (params.sack_delay == 0 && params.sack_freq == 0)
- 			return 0;
- 	} else if (optlen == sizeof(struct sctp_assoc_value)) {
--		pr_warn("Use of struct sctp_assoc_value in delayed_ack socket option deprecated\n");
--		pr_warn("Use struct sctp_sack_info instead\n");
-+		pr_warn_ratelimited("Use of struct sctp_assoc_value in delayed_ack socket option deprecated\n");
-+		pr_warn_ratelimited("Use struct sctp_sack_info instead\n");
- 		if (copy_from_user(&params, optval, optlen))
- 			return -EFAULT;
- 
-@@ -2995,8 +2995,8 @@ static int sctp_setsockopt_maxseg(struct sock *sk, char __user *optval, unsigned
- 	int val;
- 
- 	if (optlen == sizeof(int)) {
--		pr_warn("Use of int in maxseg socket option deprecated\n");
--		pr_warn("Use struct sctp_assoc_value instead\n");
-+		pr_warn_ratelimited("Use of int in maxseg socket option deprecated\n");
-+		pr_warn_ratelimited("Use struct sctp_assoc_value instead\n");
- 		if (copy_from_user(&val, optval, optlen))
- 			return -EFAULT;
- 		params.assoc_id = 0;
-@@ -3253,8 +3253,8 @@ static int sctp_setsockopt_maxburst(struct sock *sk,
- 	int assoc_id = 0;
- 
- 	if (optlen == sizeof(int)) {
--		pr_warn("Use of int in max_burst socket option deprecated\n");
--		pr_warn("Use struct sctp_assoc_value instead\n");
-+		pr_warn_ratelimited("Use of int in max_burst socket option deprecated\n");
-+		pr_warn_ratelimited("Use struct sctp_assoc_value instead\n");
- 		if (copy_from_user(&val, optval, optlen))
- 			return -EFAULT;
- 	} else if (optlen == sizeof(struct sctp_assoc_value)) {
-@@ -4574,8 +4574,8 @@ static int sctp_getsockopt_delayed_ack(struct sock *sk, int len,
- 		if (copy_from_user(&params, optval, len))
- 			return -EFAULT;
- 	} else if (len == sizeof(struct sctp_assoc_value)) {
--		pr_warn("Use of struct sctp_assoc_value in delayed_ack socket option deprecated\n");
--		pr_warn("Use struct sctp_sack_info instead\n");
-+		pr_warn_ratelimited("Use of struct sctp_assoc_value in delayed_ack socket option deprecated\n");
-+		pr_warn_ratelimited("Use struct sctp_sack_info instead\n");
- 		if (copy_from_user(&params, optval, len))
- 			return -EFAULT;
- 	} else
-@@ -5219,8 +5219,8 @@ static int sctp_getsockopt_maxseg(struct sock *sk, int len,
- 	struct sctp_association *asoc;
- 
- 	if (len == sizeof(int)) {
--		pr_warn("Use of int in maxseg socket option deprecated\n");
--		pr_warn("Use struct sctp_assoc_value instead\n");
-+		pr_warn_ratelimited("Use of int in maxseg socket option deprecated\n");
-+		pr_warn_ratelimited("Use struct sctp_assoc_value instead\n");
- 		params.assoc_id = 0;
- 	} else if (len >= sizeof(struct sctp_assoc_value)) {
- 		len = sizeof(struct sctp_assoc_value);
-@@ -5311,8 +5311,8 @@ static int sctp_getsockopt_maxburst(struct sock *sk, int len,
- 	struct sctp_association *asoc;
- 
- 	if (len == sizeof(int)) {
--		pr_warn("Use of int in max_burst socket option deprecated\n");
--		pr_warn("Use struct sctp_assoc_value instead\n");
-+		pr_warn_ratelimited("Use of int in max_burst socket option deprecated\n");
-+		pr_warn_ratelimited("Use struct sctp_assoc_value instead\n");
- 		params.assoc_id = 0;
- 	} else if (len >= sizeof(struct sctp_assoc_value)) {
- 		len = sizeof(struct sctp_assoc_value);
--- 
-1.8.3.1
+I suggest something like:
+
+Use the recently added and possibly more efficient
+ether_addr_equal_unaligned.
+
+Are you intending to do more of these?
+
+$ git grep -E "\bmemcmp\s*\([^,]*,[^,]*,\s*(ETH_ALEN|6)\s*\)" * | wc -l
+299
+
+Perhaps the majority of these should use ether_addr_equal
+or ether_addr_equal_unaligned.
