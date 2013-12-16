@@ -1,66 +1,67 @@
 From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net v2 2/8] qlcnic: Fix diagnostic test for all adapters.
-Date: Mon, 16 Dec 2013 15:36:57 -0500
-Message-ID: <f250b8b325e02ffc40c2f37e67444a7d59e00c70.1387256276.git.himanshu.madhani@qlogic.com>
+Subject: [PATCH net v2 5/8] qlcnic: Fix memory allocation
+Date: Mon, 16 Dec 2013 15:37:00 -0500
+Message-ID: <b852f779f8cc7320d8f2010673bce729217e5b3f.1387256276.git.himanshu.madhani@qlogic.com>
 References: <cover.1387256276.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>
+	Manish Chopra <manish.chopra@qlogic.com>,
+	<himanshu.madhani@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:5136 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752143Ab3LPVJx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 16:09:53 -0500
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:1457 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752053Ab3LPVJw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 16:09:52 -0500
 In-Reply-To: <cover.1387256276.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+From: Manish Chopra <manish.chopra@qlogic.com>
 
-o Driver should re-allocate all Tx queues after completing
-  diagnostic tests. This regression was added by commit id
-  c2c5e3a0681bb1945c0cb211a5f4baa22cb2cbb3 ("qlcnic: Enable
-  diagnostic test for multiple Tx queues.")
+o Use vzalloc() instead of kzalloc() for allocation of
+  bootloader size memory. kzalloc() may fail to allocate
+  the size of bootloader
 
+Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
 Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c | 2 ++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c    | 1 -
- 2 files changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index b36c02f..6d3edf6 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -948,6 +948,7 @@ static int qlcnic_irq_test(struct net_device *netdev)
- 	struct qlcnic_hardware_context *ahw = adapter->ahw;
- 	struct qlcnic_cmd_args cmd;
- 	int ret, drv_sds_rings = adapter->drv_sds_rings;
-+	int drv_tx_rings = adapter->drv_tx_rings;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+index fae1b71..cac0503 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+@@ -1254,24 +1254,24 @@ static int qlcnic_83xx_copy_bootloader(struct qlcnic_adapter *adapter)
+ 	if (size & 0xF)
+ 		size = (size + 16) & ~0xF;
  
- 	if (qlcnic_83xx_check(adapter))
- 		return qlcnic_83xx_interrupt_test(netdev);
-@@ -980,6 +981,7 @@ free_diag_res:
+-	p_cache = kzalloc(size, GFP_KERNEL);
++	p_cache = vzalloc(size);
+ 	if (p_cache == NULL)
+ 		return -ENOMEM;
  
- clear_diag_irq:
- 	adapter->drv_sds_rings = drv_sds_rings;
-+	adapter->drv_tx_rings = drv_tx_rings;
- 	clear_bit(__QLCNIC_RESETTING, &adapter->state);
+ 	ret = qlcnic_83xx_lockless_flash_read32(adapter, src, p_cache,
+ 						size / sizeof(u32));
+ 	if (ret) {
+-		kfree(p_cache);
++		vfree(p_cache);
+ 		return ret;
+ 	}
+ 	/* 16 byte write to MS memory */
+ 	ret = qlcnic_83xx_ms_mem_write128(adapter, dest, (u32 *)p_cache,
+ 					  size / 16);
+ 	if (ret) {
+-		kfree(p_cache);
++		vfree(p_cache);
+ 		return ret;
+ 	}
+-	kfree(p_cache);
++	vfree(p_cache);
  
  	return ret;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 05c1eef..aa019c3 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -1940,7 +1940,6 @@ int qlcnic_diag_alloc_res(struct net_device *netdev, int test)
- 	qlcnic_detach(adapter);
- 
- 	adapter->drv_sds_rings = QLCNIC_SINGLE_RING;
--	adapter->drv_tx_rings = QLCNIC_SINGLE_RING;
- 	adapter->ahw->diag_test = test;
- 	adapter->ahw->linkup = 0;
- 
+ }
 -- 
 1.8.1.4
