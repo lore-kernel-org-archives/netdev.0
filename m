@@ -1,42 +1,106 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Subject: Re: NET 3.13.0-rc4 inconsistent lock state
-	(&(&sk->sk_dst_lock)->rlock){+.?...},
-	at: [<ffffffff818a89e4>] __udp4_lib_rcv+0x9d4/0xa90
-Date: Mon, 16 Dec 2013 16:27:32 +0100
-Message-ID: <1976498606.20131216162732@eikelenboom.it>
-References: <4810128955.20131216160609@eikelenboom.it>
-	<1387207372.19078.241.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH net-next] tipc: correctly unlink
+ packets from deferred queue
+Date: Mon, 16 Dec 2013 10:30:42 -0500
+Message-ID: <52AF1CA2.6000406@windriver.com>
+References: <1387187185-6914-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>, netdev@vger.kernel.org,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	Eric Dumazet <edumazet@google.com>, Paul Durrant <Paul.Durrant@citrix.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1387207372.19078.241.camel@edumazet-glaptop2.roam.corp.google.com>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
+Cc: tipc-discussion@lists.sourceforge.net
+To: <erik.hugne@ericsson.com>, <netdev@vger.kernel.org>,
+	<jon.maloy@ericsson.com>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1387187185-6914-1-git-send-email-erik.hugne@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
+On 13-12-16 04:46 AM, erik.hugne@ericsson.com wrote:
+> From: Erik Hugne <erik.hugne@ericsson.com>
+> 
+> When we pull a packet from the deferred queue, the next
+> pointer for the current packet being processed might still
+> refer to deferred packets. This is incorrect, and will
+> lead to an oops if the last fragment have once been put on
+> the deferred queue, and at least one packet have been
 
-Monday, December 16, 2013, 4:22:52 PM, you wrote:
+Once again, I have to ask when this behaviour was introduced.
+This should always be a question that you ask yourself, and
+that you consider putting in the commit log.  Please add it
+to your self-check list.
 
-> On Mon, 2013-12-16 at 16:06 +0100, Sander Eikelenboom wrote:
->> On a Xen HVM guest i encountered this lock warning on boot, it looks like it's from the last net pull from Linus.
->> Not sure if it's the Xen-changes or the udp4 ones.
+So, is this a fail we introduce with the pending two series,
+or with the series already taken by DaveM?
 
-> This is the fourth report of this problem.
+Otherwise, if it is an older problem than that, then why
+is this tagged net-next?  It looks like a genuine bug fix
+for an oops, if the existing mainline code has this bug.
 
-> http://patchwork.ozlabs.org/patch/301382/
+> deferred after this fragment. The result of this is that
+> the fragment chain linked together with the defer-queue.
 
-> Thanks
+"...chain is linked ..."   ?
 
-Sorry for the noise, but probably won't be the last ;-)
+> 
+> We fix this by clearing the next pointer for the current
+> packet being processed.
+> 
+> [...] general protection fault: 0000
+
+Was this all that was in the header?  Seems overly edited, and
+missing content (registers, EIP, etc.)
+
+> [...]
+> [...] ? trace_hardirqs_on+0xd/0x10
+> [...] tipc_link_recv_fragment+0xd1/0x1b0 [tipc]
+> [...] tipc_recv_msg+0x4e4/0x920 [tipc]
+> [...] ? tipc_l2_rcv_msg+0x40/0x250 [tipc]
+> [...] tipc_l2_rcv_msg+0xcc/0x250 [tipc]
+> [...] ? tipc_l2_rcv_msg+0x40/0x250 [tipc]
+> [...] __netif_receive_skb_core+0x80b/0xd00
+> [...] ? __netif_receive_skb_core+0x144/0xd00
+> [...] __netif_receive_skb+0x26/0x70
+> [...] netif_receive_skb+0x2d/0x200
+
+Same here, why have you bothered to clobber the addresses?
+Deleting the printk time prefix from non-time critical bugs is
+fine, but don't delete the addresses, since they convey some
+relative information about functions nearby etc.
+
+Paul.
+--
+
+> 
+> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+> Reported-by: Ying Xue <ying.xue@windriver.com>
+> ---
+>  net/tipc/link.c |    1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/tipc/link.c b/net/tipc/link.c
+> index 3d73144..447e2c4 100644
+> --- a/net/tipc/link.c
+> +++ b/net/tipc/link.c
+> @@ -1444,6 +1444,7 @@ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *b_ptr)
+>  		int type;
+>  
+>  		head = head->next;
+> +		buf->next = NULL;
+>  
+>  		/* Ensure bearer is still enabled */
+>  		if (unlikely(!b_ptr->active))
+> 
+
+------------------------------------------------------------------------------
+Rapidly troubleshoot problems before they affect your business. Most IT 
+organizations don't have a clear picture of how application performance 
+affects their revenue. With AppDynamics, you get 100% visibility into your 
+Java,.NET, & PHP application. Start your 15-day FREE TRIAL of AppDynamics Pro!
+http://pubads.g.doubleclick.net/gampad/clk?id=84349831&iu=/4140/ostg.clktrk
