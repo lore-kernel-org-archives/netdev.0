@@ -1,67 +1,52 @@
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net v2 5/8] qlcnic: Fix memory allocation
-Date: Mon, 16 Dec 2013 15:37:00 -0500
-Message-ID: <b852f779f8cc7320d8f2010673bce729217e5b3f.1387256276.git.himanshu.madhani@qlogic.com>
-References: <cover.1387256276.git.himanshu.madhani@qlogic.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [net PATCH 0/2] Fixing OOPSes in seqadj code
+Date: Mon, 16 Dec 2013 23:11:51 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1312162308120.2063@ja.home.ssi.bg>
+References: <20131213214023.14478.74738.stgit@dragon> <20131216160840.22853.39918.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Manish Chopra <manish.chopra@qlogic.com>,
-	<himanshu.madhani@qlogic.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:1457 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752053Ab3LPVJw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 16:09:52 -0500
-In-Reply-To: <cover.1387256276.git.himanshu.madhani@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Horman <horms@verge.net.au>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20131216160840.22853.39918.stgit@dragon>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Manish Chopra <manish.chopra@qlogic.com>
 
-o Use vzalloc() instead of kzalloc() for allocation of
-  bootloader size memory. kzalloc() may fail to allocate
-  the size of bootloader
+	Hello,
 
-Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
-Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+On Mon, 16 Dec 2013, Jesper Dangaard Brouer wrote:
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-index fae1b71..cac0503 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-@@ -1254,24 +1254,24 @@ static int qlcnic_83xx_copy_bootloader(struct qlcnic_adapter *adapter)
- 	if (size & 0xF)
- 		size = (size + 16) & ~0xF;
- 
--	p_cache = kzalloc(size, GFP_KERNEL);
-+	p_cache = vzalloc(size);
- 	if (p_cache == NULL)
- 		return -ENOMEM;
- 
- 	ret = qlcnic_83xx_lockless_flash_read32(adapter, src, p_cache,
- 						size / sizeof(u32));
- 	if (ret) {
--		kfree(p_cache);
-+		vfree(p_cache);
- 		return ret;
- 	}
- 	/* 16 byte write to MS memory */
- 	ret = qlcnic_83xx_ms_mem_write128(adapter, dest, (u32 *)p_cache,
- 					  size / 16);
- 	if (ret) {
--		kfree(p_cache);
-+		vfree(p_cache);
- 		return ret;
- 	}
--	kfree(p_cache);
-+	vfree(p_cache);
- 
- 	return ret;
- }
--- 
-1.8.1.4
+> The following series address issues with netfilter conntrack sequence
+> number adjustments, introduced with commit 41d73ec053d2 (netfilter:
+> nf_conntrack: make sequence number adjustments usuable without NAT).
+> 
+>  Patch1: give us a WARN splash when using seqadj incorrectly
+> 
+>  Patch2: fixes a wrong usage of seqadj in IPVS code
+
+	Both patches look good to me,
+
+Acked-by: Julian Anastasov <ja@ssi.bg>
+
+> I'm not sure, which maintainer will take these fixes?!?
+
+	I think, Simon can take them, if there are no
+objections...
+
+> Jesper Dangaard Brouer (2):
+>       ipvs: correct usage/allocation of seqadj ext in ipvs
+>       netfilter: WARN about wrong usage of sequence number adjustments
+> 
+> 
+>  net/netfilter/ipvs/ip_vs_nfct.c     |    6 ++++++
+>  net/netfilter/nf_conntrack_seqadj.c |    5 +++++
+>  2 files changed, 11 insertions(+), 0 deletions(-)
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
