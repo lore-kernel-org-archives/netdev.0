@@ -1,85 +1,98 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 00/12][pull request] Intel Wired LAN Driver Updates
-Date: Mon, 16 Dec 2013 01:38:46 -0800
-Message-ID: <1387186738-13666-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next v2 02/12] i40e: fix pf reset after offline test
+Date: Mon, 16 Dec 2013 01:38:48 -0800
+Message-ID: <1387186738-13666-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1387186738-13666-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	sergei.shtylyov@cogentembedded.com, bhutchings@solarflare.com
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:10462 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:10467 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750948Ab3LPJjF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Dec 2013 04:39:05 -0500
+	id S1752435Ab3LPJjG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Dec 2013 04:39:06 -0500
+In-Reply-To: <1387186738-13666-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e only (again).
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Jesse provides a fix for when tx_rings structure is NULL and we do not want
-to panic. Then refactors the flow control set up and disables L2 flow control
-by default.  Provides some trivial fixes as well as prevent compiler warnings.
-Then to align to similar behaviour in ixgbe, use the total number of CPUs in
-the system to suggest the number of transmit and receive queue pairs.
-  
-Shannon provides a i40e ethtool fix to get some more reasonable information
-reports back out to the ethtool.  In addition, fixes PF reset after offline
-test, where it reorders the test to put the register test last as it is the
-only one that needs a reset, and we wait to trigger the reset until after we
-clear the testing bit.  Lastly provides basic support for handling suspend
-and resume for now, later on Wake-On-LAN support will be added.
+When the ethtool testing starts it sets the I40E_TESTING state
+bit, which blocks new netdev opens so that things don't get
+confused, while the testing might be messing with register and
+other things.  Unfortunately, that was keeping the PF resets
+after the register test from working correctly because the netdev
+would not get reopened.  This patch reorders the tests to put the
+register test last as it is the only one that needs a reset, and
+we wait to trigger the reset until after we clear the
+I40E_TESTING bit.
 
-Anjali provides changes to tell the stack about our actual number of queues
-in order for RFS/RPS/XFS to work correctly.  Then provides several patches to
-implement dynamically changing the queue count for the main VSI.  Adds
-basic support for get/set channels for RSS so that the number of receive and
-transmit queue pair can be changed via ethtool.  Cleans up the use of
-rtnl_lock in the reset patch since it runs from a work time.
+Change-Id: Ieaa18d74264250ac336b0656b490125ee8a22d2a
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
 
-Neerav Parikh cleans up the VF interface to remove FCoE code as this
-feature will not be supported on VF interfaces.
-
-v2:
-  - submitted patch 1 to net (since it was a fix needed for net), so dropped
-    from this series (this patch will get added to net-next when Dave syncs
-    his trees)
-  - Dropped patches 4 & 11 from previous submission because of feedback
-    received from Ben Hutchings and Sergei Shtylyov.
-
-The following are changes since commit 810c23a3553cbb4602edf9534b548d2616ba5520:
-  net-ipv6: Fix alleged compiler warning in ipv6_exthdrs_len()
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Anjali Singhai Jain (5):
-  i40e: Tell the stack about our actual number of queues
-  i40e: reinit flow for the main VSI
-  i40e: function to reconfigure RSS queues and rebuild
-  i40e: Add basic support for get/set channels for RSS
-  i40e: rtnl_lock in reset path fixes
-
-Jesse Brandeburg (4):
-  i40e: fix up some of the ethtool connection reporting
-  i40e: init flow control settings to disabled
-  i40e: trivial fixes
-  i40e: use same number of queues as CPUs
-
-Neerav Parikh (1):
-  i40e: Remove FCoE in i40e_virtchnl_pf.c code
-
-Shannon Nelson (2):
-  i40e: fix pf reset after offline test
-  i40e: support for suspend and resume
-
- drivers/net/ethernet/intel/i40e/i40e.h             |   4 +
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |   8 +-
- drivers/net/ethernet/intel/i40e/i40e_diag.c        |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 146 ++++++++-
- drivers/net/ethernet/intel/i40e/i40e_hmc.c         |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 364 ++++++++++++++++++---
- drivers/net/ethernet/intel/i40e/i40e_type.h        |   4 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  29 +-
- 8 files changed, 469 insertions(+), 90 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index eb34375..9c380a8 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -748,7 +748,6 @@ static int i40e_reg_test(struct net_device *netdev, u64 *data)
+ 	netif_info(pf, hw, netdev, "register test\n");
+ 	*data = i40e_diag_reg_test(&pf->hw);
+ 
+-	i40e_do_reset(pf, (1 << __I40E_PF_RESET_REQUESTED));
+ 	return *data;
+ }
+ 
+@@ -796,20 +795,18 @@ static void i40e_diag_test(struct net_device *netdev,
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_pf *pf = np->vsi->back;
+ 
+-	set_bit(__I40E_TESTING, &pf->state);
+ 	if (eth_test->flags == ETH_TEST_FL_OFFLINE) {
+ 		/* Offline tests */
+ 		netif_info(pf, drv, netdev, "offline testing starting\n");
+ 
++		set_bit(__I40E_TESTING, &pf->state);
++
+ 		/* Link test performed before hardware reset
+ 		 * so autoneg doesn't interfere with test result
+ 		 */
+ 		if (i40e_link_test(netdev, &data[I40E_ETH_TEST_LINK]))
+ 			eth_test->flags |= ETH_TEST_FL_FAILED;
+ 
+-		if (i40e_reg_test(netdev, &data[I40E_ETH_TEST_REG]))
+-			eth_test->flags |= ETH_TEST_FL_FAILED;
+-
+ 		if (i40e_eeprom_test(netdev, &data[I40E_ETH_TEST_EEPROM]))
+ 			eth_test->flags |= ETH_TEST_FL_FAILED;
+ 
+@@ -819,6 +816,12 @@ static void i40e_diag_test(struct net_device *netdev,
+ 		if (i40e_loopback_test(netdev, &data[I40E_ETH_TEST_LOOPBACK]))
+ 			eth_test->flags |= ETH_TEST_FL_FAILED;
+ 
++		/* run reg test last, a reset is required after it */
++		if (i40e_reg_test(netdev, &data[I40E_ETH_TEST_REG]))
++			eth_test->flags |= ETH_TEST_FL_FAILED;
++
++		clear_bit(__I40E_TESTING, &pf->state);
++		i40e_do_reset(pf, (1 << __I40E_PF_RESET_REQUESTED));
+ 	} else {
+ 		/* Online tests */
+ 		netif_info(pf, drv, netdev, "online testing starting\n");
+@@ -832,7 +835,6 @@ static void i40e_diag_test(struct net_device *netdev,
+ 		data[I40E_ETH_TEST_INTR] = 0;
+ 		data[I40E_ETH_TEST_LOOPBACK] = 0;
+ 	}
+-	clear_bit(__I40E_TESTING, &pf->state);
+ 
+ 	netif_info(pf, drv, netdev, "testing finished\n");
+ }
 -- 
 1.8.3.1
