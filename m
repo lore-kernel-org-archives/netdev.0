@@ -1,124 +1,76 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Subject: Re: [PATCH] ipvs: avoid oops in nf_ct_seqadj_set when called from
- ip_vs_ftp helper
-Date: Mon, 16 Dec 2013 15:57:24 +0100
-Message-ID: <20131216155724.2a174830@redhat.com>
-References: <20131213214023.14478.74738.stgit@dragon>
-	<alpine.LFD.2.11.1312151709260.6463@ja.home.ssi.bg>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] SCTP: Reduce log spamming for sctp setsockopt
+Date: Mon, 16 Dec 2013 07:03:53 -0800
+Message-ID: <1387206233.18217.21.camel@joe-AO722>
+References: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.11.1312151709260.6463@ja.home.ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0232.hostedemail.com ([216.40.44.232]:46254 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753755Ab3LPPD5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 10:03:57 -0500
+In-Reply-To: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 15 Dec 2013 18:10:42 +0200 (EET)
-Julian Anastasov <ja@ssi.bg> wrote:
+On Mon, 2013-12-16 at 09:44 -0500, Neil Horman wrote:
+> During a recent discussion regarding some sctp socket options, it was noted that
+> we have several points at which we issue log warnings that can be flooded at an
+> unbounded rate by any user.  Fix this by converting all the pr_warns in the
+> sctp_setsockopt path to be pr_warn_ratelimited.
 
-> On Fri, 13 Dec 2013, Jesper Dangaard Brouer wrote:
-> 
-> > The IPVS FTP helper ip_vs_ftp can trigger an OOPS in nf_ct_seqadj_set,
-> > after commit 41d73ec053d2 (netfilter: nf_conntrack: make sequence
-> > number adjustments usuable without NAT).
-> > 
-> > We can avoid the oops in nf_ct_seqadj_set() by in ip_vs_ftp_out()
-> > instead of calling nf_nat_mangle_tcp_packet() we simply call
-> > __nf_nat_mangle_tcp_packet() with a "false" last parameter, which
-> > indicate not invoking the seqadj code.
-> > 
-> > After this fix, I've tested that FTP over IPVS, with module ip_vs_ftp
-> > loaded, works for both passive and active FTP.
-> > 
-> > Fixes: 41d73ec053d2 (netfilter: nf_conntrack: make sequence number adjustments usuable without NAT)
-> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> > 
-> > ---
-> > I'm uncertain if this is the correct fix.  Perhaps the ip_vs_ftp
-> > helper need to allocate/init the seqadj extension instead?
-> 
-> 	I hope I'll save you some time... What do you
-> think about such change:
+trivial note:
 
-Thanks a lot!
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+[]
+> @@ -2579,8 +2579,8 @@ static int sctp_setsockopt_delayed_ack(struct sock *sk,
+[]
+> +		pr_warn_ratelimited("Use of struct sctp_assoc_value in delayed_ack socket option deprecated\n");
+> +		pr_warn_ratelimited("Use struct sctp_sack_info instead\n");
+[]
+> @@ -2995,8 +2995,8 @@ static int sctp_setsockopt_maxseg(struct sock *sk, char __user *optval, unsigned
+> +		pr_warn_ratelimited("Use of int in maxseg socket option deprecated\n");
+[]
+> @@ -3253,8 +3253,8 @@ static int sctp_setsockopt_maxburst(struct sock *sk,
+[]
+> +		pr_warn_ratelimited("Use of int in max_burst socket option deprecated\n");
+> +		pr_warn_ratelimited("Use struct sctp_assoc_value instead\n");
+[]
+> @@ -4574,8 +4574,8 @@ static int sctp_getsockopt_delayed_ack(struct sock *sk, int len,
+[]
+> +		pr_warn_ratelimited("Use of struct sctp_assoc_value in delayed_ack socket option deprecated\n");
+> +		pr_warn_ratelimited("Use struct sctp_sack_info instead\n");
+[]
+> @@ -5219,8 +5219,8 @@ static int sctp_getsockopt_maxseg(struct sock *sk, int len,
+[]
+> +		pr_warn_ratelimited("Use of int in maxseg socket option deprecated\n");
+> +		pr_warn_ratelimited("Use struct sctp_assoc_value instead\n");
+[]
+> @@ -5311,8 +5311,8 @@ static int sctp_getsockopt_maxburst(struct sock *sk, int len,
+[]
+> +		pr_warn_ratelimited("Use of int in max_burst socket option deprecated\n");
+> +		pr_warn_ratelimited("Use struct sctp_assoc_value instead\n");
 
+Perhaps a dedicated "deprecated" warning function
+to centralize these?
 
-> [PATCH net] ipvs: use the new seqadj interface from ip_vs_ftp
-> 
-> diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-> index 77c1732..9c2074d 100644
-> --- a/net/netfilter/ipvs/ip_vs_ftp.c
-> +++ b/net/netfilter/ipvs/ip_vs_ftp.c
-> @@ -34,6 +34,7 @@
->  #include <linux/netfilter.h>
->  #include <net/netfilter/nf_conntrack.h>
->  #include <net/netfilter/nf_conntrack_expect.h>
-> +#include <net/netfilter/nf_conntrack_seqadj.h>
->  #include <net/netfilter/nf_nat.h>
->  #include <net/netfilter/nf_nat_helper.h>
->  #include <linux/gfp.h>
-> @@ -260,7 +261,8 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
->  		buf_len = strlen(buf);
->  
->  		ct = nf_ct_get(skb, &ctinfo);
-> -		if (ct && !nf_ct_is_untracked(ct) && nfct_nat(ct)) {
-> +		if (ct && !nf_ct_is_untracked(ct) && nfct_nat(ct) &&
-> +		    nfct_seqadj(ct)) {
+void _sctp_warn_deprecated(const char *func, const char *from, const char *to);
+{
+	etc.
+}
+#define sctp_warn_deprecated(from, to)		\
+	_sctp_warn_deprecated(__func__, from, to)
 
-If we add the other section, then this check should not be necessary.
+and use
 
-
->  			/* If mangling fails this function will return 0
->  			 * which will cause the packet to be dropped.
->  			 * Mangling can only fail under memory pressure,
-> diff --git a/net/netfilter/ipvs/ip_vs_nfct.c b/net/netfilter/ipvs/ip_vs_nfct.c
-> index c8beafd..5a355a4 100644
-> --- a/net/netfilter/ipvs/ip_vs_nfct.c
-> +++ b/net/netfilter/ipvs/ip_vs_nfct.c
-> @@ -63,6 +63,7 @@
->  #include <net/ip_vs.h>
->  #include <net/netfilter/nf_conntrack_core.h>
->  #include <net/netfilter/nf_conntrack_expect.h>
-> +#include <net/netfilter/nf_conntrack_seqadj.h>
->  #include <net/netfilter/nf_conntrack_helper.h>
->  #include <net/netfilter/nf_conntrack_zones.h>
->  
-> @@ -97,6 +98,11 @@ ip_vs_update_conntrack(struct sk_buff *skb, struct ip_vs_conn *cp, int outin)
->  	if (CTINFO2DIR(ctinfo) != IP_CT_DIR_ORIGINAL)
->  		return;
->  
-> +	/* Applications may adjust TCP seqs */
-> +	if (cp->app && nf_ct_protonum(ct) == IPPROTO_TCP &&
-> +	    !nfct_seqadj(ct) && !nfct_seqadj_ext_add(ct))
-> +		return;
-> +
-
-It will work.
-
-I'm just thinking if we will allocate a seqadj ext, in too many
-situations, were its not really needed... double checking, I see that
-"cp->app" will limit us a lot, as it seems that FTP is the only one
-using register_ip_vs_app(),
-
-And above this, we do check:
-	if (IP_VS_FWD_METHOD(cp) != IP_VS_CONN_F_MASQ)
-		return;
-So, we only do this for IPVS masq case, good.
-I think we are good.
-
-Now, I'm just wondering if SIP will work... (but I don't have a lab to
-test this).
-
-I'll submit a new patch/fix soon.
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+		sctp_warn_deprecated("struct sctp_assoc_value", "struct sctp_sack_info");
+		sctp_warn_deprecated("int", "");
+		sctp_warn_deprecated("int", "struct sctp_assoc_value");
+		sctp_warn_deprecated("struct sctp_assoc_value", "struct sctp_sack_info");
+		sctp_warn_deprecated("int", "struct sctp_assoc_value");
+		sctp_warn_deprecated("int", "struct sctp_assoc_value");
