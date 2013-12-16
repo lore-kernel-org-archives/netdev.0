@@ -1,52 +1,81 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 5/6] pppoe: slight optimization of addr compare
-Date: Mon, 16 Dec 2013 15:15:41 +0800
-Message-ID: <52AEA89D.1000801@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Michal Ostrowski <mostrows@earthlink.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>, Netdev <netdev@vger.kernel.org>
+From: Masatake YAMATO <yamato@redhat.com>
+Subject: [PATCH] net: show protocol type in sockprotoname of fdinfo
+Date: Mon, 16 Dec 2013 16:19:41 +0900
+Message-ID: <1387178381-30289-1-git-send-email-yamato@redhat.com>
+Cc: yamato@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:18654 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751465Ab3LPHR0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 02:17:26 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:30241 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751859Ab3LPHTp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Dec 2013 02:19:45 -0500
+Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id rBG7Jjei016429
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 02:19:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joe Perches add ether_addr_equal_unaligned to test if
-possibly unaligned to u16 Ethernet addresses are equal.
+In 600e177920df936d03b807780ca92c662af98990 "system.sockprotoname"
+xattrs is added to sockets enumerated under /proc/$PID/fd.
+It is intended mainly to be used from lsof.
 
-If CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS is set, this uses
-the slightly faster generic routine ether_addr_equal,
-otherwise this uses memcmp.
+The patch was accepted. However, I think using xattrs under procfs is
+special hack for lsof. Normally the user of procfs may want to use cat
+command(or write syscall) to retrieve informations from the fs.
 
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+This patch introduces "sockprotoname" field to /proc/PID/fdinfo of socket.
+So the user can use cat command to retrieve the protocol information.
+
+Signed-off-by: Masatake YAMATO <yamato@redhat.com>
 ---
- drivers/net/ppp/pppoe.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ net/socket.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
 
-diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
-index 82ee6ed..baed1ef 100644
---- a/drivers/net/ppp/pppoe.c
-+++ b/drivers/net/ppp/pppoe.c
-@@ -131,12 +131,13 @@ static inline struct pppoe_net *pppoe_pernet(struct net *net)
+diff --git a/net/socket.c b/net/socket.c
+index 879933a..5e27715 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -132,6 +132,9 @@ static ssize_t sock_sendpage(struct file *file, struct page *page,
+ static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
+ 				struct pipe_inode_info *pipe, size_t len,
+ 				unsigned int flags);
++#ifdef CONFIG_PROC_FS
++static int sock_show_fdinfo(struct seq_file *m, struct file *file);
++#endif
  
- static inline int cmp_2_addr(struct pppoe_addr *a, struct pppoe_addr *b)
- {
--	return a->sid == b->sid && !memcmp(a->remote, b->remote, ETH_ALEN);
-+	return a->sid == b->sid &&
-+		ether_addr_equal_unaligned(a->remote, b->remote);
+ /*
+  *	Socket files have a set of 'special' operations as well as the generic file ones. These don't appear
+@@ -155,6 +158,9 @@ static const struct file_operations socket_file_ops = {
+ 	.sendpage =	sock_sendpage,
+ 	.splice_write = generic_splice_sendpage,
+ 	.splice_read =	sock_splice_read,
++#ifdef CONFIG_PROC_FS
++	.show_fdinfo = sock_show_fdinfo,
++#endif
+ };
+ 
+ /*
+@@ -882,6 +888,20 @@ static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
+ 	return sock->ops->splice_read(sock, ppos, pipe, len, flags);
  }
  
- static inline int cmp_addr(struct pppoe_addr *a, __be16 sid, char *addr)
++#ifdef CONFIG_PROC_FS
++static int sock_show_fdinfo(struct seq_file *m, struct file *file)
++{
++	struct socket *sock;
++	int ret;
++
++	sock = file->private_data;
++	ret = seq_printf(m, "%s: %s\n",
++			 XATTR_SOCKPROTONAME_SUFFIX,
++			 sock->sk ? sock->sk->sk_prot_creator->name : "-");
++	return ret;
++}
++#endif
++
+ static struct sock_iocb *alloc_sock_iocb(struct kiocb *iocb,
+ 					 struct sock_iocb *siocb)
  {
--	return a->sid == sid && !memcmp(a->remote, addr, ETH_ALEN);
-+	return a->sid == sid && ether_addr_equal_unaligned(a->remote, addr);
- }
- 
- #if 8 % PPPOE_HASH_BITS
 -- 
-1.8.0
+1.8.3.1
