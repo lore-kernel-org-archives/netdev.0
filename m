@@ -1,42 +1,80 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch] Bluetooth: fix ->alloc_skb() error checking
-Date: Mon, 16 Dec 2013 23:57:18 +0300
-Message-ID: <20131216205718.GF5443@mwanda>
-References: <20131216202857.GB19601@elgon.mountain>
- <CAJdJm_O9q3YgpjTQexbLvMm8ViViu+MrmRCqPwQDDUzaxVQYUg@mail.gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] ipvs: avoid oops in nf_ct_seqadj_set when called from
+ ip_vs_ftp helper
+Date: Mon, 16 Dec 2013 23:05:48 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1312162247030.2063@ja.home.ssi.bg>
+References: <20131213214023.14478.74738.stgit@dragon> <alpine.LFD.2.11.1312151709260.6463@ja.home.ssi.bg> <20131216155724.2a174830@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marcel Holtmann <marcel@holtmann.org>,
-	Gustavo Padovan <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	BlueZ development <linux-bluetooth@vger.kernel.org>,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Anderson Lizardo <anderson.lizardo@openbossa.org>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAJdJm_O9q3YgpjTQexbLvMm8ViViu+MrmRCqPwQDDUzaxVQYUg@mail.gmail.com>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20131216155724.2a174830@redhat.com>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 16, 2013 at 04:35:25PM -0400, Anderson Lizardo wrote:
-> Hi Dan,
-> 
-> On Mon, Dec 16, 2013 at 4:28 PM, Dan Carpenter <dan.carpenter@oracle.com> wrote:
-> > @@ -2413,8 +2413,8 @@ static struct sk_buff *l2cap_create_basic_pdu(struct l2cap_chan *chan,
-> >
-> >         skb = chan->ops->alloc_skb(chan, count + L2CAP_HDR_SIZE,
-> >                                    msg->msg_flags & MSG_DONTWAIT);
-> > -       if (IS_ERR(skb))
-> > -               return skb;
-> > +       if (skb)
-> > +               return ERR_PTR(-ENOMEM);
-> 
-> It should be "!skb" above right?
-> 
 
-Gar....  I'm so sorry about that.
+	Hello,
 
-regards,
-dan carpenter
+On Mon, 16 Dec 2013, Jesper Dangaard Brouer wrote:
 
+> On Sun, 15 Dec 2013 18:10:42 +0200 (EET)
+> Julian Anastasov <ja@ssi.bg> wrote:
+
+> > @@ -260,7 +261,8 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
+> >  		buf_len = strlen(buf);
+> >  
+> >  		ct = nf_ct_get(skb, &ctinfo);
+> > -		if (ct && !nf_ct_is_untracked(ct) && nfct_nat(ct)) {
+> > +		if (ct && !nf_ct_is_untracked(ct) && nfct_nat(ct) &&
+> > +		    nfct_seqadj(ct)) {
+> 
+> If we add the other section, then this check should not be necessary.
+
+	In the common case - yes. nfct_seqadj_ext_add needs
+to be called before confirmation, that is why we place it
+in ip_vs_update_conntrack(). There is another case when
+synced connection comes to backup in established state.
+I'm not sure what happens in netfilter in this case, we
+do not provide any initial seq and offsets to be used by
+the seqadj code. We have to think more about this case.
+
+	So, we need nfct_seqadj check in ip_vs_ftp_out or in
+nf_ct_seqadj_set as in your patch 1/2 to avoid oops for
+synced connections.
+
+> > +	/* Applications may adjust TCP seqs */
+> > +	if (cp->app && nf_ct_protonum(ct) == IPPROTO_TCP &&
+> > +	    !nfct_seqadj(ct) && !nfct_seqadj_ext_add(ct))
+> > +		return;
+> > +
+> 
+> It will work.
+> 
+> I'm just thinking if we will allocate a seqadj ext, in too many
+> situations, were its not really needed... double checking, I see that
+> "cp->app" will limit us a lot, as it seems that FTP is the only one
+> using register_ip_vs_app(),
+
+	Yes. And we can not do it just before nf_nat_mangle_tcp_packet,
+it should happen before conntrack is confirmed, on SYN.
+
+> And above this, we do check:
+> 	if (IP_VS_FWD_METHOD(cp) != IP_VS_CONN_F_MASQ)
+> 		return;
+> So, we only do this for IPVS masq case, good.
+> I think we are good.
+> 
+> Now, I'm just wondering if SIP will work... (but I don't have a lab to
+> test this).
+
+	It is only for UDP, for now...
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
