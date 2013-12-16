@@ -1,78 +1,102 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 10/10] dccp: remove dead code
-Date: Mon, 16 Dec 2013 11:29:56 -0800
-Message-ID: <20131216112956.420cf54d@nehalam.linuxnetplumber.net>
+Subject: [PATCH net-next 9/10] lro: remove unused code
+Date: Mon, 16 Dec 2013 10:45:31 -0800
+Message-ID: <20131216104531.27407d6f@nehalam.linuxnetplumber.net>
 References: <20131216103606.62524131@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dccp@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:39622 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755558Ab3LPTki (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 14:40:38 -0500
-Received: by mail-pa0-f52.google.com with SMTP id ld10so3385580pab.25
-        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 11:40:37 -0800 (PST)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:59225 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755547Ab3LPTkg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 14:40:36 -0500
+Received: by mail-pa0-f54.google.com with SMTP id rd3so3426007pab.27
+        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 11:40:35 -0800 (PST)
 In-Reply-To: <20131216103606.62524131@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This function is defined but not used.
-Remove it now, can come back when used.
+This code is not used anywhere in net-next
 
 Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
---- a/net/dccp/dccp.h	2013-10-23 21:23:03.044671179 -0700
-+++ b/net/dccp/dccp.h	2013-12-16 10:52:33.667013589 -0800
-@@ -479,7 +479,6 @@ void dccp_feat_list_purge(struct list_he
+--- a/include/linux/inet_lro.h	2013-10-06 14:48:24.742452035 -0700
++++ b/include/linux/inet_lro.h	2013-12-12 13:28:31.971391114 -0800
+@@ -133,33 +133,10 @@ struct net_lro_mgr {
+ void lro_receive_skb(struct net_lro_mgr *lro_mgr,
+ 		     struct sk_buff *skb,
+ 		     void *priv);
+-
+-/*
+- * Processes a fragment list
+- *
+- * This functions aggregate fragments and generate SKBs do pass
+- * the packets to the stack.
+- *
+- * @lro_mgr: LRO manager to use
+- * @frags: Fragment to be processed. Must contain entire header in first
+- *         element.
+- * @len: Length of received data
+- * @true_size: Actual size of memory the fragment is consuming
+- * @priv: Private data that may be used by driver functions
+- *        (for example get_tcp_ip_hdr)
+- */
+-
+-void lro_receive_frags(struct net_lro_mgr *lro_mgr,
+-		       struct skb_frag_struct *frags,
+-		       int len, int true_size, void *priv, __wsum sum);
+-
+ /*
+  * Forward all aggregated SKBs held by lro_mgr to network stack
+  */
  
- int dccp_insert_options(struct sock *sk, struct sk_buff *skb);
- int dccp_insert_options_rsk(struct dccp_request_sock *, struct sk_buff *);
--int dccp_insert_option_elapsed_time(struct sk_buff *skb, u32 elapsed);
- u32 dccp_timestamp(void);
- void dccp_timestamping_init(void);
- int dccp_insert_option(struct sk_buff *skb, unsigned char option,
---- a/net/dccp/options.c	2013-10-06 14:48:24.962449886 -0700
-+++ b/net/dccp/options.c	2013-12-16 10:52:53.266746098 -0800
-@@ -343,38 +343,6 @@ static inline int dccp_elapsed_time_len(
- 	return elapsed_time == 0 ? 0 : elapsed_time <= 0xFFFF ? 2 : 4;
+ void lro_flush_all(struct net_lro_mgr *lro_mgr);
+ 
+-void lro_flush_pkt(struct net_lro_mgr *lro_mgr,
+-		   struct iphdr *iph, struct tcphdr *tcph);
+-
+ #endif
+--- a/net/ipv4/inet_lro.c	2013-10-06 14:48:24.966449847 -0700
++++ b/net/ipv4/inet_lro.c	2013-12-12 13:28:43.435225437 -0800
+@@ -506,23 +506,6 @@ void lro_receive_skb(struct net_lro_mgr
  }
+ EXPORT_SYMBOL(lro_receive_skb);
  
--/* FIXME: This function is currently not used anywhere */
--int dccp_insert_option_elapsed_time(struct sk_buff *skb, u32 elapsed_time)
+-void lro_receive_frags(struct net_lro_mgr *lro_mgr,
+-		       struct skb_frag_struct *frags,
+-		       int len, int true_size, void *priv, __wsum sum)
 -{
--	const int elapsed_time_len = dccp_elapsed_time_len(elapsed_time);
--	const int len = 2 + elapsed_time_len;
--	unsigned char *to;
+-	struct sk_buff *skb;
 -
--	if (elapsed_time_len == 0)
--		return 0;
+-	skb = __lro_proc_segment(lro_mgr, frags, len, true_size, priv, sum);
+-	if (!skb)
+-		return;
 -
--	if (DCCP_SKB_CB(skb)->dccpd_opt_len + len > DCCP_MAX_OPT_LEN)
--		return -1;
--
--	DCCP_SKB_CB(skb)->dccpd_opt_len += len;
--
--	to    = skb_push(skb, len);
--	*to++ = DCCPO_ELAPSED_TIME;
--	*to++ = len;
--
--	if (elapsed_time_len == 2) {
--		const __be16 var16 = htons((u16)elapsed_time);
--		memcpy(to, &var16, 2);
--	} else {
--		const __be32 var32 = htonl(elapsed_time);
--		memcpy(to, &var32, 4);
--	}
--
--	return 0;
+-	if (lro_mgr->features & LRO_F_NAPI)
+-		netif_receive_skb(skb);
+-	else
+-		netif_rx(skb);
 -}
+-EXPORT_SYMBOL(lro_receive_frags);
 -
--EXPORT_SYMBOL_GPL(dccp_insert_option_elapsed_time);
--
- static int dccp_insert_option_timestamp(struct sk_buff *skb)
+ void lro_flush_all(struct net_lro_mgr *lro_mgr)
  {
- 	__be32 now = htonl(dccp_timestamp());
+ 	int i;
+@@ -534,14 +517,3 @@ void lro_flush_all(struct net_lro_mgr *l
+ 	}
+ }
+ EXPORT_SYMBOL(lro_flush_all);
+-
+-void lro_flush_pkt(struct net_lro_mgr *lro_mgr,
+-		  struct iphdr *iph, struct tcphdr *tcph)
+-{
+-	struct net_lro_desc *lro_desc;
+-
+-	lro_desc = lro_get_desc(lro_mgr, lro_mgr->lro_arr, iph, tcph);
+-	if (lro_desc->active)
+-		lro_flush(lro_mgr, lro_desc);
+-}
+-EXPORT_SYMBOL(lro_flush_pkt);
