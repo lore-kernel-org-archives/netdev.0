@@ -1,80 +1,84 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH next] tcp: use zero-window when free_space is low
-Date: Mon, 16 Dec 2013 12:15:57 +0100
-Message-ID: <1387192557-9816-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:47186 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752787Ab3LPLS4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 06:18:56 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't work.
+Date: Mon, 16 Dec 2013 12:22:00 +0100
+Message-ID: <1937118387.20131216122200@eikelenboom.it>
+References: <1507831110.20131018194349@eikelenboom.it> <792757788.20131023142849@eikelenboom.it> <1819533168.20131211161710@eikelenboom.it> <CAB=NE6V-RSnqbAC-0tfYK=WGJLp1aPC2UpFDurs49h+wXr9UfQ@mail.gmail.com> <1818324675.20131211175350@eikelenboom.it> <CAB=NE6Wf=T0bGLSYPDyb=-fMAVnGcbGkeaBiNrzwV-Lpxr6VZg@mail.gmail.com> <1342235583.20131211182804@eikelenboom.it> <CAB=NE6UfumA2xez1DvtDSBDZ72WF_tOozFo_8LRnMryYiSqD-A@mail.gmail.com> <871324710.20131211191104@eikelenboom.it> <CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Berg, Johannes" <johannes.berg@intel.com>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ilw@linux.intel.com" <ilw@linux.intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently the kernel tries to announce a zero window when free_space
-is below the current receiver mss estimate.
 
-When a sender is transmitting small packets, the receiver might be
-unable to shrink the receive window, because
-a) we cannot withdraw already-commited receive window, and,
-b) we have to round the current rwin up to a multiple of the wscale factor,
-   else we would shrink the current window.
+Wednesday, December 11, 2013, 7:38:50 PM, you wrote:
 
-This causes the receive buffer to fill up until the rmem limit is hit.
-When this happens, we start dropping packets.
+> On Wed, Dec 11, 2013 at 7:11 PM, Sander Eikelenboom
+> <linux@eikelenboom.it> wrote:
+>>
+>> Wednesday, December 11, 2013, 6:53:07 PM, you wrote:
+>>
+>>> The best way to address all this is by automatic region awareness and
+>>> doing the right thing on devices, this however requires good
+>>> architecture / calibration data  / etc and all that needs to be
+>>> verified by the system integrators, and finally they need to be
+>>> certified. If you want to hack your firmware and software go at it,
+>>> just be aware there are reasons for things.
+>>
+>> Well the general problem seems to be "we don't trust the user" so we FORCE him to the lowest
+>> common denominator (without a way to overrule that) so he is forced to operate *well* within the law.
 
-As we cannot avoid the "current_win is rounded up to multiple
-of mss" issue (we would violate a) above) at least try to prevent the receive
-buffer growth towards tcp_rmem[2] limit by attempting
-to move to zero-window announcement when free_space
-becomes less than 1/16 of the current allowed receive
-buffer maximum.  If tcp_rmem[2] is large, this will increase
-our chances to get a zero-window announcement out in time.
+> Its simply stupid to have the user be involved, period, the fact that
+> a user would be involved should only be for testing or helping
+> compliance for a busted device, development, research and obviously
+> hacking. Linux allows all these but by default a device with firmware
+> and a custom regdomain that will barf if you try to use a channel that
+> is not allowed is a restriction in firmware. Feel free to reverse
+> engineer that if you don't like it but it just won't be supported or
+> go upstream. Now, the common denominator is generally optimized for
+> best performance as well so you shouldn't have to do anything, and for
+> APs -- this is typically carefully crafted for a region, also highly
+> optimized.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- Unfortunately I couldn't come up with something that has
- no magic ('allowed >> 4') value.  I chose >>4 because it didn't cause
- tput limitations in my 'full-mss-sized, steady state' netcat tests.
+>>>>> It doesn't seem like you are getting your original requests getting
+>>>>> processed, so I don't think CRDA is passing it. Can you verify running
+>>>>> from CRDA code:
+>>>>
+>>>> They don't get processed unless i remove the return from the code as i indicated.
+>>>> If i remove that return it processes the request.
+>>>>
+>>>>> ./regdbdump /usr/lib/crda/regulatory.bin
+>>>>
+>>>> Although it's in a different location on Debian, /lib/crda/regulatory.bin
+>>>> the dump seems fine.
+>>
+>>> OK thanks. Can you send a patch of what exact change you made, it was
+>>> unclear from the paste you made.
+>>
+>>> diff -u file.c.orig file.c
+>>
+>> Well i just did a pull from wireless-next, to try Avinash Patil's patch.
+>> net/wireless/reg.c had already changed much so i couldn't apply his patch without.
+>>
+>> With his patch it sets the regulatory domain, although as now expected i still can not use channels 12 and 13 yet,
+>> probably due to those firmware restrictions.
 
- net/ipv4/tcp_output.c | 17 +++++++++++++++--
- 1 file changed, 15 insertions(+), 2 deletions(-)
+> Its unclear what results you got, and yeah if the device is restricted
+> then its just the fw telling the driver its channels and you can't use
+> them. That's it. You won't be able to override information then unless
+> you hack the firmware
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 2a69f42..fd8d821 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2145,7 +2145,8 @@ u32 __tcp_select_window(struct sock *sk)
- 	 */
- 	int mss = icsk->icsk_ack.rcv_mss;
- 	int free_space = tcp_space(sk);
--	int full_space = min_t(int, tp->window_clamp, tcp_full_space(sk));
-+	int allowed_space = tcp_full_space(sk);
-+	int full_space = min_t(int, tp->window_clamp, allowed_space);
- 	int window;
- 
- 	if (mss > full_space)
-@@ -2158,7 +2159,19 @@ u32 __tcp_select_window(struct sock *sk)
- 			tp->rcv_ssthresh = min(tp->rcv_ssthresh,
- 					       4U * tp->advmss);
- 
--		if (free_space < mss)
-+		/* free_space might become our new window, make sure we don't
-+		 * increase it due to wscale.
-+		 */
-+		free_space = round_down(free_space, 1 << tp->rx_opt.rcv_wscale);
-+
-+		/* if free space is less than mss estimate, or is below 1/16th
-+		 * of the maximum allowed, try to move to zero-window, else
-+		 * tcp_clamp_window() will grow rcv buf up to tcp_rmem[2], and
-+		 * new incoming data is dropped due to memory limits.
-+		 * With large window, mss test triggers way too late in order
-+		 * to announce zero window in time before rmem limit kicks in.
-+		 */
-+		if (free_space < mss || free_space < (allowed_space >> 4))
- 			return 0;
- 	}
- 
--- 
-1.8.1.5
+Ping ?
+
+Is there anymore information you need to *fix* the problem ?
+
+>   Luis
