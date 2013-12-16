@@ -1,50 +1,138 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv3 net-next 0/3] IPComp fixes
-Date: Mon, 16 Dec 2013 18:47:47 +0800
-Message-ID: <1387190870-32506-1-git-send-email-fan.du@windriver.com>
+Subject: [PATCHv3 net-next 2/3] xfrm: export verify_userspi_info for pkfey and netlink interface
+Date: Mon, 16 Dec 2013 18:47:49 +0800
+Message-ID: <1387190870-32506-3-git-send-email-fan.du@windriver.com>
+References: <1387190870-32506-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
 To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:35801 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:35812 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751848Ab3LPKrv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 05:47:51 -0500
+	with ESMTP id S1752645Ab3LPKrz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 05:47:55 -0500
+In-Reply-To: <1387190870-32506-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+In order to check against valid IPcomp spi range, export verify_userspi_info
+for both pfkey and netlink interface.
 
-This patchset includes bug fix focusing on IPComp mainly, which addresses
-IPComp Compression Parameter Index(CPI, 16bits of 32bits SPI value) problem.
+Signed-off-by: Fan Du <fan.du@windriver.com>
+---
+ include/net/xfrm.h    |    1 +
+ net/key/af_key.c      |    6 ++++++
+ net/xfrm/xfrm_state.c |   24 ++++++++++++++++++++++++
+ net/xfrm/xfrm_user.c  |   25 +------------------------
+ 4 files changed, 32 insertions(+), 24 deletions(-)
 
-And other issue is the compression part, undesirable packet will not be
-compressed, and then send into wire, this packet will be dropped by policy
-checking in the receiver side.
-
-v2:
-  Patch1: Clean up align issue from v1.
-  Patch2: Introduce verify_userspi_info for pkfey and netlink interface
-          to share code.
-  Patch3: Add Documentation/networking/ipsec.txt to document known issues. 
-
-v3:
-  Patch2: Fix while space error.
-  Patch3: Del empty line
-
-Fan Du (3):
-  xfrm: check user specified spi for IPComp
-  xfrm: export verify_userspi_info for pkfey and netlink interface
-  xfrm: Add file to document IPsec corner case
-
- Documentation/networking/ipsec.txt |   38 ++++++++++++++++++++++++++++++++++++
- include/net/xfrm.h                 |    1 +
- net/key/af_key.c                   |    6 ++++++
- net/xfrm/xfrm_state.c              |   24 +++++++++++++++++++++++
- net/xfrm/xfrm_user.c               |   29 ++++-----------------------
- 5 files changed, 73 insertions(+), 25 deletions(-)
- create mode 100644 Documentation/networking/ipsec.txt
-
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 6b82fdf..369fa99 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1564,6 +1564,7 @@ struct xfrm_policy *xfrm_policy_byid(struct net *net, u32 mark, u8, int dir,
+ 				     u32 id, int delete, int *err);
+ int xfrm_policy_flush(struct net *net, u8 type, struct xfrm_audit *audit_info);
+ u32 xfrm_get_acqseq(void);
++int verify_spi_info(u8 proto, u32 min, u32 max);
+ int xfrm_alloc_spi(struct xfrm_state *x, u32 minspi, u32 maxspi);
+ struct xfrm_state *xfrm_find_acq(struct net *net, const struct xfrm_mark *mark,
+ 				 u8 mode, u32 reqid, u8 proto,
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 545f047..6c8d9ff 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -1340,6 +1340,12 @@ static int pfkey_getspi(struct sock *sk, struct sk_buff *skb, const struct sadb_
+ 		max_spi = range->sadb_spirange_max;
+ 	}
+ 
++	err = verify_spi_info(x->id.proto, min_spi, max_spi);
++	if (err) {
++		xfrm_state_put(x);
++		return err;
++	}
++
+ 	err = xfrm_alloc_spi(x, min_spi, max_spi);
+ 	resp_skb = err ? ERR_PTR(err) : pfkey_xfrm_state2msg(x);
+ 
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 68c2f35..6bf2a84 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -1496,6 +1496,30 @@ u32 xfrm_get_acqseq(void)
+ }
+ EXPORT_SYMBOL(xfrm_get_acqseq);
+ 
++int verify_spi_info(u8 proto, u32 min, u32 max)
++{
++	switch (proto) {
++	case IPPROTO_AH:
++	case IPPROTO_ESP:
++		break;
++
++	case IPPROTO_COMP:
++		/* IPCOMP spi is 16-bits. */
++		if (max >= 0x10000)
++			return -EINVAL;
++		break;
++
++	default:
++		return -EINVAL;
++	}
++
++	if (min > max)
++		return -EINVAL;
++
++	return 0;
++}
++EXPORT_SYMBOL(verify_spi_info);
++
+ int xfrm_alloc_spi(struct xfrm_state *x, u32 low, u32 high)
+ {
+ 	struct net *net = xs_net(x);
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 8543b1b..f837983 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -1076,29 +1076,6 @@ out_noput:
+ 	return err;
+ }
+ 
+-static int verify_userspi_info(struct xfrm_userspi_info *p)
+-{
+-	switch (p->info.id.proto) {
+-	case IPPROTO_AH:
+-	case IPPROTO_ESP:
+-		break;
+-
+-	case IPPROTO_COMP:
+-		/* IPCOMP spi is 16-bits. */
+-		if (p->max >= 0x10000)
+-			return -EINVAL;
+-		break;
+-
+-	default:
+-		return -EINVAL;
+-	}
+-
+-	if (p->min > p->max)
+-		return -EINVAL;
+-
+-	return 0;
+-}
+-
+ static int xfrm_alloc_userspi(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		struct nlattr **attrs)
+ {
+@@ -1113,7 +1090,7 @@ static int xfrm_alloc_userspi(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	struct xfrm_mark m;
+ 
+ 	p = nlmsg_data(nlh);
+-	err = verify_userspi_info(p);
++	err = verify_spi_info(p->info.id.proto, p->min, p->max);
+ 	if (err)
+ 		goto out_noput;
+ 
 -- 
 1.7.9.5
