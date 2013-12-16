@@ -1,69 +1,66 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH 2/3] xfrm: Increase the garbage collector threshold
-Date: Mon, 16 Dec 2013 12:51:45 +0100
-Message-ID: <20131216115145.GH31491@secunet.com>
-References: <1383294107-7509-1-git-send-email-steffen.klassert@secunet.com>
- <1383294107-7509-3-git-send-email-steffen.klassert@secunet.com>
- <1386686323.22947.26.camel@sakura.staff.proxad.net>
- <20131213101203.GO31491@secunet.com>
- <1386951209.25449.61.camel@sakura.staff.proxad.net>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH -next] xen-netback: fix fragments error handling in
+ checksum_setup_ip()
+Date: Mon, 16 Dec 2013 11:52:01 +0000
+Message-ID: <1387194721.10247.1.camel@kazak.uk.xensource.com>
+References: <CAPgLHd97T5bVtCEubkNqChBjSoA5V4Cka=ZQUn=JoYjPCuVE6A@mail.gmail.com>
+	 <9AAE0902D5BC7E449B7C8E4E778ABCD01B4F4C@AMSPEX01CL01.citrite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: Maxime Bizon <mbizon@freebox.fr>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyj.lk@gmail.com>, Wei Liu <wei.liu2@citrix.com>,
+	"Zoltan Kiss" <zoltan.kiss@citrix.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"yongjun_wei@trendmicro.com.cn" <yongjun_wei@trendmicro.com.cn>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Paul Durrant <Paul.Durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:55495 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753605Ab3LPLvr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Dec 2013 06:51:47 -0500
-Content-Disposition: inline
-In-Reply-To: <1386951209.25449.61.camel@sakura.staff.proxad.net>
+Received: from smtp02.citrix.com ([66.165.176.63]:16355 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753629Ab3LPLwE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 06:52:04 -0500
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD01B4F4C@AMSPEX01CL01.citrite.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 13, 2013 at 05:13:29PM +0100, Maxime Bizon wrote:
+On Mon, 2013-12-16 at 09:40 +0000, Paul Durrant wrote:
+> > -----Original Message-----
+> > From: Wei Yongjun [mailto:weiyj.lk@gmail.com]
+> > Sent: 16 December 2013 02:45
+> > To: Ian Campbell; Wei Liu; Paul Durrant; Zoltan Kiss; davem@davemloft.net
+> > Cc: yongjun_wei@trendmicro.com.cn; xen-devel@lists.xenproject.org;
+> > netdev@vger.kernel.org
+> > Subject: [PATCH -next] xen-netback: fix fragments error handling in
+> > checksum_setup_ip()
+> > 
+> > From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> > 
+> > Fix to return -EPROTO error if fragments detected in checksum_setup_ip().
+> > 
+> > Fixes: 1431fb31ecba ('xen-netback: fix fragment detection in checksum
+> > setup')
+> > Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> > ---
+> >  drivers/net/xen-netback/netback.c | 3 +++
+> >  1 file changed, 3 insertions(+)
+> > 
+> > diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
+> > netback/netback.c
+> > index 800496b..773b731 100644
+> > --- a/drivers/net/xen-netback/netback.c
+> > +++ b/drivers/net/xen-netback/netback.c
+> > @@ -1099,6 +1099,9 @@ static int checksum_setup_ip(struct xenvif *vif,
+> > struct sk_buff *skb,
+> > 
+> >  	err = -EPROTO;
+> > 
+> > +	if (fragment)
+> > +		goto out;
+> > +
 > 
-> On Fri, 2013-12-13 at 11:12 +0100, Steffen Klassert wrote:
+> Good grief. This hunk must have got lost from my original patch. My old tree has it there. So...
 > 
-> > Can you please be a bit more precise with your problem description?
-> 
-> yes sorry I wasn't clear.
-> 
-> I have a problem with an even simpler workload that the one using apache
-> bench in the original bug report.
-> 
-> I am using ipsec transport mode between two hosts and just run this on
-> one side:
-> 
->   while :; do wget -O /dev/null http://remote_host/; done
-> 
-> I was surprised to see it fails after only 1024 requests (ENOBUF on
-> connect), and how long I had to wait to be able to do new requests.
-> 
-> After debugging I saw that the xfrm gc was called but was not able to
-> release anything.
-> 
-> after running "ip route flush cache", which forces all ipv4 dst entries
-> to be released, suddenly the xfrm gc had something to free, and xfrm
-> entry count went to zero.
+> Reviewed-by: Paul Durrant <paul.durrant@citrix.com>
 
-Well, "ip route flush cache" bumps the rt_genid what marks all
-routes as invalid. The xfrm garbage collector will notice this
-on the next run and deletes all invalid cached routes.
-
-Garbage collecting is different from flushing, it only removes
-stale routes and keeps everything that was used recently. That's
-the whole point of this caching, we cache recently used IPsec
-routes to avoid a slow path lookup.
-
-> 
-> So if it is correct that once a ipv4 dst entry exists, the xfrm entry
-> cannot be gc-ed, then we need to make sure we allow more xfrm entries to
-> be allocated than ipv4 dst.
-
-No, we don't cache plain ipv4 routes, we cache only IPsec routes.
-The original ipv4 dst_entry is cached together with the xfrm dst_entry
-as a xfrm bundle at the IPsec flow cache, so it does not make sense to
-ensure something like that.
+Acked-by: Ian Campbell <ian.campbell@citrix.com>
