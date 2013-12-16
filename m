@@ -1,143 +1,115 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH net-next] tipc: correctly unlink packets from deferred
- queue
-Date: Mon, 16 Dec 2013 13:11:49 -0500
-Message-ID: <52AF4265.2070507@windriver.com>
-References: <1387187185-6914-1-git-send-email-erik.hugne@ericsson.com> <52AF1CA2.6000406@windriver.com> <20131216163518.GB20740@eerihug-hybrid.rnd.ki.sw.ericsson.se>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: [PATCH v2 1/9] drivers: net: Remove unused function
+ igb_get_eee_status_i354() in e1000_82575.c
+Date: Mon, 16 Dec 2013 18:17:40 +0000
+Message-ID: <9BBC4E0CF881AA4299206E2E1412B6264FA142AA@ORSMSX102.amr.corp.intel.com>
+References: <a610f6ee6bb992b91e43bdc851f3db62fc3decd5.1386911123.git.rashika.kheria@gmail.com>
+ <9BBC4E0CF881AA4299206E2E1412B6264FA1408B@ORSMSX102.amr.corp.intel.com>
+ <20131216174312.GA26982@jtriplet-mobl1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <jon.maloy@ericsson.com>,
-	<ying.xue@windriver.com>, <tipc-discussion@lists.sourceforge.net>
-To: Erik Hugne <erik.hugne@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:60867 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755207Ab3LPSLj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 13:11:39 -0500
-In-Reply-To: <20131216163518.GB20740@eerihug-hybrid.rnd.ki.sw.ericsson.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Rashika Kheria <rashika.kheria@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Dave, Tushar N" <tushar.n.dave@intel.com>,
+	"Abodunrin, Akeem G" <akeem.g.abodunrin@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Josh Triplett <josh@joshtriplett.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131216174312.GA26982@jtriplet-mobl1>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 13-12-16 11:35 AM, Erik Hugne wrote:
-> On Mon, Dec 16, 2013 at 10:30:42AM -0500, Paul Gortmaker wrote:
->> On 13-12-16 04:46 AM, erik.hugne@ericsson.com wrote:
->>> From: Erik Hugne <erik.hugne@ericsson.com>
->>>
->>> When we pull a packet from the deferred queue, the next
->>> pointer for the current packet being processed might still
->>> refer to deferred packets. This is incorrect, and will
->>> lead to an oops if the last fragment have once been put on
->>> the deferred queue, and at least one packet have been
->>
->> Once again, I have to ask when this behaviour was introduced.
->> This should always be a question that you ask yourself, and
->> that you consider putting in the commit log.  Please add it
->> to your self-check list.
->>
->> So, is this a fail we introduce with the pending two series,
->> or with the series already taken by DaveM?
-> 
-> The problem have always been there, but the window for when
-> it may occur increased after commit 40ba3cdf5
-> tipc: message reassembly using fragment chain
-
-OK, so put that in the commit log:
-
-"It is our understanding that this problem has always existed,
-however, with the recent change of commit 40ba3cdf5
-("tipc: message reassembly using fragment chain"), the window
-for it possibly happening has increased."
-
-In this case, your choice of net-next is probably OK, given
-the above new information, but  we need to put the info in the
-commit log, so it makes it more clear for net vs. net-next.
-
-In the end, Dave makes the final decision of net vs net-next,
-based on the information we provide him, along with information
-you aren't aware of, like how deep we are into the current rcN,
-whether Linus is in a good mood and so on.  If we aren't sure,
-we can even specify that, after the three dashes in the commit,
-by listing the pros/cons of each.
-
-> 
->>
->> Otherwise, if it is an older problem than that, then why
->> is this tagged net-next?  It looks like a genuine bug fix
->> for an oops, if the existing mainline code has this bug.
->>
->>> deferred after this fragment. The result of this is that
->>> the fragment chain linked together with the defer-queue.
->>
->> "...chain is linked ..."   ?
->
-> What we have seen is that after successful delivery of a 
-> fragmented message, the last packet in the fragment chain
-> will point into the deferred queue. When we later free the
-> chain, kfree_skb_list will also free packets from the defer-queue.
-
-My comment was wrt. the missing "if" in the sentence, but I
-like the more detailed paragraph you have given above better.
-
-> 
-> In theory, the same thing can occur for non-fragmented traffic
-> aswell.
-> 
->>
->>>
->>> We fix this by clearing the next pointer for the current
->>> packet being processed.
->>>
->>> [...] general protection fault: 0000
->>
->> Was this all that was in the header?  Seems overly edited, and
->> missing content (registers, EIP, etc.)
->>
->>> [...]
->>> [...] ? trace_hardirqs_on+0xd/0x10
->>> [...] tipc_link_recv_fragment+0xd1/0x1b0 [tipc]
->>> [...] tipc_recv_msg+0x4e4/0x920 [tipc]
->>> [...] ? tipc_l2_rcv_msg+0x40/0x250 [tipc]
->>> [...] tipc_l2_rcv_msg+0xcc/0x250 [tipc]
->>> [...] ? tipc_l2_rcv_msg+0x40/0x250 [tipc]
->>> [...] __netif_receive_skb_core+0x80b/0xd00
->>> [...] ? __netif_receive_skb_core+0x144/0xd00
->>> [...] __netif_receive_skb+0x26/0x70
->>> [...] netif_receive_skb+0x2d/0x200
->>
->> Same here, why have you bothered to clobber the addresses?
->> Deleting the printk time prefix from non-time critical bugs is
->> fine, but don't delete the addresses, since they convey some
->> relative information about functions nearby etc.
-> 
-> Just trying to avoid an unnecessarily verbose commit message.
-> As the oops was from Ying's test system with non-upstream tipc
-> code i didn't think the addresses added any value
-
-You don't need to mangle the log, but it is always good to
-specify up front if non-merged code is in use.  We have had
-people come to netdev in the past, saying there is a bug in
-core code like net/core/dev.c -- and only after digging in
-do we find they are using some broken (un-reviewed) patches
-from some vendor SDK in their kernel, which actually caused
-the issue in that particular case.
-
-So, something like "Note that the above backtrace was observed
-on a tree with some additional pending TIPC changes in place,
-but nothing in those changes, or in the backtrace above appears
-to play a role in causing this issue."  Or, even better, simply
-prove to yourself that you _can_ reproduce it on what is already
-accepted into the net-next code base, if the WIP in Ying's test
-system isn't at all related to this problem.
-
-> 
-> Should i do an edit/resend anyway?
-
-Given all of the above, yes please.
-
-Paul.
---
-
-> 
-> //E
-> 
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSm9zaCBUcmlwbGV0dCBb
+bWFpbHRvOmpvc2hAam9zaHRyaXBsZXR0Lm9yZ10NCj4gU2VudDogTW9uZGF5LCBEZWNlbWJlciAx
+NiwgMjAxMyA5OjQzIEFNDQo+IFRvOiBXeWJvcm55LCBDYXJvbHluDQo+IENjOiBSYXNoaWthIEto
+ZXJpYTsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsgS2lyc2hlciwgSmVmZnJleSBUOyBC
+cmFuZGVidXJnLA0KPiBKZXNzZTsgQWxsYW4sIEJydWNlIFc7IFNraWRtb3JlLCBEb25hbGQgQzsg
+Um9zZSwgR3JlZ29yeSBWOyBXYXNraWV3aWN6IEpyLA0KPiBQZXRlciBQOyBEdXljaywgQWxleGFu
+ZGVyIEg7IFJvbmNpYWssIEpvaG47IERhdmUsIFR1c2hhciBOOyBBYm9kdW5yaW4sIEFrZWVtDQo+
+IEc7IFZpY2ssIE1hdHRoZXc7IGUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldDsgbmV0
+ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIHYyIDEvOV0gZHJpdmVy
+czogbmV0OiBSZW1vdmUgdW51c2VkIGZ1bmN0aW9uDQo+IGlnYl9nZXRfZWVlX3N0YXR1c19pMzU0
+KCkgaW4gZTEwMDBfODI1NzUuYw0KPiANCj4gT24gTW9uLCBEZWMgMTYsIDIwMTMgYXQgMDU6MTE6
+MjVQTSArMDAwMCwgV3lib3JueSwgQ2Fyb2x5biB3cm90ZToNCj4gPiA+IC0tLS0tT3JpZ2luYWwg
+TWVzc2FnZS0tLS0tDQo+ID4gPiBGcm9tOiBSYXNoaWthIEtoZXJpYSBbbWFpbHRvOnJhc2hpa2Eu
+a2hlcmlhQGdtYWlsLmNvbV0NCj4gPiA+IFNlbnQ6IFNhdHVyZGF5LCBEZWNlbWJlciAxNCwgMjAx
+MyA0OjE1IEFNDQo+ID4gPiBUbzogbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiA+ID4g
+Q2M6IEtpcnNoZXIsIEplZmZyZXkgVDsgQnJhbmRlYnVyZywgSmVzc2U7IEFsbGFuLCBCcnVjZSBX
+OyBXeWJvcm55LA0KPiA+ID4gQ2Fyb2x5bjsgU2tpZG1vcmUsIERvbmFsZCBDOyBSb3NlLCBHcmVn
+b3J5IFY7IFdhc2tpZXdpY3ogSnIsIFBldGVyDQo+ID4gPiBQOyBEdXljaywgQWxleGFuZGVyIEg7
+IFJvbmNpYWssIEpvaG47IERhdmUsIFR1c2hhciBOOyBBYm9kdW5yaW4sDQo+ID4gPiBBa2VlbSBH
+OyBWaWNrLCBNYXR0aGV3OyBlMTAwMC0gZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Ow0KPiA+
+ID4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgam9zaEBqb3NodHJpcGxldHQub3JnDQo+ID4gPiBT
+dWJqZWN0OiBbUEFUQ0ggdjIgMS85XSBkcml2ZXJzOiBuZXQ6IFJlbW92ZSB1bnVzZWQgZnVuY3Rp
+b24NCj4gPiA+IGlnYl9nZXRfZWVlX3N0YXR1c19pMzU0KCkgaW4gZTEwMDBfODI1NzUuYw0KPiA+
+ID4NCj4gPiA+IFRoaXMgcGF0Y2ggcmVtb3ZlcyB0aGUgZnVuY3Rpb24gaWdiX2dldF9lZWVfc3Rh
+dHVzX2kzNTQoKSBpbg0KPiA+ID4gZTEwMDBfODI1NzUuYyBiZWNhdXNlIGl0IGlzIHVudXNlZC4N
+Cj4gPiA+DQo+ID4gPiBJdCB0aHVzIGVsaW1pbmF0ZXMgdGhlIGZvbGxvd2luZyB3YXJuaW5nIGlu
+DQo+ID4gPiBldGhlcm5ldC9pbnRlbC9pZ2IvZTEwMDBfODI1NzUuYzoNCj4gPiA+IGRyaXZlcnMv
+bmV0L2V0aGVybmV0L2ludGVsL2lnYi9lMTAwMF84MjU3NS5jOjI1OTE6NTogd2FybmluZzogbm8N
+Cj4gPiA+IHByZXZpb3VzIHByb3RvdHlwZSBmb3Ig4oCYaWdiX2dldF9lZWVfc3RhdHVzX2kzNTTi
+gJkNCj4gPiA+IFstV21pc3NpbmctcHJvdG90eXBlc10NCj4gPiA+DQo+ID4gPiBTaWduZWQtb2Zm
+LWJ5OiBSYXNoaWthIEtoZXJpYSA8cmFzaGlrYS5raGVyaWFAZ21haWwuY29tPg0KPiA+ID4gUmV2
+aWV3ZWQtYnk6IEpvc2ggVHJpcGxldHQgPGpvc2hAam9zaHRyaXBsZXR0Lm9yZz4NCj4gPiA+IC0t
+LQ0KPiA+ID4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9lMTAwMF84MjU3NS5jIHwg
+ICAzMiAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KPiA+ID4gIDEgZmlsZSBjaGFuZ2VkLCAz
+MiBkZWxldGlvbnMoLSkNCj4gPiA+DQo+ID4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvaW50ZWwvaWdiL2UxMDAwXzgyNTc1LmMNCj4gPiA+IGIvZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvaW50ZWwvaWdiL2UxMDAwXzgyNTc1LmMNCj4gPiA+IGluZGV4IDQ3YzJkMTAuLjE4ZTUyMDAg
+MTAwNjQ0DQo+ID4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvZTEwMDBf
+ODI1NzUuYw0KPiA+ID4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2UxMDAw
+XzgyNTc1LmMNCj4gPiA+IEBAIC0yNTgwLDM4ICsyNTgwLDYgQEAgb3V0Og0KPiA+ID4gIAlyZXR1
+cm4gcmV0X3ZhbDsNCj4gPiA+ICB9DQo+ID4gPg0KPiA+ID4gLS8qKg0KPiA+ID4gLSAqICBpZ2Jf
+Z2V0X2VlZV9zdGF0dXNfaTM1NCAtIEdldCBFRUUgc3RhdHVzDQo+ID4gPiAtICogIEBodzogcG9p
+bnRlciB0byB0aGUgSFcgc3RydWN0dXJlDQo+ID4gPiAtICogIEBzdGF0dXM6IEVFRSBzdGF0dXMN
+Cj4gPiA+IC0gKg0KPiA+ID4gLSAqICBHZXQgRUVFIHN0YXR1cyBieSBndWVzc2luZyBiYXNlZCBv
+biB3aGV0aGVyIFR4IG9yIFJ4IExQSQ0KPiA+ID4gaW5kaWNhdGlvbnMgaGF2ZQ0KPiA+ID4gLSAq
+ICBiZWVuIHJlY2VpdmVkLg0KPiA+ID4gLSAqKi8NCj4gPiA+IC1zMzIgaWdiX2dldF9lZWVfc3Rh
+dHVzX2kzNTQoc3RydWN0IGUxMDAwX2h3ICpodywgYm9vbCAqc3RhdHVzKSAtew0KPiA+ID4gLQlz
+dHJ1Y3QgZTEwMDBfcGh5X2luZm8gKnBoeSA9ICZody0+cGh5Ow0KPiA+ID4gLQlzMzIgcmV0X3Zh
+bCA9IDA7DQo+ID4gPiAtCXUxNiBwaHlfZGF0YTsNCj4gPiA+IC0NCj4gPiA+IC0JLyogQ2hlY2sg
+aWYgRUVFIGlzIHN1cHBvcnRlZCBvbiB0aGlzIGRldmljZS4gKi8NCj4gPiA+IC0JaWYgKChody0+
+cGh5Lm1lZGlhX3R5cGUgIT0gZTEwMDBfbWVkaWFfdHlwZV9jb3BwZXIpIHx8DQo+ID4gPiAtCSAg
+ICAocGh5LT5pZCAhPSBNODhFMTU0M19FX1BIWV9JRCkpDQo+ID4gPiAtCQlnb3RvIG91dDsNCj4g
+PiA+IC0NCj4gPiA+IC0JcmV0X3ZhbCA9IGlnYl9yZWFkX3htZGlvX3JlZyhodywgRTEwMDBfUENT
+X1NUQVRVU19BRERSX0kzNTQsDQo+ID4gPiAtCQkJCSAgICAgRTEwMDBfUENTX1NUQVRVU19ERVZf
+STM1NCwNCj4gPiA+IC0JCQkJICAgICAmcGh5X2RhdGEpOw0KPiA+ID4gLQlpZiAocmV0X3ZhbCkN
+Cj4gPiA+IC0JCWdvdG8gb3V0Ow0KPiA+ID4gLQ0KPiA+ID4gLQkqc3RhdHVzID0gcGh5X2RhdGEg
+JiAoRTEwMDBfUENTX1NUQVRVU19UWF9MUElfUkNWRCB8DQo+ID4gPiAtCQkJICAgICAgRTEwMDBf
+UENTX1NUQVRVU19SWF9MUElfUkNWRCkgPyB0cnVlIDogZmFsc2U7DQo+ID4gPiAtDQo+ID4gPiAt
+b3V0Og0KPiA+ID4gLQlyZXR1cm4gcmV0X3ZhbDsNCj4gPiA+IC19DQo+ID4gPiAtDQo+ID4gPiAg
+c3RhdGljIGNvbnN0IHU4IGUxMDAwX2VtY190ZW1wX2RhdGFbNF0gPSB7DQo+ID4gPiAgCUUxMDAw
+X0VNQ19JTlRFUk5BTF9EQVRBLA0KPiA+ID4gIAlFMTAwMF9FTUNfRElPREUxX0RBVEEsDQo+ID4g
+PiAtLQ0KPiA+ID4gMS43LjkuNQ0KPiA+DQo+ID4gTkFDSy4NCj4gPg0KPiA+IFRoYW5rcyBmb3Ig
+dGhlIHBhdGNoIFJhc2hpa2EsIGJ1dCB0aGlzIGlzIHRoZSBpbmNvcnJlY3QgZml4IGZvciB0aGlz
+DQo+ID4gd2FybmluZyAgVGhlIGZ1bmN0aW9uIGlzIGNhbGxlZCBpbiB0aGUgaWdiX3Byb2JlIGZ1
+bmN0aW9uLCBzbyB5b3UNCj4gPiBjYW5ub3QgcmVtb3ZlIGl0IGFuZCBJIHNlZSB0aGUgcHJvdG90
+eXBlIGluIHRoZSBlMTAwMF84MjU3NS5oIGZpbGUuDQo+ID4gQ2FuIHlvdSBkb3VibGUgY2hlY2sg
+eW91ciBzb3VyY2UgcHVsbD8NCj4gDQo+IEZyb20gdG9wLW9mLXRyZWUgbGludXguZ2l0Og0KPiAN
+Cj4gfi9zcmMvbGludXgkIGdpdCBncmVwIGlnYl9nZXRfZWVlX3N0YXR1c19pMzU0DQo+IGRyaXZl
+cnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9lMTAwMF84MjU3NS5jOiAqICBpZ2JfZ2V0X2VlZV9z
+dGF0dXNfaTM1NCAtIEdldA0KPiBFRUUgc3RhdHVzDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2lu
+dGVsL2lnYi9lMTAwMF84MjU3NS5jOnMzMmpqag0KPiBpZ2JfZ2V0X2VlZV9zdGF0dXNfaTM1NChz
+dHJ1Y3QgZTEwMDBfaHcgKmh3LCBib29sICpzdGF0dXMpDQo+IA0KPiBBIGNvbW1lbnQgYW5kIHRo
+ZSBmdW5jdGlvbiBpdHNlbGY7IG5vIG90aGVyIHJlZmVyZW5jZXMuICBJbiB3aGF0IHRyZWUgYXJl
+IHlvdQ0KPiBzZWVpbmcgYSByZWZlcmVuY2UgdG8gaWdiX2dldF9lZWVfc3RhdHVzX2kzNTQ/DQo+
+IA0KPiAtIEpvc2ggVHJpcGxldHQNCg0KVGhhbmtzIEpvc2gsDQoNCk15IG1pc3Rha2UuICBJIHdh
+cyBsb29raW5nIGF0IHRoZSAiZ2V0IiBub3QgInNldCIgZnVuY3Rpb24uICBIb3dldmVyLCB0aGlz
+IGlzIHN0aWxsIG5vdCB0aGUgcmlnaHQgZml4IGZvciB0aGUgZHJpdmVyIGFzIHRoZSBhY3R1YWwg
+cHJvYmxlbSBpcyB0aGUgbWlzc2luZyBjb2RlIHRoYXQgaXMgc3VwcG9zZWQgdG8gYmUgY2FsbGlu
+ZyB0aGF0IGZ1bmN0aW9uIGluIGlnYl9nZXRfZWVlIGluIGlnYl9ldGh0b29sLmMuICBUaGUgZnVu
+Y3Rpb24gbmVlZHMgdG8gc3RheS4gIEkgd2lsbCBzdWJtaXQgdGhlIGNvcnJlY3QgZml4IEFTQVAu
+DQoNClRoYW5rcywNCg0KQ2Fyb2x5bg0K
