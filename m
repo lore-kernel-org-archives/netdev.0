@@ -1,42 +1,42 @@
-From: Anderson Lizardo <anderson.lizardo-430g2QfJUUCGglJvpFV4uA@public.gmane.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
 Subject: Re: [patch] Bluetooth: fix ->alloc_skb() error checking
-Date: Mon, 16 Dec 2013 16:35:25 -0400
-Message-ID: <CAJdJm_O9q3YgpjTQexbLvMm8ViViu+MrmRCqPwQDDUzaxVQYUg@mail.gmail.com>
+Date: Mon, 16 Dec 2013 23:57:18 +0300
+Message-ID: <20131216205718.GF5443@mwanda>
 References: <20131216202857.GB19601@elgon.mountain>
+ <CAJdJm_O9q3YgpjTQexbLvMm8ViViu+MrmRCqPwQDDUzaxVQYUg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	BlueZ development <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20131216202857.GB19601-mgFCXtclrQlZLf2FXnZxJA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+	Gustavo Padovan <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	BlueZ development <linux-bluetooth@vger.kernel.org>,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Anderson Lizardo <anderson.lizardo@openbossa.org>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAJdJm_O9q3YgpjTQexbLvMm8ViViu+MrmRCqPwQDDUzaxVQYUg@mail.gmail.com>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dan,
+On Mon, Dec 16, 2013 at 04:35:25PM -0400, Anderson Lizardo wrote:
+> Hi Dan,
+> 
+> On Mon, Dec 16, 2013 at 4:28 PM, Dan Carpenter <dan.carpenter@oracle.com> wrote:
+> > @@ -2413,8 +2413,8 @@ static struct sk_buff *l2cap_create_basic_pdu(struct l2cap_chan *chan,
+> >
+> >         skb = chan->ops->alloc_skb(chan, count + L2CAP_HDR_SIZE,
+> >                                    msg->msg_flags & MSG_DONTWAIT);
+> > -       if (IS_ERR(skb))
+> > -               return skb;
+> > +       if (skb)
+> > +               return ERR_PTR(-ENOMEM);
+> 
+> It should be "!skb" above right?
+> 
 
-On Mon, Dec 16, 2013 at 4:28 PM, Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org> wrote:
-> @@ -2413,8 +2413,8 @@ static struct sk_buff *l2cap_create_basic_pdu(struct l2cap_chan *chan,
->
->         skb = chan->ops->alloc_skb(chan, count + L2CAP_HDR_SIZE,
->                                    msg->msg_flags & MSG_DONTWAIT);
-> -       if (IS_ERR(skb))
-> -               return skb;
-> +       if (skb)
-> +               return ERR_PTR(-ENOMEM);
+Gar....  I'm so sorry about that.
 
-It should be "!skb" above right?
+regards,
+dan carpenter
 
->
->         skb->priority = priority;
->
-
-Best Regards,
--- 
-Anderson Lizardo
-Instituto Nokia de Tecnologia - INdT
-Manaus - Brazil
