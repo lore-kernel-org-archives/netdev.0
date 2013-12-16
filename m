@@ -1,152 +1,173 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 04/12] i40e: init flow control settings to disabled
-Date: Mon, 16 Dec 2013 01:38:50 -0800
-Message-ID: <1387186738-13666-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 11/12] i40e: support for suspend and resume
+Date: Mon, 16 Dec 2013 01:38:57 -0800
+Message-ID: <1387186738-13666-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387186738-13666-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:10467 "EHLO mga09.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:39292 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752875Ab3LPJjJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Dec 2013 04:39:09 -0500
+	id S1753010Ab3LPJjL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Dec 2013 04:39:11 -0500
 In-Reply-To: <1387186738-13666-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Refactor flow control set up and disable L2 flow
-control by default.
+Add basic support for handling suspend and resume.  We'll add
+Wake-on-LAN support later.
 
-Change-Id: I2fe257b80df6d9a1e37deb4df118da8f8467040d
+Change-Id: Iea5e11c81bd9289a5bdbf086de8f626911a0b5ce
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 10 +++--
- drivers/net/ethernet/intel/i40e/i40e_main.c    | 59 +++++++++++++++++++++++---
- 2 files changed, 60 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 97 ++++++++++++++++++++++++++++-
+ 2 files changed, 97 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 9c380a8..fcb6def 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -276,12 +276,14 @@ static void i40e_get_pauseparam(struct net_device *netdev,
- 		((hw_link_info->an_info & I40E_AQ_AN_COMPLETED) ?
- 		  AUTONEG_ENABLE : AUTONEG_DISABLE);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 24a47ee..40706c1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -133,6 +133,7 @@ enum i40e_state_t {
+ 	__I40E_GLOBAL_RESET_REQUESTED,
+ 	__I40E_EMP_RESET_REQUESTED,
+ 	__I40E_FILTER_OVERFLOW_PROMISC,
++	__I40E_SUSPENDED,
+ };
  
--	pause->rx_pause = 0;
--	pause->tx_pause = 0;
--	if (hw_link_info->an_info & I40E_AQ_LINK_PAUSE_RX)
-+	if (hw->fc.current_mode == I40E_FC_RX_PAUSE) {
- 		pause->rx_pause = 1;
--	if (hw_link_info->an_info & I40E_AQ_LINK_PAUSE_TX)
-+	} else if (hw->fc.current_mode == I40E_FC_TX_PAUSE) {
- 		pause->tx_pause = 1;
-+	} else if (hw->fc.current_mode == I40E_FC_FULL) {
-+		pause->rx_pause = 1;
-+		pause->tx_pause = 1;
-+	}
- }
- 
- static u32 i40e_get_msglevel(struct net_device *netdev)
+ enum i40e_interrupt_policy {
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 9dc5829..4d3a201 100644
+index 19ad3c0..fba0aad 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -6911,6 +6911,7 @@ int i40e_fetch_switch_configuration(struct i40e_pf *pf, bool printconfig)
-  **/
- static int i40e_setup_pf_switch(struct i40e_pf *pf)
- {
-+	u32 rxfc, txfc, rxfc_reg;
- 	int ret;
+@@ -7749,7 +7749,11 @@ static pci_ers_result_t i40e_pci_error_detected(struct pci_dev *pdev,
+ 	dev_info(&pdev->dev, "%s: error %d\n", __func__, error);
  
- 	/* find out what's out there already */
-@@ -6981,20 +6982,65 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf)
- 	i40e_aq_get_link_info(&pf->hw, true, NULL, NULL);
- 	i40e_link_event(pf);
- 
--	/* Initialize user-specifics link properties */
-+	/* Initialize user-specific link properties */
- 	pf->fc_autoneg_status = ((pf->hw.phy.link_info.an_info &
- 				  I40E_AQ_AN_COMPLETED) ? true : false);
--	pf->hw.fc.requested_mode = I40E_FC_DEFAULT;
--	if (pf->hw.phy.link_info.an_info &
--	   (I40E_AQ_LINK_PAUSE_TX | I40E_AQ_LINK_PAUSE_RX))
-+	/* requested_mode is set in probe or by ethtool */
-+	if (!pf->fc_autoneg_status)
-+		goto no_autoneg;
-+
-+	if ((pf->hw.phy.link_info.an_info & I40E_AQ_LINK_PAUSE_TX) &&
-+	    (pf->hw.phy.link_info.an_info & I40E_AQ_LINK_PAUSE_RX))
- 		pf->hw.fc.current_mode = I40E_FC_FULL;
- 	else if (pf->hw.phy.link_info.an_info & I40E_AQ_LINK_PAUSE_TX)
- 		pf->hw.fc.current_mode = I40E_FC_TX_PAUSE;
- 	else if (pf->hw.phy.link_info.an_info & I40E_AQ_LINK_PAUSE_RX)
- 		pf->hw.fc.current_mode = I40E_FC_RX_PAUSE;
- 	else
--		pf->hw.fc.current_mode = I40E_FC_DEFAULT;
-+		pf->hw.fc.current_mode = I40E_FC_NONE;
-+
-+	/* sync the flow control settings with the auto-neg values */
-+	switch (pf->hw.fc.current_mode) {
-+	case I40E_FC_FULL:
-+		txfc = 1;
-+		rxfc = 1;
-+		break;
-+	case I40E_FC_TX_PAUSE:
-+		txfc = 1;
-+		rxfc = 0;
-+		break;
-+	case I40E_FC_RX_PAUSE:
-+		txfc = 0;
-+		rxfc = 1;
-+		break;
-+	case I40E_FC_NONE:
-+	case I40E_FC_DEFAULT:
-+		txfc = 0;
-+		rxfc = 0;
-+		break;
-+	case I40E_FC_PFC:
-+		/* TBD */
-+		break;
-+	/* no default case, we have to handle all possibilities here */
+ 	/* shutdown all operations */
+-	i40e_pf_quiesce_all_vsi(pf);
++	if (!test_bit(__I40E_SUSPENDED, &pf->state)) {
++		rtnl_lock();
++		i40e_prep_for_reset(pf);
++		rtnl_unlock();
 +	}
-+
-+	wr32(&pf->hw, I40E_PRTDCB_FCCFG, txfc << I40E_PRTDCB_FCCFG_TFCE_SHIFT);
-+
-+	rxfc_reg = rd32(&pf->hw, I40E_PRTDCB_MFLCN) &
-+		   ~I40E_PRTDCB_MFLCN_RFCE_MASK;
-+	rxfc_reg |= (rxfc << I40E_PRTDCB_MFLCN_RFCE_SHIFT);
-+
-+	wr32(&pf->hw, I40E_PRTDCB_MFLCN, rxfc_reg);
  
-+	goto fc_complete;
+ 	/* Request a slot reset */
+ 	return PCI_ERS_RESULT_NEED_RESET;
+@@ -7812,9 +7816,95 @@ static void i40e_pci_error_resume(struct pci_dev *pdev)
+ 	struct i40e_pf *pf = pci_get_drvdata(pdev);
+ 
+ 	dev_info(&pdev->dev, "%s\n", __func__);
++	if (test_bit(__I40E_SUSPENDED, &pf->state))
++		return;
 +
-+no_autoneg:
-+	/* disable L2 flow control, user can turn it on if they wish */
-+	wr32(&pf->hw, I40E_PRTDCB_FCCFG, 0);
-+	wr32(&pf->hw, I40E_PRTDCB_MFLCN, rd32(&pf->hw, I40E_PRTDCB_MFLCN) &
-+					 ~I40E_PRTDCB_MFLCN_RFCE_MASK);
++	rtnl_lock();
+ 	i40e_handle_reset_warning(pf);
++	rtnl_lock();
++}
 +
-+fc_complete:
- 	return ret;
++/**
++ * i40e_shutdown - PCI callback for shutting down
++ * @pdev: PCI device information struct
++ **/
++static void i40e_shutdown(struct pci_dev *pdev)
++{
++	struct i40e_pf *pf = pci_get_drvdata(pdev);
++
++	set_bit(__I40E_SUSPENDED, &pf->state);
++	set_bit(__I40E_DOWN, &pf->state);
++	rtnl_lock();
++	i40e_prep_for_reset(pf);
++	rtnl_unlock();
++
++	if (system_state == SYSTEM_POWER_OFF) {
++		pci_wake_from_d3(pdev, false);    /* No WoL support yet */
++		pci_set_power_state(pdev, PCI_D3hot);
++	}
++}
++
++#ifdef CONFIG_PM
++/**
++ * i40e_suspend - PCI callback for moving to D3
++ * @pdev: PCI device information struct
++ **/
++static int i40e_suspend(struct pci_dev *pdev, pm_message_t state)
++{
++	struct i40e_pf *pf = pci_get_drvdata(pdev);
++
++	set_bit(__I40E_SUSPENDED, &pf->state);
++	set_bit(__I40E_DOWN, &pf->state);
++	rtnl_lock();
++	i40e_prep_for_reset(pf);
++	rtnl_unlock();
++
++	pci_wake_from_d3(pdev, false);    /* No WoL support yet */
++	pci_set_power_state(pdev, PCI_D3hot);
++
++	return 0;
  }
  
-@@ -7288,6 +7334,9 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_pf_reset;
- 	}
- 
-+	/* set up a default setting for link flow control */
-+	pf->hw.fc.requested_mode = I40E_FC_NONE;
++/**
++ * i40e_resume - PCI callback for waking up from D3
++ * @pdev: PCI device information struct
++ **/
++static int i40e_resume(struct pci_dev *pdev)
++{
++	struct i40e_pf *pf = pci_get_drvdata(pdev);
++	u32 err;
 +
- 	err = i40e_init_adminq(hw);
- 	dev_info(&pdev->dev, "%s\n", i40e_fw_version_str(hw));
- 	if (((hw->nvm.version & I40E_NVM_VERSION_HI_MASK)
++	pci_set_power_state(pdev, PCI_D0);
++	pci_restore_state(pdev);
++	/* pci_restore_state() clears dev->state_saves, so
++	 * call pci_save_state() again to restore it.
++	 */
++	pci_save_state(pdev);
++
++	err = pci_enable_device_mem(pdev);
++	if (err) {
++		dev_err(&pdev->dev,
++			"%s: Cannot enable PCI device from suspend\n",
++			__func__);
++		return err;
++	}
++	pci_set_master(pdev);
++
++	/* no wakeup events while running */
++	pci_wake_from_d3(pdev, false);
++
++	/* handling the reset will rebuild the device state */
++	if (test_and_clear_bit(__I40E_SUSPENDED, &pf->state)) {
++		clear_bit(__I40E_DOWN, &pf->state);
++		rtnl_lock();
++		i40e_reset_and_rebuild(pf, false);
++		rtnl_unlock();
++	}
++
++	return 0;
++}
++
++#endif
+ static const struct pci_error_handlers i40e_err_handler = {
+ 	.error_detected = i40e_pci_error_detected,
+ 	.slot_reset = i40e_pci_error_slot_reset,
+@@ -7826,6 +7916,11 @@ static struct pci_driver i40e_driver = {
+ 	.id_table = i40e_pci_tbl,
+ 	.probe    = i40e_probe,
+ 	.remove   = i40e_remove,
++#ifdef CONFIG_PM
++	.suspend  = i40e_suspend,
++	.resume   = i40e_resume,
++#endif
++	.shutdown = i40e_shutdown,
+ 	.err_handler = &i40e_err_handler,
+ 	.sriov_configure = i40e_pci_sriov_configure,
+ };
 -- 
 1.8.3.1
