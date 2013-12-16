@@ -1,59 +1,82 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 4/4 v3] net: Add utility function to copy skb hash
-Date: Sun, 15 Dec 2013 22:16:29 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1312152212230.20838@tomh.mtv.corp.google.com>
+From: annie li <annie.li@oracle.com>
+Subject: Re: [Xen-devel] [PATCH net-next v2 0/9] xen-netback: TX grant mapping
+ with SKBTX_DEV_ZEROCOPY instead of copy
+Date: Mon, 16 Dec 2013 14:32:30 +0800
+Message-ID: <52AE9E7E.7040502@oracle.com>
+References: <1386892097-15502-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f73.google.com ([209.85.128.73]:52148 "EHLO
-	mail-qe0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752701Ab3LPGQa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 01:16:30 -0500
-Received: by mail-qe0-f73.google.com with SMTP id 5so443819qeb.4
-        for <netdev@vger.kernel.org>; Sun, 15 Dec 2013 22:16:30 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ian.campbell@citrix.com, wei.liu2@citrix.com,
+	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jonathan.davies@citrix.com
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1386892097-15502-1-git-send-email-zoltan.kiss@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Adds skb_copy_hash to copy rxhash and l4_rxhash from one skb to another.
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- include/linux/skbuff.h | 6 ++++++
- net/core/skbuff.c      | 3 +--
- 2 files changed, 7 insertions(+), 2 deletions(-)
+On 2013/12/13 7:48, Zoltan Kiss wrote:
+> A long known problem of the upstream netback implementation that on the TX
+> path (from guest to Dom0) it copies the whole packet from guest memory into
+> Dom0. That simply became a bottleneck with 10Gb NICs, and generally it's a
+> huge perfomance penalty. The classic kernel version of netback used grant
+> mapping, and to get notified when the page can be unmapped, it used page
+> destructors. Unfortunately that destructor is not an upstreamable solution.
+> Ian Campbell's skb fragment destructor patch series [1] tried to solve this
+> problem, however it seems to be very invasive on the network stack's code,
+> and therefore haven't progressed very well.
+> This patch series use SKBTX_DEV_ZEROCOPY flags to tell the stack it needs to
+> know when the skb is freed up. That is the way KVM solved the same problem,
+> and based on my initial tests it can do the same for us. Avoiding the extra
+> copy boosted up TX throughput from 6.8 Gbps to 7.9 (I used a slower
+> Interlagos box, both Dom0 and guest on upstream kernel, on the same NUMA node,
+> running iperf 2.0.5, and the remote end was a bare metal box on the same 10Gb
+> switch)
+Sounds good.
+Is the TX throughput gotten between one vm and one bare metal box? or 
+between multiple vms and bare metal? Do you have any test results with 
+netperf?
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 9984695..06bedeb 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -764,6 +764,12 @@ static inline void skb_clear_hash_if_not_l4(struct sk_buff *skb)
- 		skb_clear_hash(skb);
- }
- 
-+static inline void skb_copy_hash(struct sk_buff *to, const struct sk_buff *from)
-+{
-+	to->rxhash = from->rxhash;
-+	to->l4_rxhash = from->l4_rxhash;
-+};
-+
- #ifdef NET_SKBUFF_DATA_USES_OFFSET
- static inline unsigned char *skb_end_pointer(const struct sk_buff *skb)
- {
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 06e72d3..2b6b863 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -712,9 +712,8 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
- 	new->inner_network_header = old->inner_network_header;
- 	new->inner_mac_header = old->inner_mac_header;
- 	skb_dst_copy(new, old);
--	new->rxhash		= old->rxhash;
-+	skb_copy_hash(new, old);
- 	new->ooo_okay		= old->ooo_okay;
--	new->l4_rxhash		= old->l4_rxhash;
- 	new->no_fcs		= old->no_fcs;
- 	new->encapsulation	= old->encapsulation;
- #ifdef CONFIG_XFRM
--- 
-1.8.5.1
+Thanks
+Annie
+> Based on my investigations the packet get only copied if it is delivered to
+> Dom0 stack, which is due to this [2] patch. That's a bit unfortunate, but
+> luckily it doesn't cause a major regression for this usecase. In the future
+> we should try to eliminate that copy somehow.
+> There are a few spinoff tasks which will be addressed in separate patches:
+> - grant copy the header directly instead of map and memcpy. This should help
+>    us avoiding TLB flushing
+> - use something else than ballooned pages
+> - fix grant map to use page->index properly
+> I will run some more extensive tests, but some basic XenRT tests were already
+> passed with good results.
+> I've tried to broke it down to smaller patches, with mixed results, so I
+> welcome suggestions on that part as well:
+> 1: Introduce TX grant map definitions
+> 2: Change TX path from grant copy to mapping
+> 3: Remove old TX grant copy definitons and fix indentations
+> 4: Change RX path for mapped SKB fragments
+> 5: Add stat counters for zerocopy
+> 6: Handle guests with too many frags
+> 7: Add stat counters for frag_list skbs
+> 8: Timeout packets in RX path
+> 9: Aggregate TX unmap operations
+>
+> v2: I've fixed some smaller things, see the individual patches. I've added a
+> few new stat counters, and handling the important use case when an older guest
+> sends lots of slots. Instead of delayed copy now we timeout packets on the RX
+> path, based on the assumption that otherwise packets should get stucked
+> anywhere else. Finally some unmap batching to avoid too much TLB flush
+>
+> [1] http://lwn.net/Articles/491522/
+> [2] https://lkml.org/lkml/2012/7/20/363
+>
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+>
+>
+> _______________________________________________
+> Xen-devel mailing list
+> Xen-devel@lists.xen.org
+> http://lists.xen.org/xen-devel
