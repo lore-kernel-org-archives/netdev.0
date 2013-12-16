@@ -1,45 +1,89 @@
 From: Peter Korsgaard <peter@korsgaard.com>
-Subject: [PATCH 1/4] dm9601: add support for dm9621a based dongle
-Date: Mon, 16 Dec 2013 11:35:32 +0100
-Message-ID: <1387190135-17052-2-git-send-email-peter@korsgaard.com>
+Subject: [PATCH 4/4] dm9601: work around tx fifo sync issue on dm962x
+Date: Mon, 16 Dec 2013 11:35:35 +0100
+Message-ID: <1387190135-17052-5-git-send-email-peter@korsgaard.com>
 References: <1387190135-17052-1-git-send-email-peter@korsgaard.com>
-Cc: joseph_chang@davicom.com.tw, Peter Korsgaard <peter@korsgaard.com>
+Cc: joseph_chang@davicom.com.tw, Peter Korsgaard <peter@korsgaard.com>,
+	<stable@vger.kernel.org>
 To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f173.google.com ([209.85.215.173]:45849 "EHLO
-	mail-ea0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752407Ab3LPKfs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 05:35:48 -0500
-Received: by mail-ea0-f173.google.com with SMTP id o10so2135889eaj.4
-        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 02:35:47 -0800 (PST)
+Return-path: <stable-owner@vger.kernel.org>
 In-Reply-To: <1387190135-17052-1-git-send-email-peter@korsgaard.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-dm9621a is functionally identical to dm9620, so the existing handling can
-directly be used.
+Certain dm962x revisions contain an bug, where if a USB bulk transfer retry
+(E.G. if bulk crc mismatch) happens right after a transfer with odd or
+maxpacket length, the internal tx hardware fifo gets out of sync causing
+the interface to stop working.
 
-Thanks to Davicom for sending me a dongle.
+Work around it by adding up to 3 bytes of padding to ensure this situation
+cannot trigger.
 
+This workaround also means we never pass multiple-of-maxpacket size skb's
+to usbnet, so the length adjustment to handle usbnet's padding of those can
+be removed.
+
+Cc: <stable@vger.kernel.org>
+Reported-by: Joseph Chang <joseph_chang@davicom.com.tw>
 Signed-off-by: Peter Korsgaard <peter@korsgaard.com>
 ---
- drivers/net/usb/dm9601.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/usb/dm9601.c | 27 +++++++++++++++++++--------
+ 1 file changed, 19 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
-index c6867f9..8e88572 100644
+index ca99c35..14aa48f 100644
 --- a/drivers/net/usb/dm9601.c
 +++ b/drivers/net/usb/dm9601.c
-@@ -594,6 +594,10 @@ static const struct usb_device_id products[] = {
- 	 USB_DEVICE(0x0a46, 0x9620),	/* DM9620 USB to Fast Ethernet Adapter */
- 	 .driver_info = (unsigned long)&dm9601_info,
- 	 },
-+	{
-+	 USB_DEVICE(0x0a46, 0x9621),	/* DM9621A USB to Fast Ethernet Adapter */
-+	 .driver_info = (unsigned long)&dm9601_info,
-+	},
- 	{},			// END
- };
+@@ -473,7 +473,7 @@ static int dm9601_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+ static struct sk_buff *dm9601_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
+ 				       gfp_t flags)
+ {
+-	int len;
++	int len, pad;
  
+ 	/* format:
+ 	   b1: packet length low
+@@ -481,12 +481,23 @@ static struct sk_buff *dm9601_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
+ 	   b3..n: packet data
+ 	*/
+ 
+-	len = skb->len;
++	len = skb->len + DM_TX_OVERHEAD;
++
++	/* workaround for dm962x errata with tx fifo getting out of
++	 * sync if a USB bulk transfer retry happens right after a
++	 * packet with odd / maxpacket length by adding up to 3 bytes
++	 * padding.
++	 */
++	while ((len & 1) || !(len % dev->maxpacket))
++		len++;
+ 
+-	if (skb_headroom(skb) < DM_TX_OVERHEAD) {
++	len -= DM_TX_OVERHEAD; /* hw header doesn't count as part of length */
++	pad = len - skb->len;
++
++	if (skb_headroom(skb) < DM_TX_OVERHEAD || skb_tailroom(skb) < pad) {
+ 		struct sk_buff *skb2;
+ 
+-		skb2 = skb_copy_expand(skb, DM_TX_OVERHEAD, 0, flags);
++		skb2 = skb_copy_expand(skb, DM_TX_OVERHEAD, pad, flags);
+ 		dev_kfree_skb_any(skb);
+ 		skb = skb2;
+ 		if (!skb)
+@@ -495,10 +506,10 @@ static struct sk_buff *dm9601_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
+ 
+ 	__skb_push(skb, DM_TX_OVERHEAD);
+ 
+-	/* usbnet adds padding if length is a multiple of packet size
+-	   if so, adjust length value in header */
+-	if ((skb->len % dev->maxpacket) == 0)
+-		len++;
++	if (pad) {
++		memset(skb->data + skb->len, 0, pad);
++		__skb_put(skb, pad);
++	}
+ 
+ 	skb->data[0] = len;
+ 	skb->data[1] = len >> 8;
 -- 
 1.8.5.1
