@@ -1,56 +1,69 @@
 From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net-next v2 0/9] xen-netback: TX grant mapping
- with SKBTX_DEV_ZEROCOPY instead of copy
-Date: Mon, 16 Dec 2013 16:13:44 +0000
-Message-ID: <52AF26B8.2090409@citrix.com>
-References: <1386892097-15502-1-git-send-email-zoltan.kiss@citrix.com> <52AE9E7E.7040502@oracle.com>
+Subject: Re: [PATCH net-next v2 9/9] xen-netback: Aggregate TX unmap operations
+Date: Mon, 16 Dec 2013 16:30:02 +0000
+Message-ID: <52AF2A8A.50404@citrix.com>
+References: <1386892097-15502-1-git-send-email-zoltan.kiss@citrix.com> <1386892097-15502-10-git-send-email-zoltan.kiss@citrix.com> <20131213154435.GP21900@zion.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-To: annie li <annie.li@oracle.com>
+Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52AE9E7E.7040502@oracle.com>
+In-Reply-To: <20131213154435.GP21900@zion.uk.xensource.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 16/12/13 06:32, annie li wrote:
+On 13/12/13 15:44, Wei Liu wrote:
+> On Thu, Dec 12, 2013 at 11:48:17PM +0000, Zoltan Kiss wrote:
+>> Unmapping causes TLB flushing, therefore we should make it in the largest
+>> possible batches. However we shouldn't starve the guest for too long. So if
+>> the guest has space for at least two big packets and we don't have at least a
+>> quarter ring to unmap, delay it for at most 1 milisec.
+>>
 >
-> On 2013/12/13 7:48, Zoltan Kiss wrote:
->> A long known problem of the upstream netback implementation that on
->> the TX
->> path (from guest to Dom0) it copies the whole packet from guest memory
->> into
->> Dom0. That simply became a bottleneck with 10Gb NICs, and generally
->> it's a
->> huge perfomance penalty. The classic kernel version of netback used grant
->> mapping, and to get notified when the page can be unmapped, it used page
->> destructors. Unfortunately that destructor is not an upstreamable
->> solution.
->> Ian Campbell's skb fragment destructor patch series [1] tried to solve
->> this
->> problem, however it seems to be very invasive on the network stack's
->> code,
->> and therefore haven't progressed very well.
->> This patch series use SKBTX_DEV_ZEROCOPY flags to tell the stack it
->> needs to
->> know when the skb is freed up. That is the way KVM solved the same
->> problem,
->> and based on my initial tests it can do the same for us. Avoiding the
->> extra
->> copy boosted up TX throughput from 6.8 Gbps to 7.9 (I used a slower
->> Interlagos box, both Dom0 and guest on upstream kernel, on the same
->> NUMA node,
->> running iperf 2.0.5, and the remote end was a bare metal box on the
->> same 10Gb
->> switch)
-> Sounds good.
-> Is the TX throughput gotten between one vm and one bare metal box? or
-> between multiple vms and bare metal? Do you have any test results with
-> netperf?
-One VM and a bare metal box. I've used only iperf.
+> Is this solution temporary or permanent? If it is permanent would it
+> make sense to make these parameter tunable?
+
+Well, I'm not entirely sure yet this is the best way to do this, so in 
+this sense it's temporary. But generally we should do some sort of 
+batching, as TLB flush cannot be avoided every time. If we settle on 
+something we should make the tunable parameters tunable.
+The problem is that it is a thin red line we should find here. My first 
+approach was that I left the tx_dealloc_work_todo as it was, and after 
+the thread woke up but before anything were done I made it sleep for 50 
+ns and measured  how fast the guest is running out of free slots:
+
+if (kthread_should_stop())
+	break;
+
++i=0;
++do {
++	++i;
++	prev_free_slots = nr_free_slots(&vif->tx);
++	__set_current_state(TASK_UNINTERRUPTIBLE);
++	rc = schedule_hrtimeout_range(&tx_dealloc_delay_ktime, 10, 
+HRTIMER_MODE_REL);
++	if (rc) trace_printk("%s sleep were interrupted! %d\n",vif->dev->name, 
+rc);
++	curr_free_slots = nr_free_slots(&vif->tx);
++} while ( (curr_free_slots < 4 * (prev_free_slots - curr_free_slots)) 
+&& i < 11);
++
+xenvif_tx_dealloc_action(vif);
+
+And worst case after 500 ns I let the thread to do the unmap anyway. But 
+I was a bit worried about this approach, so I choose a bit more 
+conservative one for this patch.
+
+There are also ideas to use some other instrument for unmapping instead 
+of the current separate thread approach. Putting it into the NAPI 
+instance was the original idea, which caused problems. Placing it into 
+the another thread where RX work happens also doesn't sound too good, 
+these things can and should happen in parallel.
+Other ideas were work queues and tasklets, I'll spend some more time to 
+check if they are feasible.
 
 Regards,
 
