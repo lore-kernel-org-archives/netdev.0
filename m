@@ -1,98 +1,64 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 02/12] i40e: fix pf reset after offline test
-Date: Mon, 16 Dec 2013 01:38:48 -0800
-Message-ID: <1387186738-13666-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 03/12] i40e: Tell the stack about our actual number of queues
+Date: Mon, 16 Dec 2013 01:38:49 -0800
+Message-ID: <1387186738-13666-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387186738-13666-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:10467 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:10462 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752435Ab3LPJjG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Dec 2013 04:39:06 -0500
+	id S1752569Ab3LPJjH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Dec 2013 04:39:07 -0500
 In-Reply-To: <1387186738-13666-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-When the ethtool testing starts it sets the I40E_TESTING state
-bit, which blocks new netdev opens so that things don't get
-confused, while the testing might be messing with register and
-other things.  Unfortunately, that was keeping the PF resets
-after the register test from working correctly because the netdev
-would not get reopened.  This patch reorders the tests to put the
-register test last as it is the only one that needs a reset, and
-we wait to trigger the reset until after we clear the
-I40E_TESTING bit.
+Call the netif_set_real* functions in order to make sure
+the stack knows about how many queues we have, in order
+for RFS/RPS/XFS to work correctly.
 
-Change-Id: Ieaa18d74264250ac336b0656b490125ee8a22d2a
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-Id: Ib7a7b2792f80c5eef210dedf42cc6607d63953d2
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index eb34375..9c380a8 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -748,7 +748,6 @@ static int i40e_reg_test(struct net_device *netdev, u64 *data)
- 	netif_info(pf, hw, netdev, "register test\n");
- 	*data = i40e_diag_reg_test(&pf->hw);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index a6291e2..9dc5829 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -3966,6 +3966,15 @@ static int i40e_open(struct net_device *netdev)
+ 	if (err)
+ 		goto err_setup_rx;
  
--	i40e_do_reset(pf, (1 << __I40E_PF_RESET_REQUESTED));
- 	return *data;
- }
- 
-@@ -796,20 +795,18 @@ static void i40e_diag_test(struct net_device *netdev,
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_pf *pf = np->vsi->back;
- 
--	set_bit(__I40E_TESTING, &pf->state);
- 	if (eth_test->flags == ETH_TEST_FL_OFFLINE) {
- 		/* Offline tests */
- 		netif_info(pf, drv, netdev, "offline testing starting\n");
- 
-+		set_bit(__I40E_TESTING, &pf->state);
++	/* Notify the stack of the actual queue counts. */
++	err = netif_set_real_num_tx_queues(netdev, pf->num_tx_queues);
++	if (err)
++		goto err_set_queues;
 +
- 		/* Link test performed before hardware reset
- 		 * so autoneg doesn't interfere with test result
- 		 */
- 		if (i40e_link_test(netdev, &data[I40E_ETH_TEST_LINK]))
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
--		if (i40e_reg_test(netdev, &data[I40E_ETH_TEST_REG]))
--			eth_test->flags |= ETH_TEST_FL_FAILED;
--
- 		if (i40e_eeprom_test(netdev, &data[I40E_ETH_TEST_EEPROM]))
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
-@@ -819,6 +816,12 @@ static void i40e_diag_test(struct net_device *netdev,
- 		if (i40e_loopback_test(netdev, &data[I40E_ETH_TEST_LOOPBACK]))
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
-+		/* run reg test last, a reset is required after it */
-+		if (i40e_reg_test(netdev, &data[I40E_ETH_TEST_REG]))
-+			eth_test->flags |= ETH_TEST_FL_FAILED;
++	err = netif_set_real_num_rx_queues(netdev, pf->num_rx_queues);
++	if (err)
++		goto err_set_queues;
 +
-+		clear_bit(__I40E_TESTING, &pf->state);
-+		i40e_do_reset(pf, (1 << __I40E_PF_RESET_REQUESTED));
- 	} else {
- 		/* Online tests */
- 		netif_info(pf, drv, netdev, "online testing starting\n");
-@@ -832,7 +835,6 @@ static void i40e_diag_test(struct net_device *netdev,
- 		data[I40E_ETH_TEST_INTR] = 0;
- 		data[I40E_ETH_TEST_LOOPBACK] = 0;
- 	}
--	clear_bit(__I40E_TESTING, &pf->state);
+ 	err = i40e_up_complete(vsi);
+ 	if (err)
+ 		goto err_up_complete;
+@@ -3982,6 +3991,7 @@ static int i40e_open(struct net_device *netdev)
  
- 	netif_info(pf, drv, netdev, "testing finished\n");
- }
+ err_up_complete:
+ 	i40e_down(vsi);
++err_set_queues:
+ 	i40e_vsi_free_irq(vsi);
+ err_setup_rx:
+ 	i40e_vsi_free_rx_resources(vsi);
 -- 
 1.8.3.1
