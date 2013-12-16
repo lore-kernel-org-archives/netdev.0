@@ -1,80 +1,44 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] net/hsr: using kfree_rcu() to simplify the code
-Date: Mon, 16 Dec 2013 14:05:50 +0800
-Message-ID: <CAPgLHd_doYrTYAHyR4OrDz9B84Abh1H0MBvmi8XfCqAEVFyS_Q@mail.gmail.com>
+From: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH -next] openvswitch: remove duplicated include from
+	flow_table.c
+Date: Mon, 16 Dec 2013 14:06:15 +0800
+Message-ID: <CAPgLHd8m0t7F_N0m5skxHkoyZYjrkkyZDJEtWe_THj+wKSAPoA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: davem@davemloft.net, Arvid.Brodin@xdin.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f42.google.com ([209.85.214.42]:39468 "EHLO
-	mail-bk0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750863Ab3LPGFv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 01:05:51 -0500
-Received: by mail-bk0-f42.google.com with SMTP id w11so2175391bkz.29
-        for <netdev@vger.kernel.org>; Sun, 15 Dec 2013 22:05:50 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org
+To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
 
-The callback function of call_rcu() just calls a kfree(), so we
-can use kfree_rcu() instead of call_rcu() + callback function.
+Remove duplicated include.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
 ---
- net/hsr/hsr_framereg.c | 13 ++++---------
- 1 file changed, 4 insertions(+), 9 deletions(-)
+ net/openvswitch/flow_table.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/net/hsr/hsr_framereg.c b/net/hsr/hsr_framereg.c
-index 003f5bb..a758963 100644
---- a/net/hsr/hsr_framereg.c
-+++ b/net/hsr/hsr_framereg.c
-@@ -127,11 +127,6 @@ int hsr_create_self_node(struct list_head *self_node_db,
- 	return 0;
- }
+diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
+index e425427..c686655 100644
+--- a/net/openvswitch/flow_table.c
++++ b/net/openvswitch/flow_table.c
+@@ -44,8 +44,6 @@
+ #include <net/ipv6.h>
+ #include <net/ndisc.h>
  
--static void node_entry_reclaim(struct rcu_head *rh)
--{
--	kfree(container_of(rh, struct node_entry, rcu_head));
--}
+-#include "datapath.h"
 -
+ #define TBL_MIN_BUCKETS		1024
+ #define REHASH_INTERVAL		(10 * 60 * HZ)
  
- /* Add/merge node to the database of nodes. 'skb' must contain an HSR
-  * supervision frame.
-@@ -175,7 +170,7 @@ struct node_entry *hsr_merge_node(struct hsr_priv *hsr_priv,
- 	if (node && !ether_addr_equal(node->MacAddressA, hsr_sp->MacAddressA)) {
- 		/* Node has changed its AddrA, frame was received from SlaveB */
- 		list_del_rcu(&node->mac_list);
--		call_rcu(&node->rcu_head, node_entry_reclaim);
-+		kfree_rcu(node, rcu_head);
- 		node = NULL;
- 	}
- 
-@@ -183,7 +178,7 @@ struct node_entry *hsr_merge_node(struct hsr_priv *hsr_priv,
- 	    !ether_addr_equal(node->MacAddressB, hsr_ethsup->ethhdr.h_source)) {
- 		/* Cables have been swapped */
- 		list_del_rcu(&node->mac_list);
--		call_rcu(&node->rcu_head, node_entry_reclaim);
-+		kfree_rcu(node, rcu_head);
- 		node = NULL;
- 	}
- 
-@@ -192,7 +187,7 @@ struct node_entry *hsr_merge_node(struct hsr_priv *hsr_priv,
- 	    !ether_addr_equal(node->MacAddressA, hsr_ethsup->ethhdr.h_source)) {
- 		/* Cables have been swapped */
- 		list_del_rcu(&node->mac_list);
--		call_rcu(&node->rcu_head, node_entry_reclaim);
-+		kfree_rcu(node, rcu_head);
- 		node = NULL;
- 	}
- 
-@@ -416,7 +411,7 @@ void hsr_prune_nodes(struct hsr_priv *hsr_priv)
- 			hsr_nl_nodedown(hsr_priv, node->MacAddressA);
- 			list_del_rcu(&node->mac_list);
- 			/* Note that we need to free this entry later: */
--			call_rcu(&node->rcu_head, node_entry_reclaim);
-+			kfree_rcu(node, rcu_head);
- 		}
- 	}
- 	rcu_read_unlock();
