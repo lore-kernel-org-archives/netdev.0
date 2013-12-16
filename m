@@ -1,79 +1,57 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 9/10] lro: remove unused code
-Date: Mon, 16 Dec 2013 19:54:27 +0000
-Message-ID: <1387223667.1799.32.camel@bwh-desktop.uk.level5networks.com>
-References: <20131216103606.62524131@nehalam.linuxnetplumber.net>
-	 <20131216104531.27407d6f@nehalam.linuxnetplumber.net>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: [PATCH 0/4] Make tcp-metrics source-address aware
+Date: Mon, 16 Dec 2013 21:01:15 +0100
+Message-ID: <20131216200115.GA15318@cpaasch-mac>
+References: <1387109444-1104-1-git-send-email-christoph.paasch@uclouvain.be>
+ <1387132859.19078.207.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAK6E8=eeH=6daXoX9Dwe3Nj5LEhKBfL=-2FaLd=Jo7WM-q34qw@mail.gmail.com>
+ <20131216193041.GA16966@cpaasch-mac>
+ <CAK6E8=e4aQ2qqZ4uBNZBvyYdQ1KER8xashQVAYJoiEUm9sbSew@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Julian Anastasov <ja@ssi.bg>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:16667 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751654Ab3LPTyc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 14:54:32 -0500
-In-Reply-To: <20131216104531.27407d6f@nehalam.linuxnetplumber.net>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:46249 "EHLO
+	smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750869Ab3LPUBW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 15:01:22 -0500
+Content-Disposition: inline
+In-Reply-To: <CAK6E8=e4aQ2qqZ4uBNZBvyYdQ1KER8xashQVAYJoiEUm9sbSew@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-12-16 at 10:45 -0800, Stephen Hemminger wrote:
-> This code is not used anywhere in net-next
+On 16/12/13 - 11:53:31, Yuchung Cheng wrote:
+> > Agreed, in this case it would be negative. Although I doubt that it happens
+> > often that the source changes while the public IP remains the same.
+> >
+> > But for the WiFi/3G-case it is really bad that parameters like
+> > ssthresh/rtt/... are kept the same. We will exit slow-start too early when
+> > going from WiFi to 3G because ssthresh is too low.
+> >
+> > What if we copy the fast-open cookie across the different src/dst tcp_metrics-pairs
+> > to handle Yuchung's case?
+> > Or, maybe get rid of ssthresh/rtt/... in tcp-metrics? But that would probably be too
+> > agressive...
+> +1 to get rid of ssthresh caching. It often hurts than helps and
+> cubic-hystart already mitigates the SS overshoot. See sec 6.2.4 in a
+> recent research study
+> http://conferences.sigcomm.org/co-next/2013/program/p303.pdf
+
+I haven't yet read the paper, but in their presentation at CoNEXT they said
+that the biggest impact comes from spurious retransmission timeouts and the
+subsequent cwnd reduction. I would have thought that the cwnd-reduction
+undo-procedure covers this case.
+
+> The only case caching RTT could help is the init RTO. But it's unclear
+> adding src-ip along will help like DM said.
 > 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-[...]
-> --- a/net/ipv4/inet_lro.c	2013-10-06 14:48:24.966449847 -0700
-> +++ b/net/ipv4/inet_lro.c	2013-12-12 13:28:43.435225437 -0800
-> @@ -506,23 +506,6 @@ void lro_receive_skb(struct net_lro_mgr
->  }
->  EXPORT_SYMBOL(lro_receive_skb);
->  
-> -void lro_receive_frags(struct net_lro_mgr *lro_mgr,
-> -		       struct skb_frag_struct *frags,
-> -		       int len, int true_size, void *priv, __wsum sum)
-> -{
-> -	struct sk_buff *skb;
-> -
-> -	skb = __lro_proc_segment(lro_mgr, frags, len, true_size, priv, sum);
+> Another metric that may have negative effect is reordering metrics.
 
-You should remove unused functions recursively.  After this, you can
-remove at least __lro_proc_segment(), lro_gen_skb() and lro_add_frags().
+So, let's get rid of all these metrics (except for TFO)? ;)
 
-> -	if (!skb)
-> -		return;
-> -
-> -	if (lro_mgr->features & LRO_F_NAPI)
-> -		netif_receive_skb(skb);
-> -	else
-> -		netif_rx(skb);
-> -}
-> -EXPORT_SYMBOL(lro_receive_frags);
-> -
->  void lro_flush_all(struct net_lro_mgr *lro_mgr)
->  {
->  	int i;
-> @@ -534,14 +517,3 @@ void lro_flush_all(struct net_lro_mgr *l
->  	}
->  }
->  EXPORT_SYMBOL(lro_flush_all);
-> -
-> -void lro_flush_pkt(struct net_lro_mgr *lro_mgr,
-> -		  struct iphdr *iph, struct tcphdr *tcph)
-> -{
-> -	struct net_lro_desc *lro_desc;
-> -
-> -	lro_desc = lro_get_desc(lro_mgr, lro_mgr->lro_arr, iph, tcph);
-> -	if (lro_desc->active)
-> -		lro_flush(lro_mgr, lro_desc);
-> -}
-> -EXPORT_SYMBOL(lro_flush_pkt);
 
-It looks like lro_flush_pkt() was *never* used!
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Christoph
