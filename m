@@ -1,58 +1,94 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH] SCTP: Reduce log spamming for sctp setsockopt
-Date: Mon, 16 Dec 2013 16:13:59 +0100
-Message-ID: <52AF18B7.6050602@redhat.com>
-References: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com> <1387206233.18217.21.camel@joe-AO722>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next v2 0/6] slight optimization of addr compare for
+ some modules
+Date: Mon, 16 Dec 2013 07:16:46 -0800
+Message-ID: <1387207006.18217.28.camel@joe-AO722>
+References: <52AEB8B3.5010405@huawei.com>
+	 <1387205111.18217.7.camel@joe-AO722> <52AF13F4.5040409@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ding Tianhong <dingtianhong@huawei.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dthxman@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19601 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753806Ab3LPPOO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Dec 2013 10:14:14 -0500
-In-Reply-To: <1387206233.18217.21.camel@joe-AO722>
+Received: from smtprelay0097.hostedemail.com ([216.40.44.97]:54210 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754391Ab3LPPQv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 10:16:51 -0500
+In-Reply-To: <52AF13F4.5040409@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/16/2013 04:03 PM, Joe Perches wrote:
-> On Mon, 2013-12-16 at 09:44 -0500, Neil Horman wrote:
->> During a recent discussion regarding some sctp socket options, it was noted that
->> we have several points at which we issue log warnings that can be flooded at an
->> unbounded rate by any user.  Fix this by converting all the pr_warns in the
->> sctp_setsockopt path to be pr_warn_ratelimited.
+On Mon, 2013-12-16 at 22:53 +0800, Ding Tianhong wrote:
+> =E4=BA=8E 2013/12/16 22:45, Joe Perches =E5=86=99=E9=81=93:
+> > Are you intending to do more of these?
+> >=20
+> > $ git grep -E "\bmemcmp\s*\([^,]*,[^,]*,\s*(ETH_ALEN|6)\s*\)" * | w=
+c -l
+> > 299
+> >=20
+> > Perhaps the majority of these should use ether_addr_equal
+> > or ether_addr_equal_unaligned.
 >
-> trivial note:
-[...]
->> @@ -5311,8 +5311,8 @@ static int sctp_getsockopt_maxburst(struct sock *sk, int len,
-> []
->> +		pr_warn_ratelimited("Use of int in max_burst socket option deprecated\n");
->> +		pr_warn_ratelimited("Use struct sctp_assoc_value instead\n");
->
-> Perhaps a dedicated "deprecated" warning function
-> to centralize these?
->
-> void _sctp_warn_deprecated(const char *func, const char *from, const char *to);
-> {
-> 	etc.
-> }
-> #define sctp_warn_deprecated(from, to)		\
-> 	_sctp_warn_deprecated(__func__, from, to)
+> yes, it is a juge work to review the whole places and I think it shou=
+ld be
+> finished by several times, maybe start from this patchset.
 
-If so, then this should better get even more "centralized" ... as e.g.
-pr_warn_deprecated() [which internally is ratelimited]. I don't see the
-point why only SCTP should have this special-cased.
+coccinelle (aka: spatch) can help find and change these
 
-> and use
->
-> 		sctp_warn_deprecated("struct sctp_assoc_value", "struct sctp_sack_info");
-> 		sctp_warn_deprecated("int", "");
-> 		sctp_warn_deprecated("int", "struct sctp_assoc_value");
-> 		sctp_warn_deprecated("struct sctp_assoc_value", "struct sctp_sack_info");
-> 		sctp_warn_deprecated("int", "struct sctp_assoc_value");
-> 		sctp_warn_deprecated("int", "struct sctp_assoc_value");
->
+$ cat ether_addr_equal_unaligned.cocci
+@@
+expression e1;
+expression e2;
+@@
+
+-	!memcmp(e1, e2, 6)
++	ether_addr_equal_unaligned(e1, e2)
+
+@@
+expression e1;
+expression e2;
+@@
+
+-	memcmp(e1, e2, 6) =3D=3D 0
++	ether_addr_equal_unaligned(e1, e2)
+
+@@
+expression e1;
+expression e2;
+@@
+
+-	memcmp(e1, e2, 6)
++	!ether_addr_equal_unaligned(e1, e2)
+
+@@
+expression e1;
+expression e2;
+@@
+
+-	memcmp(e1, e2, 6) !=3D 0
++	!ether_addr_equal_unaligned(e1, e2)
+
+$ spatch -sp-file ether_addr_equal.cocci drivers/media/dvb-core/dvb_net=
+=2Ec
+init_defs_builtins: /usr/local/share/coccinelle/standard.h
+HANDLING: drivers/media/dvb-core/dvb_net.c
+diff =3D=20
+--- drivers/media/dvb-core/dvb_net.c
++++ /tmp/cocci-output-18744-96d16c-dvb_net.c
+@@ -837,7 +837,8 @@ static void dvb_net_sec(struct net_devic
+ 	}
+ 	if (pkt[5] & 0x02) {
+ 		/* handle LLC/SNAP, see rfc-1042 */
+-		if (pkt_len < 24 || memcmp(&pkt[12], "\xaa\xaa\x03\0\0\0", 6)) {
++		if (pkt_len < 24 || !ether_addr_equal_unaligned(&pkt[12],
++								"\xaa\xaa\x03\0\0\0")) {
+ 			stats->rx_dropped++;
+ 			return;
+ 		}
+
+I presume many of these should be ether_addr_equal
+and not ether_addr_equal_unaligned, but I can't
+think of a way to automate that easily.
