@@ -1,54 +1,44 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH net-next 4/4] tipc: change lock_sock order in connect()
-Date: Mon, 16 Dec 2013 20:40:31 +0800
-Message-ID: <1387197631-17240-5-git-send-email-wangweidong1@huawei.com>
-References: <1387197631-17240-1-git-send-email-wangweidong1@huawei.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCHv3 net-next 0/7] pktgen IPsec support
+Date: Mon, 16 Dec 2013 07:41:17 -0500
+Message-ID: <52AEF4ED.4020504@mojatatu.com>
+References: <1387094284-2901-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <erik.hugne@ericsson.com>, <maloy@donjonn.com>,
-	<netdev@vger.kernel.org>
-To: <jon.maloy@ericsson.com>, <allan.stephens@windriver.com>,
-	<davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: steffen.klassert@secunet.com, hadi@cyberus.ca,
+	netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:17480 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753774Ab3LPMk5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 07:40:57 -0500
-In-Reply-To: <1387197631-17240-1-git-send-email-wangweidong1@huawei.com>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:58417 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753285Ab3LPMlW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 07:41:22 -0500
+Received: by mail-ie0-f179.google.com with SMTP id x13so6340992ief.38
+        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 04:41:22 -0800 (PST)
+In-Reply-To: <1387094284-2901-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of reaquiring the socket lock and taking the normal exit
-path when a connection times out, we bail out early with a
-return -ETIMEDOUT.
+On 12/15/13 02:57, Fan Du wrote:
+> Hi, Dave
+>
+> Current pktgen IPsec supports only transport/ESP combinnation,
+> This patchset enables user to do almost any IPsec transformation,
+> both transport/tunnel mode, and AH/ESP/IPcomp type.
+>
+> Below configuration has been tested, and using Wireshark could decrypt
+> out plain text in good formation without any checksum/auth errors:
+>
+> Mode/TYPE   AH  ESP
+> Transport   x   x
+> Tunnel      x   x
+>
 
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
----
- net/tipc/socket.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+Very nice - but i couldnt see which patch added the option to enable
+checksums.
+I also think that some dose of update to the pktgen documentation in
+Documents/  would be useful.
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 844bf34..83f466e 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -1507,14 +1507,12 @@ static int connect(struct socket *sock, struct sockaddr *dest, int destlen,
- 				sock->state != SS_CONNECTING,
- 				timeout ? (long)msecs_to_jiffies(timeout)
- 					: MAX_SCHEDULE_TIMEOUT);
--		lock_sock(sk);
- 		if (res <= 0) {
- 			if (res == 0)
- 				res = -ETIMEDOUT;
--			else
--				; /* leave "res" unchanged */
--			goto exit;
-+			return res;
- 		}
-+		lock_sock(sk);
- 	}
- 
- 	if (unlikely(sock->state == SS_DISCONNECTING))
--- 
-1.7.12
+cheers,
+jamal
