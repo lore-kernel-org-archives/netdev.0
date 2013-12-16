@@ -1,288 +1,356 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 02/11] sfc: Change
- efx_nic_type::rx_push_indir_table to push hash key as well
-Date: Mon, 16 Dec 2013 21:31:39 +0000
-Message-ID: <1387229499.1799.45.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 03/11] sfc: Change priority and flags for automatic
+ MAC filters
+Date: Mon, 16 Dec 2013 21:32:16 +0000
+Message-ID: <1387229536.1799.46.camel@bwh-desktop.uk.level5networks.com>
 References: <1387229350.1799.43.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
-	"Andrew Rybchenko" <Andrew.Rybchenko@oktetlabs.ru>
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:8582 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:8596 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751095Ab3LPVbn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 16:31:43 -0500
+	with ESMTP id S1751095Ab3LPVcT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 16:32:19 -0500
 In-Reply-To: <1387229350.1799.43.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Rybchenko <Andrew.Rybchenko@oktetlabs.ru>
+MAC filters inserted automatically by the driver, based on the device
+address list (EF10) or no-match filters (Siena), should be overridable
+at MANUAL or REQUIRED priority.  Currently they themselves have
+REQUIRED priority and this requires some odd special-casing.
 
-The EF10 implementation already does this, and it makes more logical
-sense to group the RSS hash key and indirection table together.
-Rename the operation to rx_push_rss_config.
+We also can't reliably tell whether such a MAC filter has or has
+not been overridden.  We just remember that it is wanted by the
+stack (RX_STACK flag).
+
+Add another priority level, AUTO, between HINT and MANUAL, and
+use this for the automatic filters while they have not been
+overridden.  Remove the RX_STACK flag.  Add an RX_OVER_AUTO
+flag which is set only when an AUTO filter has been overridden
+(or was requested to be inserted while a higher-priority filter
+existed).
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c       | 10 ++++----
- drivers/net/ethernet/sfc/ethtool.c    |  2 +-
- drivers/net/ethernet/sfc/falcon.c     | 26 ++++++++++++++++----
- drivers/net/ethernet/sfc/farch.c      |  5 +---
- drivers/net/ethernet/sfc/net_driver.h |  4 ++--
- drivers/net/ethernet/sfc/nic.h        |  4 ----
- drivers/net/ethernet/sfc/siena.c      | 45 +++++++++++++++++++++--------------
- 7 files changed, 57 insertions(+), 39 deletions(-)
+ drivers/net/ethernet/sfc/ef10.c   | 73 ++++++++++++++++++++++-----------------
+ drivers/net/ethernet/sfc/efx.h    |  3 ++
+ drivers/net/ethernet/sfc/farch.c  | 28 +++++++--------
+ drivers/net/ethernet/sfc/filter.h | 17 +++++----
+ 4 files changed, 67 insertions(+), 54 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 9ec6072896c2..137c46b4b405 100644
+index 137c46b4b405..e5eeac9063d2 100644
 --- a/drivers/net/ethernet/sfc/ef10.c
 +++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -77,7 +77,7 @@ struct efx_ef10_filter_table {
- /* An arbitrary search limit for the software hash table */
- #define EFX_EF10_FILTER_SEARCH_LIMIT 200
- 
--static void efx_ef10_rx_push_indir_table(struct efx_nic *efx);
-+static void efx_ef10_rx_push_rss_config(struct efx_nic *efx);
- static void efx_ef10_rx_free_indir_table(struct efx_nic *efx);
- static void efx_ef10_filter_table_remove(struct efx_nic *efx);
- 
-@@ -679,7 +679,7 @@ static int efx_ef10_init_nic(struct efx_nic *efx)
- 		nic_data->must_restore_piobufs = false;
+@@ -2341,10 +2341,7 @@ static s32 efx_ef10_filter_insert(struct efx_nic *efx,
+ 				    EFX_EF10_FILTER_FLAG_BUSY)
+ 					break;
+ 				if (spec->priority < saved_spec->priority &&
+-				    !(saved_spec->priority ==
+-				      EFX_FILTER_PRI_REQUIRED &&
+-				      saved_spec->flags &
+-				      EFX_FILTER_FLAG_RX_STACK)) {
++				    spec->priority != EFX_FILTER_PRI_AUTO) {
+ 					rc = -EPERM;
+ 					goto out_unlock;
+ 				}
+@@ -2398,9 +2395,11 @@ found:
+ 	 */
+ 	saved_spec = efx_ef10_filter_entry_spec(table, ins_index);
+ 	if (saved_spec) {
+-		if (spec->flags & EFX_FILTER_FLAG_RX_STACK) {
++		if (spec->priority == EFX_FILTER_PRI_AUTO &&
++		    saved_spec->priority >= EFX_FILTER_PRI_AUTO) {
+ 			/* Just make sure it won't be removed */
+-			saved_spec->flags |= EFX_FILTER_FLAG_RX_STACK;
++			if (saved_spec->priority > EFX_FILTER_PRI_AUTO)
++				saved_spec->flags |= EFX_FILTER_FLAG_RX_OVER_AUTO;
+ 			table->entry[ins_index].spec &=
+ 				~EFX_EF10_FILTER_FLAG_STACK_OLD;
+ 			rc = ins_index;
+@@ -2442,8 +2441,11 @@ found:
+ 	if (rc == 0) {
+ 		if (replacing) {
+ 			/* Update the fields that may differ */
++			if (saved_spec->priority == EFX_FILTER_PRI_AUTO)
++				saved_spec->flags |=
++					EFX_FILTER_FLAG_RX_OVER_AUTO;
+ 			saved_spec->priority = spec->priority;
+-			saved_spec->flags &= EFX_FILTER_FLAG_RX_STACK;
++			saved_spec->flags &= EFX_FILTER_FLAG_RX_OVER_AUTO;
+ 			saved_spec->flags |= spec->flags;
+ 			saved_spec->rss_context = spec->rss_context;
+ 			saved_spec->dmaq_id = spec->dmaq_id;
+@@ -2542,26 +2544,41 @@ static int efx_ef10_filter_remove_internal(struct efx_nic *efx,
+ 		spin_unlock_bh(&efx->filter_lock);
+ 		schedule();
  	}
++
+ 	spec = efx_ef10_filter_entry_spec(table, filter_idx);
+-	if (!spec || spec->priority > priority ||
++	if (!spec ||
+ 	    (!stack_requested &&
+ 	     efx_ef10_filter_rx_match_pri(table, spec->match_flags) !=
+ 	     filter_id / HUNT_FILTER_TBL_ROWS)) {
+ 		rc = -ENOENT;
+ 		goto out_unlock;
+ 	}
++
++	if (spec->flags & EFX_FILTER_FLAG_RX_OVER_AUTO &&
++	    priority == EFX_FILTER_PRI_AUTO) {
++		/* Just remove flags */
++		spec->flags &= ~EFX_FILTER_FLAG_RX_OVER_AUTO;
++		table->entry[filter_idx].spec &= ~EFX_EF10_FILTER_FLAG_STACK_OLD;
++		rc = 0;
++		goto out_unlock;
++	}
++
++	if (spec->priority > priority) {
++		rc = -ENOENT;
++		goto out_unlock;
++	}
++
+ 	table->entry[filter_idx].spec |= EFX_EF10_FILTER_FLAG_BUSY;
+ 	spin_unlock_bh(&efx->filter_lock);
  
--	efx_ef10_rx_push_indir_table(efx);
-+	efx_ef10_rx_push_rss_config(efx);
- 	return 0;
- }
+-	if (spec->flags & EFX_FILTER_FLAG_RX_STACK && !stack_requested) {
++	if (spec->flags & EFX_FILTER_FLAG_RX_OVER_AUTO) {
+ 		/* Reset steering of a stack-owned filter */
  
-@@ -1420,12 +1420,12 @@ static void efx_ef10_rx_free_indir_table(struct efx_nic *efx)
- 	nic_data->rx_rss_context = EFX_EF10_RSS_CONTEXT_INVALID;
- }
+ 		struct efx_filter_spec new_spec = *spec;
  
--static void efx_ef10_rx_push_indir_table(struct efx_nic *efx)
-+static void efx_ef10_rx_push_rss_config(struct efx_nic *efx)
- {
- 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
- 	int rc;
- 
--	netif_dbg(efx, drv, efx->net_dev, "pushing RX indirection table\n");
-+	netif_dbg(efx, drv, efx->net_dev, "pushing RSS config\n");
- 
- 	if (nic_data->rx_rss_context == EFX_EF10_RSS_CONTEXT_INVALID) {
- 		rc = efx_ef10_alloc_rss_context(efx, &nic_data->rx_rss_context);
-@@ -3574,7 +3574,7 @@ const struct efx_nic_type efx_hunt_a0_nic_type = {
- 	.tx_init = efx_ef10_tx_init,
- 	.tx_remove = efx_ef10_tx_remove,
- 	.tx_write = efx_ef10_tx_write,
--	.rx_push_indir_table = efx_ef10_rx_push_indir_table,
-+	.rx_push_rss_config = efx_ef10_rx_push_rss_config,
- 	.rx_probe = efx_ef10_rx_probe,
- 	.rx_init = efx_ef10_rx_init,
- 	.rx_remove = efx_ef10_rx_remove,
-diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
-index fb8993806167..bb2af8045281 100644
---- a/drivers/net/ethernet/sfc/ethtool.c
-+++ b/drivers/net/ethernet/sfc/ethtool.c
-@@ -1034,7 +1034,7 @@ static int efx_ethtool_set_rxfh_indir(struct net_device *net_dev,
- 	struct efx_nic *efx = netdev_priv(net_dev);
- 
- 	memcpy(efx->rx_indir_table, indir, sizeof(efx->rx_indir_table));
--	efx_nic_push_rx_indir_table(efx);
-+	efx->type->rx_push_rss_config(efx);
- 	return 0;
- }
- 
-diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
-index 76699f4e6e04..5c6d63cfc394 100644
---- a/drivers/net/ethernet/sfc/falcon.c
-+++ b/drivers/net/ethernet/sfc/falcon.c
-@@ -469,6 +469,24 @@ static irqreturn_t falcon_legacy_interrupt_a1(int irq, void *dev_id)
- }
- /**************************************************************************
-  *
-+ * RSS
+-		new_spec.priority = EFX_FILTER_PRI_REQUIRED;
++		new_spec.priority = EFX_FILTER_PRI_AUTO;
+ 		new_spec.flags = (EFX_FILTER_FLAG_RX |
+-				  EFX_FILTER_FLAG_RX_RSS |
+-				  EFX_FILTER_FLAG_RX_STACK);
++				  EFX_FILTER_FLAG_RX_RSS);
+ 		new_spec.dmaq_id = 0;
+ 		new_spec.rss_context = EFX_FILTER_RSS_CONTEXT_DEFAULT;
+ 		rc = efx_ef10_filter_push(efx, &new_spec,
+@@ -2589,6 +2606,7 @@ static int efx_ef10_filter_remove_internal(struct efx_nic *efx,
+ 			efx_ef10_filter_set_entry(table, filter_idx, NULL, 0);
+ 		}
+ 	}
++
+ 	table->entry[filter_idx].spec &= ~EFX_EF10_FILTER_FLAG_BUSY;
+ 	wake_up_all(&table->waitq);
+ out_unlock:
+@@ -2731,8 +2749,6 @@ static s32 efx_ef10_filter_rfs_insert(struct efx_nic *efx,
+ 				rc = -EBUSY;
+ 				goto fail_unlock;
+ 			}
+-			EFX_WARN_ON_PARANOID(saved_spec->flags &
+-					     EFX_FILTER_FLAG_RX_STACK);
+ 			if (spec->priority < saved_spec->priority) {
+ 				rc = -EPERM;
+ 				goto fail_unlock;
+@@ -3118,9 +3134,8 @@ static void efx_ef10_filter_sync_rx_mode(struct efx_nic *efx)
+ 	/* Insert/renew unicast filters */
+ 	if (table->stack_uc_count >= 0) {
+ 		for (i = 0; i < table->stack_uc_count; i++) {
+-			efx_filter_init_rx(&spec, EFX_FILTER_PRI_REQUIRED,
+-					   EFX_FILTER_FLAG_RX_RSS |
+-					   EFX_FILTER_FLAG_RX_STACK,
++			efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO,
++					   EFX_FILTER_FLAG_RX_RSS,
+ 					   0);
+ 			efx_filter_set_eth_local(&spec, EFX_FILTER_VID_UNSPEC,
+ 						 table->stack_uc_list[i].addr);
+@@ -3129,7 +3144,7 @@ static void efx_ef10_filter_sync_rx_mode(struct efx_nic *efx)
+ 				/* Fall back to unicast-promisc */
+ 				while (i--)
+ 					efx_ef10_filter_remove_safe(
+-						efx, EFX_FILTER_PRI_REQUIRED,
++						efx, EFX_FILTER_PRI_AUTO,
+ 						table->stack_uc_list[i].id);
+ 				table->stack_uc_count = -1;
+ 				break;
+@@ -3138,9 +3153,8 @@ static void efx_ef10_filter_sync_rx_mode(struct efx_nic *efx)
+ 		}
+ 	}
+ 	if (table->stack_uc_count < 0) {
+-		efx_filter_init_rx(&spec, EFX_FILTER_PRI_REQUIRED,
+-				   EFX_FILTER_FLAG_RX_RSS |
+-				   EFX_FILTER_FLAG_RX_STACK,
++		efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO,
++				   EFX_FILTER_FLAG_RX_RSS,
+ 				   0);
+ 		efx_filter_set_uc_def(&spec);
+ 		rc = efx_ef10_filter_insert(efx, &spec, true);
+@@ -3155,9 +3169,8 @@ static void efx_ef10_filter_sync_rx_mode(struct efx_nic *efx)
+ 	/* Insert/renew multicast filters */
+ 	if (table->stack_mc_count >= 0) {
+ 		for (i = 0; i < table->stack_mc_count; i++) {
+-			efx_filter_init_rx(&spec, EFX_FILTER_PRI_REQUIRED,
+-					   EFX_FILTER_FLAG_RX_RSS |
+-					   EFX_FILTER_FLAG_RX_STACK,
++			efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO,
++					   EFX_FILTER_FLAG_RX_RSS,
+ 					   0);
+ 			efx_filter_set_eth_local(&spec, EFX_FILTER_VID_UNSPEC,
+ 						 table->stack_mc_list[i].addr);
+@@ -3166,7 +3179,7 @@ static void efx_ef10_filter_sync_rx_mode(struct efx_nic *efx)
+ 				/* Fall back to multicast-promisc */
+ 				while (i--)
+ 					efx_ef10_filter_remove_safe(
+-						efx, EFX_FILTER_PRI_REQUIRED,
++						efx, EFX_FILTER_PRI_AUTO,
+ 						table->stack_mc_list[i].id);
+ 				table->stack_mc_count = -1;
+ 				break;
+@@ -3175,9 +3188,8 @@ static void efx_ef10_filter_sync_rx_mode(struct efx_nic *efx)
+ 		}
+ 	}
+ 	if (table->stack_mc_count < 0) {
+-		efx_filter_init_rx(&spec, EFX_FILTER_PRI_REQUIRED,
+-				   EFX_FILTER_FLAG_RX_RSS |
+-				   EFX_FILTER_FLAG_RX_STACK,
++		efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO,
++				   EFX_FILTER_FLAG_RX_RSS,
+ 				   0);
+ 		efx_filter_set_mc_def(&spec);
+ 		rc = efx_ef10_filter_insert(efx, &spec, true);
+@@ -3197,9 +3209,8 @@ static void efx_ef10_filter_sync_rx_mode(struct efx_nic *efx)
+ 	for (i = 0; i < HUNT_FILTER_TBL_ROWS; i++) {
+ 		if (ACCESS_ONCE(table->entry[i].spec) &
+ 		    EFX_EF10_FILTER_FLAG_STACK_OLD) {
+-			if (efx_ef10_filter_remove_internal(efx,
+-					EFX_FILTER_PRI_REQUIRED,
+-					i, true) < 0)
++			if (efx_ef10_filter_remove_internal(
++				    efx, EFX_FILTER_PRI_AUTO, i, true) < 0)
+ 				remove_failed = true;
+ 		}
+ 	}
+diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
+index a653786fbbe7..3a67030c73ea 100644
+--- a/drivers/net/ethernet/sfc/efx.h
++++ b/drivers/net/ethernet/sfc/efx.h
+@@ -138,6 +138,9 @@ efx_filter_get_filter_safe(struct efx_nic *efx,
+  * efx_farch_filter_clear_rx - remove RX filters by priority
+  * @efx: NIC from which to remove the filters
+  * @priority: Maximum priority to remove
 + *
-+ **************************************************************************
-+ */
-+
-+static void falcon_b0_rx_push_rss_config(struct efx_nic *efx)
-+{
-+	efx_oword_t temp;
-+
-+	/* Set hash key for IPv4 */
-+	memcpy(&temp, efx->rx_hash_key, sizeof(temp));
-+	efx_writeo(efx, &temp, FR_BZ_RX_RSS_TKEY);
-+
-+	efx_farch_rx_push_indir_table(efx);
-+}
-+
-+/**************************************************************************
-+ *
-  * EEPROM/flash
-  *
-  **************************************************************************
-@@ -2484,9 +2502,7 @@ static int falcon_init_nic(struct efx_nic *efx)
- 	falcon_init_rx_cfg(efx);
- 
- 	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0) {
--		/* Set hash key for IPv4 */
--		memcpy(&temp, efx->rx_hash_key, sizeof(temp));
--		efx_writeo(efx, &temp, FR_BZ_RX_RSS_TKEY);
-+		falcon_b0_rx_push_rss_config(efx);
- 
- 		/* Set destination of both TX and RX Flush events */
- 		EFX_POPULATE_OWORD_1(temp, FRF_BZ_FLS_EVQ_ID, 0);
-@@ -2703,7 +2719,7 @@ const struct efx_nic_type falcon_a1_nic_type = {
- 	.tx_init = efx_farch_tx_init,
- 	.tx_remove = efx_farch_tx_remove,
- 	.tx_write = efx_farch_tx_write,
--	.rx_push_indir_table = efx_farch_rx_push_indir_table,
-+	.rx_push_rss_config = efx_port_dummy_op_void,
- 	.rx_probe = efx_farch_rx_probe,
- 	.rx_init = efx_farch_rx_init,
- 	.rx_remove = efx_farch_rx_remove,
-@@ -2798,7 +2814,7 @@ const struct efx_nic_type falcon_b0_nic_type = {
- 	.tx_init = efx_farch_tx_init,
- 	.tx_remove = efx_farch_tx_remove,
- 	.tx_write = efx_farch_tx_write,
--	.rx_push_indir_table = efx_farch_rx_push_indir_table,
-+	.rx_push_rss_config = falcon_b0_rx_push_rss_config,
- 	.rx_probe = efx_farch_rx_probe,
- 	.rx_init = efx_farch_rx_init,
- 	.rx_remove = efx_farch_rx_remove,
++ * Remove all RX filters whose priority is less than or equal to the
++ * given @priority and is not %EFX_FILTER_PRI_AUTO.
+  */
+ static inline void efx_filter_clear_rx(struct efx_nic *efx,
+ 				       enum efx_filter_priority priority)
 diff --git a/drivers/net/ethernet/sfc/farch.c b/drivers/net/ethernet/sfc/farch.c
-index 984e85ee76f6..4c64ad7c9200 100644
+index 4c64ad7c9200..fbd923ddf546 100644
 --- a/drivers/net/ethernet/sfc/farch.c
 +++ b/drivers/net/ethernet/sfc/farch.c
-@@ -1618,8 +1618,7 @@ void efx_farch_rx_push_indir_table(struct efx_nic *efx)
- 	size_t i = 0;
- 	efx_dword_t dword;
- 
--	if (efx_nic_rev(efx) < EFX_REV_FALCON_B0)
--		return;
-+	BUG_ON(efx_nic_rev(efx) < EFX_REV_FALCON_B0);
- 
- 	BUILD_BUG_ON(ARRAY_SIZE(efx->rx_indir_table) !=
- 		     FR_BZ_RX_INDIRECTION_TBL_ROWS);
-@@ -1745,8 +1744,6 @@ void efx_farch_init_common(struct efx_nic *efx)
- 	EFX_INVERT_OWORD(temp);
- 	efx_writeo(efx, &temp, FR_AZ_FATAL_INTR_KER);
- 
--	efx_farch_rx_push_indir_table(efx);
--
- 	/* Disable the ugly timer-based TX DMA backoff and allow TX DMA to be
- 	 * controlled by the RX FIFO fill level. Set arbitration to one pkt/Q.
+@@ -2190,8 +2190,8 @@ efx_farch_filter_init_rx_for_stack(struct efx_nic *efx,
+ 	/* If there's only one channel then disable RSS for non VF
+ 	 * traffic, thereby allowing VFs to use RSS when the PF can't.
  	 */
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 653b8782c956..1b3c4e5207c5 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -1024,7 +1024,7 @@ struct efx_mtd_partition {
-  * @tx_init: Initialise TX queue on the NIC
-  * @tx_remove: Free resources for TX queue
-  * @tx_write: Write TX descriptors and doorbell
-- * @rx_push_indir_table: Write RSS indirection table to the NIC
-+ * @rx_push_rss_config: Write RSS hash key and indirection table to the NIC
-  * @rx_probe: Allocate resources for RX queue
-  * @rx_init: Initialise RX queue on the NIC
-  * @rx_remove: Free resources for RX queue
-@@ -1141,7 +1141,7 @@ struct efx_nic_type {
- 	void (*tx_init)(struct efx_tx_queue *tx_queue);
- 	void (*tx_remove)(struct efx_tx_queue *tx_queue);
- 	void (*tx_write)(struct efx_tx_queue *tx_queue);
--	void (*rx_push_indir_table)(struct efx_nic *efx);
-+	void (*rx_push_rss_config)(struct efx_nic *efx);
- 	int (*rx_probe)(struct efx_rx_queue *rx_queue);
- 	void (*rx_init)(struct efx_rx_queue *rx_queue);
- 	void (*rx_remove)(struct efx_rx_queue *rx_queue);
-diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
-index 5d9e2dc121f7..c665ff6c8012 100644
---- a/drivers/net/ethernet/sfc/nic.h
-+++ b/drivers/net/ethernet/sfc/nic.h
-@@ -762,10 +762,6 @@ int falcon_reset_xaui(struct efx_nic *efx);
- void efx_farch_dimension_resources(struct efx_nic *efx, unsigned sram_lim_qw);
- void efx_farch_init_common(struct efx_nic *efx);
- void efx_ef10_handle_drain_event(struct efx_nic *efx);
--static inline void efx_nic_push_rx_indir_table(struct efx_nic *efx)
--{
--	efx->type->rx_push_indir_table(efx);
--}
- void efx_farch_rx_push_indir_table(struct efx_nic *efx);
+-	spec->priority = EFX_FILTER_PRI_REQUIRED;
+-	spec->flags = (EFX_FILTER_FLAG_RX | EFX_FILTER_FLAG_RX_STACK |
++	spec->priority = EFX_FILTER_PRI_AUTO;
++	spec->flags = (EFX_FILTER_FLAG_RX |
+ 		       (efx->n_rx_channels > 1 ? EFX_FILTER_FLAG_RX_RSS : 0) |
+ 		       (efx->rx_scatter ? EFX_FILTER_FLAG_RX_SCATTER : 0));
+ 	spec->dmaq_id = 0;
+@@ -2456,20 +2456,13 @@ s32 efx_farch_filter_insert(struct efx_nic *efx,
+ 			rc = -EEXIST;
+ 			goto out;
+ 		}
+-		if (spec.priority < saved_spec->priority &&
+-		    !(saved_spec->priority == EFX_FILTER_PRI_REQUIRED &&
+-		      saved_spec->flags & EFX_FILTER_FLAG_RX_STACK)) {
++		if (spec.priority < saved_spec->priority) {
+ 			rc = -EPERM;
+ 			goto out;
+ 		}
+-		if (spec.flags & EFX_FILTER_FLAG_RX_STACK) {
+-			/* Just make sure it won't be removed */
+-			saved_spec->flags |= EFX_FILTER_FLAG_RX_STACK;
+-			rc = 0;
+-			goto out;
+-		}
+-		/* Retain the RX_STACK flag */
+-		spec.flags |= saved_spec->flags & EFX_FILTER_FLAG_RX_STACK;
++		if (saved_spec->priority == EFX_FILTER_PRI_AUTO ||
++		    saved_spec->flags & EFX_FILTER_FLAG_RX_OVER_AUTO)
++			spec.flags |= EFX_FILTER_FLAG_RX_OVER_AUTO;
+ 	}
  
- int efx_nic_alloc_buffer(struct efx_nic *efx, struct efx_buffer *buffer,
-diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
-index f65db356fe09..23f3a6f7737a 100644
---- a/drivers/net/ethernet/sfc/siena.c
-+++ b/drivers/net/ethernet/sfc/siena.c
-@@ -321,6 +321,31 @@ fail1:
- 	return rc;
+ 	/* Insert the filter */
+@@ -2553,7 +2546,7 @@ static int efx_farch_filter_remove(struct efx_nic *efx,
+ 	    spec->priority > priority)
+ 		return -ENOENT;
+ 
+-	if (spec->flags & EFX_FILTER_FLAG_RX_STACK) {
++	if (spec->flags & EFX_FILTER_FLAG_RX_OVER_AUTO) {
+ 		efx_farch_filter_init_rx_for_stack(efx, spec);
+ 		efx_farch_filter_push_rx_config(efx);
+ 	} else {
+@@ -2637,8 +2630,11 @@ efx_farch_filter_table_clear(struct efx_nic *efx,
+ 	unsigned int filter_idx;
+ 
+ 	spin_lock_bh(&efx->filter_lock);
+-	for (filter_idx = 0; filter_idx < table->size; ++filter_idx)
+-		efx_farch_filter_remove(efx, table, filter_idx, priority);
++	for (filter_idx = 0; filter_idx < table->size; ++filter_idx) {
++		if (table->spec[filter_idx].priority != EFX_FILTER_PRI_AUTO)
++			efx_farch_filter_remove(efx, table,
++						filter_idx, priority);
++	}
+ 	spin_unlock_bh(&efx->filter_lock);
  }
  
-+static void siena_rx_push_rss_config(struct efx_nic *efx)
-+{
-+	efx_oword_t temp;
-+
-+	/* Set hash key for IPv4 */
-+	memcpy(&temp, efx->rx_hash_key, sizeof(temp));
-+	efx_writeo(efx, &temp, FR_BZ_RX_RSS_TKEY);
-+
-+	/* Enable IPv6 RSS */
-+	BUILD_BUG_ON(sizeof(efx->rx_hash_key) <
-+		     2 * sizeof(temp) + FRF_CZ_RX_RSS_IPV6_TKEY_HI_WIDTH / 8 ||
-+		     FRF_CZ_RX_RSS_IPV6_TKEY_HI_LBN != 0);
-+	memcpy(&temp, efx->rx_hash_key, sizeof(temp));
-+	efx_writeo(efx, &temp, FR_CZ_RX_RSS_IPV6_REG1);
-+	memcpy(&temp, efx->rx_hash_key + sizeof(temp), sizeof(temp));
-+	efx_writeo(efx, &temp, FR_CZ_RX_RSS_IPV6_REG2);
-+	EFX_POPULATE_OWORD_2(temp, FRF_CZ_RX_RSS_IPV6_THASH_ENABLE, 1,
-+			     FRF_CZ_RX_RSS_IPV6_IP_THASH_ENABLE, 1);
-+	memcpy(&temp, efx->rx_hash_key + 2 * sizeof(temp),
-+	       FRF_CZ_RX_RSS_IPV6_TKEY_HI_WIDTH / 8);
-+	efx_writeo(efx, &temp, FR_CZ_RX_RSS_IPV6_REG3);
-+
-+	efx_farch_rx_push_indir_table(efx);
-+}
-+
- /* This call performs hardware-specific global initialisation, such as
-  * defining the descriptor cache sizes and number of RSS channels.
-  * It does not set up any buffers, descriptor rings or event queues.
-@@ -361,23 +386,7 @@ static int siena_init_nic(struct efx_nic *efx)
- 			    EFX_RX_USR_BUF_SIZE >> 5);
- 	efx_writeo(efx, &temp, FR_AZ_RX_CFG);
- 
--	/* Set hash key for IPv4 */
--	memcpy(&temp, efx->rx_hash_key, sizeof(temp));
--	efx_writeo(efx, &temp, FR_BZ_RX_RSS_TKEY);
--
--	/* Enable IPv6 RSS */
--	BUILD_BUG_ON(sizeof(efx->rx_hash_key) <
--		     2 * sizeof(temp) + FRF_CZ_RX_RSS_IPV6_TKEY_HI_WIDTH / 8 ||
--		     FRF_CZ_RX_RSS_IPV6_TKEY_HI_LBN != 0);
--	memcpy(&temp, efx->rx_hash_key, sizeof(temp));
--	efx_writeo(efx, &temp, FR_CZ_RX_RSS_IPV6_REG1);
--	memcpy(&temp, efx->rx_hash_key + sizeof(temp), sizeof(temp));
--	efx_writeo(efx, &temp, FR_CZ_RX_RSS_IPV6_REG2);
--	EFX_POPULATE_OWORD_2(temp, FRF_CZ_RX_RSS_IPV6_THASH_ENABLE, 1,
--			     FRF_CZ_RX_RSS_IPV6_IP_THASH_ENABLE, 1);
--	memcpy(&temp, efx->rx_hash_key + 2 * sizeof(temp),
--	       FRF_CZ_RX_RSS_IPV6_TKEY_HI_WIDTH / 8);
--	efx_writeo(efx, &temp, FR_CZ_RX_RSS_IPV6_REG3);
-+	siena_rx_push_rss_config(efx);
- 
- 	/* Enable event logging */
- 	rc = efx_mcdi_log_ctrl(efx, true, false, 0);
-@@ -940,7 +949,7 @@ const struct efx_nic_type siena_a0_nic_type = {
- 	.tx_init = efx_farch_tx_init,
- 	.tx_remove = efx_farch_tx_remove,
- 	.tx_write = efx_farch_tx_write,
--	.rx_push_indir_table = efx_farch_rx_push_indir_table,
-+	.rx_push_rss_config = siena_rx_push_rss_config,
- 	.rx_probe = efx_farch_rx_probe,
- 	.rx_init = efx_farch_rx_init,
- 	.rx_remove = efx_farch_rx_remove,
+diff --git a/drivers/net/ethernet/sfc/filter.h b/drivers/net/ethernet/sfc/filter.h
+index 63c77a557178..3ef298d3c47e 100644
+--- a/drivers/net/ethernet/sfc/filter.h
++++ b/drivers/net/ethernet/sfc/filter.h
+@@ -59,12 +59,16 @@ enum efx_filter_match_flags {
+ /**
+  * enum efx_filter_priority - priority of a hardware filter specification
+  * @EFX_FILTER_PRI_HINT: Performance hint
++ * @EFX_FILTER_PRI_AUTO: Automatic filter based on device address list
++ *	or hardware requirements.  This may only be used by the filter
++ *	implementation for each NIC type.
+  * @EFX_FILTER_PRI_MANUAL: Manually configured filter
+  * @EFX_FILTER_PRI_REQUIRED: Required for correct behaviour (user-level
+  *	networking and SR-IOV)
+  */
+ enum efx_filter_priority {
+ 	EFX_FILTER_PRI_HINT = 0,
++	EFX_FILTER_PRI_AUTO,
+ 	EFX_FILTER_PRI_MANUAL,
+ 	EFX_FILTER_PRI_REQUIRED,
+ };
+@@ -78,19 +82,18 @@ enum efx_filter_priority {
+  *	according to the indirection table.
+  * @EFX_FILTER_FLAG_RX_SCATTER: Enable DMA scatter on the receiving
+  *	queue.
+- * @EFX_FILTER_FLAG_RX_STACK: Indicates a filter inserted for the
+- *	network stack.  The filter must have a priority of
+- *	%EFX_FILTER_PRI_REQUIRED.  It can be steered by a replacement
+- *	request with priority %EFX_FILTER_PRI_MANUAL, and a removal
+- *	request with priority %EFX_FILTER_PRI_MANUAL will reset the
+- *	steering (but not remove the filter).
++ * @EFX_FILTER_FLAG_RX_OVER_AUTO: Indicates a filter that is
++ *	overriding an automatic filter (priority
++ *	%EFX_FILTER_PRI_AUTO).  This may only be set by the filter
++ *	implementation for each type.  A removal request will restore
++ *	the automatic filter in its place.
+  * @EFX_FILTER_FLAG_RX: Filter is for RX
+  * @EFX_FILTER_FLAG_TX: Filter is for TX
+  */
+ enum efx_filter_flags {
+ 	EFX_FILTER_FLAG_RX_RSS = 0x01,
+ 	EFX_FILTER_FLAG_RX_SCATTER = 0x02,
+-	EFX_FILTER_FLAG_RX_STACK = 0x04,
++	EFX_FILTER_FLAG_RX_OVER_AUTO = 0x04,
+ 	EFX_FILTER_FLAG_RX = 0x08,
+ 	EFX_FILTER_FLAG_TX = 0x10,
+ };
 
 
 -- 
