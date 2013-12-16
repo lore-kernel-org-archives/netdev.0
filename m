@@ -1,44 +1,45 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: Fw: [Bug 66691] New: iproute2: macvlan: Wrong root device shown
- if in different netns
-Date: Mon, 16 Dec 2013 14:41:57 +0400
-Message-ID: <52AED8F5.5030804@parallels.com>
-References: <20131206120543.0afaafb5@nehalam.linuxnetplumber.net> <CAGXE3d81W+QG0kO_7P+36YkyNsRNup+MGq-1NQE0TxKMtBiJ4g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>
-To: Helmut Schaa <helmut.schaa@googlemail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 1/2] bpf_dbg: always close socket in bpf_runnable
+Date: Mon, 16 Dec 2013 11:45:00 +0100
+Message-ID: <1387190701-1893-2-git-send-email-dborkman@redhat.com>
+References: <1387190701-1893-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.parallels.com ([195.214.232.42]:38300 "EHLO
-	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753622Ab3LPKmA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 05:42:00 -0500
-In-Reply-To: <CAGXE3d81W+QG0kO_7P+36YkyNsRNup+MGq-1NQE0TxKMtBiJ4g@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:5546 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752350Ab3LPKpK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Dec 2013 05:45:10 -0500
+In-Reply-To: <1387190701-1893-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/16/2013 02:38 PM, Helmut Schaa wrote:
-> On Fri, Dec 6, 2013 at 9:05 PM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
->> This isn't a iproute2 bug, it is only reporting what the kernel tells it
-> 
-> But iproute2 assumes that the ifindex is unique within all net
-> namespaces. This isn't true anymore
-> after commit aa79e66eee5d525e2fcbd2a5fcb87ae3dd4aa9e9 "net: Make
-> ifindex generation
-> per-net namespace".
-> 
-> However, in order to do the right thing iproute2 would have to know
-> the ifindex of the
-> link device _and_ its associated netns.
-> 
-> Not sure how to deal with that ...
+We must not leave the socket intact in bpf_runnable(). The socket
+is used to test if the filter code is being accepted by the kernel
+or not. So right after we do the setsockopt(2), we need to close
+it again.
 
-Helmut, what would you expect to see from "ip netns exec myns ip link"
-in case there were no device with ifindex 2 in the myns netns?
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ tools/net/bpf_dbg.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> Helmut
-> .
-> 
+diff --git a/tools/net/bpf_dbg.c b/tools/net/bpf_dbg.c
+index 0fdcb70..65dc757 100644
+--- a/tools/net/bpf_dbg.c
++++ b/tools/net/bpf_dbg.c
+@@ -512,11 +512,11 @@ static bool bpf_runnable(struct sock_filter *f, unsigned int len)
+ 		return false;
+ 	}
+ 	ret = setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof(bpf));
++	close(sock);
+ 	if (ret < 0) {
+ 		rl_printf("program not allowed to run by kernel!\n");
+ 		return false;
+ 	}
+-	close(sock);
+ 	for (i = 0; i < len; i++) {
+ 		if (BPF_CLASS(f[i].code) == BPF_LD &&
+ 		    f[i].k > SKF_AD_OFF) {
+-- 
+1.8.3.1
