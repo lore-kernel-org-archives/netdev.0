@@ -1,53 +1,71 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] ipv6: use interface mtu for determining if packet-too-big should be send
-Date: Mon, 16 Dec 2013 15:01:24 +0100
-Message-ID: <20131216140124.GA5164@order.stressinduktion.org>
-References: <20131216080914.GA28677@order.stressinduktion.org> <1387201782.19078.230.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH -next] xen-netback: fix some error return code
+Date: Mon, 16 Dec 2013 14:12:40 +0000
+Message-ID: <1387203160.21086.1.camel@kazak.uk.xensource.com>
+References: <CAPgLHd9aQQq-gLuNzGaYP2TSz=5Xk_GqgS=MSrAB7Tnn0nCydw@mail.gmail.com>
+	 <20131216131313.GE12582@zion.uk.xensource.com>
+	 <1387201238.10247.37.camel@kazak.uk.xensource.com>
+	 <CAPgLHd_yD=s0xKXop8T47hvxw2MZD9PHZ9tKKB+45Y5uOHNUVQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <wei.liu2@citrix.com>, <yongjun_wei@trendmicro.com.cn>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>
+To: Wei Yongjun <weiyj.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:59075 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753882Ab3LPOB0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 09:01:26 -0500
-Content-Disposition: inline
-In-Reply-To: <1387201782.19078.230.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:6247 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753554Ab3LPOMn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Dec 2013 09:12:43 -0500
+In-Reply-To: <CAPgLHd_yD=s0xKXop8T47hvxw2MZD9PHZ9tKKB+45Y5uOHNUVQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 16, 2013 at 05:49:42AM -0800, Eric Dumazet wrote:
-> On Mon, 2013-12-16 at 09:09 +0100, Hannes Frederic Sowa wrote:
-> > IPv6 forwarding path should also not depend on the path mtu values to
-> > judge if a packet should get dropped and an ICMP PTB should be returned.
-> > 
-> > For the accompanying change in IPv4, have a look at "ipv4: introduce
-> > ip_dst_mtu_secure and protect forwarding path against pmtu spoofing".
-> > 
+On Mon, 2013-12-16 at 21:57 +0800, Wei Yongjun wrote:
+> On 12/16/2013 09:40 PM, Ian Campbell wrote:
+> > On Mon, 2013-12-16 at 13:13 +0000, Wei Liu wrote:
+> >> On Mon, Dec 16, 2013 at 01:49:29PM +0800, Wei Yongjun wrote:
+> >>> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> >>>
+> >>> Fix to return -EPROTO error code instead of 0(overwrite by maybe_pull_tail())
+> >>> if skb_partial_csum_set() return false.
+> >>>
+> >>> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> >>> ---
+> >>>  drivers/net/xen-netback/netback.c | 16 ++++++++++++----
+> >>>  1 file changed, 12 insertions(+), 4 deletions(-)
+> >>>
+> >>> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> >>> index 800496b..b16daa7 100644
+> >>> --- a/drivers/net/xen-netback/netback.c
+> >>> +++ b/drivers/net/xen-netback/netback.c
+> >>> @@ -1108,8 +1108,10 @@ static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
+> >>>  			goto out;
+> >>>  
+> >>>  		if (!skb_partial_csum_set(skb, off,
+> >>> -					  offsetof(struct tcphdr, check)))
+> >>> +					  offsetof(struct tcphdr, check))) {
+> >>> +			err = -EPROTO;
+> >> Why is this needed? It is set to -EPROTO before the 'switch'.
+> > Agreed.
 > 
-> No commit sha1 (truncated to 12 digits) ?
+> As I said in the description, err is overwrited to 0 by the above
+> 'err = maybe_pull_tail(...)' call in the same 'case XXX'.
+> Refer to the source code:
 
-The patch is not yet committed.
+What tree/commit is this? Neither Linus', net or net-next look like this
+to me.
 
-> > I needed to move in6_dev_dev around to keep ip6_dst_mtu_secure as a static
-> > inline function in the header and to keep header dependencies happy.
-> > 
-> > For the IPv4 change, see patch "ipv4: introduce ip_dst_mtu_secure and
-> > protect forwarding path against pmtu spoofing".
 > 
-> Redundant sentence ?
-
-Hehe, I have no idea how that happend. :)
-
-> And no documentation for the new setting.
+> 1104                 err = maybe_pull_tail(skb,
+> 1105                                       off + sizeof(struct tcphdr),
+> 1106                                       MAX_IP_HDR_LEN);
+> 1107                 if (err < 0)
+> 1108                         goto out;
+> 1109 
+> 1110                 if (!skb_partial_csum_set(skb, off,
+> 1111                                           offsetof(struct tcphdr, check)))
+> 1112                         goto out;
 > 
-> git grep -n forward_use_pmtu Documentation
-
-The IPv4 patch introduces the documentation for the flag but is in the
-wrong section (IPv4). I'll send a v2 later today and will duplicate it
-for the IPv6 section.
-
-Thanks,
-
-  Hannes
+> 
+> 
