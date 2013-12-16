@@ -1,108 +1,45 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v2] sctp: loading sctp when load sctp_probe
-Date: Mon, 16 Dec 2013 08:48:14 -0500
-Message-ID: <20131216134814.GA19809@hmsreliant.think-freely.org>
-References: <52AA783A.7090502@huawei.com>
- <20131213122605.GA23384@hmsreliant.think-freely.org>
- <52AE69A4.7090806@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: use interface mtu for determining if
+ packet-too-big should be send
+Date: Mon, 16 Dec 2013 05:49:42 -0800
+Message-ID: <1387201782.19078.230.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20131216080914.GA28677@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Wang Weidong <wangweidong1@huawei.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:36946 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753752Ab3LPNsd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 08:48:33 -0500
-Content-Disposition: inline
-In-Reply-To: <52AE69A4.7090806@huawei.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:47066 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753752Ab3LPNtn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 08:49:43 -0500
+Received: by mail-pd0-f172.google.com with SMTP id g10so5372484pdj.3
+        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 05:49:43 -0800 (PST)
+In-Reply-To: <20131216080914.GA28677@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 16, 2013 at 10:47:00AM +0800, Wang Weidong wrote:
-> On 2013/12/13 20:26, Neil Horman wrote:
-> > On Fri, Dec 13, 2013 at 11:00:10AM +0800, Wang Weidong wrote:
-> >> when I modprobe sctp_probe, it failed with "FATAL: ". I found that
-> >> sctp should load before sctp_probe register jprobe. So I add a
-> >> sctp_setup_jprobe for loading 'sctp' when first failed to register
-> >> jprobe, just do this similar to dccp_probe.
-> >>
-> >> v2: add MODULE_SOFTDEP and check of request_module, as suggested by Neil
-> >>
-> >> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
-> >> ---
-> >>  net/sctp/probe.c | 17 ++++++++++++++++-
-> >>  1 file changed, 16 insertions(+), 1 deletion(-)
-> >>
-> >> diff --git a/net/sctp/probe.c b/net/sctp/probe.c
-> >> index 53c452e..5e68b94 100644
-> >> --- a/net/sctp/probe.c
-> >> +++ b/net/sctp/probe.c
-> >> @@ -38,6 +38,7 @@
-> >>  #include <net/sctp/sctp.h>
-> >>  #include <net/sctp/sm.h>
-> >>  
-> >> +MODULE_SOFTDEP("pre: sctp");
-> >>  MODULE_AUTHOR("Wei Yongjun <yjwei@cn.fujitsu.com>");
-> >>  MODULE_DESCRIPTION("SCTP snooper");
-> >>  MODULE_LICENSE("GPL");
-> >> @@ -182,6 +183,20 @@ static struct jprobe sctp_recv_probe = {
-> >>  	.entry	= jsctp_sf_eat_sack,
-> >>  };
-> >>  
-> >> +static __init int sctp_setup_jprobe(void)
-> >> +{
-> >> +	int ret = register_jprobe(&sctp_recv_probe);
-> >> +
-> >> +	if (ret) {
-> >> +		if (request_module("sctp"))
-> >> +			goto out;
-> >> +		ret = register_jprobe(&sctp_recv_probe);
-> >> +	}
-> >> +
-> >> +out:
-> >> +	return ret;
-> >> +}
-> >> +
-> >>  static __init int sctpprobe_init(void)
-> >>  {
-> >>  	int ret = -ENOMEM;
-> >> @@ -202,7 +217,7 @@ static __init int sctpprobe_init(void)
-> >>  			 &sctpprobe_fops))
-> >>  		goto free_kfifo;
-> >>  
-> >> -	ret = register_jprobe(&sctp_recv_probe);
-> >> +	ret = sctp_setup_jprobe();
-> > You don't need to create your own function for this, you can collapse it down to
-> > a call to try_then_request_module(regitser_jprobe(...), "sctp");
-> > Neil
-> > 
-> Hi Neil,
+On Mon, 2013-12-16 at 09:09 +0100, Hannes Frederic Sowa wrote:
+> IPv6 forwarding path should also not depend on the path mtu values to
+> judge if a packet should get dropped and an ICMP PTB should be returned.
 > 
-> I try to use try_then_request_module(!regitser_jprobe(...), "sctp"); I found that if
-> I used this, I couldn't get the ture value which returned by register_jprobe(). Is the
-> returned value not important? The problem("if sctp.ko doesn't exist") you had pointed out
-> is exist as well.
+> For the accompanying change in IPv4, have a look at "ipv4: introduce
+> ip_dst_mtu_secure and protect forwarding path against pmtu spoofing".
 > 
-> Regards.
-> Wang
 
-Not sure I follow.  There appear to be lots of examples in the kernel where
-exactly what you are trying to do is done.  try_then_request_module calls your
-requested method, and if it returns non-zero, calls request_module, then calls
-your requested method again, returning the final result.  What problem are you
-running into?
-Neil
+No commit sha1 (truncated to 12 digits) ?
 
-> > 
-> >>  	if (ret)
-> >>  		goto remove_proc;
-> >>  
-> > 
-> > .
-> > 
+> I needed to move in6_dev_dev around to keep ip6_dst_mtu_secure as a static
+> inline function in the header and to keep header dependencies happy.
 > 
-> 
-> 
+> For the IPv4 change, see patch "ipv4: introduce ip_dst_mtu_secure and
+> protect forwarding path against pmtu spoofing".
+
+Redundant sentence ?
+
+And no documentation for the new setting.
+
+git grep -n forward_use_pmtu Documentation
+
+Thanks
