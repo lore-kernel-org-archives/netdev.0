@@ -1,60 +1,39 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH net-next RFC 0/5] xen-netback: TX grant mapping instead
- of copy
-Date: Mon, 16 Dec 2013 10:14:27 +0000
-Message-ID: <1387188867.20076.46.camel@kazak.uk.xensource.com>
-References: <1383094220-14775-1-git-send-email-zoltan.kiss@citrix.com>
-			 <1383303035.672.29.camel@kazak.uk.xensource.com>
-			 <5273FA37.6020903@citrix.com>
-		 <1383821563.26213.168.camel@kazak.uk.xensource.com>
-		 <52977F5C.7090703@citrix.com>
-	 <1385660592.20209.27.camel@kazak.uk.xensource.com>
-	 <52AA33CF.6030004@citrix.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v3 2/3] packet: fill the gap of TPACKET_ALIGNMENT with zeros
+Date: Mon, 16 Dec 2013 10:16:48 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7491@saturn3.aculab.com>
+References: <87ob4h6wq1.wl%atzm@stratosphere.co.jp> <52AED170.9020604@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<jonathan.davies@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52AA33CF.6030004@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>,
+	"Stephen Hemminger" <stephen@networkplumber.org>,
+	"Ben Hutchings" <bhutchings@solarflare.com>,
+	"David Miller" <davem@davemloft.net>
+To: "Daniel Borkmann" <dborkman@redhat.com>,
+	"Atzm Watanabe" <atzm@stratosphere.co.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:51189 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752054Ab3LPKSJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 05:18:09 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 09963-10 for <netdev@vger.kernel.org>;
+ Mon, 16 Dec 2013 10:18:06 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <52AED170.9020604@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-12-12 at 22:08 +0000, Zoltan Kiss wrote:
-> On 28/11/13 17:43, Ian Campbell wrote:
-> > On Thu, 2013-11-28 at 17:37 +0000, Zoltan Kiss wrote:
-> > Routing/firewalling domUs is as valid as bridging. There is nothing in
-> > the slightest bit suboptimal about it.
-> >
-> > If this use case regresses with this approach then I'm afraid that
-> > either needs to be addressed or a different approach considered.
-> >
-> >> Anyway, I will try this out, and see if it really copies everything, and
-> >> get some numbers as well.
-> >
-> > Thanks.
-> 
-> Now I managed to try it out. As I expected, Dom0 does copy the mapped 
-> page. The peak throuhput I could get was 6.6 Gbps, however it could keep 
-> that only for short periods, I guess when the unmapping was ideally 
-> batched. The average was 5.53.
-> On the same machine the same 10 min iperf session, without my patches 
-> made the peak 5.9 while the average was 5.65. Do you think it is an 
-> acceptable regression?
+> > +		memset(h.h2->tp_padding, 0,
+> > +		       hdrlen - offsetof(struct tpacket2_hdr, tp_padding));
 
-Well, it would of course be preferable to avoid it. I'm quite reluctant
-to see this scenario become a second class citizen.
+What is wrong with 'sizeof h.h2->tp_padding' ?
+The compiler will probably inline the memset into a couple of word
+sized writes of zero - probably not measurable.
+Not zeroing them might be leaking kernel memory contents (depends
+where the memory came from - might just be stale packet data).
 
-> I used 3.12 Dom0 and guest kernel, the guest transmitted though a 10Gb 
-> card to a bare metal box.
-> I plan to look further if we can avoid somehow this:
-> 
-> https://lkml.org/lkml/2012/7/20/363
-> 
-> So then this scenario can benefit from grant mapping.
-> 
-> Regards,
-> 
-> Zoli
+	David
