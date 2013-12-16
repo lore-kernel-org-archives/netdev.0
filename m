@@ -1,88 +1,59 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 2/8] b44: rename B44_PHY_ADDR_NO_PHY to B44_PHY_ADDR_NO_LOCAL_PHY
-Date: Mon, 16 Dec 2013 10:40:35 -0800
-Message-ID: <CAGVrzcb0gZxpyiRNAi48u8MnCRzwBDO3HwpTPPWYkuMdQe5q_w@mail.gmail.com>
-References: <1387132925-18651-1-git-send-email-hauke@hauke-m.de> <1387132925-18651-3-git-send-email-hauke@hauke-m.de>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH 0/4] Make tcp-metrics source-address aware
+Date: Mon, 16 Dec 2013 10:45:13 -0800
+Message-ID: <CAK6E8=eeH=6daXoX9Dwe3Nj5LEhKBfL=-2FaLd=Jo7WM-q34qw@mail.gmail.com>
+References: <1387109444-1104-1-git-send-email-christoph.paasch@uclouvain.be> <1387132859.19078.207.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, zambrano@broadcom.com,
-	netdev <netdev@vger.kernel.org>
-To: Hauke Mehrtens <hauke@hauke-m.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Christoph Paasch <christoph.paasch@uclouvain.be>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Julian Anastasov <ja@ssi.bg>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:40145 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754640Ab3LPSlQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 13:41:16 -0500
-Received: by mail-pa0-f46.google.com with SMTP id kl14so3289905pab.5
-        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 10:41:16 -0800 (PST)
-In-Reply-To: <1387132925-18651-3-git-send-email-hauke@hauke-m.de>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:43082 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754728Ab3LPSp4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 13:45:56 -0500
+Received: by mail-ie0-f176.google.com with SMTP id at1so6963097iec.21
+        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 10:45:56 -0800 (PST)
+In-Reply-To: <1387132859.19078.207.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/12/15 Hauke Mehrtens <hauke@hauke-m.de>:
-> The PHY address 30 means there is no local PHY, but there could be an
-> external PHY like a switch connected via MII. This is the case on most
-> embedded home routers where this driver is used.
+On Sun, Dec 15, 2013 at 10:40 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Sun, 2013-12-15 at 13:10 +0100, Christoph Paasch wrote:
+>> Currently tcp-metrics only stores per-destination addresses. This brings
+>> problems, when a host has multiple interfaces (e.g., a smartphone having
+>> WiFi/3G):
+>>
+>> For example, a host contacting a server over WiFi will store the tcp-metrics
+>> per destination IP. If then the host contacts the same server over 3G, the
+>> same tcp-metrics will be used, although the path-characteristics are completly
+>> different (e.g., the ssthresh is probably not the same).
+>
+> ssthresh caching is very problematic anyway.
+>
+> hystart is way better to probe the actual capacity, as the real network
+> conditions change every seconds or so.
+>
+>>
+>> The same holds for the fast-open cookie. The server will generate a cookie
+>> based on our source-address. So, if we contact the same server with another
+>> source-IP we should request a new cookie.
+>
+> Yuchung, what do you think ? I think this should already be handled
+> gracefully, as client be behind a NAT device using a pool of external IP
+> addresses ?
+Right. Today the Fast Open attempt will fall back to regular TCP
+gracefully with the new cookie in SYN-ACK. So if the source ip changed
+when the public IP/nat remain the same (common case?), the proposed
+change will reduce Fast Open success rate. So it likely has negative
+impact only.
 
-Looking at this some more, I do not think the b44 driver was always
-clear that (at least in  Broadcom terminology):
-
-- address 0 is a "special" broadcast MDIO address to make Roboswitch
-devices act as standard PHYs such that you could read the MII_PHYSID1
-and MII_PHYSID2 registers and determine if that is a switch or a PHY
-- address 30 is the switch pseudo-PHY address through which all
-switch-specifc settings must be routed from/to
-
-So saying that address 30 means no "external PHY" is sort of correct,
-although not quite. Hopefully the remaining patches try to remove that
-ambiguity.
+This reminds me to add this specific issue in the fast open ietf draft.
 
 >
-> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
-> ---
->  drivers/net/ethernet/broadcom/b44.c |    2 +-
->  drivers/net/ethernet/broadcom/b44.h |    6 +++---
->  2 files changed, 4 insertions(+), 4 deletions(-)
+> Thanks Christoph !
 >
-> diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
-> index 3c7909e..fce36dd 100644
-> --- a/drivers/net/ethernet/broadcom/b44.c
-> +++ b/drivers/net/ethernet/broadcom/b44.c
-> @@ -2237,7 +2237,7 @@ static int b44_init_one(struct ssb_device *sdev,
 >
->         /* do a phy reset to test if there is an active phy */
->         if (b44_phy_reset(bp) < 0)
-> -               bp->phy_addr = B44_PHY_ADDR_NO_PHY;
-> +               bp->phy_addr = B44_PHY_ADDR_NO_LOACL_PHY;
->
->         netdev_info(dev, "%s %pM\n", DRV_DESCRIPTION, dev->dev_addr);
->
-> diff --git a/drivers/net/ethernet/broadcom/b44.h b/drivers/net/ethernet/broadcom/b44.h
-> index 8ed7d6b..ade80d6 100644
-> --- a/drivers/net/ethernet/broadcom/b44.h
-> +++ b/drivers/net/ethernet/broadcom/b44.h
-> @@ -280,9 +280,9 @@ struct ring_info {
->         dma_addr_t      mapping;
->  };
->
-> -#define B44_MCAST_TABLE_SIZE   32
-> -#define B44_PHY_ADDR_NO_PHY    30
-> -#define B44_MDC_RATIO          5000000
-> +#define B44_MCAST_TABLE_SIZE           32
-> +#define B44_PHY_ADDR_NO_LOACL_PHY      30 /* no local phy regs */
-> +#define B44_MDC_RATIO                  5000000
->
->  #define        B44_STAT_REG_DECLARE            \
->         _B44(tx_good_octets)            \
-> --
-> 1.7.10.4
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
-
--- 
-Florian
