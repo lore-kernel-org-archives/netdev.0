@@ -1,69 +1,36 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next v2 1/9] xen-netback: Introduce TX grant map definitions
-Date: Mon, 16 Dec 2013 15:21:40 +0000
-Message-ID: <52AF1A84.3090304@citrix.com>
-References: <1386892097-15502-1-git-send-email-zoltan.kiss@citrix.com> <1386892097-15502-2-git-send-email-zoltan.kiss@citrix.com> <20131213153138.GL21900@zion.uk.xensource.com> <52AB506E.3040509@citrix.com> <20131213191423.GA12582@zion.uk.xensource.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: NET 3.13.0-rc4 inconsistent lock state
+ (&(&sk->sk_dst_lock)->rlock){+.?...}, at: [<ffffffff818a89e4>]
+ __udp4_lib_rcv+0x9d4/0xa90
+Date: Mon, 16 Dec 2013 07:22:52 -0800
+Message-ID: <1387207372.19078.241.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <4810128955.20131216160609@eikelenboom.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<jonathan.davies@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131213191423.GA12582@zion.uk.xensource.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Paul Durrant <Paul.Durrant@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
+To: Sander Eikelenboom <linux@eikelenboom.it>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:50164 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754327Ab3LPPW4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 10:22:56 -0500
+Received: by mail-pa0-f43.google.com with SMTP id bj1so3079960pad.2
+        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 07:22:55 -0800 (PST)
+In-Reply-To: <4810128955.20131216160609@eikelenboom.it>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13/12/13 19:14, Wei Liu wrote:
->>>> +	spin_lock_irqsave(&vif->dealloc_lock, flags);
->>>> > >>+	do {
->>>> > >>+		pending_idx = ubuf->desc;
->>>> > >>+		ubuf = (struct ubuf_info *) ubuf->ctx;
->>>> > >>+		index = pending_index(vif->dealloc_prod);
->>>> > >>+		vif->dealloc_ring[index] = pending_idx;
->>>> > >>+		/* Sync with xenvif_tx_action_dealloc:
->>>> > >>+		 * insert idx then incr producer.
->>>> > >>+		 */
->>>> > >>+		smp_wmb();
->>>> > >>+		vif->dealloc_prod++;
->>>> > >>+	} while (ubuf);
->>>> > >>+	wake_up(&vif->dealloc_wq);
->>>> > >>+	spin_unlock_irqrestore(&vif->dealloc_lock, flags);
-> [...]
->>> > >
->>>> > >>+		smp_rmb();
->>>> > >>+
->>>> > >>+		while (dc != dp) {
->>>> > >>+			pending_idx =
->>>> > >>+				vif->dealloc_ring[pending_index(dc++)];
->>>> > >>+
->>>> > >>+			/* Already unmapped? */
->>>> > >>+			if (vif->grant_tx_handle[pending_idx] ==
->>>> > >>+				NETBACK_INVALID_HANDLE) {
->>>> > >>+				netdev_err(vif->dev,
->>>> > >>+					"Trying to unmap invalid handle! "
->>>> > >>+					"pending_idx: %x\n", pending_idx);
->>>> > >>+				continue;
->>>> > >>+			}
->>> > >
->>> > >Should this be BUG_ON? AIUI this kthread should be the only one doing
->>> > >unmap, right?
->> >The NAPI instance can do it as well if it is a small packet fits
->> >into PKT_PROT_LEN. But still this scenario shouldn't really happen,
->> >I was just not sure we have to crash immediately. Maybe handle it as
->> >a fatal error and destroy the vif?
->> >
-> It depends. If this is within the trust boundary, i.e. everything at the
-> stage should have been sanitized then we should BUG_ON because there's
-> clearly a bug somewhere in the sanitization process, or in the
-> interaction of various backend routines.
+On Mon, 2013-12-16 at 16:06 +0100, Sander Eikelenboom wrote:
+> On a Xen HVM guest i encountered this lock warning on boot, it looks like it's from the last net pull from Linus.
+> Not sure if it's the Xen-changes or the udp4 ones.
 
-My understanding is that crashing should be avoided if we can bail out 
-somehow. At this point there is clearly a bug in netback somewhere, 
-something unmapped that page before it should have happened, or at least 
-that array get corrupted somehow. However there is a chance that 
-xenvif_fatal_tx_err() can contain the issue, and the rest of the system 
-can go unaffected.
+This is the fourth report of this problem.
 
-Zoli
+http://patchwork.ozlabs.org/patch/301382/
+
+Thanks
