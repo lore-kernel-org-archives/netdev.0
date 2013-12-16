@@ -1,65 +1,75 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 1/4] tipc: remove unnecessary variables and conditions
-Date: Mon, 16 Dec 2013 13:33:18 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7496@saturn3.aculab.com>
-References: <1387197631-17240-1-git-send-email-wangweidong1@huawei.com> <1387197631-17240-2-git-send-email-wangweidong1@huawei.com>
+From: Qais Yousef <Qais.Yousef@imgtec.com>
+Subject: RE: [PATCH] net/sched/sch_tbf.c: fix linking error
+Date: Mon, 16 Dec 2013 13:34:57 +0000
+Message-ID: <392C4BDEFF12D14FA57A3F30B283D7D13C994E@LEMAIL01.le.imgtec.org>
+References: <1386851356-1395-1-git-send-email-qais.yousef@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: <erik.hugne@ericsson.com>, <maloy@donjonn.com>,
-	<netdev@vger.kernel.org>
-To: "Wang Weidong" <wangweidong1@huawei.com>, <jon.maloy@ericsson.com>,
-	<allan.stephens@windriver.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:41727 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754124Ab3LPNej convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 08:34:39 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 06420-03 for <netdev@vger.kernel.org>;
- Mon, 16 Dec 2013 13:34:37 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1387197631-17240-2-git-send-email-wangweidong1@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>
+To: Yang Yingliang <yangyingliang@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1386851356-1395-1-git-send-email-qais.yousef@imgtec.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: Wang Weidong
-> Sent: 16 December 2013 12:40
-> We remove a number of unnecessary variables and branches
-> in TIPC. This patch is cosmetic and does not change the
-> operation of TIPC in any way.
+Sorry for the noise. I'm not sure how this got sent out again. I definitely didn't type any git send-email commands at all today :-/
+
+Qais
+
+> -----Original Message-----
+> From: Qais Yousef [mailto:qais.yousef@imgtec.com]
+> Sent: 12 December 2013 12:29
+> To: Yang Yingliang
+> Cc: Qais Yousef; Eric Dumazet; Jamal Hadi Salim; David S. Miller;
+> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; linux-
+> next@vger.kernel.org
+> Subject: [PATCH] net/sched/sch_tbf.c: fix linking error
 > 
-...
->  int __tipc_disconnect(struct tipc_port *tp_ptr)
->  {
-> -	int res;
-> -
->  	if (tp_ptr->connected) {
->  		tp_ptr->connected = 0;
->  		/* let timer expire on it's own to avoid deadlock! */
->  		tipc_nodesub_unsubscribe(&tp_ptr->subscription);
-> -		res = 0;
-> -	} else {
-> -		res = -ENOTCONN;
-> +		return 0;
->  	}
-> -	return res;
-> +
-> +	return -ENOTCONN;
->  }
-
-IMHO better coded as:
-
-	if (!tp_ptr->connected)
-		return -ENOTCON;
-
-	tp_ptr->connected = 0;
-	/* let timer expire on it's own to avoid deadlock! */
-	tipc_nodesub_unsubscribe(&tp_ptr->subscription);
-	return 0;
-
-	David
-
-	
+> ERROR: "__udivdi3" [net/sched/sch_tbf.ko] undefined!
+> 
+> introduced by: cc106e441a63 (net: sched: tbf: fix the calculation of max_size)
+> 
+> which adds a 64 by 32 bit division without using do_div().
+> Fix it by using do_div(len/ 53) instead of len/53.
+> 
+> Signed-off-by: Qais Yousef <qais.yousef@imgtec.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> Cc: linux-next@vger.kernel.org
+> ---
+> We caught this error on linux-next today. This is my quick attemp of a fix.
+> If it's not appropriate or doesn't make sense my apologies and feel free to resend
+> a better fix :)
+> 
+>  net/sched/sch_tbf.c |    6 ++++--
+>  1 files changed, 4 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c index a44928c..771cbec
+> 100644
+> --- a/net/sched/sch_tbf.c
+> +++ b/net/sched/sch_tbf.c
+> @@ -131,8 +131,10 @@ static u64 psched_ns_t2l(const struct psched_ratecfg *r,
+> 
+>  	do_div(len, NSEC_PER_SEC);
+> 
+> -	if (unlikely(r->linklayer == TC_LINKLAYER_ATM))
+> -		len = (len / 53) * 48;
+> +	if (unlikely(r->linklayer == TC_LINKLAYER_ATM)) {
+> +		do_div(len, 53);
+> +		len *= 48;
+> +	}
+> 
+>  	if (len > r->overhead)
+>  		len -= r->overhead;
+> --
+> 1.7.1
