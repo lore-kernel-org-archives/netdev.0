@@ -1,35 +1,62 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v3 3/3] packet: Deliver VLAN TPID to userspace
-Date: Mon, 16 Dec 2013 09:25:09 -0800
-Message-ID: <20131216092509.1b3d76b3@nehalam.linuxnetplumber.net>
-References: <87mwk16wpy.wl%atzm@stratosphere.co.jp>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next v2 0/6] slight optimization of addr compare for
+ some modules
+Date: Mon, 16 Dec 2013 09:25:48 -0800
+Message-ID: <1387214748.18217.52.camel@joe-AO722>
+References: <52AEB8B3.5010405@huawei.com>
+	 <1387205111.18217.7.camel@joe-AO722> <52AF13F4.5040409@gmail.com>
+	 <1387207006.18217.28.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Ben Hutchings" <bhutchings@solarflare.com>,
-	"David Miller" <davem@davemloft.net>,
-	"Daniel Borkmann" <dborkman@redhat.com>,
-	"David Laight" <David.Laight@ACULAB.COM>
-To: Atzm Watanabe <atzm@stratosphere.co.jp>
+Cc: Ding Tianhong <dingtianhong@huawei.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dthxman@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:55264 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754862Ab3LPRZN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 12:25:13 -0500
-Received: by mail-pd0-f178.google.com with SMTP id y10so5599604pdj.37
-        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 09:25:13 -0800 (PST)
-In-Reply-To: <87mwk16wpy.wl%atzm@stratosphere.co.jp>
+Received: from smtprelay0060.hostedemail.com ([216.40.44.60]:53666 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754564Ab3LPRZv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 12:25:51 -0500
+In-Reply-To: <1387207006.18217.28.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 16 Dec 2013 17:12:09 +0900
-Atzm Watanabe <atzm@stratosphere.co.jp> wrote:
+Hi again Ding.
 
->  struct tpacket_hdr_variant1 {
->  	__u32	tp_rxhash;
->  	__u32	tp_vlan_tci;
-> +	__u32	tp_vlan_tpid;
->  };
+These should still be inspected for appropriate use of
+ether_addr_equal or ether_addr_equal_unaligned, but a
+better cocci input sp-file is:
 
-Is this safe? Won't you break ABI for existing userspace applications.
+$ cat ether_addr_equal_unaligned.cocci 
+@@
+expression e1;
+expression e2;
+@@
+
+-	!memcmp(e1, e2, \(6\|ETH_ALEN\))
++	ether_addr_equal_unaligned(e1, e2)
+
+@@
+expression e1;
+expression e2;
+@@
+
+-	memcmp(e1, e2, \(6\|ETH_ALEN\)) == 0
++	ether_addr_equal_unaligned(e1, e2)
+
+@@
+expression e1;
+expression e2;
+@@
+
+-	memcmp(e1, e2, \(6\|ETH_ALEN\))
++	!ether_addr_equal_unaligned(e1, e2)
+
+@@
+expression e1;
+expression e2;
+@@
+
+-	memcmp(e1, e2, \(6\|ETH_ALEN\)) != 0
++	!ether_addr_equal_unaligned(e1, e2)
