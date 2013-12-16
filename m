@@ -1,53 +1,69 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] SCTP: Reduce log spamming for sctp setsockopt
-Date: Mon, 16 Dec 2013 07:21:41 -0800
-Message-ID: <1387207301.18217.30.camel@joe-AO722>
-References: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
-	 <1387206233.18217.21.camel@joe-AO722> <52AF18B7.6050602@redhat.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v2 1/9] xen-netback: Introduce TX grant map definitions
+Date: Mon, 16 Dec 2013 15:21:40 +0000
+Message-ID: <52AF1A84.3090304@citrix.com>
+References: <1386892097-15502-1-git-send-email-zoltan.kiss@citrix.com> <1386892097-15502-2-git-send-email-zoltan.kiss@citrix.com> <20131213153138.GL21900@zion.uk.xensource.com> <52AB506E.3040509@citrix.com> <20131213191423.GA12582@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0001.hostedemail.com ([216.40.44.1]:49035 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754461Ab3LPPVo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 10:21:44 -0500
-In-Reply-To: <52AF18B7.6050602@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131213191423.GA12582@zion.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-12-16 at 16:13 +0100, Daniel Borkmann wrote:
-> On 12/16/2013 04:03 PM, Joe Perches wrote:
-> > On Mon, 2013-12-16 at 09:44 -0500, Neil Horman wrote:
-> >> During a recent discussion regarding some sctp socket options, it was noted that
-> >> we have several points at which we issue log warnings that can be flooded at an
-> >> unbounded rate by any user.  Fix this by converting all the pr_warns in the
-> >> sctp_setsockopt path to be pr_warn_ratelimited.
-> >
-> > trivial note:
+On 13/12/13 19:14, Wei Liu wrote:
+>>>> +	spin_lock_irqsave(&vif->dealloc_lock, flags);
+>>>> > >>+	do {
+>>>> > >>+		pending_idx = ubuf->desc;
+>>>> > >>+		ubuf = (struct ubuf_info *) ubuf->ctx;
+>>>> > >>+		index = pending_index(vif->dealloc_prod);
+>>>> > >>+		vif->dealloc_ring[index] = pending_idx;
+>>>> > >>+		/* Sync with xenvif_tx_action_dealloc:
+>>>> > >>+		 * insert idx then incr producer.
+>>>> > >>+		 */
+>>>> > >>+		smp_wmb();
+>>>> > >>+		vif->dealloc_prod++;
+>>>> > >>+	} while (ubuf);
+>>>> > >>+	wake_up(&vif->dealloc_wq);
+>>>> > >>+	spin_unlock_irqrestore(&vif->dealloc_lock, flags);
 > [...]
-> >> @@ -5311,8 +5311,8 @@ static int sctp_getsockopt_maxburst(struct sock *sk, int len,
-> > []
-> >> +		pr_warn_ratelimited("Use of int in max_burst socket option deprecated\n");
-> >> +		pr_warn_ratelimited("Use struct sctp_assoc_value instead\n");
-> >
-> > Perhaps a dedicated "deprecated" warning function
-> > to centralize these?
-> >
-> > void _sctp_warn_deprecated(const char *func, const char *from, const char *to);
-> > {
-> > 	etc.
-> > }
-> > #define sctp_warn_deprecated(from, to)		\
-> > 	_sctp_warn_deprecated(__func__, from, to)
-> 
-> If so, then this should better get even more "centralized" ... as e.g.
-> pr_warn_deprecated() [which internally is ratelimited]. I don't see the
-> point why only SCTP should have this special-cased.
+>>> > >
+>>>> > >>+		smp_rmb();
+>>>> > >>+
+>>>> > >>+		while (dc != dp) {
+>>>> > >>+			pending_idx =
+>>>> > >>+				vif->dealloc_ring[pending_index(dc++)];
+>>>> > >>+
+>>>> > >>+			/* Already unmapped? */
+>>>> > >>+			if (vif->grant_tx_handle[pending_idx] ==
+>>>> > >>+				NETBACK_INVALID_HANDLE) {
+>>>> > >>+				netdev_err(vif->dev,
+>>>> > >>+					"Trying to unmap invalid handle! "
+>>>> > >>+					"pending_idx: %x\n", pending_idx);
+>>>> > >>+				continue;
+>>>> > >>+			}
+>>> > >
+>>> > >Should this be BUG_ON? AIUI this kthread should be the only one doing
+>>> > >unmap, right?
+>> >The NAPI instance can do it as well if it is a small packet fits
+>> >into PKT_PROT_LEN. But still this scenario shouldn't really happen,
+>> >I was just not sure we have to crash immediately. Maybe handle it as
+>> >a fatal error and destroy the vif?
+>> >
+> It depends. If this is within the trust boundary, i.e. everything at the
+> stage should have been sanitized then we should BUG_ON because there's
+> clearly a bug somewhere in the sanitization process, or in the
+> interaction of various backend routines.
 
-Sure, if it's useful outside of sctp, but I didn't
-notice any other uses like it.
+My understanding is that crashing should be avoided if we can bail out 
+somehow. At this point there is clearly a bug in netback somewhere, 
+something unmapped that page before it should have happened, or at least 
+that array get corrupted somehow. However there is a chance that 
+xenvif_fatal_tx_err() can contain the issue, and the rest of the system 
+can go unaffected.
+
+Zoli
