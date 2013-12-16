@@ -1,83 +1,159 @@
-From: Stefan Raspl <raspl@linux.vnet.ibm.com>
-Subject: Re: [PATCH 0/2] Display adjacent switch port's attributes
-Date: Mon, 16 Dec 2013 16:32:15 +0100
-Message-ID: <52AF1CFF.7040004@linux.vnet.ibm.com>
-References: <1386768540-48188-1-git-send-email-raspl@linux.vnet.ibm.com> <20131211121357.4742d9e8@nehalam.linuxnetplumber.net> <52A9C0BE.5090801@linux.vnet.ibm.com> <20131212.122801.1249371766101769652.davem@davemloft.net> <52A9F7CD.5050904@intel.com> <CAGVrzcb47oUAn-5S=DpQkgPbMAwmBrfjUmfJroYiYX8mmRuORg@mail.gmail.com> <52AA2EF4.70300@intel.com>
-Reply-To: raspl@linux.vnet.ibm.com
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v2 2/9] xen-netback: Change TX path from grant
+ copy to mapping
+Date: Mon, 16 Dec 2013 15:38:05 +0000
+Message-ID: <52AF1E5D.20801@citrix.com>
+References: <1386892097-15502-1-git-send-email-zoltan.kiss@citrix.com> <1386892097-15502-3-git-send-email-zoltan.kiss@citrix.com> <20131213153612.GM21900@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	blaschka@linux.vnet.ibm.com, netdev <netdev@vger.kernel.org>,
-	linux-s390@vger.kernel.org
-To: John Fastabend <john.r.fastabend@intel.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp15.uk.ibm.com ([195.75.94.111]:38352 "EHLO
-	e06smtp15.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754489Ab3LPPcY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 10:32:24 -0500
-Received: from /spool/local
-	by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <raspl@linux.vnet.ibm.com>;
-	Mon, 16 Dec 2013 15:32:22 -0000
-In-Reply-To: <52AA2EF4.70300@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131213153612.GM21900@zion.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Am 12.12.2013 22:47, schrieb John Fastabend:
+On 13/12/13 15:36, Wei Liu wrote:
+> On Thu, Dec 12, 2013 at 11:48:10PM +0000, Zoltan Kiss wrote:
+>> This patch changes the grant copy on the TX patch to grant mapping
+>>
+>> v2:
+>> - delete branch for handling fragmented packets fit PKT_PROT_LINE sized first
+>                                                        ^ PKT_PROT_LEN
+>>    request
+>> - mark the effect of using ballooned pages in a comment
+>> - place setting of skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY right
+>>    before netif_receive_skb, and mark the importance of it
+>> - grab dealloc_lock before __napi_complete to avoid contention with the
+>>    callback's napi_schedule
+>> - handle fragmented packets where first request < PKT_PROT_LINE
+>                                                      ^ PKT_PROT_LEN
+Oh, some dyskleksia of mine, I will fix that :)
+
+>> - fix up error path when checksum_setup failed
+>> - check before teardown for pending grants, and start complain if they are
+>>    there after 10 second
+>>
+>> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+>> ---
 > [...]
-> 
->>> Just to elaborate...
->>>
->>> Any application using lldp information will want to get events when
->>> TLVs change. Maybe you can contrive ethtool to do this but its
->>> going to
->>> be ugly. Netlink can support multicast events and applications can
->>> register for them. Also netlink's TLV format matches nicely with
->>> LLDPs
->>> TLV format.
->>
->> ethtool and netlink usually intersect for a few bits of information
->> such as link status for instance. It is useful to have this
->> information twice, with ethtool as a debugging aid, and via
->> netlink to
->> take appropriate actions.
->>
->> Maybe we just need to be clear on what needs to be present in ethtool
->> only (configuration, static information) and see on a case-by-case
->> what needs to be present in both ethtool and netlink?
->>
-> 
-> OK if there is an enable/disable bit in ethtool that might make some
-> sense. Or an error flag that is helpful to have.
-> 
-> In this case we are dealing with peer attributes which are dynamic and
-> in my opinion should go into netlink and duplicating them in ethtool
-> although possible doesn't seem very useful to me.
+>>   void xenvif_free(struct xenvif *vif)
+>>   {
+>> +	int i, unmap_timeout = 0;
+>> +
+>> +	for (i = 0; i < MAX_PENDING_REQS; ++i) {
+>> +		if (vif->grant_tx_handle[i] != NETBACK_INVALID_HANDLE) {
+>> +			i = 0;
+>> +			unmap_timeout++;
+>> +			msleep(1000);
+>> +			if (unmap_timeout > 9 &&
+>> +				net_ratelimit())
+>> +				netdev_err(vif->dev,
+>> +					"Page still granted! Index: %x\n", i);
+>> +		}
+>> +	}
+>> +
+>> +	free_xenballooned_pages(MAX_PENDING_REQS, vif->mmap_pages);
+>> +
+>
+> If some pages are stuck and you just free them will it cause Dom0 to
+> crash? I mean, if those pages are recycled by other balloon page users.
+>
+> Even if it will not cause Dom0 to crash, will it leak any resource in
+> Dom0? At plain sight it looks like at least grant table entry is leaked,
+> isn't it? We need to be careful about this because a malicious might be
+> able to DoS Dom0 with resource leakage.
+Yes, if we call free_xenballooned_pages while something is still mapped, 
+Xen kills Dom0 because balloon driver tries to touch the PTE of a grant 
+mapped page. That's why we make sure before that everything is unmapped, 
+and repeat an error message if it's not. I'm afraid we can't do anything 
+better here, that means a serious netback bug.
+But a malicious guest cannot take advantage of this unless it's find a 
+way to screw up netback's internal bookkeeping. Then it can block here 
+indefinitely the teardown of the VIF, and it's associated resources.
 
-I think what most folks in the discussion so far assume is that we
-have a full LLDP implementation with respective hooks and events.
-This is not true for our device: We can only poll it for the
-adjacent link port's state, and that's it. I.e. we don't receive any
-events for changes on the port's state.
-lldpad seems to handle the entire LLDP layer in software. And I'm
-not sure if our device integrates with that so well, as it handles
-LLDP on its own. We'd have to disable pretty much all functionality
-that lldpad offers, and limit support to display of a few parameters
-which we would have to poll on demand.
-Likewise with netlink: If one of the arguments for netlink is that
-it supports notifications, then we can't take any advantage of that
-either, for the reasons stated above.
-By its nature, what we can offer and support with our device is
-simple debugging functionality, displaying the current state of the
-switch port at a given moment - just like ethtool will display the
-current port speed and media type. Hence the original idea to add
-respective functionality to ethtool in a generic manner, so others
-with similar constraints could use it as well.
-If ethtool is not acceptable, and if lldpad and netlink are no good
-fits either, would respective sysfs attributes for our device type work?
+>
+>>   	netif_napi_del(&vif->napi);
+>>
+>>   	unregister_netdev(vif->dev);
+>> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+>> index 3ddc474..20352be 100644
+>> --- a/drivers/net/xen-netback/netback.c
+>> +++ b/drivers/net/xen-netback/netback.c
+>> @@ -645,9 +645,12 @@ static void xenvif_tx_err(struct xenvif *vif,
+>>   			  struct xen_netif_tx_request *txp, RING_IDX end)
+>>   {
+>>   	RING_IDX cons = vif->tx.req_cons;
+>> +	unsigned long flags;
+>>
+>>   	do {
+>> +		spin_lock_irqsave(&vif->response_lock, flags);
+>>   		make_tx_response(vif, txp, XEN_NETIF_RSP_ERROR);
+>> +		spin_unlock_irqrestore(&vif->response_lock, flags);
+>
+> You only hold the lock for one function call is this intentional?
+Yes, make_tx_response can be called from xenvif_tx_err or 
+xenvif_idx_release, and they can be called from the NAPI instance and 
+the dealloc thread. (xenvif_tx_err only from NAPI)
 
-Stefan
+>
+>>   		netif_receive_skb(skb);
+>>   	}
+>>
+>> @@ -1711,7 +1677,7 @@ static inline void xenvif_tx_dealloc_action(struct xenvif *vif)
+>>   int xenvif_tx_action(struct xenvif *vif, int budget)
+>>   {
+>>   	unsigned nr_gops;
+>> -	int work_done;
+>> +	int work_done, ret;
+>>
+>>   	if (unlikely(!tx_work_todo(vif)))
+>>   		return 0;
+>> @@ -1721,7 +1687,13 @@ int xenvif_tx_action(struct xenvif *vif, int budget)
+>>   	if (nr_gops == 0)
+>>   		return 0;
+>>
+>> -	gnttab_batch_copy(vif->tx_copy_ops, nr_gops);
+>> +	if (nr_gops) {
+>
+> Surely you can remove this "if". At this point nr_gops cannot be zero --
+> see two lines above.
+
+>>   void xenvif_idx_unmap(struct xenvif *vif, u16 pending_idx)
+>>   {
+>>   	int ret;
+>> +	struct gnttab_unmap_grant_ref tx_unmap_op;
+>> +
+>>   	if (vif->grant_tx_handle[pending_idx] == NETBACK_INVALID_HANDLE) {
+>>   		netdev_err(vif->dev,
+>>   				"Trying to unmap invalid handle! pending_idx: %x\n",
+>>   				pending_idx);
+>>   		return;
+>>   	}
+>> -	gnttab_set_unmap_op(&vif->tx_unmap_ops[0],
+>> +	gnttab_set_unmap_op(&tx_unmap_op,
+>>   			idx_to_kaddr(vif, pending_idx),
+>>   			GNTMAP_host_map,
+>>   			vif->grant_tx_handle[pending_idx]);
+>> -	ret = gnttab_unmap_refs(vif->tx_unmap_ops,
+>> +	ret = gnttab_unmap_refs(&tx_unmap_op,
+>>   			NULL,
+>>   			&vif->mmap_pages[pending_idx],
+>>   			1);
+>
+> This change should be squashed to patch 1. Or as I suggested the changes
+> in patch 1 should be moved here.
+>
+>> @@ -1845,7 +1793,6 @@ static inline int rx_work_todo(struct xenvif *vif)
+>>
+>>   static inline int tx_work_todo(struct xenvif *vif)
+>>   {
+>> -
+>
+> Stray blank line change.
+Agreed on previous 3 comments, I will apply them.
+
+Zoli
