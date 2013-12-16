@@ -1,95 +1,37 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [PATCH net-next v4 3/8] net_sched: mirred: remove action when the target device is gone
-Date: Sun, 15 Dec 2013 20:15:06 -0800
-Message-ID: <1387167311-14763-4-git-send-email-xiyou.wangcong@gmail.com>
-References: <1387167311-14763-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net-ipv6: Fix alleged compiler warning in
+ ipv6_exthdrs_len()
+Date: Mon, 16 Dec 2013 00:27:09 -0500 (EST)
+Message-ID: <20131216.002709.2053125006947324246.davem@davemloft.net>
+References: <1387162087-5072-1-git-send-email-hkchu@google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
+To: hkchu@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:61193 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752453Ab3LPEP1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 23:15:27 -0500
-Received: by mail-pb0-f45.google.com with SMTP id rp16so4925290pbb.32
-        for <netdev@vger.kernel.org>; Sun, 15 Dec 2013 20:15:27 -0800 (PST)
-In-Reply-To: <1387167311-14763-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33896 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750866Ab3LPF1M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 00:27:12 -0500
+In-Reply-To: <1387162087-5072-1-git-send-email-hkchu@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the target device is removed, the mirred action is
-still there but with the dev pointer setting to NULL.
-This makes the output from 'tc filter' ugly. There is no
-reason to keep it.
-
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- include/net/tc_act/tc_mirred.h |  4 +++-
- net/sched/act_mirred.c         | 15 +++++++--------
- 2 files changed, 10 insertions(+), 9 deletions(-)
-
-diff --git a/include/net/tc_act/tc_mirred.h b/include/net/tc_act/tc_mirred.h
-index cfe2943..2026cf6 100644
---- a/include/net/tc_act/tc_mirred.h
-+++ b/include/net/tc_act/tc_mirred.h
-@@ -7,9 +7,11 @@ struct tcf_mirred {
- 	struct tcf_common	common;
- 	int			tcfm_eaction;
- 	int			tcfm_ifindex;
--	int			tcfm_ok_push;
-+	unsigned int		tcfm_ok_push:1;
-+	unsigned int		tcfm_bind:1;
- 	struct net_device	*tcfm_dev;
- 	struct list_head	tcfm_list;
-+	struct tc_action	*tcfm_act;
- };
- #define to_mirred(pc) \
- 	container_of(pc, struct tcf_mirred, common)
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index 2523781..c26bfe5 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -136,6 +136,8 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
- 		dev_hold(dev);
- 		m->tcfm_dev = dev;
- 		m->tcfm_ok_push = ok_push;
-+		m->tcfm_bind = bind;
-+		m->tcfm_act = a;
- 	}
- 	spin_unlock_bh(&m->tcf_lock);
- 	if (ret == ACT_P_CREATED) {
-@@ -169,10 +171,6 @@ static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
- 	bstats_update(&m->tcf_bstats, skb);
- 
- 	dev = m->tcfm_dev;
--	if (!dev) {
--		printk_once(KERN_NOTICE "tc mirred: target device is gone\n");
--		goto out;
--	}
- 
- 	if (!(dev->flags & IFF_UP)) {
- 		net_notice_ratelimited("tc mirred to Houston: device %s is down\n",
-@@ -244,13 +242,14 @@ static int mirred_device_event(struct notifier_block *unused,
- 			       unsigned long event, void *ptr)
- {
- 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
--	struct tcf_mirred *m;
-+	struct tcf_mirred *m, *tmp;
- 
- 	if (event == NETDEV_UNREGISTER)
--		list_for_each_entry(m, &mirred_list, tcfm_list) {
-+		list_for_each_entry_safe(m, tmp, &mirred_list, tcfm_list) {
- 			if (m->tcfm_dev == dev) {
--				dev_put(dev);
--				m->tcfm_dev = NULL;
-+				list_del(&m->tcfm_act->list);
-+				tcf_mirred_cleanup(m->tcfm_act, m->tcfm_bind);
-+				kfree(m->tcfm_act);
- 			}
- 		}
- 
--- 
-1.8.1.4
+RnJvbTogIkguSy4gSmVycnkgQ2h1IiA8aGtjaHVAZ29vZ2xlLmNvbT4NCkRhdGU6IFN1biwgMTUg
+RGVjIDIwMTMgMTg6NDg6MDcgLTA4MDANCg0KPiBGcm9tOiBKZXJyeSBDaHUgPGhrY2h1QGdvb2ds
+ZS5jb20+DQo+IA0KPiBJdCB3YXMgcmVwb3J0ZWQgdGhhdCBDb21taXQgMjk5NjAzZTgzNzBhOTNk
+ZDVkOGU4ZDgwMGYwZGZmMWNlMmM1M2QzNg0KPiAoIm5ldC1ncm86IFByZXBhcmUgR1JPIHN0YWNr
+IGZvciB0aGUgdXBjb21pbmcgdHVubmVsaW5nIHN1cHBvcnQiKQ0KPiB0cmlnZ2VyZWQgYSBjb21w
+aWxlciB3YXJuaW5nIGluIGlwdjZfZXh0aGRyc19sZW4oKToNCj4gDQo+IG5ldC9pcHY2L2lwNl9v
+ZmZsb2FkLmM6IEluIGZ1bmN0aW9uIKFpcHY2X2dyb19jb21wbGV0ZaI6DQo+IG5ldC9pcHY2L2lw
+Nl9vZmZsb2FkLmM6MTc4OjI0OiB3YXJuaW5nOiChb3B0bGVuoiBtYXkgYmUgdXNlZCB1bmluaXRp
+YWxpemVkIGluIHRoaXMgZnVuY3Rpb24gWy1XbWF5YmUtdQ0KPiAgICAgb3B0aCA9ICh2b2lkICop
+b3B0aCArIG9wdGxlbjsNCj4gICAgIAkJCV4NCj4gICAgIG5ldC9pcHY2L2lwNl9vZmZsb2FkLmM6
+MTY0OjIyOiBub3RlOiChb3B0bGVuoiB3YXMgZGVjbGFyZWQgaGVyZQ0KPiAgICAgaW50IGxlbiA9
+IDAsIHByb3RvLCBvcHRsZW47DQo+ICAgICAgICAgICAgICAgICAgICAgICAgIF4NCj4gTm90ZSB0
+aGF0IHRoZXJlIHdhcyBubyByZWFsIGJ1ZyBoZXJlIC0gb3B0bGVuIHdhcyBuZXZlciB1bmluaXRp
+YWxpemVkDQo+IGJlZm9yZSB1c2UuIChXYXMgdGhlIHZlcnNpb24gb2YgZ2NjIEkgdXNlZCBzbWFy
+dGVyIHRvIG5vdCBjb21wbGFpbj8pDQo+IA0KPiBSZXBvcnRlZC1ieTogSGFubmVzIEZyZWRlcmlj
+IFNvd2EgPGhhbm5lc0BzdHJlc3NpbmR1a3Rpb24ub3JnPg0KPiBTaWduZWQtb2ZmLWJ5OiBILksu
+IEplcnJ5IENodSA8aGtjaHVAZ29vZ2xlLmNvbT4NCg0KQXBwbGllZCwgdGhhbmsgeW91Lg0K
