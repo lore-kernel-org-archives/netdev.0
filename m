@@ -1,7 +1,7 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 5/10]  tcp: make local functions static
-Date: Mon, 16 Dec 2013 10:40:37 -0800
-Message-ID: <20131216104037.314a429b@nehalam.linuxnetplumber.net>
+Subject: [PATCH net-next 7/10] ipv6: make icmpv6_route_lookup static
+Date: Mon, 16 Dec 2013 10:43:34 -0800
+Message-ID: <20131216104334.1b143a90@nehalam.linuxnetplumber.net>
 References: <20131216103606.62524131@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -9,57 +9,63 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:36215 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755541Ab3LPTk2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 14:40:28 -0500
-Received: by mail-pd0-f170.google.com with SMTP id g10so5802053pdj.1
-        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 11:40:27 -0800 (PST)
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:65030 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755547Ab3LPTkc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 14:40:32 -0500
+Received: by mail-pb0-f45.google.com with SMTP id rp16so5919538pbb.4
+        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 11:40:31 -0800 (PST)
 In-Reply-To: <20131216103606.62524131@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Template table and icmpv6_route_lookup only used in net/ipv6/icmp.c
+
 
 Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
---- a/include/net/tcp.h	2013-12-12 12:59:44.620705224 -0800
-+++ b/include/net/tcp.h	2013-12-12 13:01:33.463099974 -0800
-@@ -468,7 +468,6 @@ struct sk_buff *tcp_make_synack(struct s
- 				struct tcp_fastopen_cookie *foc);
- int tcp_disconnect(struct sock *sk, int flags);
+
+--- a/include/net/ipv6.h	2013-12-12 08:46:52.532025877 -0800
++++ b/include/net/ipv6.h	2013-12-12 13:15:14.659040460 -0800
+@@ -267,9 +267,6 @@ void icmpv6_notify(struct sk_buff *skb,
+ int icmpv6_push_pending_frames(struct sock *sk, struct flowi6 *fl6,
+ 			       struct icmp6hdr *thdr, int len);
  
--void tcp_connect_init(struct sock *sk);
- void tcp_finish_connect(struct sock *sk, struct sk_buff *skb);
- int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t size);
- void inet_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb);
-@@ -623,8 +622,6 @@ static inline u32 __tcp_set_rto(const st
- 	return (tp->srtt >> 3) + tp->rttvar;
- }
- 
--void tcp_set_rto(struct sock *sk);
+-struct dst_entry *icmpv6_route_lookup(struct net *net, struct sk_buff *skb,
+-				      struct sock *sk, struct flowi6 *fl6);
 -
- static inline void __tcp_fast_path_on(struct tcp_sock *tp, u32 snd_wnd)
- {
- 	tp->pred_flags = htonl((tp->tcp_header_len << 26) |
---- a/net/ipv4/tcp_input.c	2013-12-12 12:59:44.620705224 -0800
-+++ b/net/ipv4/tcp_input.c	2013-12-12 13:01:24.807227669 -0800
-@@ -766,7 +766,7 @@ static void tcp_update_pacing_rate(struc
- /* Calculate rto without backoff.  This is the second half of Van Jacobson's
-  * routine referred to above.
-  */
--void tcp_set_rto(struct sock *sk)
-+static void tcp_set_rto(struct sock *sk)
- {
- 	const struct tcp_sock *tp = tcp_sk(sk);
- 	/* Old crap is replaced with new one. 8)
---- a/net/ipv4/tcp_output.c	2013-12-12 12:59:44.576705873 -0800
-+++ b/net/ipv4/tcp_output.c	2013-12-12 13:01:33.463099974 -0800
-@@ -2762,7 +2762,7 @@ struct sk_buff *tcp_make_synack(struct s
- EXPORT_SYMBOL(tcp_make_synack);
+ int ip6_ra_control(struct sock *sk, int sel);
  
- /* Do all connect socket setups that can be done AF independent. */
--void tcp_connect_init(struct sock *sk)
-+static void tcp_connect_init(struct sock *sk)
+ int ipv6_parse_hopopts(struct sk_buff *skb);
+@@ -841,7 +838,6 @@ static inline int snmp6_unregister_dev(s
+ 
+ #ifdef CONFIG_SYSCTL
+ extern struct ctl_table ipv6_route_table_template[];
+-extern struct ctl_table ipv6_icmp_table_template[];
+ 
+ struct ctl_table *ipv6_icmp_sysctl_init(struct net *net);
+ struct ctl_table *ipv6_route_sysctl_init(struct net *net);
+--- a/net/ipv6/icmp.c	2013-10-06 14:48:24.978449730 -0700
++++ b/net/ipv6/icmp.c	2013-12-12 13:15:22.154931148 -0800
+@@ -315,8 +315,10 @@ static void mip6_addr_swap(struct sk_buf
+ static inline void mip6_addr_swap(struct sk_buff *skb) {}
+ #endif
+ 
+-struct dst_entry *icmpv6_route_lookup(struct net *net, struct sk_buff *skb,
+-				      struct sock *sk, struct flowi6 *fl6)
++static struct dst_entry *icmpv6_route_lookup(struct net *net,
++					     struct sk_buff *skb,
++					     struct sock *sk,
++					     struct flowi6 *fl6)
  {
- 	const struct dst_entry *dst = __sk_dst_get(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct dst_entry *dst, *dst2;
+ 	struct flowi6 fl2;
+@@ -984,7 +986,7 @@ int icmpv6_err_convert(u8 type, u8 code,
+ EXPORT_SYMBOL(icmpv6_err_convert);
+ 
+ #ifdef CONFIG_SYSCTL
+-struct ctl_table ipv6_icmp_table_template[] = {
++static struct ctl_table ipv6_icmp_table_template[] = {
+ 	{
+ 		.procname	= "ratelimit",
+ 		.data		= &init_net.ipv6.sysctl.icmpv6_time,
