@@ -1,80 +1,45 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net 1/9] cxgb4: Properly account for server filter entries
-Date: Mon, 16 Dec 2013 17:42:10 +0530
-Message-ID: <1387195938-3531-2-git-send-email-hariprasad@chelsio.com>
-References: <1387195938-3531-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
-	swise@opengridcomputing.com, leedom@chelsio.com,
-	santosh@chelsio.com, kumaras@chelsio.com, hariprasad@chelsio.com,
-	nirranjan@chelsio.com
-To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net-next] xfrm: Namespacify xfrm_policy_sk_bundles
+Date: Mon, 16 Dec 2013 13:23:25 +0100
+Message-ID: <20131216122325.GI31491@secunet.com>
+References: <1387189568-31769-1-git-send-email-fan.du@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:1677 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753900Ab3LPMTw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 07:19:52 -0500
-In-Reply-To: <1387195938-3531-1-git-send-email-hariprasad@chelsio.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:56314 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753963Ab3LPMXh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Dec 2013 07:23:37 -0500
+Content-Disposition: inline
+In-Reply-To: <1387189568-31769-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kumar Sanghvi <kumaras@chelsio.com>
+On Mon, Dec 16, 2013 at 06:26:08PM +0800, Fan Du wrote:
+> 
+> And also since xfrm_policy_sk_bundles is only used in xfrm_lookup and
+> __xfrm_garbage_collect, both in process context, no reason we should turn
+> BH off.
 
-When creating server filters via LE-Workaround path, properly track
-the server filter entries, and don't confuse them with regular
-server entries.
+Are you sure about that?
 
-Based on original work by Hariprasad Shenai <hariprasad@chelsio.com>
+__xfrm_garbage_collect() is called via dst_alloc() which can be called
+from softirq and process context.
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
-Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 7 ++++++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  | 1 +
- 2 files changed, 7 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index d6b12e0..f9f0505 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -3013,7 +3013,7 @@ int cxgb4_alloc_sftid(struct tid_info *t, int family, void *data)
- 	if (stid >= 0) {
- 		t->stid_tab[stid].data = data;
- 		stid += t->stid_base;
--		t->stids_in_use++;
-+		t->sftids_in_use++;
- 	}
- 	spin_unlock_bh(&t->stid_lock);
- 	return stid;
-@@ -3032,6 +3032,10 @@ void cxgb4_free_stid(struct tid_info *t, unsigned int stid, int family)
- 		bitmap_release_region(t->stid_bmap, stid, 2);
- 	t->stid_tab[stid].data = NULL;
- 	t->stids_in_use--;
-+	if (stid < t->nstids)
-+		t->stids_in_use--;
-+	else
-+		t->sftids_in_use--;
- 	spin_unlock_bh(&t->stid_lock);
- }
- EXPORT_SYMBOL(cxgb4_free_stid);
-@@ -3156,6 +3160,7 @@ static int tid_init(struct tid_info *t)
- 	spin_lock_init(&t->atid_lock);
+> In addition we can use xchg to avoid the spinlock, inspired by
+> discussion in: http://marc.info/?l=linux-netdev&m=138713363113003&w=2
+> 
+> Signed-off-by: Fan Du <fan.du@windriver.com>
+> ---
+> Please note this patch is based on commit 283bc9f35bbbcb0e9ab4e6d2427da7f9f710d52d
+> ("xfrm: Namespacify xfrm state/policy locks"), which is still in ipsec-next tree.
+>
  
- 	t->stids_in_use = 0;
-+	t->sftids_in_use = 0;
- 	t->afree = NULL;
- 	t->atids_in_use = 0;
- 	atomic_set(&t->tids_in_use, 0);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index 6f21f24..795ab25 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -115,6 +115,7 @@ struct tid_info {
- 
- 	spinlock_t stid_lock;
- 	unsigned int stids_in_use;
-+	unsigned int sftids_in_use;
- 
- 	atomic_t tids_in_use;
- };
--- 
-1.8.0
+You could use
+
+Subject: [PATCH ipsec-next] xfrm: Namespacify xfrm_policy_sk_bundles
+
+then everybody should know on which tree it is based.
