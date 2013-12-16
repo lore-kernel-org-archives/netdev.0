@@ -1,65 +1,80 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: Fw: [Bug 66691] New: iproute2: macvlan: Wrong root device shown
- if in different netns
-Date: Mon, 16 Dec 2013 15:01:33 +0400
-Message-ID: <52AEDD8D.4040907@parallels.com>
-References: <20131206120543.0afaafb5@nehalam.linuxnetplumber.net> <CAGXE3d81W+QG0kO_7P+36YkyNsRNup+MGq-1NQE0TxKMtBiJ4g@mail.gmail.com> <52AED8F5.5030804@parallels.com> <CAGXE3d9hS4CBKTiKpn=_K3U6NPE+WzR4oFD1D3YtFb2NqzcxsA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>
-To: Helmut Schaa <helmut.schaa@googlemail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH next] tcp: use zero-window when free_space is low
+Date: Mon, 16 Dec 2013 12:15:57 +0100
+Message-ID: <1387192557-9816-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.parallels.com ([195.214.232.42]:41903 "EHLO
-	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753335Ab3LPLBh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 06:01:37 -0500
-In-Reply-To: <CAGXE3d9hS4CBKTiKpn=_K3U6NPE+WzR4oFD1D3YtFb2NqzcxsA@mail.gmail.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:47186 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752787Ab3LPLS4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 06:18:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/16/2013 02:47 PM, Helmut Schaa wrote:
-> On Mon, Dec 16, 2013 at 11:41 AM, Pavel Emelyanov <xemul@parallels.com> wrote:
->> On 12/16/2013 02:38 PM, Helmut Schaa wrote:
->>> On Fri, Dec 6, 2013 at 9:05 PM, Stephen Hemminger
->>> <stephen@networkplumber.org> wrote:
->>>> This isn't a iproute2 bug, it is only reporting what the kernel tells it
->>>
->>> But iproute2 assumes that the ifindex is unique within all net
->>> namespaces. This isn't true anymore
->>> after commit aa79e66eee5d525e2fcbd2a5fcb87ae3dd4aa9e9 "net: Make
->>> ifindex generation
->>> per-net namespace".
->>>
->>> However, in order to do the right thing iproute2 would have to know
->>> the ifindex of the
->>> link device _and_ its associated netns.
->>>
->>> Not sure how to deal with that ...
->>
->> Helmut, what would you expect to see from "ip netns exec myns ip link"
->> in case there were no device with ifindex 2 in the myns netns?
-> 
-> No idea, maybe something like "mac0@unknown" would be enough to express
-> that the link dev is not available within this netns.
+Currently the kernel tries to announce a zero window when free_space
+is below the current receiver mss estimate.
 
-Actually, I think the problem is deeper. For example, we have a veth device
-driver, the devices of that kind always exist in pairs, and one device typically
-sits in one namespaces, while the other device -- in another namespace.
+When a sender is transmitting small packets, the receiver might be
+unable to shrink the receive window, because
+a) we cannot withdraw already-commited receive window, and,
+b) we have to round the current rwin up to a multiple of the wscale factor,
+   else we would shrink the current window.
 
-Right now, given one veth device, there's no way to find out where its peer is.
-This creates certain difficulties for the checkpoint-restore project (CRIU)
-I'm working on.
+This causes the receive buffer to fill up until the rmem limit is hit.
+When this happens, we start dropping packets.
 
-Let me add Eric in a loop to ask for his thoughts about the issue.
+As we cannot avoid the "current_win is rounded up to multiple
+of mss" issue (we would violate a) above) at least try to prevent the receive
+buffer growth towards tcp_rmem[2] limit by attempting
+to move to zero-window announcement when free_space
+becomes less than 1/16 of the current allowed receive
+buffer maximum.  If tcp_rmem[2] is large, this will increase
+our chances to get a zero-window announcement out in time.
 
-> My point was that it is confusing to show a clearly wrong link device.
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ Unfortunately I couldn't come up with something that has
+ no magic ('allowed >> 4') value.  I chose >>4 because it didn't cause
+ tput limitations in my 'full-mss-sized, steady state' netcat tests.
 
-I totally agree.
+ net/ipv4/tcp_output.c | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
 
-> Helmut
-
-Thanks,
-Pavel
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 2a69f42..fd8d821 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2145,7 +2145,8 @@ u32 __tcp_select_window(struct sock *sk)
+ 	 */
+ 	int mss = icsk->icsk_ack.rcv_mss;
+ 	int free_space = tcp_space(sk);
+-	int full_space = min_t(int, tp->window_clamp, tcp_full_space(sk));
++	int allowed_space = tcp_full_space(sk);
++	int full_space = min_t(int, tp->window_clamp, allowed_space);
+ 	int window;
+ 
+ 	if (mss > full_space)
+@@ -2158,7 +2159,19 @@ u32 __tcp_select_window(struct sock *sk)
+ 			tp->rcv_ssthresh = min(tp->rcv_ssthresh,
+ 					       4U * tp->advmss);
+ 
+-		if (free_space < mss)
++		/* free_space might become our new window, make sure we don't
++		 * increase it due to wscale.
++		 */
++		free_space = round_down(free_space, 1 << tp->rx_opt.rcv_wscale);
++
++		/* if free space is less than mss estimate, or is below 1/16th
++		 * of the maximum allowed, try to move to zero-window, else
++		 * tcp_clamp_window() will grow rcv buf up to tcp_rmem[2], and
++		 * new incoming data is dropped due to memory limits.
++		 * With large window, mss test triggers way too late in order
++		 * to announce zero window in time before rmem limit kicks in.
++		 */
++		if (free_space < mss || free_space < (allowed_space >> 4))
+ 			return 0;
+ 	}
+ 
+-- 
+1.8.1.5
