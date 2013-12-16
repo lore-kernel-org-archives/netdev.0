@@ -1,121 +1,280 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC v2 13/13] vti4: Support inter address family tunneling.
-Date: Mon, 16 Dec 2013 10:28:03 +0100
-Message-ID: <20131216092803.GD31491@secunet.com>
-References: <20131216091835.GQ31491@secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christophe Gouault <christophe.gouault@6wind.com>,
-	Saurabh Mohan <saurabh.mohan@vyatta.com>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 07/12] i40e: reinit flow for the main VSI
+Date: Mon, 16 Dec 2013 01:38:53 -0800
+Message-ID: <1387186738-13666-8-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1387186738-13666-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:52092 "EHLO a.mx.secunet.com"
+Received: from mga02.intel.com ([134.134.136.20]:52866 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751858Ab3LPJ2H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Dec 2013 04:28:07 -0500
-Content-Disposition: inline
-In-Reply-To: <20131216091835.GQ31491@secunet.com>
+	id S1751624Ab3LPJjI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Dec 2013 04:39:08 -0500
+In-Reply-To: <1387186738-13666-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With this patch we can tunnel ipv6 traffic via a vti4
-interface. A vti4 interface can now have an ipv6 address
-and ipv6 traffic can be routed via a vti4 interface.
-The resulting traffic is xfrm transformed and tunneled
-throuhg ipv4 if matching IPsec policies and states are
-present.
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+This patch is the first in a 3 series patchset to implement
+dynamically changing the queue count for the main VSI.
+
+This patch starts by adding a reinit flow. This flow is designed
+to be able to change just the queue count and not the number of
+interrupt vectors that the device originally came up with.
+
+Change-Id: I0634aaebf7dc4dd6c66af8f9dbbef89d7beac438
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- net/ipv4/ip_vti.c |   48 ++++++++++++++++++++++++++++++++++--------------
- 1 file changed, 34 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 118 +++++++++++++++++++++++-----
+ 1 file changed, 97 insertions(+), 21 deletions(-)
 
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index f269310..8a2934c 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -34,6 +34,7 @@
- #include <linux/init.h>
- #include <linux/netfilter_ipv4.h>
- #include <linux/if_ether.h>
-+#include <linux/icmpv6.h>
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 1295adb..73110cd 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -48,7 +48,7 @@ static void i40e_vsi_reinit_locked(struct i40e_vsi *vsi);
+ static void i40e_handle_reset_warning(struct i40e_pf *pf);
+ static int i40e_add_vsi(struct i40e_vsi *vsi);
+ static int i40e_add_veb(struct i40e_veb *veb, struct i40e_vsi *vsi);
+-static int i40e_setup_pf_switch(struct i40e_pf *pf);
++static int i40e_setup_pf_switch(struct i40e_pf *pf, bool reinit);
+ static int i40e_setup_misc_vector(struct i40e_pf *pf);
+ static void i40e_determine_queue_usage(struct i40e_pf *pf);
+ static int i40e_setup_pf_filter_control(struct i40e_pf *pf);
+@@ -354,6 +354,9 @@ static struct rtnl_link_stats64 *i40e_get_netdev_stats_struct(
+ 	struct rtnl_link_stats64 *vsi_stats = i40e_get_vsi_stats_struct(vsi);
+ 	int i;
  
- #include <net/sock.h>
- #include <net/ip.h>
-@@ -110,26 +111,16 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
- 	return 0;
- }
- 
--/* This function assumes it is being called from dev_queue_xmit()
-- * and that skb is filled properly by that function.
-- */
--static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t vti_xmit(struct sk_buff *skb, struct net_device *dev,
-+			    struct flowi *fl)
++	if (test_bit(__I40E_DOWN, &vsi->state))
++		return stats;
++
+ 	rcu_read_lock();
+ 	for (i = 0; i < vsi->num_queue_pairs; i++) {
+ 		struct i40e_ring *tx_ring, *rx_ring;
+@@ -4767,8 +4770,9 @@ static int i40e_prep_for_reset(struct i40e_pf *pf)
+ /**
+  * i40e_reset_and_rebuild - reset and rebuid using a saved config
+  * @pf: board private structure
++ * @reinit: if the Main VSI needs to re-initialized.
+  **/
+-static void i40e_reset_and_rebuild(struct i40e_pf *pf)
++static void i40e_reset_and_rebuild(struct i40e_pf *pf, bool reinit)
  {
- 	struct ip_tunnel *tunnel = netdev_priv(dev);
- 	struct dst_entry *dst;
- 	struct net_device *tdev;	/* Device to other host */
--	struct flowi fl;
- 	int err;
- 
--	if (skb->protocol != htons(ETH_P_IP))
--		goto tx_error;
--
--	memset(&fl, 0, sizeof(fl));
--	skb->mark = be32_to_cpu(tunnel->parms.o_key);
--	xfrm_decode_session(skb, &fl, AF_INET);
--
- 	dst_hold(skb_dst(skb));
--	dst = xfrm_lookup(tunnel->net, skb_dst(skb), &fl, NULL, 0);
-+	dst = xfrm_lookup(tunnel->net, skb_dst(skb), fl, NULL, 0);
- 	if (IS_ERR(dst)) {
- 		dev->stats.tx_carrier_errors++;
- 		goto tx_error_icmp;
-@@ -161,7 +152,6 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 			tunnel->err_count = 0;
+ 	struct i40e_driver_version dv;
+ 	struct i40e_hw *hw = &pf->hw;
+@@ -4816,7 +4820,7 @@ static void i40e_reset_and_rebuild(struct i40e_pf *pf)
  	}
  
--	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
- 	skb_scrub_packet(skb, !net_eq(tunnel->net, dev_net(dev)));
- 	skb_dst_set(skb, dst);
- 	skb->dev = skb_dst(skb)->dev;
-@@ -180,6 +170,36 @@ tx_error:
- 	return NETDEV_TX_OK;
+ 	/* do basic switch setup */
+-	ret = i40e_setup_pf_switch(pf);
++	ret = i40e_setup_pf_switch(pf, reinit);
+ 	if (ret)
+ 		goto end_core_reset;
+ 
+@@ -4907,7 +4911,7 @@ static void i40e_handle_reset_warning(struct i40e_pf *pf)
+ 
+ 	ret = i40e_prep_for_reset(pf);
+ 	if (!ret)
+-		i40e_reset_and_rebuild(pf);
++		i40e_reset_and_rebuild(pf, false);
  }
  
-+/* This function assumes it is being called from dev_queue_xmit()
-+ * and that skb is filled properly by that function.
-+ */
-+static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct ip_tunnel *tunnel = netdev_priv(dev);
-+	struct flowi fl;
-+
-+	memset(&fl, 0, sizeof(fl));
-+
-+	skb->mark = be32_to_cpu(tunnel->parms.o_key);
-+
-+	switch (skb->protocol) {
-+	case htons(ETH_P_IP):
-+		xfrm_decode_session(skb, &fl, AF_INET);
-+		memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
-+		break;
-+	case htons(ETH_P_IPV6):
-+		xfrm_decode_session(skb, &fl, AF_INET6);
-+		memset(IP6CB(skb), 0, sizeof(*IP6CB(skb)));
-+		break;
-+	default:
-+		dev->stats.tx_errors++;
-+		dev_kfree_skb(skb);
-+		return NETDEV_TX_OK;
+ /**
+@@ -5088,11 +5092,12 @@ static int i40e_set_num_rings_in_vsi(struct i40e_vsi *vsi)
+ /**
+  * i40e_vsi_alloc_arrays - Allocate queue and vector pointer arrays for the vsi
+  * @type: VSI pointer
++ * @alloc_qvectors: a bool to specify if q_vectors need to be allocated.
+  *
+  * On error: returns error code (negative)
+  * On success: returns 0
+  **/
+-static int i40e_vsi_alloc_arrays(struct i40e_vsi *vsi)
++static int i40e_vsi_alloc_arrays(struct i40e_vsi *vsi, bool alloc_qvectors)
+ {
+ 	int size;
+ 	int ret = 0;
+@@ -5104,12 +5109,14 @@ static int i40e_vsi_alloc_arrays(struct i40e_vsi *vsi)
+ 		return -ENOMEM;
+ 	vsi->rx_rings = &vsi->tx_rings[vsi->alloc_queue_pairs];
+ 
+-	/* allocate memory for q_vector pointers */
+-	size = sizeof(struct i40e_q_vectors *) * vsi->num_q_vectors;
+-	vsi->q_vectors = kzalloc(size, GFP_KERNEL);
+-	if (!vsi->q_vectors) {
+-		ret = -ENOMEM;
+-		goto err_vectors;
++	if (alloc_qvectors) {
++		/* allocate memory for q_vector pointers */
++		size = sizeof(struct i40e_q_vectors *) * vsi->num_q_vectors;
++		vsi->q_vectors = kzalloc(size, GFP_KERNEL);
++		if (!vsi->q_vectors) {
++			ret = -ENOMEM;
++			goto err_vectors;
++		}
+ 	}
+ 	return ret;
+ 
+@@ -5179,7 +5186,7 @@ static int i40e_vsi_mem_alloc(struct i40e_pf *pf, enum i40e_vsi_type type)
+ 	if (ret)
+ 		goto err_rings;
+ 
+-	ret = i40e_vsi_alloc_arrays(vsi);
++	ret = i40e_vsi_alloc_arrays(vsi, true);
+ 	if (ret)
+ 		goto err_rings;
+ 
+@@ -5201,15 +5208,18 @@ unlock_pf:
+ /**
+  * i40e_vsi_free_arrays - Free queue and vector pointer arrays for the VSI
+  * @type: VSI pointer
++ * @free_qvectors: a bool to specify if q_vectors need to be freed.
+  *
+  * On error: returns error code (negative)
+  * On success: returns 0
+  **/
+-static void i40e_vsi_free_arrays(struct i40e_vsi *vsi)
++static void i40e_vsi_free_arrays(struct i40e_vsi *vsi, bool free_qvectors)
+ {
+ 	/* free the ring and vector containers */
+-	kfree(vsi->q_vectors);
+-	vsi->q_vectors = NULL;
++	if (free_qvectors) {
++		kfree(vsi->q_vectors);
++		vsi->q_vectors = NULL;
 +	}
+ 	kfree(vsi->tx_rings);
+ 	vsi->tx_rings = NULL;
+ 	vsi->rx_rings = NULL;
+@@ -5251,7 +5261,7 @@ static int i40e_vsi_clear(struct i40e_vsi *vsi)
+ 	i40e_put_lump(pf->qp_pile, vsi->base_queue, vsi->idx);
+ 	i40e_put_lump(pf->irq_pile, vsi->base_vector, vsi->idx);
+ 
+-	i40e_vsi_free_arrays(vsi);
++	i40e_vsi_free_arrays(vsi, true);
+ 
+ 	pf->vsi[vsi->idx] = NULL;
+ 	if (vsi->idx < pf->next_vsi)
+@@ -6263,6 +6273,69 @@ vector_setup_out:
+ }
+ 
+ /**
++ * i40e_vsi_reinit_setup - return and reallocate resources for a VSI
++ * @vsi: pointer to the vsi.
++ *
++ * This re-allocates a vsi's queue resources.
++ *
++ * Returns pointer to the successfully allocated and configured VSI sw struct
++ * on success, otherwise returns NULL on failure.
++ **/
++static struct i40e_vsi *i40e_vsi_reinit_setup(struct i40e_vsi *vsi)
++{
++	struct i40e_pf *pf = vsi->back;
++	u8 enabled_tc;
++	int ret;
 +
-+	return vti_xmit(skb, dev, &fl);
++	i40e_put_lump(pf->qp_pile, vsi->base_queue, vsi->idx);
++	i40e_vsi_clear_rings(vsi);
++
++	i40e_vsi_free_arrays(vsi, false);
++	i40e_set_num_rings_in_vsi(vsi);
++	ret = i40e_vsi_alloc_arrays(vsi, false);
++	if (ret)
++		goto err_vsi;
++
++	ret = i40e_get_lump(pf, pf->qp_pile, vsi->alloc_queue_pairs, vsi->idx);
++	if (ret < 0) {
++		dev_info(&pf->pdev->dev, "VSI %d get_lump failed %d\n",
++			 vsi->seid, ret);
++		goto err_vsi;
++	}
++	vsi->base_queue = ret;
++
++	/* Update the FW view of the VSI. Force a reset of TC and queue
++	 * layout configurations.
++	 */
++	enabled_tc = pf->vsi[pf->lan_vsi]->tc_config.enabled_tc;
++	pf->vsi[pf->lan_vsi]->tc_config.enabled_tc = 0;
++	pf->vsi[pf->lan_vsi]->seid = pf->main_vsi_seid;
++	i40e_vsi_config_tc(pf->vsi[pf->lan_vsi], enabled_tc);
++
++	/* assign it some queues */
++	ret = i40e_alloc_rings(vsi);
++	if (ret)
++		goto err_rings;
++
++	/* map all of the rings to the q_vectors */
++	i40e_vsi_map_rings_to_vectors(vsi);
++	return vsi;
++
++err_rings:
++	i40e_vsi_free_q_vectors(vsi);
++	if (vsi->netdev_registered) {
++		vsi->netdev_registered = false;
++		unregister_netdev(vsi->netdev);
++		free_netdev(vsi->netdev);
++		vsi->netdev = NULL;
++	}
++	i40e_aq_delete_element(&pf->hw, vsi->seid, NULL);
++err_vsi:
++	i40e_vsi_clear(vsi);
++	return NULL;
 +}
 +
- static int
- vti_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
++/**
+  * i40e_vsi_setup - Set up a VSI by a given type
+  * @pf: board private structure
+  * @type: VSI type
+@@ -6905,10 +6978,11 @@ int i40e_fetch_switch_configuration(struct i40e_pf *pf, bool printconfig)
+ /**
+  * i40e_setup_pf_switch - Setup the HW switch on startup or after reset
+  * @pf: board private structure
++ * @reinit: if the Main VSI needs to re-initialized.
+  *
+  * Returns 0 on success, negative value on failure
+  **/
+-static int i40e_setup_pf_switch(struct i40e_pf *pf)
++static int i40e_setup_pf_switch(struct i40e_pf *pf, bool reinit)
  {
+ 	u32 rxfc = 0, txfc = 0, rxfc_reg;
+ 	int ret;
+@@ -6930,7 +7004,7 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf)
+ 		i40e_fdir_setup(pf);
+ 
+ 	/* first time setup */
+-	if (pf->lan_vsi == I40E_NO_VSI) {
++	if (pf->lan_vsi == I40E_NO_VSI || reinit) {
+ 		struct i40e_vsi *vsi = NULL;
+ 		u16 uplink_seid;
+ 
+@@ -6941,8 +7015,10 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf)
+ 			uplink_seid = pf->veb[pf->lan_veb]->seid;
+ 		else
+ 			uplink_seid = pf->mac_seid;
+-
+-		vsi = i40e_vsi_setup(pf, I40E_VSI_MAIN, uplink_seid, 0);
++		if (pf->lan_vsi == I40E_NO_VSI)
++			vsi = i40e_vsi_setup(pf, I40E_VSI_MAIN, uplink_seid, 0);
++		else if (reinit)
++			vsi = i40e_vsi_reinit_setup(pf->vsi[pf->lan_vsi]);
+ 		if (!vsi) {
+ 			dev_info(&pf->pdev->dev, "setup of MAIN VSI failed\n");
+ 			i40e_fdir_teardown(pf);
+@@ -7413,7 +7489,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto err_switch_setup;
+ 	}
+ 
+-	err = i40e_setup_pf_switch(pf);
++	err = i40e_setup_pf_switch(pf, false);
+ 	if (err) {
+ 		dev_info(&pdev->dev, "setup_pf_switch failed: %d\n", err);
+ 		goto err_vsis;
 -- 
-1.7.9.5
+1.8.3.1
