@@ -1,132 +1,70 @@
-From: Leigh Brown <leigh@solinno.co.uk>
-Subject: Re: Spurious timeouts in mvmdio
-Date: Mon, 16 Dec 2013 18:28:03 +0000
-Message-ID: <a599b2acdb35fa014ed9480f367fe3a7@doppler.thel33t.co.uk>
-References: <529CA42A.3040504@freebox.fr>
- <20131203122346.GD29282@titan.lakedaemon.net>
- <20131203124033.GT16735@n2100.arm.linux.org.uk>
- <abe249f5cba5c267e2c536bd62c57908@doppler.thel33t.co.uk>
- <529E5F03.8040607@gmail.com>
- <8d65780eb7bfe49bb0734a09f05f70a6@doppler.thel33t.co.uk>
- <529E66A4.4050000@gmail.com>
- <ae69666fd3b61411d7bbd9ac993cec13@doppler.thel33t.co.uk>
- <20131203234209.GW16735@n2100.arm.linux.org.uk>
- <52AF4160.9080703@freebox.fr>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next v2 2/9] xen-netback: Change TX path from grant
+ copy to mapping
+Date: Mon, 16 Dec 2013 18:21:39 +0000
+Message-ID: <20131216182138.GD25969@zion.uk.xensource.com>
+References: <1386892097-15502-1-git-send-email-zoltan.kiss@citrix.com>
+ <1386892097-15502-3-git-send-email-zoltan.kiss@citrix.com>
+ <20131213153612.GM21900@zion.uk.xensource.com>
+ <52AF1E5D.20801@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Florian Fainelli <florian@openwrt.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Nicolas Schichan <nschichan@freebox.fr>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52AF4160.9080703@freebox.fr>
+Content-Disposition: inline
+In-Reply-To: <52AF1E5D.20801@citrix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2013-12-16 18:07, Nicolas Schichan wrote:
-> On 12/04/2013 12:42 AM, Russell King - ARM Linux wrote:
->> Alternatively, code it like this instead.
->> 
->>   drivers/net/ethernet/marvell/mvmdio.c |   32 
->> +++++++++++++++-----------------
->>   1 files changed, 15 insertions(+), 17 deletions(-)
->> 
->> diff --git a/drivers/net/ethernet/marvell/mvmdio.c 
->> b/drivers/net/ethernet/marvell/mvmdio.c
->> index 7354960b583b..a6f59831fc5b 100644
->> --- a/drivers/net/ethernet/marvell/mvmdio.c
->> +++ b/drivers/net/ethernet/marvell/mvmdio.c
->> @@ -76,31 +76,29 @@ static int orion_mdio_wait_ready(struct mii_bus 
->> *bus)
->>   {
->>   	struct orion_mdio_dev *dev = bus->priv;
->>   	unsigned long timeout = usecs_to_jiffies(MVMDIO_SMI_TIMEOUT);
->> -	unsigned long end = jiffies + timeout;
->> -	int timedout = 0;
->> 
->> -	while (1) {
->> -	        if (orion_mdio_smi_is_done(dev))
->> +	if (dev->err_interrupt > 0) {
->> +		if (wait_event_timeout(dev->smi_busy_wait,
->> +				       orion_mdio_smi_is_done(dev),
->> +				       1 + timeout))
->>   			return 0;
->> -	        else if (timedout)
->> -			break;
->> +	} else {
->> +		unsigned long end = jiffies + timeout;
->> 
->> -	        if (dev->err_interrupt <= 0) {
->> -			usleep_range(MVMDIO_SMI_POLL_INTERVAL_MIN,
->> -				     MVMDIO_SMI_POLL_INTERVAL_MAX);
->> +		while (1) {
->> +	        	if (orion_mdio_smi_is_done(dev))
->> +				return 0;
->> 
->>   			if (time_is_before_jiffies(end))
->> -				++timedout;
->> -	        } else {
->> -			wait_event_timeout(dev->smi_busy_wait,
->> -				           orion_mdio_smi_is_done(dev),
->> -				           timeout);
->> -
->> -			++timedout;
->> -	        }
->> +				break;
->> +
->> +			usleep_range(MVMDIO_SMI_POLL_INTERVAL_MIN,
->> +				     MVMDIO_SMI_POLL_INTERVAL_MAX);
->> +		}
->>   	}
->> 
->>   	dev_err(bus->parent, "Timeout: SMI busy for too long\n");
->> +
->>   	return  -ETIMEDOUT;
->>   }
+On Mon, Dec 16, 2013 at 03:38:05PM +0000, Zoltan Kiss wrote:
+[...]
+> >>+	for (i = 0; i < MAX_PENDING_REQS; ++i) {
+> >>+		if (vif->grant_tx_handle[i] != NETBACK_INVALID_HANDLE) {
+> >>+			i = 0;
+> >>+			unmap_timeout++;
+> >>+			msleep(1000);
+> >>+			if (unmap_timeout > 9 &&
+> >>+				net_ratelimit())
+> >>+				netdev_err(vif->dev,
+> >>+					"Page still granted! Index: %x\n", i);
+> >>+		}
+> >>+	}
+> >>+
+> >>+	free_xenballooned_pages(MAX_PENDING_REQS, vif->mmap_pages);
+> >>+
+> >
+> >If some pages are stuck and you just free them will it cause Dom0 to
+> >crash? I mean, if those pages are recycled by other balloon page users.
+> >
+> >Even if it will not cause Dom0 to crash, will it leak any resource in
+> >Dom0? At plain sight it looks like at least grant table entry is leaked,
+> >isn't it? We need to be careful about this because a malicious might be
+> >able to DoS Dom0 with resource leakage.
+> Yes, if we call free_xenballooned_pages while something is still
+> mapped, Xen kills Dom0 because balloon driver tries to touch the PTE
+> of a grant mapped page. That's why we make sure before that
+> everything is unmapped, and repeat an error message if it's not. I'm
+
+The code snippet above doesn't loop ten times over the whole array if
+there's stale pages found, nor does it loop ten times on any stale
+pages.
+
+So imagine that we have the very last page in the array staled. This
+routine sleeps for 1 second then free all ballooned pages. It's still
+not guaranteed at the point we call free_xenballooned_pages all pages
+are unmapped, right?
+
+> afraid we can't do anything better here, that means a serious
+> netback bug.
+> But a malicious guest cannot take advantage of this unless it's find
+> a way to screw up netback's internal bookkeeping. Then it can block
+> here indefinitely the teardown of the VIF, and it's associated
+> resources.
 > 
-> Hi Russell,
-> 
-> I did not find any commit for this in 3.13-rc4.
-> 
-> Would you prefer I submit my attempt at refactoring the
-> orion_mdio_wait_ready() code ?
 
-I prefer this patch (which I think you originally proposed) because it 
-is just as
-correct and the code size is a bit smaller in arm mode, and the same 
-size in thumb
-mode (on my compiler gcc 4.7.2, at least).  I coded the loop in that way 
-to make it
-small.
+OK.
 
-I don't mind submitting it to David as I made the mistake in the first 
-place.
-
-Regards,
-
-Leigh.
-
-diff --git a/drivers/net/ethernet/marvell/mvmdio.c 
-b/drivers/net/ethernet/marvell/mvmdio.c
-index 7354960..a42a750 100644
---- a/drivers/net/ethernet/marvell/mvmdio.c
-+++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -92,6 +92,12 @@ static int orion_mdio_wait_ready(struct mii_bus *bus)
-  			if (time_is_before_jiffies(end))
-  				++timedout;
-  	        } else {
-+			/* wait_event_timeout does not guarantee a delay of at
-+			 * least one whole jiffie, so timeout must be no less
-+			 * than two.
-+			 */
-+			 if (timeout < 2)
-+			 	timeout = 2;
-  			wait_event_timeout(dev->smi_busy_wait,
-  				           orion_mdio_smi_is_done(dev),
-  				           timeout);
+Wei.
