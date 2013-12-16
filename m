@@ -1,40 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: revert misguided compiler warning fix
- on ipv6_exthdrs_len
-Date: Sun, 15 Dec 2013 20:31:31 -0500 (EST)
-Message-ID: <20131215.203131.1945457036600976154.davem@davemloft.net>
-References: <CAPshTCj38XqrAMTKnGhw1bdWWrhHbzXpT8FNtDwd6_kJgLoeDg@mail.gmail.com>
-	<20131215171806.GA1715@order.stressinduktion.org>
-	<20131215172322.GB1715@order.stressinduktion.org>
+Subject: Re: [PATCH net-next] net-ipv6: Fix alleged compiler warning in
+ ipv6_exthdrs_len()
+Date: Sun, 15 Dec 2013 20:31:58 -0500 (EST)
+Message-ID: <20131215.203158.557626779911420893.davem@davemloft.net>
+References: <1387127947-2075-1-git-send-email-hkchu@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hkchu@google.com, edumazet@google.com, herbert@gondor.apana.org.au,
-	ogerlitz@mellanox.com, bhutchings@solarflare.com,
-	netdev@vger.kernel.org
-To: hannes@stressinduktion.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
+To: hkchu@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33167 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33175 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751969Ab3LPBbd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 20:31:33 -0500
-In-Reply-To: <20131215172322.GB1715@order.stressinduktion.org>
+	with ESMTP id S1751969Ab3LPBb7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Dec 2013 20:31:59 -0500
+In-Reply-To: <1387127947-2075-1-git-send-email-hkchu@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Sun, 15 Dec 2013 18:23:22 +0100
-
-> On Sun, Dec 15, 2013 at 06:18:06PM +0100, Hannes Frederic Sowa wrote:
->> This essentlally reverts commit f52d81dc27c3456c702e83183035142c222acdc7
->> ("ipv6: fix compiler warning in ipv6_exthdrs_len") and silences the
->> warning with uninitialized_var.
-> 
-> David, please discard this. Jerry already posted a nicer cleanup.
-
-I can't resolve these two patches in any reasonable way.
-
-Specifically, whether I revert your patch or not, I cannot get Jerry's
-patch to apply cleanly.
-
-I can't figure out what Jerry's patch is against at all.
+RnJvbTogIkguSy4gSmVycnkgQ2h1IiA8aGtjaHVAZ29vZ2xlLmNvbT4NCkRhdGU6IFN1biwgMTUg
+RGVjIDIwMTMgMDk6MTk6MDcgLTA4MDANCg0KPiBGcm9tOiBKZXJyeSBDaHUgPGhrY2h1QGdvb2ds
+ZS5jb20+DQo+IA0KPiBJdCB3YXMgcmVwb3J0ZWQgdGhhdCBDb21taXQgMjk5NjAzZTgzNzBhOTNk
+ZDVkOGU4ZDgwMGYwZGZmMWNlMmM1M2QzNg0KPiAoIm5ldC1ncm86IFByZXBhcmUgR1JPIHN0YWNr
+IGZvciB0aGUgdXBjb21pbmcgdHVubmVsaW5nIHN1cHBvcnQiKQ0KPiB0cmlnZ2VyZWQgYSBjb21w
+aWxlciB3YXJuaW5nIGluIGlwdjZfZXh0aGRyc19sZW4oKToNCj4gDQo+IG5ldC9pcHY2L2lwNl9v
+ZmZsb2FkLmM6IEluIGZ1bmN0aW9uIKFpcHY2X2dyb19jb21wbGV0ZaI6DQo+IG5ldC9pcHY2L2lw
+Nl9vZmZsb2FkLmM6MTc4OjI0OiB3YXJuaW5nOiChb3B0bGVuoiBtYXkgYmUgdXNlZCB1bmluaXRp
+YWxpemVkIGluIHRoaXMgZnVuY3Rpb24gWy1XbWF5YmUtdQ0KPiAgICAgb3B0aCA9ICh2b2lkICop
+b3B0aCArIG9wdGxlbjsNCj4gICAgIAkJCV4NCj4gICAgIG5ldC9pcHY2L2lwNl9vZmZsb2FkLmM6
+MTY0OjIyOiBub3RlOiChb3B0bGVuoiB3YXMgZGVjbGFyZWQgaGVyZQ0KPiAgICAgaW50IGxlbiA9
+IDAsIHByb3RvLCBvcHRsZW47DQo+ICAgICAgICAgICAgICAgICAgICAgICAgIF4NCj4gTm90ZSB0
+aGF0IHRoZXJlIHdhcyBubyByZWFsIGJ1ZyBoZXJlIC0gb3B0bGVuIHdhcyBuZXZlciB1bmluaXRp
+YWxpemVkDQo+IGJlZm9yZSB1c2UuIChXYXMgdGhlIHZlcnNpb24gb2YgZ2NjIEkgdXNlZCBzbWFy
+dGVyIHRvIG5vdCBjb21wbGFpbj8pDQo+IA0KPiBSZXBvcnRlZC1ieTogSGFubmVzIEZyZWRlcmlj
+IFNvd2EgPGhhbm5lc0BzdHJlc3NpbmR1a3Rpb24ub3JnPg0KPiBTaWduZWQtb2ZmLWJ5OiBILksu
+IEplcnJ5IENodSA8aGtjaHVAZ29vZ2xlLmNvbT4NCg0KV2hhdCBpcyB0aGlzIHBhdGNoIGFnYWlu
+c3Q/DQoNCkl0IGdldHMgcmVqZWN0cyB3aGVuIEkgdHJ5IHRvIGFwcGx5IGl0IGJvdGggd2l0aCBI
+YW5uZXMncyBwYXRjaCByZXZlcnRlZA0KYW5kIHdpdGhvdXQgaXQgcmV2ZXJ0ZWQuDQo=
