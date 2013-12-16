@@ -1,18 +1,17 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 4/6] isdn: slight optimization of addr compare
-Date: Mon, 16 Dec 2013 16:24:40 +0800
-Message-ID: <52AEB8C8.4040409@huawei.com>
+Subject: [PATCH net-next v2 3/6] fddi: slight optimization of addr compare
+Date: Mon, 16 Dec 2013 16:24:36 +0800
+Message-ID: <52AEB8C4.1000000@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Karsten Keil <isdn@linux-pingi.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Joe Perches <joe@perches.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Joe Perches <joe@perches.com>, Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:23255 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752829Ab3LPIYw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 03:24:52 -0500
+Received: from szxga01-in.huawei.com ([119.145.14.64]:58719 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752829Ab3LPIYy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 03:24:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -21,34 +20,43 @@ possibly unaligned to u16 Ethernet addresses are equal.
 
 If CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS is set, this uses
 the slightly faster generic routine ether_addr_equal,
-otherwise this uses memcmp.
+otherwise this uses memcmp, and FDDI_K_ALEN is same with
+ETH_ALEN.
 
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/isdn/i4l/isdn_net.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/802/fddi.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
-index 8b98d53..a0fb424 100644
---- a/drivers/isdn/i4l/isdn_net.c
-+++ b/drivers/isdn/i4l/isdn_net.c
-@@ -1371,7 +1371,7 @@ isdn_net_type_trans(struct sk_buff *skb, struct net_device *dev)
- 	eth = eth_hdr(skb);
+diff --git a/net/802/fddi.c b/net/802/fddi.c
+index 9cda406..d536a81 100644
+--- a/net/802/fddi.c
++++ b/net/802/fddi.c
+@@ -41,6 +41,7 @@
+ #include <linux/errno.h>
+ #include <net/arp.h>
+ #include <net/sock.h>
++#include <linux/etherdevice.h>
  
- 	if (*eth->h_dest & 1) {
--		if (memcmp(eth->h_dest, dev->broadcast, ETH_ALEN) == 0)
-+		if (ether_addr_equal_unaligned(eth->h_dest, dev->broadcast))
+ /*
+  * Create the FDDI MAC header for an arbitrary protocol layer
+@@ -147,7 +148,7 @@ __be16 fddi_type_trans(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	if (*fddi->daddr & 0x01)
+ 	{
+-		if (memcmp(fddi->daddr, dev->broadcast, FDDI_K_ALEN) == 0)
++		if (ether_addr_equal_unaligned(fddi->daddr, dev->broadcast))
  			skb->pkt_type = PACKET_BROADCAST;
  		else
  			skb->pkt_type = PACKET_MULTICAST;
-@@ -1382,7 +1382,7 @@ isdn_net_type_trans(struct sk_buff *skb, struct net_device *dev)
- 	 */
+@@ -155,7 +156,7 @@ __be16 fddi_type_trans(struct sk_buff *skb, struct net_device *dev)
  
- 	else if (dev->flags & (IFF_PROMISC /*| IFF_ALLMULTI*/)) {
--		if (memcmp(eth->h_dest, dev->dev_addr, ETH_ALEN))
-+		if (!ether_addr_equal_unaligned(eth->h_dest, dev->dev_addr))
+ 	else if (dev->flags & IFF_PROMISC)
+ 	{
+-		if (memcmp(fddi->daddr, dev->dev_addr, FDDI_K_ALEN))
++		if (!ether_addr_equal_unaligned(fddi->daddr, dev->dev_addr))
  			skb->pkt_type = PACKET_OTHERHOST;
  	}
- 	if (ntohs(eth->h_proto) >= ETH_P_802_3_MIN)
+ 
 -- 
 1.8.0
