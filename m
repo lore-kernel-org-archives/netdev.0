@@ -1,54 +1,48 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH RFC v2 08/13] xfrm: Add xfrm_tunnel_skb_cb to the skb
- common buffer
-Date: Mon, 16 Dec 2013 14:02:18 +0100
-Message-ID: <20131216130218.GJ31491@secunet.com>
-References: <20131216091835.GQ31491@secunet.com>
- <20131216092349.GY31491@secunet.com>
- <52AEF7F2.6040903@6wind.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH -next] xen-netback: fix some error return code
+Date: Mon, 16 Dec 2013 13:13:13 +0000
+Message-ID: <20131216131313.GE12582@zion.uk.xensource.com>
+References: <CAPgLHd9aQQq-gLuNzGaYP2TSz=5Xk_GqgS=MSrAB7Tnn0nCydw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Christophe Gouault <christophe.gouault@6wind.com>,
-	Saurabh Mohan <saurabh.mohan@vyatta.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<yongjun_wei@trendmicro.com.cn>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>
+To: Wei Yongjun <weiyj.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:57194 "EHLO a.mx.secunet.com"
+Received: from smtp.citrix.com ([66.165.176.89]:1277 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753771Ab3LPNCV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Dec 2013 08:02:21 -0500
+	id S1753466Ab3LPNNY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Dec 2013 08:13:24 -0500
 Content-Disposition: inline
-In-Reply-To: <52AEF7F2.6040903@6wind.com>
+In-Reply-To: <CAPgLHd9aQQq-gLuNzGaYP2TSz=5Xk_GqgS=MSrAB7Tnn0nCydw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 16, 2013 at 01:54:10PM +0100, Nicolas Dichtel wrote:
-> Le 16/12/2013 10:23, Steffen Klassert a =E9crit :
-> >IPsec vti_rcv needs to remind the tunnel pointer to
-> >check it later at the vti_rcv_cb callback. So add
-> >this pointer to the IPsec common buffer.
-> >
-> >Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> >---
-> >  include/net/xfrm.h |   29 +++++++++++++++++------------
-> >  1 file changed, 17 insertions(+), 12 deletions(-)
-> >
-> >diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-> >index 2c39cd4..584d0ee4 100644
-> >--- a/include/net/xfrm.h
-> >+++ b/include/net/xfrm.h
-> >@@ -600,16 +600,27 @@ struct xfrm_mgr {
-> >  int xfrm_register_km(struct xfrm_mgr *km);
-> >  int xfrm_unregister_km(struct xfrm_mgr *km);
-> >
-> >+struct xfrm_tunnel_skb_cb {
-> >+	union {
-> >+		struct inet_skb_parm h4;
-> >+		struct inet6_skb_parm h6;
-> >+        } header;
-> Nitpicking: this line is aligned with spaces instead tabs (yes, it's
-> a copy and paste ;-)).
+On Mon, Dec 16, 2013 at 01:49:29PM +0800, Wei Yongjun wrote:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> 
+> Fix to return -EPROTO error code instead of 0(overwrite by maybe_pull_tail())
+> if skb_partial_csum_set() return false.
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> ---
+>  drivers/net/xen-netback/netback.c | 16 ++++++++++++----
+>  1 file changed, 12 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index 800496b..b16daa7 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -1108,8 +1108,10 @@ static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
+>  			goto out;
+>  
+>  		if (!skb_partial_csum_set(skb, off,
+> -					  offsetof(struct tcphdr, check)))
+> +					  offsetof(struct tcphdr, check))) {
+> +			err = -EPROTO;
 
-No problem, will fix it.
-Thanks for looking at the vti patches :)
+Why is this needed? It is set to -EPROTO before the 'switch'.
+
+
+Wei.
