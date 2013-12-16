@@ -1,30 +1,90 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/4] tipc: kill unnecessary goto's
-Date: Mon, 16 Dec 2013 13:01:11 -0500 (EST)
-Message-ID: <20131216.130111.128596161474892353.davem@davemloft.net>
-References: <1387197631-17240-3-git-send-email-wangweidong1@huawei.com>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B7495@saturn3.aculab.com>
-	<52AF0C03.40409@gmail.com>
+From: Nicolas Schichan <nschichan@freebox.fr>
+Subject: Re: Spurious timeouts in mvmdio
+Date: Mon, 16 Dec 2013 19:07:28 +0100
+Message-ID: <52AF4160.9080703@freebox.fr>
+References: <529CA42A.3040504@freebox.fr> <20131203122346.GD29282@titan.lakedaemon.net> <20131203124033.GT16735@n2100.arm.linux.org.uk> <abe249f5cba5c267e2c536bd62c57908@doppler.thel33t.co.uk> <529E5F03.8040607@gmail.com> <8d65780eb7bfe49bb0734a09f05f70a6@doppler.thel33t.co.uk> <529E66A4.4050000@gmail.com> <ae69666fd3b61411d7bbd9ac993cec13@doppler.thel33t.co.uk> <20131203234209.GW16735@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David.Laight@ACULAB.COM, jon.maloy@ericsson.com,
-	allan.stephens@windriver.com, erik.hugne@ericsson.com,
-	maloy@donjonn.com, netdev@vger.kernel.org
-To: weidong1991.wang@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40821 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754735Ab3LPSBN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 13:01:13 -0500
-In-Reply-To: <52AF0C03.40409@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <florian@openwrt.org>,
+	linux-arm-kernel@lists.infradead.org,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Leigh Brown <leigh@solinno.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131203234209.GW16735@n2100.arm.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wang Weidong <weidong1991.wang@gmail.com>
-Date: Mon, 16 Dec 2013 22:19:47 +0800
+On 12/04/2013 12:42 AM, Russell King - ARM Linux wrote:
+> Alternatively, code it like this instead.
+>
+>   drivers/net/ethernet/marvell/mvmdio.c |   32 +++++++++++++++-----------------
+>   1 files changed, 15 insertions(+), 17 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+> index 7354960b583b..a6f59831fc5b 100644
+> --- a/drivers/net/ethernet/marvell/mvmdio.c
+> +++ b/drivers/net/ethernet/marvell/mvmdio.c
+> @@ -76,31 +76,29 @@ static int orion_mdio_wait_ready(struct mii_bus *bus)
+>   {
+>   	struct orion_mdio_dev *dev = bus->priv;
+>   	unsigned long timeout = usecs_to_jiffies(MVMDIO_SMI_TIMEOUT);
+> -	unsigned long end = jiffies + timeout;
+> -	int timedout = 0;
+>
+> -	while (1) {
+> -	        if (orion_mdio_smi_is_done(dev))
+> +	if (dev->err_interrupt > 0) {
+> +		if (wait_event_timeout(dev->smi_busy_wait,
+> +				       orion_mdio_smi_is_done(dev),
+> +				       1 + timeout))
+>   			return 0;
+> -	        else if (timedout)
+> -			break;
+> +	} else {
+> +		unsigned long end = jiffies + timeout;
+>
+> -	        if (dev->err_interrupt <= 0) {
+> -			usleep_range(MVMDIO_SMI_POLL_INTERVAL_MIN,
+> -				     MVMDIO_SMI_POLL_INTERVAL_MAX);
+> +		while (1) {
+> +	        	if (orion_mdio_smi_is_done(dev))
+> +				return 0;
+>
+>   			if (time_is_before_jiffies(end))
+> -				++timedout;
+> -	        } else {
+> -			wait_event_timeout(dev->smi_busy_wait,
+> -				           orion_mdio_smi_is_done(dev),
+> -				           timeout);
+> -
+> -			++timedout;
+> -	        }
+> +				break;
+> +
+> +			usleep_range(MVMDIO_SMI_POLL_INTERVAL_MIN,
+> +				     MVMDIO_SMI_POLL_INTERVAL_MAX);
+> +		}
+>   	}
+>
+>   	dev_err(bus->parent, "Timeout: SMI busy for too long\n");
+> +
+>   	return  -ETIMEDOUT;
+>   }
 
-> Thanks for your suggestion. I will fix it too.
+Hi Russell,
 
-You are going to have to send me relative fixups as I already
-applied your original series from last week.
+I did not find any commit for this in 3.13-rc4.
+
+Would you prefer I submit my attempt at refactoring the 
+orion_mdio_wait_ready() code ?
+
+Regards,
+
+-- 
+Nicolas Schichan
+Freebox SAS
