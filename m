@@ -1,8 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC v2 12/13] vti4: Use the on xfrm_lookup returned dst_entry
- directly
-Date: Mon, 16 Dec 2013 10:27:27 +0100
-Message-ID: <20131216092727.GC31491@secunet.com>
+Subject: [PATCH RFC v2 13/13] vti4: Support inter address family tunneling.
+Date: Mon, 16 Dec 2013 10:28:03 +0100
+Message-ID: <20131216092803.GD31491@secunet.com>
 References: <20131216091835.GQ31491@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -10,78 +9,113 @@ Cc: Christophe Gouault <christophe.gouault@6wind.com>,
 	Saurabh Mohan <saurabh.mohan@vyatta.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:52067 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:52092 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752314Ab3LPJ1a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Dec 2013 04:27:30 -0500
+	id S1751858Ab3LPJ2H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Dec 2013 04:28:07 -0500
 Content-Disposition: inline
 In-Reply-To: <20131216091835.GQ31491@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to be protocol family indepenent to support
-inter addresss family tunneling with vti. So use a
-dst_entry instead of the ipv4 rtable in vti_tunnel_xmit.
+With this patch we can tunnel ipv6 traffic via a vti4
+interface. A vti4 interface can now have an ipv6 address
+and ipv6 traffic can be routed via a vti4 interface.
+The resulting traffic is xfrm transformed and tunneled
+throuhg ipv4 if matching IPsec policies and states are
+present.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv4/ip_vti.c |   18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+ net/ipv4/ip_vti.c |   48 ++++++++++++++++++++++++++++++++++--------------
+ 1 file changed, 34 insertions(+), 14 deletions(-)
 
 diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index 17ec174..f269310 100644
+index f269310..8a2934c 100644
 --- a/net/ipv4/ip_vti.c
 +++ b/net/ipv4/ip_vti.c
-@@ -116,7 +116,7 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
- static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+@@ -34,6 +34,7 @@
+ #include <linux/init.h>
+ #include <linux/netfilter_ipv4.h>
+ #include <linux/if_ether.h>
++#include <linux/icmpv6.h>
+ 
+ #include <net/sock.h>
+ #include <net/ip.h>
+@@ -110,26 +111,16 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
+ 	return 0;
+ }
+ 
+-/* This function assumes it is being called from dev_queue_xmit()
+- * and that skb is filled properly by that function.
+- */
+-static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t vti_xmit(struct sk_buff *skb, struct net_device *dev,
++			    struct flowi *fl)
  {
  	struct ip_tunnel *tunnel = netdev_priv(dev);
--	struct rtable *rt;		/* Route to the other host */
-+	struct dst_entry *dst;
+ 	struct dst_entry *dst;
  	struct net_device *tdev;	/* Device to other host */
- 	struct flowi fl;
+-	struct flowi fl;
  	int err;
-@@ -129,8 +129,8 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 	xfrm_decode_session(skb, &fl, AF_INET);
  
+-	if (skb->protocol != htons(ETH_P_IP))
+-		goto tx_error;
+-
+-	memset(&fl, 0, sizeof(fl));
+-	skb->mark = be32_to_cpu(tunnel->parms.o_key);
+-	xfrm_decode_session(skb, &fl, AF_INET);
+-
  	dst_hold(skb_dst(skb));
--	rt = (struct rtable *)xfrm_lookup(tunnel->net, skb_dst(skb), &fl, NULL, 0);
--	if (IS_ERR(rt)) {
-+	dst = xfrm_lookup(tunnel->net, skb_dst(skb), &fl, NULL, 0);
-+	if (IS_ERR(dst)) {
+-	dst = xfrm_lookup(tunnel->net, skb_dst(skb), &fl, NULL, 0);
++	dst = xfrm_lookup(tunnel->net, skb_dst(skb), fl, NULL, 0);
+ 	if (IS_ERR(dst)) {
  		dev->stats.tx_carrier_errors++;
  		goto tx_error_icmp;
+@@ -161,7 +152,6 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			tunnel->err_count = 0;
  	}
-@@ -138,16 +138,16 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 	/* if there is no transform then this tunnel is not functional.
- 	 * Or if the xfrm is not mode tunnel.
- 	 */
--	if (!rt->dst.xfrm ||
--	    rt->dst.xfrm->props.mode != XFRM_MODE_TUNNEL) {
-+	if (!dst->xfrm ||
-+	    dst->xfrm->props.mode != XFRM_MODE_TUNNEL) {
- 		dev->stats.tx_carrier_errors++;
--		ip_rt_put(rt);
-+		dst_release(dst);
- 		goto tx_error_icmp;
- 	}
--	tdev = rt->dst.dev;
-+	tdev = dst->dev;
  
- 	if (tdev == dev) {
--		ip_rt_put(rt);
-+		dst_release(dst);
- 		dev->stats.collisions++;
- 		goto tx_error;
- 	}
-@@ -163,7 +163,7 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+-	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
  	skb_scrub_packet(skb, !net_eq(tunnel->net, dev_net(dev)));
--	skb_dst_set(skb, &rt->dst);
-+	skb_dst_set(skb, dst);
+ 	skb_dst_set(skb, dst);
  	skb->dev = skb_dst(skb)->dev;
+@@ -180,6 +170,36 @@ tx_error:
+ 	return NETDEV_TX_OK;
+ }
  
- 	err = dst_output(skb);
++/* This function assumes it is being called from dev_queue_xmit()
++ * and that skb is filled properly by that function.
++ */
++static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct ip_tunnel *tunnel = netdev_priv(dev);
++	struct flowi fl;
++
++	memset(&fl, 0, sizeof(fl));
++
++	skb->mark = be32_to_cpu(tunnel->parms.o_key);
++
++	switch (skb->protocol) {
++	case htons(ETH_P_IP):
++		xfrm_decode_session(skb, &fl, AF_INET);
++		memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
++		break;
++	case htons(ETH_P_IPV6):
++		xfrm_decode_session(skb, &fl, AF_INET6);
++		memset(IP6CB(skb), 0, sizeof(*IP6CB(skb)));
++		break;
++	default:
++		dev->stats.tx_errors++;
++		dev_kfree_skb(skb);
++		return NETDEV_TX_OK;
++	}
++
++	return vti_xmit(skb, dev, &fl);
++}
++
+ static int
+ vti_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ {
 -- 
 1.7.9.5
