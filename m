@@ -1,75 +1,48 @@
-From: Qais Yousef <Qais.Yousef@imgtec.com>
-Subject: RE: [PATCH] net/sched/sch_tbf.c: fix linking error
-Date: Mon, 16 Dec 2013 13:34:57 +0000
-Message-ID: <392C4BDEFF12D14FA57A3F30B283D7D13C994E@LEMAIL01.le.imgtec.org>
-References: <1386851356-1395-1-git-send-email-qais.yousef@imgtec.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH -next] xen-netback: fix some error return code
+Date: Mon, 16 Dec 2013 13:40:38 +0000
+Message-ID: <1387201238.10247.37.camel@kazak.uk.xensource.com>
+References: <CAPgLHd9aQQq-gLuNzGaYP2TSz=5Xk_GqgS=MSrAB7Tnn0nCydw@mail.gmail.com>
+	 <20131216131313.GE12582@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Eric Dumazet <edumazet@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>
-To: Yang Yingliang <yangyingliang@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386851356-1395-1-git-send-email-qais.yousef@imgtec.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyj.lk@gmail.com>, <yongjun_wei@trendmicro.com.cn>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:54573 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753675Ab3LPNkl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Dec 2013 08:40:41 -0500
+In-Reply-To: <20131216131313.GE12582@zion.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sorry for the noise. I'm not sure how this got sent out again. I definitely didn't type any git send-email commands at all today :-/
+On Mon, 2013-12-16 at 13:13 +0000, Wei Liu wrote:
+> On Mon, Dec 16, 2013 at 01:49:29PM +0800, Wei Yongjun wrote:
+> > From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> > 
+> > Fix to return -EPROTO error code instead of 0(overwrite by maybe_pull_tail())
+> > if skb_partial_csum_set() return false.
+> > 
+> > Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> > ---
+> >  drivers/net/xen-netback/netback.c | 16 ++++++++++++----
+> >  1 file changed, 12 insertions(+), 4 deletions(-)
+> > 
+> > diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> > index 800496b..b16daa7 100644
+> > --- a/drivers/net/xen-netback/netback.c
+> > +++ b/drivers/net/xen-netback/netback.c
+> > @@ -1108,8 +1108,10 @@ static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
+> >  			goto out;
+> >  
+> >  		if (!skb_partial_csum_set(skb, off,
+> > -					  offsetof(struct tcphdr, check)))
+> > +					  offsetof(struct tcphdr, check))) {
+> > +			err = -EPROTO;
+> 
+> Why is this needed? It is set to -EPROTO before the 'switch'.
 
-Qais
-
-> -----Original Message-----
-> From: Qais Yousef [mailto:qais.yousef@imgtec.com]
-> Sent: 12 December 2013 12:29
-> To: Yang Yingliang
-> Cc: Qais Yousef; Eric Dumazet; Jamal Hadi Salim; David S. Miller;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; linux-
-> next@vger.kernel.org
-> Subject: [PATCH] net/sched/sch_tbf.c: fix linking error
-> 
-> ERROR: "__udivdi3" [net/sched/sch_tbf.ko] undefined!
-> 
-> introduced by: cc106e441a63 (net: sched: tbf: fix the calculation of max_size)
-> 
-> which adds a 64 by 32 bit division without using do_div().
-> Fix it by using do_div(len/ 53) instead of len/53.
-> 
-> Signed-off-by: Qais Yousef <qais.yousef@imgtec.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Cc: linux-next@vger.kernel.org
-> ---
-> We caught this error on linux-next today. This is my quick attemp of a fix.
-> If it's not appropriate or doesn't make sense my apologies and feel free to resend
-> a better fix :)
-> 
->  net/sched/sch_tbf.c |    6 ++++--
->  1 files changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c index a44928c..771cbec
-> 100644
-> --- a/net/sched/sch_tbf.c
-> +++ b/net/sched/sch_tbf.c
-> @@ -131,8 +131,10 @@ static u64 psched_ns_t2l(const struct psched_ratecfg *r,
-> 
->  	do_div(len, NSEC_PER_SEC);
-> 
-> -	if (unlikely(r->linklayer == TC_LINKLAYER_ATM))
-> -		len = (len / 53) * 48;
-> +	if (unlikely(r->linklayer == TC_LINKLAYER_ATM)) {
-> +		do_div(len, 53);
-> +		len *= 48;
-> +	}
-> 
->  	if (len > r->overhead)
->  		len -= r->overhead;
-> --
-> 1.7.1
+Agreed.
