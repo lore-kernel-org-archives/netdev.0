@@ -1,7 +1,7 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net 8/9] RDMA/cxgb4: Server filters are supported only for IPv4
-Date: Mon, 16 Dec 2013 17:42:17 +0530
-Message-ID: <1387195938-3531-9-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net 7/9] RDMA/cxgb4: Calculate the filter server TID properly
+Date: Mon, 16 Dec 2013 17:42:16 +0530
+Message-ID: <1387195938-3531-8-git-send-email-hariprasad@chelsio.com>
 References: <1387195938-3531-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
 	swise@opengridcomputing.com, leedom@chelsio.com,
@@ -9,35 +9,38 @@ Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
 	nirranjan@chelsio.com
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:28108 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:16407 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754145Ab3LPMUW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 07:20:22 -0500
+	with ESMTP id S1753736Ab3LPMUR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 07:20:17 -0500
 In-Reply-To: <1387195938-3531-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Kumar Sanghvi <kumaras@chelsio.com>
 
+Based on original work by Santosh Rastapur <santosh@chelsio.com>
+
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
 ---
- drivers/infiniband/hw/cxgb4/cm.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/infiniband/hw/cxgb4/cm.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
 diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index 02c7515..bfd4ed7 100644
+index 12fef76..02c7515 100644
 --- a/drivers/infiniband/hw/cxgb4/cm.c
 +++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -2938,7 +2938,8 @@ int c4iw_create_listen(struct iw_cm_id *cm_id, int backlog)
+@@ -3323,9 +3323,7 @@ static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
  	/*
- 	 * Allocate a server TID.
+ 	 * Calculate the server tid from filter hit index from cpl_rx_pkt.
  	 */
--	if (dev->rdev.lldi.enable_fw_ofld_conn)
-+	if (dev->rdev.lldi.enable_fw_ofld_conn &&
-+	    ep->com.local_addr.ss_family == AF_INET)
- 		ep->stid = cxgb4_alloc_sftid(dev->rdev.lldi.tids,
- 					     cm_id->local_addr.ss_family, ep);
- 	else
+-	stid = (__force int) cpu_to_be32((__force u32) rss->hash_val)
+-					  - dev->rdev.lldi.tids->sftid_base
+-					  + dev->rdev.lldi.tids->nstids;
++	stid = (__force int) cpu_to_be32((__force u32) rss->hash_val);
+ 
+ 	lep = (struct c4iw_ep *)lookup_stid(dev->rdev.lldi.tids, stid);
+ 	if (!lep) {
 -- 
 1.8.0
