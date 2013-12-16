@@ -1,73 +1,54 @@
-From: Ding Tianhong <dthxman@gmail.com>
-Subject: Re: [PATCH net-next v2 0/6] slight optimization of addr compare for
- some modules
-Date: Mon, 16 Dec 2013 22:53:40 +0800
-Message-ID: <52AF13F4.5040409@gmail.com>
-References: <52AEB8B3.5010405@huawei.com> <1387205111.18217.7.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>,
-	Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:37210 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753755Ab3LPPFK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 10:05:10 -0500
-Received: by mail-pd0-f179.google.com with SMTP id r10so5429862pdi.24
-        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 07:05:09 -0800 (PST)
-In-Reply-To: <1387205111.18217.7.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: [PATCH v3] if xen_platform_pci=0 is set don't blow up.
+Date: Mon, 16 Dec 2013 10:04:08 -0500
+Message-ID: <1387206250-13963-1-git-send-email-konrad.wilk@oracle.com>
+To: axboe@kernel.dk, stefano.stabellini@eu.citrix.com,
+	ian.campbell@citrix.com, xen-devel@lists.xenproject.org,
+	linux-kernel@vger.kernel.org, boris.ostrovsky@oracle.com,
+	david.vrabel@citrix.com, leosilva@linux.vnet.ibm.com,
+	ashley@ashleylai.com, peterhuewe@gmx.de, mail@srajiv.net,
+	tpmdd@selhorst.net, dmitry.torokhov@gmail.com, bhelgaas@google.com,
+	plagnioj@jcrosoft.com, tomi.valkeinen@ti.com,
+	tpmdd-devel@lists.sourceforge.net, linux-input@vger.kernel.org,
+	netdev@vger.kernel.org, linux-pci@vger.kernel.org,
+	linux-fbdev@vger.kernel.org
+Return-path: <linux-input-owner@vger.kernel.org>
+Sender: linux-input-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=E4=BA=8E 2013/12/16 22:45, Joe Perches =E5=86=99=E9=81=93:
-> On Mon, 2013-12-16 at 16:24 +0800, Ding Tianhong wrote:
->> Joe Perches add ether_addr_equal_unaligned to test if
->> possibly unaligned to u16 Ethernet addresses are equal.
->>
->> If CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS is set, this uses
->> the slightly faster generic routine ether_addr_equal,
->> otherwise this uses memcmp.
->>
->> So I replace memcmp with ether_addr_equal_unaligned in some place
->> for slight optimization.
->=20
-> Hi.
->=20
-> These seem like sensible cleanups, thanks, but
-> my name doesn't need to go into the commit log
-> multiple times like this.
->=20
-> I suggest something like:
->=20
-> Use the recently added and possibly more efficient
-> ether_addr_equal_unaligned.
->=20
-> Are you intending to do more of these?
->=20
-> $ git grep -E "\bmemcmp\s*\([^,]*,[^,]*,\s*(ETH_ALEN|6)\s*\)" * | wc =
--l
-> 299
->=20
-> Perhaps the majority of these should use ether_addr_equal
-> or ether_addr_equal_unaligned.
->=20
->=20
+The first patch:
+ [PATCH v3 1/2] xen/pvhvm: If xen_platform_pci=0 is set don't blow up
 
-yes, it is a juge work to review the whole places and I think it should=
- be
-finished by several times, maybe start from this patchset.
+I would like to commit to stable as it is fixing an eggregious bug -
+where we blow up if the guest config has: "xen_platform_pci=0" setup.
+This bug has been in existence for years and it is time to stamp it out.
 
-I will modify the changelog and simplify it. Thanks.
+The second patch is a cleanup - not a stable candidate.
 
-Regards
-Ding
+It touches all of the Xen frontend drivers and adds the logic of:
+"if user disabled us, don't init" - with variations. As you can
+specify exactly which ones you want to init and which ones
+not (Linux runtime parameter 'xen_emul_unplug'). But for the majority
+of drivers - it is just an on/off switch.
+
+Since it touches a lot of maintainers I figured I would send it
+to Linus on Wednesday or Thursday.
+
+Thank you!
+
+ arch/x86/xen/platform-pci-unplug.c         | 79 ++++++++++++++++++++++++++++--
+ drivers/block/xen-blkfront.c               |  4 +-
+ drivers/char/tpm/xen-tpmfront.c            |  4 ++
+ drivers/input/misc/xen-kbdfront.c          |  4 ++
+ drivers/net/xen-netfront.c                 |  2 +-
+ drivers/pci/xen-pcifront.c                 |  4 ++
+ drivers/video/xen-fbfront.c                |  4 ++
+ drivers/xen/xenbus/xenbus_probe_frontend.c |  2 +-
+ include/xen/platform_pci.h                 | 25 +++++++++-
+ 9 files changed, 119 insertions(+), 9 deletions(-)
 
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
+Konrad Rzeszutek Wilk (2):
+      xen/pvhvm: If xen_platform_pci=0 is set don't blow up (v3).
+      xen/pvhvm: Remove the xen_platform_pci int.
+
