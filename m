@@ -1,68 +1,68 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCHv2 net-next 2/3] xfrm: export verify_userspi_info for
- pkfey and netlink interface
-Date: Mon, 16 Dec 2013 10:39:59 +0100
-Message-ID: <20131216093958.GE31491@secunet.com>
-References: <1387099194-18540-1-git-send-email-fan.du@windriver.com>
- <1387099194-18540-3-git-send-email-fan.du@windriver.com>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH -next] xen-netback: fix fragments error handling in
+ checksum_setup_ip()
+Date: Mon, 16 Dec 2013 09:40:37 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD01B4F4C@AMSPEX01CL01.citrite.net>
+References: <CAPgLHd97T5bVtCEubkNqChBjSoA5V4Cka=ZQUn=JoYjPCuVE6A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "yongjun_wei@trendmicro.com.cn" <yongjun_wei@trendmicro.com.cn>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Wei Yongjun <weiyj.lk@gmail.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:52468 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751184Ab3LPJkF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Dec 2013 04:40:05 -0500
-Content-Disposition: inline
-In-Reply-To: <1387099194-18540-3-git-send-email-fan.du@windriver.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:17282 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751539Ab3LPJkk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 04:40:40 -0500
+In-Reply-To: <CAPgLHd97T5bVtCEubkNqChBjSoA5V4Cka=ZQUn=JoYjPCuVE6A@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 15, 2013 at 05:19:53PM +0800, Fan Du wrote:
-> diff --git a/net/key/af_key.c b/net/key/af_key.c
-> index 545f047..7605d51 100644
-> --- a/net/key/af_key.c
-> +++ b/net/key/af_key.c
-> @@ -1340,6 +1340,12 @@ static int pfkey_getspi(struct sock *sk, struct sk_buff *skb, const struct sadb_
->  		max_spi = range->sadb_spirange_max;
->  	}
->  
-> +	err = verify_spi_info(x->id.proto, min_spi, max_spi);
-> +	if (err) {
-> +		xfrm_state_put(x);
-> +		return err; 
-
-This line adds a trailing whitespace.
-
-> +	}
+> -----Original Message-----
+> From: Wei Yongjun [mailto:weiyj.lk@gmail.com]
+> Sent: 16 December 2013 02:45
+> To: Ian Campbell; Wei Liu; Paul Durrant; Zoltan Kiss; davem@davemloft.net
+> Cc: yongjun_wei@trendmicro.com.cn; xen-devel@lists.xenproject.org;
+> netdev@vger.kernel.org
+> Subject: [PATCH -next] xen-netback: fix fragments error handling in
+> checksum_setup_ip()
+> 
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> 
+> Fix to return -EPROTO error if fragments detected in checksum_setup_ip().
+> 
+> Fixes: 1431fb31ecba ('xen-netback: fix fragment detection in checksum
+> setup')
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> ---
+>  drivers/net/xen-netback/netback.c | 3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
+> netback/netback.c
+> index 800496b..773b731 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -1099,6 +1099,9 @@ static int checksum_setup_ip(struct xenvif *vif,
+> struct sk_buff *skb,
+> 
+>  	err = -EPROTO;
+> 
+> +	if (fragment)
+> +		goto out;
 > +
->  	err = xfrm_alloc_spi(x, min_spi, max_spi);
->  	resp_skb = err ? ERR_PTR(err) : pfkey_xfrm_state2msg(x);
->  
-> diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-> index 68c2f35..d953639 100644
-> --- a/net/xfrm/xfrm_state.c
-> +++ b/net/xfrm/xfrm_state.c
-> @@ -1496,6 +1496,30 @@ u32 xfrm_get_acqseq(void)
->  }
->  EXPORT_SYMBOL(xfrm_get_acqseq);
->  
-> +int verify_spi_info(u8 proto, u32 min, u32 max)
-> +{
-> +        switch (proto) {
-> +        case IPPROTO_AH:
-> +        case IPPROTO_ESP:
-> +                break;
-> +
-> +        case IPPROTO_COMP:
-> +                /* IPCOMP spi is 16-bits. */
-> +                if (max >= 0x10000)
-> +                        return -EINVAL;
-> +                break;
-> +
-> +        default:
-> +                return -EINVAL;
-> +        }    
 
-This one too.
+Good grief. This hunk must have got lost from my original patch. My old tree has it there. So...
+
+Reviewed-by: Paul Durrant <paul.durrant@citrix.com>
+
+>  	switch (ip_hdr(skb)->protocol) {
+>  	case IPPROTO_TCP:
+>  		err = maybe_pull_tail(skb,
