@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 08/12] i40e: function to reconfigure RSS queues and rebuild
-Date: Mon, 16 Dec 2013 01:38:54 -0800
-Message-ID: <1387186738-13666-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 09/12] i40e: Add basic support for get/set channels for RSS
+Date: Mon, 16 Dec 2013 01:38:55 -0800
+Message-ID: <1387186738-13666-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387186738-13666-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -9,9 +9,9 @@ Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:52866 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:45386 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752909Ab3LPJjJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752940Ab3LPJjJ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 16 Dec 2013 04:39:09 -0500
 In-Reply-To: <1387186738-13666-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,164 +19,125 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-This is the second of 3 patches that allows for changing
-the number of queues in the driver on the fly.
+Implement the number of receive/transmit queue pair being
+changed on the fly by ethtool.
 
-This patch adds a function that calls the reinit flow for the
-main VSI after making changes to the RSS queue count as requested
-by the user.
-
-Change-Id: I82dee91e9fe90eeb4e84a7369f4b8b342155dd85
+Change-Id: I70df2363f1ca40b63610baa561c5b6b92b81bca7
 Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |  2 ++
- drivers/net/ethernet/intel/i40e/i40e_main.c | 56 ++++++++++++++++++++++++-----
- 2 files changed, 50 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 90 ++++++++++++++++++++++++++
+ 1 file changed, 90 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 001d7cf..eb1a3aa 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -199,6 +199,7 @@ struct i40e_pf {
- 	u16 num_tc_qps;            /* num queue pairs per TC */
- 	u16 num_lan_qps;           /* num lan queues this pf has set up */
- 	u16 num_lan_msix;          /* num queue vectors for the base pf vsi */
-+	int queues_left;           /* queues left unclaimed */
- 	u16 rss_size;              /* num queues in the RSS array */
- 	u16 rss_size_max;          /* HW defined max RSS queues */
- 	u16 fdir_pf_filter_count;  /* num of guaranteed filters for this PF */
-@@ -530,6 +531,7 @@ struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
- int i40e_vsi_release(struct i40e_vsi *vsi);
- struct i40e_vsi *i40e_vsi_lookup(struct i40e_pf *pf, enum i40e_vsi_type type,
- 				 struct i40e_vsi *start_vsi);
-+int i40e_reconfig_rss_queues(struct i40e_pf *pf, int queue_count);
- struct i40e_veb *i40e_veb_setup(struct i40e_pf *pf, u16 flags, u16 uplink_seid,
- 				u16 downlink_seid, u8 enabled_tc);
- void i40e_veb_release(struct i40e_veb *veb);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 73110cd..73c9a20 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5411,15 +5411,18 @@ static int i40e_init_msix(struct i40e_pf *pf)
- 	/* The number of vectors we'll request will be comprised of:
- 	 *   - Add 1 for "other" cause for Admin Queue events, etc.
- 	 *   - The number of LAN queue pairs
--	 *        already adjusted for the number of cpus in the system
--	 *        assumes symmetric Tx/Rx pairing
-+	 *	- Queues being used for RSS.
-+	 *		We don't need as many as max_rss_size vectors.
-+	 *		use rss_size instead in the calculation since that
-+	 *		is governed by number of cpus in the system.
-+	 *	- assumes symmetric Tx/Rx pairing
- 	 *   - The number of VMDq pairs
- 	 * Once we count this up, try the request.
- 	 *
- 	 * If we can't get what we want, we'll simplify to nearly nothing
- 	 * and try again.  If that still fails, we punt.
- 	 */
--	pf->num_lan_msix = pf->num_lan_qps;
-+	pf->num_lan_msix = pf->num_lan_qps - (pf->rss_size_max - pf->rss_size);
- 	pf->num_vmdq_msix = pf->num_vmdq_qps;
- 	v_budget = 1 + pf->num_lan_msix;
- 	v_budget += (pf->num_vmdq_vsis * pf->num_vmdq_msix);
-@@ -5700,6 +5703,42 @@ static int i40e_config_rss(struct i40e_pf *pf)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index fcb6def..d6681f6 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1472,6 +1472,94 @@ static int i40e_set_rxnfc(struct net_device *netdev, struct ethtool_rxnfc *cmd)
+ 	return ret;
  }
  
- /**
-+ * i40e_reconfig_rss_queues - change number of queues for rss and rebuild
-+ * @pf: board private structure
-+ * @queue_count: the requested queue count for rss.
-+ *
-+ * returns 0 if rss is not enabled, if enabled returns the final rss queue
-+ * count which may be different from the requested queue count.
++/**
++ * i40e_max_channels - get Max number of combined channels supported
++ * @vsi: vsi pointer
 + **/
-+int i40e_reconfig_rss_queues(struct i40e_pf *pf, int queue_count)
++static unsigned int i40e_max_channels(struct i40e_vsi *vsi)
 +{
-+	if (!(pf->flags & I40E_FLAG_RSS_ENABLED))
-+		return 0;
-+
-+	queue_count = min_t(int, queue_count, pf->rss_size_max);
-+	queue_count = rounddown_pow_of_two(queue_count);
-+
-+	if (queue_count != pf->rss_size) {
-+		if (pf->queues_left < (queue_count - pf->rss_size)) {
-+			dev_info(&pf->pdev->dev,
-+				"Not enough queues to do RSS on %d queues: remaining queues %d\n",
-+				queue_count, pf->queues_left);
-+			return pf->rss_size;
-+		}
-+		i40e_prep_for_reset(pf);
-+
-+		pf->num_lan_qps += (queue_count - pf->rss_size);
-+		pf->queues_left -= (queue_count - pf->rss_size);
-+		pf->rss_size = queue_count;
-+
-+		i40e_reset_and_rebuild(pf, true);
-+		i40e_config_rss(pf);
-+	}
-+	dev_info(&pf->pdev->dev, "RSS count:  %d\n", pf->rss_size);
-+	return pf->rss_size;
++	/* TODO: This code assumes DCB and FD is disabled for now. */
++	return vsi->alloc_queue_pairs;
 +}
 +
 +/**
-  * i40e_sw_init - Initialize general software structures (struct i40e_pf)
-  * @pf: board private structure to initialize
-  *
-@@ -5880,7 +5919,7 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
- 	int etherdev_size;
- 
- 	etherdev_size = sizeof(struct i40e_netdev_priv);
--	netdev = alloc_etherdev_mq(etherdev_size, vsi->num_queue_pairs);
-+	netdev = alloc_etherdev_mq(etherdev_size, vsi->alloc_queue_pairs);
- 	if (!netdev)
- 		return -ENOMEM;
- 
-@@ -7180,7 +7219,7 @@ static void i40e_determine_queue_usage(struct i40e_pf *pf)
- 		pf->rss_size = i40e_set_rss_size(pf, queues_left);
- 
- 		queues_left -= pf->rss_size;
--		pf->num_lan_qps = pf->rss_size;
-+		pf->num_lan_qps = pf->rss_size_max;
- 
- 	} else if (pf->flags & I40E_FLAG_RSS_ENABLED	  &&
- 		   !(pf->flags & I40E_FLAG_FDIR_ENABLED)  &&
-@@ -7199,7 +7238,7 @@ static void i40e_determine_queue_usage(struct i40e_pf *pf)
- 			return;
- 		}
- 
--		pf->num_lan_qps = pf->rss_size + accum_tc_size;
-+		pf->num_lan_qps = pf->rss_size_max + accum_tc_size;
- 
- 	} else if (pf->flags & I40E_FLAG_RSS_ENABLED   &&
- 		  (pf->flags & I40E_FLAG_FDIR_ENABLED) &&
-@@ -7215,7 +7254,7 @@ static void i40e_determine_queue_usage(struct i40e_pf *pf)
- 			return;
- 		}
- 
--		pf->num_lan_qps = pf->rss_size;
-+		pf->num_lan_qps = pf->rss_size_max;
- 
- 	} else if (pf->flags & I40E_FLAG_RSS_ENABLED   &&
- 		  (pf->flags & I40E_FLAG_FDIR_ENABLED) &&
-@@ -7235,7 +7274,7 @@ static void i40e_determine_queue_usage(struct i40e_pf *pf)
- 			return;
- 		}
- 
--		pf->num_lan_qps = pf->rss_size + accum_tc_size;
-+		pf->num_lan_qps = pf->rss_size_max + accum_tc_size;
- 
- 	} else {
- 		dev_info(&pf->pdev->dev,
-@@ -7257,6 +7296,7 @@ static void i40e_determine_queue_usage(struct i40e_pf *pf)
- 		queues_left -= (pf->num_vmdq_vsis * pf->num_vmdq_qps);
- 	}
- 
-+	pf->queues_left = queues_left;
- 	return;
- }
++ * i40e_get_channels - Get the current channels enabled and max supported etc.
++ * @netdev: network interface device structure
++ * @ch: ethtool channels structure
++ *
++ * We don't support separate tx and rx queues as channels. The other count
++ * represents how many queues are being used for control. max_combined counts
++ * how many queue pairs we can support. They may not be mapped 1 to 1 with
++ * q_vectors since we support a lot more queue pairs than q_vectors.
++ **/
++static void i40e_get_channels(struct net_device *dev,
++			       struct ethtool_channels *ch)
++{
++	struct i40e_netdev_priv *np = netdev_priv(dev);
++	struct i40e_vsi *vsi = np->vsi;
++	struct i40e_pf *pf = vsi->back;
++
++	/* report maximum channels */
++	ch->max_combined = i40e_max_channels(vsi);
++
++	/* report info for other vector */
++	ch->other_count = (pf->flags & I40E_FLAG_FDIR_ENABLED) ? 1 : 0;
++	ch->max_other = ch->other_count;
++
++	/* Note: This code assumes DCB is disabled for now. */
++	ch->combined_count = vsi->num_queue_pairs;
++}
++
++/**
++ * i40e_set_channels - Set the new channels count.
++ * @netdev: network interface device structure
++ * @ch: ethtool channels structure
++ *
++ * The new channels count may not be the same as requested by the user
++ * since it gets rounded down to a power of 2 value.
++ **/
++static int i40e_set_channels(struct net_device *dev,
++			      struct ethtool_channels *ch)
++{
++	struct i40e_netdev_priv *np = netdev_priv(dev);
++	unsigned int count = ch->combined_count;
++	struct i40e_vsi *vsi = np->vsi;
++	struct i40e_pf *pf = vsi->back;
++	int new_count;
++
++	/* We do not support setting channels for any other VSI at present */
++	if (vsi->type != I40E_VSI_MAIN)
++		return -EINVAL;
++
++	/* verify they are not requesting separate vectors */
++	if (!count || ch->rx_count || ch->tx_count)
++		return -EINVAL;
++
++	/* verify other_count has not changed */
++	if (ch->other_count != ((pf->flags & I40E_FLAG_FDIR_ENABLED) ? 1 : 0))
++		return -EINVAL;
++
++	/* verify the number of channels does not exceed hardware limits */
++	if (count > i40e_max_channels(vsi))
++		return -EINVAL;
++
++	/* update feature limits from largest to smallest supported values */
++	/* TODO: Flow director limit, DCB etc */
++
++	/* cap RSS limit */
++	if (count > pf->rss_size_max)
++		count = pf->rss_size_max;
++
++	/* use rss_reconfig to rebuild with new queue count and update traffic
++	 * class queue mapping
++	 */
++	new_count = i40e_reconfig_rss_queues(pf, count);
++	if (new_count > 1)
++		return 0;
++	else
++		return -EINVAL;
++}
++
+ static const struct ethtool_ops i40e_ethtool_ops = {
+ 	.get_settings		= i40e_get_settings,
+ 	.get_drvinfo		= i40e_get_drvinfo,
+@@ -1496,6 +1584,8 @@ static const struct ethtool_ops i40e_ethtool_ops = {
+ 	.get_ethtool_stats	= i40e_get_ethtool_stats,
+ 	.get_coalesce		= i40e_get_coalesce,
+ 	.set_coalesce		= i40e_set_coalesce,
++	.get_channels		= i40e_get_channels,
++	.set_channels		= i40e_set_channels,
+ 	.get_ts_info		= i40e_get_ts_info,
+ };
  
 -- 
 1.8.3.1
