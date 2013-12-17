@@ -1,91 +1,54 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next] net: vxlan: use custom ndo_change_mtu handler
-Date: Tue, 17 Dec 2013 19:18:09 +0100
-Message-ID: <52B09561.8040404@redhat.com>
-References: <1387286409-1783-1-git-send-email-dborkman@redhat.com> <20131217093640.63220542@nehalam.linuxnetplumber.net>
+From: Tom Herbert <therbert@google.com>
+Subject: PATCH] net: Cache align dst refcnt
+Date: Tue, 17 Dec 2013 10:15:36 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1312171013050.5720@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, shahed.shaikh@qlogic.com,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, edumazet@google.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4762 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755993Ab3LQSSV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Dec 2013 13:18:21 -0500
-In-Reply-To: <20131217093640.63220542@nehalam.linuxnetplumber.net>
+Received: from mail-ve0-f201.google.com ([209.85.128.201]:42534 "EHLO
+	mail-ve0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753733Ab3LQSV7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 13:21:59 -0500
+Received: by mail-ve0-f201.google.com with SMTP id jw12so666504veb.4
+        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 10:21:59 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/17/2013 06:36 PM, Stephen Hemminger wrote:
-> On Tue, 17 Dec 2013 14:20:09 +0100
-> Daniel Borkmann <dborkman@redhat.com> wrote:
->
->> +static int vxlan_change_mtu(struct net_device *dev, int new_mtu)
->> +{
->> +	struct net *net = current->nsproxy->net_ns;
->> +	struct vxlan_dev *vxlan = netdev_priv(dev);
->> +	struct vxlan_rdst *dst = &vxlan->default_dst;
->> +	bool is_ipv6 = dst->remote_ip.sa.sa_family == AF_INET6;
->> +	int hroom = is_ipv6 ? VXLAN6_HEADROOM : VXLAN_HEADROOM;
->> +	struct net_device *lowerdev;
->> +
->> +	lowerdev = dev_get_by_index(net, dst->remote_ifindex);
->> +	if (lowerdev == NULL)
->> +		return eth_change_mtu(dev, new_mtu);
->> +
->> +	if (new_mtu == lowerdev->mtu)
->> +		new_mtu = lowerdev->mtu - hroom;
->> +	if (new_mtu < 68 || new_mtu > lowerdev->mtu - hroom) {
->> +		dev_put(lowerdev);
->> +		return -EINVAL;
->> +	}
->> +
->> +	dev->mtu = new_mtu;
->> +
->> +	dev_put(lowerdev);
->> +	return 0;
->> +}
->> +
->
-> The *net should just be devnet(dev).
->
-> Don't need ref here, called under RTNL.
->
-> You can't arbitrarly shrink user's requested mtu
->
-> Minor nit picking: I don't like adding more local flag variables.
-> To me it is clearer.
+ipv4_dst_check is coming up very high in perf top for TCP_RR tests and
+it really is not doing much interesting. Looks like we have false
+sharing with dst->refcnt. This patch cache aligns refcnt. There were
+already some comments in the code that refcnt needs to be cache aligned.
 
-Ok, will send a v2 with your feedback incorporated.
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ include/net/dst.h | 11 +++--------
+ 1 file changed, 3 insertions(+), 8 deletions(-)
 
-Thanks a lot Stephen!
-
-> The resulting function is:
->
->
-> static int vxlan_change_mtu(struct net_device *dev, int new_mtu)
-> {
-> 	struct vxlan_dev *vxlan = netdev_priv(dev);
-> 	int maxmtu;
-> 	struct net_device *lowerdev;
->
-> 	lowerdev = __dev_get_by_index(devnet(dev),
-> 				      vxlan->default_dst.remote_ifindex);
-> 	if (lowerdev == NULL)
-> 		return eth_change_mtu(dev, new_mtu);
->
-> 	if (dst->remote_ip.sa.sa_family == AF_INET6)
-> 		maxmtu = lowerdev->mtu - VXLAN6_HEADROOM;
-> 	else
-> 		maxmtu = lowerdev->mtu - VXLAN_HEADROOM;
->
-> 	if (new_mtu < 68 || new_mtu > maxmtu)
-> 		return -EINVAL;
->
-> 	dev->mtu = new_mtu;
-> 	return 0;
-> }
->
->
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 44995c1..265b4cd 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -85,17 +85,12 @@ struct dst_entry {
+ #endif
+ 
+ 	/*
+-	 * Align __refcnt to a 64 bytes alignment
+-	 * (L1_CACHE_SIZE would be too much)
+-	 */
+-#ifdef CONFIG_64BIT
+-	long			__pad_to_align_refcnt[2];
+-#endif
+-	/*
+ 	 * __refcnt wants to be on a different cache line from
+ 	 * input/output/ops or performance tanks badly
+ 	 */
+-	atomic_t		__refcnt;	/* client references	*/
++	atomic_t		__refcnt ____cacheline_aligned_in_smp;
++				/* client references	*/
++
+ 	int			__use;
+ 	unsigned long		lastuse;
+ 	union {
+-- 
+1.8.5.1
