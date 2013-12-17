@@ -1,69 +1,29 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: [PATCH net-next] igb: make local functions static and remove
- dead code
-Date: Tue, 17 Dec 2013 20:03:10 +0000
-Message-ID: <9BBC4E0CF881AA4299206E2E1412B6264FA15C5B@ORSMSX102.amr.corp.intel.com>
-References: <20131212120916.688140d9@nehalam.linuxnetplumber.net>
- <1387241520.2330.4.camel@jtkirshe-mobl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: unix: allow bind to fail on mutex lock
+Date: Tue, 17 Dec 2013 15:04:56 -0500 (EST)
+Message-ID: <20131217.150456.1467555049218669410.davem@davemloft.net>
+References: <1386950062-19020-1-git-send-email-sasha.levin@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:62161 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752512Ab3LQUDW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Dec 2013 15:03:22 -0500
-In-Reply-To: <1387241520.2330.4.camel@jtkirshe-mobl>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, netdev@vger.kernel.org, xemul@parallels.com,
+	linux-kernel@vger.kernel.org
+To: sasha.levin@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1386950062-19020-1-git-send-email-sasha.levin@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
-YWxmIE9mIEplZmYgS2lyc2hlcg0KPiBTZW50OiBNb25kYXksIERlY2VtYmVyIDE2LCAyMDEzIDQ6
-NTIgUE0NCj4gVG86IFN0ZXBoZW4gSGVtbWluZ2VyDQo+IENjOiBlMTAwMC1kZXZlbEBsaXN0cy5z
-b3VyY2Vmb3JnZS5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQ
-QVRDSCBuZXQtbmV4dF0gaWdiOiBtYWtlIGxvY2FsIGZ1bmN0aW9ucyBzdGF0aWMgYW5kIHJlbW92
-ZSBkZWFkDQo+IGNvZGUNCj4gDQo+IE9uIFRodSwgMjAxMy0xMi0xMiBhdCAxMjowOSAtMDgwMCwg
-U3RlcGhlbiBIZW1taW5nZXIgd3JvdGU6DQo+ID4gTWFrZSBsb2NhbCBmdW5jdGlvbnMgc3RhdGlj
-LCBhbmQgcmVtb3ZlIHVudXNlZA0KPiA+IGUxMDAwX3dyaXRlX3NmcF9kYXRhX2J5dGUuDQo+ID4N
-Cj4gPiBTaWduZWQtb2ZmLWJ5OiBTdGVwaGVuIEhlbW1pbmdlciA8c3RlcGhlbkBuZXR3b3JrcGx1
-bWJlci5vcmc+DQo+ID4NCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
-aWdiL2UxMDAwXzgyNTc1LmMgfCAgICA2ICsrKy0tLQ0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5l
-dC9pbnRlbC9pZ2IvZTEwMDBfaTIxMC5jICB8ICAgMTgNCj4gPiArKysrKysrKystLS0tLS0tLS0N
-Cj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2UxMDAwX2kyMTAuaCAgfCAgICA5
-IC0tLS0tLS0tLQ0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvZTEwMDBfcGh5
-LmMgICB8ICAgIDIgKy0NCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2UxMDAw
-X3BoeS5oICAgfCAgICAxIC0NCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2ln
-Yi5oICAgICAgICAgfCAgICAyIC0tDQo+ID4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2ln
-Yi9pZ2JfcHRwLmMgICAgIHwgICAgNiArKysrLS0NCj4gPiAgNyBmaWxlcyBjaGFuZ2VkLCAxNyBp
-bnNlcnRpb25zKCspLCAyNyBkZWxldGlvbnMoLSkNCj4gDQo+IERpZCB5b3UgY29tcGlsZSB0ZXN0
-IHRoaXMgcGF0Y2g/ICBJIGFtIGd1ZXNzaW5nIG5vIGJlY2F1c2Ugd2UgZ290IHRoZSBmb2xsb3dp
-bmcNCj4gY29tcGlsZSBlcnJvcnM6DQo+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2Iv
-ZTEwMDBfODI1NzUuYzoyNzIzOiBlcnJvcjogc3RhdGljIGRlY2xhcmF0aW9uIG9mDQo+IMOiaWdi
-X2dldF90aGVybWFsX3NlbnNvcl9kYXRhX2dlbmVyaWPDoiBmb2xsb3dzIG5vbi1zdGF0aWMgZGVj
-bGFyYXRpb24NCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9lMTAwMF84MjU3NS5o
-OjI3MDogbm90ZTogcHJldmlvdXMgZGVjbGFyYXRpb24NCj4gb2Ygw6JpZ2JfZ2V0X3RoZXJtYWxf
-c2Vuc29yX2RhdGFfZ2VuZXJpY8OiIHdhcyBoZXJlDQo+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9p
-bnRlbC9pZ2IvZTEwMDBfODI1NzUuYzoyNzc3OiBlcnJvcjogc3RhdGljIGRlY2xhcmF0aW9uIG9m
-DQo+IMOiaWdiX2luaXRfdGhlcm1hbF9zZW5zb3JfdGhyZXNoX2dlbmVyaWPDoiBmb2xsb3dzIG5v
-bi1zdGF0aWMgZGVjbGFyYXRpb24NCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9l
-MTAwMF84MjU3NS5oOjI2OTogbm90ZTogcHJldmlvdXMgZGVjbGFyYXRpb24NCj4gb2Ygw6JpZ2Jf
-aW5pdF90aGVybWFsX3NlbnNvcl90aHJlc2hfZ2VuZXJpY8OiIHdhcyBoZXJlDQo+ICBtYWtlWzVd
-OiAqKiogW2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9lMTAwMF84MjU3NS5vXSBFcnJv
-ciAxDQo+ICBtYWtlWzVdOiAqKiogV2FpdGluZyBmb3IgdW5maW5pc2hlZCBqb2JzLi4uLg0KPiAg
-bWFrZVs0XTogKioqIFtkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2JdIEVycm9yIDINCj4g
-IG1ha2VbNF06ICoqKiBXYWl0aW5nIGZvciB1bmZpbmlzaGVkIGpvYnMuLi4uDQo+ICBtYWtlWzNd
-OiAqKiogW2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsXSBFcnJvciAyDQo+ICBtYWtlWzJdOiAq
-KiogW2RyaXZlcnMvbmV0L2V0aGVybmV0XSBFcnJvciAyDQo+ICBtYWtlWzFdOiAqKiogW2RyaXZl
-cnMvbmV0XSBFcnJvciAyDQo+ICBtYWtlOiAqKiogW2RyaXZlcnNdIEVycm9yIDINCj4gDQo+IEkg
-d2lsbCB3b3JrIG9uIGEgdjIgdG8gZml4IHVwIHRoZXNlIGNvbXBpbGluZyBpc3N1ZXMuDQoNClBs
-ZWFzZSBub3RlIHRoYXQgcmVtb3ZpbmcgdGhlIGlnYl9nZXRfZWVlX3N0YXR1c19pMzU0IGZ1bmN0
-aW9uIGlzIHRoZSBpbmNvcnJlY3QgZml4LiAgVGhlcmUgaXMgYW5vdGhlciBidWcgdGhhdCBpcyB0
-aGUgbWlzc2luZyBjb2RlIHRoYXQgdXNlcyB0aGlzIGZ1bmN0aW9uLiAgSSdtIHdvcmtpbmcgb24g
-aXQuDQoNClRoYW5rcywNCg0KQ2Fyb2x5bg0K
+From: Sasha Levin <sasha.levin@oracle.com>
+Date: Fri, 13 Dec 2013 10:54:22 -0500
+
+> This is similar to the set_peek_off patch where calling bind while the
+> socket is stuck in unix_dgram_recvmsg() will block and cause a hung task
+> spew after a while.
+> 
+> This is also the last place that did a straightforward mutex_lock(), so
+> there shouldn't be any more of these patches.
+> 
+> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+
+Applied, thanks.
