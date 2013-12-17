@@ -1,28 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] MAINTAINERS: Update the IPsec maintainer entry
-Date: Tue, 17 Dec 2013 14:59:31 -0500 (EST)
-Message-ID: <20131217.145931.2281784823591689152.davem@davemloft.net>
-References: <20131213115605.GP31491@secunet.com>
+Subject: Re: ipv6: fix headroom calculation in udp6_ufo_fragment
+Date: Tue, 17 Dec 2013 15:01:05 -0500 (EST)
+Message-ID: <20131217.150105.1449726906478334082.davem@davemloft.net>
+References: <20131213133453.GB7332@order.stressinduktion.org>
+	<20131213134205.GB11044@sirena.org.uk>
+	<20131213141227.GC7332@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48559 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752224Ab3LQT7d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 14:59:33 -0500
-In-Reply-To: <20131213115605.GP31491@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: broonie@kernel.org, mark.hambleton@broadcom.com,
+	pshelar@nicira.com, Saran.Neti@telus.com,
+	gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+	stable@vger.kernel.org
+To: hannes@stressinduktion.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20131213141227.GC7332@order.stressinduktion.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Fri, 13 Dec 2013 12:56:05 +0100
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Fri, 13 Dec 2013 15:12:27 +0100
 
-> Add the IPsec git trees and some pure IPsec modules
-> to the IPsec section in the MAINTAINERS file.
+> On Fri, Dec 13, 2013 at 01:42:05PM +0000, Mark Brown wrote:
+>> On Fri, Dec 13, 2013 at 02:34:53PM +0100, Hannes Frederic Sowa wrote:
+>> 
+>> > Sorry, I don't know which version the LTS kernel is. Upstream does not use
+>> > sk_buff_data_t for mac_header any more.
+>> 
+>> This is with v3.10.
 > 
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> The change happend in 3.11. So I guess it was an oversight while backporting.
+> Following patch should help and should get backported to all stable kernels
+> <= 3.10.
+> 
+> [PATCH stable] ipv6: fix illegal mac_header comparison on 32bit
+> 
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-As a documentation fix, I've applied this to 'net', thanks.
+Queued up for -stable, thanks Hannes.
