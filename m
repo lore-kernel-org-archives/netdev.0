@@ -1,43 +1,38 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] sfc: fix sparse non static symbol warning
-Date: Tue, 17 Dec 2013 11:08:10 +0800
-Message-ID: <CAPgLHd8gaC5j0Ts7SXdDwFPKNpvm2AR_fxHhT3KSNs2Jsi_Lyw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: linux-net-drivers@solarflare.com, bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f45.google.com ([209.85.214.45]:58607 "EHLO
-	mail-bk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751883Ab3LQDIL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 22:08:11 -0500
-Received: by mail-bk0-f45.google.com with SMTP id mx13so2627950bkb.32
-        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 19:08:10 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wenliang Fan <fanwlexca@gmail.com>
+Subject: [PATCH] drivers/net/hamradio: Integer overflow in hdlcdrv_ioctl()
+Date: Tue, 17 Dec 2013 11:25:28 +0800
+Message-ID: <1387250728-10795-1-git-send-email-fanwlexca@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Wenliang Fan <fanwlexca@gmail.com>
+To: davem@davemloft.net, michael.opdenacker@free-electrons.com,
+	gaofeng@cn.fujitsu.com, akpm@linux-foundation.org,
+	t.sailer@alumni.ethz.ch
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+The local variable 'bi' comes from userspace. If userspace passed a
+large number to 'bi.data.calibrate', there would be an integer overflow
+in the following line:
+	s->hdlctx.calibrate = bi.data.calibrate * s->par.bitrate / 16;
 
-Fixes the following sparse warning:
-
-drivers/net/ethernet/sfc/falcon.c:2601:6: warning:
- symbol 'falcon_pull_nic_stats' was not declared. Should it be static?
-
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Signed-off-by: Wenliang Fan <fanwlexca@gmail.com>
 ---
- drivers/net/ethernet/sfc/falcon.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/hamradio/hdlcdrv.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
-index 76699f4..1df52db 100644
---- a/drivers/net/ethernet/sfc/falcon.c
-+++ b/drivers/net/ethernet/sfc/falcon.c
-@@ -2598,7 +2598,7 @@ void falcon_start_nic_stats(struct efx_nic *efx)
- /* We don't acutally pull stats on falcon. Wait 10ms so that
-  * they arrive when we call this just after start_stats
-  */
--void falcon_pull_nic_stats(struct efx_nic *efx)
-+static void falcon_pull_nic_stats(struct efx_nic *efx)
- {
- 	msleep(10);
- }
+diff --git a/drivers/net/hamradio/hdlcdrv.c b/drivers/net/hamradio/hdlcdrv.c
+index 3169252..5d78c1d 100644
+--- a/drivers/net/hamradio/hdlcdrv.c
++++ b/drivers/net/hamradio/hdlcdrv.c
+@@ -571,6 +571,8 @@ static int hdlcdrv_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	case HDLCDRVCTL_CALIBRATE:
+ 		if(!capable(CAP_SYS_RAWIO))
+ 			return -EPERM;
++		if (bi.data.calibrate > INT_MAX / s->par.bitrate)
++			return -EINVAL;
+ 		s->hdlctx.calibrate = bi.data.calibrate * s->par.bitrate / 16;
+ 		return 0;
+ 
+-- 
+1.8.5.rc1.28.g7061504
