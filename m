@@ -1,31 +1,28 @@
-From: "Chandler, Brian" <Brian.Chandler@richardson.k12.tx.us>
-Subject: Re: Email Account Confirmation
-Date: Tue, 17 Dec 2013 11:09:17 -0600
-Message-ID: <75A5437A8AFC574DA45672CE6961FA95014314ECEA66@email.risd.net>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: git problems
+Date: Tue, 17 Dec 2013 17:21:05 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B74A0@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exgate.richardson.k12.tx.us ([165.199.3.203]:19814 "EHLO
-	richardson.k12.tx.us" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752452Ab3LQRO3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 12:14:29 -0500
-Content-Language: en-US
+Received: from mx0.aculab.com ([213.249.233.131]:33793 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752800Ab3LQRWa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 12:22:30 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 10375-05 for <netdev@vger.kernel.org>;
+ Tue, 17 Dec 2013 17:22:28 +0000 (GMT)
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Webmail User,
+git managed to completely trash my tree - no problem I'd saved everything important.
+So I renamed the directory tree and then checked out an entire new tree.
+Now it won't let me commit because it has somewhere remembered a merge f*ckup
+in the old tree.
+Where has it got this info saved, and how do I tell it there is nothing wrong?
 
-In response to the discrepancies we noticed with your email usage, it i=
-s important that you confirm your email account immediately;
-
-Click Here to Confirm Now<http://zimbra.x10.mx/netcom_server/server/sec=
-ured/accountprofiles/feedback/feedback.html>
-
-Confirming your account will resolve the issue. Your email account will=
- be discontinued if you fail to comply within the next 24 hours. Thank =
-you for your cooperation.
-
-Warning Code: NWT2903312
-=A9 2013 OIT OWA WEB ADMIN. All rights reserved.
+	David
