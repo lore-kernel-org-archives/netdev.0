@@ -1,55 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH v2 1/1] drivers: net : cpsw: pass proper device
- name while requesting irq
-Date: Tue, 17 Dec 2013 14:39:19 -0500 (EST)
-Message-ID: <20131217.143919.986923631175327534.davem@davemloft.net>
-References: <1386925527-6706-1-git-send-email-mugunthanvnm@ti.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net v2 9/9] bridge: Prevent possible race condition in
+ br_fdb_change_mac_address
+Date: Tue, 17 Dec 2013 14:39:24 -0500
+Message-ID: <52B0A86C.1080800@redhat.com>
+References: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp> <1387281821-21342-10-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-	george.cherian@ti.com
-To: mugunthanvnm@ti.com
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	"David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48372 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752129Ab3LQTjV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 14:39:21 -0500
-In-Reply-To: <1386925527-6706-1-git-send-email-mugunthanvnm@ti.com>
+Received: from mx1.redhat.com ([209.132.183.28]:43792 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752629Ab3LQTja (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Dec 2013 14:39:30 -0500
+In-Reply-To: <1387281821-21342-10-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Date: Fri, 13 Dec 2013 14:35:27 +0530
+On 12/17/2013 07:03 AM, Toshiaki Makita wrote:
+> br_fdb_change_mac_address() calls fdb_insert()/fdb_delete() without
+> br->hash_lock.
+> 
+> These hash list updates are racy with br_fdb_update()/br_fdb_cleanup().
+> 
+> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 
-> During checking the interrupts with "cat /proc/interrupts", it is showing
-> device name as (null), this change was done with commit id aa1a15e2d where
-> request_irq is changed to devm_request_irq also changing the irq name from
-> platform device name to net device name, but the net device is not
-> registered at this point with the network frame work, so devm_request_irq
-> is called with device name as NULL, by which it is showed as "(null)" in
-> "cat /proc/interrupts". So this patch moved the devm_request_irq after
-> the net device register so that the device name shows as eth*.
+Good bug fix.
 
-This change is buggy.
+Acked-by: Vlad Yasevich <vyasevic@redhat.com>
 
-If the request irq fails, you have to unregister the network device,
-branching to clean_ale_ret is insufficient.
+-vlad
 
-And this shows the more fundamental problem with your change, you
-cannot register the network device before you request the IRQs
-if your ->open() method assumes that the IRQs are registered already.
-
-Which this driver does.
-
-The very moment you call request_irq(), the interface can be brought
-up and then ->open() method invoked.
-
-Therefore, register_netdevice() absolutely must be the very last
-action during the probe function.
-
-Why don't you just use the platform device name as the interrupt
-name?  The other alternative is to only register the IRQs in the
-->open() routine and free the IRQ in the ->close() method.
-
-I can't apply this, sorry.
+> ---
+>  net/bridge/br_fdb.c | 6 +++++-
+>  1 file changed, 5 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+> index 38cd29d..05fb8da 100644
+> --- a/net/bridge/br_fdb.c
+> +++ b/net/bridge/br_fdb.c
+> @@ -191,6 +191,8 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
+>  	struct net_port_vlans *pv;
+>  	u16 vid = 0;
+>  
+> +	spin_lock_bh(&br->hash_lock);
+> +
+>  	/* If old entry was unassociated with any port, then delete it. */
+>  	f = __br_fdb_get(br, br->dev->dev_addr, 0);
+>  	if (f && f->is_local && !f->dst)
+> @@ -204,7 +206,7 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
+>  	 */
+>  	pv = br_get_vlan_info(br);
+>  	if (!pv)
+> -		return;
+> +		goto out;
+>  
+>  	for_each_set_bit_from(vid, pv->vlan_bitmap, VLAN_N_VID) {
+>  		f = __br_fdb_get(br, br->dev->dev_addr, vid);
+> @@ -212,6 +214,8 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
+>  			fdb_delete_local(br, NULL, f);
+>  		fdb_insert(br, NULL, newaddr, vid);
+>  	}
+> +out:
+> +	spin_unlock_bh(&br->hash_lock);
+>  }
+>  
+>  void br_fdb_cleanup(unsigned long _data)
+> 
