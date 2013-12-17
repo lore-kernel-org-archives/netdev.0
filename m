@@ -1,51 +1,51 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can 2013-12-17
-Date: Tue, 17 Dec 2013 11:44:47 +0100
-Message-ID: <1387277089-25554-1-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 2/2] can: peak_usb: fix mem leak in pcan_usb_pro_init()
+Date: Tue, 17 Dec 2013 11:44:49 +0100
+Message-ID: <1387277089-25554-3-git-send-email-mkl@pengutronix.de>
+References: <1387277089-25554-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
+	kernel@pengutronix.de, Marc Kleine-Budde <mkl@pengutronix.de>,
+	linux-stable <stable@vger.kernel.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:50837 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:50839 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752307Ab3LQKo7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 05:44:59 -0500
+	with ESMTP id S1752358Ab3LQKpA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 05:45:00 -0500
+In-Reply-To: <1387277089-25554-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+This patch fixes a memory leak in pcan_usb_pro_init(). In patch
 
-this is a pull request with two fixes for net/master, the current release
-cycle.
+    f14e224 net: can: peak_usb: Do not do dma on the stack
 
-It consists of a patch by Alexey Khoroshilov from the Linux Driver Verification
-project, which fixes a memory leak in ems_usb's failure patch. And a patch by
-me which fixes a memory leak in the peak usb driver.
+the struct pcan_usb_pro_fwinfo *fi and struct pcan_usb_pro_blinfo *bi were
+converted from stack to dynamic allocation va kmalloc(). However the
+corresponding kfree() was not introduced.
 
-regards,
-Marc
+This patch adds the missing kfree().
 
+Cc: linux-stable <stable@vger.kernel.org> # v3.10
+Reported-by: Stephane Grosjean <s.grosjean@peak-system.com>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
-
-The following changes since commit 9bd7d20c45157c175bfd45449e904a404506f99c:
-
-  sctp: loading sctp when load sctp_probe (2013-12-16 20:04:27 -0500)
-
-are available in the git repository at:
-
-  git://gitorious.org/linux-can/linux-can.git fixes-for-3.13
-
-for you to fetch changes up to 20fb4eb96fb0350d28fc4d7cbfd5506711079592:
-
-  can: peak_usb: fix mem leak in pcan_usb_pro_init() (2013-12-17 11:19:33 +0100)
-
-----------------------------------------------------------------
-Alexey Khoroshilov (1):
-      can: ems_usb: fix urb leaks on failure paths
-
-Marc Kleine-Budde (1):
-      can: peak_usb: fix mem leak in pcan_usb_pro_init()
-
- drivers/net/can/usb/ems_usb.c               | 3 ++-
  drivers/net/can/usb/peak_usb/pcan_usb_pro.c | 3 +++
- 2 files changed, 5 insertions(+), 1 deletion(-)
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_pro.c b/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
+index 8ee9d15..263dd92 100644
+--- a/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
++++ b/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
+@@ -927,6 +927,9 @@ static int pcan_usb_pro_init(struct peak_usb_device *dev)
+ 	/* set LED in default state (end of init phase) */
+ 	pcan_usb_pro_set_led(dev, 0, 1);
+ 
++	kfree(bi);
++	kfree(fi);
++
+ 	return 0;
+ 
+  err_out:
+-- 
+1.8.5.1
