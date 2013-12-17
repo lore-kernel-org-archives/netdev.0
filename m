@@ -1,86 +1,57 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 03/11] net/mlx4_core: Introduce nic_info new flag in QUERY_FUNC_CAP
-Date: Tue, 17 Dec 2013 09:01:52 +0200
-Message-ID: <1387263720-31222-4-git-send-email-amirv@mellanox.com>
-References: <1387263720-31222-1-git-send-email-amirv@mellanox.com>
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
-	Hadar Hen Zion <hadarh@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: clear RTF_EXPIRES when call ip6_rt_copy
+Date: Tue, 17 Dec 2013 08:02:31 +0100
+Message-ID: <20131217070231.GA11970@order.stressinduktion.org>
+References: <1387182666-31301-1-git-send-email-roy.qing.li@gmail.com> <52AFC43C.9080804@cn.fujitsu.com> <CAJFZqHwF0ubvxJOs2BWbSMMB1szKNO=XTiXje3E2ByF6sUQrXA@mail.gmail.com> <52AFE7E3.3070806@cn.fujitsu.com> <CAJFZqHxawisUbHGZY8mjGHy8035X6TQ7FNzc20vtS5j1jdZYGA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: Gao feng <gaofeng@cn.fujitsu.com>, netdev@vger.kernel.org
+To: RongQing Li <roy.qing.li@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:34097 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752660Ab3LQHCP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Dec 2013 02:02:15 -0500
-In-Reply-To: <1387263720-31222-1-git-send-email-amirv@mellanox.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:60814 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752677Ab3LQHCd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 02:02:33 -0500
+Content-Disposition: inline
+In-Reply-To: <CAJFZqHxawisUbHGZY8mjGHy8035X6TQ7FNzc20vtS5j1jdZYGA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hadar Hen Zion <hadarh@mellanox.com>
+On Tue, Dec 17, 2013 at 02:42:01PM +0800, RongQing Li wrote:
+> On 12/17/13, Gao feng <gaofeng@cn.fujitsu.com> wrote:
+> > On 12/17/2013 11:32 AM, RongQing Li wrote:
+> >> If the ort->rt6i_flags is RTF_EXPIRES|RTF_ADDRCONF, then rt6_set_from will
+> >> not
+> >> be called, and new created rt will have RTF_EXPIRES, but dst.expires is 0,
+> >> and
+> >> dst.from is NULL
+> >
+> > Ok, but I think you need to add more detail/test purpose of the test case
+> > v6LC.4.1.4
+> > { Reduce PMTU On-link }. just the number of test case is not good for people
+> > to know
+> > what's the real problem.
+> >
+> 
+> I have a question, why does we set dst.from only when the ort has flag
+> RTF_ADDRCONF
+> and RTF_DEFAULT?
 
-Set nic_info field in QUERY_FUNC_CAP, which designates
-supplementary NIC information is provided by the hypervisor.
-When set, the following fields are valid: nic_num_rings,
-nic_indirection_tbl_sz, cur_mac and phys_port_id.
+Good question. ;)
 
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/fw.c | 11 ++++++++---
- drivers/net/ethernet/mellanox/mlx4/fw.h |  1 +
- 2 files changed, 9 insertions(+), 3 deletions(-)
+I wonder, too. In the past from and expires were a union and either from or
+expires was allowed to be used. In the commit you referred to this union was
+split into seperate fields.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 58ca7de..bfe91ae 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -217,10 +217,15 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
- 
- #define QUERY_FUNC_CAP_FLAGS1_FORCE_MAC		0x40
- #define QUERY_FUNC_CAP_FLAGS1_FORCE_VLAN	0x80
-+#define QUERY_FUNC_CAP_FLAGS1_NIC_INFO			0x10
- 
- #define QUERY_FUNC_CAP_FLAGS0_FORCE_PHY_WQE_GID 0x80
- 
- 	if (vhcr->op_modifier == 1) {
-+		/* Set nic_info bit to mark new fields support */
-+		field  = QUERY_FUNC_CAP_FLAGS1_NIC_INFO;
-+		MLX4_PUT(outbox->buf, field, QUERY_FUNC_CAP_FLAGS1_OFFSET);
-+
- 		field = vhcr->in_modifier; /* phys-port = logical-port */
- 		MLX4_PUT(outbox->buf, field, QUERY_FUNC_CAP_PHYS_PORT_OFFSET);
- 
-@@ -385,15 +390,15 @@ int mlx4_QUERY_FUNC_CAP(struct mlx4_dev *dev, u32 gen_or_port,
- 		goto out;
- 	}
- 
-+	MLX4_GET(func_cap->flags1, outbox, QUERY_FUNC_CAP_FLAGS1_OFFSET);
- 	if (dev->caps.port_type[gen_or_port] == MLX4_PORT_TYPE_ETH) {
--		MLX4_GET(field, outbox, QUERY_FUNC_CAP_FLAGS1_OFFSET);
--		if (field & QUERY_FUNC_CAP_FLAGS1_FORCE_VLAN) {
-+		if (func_cap->flags1 & QUERY_FUNC_CAP_FLAGS1_OFFSET) {
- 			mlx4_err(dev, "VLAN is enforced on this port\n");
- 			err = -EPROTONOSUPPORT;
- 			goto out;
- 		}
- 
--		if (field & QUERY_FUNC_CAP_FLAGS1_FORCE_MAC) {
-+		if (func_cap->flags1 & QUERY_FUNC_CAP_FLAGS1_FORCE_MAC) {
- 			mlx4_err(dev, "Force mac is enabled on this port\n");
- 			err = -EPROTONOSUPPORT;
- 			goto out;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.h b/drivers/net/ethernet/mellanox/mlx4/fw.h
-index a0a368b..9d95298 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.h
-@@ -140,6 +140,7 @@ struct mlx4_func_cap {
- 	u32	qp1_proxy_qpn;
- 	u8	physical_port;
- 	u8	port_flags;
-+	u8	flags1;
- };
- 
- struct mlx4_adapter {
--- 
-1.8.3.4
+It somehow worked in the past because routes normally have longer timeouts
+and the routes will get evicted from the route cache eventually. My guess
+is that we can set from unconditionally or copy over the expires value.
+
+This patch already needed quite a long time to review for me and I am still
+unsure. :/
+
+Gao, do you still remember why you used RTF_ADDRCONF|RTF_DEFAULT?
+
+Greetings,
+
+  Hannes
