@@ -1,83 +1,34 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: [PATCH 03/11] PHYLIB: queue work on system_power_efficient_wq
-Date: Tue, 17 Dec 2013 21:56:47 +0000
-Message-ID: <1387317415-22252-3-git-send-email-broonie@kernel.org>
-References: <20131217215601.GI28455@sirena.org.uk>
- <1387317415-22252-1-git-send-email-broonie@kernel.org>
-Cc: Viresh Kumar <viresh.kumar@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: ltsi-dev@lists.linuxfoundation.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v2 net-next] net: vxlan: use custom ndo_change_mtu
+ handler
+Date: Tue, 17 Dec 2013 13:57:34 -0800
+Message-ID: <20131217135734.77ee5916@nehalam.linuxnetplumber.net>
+References: <1387312660-3467-1-git-send-email-dborkman@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, shahed.shaikh@qlogic.com,
+	netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cassiel.sirena.org.uk ([80.68.93.111]:51403 "EHLO
-	cassiel.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753728Ab3LQV5E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 16:57:04 -0500
-In-Reply-To: <1387317415-22252-1-git-send-email-broonie@kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:58027 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752733Ab3LQV5h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 16:57:37 -0500
+Received: by mail-pd0-f173.google.com with SMTP id p10so7346079pdj.32
+        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 13:57:36 -0800 (PST)
+In-Reply-To: <1387312660-3467-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Viresh Kumar <viresh.kumar@linaro.org>
+On Tue, 17 Dec 2013 21:37:40 +0100
+Daniel Borkmann <dborkman@redhat.com> wrote:
 
-Phylib uses workqueues for multiple purposes. There is no real dependency of
-scheduling these on the cpu which scheduled them.
+> +	struct vxlan_rdst *dst = &vxlan->default_dst;
+> +	struct net_device *lowerdev;
+> +	int max_mtu;
+> +
+> +	lowerdev = __dev_get_by_index(dev_net(dev),
+> +				      vxlan->default_dst.remote_ifindex);
 
-On a idle system, it is observed that and idle cpu wakes up many times just to
-service this work. It would be better if we can schedule it on a cpu which the
-scheduler believes to be the most appropriate one.
-
-This patch replaces system_wq with system_power_efficient_wq for PHYLIB.
-
-Cc: David S. Miller <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
-Acked-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Tejun Heo <tj@kernel.org>
-(cherry picked from commit bbb47bdeae756f04b896b55b51f230f3eb21f207)
-Signed-off-by: Mark Brown <broonie@linaro.org>
----
- drivers/net/phy/phy.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 38f0b312ff85..663d2d0448b7 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -439,7 +439,7 @@ void phy_start_machine(struct phy_device *phydev,
- {
- 	phydev->adjust_state = handler;
- 
--	schedule_delayed_work(&phydev->state_queue, HZ);
-+	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue, HZ);
- }
- 
- /**
-@@ -500,7 +500,7 @@ static irqreturn_t phy_interrupt(int irq, void *phy_dat)
- 	disable_irq_nosync(irq);
- 	atomic_inc(&phydev->irq_disable);
- 
--	schedule_work(&phydev->phy_queue);
-+	queue_work(system_power_efficient_wq, &phydev->phy_queue);
- 
- 	return IRQ_HANDLED;
- }
-@@ -655,7 +655,7 @@ static void phy_change(struct work_struct *work)
- 
- 	/* reschedule state queue work to run as soon as possible */
- 	cancel_delayed_work_sync(&phydev->state_queue);
--	schedule_delayed_work(&phydev->state_queue, 0);
-+	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue, 0);
- 
- 	return;
- 
-@@ -918,7 +918,8 @@ void phy_state_machine(struct work_struct *work)
- 	if (err < 0)
- 		phy_error(phydev);
- 
--	schedule_delayed_work(&phydev->state_queue, PHY_STATE_TIME * HZ);
-+	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue,
-+			PHY_STATE_TIME * HZ);
- }
- 
- static inline void mmd_phy_indirect(struct mii_bus *bus, int prtad, int devad,
--- 
-1.8.5.1
+Actually, I meant that you should use dst->remote_ifindex here.
