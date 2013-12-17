@@ -1,44 +1,35 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH linux-3.10.y] ip6tnl: fix use after free of fb_tnl_dev
-Date: Tue, 17 Dec 2013 11:54:53 -0800
-Message-ID: <20131217195453.GB28274@kroah.com>
-References: <20131212.153545.1184197791301496227.davem@davemloft.net>
- <1386925595-4995-1-git-send-email-nicolas.dichtel@6wind.com>
- <20131217.144002.1716319550180883592.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] Make tcp-metrics source-address aware
+Date: Tue, 17 Dec 2013 14:56:14 -0500 (EST)
+Message-ID: <20131217.145614.1142184518478749309.davem@davemloft.net>
+References: <CAK6E8=eeH=6daXoX9Dwe3Nj5LEhKBfL=-2FaLd=Jo7WM-q34qw@mail.gmail.com>
+	<20131216193041.GA16966@cpaasch-mac>
+	<CAK6E8=e4aQ2qqZ4uBNZBvyYdQ1KER8xashQVAYJoiEUm9sbSew@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
-	rostedt@goodmis.org, linux-kernel@vger.kernel.org,
-	stable@vger.kernel.org, williams@redhat.com,
-	linux-rt-users@vger.kernel.org, lclaudio@uudg.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131217.144002.1716319550180883592.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: christoph.paasch@uclouvain.be, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, ja@ssi.bg
+To: ycheng@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48533 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752221Ab3LQT4Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 14:56:16 -0500
+In-Reply-To: <CAK6E8=e4aQ2qqZ4uBNZBvyYdQ1KER8xashQVAYJoiEUm9sbSew@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 17, 2013 at 02:40:02PM -0500, David Miller wrote:
-> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Date: Fri, 13 Dec 2013 10:06:35 +0100
-> 
-> > The upstream commit bb8140947a24 ("ip6tnl: allow to use rtnl ops on fb tunnel")
-> > (backported into linux-3.10.y) left a bug which was fixed upstream by commit
-> > 1e9f3d6f1c40 ("ip6tnl: fix use after free of fb_tnl_dev").
-> > 
-> > The problem is a bit different in linux-3.10.y, because there is no x-netns
-> > support (upstream commit 0bd8762824e7 ("ip6tnl: add x-netns support")).
-> > When ip6_tunnel.ko is unloaded, FB device is deleted by rtnl_link_unregister()
-> > and then we try to delete it again in ip6_tnl_destroy_tunnels().
-> > 
-> > This patch removes the second deletion.
-> > 
-> > Reported-by: Steven Rostedt <rostedt@goodmis.org>
-> > Suggested-by: Steven Rostedt <rostedt@goodmis.org>
-> > Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> 
-> Greg please queue this up for 3.10 -stable if you haven't already.
+From: Yuchung Cheng <ycheng@google.com>
+Date: Mon, 16 Dec 2013 11:53:31 -0800
 
-Thanks, will do.
+> +1 to get rid of ssthresh caching.
 
-greg k-h
+Let's not discuss whether some metrics should be considered for
+deletion here because such a discussion is entire separate from
+what to key metrics upon.
+
+If you want to talk about potentially removing ssthresh, please
+start a new thread.
+
+Thank you.
