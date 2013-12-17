@@ -1,104 +1,142 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net v2 2/9] bridge: Fix the way to insert new local fdb entries in br_fdb_changeaddr
-Date: Tue, 17 Dec 2013 21:03:34 +0900
-Message-ID: <1387281821-21342-3-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net v2 8/9] bridge: Properly check if local fdb entry can be deleted when deleting vlan
+Date: Tue, 17 Dec 2013 21:03:40 +0900
+Message-ID: <1387281821-21342-9-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 References: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 To: "David S . Miller" <davem@davemloft.net>,
 	Stephen Hemminger <stephen@networkplumber.org>,
 	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:60422 "EHLO
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:60424 "EHLO
 	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750839Ab3LQME0 (ORCPT
+	with ESMTP id S1752286Ab3LQME0 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 07:04:26 -0500
 In-Reply-To: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit bc9a25d21ef8 ("bridge: Add vlan support for local fdb entries"),
-br_fdb_changeaddr() has inserted a new local fdb entry only if it can
-find old one. But if we have two ports where they have the same address
-or user has deleted a local entry, there will be no entry for one of the
-ports.
+Vlan codes unconditionally delete local fdb entries.
+We should consider the possibility that other ports have the same
+address and vlan.
 
 Example of problematic case:
-  ip link set eth0 address aa:bb:cc:dd:ee:ff
+  ip link set eth0 address 12:34:56:78:90:ab
   ip link set eth1 address aa:bb:cc:dd:ee:ff
   brctl addif br0 eth0
-  brctl addif br0 eth1 # eth1 will not have a local entry due to dup.
-  ip link set eth1 address 12:34:56:78:90:ab
-Then, the new entry for the address 12:34:56:78:90:ab will not be
-created, and the bridge device will not be able to communicate.
+  brctl addif br0 eth1 # br0 will have mac address 12:34:56:78:90:ab
+  bridge vlan add dev eth0 vid 10
+  bridge vlan add dev eth1 vid 10
+  bridge vlan add dev br0 vid 10 self
+We will have fdb entry such that f->dst == eth0, f->vlan_id == 10 and
+f->addr == 12:34:56:78:90:ab at this time.
+Next, delete eth0 vlan 10.
+  bridge vlan del dev eth0 vid 10
+In this case, we still need the entry for br0, but it will be deleted.
 
-Insert new entries regardless of whether we can find old entries or not.
+Note that br0 needs the entry even though its mac address is not set
+manually. To delete the entry with proper condition checking,
+fdb_delete_local() is suitable to use.
 
 Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 ---
- net/bridge/br_fdb.c | 29 ++++++++++++++++++++---------
- 1 file changed, 20 insertions(+), 9 deletions(-)
+ net/bridge/br_fdb.c     | 20 ++++++++++++++++++--
+ net/bridge/br_private.h |  4 +++-
+ net/bridge/br_vlan.c    |  8 ++------
+ 3 files changed, 23 insertions(+), 9 deletions(-)
 
 diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 5dab230..5f1bd11 100644
+index bd43cb1..38cd29d 100644
 --- a/net/bridge/br_fdb.c
 +++ b/net/bridge/br_fdb.c
-@@ -92,8 +92,10 @@ static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
+@@ -27,6 +27,9 @@
+ #include "br_private.h"
+ 
+ static struct kmem_cache *br_fdb_cache __read_mostly;
++static struct net_bridge_fdb_entry *fdb_find(struct hlist_head *head,
++					     const unsigned char *addr,
++					     __u16 vid);
+ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
+ 		      const unsigned char *addr, u16 vid);
+ static void fdb_notify(struct net_bridge *br,
+@@ -119,6 +122,20 @@ static void fdb_delete_local(struct net_bridge *br,
+ 	fdb_delete(br, f);
+ }
+ 
++void br_fdb_find_delete_local(struct net_bridge *br,
++			      const struct net_bridge_port *p,
++			      const unsigned char *addr, u16 vid)
++{
++	struct hlist_head *head = &br->hash[br_mac_hash(addr, vid)];
++	struct net_bridge_fdb_entry *f;
++
++	spin_lock_bh(&br->hash_lock);
++	f = fdb_find(head, addr, vid);
++	if (f && f->is_local && !f->added_by_user && f->dst == p)
++		fdb_delete_local(br, p, f);
++	spin_unlock_bh(&br->hash_lock);
++}
++
  void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
  {
  	struct net_bridge *br = p->br;
--	bool no_vlan = (nbp_get_vlan_info(p) == NULL) ? true : false;
-+	struct net_port_vlans *pv = nbp_get_vlan_info(p);
-+	bool no_vlan = !pv;
- 	int i;
-+	u16 vid;
+@@ -766,8 +783,7 @@ out:
+ 	return err;
+ }
  
- 	spin_lock_bh(&br->hash_lock);
+-int fdb_delete_by_addr(struct net_bridge *br, const u8 *addr,
+-		       u16 vlan)
++static int fdb_delete_by_addr(struct net_bridge *br, const u8 *addr, u16 vlan)
+ {
+ 	struct hlist_head *head = &br->hash[br_mac_hash(addr, vlan)];
+ 	struct net_bridge_fdb_entry *fdb;
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 868c059..14c74c2 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -379,6 +379,9 @@ static inline void br_netpoll_disable(struct net_bridge_port *p)
+ int br_fdb_init(void);
+ void br_fdb_fini(void);
+ void br_fdb_flush(struct net_bridge *br);
++void br_fdb_find_delete_local(struct net_bridge *br,
++			      const struct net_bridge_port *p,
++			      const unsigned char *addr, u16 vid);
+ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr);
+ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr);
+ void br_fdb_cleanup(unsigned long arg);
+@@ -393,7 +396,6 @@ int br_fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
+ 		  const unsigned char *addr, u16 vid);
+ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+ 		   const unsigned char *addr, u16 vid);
+-int fdb_delete_by_addr(struct net_bridge *br, const u8 *addr, u16 vid);
  
-@@ -114,28 +116,37 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
- 							     f->addr.addr) &&
- 					    nbp_vlan_find(op, vid)) {
- 						f->dst = op;
--						goto insert;
-+						goto skip_delete;
- 					}
- 				}
+ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
+ 		  struct net_device *dev, const unsigned char *addr);
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index f87ab88f..24db71d 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -296,9 +296,7 @@ int br_vlan_delete(struct net_bridge *br, u16 vid)
+ 	if (!pv)
+ 		return -EINVAL;
  
- 				/* delete old one */
- 				fdb_delete(br, f);
--insert:
--				/* insert new address,  may fail if invalid
--				 * address or dup.
--				 */
--				fdb_insert(br, p, newaddr, vid);
--
-+skip_delete:
- 				/* if this port has no vlan information
- 				 * configured, we can safely be done at
- 				 * this point.
- 				 */
- 				if (no_vlan)
--					goto done;
-+					goto insert;
- 			}
- 		}
- 	}
+-	spin_lock_bh(&br->hash_lock);
+-	fdb_delete_by_addr(br, br->dev->dev_addr, vid);
+-	spin_unlock_bh(&br->hash_lock);
++	br_fdb_find_delete_local(br, NULL, br->dev->dev_addr, vid);
  
-+insert:
-+	/* insert new address,  may fail if invalid address or dup. */
-+	fdb_insert(br, p, newaddr, 0);
-+
-+	if (no_vlan)
-+		goto done;
-+
-+	/* Now add entries for every VLAN configured on the port.
-+	 * This function runs under RTNL so the bitmap will not change
-+	 * from under us.
-+	 */
-+	for_each_set_bit(vid, pv->vlan_bitmap, VLAN_N_VID)
-+		fdb_insert(br, p, newaddr, vid);
-+
- done:
- 	spin_unlock_bh(&br->hash_lock);
+ 	__vlan_del(pv, vid);
+ 	return 0;
+@@ -399,9 +397,7 @@ int nbp_vlan_delete(struct net_bridge_port *port, u16 vid)
+ 	if (!pv)
+ 		return -EINVAL;
+ 
+-	spin_lock_bh(&port->br->hash_lock);
+-	fdb_delete_by_addr(port->br, port->dev->dev_addr, vid);
+-	spin_unlock_bh(&port->br->hash_lock);
++	br_fdb_find_delete_local(port->br, port, port->dev->dev_addr, vid);
+ 
+ 	return __vlan_del(pv, vid);
  }
 -- 
 1.8.1.2
