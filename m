@@ -1,33 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] sctp: loading sctp when load sctp_probe
-Date: Mon, 16 Dec 2013 20:11:52 -0500 (EST)
-Message-ID: <20131216.201152.1820334028788828960.davem@davemloft.net>
-References: <52AA783A.7090502@huawei.com>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: Re: [PATCH RESEND net-next 0/4] tipc: do some clean up
+Date: Tue, 17 Dec 2013 09:18:01 +0800
+Message-ID: <52AFA649.30209@huawei.com>
+References: <1387197631-17240-1-git-send-email-wangweidong1@huawei.com> <20131216.125810.539288997761338863.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, nhorman@tuxdriver.com, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: wangweidong1@huawei.com
+Cc: <jon.maloy@ericsson.com>, <allan.stephens@windriver.com>,
+	<erik.hugne@ericsson.com>, <maloy@donjonn.com>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43214 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752206Ab3LQBLy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 20:11:54 -0500
-In-Reply-To: <52AA783A.7090502@huawei.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:57850 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752053Ab3LQBS7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 20:18:59 -0500
+In-Reply-To: <20131216.125810.539288997761338863.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wang Weidong <wangweidong1@huawei.com>
-Date: Fri, 13 Dec 2013 11:00:10 +0800
-
-> when I modprobe sctp_probe, it failed with "FATAL: ". I found that
-> sctp should load before sctp_probe register jprobe. So I add a
-> sctp_setup_jprobe for loading 'sctp' when first failed to register
-> jprobe, just do this similar to dccp_probe.
+On 2013/12/17 1:58, David Miller wrote:
+> From: Wang Weidong <wangweidong1@huawei.com>
+> Date: Mon, 16 Dec 2013 20:40:27 +0800
 > 
-> v2: add MODULE_SOFTDEP and check of request_module, as suggested by Neil
+>> This patch series do some small clean up in tipc. And add reviewed-by
+>> Erik and Jon.
 > 
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+> There is absolutely no reason for you to send this again, your
+> original patches were queued up in patchwork and I was going to get to
+> it shortly.
+> 
+> In fact I applied them just now.
+> 
+> 
 
-Applied.
+Ok. Sorry for resending these. Next time I should look up the patchwork
+before resending patches.
+
+Regards.
+Wang
