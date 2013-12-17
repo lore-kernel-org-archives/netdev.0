@@ -1,63 +1,88 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: clear RTF_EXPIRES when call ip6_rt_copy
-Date: Tue, 17 Dec 2013 09:30:48 +0100
-Message-ID: <20131217083048.GB18396@order.stressinduktion.org>
-References: <1387182666-31301-1-git-send-email-roy.qing.li@gmail.com> <52AFC43C.9080804@cn.fujitsu.com> <CAJFZqHwF0ubvxJOs2BWbSMMB1szKNO=XTiXje3E2ByF6sUQrXA@mail.gmail.com> <52AFE7E3.3070806@cn.fujitsu.com> <CAJFZqHxawisUbHGZY8mjGHy8035X6TQ7FNzc20vtS5j1jdZYGA@mail.gmail.com> <20131217070231.GA11970@order.stressinduktion.org> <52B00150.3070002@cn.fujitsu.com>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [RFC] net: distribute vxlan tunneled traffic across multiple TXQs
+Date: Tue, 17 Dec 2013 14:10:26 +0530
+Message-ID: <1387269626-12463-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: RongQing Li <roy.qing.li@gmail.com>, netdev@vger.kernel.org
-To: Gao feng <gaofeng@cn.fujitsu.com>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:60949 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750875Ab3LQIat (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 03:30:49 -0500
-Content-Disposition: inline
-In-Reply-To: <52B00150.3070002@cn.fujitsu.com>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:55259 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750760Ab3LQIgG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 03:36:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 17, 2013 at 03:46:24PM +0800, Gao feng wrote:
-> > Gao, do you still remember why you used RTF_ADDRCONF|RTF_DEFAULT?
-> >=20
->=20
-> It's a mystery=EF=BC=8C I noticed this problem when I wrote the codes=
-=2E
-> http://lists.openwall.net/netdev/2012/03/19/7
+TX traffic is distributed across multiple TXQs using skb->sk->sk_hash.
+For vxlan skbs, the reference to the original socket (skb->sk) is replaced
+with vxlan-sk. Because of this all tunneled traffic ends up only on one TXQ.
 
-I already found this thread, thanks. ;)
+This patch uses the skb->rxhash field to carry the original sk->sk_hash
+value so that it can be used by netdev layer to pick a TXQ. If this approach
+is agreeable then we can change the name of skb->rxhash to skb->hash so that
+it can be used in both RX and TX paths.
 
-> I used the flags RTF_ADDRCONF|RTF_DEFAULT because they are exist in
-> rt6_{get,add,purge}_dflt_router.
+But, after a TXQ is picked based on the skb->rxhash for tunneled traffic,
+it's index cannot be recorded in the original socket as it's reference
+is no longer available in skb. So, the TXQ-index would need to be
+computed (from skb->rxhash) for each skb. Any ideas on how this can be
+avoided?
 
-I thought so, but we have to deal with !DEFAULT ADDRCONF routes, too.
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+---
+ drivers/net/vxlan.c       |    2 ++
+ net/core/flow_dissector.c |    6 ++++--
+ net/ipv4/ip_tunnel_core.c |    1 -
+ 3 files changed, 6 insertions(+), 3 deletions(-)
 
-> The from of new cloned rt should not be set if it's impossible for th=
-e ort
-> to be expired.
-
-Ok.
-
-> but seems we should set from if flags have RTF_ADDRCONF bit. RA packa=
-ge
-> not only generate the default route.
-
-Exactly, but it is worse:
-
-Prefix routes can be added with expiration time if user space installs =
-a
-prefix with valid_lft !=3D infinity. So I fear we already have permamen=
-t route
-entries which expire.
-
-Userspace router advertisment listener already use that.
-
-I fear the flags don't have a well defined semantic any more. :(
-
-As for the original patch in this thread, I would suggest to hold it
-back until this mess is understood. Ok?
-
-Thanks,
-
-  Hannes
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 58f6a0c..f4e4a83 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1572,6 +1572,8 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
+ 	uh->len = htons(skb->len);
+ 	uh->check = 0;
+ 
++	if (skb->sk && skb->sk->sk_hash)
++		skb->rxhash = skb->sk->sk_hash;
+ 	vxlan_set_owner(vs->sock->sk, skb);
+ 
+ 	err = handle_offloads(skb);
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index d6ef173..5a5ae5a 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -260,7 +260,9 @@ u16 __skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb,
+ 		qcount = dev->tc_to_txq[tc].count;
+ 	}
+ 
+-	if (skb->sk && skb->sk->sk_hash)
++	if (skb->encapsulation && skb->rxhash)
++		hash = skb->rxhash;
++	else if (skb->sk && skb->sk->sk_hash)
+ 		hash = skb->sk->sk_hash;
+ 	else
+ 		hash = (__force u16) skb->protocol;
+@@ -383,7 +385,7 @@ u16 __netdev_pick_tx(struct net_device *dev, struct sk_buff *skb)
+ 		if (new_index < 0)
+ 			new_index = skb_tx_hash(dev, skb);
+ 
+-		if (queue_index != new_index && sk &&
++		if (queue_index != new_index && sk && !skb->encapsulation &&
+ 		    rcu_access_pointer(sk->sk_dst_cache))
+ 			sk_tx_queue_set(sk, new_index);
+ 
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index 42ffbc8..183313b 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -56,7 +56,6 @@ int iptunnel_xmit(struct rtable *rt, struct sk_buff *skb,
+ 
+ 	skb_scrub_packet(skb, xnet);
+ 
+-	skb->rxhash = 0;
+ 	skb_dst_set(skb, &rt->dst);
+ 	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+ 
+-- 
+1.7.1
