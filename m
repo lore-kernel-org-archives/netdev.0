@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] Make tcp-metrics source-address aware
-Date: Tue, 17 Dec 2013 14:56:14 -0500 (EST)
-Message-ID: <20131217.145614.1142184518478749309.davem@davemloft.net>
-References: <CAK6E8=eeH=6daXoX9Dwe3Nj5LEhKBfL=-2FaLd=Jo7WM-q34qw@mail.gmail.com>
-	<20131216193041.GA16966@cpaasch-mac>
-	<CAK6E8=e4aQ2qqZ4uBNZBvyYdQ1KER8xashQVAYJoiEUm9sbSew@mail.gmail.com>
+Subject: Re: [PATCH 3/4] tcp: metrics: Delete all entries matching a
+ certain destination
+Date: Tue, 17 Dec 2013 14:57:51 -0500 (EST)
+Message-ID: <20131217.145751.53681780657108721.davem@davemloft.net>
+References: <1387109444-1104-1-git-send-email-christoph.paasch@uclouvain.be>
+	<1387109444-1104-4-git-send-email-christoph.paasch@uclouvain.be>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: christoph.paasch@uclouvain.be, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, ja@ssi.bg
-To: ycheng@google.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, ja@ssi.bg
+To: christoph.paasch@uclouvain.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48533 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48541 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752221Ab3LQT4Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 14:56:16 -0500
-In-Reply-To: <CAK6E8=e4aQ2qqZ4uBNZBvyYdQ1KER8xashQVAYJoiEUm9sbSew@mail.gmail.com>
+	with ESMTP id S1751976Ab3LQT5w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 14:57:52 -0500
+In-Reply-To: <1387109444-1104-4-git-send-email-christoph.paasch@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Mon, 16 Dec 2013 11:53:31 -0800
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Date: Sun, 15 Dec 2013 13:10:43 +0100
 
-> +1 to get rid of ssthresh caching.
+> As we now can have multiple entries per destination-IP, the "ip
+> tcp_metrics delete address ADDRESS" command should delete all of them.
+> 
+> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
 
-Let's not discuss whether some metrics should be considered for
-deletion here because such a discussion is entire separate from
-what to key metrics upon.
+You have to adjust how you're doing patches #3 and #4.
 
-If you want to talk about potentially removing ssthresh, please
-start a new thread.
+Create the new attribute for the source address first, then
+allow the source address to be specified in the deletion
+command.
 
-Thank you.
+Make the source address optional in delete commands, to be
+compatible with existing tools, and have it mean "ANY".
