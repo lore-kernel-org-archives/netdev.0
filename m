@@ -1,109 +1,81 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 06/11] net/mlx4_en: Configure the XPS queue mapping on driver load
-Date: Tue, 17 Dec 2013 09:01:55 +0200
-Message-ID: <1387263720-31222-7-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V1 05/11] net/mlx4_en: Implement ndo_get_phys_port_id
+Date: Tue, 17 Dec 2013 09:01:54 +0200
+Message-ID: <1387263720-31222-6-git-send-email-amirv@mellanox.com>
 References: <1387263720-31222-1-git-send-email-amirv@mellanox.com>
 Cc: Or Gerlitz <ogerlitz@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
-	Ido Shamay <idos@mellanox.com>
+	Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:34066 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:40381 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752582Ab3LQHCL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Dec 2013 02:02:11 -0500
+	id S1752600Ab3LQHCM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Dec 2013 02:02:12 -0500
 In-Reply-To: <1387263720-31222-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Shamay <idos@mellanox.com>
+From: Hadar Hen Zion <hadarh@mellanox.com>
 
-Only TX rings of User Piority 0 are mapped.
-TX rings of other UP's are using UP 0 mapping.
-XPS is not in use when num_tc is set.
+Use the port GUID read from the firmware to identify the physical port.
+This port identifier is available via ndo_get_phys_port_id for both PF
+and VF net-devices.
 
-Signed-off-by: Ido Shamay <idos@mellanox.com>
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 6 ++++--
- drivers/net/ethernet/mellanox/mlx4/en_tx.c     | 9 ++++++++-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   | 5 ++++-
- 3 files changed, 16 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index d2e9666..6f92090 100644
+index 709e5ec..d2e9666 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1910,8 +1910,10 @@ int mlx4_en_alloc_resources(struct mlx4_en_priv *priv)
- 				      prof->tx_ring_size, i, TX, node))
- 			goto err;
+@@ -2164,6 +2164,27 @@ static int mlx4_en_set_vf_link_state(struct net_device *dev, int vf, int link_st
  
--		if (mlx4_en_create_tx_ring(priv, &priv->tx_ring[i], priv->base_tx_qpn + i,
--					   prof->tx_ring_size, TXBB_SIZE, node))
-+		if (mlx4_en_create_tx_ring(priv, &priv->tx_ring[i],
-+					   priv->base_tx_qpn + i,
-+					   prof->tx_ring_size, TXBB_SIZE,
-+					   node, i))
- 			goto err;
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index f54ebd5..5e22d7d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -55,7 +55,7 @@ MODULE_PARM_DESC(inline_thold, "threshold for using inline data");
- 
- int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 			   struct mlx4_en_tx_ring **pring, int qpn, u32 size,
--			   u16 stride, int node)
-+			   u16 stride, int node, int queue_index)
- {
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct mlx4_en_tx_ring *ring;
-@@ -140,6 +140,10 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 		ring->bf_enabled = true;
- 
- 	ring->hwtstamp_tx_type = priv->hwtstamp_config.tx_type;
-+	ring->queue_index = queue_index;
-+
-+	if (queue_index < priv->num_tx_rings_p_up && cpu_online(queue_index))
-+		cpumask_set_cpu(queue_index, &ring->affinity_mask);
- 
- 	*pring = ring;
- 	return 0;
-@@ -206,6 +210,9 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
- 
- 	err = mlx4_qp_to_ready(mdev->dev, &ring->wqres.mtt, &ring->context,
- 			       &ring->qp, &ring->qp_state);
-+	if (!user_prio && cpu_online(ring->queue_index))
-+		netif_set_xps_queue(priv->dev, &ring->affinity_mask,
-+				    ring->queue_index);
- 
- 	return err;
+ 	return mlx4_set_vf_link_state(mdev->dev, en_priv->port, vf, link_state);
  }
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index f3758de..202d8e5 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -255,6 +255,8 @@ struct mlx4_en_tx_ring {
- 	u16 poll_cnt;
- 	struct mlx4_en_tx_info *tx_info;
- 	u8 *bounce_buf;
-+	u8 queue_index;
-+	cpumask_t affinity_mask;
- 	u32 last_nr_txbb;
- 	struct mlx4_qp qp;
- 	struct mlx4_qp_context context;
-@@ -719,7 +721,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev);
++
++#define PORT_ID_BYTE_LEN 8
++static int mlx4_en_get_phys_port_id(struct net_device *dev,
++				    struct netdev_phys_port_id *ppid)
++{
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct mlx4_dev *mdev = priv->mdev->dev;
++	int i;
++	u64 phys_port_id = mdev->caps.phys_port_id[priv->port];
++
++	if (!phys_port_id)
++		return -EOPNOTSUPP;
++
++	ppid->id_len = sizeof(phys_port_id);
++	for (i = PORT_ID_BYTE_LEN - 1; i >= 0; --i) {
++		ppid->id[i] =  phys_port_id & 0xff;
++		phys_port_id >>= 8;
++	}
++	return 0;
++}
++
+ static const struct net_device_ops mlx4_netdev_ops = {
+ 	.ndo_open		= mlx4_en_open,
+ 	.ndo_stop		= mlx4_en_close,
+@@ -2189,6 +2210,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+ 	.ndo_busy_poll		= mlx4_en_low_latency_recv,
+ #endif
++	.ndo_get_phys_port_id	= mlx4_en_get_phys_port_id,
+ };
  
- int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 			   struct mlx4_en_tx_ring **pring,
--			   int qpn, u32 size, u16 stride, int node);
-+			   int qpn, u32 size, u16 stride,
-+			   int node, int queue_index);
- void mlx4_en_destroy_tx_ring(struct mlx4_en_priv *priv,
- 			     struct mlx4_en_tx_ring **pring);
- int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
+ static const struct net_device_ops mlx4_netdev_ops_master = {
+@@ -2217,6 +2239,7 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
+ #ifdef CONFIG_RFS_ACCEL
+ 	.ndo_rx_flow_steer	= mlx4_en_filter_rfs,
+ #endif
++	.ndo_get_phys_port_id	= mlx4_en_get_phys_port_id,
+ };
+ 
+ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
 -- 
 1.8.3.4
