@@ -1,27 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnad: make local variable static
-Date: Tue, 17 Dec 2013 15:19:16 -0500 (EST)
-Message-ID: <20131217.151916.522665066253603810.davem@davemloft.net>
-References: <20131213164010.0d082bbe@nehalam.linuxnetplumber.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: sit: update mtu check to take care of gso packets
+Date: Tue, 17 Dec 2013 21:19:30 +0100
+Message-ID: <20131217201930.GA27460@order.stressinduktion.org>
+References: <52AB322B.7030802@redhat.com> <1387204283.19078.240.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rmody@brocade.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Content-Type: text/plain; charset=utf-8
+Cc: Michal Schmidt <mschmidt@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48691 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750760Ab3LQUTR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 15:19:17 -0500
-In-Reply-To: <20131213164010.0d082bbe@nehalam.linuxnetplumber.net>
+Received: from order.stressinduktion.org ([87.106.68.36]:34485 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750760Ab3LQUTb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 15:19:31 -0500
+Content-Disposition: inline
+In-Reply-To: <1387204283.19078.240.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Fri, 13 Dec 2013 16:40:10 -0800
+Hi Eric!
 
-> Compile tested only.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+On Mon, Dec 16, 2013 at 06:31:23AM -0800, Eric Dumazet wrote:
+> In the future, we probably want to extend the MTU check to do the
+> right thing for GSO packets...
 
-Applied.
+How could that look like?
+
+Greetings,
+
+  Hannes
