@@ -1,86 +1,69 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH v3 net-next] net: vxlan: use custom ndo_change_mtu handler
-Date: Wed, 18 Dec 2013 00:21:08 +0100
-Message-ID: <1387322468-17368-1-git-send-email-dborkman@redhat.com>
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3231 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751090Ab3LQXVN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Dec 2013 18:21:13 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't work.
+Date: Wed, 18 Dec 2013 10:35:06 +1100
+Message-ID: <CAGRGNgXJWw20q6Hd=e8dS4A+Ey8wPTLPGeg02-dJJOuCHH9AEA@mail.gmail.com>
+References: <1342235583.20131211182804@eikelenboom.it> <CAB=NE6UfumA2xez1DvtDSBDZ72WF_tOozFo_8LRnMryYiSqD-A@mail.gmail.com>
+ <871324710.20131211191104@eikelenboom.it> <CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com>
+ <1937118387.20131216122200@eikelenboom.it> <52AEE60B.6030509@broadcom.com>
+ <19210260274.20131216135644@eikelenboom.it> <CAGRGNgXHemM2FfnXgW5RbzhFT+9SfUfVkjdysK3+=_u3hWSacw@mail.gmail.com>
+ <1534126119.20131217104548@eikelenboom.it> <387552477.20131217213319@eikelenboom.it>
+ <20131217212709.GB5624@decadent.org.uk> <1254825772.20131217224914@eikelenboom.it>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Ben Hutchings <ben@decadent.org.uk>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	"Berg, Johannes" <johannes.berg@intel.com>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ilw@linux.intel.com" <ilw@linux.intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Avinash Patil <avinashapatil@gmail.com>
+To: Sander Eikelenboom <linux@eikelenboom.it>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1254825772.20131217224914@eikelenboom.it>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When adding a new vxlan device to an "underlying carrier" (here:
-dst->remote_ifindex), the MTU size assigned to the vxlan device
-is the MTU at setup time of the carrier - needed headroom, when
-adding a vxlan device w/o explicit carrier, then it defaults
-to 1500.
+Hi All,
 
-In case of an explicit carrier that supports jumbo frames, we
-currently cannot change vxlan MTU via ip(8) to > 1500 in
-post-setup time, as vxlan driver uses eth_change_mtu() as default
-method for manually setting MTU.
+On Wed, Dec 18, 2013 at 8:49 AM, Sander Eikelenboom
+<linux@eikelenboom.it> wrote:
+>
+> Tuesday, December 17, 2013, 10:27:09 PM, you wrote:
+>
+>> On Tue, Dec 17, 2013 at 09:33:19PM +0100, Sander Eikelenboom wrote:
+>> Debian official kernels use modular drivers, and neither
+>> initramfs-tools nor dracut includes wireless drivers in the initramfs.
+>> If you build a custom kernel with built-in drivers then you most
+>> likely don't need an initramfs at all.
+>
+>> As maintainer of crda in Debian, I could add an initramfs hook that
+>> would include it in an initramfs.  But I don't understand why it would
+>> be worth doing so.  Why is it so useful to have wireless drivers
+>> built-in *and* an initramfs?  If you think I should do this then open
+>> a bug (reportbug crda).
+>
+> Indeed, I looked for a crda hook for initramfs-tools but didn't find it, so skipped that idea
+> for the moment.
+>
+> So if i combine the two .. it's essentially just a very bad idea to compile the wireless stuff in.
+> It needs a access to a userland program at module load time, or it will block forever.
 
-Hence, use a custom implementation that only falls back to
-eth_change_mtu() in case we didn't use a dev parameter on device
-setup time, and otherwise allow a max MTU setting of the carrier
-incl. adjustment for headroom.
+>From looking at the code and files in the Debian package, the CRDA
+"calls" are actually events which are then handled by udev.
 
-Reported-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- v1->v2:
-  - applied Stephen's feedback
- v2->v3:
-  - use dst directly in __dev_get_by_index()
+So what happens to events passed to udev which aren't handled by any
+of it's (current) rules?
 
- drivers/net/vxlan.c | 25 ++++++++++++++++++++++++-
- 1 file changed, 24 insertions(+), 1 deletion(-)
+Thanks,
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 58f6a0c..c379c24 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2014,6 +2014,29 @@ static void vxlan_set_multicast_list(struct net_device *dev)
- {
- }
- 
-+static int vxlan_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	struct vxlan_dev *vxlan = netdev_priv(dev);
-+	struct vxlan_rdst *dst = &vxlan->default_dst;
-+	struct net_device *lowerdev;
-+	int max_mtu;
-+
-+	lowerdev = __dev_get_by_index(dev_net(dev), dst->remote_ifindex);
-+	if (lowerdev == NULL)
-+		return eth_change_mtu(dev, new_mtu);
-+
-+	if (dst->remote_ip.sa.sa_family == AF_INET6)
-+		max_mtu = lowerdev->mtu - VXLAN6_HEADROOM;
-+	else
-+		max_mtu = lowerdev->mtu - VXLAN_HEADROOM;
-+
-+	if (new_mtu < 68 || new_mtu > max_mtu)
-+		return -EINVAL;
-+
-+	dev->mtu = new_mtu;
-+	return 0;
-+}
-+
- static const struct net_device_ops vxlan_netdev_ops = {
- 	.ndo_init		= vxlan_init,
- 	.ndo_uninit		= vxlan_uninit,
-@@ -2022,7 +2045,7 @@ static const struct net_device_ops vxlan_netdev_ops = {
- 	.ndo_start_xmit		= vxlan_xmit,
- 	.ndo_get_stats64	= ip_tunnel_get_stats64,
- 	.ndo_set_rx_mode	= vxlan_set_multicast_list,
--	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_change_mtu		= vxlan_change_mtu,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_set_mac_address	= eth_mac_addr,
- 	.ndo_fdb_add		= vxlan_fdb_add,
 -- 
-1.8.3.1
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
+.Plan: http://sites.google.com/site/juliancalaby/
