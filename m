@@ -1,76 +1,64 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next] xen-netback: add gso_segs calculation
-Date: Tue, 17 Dec 2013 08:06:30 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD01B7C16@AMSPEX01CL01.citrite.net>
-References: <1387214429-4778-1-git-send-email-paul.durrant@citrix.com>
-	 <1387218237.19078.247.camel@edumazet-glaptop2.roam.corp.google.com>
- <1387234646.19078.257.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+Subject: Re: [RFC PATCH] net, tun: remove the flow cache
+Date: Tue, 17 Dec 2013 16:13:58 +0800
+Message-ID: <1387268041.7571.10.camel@f15>
+References: <1387265182-27312-1-git-send-email-zwu.kernel@gmail.com>
+	 <20131216234736.781457cd@samsung-9.home.lan>
+Reply-To: wuzhy@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:36479 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752556Ab3LQIGc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 03:06:32 -0500
-In-Reply-To: <1387234646.19078.257.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Zhi Yong Wu <zwu.kernel@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net, mst@redhat.com,
+	jasowang@redhat.com
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131216234736.781457cd@samsung-9.home.lan>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiAxNiBEZWNlbWJlciAyMDEzIDIyOjU3
-DQo+IFRvOiBQYXVsIER1cnJhbnQNCj4gQ2M6IHhlbi1kZXZlbEBsaXN0cy54ZW4ub3JnOyBuZXRk
-ZXZAdmdlci5rZXJuZWwub3JnOyBXZWkgTGl1OyBJYW4gQ2FtcGJlbGw7DQo+IERhdmlkIFZyYWJl
-bA0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0XSB4ZW4tbmV0YmFjazogYWRkIGdzb19z
-ZWdzIGNhbGN1bGF0aW9uDQo+IA0KPiBPbiBNb24sIDIwMTMtMTItMTYgYXQgMTA6MjMgLTA4MDAs
-IEVyaWMgRHVtYXpldCB3cm90ZToNCj4gPiBPbiBNb24sIDIwMTMtMTItMTYgYXQgMTc6MjAgKzAw
-MDAsIFBhdWwgRHVycmFudCB3cm90ZToNCj4gPiA+IG5ldGJhY2sgYWxyZWFkeSBoYXMgY29kZSB3
-aGljaCBwYXJzZXMgSVB2NCBhbmQgdjYgaGVhZGVycyB0byBzZXQgdXANCj4gY2hlY2tzdW0NCj4g
-PiA+IG9mZnNldHMgYW5kIHRoZXNlIGFyZSBhbHdheXMgYXBwbGllZCB0byBHU08gcGFja2V0cyBi
-ZWluZyBzZW50IGZyb20NCj4gPiA+IGZyb250ZW5kcy4gSXQncyB0aGVyZWZvcmUgc3Vib3B0aW1h
-bCB0aGF0IEdTT3MgYXJlIGJlaW5nIG1hcmtlZA0KPiA+ID4gU0tCX0dTT19ET0RHWSB0byBkZWZl
-ciB0aGUgZ3NvX3NlZ3MgY2FsY3VsYXRpb24gd2hlbiBuZXRiYWNrDQo+IGFscmVhZHkgaGFzIGFs
-bA0KPiA+ID4gbmVjZXNzYXJ5IGluZm9ybWF0aW9uIHRvIGhhbmQgdG8gZG8gdGhlIGNhbGN1bGF0
-aW9uLiBUaGlzIHBhdGNoIGFkZHMgdGhhdA0KPiA+ID4gY2FsY3VsYXRpb24uDQo+ID4gPg0KPiA+
-ID4gU2lnbmVkLW9mZi1ieTogUGF1bCBEdXJyYW50IDxwYXVsLmR1cnJhbnRAY2l0cml4LmNvbT4N
-Cj4gPiA+IENjOiBXZWkgTGl1IDx3ZWkubGl1MkBjaXRyaXguY29tPg0KPiA+ID4gQ2M6IElhbiBD
-YW1wYmVsbCA8aWFuLmNhbXBiZWxsQGNpdHJpeC5jb20+DQo+ID4gPiBDYzogRGF2aWQgVnJhYmVs
-IDxkYXZpZC52cmFiZWxAY2l0cml4LmNvbT4NCj4gPiA+IC0tLQ0KPiA+ID4gIGRyaXZlcnMvbmV0
-L3hlbi1uZXRiYWNrL25ldGJhY2suYyB8ICAgMTcgKysrKysrKysrKysrKy0tLS0NCj4gPiA+ICAx
-IGZpbGUgY2hhbmdlZCwgMTMgaW5zZXJ0aW9ucygrKSwgNCBkZWxldGlvbnMoLSkNCj4gPiA+DQo+
-ID4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jIGIvZHJp
-dmVycy9uZXQveGVuLQ0KPiBuZXRiYWNrL25ldGJhY2suYw0KPiA+ID4gaW5kZXggOTA0ZTQ5Ny4u
-MGFmOGQ5NyAxMDA2NDQNCj4gPiA+IC0tLSBhL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL25ldGJh
-Y2suYw0KPiA+ID4gKysrIGIvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jDQo+ID4g
-PiBAQCAtMTA0MywxMCArMTA0Myw3IEBAIHN0YXRpYyBpbnQgeGVudmlmX3NldF9za2JfZ3NvKHN0
-cnVjdCB4ZW52aWYNCj4gKnZpZiwNCj4gPiA+ICAJfQ0KPiA+ID4NCj4gPiA+ICAJc2tiX3NoaW5m
-byhza2IpLT5nc29fc2l6ZSA9IGdzby0+dS5nc28uc2l6ZTsNCj4gPiA+IC0NCj4gPiA+IC0JLyog
-SGVhZGVyIG11c3QgYmUgY2hlY2tlZCwgYW5kIGdzb19zZWdzIGNvbXB1dGVkLiAqLw0KPiA+ID4g
-LQlza2Jfc2hpbmZvKHNrYiktPmdzb190eXBlIHw9IFNLQl9HU09fRE9ER1k7DQo+ID4gPiAtCXNr
-Yl9zaGluZm8oc2tiKS0+Z3NvX3NlZ3MgPSAwOw0KPiA+ID4gKwkvKiBnc29fc2VncyB3aWxsIGJl
-IGNhbGN1bGF0ZWQgbGF0ZXIgKi8NCj4gPiA+DQo+ID4gPiAgCXJldHVybiAwOw0KPiA+ID4gIH0N
-Cj4gPiA+IEBAIC0xNTgyLDYgKzE1NzksMTggQEAgc3RhdGljIGludCB4ZW52aWZfdHhfc3VibWl0
-KHN0cnVjdCB4ZW52aWYgKnZpZiwNCj4gaW50IGJ1ZGdldCkNCj4gPiA+DQo+ID4gPiAgCQlza2Jf
-cHJvYmVfdHJhbnNwb3J0X2hlYWRlcihza2IsIDApOw0KPiA+ID4NCj4gPiA+ICsJCS8qIElmIHRo
-ZSBwYWNrZXQgaXMgR1NPIHRoZW4gd2Ugd2lsbCBoYXZlIGp1c3Qgc2V0IHVwIHRoZQ0KPiA+ID4g
-KwkJICogdHJhbnNwb3J0IGhlYWRlciBvZmZzZXQgaW4gY2hlY2tzdW1fc2V0dXAgc28gaXQncyBu
-b3cNCj4gPiA+ICsJCSAqIHN0cmFpZ2h0Zm9yd2FyZCB0byBjYWxjdWxhdGUgZ3NvX3NlZ3MuDQo+
-ID4gPiArCQkgKi8NCj4gPiA+ICsJCWlmIChza2JfaXNfZ3NvKHNrYikpIHsNCj4gPiA+ICsJCQlp
-bnQgbXNzID0gc2tiX3NoaW5mbyhza2IpLT5nc29fc2l6ZTsNCj4gPiA+ICsJCQlpbnQgaGRybGVu
-ID0gc2tiLT50cmFuc3BvcnRfaGVhZGVyICsNCj4gdGNwX2hkcmxlbihza2IpOw0KPiA+DQo+ID4g
-VGhpcyBtZWFucyB0aGVyZSBpcyBubyBoZWFkcm9vbSA/DQo+ID4NCj4gPiBUaGlzIGlzIG5vdCB3
-aGF0IEkgYW0gc2VlaW5nIGluIHRoaXMgZHJpdmVyLCBhcyBpdCB1c2VzIDoNCj4gPg0KPiA+IHNr
-Yl9yZXNlcnZlKHNrYiwgTkVUX1NLQl9QQUQgKyBORVRfSVBfQUxJR04pOw0KPg0KDQpHb29kIHBv
-aW50LiBJJ2QgbWlzdW5kZXJzdG9vZCB0aGUgdmFsdWUgaW4gdHJhbnNwb3J0X2hlYWRlci4NCiAN
-Cj4gDQo+IFlvdSBwcm9iYWJseSBuZWVkIHRvIHVzZSA6DQo+IA0KPiBoZHJsZW4gPSBza2JfdHJh
-bnNwb3J0X2hlYWRlcihza2IpIC0gc2tiX21hY19oZWFkZXIoc2tiKSArDQo+IAkgdGNwX2hkcmxl
-bihza2IpOw0KPiANCg0KWWVzLCB0aGF0J3Mgd2hhdCBJIG5lZWQuDQoNCj4gKEFzc3VtaW5nIG9u
-bHkgVENQIGlzIHN1cHBvcnRlZCkNCj4gDQoNCkl0IGlzLiBUaGUgb25seSBwb3NzaWJsZSBHU09z
-IGFyZSBUQ1AuDQoNCiAgUGF1bA0K
+On Mon, 2013-12-16 at 23:47 -0800, Stephen Hemminger wrote:
+> On Tue, 17 Dec 2013 15:26:22 +0800
+> Zhi Yong Wu <zwu.kernel@gmail.com> wrote:
+> 
+> > From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+> > 
+> > The flow cache is an extremely broken concept, and it usually brings up
+> > growth issues and DoS attacks, so this patch is trying to remove it from
+> > the tuntap driver, and insteadly use a simpler way for its flow control.
+> > 
+> > Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+> > ---
+> >  drivers/net/tun.c |  208 +++--------------------------------------------------
+> >  1 files changed, 10 insertions(+), 198 deletions(-)
+> > 
+> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> > index 7c8343a..7c27fdc 100644
+> > --- a/drivers/net/tun.c
+> > +++ b/drivers/net/tun.c
+> > @@ -32,12 +32,15 @@
+> >   *
+> >   *  Daniel Podlejski <underley@underley.eu.org>
+> >   *    Modifications for 2.3.99-pre5 kernel.
+> > + *
+> > + *  Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+> > + *    Remove the flow cache.
+> >   */
+> 
+> I agree with your patch, but please don't add to the comment changelog.
+> These are all historical. The kernel development process has not used
+> them for 5+ years.
+> 
+> Can we get kernel janitors to just remove them, or would that step
+> on too many early developers toes by removing credit?
+I thought that it is a big code change, and need to add some changelog
+for this, but you seem to have a big argue. :) I don't object to
+removing my comment in its changelog if other guys also agree with you.
+
+
+> 
+
+-- 
+Regards,
+
+Zhi Yong Wu
