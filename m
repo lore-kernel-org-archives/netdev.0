@@ -1,102 +1,76 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH RFC 1/2] ipv6: add the IPV6_FL_F_REPLY flag to IPV6_FL_A_GET
-Date: Tue, 17 Dec 2013 08:51:38 +0100
-Message-ID: <20131217075138.GA18396@order.stressinduktion.org>
-References: <1386844697-31169-1-git-send-email-florent.fourcot@enst-bretagne.fr> <52A99262.1090001@enst-bretagne.fr> <20131214095650.GD23563@order.stressinduktion.org> <52AF4547.8020304@enst-bretagne.fr>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net-next] xen-netback: add gso_segs calculation
+Date: Tue, 17 Dec 2013 08:06:30 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD01B7C16@AMSPEX01CL01.citrite.net>
+References: <1387214429-4778-1-git-send-email-paul.durrant@citrix.com>
+	 <1387218237.19078.247.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1387234646.19078.257.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:60888 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751001Ab3LQHvj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 02:51:39 -0500
-Content-Disposition: inline
-In-Reply-To: <52AF4547.8020304@enst-bretagne.fr>
+Received: from smtp02.citrix.com ([66.165.176.63]:36479 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752556Ab3LQIGc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 03:06:32 -0500
+In-Reply-To: <1387234646.19078.257.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 16, 2013 at 07:24:07PM +0100, Florent Fourcot wrote:
-> Hello,
-> 
-> > Sorry, I am not up to date with flowlabel RFCs and applications. Couldn't
-> > such a feature get in the way of RSVP flow control if a remote side
-> > can dictate the label to use for the outgoing connection (I know, your
-> > implementation is opt-in, but I don't want to give application developers
-> > something at hand which could make their software difficult to operate
-> > in future).
-> > 
-> 
-> You are right, it could be a problem. But Flow Label are not only
-> specified for Quality of Service, and RFC's does not forbid this use case.
-> Since this option is opt-in, it should not be a problem. It is already
-> possible to set flow label with random values in an application. A
-> developper can do getsocketopt(FLOWINFO_SEND), and set the flow label to
-> the result (but it lost first packets of TCP handshakes).
-
-But the application would have to create the label prior to sending and
-this could result in an error the application would get at label creation
-time it has to deal with.
-
-The flowinfo in the sockaddr_in6 structure will be checked against the flowmgr
-cache at connect time. So this path is ok.
-
-> >> I'm not sure of the best way to do that. First, should we allocate a
-> >> real flow label in the global flow label? I don't think so, and it could
-> >> add hard issues with the system of permission/sharing.
-> > 
-> > I wouldn't do that either. OTOH we are emitting frames with a flowlabel the
-> > flowmgr does not know about. :/
-> > 
-> 
-> Hum, what is the best way in your opinion? It is not hard to allocate
-> the flow label at the first received packet, but there are for me two
-> issues.
-
-Actually it is hard IMHO. I don't think flowlabel cache has been in use
-a lot and we would have to make sure it does have all the protections
-current hash tables need (hash keying, eviction strategy hardening etc.).
-
-It is not simple to insert items from the network into a globally in-kernel
-data structure, especially if it was used locally only before. It may result
-in DoS attacks or one could try to evict a label which is in need by another
-application which maybe could bring another applications syscalls to fail.
-
-So, I wouldn't do that until the flowlabel data structures have seen an
-audit with that in mind.
-
-I haven't looked at it in details but that are my concerns.
-
-> The most important problem is the "sharing" of flow label: what happens
-> if we receive a packet with a already reserved label? Should we return
-> an error to the user (and them, how to do that?), or can we ignore it.
-> 
-> The second issue is the renew/release of label, more particularly if the
-> label sent by the remote device change.
-
-I am not a fan of lots of tunables, but maybe we can restrict this
-with a sysctl. If you only care about the reflection feature, maybe
-a setsockopt-IPPROTO_IPV6, IPV6_FLOWLABEL_REFLECT, on the listening
-socket, which only succeeds if a sysctl has been switched from off to
-on would do the trick. The documentation for the sysctl should state,
-that this bypasses flowmgr and system-wide uniquness is not guaranteed
-any more under any circumstance (EXCL flag does not hold any more). Am
-I seeing this correctly?
-
-> >> Second, I was not sure of the best way for the coverage for all TCP states.
-> > 
-> > And why would you only support TCP? Wouldn't this work for connected UDP
-> > sockets, too?
-> > 
-> 
-> Actually, I began with TCP, but of course others transport protocols
-> could support this feature. For the UDP case, it could be implemented in
-> user space with recvmg/sendmsg (because there are no extra SYN/ACK/etc
-> packets), but add this option in the kernel space is a good idea.
-
-It is ok to start with TCP only and add other protocols later.
-
-Greetings,
-
-  Hannes
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiAxNiBEZWNlbWJlciAyMDEzIDIyOjU3
+DQo+IFRvOiBQYXVsIER1cnJhbnQNCj4gQ2M6IHhlbi1kZXZlbEBsaXN0cy54ZW4ub3JnOyBuZXRk
+ZXZAdmdlci5rZXJuZWwub3JnOyBXZWkgTGl1OyBJYW4gQ2FtcGJlbGw7DQo+IERhdmlkIFZyYWJl
+bA0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0XSB4ZW4tbmV0YmFjazogYWRkIGdzb19z
+ZWdzIGNhbGN1bGF0aW9uDQo+IA0KPiBPbiBNb24sIDIwMTMtMTItMTYgYXQgMTA6MjMgLTA4MDAs
+IEVyaWMgRHVtYXpldCB3cm90ZToNCj4gPiBPbiBNb24sIDIwMTMtMTItMTYgYXQgMTc6MjAgKzAw
+MDAsIFBhdWwgRHVycmFudCB3cm90ZToNCj4gPiA+IG5ldGJhY2sgYWxyZWFkeSBoYXMgY29kZSB3
+aGljaCBwYXJzZXMgSVB2NCBhbmQgdjYgaGVhZGVycyB0byBzZXQgdXANCj4gY2hlY2tzdW0NCj4g
+PiA+IG9mZnNldHMgYW5kIHRoZXNlIGFyZSBhbHdheXMgYXBwbGllZCB0byBHU08gcGFja2V0cyBi
+ZWluZyBzZW50IGZyb20NCj4gPiA+IGZyb250ZW5kcy4gSXQncyB0aGVyZWZvcmUgc3Vib3B0aW1h
+bCB0aGF0IEdTT3MgYXJlIGJlaW5nIG1hcmtlZA0KPiA+ID4gU0tCX0dTT19ET0RHWSB0byBkZWZl
+ciB0aGUgZ3NvX3NlZ3MgY2FsY3VsYXRpb24gd2hlbiBuZXRiYWNrDQo+IGFscmVhZHkgaGFzIGFs
+bA0KPiA+ID4gbmVjZXNzYXJ5IGluZm9ybWF0aW9uIHRvIGhhbmQgdG8gZG8gdGhlIGNhbGN1bGF0
+aW9uLiBUaGlzIHBhdGNoIGFkZHMgdGhhdA0KPiA+ID4gY2FsY3VsYXRpb24uDQo+ID4gPg0KPiA+
+ID4gU2lnbmVkLW9mZi1ieTogUGF1bCBEdXJyYW50IDxwYXVsLmR1cnJhbnRAY2l0cml4LmNvbT4N
+Cj4gPiA+IENjOiBXZWkgTGl1IDx3ZWkubGl1MkBjaXRyaXguY29tPg0KPiA+ID4gQ2M6IElhbiBD
+YW1wYmVsbCA8aWFuLmNhbXBiZWxsQGNpdHJpeC5jb20+DQo+ID4gPiBDYzogRGF2aWQgVnJhYmVs
+IDxkYXZpZC52cmFiZWxAY2l0cml4LmNvbT4NCj4gPiA+IC0tLQ0KPiA+ID4gIGRyaXZlcnMvbmV0
+L3hlbi1uZXRiYWNrL25ldGJhY2suYyB8ICAgMTcgKysrKysrKysrKysrKy0tLS0NCj4gPiA+ICAx
+IGZpbGUgY2hhbmdlZCwgMTMgaW5zZXJ0aW9ucygrKSwgNCBkZWxldGlvbnMoLSkNCj4gPiA+DQo+
+ID4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jIGIvZHJp
+dmVycy9uZXQveGVuLQ0KPiBuZXRiYWNrL25ldGJhY2suYw0KPiA+ID4gaW5kZXggOTA0ZTQ5Ny4u
+MGFmOGQ5NyAxMDA2NDQNCj4gPiA+IC0tLSBhL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL25ldGJh
+Y2suYw0KPiA+ID4gKysrIGIvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jDQo+ID4g
+PiBAQCAtMTA0MywxMCArMTA0Myw3IEBAIHN0YXRpYyBpbnQgeGVudmlmX3NldF9za2JfZ3NvKHN0
+cnVjdCB4ZW52aWYNCj4gKnZpZiwNCj4gPiA+ICAJfQ0KPiA+ID4NCj4gPiA+ICAJc2tiX3NoaW5m
+byhza2IpLT5nc29fc2l6ZSA9IGdzby0+dS5nc28uc2l6ZTsNCj4gPiA+IC0NCj4gPiA+IC0JLyog
+SGVhZGVyIG11c3QgYmUgY2hlY2tlZCwgYW5kIGdzb19zZWdzIGNvbXB1dGVkLiAqLw0KPiA+ID4g
+LQlza2Jfc2hpbmZvKHNrYiktPmdzb190eXBlIHw9IFNLQl9HU09fRE9ER1k7DQo+ID4gPiAtCXNr
+Yl9zaGluZm8oc2tiKS0+Z3NvX3NlZ3MgPSAwOw0KPiA+ID4gKwkvKiBnc29fc2VncyB3aWxsIGJl
+IGNhbGN1bGF0ZWQgbGF0ZXIgKi8NCj4gPiA+DQo+ID4gPiAgCXJldHVybiAwOw0KPiA+ID4gIH0N
+Cj4gPiA+IEBAIC0xNTgyLDYgKzE1NzksMTggQEAgc3RhdGljIGludCB4ZW52aWZfdHhfc3VibWl0
+KHN0cnVjdCB4ZW52aWYgKnZpZiwNCj4gaW50IGJ1ZGdldCkNCj4gPiA+DQo+ID4gPiAgCQlza2Jf
+cHJvYmVfdHJhbnNwb3J0X2hlYWRlcihza2IsIDApOw0KPiA+ID4NCj4gPiA+ICsJCS8qIElmIHRo
+ZSBwYWNrZXQgaXMgR1NPIHRoZW4gd2Ugd2lsbCBoYXZlIGp1c3Qgc2V0IHVwIHRoZQ0KPiA+ID4g
+KwkJICogdHJhbnNwb3J0IGhlYWRlciBvZmZzZXQgaW4gY2hlY2tzdW1fc2V0dXAgc28gaXQncyBu
+b3cNCj4gPiA+ICsJCSAqIHN0cmFpZ2h0Zm9yd2FyZCB0byBjYWxjdWxhdGUgZ3NvX3NlZ3MuDQo+
+ID4gPiArCQkgKi8NCj4gPiA+ICsJCWlmIChza2JfaXNfZ3NvKHNrYikpIHsNCj4gPiA+ICsJCQlp
+bnQgbXNzID0gc2tiX3NoaW5mbyhza2IpLT5nc29fc2l6ZTsNCj4gPiA+ICsJCQlpbnQgaGRybGVu
+ID0gc2tiLT50cmFuc3BvcnRfaGVhZGVyICsNCj4gdGNwX2hkcmxlbihza2IpOw0KPiA+DQo+ID4g
+VGhpcyBtZWFucyB0aGVyZSBpcyBubyBoZWFkcm9vbSA/DQo+ID4NCj4gPiBUaGlzIGlzIG5vdCB3
+aGF0IEkgYW0gc2VlaW5nIGluIHRoaXMgZHJpdmVyLCBhcyBpdCB1c2VzIDoNCj4gPg0KPiA+IHNr
+Yl9yZXNlcnZlKHNrYiwgTkVUX1NLQl9QQUQgKyBORVRfSVBfQUxJR04pOw0KPg0KDQpHb29kIHBv
+aW50LiBJJ2QgbWlzdW5kZXJzdG9vZCB0aGUgdmFsdWUgaW4gdHJhbnNwb3J0X2hlYWRlci4NCiAN
+Cj4gDQo+IFlvdSBwcm9iYWJseSBuZWVkIHRvIHVzZSA6DQo+IA0KPiBoZHJsZW4gPSBza2JfdHJh
+bnNwb3J0X2hlYWRlcihza2IpIC0gc2tiX21hY19oZWFkZXIoc2tiKSArDQo+IAkgdGNwX2hkcmxl
+bihza2IpOw0KPiANCg0KWWVzLCB0aGF0J3Mgd2hhdCBJIG5lZWQuDQoNCj4gKEFzc3VtaW5nIG9u
+bHkgVENQIGlzIHN1cHBvcnRlZCkNCj4gDQoNCkl0IGlzLiBUaGUgb25seSBwb3NzaWJsZSBHU09z
+IGFyZSBUQ1AuDQoNCiAgUGF1bA0K
