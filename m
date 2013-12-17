@@ -1,35 +1,59 @@
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Subject: Re: RTM_DELROUTE on interface going down - when to send?
-Date: Tue, 17 Dec 2013 13:11:32 +0100
-Message-ID: <CAKfDRXi86Tb6ocJ9kegfQqWDcXG8i20yxdK0UqSnQ=1WWaaOuQ@mail.gmail.com>
-References: <20131217110512.GA11216@unicorn.suse.cz>
+From: Rashika Kheria <rashika.kheria@gmail.com>
+Subject: [PATCH] drivers: ssb: Remove unused function ssb_sdio_func_to_bus()
+ in main.c
+Date: Tue, 17 Dec 2013 17:43:14 +0530
+Message-ID: <20131217121314.GA27839@rashika>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Network Development <netdev@vger.kernel.org>
-To: Michal Kubecek <mkubecek@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:64928 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750839Ab3LQMLd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 07:11:33 -0500
-Received: by mail-pb0-f43.google.com with SMTP id rq2so6848004pbb.16
-        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 04:11:33 -0800 (PST)
-In-Reply-To: <20131217110512.GA11216@unicorn.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Michael Buesch <m@bues.ch>, netdev@vger.kernel.org,
+	josh@joshtriplett.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Michal,
+Remove unused function ssb_sdio_func_to_bus() in main.c.
 
-On Tue, Dec 17, 2013 at 12:05 PM, Michal Kubecek <mkubecek@suse.cz> wrote:
->
-> Before I start with the patch, I would like to ask: would it be more
-> appropriate to send the message when the route is marked as dead or when
-> it is actually deleted from the trie?
+This eliminates the following warning in main.c:
+drivers/ssb/main.c:94:17: warning: no previous prototype for =E2=80=98s=
+sb_sdio_func_to_bus=E2=80=99 [-Wmissing-prototypes]
 
-I noticed the same thing a few months ago and submitted a patch
-(http://www.spinics.net/lists/netdev/msg254106.html). However, it was
-not applied because it would cause too much traffic on large-scale
-routers (see davem's reply here
-http://www.spinics.net/lists/netdev/msg254186.html).
+Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
+---
+ drivers/ssb/main.c |   19 -------------------
+ 1 file changed, 19 deletions(-)
 
--Kristian
+diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
+index 32a811d..8138952 100644
+--- a/drivers/ssb/main.c
++++ b/drivers/ssb/main.c
+@@ -90,25 +90,6 @@ found:
+ }
+ #endif /* CONFIG_SSB_PCMCIAHOST */
+=20
+-#ifdef CONFIG_SSB_SDIOHOST
+-struct ssb_bus *ssb_sdio_func_to_bus(struct sdio_func *func)
+-{
+-	struct ssb_bus *bus;
+-
+-	ssb_buses_lock();
+-	list_for_each_entry(bus, &buses, list) {
+-		if (bus->bustype =3D=3D SSB_BUSTYPE_SDIO &&
+-		    bus->host_sdio =3D=3D func)
+-			goto found;
+-	}
+-	bus =3D NULL;
+-found:
+-	ssb_buses_unlock();
+-
+-	return bus;
+-}
+-#endif /* CONFIG_SSB_SDIOHOST */
+-
+ int ssb_for_each_bus_call(unsigned long data,
+ 			  int (*func)(struct ssb_bus *bus, unsigned long data))
+ {
+--=20
+1.7.9.5
