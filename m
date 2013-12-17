@@ -1,49 +1,65 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v2] linux: Signal datapath that unaligned
- Netlink message can be received
-Date: Mon, 16 Dec 2013 17:23:43 -0800
-Message-ID: <CAEP_g=-XN+fHnLpvpQ4A9MadYH4z9uKHcRBa84vOjWaV_K_YDg@mail.gmail.com>
-References: <a960865f3ad68da1016f35085c1d84126e92f0a5.1385814128.git.tgraf@redhat.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [net PATCH 0/2] Fixing OOPSes in seqadj code
+Date: Tue, 17 Dec 2013 10:36:37 +0900
+Message-ID: <20131217013637.GI27171@verge.net.au>
+References: <20131213214023.14478.74738.stgit@dragon>
+ <20131216160840.22853.39918.stgit@dragon>
+ <alpine.LFD.2.11.1312162308120.2063@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <a960865f3ad68da1016f35085c1d84126e92f0a5.1385814128.git.tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:38318 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751356Ab3LQBgl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 20:36:41 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.11.1312162308120.2063@ja.home.ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 30, 2013 at 4:25 AM, Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> diff --git a/lib/dpif-linux.c b/lib/dpif-linux.c
-> index 6c482d0..2d8a1aa 100644
-> --- a/lib/dpif-linux.c
-> +++ b/lib/dpif-linux.c
-> @@ -73,6 +73,7 @@ struct dpif_linux_dp {
->      /* Attributes. */
->      const char *name;                  /* OVS_DP_ATTR_NAME. */
->      const uint32_t *upcall_pid;        /* OVS_DP_ATTR_UPCALL_PID. */
-> +    uint32_t user_features;            /* OVS_DP_ATTR_USER_FEATURES */
->      struct ovs_dp_stats stats;         /* OVS_DP_ATTR_STATS. */
->      struct ovs_dp_megaflow_stats megaflow_stats;
->                                         /* OVS_DP_ATTR_MEGAFLOW_STATS.*/
-> @@ -228,6 +229,7 @@ dpif_linux_open(const struct dpif_class *class OVS_UNUSED, const char *name,
->          dp_request.cmd = OVS_DP_CMD_NEW;
->          upcall_pid = 0;
->          dp_request.upcall_pid = &upcall_pid;
-> +        dp_request.user_features |= OVS_DP_F_UNALIGNED;
->      } else {
->          dp_request.cmd = OVS_DP_CMD_GET;
->      }
+On Mon, Dec 16, 2013 at 11:11:51PM +0200, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Mon, 16 Dec 2013, Jesper Dangaard Brouer wrote:
+> 
+> > The following series address issues with netfilter conntrack sequence
+> > number adjustments, introduced with commit 41d73ec053d2 (netfilter:
+> > nf_conntrack: make sequence number adjustments usuable without NAT).
+> > 
+> >  Patch1: give us a WARN splash when using seqadj incorrectly
+> > 
+> >  Patch2: fixes a wrong usage of seqadj in IPVS code
+> 
+> 	Both patches look good to me,
+> 
+> Acked-by: Julian Anastasov <ja@ssi.bg>
+> 
+> > I'm not sure, which maintainer will take these fixes?!?
+> 
+> 	I think, Simon can take them, if there are no
+> objections...
 
-Does this handle the case where we are opening an existing datapath
-and need to update the features?
+I have no objections.
+I'll wait a day to see if anyone else does.
+
+> 
+> > Jesper Dangaard Brouer (2):
+> >       ipvs: correct usage/allocation of seqadj ext in ipvs
+> >       netfilter: WARN about wrong usage of sequence number adjustments
+> > 
+> > 
+> >  net/netfilter/ipvs/ip_vs_nfct.c     |    6 ++++++
+> >  net/netfilter/nf_conntrack_seqadj.c |    5 +++++
+> >  2 files changed, 11 insertions(+), 0 deletions(-)
+> 
+> Regards
+> 
+> --
+> Julian Anastasov <ja@ssi.bg>
+> 
