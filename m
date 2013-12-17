@@ -1,37 +1,32 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: RTM_DELROUTE on interface going down - when to send?
-Date: Tue, 17 Dec 2013 15:01:02 +0100
-Message-ID: <20131217140101.GB11216@unicorn.suse.cz>
-References: <20131217110512.GA11216@unicorn.suse.cz>
- <CAKfDRXi86Tb6ocJ9kegfQqWDcXG8i20yxdK0UqSnQ=1WWaaOuQ@mail.gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v4 1/3] packet: make aligned size of struct tpacket{2,3}_hdr
+ clear
+Date: Tue, 17 Dec 2013 15:02:20 +0100
+Message-ID: <52B0596C.8000901@redhat.com>
+References: <87fvpr7fdv.wl%atzm@stratosphere.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Network Development <netdev@vger.kernel.org>
-To: Kristian Evensen <kristian.evensen@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	David Laight <David.Laight@ACULAB.COM>
+To: Atzm Watanabe <atzm@stratosphere.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:56368 "EHLO mx2.suse.de"
+Received: from mx1.redhat.com ([209.132.183.28]:27380 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752536Ab3LQOBD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Dec 2013 09:01:03 -0500
-Content-Disposition: inline
-In-Reply-To: <CAKfDRXi86Tb6ocJ9kegfQqWDcXG8i20yxdK0UqSnQ=1WWaaOuQ@mail.gmail.com>
+	id S1752958Ab3LQOCj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Dec 2013 09:02:39 -0500
+In-Reply-To: <87fvpr7fdv.wl%atzm@stratosphere.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 17, 2013 at 01:11:32PM +0100, Kristian Evensen wrote:
-> On Tue, Dec 17, 2013 at 12:05 PM, Michal Kubecek <mkubecek@suse.cz> wrote:
-> >
-> > Before I start with the patch, I would like to ask: would it be more
-> > appropriate to send the message when the route is marked as dead or when
-> > it is actually deleted from the trie?
-> 
-> I noticed the same thing a few months ago and submitted a patch
-> (http://www.spinics.net/lists/netdev/msg254106.html). However, it was
-> not applied because it would cause too much traffic on large-scale
-> routers (see davem's reply here
-> http://www.spinics.net/lists/netdev/msg254186.html).
+On 12/17/2013 02:53 PM, Atzm Watanabe wrote:
+> struct tpacket{2,3}_hdr is aligned to a multiple of TPACKET_ALIGNMENT.
+> We may add members to them until current aligned size without forcing
+> userspace to call getsockopt(..., PACKET_HDRLEN, ...).
+>
+> Signed-off-by: Atzm Watanabe <atzm@stratosphere.co.jp>
 
-Thank you for the pointer. However, I agree that the inconsistencies
-(IPv4 vs. IPv6, RTM_DELROUTE vs. RTM_NEWROUTE) are really unfortunate.
-
-                                                       Michal Kubecek
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
