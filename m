@@ -1,65 +1,42 @@
-From: Josh Triplett <josh@joshtriplett.org>
-Subject: Re: [PATCH] drivers: ssb: Remove unused function
- ssb_sdio_func_to_bus() in main.c
-Date: Tue, 17 Dec 2013 08:33:47 -0800
-Message-ID: <20131217163347.GB737@leaf>
-References: <20131217121314.GA27839@rashika>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] net: distribute vxlan tunneled traffic across multiple
+ TXQs
+Date: Tue, 17 Dec 2013 08:45:26 -0800
+Message-ID: <1387298726.19078.261.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1387269626-12463-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, Michael Buesch <m@bues.ch>,
-	netdev@vger.kernel.org
-To: Rashika Kheria <rashika.kheria@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131217121314.GA27839@rashika>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Sathya Perla <sathya.perla@emulex.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:50859 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753185Ab3LQQpc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 11:45:32 -0500
+Received: by mail-pa0-f42.google.com with SMTP id lj1so4688397pab.15
+        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 08:45:32 -0800 (PST)
+In-Reply-To: <1387269626-12463-1-git-send-email-sathya.perla@emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 17, 2013 at 05:43:14PM +0530, Rashika Kheria wrote:
-> Remove unused function ssb_sdio_func_to_bus() in main.c.
->=20
-> This eliminates the following warning in main.c:
-> drivers/ssb/main.c:94:17: warning: no previous prototype for =E2=80=98=
-ssb_sdio_func_to_bus=E2=80=99 [-Wmissing-prototypes]
->=20
-> Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
+On Tue, 2013-12-17 at 14:10 +0530, Sathya Perla wrote:
+> TX traffic is distributed across multiple TXQs using skb->sk->sk_hash.
+> For vxlan skbs, the reference to the original socket (skb->sk) is replaced
+> with vxlan-sk. Because of this all tunneled traffic ends up only on one TXQ.
+> 
+> This patch uses the skb->rxhash field to carry the original sk->sk_hash
+> value so that it can be used by netdev layer to pick a TXQ. If this approach
+> is agreeable then we can change the name of skb->rxhash to skb->hash so that
+> it can be used in both RX and TX paths.
+> 
+> But, after a TXQ is picked based on the skb->rxhash for tunneled traffic,
+> it's index cannot be recorded in the original socket as it's reference
+> is no longer available in skb. So, the TXQ-index would need to be
+> computed (from skb->rxhash) for each skb. Any ideas on how this can be
+> avoided?
 
-Reviewed-by: Josh Triplett <josh@joshtriplett.org>
+Real question is : Why vxlan needs to set a skb destructor ?  
 
->  drivers/ssb/main.c |   19 -------------------
->  1 file changed, 19 deletions(-)
->=20
-> diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
-> index 32a811d..8138952 100644
-> --- a/drivers/ssb/main.c
-> +++ b/drivers/ssb/main.c
-> @@ -90,25 +90,6 @@ found:
->  }
->  #endif /* CONFIG_SSB_PCMCIAHOST */
-> =20
-> -#ifdef CONFIG_SSB_SDIOHOST
-> -struct ssb_bus *ssb_sdio_func_to_bus(struct sdio_func *func)
-> -{
-> -	struct ssb_bus *bus;
-> -
-> -	ssb_buses_lock();
-> -	list_for_each_entry(bus, &buses, list) {
-> -		if (bus->bustype =3D=3D SSB_BUSTYPE_SDIO &&
-> -		    bus->host_sdio =3D=3D func)
-> -			goto found;
-> -	}
-> -	bus =3D NULL;
-> -found:
-> -	ssb_buses_unlock();
-> -
-> -	return bus;
-> -}
-> -#endif /* CONFIG_SSB_SDIOHOST */
-> -
->  int ssb_for_each_bus_call(unsigned long data,
->  			  int (*func)(struct ssb_bus *bus, unsigned long data))
->  {
-> --=20
-> 1.7.9.5
->=20
+skb_orphan(skb) breaks TCP Small queues and FQ/pacing packet scheduler,
+plus other things...
