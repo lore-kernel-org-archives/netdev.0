@@ -1,40 +1,25 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2] xen-netback: add gso_segs calculation
-Date: Tue, 17 Dec 2013 14:15:07 -0800
-Message-ID: <1387318507.19078.292.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1387280675-10295-1-git-send-email-paul.durrant@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 0/2] s390: network patches for net-next
+Date: Tue, 17 Dec 2013 17:17:30 -0500 (EST)
+Message-ID: <20131217.171730.784506434969420133.davem@davemloft.net>
+References: <20131216084450.304555472@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Paul Durrant <paul.durrant@citrix.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: frank.blaschka@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f47.google.com ([209.85.213.47]:47251 "EHLO
-	mail-yh0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752283Ab3LQWPK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 17:15:10 -0500
-Received: by mail-yh0-f47.google.com with SMTP id 29so4962097yhl.6
-        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 14:15:10 -0800 (PST)
-In-Reply-To: <1387280675-10295-1-git-send-email-paul.durrant@citrix.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49504 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752072Ab3LQWRb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 17:17:31 -0500
+In-Reply-To: <20131216084450.304555472@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-12-17 at 11:44 +0000, Paul Durrant wrote:
-> netback already has code which parses IPv4 and v6 headers to set up checksum
-> offsets and these are always applied to GSO packets being sent from
-> frontends. It's therefore suboptimal that GSOs are being marked
-> SKB_GSO_DODGY to defer the gso_segs calculation when netback already has all
-> necessary information to hand to do the calculation. This patch adds that
-> calculation.
-> 
-> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-> Cc: Wei Liu <wei.liu2@citrix.com>
-> Cc: Ian Campbell <ian.campbell@citrix.com>
-> Cc: David Vrabel <david.vrabel@citrix.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
+From: frank.blaschka@de.ibm.com
+Date: Mon, 16 Dec 2013 09:44:50 +0100
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+> here are some s390 related patches for net-next
+
+Series applied, thanks.
