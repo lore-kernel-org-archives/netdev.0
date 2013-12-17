@@ -1,88 +1,51 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [RFC PATCH] net, tun: remove the flow cache
-Date: Tue, 17 Dec 2013 18:05:58 +0800
-Message-ID: <52B02206.6030709@redhat.com>
-References: <1387265182-27312-1-git-send-email-zwu.kernel@gmail.com>	<52B0100A.3030002@redhat.com> <CAEH94LhM5WWLEETv-n0cYs4wv+Hw4pC7-c+b5cKqRxdx2XywNw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	linux-kernel mlist <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: Zhi Yong Wu <zwu.kernel@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEH94LhM5WWLEETv-n0cYs4wv+Hw4pC7-c+b5cKqRxdx2XywNw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2013-12-17
+Date: Tue, 17 Dec 2013 11:44:47 +0100
+Message-ID: <1387277089-25554-1-git-send-email-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:50837 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752307Ab3LQKo7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 05:44:59 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/17/2013 05:13 PM, Zhi Yong Wu wrote:
-> On Tue, Dec 17, 2013 at 4:49 PM, Jason Wang <jasowang@redhat.com> wrote:
->> > On 12/17/2013 03:26 PM, Zhi Yong Wu wrote:
->>> >> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
->>> >>
->>> >> The flow cache is an extremely broken concept, and it usually brings up
->>> >> growth issues and DoS attacks, so this patch is trying to remove it from
->>> >> the tuntap driver, and insteadly use a simpler way for its flow control.
->> >
->> > NACK.
->> >
->> > This single function revert does not make sense to me. Since:
-> IIRC, the tuntap flow cache is only used to save the mapping of skb
-> packet <-> queue index. My idea only save the queue index in skb_buff
-> early when skb buffer is filled, not in flow cache as the current
-> code. This method is actually more simpler and completely doesn't need
-> any flow cache.
+Hello David,
 
-Nope. Flow caches record the flow to queues mapping like what most
-multiqueue nic does. The only difference is tun record it silently while
-most nic needs driver to tell the mapping.
+this is a pull request with two fixes for net/master, the current release
+cycle.
 
-What your patch does is:
-- set the queue mapping of skb during tun_get_user(). But most drivers
-using XPS or processor id to select the real tx queue. So the real txq
-depends on the cpu that vhost or qemu is running. This setting does not
-have any effect in fact.
-- the queue mapping of skb were fetched during tun_select_queue(). This
-value is usually set by a multiqueue nic to record which hardware rxq
-was this packet came.
+It consists of a patch by Alexey Khoroshilov from the Linux Driver Verification
+project, which fixes a memory leak in ems_usb's failure patch. And a patch by
+me which fixes a memory leak in the peak usb driver.
 
-Can you explain how your patch works exactly?
->> >
->> > - You in fact removes the flow steering function in tun. We definitely
->> > need something like this to unbreak the TCP performance in a multiqueue
-> I don't think it will downgrade the TCP perf even in mq guest, but my
-> idea maybe has better TCP perf, because it doesn't have any cache
-> table lookup, etc.
+regards,
+Marc
 
-Did you test and compare the performance numbers? Did you run profiler
-to see how much does the lookup cost?
->> > guest. Please have a look at the virtio-net driver / virtio sepc for
->> > more information.
->> > - The total number of flow caches were limited to 4096, so there's no
->> > DoS or growth issue.
-> Can you check why the ipv4 routing cache is removed? maybe i miss
-> something, if yes, pls correct me. :)
+---
 
-The main differences is that the flow caches were best effort. Tun can
-not store all flows to queue mapping, and even a hardware nic can not do
-this. If a packet misses the flow cache, it's safe to distribute it
-randomly or through another method. So the limitation just work.
+The following changes since commit 9bd7d20c45157c175bfd45449e904a404506f99c:
 
-Could you please explain the DoS or growth issue you meet here?
->> > - The only issue is scalability, but fixing this is not easy. We can
->> > just use arrays/indirection table like RSS instead of hash buckets, it
->> > saves some time in linear search but has other issues like collision
->> > - I've also had a RFC of using aRFS in the past, it also has several
->> > drawbacks such as busy looping in the networking hotspot.
->> >
->> > So in conclusion, we need flow steering in tun, just removing current
->> > method does not help. The proper way is to expose several different
->> > methods to user and let user to choose the preferable mechanism like
->> > packet.
-> By the way, let us look at what other networking guys think of this,
-> such as MST, dave, etc. :)
->
+  sctp: loading sctp when load sctp_probe (2013-12-16 20:04:27 -0500)
 
-Of course.
+are available in the git repository at:
+
+  git://gitorious.org/linux-can/linux-can.git fixes-for-3.13
+
+for you to fetch changes up to 20fb4eb96fb0350d28fc4d7cbfd5506711079592:
+
+  can: peak_usb: fix mem leak in pcan_usb_pro_init() (2013-12-17 11:19:33 +0100)
+
+----------------------------------------------------------------
+Alexey Khoroshilov (1):
+      can: ems_usb: fix urb leaks on failure paths
+
+Marc Kleine-Budde (1):
+      can: peak_usb: fix mem leak in pcan_usb_pro_init()
+
+ drivers/net/can/usb/ems_usb.c               | 3 ++-
+ drivers/net/can/usb/peak_usb/pcan_usb_pro.c | 3 +++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
