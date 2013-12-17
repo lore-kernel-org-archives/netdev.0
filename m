@@ -1,36 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] bonding: add some more netlink attributes
-Date: Tue, 17 Dec 2013 16:10:00 -0500 (EST)
-Message-ID: <20131217.161000.2196107916517833505.davem@davemloft.net>
-References: <20131216003741.13453.71746.stgit@monster-03.cumulusnetworks.com>
+Subject: Re: [PATCH net] bridge: br_handle_local_finish should not return
+ zero
+Date: Tue, 17 Dec 2013 16:13:23 -0500 (EST)
+Message-ID: <20131217.161323.1528213413550233056.davem@davemloft.net>
+References: <52ACC4F8.6080703@hotsplots.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vfalico@redhat.com, fubar@us.ibm.com, andy@greyhouse.net,
-	netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	shm@cumulusnetworks.com
-To: sfeldma@cumulusnetworks.com
+Cc: netdev@vger.kernel.org
+To: faecknitz@hotsplots.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49087 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49113 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751728Ab3LQVKE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 16:10:04 -0500
-In-Reply-To: <20131216003741.13453.71746.stgit@monster-03.cumulusnetworks.com>
+	with ESMTP id S1752204Ab3LQVNY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 16:13:24 -0500
+In-Reply-To: <52ACC4F8.6080703@hotsplots.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@cumulusnetworks.com>
-Date: Sun, 15 Dec 2013 16:41:44 -0800
+From: Martin Faecknitz <faecknitz@hotsplots.de>
+Date: Sat, 14 Dec 2013 21:52:08 +0100
 
-> The following series implements five more bonding netlink attributes:
+> br_handle_local_finish is called by NF_HOOK(...) after accepting the packet. If
+> the return value of NF_HOOK(...) is zero (i.e. the return value of
+> br_handle_local_finish), the packet is passed to the network stack. This
+> behavior conflicts with netfilter hooks which return NF_STOLEN/NF_QUEUE. In this
+> case, NF_HOOK(...) returns also zero (see nf_hook_slow) but
+> br_handle_local_finish was never called. The packet will still passed to the
+> network stack.
 > 
-> 	primary
-> 	primary_reselect
-> 	fail_over_mac
-> 	xmit_hash_policy
-> 	resend_igmp
-> 
-> Tested with modified iproute2 to verify attributes can be set at bond creation
-> time or set later.  Verified sysfs interface to attributes continues to work.
+> Signed-off-by: Martin Faecknitz
 
-Series applied, thanks Scott.
+This is not a proper Signed-off-by: tag, you have to put your name
+as well as your email address, similar to how it appears in the
+"From: " field of your outgoing emails.
