@@ -1,140 +1,180 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net v2 6/9] bridge: Properly check if local fdb entry
- can be deleted in br_fdb_change_mac_address
-Date: Tue, 17 Dec 2013 14:00:51 -0500
-Message-ID: <52B09F63.6030604@redhat.com>
-References: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp> <1387281821-21342-7-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Reply-To: vyasevic@redhat.com
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [BUG: 3.13.0-rc4] inconsistent lock state
+Date: Tue, 17 Dec 2013 11:06:15 -0800
+Message-ID: <CA+55aFyiv7+Ogh=s6VjXChweJHRausBQNJ8LJOv9PvbSZJycVA@mail.gmail.com>
+References: <52B09446.7060809@t-online.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	"David S . Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary=089e013a02866e387204edbf9fe8
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Shawn Bohrer <sbohrer@rgmadvisors.com>
+To: Knut Petersen <Knut_Petersen@t-online.de>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40892 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750966Ab3LQTA5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Dec 2013 14:00:57 -0500
-In-Reply-To: <1387281821-21342-7-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Received: from mail-ve0-f182.google.com ([209.85.128.182]:56573 "EHLO
+	mail-ve0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751149Ab3LQTGR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 14:06:17 -0500
+In-Reply-To: <52B09446.7060809@t-online.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/17/2013 07:03 AM, Toshiaki Makita wrote:
-> br_fdb_change_mac_address() doesn't check if the local entry has the
-> same address as any of bridge ports.
-> Although I'm not sure when it is beneficial, current implementation allow
-> the bridge device to receive any mac address of its ports.
-> To preserve this behavior, we have to check if the mac address of the
-> entry we are deleting is identical to that of any port.
-> 
-> As this check is almost the same as that in br_fdb_changeaddr(), create
-> a common function fdb_delete_local() and call it from
-> br_fdb_changeadddr() and br_fdb_change_mac_address().
-> 
-> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> ---
->  net/bridge/br_fdb.c | 57 ++++++++++++++++++++++++++++++-----------------------
->  1 file changed, 32 insertions(+), 25 deletions(-)
-> 
-> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> index cf8b64e..817f138 100644
-> --- a/net/bridge/br_fdb.c
-> +++ b/net/bridge/br_fdb.c
-> @@ -89,6 +89,34 @@ static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
->  	call_rcu(&f->rcu, fdb_rcu_free);
->  }
->  
-> +/* Delete a local entry if no other port had the same address. */
-> +static void fdb_delete_local(struct net_bridge *br,
-> +			     const struct net_bridge_port *p,
-> +			     struct net_bridge_fdb_entry *f)
-> +{
-> +	const unsigned char *addr = f->addr.addr;
-> +	u16 vid = f->vlan_id;
-> +	struct net_bridge_port *op;
-> +
-> +	/* Maybe another port has same hw addr? */
-> +	list_for_each_entry(op, &br->port_list, list) {
-> +		if (op != p && ether_addr_equal(op->dev->dev_addr, addr) &&
-> +		    (!vid || nbp_vlan_find(op, vid))) {
-> +			f->dst = op;
-> +			return;
-> +		}
-> +	}
-> +
-> +	/* Maybe bridge device has same hw addr? */
-> +	if (p && ether_addr_equal(br->dev->dev_addr, addr) &&
-> +	    (!vid || br_vlan_find(br, vid))) {
-> +		f->dst = NULL;
-> +		return;
-> +	}
-> +
-> +	fdb_delete(br, f);
-> +}
-> +
->  void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
->  {
->  	struct net_bridge *br = p->br;
-> @@ -107,30 +135,9 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
->  
->  			f = hlist_entry(h, struct net_bridge_fdb_entry, hlist);
->  			if (f->dst == p && f->is_local && !f->added_by_user) {
-> -				/* maybe another port has same hw addr? */
-> -				struct net_bridge_port *op;
-> -				u16 vid = f->vlan_id;
-> -				list_for_each_entry(op, &br->port_list, list) {
-> -					if (op != p &&
-> -					    ether_addr_equal(op->dev->dev_addr,
-> -							     f->addr.addr) &&
-> -					    (!vid || nbp_vlan_find(op, vid))) {
-> -						f->dst = op;
-> -						goto skip_delete;
-> -					}
-> -				}
-> -
-> -				/* maybe bridge device has same hw addr? */
-> -				if (ether_addr_equal(br->dev->dev_addr,
-> -						     f->addr.addr) &&
-> -				    (!vid || br_vlan_find(br, vid))) {
-> -					f->dst = NULL;
-> -					goto skip_delete;
-> -				}
-> -
->  				/* delete old one */
-> -				fdb_delete(br, f);
-> -skip_delete:
-> +				fdb_delete_local(br, p, f);
-> +
->  				/* if this port has no vlan information
->  				 * configured, we can safely be done at
->  				 * this point.
-> @@ -168,7 +175,7 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
->  	/* If old entry was unassociated with any port, then delete it. */
->  	f = __br_fdb_get(br, br->dev->dev_addr, 0);
->  	if (f && f->is_local && !f->dst)
-> -		fdb_delete(br, f);
-> +		fdb_delete_local(br, NULL, f);
+--089e013a02866e387204edbf9fe8
+Content-Type: text/plain; charset=UTF-8
 
-In this series, br_fdb_change_mac_address() is called before
-br->dev->dev_addr is set to the new value (patch 4).  As a result,
-the above fdb_delete_local() call will not delete the entry because
-br->dev->dev_addr will match the f->addr and the function will
-return before calling fdb_delete().
+David, Eric, netdev,
+ this seems to be due to __udp4_lib_rcv() doing udp_sk_rx_dst_set(),
+which takes the 'sk->sk_dst_lock' spinlock. This all happens in a
+software irq context.
 
--vlad
+And on the other hand, inet_csk_listen_start() does sk_dst_reset(),
+which takes the same lock *without* bh-disable, so it could deadlock
+if an interrupt comes in, and bh processing happens, and we try to
+take the lock recursively.
 
->  
->  	fdb_insert(br, NULL, newaddr, 0);
->  
-> @@ -183,7 +190,7 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
->  	for_each_set_bit_from(vid, pv->vlan_bitmap, VLAN_N_VID) {
->  		f = __br_fdb_get(br, br->dev->dev_addr, vid);
->  		if (f && f->is_local && !f->dst)
-> -			fdb_delete(br, f);
-> +			fdb_delete_local(br, NULL, f);
->  		fdb_insert(br, NULL, newaddr, vid);
->  	}
->  }
-> 
+Now, if I read everything correctly, I think that this is all fine in
+practice because inet_csk_listen_start() is only ever called for TCP
+sockets (inet_listen seems to exit unless it's a SOCK_STREAM), and
+that this is a false lockdep warning due to a very hacky use of
+sk_dst_lock by UDP.
+
+However, even if that's the case, then to make lockdep happy, maybe
+UDP and TCP sockets need to initialize that sk_dst_lock in different
+lockdep classes. Because we should make sure that lockdep is happy
+either way.
+
+Or maybe use a different lock for that UDP hack.
+
+This seems to have been introduced by commit 975022310233 ("udp: ipv4:
+must add synchronization in udp_sk_rx_dst_set()").
+
+Hmm?
+
+              Linus
+
+On Tue, Dec 17, 2013 at 10:13 AM, Knut Petersen
+<Knut_Petersen@t-online.de> wrote:
+> Hi Linus / everybody!
+>
+> Booting openSuSE 13.1 with kernel 3.13.0-rc4 triggers the attached
+> warning.
+
+--089e013a02866e387204edbf9fe8
+Content-Type: text/plain; charset=UTF-8; name=messages
+Content-Disposition: attachment; filename=messages
+Content-Transfer-Encoding: base64
+X-Attachment-Id: 14922e6cb45e37ff_0.1
+
+Z29sZW0ga2VybmVsOiBbICAgMjUuMzI0MDk2XSANCmdvbGVtIGtlcm5lbDogWyAgIDI1LjMyNjUy
+NV0gPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09DQpnb2xlbSBrZXJuZWw6IFsgICAy
+NS4zMjgwMDldIFsgSU5GTzogaW5jb25zaXN0ZW50IGxvY2sgc3RhdGUgXQ0KZ29sZW0ga2VybmVs
+OiBbICAgMjUuMzI4MDA5XSAzLjEzLjAtcmM0LW1haW4gIzg5IE5vdCB0YWludGVkDQpnb2xlbSBr
+ZXJuZWw6IFsgICAyNS4zMjgwMDldIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0K
+Z29sZW0ga2VybmVsOiBbICAgMjUuMzI4MDA5XSBpbmNvbnNpc3RlbnQge1NPRlRJUlEtT04tV30g
+LT4ge0lOLVNPRlRJUlEtV30gdXNhZ2UuDQpnb2xlbSBrZXJuZWw6IFsgICAyNS4zMjgwMDldIFN1
+U0VmaXJld2FsbDIvMTQ1MyBbSEMwWzBdOlNDMVsxXTpIRTE6U0UwXSB0YWtlczoNCmdvbGVtIGtl
+cm5lbDogWyAgIDI1LjMyODAwOV0gICgmKCZzay0+c2tfZHN0X2xvY2spLT5ybG9jayl7Ky4/Li4u
+fSwgYXQ6IFs8YzA1MTZmZTE+XSBfX3VkcDRfbGliX3JjdisweDRkYi8weDZkMg0KZ29sZW0ga2Vy
+bmVsOiBbICAgMjUuMzI4MDA5XSB7U09GVElSUS1PTi1XfSBzdGF0ZSB3YXMgcmVnaXN0ZXJlZCBh
+dDoNCmdvbGVtIGtlcm5lbDogWyAgIDI1LjMyODAwOV0gICBbPGMwMTU0MzE5Pl0gX19sb2NrX2Fj
+cXVpcmUrMHg2ZDUvMHgxNTU2DQpnb2xlbSBrZXJuZWw6IFsgICAyNS4zMjgwMDldICAgWzxjMDE1
+NTczMz5dIGxvY2tfYWNxdWlyZSsweDcyLzB4YzkNCmdvbGVtIGtlcm5lbDogWyAgIDI1LjMyODAw
+OV0gICBbPGMwNTRlMTIyPl0gX3Jhd19zcGluX2xvY2srMHgyYS8weDM5DQpnb2xlbSBrZXJuZWw6
+IFsgICAyNS4zMjgwMDldICAgWzxjMDRmZGZmMz5dIGluZXRfY3NrX2xpc3Rlbl9zdGFydCsweDdk
+LzB4YzENCmdvbGVtIGtlcm5lbDogWyAgIDI1LjMyODAwOV0gICBbPGMwNTFjZmYyPl0gaW5ldF9s
+aXN0ZW4rMHgxNDUvMHgxNmINCmdvbGVtIGtlcm5lbDogWyAgIDI1LjMyODAwOV0gICBbPGMwNGMy
+M2Q0Pl0gU3lTX2xpc3RlbisweDQ4LzB4NjMNCmdvbGVtIGtlcm5lbDogWyAgIDI1LjMyODAwOV0g
+ICBbPGMwNGMzMDk2Pl0gU3lTX3NvY2tldGNhbGwrMHhiNC8weDFmYw0KZ29sZW0ga2VybmVsOiBb
+ICAgMjUuMzI4MDA5XSAgIFs8YzA1NTNkZjQ+XSBzeXNlbnRlcl9kb19jYWxsKzB4MTIvMHgzMg0K
+Z29sZW0ga2VybmVsOiBbICAgMjUuMzI4MDA5XSBpcnEgZXZlbnQgc3RhbXA6IDUzNzM4DQpnb2xl
+bSBrZXJuZWw6IFsgICAyNS4zMjgwMDldIGhhcmRpcnFzIGxhc3QgIGVuYWJsZWQgYXQgKDUzNzM4
+KTogWzxjMDEyZGMxMD5dIGxvY2FsX2JoX2VuYWJsZSsweDkyLzB4YTQNCmdvbGVtIGtlcm5lbDog
+WyAgIDI1LjMyODAwOV0gaGFyZGlycXMgbGFzdCBkaXNhYmxlZCBhdCAoNTM3MzcpOiBbPGMwMTJk
+YmMyPl0gbG9jYWxfYmhfZW5hYmxlKzB4NDQvMHhhNA0KZ29sZW0ga2VybmVsOiBbICAgMjUuMzI4
+MDA5XSBzb2Z0aXJxcyBsYXN0ICBlbmFibGVkIGF0ICg0MTI2Nik6IFs8YzAxMmQ5YWE+XSBfX2Rv
+X3NvZnRpcnErMHgxNjgvMHgyMWENCmdvbGVtIGtlcm5lbDogWyAgIDI1LjMyODAwOV0gc29mdGly
+cXMgbGFzdCBkaXNhYmxlZCBhdCAoNTM2NTMpOiBbPGMwMTAyYmZmPl0gZG9fc29mdGlycV9vd25f
+c3RhY2srMHgzNC8weDNhDQpnb2xlbSBrZXJuZWw6IFsgICAyNS4zMjgwMDldIA0KZ29sZW0ga2Vy
+bmVsOiBbICAgMjUuMzI4MDA5XSBvdGhlciBpbmZvIHRoYXQgbWlnaHQgaGVscCB1cyBkZWJ1ZyB0
+aGlzOg0KZ29sZW0ga2VybmVsOiBbICAgMjUuMzI4MDA5XSAgUG9zc2libGUgdW5zYWZlIGxvY2tp
+bmcgc2NlbmFyaW86DQpnb2xlbSBrZXJuZWw6IFsgICAyNS4zMjgwMDldIA0KZ29sZW0ga2VybmVs
+OiBbICAgMjUuMzI4MDA5XSAgICAgICAgQ1BVMA0KZ29sZW0ga2VybmVsOiBbICAgMjUuMzI4MDA5
+XSAgICAgICAgLS0tLQ0KZ29sZW0ga2VybmVsOiBbICAgMjUuMzI4MDA5XSAgIGxvY2soJigmc2st
+PnNrX2RzdF9sb2NrKS0+cmxvY2spOw0KZ29sZW0ga2VybmVsOiBbICAgMjUuMzI4MDA5XSAgIDxJ
+bnRlcnJ1cHQ+DQpnb2xlbSBrZXJuZWw6IFsgICAyNS4zMjgwMDldICAgICBsb2NrKCYoJnNrLT5z
+a19kc3RfbG9jayktPnJsb2NrKTsNCmdvbGVtIGtlcm5lbDogWyAgIDI1LjMyODAwOV0gDQpnb2xl
+bSBrZXJuZWw6IFsgICAyNS4zMjgwMDldICAqKiogREVBRExPQ0sgKioqDQpnb2xlbSBrZXJuZWw6
+IFsgICAyNS4zMjgwMDldIA0KZ29sZW0ga2VybmVsOiBbICAgMjUuMzI4MDA5XSA1IGxvY2tzIGhl
+bGQgYnkgU3VTRWZpcmV3YWxsMi8xNDUzOg0KZ29sZW0ga2VybmVsOiBbICAgMjUuMzI4MDA5XSAg
+IzA6ICAoJmR1cF9tbWFwX3NlbSl7LisuKy4rfSwgYXQ6IFs8YzAxYWI4YzQ+XSB1cHJvYmVfc3Rh
+cnRfZHVwX21tYXArMHgxMi8weDE0DQpnb2xlbSBrZXJuZWw6IFsgICAyNS4zMjgwMDldICAjMTog
+ICgmbW0tPm1tYXBfc2VtKXsrKysrKyt9LCBhdDogWzxjMDEyODQ5MT5dIGR1cF9tbSsweDhjLzB4
+M2E0DQpnb2xlbSBrZXJuZWw6IFsgICAyNS4zMjgwMDldICAjMjogICgmbW0tPm1tYXBfc2VtLzEp
+eysuKy4rLn0sIGF0OiBbPGMwMTI4NGFhPl0gZHVwX21tKzB4YTUvMHgzYTQNCmdvbGVtIGtlcm5l
+bDogWyAgIDI1LjMyODAwOV0gICMzOiAgKHJjdV9yZWFkX2xvY2spey4rLisuLn0sIGF0OiBbPGMw
+NGNmZTkwPl0gX19uZXRpZl9yZWNlaXZlX3NrYl9jb3JlKzB4MTM2LzB4NWMyDQpnb2xlbSBrZXJu
+ZWw6IFsgICAyNS4zMjgwMDldICAjNDogIChyY3VfcmVhZF9sb2NrKXsuKy4rLi59LCBhdDogWzxj
+MDRmM2Y0Zj5dIGlwX2xvY2FsX2RlbGl2ZXJfZmluaXNoKzB4MmIvMHgyMWINCmdvbGVtIGtlcm5l
+bDogWyAgIDI1LjMyODAwOV0gDQpnb2xlbSBrZXJuZWw6IFsgICAyNS4zMjgwMDldIHN0YWNrIGJh
+Y2t0cmFjZToNCmdvbGVtIGtlcm5lbDogWyAgIDI1LjMyODAwOV0gQ1BVOiAwIFBJRDogMTQ1MyBD
+b21tOiBTdVNFZmlyZXdhbGwyIE5vdCB0YWludGVkIDMuMTMuMC1yYzQtbWFpbiAjODkNCmdvbGVt
+IGtlcm5lbDogWyAgIDI1LjMyODAwOV0gSGFyZHdhcmUgbmFtZTogICAgL2k5MTVHTW0tSEZTLCBC
+SU9TIDYuMDAgUEcgMDkvMTQvMjAwNQ0KZ29sZW0ga2VybmVsOiBbICAgMjUuMzI4MDA5XSAgMDAw
+MDAwMDAgZjAyZDAxMTAgZjYwMGJkNjAgYzA1NDhmMWYgZjYwMGJkODAgYzA1NDcxNGYgYzA2ZDEy
+ZTEgYzA2ZDExZTANCmdvbGVtIGtlcm5lbDogWyAgIDI1LjMyODAwOV0gIGMwNmQxZmUyIGYwMmQw
+NWVjIGYwMmQwMTEwIGMwMTUyY2FhIGY2MDBiZGE0IGMwMTUzNjFlIDAwMDAwMDA0IDAwMDAwMDAw
+DQpnb2xlbSBrZXJuZWw6IFsgICAyNS4zMjgwMDldICAwMDAwMDAwNiAwMDAwMDAwNCBmMDJkMDVl
+OCAwMDAwMDAwMiBmMDJkMDVlYyBmNjAwYmUwNCBjMDE1NDJhNiBjMDE1M2E1NA0KZ29sZW0ga2Vy
+bmVsOiBbICAgMjUuMzI4MDA5XSBDYWxsIFRyYWNlOg0KZ29sZW0ga2VybmVsOiBbICAgMjUuMzI4
+MDA5XSAgWzxjMDU0OGYxZj5dIGR1bXBfc3RhY2srMHgxNi8weDE4DQpnb2xlbSBrZXJuZWw6IFsg
+ICAyNS4zMjgwMDldICBbPGMwNTQ3MTRmPl0gcHJpbnRfdXNhZ2VfYnVnKzB4MjFmLzB4MjJiDQpn
+b2xlbSBrZXJuZWw6IFsgICAyNS4zMjgwMDldICBbPGMwMTUyY2FhPl0gPyBjaGVja191c2FnZV9i
+YWNrd2FyZHMrMHhkYS8weGRhDQpnb2xlbSBrZXJuZWw6IFsgICAyNS4zMjgwMDldICBbPGMwMTUz
+NjFlPl0gbWFya19sb2NrKzB4MmM0LzB4NGMyDQpnb2xlbSBrZXJuZWw6IFsgICAyNS4zMjgwMDld
+ICBbPGMwMTU0MmE2Pl0gX19sb2NrX2FjcXVpcmUrMHg2NjIvMHgxNTU2DQpnb2xlbSBrZXJuZWw6
+IFsgICAyNS4zMjgwMDldICBbPGMwMTUzYTU0Pl0gPyB0cmFjZV9oYXJkaXJxc19vbisweGIvMHhk
+DQpnb2xlbSBrZXJuZWw6IFsgICAyNS4zMjgwMDldICBbPGZhMDdkNTg4Pl0gPyBuZl9jb25udHJh
+Y2tfc2VxYWRqX2ZpbmkrMHgxNS8weDE1IFtuZl9jb25udHJhY2tdDQpnb2xlbSBrZXJuZWw6IFsg
+ICAyNS4zMjgwMDldICBbPGMwMTU0MzYzPl0gPyBfX2xvY2tfYWNxdWlyZSsweDcxZi8weDE1NTYN
+CmdvbGVtIGtlcm5lbDogWyAgIDI1LjMyODAwOV0gIFs8YzAxNTU3MzM+XSBsb2NrX2FjcXVpcmUr
+MHg3Mi8weGM5DQpnb2xlbSBrZXJuZWw6IFsgICAyNS4zMjgwMDldICBbPGMwNTE2ZmUxPl0gPyBf
+X3VkcDRfbGliX3JjdisweDRkYi8weDZkMg0KZ29sZW0ga2VybmVsOiBbICAgMjUuMzI4MDA5XSAg
+WzxjMDU0ZTEyMj5dIF9yYXdfc3Bpbl9sb2NrKzB4MmEvMHgzOQ0KZ29sZW0ga2VybmVsOiBbICAg
+MjUuMzI4MDA5XSAgWzxjMDUxNmZlMT5dID8gX191ZHA0X2xpYl9yY3YrMHg0ZGIvMHg2ZDINCmdv
+bGVtIGtlcm5lbDogWyAgIDI1LjMyODAwOV0gIFs8YzA1MTZmZTE+XSBfX3VkcDRfbGliX3Jjdisw
+eDRkYi8weDZkMg0KZ29sZW0ga2VybmVsOiBbICAgMjUuMzI4MDA5XSAgWzxjMDUxNzVlNz5dIHVk
+cF9yY3YrMHgxNy8weDE5DQpnb2xlbSBrZXJuZWw6IFsgICAyNS4zMjgwMDldICBbPGMwNGY0MDI3
+Pl0gaXBfbG9jYWxfZGVsaXZlcl9maW5pc2grMHgxMDMvMHgyMWINCmdvbGVtIGtlcm5lbDogWyAg
+IDI1LjMyODAwOV0gIFs8YzA0ZjQ1YmQ+XSBpcF9sb2NhbF9kZWxpdmVyKzB4NzUvMHg3YQ0KZ29s
+ZW0ga2VybmVsOiBbICAgMjUuMzI4MDA5XSAgWzxjMDRmNDNlMz5dIGlwX3Jjdl9maW5pc2grMHgy
+YTQvMHgzMzINCmdvbGVtIGtlcm5lbDogWyAgIDI1LjMyODAwOV0gIFs8YzA0ZjQ4MWQ+XSBpcF9y
+Y3YrMHgyNWIvMHgyYmENCmdvbGVtIGtlcm5lbDogWyAgIDI1LjMyODAwOV0gIFs8YzA0ZDAyOTE+
+XSBfX25ldGlmX3JlY2VpdmVfc2tiX2NvcmUrMHg1MzcvMHg1YzINCmdvbGVtIGtlcm5lbDogWyAg
+IDI1LjMyODAwOV0gIFs8YzA0ZDBhZGE+XSBfX25ldGlmX3JlY2VpdmVfc2tiKzB4MWIvMHg1Nw0K
+Z29sZW0ga2VybmVsOiBbICAgMjUuMzI4MDA5XSAgWzxjMDRkMGI0ZD5dIG5ldGlmX3JlY2VpdmVf
+c2tiKzB4MzcvMHgzYQ0KZ29sZW0ga2VybmVsOiBbICAgMjUuMzI4MDA5XSAgWzxjMDRkMTJhMz5d
+IG5hcGlfZ3JvX3JlY2VpdmUrMHgzNi8weDcyDQpnb2xlbSBrZXJuZWw6IFsgICAyNS4zMjgwMDld
+ICBbPGMwNDVhNWQzPl0gc2t5Ml9wb2xsKzB4NmMxLzB4OThjDQpnb2xlbSBrZXJuZWw6IFsgICAy
+NS4zMjgwMDldICBbPGMwMTUzOWZiPl0gPyB0cmFjZV9oYXJkaXJxc19vbl9jYWxsZXIrMHgxMWQv
+MHgxNmINCmdvbGVtIGtlcm5lbDogWyAgIDI1LjMyODAwOV0gIFs8YzA0ZDBkNzE+XSBuZXRfcnhf
+YWN0aW9uKzB4YWEvMHgxOWUNCmdvbGVtIGtlcm5lbDogWyAgIDI1LjMyODAwOV0gIFs8YzAxMmQ5
+MDA+XSBfX2RvX3NvZnRpcnErMHhiZS8weDIxYQ0KZ29sZW0ga2VybmVsOiBbICAgMjUuMzI4MDA5
+XSAgWzxjMDEyZDg0Mj5dID8gX190YXNrbGV0X2hydGltZXJfdHJhbXBvbGluZSsweDMzLzB4MzMN
+CmdvbGVtIGtlcm5lbDogWyAgIDI1LjMyODAwOV0gIDxJUlE+ICBbPGMwMTJkY2MwPl0gPyBpcnFf
+ZXhpdCsweDQ2LzB4ODENCmdvbGVtIGtlcm5lbDogWyAgIDI1LjMyODAwOV0gIFs8YzAxMWNjYmE+
+XSA/IHNtcF9hcGljX3RpbWVyX2ludGVycnVwdCsweDM2LzB4M2YNCmdvbGVtIGtlcm5lbDogWyAg
+IDI1LjMyODAwOV0gIFs8YzA1NGVlNmI+XSA/IGFwaWNfdGltZXJfaW50ZXJydXB0KzB4MmYvMHgz
+NA0KZ29sZW0ga2VybmVsOiBbICAgMjUuMzI4MDA5XSAgWzxjMDFjMDA3Yj5dID8gYmRpX2hhc19k
+aXJ0eV9pbysweDM3LzB4NDYNCmdvbGVtIGtlcm5lbDogWyAgIDI1LjMyODAwOV0gIFs8YzAxMjg2
+MjY+XSA/IGR1cF9tbSsweDIyMS8weDNhNA0KZ29sZW0ga2VybmVsOiBbICAgMjUuMzI4MDA5XSAg
+WzxjMDEyOTNkMD5dID8gY29weV9wcm9jZXNzLnBhcnQuMzQrMHhjMDIvMHgxMDRlDQpnb2xlbSBr
+ZXJuZWw6IFsgICAyNS4zMjgwMDldICBbPGMwMTI5OTgxPl0gPyBkb19mb3JrKzB4YWIvMHgyNjMN
+CmdvbGVtIGtlcm5lbDogWyAgIDI1LjMyODAwOV0gIFs8YzAyZjdiNmE+XSA/IF9jb3B5X3RvX3Vz
+ZXIrMHg0MS8weDRjDQpnb2xlbSBrZXJuZWw6IFsgICAyNS4zMjgwMDldICBbPGMwMmY3NzY0Pl0g
+PyB0cmFjZV9oYXJkaXJxc19vbl90aHVuaysweGMvMHgxMA0KZ29sZW0ga2VybmVsOiBbICAgMjUu
+MzI4MDA5XSAgWzxjMDU1M2UyMz5dID8gc3lzZW50ZXJfZXhpdCsweGYvMHgxNg0KZ29sZW0ga2Vy
+bmVsOiBbICAgMjUuMzI4MDA5XSAgWzxjMDEyOWJiMD5dID8gU3lTX2Nsb25lKzB4MWIvMHgxZA0K
+Z29sZW0ga2VybmVsOiBbICAgMjUuMzI4MDA5XSAgWzxjMDU1M2RmND5dID8gc3lzZW50ZXJfZG9f
+Y2FsbCsweDEyLzB4MzINCg==
+--089e013a02866e387204edbf9fe8--
