@@ -1,38 +1,51 @@
-From: Wenliang Fan <fanwlexca@gmail.com>
-Subject: [PATCH] drivers/net/hamradio: Integer overflow in hdlcdrv_ioctl()
-Date: Tue, 17 Dec 2013 11:25:28 +0800
-Message-ID: <1387250728-10795-1-git-send-email-fanwlexca@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Wenliang Fan <fanwlexca@gmail.com>
-To: davem@davemloft.net, michael.opdenacker@free-electrons.com,
-	gaofeng@cn.fujitsu.com, akpm@linux-foundation.org,
-	t.sailer@alumni.ethz.ch
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] ipv6: clear RTF_EXPIRES when call ip6_rt_copy
+Date: Tue, 17 Dec 2013 11:25:48 +0800
+Message-ID: <52AFC43C.9080804@cn.fujitsu.com>
+References: <1387182666-31301-1-git-send-email-roy.qing.li@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: roy.qing.li@gmail.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [222.73.24.84] ([222.73.24.84]:40698 "EHLO song.cn.fujitsu.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751551Ab3LQD1t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Dec 2013 22:27:49 -0500
+In-Reply-To: <1387182666-31301-1-git-send-email-roy.qing.li@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The local variable 'bi' comes from userspace. If userspace passed a
-large number to 'bi.data.calibrate', there would be an integer overflow
-in the following line:
-	s->hdlctx.calibrate = bi.data.calibrate * s->par.bitrate / 16;
+On 12/16/2013 04:31 PM, roy.qing.li@gmail.com wrote:
+> From: Li RongQing <roy.qing.li@gmail.com>
+> 
+> The commit ecd9883724b [ipv6: fix race condition regarding dst->expires and
+> dst->from.] removed rt6_clean_expires in ip6_rt_copy, which causes the TAHI
+> test case v6LC.4.1.4 { Reduce PMTU On-link } failed, since the newly generated
+> rt maybe always expired {with RTF_EXPIRES flag, dst.expires is 0, and dst.from
+> is NULL}.
+> 
+> Fix it by clearing RTF_EXPIRES as before 1716a96101[ipv6: fix problem with
+> expired dst cache]
+> 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> ---
+>  net/ipv6/route.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index a1a5752..e3d7f21 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -1908,7 +1908,7 @@ static struct rt6_info *ip6_rt_copy(struct rt6_info *ort,
+>  			rt->rt6i_gateway = ort->rt6i_gateway;
+>  		else
+>  			rt->rt6i_gateway = *dest;
+> -		rt->rt6i_flags = ort->rt6i_flags;
+> +		rt->rt6i_flags = ort->rt6i_flags & ~RTF_EXPIRES;
+>  		if ((ort->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF)) ==
+>  		    (RTF_DEFAULT | RTF_ADDRCONF))
+>  			rt6_set_from(rt, ort);
+> 
 
-Signed-off-by: Wenliang Fan <fanwlexca@gmail.com>
----
- drivers/net/hamradio/hdlcdrv.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/hamradio/hdlcdrv.c b/drivers/net/hamradio/hdlcdrv.c
-index 3169252..5d78c1d 100644
---- a/drivers/net/hamradio/hdlcdrv.c
-+++ b/drivers/net/hamradio/hdlcdrv.c
-@@ -571,6 +571,8 @@ static int hdlcdrv_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 	case HDLCDRVCTL_CALIBRATE:
- 		if(!capable(CAP_SYS_RAWIO))
- 			return -EPERM;
-+		if (bi.data.calibrate > INT_MAX / s->par.bitrate)
-+			return -EINVAL;
- 		s->hdlctx.calibrate = bi.data.calibrate * s->par.bitrate / 16;
- 		return 0;
- 
--- 
-1.8.5.rc1.28.g7061504
+I don't understand, rt6_set_from already clears the RTF_EXPIRES from rt->rt6i_flags.
