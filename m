@@ -1,93 +1,71 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next] igb: make local functions static and remove
- dead code
-Date: Mon, 16 Dec 2013 16:52:00 -0800
-Message-ID: <1387241520.2330.4.camel@jtkirshe-mobl>
-References: <20131212120916.688140d9@nehalam.linuxnetplumber.net>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: [PATCH v3] if xen_platform_pci=0 is set don't blow up.
+Date: Mon, 16 Dec 2013 18:00:25 -0700
+Message-ID: <CAErSpo7F+-TZ_dGwsFtr7pra45hVqTv4HLuQNr-SR4MeLespYw@mail.gmail.com>
+References: <1387206250-13963-1-git-send-email-konrad.wilk@oracle.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-FDlP2A8RA86YdD9cMTWg"
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:25020 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751824Ab3LQAwC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Dec 2013 19:52:02 -0500
-In-Reply-To: <20131212120916.688140d9@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jens Axboe <axboe@kernel.dk>,
+	Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
+	ian.campbell@citrix.com, xen-devel@lists.xenproject.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	boris.ostrovsky@oracle.com, David Vrabel <david.vrabel@citrix.com>,
+	leosilva@linux.vnet.ibm.com, ashley@ashleylai.com,
+	=?UTF-8?Q?Peter_H=C3=BCwe?= <peterhuewe@gmx.de>, mail@srajiv.net,
+	tpmdd@selhorst.net, Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	plagnioj@jcrosoft.com, tomi.valkeinen@ti.com,
+	tpmdd-devel@lists.sourceforge.net,
+	"linux-input@vger.kernel.org" <linux-input@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	linux-fbdev@vger.kernel.org
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1387206250-13963-1-git-send-email-konrad.wilk@oracle.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Dec 16, 2013 at 8:04 AM, Konrad Rzeszutek Wilk
+<konrad.wilk@oracle.com> wrote:
+> The first patch:
+>  [PATCH v3 1/2] xen/pvhvm: If xen_platform_pci=0 is set don't blow up
+>
+> I would like to commit to stable as it is fixing an eggregious bug -
+> where we blow up if the guest config has: "xen_platform_pci=0" setup.
+> This bug has been in existence for years and it is time to stamp it out.
+>
+> The second patch is a cleanup - not a stable candidate.
+>
+> It touches all of the Xen frontend drivers and adds the logic of:
+> "if user disabled us, don't init" - with variations. As you can
+> specify exactly which ones you want to init and which ones
+> not (Linux runtime parameter 'xen_emul_unplug'). But for the majority
+> of drivers - it is just an on/off switch.
+>
+> Since it touches a lot of maintainers I figured I would send it
+> to Linus on Wednesday or Thursday.
+>
+> Thank you!
+>
+>  arch/x86/xen/platform-pci-unplug.c         | 79 ++++++++++++++++++++++++++++--
+>  drivers/block/xen-blkfront.c               |  4 +-
+>  drivers/char/tpm/xen-tpmfront.c            |  4 ++
+>  drivers/input/misc/xen-kbdfront.c          |  4 ++
+>  drivers/net/xen-netfront.c                 |  2 +-
+>  drivers/pci/xen-pcifront.c                 |  4 ++
+>  drivers/video/xen-fbfront.c                |  4 ++
+>  drivers/xen/xenbus/xenbus_probe_frontend.c |  2 +-
+>  include/xen/platform_pci.h                 | 25 +++++++++-
+>  9 files changed, 119 insertions(+), 9 deletions(-)
 
---=-FDlP2A8RA86YdD9cMTWg
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+If you want it:
 
-On Thu, 2013-12-12 at 12:09 -0800, Stephen Hemminger wrote:
-> Make local functions static, and remove unused
-> e1000_write_sfp_data_byte.
->=20
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->=20
-> ---
->  drivers/net/ethernet/intel/igb/e1000_82575.c |    6 +++---
->  drivers/net/ethernet/intel/igb/e1000_i210.c  |   18
-> +++++++++---------
->  drivers/net/ethernet/intel/igb/e1000_i210.h  |    9 ---------
->  drivers/net/ethernet/intel/igb/e1000_phy.c   |    2 +-
->  drivers/net/ethernet/intel/igb/e1000_phy.h   |    1 -
->  drivers/net/ethernet/intel/igb/igb.h         |    2 --
->  drivers/net/ethernet/intel/igb/igb_ptp.c     |    6 ++++--
->  7 files changed, 17 insertions(+), 27 deletions(-)
+Acked-by: Bjorn Helgaas <bhelgaas@google.com>
 
-Did you compile test this patch?  I am guessing no because we got the
-following compile errors:
- drivers/net/ethernet/intel/igb/e1000_82575.c:2723: error: static
-declaration of
- =C3=A2igb_get_thermal_sensor_data_generic=C3=A2 follows non-static declara=
-tion
- drivers/net/ethernet/intel/igb/e1000_82575.h:270: note: previous
-declaration
- of =C3=A2igb_get_thermal_sensor_data_generic=C3=A2 was here
- drivers/net/ethernet/intel/igb/e1000_82575.c:2777: error: static
-declaration of
- =C3=A2igb_init_thermal_sensor_thresh_generic=C3=A2 follows non-static decl=
-aration
- drivers/net/ethernet/intel/igb/e1000_82575.h:269: note: previous
-declaration
- of =C3=A2igb_init_thermal_sensor_thresh_generic=C3=A2 was here
- make[5]: *** [drivers/net/ethernet/intel/igb/e1000_82575.o] Error 1
- make[5]: *** Waiting for unfinished jobs....
- make[4]: *** [drivers/net/ethernet/intel/igb] Error 2
- make[4]: *** Waiting for unfinished jobs....
- make[3]: *** [drivers/net/ethernet/intel] Error 2
- make[2]: *** [drivers/net/ethernet] Error 2
- make[1]: *** [drivers/net] Error 2
- make: *** [drivers] Error 2
+for the PCI parts.
 
-I will work on a v2 to fix up these compiling issues.
-
---=-FDlP2A8RA86YdD9cMTWg
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-
-iQIcBAABCgAGBQJSr6AwAAoJEOVv75VaS+3OLVQP/2gAVhTbtSmuLnaMDAnRNhyu
-rzvmhkOKaYoR0UY9jBL5v/gvu3E+HGj2A/RlQ8xzv12BT0FZyW5Ddfe+BA5N4CHa
-YH/DrWxAmblRh7CXWhyYm6Yfd3ANR2H074rv5tENiWrs24hGYXKlQ7joA/dXcw8I
-fSmXUNXVfB89c+xUJJFSl3IvqO1VksPL4OfBS52uQaT8tGrq6JaUmzYuwUNfdqBh
-OsFLhgpar9I/9/OZljy/bY3Wo+9QqzU88WgOi2NYK4GJcSGrpGc1t2/OnG2lmD7F
-XKq3kALhUJTur1DODrwhU9jOjq3puiXNhJUTHwhQRD1+3kytsiNkCcN6OuvVi+SK
-yB35nGlKTfyMXLgXaB9yWbUucbITTRPVdNAUQNk0O4gBJ2pg6cljyFqCgMwgxBZS
-cIo4Gw85l9YnWjzOKIj+p7bFR1iCbzfHD02hVlRUJhWIefygTxKOGcZxierO+qDq
-SOqZQzx61AXi/n4bz89d0Kyy4+OBYK57Ajdcwiqx3yd77DpIPWEc9SoehTDqQYF7
-6Xxp9cNczpgs3n4DP/ywXH5R+PVk5dVhqWHSXSxCGKPR9sLUY/8SUe6QV2Rll6ma
-ndrax1MwTT7ajHljD8snRAHIV8LGx0mIvyd0ZEiZS2rGBmH6wJGZvs4/WWThLSz3
-lAQBU/m/mk5Chfiwv66w
-=IvSs
------END PGP SIGNATURE-----
-
---=-FDlP2A8RA86YdD9cMTWg--
+>
+> Konrad Rzeszutek Wilk (2):
+>       xen/pvhvm: If xen_platform_pci=0 is set don't blow up (v3).
+>       xen/pvhvm: Remove the xen_platform_pci int.
+>
