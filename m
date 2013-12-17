@@ -1,51 +1,55 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 2/2] can: peak_usb: fix mem leak in pcan_usb_pro_init()
-Date: Tue, 17 Dec 2013 11:44:49 +0100
-Message-ID: <1387277089-25554-3-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 1/2] can: ems_usb: fix urb leaks on failure paths
+Date: Tue, 17 Dec 2013 11:44:48 +0100
+Message-ID: <1387277089-25554-2-git-send-email-mkl@pengutronix.de>
 References: <1387277089-25554-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, Marc Kleine-Budde <mkl@pengutronix.de>,
-	linux-stable <stable@vger.kernel.org>
+	kernel@pengutronix.de, Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:50839 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752358Ab3LQKpA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 05:45:00 -0500
+Return-path: <linux-can-owner@vger.kernel.org>
 In-Reply-To: <1387277089-25554-1-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes a memory leak in pcan_usb_pro_init(). In patch
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
 
-    f14e224 net: can: peak_usb: Do not do dma on the stack
+There are a couple failure paths where urb leaks.
+Is spare code within ems_usb_start_xmit(),
+usb_free_urb() should be used to deallocate urb instead of usb_unanchor_urb().
+In ems_usb_start() there is no usb_free_urb() if usb_submit_urb() fails.
 
-the struct pcan_usb_pro_fwinfo *fi and struct pcan_usb_pro_blinfo *bi were
-converted from stack to dynamic allocation va kmalloc(). However the
-corresponding kfree() was not introduced.
+Found by Linux Driver Verification project (linuxtesting.org).
 
-This patch adds the missing kfree().
-
-Cc: linux-stable <stable@vger.kernel.org> # v3.10
-Reported-by: Stephane Grosjean <s.grosjean@peak-system.com>
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Acked-by: Sebastian Haas <dev@sebastianhaas.info>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/usb/peak_usb/pcan_usb_pro.c | 3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/can/usb/ems_usb.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_pro.c b/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
-index 8ee9d15..263dd92 100644
---- a/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
-+++ b/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
-@@ -927,6 +927,9 @@ static int pcan_usb_pro_init(struct peak_usb_device *dev)
- 	/* set LED in default state (end of init phase) */
- 	pcan_usb_pro_set_led(dev, 0, 1);
+diff --git a/drivers/net/can/usb/ems_usb.c b/drivers/net/can/usb/ems_usb.c
+index 5f9a7ad..8aeec0b 100644
+--- a/drivers/net/can/usb/ems_usb.c
++++ b/drivers/net/can/usb/ems_usb.c
+@@ -625,6 +625,7 @@ static int ems_usb_start(struct ems_usb *dev)
+ 			usb_unanchor_urb(urb);
+ 			usb_free_coherent(dev->udev, RX_BUFFER_SIZE, buf,
+ 					  urb->transfer_dma);
++			usb_free_urb(urb);
+ 			break;
+ 		}
  
-+	kfree(bi);
-+	kfree(fi);
-+
- 	return 0;
+@@ -798,8 +799,8 @@ static netdev_tx_t ems_usb_start_xmit(struct sk_buff *skb, struct net_device *ne
+ 	 * allowed (MAX_TX_URBS).
+ 	 */
+ 	if (!context) {
+-		usb_unanchor_urb(urb);
+ 		usb_free_coherent(dev->udev, size, buf, urb->transfer_dma);
++		usb_free_urb(urb);
  
-  err_out:
+ 		netdev_warn(netdev, "couldn't find free context\n");
+ 
 -- 
 1.8.5.1
+
