@@ -1,36 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bridge: br_handle_local_finish should not return
- zero
-Date: Tue, 17 Dec 2013 16:13:23 -0500 (EST)
-Message-ID: <20131217.161323.1528213413550233056.davem@davemloft.net>
-References: <52ACC4F8.6080703@hotsplots.de>
+Subject: Re: [PATCH] neigh: Netlink notification for administrative NUD
+ state change
+Date: Tue, 17 Dec 2013 16:15:01 -0500 (EST)
+Message-ID: <20131217.161501.873058724657031823.davem@davemloft.net>
+References: <52ae21ac.oFg7QoGcVg2CCThY%gilligan@aristanetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: faecknitz@hotsplots.de
+Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
+To: gilligan@aristanetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49113 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49128 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752204Ab3LQVNY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 16:13:24 -0500
-In-Reply-To: <52ACC4F8.6080703@hotsplots.de>
+	with ESMTP id S1751240Ab3LQVPC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 16:15:02 -0500
+In-Reply-To: <52ae21ac.oFg7QoGcVg2CCThY%gilligan@aristanetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin Faecknitz <faecknitz@hotsplots.de>
-Date: Sat, 14 Dec 2013 21:52:08 +0100
+From: Bob Gilligan <gilligan@aristanetworks.com>
+Date: Sun, 15 Dec 2013 13:39:56 -0800
 
-> br_handle_local_finish is called by NF_HOOK(...) after accepting the packet. If
-> the return value of NF_HOOK(...) is zero (i.e. the return value of
-> br_handle_local_finish), the packet is passed to the network stack. This
-> behavior conflicts with netfilter hooks which return NF_STOLEN/NF_QUEUE. In this
-> case, NF_HOOK(...) returns also zero (see nf_hook_slow) but
-> br_handle_local_finish was never called. The packet will still passed to the
-> network stack.
 > 
-> Signed-off-by: Martin Faecknitz
+> The neighbour code sends up an RTM_NEWNEIGH netlink notification if
+> the NUD state of a neighbour cache entry is changed by a timer (e.g.
+> from REACHABLE to STALE), even if the lladdr of the entry has not
+> changed.
+> 
+> But an administrative change to the the NUD state of a neighbour cache
+> entry that does not change the lladdr (e.g. via "ip -4 neigh change
+> ...  nud ...") does not trigger a netlink notification.  This means
+> that netlink listeners will not hear about administrative NUD state
+> changes such as from a resolved state to PERMANENT.
+> 
+> This patch changes the neighbor code to generate an RTM_NEWNEIGH
+> message when the NUD state of an entry is changed administratively.
+> 
+> Signed-off-by: Bob Gilligan <gilligan@aristanetworks.com>
 
-This is not a proper Signed-off-by: tag, you have to put your name
-as well as your email address, similar to how it appears in the
-"From: " field of your outgoing emails.
+Applied, thanks Bob.
