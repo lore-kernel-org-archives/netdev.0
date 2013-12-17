@@ -1,31 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] net/hsr: using kfree_rcu() to simplify the code
-Date: Tue, 17 Dec 2013 16:32:44 -0500 (EST)
-Message-ID: <20131217.163244.446024637480081415.davem@davemloft.net>
-References: <CAPgLHd_doYrTYAHyR4OrDz9B84Abh1H0MBvmi8XfCqAEVFyS_Q@mail.gmail.com>
+From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Subject: Re: [ethtool] ethtool: Fix FSF address in file headers
+Date: Tue, 17 Dec 2013 13:33:15 -0800
+Message-ID: <CAEuXFEz7pY0YM7Q9V0nBA3W1YQ9A85ST5cSuuVm02xgf0fAU-g@mail.gmail.com>
+References: <1386358320-26283-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Arvid.Brodin@xdin.com, yongjun_wei@trendmicro.com.cn,
-	netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: bhutchings@solarflare.com, NetDEV list <netdev@vger.kernel.org>,
+	gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49213 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751419Ab3LQVcq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 16:32:46 -0500
-In-Reply-To: <CAPgLHd_doYrTYAHyR4OrDz9B84Abh1H0MBvmi8XfCqAEVFyS_Q@mail.gmail.com>
+Received: from mail-bk0-f42.google.com ([209.85.214.42]:36576 "EHLO
+	mail-bk0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752475Ab3LQVdQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 16:33:16 -0500
+Received: by mail-bk0-f42.google.com with SMTP id w11so3061604bkz.29
+        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 13:33:15 -0800 (PST)
+In-Reply-To: <1386358320-26283-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Mon, 16 Dec 2013 14:05:50 +0800
+On Fri, Dec 6, 2013 at 11:32 AM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> - Copyright (C) 1989, 1991 Free Software Foundation, Inc.
+> -     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+> + Copyright (C) 1989, 1991 Free Software Foundation, Inc. <http://fsf.org/>
+>   Everyone is permitted to copy and distribute verbatim copies
+>   of this license document, but changing it is not allowed.
+>
+> @@ -304,8 +303,7 @@ the "copyright" line and a pointer to where the full notice is found.
+>      GNU General Public License for more details.
+>
+>      You should have received a copy of the GNU General Public License
+> -    along with this program; if not, write to the Free Software
+> -    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+> +    along with this program; if not, see <http://www.gnu.org/licenses/>.
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> 
-> The callback function of call_rcu() just calls a kfree(), so we
-> can use kfree_rcu() instead of call_rcu() + callback function.
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Unless I am mistaken, the GPL expressly forbids making changes to the
+license.  I'm not sure we can make this change.
 
-Applied, thanks.
+quote:
+ | Everyone is permitted to copy and distribute verbatim copies
+ | of this license document, but changing it is not allowed.
