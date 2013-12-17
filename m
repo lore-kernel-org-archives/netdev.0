@@ -1,247 +1,37 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't work.
-Date: Tue, 17 Dec 2013 21:33:19 +0100
-Message-ID: <387552477.20131217213319@eikelenboom.it>
-References: <1507831110.20131018194349@eikelenboom.it> <792757788.20131023142849@eikelenboom.it> <1819533168.20131211161710@eikelenboom.it> <CAB=NE6V-RSnqbAC-0tfYK=WGJLp1aPC2UpFDurs49h+wXr9UfQ@mail.gmail.com> <1818324675.20131211175350@eikelenboom.it> <CAB=NE6Wf=T0bGLSYPDyb=-fMAVnGcbGkeaBiNrzwV-Lpxr6VZg@mail.gmail.com> <1342235583.20131211182804@eikelenboom.it> <CAB=NE6UfumA2xez1DvtDSBDZ72WF_tOozFo_8LRnMryYiSqD-A@mail.gmail.com> <871324710.20131211191104@eikelenboom.it> <CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com> <1937118387.20131216122200@eikelenboom.it> <52AEE60B.6030509@broadcom.com> <19210260274.20131216135644@eikelenboom.it> <CAGRGNgXHemM2FfnXgW5RbzhFT+9SfUfVkjdysK3+=_u3hWSacw@mail.gmail.com> <1534126119.20131217104548@eikelenboom.it>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: netfilter: active obj WARN when cleaning up
+Date: Tue, 17 Dec 2013 20:37:18 +0000
+Message-ID: <000001430246e902-112cfb9d-5393-4eed-8529-e0008f88df45-000000@email.amazonses.com>
+References: <20131127233415.GB19270@kroah.com> <00000142b4282aaf-913f5e4c-314c-4351-9d24-615e66928157-000000@email.amazonses.com> <20131202164039.GA19937@kroah.com> <00000142b4514eb5-2e8f675d-0ecc-423b-9906-58c5f383089b-000000@email.amazonses.com>
+ <20131202172615.GA4722@kroah.com> <00000142b4aeca89-186fc179-92b8-492f-956c-38a7c196d187-000000@email.amazonses.com> <20131202190814.GA2267@kroah.com> <00000142b4d4360c-5755af87-b9b0-4847-b5fa-7a9dd13b49c5-000000@email.amazonses.com> <20131202212235.GA1297@kroah.com>
+ <00000142b54f6694-c51e81b1-f1a2-483b-a1ce-a2d4cb6b155c-000000@email.amazonses.com> <20131202222208.GB13034@kroah.com> <00000142b90da700-19f6b465-ff15-4b2b-9bcd-b91d71958b7f-000000@email.amazonses.com> <52B0ABB6.8090205@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Arend van Spriel <arend@broadcom.com>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ilw@linux.intel.com" <ilw@linux.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Avinash Patil <avinashapatil@gmail.com>
-To: Julian Calaby <julian.calaby@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1534126119.20131217104548@eikelenboom.it>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Greg KH <greg@kroah.com>, Thomas Gleixner <tglx@linutronix.de>,
+    Russell King - ARM Linux <linux@arm.linux.org.uk>,
+    Pablo Neira Ayuso <pablo@netfilter.org>, Patrick McHardy <kaber@trash.net>,
+    kadlec@blackhole.kfki.hu, "David S. Miller" <davem@davemloft.net>,
+    netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+    netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+    linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>
+To: Sasha Levin <sasha.levin@oracle.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <52B0ABB6.8090205@oracle.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Hello Sander,
+On Tue, 17 Dec 2013, Sasha Levin wrote:
 
-Tuesday, December 17, 2013, 10:45:48 AM, you wrote:
+> I'm still seeing warnings with this patch applied:
 
+Looks like this is related to some device release mechanism that frees
+twice?
 
-> Tuesday, December 17, 2013, 3:17:50 AM, you wrote:
+I do not see any kmem_cache management functions in the backtrace and
+therefore would guess that this is not the same issue.
 
->> Hi Sander,
-
->> On Mon, Dec 16, 2013 at 11:56 PM, Sander Eikelenboom
->> <linux@eikelenboom.it> wrote:
->>>
->>> Monday, December 16, 2013, 12:37:47 PM, you wrote:
->>>
->>>> On 12/16/2013 12:22 PM, Sander Eikelenboom wrote:
->>>>>
->>>>> Wednesday, December 11, 2013, 7:38:50 PM, you wrote:
->>>>>
->>>>>> On Wed, Dec 11, 2013 at 7:11 PM, Sander Eikelenboom
->>>>>> <linux@eikelenboom.it> wrote:
->>>>>>>
->>>>>>> Wednesday, December 11, 2013, 6:53:07 PM, you wrote:
->>>>>>>
->>>>>>>> The best way to address all this is by automatic region awareness and
->>>>>>>> doing the right thing on devices, this however requires good
->>>>>>>> architecture / calibration data  / etc and all that needs to be
->>>>>>>> verified by the system integrators, and finally they need to be
->>>>>>>> certified. If you want to hack your firmware and software go at it,
->>>>>>>> just be aware there are reasons for things.
->>>>>>>
->>>>>>> Well the general problem seems to be "we don't trust the user" so we FORCE him to the lowest
->>>>>>> common denominator (without a way to overrule that) so he is forced to operate *well* within the law.
->>>>>
->>>>>> Its simply stupid to have the user be involved, period, the fact that
->>>>>> a user would be involved should only be for testing or helping
->>>>>> compliance for a busted device, development, research and obviously
->>>>>> hacking. Linux allows all these but by default a device with firmware
->>>>>> and a custom regdomain that will barf if you try to use a channel that
->>>>>> is not allowed is a restriction in firmware. Feel free to reverse
->>>>>> engineer that if you don't like it but it just won't be supported or
->>>>>> go upstream. Now, the common denominator is generally optimized for
->>>>>> best performance as well so you shouldn't have to do anything, and for
->>>>>> APs -- this is typically carefully crafted for a region, also highly
->>>>>> optimized.
->>>>>
->>>>>>>>>> It doesn't seem like you are getting your original requests getting
->>>>>>>>>> processed, so I don't think CRDA is passing it. Can you verify running
->>>>>>>>>> from CRDA code:
->>>>>>>>>
->>>>>>>>> They don't get processed unless i remove the return from the code as i indicated.
->>>>>>>>> If i remove that return it processes the request.
->>>>>>>>>
->>>>>>>>>> ./regdbdump /usr/lib/crda/regulatory.bin
->>>>>>>>>
->>>>>>>>> Although it's in a different location on Debian, /lib/crda/regulatory.bin
->>>>>>>>> the dump seems fine.
->>>>>>>
->>>>>>>> OK thanks. Can you send a patch of what exact change you made, it was
->>>>>>>> unclear from the paste you made.
->>>>>>>
->>>>>>>> diff -u file.c.orig file.c
->>>>>>>
->>>>>>> Well i just did a pull from wireless-next, to try Avinash Patil's patch.
->>>>>>> net/wireless/reg.c had already changed much so i couldn't apply his patch without.
->>>>>>>
->>>>>>> With his patch it sets the regulatory domain, although as now expected i still can not use channels 12 and 13 yet,
->>>>>>> probably due to those firmware restrictions.
->>>>>
->>>>>> Its unclear what results you got, and yeah if the device is restricted
->>>>>> then its just the fw telling the driver its channels and you can't use
->>>>>> them. That's it. You won't be able to override information then unless
->>>>>> you hack the firmware
->>>>>
->>>>> Ping ?
->>>>>
->>>>> Is there anymore information you need to *fix* the problem ?
->>>
->>>> Maybe you did not get the essence of the response from Luis: There is
->>>> *no* problem to be fixed.
->>>
->>> *sigh* ..
->>>
->>> Let's start from scratch then ...
->>>
->>>
->>> a) Isn't the point of the whole regulatory domain system that i can select (and restrict) the channels/frequencies my devices transmits on, so i can abide the law ?
->>> b) If so, does it set a regulatory domain from firmware  ?
->>> c) If so, should it let me *restrict* the available channels even more by setting the regulatory domain to the region in which de device is currently being used ?
->>> d) If so, why am i not  able to do so with my intel driver for a long time (for over a month now).
->>> # iw reg get
->>> country 00:
->>>         (2402 - 2472 @ 40), (6, 20)
->>>         (2457 - 2482 @ 40), (6, 20), PASSIVE-SCAN
->>>         (2474 - 2494 @ 20), (6, 20), NO-OFDM, PASSIVE-SCAN
->>>         (5170 - 5250 @ 160), (6, 20), PASSIVE-SCAN
->>>         (5250 - 5330 @ 160), (6, 20), DFS, PASSIVE-SCAN
->>>         (5490 - 5730 @ 160), (6, 20), DFS, PASSIVE-SCAN
->>> # iw reg set US
->>> # iw reg get
->>> country 00:
->>>         (2402 - 2472 @ 40), (6, 20)
->>>         (2457 - 2482 @ 40), (6, 20), PASSIVE-SCAN
->>>         (2474 - 2494 @ 20), (6, 20), NO-OFDM, PASSIVE-SCAN
->>>         (5170 - 5250 @ 160), (6, 20), PASSIVE-SCAN
->>>         (5250 - 5330 @ 160), (6, 20), DFS, PASSIVE-SCAN
->>>         (5490 - 5730 @ 160), (6, 20), DFS, PASSIVE-SCAN
->>>
->>> Dmesg only spits out:
->>> [  383.849977] cfg80211: Pending regulatory request, waiting for it to be processed...
->>>
-
->> As has been explained previously, this indicates that, somehow, CRDA
->> is not answering the kernel's requests as it should. Looking at the
->> dmesg you posted before, we have:
-
->> [    3.862108] cfg80211: Calling CRDA to update world regulatory domain
-
->> which never gets a reply.
-
->> Are you using your distro's official CRDA package or have you compiled
->> your own? It might not be installed properly as it looks like it's not
->> responding to the kernel's call to update the world regulatory domain.
->> There's more to installing CRDA than just sticking the executable and
->> database in the right places.
-
-> It's the official Debian package.
-
-> But i have tried to compile the db.txt into the kernel as is mentioned and use the internalregdb kernel config option.
-
-
-> Could it be that since i compile all modules in the kernel and use --initrd .. that the CRDA is just not
-> available at *that* earlier moment in boot when that module gets activated ?
-
-> If so, wouldn't it be feasible to have
-> a) timeout with error message
-> b) clearing the request so a subsequent request can be made ?
-
-> The way the patches that where posted then circumvent the problem is by just plain ignoring the blocked request.
-
-> I could see if compiling them as loadable modules helps, another thing would be shoveling the whole CRDA stuff
-> into initrd.
-
-
-
->> On my system here, I have:
-
->> [   16.981114] cfg80211: Calling CRDA to update world regulatory domain
->> ...
->> [   17.300582] cfg80211: World regulatory domain updated:
->> [   17.300592] cfg80211:   (start_freq - end_freq @ bandwidth),
->> (max_antenna_gain, max_eirp)
->> [   17.300594] cfg80211:   (2402000 KHz - 2472000 KHz @ 40000 KHz),
->> (300 mBi, 2000 mBm)
->> [   17.300597] cfg80211:   (2457000 KHz - 2482000 KHz @ 40000 KHz),
->> (300 mBi, 2000 mBm)
->> [   17.300598] cfg80211:   (2474000 KHz - 2494000 KHz @ 20000 KHz),
->> (300 mBi, 2000 mBm)
->> [   17.300600] cfg80211:   (5170000 KHz - 5250000 KHz @ 40000 KHz),
->> (300 mBi, 2000 mBm)
->> [   17.300602] cfg80211:   (5735000 KHz - 5835000 KHz @ 40000 KHz),
->> (300 mBi, 2000 mBm)
-
->> Your dmesg doesn't have the response listed, therefore CRDA is not
->> responding to the kernel's requests. The kernel will not make
->> additional requests until the previous one is answered.
-
->>> e) So why doesn't this whole regulatory mumbojumbo and the Linux implementation in particular let me abide the law ?!? Wasn't that it's *sole* point of existence ?
-
->> It _is_ doing this.
-
->> The world regulatory domain is the intersection of all the regulatory
->> domains we know of. This is the _most_ restricted version which
->> _ensures_ that you're obeying the law _everywhere_.
-
->>> f) Why doesn't seem anyone to be seriously looking at it (for over a month now, while everyone from wireless/80211 to intel driver maintainers were CC'ed) ?
-
->> Because there is no bug in the kernel, the bug is in your system's setup.
-
-> I will leave this one in the clear for the moment ... (nope i will not .. see below ;-) )
-
-
->>> g) Saying it has got to do with reg db's not being found or all kinds of other arguments while
->>>    the report clearly stated the way it can be circumvented by 2 simple patches that don't seem to involve any changes to
->>>    how it finds the reg db (apart from that i tested that a few times on request and indicated it didn't matter)
->>>    in current 3.13 code (and 3.12 and perhaps even earlier) (case 1)
->>>    or
->>>    with current wireless-next pulled (which has quite some changes to reg.c but none fixes this) onto 3.13 (case 2)
->>>    Neither of these patches might be correct codewise, but at least it let's me set the regulatory domain, and the current state the code is in is neither correct.
-
->> These patches _break_ the functionality of the kernel, not fix it.
-
->> They allow the kernel to issue requests before the previous one is
->> answered. This is a bug. There are good reasons why this is not
->> allowed.
-
-> Yes because for some reason it's allowed for requests to block for ever ... which could be considered a bug.
-> So yes it's the wrong fix ... but it at least identifies a problem .. infinite blocking requests.
-
-
-> I will report back when i have tested converting the wireless stuff to loadable modules / seeing if i can put the CRDA stuff in initrd.
-
-With all the wireless stuff switched to loadable modules it *does* work.
-
-So the problem is that:
-The current code blocks all future regulatory domain setting attempts forever (till the next reboot)
-when it can't find the CRDA. This can and does happen when the modules are compiled in and the CRDA is not in initrd.
-
-So from the question department:
-
-A) Why doesn't the code timeout the processing of a regulatory domain hint and remove the pending request when it aborts ?
-B) Why isn't the CRDA treated as firmware and placed in /lib/firmware, which has a much greater chance of automagically appearing in initrd ?
-C) Why as a bare minimum, doesn't it have a sane readable warning about not being able to read *which* exact file, without having to second guess
-   to *why* the regulatory hint processing is taking *forever* ?
-
->> Thanks,
-
-
-
-
--- 
-Best regards,
- Sander                            mailto:linux@eikelenboom.it
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
