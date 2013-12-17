@@ -1,85 +1,62 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: netfilter: active obj WARN when cleaning up
-Date: Tue, 17 Dec 2013 23:01:42 +0100 (CET)
-Message-ID: <alpine.DEB.2.02.1312172259000.31521@ionos.tec.linutronix.de>
-References: <20131127233415.GB19270@kroah.com> <00000142b4282aaf-913f5e4c-314c-4351-9d24-615e66928157-000000@email.amazonses.com> <20131202164039.GA19937@kroah.com> <00000142b4514eb5-2e8f675d-0ecc-423b-9906-58c5f383089b-000000@email.amazonses.com>
- <20131202172615.GA4722@kroah.com> <00000142b4aeca89-186fc179-92b8-492f-956c-38a7c196d187-000000@email.amazonses.com> <20131202190814.GA2267@kroah.com> <00000142b4d4360c-5755af87-b9b0-4847-b5fa-7a9dd13b49c5-000000@email.amazonses.com> <20131202212235.GA1297@kroah.com>
- <00000142b54f6694-c51e81b1-f1a2-483b-a1ce-a2d4cb6b155c-000000@email.amazonses.com> <20131202222208.GB13034@kroah.com> <00000142b90da700-19f6b465-ff15-4b2b-9bcd-b91d71958b7f-000000@email.amazonses.com> <52B0ABB6.8090205@oracle.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't work.
+Date: Tue, 17 Dec 2013 14:06:06 -0800
+Message-ID: <CA+55aFxQg6=MAWEkEGz64Hz8OawvPyX=fpBOjY8cGBL5XgB9WQ@mail.gmail.com>
+References: <1342235583.20131211182804@eikelenboom.it>
+	<CAB=NE6UfumA2xez1DvtDSBDZ72WF_tOozFo_8LRnMryYiSqD-A@mail.gmail.com>
+	<871324710.20131211191104@eikelenboom.it>
+	<CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com>
+	<1937118387.20131216122200@eikelenboom.it>
+	<52AEE60B.6030509@broadcom.com>
+	<19210260274.20131216135644@eikelenboom.it>
+	<CAGRGNgXHemM2FfnXgW5RbzhFT+9SfUfVkjdysK3+=_u3hWSacw@mail.gmail.com>
+	<1534126119.20131217104548@eikelenboom.it>
+	<387552477.20131217213319@eikelenboom.it>
+	<20131217212709.GB5624@decadent.org.uk>
+	<1254825772.20131217224914@eikelenboom.it>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Christoph Lameter <cl@linux.com>, Greg KH <greg@kroah.com>,
-    Russell King - ARM Linux <linux@arm.linux.org.uk>,
-    Pablo Neira Ayuso <pablo@netfilter.org>, Patrick McHardy <kaber@trash.net>,
-    kadlec@blackhole.kfki.hu, "David S. Miller" <davem@davemloft.net>,
-    netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-    netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-    linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>,
-    Alessandro Zummo <a.zummo@towertech.it>,
-    John Stultz <john.stultz@linaro.org>
-To: Sasha Levin <sasha.levin@oracle.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <52B0ABB6.8090205@oracle.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Ben Hutchings <ben@decadent.org.uk>,
+	Julian Calaby <julian.calaby@gmail.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	"Berg, Johannes" <johannes.berg@intel.com>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ilw@linux.intel.com" <ilw@linux.intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Avinash Patil <avinashapatil@gmail.com>
+To: Sander Eikelenboom <linux@eikelenboom.it>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1254825772.20131217224914@eikelenboom.it>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 17 Dec 2013, Sasha Levin wrote:
+On Tue, Dec 17, 2013 at 1:49 PM, Sander Eikelenboom
+<linux@eikelenboom.it> wrote:
+>
+> So if i combine the two .. it's essentially just a very bad idea to compile the wireless stuff in.
+> It needs a access to a userland program at module load time, or it will block forever.
 
-Cc'ing RTC folks
+No, it's a very stupid module if it does that.
 
-> I'm still seeing warnings with this patch applied:
+It should require the crda hook not at module load time, but at first
+ifconfig time.
 
-That's not a sl*b issue.
- 
-> [   24.900482] WARNING: CPU: 12 PID: 3654 at lib/debugobjects.c:260
-> debug_print_object+
-> 0x8d/0xb0()
-> [   24.900482] ODEBUG: free active (active state 0) object type: timer_list
-> hint: delay
-> ed_work_timer_fn+0x0/0x20
-> [   24.900482] Modules linked in:
-> [   24.900482] CPU: 12 PID: 3654 Comm: kworker/12:1 Tainted: G        W
-> 3.13.0-rc4-n
-> ext-20131217-sasha-00013-ga878504-dirty #4149
-> [   24.900482] Workqueue: events kobject_delayed_cleanup
-> [   24.900482]  0000000000000104 ffff8804f429bae8 ffffffff8439501c
-> ffffffff8555a92c
-> [   24.900482]  ffff8804f429bb38 ffff8804f429bb28 ffffffff8112f8ac
-> ffff8804f429bb58
-> [   24.900482]  ffffffff856a9413 ffff880826333530 ffffffff85c68c40
-> ffffffff8801bb58
-> [   24.900482] Call Trace:
-> [   24.900482]  [<ffffffff8439501c>] dump_stack+0x52/0x7f
-> [   24.900482]  [<ffffffff8112f8ac>] warn_slowpath_common+0x8c/0xc0
-> [   24.900482]  [<ffffffff8112f996>] warn_slowpath_fmt+0x46/0x50
-> [   24.900482]  [<ffffffff81adb50d>] debug_print_object+0x8d/0xb0
-> [   24.900482]  [<ffffffff81153090>] ? __queue_work+0x3f0/0x3f0
-> [   24.900482]  [<ffffffff81adbd15>] __debug_check_no_obj_freed+0xa5/0x220
-> [   24.900482]  [<ffffffff832b1acb>] ? rtc_device_release+0x2b/0x40
-> [   24.900482]  [<ffffffff832b1acb>] ? rtc_device_release+0x2b/0x40
-> [   24.900482]  [<ffffffff81adbea5>] debug_check_no_obj_freed+0x15/0x20
-> [   24.900482]  [<ffffffff812ad54f>] kfree+0x21f/0x2e0
-> [   24.900482]  [<ffffffff832b1acb>] rtc_device_release+0x2b/0x40
-> [   24.900482]  [<ffffffff8207efd5>] device_release+0x65/0xc0
-> [   24.900482]  [<ffffffff81ab05e5>] kobject_cleanup+0x145/0x190
-> [   24.900482]  [<ffffffff81ab063d>] kobject_delayed_cleanup+0xd/0x10
-> [   24.900482]  [<ffffffff81153a60>] process_one_work+0x320/0x530
-> [   24.900482]  [<ffffffff81153940>] ? process_one_work+0x200/0x530
-> [   24.900482]  [<ffffffff81155fe5>] worker_thread+0x215/0x350
-> [   24.900482]  [<ffffffff81155dd0>] ? manage_workers+0x180/0x180
-> [   24.900482]  [<ffffffff8115c9c5>] kthread+0x105/0x110
-> [   24.900482]  [<ffffffff8115c8c0>] ? set_kthreadd_affinity+0x30/0x30
-> [   24.900482]  [<ffffffff843a5e7c>] ret_from_fork+0x7c/0xb0
-> [   24.900482]  [<ffffffff8115c8c0>] ? set_kthreadd_affinity+0x30/0x30
-> [   24.900482] ---[ end trace 45529ebf79b2573e ]---
-> 
-> 
-> Thanks,
-> Sasha
-> 
-> 
+We've had bugs like this before.  Doing user-mode callbacks at module
+loading time is a disaster exactly because it doesn't work well with
+built-in modules.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+The fact that those things apparently also don't time out or notice
+when they fail seems to then just exacerbate the bad decision.
+
+We have literally had this *exact* same issue with firmware loading.
+Network drivers shouldn't try to load firmware at module load time.
+Same deal.
+
+What's the broken path? Is this driver-specific, or is it generic to
+the 802.11 code?
+
+                Linus
