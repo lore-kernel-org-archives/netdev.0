@@ -1,35 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/5] net: phy: Ethernet PHY powerdown optimization
-Date: Tue, 17 Dec 2013 14:43:13 -0500 (EST)
-Message-ID: <20131217.144313.1563516273987934449.davem@davemloft.net>
-References: <1386513631-11284-1-git-send-email-sebastian.hesselbarth@gmail.com>
-	<1386926429-28818-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH net] netvsc: don't flush peers notifying work during
+ setting mtu
+Date: Tue, 17 Dec 2013 14:46:14 -0500 (EST)
+Message-ID: <20131217.144614.1217520884557723259.davem@davemloft.net>
+References: <1386926487-30822-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, mugunthanvnm@ti.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: sebastian.hesselbarth@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386926429-28818-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: devel@linuxdriverproject.org, haiyangz@microsoft.com,
+ linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: jasowang@redhat.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1386926487-30822-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Date: Fri, 13 Dec 2013 10:20:24 +0100
+From: Jason Wang <jasowang@redhat.com>
+Date: Fri, 13 Dec 2013 17:21:27 +0800
 
-> This is v2 of the ethernet PHY power optimization patches to reduce
-> power consumption of network PHYs with link that are either unused or
-> the corresponding netdev is down.
-> 
-> Compared to the last version, this patch set drops a patch to disable
-> unused PHYs after late initcall, as it is not compatible with a modular
-> mdio bus [1]. I'll investigate different ways to have a modular mdio bus
-> driver get notified when driver loading is done.
-> 
-> Again, a branch with v2 applied to v3.13-rc2 can also be found at
-> https://github.com/shesselba/linux-dove.git topic/ethphy-power-v2
-> 
-> [1] http://www.spinics.net/lists/arm-kernel/msg293028.html
+> There's a possible deadlock if we flush the peers notifying work during setting
+> mtu:
+ ...
+> Reported-by: Yaju Cao <yacao@redhat.com>
+> Tested-by: Yaju Cao <yacao@redhat.com>
+> Cc: K. Y. Srinivasan <kys@microsoft.com>
+> Cc: Haiyang Zhang <haiyangz@microsoft.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+> The patch is needed for stable.
 
-Series applied, thanks.
+Applied and queued up for -stable, thanks Jason.
