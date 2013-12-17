@@ -1,59 +1,46 @@
-From: Rashika Kheria <rashika.kheria@gmail.com>
-Subject: [PATCH] drivers: ssb: Remove unused function ssb_sdio_func_to_bus()
- in main.c
-Date: Tue, 17 Dec 2013 17:43:14 +0530
-Message-ID: <20131217121314.GA27839@rashika>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: [PATCH net-next] dccp: add check request_moduls in setup_jprobe
+Date: Tue, 17 Dec 2013 20:30:17 +0800
+Message-ID: <52B043D9.9090808@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael Buesch <m@bues.ch>, netdev@vger.kernel.org,
-	josh@joshtriplett.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <dccp@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <gerrit@erg.abdn.ac.uk>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:48632 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751390Ab3LQMag (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 07:30:36 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Remove unused function ssb_sdio_func_to_bus() in main.c.
+when register_jprobe failed, we will try request_module. But some
+time request_module will failed such as the dccp is not exist. so
+check the request_module for avoiding do register_jprobe again.
 
-This eliminates the following warning in main.c:
-drivers/ssb/main.c:94:17: warning: no previous prototype for =E2=80=98s=
-sb_sdio_func_to_bus=E2=80=99 [-Wmissing-prototypes]
-
-Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 ---
- drivers/ssb/main.c |   19 -------------------
- 1 file changed, 19 deletions(-)
+ net/dccp/probe.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
-index 32a811d..8138952 100644
---- a/drivers/ssb/main.c
-+++ b/drivers/ssb/main.c
-@@ -90,25 +90,6 @@ found:
+diff --git a/net/dccp/probe.c b/net/dccp/probe.c
+index 4c6bdf9..53158d2 100644
+--- a/net/dccp/probe.c
++++ b/net/dccp/probe.c
+@@ -157,9 +157,12 @@ static __init int setup_jprobe(void)
+ 	int ret = register_jprobe(&dccp_send_probe);
+ 
+ 	if (ret) {
+-		request_module("dccp");
++		if (request_module("dccp"))
++			goto out;
+ 		ret = register_jprobe(&dccp_send_probe);
+ 	}
++
++out:
+ 	return ret;
  }
- #endif /* CONFIG_SSB_PCMCIAHOST */
-=20
--#ifdef CONFIG_SSB_SDIOHOST
--struct ssb_bus *ssb_sdio_func_to_bus(struct sdio_func *func)
--{
--	struct ssb_bus *bus;
--
--	ssb_buses_lock();
--	list_for_each_entry(bus, &buses, list) {
--		if (bus->bustype =3D=3D SSB_BUSTYPE_SDIO &&
--		    bus->host_sdio =3D=3D func)
--			goto found;
--	}
--	bus =3D NULL;
--found:
--	ssb_buses_unlock();
--
--	return bus;
--}
--#endif /* CONFIG_SSB_SDIOHOST */
--
- int ssb_for_each_bus_call(unsigned long data,
- 			  int (*func)(struct ssb_bus *bus, unsigned long data))
- {
---=20
-1.7.9.5
+ 
+-- 
+1.7.12
