@@ -1,41 +1,64 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] ipv6: use interface mtu for determining if packet-too-big should be send
-Date: Tue, 17 Dec 2013 22:52:38 +0100
-Message-ID: <20131217215238.GB27460@order.stressinduktion.org>
-References: <20131216080914.GA28677@order.stressinduktion.org> <1387201782.19078.230.camel@edumazet-glaptop2.roam.corp.google.com> <20131216140124.GA5164@order.stressinduktion.org> <20131217.164256.473228543329254152.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net] bridge: br_handle_local_finish should not return
+ zero
+Date: Tue, 17 Dec 2013 13:55:42 -0800
+Message-ID: <20131217135542.21976b05@nehalam.linuxnetplumber.net>
+References: <52ACC4F8.6080703@hotsplots.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Martin Faecknitz <faecknitz@hotsplots.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:34689 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752004Ab3LQVwj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 16:52:39 -0500
-Content-Disposition: inline
-In-Reply-To: <20131217.164256.473228543329254152.davem@davemloft.net>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:46343 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753311Ab3LQVzq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 16:55:46 -0500
+Received: by mail-pb0-f44.google.com with SMTP id rq2so7516055pbb.31
+        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 13:55:45 -0800 (PST)
+In-Reply-To: <52ACC4F8.6080703@hotsplots.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 17, 2013 at 04:42:56PM -0500, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Mon, 16 Dec 2013 15:01:24 +0100
-> 
-> > On Mon, Dec 16, 2013 at 05:49:42AM -0800, Eric Dumazet wrote:
-> >> On Mon, 2013-12-16 at 09:09 +0100, Hannes Frederic Sowa wrote:
-> >> > IPv6 forwarding path should also not depend on the path mtu values to
-> >> > judge if a packet should get dropped and an ICMP PTB should be returned.
-> >> > 
-> >> > For the accompanying change in IPv4, have a look at "ipv4: introduce
-> >> > ip_dst_mtu_secure and protect forwarding path against pmtu spoofing".
-> >> > 
-> >> 
-> >> No commit sha1 (truncated to 12 digits) ?
-> > 
-> > The patch is not yet committed.
-> 
-> It's confusing to propose an ipv6 version of an ipv4 patch that hasn't
-> been integrated yet, please don't do this.
+On Sat, 14 Dec 2013 21:52:08 +0100
+Martin Faecknitz <faecknitz@hotsplots.de> wrote:
 
-Ok, I'll do next time, sorry. I saw you still consider the IPv4 one, so I'll
-just wait and resubmit this one as soon as I have feedback.
+> br_handle_local_finish is called by NF_HOOK(...) after accepting the packet. If
+> the return value of NF_HOOK(...) is zero (i.e. the return value of
+> br_handle_local_finish), the packet is passed to the network stack. This
+> behavior conflicts with netfilter hooks which return NF_STOLEN/NF_QUEUE. In this
+> case, NF_HOOK(...) returns also zero (see nf_hook_slow) but
+> br_handle_local_finish was never called. The packet will still passed to the
+> network stack.
+> 
+> Signed-off-by: Martin Faecknitz
+> 
+> --- a/net/bridge/br_input.c
+> +++ b/net/bridge/br_input.c
+> @@ -149,7 +149,7 @@ static int br_handle_local_finish(struct sk_buff *skb)
+>  	br_vlan_get_tag(skb, &vid);
+>  	if (p->flags & BR_LEARNING)
+>  		br_fdb_update(p->br, p, eth_hdr(skb)->h_source, vid);
+> -	return 0;	 /* process further */
+> +	return 1;	 /* process further */
+>  }
+> 
+>  /*
+> @@ -208,7 +208,7 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
+> 
+>  		/* Deliver packet to local host only */
+>  		if (NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
+> -			    NULL, br_handle_local_finish)) {
+> +			    NULL, br_handle_local_finish) != 1) {
+>  			return RX_HANDLER_CONSUMED; /* consumed by filter */
+>  		} else {
+>  			*pskb = skb;
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+I think the input code was incorrectly assuming the model of that receive logic
+should return NET_RX_SUCCESS(0) or NET_RX_DROP(1). (Note DECNET has same bug).
+
+Rather than hardcode in 0 and 1. why not use NF_DROP, NF_ACCEPT instead?
