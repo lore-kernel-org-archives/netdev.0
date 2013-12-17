@@ -1,93 +1,109 @@
-From: RongQing Li <roy.qing.li@gmail.com>
-Subject: Re: [PATCH] ipv6: clear RTF_EXPIRES when call ip6_rt_copy
-Date: Tue, 17 Dec 2013 14:42:01 +0800
-Message-ID: <CAJFZqHxawisUbHGZY8mjGHy8035X6TQ7FNzc20vtS5j1jdZYGA@mail.gmail.com>
-References: <1387182666-31301-1-git-send-email-roy.qing.li@gmail.com>
-	<52AFC43C.9080804@cn.fujitsu.com>
-	<CAJFZqHwF0ubvxJOs2BWbSMMB1szKNO=XTiXje3E2ByF6sUQrXA@mail.gmail.com>
-	<52AFE7E3.3070806@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Gao feng <gaofeng@cn.fujitsu.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next V1 06/11] net/mlx4_en: Configure the XPS queue mapping on driver load
+Date: Tue, 17 Dec 2013 09:01:55 +0200
+Message-ID: <1387263720-31222-7-git-send-email-amirv@mellanox.com>
+References: <1387263720-31222-1-git-send-email-amirv@mellanox.com>
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
+	Ido Shamay <idos@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f43.google.com ([209.85.212.43]:40478 "EHLO
-	mail-vb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752511Ab3LQGmD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 01:42:03 -0500
-Received: by mail-vb0-f43.google.com with SMTP id p6so3803833vbe.2
-        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 22:42:02 -0800 (PST)
-In-Reply-To: <52AFE7E3.3070806@cn.fujitsu.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:34066 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752582Ab3LQHCL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Dec 2013 02:02:11 -0500
+In-Reply-To: <1387263720-31222-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/17/13, Gao feng <gaofeng@cn.fujitsu.com> wrote:
-> On 12/17/2013 11:32 AM, RongQing Li wrote:
->> If the ort->rt6i_flags is RTF_EXPIRES|RTF_ADDRCONF, then rt6_set_from will
->> not
->> be called, and new created rt will have RTF_EXPIRES, but dst.expires is 0,
->> and
->> dst.from is NULL
->
-> Ok, but I think you need to add more detail/test purpose of the test case
-> v6LC.4.1.4
-> { Reduce PMTU On-link }. just the number of test case is not good for people
-> to know
-> what's the real problem.
->
+From: Ido Shamay <idos@mellanox.com>
 
-I have a question, why does we set dst.from only when the ort has flag
-RTF_ADDRCONF
-and RTF_DEFAULT?
+Only TX rings of User Piority 0 are mapped.
+TX rings of other UP's are using UP 0 mapping.
+XPS is not in use when num_tc is set.
 
--Roy
+Signed-off-by: Ido Shamay <idos@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 6 ++++--
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c     | 9 ++++++++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   | 5 ++++-
+ 3 files changed, 16 insertions(+), 4 deletions(-)
 
-
->>
->> -Roy
->>
->> 2013/12/17 Gao feng <gaofeng@cn.fujitsu.com>:
->>> On 12/16/2013 04:31 PM, roy.qing.li@gmail.com wrote:
->>>> From: Li RongQing <roy.qing.li@gmail.com>
->>>>
->>>> The commit ecd9883724b [ipv6: fix race condition regarding dst->expires
->>>> and
->>>> dst->from.] removed rt6_clean_expires in ip6_rt_copy, which causes the
->>>> TAHI
->>>> test case v6LC.4.1.4 { Reduce PMTU On-link } failed, since the newly
->>>> generated
->>>> rt maybe always expired {with RTF_EXPIRES flag, dst.expires is 0, and
->>>> dst.from
->>>> is NULL}.
->>>>
->>>> Fix it by clearing RTF_EXPIRES as before 1716a96101[ipv6: fix problem
->>>> with
->>>> expired dst cache]
->>>>
->>>> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
->>>> ---
->>>>  net/ipv6/route.c |    2 +-
->>>>  1 file changed, 1 insertion(+), 1 deletion(-)
->>>>
->>>> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
->>>> index a1a5752..e3d7f21 100644
->>>> --- a/net/ipv6/route.c
->>>> +++ b/net/ipv6/route.c
->>>> @@ -1908,7 +1908,7 @@ static struct rt6_info *ip6_rt_copy(struct
->>>> rt6_info *ort,
->>>>                       rt->rt6i_gateway = ort->rt6i_gateway;
->>>>               else
->>>>                       rt->rt6i_gateway = *dest;
->>>> -             rt->rt6i_flags = ort->rt6i_flags;
->>>> +             rt->rt6i_flags = ort->rt6i_flags & ~RTF_EXPIRES;
->>>>               if ((ort->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF)) ==
->>>>                   (RTF_DEFAULT | RTF_ADDRCONF))
->>>>                       rt6_set_from(rt, ort);
->>>>
->>>
->>> I don't understand, rt6_set_from already clears the RTF_EXPIRES from
->>> rt->rt6i_flags.
->>>
->>
->
->
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index d2e9666..6f92090 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1910,8 +1910,10 @@ int mlx4_en_alloc_resources(struct mlx4_en_priv *priv)
+ 				      prof->tx_ring_size, i, TX, node))
+ 			goto err;
+ 
+-		if (mlx4_en_create_tx_ring(priv, &priv->tx_ring[i], priv->base_tx_qpn + i,
+-					   prof->tx_ring_size, TXBB_SIZE, node))
++		if (mlx4_en_create_tx_ring(priv, &priv->tx_ring[i],
++					   priv->base_tx_qpn + i,
++					   prof->tx_ring_size, TXBB_SIZE,
++					   node, i))
+ 			goto err;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index f54ebd5..5e22d7d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -55,7 +55,7 @@ MODULE_PARM_DESC(inline_thold, "threshold for using inline data");
+ 
+ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
+ 			   struct mlx4_en_tx_ring **pring, int qpn, u32 size,
+-			   u16 stride, int node)
++			   u16 stride, int node, int queue_index)
+ {
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+ 	struct mlx4_en_tx_ring *ring;
+@@ -140,6 +140,10 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
+ 		ring->bf_enabled = true;
+ 
+ 	ring->hwtstamp_tx_type = priv->hwtstamp_config.tx_type;
++	ring->queue_index = queue_index;
++
++	if (queue_index < priv->num_tx_rings_p_up && cpu_online(queue_index))
++		cpumask_set_cpu(queue_index, &ring->affinity_mask);
+ 
+ 	*pring = ring;
+ 	return 0;
+@@ -206,6 +210,9 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
+ 
+ 	err = mlx4_qp_to_ready(mdev->dev, &ring->wqres.mtt, &ring->context,
+ 			       &ring->qp, &ring->qp_state);
++	if (!user_prio && cpu_online(ring->queue_index))
++		netif_set_xps_queue(priv->dev, &ring->affinity_mask,
++				    ring->queue_index);
+ 
+ 	return err;
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index f3758de..202d8e5 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -255,6 +255,8 @@ struct mlx4_en_tx_ring {
+ 	u16 poll_cnt;
+ 	struct mlx4_en_tx_info *tx_info;
+ 	u8 *bounce_buf;
++	u8 queue_index;
++	cpumask_t affinity_mask;
+ 	u32 last_nr_txbb;
+ 	struct mlx4_qp qp;
+ 	struct mlx4_qp_context context;
+@@ -719,7 +721,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev);
+ 
+ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
+ 			   struct mlx4_en_tx_ring **pring,
+-			   int qpn, u32 size, u16 stride, int node);
++			   int qpn, u32 size, u16 stride,
++			   int node, int queue_index);
+ void mlx4_en_destroy_tx_ring(struct mlx4_en_priv *priv,
+ 			     struct mlx4_en_tx_ring **pring);
+ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
+-- 
+1.8.3.4
