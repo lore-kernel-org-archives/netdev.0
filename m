@@ -1,43 +1,55 @@
-From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-Subject: Re: [ethtool] ethtool: Fix FSF address in file headers
-Date: Tue, 17 Dec 2013 13:33:15 -0800
-Message-ID: <CAEuXFEz7pY0YM7Q9V0nBA3W1YQ9A85ST5cSuuVm02xgf0fAU-g@mail.gmail.com>
-References: <1386358320-26283-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv6: sit: update mtu check to take care of gso packets
+Date: Tue, 17 Dec 2013 13:34:39 -0800
+Message-ID: <1387316079.19078.291.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <52AB322B.7030802@redhat.com>
+	 <1387204283.19078.240.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131217201930.GA27460@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: bhutchings@solarflare.com, NetDEV list <netdev@vger.kernel.org>,
-	gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Michal Schmidt <mschmidt@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f42.google.com ([209.85.214.42]:36576 "EHLO
-	mail-bk0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752475Ab3LQVdQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 16:33:16 -0500
-Received: by mail-bk0-f42.google.com with SMTP id w11so3061604bkz.29
-        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 13:33:15 -0800 (PST)
-In-Reply-To: <1386358320-26283-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-qc0-f172.google.com ([209.85.216.172]:56386 "EHLO
+	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751887Ab3LQVem (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 16:34:42 -0500
+Received: by mail-qc0-f172.google.com with SMTP id e16so5391059qcx.17
+        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 13:34:42 -0800 (PST)
+In-Reply-To: <20131217201930.GA27460@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 6, 2013 at 11:32 AM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> - Copyright (C) 1989, 1991 Free Software Foundation, Inc.
-> -     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-> + Copyright (C) 1989, 1991 Free Software Foundation, Inc. <http://fsf.org/>
->   Everyone is permitted to copy and distribute verbatim copies
->   of this license document, but changing it is not allowed.
->
-> @@ -304,8 +303,7 @@ the "copyright" line and a pointer to where the full notice is found.
->      GNU General Public License for more details.
->
->      You should have received a copy of the GNU General Public License
-> -    along with this program; if not, write to the Free Software
-> -    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-> +    along with this program; if not, see <http://www.gnu.org/licenses/>.
+On Tue, 2013-12-17 at 21:19 +0100, Hannes Frederic Sowa wrote:
+> Hi Eric!
+> 
+> On Mon, Dec 16, 2013 at 06:31:23AM -0800, Eric Dumazet wrote:
+> > In the future, we probably want to extend the MTU check to do the
+> > right thing for GSO packets...
+> 
+> How could that look like?
 
-Unless I am mistaken, the GPL expressly forbids making changes to the
-license.  I'm not sure we can make this change.
+I think I already posted a draft for this.
 
-quote:
- | Everyone is permitted to copy and distribute verbatim copies
- | of this license document, but changing it is not allowed.
+Idea would be to have a helper to compute the mtu of each segment :
+
+static inline unsigned int gso_size_with_headers(const struct sk_buff *skb)
+{
+       unsigned int hdrlen = skb_transport_header(skb) - skb_network_header(skb);
+
+       if (skb_shinfo(skb)->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))
+               hdrlen += tcp_hdrlen(skb);
+       else
+               hdrlen += 8; // sizeof(struct udphdr)
+
+       return skb_shinfo(skb)->gso_size + hdrlen;
+}
+
+...
+
+       len = skb_is_gso(skb) ? gso_size_with_headers(skb) : skb->len;
+
+       if (unlikely(len > dst_mtu(&rt->dst) && ...
