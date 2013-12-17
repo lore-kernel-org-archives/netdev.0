@@ -1,55 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv6: sit: update mtu check to take care of gso packets
-Date: Tue, 17 Dec 2013 13:34:39 -0800
-Message-ID: <1387316079.19078.291.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <52AB322B.7030802@redhat.com>
-	 <1387204283.19078.240.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131217201930.GA27460@order.stressinduktion.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4 v3] net: Add rxhash utility hash functions
+Date: Tue, 17 Dec 2013 16:36:53 -0500 (EST)
+Message-ID: <20131217.163653.2105961427411132477.davem@davemloft.net>
+References: <alpine.DEB.2.02.1312152204580.20359@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Michal Schmidt <mschmidt@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f172.google.com ([209.85.216.172]:56386 "EHLO
-	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751887Ab3LQVem (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 16:34:42 -0500
-Received: by mail-qc0-f172.google.com with SMTP id e16so5391059qcx.17
-        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 13:34:42 -0800 (PST)
-In-Reply-To: <20131217201930.GA27460@order.stressinduktion.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49245 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753060Ab3LQVgz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 16:36:55 -0500
+In-Reply-To: <alpine.DEB.2.02.1312152204580.20359@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-12-17 at 21:19 +0100, Hannes Frederic Sowa wrote:
-> Hi Eric!
+From: Tom Herbert <therbert@google.com>
+Date: Sun, 15 Dec 2013 22:11:50 -0800 (PST)
+
+> v3:
 > 
-> On Mon, Dec 16, 2013 at 06:31:23AM -0800, Eric Dumazet wrote:
-> > In the future, we probably want to extend the MTU check to do the
-> > right thing for GSO packets...
+> There's really nothing specific about rxhash that constrains
+> it to be a value just for these receive path. Drop the 'rx'
+> part in utility functions, including skb_get_rxhash. In subsequent
+> patches, we can change the rxhash and l4_rxhash names also, as
+> well as abstracting out the interface to the hash.
 > 
-> How could that look like?
+> Added comments about hash types per feedback.
+> 
+> In this version I'm omitting the changes to drivers to make the
+> patch set manageable. Will add those changes in followup pathes.
+> 
+> -----
+> This patch series introduce skb_set_rxhash and skb_clear_rxhash
+> which are called to set the rxhash (from network drivers) and
+> to clear the rxhash. This API should be used instead of updating
+> fields in the skbuff directly.
 
-I think I already posted a draft for this.
-
-Idea would be to have a helper to compute the mtu of each segment :
-
-static inline unsigned int gso_size_with_headers(const struct sk_buff *skb)
-{
-       unsigned int hdrlen = skb_transport_header(skb) - skb_network_header(skb);
-
-       if (skb_shinfo(skb)->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))
-               hdrlen += tcp_hdrlen(skb);
-       else
-               hdrlen += 8; // sizeof(struct udphdr)
-
-       return skb_shinfo(skb)->gso_size + hdrlen;
-}
-
-...
-
-       len = skb_is_gso(skb) ? gso_size_with_headers(skb) : skb->len;
-
-       if (unlikely(len > dst_mtu(&rt->dst) && ...
+Looks great, series applied, thanks Tom.
