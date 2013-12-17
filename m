@@ -1,37 +1,43 @@
-From: chenweilong <chenweilong@huawei.com>
-Subject: BUG: Didn't modify route table when change interface's second address
-Date: Tue, 17 Dec 2013 11:06:50 +0800
-Message-ID: <52AFBFCA.4060401@huawei.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] sfc: fix sparse non static symbol warning
+Date: Tue, 17 Dec 2013 11:08:10 +0800
+Message-ID: <CAPgLHd8gaC5j0Ts7SXdDwFPKNpvm2AR_fxHhT3KSNs2Jsi_Lyw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: linux-net-drivers@solarflare.com, bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:52412 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751118Ab3LQDHB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 22:07:01 -0500
+Received: from mail-bk0-f45.google.com ([209.85.214.45]:58607 "EHLO
+	mail-bk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751883Ab3LQDIL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 22:08:11 -0500
+Received: by mail-bk0-f45.google.com with SMTP id mx13so2627950bkb.32
+        for <netdev@vger.kernel.org>; Mon, 16 Dec 2013 19:08:10 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-The bug came out by this:
-1.ifconfig eth0:1 192.168.0.1
-2.route add default gw 192.168.0.1
-3.ifconfig eth0:1 172.168.0.1
-4.route table is:
-Kernel IP routing table
-Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
-default         192.168.0.1     0.0.0.0         UG    0      0        0 eth0
-default         128.5.130.254   0.0.0.0         UG    0      0        0 eth0
-loopback        *               255.0.0.0       U     0      0        0 lo
-128.5.130.0     *               255.255.255.0   U     0      0        0 eth0
-link-local      *               255.255.0.0     U     0      0        0 eth0
-172.168.0.0     *               255.255.0.0     U     0      0        0 eth0
+Fixes the following sparse warning:
 
-Notice that,192.168.0.1 should be deleted because eth0:1's IP had been changed.
+drivers/net/ethernet/sfc/falcon.c:2601:6: warning:
+ symbol 'falcon_pull_nic_stats' was not declared. Should it be static?
 
-This bug seems to be long time exist.I test on kernel version 2.6.32 and 3.0.13,they both have the question.
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/sfc/falcon.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-https://bugzilla.kernel.org/show_bug.cgi?id=67171
+diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
+index 76699f4..1df52db 100644
+--- a/drivers/net/ethernet/sfc/falcon.c
++++ b/drivers/net/ethernet/sfc/falcon.c
+@@ -2598,7 +2598,7 @@ void falcon_start_nic_stats(struct efx_nic *efx)
+ /* We don't acutally pull stats on falcon. Wait 10ms so that
+  * they arrive when we call this just after start_stats
+  */
+-void falcon_pull_nic_stats(struct efx_nic *efx)
++static void falcon_pull_nic_stats(struct efx_nic *efx)
+ {
+ 	msleep(10);
+ }
