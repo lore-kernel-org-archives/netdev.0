@@ -1,287 +1,124 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 1/1] hso: fix problem with wrong status code sent by
- OPTION GTM601 during RING indication
-Date: Tue, 17 Dec 2013 16:27:22 -0600
-Message-ID: <1387319242.28943.42.camel@dcbw.local>
-References: <B1808224-5850-41E3-9A8F-0F350F84FF89@goldelico.com>
-	 <541AADAC-7D20-4410-90FC-3E354B0C1457@goldelico.com>
-	 <1387222829.2156.51.camel@dcbw.foobar.com>
-	 <174CD81C-6425-4560-A3FA-3BFAA83BA770@goldelico.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Tue, 17 Dec 2013 17:29:13 -0500 (EST)
+Message-ID: <20131217.172913.872882830371558349.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Belisko Marek <marek.belisko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, e.verdonck-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
-To: "Dr. H. Nikolaus Schaller" <hns-xXXSsgcRVICgSpxsJD1C4w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <174CD81C-6425-4560-A3FA-3BFAA83BA770-xXXSsgcRVICgSpxsJD1C4w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-12-17 at 20:56 +0100, Dr. H. Nikolaus Schaller wrote:
-> Hi Dan,
-> 
-> Am 16.12.2013 um 20:40 schrieb Dan Williams:
-> 
-> > On Fri, 2013-12-13 at 15:43 +0100, Dr. H. Nikolaus Schaller wrote:
-> >> Hi,
-> >> 
-> >> Am 02.10.2013 um 09:00 schrieb Dr. H. Nikolaus Schaller:
-> >> 
-> >>> Hi Jan,
-> >>> 
-> >>> we are using a GTM601 modem (Firmware 1.7) for a while and have spotted an
-> >>> issue that under some conditions the modem sends a packed wIndex over USB
-> >>> that is rejected by the hso driver making troubles afterwards. Not rejecting makes
-> >>> it work fine.
-> >>> 
-> >>> BR,
-> >>> Nikolaus Schaller
-> >>> 
-> >>> ---
-> >>> 
-> >>> From f5c7e15b61f2ce4fe3105ff914f6bfaf5d74af0d Mon Sep 17 00:00:00 2001
-> >>> From: "H. Nikolaus Schaller" <hns-xXXSsgcRVICgSpxsJD1C4w@public.gmane.org>
-> >>> Date: Thu, 15 Nov 2012 14:40:57 +0100
-> >>> Subject: [PATCH 1/1] hso: fix problem with wrong status code sent by OPTION
-> >>> GTM601 during RING indication
-> >>> 
-> >>> It has been observed that the GTM601 with 1.7 firmware sometimes sends a value
-> >>> wIndex that has bit 0x04 set instead of being reset as the code expects. So we
-> >>> mask it for the error check.
-> >>> 
-> >>> See http://lists.goldelico.com/pipermail/gta04-owner/2012-February/001643.html
-> >>> 
-> >>> Signed-off-by: NeilBrown <neilb-l3A5Bk7waGM@public.gmane.org>
-> >>> Signed-off-by: H. Nikolaus Schaller <hns-xXXSsgcRVIAdwXzzRB9H2Q@public.gmane.org>
-> >>> ---
-> >>> drivers/net/usb/hso.c |    3 ++-
-> >>> 1 files changed, 2 insertions(+), 1 deletions(-)
-> >>> 
-> >>> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> >>> index cba1d46..d146e26 100644
-> >>> --- a/drivers/net/usb/hso.c
-> >>> +++ b/drivers/net/usb/hso.c
-> >>> @@ -1503,7 +1503,8 @@ static void tiocmget_intr_callback(struct urb *urb)
-> >>> 	if (serial_state_notification->bmRequestType != BM_REQUEST_TYPE ||
-> >>> 	    serial_state_notification->bNotification != B_NOTIFICATION ||
-> >>> 	    le16_to_cpu(serial_state_notification->wValue) != W_VALUE ||
-> >>> -	    le16_to_cpu(serial_state_notification->wIndex) != W_INDEX ||
-> >>> +	    (le16_to_cpu(serial_state_notification->wIndex) & ~0x4) !=
-> >>> +		W_INDEX ||
-> >>> 	    le16_to_cpu(serial_state_notification->wLength) != W_LENGTH) {
-> >>> 		dev_warn(&usb->dev,
-> >>> 			 "hso received invalid serial state notification\n");
-> >>> -- 
-> >>> 1.7.7.4
-> >>> 
-> >>> 
-> >> 
-> >> I have found this (better) proposal by OPTION, but wonder what did happen to it.
-> >> It neither shows in mainline 3.13-rc nor linux-next:
-> >> 
-> >> https://lkml.org/lkml/2013/10/9/263
-> > 
-> > Likely because nobody formally submitted the patch with a signed-off-by,
-> > which indicates their intent that the patch is tested, correct, and can
-> > be merged to the kernel.
-> 
-> Ok, I see. I just wasn't aware of the proposal at all since I missed the discussion
-> and wasn't on CC.
-> 
-> Therefore I have added Eric to the CC.
-> 
-> > 
-> > I looked at this today, and I'm left wondering how any port other than
-> > HSO_PORT_MODEM can get the notification via tiocmget_intr_callback().
-> > "serial->tiocmget" is only created for HSO_PORT_MODEM serial ports (see
-> > hso_create_bulk_serial_device()):
-> > 
-> > 	if ((port & HSO_PORT_MASK) == HSO_PORT_MODEM) {
-> > 		num_urbs = 2;
-> > 		serial->tiocmget = kzalloc(sizeof(struct hso_tiocmget),
-> > 					   GFP_KERNEL);
-> > 
-> > and the code in tiocmget_intr_callback() does this:
-> > 
-> > 	tiocmget = serial->tiocmget;
-> > 	if (!tiocmget)
-> > 		return;
-> > 
-> > which should mean that only a HSO_PORT_MODEM will ever process the
-> > notification.  Further, the tiocmget interrupt URB is only created and
-> > submitted if serial->tiocmget != NULL, so only HSO_PORT_MODEM should
-> > ever be calling into tiocmget_intr_callback().
-> 
-> Ok, that looks plausible.
-> 
-> > 
-> > So I think Eric's patch is actually wrong because it will *always* pass
-> > the new check.
-> > 
-> > The original code had the correct intention, but the original code was
-> > obviously wrong for newer devices where the port layout is read from
-> > firmware and not from static tables, and thus for recent devices where
-> > the modem interface is not USB interface #2.
-> 
-> This explains why we did run into the problem with the GTM601.
-> 
-> > 
-> > Can you confirm/deny that the 'modem' interface for your GTM601 is USB
-> > interface #6?  For example, my Icon 452 has the following USB interface
-> > layout:
-> > 
-> > 0: Diag
-> > 1: GPS
-> > 2: GPS control
-> > 3: Application
-> > 4: Control
-> > 5: Network
-> > 6: Modem
-> > 
-> > So like the GTM601, I would expect any RING notifications to appear for
-> > wIndex=0x06.
-> 
-> Interestingly I see:
-> 
-> 0: Diagnostic
-> 1: GPS
-> 2: GPS Control
-> 3: Application
-> 4: Control
-> 5: Modem
-> 
-> I.e. there is no Network interface. Originally we did focus on /dev/ttyHS3
 
-How are you determining the number here?  Are you using:
+A quick batch of fixes, including the annoying bad lock stack
+problem introduced by udp_sk_rx_dst_set() locking change:
 
-cat /sys/class/tty/ttyHS_Modem/device/bInterfaceNumber
+1) Use xchg() instead of sk_dst_lock() in udp_sk_rx_dst_set(), from
+   Eric Dumazet.
 
-to determine the actual USB interface number associated with the Modem
-port?  Or are you going off the pre-udev-rename ttyHSx numbers?
+2) qlcnic bug fixes from Himanshu Madhani and Manish Chopra.
 
-> to access the Application interface, but people reported that it is not stable
-> or always so. Therefore we have some udev rule to add symbolic names
-> (e.g. /dev/ttyHS_Application):
-> 
-> http://git.goldelico.com/?p=gta04-kernel.git;a=blob;f=GTA04/udev-rules/hso.rules;hb=HEAD
-> 
-> So I think the assignment is not even always the same on the same device.
+3) Update IPSEC MAINTAINERS entry, from Steffen Klassert.
 
-The assignment will always be the same on the same device *and the same
-firmware*.  That is because the hso driver asks the firmware for the
-port layout, and that is what is put into the 'hsotype' file in sysfs
-that the udev rules use.  So if your telephony/WWAN stack is using the
-udev symbolic links or reading 'hsotype' directly, you can be assured
-that ttyHS_Modem is always the port you should be using for PPP.
+4) Administrative neigh entry changes should generate netlink
+   notifications the same as event generated ones.  From Bob
+   Gilligan.
 
-> And I am a little puzzled why we do see the wIndex == 6 if it is the interface
-> number. Maybe it happens only in some scenario where the Modem becomes
-> interface #6.
+5) Netfilter SYNPROXY fixes from Patrick McHardy.
 
-I'm still not convinced that that it isn't #6 until we agree on how
-we're figuring that out :)  I may well assume to little of you, so
-forgive me if you are actually reporting the real USB interface # of the
-ports.  But I've seen too many people confuse the tty numbers with USB
-interface numbers, so I must ask.
+6) Netfilter nft_reject endianness fixes from Eric Leblond.
 
-> > 
-> > Does the following patch fix the problem for you?
-> 
-> I will try but need a little time to setup a test scenario (because I need to trigger
-> RING indications) and will then report.
+Please pull, thanks a lot!
 
-Here's a RING on the 452 with Modem @ usbif #6:
+The following changes since commit 319e2e3f63c348a9b66db4667efa73178e18b17d:
 
-[65808.711323] tiocmget_intr_callback: W_INDEX 0006
-[65808.711330] tiocmget_intr_callback: UART bits 000a
-[65808.711333] tiocmget_intr_callback: Modem ifnum 06
+  Linux 3.13-rc4 (2013-12-15 12:31:33 -0800)
 
-and B_TX_CARRIER notification with GIO322 with Modem @ usbif #2:
+are available in the git repository at:
 
-[66029.365441] tiocmget_intr_callback: W_INDEX 0002
-[66029.365444] tiocmget_intr_callback: UART bits 0002
-[66029.365445] tiocmget_intr_callback: Modem ifnum 02
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
 
-Dan
+for you to fetch changes up to 781069279f049508274db63bfb352e8583e5c977:
 
-> BR,
-> Nikolaus
-> 
-> > 
-> > Dan
-> > 
-> > ---
-> > diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> > index 86292e6..1c7bdeb 100644
-> > --- a/drivers/net/usb/hso.c
-> > +++ b/drivers/net/usb/hso.c
-> > @@ -181,15 +181,14 @@ enum rx_ctrl_state{
-> > 	RX_SENT,
-> > 	RX_PENDING
-> > };
-> > 
-> > #define BM_REQUEST_TYPE (0xa1)
-> > #define B_NOTIFICATION  (0x20)
-> > #define W_VALUE         (0x0)
-> > -#define W_INDEX         (0x2)
-> > #define W_LENGTH        (0x2)
-> > 
-> > #define B_OVERRUN       (0x1<<6)
-> > #define B_PARITY        (0x1<<5)
-> > #define B_FRAMING       (0x1<<4)
-> > #define B_RING_SIGNAL   (0x1<<3)
-> > #define B_BREAK         (0x1<<2)
-> > @@ -1483,31 +1482,38 @@ static void tiocmget_intr_callback(struct urb *urb)
-> > 	struct hso_serial *serial = urb->context;
-> > 	struct hso_tiocmget *tiocmget;
-> > 	int status = urb->status;
-> > 	u16 UART_state_bitmap, prev_UART_state_bitmap;
-> > 	struct uart_icount *icount;
-> > 	struct hso_serial_state_notification *serial_state_notification;
-> > 	struct usb_device *usb;
-> > +	int if_num;
-> > 
-> > 	/* Sanity checks */
-> > 	if (!serial)
-> > 		return;
-> > 	if (status) {
-> > 		handle_usb_error(status, __func__, serial->parent);
-> > 		return;
-> > 	}
-> > +
-> > +	/* tiocmget is only supported on HSO_PORT_MODEM */
-> > 	tiocmget = serial->tiocmget;
-> > 	if (!tiocmget)
-> > 		return;
-> > +	BUG_ON((serial->parent->port_spec & HSO_PORT_MASK) != HSO_PORT_MODEM);
-> > +
-> > 	usb = serial->parent->usb;
-> > +	if_num = serial->parent->interface->altsetting->desc.bInterfaceNumber;
-> > +
-> > 	serial_state_notification = &tiocmget->serial_state_notification;
-> > 	if (serial_state_notification->bmRequestType != BM_REQUEST_TYPE ||
-> > 	    serial_state_notification->bNotification != B_NOTIFICATION ||
-> > 	    le16_to_cpu(serial_state_notification->wValue) != W_VALUE ||
-> > -	    le16_to_cpu(serial_state_notification->wIndex) != W_INDEX ||
-> > +	    le16_to_cpu(serial_state_notification->wIndex) != if_num ||
-> > 	    le16_to_cpu(serial_state_notification->wLength) != W_LENGTH) {
-> > 		dev_warn(&usb->dev,
-> > 			 "hso received invalid serial state notification\n");
-> > 		DUMP(serial_state_notification,
-> > 		     sizeof(struct hso_serial_state_notification));
-> > 	} else {
-> > 
-> > 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+  Merge branch 'fixes-for-3.13' of git://gitorious.org/linux-can/linux-can (2013-12-17 17:21:30 -0500)
 
+----------------------------------------------------------------
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Alexey Khoroshilov (1):
+      can: ems_usb: fix urb leaks on failure paths
+
+Bob Gilligan (1):
+      neigh: Netlink notification for administrative NUD state change
+
+David S. Miller (3):
+      Merge branch 'master' of git://git.kernel.org/.../pablo/nf
+      Merge branch 'qlcnic'
+      Merge branch 'fixes-for-3.13' of git://gitorious.org/linux-can/linux-can
+
+Eric Dumazet (1):
+      udp: ipv4: do not use sk_dst_lock from softirq context
+
+Eric Leblond (1):
+      netfilter: nft_reject: fix endianness in dump function
+
+Hannes Frederic Sowa (1):
+      ipv4: improve documentation of ip_no_pmtu_disc
+
+Himanshu Madhani (4):
+      qlcnic: Fix usage of netif_tx_{wake, stop} api during link change.
+      qlcnic: Fix diagnostic test for all adapters.
+      qlcnic: Fix TSS/RSS ring validation logic.
+      qlcnic: Fix TSS/RSS validation for 83xx/84xx series adapter.
+
+Jason Wang (1):
+      netvsc: don't flush peers notifying work during setting mtu
+
+Manish Chopra (2):
+      qlcnic: Fix memory allocation
+      qlcnic: Allow firmware dump collection when auto firmware recovery is disabled
+
+Manish chopra (2):
+      qlcnic: Fix mailbox processing during diagnostic test
+      qlcnic: Dump mailbox registers when mailbox command times out.
+
+Marc Kleine-Budde (1):
+      can: peak_usb: fix mem leak in pcan_usb_pro_init()
+
+Patrick McHardy (1):
+      netfilter: SYNPROXY target: restrict to INPUT/FORWARD
+
+Sasha Levin (1):
+      net: unix: allow bind to fail on mutex lock
+
+Steffen Klassert (1):
+      MAINTAINERS: Update the IPsec maintainer entry
+
+Wei Yongjun (1):
+      xen-netback: fix fragments error handling in checksum_setup_ip()
+
+wangweidong (1):
+      sctp: loading sctp when load sctp_probe
+
+ Documentation/networking/ip-sysctl.txt                |  8 +++++--
+ MAINTAINERS                                           | 11 +++++++++-
+ drivers/net/can/usb/ems_usb.c                         |  3 ++-
+ drivers/net/can/usb/peak_usb/pcan_usb_pro.c           |  3 +++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c   | 47 ++++++++++++++++++----------------------
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h   |  1 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c | 65 ++++++++++++++++++++++++++++++++++---------------------
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c   | 19 +++++++---------
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c        | 10 ++-------
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c      |  2 +-
+ drivers/net/hyperv/netvsc_drv.c                       |  1 -
+ drivers/net/xen-netback/netback.c                     |  3 +++
+ net/core/neighbour.c                                  |  1 +
+ net/ipv4/netfilter/ipt_SYNPROXY.c                     |  1 +
+ net/ipv4/netfilter/nft_reject_ipv4.c                  |  2 +-
+ net/ipv4/udp.c                                        | 13 ++++-------
+ net/ipv6/netfilter/ip6t_SYNPROXY.c                    |  1 +
+ net/sctp/probe.c                                      | 17 ++++++++++++++-
+ net/unix/af_unix.c                                    |  8 +++++--
+ 19 files changed, 127 insertions(+), 89 deletions(-)
