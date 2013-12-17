@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: PATCH] net: Cache align dst refcnt
-Date: Tue, 17 Dec 2013 15:10:09 -0500 (EST)
-Message-ID: <20131217.151009.2096477709764504937.davem@davemloft.net>
-References: <alpine.DEB.2.02.1312171013050.5720@tomh.mtv.corp.google.com>
-	<1387304951.19078.282.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+mtBx9tdPRRgjoGLce1wizrbsoLLgzReEPMgPqwOiXMyiHvaA@mail.gmail.com>
+Subject: Re: [PATCH net-next] net: remove dead code for add/del multiple
+Date: Tue, 17 Dec 2013 15:14:27 -0500 (EST)
+Message-ID: <20131217.151427.576275524292590944.davem@davemloft.net>
+References: <20131213123556.4175da1b@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, edumazet@google.com, netdev@vger.kernel.org
-To: therbert@google.com
+Cc: vyasevic@redhat.com, netdev@vger.kernel.org
+To: shemming@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48640 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48662 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752782Ab3LQUKK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 15:10:10 -0500
-In-Reply-To: <CA+mtBx9tdPRRgjoGLce1wizrbsoLLgzReEPMgPqwOiXMyiHvaA@mail.gmail.com>
+	with ESMTP id S1751273Ab3LQUO2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 15:14:28 -0500
+In-Reply-To: <20131213123556.4175da1b@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Tue, 17 Dec 2013 11:51:02 -0800
+From: Stephen Hemminger <shemming@brocade.com>
+Date: Fri, 13 Dec 2013 12:35:56 -0800
 
-> Definitely not hitting the bug on. In any case, I'm wondering why is
-> cache alignment being hard coded here instead of using compiler
-> directives?
+> These function to manipulate multiple addresses are not used anywhere
+> in current net-next tree. Some out of tree code maybe using these but
+> too bad; they should submit their code upstream..
+> 
+> Also, make __hw_addr_flush local since only used by dev_addr_lists.c
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-To tightly control the size of this structure, it is one of the most
-critical in the whole networking stack so any wasted bytes is a huge
-deal.
+Applied, thanks Stephen.
