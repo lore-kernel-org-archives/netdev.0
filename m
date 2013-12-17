@@ -1,52 +1,78 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net-next] xfrm: Namespacify xfrm_policy_sk_bundles
-Date: Tue, 17 Dec 2013 12:39:50 +0100
-Message-ID: <20131217113950.GL31491@secunet.com>
-References: <1387189568-31769-1-git-send-email-fan.du@windriver.com>
- <20131216122325.GI31491@secunet.com>
- <52AFACCA.20107@windriver.com>
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net-next v2] xen-netback: add gso_segs calculation
+Date: Tue, 17 Dec 2013 11:44:35 +0000
+Message-ID: <1387280675-10295-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:60734 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751072Ab3LQLjw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Dec 2013 06:39:52 -0500
-Content-Disposition: inline
-In-Reply-To: <52AFACCA.20107@windriver.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:16075 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752418Ab3LQLoj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 06:44:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 17, 2013 at 09:45:46AM +0800, Fan Du wrote:
->=20
->=20
-> On 2013=E5=B9=B412=E6=9C=8816=E6=97=A5 20:23, Steffen Klassert wrote:
-> >On Mon, Dec 16, 2013 at 06:26:08PM +0800, Fan Du wrote:
-> >>
-> >>And also since xfrm_policy_sk_bundles is only used in xfrm_lookup a=
-nd
-> >>__xfrm_garbage_collect, both in process context, no reason we shoul=
-d turn
-> >>BH off.
-> >
-> >Are you sure about that?
-> >
-> >__xfrm_garbage_collect() is called via dst_alloc() which can be call=
-ed
-> >from softirq and process context.
->=20
-> Thanks for pointing this out, you are correct! :)
->=20
-> IMO, xchg can still cover those two cases:
-> 1. xfrm_lookup(Process context)  vs  __xfrm_garbage_collect(softirq c=
-ontext)
-> 2. xfrm_lookup(Process context)  vs  __xfrm_garbage_collect(Process c=
-ontext when SPD change or dev down)
->=20
-> I will fix commit message properly on v2 if you are ok with above des=
-cription.
+netback already has code which parses IPv4 and v6 headers to set up checksum
+offsets and these are always applied to GSO packets being sent from
+frontends. It's therefore suboptimal that GSOs are being marked
+SKB_GSO_DODGY to defer the gso_segs calculation when netback already has all
+necessary information to hand to do the calculation. This patch adds that
+calculation.
 
-Yes, please fix and resend.
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: David Vrabel <david.vrabel@citrix.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+---
+v2:
+ - Fixed header size calculation
+
+ drivers/net/xen-netback/netback.c |   19 +++++++++++++++----
+ 1 file changed, 15 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 904e497..d376e27 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1043,10 +1043,7 @@ static int xenvif_set_skb_gso(struct xenvif *vif,
+ 	}
+ 
+ 	skb_shinfo(skb)->gso_size = gso->u.gso.size;
+-
+-	/* Header must be checked, and gso_segs computed. */
+-	skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
+-	skb_shinfo(skb)->gso_segs = 0;
++	/* gso_segs will be calculated later */
+ 
+ 	return 0;
+ }
+@@ -1582,6 +1579,20 @@ static int xenvif_tx_submit(struct xenvif *vif, int budget)
+ 
+ 		skb_probe_transport_header(skb, 0);
+ 
++		/* If the packet is GSO then we will have just set up the
++		 * transport header offset in checksum_setup so it's now
++		 * straightforward to calculate gso_segs.
++		 */
++		if (skb_is_gso(skb)) {
++			int mss = skb_shinfo(skb)->gso_size;
++			int hdrlen = skb_transport_header(skb) -
++				skb_mac_header(skb) +
++				tcp_hdrlen(skb);
++
++			skb_shinfo(skb)->gso_segs =
++				DIV_ROUND_UP(skb->len - hdrlen, mss);
++		}
++
+ 		vif->dev->stats.rx_bytes += skb->len;
+ 		vif->dev->stats.rx_packets++;
+ 
+-- 
+1.7.10.4
