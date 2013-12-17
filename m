@@ -1,9 +1,9 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net v2 1/9] bridge: Fix the way to find old local fdb
+Subject: Re: [PATCH net v2 2/9] bridge: Fix the way to insert new local fdb
  entries in br_fdb_changeaddr
-Date: Tue, 17 Dec 2013 10:49:44 -0500
-Message-ID: <52B07298.1080901@redhat.com>
-References: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp> <1387281821-21342-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Date: Tue, 17 Dec 2013 11:00:33 -0500
+Message-ID: <52B07521.6030708@redhat.com>
+References: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp> <1387281821-21342-3-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -13,103 +13,101 @@ To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
 	Stephen Hemminger <stephen@networkplumber.org>,
 	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1294 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:13615 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755134Ab3LQPvM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Dec 2013 10:51:12 -0500
-In-Reply-To: <1387281821-21342-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	id S1753995Ab3LQQAx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Dec 2013 11:00:53 -0500
+In-Reply-To: <1387281821-21342-3-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 12/17/2013 07:03 AM, Toshiaki Makita wrote:
-> br_fdb_changeaddr() assumes that there is at most one local entry per port
-> per vlan. It used to be true, but since commit 36fd2b63e3b4 ("bridge: allow
-> creating/deleting fdb entries via netlink"), it has not been so.
-> Therefore, the function might fail to search a correct previous address
-> to be deleted and delete an arbitrary local entry if user has added local
-> entries manually.
+> Since commit bc9a25d21ef8 ("bridge: Add vlan support for local fdb entries"),
+> br_fdb_changeaddr() has inserted a new local fdb entry only if it can
+> find old one. But if we have two ports where they have the same address
+> or user has deleted a local entry, there will be no entry for one of the
+> ports.
 > 
 > Example of problematic case:
->   ip link set eth0 address ee:ff:12:34:56:78
->   brctl addif br0 eth0
->   bridge fdb add 12:34:56:78:90:ab dev eth0 master
 >   ip link set eth0 address aa:bb:cc:dd:ee:ff
-> Then, the address 12:34:56:78:90:ab might be deleted instead of
-> ee:ff:12:34:56:78, the original mac address of eth0.
-> 
-> Address this issue by introducing a new flag, added_by_user, to struct
-> net_bridge_fdb_entry.
-> 
-> Note that br_fdb_delete_by_port() has to set added_by_user to 0 in case
-> like:
->   ip link set eth0 address 12:34:56:78:90:ab
 >   ip link set eth1 address aa:bb:cc:dd:ee:ff
 >   brctl addif br0 eth0
->   bridge fdb add aa:bb:cc:dd:ee:ff dev eth0 master
->   brctl addif br0 eth1
->   brctl delif br0 eth0
-> In this case, kernel should delete the user-added entry aa:bb:cc:dd:ee:ff,
-> but it also should have been added by "brctl addif br0 eth1" originally,
-> so we don't delete it and treat it a new kernel-created entry.
+>   brctl addif br0 eth1 # eth1 will not have a local entry due to dup.
+>   ip link set eth1 address 12:34:56:78:90:ab
+> Then, the new entry for the address 12:34:56:78:90:ab will not be
+> created, and the bridge device will not be able to communicate.
+> 
+> Insert new entries regardless of whether we can find old entries or not.
 > 
 > Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 
 Acked-by: Vlad Yasevich <vyasevic@redhat.com>
 
 -vlad
-
 > ---
->  net/bridge/br_fdb.c     | 5 ++++-
->  net/bridge/br_private.h | 1 +
->  2 files changed, 5 insertions(+), 1 deletion(-)
+>  net/bridge/br_fdb.c | 29 ++++++++++++++++++++---------
+>  1 file changed, 20 insertions(+), 9 deletions(-)
 > 
 > diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> index 33e8f23..5dab230 100644
+> index 5dab230..5f1bd11 100644
 > --- a/net/bridge/br_fdb.c
 > +++ b/net/bridge/br_fdb.c
-> @@ -104,7 +104,7 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
->  			struct net_bridge_fdb_entry *f;
+> @@ -92,8 +92,10 @@ static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
+>  void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
+>  {
+>  	struct net_bridge *br = p->br;
+> -	bool no_vlan = (nbp_get_vlan_info(p) == NULL) ? true : false;
+> +	struct net_port_vlans *pv = nbp_get_vlan_info(p);
+> +	bool no_vlan = !pv;
+>  	int i;
+> +	u16 vid;
 >  
->  			f = hlist_entry(h, struct net_bridge_fdb_entry, hlist);
-> -			if (f->dst == p && f->is_local) {
-> +			if (f->dst == p && f->is_local && !f->added_by_user) {
->  				/* maybe another port has same hw addr? */
->  				struct net_bridge_port *op;
->  				u16 vid = f->vlan_id;
-> @@ -247,6 +247,7 @@ void br_fdb_delete_by_port(struct net_bridge *br,
->  					    ether_addr_equal(op->dev->dev_addr,
->  							     f->addr.addr)) {
+>  	spin_lock_bh(&br->hash_lock);
+>  
+> @@ -114,28 +116,37 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
+>  							     f->addr.addr) &&
+>  					    nbp_vlan_find(op, vid)) {
 >  						f->dst = op;
-> +						f->added_by_user = 0;
->  						goto skip_delete;
+> -						goto insert;
+> +						goto skip_delete;
 >  					}
 >  				}
-> @@ -397,6 +398,7 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
->  		fdb->vlan_id = vid;
->  		fdb->is_local = 0;
->  		fdb->is_static = 0;
-> +		fdb->added_by_user = 0;
->  		fdb->updated = fdb->used = jiffies;
->  		hlist_add_head_rcu(&fdb->hlist, head);
+>  
+>  				/* delete old one */
+>  				fdb_delete(br, f);
+> -insert:
+> -				/* insert new address,  may fail if invalid
+> -				 * address or dup.
+> -				 */
+> -				fdb_insert(br, p, newaddr, vid);
+> -
+> +skip_delete:
+>  				/* if this port has no vlan information
+>  				 * configured, we can safely be done at
+>  				 * this point.
+>  				 */
+>  				if (no_vlan)
+> -					goto done;
+> +					goto insert;
+>  			}
+>  		}
 >  	}
-> @@ -648,6 +650,7 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
 >  
->  		modified = true;
->  	}
-> +	fdb->added_by_user = 1;
->  
->  	fdb->used = jiffies;
->  	if (modified) {
-> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> index 045d56e..91fb2c2 100644
-> --- a/net/bridge/br_private.h
-> +++ b/net/bridge/br_private.h
-> @@ -104,6 +104,7 @@ struct net_bridge_fdb_entry
->  	mac_addr			addr;
->  	unsigned char			is_local;
->  	unsigned char			is_static;
-> +	unsigned char			added_by_user;
->  	__u16				vlan_id;
->  };
->  
+> +insert:
+> +	/* insert new address,  may fail if invalid address or dup. */
+> +	fdb_insert(br, p, newaddr, 0);
+> +
+> +	if (no_vlan)
+> +		goto done;
+> +
+> +	/* Now add entries for every VLAN configured on the port.
+> +	 * This function runs under RTNL so the bitmap will not change
+> +	 * from under us.
+> +	 */
+> +	for_each_set_bit(vid, pv->vlan_bitmap, VLAN_N_VID)
+> +		fdb_insert(br, p, newaddr, vid);
+> +
+>  done:
+>  	spin_unlock_bh(&br->hash_lock);
+>  }
 > 
