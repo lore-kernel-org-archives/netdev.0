@@ -1,109 +1,52 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net v2 7/9] bridge: Properly check if local fdb entry
- can be deleted in br_fdb_delete_by_port
-Date: Tue, 17 Dec 2013 14:12:08 -0500
-Message-ID: <52B0A208.4030103@redhat.com>
-References: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp> <1387281821-21342-8-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Reply-To: vyasevic@redhat.com
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v2] linux: Signal datapath that unaligned Netlink message
+ can be received
+Date: Tue, 17 Dec 2013 11:21:38 -0800
+Message-ID: <CAEP_g=-ZbRDnrV1LN0Kn7EpVdKnb3f0uB0NYztN_amArKhn_ig@mail.gmail.com>
+References: <a960865f3ad68da1016f35085c1d84126e92f0a5.1385814128.git.tgraf@redhat.com>
+ <CAEP_g=-XN+fHnLpvpQ4A9MadYH4z9uKHcRBa84vOjWaV_K_YDg@mail.gmail.com>
+ <52B01EE5.4000704@redhat.com> <CAEP_g=8MtthzO=P-JpTE0jH23_EaU+rp4qiwv_Y721vxyZuFTw@mail.gmail.com>
+ <52B0933B.4030107@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	"David S . Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48973 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750871Ab3LQTMP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Dec 2013 14:12:15 -0500
-In-Reply-To: <1387281821-21342-8-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Received: from na3sys009aog133.obsmtp.com ([74.125.149.82]:43060 "HELO
+	na3sys009aog133.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751474Ab3LQTWA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 14:22:00 -0500
+Received: by mail-ig0-f182.google.com with SMTP id c10so7114610igq.3
+        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 11:21:59 -0800 (PST)
+In-Reply-To: <52B0933B.4030107@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/17/2013 07:03 AM, Toshiaki Makita wrote:
-> br_fdb_delete_by_port() doesn't care about vlan and mac address of the
-> bridge device.
-> 
-> As the check is almost the same as mac address changing, slightly modify
-> fdb_delete_local() and use it.
-> 
-> Note:
-> - We change the dst of a local entry when the same address is found.
->   This occurs in the case kernel has inserted the same address for another
->   port but has failed due to dup. We can regard changing dst as deleting
->   old one and inserting new one that should have been added by the dup
->   port, so we can always set its added_by_user to 0 in fdb_delete_local().
+On Tue, Dec 17, 2013 at 10:08 AM, Thomas Graf <tgraf@redhat.com> wrote:
+> On 12/17/2013 06:49 PM, Jesse Gross wrote:
+>>
+>> I think there's also a potential downgrade issue if we add a new
+>> feature to the list of capabilities - it won't automatically reset
+>> since userspace is now using v2 of the netlink protocol. Obviously,
+>> this isn't an issue yet but it we should make sure that it is
+>> addressed before there is a release.
+>
+>
+>>> Defining the NLM_F_REPLACE semantics is non trivial if we want to do
+>>> more than just update the settings. I will propose this in a follow up
+>>> patch.
+>>
+>>
+>> Couldn't userspace just issue an OVS_DP_CMD_SET on start?
+>
+>
+> Right, that works as well but introduces a small race compared to
+> NLM_F_REPLACE which would be atomic. I think we can live with that.
+>
+> I will send a v3 of this patch with dpif-linux changed to issue
+> OVS_DP_CMD_SET first and fall back to OVS_DP_CMD_NEW if no DP exists.
 
-I disagree.  What happens if the user tries add a duplicate fdb with
-the local bit set?  That is permitted and in fact a default because in
-iproute right now.  That fdb should persist until the port is removed or
-user removes the fdb.
-
-added_by_user flag should only be changed in the netlink code since the
-user has full control of it.
-
--vlad
-> 
-> - This is a slight change in behavior where the bridge device can receive
->   the traffic to the old address during the short window between calling
->   del_nbp() and br_stp_recalculate_bridge_id() in br_del_if(). However,
->   it is not a problem because we still have the address on the bridge device.
-> 
-> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> ---
->  net/bridge/br_fdb.c | 25 ++++++-------------------
->  1 file changed, 6 insertions(+), 19 deletions(-)
-> 
-> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> index 817f138..bd43cb1 100644
-> --- a/net/bridge/br_fdb.c
-> +++ b/net/bridge/br_fdb.c
-> @@ -103,6 +103,7 @@ static void fdb_delete_local(struct net_bridge *br,
->  		if (op != p && ether_addr_equal(op->dev->dev_addr, addr) &&
->  		    (!vid || nbp_vlan_find(op, vid))) {
->  			f->dst = op;
-> +			f->added_by_user = 0;
->  			return;
->  		}
->  	}
-> @@ -111,6 +112,7 @@ static void fdb_delete_local(struct net_bridge *br,
->  	if (p && ether_addr_equal(br->dev->dev_addr, addr) &&
->  	    (!vid || br_vlan_find(br, vid))) {
->  		f->dst = NULL;
-> +		f->added_by_user = 0;
->  		return;
->  	}
->  
-> @@ -261,26 +263,11 @@ void br_fdb_delete_by_port(struct net_bridge *br,
->  
->  			if (f->is_static && !do_all)
->  				continue;
-> -			/*
-> -			 * if multiple ports all have the same device address
-> -			 * then when one port is deleted, assign
-> -			 * the local entry to other port
-> -			 */
-> -			if (f->is_local) {
-> -				struct net_bridge_port *op;
-> -				list_for_each_entry(op, &br->port_list, list) {
-> -					if (op != p &&
-> -					    ether_addr_equal(op->dev->dev_addr,
-> -							     f->addr.addr)) {
-> -						f->dst = op;
-> -						f->added_by_user = 0;
-> -						goto skip_delete;
-> -					}
-> -				}
-> -			}
->  
-> -			fdb_delete(br, f);
-> -		skip_delete: ;
-> +			if (f->is_local)
-> +				fdb_delete_local(br, p, f);
-> +			else
-> +				fdb_delete(br, f);
->  		}
->  	}
->  	spin_unlock_bh(&br->hash_lock);
-> 
+That sounds good to me. I have a hard time imagining a case where the
+race condition would matter at all since we are still in the process
+of starting up and therefore shouldn't be processing packets yet.
