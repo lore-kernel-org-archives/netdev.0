@@ -1,113 +1,71 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net v2 4/9] bridge: Change local fdb entries whenever mac address of bridge device changes
-Date: Tue, 17 Dec 2013 21:03:36 +0900
-Message-ID: <1387281821-21342-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-References: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net v2 0/9] bridge: Fix corner case problems around local fdb entries
+Date: Tue, 17 Dec 2013 21:03:32 +0900
+Message-ID: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 To: "David S . Miller" <davem@davemloft.net>,
 	Stephen Hemminger <stephen@networkplumber.org>,
 	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:54901 "EHLO
-	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751430Ab3LQME0 (ORCPT
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:60418 "EHLO
+	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750929Ab3LQME0 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 07:04:26 -0500
-In-Reply-To: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vlan code may need fdb change when changing mac address of bridge device
-even if it is caused by the mac address changing of a bridge port.
+There are so many corner cases that are not handled properly around local
+fdb entries.
+- We might fail to delete the old entry and might delete an arbitrary local
+  entry when changing mac address of a bridge port.
+- We always fail to delete the old entry when changing mac address of the
+  bridge device.
+- We might incorrectly delete a necessary entry when detaching a bridge port.
+- We might incorrectly delete a necessary entry when deleting a vlan.
+and so on.
 
-Example configuration:
-  ip link set eth0 address 12:34:56:78:90:ab
-  ip link set eth1 address aa:bb:cc:dd:ee:ff
-  brctl addif br0 eth0
-  brctl addif br0 eth1 # br0 will have mac address 12:34:56:78:90:ab
-  bridge vlan add dev br0 vid 10 self
-  bridge vlan add dev eth0 vid 10
-We will have fdb entry such that f->dst == NULL, f->vlan_id == 10 and
-f->addr == 12:34:56:78:90:ab at this time.
-Next, change the mac address of eth0 to greater value.
-  ip link set eth0 address ee:ff:12:34:56:78
-Then, mac address of br0 will be recalculated and set to aa:bb:cc:dd:ee:ff.
-However, an entry aa:bb:cc:dd:ee:ff will not be created and we will be not
-able to communicate using br0 on vlan 10.
+This is a patch series to fix these issues.
 
-Address this issue by deleting and adding local entries whenever
-changing the mac address of the bridge device.
+v2:
+- Change the way to find the old entry in br_fdb_changeaddr() from memorizing
+  previous port address to introducing a new flag indicating whether a fdb
+  entry is added by user or not, commented by Stephen Hemminger.
 
-If there already exists an entry that has the same address, for example,
-in case that br_fdb_changeaddr() has already inserted it,
-br_fdb_change_mac_address() will simply fail to insert it and no
-duplicated entry will be made, as it was.
+- Add a fix for the way to insert a new address in br_fdb_changeaddr().
 
-This approach also needs br_add_if() to call br_fdb_insert() before
-br_stp_recalculate_bridge_id() so that we don't create an entry whose
-dst == NULL in this function to preserve previous behavior.
+- Prevent creating an entry such that its dst is NULL in br_add_if() to
+  preserve old behavior, commented by Vlad Yasevich.
 
-Note that this is a slight change in behavior where the bridge device can
-receive the traffic to the new address before calling
-br_stp_recalculate_bridge_id() in br_add_if().
-However, it is not a problem because we have already the address on the
-new port and such a way to insert new one before recalculating bridge id
-is taken in br_device_event() as well.
+- Add more comments about slight behavior change, where the bridge device
+  come to be able to receive traffic to an address it has during short
+  window, to changelogs, commented by Vlad Yasevich.
 
-Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
----
- net/bridge/br_device.c | 1 -
- net/bridge/br_if.c     | 6 +++---
- net/bridge/br_stp_if.c | 2 ++
- 3 files changed, 5 insertions(+), 4 deletions(-)
+- Add a fix for possible race in br_fdb_change_mac_address().
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index d967773..1cbdbf1 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -187,7 +187,6 @@ static int br_set_mac_address(struct net_device *dev, void *p)
- 
- 	spin_lock_bh(&br->lock);
- 	if (!ether_addr_equal(dev->dev_addr, addr->sa_data)) {
--		br_fdb_change_mac_address(br, addr->sa_data);
- 		/* Mac address will be changed in br_stp_change_bridge_id(). */
- 		br_stp_change_bridge_id(br, addr->sa_data);
- 	}
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 4bf02ad..779d91c 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -389,6 +389,9 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
- 	if (br->dev->needed_headroom < dev->needed_headroom)
- 		br->dev->needed_headroom = dev->needed_headroom;
- 
-+	if (br_fdb_insert(br, p, dev->dev_addr, 0))
-+		netdev_err(dev, "failed insert local address bridge forwarding table\n");
-+
- 	spin_lock_bh(&br->lock);
- 	changed_addr = br_stp_recalculate_bridge_id(br);
- 
-@@ -404,9 +407,6 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
- 
- 	dev_set_mtu(br->dev, br_min_mtu(br));
- 
--	if (br_fdb_insert(br, p, dev->dev_addr, 0))
--		netdev_err(dev, "failed insert local address bridge forwarding table\n");
--
- 	kobject_uevent(&p->kobj, KOBJ_ADD);
- 
- 	return 0;
-diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index 656a6f3..189ba1e 100644
---- a/net/bridge/br_stp_if.c
-+++ b/net/bridge/br_stp_if.c
-@@ -194,6 +194,8 @@ void br_stp_change_bridge_id(struct net_bridge *br, const unsigned char *addr)
- 
- 	wasroot = br_is_root_bridge(br);
- 
-+	br_fdb_change_mac_address(br, addr);
-+
- 	memcpy(oldaddr, br->bridge_id.addr, ETH_ALEN);
- 	memcpy(br->bridge_id.addr, addr, ETH_ALEN);
- 	memcpy(br->dev->dev_addr, addr, ETH_ALEN);
+Toshiaki Makita (9):
+  bridge: Fix the way to find old local fdb entries in br_fdb_changeaddr
+  bridge: Fix the way to insert new local fdb entries in
+    br_fdb_changeaddr
+  bridge: Fix the way to find old local fdb entries in
+    br_fdb_change_mac_address
+  bridge: Change local fdb entries whenever mac address of bridge device
+    changes
+  bridge: Fix the way to check if a local fdb entry can be deleted
+  bridge: Properly check if local fdb entry can be deleted in
+    br_fdb_change_mac_address
+  bridge: Properly check if local fdb entry can be deleted in
+    br_fdb_delete_by_port
+  bridge: Properly check if local fdb entry can be deleted when deleting
+    vlan
+  bridge: Prevent possible race condition in br_fdb_change_mac_address
+
+ net/bridge/br_device.c  |   3 +-
+ net/bridge/br_fdb.c     | 126 +++++++++++++++++++++++++++++++-----------------
+ net/bridge/br_if.c      |   6 +--
+ net/bridge/br_private.h |  11 ++++-
+ net/bridge/br_stp_if.c  |   2 +
+ net/bridge/br_vlan.c    |  27 ++++++++---
+ 6 files changed, 118 insertions(+), 57 deletions(-)
+
 -- 
 1.8.1.2
