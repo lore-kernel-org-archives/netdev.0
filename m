@@ -1,180 +1,40 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net v2 5/9] bridge: Fix the way to check if a local fdb
- entry can be deleted
-Date: Tue, 17 Dec 2013 13:53:38 -0500
-Message-ID: <52B09DB2.7040700@redhat.com>
-References: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp> <1387281821-21342-6-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Reply-To: vyasevic@redhat.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [BUG: 3.13.0-rc4] inconsistent lock state
+Date: Tue, 17 Dec 2013 10:59:41 -0800
+Message-ID: <1387306781.19078.288.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <52B09446.7060809@t-online.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	"David S . Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Knut Petersen <Knut_Petersen@t-online.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52830 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751805Ab3LQSxn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Dec 2013 13:53:43 -0500
-In-Reply-To: <1387281821-21342-6-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Received: from mail-gg0-f180.google.com ([209.85.161.180]:60833 "EHLO
+	mail-gg0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750760Ab3LQS7s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 13:59:48 -0500
+In-Reply-To: <52B09446.7060809@t-online.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/17/2013 07:03 AM, Toshiaki Makita wrote:
-> We should take into account the followings when deleting a local fdb
-> entry.
+On Tue, 2013-12-17 at 19:13 +0100, Knut Petersen wrote:
+> Hi Linus / everybody!
 > 
-> - nbp_vlan_find() can be used only when vid != 0 to check if an entry is
->   deletable, because a fdb entry with vid 0 can exist at any time while
->   nbp_vlan_find() always return false with vid 0.
+> Booting openSuSE 13.1 with kernel 3.13.0-rc4 triggers the attached
+> warning.
 > 
->   Example of problematic case:
->     ip link set eth0 address 12:34:56:78:90:ab
->     ip link set eth1 address 12:34:56:78:90:ab
->     brctl addif br0 eth0
->     brctl addif br0 eth1
->     ip link set eth0 address aa:bb:cc:dd:ee:ff
->   Then, the fdb entry 12:34:56:78:90:ab will be deleted even though the
->   bridge port eth1 still has that address.
+> cu,
+>   Knut
 > 
-> - The port to which the bridge device is attached might needs a local entry
->   if its mac address is set manually.
 > 
->   Example of problematic case:
->     ip link set eth0 address 12:34:56:78:90:ab
->     brctl addif br0 eth0
->     ip link set br0 address 12:34:56:78:90:ab
->     ip link set eth0 address aa:bb:cc:dd:ee:ff
->   Then, the fdb still must have the entry 12:34:56:78:90:ab, but it will be
->   deleted.
-> 
-> We can use br->dev->addr_assign_type to check if the address is manually
-> set or not, but I propose another approach.
-> 
-> Since we delete and insert local entries whenever changing mac address
-> of the bridge device, we can change dst of the entry to NULL regardless of
-> addr_assign_type when deleting an entry associated with a certain port,
-> and if it is found to be unnecessary later, then delete it.
-> That is, if changing mac address of a port, the entry might be changed
-> to its dst being NULL first, but is eventually deleted when recalculating
-> and changing bridge id.
-> 
-> This approach is especially useful when we want to share the code with
-> deleting vlan in which the bridge device might want such an entry regardless
-> of addr_assign_type, and makes things easy because we don't have to consider
-> if mac address of the bridge device will be changed or not at the time we
-> delete a local entry of a port, which meas fdb code will not be bothered even
-> if the bridge id calculating logic is changed in the future.
-> 
-> Note that this is a slight change in behavior where the bridge device can
-> receive the traffic to the old address during the short window between
-> calling br_fdb_changeaddr() and br_stp_recalculate_bridge_id() in
-> br_device_event(). However, it is not a problem because we still have the
-> address on the bridge device.
 
-I think you are understating the significance here a little bit.  The
-change is that for a short period of time after a port has been removed,
-packets addressed to the MAC of that port may be delivered only to
-bridge device instead of being flooded.
+Following patch should solve the issue.
 
-> 
-> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> ---
->  net/bridge/br_fdb.c     | 10 +++++++++-
->  net/bridge/br_private.h |  6 ++++++
->  net/bridge/br_vlan.c    | 19 +++++++++++++++++++
->  3 files changed, 34 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> index 5f1bd11..cf8b64e 100644
-> --- a/net/bridge/br_fdb.c
-> +++ b/net/bridge/br_fdb.c
-> @@ -114,12 +114,20 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
->  					if (op != p &&
->  					    ether_addr_equal(op->dev->dev_addr,
->  							     f->addr.addr) &&
-> -					    nbp_vlan_find(op, vid)) {
-> +					    (!vid || nbp_vlan_find(op, vid))) {
->  						f->dst = op;
->  						goto skip_delete;
->  					}
->  				}
->  
-> +				/* maybe bridge device has same hw addr? */
-> +				if (ether_addr_equal(br->dev->dev_addr,
-> +						     f->addr.addr) &&
+http://patchwork.ozlabs.org/patch/301382/
 
-I think this really needs a
-                                    br->dev->addr_assign_type ==
-NET_ADDR_SET &&
-> +				    (!vid || br_vlan_find(br, vid))) {
+Sorry for this ...
 
-That way we'll only do this if the user actively set the bridge mac
-to one be the same as one of the ports.
-
-
--vlad
-
-> +					f->dst = NULL;
-> +					goto skip_delete;
-> +				}
-> +
->  				/* delete old one */
->  				fdb_delete(br, f);
->  skip_delete:
-> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> index 91fb2c2..868c059 100644
-> --- a/net/bridge/br_private.h
-> +++ b/net/bridge/br_private.h
-> @@ -594,6 +594,7 @@ struct sk_buff *br_handle_vlan(struct net_bridge *br,
->  int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags);
->  int br_vlan_delete(struct net_bridge *br, u16 vid);
->  void br_vlan_flush(struct net_bridge *br);
-> +bool br_vlan_find(struct net_bridge *br, u16 vid);
->  int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val);
->  int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags);
->  int nbp_vlan_delete(struct net_bridge_port *port, u16 vid);
-> @@ -675,6 +676,11 @@ static inline void br_vlan_flush(struct net_bridge *br)
->  {
->  }
->  
-> +static inline bool br_vlan_find(struct net_bridge *br, u16 vid)
-> +{
-> +	return false;
-> +}
-> +
->  static inline int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags)
->  {
->  	return -EOPNOTSUPP;
-> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-> index af5ebd1..f87ab88f 100644
-> --- a/net/bridge/br_vlan.c
-> +++ b/net/bridge/br_vlan.c
-> @@ -316,6 +316,25 @@ void br_vlan_flush(struct net_bridge *br)
->  	__vlan_flush(pv);
->  }
->  
-> +bool br_vlan_find(struct net_bridge *br, u16 vid)
-> +{
-> +	struct net_port_vlans *pv;
-> +	bool found = false;
-> +
-> +	rcu_read_lock();
-> +	pv = rcu_dereference(br->vlan_info);
-> +
-> +	if (!pv)
-> +		goto out;
-> +
-> +	if (test_bit(vid, pv->vlan_bitmap))
-> +		found = true;
-> +
-> +out:
-> +	rcu_read_unlock();
-> +	return found;
-> +}
-> +
->  int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val)
->  {
->  	if (!rtnl_trylock())
-> 
+Thanks
