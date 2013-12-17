@@ -1,68 +1,115 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next V1 10/11] net/mlx4_en: Fix Supported/Advertised
- link mode reported by ethtool
-Date: Tue, 17 Dec 2013 15:46:54 +0000
-Message-ID: <1387295214.1799.63.camel@bwh-desktop.uk.level5networks.com>
-References: <1387263720-31222-1-git-send-email-amirv@mellanox.com>
-	 <1387263720-31222-11-git-send-email-amirv@mellanox.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net v2 1/9] bridge: Fix the way to find old local fdb
+ entries in br_fdb_changeaddr
+Date: Tue, 17 Dec 2013 10:49:44 -0500
+Message-ID: <52B07298.1080901@redhat.com>
+References: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp> <1387281821-21342-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	<netdev@vger.kernel.org>, Rana Shahout <ranas@mellanox.com>,
-	"Eugenia Emantayev" <eugenia@mellanox.co.il>,
-	Eyal Perry <eyalpe@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	"David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:54786 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754512Ab3LQPq7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 10:46:59 -0500
-In-Reply-To: <1387263720-31222-11-git-send-email-amirv@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:1294 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755134Ab3LQPvM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Dec 2013 10:51:12 -0500
+In-Reply-To: <1387281821-21342-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-12-17 at 09:01 +0200, Amir Vadai wrote:
-> From: Rana Shahout <ranas@mellanox.com>
+On 12/17/2013 07:03 AM, Toshiaki Makita wrote:
+> br_fdb_changeaddr() assumes that there is at most one local entry per port
+> per vlan. It used to be true, but since commit 36fd2b63e3b4 ("bridge: allow
+> creating/deleting fdb entries via netlink"), it has not been so.
+> Therefore, the function might fail to search a correct previous address
+> to be deleted and delete an arbitrary local entry if user has added local
+> entries manually.
 > 
-> Correctly report the support for 1/10/40Gbps link-speed as
-> supported/advertised link mode in ethtool's get_settings command.
-[...]
-> +	cmd->supported = SUPPORTED_1000baseT_Full |
-> +		SUPPORTED_10000baseT_Full |
-> +		SUPPORTED_1000baseKX_Full |
-> +		SUPPORTED_10000baseKX4_Full |
-> +		SUPPORTED_10000baseKR_Full |
-> +		SUPPORTED_10000baseR_FEC |
-> +		SUPPORTED_40000baseKR4_Full |
-> +		SUPPORTED_40000baseCR4_Full |
-> +		SUPPORTED_40000baseSR4_Full |
-> +		SUPPORTED_40000baseLR4_Full;
-> +
-> +	cmd->advertising = ADVERTISED_1000baseT_Full |
-> +		ADVERTISED_10000baseT_Full |
-> +		ADVERTISED_1000baseKX_Full |
-> +		ADVERTISED_10000baseKX4_Full |
-> +		ADVERTISED_10000baseKR_Full |
-> +		ADVERTISED_10000baseR_FEC |
-> +		ADVERTISED_40000baseKR4_Full |
-> +		ADVERTISED_40000baseCR4_Full |
-> +		ADVERTISED_40000baseSR4_Full |
-> +		ADVERTISED_40000baseLR4_Full;
-[...]
+> Example of problematic case:
+>   ip link set eth0 address ee:ff:12:34:56:78
+>   brctl addif br0 eth0
+>   bridge fdb add 12:34:56:78:90:ab dev eth0 master
+>   ip link set eth0 address aa:bb:cc:dd:ee:ff
+> Then, the address 12:34:56:78:90:ab might be deleted instead of
+> ee:ff:12:34:56:78, the original mac address of eth0.
+> 
+> Address this issue by introducing a new flag, added_by_user, to struct
+> net_bridge_fdb_entry.
+> 
+> Note that br_fdb_delete_by_port() has to set added_by_user to 0 in case
+> like:
+>   ip link set eth0 address 12:34:56:78:90:ab
+>   ip link set eth1 address aa:bb:cc:dd:ee:ff
+>   brctl addif br0 eth0
+>   bridge fdb add aa:bb:cc:dd:ee:ff dev eth0 master
+>   brctl addif br0 eth1
+>   brctl delif br0 eth0
+> In this case, kernel should delete the user-added entry aa:bb:cc:dd:ee:ff,
+> but it also should have been added by "brctl addif br0 eth1" originally,
+> so we don't delete it and treat it a new kernel-created entry.
+> 
+> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 
-How is this correct?  You should report the actual capabilities of the
-MAC and PHY are present, not the union of all possible modes of all the
-supported boards.
+Acked-by: Vlad Yasevich <vyasevic@redhat.com>
 
-(And the Kconfig description for MLX4_EN says '10Gbit Ethernet support',
-so if this driver now supports some 40G boards that should be updated.)
+-vlad
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> ---
+>  net/bridge/br_fdb.c     | 5 ++++-
+>  net/bridge/br_private.h | 1 +
+>  2 files changed, 5 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+> index 33e8f23..5dab230 100644
+> --- a/net/bridge/br_fdb.c
+> +++ b/net/bridge/br_fdb.c
+> @@ -104,7 +104,7 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
+>  			struct net_bridge_fdb_entry *f;
+>  
+>  			f = hlist_entry(h, struct net_bridge_fdb_entry, hlist);
+> -			if (f->dst == p && f->is_local) {
+> +			if (f->dst == p && f->is_local && !f->added_by_user) {
+>  				/* maybe another port has same hw addr? */
+>  				struct net_bridge_port *op;
+>  				u16 vid = f->vlan_id;
+> @@ -247,6 +247,7 @@ void br_fdb_delete_by_port(struct net_bridge *br,
+>  					    ether_addr_equal(op->dev->dev_addr,
+>  							     f->addr.addr)) {
+>  						f->dst = op;
+> +						f->added_by_user = 0;
+>  						goto skip_delete;
+>  					}
+>  				}
+> @@ -397,6 +398,7 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
+>  		fdb->vlan_id = vid;
+>  		fdb->is_local = 0;
+>  		fdb->is_static = 0;
+> +		fdb->added_by_user = 0;
+>  		fdb->updated = fdb->used = jiffies;
+>  		hlist_add_head_rcu(&fdb->hlist, head);
+>  	}
+> @@ -648,6 +650,7 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
+>  
+>  		modified = true;
+>  	}
+> +	fdb->added_by_user = 1;
+>  
+>  	fdb->used = jiffies;
+>  	if (modified) {
+> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+> index 045d56e..91fb2c2 100644
+> --- a/net/bridge/br_private.h
+> +++ b/net/bridge/br_private.h
+> @@ -104,6 +104,7 @@ struct net_bridge_fdb_entry
+>  	mac_addr			addr;
+>  	unsigned char			is_local;
+>  	unsigned char			is_static;
+> +	unsigned char			added_by_user;
+>  	__u16				vlan_id;
+>  };
+>  
+> 
