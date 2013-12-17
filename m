@@ -1,111 +1,44 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH resend net-next] sch_tbf: add TBF_BURST/TBF_PBURST attribute
-Date: Tue, 17 Dec 2013 11:34:39 +0800
-Message-ID: <52AFC64F.2070100@huawei.com>
-References: <1386927716-7896-1-git-send-email-yangyingliang@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <eric.dumazet@gmail.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+From: David Gibson <david@gibson.dropbear.id.au>
+Subject: [PATCH 1/2] netxen: Correct off-by-one error in bounds check
+Date: Tue, 17 Dec 2013 16:22:32 +1100
+Message-ID: <1387257753-18676-2-git-send-email-david@gibson.dropbear.id.au>
+References: <1387257753-18676-1-git-send-email-david@gibson.dropbear.id.au>
+Cc: netdev@vger.kernel.org, snagarka@redhat.com, tcamuso@redhat.com,
+	vdasgupt@redhat.com, David Gibson <david@gibson.dropbear.id.au>
+To: manish.chopra@qlogic.com, sony.chacko@qlogic.com,
+	rajesh.borundia@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:34527 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752534Ab3LQDet (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Dec 2013 22:34:49 -0500
-In-Reply-To: <1386927716-7896-1-git-send-email-yangyingliang@huawei.com>
+Received: from ozlabs.org ([203.10.76.45]:58935 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751021Ab3LQFUw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Dec 2013 00:20:52 -0500
+In-Reply-To: <1387257753-18676-1-git-send-email-david@gibson.dropbear.id.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yang Yingliang <yangyingliang@huawei.com>
+After retrieving an Rx buffer index from the hardware, the netxen driver
+bounds checks it against its array of receive buffers.  However in the case
+of LRO packets, there's an off-by-one error in the check - it uses >
+instead of the >= it uses for the normal receive path in
+netxen_process_rcv().
 
-When we set burst to 1514 with low rate in userspace,
-the kernel get a value of burst that less than 1514,
-which doesn't work.
-
-Because it may make some loss when transform burst
-to buffer in userspace. This makes burst lose some
-bytes, when the kernel transform the buffer back to
-burst.
-
-This patch adds two new attributes to support sending
-burst/mtu to kernel directly to avoid the loss.
-
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
 ---
- include/uapi/linux/pkt_sched.h |  2 ++
- net/sched/sch_tbf.c            | 25 +++++++++++++++++++++----
- 2 files changed, 23 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
-index a806687..fd8e17e 100644
---- a/include/uapi/linux/pkt_sched.h
-+++ b/include/uapi/linux/pkt_sched.h
-@@ -173,6 +173,8 @@ enum {
- 	TCA_TBF_PTAB,
- 	TCA_TBF_RATE64,
- 	TCA_TBF_PRATE64,
-+	TCA_TBF_BURST,
-+	TCA_TBF_PBURST,
- 	__TCA_TBF_MAX,
- };
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
+index 7692dfd..68658b8 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
+@@ -1610,7 +1610,7 @@ netxen_process_lro(struct netxen_adapter *adapter,
+ 	rds_ring = &recv_ctx->rds_rings[ring];
  
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index 887e672..ee84409 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -307,6 +307,8 @@ static const struct nla_policy tbf_policy[TCA_TBF_MAX + 1] = {
- 	[TCA_TBF_PTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
- 	[TCA_TBF_RATE64]	= { .type = NLA_U64 },
- 	[TCA_TBF_PRATE64]	= { .type = NLA_U64 },
-+	[TCA_TBF_BURST] = { .type = NLA_U32 },
-+	[TCA_TBF_PBURST] = { .type = NLA_U32 },
- };
+ 	index = netxen_get_lro_sts_refhandle(sts_data0);
+-	if (unlikely(index > rds_ring->num_desc))
++	if (unlikely(index >= rds_ring->num_desc))
+ 		return NULL;
  
- static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
-@@ -358,7 +360,11 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
- 		rate64 = nla_get_u64(tb[TCA_TBF_RATE64]);
- 	psched_ratecfg_precompute(&rate, &qopt->rate, rate64);
- 
--	max_size = min_t(u64, psched_ns_t2l(&rate, buffer), ~0U);
-+	if (tb[TCA_TBF_BURST]) {
-+		max_size = nla_get_u32(tb[TCA_TBF_BURST]);
-+		buffer = psched_l2t_ns(&rate, max_size);
-+	} else
-+		max_size = min_t(u64, psched_ns_t2l(&rate, buffer), ~0U);
- 
- 	if (qopt->peakrate.rate) {
- 		if (tb[TCA_TBF_PRATE64])
-@@ -371,7 +377,12 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
- 			goto done;
- 		}
- 
--		max_size = min_t(u64, max_size, psched_ns_t2l(&peak, mtu));
-+		if (tb[TCA_TBF_PBURST]) {
-+			u32 pburst = nla_get_u32(tb[TCA_TBF_PBURST]);
-+			max_size = min_t(u32, max_size, pburst);
-+			mtu = psched_l2t_ns(&peak, pburst);
-+		} else
-+			max_size = min_t(u64, max_size, psched_ns_t2l(&peak, mtu));
- 	}
- 
- 	if (max_size < psched_mtu(qdisc_dev(sch)))
-@@ -391,9 +402,15 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
- 		q->qdisc = child;
- 	}
- 	q->limit = qopt->limit;
--	q->mtu = PSCHED_TICKS2NS(qopt->mtu);
-+	if (tb[TCA_TBF_PBURST])
-+		q->mtu = mtu;
-+	else
-+		q->mtu = PSCHED_TICKS2NS(qopt->mtu);
- 	q->max_size = max_size;
--	q->buffer = PSCHED_TICKS2NS(qopt->buffer);
-+	if (tb[TCA_TBF_BURST])
-+		q->buffer = buffer;
-+	else
-+		q->buffer = PSCHED_TICKS2NS(qopt->buffer);
- 	q->tokens = q->buffer;
- 	q->ptokens = q->mtu;
- 
--- 1.8.0
+ 	buffer = &rds_ring->rx_buf_arr[index];
+-- 
+1.8.3.1
