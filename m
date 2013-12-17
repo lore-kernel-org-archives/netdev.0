@@ -1,34 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net 0/9] Fixes for server entries and server filter
- entries for Chelsio T4/T5
-Date: Tue, 17 Dec 2013 16:29:33 -0500 (EST)
-Message-ID: <20131217.162933.204709940918878458.davem@davemloft.net>
-References: <1387195938-3531-1-git-send-email-hariprasad@chelsio.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v4 0/8] net_sched: some cleanup and improvments
+Date: Tue, 17 Dec 2013 16:30:56 -0500 (EST)
+Message-ID: <20131217.163056.1767829776541586518.davem@davemloft.net>
+References: <1387167311-14763-1-git-send-email-xiyou.wangcong@gmail.com>
+	<52AEF5E4.5050408@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1387195938-3531-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org
+To: jhs@mojatatu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49204 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751112Ab3LQVa5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 16:30:57 -0500
+In-Reply-To: <52AEF5E4.5050408@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Date: Mon, 16 Dec 2013 17:42:09 +0530
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Mon, 16 Dec 2013 07:45:24 -0500
 
-> This patch series provides miscelleneous fixes for Chelsio T4/T5 adapters
-> related to server entries and server filter entries.
+> I would like to run some tests I have and look closely - please give
+> me some time; unfortunately I dont right away (yesterday was good
+> for me); will do this week.
 
-You add the sftids_in_use counter, but it is never tested by any code.
-It is only initialized to zero, incremented, and decremented.  It
-serves no real purpose at all.
+Please do this at your earliest convenience so Cong's patches don't
+just rot in patchwork.  When patches are held up like this it makes
+extra work for me as I analyze my patchwork todo list each and every
+day.
 
-Please don't add things like this.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thank you.
