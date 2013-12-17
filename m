@@ -1,123 +1,77 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 11/11] net/mlx4_core: Check port number for validity before accessing data
-Date: Tue, 17 Dec 2013 09:02:00 +0200
-Message-ID: <1387263720-31222-12-git-send-email-amirv@mellanox.com>
-References: <1387263720-31222-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V1 00/11] net/mlx4: Mellanox driver update 08-12-2013
+Date: Tue, 17 Dec 2013 09:01:49 +0200
+Message-ID: <1387263720-31222-1-git-send-email-amirv@mellanox.com>
 Cc: Or Gerlitz <ogerlitz@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
-	Matan Barak <matanb@mellanox.com>
+	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:34095 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:40383 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752649Ab3LQHCP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Dec 2013 02:02:15 -0500
-In-Reply-To: <1387263720-31222-1-git-send-email-amirv@mellanox.com>
+	id S1752609Ab3LQHCM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Dec 2013 02:02:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matan Barak <matanb@mellanox.com>
+Hi Dave,
 
-Need to validate port number at mlx4_promisc_qp() before use.
-Since port number is extracted from gid, as a cooked or corrupted gid
-could lead to a crash.
+This patchset contains:
+1. Support in ndo_get_phys_port_id added by Hadar.
+2. Change the driver to use by default CQE/EQE size of 64 bytes done by Eyal.
+   This doubles the packet-rate  of the NIC.
+3. Configure the XPS queue mapping on driver load - added by Ido.
+4. Fixes for some small bugs done by Jenny, Matan and Rana
 
-Signed-off-by: Matan Barak <matanb@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/mcg.c | 28 +++++++++++++++++++++++++++-
- 1 file changed, 27 insertions(+), 1 deletion(-)
+Patchset was applied and tested against commit: "89e47d3 fddi: cleanup unsigned
+to unsigned int/short"
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index 4059405..7c83e6c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -125,9 +125,14 @@ static struct mlx4_promisc_qp *get_promisc_qp(struct mlx4_dev *dev, u8 port,
- 					      enum mlx4_steer_type steer,
- 					      u32 qpn)
- {
--	struct mlx4_steer *s_steer = &mlx4_priv(dev)->steer[port - 1];
-+	struct mlx4_steer *s_steer;
- 	struct mlx4_promisc_qp *pqp;
- 
-+	if (port < 1 || port > dev->caps.num_ports)
-+		return NULL;
-+
-+	s_steer = &mlx4_priv(dev)->steer[port - 1];
-+
- 	list_for_each_entry(pqp, &s_steer->promisc_qps[steer], list) {
- 		if (pqp->qpn == qpn)
- 			return pqp;
-@@ -154,6 +159,9 @@ static int new_steering_entry(struct mlx4_dev *dev, u8 port,
- 	u32 prot;
- 	int err;
- 
-+	if (port < 1 || port > dev->caps.num_ports)
-+		return -EINVAL;
-+
- 	s_steer = &mlx4_priv(dev)->steer[port - 1];
- 	new_entry = kzalloc(sizeof *new_entry, GFP_KERNEL);
- 	if (!new_entry)
-@@ -238,6 +246,9 @@ static int existing_steering_entry(struct mlx4_dev *dev, u8 port,
- 	struct mlx4_promisc_qp *pqp;
- 	struct mlx4_promisc_qp *dqp;
- 
-+	if (port < 1 || port > dev->caps.num_ports)
-+		return -EINVAL;
-+
- 	s_steer = &mlx4_priv(dev)->steer[port - 1];
- 
- 	pqp = get_promisc_qp(dev, port, steer, qpn);
-@@ -283,6 +294,9 @@ static bool check_duplicate_entry(struct mlx4_dev *dev, u8 port,
- 	struct mlx4_steer_index *tmp_entry, *entry = NULL;
- 	struct mlx4_promisc_qp *dqp, *tmp_dqp;
- 
-+	if (port < 1 || port > dev->caps.num_ports)
-+		return NULL;
-+
- 	s_steer = &mlx4_priv(dev)->steer[port - 1];
- 
- 	/* if qp is not promisc, it cannot be duplicated */
-@@ -324,6 +338,9 @@ static bool can_remove_steering_entry(struct mlx4_dev *dev, u8 port,
- 	bool ret = false;
- 	int i;
- 
-+	if (port < 1 || port > dev->caps.num_ports)
-+		return NULL;
-+
- 	s_steer = &mlx4_priv(dev)->steer[port - 1];
- 
- 	mailbox = mlx4_alloc_cmd_mailbox(dev);
-@@ -378,6 +395,9 @@ static int add_promisc_qp(struct mlx4_dev *dev, u8 port,
- 	int err;
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 
-+	if (port < 1 || port > dev->caps.num_ports)
-+		return -EINVAL;
-+
- 	s_steer = &mlx4_priv(dev)->steer[port - 1];
- 
- 	mutex_lock(&priv->mcg_table.mutex);
-@@ -484,6 +504,9 @@ static int remove_promisc_qp(struct mlx4_dev *dev, u8 port,
- 	int loc, i;
- 	int err;
- 
-+	if (port < 1 || port > dev->caps.num_ports)
-+		return -EINVAL;
-+
- 	s_steer = &mlx4_priv(dev)->steer[port - 1];
- 	mutex_lock(&priv->mcg_table.mutex);
- 
-@@ -910,6 +933,9 @@ int mlx4_qp_attach_common(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
- 	u8 port = gid[5];
- 	u8 new_entry = 0;
- 
-+	if (port < 1 || port > dev->caps.num_ports)
-+		return -EINVAL;
-+
- 	mailbox = mlx4_alloc_cmd_mailbox(dev);
- 	if (IS_ERR(mailbox))
- 		return PTR_ERR(mailbox);
+Changes from V0:
+- Found some issues in "Reuse memory in RX flow" patch from V0.
+  Removing this patch from the patchset till analyzed and fixed.
+- Fix some coding style issues in patch 6 "Configure the XPS queue mapping on
+  driver load"
+- Changed patch 9 "Add NAPI support for transmit side" to use NAPI_POLL_WEIGHT
+  instead of MLX4_EN_TX_BUDGET   
+
+Thanks,
+Amir
+
+Eugenia Emantayev (2):
+  net/mlx4_en: Ignore irrelevant hypervisor events
+  net/mlx4_en: Add NAPI support for transmit side
+
+Eyal Perry (1):
+  net/mlx4_core: Set CQE/EQE size to 64B by default
+
+Hadar Hen Zion (5):
+  net/mlx4_core: Remove zeroed out of explicit QUERY_FUNC_CAP fields
+  net/mlx4_core: Rename QUERY_FUNC_CAP fields
+  net/mlx4_core: Introduce nic_info new flag in QUERY_FUNC_CAP
+  net/mlx4_core: Expose physical port id as PF/VF capability
+  net/mlx4_en: Implement ndo_get_phys_port_id
+
+Ido Shamay (1):
+  net/mlx4_en: Configure the XPS queue mapping on driver load
+
+Matan Barak (1):
+  net/mlx4_core: Check port number for validity before accessing data
+
+Rana Shahout (1):
+  net/mlx4_en: Fix Supported/Advertised link mode reported by ethtool
+
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c      | 12 ++--
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 24 +++++++-
+ drivers/net/ethernet/mellanox/mlx4/en_main.c    |  3 +
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c  | 29 +++++++++-
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c      | 48 +++++++++++++---
+ drivers/net/ethernet/mellanox/mlx4/fw.c         | 74 ++++++++++++++++++++-----
+ drivers/net/ethernet/mellanox/mlx4/fw.h         |  2 +
+ drivers/net/ethernet/mellanox/mlx4/main.c       |  9 ++-
+ drivers/net/ethernet/mellanox/mlx4/mcg.c        | 28 +++++++++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  6 +-
+ include/linux/mlx4/device.h                     |  2 +
+ 11 files changed, 202 insertions(+), 35 deletions(-)
+
 -- 
 1.8.3.4
