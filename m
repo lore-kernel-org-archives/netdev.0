@@ -1,37 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/4] tcp: metrics: Delete all entries matching a
- certain destination
-Date: Tue, 17 Dec 2013 14:57:51 -0500 (EST)
-Message-ID: <20131217.145751.53681780657108721.davem@davemloft.net>
-References: <1387109444-1104-1-git-send-email-christoph.paasch@uclouvain.be>
-	<1387109444-1104-4-git-send-email-christoph.paasch@uclouvain.be>
+Subject: Re: [PATCH net-next] MAINTAINERS: Update the IPsec maintainer entry
+Date: Tue, 17 Dec 2013 14:59:31 -0500 (EST)
+Message-ID: <20131217.145931.2281784823591689152.davem@davemloft.net>
+References: <20131213115605.GP31491@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, ja@ssi.bg
-To: christoph.paasch@uclouvain.be
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48541 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48559 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751976Ab3LQT5w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 14:57:52 -0500
-In-Reply-To: <1387109444-1104-4-git-send-email-christoph.paasch@uclouvain.be>
+	with ESMTP id S1752224Ab3LQT7d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 14:59:33 -0500
+In-Reply-To: <20131213115605.GP31491@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Date: Sun, 15 Dec 2013 13:10:43 +0100
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Fri, 13 Dec 2013 12:56:05 +0100
 
-> As we now can have multiple entries per destination-IP, the "ip
-> tcp_metrics delete address ADDRESS" command should delete all of them.
+> Add the IPsec git trees and some pure IPsec modules
+> to the IPsec section in the MAINTAINERS file.
 > 
-> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 
-You have to adjust how you're doing patches #3 and #4.
-
-Create the new attribute for the source address first, then
-allow the source address to be specified in the deletion
-command.
-
-Make the source address optional in delete commands, to be
-compatible with existing tools, and have it mean "ANY".
+As a documentation fix, I've applied this to 'net', thanks.
