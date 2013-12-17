@@ -1,236 +1,69 @@
-From: "Dr. H. Nikolaus Schaller" <hns@goldelico.com>
-Subject: Re: [PATCH 1/1] hso: fix problem with wrong status code sent by OPTION GTM601 during RING indication
-Date: Tue, 17 Dec 2013 20:56:33 +0100
-Message-ID: <174CD81C-6425-4560-A3FA-3BFAA83BA770@goldelico.com>
-References: <B1808224-5850-41E3-9A8F-0F350F84FF89@goldelico.com> <541AADAC-7D20-4410-90FC-3E354B0C1457@goldelico.com> <1387222829.2156.51.camel@dcbw.foobar.com>
-Mime-Version: 1.0 (Apple Message framework v1085)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Jan Dumon <j.dumon@option.com>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Belisko Marek <marek.belisko@gmail.com>, e.verdonck@option.com
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1387222829.2156.51.camel@dcbw.foobar.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: [PATCH net-next] igb: make local functions static and remove
+ dead code
+Date: Tue, 17 Dec 2013 20:03:10 +0000
+Message-ID: <9BBC4E0CF881AA4299206E2E1412B6264FA15C5B@ORSMSX102.amr.corp.intel.com>
+References: <20131212120916.688140d9@nehalam.linuxnetplumber.net>
+ <1387241520.2330.4.camel@jtkirshe-mobl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:62161 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752512Ab3LQUDW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Dec 2013 15:03:22 -0500
+In-Reply-To: <1387241520.2330.4.camel@jtkirshe-mobl>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dan,
-
-Am 16.12.2013 um 20:40 schrieb Dan Williams:
-
-> On Fri, 2013-12-13 at 15:43 +0100, Dr. H. Nikolaus Schaller wrote:
->> Hi,
->> 
->> Am 02.10.2013 um 09:00 schrieb Dr. H. Nikolaus Schaller:
->> 
->>> Hi Jan,
->>> 
->>> we are using a GTM601 modem (Firmware 1.7) for a while and have spotted an
->>> issue that under some conditions the modem sends a packed wIndex over USB
->>> that is rejected by the hso driver making troubles afterwards. Not rejecting makes
->>> it work fine.
->>> 
->>> BR,
->>> Nikolaus Schaller
->>> 
->>> ---
->>> 
->>> From f5c7e15b61f2ce4fe3105ff914f6bfaf5d74af0d Mon Sep 17 00:00:00 2001
->>> From: "H. Nikolaus Schaller" <hns@goldelico.com>
->>> Date: Thu, 15 Nov 2012 14:40:57 +0100
->>> Subject: [PATCH 1/1] hso: fix problem with wrong status code sent by OPTION
->>> GTM601 during RING indication
->>> 
->>> It has been observed that the GTM601 with 1.7 firmware sometimes sends a value
->>> wIndex that has bit 0x04 set instead of being reset as the code expects. So we
->>> mask it for the error check.
->>> 
->>> See http://lists.goldelico.com/pipermail/gta04-owner/2012-February/001643.html
->>> 
->>> Signed-off-by: NeilBrown <neilb@suse.de>
->>> Signed-off-by: H. Nikolaus Schaller <hns@goldelico.de>
->>> ---
->>> drivers/net/usb/hso.c |    3 ++-
->>> 1 files changed, 2 insertions(+), 1 deletions(-)
->>> 
->>> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
->>> index cba1d46..d146e26 100644
->>> --- a/drivers/net/usb/hso.c
->>> +++ b/drivers/net/usb/hso.c
->>> @@ -1503,7 +1503,8 @@ static void tiocmget_intr_callback(struct urb *urb)
->>> 	if (serial_state_notification->bmRequestType != BM_REQUEST_TYPE ||
->>> 	    serial_state_notification->bNotification != B_NOTIFICATION ||
->>> 	    le16_to_cpu(serial_state_notification->wValue) != W_VALUE ||
->>> -	    le16_to_cpu(serial_state_notification->wIndex) != W_INDEX ||
->>> +	    (le16_to_cpu(serial_state_notification->wIndex) & ~0x4) !=
->>> +		W_INDEX ||
->>> 	    le16_to_cpu(serial_state_notification->wLength) != W_LENGTH) {
->>> 		dev_warn(&usb->dev,
->>> 			 "hso received invalid serial state notification\n");
->>> -- 
->>> 1.7.7.4
->>> 
->>> 
->> 
->> I have found this (better) proposal by OPTION, but wonder what did happen to it.
->> It neither shows in mainline 3.13-rc nor linux-next:
->> 
->> https://lkml.org/lkml/2013/10/9/263
-> 
-> Likely because nobody formally submitted the patch with a signed-off-by,
-> which indicates their intent that the patch is tested, correct, and can
-> be merged to the kernel.
-
-Ok, I see. I just wasn't aware of the proposal at all since I missed the discussion
-and wasn't on CC.
-
-Therefore I have added Eric to the CC.
-
-> 
-> I looked at this today, and I'm left wondering how any port other than
-> HSO_PORT_MODEM can get the notification via tiocmget_intr_callback().
-> "serial->tiocmget" is only created for HSO_PORT_MODEM serial ports (see
-> hso_create_bulk_serial_device()):
-> 
-> 	if ((port & HSO_PORT_MASK) == HSO_PORT_MODEM) {
-> 		num_urbs = 2;
-> 		serial->tiocmget = kzalloc(sizeof(struct hso_tiocmget),
-> 					   GFP_KERNEL);
-> 
-> and the code in tiocmget_intr_callback() does this:
-> 
-> 	tiocmget = serial->tiocmget;
-> 	if (!tiocmget)
-> 		return;
-> 
-> which should mean that only a HSO_PORT_MODEM will ever process the
-> notification.  Further, the tiocmget interrupt URB is only created and
-> submitted if serial->tiocmget != NULL, so only HSO_PORT_MODEM should
-> ever be calling into tiocmget_intr_callback().
-
-Ok, that looks plausible.
-
-> 
-> So I think Eric's patch is actually wrong because it will *always* pass
-> the new check.
-> 
-> The original code had the correct intention, but the original code was
-> obviously wrong for newer devices where the port layout is read from
-> firmware and not from static tables, and thus for recent devices where
-> the modem interface is not USB interface #2.
-
-This explains why we did run into the problem with the GTM601.
-
-> 
-> Can you confirm/deny that the 'modem' interface for your GTM601 is USB
-> interface #6?  For example, my Icon 452 has the following USB interface
-> layout:
-> 
-> 0: Diag
-> 1: GPS
-> 2: GPS control
-> 3: Application
-> 4: Control
-> 5: Network
-> 6: Modem
-> 
-> So like the GTM601, I would expect any RING notifications to appear for
-> wIndex=0x06.
-
-Interestingly I see:
-
-0: Diagnostic
-1: GPS
-2: GPS Control
-3: Application
-4: Control
-5: Modem
-
-I.e. there is no Network interface. Originally we did focus on /dev/ttyHS3
-to access the Application interface, but people reported that it is not stable
-or always so. Therefore we have some udev rule to add symbolic names
-(e.g. /dev/ttyHS_Application):
-
-http://git.goldelico.com/?p=gta04-kernel.git;a=blob;f=GTA04/udev-rules/hso.rules;hb=HEAD
-
-So I think the assignment is not even always the same on the same device.
-
-And I am a little puzzled why we do see the wIndex == 6 if it is the interface
-number. Maybe it happens only in some scenario where the Modem becomes
-interface #6.
-
-> 
-> Does the following patch fix the problem for you?
-
-I will try but need a little time to setup a test scenario (because I need to trigger
-RING indications) and will then report.
-
-BR,
-Nikolaus
-
-> 
-> Dan
-> 
-> ---
-> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> index 86292e6..1c7bdeb 100644
-> --- a/drivers/net/usb/hso.c
-> +++ b/drivers/net/usb/hso.c
-> @@ -181,15 +181,14 @@ enum rx_ctrl_state{
-> 	RX_SENT,
-> 	RX_PENDING
-> };
-> 
-> #define BM_REQUEST_TYPE (0xa1)
-> #define B_NOTIFICATION  (0x20)
-> #define W_VALUE         (0x0)
-> -#define W_INDEX         (0x2)
-> #define W_LENGTH        (0x2)
-> 
-> #define B_OVERRUN       (0x1<<6)
-> #define B_PARITY        (0x1<<5)
-> #define B_FRAMING       (0x1<<4)
-> #define B_RING_SIGNAL   (0x1<<3)
-> #define B_BREAK         (0x1<<2)
-> @@ -1483,31 +1482,38 @@ static void tiocmget_intr_callback(struct urb *urb)
-> 	struct hso_serial *serial = urb->context;
-> 	struct hso_tiocmget *tiocmget;
-> 	int status = urb->status;
-> 	u16 UART_state_bitmap, prev_UART_state_bitmap;
-> 	struct uart_icount *icount;
-> 	struct hso_serial_state_notification *serial_state_notification;
-> 	struct usb_device *usb;
-> +	int if_num;
-> 
-> 	/* Sanity checks */
-> 	if (!serial)
-> 		return;
-> 	if (status) {
-> 		handle_usb_error(status, __func__, serial->parent);
-> 		return;
-> 	}
-> +
-> +	/* tiocmget is only supported on HSO_PORT_MODEM */
-> 	tiocmget = serial->tiocmget;
-> 	if (!tiocmget)
-> 		return;
-> +	BUG_ON((serial->parent->port_spec & HSO_PORT_MASK) != HSO_PORT_MODEM);
-> +
-> 	usb = serial->parent->usb;
-> +	if_num = serial->parent->interface->altsetting->desc.bInterfaceNumber;
-> +
-> 	serial_state_notification = &tiocmget->serial_state_notification;
-> 	if (serial_state_notification->bmRequestType != BM_REQUEST_TYPE ||
-> 	    serial_state_notification->bNotification != B_NOTIFICATION ||
-> 	    le16_to_cpu(serial_state_notification->wValue) != W_VALUE ||
-> -	    le16_to_cpu(serial_state_notification->wIndex) != W_INDEX ||
-> +	    le16_to_cpu(serial_state_notification->wIndex) != if_num ||
-> 	    le16_to_cpu(serial_state_notification->wLength) != W_LENGTH) {
-> 		dev_warn(&usb->dev,
-> 			 "hso received invalid serial state notification\n");
-> 		DUMP(serial_state_notification,
-> 		     sizeof(struct hso_serial_state_notification));
-> 	} else {
-> 
-> 
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
+YWxmIE9mIEplZmYgS2lyc2hlcg0KPiBTZW50OiBNb25kYXksIERlY2VtYmVyIDE2LCAyMDEzIDQ6
+NTIgUE0NCj4gVG86IFN0ZXBoZW4gSGVtbWluZ2VyDQo+IENjOiBlMTAwMC1kZXZlbEBsaXN0cy5z
+b3VyY2Vmb3JnZS5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQ
+QVRDSCBuZXQtbmV4dF0gaWdiOiBtYWtlIGxvY2FsIGZ1bmN0aW9ucyBzdGF0aWMgYW5kIHJlbW92
+ZSBkZWFkDQo+IGNvZGUNCj4gDQo+IE9uIFRodSwgMjAxMy0xMi0xMiBhdCAxMjowOSAtMDgwMCwg
+U3RlcGhlbiBIZW1taW5nZXIgd3JvdGU6DQo+ID4gTWFrZSBsb2NhbCBmdW5jdGlvbnMgc3RhdGlj
+LCBhbmQgcmVtb3ZlIHVudXNlZA0KPiA+IGUxMDAwX3dyaXRlX3NmcF9kYXRhX2J5dGUuDQo+ID4N
+Cj4gPiBTaWduZWQtb2ZmLWJ5OiBTdGVwaGVuIEhlbW1pbmdlciA8c3RlcGhlbkBuZXR3b3JrcGx1
+bWJlci5vcmc+DQo+ID4NCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
+aWdiL2UxMDAwXzgyNTc1LmMgfCAgICA2ICsrKy0tLQ0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5l
+dC9pbnRlbC9pZ2IvZTEwMDBfaTIxMC5jICB8ICAgMTgNCj4gPiArKysrKysrKystLS0tLS0tLS0N
+Cj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2UxMDAwX2kyMTAuaCAgfCAgICA5
+IC0tLS0tLS0tLQ0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvZTEwMDBfcGh5
+LmMgICB8ICAgIDIgKy0NCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2UxMDAw
+X3BoeS5oICAgfCAgICAxIC0NCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2ln
+Yi5oICAgICAgICAgfCAgICAyIC0tDQo+ID4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2ln
+Yi9pZ2JfcHRwLmMgICAgIHwgICAgNiArKysrLS0NCj4gPiAgNyBmaWxlcyBjaGFuZ2VkLCAxNyBp
+bnNlcnRpb25zKCspLCAyNyBkZWxldGlvbnMoLSkNCj4gDQo+IERpZCB5b3UgY29tcGlsZSB0ZXN0
+IHRoaXMgcGF0Y2g/ICBJIGFtIGd1ZXNzaW5nIG5vIGJlY2F1c2Ugd2UgZ290IHRoZSBmb2xsb3dp
+bmcNCj4gY29tcGlsZSBlcnJvcnM6DQo+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2Iv
+ZTEwMDBfODI1NzUuYzoyNzIzOiBlcnJvcjogc3RhdGljIGRlY2xhcmF0aW9uIG9mDQo+IMOiaWdi
+X2dldF90aGVybWFsX3NlbnNvcl9kYXRhX2dlbmVyaWPDoiBmb2xsb3dzIG5vbi1zdGF0aWMgZGVj
+bGFyYXRpb24NCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9lMTAwMF84MjU3NS5o
+OjI3MDogbm90ZTogcHJldmlvdXMgZGVjbGFyYXRpb24NCj4gb2Ygw6JpZ2JfZ2V0X3RoZXJtYWxf
+c2Vuc29yX2RhdGFfZ2VuZXJpY8OiIHdhcyBoZXJlDQo+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9p
+bnRlbC9pZ2IvZTEwMDBfODI1NzUuYzoyNzc3OiBlcnJvcjogc3RhdGljIGRlY2xhcmF0aW9uIG9m
+DQo+IMOiaWdiX2luaXRfdGhlcm1hbF9zZW5zb3JfdGhyZXNoX2dlbmVyaWPDoiBmb2xsb3dzIG5v
+bi1zdGF0aWMgZGVjbGFyYXRpb24NCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9l
+MTAwMF84MjU3NS5oOjI2OTogbm90ZTogcHJldmlvdXMgZGVjbGFyYXRpb24NCj4gb2Ygw6JpZ2Jf
+aW5pdF90aGVybWFsX3NlbnNvcl90aHJlc2hfZ2VuZXJpY8OiIHdhcyBoZXJlDQo+ICBtYWtlWzVd
+OiAqKiogW2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9lMTAwMF84MjU3NS5vXSBFcnJv
+ciAxDQo+ICBtYWtlWzVdOiAqKiogV2FpdGluZyBmb3IgdW5maW5pc2hlZCBqb2JzLi4uLg0KPiAg
+bWFrZVs0XTogKioqIFtkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2JdIEVycm9yIDINCj4g
+IG1ha2VbNF06ICoqKiBXYWl0aW5nIGZvciB1bmZpbmlzaGVkIGpvYnMuLi4uDQo+ICBtYWtlWzNd
+OiAqKiogW2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsXSBFcnJvciAyDQo+ICBtYWtlWzJdOiAq
+KiogW2RyaXZlcnMvbmV0L2V0aGVybmV0XSBFcnJvciAyDQo+ICBtYWtlWzFdOiAqKiogW2RyaXZl
+cnMvbmV0XSBFcnJvciAyDQo+ICBtYWtlOiAqKiogW2RyaXZlcnNdIEVycm9yIDINCj4gDQo+IEkg
+d2lsbCB3b3JrIG9uIGEgdjIgdG8gZml4IHVwIHRoZXNlIGNvbXBpbGluZyBpc3N1ZXMuDQoNClBs
+ZWFzZSBub3RlIHRoYXQgcmVtb3ZpbmcgdGhlIGlnYl9nZXRfZWVlX3N0YXR1c19pMzU0IGZ1bmN0
+aW9uIGlzIHRoZSBpbmNvcnJlY3QgZml4LiAgVGhlcmUgaXMgYW5vdGhlciBidWcgdGhhdCBpcyB0
+aGUgbWlzc2luZyBjb2RlIHRoYXQgdXNlcyB0aGlzIGZ1bmN0aW9uLiAgSSdtIHdvcmtpbmcgb24g
+aXQuDQoNClRoYW5rcywNCg0KQ2Fyb2x5bg0K
