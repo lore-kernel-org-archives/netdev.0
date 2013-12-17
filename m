@@ -1,39 +1,27 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next v2 0/2] ovs: introduce arch-specific
- fast hashing improvements
-Date: Tue, 17 Dec 2013 14:28:07 -0500 (EST)
-Message-ID: <20131217.142807.253658638726176962.davem@davemloft.net>
-References: <1386860946-1621-1-git-send-email-ffusco@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next v2 00/12][pull request] Intel Wired LAN Driver
+ Updates
+Date: Tue, 17 Dec 2013 14:31:31 -0500 (EST)
+Message-ID: <20131217.143131.238127207291632261.davem@davemloft.net>
+References: <1387186738-13666-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: ffusco-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1386860946-1621-1-git-send-email-ffusco-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	sergei.shtylyov@cogentembedded.com, bhutchings@solarflare.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48323 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752161Ab3LQTbd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 14:31:33 -0500
+In-Reply-To: <1387186738-13666-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Francesco Fusco <ffusco-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date: Thu, 12 Dec 2013 16:09:04 +0100
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon, 16 Dec 2013 01:38:46 -0800
 
-> From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> 
-> We are introducing a fast hash function (see patch1) that can be
-> used in the context of OpenVSwitch to reduce the hashing footprint
-> (patch2). For details, please see individual patches!
-> 
-> Thanks !
-> 
-> v1->v2:
->  - Make hash generic and place it under lib
+> This series contains updates to i40e only (again).
 
-Series applied, thanks.
+Pulled, thanks Jeff.
