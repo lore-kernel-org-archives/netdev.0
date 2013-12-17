@@ -1,67 +1,46 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: mlx4_en SIOCSHWTSTAMP cycles the link
-Date: Tue, 17 Dec 2013 12:26:08 +0100
-Message-ID: <20131217112606.GA5307@netboy>
-References: <1386786265-6322-1-git-send-email-shawn.bohrer@gmail.com>
- <20131211185438.GC4371@netboy>
- <20131211212801.GB8283@sbohrermbp13-local.rgmadvisors.com>
- <52A986CF.5030004@mellanox.com>
- <20131212152815.GB3938@sbohrermbp13-local.rgmadvisors.com>
- <20131216233415.GA17259@sbohrermbp13-local.rgmadvisors.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCHv3 net-next 0/3] IPComp fixes
+Date: Tue, 17 Dec 2013 12:37:58 +0100
+Message-ID: <20131217113758.GK31491@secunet.com>
+References: <1387190870-32506-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Hadar Hen Zion <hadarh@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
-	tomk@rgmadvisors.com, Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: Shawn Bohrer <shawn.bohrer@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f178.google.com ([209.85.215.178]:46934 "EHLO
-	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751537Ab3LQL0N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 06:26:13 -0500
-Received: by mail-ea0-f178.google.com with SMTP id d10so2773720eaj.37
-        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 03:26:12 -0800 (PST)
+Received: from a.mx.secunet.com ([195.81.216.161]:60691 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750929Ab3LQLiB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Dec 2013 06:38:01 -0500
 Content-Disposition: inline
-In-Reply-To: <20131216233415.GA17259@sbohrermbp13-local.rgmadvisors.com>
+In-Reply-To: <1387190870-32506-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 16, 2013 at 05:34:15PM -0600, Shawn Bohrer wrote:
-> On Thu, Dec 12, 2013 at 09:28:15AM -0600, Shawn Bohrer wrote:
-> > Below is v2.  It compiles, and boots, but linuxptp doesn't work yet
-> > and I haven't looked into why.  I think linuxptp is actually
-> > complaining about SIOCSHWTSTAMP not working as expected, but again I
-> > haven't really even started debugging yet.
+On Mon, Dec 16, 2013 at 06:47:47PM +0800, Fan Du wrote:
+> Hi,
 > 
-> So performing a SIOCSHWTSTAMP on the mlx4_en driver cycles the link:
+> This patchset includes bug fix focusing on IPComp mainly, which addresses
+> IPComp Compression Parameter Index(CPI, 16bits of 32bits SPI value) problem.
 > 
-> [ 9463.081330] mlx4_en: p2p1: Changing Time Stamp configuration
-> [ 9463.084637] mlx4_en: p2p1:   frag:0 - size:1526 prefix:0 align:0 stride:1536
-> [ 9463.155533] mlx4_en: p2p1: Link Down
-> [ 9466.471169] mlx4_en: p2p1: Link Up
+> And other issue is the compression part, undesirable packet will not be
+> compressed, and then send into wire, this packet will be dropped by policy
+> checking in the receiver side.
 > 
-> This breaks linuxptp (ptp4l) since it causes all of the already open
-> sockets to silently loose their multicast joins.  Thus ptp4l sits
-> there waiting for multicast PTP packets that aren't going to come.
-
-The ptp4l program should notice this and recover. This happens when
-catching the transmission error on the next sync or delay request. (Or
-in slave only E2E mode the sockets are closed and reopened after every
-announce interval). If this isn't happening, please post to the
-linuxptp-users list the details of your setup.
-
-> I hacked around this in ptp4l by performing the ioctl once with the
-> hwstamp_ctl program from linuxptp and skipping the ioctl in ptp4l,
-> which works, but quite frankly this sucks.  I'd love to know if anyone
-> has any better ideas on how to make SIOCSHWTSTAMP usable.
+> v2:
+>   Patch1: Clean up align issue from v1.
+>   Patch2: Introduce verify_userspi_info for pkfey and netlink interface
+>           to share code.
+>   Patch3: Add Documentation/networking/ipsec.txt to document known issues. 
 > 
-> After hacking around the SIOCSHWTSTAMP issue I've noticed that ptp4l
-> synchronizes the PHC, however there must be another bug somewhere
-> because it creates a 35 second offset from the PTP master.
+> v3:
+>   Patch2: Fix while space error.
+>   Patch3: Del empty line
+> 
+> Fan Du (3):
+>   xfrm: check user specified spi for IPComp
+>   xfrm: export verify_userspi_info for pkfey and netlink interface
+>   xfrm: Add file to document IPsec corner case
+> 
 
-This is the current TAI-UTC offset. Maybe your grand master is serving
-UTC instead of the PTP timescale?
-
-Thanks,
-Richard
+All applied to ipsec-next, thanks Fan!
