@@ -1,73 +1,40 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net v2 9/9] bridge: Prevent possible race condition in
- br_fdb_change_mac_address
-Date: Tue, 17 Dec 2013 14:39:24 -0500
-Message-ID: <52B0A86C.1080800@redhat.com>
-References: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp> <1387281821-21342-10-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Reply-To: vyasevic@redhat.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH linux-3.10.y] ip6tnl: fix use after free of fb_tnl_dev
+Date: Tue, 17 Dec 2013 14:40:02 -0500 (EST)
+Message-ID: <20131217.144002.1716319550180883592.davem@davemloft.net>
+References: <20131212.153545.1184197791301496227.davem@davemloft.net>
+	<1386925595-4995-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	"David S . Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43792 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752629Ab3LQTja (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Dec 2013 14:39:30 -0500
-In-Reply-To: <1387281821-21342-10-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, gregkh@linuxfoundation.org,
+	rostedt@goodmis.org, linux-kernel@vger.kernel.org,
+	stable@vger.kernel.org, williams@redhat.com,
+	linux-rt-users@vger.kernel.org, lclaudio@uudg.org
+To: nicolas.dichtel@6wind.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1386925595-4995-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/17/2013 07:03 AM, Toshiaki Makita wrote:
-> br_fdb_change_mac_address() calls fdb_insert()/fdb_delete() without
-> br->hash_lock.
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Fri, 13 Dec 2013 10:06:35 +0100
+
+> The upstream commit bb8140947a24 ("ip6tnl: allow to use rtnl ops on fb tunnel")
+> (backported into linux-3.10.y) left a bug which was fixed upstream by commit
+> 1e9f3d6f1c40 ("ip6tnl: fix use after free of fb_tnl_dev").
 > 
-> These hash list updates are racy with br_fdb_update()/br_fdb_cleanup().
+> The problem is a bit different in linux-3.10.y, because there is no x-netns
+> support (upstream commit 0bd8762824e7 ("ip6tnl: add x-netns support")).
+> When ip6_tunnel.ko is unloaded, FB device is deleted by rtnl_link_unregister()
+> and then we try to delete it again in ip6_tnl_destroy_tunnels().
 > 
-> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-
-Good bug fix.
-
-Acked-by: Vlad Yasevich <vyasevic@redhat.com>
-
--vlad
-
-> ---
->  net/bridge/br_fdb.c | 6 +++++-
->  1 file changed, 5 insertions(+), 1 deletion(-)
+> This patch removes the second deletion.
 > 
-> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> index 38cd29d..05fb8da 100644
-> --- a/net/bridge/br_fdb.c
-> +++ b/net/bridge/br_fdb.c
-> @@ -191,6 +191,8 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
->  	struct net_port_vlans *pv;
->  	u16 vid = 0;
->  
-> +	spin_lock_bh(&br->hash_lock);
-> +
->  	/* If old entry was unassociated with any port, then delete it. */
->  	f = __br_fdb_get(br, br->dev->dev_addr, 0);
->  	if (f && f->is_local && !f->dst)
-> @@ -204,7 +206,7 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
->  	 */
->  	pv = br_get_vlan_info(br);
->  	if (!pv)
-> -		return;
-> +		goto out;
->  
->  	for_each_set_bit_from(vid, pv->vlan_bitmap, VLAN_N_VID) {
->  		f = __br_fdb_get(br, br->dev->dev_addr, vid);
-> @@ -212,6 +214,8 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
->  			fdb_delete_local(br, NULL, f);
->  		fdb_insert(br, NULL, newaddr, vid);
->  	}
-> +out:
-> +	spin_unlock_bh(&br->hash_lock);
->  }
->  
->  void br_fdb_cleanup(unsigned long _data)
-> 
+> Reported-by: Steven Rostedt <rostedt@goodmis.org>
+> Suggested-by: Steven Rostedt <rostedt@goodmis.org>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+
+Greg please queue this up for 3.10 -stable if you haven't already.
+
+Thanks a lot.
