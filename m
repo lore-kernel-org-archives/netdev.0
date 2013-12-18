@@ -1,37 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] dm9601: work around tx fifo sync issue on dm962x
-Date: Wed, 18 Dec 2013 17:48:01 -0500 (EST)
-Message-ID: <20131218.174801.1302082781180839324.davem@davemloft.net>
-References: <1387190135-17052-1-git-send-email-peter@korsgaard.com>
-	<1387190135-17052-5-git-send-email-peter@korsgaard.com>
+Subject: Re: [PATCH net] ipv6: pmtudisc setting not respected with UFO/CORK
+Date: Wed, 18 Dec 2013 17:53:03 -0500 (EST)
+Message-ID: <20131218.175303.1726920497652378353.davem@davemloft.net>
+References: <20131216113644.GB2215@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joseph_chang@davicom.com.tw,
-	stable@vger.kernel.org
-To: peter@korsgaard.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1387190135-17052-5-git-send-email-peter@korsgaard.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57508 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751146Ab3LRWxF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 17:53:05 -0500
+In-Reply-To: <20131216113644.GB2215@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Peter Korsgaard <peter@korsgaard.com>
-Date: Mon, 16 Dec 2013 11:35:35 +0100
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Mon, 16 Dec 2013 12:36:44 +0100
 
-> Certain dm962x revisions contain an bug, where if a USB bulk transfer retry
-> (E.G. if bulk crc mismatch) happens right after a transfer with odd or
-> maxpacket length, the internal tx hardware fifo gets out of sync causing
-> the interface to stop working.
+> Sockets marked with IPV6_PMTUDISC_PROBE (or later IPV6_PMTUDISC_INTERFACE)
+> don't respect this setting when the outgoing interface supports UFO.
 > 
-> Work around it by adding up to 3 bytes of padding to ensure this situation
-> cannot trigger.
+> We had the same problem in IPv4, which was fixed in commit
+> daba287b299ec7a2c61ae3a714920e90e8396ad5 ("ipv4: fix DO and PROBE pmtu
+> mode regarding local fragmentation with UFO/CORK").
 > 
-> This workaround also means we never pass multiple-of-maxpacket size skb's
-> to usbnet, so the length adjustment to handle usbnet's padding of those can
-> be removed.
+> Also IPV6_DONTFRAG mode did not care about already corked data, thus
+> it may generate a fragmented frame even if this socket option was
+> specified. It also did not care about the length of the ipv6 header and
+> possible options.
 > 
-> Cc: <stable@vger.kernel.org>
-> Reported-by: Joseph Chang <joseph_chang@davicom.com.tw>
-> Signed-off-by: Peter Korsgaard <peter@korsgaard.com>
+> In the error path allow the user to receive the pmtu notifications via
+> both, rxpmtu method or error queue. The user may opted in for both,
+> so deliver the notification to both error handlers (the handlers check
+> if the error needs to be enqueued).
+> 
+> Also report back consistent pmtu values when sending on an already
+> cork-appended socket.
+> 
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Applied.
+Looks good, applied, thanks!
