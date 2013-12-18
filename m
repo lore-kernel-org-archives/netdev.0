@@ -1,58 +1,45 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: Re: [PATCH net-next 2/3] sctp: remove the never used 'return' and,
- redundant 'break'
-Date: Wed, 18 Dec 2013 17:38:29 +0800
-Message-ID: <52B16D15.2010501@huawei.com>
-References: <52B168E0.1060108@huawei.com>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: [PATCH 3/4] tcp: metrics: Delete all entries matching a certain
+ destination
+Date: Wed, 18 Dec 2013 10:58:53 +0100
+Message-ID: <20131218095853.GA5181@cpaasch-mac>
+References: <1387109444-1104-1-git-send-email-christoph.paasch@uclouvain.be>
+ <1387109444-1104-4-git-send-email-christoph.paasch@uclouvain.be>
+ <20131217.145751.53681780657108721.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-sctp@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, ja@ssi.bg
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:28141 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750910Ab3LRJj1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 04:39:27 -0500
-In-Reply-To: <52B168E0.1060108@huawei.com>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:39805 "EHLO
+	smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750910Ab3LRJ7H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 04:59:07 -0500
+Content-Disposition: inline
+In-Reply-To: <20131217.145751.53681780657108721.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/12/18 17:20, Wang Weidong wrote:
-> In switch() had do return, and never use the 'return NULL'. The
-> 'break' after return or goto has no effect. Remove it.
+On 17/12/13 - 14:57:51, David Miller wrote:
+> From: Christoph Paasch <christoph.paasch@uclouvain.be>
+> Date: Sun, 15 Dec 2013 13:10:43 +0100
 > 
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
-> ---
->  net/sctp/input.c | 5 -----
->  1 file changed, 5 deletions(-)
+> > As we now can have multiple entries per destination-IP, the "ip
+> > tcp_metrics delete address ADDRESS" command should delete all of them.
+> > 
+> > Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
 > 
-> diff --git a/net/sctp/input.c b/net/sctp/input.c
-> index 2a192a7..c956dc9 100644
-> --- a/net/sctp/input.c
-> +++ b/net/sctp/input.c
-> @@ -1120,15 +1120,10 @@ static struct sctp_association *__sctp_rcv_lookup_harder(struct net *net,
->  	case SCTP_CID_INIT:
->  	case SCTP_CID_INIT_ACK:
->  		return __sctp_rcv_init_lookup(net, skb, laddr, transportp);
-> -		break;
->  
->  	default:
->  		return __sctp_rcv_walk_lookup(net, skb, laddr, transportp);
-> -		break;
->  	}
-> -
-> -
-> -	return NULL;
->  }
->  
->  /* Lookup an association for an inbound skb. */
+> You have to adjust how you're doing patches #3 and #4.
 > 
+> Create the new attribute for the source address first, then
+> allow the source address to be specified in the deletion
+> command.
+> 
+> Make the source address optional in delete commands, to be
+> compatible with existing tools, and have it mean "ANY".
 
-Sorry for sending the Subject "[PATCH net-next 2/3] ...".
-It is only one patch, not series.
+Thanks for the feedback, David.
+I will resubmit when I have the time to do the changes.
 
-Regards.
-Wang
+
+Christoph
