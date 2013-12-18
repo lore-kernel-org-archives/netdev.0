@@ -1,31 +1,57 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 09/15] net: ixgbe calls skb_set_hash
-Date: Wed, 18 Dec 2013 00:41:06 -0800
-Message-ID: <CAL3LdT7HC0EcYdbTxYe6OEy_cy6EbL1udafhwJA1VWCFv5gG1w@mail.gmail.com>
-References: <alpine.DEB.2.02.1312172324380.24772@tomh.mtv.corp.google.com>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't
+ work.
+Date: Wed, 18 Dec 2013 09:58:52 +0100
+Message-ID: <52B163CC.1030901@broadcom.com>
+References: <1342235583.20131211182804@eikelenboom.it> <CAB=NE6UfumA2xez1DvtDSBDZ72WF_tOozFo_8LRnMryYiSqD-A@mail.gmail.com> <871324710.20131211191104@eikelenboom.it> <CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com> <1937118387.20131216122200@eikelenboom.it> <52AEE60B.6030509@broadcom.com> <19210260274.20131216135644@eikelenboom.it> <CAGRGNgXHemM2FfnXgW5RbzhFT+9SfUfVkjdysK3+=_u3hWSacw@mail.gmail.com> <1534126119.20131217104548@eikelenboom.it> <387552477.20131217213319@eikelenboom.it> <20131217212709.GB5624@decadent.org.uk> <1254825772.20131217224914@eikelenboom.it> <52B153B3.4070903@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Julian Calaby <julian.calaby@gmail.com>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	"Berg, Johannes" <johannes.berg@intel.com>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ilw@linux.intel.com" <ilw@linux.intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Avinash Patil <avinashapatil@gmail.com>
+To: Pontus Fuchs <pontus.fuchs@gmail.com>,
+	Sander Eikelenboom <linux@eikelenboom.it>,
+	Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f41.google.com ([209.85.219.41]:56061 "EHLO
-	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752767Ab3LRIlH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 03:41:07 -0500
-Received: by mail-oa0-f41.google.com with SMTP id j17so7957018oag.0
-        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 00:41:06 -0800 (PST)
-In-Reply-To: <alpine.DEB.2.02.1312172324380.24772@tomh.mtv.corp.google.com>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:51359 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752785Ab3LRI67 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 03:58:59 -0500
+In-Reply-To: <52B153B3.4070903@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 17, 2013 at 11:28 PM, Tom Herbert <therbert@google.com> wrote:
-> Drivers should call skb_set_hash to set the hash and its type
-> in an skbuff.
->
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
->
+On 12/18/2013 08:50 AM, Pontus Fuchs wrote:
+> On 2013-12-17 22:49, Sander Eikelenboom wrote:
+>>
+>> Indeed, I looked for a crda hook for initramfs-tools but didn't find
+>> it, so skipped that idea
+>> for the moment.
+>>
+>> So if i combine the two .. it's essentially just a very bad idea to
+>> compile the wireless stuff in.
+>> It needs a access to a userland program at module load time, or it
+>> will block forever.
+> 
+> The canonical trick to have cfg80211 built in is to execute crda
+> manually in your boot scripts. This will satisfy the initial request and
+> resolve the block.
 
-I have added this patch to my queue, thanks Tom.
+There is a Kconfig option to have the regulatory data built-in the
+kernel as well. Obviously that makes a regulatory update more difficult.
+
+net/wireless/Kconfig:
+config CFG80211_INTERNAL_REGDB
+        bool "use statically compiled regulatory rules database" if EXPERT
+
+Regards,
+AvS
