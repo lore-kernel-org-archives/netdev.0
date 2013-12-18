@@ -1,31 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/9] net: phy: fix checkpatch errors
-Date: Wed, 18 Dec 2013 00:50:16 -0500 (EST)
-Message-ID: <20131218.005016.167554032466421350.davem@davemloft.net>
-References: <1387345093-14168-1-git-send-email-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51612 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750815Ab3LRFuS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 00:50:18 -0500
-In-Reply-To: <1387345093-14168-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wenliang Fan <fanwlexca@gmail.com>
+Subject: [PATCH] drivers/net/wireless/hostap: Integer overflow
+Date: Wed, 18 Dec 2013 13:56:12 +0800
+Message-ID: <1387346172-27863-1-git-send-email-fanwlexca@gmail.com>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Wenliang Fan <fanwlexca@gmail.com>
+To: j@w1.fi, linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 17 Dec 2013 21:38:04 -0800
+The local variable 'value' comes from 'extra', a parameter of function
+'prism2_ioctl_priv_prism2_param'. If a large number passed to 'value',
+there would be an integer overflow in the following line:
+	local->passive_scan_timer.expires = jiffies +
+		local->passive_scan_interval * HZ
 
-> This patchset fixes trivial checkpatch errors, no functional change
-> introduced.
+Signed-off-by: Wenliang Fan <fanwlexca@gmail.com>
+---
+ drivers/net/wireless/hostap/hostap_ioctl.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Series applied.
-
-It would help review in the future if you explicitly stated the
-checkpatch errors you are fixing in your commit messages.
-
-Thanks.
+diff --git a/drivers/net/wireless/hostap/hostap_ioctl.c b/drivers/net/wireless/hostap/hostap_ioctl.c
+index e509030..63e350a 100644
+--- a/drivers/net/wireless/hostap/hostap_ioctl.c
++++ b/drivers/net/wireless/hostap/hostap_ioctl.c
+@@ -2567,7 +2567,7 @@ static int prism2_ioctl_priv_prism2_param(struct net_device *dev,
+ 		local->passive_scan_interval = value;
+ 		if (timer_pending(&local->passive_scan_timer))
+ 			del_timer(&local->passive_scan_timer);
+-		if (value > 0) {
++		if (value > 0 && value < INT_MAX / HZ) {
+ 			local->passive_scan_timer.expires = jiffies +
+ 				local->passive_scan_interval * HZ;
+ 			add_timer(&local->passive_scan_timer);
+-- 
+1.8.5.rc1.28.g7061504
