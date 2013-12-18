@@ -1,37 +1,31 @@
-From: Knut Petersen <Knut_Petersen@t-online.de>
-Subject: Re: [BUG: 3.13.0-rc4] inconsistent lock state
-Date: Wed, 18 Dec 2013 08:54:35 +0100
-Message-ID: <52B154BB.8040506@t-online.de>
-References: <52B09446.7060809@t-online.de> <1387306781.19078.288.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: clear RTF_EXPIRES when call ip6_rt_copy
+Date: Wed, 18 Dec 2013 08:59:24 +0100
+Message-ID: <20131218075924.GE27460@order.stressinduktion.org>
+References: <1387182666-31301-1-git-send-email-roy.qing.li@gmail.com> <52AFC43C.9080804@cn.fujitsu.com> <CAJFZqHwF0ubvxJOs2BWbSMMB1szKNO=XTiXje3E2ByF6sUQrXA@mail.gmail.com> <52AFE7E3.3070806@cn.fujitsu.com> <CAJFZqHxawisUbHGZY8mjGHy8035X6TQ7FNzc20vtS5j1jdZYGA@mail.gmail.com> <20131217070231.GA11970@order.stressinduktion.org> <52B00150.3070002@cn.fujitsu.com> <20131217134823.GC18396@order.stressinduktion.org> <52B0F0C4.1010803@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1387306781.19078.288.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: RongQing Li <roy.qing.li@gmail.com>, netdev@vger.kernel.org
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:35570 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751877Ab3LRH7Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 02:59:25 -0500
+Content-Disposition: inline
+In-Reply-To: <52B0F0C4.1010803@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 17.12.2013 19:59, Eric Dumazet wrote:
-> On Tue, 2013-12-17 at 19:13 +0100, Knut Petersen wrote:
->> Hi Linus / everybody!
->>
->> Booting openSuSE 13.1 with kernel 3.13.0-rc4 triggers the attached
->> warning.
->>
->> cu,
->>    Knut
->>
->>
-> Following patch should solve the issue.
->
-> http://patchwork.ozlabs.org/patch/301382/
+On Wed, Dec 18, 2013 at 08:48:04AM +0800, Gao feng wrote:
+> On 12/17/2013 09:48 PM, Hannes Frederic Sowa wrote:
+> > On Tue, Dec 17, 2013 at 03:46:24PM +0800, Gao feng wrote:
+> >> The from of new cloned rt should not be set if it's impossible for the ort
+> >> to be expired.
+> > 
+> > Actually, why do you think so? What could go wrong?
+> > 
+> 
+> I just don't want rt6_check_expired to check some impossible expired routes.
 
-Indeed, it solves the problem.
-
-cu,
-  Knut
+Only for performance? It does not seem to do any harm?
