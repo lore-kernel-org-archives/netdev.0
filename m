@@ -1,58 +1,63 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: linux-next: build warning in Linus' tree
-Date: Wed, 18 Dec 2013 02:54:37 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF2228664685D5839F@ORSMSX110.amr.corp.intel.com>
-References: <20131218095203.aceb7cfffffa16907feb9af7@canb.auug.org.au>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH net v2 8/9] bridge: Properly check if local fdb entry
+ can be deleted when deleting vlan
+Date: Wed, 18 Dec 2013 11:55:36 +0900
+Message-ID: <1387335336.3563.33.camel@ubuntu-vm-makita>
+References: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	 <1387281821-21342-9-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	 <52B0A75D.90609@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20131218095203.aceb7cfffffa16907feb9af7@canb.auug.org.au>
-Content-Language: en-US
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+To: vyasevic@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:36049 "EHLO
+	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751833Ab3LRCzq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 21:55:46 -0500
+In-Reply-To: <52B0A75D.90609@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Stephen Rothwell
-> Sent: Tuesday, December 17, 2013 2:52 PM
-> To: David Miller; netdev@vger.kernel.org
-> Cc: linux-next@vger.kernel.org; linux-kernel@vger.kernel.org; Fastabend,
-> John R; Neil Horman
-> Subject: linux-next: build warning in Linus' tree
+On Tue, 2013-12-17 at 14:34 -0500, Vlad Yasevich wrote:
+> On 12/17/2013 07:03 AM, Toshiaki Makita wrote:
+> > Vlan codes unconditionally delete local fdb entries.
+> > We should consider the possibility that other ports have the same
+> > address and vlan.
+> > 
+> > Example of problematic case:
+> >   ip link set eth0 address 12:34:56:78:90:ab
+> >   ip link set eth1 address aa:bb:cc:dd:ee:ff
+> >   brctl addif br0 eth0
+> >   brctl addif br0 eth1 # br0 will have mac address 12:34:56:78:90:ab
+> >   bridge vlan add dev eth0 vid 10
+> >   bridge vlan add dev eth1 vid 10
+> >   bridge vlan add dev br0 vid 10 self
+> > We will have fdb entry such that f->dst == eth0, f->vlan_id == 10 and
+> > f->addr == 12:34:56:78:90:ab at this time.
+> > Next, delete eth0 vlan 10.
+> >   bridge vlan del dev eth0 vid 10
+> > In this case, we still need the entry for br0, but it will be deleted.
+> > 
+> > Note that br0 needs the entry even though its mac address is not set
+> > manually. To delete the entry with proper condition checking,
+> > fdb_delete_local() is suitable to use.
+> > 
+> > Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 > 
-> Hi all,
+> Acked-by: Vlad Yasevich <vyasevic@redhat.com>
 > 
-> While building Linus' tree, today's linux-next build (powerpc
-> ppc64_defconfig) produced this warning:
-> 
-> drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c: In function
-> 'ixgbe_pci_sriov_disable':
-> drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c:294:6: warning: unused
-> variable 'current_flags' [-Wunused-variable]
->   u32 current_flags = adapter->flags;
->       ^
-> 
-> Introduced by commit 2a47fa45d4df ("ixgbe: enable l2 forwarding
-> acceleration for macvlans") which was merged before v3.13-rc1.
-> 
-> --
-> Cheers,
-> Stephen Rothwell                    sfr@canb.auug.org.au
+> Note: All these special cases are begging for something in the fdb
+> to track if this fdb refers to multiple ports or not.  May be
+> a list of pointers to ports?  Then we can simply check to see if
+> the list is not empty and assign to the first one in the list..
 
+Maybe the list will simplify fdb_delete_local().
+The difficult point is maintaining the list properly.
+I will think about it more deeply.
 
-Hey Stephen,
-
-Thanks for letting us know about this.   As it turns out we already have a patch to fix this in our internal tree (Jeff K's) just waiting final validation.  It shouldn't be long before he submits it.
-
-Thanks again,
--Don Skidmore <donald.c.skidmore@intel.com>
+Thanks,
+Toshiaki Makita
