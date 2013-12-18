@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/14] i40e: fix up scanf decoders
-Date: Tue, 17 Dec 2013 22:44:32 -0800
-Message-ID: <1387349082-18506-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/14] i40e: simplify error messages for dump descriptor
+Date: Tue, 17 Dec 2013 22:44:31 -0800
+Message-ID: <1387349082-18506-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387349082-18506-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -11,55 +11,62 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:24896 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752747Ab3LRGox (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Dec 2013 01:44:53 -0500
+	id S1752713Ab3LRGow (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Dec 2013 01:44:52 -0500
 In-Reply-To: <1387349082-18506-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-Fix up a couple of scanfs to accept various base numbers instead of silently
-requiring hex.
+debugfs fixes: We don't really need to give usage messages for data errors,
+only for invalid command errors.
 
-Change-Id: I1cc4dffbb1d011bf603cbf34a8db093da57fad7a
+Change-Id: If3f74ac49e43c3ced7fd388323fa738ac145e055
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 16 ++--------------
+ 1 file changed, 2 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index 0768beb..abac831 100644
+index 0ce0664..0768beb 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -1466,7 +1466,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 	} else if (strncmp(cmd_buf, "read", 4) == 0) {
- 		u32 address;
- 		u32 value;
--		cnt = sscanf(&cmd_buf[4], "%x", &address);
-+		cnt = sscanf(&cmd_buf[4], "%i", &address);
- 		if (cnt != 1) {
- 			dev_info(&pf->pdev->dev, "read <reg>\n");
- 			goto command_write_done;
-@@ -1485,7 +1485,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+@@ -766,20 +766,11 @@ static void i40e_dbg_dump_desc(int cnt, int vsi_seid, int ring_id, int desc_n,
  
- 	} else if (strncmp(cmd_buf, "write", 5) == 0) {
- 		u32 address, value;
--		cnt = sscanf(&cmd_buf[5], "%x %x", &address, &value);
-+		cnt = sscanf(&cmd_buf[5], "%i %i", &address, &value);
- 		if (cnt != 2) {
- 			dev_info(&pf->pdev->dev, "write <reg> <value>\n");
- 			goto command_write_done;
-@@ -1503,7 +1503,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 			 address, value);
- 	} else if (strncmp(cmd_buf, "clear_stats", 11) == 0) {
- 		if (strncmp(&cmd_buf[12], "vsi", 3) == 0) {
--			cnt = sscanf(&cmd_buf[15], "%d", &vsi_seid);
-+			cnt = sscanf(&cmd_buf[15], "%i", &vsi_seid);
- 			if (cnt == 0) {
- 				int i;
- 				for (i = 0; i < pf->hw.func_caps.num_vsis; i++)
+ 	vsi = i40e_dbg_find_vsi(pf, vsi_seid);
+ 	if (!vsi) {
+-		dev_info(&pf->pdev->dev,
+-			 "vsi %d not found\n", vsi_seid);
+-		if (is_rx_ring)
+-			dev_info(&pf->pdev->dev, "dump desc rx <vsi_seid> <ring_id> [<desc_n>]\n");
+-		else
+-			dev_info(&pf->pdev->dev, "dump desc tx <vsi_seid> <ring_id> [<desc_n>]\n");
++		dev_info(&pf->pdev->dev, "vsi %d not found\n", vsi_seid);
+ 		return;
+ 	}
+ 	if (ring_id >= vsi->num_queue_pairs || ring_id < 0) {
+ 		dev_info(&pf->pdev->dev, "ring %d not found\n", ring_id);
+-		if (is_rx_ring)
+-			dev_info(&pf->pdev->dev, "dump desc rx <vsi_seid> <ring_id> [<desc_n>]\n");
+-		else
+-			dev_info(&pf->pdev->dev, "dump desc tx <vsi_seid> <ring_id> [<desc_n>]\n");
+ 		return;
+ 	}
+ 	if (!vsi->tx_rings) {
+@@ -836,10 +827,7 @@ static void i40e_dbg_dump_desc(int cnt, int vsi_seid, int ring_id, int desc_n,
+ 				 desc_n, ds->read.pkt_addr, ds->read.hdr_addr,
+ 				 ds->read.rsvd1, ds->read.rsvd2);
+ 	} else {
+-		if (is_rx_ring)
+-			dev_info(&pf->pdev->dev, "dump desc rx <vsi_seid> <ring_id> [<desc_n>]\n");
+-		else
+-			dev_info(&pf->pdev->dev, "dump desc tx <vsi_seid> <ring_id> [<desc_n>]\n");
++		dev_info(&pf->pdev->dev, "dump desc rx/tx <vsi_seid> <ring_id> [<desc_n>]\n");
+ 	}
+ }
+ 
 -- 
 1.8.3.1
