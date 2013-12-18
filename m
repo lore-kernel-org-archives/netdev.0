@@ -1,191 +1,49 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/14] i40e: make functions static and remove dead code
-Date: Tue, 17 Dec 2013 22:44:37 -0800
-Message-ID: <1387349082-18506-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/14] i40e: Fix off by one in i40e_dbg_command_write
+Date: Tue, 17 Dec 2013 22:44:36 -0800
+Message-ID: <1387349082-18506-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387349082-18506-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Alan Cox <alan@linux.intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:24896 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752817Ab3LRGo7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752804Ab3LRGo7 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 18 Dec 2013 01:44:59 -0500
 In-Reply-To: <1387349082-18506-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
+From: Alan Cox <alan@linux.intel.com>
 
-Make local functions static in the file they are used.
+We assume that the resulting buffer is zero terminated when we then
+re-use it. The sscanf is limited to 512 bytes but needs to be 511
+to allow for a terminator.
 
-Remove functions i40e_aq_add_vlan and i40e_aq_remove_vlan since
-they are not used anywhere by current code.
+One of a set of problems noted by Jackie Chang
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: Alan Cox <alan@linux.intel.com>
+Acked-by: Shannon Nelson <Shannon.nelson@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq.c    |  6 +-
- drivers/net/ethernet/intel/i40e/i40e_common.c    | 80 ------------------------
- drivers/net/ethernet/intel/i40e/i40e_prototype.h |  8 ---
- 3 files changed, 4 insertions(+), 90 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index 30f32f3..c7e2866 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -31,6 +31,8 @@
- #include "i40e_adminq.h"
- #include "i40e_prototype.h"
- 
-+static void i40e_resume_aq(struct i40e_hw *hw);
-+
- /**
-  *  i40e_adminq_init_regs - Initialize AdminQ registers
-  *  @hw: pointer to the hardware structure
-@@ -675,7 +677,7 @@ static u16 i40e_clean_asq(struct i40e_hw *hw)
-  *  Returns true if the firmware has processed all descriptors on the
-  *  admin send queue. Returns false if there are still requests pending.
-  **/
--bool i40e_asq_done(struct i40e_hw *hw)
-+static bool i40e_asq_done(struct i40e_hw *hw)
- {
- 	/* AQ designers suggest use of head for better
- 	 * timing reliability than DD bit
-@@ -963,7 +965,7 @@ clean_arq_element_out:
- 	return ret_code;
- }
- 
--void i40e_resume_aq(struct i40e_hw *hw)
-+static void i40e_resume_aq(struct i40e_hw *hw)
- {
- 	u32 reg = 0;
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index e526d40..8b6d56a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -1129,86 +1129,6 @@ i40e_status i40e_aq_remove_macvlan(struct i40e_hw *hw, u16 seid,
- }
- 
- /**
-- * i40e_aq_add_vlan - Add VLAN ids to the HW filtering
-- * @hw: pointer to the hw struct
-- * @seid: VSI for the vlan filters
-- * @v_list: list of vlan filters to be added
-- * @count: length of the list
-- * @cmd_details: pointer to command details structure or NULL
-- **/
--i40e_status i40e_aq_add_vlan(struct i40e_hw *hw, u16 seid,
--			struct i40e_aqc_add_remove_vlan_element_data *v_list,
--			u8 count, struct i40e_asq_cmd_details *cmd_details)
--{
--	struct i40e_aq_desc desc;
--	struct i40e_aqc_macvlan *cmd =
--		(struct i40e_aqc_macvlan *)&desc.params.raw;
--	i40e_status status;
--	u16 buf_size;
--
--	if (count == 0 || !v_list || !hw)
--		return I40E_ERR_PARAM;
--
--	buf_size = count * sizeof(struct i40e_aqc_add_remove_vlan_element_data);
--
--	/* prep the rest of the request */
--	i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_add_vlan);
--	cmd->num_addresses = cpu_to_le16(count);
--	cmd->seid[0] = cpu_to_le16(seid | I40E_AQC_MACVLAN_CMD_SEID_VALID);
--	cmd->seid[1] = 0;
--	cmd->seid[2] = 0;
--
--	desc.flags |= cpu_to_le16((u16)(I40E_AQ_FLAG_BUF | I40E_AQ_FLAG_RD));
--	if (buf_size > I40E_AQ_LARGE_BUF)
--		desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_LB);
--
--	status = i40e_asq_send_command(hw, &desc, v_list, buf_size,
--				       cmd_details);
--
--	return status;
--}
--
--/**
-- * i40e_aq_remove_vlan - Remove VLANs from the HW filtering
-- * @hw: pointer to the hw struct
-- * @seid: VSI for the vlan filters
-- * @v_list: list of macvlans to be removed
-- * @count: length of the list
-- * @cmd_details: pointer to command details structure or NULL
-- **/
--i40e_status i40e_aq_remove_vlan(struct i40e_hw *hw, u16 seid,
--			struct i40e_aqc_add_remove_vlan_element_data *v_list,
--			u8 count, struct i40e_asq_cmd_details *cmd_details)
--{
--	struct i40e_aq_desc desc;
--	struct i40e_aqc_macvlan *cmd =
--		(struct i40e_aqc_macvlan *)&desc.params.raw;
--	i40e_status status;
--	u16 buf_size;
--
--	if (count == 0 || !v_list || !hw)
--		return I40E_ERR_PARAM;
--
--	buf_size = count * sizeof(struct i40e_aqc_add_remove_vlan_element_data);
--
--	/* prep the rest of the request */
--	i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_remove_vlan);
--	cmd->num_addresses = cpu_to_le16(count);
--	cmd->seid[0] = cpu_to_le16(seid | I40E_AQC_MACVLAN_CMD_SEID_VALID);
--	cmd->seid[1] = 0;
--	cmd->seid[2] = 0;
--
--	desc.flags |= cpu_to_le16((u16)(I40E_AQ_FLAG_BUF | I40E_AQ_FLAG_RD));
--	if (buf_size > I40E_AQ_LARGE_BUF)
--		desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_LB);
--
--	status = i40e_asq_send_command(hw, &desc, v_list, buf_size,
--				       cmd_details);
--
--	return status;
--}
--
--/**
-  * i40e_aq_send_msg_to_vf
-  * @hw: pointer to the hardware structure
-  * @vfid: vf id to send msg
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-index 930f53a..2fc9ce5 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-@@ -51,7 +51,6 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
- 				void *buff, /* can be NULL */
- 				u16  buff_size,
- 				struct i40e_asq_cmd_details *cmd_details);
--bool i40e_asq_done(struct i40e_hw *hw);
- 
- /* debug function for adminq */
- void i40e_debug_aq(struct i40e_hw *hw,
-@@ -60,7 +59,6 @@ void i40e_debug_aq(struct i40e_hw *hw,
- 		   void *buffer);
- 
- void i40e_idle_aq(struct i40e_hw *hw);
--void i40e_resume_aq(struct i40e_hw *hw);
- 
- u32 i40e_led_get(struct i40e_hw *hw);
- void i40e_led_set(struct i40e_hw *hw, u32 mode);
-@@ -120,12 +118,6 @@ i40e_status i40e_aq_add_macvlan(struct i40e_hw *hw, u16 vsi_id,
- i40e_status i40e_aq_remove_macvlan(struct i40e_hw *hw, u16 vsi_id,
- 			struct i40e_aqc_remove_macvlan_element_data *mv_list,
- 			u16 count, struct i40e_asq_cmd_details *cmd_details);
--i40e_status i40e_aq_add_vlan(struct i40e_hw *hw, u16 vsi_id,
--			struct i40e_aqc_add_remove_vlan_element_data *v_list,
--			u8 count, struct i40e_asq_cmd_details *cmd_details);
--i40e_status i40e_aq_remove_vlan(struct i40e_hw *hw, u16 vsi_id,
--			struct i40e_aqc_add_remove_vlan_element_data *v_list,
--			u8 count, struct i40e_asq_cmd_details *cmd_details);
- i40e_status i40e_aq_send_msg_to_vf(struct i40e_hw *hw, u16 vfid,
- 				u32 v_opcode, u32 v_retval, u8 *msg, u16 msglen,
- 				struct i40e_asq_cmd_details *cmd_details);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index aaa2b5c..e201060 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -1547,7 +1547,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 		if (strncmp(cmd_buf, "add", 3) == 0)
+ 			add = true;
+ 		cnt = sscanf(&cmd_buf[13],
+-			     "%hx %2hhx %2hhx %hx %2hhx %2hhx %hx %x %hd %512s",
++			     "%hx %2hhx %2hhx %hx %2hhx %2hhx %hx %x %hd %511s",
+ 			     &fd_data.q_index,
+ 			     &fd_data.flex_off, &fd_data.pctype,
+ 			     &fd_data.dest_vsi, &fd_data.dest_ctl,
 -- 
 1.8.3.1
