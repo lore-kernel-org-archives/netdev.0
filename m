@@ -1,17 +1,17 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 07/15] net: i40e calls skb_set_hash
-Date: Tue, 17 Dec 2013 23:27:30 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1312172325550.24389@tomh.mtv.corp.google.com>
+Subject: [PATCH 08/15] net: igb calls skb_set_hash
+Date: Tue, 17 Dec 2013 23:27:43 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1312172325170.24419@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f74.google.com ([209.85.219.74]:35993 "EHLO
-	mail-oa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751249Ab3LRH1b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 02:27:31 -0500
-Received: by mail-oa0-f74.google.com with SMTP id o6so1460125oag.5
-        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 23:27:31 -0800 (PST)
+Received: from mail-ie0-f201.google.com ([209.85.223.201]:34450 "EHLO
+	mail-ie0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751249Ab3LRH1o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 02:27:44 -0500
+Received: by mail-ie0-f201.google.com with SMTP id at1so1461477iec.0
+        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 23:27:43 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -20,22 +20,23 @@ in an skbuff.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/igb/igb_main.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 01d0334..2447d1c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1031,7 +1031,8 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 			goto next_desc;
- 		}
- 
--		skb->rxhash = i40e_rx_hash(rx_ring, rx_desc);
-+		skb_set_hash(skb, i40e_rx_hash(rx_ring, rx_desc),
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 3bc10bd..e23182a 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -6606,7 +6606,9 @@ static inline void igb_rx_hash(struct igb_ring *ring,
+ 			       struct sk_buff *skb)
+ {
+ 	if (ring->netdev->features & NETIF_F_RXHASH)
+-		skb->rxhash = le32_to_cpu(rx_desc->wb.lower.hi_dword.rss);
++		skb_set_hash(skb,
++			     le32_to_cpu(rx_desc->wb.lower.hi_dword.rss),
 +			     PKT_HASH_TYPE_L3);
- 		i40e_rx_checksum(vsi, skb, rx_status, rx_error);
+ }
  
- 		/* probably a little skewed due to removing CRC */
+ /**
 -- 
 1.8.5.1
