@@ -1,44 +1,136 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] net: neighbour: add neighbour dead check for neigh_timer_handler()
-Date: Wed, 18 Dec 2013 10:28:15 +0100
-Message-ID: <20131218092815.GA3505@order.stressinduktion.org>
-References: <1386138457.30495.86.camel@edumazet-glaptop2.roam.corp.google.com> <529EF30A.4050609@huawei.com> <1386170645.30495.108.camel@edumazet-glaptop2.roam.corp.google.com> <529FC980.8020101@cn.fujitsu.com> <529FF066.1070307@huawei.com> <52B142AF.8070708@huawei.com> <20131218075131.GD27460@order.stressinduktion.org> <52B15A9F.6030301@huawei.com> <20131218084106.GF27460@order.stressinduktion.org> <52B1635D.7020205@huawei.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next v2 0/6] slight optimization of addr compare for
+ some modules
+Date: Wed, 18 Dec 2013 17:35:09 +0800
+Message-ID: <52B16C4D.1020807@huawei.com>
+References: <52AEB8B3.5010405@huawei.com>	 <1387205111.18217.7.camel@joe-AO722> <52AF13F4.5040409@gmail.com>	 <1387207006.18217.28.camel@joe-AO722> <1387214748.18217.52.camel@joe-AO722>	 <52AFAFDC.2080807@huawei.com> <52B1611E.4090608@huawei.com> <1387358236.13593.36.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
-	joe@perches.com, vfalico@redhat.com, netdev@vger.kernel.org
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ding Tianhong <dthxman@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:35772 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751016Ab3LRJ2R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 04:28:17 -0500
-Content-Disposition: inline
-In-Reply-To: <52B1635D.7020205@huawei.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:35123 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750910Ab3LRJfg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 04:35:36 -0500
+In-Reply-To: <1387358236.13593.36.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 18, 2013 at 04:57:01PM +0800, Ding Tianhong wrote:
-> On 2013/12/18 16:41, Hannes Frederic Sowa wrote:
-> > On Wed, Dec 18, 2013 at 04:19:43PM +0800, Ding Tianhong wrote:
-> >> 0xffffffff812f8e29 <neigh_timer_handler+265>:   mov    0xe8(%rbx),%rax
-> >> 0xffffffff812f8e30 <neigh_timer_handler+272>:   mov    %rbp,%rsi
-> >> 0xffffffff812f8e33 <neigh_timer_handler+275>:   mov    %rbx,%rdi
-> >> 0xffffffff812f8e36 <neigh_timer_handler+278>:   callq  *0x8(%rax)						<-----crash
-> >> /usr/src/linux/net/core/neighbour.c: 877
-> >> 0xffffffff812f8e39 <neigh_timer_handler+281>:   lea    0x3c(%rbx),%rax
-> > 
-> > For me it looks like this:
-> > 
-> > %rax is neigh->ops and the function pointer solicit is NULL and causes the the
-> > page fault.
-> > 
-> > 
-> yes, it is. So I was trying to find the situation that may free the neighbour when
-> the timer is running, but I could not yet.
+On 2013/12/18 17:17, Joe Perches wrote:
+> On Wed, 2013-12-18 at 16:47 +0800, Ding Tianhong wrote:
+>> On 2013/12/17 9:58, Ding Tianhong wrote:
+>>> On 2013/12/17 1:25, Joe Perches wrote:
+>>>> These should still be inspected for appropriate use of
+>>>> ether_addr_equal or ether_addr_equal_unaligned, but a
+>>>> better cocci input sp-file is:
+>>>>
+>>>> $ cat ether_addr_equal_unaligned.cocci 
+>>>> @@
+>>>> expression e1;
+>>>> expression e2;
+>>>> @@
+> []
+>> There are too many places need to be changed, should I make it in one patch or several pathset,
+>> pls give me some advise. thanks
+> 
+> Separate per-maintainer patches are generally good.
+> It can take several attempts to get these applied
+> in all the various trees.
+> 
+> So maybe 1 patch for each of most of these.  Maybe
+> some of these like drivers/media, drivers/mtd and
+> drivers/staging could probably be single patches.
+> 
+> $ git grep --name-only -E "\bmemcmp\s*\([^,]+,[^,]+,\s*(ETH_ALEN|6)\s*\)"| \
+>   sed -r 's@\w+.[ch]$@@' | sort | uniq
+> arch/x86/kernel/apic/
+> block/partitions/
+> drivers/atm/
+> drivers/infiniband/hw/mlx4/
+> drivers/infiniband/ulp/ipoib/
+> drivers/isdn/i4l/
+> drivers/media/dvb-core/
+> drivers/media/usb/gspca/
+> drivers/mtd/
+> drivers/mtd/nand/
+> drivers/net/bonding/
+> drivers/net/ethernet/amd/
+> drivers/net/ethernet/atheros/atlx/
+> drivers/net/ethernet/broadcom/bnx2x/
+> drivers/net/ethernet/chelsio/cxgb3/
+> drivers/net/ethernet/cisco/enic/
+> drivers/net/ethernet/emulex/benet/
+> drivers/net/ethernet/freescale/
+> drivers/net/ethernet/intel/igbvf/
+> drivers/net/ethernet/mellanox/mlx4/
+> drivers/net/ethernet/micrel/
+> drivers/net/ethernet/neterion/vxge/vxge-
+> drivers/net/ethernet/qlogic/netxen/
+> drivers/net/ethernet/qlogic/qlcnic/
+> drivers/net/ethernet/renesas/
+> drivers/net/ethernet/seeq/
+> drivers/net/ethernet/sun/
+> drivers/net/ethernet/ti/
+> drivers/net/fddi/skfp/
+> drivers/net/hamradio/
+> drivers/net/plip/
+> drivers/net/ppp/
+> drivers/net/wireless/
+> drivers/net/wireless/ath/ath10k/
+> drivers/net/wireless/ath/ath6kl/
+> drivers/net/wireless/ath/wcn36xx/
+> drivers/net/wireless/ath/wil6210/
+> drivers/net/wireless/brcm80211/brcmfmac/
+> drivers/net/wireless/cw1200/
+> drivers/net/wireless/hostap/
+> drivers/net/wireless/ipw2x00/
+> drivers/net/wireless/libertas/
+> drivers/net/wireless/mwifiex/
+> drivers/net/wireless/orinoco/
+> drivers/net/wireless/prism54/
+> drivers/net/wireless/rtlwifi/
+> drivers/net/wireless/ti/wl1251/
+> drivers/net/wireless/zd1211rw/
+> drivers/s390/net/
+> drivers/scsi/sym53c8xx_2/
+> drivers/staging/ozwpan/
+> drivers/staging/rtl8187se/
+> drivers/staging/rtl8187se/ieee80211/
+> drivers/staging/rtl8188eu/core/
+> drivers/staging/rtl8188eu/os_dep/
+> drivers/staging/rtl8192e/
+> drivers/staging/rtl8192u/ieee80211/
+> drivers/staging/rtl8712/
+> drivers/staging/vt6655/
+> drivers/staging/vt6656/
+> drivers/staging/wlan-ng/
+> drivers/target/iscsi/
+> drivers/usb/atm/
+> drivers/usb/storage/
+> drivers/video/matrox/
+> fs/sysv/
+> include/linux/
+> init/
+> net/batman-adv/
+> net/batman-adv/translation-
+> net/bluetooth/bnep/
+> net/bluetooth/hidp/
+> net/bridge/
+> net/caif/
+> net/mac80211/
+> net/sunrpc/auth_gss/
+> scripts/
+> 
+> 
 
-Hm. Ok. It is actually ops which is NULL, not the function pointer, may bad.
+great, thanks, my team could make it together.
 
-Could you try to follow param or table links and check if this is an arp or
-ndisc one? Maybe some interactions with arp.c or ndisc.c causes this bug?
+Regards
+Ding
+
+> .
+> 
