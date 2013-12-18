@@ -1,75 +1,70 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/5] net: allow netdev_all_upper_get_next_dev_rcu with rtnl lock held
-Date: Tue, 17 Dec 2013 23:19:42 -0800
-Message-ID: <1387351186-23389-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 2/5] e1000e: fix compiler warnings
+Date: Tue, 17 Dec 2013 23:19:43 -0800
+Message-ID: <1387351186-23389-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387351186-23389-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Veaceslav Falico <vfalico@redhat.com>,
+Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:58137 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751068Ab3LRHTt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751251Ab3LRHTt (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 18 Dec 2013 02:19:49 -0500
 In-Reply-To: <1387351186-23389-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+From: David Ertman <davidx.m.ertman@intel.com>
 
-It is useful to be able to walk all upper devices when bringing
-a device online where the RTNL lock is held. In this case it
-is safe to walk the all_adj_list because the RTNL lock is used
-to protect the write side as well.
+This patch is to fix a compiler warning of __bad_udelay due to a value
+of >999 being passed as a parameter to udelay() in the function
+e1000e_phy_has_link_generic().  This affects the gcc compiler when
+it is given a flag of -O3 and the icc compiler.
 
-This patch adds a check to see if the rtnl lock is held before
-throwing a warning in netdev_all_upper_get_next_dev_rcu().
+This patch is also making the change from mdelay() to msleep() in the
+same function, since it was determined though code inspection that this
+function is never called in atomic context.
 
-Also because we now have a call site for lockdep_rtnl_is_held()
-outside COFIG_LOCK_PROVING an inline definition returning 1 is
-needed. Similar to the rcu_read_lock_is_held().
-
-Fixes: 2a47fa45d4df ("ixgbe: enable l2 forwarding acceleration for macvlans")
-CC: Veaceslav Falico <vfalico@redhat.com>
-Reported-by: Yuanhan Liu <yuanhan.liu@linux.intel.com>
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: David Ertman <davidx.m.ertman@intel.com>
+Acked-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- include/linux/rtnetlink.h | 5 +++++
- net/core/dev.c            | 2 +-
- 2 files changed, 6 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/e1000e/phy.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index 939428a..8e3e66a 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -24,6 +24,11 @@ extern int rtnl_trylock(void);
- extern int rtnl_is_locked(void);
- #ifdef CONFIG_PROVE_LOCKING
- extern int lockdep_rtnl_is_held(void);
-+#else
-+static inline int lockdep_rtnl_is_held(void)
-+{
-+	return 1;
-+}
- #endif /* #ifdef CONFIG_PROVE_LOCKING */
- 
- /**
-diff --git a/net/core/dev.c b/net/core/dev.c
-index ba3b7ea..4fc1722 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4500,7 +4500,7 @@ struct net_device *netdev_all_upper_get_next_dev_rcu(struct net_device *dev,
- {
- 	struct netdev_adjacent *upper;
- 
--	WARN_ON_ONCE(!rcu_read_lock_held());
-+	WARN_ON_ONCE(!rcu_read_lock_held() && !lockdep_rtnl_is_held());
- 
- 	upper = list_entry_rcu((*iter)->next, struct netdev_adjacent, list);
- 
+diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
+index da2be59..20e71f4 100644
+--- a/drivers/net/ethernet/intel/e1000e/phy.c
++++ b/drivers/net/ethernet/intel/e1000e/phy.c
+@@ -1757,19 +1757,23 @@ s32 e1000e_phy_has_link_generic(struct e1000_hw *hw, u32 iterations,
+ 		 * it across the board.
+ 		 */
+ 		ret_val = e1e_rphy(hw, MII_BMSR, &phy_status);
+-		if (ret_val)
++		if (ret_val) {
+ 			/* If the first read fails, another entity may have
+ 			 * ownership of the resources, wait and try again to
+ 			 * see if they have relinquished the resources yet.
+ 			 */
+-			udelay(usec_interval);
++			if (usec_interval >= 1000)
++				msleep(usec_interval / 1000);
++			else
++				udelay(usec_interval);
++		}
+ 		ret_val = e1e_rphy(hw, MII_BMSR, &phy_status);
+ 		if (ret_val)
+ 			break;
+ 		if (phy_status & BMSR_LSTATUS)
+ 			break;
+ 		if (usec_interval >= 1000)
+-			mdelay(usec_interval / 1000);
++			msleep(usec_interval / 1000);
+ 		else
+ 			udelay(usec_interval);
+ 	}
 -- 
 1.8.3.1
