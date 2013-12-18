@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 09/12] bna: Handle the TX Setup Failures
-Date: Tue, 17 Dec 2013 17:07:39 -0800
-Message-ID: <1387328862-27213-10-git-send-email-rmody@brocade.com>
+Subject: [net-next 10/12] bna: Embed SKB Length in TX Vector
+Date: Tue, 17 Dec 2013 17:07:40 -0800
+Message-ID: <1387328862-27213-11-git-send-email-rmody@brocade.com>
 References: <1387328862-27213-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,63 +10,65 @@ Cc: <netdev@vger.kernel.org>,
 	Rasesh Mody <rmody@Brocade.COM>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:48595 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752286Ab3LRBIt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 20:08:49 -0500
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:10513 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751885Ab3LRBIy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 20:08:54 -0500
 In-Reply-To: <1387328862-27213-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change details:
- - When bnad_setup_tx() returns NULL, the error is NOT returned to the caller.
-   The caller will incorrectly assume success. So Return ENOMEM when bna_tx_create()
-   fails.
- - If bnad_tx_msix_register() fails, call bna_tx_destroy() to free tx & to NULL
-   the bnad reference to tcb.
+ - Store the length of the skb buffer mapped along with the handle and use it
+   while unmapping the buffer.
 
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bnad.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/brocade/bna/bnad.c | 6 ++++--
+ drivers/net/ethernet/brocade/bna/bnad.h | 1 +
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index 8278ab5..ad8dd75 100644
+index ad8dd75..0d7a304 100644
 --- a/drivers/net/ethernet/brocade/bna/bnad.c
 +++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -1999,8 +1999,10 @@ bnad_setup_tx(struct bnad *bnad, u32 tx_id)
- 	tx = bna_tx_create(&bnad->bna, bnad, tx_config, &tx_cbfn, res_info,
- 			tx_info);
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
--	if (!tx)
-+	if (!tx) {
-+		err = -ENOMEM;
- 		goto err_return;
-+	}
- 	tx_info->tx = tx;
+@@ -142,7 +142,8 @@ bnad_tx_buff_unmap(struct bnad *bnad,
  
- 	INIT_DELAYED_WORK(&tx_info->tx_cleanup_work,
-@@ -2011,7 +2013,7 @@ bnad_setup_tx(struct bnad *bnad, u32 tx_id)
- 		err = bnad_tx_msix_register(bnad, tx_info,
- 			tx_id, bnad->num_txq_per_tx);
- 		if (err)
--			goto err_return;
-+			goto cleanup_tx;
+ 		dma_unmap_page(&bnad->pcidev->dev,
+ 			dma_unmap_addr(&unmap->vectors[vector], dma_addr),
+-			skb_shinfo(skb)->frags[nvecs].size, DMA_TO_DEVICE);
++			dma_unmap_len(&unmap->vectors[vector], dma_len),
++			DMA_TO_DEVICE);
+ 		dma_unmap_addr_set(&unmap->vectors[vector], dma_addr, 0);
+ 		nvecs--;
  	}
+@@ -3045,7 +3046,7 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
  
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
-@@ -2020,6 +2022,12 @@ bnad_setup_tx(struct bnad *bnad, u32 tx_id)
+ 	for (i = 0, vect_id = 0; i < vectors - 1; i++) {
+ 		const struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[i];
+-		u16		size = skb_frag_size(frag);
++		u32		size = skb_frag_size(frag);
  
- 	return 0;
+ 		if (unlikely(size == 0)) {
+ 			/* Undo the changes starting at tcb->producer_index */
+@@ -3070,6 +3071,7 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
  
-+cleanup_tx:
-+	spin_lock_irqsave(&bnad->bna_lock, flags);
-+	bna_tx_destroy(tx_info->tx);
-+	spin_unlock_irqrestore(&bnad->bna_lock, flags);
-+	tx_info->tx = NULL;
-+	tx_info->tx_id = 0;
- err_return:
- 	bnad_tx_res_free(bnad, res_info);
- 	return err;
+ 		dma_addr = skb_frag_dma_map(&bnad->pcidev->dev, frag,
+ 					    0, size, DMA_TO_DEVICE);
++		unmap->vectors[vect_id].dma_len = size;
+ 		BNA_SET_DMA_ADDR(dma_addr, &txqent->vector[vect_id].host_addr);
+ 		txqent->vector[vect_id].length = htons(size);
+ 		dma_unmap_addr_set(&unmap->vectors[vect_id], dma_addr,
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
+index 3cdc88e..e174e22 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.h
++++ b/drivers/net/ethernet/brocade/bna/bnad.h
+@@ -222,6 +222,7 @@ struct bnad_rx_info {
+ 
+ struct bnad_tx_vector {
+ 	DEFINE_DMA_UNMAP_ADDR(dma_addr);
++	DEFINE_DMA_UNMAP_LEN(dma_len);
+ };
+ 
+ struct bnad_tx_unmap {
 -- 
 1.8.2.3
