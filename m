@@ -1,7 +1,8 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 00/12] bna: Update the Driver to v3.2.23.0
-Date: Tue, 17 Dec 2013 17:07:30 -0800
-Message-ID: <1387328862-27213-1-git-send-email-rmody@brocade.com>
+Subject: [net-next 01/12] bna: Add software timestamping support
+Date: Tue, 17 Dec 2013 17:07:31 -0800
+Message-ID: <1387328862-27213-2-git-send-email-rmody@brocade.com>
+References: <1387328862-27213-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>,
@@ -9,55 +10,47 @@ Cc: <netdev@vger.kernel.org>,
 	Rasesh Mody <rmody@Brocade.COM>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:15888 "EHLO
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:3411 "EHLO
 	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751474Ab3LRBIG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 20:08:06 -0500
+	by vger.kernel.org with ESMTP id S1752165Ab3LRBIM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 20:08:12 -0500
+In-Reply-To: <1387328862-27213-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+ - Invoke skb_tx_timestamp() API just before invoking txq_doorbell()
+ - Add ethtool (-T) support
 
-This patch set consists of feature additions like s/w timestamping support,
-multi-buffer RX, firmware patch simplification, enhancements for RX filters,
-RX processing changes, bug fixes and updates the firmware version to v3.2.3.0.
-The patch set addressed the review commnets recieved.
+Signed-off-by: Rasesh Mody <rmody@brocade.com>
+---
+ drivers/net/ethernet/brocade/bna/bnad.c         | 2 ++
+ drivers/net/ethernet/brocade/bna/bnad_ethtool.c | 1 +
+ 2 files changed, 3 insertions(+)
 
-This patch set updates the BNA driver to v3.2.23.0 and was tested against
-net-next 3.12.0-rc6 kernel.
-
-Thanks
-Rasesh
-
-Rasesh Mody (12):
-  bna: Add software timestamping support
-  bna: Set Get IOC fw State
-  bna: Fix Filter Add Del
-  bna: RX Filter Enhancements
-  bna: Enable Multi Buffer RX
-  bna: RX Processing and Config Changes
-  bna: CQ Read Fix
-  bna: Add NULL Check Before Dereferencing TCB
-  bna: Handle the TX Setup Failures
-  bna: Embed SKB Length in TX Vector
-  bna: Firmware Patch Simplification
-  bna: Update the Driver Version to 3.2.23.0
-
- drivers/net/ethernet/brocade/bna/bfa_ioc.c      | 650 ++++++++++++++++++++++--
- drivers/net/ethernet/brocade/bna/bfa_ioc.h      |   8 +
- drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c   |  40 ++
- drivers/net/ethernet/brocade/bna/bfi.h          |  33 +-
- drivers/net/ethernet/brocade/bna/bfi_enet.h     |   3 +-
- drivers/net/ethernet/brocade/bna/bna.h          |  24 +-
- drivers/net/ethernet/brocade/bna/bna_enet.c     |  58 ++-
- drivers/net/ethernet/brocade/bna/bna_hw_defs.h  |   4 +
- drivers/net/ethernet/brocade/bna/bna_tx_rx.c    | 251 +++++++--
- drivers/net/ethernet/brocade/bna/bna_types.h    |  57 ++-
- drivers/net/ethernet/brocade/bna/bnad.c         | 554 ++++++++++++++------
- drivers/net/ethernet/brocade/bna/bnad.h         |  25 +-
- drivers/net/ethernet/brocade/bna/bnad_ethtool.c |   1 +
- drivers/net/ethernet/brocade/bna/cna.h          |   4 +-
- 14 files changed, 1420 insertions(+), 292 deletions(-)
-
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index f276433..9b1c550 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -2911,6 +2911,8 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 	if (unlikely(!test_bit(BNAD_TXQ_TX_STARTED, &tcb->flags)))
+ 		return NETDEV_TX_OK;
+ 
++	skb_tx_timestamp(skb);
++
+ 	bna_txq_prod_indx_doorbell(tcb);
+ 	smp_mb();
+ 
+diff --git a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+index 455b5a2..f9e1508 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
++++ b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+@@ -1131,6 +1131,7 @@ static const struct ethtool_ops bnad_ethtool_ops = {
+ 	.get_eeprom = bnad_get_eeprom,
+ 	.set_eeprom = bnad_set_eeprom,
+ 	.flash_device = bnad_flash_device,
++	.get_ts_info = ethtool_op_get_ts_info,
+ };
+ 
+ void
 -- 
 1.8.2.3
