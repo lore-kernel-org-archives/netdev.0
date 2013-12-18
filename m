@@ -1,43 +1,58 @@
-From: Chen Weilong <chenweilong@huawei.com>
-Subject: [PATCH] mac802154: fix following checkpath.pl warning Prefer pr_warn(... to pr_warning(...
-Date: Wed, 18 Dec 2013 17:36:04 +0800
-Message-ID: <1387359364-5892-1-git-send-email-chenweilong@huawei.com>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: Re: [PATCH net-next 2/3] sctp: remove the never used 'return' and,
+ redundant 'break'
+Date: Wed, 18 Dec 2013 17:38:29 +0800
+Message-ID: <52B16D15.2010501@huawei.com>
+References: <52B168E0.1060108@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>, <alex.bluesman.smirnov@gmail.com>,
-	<dbaryshkov@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-sctp@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:35400 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752098Ab3LRJg1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 04:36:27 -0500
+Received: from szxga03-in.huawei.com ([119.145.14.66]:28141 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750910Ab3LRJj1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 04:39:27 -0500
+In-Reply-To: <52B168E0.1060108@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Weilong Chen <chenweilong@huawei.com>
+On 2013/12/18 17:20, Wang Weidong wrote:
+> In switch() had do return, and never use the 'return NULL'. The
+> 'break' after return or goto has no effect. Remove it.
+> 
+> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+> ---
+>  net/sctp/input.c | 5 -----
+>  1 file changed, 5 deletions(-)
+> 
+> diff --git a/net/sctp/input.c b/net/sctp/input.c
+> index 2a192a7..c956dc9 100644
+> --- a/net/sctp/input.c
+> +++ b/net/sctp/input.c
+> @@ -1120,15 +1120,10 @@ static struct sctp_association *__sctp_rcv_lookup_harder(struct net *net,
+>  	case SCTP_CID_INIT:
+>  	case SCTP_CID_INIT_ACK:
+>  		return __sctp_rcv_init_lookup(net, skb, laddr, transportp);
+> -		break;
+>  
+>  	default:
+>  		return __sctp_rcv_walk_lookup(net, skb, laddr, transportp);
+> -		break;
+>  	}
+> -
+> -
+> -	return NULL;
+>  }
+>  
+>  /* Lookup an association for an inbound skb. */
+> 
 
-This patch fixes checkpath.pl:
- WARNING: Prefer pr_warn(... to pr_warning(...
- #447: FILE: ./wpan.c:447:
+Sorry for sending the Subject "[PATCH net-next 2/3] ...".
+It is only one patch, not series.
 
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
----
- net/mac802154/wpan.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
-index e24bcf9..9e5cc67 100644
---- a/net/mac802154/wpan.c
-+++ b/net/mac802154/wpan.c
-@@ -444,7 +444,7 @@ mac802154_subif_frame(struct mac802154_sub_if_data *sdata, struct sk_buff *skb)
- 	case IEEE802154_FC_TYPE_DATA:
- 		return mac802154_process_data(sdata->dev, skb);
- 	default:
--		pr_warning("ieee802154: bad frame received (type = %d)\n",
-+		pr_warn("ieee802154: bad frame received (type = %d)\n",
- 			   mac_cb_type(skb));
- 		kfree_skb(skb);
- 		return NET_RX_DROP;
--- 
-1.7.12
+Regards.
+Wang
