@@ -1,86 +1,44 @@
-From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: cgroup filter on physics interface can't control container
-Date: Wed, 18 Dec 2013 17:12:13 +0800
-Message-ID: <52B166ED.7020508@huawei.com>
-References: <52A52BBF.6030105@huawei.com> <52A9A97F.20902@huawei.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] net: neighbour: add neighbour dead check for neigh_timer_handler()
+Date: Wed, 18 Dec 2013 10:28:15 +0100
+Message-ID: <20131218092815.GA3505@order.stressinduktion.org>
+References: <1386138457.30495.86.camel@edumazet-glaptop2.roam.corp.google.com> <529EF30A.4050609@huawei.com> <1386170645.30495.108.camel@edumazet-glaptop2.roam.corp.google.com> <529FC980.8020101@cn.fujitsu.com> <529FF066.1070307@huawei.com> <52B142AF.8070708@huawei.com> <20131218075131.GD27460@order.stressinduktion.org> <52B15A9F.6030301@huawei.com> <20131218084106.GF27460@order.stressinduktion.org> <52B1635D.7020205@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	honkiko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	"zhangwei\(Jovi\)" <jovi.zhangwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
-	Serge Hallyn <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>, <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	<herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <52A9A97F.20902-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
+	joe@perches.com, vfalico@redhat.com, netdev@vger.kernel.org
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:35772 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751016Ab3LRJ2R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 04:28:17 -0500
+Content-Disposition: inline
+In-Reply-To: <52B1635D.7020205@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-hello guys,
+On Wed, Dec 18, 2013 at 04:57:01PM +0800, Ding Tianhong wrote:
+> On 2013/12/18 16:41, Hannes Frederic Sowa wrote:
+> > On Wed, Dec 18, 2013 at 04:19:43PM +0800, Ding Tianhong wrote:
+> >> 0xffffffff812f8e29 <neigh_timer_handler+265>:   mov    0xe8(%rbx),%rax
+> >> 0xffffffff812f8e30 <neigh_timer_handler+272>:   mov    %rbp,%rsi
+> >> 0xffffffff812f8e33 <neigh_timer_handler+275>:   mov    %rbx,%rdi
+> >> 0xffffffff812f8e36 <neigh_timer_handler+278>:   callq  *0x8(%rax)						<-----crash
+> >> /usr/src/linux/net/core/neighbour.c: 877
+> >> 0xffffffff812f8e39 <neigh_timer_handler+281>:   lea    0x3c(%rbx),%rax
+> > 
+> > For me it looks like this:
+> > 
+> > %rax is neigh->ops and the function pointer solicit is NULL and causes the the
+> > page fault.
+> > 
+> > 
+> yes, it is. So I was trying to find the situation that may free the neighbour when
+> the timer is running, but I could not yet.
 
-I said before "we can save sk_classid before skb_scrub_packet and
-restore it after that"  since skb->sk had been freed in
-skb_scrub_packet(), so it is not reasonable. yes?
+Hm. Ok. It is actually ops which is NULL, not the function pointer, may bad.
 
-I have another idea.
-commit:f84517253(cls_cgroup: Store classid in struct sock) introduces
-sk_classid and put it in skb->sk pointer.  can we put sk_classid form
-struct sock to struct sk_buff? then sk_classid will not be affected
-by dev_forward_skb()->skb_scrub_packet() ?
-
-any comment are welcome!
-
-
-thanks,
-Libo
-
-
-On 2013/12/12 20:18, Libo Chen wrote:
-> ping...
-> 
-> On 2013/12/9 10:32, Libo Chen wrote:
->> hello network hackers,
->>
->> 	A linux container was builded with veth pair(veth0 inside container, veth1 outside container),
->>
->> the config as below:
->>
->>   lxc.network.type = veth
->>   lxc.network.flags = up
->>   lxc.network.link = br0  // base on eth0
->>   lxc.network.name = eth0
->>   lxc.network.ipv4 = 128.5.130.26/24
->>
->> then I use tc command with cgroup filter on veth0, it works well. But when setting on eth0, it doesn`t work.
->>
->> The reason is dev_forward_skb() in veth_xmit will call skb_scrub_packet and clean all information including skb->sk
->> in the skb, so if cls_cgroup_classify is working in serving softirq state, it will return failer, see below:
->>
->> 	if (in_serving_softirq()) {
->> 		/* If there is an sk_classid we'll use that. */
->> 		if (!skb->sk)
->> 			return -1;
->> 		classid = skb->sk->sk_classid;
->> 	}
->>
->>
->> Qdisc with cgroup filter on physics interface can not control a container network, it is disappointed.
->>
->> we can save sk_classid before skb_scrub_packet and restore it after that. Is it reasonable?  or any way to achieve this?
->>
->> thanks,
->> Libo
->>
-> 
+Could you try to follow param or table links and check if this is an arp or
+ndisc one? Maybe some interactions with arp.c or ndisc.c causes this bug?
