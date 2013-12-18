@@ -1,128 +1,75 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCHv3 net-next 0/7] pktgen IPsec support
-Date: Wed, 18 Dec 2013 09:48:27 +0800
-Message-ID: <52B0FEEB.70508@windriver.com>
-References: <1387094284-2901-1-git-send-email-fan.du@windriver.com> <52AEF4ED.4020504@mojatatu.com> <52AFB580.5060403@windriver.com> <52B05482.7030400@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Tue, 17 Dec 2013 17:56:09 -0800
+Message-ID: <1387331769.2330.12.camel@jtkirshe-mobl>
+References: <20131218124657.f573d9ae178ea37fa971456d@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, <davem@davemloft.net>,
-	<steffen.klassert@secunet.com>, <hadi@cyberus.ca>,
-	<netdev@vger.kernel.org>
-To: jamal <j.hadi123@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:43943 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750875Ab3LRBsf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 20:48:35 -0500
-In-Reply-To: <52B05482.7030400@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-bpj1wp9CNtR2ivYx+FkM"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Anjali Singhai Jain <anjali.singhai@intel.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20131218124657.f573d9ae178ea37fa971456d@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+--=-bpj1wp9CNtR2ivYx+FkM
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-On 2013=E5=B9=B412=E6=9C=8817=E6=97=A5 21:41, jamal wrote:
-> On 12/16/13 21:22, Fan Du wrote:
->>
->>
->> I thought we have reach the consensus on this part in previous discu=
-ssion
->> (http://www.spinics.net/lists/netdev/msg261411.html), This enhanceme=
-nt
->> patch didn't change original behavior, nor does remove original impl=
-ementation.
->>
->
-> right - thats the agreement. i.e nothing changes by default unless
-> some pktgen parameter is set.
-> If someone wants to send using original scheme it should work
-> as long as they dont set this extra parameter.
->
->> This enhancement expects good encapsulation format for the receiver =
-to
->> de-encapsulation.
->>
->
-> Maybe i missed something - receiver wasnt affected in the discussion.
-> It was only the sender.
+On Wed, 2013-12-18 at 12:46 +1100, Stephen Rothwell wrote:
+> Hi all,
+>=20
+> Today's linux-next merge of the net-next tree got a conflict in
+> drivers/net/ethernet/intel/i40e/i40e_main.c between commit 3c325ced6aef
+> ("i40e: fix null dereference") from Linus' tree and commit bc7d338fbb3f
+> ("i40e: reinit flow for the main VSI") from the net-next tree.
+>=20
+> I fixed it up (see below) and can carry the fix as necessary (no action
+> is required).
+>=20
 
-It's in this thread, see: http://www.spinics.net/lists/netdev/msg260537=
-=2Ehtml
+Your fix is fine, what I have in my tree is the following, so if you
+want to modify your change so that the resultant code looks like this:
 
+        struct rtnl_link_stats64 *vsi_stats =3D
+i40e_get_vsi_stats_struct(vsi);
+        int i;
+ =20
+        if (test_bit(__I40E_DOWN, &vsi->state))
+               return stats;
 
->> This is snippets of doc updates I could come up with. Please check i=
-f it's ok
->> for you.
->>
->> @@ -108,7 +108,9 @@ Examples:
->> MPLS_RND, VID_RND, SVID_RND
->> QUEUE_MAP_RND # queue map random
->> QUEUE_MAP_CPU # queue map mirrors smp_processor_id()
->> + IPSEC # Make IPsec encapsulation for packet
->>
->> + pgset spi SPI_VALUE Set specific SA used to transform packet.
->>
->> pgset "udp_src_min 9" set UDP source port min, If < udp_src_max, the=
-n
->> cycle through the port range.
->> @@ -177,6 +179,18 @@ Note when adding devices to a specific CPU ther=
-e good idea to also assign
->> /proc/irq/XX/smp_affinity so the TX-interrupts gets bound to the sam=
-e CPU.
->> as this reduces cache bouncing when freeing skb's.
->>
->> +Enable IPsec
->> +=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
->> +Default IPsec transformation with ESP encapsulation plus Transport =
-mode
->> +could be enabled by simply setting:
->> +
->> +pgset "flag IPSEC"
->> +pgset "flows 1"
->> +
->> +To avoid breaking existing testbed scripts for using AH type and tu=
-nnel mode,
->> +user could use "pgset spi SPI_VALUE" to specify which formal of tra=
-nsformation
->> +to employ.
->> +
->>
->
-> Thanks. Thats a good starting point. I just realized there's nothing =
-at all on
-> ipsec ;-> Maybe you can add even more extensive info to describe all =
-modes?
+        if (!vsi->tx_rings)
+               return stats;
+ =20
+        rcu_read_lock();
+        for (i =3D 0; i < vsi->num_queue_pairs; i++) {
 
-No, those information does not belong to pktgen at all.
+--=-bpj1wp9CNtR2ivYx+FkM
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-All we need is a 'spi' to point which SA to employ for the transformati=
-on. The SA, either
-manually created temporally for pktgen test, or using existing one(thou=
-gh with different
-tmpl info)will describe specific type(ESP/AH) or mode(Transport/Tunnel)=
- in use.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
 
+iQIcBAABCgAGBQJSsQC5AAoJEOVv75VaS+3O7lQQAJjuUL7GLZrx9wgSzEeQ17Wr
+B+TvpYVDBo0M7UPBNsmh235UgRaTbs7LWUjhEsTkskwYuaVpm9bH1wqfPu8/eSvi
+qSWTvduJY3l5gUdc9eCUVoUvWVrx7dDYmizriQLMUVZCFOT5c9hyAdyiDja416Xm
+iCC48vQOdYuqIz4E93T7H6oIPOAqWAbggW7D100wbAo4z+G7a4181u5iOHR4wzlZ
+uxbMkkifyRzDYUuJ7q1QiGeZIC8Ng+16oMNi9+5//m1jnjC1NP2Knicbci9pp3KP
+j3XxI7AJRHUfe2qnj3lY600RwRl38Wi2rlvRgvwo1pzmRbKLUKupxrYz+IP33LSr
+i4TnTVk6ndRyR3qcJG7zt8KPiBQjIHV9Xj2RWgpBtzv+IAU141POONcCEo17Z/sU
+GcxNo5U9jBegdBvJ05/YzmX1+R2RErvvmlM3tzKUF5yKJ9XxZ6vdbAdmqZ5lYHR1
+NuplLUuTaRscrNcSfy1O1xwpQC+uCtCBDs6E8obVb4eZUj9m4XspvxVokhfUVPLR
+UAUZeJN8gW04x1GfBkeT0VRUNFZKAn/Mxp74beCGTe4sCAJlr83Wh87WAkEwICB1
+nepxDmrgCC/mGxKX31/4xjGNf1dMViEid5padJeX4kwskcNteYSiDEJyejYPPja6
+t9Z42o3+n7sdsg/Jn/Ek
+=Ho12
+-----END PGP SIGNATURE-----
 
-> cheers,
-> jamal
->> Current commands and configuration options
->> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
->> @@ -225,6 +239,7 @@ flag
->> UDPDST_RND
->> MACSRC_RND
->> MACDST_RND
->> + IPSEC
->>
->> dst_min
->>
->>
->
->
-
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan
+--=-bpj1wp9CNtR2ivYx+FkM--
