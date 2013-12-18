@@ -1,105 +1,73 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net v2 3/8] cxgb4: Assign filter server TIDs properly
-Date: Wed, 18 Dec 2013 16:38:21 +0530
-Message-ID: <1387364906-1967-4-git-send-email-hariprasad@chelsio.com>
+From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH net v2 4/8] cxgb4: Account for stid entries properly in case of IPv6
+Date: Wed, 18 Dec 2013 16:38:22 +0530
+Message-ID: <1387364906-1967-5-git-send-email-hariprasad@chelsio.com>
 References: <1387364906-1967-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
-	swise@opengridcomputing.com, leedom@chelsio.com,
-	santosh@chelsio.com, kumaras@chelsio.com, hariprasad@chelsio.com,
-	nirranjan@chelsio.com
-To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:20818 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751184Ab3LRLQO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 06:16:14 -0500
-In-Reply-To: <1387364906-1967-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1387364906-1967-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Kumar Sanghvi <kumaras@chelsio.com>
+From: Kumar Sanghvi <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 
-The LE workaround code is incorrectly reusing the TCAM TIDs
-(meant for allocation by firmware in case of hash collisions) for filter
-servers. This patch assigns the filter server TIDs properly starting from
-sftid_base index.
+IPv6 uses 2 TIDs with CLIP enabled and 4 TIDs without CLIP.
+Currently we are incrementing STIDs in use by 1 for both IPv4 and IPv6 which
+is wrong.
 
-Based on original work by Santosh Rastapur <santosh@chelsio.com>
+Further, driver currently does not have interface to query if CLIP is programmed
+for particular IPv6 address. So, in this patch we increment/decrement TIDs in use
+by 4 for IPv6 assuming absence of CLIP. Such assumption keeps us on safe side and
+we don't end up allocating more stids for IPv6 than actually supported.
 
-Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+Based on original work by Santosh Rastapur <santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+
+Signed-off-by: Kumar Sanghvi <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 16 ++++++++++++----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |  9 ++++++++-
- 2 files changed, 20 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index df1d6b8..f4f46fc 100644
+index f4f46fc..f9ca36c 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -3012,7 +3012,8 @@ int cxgb4_alloc_sftid(struct tid_info *t, int family, void *data)
- 	}
+@@ -2986,7 +2986,14 @@ int cxgb4_alloc_stid(struct tid_info *t, int family, void *data)
  	if (stid >= 0) {
  		t->stid_tab[stid].data = data;
--		stid += t->stid_base;
-+		stid -= t->nstids;
-+		stid += t->sftid_base;
- 		t->stids_in_use++;
+ 		stid += t->stid_base;
+-		t->stids_in_use++;
++		/* IPv6 requires max of 520 bits or 16 cells in TCAM
++		 * This is equivalent to 4 TIDs. With CLIP enabled it
++		 * needs 2 TIDs.
++		 */
++		if (family == PF_INET)
++			t->stids_in_use++;
++		else
++			t->stids_in_use += 4;
  	}
  	spin_unlock_bh(&t->stid_lock);
-@@ -3024,7 +3025,14 @@ EXPORT_SYMBOL(cxgb4_alloc_sftid);
-  */
- void cxgb4_free_stid(struct tid_info *t, unsigned int stid, int family)
- {
--	stid -= t->stid_base;
-+	/* Is it a server filter TID? */
-+	if (t->nsftids && (stid >= t->sftid_base)) {
-+		stid -= t->sftid_base;
-+		stid += t->nstids;
-+	} else {
-+		stid -= t->stid_base;
-+	}
-+
- 	spin_lock_bh(&t->stid_lock);
- 	if (family == PF_INET)
- 		__clear_bit(stid, t->stid_bmap);
-@@ -4185,7 +4193,7 @@ int cxgb4_create_server_filter(const struct net_device *dev, unsigned int stid,
- 	adap = netdev2adap(dev);
- 
- 	/* Adjust stid to correct filter index */
--	stid -= adap->tids.nstids;
-+	stid -= adap->tids.sftid_base;
- 	stid += adap->tids.nftids;
- 
- 	/* Check to make sure the filter requested is writable ...
-@@ -4248,7 +4256,7 @@ int cxgb4_remove_server_filter(const struct net_device *dev, unsigned int stid,
- 	adap = netdev2adap(dev);
- 
- 	/* Adjust stid to correct filter index */
--	stid -= adap->tids.nstids;
-+	stid -= adap->tids.sftid_base;
- 	stid += adap->tids.nftids;
- 
- 	f = &adap->tids.ftid_tab[stid];
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index 6f21f24..4dd0a82 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -131,7 +131,14 @@ static inline void *lookup_atid(const struct tid_info *t, unsigned int atid)
- 
- static inline void *lookup_stid(const struct tid_info *t, unsigned int stid)
- {
--	stid -= t->stid_base;
-+	/* Is it a server filter TID? */
-+	if (t->nsftids && (stid >= t->sftid_base)) {
-+		stid -= t->sftid_base;
-+		stid += t->nstids;
-+	} else {
-+		stid -= t->stid_base;
-+	}
-+
- 	return stid < (t->nstids + t->nsftids) ? t->stid_tab[stid].data : NULL;
+ 	return stid;
+@@ -3039,7 +3046,10 @@ void cxgb4_free_stid(struct tid_info *t, unsigned int stid, int family)
+ 	else
+ 		bitmap_release_region(t->stid_bmap, stid, 2);
+ 	t->stid_tab[stid].data = NULL;
+-	t->stids_in_use--;
++	if (family == PF_INET)
++		t->stids_in_use--;
++	else
++		t->stids_in_use -= 4;
+ 	spin_unlock_bh(&t->stid_lock);
  }
- 
+ EXPORT_SYMBOL(cxgb4_free_stid);
 -- 
 1.8.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
