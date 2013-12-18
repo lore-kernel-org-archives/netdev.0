@@ -1,72 +1,46 @@
-From: RongQing Li <roy.qing.li@gmail.com>
-Subject: Re: [PATCH] ipv6: clear RTF_EXPIRES when call ip6_rt_copy
-Date: Wed, 18 Dec 2013 10:21:12 +0800
-Message-ID: <CAJFZqHxB8PscqXnX9oxpHf8zFyW1hyCZVZTn_=DoKebN3X2ZGA@mail.gmail.com>
-References: <1387182666-31301-1-git-send-email-roy.qing.li@gmail.com>
-	<52AFC43C.9080804@cn.fujitsu.com>
-	<CAJFZqHwF0ubvxJOs2BWbSMMB1szKNO=XTiXje3E2ByF6sUQrXA@mail.gmail.com>
-	<52AFE7E3.3070806@cn.fujitsu.com>
-	<CAJFZqHxawisUbHGZY8mjGHy8035X6TQ7FNzc20vtS5j1jdZYGA@mail.gmail.com>
-	<20131217070231.GA11970@order.stressinduktion.org>
-	<52B00150.3070002@cn.fujitsu.com>
-	<20131217134823.GC18396@order.stressinduktion.org>
-	<52B0F0C4.1010803@cn.fujitsu.com>
-	<CAJFZqHywaN4k64zd-fcw7=DD+6iNX_Psuwi2QKH_GX-_04TVSg@mail.gmail.com>
-	<52B103DE.7090604@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Tue, 17 Dec 2013 21:21:45 -0500 (EST)
+Message-ID: <20131217.212145.893665929052097867.davem@davemloft.net>
+References: <20131218125643.8ff140371e1f8c306327d354@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org
-To: Gao feng <gaofeng@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f173.google.com ([209.85.220.173]:44957 "EHLO
-	mail-vc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751128Ab3LRCVN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 21:21:13 -0500
-Received: by mail-vc0-f173.google.com with SMTP id ia6so4644935vcb.4
-        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 18:21:12 -0800 (PST)
-In-Reply-To: <52B103DE.7090604@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ffusco@redhat.com,
+	dborkman@redhat.com, tgraf@redhat.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20131218125643.8ff140371e1f8c306327d354@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 18, 2013 at 10:09 AM, Gao feng <gaofeng@cn.fujitsu.com> wrote:
-> On 12/18/2013 09:58 AM, RongQing Li wrote:
->> On Wed, Dec 18, 2013 at 8:48 AM, Gao feng <gaofeng@cn.fujitsu.com> wrote:
->>> On 12/17/2013 09:48 PM, Hannes Frederic Sowa wrote:
->>>> On Tue, Dec 17, 2013 at 03:46:24PM +0800, Gao feng wrote:
->>>>> The from of new cloned rt should not be set if it's impossible for the ort
->>>>> to be expired.
->>>>
->>>> Actually, why do you think so? What could go wrong?
->>>>
->>>
->>> I just don't want rt6_check_expired to check some impossible expired routes.
->>>
->>
->> What is wrong if we set from for new cloned rt by checking if ort has
->> RTF_EXPIRES flag?
->
->
-> The RTF_EXPIRES flag may be changed by router advertisment package,
-> the ort may become expired after you hadn't set from for new cloned rt.
->
-> we should set from even this kind of ort doesn't have RTF_EXPIRES flag.
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 18 Dec 2013 12:56:43 +1100
 
+> After merging the net-next tree, today's linux-next build (powerpc
+> ppc64_defconfig) failed like this:
+> 
+> In file included from include/linux/hashtable.h:12:0,
+>                  from include/linux/elevator.h:5,
+>                  from include/linux/blkdev.h:222,
+>                  from init/do_mounts.h:2,
+>                  from init/do_mounts_rd.c:21:
+> include/linux/hash.h:18:22: fatal error: asm/hash.h: No such file or directory
+>  #include <asm/hash.h>
+>                       ^
+> 
+> And many more ...
+> 
+> Caused by commit 71ae8aac3e19 ("lib: introduce arch optimized hash
+> library").  Presumably this would break any architecture other than
+> x86 :-(
 
-Thanks;
+The author believed that putting a header file in asm-generic/
+makes it get used automatically by architectures which lack
+that header file.
 
-Do we want to set from only from RA route?  if so,  we should check
-ort with RTF_ADDRCONF|RTF_DEFAULT, or RTF_ADDRCONF | RTF_ROUTEINFO,
+At the very least we have to add a generic-y entry for it to
+arch/${ARCH}/include/asm/Kbuild
 
-like in rt6_fill_node
-
-
-        else if (rt->rt6i_flags & RTF_ADDRCONF) {
-                if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ROUTEINFO))
-                        rtm->rtm_protocol = RTPROT_RA;
-                else
-                        rtm->rtm_protocol = RTPROT_KERNEL;
-        }
-
-
--R
+I'll try to fix this up, thanks for the report.
