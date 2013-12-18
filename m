@@ -1,57 +1,42 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't
- work.
-Date: Wed, 18 Dec 2013 09:58:52 +0100
-Message-ID: <52B163CC.1030901@broadcom.com>
-References: <1342235583.20131211182804@eikelenboom.it> <CAB=NE6UfumA2xez1DvtDSBDZ72WF_tOozFo_8LRnMryYiSqD-A@mail.gmail.com> <871324710.20131211191104@eikelenboom.it> <CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com> <1937118387.20131216122200@eikelenboom.it> <52AEE60B.6030509@broadcom.com> <19210260274.20131216135644@eikelenboom.it> <CAGRGNgXHemM2FfnXgW5RbzhFT+9SfUfVkjdysK3+=_u3hWSacw@mail.gmail.com> <1534126119.20131217104548@eikelenboom.it> <387552477.20131217213319@eikelenboom.it> <20131217212709.GB5624@decadent.org.uk> <1254825772.20131217224914@eikelenboom.it> <52B153B3.4070903@gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net] net: neighbour: add neighbour dead check for neigh_timer_handler()
+Date: Wed, 18 Dec 2013 16:57:01 +0800
+Message-ID: <52B1635D.7020205@huawei.com>
+References: <20131203.232122.852236751455974887.davem@davemloft.net> <529EC95A.5080908@huawei.com> <1386138457.30495.86.camel@edumazet-glaptop2.roam.corp.google.com> <529EF30A.4050609@huawei.com> <1386170645.30495.108.camel@edumazet-glaptop2.roam.corp.google.com> <529FC980.8020101@cn.fujitsu.com> <529FF066.1070307@huawei.com> <52B142AF.8070708@huawei.com> <20131218075131.GD27460@order.stressinduktion.org> <52B15A9F.6030301@huawei.com> <20131218084106.GF27460@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Julian Calaby <julian.calaby@gmail.com>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ilw@linux.intel.com" <ilw@linux.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Avinash Patil <avinashapatil@gmail.com>
-To: Pontus Fuchs <pontus.fuchs@gmail.com>,
-	Sander Eikelenboom <linux@eikelenboom.it>,
-	Ben Hutchings <ben@decadent.org.uk>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, <yoshfuji@linux-ipv6.org>,
+	<joe@perches.com>, <vfalico@redhat.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:51359 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752785Ab3LRI67 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 03:58:59 -0500
-In-Reply-To: <52B153B3.4070903@gmail.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:62658 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753161Ab3LRI7I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 03:59:08 -0500
+In-Reply-To: <20131218084106.GF27460@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/18/2013 08:50 AM, Pontus Fuchs wrote:
-> On 2013-12-17 22:49, Sander Eikelenboom wrote:
->>
->> Indeed, I looked for a crda hook for initramfs-tools but didn't find
->> it, so skipped that idea
->> for the moment.
->>
->> So if i combine the two .. it's essentially just a very bad idea to
->> compile the wireless stuff in.
->> It needs a access to a userland program at module load time, or it
->> will block forever.
+On 2013/12/18 16:41, Hannes Frederic Sowa wrote:
+> On Wed, Dec 18, 2013 at 04:19:43PM +0800, Ding Tianhong wrote:
+>> 0xffffffff812f8e29 <neigh_timer_handler+265>:   mov    0xe8(%rbx),%rax
+>> 0xffffffff812f8e30 <neigh_timer_handler+272>:   mov    %rbp,%rsi
+>> 0xffffffff812f8e33 <neigh_timer_handler+275>:   mov    %rbx,%rdi
+>> 0xffffffff812f8e36 <neigh_timer_handler+278>:   callq  *0x8(%rax)						<-----crash
+>> /usr/src/linux/net/core/neighbour.c: 877
+>> 0xffffffff812f8e39 <neigh_timer_handler+281>:   lea    0x3c(%rbx),%rax
 > 
-> The canonical trick to have cfg80211 built in is to execute crda
-> manually in your boot scripts. This will satisfy the initial request and
-> resolve the block.
+> For me it looks like this:
+> 
+> %rax is neigh->ops and the function pointer solicit is NULL and causes the the
+> page fault.
+> 
+> 
+yes, it is. So I was trying to find the situation that may free the neighbour when
+the timer is running, but I could not yet.
 
-There is a Kconfig option to have the regulatory data built-in the
-kernel as well. Obviously that makes a regulatory update more difficult.
+Regards
+Ding
 
-net/wireless/Kconfig:
-config CFG80211_INTERNAL_REGDB
-        bool "use statically compiled regulatory rules database" if EXPERT
-
-Regards,
-AvS
+> 
