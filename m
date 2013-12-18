@@ -1,81 +1,34 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next v2 0/6] slight optimization of addr compare for
- some modules
-Date: Wed, 18 Dec 2013 16:47:26 +0800
-Message-ID: <52B1611E.4090608@huawei.com>
-References: <52AEB8B3.5010405@huawei.com>	 <1387205111.18217.7.camel@joe-AO722> <52AF13F4.5040409@gmail.com>	 <1387207006.18217.28.camel@joe-AO722> <1387214748.18217.52.camel@joe-AO722> <52AFAFDC.2080807@huawei.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [patch net-next 5/5] mac80211: fix checkpatch error
+Date: Wed, 18 Dec 2013 10:05:48 +0100
+Message-ID: <1387357548.4694.0.camel@jlt4.sipsolutions.net>
+References: <1387352656-860-1-git-send-email-chenweilong@huawei.com>
+	 <1387352656-860-6-git-send-email-chenweilong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>, Ding Tianhong <dthxman@gmail.com>
+Cc: davem@davemloft.net, linville@tuxdriver.com, netdev@vger.kernel.org
+To: Chen Weilong <chenweilong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:63624 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750905Ab3LRJAP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 04:00:15 -0500
-In-Reply-To: <52AFAFDC.2080807@huawei.com>
+Received: from s3.sipsolutions.net ([144.76.43.152]:48752 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750910Ab3LRJGI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 04:06:08 -0500
+In-Reply-To: <1387352656-860-6-git-send-email-chenweilong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/12/17 9:58, Ding Tianhong wrote:
-> On 2013/12/17 1:25, Joe Perches wrote:
->> Hi again Ding.
->>
->> These should still be inspected for appropriate use of
->> ether_addr_equal or ether_addr_equal_unaligned, but a
->> better cocci input sp-file is:
->>
->> $ cat ether_addr_equal_unaligned.cocci 
->> @@
->> expression e1;
->> expression e2;
->> @@
->>
->> -	!memcmp(e1, e2, \(6\|ETH_ALEN\))
->> +	ether_addr_equal_unaligned(e1, e2)
->>
->> @@
->> expression e1;
->> expression e2;
->> @@
->>
->> -	memcmp(e1, e2, \(6\|ETH_ALEN\)) == 0
->> +	ether_addr_equal_unaligned(e1, e2)
->>
->> @@
->> expression e1;
->> expression e2;
->> @@
->>
->> -	memcmp(e1, e2, \(6\|ETH_ALEN\))
->> +	!ether_addr_equal_unaligned(e1, e2)
->>
->> @@
->> expression e1;
->> expression e2;
->> @@
->>
->> -	memcmp(e1, e2, \(6\|ETH_ALEN\)) != 0
->> +	!ether_addr_equal_unaligned(e1, e2)
->>
->>
->>
-> 
-> great, thanks, I 'll try and test.
-> 
-> Regards
-> ding
-> 
+On Wed, 2013-12-18 at 15:44 +0800, Chen Weilong wrote:
 
-Hi Joe:
+>  #define for_each_sta_info(local, _addr, _sta, nxt)			\
+> -	for (	/* initialise loop */					\
+> +	for (/* initialise loop */					\
+>  		_sta = rcu_dereference(local->sta_hash[STA_HASH(_addr)]),\
+>  		nxt = _sta ? rcu_dereference(_sta->hnext) : NULL;	\
+>  		/* typecheck */						\
 
-There are too many places need to be changed, should I make it in one patch or several pathset,
-pls give me some advise. thanks
+I've applied it all (I squashed it though, no sense in having 5 small
+commits that look identical on first glance), except for this bit - the
+code here is aligned that way on purpose.
 
-Regards
-Ding
-
->>
-> 
+johannes
