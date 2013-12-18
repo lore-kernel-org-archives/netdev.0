@@ -1,51 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: sit: update mtu check to take care of gso packets
-Date: Wed, 18 Dec 2013 17:57:02 -0500 (EST)
-Message-ID: <20131218.175702.1462184363404956747.davem@davemloft.net>
-References: <52AB322B.7030802@redhat.com>
-	<1387204283.19078.240.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [net 0/5][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 18 Dec 2013 17:58:58 -0500 (EST)
+Message-ID: <20131218.175858.569613049590123580.davem@davemloft.net>
+References: <1387351186-23389-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mschmidt@redhat.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57542 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57556 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750966Ab3LRW5E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 17:57:04 -0500
-In-Reply-To: <1387204283.19078.240.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1750875Ab3LRW7B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 17:59:01 -0500
+In-Reply-To: <1387351186-23389-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 16 Dec 2013 06:31:23 -0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 17 Dec 2013 23:19:41 -0800
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> While testing my changes for TSO support in SIT devices,
-> I was using sit0 tunnel which appears to include nopmtudisc flag.
-> 
-> But using :
-> 
-> ip tun add sittun mode sit remote $REMOTE_IPV4 local $LOCAL_IPV4 \
->    dev $IFACE
-> 
-> We get a tunnel which rejects too long packets because of the mtu check
-> which is not yet GSO aware.
-> 
-> erd:~# ip tunnel
-> sittun: ipv6/ip  remote 10.246.17.84  local 10.246.17.83  ttl inherit  6rd-prefix 2002::/16 
-> sit0: ipv6/ip  remote any  local any  ttl 64  nopmtudisc 6rd-prefix 2002::/16 
-> 
-> This patch is based on an excellent report from
-> Michal Shmidt.
-> 
-> In the future, we probably want to extend the MTU check to do the
-> right thing for GSO packets...
-> 
-> Fixes: ("61c1db7fae21 ipv6: sit: add GSO/TSO support")
-> Reported-by: Michal Schmidt <mschmidt@redhat.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> The following are changes since commit 781069279f049508274db63bfb352e8583e5c977:
+>   Merge branch 'fixes-for-3.13' of git://gitorious.org/linux-can/linux-can
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
 
-Applied, thanks Eric.
+Nothing there?
+
+[davem@abraco net]$ git pull --no-ff git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
+>From git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net
+ * branch            master     -> FETCH_HEAD
+Already up-to-date.
+[davem@abraco net]$ 
