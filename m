@@ -1,8 +1,8 @@
 From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
 Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't
  work.
-Date: Wed, 18 Dec 2013 11:27:11 -0800
-Message-ID: <20131218192711.GC5705@cerro.do-not-panic.com>
+Date: Wed, 18 Dec 2013 11:42:05 -0800
+Message-ID: <20131218194205.GD5705@cerro.do-not-panic.com>
 References: <CAB=NE6V-RSnqbAC-0tfYK=WGJLp1aPC2UpFDurs49h+wXr9UfQ@mail.gmail.com>
  <1818324675.20131211175350@eikelenboom.it>
  <CAB=NE6Wf=T0bGLSYPDyb=-fMAVnGcbGkeaBiNrzwV-Lpxr6VZg@mail.gmail.com>
@@ -11,187 +11,119 @@ References: <CAB=NE6V-RSnqbAC-0tfYK=WGJLp1aPC2UpFDurs49h+wXr9UfQ@mail.gmail.com>
  <871324710.20131211191104@eikelenboom.it>
  <CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com>
  <1937118387.20131216122200@eikelenboom.it>
- <52AEE60B.6030509@broadcom.com>
- <19210260274.20131216135644@eikelenboom.it>
+ <20131218182910.GA5705@cerro.do-not-panic.com>
+ <116277577.20131218195446@eikelenboom.it>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arend van Spriel <arend@broadcom.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
+Cc: "Berg, Johannes" <johannes.berg@intel.com>,
 	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"ilw@linux.intel.com" <ilw@linux.intel.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Avinash Patil <avinashapatil@gmail.com>
+	"John W. Linville" <linville@tuxdriver.com>
 To: Sander Eikelenboom <linux@eikelenboom.it>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <19210260274.20131216135644@eikelenboom.it>
+In-Reply-To: <116277577.20131218195446@eikelenboom.it>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 16, 2013 at 01:56:44PM +0100, Sander Eikelenboom wrote:
+On Wed, Dec 18, 2013 at 07:54:46PM +0100, Sander Eikelenboom wrote:
 > 
-> Let's start from scratch then ...
+> Wednesday, December 18, 2013, 7:29:10 PM, you wrote:
 > 
+> > On Mon, Dec 16, 2013 at 12:22:00PM +0100, Sander Eikelenboom wrote:
+> >> 
+> >> Wednesday, December 11, 2013, 7:38:50 PM, you wrote:
+> >> 
+> >> > On Wed, Dec 11, 2013 at 7:11 PM, Sander Eikelenboom
+> >> > <linux@eikelenboom.it> wrote:
+> >> >>
+> >> >> Wednesday, December 11, 2013, 6:53:07 PM, you wrote:
+> >> >>
+> >> >>> The best way to address all this is by automatic region awareness and
+> >> >>> doing the right thing on devices, this however requires good
+> >> >>> architecture / calibration data  / etc and all that needs to be
+> >> >>> verified by the system integrators, and finally they need to be
+> >> >>> certified. If you want to hack your firmware and software go at it,
+> >> >>> just be aware there are reasons for things.
+> >> >>
+> >> >> Well the general problem seems to be "we don't trust the user" so we FORCE him to the lowest
+> >> >> common denominator (without a way to overrule that) so he is forced to operate *well* within the law.
+> >> 
+> >> > Its simply stupid to have the user be involved, period, the fact that
+> >> > a user would be involved should only be for testing or helping
+> >> > compliance for a busted device, development, research and obviously
+> >> > hacking. Linux allows all these but by default a device with firmware
+> >> > and a custom regdomain that will barf if you try to use a channel that
+> >> > is not allowed is a restriction in firmware. Feel free to reverse
+> >> > engineer that if you don't like it but it just won't be supported or
+> >> > go upstream. Now, the common denominator is generally optimized for
+> >> > best performance as well so you shouldn't have to do anything, and for
+> >> > APs -- this is typically carefully crafted for a region, also highly
+> >> > optimized.
+> >> 
+> >> >>>>> It doesn't seem like you are getting your original requests getting
+> >> >>>>> processed, so I don't think CRDA is passing it. Can you verify running
+> >> >>>>> from CRDA code:
+> >> >>>>
+> >> >>>> They don't get processed unless i remove the return from the code as i indicated.
+> >> >>>> If i remove that return it processes the request.
+> >> >>>>
+> >> >>>>> ./regdbdump /usr/lib/crda/regulatory.bin
+> >> >>>>
+> >> >>>> Although it's in a different location on Debian, /lib/crda/regulatory.bin
+> >> >>>> the dump seems fine.
+> >> >>
+> >> >>> OK thanks. Can you send a patch of what exact change you made, it was
+> >> >>> unclear from the paste you made.
+> >> >>
+> >> >>> diff -u file.c.orig file.c
+> >> >>
+> >> >> Well i just did a pull from wireless-next, to try Avinash Patil's patch.
+> >> >> net/wireless/reg.c had already changed much so i couldn't apply his patch without.
+> >> >>
+> >> >> With his patch it sets the regulatory domain, although as now expected i still can not use channels 12 and 13 yet,
+> >> >> probably due to those firmware restrictions.
+> >> 
+> >> > Its unclear what results you got, and yeah if the device is restricted
+> >> > then its just the fw telling the driver its channels and you can't use
+> >> > them. That's it. You won't be able to override information then unless
+> >> > you hack the firmware
+> >> 
+> >> Ping ?
+> >> 
+> >> Is there anymore information you need to *fix* the problem ?
 > 
-> a) Isn't the point of the whole regulatory domain system that i can
->    select (and restrict) the channels/frequencies my devices transmits
->    on, so i can abide the law ?
-
-The point is to support all forms of vendor desired architecture.
-Letting userspace help regulatory with its own picked ISO3166-alpha2
-is one feature and we support allowing userspace to distinguish the
-input source if its from userspace -- today we support a source from
-userspace to come from the user or a cellular base station. What is 
-done for each of these will depend on the vendor and their own
-preference, and the specific device's own architecture By default
-Linux will trust the user, but if the driver wants, it will only use
-the user input to enhance regulatory, never to allow more. The matrix
-of possibilities varies depending on the architecture of the driver and
-firmware.
-
-So its best then to describe the issue specifically keeping in mind what
-device driver and firmware you are using, rather than assuming general
-things for the different scenerios.
-
-> b) If so, does it set a regulatory domain from firmware  ?
-
-It depends on the device. In your case the driver reads channels that are
-allowed from EEPROM, then uses that information to set the channel data
-structures before wiphy registration to cfg80211. cfg80211 then will use
-this as the 'base set' of channels that are allowed, no further input
-can enable new channels unless regulatory_hint() is used by the driver.
-In your case you cannot do anything other than 'restrict' the device
-further and I don't think you want to do that -- given that the vendor
-already assumed testing / compliance with what it hand and they are OK
-with that!
-
-> c) If so, should it let me *restrict* the available channels even more
->    by setting the regulatory domain to the region in which de device is
->    currently being used ?
-
-Yeap.
-
-> d) If so, why am i not  able to do so with my intel driver for a long time
->   (for over a month now).
-> # iw reg get
-> country 00:
->         (2402 - 2472 @ 40), (6, 20)
->         (2457 - 2482 @ 40), (6, 20), PASSIVE-SCAN
->         (2474 - 2494 @ 20), (6, 20), NO-OFDM, PASSIVE-SCAN
->         (5170 - 5250 @ 160), (6, 20), PASSIVE-SCAN
->         (5250 - 5330 @ 160), (6, 20), DFS, PASSIVE-SCAN
->         (5490 - 5730 @ 160), (6, 20), DFS, PASSIVE-SCAN
-> # iw reg set US
-> # iw reg get
-> country 00:
->         (2402 - 2472 @ 40), (6, 20)
->         (2457 - 2482 @ 40), (6, 20), PASSIVE-SCAN
->         (2474 - 2494 @ 20), (6, 20), NO-OFDM, PASSIVE-SCAN
->         (5170 - 5250 @ 160), (6, 20), PASSIVE-SCAN
->         (5250 - 5330 @ 160), (6, 20), DFS, PASSIVE-SCAN
->         (5490 - 5730 @ 160), (6, 20), DFS, PASSIVE-SCAN
-
-You originally seemed to believe that using this will let you use channels
-that the EEPROM and firmware does not allow, this is not the case. The
-expectation that this will help you *restrict* the device is correct
-thoug and the fact that its not going through is an issue and I'm happy
-to review that case and fix it, as that should work. My initial review
-from your kernel log though was that CRDA was not installed or if it was
-installed it was not sending the information to the kernel, which could
-have been an issue with the signature of the reguatory database -- the
-kernel log you showed so far reflects no updates being sent by CRDA.
-
-You have two options to help troubleshoot this, which I had indicated
-before. One is to use CONFIG_CFG80211_INTERNAL_REGDB and throw the
-regulatory database file into the kernel upon build on
-net/wireless/db.txt. The other is to troubleshoot the regulatory
-domain not getting to the kernel via udev and CRDA.
-
-> Dmesg only spits out:
-> [  383.849977] cfg80211: Pending regulatory request, waiting for it to be processed...
-
-This indicates to us that there is an original regulatory request
-that was issued and has not been processed by userspace. There is a
-timeout for this, 3.14 seconds, and if 3.14 seconds go by without
-this being processed we clear it and new regulatory requests should
-be allowed after that.
-
-> e) So why doesn't this whole regulatory mumbojumbo and the Linux
->    implementation in particular let me abide the law ?!? Wasn't that it's
->   *sole* point of existence ?
-
-You are abiding by the law. The issue you are describing seems to be an
-issue likely fixed in older kernels, the timeout on pending requests was
-fixed long ago so I'd like to get more information on the kernel version
-you are using to see if I can see what's going on.
-
-> f) Why doesn't seem anyone to be seriously looking at it (for over a
->    month now, while everyone from wireless/80211 to intel driver
->    maintainers were CC'ed) ?
-
-No one except myself is looking into this, and I have been busy as
-I quit my job and have been traveling and juggling other things.
-You were also confusing things, despite my clarifications on things,
-and the issue you repoted is not something I was able to reproduce.
-
-> g) Saying it has got to do with reg db's not being found or all kinds
-> of other arguments while the report clearly stated the way it can be
-> circumvented by 2 simple patches that don't seem to involve any
-> changes to how it finds the reg db (apart from that i tested that a
-> few times on request and indicated it didn't matter) in current 3.13
-> code (and 3.12 and perhaps even earlier) (case 1) or
-> with current wireless-next pulled (which has quite some changes to
-> reg.c but none fixes this) onto 3.13 (case 2) Neither of these
-> patches might be correct codewise, but at least it let's me set the
-> regulatory domain, and the current state the code is in is neither
-> correct.
-
-You are just jumbling things around for your own purpose. Stop that.
-The issue is either a timeout is not being cleared and/or CRDA is
-not getting the request to the kernel. Let's focus on that.
-
-> h) Added Linus to the CC, you never know if that automagically kicks
-> things in gear ... (hopefully not in reverse :-p)
-
-That won't help cure anything.
-
-> Case 1 - patch that makes it possible to set the regulatory domain
-> without silently ignoring it - applies to 3.13-rc4
+> > I was away on Travel back home, and will soon be traveling to
+> > visit family so e-mail replies will be delayed, I'll jump on this
+> > thread now but in short:
 > 
-> diff --git a/net/wireless/reg.c b/net/wireless/reg.c
+> > You are confusing the main issue you reported (cannot override regulatory)
+> > as a software issue rather than a firmware issue with intel firmware, you are
+> > also making claims and making people believe things work in different ways
+> > (I'll clarify things there, proper regulatory support without CRDA works, CRDA
+> > is just a helper, we also do have a timeout on requests). Lastly there is one
+> > issue that may be a software issue but I cannot reproduce which I am
+> > interested in getting down to the bottom to.
 > 
-> index 7da67fd..e8ab82e 100644
-> --- a/net/wireless/reg.c
-> +++ b/net/wireless/reg.c
-> @@ -1579,7 +1579,7 @@ static void reg_process_pending_hints(void)
->         /* When last_request->processed becomes true this will be rescheduled */
->         if (lr && !lr->processed) {
->                 REG_DBG_PRINT("Pending regulatory request, waiting for it to be processed...\n");
-> -               return;
-> +               /* return; */
->         }
+> To hopefully save you some time ...
 > 
->         spin_lock(&reg_requests_lock);
+> I would suggest reading the thread from bottom to top ;-)
 > 
+> A summary .. it's now limited to:
+> 
+> Problem:    Not being able to set the regulator domain with userspace tools after boot although CRDA works.
+> Condition:  This only occurs when i build the modules in, when i use loadable modules all is fine.
+> What seems to happen:
+>             - This seems to be due to the fact that when the modules are built-in the modules are initialized *before* the root-filesystem is mounted.
+>             - Since the root-filesystem isn't mounted, the CRDA is also not accessible.
+>             - The world regulatory domain is now set and the boot continues, but somehow the request keeps pending doesn't seem to be cleared.
+>             - *All* subsequent requests to change the regulatory domain, also when the CRDA has become accessible, also keep pending because that first request (at boot) was never fullfilled (or cleared)
+> 
+> And IMHO that's a bug.
 
-Again that patch is not correct and breaks things given that we have a
-timeout that will clear that. The real issue is your original request
-was not processed and we want it processed. Otherwise after 3.14 seconds
-from the original request you should be able to issue new requests.
-
-> Case 2 - RFC patch by Avinash Patil that makes it possible to set the
-> regulatory domain without silently ignoring it - applies to 3.13-rc4 +
-> wireless-next pulled onto it
-
-That patch was incorrect as I noted earlier.
-
-What we need to do is get down to the exact case you have to reproduce
-and fix. The issue you reported should already be addressed as I noted
-and if its not I wonder if your kernel is old or its a corner case we
-had not looked into before.
+Thanks for the summary !
 
   Luis
