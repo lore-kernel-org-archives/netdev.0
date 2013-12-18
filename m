@@ -1,17 +1,17 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 13/15] net: sfc calls skb_set_hash
-Date: Tue, 17 Dec 2013 23:31:50 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1312172329300.24419@tomh.mtv.corp.google.com>
+Subject: [PATCH 14/15] net: sun-niu calls skb_set_hash
+Date: Tue, 17 Dec 2013 23:32:00 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1312172328520.24772@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f73.google.com ([209.85.128.73]:62619 "EHLO
-	mail-qe0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751320Ab3LRHbv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 02:31:51 -0500
-Received: by mail-qe0-f73.google.com with SMTP id 5so735565qeb.2
-        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 23:31:51 -0800 (PST)
+Received: from mail-ob0-f201.google.com ([209.85.214.201]:45915 "EHLO
+	mail-ob0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751320Ab3LRHcB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 02:32:01 -0500
+Received: by mail-ob0-f201.google.com with SMTP id wp4so1464967obc.2
+        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 23:32:00 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -20,22 +20,29 @@ in an skbuff.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- drivers/net/ethernet/sfc/rx.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/sun/niu.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index 1fde9b8..48588dd 100644
---- a/drivers/net/ethernet/sfc/rx.c
-+++ b/drivers/net/ethernet/sfc/rx.c
-@@ -440,7 +440,8 @@ efx_rx_packet_gro(struct efx_channel *channel, struct efx_rx_buffer *rx_buf,
- 	}
+diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
+index 388540f..8e2266e 100644
+--- a/drivers/net/ethernet/sun/niu.c
++++ b/drivers/net/ethernet/sun/niu.c
+@@ -3493,10 +3493,12 @@ static int niu_process_rx_pkt(struct napi_struct *napi, struct niu *np,
  
- 	if (efx->net_dev->features & NETIF_F_RXHASH)
--		skb->rxhash = efx_rx_buf_hash(efx, eh);
-+		skb_set_hash(skb, efx_rx_buf_hash(efx, eh),
+ 	rh = (struct rx_pkt_hdr1 *) skb->data;
+ 	if (np->dev->features & NETIF_F_RXHASH)
+-		skb->rxhash = ((u32)rh->hashval2_0 << 24 |
+-			       (u32)rh->hashval2_1 << 16 |
+-			       (u32)rh->hashval1_1 << 8 |
+-			       (u32)rh->hashval1_2 << 0);
++		skb_set_hash(skb,
++			     ((u32)rh->hashval2_0 << 24 |
++			      (u32)rh->hashval2_1 << 16 |
++			      (u32)rh->hashval1_1 << 8 |
++			      (u32)rh->hashval1_2 << 0),
 +			     PKT_HASH_TYPE_L3);
- 	skb->ip_summed = ((rx_buf->flags & EFX_RX_PKT_CSUMMED) ?
- 			  CHECKSUM_UNNECESSARY : CHECKSUM_NONE);
+ 	skb_pull(skb, sizeof(*rh));
  
+ 	rp->rx_packets++;
 -- 
 1.8.5.1
