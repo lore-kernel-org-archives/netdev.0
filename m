@@ -1,50 +1,68 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v3 net-next] net: vxlan: use custom ndo_change_mtu
- handler
-Date: Tue, 17 Dec 2013 15:40:52 -0800
-Message-ID: <20131217154052.6e641cf2@nehalam.linuxnetplumber.net>
-References: <1387322468-17368-1-git-send-email-dborkman@redhat.com>
+From: Dan Williams <dan.j.williams@intel.com>
+Subject: [PATCH 0/3] net_dma removal and a new dma-debug check
+Date: Tue, 17 Dec 2013 16:15:33 -0800
+Message-ID: <20131218001312.7847.9917.stgit@viggo.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:41918 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750991Ab3LQXkz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 18:40:55 -0500
-Received: by mail-pb0-f43.google.com with SMTP id rq2so7593521pbb.16
-        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 15:40:55 -0800 (PST)
-In-Reply-To: <1387322468-17368-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dmaengine@vger.kernel.org, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 18 Dec 2013 00:21:08 +0100
-Daniel Borkmann <dborkman@redhat.com> wrote:
+NET_DMA violates the expectation of the dma-mapping api by allowing the
+cpu to touch receive buffer memory while dma is active.  If this
+activity triggers a copy-on-write event the application may see missing
+data as the dma completes to the old mapping.
 
-> When adding a new vxlan device to an "underlying carrier" (here:
-> dst->remote_ifindex), the MTU size assigned to the vxlan device
-> is the MTU at setup time of the carrier - needed headroom, when
-> adding a vxlan device w/o explicit carrier, then it defaults
-> to 1500.
-> 
-> In case of an explicit carrier that supports jumbo frames, we
-> currently cannot change vxlan MTU via ip(8) to > 1500 in
-> post-setup time, as vxlan driver uses eth_change_mtu() as default
-> method for manually setting MTU.
-> 
-> Hence, use a custom implementation that only falls back to
-> eth_change_mtu() in case we didn't use a dev parameter on device
-> setup time, and otherwise allow a max MTU setting of the carrier
-> incl. adjustment for headroom.
-> 
-> Reported-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+[PATCH 1/3] net_dma: mark broken
+Detail the failure and provide a small one-liner for -stable
 
-This code is good thanks.
+[PATCH 2/3] net_dma: remove
+Mark the tcp_dma_copybreak sysctl as removed and remove the rest of the
+implementation
 
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+[PATCH 3/3] dma debug: flag copy-on-write events to pages undergoing dma
+Extend dma-debug to catch this condition in the future.
 
-P.s: I wonder if notifier handler would be good to handle changes
-to underlying device MTU on the fly.
+Looking to take this through the dmaengine tree with a netdev ack.
+
+---
+
+ Documentation/ABI/removed/net_dma      |    8 +
+ Documentation/networking/ip-sysctl.txt |    6 -
+ drivers/dma/Kconfig                    |   11 -
+ drivers/dma/Makefile                   |    1 
+ drivers/dma/dmaengine.c                |  104 ------------
+ drivers/dma/ioat/dma.c                 |    1 
+ drivers/dma/ioat/dma.h                 |    7 -
+ drivers/dma/ioat/dma_v2.c              |    1 
+ drivers/dma/ioat/dma_v3.c              |    1 
+ drivers/dma/iovlock.c                  |  280 --------------------------------
+ include/linux/dma-debug.h              |    6 +
+ include/linux/dmaengine.h              |   22 ---
+ include/linux/skbuff.h                 |    7 -
+ include/linux/tcp.h                    |    7 -
+ include/net/netdma.h                   |   32 ----
+ include/net/sock.h                     |   18 --
+ include/net/tcp.h                      |    7 -
+ kernel/sysctl_binary.c                 |    1 
+ lib/dma-debug.c                        |  130 +++++++++++++--
+ mm/memory.c                            |    3 
+ net/core/Makefile                      |    1 
+ net/core/dev.c                         |   10 -
+ net/core/sock.c                        |    6 -
+ net/core/user_dma.c                    |  131 ---------------
+ net/dccp/proto.c                       |    4 
+ net/ipv4/sysctl_net_ipv4.c             |    9 -
+ net/ipv4/tcp.c                         |  147 ++---------------
+ net/ipv4/tcp_input.c                   |   61 -------
+ net/ipv4/tcp_ipv4.c                    |   18 --
+ net/ipv6/tcp_ipv6.c                    |   13 -
+ net/llc/af_llc.c                       |   10 +
+ 31 files changed, 161 insertions(+), 902 deletions(-)
+ create mode 100644 Documentation/ABI/removed/net_dma
+ delete mode 100644 drivers/dma/iovlock.c
+ delete mode 100644 include/net/netdma.h
+ delete mode 100644 net/core/user_dma.c
