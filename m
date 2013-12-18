@@ -1,199 +1,191 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/14] ixgbe: Convert to use devm_hwmon_device_register_with_groups
-Date: Tue, 17 Dec 2013 22:44:39 -0800
-Message-ID: <1387349082-18506-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/14] i40e: make functions static and remove dead code
+Date: Tue, 17 Dec 2013 22:44:37 -0800
+Message-ID: <1387349082-18506-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387349082-18506-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Guenter Roeck <linux@roeck-us.net>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:24896 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752841Ab3LRGpC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Dec 2013 01:45:02 -0500
+	id S1752817Ab3LRGo7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Dec 2013 01:44:59 -0500
 In-Reply-To: <1387349082-18506-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guenter Roeck <linux@roeck-us.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
 
-Simplify the code. Attach hwmon sysfs attributes to hwmon device
-instead of pci device. Avoid race conditions caused by attributes
-being created after hwmon device registration. Implicitly
-(through hwmon API) add mandatory 'name' sysfs attribute.
+Make local functions static in the file they are used.
 
-Other cleanup:
+Remove functions i40e_aq_add_vlan and i40e_aq_remove_vlan since
+they are not used anywhere by current code.
 
-Instead of allocating memory for hwmon attributes, move attributes
-and all other hwmon related data into struct hwmon_buff and allocate
-the entire structure using devm_kzalloc.
-
-Check return value from calls to igb_add_hwmon_attr() one by one instead
-of logically combining them all together.
-
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h       |  8 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c | 76 +++++++++++---------------
- 2 files changed, 36 insertions(+), 48 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c    |  6 +-
+ drivers/net/ethernet/intel/i40e/i40e_common.c    | 80 ------------------------
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h |  8 ---
+ 3 files changed, 4 insertions(+), 90 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index f38fc0a..49531cd 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -552,8 +552,10 @@ struct hwmon_attr {
- };
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+index 30f32f3..c7e2866 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+@@ -31,6 +31,8 @@
+ #include "i40e_adminq.h"
+ #include "i40e_prototype.h"
  
- struct hwmon_buff {
--	struct device *device;
--	struct hwmon_attr *hwmon_list;
-+	struct attribute_group group;
-+	const struct attribute_group *groups[2];
-+	struct attribute *attrs[IXGBE_MAX_SENSORS * 4 + 1];
-+	struct hwmon_attr hwmon_list[IXGBE_MAX_SENSORS * 4];
- 	unsigned int n_hwmon;
- };
- #endif /* CONFIG_IXGBE_HWMON */
-@@ -775,7 +777,7 @@ struct ixgbe_adapter {
- 	u32 vferr_refcount;
- 	struct kobject *info_kobj;
- #ifdef CONFIG_IXGBE_HWMON
--	struct hwmon_buff ixgbe_hwmon_buff;
-+	struct hwmon_buff *ixgbe_hwmon_buff;
- #endif /* CONFIG_IXGBE_HWMON */
- #ifdef CONFIG_DEBUG_FS
- 	struct dentry *ixgbe_dbg_adapter;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-index d118def..3081974 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-@@ -111,8 +111,8 @@ static int ixgbe_add_hwmon_attr(struct ixgbe_adapter *adapter,
- 	unsigned int n_attr;
- 	struct hwmon_attr *ixgbe_attr;
- 
--	n_attr = adapter->ixgbe_hwmon_buff.n_hwmon;
--	ixgbe_attr = &adapter->ixgbe_hwmon_buff.hwmon_list[n_attr];
-+	n_attr = adapter->ixgbe_hwmon_buff->n_hwmon;
-+	ixgbe_attr = &adapter->ixgbe_hwmon_buff->hwmon_list[n_attr];
- 
- 	switch (type) {
- 	case IXGBE_HWMON_TYPE_LOC:
-@@ -147,32 +147,17 @@ static int ixgbe_add_hwmon_attr(struct ixgbe_adapter *adapter,
- 	ixgbe_attr->dev_attr.store = NULL;
- 	ixgbe_attr->dev_attr.attr.mode = S_IRUGO;
- 	ixgbe_attr->dev_attr.attr.name = ixgbe_attr->name;
-+	sysfs_attr_init(&ixgbe_attr->dev_attr.attr);
- 
--	rc = device_create_file(&adapter->pdev->dev,
--				&ixgbe_attr->dev_attr);
-+	adapter->ixgbe_hwmon_buff->attrs[n_attr] = &ixgbe_attr->dev_attr.attr;
- 
--	if (rc == 0)
--		++adapter->ixgbe_hwmon_buff.n_hwmon;
-+	++adapter->ixgbe_hwmon_buff->n_hwmon;
- 
--	return rc;
-+	return 0;
- }
- 
- static void ixgbe_sysfs_del_adapter(struct ixgbe_adapter *adapter)
++static void i40e_resume_aq(struct i40e_hw *hw);
++
+ /**
+  *  i40e_adminq_init_regs - Initialize AdminQ registers
+  *  @hw: pointer to the hardware structure
+@@ -675,7 +677,7 @@ static u16 i40e_clean_asq(struct i40e_hw *hw)
+  *  Returns true if the firmware has processed all descriptors on the
+  *  admin send queue. Returns false if there are still requests pending.
+  **/
+-bool i40e_asq_done(struct i40e_hw *hw)
++static bool i40e_asq_done(struct i40e_hw *hw)
  {
--	int i;
--
--	if (adapter == NULL)
--		return;
--
--	for (i = 0; i < adapter->ixgbe_hwmon_buff.n_hwmon; i++) {
--		device_remove_file(&adapter->pdev->dev,
--			   &adapter->ixgbe_hwmon_buff.hwmon_list[i].dev_attr);
--	}
--
--	kfree(adapter->ixgbe_hwmon_buff.hwmon_list);
--
--	if (adapter->ixgbe_hwmon_buff.device)
--		hwmon_device_unregister(adapter->ixgbe_hwmon_buff.device);
+ 	/* AQ designers suggest use of head for better
+ 	 * timing reliability than DD bit
+@@ -963,7 +965,7 @@ clean_arq_element_out:
+ 	return ret_code;
  }
  
- /* called from ixgbe_main.c */
-@@ -184,9 +169,9 @@ void ixgbe_sysfs_exit(struct ixgbe_adapter *adapter)
- /* called from ixgbe_main.c */
- int ixgbe_sysfs_init(struct ixgbe_adapter *adapter)
+-void i40e_resume_aq(struct i40e_hw *hw)
++static void i40e_resume_aq(struct i40e_hw *hw)
  {
--	struct hwmon_buff *ixgbe_hwmon = &adapter->ixgbe_hwmon_buff;
-+	struct hwmon_buff *ixgbe_hwmon;
-+	struct device *hwmon_dev;
- 	unsigned int i;
--	int n_attrs;
- 	int rc = 0;
+ 	u32 reg = 0;
  
- 	/* If this method isn't defined we don't support thermals */
-@@ -198,23 +183,13 @@ int ixgbe_sysfs_init(struct ixgbe_adapter *adapter)
- 	if (adapter->hw.mac.ops.init_thermal_sensor_thresh(&adapter->hw))
- 		goto exit;
- 
--	/*
--	 * Allocation space for max attributs
--	 * max num sensors * values (loc, temp, max, caution)
--	 */
--	n_attrs = IXGBE_MAX_SENSORS * 4;
--	ixgbe_hwmon->hwmon_list = kcalloc(n_attrs, sizeof(struct hwmon_attr),
--					  GFP_KERNEL);
--	if (!ixgbe_hwmon->hwmon_list) {
-+	ixgbe_hwmon = devm_kzalloc(&adapter->pdev->dev, sizeof(*ixgbe_hwmon),
-+				   GFP_KERNEL);
-+	if (ixgbe_hwmon == NULL) {
- 		rc = -ENOMEM;
--		goto err;
--	}
--
--	ixgbe_hwmon->device = hwmon_device_register(&adapter->pdev->dev);
--	if (IS_ERR(ixgbe_hwmon->device)) {
--		rc = PTR_ERR(ixgbe_hwmon->device);
--		goto err;
-+		goto exit;
- 	}
-+	adapter->ixgbe_hwmon_buff = ixgbe_hwmon;
- 
- 	for (i = 0; i < IXGBE_MAX_SENSORS; i++) {
- 		/*
-@@ -226,17 +201,28 @@ int ixgbe_sysfs_init(struct ixgbe_adapter *adapter)
- 
- 		/* Bail if any hwmon attr struct fails to initialize */
- 		rc = ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_CAUTION);
--		rc |= ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_LOC);
--		rc |= ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_TEMP);
--		rc |= ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_MAX);
- 		if (rc)
--			goto err;
-+			goto exit;
-+		rc = ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_LOC);
-+		if (rc)
-+			goto exit;
-+		rc = ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_TEMP);
-+		if (rc)
-+			goto exit;
-+		rc = ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_MAX);
-+		if (rc)
-+			goto exit;
- 	}
- 
--	goto exit;
-+	ixgbe_hwmon->groups[0] = &ixgbe_hwmon->group;
-+	ixgbe_hwmon->group.attrs = ixgbe_hwmon->attrs;
- 
--err:
--	ixgbe_sysfs_del_adapter(adapter);
-+	hwmon_dev = devm_hwmon_device_register_with_groups(&adapter->pdev->dev,
-+							   "ixgbe",
-+							   ixgbe_hwmon,
-+							   ixgbe_hwmon->groups);
-+	if (IS_ERR(hwmon_dev))
-+		rc = PTR_ERR(hwmon_dev);
- exit:
- 	return rc;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index e526d40..8b6d56a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -1129,86 +1129,6 @@ i40e_status i40e_aq_remove_macvlan(struct i40e_hw *hw, u16 seid,
  }
+ 
+ /**
+- * i40e_aq_add_vlan - Add VLAN ids to the HW filtering
+- * @hw: pointer to the hw struct
+- * @seid: VSI for the vlan filters
+- * @v_list: list of vlan filters to be added
+- * @count: length of the list
+- * @cmd_details: pointer to command details structure or NULL
+- **/
+-i40e_status i40e_aq_add_vlan(struct i40e_hw *hw, u16 seid,
+-			struct i40e_aqc_add_remove_vlan_element_data *v_list,
+-			u8 count, struct i40e_asq_cmd_details *cmd_details)
+-{
+-	struct i40e_aq_desc desc;
+-	struct i40e_aqc_macvlan *cmd =
+-		(struct i40e_aqc_macvlan *)&desc.params.raw;
+-	i40e_status status;
+-	u16 buf_size;
+-
+-	if (count == 0 || !v_list || !hw)
+-		return I40E_ERR_PARAM;
+-
+-	buf_size = count * sizeof(struct i40e_aqc_add_remove_vlan_element_data);
+-
+-	/* prep the rest of the request */
+-	i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_add_vlan);
+-	cmd->num_addresses = cpu_to_le16(count);
+-	cmd->seid[0] = cpu_to_le16(seid | I40E_AQC_MACVLAN_CMD_SEID_VALID);
+-	cmd->seid[1] = 0;
+-	cmd->seid[2] = 0;
+-
+-	desc.flags |= cpu_to_le16((u16)(I40E_AQ_FLAG_BUF | I40E_AQ_FLAG_RD));
+-	if (buf_size > I40E_AQ_LARGE_BUF)
+-		desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_LB);
+-
+-	status = i40e_asq_send_command(hw, &desc, v_list, buf_size,
+-				       cmd_details);
+-
+-	return status;
+-}
+-
+-/**
+- * i40e_aq_remove_vlan - Remove VLANs from the HW filtering
+- * @hw: pointer to the hw struct
+- * @seid: VSI for the vlan filters
+- * @v_list: list of macvlans to be removed
+- * @count: length of the list
+- * @cmd_details: pointer to command details structure or NULL
+- **/
+-i40e_status i40e_aq_remove_vlan(struct i40e_hw *hw, u16 seid,
+-			struct i40e_aqc_add_remove_vlan_element_data *v_list,
+-			u8 count, struct i40e_asq_cmd_details *cmd_details)
+-{
+-	struct i40e_aq_desc desc;
+-	struct i40e_aqc_macvlan *cmd =
+-		(struct i40e_aqc_macvlan *)&desc.params.raw;
+-	i40e_status status;
+-	u16 buf_size;
+-
+-	if (count == 0 || !v_list || !hw)
+-		return I40E_ERR_PARAM;
+-
+-	buf_size = count * sizeof(struct i40e_aqc_add_remove_vlan_element_data);
+-
+-	/* prep the rest of the request */
+-	i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_remove_vlan);
+-	cmd->num_addresses = cpu_to_le16(count);
+-	cmd->seid[0] = cpu_to_le16(seid | I40E_AQC_MACVLAN_CMD_SEID_VALID);
+-	cmd->seid[1] = 0;
+-	cmd->seid[2] = 0;
+-
+-	desc.flags |= cpu_to_le16((u16)(I40E_AQ_FLAG_BUF | I40E_AQ_FLAG_RD));
+-	if (buf_size > I40E_AQ_LARGE_BUF)
+-		desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_LB);
+-
+-	status = i40e_asq_send_command(hw, &desc, v_list, buf_size,
+-				       cmd_details);
+-
+-	return status;
+-}
+-
+-/**
+  * i40e_aq_send_msg_to_vf
+  * @hw: pointer to the hardware structure
+  * @vfid: vf id to send msg
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+index 930f53a..2fc9ce5 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+@@ -51,7 +51,6 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
+ 				void *buff, /* can be NULL */
+ 				u16  buff_size,
+ 				struct i40e_asq_cmd_details *cmd_details);
+-bool i40e_asq_done(struct i40e_hw *hw);
+ 
+ /* debug function for adminq */
+ void i40e_debug_aq(struct i40e_hw *hw,
+@@ -60,7 +59,6 @@ void i40e_debug_aq(struct i40e_hw *hw,
+ 		   void *buffer);
+ 
+ void i40e_idle_aq(struct i40e_hw *hw);
+-void i40e_resume_aq(struct i40e_hw *hw);
+ 
+ u32 i40e_led_get(struct i40e_hw *hw);
+ void i40e_led_set(struct i40e_hw *hw, u32 mode);
+@@ -120,12 +118,6 @@ i40e_status i40e_aq_add_macvlan(struct i40e_hw *hw, u16 vsi_id,
+ i40e_status i40e_aq_remove_macvlan(struct i40e_hw *hw, u16 vsi_id,
+ 			struct i40e_aqc_remove_macvlan_element_data *mv_list,
+ 			u16 count, struct i40e_asq_cmd_details *cmd_details);
+-i40e_status i40e_aq_add_vlan(struct i40e_hw *hw, u16 vsi_id,
+-			struct i40e_aqc_add_remove_vlan_element_data *v_list,
+-			u8 count, struct i40e_asq_cmd_details *cmd_details);
+-i40e_status i40e_aq_remove_vlan(struct i40e_hw *hw, u16 vsi_id,
+-			struct i40e_aqc_add_remove_vlan_element_data *v_list,
+-			u8 count, struct i40e_asq_cmd_details *cmd_details);
+ i40e_status i40e_aq_send_msg_to_vf(struct i40e_hw *hw, u16 vfid,
+ 				u32 v_opcode, u32 v_retval, u8 *msg, u16 msglen,
+ 				struct i40e_asq_cmd_details *cmd_details);
 -- 
 1.8.3.1
