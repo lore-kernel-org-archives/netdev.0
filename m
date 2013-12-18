@@ -1,60 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH] net, rps: bypass enqueue_to_backlog()
-Date: Wed, 18 Dec 2013 06:04:02 -0800
-Message-ID: <1387375442.19078.310.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1387371816-32476-1-git-send-email-zwu.kernel@gmail.com>
-	 <1387374979.19078.309.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, netdev@vger.kernel.org,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: Zhi Yong Wu <zwu.kernel@gmail.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next 0/2] net/mlx4: Add support for TCP/IP offloads of vxlan tunneling
+Date: Wed, 18 Dec 2013 16:05:26 +0200
+Message-ID: <1387375528-2337-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com, yanb@mellanox.com,
+	ast@plumgrid.com, Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:57607 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753243Ab3LROD6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 09:03:58 -0500
-Received: by mail-pa0-f49.google.com with SMTP id kx10so5971149pab.22
-        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 06:03:58 -0800 (PST)
-In-Reply-To: <1387374979.19078.309.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:38430 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754021Ab3LROFg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Dec 2013 09:05:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-12-18 at 05:56 -0800, Eric Dumazet wrote:
-> On Wed, 2013-12-18 at 21:03 +0800, Zhi Yong Wu wrote:
-> > From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-> > 
-> > When local cpu is just target cpu which will handle network soft irq,
-> > the packet should be directly injected to network stack, by bypassing
-> > enqueue_to_backlog(), it can speed up the packet processing.
-> > 
-> > HI, guys
-> > 
-> > I checked the first several versions of RPS patch which seemed to have
-> > this condition determination, but why was it removed later? Do i miss
-> > anything? if yes, please correct me, thanks.
-> > 
-> > Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-> > ---
-> 
-> Hmm... Could you elaborate ?
-> 
-> At which point do you think this condition was tested or removed ?
-> 
-> I think the idea was to drain NIC RX queues as fast as possible, then :
-> 
-> - Send the IPI to remote cpus
-> - process our queue in parallel with other cpus processing their own
-> queue.
-> 
-> If we process our packets through whole stack, packets for other cpus
-> will have a fair amount of extra latency.
-> 
-> Thats a tradeoff I suppose.
-> 
+Hi Dave,
 
-Also note that going through the backlog permits thinks like
+These two patches add mlx4 support for TCP/IP offloads under vxlan tunneling
 
-99bbc70741903c0  ("rps: selective flow shedding during softnet
-overflow")
+The patches are againt net-next commit 7ed2a0d "Merge branch 'for-davem' 
+of git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next" plus the in-progress 
+mlx4 series http://marc.info/?l=linux-netdev&m=138726378426919&w=2 -- the two 
+patch series pretty much touch different areas and practically can be applied in any order.
+
+Or.
+
+Or Gerlitz (2):
+  net/mlx4_core: Add basic support for TCP/IP offloads under tunneling
+  net/mlx4_en: Add netdev support for TCP/IP offloads of vxlan tunneling
+
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |   95 +++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_resources.c |    6 ++
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c        |   15 +++-
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c        |   14 +++-
+ drivers/net/ethernet/mellanox/mlx4/fw.c           |   19 ++++-
+ drivers/net/ethernet/mellanox/mlx4/main.c         |   14 +++
+ drivers/net/ethernet/mellanox/mlx4/mcg.c          |   14 +++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h      |    3 +-
+ drivers/net/ethernet/mellanox/mlx4/port.c         |   41 +++++++++
+ include/linux/mlx4/cmd.h                          |    1 +
+ include/linux/mlx4/cq.h                           |    5 +
+ include/linux/mlx4/device.h                       |   37 ++++++++-
+ include/linux/mlx4/qp.h                           |    6 ++
+ 13 files changed, 263 insertions(+), 7 deletions(-)
