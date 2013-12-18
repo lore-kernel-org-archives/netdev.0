@@ -1,81 +1,68 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't work.
-Date: Wed, 18 Dec 2013 20:45:46 +0100
-Message-ID: <4610721898.20131218204546@eikelenboom.it>
-References: <19210260274.20131216135644@eikelenboom.it> <CAGRGNgXHemM2FfnXgW5RbzhFT+9SfUfVkjdysK3+=_u3hWSacw@mail.gmail.com> <1534126119.20131217104548@eikelenboom.it> <387552477.20131217213319@eikelenboom.it> <20131217212709.GB5624@decadent.org.uk> <1254825772.20131217224914@eikelenboom.it> <CA+55aFxQg6=MAWEkEGz64Hz8OawvPyX=fpBOjY8cGBL5XgB9WQ@mail.gmail.com> <52B167F6.5060209@broadcom.com> <1387358785.4694.9.camel@jlt4.sipsolutions.net> <133955103.20131218114845@eikelenboom.it> <20131218194328.GE5705@cerro.do-not-panic.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v4 3/8] net_sched: mirred: remove action when
+ the target device is gone
+Date: Wed, 18 Dec 2013 14:50:05 -0500
+Message-ID: <52B1FC6D.7040005@mojatatu.com>
+References: <1387167311-14763-1-git-send-email-xiyou.wangcong@gmail.com>	<1387167311-14763-4-git-send-email-xiyou.wangcong@gmail.com>	<52B1B1B1.2060501@mojatatu.com> <CAM_iQpUDZa-=H53Csg8476xOL0xP+rn85O8eB1O39-eF_Jo+uw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Arend van Spriel <arend@broadcom.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Julian Calaby <julian.calaby@gmail.com>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ilw@linux.intel.com" <ilw@linux.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Avinash Patil <avinashapatil@gmail.com>
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131218194328.GE5705@cerro.do-not-panic.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:55366 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751675Ab3LRTuH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 14:50:07 -0500
+Received: by mail-ie0-f169.google.com with SMTP id e14so170092iej.28
+        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 11:50:06 -0800 (PST)
+In-Reply-To: <CAM_iQpUDZa-=H53Csg8476xOL0xP+rn85O8eB1O39-eF_Jo+uw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On 12/18/13 13:36, Cong Wang wrote:
+> On Wed, Dec 18, 2013 at 6:31 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+>> On 12/15/13 23:15, Cong Wang wrote:
+>>>
+>>> When the target device is removed, the mirred action is
+>>> still there but with the dev pointer setting to NULL.
+>>> This makes the output from 'tc filter' ugly. There is no
+>>> reason to keep it.
+>>>
+>>
+>> Sorry - this one i have problems with.
+>> actions may be referenced from multiple filters,
+>> you cant just delete it (that would leave other users
+>> pointing to it dangling). Destroying would eventually
+>> delete it when the refcount goes to 0.
+>
+> How? tcf_action_init() always allocates a new action,
+> it doesn't even look for an existing one.
+>
 
 
-Wednesday, December 18, 2013, 8:43:28 PM, you wrote:
+tc action blah index 123
+tc action filter goo action blah index 123
+tc action filter gah action blah index 123
 
-> On Wed, Dec 18, 2013 at 11:48:45AM +0100, Sander Eikelenboom wrote:
->> 
->> Wednesday, December 18, 2013, 10:26:25 AM, you wrote:
->> 
->> > Hi all,
->> 
->> > We really should be asking Luis to look at this who hasn't yet chimed
->> > in, presumably because he's between jobs (and travelling IIRC)
->> 
->> > On Wed, 2013-12-18 at 10:16 +0100, Arend van Spriel wrote:
->> >> On 12/17/2013 11:06 PM, Linus Torvalds wrote:
->> >> > We have literally had this *exact* same issue with firmware loading.
->> >> > Network drivers shouldn't try to load firmware at module load time.
->> >> > Same deal.
->> >> 
->> >> It is kind of a chicken and egg problem for (wireless) networking
->> >> drivers. To get IFF_UP from the network layer you have to register a
->> >> netdevice. For wireless drivers this means you have to register a wiphy
->> >> device with cfg80211 which flags capabilities and optionally are custom
->> >> regulatory domain. That information depends on the device and firmware
->> >> used. And there we have a full circle.
->> 
->> > This is all really beside the point.
->> 
->> > For this CRDA information, the kernel never actually *waits* for it, so
->> > in the case that there's no reply, it uses the built-in world domain. So
->> > it's not like request_firmware(), which will block boot forever, but
->> > it's also not like request_firmware_nowait() which will eventually time
->> > out and come back with an error if userspace isn't handling it (though
->> > now that firmware loading is built in ...)
->> 
->> > The issue is that it uses the built-in data *forever*, and what Sander
->> > said was "or it will block forever" but just meant that it never was
->> > able to do any further updates.
->> 
->> > It *doesn't* actually block the boot process or such. Everything Linus
->> > said is true but seems to have been written in understanding "blocks" as
->> > "blocking the boot process", rather than "blocking further updates".
->> 
->> > Regardless of this, even blocking further updates is a really bad idea.
->> > There are a few ways to handle this, but I'll let Luis poke at that.
->> 
->> Your description is correct, sorry if I was not clear.
-
-> We have a timeout handler for this, I'll check to see what's going on
-> by trying to reproduce on my end. Are you using wireless-testing ?
-
-Originally 3.13-rc4, after that i tried with 3.13-rc4 with wireless-next pulled on top of it
-(since there were major changes to reg.c) but the problem occurs with both.
+Very useful for example for multiple flows to
+share the same policer.
 
 
->   Luis
+>> [And when we delete actions we send netlink events to announce
+>> that]. The proper solution would require i.e tag it as to be
+>> deleted and implement some form of garbage collection.
+>
+> It doesn't worth to have a GC for this...
+>
+> Even if what you said is true, we should just make a copy
+> for each of the filters. I just tried to create two different filters
+> with same and different mirred actions, my patch works
+> perfectly.
+>
+
+A copy wont work. We want sharing.
+
+cheers,
+jamal
