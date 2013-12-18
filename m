@@ -1,49 +1,80 @@
-From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: RE: [PATCH] bnx2x: downgrade "valid ME register value" message level
-Date: Wed, 18 Dec 2013 06:37:19 +0000
-Message-ID: <979A8436335E3744ADCD3A9F2A2B68A52AF1CF20@SJEXCHMB10.corp.ad.broadcom.com>
-References: <1387302685-32314-1-git-send-email-mschmidt@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next 1/3] netconf: rename PROXY_ARP to NEIGH_PROXY
+Date: Tue, 17 Dec 2013 22:35:52 -0800
+Message-ID: <20131217223552.60d1f5cb@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ariel Elior <ariele@broadcom.com>
-To: Michal Schmidt <mschmidt@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:62752 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752665Ab3LRGhd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 01:37:33 -0500
-In-Reply-To: <1387302685-32314-1-git-send-email-mschmidt@redhat.com>
-Content-Language: en-US
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:34903 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751320Ab3LRGjM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 01:39:12 -0500
+Received: by mail-pa0-f43.google.com with SMTP id bj1so5540822pad.2
+        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 22:39:12 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> "valid ME register value" is not an error. It should be logged for
-> debugging only.
-> 
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+Use same field for both IPv4 (proxy_arp) and IPv6 (proxy_ndp)
+so fix it before API is set to be a common name
 
-Yep, that's true; Thanks Michal.
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Acked-by: Yuval Mintz <yuvalmin@broadcom.com>
+---
+ include/uapi/linux/netconf.h |    2 +-
+ net/ipv4/devinet.c           |   10 +++++-----
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-> ---
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-> b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-> index efa8a15..3dc2537 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-> @@ -208,7 +208,7 @@ static int bnx2x_get_vf_id(struct bnx2x *bp, u32
-> *vf_id)
->  		return -EINVAL;
->  	}
-> 
-> -	BNX2X_ERR("valid ME register value: 0x%08x\n", me_reg);
-> +	DP(BNX2X_MSG_IOV, "valid ME register value: 0x%08x\n", me_reg);
-> 
->  	*vf_id = (me_reg & ME_REG_VF_NUM_MASK) >>
-> ME_REG_VF_NUM_SHIFT;
+--- a/include/uapi/linux/netconf.h	2013-12-17 22:30:00.000000000 -0800
++++ b/include/uapi/linux/netconf.h	2013-12-17 22:31:07.973419694 -0800
+@@ -14,7 +14,7 @@ enum {
+ 	NETCONFA_FORWARDING,
+ 	NETCONFA_RP_FILTER,
+ 	NETCONFA_MC_FORWARDING,
+-	NETCONFA_PROXY_ARP,
++	NETCONFA_PROXY_NEIGH,
+ 	__NETCONFA_MAX
+ };
+ #define NETCONFA_MAX	(__NETCONFA_MAX - 1)
+--- a/net/ipv4/devinet.c	2013-12-17 22:30:00.000000000 -0800
++++ b/net/ipv4/devinet.c	2013-12-17 22:31:07.973419694 -0800
+@@ -1696,7 +1696,7 @@ static int inet_netconf_msgsize_devconf(
+ 		size += nla_total_size(4);
+ 	if (type == -1 || type == NETCONFA_MC_FORWARDING)
+ 		size += nla_total_size(4);
+-	if (type == -1 || type == NETCONFA_PROXY_ARP)
++	if (type == -1 || type == NETCONFA_PROXY_NEIGH)
+ 		size += nla_total_size(4);
+ 
+ 	return size;
+@@ -1734,8 +1734,8 @@ static int inet_netconf_fill_devconf(str
+ 	    nla_put_s32(skb, NETCONFA_MC_FORWARDING,
+ 			IPV4_DEVCONF(*devconf, MC_FORWARDING)) < 0)
+ 		goto nla_put_failure;
+-	if ((type == -1 || type == NETCONFA_PROXY_ARP) &&
+-	    nla_put_s32(skb, NETCONFA_PROXY_ARP,
++	if ((type == -1 || type == NETCONFA_PROXY_NEIGH) &&
++	    nla_put_s32(skb, NETCONFA_PROXY_NEIGH,
+ 			IPV4_DEVCONF(*devconf, PROXY_ARP)) < 0)
+ 		goto nla_put_failure;
+ 
+@@ -1775,7 +1775,7 @@ static const struct nla_policy devconf_i
+ 	[NETCONFA_IFINDEX]	= { .len = sizeof(int) },
+ 	[NETCONFA_FORWARDING]	= { .len = sizeof(int) },
+ 	[NETCONFA_RP_FILTER]	= { .len = sizeof(int) },
+-	[NETCONFA_PROXY_ARP]	= { .len = sizeof(int) },
++	[NETCONFA_PROXY_NEIGH]	= { .len = sizeof(int) },
+ };
+ 
+ static int inet_netconf_get_devconf(struct sk_buff *in_skb,
+@@ -2002,7 +2002,7 @@ static int devinet_conf_proc(struct ctl_
+ 		if (i == IPV4_DEVCONF_PROXY_ARP - 1 &&
+ 		    new_value != old_value) {
+ 			ifindex = devinet_conf_ifindex(net, cnf);
+-			inet_netconf_notify_devconf(net, NETCONFA_PROXY_ARP,
++			inet_netconf_notify_devconf(net, NETCONFA_PROXY_NEIGH,
+ 						    ifindex, cnf);
+ 		}
+ 	}
