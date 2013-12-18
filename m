@@ -1,75 +1,70 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: linux-next: manual merge of the net-next tree with Linus' tree
-Date: Tue, 17 Dec 2013 17:56:09 -0800
-Message-ID: <1387331769.2330.12.camel@jtkirshe-mobl>
-References: <20131218124657.f573d9ae178ea37fa971456d@canb.auug.org.au>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net-next tree
+Date: Wed, 18 Dec 2013 12:56:43 +1100
+Message-ID: <20131218125643.8ff140371e1f8c306327d354@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-bpj1wp9CNtR2ivYx+FkM"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Anjali Singhai Jain <anjali.singhai@intel.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__18_Dec_2013_12_56_43_+1100_i7Gq2pdwQ6mTjpqw"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Francesco Fusco <ffusco@redhat.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Thomas Graf <tgraf@redhat.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20131218124657.f573d9ae178ea37fa971456d@canb.auug.org.au>
 Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---=-bpj1wp9CNtR2ivYx+FkM
-Content-Type: text/plain; charset="UTF-8"
+--Signature=_Wed__18_Dec_2013_12_56_43_+1100_i7Gq2pdwQ6mTjpqw
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2013-12-18 at 12:46 +1100, Stephen Rothwell wrote:
-> Hi all,
->=20
-> Today's linux-next merge of the net-next tree got a conflict in
-> drivers/net/ethernet/intel/i40e/i40e_main.c between commit 3c325ced6aef
-> ("i40e: fix null dereference") from Linus' tree and commit bc7d338fbb3f
-> ("i40e: reinit flow for the main VSI") from the net-next tree.
->=20
-> I fixed it up (see below) and can carry the fix as necessary (no action
-> is required).
->=20
+Hi all,
 
-Your fix is fine, what I have in my tree is the following, so if you
-want to modify your change so that the resultant code looks like this:
+After merging the net-next tree, today's linux-next build (powerpc
+ppc64_defconfig) failed like this:
 
-        struct rtnl_link_stats64 *vsi_stats =3D
-i40e_get_vsi_stats_struct(vsi);
-        int i;
- =20
-        if (test_bit(__I40E_DOWN, &vsi->state))
-               return stats;
+In file included from include/linux/hashtable.h:12:0,
+                 from include/linux/elevator.h:5,
+                 from include/linux/blkdev.h:222,
+                 from init/do_mounts.h:2,
+                 from init/do_mounts_rd.c:21:
+include/linux/hash.h:18:22: fatal error: asm/hash.h: No such file or direct=
+ory
+ #include <asm/hash.h>
+                      ^
 
-        if (!vsi->tx_rings)
-               return stats;
- =20
-        rcu_read_lock();
-        for (i =3D 0; i < vsi->num_queue_pairs; i++) {
+And many more ...
 
---=-bpj1wp9CNtR2ivYx+FkM
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Caused by commit 71ae8aac3e19 ("lib: introduce arch optimized hash
+library").  Presumably this would break any architecture other than
+x86 :-(
+
+I have used the net-next tree from next-20131217 for today.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Wed__18_Dec_2013_12_56_43_+1100_i7Gq2pdwQ6mTjpqw
+Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
+Version: GnuPG v2.0.22 (GNU/Linux)
 
-iQIcBAABCgAGBQJSsQC5AAoJEOVv75VaS+3O7lQQAJjuUL7GLZrx9wgSzEeQ17Wr
-B+TvpYVDBo0M7UPBNsmh235UgRaTbs7LWUjhEsTkskwYuaVpm9bH1wqfPu8/eSvi
-qSWTvduJY3l5gUdc9eCUVoUvWVrx7dDYmizriQLMUVZCFOT5c9hyAdyiDja416Xm
-iCC48vQOdYuqIz4E93T7H6oIPOAqWAbggW7D100wbAo4z+G7a4181u5iOHR4wzlZ
-uxbMkkifyRzDYUuJ7q1QiGeZIC8Ng+16oMNi9+5//m1jnjC1NP2Knicbci9pp3KP
-j3XxI7AJRHUfe2qnj3lY600RwRl38Wi2rlvRgvwo1pzmRbKLUKupxrYz+IP33LSr
-i4TnTVk6ndRyR3qcJG7zt8KPiBQjIHV9Xj2RWgpBtzv+IAU141POONcCEo17Z/sU
-GcxNo5U9jBegdBvJ05/YzmX1+R2RErvvmlM3tzKUF5yKJ9XxZ6vdbAdmqZ5lYHR1
-NuplLUuTaRscrNcSfy1O1xwpQC+uCtCBDs6E8obVb4eZUj9m4XspvxVokhfUVPLR
-UAUZeJN8gW04x1GfBkeT0VRUNFZKAn/Mxp74beCGTe4sCAJlr83Wh87WAkEwICB1
-nepxDmrgCC/mGxKX31/4xjGNf1dMViEid5padJeX4kwskcNteYSiDEJyejYPPja6
-t9Z42o3+n7sdsg/Jn/Ek
-=Ho12
+iQIcBAEBCAAGBQJSsQDfAAoJEMDTa8Ir7ZwVHiwP/RHLnxKeWIvlEwMDIi8y35tQ
+ykpKL1TmZ71zn+mEXWjTjJCKrCG9Tb8ao9pGShAJn2NBjsALQpuG1G2g953rD6xe
+RBHMwqukza7x6l41VNM2yEAKOy0KzhHHgTX9WB4AnHBXRalvMxAlriqS7u/Dqy2W
+6iwlFaS70ENVCqyuZ8VHf9eDW1FqF2aw72hjsedY0bB6rOjOjM/Leyux8wnCMSWy
+tBdYrXCCKiNbjdj8XoUZ8umVgJs3/m0hgDCjlO+xBdQKkJkXziFofCWAKC2IqraB
+PEWsZ/iT6Sw5nZvfvAsX2Au0Gu2VUb9iTaPmblrJO/PEG8myUxc3/6J/zNI2I2MM
+bf2765JHm59X6CzOAPcJw1c6bJ/a6ZcPX6z5NgSxNOuuVUByWlygSzHX179NebbG
+Tq6qYvmlkYw4X6f3kc5o7JYI0br5AJN362pP4pAD0PmmGi/TR3auJLJKfd/A4YmY
+wd77CDqriHDOWy+sVdxFs9UqiKTRTBw4cxrdRn5t3BGxcp3w+znYDjNh4COYPTQr
+TPtLeKWnX8prvM5JeqLgMWbRBCtdfcAubGxk0m6zgfJUE6QR02QZysA8xL1/+bxN
+BuorVM1oIt37gNy4iTyGEYbjpJbMG5poqXFGto0SXani8Q365IrkesZhuWF+Ch+h
+Pe4/ExVVjCu5MAVPox2/
+=D1OX
 -----END PGP SIGNATURE-----
 
---=-bpj1wp9CNtR2ivYx+FkM--
+--Signature=_Wed__18_Dec_2013_12_56_43_+1100_i7Gq2pdwQ6mTjpqw--
