@@ -1,76 +1,35 @@
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: Re: [RFC PATCH] net, rps: bypass enqueue_to_backlog()
-Date: Wed, 18 Dec 2013 22:11:03 +0800
-Message-ID: <CAEH94Lh-Dujb9YbpFK0kTu2O3pGSf16rXwCWFWBE50K_4geHnA@mail.gmail.com>
-References: <1387371816-32476-1-git-send-email-zwu.kernel@gmail.com>
-	<1387374979.19078.309.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1387375442.19078.310.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v4 0/8] net_sched: some cleanup and improvments
+Date: Wed, 18 Dec 2013 09:13:33 -0500
+Message-ID: <52B1AD8D.7010309@mojatatu.com>
+References: <1387167311-14763-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Tom Herbert <therbert@google.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f49.google.com ([209.85.219.49]:37087 "EHLO
-	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753536Ab3LROLE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 09:11:04 -0500
-Received: by mail-oa0-f49.google.com with SMTP id i4so8215979oah.36
-        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 06:11:03 -0800 (PST)
-In-Reply-To: <1387375442.19078.310.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:62336 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753170Ab3LRONf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 09:13:35 -0500
+Received: by mail-ie0-f177.google.com with SMTP id tp5so10268703ieb.36
+        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 06:13:35 -0800 (PST)
+In-Reply-To: <1387167311-14763-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 18, 2013 at 10:04 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2013-12-18 at 05:56 -0800, Eric Dumazet wrote:
->> On Wed, 2013-12-18 at 21:03 +0800, Zhi Yong Wu wrote:
->> > From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
->> >
->> > When local cpu is just target cpu which will handle network soft irq,
->> > the packet should be directly injected to network stack, by bypassing
->> > enqueue_to_backlog(), it can speed up the packet processing.
->> >
->> > HI, guys
->> >
->> > I checked the first several versions of RPS patch which seemed to have
->> > this condition determination, but why was it removed later? Do i miss
->> > anything? if yes, please correct me, thanks.
->> >
->> > Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
->> > ---
->>
->> Hmm... Could you elaborate ?
->>
->> At which point do you think this condition was tested or removed ?
->>
->> I think the idea was to drain NIC RX queues as fast as possible, then :
->>
->> - Send the IPI to remote cpus
->> - process our queue in parallel with other cpus processing their own
->> queue.
->>
->> If we process our packets through whole stack, packets for other cpus
->> will have a fair amount of extra latency.
->>
->> Thats a tradeoff I suppose.
->>
->
-> Also note that going through the backlog permits thinks like
->
-> 99bbc70741903c0  ("rps: selective flow shedding during softnet
-> overflow"
-it makes sense, but if cpu < 0, some packets seems to bypass the flow
-shedding stuff, That is, the flow limit will be not so accurate,
-right?
-
->
->
+On 12/15/13 23:15, Cong Wang wrote:
+> Here are some cleanup and improvements for tc filters
+> and tc actions.
 >
 
+Hi Cong,
+I think these patches are a long overdue useful improvement. Thanks for
+the effort. I will comment on each individually.
 
+cheers,
+jamal
 
--- 
-Regards,
-
-Zhi Yong Wu
+PS: checkpatch was whining to me - but thats probably because of
+the way thunderbird saved things for me. Double check just in case.
