@@ -1,35 +1,104 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: linux-next: build failure after merge of the net-next tree
-Date: Wed, 18 Dec 2013 11:07:34 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B74A4@saturn3.aculab.com>
-References: <20131218125643.8ff140371e1f8c306327d354@canb.auug.org.au><20131217.212145.893665929052097867.davem@davemloft.net><20131217.213033.1019416869378407851.davem@davemloft.net><CAMuHMdUi4GQYR2p7enikEkTq1s-5YwirTzmo_tS0JwiE=dVmYw@mail.gmail.com><20131218101523.GP13532@twins.programming.kicks-ass.net> <CAMuHMdXHiKe6fjEHu0GrSVMAmvKuX9wOUdC2MW3uSjRAU5tnWA@mail.gmail.com>
+From: David Gibson <david@gibson.dropbear.id.au>
+Subject: Re: [0/2] netxen: bug fix and diagnostics for possible (hardware?)
+ bug
+Date: Wed, 18 Dec 2013 17:22:31 +1100
+Message-ID: <20131218062231.GB32453@voom.fritz.box>
+References: <1387257753-18676-1-git-send-email-david@gibson.dropbear.id.au>
+ <31AFFC7280259C4184970ABA9AFE8B938CF85726@avmb3.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="UTF-8"
-Content-Transfer-Encoding: base64
-Cc: "David Miller" <davem@davemloft.net>,
-	"Stephen Rothwell" <sfr@canb.auug.org.au>,
-	<netdev@vger.kernel.org>,
-	"Linux-Next" <linux-next@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <ffusco@redhat.com>,
-	<dborkman@redhat.com>, <tgraf@redhat.com>,
-	"Joe Perches" <joe@perches.com>
-To: "Geert Uytterhoeven" <geert@linux-m68k.org>,
-	"Peter Zijlstra" <peterz@infradead.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <CAMuHMdXHiKe6fjEHu0GrSVMAmvKuX9wOUdC2MW3uSjRAU5tnWA@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="mojUlQ0s9EVzWg2t"
+Cc: Sony Chacko <sony.chacko@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	"snagarka@redhat.com" <snagarka@redhat.com>,
+	"tcamuso@redhat.com" <tcamuso@redhat.com>,
+	"vdasgupt@redhat.com" <vdasgupt@redhat.com>
+To: Manish Chopra <manish.chopra@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:40212 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750949Ab3LRLOs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Dec 2013 06:14:48 -0500
+Content-Disposition: inline
+In-Reply-To: <31AFFC7280259C4184970ABA9AFE8B938CF85726@avmb3.qlogic.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiA+IEFuZCBzb3J0KDEpIGlzIGFubm95aW5nIGluIHRoYXQgaXQgZG9lc24ndCBkbyBpbi1wbGFj
-ZSBzb3J0OyB5b3UnbGwgZW5kDQo+ID4gdXAgd2l0aCBlbXB0eSBmaWxlcyBpZiB5b3UgdHJ5IHRo
-ZSBuYWl2ZSB0aGluZy4NCj4gPg0KPiA+IFdvcnNlIG1vc3Qgb2YgdGhvc2UgS2J1aWxkIGZpbGVz
-IGluY2x1ZGUgb3RoZXIgcmFuZG9tIGdhcmJhZ2UsIHdoaWNoDQo+ID4gbWFrZXMgYXV0b21hdGVk
-IHNvcnRpbmcgaGFyZGVyIHN0aWxsLg0KPiA+DQo+ID4gU28gdW5sZXNzIHRoZXJlJ3MgYSBzYW5l
-IGFuZCBlYXN5IHdheSB0byBrZWVwIGl0IHNvcnRlZDsgSSdtIGdvaW5nIHRvDQo+ID4gaWdub3Jl
-IHRoYXQgcnVsZS4NCj4gDQo+IE5vdCBrZWVwaW5nIHRoZW0gc29ydGVkIGNhdXNlcyBtZXJnZSBj
-b25mbGljdHMgYW5kIGR1cGxpY2F0ZS9taXNzaW5nDQo+IGVudHJpZXMuDQoNCkVkaXQgaW4gdmkg
-cHV0IGN1cnNvciBvbiB0aGUgZmlyc3QgbGluZSB0byBiZSBzb3J0ZWQgYW5kIHR5cGUgIX1zb3J0
-DQooYXNzdW1pbmcgdGhlcmUgaXMgYSBuaWNlIGJsYW5rIGxpbmUgYXQgdGhlIGVuZCkuDQoNCglE
-YXZpZA0KDQo=
+
+--mojUlQ0s9EVzWg2t
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, Dec 17, 2013 at 09:50:52PM +0000, Manish Chopra wrote:
+> >-----Original Message-----
+> >From: David Gibson [mailto:david@gibson.dropbear.id.au]
+> >Sent: Tuesday, December 17, 2013 10:53 AM
+> >To: Manish Chopra; Sony Chacko; Rajesh Borundia
+> >Cc: netdev; snagarka@redhat.com; tcamuso@redhat.com;
+> >vdasgupt@redhat.com
+> >Subject: [0/2] netxen: bug fix and diagnostics for possible (hardware?) =
+bug
+> >
+> >At Red Hat, we've hit a couple of customer cases with crashes in the net=
+xen driver
+> >due to list corruption.  This seems to be very rarely triggered, and unf=
+ortunately
+> >the dumps we have don't have enough information to be certain of the cau=
+se,
+> >although we have a possible theory.
+> >
+> >I'm suggesting, therefore a patch to add some sanity checking which shou=
+ld help
+> >to at least localize and mitigate the problem when someone hits it in fu=
+ture.
+> >Please let me know if there's a better approach to doing this.
+> >
+> >That's 2/2.  1/2 is a fix for a clear bug I spotted along the way, but n=
+ot one that
+> >could cause the symptoms we've seen.
+>=20
+> David,
+>=20
+> Having these checks in data path(Rx path) may have some performance
+> impact. It's better to root cause it instead of putting some sanity
+> checks.
+
+Obviously, but this was the best way I could think of to try narrowing
+down the root cause (at least trying to eliminate driver vs. firmware
+bug).
+
+> We will get back to you on this.
+
+If you have a better idea for locating the root cause, please let me
+know.  I have access to a vmcore which I can poke around in.
+
+--=20
+David Gibson			| I'll have my music baroque, and my code
+david AT gibson.dropbear.id.au	| minimalist, thank you.  NOT _the_ _other_
+				| _way_ _around_!
+http://www.ozlabs.org/~dgibson
+
+--mojUlQ0s9EVzWg2t
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
+
+iQIcBAEBAgAGBQJSsT8nAAoJEGw4ysog2bOS6zgQAIo3vCetmJVxxbMV5MqsAvUe
+1g5KzZ9HL+GtC5eTmSkuUGgJZdmO7hrimHzBAoak/6Be9pjWtB5EPr95NDCo5fBi
+iZDdtz91C/ej9jmXGAo5Q8ZIoSfxt2+clD6rLERR5wvPJ4WF3QbMpWPtyXcl6/iV
+MMyvOpmoxQt03meDQUqPMn6yEN9QXJaSVHoyhEJjrQzUu+8kPImjVMDLAQQGsRDm
+zFtyOtstLA2w24MY0EUhke5qAQZ5+D1cgA9cBspEGJn59liwer8FP15h4VDoikAr
+3VmLxrUddPEHx+UZsSOjrvJzXVHyKtYc1U5/3urq5R6SioQwjvaZ8xCUIyBV77tt
+mlhkQa4mYwp6REudh87NWDE2b/cMukMcb4YH4lVX569i28SV+gZrYmxFwzwmZmke
+gSEdY0zfbb5OnW0dw03OQ/KEeRBNEfioiqa+EGpO78LrXOqYyJOYy2XBhCElUtaO
+WcUGUnvd6PUSxSALfDH1hNYzB7HHAHbbp57J2NiCSLoP/NRhoH9cwMc5xsTWeDZV
+RKihYmOx1gYmOqv2Tku0lxsY5VfFxoayLeUM8sUqOqDseXL8Rch4sTxmyK1q8zfH
+nlM2XQWA6X2imZrc1t9A2O4+I+v4INRwLFS+Lw1yNrnh5arZd82OiehJ70Ft+fmy
+9WVPbVaXg1MxIyElktvx
+=xAHD
+-----END PGP SIGNATURE-----
+
+--mojUlQ0s9EVzWg2t--
