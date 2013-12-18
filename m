@@ -1,96 +1,49 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next v2 0/6] slight optimization of addr compare for
- some modules
-Date: Wed, 18 Dec 2013 08:51:51 -0800
-Message-ID: <1387385511.13593.44.camel@joe-AO722>
-References: <52AEB8B3.5010405@huawei.com>
-	 <1387205111.18217.7.camel@joe-AO722> <52AF13F4.5040409@gmail.com>
-	 <1387207006.18217.28.camel@joe-AO722> <1387214748.18217.52.camel@joe-AO722>
-		 <52AFAFDC.2080807@huawei.com> <52B1611E.4090608@huawei.com>
-	 <1387358236.13593.36.camel@joe-AO722> <52B173AB.6020901@huawei.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next 1/3] netconf: rename PROXY_ARP to NEIGH_PROXY
+Date: Wed, 18 Dec 2013 12:06:45 -0500
+Message-ID: <52B1D625.5060002@mojatatu.com>
+References: <20131217223552.60d1f5cb@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ding Tianhong <dthxman@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0047.hostedemail.com ([216.40.44.47]:41058 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752148Ab3LRQvy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 11:51:54 -0500
-In-Reply-To: <52B173AB.6020901@huawei.com>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:53774 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751930Ab3LRRGr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 12:06:47 -0500
+Received: by mail-ie0-f175.google.com with SMTP id x13so10219234ief.6
+        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 09:06:46 -0800 (PST)
+In-Reply-To: <20131217223552.60d1f5cb@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-12-18 at 18:06 +0800, Ding Tianhong wrote:
-> On 2013/12/18 17:17, Joe Perches wrote:
-> > On Wed, 2013-12-18 at 16:47 +0800, Ding Tianhong wrote:
-> >> On 2013/12/17 9:58, Ding Tianhong wrote:
-> >>> On 2013/12/17 1:25, Joe Perches wrote:
-> >>>> These should still be inspected for appropriate use of
-> >>>> ether_addr_equal or ether_addr_equal_unaligned, but a
-> >>>> better cocci input sp-file is:
-> >>>>
-> >>>> $ cat ether_addr_equal_unaligned.cocci 
-> >>>> @@
-> >>>> expression e1;
-> >>>> expression e2;
-> >>>> @@
-> > []
-> >> There are too many places need to be changed, should I make it in one patch or several pathset,
-> >> pls give me some advise. thanks
-> > 
-> > Separate per-maintainer patches are generally good.
-> > It can take several attempts to get these applied
-> > in all the various trees.
-> > 
-> > So maybe 1 patch for each of most of these.  Maybe
-> > some of these like drivers/media, drivers/mtd and
-> > drivers/staging could probably be single patches.
-> > 
-> 
-> Hi Joe:
-> 
-> I found there is a bug in spatch, it could not deal with 
-> -       memcmp(e1, e2, \(6\|ETH_ALEN\)) != 0
-> +       !ether_addr_equal_unaligned(e1, e2)
+On 12/18/13 01:35, Stephen Hemminger wrote:
+> Use same field for both IPv4 (proxy_arp) and IPv6 (proxy_ndp)
+> so fix it before API is set to be a common name
+>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+>
+> ---
+>   include/uapi/linux/netconf.h |    2 +-
+>   net/ipv4/devinet.c           |   10 +++++-----
+>   2 files changed, 6 insertions(+), 6 deletions(-)
+>
+> --- a/include/uapi/linux/netconf.h	2013-12-17 22:30:00.000000000 -0800
+> +++ b/include/uapi/linux/netconf.h	2013-12-17 22:31:07.973419694 -0800
+> @@ -14,7 +14,7 @@ enum {
+>   	NETCONFA_FORWARDING,
+>   	NETCONFA_RP_FILTER,
+>   	NETCONFA_MC_FORWARDING,
+> -	NETCONFA_PROXY_ARP,
+> +	NETCONFA_PROXY_NEIGH,
+>   	__NETCONFA_MAX
+>   };
 
-Not an spatch bug but a defect in the ordering of
-transforms in the ether_addr_equal_unaligned.cocci file
+Can you do this? ;-> Why not #define NETCONFA_PROXY_NEIGH to be 
+NETCONFA_PROXY_ARP
 
-This should be better:
-
-$ cat ether_addr_equal_unaligned.cocci
-@@
-expression e1;
-expression e2;
-@@
-
--	memcmp(e1, e2, \(6\|ETH_ALEN\)) == 0
-+	ether_addr_equal_unaligned(e1, e2)
-
-@@
-expression e1;
-expression e2;
-@@
-
--	memcmp(e1, e2, \(6\|ETH_ALEN\)) != 0
-+	!ether_addr_equal_unaligned(e1, e2)
-
-@@
-expression e1;
-expression e2;
-@@
-
--	!memcmp(e1, e2, \(6\|ETH_ALEN\))
-+	ether_addr_equal_unaligned(e1, e2)
-
-@@
-expression e1;
-expression e2;
-@@
-
--	memcmp(e1, e2, \(6\|ETH_ALEN\))
-+	!ether_addr_equal_unaligned(e1, e2)
+cheers,
+jamal
