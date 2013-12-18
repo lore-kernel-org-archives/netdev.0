@@ -1,69 +1,75 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] net: neighbour: add neighbour dead check for neigh_timer_handler()
-Date: Wed, 18 Dec 2013 16:46:48 +0100
-Message-ID: <20131218154648.GD3505@order.stressinduktion.org>
-References: <20131218075131.GD27460@order.stressinduktion.org> <52B15A9F.6030301@huawei.com> <20131218084106.GF27460@order.stressinduktion.org> <52B1635D.7020205@huawei.com> <20131218092815.GA3505@order.stressinduktion.org> <52B172B9.7030609@huawei.com> <20131218102132.GB3505@order.stressinduktion.org> <52B18DB4.80403@gmail.com> <20131218142715.GC3505@order.stressinduktion.org> <52B1BB73.20005@gmail.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net PATCH v3 1/1] drivers: net : cpsw: pass proper device name while requesting irq
+Date: Wed, 18 Dec 2013 21:33:50 +0530
+Message-ID: <1387382630-3683-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
-	joe@perches.com, vfalico@redhat.com, netdev@vger.kernel.org
-To: Ding Tianhong <dthxman@gmail.com>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <linux-omap@vger.kernel.org>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:36642 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755099Ab3LRPqt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 10:46:49 -0500
-Content-Disposition: inline
-In-Reply-To: <52B1BB73.20005@gmail.com>
+Received: from comal.ext.ti.com ([198.47.26.152]:38944 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754517Ab3LRQD4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Dec 2013 11:03:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 18, 2013 at 11:12:51PM +0800, Ding Tianhong wrote:
-> =E4=BA=8E 2013/12/18 22:27, Hannes Frederic Sowa =E5=86=99=E9=81=93:
-> > On Wed, Dec 18, 2013 at 07:57:40PM +0800, Ding Tianhong wrote:
-> >> yes, I cannot repruduce the bug again.
-> >=20
-> > Hmm, it actually seems hard to hit even if the race happens. Even i=
-f slab
-> > poisoning is active it would only hit if ->solicit would be called =
-again,
-> > because that is the only pointer dereference directly used in the o=
-ld memory.
-> >=20
-> > neigh_alloc allocates memory with kzalloc, so it would null out tha=
-t memory,
-> > so the race would not only have to race with kfree, the memory need=
-s to be
-> > reallocated in the mean time.
-> >=20
-> > I would suggest adding some poisoning manually in neigh_release bef=
-ore kfree
-> > and check for this in all periodic called functions. Maybe we can s=
-ee it
-> > again?
-> >
-> Great, thanks for your help, I think make the neigh_release not kfree=
- neighbour until
-> the timer is over is a clear way to  fix this, maybe you could anothe=
-r idea, glad to
-> hear your opinion.
+During checking the interrupts with "cat /proc/interrupts", it is showing
+device name as (null), this change was done with commit id aa1a15e2d where
+request_irq is changed to devm_request_irq also changing the irq name from
+platform device name to net device name, but the net device is not
+registered at this point with the network frame work, so devm_request_irq
+is called with device name as NULL, by which it is showed as "(null)" in
+"cat /proc/interrupts". So this patch changes back irq name to platform
+device name itself in devm_request_irq so that the device name shows as
+below.
 
-But I don't suggest this as an fix, just as a help for debugging this i=
-ssue.
+Previous to this patch
+root@am335x-evm:~# cat /proc/interrupts
+           CPU0
+ 28:       2265      INTC  12  edma
+ 30:         80      INTC  14  edma_error
+ 56:          0      INTC  40  (null)
+ 57:       1794      INTC  41  (null)
+ 58:          7      INTC  42  (null)
+ 59:          0      INTC  43  (null)
 
-Maybe you could also store the _RET_IP_ in the to be freed struct neigh=
-bour
-(just before kfree) and thus have it available in case the machine pani=
-cs (or
-simply print it with printk).
+With this patch
+root@am335x-evm:~# cat /proc/interrupts
+           CPU0
+ 28:        213      INTC  12  edma
+ 30:          9      INTC  14  edma_error
+ 56:          0      INTC  40  4a100000.ethernet
+ 57:      16097      INTC  41  4a100000.ethernet
+ 58:      11964      INTC  42  4a100000.ethernet
+ 59:          0      INTC  43  4a100000.ethernet
 
-Maybe it would make sense to use kmem_cache_create and kmem_cache_alloc=
- for
-struct neighs so we can better utilize the slub debugging features.
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+Changes from Initial version
+* Changed the commit message to hold more details of the commit changes
 
-Greetings,
+Changes from v2
+* Instead of moving request irq below net dev register, changing the
+  request irq name from net device to platform device as previous to
+  convertion to devm* is done.
+---
+ drivers/net/ethernet/ti/cpsw.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-  Hannes
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 614f284..5330fd2 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -2108,7 +2108,7 @@ static int cpsw_probe(struct platform_device *pdev)
+ 	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k))) {
+ 		for (i = res->start; i <= res->end; i++) {
+ 			if (devm_request_irq(&pdev->dev, i, cpsw_interrupt, 0,
+-					     dev_name(priv->dev), priv)) {
++					     dev_name(&pdev->dev), priv)) {
+ 				dev_err(priv->dev, "error attaching irq\n");
+ 				goto clean_ale_ret;
+ 			}
+-- 
+1.8.5.2.192.g7794a68
