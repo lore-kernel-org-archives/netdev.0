@@ -1,46 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Tue, 17 Dec 2013 21:21:45 -0500 (EST)
-Message-ID: <20131217.212145.893665929052097867.davem@davemloft.net>
-References: <20131218125643.8ff140371e1f8c306327d354@canb.auug.org.au>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 1/1][net-next] dccp: catch failed request_module call in
+ dccp_probe init   (was: [PATCH net-next] dccp: add check request_moduls in
+ setup_jprobe)
+Date: Tue, 17 Dec 2013 19:24:33 -0700
+Message-ID: <20131217192433.168b39ef@liptov.cs.ualberta.ca>
+References: <52B043D9.9090808@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ffusco@redhat.com,
-	dborkman@redhat.com, tgraf@redhat.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20131218125643.8ff140371e1f8c306327d354@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, <dccp@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Wang Weidong <wangweidong1@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from spey.erg.abdn.ac.uk ([139.133.204.173]:58542 "EHLO
+	spey.erg.abdn.ac.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750875Ab3LRCYm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 21:24:42 -0500
+In-Reply-To: <52B043D9.9090808@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 18 Dec 2013 12:56:43 +1100
+Hi Wang,
 
-> After merging the net-next tree, today's linux-next build (powerpc
-> ppc64_defconfig) failed like this:
-> 
-> In file included from include/linux/hashtable.h:12:0,
->                  from include/linux/elevator.h:5,
->                  from include/linux/blkdev.h:222,
->                  from init/do_mounts.h:2,
->                  from init/do_mounts_rd.c:21:
-> include/linux/hash.h:18:22: fatal error: asm/hash.h: No such file or directory
->  #include <asm/hash.h>
->                       ^
-> 
-> And many more ...
-> 
-> Caused by commit 71ae8aac3e19 ("lib: introduce arch optimized hash
-> library").  Presumably this would break any architecture other than
-> x86 :-(
+thank you for the patch, please find refactored version below, changes are
+ (a) if request_module fails, return its error code instead of the previous ret,
+ (b) refactor code -- setup_jprobe becomes superfluous.
 
-The author believed that putting a header file in asm-generic/
-makes it get used automatically by architectures which lack
-that header file.
+Please add your signed off if ok, since it is essentially your patch.
 
-At the very least we have to add a generic-y entry for it to
-arch/${ARCH}/include/asm/Kbuild
+>>>>>>>>>>>>>>>>>>>>>>> Wang's patch revised <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+dccp: catch failed request_module call in dccp_probe init
 
-I'll try to fix this up, thanks for the report.
+Check the return value of request_module during dccp_probe initialisation,
+bail out if that call fails.
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/probe.c |   19 +++++++------------
+ 1 file changed, 7 insertions(+), 12 deletions(-)
+
+--- a/net/dccp/probe.c
++++ b/net/dccp/probe.c
+@@ -152,17 +152,6 @@ static const struct file_operations dccp
+ 	.llseek  = noop_llseek,
+ };
+ 
+-static __init int setup_jprobe(void)
+-{
+-	int ret = register_jprobe(&dccp_send_probe);
+-
+-	if (ret) {
+-		request_module("dccp");
+-		ret = register_jprobe(&dccp_send_probe);
+-	}
+-	return ret;
+-}
+-
+ static __init int dccpprobe_init(void)
+ {
+ 	int ret = -ENOMEM;
+@@ -174,7 +163,13 @@ static __init int dccpprobe_init(void)
+ 	if (!proc_create(procname, S_IRUSR, init_net.proc_net, &dccpprobe_fops))
+ 		goto err0;
+ 
+-	ret = setup_jprobe();
++	ret = register_jprobe(&dccp_send_probe);
++	if (ret) {
++		ret = request_module("dccp");
++		if (!ret)
++			ret = register_jprobe(&dccp_send_probe);
++	}
++
+ 	if (ret)
+ 		goto err1;
+ 
