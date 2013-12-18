@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 03/12] bna: Fix Filter Add Del
-Date: Tue, 17 Dec 2013 17:07:33 -0800
-Message-ID: <1387328862-27213-4-git-send-email-rmody@brocade.com>
+Subject: [net-next 04/12] bna: RX Filter Enhancements
+Date: Tue, 17 Dec 2013 17:07:34 -0800
+Message-ID: <1387328862-27213-5-git-send-email-rmody@brocade.com>
 References: <1387328862-27213-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,361 +10,477 @@ Cc: <netdev@vger.kernel.org>,
 	Rasesh Mody <rmody@Brocade.COM>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:42554 "EHLO
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:62186 "EHLO
 	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752331Ab3LRBIW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 20:08:22 -0500
+	by vger.kernel.org with ESMTP id S1752386Ab3LRBI1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 20:08:27 -0500
 In-Reply-To: <1387328862-27213-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Change Details:
- - bna_rx_mcast_listset() API first looks at free_q only and not at other
-   pending Qs rendering it non-deterministic of giving an upper limit.
-   Modify bna_rx_mcast_listset() implementation to not use only half of the
-   limit.
- - Allocate and initialize queue for deleting
- - Segregate the adding and deleting process by using separate queues.
- - The filter framework in bna does not let adding addresses to its max capacity
-   due to asynchronous operations involved.
-   Provide a synchronous option to set a given list.
+ - Added bna_rx_ucast_listset() for synchronous ucast listadd operation.
+ - Clear mac->handle before adding it to free_q.
+ - bnad_set_rx_mode() rewritten. bnad_set_rx_mode() adds the MACs in uc_list
+   to UCAM. If it exceeds the max supported, DEFAULT mode is turned on. If
+   MCAM limit is exceeded, ALLMULTI mode is turned on.
+ - Clear CF flags, check for the new mode and reprogram the Rx approach.
+ - Added bnad_set_rx_ucast_fltr() and bnad_set_rx_mcast_fltr().
+ - Check for IFF_PROMISC to set the correct mode.
 
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bna.h       | 16 ++++---
- drivers/net/ethernet/brocade/bna/bna_enet.c  | 48 +++++++++-----------
- drivers/net/ethernet/brocade/bna/bna_tx_rx.c | 67 ++++++++++++++++------------
- drivers/net/ethernet/brocade/bna/bna_types.h |  8 ++--
- 4 files changed, 74 insertions(+), 65 deletions(-)
+ drivers/net/ethernet/brocade/bna/bna.h       |   8 ++
+ drivers/net/ethernet/brocade/bna/bna_enet.c  |  10 +-
+ drivers/net/ethernet/brocade/bna/bna_tx_rx.c | 138 ++++++++++++++++++++++-
+ drivers/net/ethernet/brocade/bna/bnad.c      | 163 ++++++++++++++++++---------
+ drivers/net/ethernet/brocade/bna/bnad.h      |   3 +-
+ 5 files changed, 266 insertions(+), 56 deletions(-)
 
 diff --git a/drivers/net/ethernet/brocade/bna/bna.h b/drivers/net/ethernet/brocade/bna/bna.h
-index f1eafc4..b11fa6c 100644
+index b11fa6c..1f51219 100644
 --- a/drivers/net/ethernet/brocade/bna/bna.h
 +++ b/drivers/net/ethernet/brocade/bna/bna.h
-@@ -354,6 +354,14 @@ do {									\
- 	}								\
- } while (0)
+@@ -497,11 +497,17 @@ enum bna_cb_status
+ bna_rx_ucast_del(struct bna_rx *rx, u8 *ucmac,
+ 		 void (*cbfn)(struct bnad *, struct bna_rx *));
+ enum bna_cb_status
++bna_rx_ucast_listset(struct bna_rx *rx, int count, u8 *uclist,
++		     void (*cbfn)(struct bnad *, struct bna_rx *));
++enum bna_cb_status
+ bna_rx_mcast_add(struct bna_rx *rx, u8 *mcmac,
+ 		 void (*cbfn)(struct bnad *, struct bna_rx *));
+ enum bna_cb_status
+ bna_rx_mcast_listset(struct bna_rx *rx, int count, u8 *mcmac,
+ 		     void (*cbfn)(struct bnad *, struct bna_rx *));
++void
++bna_rx_mcast_delall(struct bna_rx *rx,
++		    void (*cbfn)(struct bnad *, struct bna_rx *));
+ enum bna_cb_status
+ bna_rx_mode_set(struct bna_rx *rx, enum bna_rxmode rxmode,
+ 		enum bna_rxmode bitmask,
+@@ -509,6 +515,8 @@ bna_rx_mode_set(struct bna_rx *rx, enum bna_rxmode rxmode,
+ void bna_rx_vlan_add(struct bna_rx *rx, int vlan_id);
+ void bna_rx_vlan_del(struct bna_rx *rx, int vlan_id);
+ void bna_rx_vlanfilter_enable(struct bna_rx *rx);
++void bna_rx_vlan_strip_enable(struct bna_rx *rx);
++void bna_rx_vlan_strip_disable(struct bna_rx *rx);
+ /* ENET */
  
-+#define bna_mcam_mod_free_q(_bna) (&(_bna)->mcam_mod.free_q)
-+
-+#define bna_mcam_mod_del_q(_bna) (&(_bna)->mcam_mod.del_q)
-+
-+#define bna_ucam_mod_free_q(_bna) (&(_bna)->ucam_mod.free_q)
-+
-+#define bna_ucam_mod_del_q(_bna) (&(_bna)->ucam_mod.del_q)
-+
- /*  Inline functions  */
- 
- static inline struct bna_mac *bna_mac_find(struct list_head *q, u8 *addr)
-@@ -391,12 +399,8 @@ int bna_num_rxp_set(struct bna *bna, int num_rxp);
- void bna_hw_stats_get(struct bna *bna);
- 
- /* APIs for RxF */
--struct bna_mac *bna_ucam_mod_mac_get(struct bna_ucam_mod *ucam_mod);
--void bna_ucam_mod_mac_put(struct bna_ucam_mod *ucam_mod,
--			  struct bna_mac *mac);
--struct bna_mac *bna_mcam_mod_mac_get(struct bna_mcam_mod *mcam_mod);
--void bna_mcam_mod_mac_put(struct bna_mcam_mod *mcam_mod,
--			  struct bna_mac *mac);
-+struct bna_mac *bna_cam_mod_mac_get(struct list_head *head);
-+void bna_cam_mod_mac_put(struct list_head *tail, struct bna_mac *mac);
- struct bna_mcam_handle *bna_mcam_mod_handle_get(struct bna_mcam_mod *mod);
- void bna_mcam_mod_handle_put(struct bna_mcam_mod *mcam_mod,
- 			  struct bna_mcam_handle *handle);
+ /* API for RX */
 diff --git a/drivers/net/ethernet/brocade/bna/bna_enet.c b/drivers/net/ethernet/brocade/bna/bna_enet.c
-index 3ca77fa..79afa11 100644
+index 79afa11..13f9636 100644
 --- a/drivers/net/ethernet/brocade/bna/bna_enet.c
 +++ b/drivers/net/ethernet/brocade/bna/bna_enet.c
-@@ -1811,6 +1811,13 @@ bna_ucam_mod_init(struct bna_ucam_mod *ucam_mod, struct bna *bna,
- 		list_add_tail(&ucam_mod->ucmac[i].qe, &ucam_mod->free_q);
- 	}
- 
-+	/* A separate queue to allow synchronous setting of a list of MACs */
-+	INIT_LIST_HEAD(&ucam_mod->del_q);
-+	for (i = i; i < (bna->ioceth.attr.num_ucmac * 2); i++) {
-+		bfa_q_qe_init(&ucam_mod->ucmac[i].qe);
-+		list_add_tail(&ucam_mod->ucmac[i].qe, &ucam_mod->del_q);
-+	}
-+
- 	ucam_mod->bna = bna;
- }
- 
-@@ -1851,6 +1858,13 @@ bna_mcam_mod_init(struct bna_mcam_mod *mcam_mod, struct bna *bna,
- 				&mcam_mod->free_handle_q);
- 	}
- 
-+	/* A separate queue to allow synchronous setting of a list of MACs */
-+	INIT_LIST_HEAD(&mcam_mod->del_q);
-+	for (i = i; i < (bna->ioceth.attr.num_mcmac * 2); i++) {
-+		bfa_q_qe_init(&mcam_mod->mcmac[i].qe);
-+		list_add_tail(&mcam_mod->mcmac[i].qe, &mcam_mod->del_q);
-+	}
-+
- 	mcam_mod->bna = bna;
- }
- 
-@@ -1976,7 +1990,7 @@ bna_mod_res_req(struct bna *bna, struct bna_res_info *res_info)
- 		BNA_MEM_T_KVA;
- 	res_info[BNA_MOD_RES_MEM_T_UCMAC_ARRAY].res_u.mem_info.num = 1;
- 	res_info[BNA_MOD_RES_MEM_T_UCMAC_ARRAY].res_u.mem_info.len =
--		attr->num_ucmac * sizeof(struct bna_mac);
-+		(attr->num_ucmac * 2) * sizeof(struct bna_mac);
- 
- 	/* Virtual memory for Multicast MAC address - stored by mcam module */
- 	res_info[BNA_MOD_RES_MEM_T_MCMAC_ARRAY].res_type = BNA_RES_T_MEM;
-@@ -1984,7 +1998,7 @@ bna_mod_res_req(struct bna *bna, struct bna_res_info *res_info)
- 		BNA_MEM_T_KVA;
- 	res_info[BNA_MOD_RES_MEM_T_MCMAC_ARRAY].res_u.mem_info.num = 1;
- 	res_info[BNA_MOD_RES_MEM_T_MCMAC_ARRAY].res_u.mem_info.len =
--		attr->num_mcmac * sizeof(struct bna_mac);
-+		(attr->num_mcmac * 2) * sizeof(struct bna_mac);
- 
- 	/* Virtual memory for Multicast handle - stored by mcam module */
- 	res_info[BNA_MOD_RES_MEM_T_MCHANDLE_ARRAY].res_type = BNA_RES_T_MEM;
-@@ -2080,41 +2094,21 @@ bna_num_rxp_set(struct bna *bna, int num_rxp)
- }
- 
- struct bna_mac *
--bna_ucam_mod_mac_get(struct bna_ucam_mod *ucam_mod)
-+bna_cam_mod_mac_get(struct list_head *head)
+@@ -1825,11 +1825,16 @@ static void
+ bna_ucam_mod_uninit(struct bna_ucam_mod *ucam_mod)
  {
  	struct list_head *qe;
+-	int i = 0;
++	int i;
  
--	if (list_empty(&ucam_mod->free_q))
-+	if (list_empty(head))
- 		return NULL;
++	i = 0;
+ 	list_for_each(qe, &ucam_mod->free_q)
+ 		i++;
  
--	bfa_q_deq(&ucam_mod->free_q, &qe);
--
--	return (struct bna_mac *)qe;
--}
--
--void
--bna_ucam_mod_mac_put(struct bna_ucam_mod *ucam_mod, struct bna_mac *mac)
--{
--	list_add_tail(&mac->qe, &ucam_mod->free_q);
--}
--
--struct bna_mac *
--bna_mcam_mod_mac_get(struct bna_mcam_mod *mcam_mod)
--{
--	struct list_head *qe;
--
--	if (list_empty(&mcam_mod->free_q))
--		return NULL;
--
--	bfa_q_deq(&mcam_mod->free_q, &qe);
--
-+	bfa_q_deq(head, &qe);
- 	return (struct bna_mac *)qe;
++	i = 0;
++	list_for_each(qe, &ucam_mod->del_q)
++		i++;
++
+ 	ucam_mod->bna = NULL;
  }
  
- void
--bna_mcam_mod_mac_put(struct bna_mcam_mod *mcam_mod, struct bna_mac *mac)
-+bna_cam_mod_mac_put(struct list_head *tail, struct bna_mac *mac)
- {
--	list_add_tail(&mac->qe, &mcam_mod->free_q);
-+	list_add_tail(&mac->qe, tail);
- }
+@@ -1878,6 +1883,9 @@ bna_mcam_mod_uninit(struct bna_mcam_mod *mcam_mod)
+ 	list_for_each(qe, &mcam_mod->free_q) i++;
  
- struct bna_mcam_handle *
+ 	i = 0;
++	list_for_each(qe, &mcam_mod->del_q) i++;
++
++	i = 0;
+ 	list_for_each(qe, &mcam_mod->free_handle_q) i++;
+ 
+ 	mcam_mod->bna = NULL;
 diff --git a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-index 3c07064..40558b6 100644
+index 40558b6..e02c126 100644
 --- a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
 +++ b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-@@ -529,13 +529,13 @@ bna_rxf_mcast_cfg_apply(struct bna_rxf *rxf)
- 	struct list_head *qe;
- 	int ret;
+@@ -916,6 +916,75 @@ bna_rx_mcast_add(struct bna_rx *rx, u8 *addr,
+ }
  
--	/* Delete multicast entries previousely added */
-+	/* First delete multicast entries to maintain the count */
- 	while (!list_empty(&rxf->mcast_pending_del_q)) {
- 		bfa_q_deq(&rxf->mcast_pending_del_q, &qe);
- 		bfa_q_qe_init(qe);
- 		mac = (struct bna_mac *)qe;
- 		ret = bna_rxf_mcast_del(rxf, mac, BNA_HARD_CLEANUP);
--		bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod, mac);
-+		bna_cam_mod_mac_put(bna_mcam_mod_del_q(rxf->rx->bna), mac);
- 		if (ret)
- 			return ret;
- 	}
-@@ -586,7 +586,7 @@ bna_rxf_mcast_cfg_reset(struct bna_rxf *rxf, enum bna_cleanup_type cleanup)
- 		bfa_q_qe_init(qe);
- 		mac = (struct bna_mac *)qe;
- 		ret = bna_rxf_mcast_del(rxf, mac, cleanup);
--		bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod, mac);
-+		bna_cam_mod_mac_put(bna_mcam_mod_del_q(rxf->rx->bna), mac);
- 		if (ret)
- 			return ret;
- 	}
-@@ -796,20 +796,20 @@ bna_rxf_uninit(struct bna_rxf *rxf)
- 	while (!list_empty(&rxf->ucast_pending_add_q)) {
- 		bfa_q_deq(&rxf->ucast_pending_add_q, &mac);
- 		bfa_q_qe_init(&mac->qe);
--		bna_ucam_mod_mac_put(&rxf->rx->bna->ucam_mod, mac);
-+		bna_cam_mod_mac_put(bna_ucam_mod_free_q(rxf->rx->bna), mac);
- 	}
- 
- 	if (rxf->ucast_pending_mac) {
- 		bfa_q_qe_init(&rxf->ucast_pending_mac->qe);
--		bna_ucam_mod_mac_put(&rxf->rx->bna->ucam_mod,
--			rxf->ucast_pending_mac);
-+		bna_cam_mod_mac_put(bna_ucam_mod_free_q(rxf->rx->bna),
-+				    rxf->ucast_pending_mac);
- 		rxf->ucast_pending_mac = NULL;
- 	}
- 
- 	while (!list_empty(&rxf->mcast_pending_add_q)) {
- 		bfa_q_deq(&rxf->mcast_pending_add_q, &mac);
- 		bfa_q_qe_init(&mac->qe);
--		bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod, mac);
-+		bna_cam_mod_mac_put(bna_mcam_mod_free_q(rxf->rx->bna), mac);
- 	}
- 
- 	rxf->rxmode_pending = 0;
-@@ -869,7 +869,7 @@ bna_rx_ucast_set(struct bna_rx *rx, u8 *ucmac,
- 
- 	if (rxf->ucast_pending_mac == NULL) {
- 		rxf->ucast_pending_mac =
--				bna_ucam_mod_mac_get(&rxf->rx->bna->ucam_mod);
-+			bna_cam_mod_mac_get(bna_ucam_mod_free_q(rxf->rx->bna));
- 		if (rxf->ucast_pending_mac == NULL)
- 			return BNA_CB_UCAST_CAM_FULL;
- 		bfa_q_qe_init(&rxf->ucast_pending_mac->qe);
-@@ -900,7 +900,7 @@ bna_rx_mcast_add(struct bna_rx *rx, u8 *addr,
- 		return BNA_CB_SUCCESS;
- 	}
- 
--	mac = bna_mcam_mod_mac_get(&rxf->rx->bna->mcam_mod);
-+	mac = bna_cam_mod_mac_get(bna_mcam_mod_free_q(rxf->rx->bna));
- 	if (mac == NULL)
- 		return BNA_CB_MCAST_LIST_FULL;
- 	bfa_q_qe_init(&mac->qe);
-@@ -919,32 +919,20 @@ enum bna_cb_status
- bna_rx_mcast_listset(struct bna_rx *rx, int count, u8 *mclist,
- 		     void (*cbfn)(struct bnad *, struct bna_rx *))
- {
-+	struct bna_mcam_mod *mcam_mod = &rx->bna->mcam_mod;
- 	struct bna_rxf *rxf = &rx->rxf;
- 	struct list_head list_head;
- 	struct list_head *qe;
- 	u8 *mcaddr;
--	struct bna_mac *mac;
+ enum bna_cb_status
++bna_rx_ucast_listset(struct bna_rx *rx, int count, u8 *uclist,
++		     void (*cbfn)(struct bnad *, struct bna_rx *))
++{
++	struct bna_ucam_mod *ucam_mod = &rx->bna->ucam_mod;
++	struct bna_rxf *rxf = &rx->rxf;
++	struct list_head list_head;
++	struct list_head *qe;
++	u8 *mcaddr;
 +	struct bna_mac *mac, *del_mac;
- 	int i;
- 
--	/* Allocate nodes */
--	INIT_LIST_HEAD(&list_head);
--	for (i = 0, mcaddr = mclist; i < count; i++) {
--		mac = bna_mcam_mod_mac_get(&rxf->rx->bna->mcam_mod);
--		if (mac == NULL)
--			goto err_return;
--		bfa_q_qe_init(&mac->qe);
--		memcpy(mac->addr, mcaddr, ETH_ALEN);
--		list_add_tail(&mac->qe, &list_head);
--
--		mcaddr += ETH_ALEN;
--	}
--
- 	/* Purge the pending_add_q */
- 	while (!list_empty(&rxf->mcast_pending_add_q)) {
- 		bfa_q_deq(&rxf->mcast_pending_add_q, &qe);
- 		bfa_q_qe_init(qe);
- 		mac = (struct bna_mac *)qe;
--		bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod, mac);
-+		bna_cam_mod_mac_put(&mcam_mod->free_q, mac);
- 	}
- 
- 	/* Schedule active_q entries for deletion */
-@@ -952,7 +940,26 @@ bna_rx_mcast_listset(struct bna_rx *rx, int count, u8 *mclist,
- 		bfa_q_deq(&rxf->mcast_active_q, &qe);
- 		mac = (struct bna_mac *)qe;
- 		bfa_q_qe_init(&mac->qe);
--		list_add_tail(&mac->qe, &rxf->mcast_pending_del_q);
++	int i;
 +
-+		del_mac = bna_cam_mod_mac_get(&mcam_mod->del_q);
++	/* Purge the pending_add_q */
++	while (!list_empty(&rxf->ucast_pending_add_q)) {
++		bfa_q_deq(&rxf->ucast_pending_add_q, &qe);
++		bfa_q_qe_init(qe);
++		mac = (struct bna_mac *)qe;
++		bna_cam_mod_mac_put(&ucam_mod->free_q, mac);
++	}
 +
-+		memcpy(del_mac, mac, sizeof(*mac));
-+		list_add_tail(&del_mac->qe, &rxf->mcast_pending_del_q);
-+		mac->handle = NULL;
-+		bna_cam_mod_mac_put(&mcam_mod->free_q, mac);
++	/* Schedule active_q entries for deletion */
++	while (!list_empty(&rxf->ucast_active_q)) {
++		bfa_q_deq(&rxf->ucast_active_q, &qe);
++		mac = (struct bna_mac *)qe;
++		bfa_q_qe_init(&mac->qe);
++
++		del_mac = bna_cam_mod_mac_get(&ucam_mod->del_q);
++		memcpy(del_mac, mac, sizeof(*del_mac));
++		list_add_tail(&del_mac->qe, &rxf->ucast_pending_del_q);
++		bna_cam_mod_mac_put(&ucam_mod->free_q, mac);
 +	}
 +
 +	/* Allocate nodes */
 +	INIT_LIST_HEAD(&list_head);
-+	for (i = 0, mcaddr = mclist; i < count; i++) {
-+		mac = bna_cam_mod_mac_get(&mcam_mod->free_q);
++	for (i = 0, mcaddr = uclist; i < count; i++) {
++		mac = bna_cam_mod_mac_get(&ucam_mod->free_q);
 +		if (mac == NULL)
 +			goto err_return;
 +		bfa_q_qe_init(&mac->qe);
 +		memcpy(mac->addr, mcaddr, ETH_ALEN);
 +		list_add_tail(&mac->qe, &list_head);
-+
 +		mcaddr += ETH_ALEN;
++	}
++
++	/* Add the new entries */
++	while (!list_empty(&list_head)) {
++		bfa_q_deq(&list_head, &qe);
++		mac = (struct bna_mac *)qe;
++		bfa_q_qe_init(&mac->qe);
++		list_add_tail(&mac->qe, &rxf->ucast_pending_add_q);
++	}
++
++	rxf->cam_fltr_cbfn = cbfn;
++	rxf->cam_fltr_cbarg = rx->bna->bnad;
++	bfa_fsm_send_event(rxf, RXF_E_CONFIG);
++
++	return BNA_CB_SUCCESS;
++
++err_return:
++	while (!list_empty(&list_head)) {
++		bfa_q_deq(&list_head, &qe);
++		mac = (struct bna_mac *)qe;
++		bfa_q_qe_init(&mac->qe);
++		bna_cam_mod_mac_put(&ucam_mod->free_q, mac);
++	}
++
++	return BNA_CB_UCAST_CAM_FULL;
++}
++
++enum bna_cb_status
+ bna_rx_mcast_listset(struct bna_rx *rx, int count, u8 *mclist,
+ 		     void (*cbfn)(struct bnad *, struct bna_rx *))
+ {
+@@ -943,7 +1012,7 @@ bna_rx_mcast_listset(struct bna_rx *rx, int count, u8 *mclist,
+ 
+ 		del_mac = bna_cam_mod_mac_get(&mcam_mod->del_q);
+ 
+-		memcpy(del_mac, mac, sizeof(*mac));
++		memcpy(del_mac, mac, sizeof(*del_mac));
+ 		list_add_tail(&del_mac->qe, &rxf->mcast_pending_del_q);
+ 		mac->handle = NULL;
+ 		bna_cam_mod_mac_put(&mcam_mod->free_q, mac);
+@@ -988,6 +1057,49 @@ err_return:
+ }
+ 
+ void
++bna_rx_mcast_delall(struct bna_rx *rx,
++		    void (*cbfn)(struct bnad *, struct bna_rx *))
++{
++	struct bna_rxf *rxf = &rx->rxf;
++	struct list_head *qe;
++	struct bna_mac *mac, *del_mac;
++	int need_hw_config = 0;
++
++	/* Purge all entries from pending_add_q */
++	while (!list_empty(&rxf->mcast_pending_add_q)) {
++		bfa_q_deq(&rxf->mcast_pending_add_q, &qe);
++		mac = (struct bna_mac *)qe;
++		bfa_q_qe_init(&mac->qe);
++		bna_cam_mod_mac_put(bna_mcam_mod_free_q(rxf->rx->bna), mac);
++	}
++
++	/* Schedule all entries in active_q for deletion */
++	while (!list_empty(&rxf->mcast_active_q)) {
++		bfa_q_deq(&rxf->mcast_active_q, &qe);
++		mac = (struct bna_mac *)qe;
++		bfa_q_qe_init(&mac->qe);
++
++		del_mac = bna_cam_mod_mac_get(bna_mcam_mod_del_q(rxf->rx->bna));
++
++		memcpy(del_mac, mac, sizeof(*del_mac));
++		list_add_tail(&del_mac->qe, &rxf->mcast_pending_del_q);
++		mac->handle = NULL;
++		bna_cam_mod_mac_put(bna_mcam_mod_free_q(rxf->rx->bna), mac);
++		need_hw_config = 1;
++	}
++
++	if (need_hw_config) {
++		rxf->cam_fltr_cbfn = cbfn;
++		rxf->cam_fltr_cbarg = rx->bna->bnad;
++		bfa_fsm_send_event(rxf, RXF_E_CONFIG);
++		return;
++	}
++
++	if (cbfn)
++		(*cbfn)(rx->bna->bnad, rx);
++}
++
++void
+ bna_rx_vlan_add(struct bna_rx *rx, int vlan_id)
+ {
+ 	struct bna_rxf *rxf = &rx->rxf;
+@@ -2679,6 +2791,30 @@ bna_rx_cleanup_complete(struct bna_rx *rx)
+ 	bfa_fsm_send_event(rx, RX_E_CLEANUP_DONE);
+ }
+ 
++void
++bna_rx_vlan_strip_enable(struct bna_rx *rx)
++{
++	struct bna_rxf *rxf = &rx->rxf;
++
++	if (rxf->vlan_strip_status == BNA_STATUS_T_DISABLED) {
++		rxf->vlan_strip_status = BNA_STATUS_T_ENABLED;
++		rxf->vlan_strip_pending = true;
++		bfa_fsm_send_event(rxf, RXF_E_CONFIG);
++	}
++}
++
++void
++bna_rx_vlan_strip_disable(struct bna_rx *rx)
++{
++	struct bna_rxf *rxf = &rx->rxf;
++
++	if (rxf->vlan_strip_status != BNA_STATUS_T_DISABLED) {
++		rxf->vlan_strip_status = BNA_STATUS_T_DISABLED;
++		rxf->vlan_strip_pending = true;
++		bfa_fsm_send_event(rxf, RXF_E_CONFIG);
++	}
++}
++
+ enum bna_cb_status
+ bna_rx_mode_set(struct bna_rx *rx, enum bna_rxmode new_mode,
+ 		enum bna_rxmode bitmask,
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index 9b1c550..225939c 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -2624,9 +2624,6 @@ bnad_stop(struct net_device *netdev)
+ 	bnad_destroy_tx(bnad, 0);
+ 	bnad_destroy_rx(bnad, 0);
+ 
+-	/* These config flags are cleared in the hardware */
+-	bnad->cfg_flags &= ~(BNAD_CF_ALLMULTI | BNAD_CF_PROMISC);
+-
+ 	/* Synchronize mailbox IRQ */
+ 	bnad_mbox_irq_sync(bnad);
+ 
+@@ -2939,73 +2936,133 @@ bnad_get_stats64(struct net_device *netdev, struct rtnl_link_stats64 *stats)
+ 	return stats;
+ }
+ 
++static void
++bnad_set_rx_ucast_fltr(struct bnad *bnad)
++{
++	struct net_device *netdev = bnad->netdev;
++	int uc_count = netdev_uc_count(netdev);
++	enum bna_cb_status ret;
++	u8 *mac_list;
++	struct netdev_hw_addr *ha;
++	int entry;
++
++	if (netdev_uc_empty(bnad->netdev)) {
++		bna_rx_ucast_listset(bnad->rx_info[0].rx, 0, NULL, NULL);
++		return;
++	}
++
++	if (uc_count > bna_attr(&bnad->bna)->num_ucmac)
++		goto mode_default;
++
++	mac_list = kzalloc(uc_count * ETH_ALEN, GFP_ATOMIC);
++	if (mac_list == NULL)
++		goto mode_default;
++
++	entry = 0;
++	netdev_for_each_uc_addr(ha, netdev) {
++		memcpy(&mac_list[entry * ETH_ALEN],
++		       &ha->addr[0], ETH_ALEN);
++		entry++;
++	}
++
++	ret = bna_rx_ucast_listset(bnad->rx_info[0].rx, entry,
++			mac_list, NULL);
++	kfree(mac_list);
++
++	if (ret != BNA_CB_SUCCESS)
++		goto mode_default;
++
++	return;
++
++	/* ucast packets not in UCAM are routed to default function */
++mode_default:
++	bnad->cfg_flags |= BNAD_CF_DEFAULT;
++	bna_rx_ucast_listset(bnad->rx_info[0].rx, 0, NULL, NULL);
++}
++
++static void
++bnad_set_rx_mcast_fltr(struct bnad *bnad)
++{
++	struct net_device *netdev = bnad->netdev;
++	int mc_count = netdev_mc_count(netdev);
++	enum bna_cb_status ret;
++	u8 *mac_list;
++
++	if (netdev->flags & IFF_ALLMULTI)
++		goto mode_allmulti;
++
++	if (netdev_mc_empty(netdev))
++		return;
++
++	if (mc_count > bna_attr(&bnad->bna)->num_mcmac)
++		goto mode_allmulti;
++
++	mac_list = kzalloc((mc_count + 1) * ETH_ALEN, GFP_ATOMIC);
++
++	if (mac_list == NULL)
++		goto mode_allmulti;
++
++	memcpy(&mac_list[0], &bnad_bcast_addr[0], ETH_ALEN);
++
++	/* copy rest of the MCAST addresses */
++	bnad_netdev_mc_list_get(netdev, mac_list);
++	ret = bna_rx_mcast_listset(bnad->rx_info[0].rx, mc_count + 1,
++			mac_list, NULL);
++	kfree(mac_list);
++
++	if (ret != BNA_CB_SUCCESS)
++		goto mode_allmulti;
++
++	return;
++
++mode_allmulti:
++	bnad->cfg_flags |= BNAD_CF_ALLMULTI;
++	bna_rx_mcast_delall(bnad->rx_info[0].rx, NULL);
++}
++
+ void
+ bnad_set_rx_mode(struct net_device *netdev)
+ {
+ 	struct bnad *bnad = netdev_priv(netdev);
+-	u32	new_mask, valid_mask;
++	enum bna_rxmode new_mode, mode_mask;
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+ 
+-	new_mask = valid_mask = 0;
+-
+-	if (netdev->flags & IFF_PROMISC) {
+-		if (!(bnad->cfg_flags & BNAD_CF_PROMISC)) {
+-			new_mask = BNAD_RXMODE_PROMISC_DEFAULT;
+-			valid_mask = BNAD_RXMODE_PROMISC_DEFAULT;
+-			bnad->cfg_flags |= BNAD_CF_PROMISC;
+-		}
+-	} else {
+-		if (bnad->cfg_flags & BNAD_CF_PROMISC) {
+-			new_mask = ~BNAD_RXMODE_PROMISC_DEFAULT;
+-			valid_mask = BNAD_RXMODE_PROMISC_DEFAULT;
+-			bnad->cfg_flags &= ~BNAD_CF_PROMISC;
+-		}
+-	}
+-
+-	if (netdev->flags & IFF_ALLMULTI) {
+-		if (!(bnad->cfg_flags & BNAD_CF_ALLMULTI)) {
+-			new_mask |= BNA_RXMODE_ALLMULTI;
+-			valid_mask |= BNA_RXMODE_ALLMULTI;
+-			bnad->cfg_flags |= BNAD_CF_ALLMULTI;
+-		}
+-	} else {
+-		if (bnad->cfg_flags & BNAD_CF_ALLMULTI) {
+-			new_mask &= ~BNA_RXMODE_ALLMULTI;
+-			valid_mask |= BNA_RXMODE_ALLMULTI;
+-			bnad->cfg_flags &= ~BNAD_CF_ALLMULTI;
+-		}
++	if (bnad->rx_info[0].rx == NULL) {
++		spin_unlock_irqrestore(&bnad->bna_lock, flags);
++		return;
  	}
  
- 	/* Add the new entries */
-@@ -974,7 +981,7 @@ err_return:
- 		bfa_q_deq(&list_head, &qe);
- 		mac = (struct bna_mac *)qe;
- 		bfa_q_qe_init(&mac->qe);
--		bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod, mac);
-+		bna_cam_mod_mac_put(&mcam_mod->free_q, mac);
- 	}
+-	if (bnad->rx_info[0].rx == NULL)
+-		goto unlock;
++	/* clear bnad flags to update it with new settings */
++	bnad->cfg_flags &= ~(BNAD_CF_PROMISC | BNAD_CF_DEFAULT |
++			BNAD_CF_ALLMULTI);
  
- 	return BNA_CB_MCAST_LIST_FULL;
-@@ -1022,7 +1029,7 @@ bna_rxf_ucast_cfg_apply(struct bna_rxf *rxf)
- 		bfa_q_qe_init(qe);
- 		mac = (struct bna_mac *)qe;
- 		bna_bfi_ucast_req(rxf, mac, BFI_ENET_H2I_MAC_UCAST_DEL_REQ);
--		bna_ucam_mod_mac_put(&rxf->rx->bna->ucam_mod, mac);
-+		bna_cam_mod_mac_put(bna_ucam_mod_del_q(rxf->rx->bna), mac);
- 		return 1;
- 	}
+-	bna_rx_mode_set(bnad->rx_info[0].rx, new_mask, valid_mask, NULL);
++	new_mode = 0;
++	if (netdev->flags & IFF_PROMISC) {
++		new_mode |= BNAD_RXMODE_PROMISC_DEFAULT;
++		bnad->cfg_flags |= BNAD_CF_PROMISC;
++	} else {
++		bnad_set_rx_mcast_fltr(bnad);
  
-@@ -1062,11 +1069,13 @@ bna_rxf_ucast_cfg_reset(struct bna_rxf *rxf, enum bna_cleanup_type cleanup)
- 		bfa_q_qe_init(qe);
- 		mac = (struct bna_mac *)qe;
- 		if (cleanup == BNA_SOFT_CLEANUP)
--			bna_ucam_mod_mac_put(&rxf->rx->bna->ucam_mod, mac);
-+			bna_cam_mod_mac_put(bna_ucam_mod_del_q(rxf->rx->bna),
-+					    mac);
- 		else {
- 			bna_bfi_ucast_req(rxf, mac,
- 				BFI_ENET_H2I_MAC_UCAST_DEL_REQ);
--			bna_ucam_mod_mac_put(&rxf->rx->bna->ucam_mod, mac);
-+			bna_cam_mod_mac_put(bna_ucam_mod_del_q(rxf->rx->bna),
-+					    mac);
- 			return 1;
- 		}
- 	}
-diff --git a/drivers/net/ethernet/brocade/bna/bna_types.h b/drivers/net/ethernet/brocade/bna/bna_types.h
-index dc50f78..acedac2 100644
---- a/drivers/net/ethernet/brocade/bna/bna_types.h
-+++ b/drivers/net/ethernet/brocade/bna/bna_types.h
-@@ -866,8 +866,9 @@ struct bna_rx_mod {
- /* CAM */
+-	if (!netdev_mc_empty(netdev)) {
+-		u8 *mcaddr_list;
+-		int mc_count = netdev_mc_count(netdev);
++		if (bnad->cfg_flags & BNAD_CF_ALLMULTI)
++			new_mode |= BNA_RXMODE_ALLMULTI;
  
- struct bna_ucam_mod {
--	struct bna_mac *ucmac;		/* BFI_MAX_UCMAC entries */
-+	struct bna_mac *ucmac;		/* num_ucmac * 2 entries */
- 	struct list_head			free_q;
-+	struct list_head			del_q;
+-		/* Index 0 holds the broadcast address */
+-		mcaddr_list =
+-			kzalloc((mc_count + 1) * ETH_ALEN,
+-				GFP_ATOMIC);
+-		if (!mcaddr_list)
+-			goto unlock;
++		bnad_set_rx_ucast_fltr(bnad);
  
- 	struct bna *bna;
- };
-@@ -880,9 +881,10 @@ struct bna_mcam_handle {
- };
+-		memcpy(&mcaddr_list[0], &bnad_bcast_addr[0], ETH_ALEN);
++		if (bnad->cfg_flags & BNAD_CF_DEFAULT)
++			new_mode |= BNA_RXMODE_DEFAULT;
++	}
  
- struct bna_mcam_mod {
--	struct bna_mac *mcmac;		/* BFI_MAX_MCMAC entries */
--	struct bna_mcam_handle *mchandle;	/* BFI_MAX_MCMAC entries */
-+	struct bna_mac *mcmac;		/* num_mcmac * 2 entries */
-+	struct bna_mcam_handle *mchandle;	/* num_mcmac entries */
- 	struct list_head			free_q;
-+	struct list_head			del_q;
- 	struct list_head			free_handle_q;
+-		/* Copy rest of the MC addresses */
+-		bnad_netdev_mc_list_get(netdev, mcaddr_list);
++	mode_mask = BNA_RXMODE_PROMISC | BNA_RXMODE_DEFAULT |
++			BNA_RXMODE_ALLMULTI;
++	bna_rx_mode_set(bnad->rx_info[0].rx, new_mode, mode_mask, NULL);
  
- 	struct bna *bna;
+-		bna_rx_mcast_listset(bnad->rx_info[0].rx, mc_count + 1,
+-					mcaddr_list, NULL);
++	if (bnad->cfg_flags & BNAD_CF_PROMISC)
++		bna_rx_vlan_strip_disable(bnad->rx_info[0].rx);
++	else
++		bna_rx_vlan_strip_enable(bnad->rx_info[0].rx);
+ 
+-		/* Should we enable BNAD_CF_ALLMULTI for err != 0 ? */
+-		kfree(mcaddr_list);
+-	}
+-unlock:
+ 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+ }
+ 
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
+index f7e033f..7055432 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.h
++++ b/drivers/net/ethernet/brocade/bna/bnad.h
+@@ -260,7 +260,8 @@ struct bnad_rx_unmap_q {
+ #define	BNAD_CF_DIM_ENABLED		0x01	/* DIM */
+ #define	BNAD_CF_PROMISC			0x02
+ #define BNAD_CF_ALLMULTI		0x04
+-#define	BNAD_CF_MSIX			0x08	/* If in MSIx mode */
++#define	BNAD_CF_DEFAULT			0x08
++#define	BNAD_CF_MSIX			0x10	/* If in MSIx mode */
+ 
+ /* Defines for run_flags bit-mask */
+ /* Set, tested & cleared using xxx_bit() functions */
 -- 
 1.8.2.3
