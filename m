@@ -1,33 +1,31 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] net: neighbour: add neighbour dead check for neigh_timer_handler()
-Date: Wed, 18 Dec 2013 09:41:06 +0100
-Message-ID: <20131218084106.GF27460@order.stressinduktion.org>
-References: <20131203.232122.852236751455974887.davem@davemloft.net> <529EC95A.5080908@huawei.com> <1386138457.30495.86.camel@edumazet-glaptop2.roam.corp.google.com> <529EF30A.4050609@huawei.com> <1386170645.30495.108.camel@edumazet-glaptop2.roam.corp.google.com> <529FC980.8020101@cn.fujitsu.com> <529FF066.1070307@huawei.com> <52B142AF.8070708@huawei.com> <20131218075131.GD27460@order.stressinduktion.org> <52B15A9F.6030301@huawei.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 09/15] net: ixgbe calls skb_set_hash
+Date: Wed, 18 Dec 2013 00:41:06 -0800
+Message-ID: <CAL3LdT7HC0EcYdbTxYe6OEy_cy6EbL1udafhwJA1VWCFv5gG1w@mail.gmail.com>
+References: <alpine.DEB.2.02.1312172324380.24772@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
-	joe@perches.com, vfalico@redhat.com, netdev@vger.kernel.org
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:35657 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752779Ab3LRIlH (ORCPT
+Received: from mail-oa0-f41.google.com ([209.85.219.41]:56061 "EHLO
+	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752767Ab3LRIlH (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 03:41:07 -0500
-Content-Disposition: inline
-In-Reply-To: <52B15A9F.6030301@huawei.com>
+Received: by mail-oa0-f41.google.com with SMTP id j17so7957018oag.0
+        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 00:41:06 -0800 (PST)
+In-Reply-To: <alpine.DEB.2.02.1312172324380.24772@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 18, 2013 at 04:19:43PM +0800, Ding Tianhong wrote:
-> 0xffffffff812f8e29 <neigh_timer_handler+265>:   mov    0xe8(%rbx),%rax
-> 0xffffffff812f8e30 <neigh_timer_handler+272>:   mov    %rbp,%rsi
-> 0xffffffff812f8e33 <neigh_timer_handler+275>:   mov    %rbx,%rdi
-> 0xffffffff812f8e36 <neigh_timer_handler+278>:   callq  *0x8(%rax)						<-----crash
-> /usr/src/linux/net/core/neighbour.c: 877
-> 0xffffffff812f8e39 <neigh_timer_handler+281>:   lea    0x3c(%rbx),%rax
+On Tue, Dec 17, 2013 at 11:28 PM, Tom Herbert <therbert@google.com> wrote:
+> Drivers should call skb_set_hash to set the hash and its type
+> in an skbuff.
+>
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+>
 
-For me it looks like this:
-
-%rax is neigh->ops and the function pointer solicit is NULL and causes the the
-page fault.
+I have added this patch to my queue, thanks Tom.
