@@ -1,28 +1,53 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH] ipv6: clear RTF_EXPIRES when call ip6_rt_copy
-Date: Wed, 18 Dec 2013 08:48:04 +0800
-Message-ID: <52B0F0C4.1010803@cn.fujitsu.com>
-References: <1387182666-31301-1-git-send-email-roy.qing.li@gmail.com> <52AFC43C.9080804@cn.fujitsu.com> <CAJFZqHwF0ubvxJOs2BWbSMMB1szKNO=XTiXje3E2ByF6sUQrXA@mail.gmail.com> <52AFE7E3.3070806@cn.fujitsu.com> <CAJFZqHxawisUbHGZY8mjGHy8035X6TQ7FNzc20vtS5j1jdZYGA@mail.gmail.com> <20131217070231.GA11970@order.stressinduktion.org> <52B00150.3070002@cn.fujitsu.com> <20131217134823.GC18396@order.stressinduktion.org>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: RE: [net-next 07/12] bna: CQ Read Fix
+Date: Tue, 17 Dec 2013 17:07:23 -0800
+Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86B69010E2D8@HQ1-EXCH01.corp.brocade.com>
+References: <1386899678-18591-1-git-send-email-rmody@brocade.com>
+	<1386899678-18591-8-git-send-email-rmody@brocade.com>
+ <20131214.015538.1434478935532675070.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: RongQing Li <roy.qing.li@gmail.com>, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Adapter Linux Open SRC Team"
+	<adapter_linux_open_src_team@Brocade.COM>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:2093 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750872Ab3LRArH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Dec 2013 19:47:07 -0500
-In-Reply-To: <20131217134823.GC18396@order.stressinduktion.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:37234 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751938Ab3LRBH1 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Dec 2013 20:07:27 -0500
+Received: from pps.filterd (m0000700 [127.0.0.1])
+	by mx0b-000f0801.pphosted.com (8.14.5/8.14.5) with SMTP id rBI0lE9W008330
+	for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 17:07:26 -0800
+Received: from hq1wp-exchub01.corp.brocade.com ([144.49.131.13])
+	by mx0b-000f0801.pphosted.com with ESMTP id 1gtuj2rdhm-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 17:07:26 -0800
+In-Reply-To: <20131214.015538.1434478935532675070.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/17/2013 09:48 PM, Hannes Frederic Sowa wrote:
-> On Tue, Dec 17, 2013 at 03:46:24PM +0800, Gao feng wrote:
->> The from of new cloned rt should not be set if it's impossible for the ort
->> to be expired.
-> 
-> Actually, why do you think so? What could go wrong?
-> 
+>From: David Miller [mailto:davem@davemloft.net]
+>Sent: Friday, December 13, 2013 10:56 PM
+>
+>From: Rasesh Mody <rmody@brocade.com>
+>Date: Thu, 12 Dec 2013 17:54:33 -0800
+>
+>> Valid bit check for completion needs read fence, so that it does not
+>> get reordered with other loads.
+>>
+>> Signed-off-by: Rasesh Mody <rmody@brocade.com>
+>
+>All memory barriers added to code should have a big, verbose, comment
+>above it explaining exactly what the requirements are that will be satisfied by
+>the memory barrier.
+>
+>Ie. what memory operation must be visible before or after what other
+>memory operation, and why?
 
-I just don't want rt6_check_expired to check some impossible expired routes.
+Resending the patch set with comment included.
+Thanks,
+--Rasesh
