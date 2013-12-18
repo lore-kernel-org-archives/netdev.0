@@ -1,68 +1,102 @@
 From: Dan Williams <dan.j.williams@intel.com>
-Subject: [PATCH 0/3] net_dma removal and a new dma-debug check
-Date: Tue, 17 Dec 2013 16:15:33 -0800
-Message-ID: <20131218001312.7847.9917.stgit@viggo.jf.intel.com>
+Subject: [PATCH 1/3] net_dma: mark broken
+Date: Tue, 17 Dec 2013 16:15:38 -0800
+Message-ID: <20131218001538.7847.3289.stgit@viggo.jf.intel.com>
+References: <20131218001312.7847.9917.stgit@viggo.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: dmaengine@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	Dave Jiang <dave.jiang@intel.com>,
+	Vinod Koul <vinod.koul@intel.com>,
+	David Whipple <whipple@securedatainnovations.ch>,
+	stable@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dmaengine@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20131218001312.7847.9917.stgit@viggo.jf.intel.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-NET_DMA violates the expectation of the dma-mapping api by allowing the
-cpu to touch receive buffer memory while dma is active.  If this
-activity triggers a copy-on-write event the application may see missing
-data as the dma completes to the old mapping.
+net_dma can cause data to be copied to a stale mapping if a
+copy-on-write fault occurs during dma.  The application sees missing
+data.
 
-[PATCH 1/3] net_dma: mark broken
-Detail the failure and provide a small one-liner for -stable
+The following trace is triggered by modifying the kernel to WARN if it
+ever triggers copy-on-write on a page that is undergoing dma:
 
-[PATCH 2/3] net_dma: remove
-Mark the tcp_dma_copybreak sysctl as removed and remove the rest of the
-implementation
+ WARNING: CPU: 24 PID: 2529 at lib/dma-debug.c:485 debug_dma_assert_idle+0xd2/0x120()
+ ioatdma 0000:00:04.0: DMA-API: cpu touching an active dma mapped page [pfn=0x16bcd9]
+ Modules linked in: iTCO_wdt iTCO_vendor_support ioatdma lpc_ich pcspkr dca
+ CPU: 24 PID: 2529 Comm: linbug Tainted: G        W    3.13.0-rc1+ #353
+  00000000000001e5 ffff88016f45f688 ffffffff81751041 ffff88017ab0ef70
+  ffff88016f45f6d8 ffff88016f45f6c8 ffffffff8104ed9c ffffffff810f3646
+  ffff8801768f4840 0000000000000282 ffff88016f6cca10 00007fa2bb699349
+ Call Trace:
+  [<ffffffff81751041>] dump_stack+0x46/0x58
+  [<ffffffff8104ed9c>] warn_slowpath_common+0x8c/0xc0
+  [<ffffffff810f3646>] ? ftrace_pid_func+0x26/0x30
+  [<ffffffff8104ee86>] warn_slowpath_fmt+0x46/0x50
+  [<ffffffff8139c062>] debug_dma_assert_idle+0xd2/0x120
+  [<ffffffff81154a40>] do_wp_page+0xd0/0x790
+  [<ffffffff811582ac>] handle_mm_fault+0x51c/0xde0
+  [<ffffffff813830b9>] ? copy_user_enhanced_fast_string+0x9/0x20
+  [<ffffffff8175fc2c>] __do_page_fault+0x19c/0x530
+  [<ffffffff8175c196>] ? _raw_spin_lock_bh+0x16/0x40
+  [<ffffffff810f3539>] ? trace_clock_local+0x9/0x10
+  [<ffffffff810fa1f4>] ? rb_reserve_next_event+0x64/0x310
+  [<ffffffffa0014c00>] ? ioat2_dma_prep_memcpy_lock+0x60/0x130 [ioatdma]
+  [<ffffffff8175ffce>] do_page_fault+0xe/0x10
+  [<ffffffff8175c862>] page_fault+0x22/0x30
+  [<ffffffff81643991>] ? __kfree_skb+0x51/0xd0
+  [<ffffffff813830b9>] ? copy_user_enhanced_fast_string+0x9/0x20
+  [<ffffffff81388ea2>] ? memcpy_toiovec+0x52/0xa0
+  [<ffffffff8164770f>] skb_copy_datagram_iovec+0x5f/0x2a0
+  [<ffffffff8169d0f4>] tcp_rcv_established+0x674/0x7f0
+  [<ffffffff816a68c5>] tcp_v4_do_rcv+0x2e5/0x4a0
+  [..]
+ ---[ end trace e30e3b01191b7617 ]---
+ Mapped at:
+  [<ffffffff8139c169>] debug_dma_map_page+0xb9/0x160
+  [<ffffffff8142bf47>] dma_async_memcpy_pg_to_pg+0x127/0x210
+  [<ffffffff8142cce9>] dma_memcpy_pg_to_iovec+0x119/0x1f0
+  [<ffffffff81669d3c>] dma_skb_copy_datagram_iovec+0x11c/0x2b0
+  [<ffffffff8169d1ca>] tcp_rcv_established+0x74a/0x7f0:
 
-[PATCH 3/3] dma debug: flag copy-on-write events to pages undergoing dma
-Extend dma-debug to catch this condition in the future.
+...the problem is that the receive path falls back to cpu-copy in
+several locations and this trace is just one of the areas.  A few
+options were considered to fix this:
 
-Looking to take this through the dmaengine tree with a netdev ack.
+1/ sync all dma whenever a cpu copy branch is taken
 
+2/ modify the page fault handler to hold off while dma is in-flight
+
+Option 1 adds yet more cpu overhead to an "offload" that struggles to compete
+with cpu-copy.  Option 2 adds checks for behavior that is already documented as
+broken when using get_user_pages().  At a minimum a debug mode is warranted to
+catch and flag these violations of the dma-api vs get_user_pages().
+
+Thanks to David for his reproducer.
+
+Cc: <stable@vger.kernel.org>
+Cc: Dave Jiang <dave.jiang@intel.com>
+Cc: Vinod Koul <vinod.koul@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>
+Reported-by: David Whipple <whipple@securedatainnovations.ch>
+Signed-off-by: Dan Williams <dan.j.williams@intel.com>
 ---
+ drivers/dma/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
- Documentation/ABI/removed/net_dma      |    8 +
- Documentation/networking/ip-sysctl.txt |    6 -
- drivers/dma/Kconfig                    |   11 -
- drivers/dma/Makefile                   |    1 
- drivers/dma/dmaengine.c                |  104 ------------
- drivers/dma/ioat/dma.c                 |    1 
- drivers/dma/ioat/dma.h                 |    7 -
- drivers/dma/ioat/dma_v2.c              |    1 
- drivers/dma/ioat/dma_v3.c              |    1 
- drivers/dma/iovlock.c                  |  280 --------------------------------
- include/linux/dma-debug.h              |    6 +
- include/linux/dmaengine.h              |   22 ---
- include/linux/skbuff.h                 |    7 -
- include/linux/tcp.h                    |    7 -
- include/net/netdma.h                   |   32 ----
- include/net/sock.h                     |   18 --
- include/net/tcp.h                      |    7 -
- kernel/sysctl_binary.c                 |    1 
- lib/dma-debug.c                        |  130 +++++++++++++--
- mm/memory.c                            |    3 
- net/core/Makefile                      |    1 
- net/core/dev.c                         |   10 -
- net/core/sock.c                        |    6 -
- net/core/user_dma.c                    |  131 ---------------
- net/dccp/proto.c                       |    4 
- net/ipv4/sysctl_net_ipv4.c             |    9 -
- net/ipv4/tcp.c                         |  147 ++---------------
- net/ipv4/tcp_input.c                   |   61 -------
- net/ipv4/tcp_ipv4.c                    |   18 --
- net/ipv6/tcp_ipv6.c                    |   13 -
- net/llc/af_llc.c                       |   10 +
- 31 files changed, 161 insertions(+), 902 deletions(-)
- create mode 100644 Documentation/ABI/removed/net_dma
- delete mode 100644 drivers/dma/iovlock.c
- delete mode 100644 include/net/netdma.h
- delete mode 100644 net/core/user_dma.c
+diff --git a/drivers/dma/Kconfig b/drivers/dma/Kconfig
+index 132a4fd375b2..c823daaf9043 100644
+--- a/drivers/dma/Kconfig
++++ b/drivers/dma/Kconfig
+@@ -355,6 +355,7 @@ config NET_DMA
+ 	bool "Network: TCP receive copy offload"
+ 	depends on DMA_ENGINE && NET
+ 	default (INTEL_IOATDMA || FSL_DMA)
++	depends on BROKEN
+ 	help
+ 	  This enables the use of DMA engines in the network stack to
+ 	  offload receive copy-to-user operations, freeing CPU cycles.
