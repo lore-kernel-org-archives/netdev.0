@@ -1,81 +1,74 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net] net: neighbour: add neighbour dead check for neigh_timer_handler()
-Date: Wed, 18 Dec 2013 18:02:33 +0800
-Message-ID: <52B172B9.7030609@huawei.com>
-References: <1386138457.30495.86.camel@edumazet-glaptop2.roam.corp.google.com> <529EF30A.4050609@huawei.com> <1386170645.30495.108.camel@edumazet-glaptop2.roam.corp.google.com> <529FC980.8020101@cn.fujitsu.com> <529FF066.1070307@huawei.com> <52B142AF.8070708@huawei.com> <20131218075131.GD27460@order.stressinduktion.org> <52B15A9F.6030301@huawei.com> <20131218084106.GF27460@order.stressinduktion.org> <52B1635D.7020205@huawei.com> <20131218092815.GA3505@order.stressinduktion.org>
+Subject: Re: [PATCH net-next v2 0/6] slight optimization of addr compare for
+ some modules
+Date: Wed, 18 Dec 2013 18:06:35 +0800
+Message-ID: <52B173AB.6020901@huawei.com>
+References: <52AEB8B3.5010405@huawei.com>	 <1387205111.18217.7.camel@joe-AO722> <52AF13F4.5040409@gmail.com>	 <1387207006.18217.28.camel@joe-AO722> <1387214748.18217.52.camel@joe-AO722>	 <52AFAFDC.2080807@huawei.com> <52B1611E.4090608@huawei.com> <1387358236.13593.36.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, <yoshfuji@linux-ipv6.org>,
-	<joe@perches.com>, <vfalico@redhat.com>, <netdev@vger.kernel.org>
+Cc: Ding Tianhong <dthxman@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:43341 "EHLO
+Received: from szxga03-in.huawei.com ([119.145.14.66]:44896 "EHLO
 	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750910Ab3LRKDy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 05:03:54 -0500
-In-Reply-To: <20131218092815.GA3505@order.stressinduktion.org>
+	with ESMTP id S1753173Ab3LRKGy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 05:06:54 -0500
+In-Reply-To: <1387358236.13593.36.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/12/18 17:28, Hannes Frederic Sowa wrote:
-> On Wed, Dec 18, 2013 at 04:57:01PM +0800, Ding Tianhong wrote:
->> On 2013/12/18 16:41, Hannes Frederic Sowa wrote:
->>> On Wed, Dec 18, 2013 at 04:19:43PM +0800, Ding Tianhong wrote:
->>>> 0xffffffff812f8e29 <neigh_timer_handler+265>:   mov    0xe8(%rbx),%rax
->>>> 0xffffffff812f8e30 <neigh_timer_handler+272>:   mov    %rbp,%rsi
->>>> 0xffffffff812f8e33 <neigh_timer_handler+275>:   mov    %rbx,%rdi
->>>> 0xffffffff812f8e36 <neigh_timer_handler+278>:   callq  *0x8(%rax)						<-----crash
->>>> /usr/src/linux/net/core/neighbour.c: 877
->>>> 0xffffffff812f8e39 <neigh_timer_handler+281>:   lea    0x3c(%rbx),%rax
->>>
->>> For me it looks like this:
->>>
->>> %rax is neigh->ops and the function pointer solicit is NULL and causes the the
->>> page fault.
->>>
->>>
->> yes, it is. So I was trying to find the situation that may free the neighbour when
->> the timer is running, but I could not yet.
+On 2013/12/18 17:17, Joe Perches wrote:
+> On Wed, 2013-12-18 at 16:47 +0800, Ding Tianhong wrote:
+>> On 2013/12/17 9:58, Ding Tianhong wrote:
+>>> On 2013/12/17 1:25, Joe Perches wrote:
+>>>> These should still be inspected for appropriate use of
+>>>> ether_addr_equal or ether_addr_equal_unaligned, but a
+>>>> better cocci input sp-file is:
+>>>>
+>>>> $ cat ether_addr_equal_unaligned.cocci 
+>>>> @@
+>>>> expression e1;
+>>>> expression e2;
+>>>> @@
+> []
+>> There are too many places need to be changed, should I make it in one patch or several pathset,
+>> pls give me some advise. thanks
 > 
-> Hm. Ok. It is actually ops which is NULL, not the function pointer, may bad.
+> Separate per-maintainer patches are generally good.
+> It can take several attempts to get these applied
+> in all the various trees.
 > 
-> Could you try to follow param or table links and check if this is an arp or
-> ndisc one? Maybe some interactions with arp.c or ndisc.c causes this bug?
-> 
+> So maybe 1 patch for each of most of these.  Maybe
+> some of these like drivers/media, drivers/mtd and
+> drivers/staging could probably be single patches.
 > 
 
-David and Eric has said that someone may called neigh_release in a wrong place, I agree with that,
-and review the code which calling the function in the kernel, I could not find any obvious problem,
-and doubt with the situation:
+Hi Joe:
 
-CPU0					  CPU1					  CPU2
-      --------		      			--------                		---------
-neigh_timer_handler				
-write_lock(n->lock);		
-	...
-write_unlock(n->lock);
-n->ref_cnt = 2 or 3(if mode_time)				
-	...					neigh_flush_dev
-						write_lock(n->lock);
-						n->ref_cnt = 2;
-						n->nud_state = NUD_NONE;
-						write_unlock(n->lock);
-						neigh_release()
-						n->ref_cnt = 1;
-						...					neigh_periodic_work
-											write_lock(n->lock);
-											write_unlock(n->lock);
-											neigh_release();
-											kfree(n)
-n->ops->solicit()									...
-...
+I found there is a bug in spatch, it could not deal with 
+-       memcmp(e1, e2, \(6\|ETH_ALEN\)) != 0
++       !ether_addr_equal_unaligned(e1, e2)
 
 
-.
+
+diff -u -p a/caif/cfrfml.c b/caif/cfrfml.c
+--- a/caif/cfrfml.c
++++ b/caif/cfrfml.c
+@@ -79,7 +79,7 @@ static struct cfpkt *rfm_append(struct c
+                return NULL;
+
+        /* Verify correct header */
+-       if (memcmp(seghead, rfml->seghead, 6) != 0)
++       if (!ether_addr_equal_unaligned(seghead, rfml->seghead) != 0)
+                return NULL;
+
+        tmppkt = cfpkt_append(rfml->incomplete_frm, pkt,
+
 
 Regards
-Ding
-
+Ding 
 
 > 
