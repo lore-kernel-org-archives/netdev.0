@@ -1,63 +1,48 @@
-From: Joe Perches <joe@perches.com>
-Subject: ieee80211_i.h: shouldn't struct ps_data.tim be aligned unsigned
- long?
-Date: Wed, 18 Dec 2013 00:16:04 -0800
-Message-ID: <1387354564.13593.26.camel@joe-AO722>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Wed, 18 Dec 2013 09:33:47 +0100
+Message-ID: <CAMuHMdUi4GQYR2p7enikEkTq1s-5YwirTzmo_tS0JwiE=dVmYw@mail.gmail.com>
+References: <20131218125643.8ff140371e1f8c306327d354@canb.auug.org.au>
+	<20131217.212145.893665929052097867.davem@davemloft.net>
+	<20131217.213033.1019416869378407851.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Jiri Benc <jbenc@redhat.com>,
-	Johannes Berg <johannes.berg@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0212.hostedemail.com ([216.40.44.212]:60691 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751196Ab3LRIQH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 03:16:07 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux-Next <linux-next@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	ffusco@redhat.com, dborkman@redhat.com, tgraf@redhat.com
+To: David Miller <davem@davemloft.net>,
+	Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20131217.213033.1019416869378407851.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-about
-net/mac80211/tx.c:              have_bits = !bitmap_empty((unsigned long*)ps->tim,
-and
-net/mac80211/ieee80211_i.h
-d012a6051 (Marco Porsch        2012-10-10 12:39:50 -0700 244) struct ps_data {
-f0706e828 (Jiri Benc           2007-05-05 11:45:53 -0700 245)   /* yes, this looks ugly, but guarantees that we can later use
-f0706e828 (Jiri Benc           2007-05-05 11:45:53 -0700 246)    * bitmap_empty :)
-004c872e7 (Johannes Berg       2008-02-20 11:21:35 +0100 247)    * NB: don't touch this bitmap, use sta_info_{set,clear}_tim_bit */
-f0706e828 (Jiri Benc           2007-05-05 11:45:53 -0700 248)   u8 tim[sizeof(unsigned long) * BITS_TO_LONGS(IEEE80211_MAX_AID + 1)];
-d012a6051 (Marco Porsch        2012-10-10 12:39:50 -0700 249)   struct sk_buff_head bc_buf;
-056cdd599 (Johannes Berg       2008-03-26 23:21:47 +0100 250)   atomic_t num_sta_ps; /* number of stations in PS mode */
-5dfdaf58d (Johannes Berg       2007-12-19 02:03:33 +0100 251)   int dtim_count;
-512119b36 (Christian Lamparter 2011-01-31 20:48:44 +0200 252)   bool dtim_bc_mc;
-f0706e828 (Jiri Benc           2007-05-05 11:45:53 -0700 253) };
+On Wed, Dec 18, 2013 at 3:30 AM, David Miller <davem@davemloft.net> wrote:
+> diff --git a/arch/alpha/include/asm/Kbuild b/arch/alpha/include/asm/Kbuild
+> index f01fb50..a73a8e2 100644
+> --- a/arch/alpha/include/asm/Kbuild
+> +++ b/arch/alpha/include/asm/Kbuild
+> @@ -4,3 +4,4 @@ generic-y += clkdev.h
+>  generic-y += exec.h
+>  generic-y += trace_clock.h
+>  generic-y += preempt.h
+> +generic-y += hash.h
 
-Perhaps the
-	u8 tim[sizeof...]
-member should be marked
-	__aligned(sizeof(unsigned long))
-so that the cast to ulong when bitmap_empty
-is actually forced to be ulong aligned?
+Please keep them sorted.
 
-Perhaps the "guarantee" isn't valid without it.
+Yes, Peter violated that too, when adding preempt.h.
 
----
+Thanks!
 
- net/mac80211/ieee80211_i.h | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Gr{oetje,eeting}s,
 
-diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
-index ed5bf8b..e5a9c51 100644
---- a/net/mac80211/ieee80211_i.h
-+++ b/net/mac80211/ieee80211_i.h
-@@ -245,7 +245,8 @@ struct ps_data {
- 	/* yes, this looks ugly, but guarantees that we can later use
- 	 * bitmap_empty :)
- 	 * NB: don't touch this bitmap, use sta_info_{set,clear}_tim_bit */
--	u8 tim[sizeof(unsigned long) * BITS_TO_LONGS(IEEE80211_MAX_AID + 1)];
-+	u8 tim[sizeof(unsigned long) * BITS_TO_LONGS(IEEE80211_MAX_AID + 1)]
-+			__aligned(sizeof(unsigned long));
- 	struct sk_buff_head bc_buf;
- 	atomic_t num_sta_ps; /* number of stations in PS mode */
- 	int dtim_count;
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
