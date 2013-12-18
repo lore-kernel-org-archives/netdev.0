@@ -1,50 +1,107 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Wed, 18 Dec 2013 12:36:51 +0100
-Message-ID: <20131218113651.GQ3694@twins.programming.kicks-ass.net>
-References: <20131218125643.8ff140371e1f8c306327d354@canb.auug.org.au>
- <20131217.212145.893665929052097867.davem@davemloft.net>
- <20131217.213033.1019416869378407851.davem@davemloft.net>
- <CAMuHMdUi4GQYR2p7enikEkTq1s-5YwirTzmo_tS0JwiE=dVmYw@mail.gmail.com>
- <20131218101523.GP13532@twins.programming.kicks-ass.net>
- <CAMuHMdXHiKe6fjEHu0GrSVMAmvKuX9wOUdC2MW3uSjRAU5tnWA@mail.gmail.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B74A4@saturn3.aculab.com>
- <20131218113324.GA30183@twins.programming.kicks-ass.net>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH net-next 1/2] net_sched: replace pr_warning with pr_warn
+Date: Wed, 18 Dec 2013 20:04:51 +0800
+Message-ID: <1387368292-18120-2-git-send-email-yangyingliang@huawei.com>
+References: <1387368292-18120-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-	David Miller <davem@davemloft.net>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	netdev@vger.kernel.org, Linux-Next <linux-next@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, ffusco@redhat.com,
-	dborkman@redhat.com, tgraf@redhat.com,
-	Joe Perches <joe@perches.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131218113324.GA30183@twins.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:32236 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751443Ab3LRMFB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 07:05:01 -0500
+In-Reply-To: <1387368292-18120-1-git-send-email-yangyingliang@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 18, 2013 at 12:33:24PM +0100, Peter Zijlstra wrote:
-> On Wed, Dec 18, 2013 at 11:07:34AM -0000, David Laight wrote:
-> > > > And sort(1) is annoying in that it doesn't do in-place sort; you'll end
-> > > > up with empty files if you try the naive thing.
-> > > >
-> > > > Worse most of those Kbuild files include other random garbage, which
-> > > > makes automated sorting harder still.
-> > > >
-> > > > So unless there's a sane and easy way to keep it sorted; I'm going to
-> > > > ignore that rule.
-> > > 
-> > > Not keeping them sorted causes merge conflicts and duplicate/missing
-> > > entries.
-> 
-> Surely sorting doesn't cure missing entries. Also sorting can at most
-> reduce merge conflicts, not take them out entirely.
+Prefer pr_warn(... to pr_warning(...
 
-In fact, manually editing these files carries a far greater risk of
-causing missing entries than sorting could possibly cure.
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+---
+ net/sched/sch_cbq.c    |  4 ++--
+ net/sched/sch_dsmark.c |  4 ++--
+ net/sched/sch_gred.c   |  4 ++--
+ net/sched/sch_htb.c    | 12 +++++-------
+ 4 files changed, 11 insertions(+), 13 deletions(-)
 
-Also, missing entires isn't much of a problem to begin with, compilers
-are rather good at finding the problem.
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index e251833..2f80d01 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -1060,8 +1060,8 @@ static void cbq_normalize_quanta(struct cbq_sched_data *q, int prio)
+ 			}
+ 			if (cl->quantum <= 0 ||
+ 			    cl->quantum > 32*qdisc_dev(cl->qdisc)->mtu) {
+-				pr_warning("CBQ: class %08x has bad quantum==%ld, repaired.\n",
+-					   cl->common.classid, cl->quantum);
++				pr_warn("CBQ: class %08x has bad quantum==%ld, repaired.\n",
++					cl->common.classid, cl->quantum);
+ 				cl->quantum = qdisc_dev(cl->qdisc)->mtu/2 + 1;
+ 			}
+ 		}
+diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
+index 0952fd2..7cd49e5 100644
+--- a/net/sched/sch_dsmark.c
++++ b/net/sched/sch_dsmark.c
+@@ -303,8 +303,8 @@ static struct sk_buff *dsmark_dequeue(struct Qdisc *sch)
+ 		 * and don't need yet another qdisc as a bypass.
+ 		 */
+ 		if (p->mask[index] != 0xff || p->value[index])
+-			pr_warning("dsmark_dequeue: unsupported protocol %d\n",
+-				   ntohs(skb->protocol));
++			pr_warn("dsmark_dequeue: unsupported protocol %d\n",
++				ntohs(skb->protocol));
+ 		break;
+ 	}
+ 
+diff --git a/net/sched/sch_gred.c b/net/sched/sch_gred.c
+index d42234c..fb621d2 100644
+--- a/net/sched/sch_gred.c
++++ b/net/sched/sch_gred.c
+@@ -370,8 +370,8 @@ static inline int gred_change_table_def(struct Qdisc *sch, struct nlattr *dps)
+ 
+ 	for (i = table->DPs; i < MAX_DPs; i++) {
+ 		if (table->tab[i]) {
+-			pr_warning("GRED: Warning: Destroying "
+-				   "shadowed VQ 0x%x\n", i);
++			pr_warn("GRED: Warning: Destroying "
++				"shadowed VQ 0x%x\n", i);
+ 			gred_destroy_vq(table->tab[i]);
+ 			table->tab[i] = NULL;
+ 		}
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 830c64f..5c5f01c 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -712,7 +712,7 @@ static s64 htb_do_events(struct htb_sched *q, const int level,
+ 
+ 	/* too much load - let's continue after a break for scheduling */
+ 	if (!(q->warned & HTB_WARN_TOOMANYEVENTS)) {
+-		pr_warning("htb: too many events!\n");
++		pr_warn("htb: too many events!\n");
+ 		q->warned |= HTB_WARN_TOOMANYEVENTS;
+ 	}
+ 
+@@ -1477,15 +1477,13 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 	if (!cl->level) {
+ 		cl->quantum = hopt->rate.rate / q->rate2quantum;
+ 		if (!hopt->quantum && cl->quantum < 1000) {
+-			pr_warning(
+-			       "HTB: quantum of class %X is small. Consider r2q change.\n",
+-			       cl->common.classid);
++			pr_warn("HTB: quantum of class %X is small. Consider r2q change.\n",
++				cl->common.classid);
+ 			cl->quantum = 1000;
+ 		}
+ 		if (!hopt->quantum && cl->quantum > 200000) {
+-			pr_warning(
+-			       "HTB: quantum of class %X is big. Consider r2q change.\n",
+-			       cl->common.classid);
++			pr_warn("HTB: quantum of class %X is big. Consider r2q change.\n",
++				cl->common.classid);
+ 			cl->quantum = 200000;
+ 		}
+ 		if (hopt->quantum)
+-- 
+1.8.0
