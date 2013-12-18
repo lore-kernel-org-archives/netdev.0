@@ -1,265 +1,185 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/14] igb: Change to use statically allocated array for MSIx entries
-Date: Tue, 17 Dec 2013 22:44:42 -0800
-Message-ID: <1387349082-18506-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/14] i40e: Fix dump output from debugfs calls
+Date: Tue, 17 Dec 2013 22:44:29 -0800
+Message-ID: <1387349082-18506-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387349082-18506-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Neerav Parikh <Neerav.Parikh@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:3472 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:24896 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752976Ab3LRGpI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Dec 2013 01:45:08 -0500
+	id S1752339Ab3LRGos (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Dec 2013 01:44:48 -0500
 In-Reply-To: <1387349082-18506-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Neerav Parikh <Neerav.Parikh@intel.com>
 
-This patch changes how the driver initializes MSIx and checks
-for MSIx configuration.  This change makes it easier to reconfigure the
-device when queue changes happen at runtime using ethtool's set_channels
-feature.
+The debugfs commands that dump hex information are not doing these as
+expected viz. "lldp get local", "nvm read", "dump debug fwdata", etc.
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Use print_hex_dump() instead to hex dump and remove the print buffer
+stuff from the code.
+
+Change-Id: I507bd8b2187aae8bad5055b7872978c309cf143e
+Signed-off-by: Neerav Parikh <Neerav.Parikh@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h         |  9 ++++---
- drivers/net/ethernet/intel/igb/igb_ethtool.c |  6 ++---
- drivers/net/ethernet/intel/igb/igb_main.c    | 38 +++++++++++-----------------
- 3 files changed, 24 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 72 +++++++-------------------
+ 1 file changed, 19 insertions(+), 53 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 8aaca0a..ccf472f 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -41,6 +41,7 @@
- #include <linux/if_vlan.h>
- #include <linux/i2c.h>
- #include <linux/i2c-algo-bit.h>
-+#include <linux/pci.h>
- 
- struct igb_adapter;
- 
-@@ -67,6 +68,7 @@ struct igb_adapter;
- #define IGB_MIN_ITR_USECS	10
- #define NON_Q_VECTORS		1
- #define MAX_Q_VECTORS		8
-+#define MAX_MSIX_ENTRIES	10
- 
- /* Transmit and receive queues */
- #define IGB_MAX_RX_QUEUES	8
-@@ -127,9 +129,9 @@ struct vf_data_storage {
- #define IGB_TX_PTHRESH	((hw->mac.type == e1000_i354) ? 20 : 8)
- #define IGB_TX_HTHRESH	1
- #define IGB_RX_WTHRESH	((hw->mac.type == e1000_82576 && \
--			  adapter->msix_entries) ? 1 : 4)
-+			  (adapter->flags & IGB_FLAG_HAS_MSIX)) ? 1 : 4)
- #define IGB_TX_WTHRESH	((hw->mac.type == e1000_82576 && \
--			  adapter->msix_entries) ? 1 : 16)
-+			  (adapter->flags & IGB_FLAG_HAS_MSIX)) ? 1 : 16)
- 
- /* this is the size past which hardware will drop packets when setting LPE=0 */
- #define MAXIMUM_ETHERNET_VLAN_SIZE 1522
-@@ -357,7 +359,7 @@ struct igb_adapter {
- 	unsigned int flags;
- 
- 	unsigned int num_q_vectors;
--	struct msix_entry *msix_entries;
-+	struct msix_entry msix_entries[MAX_MSIX_ENTRIES];
- 
- 	/* Interrupt Throttle Rate */
- 	u32 rx_itr_setting;
-@@ -469,6 +471,7 @@ struct igb_adapter {
- #define IGB_FLAG_MEDIA_RESET		(1 << 10)
- #define IGB_FLAG_MAS_CAPABLE		(1 << 11)
- #define IGB_FLAG_MAS_ENABLE		(1 << 12)
-+#define IGB_FLAG_HAS_MSIX		(1 << 13)
- 
- /* Media Auto Sense */
- #define IGB_MAS_ENABLE_0		0X0001
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index 1c7d238..1df0237 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -1386,7 +1386,7 @@ static int igb_intr_test(struct igb_adapter *adapter, u64 *data)
- 	*data = 0;
- 
- 	/* Hook up test interrupt handler just for this test */
--	if (adapter->msix_entries) {
-+	if (adapter->flags & IGB_FLAG_HAS_MSIX) {
- 		if (request_irq(adapter->msix_entries[0].vector,
- 		                igb_test_intr, 0, netdev->name, adapter)) {
- 			*data = 1;
-@@ -1519,7 +1519,7 @@ static int igb_intr_test(struct igb_adapter *adapter, u64 *data)
- 	msleep(10);
- 
- 	/* Unhook test interrupt handler */
--	if (adapter->msix_entries)
-+	if (adapter->flags & IGB_FLAG_HAS_MSIX)
- 		free_irq(adapter->msix_entries[0].vector, adapter);
- 	else
- 		free_irq(irq, adapter);
-@@ -2933,7 +2933,7 @@ static void igb_get_channels(struct net_device *netdev,
- 	ch->max_combined = igb_max_channels(adapter);
- 
- 	/* Report info for other vector */
--	if (adapter->msix_entries) {
-+	if (adapter->flags & IGB_FLAG_HAS_MSIX) {
- 		ch->max_other = NON_Q_VECTORS;
- 		ch->other_count = NON_Q_VECTORS;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index 9a59dda..18296f8 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -1022,8 +1022,6 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 	char *cmd_buf, *cmd_buf_tmp;
+ 	int bytes_not_copied;
+ 	struct i40e_vsi *vsi;
+-	u8 *print_buf_start;
+-	u8 *print_buf;
+ 	int vsi_seid;
+ 	int veb_seid;
+ 	int cnt;
+@@ -1048,11 +1046,6 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 		count = cmd_buf_tmp - cmd_buf + 1;
  	}
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index db040d6..46d31a4 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -803,7 +803,7 @@ static void igb_assign_vector(struct igb_q_vector *q_vector, int msix_vector)
- 			msixbm = E1000_EICR_RX_QUEUE0 << rx_queue;
- 		if (tx_queue > IGB_N0_QUEUE)
- 			msixbm |= E1000_EICR_TX_QUEUE0 << tx_queue;
--		if (!adapter->msix_entries && msix_vector == 0)
-+		if (!(adapter->flags & IGB_FLAG_HAS_MSIX) && msix_vector == 0)
- 			msixbm |= E1000_EIMS_OTHER;
- 		array_wr32(E1000_MSIXBM(0), msix_vector, msixbm);
- 		q_vector->eims_value = msixbm;
-@@ -1028,13 +1028,10 @@ static void igb_reset_interrupt_capability(struct igb_adapter *adapter)
- {
- 	int v_idx = adapter->num_q_vectors;
  
--	if (adapter->msix_entries) {
-+	if (adapter->flags & IGB_FLAG_HAS_MSIX)
- 		pci_disable_msix(adapter->pdev);
--		kfree(adapter->msix_entries);
--		adapter->msix_entries = NULL;
--	} else if (adapter->flags & IGB_FLAG_HAS_MSI) {
-+	else if (adapter->flags & IGB_FLAG_HAS_MSI)
- 		pci_disable_msi(adapter->pdev);
--	}
- 
- 	while (v_idx--)
- 		igb_reset_q_vector(adapter, v_idx);
-@@ -1090,6 +1087,7 @@ static void igb_set_interrupt_capability(struct igb_adapter *adapter, bool msix)
- 
- 	if (!msix)
- 		goto msi_only;
-+	adapter->flags |= IGB_FLAG_HAS_MSIX;
- 
- 	/* Number of supported queues. */
- 	adapter->num_rx_queues = adapter->rss_queues;
-@@ -1110,12 +1108,6 @@ static void igb_set_interrupt_capability(struct igb_adapter *adapter, bool msix)
- 
- 	/* add 1 vector for link status interrupts */
- 	numvecs++;
--	adapter->msix_entries = kcalloc(numvecs, sizeof(struct msix_entry),
--					GFP_KERNEL);
+-	print_buf_start = kzalloc(I40E_MAX_DEBUG_OUT_BUFFER, GFP_KERNEL);
+-	if (!print_buf_start)
+-		goto command_write_done;
+-	print_buf = print_buf_start;
 -
--	if (!adapter->msix_entries)
--		goto msi_only;
--
- 	for (i = 0; i < numvecs; i++)
- 		adapter->msix_entries[i].entry = i;
+ 	if (strncmp(cmd_buf, "add vsi", 7) == 0) {
+ 		vsi_seid = -1;
+ 		cnt = sscanf(&cmd_buf[7], "%i", &vsi_seid);
+@@ -1592,19 +1585,15 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 		packet_len = min_t(u16,
+ 				   packet_len, I40E_FDIR_MAX_RAW_PACKET_LOOKUP);
  
-@@ -1392,7 +1384,7 @@ static int igb_request_irq(struct igb_adapter *adapter)
- 	struct pci_dev *pdev = adapter->pdev;
- 	int err = 0;
+-		dev_info(&pf->pdev->dev, "FD raw packet:\n");
+ 		for (i = 0; i < packet_len; i++) {
+ 			sscanf(&asc_packet[j], "%2hhx ",
+ 			       &fd_data.raw_packet[i]);
+ 			j += 3;
+-			snprintf(print_buf, 3, "%02x ", fd_data.raw_packet[i]);
+-			print_buf += 3;
+-			if ((i % 16) == 15) {
+-				snprintf(print_buf, 1, "\n");
+-				print_buf++;
+-			}
+ 		}
+-		dev_info(&pf->pdev->dev, "%s\n", print_buf_start);
++		dev_info(&pf->pdev->dev, "FD raw packet dump\n");
++		print_hex_dump(KERN_INFO, "FD raw packet: ",
++			       DUMP_PREFIX_OFFSET, 16, 1,
++			       fd_data.raw_packet, packet_len, true);
+ 		ret = i40e_program_fdir_filter(&fd_data, pf, add);
+ 		if (!ret) {
+ 			dev_info(&pf->pdev->dev, "Filter command send Status : Success\n");
+@@ -1638,7 +1627,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 		} else if (strncmp(&cmd_buf[5],
+ 			   "get local", 9) == 0) {
+ 			u16 llen, rlen;
+-			int ret, i;
++			int ret;
+ 			u8 *buff;
+ 			buff = kzalloc(I40E_LLDPDU_SIZE, GFP_KERNEL);
+ 			if (!buff)
+@@ -1656,22 +1645,15 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 				buff = NULL;
+ 				goto command_write_done;
+ 			}
+-			dev_info(&pf->pdev->dev,
+-				 "Get LLDP MIB (local) AQ buffer written back:\n");
+-			for (i = 0; i < I40E_LLDPDU_SIZE; i++) {
+-				snprintf(print_buf, 3, "%02x ", buff[i]);
+-				print_buf += 3;
+-				if ((i % 16) == 15) {
+-					snprintf(print_buf, 1, "\n");
+-					print_buf++;
+-				}
+-			}
+-			dev_info(&pf->pdev->dev, "%s\n", print_buf_start);
++			dev_info(&pf->pdev->dev, "LLDP MIB (local)\n");
++			print_hex_dump(KERN_INFO, "LLDP MIB (local): ",
++				       DUMP_PREFIX_OFFSET, 16, 1,
++				       buff, I40E_LLDPDU_SIZE, true);
+ 			kfree(buff);
+ 			buff = NULL;
+ 		} else if (strncmp(&cmd_buf[5], "get remote", 10) == 0) {
+ 			u16 llen, rlen;
+-			int ret, i;
++			int ret;
+ 			u8 *buff;
+ 			buff = kzalloc(I40E_LLDPDU_SIZE, GFP_KERNEL);
+ 			if (!buff)
+@@ -1690,17 +1672,10 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 				buff = NULL;
+ 				goto command_write_done;
+ 			}
+-			dev_info(&pf->pdev->dev,
+-				 "Get LLDP MIB (remote) AQ buffer written back:\n");
+-			for (i = 0; i < I40E_LLDPDU_SIZE; i++) {
+-				snprintf(print_buf, 3, "%02x ", buff[i]);
+-				print_buf += 3;
+-				if ((i % 16) == 15) {
+-					snprintf(print_buf, 1, "\n");
+-					print_buf++;
+-				}
+-			}
+-			dev_info(&pf->pdev->dev, "%s\n", print_buf_start);
++			dev_info(&pf->pdev->dev, "LLDP MIB (remote)\n");
++			print_hex_dump(KERN_INFO, "LLDP MIB (remote): ",
++				       DUMP_PREFIX_OFFSET, 16, 1,
++				       buff, I40E_LLDPDU_SIZE, true);
+ 			kfree(buff);
+ 			buff = NULL;
+ 		} else if (strncmp(&cmd_buf[5], "event on", 8) == 0) {
+@@ -1725,7 +1700,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 			}
+ 		}
+ 	} else if (strncmp(cmd_buf, "nvm read", 8) == 0) {
+-		u16 buffer_len, i, bytes;
++		u16 buffer_len, bytes;
+ 		u16 module;
+ 		u32 offset;
+ 		u16 *buff;
+@@ -1779,16 +1754,10 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 			dev_info(&pf->pdev->dev,
+ 				 "Read NVM module=0x%x offset=0x%x words=%d\n",
+ 				 module, offset, buffer_len);
+-			for (i = 0; i < buffer_len; i++) {
+-				if ((i % 16) == 0) {
+-					snprintf(print_buf, 11, "\n0x%08x: ",
+-						 offset + i);
+-					print_buf += 11;
+-				}
+-				snprintf(print_buf, 5, "%04x ", buff[i]);
+-				print_buf += 5;
+-			}
+-			dev_info(&pf->pdev->dev, "%s\n", print_buf_start);
++			if (buffer_len)
++				print_hex_dump(KERN_INFO, "NVM Dump: ",
++					DUMP_PREFIX_OFFSET, 16, 2,
++					buff, buffer_len, true);
+ 		}
+ 		kfree(buff);
+ 		buff = NULL;
+@@ -1832,9 +1801,6 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ command_write_done:
+ 	kfree(cmd_buf);
+ 	cmd_buf = NULL;
+-	kfree(print_buf_start);
+-	print_buf = NULL;
+-	print_buf_start = NULL;
+ 	return count;
+ }
  
--	if (adapter->msix_entries) {
-+	if (adapter->flags & IGB_FLAG_HAS_MSIX) {
- 		err = igb_request_msix(adapter);
- 		if (!err)
- 			goto request_done;
-@@ -1436,7 +1428,7 @@ request_done:
- 
- static void igb_free_irq(struct igb_adapter *adapter)
- {
--	if (adapter->msix_entries) {
-+	if (adapter->flags & IGB_FLAG_HAS_MSIX) {
- 		int vector = 0, i;
- 
- 		free_irq(adapter->msix_entries[vector++].vector, adapter);
-@@ -1461,7 +1453,7 @@ static void igb_irq_disable(struct igb_adapter *adapter)
- 	 * mapped into these registers and so clearing the bits can cause
- 	 * issues on the VF drivers so we only need to clear what we set
- 	 */
--	if (adapter->msix_entries) {
-+	if (adapter->flags & IGB_FLAG_HAS_MSIX) {
- 		u32 regval = rd32(E1000_EIAM);
- 		wr32(E1000_EIAM, regval & ~adapter->eims_enable_mask);
- 		wr32(E1000_EIMC, adapter->eims_enable_mask);
-@@ -1472,7 +1464,7 @@ static void igb_irq_disable(struct igb_adapter *adapter)
- 	wr32(E1000_IAM, 0);
- 	wr32(E1000_IMC, ~0);
- 	wrfl();
--	if (adapter->msix_entries) {
-+	if (adapter->flags & IGB_FLAG_HAS_MSIX) {
- 		int i;
- 		for (i = 0; i < adapter->num_q_vectors; i++)
- 			synchronize_irq(adapter->msix_entries[i].vector);
-@@ -1489,7 +1481,7 @@ static void igb_irq_enable(struct igb_adapter *adapter)
- {
- 	struct e1000_hw *hw = &adapter->hw;
- 
--	if (adapter->msix_entries) {
-+	if (adapter->flags & IGB_FLAG_HAS_MSIX) {
- 		u32 ims = E1000_IMS_LSC | E1000_IMS_DOUTSYNC | E1000_IMS_DRSTA;
- 		u32 regval = rd32(E1000_EIAC);
- 		wr32(E1000_EIAC, regval | adapter->eims_enable_mask);
-@@ -1712,7 +1704,7 @@ int igb_up(struct igb_adapter *adapter)
- 	for (i = 0; i < adapter->num_q_vectors; i++)
- 		napi_enable(&(adapter->q_vector[i]->napi));
- 
--	if (adapter->msix_entries)
-+	if (adapter->flags & IGB_FLAG_HAS_MSIX)
- 		igb_configure_msix(adapter);
- 	else
- 		igb_assign_vector(adapter->q_vector[0], 0);
-@@ -2565,7 +2557,7 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	dev_info(&pdev->dev, "%s: PBA No: %s\n", netdev->name, part_str);
- 	dev_info(&pdev->dev,
- 		"Using %s interrupts. %d rx queue(s), %d tx queue(s)\n",
--		adapter->msix_entries ? "MSI-X" :
-+		(adapter->flags & IGB_FLAG_HAS_MSIX) ? "MSI-X" :
- 		(adapter->flags & IGB_FLAG_HAS_MSI) ? "MSI" : "legacy",
- 		adapter->num_rx_queues, adapter->num_tx_queues);
- 	switch (hw->mac.type) {
-@@ -2653,7 +2645,7 @@ static int igb_enable_sriov(struct pci_dev *pdev, int num_vfs)
- 	int err = 0;
- 	int i;
- 
--	if (!adapter->msix_entries || num_vfs > 7) {
-+	if (!(adapter->flags & IGB_FLAG_HAS_MSIX) || num_vfs > 7) {
- 		err = -EPERM;
- 		goto out;
- 	}
-@@ -4273,7 +4265,7 @@ static void igb_watchdog_task(struct work_struct *work)
- 	}
- 
- 	/* Cause software interrupt to ensure Rx ring is cleaned */
--	if (adapter->msix_entries) {
-+	if (adapter->flags & IGB_FLAG_HAS_MSIX) {
- 		u32 eics = 0;
- 		for (i = 0; i < adapter->num_q_vectors; i++)
- 			eics |= adapter->q_vector[i]->eims_value;
-@@ -6194,7 +6186,7 @@ static void igb_ring_irq_enable(struct igb_q_vector *q_vector)
- 	}
- 
- 	if (!test_bit(__IGB_DOWN, &adapter->state)) {
--		if (adapter->msix_entries)
-+		if (adapter->flags & IGB_FLAG_HAS_MSIX)
- 			wr32(E1000_EIMS, q_vector->eims_value);
- 		else
- 			igb_irq_enable(adapter);
-@@ -7561,7 +7553,7 @@ static void igb_netpoll(struct net_device *netdev)
- 
- 	for (i = 0; i < adapter->num_q_vectors; i++) {
- 		q_vector = adapter->q_vector[i];
--		if (adapter->msix_entries)
-+		if (adapter->flags & IGB_FLAG_HAS_MSIX)
- 			wr32(E1000_EIMC, q_vector->eims_value);
- 		else
- 			igb_irq_disable(adapter);
 -- 
 1.8.3.1
