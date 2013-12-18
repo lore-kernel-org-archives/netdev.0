@@ -1,31 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/4] dm9601: make it clear that dm9620/dm9621a are also
- supported
-Date: Wed, 18 Dec 2013 17:47:55 -0500 (EST)
-Message-ID: <20131218.174755.589095335108384986.davem@davemloft.net>
+Subject: Re: [PATCH 4/4] dm9601: work around tx fifo sync issue on dm962x
+Date: Wed, 18 Dec 2013 17:48:01 -0500 (EST)
+Message-ID: <20131218.174801.1302082781180839324.davem@davemloft.net>
 References: <1387190135-17052-1-git-send-email-peter@korsgaard.com>
-	<1387190135-17052-4-git-send-email-peter@korsgaard.com>
+	<1387190135-17052-5-git-send-email-peter@korsgaard.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joseph_chang@davicom.com.tw
+Cc: netdev@vger.kernel.org, joseph_chang@davicom.com.tw,
+	stable@vger.kernel.org
 To: peter@korsgaard.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57444 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752445Ab3LRWr4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 17:47:56 -0500
-In-Reply-To: <1387190135-17052-4-git-send-email-peter@korsgaard.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1387190135-17052-5-git-send-email-peter@korsgaard.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Peter Korsgaard <peter@korsgaard.com>
-Date: Mon, 16 Dec 2013 11:35:34 +0100
+Date: Mon, 16 Dec 2013 11:35:35 +0100
 
-> The driver nowadays also support dm9620/dm9621a based USB 2.0 ethernet
-> adapters, so adjust module/driver description and Kconfig help text to
-> match.
+> Certain dm962x revisions contain an bug, where if a USB bulk transfer retry
+> (E.G. if bulk crc mismatch) happens right after a transfer with odd or
+> maxpacket length, the internal tx hardware fifo gets out of sync causing
+> the interface to stop working.
 > 
+> Work around it by adding up to 3 bytes of padding to ensure this situation
+> cannot trigger.
+> 
+> This workaround also means we never pass multiple-of-maxpacket size skb's
+> to usbnet, so the length adjustment to handle usbnet's padding of those can
+> be removed.
+> 
+> Cc: <stable@vger.kernel.org>
+> Reported-by: Joseph Chang <joseph_chang@davicom.com.tw>
 > Signed-off-by: Peter Korsgaard <peter@korsgaard.com>
 
 Applied.
