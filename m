@@ -1,73 +1,44 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't work.
-Date: Wed, 18 Dec 2013 11:48:45 +0100
-Message-ID: <133955103.20131218114845@eikelenboom.it>
-References: <1342235583.20131211182804@eikelenboom.it> <CAB=NE6UfumA2xez1DvtDSBDZ72WF_tOozFo_8LRnMryYiSqD-A@mail.gmail.com> <871324710.20131211191104@eikelenboom.it> <CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com> <1937118387.20131216122200@eikelenboom.it> <52AEE60B.6030509@broadcom.com> <19210260274.20131216135644@eikelenboom.it> <CAGRGNgXHemM2FfnXgW5RbzhFT+9SfUfVkjdysK3+=_u3hWSacw@mail.gmail.com> <1534126119.20131217104548@eikelenboom.it> <387552477.20131217213319@eikelenboom.it> <20131217212709.GB5624@decadent.org.uk> <1254825772.20131217224914@eikelenboom.it> <CA+55aFxQg6=MAWEkEGz64Hz8OawvPyX=fpBOjY8cGBL5XgB9WQ@mail.gmail.com> <52B167F6.5060209@broadcom.com> (sfid-20131218_101718_355278_E8533498) <1387358785.4694.9.camel@jlt4.sipsolutions.net>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 02/15] net: bnx2x calls skb_set_hash
+Date: Wed, 18 Dec 2013 11:00:29 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B74A3@saturn3.aculab.com>
+References: <alpine.DEB.2.02.1312172316370.24389@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Arend van Spriel <arend@broadcom.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Julian Calaby <julian.calaby@gmail.com>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ilw@linux.intel.com" <ilw@linux.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Avinash Patil <avinashapatil@gmail.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1387358785.4694.9.camel@jlt4.sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: "Tom Herbert" <therbert@google.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:59650 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750855Ab3LRLB7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 06:01:59 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 01240-07 for <netdev@vger.kernel.org>;
+ Wed, 18 Dec 2013 11:01:55 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <alpine.DEB.2.02.1312172316370.24389@tomh.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+> From: Tom Herbert
+> Drivers should call skb_set_hash to set the hash and its type
+> in an skbuff.
+...
+>  		/* Set Toeplitz hash for a none-LRO skb */
+> -		skb->rxhash = bnx2x_get_rxhash(bp, cqe_fp, &l4_rxhash);
+> -		skb->l4_rxhash = l4_rxhash;
+> +		rxhash = bnx2x_get_rxhash(bp, cqe_fp, &l4_rxhash);
+> +		skb_set_hash(skb, rxhash,
+> +			     l4_rxhash ? PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
 
-Wednesday, December 18, 2013, 10:26:25 AM, you wrote:
+This is all silly, skb_set_rxhash() just undoes that conditional.
+The compiler might be smart enough to undo it all.
 
-> Hi all,
+IMHO skb->l4_rxhash should be skb->rx_hash_type and set to one
+of the PKT_HASH_TYPE_xxx constants.
+(with 0 => no hash assigned)
 
-> We really should be asking Luis to look at this who hasn't yet chimed
-> in, presumably because he's between jobs (and travelling IIRC)
-
-> On Wed, 2013-12-18 at 10:16 +0100, Arend van Spriel wrote:
->> On 12/17/2013 11:06 PM, Linus Torvalds wrote:
->> > We have literally had this *exact* same issue with firmware loading.
->> > Network drivers shouldn't try to load firmware at module load time.
->> > Same deal.
->> 
->> It is kind of a chicken and egg problem for (wireless) networking
->> drivers. To get IFF_UP from the network layer you have to register a
->> netdevice. For wireless drivers this means you have to register a wiphy
->> device with cfg80211 which flags capabilities and optionally are custom
->> regulatory domain. That information depends on the device and firmware
->> used. And there we have a full circle.
-
-> This is all really beside the point.
-
-> For this CRDA information, the kernel never actually *waits* for it, so
-> in the case that there's no reply, it uses the built-in world domain. So
-> it's not like request_firmware(), which will block boot forever, but
-> it's also not like request_firmware_nowait() which will eventually time
-> out and come back with an error if userspace isn't handling it (though
-> now that firmware loading is built in ...)
-
-> The issue is that it uses the built-in data *forever*, and what Sander
-> said was "or it will block forever" but just meant that it never was
-> able to do any further updates.
-
-> It *doesn't* actually block the boot process or such. Everything Linus
-> said is true but seems to have been written in understanding "blocks" as
-> "blocking the boot process", rather than "blocking further updates".
-
-> Regardless of this, even blocking further updates is a really bad idea.
-> There are a few ways to handle this, but I'll let Luis poke at that.
-
-Your description is correct, sorry if I was not clear.
-
---
-Sander
-
-> johannes
+	David
