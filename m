@@ -1,46 +1,54 @@
-From: Shawn Bohrer <shawn.bohrer@gmail.com>
-Subject: Re: [PATCH net-next 1/2] mlx4_en: Add PTP hardware clock
-Date: Wed, 18 Dec 2013 09:03:04 -0600
-Message-ID: <20131218150304.GB3857@sbohrermbp13-local.rgmadvisors.com>
-References: <1387312359-9476-1-git-send-email-shawn.bohrer@gmail.com>
- <1387312359-9476-2-git-send-email-shawn.bohrer@gmail.com>
- <CAJZOPZKLSThnWCycVFF1dzoDuks48prUvzSN_us9NYTz82wRsA@mail.gmail.com>
- <20131217214615.GD8693@sbohrermbp13-local.rgmadvisors.com>
- <52B155F7.2070505@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Amir Vadai <amirv@mellanox.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	tomk@rgmadvisors.com, Hadar Hen Zion <hadarh@mellanox.com>,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+From: Francesco Fusco <ffusco@redhat.com>
+Subject: [PATCH net-next] lib: hash: follow-up fixups for arch hash
+Date: Wed, 18 Dec 2013 16:05:48 +0100
+Message-ID: <1387379148-19281-1-git-send-email-ffusco@redhat.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f51.google.com ([209.85.128.51]:39253 "EHLO
-	mail-qe0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754600Ab3LRPDK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 10:03:10 -0500
-Received: by mail-qe0-f51.google.com with SMTP id 1so6527192qee.38
-        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 07:03:09 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <52B155F7.2070505@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:31945 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754789Ab3LRPFw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Dec 2013 10:05:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 18, 2013 at 09:59:51AM +0200, Or Gerlitz wrote:
-> On 17/12/2013 23:46, Shawn Bohrer wrote:
-> >v3: is code identical to v2.  I simply finished testing it with
-> >linuxptp, cleaned up the commit description a little and sent to davem.
-> so the problem you saw with V2 is understood && gone with V3?
+This patch adds the include file to pull in __read_mostly on some
+architectures e.g. ppc and also fixes up signatures in generic
+asm.
 
-The main problem I saw with linuxptp is fixed with patch 2/2:
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Signed-off-by: Francesco Fusco <ffusco@redhat.com>
+---
+ include/asm-generic/hash.h | 4 ++--
+ lib/hash.c                 | 1 +
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-mlx4_en: Only cycle port if HW timestamp config changes
-
-So yes, again v3 is code identical to v2, and from my testing appears
-to work as designed.
-
---
-Shawn
+diff --git a/include/asm-generic/hash.h b/include/asm-generic/hash.h
+index 05cb342..b631284 100644
+--- a/include/asm-generic/hash.h
++++ b/include/asm-generic/hash.h
+@@ -1,8 +1,8 @@
+ #ifndef __ASM_GENERIC_HASH_H
+ #define __ASM_GENERIC_HASH_H
+ 
+-struct arch_hash_ops;
+-static inline void setup_arch_fast_hash(struct arch_hash_ops *ops)
++struct fast_hash_ops;
++static inline void setup_arch_fast_hash(struct fast_hash_ops *ops)
+ {
+ }
+ 
+diff --git a/lib/hash.c b/lib/hash.c
+index b89f06a..fea973f 100644
+--- a/lib/hash.c
++++ b/lib/hash.c
+@@ -12,6 +12,7 @@
+ 
+ #include <linux/jhash.h>
+ #include <linux/hash.h>
++#include <linux/cache.h>
+ 
+ static struct fast_hash_ops arch_hash_ops __read_mostly = {
+ 	.hash  = jhash,
+-- 
+1.8.3.1
