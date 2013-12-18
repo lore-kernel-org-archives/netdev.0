@@ -1,117 +1,91 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net v2 5/9] bridge: Fix the way to check if a local fdb
- entry can be deleted
-Date: Wed, 18 Dec 2013 13:46:12 +0900
-Message-ID: <1387341972.3563.71.camel@ubuntu-vm-makita>
-References: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	 <1387281821-21342-6-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	 <52B09DB2.7040700@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCHv2 ipsec-next] xfrm: Namespacify xfrm_policy_sk_bundles
+Date: Tue, 17 Dec 2013 20:50:11 -0800
+Message-ID: <1387342211.19078.295.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1387337658-28951-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
+Cc: steffen.klassert@secunet.com, davem@davemloft.net,
 	netdev@vger.kernel.org
-To: vyasevic@redhat.com
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:59722 "EHLO
-	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752168Ab3LREqU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 23:46:20 -0500
-In-Reply-To: <52B09DB2.7040700@redhat.com>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:35536 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751267Ab3LREuO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 23:50:14 -0500
+Received: by mail-pd0-f181.google.com with SMTP id p10so7638075pdj.26
+        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 20:50:13 -0800 (PST)
+In-Reply-To: <1387337658-28951-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-12-17 at 13:53 -0500, Vlad Yasevich wrote:
-> On 12/17/2013 07:03 AM, Toshiaki Makita wrote:
-...
-> > 
-> > Note that this is a slight change in behavior where the bridge device can
-> > receive the traffic to the old address during the short window between
-> > calling br_fdb_changeaddr() and br_stp_recalculate_bridge_id() in
-> > br_device_event(). However, it is not a problem because we still have the
-> > address on the bridge device.
+On Wed, 2013-12-18 at 11:34 +0800, Fan Du wrote:
+> xfrm_policy_sk_bundles, protected by net->xfrm.xfrm_policy_sk_bundle_lock
+> should be put into netns xfrm structure, otherwise xfrm_policy_sk_bundles
+> can be corrupted from different net namespace.
 > 
-> I think you are understating the significance here a little bit.  The
-> change is that for a short period of time after a port has been removed,
-> packets addressed to the MAC of that port may be delivered only to
-> bridge device instead of being flooded.
+> Moreover current xfrm_policy_sk_bundle_lock used in below two scenarios:
 > 
-> > 
-> > Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> > ---
-> >  net/bridge/br_fdb.c     | 10 +++++++++-
-> >  net/bridge/br_private.h |  6 ++++++
-> >  net/bridge/br_vlan.c    | 19 +++++++++++++++++++
-> >  3 files changed, 34 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> > index 5f1bd11..cf8b64e 100644
-> > --- a/net/bridge/br_fdb.c
-> > +++ b/net/bridge/br_fdb.c
-> > @@ -114,12 +114,20 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
-> >  					if (op != p &&
-> >  					    ether_addr_equal(op->dev->dev_addr,
-> >  							     f->addr.addr) &&
-> > -					    nbp_vlan_find(op, vid)) {
-> > +					    (!vid || nbp_vlan_find(op, vid))) {
-> >  						f->dst = op;
-> >  						goto skip_delete;
-> >  					}
-> >  				}
-> >  
-> > +				/* maybe bridge device has same hw addr? */
-> > +				if (ether_addr_equal(br->dev->dev_addr,
-> > +						     f->addr.addr) &&
+> 1. xfrm_lookup(Process context)  vs  __xfrm_garbage_collect(softirq context)
+> 2. xfrm_lookup(Process context)  vs  __xfrm_garbage_collect(Process context
+>                                                 when SPD change or dev down) 
 > 
-> I think this really needs a
->                                     br->dev->addr_assign_type ==
-> NET_ADDR_SET &&
-> > +				    (!vid || br_vlan_find(br, vid))) {
+> we can use xchg to avoid the spinlock, at the same time cover above scenarios,
+> inspired by discussion in: http://marc.info/?l=linux-netdev&m=138713363113003&w=2
 > 
-> That way we'll only do this if the user actively set the bridge mac
-> to one be the same as one of the ports.
+> Signed-off-by: Fan Du <fan.du@windriver.com>
+> ---
+> v2:
+>   Fix incorrect commit log.
+> 
+> ---
+>  include/net/netns/xfrm.h |    2 +-
+>  net/xfrm/xfrm_policy.c   |   17 +++--------------
+>  2 files changed, 4 insertions(+), 15 deletions(-)
+> 
+> diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
+> index 1006a26..4a30b1b 100644
+> --- a/include/net/netns/xfrm.h
+> +++ b/include/net/netns/xfrm.h
+> @@ -58,9 +58,9 @@ struct netns_xfrm {
+>  	struct dst_ops		xfrm6_dst_ops;
+>  #endif
+>  	spinlock_t xfrm_state_lock;
+> -	spinlock_t xfrm_policy_sk_bundle_lock;
+>  	rwlock_t xfrm_policy_lock;
+>  	struct mutex xfrm_cfg_mutex;
+> +	struct dst_entry *xfrm_policy_sk_bundles;
+>  };
+>  
+>  #endif
+> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> index a7487f3..26d79c0 100644
+> --- a/net/xfrm/xfrm_policy.c
+> +++ b/net/xfrm/xfrm_policy.c
+> @@ -39,8 +39,6 @@
+>  #define XFRM_QUEUE_TMO_MAX ((unsigned)(60*HZ))
+>  #define XFRM_MAX_QUEUE_LEN	100
+>  
+> -static struct dst_entry *xfrm_policy_sk_bundles;
+> -
+>  static DEFINE_SPINLOCK(xfrm_policy_afinfo_lock);
+>  static struct xfrm_policy_afinfo __rcu *xfrm_policy_afinfo[NPROTO]
+>  						__read_mostly;
+> @@ -2108,12 +2106,8 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+>  			}
+>  
+>  			dst_hold(&xdst->u.dst);
+> -
+> -			spin_lock_bh(&net->xfrm.xfrm_policy_sk_bundle_lock);
+> -			xdst->u.dst.next = xfrm_policy_sk_bundles;
+> -			xfrm_policy_sk_bundles = &xdst->u.dst;
+> -			spin_unlock_bh(&net->xfrm.xfrm_policy_sk_bundle_lock);
+> -
+> +			xdst->u.dst.next = xchg(&net->xfrm.xfrm_policy_sk_bundles,
+> +						&xdst->u.dst);
 
-Indeed I can do it but it affects patch 8...
-If we do, the final condition will be like
+This is not safe.
 
-static void fdb_delete_local(..., bool check_br_addr)
-...
-  if (p && ether_addr_equal(br->dev->dev_addr, addr) &&
-      (!check_br_addr || br->dev->addr_assign_type == NET_ADDR_SET) &&
-      (!vid || br_vlan_find(br, vid)))
-
-void br_fdb_delete_by_port(...)
-...
-  fdb_delete_local(br, p, f, true);
-
-void nbp_vlan_delete(...)
-...
-  fdb_delete_local(br, p, f, false);
-
-
-And we can't change the order of function calls in br_add_if() in patch
-4, which changes the behavior of traffic as well.
-Instead of whole patch 4, we can do something like
-
-int br_add_if(...)
-...
-  memcpy(oldaddr, br->dev->dev_addr, ETH_ALEN);
-  changed_addr = br_stp_recalculate_bridge_id(br);
-...
-  if (br_fdb_insert(...))
-    ...
-  if (changed_addr)
-    br_fdb_change_mac_address(br, br->dev->dev_addr, oldaddr);
-
-void br_fdb_change_mac_address(..., const u8 *oldaddr)
-(Signature changing)
-
-
-I honestly can't understand all these changes are really reasonable.
-I'm thinking the bridge should receive the traffic to the address
-instead of flooding during it has the address.
-Can't we change any existing behavior in bug fixes at all?
-
-Thanks,
-Toshiaki Makita
+Take a look at include/linux/llist.h if you really want to avoid the
+spinlock.
