@@ -1,37 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH] net, rps: bypass enqueue_to_backlog()
-Date: Wed, 18 Dec 2013 06:26:10 -0800
-Message-ID: <1387376770.19078.314.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1387371816-32476-1-git-send-email-zwu.kernel@gmail.com>
-	 <1387374979.19078.309.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1387375442.19078.310.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAEH94Lh-Dujb9YbpFK0kTu2O3pGSf16rXwCWFWBE50K_4geHnA@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] net: neighbour: add neighbour dead check for neigh_timer_handler()
+Date: Wed, 18 Dec 2013 15:27:15 +0100
+Message-ID: <20131218142715.GC3505@order.stressinduktion.org>
+References: <529FF066.1070307@huawei.com> <52B142AF.8070708@huawei.com> <20131218075131.GD27460@order.stressinduktion.org> <52B15A9F.6030301@huawei.com> <20131218084106.GF27460@order.stressinduktion.org> <52B1635D.7020205@huawei.com> <20131218092815.GA3505@order.stressinduktion.org> <52B172B9.7030609@huawei.com> <20131218102132.GB3505@order.stressinduktion.org> <52B18DB4.80403@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: Zhi Yong Wu <zwu.kernel@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Ding Tianhong <dingtianhong@huawei.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
+	joe@perches.com, vfalico@redhat.com, netdev@vger.kernel.org
+To: Ding Tianhong <dthxman@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:33759 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754206Ab3LRO0G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 09:26:06 -0500
-Received: by mail-pb0-f49.google.com with SMTP id jt11so8470418pbb.22
-        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 06:26:06 -0800 (PST)
-In-Reply-To: <CAEH94Lh-Dujb9YbpFK0kTu2O3pGSf16rXwCWFWBE50K_4geHnA@mail.gmail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:36466 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753400Ab3LRO1R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 09:27:17 -0500
+Content-Disposition: inline
+In-Reply-To: <52B18DB4.80403@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-12-18 at 22:11 +0800, Zhi Yong Wu wrote:
+On Wed, Dec 18, 2013 at 07:57:40PM +0800, Ding Tianhong wrote:
+> yes, I cannot repruduce the bug again.
 
-> it makes sense, but if cpu < 0, some packets seems to bypass the flow
-> shedding stuff, That is, the flow limit will be not so accurate,
-> right?
+Hmm, it actually seems hard to hit even if the race happens. Even if slab
+poisoning is active it would only hit if ->solicit would be called again,
+because that is the only pointer dereference directly used in the old memory.
 
-Not sure what you mean.
+neigh_alloc allocates memory with kzalloc, so it would null out that memory,
+so the race would not only have to race with kfree, the memory needs to be
+reallocated in the mean time.
 
-cpu = -1 on very rare occasions, like cpu hot unplug.
+I would suggest adding some poisoning manually in neigh_release before kfree
+and check for this in all periodic called functions. Maybe we can see it
+again?
 
-In netif_receive_skb(), we just process the packet normally.
+Greetings,
+
+  Hannes
