@@ -1,28 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bridge: spelling fixes
-Date: Wed, 18 Dec 2013 17:53:42 -0500 (EST)
-Message-ID: <20131218.175342.1192478785404597946.davem@davemloft.net>
-References: <52AF00FE.4090607@huawei.com>
+Subject: Re: [patch v2] isdn: use strlcpy() instead strcpy()
+Date: Wed, 18 Dec 2013 17:54:20 -0500 (EST)
+Message-ID: <20131218.175420.144235775285424457.davem@davemloft.net>
+References: <1387201418.19078.225.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131216094626.GC13831@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org
-To: tanxiaojun@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57518 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750961Ab3LRWxq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 17:53:46 -0500
-In-Reply-To: <52AF00FE.4090607@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: isdn@linux-pingi.de, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, eric.dumazet@gmail.com
+To: dan.carpenter@oracle.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20131216094626.GC13831@elgon.mountain>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tan Xiaojun <tanxiaojun@huawei.com>
-Date: Mon, 16 Dec 2013 21:32:46 +0800
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Mon, 16 Dec 2013 16:56:23 +0300
 
-> Fix spelling errors in bridge driver.
+> I don't think the in-kernel drivers ever hit this strcpy() so this
+> doesn't change how the code works.  But strlcpy() is safer.
 > 
-> Signed-off-by: Tan Xiaojun <tanxiaojun@huawei.com>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Applied, thanks.
+Applied to net-next, thanks.
