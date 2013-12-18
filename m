@@ -1,39 +1,37 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v4 2/8] net_sched: act: use standard struct list_head
-Date: Wed, 18 Dec 2013 09:22:40 -0500
-Message-ID: <52B1AFB0.6060906@mojatatu.com>
-References: <1387167311-14763-1-git-send-email-xiyou.wangcong@gmail.com> <1387167311-14763-3-git-send-email-xiyou.wangcong@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH] net, rps: bypass enqueue_to_backlog()
+Date: Wed, 18 Dec 2013 06:26:10 -0800
+Message-ID: <1387376770.19078.314.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1387371816-32476-1-git-send-email-zwu.kernel@gmail.com>
+	 <1387374979.19078.309.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1387375442.19078.310.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAEH94Lh-Dujb9YbpFK0kTu2O3pGSf16rXwCWFWBE50K_4geHnA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Cc: Tom Herbert <therbert@google.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: Zhi Yong Wu <zwu.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:39381 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754861Ab3LROWm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 09:22:42 -0500
-Received: by mail-ig0-f169.google.com with SMTP id hk11so9149833igb.0
-        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 06:22:42 -0800 (PST)
-In-Reply-To: <1387167311-14763-3-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:33759 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754206Ab3LRO0G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 09:26:06 -0500
+Received: by mail-pb0-f49.google.com with SMTP id jt11so8470418pbb.22
+        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 06:26:06 -0800 (PST)
+In-Reply-To: <CAEH94Lh-Dujb9YbpFK0kTu2O3pGSf16rXwCWFWBE50K_4geHnA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/15/13 23:15, Cong Wang wrote:
-> Currently actions are chained by a singly linked list,
-> therefore it is a bit hard to add and remove a specific
-> entry. Convert it to struct list_head so that in the
-> latter patch we can remove an action without finding
-> its head.
->
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+On Wed, 2013-12-18 at 22:11 +0800, Zhi Yong Wu wrote:
 
+> it makes sense, but if cpu < 0, some packets seems to bypass the flow
+> shedding stuff, That is, the flow limit will be not so accurate,
+> right?
 
-Look good, thanks.
+Not sure what you mean.
 
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+cpu = -1 on very rare occasions, like cpu hot unplug.
 
-cheers,
-jamal
+In netif_receive_skb(), we just process the packet normally.
