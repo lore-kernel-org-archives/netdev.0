@@ -1,78 +1,86 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't
- work.
-Date: Wed, 18 Dec 2013 10:26:25 +0100
-Message-ID: <1387358785.4694.9.camel@jlt4.sipsolutions.net>
-References: <1342235583.20131211182804@eikelenboom.it>
-		<CAB=NE6UfumA2xez1DvtDSBDZ72WF_tOozFo_8LRnMryYiSqD-A@mail.gmail.com>
-		<871324710.20131211191104@eikelenboom.it>
-		<CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com>
-		<1937118387.20131216122200@eikelenboom.it>	<52AEE60B.6030509@broadcom.com>
-		<19210260274.20131216135644@eikelenboom.it>
-		<CAGRGNgXHemM2FfnXgW5RbzhFT+9SfUfVkjdysK3+=_u3hWSacw@mail.gmail.com>
-		<1534126119.20131217104548@eikelenboom.it>
-		<387552477.20131217213319@eikelenboom.it>
-		<20131217212709.GB5624@decadent.org.uk>
-		<1254825772.20131217224914@eikelenboom.it>
-	 <CA+55aFxQg6=MAWEkEGz64Hz8OawvPyX=fpBOjY8cGBL5XgB9WQ@mail.gmail.com>
-	 <52B167F6.5060209@broadcom.com> (sfid-20131218_101718_355278_E8533498)
+From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: cgroup filter on physics interface can't control container
+Date: Wed, 18 Dec 2013 17:12:13 +0800
+Message-ID: <52B166ED.7020508@huawei.com>
+References: <52A52BBF.6030105@huawei.com> <52A9A97F.20902@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Sander Eikelenboom <linux@eikelenboom.it>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Julian Calaby <julian.calaby@gmail.com>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ilw@linux.intel.com" <ilw@linux.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Avinash Patil <avinashapatil@gmail.com>
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52B167F6.5060209@broadcom.com> (sfid-20131218_101718_355278_E8533498)
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	honkiko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	"zhangwei\(Jovi\)" <jovi.zhangwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
+	Serge Hallyn <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>, <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+	<herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <52A9A97F.20902-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+hello guys,
 
-We really should be asking Luis to look at this who hasn't yet chimed
-in, presumably because he's between jobs (and travelling IIRC)
+I said before "we can save sk_classid before skb_scrub_packet and
+restore it after that"  since skb->sk had been freed in
+skb_scrub_packet(), so it is not reasonable. yes?
 
-On Wed, 2013-12-18 at 10:16 +0100, Arend van Spriel wrote:
-> On 12/17/2013 11:06 PM, Linus Torvalds wrote:
-> > We have literally had this *exact* same issue with firmware loading.
-> > Network drivers shouldn't try to load firmware at module load time.
-> > Same deal.
+I have another idea.
+commit:f84517253(cls_cgroup: Store classid in struct sock) introduces
+sk_classid and put it in skb->sk pointer.  can we put sk_classid form
+struct sock to struct sk_buff? then sk_classid will not be affected
+by dev_forward_skb()->skb_scrub_packet() ?
+
+any comment are welcome!
+
+
+thanks,
+Libo
+
+
+On 2013/12/12 20:18, Libo Chen wrote:
+> ping...
 > 
-> It is kind of a chicken and egg problem for (wireless) networking
-> drivers. To get IFF_UP from the network layer you have to register a
-> netdevice. For wireless drivers this means you have to register a wiphy
-> device with cfg80211 which flags capabilities and optionally are custom
-> regulatory domain. That information depends on the device and firmware
-> used. And there we have a full circle.
-
-This is all really beside the point.
-
-For this CRDA information, the kernel never actually *waits* for it, so
-in the case that there's no reply, it uses the built-in world domain. So
-it's not like request_firmware(), which will block boot forever, but
-it's also not like request_firmware_nowait() which will eventually time
-out and come back with an error if userspace isn't handling it (though
-now that firmware loading is built in ...)
-
-The issue is that it uses the built-in data *forever*, and what Sander
-said was "or it will block forever" but just meant that it never was
-able to do any further updates.
-
-It *doesn't* actually block the boot process or such. Everything Linus
-said is true but seems to have been written in understanding "blocks" as
-"blocking the boot process", rather than "blocking further updates".
-
-Regardless of this, even blocking further updates is a really bad idea.
-There are a few ways to handle this, but I'll let Luis poke at that.
-
-johannes
+> On 2013/12/9 10:32, Libo Chen wrote:
+>> hello network hackers,
+>>
+>> 	A linux container was builded with veth pair(veth0 inside container, veth1 outside container),
+>>
+>> the config as below:
+>>
+>>   lxc.network.type = veth
+>>   lxc.network.flags = up
+>>   lxc.network.link = br0  // base on eth0
+>>   lxc.network.name = eth0
+>>   lxc.network.ipv4 = 128.5.130.26/24
+>>
+>> then I use tc command with cgroup filter on veth0, it works well. But when setting on eth0, it doesn`t work.
+>>
+>> The reason is dev_forward_skb() in veth_xmit will call skb_scrub_packet and clean all information including skb->sk
+>> in the skb, so if cls_cgroup_classify is working in serving softirq state, it will return failer, see below:
+>>
+>> 	if (in_serving_softirq()) {
+>> 		/* If there is an sk_classid we'll use that. */
+>> 		if (!skb->sk)
+>> 			return -1;
+>> 		classid = skb->sk->sk_classid;
+>> 	}
+>>
+>>
+>> Qdisc with cgroup filter on physics interface can not control a container network, it is disappointed.
+>>
+>> we can save sk_classid before skb_scrub_packet and restore it after that. Is it reasonable?  or any way to achieve this?
+>>
+>> thanks,
+>> Libo
+>>
+> 
