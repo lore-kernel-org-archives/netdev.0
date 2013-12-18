@@ -1,73 +1,100 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net 0/5][pull request] Intel Wired LAN Driver Updates
-Date: Wed, 18 Dec 2013 15:02:09 -0800
-Message-ID: <1387407729.2068.8.camel@jtkirshe-mobl.jf.intel.com>
-References: <1387351186-23389-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20131218.175858.569613049590123580.davem@davemloft.net>
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Subject: [PATCH net] drivers : stmmac : Fixes for IEEE 1588 Timestamping
+Date: Wed, 18 Dec 2013 17:35:19 -0600
+Message-ID: <CAOwfj2Muc4szDNiJc5SjXsw4Oy_LkrBJeiDUY7-09N=paCSSKg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-cv/RvLgLiozJg6ssbbpH"
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+	Rayagond K <rayagond@vayavyalabs.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:17720 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750940Ab3LRXC3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Dec 2013 18:02:29 -0500
-In-Reply-To: <20131218.175858.569613049590123580.davem@davemloft.net>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:56592 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751069Ab3LRXfV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 18:35:21 -0500
+Received: by mail-wi0-f180.google.com with SMTP id hm19so1413152wib.13
+        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 15:35:19 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+>From e9278f13a922433adbf3a81ef9d7823a99bd8d88 Mon Sep 17 00:00:00 2001
+From: Vince Bridgers <vbridger2013@gmail.com>
+Date: Wed, 18 Dec 2013 14:29:26 -0600
+Subject: [PATCH 1/1] Fix release of incorrect spinlock in stmmac_ptp.c, and
+ masked configuration of control variable adv_ts
 
---=-cv/RvLgLiozJg6ssbbpH
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Two issues addressed with this patch:
+1) The functions stmmac_adjust_freq and stmmac_adjust_time were
+releasing the incorrect spinlock
+   at the end of the function - priv->lock instead of priv->ptp_lock.
+2) Setting the control data variable priv->adv_ts according to
+hardware capabilities was masked
+   by message level settings, so it was not being set correctly in the
+case that the Synopsys
+   MAC only supported advanced timestamping.
 
-On Wed, 2013-12-18 at 17:58 -0500, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Tue, 17 Dec 2013 23:19:41 -0800
->=20
-> > The following are changes since commit 781069279f049508274db63bfb352e85=
-83e5c977:
-> >   Merge branch 'fixes-for-3.13' of git://gitorious.org/linux-can/linux-=
-can
-> > and are available in the git repository at:
-> >   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
->=20
-> Nothing there?
->=20
-> [davem@abraco net]$ git pull --no-ff git://git.kernel.org/pub/scm/linux/k=
-ernel/git/jkirsher/net master
-> From git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net
->  * branch            master     -> FETCH_HEAD
-> Already up-to-date.
-> [davem@abraco net]$=20
+Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   20 +++++++++-----------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c  |    4 ++--
+ 2 files changed, 11 insertions(+), 13 deletions(-)
 
-Grrr, my bad.  I forgot to push my changes up to kernel.org
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 8a7a23a..797b56a 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -622,17 +622,15 @@ static int stmmac_init_ptp(struct stmmac_priv *priv)
+     if (!(priv->dma_cap.time_stamp || priv->dma_cap.atime_stamp))
+         return -EOPNOTSUPP;
 
-I just did the push, so it should be available now.
+-    if (netif_msg_hw(priv)) {
+-        if (priv->dma_cap.time_stamp) {
+-            pr_debug("IEEE 1588-2002 Time Stamp supported\n");
+-            priv->adv_ts = 0;
+-        }
+-        if (priv->dma_cap.atime_stamp && priv->extend_desc) {
+-            pr_debug
+-                ("IEEE 1588-2008 Advanced Time Stamp supported\n");
+-            priv->adv_ts = 1;
+-        }
+-    }
++    priv->adv_ts = 0;
++    if (priv->dma_cap.atime_stamp && priv->extend_desc)
++        priv->adv_ts = 1;
++
++    if (netif_msg_hw(priv) && priv->dma_cap.time_stamp)
++        pr_debug("IEEE 1588-2002 Time Stamp supported\n");
++
++    if (netif_msg_hw(priv) && priv->adv_ts)
++        pr_debug("IEEE 1588-2008 Advanced Time Stamp supported\n");
 
---=-cv/RvLgLiozJg6ssbbpH
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+     priv->hw->ptp = &stmmac_ptp;
+     priv->hwts_tx_en = 0;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+index b8b0eee..7680581 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+@@ -56,7 +56,7 @@ static int stmmac_adjust_freq(struct ptp_clock_info
+*ptp, s32 ppb)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
+     priv->hw->ptp->config_addend(priv->ioaddr, addend);
 
-iQIcBAABCgAGBQJSsilxAAoJEOVv75VaS+3OQjkP/iyvtNXRKfGKh4JbiaYbzJwg
-nPiV2jEMjigWd6MXKedCNqlxo1m0gpoB/5ipEJHKx7BSVZPVRCwBWhZWSmEtd4Tl
-SGTIk+myfXPaGvFgNprhWMKhtUSWMzvcPDSj0ZIN0TW9fukOcgd1KEUquoPJ/5xf
-tz9thN6yrW+itww43iKOumUs6qYHOPF6tweC8++PYAqHZ0N7EZ2I/TPZQj+4NvBo
-7om6dyx2nCNa4pHtsX7jEGDR565p8noQAecxfpMQ/7W4gyWNdiRx+lsRAChLkggE
-rYHsZifrmVB0psb98zOPgoilEfyk6sAQdbg2CDOUdOVKW8LrF+m3+9G+iJTwTTI6
-PZqj7qYWuLtK/3rUyp/bWbWhNOu7LXgw8aiwDllrQ54dz1xSRIv1odHv6uBHSLLQ
-FCGkmlAq7b12PePBMXO/MiNfn4RnFhVZJ5wWgUnYPjloE1Kz+3tafjcA7mCS2Odu
-NV/96+ujxfRMc9P671NfB998X/B6p+K3akn6Iu+hIzf0kD94IcoxiVX9Ul8YHGst
-BrJ4lTqp0J3nEoKvfo5ygo6QvGC6CbwOvSVNR0IVw8A2tURsWcofpbzfJ+cHED8D
-vgfBHB/wgpUnD7f2EdHFUagG7snahGB7Zo2XHieG6otwWnvziNScgs6mJ9UaTZ7e
-owGIFOagC9kCU9RCxUPL
-=x1+j
------END PGP SIGNATURE-----
+-    spin_unlock_irqrestore(&priv->lock, flags);
++    spin_unlock_irqrestore(&priv->ptp_lock, flags);
 
---=-cv/RvLgLiozJg6ssbbpH--
+     return 0;
+ }
+@@ -91,7 +91,7 @@ static int stmmac_adjust_time(struct ptp_clock_info
+*ptp, s64 delta)
+
+     priv->hw->ptp->adjust_systime(priv->ioaddr, sec, nsec, neg_adj);
+
+-    spin_unlock_irqrestore(&priv->lock, flags);
++    spin_unlock_irqrestore(&priv->ptp_lock, flags);
+
+     return 0;
+ }
+-- 
+1.7.9.5
