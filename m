@@ -1,49 +1,182 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv2 net-next] netfilter: add IPv4/6 IPComp extension match support
-Date: Wed, 18 Dec 2013 11:27:02 +0800
-Message-ID: <1387337222-28830-1-git-send-email-fan.du@windriver.com>
+Subject: [PATCHv2 iptables] iptables: Add IPv4/6 IPcomp match support
+Date: Wed, 18 Dec 2013 11:27:22 +0800
+Message-ID: <1387337242-28865-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <netfilter-devel@vger.kernel.org>,
 	<netdev@vger.kernel.org>
 To: <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:40923 "EHLO
+Received: from mail1.windriver.com ([147.11.146.13]:40930 "EHLO
 	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751465Ab3LRD1I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 22:27:08 -0500
+	with ESMTP id S1751465Ab3LRD1V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 22:27:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With this plugin, user could specify IPComp tagged with certain
-CPI that host not interested will be DROPped or any other action.
+This patch enables user to set iptables ACTIONs for IPcomp
+flow specified by its SPI value.
 
 For example:
-iptables  -A INPUT -p 108 -m ipcomp --ipcompspi 0x87 -j DROP
-ip6tables -A INPUT -p 108 -m ipcomp --ipcompspi 0x87 -j DROP
+iptables  -A OUTPUT -p 108 -m ipcomp --ipcompspi 0x12 -j DROP
+ip6tables -A OUTPUT -p 108 -m ipcomp --ipcompspi 0x12 -j DROP
 
-Then input IPComp packet with CPI equates 0x87 will not reach
-upper layer anymore.
+IPcomp packet with spi as 0x12 will be dropped.
 
 Signed-off-by: Fan Du <fan.du@windriver.com>
 ---
 v2:
-  Consolidate net/ipv4/netfilter/ipt_comp.c and net/ipv6/netfilter/ip6t_comp.c
-  into one piece, as per Pablo suggestion.
+  Consolidate libipt_ipcomp.c and libip6t_ipcomp.c into one libxt_ipcomp.c
 ---
- include/uapi/linux/netfilter/xt_comp.h |   16 +++++
- net/netfilter/Kconfig                  |    9 +++
- net/netfilter/Makefile                 |    1 +
- net/netfilter/xt_ipcomp.c              |  112 ++++++++++++++++++++++++++++++++
- 4 files changed, 138 insertions(+)
- create mode 100644 include/uapi/linux/netfilter/xt_comp.h
- create mode 100644 net/netfilter/xt_ipcomp.c
+ extensions/libxt_ipcomp.c           |  116 +++++++++++++++++++++++++++++++++++
+ extensions/libxt_ipcomp.c.man       |    7 +++
+ include/linux/netfilter/xt_ipcomp.h |   16 +++++
+ 3 files changed, 139 insertions(+)
+ create mode 100644 extensions/libxt_ipcomp.c
+ create mode 100644 extensions/libxt_ipcomp.c.man
+ create mode 100644 include/linux/netfilter/xt_ipcomp.h
 
-diff --git a/include/uapi/linux/netfilter/xt_comp.h b/include/uapi/linux/netfilter/xt_comp.h
+diff --git a/extensions/libxt_ipcomp.c b/extensions/libxt_ipcomp.c
+new file mode 100644
+index 0000000..1753fc3
+--- /dev/null
++++ b/extensions/libxt_ipcomp.c
+@@ -0,0 +1,116 @@
++#include <stdio.h>
++#include <xtables.h>
++#include <linux/netfilter/xt_ipcomp.h>
++
++enum {
++	O_compSPI = 0,
++	O_compRES,
++};
++
++static void comp_help(void)
++{
++	printf(
++"comp match options:\n"
++"[!] --ipcompspi spi[:spi]\n"
++"				match spi (range)\n");
++}
++
++static const struct xt_option_entry comp_opts[] = {
++	{.name = "ipcompspi", .id = O_compSPI, .type = XTTYPE_UINT32RC,
++	 .flags = XTOPT_INVERT | XTOPT_PUT,
++	 XTOPT_POINTER(struct ipt_comp, spis)},
++	{.name = "compres", .id = O_compRES, .type = XTTYPE_NONE},
++	XTOPT_TABLEEND,
++};
++#undef s
++
++static void comp_parse(struct xt_option_call *cb)
++{
++	struct ipt_comp *compinfo = cb->data;
++
++	xtables_option_parse(cb);
++	switch (cb->entry->id) {
++	case O_compSPI:
++		if (cb->nvals == 1)
++			compinfo->spis[1] = compinfo->spis[0];
++		if (cb->invert)
++			compinfo->invflags |= IPT_IPCOMP_INV_SPI;
++		break;
++	case O_compRES:
++		compinfo->hdrres = 1;
++		break;
++	}
++}
++
++static void
++print_spis(const char *name, uint32_t min, uint32_t max,
++	    int invert)
++{
++	const char *inv = invert ? "!" : "";
++
++	if (min != 0 || max != 0xFFFFFFFF || invert) {
++		if (min == max)
++			printf("%s:%s%u", name, inv, min);
++		else
++			printf("%ss:%s%u:%u", name, inv, min, max);
++	}
++}
++
++static void comp_print(const void *ip, const struct xt_entry_match *match,
++                     int numeric)
++{
++	const struct ipt_comp *comp = (struct ipt_comp *)match->data;
++
++	printf(" comp ");
++	print_spis("spi", comp->spis[0], comp->spis[1],
++		    comp->invflags & IPT_IPCOMP_INV_SPI);
++
++	if (comp->hdrres)
++		printf(" reserved");
++
++	if (comp->invflags & ~IPT_IPCOMP_INV_MASK)
++		printf(" Unknown invflags: 0x%X",
++		       comp->invflags & ~IPT_IPCOMP_INV_MASK);
++}
++
++static void comp_save(const void *ip, const struct xt_entry_match *match)
++{
++	const struct ipt_comp *compinfo = (struct ipt_comp *)match->data;
++
++	if (!(compinfo->spis[0] == 0
++	    && compinfo->spis[1] == 0xFFFFFFFF)) {
++		printf("%s --ipcompspi ",
++			(compinfo->invflags & IPT_IPCOMP_INV_SPI) ? " !" : "");
++		if (compinfo->spis[0]
++		    != compinfo->spis[1])
++			printf("%u:%u",
++			       compinfo->spis[0],
++			       compinfo->spis[1]);
++		else
++			printf("%u",
++			       compinfo->spis[0]);
++	}
++
++	if (compinfo->hdrres != 0 )
++		printf(" --compres");
++}
++
++static struct xtables_match comp_mt_reg = {
++	.name          = "ipcomp",
++	.version       = XTABLES_VERSION,
++	.family        = NFPROTO_UNSPEC,
++	.size          = XT_ALIGN(sizeof(struct ipt_comp)),
++	.userspacesize = XT_ALIGN(sizeof(struct ipt_comp)),
++	.help          = comp_help,
++	.print         = comp_print,
++	.save          = comp_save,
++	.x6_parse      = comp_parse,
++	.x6_options    = comp_opts,
++};
++
++void
++_init(void)
++{
++	xtables_register_match(&comp_mt_reg);
++};
++
+diff --git a/extensions/libxt_ipcomp.c.man b/extensions/libxt_ipcomp.c.man
+new file mode 100644
+index 0000000..f3b17d2
+--- /dev/null
++++ b/extensions/libxt_ipcomp.c.man
+@@ -0,0 +1,7 @@
++This module matches the parameters in IPcomp header of IPsec packets.
++.TP
++[\fB!\fP] \fB\-\-ipcompspi\fP \fIspi\fP[\fB:\fP\fIspi\fP]
++Matches IPcomp header CPI value.
++.TP
++\fB\-\-compres\fP
++Matches if the reserved field is filled with zero.
+diff --git a/include/linux/netfilter/xt_ipcomp.h b/include/linux/netfilter/xt_ipcomp.h
 new file mode 100644
 index 0000000..5e4abb3
 --- /dev/null
-+++ b/include/uapi/linux/netfilter/xt_comp.h
++++ b/include/linux/netfilter/xt_ipcomp.h
 @@ -0,0 +1,16 @@
 +#ifndef _IPT_COMP_H
 +#define _IPT_COMP_H
@@ -61,155 +194,5 @@ index 0000000..5e4abb3
 +#define IPT_IPCOMP_INV_MASK	0x01	/* All possible flags. */
 +
 +#endif /*_IPT_COMP_H*/
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index c3398cd..d3242fc 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -1002,6 +1002,15 @@ config NETFILTER_XT_MATCH_ESP
- 
- 	  To compile it as a module, choose M here.  If unsure, say N.
- 
-+config NETFILTER_XT_MATCH_IPCOMP
-+	tristate '"ipcomp" match support'
-+	depends on NETFILTER_ADVANCED
-+	help
-+	  This match extension allows you to match a range of CPIs(16 bits)
-+	  inside IPComp header of IPSec packets.
-+
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+
- config NETFILTER_XT_MATCH_HASHLIMIT
- 	tristate '"hashlimit" match support'
- 	depends on (IP6_NF_IPTABLES || IP6_NF_IPTABLES=n)
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 394483b..5369043 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -130,6 +130,7 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_DEVGROUP) += xt_devgroup.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_DSCP) += xt_dscp.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_ECN) += xt_ecn.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_ESP) += xt_esp.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_IPCOMP) += xt_ipcomp.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_HASHLIMIT) += xt_hashlimit.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_HELPER) += xt_helper.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_HL) += xt_hl.o
-diff --git a/net/netfilter/xt_ipcomp.c b/net/netfilter/xt_ipcomp.c
-new file mode 100644
-index 0000000..e856514
---- /dev/null
-+++ b/net/netfilter/xt_ipcomp.c
-@@ -0,0 +1,112 @@
-+/*  Kernel module to match IPComp parameters for IPv4 and IPv6
-+ *
-+ *  Copyright (C) 2013 WindRiver
-+ *
-+ *  Author:
-+ *  Fan Du <fan.du@windriver.com>
-+ *
-+ *  Based on:
-+ *  net/netfilter/xt_esp.c
-+ *
-+ *  This program is free software; you can redistribute it and/or
-+ *  modify it under the terms of the GNU General Public License
-+ *  as published by the Free Software Foundation; either version
-+ *  2 of the License, or (at your option) any later version.
-+ */
-+
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+#include <linux/in.h>
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/ip.h>
-+
-+#include <linux/netfilter/xt_comp.h>
-+#include <linux/netfilter/x_tables.h>
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Fan Du <fan.du@windriver.com>");
-+MODULE_DESCRIPTION("Xtables: IPv4 IPsec-IPComp SPI match");
-+
-+/* Returns 1 if the spi is matched by the range, 0 otherwise */
-+static inline bool
-+spi_match(u_int32_t min, u_int32_t max, u_int32_t spi, bool invert)
-+{
-+	bool r;
-+	pr_debug("spi_match:%c 0x%x <= 0x%x <= 0x%x\n",
-+		 invert ? '!' : ' ', min, spi, max);
-+	r = (spi >= min && spi <= max) ^ invert;
-+	pr_debug(" result %s\n", r ? "PASS" : "FAILED");
-+	return r;
-+}
-+
-+static bool comp_mt(const struct sk_buff *skb, struct xt_action_param *par)
-+{
-+	struct ip_comp_hdr _comphdr;
-+	const struct ip_comp_hdr *chdr;
-+	const struct ipt_comp *compinfo = par->matchinfo;
-+
-+	/* Must not be a fragment. */
-+	if (par->fragoff != 0)
-+		return false;
-+
-+	chdr = skb_header_pointer(skb, par->thoff, sizeof(_comphdr), &_comphdr);
-+	if (chdr == NULL) {
-+		/* We've been asked to examine this packet, and we
-+		 * can't.  Hence, no choice but to drop.
-+		 */
-+		pr_debug("Dropping evil IPComp tinygram.\n");
-+		par->hotdrop = true;
-+		return 0;
-+	}
-+
-+	return spi_match(compinfo->spis[0], compinfo->spis[1],
-+			 ntohl(chdr->cpi << 16),
-+			 !!(compinfo->invflags & IPT_IPCOMP_INV_SPI));
-+}
-+
-+static int comp_mt_check(const struct xt_mtchk_param *par)
-+{
-+	const struct ipt_comp *compinfo = par->matchinfo;
-+
-+	/* Must specify no unknown invflags */
-+	if (compinfo->invflags & ~IPT_IPCOMP_INV_MASK) {
-+		pr_debug("unknown flags %X\n", compinfo->invflags);
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+static struct xt_match comp_mt_reg[] __read_mostly = {
-+	{
-+		.name		= "ipcomp",
-+		.family		= NFPROTO_IPV4,
-+		.match		= comp_mt,
-+		.matchsize	= sizeof(struct ipt_comp),
-+		.proto		= IPPROTO_COMP,
-+		.checkentry	= comp_mt_check,
-+		.me		= THIS_MODULE,
-+	},
-+	{
-+		.name		= "ipcomp",
-+		.family		= NFPROTO_IPV6,
-+		.match		= comp_mt,
-+		.matchsize	= sizeof(struct ipt_comp),
-+		.proto		= IPPROTO_COMP,
-+		.checkentry	= comp_mt_check,
-+		.me		= THIS_MODULE,
-+	},
-+};
-+
-+static int __init comp_mt_init(void)
-+{
-+	return xt_register_matches(comp_mt_reg, ARRAY_SIZE(comp_mt_reg));
-+}
-+
-+static void __exit comp_mt_exit(void)
-+{
-+	xt_unregister_matches(comp_mt_reg, ARRAY_SIZE(comp_mt_reg));
-+}
-+
-+module_init(comp_mt_init);
-+module_exit(comp_mt_exit);
 -- 
 1.7.9.5
