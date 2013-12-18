@@ -1,33 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCHv2 ipsec-next] xfrm: Namespacify xfrm_policy_sk_bundles
-Date: Tue, 17 Dec 2013 21:44:45 -0800
-Message-ID: <1387345485.19078.299.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1387337658-28951-1-git-send-email-fan.du@windriver.com>
-	 <1387342211.19078.295.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <52B133C6.8070409@windriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/9] net: phy: fix checkpatch errors
+Date: Wed, 18 Dec 2013 00:50:16 -0500 (EST)
+Message-ID: <20131218.005016.167554032466421350.davem@davemloft.net>
+References: <1387345093-14168-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Cc: netdev@vger.kernel.org
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:42173 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750853Ab3LRFoq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 00:44:46 -0500
-Received: by mail-pd0-f178.google.com with SMTP id y10so7806344pdj.9
-        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 21:44:46 -0800 (PST)
-In-Reply-To: <52B133C6.8070409@windriver.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51612 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750815Ab3LRFuS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 00:50:18 -0500
+In-Reply-To: <1387345093-14168-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-12-18 at 13:33 +0800, Fan Du wrote:
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 17 Dec 2013 21:38:04 -0800
 
-> Hi Eric
-> 
-> Thanks for your attention,
-> I'm not follow why xchg here is unsafe, could you please elaborate a bit more?
+> This patchset fixes trivial checkpatch errors, no functional change
+> introduced.
 
-Read include/linux/llist.h and llist_add_batch() implementation,
-it will be very clear why your implementation is not safe.
+Series applied.
+
+It would help review in the future if you explicitly stated the
+checkpatch errors you are fixing in your commit messages.
+
+Thanks.
