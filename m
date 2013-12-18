@@ -1,83 +1,58 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: Re: [PATCH 1/1][net-next] dccp: catch failed request_module call
- in dccp_probe init
-Date: Wed, 18 Dec 2013 10:38:36 +0800
-Message-ID: <52B10AAC.3070400@huawei.com>
-References: <52B043D9.9090808@huawei.com> <20131217192433.168b39ef@liptov.cs.ualberta.ca>
+From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Subject: RE: linux-next: build warning in Linus' tree
+Date: Wed, 18 Dec 2013 02:54:37 +0000
+Message-ID: <F6FB0E698C9B3143BDF729DF2228664685D5839F@ORSMSX110.amr.corp.intel.com>
+References: <20131218095203.aceb7cfffffa16907feb9af7@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <dccp@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:51678 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750875Ab3LRCi5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 21:38:57 -0500
-In-Reply-To: <20131217192433.168b39ef@liptov.cs.ualberta.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20131218095203.aceb7cfffffa16907feb9af7@canb.auug.org.au>
+Content-Language: en-US
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2013/12/18 10:24, Gerrit Renker wrote:
-> Hi Wang,
-> 
-> thank you for the patch, please find refactored version below, changes are
->  (a) if request_module fails, return its error code instead of the previous ret,
->  (b) refactor code -- setup_jprobe becomes superfluous.
-> 
-> Please add your signed off if ok, since it is essentially your patch.
-> 
->>>>>>>>>>>>>>>>>>>>>>>> Wang's patch revised <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-> dccp: catch failed request_module call in dccp_probe init
-> 
-> Check the return value of request_module during dccp_probe initialisation,
-> bail out if that call fails.
-> 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-> ---
->  net/dccp/probe.c |   19 +++++++------------
->  1 file changed, 7 insertions(+), 12 deletions(-)
-> 
-> --- a/net/dccp/probe.c
-> +++ b/net/dccp/probe.c
-> @@ -152,17 +152,6 @@ static const struct file_operations dccp
->  	.llseek  = noop_llseek,
->  };
->  
-> -static __init int setup_jprobe(void)
-> -{
-> -	int ret = register_jprobe(&dccp_send_probe);
-> -
-> -	if (ret) {
-> -		request_module("dccp");
-> -		ret = register_jprobe(&dccp_send_probe);
-> -	}
-> -	return ret;
-> -}
-> -
->  static __init int dccpprobe_init(void)
->  {
->  	int ret = -ENOMEM;
-> @@ -174,7 +163,13 @@ static __init int dccpprobe_init(void)
->  	if (!proc_create(procname, S_IRUSR, init_net.proc_net, &dccpprobe_fops))
->  		goto err0;
->  
-> -	ret = setup_jprobe();
-> +	ret = register_jprobe(&dccp_send_probe);
-> +	if (ret) {
-> +		ret = request_module("dccp");
-> +		if (!ret)
-> +			ret = register_jprobe(&dccp_send_probe);
-> +	}
-> +
->  	if (ret)
->  		goto err1;
->  
-> 
-> 
 
-It is OK.
-Thanks.
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Stephen Rothwell
+> Sent: Tuesday, December 17, 2013 2:52 PM
+> To: David Miller; netdev@vger.kernel.org
+> Cc: linux-next@vger.kernel.org; linux-kernel@vger.kernel.org; Fastabend,
+> John R; Neil Horman
+> Subject: linux-next: build warning in Linus' tree
+> 
+> Hi all,
+> 
+> While building Linus' tree, today's linux-next build (powerpc
+> ppc64_defconfig) produced this warning:
+> 
+> drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c: In function
+> 'ixgbe_pci_sriov_disable':
+> drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c:294:6: warning: unused
+> variable 'current_flags' [-Wunused-variable]
+>   u32 current_flags = adapter->flags;
+>       ^
+> 
+> Introduced by commit 2a47fa45d4df ("ixgbe: enable l2 forwarding
+> acceleration for macvlans") which was merged before v3.13-rc1.
+> 
+> --
+> Cheers,
+> Stephen Rothwell                    sfr@canb.auug.org.au
+
+
+Hey Stephen,
+
+Thanks for letting us know about this.   As it turns out we already have a patch to fix this in our internal tree (Jeff K's) just waiting final validation.  It shouldn't be long before he submits it.
+
+Thanks again,
+-Don Skidmore <donald.c.skidmore@intel.com>
