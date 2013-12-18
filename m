@@ -1,40 +1,29 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 1/2 v2] qlcnic: make local functions static
-Date: Wed, 18 Dec 2013 13:58:39 -0800
-Message-ID: <20131218135839.74010095@nehalam.linuxnetplumber.net>
-References: <20131213123119.16358e1b@nehalam.linuxnetplumber.net>
-	<1902752B0C92F943AB7EA9EE13E2DEEC1273B9F4A5@HQ1-EXCH02.corp.brocade.com>
-	<20131218135438.71ea917f@nehalam.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/2] inet: make no_pmtu_disc per namespace and
+ kill ipv4_config
+Date: Wed, 18 Dec 2013 16:59:02 -0500 (EST)
+Message-ID: <20131218.165902.1725263148949899416.davem@davemloft.net>
+References: <20131214041329.GE7332@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: netdev@vger.kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:59931 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751089Ab3LRV6l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 16:58:41 -0500
-Received: by mail-pa0-f45.google.com with SMTP id fb1so246200pad.32
-        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 13:58:41 -0800 (PST)
-In-Reply-To: <20131218135438.71ea917f@nehalam.linuxnetplumber.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57030 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754130Ab3LRV7E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 16:59:04 -0500
+In-Reply-To: <20131214041329.GE7332@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 18 Dec 2013 13:54:38 -0800
-Stephen Hemminger <stephen@networkplumber.org> wrote:
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Sat, 14 Dec 2013 05:13:38 +0100
 
-> Functions only used in one file should be static.
-> Found by running make namespacecheck
+> The other field in ipv4_config, log_martians, was converted to a
+> per-interface setting, so we can just remove the whole structure.
 > 
-> Compile tested only.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> 
-> ---
-> v2 - update to latest net-next
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Never mind, there is a duplicate declaration in here (won't compile).
-Let me re-send with full cleanup bundle.
+Applied.
