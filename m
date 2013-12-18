@@ -1,154 +1,39 @@
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net v2 8/8] RDMA/cxgb4: Use cxgb4_select_ntuple to correctly calculate ntuple fields
-Date: Wed, 18 Dec 2013 16:38:26 +0530
-Message-ID: <1387364906-1967-9-git-send-email-hariprasad@chelsio.com>
-References: <1387364906-1967-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1387364906-1967-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Larissa paul <inno_48@yahoo.com>
+Subject: My Dearest
+Date: Wed, 18 Dec 2013 03:13:33 -0800 (PST)
+Message-ID: <1387365213.95612.YahooMailBasic@web163401.mail.gq1.yahoo.com>
+Reply-To: larissa_ijere001@yahoo.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm43-vm5.bullet.mail.gq1.yahoo.com ([67.195.87.220]:27925 "HELO
+	nm43-vm5.bullet.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750910Ab3LRLVF convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Dec 2013 06:21:05 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kumar Sanghvi <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 
-Signed-off-by: Kumar Sanghvi <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Signed-off-by: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
----
- drivers/infiniband/hw/cxgb4/cm.c | 71 ++++++++++------------------------------
- 1 file changed, 17 insertions(+), 54 deletions(-)
-
-diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index bfd4ed7..4512687 100644
---- a/drivers/infiniband/hw/cxgb4/cm.c
-+++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -524,50 +524,6 @@ static int send_abort(struct c4iw_ep *ep, struct sk_buff *skb, gfp_t gfp)
- 	return c4iw_l2t_send(&ep->com.dev->rdev, skb, ep->l2t);
- }
- 
--#define VLAN_NONE 0xfff
--#define FILTER_SEL_VLAN_NONE 0xffff
--#define FILTER_SEL_WIDTH_P_FC (3+1) /* port uses 3 bits, FCoE one bit */
--#define FILTER_SEL_WIDTH_VIN_P_FC \
--	(6 + 7 + FILTER_SEL_WIDTH_P_FC) /* 6 bits are unused, VF uses 7 bits*/
--#define FILTER_SEL_WIDTH_TAG_P_FC \
--	(3 + FILTER_SEL_WIDTH_VIN_P_FC) /* PF uses 3 bits */
--#define FILTER_SEL_WIDTH_VLD_TAG_P_FC (1 + FILTER_SEL_WIDTH_TAG_P_FC)
--
--static unsigned int select_ntuple(struct c4iw_dev *dev, struct dst_entry *dst,
--				  struct l2t_entry *l2t)
--{
--	unsigned int ntuple = 0;
--	u32 viid;
--
--	switch (dev->rdev.lldi.filt_mode) {
--
--	/* default filter mode */
--	case HW_TPL_FR_MT_PR_IV_P_FC:
--		if (l2t->vlan == VLAN_NONE)
--			ntuple |= FILTER_SEL_VLAN_NONE << FILTER_SEL_WIDTH_P_FC;
--		else {
--			ntuple |= l2t->vlan << FILTER_SEL_WIDTH_P_FC;
--			ntuple |= 1 << FILTER_SEL_WIDTH_TAG_P_FC;
--		}
--		ntuple |= l2t->lport << S_PORT | IPPROTO_TCP <<
--			  FILTER_SEL_WIDTH_VLD_TAG_P_FC;
--		break;
--	case HW_TPL_FR_MT_PR_OV_P_FC: {
--		viid = cxgb4_port_viid(l2t->neigh->dev);
--
--		ntuple |= FW_VIID_VIN_GET(viid) << FILTER_SEL_WIDTH_P_FC;
--		ntuple |= FW_VIID_PFN_GET(viid) << FILTER_SEL_WIDTH_VIN_P_FC;
--		ntuple |= FW_VIID_VIVLD_GET(viid) << FILTER_SEL_WIDTH_TAG_P_FC;
--		ntuple |= l2t->lport << S_PORT | IPPROTO_TCP <<
--			  FILTER_SEL_WIDTH_VLD_TAG_P_FC;
--		break;
--	}
--	default:
--		break;
--	}
--	return ntuple;
--}
--
- static int send_connect(struct c4iw_ep *ep)
- {
- 	struct cpl_act_open_req *req;
-@@ -641,8 +597,9 @@ static int send_connect(struct c4iw_ep *ep)
- 			req->local_ip = la->sin_addr.s_addr;
- 			req->peer_ip = ra->sin_addr.s_addr;
- 			req->opt0 = cpu_to_be64(opt0);
--			req->params = cpu_to_be32(select_ntuple(ep->com.dev,
--						ep->dst, ep->l2t));
-+			req->params = cpu_to_be32(cxgb4_select_ntuple(
-+						ep->com.dev->rdev.lldi.ports[0],
-+						ep->l2t));
- 			req->opt2 = cpu_to_be32(opt2);
- 		} else {
- 			req6 = (struct cpl_act_open_req6 *)skb_put(skb, wrlen);
-@@ -662,9 +619,9 @@ static int send_connect(struct c4iw_ep *ep)
- 			req6->peer_ip_lo = *((__be64 *)
- 						(ra6->sin6_addr.s6_addr + 8));
- 			req6->opt0 = cpu_to_be64(opt0);
--			req6->params = cpu_to_be32(
--					select_ntuple(ep->com.dev, ep->dst,
--						      ep->l2t));
-+			req6->params = cpu_to_be32(cxgb4_select_ntuple(
-+						ep->com.dev->rdev.lldi.ports[0],
-+						ep->l2t));
- 			req6->opt2 = cpu_to_be32(opt2);
- 		}
- 	} else {
-@@ -681,8 +638,9 @@ static int send_connect(struct c4iw_ep *ep)
- 			t5_req->peer_ip = ra->sin_addr.s_addr;
- 			t5_req->opt0 = cpu_to_be64(opt0);
- 			t5_req->params = cpu_to_be64(V_FILTER_TUPLE(
--						select_ntuple(ep->com.dev,
--						ep->dst, ep->l2t)));
-+						     cxgb4_select_ntuple(
-+					     ep->com.dev->rdev.lldi.ports[0],
-+					     ep->l2t)));
- 			t5_req->opt2 = cpu_to_be32(opt2);
- 		} else {
- 			t5_req6 = (struct cpl_t5_act_open_req6 *)
-@@ -703,7 +661,9 @@ static int send_connect(struct c4iw_ep *ep)
- 						(ra6->sin6_addr.s6_addr + 8));
- 			t5_req6->opt0 = cpu_to_be64(opt0);
- 			t5_req6->params = (__force __be64)cpu_to_be32(
--				select_ntuple(ep->com.dev, ep->dst, ep->l2t));
-+							cxgb4_select_ntuple(
-+						ep->com.dev->rdev.lldi.ports[0],
-+						ep->l2t));
- 			t5_req6->opt2 = cpu_to_be32(opt2);
- 		}
- 	}
-@@ -1630,7 +1590,8 @@ static void send_fw_act_open_req(struct c4iw_ep *ep, unsigned int atid)
- 	memset(req, 0, sizeof(*req));
- 	req->op_compl = htonl(V_WR_OP(FW_OFLD_CONNECTION_WR));
- 	req->len16_pkd = htonl(FW_WR_LEN16(DIV_ROUND_UP(sizeof(*req), 16)));
--	req->le.filter = cpu_to_be32(select_ntuple(ep->com.dev, ep->dst,
-+	req->le.filter = cpu_to_be32(cxgb4_select_ntuple(
-+				     ep->com.dev->rdev.lldi.ports[0],
- 				     ep->l2t));
- 	sin = (struct sockaddr_in *)&ep->com.local_addr;
- 	req->le.lport = sin->sin_port;
-@@ -3396,7 +3357,9 @@ static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
- 	window = (__force u16) htons((__force u16)tcph->window);
- 
- 	/* Calcuate filter portion for LE region. */
--	filter = (__force unsigned int) cpu_to_be32(select_ntuple(dev, dst, e));
-+	filter = (__force unsigned int) cpu_to_be32(cxgb4_select_ntuple(
-+						    dev->rdev.lldi.ports[0],
-+						    e));
- 
- 	/*
- 	 * Synthesize the cpl_pass_accept_req. We have everything except the
--- 
-1.8.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+My Dearest=C2=A0=20
+=C2=A0
+How are you? I know this mail will come to you as a surprise, because y=
+ou don=E2=80=99t know me Let me first of all introduce myself to you, m=
+y name is miss Larissa Ijere Paul, 21 years old girl from Guinea Bissau=
+=2E I am tall and fair in complexion, I am loving and caring. I am writ=
+ing this mail to you with tears and sorrow from my heart. I appeal to y=
+ou to exercise a little patience and read through my letter,
+=C2=A0
+I wish to contact you personally for a long term relationship and busin=
+ess investment assistance in your Country so I feel quite safe dealing =
+with you in this important business, I=C2=A0 having gone through your r=
+emarkable profile which interested me to contact you,
+=C2=A0
+Please I have a lot of special things I want to discuses with you immed=
+iately I hear back from you, please contact me through my private email=
+ address Larissa_ijere001@yahoo.com=C2=A0 I am waiting to hear from you=
+ soon
+=C2=A0
+Miss Larissa,
