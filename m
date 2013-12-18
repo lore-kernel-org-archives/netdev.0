@@ -1,31 +1,29 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: clear RTF_EXPIRES when call ip6_rt_copy
-Date: Wed, 18 Dec 2013 08:59:24 +0100
-Message-ID: <20131218075924.GE27460@order.stressinduktion.org>
-References: <1387182666-31301-1-git-send-email-roy.qing.li@gmail.com> <52AFC43C.9080804@cn.fujitsu.com> <CAJFZqHwF0ubvxJOs2BWbSMMB1szKNO=XTiXje3E2ByF6sUQrXA@mail.gmail.com> <52AFE7E3.3070806@cn.fujitsu.com> <CAJFZqHxawisUbHGZY8mjGHy8035X6TQ7FNzc20vtS5j1jdZYGA@mail.gmail.com> <20131217070231.GA11970@order.stressinduktion.org> <52B00150.3070002@cn.fujitsu.com> <20131217134823.GC18396@order.stressinduktion.org> <52B0F0C4.1010803@cn.fujitsu.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next 1/2] mlx4_en: Add PTP hardware clock
+Date: Wed, 18 Dec 2013 09:59:51 +0200
+Message-ID: <52B155F7.2070505@mellanox.com>
+References: <1387312359-9476-1-git-send-email-shawn.bohrer@gmail.com> <1387312359-9476-2-git-send-email-shawn.bohrer@gmail.com> <CAJZOPZKLSThnWCycVFF1dzoDuks48prUvzSN_us9NYTz82wRsA@mail.gmail.com> <20131217214615.GD8693@sbohrermbp13-local.rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: RongQing Li <roy.qing.li@gmail.com>, netdev@vger.kernel.org
-To: Gao feng <gaofeng@cn.fujitsu.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Amir Vadai <amirv@mellanox.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	<tomk@rgmadvisors.com>, Hadar Hen Zion <hadarh@mellanox.com>,
+	Shawn Bohrer <sbohrer@rgmadvisors.com>
+To: Shawn Bohrer <shawn.bohrer@gmail.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:35570 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751877Ab3LRH7Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 02:59:25 -0500
-Content-Disposition: inline
-In-Reply-To: <52B0F0C4.1010803@cn.fujitsu.com>
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:41097 "EHLO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750961Ab3LRIAD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 03:00:03 -0500
+In-Reply-To: <20131217214615.GD8693@sbohrermbp13-local.rgmadvisors.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 18, 2013 at 08:48:04AM +0800, Gao feng wrote:
-> On 12/17/2013 09:48 PM, Hannes Frederic Sowa wrote:
-> > On Tue, Dec 17, 2013 at 03:46:24PM +0800, Gao feng wrote:
-> >> The from of new cloned rt should not be set if it's impossible for the ort
-> >> to be expired.
-> > 
-> > Actually, why do you think so? What could go wrong?
-> > 
-> 
-> I just don't want rt6_check_expired to check some impossible expired routes.
-
-Only for performance? It does not seem to do any harm?
+On 17/12/2013 23:46, Shawn Bohrer wrote:
+> v3: is code identical to v2.  I simply finished testing it with
+> linuxptp, cleaned up the commit description a little and sent to davem.
+so the problem you saw with V2 is understood && gone with V3?
