@@ -1,104 +1,83 @@
-From: David Gibson <david@gibson.dropbear.id.au>
-Subject: Re: [0/2] netxen: bug fix and diagnostics for possible (hardware?)
- bug
-Date: Wed, 18 Dec 2013 17:22:31 +1100
-Message-ID: <20131218062231.GB32453@voom.fritz.box>
-References: <1387257753-18676-1-git-send-email-david@gibson.dropbear.id.au>
- <31AFFC7280259C4184970ABA9AFE8B938CF85726@avmb3.qlogic.org>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="mojUlQ0s9EVzWg2t"
-Cc: Sony Chacko <sony.chacko@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	"snagarka@redhat.com" <snagarka@redhat.com>,
-	"tcamuso@redhat.com" <tcamuso@redhat.com>,
-	"vdasgupt@redhat.com" <vdasgupt@redhat.com>
-To: Manish Chopra <manish.chopra@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:40212 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750949Ab3LRLOs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Dec 2013 06:14:48 -0500
-Content-Disposition: inline
-In-Reply-To: <31AFFC7280259C4184970ABA9AFE8B938CF85726@avmb3.qlogic.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH net v2 0/8] Fixes for server entries and server filter entries for Chelsio T4/T5
+Date: Wed, 18 Dec 2013 16:38:18 +0530
+Message-ID: <1387364906-1967-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+Hi All,
+
+This patch series provides miscelleneous fixes for Chelsio T4/T5 adapters
+related to server entries and server filter entries.
+
+Also, fixes a bug in ULD (Upper Level Driver) like iw_cxgb4 where-in it
+calculates wrong tuple values
+on T5 adapter. So, a new API cxgb4_select_ntuple is exported so as to enable
+Upper Lever Drivers like iw_cxgb4 to correctly calculate tuple values.
+
+The patches series is created agains David Miller's 'net' tree.
+And includes patches on cxgb4 and iw_cxgb4 driver.
+
+Patch 8/8 (RDMA-cxgb4-Use-cxgb4_select_ntuple-to-correctly-calc.patch)
+has a build dependency on Patch 5/8
+(cxgb4-Add-API-to-correctly-calculate-tuple-fields.patch).
+
+Also, Patch 6/8 (RDMA-cxgb4-Calculate-the-filter-server-TID-properly.patch) has
+a functional
+dependency on Patch 3/8 (cxgb4-Assign-filter-server-TIDs-properly.patch)
+
+We would like to request this patch series to get merged via David Miller's
+'net' tree.
+
+We have included all the maintainers of respective drivers. Kindly review the
+change and let us know in case of any review comments.
 
 
---mojUlQ0s9EVzWg2t
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+V2 changes:
+ - Removed earlier patch which added sftids_in_use counter. However, the counter
+   was actually not used anywhere in this patch series.
+   Thanks to David Miller for spotting this.
+   We have dropped this patch in V2 and will submit a more complete patch which
+   uses sftids_in_use counter later on.
+ - Fixed a 'checkpatch.pl --strict' warning on Patch 5/8
+   (cxgb4-Add-API-to-correctly-calculate-tuple-fields.patch).
+ - Removed some un-used #defines from Patch 5/8
+   (cxgb4-Add-API-to-correctly-calculate-tuple-fields.patch).
 
-On Tue, Dec 17, 2013 at 09:50:52PM +0000, Manish Chopra wrote:
-> >-----Original Message-----
-> >From: David Gibson [mailto:david@gibson.dropbear.id.au]
-> >Sent: Tuesday, December 17, 2013 10:53 AM
-> >To: Manish Chopra; Sony Chacko; Rajesh Borundia
-> >Cc: netdev; snagarka@redhat.com; tcamuso@redhat.com;
-> >vdasgupt@redhat.com
-> >Subject: [0/2] netxen: bug fix and diagnostics for possible (hardware?) =
-bug
-> >
-> >At Red Hat, we've hit a couple of customer cases with crashes in the net=
-xen driver
-> >due to list corruption.  This seems to be very rarely triggered, and unf=
-ortunately
-> >the dumps we have don't have enough information to be certain of the cau=
-se,
-> >although we have a possible theory.
-> >
-> >I'm suggesting, therefore a patch to add some sanity checking which shou=
-ld help
-> >to at least localize and mitigate the problem when someone hits it in fu=
-ture.
-> >Please let me know if there's a better approach to doing this.
-> >
-> >That's 2/2.  1/2 is a fix for a clear bug I spotted along the way, but n=
-ot one that
-> >could cause the symptoms we've seen.
->=20
-> David,
->=20
-> Having these checks in data path(Rx path) may have some performance
-> impact. It's better to root cause it instead of putting some sanity
-> checks.
+Thanks,
+Hariprasad Shenai
 
-Obviously, but this was the best way I could think of to try narrowing
-down the root cause (at least trying to eliminate driver vs. firmware
-bug).
+Kumar Sanghvi (8):
+  cxgb4: Reserve stid 0 for T4/T5 adapters
+  cxgb4: Include TCP as protocol when creating server filters
+  cxgb4: Assign filter server TIDs properly
+  cxgb4: Account for stid entries properly in case of IPv6
+  cxgb4: Add API to correctly calculate tuple fields
+  RDMA/cxgb4: Calculate the filter server TID properly
+  RDMA/cxgb4: Server filters are supported only for IPv4
+  RDMA/cxgb4: Use cxgb4_select_ntuple to correctly calculate ntuple
+    fields
 
-> We will get back to you on this.
+ drivers/infiniband/hw/cxgb4/cm.c                |  78 +++++-------------
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  21 +++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  59 +++++++++-----
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |   9 ++-
+ drivers/net/ethernet/chelsio/cxgb4/l2t.c        |  35 ++++++++
+ drivers/net/ethernet/chelsio/cxgb4/l2t.h        |   3 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 103 ++++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |  73 +++++++++++++++++
+ 8 files changed, 301 insertions(+), 80 deletions(-)
 
-If you have a better idea for locating the root cause, please let me
-know.  I have access to a vmcore which I can poke around in.
+-- 
+1.8.0
 
---=20
-David Gibson			| I'll have my music baroque, and my code
-david AT gibson.dropbear.id.au	| minimalist, thank you.  NOT _the_ _other_
-				| _way_ _around_!
-http://www.ozlabs.org/~dgibson
-
---mojUlQ0s9EVzWg2t
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-
-iQIcBAEBAgAGBQJSsT8nAAoJEGw4ysog2bOS6zgQAIo3vCetmJVxxbMV5MqsAvUe
-1g5KzZ9HL+GtC5eTmSkuUGgJZdmO7hrimHzBAoak/6Be9pjWtB5EPr95NDCo5fBi
-iZDdtz91C/ej9jmXGAo5Q8ZIoSfxt2+clD6rLERR5wvPJ4WF3QbMpWPtyXcl6/iV
-MMyvOpmoxQt03meDQUqPMn6yEN9QXJaSVHoyhEJjrQzUu+8kPImjVMDLAQQGsRDm
-zFtyOtstLA2w24MY0EUhke5qAQZ5+D1cgA9cBspEGJn59liwer8FP15h4VDoikAr
-3VmLxrUddPEHx+UZsSOjrvJzXVHyKtYc1U5/3urq5R6SioQwjvaZ8xCUIyBV77tt
-mlhkQa4mYwp6REudh87NWDE2b/cMukMcb4YH4lVX569i28SV+gZrYmxFwzwmZmke
-gSEdY0zfbb5OnW0dw03OQ/KEeRBNEfioiqa+EGpO78LrXOqYyJOYy2XBhCElUtaO
-WcUGUnvd6PUSxSALfDH1hNYzB7HHAHbbp57J2NiCSLoP/NRhoH9cwMc5xsTWeDZV
-RKihYmOx1gYmOqv2Tku0lxsY5VfFxoayLeUM8sUqOqDseXL8Rch4sTxmyK1q8zfH
-nlM2XQWA6X2imZrc1t9A2O4+I+v4INRwLFS+Lw1yNrnh5arZd82OiehJ70Ft+fmy
-9WVPbVaXg1MxIyElktvx
-=xAHD
------END PGP SIGNATURE-----
-
---mojUlQ0s9EVzWg2t--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
