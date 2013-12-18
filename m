@@ -1,356 +1,199 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/14] ixgbevf: add DCB configuration into queue setup
-Date: Tue, 17 Dec 2013 22:44:38 -0800
-Message-ID: <1387349082-18506-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/14] ixgbe: Convert to use devm_hwmon_device_register_with_groups
+Date: Tue, 17 Dec 2013 22:44:39 -0800
+Message-ID: <1387349082-18506-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387349082-18506-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+Cc: Guenter Roeck <linux@roeck-us.net>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:24896 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752836Ab3LRGpB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Dec 2013 01:45:01 -0500
+	id S1752841Ab3LRGpC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Dec 2013 01:45:02 -0500
 In-Reply-To: <1387349082-18506-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Guenter Roeck <linux@roeck-us.net>
 
-This patch takes the DCB config checks and adds them to the normal setting
-up of the queues. This way we won't have to allocation queues in a separate
-place for enabling DCB.
+Simplify the code. Attach hwmon sysfs attributes to hwmon device
+instead of pci device. Avoid race conditions caused by attributes
+being created after hwmon device registration. Implicitly
+(through hwmon API) add mandatory 'name' sysfs attribute.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Other cleanup:
+
+Instead of allocating memory for hwmon attributes, move attributes
+and all other hwmon related data into struct hwmon_buff and allocate
+the entire structure using devm_kzalloc.
+
+Check return value from calls to igb_add_hwmon_attr() one by one instead
+of logically combining them all together.
+
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Tested-By: Jack Morgan<jack.morgan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |   1 +
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 228 +++++++++-------------
- 2 files changed, 91 insertions(+), 138 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h       |  8 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c | 76 +++++++++++---------------
+ 2 files changed, 36 insertions(+), 48 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-index eaaa3ec..bb76e96 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-@@ -354,6 +354,7 @@ struct ixgbevf_adapter {
- 	u32 flags;
- #define IXGBE_FLAG_IN_WATCHDOG_TASK             (u32)(1)
- #define IXGBE_FLAG_IN_NETPOLL                   (u32)(1 << 1)
-+#define IXGBEVF_FLAG_QUEUE_RESET_REQUESTED	(u32)(1 << 2)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index f38fc0a..49531cd 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -552,8 +552,10 @@ struct hwmon_attr {
+ };
  
- 	/* OS defined structs */
- 	struct net_device *netdev;
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 84b55fe..a5d3167 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -95,6 +95,7 @@ module_param(debug, int, 0);
- MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
+ struct hwmon_buff {
+-	struct device *device;
+-	struct hwmon_attr *hwmon_list;
++	struct attribute_group group;
++	const struct attribute_group *groups[2];
++	struct attribute *attrs[IXGBE_MAX_SENSORS * 4 + 1];
++	struct hwmon_attr hwmon_list[IXGBE_MAX_SENSORS * 4];
+ 	unsigned int n_hwmon;
+ };
+ #endif /* CONFIG_IXGBE_HWMON */
+@@ -775,7 +777,7 @@ struct ixgbe_adapter {
+ 	u32 vferr_refcount;
+ 	struct kobject *info_kobj;
+ #ifdef CONFIG_IXGBE_HWMON
+-	struct hwmon_buff ixgbe_hwmon_buff;
++	struct hwmon_buff *ixgbe_hwmon_buff;
+ #endif /* CONFIG_IXGBE_HWMON */
+ #ifdef CONFIG_DEBUG_FS
+ 	struct dentry *ixgbe_dbg_adapter;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
+index d118def..3081974 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
+@@ -111,8 +111,8 @@ static int ixgbe_add_hwmon_attr(struct ixgbe_adapter *adapter,
+ 	unsigned int n_attr;
+ 	struct hwmon_attr *ixgbe_attr;
  
- /* forward decls */
-+static void ixgbevf_queue_reset_subtask(struct ixgbevf_adapter *adapter);
- static void ixgbevf_set_itr(struct ixgbevf_q_vector *q_vector);
- static void ixgbevf_free_all_rx_resources(struct ixgbevf_adapter *adapter);
+-	n_attr = adapter->ixgbe_hwmon_buff.n_hwmon;
+-	ixgbe_attr = &adapter->ixgbe_hwmon_buff.hwmon_list[n_attr];
++	n_attr = adapter->ixgbe_hwmon_buff->n_hwmon;
++	ixgbe_attr = &adapter->ixgbe_hwmon_buff->hwmon_list[n_attr];
  
-@@ -1368,11 +1369,51 @@ static void ixgbevf_napi_disable_all(struct ixgbevf_adapter *adapter)
- 	}
- }
+ 	switch (type) {
+ 	case IXGBE_HWMON_TYPE_LOC:
+@@ -147,32 +147,17 @@ static int ixgbe_add_hwmon_attr(struct ixgbe_adapter *adapter,
+ 	ixgbe_attr->dev_attr.store = NULL;
+ 	ixgbe_attr->dev_attr.attr.mode = S_IRUGO;
+ 	ixgbe_attr->dev_attr.attr.name = ixgbe_attr->name;
++	sysfs_attr_init(&ixgbe_attr->dev_attr.attr);
  
-+static int ixgbevf_configure_dcb(struct ixgbevf_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	unsigned int def_q = 0;
-+	unsigned int num_tcs = 0;
-+	unsigned int num_rx_queues = 1;
-+	int err;
-+
-+	spin_lock_bh(&adapter->mbx_lock);
-+
-+	/* fetch queue configuration from the PF */
-+	err = ixgbevf_get_queues(hw, &num_tcs, &def_q);
-+
-+	spin_unlock_bh(&adapter->mbx_lock);
-+
-+	if (err)
-+		return err;
-+
-+	if (num_tcs > 1) {
-+		/* update default Tx ring register index */
-+		adapter->tx_ring[0].reg_idx = def_q;
-+
-+		/* we need as many queues as traffic classes */
-+		num_rx_queues = num_tcs;
-+	}
-+
-+	/* if we have a bad config abort request queue reset */
-+	if (adapter->num_rx_queues != num_rx_queues) {
-+		/* force mailbox timeout to prevent further messages */
-+		hw->mbx.timeout = 0;
-+
-+		/* wait for watchdog to come around and bail us out */
-+		adapter->flags |= IXGBEVF_FLAG_QUEUE_RESET_REQUESTED;
-+	}
-+
+-	rc = device_create_file(&adapter->pdev->dev,
+-				&ixgbe_attr->dev_attr);
++	adapter->ixgbe_hwmon_buff->attrs[n_attr] = &ixgbe_attr->dev_attr.attr;
+ 
+-	if (rc == 0)
+-		++adapter->ixgbe_hwmon_buff.n_hwmon;
++	++adapter->ixgbe_hwmon_buff->n_hwmon;
+ 
+-	return rc;
 +	return 0;
-+}
-+
- static void ixgbevf_configure(struct ixgbevf_adapter *adapter)
- {
- 	struct net_device *netdev = adapter->netdev;
- 	int i;
- 
-+	ixgbevf_configure_dcb(adapter);
-+
- 	ixgbevf_set_rx_mode(netdev);
- 
- 	ixgbevf_restore_vlan(adapter);
-@@ -1551,85 +1592,10 @@ static void ixgbevf_up_complete(struct ixgbevf_adapter *adapter)
- 	mod_timer(&adapter->watchdog_timer, jiffies);
  }
  
--static int ixgbevf_reset_queues(struct ixgbevf_adapter *adapter)
--{
--	struct ixgbe_hw *hw = &adapter->hw;
--	struct ixgbevf_ring *rx_ring;
--	unsigned int def_q = 0;
--	unsigned int num_tcs = 0;
--	unsigned int num_rx_queues = 1;
--	int err, i;
+ static void ixgbe_sysfs_del_adapter(struct ixgbe_adapter *adapter)
+ {
+-	int i;
 -
--	spin_lock_bh(&adapter->mbx_lock);
+-	if (adapter == NULL)
+-		return;
 -
--	/* fetch queue configuration from the PF */
--	err = ixgbevf_get_queues(hw, &num_tcs, &def_q);
--
--	spin_unlock_bh(&adapter->mbx_lock);
--
--	if (err)
--		return err;
--
--	if (num_tcs > 1) {
--		/* update default Tx ring register index */
--		adapter->tx_ring[0].reg_idx = def_q;
--
--		/* we need as many queues as traffic classes */
--		num_rx_queues = num_tcs;
+-	for (i = 0; i < adapter->ixgbe_hwmon_buff.n_hwmon; i++) {
+-		device_remove_file(&adapter->pdev->dev,
+-			   &adapter->ixgbe_hwmon_buff.hwmon_list[i].dev_attr);
 -	}
 -
--	/* nothing to do if we have the correct number of queues */
--	if (adapter->num_rx_queues == num_rx_queues)
--		return 0;
+-	kfree(adapter->ixgbe_hwmon_buff.hwmon_list);
 -
--	/* allocate new rings */
--	rx_ring = kcalloc(num_rx_queues,
--			  sizeof(struct ixgbevf_ring), GFP_KERNEL);
--	if (!rx_ring)
--		return -ENOMEM;
--
--	/* setup ring fields */
--	for (i = 0; i < num_rx_queues; i++) {
--		rx_ring[i].count = adapter->rx_ring_count;
--		rx_ring[i].queue_index = i;
--		rx_ring[i].reg_idx = i;
--		rx_ring[i].dev = &adapter->pdev->dev;
--		rx_ring[i].netdev = adapter->netdev;
--
--		/* allocate resources on the ring */
--		err = ixgbevf_setup_rx_resources(adapter, &rx_ring[i]);
--		if (err) {
--			while (i) {
--				i--;
--				ixgbevf_free_rx_resources(adapter, &rx_ring[i]);
--			}
--			kfree(rx_ring);
--			return err;
--		}
--	}
--
--	/* free the existing rings and queues */
--	ixgbevf_free_all_rx_resources(adapter);
--	adapter->num_rx_queues = 0;
--	kfree(adapter->rx_ring);
--
--	/* move new rings into position on the adapter struct */
--	adapter->rx_ring = rx_ring;
--	adapter->num_rx_queues = num_rx_queues;
--
--	/* reset ring to vector mapping */
--	ixgbevf_reset_q_vectors(adapter);
--	ixgbevf_map_rings_to_vectors(adapter);
--
--	return 0;
--}
--
- void ixgbevf_up(struct ixgbevf_adapter *adapter)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
- 
--	ixgbevf_reset_queues(adapter);
--
- 	ixgbevf_configure(adapter);
- 
- 	ixgbevf_up_complete(adapter);
-@@ -1875,9 +1841,28 @@ static int ixgbevf_acquire_msix_vectors(struct ixgbevf_adapter *adapter,
-  **/
- static void ixgbevf_set_num_queues(struct ixgbevf_adapter *adapter)
- {
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	unsigned int def_q = 0;
-+	unsigned int num_tcs = 0;
-+	int err;
-+
- 	/* Start with base case */
- 	adapter->num_rx_queues = 1;
- 	adapter->num_tx_queues = 1;
-+
-+	spin_lock_bh(&adapter->mbx_lock);
-+
-+	/* fetch queue configuration from the PF */
-+	err = ixgbevf_get_queues(hw, &num_tcs, &def_q);
-+
-+	spin_unlock_bh(&adapter->mbx_lock);
-+
-+	if (err)
-+		return;
-+
-+	/* we need as many queues as traffic classes */
-+	if (num_tcs > 1)
-+		adapter->num_rx_queues = num_tcs;
+-	if (adapter->ixgbe_hwmon_buff.device)
+-		hwmon_device_unregister(adapter->ixgbe_hwmon_buff.device);
  }
  
- /**
-@@ -2326,6 +2311,8 @@ static void ixgbevf_watchdog_task(struct work_struct *work)
- 	bool link_up = adapter->link_up;
- 	s32 need_reset;
+ /* called from ixgbe_main.c */
+@@ -184,9 +169,9 @@ void ixgbe_sysfs_exit(struct ixgbe_adapter *adapter)
+ /* called from ixgbe_main.c */
+ int ixgbe_sysfs_init(struct ixgbe_adapter *adapter)
+ {
+-	struct hwmon_buff *ixgbe_hwmon = &adapter->ixgbe_hwmon_buff;
++	struct hwmon_buff *ixgbe_hwmon;
++	struct device *hwmon_dev;
+ 	unsigned int i;
+-	int n_attrs;
+ 	int rc = 0;
  
-+	ixgbevf_queue_reset_subtask(adapter);
-+
- 	adapter->flags |= IXGBE_FLAG_IN_WATCHDOG_TASK;
+ 	/* If this method isn't defined we don't support thermals */
+@@ -198,23 +183,13 @@ int ixgbe_sysfs_init(struct ixgbe_adapter *adapter)
+ 	if (adapter->hw.mac.ops.init_thermal_sensor_thresh(&adapter->hw))
+ 		goto exit;
  
- 	/*
-@@ -2595,63 +2582,6 @@ static void ixgbevf_free_all_rx_resources(struct ixgbevf_adapter *adapter)
- 						  &adapter->rx_ring[i]);
- }
- 
--static int ixgbevf_setup_queues(struct ixgbevf_adapter *adapter)
--{
--	struct ixgbe_hw *hw = &adapter->hw;
--	struct ixgbevf_ring *rx_ring;
--	unsigned int def_q = 0;
--	unsigned int num_tcs = 0;
--	unsigned int num_rx_queues = 1;
--	int err, i;
--
--	spin_lock_bh(&adapter->mbx_lock);
--
--	/* fetch queue configuration from the PF */
--	err = ixgbevf_get_queues(hw, &num_tcs, &def_q);
--
--	spin_unlock_bh(&adapter->mbx_lock);
--
--	if (err)
--		return err;
--
--	if (num_tcs > 1) {
--		/* update default Tx ring register index */
--		adapter->tx_ring[0].reg_idx = def_q;
--
--		/* we need as many queues as traffic classes */
--		num_rx_queues = num_tcs;
+-	/*
+-	 * Allocation space for max attributs
+-	 * max num sensors * values (loc, temp, max, caution)
+-	 */
+-	n_attrs = IXGBE_MAX_SENSORS * 4;
+-	ixgbe_hwmon->hwmon_list = kcalloc(n_attrs, sizeof(struct hwmon_attr),
+-					  GFP_KERNEL);
+-	if (!ixgbe_hwmon->hwmon_list) {
++	ixgbe_hwmon = devm_kzalloc(&adapter->pdev->dev, sizeof(*ixgbe_hwmon),
++				   GFP_KERNEL);
++	if (ixgbe_hwmon == NULL) {
+ 		rc = -ENOMEM;
+-		goto err;
 -	}
 -
--	/* nothing to do if we have the correct number of queues */
--	if (adapter->num_rx_queues == num_rx_queues)
--		return 0;
--
--	/* allocate new rings */
--	rx_ring = kcalloc(num_rx_queues,
--			  sizeof(struct ixgbevf_ring), GFP_KERNEL);
--	if (!rx_ring)
--		return -ENOMEM;
--
--	/* setup ring fields */
--	for (i = 0; i < num_rx_queues; i++) {
--		rx_ring[i].count = adapter->rx_ring_count;
--		rx_ring[i].queue_index = i;
--		rx_ring[i].reg_idx = i;
--		rx_ring[i].dev = &adapter->pdev->dev;
--		rx_ring[i].netdev = adapter->netdev;
--	}
--
--	/* free the existing ring and queues */
--	adapter->num_rx_queues = 0;
--	kfree(adapter->rx_ring);
--
--	/* move new rings into position on the adapter struct */
--	adapter->rx_ring = rx_ring;
--	adapter->num_rx_queues = num_rx_queues;
--
--	return 0;
--}
--
- /**
-  * ixgbevf_open - Called when a network interface is made active
-  * @netdev: network interface device structure
-@@ -2695,11 +2625,6 @@ static int ixgbevf_open(struct net_device *netdev)
- 		}
+-	ixgbe_hwmon->device = hwmon_device_register(&adapter->pdev->dev);
+-	if (IS_ERR(ixgbe_hwmon->device)) {
+-		rc = PTR_ERR(ixgbe_hwmon->device);
+-		goto err;
++		goto exit;
+ 	}
++	adapter->ixgbe_hwmon_buff = ixgbe_hwmon;
+ 
+ 	for (i = 0; i < IXGBE_MAX_SENSORS; i++) {
+ 		/*
+@@ -226,17 +201,28 @@ int ixgbe_sysfs_init(struct ixgbe_adapter *adapter)
+ 
+ 		/* Bail if any hwmon attr struct fails to initialize */
+ 		rc = ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_CAUTION);
+-		rc |= ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_LOC);
+-		rc |= ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_TEMP);
+-		rc |= ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_MAX);
+ 		if (rc)
+-			goto err;
++			goto exit;
++		rc = ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_LOC);
++		if (rc)
++			goto exit;
++		rc = ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_TEMP);
++		if (rc)
++			goto exit;
++		rc = ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_MAX);
++		if (rc)
++			goto exit;
  	}
  
--	/* setup queue reg_idx and Rx queue count */
--	err = ixgbevf_setup_queues(adapter);
--	if (err)
--		goto err_setup_queues;
--
- 	/* allocate transmit descriptors */
- 	err = ixgbevf_setup_all_tx_resources(adapter);
- 	if (err)
-@@ -2737,7 +2662,6 @@ err_setup_rx:
- 	ixgbevf_free_all_rx_resources(adapter);
- err_setup_tx:
- 	ixgbevf_free_all_tx_resources(adapter);
--err_setup_queues:
- 	ixgbevf_reset(adapter);
+-	goto exit;
++	ixgbe_hwmon->groups[0] = &ixgbe_hwmon->group;
++	ixgbe_hwmon->group.attrs = ixgbe_hwmon->attrs;
  
- err_setup_reset:
-@@ -2769,6 +2693,34 @@ static int ixgbevf_close(struct net_device *netdev)
- 	return 0;
+-err:
+-	ixgbe_sysfs_del_adapter(adapter);
++	hwmon_dev = devm_hwmon_device_register_with_groups(&adapter->pdev->dev,
++							   "ixgbe",
++							   ixgbe_hwmon,
++							   ixgbe_hwmon->groups);
++	if (IS_ERR(hwmon_dev))
++		rc = PTR_ERR(hwmon_dev);
+ exit:
+ 	return rc;
  }
- 
-+static void ixgbevf_queue_reset_subtask(struct ixgbevf_adapter *adapter)
-+{
-+	struct net_device *dev = adapter->netdev;
-+
-+	if (!(adapter->flags & IXGBEVF_FLAG_QUEUE_RESET_REQUESTED))
-+		return;
-+
-+	adapter->flags &= ~IXGBEVF_FLAG_QUEUE_RESET_REQUESTED;
-+
-+	/* if interface is down do nothing */
-+	if (test_bit(__IXGBEVF_DOWN, &adapter->state) ||
-+	    test_bit(__IXGBEVF_RESETTING, &adapter->state))
-+		return;
-+
-+	/* Hardware has to reinitialize queues and interrupts to
-+	 * match packet buffer alignment. Unfortunately, the
-+	 * hardware is not flexible enough to do this dynamically.
-+	 */
-+	if (netif_running(dev))
-+		ixgbevf_close(dev);
-+
-+	ixgbevf_clear_interrupt_scheme(adapter);
-+	ixgbevf_init_interrupt_scheme(adapter);
-+
-+	if (netif_running(dev))
-+		ixgbevf_open(dev);
-+}
-+
- static void ixgbevf_tx_ctxtdesc(struct ixgbevf_ring *tx_ring,
- 				u32 vlan_macip_lens, u32 type_tucmd,
- 				u32 mss_l4len_idx)
 -- 
 1.8.3.1
