@@ -1,17 +1,17 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 02/15] net: bnx2x calls skb_set_hash
-Date: Tue, 17 Dec 2013 23:23:11 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1312172316370.24389@tomh.mtv.corp.google.com>
+Subject: [PATCH 03/15] net: cxgb4 calls skb_set_hash
+Date: Tue, 17 Dec 2013 23:23:29 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1312172316570.24419@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f201.google.com ([209.85.192.201]:55601 "EHLO
-	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751196Ab3LRHXM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 02:23:12 -0500
-Received: by mail-pd0-f201.google.com with SMTP id r10so817735pdi.4
-        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 23:23:11 -0800 (PST)
+Received: from mail-yh0-f74.google.com ([209.85.213.74]:37911 "EHLO
+	mail-yh0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751184Ab3LRHXa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 02:23:30 -0500
+Received: by mail-yh0-f74.google.com with SMTP id a41so705922yho.3
+        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 23:23:29 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -20,44 +20,32 @@ in an skbuff.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/sge.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index ec96130..787fef6 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -728,8 +728,9 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index cc380c3..4274543 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -1630,7 +1630,8 @@ static void do_gro(struct sge_eth_rxq *rxq, const struct pkt_gl *gl,
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	skb_record_rx_queue(skb, rxq->rspq.idx);
+ 	if (rxq->rspq.netdev->features & NETIF_F_RXHASH)
+-		skb->rxhash = (__force u32)pkt->rsshdr.hash_val;
++		skb_set_hash(skb, (__force u32)pkt->rsshdr.hash_val,
++			     PKT_HASH_TYPE_L3);
  
- 		skb_reserve(skb, pad + NET_SKB_PAD);
- 		skb_put(skb, len);
--		skb->rxhash = tpa_info->rxhash;
--		skb->l4_rxhash = tpa_info->l4_rxhash;
-+		skb_set_hash(skb, tpa_info->rxhash,
-+			     tpa_info->l4_rxhash ?
-+			     PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
+ 	if (unlikely(pkt->vlan_ex)) {
+ 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), ntohs(pkt->vlan));
+@@ -1686,7 +1687,8 @@ int t4_ethrx_handler(struct sge_rspq *q, const __be64 *rsp,
+ 	skb->protocol = eth_type_trans(skb, q->netdev);
+ 	skb_record_rx_queue(skb, q->idx);
+ 	if (skb->dev->features & NETIF_F_RXHASH)
+-		skb->rxhash = (__force u32)pkt->rsshdr.hash_val;
++		skb_set_hash(skb, (__force u32)pkt->rsshdr.hash_val,
++			     PKT_HASH_TYPE_L3);
  
- 		skb->protocol = eth_type_trans(skb, bp->dev);
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
-@@ -846,6 +847,7 @@ int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
- 		enum eth_rx_cqe_type cqe_fp_type;
- 		u16 len, pad, queue;
- 		u8 *data;
-+		u32 rxhash;
- 		bool l4_rxhash;
- 
- #ifdef BNX2X_STOP_ON_ERROR
-@@ -987,8 +989,9 @@ reuse_rx:
- 		skb->protocol = eth_type_trans(skb, bp->dev);
- 
- 		/* Set Toeplitz hash for a none-LRO skb */
--		skb->rxhash = bnx2x_get_rxhash(bp, cqe_fp, &l4_rxhash);
--		skb->l4_rxhash = l4_rxhash;
-+		rxhash = bnx2x_get_rxhash(bp, cqe_fp, &l4_rxhash);
-+		skb_set_hash(skb, rxhash,
-+			     l4_rxhash ? PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
- 
- 		skb_checksum_none_assert(skb);
+ 	rxq->stats.pkts++;
  
 -- 
 1.8.5.1
