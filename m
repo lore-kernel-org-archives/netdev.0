@@ -1,80 +1,47 @@
-From: Chen Weilong <chenweilong@huawei.com>
-Subject: [patch net-next 3/5] mac80211: fix checkpatch error
-Date: Wed, 18 Dec 2013 15:44:14 +0800
-Message-ID: <1387352656-860-4-git-send-email-chenweilong@huawei.com>
-References: <1387352656-860-1-git-send-email-chenweilong@huawei.com>
+From: Pontus Fuchs <pontus.fuchs@gmail.com>
+Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't
+ work.
+Date: Wed, 18 Dec 2013 08:50:11 +0100
+Message-ID: <52B153B3.4070903@gmail.com>
+References: <1342235583.20131211182804@eikelenboom.it> <CAB=NE6UfumA2xez1DvtDSBDZ72WF_tOozFo_8LRnMryYiSqD-A@mail.gmail.com> <871324710.20131211191104@eikelenboom.it> <CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com> <1937118387.20131216122200@eikelenboom.it> <52AEE60B.6030509@broadcom.com> <19210260274.20131216135644@eikelenboom.it> <CAGRGNgXHemM2FfnXgW5RbzhFT+9SfUfVkjdysK3+=_u3hWSacw@mail.gmail.com> <1534126119.20131217104548@eikelenboom.it> <387552477.20131217213319@eikelenboom.it> <20131217212709.GB5624@decadent.org.uk> <1254825772.20131217224914@eikelenboom.it>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>, <linville@tuxdriver.com>,
-	<johannes@sipsolutions.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Julian Calaby <julian.calaby@gmail.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	"Berg, Johannes" <johannes.berg@intel.com>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ilw@linux.intel.com" <ilw@linux.intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Avinash Patil <avinashapatil@gmail.com>
+To: Sander Eikelenboom <linux@eikelenboom.it>,
+	Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:14073 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751158Ab3LRHsV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 02:48:21 -0500
-In-Reply-To: <1387352656-860-1-git-send-email-chenweilong@huawei.com>
+Received: from mail-la0-f45.google.com ([209.85.215.45]:38394 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750961Ab3LRHuS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 02:50:18 -0500
+In-Reply-To: <1254825772.20131217224914@eikelenboom.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Weilong Chen <chenweilong@huawei.com>
+On 2013-12-17 22:49, Sander Eikelenboom wrote:
+>
+> Indeed, I looked for a crda hook for initramfs-tools but didn't find it, so skipped that idea
+> for the moment.
+>
+> So if i combine the two .. it's essentially just a very bad idea to compile the wireless stuff in.
+> It needs a access to a userland program at module load time, or it will block forever.
 
-Space required.
+The canonical trick to have cfg80211 built in is to execute crda 
+manually in your boot scripts. This will satisfy the initial request and 
+resolve the block.
 
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
----
- net/mac80211/rc80211_minstrel.c | 4 ++--
- net/mac80211/trace.h            | 2 +-
- net/mac80211/util.c             | 2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+Cheers,
 
-diff --git a/net/mac80211/rc80211_minstrel.c b/net/mac80211/rc80211_minstrel.c
-index 7fa1b36..781a1e2 100644
---- a/net/mac80211/rc80211_minstrel.c
-+++ b/net/mac80211/rc80211_minstrel.c
-@@ -135,7 +135,7 @@ minstrel_update_stats(struct minstrel_priv *mp, struct minstrel_sta_info *mi)
- 	u32 usecs;
- 	int i;
- 
--	for (i=0; i < MAX_THR_RATES; i++)
-+	for (i = 0; i < MAX_THR_RATES; i++)
- 	    tmp_tp_rate[i] = 0;
- 
- 	for (i = 0; i < mi->n_rates; i++) {
-@@ -190,7 +190,7 @@ minstrel_update_stats(struct minstrel_priv *mp, struct minstrel_sta_info *mi)
- 		 * choose the maximum throughput rate as max_prob_rate
- 		 * (2) if all success probabilities < 95%, the rate with
- 		 * highest success probability is choosen as max_prob_rate */
--		if (mr->probability >= MINSTREL_FRAC(95,100)) {
-+		if (mr->probability >= MINSTREL_FRAC(95, 100)) {
- 			if (mr->cur_tp >= mi->r[tmp_prob_rate].cur_tp)
- 				tmp_prob_rate = i;
- 		} else {
-diff --git a/net/mac80211/trace.h b/net/mac80211/trace.h
-index d4cee98..bec7371 100644
---- a/net/mac80211/trace.h
-+++ b/net/mac80211/trace.h
-@@ -560,7 +560,7 @@ TRACE_EVENT(drv_update_tkip_key,
- 
- 	TP_printk(
- 		LOCAL_PR_FMT VIF_PR_FMT STA_PR_FMT " iv32:%#x",
--		LOCAL_PR_ARG,VIF_PR_ARG,STA_PR_ARG, __entry->iv32
-+		LOCAL_PR_ARG, VIF_PR_ARG, STA_PR_ARG, __entry->iv32
- 	)
- );
- 
-diff --git a/net/mac80211/util.c b/net/mac80211/util.c
-index 9f9b9bd..0ec4d51 100644
---- a/net/mac80211/util.c
-+++ b/net/mac80211/util.c
-@@ -76,7 +76,7 @@ u8 *ieee80211_get_bssid(struct ieee80211_hdr *hdr, size_t len,
- 	}
- 
- 	if (ieee80211_is_ctl(fc)) {
--		if(ieee80211_is_pspoll(fc))
-+		if (ieee80211_is_pspoll(fc))
- 			return hdr->addr1;
- 
- 		if (ieee80211_is_back_req(fc)) {
--- 
-1.7.12
+Pontus
