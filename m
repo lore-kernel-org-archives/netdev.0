@@ -1,47 +1,109 @@
-From: Pontus Fuchs <pontus.fuchs@gmail.com>
-Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't
- work.
-Date: Wed, 18 Dec 2013 08:50:11 +0100
-Message-ID: <52B153B3.4070903@gmail.com>
-References: <1342235583.20131211182804@eikelenboom.it> <CAB=NE6UfumA2xez1DvtDSBDZ72WF_tOozFo_8LRnMryYiSqD-A@mail.gmail.com> <871324710.20131211191104@eikelenboom.it> <CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com> <1937118387.20131216122200@eikelenboom.it> <52AEE60B.6030509@broadcom.com> <19210260274.20131216135644@eikelenboom.it> <CAGRGNgXHemM2FfnXgW5RbzhFT+9SfUfVkjdysK3+=_u3hWSacw@mail.gmail.com> <1534126119.20131217104548@eikelenboom.it> <387552477.20131217213319@eikelenboom.it> <20131217212709.GB5624@decadent.org.uk> <1254825772.20131217224914@eikelenboom.it>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] net: neighbour: add neighbour dead check for neigh_timer_handler()
+Date: Wed, 18 Dec 2013 08:51:31 +0100
+Message-ID: <20131218075131.GD27460@order.stressinduktion.org>
+References: <529E9579.7090201@cn.fujitsu.com> <529EA9CF.2090008@huawei.com> <20131203.232122.852236751455974887.davem@davemloft.net> <529EC95A.5080908@huawei.com> <1386138457.30495.86.camel@edumazet-glaptop2.roam.corp.google.com> <529EF30A.4050609@huawei.com> <1386170645.30495.108.camel@edumazet-glaptop2.roam.corp.google.com> <529FC980.8020101@cn.fujitsu.com> <529FF066.1070307@huawei.com> <52B142AF.8070708@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Julian Calaby <julian.calaby@gmail.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ilw@linux.intel.com" <ilw@linux.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Avinash Patil <avinashapatil@gmail.com>
-To: Sander Eikelenboom <linux@eikelenboom.it>,
-	Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset=utf-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
+	joe@perches.com, vfalico@redhat.com, netdev@vger.kernel.org
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:38394 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750961Ab3LRHuS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 02:50:18 -0500
-In-Reply-To: <1254825772.20131217224914@eikelenboom.it>
+Received: from order.stressinduktion.org ([87.106.68.36]:35554 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751987Ab3LRHvd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 02:51:33 -0500
+Content-Disposition: inline
+In-Reply-To: <52B142AF.8070708@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013-12-17 22:49, Sander Eikelenboom wrote:
->
-> Indeed, I looked for a crda hook for initramfs-tools but didn't find it, so skipped that idea
-> for the moment.
->
-> So if i combine the two .. it's essentially just a very bad idea to compile the wireless stuff in.
-> It needs a access to a userland program at module load time, or it will block forever.
+Hi Ding!
 
-The canonical trick to have cfg80211 built in is to execute crda 
-manually in your boot scripts. This will satisfy the initial request and 
-resolve the block.
+May I step in for short?
 
-Cheers,
+On Wed, Dec 18, 2013 at 02:37:35PM +0800, Ding Tianhong wrote:
+> On 2013/12/5 11:17, Ding Tianhong wrote:
+> > On 2013/12/5 8:32, Gao feng wrote:
+> >> On 12/04/2013 11:24 PM, Eric Dumazet wrote:
+> >>> On Wed, 2013-12-04 at 17:16 +0800, Ding Tianhong wrote:
+> >>>>>> 						base->running_timer = neigh->timer;
+> >>>>>> 						neigh_timer_handler() => at this time, refcnt is 2;
+> >>>>>>
+> >>>>>> user->	neigh_changeaddr()
+> >>>>>> 	neigh_flush_dev();
+> >>>>>> 	neigh_del_imer, refcnt dec to 1;
+> >>>>>
+> >>>>> Nope : del_timer() would return 0 here, so we do not decrement refcnt.
+> >>>>>
+> >>>>
+> >>>> The first call for del_timer() will return 1, because the timer->entry.next is not NULL,
+> >>>> then in the neigh_destroy, the del_timer() again will return 0 because timer->entry.next is NULL. 
+> >>>
+> >>> Again no. You are very mistaken.
+> >>>
+> >>> del_timer() return code is not a hint. Its a precise meaning.
+> >>>
+> >>> It cannot return 1 if the timer function is running or is about to run.
+> >>>
+> >>> If you believe there is  bug in del_timer(), fix it ;)
+> >>>
+> >>>
+> >>
+> >> Yes, you are right, __run_timers did this job.
+> >> So We still don't know what's the root reason.
+> >>
+> > Yes, I miss it, the running timer is detached from the list, thanks for all above.
+> > 
+> > Regards
+> > Ding
+> > 
+> 
+> 
+> Hi Eric:
+> 
+> I was so doubt about the situation, can you give me some advise?
+> 
+> 	CPU0					  CPU1					  CPU2
+>       --------		      			--------                		---------
+> neigh_timer_handler				
+> write_lock(n->lock);		
+> 	...
+> write_unlock(n->lock);
+> n->ref_cnt = 2 or 3(if mode_time)				
+> 	...					neigh_flush_dev
+> 						write_lock(n->lock);
+> 						n->ref_cnt = 2;
+> 						n->nud_state = NUD_NONE;
+> 						write_unlock(n->lock);
+> 						neigh_release()
+> 						n->ref_cnt = 1;
+> 						...					neigh_periodic_work
+> 											write_lock(n->lock);
+> 											write_unlock(n->lock);
+> 											neigh_release();
+> 											kfree(n)
+> n->ops->solicit()									...
+> ...
+> 
+> if that possible? or I was totally wrong? pls give me some advise if I miss something, thanks a lot.
 
-Pontus
+When you first posted the patch I had my doubts that there is such
+race. E.g. n->dead was 0 in the neigh you posted. After all the neigh
+timer has its own reference and does check ->dead before proceeding. I maybe
+wrong because the memory could already be overwritten.
+
+(Maybe we should move the ->dead check inside the write_lock to use it as a
+barrier.)
+
+Maybe there was another dereference which caused the bug. Could you check if
+you have the code section from the panic? It should look something like
+
+Code: FF FF FF .. <FF> ..
+
+Sometimes using addr2line on vmlinux with the RIP could give another hint.
+
+Greetings,
+
+  Hannes
