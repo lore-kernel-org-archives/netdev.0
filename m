@@ -1,74 +1,55 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next v2 0/6] slight optimization of addr compare for
- some modules
-Date: Wed, 18 Dec 2013 18:06:35 +0800
-Message-ID: <52B173AB.6020901@huawei.com>
-References: <52AEB8B3.5010405@huawei.com>	 <1387205111.18217.7.camel@joe-AO722> <52AF13F4.5040409@gmail.com>	 <1387207006.18217.28.camel@joe-AO722> <1387214748.18217.52.camel@joe-AO722>	 <52AFAFDC.2080807@huawei.com> <52B1611E.4090608@huawei.com> <1387358236.13593.36.camel@joe-AO722>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Wed, 18 Dec 2013 11:15:23 +0100
+Message-ID: <20131218101523.GP13532@twins.programming.kicks-ass.net>
+References: <20131218125643.8ff140371e1f8c306327d354@canb.auug.org.au>
+ <20131217.212145.893665929052097867.davem@davemloft.net>
+ <20131217.213033.1019416869378407851.davem@davemloft.net>
+ <CAMuHMdUi4GQYR2p7enikEkTq1s-5YwirTzmo_tS0JwiE=dVmYw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ding Tianhong <dthxman@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:44896 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753173Ab3LRKGy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 05:06:54 -0500
-In-Reply-To: <1387358236.13593.36.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux-Next <linux-next@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	ffusco@redhat.com, dborkman@redhat.com, tgraf@redhat.com
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAMuHMdUi4GQYR2p7enikEkTq1s-5YwirTzmo_tS0JwiE=dVmYw@mail.gmail.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2013/12/18 17:17, Joe Perches wrote:
-> On Wed, 2013-12-18 at 16:47 +0800, Ding Tianhong wrote:
->> On 2013/12/17 9:58, Ding Tianhong wrote:
->>> On 2013/12/17 1:25, Joe Perches wrote:
->>>> These should still be inspected for appropriate use of
->>>> ether_addr_equal or ether_addr_equal_unaligned, but a
->>>> better cocci input sp-file is:
->>>>
->>>> $ cat ether_addr_equal_unaligned.cocci 
->>>> @@
->>>> expression e1;
->>>> expression e2;
->>>> @@
-> []
->> There are too many places need to be changed, should I make it in one patch or several pathset,
->> pls give me some advise. thanks
+On Wed, Dec 18, 2013 at 09:33:47AM +0100, Geert Uytterhoeven wrote:
+> On Wed, Dec 18, 2013 at 3:30 AM, David Miller <davem@davemloft.net> wrote:
+> > diff --git a/arch/alpha/include/asm/Kbuild b/arch/alpha/include/asm/Kbuild
+> > index f01fb50..a73a8e2 100644
+> > --- a/arch/alpha/include/asm/Kbuild
+> > +++ b/arch/alpha/include/asm/Kbuild
+> > @@ -4,3 +4,4 @@ generic-y += clkdev.h
+> >  generic-y += exec.h
+> >  generic-y += trace_clock.h
+> >  generic-y += preempt.h
+> > +generic-y += hash.h
 > 
-> Separate per-maintainer patches are generally good.
-> It can take several attempts to get these applied
-> in all the various trees.
+> Please keep them sorted.
 > 
-> So maybe 1 patch for each of most of these.  Maybe
-> some of these like drivers/media, drivers/mtd and
-> drivers/staging could probably be single patches.
-> 
+> Yes, Peter violated that too, when adding preempt.h.
 
-Hi Joe:
+So what I did was something like:
 
-I found there is a bug in spatch, it could not deal with 
--       memcmp(e1, e2, \(6\|ETH_ALEN\)) != 0
-+       !ether_addr_equal_unaligned(e1, e2)
+for i in arch/*/include/asm/Kbuild
+do
+	echo "generic-y += preempt.h" >> $i
+done
 
+Whoever is going to hand edit all gazillion archs for changes like that?
+And sort(1) is annoying in that it doesn't do in-place sort; you'll end
+up with empty files if you try the naive thing.
 
+Worse most of those Kbuild files include other random garbage, which
+makes automated sorting harder still.
 
-diff -u -p a/caif/cfrfml.c b/caif/cfrfml.c
---- a/caif/cfrfml.c
-+++ b/caif/cfrfml.c
-@@ -79,7 +79,7 @@ static struct cfpkt *rfm_append(struct c
-                return NULL;
-
-        /* Verify correct header */
--       if (memcmp(seghead, rfml->seghead, 6) != 0)
-+       if (!ether_addr_equal_unaligned(seghead, rfml->seghead) != 0)
-                return NULL;
-
-        tmppkt = cfpkt_append(rfml->incomplete_frm, pkt,
-
-
-Regards
-Ding 
-
-> 
+So unless there's a sane and easy way to keep it sorted; I'm going to
+ignore that rule.
