@@ -1,44 +1,43 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCHv2 ipsec-next] xfrm: Namespacify xfrm_policy_sk_bundles
-Date: Wed, 18 Dec 2013 05:33:58 +0000 (UTC)
-Message-ID: <slrnlb2cuh.32c.xiyou.wangcong@linux-6brj.site>
-References: <1387337658-28951-1-git-send-email-fan.du@windriver.com>
- <1387342211.19078.295.camel@edumazet-glaptop2.roam.corp.google.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 0/3] packet: deliver VLAN TPID to userspace
+Date: Wed, 18 Dec 2013 00:37:13 -0500 (EST)
+Message-ID: <20131218.003713.1615620624614481877.davem@davemloft.net>
+References: <87haa77fe3.wl%atzm@stratosphere.co.jp>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	bhutchings@solarflare.com, dborkman@redhat.com,
+	David.Laight@ACULAB.COM
+To: atzm@stratosphere.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:38987 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751540Ab3LRFeU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Dec 2013 00:34:20 -0500
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1Vt9m0-0007eg-1S
-	for netdev@vger.kernel.org; Wed, 18 Dec 2013 06:34:20 +0100
-Received: from c-24-5-209-215.hsd1.ca.comcast.net ([24.5.209.215])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 06:34:20 +0100
-Received: from xiyou.wangcong by c-24-5-209-215.hsd1.ca.comcast.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 06:34:20 +0100
+Received: from shards.monkeyblade.net ([149.20.54.216]:51527 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750910Ab3LRFhP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 00:37:15 -0500
+In-Reply-To: <87haa77fe3.wl%atzm@stratosphere.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 18 Dec 2013 at 04:50 GMT, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2013-12-18 at 11:34 +0800, Fan Du wrote:
->> -
->> -			spin_lock_bh(&net->xfrm.xfrm_policy_sk_bundle_lock);
->> -			xdst->u.dst.next = xfrm_policy_sk_bundles;
->> -			xfrm_policy_sk_bundles = &xdst->u.dst;
->> -			spin_unlock_bh(&net->xfrm.xfrm_policy_sk_bundle_lock);
->> -
->> +			xdst->u.dst.next = xchg(&net->xfrm.xfrm_policy_sk_bundles,
->> +						&xdst->u.dst);
->
-> This is not safe.
->
-> Take a look at include/linux/llist.h if you really want to avoid the
-> spinlock.
->
+From: Atzm Watanabe <atzm@stratosphere.co.jp>
+Date: Tue, 17 Dec 2013 22:53:24 +0900
 
-Exactly, xfrm_policy_sk_bundles list is only traversed after deletion.
+> This patchset enables userspace to get VLAN TPID as well as the VLAN TCI.
+> 
+> After the 802.1AD support, userspace packet receivers (packet dumper,
+> software switch, and the like) need how to know VLAN TPID in order to
+> reconstruct original tagged frame.
+> 
+> v4: Simply use sizeof(tp_padding) for zeroing the padding bytes,
+>     commented by David Laight.
+>     Use __u16 for tp_vlan_tpid in tpacket_hdr_variant1,
+>     commented by Daniel Borkmann.
+> 
+> v3: Add a definition which indicates whether tp_vlan_tpid is valid.
+>     Explicitly define pad bytes for tpacket{2,3}_hdr and pick the area
+>     for tp_vlan_tpid from the definition.  Commented by David Laight.
+> 
+> v2: Add BUILD_BUG_ON() to make current aligned size of
+>     struct tpacket{2,3}_hdr clear.  Commented by Ben Hutchings.
+
+Series applied, thank you.
