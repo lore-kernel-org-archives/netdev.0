@@ -1,64 +1,76 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 2/3] sctp: remove the never used 'return' and,
- redundant 'break'
-Date: Wed, 18 Dec 2013 09:06:54 -0500
-Message-ID: <20131218140654.GB10471@neilslaptop.think-freely.org>
-References: <52B168E0.1060108@huawei.com>
+From: Zhi Yong Wu <zwu.kernel@gmail.com>
+Subject: Re: [RFC PATCH] net, rps: bypass enqueue_to_backlog()
+Date: Wed, 18 Dec 2013 22:11:03 +0800
+Message-ID: <CAEH94Lh-Dujb9YbpFK0kTu2O3pGSf16rXwCWFWBE50K_4geHnA@mail.gmail.com>
+References: <1387371816-32476-1-git-send-email-zwu.kernel@gmail.com>
+	<1387374979.19078.309.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1387375442.19078.310.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Wang Weidong <wangweidong1@huawei.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Tom Herbert <therbert@google.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:40820 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753705Ab3LROHK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 09:07:10 -0500
-Content-Disposition: inline
-In-Reply-To: <52B168E0.1060108@huawei.com>
+Received: from mail-oa0-f49.google.com ([209.85.219.49]:37087 "EHLO
+	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753536Ab3LROLE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 09:11:04 -0500
+Received: by mail-oa0-f49.google.com with SMTP id i4so8215979oah.36
+        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 06:11:03 -0800 (PST)
+In-Reply-To: <1387375442.19078.310.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 18, 2013 at 05:20:32PM +0800, Wang Weidong wrote:
-> In switch() had do return, and never use the 'return NULL'. The
-> 'break' after return or goto has no effect. Remove it.
-> 
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
-> ---
->  net/sctp/input.c | 5 -----
->  1 file changed, 5 deletions(-)
-> 
-> diff --git a/net/sctp/input.c b/net/sctp/input.c
-> index 2a192a7..c956dc9 100644
-> --- a/net/sctp/input.c
-> +++ b/net/sctp/input.c
-> @@ -1120,15 +1120,10 @@ static struct sctp_association *__sctp_rcv_lookup_harder(struct net *net,
->  	case SCTP_CID_INIT:
->  	case SCTP_CID_INIT_ACK:
->  		return __sctp_rcv_init_lookup(net, skb, laddr, transportp);
-> -		break;
->  
->  	default:
->  		return __sctp_rcv_walk_lookup(net, skb, laddr, transportp);
-> -		break;
->  	}
-> -
-> -
-> -	return NULL;
->  }
->  
->  /* Lookup an association for an inbound skb. */
-> -- 
-> 1.7.12
-> 
-> 
-> 
+On Wed, Dec 18, 2013 at 10:04 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2013-12-18 at 05:56 -0800, Eric Dumazet wrote:
+>> On Wed, 2013-12-18 at 21:03 +0800, Zhi Yong Wu wrote:
+>> > From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+>> >
+>> > When local cpu is just target cpu which will handle network soft irq,
+>> > the packet should be directly injected to network stack, by bypassing
+>> > enqueue_to_backlog(), it can speed up the packet processing.
+>> >
+>> > HI, guys
+>> >
+>> > I checked the first several versions of RPS patch which seemed to have
+>> > this condition determination, but why was it removed later? Do i miss
+>> > anything? if yes, please correct me, thanks.
+>> >
+>> > Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+>> > ---
+>>
+>> Hmm... Could you elaborate ?
+>>
+>> At which point do you think this condition was tested or removed ?
+>>
+>> I think the idea was to drain NIC RX queues as fast as possible, then :
+>>
+>> - Send the IPI to remote cpus
+>> - process our queue in parallel with other cpus processing their own
+>> queue.
+>>
+>> If we process our packets through whole stack, packets for other cpus
+>> will have a fair amount of extra latency.
+>>
+>> Thats a tradeoff I suppose.
+>>
+>
+> Also note that going through the backlog permits thinks like
+>
+> 99bbc70741903c0  ("rps: selective flow shedding during softnet
+> overflow"
+it makes sense, but if cpu < 0, some packets seems to bypass the flow
+shedding stuff, That is, the flow limit will be not so accurate,
+right?
 
-If you're going to do this, it seems like you may just as well convert the
-switch to be if (ch->type && ch->type <= SCTP_CID_INIT_ACK) {...} else {...}
+>
+>
+>
 
 
-That seems like it would be more readable to me.
 
-Neil
+-- 
+Regards,
+
+Zhi Yong Wu
