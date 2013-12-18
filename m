@@ -1,50 +1,62 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH net-next 2/3] sctp: remove the never used 'return' and, redundant
- 'break'
-Date: Wed, 18 Dec 2013 17:20:32 +0800
-Message-ID: <52B168E0.1060108@huawei.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: ieee80211_i.h: shouldn't struct ps_data.tim be aligned unsigned
+ long?
+Date: Wed, 18 Dec 2013 01:23:05 -0800
+Message-ID: <1387358585.13593.40.camel@joe-AO722>
+References: <1387354564.13593.26.camel@joe-AO722>
+	 (sfid-20131218_091612_149215_EA847147) <1387358347.4694.2.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-sctp@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>
+Cc: Jiri Benc <jbenc@redhat.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:17286 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751411Ab3LRJVj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 04:21:39 -0500
+Received: from smtprelay0145.hostedemail.com ([216.40.44.145]:47590 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753153Ab3LRJXJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 04:23:09 -0500
+In-Reply-To: <1387358347.4694.2.camel@jlt4.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In switch() had do return, and never use the 'return NULL'. The
-'break' after return or goto has no effect. Remove it.
+On Wed, 2013-12-18 at 10:19 +0100, Johannes Berg wrote:
+> On Wed, 2013-12-18 at 00:16 -0800, Joe Perches wrote:
+> 
+> > Perhaps the
+> > 	u8 tim[sizeof...]
+> > member should be marked
+> > 	__aligned(sizeof(unsigned long))
+> > so that the cast to ulong when bitmap_empty
+> > is actually forced to be ulong aligned?
+> 
+> yeah, I suppose that's true.
+> 
+> > diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
+> > index ed5bf8b..e5a9c51 100644
+> > --- a/net/mac80211/ieee80211_i.h
+> > +++ b/net/mac80211/ieee80211_i.h
+> > @@ -245,7 +245,8 @@ struct ps_data {
+> >  	/* yes, this looks ugly, but guarantees that we can later use
+> >  	 * bitmap_empty :)
+> >  	 * NB: don't touch this bitmap, use sta_info_{set,clear}_tim_bit */
+> > -	u8 tim[sizeof(unsigned long) * BITS_TO_LONGS(IEEE80211_MAX_AID + 1)];
+> > +	u8 tim[sizeof(unsigned long) * BITS_TO_LONGS(IEEE80211_MAX_AID + 1)]
+> > +			__aligned(sizeof(unsigned long));
+> 
+> Care to send a proper patch? Otherwise I'll just re-do it and pick it up
+> that way ...
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
----
- net/sctp/input.c | 5 -----
- 1 file changed, 5 deletions(-)
+Hi Johannes.
 
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index 2a192a7..c956dc9 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -1120,15 +1120,10 @@ static struct sctp_association *__sctp_rcv_lookup_harder(struct net *net,
- 	case SCTP_CID_INIT:
- 	case SCTP_CID_INIT_ACK:
- 		return __sctp_rcv_init_lookup(net, skb, laddr, transportp);
--		break;
- 
- 	default:
- 		return __sctp_rcv_walk_lookup(net, skb, laddr, transportp);
--		break;
- 	}
--
--
--	return NULL;
- }
- 
- /* Lookup an association for an inbound skb. */
--- 
-1.7.12
+You can redo it easier than applying a patch
+from me.
+
+I just noticed it when the reformatting
+patch went by.
+
+No need to give a credit or anything.
+It's just a nit.
+
+cheers, Joe
