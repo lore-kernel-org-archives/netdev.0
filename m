@@ -1,76 +1,73 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Wed, 18 Dec 2013 11:32:21 +0100
-Message-ID: <CAMuHMdXHiKe6fjEHu0GrSVMAmvKuX9wOUdC2MW3uSjRAU5tnWA@mail.gmail.com>
-References: <20131218125643.8ff140371e1f8c306327d354@canb.auug.org.au>
-	<20131217.212145.893665929052097867.davem@davemloft.net>
-	<20131217.213033.1019416869378407851.davem@davemloft.net>
-	<CAMuHMdUi4GQYR2p7enikEkTq1s-5YwirTzmo_tS0JwiE=dVmYw@mail.gmail.com>
-	<20131218101523.GP13532@twins.programming.kicks-ass.net>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't work.
+Date: Wed, 18 Dec 2013 11:48:45 +0100
+Message-ID: <133955103.20131218114845@eikelenboom.it>
+References: <1342235583.20131211182804@eikelenboom.it> <CAB=NE6UfumA2xez1DvtDSBDZ72WF_tOozFo_8LRnMryYiSqD-A@mail.gmail.com> <871324710.20131211191104@eikelenboom.it> <CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com> <1937118387.20131216122200@eikelenboom.it> <52AEE60B.6030509@broadcom.com> <19210260274.20131216135644@eikelenboom.it> <CAGRGNgXHemM2FfnXgW5RbzhFT+9SfUfVkjdysK3+=_u3hWSacw@mail.gmail.com> <1534126119.20131217104548@eikelenboom.it> <387552477.20131217213319@eikelenboom.it> <20131217212709.GB5624@decadent.org.uk> <1254825772.20131217224914@eikelenboom.it> <CA+55aFxQg6=MAWEkEGz64Hz8OawvPyX=fpBOjY8cGBL5XgB9WQ@mail.gmail.com> <52B167F6.5060209@broadcom.com> (sfid-20131218_101718_355278_E8533498) <1387358785.4694.9.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-Next <linux-next@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Arend van Spriel <arend@broadcom.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Julian Calaby <julian.calaby@gmail.com>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	ffusco@redhat.com, dborkman@redhat.com, tgraf@redhat.com,
-	Joe Perches <joe@perches.com>
-To: Peter Zijlstra <peterz@infradead.org>
+	"ilw@linux.intel.com" <ilw@linux.intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Avinash Patil <avinashapatil@gmail.com>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131218101523.GP13532@twins.programming.kicks-ass.net>
+In-Reply-To: <1387358785.4694.9.camel@jlt4.sipsolutions.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 18, 2013 at 11:15 AM, Peter Zijlstra <peterz@infradead.org> wrote:
-> On Wed, Dec 18, 2013 at 09:33:47AM +0100, Geert Uytterhoeven wrote:
->> On Wed, Dec 18, 2013 at 3:30 AM, David Miller <davem@davemloft.net> wrote:
->> > diff --git a/arch/alpha/include/asm/Kbuild b/arch/alpha/include/asm/Kbuild
->> > index f01fb50..a73a8e2 100644
->> > --- a/arch/alpha/include/asm/Kbuild
->> > +++ b/arch/alpha/include/asm/Kbuild
->> > @@ -4,3 +4,4 @@ generic-y += clkdev.h
->> >  generic-y += exec.h
->> >  generic-y += trace_clock.h
->> >  generic-y += preempt.h
->> > +generic-y += hash.h
->>
->> Please keep them sorted.
->>
->> Yes, Peter violated that too, when adding preempt.h.
->
-> So what I did was something like:
->
-> for i in arch/*/include/asm/Kbuild
-> do
->         echo "generic-y += preempt.h" >> $i
-> done
->
-> Whoever is going to hand edit all gazillion archs for changes like that?
 
-So we need a script for that (adding Joe), that adds the "generic-y += ..."
-line to all architectures that don't have it yet, and don't provide their
-own version.
+Wednesday, December 18, 2013, 10:26:25 AM, you wrote:
 
-> And sort(1) is annoying in that it doesn't do in-place sort; you'll end
-> up with empty files if you try the naive thing.
->
-> Worse most of those Kbuild files include other random garbage, which
-> makes automated sorting harder still.
->
-> So unless there's a sane and easy way to keep it sorted; I'm going to
-> ignore that rule.
+> Hi all,
 
-Not keeping them sorted causes merge conflicts and duplicate/missing
-entries.
+> We really should be asking Luis to look at this who hasn't yet chimed
+> in, presumably because he's between jobs (and travelling IIRC)
 
-Gr{oetje,eeting}s,
+> On Wed, 2013-12-18 at 10:16 +0100, Arend van Spriel wrote:
+>> On 12/17/2013 11:06 PM, Linus Torvalds wrote:
+>> > We have literally had this *exact* same issue with firmware loading.
+>> > Network drivers shouldn't try to load firmware at module load time.
+>> > Same deal.
+>> 
+>> It is kind of a chicken and egg problem for (wireless) networking
+>> drivers. To get IFF_UP from the network layer you have to register a
+>> netdevice. For wireless drivers this means you have to register a wiphy
+>> device with cfg80211 which flags capabilities and optionally are custom
+>> regulatory domain. That information depends on the device and firmware
+>> used. And there we have a full circle.
 
-                        Geert
+> This is all really beside the point.
+
+> For this CRDA information, the kernel never actually *waits* for it, so
+> in the case that there's no reply, it uses the built-in world domain. So
+> it's not like request_firmware(), which will block boot forever, but
+> it's also not like request_firmware_nowait() which will eventually time
+> out and come back with an error if userspace isn't handling it (though
+> now that firmware loading is built in ...)
+
+> The issue is that it uses the built-in data *forever*, and what Sander
+> said was "or it will block forever" but just meant that it never was
+> able to do any further updates.
+
+> It *doesn't* actually block the boot process or such. Everything Linus
+> said is true but seems to have been written in understanding "blocks" as
+> "blocking the boot process", rather than "blocking further updates".
+
+> Regardless of this, even blocking further updates is a really bad idea.
+> There are a few ways to handle this, but I'll let Luis poke at that.
+
+Your description is correct, sorry if I was not clear.
 
 --
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+Sander
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+> johannes
