@@ -1,42 +1,81 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net] net: neighbour: add neighbour dead check for neigh_timer_handler()
-Date: Wed, 18 Dec 2013 16:57:01 +0800
-Message-ID: <52B1635D.7020205@huawei.com>
-References: <20131203.232122.852236751455974887.davem@davemloft.net> <529EC95A.5080908@huawei.com> <1386138457.30495.86.camel@edumazet-glaptop2.roam.corp.google.com> <529EF30A.4050609@huawei.com> <1386170645.30495.108.camel@edumazet-glaptop2.roam.corp.google.com> <529FC980.8020101@cn.fujitsu.com> <529FF066.1070307@huawei.com> <52B142AF.8070708@huawei.com> <20131218075131.GD27460@order.stressinduktion.org> <52B15A9F.6030301@huawei.com> <20131218084106.GF27460@order.stressinduktion.org>
+Subject: Re: [PATCH net-next v2 0/6] slight optimization of addr compare for
+ some modules
+Date: Wed, 18 Dec 2013 16:47:26 +0800
+Message-ID: <52B1611E.4090608@huawei.com>
+References: <52AEB8B3.5010405@huawei.com>	 <1387205111.18217.7.camel@joe-AO722> <52AF13F4.5040409@gmail.com>	 <1387207006.18217.28.camel@joe-AO722> <1387214748.18217.52.camel@joe-AO722> <52AFAFDC.2080807@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, <yoshfuji@linux-ipv6.org>,
-	<joe@perches.com>, <vfalico@redhat.com>, <netdev@vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>, Ding Tianhong <dthxman@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:62658 "EHLO
+Received: from szxga01-in.huawei.com ([119.145.14.64]:63624 "EHLO
 	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753161Ab3LRI7I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 03:59:08 -0500
-In-Reply-To: <20131218084106.GF27460@order.stressinduktion.org>
+	with ESMTP id S1750905Ab3LRJAP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 04:00:15 -0500
+In-Reply-To: <52AFAFDC.2080807@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/12/18 16:41, Hannes Frederic Sowa wrote:
-> On Wed, Dec 18, 2013 at 04:19:43PM +0800, Ding Tianhong wrote:
->> 0xffffffff812f8e29 <neigh_timer_handler+265>:   mov    0xe8(%rbx),%rax
->> 0xffffffff812f8e30 <neigh_timer_handler+272>:   mov    %rbp,%rsi
->> 0xffffffff812f8e33 <neigh_timer_handler+275>:   mov    %rbx,%rdi
->> 0xffffffff812f8e36 <neigh_timer_handler+278>:   callq  *0x8(%rax)						<-----crash
->> /usr/src/linux/net/core/neighbour.c: 877
->> 0xffffffff812f8e39 <neigh_timer_handler+281>:   lea    0x3c(%rbx),%rax
+On 2013/12/17 9:58, Ding Tianhong wrote:
+> On 2013/12/17 1:25, Joe Perches wrote:
+>> Hi again Ding.
+>>
+>> These should still be inspected for appropriate use of
+>> ether_addr_equal or ether_addr_equal_unaligned, but a
+>> better cocci input sp-file is:
+>>
+>> $ cat ether_addr_equal_unaligned.cocci 
+>> @@
+>> expression e1;
+>> expression e2;
+>> @@
+>>
+>> -	!memcmp(e1, e2, \(6\|ETH_ALEN\))
+>> +	ether_addr_equal_unaligned(e1, e2)
+>>
+>> @@
+>> expression e1;
+>> expression e2;
+>> @@
+>>
+>> -	memcmp(e1, e2, \(6\|ETH_ALEN\)) == 0
+>> +	ether_addr_equal_unaligned(e1, e2)
+>>
+>> @@
+>> expression e1;
+>> expression e2;
+>> @@
+>>
+>> -	memcmp(e1, e2, \(6\|ETH_ALEN\))
+>> +	!ether_addr_equal_unaligned(e1, e2)
+>>
+>> @@
+>> expression e1;
+>> expression e2;
+>> @@
+>>
+>> -	memcmp(e1, e2, \(6\|ETH_ALEN\)) != 0
+>> +	!ether_addr_equal_unaligned(e1, e2)
+>>
+>>
+>>
 > 
-> For me it looks like this:
+> great, thanks, I 'll try and test.
 > 
-> %rax is neigh->ops and the function pointer solicit is NULL and causes the the
-> page fault.
+> Regards
+> ding
 > 
-> 
-yes, it is. So I was trying to find the situation that may free the neighbour when
-the timer is running, but I could not yet.
+
+Hi Joe:
+
+There are too many places need to be changed, should I make it in one patch or several pathset,
+pls give me some advise. thanks
 
 Regards
 Ding
 
+>>
 > 
