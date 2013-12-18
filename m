@@ -1,49 +1,26 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next 1/3] netconf: rename PROXY_ARP to NEIGH_PROXY
-Date: Wed, 18 Dec 2013 12:06:45 -0500
-Message-ID: <52B1D625.5060002@mojatatu.com>
-References: <20131217223552.60d1f5cb@nehalam.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Wed, 18 Dec 2013 12:06:55 -0500 (EST)
+Message-ID: <20131218.120655.881363015739010955.davem@davemloft.net>
+References: <20131217.213033.1019416869378407851.davem@davemloft.net>
+	<CAMuHMdUi4GQYR2p7enikEkTq1s-5YwirTzmo_tS0JwiE=dVmYw@mail.gmail.com>
+	<20131218101523.GP13532@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:53774 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751930Ab3LRRGr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 12:06:47 -0500
-Received: by mail-ie0-f175.google.com with SMTP id x13so10219234ief.6
-        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 09:06:46 -0800 (PST)
-In-Reply-To: <20131217223552.60d1f5cb@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: geert@linux-m68k.org, sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ffusco@redhat.com, dborkman@redhat.com, tgraf@redhat.com
+To: peterz@infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131218101523.GP13532@twins.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/18/13 01:35, Stephen Hemminger wrote:
-> Use same field for both IPv4 (proxy_arp) and IPv6 (proxy_ndp)
-> so fix it before API is set to be a common name
->
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->
-> ---
->   include/uapi/linux/netconf.h |    2 +-
->   net/ipv4/devinet.c           |   10 +++++-----
->   2 files changed, 6 insertions(+), 6 deletions(-)
->
-> --- a/include/uapi/linux/netconf.h	2013-12-17 22:30:00.000000000 -0800
-> +++ b/include/uapi/linux/netconf.h	2013-12-17 22:31:07.973419694 -0800
-> @@ -14,7 +14,7 @@ enum {
->   	NETCONFA_FORWARDING,
->   	NETCONFA_RP_FILTER,
->   	NETCONFA_MC_FORWARDING,
-> -	NETCONFA_PROXY_ARP,
-> +	NETCONFA_PROXY_NEIGH,
->   	__NETCONFA_MAX
->   };
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Wed, 18 Dec 2013 11:15:23 +0100
 
-Can you do this? ;-> Why not #define NETCONFA_PROXY_NEIGH to be 
-NETCONFA_PROXY_ARP
+> So unless there's a sane and easy way to keep it sorted; I'm going to
+> ignore that rule.
 
-cheers,
-jamal
+Me too, it's unreasonable and of dubious value.
