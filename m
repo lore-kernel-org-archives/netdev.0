@@ -1,49 +1,52 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCHv3 net-next 0/7] pktgen IPsec support
-Date: Wed, 18 Dec 2013 08:41:22 -0500
-Message-ID: <52B1A602.2090903@mojatatu.com>
-References: <1387094284-2901-1-git-send-email-fan.du@windriver.com> <52AEF4ED.4020504@mojatatu.com> <52AFB580.5060403@windriver.com> <52B05482.7030400@gmail.com> <52B0FEEB.70508@windriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH] net, rps: bypass enqueue_to_backlog()
+Date: Wed, 18 Dec 2013 05:56:19 -0800
+Message-ID: <1387374979.19078.309.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1387371816-32476-1-git-send-email-zwu.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net,
-	steffen.klassert@secunet.com, hadi@cyberus.ca,
-	netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Cc: therbert@google.com, netdev@vger.kernel.org,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: Zhi Yong Wu <zwu.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:36367 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752673Ab3LRNlZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 08:41:25 -0500
-Received: by mail-ie0-f181.google.com with SMTP id e14so10193158iej.40
-        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 05:41:24 -0800 (PST)
-In-Reply-To: <52B0FEEB.70508@windriver.com>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:34106 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754067Ab3LRN4Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 08:56:16 -0500
+Received: by mail-pd0-f176.google.com with SMTP id w10so8242941pde.35
+        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 05:56:15 -0800 (PST)
+In-Reply-To: <1387371816-32476-1-git-send-email-zwu.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/17/13 20:48, Fan Du wrote:
->
->> Maybe i missed something - receiver wasnt affected in the discussion.
->> It was only the sender.
->
-> It's in this thread, see: 
-> http://www.spinics.net/lists/netdev/msg260537.html
->
+On Wed, 2013-12-18 at 21:03 +0800, Zhi Yong Wu wrote:
+> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+> 
+> When local cpu is just target cpu which will handle network soft irq,
+> the packet should be directly injected to network stack, by bypassing
+> enqueue_to_backlog(), it can speed up the packet processing.
+> 
+> HI, guys
+> 
+> I checked the first several versions of RPS patch which seemed to have
+> this condition determination, but why was it removed later? Do i miss
+> anything? if yes, please correct me, thanks.
+> 
+> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+> ---
 
-Ok, in that case please add my acked-by
+Hmm... Could you elaborate ?
 
-> No, those information does not belong to pktgen at all.
->
-> All we need is a 'spi' to point which SA to employ for the 
-> transformation. The SA, either
-> manually created temporally for pktgen test, or using existing 
-> one(though with different
-> tmpl info)will describe specific type(ESP/AH) or 
-> mode(Transport/Tunnel) in use.
->
+At which point do you think this condition was tested or removed ?
 
+I think the idea was to drain NIC RX queues as fast as possible, then :
 
-Fair enough.
+- Send the IPI to remote cpus
+- process our queue in parallel with other cpus processing their own
+queue.
 
-cheers,
-jamal
+If we process our packets through whole stack, packets for other cpus
+will have a fair amount of extra latency.
+
+Thats a tradeoff I suppose.
