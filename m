@@ -1,41 +1,47 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't
- work.
-Date: Wed, 18 Dec 2013 10:16:38 +0100
-Message-ID: <52B167F6.5060209@broadcom.com>
-References: <1342235583.20131211182804@eikelenboom.it>	<CAB=NE6UfumA2xez1DvtDSBDZ72WF_tOozFo_8LRnMryYiSqD-A@mail.gmail.com>	<871324710.20131211191104@eikelenboom.it>	<CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com>	<1937118387.20131216122200@eikelenboom.it>	<52AEE60B.6030509@broadcom.com>	<19210260274.20131216135644@eikelenboom.it>	<CAGRGNgXHemM2FfnXgW5RbzhFT+9SfUfVkjdysK3+=_u3hWSacw@mail.gmail.com>	<1534126119.20131217104548@eikelenboom.it>	<387552477.20131217213319@eikelenboom.it>	<20131217212709.GB5624@decadent.org.uk>	<1254825772.20131217224914@eikelenboom.it> <CA+55aFxQg6=MAWEkEGz64Hz8OawvPyX=fpBOjY8cGBL5XgB9WQ@mail.gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: RTM_DELROUTE on interface going down - when to send?
+Date: Wed, 18 Dec 2013 10:16:53 +0100
+Message-ID: <52B16805.2010601@6wind.com>
+References: <20131217110512.GA11216@unicorn.suse.cz> <CAKfDRXi86Tb6ocJ9kegfQqWDcXG8i20yxdK0UqSnQ=1WWaaOuQ@mail.gmail.com> <20131217140101.GB11216@unicorn.suse.cz>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	Julian Calaby <julian.calaby@gmail.com>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ilw@linux.intel.com" <ilw@linux.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Avinash Patil <avinashapatil@gmail.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Sander Eikelenboom <linux@eikelenboom.it>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFxQg6=MAWEkEGz64Hz8OawvPyX=fpBOjY8cGBL5XgB9WQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Network Development <netdev@vger.kernel.org>
+To: Michal Kubecek <mkubecek@suse.cz>,
+	Kristian Evensen <kristian.evensen@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f176.google.com ([74.125.82.176]:45704 "EHLO
+	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753746Ab3LRJRA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 04:17:00 -0500
+Received: by mail-we0-f176.google.com with SMTP id w62so7073402wes.7
+        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 01:16:59 -0800 (PST)
+In-Reply-To: <20131217140101.GB11216@unicorn.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/17/2013 11:06 PM, Linus Torvalds wrote:
-> We have literally had this *exact* same issue with firmware loading.
-> Network drivers shouldn't try to load firmware at module load time.
-> Same deal.
-
-It is kind of a chicken and egg problem for (wireless) networking
-drivers. To get IFF_UP from the network layer you have to register a
-netdevice. For wireless drivers this means you have to register a wiphy
-device with cfg80211 which flags capabilities and optionally are custom
-regulatory domain. That information depends on the device and firmware
-used. And there we have a full circle.
-
-Regards,
-Arend
+Le 17/12/2013 15:01, Michal Kubecek a =E9crit :
+> On Tue, Dec 17, 2013 at 01:11:32PM +0100, Kristian Evensen wrote:
+>> On Tue, Dec 17, 2013 at 12:05 PM, Michal Kubecek <mkubecek@suse.cz> =
+wrote:
+>>>
+>>> Before I start with the patch, I would like to ask: would it be mor=
+e
+>>> appropriate to send the message when the route is marked as dead or=
+ when
+>>> it is actually deleted from the trie?
+>>
+>> I noticed the same thing a few months ago and submitted a patch
+>> (http://www.spinics.net/lists/netdev/msg254106.html). However, it wa=
+s
+>> not applied because it would cause too much traffic on large-scale
+>> routers (see davem's reply here
+>> http://www.spinics.net/lists/netdev/msg254186.html).
+>
+> Thank you for the pointer. However, I agree that the inconsistencies
+> (IPv4 vs. IPv6, RTM_DELROUTE vs. RTM_NEWROUTE) are really unfortunate=
+=2E
+Sure. Note that this fix is regularly proposed, another pointer:
+http://patchwork.ozlabs.org/patch/195516/
