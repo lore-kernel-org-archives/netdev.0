@@ -1,38 +1,33 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 4/9] net: phy: icplus: fix checkpath error
-Date: Tue, 17 Dec 2013 21:38:08 -0800
-Message-ID: <1387345093-14168-5-git-send-email-f.fainelli@gmail.com>
-References: <1387345093-14168-1-git-send-email-f.fainelli@gmail.com>
-Cc: netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCHv2 ipsec-next] xfrm: Namespacify xfrm_policy_sk_bundles
+Date: Tue, 17 Dec 2013 21:44:45 -0800
+Message-ID: <1387345485.19078.299.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1387337658-28951-1-git-send-email-fan.du@windriver.com>
+	 <1387342211.19078.295.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <52B133C6.8070409@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: steffen.klassert@secunet.com, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f41.google.com ([209.85.219.41]:48300 "EHLO
-	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750853Ab3LRFi2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 00:38:28 -0500
-Received: by mail-oa0-f41.google.com with SMTP id j17so7713753oag.14
-        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 21:38:27 -0800 (PST)
-In-Reply-To: <1387345093-14168-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:42173 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750853Ab3LRFoq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 00:44:46 -0500
+Received: by mail-pd0-f178.google.com with SMTP id y10so7806344pdj.9
+        for <netdev@vger.kernel.org>; Tue, 17 Dec 2013 21:44:46 -0800 (PST)
+In-Reply-To: <52B133C6.8070409@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/icplus.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Wed, 2013-12-18 at 13:33 +0800, Fan Du wrote:
 
-diff --git a/drivers/net/phy/icplus.c b/drivers/net/phy/icplus.c
-index b5ddd50..97bf58b 100644
---- a/drivers/net/phy/icplus.c
-+++ b/drivers/net/phy/icplus.c
-@@ -48,7 +48,7 @@ MODULE_LICENSE("GPL");
- static int ip175c_config_init(struct phy_device *phydev)
- {
- 	int err, i;
--	static int full_reset_performed = 0;
-+	static int full_reset_performed;
- 
- 	if (full_reset_performed == 0) {
- 
--- 
-1.8.3.2
+> Hi Eric
+> 
+> Thanks for your attention,
+> I'm not follow why xchg here is unsafe, could you please elaborate a bit more?
+
+Read include/linux/llist.h and llist_add_batch() implementation,
+it will be very clear why your implementation is not safe.
