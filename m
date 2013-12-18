@@ -1,39 +1,47 @@
-From: Larissa paul <inno_48@yahoo.com>
-Subject: My Dearest
-Date: Wed, 18 Dec 2013 03:13:33 -0800 (PST)
-Message-ID: <1387365213.95612.YahooMailBasic@web163401.mail.gq1.yahoo.com>
-Reply-To: larissa_ijere001@yahoo.com
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Wed, 18 Dec 2013 12:33:24 +0100
+Message-ID: <20131218113324.GA30183@twins.programming.kicks-ass.net>
+References: <20131218125643.8ff140371e1f8c306327d354@canb.auug.org.au>
+ <20131217.212145.893665929052097867.davem@davemloft.net>
+ <20131217.213033.1019416869378407851.davem@davemloft.net>
+ <CAMuHMdUi4GQYR2p7enikEkTq1s-5YwirTzmo_tS0JwiE=dVmYw@mail.gmail.com>
+ <20131218101523.GP13532@twins.programming.kicks-ass.net>
+ <CAMuHMdXHiKe6fjEHu0GrSVMAmvKuX9wOUdC2MW3uSjRAU5tnWA@mail.gmail.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B74A4@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm43-vm5.bullet.mail.gq1.yahoo.com ([67.195.87.220]:27925 "HELO
-	nm43-vm5.bullet.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750910Ab3LRLVF convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Dec 2013 06:21:05 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
+	David Miller <davem@davemloft.net>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev@vger.kernel.org, Linux-Next <linux-next@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, ffusco@redhat.com,
+	dborkman@redhat.com, tgraf@redhat.com,
+	Joe Perches <joe@perches.com>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B74A4@saturn3.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Dec 18, 2013 at 11:07:34AM -0000, David Laight wrote:
+> > > And sort(1) is annoying in that it doesn't do in-place sort; you'll end
+> > > up with empty files if you try the naive thing.
+> > >
+> > > Worse most of those Kbuild files include other random garbage, which
+> > > makes automated sorting harder still.
+> > >
+> > > So unless there's a sane and easy way to keep it sorted; I'm going to
+> > > ignore that rule.
+> > 
+> > Not keeping them sorted causes merge conflicts and duplicate/missing
+> > entries.
 
-My Dearest=C2=A0=20
-=C2=A0
-How are you? I know this mail will come to you as a surprise, because y=
-ou don=E2=80=99t know me Let me first of all introduce myself to you, m=
-y name is miss Larissa Ijere Paul, 21 years old girl from Guinea Bissau=
-=2E I am tall and fair in complexion, I am loving and caring. I am writ=
-ing this mail to you with tears and sorrow from my heart. I appeal to y=
-ou to exercise a little patience and read through my letter,
-=C2=A0
-I wish to contact you personally for a long term relationship and busin=
-ess investment assistance in your Country so I feel quite safe dealing =
-with you in this important business, I=C2=A0 having gone through your r=
-emarkable profile which interested me to contact you,
-=C2=A0
-Please I have a lot of special things I want to discuses with you immed=
-iately I hear back from you, please contact me through my private email=
- address Larissa_ijere001@yahoo.com=C2=A0 I am waiting to hear from you=
- soon
-=C2=A0
-Miss Larissa,
+Surely sorting doesn't cure missing entries. Also sorting can at most
+reduce merge conflicts, not take them out entirely.
+
+> Edit in vi put cursor on the first line to be sorted and type !}sort
+> (assuming there is a nice blank line at the end).
+
+That's a manual operation, and therefore disqualified.
