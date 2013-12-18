@@ -1,44 +1,78 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: RE: [net-next 1/1] linux-firmware: 3.2.23.0 Firmware for Brocade
- Adapters
-Date: Tue, 17 Dec 2013 17:11:21 -0800
-Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86B69010E2DA@HQ1-EXCH01.corp.brocade.com>
-References: <1386482407-984-1-git-send-email-rmody@brocade.com>
- <1387152873.2803.8.camel@deadeye.wl.decadent.org.uk>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Wed, 18 Dec 2013 12:46:57 +1100
+Message-ID: <20131218124657.f573d9ae178ea37fa971456d@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dwmw2@infradead.org" <dwmw2@infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__18_Dec_2013_12_46_57_+1100_=TZRK9paHkOF+ET8"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Anjali Singhai Jain <anjali.singhai@intel.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:42273 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750839Ab3LRBL0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Dec 2013 20:11:26 -0500
-In-Reply-To: <1387152873.2803.8.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
+Received: from ozlabs.org ([203.10.76.45]:35210 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750875Ab3LRBrH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Dec 2013 20:47:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgQmVuLA0KDQo+RnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRvOmJlbkBkZWNhZGVudC5vcmcu
-dWtdDQo+U2VudDogU3VuZGF5LCBEZWNlbWJlciAxNSwgMjAxMyA0OjE1IFBNDQo+DQo+T24gU2F0
-LCAyMDEzLTEyLTA3IGF0IDIyOjAwIC0wODAwLCBSYXNlc2ggTW9keSB3cm90ZToNCj4+IFRoaXMg
-aXMgdGhlIGZpcm13YXJlIHBhdGNoIGZvciBCcm9jYWRlIDMuMi4yMy4wIEJGQSBhbmQgQk5BIGRy
-aXZlcnMuDQo+Pg0KPj4gU2lnbmVkLW9mZi1ieTogUmFzZXNoIE1vZHkgPHJtb2R5QGJyb2NhZGUu
-Y29tPg0KPj4gLS0tDQo+PiAgV0hFTkNFICAgICAgICAgICAgfCAgIDMgKysrDQo+PiAgY2Jmdy0z
-LjIuMy4wLmJpbiAgfCBCaW4gMCAtPiA0MTQwMTYgYnl0ZXMgIGN0MmZ3LTMuMi4zLjAuYmluIHwg
-QmluIDANCj4+IC0+IDU4MzY4OCBieXRlcyAgY3Rmdy0zLjIuMy4wLmJpbiAgfCBCaW4gMCAtPiA1
-Mzg3MTIgYnl0ZXMNCj4+ICA0IGZpbGVzIGNoYW5nZWQsIDMgaW5zZXJ0aW9ucygrKQ0KPj4gIGNy
-ZWF0ZSBtb2RlIDEwMDY0NCBjYmZ3LTMuMi4zLjAuYmluDQo+PiAgY3JlYXRlIG1vZGUgMTAwNjQ0
-IGN0MmZ3LTMuMi4zLjAuYmluDQo+PiAgY3JlYXRlIG1vZGUgMTAwNjQ0IGN0ZnctMy4yLjMuMC5i
-aW4NCj5bLi4uXQ0KPg0KPlRoaXMgcGF0Y2ggc2VlbXMgdG8gaGF2ZSBiZWVuIHRydW5jYXRlZCBp
-biB0cmFuc2l0Og0KPg0KPiQgZ2l0IGFtIC1zIH4vdG1wL1xbbmV0LW5leHRfMV8xXF1fbGludXgt
-DQo+ZmlybXdhcmVcOl8zLjIuMjMuMF9GaXJtd2FyZV9mb3JfQnJvY2FkZV9BZGFwdGVycy5tYm94
-DQo+QXBwbHlpbmc6IGxpbnV4LWZpcm13YXJlOiAzLjIuMjMuMCBGaXJtd2FyZSBmb3IgQnJvY2Fk
-ZSBBZGFwdGVycw0KPmVycm9yOiBjb3JydXB0IGJpbmFyeSBwYXRjaCBhdCBsaW5lIDEzNTQyOiB6
-bkhJS05nQlY1PkZKcUlRZ298I0B1czFXcV9EKEoNCj4NCj5QbGVhc2UgcmUtc2VuZCAoYnV0IG5v
-dCB0byB0aGUgbWFpbGluZyBsaXN0czsgaXQncyBwb2ludGxlc3MgdG8gc2VuZA0KPmJpbmFyaWVz
-IHRoZXJlKS4NCg0KUmVzZW5kaW5nIHRoZSBmaXJtd2FyZSBwYXRjaC4NCg0KVGhhbmtzLA0KLS1S
-YXNlc2gNCg==
+--Signature=_Wed__18_Dec_2013_12_46_57_+1100_=TZRK9paHkOF+ET8
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hi all,
+
+Today's linux-next merge of the net-next tree got a conflict in
+drivers/net/ethernet/intel/i40e/i40e_main.c between commit 3c325ced6aef
+("i40e: fix null dereference") from Linus' tree and commit bc7d338fbb3f
+("i40e: reinit flow for the main VSI") from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/net/ethernet/intel/i40e/i40e_main.c
+index 12b0932204ba,fba0aada062a..000000000000
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@@ -354,8 -354,8 +354,10 @@@ static struct rtnl_link_stats64 *i40e_g
+  	struct rtnl_link_stats64 *vsi_stats =3D i40e_get_vsi_stats_struct(vsi);
+  	int i;
+ =20
+ +	if (!vsi->tx_rings)
+ +		return stats;
++ 	if (test_bit(__I40E_DOWN, &vsi->state))
++ 		return stats;
+ =20
+  	rcu_read_lock();
+  	for (i =3D 0; i < vsi->num_queue_pairs; i++) {
+
+--Signature=_Wed__18_Dec_2013_12_46_57_+1100_=TZRK9paHkOF+ET8
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJSsP6VAAoJEMDTa8Ir7ZwVFGYP/iKa9Jk4cybLV+M1dOSPlNTm
+I1VgTGMpts/EN+/I4+L1ztPdrc4BhtugPdcHRzsfIr7BJIt0E0CJfOnU8uPjU5z7
+7KW0QBV6evvQN14PLpQyGaptsYLnq0zpCkkY7+Xf7zk1pgeFhdT38hHzAkDKsnAP
+UaPsT5fKdLC4pZtbcHQfNTwL2xnhooN+R2dIOaNQDAsJB86V2NM6Jf+X1/iwd3gE
+O4ZLeiwAY/yAOghshEDtEop7x0YXlx4BCKU76vQVov8WIxw//doGoyazlqaJzL/3
+H+zeHzYy6vUT958iuug5IImke3+rIQLAwJPKVhT3asYVNLZoHjxqnORDNl4Kp4Hg
+QIOz/vIayR0cz2MDGseAGN8/mcd4Z4l5ufJqeNKIw1YZzdQunJHrrwR3DLAWPRtJ
+livsqcrYl15VtE5xR7JTM4/vHt/IKlkkvZUCPJ/G1hz6q8GvFyd2GTRxyJO6pROZ
+eQ5cJiCq1ZmwfJrQ0g0IzjY3zagknFr6NBEh7rS3eyf5NCWYXmN5burSlY2hW3Fq
+DF1q5G0uy/GZqZoWJCJipK3POEu15v8tV8RTeL50flUuNJh1JwZsXTqx62NqgwfB
+FJLiKIlbLj39bq6Eo1gZ+1Aj0paT58ieSt7Mb2epRaE7fYbYqlG1dbW3KIk5ETV8
+AbBFIryzQBwF5uSN7mHg
+=rlje
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__18_Dec_2013_12_46_57_+1100_=TZRK9paHkOF+ET8--
