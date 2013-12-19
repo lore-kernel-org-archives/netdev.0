@@ -1,80 +1,51 @@
-From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: RE: [0/2] netxen: bug fix and diagnostics for possible (hardware?)
- bug
-Date: Thu, 19 Dec 2013 09:11:33 +0000
-Message-ID: <31AFFC7280259C4184970ABA9AFE8B938CF868E9@avmb3.qlogic.org>
-References: <1387257753-18676-1-git-send-email-david@gibson.dropbear.id.au>
- <31AFFC7280259C4184970ABA9AFE8B938CF85726@avmb3.qlogic.org>
- <20131218062231.GB32453@voom.fritz.box>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net-next v2] xen-netback: add gso_segs calculation
+Date: Thu, 19 Dec 2013 09:14:40 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD01BBCC2@AMSPEX01CL01.citrite.net>
+References: <1387280675-10295-1-git-send-email-paul.durrant@citrix.com>
+ <1387318507.19078.292.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Sony Chacko <sony.chacko@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	"snagarka@redhat.com" <snagarka@redhat.com>,
-	"tcamuso@redhat.com" <tcamuso@redhat.com>,
-	"vdasgupt@redhat.com" <vdasgupt@redhat.com>
-To: David Gibson <david@gibson.dropbear.id.au>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David Miller (davem@davemloft.net)" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:49298 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751075Ab3LSJLm convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Dec 2013 04:11:42 -0500
-In-Reply-To: <20131218062231.GB32453@voom.fritz.box>
+Received: from smtp02.citrix.com ([66.165.176.63]:8954 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751689Ab3LSJOo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Dec 2013 04:14:44 -0500
+In-Reply-To: <1387318507.19078.292.camel@edumazet-glaptop2.roam.corp.google.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> >From: David Gibson [mailto:david@gibson.dropbear.id.au]
->> >Sent: Tuesday, December 17, 2013 10:53 AM
->> >To: Manish Chopra; Sony Chacko; Rajesh Borundia
->> >Cc: netdev; snagarka@redhat.com; tcamuso@redhat.com;
->> >vdasgupt@redhat.com
->> >Subject: [0/2] netxen: bug fix and diagnostics for possible
->> >(hardware?) bug
->> >
->> >At Red Hat, we've hit a couple of customer cases with crashes in the
->> >netxen driver due to list corruption.  This seems to be very rarely
->> >triggered, and unfortunately the dumps we have don't have enough
->> >information to be certain of the cause, although we have a possible theory.
->> >
->> >I'm suggesting, therefore a patch to add some sanity checking which
->> >should help to at least localize and mitigate the problem when someone hits it
->in future.
->> >Please let me know if there's a better approach to doing this.
->> >
->> >That's 2/2.  1/2 is a fix for a clear bug I spotted along the way,
->> >but not one that could cause the symptoms we've seen.
->>
->> David,
->>
->> Having these checks in data path(Rx path) may have some performance
->> impact. It's better to root cause it instead of putting some sanity
->> checks.
->
->Obviously, but this was the best way I could think of to try narrowing down the
->root cause (at least trying to eliminate driver vs. firmware bug).
-
-David, Instead of making permanent changes in driver, can you please run your modified driver in selective customer environment where this issues is seen?
-Which may give some data point that what's the issue exactly and then we go by that.
-
->
->> We will get back to you on this.
->
->If you have a better idea for locating the root cause, please let me know.  I have
->access to a vmcore which I can poke around in.
-
-We will also try to reproduce the problem in our environment and debug this.
-Can you please give some details?
-
-1) what's the driver and firmware version used?
-2) which operating system and kernel version?
-3) please send the vmcore also with backtrace if available which can give some idea what can trigger this issue.
-4) Test case details:- what type of test is running on the system? Just to make sure we also try the same test cases in our environment.
-5) Server details (Number of CPus, memory etc.) if available.
-
-Thanks,
-Manish
-  
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
+aGFsZiBPZiBFcmljIER1bWF6ZXQNCj4gU2VudDogMTcgRGVjZW1iZXIgMjAxMyAyMjoxNQ0KPiBU
+bzogUGF1bCBEdXJyYW50DQo+IENjOiB4ZW4tZGV2ZWxAbGlzdHMueGVuLm9yZzsgbmV0ZGV2QHZn
+ZXIua2VybmVsLm9yZzsgV2VpIExpdTsgSWFuIENhbXBiZWxsOw0KPiBEYXZpZCBWcmFiZWwNCj4g
+U3ViamVjdDogUmU6IFtQQVRDSCBuZXQtbmV4dCB2Ml0geGVuLW5ldGJhY2s6IGFkZCBnc29fc2Vn
+cyBjYWxjdWxhdGlvbg0KPiANCj4gT24gVHVlLCAyMDEzLTEyLTE3IGF0IDExOjQ0ICswMDAwLCBQ
+YXVsIER1cnJhbnQgd3JvdGU6DQo+ID4gbmV0YmFjayBhbHJlYWR5IGhhcyBjb2RlIHdoaWNoIHBh
+cnNlcyBJUHY0IGFuZCB2NiBoZWFkZXJzIHRvIHNldCB1cA0KPiBjaGVja3N1bQ0KPiA+IG9mZnNl
+dHMgYW5kIHRoZXNlIGFyZSBhbHdheXMgYXBwbGllZCB0byBHU08gcGFja2V0cyBiZWluZyBzZW50
+IGZyb20NCj4gPiBmcm9udGVuZHMuIEl0J3MgdGhlcmVmb3JlIHN1Ym9wdGltYWwgdGhhdCBHU09z
+IGFyZSBiZWluZyBtYXJrZWQNCj4gPiBTS0JfR1NPX0RPREdZIHRvIGRlZmVyIHRoZSBnc29fc2Vn
+cyBjYWxjdWxhdGlvbiB3aGVuIG5ldGJhY2sgYWxyZWFkeQ0KPiBoYXMgYWxsDQo+ID4gbmVjZXNz
+YXJ5IGluZm9ybWF0aW9uIHRvIGhhbmQgdG8gZG8gdGhlIGNhbGN1bGF0aW9uLiBUaGlzIHBhdGNo
+IGFkZHMgdGhhdA0KPiA+IGNhbGN1bGF0aW9uLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogUGF1
+bCBEdXJyYW50IDxwYXVsLmR1cnJhbnRAY2l0cml4LmNvbT4NCj4gPiBDYzogV2VpIExpdSA8d2Vp
+LmxpdTJAY2l0cml4LmNvbT4NCj4gPiBDYzogSWFuIENhbXBiZWxsIDxpYW4uY2FtcGJlbGxAY2l0
+cml4LmNvbT4NCj4gPiBDYzogRGF2aWQgVnJhYmVsIDxkYXZpZC52cmFiZWxAY2l0cml4LmNvbT4N
+Cj4gPiBDYzogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KPiA+IC0tLQ0K
+PiANCj4gQWNrZWQtYnk6IEVyaWMgRHVtYXpldCA8ZWR1bWF6ZXRAZ29vZ2xlLmNvbT4NCj4gDQoN
+ClRoYW5rcyA6LSkNCg0KICBQYXVsDQoNCj4gDQo+IC0tDQo+IFRvIHVuc3Vic2NyaWJlIGZyb20g
+dGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluDQo+IHRoZSBi
+b2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnDQo+IE1vcmUgbWFq
+b3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRt
+bA0K
