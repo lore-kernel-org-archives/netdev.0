@@ -1,31 +1,43 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: HW accelerated support for setting skb->pkt_type?
-Date: Wed, 18 Dec 2013 18:29:37 -0800
-Message-ID: <CAGVrzca0P64D181XHjcXMOSMMsyyOEEGjH2KO9bChnN0dAbaTg@mail.gmail.com>
+From: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+Subject: Re: [net-next/master PATCH] lib: fix compile warning in hashlib_init
+Date: Thu, 19 Dec 2013 09:36:20 +0800
+Message-ID: <52B24D94.6090600@cn.fujitsu.com>
+References: <1387415314-21786-1-git-send-email-gaowanlong@cn.fujitsu.com> <20131219011506.GA27326@localhost> <52B24C92.8050201@iogearbox.net>
+Reply-To: gaowanlong@cn.fujitsu.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:37713 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751068Ab3LSCaS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 21:30:18 -0500
-Received: by mail-pd0-f181.google.com with SMTP id p10so472263pdj.26
-        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 18:30:17 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Fengguang Wu <fengguang.wu@intel.com>, davem@davemloft.net,
+	ffusco@redhat.com, kbuild-all@01.org,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Daniel Borkmann <borkmann@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52B24C92.8050201@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+On 12/19/2013 09:32 AM, Daniel Borkmann wrote:
+> On 12/19/2013 02:15 AM, Fengguang Wu wrote:
+>> CC the list.
+>>
+>> On Thu, Dec 19, 2013 at 09:08:34AM +0800, Wanlong Gao wrote:
+>>> /git/linux/lib/hash.c: In function 'hashlib_init':
+>>> /git/linux/lib/hash.c:35:2: warning: passing argument 1 of 'setup_arch_fast_hash' from incompatible pointer type [enabled by default]
+>>> /git/linux/include/asm-generic/hash.h:5:20: note: expected 'struct arch_hash_ops *' but argument is of type 'struct fast_hash_ops *'
+>>>
+>>> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+>>> Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+> 
+> That's already in netdev patchwork:
+> 
+> http://patchwork.ozlabs.org/patch/302908/
 
-I work with two Ethernet controllers which can tell on a per-packet
-basis whether this is a broadcast, unicast or multicast, eventually
-allowing me to bypass the initial checks done in eth_type_trans().
+Nice, thank you.
 
-Is there any other hardware out there which supports that, and is
-there any interest in optimizing that operation?
+Regards,
+Wanlong Gao
 
-Thanks
--- 
-Florian
+> 
+> Thanks !
+> 
