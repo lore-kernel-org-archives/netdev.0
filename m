@@ -1,40 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 2/8] drivers: net: Mark functions as static in
- qlcnic_83xx_hw.c
-Date: Thu, 19 Dec 2013 18:52:07 -0500 (EST)
-Message-ID: <20131219.185207.2281700394638423649.davem@davemloft.net>
+Subject: Re: [PATCH v3 3/8] drivers: net: Mark functions as static in
+ stmmac_platform.c
+Date: Thu, 19 Dec 2013 18:52:12 -0500 (EST)
+Message-ID: <20131219.185212.2216925356822187727.davem@davemloft.net>
 References: <04fe932bc3585620c91d511bb0894e45bb762ffa.1387382457.git.rashika.kheria@gmail.com>
-	<e50a81d6fd512838c98cd46a0ce66262da5cf811.1387382457.git.rashika.kheria@gmail.com>
+	<0f515b300a982f4a2f5a2e00ac08c5f783e81f4d.1387382457.git.rashika.kheria@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-7
 Content-Transfer-Encoding: base64
-Cc: linux-kernel@vger.kernel.org, himanshu.madhani@qlogic.com,
-	rajesh.borundia@qlogic.com, shahed.shaikh@qlogic.com,
-	jitendra.kalsaria@qlogic.com, sony.chacko@qlogic.com,
-	sucheta.chakraborty@qlogic.com, linux-driver@qlogic.com,
-	netdev@vger.kernel.org, josh@joshtriplett.org
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, josh@joshtriplett.org
 To: rashika.kheria@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e50a81d6fd512838c98cd46a0ce66262da5cf811.1387382457.git.rashika.kheria@gmail.com>
+In-Reply-To: <0f515b300a982f4a2f5a2e00ac08c5f783e81f4d.1387382457.git.rashika.kheria@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 RnJvbTogUmFzaGlrYSBLaGVyaWEgPHJhc2hpa2Eua2hlcmlhQGdtYWlsLmNvbT4NCkRhdGU6IFRo
-dSwgMTkgRGVjIDIwMTMgMTQ6MTg6MTEgKzA1MzANCg0KPiBUaGlzIHBhdGNoIG1hcmtzIHRoZSBm
-dW5jdGlvbiBxbGNuaWNfODN4eF9jbGVhcl9sZWdhY3lfaW50cl9tYXNrKCksDQo+IHFsY25pY184
-M3h4X3NldF9sZWdhY3lfaW50cl9tYXNrKCkgYW5kDQo+IHFsY25pY184M3h4X2VuYWJsZV9sZWdh
-Y3lfbXNpeF9tYnhfaW50cigpIGluIHFsY25pY184M3h4X2h3LmMgYXMgc3RhdGljDQo+IGJlY2F1
-c2UgdGhleSBhcmUgbm90IHVzZWQgb3V0c2lkZSB0aGlzIGZpbGUuDQo+IA0KPiBUaHVzLCBpdCBh
-bHNvIHJlbW92ZXMgdGhlIGZvbGxvd2luZyB3YXJuaW5ncw0KPiBpbiBldGhlcm5ldC9xbG9naWMv
-cWxjbmljL3FsY25pY184M3h4X2h3LmM6DQo+IA0KPiBkcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9n
-aWMvcWxjbmljL3FsY25pY184M3h4X2h3LmM6MzE4OjEzOiB3YXJuaW5nOiBubyBwcmV2aW91cyBw
-cm90b3R5cGUgZm9yIKFxbGNuaWNfODN4eF9jbGVhcl9sZWdhY3lfaW50cl9tYXNroiBbLVdtaXNz
-aW5nLXByb3RvdHlwZXNdDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxj
-bmljXzgzeHhfaHcuYzozMjM6MTM6IHdhcm5pbmc6IG5vIHByZXZpb3VzIHByb3RvdHlwZSBmb3Ig
-oXFsY25pY184M3h4X3NldF9sZWdhY3lfaW50cl9tYXNroiBbLVdtaXNzaW5nLXByb3RvdHlwZXNd
-DQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmljXzgzeHhfaHcuYzoz
-NDM6MTM6IHdhcm5pbmc6IG5vIHByZXZpb3VzIHByb3RvdHlwZSBmb3IgoXFsY25pY184M3h4X2Vu
-YWJsZV9sZWdhY3lfbXNpeF9tYnhfaW50cqIgWy1XbWlzc2luZy1wcm90b3R5cGVzXQ0KPiANCj4g
-U2lnbmVkLW9mZi1ieTogUmFzaGlrYSBLaGVyaWEgPHJhc2hpa2Eua2hlcmlhQGdtYWlsLmNvbT4N
-Cj4gUmV2aWV3ZWQtYnk6IEpvc2ggVHJpcGxldHQgPGpvc2hAam9zaHRyaXBsZXR0Lm9yZz4NCg0K
-QXBwbGllZC4NCg==
+dSwgMTkgRGVjIDIwMTMgMTQ6MTk6NDQgKzA1MzANCg0KPiBUaGlzIHBhdGNoIG1hcmtzIHRoZSBm
+dW5jdGlvbiBzdG1tYWNfcGx0ZnJfZnJlZXplKCkgYW5kDQo+IHN0bW1hY19wbHRmcl9yZXN0b3Jl
+KCkgaW4gc3RtbWFjX3BsYXRmb3JtLmMgYXMgc3RhdGljIGJlY2F1c2UgdGhleSBhcmUNCj4gbm90
+IHVzZWQgb3V0c2lkZSB0aGlzIGZpbGUuDQo+IA0KPiBUaHVzLCBpdCBhbHNvIHJlbW92ZXMgdGhl
+IGZvbGxvd2luZyB3YXJuaW5ncyBpbg0KPiBldGhlcm5ldC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNf
+cGxhdGZvcm0uYzoNCj4gDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L3N0bWljcm8vc3RtbWFjL3N0
+bW1hY19wbGF0Zm9ybS5jOjIyMjo1OiB3YXJuaW5nOiBubyBwcmV2aW91cyBwcm90b3R5cGUgZm9y
+IKFzdG1tYWNfcGx0ZnJfZnJlZXploiBbLVdtaXNzaW5nLXByb3RvdHlwZXNdDQo+IGRyaXZlcnMv
+bmV0L2V0aGVybmV0L3N0bWljcm8vc3RtbWFjL3N0bW1hY19wbGF0Zm9ybS5jOjIzNjo1OiB3YXJu
+aW5nOiBubyBwcmV2aW91cyBwcm90b3R5cGUgZm9yIKFzdG1tYWNfcGx0ZnJfcmVzdG9yZaIgWy1X
+bWlzc2luZy1wcm90b3R5cGVzXQ0KPiANCj4gU2lnbmVkLW9mZi1ieTogUmFzaGlrYSBLaGVyaWEg
+PHJhc2hpa2Eua2hlcmlhQGdtYWlsLmNvbT4NCj4gUmV2aWV3ZWQtYnk6IEpvc2ggVHJpcGxldHQg
+PGpvc2hAam9zaHRyaXBsZXR0Lm9yZz4NCg0KQXBwbGllZC4NCg==
