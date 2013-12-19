@@ -1,45 +1,40 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net] net: i40e: fix shifting error in i40e_led_get
-Date: Thu, 19 Dec 2013 23:41:18 +0100
-Message-ID: <52B3760E.2040706@redhat.com>
-References: <1387490237-27260-1-git-send-email-dborkman@redhat.com> <1387490676.2183.70.camel@jtkirshe-mobl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] hyperv: Add support for Virtual Receive Side
+ Scaling (vRSS)
+Date: Thu, 19 Dec 2013 18:00:01 -0500 (EST)
+Message-ID: <20131219.180001.2300376892730549121.davem@davemloft.net>
+References: <CA+mtBx-BBBQjVTOrnaow=GNc7VM5D2Zj8xr=fPM4b4f_xT7qkQ@mail.gmail.com>
+	<05be4f23ff784e56b710dd02eb88358a@DFM-DB3MBX15-08.exchange.corp.microsoft.com>
+	<CA+mtBx_SSPd6s5519dWCyPGmFvO=kE+Fh3ZQ9w9oo=pJraRAFQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19360 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756553Ab3LSWlX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Dec 2013 17:41:23 -0500
-In-Reply-To: <1387490676.2183.70.camel@jtkirshe-mobl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: haiyangz@microsoft.com, dborkman@redhat.com,
+	bhutchings@solarflare.com, netdev@vger.kernel.org,
+	kys@microsoft.com, olaf@aepfle.de, jasowang@redhat.com,
+	linux-kernel@vger.kernel.org,
+	driverdev-devel@linuxdriverproject.org
+To: therbert@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+mtBx_SSPd6s5519dWCyPGmFvO=kE+Fh3ZQ9w9oo=pJraRAFQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/19/2013 11:04 PM, Jeff Kirsher wrote:
-> On Thu, 2013-12-19 at 22:57 +0100, Daniel Borkmann wrote:
->> In function i40e_led_get(), we fetch the LED mode from the GPIO
->> registers and extract it from gpio_val. However, regardless of
->> the outcome of the fetched value in gpio_val, the calculation
->> to extract the mode will always be 0, as we do the following:
->>
->>    (gpio_val & (61440U /* 0xf << 12 */)) >> 17
->>
->> Instead of I40E_GLGEN_GPIO_CTL_INT_MODE_SHIFT, we need to use
->> I40E_GLGEN_GPIO_CTL_LED_MODE_SHIFT to fix this.
->>
->> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
->> ---
->>   Seems like this is still unfixed, so sending to netdev.
->>
->>   drivers/net/ethernet/intel/i40e/i40e_common.c | 4 ++--
->>   1 file changed, 2 insertions(+), 2 deletions(-)
->
-> Thanks Daniel, I may already have a patch in my queue that fixes this,
-> but if not, I will add this to my queue.
+From: Tom Herbert <therbert@google.com>
+Date: Thu, 19 Dec 2013 13:43:06 -0800
 
-I reported that plus fix > 1 months ago, so I guess it seems not
-yet in the queue. ;-)
+> +       u32 v, r;
+> +       int off, rem;
+> +
+> +       off = idx / 8;
+> +       rem = idx % 8;
+> +
+> +       v = (((unsigned int)key[off]) << 24) +
+> +           (((unsigned int)key[off + 1]) << 16) +
+> +           (((unsigned int)key[off + 2]) << 8) +
+> +           (((unsigned int)key[off + 3]));
+> +
+> +       r = v << rem | (unsigned int)key[off + 4] >> (8 - rem);
 
-Anyways, thanks Jeff!
+Minor nit, since the type you are using is "u32", that's probably what
+you should be casting to in these spots instead of "unsigned int".
