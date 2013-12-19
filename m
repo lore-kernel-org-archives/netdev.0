@@ -1,162 +1,142 @@
-From: Chen Weilong <chenweilong@huawei.com>
-Subject: [patch net-next 1/5] xfrm: checkpatch errors with space
-Date: Thu, 19 Dec 2013 20:22:10 +0800
-Message-ID: <1387455734-7624-2-git-send-email-chenweilong@huawei.com>
-References: <1387455734-7624-1-git-send-email-chenweilong@huawei.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH net v2 5/9] bridge: Fix the way to check if a local fdb
+ entry can be deleted
+Date: Thu, 19 Dec 2013 21:23:54 +0900
+Message-ID: <1387455834.4084.47.camel@ubuntu-vm-makita>
+References: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	 <1387281821-21342-6-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	 <52B09DB2.7040700@redhat.com> <1387341972.3563.71.camel@ubuntu-vm-makita>
+	 <52B1D9E6.7020201@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>,
-	<davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:7764 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756079Ab3LSMWm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 07:22:42 -0500
-In-Reply-To: <1387455734-7624-1-git-send-email-chenweilong@huawei.com>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:49953 "EHLO
+	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752488Ab3LSMYH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 07:24:07 -0500
+In-Reply-To: <52B1D9E6.7020201@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Weilong Chen <chenweilong@huawei.com>
+On Wed, 2013-12-18 at 12:22 -0500, Vlad Yasevich wrote:
+> On 12/17/2013 11:46 PM, Toshiaki Makita wrote:
+> > On Tue, 2013-12-17 at 13:53 -0500, Vlad Yasevich wrote:
+> >> On 12/17/2013 07:03 AM, Toshiaki Makita wrote:
+> > ...
+> >>>
+> >>> Note that this is a slight change in behavior where the bridge device can
+> >>> receive the traffic to the old address during the short window between
+> >>> calling br_fdb_changeaddr() and br_stp_recalculate_bridge_id() in
+> >>> br_device_event(). However, it is not a problem because we still have the
+> >>> address on the bridge device.
+> >>
+> >> I think you are understating the significance here a little bit.  The
+> >> change is that for a short period of time after a port has been removed,
+> >> packets addressed to the MAC of that port may be delivered only to
+> >> bridge device instead of being flooded.
+> >>
+> >>>
+> >>> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> >>> ---
+> >>>  net/bridge/br_fdb.c     | 10 +++++++++-
+> >>>  net/bridge/br_private.h |  6 ++++++
+> >>>  net/bridge/br_vlan.c    | 19 +++++++++++++++++++
+> >>>  3 files changed, 34 insertions(+), 1 deletion(-)
+> >>>
+> >>> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+> >>> index 5f1bd11..cf8b64e 100644
+> >>> --- a/net/bridge/br_fdb.c
+> >>> +++ b/net/bridge/br_fdb.c
+> >>> @@ -114,12 +114,20 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
+> >>>  					if (op != p &&
+> >>>  					    ether_addr_equal(op->dev->dev_addr,
+> >>>  							     f->addr.addr) &&
+> >>> -					    nbp_vlan_find(op, vid)) {
+> >>> +					    (!vid || nbp_vlan_find(op, vid))) {
+> >>>  						f->dst = op;
+> >>>  						goto skip_delete;
+> >>>  					}
+> >>>  				}
+> >>>  
+> >>> +				/* maybe bridge device has same hw addr? */
+> >>> +				if (ether_addr_equal(br->dev->dev_addr,
+> >>> +						     f->addr.addr) &&
+> >>
+> >> I think this really needs a
+> >>                                     br->dev->addr_assign_type ==
+> >> NET_ADDR_SET &&
+> >>> +				    (!vid || br_vlan_find(br, vid))) {
+> >>
+> >> That way we'll only do this if the user actively set the bridge mac
+> >> to one be the same as one of the ports.
+> > 
+> > Indeed I can do it but it affects patch 8...
+> > If we do, the final condition will be like
+> > 
+> > static void fdb_delete_local(..., bool check_br_addr)
+> > ...
+> >   if (p && ether_addr_equal(br->dev->dev_addr, addr) &&
+> >       (!check_br_addr || br->dev->addr_assign_type == NET_ADDR_SET) &&
+> >       (!vid || br_vlan_find(br, vid)))
+> > 
+> > void br_fdb_delete_by_port(...)
+> > ...
+> >   fdb_delete_local(br, p, f, true);
+> > 
+> > void nbp_vlan_delete(...)
+> > ...
+> >   fdb_delete_local(br, p, f, false);
+> >
+> 
+> Yes, you are right.  It does impact later patches.  I've been trying
+> to think of anyway to avoid that, but haven't found one so far.
+> 
+> > 
+> > And we can't change the order of function calls in br_add_if() in patch
+> > 4, which changes the behavior of traffic as well.
+> 
+> This one is different. First, the window here is a lot shorter
+> since there is no rcu grace period 
 
-This patch cleanup some space errors.
+Yes, there is no rcu grace period to wait for.
 
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
----
- net/xfrm/xfrm_policy.c | 10 +++++-----
- net/xfrm/xfrm_proc.c   |  2 +-
- net/xfrm/xfrm_state.c  | 10 +++++-----
- net/xfrm/xfrm_user.c   |  4 ++--
- 4 files changed, 13 insertions(+), 13 deletions(-)
+> and the notifier to worry
+> about.  
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 9a91f74..439c6a1 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1281,7 +1281,7 @@ xfrm_tmpl_resolve_one(struct xfrm_policy *policy, const struct flowi *fl,
- 	xfrm_address_t *saddr = xfrm_flowi_saddr(fl, family);
- 	xfrm_address_t tmp;
- 
--	for (nx=0, i = 0; i < policy->xfrm_nr; i++) {
-+	for (nx = 0, i = 0; i < policy->xfrm_nr; i++) {
- 		struct xfrm_state *x;
- 		xfrm_address_t *remote = daddr;
- 		xfrm_address_t *local  = saddr;
-@@ -1321,7 +1321,7 @@ xfrm_tmpl_resolve_one(struct xfrm_policy *policy, const struct flowi *fl,
- 	return nx;
- 
- fail:
--	for (nx--; nx>=0; nx--)
-+	for (nx--; nx >= 0; nx--)
- 		xfrm_state_put(xfrm[nx]);
- 	return error;
- }
-@@ -1358,7 +1358,7 @@ xfrm_tmpl_resolve(struct xfrm_policy **pols, int npols, const struct flowi *fl,
- 	return cnx;
- 
-  fail:
--	for (cnx--; cnx>=0; cnx--)
-+	for (cnx--; cnx >= 0; cnx--)
- 		xfrm_state_put(tpp[cnx]);
- 	return error;
- 
-@@ -2344,7 +2344,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
- 	if (skb->sp) {
- 		int i;
- 
--		for (i=skb->sp->len-1; i>=0; i--) {
-+		for (i = skb->sp->len-1; i >= 0; i--) {
- 			struct xfrm_state *x = skb->sp->xvec[i];
- 			if (!xfrm_selector_match(&x->sel, &fl, family)) {
- 				XFRM_INC_STATS(net, LINUX_MIB_XFRMINSTATEMISMATCH);
-@@ -2992,7 +2992,7 @@ static void xfrm_audit_common_policyinfo(struct xfrm_policy *xp,
- 		audit_log_format(audit_buf, " sec_alg=%u sec_doi=%u sec_obj=%s",
- 				 ctx->ctx_alg, ctx->ctx_doi, ctx->ctx_str);
- 
--	switch(sel->family) {
-+	switch (sel->family) {
- 	case AF_INET:
- 		audit_log_format(audit_buf, " src=%pI4", &sel->saddr.a4);
- 		if (sel->prefixlen_s != 32)
-diff --git a/net/xfrm/xfrm_proc.c b/net/xfrm/xfrm_proc.c
-index 80cd1e5..fc5abd0 100644
---- a/net/xfrm/xfrm_proc.c
-+++ b/net/xfrm/xfrm_proc.c
-@@ -52,7 +52,7 @@ static int xfrm_statistics_seq_show(struct seq_file *seq, void *v)
- {
- 	struct net *net = seq->private;
- 	int i;
--	for (i=0; xfrm_mib_list[i].name; i++)
-+	for (i = 0; xfrm_mib_list[i].name; i++)
- 		seq_printf(seq, "%-24s\t%lu\n", xfrm_mib_list[i].name,
- 			   snmp_fold_field((void __percpu **)
- 					   net->mib.xfrm_statistics,
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 68c2f35..5d31934 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -453,7 +453,7 @@ static enum hrtimer_restart xfrm_timer_handler(struct hrtimer * me)
- 	if (warn)
- 		km_state_expired(x, 0, 0);
- resched:
--	if (next != LONG_MAX){
-+	if (next != LONG_MAX) {
- 		tasklet_hrtimer_start(&x->mtimer, ktime_set(next, 0), HRTIMER_MODE_REL);
- 	}
- 
-@@ -1357,7 +1357,7 @@ int xfrm_state_check_expire(struct xfrm_state *x)
- 	if (x->curlft.bytes >= x->lft.hard_byte_limit ||
- 	    x->curlft.packets >= x->lft.hard_packet_limit) {
- 		x->km.state = XFRM_STATE_EXPIRED;
--		tasklet_hrtimer_start(&x->mtimer, ktime_set(0,0), HRTIMER_MODE_REL);
-+		tasklet_hrtimer_start(&x->mtimer, ktime_set(0, 0), HRTIMER_MODE_REL);
- 		return -EINVAL;
- 	}
- 
-@@ -1525,7 +1525,7 @@ int xfrm_alloc_spi(struct xfrm_state *x, u32 low, u32 high)
- 		x->id.spi = minspi;
- 	} else {
- 		u32 spi = 0;
--		for (h=0; h<high-low+1; h++) {
-+		for (h = 0; h < high-low+1; h++) {
- 			spi = low + net_random()%(high-low+1);
- 			x0 = xfrm_state_lookup(net, mark, &x->id.daddr, htonl(spi), x->id.proto, x->props.family);
- 			if (x0 == NULL) {
-@@ -2070,7 +2070,7 @@ static void xfrm_audit_helper_sainfo(struct xfrm_state *x,
- 		audit_log_format(audit_buf, " sec_alg=%u sec_doi=%u sec_obj=%s",
- 				 ctx->ctx_alg, ctx->ctx_doi, ctx->ctx_str);
- 
--	switch(x->props.family) {
-+	switch (x->props.family) {
- 	case AF_INET:
- 		audit_log_format(audit_buf, " src=%pI4 dst=%pI4",
- 				 &x->props.saddr.a4, &x->id.daddr.a4);
-@@ -2100,7 +2100,7 @@ static void xfrm_audit_helper_pktinfo(struct sk_buff *skb, u16 family,
- 		iph6 = ipv6_hdr(skb);
- 		audit_log_format(audit_buf,
- 				 " src=%pI6 dst=%pI6 flowlbl=0x%x%02x%02x",
--				 &iph6->saddr,&iph6->daddr,
-+				 &iph6->saddr, &iph6->daddr,
- 				 iph6->flow_lbl[0] & 0x0f,
- 				 iph6->flow_lbl[1],
- 				 iph6->flow_lbl[2]);
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index f964d4c..d998c7c 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -1740,11 +1740,11 @@ static int build_aevent(struct sk_buff *skb, struct xfrm_state *x, const struct
- 		return -EMSGSIZE;
- 
- 	id = nlmsg_data(nlh);
--	memcpy(&id->sa_id.daddr, &x->id.daddr,sizeof(x->id.daddr));
-+	memcpy(&id->sa_id.daddr, &x->id.daddr, sizeof(x->id.daddr));
- 	id->sa_id.spi = x->id.spi;
- 	id->sa_id.family = x->props.family;
- 	id->sa_id.proto = x->id.proto;
--	memcpy(&id->saddr, &x->props.saddr,sizeof(x->props.saddr));
-+	memcpy(&id->saddr, &x->props.saddr, sizeof(x->props.saddr));
- 	id->reqid = x->props.reqid;
- 	id->flags = c->data.aevent;
- 
--- 
-1.7.12
+There is call_netdevice_notifiers() between original position of
+br_fdb_insert() and changed position of it.
+
+> Second, the change here doesn't result in wrongful delivery
+> of packets.  Any packets matching the new fdb are dropped until the
+> port is enabled.
+
+Incoming frames from another port will be affected if they dereference
+the new entry during the window. They will be delivered to the bridge
+device instead of flooding.
+
+> 
+> So, patch 4 causes a 'drop rather then flood' change and the
+> window in which the change is visible is very small.
+> This patch causes 'deliver to bridge rather then flood' change and the
+> window is much larger (synchronize_net + netdev notifier chain overhead).
+
+As you say, synchronize_net() and notifiers relatively can take longer
+time than other functions in that window.
+
+So are you worried about the time length of the window?
+At least, we are in RTNL and the window should be short enough, observed
+by human.
+
+And what do you think is wrong as a bridge?
+It has that address. I can't find the reason flooding is better.
+
+I'm afraid the code get considerably complicated or ugly if we try to
+get rid of the window, as I showed by pseudo code in previous mail.
+
+Thanks,
+Toshiaki Makita
