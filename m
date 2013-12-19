@@ -1,85 +1,38 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 2/2] netlink: specify netlink packet direction for nlmon
-Date: Thu, 19 Dec 2013 02:29:39 +0100
-Message-ID: <1387416579-3098-3-git-send-email-dborkman@redhat.com>
-References: <1387416579-3098-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, Jakub Zawadzki <darkjames-ws@darkjames.pl>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43691 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751140Ab3LSDLg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Dec 2013 22:11:36 -0500
-In-Reply-To: <1387416579-3098-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Freddy Xin <freddy@asix.com.tw>
+Subject: Re: [PATCH 1/1] AX88179_178A: Add FLAG_HW_IPALIGN to determine whether
+ reserving NET_IP_ALIGN bytes for an SKB.
+Date: Thu, 19 Dec 2013 11:14:20 +0800
+Message-ID: <52B2648C.80500@asix.com.tw>
+References: <1386926708-2343-1-git-send-email-freddy@asix.com.tw> <AE90C24D6B3A694183C094C60CF0A2F6026B748A@saturn3.aculab.com> <52AEA3A8.2020906@asix.com.tw> <AE90C24D6B3A694183C094C60CF0A2F6026B7490@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: David Laight <David.Laight@ACULAB.COM>, netdev@vger.kernel.org,
+	davem@davemloft.net, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org, louis@asix.com.tw, allan@asix.com.tw
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7490@saturn3.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In order to facilitate development for netlink protocol dissector,
-fill the unused field skb->pkt_type of the cloned skb with a hint
-of the address space of the new owner (receiver) socket in the
-notion of "to kernel" resp. "to user".
 
-At the time we invoke __netlink_deliver_tap_skb(), we already have
-set the new skb owner via netlink_skb_set_owner_r(), so we can use
-that for netlink_is_kernel() probing.
+On 2013=E5=B9=B412=E6=9C=8816=E6=97=A5 18:09, David Laight wrote:
+>> I was thinking of something like: skb =3D netdev_alloc_skb(dev, leng=
+th=20
+>> + dev->skb_align, gfp); if (NET_IP_ALIGN && skb && !(ev->driver_flag=
+s=20
+>> & FLAG_HW_IPALIGN)) skb_reserve(skb, NET_IP_ALIGN); It might even be=
+=20
+>> reasonable to remove the length adjustment - provided that all the=20
+>> later code uses the skb length. David=20
 
-In normal PF_PACKET network traffic, this field denotes if the
-packet is destined for us (PACKET_HOST), if it's broadcast
-(PACKET_BROADCAST), etc.
+Thanks for your advice.
+In the way you advised, does the dev->skb_align equal
+to NET_IP_ALIGN in the case that HW doesn't supoort
+IP alignment?
+In other words, dev->skb_align should be initialized to
+NET_IP_ALIGN in USBNET, and I can change its value to
+0 in AX88179_178A driver, right?
 
-As we only have 3 bit reserved, "overload" the meaning of these
-flags for netlink skbs on nlmon devices, thus it can be picked up
-via sll_pkttype in struct sockaddr_ll. We have now:
-
- - PACKET_USER    ->  to user space
- - PACKET_KERNEL  ->  to kernel space
-
-Partial `ip a` example strace for sa_family=AF_NETLINK with detected
-nl msg direction:
-
-syscall:                     direction:
-sendto(3,  ...) = 40         /* to kernel */
-recvmsg(3, ...) = 3404       /* to user */
-recvmsg(3, ...) = 1120       /* to user */
-recvmsg(3, ...) = 20         /* to user */
-sendto(3,  ...) = 40         /* to kernel */
-recvmsg(3, ...) = 168        /* to user */
-recvmsg(3, ...) = 144        /* to user */
-recvmsg(3, ...) = 20         /* to user */
-
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Jakub Zawadzki <darkjames-ws@darkjames.pl>
----
- include/uapi/linux/if_packet.h | 3 +++
- net/netlink/af_netlink.c       | 2 ++
- 2 files changed, 5 insertions(+)
-
-diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
-index e9d844c..a8d4ff1 100644
---- a/include/uapi/linux/if_packet.h
-+++ b/include/uapi/linux/if_packet.h
-@@ -29,6 +29,9 @@ struct sockaddr_ll {
- /* These ones are invisible by user level */
- #define PACKET_LOOPBACK		5		/* MC/BRD frame looped back */
- #define PACKET_FASTROUTE	6		/* Fastrouted frame	*/
-+/* These ones are for nlmon devices */
-+#define PACKET_USER		0		/* To user space */
-+#define PACKET_KERNEL		1		/* To kernel space */
- 
- /* Packet socket options */
- 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 56e09d8..3f75f1c 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -204,6 +204,8 @@ static int __netlink_deliver_tap_skb(struct sk_buff *skb,
- 	if (nskb) {
- 		nskb->dev = dev;
- 		nskb->protocol = htons((u16) sk->sk_protocol);
-+		nskb->pkt_type = netlink_is_kernel(sk) ?
-+				 PACKET_KERNEL : PACKET_USER;
- 
- 		ret = dev_queue_xmit(nskb);
- 		if (unlikely(ret > 0))
--- 
-1.8.3.1
+     Freddy
