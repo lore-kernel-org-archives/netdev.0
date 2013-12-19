@@ -1,128 +1,85 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: FEC performance degradation with certain packet sizes
-Date: Thu, 19 Dec 2013 02:44:40 +0000
-Message-ID: <0afcc48493b941ffab991d52b7c97a0d@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <528F50AE.3030804@digi.com> <201311240540.23813.marex@denx.de>
-	 <529310A4.70906@digi.com> <52B1D0C6.6010305@digi.com>
- <1387388339.19078.321.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Marek Vasut <marex@denx.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Fabio.Estevam@freescale.com" <Fabio.Estevam@freescale.com>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Hector Palacios <hector.palacios@digi.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 2/2] netlink: specify netlink packet direction for nlmon
+Date: Thu, 19 Dec 2013 02:29:39 +0100
+Message-ID: <1387416579-3098-3-git-send-email-dborkman@redhat.com>
+References: <1387416579-3098-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, Jakub Zawadzki <darkjames-ws@darkjames.pl>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1lp0149.outbound.protection.outlook.com ([207.46.163.149]:22893
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+Received: from mx1.redhat.com ([209.132.183.28]:43691 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752381Ab3LSDA3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Dec 2013 22:00:29 -0500
-In-Reply-To: <1387388339.19078.321.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+	id S1751140Ab3LSDLg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Dec 2013 22:11:36 -0500
+In-Reply-To: <1387416579-3098-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0YTogVGh1cnNk
-YXksIERlY2VtYmVyIDE5LCAyMDEzIDE6MzkgQU0NCg0KPlRvOiBIZWN0b3IgUGFsYWNpb3MNCj5D
-YzogTWFyZWsgVmFzdXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEVzdGV2YW0gRmFiaW8tUjQ5
-NDk2Ow0KPnNoYXduLmd1b0BsaW5hcm8ub3JnOyBsLnN0YWNoQHBlbmd1dHJvbml4LmRlOyBMaSBG
-cmFuay1CMjA1OTY7IER1YW4gRnVnYW5nLQ0KPkIzODYxMTsgYmh1dGNoaW5nc0Bzb2xhcmZsYXJl
-LmNvbTsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldA0KPlN1YmplY3Q6IFJlOiBGRUMgcGVyZm9ybWFuY2Ug
-ZGVncmFkYXRpb24gd2l0aCBjZXJ0YWluIHBhY2tldCBzaXplcw0KPg0KPk9uIFdlZCwgMjAxMy0x
-Mi0xOCBhdCAxNzo0MyArMDEwMCwgSGVjdG9yIFBhbGFjaW9zIHdyb3RlOg0KPj4gSGVsbG8sDQo+
-Pg0KPj4gSSdtIHJlc2VuZGluZyB0aGlzIHRocmVhZCAocmV3b3JkZWQgdGhlIHN1YmplY3QpIHdp
-dGggYWRkaXRpb25hbCBwZW9wbGUgb24gQ0MuDQo+PiBJIGZvdW5kIHRoZSBpc3N1ZSBoYXBwZW5z
-IGFsc28gd2l0aCBhdXRvLW5lZ290aWF0ZWQgbGluayBhbmQgaXMgcmVwcm9kdWNpYmxlDQo+b24g
-dGhlDQo+PiBpLk1YNiBhcyB3ZWxsIGFzIG9uIHRoZSBpLk1YMjguIEl0IGxvb2tzIGxpa2UgYSBw
-cm9ibGVtIHdpdGggdGhlIGZlYyBkcml2ZXIuDQo+Pg0KPj4gU3RlcHMgdG8gcmVwcm9kdWNlOg0K
-Pj4gT24gdGhlIHRhcmdldDoNCj4+IAluZXRwaXBlDQo+PiBPbiB0aGUgaG9zdDoNCj4+IAluZXRw
-aXBlIC1oIDx0YXJnZXRfaXA+IC1uIDUNCj4+DQo+PiBBdCBjZXJ0YWluIHBhY2tldCBzaXplcyAo
-c3RhcnRpbmcgYWx3YXlzIGF0IDE1MzMgYnl0ZXMpLCB0aGUgcGVyZm9ybWFuY2UNCj5kcm9wcw0K
-Pj4gZHJhbWF0aWNhbGx5Og0KPj4NCj4+IE9uIGkuTVgyODoNCj4+IFsuLi5dDQo+PiAgIDQyOiAg
-ICAgNzcxIGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAgIDE5Ljc4IE1icHMgaW4gICAgIDI5Ny40
-MSB1c2VjDQo+PiAgIDQzOiAgICAxMDIxIGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAgIDIzLjI5
-IE1icHMgaW4gICAgIDMzNC40MSB1c2VjDQo+PiAgIDQ0OiAgICAxMDI0IGJ5dGVzICAgICAgNSB0
-aW1lcyAtLT4gICAgIDIzLjYxIE1icHMgaW4gICAgIDMzMC45MCB1c2VjDQo+PiAgIDQ1OiAgICAx
-MDI3IGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAgIDIzLjQzIE1icHMgaW4gICAgIDMzNC40MSB1
-c2VjDQo+PiAgIDQ2OiAgICAxNTMzIGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAgICAwLjEzIE1i
-cHMgaW4gICA4ODgxNy40OSB1c2VjDQo+PiAgIDQ3OiAgICAxNTM2IGJ5dGVzICAgICAgNSB0aW1l
-cyAtLT4gICAgICAwLjA2IE1icHMgaW4gIDE4OTkxNC45MSB1c2VjDQo+PiAgIDQ4OiAgICAxNTM5
-IGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAgICAwLjA2IE1icHMgaW4gIDIwNDkxNy4xOSB1c2Vj
-DQo+PiAgIDQ5OiAgICAyMDQ1IGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAgICAwLjA3IE1icHMg
-aW4gIDIxMDkzMS43OSB1c2VjDQo+PiAgIDUwOiAgICAyMDQ4IGJ5dGVzICAgICAgNSB0aW1lcyAt
-LT4gICAgICAwLjA3IE1icHMgaW4gIDIxMDkxOS4xMCB1c2VjDQo+PiAgIDUxOiAgICAyMDUxIGJ5
-dGVzICAgICAgNSB0aW1lcyAtLT4gICAgICAwLjA3IE1icHMgaW4gIDIxMjkxNS43MSB1c2VjDQo+
-PiAgIDUyOiAgICAzMDY5IGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAgIDM1LjQyIE1icHMgaW4g
-ICAgIDY2MS4wMSB1c2VjDQo+PiAgIDUzOiAgICAzMDcyIGJ5dGVzICAgICAgNSB0aW1lcyAtLT4g
-ICAgIDM1LjU3IE1icHMgaW4gICAgIDY1OS4wMCB1c2VjDQo+PiAgIDU0OiAgICAzMDc1IGJ5dGVz
-ICAgICAgNSB0aW1lcyAtLT4gICAgIDM1LjQyIE1icHMgaW4gICAgIDY2Mi4yOSB1c2VjDQo+PiAg
-IDU1OiAgICA0MDkzIGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAgIDQwLjAzIE1icHMgaW4gICAg
-IDc4MC4xOSB1c2VjDQo+PiAgIDU2OiAgICA0MDk2IGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAg
-IDQwLjc1IE1icHMgaW4gICAgIDc2Ni43OSB1c2VjDQo+PiAgIDU3OiAgICA0MDk5IGJ5dGVzICAg
-ICAgNSB0aW1lcyAtLT4gICAgIDQwLjY0IE1icHMgaW4gICAgIDc2OS40OSB1c2VjDQo+PiAgIDU4
-OiAgICA2MTQxIGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAgICAzLjA4IE1icHMgaW4gICAxNTE4
-Ny45MCB1c2VjDQo+PiAgIDU5OiAgICA2MTQ0IGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAgICAy
-Ljk0IE1icHMgaW4gICAxNTkyOC4xOSB1c2VjDQo+PiAgIDYwOiAgICA2MTQ3IGJ5dGVzICAgICAg
-NSB0aW1lcyAtLT4gICAgICA1LjU3IE1icHMgaW4gICAgODQxOC45MSB1c2VjDQo+PiAgIDYxOiAg
-ICA4MTg5IGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAgICAxLjM0IE1icHMgaW4gICA0NjU3NC45
-MCB1c2VjDQo+PiAgIDYyOiAgICA4MTkyIGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAgICAyLjE3
-IE1icHMgaW4gICAyODc4MS45OSB1c2VjDQo+PiAgIDYzOiAgICA4MTk1IGJ5dGVzICAgICAgNSB0
-aW1lcyAtLT4gICAgICAxLjM2IE1icHMgaW4gICA0NTkyMy42OSB1c2VjDQo+PiAgIDY0OiAgIDEy
-Mjg1IGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAgIDUxLjc4IE1icHMgaW4gICAgMTgxMC4yMSB1
-c2VjDQo+PiAgIDY1OiAgIDEyMjg4IGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAgIDUwLjQ2IE1i
-cHMgaW4gICAgMTg1Ny44MSB1c2VjDQo+PiAgIDY2OiAgIDEyMjkxIGJ5dGVzICAgICAgNSB0aW1l
-cyAtLT4gICAgIDU0LjAxIE1icHMgaW4gICAgMTczNi4yMSB1c2VjDQo+PiAgIDY3OiAgIDE2Mzgx
-IGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAgIDU1Ljg2IE1icHMgaW4gICAgMjIzNy41MCB1c2Vj
-DQo+PiAgIDY4OiAgIDE2Mzg0IGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAgIDU2LjkzIE1icHMg
-aW4gICAgMjE5NS43OSB1c2VjDQo+PiAgIDY5OiAgIDE2Mzg3IGJ5dGVzICAgICAgNSB0aW1lcyAt
-LT4gICAgIDM1LjYyIE1icHMgaW4gICAgMzUwOS42MCB1c2VjDQo+PiAgIDcwOiAgIDI0NTczIGJ5
-dGVzICAgICAgNSB0aW1lcyAtLT4gICAgICA3LjE5IE1icHMgaW4gICAyNjA3NS42MCB1c2VjDQo+
-PiAgIDcxOiAgIDI0NTc2IGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAgIDU4LjM2IE1icHMgaW4g
-ICAgMzIxMi41OSB1c2VjDQo+PiAgIDcyOiAgIDI0NTc5IGJ5dGVzICAgICAgNSB0aW1lcyAtLT4g
-ICAgICA3LjkyIE1icHMgaW4gICAyMzY3OC45MCB1c2VjDQo+PiAgIDczOiAgIDMyNzY1IGJ5dGVz
-ICAgICAgNSB0aW1lcyAtLT4gICAgIDU4LjE0IE1icHMgaW4gICAgNDI5OS43OSB1c2VjDQo+PiAg
-IDc0OiAgIDMyNzY4IGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAgICA1LjM0IE1icHMgaW4gICA0
-NjgxMC4yMCB1c2VjDQo+PiAgIDc1OiAgIDMyNzcxIGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAg
-IDQxLjUxIE1icHMgaW4gICAgNjAyMy4yMSB1c2VjDQo+PiAgIDc2OiAgIDQ5MTQ5IGJ5dGVzICAg
-ICAgNSB0aW1lcyAtLT4gICAgIDQ5LjYyIE1icHMgaW4gICAgNzU1Ny4yMCB1c2VjDQo+PiAgIDc3
-OiAgIDQ5MTUyIGJ5dGVzICAgICAgNSB0aW1lcyAtLT4gICAgIDQ4LjgyIE1icHMgaW4gICAgNzY4
-MS4xMSB1c2VjDQo+Pg0KPj4gT24gaS5NWDY6DQo+PiBbLi4uXQ0KPj4gICA0MjogICAgIDc3MSBi
-eXRlcyAgICAgIDUgdGltZXMgLS0+ICAgICAxNi4yMSBNYnBzIGluICAgICAzNjIuOTEgdXNlYw0K
-Pj4gICA0MzogICAgMTAyMSBieXRlcyAgICAgIDUgdGltZXMgLS0+ICAgICAxNy45NyBNYnBzIGlu
-ICAgICA0MzMuNTEgdXNlYw0KPj4gICA0NDogICAgMTAyNCBieXRlcyAgICAgIDUgdGltZXMgLS0+
-ICAgICAxOC4xOSBNYnBzIGluICAgICA0MjkuNDAgdXNlYw0KPj4gICA0NTogICAgMTAyNyBieXRl
-cyAgICAgIDUgdGltZXMgLS0+ICAgICAxOC4xNiBNYnBzIGluICAgICA0MzEuNDEgdXNlYw0KPj4g
-ICA0NjogICAgMTUzMyBieXRlcyAgICAgIDUgdGltZXMgLS0+ICAgICAgMi4zNSBNYnBzIGluICAg
-IDQ5NzAuMTEgdXNlYw0KPj4gICA0NzogICAgMTUzNiBieXRlcyAgICAgIDUgdGltZXMgLS0+ICAg
-ICAgMi4zNiBNYnBzIGluICAgIDQ5NTkuOTEgdXNlYw0KPj4gICA0ODogICAgMTUzOSBieXRlcyAg
-ICAgIDUgdGltZXMgLS0+ICAgICAgMi4zNyBNYnBzIGluICAgIDQ5NTkuMjAgdXNlYw0KPj4gICA0
-OTogICAgMjA0NSBieXRlcyAgICAgIDUgdGltZXMgLS0+ICAgICAgMy4xNCBNYnBzIGluICAgIDQ5
-NzIuMzEgdXNlYw0KPj4gICA1MDogICAgMjA0OCBieXRlcyAgICAgIDUgdGltZXMgLS0+ICAgICAg
-My4xNSBNYnBzIGluICAgIDQ5NTkuNTAgdXNlYw0KPj4gICA1MTogICAgMjA1MSBieXRlcyAgICAg
-IDUgdGltZXMgLS0+ICAgICAgMy4xNSBNYnBzIGluICAgIDQ5NjAuMDEgdXNlYw0KPj4gICA1Mjog
-ICAgMzA2OSBieXRlcyAgICAgIDUgdGltZXMgLS0+ICAgICAgNC43MCBNYnBzIGluICAgIDQ5ODQu
-MTkgdXNlYw0KPj4gICA1MzogICAgMzA3MiBieXRlcyAgICAgIDUgdGltZXMgLS0+ICAgICAgNC43
-MyBNYnBzIGluICAgIDQ5NjAuMTAgdXNlYw0KPj4gICA1NDogICAgMzA3NSBieXRlcyAgICAgIDUg
-dGltZXMgLS0+ICAgICAgNC43MyBNYnBzIGluICAgIDQ5NTcuODEgdXNlYw0KPj4gICA1NTogICAg
-NDA5MyBieXRlcyAgICAgIDUgdGltZXMgLS0+ICAgICAgNi4yOSBNYnBzIGluICAgIDQ5NjYuNzEg
-dXNlYw0KPj4gICA1NjogICAgNDA5NiBieXRlcyAgICAgIDUgdGltZXMgLS0+ICAgICAgNi4zMCBN
-YnBzIGluICAgIDQ5NjIuMDAgdXNlYw0KPj4gICA1NzogICAgNDA5OSBieXRlcyAgICAgIDUgdGlt
-ZXMgLS0+ICAgICAgNi4zMSBNYnBzIGluICAgIDQ5NTcuNzEgdXNlYw0KPj4gICA1ODogICAgNjE0
-MSBieXRlcyAgICAgIDUgdGltZXMgLS0+ICAgICA0OS4yNSBNYnBzIGluICAgICA5NTEuNDAgdXNl
-Yw0KPj4gICA1OTogICAgNjE0NCBieXRlcyAgICAgIDUgdGltZXMgLS0+ICAgICA0OS4yMyBNYnBz
-IGluICAgICA5NTIuMjEgdXNlYw0KPj4gICA2MDogICAgNjE0NyBieXRlcyAgICAgIDUgdGltZXMg
-LS0+ICAgICA0OS4xOCBNYnBzIGluICAgICA5NTMuNjkgdXNlYw0KPj4NCj4+IERvZXMgYW55b25l
-IGhhdmUgYW55IGNsdWUgYWJvdXQgd2hlcmUgdGhlIHByb2JsZW0gbWlnaHQgYmU/DQo+DQo+V2hh
-dCBpcyB0aGUgZHJpdmVyIGluIHVzZSA/DQo+DQo+SGF2ZSB5b3UgdHJpZWQgZGlzYWJsaW5nIHRz
-by9nc28gPw0KPg0KPmV0aHRvb2wgLWsgZXRoMA0KPg0KPmV0aHRvb2wgLUsgZXRoMCB0c28gb2Zm
-IGdzbyBvZmYNCj4NCg0KRW5ldCBJUCBkb24ndCBzdXBwb3J0IHRzbyBmZWF0dXJlLg0KDQpJIHdp
-bGwgcmVwcm9kdWNlIHRoZSBpc3N1ZSBpbiBpbXg2cS9kbCBzZCBwbGF0Zm9ybSwgYW5kIGFuYWx5
-emUgdGhlIGlzc3VlLg0KUHJldmlvdXMgdGVzdCwgd2UgZG9uJ3QgdXNlIG5ldHBpcGUgdG9vbCB0
-ZXN0IGV0aGVybmV0IHBlcmZvcm1hbmNlLg0KDQpUaGFua3MsDQpBbmR5DQo=
+In order to facilitate development for netlink protocol dissector,
+fill the unused field skb->pkt_type of the cloned skb with a hint
+of the address space of the new owner (receiver) socket in the
+notion of "to kernel" resp. "to user".
+
+At the time we invoke __netlink_deliver_tap_skb(), we already have
+set the new skb owner via netlink_skb_set_owner_r(), so we can use
+that for netlink_is_kernel() probing.
+
+In normal PF_PACKET network traffic, this field denotes if the
+packet is destined for us (PACKET_HOST), if it's broadcast
+(PACKET_BROADCAST), etc.
+
+As we only have 3 bit reserved, "overload" the meaning of these
+flags for netlink skbs on nlmon devices, thus it can be picked up
+via sll_pkttype in struct sockaddr_ll. We have now:
+
+ - PACKET_USER    ->  to user space
+ - PACKET_KERNEL  ->  to kernel space
+
+Partial `ip a` example strace for sa_family=AF_NETLINK with detected
+nl msg direction:
+
+syscall:                     direction:
+sendto(3,  ...) = 40         /* to kernel */
+recvmsg(3, ...) = 3404       /* to user */
+recvmsg(3, ...) = 1120       /* to user */
+recvmsg(3, ...) = 20         /* to user */
+sendto(3,  ...) = 40         /* to kernel */
+recvmsg(3, ...) = 168        /* to user */
+recvmsg(3, ...) = 144        /* to user */
+recvmsg(3, ...) = 20         /* to user */
+
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Jakub Zawadzki <darkjames-ws@darkjames.pl>
+---
+ include/uapi/linux/if_packet.h | 3 +++
+ net/netlink/af_netlink.c       | 2 ++
+ 2 files changed, 5 insertions(+)
+
+diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
+index e9d844c..a8d4ff1 100644
+--- a/include/uapi/linux/if_packet.h
++++ b/include/uapi/linux/if_packet.h
+@@ -29,6 +29,9 @@ struct sockaddr_ll {
+ /* These ones are invisible by user level */
+ #define PACKET_LOOPBACK		5		/* MC/BRD frame looped back */
+ #define PACKET_FASTROUTE	6		/* Fastrouted frame	*/
++/* These ones are for nlmon devices */
++#define PACKET_USER		0		/* To user space */
++#define PACKET_KERNEL		1		/* To kernel space */
+ 
+ /* Packet socket options */
+ 
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 56e09d8..3f75f1c 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -204,6 +204,8 @@ static int __netlink_deliver_tap_skb(struct sk_buff *skb,
+ 	if (nskb) {
+ 		nskb->dev = dev;
+ 		nskb->protocol = htons((u16) sk->sk_protocol);
++		nskb->pkt_type = netlink_is_kernel(sk) ?
++				 PACKET_KERNEL : PACKET_USER;
+ 
+ 		ret = dev_queue_xmit(nskb);
+ 		if (unlikely(ret > 0))
+-- 
+1.8.3.1
