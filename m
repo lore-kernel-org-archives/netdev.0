@@ -1,74 +1,177 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 6/6] batman-adv: fix alignment for batadv_tvlv_tt_change
-Date: Thu, 19 Dec 2013 01:15:32 +0100
-Message-ID: <1387412132-889-7-git-send-email-antonio@meshcoding.com>
+Subject: [PATCH 4/6] batman-adv: fix size of batadv_icmp_header
+Date: Thu, 19 Dec 2013 01:15:30 +0100
+Message-ID: <1387412132-889-5-git-send-email-antonio@meshcoding.com>
 References: <1387412132-889-1-git-send-email-antonio@meshcoding.com>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <antonio@meshcoding.com>,
 	Marek Lindner <mareklindner@neomailbox.ch>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:2070 "EHLO
+Received: from s3.neomailbox.net ([178.209.62.157]:26721 "EHLO
 	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751922Ab3LSASF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 19:18:05 -0500
+	with ESMTP id S1751474Ab3LSASM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 19:18:12 -0500
 In-Reply-To: <1387412132-889-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make struct batadv_tvlv_tt_change a multiple 4 bytes long
-to avoid padding on any architecture.
+struct batadv_icmp_header currently has a size of 17, which
+will be padded to 20 on some architectures. Fix this by
+unrolling the header into the parent structures.
+
+Moreover keep the ICMP parsing functions as generic as they
+are now by using a stub icmp_header struct during packet
+parsing.
 
 Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 ---
- net/batman-adv/packet.h            | 4 ++--
- net/batman-adv/translation-table.c | 6 ++++--
- 2 files changed, 6 insertions(+), 4 deletions(-)
+ net/batman-adv/main.c    |  4 ++--
+ net/batman-adv/packet.h  | 40 +++++++++++++++++++++++++++++++++++-----
+ net/batman-adv/routing.c | 14 +++++++-------
+ 3 files changed, 44 insertions(+), 14 deletions(-)
 
+diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
+index d87778b..1511f64 100644
+--- a/net/batman-adv/main.c
++++ b/net/batman-adv/main.c
+@@ -426,8 +426,8 @@ static void batadv_recv_handler_init(void)
+ 	BUILD_BUG_ON(offsetof(struct batadv_unicast_packet, dest) != 4);
+ 	BUILD_BUG_ON(offsetof(struct batadv_unicast_tvlv_packet, dst) != 4);
+ 	BUILD_BUG_ON(offsetof(struct batadv_frag_packet, dest) != 4);
+-	BUILD_BUG_ON(offsetof(struct batadv_icmp_packet, icmph.dst) != 4);
+-	BUILD_BUG_ON(offsetof(struct batadv_icmp_packet_rr, icmph.dst) != 4);
++	BUILD_BUG_ON(offsetof(struct batadv_icmp_packet, dst) != 4);
++	BUILD_BUG_ON(offsetof(struct batadv_icmp_packet_rr, dst) != 4);
+ 
+ 	/* broadcast packet */
+ 	batadv_rx_handler[BATADV_BCAST] = batadv_recv_bcast_packet;
 diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
-index 04cf27c..2dd8f24 100644
+index 175ce7d..2a857ed 100644
 --- a/net/batman-adv/packet.h
 +++ b/net/batman-adv/packet.h
-@@ -484,13 +484,13 @@ struct batadv_tvlv_tt_vlan_data {
-  * struct batadv_tvlv_tt_change - translation table diff data
-  * @flags: status indicators concerning the non-mesh client (see
-  *  batadv_tt_client_flags)
-- * @reserved: reserved field
-+ * @reserved: reserved field - useful for alignment purposes only
-  * @addr: mac address of non-mesh client that triggered this tt change
-  * @vid: VLAN identifier
+@@ -191,7 +191,7 @@ struct batadv_ogm_packet {
+ #define BATADV_OGM_HLEN sizeof(struct batadv_ogm_packet)
+ 
+ /**
+- * batadv_icmp_header - common ICMP header
++ * batadv_icmp_header - common members among all the ICMP packets
+  * @packet_type: batman-adv packet type, part of the general header
+  * @version: batman-adv protocol version, part of the genereal header
+  * @ttl: time to live for this packet, part of the genereal header
+@@ -199,6 +199,11 @@ struct batadv_ogm_packet {
+  * @dst: address of the destination node
+  * @orig: address of the source node
+  * @uid: local ICMP socket identifier
++ * @align: not used - useful for alignment purposes only
++ *
++ * This structure is used for ICMP packets parsing only and it is never sent
++ * over the wire. The alignment field at the end is there to ensure that
++ * members are padded the same way as they are in real packets.
   */
- struct batadv_tvlv_tt_change {
- 	uint8_t flags;
--	uint8_t reserved;
-+	uint8_t reserved[3];
- 	uint8_t addr[ETH_ALEN];
- 	__be16 vid;
+ struct batadv_icmp_header {
+ 	uint8_t  packet_type;
+@@ -208,16 +213,29 @@ struct batadv_icmp_header {
+ 	uint8_t  dst[ETH_ALEN];
+ 	uint8_t  orig[ETH_ALEN];
+ 	uint8_t  uid;
++	uint8_t  align[3];
  };
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 4add57d..ff625fe 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -333,7 +333,8 @@ static void batadv_tt_local_event(struct batadv_priv *bat_priv,
- 		return;
  
- 	tt_change_node->change.flags = flags;
--	tt_change_node->change.reserved = 0;
-+	memset(tt_change_node->change.reserved, 0,
-+	       sizeof(tt_change_node->change.reserved));
- 	memcpy(tt_change_node->change.addr, common->addr, ETH_ALEN);
- 	tt_change_node->change.vid = htons(common->vid);
+ /**
+  * batadv_icmp_packet - ICMP packet
+- * @icmph: common ICMP header
++ * @packet_type: batman-adv packet type, part of the general header
++ * @version: batman-adv protocol version, part of the genereal header
++ * @ttl: time to live for this packet, part of the genereal header
++ * @msg_type: ICMP packet type
++ * @dst: address of the destination node
++ * @orig: address of the source node
++ * @uid: local ICMP socket identifier
+  * @reserved: not used - useful for alignment
+  * @seqno: ICMP sequence number
+  */
+ struct batadv_icmp_packet {
+-	struct batadv_icmp_header icmph;
++	uint8_t  packet_type;
++	uint8_t  version;
++	uint8_t  ttl;
++	uint8_t  msg_type; /* see ICMP message types above */
++	uint8_t  dst[ETH_ALEN];
++	uint8_t  orig[ETH_ALEN];
++	uint8_t  uid;
+ 	uint8_t  reserved;
+ 	__be16   seqno;
+ };
+@@ -226,13 +244,25 @@ struct batadv_icmp_packet {
  
-@@ -2221,7 +2222,8 @@ static void batadv_tt_tvlv_generate(struct batadv_priv *bat_priv,
- 			       ETH_ALEN);
- 			tt_change->flags = tt_common_entry->flags;
- 			tt_change->vid = htons(tt_common_entry->vid);
--			tt_change->reserved = 0;
-+			memset(tt_change->reserved, 0,
-+			       sizeof(tt_change->reserved));
+ /**
+  * batadv_icmp_packet_rr - ICMP RouteRecord packet
+- * @icmph: common ICMP header
++ * @packet_type: batman-adv packet type, part of the general header
++ * @version: batman-adv protocol version, part of the genereal header
++ * @ttl: time to live for this packet, part of the genereal header
++ * @msg_type: ICMP packet type
++ * @dst: address of the destination node
++ * @orig: address of the source node
++ * @uid: local ICMP socket identifier
+  * @rr_cur: number of entries the rr array
+  * @seqno: ICMP sequence number
+  * @rr: route record array
+  */
+ struct batadv_icmp_packet_rr {
+-	struct batadv_icmp_header icmph;
++	uint8_t  packet_type;
++	uint8_t  version;
++	uint8_t  ttl;
++	uint8_t  msg_type; /* see ICMP message types above */
++	uint8_t  dst[ETH_ALEN];
++	uint8_t  orig[ETH_ALEN];
++	uint8_t  uid;
+ 	uint8_t  rr_cur;
+ 	__be16   seqno;
+ 	uint8_t  rr[BATADV_RR_LEN][ETH_ALEN];
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index 5b52d71..46278bf 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -338,9 +338,9 @@ static int batadv_recv_icmp_ttl_exceeded(struct batadv_priv *bat_priv,
+ 	icmp_packet = (struct batadv_icmp_packet *)skb->data;
  
- 			tt_num_entries++;
- 			tt_change++;
+ 	/* send TTL exceeded if packet is an echo request (traceroute) */
+-	if (icmp_packet->icmph.msg_type != BATADV_ECHO_REQUEST) {
++	if (icmp_packet->msg_type != BATADV_ECHO_REQUEST) {
+ 		pr_debug("Warning - can't forward icmp packet from %pM to %pM: ttl exceeded\n",
+-			 icmp_packet->icmph.orig, icmp_packet->icmph.dst);
++			 icmp_packet->orig, icmp_packet->dst);
+ 		goto out;
+ 	}
+ 
+@@ -349,7 +349,7 @@ static int batadv_recv_icmp_ttl_exceeded(struct batadv_priv *bat_priv,
+ 		goto out;
+ 
+ 	/* get routing information */
+-	orig_node = batadv_orig_hash_find(bat_priv, icmp_packet->icmph.orig);
++	orig_node = batadv_orig_hash_find(bat_priv, icmp_packet->orig);
+ 	if (!orig_node)
+ 		goto out;
+ 
+@@ -359,11 +359,11 @@ static int batadv_recv_icmp_ttl_exceeded(struct batadv_priv *bat_priv,
+ 
+ 	icmp_packet = (struct batadv_icmp_packet *)skb->data;
+ 
+-	memcpy(icmp_packet->icmph.dst, icmp_packet->icmph.orig, ETH_ALEN);
+-	memcpy(icmp_packet->icmph.orig, primary_if->net_dev->dev_addr,
++	memcpy(icmp_packet->dst, icmp_packet->orig, ETH_ALEN);
++	memcpy(icmp_packet->orig, primary_if->net_dev->dev_addr,
+ 	       ETH_ALEN);
+-	icmp_packet->icmph.msg_type = BATADV_TTL_EXCEEDED;
+-	icmp_packet->icmph.ttl = BATADV_TTL;
++	icmp_packet->msg_type = BATADV_TTL_EXCEEDED;
++	icmp_packet->ttl = BATADV_TTL;
+ 
+ 	if (batadv_send_skb_to_orig(skb, orig_node, NULL) != NET_XMIT_DROP)
+ 		ret = NET_RX_SUCCESS;
 -- 
 1.8.5.1
