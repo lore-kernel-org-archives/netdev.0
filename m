@@ -1,111 +1,45 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH] bnx2x: cleanup skb_set_hash
-Date: Thu, 19 Dec 2013 08:59:08 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1312190856320.8092@tomh.mtv.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Multicast routing stops functioning after 4G multicast packets
+ recived.
+Date: Thu, 19 Dec 2013 09:24:18 -0800
+Message-ID: <1387473858.19078.362.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20131219162810.55810@gmx.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org
+To: Bob Falken <NetFestivalHaveFun@gmx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f202.google.com ([209.85.220.202]:35765 "EHLO
-	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751035Ab3LSQ7L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 11:59:11 -0500
-Received: by mail-vc0-f202.google.com with SMTP id hu19so27511vcb.3
-        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 08:59:09 -0800 (PST)
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:59990 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753900Ab3LSRYW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 12:24:22 -0500
+Received: by mail-pd0-f176.google.com with SMTP id w10so1376654pde.21
+        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 09:24:21 -0800 (PST)
+In-Reply-To: <20131219162810.55810@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Save pkt_hash_types in tpa structure.
+On Thu, 2013-12-19 at 17:28 +0100, Bob Falken wrote:
+> The only reason why i give information about 2.6.36.4 is that its the
+> only latest kernel that was functioning properly.
+> i.e kernel >= 2.6.37 is not woking. so its a bisecting of the kernel
+> versions to help a coder see when/where the isse was implemented in
+> the kernel.
+> 
+> I do not need a backport patch for an old kernel, I generally only
+> need the issue looked into and get fixed so that I dont have to use an
+> old kernel. :)
+> 
+> I have no issue reproducing the issue on the recent kernels. however i
+> have not tried the GIT kernel.
+> 
+> I restarted the server just a moment ago. i will install and run
+> dropwatch and provide feedback in about 17hours. 
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h     |  2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 23 +++++++++++------------
- 2 files changed, 12 insertions(+), 13 deletions(-)
+You said that "cat /proc/net/ip_mr_cache" gives nothing at all after
+2^32 packets ?
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index a1f66e2..a6d8406 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -472,7 +472,7 @@ struct bnx2x_agg_info {
- 	u16			vlan_tag;
- 	u16			len_on_bd;
- 	u32			rxhash;
--	bool			l4_rxhash;
-+	enum pkt_hash_types	rxhash_type;
- 	u16			gro_size;
- 	u16			full_page;
- };
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 787fef6..37b203b 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -354,7 +354,7 @@ static inline void bnx2x_update_sge_prod(struct bnx2x_fastpath *fp,
-  */
- static u32 bnx2x_get_rxhash(const struct bnx2x *bp,
- 			    const struct eth_fast_path_rx_cqe *cqe,
--			    bool *l4_rxhash)
-+			    enum pkt_hash_types *rxhash_type)
- {
- 	/* Get Toeplitz hash from CQE */
- 	if ((bp->dev->features & NETIF_F_RXHASH) &&
-@@ -362,11 +362,13 @@ static u32 bnx2x_get_rxhash(const struct bnx2x *bp,
- 		enum eth_rss_hash_type htype;
- 
- 		htype = cqe->status_flags & ETH_FAST_PATH_RX_CQE_RSS_HASH_TYPE;
--		*l4_rxhash = (htype == TCP_IPV4_HASH_TYPE) ||
--			     (htype == TCP_IPV6_HASH_TYPE);
-+		*rxhash_type = ((htype == TCP_IPV4_HASH_TYPE) ||
-+				(htype == TCP_IPV6_HASH_TYPE)) ?
-+			       PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3;
-+
- 		return le32_to_cpu(cqe->rss_hash_result);
- 	}
--	*l4_rxhash = false;
-+	*rxhash_type = PKT_HASH_TYPE_NONE;
- 	return 0;
- }
- 
-@@ -420,7 +422,7 @@ static void bnx2x_tpa_start(struct bnx2x_fastpath *fp, u16 queue,
- 	tpa_info->tpa_state = BNX2X_TPA_START;
- 	tpa_info->len_on_bd = le16_to_cpu(cqe->len_on_bd);
- 	tpa_info->placement_offset = cqe->placement_offset;
--	tpa_info->rxhash = bnx2x_get_rxhash(bp, cqe, &tpa_info->l4_rxhash);
-+	tpa_info->rxhash = bnx2x_get_rxhash(bp, cqe, &tpa_info->rxhash_type);
- 	if (fp->mode == TPA_MODE_GRO) {
- 		u16 gro_size = le16_to_cpu(cqe->pkt_len_or_gro_seg_len);
- 		tpa_info->full_page = SGE_PAGES / gro_size * gro_size;
-@@ -728,9 +730,7 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, struct bnx2x_fastpath *fp,
- 
- 		skb_reserve(skb, pad + NET_SKB_PAD);
- 		skb_put(skb, len);
--		skb_set_hash(skb, tpa_info->rxhash,
--			     tpa_info->l4_rxhash ?
--			     PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
-+		skb_set_hash(skb, tpa_info->rxhash, tpa_info->rxhash_type);
- 
- 		skb->protocol = eth_type_trans(skb, bp->dev);
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
-@@ -848,7 +848,7 @@ int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
- 		u16 len, pad, queue;
- 		u8 *data;
- 		u32 rxhash;
--		bool l4_rxhash;
-+		enum pkt_hash_types rxhash_type;
- 
- #ifdef BNX2X_STOP_ON_ERROR
- 		if (unlikely(bp->panic))
-@@ -989,9 +989,8 @@ reuse_rx:
- 		skb->protocol = eth_type_trans(skb, bp->dev);
- 
- 		/* Set Toeplitz hash for a none-LRO skb */
--		rxhash = bnx2x_get_rxhash(bp, cqe_fp, &l4_rxhash);
--		skb_set_hash(skb, rxhash,
--			     l4_rxhash ? PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
-+		rxhash = bnx2x_get_rxhash(bp, cqe_fp, &rxhash_type);
-+		skb_set_hash(skb, rxhash, rxhash_type);
- 
- 		skb_checksum_none_assert(skb);
- 
--- 
-1.8.5.1
+Thats a bit scary ... maybe a 32bit refcnt overflow, because of some
+imbalance...
