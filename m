@@ -1,31 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net-qdisc-hhf: Heavy-Hitter Filter (HHF) qdisc
-Date: Thu, 19 Dec 2013 14:30:45 -0500 (EST)
-Message-ID: <20131219.143045.472862795767521855.davem@davemloft.net>
-References: <1386746796-490-1-git-send-email-vtlam@google.com>
-	<1387096221-20112-1-git-send-email-vtlam@google.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] net: fec: fix potential use after free
+Date: Thu, 19 Dec 2013 20:32:31 +0100
+Message-ID: <20131219193231.GB14612@netboy>
+References: <1387479182.19078.369.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nanditad@google.com, edumazet@google.com
-To: vtlam@google.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Frank Li <Frank.Li@freescale.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35365 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754396Ab3LSTar (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 14:30:47 -0500
-In-Reply-To: <1387096221-20112-1-git-send-email-vtlam@google.com>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:63942 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751677Ab3LSTcq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 14:32:46 -0500
+Received: by mail-ea0-f174.google.com with SMTP id b10so637119eae.5
+        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 11:32:45 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1387479182.19078.369.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Terry Lam <vtlam@google.com>
-Date: Sun, 15 Dec 2013 00:30:21 -0800
+On Thu, Dec 19, 2013 at 10:53:02AM -0800, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> skb_tx_timestamp(skb) should be called _before_ TX completion
+> has a chance to trigger, otherwise it is too late and we access
+> freed memory.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: de5fb0a05348 ("net: fec: put tx to napi poll function to fix dead lock")
 
-> This patch implements the first size-based qdisc that attempts to
-> differentiate between small flows and heavy-hitters.  The goal is to
-> catch the heavy-hitters and move them to a separate queue with less
-> priority so that bulk traffic does not affect the latency of critical
-> traffic.  Currently "less priority" means less weight (2:1 in
-> particular) in a Weighted Deficit Round Robin (WDRR) scheduler.
+So the hw_lock spin lock was protecting against this issue?
 
-Can someone please review this, thanks!
+Nice catch. How ever did you find this?
+
+Acked-by: Richard Cochran <richardcochran@gmail.com>
