@@ -1,52 +1,45 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: RE: [PATCH v3 2/8] drivers: net: Mark functions as static in
- qlcnic_83xx_hw.c
-Date: Thu, 19 Dec 2013 11:51:13 +0000
-Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A46F49D4B@avmb2.qlogic.org>
-References: <04fe932bc3585620c91d511bb0894e45bb762ffa.1387382457.git.rashika.kheria@gmail.com>
- <e50a81d6fd512838c98cd46a0ce66262da5cf811.1387382457.git.rashika.kheria@gmail.com>
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: RE: [PATCH 1/2] netxen: Correct off-by-one error in bounds check
+Date: Thu, 19 Dec 2013 11:51:37 +0000
+Message-ID: <31AFFC7280259C4184970ABA9AFE8B938CF86A62@avmb3.qlogic.org>
+References: <1387257753-18676-1-git-send-email-david@gibson.dropbear.id.au>
+ <1387257753-18676-2-git-send-email-david@gibson.dropbear.id.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: Rashika Kheria <rashika.kheria@gmail.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	"snagarka@redhat.com" <snagarka@redhat.com>,
+	"tcamuso@redhat.com" <tcamuso@redhat.com>,
+	"vdasgupt@redhat.com" <vdasgupt@redhat.com>
+To: David Gibson <david@gibson.dropbear.id.au>,
 	Sony Chacko <sony.chacko@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
-	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	"josh@joshtriplett.org" <josh@joshtriplett.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e50a81d6fd512838c98cd46a0ce66262da5cf811.1387382457.git.rashika.kheria@gmail.com>
+	Rajesh Borundia <rajesh.borundia@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:47570 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753043Ab3LSLvq convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Dec 2013 06:51:46 -0500
+In-Reply-To: <1387257753-18676-2-git-send-email-david@gibson.dropbear.id.au>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBSYXNoaWthIEtoZXJpYSBbbWFp
-bHRvOnJhc2hpa2Eua2hlcmlhQGdtYWlsLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIERlY2VtYmVy
-IDE5LCAyMDEzIDI6MTggUE0NCj4gVG86IGxpbnV4LWtlcm5lbDsgSGltYW5zaHUgTWFkaGFuaTsg
-UmFqZXNoIEJvcnVuZGlhOyBTaGFoZWQgU2hhaWtoOw0KPiBKaXRlbmRyYSBLYWxzYXJpYTsgU29u
-eSBDaGFja287IFN1Y2hldGEgQ2hha3JhYm9ydHk7IERlcHQtRW5nIExpbnV4IERyaXZlcjsNCj4g
-bmV0ZGV2OyBqb3NoQGpvc2h0cmlwbGV0dC5vcmcNCj4gU3ViamVjdDogW1BBVENIIHYzIDIvOF0g
-ZHJpdmVyczogbmV0OiBNYXJrIGZ1bmN0aW9ucyBhcyBzdGF0aWMgaW4NCj4gcWxjbmljXzgzeHhf
-aHcuYw0KPiANCj4gVGhpcyBwYXRjaCBtYXJrcyB0aGUgZnVuY3Rpb24gcWxjbmljXzgzeHhfY2xl
-YXJfbGVnYWN5X2ludHJfbWFzaygpLA0KPiBxbGNuaWNfODN4eF9zZXRfbGVnYWN5X2ludHJfbWFz
-aygpIGFuZA0KPiBxbGNuaWNfODN4eF9lbmFibGVfbGVnYWN5X21zaXhfbWJ4X2ludHIoKSBpbiBx
-bGNuaWNfODN4eF9ody5jIGFzIHN0YXRpYw0KPiBiZWNhdXNlIHRoZXkgYXJlIG5vdCB1c2VkIG91
-dHNpZGUgdGhpcyBmaWxlLg0KPiANCj4gVGh1cywgaXQgYWxzbyByZW1vdmVzIHRoZSBmb2xsb3dp
-bmcgd2FybmluZ3MgaW4NCj4gZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNuaWNfODN4eF9ody5j
-Og0KPiANCj4gZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNuaWNfODN4eF9o
-dy5jOjMxODoxMzogd2FybmluZzogbm8NCj4gcHJldmlvdXMgcHJvdG90eXBlIGZvciDigJhxbGNu
-aWNfODN4eF9jbGVhcl9sZWdhY3lfaW50cl9tYXNr4oCZIFstV21pc3NpbmctDQo+IHByb3RvdHlw
-ZXNdDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmljXzgzeHhfaHcu
-YzozMjM6MTM6IHdhcm5pbmc6IG5vDQo+IHByZXZpb3VzIHByb3RvdHlwZSBmb3Ig4oCYcWxjbmlj
-XzgzeHhfc2V0X2xlZ2FjeV9pbnRyX21hc2vigJkgWy1XbWlzc2luZy0NCj4gcHJvdG90eXBlc10N
-Cj4gZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNuaWNfODN4eF9ody5jOjM0
-MzoxMzogd2FybmluZzogbm8NCj4gcHJldmlvdXMgcHJvdG90eXBlIGZvciDigJhxbGNuaWNfODN4
-eF9lbmFibGVfbGVnYWN5X21zaXhfbWJ4X2ludHLigJkgWy0NCj4gV21pc3NpbmctcHJvdG90eXBl
-c10NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IFJhc2hpa2EgS2hlcmlhIDxyYXNoaWthLmtoZXJpYUBn
-bWFpbC5jb20+DQo+IFJldmlld2VkLWJ5OiBKb3NoIFRyaXBsZXR0IDxqb3NoQGpvc2h0cmlwbGV0
-dC5vcmc+DQoNCkFja2VkLWJ5OiBTaGFoZWQgU2hhaWtoIDxzaGFoZWQuc2hhaWtoQHFsb2dpYy5j
-b20+DQoNClRoYW5rcywNClNoYWhlZA0K
+>-----Original Message-----
+>From: David Gibson [mailto:david@gibson.dropbear.id.au]
+>Sent: Tuesday, December 17, 2013 10:53 AM
+>To: Manish Chopra; Sony Chacko; Rajesh Borundia
+>Cc: netdev; snagarka@redhat.com; tcamuso@redhat.com;
+>vdasgupt@redhat.com; David Gibson
+>Subject: [PATCH 1/2] netxen: Correct off-by-one error in bounds check
+>
+>After retrieving an Rx buffer index from the hardware, the netxen driver bounds
+>checks it against its array of receive buffers.  However in the case of LRO packets,
+>there's an off-by-one error in the check - it uses > instead of the >= it uses for the
+>normal receive path in netxen_process_rcv().
+>
+>Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
+
+Acked-by: Manish Chopra <manish.chopra@qlogic.com>
+
+Thanks David. This is really a bug fix. You can re-submit this single patch.
