@@ -1,66 +1,92 @@
-From: Wei-Chun Chao <weichunc@plumgrid.com>
-Subject: Re: [PATCH net-next 0/2] net/mlx4: Add support for TCP/IP offloads of
- vxlan tunneling
-Date: Wed, 18 Dec 2013 17:16:32 -0800
-Message-ID: <CACviX4G9vbHLWm3gu-S+SUSiSoawmQKAeXhRm9hZz1a7Hn=LiQ@mail.gmail.com>
-References: <1387375528-2337-1-git-send-email-ogerlitz@mellanox.com>
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: Re: [PATCH 2/8] b44: rename B44_PHY_ADDR_NO_PHY to B44_PHY_ADDR_NO_LOCAL_PHY
+Date: Thu, 19 Dec 2013 02:21:08 +0100
+Message-ID: <52B24A04.4000805@hauke-m.de>
+References: <1387132925-18651-1-git-send-email-hauke@hauke-m.de> <1387132925-18651-3-git-send-email-hauke@hauke-m.de> <CAGVrzcb0gZxpyiRNAi48u8MnCRzwBDO3HwpTPPWYkuMdQe5q_w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem <davem@davemloft.net>, netdev <netdev@vger.kernel.org>,
-	amirv@mellanox.com, yanb@mellanox.com,
-	Alexei Starovoitov <ast@plumgrid.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, zambrano@broadcom.com,
+	netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f52.google.com ([209.85.212.52]:35198 "EHLO
-	mail-vb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751328Ab3LSBQd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 20:16:33 -0500
-Received: by mail-vb0-f52.google.com with SMTP id p5so256033vbn.25
-        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 17:16:32 -0800 (PST)
-In-Reply-To: <1387375528-2337-1-git-send-email-ogerlitz@mellanox.com>
+Received: from server19320154104.serverpool.info ([193.201.54.104]:44274 "EHLO
+	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750817Ab3LSBV1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Dec 2013 20:21:27 -0500
+In-Reply-To: <CAGVrzcb0gZxpyiRNAi48u8MnCRzwBDO3HwpTPPWYkuMdQe5q_w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Or,
-I tested this patch and with vxlan offload off I saw 14.x Gbps max and
-with offload on I saw 24Gbps (16 and 32 threads got the same number
-and 8 RSS rings in use).
+On 12/16/2013 07:40 PM, Florian Fainelli wrote:
+> 2013/12/15 Hauke Mehrtens <hauke@hauke-m.de>:
+>> The PHY address 30 means there is no local PHY, but there could be an
+>> external PHY like a switch connected via MII. This is the case on most
+>> embedded home routers where this driver is used.
+> 
+> Looking at this some more, I do not think the b44 driver was always
+> clear that (at least in  Broadcom terminology):
+> 
+> - address 0 is a "special" broadcast MDIO address to make Roboswitch
+> devices act as standard PHYs such that you could read the MII_PHYSID1
+> and MII_PHYSID2 registers and determine if that is a switch or a PHY
+> - address 30 is the switch pseudo-PHY address through which all
+> switch-specifc settings must be routed from/to
+> 
+> So saying that address 30 means no "external PHY" is sort of correct,
+> although not quite. Hopefully the remaining patches try to remove that
+> ambiguity.
 
-Thanks,
-Weichun
+After all these patches B44_PHY_ADDR_NO_LOACL_PHY is not used any more
+by b44.
 
-On Wed, Dec 18, 2013 at 6:05 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
-> Hi Dave,
->
-> These two patches add mlx4 support for TCP/IP offloads under vxlan tunneling
->
-> The patches are againt net-next commit 7ed2a0d "Merge branch 'for-davem'
-> of git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next" plus the in-progress
-> mlx4 series http://marc.info/?l=linux-netdev&m=138726378426919&w=2 -- the two
-> patch series pretty much touch different areas and practically can be applied in any order.
->
-> Or.
->
-> Or Gerlitz (2):
->   net/mlx4_core: Add basic support for TCP/IP offloads under tunneling
->   net/mlx4_en: Add netdev support for TCP/IP offloads of vxlan tunneling
->
->  drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |   95 +++++++++++++++++++++
->  drivers/net/ethernet/mellanox/mlx4/en_resources.c |    6 ++
->  drivers/net/ethernet/mellanox/mlx4/en_rx.c        |   15 +++-
->  drivers/net/ethernet/mellanox/mlx4/en_tx.c        |   14 +++-
->  drivers/net/ethernet/mellanox/mlx4/fw.c           |   19 ++++-
->  drivers/net/ethernet/mellanox/mlx4/main.c         |   14 +++
->  drivers/net/ethernet/mellanox/mlx4/mcg.c          |   14 +++-
->  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h      |    3 +-
->  drivers/net/ethernet/mellanox/mlx4/port.c         |   41 +++++++++
->  include/linux/mlx4/cmd.h                          |    1 +
->  include/linux/mlx4/cq.h                           |    5 +
->  include/linux/mlx4/device.h                       |   37 ++++++++-
->  include/linux/mlx4/qp.h                           |    6 ++
->  13 files changed, 263 insertions(+), 7 deletions(-)
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The external interface was only activated when the register which will
+not be used indicated that there is no internal phy.
+
+>>
+>> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+>> ---
+>>  drivers/net/ethernet/broadcom/b44.c |    2 +-
+>>  drivers/net/ethernet/broadcom/b44.h |    6 +++---
+>>  2 files changed, 4 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
+>> index 3c7909e..fce36dd 100644
+>> --- a/drivers/net/ethernet/broadcom/b44.c
+>> +++ b/drivers/net/ethernet/broadcom/b44.c
+>> @@ -2237,7 +2237,7 @@ static int b44_init_one(struct ssb_device *sdev,
+>>
+>>         /* do a phy reset to test if there is an active phy */
+>>         if (b44_phy_reset(bp) < 0)
+>> -               bp->phy_addr = B44_PHY_ADDR_NO_PHY;
+>> +               bp->phy_addr = B44_PHY_ADDR_NO_LOACL_PHY;
+>>
+>>         netdev_info(dev, "%s %pM\n", DRV_DESCRIPTION, dev->dev_addr);
+>>
+>> diff --git a/drivers/net/ethernet/broadcom/b44.h b/drivers/net/ethernet/broadcom/b44.h
+>> index 8ed7d6b..ade80d6 100644
+>> --- a/drivers/net/ethernet/broadcom/b44.h
+>> +++ b/drivers/net/ethernet/broadcom/b44.h
+>> @@ -280,9 +280,9 @@ struct ring_info {
+>>         dma_addr_t      mapping;
+>>  };
+>>
+>> -#define B44_MCAST_TABLE_SIZE   32
+>> -#define B44_PHY_ADDR_NO_PHY    30
+>> -#define B44_MDC_RATIO          5000000
+>> +#define B44_MCAST_TABLE_SIZE           32
+>> +#define B44_PHY_ADDR_NO_LOACL_PHY      30 /* no local phy regs */
+>> +#define B44_MDC_RATIO                  5000000
+>>
+>>  #define        B44_STAT_REG_DECLARE            \
+>>         _B44(tx_good_octets)            \
+>> --
+>> 1.7.10.4
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
+> 
