@@ -1,54 +1,52 @@
-From: Chen Weilong <chenweilong@huawei.com>
-Subject: [PATCH] rose: cleanup checkpatch errors,spaces required
-Date: Thu, 19 Dec 2013 11:55:17 +0800
-Message-ID: <1387425317-8900-1-git-send-email-chenweilong@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <ralf@linux-mips.org>, <davem@davemloft.net>
+From: roy.qing.li@gmail.com
+Subject: [PATCH v2] ipv6: always set the new created dst's from in ip6_rt_copy
+Date: Thu, 19 Dec 2013 12:40:26 +0800
+Message-ID: <1387428026-30152-1-git-send-email-roy.qing.li@gmail.com>
+References: <20131219003742.GA14429@order.stressinduktion.org>
+To: netdev@vger.kernel.org, hannes@stressinduktion.org,
+	gaofeng@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:14243 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752020Ab3LSD4k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 22:56:40 -0500
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:37630 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751259Ab3LSEk2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 23:40:28 -0500
+Received: by mail-pd0-f177.google.com with SMTP id q10so594838pdj.8
+        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 20:40:27 -0800 (PST)
+In-Reply-To: <20131219003742.GA14429@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Weilong Chen <chenweilong@huawei.com>
+From: Li RongQing <roy.qing.li@gmail.com> 
 
-This patch add spaces to cleanup checkpatch errors.
+ip6_rt_copy only sets dst.from if ort has flag RTF_ADDRCONF and RTF_DEFAULT.
+but the prefix routes which did get installed by hand locally can have an
+expiration, and no any flag combination which can ensure a potential from
+does never expire, so we should always set the new created dst's from.
 
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+This also fixes the new created dst is always expired since the ort, which
+is created by RA, maybe has RTF_EXPIRES and RTF_ADDRCONF, but no RTF_DEFAULT.
+
+Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+CC: Gao feng <gaofeng@cn.fujitsu.com>
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 ---
- net/rose/af_rose.c  | 2 +-
- net/rose/rose_dev.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ net/ipv6/route.c |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
-index 33af772..81f94b1 100644
---- a/net/rose/af_rose.c
-+++ b/net/rose/af_rose.c
-@@ -1012,7 +1012,7 @@ int rose_rx_call_request(struct sk_buff *skb, struct net_device *dev, struct ros
- 	make_rose->source_call   = facilities.source_call;
- 	make_rose->source_ndigis = facilities.source_ndigis;
- 	for (n = 0 ; n < facilities.source_ndigis ; n++)
--		make_rose->source_digis[n]= facilities.source_digis[n];
-+		make_rose->source_digis[n] = facilities.source_digis[n];
- 	make_rose->neighbour     = neigh;
- 	make_rose->device        = dev;
- 	make_rose->facilities    = facilities;
-diff --git a/net/rose/rose_dev.c b/net/rose/rose_dev.c
-index 28dbdb9..5000588 100644
---- a/net/rose/rose_dev.c
-+++ b/net/rose/rose_dev.c
-@@ -146,7 +146,7 @@ static netdev_tx_t rose_xmit(struct sk_buff *skb, struct net_device *dev)
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index a1a5752..5da9fb1 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1909,9 +1909,7 @@ static struct rt6_info *ip6_rt_copy(struct rt6_info *ort,
+ 		else
+ 			rt->rt6i_gateway = *dest;
+ 		rt->rt6i_flags = ort->rt6i_flags;
+-		if ((ort->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF)) ==
+-		    (RTF_DEFAULT | RTF_ADDRCONF))
+-			rt6_set_from(rt, ort);
++		rt6_set_from(rt, ort);
+ 		rt->rt6i_metric = 0;
  
- static const struct header_ops rose_header_ops = {
- 	.create	= rose_header,
--	.rebuild= rose_rebuild_header,
-+	.rebuild = rose_rebuild_header,
- };
- 
- static const struct net_device_ops rose_netdev_ops = {
+ #ifdef CONFIG_IPV6_SUBTREES
 -- 
-1.7.12
+1.7.10.4
