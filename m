@@ -1,72 +1,42 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: Re: [PATCH net-next] netfilter: ipvs: remove the unused variable
-Date: Thu, 19 Dec 2013 16:00:29 +0800
-Message-ID: <52B2A79D.4060403@huawei.com>
-References: <52B258A9.70002@huawei.com> <alpine.LFD.2.11.1312190912090.1749@ja.home.ssi.bg>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] ieee80211_i.h: Align struct ps_data.tim to unsigned long
+Date: Thu, 19 Dec 2013 09:19:12 +0100
+Message-ID: <1387441152.4298.5.camel@jlt4.sipsolutions.net>
+References: <1387354564.13593.26.camel@joe-AO722>
+	 (sfid-20131218_091612_149215_EA847147) <1387358347.4694.2.camel@jlt4.sipsolutions.net>
+	 <1387414337.13593.48.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <wensong@linux-vs.org>, <horms@verge.net.au>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Benc <jbenc@redhat.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:64594 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751457Ab3LSIBF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 03:01:05 -0500
-In-Reply-To: <alpine.LFD.2.11.1312190912090.1749@ja.home.ssi.bg>
+Received: from s3.sipsolutions.net ([144.76.43.152]:52835 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751744Ab3LSITR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 03:19:17 -0500
+In-Reply-To: <1387414337.13593.48.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/12/19 15:17, Julian Anastasov wrote:
->=20
-> 	Hello,
->=20
-> On Thu, 19 Dec 2013, Wang Weidong wrote:
->=20
->> when I built the netfilter, I got that:
->> net/netfilter/ipvs/ip_vs_sync.c: In function sync_thread_master=E2=80=
-=99:
->> net/netfilter/ipvs/ip_vs_sync.c:1640: warning: unused variable =E2=80=
-=98ret=E2=80=99
->=20
-> 	There is another patch that we plan to apply but
-> due to possible merge conflict it was delayed:
->=20
-> http://marc.info/?t=3D138426695600002&r=3D1&w=3D2
-> http://marc.info/?t=3D138426469400008&r=3D1&w=3D2
->=20
-> 	May be it is time to apply it...
->=20
-Ok, Got it.
+On Wed, 2013-12-18 at 16:52 -0800, Joe Perches wrote:
+> Its address is used as an unsigned long *, so make sure
+> that the tim u8 array is properly aligned.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com
+> ---
+> > Care to send a proper patch? Otherwise I'll just re-do it and pick it up
+> > that way ...
+> 
+> I had a passing thought about this when out today.
+> It should really be set to __aligned(__alignof(unsigned long))
+> so here's a proper patch.
 
-Regards.
-Wang
+Hmm, yeah, I guess that's true, though sizeof() is probably >= on
+anything where Linux runs (and otherwise arrays get problematic anyway?)
 
->> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
->> ---
->>  net/netfilter/ipvs/ip_vs_sync.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip=
-_vs_sync.c
->> index f63c238..d258125 100644
->> --- a/net/netfilter/ipvs/ip_vs_sync.c
->> +++ b/net/netfilter/ipvs/ip_vs_sync.c
->> @@ -1637,7 +1637,7 @@ static int sync_thread_master(void *data)
->>  			continue;
->>  		}
->>  		while (ip_vs_send_sync_msg(tinfo->sock, sb->mesg) < 0) {
->> -			int ret =3D __wait_event_interruptible(*sk_sleep(sk),
->> +			__wait_event_interruptible(*sk_sleep(sk),
->>  						   sock_writeable(sk) ||
->>  						   kthread_should_stop());
->>  			if (unlikely(kthread_should_stop()))
->> --=20
->> 1.7.12
->=20
-> Regards
->=20
-> --
-> Julian Anastasov <ja@ssi.bg>
->=20
+Anyway, I've dropped my patch in favour of yours.
+
+johannes
