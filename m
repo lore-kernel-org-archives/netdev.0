@@ -1,114 +1,74 @@
-From: Chen Weilong <chenweilong@huawei.com>
-Subject: [patch net-next] ipv6: cleanup for tcp_ipv6.c
-Date: Thu, 19 Dec 2013 18:44:34 +0800
-Message-ID: <1387449874-7628-1-git-send-email-chenweilong@huawei.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [net-next 1/1] linux-firmware: 3.2.3.0 Firmware for Brocade
+ Adapters
+Date: Thu, 19 Dec 2013 10:47:13 +0000
+Message-ID: <1387450033.21926.42.camel@deadeye.wl.decadent.org.uk>
+References: <1387329122-27702-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-pBZ4vZKsqcg7P/rdhrGc"
+Cc: dwmw2@infradead.org, netdev <netdev@vger.kernel.org>,
+	linux-scsi <linux-scsi@vger.kernel.org>
+To: Rasesh Mody <rmody@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:27089 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751627Ab3LSKpR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 05:45:17 -0500
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:46981 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752187Ab3LSKr0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 05:47:26 -0500
+In-Reply-To: <1387329122-27702-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Weilong Chen <chenweilong@huawei.com>
 
-Fix some checkpatch errors for tcp_ipv6.c
+--=-pBZ4vZKsqcg7P/rdhrGc
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
----
- net/ipv6/tcp_ipv6.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
+On Tue, 2013-12-17 at 17:12 -0800, Rasesh Mody wrote:
+> This is the 3.2.3.0 firmware patch for Brocade 3.2.23.0 BFA and BNA drive=
+rs.
+>=20
+> Signed-off-by: Rasesh Mody <rmody@brocade.com>
+> ---
+>  WHENCE            |   3 +++
+>  cbfw-3.2.3.0.bin  | Bin 0 -> 414016 bytes
+>  ct2fw-3.2.3.0.bin | Bin 0 -> 583688 bytes
+>  ctfw-3.2.3.0.bin  | Bin 0 -> 538712 bytes
+>  4 files changed, 3 insertions(+)
+>  create mode 100644 cbfw-3.2.3.0.bin
+>  create mode 100644 ct2fw-3.2.3.0.bin
+>  create mode 100644 ctfw-3.2.3.0.bin
+[...]
 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index d955487..2fd189f 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -164,12 +164,12 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	 *	connect() to INADDR_ANY means loopback (BSD'ism).
- 	 */
- 
--	if(ipv6_addr_any(&usin->sin6_addr))
-+	if (ipv6_addr_any(&usin->sin6_addr))
- 		usin->sin6_addr.s6_addr[15] = 0x1;
- 
- 	addr_type = ipv6_addr_type(&usin->sin6_addr);
- 
--	if(addr_type & IPV6_ADDR_MULTICAST)
-+	if (addr_type & IPV6_ADDR_MULTICAST)
- 		return -ENETUNREACH;
- 
- 	if (addr_type&IPV6_ADDR_LINKLOCAL) {
-@@ -336,7 +336,7 @@ static void tcp_v6_mtu_reduced(struct sock *sk)
- static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 		u8 type, u8 code, int offset, __be32 info)
- {
--	const struct ipv6hdr *hdr = (const struct ipv6hdr*)skb->data;
-+	const struct ipv6hdr *hdr = (const struct ipv6hdr *)skb->data;
- 	const struct tcphdr *th = (struct tcphdr *)(skb->data+offset);
- 	struct ipv6_pinfo *np;
- 	struct sock *sk;
-@@ -469,7 +469,7 @@ static int tcp_v6_send_synack(struct sock *sk, struct dst_entry *dst,
- {
- 	struct inet_request_sock *ireq = inet_rsk(req);
- 	struct ipv6_pinfo *np = inet6_sk(sk);
--	struct sk_buff * skb;
-+	struct sk_buff *skb;
- 	int err = -ENOMEM;
- 
- 	/* First, grab a route. */
-@@ -912,7 +912,7 @@ static void tcp_v6_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
- }
- 
- 
--static struct sock *tcp_v6_hnd_req(struct sock *sk,struct sk_buff *skb)
-+static struct sock *tcp_v6_hnd_req(struct sock *sk, struct sk_buff *skb)
- {
- 	struct request_sock *req, **prev;
- 	const struct tcphdr *th = tcp_hdr(skb);
-@@ -1085,9 +1085,9 @@ drop:
- 	return 0; /* don't send reset */
- }
- 
--static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
--					  struct request_sock *req,
--					  struct dst_entry *dst)
-+static struct sock *tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
-+					 struct request_sock *req,
-+					 struct dst_entry *dst)
- {
- 	struct inet_request_sock *ireq;
- 	struct ipv6_pinfo *newnp, *np = inet6_sk(sk);
-@@ -1382,7 +1382,7 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
- 		 * otherwise we just shortcircuit this and continue with
- 		 * the new socket..
- 		 */
--		if(nsk != sk) {
-+		if (nsk != sk) {
- 			sock_rps_save_rxhash(nsk, skb);
- 			if (tcp_child_process(sk, nsk, skb))
- 				goto reset;
-@@ -1742,7 +1742,7 @@ static void get_openreq6(struct seq_file *seq,
- 		   dest->s6_addr32[2], dest->s6_addr32[3],
- 		   ntohs(inet_rsk(req)->ir_rmt_port),
- 		   TCP_SYN_RECV,
--		   0,0, /* could print option size, but that is af dependent. */
-+		   0, 0, /* could print option size, but that is af dependent. */
- 		   1,   /* timers active (only the expire timer) */
- 		   jiffies_to_clock_t(ttd),
- 		   req->num_timeout,
-@@ -1801,7 +1801,7 @@ static void get_tcp6_sock(struct seq_file *seq, struct sock *sp, int i)
- 		   atomic_read(&sp->sk_refcnt), sp,
- 		   jiffies_to_clock_t(icsk->icsk_rto),
- 		   jiffies_to_clock_t(icsk->icsk_ack.ato),
--		   (icsk->icsk_ack.quick << 1 ) | icsk->icsk_ack.pingpong,
-+		   (icsk->icsk_ack.quick << 1) | icsk->icsk_ack.pingpong,
- 		   tp->snd_cwnd,
- 		   tcp_in_initial_slowstart(tp) ? -1 : tp->snd_ssthresh
- 		   );
--- 
-1.7.12
+Applied, thanks.
+
+Ben.
+
+--=20
+Ben Hutchings
+It is easier to write an incorrect program than to understand a correct one=
+.
+
+--=-pBZ4vZKsqcg7P/rdhrGc
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
+
+iQIVAwUAUrLOsee/yOyVhhEJAQrzHQ/9GdAdSiswIOmb9Rywn2gnt/4Yu1XMo6ab
+wvcKfhauF7hfm+Yqgo1ayDJmVluWPKiWZSaYpb1xE/fBIkdw998eS+emxJ+VxNnO
+DquEmvX1w7o6OSuyYxtt7HcHL2GpSpjscEG+uCxZCA0yiDifh3dQjgTFAMzoprN0
+Rt9Q3fv6mBakJT6qaopvIubloiN6VE+7YzIuQD2B/2qGFLaaKO0Nemv1DiGQM47v
+Zfw/LRrdTsp4k5K1fAhQ79M3iJZs93Z6qULghNN8xiYz90VSUu4prOKmTHMhKoMH
+dn/MsCW9F8D1RbKFem4Sxz9Nu4EbEFF2LJeiqAn39oLNaaZeret/v3rLbuwLEpd2
+/N7R9AqaDqe0+Typ3LTQYIudAb3qZ1uUgUZuIw8VSMiQuHWmJ8d3ij3J3NxIWn8T
+vHo7hzdXplS4zW59Rb3M5lP5GiUdDrezBNMQXKzcwMD3gAJqJ4p6Sgt7k4+xs0Gq
+nqYnbb+yzfcUK8c5a+n/zTHWyxNz/dsvWLLifNMHS7KA/pYf+LYWxZJ5YpB85Fi+
+U52ehmFi+PSZJM8i83PMPo+Jho21uRmt18vqpXjR2CVT25QfwjI0rmnJOyehahCM
+/aIg1ATOnI957Bdtgi7O6lo0LqWjzAH0tYZ9nF9BRGBjYPpsMOzOU1reZUQBWcnW
+DlH2nodrEmI=
+=jz+U
+-----END PGP SIGNATURE-----
+
+--=-pBZ4vZKsqcg7P/rdhrGc--
