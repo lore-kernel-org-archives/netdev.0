@@ -1,108 +1,49 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next v2 0/6] slight optimization of addr compare for
- some modules
-Date: Thu, 19 Dec 2013 09:24:54 +0800
-Message-ID: <52B24AE6.2030606@huawei.com>
-References: <52AEB8B3.5010405@huawei.com>	 <1387205111.18217.7.camel@joe-AO722> <52AF13F4.5040409@gmail.com>	 <1387207006.18217.28.camel@joe-AO722> <1387214748.18217.52.camel@joe-AO722>		 <52AFAFDC.2080807@huawei.com> <52B1611E.4090608@huawei.com>	 <1387358236.13593.36.camel@joe-AO722> <52B173AB.6020901@huawei.com> <1387385511.13593.44.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ding Tianhong <dthxman@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: [PATCH v2 0/9] b44: add support for external PHY
+Date: Thu, 19 Dec 2013 02:28:37 +0100
+Message-ID: <1387416526-7394-1-git-send-email-hauke@hauke-m.de>
+Cc: zambrano@broadcom.com, netdev@vger.kernel.org,
+	f.fainelli@gmail.com, Hauke Mehrtens <hauke@hauke-m.de>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:13063 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751983Ab3LSBZi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 20:25:38 -0500
-In-Reply-To: <1387385511.13593.44.camel@joe-AO722>
+Received: from server19320154104.serverpool.info ([193.201.54.104]:44298 "EHLO
+	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751463Ab3LSB3B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Dec 2013 20:29:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/12/19 0:51, Joe Perches wrote:
-> On Wed, 2013-12-18 at 18:06 +0800, Ding Tianhong wrote:
->> On 2013/12/18 17:17, Joe Perches wrote:
->>> On Wed, 2013-12-18 at 16:47 +0800, Ding Tianhong wrote:
->>>> On 2013/12/17 9:58, Ding Tianhong wrote:
->>>>> On 2013/12/17 1:25, Joe Perches wrote:
->>>>>> These should still be inspected for appropriate use of
->>>>>> ether_addr_equal or ether_addr_equal_unaligned, but a
->>>>>> better cocci input sp-file is:
->>>>>>
->>>>>> $ cat ether_addr_equal_unaligned.cocci 
->>>>>> @@
->>>>>> expression e1;
->>>>>> expression e2;
->>>>>> @@
->>> []
->>>> There are too many places need to be changed, should I make it in one patch or several pathset,
->>>> pls give me some advise. thanks
->>>
->>> Separate per-maintainer patches are generally good.
->>> It can take several attempts to get these applied
->>> in all the various trees.
->>>
->>> So maybe 1 patch for each of most of these.  Maybe
->>> some of these like drivers/media, drivers/mtd and
->>> drivers/staging could probably be single patches.
->>>
->>
->> Hi Joe:
->>
->> I found there is a bug in spatch, it could not deal with 
->> -       memcmp(e1, e2, \(6\|ETH_ALEN\)) != 0
->> +       !ether_addr_equal_unaligned(e1, e2)
-> 
-> Not an spatch bug but a defect in the ordering of
-> transforms in the ether_addr_equal_unaligned.cocci file
-> 
-> This should be better:
-> 
-> $ cat ether_addr_equal_unaligned.cocci
-> @@
-> expression e1;
-> expression e2;
-> @@
-> 
-> -	memcmp(e1, e2, \(6\|ETH_ALEN\)) == 0
-> +	ether_addr_equal_unaligned(e1, e2)
-> 
-> @@
-> expression e1;
-> expression e2;
-> @@
-> 
-> -	memcmp(e1, e2, \(6\|ETH_ALEN\)) != 0
-> +	!ether_addr_equal_unaligned(e1, e2)
-> 
-> @@
-> expression e1;
-> expression e2;
-> @@
-> 
-> -	!memcmp(e1, e2, \(6\|ETH_ALEN\))
-> +	ether_addr_equal_unaligned(e1, e2)
-> 
-> @@
-> expression e1;
-> expression e2;
-> @@
-> 
-> -	memcmp(e1, e2, \(6\|ETH_ALEN\))
-> +	!ether_addr_equal_unaligned(e1, e2)
-> 
-> 
-> 
+This adds support for an external phy connected to the mac controlled 
+by b44. This is used on home routers of the BCM47xx line where this MAC 
+core was used and is contended to an external switch core through MII. 
+These patches are in OpenWrt for some time and are tested by different 
+users with different devices.
 
-Yes, it could works well, thanks a lot.
+This also does some changes to the fixed phy driver.
 
-Regards
-Ding
+v2: 
+ - add fixed phy driver patch
+ - use fixed phy driver in b44
+ - some smaller changes and typos
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+Hauke Mehrtens (9):
+  fixed-phy: register fixed PHY as platform driver
+  b44: check register instead of PHY address to detect external PHY
+  b44: rename B44_PHY_ADDR_NO_PHY to B44_PHY_ADDR_NO_LOCAL_PHY
+  b44: abort when no PHY is available at all
+  b44: rename b44_mii_{read,write} to b44_mdio_{read,write}_mii
+  b44: add phylib support
+  b44: activate PHY when MAC is off
+  b44: do not set PHY address to 30 for every ext PHY
+  b44: use fixed PHY device if we do not find any
+
+ arch/mips/ar7/platform.c              |   39 ++++-
+ drivers/net/ethernet/broadcom/Kconfig |    1 +
+ drivers/net/ethernet/broadcom/b44.c   |  276 ++++++++++++++++++++++++++++++---
+ drivers/net/ethernet/broadcom/b44.h   |   15 +-
+ drivers/net/phy/fixed.c               |   79 +++++-----
+ include/linux/phy_fixed.h             |   21 +--
+ 6 files changed, 349 insertions(+), 82 deletions(-)
+
+-- 
+1.7.10.4
