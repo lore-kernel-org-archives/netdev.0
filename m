@@ -1,48 +1,180 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next 0/4] net_sched: improve tc action code
-Date: Wed, 18 Dec 2013 16:36:39 -0800
-Message-ID: <1387413403-6395-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: [Patch net-next 1/4] net_sched: act: clean up notification functions
+Date: Wed, 18 Dec 2013 16:36:40 -0800
+Message-ID: <1387413403-6395-2-git-send-email-xiyou.wangcong@gmail.com>
+References: <1387413403-6395-1-git-send-email-xiyou.wangcong@gmail.com>
 Cc: Cong Wang <xiyou.wangcong@gmail.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:38841 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752411Ab3LSAgy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 19:36:54 -0500
-Received: by mail-pa0-f41.google.com with SMTP id lf10so399413pab.28
-        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 16:36:54 -0800 (PST)
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:35430 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752411Ab3LSAg4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 19:36:56 -0500
+Received: by mail-pb0-f44.google.com with SMTP id rq2so396185pbb.3
+        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 16:36:56 -0800 (PST)
+In-Reply-To: <1387413403-6395-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset continues to cleanup and improve tc action
-code, especially for mirred action we are now able to cleanup
-the action upon device unregister event.
+Refactor tcf_add_notify() and factor out tcf_del_notify().
 
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 Cc: David S. Miller <davem@davemloft.net>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/sched/act_api.c | 99 ++++++++++++++++++++++-------------------------------
+ 1 file changed, 40 insertions(+), 59 deletions(-)
 
-Cong Wang (4):
-  net_sched: act: clean up notification functions
-  net_sched: act: move idx_gen to struct tcf_hash_info
-  net_sched: mirred: remove action when the target device is gone
-  net_sched: mirred: notify user-space when action gets removed
-
- include/net/act_api.h          |   8 +--
- include/net/tc_act/tc_mirred.h |   1 +
- net/sched/act_api.c            | 110 +++++++++++++++++------------------------
- net/sched/act_csum.c           |   3 +-
- net/sched/act_gact.c           |   3 +-
- net/sched/act_ipt.c            |   3 +-
- net/sched/act_mirred.c         |  31 +++++++-----
- net/sched/act_nat.c            |   3 +-
- net/sched/act_pedit.c          |   3 +-
- net/sched/act_police.c         |   3 +-
- net/sched/act_simple.c         |   3 +-
- net/sched/act_skbedit.c        |   3 +-
- 12 files changed, 80 insertions(+), 94 deletions(-)
-
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 8114fef..c83c799 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -833,6 +833,33 @@ noflush_out:
+ }
+ 
+ static int
++tcf_del_notify(struct net *net, struct nlmsghdr *n, struct list_head *actions,
++	       u32 portid)
++{
++	int ret;
++	struct sk_buff *skb;
++
++	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
++	if (!skb)
++		return -ENOBUFS;
++
++	if (tca_get_fill(skb, actions, portid, n->nlmsg_seq, 0, RTM_DELACTION,
++			 0, 1) <= 0) {
++		kfree_skb(skb);
++		return -EINVAL;
++	}
++
++	/* now do the delete */
++	tcf_action_destroy(actions, 0);
++
++	ret = rtnetlink_send(skb, net, portid, RTNLGRP_TC,
++			     n->nlmsg_flags & NLM_F_ECHO);
++	if (ret > 0)
++		return 0;
++	return ret;
++}
++
++static int
+ tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
+ 	      u32 portid, int event)
+ {
+@@ -864,89 +891,43 @@ tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
+ 
+ 	if (event == RTM_GETACTION)
+ 		ret = act_get_notify(net, portid, n, &actions, event);
+-	else { /* delete */
+-		struct sk_buff *skb;
+-
+-		skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
+-		if (!skb) {
+-			ret = -ENOBUFS;
+-			goto err;
+-		}
+-
+-		if (tca_get_fill(skb, &actions, portid, n->nlmsg_seq, 0, event,
+-				 0, 1) <= 0) {
+-			kfree_skb(skb);
+-			ret = -EINVAL;
+-			goto err;
+-		}
+-
+-		/* now do the delete */
+-		tcf_action_destroy(&actions, 0);
+-		ret = rtnetlink_send(skb, net, portid, RTNLGRP_TC,
+-				     n->nlmsg_flags & NLM_F_ECHO);
+-		if (ret > 0)
+-			return 0;
+-		return ret;
+-	}
++	else /* delete */
++		ret = tcf_del_notify(net, n, &actions, portid);
+ err:
+ 	cleanup_a(&actions);
+ 	return ret;
+ }
+ 
+-static int tcf_add_notify(struct net *net, struct list_head *actions,
+-			  u32 portid, u32 seq, int event, u16 flags)
++static int
++tcf_add_notify(struct net *net, struct nlmsghdr *n, struct list_head *actions,
++	       u32 portid)
+ {
+-	struct tcamsg *t;
+-	struct nlmsghdr *nlh;
+ 	struct sk_buff *skb;
+-	struct nlattr *nest;
+-	unsigned char *b;
+ 	int err = 0;
+ 
+ 	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
+ 	if (!skb)
+ 		return -ENOBUFS;
+ 
+-	b = skb_tail_pointer(skb);
+-
+-	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*t), flags);
+-	if (!nlh)
+-		goto out_kfree_skb;
+-	t = nlmsg_data(nlh);
+-	t->tca_family = AF_UNSPEC;
+-	t->tca__pad1 = 0;
+-	t->tca__pad2 = 0;
+-
+-	nest = nla_nest_start(skb, TCA_ACT_TAB);
+-	if (nest == NULL)
+-		goto out_kfree_skb;
+-
+-	if (tcf_action_dump(skb, actions, 0, 0) < 0)
+-		goto out_kfree_skb;
+-
+-	nla_nest_end(skb, nest);
+-
+-	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
+-	NETLINK_CB(skb).dst_group = RTNLGRP_TC;
++	if (tca_get_fill(skb, actions, portid, n->nlmsg_seq, n->nlmsg_flags,
++			 RTM_NEWACTION, 0, 0) <= 0) {
++		kfree_skb(skb);
++		return -EINVAL;
++	}
+ 
+-	err = rtnetlink_send(skb, net, portid, RTNLGRP_TC, flags & NLM_F_ECHO);
++	err = rtnetlink_send(skb, net, portid, RTNLGRP_TC,
++			     n->nlmsg_flags & NLM_F_ECHO);
+ 	if (err > 0)
+ 		err = 0;
+ 	return err;
+-
+-out_kfree_skb:
+-	kfree_skb(skb);
+-	return -1;
+ }
+ 
+-
+ static int
+ tcf_action_add(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
+ 	       u32 portid, int ovr)
+ {
+ 	int ret = 0;
+ 	LIST_HEAD(actions);
+-	u32 seq = n->nlmsg_seq;
+ 
+ 	ret = tcf_action_init(net, nla, NULL, NULL, ovr, 0, &actions);
+ 	if (ret)
+@@ -955,7 +936,7 @@ tcf_action_add(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
+ 	/* dump then free all the actions after update; inserted policy
+ 	 * stays intact
+ 	 */
+-	ret = tcf_add_notify(net, &actions, portid, seq, RTM_NEWACTION, n->nlmsg_flags);
++	ret = tcf_add_notify(net, n, &actions, portid);
+ 	cleanup_a(&actions);
+ done:
+ 	return ret;
 -- 
 1.8.3.1
