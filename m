@@ -1,82 +1,80 @@
-From: Valentina Giusti <valentina.giusti@bmw-carit.de>
-Subject: Re: [PATCH 1/2] netfilter_queue: enable UID/GID socket info retrieval
-Date: Thu, 19 Dec 2013 09:59:33 +0100
-Message-ID: <52B2B575.1050709@bmw-carit.de>
-References: <1387389844-5263-1-git-send-email-valentina.giusti@bmw-carit.de> <1387389844-5263-2-git-send-email-valentina.giusti@bmw-carit.de> <20131218212430.GD15863@breakpoint.cc>
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: RE: [0/2] netxen: bug fix and diagnostics for possible (hardware?)
+ bug
+Date: Thu, 19 Dec 2013 09:11:33 +0000
+Message-ID: <31AFFC7280259C4184970ABA9AFE8B938CF868E9@avmb3.qlogic.org>
+References: <1387257753-18676-1-git-send-email-david@gibson.dropbear.id.au>
+ <31AFFC7280259C4184970ABA9AFE8B938CF85726@avmb3.qlogic.org>
+ <20131218062231.GB32453@voom.fritz.box>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<eric.dumazet@gmail.com>, <tgraf@redhat.com>, <jpa@google.com>,
-	<pablo@netfilter.org>, <davem@davemloft.net>,
-	<daniel.wagner@bmw-carit.de>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20131218212430.GD15863@breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Sony Chacko <sony.chacko@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	"snagarka@redhat.com" <snagarka@redhat.com>,
+	"tcamuso@redhat.com" <tcamuso@redhat.com>,
+	"vdasgupt@redhat.com" <vdasgupt@redhat.com>
+To: David Gibson <david@gibson.dropbear.id.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:49298 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751075Ab3LSJLm convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Dec 2013 04:11:42 -0500
+In-Reply-To: <20131218062231.GB32453@voom.fritz.box>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
-
-thank you very much for your review.
-
-On 12/18/2013 10:24 PM, Florian Westphal wrote:
-> valentina.giusti@bmw-carit.de <valentina.giusti@bmw-carit.de> wrote:
->> From: Valentina Giusti <valentina.giusti@bmw-carit.de>
+>> >From: David Gibson [mailto:david@gibson.dropbear.id.au]
+>> >Sent: Tuesday, December 17, 2013 10:53 AM
+>> >To: Manish Chopra; Sony Chacko; Rajesh Borundia
+>> >Cc: netdev; snagarka@redhat.com; tcamuso@redhat.com;
+>> >vdasgupt@redhat.com
+>> >Subject: [0/2] netxen: bug fix and diagnostics for possible
+>> >(hardware?) bug
+>> >
+>> >At Red Hat, we've hit a couple of customer cases with crashes in the
+>> >netxen driver due to list corruption.  This seems to be very rarely
+>> >triggered, and unfortunately the dumps we have don't have enough
+>> >information to be certain of the cause, although we have a possible theory.
+>> >
+>> >I'm suggesting, therefore a patch to add some sanity checking which
+>> >should help to at least localize and mitigate the problem when someone hits it
+>in future.
+>> >Please let me know if there's a better approach to doing this.
+>> >
+>> >That's 2/2.  1/2 is a fix for a clear bug I spotted along the way,
+>> >but not one that could cause the symptoms we've seen.
 >>
->> Thanks to commits 41063e9 (ipv4: Early TCP socket demux) and 421b388 (udp:
->> ipv4: Add udp early demux) it is now possible to get UID and GID socket info
->> also for incoming TCP and UDP connections. Having this info available, it
->> is convenient to let NFQUEUE retrieve it in order to improve and refine the
->> traffic analysis in userspace.
-> No objections from me, except a few comments below.
+>> David,
+>>
+>> Having these checks in data path(Rx path) may have some performance
+>> impact. It's better to root cause it instead of putting some sanity
+>> checks.
 >
->> diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
->> index 21258cf..7257ddb 100644
->> --- a/net/netfilter/nfnetlink_queue_core.c
->> +++ b/net/netfilter/nfnetlink_queue_core.c
->> @@ -328,7 +328,9 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
-> [..]
->>   	if (entskb->tstamp.tv64)
->>   		size += nla_total_size(sizeof(struct nfqnl_msg_packet_timestamp));
->> @@ -484,6 +486,25 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
->>   			goto nla_put_failure;
->>   	}
->>   
->> +	if (entskb->sk) {
->> +		struct sock *sk = entskb->sk;
->> +		if (sk && sk->sk_state != TCP_TIME_WAIT) {
->> +			read_lock_bh(&sk->sk_callback_lock);
-> nfqnl_build_packet_message is already a huge function, I think it
-> might be useful to add a small helper function for this,
-> e.g.  'nfqnl_skinfo_put(skb, entskb->sk)' or something like that.
->
-> Also, it might be a good idea to only dump the sk info
-> on userspace request (not sure how expensive the readlock is
-> compared to the nfqueue cost...), see NFQA_CFG_F_CONNTRACK flag for
-> instance.
+>Obviously, but this was the best way I could think of to try narrowing down the
+>root cause (at least trying to eliminate driver vs. firmware bug).
 
-I was actually wondering if there could be a better solution instead of 
-always sending UID/GID to userspace, thanks for your suggestion.
-
->> +			if (sk->sk_socket && sk->sk_socket->file) {
->> +				struct file *file = sk->sk_socket->file;
->> +				const struct cred *cred = file->f_cred;
->> +				if (nla_put_u32(skb, NFQA_UID,
-> nla_put_be32
->
->> +				    htonl(cred->fsuid)))
->> +					goto nla_put_failure;
-> careful - the sk_callback_lock was taken.
-
-Sorry, I totally overlooked this one.
-I will send soon a new patchset that addresses all your comments.
-
---
-BR,
-Val
+David, Instead of making permanent changes in driver, can you please run your modified driver in selective customer environment where this issues is seen?
+Which may give some data point that what's the issue exactly and then we go by that.
 
 >
-> Cheers,
-> Florian
+>> We will get back to you on this.
+>
+>If you have a better idea for locating the root cause, please let me know.  I have
+>access to a vmcore which I can poke around in.
 
+We will also try to reproduce the problem in our environment and debug this.
+Can you please give some details?
+
+1) what's the driver and firmware version used?
+2) which operating system and kernel version?
+3) please send the vmcore also with backtrace if available which can give some idea what can trigger this issue.
+4) Test case details:- what type of test is running on the system? Just to make sure we also try the same test cases in our environment.
+5) Server details (Number of CPus, memory etc.) if available.
+
+Thanks,
+Manish
+  
