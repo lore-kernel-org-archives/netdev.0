@@ -1,66 +1,75 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] ipv4: introduce ip_dst_mtu_secure and protect forwarding path against pmtu spoofing
-Date: Thu, 19 Dec 2013 13:17:57 +0100
-Message-ID: <20131219121757.GD14429@order.stressinduktion.org>
-References: <20131218.173442.336109133942416102.davem@davemloft.net> <CABrhC0nG8Z01G-zVtObe40OuyDo0Jm5y+Lzy_r-zr2zmjfaKjQ@mail.gmail.com> <20131219000759.GF3505@order.stressinduktion.org> <20131219.001203.1942468169345523058.davem@davemloft.net>
+From: Chen Weilong <chenweilong@huawei.com>
+Subject: [patch net-next 3/5] xfrm: checkpatch erros with space prohibited
+Date: Thu, 19 Dec 2013 20:22:12 +0800
+Message-ID: <1387455734-7624-4-git-send-email-chenweilong@huawei.com>
+References: <1387455734-7624-1-git-send-email-chenweilong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: johnwheffner@gmail.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>,
+	<davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:39232 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756228Ab3LSMR6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 07:17:58 -0500
-Content-Disposition: inline
-In-Reply-To: <20131219.001203.1942468169345523058.davem@davemloft.net>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:60198 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755704Ab3LSMWf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 07:22:35 -0500
+In-Reply-To: <1387455734-7624-1-git-send-email-chenweilong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 19, 2013 at 12:12:03AM -0500, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Thu, 19 Dec 2013 01:07:59 +0100
-> 
-> > On Wed, Dec 18, 2013 at 06:55:13PM -0500, John Heffner wrote:
-> >> On using the interface MTU for all forwarded packets, I have a similar
-> >> reaction as David.  And why are forwarded packets more special than
-> >> local ones, from the routing code's point of view?  It seems like
-> >> there could be other ways to harden a router, like firewall rules.
-> > 
-> > I doubt it is trivial to set up such a filter as we have to inspect
-> > the payload of the icmp error. I played with it and it is certainly
-> > possible, but my intention was that the networking stack does try to
-> > prevent fragmentation and delay generation of fragments to the last
-> > router on the path where it is necessary.
-> 
-> John's more important point is why treat forwarded traffic specially
-> from that which is locally generated?
+From: Weilong Chen <chenweilong@huawei.com>
 
-Routers don't receive ICMP frag-needed packets at all for forwarded
-traffic but only for locally generated packets. As we can't be very
-strict with payload tag checking because we often don't have enough
-information from the returned payload, we cannot easily distinguish
-between ICMP packets sent because of local traffic or for forwarded
-traffic. All frag-needed notifications sent in return of forwarded traffic
-are inherently bogus or have a malicious background and should not be
-handled.  Becasue we cannot harden the receive handler in all cases,
-we need to protect the forwarding path to use such information.
+Fix checkpatch error "space prohibited xxx".
 
-Networking software on the end system which wants to guard against
-that kind of fragmentation can do so by using the various knobs to
-limit pmtu notification processing or use IP_PMTUDISC_INTERFACE to
-protect itself from sending fragments. (Note, all other methods but
-IP_PMTUDISC_INTERFACE have impact on all protocols, which could also
-break other services on that box). But if one has a linux router without
-complex icmp payload checking firewall enabled, the packets send without
-DF-bit will get fragmented at the next hops if an attacker managed to
-send such a spoofed pmtu notification to that router. They simply need to
-traceroute the path. We should avoid that!
+Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+---
+ net/xfrm/xfrm_policy.c | 6 +++---
+ net/xfrm/xfrm_user.c   | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-It would be great if we could use IP_PMTUDISC_PROBE (so setting DF-flag)
-for DNS packets but it could break stuff for sub-dns-max-size mtu links.
-
-Thanks,
-
-  Hannes
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index e6f34de..ccf3063 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1699,7 +1699,7 @@ static int xfrm_expand_policies(const struct flowi *fl, u16 family,
+ 				xfrm_pols_put(pols, *num_pols);
+ 				return PTR_ERR(pols[1]);
+ 			}
+-			(*num_pols) ++;
++			(*num_pols)++;
+ 			(*num_xfrms) += pols[1]->xfrm_nr;
+ 		}
+ 	}
+@@ -2390,7 +2390,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
+ 	pol->curlft.use_time = get_seconds();
+ 
+ 	pols[0] = pol;
+-	npols ++;
++	npols++;
+ #ifdef CONFIG_XFRM_SUB_POLICY
+ 	if (pols[0]->type != XFRM_POLICY_TYPE_MAIN) {
+ 		pols[1] = xfrm_policy_lookup_bytype(net, XFRM_POLICY_TYPE_MAIN,
+@@ -2402,7 +2402,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
+ 				return 0;
+ 			}
+ 			pols[1]->curlft.use_time = get_seconds();
+-			npols ++;
++			npols++;
+ 		}
+ 	}
+ #endif
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index d998c7c..508de8f 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -1833,7 +1833,7 @@ static int xfrm_new_ae(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	struct net *net = sock_net(skb->sk);
+ 	struct xfrm_state *x;
+ 	struct km_event c;
+-	int err = - EINVAL;
++	int err = -EINVAL;
+ 	u32 mark = 0;
+ 	struct xfrm_mark m;
+ 	struct xfrm_aevent_id *p = nlmsg_data(nlh);
+-- 
+1.7.12
