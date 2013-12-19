@@ -1,191 +1,182 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH] tile_net: Always enable PTP clock support on TILE-Gx
-Date: Thu, 19 Dec 2013 19:21:14 +0000
-Message-ID: <1387480874.1876.33.camel@bwh-desktop.uk.level5networks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Chris Metcalf <cmetcalf@tilera.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next V2 09/10] net/mlx4_en: Add NAPI support for transmit side
+Date: Thu, 19 Dec 2013 21:20:17 +0200
+Message-ID: <1387480818-3932-10-git-send-email-amirv@mellanox.com>
+References: <1387480818-3932-1-git-send-email-amirv@mellanox.com>
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
+	Eugenia Emantayev <eugenia@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:40096 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754155Ab3LSTVS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 14:21:18 -0500
+Received: from mailp.voltaire.com ([193.47.165.129]:37333 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755598Ab3LSTUj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Dec 2013 14:20:39 -0500
+In-Reply-To: <1387480818-3932-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All other net drivers with PTP support enable it unconditionally.
-Make tile_net consistent with this.
+From: Eugenia Emantayev <eugenia@mellanox.com>
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+Add NAPI for TX side,
+implement its support and provide NAPI callback.
+
+
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.com>
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
-Totally untested as I don't have even a compiler for this.
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c   | 12 ++++++---
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c   | 39 +++++++++++++++++++++++-----
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  1 +
+ 3 files changed, 41 insertions(+), 11 deletions(-)
 
-Ben.
-
- drivers/net/ethernet/tile/Kconfig  | 12 +-----------
- drivers/net/ethernet/tile/tilegx.c | 24 ------------------------
- 2 files changed, 1 insertion(+), 35 deletions(-)
-
-diff --git a/drivers/net/ethernet/tile/Kconfig b/drivers/net/ethernet/tile/Kconfig
-index 4083ba8839e1..f59a6c265331 100644
---- a/drivers/net/ethernet/tile/Kconfig
-+++ b/drivers/net/ethernet/tile/Kconfig
-@@ -9,20 +9,10 @@ config TILE_NET
- 	select CRC32
- 	select TILE_GXIO_MPIPE if TILEGX
- 	select HIGH_RES_TIMERS if TILEGX
-+	select PTP_1588_CLOCK if TILEGX
- 	---help---
- 	  This is a standard Linux network device driver for the
- 	  on-chip Tilera Gigabit Ethernet and XAUI interfaces.
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+index 3a098cc..70e9532 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+@@ -161,12 +161,16 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
+ 	cq->mcq.comp  = cq->is_tx ? mlx4_en_tx_irq : mlx4_en_rx_irq;
+ 	cq->mcq.event = mlx4_en_cq_event;
  
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called tile_net.
--
--config PTP_1588_CLOCK_TILEGX
--        tristate "Tilera TILE-Gx mPIPE as PTP clock"
--        select PTP_1588_CLOCK
--        depends on TILE_NET
--        depends on TILEGX
--        ---help---
--          This driver adds support for using the mPIPE as a PTP
--          clock. This clock is only useful if your PTP programs are
--          getting hardware time stamps on the PTP Ethernet packets
--          using the SO_TIMESTAMPING API.
-diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
-index 858f9a786b8c..570495be77f3 100644
---- a/drivers/net/ethernet/tile/tilegx.c
-+++ b/drivers/net/ethernet/tile/tilegx.c
-@@ -187,10 +187,8 @@ struct tile_net_priv {
- 	int echannel;
- 	/* mPIPE instance, 0 or 1. */
- 	int instance;
--#ifdef CONFIG_PTP_1588_CLOCK_TILEGX
- 	/* The timestamp config. */
- 	struct hwtstamp_config stamp_cfg;
--#endif
- };
- 
- static struct mpipe_data {
-@@ -229,14 +227,12 @@ static struct mpipe_data {
- 	int first_bucket;
- 	int num_buckets;
- 
--#ifdef CONFIG_PTP_1588_CLOCK_TILEGX
- 	/* PTP-specific data. */
- 	struct ptp_clock *ptp_clock;
- 	struct ptp_clock_info caps;
- 
- 	/* Lock for ptp accessors. */
- 	struct mutex ptp_lock;
--#endif
- 
- } mpipe_data[NR_MPIPE_MAX] = {
- 	[0 ... (NR_MPIPE_MAX - 1)] {
-@@ -451,20 +447,17 @@ static void tile_net_provide_needed_buffers(void)
- static void tile_rx_timestamp(struct tile_net_priv *priv, struct sk_buff *skb,
- 			      gxio_mpipe_idesc_t *idesc)
- {
--#ifdef CONFIG_PTP_1588_CLOCK_TILEGX
- 	if (unlikely(priv->stamp_cfg.rx_filter != HWTSTAMP_FILTER_NONE)) {
- 		struct skb_shared_hwtstamps *shhwtstamps = skb_hwtstamps(skb);
- 		memset(shhwtstamps, 0, sizeof(*shhwtstamps));
- 		shhwtstamps->hwtstamp = ktime_set(idesc->time_stamp_sec,
- 						  idesc->time_stamp_ns);
+-	if (!cq->is_tx) {
++	if (cq->is_tx) {
++		netif_napi_add(cq->dev, &cq->napi, mlx4_en_poll_tx_cq,
++			       NAPI_POLL_WEIGHT);
++	} else {
+ 		netif_napi_add(cq->dev, &cq->napi, mlx4_en_poll_rx_cq, 64);
+ 		napi_hash_add(&cq->napi);
+-		napi_enable(&cq->napi);
  	}
--#endif
+ 
++	napi_enable(&cq->napi);
++
+ 	return 0;
  }
  
- /* Get TX timestamp, and store it in the skb. */
- static void tile_tx_timestamp(struct sk_buff *skb, int instance)
+@@ -188,12 +192,12 @@ void mlx4_en_destroy_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq **pcq)
+ 
+ void mlx4_en_deactivate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
  {
--#ifdef CONFIG_PTP_1588_CLOCK_TILEGX
- 	struct skb_shared_info *shtx = skb_shinfo(skb);
- 	if (unlikely((shtx->tx_flags & SKBTX_HW_TSTAMP) != 0)) {
- 		struct mpipe_data *md = &mpipe_data[instance];
-@@ -477,13 +470,11 @@ static void tile_tx_timestamp(struct sk_buff *skb, int instance)
- 		shhwtstamps.hwtstamp = ktime_set(ts.tv_sec, ts.tv_nsec);
- 		skb_tstamp_tx(skb, &shhwtstamps);
++	napi_disable(&cq->napi);
+ 	if (!cq->is_tx) {
+-		napi_disable(&cq->napi);
+ 		napi_hash_del(&cq->napi);
+ 		synchronize_rcu();
+-		netif_napi_del(&cq->napi);
  	}
--#endif
++	netif_napi_del(&cq->napi);
+ 
+ 	mlx4_cq_free(priv->mdev->dev, &cq->mcq);
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 5e22d7d..e3adceb 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -324,7 +324,7 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
+ 			}
+ 		}
+ 	}
+-	dev_kfree_skb_any(skb);
++	dev_kfree_skb(skb);
+ 	return tx_info->nr_txbb;
  }
  
- /* Use ioctl() to enable or disable TX or RX timestamping. */
- static int tile_hwtstamp_set(struct net_device *dev, struct ifreq *rq)
+@@ -361,7 +361,9 @@ int mlx4_en_free_tx_buf(struct net_device *dev, struct mlx4_en_tx_ring *ring)
+ 	return cnt;
+ }
+ 
+-static void mlx4_en_process_tx_cq(struct net_device *dev, struct mlx4_en_cq *cq)
++static int mlx4_en_process_tx_cq(struct net_device *dev,
++				 struct mlx4_en_cq *cq,
++				 int budget)
  {
--#ifdef CONFIG_PTP_1588_CLOCK_TILEGX
- 	struct hwtstamp_config config;
- 	struct tile_net_priv *priv = netdev_priv(dev);
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_cq *mcq = &cq->mcq;
+@@ -379,9 +381,10 @@ static void mlx4_en_process_tx_cq(struct net_device *dev, struct mlx4_en_cq *cq)
+ 	u32 bytes = 0;
+ 	int factor = priv->cqe_factor;
+ 	u64 timestamp = 0;
++	int done = 0;
  
-@@ -529,14 +520,10 @@ static int tile_hwtstamp_set(struct net_device *dev, struct ifreq *rq)
+ 	if (!priv->port_up)
+-		return;
++		return 0;
  
- 	priv->stamp_cfg = config;
- 	return 0;
--#else
--	return -EOPNOTSUPP;
--#endif
+ 	index = cons_index & size_mask;
+ 	cqe = &buf[(index << factor) + factor];
+@@ -390,7 +393,7 @@ static void mlx4_en_process_tx_cq(struct net_device *dev, struct mlx4_en_cq *cq)
+ 
+ 	/* Process all completed CQEs */
+ 	while (XNOR(cqe->owner_sr_opcode & MLX4_CQE_OWNER_MASK,
+-			cons_index & size)) {
++			cons_index & size) && (done < budget)) {
+ 		/*
+ 		 * make sure we read the CQE after we read the
+ 		 * ownership bit
+@@ -428,7 +431,7 @@ static void mlx4_en_process_tx_cq(struct net_device *dev, struct mlx4_en_cq *cq)
+ 			txbbs_stamp = txbbs_skipped;
+ 			packets++;
+ 			bytes += ring->tx_info[ring_index].nr_bytes;
+-		} while (ring_index != new_index);
++		} while ((++done < budget) && (ring_index != new_index));
+ 
+ 		++cons_index;
+ 		index = cons_index & size_mask;
+@@ -454,6 +457,7 @@ static void mlx4_en_process_tx_cq(struct net_device *dev, struct mlx4_en_cq *cq)
+ 		netif_tx_wake_queue(ring->tx_queue);
+ 		priv->port_stats.wake_queue++;
+ 	}
++	return done;
  }
  
- static int tile_hwtstamp_get(struct net_device *dev, struct ifreq *rq)
- {
--#ifdef CONFIG_PTP_1588_CLOCK_TILEGX
- 	struct tile_net_priv *priv = netdev_priv(dev);
+ void mlx4_en_tx_irq(struct mlx4_cq *mcq)
+@@ -461,10 +465,31 @@ void mlx4_en_tx_irq(struct mlx4_cq *mcq)
+ 	struct mlx4_en_cq *cq = container_of(mcq, struct mlx4_en_cq, mcq);
+ 	struct mlx4_en_priv *priv = netdev_priv(cq->dev);
  
- 	if (copy_to_user(rq->ifr_data, &priv->stamp_cfg,
-@@ -544,9 +531,6 @@ static int tile_hwtstamp_get(struct net_device *dev, struct ifreq *rq)
- 		return -EFAULT;
- 
- 	return 0;
--#else
--	return -EOPNOTSUPP;
--#endif
+-	mlx4_en_process_tx_cq(cq->dev, cq);
+-	mlx4_en_arm_cq(priv, cq);
++	if (priv->port_up)
++		napi_schedule(&cq->napi);
++	else
++		mlx4_en_arm_cq(priv, cq);
  }
  
- static inline bool filter_packet(struct net_device *dev, void *buf)
-@@ -828,8 +812,6 @@ static enum hrtimer_restart tile_net_handle_egress_timer(struct hrtimer *t)
- 	return HRTIMER_NORESTART;
- }
++/* TX CQ polling - called by NAPI */
++int mlx4_en_poll_tx_cq(struct napi_struct *napi, int budget)
++{
++	struct mlx4_en_cq *cq = container_of(napi, struct mlx4_en_cq, napi);
++	struct net_device *dev = cq->dev;
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	int done;
++
++	done = mlx4_en_process_tx_cq(dev, cq, budget);
++
++	/* If we used up all the quota - we're probably not done yet... */
++	if (done < budget) {
++		/* Done for now */
++		napi_complete(napi);
++		mlx4_en_arm_cq(priv, cq);
++		return done;
++	}
++	return budget;
++}
  
--#ifdef CONFIG_PTP_1588_CLOCK_TILEGX
--
- /* PTP clock operations. */
- 
- static int ptp_mpipe_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
-@@ -896,12 +878,9 @@ static struct ptp_clock_info ptp_mpipe_caps = {
- 	.enable		= ptp_mpipe_enable,
- };
- 
--#endif /* CONFIG_PTP_1588_CLOCK_TILEGX */
--
- /* Sync mPIPE's timestamp up with Linux system time and register PTP clock. */
- static void register_ptp_clock(struct net_device *dev, struct mpipe_data *md)
- {
--#ifdef CONFIG_PTP_1588_CLOCK_TILEGX
- 	struct timespec ts;
- 
- 	getnstimeofday(&ts);
-@@ -913,16 +892,13 @@ static void register_ptp_clock(struct net_device *dev, struct mpipe_data *md)
- 	if (IS_ERR(md->ptp_clock))
- 		netdev_err(dev, "ptp_clock_register failed %ld\n",
- 			   PTR_ERR(md->ptp_clock));
--#endif
- }
- 
- /* Initialize PTP fields in a new device. */
- static void init_ptp_dev(struct tile_net_priv *priv)
- {
--#ifdef CONFIG_PTP_1588_CLOCK_TILEGX
- 	priv->stamp_cfg.rx_filter = HWTSTAMP_FILTER_NONE;
- 	priv->stamp_cfg.tx_type = HWTSTAMP_TX_OFF;
--#endif
- }
- 
- /* Helper functions for "tile_net_update()". */
-
+ static struct mlx4_en_tx_desc *mlx4_en_bounce_to_desc(struct mlx4_en_priv *priv,
+ 						      struct mlx4_en_tx_ring *ring,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 202d8e5..123714c 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -744,6 +744,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev,
+ 			  struct mlx4_en_cq *cq,
+ 			  int budget);
+ int mlx4_en_poll_rx_cq(struct napi_struct *napi, int budget);
++int mlx4_en_poll_tx_cq(struct napi_struct *napi, int budget);
+ void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
+ 		int is_tx, int rss, int qpn, int cqn, int user_prio,
+ 		struct mlx4_qp_context *context);
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.3.4
