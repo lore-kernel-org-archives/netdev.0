@@ -1,203 +1,141 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 4/8] xfrm: Remove ancient sleeping when the SA is in acquire state
-Date: Thu, 19 Dec 2013 07:36:41 +0100
-Message-ID: <1387435005-8987-5-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 7/8] xfrm: export verify_userspi_info for pkfey and netlink interface
+Date: Thu, 19 Dec 2013 07:36:44 +0100
+Message-ID: <1387435005-8987-8-git-send-email-steffen.klassert@secunet.com>
 References: <1387435005-8987-1-git-send-email-steffen.klassert@secunet.com>
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:48195 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:48193 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752786Ab3LSGhV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Dec 2013 01:37:21 -0500
+	id S1752812Ab3LSGhX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Dec 2013 01:37:23 -0500
 In-Reply-To: <1387435005-8987-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We now queue packets to the policy if the states are not yet resolved,
-this replaces the ancient sleeping code. Also the sleeping can cause
-indefinite task hangs if the needed state does not get resolved.
+From: Fan Du <fan.du@windriver.com>
 
+In order to check against valid IPcomp spi range, export verify_userspi_info
+for both pfkey and netlink interface.
+
+Signed-off-by: Fan Du <fan.du@windriver.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/netns/xfrm.h |    2 --
- net/key/af_key.c         |    5 ++---
- net/xfrm/xfrm_policy.c   |   21 ++-------------------
- net/xfrm/xfrm_state.c    |   21 +--------------------
- 4 files changed, 5 insertions(+), 44 deletions(-)
+ include/net/xfrm.h    |    1 +
+ net/key/af_key.c      |    6 ++++++
+ net/xfrm/xfrm_state.c |   24 ++++++++++++++++++++++++
+ net/xfrm/xfrm_user.c  |   25 +------------------------
+ 4 files changed, 32 insertions(+), 24 deletions(-)
 
-diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
-index ea28404..1006a26 100644
---- a/include/net/netns/xfrm.h
-+++ b/include/net/netns/xfrm.h
-@@ -33,8 +33,6 @@ struct netns_xfrm {
- 	struct hlist_head	state_gc_list;
- 	struct work_struct	state_gc_work;
- 
--	wait_queue_head_t	km_waitq;
--
- 	struct list_head	policy_all;
- 	struct hlist_head	*policy_byidx;
- 	unsigned int		policy_idx_hmask;
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 59f5d0a..b7635ef 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1563,6 +1563,7 @@ struct xfrm_policy *xfrm_policy_byid(struct net *net, u32 mark, u8, int dir,
+ 				     u32 id, int delete, int *err);
+ int xfrm_policy_flush(struct net *net, u8 type, struct xfrm_audit *audit_info);
+ u32 xfrm_get_acqseq(void);
++int verify_spi_info(u8 proto, u32 min, u32 max);
+ int xfrm_alloc_spi(struct xfrm_state *x, u32 minspi, u32 maxspi);
+ struct xfrm_state *xfrm_find_acq(struct net *net, const struct xfrm_mark *mark,
+ 				 u8 mode, u32 reqid, u8 proto,
 diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 9a039ac..5beabd8 100644
+index 5beabd8..1a04c13 100644
 --- a/net/key/af_key.c
 +++ b/net/key/af_key.c
-@@ -1380,10 +1380,9 @@ static int pfkey_acquire(struct sock *sk, struct sk_buff *skb, const struct sadb
- 		return 0;
+@@ -1340,6 +1340,12 @@ static int pfkey_getspi(struct sock *sk, struct sk_buff *skb, const struct sadb_
+ 		max_spi = range->sadb_spirange_max;
+ 	}
  
- 	spin_lock_bh(&x->lock);
--	if (x->km.state == XFRM_STATE_ACQ) {
-+	if (x->km.state == XFRM_STATE_ACQ)
- 		x->km.state = XFRM_STATE_ERROR;
--		wake_up(&net->xfrm.km_waitq);
--	}
++	err = verify_spi_info(x->id.proto, min_spi, max_spi);
++	if (err) {
++		xfrm_state_put(x);
++		return err;
++	}
 +
- 	spin_unlock_bh(&x->lock);
- 	xfrm_state_put(x);
- 	return 0;
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 73b04d3..a7487f3 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1901,8 +1901,7 @@ static struct xfrm_dst *xfrm_create_dummy_bundle(struct net *net,
- 	if (IS_ERR(xdst))
- 		return xdst;
+ 	err = xfrm_alloc_spi(x, min_spi, max_spi);
+ 	resp_skb = err ? ERR_PTR(err) : pfkey_xfrm_state2msg(x);
  
--	if (net->xfrm.sysctl_larval_drop || num_xfrms <= 0 ||
--	    (fl->flowi_flags & FLOWI_FLAG_CAN_SLEEP))
-+	if (net->xfrm.sysctl_larval_drop || num_xfrms <= 0)
- 		return xdst;
- 
- 	dst1 = &xdst->u.dst;
-@@ -2077,7 +2076,6 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
- 	u8 dir = policy_to_flow_dir(XFRM_POLICY_OUT);
- 	int i, err, num_pols, num_xfrms = 0, drop_pols = 0;
- 
--restart:
- 	dst = NULL;
- 	xdst = NULL;
- 	route = NULL;
-@@ -2157,23 +2155,8 @@ restart:
- 
- 			return make_blackhole(net, family, dst_orig);
- 		}
--		if (fl->flowi_flags & FLOWI_FLAG_CAN_SLEEP) {
--			DECLARE_WAITQUEUE(wait, current);
- 
--			add_wait_queue(&net->xfrm.km_waitq, &wait);
--			set_current_state(TASK_INTERRUPTIBLE);
--			schedule();
--			set_current_state(TASK_RUNNING);
--			remove_wait_queue(&net->xfrm.km_waitq, &wait);
--
--			if (!signal_pending(current)) {
--				dst_release(dst);
--				goto restart;
--			}
--
--			err = -ERESTART;
--		} else
--			err = -EAGAIN;
-+		err = -EAGAIN;
- 
- 		XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTNOSTATES);
- 		goto error;
 diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 290479d..e845066 100644
+index e845066..a62c25e 100644
 --- a/net/xfrm/xfrm_state.c
 +++ b/net/xfrm/xfrm_state.c
-@@ -372,8 +372,6 @@ static void xfrm_state_gc_task(struct work_struct *work)
- 
- 	hlist_for_each_entry_safe(x, tmp, &gc_list, gclist)
- 		xfrm_state_gc_destroy(x);
--
--	wake_up(&net->xfrm.km_waitq);
+@@ -1489,6 +1489,30 @@ u32 xfrm_get_acqseq(void)
  }
+ EXPORT_SYMBOL(xfrm_get_acqseq);
  
- static inline unsigned long make_jiffies(long secs)
-@@ -388,7 +386,6 @@ static enum hrtimer_restart xfrm_timer_handler(struct hrtimer * me)
++int verify_spi_info(u8 proto, u32 min, u32 max)
++{
++	switch (proto) {
++	case IPPROTO_AH:
++	case IPPROTO_ESP:
++		break;
++
++	case IPPROTO_COMP:
++		/* IPCOMP spi is 16-bits. */
++		if (max >= 0x10000)
++			return -EINVAL;
++		break;
++
++	default:
++		return -EINVAL;
++	}
++
++	if (min > max)
++		return -EINVAL;
++
++	return 0;
++}
++EXPORT_SYMBOL(verify_spi_info);
++
+ int xfrm_alloc_spi(struct xfrm_state *x, u32 low, u32 high)
  {
- 	struct tasklet_hrtimer *thr = container_of(me, struct tasklet_hrtimer, timer);
- 	struct xfrm_state *x = container_of(thr, struct xfrm_state, mtimer);
--	struct net *net = xs_net(x);
- 	unsigned long now = get_seconds();
- 	long next = LONG_MAX;
- 	int warn = 0;
-@@ -458,12 +455,8 @@ resched:
- 	goto out;
- 
- expired:
--	if (x->km.state == XFRM_STATE_ACQ && x->id.spi == 0) {
-+	if (x->km.state == XFRM_STATE_ACQ && x->id.spi == 0)
- 		x->km.state = XFRM_STATE_EXPIRED;
--		wake_up(&net->xfrm.km_waitq);
--		next = 2;
--		goto resched;
--	}
- 
- 	err = __xfrm_state_delete(x);
- 	if (!err)
-@@ -635,7 +628,6 @@ restart:
- 
- out:
- 	spin_unlock_bh(&net->xfrm.xfrm_state_lock);
--	wake_up(&net->xfrm.km_waitq);
+ 	struct net *net = xs_net(x);
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 4027c42..97681a3 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -1079,29 +1079,6 @@ out_noput:
  	return err;
  }
- EXPORT_SYMBOL(xfrm_state_flush);
-@@ -948,8 +940,6 @@ static void __xfrm_state_insert(struct xfrm_state *x)
- 	if (x->replay_maxage)
- 		mod_timer(&x->rtimer, jiffies + x->replay_maxage);
  
--	wake_up(&net->xfrm.km_waitq);
+-static int verify_userspi_info(struct xfrm_userspi_info *p)
+-{
+-	switch (p->info.id.proto) {
+-	case IPPROTO_AH:
+-	case IPPROTO_ESP:
+-		break;
 -
- 	net->xfrm.state_num++;
- 
- 	xfrm_hash_grow_check(net, x->bydst.next != NULL);
-@@ -1658,16 +1648,12 @@ EXPORT_SYMBOL(km_state_notify);
- 
- void km_state_expired(struct xfrm_state *x, int hard, u32 portid)
+-	case IPPROTO_COMP:
+-		/* IPCOMP spi is 16-bits. */
+-		if (p->max >= 0x10000)
+-			return -EINVAL;
+-		break;
+-
+-	default:
+-		return -EINVAL;
+-	}
+-
+-	if (p->min > p->max)
+-		return -EINVAL;
+-
+-	return 0;
+-}
+-
+ static int xfrm_alloc_userspi(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		struct nlattr **attrs)
  {
--	struct net *net = xs_net(x);
- 	struct km_event c;
+@@ -1116,7 +1093,7 @@ static int xfrm_alloc_userspi(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	struct xfrm_mark m;
  
- 	c.data.hard = hard;
- 	c.portid = portid;
- 	c.event = XFRM_MSG_EXPIRE;
- 	km_state_notify(x, &c);
--
--	if (hard)
--		wake_up(&net->xfrm.km_waitq);
- }
- 
- EXPORT_SYMBOL(km_state_expired);
-@@ -1710,16 +1696,12 @@ EXPORT_SYMBOL(km_new_mapping);
- 
- void km_policy_expired(struct xfrm_policy *pol, int dir, int hard, u32 portid)
- {
--	struct net *net = xp_net(pol);
- 	struct km_event c;
- 
- 	c.data.hard = hard;
- 	c.portid = portid;
- 	c.event = XFRM_MSG_POLEXPIRE;
- 	km_policy_notify(pol, dir, &c);
--
--	if (hard)
--		wake_up(&net->xfrm.km_waitq);
- }
- EXPORT_SYMBOL(km_policy_expired);
- 
-@@ -2028,7 +2010,6 @@ int __net_init xfrm_state_init(struct net *net)
- 	INIT_WORK(&net->xfrm.state_hash_work, xfrm_hash_resize);
- 	INIT_HLIST_HEAD(&net->xfrm.state_gc_list);
- 	INIT_WORK(&net->xfrm.state_gc_work, xfrm_state_gc_task);
--	init_waitqueue_head(&net->xfrm.km_waitq);
- 	spin_lock_init(&net->xfrm.xfrm_state_lock);
- 	return 0;
+ 	p = nlmsg_data(nlh);
+-	err = verify_userspi_info(p);
++	err = verify_spi_info(p->info.id.proto, p->min, p->max);
+ 	if (err)
+ 		goto out_noput;
  
 -- 
 1.7.9.5
