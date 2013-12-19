@@ -1,58 +1,49 @@
-From: Leigh Brown <leigh@solinno.co.uk>
-Subject: Re: [PATCH v2] net: mvmdio: fix interrupt timeout handling
-Date: Thu, 19 Dec 2013 19:35:01 +0000
-Message-ID: <aff941cf1be9b91cc58198b4c23a3e41@doppler.thel33t.co.uk>
-References: <52B2D97F.4070200@gmail.com>
- <1387458588-17231-1-git-send-email-leigh@solinno.co.uk>
- <20131219174334.GB10227@obsidianresearch.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ipv4: introduce ip_dst_mtu_secure and protect
+ forwarding path against pmtu spoofing
+Date: Thu, 19 Dec 2013 14:30:12 -0500 (EST)
+Message-ID: <20131219.143012.205185984019527730.davem@davemloft.net>
+References: <20131219000759.GF3505@order.stressinduktion.org>
+	<20131219.001203.1942468169345523058.davem@davemloft.net>
+	<20131219121757.GD14429@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Nicolas Schichan <nschichan@freebox.fr>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Florian Fainelli <florian@openwrt.org>,
-	linux-arm-kernel@lists.infradead.org,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131219174334.GB10227@obsidianresearch.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: johnwheffner@gmail.com, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35359 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753911Ab3LSTaO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 14:30:14 -0500
+In-Reply-To: <20131219121757.GD14429@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2013-12-19 17:43, Jason Gunthorpe wrote:
-> On Thu, Dec 19, 2013 at 01:09:48PM +0000, Leigh Brown wrote:
->> This version corrects the whitespace issue.
->> 
->> orion_mdio_wait_ready uses wait_event_timeout to wait for the
->> SMI interrupt to fire.  wait_event_timeout waits for between
->> "timeout - 1" and "timeout" jiffies.  In this case a 1ms timeout
->> when HZ is 1000 results in a wait of 0 to 1 jiffies, causing
->> premature timeouts.
->> 
->> This fix ensures a minimum timeout of 2 jiffies, ensuring
->> wait_event_timeout will always wait at least 1 jiffie.
->> 
->> Issue reported by Nicolas Schichan.
->> 
->> Tested-by: Nicolas Schichan <nschichan@freebox.fr>
->> Signed-off-by: Leigh Brown <leigh@solinno.co.uk>
->>  drivers/net/ethernet/marvell/mvmdio.c | 6 ++++++
->>  1 file changed, 6 insertions(+)
-> 
-> Leigh, I have just noticed a regression in 3.13-rc3 vs 3.10, on
-> kirkwood where 3.13 occasionally prints:
-> 
-> 3 12/11 13:59:02 kernel: orion-mdio f1072004.mdio: Timeout: SMI busy
-> for too long
-> 
-> Is that the same issue that this patch is addressing?
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Thu, 19 Dec 2013 13:17:57 +0100
 
-Yes, absolutely.
+> Networking software on the end system which wants to guard against
+> that kind of fragmentation can do so by using the various knobs to
+> limit pmtu notification processing or use IP_PMTUDISC_INTERFACE to
+> protect itself from sending fragments.
 
-Regards,
+And that's part of where my irritation is coming from.
 
-Leigh.
+Applications have to opt-in to this new socket option based behavior,
+but you're making the routing thing default to on.
+
+And even if we default it to off, someone is going to cry and tell all
+the distributions to turn it on in /etc/sysctl.conf, just like they
+did for rp_filter.  And they will.  I don't have the strength and time
+to fight every person who makes these decisions at all the major
+distributions to explain to each and every one of them how foolish it
+would be.
+
+No end host should have rp_filter on.  It unnecessarily makes our
+routing lookups much more expensive for zero gain on an end host.  But
+people convinced the distributions that turning it on everywhere by
+default was a good idea and it stuck.
+
+I don't want to create a carrot for that kind of situation again.
