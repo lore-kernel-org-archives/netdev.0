@@ -1,27 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Make it possible to set defaults for
- net.core.[rw]mem_max parameters
-Date: Thu, 19 Dec 2013 15:11:09 -0500 (EST)
-Message-ID: <20131219.151109.331529110864072765.davem@davemloft.net>
-References: <1387272353-3560-1-git-send-email-k.lewandowsk@samsung.com>
+From: "Frank.Li@freescale.com" <Frank.Li@freescale.com>
+Subject: RE: [PATCH] net: fec: fix potential use after free
+Date: Thu, 19 Dec 2013 19:55:22 +0000
+Message-ID: <d3799f7147c5439b8f03297e61e05bef@BLUPR03MB486.namprd03.prod.outlook.com>
+References: <1387479182.19078.369.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131219193231.GB14612@netboy>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kyungmin.park@samsung.com,
-	lennart@poettering.net, linux-kernel@vger.kernel.org
-To: k.lewandowsk@samsung.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1387272353-3560-1-git-send-email-k.lewandowsk@samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Richard Cochran <richardcochran@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2lp0209.outbound.protection.outlook.com ([207.46.163.209]:13832
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756153Ab3LSUL4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 15:11:56 -0500
+In-Reply-To: <20131219193231.GB14612@netboy>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Karol Lewandowski <k.lewandowsk@samsung.com>
-Date: Tue, 17 Dec 2013 10:25:53 +0100
 
-> Default limits are quite low even for today's embedded hardware.
+
+> -----Original Message-----
+> From: Richard Cochran [mailto:richardcochran@gmail.com]
+> Sent: Thursday, December 19, 2013 1:33 PM
+> To: Eric Dumazet
+> Cc: David Miller; netdev; Li Frank-B20596
+> Subject: Re: [PATCH] net: fec: fix potential use after free
 > 
-> Signed-off-by: Karol Lewandowski <k.lewandowsk@samsung.com>
+> On Thu, Dec 19, 2013 at 10:53:02AM -0800, Eric Dumazet wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> >
+> > skb_tx_timestamp(skb) should be called _before_ TX completion has a
+> > chance to trigger, otherwise it is too late and we access freed
+> > memory.
+> >
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > Fixes: de5fb0a05348 ("net: fec: put tx to napi poll function to fix
+> > dead lock")
+> 
+> So the hw_lock spin lock was protecting against this issue?
+> 
+> Nice catch. How ever did you find this?
+> 
+> Acked-by: Richard Cochran <richardcochran@gmail.com>
+> 
 
-You can up the default, but adding a Kconfig option is not necessary.
-People can add knobs to /etc/sysctl.conf if they want, that's what
-it is there fore.
+Acked-by: Frank Li <Frank.Li@freescale.com>
