@@ -1,7 +1,7 @@
 From: Chen Weilong <chenweilong@huawei.com>
-Subject: [patch net-next 4/5] xfrm: fix checkpatch error
-Date: Thu, 19 Dec 2013 20:22:13 +0800
-Message-ID: <1387455734-7624-5-git-send-email-chenweilong@huawei.com>
+Subject: [patch net-next 5/5] xfrm: checkpatch erros with inline keyword position
+Date: Thu, 19 Dec 2013 20:22:14 +0800
+Message-ID: <1387455734-7624-6-git-send-email-chenweilong@huawei.com>
 References: <1387455734-7624-1-git-send-email-chenweilong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,36 +9,53 @@ Cc: <netdev@vger.kernel.org>
 To: <steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>,
 	<davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:7766 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756167Ab3LSMWn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 07:22:43 -0500
+Received: from szxga01-in.huawei.com ([119.145.14.64]:5858 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755704Ab3LSMWj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 07:22:39 -0500
 In-Reply-To: <1387455734-7624-1-git-send-email-chenweilong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Weilong Chen <chenweilong@huawei.com>
 
-Fix that "else should follow close brace '}'".
+inline keyword should sit between storage class and type.
 
 Signed-off-by: Weilong Chen <chenweilong@huawei.com>
 ---
- net/xfrm/xfrm_policy.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ net/xfrm/xfrm_policy.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index ccf3063..8be5abb 100644
+index 8be5abb..7a55437 100644
 --- a/net/xfrm/xfrm_policy.c
 +++ b/net/xfrm/xfrm_policy.c
-@@ -1311,8 +1311,7 @@ xfrm_tmpl_resolve_one(struct xfrm_policy *policy, const struct flowi *fl,
- 			error = (x->km.state == XFRM_STATE_ERROR ?
- 				 -EINVAL : -EAGAIN);
- 			xfrm_state_put(x);
--		}
--		else if (error == -ESRCH)
-+		} else if (error == -ESRCH)
- 			error = -EAGAIN;
+@@ -1635,7 +1635,7 @@ free_dst:
+ 	goto out;
+ }
  
- 		if (!tmpl->optional)
+-static int inline
++static inline int
+ xfrm_dst_alloc_copy(void **target, const void *src, int size)
+ {
+ 	if (!*target) {
+@@ -1647,7 +1647,7 @@ xfrm_dst_alloc_copy(void **target, const void *src, int size)
+ 	return 0;
+ }
+ 
+-static int inline
++static inline int
+ xfrm_dst_update_parent(struct dst_entry *dst, const struct xfrm_selector *sel)
+ {
+ #ifdef CONFIG_XFRM_SUB_POLICY
+@@ -1659,7 +1659,7 @@ xfrm_dst_update_parent(struct dst_entry *dst, const struct xfrm_selector *sel)
+ #endif
+ }
+ 
+-static int inline
++static inline int
+ xfrm_dst_update_origin(struct dst_entry *dst, const struct flowi *fl)
+ {
+ #ifdef CONFIG_XFRM_SUB_POLICY
 -- 
 1.7.12
