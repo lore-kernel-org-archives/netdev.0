@@ -1,51 +1,113 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: RE: [PATCH v3 1/8] drivers: net: Mark functions as static in
- qlcnic_io.c
-Date: Thu, 19 Dec 2013 11:49:50 +0000
-Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A46F49D2D@avmb2.qlogic.org>
-References: <e03d2664d5490bf7af673fc66b83a9684c8758ed.1386911123.git.rashika.kheria@gmail.com>
- <04fe932bc3585620c91d511bb0894e45bb762ffa.1387382457.git.rashika.kheria@gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH net] drivers : stmmac : Fixes for IEEE 1588 Timestamping
+Date: Thu, 19 Dec 2013 12:50:50 +0100
+Message-ID: <52B2DD9A.50003@st.com>
+References: <CAOwfj2Muc4szDNiJc5SjXsw4Oy_LkrBJeiDUY7-09N=paCSSKg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: Rashika Kheria <rashika.kheria@gmail.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
-	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	"josh@joshtriplett.org" <josh@joshtriplett.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <04fe932bc3585620c91d511bb0894e45bb762ffa.1387382457.git.rashika.kheria@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Vince Bridgers <vbridgers2013@gmail.com>,
+	Rayagond K <rayagond@vayavyalabs.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:33782 "EHLO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752854Ab3LSLu6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 06:50:58 -0500
+In-Reply-To: <CAOwfj2Muc4szDNiJc5SjXsw4Oy_LkrBJeiDUY7-09N=paCSSKg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
-aGFsZiBPZiBSYXNoaWthIEtoZXJpYQ0KPiBTZW50OiBUaHVyc2RheSwgRGVjZW1iZXIgMTksIDIw
-MTMgMjoxNyBQTQ0KPiBUbzogbGludXgta2VybmVsOyBIaW1hbnNodSBNYWRoYW5pOyBSYWplc2gg
-Qm9ydW5kaWE7IFNoYWhlZCBTaGFpa2g7DQo+IEppdGVuZHJhIEthbHNhcmlhOyBTb255IENoYWNr
-bzsgU3VjaGV0YSBDaGFrcmFib3J0eTsgRGVwdC1FbmcgTGludXggRHJpdmVyOw0KPiBuZXRkZXY7
-IGpvc2hAam9zaHRyaXBsZXR0Lm9yZw0KPiBTdWJqZWN0OiBbUEFUQ0ggdjMgMS84XSBkcml2ZXJz
-OiBuZXQ6IE1hcmsgZnVuY3Rpb25zIGFzIHN0YXRpYyBpbiBxbGNuaWNfaW8uYw0KPiANCj4gVGhp
-cyBwYXRjaCBtYXJrcyB0aGUgZnVuY3Rpb24gcWxjbmljX2VuYWJsZV90eF9pbnRyKCksDQo+IHFs
-Y25pY184M3h4X2VuYWJsZV90eF9pbnRyKCkgYW5kIHFsY25pY184M3h4X2Rpc2FibGVfdHhfaW50
-cigpIGluIHFsY25pY19pby5jDQo+IGFzIHN0YXRpYyBiZWNhdXNlIHRoZXkgYXJlIG5vdCB1c2Vk
-IG91dHNpZGUgdGhpcyBmaWxlLg0KPiANCj4gVGh1cywgaXQgYWxzbyByZW1vdmVzIHRoZSBmb2xs
-b3dpbmcgd2FybmluZ3MgaW4NCj4gZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNuaWNfaW8uYzoN
-Cj4gDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmljX2lvLmM6MTMw
-OjEzOiB3YXJuaW5nOiBubyBwcmV2aW91cw0KPiBwcm90b3R5cGUgZm9yIOKAmHFsY25pY19lbmFi
-bGVfdHhfaW50cuKAmSBbLVdtaXNzaW5nLXByb3RvdHlwZXNdDQo+IGRyaXZlcnMvbmV0L2V0aGVy
-bmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmljX2lvLmM6MTQ3OjEzOiB3YXJuaW5nOiBubyBwcmV2aW91
-cw0KPiBwcm90b3R5cGUgZm9yIOKAmHFsY25pY184M3h4X2VuYWJsZV90eF9pbnRy4oCZIFstV21p
-c3NpbmctcHJvdG90eXBlc10NCj4gZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9x
-bGNuaWNfaW8uYzoxNTM6MTM6IHdhcm5pbmc6IG5vIHByZXZpb3VzDQo+IHByb3RvdHlwZSBmb3Ig
-4oCYcWxjbmljXzgzeHhfZGlzYWJsZV90eF9pbnRy4oCZIFstV21pc3NpbmctcHJvdG90eXBlc10N
-Cj4gDQo+IFNpZ25lZC1vZmYtYnk6IFJhc2hpa2EgS2hlcmlhIDxyYXNoaWthLmtoZXJpYUBnbWFp
-bC5jb20+DQo+IFJldmlld2VkLWJ5OiBKb3NoIFRyaXBsZXR0IDxqb3NoQGpvc2h0cmlwbGV0dC5v
-cmc+DQoNCkFja2VkLWJ5OiBTaGFoZWQgU2hhaWtoIDxzaGFoZWQuc2hhaWtoQHFsb2dpYy5jb20+
-DQoNClRoYW5rcywNClNoYWhlZA0K
+On 12/19/2013 12:35 AM, Vince Bridgers wrote:
+> >From e9278f13a922433adbf3a81ef9d7823a99bd8d88 Mon Sep 17 00:00:00 2001
+> From: Vince Bridgers <vbridger2013@gmail.com>
+> Date: Wed, 18 Dec 2013 14:29:26 -0600
+> Subject: [PATCH 1/1] Fix release of incorrect spinlock in 
+> stmmac_ptp.c, and
+>   masked configuration of control variable adv_ts
+>
+> Two issues addressed with this patch:
+> 1) The functions stmmac_adjust_freq and stmmac_adjust_time were
+> releasing the incorrect spinlock
+>     at the end of the function - priv->lock instead of priv->ptp_lock.
+> 2) Setting the control data variable priv->adv_ts according to
+> hardware capabilities was masked
+>     by message level settings, so it was not being set correctly in the
+> case that the Synopsys
+>     MAC only supported advanced timestamping.
+>
+> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
+
+Hello Vince
+
+thanks for the patch that provides useful fixes. Pls can you check if it 
+applies
+fine on net.git master branch? It failed on my side.
+
+
+peppe
+
+> ---
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   20 
+> +++++++++-----------
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c  |    4 ++--
+>   2 files changed, 11 insertions(+), 13 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 8a7a23a..797b56a 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -622,17 +622,15 @@ static int stmmac_init_ptp(struct stmmac_priv *priv)
+>       if (!(priv->dma_cap.time_stamp || priv->dma_cap.atime_stamp))
+>           return -EOPNOTSUPP;
+>
+> -    if (netif_msg_hw(priv)) {
+> -        if (priv->dma_cap.time_stamp) {
+> -            pr_debug("IEEE 1588-2002 Time Stamp supported\n");
+> -            priv->adv_ts = 0;
+> -        }
+> -        if (priv->dma_cap.atime_stamp && priv->extend_desc) {
+> -            pr_debug
+> -                ("IEEE 1588-2008 Advanced Time Stamp supported\n");
+> -            priv->adv_ts = 1;
+> -        }
+> -    }
+> +    priv->adv_ts = 0;
+> +    if (priv->dma_cap.atime_stamp && priv->extend_desc)
+> +        priv->adv_ts = 1;
+> +
+> +    if (netif_msg_hw(priv) && priv->dma_cap.time_stamp)
+> +        pr_debug("IEEE 1588-2002 Time Stamp supported\n");
+> +
+> +    if (netif_msg_hw(priv) && priv->adv_ts)
+> +        pr_debug("IEEE 1588-2008 Advanced Time Stamp supported\n");
+>
+>       priv->hw->ptp = &stmmac_ptp;
+>       priv->hwts_tx_en = 0;
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+> b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+> index b8b0eee..7680581 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+> @@ -56,7 +56,7 @@ static int stmmac_adjust_freq(struct ptp_clock_info
+> *ptp, s32 ppb)
+>
+>       priv->hw->ptp->config_addend(priv->ioaddr, addend);
+>
+> -    spin_unlock_irqrestore(&priv->lock, flags);
+> +    spin_unlock_irqrestore(&priv->ptp_lock, flags);
+>
+>       return 0;
+>   }
+> @@ -91,7 +91,7 @@ static int stmmac_adjust_time(struct ptp_clock_info
+> *ptp, s64 delta)
+>
+>       priv->hw->ptp->adjust_systime(priv->ioaddr, sec, nsec, neg_adj);
+>
+> -    spin_unlock_irqrestore(&priv->lock, flags);
+> +    spin_unlock_irqrestore(&priv->ptp_lock, flags);
+>
+>       return 0;
+>   }
+>
