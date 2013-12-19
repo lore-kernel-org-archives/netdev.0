@@ -1,34 +1,44 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 8/9] net: phy: fix checkpatch errors
-Date: Thu, 19 Dec 2013 23:48:03 +0300
-Message-ID: <52B35B83.1050405@cogentembedded.com>
-References: <1387345093-14168-1-git-send-email-f.fainelli@gmail.com> <1387345093-14168-9-git-send-email-f.fainelli@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] net-qdisc-hhf: Heavy-Hitter Filter (HHF) qdisc
+Date: Thu, 19 Dec 2013 14:48:58 -0500 (EST)
+Message-ID: <20131219.144858.1284652650622247805.davem@davemloft.net>
+References: <1387096221-20112-1-git-send-email-vtlam@google.com>
+	<20131219.143045.472862795767521855.davem@davemloft.net>
+	<1387482036.19078.371.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net
+Cc: vtlam@google.com, netdev@vger.kernel.org, nanditad@google.com,
+	edumazet@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:36469 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751677Ab3LSTr5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 14:47:57 -0500
-Received: by mail-lb0-f169.google.com with SMTP id u14so699894lbd.0
-        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 11:47:56 -0800 (PST)
-In-Reply-To: <1387345093-14168-9-git-send-email-f.fainelli@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35472 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755218Ab3LSTtB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 14:49:01 -0500
+In-Reply-To: <1387482036.19078.371.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 19 Dec 2013 11:40:36 -0800
 
-On 12/18/2013 08:38 AM, Florian Fainelli wrote:
+> On Thu, 2013-12-19 at 14:30 -0500, David Miller wrote:
+>> From: Terry Lam <vtlam@google.com>
+>> Date: Sun, 15 Dec 2013 00:30:21 -0800
+>> 
+>> > This patch implements the first size-based qdisc that attempts to
+>> > differentiate between small flows and heavy-hitters.  The goal is to
+>> > catch the heavy-hitters and move them to a separate queue with less
+>> > priority so that bulk traffic does not affect the latency of critical
+>> > traffic.  Currently "less priority" means less weight (2:1 in
+>> > particular) in a Weighted Deficit Round Robin (WDRR) scheduler.
+>> 
+>> Can someone please review this, thanks!
+> 
+> 
+> I did, and somehow managed to not send the message :
+> 
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-> checkpatch spotted a few checkpatch errors such as whitespace damages
-> and switch/case labels not being on the same column, fix them.
-
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-
-    It's good that I spotted this. Actually, I have started doing this myself 
-but haven't finished yet... :-)
-
-WBR, Sergei
+Applied, thanks everyone.
