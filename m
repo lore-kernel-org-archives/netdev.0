@@ -1,30 +1,26 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: fec: fix potential use after free
-Date: Thu, 19 Dec 2013 12:05:49 -0800
-Message-ID: <1387483549.19078.373.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1387479182.19078.369.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131219193231.GB14612@netboy>
-	 <1387483439.19078.372.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] net_sched: remove unnecessary null
+ pointer check
+Date: Thu, 19 Dec 2013 15:07:48 -0500 (EST)
+Message-ID: <20131219.150748.839670108142642890.davem@davemloft.net>
+References: <1387265357-19352-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Frank Li <Frank.Li@freescale.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Cc: netdev@vger.kernel.org
+To: yangyingliang@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:62886 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755213Ab3LSUFv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 15:05:51 -0500
-Received: by mail-pa0-f50.google.com with SMTP id kl14so1632256pab.9
-        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 12:05:50 -0800 (PST)
-In-Reply-To: <1387483439.19078.372.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35637 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755255Ab3LSUHu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 15:07:50 -0500
+In-Reply-To: <1387265357-19352-1-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-12-19 at 12:03 -0800, Eric Dumazet wrote:
+From: Yang Yingliang <yangyingliang@huawei.com>
+Date: Tue, 17 Dec 2013 15:29:15 +0800
 
-> While looking at another driver, founding the same issue.
+> Remove unnecessary null pointer check outside of qdisc_put_rtab().
 
-( drivers/net/ethernet/arc/emac_main.c )
+Series applied, thanks.
