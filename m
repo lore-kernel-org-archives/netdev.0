@@ -1,51 +1,91 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: [RFC] net: distribute vxlan tunneled traffic across multiple
- TXQs
-Date: Thu, 19 Dec 2013 07:43:21 +0000
-Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C26B242FD@CMEXMB1.ad.emulex.com>
-References: <1387269626-12463-1-git-send-email-sathya.perla@emulex.com>
- <1387298726.19078.261.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: Re: [PATCHv3 net-next] xfrm: Namespacify xfrm_policy_sk_bundles
+Date: Thu, 19 Dec 2013 15:47:32 +0800
+Message-ID: <52B2A494.5080702@windriver.com>
+References: <1387337658-28951-1-git-send-email-fan.du@windriver.com>		 <1387342211.19078.295.camel@edumazet-glaptop2.roam.corp.google.com>		 <52B24D7D.6060902@windriver.com>	 <1387419308.19078.343.camel@edumazet-glaptop2.roam.corp.google.com>	 <52B26553.9070103@windriver.com> <1387424650.19078.355.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?546L6IGq?= <xiyou.wangcong@gmail.com>,
+	<steffen.klassert@secunet.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:5720 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750975Ab3LSHnX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 02:43:23 -0500
-In-Reply-To: <1387298726.19078.261.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail.windriver.com ([147.11.1.11]:46813 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751934Ab3LSHr1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 02:47:27 -0500
+In-Reply-To: <1387424650.19078.355.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEVyaWMgRHVtYXpldCBbbWFp
-bHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIERlY2VtYmVyIDE3
-LCAyMDEzIDEwOjE1IFBNDQo+IFRvOiBTYXRoeWEgUGVybGENCj4gQ2M6IG5ldGRldkB2Z2VyLmtl
-cm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtSRkNdIG5ldDogZGlzdHJpYnV0ZSB2eGxhbiB0dW5u
-ZWxlZCB0cmFmZmljIGFjcm9zcyBtdWx0aXBsZSBUWFFzDQo+IA0KPiBPbiBUdWUsIDIwMTMtMTIt
-MTcgYXQgMTQ6MTAgKzA1MzAsIFNhdGh5YSBQZXJsYSB3cm90ZToNCj4gPiBUWCB0cmFmZmljIGlz
-IGRpc3RyaWJ1dGVkIGFjcm9zcyBtdWx0aXBsZSBUWFFzIHVzaW5nIHNrYi0+c2stPnNrX2hhc2gu
-DQo+ID4gRm9yIHZ4bGFuIHNrYnMsIHRoZSByZWZlcmVuY2UgdG8gdGhlIG9yaWdpbmFsIHNvY2tl
-dCAoc2tiLT5zaykgaXMgcmVwbGFjZWQNCj4gPiB3aXRoIHZ4bGFuLXNrLiBCZWNhdXNlIG9mIHRo
-aXMgYWxsIHR1bm5lbGVkIHRyYWZmaWMgZW5kcyB1cCBvbmx5IG9uIG9uZSBUWFEuDQo+ID4NCj4g
-PiBUaGlzIHBhdGNoIHVzZXMgdGhlIHNrYi0+cnhoYXNoIGZpZWxkIHRvIGNhcnJ5IHRoZSBvcmln
-aW5hbCBzay0+c2tfaGFzaA0KPiA+IHZhbHVlIHNvIHRoYXQgaXQgY2FuIGJlIHVzZWQgYnkgbmV0
-ZGV2IGxheWVyIHRvIHBpY2sgYSBUWFEuIElmIHRoaXMgYXBwcm9hY2gNCj4gPiBpcyBhZ3JlZWFi
-bGUgdGhlbiB3ZSBjYW4gY2hhbmdlIHRoZSBuYW1lIG9mIHNrYi0+cnhoYXNoIHRvIHNrYi0+aGFz
-aCBzbyB0aGF0DQo+ID4gaXQgY2FuIGJlIHVzZWQgaW4gYm90aCBSWCBhbmQgVFggcGF0aHMuDQo+
-ID4NCj4gPiBCdXQsIGFmdGVyIGEgVFhRIGlzIHBpY2tlZCBiYXNlZCBvbiB0aGUgc2tiLT5yeGhh
-c2ggZm9yIHR1bm5lbGVkIHRyYWZmaWMsDQo+ID4gaXQncyBpbmRleCBjYW5ub3QgYmUgcmVjb3Jk
-ZWQgaW4gdGhlIG9yaWdpbmFsIHNvY2tldCBhcyBpdCdzIHJlZmVyZW5jZQ0KPiA+IGlzIG5vIGxv
-bmdlciBhdmFpbGFibGUgaW4gc2tiLiBTbywgdGhlIFRYUS1pbmRleCB3b3VsZCBuZWVkIHRvIGJl
-DQo+ID4gY29tcHV0ZWQgKGZyb20gc2tiLT5yeGhhc2gpIGZvciBlYWNoIHNrYi4gQW55IGlkZWFz
-IG9uIGhvdyB0aGlzIGNhbiBiZQ0KPiA+IGF2b2lkZWQ/DQo+IA0KPiBSZWFsIHF1ZXN0aW9uIGlz
-IDogV2h5IHZ4bGFuIG5lZWRzIHRvIHNldCBhIHNrYiBkZXN0cnVjdG9yID8NCg0KVGhlIG5lZWQg
-Zm9yIGEgdnhsYW4gc2tiIGRlc3RydWN0b3IgaXMgbm90IGFwcGFyZW50IHRvIG1lLg0KVGhlIGNv
-ZGUganVzdCBidW1wcyB1cCB2eGxhbi1zay0+cmVmY250IGFuZCBkb2VzIG5vdGhpbmcgZWxzZS4N
-Cj4gDQo+IHNrYl9vcnBoYW4oc2tiKSBicmVha3MgVENQIFNtYWxsIHF1ZXVlcyBhbmQgRlEvcGFj
-aW5nIHBhY2tldCBzY2hlZHVsZXIsDQo+IHBsdXMgb3RoZXIgdGhpbmdzLi4uDQpJdCBhbHNvIHNl
-ZW1zIHRvIHZpb2xhdGUgdGhlIFRDUCB3bWVtIGFjY291bnRpbmcgb2YgdGhlIG9yaWdpbmFsIHNv
-Y2tldC4NCg0KSSdsbCB0ZXN0IGEgcGF0Y2ggcmVtb3ZpbmcgdGhlIHZ4bGFuIGRlc3RydWN0b3Ig
-YW5kIHBvc3QgaXQgZm9yIGNvbW1lbnRzLg0KDQp0aGFua3MsDQotU2F0aHlhDQo=
+
+
+On 2013=E5=B9=B412=E6=9C=8819=E6=97=A5 11:44, Eric Dumazet wrote:
+> On Thu, 2013-12-19 at 11:17 +0800, Fan Du wrote:
+>>
+>
+>> diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
+>> index 1006a26..22f4f90 100644
+>> --- a/include/net/netns/xfrm.h
+>> +++ b/include/net/netns/xfrm.h
+>> @@ -58,9 +58,9 @@ struct netns_xfrm {
+>>    	struct dst_ops		xfrm6_dst_ops;
+>>    #endif
+>>    	spinlock_t xfrm_state_lock;
+>> -	spinlock_t xfrm_policy_sk_bundle_lock;
+>>    	rwlock_t xfrm_policy_lock;
+>>    	struct mutex xfrm_cfg_mutex;
+>> +	struct llist_head xp_sk_bundles_list;
+>>    };
+>>
+>>    #endif
+>> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+>> index 59f5d0a..05296ab 100644
+>> --- a/include/net/xfrm.h
+>> +++ b/include/net/xfrm.h
+>> @@ -957,6 +957,7 @@ struct xfrm_dst {
+>>    	u32 child_mtu_cached;
+>>    	u32 route_cookie;
+>>    	u32 path_cookie;
+>> +	struct llist_node       xdst_llist;
+>>    };
+>>
+>
+> Hmm... Thats not very nice.
+>
+> Please reuse the storage adding a llist_node in the union ?
+>
+> diff --git a/include/net/dst.h b/include/net/dst.h
+> index 44995c13e941..3f604f47cc58 100644
+> --- a/include/net/dst.h
+> +++ b/include/net/dst.h
+> @@ -14,6 +14,7 @@
+>   #include<linux/rcupdate.h>
+>   #include<linux/bug.h>
+>   #include<linux/jiffies.h>
+> +#include<linux/llist.h>
+>   #include<net/neighbour.h>
+>   #include<asm/processor.h>
+>
+> @@ -103,6 +104,7 @@ struct dst_entry {
+>   		struct rtable __rcu	*rt_next;
+>   		struct rt6_info		*rt6_next;
+>   		struct dn_route __rcu	*dn_next;
+
+Add dst_entry with llist into a global llist head, after this
+does the dst internal usage of above member corrupt below llist
+if we unionize them together here?
+
+> +		struct llist_node	llist;
+>   	};
+>   };
+
+
+
+--=20
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
+
+--fan
