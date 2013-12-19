@@ -1,51 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net-next): ipsec-next 2013-12-19
-Date: Thu, 19 Dec 2013 18:38:04 -0500 (EST)
-Message-ID: <20131219.183804.1892402616200195799.davem@davemloft.net>
-References: <1387435005-8987-1-git-send-email-steffen.klassert@secunet.com>
+Subject: Re: [PATCH v3 1/8] drivers: net: Mark functions as static in
+ qlcnic_io.c
+Date: Thu, 19 Dec 2013 18:52:01 -0500 (EST)
+Message-ID: <20131219.185201.2268644156166690269.davem@davemloft.net>
+References: <e03d2664d5490bf7af673fc66b83a9684c8758ed.1386911123.git.rashika.kheria@gmail.com>
+	<04fe932bc3585620c91d511bb0894e45bb762ffa.1387382457.git.rashika.kheria@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36759 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756258Ab3LSXiF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 18:38:05 -0500
-In-Reply-To: <1387435005-8987-1-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: linux-kernel@vger.kernel.org, himanshu.madhani@qlogic.com,
+	rajesh.borundia@qlogic.com, shahed.shaikh@qlogic.com,
+	jitendra.kalsaria@qlogic.com, sony.chacko@qlogic.com,
+	sucheta.chakraborty@qlogic.com, linux-driver@qlogic.com,
+	netdev@vger.kernel.org, josh@joshtriplett.org
+To: rashika.kheria@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <04fe932bc3585620c91d511bb0894e45bb762ffa.1387382457.git.rashika.kheria@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Thu, 19 Dec 2013 07:36:37 +0100
-
-> 1) Use the user supplied policy index instead of a generated one
->    if present. From Fan Du.
-> 
-> 2) Make xfrm migration namespace aware. From Fan Du.
-> 
-> 3) Make the xfrm state and policy locks namespace aware. From Fan Du.
-> 
-> 4) Remove ancient sleeping when the SA is in acquire state,
->    we now queue packets to the policy instead. This replaces the
->    sleeping code.
-> 
-> 5) Remove FLOWI_FLAG_CAN_SLEEP. This was used to notify xfrm about the
->    posibility to sleep. The sleeping code is gone, so remove it.
-> 
-> 6) Check user specified spi for IPComp. Thr spi for IPcomp is only
->    16 bit wide, so check for a valid value. From Fan Du.
-> 
-> 7) Export verify_userspi_info to check for valid user supplied spi ranges
->    with pfkey and netlink. From Fan Du.
-> 
-> 8) RFC3173 states that if the total size of a compressed payload and the IPComp
->    header is not smaller than the size of the original payload, the IP datagram
->    must be sent in the original non-compressed form. These packets are dropped
->    by the inbound policy check because they are not transformed. Document the need
->    to set 'level use' for IPcomp to receive such packets anyway. From Fan Du.
-> 
-> Please pull or let me know if there are problems.
-
-Pulled, thanks a lot.
+RnJvbTogUmFzaGlrYSBLaGVyaWEgPHJhc2hpa2Eua2hlcmlhQGdtYWlsLmNvbT4NCkRhdGU6IFRo
+dSwgMTkgRGVjIDIwMTMgMTQ6MTc6MjcgKzA1MzANCg0KPiBUaGlzIHBhdGNoIG1hcmtzIHRoZSBm
+dW5jdGlvbiBxbGNuaWNfZW5hYmxlX3R4X2ludHIoKSwNCj4gcWxjbmljXzgzeHhfZW5hYmxlX3R4
+X2ludHIoKSBhbmQgcWxjbmljXzgzeHhfZGlzYWJsZV90eF9pbnRyKCkgaW4NCj4gcWxjbmljX2lv
+LmMgYXMgc3RhdGljIGJlY2F1c2UgdGhleSBhcmUgbm90IHVzZWQgb3V0c2lkZSB0aGlzIGZpbGUu
+DQo+IA0KPiBUaHVzLCBpdCBhbHNvIHJlbW92ZXMgdGhlIGZvbGxvd2luZyB3YXJuaW5ncyBpbg0K
+PiBldGhlcm5ldC9xbG9naWMvcWxjbmljL3FsY25pY19pby5jOg0KPiANCj4gZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNuaWNfaW8uYzoxMzA6MTM6IHdhcm5pbmc6IG5vIHBy
+ZXZpb3VzIHByb3RvdHlwZSBmb3IgoXFsY25pY19lbmFibGVfdHhfaW50cqIgWy1XbWlzc2luZy1w
+cm90b3R5cGVzXQ0KPiBkcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3FsY25pY19p
+by5jOjE0NzoxMzogd2FybmluZzogbm8gcHJldmlvdXMgcHJvdG90eXBlIGZvciChcWxjbmljXzgz
+eHhfZW5hYmxlX3R4X2ludHKiIFstV21pc3NpbmctcHJvdG90eXBlc10NCj4gZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNuaWNfaW8uYzoxNTM6MTM6IHdhcm5pbmc6IG5vIHBy
+ZXZpb3VzIHByb3RvdHlwZSBmb3IgoXFsY25pY184M3h4X2Rpc2FibGVfdHhfaW50cqIgWy1XbWlz
+c2luZy1wcm90b3R5cGVzXQ0KPiANCj4gU2lnbmVkLW9mZi1ieTogUmFzaGlrYSBLaGVyaWEgPHJh
+c2hpa2Eua2hlcmlhQGdtYWlsLmNvbT4NCj4gUmV2aWV3ZWQtYnk6IEpvc2ggVHJpcGxldHQgPGpv
+c2hAam9zaHRyaXBsZXR0Lm9yZz4NCg0KQXBwbGllZC4NCg==
