@@ -1,102 +1,319 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCHv2 ipsec-next] xfrm: Namespacify xfrm_policy_sk_bundles
-Date: Thu, 19 Dec 2013 09:35:57 +0800
-Message-ID: <52B24D7D.6060902@windriver.com>
-References: <1387337658-28951-1-git-send-email-fan.du@windriver.com> <1387342211.19078.295.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2 1/9] fixed-phy: register fixed PHY as platform driver
+Date: Wed, 18 Dec 2013 17:48:38 -0800
+Message-ID: <CAGVrzcYfhu1fatpPH8njc_Wh5PVpSG92aGwgsSqkaoNxEFPXxw@mail.gmail.com>
+References: <1387416526-7394-1-git-send-email-hauke@hauke-m.de> <1387416526-7394-2-git-send-email-hauke@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <steffen.klassert@secunet.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	=?UTF-8?B?546L6IGq?= <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, zambrano@broadcom.com,
+	netdev <netdev@vger.kernel.org>,
+	Vitaly Bordug <vbordug@ru.mvista.com>,
+	Anton Vorontsov <avorontsov@ru.mvista.com>
+To: Hauke Mehrtens <hauke@hauke-m.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:34386 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752081Ab3LSBgA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 20:36:00 -0500
-In-Reply-To: <1387342211.19078.295.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:33279 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751835Ab3LSBtT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 20:49:19 -0500
+Received: by mail-pd0-f173.google.com with SMTP id p10so438589pdj.18
+        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 17:49:19 -0800 (PST)
+In-Reply-To: <1387416526-7394-2-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Eric and Cong
-
-On 2013=E5=B9=B412=E6=9C=8818=E6=97=A5 12:50, Eric Dumazet wrote:
->>   static DEFINE_SPINLOCK(xfrm_policy_afinfo_lock);
->> >    static struct xfrm_policy_afinfo __rcu *xfrm_policy_afinfo[NPRO=
-TO]
->> >    						__read_mostly;
->> >  @@ -2108,12 +2106,8 @@ struct dst_entry *xfrm_lookup(struct net *=
-net, struct dst_entry *dst_orig,
->> >    			}
->> >
->> >    			dst_hold(&xdst->u.dst);
->> >  -
->> >  -			spin_lock_bh(&net->xfrm.xfrm_policy_sk_bundle_lock);
->> >  -			xdst->u.dst.next =3D xfrm_policy_sk_bundles;
->> >  -			xfrm_policy_sk_bundles =3D&xdst->u.dst;
->> >  -			spin_unlock_bh(&net->xfrm.xfrm_policy_sk_bundle_lock);
->> >  -
->> >  +			xdst->u.dst.next =3D xchg(&net->xfrm.xfrm_policy_sk_bundles,
->> >  +						&xdst->u.dst);
-> This is not safe.
+2013/12/18 Hauke Mehrtens <hauke@hauke-m.de>:
+> This changes the fixed phy driver from registering the mdio bus when
+> the module gets loaded to registering it when a device was registered.
+> A phy has to get registered to this driver before it registered the
+> mdio bus, but this only worked when the phys are registered in some
+> arch code before the system booted completely. Now we want to do so
+> when the Ethernet driver gets initialized which could be happen every
+> time.
 >
-> Take a look at include/linux/llist.h if you really want to avoid the
-> spinlock.
+> To make this driver work with such a case, convert it to a platform
+> driver which could be registered every time with the phys which should
+> be on the bus.
+>
+> This was only tested on BCM47XX, but not on AR7 because I do not have
+> such a device.
 
-Here is my understanding about llist_add_batch, assume when add one sin=
-gle
-entry into list, i.e., new_last equates new_first.
+I do understand why you would want to do it that way, but I believe
+this is should be addressed separately, outside of the actual b44
+changes. Converting the fixed PHY driver into a platform driver also
+has an impact on how Device Tree callers such as PowerPC would be
+dealing with this.
 
-   1         do {
-   2                 new->next =3D first =3D ACCESS_ONCE(head->first);
-   3         } while (cmpxchg(&head->first, first, new) !=3D first);
+Can you submit the required changes to arch/mips/bcm47xx/ for now and
+get this change merged via David's tree? This would buy us some time
+to discuss how to best deal with fixed PHY, and also take Device Tree
+aware platform into account since that part has been an on-going
+discussion for a while.
+
+Thanks!
+
+>
+> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+> CC: Florian Fainelli <florian@openwrt.org>
+> CC: Vitaly Bordug <vbordug@ru.mvista.com>
+> CC: Anton Vorontsov <avorontsov@ru.mvista.com>
+> ---
+>  arch/mips/ar7/platform.c  |   39 ++++++++++++++++++----
+>  drivers/net/phy/fixed.c   |   79 ++++++++++++++++++++++-----------------------
+>  include/linux/phy_fixed.h |   21 ++++++------
+>  3 files changed, 83 insertions(+), 56 deletions(-)
+>
+> diff --git a/arch/mips/ar7/platform.c b/arch/mips/ar7/platform.c
+> index 7e2356f..26ea35a 100644
+> --- a/arch/mips/ar7/platform.c
+> +++ b/arch/mips/ar7/platform.c
+> @@ -251,10 +251,35 @@ static struct resource cpmac_high_res[] = {
+>         },
+>  };
+>
+> -static struct fixed_phy_status fixed_phy_status __initdata = {
+> -       .link           = 1,
+> -       .speed          = 100,
+> -       .duplex         = 1,
+> +static struct pdata_fixed_phy cpmac_phy_data = {
+> +       .name           = "fixed-0",
+> +       .phys_num       = 1,
+> +       .phys           = {{
+> +               .phy_id = 1,
+> +               .irq    = PHY_POLL,
+> +               .status = {
+> +                       .link   = 1,
+> +                       .speed  = 100,
+> +                       .duplex = 1,
+> +               },
+> +       },
+> +       {
+> +               .phy_id = 1,
+> +               .irq    = PHY_POLL,
+> +               .status = {
+> +                       .link   = 1,
+> +                       .speed  = 100,
+> +                       .duplex = 1,
+> +               },
+> +       }},
+> +};
+> +
+> +static struct platform_device cpmac_phy = {
+> +       .id             = 0,
+> +       .name           = "fixed-phy",
+> +       .dev = {
+> +               .platform_data  = &cpmac_phy_data,
+> +       },
+>  };
+>
+>  static struct plat_cpmac_data cpmac_low_data = {
+> @@ -683,7 +708,8 @@ static int __init ar7_register_devices(void)
+>         }
+>
+>         if (ar7_has_high_cpmac()) {
+> -               res = fixed_phy_add(PHY_POLL, cpmac_high.id, &fixed_phy_status);
+> +               cpmac_phy_data.phys[1].phy_id = cpmac_high.id;
+> +               cpmac_phy_data.phys_num = 2;
+>                 if (!res) {
+>                         cpmac_get_mac(1, cpmac_high_data.dev_addr);
+>
+> @@ -695,7 +721,8 @@ static int __init ar7_register_devices(void)
+>         } else
+>                 cpmac_low_data.phy_mask = 0xffffffff;
+>
+> -       res = fixed_phy_add(PHY_POLL, cpmac_low.id, &fixed_phy_status);
+> +       cpmac_phy_data.phys[0].phy_id = cpmac_low.id;
+> +       res = platform_device_register(&cpmac_phy);
+>         if (!res) {
+>                 cpmac_get_mac(0, cpmac_low_data.dev_addr);
+>                 res = platform_device_register(&cpmac_low);
+> diff --git a/drivers/net/phy/fixed.c b/drivers/net/phy/fixed.c
+> index ba55adf..dd5154b 100644
+> --- a/drivers/net/phy/fixed.c
+> +++ b/drivers/net/phy/fixed.c
+> @@ -5,6 +5,7 @@
+>   *         Anton Vorontsov <avorontsov@ru.mvista.com>
+>   *
+>   * Copyright (c) 2006-2007 MontaVista Software, Inc.
+> + * Copyright (C) 2013 Hauke Mehrtens <hauke@hauke-m.de>
+>   *
+>   * This program is free software; you can redistribute  it and/or modify it
+>   * under  the terms of  the GNU General  Public License as published by the
+> @@ -39,11 +40,6 @@ struct fixed_phy {
+>         struct list_head node;
+>  };
+>
+> -static struct platform_device *pdev;
+> -static struct fixed_mdio_bus platform_fmb = {
+> -       .phys = LIST_HEAD_INIT(platform_fmb.phys),
+> -};
+> -
+>  static int fixed_phy_update_regs(struct fixed_phy *fp)
+>  {
+>         u16 bmsr = BMSR_ANEGCAPABLE;
+> @@ -153,7 +149,7 @@ int fixed_phy_set_link_update(struct phy_device *phydev,
+>                               int (*link_update)(struct net_device *,
+>                                                  struct fixed_phy_status *))
+>  {
+> -       struct fixed_mdio_bus *fmb = &platform_fmb;
+> +       struct fixed_mdio_bus *fmb = phydev->bus->priv;
+>         struct fixed_phy *fp;
+>
+>         if (!link_update || !phydev || !phydev->bus)
+> @@ -171,14 +167,14 @@ int fixed_phy_set_link_update(struct phy_device *phydev,
+>  }
+>  EXPORT_SYMBOL_GPL(fixed_phy_set_link_update);
+>
+> -int fixed_phy_add(unsigned int irq, int phy_id,
+> -                 struct fixed_phy_status *status)
+> +static int fixed_phy_add(struct device *dev, struct fixed_mdio_bus *fmb,
+> +                        unsigned int irq, int phy_id,
+> +                        struct fixed_phy_status *status)
+>  {
+>         int ret;
+> -       struct fixed_mdio_bus *fmb = &platform_fmb;
+>         struct fixed_phy *fp;
+>
+> -       fp = kzalloc(sizeof(*fp), GFP_KERNEL);
+> +       fp = devm_kzalloc(dev, sizeof(struct fixed_phy), GFP_KERNEL);
+>         if (!fp)
+>                 return -ENOMEM;
+>
+> @@ -191,36 +187,41 @@ int fixed_phy_add(unsigned int irq, int phy_id,
+>
+>         ret = fixed_phy_update_regs(fp);
+>         if (ret)
+> -               goto err_regs;
+> +               return ret;
+>
+>         list_add_tail(&fp->node, &fmb->phys);
+>
+>         return 0;
+> -
+> -err_regs:
+> -       kfree(fp);
+> -       return ret;
+>  }
+> -EXPORT_SYMBOL_GPL(fixed_phy_add);
+>
+> -static int __init fixed_mdio_bus_init(void)
+> +static int fixed_phy_probe(struct platform_device *pdev)
+>  {
+> -       struct fixed_mdio_bus *fmb = &platform_fmb;
+> +       struct pdata_fixed_phy *pdata = dev_get_platdata(&pdev->dev);
+> +       struct fixed_mdio_bus *fmb;
+> +       struct fixed_phy_conf *phy;
+>         int ret;
+> +       int i;
+>
+> -       pdev = platform_device_register_simple("Fixed MDIO bus", 0, NULL, 0);
+> -       if (IS_ERR(pdev)) {
+> -               ret = PTR_ERR(pdev);
+> -               goto err_pdev;
+> +       fmb = devm_kzalloc(&pdev->dev, sizeof(struct fixed_mdio_bus), GFP_KERNEL);
+> +       if (!fmb)
+> +               return -ENOMEM;
+> +       INIT_LIST_HEAD(&fmb->phys);
+> +       platform_set_drvdata(pdev, fmb);
+> +
+> +       for (i = 0; i < pdata->phys_num; i++) {
+> +               phy = &pdata->phys[i];
+> +               ret = fixed_phy_add(&pdev->dev, fmb, phy->irq, phy->phy_id,
+> +                                   &phy->status);
+> +               if (ret < 0)
+> +                       return ret;
+>         }
+>
+>         fmb->mii_bus = mdiobus_alloc();
+> -       if (fmb->mii_bus == NULL) {
+> -               ret = -ENOMEM;
+> -               goto err_mdiobus_reg;
+> +       if (!fmb->mii_bus) {
+> +               return -ENOMEM;
+>         }
+>
+> -       snprintf(fmb->mii_bus->id, MII_BUS_ID_SIZE, "fixed-0");
+> +       snprintf(fmb->mii_bus->id, MII_BUS_ID_SIZE, pdata->name);
+>         fmb->mii_bus->name = "Fixed MDIO Bus";
+>         fmb->mii_bus->priv = fmb;
+>         fmb->mii_bus->parent = &pdev->dev;
+> @@ -236,29 +237,27 @@ static int __init fixed_mdio_bus_init(void)
+>
+>  err_mdiobus_alloc:
+>         mdiobus_free(fmb->mii_bus);
+> -err_mdiobus_reg:
+> -       platform_device_unregister(pdev);
+> -err_pdev:
+>         return ret;
+>  }
+> -module_init(fixed_mdio_bus_init);
+>
+> -static void __exit fixed_mdio_bus_exit(void)
+> +static int fixed_phy_remove(struct platform_device *pdev)
+>  {
+> -       struct fixed_mdio_bus *fmb = &platform_fmb;
+> -       struct fixed_phy *fp, *tmp;
+> +       struct fixed_mdio_bus *fmb = platform_get_drvdata(pdev);
+>
+>         mdiobus_unregister(fmb->mii_bus);
+>         mdiobus_free(fmb->mii_bus);
+> -       platform_device_unregister(pdev);
+> -
+> -       list_for_each_entry_safe(fp, tmp, &fmb->phys, node) {
+> -               list_del(&fp->node);
+> -               kfree(fp);
+> -       }
+> +       return 0;
+>  }
+> -module_exit(fixed_mdio_bus_exit);
+>
+> +static struct platform_driver fixed_phy_driver = {
+> +       .probe = fixed_phy_probe,
+> +       .remove = fixed_phy_remove,
+> +       .driver = {
+> +               .name = "fixed-phy",
+> +       },
+> +};
+> +
+> +module_platform_driver(fixed_phy_driver);
+>  MODULE_DESCRIPTION("Fixed MDIO bus (MDIO bus emulation with fixed PHYs)");
+>  MODULE_AUTHOR("Vitaly Bordug");
+>  MODULE_LICENSE("GPL");
+> diff --git a/include/linux/phy_fixed.h b/include/linux/phy_fixed.h
+> index 509d8f5..f41140e 100644
+> --- a/include/linux/phy_fixed.h
+> +++ b/include/linux/phy_fixed.h
+> @@ -9,16 +9,17 @@ struct fixed_phy_status {
+>         int asym_pause;
+>  };
+>
+> -#ifdef CONFIG_FIXED_PHY
+> -extern int fixed_phy_add(unsigned int irq, int phy_id,
+> -                        struct fixed_phy_status *status);
+> -#else
+> -static inline int fixed_phy_add(unsigned int irq, int phy_id,
+> -                               struct fixed_phy_status *status)
+> -{
+> -       return -ENODEV;
+> -}
+> -#endif /* CONFIG_FIXED_PHY */
+> +struct fixed_phy_conf {
+> +       int phy_id;
+> +       unsigned int irq;
+> +       struct fixed_phy_status status;
+> +};
+> +
+> +struct pdata_fixed_phy {
+> +       char *name;
+> +       unsigned int phys_num;
+> +       struct fixed_phy_conf phys[];
+> +};
+>
+>  /*
+>   * This function issued only by fixed_phy-aware drivers, no need
+> --
+> 1.7.10.4
 
 
-Caller 1:Add new1 into head                          Caller 2:Add new2 =
-into head
-      line 2: Link head into new1
-                                                      line 2: Link head=
- into new2
-                                                      line 3: Make the =
-cmpxchg, then succeed.
 
-                                                      After this, new2 =
--> old_head
-      line 3: Make the cmpxchg, failed, try
-              again will succeed, after this
-              new1 -> new2 -> old_head
-
-So in order to not use locks, try again if cmpxchg found out someone el=
-se
-has update the head. For the case involved in the patch, the problem is=
-, after
-xchg, assign the old head to the new->next will race with the delete pa=
-rt when
-saving the head for deleting after setting the head to NULL, as the tra=
-verse
-of saved head probably not see a consistent list, that's a broken one.
-
-I think an analogy of llist_add_batch for the updating part will be ok =
-for this:
-
-                         struct dst_entry *first;
-                         do {
-                                 xdst->u.dst.next =3D first =3D ACCESS_=
-ONCE(xfrm_policy_sk_bundles);
-                         } while (cmpxchg(&xfrm_policy_sk_bundles, firs=
-t, &xdst->u.dst) !=3D first);
-
-
-And the deleting part:
-
-                         head =3D xchg(&net->xfrm.xfrm_policy_sk_bundle=
-s, NULL);
-
-
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan
+-- 
+Florian
