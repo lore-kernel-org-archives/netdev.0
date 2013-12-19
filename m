@@ -1,63 +1,57 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH] net: mvmdio: fix interrupt timeout handling
-Date: Thu, 19 Dec 2013 12:33:19 +0100
-Message-ID: <52B2D97F.4070200@gmail.com>
-References: <1387451589-15491-1-git-send-email-leigh@solinno.co.uk>
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Nicolas Schichan <nschichan@freebox.fr>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Florian Fainelli <florian@openwrt.org>,
-	linux-arm-kernel@lists.infradead.org
-To: Leigh Brown <leigh@solinno.co.uk>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1387451589-15491-1-git-send-email-leigh@solinno.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH v2 1/2] netfilter_queue: enable UID/GID socket info
+ retrieval
+Date: Thu, 19 Dec 2013 12:43:40 +0100
+Message-ID: <20131219114340.GB6047@breakpoint.cc>
+References: <1387451007-14363-1-git-send-email-valentina.giusti@bmw-carit.de>
+ <1387451007-14363-2-git-send-email-valentina.giusti@bmw-carit.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	fw@strlen.de, eric.dumazet@gmail.com, tgraf@redhat.com,
+	jpa@google.com, pablo@netfilter.org, davem@davemloft.net,
+	daniel.wagner@bmw-carit.de,
+	Valentina Giusti <valentina.giusti@oss.bmw-carit.de>
+To: valentina.giusti@bmw-carit.de
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1387451007-14363-2-git-send-email-valentina.giusti@bmw-carit.de>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/19/13 12:13, Leigh Brown wrote:
-> orion_mdio_wait_ready uses wait_event_timeout to wait for the
-> SMI interrupt to fire.  wait_event_timeout waits for between
-> "timeout - 1" and "timeout" jiffies.  In this case a 1ms timeout
-> when HZ is 1000 results in a wait of 0 to 1 jiffies, causing
-> premature timeouts.
->
-> This fix ensures a minimum timeout of 2 jiffies, ensuring
-> wait_event_timeout will always wait at least 1 jiffie.
->
-> Issue reported by Nicolas Schichan.
->
-> Tested-by: Nicolas Schichan <nschichan@freebox.fr>
-> Signed-off-by: Leigh Brown <leigh@solinno.co.uk>
-> ---
->   drivers/net/ethernet/marvell/mvmdio.c | 6 ++++++
->   1 file changed, 6 insertions(+)
->
-> diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-> index 7354960..a42a750 100644
-> --- a/drivers/net/ethernet/marvell/mvmdio.c
-> +++ b/drivers/net/ethernet/marvell/mvmdio.c
-> @@ -92,6 +92,12 @@ static int orion_mdio_wait_ready(struct mii_bus *bus)
->   			if (time_is_before_jiffies(end))
->   				++timedout;
->   	        } else {
-> +			/* wait_event_timeout does not guarantee a delay of at
-> +			 * least one whole jiffie, so timeout must be no less
-> +			 * than two.
-> +			 */
-> +			 if (timeout < 2)
-> +			 	timeout = 2;
+valentina.giusti@bmw-carit.de <valentina.giusti@bmw-carit.de> wrote:
+> From: Valentina Giusti <valentina.giusti@oss.bmw-carit.de>
+> 
+> Thanks to commits 41063e9 (ipv4: Early TCP socket demux) and 421b388 (udp: ipv4:
+> Add udp early demux) it is now possible to parse UID and GID socket info
+> also for incoming TCP and UDP connections. Having this info available, it
+> is convenient to let NFQUEUE parse it in order to improve and refine the
+> traffic analysis in userspace.
 
-Hi Leigh,
+> diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
+> index 21258cf..2cdef07 100644
+> --- a/net/netfilter/nfnetlink_queue_core.c
+> +++ b/net/netfilter/nfnetlink_queue_core.c
+> @@ -297,6 +297,29 @@ nfqnl_put_packet_info(struct sk_buff *nlskb, struct sk_buff *packet,
+>  	return flags ? nla_put_be32(nlskb, NFQA_SKB_INFO, htonl(flags)) : 0;
+>  }
+>  
+> +static int nfqnl_put_sk_uidgid(struct sk_buff *skb, struct sock *sk)
+> +{
+> +	const struct cred *cred;
+> +
+> +	if (sk && sk->sk_state != TCP_TIME_WAIT) {
+[..]
+> +	if ((queue->flags & NFQA_CFG_F_UID_GID) && entskb->sk)
+> +		if (nfqnl_put_sk_uidgid(skb, entskb->sk))
+> +			goto nla_put_failure;
 
-above two lines have a whitespace issue.
+Minor nit: sk is tested for non-null twice.  Suggestion:
 
-Sebastian
+if ((queue->flags & NFQA_CFG_F_UID_GID) &&
+     nfqnl_put_sk_uidgid(skb, entskb->sk))
+          goto nla_put_failure;
 
->   			wait_event_timeout(dev->smi_busy_wait,
->   				           orion_mdio_smi_is_done(dev),
->   				           timeout);
->
+I don't think its necessary to resubmit the patch though, thus:
+
+Reviewed-by: Florian Westphal <fw@strlen.de>
