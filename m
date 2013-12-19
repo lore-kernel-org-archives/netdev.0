@@ -1,109 +1,123 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V2 06/10] net/mlx4_en: Configure the XPS queue mapping on driver load
-Date: Thu, 19 Dec 2013 21:20:14 +0200
-Message-ID: <1387480818-3932-7-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V2 10/10] net/mlx4_core: Check port number for validity before accessing data
+Date: Thu, 19 Dec 2013 21:20:18 +0200
+Message-ID: <1387480818-3932-11-git-send-email-amirv@mellanox.com>
 References: <1387480818-3932-1-git-send-email-amirv@mellanox.com>
 Cc: Or Gerlitz <ogerlitz@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
-	Ido Shamay <idos@mellanox.com>
+	Matan Barak <matanb@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:60361 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:60359 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755575Ab3LSTUi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Dec 2013 14:20:38 -0500
+	id S1755669Ab3LSTUm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Dec 2013 14:20:42 -0500
 In-Reply-To: <1387480818-3932-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Shamay <idos@mellanox.com>
+From: Matan Barak <matanb@mellanox.com>
 
-Only TX rings of User Piority 0 are mapped.
-TX rings of other UP's are using UP 0 mapping.
-XPS is not in use when num_tc is set.
+Need to validate port number at mlx4_promisc_qp() before use.
+Since port number is extracted from gid, as a cooked or corrupted gid
+could lead to a crash.
 
-Signed-off-by: Ido Shamay <idos@mellanox.com>
+Signed-off-by: Matan Barak <matanb@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 6 ++++--
- drivers/net/ethernet/mellanox/mlx4/en_tx.c     | 9 ++++++++-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   | 5 ++++-
- 3 files changed, 16 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/mcg.c | 28 +++++++++++++++++++++++++++-
+ 1 file changed, 27 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index d2e9666..6f92090 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1910,8 +1910,10 @@ int mlx4_en_alloc_resources(struct mlx4_en_priv *priv)
- 				      prof->tx_ring_size, i, TX, node))
- 			goto err;
- 
--		if (mlx4_en_create_tx_ring(priv, &priv->tx_ring[i], priv->base_tx_qpn + i,
--					   prof->tx_ring_size, TXBB_SIZE, node))
-+		if (mlx4_en_create_tx_ring(priv, &priv->tx_ring[i],
-+					   priv->base_tx_qpn + i,
-+					   prof->tx_ring_size, TXBB_SIZE,
-+					   node, i))
- 			goto err;
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index f54ebd5..5e22d7d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -55,7 +55,7 @@ MODULE_PARM_DESC(inline_thold, "threshold for using inline data");
- 
- int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 			   struct mlx4_en_tx_ring **pring, int qpn, u32 size,
--			   u16 stride, int node)
-+			   u16 stride, int node, int queue_index)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+index 4059405..7c83e6c 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+@@ -125,9 +125,14 @@ static struct mlx4_promisc_qp *get_promisc_qp(struct mlx4_dev *dev, u8 port,
+ 					      enum mlx4_steer_type steer,
+ 					      u32 qpn)
  {
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct mlx4_en_tx_ring *ring;
-@@ -140,6 +140,10 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 		ring->bf_enabled = true;
+-	struct mlx4_steer *s_steer = &mlx4_priv(dev)->steer[port - 1];
++	struct mlx4_steer *s_steer;
+ 	struct mlx4_promisc_qp *pqp;
  
- 	ring->hwtstamp_tx_type = priv->hwtstamp_config.tx_type;
-+	ring->queue_index = queue_index;
++	if (port < 1 || port > dev->caps.num_ports)
++		return NULL;
 +
-+	if (queue_index < priv->num_tx_rings_p_up && cpu_online(queue_index))
-+		cpumask_set_cpu(queue_index, &ring->affinity_mask);
++	s_steer = &mlx4_priv(dev)->steer[port - 1];
++
+ 	list_for_each_entry(pqp, &s_steer->promisc_qps[steer], list) {
+ 		if (pqp->qpn == qpn)
+ 			return pqp;
+@@ -154,6 +159,9 @@ static int new_steering_entry(struct mlx4_dev *dev, u8 port,
+ 	u32 prot;
+ 	int err;
  
- 	*pring = ring;
- 	return 0;
-@@ -206,6 +210,9 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
++	if (port < 1 || port > dev->caps.num_ports)
++		return -EINVAL;
++
+ 	s_steer = &mlx4_priv(dev)->steer[port - 1];
+ 	new_entry = kzalloc(sizeof *new_entry, GFP_KERNEL);
+ 	if (!new_entry)
+@@ -238,6 +246,9 @@ static int existing_steering_entry(struct mlx4_dev *dev, u8 port,
+ 	struct mlx4_promisc_qp *pqp;
+ 	struct mlx4_promisc_qp *dqp;
  
- 	err = mlx4_qp_to_ready(mdev->dev, &ring->wqres.mtt, &ring->context,
- 			       &ring->qp, &ring->qp_state);
-+	if (!user_prio && cpu_online(ring->queue_index))
-+		netif_set_xps_queue(priv->dev, &ring->affinity_mask,
-+				    ring->queue_index);
++	if (port < 1 || port > dev->caps.num_ports)
++		return -EINVAL;
++
+ 	s_steer = &mlx4_priv(dev)->steer[port - 1];
  
- 	return err;
- }
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index f3758de..202d8e5 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -255,6 +255,8 @@ struct mlx4_en_tx_ring {
- 	u16 poll_cnt;
- 	struct mlx4_en_tx_info *tx_info;
- 	u8 *bounce_buf;
-+	u8 queue_index;
-+	cpumask_t affinity_mask;
- 	u32 last_nr_txbb;
- 	struct mlx4_qp qp;
- 	struct mlx4_qp_context context;
-@@ -719,7 +721,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev);
+ 	pqp = get_promisc_qp(dev, port, steer, qpn);
+@@ -283,6 +294,9 @@ static bool check_duplicate_entry(struct mlx4_dev *dev, u8 port,
+ 	struct mlx4_steer_index *tmp_entry, *entry = NULL;
+ 	struct mlx4_promisc_qp *dqp, *tmp_dqp;
  
- int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 			   struct mlx4_en_tx_ring **pring,
--			   int qpn, u32 size, u16 stride, int node);
-+			   int qpn, u32 size, u16 stride,
-+			   int node, int queue_index);
- void mlx4_en_destroy_tx_ring(struct mlx4_en_priv *priv,
- 			     struct mlx4_en_tx_ring **pring);
- int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
++	if (port < 1 || port > dev->caps.num_ports)
++		return NULL;
++
+ 	s_steer = &mlx4_priv(dev)->steer[port - 1];
+ 
+ 	/* if qp is not promisc, it cannot be duplicated */
+@@ -324,6 +338,9 @@ static bool can_remove_steering_entry(struct mlx4_dev *dev, u8 port,
+ 	bool ret = false;
+ 	int i;
+ 
++	if (port < 1 || port > dev->caps.num_ports)
++		return NULL;
++
+ 	s_steer = &mlx4_priv(dev)->steer[port - 1];
+ 
+ 	mailbox = mlx4_alloc_cmd_mailbox(dev);
+@@ -378,6 +395,9 @@ static int add_promisc_qp(struct mlx4_dev *dev, u8 port,
+ 	int err;
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 
++	if (port < 1 || port > dev->caps.num_ports)
++		return -EINVAL;
++
+ 	s_steer = &mlx4_priv(dev)->steer[port - 1];
+ 
+ 	mutex_lock(&priv->mcg_table.mutex);
+@@ -484,6 +504,9 @@ static int remove_promisc_qp(struct mlx4_dev *dev, u8 port,
+ 	int loc, i;
+ 	int err;
+ 
++	if (port < 1 || port > dev->caps.num_ports)
++		return -EINVAL;
++
+ 	s_steer = &mlx4_priv(dev)->steer[port - 1];
+ 	mutex_lock(&priv->mcg_table.mutex);
+ 
+@@ -910,6 +933,9 @@ int mlx4_qp_attach_common(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
+ 	u8 port = gid[5];
+ 	u8 new_entry = 0;
+ 
++	if (port < 1 || port > dev->caps.num_ports)
++		return -EINVAL;
++
+ 	mailbox = mlx4_alloc_cmd_mailbox(dev);
+ 	if (IS_ERR(mailbox))
+ 		return PTR_ERR(mailbox);
 -- 
 1.8.3.4
