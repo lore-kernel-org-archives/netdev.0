@@ -1,42 +1,40 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Multicast routing stops functioning after 4G multicast packets recived.
-Date: Thu, 19 Dec 2013 16:09:23 +0100
-Message-ID: <20131219150923.GB24118@order.stressinduktion.org>
-References: <20131219144816.33310@gmx.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Bob Falken <NetFestivalHaveFun@gmx.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:39844 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753469Ab3LSPJY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 10:09:24 -0500
-Content-Disposition: inline
-In-Reply-To: <20131219144816.33310@gmx.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Levente Kurusa <levex@linux.com>
+Subject: [PATCH 20/38] net: iucv: add missing put_device call
+Date: Thu, 19 Dec 2013 16:03:31 +0100
+Message-ID: <1387465429-3568-21-git-send-email-levex@linux.com>
+References: <1387465429-3568-2-git-send-email-levex@linux.com>
+Cc: Levente Kurusa <levex@linux.com>,
+	Ursula Braun <ursula.braun@de.ibm.com>, linux390@de.ibm.com,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-s390@vger.kernel.org, netdev@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1387465429-3568-2-git-send-email-levex@linux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 19, 2013 at 03:48:16PM +0100, Bob Falken wrote:
-> Hello, I have an issue after kernel 2.6.37 and above.
-> If i roll back to kernel 2.6.36.4 everything is fine.
-> if recive more than=C2=A04294967295 multicast packets, the kernel doe=
-s not register the multicast packets. and multicast routing does not fu=
-nctioning.
-> (Tested bouth FIB_HASH and FIB_TRIE) =C2=A0=20
-> Tested with xorp and pimd.=20
-> I have abount 24 multicast groups, and it takes me=C2=A0about 17hours=
-=C2=A0to reproduce the issue after a reboot.
-> Reboot is reqired to fix the issue. (Tested to stop/start pimd/xorp, =
-reload network module for the network interface "e1000e",
-> Used birdge adapter and remove bridge adapter and readd bridge adapte=
-r to clear counters. none of thouse solves the issue.)
+This is required so that we give up the last reference to the device.
 
-Please test this with a recent kernel. 2.6.37 is really old and you nor=
-mally
-won't get good support here with such old kernels.
+Signed-off-by: Levente Kurusa <levex@linux.com>
+---
+ net/iucv/af_iucv.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-Greetings,
-
-  Hannes
+diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
+index 168aff5..0096206 100644
+--- a/net/iucv/af_iucv.c
++++ b/net/iucv/af_iucv.c
+@@ -2377,8 +2377,10 @@ static int afiucv_iucv_init(void)
+ 	af_iucv_dev->release = (void (*)(struct device *))kfree;
+ 	af_iucv_dev->driver = &af_iucv_driver;
+ 	err = device_register(af_iucv_dev);
+-	if (err)
++	if (err) {
++		put_device(af_iucv_dev);
+ 		goto out_driver;
++	}
+ 	return 0;
+ 
+ out_driver:
+-- 
+1.8.3.1
