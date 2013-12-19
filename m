@@ -1,40 +1,53 @@
-From: Levente Kurusa <levex@linux.com>
-Subject: [PATCH 20/38] net: iucv: add missing put_device call
-Date: Thu, 19 Dec 2013 16:03:31 +0100
-Message-ID: <1387465429-3568-21-git-send-email-levex@linux.com>
-References: <1387465429-3568-2-git-send-email-levex@linux.com>
-Cc: Levente Kurusa <levex@linux.com>,
-	Ursula Braun <ursula.braun@de.ibm.com>, linux390@de.ibm.com,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-s390@vger.kernel.org, netdev@vger.kernel.org
-To: LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1387465429-3568-2-git-send-email-levex@linux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Multicast routing stops functioning after 4G multicast packets
+ recived.
+Date: Thu, 19 Dec 2013 07:15:37 -0800
+Message-ID: <52B30D99.5090504@candelatech.com>
+References: <20131219144816.33310@gmx.com> <20131219150923.GB24118@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Bob Falken <NetFestivalHaveFun@gmx.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:50374 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753159Ab3LSPQN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 10:16:13 -0500
+In-Reply-To: <20131219150923.GB24118@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is required so that we give up the last reference to the device.
+On 12/19/2013 07:09 AM, Hannes Frederic Sowa wrote:
+> On Thu, Dec 19, 2013 at 03:48:16PM +0100, Bob Falken wrote:
+>> Hello, I have an issue after kernel 2.6.37 and above.
+>> If i roll back to kernel 2.6.36.4 everything is fine.
+>> if recive more than 4294967295 multicast packets, the kernel does not register the multicast packets. and multicast routing does not functioning.
+>> (Tested bouth FIB_HASH and FIB_TRIE)
+>> Tested with xorp and pimd.
+>> I have abount 24 multicast groups, and it takes me about 17hours to reproduce the issue after a reboot.
+>> Reboot is reqired to fix the issue. (Tested to stop/start pimd/xorp, reload network module for the network interface "e1000e",
+>> Used birdge adapter and remove bridge adapter and readd bridge adapter to clear counters. none of thouse solves the issue.)
+>
+> Please test this with a recent kernel. 2.6.37 is really old and you normally
+> won't get good support here with such old kernels.
 
-Signed-off-by: Levente Kurusa <levex@linux.com>
----
- net/iucv/af_iucv.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+Note that he did test up to 3.11.9 and it still showed failures.
 
-diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
-index 168aff5..0096206 100644
---- a/net/iucv/af_iucv.c
-+++ b/net/iucv/af_iucv.c
-@@ -2377,8 +2377,10 @@ static int afiucv_iucv_init(void)
- 	af_iucv_dev->release = (void (*)(struct device *))kfree;
- 	af_iucv_dev->driver = &af_iucv_driver;
- 	err = device_register(af_iucv_dev);
--	if (err)
-+	if (err) {
-+		put_device(af_iucv_dev);
- 		goto out_driver;
-+	}
- 	return 0;
- 
- out_driver:
+Thanks,
+Ben
+
+>
+> Greetings,
+>
+>    Hannes
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+
+
 -- 
-1.8.3.1
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
