@@ -1,87 +1,54 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net 2/5] e1000e: fix compiler warnings
-Date: Wed, 18 Dec 2013 19:51:49 -0800
-Message-ID: <CAL3LdT4bjaOABM_SVZsZJeH4Jr7a01Zn5M+bNAt8djAo0bioFQ@mail.gmail.com>
-References: <1387351186-23389-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1387351186-23389-3-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Chen Weilong <chenweilong@huawei.com>
+Subject: [PATCH] rose: cleanup checkpatch errors,spaces required
+Date: Thu, 19 Dec 2013 11:55:17 +0800
+Message-ID: <1387425317-8900-1-git-send-email-chenweilong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Ertman <davidx.m.ertman@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	stable@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1387351186-23389-3-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <ralf@linux-mips.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:14243 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752020Ab3LSD4k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 22:56:40 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 17, 2013 at 11:19 PM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> From: David Ertman <davidx.m.ertman@intel.com>
->
-> This patch is to fix a compiler warning of __bad_udelay due to a value
-> of >999 being passed as a parameter to udelay() in the function
-> e1000e_phy_has_link_generic().  This affects the gcc compiler when
-> it is given a flag of -O3 and the icc compiler.
->
-> This patch is also making the change from mdelay() to msleep() in the
-> same function, since it was determined though code inspection that this
-> function is never called in atomic context.
->
+From: Weilong Chen <chenweilong@huawei.com>
 
-CC: stable <stable@vger.kernel.org> # 3.9+
+This patch add spaces to cleanup checkpatch errors.
 
-> Signed-off-by: David Ertman <davidx.m.ertman@intel.com>
-> Acked-by: Bruce Allan <bruce.w.allan@intel.com>
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/e1000e/phy.c | 10 +++++++---
->  1 file changed, 7 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
-> index da2be59..20e71f4 100644
-> --- a/drivers/net/ethernet/intel/e1000e/phy.c
-> +++ b/drivers/net/ethernet/intel/e1000e/phy.c
-> @@ -1757,19 +1757,23 @@ s32 e1000e_phy_has_link_generic(struct e1000_hw *hw, u32 iterations,
->                  * it across the board.
->                  */
->                 ret_val = e1e_rphy(hw, MII_BMSR, &phy_status);
-> -               if (ret_val)
-> +               if (ret_val) {
->                         /* If the first read fails, another entity may have
->                          * ownership of the resources, wait and try again to
->                          * see if they have relinquished the resources yet.
->                          */
-> -                       udelay(usec_interval);
-> +                       if (usec_interval >= 1000)
-> +                               msleep(usec_interval / 1000);
-> +                       else
-> +                               udelay(usec_interval);
-> +               }
->                 ret_val = e1e_rphy(hw, MII_BMSR, &phy_status);
->                 if (ret_val)
->                         break;
->                 if (phy_status & BMSR_LSTATUS)
->                         break;
->                 if (usec_interval >= 1000)
-> -                       mdelay(usec_interval / 1000);
-> +                       msleep(usec_interval / 1000);
->                 else
->                         udelay(usec_interval);
->         }
-> --
-> 1.8.3.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+---
+ net/rose/af_rose.c  | 2 +-
+ net/rose/rose_dev.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-
-
+diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
+index 33af772..81f94b1 100644
+--- a/net/rose/af_rose.c
++++ b/net/rose/af_rose.c
+@@ -1012,7 +1012,7 @@ int rose_rx_call_request(struct sk_buff *skb, struct net_device *dev, struct ros
+ 	make_rose->source_call   = facilities.source_call;
+ 	make_rose->source_ndigis = facilities.source_ndigis;
+ 	for (n = 0 ; n < facilities.source_ndigis ; n++)
+-		make_rose->source_digis[n]= facilities.source_digis[n];
++		make_rose->source_digis[n] = facilities.source_digis[n];
+ 	make_rose->neighbour     = neigh;
+ 	make_rose->device        = dev;
+ 	make_rose->facilities    = facilities;
+diff --git a/net/rose/rose_dev.c b/net/rose/rose_dev.c
+index 28dbdb9..5000588 100644
+--- a/net/rose/rose_dev.c
++++ b/net/rose/rose_dev.c
+@@ -146,7 +146,7 @@ static netdev_tx_t rose_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ static const struct header_ops rose_header_ops = {
+ 	.create	= rose_header,
+-	.rebuild= rose_rebuild_header,
++	.rebuild = rose_rebuild_header,
+ };
+ 
+ static const struct net_device_ops rose_netdev_ops = {
 -- 
-Cheers,
-Jeff
+1.7.12
