@@ -1,58 +1,44 @@
 From: Tan Xiaojun <tanxiaojun@huawei.com>
-Subject: [PATCH 1/5] bridge: remove unnecessary condition judgment
-Date: Thu, 19 Dec 2013 13:28:10 +0800
-Message-ID: <1387430894-11220-2-git-send-email-tanxiaojun@huawei.com>
-References: <1387430894-11220-1-git-send-email-tanxiaojun@huawei.com>
+Subject: [PATCH 0/5] bridge: cleanup and fix checkpatch errors
+Date: Thu, 19 Dec 2013 13:28:09 +0800
+Message-ID: <1387430894-11220-1-git-send-email-tanxiaojun@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <bridge@lists.linux-foundation.org>, <netdev@vger.kernel.org>
 To: <stephen@networkplumber.org>, <davem@davemloft.net>,
 	<bart.de.schuymer@pandora.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:44505 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750843Ab3LSF2r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 00:28:47 -0500
-In-Reply-To: <1387430894-11220-1-git-send-email-tanxiaojun@huawei.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:53007 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751354Ab3LSF2x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 00:28:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Because err is always negative, remove unnecessary condition
-judgment.
+Clean up and fix some checkpatch errors in bridge driver.
 
-Signed-off-by: Tan Xiaojun <tanxiaojun@huawei.com>
----
- net/bridge/br_fdb.c     | 3 +--
- net/bridge/br_netlink.c | 3 +--
- 2 files changed, 2 insertions(+), 4 deletions(-)
+Tan Xiaojun (5):
+  bridge: remove unnecessary condition judgment
+  bridge: remove unnecessary parentheses
+  bridge: add space before '(/{', after ',', etc.
+  bridge: change "foo* bar" to "foo *bar"
+  bridge: change the position of '{' to the pre line
 
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 33e8f23..c5f5a4a 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -570,8 +570,7 @@ static void fdb_notify(struct net_bridge *br,
- 	rtnl_notify(skb, net, 0, RTNLGRP_NEIGH, NULL, GFP_ATOMIC);
- 	return;
- errout:
--	if (err < 0)
--		rtnl_set_sk_err(net, RTNLGRP_NEIGH, err);
-+	rtnl_set_sk_err(net, RTNLGRP_NEIGH, err);
- }
- 
- /* Dump information about entries, in response to GETNEIGH */
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index c2fd6bc..6526ac8 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -195,8 +195,7 @@ void br_ifinfo_notify(int event, struct net_bridge_port *port)
- 	rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, GFP_ATOMIC);
- 	return;
- errout:
--	if (err < 0)
--		rtnl_set_sk_err(net, RTNLGRP_LINK, err);
-+	rtnl_set_sk_err(net, RTNLGRP_LINK, err);
- }
- 
- 
+ net/bridge/br_fdb.c                   |  3 +--
+ net/bridge/br_forward.c               |  4 ++--
+ net/bridge/br_ioctl.c                 |  2 +-
+ net/bridge/br_netfilter.c             |  2 +-
+ net/bridge/br_netlink.c               |  3 +--
+ net/bridge/br_private.h               |  2 +-
+ net/bridge/br_stp_timer.c             |  2 +-
+ net/bridge/br_sysfs_if.c              | 20 ++++++++++----------
+ net/bridge/netfilter/ebt_log.c        |  2 +-
+ net/bridge/netfilter/ebt_snat.c       |  2 +-
+ net/bridge/netfilter/ebtable_broute.c |  6 ++----
+ net/bridge/netfilter/ebtable_filter.c |  9 +++------
+ net/bridge/netfilter/ebtable_nat.c    |  9 +++------
+ net/bridge/netfilter/ebtables.c       | 17 ++++++++---------
+ 14 files changed, 36 insertions(+), 47 deletions(-)
+
 -- 
 1.8.0
