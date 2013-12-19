@@ -1,45 +1,60 @@
-From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: RE: [PATCH 1/2] netxen: Correct off-by-one error in bounds check
-Date: Thu, 19 Dec 2013 11:51:37 +0000
-Message-ID: <31AFFC7280259C4184970ABA9AFE8B938CF86A62@avmb3.qlogic.org>
-References: <1387257753-18676-1-git-send-email-david@gibson.dropbear.id.au>
- <1387257753-18676-2-git-send-email-david@gibson.dropbear.id.au>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next] ipv6: move ip6_sk_accept_pmtu from generic pmtu update path to ipv6 one
+Date: Thu, 19 Dec 2013 12:54:58 +0100
+Message-ID: <20131219115458.GC14429@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	"snagarka@redhat.com" <snagarka@redhat.com>,
-	"tcamuso@redhat.com" <tcamuso@redhat.com>,
-	"vdasgupt@redhat.com" <vdasgupt@redhat.com>
-To: David Gibson <david@gibson.dropbear.id.au>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>
+Content-Type: text/plain; charset=utf-8
+Cc: fengguang.wu@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:47570 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753043Ab3LSLvq convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Dec 2013 06:51:46 -0500
-In-Reply-To: <1387257753-18676-2-git-send-email-david@gibson.dropbear.id.au>
-Content-Language: en-US
+Received: from order.stressinduktion.org ([87.106.68.36]:39073 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752338Ab3LSLzA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 06:55:00 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: David Gibson [mailto:david@gibson.dropbear.id.au]
->Sent: Tuesday, December 17, 2013 10:53 AM
->To: Manish Chopra; Sony Chacko; Rajesh Borundia
->Cc: netdev; snagarka@redhat.com; tcamuso@redhat.com;
->vdasgupt@redhat.com; David Gibson
->Subject: [PATCH 1/2] netxen: Correct off-by-one error in bounds check
->
->After retrieving an Rx buffer index from the hardware, the netxen driver bounds
->checks it against its array of receive buffers.  However in the case of LRO packets,
->there's an off-by-one error in the check - it uses > instead of the >= it uses for the
->normal receive path in netxen_process_rcv().
->
->Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
+In commit 93b36cf3425b9b ("ipv6: support IPV6_PMTU_INTERFACE on sockets")
+I made a horrible mistake to add ip6_sk_accept_pmtu to the generic
+sctp_icmp_frag_needed path. This results in build warnings if IPv6 is
+disabled which were luckily caught by Fengguang's kbuild bot. But it
+also leads to a kernel panic IPv4 frag-needed packet is received.
 
-Acked-by: Manish Chopra <manish.chopra@qlogic.com>
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/sctp/input.c | 3 ---
+ net/sctp/ipv6.c  | 3 ++-
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
-Thanks David. This is really a bug fix. You can re-submit this single patch.
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index 042ec6c..2a192a7 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -389,9 +389,6 @@ void sctp_icmp_frag_needed(struct sock *sk, struct sctp_association *asoc,
+ 	if (!t || (t->pathmtu <= pmtu))
+ 		return;
+ 
+-	if (!ip6_sk_accept_pmtu(sk))
+-		return;
+-
+ 	if (sock_owned_by_user(sk)) {
+ 		asoc->pmtu_pending = 1;
+ 		t->pmtu_pending = 1;
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index 32db816..00bea3f 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -172,7 +172,8 @@ static void sctp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 
+ 	switch (type) {
+ 	case ICMPV6_PKT_TOOBIG:
+-		sctp_icmp_frag_needed(sk, asoc, transport, ntohl(info));
++		if (ip6_sk_accept_pmtu(sk))
++			sctp_icmp_frag_needed(sk, asoc, transport, ntohl(info));
+ 		goto out_unlock;
+ 	case ICMPV6_PARAMPROB:
+ 		if (ICMPV6_UNK_NEXTHDR == code) {
+-- 
+1.8.3.1
