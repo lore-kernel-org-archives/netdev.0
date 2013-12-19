@@ -1,47 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: FEC performance degradation with certain packet sizes
-Date: Thu, 19 Dec 2013 15:04:59 -0800
-Message-ID: <1387494299.19078.378.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <528F50AE.3030804@digi.com> <201311240540.23813.marex@denx.de>
-	 <529310A4.70906@digi.com> <52B1D0C6.6010305@digi.com>
-	 <1387388339.19078.321.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <0afcc48493b941ffab991d52b7c97a0d@BLUPR03MB373.namprd03.prod.outlook.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] nf-nat: don't use per destination incrementing ports
+ in nat random mode
+Date: Fri, 20 Dec 2013 00:21:15 +0100
+Message-ID: <52B37F6B.9010105@redhat.com>
+References: <20131219134007.GA24118@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Hector Palacios <hector.palacios@digi.com>,
-	Marek Vasut <marex@denx.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Fabio.Estevam@freescale.com" <Fabio.Estevam@freescale.com>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	kaber@trash.net
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:63685 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755215Ab3LSXFB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 18:05:01 -0500
-Received: by mail-pa0-f42.google.com with SMTP id lj1so1813310pab.29
-        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 15:05:00 -0800 (PST)
-In-Reply-To: <0afcc48493b941ffab991d52b7c97a0d@BLUPR03MB373.namprd03.prod.outlook.com>
+Received: from mx1.redhat.com ([209.132.183.28]:46102 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755309Ab3LSXVY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Dec 2013 18:21:24 -0500
+In-Reply-To: <20131219134007.GA24118@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-12-19 at 02:44 +0000, fugang.duan@freescale.com wrote:
+On 12/19/2013 02:40 PM, Hannes Frederic Sowa wrote:
+> Don't use per destination incrementing port allocation
+> in NF_NAT_RANGE_PROTO_RANDOM mode as advised in
+> <https://sites.google.com/site/hayashulman/files/NIC-derandomisation.pdf>.
+>
+> This is especially important for UDP/DNS.
+>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-> Enet IP don't support tso feature.
-> 
-> I will reproduce the issue in imx6q/dl sd platform, and analyze the issue.
-> Previous test, we don't use netpipe tool test ethernet performance.
+I would have liked a more elaborate commit message ;) but anyway,
+lgtm, now that we also have periodic reseeding in prandom:
 
-drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c seems broken...
+Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
 
-If tx_skb_align_workaround() returns NULL, returning NETDEV_TX_BUSY 
-is the worst possible thing to do.
+The referenced paper in section 5 is also available here:
 
-Packet should be dropped instead.
-
-Probably not related to your issue.
+http://arxiv.org/pdf/1205.5190v1.pdf
