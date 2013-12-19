@@ -1,31 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 8/8] drivers: net: Mark function
- xenvif_count_frag_slots() as static in netback.c
-Date: Thu, 19 Dec 2013 18:52:49 -0500 (EST)
-Message-ID: <20131219.185249.732943424956542038.davem@davemloft.net>
-References: <04fe932bc3585620c91d511bb0894e45bb762ffa.1387382457.git.rashika.kheria@gmail.com>
-	<72d6fe114ba7cc2f09f51e279313860f83142d46.1387382457.git.rashika.kheria@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] ipv4: introduce ip_dst_mtu_secure and protect forwarding path against pmtu spoofing
+Date: Fri, 20 Dec 2013 00:53:38 +0100
+Message-ID: <20131219235338.GA32129@order.stressinduktion.org>
+References: <20131219000759.GF3505@order.stressinduktion.org> <20131219.001203.1942468169345523058.davem@davemloft.net> <20131219121757.GD14429@order.stressinduktion.org> <20131219.143012.205185984019527730.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: ian.campbell@citrix.com, wei.liu2@citrix.com,
-	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, josh@joshtriplett.org
-To: rashika.kheria@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <72d6fe114ba7cc2f09f51e279313860f83142d46.1387382457.git.rashika.kheria@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: johnwheffner@gmail.com, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:41236 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756264Ab3LSXxj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 18:53:39 -0500
+Content-Disposition: inline
+In-Reply-To: <20131219.143012.205185984019527730.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogUmFzaGlrYSBLaGVyaWEgPHJhc2hpa2Eua2hlcmlhQGdtYWlsLmNvbT4NCkRhdGU6IFRo
-dSwgMTkgRGVjIDIwMTMgMTQ6MjY6NDcgKzA1MzANCg0KPiBUaGlzIHBhdGNoIG1hcmtzIHRoZSBm
-dW5jdGlvbiB4ZW52aWZfY291bnRfZnJhZ19zbG90cygpIGluIG5ldGJhY2suYyBhcw0KPiBzdGF0
-aWMgYmVjYXVzZSB0aGV5IGFyZSBub3QgdXNlZCBvdXRzaWRlIHRoaXMgZmlsZS4NCj4gDQo+IFRo
-dXMsIGl0IGFsc28gcmVtb3ZlcyB0aGUgZm9sbG93aW5nIHdhcm5pbmcgaW4geGVuLW5ldGJhY2sv
-bmV0YmFjay5jOg0KPiBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay9uZXRiYWNrLmM6MjE4OjE0OiB3
-YXJuaW5nOiBubyBwcmV2aW91cyBwcm90b3R5cGUgZm9yIKF4ZW52aWZfY291bnRfZnJhZ19zbG90
-c6IgWy1XbWlzc2luZy1wcm90b3R5cGVzXQ0KPiANCj4gU2lnbmVkLW9mZi1ieTogUmFzaGlrYSBL
-aGVyaWEgPHJhc2hpa2Eua2hlcmlhQGdtYWlsLmNvbT4NCj4gUmV2aWV3ZWQtYnk6IEpvc2ggVHJp
-cGxldHQgPGpvc2hAam9zaHRyaXBsZXR0Lm9yZz4NCj4gQWNrZWQtYnk6IElhbiBDYW1wYmVsbCA8
-aWFuLmNhbXBiZWxsQGNpdHJpeC5jb20+DQoNClRoaXMgcGF0Y2ggZG9lc24ndCBhcHBseSBjbGVh
-bmx5IHRvIG5ldC1uZXh0LCBwbGVhc2UgcmVzcGluLg0KDQpUaGFua3MuDQo=
+On Thu, Dec 19, 2013 at 02:30:12PM -0500, David Miller wrote:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Thu, 19 Dec 2013 13:17:57 +0100
+> 
+> > Networking software on the end system which wants to guard against
+> > that kind of fragmentation can do so by using the various knobs to
+> > limit pmtu notification processing or use IP_PMTUDISC_INTERFACE to
+> > protect itself from sending fragments.
+> 
+> And that's part of where my irritation is coming from.
+> 
+> Applications have to opt-in to this new socket option based behavior,
+> but you're making the routing thing default to on.
+>
+> And even if we default it to off, someone is going to cry and tell all
+> the distributions to turn it on in /etc/sysctl.conf, just like they
+> did for rp_filter.  And they will.  I don't have the strength and time
+> to fight every person who makes these decisions at all the major
+> distributions to explain to each and every one of them how foolish it
+> would be.
+> 
+> No end host should have rp_filter on.  It unnecessarily makes our
+> routing lookups much more expensive for zero gain on an end host.  But
+> people convinced the distributions that turning it on everywhere by
+> default was a good idea and it stuck.
+
+Ack.
+
+> I don't want to create a carrot for that kind of situation again.
+
+I see your point. How should we proceed? I definitely see this as a problem.
+I just want to point to RFC 1191 "4. Router specification", where it clearly
+states that the MTU that should be considered is that of the next-hop network.
+And the MTU carried in a fragmentation-needed notification should denote the
+size so that the packet is not going to be fragmented at *this* router.
+
+I am fine dropping the knob and just unconditionally ignoring the pmtu data in
+the forwarding path? Is that what you wanted to suggest?
+
+Greetings,
+
+  Hannes
