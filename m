@@ -1,42 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next/master PATCH] lib: fix compile warning in
- hashlib_init
-Date: Thu, 19 Dec 2013 00:15:13 -0500 (EST)
-Message-ID: <20131219.001513.1709782271902847928.davem@davemloft.net>
-References: <1387415314-21786-1-git-send-email-gaowanlong@cn.fujitsu.com>
-	<20131219011506.GA27326@localhost>
-	<52B24C92.8050201@iogearbox.net>
+Subject: Re: HW accelerated support for setting skb->pkt_type?
+Date: Thu, 19 Dec 2013 00:16:45 -0500 (EST)
+Message-ID: <20131219.001645.1578105338168883753.davem@davemloft.net>
+References: <CAGVrzca0P64D181XHjcXMOSMMsyyOEEGjH2KO9bChnN0dAbaTg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fengguang.wu@intel.com, gaowanlong@cn.fujitsu.com,
-	ffusco@redhat.com, kbuild-all@01.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: borkmann@iogearbox.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52B24C92.8050201@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58949 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750954Ab3LSFQr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 00:16:47 -0500
+In-Reply-To: <CAGVrzca0P64D181XHjcXMOSMMsyyOEEGjH2KO9bChnN0dAbaTg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <borkmann@iogearbox.net>
-Date: Thu, 19 Dec 2013 02:32:02 +0100
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Wed, 18 Dec 2013 18:29:37 -0800
 
-> On 12/19/2013 02:15 AM, Fengguang Wu wrote:
->> CC the list.
->>
->> On Thu, Dec 19, 2013 at 09:08:34AM +0800, Wanlong Gao wrote:
->>> /git/linux/lib/hash.c: In function 'hashlib_init':
->>> /git/linux/lib/hash.c:35:2: warning: passing argument 1 of
->>> 'setup_arch_fast_hash' from incompatible pointer type [enabled by
->>> default]
->>> /git/linux/include/asm-generic/hash.h:5:20: note: expected 'struct
->>> arch_hash_ops *' but argument is of type 'struct fast_hash_ops *'
->>>
->>> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
->>> Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+> I work with two Ethernet controllers which can tell on a per-packet
+> basis whether this is a broadcast, unicast or multicast, eventually
+> allowing me to bypass the initial checks done in eth_type_trans().
 > 
-> That's already in netdev patchwork:
-> 
-> http://patchwork.ozlabs.org/patch/302908/
+> Is there any other hardware out there which supports that, and is
+> there any interest in optimizing that operation?
 
-And I've applied it, thanks.
+There is zero benefit from this, since you're going to have to touch
+the packet headers anyways and the memory access from that dwarfs
+anything else.
