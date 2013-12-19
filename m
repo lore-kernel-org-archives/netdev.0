@@ -1,184 +1,87 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/15] i40e: add wake-on-lan support
-Date: Wed, 18 Dec 2013 22:34:39 -0800
-Message-ID: <1387434891-19719-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1387434891-19719-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 18 Dec 2013 22:34:36 -0800
+Message-ID: <1387434891-19719-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:47454 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752442Ab3LSGe4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Dec 2013 01:34:56 -0500
-In-Reply-To: <1387434891-19719-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751655Ab3LSGey (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Dec 2013 01:34:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+This series contains updates to i40e only.
 
-Wake on LAN is disabled by default and will remain that way for most
-platforms, but there is an NVM setting that allows vendors to enable it
-for a port if they think they've provided the right power environment
-for the device.  This patch adds code to check the NVM setting and enable
-Magic Packet use if WoL is enabled for the port.
+Anjali provides a patch to prevent messages from stray HMC events, except
+at interrupt message level, and refactors the HMC error handling.
 
-Since only Magic Packet is supported, there's not a lot of HW configuration
-needed.
+Catherine adds routines in probe to populate/check PCI bus speed and width,
+then verify we are in a 8GT/s x8 PCIe slot and warn when we are not.
 
-Change-Id: I44e904a7b15695e34683009f487064cd86ea59b0
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e.h         |  1 +
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 42 ++++++++++++++++++++++++--
- drivers/net/ethernet/intel/i40e/i40e_main.c    | 16 ++++++++--
- drivers/net/ethernet/intel/i40e/i40e_type.h    |  1 +
- 4 files changed, 56 insertions(+), 4 deletions(-)
+Shannon adds Wake-on-LAN support for i40e, fixes curly brace use as well as
+return type for i40e_vsi_clear_rings().  Lastly implements the set_settings
+and set_pauseparam ethtool functionality.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 40706c1..31dd265 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -205,6 +205,7 @@ struct i40e_pf {
- 	u16 rss_size_max;          /* HW defined max RSS queues */
- 	u16 fdir_pf_filter_count;  /* num of guaranteed filters for this PF */
- 	u8 atr_sample_rate;
-+	bool wol_en;
- 
- 	enum i40e_interrupt_policy int_policy;
- 	u16 rx_itr_default;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index d6681f6..255a138 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -844,8 +844,45 @@ static void i40e_diag_test(struct net_device *netdev,
- static void i40e_get_wol(struct net_device *netdev,
- 			 struct ethtool_wolinfo *wol)
- {
--	wol->supported = 0;
--	wol->wolopts = 0;
-+	struct i40e_netdev_priv *np = netdev_priv(netdev);
-+	struct i40e_pf *pf = np->vsi->back;
-+	struct i40e_hw *hw = &pf->hw;
-+	u16 wol_nvm_bits;
-+
-+	/* NVM bit on means WoL disabled for the port */
-+	i40e_read_nvm_word(hw, I40E_SR_NVM_WAKE_ON_LAN, &wol_nvm_bits);
-+	if ((1 << hw->port) & wol_nvm_bits) {
-+		wol->supported = 0;
-+		wol->wolopts = 0;
-+	} else {
-+		wol->supported = WAKE_MAGIC;
-+		wol->wolopts = (pf->wol_en ? WAKE_MAGIC : 0);
-+	}
-+}
-+
-+static int i40e_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
-+{
-+	struct i40e_netdev_priv *np = netdev_priv(netdev);
-+	struct i40e_pf *pf = np->vsi->back;
-+	struct i40e_hw *hw = &pf->hw;
-+	u16 wol_nvm_bits;
-+
-+	/* NVM bit on means WoL disabled for the port */
-+	i40e_read_nvm_word(hw, I40E_SR_NVM_WAKE_ON_LAN, &wol_nvm_bits);
-+	if (((1 << hw->port) & wol_nvm_bits))
-+		return -EOPNOTSUPP;
-+
-+	/* only magic packet is supported */
-+	if (wol->wolopts && (wol->wolopts != WAKE_MAGIC))
-+		return -EOPNOTSUPP;
-+
-+	/* is this a new value? */
-+	if (pf->wol_en != !!wol->wolopts) {
-+		pf->wol_en = !!wol->wolopts;
-+		device_set_wakeup_enable(&pf->pdev->dev, pf->wol_en);
-+	}
-+
-+	return 0;
- }
- 
- static int i40e_nway_reset(struct net_device *netdev)
-@@ -1568,6 +1605,7 @@ static const struct ethtool_ops i40e_ethtool_ops = {
- 	.nway_reset		= i40e_nway_reset,
- 	.get_link		= ethtool_op_get_link,
- 	.get_wol		= i40e_get_wol,
-+	.set_wol		= i40e_set_wol,
- 	.get_eeprom_len		= i40e_get_eeprom_len,
- 	.get_eeprom		= i40e_get_eeprom,
- 	.get_ringparam		= i40e_get_ringparam,
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 22a2c0e..45b2198 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7537,6 +7537,10 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	pf->flags |= I40E_FLAG_NEED_LINK_UPDATE;
- 	pf->link_check_timeout = jiffies;
- 
-+	/* WoL defaults to disabled */
-+	pf->wol_en = false;
-+	device_set_wakeup_enable(&pf->pdev->dev, pf->wol_en);
-+
- 	/* set up the main switch operations */
- 	i40e_determine_queue_usage(pf);
- 	i40e_init_interrupt_scheme(pf);
-@@ -7858,6 +7862,7 @@ static void i40e_pci_error_resume(struct pci_dev *pdev)
- static void i40e_shutdown(struct pci_dev *pdev)
- {
- 	struct i40e_pf *pf = pci_get_drvdata(pdev);
-+	struct i40e_hw *hw = &pf->hw;
- 
- 	set_bit(__I40E_SUSPENDED, &pf->state);
- 	set_bit(__I40E_DOWN, &pf->state);
-@@ -7865,8 +7870,11 @@ static void i40e_shutdown(struct pci_dev *pdev)
- 	i40e_prep_for_reset(pf);
- 	rtnl_unlock();
- 
-+	wr32(hw, I40E_PFPM_APM, (pf->wol_en ? I40E_PFPM_APM_APME_MASK : 0));
-+	wr32(hw, I40E_PFPM_WUFC, (pf->wol_en ? I40E_PFPM_WUFC_MAG_MASK : 0));
-+
- 	if (system_state == SYSTEM_POWER_OFF) {
--		pci_wake_from_d3(pdev, false);    /* No WoL support yet */
-+		pci_wake_from_d3(pdev, pf->wol_en);
- 		pci_set_power_state(pdev, PCI_D3hot);
- 	}
- }
-@@ -7879,6 +7887,7 @@ static void i40e_shutdown(struct pci_dev *pdev)
- static int i40e_suspend(struct pci_dev *pdev, pm_message_t state)
- {
- 	struct i40e_pf *pf = pci_get_drvdata(pdev);
-+	struct i40e_hw *hw = &pf->hw;
- 
- 	set_bit(__I40E_SUSPENDED, &pf->state);
- 	set_bit(__I40E_DOWN, &pf->state);
-@@ -7886,7 +7895,10 @@ static int i40e_suspend(struct pci_dev *pdev, pm_message_t state)
- 	i40e_prep_for_reset(pf);
- 	rtnl_unlock();
- 
--	pci_wake_from_d3(pdev, false);    /* No WoL support yet */
-+	wr32(hw, I40E_PFPM_APM, (pf->wol_en ? I40E_PFPM_APM_APME_MASK : 0));
-+	wr32(hw, I40E_PFPM_WUFC, (pf->wol_en ? I40E_PFPM_WUFC_MAG_MASK : 0));
-+
-+	pci_wake_from_d3(pdev, pf->wol_en);
- 	pci_set_power_state(pdev, PCI_D3hot);
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 008a7a0..d683c30 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -1031,6 +1031,7 @@ struct i40e_hw_port_stats {
- #define I40E_SR_NVM_CONTROL_WORD		0x00
- #define I40E_SR_EMP_MODULE_PTR			0x0F
- #define I40E_SR_NVM_IMAGE_VERSION		0x18
-+#define I40E_SR_NVM_WAKE_ON_LAN			0x19
- #define I40E_SR_ALTERNATE_SAN_MAC_ADDRESS_PTR	0x27
- #define I40E_SR_NVM_EETRACK_LO			0x2D
- #define I40E_SR_NVM_EETRACK_HI			0x2E
+Joseph implements receive offload for VXLAN for i40e, where the hardware
+supports checksum offload/verification of the inner/outer header.
+
+Mitch provides the bulk of the changes, where he refactors the VF reset
+code so that it works on real hardware.  Then does code cleanup by
+calling existing functions to enable and disable queues for VFs and
+remove unused functions.  Removes a unnecessary log messages that are
+seen at every VF reset, for example complaining about disabling queues
+that are already disabled.  Fixes an error return when the VF asks to
+add an invalid MAC address and if the VF sends a bad message, make it
+more informative about what is actually going on.
+
+Jesse refactors the LED function to flash LED lights correctly.
+
+The following are changes since commit 020e867c755610fa5a2a08a69707e636cf368b55:
+  isdn: use strlcpy() instead strcpy()
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Anjali Singhai Jain (1):
+  i40e: Suppress HMC error to Interrupt message level
+
+Catherine Sullivan (1):
+  i40e: Populate and check pci bus speed and width
+
+Jesse Brandeburg (1):
+  i40e: update led set args
+
+Joseph Gasparakis (1):
+  i40e: Rx checksum offload for VXLAN
+
+Mitch Williams (8):
+  i40e: move i40e_reset_vf
+  i40e: refactor VF reset flow
+  i40e: remove redundant code
+  i40e: remove chatty log messages
+  i40e: fix error return
+  i40e: be more informative
+  i40e: make a define from a large constant
+  i40e: report VF MAC addresses correctly
+
+Shannon Nelson (3):
+  i40e: add wake-on-lan support
+  i40e: fix curly brace use and return type
+  i40e: add set settings and pauseparam
+
+ drivers/net/ethernet/intel/i40e/i40e.h             |   3 +
+ drivers/net/ethernet/intel/i40e/i40e_common.c      | 136 ++++-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 145 +++++-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 105 ++--
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   3 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  56 ++-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h        |  20 +
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |  61 ++-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 559 ++++++---------------
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |   2 +-
+ 10 files changed, 572 insertions(+), 518 deletions(-)
+
 -- 
 1.8.3.1
