@@ -1,88 +1,63 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net] drivers: stmmac: Fixes for STMMAC IEEE 1588 Timestamping
-Date: Thu, 19 Dec 2013 05:29:28 -0600
-Message-ID: <CAOwfj2Pm8ekwrh1k2pviOySA-YOuxfmPOsCBUhJoYyX3d=LuZw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-	Rayagond K <rayagond@vayavyalabs.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:55268 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751599Ab3LSL33 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 06:29:29 -0500
-Received: by mail-wg0-f47.google.com with SMTP id n12so900488wgh.26
-        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 03:29:28 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH] net: mvmdio: fix interrupt timeout handling
+Date: Thu, 19 Dec 2013 12:33:19 +0100
+Message-ID: <52B2D97F.4070200@gmail.com>
+References: <1387451589-15491-1-git-send-email-leigh@solinno.co.uk>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Nicolas Schichan <nschichan@freebox.fr>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Florian Fainelli <florian@openwrt.org>,
+	linux-arm-kernel@lists.infradead.org
+To: Leigh Brown <leigh@solinno.co.uk>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1387451589-15491-1-git-send-email-leigh@solinno.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes two issues found in the stmmac driver when testing
-hardware enabled PTP using linuxptp ptp4l.
+On 12/19/13 12:13, Leigh Brown wrote:
+> orion_mdio_wait_ready uses wait_event_timeout to wait for the
+> SMI interrupt to fire.  wait_event_timeout waits for between
+> "timeout - 1" and "timeout" jiffies.  In this case a 1ms timeout
+> when HZ is 1000 results in a wait of 0 to 1 jiffies, causing
+> premature timeouts.
+>
+> This fix ensures a minimum timeout of 2 jiffies, ensuring
+> wait_event_timeout will always wait at least 1 jiffie.
+>
+> Issue reported by Nicolas Schichan.
+>
+> Tested-by: Nicolas Schichan <nschichan@freebox.fr>
+> Signed-off-by: Leigh Brown <leigh@solinno.co.uk>
+> ---
+>   drivers/net/ethernet/marvell/mvmdio.c | 6 ++++++
+>   1 file changed, 6 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+> index 7354960..a42a750 100644
+> --- a/drivers/net/ethernet/marvell/mvmdio.c
+> +++ b/drivers/net/ethernet/marvell/mvmdio.c
+> @@ -92,6 +92,12 @@ static int orion_mdio_wait_ready(struct mii_bus *bus)
+>   			if (time_is_before_jiffies(end))
+>   				++timedout;
+>   	        } else {
+> +			/* wait_event_timeout does not guarantee a delay of at
+> +			 * least one whole jiffie, so timeout must be no less
+> +			 * than two.
+> +			 */
+> +			 if (timeout < 2)
+> +			 	timeout = 2;
 
-1) Advanced timestamping capability was not being enabled correctly
-since setting the state variable adv_ts was masked by the netif
-message mask for printing status to the console as the driver loaded.
+Hi Leigh,
 
-2) Incorrect spinlocks were released in the stmmac_adjust_freq and
-stmmac_adjust_time functions, leading to unstable behaviour.
+above two lines have a whitespace issue.
 
-Vince
+Sebastian
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 8a7a23a..797b56a 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -622,17 +622,15 @@ static int stmmac_init_ptp(struct stmmac_priv *priv)
-     if (!(priv->dma_cap.time_stamp || priv->dma_cap.atime_stamp))
-         return -EOPNOTSUPP;
-
--    if (netif_msg_hw(priv)) {
--        if (priv->dma_cap.time_stamp) {
--            pr_debug("IEEE 1588-2002 Time Stamp supported\n");
--            priv->adv_ts = 0;
--        }
--        if (priv->dma_cap.atime_stamp && priv->extend_desc) {
--            pr_debug
--                ("IEEE 1588-2008 Advanced Time Stamp supported\n");
--            priv->adv_ts = 1;
--        }
--    }
-+    priv->adv_ts = 0;
-+    if (priv->dma_cap.atime_stamp && priv->extend_desc)
-+        priv->adv_ts = 1;
-+
-+    if (netif_msg_hw(priv) && priv->dma_cap.time_stamp)
-+        pr_debug("IEEE 1588-2002 Time Stamp supported\n");
-+
-+    if (netif_msg_hw(priv) && priv->adv_ts)
-+        pr_debug("IEEE 1588-2008 Advanced Time Stamp supported\n");
-
-     priv->hw->ptp = &stmmac_ptp;
-     priv->hwts_tx_en = 0;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
-b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
-index b8b0eee..7680581 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
-@@ -56,7 +56,7 @@ static int stmmac_adjust_freq(struct ptp_clock_info
-*ptp, s32 ppb)
-
-     priv->hw->ptp->config_addend(priv->ioaddr, addend);
-
--    spin_unlock_irqrestore(&priv->lock, flags);
-+    spin_unlock_irqrestore(&priv->ptp_lock, flags);
-
-     return 0;
- }
-@@ -91,7 +91,7 @@ static int stmmac_adjust_time(struct ptp_clock_info
-*ptp, s64 delta)
-
-     priv->hw->ptp->adjust_systime(priv->ioaddr, sec, nsec, neg_adj);
-
--    spin_unlock_irqrestore(&priv->lock, flags);
-+    spin_unlock_irqrestore(&priv->ptp_lock, flags);
-
-     return 0;
- }
+>   			wait_event_timeout(dev->smi_busy_wait,
+>   				           orion_mdio_smi_is_done(dev),
+>   				           timeout);
+>
