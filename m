@@ -1,63 +1,102 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 6/8] xfrm: check user specified spi for IPComp
-Date: Thu, 19 Dec 2013 07:36:43 +0100
-Message-ID: <1387435005-8987-7-git-send-email-steffen.klassert@secunet.com>
-References: <1387435005-8987-1-git-send-email-steffen.klassert@secunet.com>
+Subject: pull request (net-next): ipsec-next 2013-12-19
+Date: Thu, 19 Dec 2013 07:36:37 +0100
+Message-ID: <1387435005-8987-1-git-send-email-steffen.klassert@secunet.com>
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:48204 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:48177 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752232Ab3LSGhW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Dec 2013 01:37:22 -0500
-In-Reply-To: <1387435005-8987-1-git-send-email-steffen.klassert@secunet.com>
+	id S1751447Ab3LSGhT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Dec 2013 01:37:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fan Du <fan.du@windriver.com>
+1) Use the user supplied policy index instead of a generated one
+   if present. From Fan Du.
 
-IPComp connection between two hosts is broken if given spi bigger
-than 0xffff.
+2) Make xfrm migration namespace aware. From Fan Du.
 
-OUTSPI=0x87
-INSPI=0x11112
+3) Make the xfrm state and policy locks namespace aware. From Fan Du.
 
-ip xfrm policy update dst 192.168.1.101 src 192.168.1.109 dir out action allow \
-       tmpl dst 192.168.1.101 src 192.168.1.109 proto comp spi $OUTSPI
-ip xfrm policy update src 192.168.1.101 dst 192.168.1.109 dir in action allow \
-       tmpl src 192.168.1.101 dst 192.168.1.109 proto comp spi $INSPI
+4) Remove ancient sleeping when the SA is in acquire state,
+   we now queue packets to the policy instead. This replaces the
+   sleeping code.
 
-ip xfrm state add src 192.168.1.101 dst 192.168.1.109  proto comp spi $INSPI \
-		comp deflate
-ip xfrm state add dst 192.168.1.101 src 192.168.1.109  proto comp spi $OUTSPI \
-		comp deflate
+5) Remove FLOWI_FLAG_CAN_SLEEP. This was used to notify xfrm about the
+   posibility to sleep. The sleeping code is gone, so remove it.
 
-tcpdump can capture outbound ping packet, but inbound packet is
-dropped with XfrmOutNoStates errors. It looks like spi value used
-for IPComp is expected to be 16bits wide only.
+6) Check user specified spi for IPComp. Thr spi for IPcomp is only
+   16 bit wide, so check for a valid value. From Fan Du.
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/xfrm/xfrm_user.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+7) Export verify_userspi_info to check for valid user supplied spi ranges
+   with pfkey and netlink. From Fan Du.
 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 16c8460..4027c42 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -181,7 +181,9 @@ static int verify_newsa_info(struct xfrm_usersa_info *p,
- 		    attrs[XFRMA_ALG_AEAD]	||
- 		    attrs[XFRMA_ALG_CRYPT]	||
- 		    attrs[XFRMA_ALG_COMP]	||
--		    attrs[XFRMA_TFCPAD])
-+		    attrs[XFRMA_TFCPAD]		||
-+		    (ntohl(p->id.spi) >= 0x10000))
-+
- 			goto out;
- 		break;
- 
--- 
-1.7.9.5
+8) RFC3173 states that if the total size of a compressed payload and the IPComp
+   header is not smaller than the size of the original payload, the IP datagram
+   must be sent in the original non-compressed form. These packets are dropped
+   by the inbound policy check because they are not transformed. Document the need
+   to set 'level use' for IPcomp to receive such packets anyway. From Fan Du.
+
+Please pull or let me know if there are problems.
+
+Thanks!
+
+The following changes since commit d70f2cf520cf8c86c6b467fc5dcea524ec51dc2f:
+
+  macvlan: Support creating macvtaps from macvlans (2013-12-05 19:59:02 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
+
+for you to fetch changes up to b3c6efbc36e2c5ac820b1a800ac17cc3e040de0c:
+
+  xfrm: Add file to document IPsec corner case (2013-12-16 12:54:05 +0100)
+
+----------------------------------------------------------------
+Fan Du (6):
+      xfrm: Try to honor policy index if it's supplied by user
+      xfrm: Using the right namespace to migrate key info
+      xfrm: Namespacify xfrm state/policy locks
+      xfrm: check user specified spi for IPComp
+      xfrm: export verify_userspi_info for pkfey and netlink interface
+      xfrm: Add file to document IPsec corner case
+
+Steffen Klassert (2):
+      xfrm: Remove ancient sleeping when the SA is in acquire state
+      net: Remove FLOWI_FLAG_CAN_SLEEP
+
+ Documentation/networking/ipsec.txt |   38 +++++++++
+ include/net/flow.h                 |    3 +-
+ include/net/ipv6.h                 |    6 +-
+ include/net/netns/xfrm.h           |    6 +-
+ include/net/route.h                |    8 +-
+ include/net/xfrm.h                 |   14 ++--
+ net/dccp/ipv4.c                    |    2 +-
+ net/dccp/ipv6.c                    |    8 +-
+ net/decnet/dn_route.c              |    2 -
+ net/ipv4/af_inet.c                 |    2 +-
+ net/ipv4/datagram.c                |    2 +-
+ net/ipv4/raw.c                     |    2 +-
+ net/ipv4/tcp_ipv4.c                |    2 +-
+ net/ipv4/udp.c                     |    2 +-
+ net/ipv6/af_inet6.c                |    2 +-
+ net/ipv6/datagram.c                |    2 +-
+ net/ipv6/inet6_connection_sock.c   |    4 +-
+ net/ipv6/ip6_output.c              |   12 +--
+ net/ipv6/ping.c                    |    2 +-
+ net/ipv6/raw.c                     |    2 +-
+ net/ipv6/syncookies.c              |    2 +-
+ net/ipv6/tcp_ipv6.c                |    4 +-
+ net/ipv6/udp.c                     |    2 +-
+ net/key/af_key.c                   |   29 ++++---
+ net/l2tp/l2tp_ip6.c                |    2 +-
+ net/sctp/ipv6.c                    |    4 +-
+ net/xfrm/xfrm_policy.c             |  151 +++++++++++++++++-------------------
+ net/xfrm/xfrm_state.c              |  149 ++++++++++++++++++-----------------
+ net/xfrm/xfrm_user.c               |   56 ++++++-------
+ 29 files changed, 277 insertions(+), 243 deletions(-)
+ create mode 100644 Documentation/networking/ipsec.txt
