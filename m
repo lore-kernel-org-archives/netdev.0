@@ -1,58 +1,47 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net] ipv4: consistent reporting of pmtu data in case of corking
-Date: Thu, 19 Dec 2013 02:13:36 +0100
-Message-ID: <20131219011336.GB14429@order.stressinduktion.org>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: Re: [net-next/master PATCH] lib: fix compile warning in hashlib_init
+Date: Thu, 19 Dec 2013 09:15:06 +0800
+Message-ID: <20131219011506.GA27326@localhost>
+References: <1387415314-21786-1-git-send-email-gaowanlong@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:38035 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751942Ab3LSBNh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 20:13:37 -0500
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, ffusco@redhat.com, kbuild-all@01.org,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1387415314-21786-1-git-send-email-gaowanlong@cn.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We report different pmtu values back on the first write and on further
-writes on an corked socket.
+CC the list.
 
-Also don't include the dst.header_len (respectively exthdrlen) as this
-should already be dealt with by the interface mtu of the outgoing
-(virtual) interface and policy of that interface should dictate if
-fragmentation should happen.
-
-Instead reduce the pmtu data by IP options as we do for IPv6. Make the
-same changes for ip_append_data, where we did not care about options or
-dst.header_len at all.
-
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv4/ip_output.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 9124027..df18461 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -828,7 +828,7 @@ static int __ip_append_data(struct sock *sk,
- 
- 	if (cork->length + length > maxnonfragsize - fragheaderlen) {
- 		ip_local_error(sk, EMSGSIZE, fl4->daddr, inet->inet_dport,
--			       mtu-exthdrlen);
-+			       mtu - (opt ? opt->optlen : 0));
- 		return -EMSGSIZE;
- 	}
- 
-@@ -1151,7 +1151,8 @@ ssize_t	ip_append_page(struct sock *sk, struct flowi4 *fl4, struct page *page,
- 			 mtu : 0xFFFF;
- 
- 	if (cork->length + size > maxnonfragsize - fragheaderlen) {
--		ip_local_error(sk, EMSGSIZE, fl4->daddr, inet->inet_dport, mtu);
-+		ip_local_error(sk, EMSGSIZE, fl4->daddr, inet->inet_dport,
-+			       mtu - (opt ? opt->optlen : 0));
- 		return -EMSGSIZE;
- 	}
- 
--- 
-1.8.3.1
+On Thu, Dec 19, 2013 at 09:08:34AM +0800, Wanlong Gao wrote:
+> /git/linux/lib/hash.c: In function 'hashlib_init':
+> /git/linux/lib/hash.c:35:2: warning: passing argument 1 of 'setup_arch_fast_hash' from incompatible pointer type [enabled by default]
+> /git/linux/include/asm-generic/hash.h:5:20: note: expected 'struct arch_hash_ops *' but argument is of type 'struct fast_hash_ops *'
+> 
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+> ---
+>  include/asm-generic/hash.h | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/asm-generic/hash.h b/include/asm-generic/hash.h
+> index 05cb342..b631284 100644
+> --- a/include/asm-generic/hash.h
+> +++ b/include/asm-generic/hash.h
+> @@ -1,8 +1,8 @@
+>  #ifndef __ASM_GENERIC_HASH_H
+>  #define __ASM_GENERIC_HASH_H
+>  
+> -struct arch_hash_ops;
+> -static inline void setup_arch_fast_hash(struct arch_hash_ops *ops)
+> +struct fast_hash_ops;
+> +static inline void setup_arch_fast_hash(struct fast_hash_ops *ops)
+>  {
+>  }
+>  
+> -- 
+> 1.8.5.2.192.g7794a68
