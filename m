@@ -1,163 +1,116 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/15] i40e: Populate and check pci bus speed and width
-Date: Wed, 18 Dec 2013 22:34:38 -0800
-Message-ID: <1387434891-19719-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1387434891-19719-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH 1/8] xfrm: Try to honor policy index if it's supplied by user
+Date: Thu, 19 Dec 2013 07:36:38 +0100
+Message-ID: <1387435005-8987-2-git-send-email-steffen.klassert@secunet.com>
+References: <1387435005-8987-1-git-send-email-steffen.klassert@secunet.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:47454 "EHLO mga09.intel.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:48179 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752439Ab3LSGez (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Dec 2013 01:34:55 -0500
-In-Reply-To: <1387434891-19719-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1752232Ab3LSGhT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Dec 2013 01:37:19 -0500
+In-Reply-To: <1387435005-8987-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
+From: Fan Du <fan.du@windriver.com>
 
-Call i40e_set_pci_config_data from probe, then check that
-we are in a 8GT/s x8 PCIe slot and send a warning if we are not.
+xfrm code always searches for unused policy index for
+newly created policy regardless whether or not user
+space policy index hint supplied.
 
-Change-Id: I62815c574cee50d2787c50bbe956dde7a7a75a11
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+This patch enables such feature so that using
+"ip xfrm ... index=xxx" can be used by user to set
+specific policy index.
+
+Currently this beahvior is broken, so this patch make
+it happen as expected.
+
+Signed-off-by: Fan Du <fan.du@windriver.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c    | 44 ++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_main.c      | 23 +++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_prototype.h |  1 +
- drivers/net/ethernet/intel/i40e/i40e_type.h      |  9 +++++
- 4 files changed, 77 insertions(+)
+ net/xfrm/xfrm_policy.c |   16 +++++++++++-----
+ net/xfrm/xfrm_user.c   |   10 +++++++++-
+ 2 files changed, 20 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 8b6d56a..cba1eb4 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -2029,3 +2029,47 @@ i40e_status i40e_set_filter_control(struct i40e_hw *hw,
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 9a91f74..a5bbdfb 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -538,7 +538,7 @@ static void xfrm_hash_resize(struct work_struct *work)
  
- 	return 0;
+ /* Generate new index... KAME seems to generate them ordered by cost
+  * of an absolute inpredictability of ordering of rules. This will not pass. */
+-static u32 xfrm_gen_index(struct net *net, int dir)
++static u32 xfrm_gen_index(struct net *net, int dir, u32 index)
+ {
+ 	static u32 idx_generator;
+ 
+@@ -548,8 +548,14 @@ static u32 xfrm_gen_index(struct net *net, int dir)
+ 		u32 idx;
+ 		int found;
+ 
+-		idx = (idx_generator | dir);
+-		idx_generator += 8;
++		if (!index) {
++			idx = (idx_generator | dir);
++			idx_generator += 8;
++		} else {
++			idx = index;
++			index = 0;
++		}
++
+ 		if (idx == 0)
+ 			idx = 8;
+ 		list = net->xfrm.policy_byidx + idx_hash(net, idx);
+@@ -672,7 +678,7 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
+ 		xfrm_policy_requeue(delpol, policy);
+ 		__xfrm_policy_unlink(delpol, dir);
+ 	}
+-	policy->index = delpol ? delpol->index : xfrm_gen_index(net, dir);
++	policy->index = delpol ? delpol->index : xfrm_gen_index(net, dir, policy->index);
+ 	hlist_add_head(&policy->byidx, net->xfrm.policy_byidx+idx_hash(net, policy->index));
+ 	policy->curlft.add_time = get_seconds();
+ 	policy->curlft.use_time = 0;
+@@ -1192,7 +1198,7 @@ int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
+ 	sk->sk_policy[dir] = pol;
+ 	if (pol) {
+ 		pol->curlft.add_time = get_seconds();
+-		pol->index = xfrm_gen_index(net, XFRM_POLICY_MAX+dir);
++		pol->index = xfrm_gen_index(net, XFRM_POLICY_MAX+dir, 0);
+ 		__xfrm_policy_link(pol, XFRM_POLICY_MAX+dir);
+ 	}
+ 	if (old_pol) {
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index f964d4c..4e0546e 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -1189,6 +1189,8 @@ static int verify_policy_type(u8 type)
+ 
+ static int verify_newpolicy_info(struct xfrm_userpolicy_info *p)
+ {
++	int ret;
++
+ 	switch (p->share) {
+ 	case XFRM_SHARE_ANY:
+ 	case XFRM_SHARE_SESSION:
+@@ -1224,7 +1226,13 @@ static int verify_newpolicy_info(struct xfrm_userpolicy_info *p)
+ 		return -EINVAL;
+ 	}
+ 
+-	return verify_policy_dir(p->dir);
++	ret = verify_policy_dir(p->dir);
++	if (ret)
++		return ret;
++	if (p->index && ((p->index & XFRM_POLICY_MAX) != p->dir))
++		return -EINVAL;
++
++	return 0;
  }
-+/**
-+ * i40e_set_pci_config_data - store PCI bus info
-+ * @hw: pointer to hardware structure
-+ * @link_status: the link status word from PCI config space
-+ *
-+ * Stores the PCI bus info (speed, width, type) within the i40e_hw structure
-+ **/
-+void i40e_set_pci_config_data(struct i40e_hw *hw, u16 link_status)
-+{
-+	hw->bus.type = i40e_bus_type_pci_express;
-+
-+	switch (link_status & PCI_EXP_LNKSTA_NLW) {
-+	case I40E_PCI_LINK_WIDTH_1:
-+		hw->bus.width = i40e_bus_width_pcie_x1;
-+		break;
-+	case I40E_PCI_LINK_WIDTH_2:
-+		hw->bus.width = i40e_bus_width_pcie_x2;
-+		break;
-+	case I40E_PCI_LINK_WIDTH_4:
-+		hw->bus.width = i40e_bus_width_pcie_x4;
-+		break;
-+	case I40E_PCI_LINK_WIDTH_8:
-+		hw->bus.width = i40e_bus_width_pcie_x8;
-+		break;
-+	default:
-+		hw->bus.width = i40e_bus_width_unknown;
-+		break;
-+	}
-+
-+	switch (link_status & PCI_EXP_LNKSTA_CLS) {
-+	case I40E_PCI_LINK_SPEED_2500:
-+		hw->bus.speed = i40e_bus_speed_2500;
-+		break;
-+	case I40E_PCI_LINK_SPEED_5000:
-+		hw->bus.speed = i40e_bus_speed_5000;
-+		break;
-+	case I40E_PCI_LINK_SPEED_8000:
-+		hw->bus.speed = i40e_bus_speed_8000;
-+		break;
-+	default:
-+		hw->bus.speed = i40e_bus_speed_unknown;
-+		break;
-+	}
-+}
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index f14b31c..22a2c0e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7369,6 +7369,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	struct i40e_pf *pf;
- 	struct i40e_hw *hw;
- 	static u16 pfs_found;
-+	u16 link_status;
- 	int err = 0;
- 	u32 len;
  
-@@ -7603,6 +7604,28 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	mod_timer(&pf->service_timer,
- 		  round_jiffies(jiffies + pf->service_timer_period));
- 
-+	/* Get the negotiated link width and speed from PCI config space */
-+	pcie_capability_read_word(pf->pdev, PCI_EXP_LNKSTA, &link_status);
-+
-+	i40e_set_pci_config_data(hw, link_status);
-+
-+	dev_info(&pdev->dev, "PCI Express: %s %s\n",
-+		(hw->bus.speed == i40e_bus_speed_8000 ? "Speed 8.0GT/s" :
-+		 hw->bus.speed == i40e_bus_speed_5000 ? "Speed 5.0GT/s" :
-+		 hw->bus.speed == i40e_bus_speed_2500 ? "Speed 2.5GT/s" :
-+		 "Unknown"),
-+		(hw->bus.width == i40e_bus_width_pcie_x8 ? "Width x8" :
-+		 hw->bus.width == i40e_bus_width_pcie_x4 ? "Width x4" :
-+		 hw->bus.width == i40e_bus_width_pcie_x2 ? "Width x2" :
-+		 hw->bus.width == i40e_bus_width_pcie_x1 ? "Width x1" :
-+		 "Unknown"));
-+
-+	if (hw->bus.width < i40e_bus_width_pcie_x8 ||
-+	    hw->bus.speed < i40e_bus_speed_8000) {
-+		dev_warn(&pdev->dev, "PCI-Express bandwidth available for this device may be insufficient for optimal performance.\n");
-+		dev_warn(&pdev->dev, "Please move the device to a different PCI-e link with more lanes and/or higher transfer rate.\n");
-+	}
-+
- 	return 0;
- 
- 	/* Unwind what we've done if something failed in the setup */
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-index 2fc9ce5..db7bf93 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-@@ -215,6 +215,7 @@ i40e_status i40e_read_nvm_buffer(struct i40e_hw *hw, u16 offset,
- 					   u16 *words, u16 *data);
- i40e_status i40e_validate_nvm_checksum(struct i40e_hw *hw,
- 						 u16 *checksum);
-+void i40e_set_pci_config_data(struct i40e_hw *hw, u16 link_status);
- 
- /* prototype for functions used for SW locks */
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 72a6028..008a7a0 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -116,6 +116,15 @@ enum i40e_debug_mask {
- 	I40E_DEBUG_ALL			= 0xFFFFFFFF
- };
- 
-+/* PCI Bus Info */
-+#define I40E_PCI_LINK_WIDTH_1		0x10
-+#define I40E_PCI_LINK_WIDTH_2		0x20
-+#define I40E_PCI_LINK_WIDTH_4		0x40
-+#define I40E_PCI_LINK_WIDTH_8		0x80
-+#define I40E_PCI_LINK_SPEED_2500	0x1
-+#define I40E_PCI_LINK_SPEED_5000	0x2
-+#define I40E_PCI_LINK_SPEED_8000	0x3
-+
- /* These are structs for managing the hardware information and the operations.
-  * The structures of function pointers are filled out at init time when we
-  * know for sure exactly which hardware we're working with.  This gives us the
+ static int copy_from_user_sec_ctx(struct xfrm_policy *pol, struct nlattr **attrs)
 -- 
-1.8.3.1
+1.7.9.5
