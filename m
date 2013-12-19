@@ -1,113 +1,52 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH net] drivers : stmmac : Fixes for IEEE 1588 Timestamping
-Date: Thu, 19 Dec 2013 12:50:50 +0100
-Message-ID: <52B2DD9A.50003@st.com>
-References: <CAOwfj2Muc4szDNiJc5SjXsw4Oy_LkrBJeiDUY7-09N=paCSSKg@mail.gmail.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: RE: [PATCH v3 2/8] drivers: net: Mark functions as static in
+ qlcnic_83xx_hw.c
+Date: Thu, 19 Dec 2013 11:51:13 +0000
+Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A46F49D4B@avmb2.qlogic.org>
+References: <04fe932bc3585620c91d511bb0894e45bb762ffa.1387382457.git.rashika.kheria@gmail.com>
+ <e50a81d6fd512838c98cd46a0ce66262da5cf811.1387382457.git.rashika.kheria@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Vince Bridgers <vbridgers2013@gmail.com>,
-	Rayagond K <rayagond@vayavyalabs.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:33782 "EHLO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752854Ab3LSLu6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 06:50:58 -0500
-In-Reply-To: <CAOwfj2Muc4szDNiJc5SjXsw4Oy_LkrBJeiDUY7-09N=paCSSKg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Rashika Kheria <rashika.kheria@gmail.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Himanshu Madhani <himanshu.madhani@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
+	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	"josh@joshtriplett.org" <josh@joshtriplett.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <e50a81d6fd512838c98cd46a0ce66262da5cf811.1387382457.git.rashika.kheria@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/19/2013 12:35 AM, Vince Bridgers wrote:
-> >From e9278f13a922433adbf3a81ef9d7823a99bd8d88 Mon Sep 17 00:00:00 2001
-> From: Vince Bridgers <vbridger2013@gmail.com>
-> Date: Wed, 18 Dec 2013 14:29:26 -0600
-> Subject: [PATCH 1/1] Fix release of incorrect spinlock in 
-> stmmac_ptp.c, and
->   masked configuration of control variable adv_ts
->
-> Two issues addressed with this patch:
-> 1) The functions stmmac_adjust_freq and stmmac_adjust_time were
-> releasing the incorrect spinlock
->     at the end of the function - priv->lock instead of priv->ptp_lock.
-> 2) Setting the control data variable priv->adv_ts according to
-> hardware capabilities was masked
->     by message level settings, so it was not being set correctly in the
-> case that the Synopsys
->     MAC only supported advanced timestamping.
->
-> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
-
-Hello Vince
-
-thanks for the patch that provides useful fixes. Pls can you check if it 
-applies
-fine on net.git master branch? It failed on my side.
-
-
-peppe
-
-> ---
->   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   20 
-> +++++++++-----------
->   drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c  |    4 ++--
->   2 files changed, 11 insertions(+), 13 deletions(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index 8a7a23a..797b56a 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -622,17 +622,15 @@ static int stmmac_init_ptp(struct stmmac_priv *priv)
->       if (!(priv->dma_cap.time_stamp || priv->dma_cap.atime_stamp))
->           return -EOPNOTSUPP;
->
-> -    if (netif_msg_hw(priv)) {
-> -        if (priv->dma_cap.time_stamp) {
-> -            pr_debug("IEEE 1588-2002 Time Stamp supported\n");
-> -            priv->adv_ts = 0;
-> -        }
-> -        if (priv->dma_cap.atime_stamp && priv->extend_desc) {
-> -            pr_debug
-> -                ("IEEE 1588-2008 Advanced Time Stamp supported\n");
-> -            priv->adv_ts = 1;
-> -        }
-> -    }
-> +    priv->adv_ts = 0;
-> +    if (priv->dma_cap.atime_stamp && priv->extend_desc)
-> +        priv->adv_ts = 1;
-> +
-> +    if (netif_msg_hw(priv) && priv->dma_cap.time_stamp)
-> +        pr_debug("IEEE 1588-2002 Time Stamp supported\n");
-> +
-> +    if (netif_msg_hw(priv) && priv->adv_ts)
-> +        pr_debug("IEEE 1588-2008 Advanced Time Stamp supported\n");
->
->       priv->hw->ptp = &stmmac_ptp;
->       priv->hwts_tx_en = 0;
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
-> b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
-> index b8b0eee..7680581 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
-> @@ -56,7 +56,7 @@ static int stmmac_adjust_freq(struct ptp_clock_info
-> *ptp, s32 ppb)
->
->       priv->hw->ptp->config_addend(priv->ioaddr, addend);
->
-> -    spin_unlock_irqrestore(&priv->lock, flags);
-> +    spin_unlock_irqrestore(&priv->ptp_lock, flags);
->
->       return 0;
->   }
-> @@ -91,7 +91,7 @@ static int stmmac_adjust_time(struct ptp_clock_info
-> *ptp, s64 delta)
->
->       priv->hw->ptp->adjust_systime(priv->ioaddr, sec, nsec, neg_adj);
->
-> -    spin_unlock_irqrestore(&priv->lock, flags);
-> +    spin_unlock_irqrestore(&priv->ptp_lock, flags);
->
->       return 0;
->   }
->
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBSYXNoaWthIEtoZXJpYSBbbWFp
+bHRvOnJhc2hpa2Eua2hlcmlhQGdtYWlsLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIERlY2VtYmVy
+IDE5LCAyMDEzIDI6MTggUE0NCj4gVG86IGxpbnV4LWtlcm5lbDsgSGltYW5zaHUgTWFkaGFuaTsg
+UmFqZXNoIEJvcnVuZGlhOyBTaGFoZWQgU2hhaWtoOw0KPiBKaXRlbmRyYSBLYWxzYXJpYTsgU29u
+eSBDaGFja287IFN1Y2hldGEgQ2hha3JhYm9ydHk7IERlcHQtRW5nIExpbnV4IERyaXZlcjsNCj4g
+bmV0ZGV2OyBqb3NoQGpvc2h0cmlwbGV0dC5vcmcNCj4gU3ViamVjdDogW1BBVENIIHYzIDIvOF0g
+ZHJpdmVyczogbmV0OiBNYXJrIGZ1bmN0aW9ucyBhcyBzdGF0aWMgaW4NCj4gcWxjbmljXzgzeHhf
+aHcuYw0KPiANCj4gVGhpcyBwYXRjaCBtYXJrcyB0aGUgZnVuY3Rpb24gcWxjbmljXzgzeHhfY2xl
+YXJfbGVnYWN5X2ludHJfbWFzaygpLA0KPiBxbGNuaWNfODN4eF9zZXRfbGVnYWN5X2ludHJfbWFz
+aygpIGFuZA0KPiBxbGNuaWNfODN4eF9lbmFibGVfbGVnYWN5X21zaXhfbWJ4X2ludHIoKSBpbiBx
+bGNuaWNfODN4eF9ody5jIGFzIHN0YXRpYw0KPiBiZWNhdXNlIHRoZXkgYXJlIG5vdCB1c2VkIG91
+dHNpZGUgdGhpcyBmaWxlLg0KPiANCj4gVGh1cywgaXQgYWxzbyByZW1vdmVzIHRoZSBmb2xsb3dp
+bmcgd2FybmluZ3MgaW4NCj4gZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNuaWNfODN4eF9ody5j
+Og0KPiANCj4gZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNuaWNfODN4eF9o
+dy5jOjMxODoxMzogd2FybmluZzogbm8NCj4gcHJldmlvdXMgcHJvdG90eXBlIGZvciDigJhxbGNu
+aWNfODN4eF9jbGVhcl9sZWdhY3lfaW50cl9tYXNr4oCZIFstV21pc3NpbmctDQo+IHByb3RvdHlw
+ZXNdDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmljXzgzeHhfaHcu
+YzozMjM6MTM6IHdhcm5pbmc6IG5vDQo+IHByZXZpb3VzIHByb3RvdHlwZSBmb3Ig4oCYcWxjbmlj
+XzgzeHhfc2V0X2xlZ2FjeV9pbnRyX21hc2vigJkgWy1XbWlzc2luZy0NCj4gcHJvdG90eXBlc10N
+Cj4gZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNuaWNfODN4eF9ody5jOjM0
+MzoxMzogd2FybmluZzogbm8NCj4gcHJldmlvdXMgcHJvdG90eXBlIGZvciDigJhxbGNuaWNfODN4
+eF9lbmFibGVfbGVnYWN5X21zaXhfbWJ4X2ludHLigJkgWy0NCj4gV21pc3NpbmctcHJvdG90eXBl
+c10NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IFJhc2hpa2EgS2hlcmlhIDxyYXNoaWthLmtoZXJpYUBn
+bWFpbC5jb20+DQo+IFJldmlld2VkLWJ5OiBKb3NoIFRyaXBsZXR0IDxqb3NoQGpvc2h0cmlwbGV0
+dC5vcmc+DQoNCkFja2VkLWJ5OiBTaGFoZWQgU2hhaWtoIDxzaGFoZWQuc2hhaWtoQHFsb2dpYy5j
+b20+DQoNClRoYW5rcywNClNoYWhlZA0K
