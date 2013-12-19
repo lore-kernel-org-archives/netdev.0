@@ -1,81 +1,95 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [PATCH] rds: prevent dereference of a NULL device
-Date: Wed, 18 Dec 2013 23:49:42 -0500
-Message-ID: <1387428582-961-1-git-send-email-sasha.levin@oracle.com>
-Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>
-To: venkat.x.venkatsubra@oracle.com, davem@davemloft.net
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't
+ work.
+Date: Wed, 18 Dec 2013 20:57:26 -0800
+Message-ID: <20131219045726.GA3654@cerro.do-not-panic.com>
+References: <1534126119.20131217104548@eikelenboom.it>
+ <387552477.20131217213319@eikelenboom.it>
+ <20131217212709.GB5624@decadent.org.uk>
+ <1254825772.20131217224914@eikelenboom.it>
+ <CA+55aFxQg6=MAWEkEGz64Hz8OawvPyX=fpBOjY8cGBL5XgB9WQ@mail.gmail.com>
+ <52B167F6.5060209@broadcom.com>
+ <1387358785.4694.9.camel@jlt4.sipsolutions.net>
+ <133955103.20131218114845@eikelenboom.it>
+ <20131218194328.GE5705@cerro.do-not-panic.com>
+ <4610721898.20131218204546@eikelenboom.it>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Arend van Spriel <arend@broadcom.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Julian Calaby <julian.calaby@gmail.com>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ilw@linux.intel.com" <ilw@linux.intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Avinash Patil <avinashapatil@gmail.com>
+To: Sander Eikelenboom <linux@eikelenboom.it>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4610721898.20131218204546@eikelenboom.it>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Binding might result in a NULL device, which is dereferenced
-causing this BUG:
+On Wed, Dec 18, 2013 at 08:45:46PM +0100, Sander Eikelenboom wrote:
+> 
+> Wednesday, December 18, 2013, 8:43:28 PM, you wrote:
+> 
+> > On Wed, Dec 18, 2013 at 11:48:45AM +0100, Sander Eikelenboom wrote:
+> >> 
+> >> Wednesday, December 18, 2013, 10:26:25 AM, you wrote:
+> >> 
+> >> > Hi all,
+> >> 
+> >> > We really should be asking Luis to look at this who hasn't yet chimed
+> >> > in, presumably because he's between jobs (and travelling IIRC)
+> >> 
+> >> > On Wed, 2013-12-18 at 10:16 +0100, Arend van Spriel wrote:
+> >> >> On 12/17/2013 11:06 PM, Linus Torvalds wrote:
+> >> >> > We have literally had this *exact* same issue with firmware loading.
+> >> >> > Network drivers shouldn't try to load firmware at module load time.
+> >> >> > Same deal.
+> >> >> 
+> >> >> It is kind of a chicken and egg problem for (wireless) networking
+> >> >> drivers. To get IFF_UP from the network layer you have to register a
+> >> >> netdevice. For wireless drivers this means you have to register a wiphy
+> >> >> device with cfg80211 which flags capabilities and optionally are custom
+> >> >> regulatory domain. That information depends on the device and firmware
+> >> >> used. And there we have a full circle.
+> >> 
+> >> > This is all really beside the point.
+> >> 
+> >> > For this CRDA information, the kernel never actually *waits* for it, so
+> >> > in the case that there's no reply, it uses the built-in world domain. So
+> >> > it's not like request_firmware(), which will block boot forever, but
+> >> > it's also not like request_firmware_nowait() which will eventually time
+> >> > out and come back with an error if userspace isn't handling it (though
+> >> > now that firmware loading is built in ...)
+> >> 
+> >> > The issue is that it uses the built-in data *forever*, and what Sander
+> >> > said was "or it will block forever" but just meant that it never was
+> >> > able to do any further updates.
+> >> 
+> >> > It *doesn't* actually block the boot process or such. Everything Linus
+> >> > said is true but seems to have been written in understanding "blocks" as
+> >> > "blocking the boot process", rather than "blocking further updates".
+> >> 
+> >> > Regardless of this, even blocking further updates is a really bad idea.
+> >> > There are a few ways to handle this, but I'll let Luis poke at that.
+> >> 
+> >> Your description is correct, sorry if I was not clear.
+> 
+> > We have a timeout handler for this, I'll check to see what's going on
+> > by trying to reproduce on my end. Are you using wireless-testing ?
+> 
+> Originally 3.13-rc4, after that i tried with 3.13-rc4 with wireless-next pulled on top of it
+> (since there were major changes to reg.c) but the problem occurs with both.
 
-[ 1317.260548] BUG: unable to handle kernel NULL pointer dereference at 000000000000097
-4
-[ 1317.261847] IP: [<ffffffff84225f52>] rds_ib_laddr_check+0x82/0x110
-[ 1317.263315] PGD 418bcb067 PUD 3ceb21067 PMD 0
-[ 1317.263502] Oops: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
-[ 1317.264179] Dumping ftrace buffer:
-[ 1317.264774]    (ftrace buffer empty)
-[ 1317.265220] Modules linked in:
-[ 1317.265824] CPU: 4 PID: 836 Comm: trinity-child46 Tainted: G        W    3.13.0-rc4-
-next-20131218-sasha-00013-g2cebb9b-dirty #4159
-[ 1317.267415] task: ffff8803ddf33000 ti: ffff8803cd31a000 task.ti: ffff8803cd31a000
-[ 1317.268399] RIP: 0010:[<ffffffff84225f52>]  [<ffffffff84225f52>] rds_ib_laddr_check+
-0x82/0x110
-[ 1317.269670] RSP: 0000:ffff8803cd31bdf8  EFLAGS: 00010246
-[ 1317.270230] RAX: 0000000000000000 RBX: ffff88020b0dd388 RCX: 0000000000000000
-[ 1317.270230] RDX: ffffffff8439822e RSI: 00000000000c000a RDI: 0000000000000286
-[ 1317.270230] RBP: ffff8803cd31be38 R08: 0000000000000000 R09: 0000000000000000
-[ 1317.270230] R10: 0000000000000000 R11: 0000000000000001 R12: 0000000000000000
-[ 1317.270230] R13: 0000000054086700 R14: 0000000000a25de0 R15: 0000000000000031
-[ 1317.270230] FS:  00007ff40251d700(0000) GS:ffff88022e200000(0000) knlGS:000000000000
-0000
-[ 1317.270230] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[ 1317.270230] CR2: 0000000000000974 CR3: 00000003cd478000 CR4: 00000000000006e0
-[ 1317.270230] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[ 1317.270230] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000090602
-[ 1317.270230] Stack:
-[ 1317.270230]  0000000054086700 5408670000a25de0 5408670000000002 0000000000000000
-[ 1317.270230]  ffffffff84223542 00000000ea54c767 0000000000000000 ffffffff86d26160
-[ 1317.270230]  ffff8803cd31be68 ffffffff84223556 ffff8803cd31beb8 ffff8800c6765280
-[ 1317.270230] Call Trace:
-[ 1317.270230]  [<ffffffff84223542>] ? rds_trans_get_preferred+0x42/0xa0
-[ 1317.270230]  [<ffffffff84223556>] rds_trans_get_preferred+0x56/0xa0
-[ 1317.270230]  [<ffffffff8421c9c3>] rds_bind+0x73/0xf0
-[ 1317.270230]  [<ffffffff83e4ce62>] SYSC_bind+0x92/0xf0
-[ 1317.270230]  [<ffffffff812493f8>] ? context_tracking_user_exit+0xb8/0x1d0
-[ 1317.270230]  [<ffffffff8119313d>] ? trace_hardirqs_on+0xd/0x10
-[ 1317.270230]  [<ffffffff8107a852>] ? syscall_trace_enter+0x32/0x290
-[ 1317.270230]  [<ffffffff83e4cece>] SyS_bind+0xe/0x10
-[ 1317.270230]  [<ffffffff843a6ad0>] tracesys+0xdd/0xe2
-[ 1317.270230] Code: 00 8b 45 cc 48 8d 75 d0 48 c7 45 d8 00 00 00 00 66 c7 45 d0 02 00
-89 45 d4 48 89 df e8 78 49 76 ff 41 89 c4 85 c0 75 0c 48 8b 03 <80> b8 74 09 00 00 01 7
-4 06 41 bc 9d ff ff ff f6 05 2a b6 c2 02
-[ 1317.270230] RIP  [<ffffffff84225f52>] rds_ib_laddr_check+0x82/0x110
-[ 1317.270230]  RSP <ffff8803cd31bdf8>
-[ 1317.270230] CR2: 0000000000000974
+OK I can reproduce and am working on the cleanest solution. Thanks for
+your report, I'll Cc ya when I have something reasonable baked up,
+hopefully rather soon!
 
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
----
- net/rds/ib.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/rds/ib.c b/net/rds/ib.c
-index b4c8b00..ba2dffe 100644
---- a/net/rds/ib.c
-+++ b/net/rds/ib.c
-@@ -338,7 +338,8 @@ static int rds_ib_laddr_check(__be32 addr)
- 	ret = rdma_bind_addr(cm_id, (struct sockaddr *)&sin);
- 	/* due to this, we will claim to support iWARP devices unless we
- 	   check node_type. */
--	if (ret || cm_id->device->node_type != RDMA_NODE_IB_CA)
-+	if (ret || !cm_id->device ||
-+	    cm_id->device->node_type != RDMA_NODE_IB_CA)
- 		ret = -EADDRNOTAVAIL;
- 
- 	rdsdebug("addr %pI4 ret %d node type %d\n",
--- 
-1.7.10.4
+  Luis
