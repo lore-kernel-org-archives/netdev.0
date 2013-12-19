@@ -1,63 +1,64 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH v2 5/9] b44: rename b44_mii_{read,write} to b44_mdio_{read,write}_mii
-Date: Thu, 19 Dec 2013 02:28:42 +0100
-Message-ID: <1387416526-7394-6-git-send-email-hauke@hauke-m.de>
-References: <1387416526-7394-1-git-send-email-hauke@hauke-m.de>
-Cc: zambrano@broadcom.com, netdev@vger.kernel.org,
-	f.fainelli@gmail.com, Hauke Mehrtens <hauke@hauke-m.de>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 1/2] netlink: only do not deliver to tap when both sides are kernel sks
+Date: Thu, 19 Dec 2013 02:29:38 +0100
+Message-ID: <1387416579-3098-2-git-send-email-dborkman@redhat.com>
+References: <1387416579-3098-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, Jakub Zawadzki <darkjames-ws@darkjames.pl>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:44338 "EHLO
-	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752310Ab3LSB3t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Dec 2013 20:29:49 -0500
-In-Reply-To: <1387416526-7394-1-git-send-email-hauke@hauke-m.de>
+Received: from mx1.redhat.com ([209.132.183.28]:44739 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752332Ab3LSB3v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Dec 2013 20:29:51 -0500
+In-Reply-To: <1387416579-3098-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The next patch will add these functions for phylib, and we should
-rename the old ones before. This now indicates that these functions are
-used for the mdio registers and on the mii interface.
+We should also deliver packets to nlmon devices when we are in
+netlink_unicast_kernel(), and only one of the {src,dst} sockets
+is user sk and the other one kernel sk. That's e.g. the case in
+netlink diag, netlink route, etc. Still, forbid to deliver messages
+from kernel to kernel sks.
 
-Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Jakub Zawadzki <darkjames-ws@darkjames.pl>
 ---
- drivers/net/ethernet/broadcom/b44.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ net/netlink/af_netlink.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
-index 09e9e97..40a9de2 100644
---- a/drivers/net/ethernet/broadcom/b44.c
-+++ b/drivers/net/ethernet/broadcom/b44.c
-@@ -299,7 +299,7 @@ static inline int b44_writephy(struct b44 *bp, int reg, u32 val)
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index bca50b9..56e09d8 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -239,6 +239,13 @@ static void netlink_deliver_tap(struct sk_buff *skb)
+ 	rcu_read_unlock();
  }
  
- /* miilib interface */
--static int b44_mii_read(struct net_device *dev, int phy_id, int location)
-+static int b44_mdio_read_mii(struct net_device *dev, int phy_id, int location)
++static void netlink_deliver_tap_kernel(struct sock *dst, struct sock *src,
++				       struct sk_buff *skb)
++{
++	if (!(netlink_is_kernel(dst) && netlink_is_kernel(src)))
++		netlink_deliver_tap(skb);
++}
++
+ static void netlink_overrun(struct sock *sk)
  {
- 	u32 val;
- 	struct b44 *bp = netdev_priv(dev);
-@@ -309,8 +309,8 @@ static int b44_mii_read(struct net_device *dev, int phy_id, int location)
- 	return val;
- }
+ 	struct netlink_sock *nlk = nlk_sk(sk);
+@@ -1697,14 +1704,10 @@ static int netlink_unicast_kernel(struct sock *sk, struct sk_buff *skb,
  
--static void b44_mii_write(struct net_device *dev, int phy_id, int location,
--			 int val)
-+static void b44_mdio_write_mii(struct net_device *dev, int phy_id, int location,
-+			       int val)
- {
- 	struct b44 *bp = netdev_priv(dev);
- 	__b44_writephy(bp, phy_id, location, val);
-@@ -2213,8 +2213,8 @@ static int b44_init_one(struct ssb_device *sdev,
- 	}
- 
- 	bp->mii_if.dev = dev;
--	bp->mii_if.mdio_read = b44_mii_read;
--	bp->mii_if.mdio_write = b44_mii_write;
-+	bp->mii_if.mdio_read = b44_mdio_read_mii;
-+	bp->mii_if.mdio_write = b44_mdio_write_mii;
- 	bp->mii_if.phy_id = bp->phy_addr;
- 	bp->mii_if.phy_id_mask = 0x1f;
- 	bp->mii_if.reg_num_mask = 0x1f;
+ 	ret = -ECONNREFUSED;
+ 	if (nlk->netlink_rcv != NULL) {
+-		/* We could do a netlink_deliver_tap(skb) here as well
+-		 * but since this is intended for the kernel only, we
+-		 * should rather let it stay under the hood.
+-		 */
+-
+ 		ret = skb->len;
+ 		netlink_skb_set_owner_r(skb, sk);
+ 		NETLINK_CB(skb).sk = ssk;
++		netlink_deliver_tap_kernel(sk, ssk, skb);
+ 		nlk->netlink_rcv(skb);
+ 		consume_skb(skb);
+ 	} else {
 -- 
-1.7.10.4
+1.8.3.1
