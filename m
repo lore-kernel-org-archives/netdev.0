@@ -1,56 +1,41 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 0/5] bridge: cleanup and fix checkpatch errors
-Date: Thu, 19 Dec 2013 10:41:12 -0800
-Message-ID: <20131219104112.3fcdbf8a@nehalam.linuxnetplumber.net>
-References: <1387430894-11220-1-git-send-email-tanxiaojun@huawei.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next] hyperv: Add support for Virtual Receive Side
+ Scaling (vRSS)
+Date: Thu, 19 Dec 2013 19:45:21 +0100
+Message-ID: <52B33EC1.5040901@redhat.com>
+References: <1387405262-18334-1-git-send-email-haiyangz@microsoft.com>
+ <1387475178.1876.29.camel@bwh-desktop.uk.level5networks.com>
+ <ff7f7541d0164d408b3a4278569c593a@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org, bart.de.schuymer@pandora.be,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Tan Xiaojun <tanxiaojun@huawei.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1387430894-11220-1-git-send-email-tanxiaojun@huawei.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ Ben Hutchings <bhutchings@solarflare.com>,
+ "davem@davemloft.net" <davem@davemloft.net>
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <ff7f7541d0164d408b3a4278569c593a@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 19 Dec 2013 13:28:09 +0800
-Tan Xiaojun <tanxiaojun@huawei.com> wrote:
+On 12/19/2013 07:36 PM, Haiyang Zhang wrote:
 
-> Clean up and fix some checkpatch errors in bridge driver.
-> 
-> Tan Xiaojun (5):
->   bridge: remove unnecessary condition judgment
->   bridge: remove unnecessary parentheses
->   bridge: add space before '(/{', after ',', etc.
->   bridge: change "foo* bar" to "foo *bar"
->   bridge: change the position of '{' to the pre line
-> 
->  net/bridge/br_fdb.c                   |  3 +--
->  net/bridge/br_forward.c               |  4 ++--
->  net/bridge/br_ioctl.c                 |  2 +-
->  net/bridge/br_netfilter.c             |  2 +-
->  net/bridge/br_netlink.c               |  3 +--
->  net/bridge/br_private.h               |  2 +-
->  net/bridge/br_stp_timer.c             |  2 +-
->  net/bridge/br_sysfs_if.c              | 20 ++++++++++----------
->  net/bridge/netfilter/ebt_log.c        |  2 +-
->  net/bridge/netfilter/ebt_snat.c       |  2 +-
->  net/bridge/netfilter/ebtable_broute.c |  6 ++----
->  net/bridge/netfilter/ebtable_filter.c |  9 +++------
->  net/bridge/netfilter/ebtable_nat.c    |  9 +++------
->  net/bridge/netfilter/ebtables.c       | 17 ++++++++---------
->  14 files changed, 36 insertions(+), 47 deletions(-)
-> 
+> Thank you for the suggestions! I will re-write the send queue selection, enhance
+> the hash calculation, also fix the initialization sequence.
 
-Thanks, these should go to net-next.
-
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+Btw, Toeplitz hash function should either go into lib/hash.c as well or
+include/linux/hash.h to avoid ending up w/ various implementations in
+multiple places.
