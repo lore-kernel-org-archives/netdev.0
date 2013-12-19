@@ -1,7 +1,7 @@
 From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH net-next 3/5] sctp: fix checkpatch errors with indent
-Date: Thu, 19 Dec 2013 14:52:00 +0800
-Message-ID: <1387435922-24152-4-git-send-email-wangweidong1@huawei.com>
+Subject: [PATCH net-next 2/5] sctp: fix checkpatch errors with foo
+Date: Thu, 19 Dec 2013 14:51:59 +0800
+Message-ID: <1387435922-24152-3-git-send-email-wangweidong1@huawei.com>
 References: <1387435922-24152-1-git-send-email-wangweidong1@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,283 +9,240 @@ Cc: <netdev@vger.kernel.org>, <linux-sctp@vger.kernel.org>
 To: <davem@davemloft.net>, <vyasevich@gmail.com>,
 	<nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:22013 "EHLO
+Received: from szxga03-in.huawei.com ([119.145.14.66]:22080 "EHLO
 	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750817Ab3LSGwh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 01:52:37 -0500
+	with ESMTP id S1751201Ab3LSGwp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 01:52:45 -0500
 In-Reply-To: <1387435922-24152-1-git-send-email-wangweidong1@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fix checkpatch errors below:
-ERROR: switch and case should be at the same inden
-ERROR: code indent should use tabs where possible
+fix three foo type errors below:
+ERROR: "(foo*)" should be "(foo *)"
+ERROR: "foo * bar" should be "foo *bar"
+ERROR: "foo* bar" should be "foo *bar"
 
 Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 ---
- net/sctp/auth.c          | 12 ++++-----
- net/sctp/input.c         | 48 +++++++++++++++++------------------
- net/sctp/output.c        | 11 ++++----
- net/sctp/sm_make_chunk.c | 65 ++++++++++++++++++++++++------------------------
- net/sctp/sm_statefuns.c  |  5 ++--
- net/sctp/sm_statetable.c |  2 +-
- 6 files changed, 70 insertions(+), 73 deletions(-)
+ net/sctp/auth.c          |  6 +++---
+ net/sctp/objcnt.c        |  2 +-
+ net/sctp/proc.c          |  8 ++++----
+ net/sctp/sm_make_chunk.c |  2 +-
+ net/sctp/sm_statefuns.c  |  2 +-
+ net/sctp/socket.c        | 18 +++++++++---------
+ net/sctp/sysctl.c        |  2 +-
+ net/sctp/ulpqueue.c      |  4 ++--
+ 8 files changed, 22 insertions(+), 22 deletions(-)
 
 diff --git a/net/sctp/auth.c b/net/sctp/auth.c
-index 889400b..a594b3c 100644
+index 78767aa..889400b 100644
 --- a/net/sctp/auth.c
 +++ b/net/sctp/auth.c
-@@ -647,15 +647,15 @@ static int __sctp_auth_cid(sctp_cid_t chunk, struct sctp_chunks_param *param)
- 	 */
- 	for (i = 0; !found && i < len; i++) {
- 		switch (param->chunks[i]) {
--		    case SCTP_CID_INIT:
--		    case SCTP_CID_INIT_ACK:
--		    case SCTP_CID_SHUTDOWN_COMPLETE:
--		    case SCTP_CID_AUTH:
-+		case SCTP_CID_INIT:
-+		case SCTP_CID_INIT_ACK:
-+		case SCTP_CID_SHUTDOWN_COMPLETE:
-+		case SCTP_CID_AUTH:
- 			break;
+@@ -226,9 +226,9 @@ static struct sctp_auth_bytes *sctp_auth_make_local_vector(
+ 				    gfp_t gfp)
+ {
+ 	return sctp_auth_make_key_vector(
+-				    (sctp_random_param_t*)asoc->c.auth_random,
+-				    (sctp_chunks_param_t*)asoc->c.auth_chunks,
+-				    (sctp_hmac_algo_param_t*)asoc->c.auth_hmacs,
++				    (sctp_random_param_t *)asoc->c.auth_random,
++				    (sctp_chunks_param_t *)asoc->c.auth_chunks,
++				    (sctp_hmac_algo_param_t *)asoc->c.auth_hmacs,
+ 				    gfp);
+ }
  
--		    default:
-+		default:
- 			if (param->chunks[i] == chunk)
--			    found = 1;
-+				found = 1;
- 			break;
- 		}
- 	}
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index 726a474..49aef00 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -1059,30 +1059,30 @@ static struct sctp_association *__sctp_rcv_walk_lookup(struct net *net,
- 			break;
+diff --git a/net/sctp/objcnt.c b/net/sctp/objcnt.c
+index 0c28e8a..40e7fac 100644
+--- a/net/sctp/objcnt.c
++++ b/net/sctp/objcnt.c
+@@ -97,7 +97,7 @@ static void sctp_objcnt_seq_stop(struct seq_file *seq, void *v)
+ {
+ }
  
- 		switch (ch->type) {
--		    case SCTP_CID_AUTH:
--			    have_auth = chunk_num;
--			    break;
--
--		    case SCTP_CID_COOKIE_ECHO:
--			    /* If a packet arrives containing an AUTH chunk as
--			     * a first chunk, a COOKIE-ECHO chunk as the second
--			     * chunk, and possibly more chunks after them, and
--			     * the receiver does not have an STCB for that
--			     * packet, then authentication is based on
--			     * the contents of the COOKIE- ECHO chunk.
--			     */
--			    if (have_auth == 1 && chunk_num == 2)
--				    return NULL;
--			    break;
--
--		    case SCTP_CID_ASCONF:
--			    if (have_auth || net->sctp.addip_noauth)
--				    asoc = __sctp_rcv_asconf_lookup(
--							net, ch, laddr,
--							sctp_hdr(skb)->source,
--							transportp);
--		    default:
--			    break;
-+		case SCTP_CID_AUTH:
-+			have_auth = chunk_num;
-+			break;
-+
-+		case SCTP_CID_COOKIE_ECHO:
-+			/* If a packet arrives containing an AUTH chunk as
-+			 * a first chunk, a COOKIE-ECHO chunk as the second
-+			 * chunk, and possibly more chunks after them, and
-+			 * the receiver does not have an STCB for that
-+			 * packet, then authentication is based on
-+			 * the contents of the COOKIE- ECHO chunk.
-+			 */
-+			if (have_auth == 1 && chunk_num == 2)
-+				return NULL;
-+			break;
-+
-+		case SCTP_CID_ASCONF:
-+			if (have_auth || net->sctp.addip_noauth)
-+				asoc = __sctp_rcv_asconf_lookup(
-+						net, ch, laddr,
-+						sctp_hdr(skb)->source,
-+						transportp);
-+		default:
-+			break;
- 		}
+-static void * sctp_objcnt_seq_next(struct seq_file *seq, void *v, loff_t *pos)
++static void *sctp_objcnt_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+ 	++*pos;
+ 	return (*pos >= ARRAY_SIZE(sctp_dbg_objcnt)) ? NULL : (void *)pos;
+diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+index de32e14..63ba0bd 100644
+--- a/net/sctp/proc.c
++++ b/net/sctp/proc.c
+@@ -177,7 +177,7 @@ static void sctp_seq_dump_remote_addrs(struct seq_file *seq, struct sctp_associa
+ 	rcu_read_unlock();
+ }
  
- 		if (asoc)
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 3f55823..49da402 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -280,7 +280,7 @@ static sctp_xmit_t __sctp_packet_append_chunk(struct sctp_packet *packet,
+-static void * sctp_eps_seq_start(struct seq_file *seq, loff_t *pos)
++static void *sctp_eps_seq_start(struct seq_file *seq, loff_t *pos)
+ {
+ 	if (*pos >= sctp_ep_hashsize)
+ 		return NULL;
+@@ -196,7 +196,7 @@ static void sctp_eps_seq_stop(struct seq_file *seq, void *v)
+ }
  
- 	/* We believe that this chunk is OK to add to the packet */
- 	switch (chunk->chunk_hdr->type) {
--	    case SCTP_CID_DATA:
-+	case SCTP_CID_DATA:
- 		/* Account for the data being in the packet */
- 		sctp_packet_append_data(packet, chunk);
- 		/* Disallow SACK bundling after DATA. */
-@@ -292,17 +292,17 @@ static sctp_xmit_t __sctp_packet_append_chunk(struct sctp_packet *packet,
- 		/* timestamp the chunk for rtx purposes */
- 		chunk->sent_at = jiffies;
- 		break;
--	    case SCTP_CID_COOKIE_ECHO:
-+	case SCTP_CID_COOKIE_ECHO:
- 		packet->has_cookie_echo = 1;
- 		break;
  
--	    case SCTP_CID_SACK:
-+	case SCTP_CID_SACK:
- 		packet->has_sack = 1;
- 		if (chunk->asoc)
- 			chunk->asoc->stats.osacks++;
- 		break;
+-static void * sctp_eps_seq_next(struct seq_file *seq, void *v, loff_t *pos)
++static void *sctp_eps_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+ 	if (++*pos >= sctp_ep_hashsize)
+ 		return NULL;
+@@ -282,7 +282,7 @@ void sctp_eps_proc_exit(struct net *net)
+ }
  
--	    case SCTP_CID_AUTH:
-+	case SCTP_CID_AUTH:
- 		packet->has_auth = 1;
- 		packet->auth = chunk;
- 		break;
-@@ -540,8 +540,7 @@ int sctp_packet_transmit(struct sctp_packet *packet)
- 		} else {
- 			/* no need to seed pseudo checksum for SCTP */
- 			nskb->ip_summed = CHECKSUM_PARTIAL;
--			nskb->csum_start = (skb_transport_header(nskb) -
--			                    nskb->head);
-+			nskb->csum_start = skb_transport_header(nskb) - nskb->head;
- 			nskb->csum_offset = offsetof(struct sctphdr, checksum);
- 		}
- 	}
+ 
+-static void * sctp_assocs_seq_start(struct seq_file *seq, loff_t *pos)
++static void *sctp_assocs_seq_start(struct seq_file *seq, loff_t *pos)
+ {
+ 	if (*pos >= sctp_assoc_hashsize)
+ 		return NULL;
+@@ -305,7 +305,7 @@ static void sctp_assocs_seq_stop(struct seq_file *seq, void *v)
+ }
+ 
+ 
+-static void * sctp_assocs_seq_next(struct seq_file *seq, void *v, loff_t *pos)
++static void *sctp_assocs_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+ 	if (++*pos >= sctp_assoc_hashsize)
+ 		return NULL;
 diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index d53af47..e5f7cdb 100644
+index 439d872..d53af47 100644
 --- a/net/sctp/sm_make_chunk.c
 +++ b/net/sctp/sm_make_chunk.c
-@@ -1967,13 +1967,13 @@ static int sctp_verify_ext_param(struct net *net, union sctp_params param)
+@@ -2251,7 +2251,7 @@ int sctp_verify_init(struct net *net, const struct sctp_association *asoc,
+ 	 * VIOLATION error.  We build the ERROR chunk here and let the normal
+ 	 * error handling code build and send the packet.
+ 	 */
+-	if (param.v != (void*)chunk->chunk_end)
++	if (param.v != (void *)chunk->chunk_end)
+ 		return sctp_process_inv_paramlength(asoc, param.p, chunk, errp);
  
- 	for (i = 0; i < num_ext; i++) {
- 		switch (param.ext->chunks[i]) {
--		    case SCTP_CID_AUTH:
--			    have_auth = 1;
--			    break;
--		    case SCTP_CID_ASCONF:
--		    case SCTP_CID_ASCONF_ACK:
--			    have_asconf = 1;
--			    break;
-+		case SCTP_CID_AUTH:
-+			have_auth = 1;
-+			break;
-+		case SCTP_CID_ASCONF:
-+		case SCTP_CID_ASCONF_ACK:
-+			have_asconf = 1;
-+			break;
- 		}
- 	}
- 
-@@ -2000,25 +2000,24 @@ static void sctp_process_ext_param(struct sctp_association *asoc,
- 
- 	for (i = 0; i < num_ext; i++) {
- 		switch (param.ext->chunks[i]) {
--		    case SCTP_CID_FWD_TSN:
--			    if (net->sctp.prsctp_enable &&
--				!asoc->peer.prsctp_capable)
-+		case SCTP_CID_FWD_TSN:
-+			if (net->sctp.prsctp_enable && !asoc->peer.prsctp_capable)
- 				    asoc->peer.prsctp_capable = 1;
--			    break;
--		    case SCTP_CID_AUTH:
--			    /* if the peer reports AUTH, assume that he
--			     * supports AUTH.
--			     */
--			    if (net->sctp.auth_enable)
--				    asoc->peer.auth_capable = 1;
--			    break;
--		    case SCTP_CID_ASCONF:
--		    case SCTP_CID_ASCONF_ACK:
--			    if (net->sctp.addip_enable)
--				    asoc->peer.asconf_capable = 1;
--			    break;
--		    default:
--			    break;
-+			break;
-+		case SCTP_CID_AUTH:
-+			/* if the peer reports AUTH, assume that he
-+			 * supports AUTH.
-+			 */
-+			if (net->sctp.auth_enable)
-+				asoc->peer.auth_capable = 1;
-+			break;
-+		case SCTP_CID_ASCONF:
-+		case SCTP_CID_ASCONF_ACK:
-+			if (net->sctp.addip_enable)
-+				asoc->peer.asconf_capable = 1;
-+			break;
-+		default:
-+			break;
- 		}
- 	}
- }
-@@ -2266,14 +2265,14 @@ int sctp_verify_init(struct net *net, const struct sctp_association *asoc,
- 
- 		result = sctp_verify_param(net, asoc, param, cid, chunk, errp);
- 		switch (result) {
--		    case SCTP_IERROR_ABORT:
--		    case SCTP_IERROR_NOMEM:
--				return 0;
--		    case SCTP_IERROR_ERROR:
--				return 1;
--		    case SCTP_IERROR_NO_ERROR:
--		    default:
--				break;
-+		case SCTP_IERROR_ABORT:
-+		case SCTP_IERROR_NOMEM:
-+			return 0;
-+		case SCTP_IERROR_ERROR:
-+			return 1;
-+		case SCTP_IERROR_NO_ERROR:
-+		default:
-+			break;
- 		}
- 
- 	} /* for (loop through all parameters) */
+ 	/* The only missing mandatory param possible today is
 diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 624e4ef..483dcd7 100644
+index bc690b4..624e4ef 100644
 --- a/net/sctp/sm_statefuns.c
 +++ b/net/sctp/sm_statefuns.c
-@@ -3681,8 +3681,7 @@ sctp_disposition_t sctp_sf_do_asconf(struct net *net,
- 	asconf_ack->dest = chunk->source;
- 	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(asconf_ack));
- 	if (asoc->new_transport) {
--	        sctp_sf_heartbeat(ep, asoc, type, asoc->new_transport,
--                    commands);
-+		sctp_sf_heartbeat(ep, asoc, type, asoc->new_transport, commands);
- 		((struct sctp_association *)asoc)->new_transport = NULL;
- 	}
+@@ -4610,7 +4610,7 @@ sctp_disposition_t sctp_sf_do_prm_asoc(struct net *net,
+ 				       sctp_cmd_seq_t *commands)
+ {
+ 	struct sctp_chunk *repl;
+-	struct sctp_association* my_asoc;
++	struct sctp_association *my_asoc;
  
-@@ -6207,7 +6206,7 @@ static int sctp_eat_data(const struct sctp_association *asoc,
- 	 */
- 	if (*sk->sk_prot_creator->memory_pressure) {
- 		if (sctp_tsnmap_has_gap(map) &&
--	           (sctp_tsnmap_get_ctsn(map) + 1) == tsn) {
-+		    (sctp_tsnmap_get_ctsn(map) + 1) == tsn) {
- 			pr_debug("%s: under pressure, reneging for tsn:%u\n",
- 				 __func__, tsn);
- 			deliver = SCTP_CMD_RENEGE;
-diff --git a/net/sctp/sm_statetable.c b/net/sctp/sm_statetable.c
-index a4f1743..a987d54 100644
---- a/net/sctp/sm_statetable.c
-+++ b/net/sctp/sm_statetable.c
-@@ -69,7 +69,7 @@ static const sctp_sm_table_entry_t bug = {
- 	if ((event_subtype._type > (_max))) {				\
- 		pr_warn("table %p possible attack: event %d exceeds max %d\n", \
- 			_table, event_subtype._type, _max);		\
--	        rtn = &bug;						\
-+		rtn = &bug;						\
- 	} else								\
- 		rtn = &_table[event_subtype._type][(int)state];		\
- 									\
+ 	/* The comment below says that we enter COOKIE-WAIT AFTER
+ 	 * sending the INIT, but that doesn't actually work in our
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 500972a..9f42c60 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -82,7 +82,7 @@ static int sctp_writeable(struct sock *sk);
+ static void sctp_wfree(struct sk_buff *skb);
+ static int sctp_wait_for_sndbuf(struct sctp_association *, long *timeo_p,
+ 				size_t msg_len);
+-static int sctp_wait_for_packet(struct sock * sk, int *err, long *timeo_p);
++static int sctp_wait_for_packet(struct sock *sk, int *err, long *timeo_p);
+ static int sctp_wait_for_connect(struct sctp_association *, long *timeo_p);
+ static int sctp_wait_for_accept(struct sock *sk, long timeo);
+ static void sctp_wait_for_close(struct sock *sk, long timeo);
+@@ -952,7 +952,7 @@ int sctp_asconf_mgmt(struct sctp_sock *sp, struct sctp_sockaddr_entry *addrw)
+  *
+  * Returns 0 if ok, <0 errno code on error.
+  */
+-static int sctp_setsockopt_bindx(struct sock* sk,
++static int sctp_setsockopt_bindx(struct sock *sk,
+ 				 struct sockaddr __user *addrs,
+ 				 int addrs_size, int op)
+ {
+@@ -1039,7 +1039,7 @@ out:
+  * Common routine for handling connect() and sctp_connectx().
+  * Connect will come in with just a single address.
+  */
+-static int __sctp_connect(struct sock* sk,
++static int __sctp_connect(struct sock *sk,
+ 			  struct sockaddr *kaddrs,
+ 			  int addrs_size,
+ 			  sctp_assoc_t *assoc_id)
+@@ -1299,7 +1299,7 @@ out_free:
+  *
+  * Returns >=0 if ok, <0 errno code on error.
+  */
+-static int __sctp_setsockopt_connectx(struct sock* sk,
++static int __sctp_setsockopt_connectx(struct sock *sk,
+ 				      struct sockaddr __user *addrs,
+ 				      int addrs_size,
+ 				      sctp_assoc_t *assoc_id)
+@@ -1337,7 +1337,7 @@ static int __sctp_setsockopt_connectx(struct sock* sk,
+  * This is an older interface.  It's kept for backward compatibility
+  * to the option that doesn't provide association id.
+  */
+-static int sctp_setsockopt_connectx_old(struct sock* sk,
++static int sctp_setsockopt_connectx_old(struct sock *sk,
+ 					struct sockaddr __user *addrs,
+ 					int addrs_size)
+ {
+@@ -1350,7 +1350,7 @@ static int sctp_setsockopt_connectx_old(struct sock* sk,
+  * indication to the call.  Error is always negative and association id is
+  * always positive.
+  */
+-static int sctp_setsockopt_connectx(struct sock* sk,
++static int sctp_setsockopt_connectx(struct sock *sk,
+ 				    struct sockaddr __user *addrs,
+ 				    int addrs_size)
+ {
+@@ -1373,7 +1373,7 @@ static int sctp_setsockopt_connectx(struct sock* sk,
+  * addrs_num structure member.  That way we can re-use the existing
+  * code.
+  */
+-static int sctp_getsockopt_connectx3(struct sock* sk, int len,
++static int sctp_getsockopt_connectx3(struct sock *sk, int len,
+ 				     char __user *optval,
+ 				     int __user *optlen)
+ {
+@@ -5475,7 +5475,7 @@ static int sctp_getsockopt_local_auth_chunks(struct sock *sk, int len,
+ 		return -EINVAL;
+ 
+ 	if (asoc)
+-		ch = (struct sctp_chunks_param*)asoc->c.auth_chunks;
++		ch = (struct sctp_chunks_param *)asoc->c.auth_chunks;
+ 	else
+ 		ch = sctp_sk(sk)->ep->auth_chunk_list;
+ 
+@@ -6417,7 +6417,7 @@ static int sctp_msghdr_parse(const struct msghdr *msg, sctp_cmsgs_t *cmsgs)
+  * Note: This function is the same function as in core/datagram.c
+  * with a few modifications to make lksctp work.
+  */
+-static int sctp_wait_for_packet(struct sock * sk, int *err, long *timeo_p)
++static int sctp_wait_for_packet(struct sock *sk, int *err, long *timeo_p)
+ {
+ 	int error;
+ 	DEFINE_WAIT(wait);
+diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
+index 9dd5ac0..7135e61 100644
+--- a/net/sctp/sysctl.c
++++ b/net/sctp/sysctl.c
+@@ -424,7 +424,7 @@ void sctp_sysctl_net_unregister(struct net *net)
+ 	kfree(table);
+ }
+ 
+-static struct ctl_table_header * sctp_sysctl_header;
++static struct ctl_table_header *sctp_sysctl_header;
+ 
+ /* Sysctl registration.  */
+ void sctp_sysctl_register(void)
+diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
+index 2d96640..c700369 100644
+--- a/net/sctp/ulpqueue.c
++++ b/net/sctp/ulpqueue.c
+@@ -43,9 +43,9 @@
+ #include <net/sctp/sm.h>
+ 
+ /* Forward declarations for internal helpers.  */
+-static struct sctp_ulpevent * sctp_ulpq_reasm(struct sctp_ulpq *ulpq,
++static struct sctp_ulpevent *sctp_ulpq_reasm(struct sctp_ulpq *ulpq,
+ 					      struct sctp_ulpevent *);
+-static struct sctp_ulpevent * sctp_ulpq_order(struct sctp_ulpq *,
++static struct sctp_ulpevent *sctp_ulpq_order(struct sctp_ulpq *,
+ 					      struct sctp_ulpevent *);
+ static void sctp_ulpq_reasm_drain(struct sctp_ulpq *ulpq);
+ 
 -- 
 1.7.12
