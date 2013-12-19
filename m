@@ -1,35 +1,56 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 1/1] AX88179_178A: Add FLAG_HW_IPALIGN to determine whether reserving NET_IP_ALIGN bytes for an SKB.
-Date: Thu, 19 Dec 2013 10:01:54 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B74AF@saturn3.aculab.com>
-References: <1386926708-2343-1-git-send-email-freddy@asix.com.tw> <AE90C24D6B3A694183C094C60CF0A2F6026B748A@saturn3.aculab.com> <52AEA3A8.2020906@asix.com.tw> <AE90C24D6B3A694183C094C60CF0A2F6026B7490@saturn3.aculab.com> <52B2648C.80500@asix.com.tw>
+From: Luis Henriques <luis.henriques@canonical.com>
+Subject: Re: [PATCH linux-3.10.y] ip6tnl: fix use after free of fb_tnl_dev
+Date: Thu, 19 Dec 2013 10:07:52 +0000
+Message-ID: <20131219100752.GA3866@hercules>
+References: <20131212.153545.1184197791301496227.davem@davemloft.net>
+ <1386925595-4995-1-git-send-email-nicolas.dichtel@6wind.com>
+ <20131217.144002.1716319550180883592.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="UTF-8"
-Content-Transfer-Encoding: base64
-To: "Freddy Xin" <freddy@asix.com.tw>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>, <linux-usb@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <louis@asix.com.tw>,
-	<allan@asix.com.tw>
+Content-Type: text/plain; charset=us-ascii
+Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
+	gregkh@linuxfoundation.org, rostedt@goodmis.org,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	williams@redhat.com, linux-rt-users@vger.kernel.org,
+	lclaudio@uudg.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <52B2648C.80500@asix.com.tw>
+Content-Disposition: inline
+In-Reply-To: <20131217.144002.1716319550180883592.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiBGcm9tOiBGcmVkZHkgWGluDQo+IE9uIDIwMTPlubQxMuaciDE25pelIDE4OjA5LCBEYXZpZCBM
-YWlnaHQgd3JvdGU6DQo+ID4+IEkgd2FzIHRoaW5raW5nIG9mIHNvbWV0aGluZyBsaWtlOiBza2Ig
-PSBuZXRkZXZfYWxsb2Nfc2tiKGRldiwgbGVuZ3RoDQo+ID4+ICsgZGV2LT5za2JfYWxpZ24sIGdm
-cCk7IGlmIChORVRfSVBfQUxJR04gJiYgc2tiICYmICEoZXYtPmRyaXZlcl9mbGFncw0KPiA+PiAm
-IEZMQUdfSFdfSVBBTElHTikpIHNrYl9yZXNlcnZlKHNrYiwgTkVUX0lQX0FMSUdOKTsgSXQgbWln
-aHQgZXZlbiBiZQ0KPiA+PiByZWFzb25hYmxlIHRvIHJlbW92ZSB0aGUgbGVuZ3RoIGFkanVzdG1l
-bnQgLSBwcm92aWRlZCB0aGF0IGFsbCB0aGUNCj4gPj4gbGF0ZXIgY29kZSB1c2VzIHRoZSBza2Ig
-bGVuZ3RoLiBEYXZpZA0KPiANCj4gVGhhbmtzIGZvciB5b3VyIGFkdmljZS4NCj4gSW4gdGhlIHdh
-eSB5b3UgYWR2aXNlZCwgZG9lcyB0aGUgZGV2LT5za2JfYWxpZ24gZXF1YWwNCj4gdG8gTkVUX0lQ
-X0FMSUdOIGluIHRoZSBjYXNlIHRoYXQgSFcgZG9lc24ndCBzdXBvb3J0DQo+IElQIGFsaWdubWVu
-dD8NCg0KWWVzDQoNCj4gSW4gb3RoZXIgd29yZHMsIGRldi0+c2tiX2FsaWduIHNob3VsZCBiZSBp
-bml0aWFsaXplZCB0bw0KPiBORVRfSVBfQUxJR04gaW4gVVNCTkVULCBhbmQgSSBjYW4gY2hhbmdl
-IGl0cyB2YWx1ZSB0bw0KPiAwIGluIEFYODgxNzlfMTc4QSBkcml2ZXIsIHJpZ2h0Pw0KDQpJJ2Qg
-cHJvYmFibHkgc2V0IGEgZmxhZyB0byByZXF1ZXN0IHRoYXQgdXNibmV0IHNldCB0aGUgb2Zmc2V0
-DQp0byB0aGUgY29ycmVjdCB2YWx1ZS4gVGhhdCBtYWtlcyB0aGUgaW5pdGlhbGlzYXRpb24gYSBi
-aXQgY2xlYXJlci4NCg0KCURhdmlkDQoNCg==
+On Tue, Dec 17, 2013 at 02:40:02PM -0500, David Miller wrote:
+> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Date: Fri, 13 Dec 2013 10:06:35 +0100
+> 
+> > The upstream commit bb8140947a24 ("ip6tnl: allow to use rtnl ops on fb tunnel")
+> > (backported into linux-3.10.y) left a bug which was fixed upstream by commit
+> > 1e9f3d6f1c40 ("ip6tnl: fix use after free of fb_tnl_dev").
+> > 
+> > The problem is a bit different in linux-3.10.y, because there is no x-netns
+> > support (upstream commit 0bd8762824e7 ("ip6tnl: add x-netns support")).
+> > When ip6_tunnel.ko is unloaded, FB device is deleted by rtnl_link_unregister()
+> > and then we try to delete it again in ip6_tnl_destroy_tunnels().
+> > 
+> > This patch removes the second deletion.
+> > 
+> > Reported-by: Steven Rostedt <rostedt@goodmis.org>
+> > Suggested-by: Steven Rostedt <rostedt@goodmis.org>
+> > Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> 
+> Greg please queue this up for 3.10 -stable if you haven't already.
+
+As I'm picking the networking patches into the 3.11 kernel as well, I
+believe this fix is also applicable.  I'm queuing it for the 3.11 kernel.
+
+Cheers,
+--
+Luis
+
+
+> 
+> Thanks a lot.
+> --
+> To unsubscribe from this list: send the line "unsubscribe stable" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
