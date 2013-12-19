@@ -1,97 +1,86 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
-Date: Thu, 19 Dec 2013 11:20:36 -0800
-Message-ID: <1387480836.2183.42.camel@jtkirshe-mobl>
-References: <1387434891-19719-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-4rMYEzVeY89C6i17zhGf"
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: davem@davemloft.net
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next V2 03/10] net/mlx4_core: Introduce nic_info new flag in QUERY_FUNC_CAP
+Date: Thu, 19 Dec 2013 21:20:11 +0200
+Message-ID: <1387480818-3932-4-git-send-email-amirv@mellanox.com>
+References: <1387480818-3932-1-git-send-email-amirv@mellanox.com>
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
+	Hadar Hen Zion <hadarh@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:48035 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753911Ab3LSTUh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Dec 2013 14:20:37 -0500
-In-Reply-To: <1387434891-19719-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:37317 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755655Ab3LSTUo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Dec 2013 14:20:44 -0500
+In-Reply-To: <1387480818-3932-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Hadar Hen Zion <hadarh@mellanox.com>
 
---=-4rMYEzVeY89C6i17zhGf
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Set nic_info field in QUERY_FUNC_CAP, which designates
+supplementary NIC information is provided by the hypervisor.
+When set, the following fields are valid: nic_num_rings,
+nic_indirection_tbl_sz, cur_mac and phys_port_id.
 
-On Wed, 2013-12-18 at 22:34 -0800, Jeff Kirsher wrote:
-> This series contains updates to i40e only.
->=20
-> Anjali provides a patch to prevent messages from stray HMC events,
-> except
-> at interrupt message level, and refactors the HMC error handling.
->=20
-> Catherine adds routines in probe to populate/check PCI bus speed and
-> width,
-> then verify we are in a 8GT/s x8 PCIe slot and warn when we are not.
->=20
-> Shannon adds Wake-on-LAN support for i40e, fixes curly brace use as
-> well as
-> return type for i40e_vsi_clear_rings().  Lastly implements the
-> set_settings
-> and set_pauseparam ethtool functionality.
->=20
-> Joseph implements receive offload for VXLAN for i40e, where the
-> hardware
-> supports checksum offload/verification of the inner/outer header.
->=20
-> Mitch provides the bulk of the changes, where he refactors the VF
-> reset
-> code so that it works on real hardware.  Then does code cleanup by
-> calling existing functions to enable and disable queues for VFs and
-> remove unused functions.  Removes a unnecessary log messages that are
-> seen at every VF reset, for example complaining about disabling queues
-> that are already disabled.  Fixes an error return when the VF asks to
-> add an invalid MAC address and if the VF sends a bad message, make it
-> more informative about what is actually going on.
->=20
-> Jesse refactors the LED function to flash LED lights correctly.
->=20
-> The following are changes since commit
-> 020e867c755610fa5a2a08a69707e636cf368b55:
->   isdn: use strlcpy() instead strcpy()
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next
-> master
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/fw.c | 11 ++++++++---
+ drivers/net/ethernet/mellanox/mlx4/fw.h |  1 +
+ 2 files changed, 9 insertions(+), 3 deletions(-)
 
-Dave-
-Disregard this pull request.  I overlooked a patch that needs to either
-precede this series or get added to the series for VXLAN.
-
-I will be sending out a v2 with the necessary patch added.
-
-Cheers,
-Jeff
-
---=-4rMYEzVeY89C6i17zhGf
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-
-iQIcBAABCgAGBQJSs0cEAAoJEOVv75VaS+3OlwEP/R0iKFQAHGMzfpxwtyo5Xgs2
-2J4yHUqt+9l1aLEophqEkGzlCi1zF2XGMQdm8KBlgrPpBpwBoevyDxamWXRkZ5xu
-UbPVLHeOUyv0loE7WL5fwhpjg6FJ16A9SRrHM2gymrEDbtEVz4jXtmtlkCxqF8PV
-7apkZWxE/BdqOs18VUeZQzqzauRsoI6O7tfLrCfmEQz8t5PpuUKBYysYVHE8IEdK
-cUhED+pAYE8ItxpFIuhMuCIuOQ0T60lHavtOgwOxxUXLFaAsoCYgIA4K/ldsWY5A
-OP9uqdQj0jFP+HIjOcpYa34zFZEr04toKvQ+8c8xPdXLzCGhzfVcNINNcplrz9Iv
-A9fSSvk3/V5IVK3UC9zIYR6ijZDhHDxO+SK3NmyXkvSUftpRnpBBbSd8x5SkD1Lm
-T+i7+q/SdLg7cahI0udARe5S570R+BbOMMoxdGLfa9IfjtGLEG9YR5P/uMrao+rn
-FOBJbnsTtFZ4BumUmUeYRbnyK52a4WLayQpq2T9KeFz9+prIbNtzvsdzJAS8mX+x
-aEDLLsjUo+uppdW/9JWXTVf+K91K+9jGfMPvgpusB4krgZPiyZ/2DwpO2Mxz8pWS
-3xkN4D1wemBqJY9HvTtaAB9jObU4stwv4kMAsDCKK6SAkLRsX3XR7KiClCXHEs77
-cE91dv+MkiCxzBpmtGjq
-=AGWb
------END PGP SIGNATURE-----
-
---=-4rMYEzVeY89C6i17zhGf--
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 58ca7de..bfe91ae 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -217,10 +217,15 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
+ 
+ #define QUERY_FUNC_CAP_FLAGS1_FORCE_MAC		0x40
+ #define QUERY_FUNC_CAP_FLAGS1_FORCE_VLAN	0x80
++#define QUERY_FUNC_CAP_FLAGS1_NIC_INFO			0x10
+ 
+ #define QUERY_FUNC_CAP_FLAGS0_FORCE_PHY_WQE_GID 0x80
+ 
+ 	if (vhcr->op_modifier == 1) {
++		/* Set nic_info bit to mark new fields support */
++		field  = QUERY_FUNC_CAP_FLAGS1_NIC_INFO;
++		MLX4_PUT(outbox->buf, field, QUERY_FUNC_CAP_FLAGS1_OFFSET);
++
+ 		field = vhcr->in_modifier; /* phys-port = logical-port */
+ 		MLX4_PUT(outbox->buf, field, QUERY_FUNC_CAP_PHYS_PORT_OFFSET);
+ 
+@@ -385,15 +390,15 @@ int mlx4_QUERY_FUNC_CAP(struct mlx4_dev *dev, u32 gen_or_port,
+ 		goto out;
+ 	}
+ 
++	MLX4_GET(func_cap->flags1, outbox, QUERY_FUNC_CAP_FLAGS1_OFFSET);
+ 	if (dev->caps.port_type[gen_or_port] == MLX4_PORT_TYPE_ETH) {
+-		MLX4_GET(field, outbox, QUERY_FUNC_CAP_FLAGS1_OFFSET);
+-		if (field & QUERY_FUNC_CAP_FLAGS1_FORCE_VLAN) {
++		if (func_cap->flags1 & QUERY_FUNC_CAP_FLAGS1_OFFSET) {
+ 			mlx4_err(dev, "VLAN is enforced on this port\n");
+ 			err = -EPROTONOSUPPORT;
+ 			goto out;
+ 		}
+ 
+-		if (field & QUERY_FUNC_CAP_FLAGS1_FORCE_MAC) {
++		if (func_cap->flags1 & QUERY_FUNC_CAP_FLAGS1_FORCE_MAC) {
+ 			mlx4_err(dev, "Force mac is enabled on this port\n");
+ 			err = -EPROTONOSUPPORT;
+ 			goto out;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.h b/drivers/net/ethernet/mellanox/mlx4/fw.h
+index a0a368b..9d95298 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.h
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.h
+@@ -140,6 +140,7 @@ struct mlx4_func_cap {
+ 	u32	qp1_proxy_qpn;
+ 	u8	physical_port;
+ 	u8	port_flags;
++	u8	flags1;
+ };
+ 
+ struct mlx4_adapter {
+-- 
+1.8.3.4
