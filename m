@@ -1,90 +1,95 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] ipv4: introduce ip_dst_mtu_secure and protect forwarding path against pmtu spoofing
-Date: Thu, 19 Dec 2013 01:07:59 +0100
-Message-ID: <20131219000759.GF3505@order.stressinduktion.org>
-References: <20131215022336.GA27866@order.stressinduktion.org> <20131218.173442.336109133942416102.davem@davemloft.net> <CABrhC0nG8Z01G-zVtObe40OuyDo0Jm5y+Lzy_r-zr2zmjfaKjQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: John Heffner <johnwheffner@gmail.com>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: pull request [net]: batman-adv 2013-12-19
+Date: Thu, 19 Dec 2013 01:15:26 +0100
+Message-ID: <1387412132-889-1-git-send-email-antonio@meshcoding.com>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:37915 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751148Ab3LSAIA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 19:08:00 -0500
-Content-Disposition: inline
-In-Reply-To: <CABrhC0nG8Z01G-zVtObe40OuyDo0Jm5y+Lzy_r-zr2zmjfaKjQ@mail.gmail.com>
+Received: from s3.neomailbox.net ([178.209.62.157]:19352 "EHLO
+	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751738Ab3LSARy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 19:17:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 18, 2013 at 06:55:13PM -0500, John Heffner wrote:
-> On Wed, Dec 18, 2013 at 5:34 PM, David Miller <davem@davemloft.net> wrote:
-> > From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > Date: Sun, 15 Dec 2013 03:23:36 +0100
-> >
-> >> While forwarding we should not use the protocol path mtu to calculate
-> >> the mtu for a forwarded packet but instead use the interface mtu.
-> >>
-> >> We mark forwarded skbs in ip_forward with IPSKB_FORWARDED which was
-> >> introduced for multicast forwarding. But as it does not conflict with
-> >> our usage in unicast code path it is perfect for reuse.
-> >>
-> >> I moved the functions ip_sk_accept_pmtu, ip_sk_use_pmtu and ip_skb_dst_mtu
-> >> along with the new ip_dst_mtu_secure to net/ip.h to fix circular
-> >> dependencies because of IPSKB_FORWARDED.
-> >>
-> >> Because someone might have written a software which does probe
-> >> destinations manually and expects the kernel to honour those path mtus
-> >> I introduced a new per-namespace "forwarding_uses_pmtu" knob so someone
-> >> can disable this new behaviour. We also use mtus which are locked on a
-> >> route for forwarding.
-> >>
-> >> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> >> Cc: David Miller <davem@davemloft.net>
-> >> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> >
-> > Sockets aren't the only entity that create cached PMTU information
-> > we might like to use during forwarding, tunnels do too.
-> >
-> > I'm afraid what the side effects of this change will be in that
-> > situation, because the dst_mtu() is exactly what will allow us
-> > to relay the ICMP back to the pre-decapsulation source address
-> > properly.
-> >
-> > In any event, this code was made to explicitly behave this way
-> > back in 2007 by John Heffner, maybe he has some opinions too.
-> 
-> I added IP_PMTUDISC_PROBE, intended for use with MTU diagnostic tools,
-> i.e., tracepath.
-> 
-> I don't keep up that well these days with Linux networking, but I see
-> now the recent addition of IP_PMTUDISC_INTERFACE.  As an aside, I'm a
-> bit skeptical that we'd actually want to send out packets with DF
-> unset.  (One, there is no equivalent in IPv6, plus all the
-> well-documented bad things that happen when you do this.)  But this is
-> already committed...
+Hello David,
 
-The idea is that DNS servers can prevent local fragmentation but the
-packet is still allowed to get fragmented on the way. Otherwise those
-packets get dropped and wouldn't reach their destination.
+this is a pull request intended for net.
 
-DNS servers should tweak their edns max packet size below the outgoing MTU
-so packets will still reach the target but can retry with TCP transport
-(trunc bit being set). In case of retry, pmtu data must be respected.
+Patch 1 is fixing a bug that is present in the batman-adv code since a while.
+The bug prevents a batman-adv encapsulated packet from being correctly
+processed by "Netfilter Bridge" twice. In particular a packet that
+first enters a bridge with the batman-adv header and then enters another bridge
+after the header has been removed is improperly processed. The problem is due to
+the skb->nf_bridge member not being cleaned when the batman-adv header is
+removed.
+This patch takes care of properly releasing the nf_bridge field at the right
+time (like all the other tunneling protocol do).
 
-> On using the interface MTU for all forwarded packets, I have a similar
-> reaction as David.  And why are forwarded packets more special than
-> local ones, from the routing code's point of view?  It seems like
-> there could be other ways to harden a router, like firewall rules.
+** Please, enqueue this patch for stable.
 
-I doubt it is trivial to set up such a filter as we have to inspect
-the payload of the icmp error. I played with it and it is certainly
-possible, but my intention was that the networking stack does try to
-prevent fragmentation and delay generation of fragments to the last
-router on the path where it is necessary.
 
-Greetings,
+Patches from 2 to 6 take care of reshaping the packet layout a little bit to
+make sure that all the structures we use for sending messages have size multiple
+of 4 (or 2 when pack(2) is used).
+This solves the problem raised by Russel King about the static checks failure
+when compiling the module on the ARM architecture.
 
-  Hannes
+
+
+Please pull or let me know of any problem.
+
+
+Thank you,
+	Antonio
+
+
+The following changes since commit 58a4782449c5882f61882396ef18cc34c7dc1269:
+
+  ipv6: sit: update mtu check to take care of gso packets (2013-12-18 17:55:24 -0500)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
+
+for you to fetch changes up to 128cfa6a586154581ce1b891baf929810117a82a:
+
+  batman-adv: fix alignment for batadv_tvlv_tt_change (2013-12-19 00:27:24 +0100)
+
+----------------------------------------------------------------
+Included changes:
+
+- release skb->nf_bridge when removing the batman-adv header
+  from an incoming packet. This prevents netfilter bridge
+  from being fooled when the same packet enters a bridge
+  twice (or more): the first time within the batman-adv
+  header and the second time without.
+
+- adjust the packet layout to prevent any architecture from
+  adding padding bytes. All the structs sent over the wire
+  now have size multiple of 4bytes (unless pack(2) is used).
+
+----------------------------------------------------------------
+Antonio Quartulli (3):
+      batman-adv: free nf_bridge member on locally delivered skb
+      batman-adv: fix size of batadv_icmp_header
+      batman-adv: fix alignment for batadv_tvlv_tt_change
+
+Simon Wunderlich (3):
+      batman-adv: fix alignment for batadv_coded_packet
+      batman-adv: fix header alignment by unrolling batadv_header
+      batman-adv: fix size of batadv_bla_claim_dst
+
+ net/batman-adv/bat_iv_ogm.c            |  36 +++++-----
+ net/batman-adv/distributed-arp-table.c |   6 +-
+ net/batman-adv/fragmentation.c         |   8 +--
+ net/batman-adv/icmp_socket.c           |   6 +-
+ net/batman-adv/main.c                  |  16 ++---
+ net/batman-adv/network-coding.c        |  22 +++---
+ net/batman-adv/packet.h                | 124 +++++++++++++++++++++++++--------
+ net/batman-adv/routing.c               |  30 ++++----
+ net/batman-adv/send.c                  |  10 +--
+ net/batman-adv/soft-interface.c        |  19 +++--
+ net/batman-adv/soft-interface.h        |  16 +++++
+ net/batman-adv/translation-table.c     |   6 +-
+ 12 files changed, 195 insertions(+), 104 deletions(-)
