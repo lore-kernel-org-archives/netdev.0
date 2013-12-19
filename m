@@ -1,47 +1,66 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: [net-next/master PATCH] lib: fix compile warning in hashlib_init
-Date: Thu, 19 Dec 2013 09:15:06 +0800
-Message-ID: <20131219011506.GA27326@localhost>
-References: <1387415314-21786-1-git-send-email-gaowanlong@cn.fujitsu.com>
+From: Wei-Chun Chao <weichunc@plumgrid.com>
+Subject: Re: [PATCH net-next 0/2] net/mlx4: Add support for TCP/IP offloads of
+ vxlan tunneling
+Date: Wed, 18 Dec 2013 17:16:32 -0800
+Message-ID: <CACviX4G9vbHLWm3gu-S+SUSiSoawmQKAeXhRm9hZz1a7Hn=LiQ@mail.gmail.com>
+References: <1387375528-2337-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, ffusco@redhat.com, kbuild-all@01.org,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1387415314-21786-1-git-send-email-gaowanlong@cn.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem <davem@davemloft.net>, netdev <netdev@vger.kernel.org>,
+	amirv@mellanox.com, yanb@mellanox.com,
+	Alexei Starovoitov <ast@plumgrid.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vb0-f52.google.com ([209.85.212.52]:35198 "EHLO
+	mail-vb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751328Ab3LSBQd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 20:16:33 -0500
+Received: by mail-vb0-f52.google.com with SMTP id p5so256033vbn.25
+        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 17:16:32 -0800 (PST)
+In-Reply-To: <1387375528-2337-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CC the list.
+Hi Or,
+I tested this patch and with vxlan offload off I saw 14.x Gbps max and
+with offload on I saw 24Gbps (16 and 32 threads got the same number
+and 8 RSS rings in use).
 
-On Thu, Dec 19, 2013 at 09:08:34AM +0800, Wanlong Gao wrote:
-> /git/linux/lib/hash.c: In function 'hashlib_init':
-> /git/linux/lib/hash.c:35:2: warning: passing argument 1 of 'setup_arch_fast_hash' from incompatible pointer type [enabled by default]
-> /git/linux/include/asm-generic/hash.h:5:20: note: expected 'struct arch_hash_ops *' but argument is of type 'struct fast_hash_ops *'
-> 
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-> ---
->  include/asm-generic/hash.h | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/asm-generic/hash.h b/include/asm-generic/hash.h
-> index 05cb342..b631284 100644
-> --- a/include/asm-generic/hash.h
-> +++ b/include/asm-generic/hash.h
-> @@ -1,8 +1,8 @@
->  #ifndef __ASM_GENERIC_HASH_H
->  #define __ASM_GENERIC_HASH_H
->  
-> -struct arch_hash_ops;
-> -static inline void setup_arch_fast_hash(struct arch_hash_ops *ops)
-> +struct fast_hash_ops;
-> +static inline void setup_arch_fast_hash(struct fast_hash_ops *ops)
->  {
->  }
->  
-> -- 
-> 1.8.5.2.192.g7794a68
+Thanks,
+Weichun
+
+On Wed, Dec 18, 2013 at 6:05 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+> Hi Dave,
+>
+> These two patches add mlx4 support for TCP/IP offloads under vxlan tunneling
+>
+> The patches are againt net-next commit 7ed2a0d "Merge branch 'for-davem'
+> of git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next" plus the in-progress
+> mlx4 series http://marc.info/?l=linux-netdev&m=138726378426919&w=2 -- the two
+> patch series pretty much touch different areas and practically can be applied in any order.
+>
+> Or.
+>
+> Or Gerlitz (2):
+>   net/mlx4_core: Add basic support for TCP/IP offloads under tunneling
+>   net/mlx4_en: Add netdev support for TCP/IP offloads of vxlan tunneling
+>
+>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |   95 +++++++++++++++++++++
+>  drivers/net/ethernet/mellanox/mlx4/en_resources.c |    6 ++
+>  drivers/net/ethernet/mellanox/mlx4/en_rx.c        |   15 +++-
+>  drivers/net/ethernet/mellanox/mlx4/en_tx.c        |   14 +++-
+>  drivers/net/ethernet/mellanox/mlx4/fw.c           |   19 ++++-
+>  drivers/net/ethernet/mellanox/mlx4/main.c         |   14 +++
+>  drivers/net/ethernet/mellanox/mlx4/mcg.c          |   14 +++-
+>  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h      |    3 +-
+>  drivers/net/ethernet/mellanox/mlx4/port.c         |   41 +++++++++
+>  include/linux/mlx4/cmd.h                          |    1 +
+>  include/linux/mlx4/cq.h                           |    5 +
+>  include/linux/mlx4/device.h                       |   37 ++++++++-
+>  include/linux/mlx4/qp.h                           |    6 ++
+>  13 files changed, 263 insertions(+), 7 deletions(-)
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
