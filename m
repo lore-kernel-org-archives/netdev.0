@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/15] i40e: remove chatty log messages
-Date: Wed, 18 Dec 2013 22:34:46 -0800
-Message-ID: <1387434891-19719-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/15] i40e: make a define from a large constant
+Date: Wed, 18 Dec 2013 22:34:49 -0800
+Message-ID: <1387434891-19719-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387434891-19719-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -11,55 +11,95 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:43313 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752521Ab3LSGfB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Dec 2013 01:35:01 -0500
+	id S1752534Ab3LSGfD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Dec 2013 01:35:03 -0500
 In-Reply-To: <1387434891-19719-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mitch Williams <mitch.a.williams@intel.com>
 
-Don't complain when we disable queues that are already disable, or
-enable them when they're already enabled. This removes a bunch of bogus
-log messages that we see at every VF reset.
+Make a define used in the header file by both VF and PF drivers.
 
-Change-Id: Ia127be572abdccc48a53d8c43f8a07b8bb920de1
+Change-Id: Ie9e35adcc021cd6a8f7513934984eb4ed55774f5
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 16 +++-------------
- 1 file changed, 3 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 21 +--------------------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h | 20 ++++++++++++++++++++
+ 2 files changed, 21 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 9d37545..0ea1ca4 100644
+index 0ea1ca4..ae9956d 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2988,21 +2988,11 @@ static int i40e_vsi_control_tx(struct i40e_vsi *vsi, bool enable)
- 		} while (j-- && ((tx_reg >> I40E_QTX_ENA_QENA_REQ_SHIFT)
- 			       ^ (tx_reg >> I40E_QTX_ENA_QENA_STAT_SHIFT)) & 1);
+@@ -5650,25 +5650,6 @@ static int i40e_setup_misc_vector(struct i40e_pf *pf)
+  **/
+ static int i40e_config_rss(struct i40e_pf *pf)
+ {
+-	const u64 default_hena =
+-			((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP) |
+-			((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP) |
+-			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_UDP) |
+-			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_SCTP) |
+-			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP_SYN) |
+-			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP) |
+-			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_OTHER) |
+-			((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV4) |
+-			((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV6_UDP) |
+-			((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV6_UDP) |
+-			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_UDP) |
+-			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN) |
+-			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP) |
+-			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_SCTP) |
+-			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_OTHER) |
+-			((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV6) |
+-			((u64)1 << I40E_FILTER_PCTYPE_L2_PAYLOAD);
+-
+ 	/* Set of random keys generated using kernel random number generator */
+ 	static const u32 seed[I40E_PFQF_HKEY_MAX_INDEX + 1] = {0x41b01687,
+ 				0x183cfd8c, 0xce880440, 0x580cbc3c, 0x35897377,
+@@ -5686,7 +5667,7 @@ static int i40e_config_rss(struct i40e_pf *pf)
+ 	/* By default we enable TCP/UDP with IPv4/IPv6 ptypes */
+ 	hena = (u64)rd32(hw, I40E_PFQF_HENA(0)) |
+ 		((u64)rd32(hw, I40E_PFQF_HENA(1)) << 32);
+-	hena |= default_hena;
++	hena |= I40E_DEFAULT_RSS_HENA;
+ 	wr32(hw, I40E_PFQF_HENA(0), (u32)hena);
+ 	wr32(hw, I40E_PFQF_HENA(1), (u32)(hena >> 32));
  
--		if (enable) {
--			/* is STAT set ? */
--			if ((tx_reg & I40E_QTX_ENA_QENA_STAT_MASK)) {
--				dev_info(&pf->pdev->dev,
--					 "Tx %d already enabled\n", i);
-+		/* Skip if the queue is already in the requested state */
-+		if (enable && (tx_reg & I40E_QTX_ENA_QENA_STAT_MASK))
- 				continue;
--			}
--		} else {
--			/* is !STAT set ? */
--			if (!(tx_reg & I40E_QTX_ENA_QENA_STAT_MASK)) {
--				dev_info(&pf->pdev->dev,
--					 "Tx %d already disabled\n", i);
-+		if (!enable && !(tx_reg & I40E_QTX_ENA_QENA_STAT_MASK))
- 				continue;
--			}
--		}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index faabf22..2992830 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -66,6 +66,26 @@ enum i40e_dyn_idx_t {
+ #define I40E_TX_ITR    I40E_IDX_ITR1
+ #define I40E_PE_ITR    I40E_IDX_ITR2
  
- 		/* turn on/off the queue */
- 		if (enable)
++/* Supported RSS offloads */
++#define I40E_DEFAULT_RSS_HENA ( \
++	((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP) | \
++	((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP) | \
++	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_UDP) | \
++	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_SCTP) | \
++	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP_SYN) | \
++	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP) | \
++	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_OTHER) | \
++	((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV4) | \
++	((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV6_UDP) | \
++	((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV6_UDP) | \
++	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_UDP) | \
++	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN) | \
++	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP) | \
++	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_SCTP) | \
++	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_OTHER) | \
++	((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV6) | \
++	((u64)1 << I40E_FILTER_PCTYPE_L2_PAYLOAD))
++
+ /* Supported Rx Buffer Sizes */
+ #define I40E_RXBUFFER_512   512    /* Used for packet split */
+ #define I40E_RXBUFFER_2048  2048
 -- 
 1.8.3.1
