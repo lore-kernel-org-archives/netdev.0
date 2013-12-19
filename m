@@ -1,64 +1,58 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 1/2] netlink: only do not deliver to tap when both sides are kernel sks
-Date: Thu, 19 Dec 2013 02:29:38 +0100
-Message-ID: <1387416579-3098-2-git-send-email-dborkman@redhat.com>
-References: <1387416579-3098-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, Jakub Zawadzki <darkjames-ws@darkjames.pl>
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: [PATCH v2 4/9] b44: abort when no PHY is available at all
+Date: Thu, 19 Dec 2013 02:28:41 +0100
+Message-ID: <1387416526-7394-5-git-send-email-hauke@hauke-m.de>
+References: <1387416526-7394-1-git-send-email-hauke@hauke-m.de>
+Cc: zambrano@broadcom.com, netdev@vger.kernel.org,
+	f.fainelli@gmail.com, Hauke Mehrtens <hauke@hauke-m.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44739 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752332Ab3LSB3v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Dec 2013 20:29:51 -0500
-In-Reply-To: <1387416579-3098-1-git-send-email-dborkman@redhat.com>
+Received: from server19320154104.serverpool.info ([193.201.54.104]:44343 "EHLO
+	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752379Ab3LSB3y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Dec 2013 20:29:54 -0500
+In-Reply-To: <1387416526-7394-1-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We should also deliver packets to nlmon devices when we are in
-netlink_unicast_kernel(), and only one of the {src,dst} sockets
-is user sk and the other one kernel sk. That's e.g. the case in
-netlink diag, netlink route, etc. Still, forbid to deliver messages
-from kernel to kernel sks.
+When the phy address is 31, this means that there is no PHY connected
+to this MAC at all, no internal and no external PHY. Reading these PHY
+registers causes a system reset on some routers.
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Jakub Zawadzki <darkjames-ws@darkjames.pl>
+Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 ---
- net/netlink/af_netlink.c | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/broadcom/b44.c |    6 ++++++
+ drivers/net/ethernet/broadcom/b44.h |    1 +
+ 2 files changed, 7 insertions(+)
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index bca50b9..56e09d8 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -239,6 +239,13 @@ static void netlink_deliver_tap(struct sk_buff *skb)
- 	rcu_read_unlock();
- }
+diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
+index 5c05d15..09e9e97 100644
+--- a/drivers/net/ethernet/broadcom/b44.c
++++ b/drivers/net/ethernet/broadcom/b44.c
+@@ -2206,6 +2206,12 @@ static int b44_init_one(struct ssb_device *sdev,
+ 		goto err_out_powerdown;
+ 	}
  
-+static void netlink_deliver_tap_kernel(struct sock *dst, struct sock *src,
-+				       struct sk_buff *skb)
-+{
-+	if (!(netlink_is_kernel(dst) && netlink_is_kernel(src)))
-+		netlink_deliver_tap(skb);
-+}
++	if (bp->phy_addr == B44_PHY_ADDR_NO_PHY) {
++		dev_err(sdev->dev, "No PHY present on this MAC, aborting\n");
++		err = -ENODEV;
++		goto err_out_powerdown;
++	}
 +
- static void netlink_overrun(struct sock *sk)
- {
- 	struct netlink_sock *nlk = nlk_sk(sk);
-@@ -1697,14 +1704,10 @@ static int netlink_unicast_kernel(struct sock *sk, struct sk_buff *skb,
+ 	bp->mii_if.dev = dev;
+ 	bp->mii_if.mdio_read = b44_mii_read;
+ 	bp->mii_if.mdio_write = b44_mii_write;
+diff --git a/drivers/net/ethernet/broadcom/b44.h b/drivers/net/ethernet/broadcom/b44.h
+index 57e5357..4b0c5d2 100644
+--- a/drivers/net/ethernet/broadcom/b44.h
++++ b/drivers/net/ethernet/broadcom/b44.h
+@@ -282,6 +282,7 @@ struct ring_info {
  
- 	ret = -ECONNREFUSED;
- 	if (nlk->netlink_rcv != NULL) {
--		/* We could do a netlink_deliver_tap(skb) here as well
--		 * but since this is intended for the kernel only, we
--		 * should rather let it stay under the hood.
--		 */
--
- 		ret = skb->len;
- 		netlink_skb_set_owner_r(skb, sk);
- 		NETLINK_CB(skb).sk = ssk;
-+		netlink_deliver_tap_kernel(sk, ssk, skb);
- 		nlk->netlink_rcv(skb);
- 		consume_skb(skb);
- 	} else {
+ #define B44_MCAST_TABLE_SIZE		32
+ #define B44_PHY_ADDR_NO_LOCAL_PHY	30 /* no local phy regs */
++#define B44_PHY_ADDR_NO_PHY		31 /* no phy present at all */
+ #define B44_MDC_RATIO			5000000
+ 
+ #define	B44_STAT_REG_DECLARE		\
 -- 
-1.8.3.1
+1.7.10.4
