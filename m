@@ -1,86 +1,109 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V2 02/10] net/mlx4_core: Rename QUERY_FUNC_CAP fields
-Date: Thu, 19 Dec 2013 21:20:10 +0200
-Message-ID: <1387480818-3932-3-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V2 06/10] net/mlx4_en: Configure the XPS queue mapping on driver load
+Date: Thu, 19 Dec 2013 21:20:14 +0200
+Message-ID: <1387480818-3932-7-git-send-email-amirv@mellanox.com>
 References: <1387480818-3932-1-git-send-email-amirv@mellanox.com>
 Cc: Or Gerlitz <ogerlitz@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
-	Hadar Hen Zion <hadarh@mellanox.com>
+	Ido Shamay <idos@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:37319 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:60361 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755790Ab3LSTUs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Dec 2013 14:20:48 -0500
+	id S1755575Ab3LSTUi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Dec 2013 14:20:38 -0500
 In-Reply-To: <1387480818-3932-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hadar Hen Zion <hadarh@mellanox.com>
+From: Ido Shamay <idos@mellanox.com>
 
-Use correct names for QUERY_FUNC_CAP fields: flags0 and flags1.
+Only TX rings of User Piority 0 are mapped.
+TX rings of other UP's are using UP 0 mapping.
+XPS is not in use when num_tc is set.
 
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Signed-off-by: Ido Shamay <idos@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/fw.c | 20 ++++++++++----------
- 1 file changed, 10 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 6 ++++--
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c     | 9 ++++++++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   | 5 ++++-
+ 3 files changed, 16 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 91b50fe..58ca7de 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -207,18 +207,18 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index d2e9666..6f92090 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1910,8 +1910,10 @@ int mlx4_en_alloc_resources(struct mlx4_en_priv *priv)
+ 				      prof->tx_ring_size, i, TX, node))
+ 			goto err;
  
- /* when opcode modifier = 1 */
- #define QUERY_FUNC_CAP_PHYS_PORT_OFFSET		0x3
--#define QUERY_FUNC_CAP_RDMA_PROPS_OFFSET	0x8
--#define QUERY_FUNC_CAP_ETH_PROPS_OFFSET		0xc
-+#define QUERY_FUNC_CAP_FLAGS0_OFFSET		0x8
-+#define QUERY_FUNC_CAP_FLAGS1_OFFSET		0xc
- 
- #define QUERY_FUNC_CAP_QP0_TUNNEL		0x10
- #define QUERY_FUNC_CAP_QP0_PROXY		0x14
- #define QUERY_FUNC_CAP_QP1_TUNNEL		0x18
- #define QUERY_FUNC_CAP_QP1_PROXY		0x1c
- 
--#define QUERY_FUNC_CAP_ETH_PROPS_FORCE_MAC	0x40
--#define QUERY_FUNC_CAP_ETH_PROPS_FORCE_VLAN	0x80
-+#define QUERY_FUNC_CAP_FLAGS1_FORCE_MAC		0x40
-+#define QUERY_FUNC_CAP_FLAGS1_FORCE_VLAN	0x80
- 
--#define QUERY_FUNC_CAP_RDMA_PROPS_FORCE_PHY_WQE_GID 0x80
-+#define QUERY_FUNC_CAP_FLAGS0_FORCE_PHY_WQE_GID 0x80
- 
- 	if (vhcr->op_modifier == 1) {
- 		field = vhcr->in_modifier; /* phys-port = logical-port */
-@@ -386,21 +386,21 @@ int mlx4_QUERY_FUNC_CAP(struct mlx4_dev *dev, u32 gen_or_port,
+-		if (mlx4_en_create_tx_ring(priv, &priv->tx_ring[i], priv->base_tx_qpn + i,
+-					   prof->tx_ring_size, TXBB_SIZE, node))
++		if (mlx4_en_create_tx_ring(priv, &priv->tx_ring[i],
++					   priv->base_tx_qpn + i,
++					   prof->tx_ring_size, TXBB_SIZE,
++					   node, i))
+ 			goto err;
  	}
  
- 	if (dev->caps.port_type[gen_or_port] == MLX4_PORT_TYPE_ETH) {
--		MLX4_GET(field, outbox, QUERY_FUNC_CAP_ETH_PROPS_OFFSET);
--		if (field & QUERY_FUNC_CAP_ETH_PROPS_FORCE_VLAN) {
-+		MLX4_GET(field, outbox, QUERY_FUNC_CAP_FLAGS1_OFFSET);
-+		if (field & QUERY_FUNC_CAP_FLAGS1_FORCE_VLAN) {
- 			mlx4_err(dev, "VLAN is enforced on this port\n");
- 			err = -EPROTONOSUPPORT;
- 			goto out;
- 		}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index f54ebd5..5e22d7d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -55,7 +55,7 @@ MODULE_PARM_DESC(inline_thold, "threshold for using inline data");
  
--		if (field & QUERY_FUNC_CAP_ETH_PROPS_FORCE_MAC) {
-+		if (field & QUERY_FUNC_CAP_FLAGS1_FORCE_MAC) {
- 			mlx4_err(dev, "Force mac is enabled on this port\n");
- 			err = -EPROTONOSUPPORT;
- 			goto out;
- 		}
- 	} else if (dev->caps.port_type[gen_or_port] == MLX4_PORT_TYPE_IB) {
--		MLX4_GET(field, outbox, QUERY_FUNC_CAP_RDMA_PROPS_OFFSET);
--		if (field & QUERY_FUNC_CAP_RDMA_PROPS_FORCE_PHY_WQE_GID) {
-+		MLX4_GET(field, outbox, QUERY_FUNC_CAP_FLAGS0_OFFSET);
-+		if (field & QUERY_FUNC_CAP_FLAGS0_FORCE_PHY_WQE_GID) {
- 			mlx4_err(dev, "phy_wqe_gid is "
- 				 "enforced on this ib port\n");
- 			err = -EPROTONOSUPPORT;
+ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
+ 			   struct mlx4_en_tx_ring **pring, int qpn, u32 size,
+-			   u16 stride, int node)
++			   u16 stride, int node, int queue_index)
+ {
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+ 	struct mlx4_en_tx_ring *ring;
+@@ -140,6 +140,10 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
+ 		ring->bf_enabled = true;
+ 
+ 	ring->hwtstamp_tx_type = priv->hwtstamp_config.tx_type;
++	ring->queue_index = queue_index;
++
++	if (queue_index < priv->num_tx_rings_p_up && cpu_online(queue_index))
++		cpumask_set_cpu(queue_index, &ring->affinity_mask);
+ 
+ 	*pring = ring;
+ 	return 0;
+@@ -206,6 +210,9 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
+ 
+ 	err = mlx4_qp_to_ready(mdev->dev, &ring->wqres.mtt, &ring->context,
+ 			       &ring->qp, &ring->qp_state);
++	if (!user_prio && cpu_online(ring->queue_index))
++		netif_set_xps_queue(priv->dev, &ring->affinity_mask,
++				    ring->queue_index);
+ 
+ 	return err;
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index f3758de..202d8e5 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -255,6 +255,8 @@ struct mlx4_en_tx_ring {
+ 	u16 poll_cnt;
+ 	struct mlx4_en_tx_info *tx_info;
+ 	u8 *bounce_buf;
++	u8 queue_index;
++	cpumask_t affinity_mask;
+ 	u32 last_nr_txbb;
+ 	struct mlx4_qp qp;
+ 	struct mlx4_qp_context context;
+@@ -719,7 +721,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev);
+ 
+ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
+ 			   struct mlx4_en_tx_ring **pring,
+-			   int qpn, u32 size, u16 stride, int node);
++			   int qpn, u32 size, u16 stride,
++			   int node, int queue_index);
+ void mlx4_en_destroy_tx_ring(struct mlx4_en_priv *priv,
+ 			     struct mlx4_en_tx_ring **pring);
+ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
 -- 
 1.8.3.4
