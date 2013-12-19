@@ -1,70 +1,56 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next] hyperv: Add support for Virtual Receive Side
- Scaling (vRSS)
-Date: Thu, 19 Dec 2013 18:36:27 +0000
-Message-ID: <ff7f7541d0164d408b3a4278569c593a@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <1387405262-18334-1-git-send-email-haiyangz@microsoft.com>
- <1387475178.1876.29.camel@bwh-desktop.uk.level5networks.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 0/5] bridge: cleanup and fix checkpatch errors
+Date: Thu, 19 Dec 2013 10:41:12 -0800
+Message-ID: <20131219104112.3fcdbf8a@nehalam.linuxnetplumber.net>
+References: <1387430894-11220-1-git-send-email-tanxiaojun@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	KY Srinivasan <kys@microsoft.com>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"driverdev-devel@linuxdriverproject.org"
-	<driverdev-devel@linuxdriverproject.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1387475178.1876.29.camel@bwh-desktop.uk.level5networks.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bridge@lists.linux-foundation.org, bart.de.schuymer@pandora.be,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Tan Xiaojun <tanxiaojun@huawei.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1387430894-11220-1-git-send-email-tanxiaojun@huawei.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+IFNlbnQ6IFRodXJzZGF5LCBEZWNl
-bWJlciAxOSwgMjAxMyAxMjo0NiBQTQ0KPiBUbzogSGFpeWFuZyBaaGFuZw0KPiBDYzogZGF2ZW1A
-ZGF2ZW1sb2Z0Lm5ldDsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgS1kgU3Jpbml2YXNhbjsNCj4g
-b2xhZkBhZXBmbGUuZGU7IGphc293YW5nQHJlZGhhdC5jb207IGxpbnV4LWtlcm5lbEB2Z2VyLmtl
-cm5lbC5vcmc7DQo+IGRyaXZlcmRldi1kZXZlbEBsaW51eGRyaXZlcnByb2plY3Qub3JnDQo+IFN1
-YmplY3Q6IFJlOiBbUEFUQ0ggbmV0LW5leHRdIGh5cGVydjogQWRkIHN1cHBvcnQgZm9yIFZpcnR1
-YWwgUmVjZWl2ZSBTaWRlDQo+IFNjYWxpbmcgKHZSU1MpDQo+IA0KPiBPbiBXZWQsIDIwMTMtMTIt
-MTggYXQgMTQ6MjEgLTA4MDAsIEhhaXlhbmcgWmhhbmcgd3JvdGU6DQo+ID4gVGhpcyBmZWF0dXJl
-IGFsbG93cyBtdWx0aXBsZSBjaGFubmVscyB0byBiZSB1c2VkIGJ5IGVhY2ggdmlydHVhbCBOSUMu
-DQo+ID4gSXQgaXMgYXZhaWxhYmxlIG9uIEh5cGVyLVYgaG9zdCAyMDEyIFIyLg0KPiA+ICAJfSBl
-bHNlIGlmIChyZXQgPT0gLUVBR0FJTikgew0KPiA+IC0JCW5ldGlmX3N0b3BfcXVldWUobmRldik7
-DQo+ID4gKwkJbmV0aWZfdHhfc3RvcF9hbGxfcXVldWVzKG5kZXYpOw0KPiA+ICAJCWlmIChhdG9t
-aWNfcmVhZCgmbmV0X2RldmljZS0+bnVtX291dHN0YW5kaW5nX3NlbmRzKSA8IDEpIHsNCj4gPiAt
-CQkJbmV0aWZfd2FrZV9xdWV1ZShuZGV2KTsNCj4gPiArCQkJbmV0aWZfdHhfd2FrZV9hbGxfcXVl
-dWVzKG5kZXYpOw0KPiA+ICAJCQlyZXQgPSAtRU5PU1BDOw0KPiA+ICAJCX0NCj4gPiAgCX0gZWxz
-ZSB7DQo+IA0KPiBUaGlzIGRvZXNuJ3QgbWFrZXMgYW55IHNlbnNlIHRvIG1lLiAgSG93IGNhbiB5
-b3Ugc2FmZWx5IHNoYXJlIHRoZSBzYW1lDQo+IGNoYW5uZWxzIGJldHdlZW4gYWxsIFRYIHF1ZXVl
-cz8NCj4gDQo+IEkgdGhpbmsgeW91IG5lZWQgdG8gYXNzb2NpYXRlIFRYIHF1ZXVlcyBhbmQgY2hh
-bm5lbHMgMS0xLiAgSWYgeW91IGFyZSByZXF1aXJlZCB0bw0KPiBtYXAgcGFja2V0cyB0byBUWCBx
-dWV1ZXMgdXNpbmcgdGhlIFRvZXBsaXR6IGhhc2gsIHlvdSBzaG91bGQgaW1wbGVtZW50DQo+IG5k
-b19zZWxlY3RfcXVldWUgYW5kIGRvIHRoZSBtYXBwaW5nIHRoZXJlLiAgVGhlbiBpbg0KPiBuZXR2
-c2Nfc2VuZCgpIHlvdSB3b3VsZCB1c2UgdGhlIHF1ZXVlIG51bWJlciBmcm9tIHRoZSBza2IgdG8g
-ZmluZCB3aGljaA0KPiBjaGFubmVsIHRvIHVzZSBhbmQgd2hpY2ggcXVldWUgbWF5IG5lZWQgdG8g
-YmUgc3RvcHBlZC93b2tlbi4NCj4gDQo+IFsuLi5dDQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvaHlw
-ZXJ2L25ldHZzY19kcnYuYw0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2
-LmMNCj4gWy4uLl0NCj4gPiArLyogVG9lcGxpdHogaGFzaCBmdW5jdGlvbg0KPiA+ICsgKiBkYXRh
-OiBuZXR3b3JrIGJ5dGUgb3JkZXINCj4gPiArICogcmV0dXJuOiBob3N0IGJ5dGUgb3JkZXINCj4g
-PiArICovDQo+IA0KPiBUaGlzIGxvb2tzIGluY3JlZGlibHkgc2xvdy4gIEkndmUgc2VlbiBzb2Z0
-d2FyZSBpbXBsZW1lbnRhdGlvbnMgdGhhdCBhcmUgbGlrZWx5IHRvDQo+IGJlIG1vcmUgZWZmaWNp
-ZW50LCBlLmcuDQo+IDxodHRwOi8vdGhyZWFkLmdtYW5lLm9yZy9nbWFuZS5saW51eC5uZXR3b3Jr
-LzI4NDYxMi8+DQo+IA0KPiBbLi4uXQ0KPiA+IGludCBuZXR2c2NfcHJvYmUoc3RydWN0IGh2X2Rl
-dmljZSAqZGV2LA0KPiA+ICAJCXJldHVybiByZXQ7DQo+ID4gIAl9DQo+ID4gIAltZW1jcHkobmV0
-LT5kZXZfYWRkciwgZGV2aWNlX2luZm8ubWFjX2FkciwgRVRIX0FMRU4pOw0KPiA+ICsJbnZkZXYg
-PSBodl9nZXRfZHJ2ZGF0YShkZXYpOw0KPiA+ICsJcnRubF9sb2NrKCk7DQo+ID4gKwluZXRpZl9z
-ZXRfcmVhbF9udW1fdHhfcXVldWVzKG5ldCwgbnZkZXYtPm51bV9jaG4pOw0KPiA+ICsJbmV0aWZf
-c2V0X3JlYWxfbnVtX3J4X3F1ZXVlcyhuZXQsIG52ZGV2LT5udW1fY2huKTsNCj4gWy4uLl0NCj4g
-DQo+IFRoZXNlIGZ1bmN0aW9ucyBjYW4gZmFpbCBpZiBjYWxsZWQgYWZ0ZXIgcmVnaXN0ZXJpbmcg
-dGhlIG5ldCBkZXZpY2UsIHNvIHlvdSBzaG91bGQNCj4gZWl0aGVyIGNhbGwgdGhlbSB3aXRoIHRo
-ZSBmaW5hbCB2YWx1ZXMgZWFybGllciBvciBoYW5kbGUgZmFpbHVyZSBoZXJlLg0KPiANCj4gQWxz
-bywgSSBub3RpY2UgdGhhdCBkZXZfYWRkciBpcyBvbmx5IHNldCBhZnRlciByZWdpc3RlcmluZzsg
-dGhhdCBzaG91bGQgYmUgZml4ZWQuDQo+IA0KDQpUaGFuayB5b3UgZm9yIHRoZSBzdWdnZXN0aW9u
-cyEgSSB3aWxsIHJlLXdyaXRlIHRoZSBzZW5kIHF1ZXVlIHNlbGVjdGlvbiwgZW5oYW5jZQ0KdGhl
-IGhhc2ggY2FsY3VsYXRpb24sIGFsc28gZml4IHRoZSBpbml0aWFsaXphdGlvbiBzZXF1ZW5jZS4N
-Cg0KVGhhbmtzLA0KLSBIYWl5YW5nDQoNCg==
+On Thu, 19 Dec 2013 13:28:09 +0800
+Tan Xiaojun <tanxiaojun@huawei.com> wrote:
+
+> Clean up and fix some checkpatch errors in bridge driver.
+> 
+> Tan Xiaojun (5):
+>   bridge: remove unnecessary condition judgment
+>   bridge: remove unnecessary parentheses
+>   bridge: add space before '(/{', after ',', etc.
+>   bridge: change "foo* bar" to "foo *bar"
+>   bridge: change the position of '{' to the pre line
+> 
+>  net/bridge/br_fdb.c                   |  3 +--
+>  net/bridge/br_forward.c               |  4 ++--
+>  net/bridge/br_ioctl.c                 |  2 +-
+>  net/bridge/br_netfilter.c             |  2 +-
+>  net/bridge/br_netlink.c               |  3 +--
+>  net/bridge/br_private.h               |  2 +-
+>  net/bridge/br_stp_timer.c             |  2 +-
+>  net/bridge/br_sysfs_if.c              | 20 ++++++++++----------
+>  net/bridge/netfilter/ebt_log.c        |  2 +-
+>  net/bridge/netfilter/ebt_snat.c       |  2 +-
+>  net/bridge/netfilter/ebtable_broute.c |  6 ++----
+>  net/bridge/netfilter/ebtable_filter.c |  9 +++------
+>  net/bridge/netfilter/ebtable_nat.c    |  9 +++------
+>  net/bridge/netfilter/ebtables.c       | 17 ++++++++---------
+>  14 files changed, 36 insertions(+), 47 deletions(-)
+> 
+
+Thanks, these should go to net-next.
+
+Acked-by: Stephen Hemminger <stephen@networkplumber.org>
