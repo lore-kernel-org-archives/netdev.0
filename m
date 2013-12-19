@@ -1,41 +1,36 @@
-From: Betty Dall <betty.dall@hp.com>
-Subject: [PATCH] Check return from pci_find_ext_capability() in atl1c_reset_pcie()
-Date: Thu, 19 Dec 2013 10:59:09 -0700
-Message-ID: <1387475949-30452-1-git-send-email-betty.dall@hp.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Betty Dall <betty.dall@hp.com>
-To: jcliburn@gmail.com, chris.snook@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: ixgbevf: suspicious skb->pkt_type check
+Date: Thu, 19 Dec 2013 10:08:54 -0800
+Message-ID: <CAGVrzcbYgy--jh_C6op39+DZqqkS5=Dmuu57uUGSnEr0TZ6DUw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: netdev <netdev@vger.kernel.org>, e1000-devel@lists.sourceforge.net,
+	jeffrey.t.kirsher@intel.com,
+	John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f182.google.com ([209.85.216.182]:53577 "EHLO
+	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754238Ab3LSSJg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 13:09:36 -0500
+Received: by mail-qc0-f182.google.com with SMTP id e16so1269026qcx.13
+        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 10:09:35 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The function atl1c_reset_pcie() does not check the return from
-pci_find_ext_cabability() where it is getting the postion of the
-PCI_EXT_CAP_ID_ERR. It is possible for the return to be 0.
+Hi John,
 
-Signed-off-by: Betty Dall <betty.dall@hp.com>
----
-
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+In commit 815cccbf ("ixgbe: add setlink, getlink support to ixgbe and
+ixgbevf") this line was added:
 
 
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index a36a760..2980175 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -145,9 +145,11 @@ static void atl1c_reset_pcie(struct atl1c_hw *hw, u32 flag)
- 	 * Mask some pcie error bits
- 	 */
- 	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_ERR);
--	pci_read_config_dword(pdev, pos + PCI_ERR_UNCOR_SEVER, &data);
--	data &= ~(PCI_ERR_UNC_DLP | PCI_ERR_UNC_FCP);
--	pci_write_config_dword(pdev, pos + PCI_ERR_UNCOR_SEVER, data);
-+	if (pos) {
-+		pci_read_config_dword(pdev, pos + PCI_ERR_UNCOR_SEVER, &data);
-+		data &= ~(PCI_ERR_UNC_DLP | PCI_ERR_UNC_FCP);
-+		pci_write_config_dword(pdev, pos + PCI_ERR_UNCOR_SEVER, data);
-+	}
- 	/* clear error status */
- 	pcie_capability_write_word(pdev, PCI_EXP_DEVSTA,
- 			PCI_EXP_DEVSTA_NFED |
++               if ((skb->pkt_type & (PACKET_BROADCAST | PACKET_MULTICAST)) &&
++                   !(compare_ether_addr(adapter->netdev->dev_addr,
++                                       eth_hdr(skb)->h_source))) {
+
+This looks suspicious to me since skb->pkt_type is not a bitmask, but
+holds only one value at a time,  and with this check you would also
+match any value which has the lower two bits set, so PACKET_OTHERHOST,
+PACKET_LOOPBACK and PACKET_FASTROUTE are also matching the first part
+of the check.
+-- 
+Florian
