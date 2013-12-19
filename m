@@ -1,29 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net/hamradio: Integer overflow in
- hdlcdrv_ioctl()
-Date: Thu, 19 Dec 2013 15:03:01 -0500 (EST)
-Message-ID: <20131219.150301.1452969308105598247.davem@davemloft.net>
-References: <1387250728-10795-1-git-send-email-fanwlexca@gmail.com>
+Subject: Re: [PATCH resend net-next] sch_tbf: add TBF_BURST/TBF_PBURST
+ attribute
+Date: Thu, 19 Dec 2013 15:03:14 -0500 (EST)
+Message-ID: <20131219.150314.2040749867653163114.davem@davemloft.net>
+References: <1386927716-7896-1-git-send-email-yangyingliang@huawei.com>
+	<52AFC64F.2070100@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: michael.opdenacker@free-electrons.com, gaofeng@cn.fujitsu.com,
-	akpm@linux-foundation.org, t.sailer@alumni.ethz.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: fanwlexca@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1387250728-10795-1-git-send-email-fanwlexca@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: yangyingliang@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35608 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756038Ab3LSUDQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 15:03:16 -0500
+In-Reply-To: <52AFC64F.2070100@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wenliang Fan <fanwlexca@gmail.com>
-Date: Tue, 17 Dec 2013 11:25:28 +0800
+From: Yang Yingliang <yangyingliang@huawei.com>
+Date: Tue, 17 Dec 2013 11:34:39 +0800
 
-> The local variable 'bi' comes from userspace. If userspace passed a
-> large number to 'bi.data.calibrate', there would be an integer overflow
-> in the following line:
-> 	s->hdlctx.calibrate = bi.data.calibrate * s->par.bitrate / 16;
+> From: Yang Yingliang <yangyingliang@huawei.com>
 > 
-> Signed-off-by: Wenliang Fan <fanwlexca@gmail.com>
+> When we set burst to 1514 with low rate in userspace,
+> the kernel get a value of burst that less than 1514,
+> which doesn't work.
+> 
+> Because it may make some loss when transform burst
+> to buffer in userspace. This makes burst lose some
+> bytes, when the kernel transform the buffer back to
+> burst.
+> 
+> This patch adds two new attributes to support sending
+> burst/mtu to kernel directly to avoid the loss.
+> 
+> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
 
-Applied and queued up for -stable, thanks.
+I really want to see some review of this change, thanks.
