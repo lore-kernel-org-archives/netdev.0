@@ -1,29 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
-Date: Thu, 19 Dec 2013 14:47:05 -0500 (EST)
-Message-ID: <20131219.144705.981970589716309123.davem@davemloft.net>
-References: <1387434891-19719-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1387480836.2183.42.camel@jtkirshe-mobl>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 8/9] net: phy: fix checkpatch errors
+Date: Thu, 19 Dec 2013 23:48:03 +0300
+Message-ID: <52B35B83.1050405@cogentembedded.com>
+References: <1387345093-14168-1-git-send-email-f.fainelli@gmail.com> <1387345093-14168-9-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35457 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755154Ab3LSTrH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 14:47:07 -0500
-In-Reply-To: <1387480836.2183.42.camel@jtkirshe-mobl>
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:36469 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751677Ab3LSTr5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 14:47:57 -0500
+Received: by mail-lb0-f169.google.com with SMTP id u14so699894lbd.0
+        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 11:47:56 -0800 (PST)
+In-Reply-To: <1387345093-14168-9-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 19 Dec 2013 11:20:36 -0800
+Hello.
 
-> Disregard this pull request.  I overlooked a patch that needs to either
-> precede this series or get added to the series for VXLAN.
-> 
-> I will be sending out a v2 with the necessary patch added.
+On 12/18/2013 08:38 AM, Florian Fainelli wrote:
 
-Ok.
+> checkpatch spotted a few checkpatch errors such as whitespace damages
+> and switch/case labels not being on the same column, fix them.
+
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+
+    It's good that I spotted this. Actually, I have started doing this myself 
+but haven't finished yet... :-)
+
+WBR, Sergei
