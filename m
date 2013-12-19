@@ -1,50 +1,42 @@
-From: Frank Li <lznuaa@gmail.com>
-Subject: Re: [PATCH] net: fec: fix potential use after free
-Date: Thu, 19 Dec 2013 14:05:28 -0600
-Message-ID: <CAHrpEqQre+Y=+m-RX9nADA2Z7NirxYH0yKCwMSZpnn2GKx0jkw@mail.gmail.com>
-References: <1387479182.19078.369.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20131219193231.GB14612@netboy>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] netxen: Add sanity checks for Rx buffers returning
+ from hardware
+Date: Thu, 19 Dec 2013 15:05:27 -0500 (EST)
+Message-ID: <20131219.150527.1753716895684393783.davem@davemloft.net>
+References: <1387257753-18676-1-git-send-email-david@gibson.dropbear.id.au>
+	<1387257753-18676-3-git-send-email-david@gibson.dropbear.id.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Frank Li <Frank.Li@freescale.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: manish.chopra@qlogic.com, sony.chacko@qlogic.com,
+	rajesh.borundia@qlogic.com, netdev@vger.kernel.org,
+	snagarka@redhat.com, tcamuso@redhat.com, vdasgupt@redhat.com
+To: david@gibson.dropbear.id.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:45212 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754711Ab3LSUF3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 15:05:29 -0500
-Received: by mail-we0-f179.google.com with SMTP id q59so1558487wes.24
-        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 12:05:28 -0800 (PST)
-In-Reply-To: <20131219193231.GB14612@netboy>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35621 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755634Ab3LSUFa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 15:05:30 -0500
+In-Reply-To: <1387257753-18676-3-git-send-email-david@gibson.dropbear.id.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 19, 2013 at 1:32 PM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> On Thu, Dec 19, 2013 at 10:53:02AM -0800, Eric Dumazet wrote:
->> From: Eric Dumazet <edumazet@google.com>
->>
->> skb_tx_timestamp(skb) should be called _before_ TX completion
->> has a chance to trigger, otherwise it is too late and we access
->> freed memory.
->>
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
->> Fixes: de5fb0a05348 ("net: fec: put tx to napi poll function to fix dead lock")
->
-> So the hw_lock spin lock was protecting against this issue?
->
-> Nice catch. How ever did you find this?
+From: David Gibson <david@gibson.dropbear.id.au>
+Date: Tue, 17 Dec 2013 16:22:33 +1100
 
-I think It is not related with hw_lock.  After trigger transfer,
-there are possibility that tx completed immediately and irq handle
-will free skb.
+> +static int netxen_check_rx_buf(int index, struct netxen_rx_buffer *rxbuf)
+> +{
+> +	int ret = 0;
+> +
+> +	if ((rxbuf->list.next != LIST_POISON1)
+> +	    || (rxbuf->list.prev != LIST_POISON2)) {
+> +		printk(KERN_ERR "netxen: Rx buffer is already on free list "
+> +		       "(next=%p, prev=%p)\n", rxbuf->list.next,
+> +		       rxbuf->list.prev);
+> +		ret = -1;
+> +	}
 
->
-> Acked-by: Richard Cochran <richardcochran@gmail.com>
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+First, you should be using netdev_err() or similar.
+
+Second, doing this unconditionally for every receive packet is
+not really reasonable.
