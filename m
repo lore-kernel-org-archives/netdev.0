@@ -1,56 +1,59 @@
-From: Luis Henriques <luis.henriques@canonical.com>
-Subject: Re: [PATCH linux-3.10.y] ip6tnl: fix use after free of fb_tnl_dev
-Date: Thu, 19 Dec 2013 10:07:52 +0000
-Message-ID: <20131219100752.GA3866@hercules>
-References: <20131212.153545.1184197791301496227.davem@davemloft.net>
- <1386925595-4995-1-git-send-email-nicolas.dichtel@6wind.com>
- <20131217.144002.1716319550180883592.davem@davemloft.net>
+From: Hariprasad S <hariprasad@chelsio.com>
+Subject: Re: [PATCH net v2 0/8] Fixes for server entries and server filter
+ entries for Chelsio T4/T5
+Date: Thu, 19 Dec 2013 15:37:54 +0530
+Message-ID: <20131219100753.GA16770@hariprasad-pc>
+References: <1387364906-1967-1-git-send-email-hariprasad@chelsio.com>
+ <20131218141647.0b0cf403@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
-	gregkh@linuxfoundation.org, rostedt@goodmis.org,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	williams@redhat.com, linux-rt-users@vger.kernel.org,
-	lclaudio@uudg.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <linux-rdma@vger.kernel.org>,
+	<roland@purestorage.com>, <dm@chelsio.com>,
+	<swise@opengridcomputing.com>, <leedom@chelsio.com>,
+	<santosh@chelsio.com>, <kumaras@chelsio.com>,
+	<nirranjan@chelsio.com>
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	<davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:23235 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752462Ab3LSKO3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 05:14:29 -0500
 Content-Disposition: inline
-In-Reply-To: <20131217.144002.1716319550180883592.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20131218141647.0b0cf403@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 17, 2013 at 02:40:02PM -0500, David Miller wrote:
-> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Date: Fri, 13 Dec 2013 10:06:35 +0100
+On Wed, Dec 18, 2013 at 14:16:47 -0800, Stephen Hemminger wrote:
+> While running namespace checks I found several this:
 > 
-> > The upstream commit bb8140947a24 ("ip6tnl: allow to use rtnl ops on fb tunnel")
-> > (backported into linux-3.10.y) left a bug which was fixed upstream by commit
-> > 1e9f3d6f1c40 ("ip6tnl: fix use after free of fb_tnl_dev").
-> > 
-> > The problem is a bit different in linux-3.10.y, because there is no x-netns
-> > support (upstream commit 0bd8762824e7 ("ip6tnl: add x-netns support")).
-> > When ip6_tunnel.ko is unloaded, FB device is deleted by rtnl_link_unregister()
-> > and then we try to delete it again in ip6_tnl_destroy_tunnels().
-> > 
-> > This patch removes the second deletion.
-> > 
-> > Reported-by: Steven Rostedt <rostedt@goodmis.org>
-> > Suggested-by: Steven Rostedt <rostedt@goodmis.org>
-> > Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Subject: cxgb4: make functions static and remove dead code
 > 
-> Greg please queue this up for 3.10 -stable if you haven't already.
-
-As I'm picking the networking patches into the 3.11 kernel as well, I
-believe this fix is also applicable.  I'm queuing it for the 3.11 kernel.
-
-Cheers,
---
-Luis
-
-
+> Cleanup by making local functions static.
 > 
-> Thanks a lot.
-> --
-> To unsubscribe from this list: send the line "unsubscribe stable" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> The code to load config file is unreachable in net-next, probably came
+> from some out of tree driver.
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> 
+>
+[...]
+
+Hi Stephen,
+
+Thank you for providing the fix. This reported namespace bug seems to be related
+to existing code and not related to this patch series.
+
+However, we now found another namespace bug in this patch series. So we will
+respin this series with namespace fix.
+
+
+Hi David,
+
+Would you like to take this patch from Stephen separately, since it is not related
+to this patch-series ?
+Or should we include it as part of patch-series when we re-spin it as V3 ?
+
+
+Thanks,
+Hari.
