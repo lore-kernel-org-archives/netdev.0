@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] sfc: fix sparse non static symbol warning
-Date: Thu, 19 Dec 2013 15:00:48 -0500 (EST)
-Message-ID: <20131219.150048.1705104019951766324.davem@davemloft.net>
-References: <CAPgLHd8gaC5j0Ts7SXdDwFPKNpvm2AR_fxHhT3KSNs2Jsi_Lyw@mail.gmail.com>
+Subject: Re: [PATCH] drivers/net/hamradio: Integer overflow in
+ hdlcdrv_ioctl()
+Date: Thu, 19 Dec 2013 15:03:01 -0500 (EST)
+Message-ID: <20131219.150301.1452969308105598247.davem@davemloft.net>
+References: <1387250728-10795-1-git-send-email-fanwlexca@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, bhutchings@solarflare.com,
-	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35589 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755213Ab3LSUAu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 15:00:50 -0500
-In-Reply-To: <CAPgLHd8gaC5j0Ts7SXdDwFPKNpvm2AR_fxHhT3KSNs2Jsi_Lyw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: michael.opdenacker@free-electrons.com, gaofeng@cn.fujitsu.com,
+	akpm@linux-foundation.org, t.sailer@alumni.ethz.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: fanwlexca@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1387250728-10795-1-git-send-email-fanwlexca@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Tue, 17 Dec 2013 11:08:10 +0800
+From: Wenliang Fan <fanwlexca@gmail.com>
+Date: Tue, 17 Dec 2013 11:25:28 +0800
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> The local variable 'bi' comes from userspace. If userspace passed a
+> large number to 'bi.data.calibrate', there would be an integer overflow
+> in the following line:
+> 	s->hdlctx.calibrate = bi.data.calibrate * s->par.bitrate / 16;
 > 
-> Fixes the following sparse warning:
-> 
-> drivers/net/ethernet/sfc/falcon.c:2601:6: warning:
->  symbol 'falcon_pull_nic_stats' was not declared. Should it be static?
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> Signed-off-by: Wenliang Fan <fanwlexca@gmail.com>
 
-Looks good, applied, thanks.
+Applied and queued up for -stable, thanks.
