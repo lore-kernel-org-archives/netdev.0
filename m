@@ -1,40 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hyperv: Add support for Virtual Receive Side
- Scaling (vRSS)
-Date: Thu, 19 Dec 2013 18:00:01 -0500 (EST)
-Message-ID: <20131219.180001.2300376892730549121.davem@davemloft.net>
-References: <CA+mtBx-BBBQjVTOrnaow=GNc7VM5D2Zj8xr=fPM4b4f_xT7qkQ@mail.gmail.com>
-	<05be4f23ff784e56b710dd02eb88358a@DFM-DB3MBX15-08.exchange.corp.microsoft.com>
-	<CA+mtBx_SSPd6s5519dWCyPGmFvO=kE+Fh3ZQ9w9oo=pJraRAFQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: FEC performance degradation with certain packet sizes
+Date: Thu, 19 Dec 2013 15:04:59 -0800
+Message-ID: <1387494299.19078.378.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <528F50AE.3030804@digi.com> <201311240540.23813.marex@denx.de>
+	 <529310A4.70906@digi.com> <52B1D0C6.6010305@digi.com>
+	 <1387388339.19078.321.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <0afcc48493b941ffab991d52b7c97a0d@BLUPR03MB373.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: haiyangz@microsoft.com, dborkman@redhat.com,
-	bhutchings@solarflare.com, netdev@vger.kernel.org,
-	kys@microsoft.com, olaf@aepfle.de, jasowang@redhat.com,
-	linux-kernel@vger.kernel.org,
-	driverdev-devel@linuxdriverproject.org
-To: therbert@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+mtBx_SSPd6s5519dWCyPGmFvO=kE+Fh3ZQ9w9oo=pJraRAFQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Hector Palacios <hector.palacios@digi.com>,
+	Marek Vasut <marex@denx.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Fabio.Estevam@freescale.com" <Fabio.Estevam@freescale.com>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:63685 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755215Ab3LSXFB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 18:05:01 -0500
+Received: by mail-pa0-f42.google.com with SMTP id lj1so1813310pab.29
+        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 15:05:00 -0800 (PST)
+In-Reply-To: <0afcc48493b941ffab991d52b7c97a0d@BLUPR03MB373.namprd03.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Thu, 19 Dec 2013 13:43:06 -0800
+On Thu, 2013-12-19 at 02:44 +0000, fugang.duan@freescale.com wrote:
 
-> +       u32 v, r;
-> +       int off, rem;
-> +
-> +       off = idx / 8;
-> +       rem = idx % 8;
-> +
-> +       v = (((unsigned int)key[off]) << 24) +
-> +           (((unsigned int)key[off + 1]) << 16) +
-> +           (((unsigned int)key[off + 2]) << 8) +
-> +           (((unsigned int)key[off + 3]));
-> +
-> +       r = v << rem | (unsigned int)key[off + 4] >> (8 - rem);
+> Enet IP don't support tso feature.
+> 
+> I will reproduce the issue in imx6q/dl sd platform, and analyze the issue.
+> Previous test, we don't use netpipe tool test ethernet performance.
 
-Minor nit, since the type you are using is "u32", that's probably what
-you should be casting to in these spots instead of "unsigned int".
+drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c seems broken...
+
+If tx_skb_align_workaround() returns NULL, returning NETDEV_TX_BUSY 
+is the worst possible thing to do.
+
+Packet should be dropped instead.
+
+Probably not related to your issue.
