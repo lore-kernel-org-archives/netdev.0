@@ -1,38 +1,30 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] net: fec: fix potential use after free
-Date: Thu, 19 Dec 2013 20:32:31 +0100
-Message-ID: <20131219193231.GB14612@netboy>
-References: <1387479182.19078.369.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] 3c59x: Add software timestamping
+Date: Thu, 19 Dec 2013 14:33:24 -0500 (EST)
+Message-ID: <20131219.143324.961008729509428288.davem@davemloft.net>
+References: <1387207226-17076-1-git-send-email-tedheadster@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Frank Li <Frank.Li@freescale.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: tedheadster@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:63942 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751677Ab3LSTcq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 14:32:46 -0500
-Received: by mail-ea0-f174.google.com with SMTP id b10so637119eae.5
-        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 11:32:45 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1387479182.19078.369.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35380 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754993Ab3LSTd0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 14:33:26 -0500
+In-Reply-To: <1387207226-17076-1-git-send-email-tedheadster@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 19, 2013 at 10:53:02AM -0800, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+From: Matthew Whitehead <tedheadster@gmail.com>
+Date: Mon, 16 Dec 2013 10:20:26 -0500
+
+> Added software timestamping ability. Tested with linuxptp and synchronized
+> clocks to an average of less than 200 microseconds on 10 megabit ethernet.
 > 
-> skb_tx_timestamp(skb) should be called _before_ TX completion
-> has a chance to trigger, otherwise it is too late and we access
-> freed memory.
+> Tested on both Vortex and Boomerang models.
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Fixes: de5fb0a05348 ("net: fec: put tx to napi poll function to fix dead lock")
+> Signed-off-by: Matthew Whitehead <tedheadster@gmail.com>
 
-So the hw_lock spin lock was protecting against this issue?
-
-Nice catch. How ever did you find this?
-
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+Applied, thanks.
