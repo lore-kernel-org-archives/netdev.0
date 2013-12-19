@@ -1,39 +1,52 @@
-From: "Frank.Li@freescale.com" <Frank.Li@freescale.com>
-Subject: RE: [PATCH] net: fec: fix potential use after free
-Date: Thu, 19 Dec 2013 20:30:14 +0000
-Message-ID: <7a8a43fd218241a29be996e8bc62e95f@BLUPR03MB486.namprd03.prod.outlook.com>
-References: <1387479182.19078.369.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131219193231.GB14612@netboy>
-	 <CAHrpEqQre+Y=+m-RX9nADA2Z7NirxYH0yKCwMSZpnn2GKx0jkw@mail.gmail.com>
- <1387484318.19078.377.camel@edumazet-glaptop2.roam.corp.google.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: ixgbevf: suspicious skb->pkt_type check
+Date: Thu, 19 Dec 2013 12:35:20 -0800
+Message-ID: <52B35888.9050506@intel.com>
+References: <CAGVrzcbYgy--jh_C6op39+DZqqkS5=Dmuu57uUGSnEr0TZ6DUw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>, Frank Li <lznuaa@gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, e1000-devel@lists.sourceforge.net,
+	jeffrey.t.kirsher@intel.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [207.46.163.240] ([207.46.163.240]:2979 "EHLO
-	na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756313Ab3LSUcH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Dec 2013 15:32:07 -0500
-In-Reply-To: <1387484318.19078.377.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from mga11.intel.com ([192.55.52.93]:43146 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755958Ab3LSUfW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Dec 2013 15:35:22 -0500
+In-Reply-To: <CAGVrzcbYgy--jh_C6op39+DZqqkS5=Dmuu57uUGSnEr0TZ6DUw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBUaHVyc2RheSwgRGVjZW1iZXIgMTks
-IDIwMTMgMjoxOSBQTQ0KPiBUbzogRnJhbmsgTGkNCj4gQ2M6IFJpY2hhcmQgQ29jaHJhbjsgRGF2
-aWQgTWlsbGVyOyBuZXRkZXY7IExpIEZyYW5rLUIyMDU5Ng0KPiBTdWJqZWN0OiBSZTogW1BBVENI
-XSBuZXQ6IGZlYzogZml4IHBvdGVudGlhbCB1c2UgYWZ0ZXIgZnJlZQ0KPiANCj4gT24gVGh1LCAy
-MDEzLTEyLTE5IGF0IDE0OjA1IC0wNjAwLCBGcmFuayBMaSB3cm90ZToNCj4gDQo+ID4gSSB0aGlu
-ayBJdCBpcyBub3QgcmVsYXRlZCB3aXRoIGh3X2xvY2suICBBZnRlciB0cmlnZ2VyIHRyYW5zZmVy
-LCB0aGVyZQ0KPiA+IGFyZSBwb3NzaWJpbGl0eSB0aGF0IHR4IGNvbXBsZXRlZCBpbW1lZGlhdGVs
-eSBhbmQgaXJxIGhhbmRsZSB3aWxsIGZyZWUNCj4gPiBza2IuDQo+IA0KPiBXZWxsLCBiZWZvcmUg
-dGhlIGRlNWZiMGEwNTM0OCBjb21taXQsIHR4IGNvbXBsZXRpb24gYW5kIHN0YXJ0X3htaXQoKSBj
-b3VsZCBub3QNCj4gcnVuIGluIC8vDQo+IA0KPiBTbyBod19sb2NrIHdhcyBlZmZlY3RpdmVseSBw
-cmV2ZW50aW5nIHRoZSBpc3N1ZS4NCj4gCQ0KDQpZZXMsIElSUSBoYW5kbGUgd2lsbCB3YWl0IGZv
-ciBzcGluX2xvY2suIA0K
+On 12/19/2013 10:08 AM, Florian Fainelli wrote:
+> Hi John,
+>
+> In commit 815cccbf ("ixgbe: add setlink, getlink support to ixgbe and
+> ixgbevf") this line was added:
+>
+>
+> +               if ((skb->pkt_type & (PACKET_BROADCAST | PACKET_MULTICAST)) &&
+> +                   !(compare_ether_addr(adapter->netdev->dev_addr,
+> +                                       eth_hdr(skb)->h_source))) {
+>
+> This looks suspicious to me since skb->pkt_type is not a bitmask, but
+> holds only one value at a time,  and with this check you would also
+> match any value which has the lower two bits set, so PACKET_OTHERHOST,
+> PACKET_LOOPBACK and PACKET_FASTROUTE are also matching the first part
+> of the check.
+>
+
+Yep, it is poorly coded I'll send a fix to Jeff to make it readable.
+
+Note it doesn't actually break anything in practice because the only
+types that can be set at this point are broadcast, multicast or
+otherhost. And because this virtual function is behind the embedded
+switch in the nic only packets with the correct destination address
+or multicast addresses will make it to the virtual function. The
+virtual function doesn't currently support promisc mode further promisc
+mode in the context of a switch that doesn't support flooding is sort
+of non-sense to start with. All that said a much better check would
+be 'if (skb->pkt_type && ...) ' thanks for catching it.
+
+Thanks,
+John
