@@ -1,202 +1,61 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/15] i40e: update led set args
-Date: Wed, 18 Dec 2013 22:34:50 -0800
-Message-ID: <1387434891-19719-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/15] i40e: report VF MAC addresses correctly
+Date: Wed, 18 Dec 2013 22:34:51 -0800
+Message-ID: <1387434891-19719-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387434891-19719-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:40846 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:65348 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752541Ab3LSGfD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752545Ab3LSGfD (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 19 Dec 2013 01:35:03 -0500
 In-Reply-To: <1387434891-19719-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Add an argument to led function and refactor code to flash LED lights
-correctly.
+If the user does not assign a VF MAC address, then just report it as
+zero.  Attempting to guess the correct primary MAC address of the VF is a
+futile and heartbreaking endeavour.
 
-Change-Id: I00b21607ced53aaa057159503875708871946259
+Change-Id: I2673577a160afb6fc55094c890467b44e60c7584
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c    | 92 +++++++++++++++++-------
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c   |  6 +-
- drivers/net/ethernet/intel/i40e/i40e_prototype.h |  2 +-
- 3 files changed, 69 insertions(+), 31 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index cba1eb4..e14889a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -401,6 +401,38 @@ void i40e_clear_pxe_mode(struct i40e_hw *hw)
- }
- 
- /**
-+ * i40e_led_is_mine - helper to find matching led
-+ * @hw: pointer to the hw struct
-+ * @idx: index into GPIO registers
-+ *
-+ * returns: 0 if no match, otherwise the value of the GPIO_CTL register
-+ */
-+static u32 i40e_led_is_mine(struct i40e_hw *hw, int idx)
-+{
-+	u32 gpio_val = 0;
-+	u32 port;
-+
-+	if (!hw->func_caps.led[idx])
-+		return 0;
-+
-+	gpio_val = rd32(hw, I40E_GLGEN_GPIO_CTL(idx));
-+	port = (gpio_val & I40E_GLGEN_GPIO_CTL_PRT_NUM_MASK) >>
-+		I40E_GLGEN_GPIO_CTL_PRT_NUM_SHIFT;
-+
-+	/* if PRT_NUM_NA is 1 then this LED is not port specific, OR
-+	 * if it is not our port then ignore
-+	 */
-+	if ((gpio_val & I40E_GLGEN_GPIO_CTL_PRT_NUM_NA_MASK) ||
-+	    (port != hw->port))
-+		return 0;
-+
-+	return gpio_val;
-+}
-+
-+#define I40E_LED0 22
-+#define I40E_LINK_ACTIVITY 0xC
-+
-+/**
-  * i40e_led_get - return current on/off mode
-  * @hw: pointer to the hw struct
-  *
-@@ -411,24 +443,20 @@ void i40e_clear_pxe_mode(struct i40e_hw *hw)
-  **/
- u32 i40e_led_get(struct i40e_hw *hw)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index cc8fa2a..fdcd5df 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -2019,7 +2019,6 @@ int i40e_ndo_get_vf_config(struct net_device *netdev,
+ 			   int vf_id, struct ifla_vf_info *ivi)
  {
--	u32 gpio_val = 0;
- 	u32 mode = 0;
--	u32 port;
- 	int i;
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+-	struct i40e_mac_filter *f, *ftmp;
+ 	struct i40e_vsi *vsi = np->vsi;
+ 	struct i40e_pf *pf = vsi->back;
+ 	struct i40e_vf *vf;
+@@ -2043,11 +2042,7 @@ int i40e_ndo_get_vf_config(struct net_device *netdev,
  
--	for (i = 0; i < I40E_HW_CAP_MAX_GPIO; i++) {
--		if (!hw->func_caps.led[i])
--			continue;
--
--		gpio_val = rd32(hw, I40E_GLGEN_GPIO_CTL(i));
--		port = (gpio_val & I40E_GLGEN_GPIO_CTL_PRT_NUM_MASK)
--			>> I40E_GLGEN_GPIO_CTL_PRT_NUM_SHIFT;
-+	/* as per the documentation GPIO 22-29 are the LED
-+	 * GPIO pins named LED0..LED7
-+	 */
-+	for (i = I40E_LED0; i <= I40E_GLGEN_GPIO_CTL_MAX_INDEX; i++) {
-+		u32 gpio_val = i40e_led_is_mine(hw, i);
+ 	ivi->vf = vf_id;
  
--		if (port != hw->port)
-+		if (!gpio_val)
- 			continue;
+-	/* first entry of the list is the default ethernet address */
+-	list_for_each_entry_safe(f, ftmp, &vsi->mac_filter_list, list) {
+-		memcpy(&ivi->mac, f->macaddr, I40E_ETH_LENGTH_OF_ADDRESS);
+-		break;
+-	}
++	memcpy(&ivi->mac, vf->default_lan_addr.addr, ETH_ALEN);
  
--		mode = (gpio_val & I40E_GLGEN_GPIO_CTL_LED_MODE_MASK)
--				>> I40E_GLGEN_GPIO_CTL_INT_MODE_SHIFT;
-+		mode = (gpio_val & I40E_GLGEN_GPIO_CTL_LED_MODE_MASK) >>
-+			I40E_GLGEN_GPIO_CTL_LED_MODE_SHIFT;
- 		break;
- 	}
- 
-@@ -438,31 +466,41 @@ u32 i40e_led_get(struct i40e_hw *hw)
- /**
-  * i40e_led_set - set new on/off mode
-  * @hw: pointer to the hw struct
-- * @mode: 0=off, else on (see EAS for mode details)
-+ * @mode: 0=off, 0xf=on (else see manual for mode details)
-+ * @blink: true if the LED should blink when on, false if steady
-+ *
-+ * if this function is used to turn on the blink it should
-+ * be used to disable the blink when restoring the original state.
-  **/
--void i40e_led_set(struct i40e_hw *hw, u32 mode)
-+void i40e_led_set(struct i40e_hw *hw, u32 mode, bool blink)
- {
--	u32 gpio_val = 0;
--	u32 led_mode = 0;
--	u32 port;
- 	int i;
- 
--	for (i = 0; i < I40E_HW_CAP_MAX_GPIO; i++) {
--		if (!hw->func_caps.led[i])
--			continue;
-+	if (mode & 0xfffffff0)
-+		hw_dbg(hw, "invalid mode passed in %X\n", mode);
- 
--		gpio_val = rd32(hw, I40E_GLGEN_GPIO_CTL(i));
--		port = (gpio_val & I40E_GLGEN_GPIO_CTL_PRT_NUM_MASK)
--			>> I40E_GLGEN_GPIO_CTL_PRT_NUM_SHIFT;
-+	/* as per the documentation GPIO 22-29 are the LED
-+	 * GPIO pins named LED0..LED7
-+	 */
-+	for (i = I40E_LED0; i <= I40E_GLGEN_GPIO_CTL_MAX_INDEX; i++) {
-+		u32 gpio_val = i40e_led_is_mine(hw, i);
- 
--		if (port != hw->port)
-+		if (!gpio_val)
- 			continue;
- 
--		led_mode = (mode << I40E_GLGEN_GPIO_CTL_LED_MODE_SHIFT) &
--			    I40E_GLGEN_GPIO_CTL_LED_MODE_MASK;
- 		gpio_val &= ~I40E_GLGEN_GPIO_CTL_LED_MODE_MASK;
--		gpio_val |= led_mode;
-+		/* this & is a bit of paranoia, but serves as a range check */
-+		gpio_val |= ((mode << I40E_GLGEN_GPIO_CTL_LED_MODE_SHIFT) &
-+			     I40E_GLGEN_GPIO_CTL_LED_MODE_MASK);
-+
-+		if (mode == I40E_LINK_ACTIVITY)
-+			blink = false;
-+
-+		gpio_val |= (blink ? 1 : 0) <<
-+			    I40E_GLGEN_GPIO_CTL_LED_BLINK_SHIFT;
-+
- 		wr32(hw, I40E_GLGEN_GPIO_CTL(i), gpio_val);
-+		break;
- 	}
- }
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index a12dd01..1efc8c8 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1011,13 +1011,13 @@ static int i40e_set_phys_id(struct net_device *netdev,
- 		pf->led_status = i40e_led_get(hw);
- 		return blink_freq;
- 	case ETHTOOL_ID_ON:
--		i40e_led_set(hw, 0xF);
-+		i40e_led_set(hw, 0xF, false);
- 		break;
- 	case ETHTOOL_ID_OFF:
--		i40e_led_set(hw, 0x0);
-+		i40e_led_set(hw, 0x0, false);
- 		break;
- 	case ETHTOOL_ID_INACTIVE:
--		i40e_led_set(hw, pf->led_status);
-+		i40e_led_set(hw, pf->led_status, false);
- 		break;
- 	}
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-index db7bf93..1fc5a8e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-@@ -61,7 +61,7 @@ void i40e_debug_aq(struct i40e_hw *hw,
- void i40e_idle_aq(struct i40e_hw *hw);
- 
- u32 i40e_led_get(struct i40e_hw *hw);
--void i40e_led_set(struct i40e_hw *hw, u32 mode);
-+void i40e_led_set(struct i40e_hw *hw, u32 mode, bool blink);
- 
- /* admin send queue commands */
- 
+ 	ivi->tx_rate = 0;
+ 	ivi->vlan = le16_to_cpu(vsi->info.pvid) & I40E_VLAN_MASK;
 -- 
 1.8.3.1
