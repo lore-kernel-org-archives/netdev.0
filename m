@@ -1,102 +1,138 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: pull request (net-next): ipsec-next 2013-12-19
-Date: Thu, 19 Dec 2013 07:36:37 +0100
-Message-ID: <1387435005-8987-1-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 2/8] xfrm: Using the right namespace to migrate key info
+Date: Thu, 19 Dec 2013 07:36:39 +0100
+Message-ID: <1387435005-8987-3-git-send-email-steffen.klassert@secunet.com>
+References: <1387435005-8987-1-git-send-email-steffen.klassert@secunet.com>
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:48177 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:48186 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751447Ab3LSGhT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Dec 2013 01:37:19 -0500
+	id S1752187Ab3LSGhU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Dec 2013 01:37:20 -0500
+In-Reply-To: <1387435005-8987-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1) Use the user supplied policy index instead of a generated one
-   if present. From Fan Du.
+From: Fan Du <fan.du@windriver.com>
 
-2) Make xfrm migration namespace aware. From Fan Du.
+because the home agent could surely be run on a different
+net namespace other than init_net. The original behavior
+could lead into inconsistent of key info.
 
-3) Make the xfrm state and policy locks namespace aware. From Fan Du.
+Signed-off-by: Fan Du <fan.du@windriver.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ include/net/xfrm.h     |    2 +-
+ net/key/af_key.c       |    3 ++-
+ net/xfrm/xfrm_policy.c |   10 +++++-----
+ net/xfrm/xfrm_user.c   |    3 ++-
+ 4 files changed, 10 insertions(+), 8 deletions(-)
 
-4) Remove ancient sleeping when the SA is in acquire state,
-   we now queue packets to the policy instead. This replaces the
-   sleeping code.
-
-5) Remove FLOWI_FLAG_CAN_SLEEP. This was used to notify xfrm about the
-   posibility to sleep. The sleeping code is gone, so remove it.
-
-6) Check user specified spi for IPComp. Thr spi for IPcomp is only
-   16 bit wide, so check for a valid value. From Fan Du.
-
-7) Export verify_userspi_info to check for valid user supplied spi ranges
-   with pfkey and netlink. From Fan Du.
-
-8) RFC3173 states that if the total size of a compressed payload and the IPComp
-   header is not smaller than the size of the original payload, the IP datagram
-   must be sent in the original non-compressed form. These packets are dropped
-   by the inbound policy check because they are not transformed. Document the need
-   to set 'level use' for IPcomp to receive such packets anyway. From Fan Du.
-
-Please pull or let me know if there are problems.
-
-Thanks!
-
-The following changes since commit d70f2cf520cf8c86c6b467fc5dcea524ec51dc2f:
-
-  macvlan: Support creating macvtaps from macvlans (2013-12-05 19:59:02 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
-
-for you to fetch changes up to b3c6efbc36e2c5ac820b1a800ac17cc3e040de0c:
-
-  xfrm: Add file to document IPsec corner case (2013-12-16 12:54:05 +0100)
-
-----------------------------------------------------------------
-Fan Du (6):
-      xfrm: Try to honor policy index if it's supplied by user
-      xfrm: Using the right namespace to migrate key info
-      xfrm: Namespacify xfrm state/policy locks
-      xfrm: check user specified spi for IPComp
-      xfrm: export verify_userspi_info for pkfey and netlink interface
-      xfrm: Add file to document IPsec corner case
-
-Steffen Klassert (2):
-      xfrm: Remove ancient sleeping when the SA is in acquire state
-      net: Remove FLOWI_FLAG_CAN_SLEEP
-
- Documentation/networking/ipsec.txt |   38 +++++++++
- include/net/flow.h                 |    3 +-
- include/net/ipv6.h                 |    6 +-
- include/net/netns/xfrm.h           |    6 +-
- include/net/route.h                |    8 +-
- include/net/xfrm.h                 |   14 ++--
- net/dccp/ipv4.c                    |    2 +-
- net/dccp/ipv6.c                    |    8 +-
- net/decnet/dn_route.c              |    2 -
- net/ipv4/af_inet.c                 |    2 +-
- net/ipv4/datagram.c                |    2 +-
- net/ipv4/raw.c                     |    2 +-
- net/ipv4/tcp_ipv4.c                |    2 +-
- net/ipv4/udp.c                     |    2 +-
- net/ipv6/af_inet6.c                |    2 +-
- net/ipv6/datagram.c                |    2 +-
- net/ipv6/inet6_connection_sock.c   |    4 +-
- net/ipv6/ip6_output.c              |   12 +--
- net/ipv6/ping.c                    |    2 +-
- net/ipv6/raw.c                     |    2 +-
- net/ipv6/syncookies.c              |    2 +-
- net/ipv6/tcp_ipv6.c                |    4 +-
- net/ipv6/udp.c                     |    2 +-
- net/key/af_key.c                   |   29 ++++---
- net/l2tp/l2tp_ip6.c                |    2 +-
- net/sctp/ipv6.c                    |    4 +-
- net/xfrm/xfrm_policy.c             |  151 +++++++++++++++++-------------------
- net/xfrm/xfrm_state.c              |  149 ++++++++++++++++++-----------------
- net/xfrm/xfrm_user.c               |   56 ++++++-------
- 29 files changed, 277 insertions(+), 243 deletions(-)
- create mode 100644 Documentation/networking/ipsec.txt
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 6b82fdf..5b522c5 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1581,7 +1581,7 @@ struct xfrm_state *xfrm_state_migrate(struct xfrm_state *x,
+ 				      struct xfrm_migrate *m);
+ int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 		 struct xfrm_migrate *m, int num_bundles,
+-		 struct xfrm_kmaddress *k);
++		 struct xfrm_kmaddress *k, struct net *net);
+ #endif
+ 
+ int km_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr, __be16 sport);
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 545f047..3fa811c 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -2485,6 +2485,7 @@ static int pfkey_migrate(struct sock *sk, struct sk_buff *skb,
+ 	struct xfrm_selector sel;
+ 	struct xfrm_migrate m[XFRM_MAX_DEPTH];
+ 	struct xfrm_kmaddress k;
++	struct net *net = sock_net(sk);
+ 
+ 	if (!present_and_same_family(ext_hdrs[SADB_EXT_ADDRESS_SRC - 1],
+ 				     ext_hdrs[SADB_EXT_ADDRESS_DST - 1]) ||
+@@ -2558,7 +2559,7 @@ static int pfkey_migrate(struct sock *sk, struct sk_buff *skb,
+ 	}
+ 
+ 	return xfrm_migrate(&sel, dir, XFRM_POLICY_TYPE_MAIN, m, i,
+-			    kma ? &k : NULL);
++			    kma ? &k : NULL, net);
+ 
+  out:
+ 	return err;
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index a5bbdfb..907fd2f 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -3076,14 +3076,14 @@ static bool xfrm_migrate_selector_match(const struct xfrm_selector *sel_cmp,
+ }
+ 
+ static struct xfrm_policy * xfrm_migrate_policy_find(const struct xfrm_selector *sel,
+-						     u8 dir, u8 type)
++						     u8 dir, u8 type, struct net *net)
+ {
+ 	struct xfrm_policy *pol, *ret = NULL;
+ 	struct hlist_head *chain;
+ 	u32 priority = ~0U;
+ 
+ 	read_lock_bh(&xfrm_policy_lock);
+-	chain = policy_hash_direct(&init_net, &sel->daddr, &sel->saddr, sel->family, dir);
++	chain = policy_hash_direct(net, &sel->daddr, &sel->saddr, sel->family, dir);
+ 	hlist_for_each_entry(pol, chain, bydst) {
+ 		if (xfrm_migrate_selector_match(sel, &pol->selector) &&
+ 		    pol->type == type) {
+@@ -3092,7 +3092,7 @@ static struct xfrm_policy * xfrm_migrate_policy_find(const struct xfrm_selector
+ 			break;
+ 		}
+ 	}
+-	chain = &init_net.xfrm.policy_inexact[dir];
++	chain = &net->xfrm.policy_inexact[dir];
+ 	hlist_for_each_entry(pol, chain, bydst) {
+ 		if (xfrm_migrate_selector_match(sel, &pol->selector) &&
+ 		    pol->type == type &&
+@@ -3216,7 +3216,7 @@ static int xfrm_migrate_check(const struct xfrm_migrate *m, int num_migrate)
+ 
+ int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 		 struct xfrm_migrate *m, int num_migrate,
+-		 struct xfrm_kmaddress *k)
++		 struct xfrm_kmaddress *k, struct net *net)
+ {
+ 	int i, err, nx_cur = 0, nx_new = 0;
+ 	struct xfrm_policy *pol = NULL;
+@@ -3229,7 +3229,7 @@ int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 		goto out;
+ 
+ 	/* Stage 1 - find policy */
+-	if ((pol = xfrm_migrate_policy_find(sel, dir, type)) == NULL) {
++	if ((pol = xfrm_migrate_policy_find(sel, dir, type, net)) == NULL) {
+ 		err = -ENOENT;
+ 		goto out;
+ 	}
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 4e0546e..840cc8d 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -2137,6 +2137,7 @@ static int xfrm_do_migrate(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	u8 type;
+ 	int err;
+ 	int n = 0;
++	struct net *net = sock_net(skb->sk);
+ 
+ 	if (attrs[XFRMA_MIGRATE] == NULL)
+ 		return -EINVAL;
+@@ -2154,7 +2155,7 @@ static int xfrm_do_migrate(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (!n)
+ 		return 0;
+ 
+-	xfrm_migrate(&pi->sel, pi->dir, type, m, n, kmp);
++	xfrm_migrate(&pi->sel, pi->dir, type, m, n, kmp, net);
+ 
+ 	return 0;
+ }
+-- 
+1.7.9.5
