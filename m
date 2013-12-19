@@ -1,73 +1,88 @@
-From: Chen Weilong <chenweilong@huawei.com>
-Subject: [PATCH] netfilter: fix checkpatch error for netfilter
-Date: Thu, 19 Dec 2013 19:24:24 +0800
-Message-ID: <1387452264-8896-1-git-send-email-chenweilong@huawei.com>
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Subject: [PATCH net] drivers: stmmac: Fixes for STMMAC IEEE 1588 Timestamping
+Date: Thu, 19 Dec 2013 05:29:28 -0600
+Message-ID: <CAOwfj2Pm8ekwrh1k2pviOySA-YOuxfmPOsCBUhJoYyX3d=LuZw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <netfilter@vger.kernel.org>
-To: <pablo@netfilter.org>, <davem@davemloft.net>, <kaber@trash.net>,
-	<kadlec@blackhole.kfki.hu>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+	Rayagond K <rayagond@vayavyalabs.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:43138 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751455Ab3LSLY5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 06:24:57 -0500
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:55268 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751599Ab3LSL33 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 06:29:29 -0500
+Received: by mail-wg0-f47.google.com with SMTP id n12so900488wgh.26
+        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 03:29:28 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Weilong Chen <chenweilong@huawei.com>
+This patch fixes two issues found in the stmmac driver when testing
+hardware enabled PTP using linuxptp ptp4l.
 
-This patch fix some checkpatch errors,clean up the code.
+1) Advanced timestamping capability was not being enabled correctly
+since setting the state variable adv_ts was masked by the netif
+message mask for printing status to the console as the driver loaded.
 
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
----
- net/netfilter/nf_tables_api.c | 4 ++--
- net/netfilter/xt_osf.c        | 4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+2) Incorrect spinlocks were released in the stmmac_adjust_freq and
+stmmac_adjust_time functions, leading to unstable behaviour.
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index f93b7d0..045efa1 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -130,7 +130,7 @@ static int __nf_tables_chain_type_lookup(int family, const struct nlattr *nla)
- {
- 	int i;
- 
--	for (i=0; i<NFT_CHAIN_T_MAX; i++) {
-+	for (i = 0; i < NFT_CHAIN_T_MAX; i++) {
- 		if (chain_type[family][i] != NULL &&
- 		    !nla_strcmp(nla, chain_type[family][i]->name))
- 			return i;
-@@ -814,7 +814,7 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 			      const struct nlattr * const nla[])
- {
- 	const struct nfgenmsg *nfmsg = nlmsg_data(nlh);
--	const struct nlattr * uninitialized_var(name);
-+	const struct nlattr *uninitialized_var(name);
- 	const struct nft_af_info *afi;
- 	struct nft_table *table;
- 	struct nft_chain *chain;
-diff --git a/net/netfilter/xt_osf.c b/net/netfilter/xt_osf.c
-index 7174611..b93154c 100644
---- a/net/netfilter/xt_osf.c
-+++ b/net/netfilter/xt_osf.c
-@@ -371,7 +371,7 @@ static int __init xt_osf_init(void)
- 	int err = -EINVAL;
- 	int i;
- 
--	for (i=0; i<ARRAY_SIZE(xt_osf_fingers); ++i)
-+	for (i = 0; i < ARRAY_SIZE(xt_osf_fingers); ++i)
- 		INIT_LIST_HEAD(&xt_osf_fingers[i]);
- 
- 	err = nfnetlink_subsys_register(&xt_osf_nfnetlink);
-@@ -404,7 +404,7 @@ static void __exit xt_osf_fini(void)
- 	xt_unregister_match(&xt_osf_match);
- 
- 	rcu_read_lock();
--	for (i=0; i<ARRAY_SIZE(xt_osf_fingers); ++i) {
-+	for (i = 0; i < ARRAY_SIZE(xt_osf_fingers); ++i) {
- 
- 		list_for_each_entry_rcu(f, &xt_osf_fingers[i], finger_entry) {
- 			list_del_rcu(&f->finger_entry);
--- 
-1.7.12
+Vince
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 8a7a23a..797b56a 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -622,17 +622,15 @@ static int stmmac_init_ptp(struct stmmac_priv *priv)
+     if (!(priv->dma_cap.time_stamp || priv->dma_cap.atime_stamp))
+         return -EOPNOTSUPP;
+
+-    if (netif_msg_hw(priv)) {
+-        if (priv->dma_cap.time_stamp) {
+-            pr_debug("IEEE 1588-2002 Time Stamp supported\n");
+-            priv->adv_ts = 0;
+-        }
+-        if (priv->dma_cap.atime_stamp && priv->extend_desc) {
+-            pr_debug
+-                ("IEEE 1588-2008 Advanced Time Stamp supported\n");
+-            priv->adv_ts = 1;
+-        }
+-    }
++    priv->adv_ts = 0;
++    if (priv->dma_cap.atime_stamp && priv->extend_desc)
++        priv->adv_ts = 1;
++
++    if (netif_msg_hw(priv) && priv->dma_cap.time_stamp)
++        pr_debug("IEEE 1588-2002 Time Stamp supported\n");
++
++    if (netif_msg_hw(priv) && priv->adv_ts)
++        pr_debug("IEEE 1588-2008 Advanced Time Stamp supported\n");
+
+     priv->hw->ptp = &stmmac_ptp;
+     priv->hwts_tx_en = 0;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+index b8b0eee..7680581 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+@@ -56,7 +56,7 @@ static int stmmac_adjust_freq(struct ptp_clock_info
+*ptp, s32 ppb)
+
+     priv->hw->ptp->config_addend(priv->ioaddr, addend);
+
+-    spin_unlock_irqrestore(&priv->lock, flags);
++    spin_unlock_irqrestore(&priv->ptp_lock, flags);
+
+     return 0;
+ }
+@@ -91,7 +91,7 @@ static int stmmac_adjust_time(struct ptp_clock_info
+*ptp, s64 delta)
+
+     priv->hw->ptp->adjust_systime(priv->ioaddr, sec, nsec, neg_adj);
+
+-    spin_unlock_irqrestore(&priv->lock, flags);
++    spin_unlock_irqrestore(&priv->ptp_lock, flags);
+
+     return 0;
+ }
