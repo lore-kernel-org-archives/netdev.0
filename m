@@ -1,268 +1,91 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [net-next 06/15] i40e: Rx checksum offload for VXLAN
-Date: Thu, 19 Dec 2013 19:46:59 +0200
-Message-ID: <CAJZOPZLfQu7vLN0fWEaW-KiKueUBtkRsp=ZqfffSz64FSpvgJA@mail.gmail.com>
-References: <1387434891-19719-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1387434891-19719-7-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2 1/9] fixed-phy: register fixed PHY as platform driver
+Date: Thu, 19 Dec 2013 09:49:58 -0800
+Message-ID: <CAGVrzcaHwd=jEd75NuRUAEaJC_hYyDTu-=+skPv9TTB+ShZy5Q@mail.gmail.com>
+References: <1387416526-7394-1-git-send-email-hauke@hauke-m.de>
+ <1387416526-7394-2-git-send-email-hauke@hauke-m.de> <CAGVrzcYfhu1fatpPH8njc_Wh5PVpSG92aGwgsSqkaoNxEFPXxw@mail.gmail.com>
+ <52B2D71E.5070101@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, zambrano@broadcom.com,
+	netdev <netdev@vger.kernel.org>,
+	Vitaly Bordug <vbordug@ru.mvista.com>,
+	Anton Vorontsov <avorontsov@ru.mvista.com>
+To: Hauke Mehrtens <hauke@hauke-m.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:49648 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754232Ab3LSRrA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 12:47:00 -0500
-Received: by mail-pb0-f54.google.com with SMTP id un15so1452877pbc.13
-        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 09:46:59 -0800 (PST)
-In-Reply-To: <1387434891-19719-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-qe0-f51.google.com ([209.85.128.51]:61510 "EHLO
+	mail-qe0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753650Ab3LSRul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 12:50:41 -0500
+Received: by mail-qe0-f51.google.com with SMTP id 1so1343065qee.10
+        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 09:50:40 -0800 (PST)
+In-Reply-To: <52B2D71E.5070101@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 19, 2013 at 8:34 AM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+2013/12/19 Hauke Mehrtens <hauke@hauke-m.de>:
+> On 12/19/2013 02:48 AM, Florian Fainelli wrote:
+>> 2013/12/18 Hauke Mehrtens <hauke@hauke-m.de>:
+>>> This changes the fixed phy driver from registering the mdio bus when
+>>> the module gets loaded to registering it when a device was registered.
+>>> A phy has to get registered to this driver before it registered the
+>>> mdio bus, but this only worked when the phys are registered in some
+>>> arch code before the system booted completely. Now we want to do so
+>>> when the Ethernet driver gets initialized which could be happen every
+>>> time.
+>>>
+>>> To make this driver work with such a case, convert it to a platform
+>>> driver which could be registered every time with the phys which should
+>>> be on the bus.
+>>>
+>>> This was only tested on BCM47XX, but not on AR7 because I do not have
+>>> such a device.
+>>
+>> I do understand why you would want to do it that way, but I believe
+>> this is should be addressed separately, outside of the actual b44
+>> changes. Converting the fixed PHY driver into a platform driver also
+>> has an impact on how Device Tree callers such as PowerPC would be
+>> dealing with this.
 >
-> This implements receive offload for VXLAN for i40e.  The hardware
-> supports checksum offload/verification of the inner/outer header.
->
-> Change-Id: I450db300af6713f2044fef1191a0d1d294c13369
-> Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
->  drivers/net/ethernet/intel/i40e/i40e_main.c |  2 ++
->  drivers/net/ethernet/intel/i40e/i40e_txrx.c | 56 ++++++++++++++++++++++++++---
->  drivers/net/ethernet/intel/i40e/i40e_type.h | 51 ++++++++++++++------------
->  4 files changed, 82 insertions(+), 28 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-> index 31dd265..3207568 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e.h
-> +++ b/drivers/net/ethernet/intel/i40e/i40e.h
-> @@ -29,6 +29,7 @@
->  #define _I40E_H_
->
->  #include <net/tcp.h>
-> +#include <net/udp.h>
->  #include <linux/init.h>
->  #include <linux/types.h>
->  #include <linux/errno.h>
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> index b0cfb4c..7094ff7 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> @@ -27,6 +27,7 @@
->
->  /* Local includes */
->  #include "i40e.h"
-> +#include <net/vxlan.h>
->
->  const char i40e_driver_name[] = "i40e";
->  static const char i40e_driver_string[] =
-> @@ -3993,6 +3994,7 @@ static int i40e_open(struct net_device *netdev)
->                                     "couldn't set broadcast err %d aq_err %d\n",
->                                     err, pf->hw.aq.asq_last_status);
->         }
-> +       vxlan_get_rx_port(netdev);
+> For the ADM switch we could initialize the fixed phy in the arch code,
+> because with that switch fixed phys are always needed, but this is also
+> needed for some Broadcom switches and I can not automatically detect if
+> that is the case. The detection could be done  based on the board the
+> kernel was booted on, but there are some hundreds different ones for
+> BCM47XX.
 
-what effect this has if  the driver doesn't implement the
-add_vxlan_port ndo entry?
+Cannot we unconditionally register a fixed PHY at address 0 and use it whether:
 
+- we are connected to an ADM switch
+- we have a dual-MAC configuration
 
+It seems to me like this would always work, the driver is the one
+deciding which MDIO bus to bind the PHY to.
 
 >
->         return 0;
+> Sorry I missed some calls to fixed_phy_ads() in the arch code where it
+> is used by the device tree platforms, but that could be easily converted
+> to a platform device as well.
 >
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-> index 01d0334..6d36616 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-> @@ -860,12 +860,25 @@ static void i40e_receive_skb(struct i40e_ring *rx_ring,
->   * @skb: skb currently being received and modified
->   * @rx_status: status value of last descriptor in packet
->   * @rx_error: error value of last descriptor in packet
-> + * @rx_ptype: ptype value of last descriptor in packet
->   **/
->  static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
->                                     struct sk_buff *skb,
->                                     u32 rx_status,
-> -                                   u32 rx_error)
-> +                                   u32 rx_error,
-> +                                   u16 rx_ptype)
->  {
-> +       bool ipv4_tunnel, ipv6_tunnel;
-> +       __wsum rx_udp_csum;
-> +       __sum16 csum;
-> +       struct iphdr *iph;
-> +
-> +       ipv4_tunnel = (rx_ptype > I40E_RX_PTYPE_GRENAT4_MAC_PAY3) &&
-> +                     (rx_ptype < I40E_RX_PTYPE_GRENAT4_MACVLAN_IPV6_ICMP_PAY4);
-> +       ipv6_tunnel = (rx_ptype > I40E_RX_PTYPE_GRENAT6_MAC_PAY3) &&
-> +                     (rx_ptype < I40E_RX_PTYPE_GRENAT6_MACVLAN_IPV6_ICMP_PAY4);
-> +
-> +       skb->encapsulation = ipv4_tunnel || ipv6_tunnel;
->         skb->ip_summed = CHECKSUM_NONE;
+>> Can you submit the required changes to arch/mips/bcm47xx/ for now and
+>> get this change merged via David's tree? This would buy us some time
+>> to discuss how to best deal with fixed PHY, and also take Device Tree
+>> aware platform into account since that part has been an on-going
+>> discussion for a while.
 >
->         /* Rx csum enabled and ip headers found? */
-> @@ -873,13 +886,42 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
->               rx_status & (1 << I40E_RX_DESC_STATUS_L3L4P_SHIFT)))
->                 return;
->
-> -       /* IP or L4 checksum error */
-> +       /* IP or L4 or outmost IP checksum error */
->         if (rx_error & ((1 << I40E_RX_DESC_ERROR_IPE_SHIFT) |
-> -                       (1 << I40E_RX_DESC_ERROR_L4E_SHIFT))) {
-> +                       (1 << I40E_RX_DESC_ERROR_L4E_SHIFT) |
-> +                       (1 << I40E_RX_DESC_ERROR_EIPE_SHIFT))) {
->                 vsi->back->hw_csum_rx_error++;
->                 return;
->         }
->
-> +       if (ipv4_tunnel &&
-> +           !(rx_status & (1 << I40E_RX_DESC_STATUS_UDP_0_SHIFT))) {
-> +               /* If VXLAN traffic has an outer UDPv4 checksum we need to check
-> +                * it in the driver, hardware does not do it for us.
-> +                * Since L3L4P bit was set we assume a valid IHL value (>=5)
-> +                * so the total length of IPv4 header is IHL*4 bytes
-> +                */
-> +               skb->transport_header = skb->mac_header +
-> +                                       sizeof(struct ethhdr) +
-> +                                       (ip_hdr(skb)->ihl * 4);
-> +
-> +               /* Add 4 bytes for VLAN tagged packets */
-> +               skb->transport_header += (skb->protocol == htons(ETH_P_8021Q) ||
-> +                                         skb->protocol == htons(ETH_P_8021AD))
-> +                                         ? VLAN_HLEN : 0;
-> +
-> +               rx_udp_csum = udp_csum(skb);
-> +               iph = ip_hdr(skb);
-> +               csum = csum_tcpudp_magic(iph->saddr, iph->daddr,
-> +                                        (skb->len - skb_transport_offset(skb)),
-> +                                        IPPROTO_UDP, rx_udp_csum);
-> +
-> +               if (udp_hdr(skb)->check != csum) {
-> +                       vsi->back->hw_csum_rx_error++;
-> +                       return;
-> +               }
-> +       }
-> +
->         skb->ip_summed = CHECKSUM_UNNECESSARY;
->  }
->
-> @@ -920,6 +962,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
->         union i40e_rx_desc *rx_desc;
->         u32 rx_error, rx_status;
->         u64 qword;
-> +       u16 rx_ptype;
->
->         rx_desc = I40E_RX_DESC(rx_ring, i);
->         qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
-> @@ -952,6 +995,8 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
->                 rx_hbo = rx_error & (1 << I40E_RX_DESC_ERROR_HBO_SHIFT);
->                 rx_error &= ~(1 << I40E_RX_DESC_ERROR_HBO_SHIFT);
->
-> +               rx_ptype = (qword & I40E_RXD_QW1_PTYPE_MASK) >>
-> +                          I40E_RXD_QW1_PTYPE_SHIFT;
->                 rx_bi->skb = NULL;
->
->                 /* This memory barrier is needed to keep us from reading
-> @@ -1032,13 +1077,14 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
->                 }
->
->                 skb->rxhash = i40e_rx_hash(rx_ring, rx_desc);
-> -               i40e_rx_checksum(vsi, skb, rx_status, rx_error);
-> -
->                 /* probably a little skewed due to removing CRC */
->                 total_rx_bytes += skb->len;
->                 total_rx_packets++;
->
->                 skb->protocol = eth_type_trans(skb, rx_ring->netdev);
-> +
-> +               i40e_rx_checksum(vsi, skb, rx_status, rx_error, rx_ptype);
-> +
->                 vlan_tag = rx_status & (1 << I40E_RX_DESC_STATUS_L2TAG1P_SHIFT)
->                          ? le16_to_cpu(rx_desc->wb.qword0.lo_dword.l2tag1)
->                          : 0;
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-> index d683c30..41f57d9 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-> @@ -521,7 +521,8 @@ enum i40e_rx_desc_status_bits {
->         I40E_RX_DESC_STATUS_UMBCAST_SHIFT       = 9, /* 2 BITS */
->         I40E_RX_DESC_STATUS_FLM_SHIFT           = 11,
->         I40E_RX_DESC_STATUS_FLTSTAT_SHIFT       = 12, /* 2 BITS */
-> -       I40E_RX_DESC_STATUS_LPBK_SHIFT          = 14
-> +       I40E_RX_DESC_STATUS_LPBK_SHIFT          = 14,
-> +       I40E_RX_DESC_STATUS_UDP_0_SHIFT         = 16
->  };
->
->  #define I40E_RXD_QW1_STATUS_TSYNINDX_SHIFT   I40E_RX_DESC_STATUS_TSYNINDX_SHIFT
-> @@ -567,28 +568,32 @@ enum i40e_rx_desc_error_l3l4e_fcoe_masks {
->
->  /* Packet type non-ip values */
->  enum i40e_rx_l2_ptype {
-> -       I40E_RX_PTYPE_L2_RESERVED               = 0,
-> -       I40E_RX_PTYPE_L2_MAC_PAY2               = 1,
-> -       I40E_RX_PTYPE_L2_TIMESYNC_PAY2          = 2,
-> -       I40E_RX_PTYPE_L2_FIP_PAY2               = 3,
-> -       I40E_RX_PTYPE_L2_OUI_PAY2               = 4,
-> -       I40E_RX_PTYPE_L2_MACCNTRL_PAY2          = 5,
-> -       I40E_RX_PTYPE_L2_LLDP_PAY2              = 6,
-> -       I40E_RX_PTYPE_L2_ECP_PAY2               = 7,
-> -       I40E_RX_PTYPE_L2_EVB_PAY2               = 8,
-> -       I40E_RX_PTYPE_L2_QCN_PAY2               = 9,
-> -       I40E_RX_PTYPE_L2_EAPOL_PAY2             = 10,
-> -       I40E_RX_PTYPE_L2_ARP                    = 11,
-> -       I40E_RX_PTYPE_L2_FCOE_PAY3              = 12,
-> -       I40E_RX_PTYPE_L2_FCOE_FCDATA_PAY3       = 13,
-> -       I40E_RX_PTYPE_L2_FCOE_FCRDY_PAY3        = 14,
-> -       I40E_RX_PTYPE_L2_FCOE_FCRSP_PAY3        = 15,
-> -       I40E_RX_PTYPE_L2_FCOE_FCOTHER_PA        = 16,
-> -       I40E_RX_PTYPE_L2_FCOE_VFT_PAY3          = 17,
-> -       I40E_RX_PTYPE_L2_FCOE_VFT_FCDATA        = 18,
-> -       I40E_RX_PTYPE_L2_FCOE_VFT_FCRDY         = 19,
-> -       I40E_RX_PTYPE_L2_FCOE_VFT_FCRSP         = 20,
-> -       I40E_RX_PTYPE_L2_FCOE_VFT_FCOTHER       = 21
-> +       I40E_RX_PTYPE_L2_RESERVED                       = 0,
-> +       I40E_RX_PTYPE_L2_MAC_PAY2                       = 1,
-> +       I40E_RX_PTYPE_L2_TIMESYNC_PAY2                  = 2,
-> +       I40E_RX_PTYPE_L2_FIP_PAY2                       = 3,
-> +       I40E_RX_PTYPE_L2_OUI_PAY2                       = 4,
-> +       I40E_RX_PTYPE_L2_MACCNTRL_PAY2                  = 5,
-> +       I40E_RX_PTYPE_L2_LLDP_PAY2                      = 6,
-> +       I40E_RX_PTYPE_L2_ECP_PAY2                       = 7,
-> +       I40E_RX_PTYPE_L2_EVB_PAY2                       = 8,
-> +       I40E_RX_PTYPE_L2_QCN_PAY2                       = 9,
-> +       I40E_RX_PTYPE_L2_EAPOL_PAY2                     = 10,
-> +       I40E_RX_PTYPE_L2_ARP                            = 11,
-> +       I40E_RX_PTYPE_L2_FCOE_PAY3                      = 12,
-> +       I40E_RX_PTYPE_L2_FCOE_FCDATA_PAY3               = 13,
-> +       I40E_RX_PTYPE_L2_FCOE_FCRDY_PAY3                = 14,
-> +       I40E_RX_PTYPE_L2_FCOE_FCRSP_PAY3                = 15,
-> +       I40E_RX_PTYPE_L2_FCOE_FCOTHER_PA                = 16,
-> +       I40E_RX_PTYPE_L2_FCOE_VFT_PAY3                  = 17,
-> +       I40E_RX_PTYPE_L2_FCOE_VFT_FCDATA                = 18,
-> +       I40E_RX_PTYPE_L2_FCOE_VFT_FCRDY                 = 19,
-> +       I40E_RX_PTYPE_L2_FCOE_VFT_FCRSP                 = 20,
-> +       I40E_RX_PTYPE_L2_FCOE_VFT_FCOTHER               = 21,
-> +       I40E_RX_PTYPE_GRENAT4_MAC_PAY3                  = 58,
-> +       I40E_RX_PTYPE_GRENAT4_MACVLAN_IPV6_ICMP_PAY4    = 87,
-> +       I40E_RX_PTYPE_GRENAT6_MAC_PAY3                  = 124,
-> +       I40E_RX_PTYPE_GRENAT6_MACVLAN_IPV6_ICMP_PAY4    = 153
->  };
->
->  struct i40e_rx_ptype_decoded {
-> --
-> 1.8.3.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> What changes to arch/mips/bcm47xx/ are you talking about?
+
+I am talking about the call to fixed_phy_add() which have to happen
+early enough before the fixed MDIO bus is probed, just like what AR7
+does currently.
+
+I do agree though that something needs to be done because the fixed
+MDIO bus usage comes from days where it was easy to add a call to
+fixed_phy_add() early enough in your platform code, this is no longer
+the case with Device Tree and such.
+
+> Do you mean I should send the b44 patches without the fixed phy stuff
+> first and then we can discuss the fixed phy stuff separately, that would
+> be my next strategy? ;-)
+--
+Florian
