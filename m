@@ -1,180 +1,103 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next 1/4] net_sched: act: clean up notification functions
-Date: Wed, 18 Dec 2013 16:36:40 -0800
-Message-ID: <1387413403-6395-2-git-send-email-xiyou.wangcong@gmail.com>
+Subject: [Patch net-next 3/4] net_sched: mirred: remove action when the target device is gone
+Date: Wed, 18 Dec 2013 16:36:42 -0800
+Message-ID: <1387413403-6395-4-git-send-email-xiyou.wangcong@gmail.com>
 References: <1387413403-6395-1-git-send-email-xiyou.wangcong@gmail.com>
 Cc: Cong Wang <xiyou.wangcong@gmail.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:35430 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752411Ab3LSAg4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 19:36:56 -0500
-Received: by mail-pb0-f44.google.com with SMTP id rq2so396185pbb.3
-        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 16:36:56 -0800 (PST)
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:40797 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752411Ab3LSAg7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 19:36:59 -0500
+Received: by mail-pb0-f52.google.com with SMTP id uo5so385932pbc.39
+        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 16:36:58 -0800 (PST)
 In-Reply-To: <1387413403-6395-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Refactor tcf_add_notify() and factor out tcf_del_notify().
+When the target device is removed, the mirred action is
+still there but with the dev pointer setting to NULL.
+This makes the output from 'tc filter' ugly. There is no
+reason to keep it.
 
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 Cc: David S. Miller <davem@davemloft.net>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- net/sched/act_api.c | 99 ++++++++++++++++++++++-------------------------------
- 1 file changed, 40 insertions(+), 59 deletions(-)
+ include/net/tc_act/tc_mirred.h |  1 +
+ net/sched/act_mirred.c         | 27 ++++++++++++++++++---------
+ 2 files changed, 19 insertions(+), 9 deletions(-)
 
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 8114fef..c83c799 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -833,6 +833,33 @@ noflush_out:
- }
+diff --git a/include/net/tc_act/tc_mirred.h b/include/net/tc_act/tc_mirred.h
+index cfe2943..374be24 100644
+--- a/include/net/tc_act/tc_mirred.h
++++ b/include/net/tc_act/tc_mirred.h
+@@ -10,6 +10,7 @@ struct tcf_mirred {
+ 	int			tcfm_ok_push;
+ 	struct net_device	*tcfm_dev;
+ 	struct list_head	tcfm_list;
++	struct tc_action	*tcfm_act;
+ };
+ #define to_mirred(pc) \
+ 	container_of(pc, struct tcf_mirred, common)
+diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+index a6a0af9..33a4893 100644
+--- a/net/sched/act_mirred.c
++++ b/net/sched/act_mirred.c
+@@ -128,6 +128,7 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+ 		dev_hold(dev);
+ 		m->tcfm_dev = dev;
+ 		m->tcfm_ok_push = ok_push;
++		m->tcfm_act = a;
+ 	}
+ 	spin_unlock_bh(&m->tcf_lock);
+ 	if (ret == ACT_P_CREATED) {
+@@ -161,10 +162,6 @@ static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
+ 	bstats_update(&m->tcf_bstats, skb);
  
- static int
-+tcf_del_notify(struct net *net, struct nlmsghdr *n, struct list_head *actions,
-+	       u32 portid)
-+{
-+	int ret;
-+	struct sk_buff *skb;
-+
-+	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
-+	if (!skb)
-+		return -ENOBUFS;
-+
-+	if (tca_get_fill(skb, actions, portid, n->nlmsg_seq, 0, RTM_DELACTION,
-+			 0, 1) <= 0) {
-+		kfree_skb(skb);
-+		return -EINVAL;
-+	}
-+
-+	/* now do the delete */
-+	tcf_action_destroy(actions, 0);
-+
-+	ret = rtnetlink_send(skb, net, portid, RTNLGRP_TC,
-+			     n->nlmsg_flags & NLM_F_ECHO);
-+	if (ret > 0)
-+		return 0;
-+	return ret;
-+}
-+
-+static int
- tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
- 	      u32 portid, int event)
- {
-@@ -864,89 +891,43 @@ tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
- 
- 	if (event == RTM_GETACTION)
- 		ret = act_get_notify(net, portid, n, &actions, event);
--	else { /* delete */
--		struct sk_buff *skb;
--
--		skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
--		if (!skb) {
--			ret = -ENOBUFS;
--			goto err;
--		}
--
--		if (tca_get_fill(skb, &actions, portid, n->nlmsg_seq, 0, event,
--				 0, 1) <= 0) {
--			kfree_skb(skb);
--			ret = -EINVAL;
--			goto err;
--		}
--
--		/* now do the delete */
--		tcf_action_destroy(&actions, 0);
--		ret = rtnetlink_send(skb, net, portid, RTNLGRP_TC,
--				     n->nlmsg_flags & NLM_F_ECHO);
--		if (ret > 0)
--			return 0;
--		return ret;
+ 	dev = m->tcfm_dev;
+-	if (!dev) {
+-		printk_once(KERN_NOTICE "tc mirred: target device is gone\n");
+-		goto out;
 -	}
-+	else /* delete */
-+		ret = tcf_del_notify(net, n, &actions, portid);
- err:
- 	cleanup_a(&actions);
- 	return ret;
- }
  
--static int tcf_add_notify(struct net *net, struct list_head *actions,
--			  u32 portid, u32 seq, int event, u16 flags)
-+static int
-+tcf_add_notify(struct net *net, struct nlmsghdr *n, struct list_head *actions,
-+	       u32 portid)
+ 	if (!(dev->flags & IFF_UP)) {
+ 		net_notice_ratelimited("tc mirred to Houston: device %s is down\n",
+@@ -236,15 +233,27 @@ static int mirred_device_event(struct notifier_block *unused,
+ 			       unsigned long event, void *ptr)
  {
--	struct tcamsg *t;
--	struct nlmsghdr *nlh;
- 	struct sk_buff *skb;
--	struct nlattr *nest;
--	unsigned char *b;
- 	int err = 0;
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+-	struct tcf_mirred *m;
++	struct tcf_mirred *m, *tmp;
  
- 	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
- 	if (!skb)
- 		return -ENOBUFS;
- 
--	b = skb_tail_pointer(skb);
--
--	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*t), flags);
--	if (!nlh)
--		goto out_kfree_skb;
--	t = nlmsg_data(nlh);
--	t->tca_family = AF_UNSPEC;
--	t->tca__pad1 = 0;
--	t->tca__pad2 = 0;
--
--	nest = nla_nest_start(skb, TCA_ACT_TAB);
--	if (nest == NULL)
--		goto out_kfree_skb;
--
--	if (tcf_action_dump(skb, actions, 0, 0) < 0)
--		goto out_kfree_skb;
--
--	nla_nest_end(skb, nest);
--
--	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
--	NETLINK_CB(skb).dst_group = RTNLGRP_TC;
-+	if (tca_get_fill(skb, actions, portid, n->nlmsg_seq, n->nlmsg_flags,
-+			 RTM_NEWACTION, 0, 0) <= 0) {
-+		kfree_skb(skb);
-+		return -EINVAL;
+-	if (event == NETDEV_UNREGISTER)
+-		list_for_each_entry(m, &mirred_list, tcfm_list) {
++	if (event == NETDEV_UNREGISTER) {
++		list_for_each_entry_safe(m, tmp, &mirred_list, tcfm_list) {
+ 			if (m->tcfm_dev == dev) {
+-				dev_put(dev);
+-				m->tcfm_dev = NULL;
++				struct tcf_common *p = NULL;
++				u32 index = m->common.tcfc_index;
++
++				list_del(&m->tcfm_act->list);
++				while ((p = tcf_hash_lookup(index, &mirred_hash_info)) != NULL) {
++					list_del_init(&m->tcfm_list);
++					if (m->tcfm_dev) {
++						dev_put(m->tcfm_dev);
++						m->tcfm_dev = NULL;
++					}
++					tcf_hash_destroy(p, &mirred_hash_info);
++				}
++				kfree(m->tcfm_act);
+ 			}
+ 		}
 +	}
  
--	err = rtnetlink_send(skb, net, portid, RTNLGRP_TC, flags & NLM_F_ECHO);
-+	err = rtnetlink_send(skb, net, portid, RTNLGRP_TC,
-+			     n->nlmsg_flags & NLM_F_ECHO);
- 	if (err > 0)
- 		err = 0;
- 	return err;
--
--out_kfree_skb:
--	kfree_skb(skb);
--	return -1;
+ 	return NOTIFY_DONE;
  }
- 
--
- static int
- tcf_action_add(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
- 	       u32 portid, int ovr)
- {
- 	int ret = 0;
- 	LIST_HEAD(actions);
--	u32 seq = n->nlmsg_seq;
- 
- 	ret = tcf_action_init(net, nla, NULL, NULL, ovr, 0, &actions);
- 	if (ret)
-@@ -955,7 +936,7 @@ tcf_action_add(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
- 	/* dump then free all the actions after update; inserted policy
- 	 * stays intact
- 	 */
--	ret = tcf_add_notify(net, &actions, portid, seq, RTM_NEWACTION, n->nlmsg_flags);
-+	ret = tcf_add_notify(net, n, &actions, portid);
- 	cleanup_a(&actions);
- done:
- 	return ret;
 -- 
 1.8.3.1
