@@ -1,40 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ipv6: always set the new created dst's from in
- ip6_rt_copy
-Date: Thu, 19 Dec 2013 18:36:25 -0500 (EST)
-Message-ID: <20131219.183625.1952631278036234141.davem@davemloft.net>
-References: <20131219003742.GA14429@order.stressinduktion.org>
-	<1387428026-30152-1-git-send-email-roy.qing.li@gmail.com>
+Subject: Re: pull request (net-next): ipsec-next 2013-12-19
+Date: Thu, 19 Dec 2013 18:38:04 -0500 (EST)
+Message-ID: <20131219.183804.1892402616200195799.davem@davemloft.net>
+References: <1387435005-8987-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-	gaofeng@cn.fujitsu.com
-To: roy.qing.li@gmail.com
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36744 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36759 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756585Ab3LSXg1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 18:36:27 -0500
-In-Reply-To: <1387428026-30152-1-git-send-email-roy.qing.li@gmail.com>
+	with ESMTP id S1756258Ab3LSXiF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 18:38:05 -0500
+In-Reply-To: <1387435005-8987-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: roy.qing.li@gmail.com
-Date: Thu, 19 Dec 2013 12:40:26 +0800
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Thu, 19 Dec 2013 07:36:37 +0100
 
-> From: Li RongQing <roy.qing.li@gmail.com> 
+> 1) Use the user supplied policy index instead of a generated one
+>    if present. From Fan Du.
 > 
-> ip6_rt_copy only sets dst.from if ort has flag RTF_ADDRCONF and RTF_DEFAULT.
-> but the prefix routes which did get installed by hand locally can have an
-> expiration, and no any flag combination which can ensure a potential from
-> does never expire, so we should always set the new created dst's from.
+> 2) Make xfrm migration namespace aware. From Fan Du.
 > 
-> This also fixes the new created dst is always expired since the ort, which
-> is created by RA, maybe has RTF_EXPIRES and RTF_ADDRCONF, but no RTF_DEFAULT.
+> 3) Make the xfrm state and policy locks namespace aware. From Fan Du.
 > 
-> Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> CC: Gao feng <gaofeng@cn.fujitsu.com>
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> 4) Remove ancient sleeping when the SA is in acquire state,
+>    we now queue packets to the policy instead. This replaces the
+>    sleeping code.
+> 
+> 5) Remove FLOWI_FLAG_CAN_SLEEP. This was used to notify xfrm about the
+>    posibility to sleep. The sleeping code is gone, so remove it.
+> 
+> 6) Check user specified spi for IPComp. Thr spi for IPcomp is only
+>    16 bit wide, so check for a valid value. From Fan Du.
+> 
+> 7) Export verify_userspi_info to check for valid user supplied spi ranges
+>    with pfkey and netlink. From Fan Du.
+> 
+> 8) RFC3173 states that if the total size of a compressed payload and the IPComp
+>    header is not smaller than the size of the original payload, the IP datagram
+>    must be sent in the original non-compressed form. These packets are dropped
+>    by the inbound policy check because they are not transformed. Document the need
+>    to set 'level use' for IPcomp to receive such packets anyway. From Fan Du.
+> 
+> Please pull or let me know if there are problems.
 
-Applied and queued up for -stable, thanks.
+Pulled, thanks a lot.
