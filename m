@@ -1,113 +1,70 @@
-From: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-Subject: next-20131218 - WARNING in qdisc_list_add
-Date: Thu, 19 Dec 2013 13:14:39 -0500
-Message-ID: <7625.1387476879@turing-police.cc.vt.edu>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next] hyperv: Add support for Virtual Receive Side
+ Scaling (vRSS)
+Date: Thu, 19 Dec 2013 18:36:27 +0000
+Message-ID: <ff7f7541d0164d408b3a4278569c593a@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <1387405262-18334-1-git-send-email-haiyangz@microsoft.com>
+ <1387475178.1876.29.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1387476879_3146P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	KY Srinivasan <kys@microsoft.com>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"driverdev-devel@linuxdriverproject.org"
+	<driverdev-devel@linuxdriverproject.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1387475178.1876.29.camel@bwh-desktop.uk.level5networks.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1387476879_3146P
-Content-Type: text/plain; charset=us-ascii
-
-Seen once while booting next-20131218 (different boot than the BUG
-I hit). Command that triggered it would have been one of these 2:
-
-/usr/sbin/tc qdisc add dev em1 root codel
-/usr/sbin/tc qdisc add dev wlp3s0 root codel
-
-It's possible that wlp3s0 wasn't there yet due to rfkill switch having
-nuked the wireless.
-
-'git blame' points at the message being added in this commit:
-
-commit e57a784d8cae429f5b697fe55abf420181d9ff09
-Author: Eric Dumazet <edumazet@google.com>
-Date:   Thu Dec 12 15:41:56 2013 -0800
-
-    pkt_sched: set root qdisc before change() in attach_default_qdiscs()
-
-    After commit 95dc19299f74 ("pkt_sched: give visibility to mq slave
-    qdiscs") we call disc_list_add() while the device qdisc might be
-    the noop_qdisc one.
-
-    This shows up as duplicates in "tc qdisc show", as all inactive devices
-    point to noop_qdisc.
-
-    Fix this by setting dev->qdisc to the new qdisc before calling
-    ops->change() in attach_default_qdiscs()
-
-    Add a WARN_ON_ONCE() to catch any future similar problem.
-
-    Signed-off-by: Eric Dumazet <edumazet@google.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-
- [  153.876539] ------------[ cut here ]------------
- [  153.878667] WARNING: CPU: 1 PID: 1446 at net/sched/sch_api.c:278 qdisc_list_add+0x79/0xcf()
- [  153.897042] CPU: 3 PID: 1446 Comm: tc Tainted: G           O 3.13.0-rc4-next-20131218 #129
- [  153.898877] Hardware name: Dell Inc. Latitude E6530/07Y85M, BIOS A11 03/12/2013
- [  153.900666]  0000000000000000 ffff880121195950 ffffffff8164c74f 0000000000000000
- [  153.905666]  ffff880121195988 ffffffff8103875e ffffffff814afe73 ffff88012828f600
- [  153.910847]  0000000000000001 ffffffff81c8cac0 0000000000000001 ffff880121195998
- [  153.916012] Call Trace:
- [  153.917237]  [<ffffffff8164c74f>] dump_stack+0x4f/0xa2
- [  153.918659]  [<ffffffff8103875e>] warn_slowpath_common+0x7a/0x93
- [  153.920222]  [<ffffffff814afe73>] ? qdisc_list_add+0x79/0xcf
- [  153.921896]  [<ffffffff81038816>] warn_slowpath_null+0x15/0x17
- [  153.923579]  [<ffffffff814afe73>] qdisc_list_add+0x79/0xcf
- [  153.925134]  [<ffffffff814b1466>] qdisc_create+0x237/0x350
- [  153.926658]  [<ffffffff814b1a05>] tc_modify_qdisc+0x486/0x4af
- [  153.928173]  [<ffffffff814a2bb0>] rtnetlink_rcv_msg+0x180/0x193
- [  153.929753]  [<ffffffff810c7c32>] ? trace_preempt_on+0x12/0x2f
- [  153.931453]  [<ffffffff814a2a30>] ? rtnl_newlink+0x4ba/0x4ba
- [  153.933107]  [<ffffffff814b67e4>] netlink_rcv_skb+0x44/0x86
- [  153.934586]  [<ffffffff8149fbeb>] rtnetlink_rcv+0x1e/0x25
- [  153.936133]  [<ffffffff814b62ef>] netlink_unicast+0xf1/0x175
- [  153.937587]  [<ffffffff814b6677>] netlink_sendmsg+0x304/0x34e
- [  153.939088]  [<ffffffff814794ac>] __sock_sendmsg_nosec+0x25/0x27
- [  153.940638]  [<ffffffff8147b0c2>] sock_sendmsg+0x52/0x6c
- [  153.942278]  [<ffffffff811009ce>] ? might_fault+0x9b/0x9f
- [  153.943980]  [<ffffffff81100985>] ? might_fault+0x52/0x9f
- [  153.945439]  [<ffffffff81487cec>] ? verify_iovec+0x5e/0xac
- [  153.946993]  [<ffffffff8147cd41>] ___sys_sendmsg+0x20d/0x29d
- [  153.948540]  [<ffffffff81073236>] ? arch_local_irq_save+0x9/0xc
- [  153.950087]  [<ffffffff81072708>] ? up_read+0x22/0x25
- [  153.951743]  [<ffffffff8165a21b>] ? __do_page_fault+0x56f/0x600
- [  153.953495]  [<ffffffff810c7bdd>] ? time_hardirqs_on+0x1b/0x2f
- [  153.955175]  [<ffffffff8113fdee>] ? fcheck_files+0x80/0xe0
- [  153.956720]  [<ffffffff8114062d>] ? fget_light+0x30/0x90
- [  153.958195]  [<ffffffff8147d20a>] __sys_sendmsg+0x3d/0x5b
- [  153.959645]  [<ffffffff8147d235>] SyS_sendmsg+0xd/0x17
- [  153.961092]  [<ffffffff8165d722>] system_call_fastpath+0x16/0x1b
- [  153.965229] ---[ end trace ec29ec2eecd5a461 ]---
-
-
---==_Exmh_1387476879_3146P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iQIVAwUBUrM3jwdmEQWDXROgAQKrbQ/+P9oJjyif0HRm0prl5J+//j09jovoAEuw
-Nqt1FI6gi6Eit13vTSsLrkJptfJ6KIKU4LVQkCrRNskp51rDHqrre7FVs5JgHCoQ
-j8JMAcCLYZsKNNPWt0L7QNp7z0Ps9NOdnrj/IelisBKEHkQaK0OscO7oV+r1Q4EE
-XDMedzqZyp+ND8/4U7g5qh3uUPVAgmeABid2WK+4ZwUtUfI7jSU3j1xQAF+hGMNT
-uKyC9eKPYEDWPPL2RT/B4mtZ5i9wTl+20CF6XS10l9RwH88IRo18MS5za/CO5mUm
-bpHS55386nw0NlNuhdW4zU/pGPXyPVvv7I/XHhgSQhi0qf2stdeBrJ4ljIxKA+mw
-9w3lYjapWAYmbdl8vq1v3dyAJqgbWXQCtq0/Au99TnrRkSTMXXvbnuigDpfFweGD
-xLbQAyf8Uqik+itUPZxWpad0x/o5jBsCh9iXc9hxAZaNzRCzqRXXFAOCPbih9kLf
-oi8c2uzg6mjL3QEcLRJD5NnARRCeb0ETxbY1GbJ4o46Amavo1+aMeF5e+68BxFv1
-ASDPMgs1GW0gliPjziOvJZhdSK45+INrWPYqs2+ymE1cIYILAERsoyiwIanBh+7I
-EdUq7slpIkZwSK76gbCxVIV+OVcC22d7OIfnykiKc6UJt4kmmatmu+CYo8VzZi33
-UFQ3luOorAQ=
-=PSwe
------END PGP SIGNATURE-----
-
---==_Exmh_1387476879_3146P--
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
+bWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+IFNlbnQ6IFRodXJzZGF5LCBEZWNl
+bWJlciAxOSwgMjAxMyAxMjo0NiBQTQ0KPiBUbzogSGFpeWFuZyBaaGFuZw0KPiBDYzogZGF2ZW1A
+ZGF2ZW1sb2Z0Lm5ldDsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgS1kgU3Jpbml2YXNhbjsNCj4g
+b2xhZkBhZXBmbGUuZGU7IGphc293YW5nQHJlZGhhdC5jb207IGxpbnV4LWtlcm5lbEB2Z2VyLmtl
+cm5lbC5vcmc7DQo+IGRyaXZlcmRldi1kZXZlbEBsaW51eGRyaXZlcnByb2plY3Qub3JnDQo+IFN1
+YmplY3Q6IFJlOiBbUEFUQ0ggbmV0LW5leHRdIGh5cGVydjogQWRkIHN1cHBvcnQgZm9yIFZpcnR1
+YWwgUmVjZWl2ZSBTaWRlDQo+IFNjYWxpbmcgKHZSU1MpDQo+IA0KPiBPbiBXZWQsIDIwMTMtMTIt
+MTggYXQgMTQ6MjEgLTA4MDAsIEhhaXlhbmcgWmhhbmcgd3JvdGU6DQo+ID4gVGhpcyBmZWF0dXJl
+IGFsbG93cyBtdWx0aXBsZSBjaGFubmVscyB0byBiZSB1c2VkIGJ5IGVhY2ggdmlydHVhbCBOSUMu
+DQo+ID4gSXQgaXMgYXZhaWxhYmxlIG9uIEh5cGVyLVYgaG9zdCAyMDEyIFIyLg0KPiA+ICAJfSBl
+bHNlIGlmIChyZXQgPT0gLUVBR0FJTikgew0KPiA+IC0JCW5ldGlmX3N0b3BfcXVldWUobmRldik7
+DQo+ID4gKwkJbmV0aWZfdHhfc3RvcF9hbGxfcXVldWVzKG5kZXYpOw0KPiA+ICAJCWlmIChhdG9t
+aWNfcmVhZCgmbmV0X2RldmljZS0+bnVtX291dHN0YW5kaW5nX3NlbmRzKSA8IDEpIHsNCj4gPiAt
+CQkJbmV0aWZfd2FrZV9xdWV1ZShuZGV2KTsNCj4gPiArCQkJbmV0aWZfdHhfd2FrZV9hbGxfcXVl
+dWVzKG5kZXYpOw0KPiA+ICAJCQlyZXQgPSAtRU5PU1BDOw0KPiA+ICAJCX0NCj4gPiAgCX0gZWxz
+ZSB7DQo+IA0KPiBUaGlzIGRvZXNuJ3QgbWFrZXMgYW55IHNlbnNlIHRvIG1lLiAgSG93IGNhbiB5
+b3Ugc2FmZWx5IHNoYXJlIHRoZSBzYW1lDQo+IGNoYW5uZWxzIGJldHdlZW4gYWxsIFRYIHF1ZXVl
+cz8NCj4gDQo+IEkgdGhpbmsgeW91IG5lZWQgdG8gYXNzb2NpYXRlIFRYIHF1ZXVlcyBhbmQgY2hh
+bm5lbHMgMS0xLiAgSWYgeW91IGFyZSByZXF1aXJlZCB0bw0KPiBtYXAgcGFja2V0cyB0byBUWCBx
+dWV1ZXMgdXNpbmcgdGhlIFRvZXBsaXR6IGhhc2gsIHlvdSBzaG91bGQgaW1wbGVtZW50DQo+IG5k
+b19zZWxlY3RfcXVldWUgYW5kIGRvIHRoZSBtYXBwaW5nIHRoZXJlLiAgVGhlbiBpbg0KPiBuZXR2
+c2Nfc2VuZCgpIHlvdSB3b3VsZCB1c2UgdGhlIHF1ZXVlIG51bWJlciBmcm9tIHRoZSBza2IgdG8g
+ZmluZCB3aGljaA0KPiBjaGFubmVsIHRvIHVzZSBhbmQgd2hpY2ggcXVldWUgbWF5IG5lZWQgdG8g
+YmUgc3RvcHBlZC93b2tlbi4NCj4gDQo+IFsuLi5dDQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvaHlw
+ZXJ2L25ldHZzY19kcnYuYw0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2
+LmMNCj4gWy4uLl0NCj4gPiArLyogVG9lcGxpdHogaGFzaCBmdW5jdGlvbg0KPiA+ICsgKiBkYXRh
+OiBuZXR3b3JrIGJ5dGUgb3JkZXINCj4gPiArICogcmV0dXJuOiBob3N0IGJ5dGUgb3JkZXINCj4g
+PiArICovDQo+IA0KPiBUaGlzIGxvb2tzIGluY3JlZGlibHkgc2xvdy4gIEkndmUgc2VlbiBzb2Z0
+d2FyZSBpbXBsZW1lbnRhdGlvbnMgdGhhdCBhcmUgbGlrZWx5IHRvDQo+IGJlIG1vcmUgZWZmaWNp
+ZW50LCBlLmcuDQo+IDxodHRwOi8vdGhyZWFkLmdtYW5lLm9yZy9nbWFuZS5saW51eC5uZXR3b3Jr
+LzI4NDYxMi8+DQo+IA0KPiBbLi4uXQ0KPiA+IGludCBuZXR2c2NfcHJvYmUoc3RydWN0IGh2X2Rl
+dmljZSAqZGV2LA0KPiA+ICAJCXJldHVybiByZXQ7DQo+ID4gIAl9DQo+ID4gIAltZW1jcHkobmV0
+LT5kZXZfYWRkciwgZGV2aWNlX2luZm8ubWFjX2FkciwgRVRIX0FMRU4pOw0KPiA+ICsJbnZkZXYg
+PSBodl9nZXRfZHJ2ZGF0YShkZXYpOw0KPiA+ICsJcnRubF9sb2NrKCk7DQo+ID4gKwluZXRpZl9z
+ZXRfcmVhbF9udW1fdHhfcXVldWVzKG5ldCwgbnZkZXYtPm51bV9jaG4pOw0KPiA+ICsJbmV0aWZf
+c2V0X3JlYWxfbnVtX3J4X3F1ZXVlcyhuZXQsIG52ZGV2LT5udW1fY2huKTsNCj4gWy4uLl0NCj4g
+DQo+IFRoZXNlIGZ1bmN0aW9ucyBjYW4gZmFpbCBpZiBjYWxsZWQgYWZ0ZXIgcmVnaXN0ZXJpbmcg
+dGhlIG5ldCBkZXZpY2UsIHNvIHlvdSBzaG91bGQNCj4gZWl0aGVyIGNhbGwgdGhlbSB3aXRoIHRo
+ZSBmaW5hbCB2YWx1ZXMgZWFybGllciBvciBoYW5kbGUgZmFpbHVyZSBoZXJlLg0KPiANCj4gQWxz
+bywgSSBub3RpY2UgdGhhdCBkZXZfYWRkciBpcyBvbmx5IHNldCBhZnRlciByZWdpc3RlcmluZzsg
+dGhhdCBzaG91bGQgYmUgZml4ZWQuDQo+IA0KDQpUaGFuayB5b3UgZm9yIHRoZSBzdWdnZXN0aW9u
+cyEgSSB3aWxsIHJlLXdyaXRlIHRoZSBzZW5kIHF1ZXVlIHNlbGVjdGlvbiwgZW5oYW5jZQ0KdGhl
+IGhhc2ggY2FsY3VsYXRpb24sIGFsc28gZml4IHRoZSBpbml0aWFsaXphdGlvbiBzZXF1ZW5jZS4N
+Cg0KVGhhbmtzLA0KLSBIYWl5YW5nDQoNCg==
