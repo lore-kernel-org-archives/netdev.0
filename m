@@ -1,33 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fec: fix potential use after free
-Date: Thu, 19 Dec 2013 18:31:05 -0500 (EST)
-Message-ID: <20131219.183105.2179319099972646699.davem@davemloft.net>
-References: <1387479182.19078.369.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next 0/5] bonding: add even more netlink attributes
+Date: Thu, 19 Dec 2013 18:33:15 -0500 (EST)
+Message-ID: <20131219.183315.2184861342450197731.davem@davemloft.net>
+References: <20131218052755.13529.61835.stgit@monster-03.cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Frank.Li@freescale.com,
-	richardcochran@gmail.com
-To: eric.dumazet@gmail.com
+Cc: vfalico@redhat.com, fubar@us.ibm.com, andy@greyhouse.net,
+	netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	shm@cumulusnetworks.com
+To: sfeldma@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36716 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36731 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756585Ab3LSXbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 18:31:09 -0500
-In-Reply-To: <1387479182.19078.369.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1756449Ab3LSXdR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 18:33:17 -0500
+In-Reply-To: <20131218052755.13529.61835.stgit@monster-03.cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 19 Dec 2013 10:53:02 -0800
+From: Scott Feldman <sfeldma@cumulusnetworks.com>
+Date: Tue, 17 Dec 2013 21:30:02 -0800
 
-> From: Eric Dumazet <edumazet@google.com>
+> The following series implements five more bonding netlink attributes:
 > 
-> skb_tx_timestamp(skb) should be called _before_ TX completion
-> has a chance to trigger, otherwise it is too late and we access
-> freed memory.
+> 	num_grat_arp|num_unsol_na
+> 	all_slaves_active
+> 	min_links
+> 	lp_interval
+> 	packets_per_slave
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Fixes: de5fb0a05348 ("net: fec: put tx to napi poll function to fix dead lock")
+> Tested with modified iproute2 to verify attributes can be set at bond creation
+> time or set later.  Verified sysfs interface to attributes continues to work.
+> 
+> I have one more set after this one for all of the 802.3ad attributes.  Whew.
 
-Applied and queued up for -stable, thanks.
+You have much more stamina than I do, that's for sure :-)
+
+Series applied, thanks!
