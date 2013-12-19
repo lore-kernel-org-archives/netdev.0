@@ -1,41 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH resend net-next] sch_tbf: add TBF_BURST/TBF_PBURST
- attribute
-Date: Thu, 19 Dec 2013 15:03:14 -0500 (EST)
-Message-ID: <20131219.150314.2040749867653163114.davem@davemloft.net>
-References: <1386927716-7896-1-git-send-email-yangyingliang@huawei.com>
-	<52AFC64F.2070100@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: fec: fix potential use after free
+Date: Thu, 19 Dec 2013 12:03:59 -0800
+Message-ID: <1387483439.19078.372.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1387479182.19078.369.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131219193231.GB14612@netboy>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: yangyingliang@huawei.com
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Frank Li <Frank.Li@freescale.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35608 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756038Ab3LSUDQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 15:03:16 -0500
-In-Reply-To: <52AFC64F.2070100@huawei.com>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:46915 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932113Ab3LSUEB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 15:04:01 -0500
+Received: by mail-pb0-f52.google.com with SMTP id uo5so1617433pbc.11
+        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 12:04:00 -0800 (PST)
+In-Reply-To: <20131219193231.GB14612@netboy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yang Yingliang <yangyingliang@huawei.com>
-Date: Tue, 17 Dec 2013 11:34:39 +0800
+On Thu, 2013-12-19 at 20:32 +0100, Richard Cochran wrote:
+> On Thu, Dec 19, 2013 at 10:53:02AM -0800, Eric Dumazet wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > skb_tx_timestamp(skb) should be called _before_ TX completion
+> > has a chance to trigger, otherwise it is too late and we access
+> > freed memory.
+> > 
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > Fixes: de5fb0a05348 ("net: fec: put tx to napi poll function to fix dead lock")
+> 
+> So the hw_lock spin lock was protecting against this issue?
+> 
+> Nice catch. How ever did you find this?
 
-> From: Yang Yingliang <yangyingliang@huawei.com>
-> 
-> When we set burst to 1514 with low rate in userspace,
-> the kernel get a value of burst that less than 1514,
-> which doesn't work.
-> 
-> Because it may make some loss when transform burst
-> to buffer in userspace. This makes burst lose some
-> bytes, when the kernel transform the buffer back to
-> burst.
-> 
-> This patch adds two new attributes to support sending
-> burst/mtu to kernel directly to avoid the loss.
-> 
-> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-
-I really want to see some review of this change, thanks.
+While looking at another driver, founding the same issue.
