@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/15] i40e: make a define from a large constant
-Date: Wed, 18 Dec 2013 22:34:49 -0800
-Message-ID: <1387434891-19719-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/15] i40e: be more informative
+Date: Wed, 18 Dec 2013 22:34:48 -0800
+Message-ID: <1387434891-19719-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387434891-19719-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -9,97 +9,41 @@ Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:43313 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:65348 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752534Ab3LSGfD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Dec 2013 01:35:03 -0500
+	id S1751838Ab3LSGfC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Dec 2013 01:35:02 -0500
 In-Reply-To: <1387434891-19719-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mitch Williams <mitch.a.williams@intel.com>
 
-Make a define used in the header file by both VF and PF drivers.
+If the VF sends a bad message, be more informative about what it
+actually is.
 
-Change-Id: Ie9e35adcc021cd6a8f7513934984eb4ed55774f5
+Change-Id: I89e06d2db416a1d05aeea016dd6e8b7870cae99a
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 21 +--------------------
- drivers/net/ethernet/intel/i40e/i40e_txrx.h | 20 ++++++++++++++++++++
- 2 files changed, 21 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 0ea1ca4..ae9956d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5650,25 +5650,6 @@ static int i40e_setup_misc_vector(struct i40e_pf *pf)
-  **/
- static int i40e_config_rss(struct i40e_pf *pf)
- {
--	const u64 default_hena =
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_SCTP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP_SYN) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_OTHER) |
--			((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV4) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV6_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV6_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_SCTP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_OTHER) |
--			((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV6) |
--			((u64)1 << I40E_FILTER_PCTYPE_L2_PAYLOAD);
--
- 	/* Set of random keys generated using kernel random number generator */
- 	static const u32 seed[I40E_PFQF_HKEY_MAX_INDEX + 1] = {0x41b01687,
- 				0x183cfd8c, 0xce880440, 0x580cbc3c, 0x35897377,
-@@ -5686,7 +5667,7 @@ static int i40e_config_rss(struct i40e_pf *pf)
- 	/* By default we enable TCP/UDP with IPv4/IPv6 ptypes */
- 	hena = (u64)rd32(hw, I40E_PFQF_HENA(0)) |
- 		((u64)rd32(hw, I40E_PFQF_HENA(1)) << 32);
--	hena |= default_hena;
-+	hena |= I40E_DEFAULT_RSS_HENA;
- 	wr32(hw, I40E_PFQF_HENA(0), (u32)hena);
- 	wr32(hw, I40E_PFQF_HENA(1), (u32)(hena >> 32));
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 4cd6c8c..cc8fa2a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1667,7 +1667,8 @@ int i40e_vc_process_vf_msg(struct i40e_pf *pf, u16 vf_id, u32 v_opcode,
+ 	ret = i40e_vc_validate_vf_msg(vf, v_opcode, v_retval, msg, msglen);
  
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index faabf22..2992830 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -66,6 +66,26 @@ enum i40e_dyn_idx_t {
- #define I40E_TX_ITR    I40E_IDX_ITR1
- #define I40E_PE_ITR    I40E_IDX_ITR2
- 
-+/* Supported RSS offloads */
-+#define I40E_DEFAULT_RSS_HENA ( \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_SCTP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP_SYN) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_OTHER) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV4) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV6_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV6_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_SCTP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_OTHER) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV6) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_L2_PAYLOAD))
-+
- /* Supported Rx Buffer Sizes */
- #define I40E_RXBUFFER_512   512    /* Used for packet split */
- #define I40E_RXBUFFER_2048  2048
+ 	if (ret) {
+-		dev_err(&pf->pdev->dev, "invalid message from vf %d\n", vf_id);
++		dev_err(&pf->pdev->dev, "Invalid message from vf %d, opcode %d, len %d\n",
++			vf_id, v_opcode, msglen);
+ 		return ret;
+ 	}
+ 	wr32(hw, I40E_VFGEN_RSTAT1(vf_id), I40E_VFR_VFACTIVE);
 -- 
 1.8.3.1
