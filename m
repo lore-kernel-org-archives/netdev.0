@@ -1,39 +1,51 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH v3 8/8] drivers: net: Mark function
- xenvif_count_frag_slots() as static in netback.c
-Date: Thu, 19 Dec 2013 11:48:58 +0000
-Message-ID: <20131219114857.GI25969@zion.uk.xensource.com>
-References: <04fe932bc3585620c91d511bb0894e45bb762ffa.1387382457.git.rashika.kheria@gmail.com>
- <72d6fe114ba7cc2f09f51e279313860f83142d46.1387382457.git.rashika.kheria@gmail.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: RE: [PATCH v3 1/8] drivers: net: Mark functions as static in
+ qlcnic_io.c
+Date: Thu, 19 Dec 2013 11:49:50 +0000
+Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A46F49D2D@avmb2.qlogic.org>
+References: <e03d2664d5490bf7af673fc66b83a9684c8758ed.1386911123.git.rashika.kheria@gmail.com>
+ <04fe932bc3585620c91d511bb0894e45bb762ffa.1387382457.git.rashika.kheria@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <josh@joshtriplett.org>
-To: Rashika Kheria <rashika.kheria@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Rashika Kheria <rashika.kheria@gmail.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Himanshu Madhani <himanshu.madhani@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
+	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	"josh@joshtriplett.org" <josh@joshtriplett.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <72d6fe114ba7cc2f09f51e279313860f83142d46.1387382457.git.rashika.kheria@gmail.com>
+In-Reply-To: <04fe932bc3585620c91d511bb0894e45bb762ffa.1387382457.git.rashika.kheria@gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 19, 2013 at 02:26:47PM +0530, Rashika Kheria wrote:
-> This patch marks the function xenvif_count_frag_slots() in netback.c =
-as
-> static because they are not used outside this file.
->=20
-> Thus, it also removes the following warning in xen-netback/netback.c:
-> drivers/net/xen-netback/netback.c:218:14: warning: no previous protot=
-ype for =E2=80=98xenvif_count_frag_slots=E2=80=99 [-Wmissing-prototypes=
-]
->=20
-> Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
-> Reviewed-by: Josh Triplett <josh@joshtriplett.org>
-> Acked-by: Ian Campbell <ian.campbell@citrix.com>
-
-Easy, there's no need to resend the patch with maintainer's Acked-by.
-DaveM will take care of this. Just be patient. :-)
-
-Wei.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
+aGFsZiBPZiBSYXNoaWthIEtoZXJpYQ0KPiBTZW50OiBUaHVyc2RheSwgRGVjZW1iZXIgMTksIDIw
+MTMgMjoxNyBQTQ0KPiBUbzogbGludXgta2VybmVsOyBIaW1hbnNodSBNYWRoYW5pOyBSYWplc2gg
+Qm9ydW5kaWE7IFNoYWhlZCBTaGFpa2g7DQo+IEppdGVuZHJhIEthbHNhcmlhOyBTb255IENoYWNr
+bzsgU3VjaGV0YSBDaGFrcmFib3J0eTsgRGVwdC1FbmcgTGludXggRHJpdmVyOw0KPiBuZXRkZXY7
+IGpvc2hAam9zaHRyaXBsZXR0Lm9yZw0KPiBTdWJqZWN0OiBbUEFUQ0ggdjMgMS84XSBkcml2ZXJz
+OiBuZXQ6IE1hcmsgZnVuY3Rpb25zIGFzIHN0YXRpYyBpbiBxbGNuaWNfaW8uYw0KPiANCj4gVGhp
+cyBwYXRjaCBtYXJrcyB0aGUgZnVuY3Rpb24gcWxjbmljX2VuYWJsZV90eF9pbnRyKCksDQo+IHFs
+Y25pY184M3h4X2VuYWJsZV90eF9pbnRyKCkgYW5kIHFsY25pY184M3h4X2Rpc2FibGVfdHhfaW50
+cigpIGluIHFsY25pY19pby5jDQo+IGFzIHN0YXRpYyBiZWNhdXNlIHRoZXkgYXJlIG5vdCB1c2Vk
+IG91dHNpZGUgdGhpcyBmaWxlLg0KPiANCj4gVGh1cywgaXQgYWxzbyByZW1vdmVzIHRoZSBmb2xs
+b3dpbmcgd2FybmluZ3MgaW4NCj4gZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNuaWNfaW8uYzoN
+Cj4gDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmljX2lvLmM6MTMw
+OjEzOiB3YXJuaW5nOiBubyBwcmV2aW91cw0KPiBwcm90b3R5cGUgZm9yIOKAmHFsY25pY19lbmFi
+bGVfdHhfaW50cuKAmSBbLVdtaXNzaW5nLXByb3RvdHlwZXNdDQo+IGRyaXZlcnMvbmV0L2V0aGVy
+bmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmljX2lvLmM6MTQ3OjEzOiB3YXJuaW5nOiBubyBwcmV2aW91
+cw0KPiBwcm90b3R5cGUgZm9yIOKAmHFsY25pY184M3h4X2VuYWJsZV90eF9pbnRy4oCZIFstV21p
+c3NpbmctcHJvdG90eXBlc10NCj4gZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9x
+bGNuaWNfaW8uYzoxNTM6MTM6IHdhcm5pbmc6IG5vIHByZXZpb3VzDQo+IHByb3RvdHlwZSBmb3Ig
+4oCYcWxjbmljXzgzeHhfZGlzYWJsZV90eF9pbnRy4oCZIFstV21pc3NpbmctcHJvdG90eXBlc10N
+Cj4gDQo+IFNpZ25lZC1vZmYtYnk6IFJhc2hpa2EgS2hlcmlhIDxyYXNoaWthLmtoZXJpYUBnbWFp
+bC5jb20+DQo+IFJldmlld2VkLWJ5OiBKb3NoIFRyaXBsZXR0IDxqb3NoQGpvc2h0cmlwbGV0dC5v
+cmc+DQoNCkFja2VkLWJ5OiBTaGFoZWQgU2hhaWtoIDxzaGFoZWQuc2hhaWtoQHFsb2dpYy5jb20+
+DQoNClRoYW5rcywNClNoYWhlZA0K
