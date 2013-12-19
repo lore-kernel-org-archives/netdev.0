@@ -1,165 +1,268 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] hyperv: Add support for Virtual Receive Side
- Scaling (vRSS)
-Date: Thu, 19 Dec 2013 17:46:18 +0000
-Message-ID: <1387475178.1876.29.camel@bwh-desktop.uk.level5networks.com>
-References: <1387405262-18334-1-git-send-email-haiyangz@microsoft.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [net-next 06/15] i40e: Rx checksum offload for VXLAN
+Date: Thu, 19 Dec 2013 19:46:59 +0200
+Message-ID: <CAJZOPZLfQu7vLN0fWEaW-KiKueUBtkRsp=ZqfffSz64FSpvgJA@mail.gmail.com>
+References: <1387434891-19719-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1387434891-19719-7-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<kys@microsoft.com>, <olaf@aepfle.de>, <jasowang@redhat.com>,
-	<linux-kernel@vger.kernel.org>,
-	<driverdev-devel@linuxdriverproject.org>
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1387405262-18334-1-git-send-email-haiyangz@microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:49648 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754232Ab3LSRrA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 12:47:00 -0500
+Received: by mail-pb0-f54.google.com with SMTP id un15so1452877pbc.13
+        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 09:46:59 -0800 (PST)
+In-Reply-To: <1387434891-19719-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-12-18 at 14:21 -0800, Haiyang Zhang wrote:
-> This feature allows multiple channels to be used by each virtual NIC.
-> It is available on Hyper-V host 2012 R2.
-[...]
-> --- a/drivers/net/hyperv/netvsc.c
-> +++ b/drivers/net/hyperv/netvsc.c
-[...]
-> @@ -525,15 +535,21 @@ int netvsc_send(struct hv_device *device,
->  	else
->  		req_id = 0;
->  
-> +	if (packet->is_hash)
-> +		out_channel = net_device->chn_table[net_device->send_table[
-> +					packet->hash % VRSS_SEND_TAB_SIZE]];
-> +	if (out_channel == NULL)
-> +		out_channel = device->channel;
+On Thu, Dec 19, 2013 at 8:34 AM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+>
+> This implements receive offload for VXLAN for i40e.  The hardware
+> supports checksum offload/verification of the inner/outer header.
+>
+> Change-Id: I450db300af6713f2044fef1191a0d1d294c13369
+> Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
+>  drivers/net/ethernet/intel/i40e/i40e_main.c |  2 ++
+>  drivers/net/ethernet/intel/i40e/i40e_txrx.c | 56 ++++++++++++++++++++++++++---
+>  drivers/net/ethernet/intel/i40e/i40e_type.h | 51 ++++++++++++++------------
+>  4 files changed, 82 insertions(+), 28 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+> index 31dd265..3207568 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e.h
+> +++ b/drivers/net/ethernet/intel/i40e/i40e.h
+> @@ -29,6 +29,7 @@
+>  #define _I40E_H_
+>
+>  #include <net/tcp.h>
+> +#include <net/udp.h>
+>  #include <linux/init.h>
+>  #include <linux/types.h>
+>  #include <linux/errno.h>
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> index b0cfb4c..7094ff7 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> @@ -27,6 +27,7 @@
+>
+>  /* Local includes */
+>  #include "i40e.h"
+> +#include <net/vxlan.h>
+>
+>  const char i40e_driver_name[] = "i40e";
+>  static const char i40e_driver_string[] =
+> @@ -3993,6 +3994,7 @@ static int i40e_open(struct net_device *netdev)
+>                                     "couldn't set broadcast err %d aq_err %d\n",
+>                                     err, pf->hw.aq.asq_last_status);
+>         }
+> +       vxlan_get_rx_port(netdev);
+
+what effect this has if  the driver doesn't implement the
+add_vxlan_port ndo entry?
+
+
+
+>
+>         return 0;
+>
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> index 01d0334..6d36616 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> @@ -860,12 +860,25 @@ static void i40e_receive_skb(struct i40e_ring *rx_ring,
+>   * @skb: skb currently being received and modified
+>   * @rx_status: status value of last descriptor in packet
+>   * @rx_error: error value of last descriptor in packet
+> + * @rx_ptype: ptype value of last descriptor in packet
+>   **/
+>  static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
+>                                     struct sk_buff *skb,
+>                                     u32 rx_status,
+> -                                   u32 rx_error)
+> +                                   u32 rx_error,
+> +                                   u16 rx_ptype)
+>  {
+> +       bool ipv4_tunnel, ipv6_tunnel;
+> +       __wsum rx_udp_csum;
+> +       __sum16 csum;
+> +       struct iphdr *iph;
 > +
->  	if (packet->page_buf_cnt) {
-> -		ret = vmbus_sendpacket_pagebuffer(device->channel,
-> +		ret = vmbus_sendpacket_pagebuffer(out_channel,
->  						  packet->page_buf,
->  						  packet->page_buf_cnt,
->  						  &sendMessage,
->  						  sizeof(struct nvsp_message),
->  						  req_id);
->  	} else {
-> -		ret = vmbus_sendpacket(device->channel, &sendMessage,
-> +		ret = vmbus_sendpacket(out_channel, &sendMessage,
->  				sizeof(struct nvsp_message),
->  				req_id,
->  				VM_PKT_DATA_INBAND,
-> @@ -544,15 +560,15 @@ int netvsc_send(struct hv_device *device,
->  		atomic_inc(&net_device->num_outstanding_sends);
->  		if (hv_ringbuf_avail_percent(&device->channel->outbound) <
->  			RING_AVAIL_PERCENT_LOWATER) {
-> -			netif_stop_queue(ndev);
-> +			netif_tx_stop_all_queues(ndev);
->  			if (atomic_read(&net_device->
->  				num_outstanding_sends) < 1)
-> -				netif_wake_queue(ndev);
-> +				netif_tx_wake_all_queues(ndev);
->  		}
->  	} else if (ret == -EAGAIN) {
-> -		netif_stop_queue(ndev);
-> +		netif_tx_stop_all_queues(ndev);
->  		if (atomic_read(&net_device->num_outstanding_sends) < 1) {
-> -			netif_wake_queue(ndev);
-> +			netif_tx_wake_all_queues(ndev);
->  			ret = -ENOSPC;
->  		}
->  	} else {
-
-This doesn't makes any sense to me.  How can you safely share the same
-channels between all TX queues?
-
-I think you need to associate TX queues and channels 1-1.  If you are
-required to map packets to TX queues using the Toeplitz hash, you should
-implement ndo_select_queue and do the mapping there.  Then in
-netvsc_send() you would use the queue number from the skb to find which
-channel to use and which queue may need to be stopped/woken.
-
-[...]
-> --- a/drivers/net/hyperv/netvsc_drv.c
-> +++ b/drivers/net/hyperv/netvsc_drv.c
-[...]
-> +/* Toeplitz hash function
-> + * data: network byte order
-> + * return: host byte order
-> + */
-> +static u32 comp_hash(u8 *key, int klen, u8 *data, int dlen)
-> +{
-> +	union sub_key subk;
-> +	int k_next = 4;
-> +	u8 dt;
-> +	int i, j;
-> +	u32 ret = 0;
+> +       ipv4_tunnel = (rx_ptype > I40E_RX_PTYPE_GRENAT4_MAC_PAY3) &&
+> +                     (rx_ptype < I40E_RX_PTYPE_GRENAT4_MACVLAN_IPV6_ICMP_PAY4);
+> +       ipv6_tunnel = (rx_ptype > I40E_RX_PTYPE_GRENAT6_MAC_PAY3) &&
+> +                     (rx_ptype < I40E_RX_PTYPE_GRENAT6_MACVLAN_IPV6_ICMP_PAY4);
 > +
-> +	subk.k = 0;
-> +	subk.ka = ntohl(*(u32 *)key);
+> +       skb->encapsulation = ipv4_tunnel || ipv6_tunnel;
+>         skb->ip_summed = CHECKSUM_NONE;
+>
+>         /* Rx csum enabled and ip headers found? */
+> @@ -873,13 +886,42 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
+>               rx_status & (1 << I40E_RX_DESC_STATUS_L3L4P_SHIFT)))
+>                 return;
+>
+> -       /* IP or L4 checksum error */
+> +       /* IP or L4 or outmost IP checksum error */
+>         if (rx_error & ((1 << I40E_RX_DESC_ERROR_IPE_SHIFT) |
+> -                       (1 << I40E_RX_DESC_ERROR_L4E_SHIFT))) {
+> +                       (1 << I40E_RX_DESC_ERROR_L4E_SHIFT) |
+> +                       (1 << I40E_RX_DESC_ERROR_EIPE_SHIFT))) {
+>                 vsi->back->hw_csum_rx_error++;
+>                 return;
+>         }
+>
+> +       if (ipv4_tunnel &&
+> +           !(rx_status & (1 << I40E_RX_DESC_STATUS_UDP_0_SHIFT))) {
+> +               /* If VXLAN traffic has an outer UDPv4 checksum we need to check
+> +                * it in the driver, hardware does not do it for us.
+> +                * Since L3L4P bit was set we assume a valid IHL value (>=5)
+> +                * so the total length of IPv4 header is IHL*4 bytes
+> +                */
+> +               skb->transport_header = skb->mac_header +
+> +                                       sizeof(struct ethhdr) +
+> +                                       (ip_hdr(skb)->ihl * 4);
 > +
-> +	for (i = 0; i < dlen; i++) {
-> +		subk.kb = key[k_next];
-> +		k_next = (k_next + 1) % klen;
-> +		dt = data[i];
-> +		for (j = 0; j < 8; j++) {
-> +			if (dt & 0x80)
-> +				ret ^= subk.ka;
-> +			dt <<= 1;
-> +			subk.k <<= 1;
-> +		}
-> +	}
+> +               /* Add 4 bytes for VLAN tagged packets */
+> +               skb->transport_header += (skb->protocol == htons(ETH_P_8021Q) ||
+> +                                         skb->protocol == htons(ETH_P_8021AD))
+> +                                         ? VLAN_HLEN : 0;
 > +
-> +	return ret;
-> +}
-
-This looks incredibly slow.  I've seen software implementations that are
-likely to be more efficient, e.g.
-<http://thread.gmane.org/gmane.linux.network/284612/>
-
-[...]
-> @@ -411,9 +483,11 @@ static int netvsc_probe(struct hv_device *dev,
->  	struct net_device *net = NULL;
->  	struct net_device_context *net_device_ctx;
->  	struct netvsc_device_info device_info;
-> +	struct netvsc_device *nvdev;
->  	int ret;
->  
-> -	net = alloc_etherdev(sizeof(struct net_device_context));
-> +	net = alloc_etherdev_mq(sizeof(struct net_device_context),
-> +				num_online_cpus());
->  	if (!net)
->  		return -ENOMEM;
->  
-> @@ -435,6 +509,9 @@ static int netvsc_probe(struct hv_device *dev,
->  	SET_ETHTOOL_OPS(net, &ethtool_ops);
->  	SET_NETDEV_DEV(net, &dev->device);
->  
-> +	netif_set_real_num_tx_queues(net, 1);
-> +	netif_set_real_num_rx_queues(net, 1);
+> +               rx_udp_csum = udp_csum(skb);
+> +               iph = ip_hdr(skb);
+> +               csum = csum_tcpudp_magic(iph->saddr, iph->daddr,
+> +                                        (skb->len - skb_transport_offset(skb)),
+> +                                        IPPROTO_UDP, rx_udp_csum);
 > +
->  	ret = register_netdev(net);
->  	if (ret != 0) {
->  		pr_err("Unable to register netdev.\n");
-> @@ -453,6 +530,13 @@ static int netvsc_probe(struct hv_device *dev,
->  		return ret;
->  	}
->  	memcpy(net->dev_addr, device_info.mac_adr, ETH_ALEN);
-> +	nvdev = hv_get_drvdata(dev);
-> +	rtnl_lock();
-> +	netif_set_real_num_tx_queues(net, nvdev->num_chn);
-> +	netif_set_real_num_rx_queues(net, nvdev->num_chn);
-[...]
-
-These functions can fail if called after registering the net device, so
-you should either call them with the final values earlier or handle
-failure here.
-
-Also, I notice that dev_addr is only set after registering; that should
-be fixed.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> +               if (udp_hdr(skb)->check != csum) {
+> +                       vsi->back->hw_csum_rx_error++;
+> +                       return;
+> +               }
+> +       }
+> +
+>         skb->ip_summed = CHECKSUM_UNNECESSARY;
+>  }
+>
+> @@ -920,6 +962,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+>         union i40e_rx_desc *rx_desc;
+>         u32 rx_error, rx_status;
+>         u64 qword;
+> +       u16 rx_ptype;
+>
+>         rx_desc = I40E_RX_DESC(rx_ring, i);
+>         qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
+> @@ -952,6 +995,8 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+>                 rx_hbo = rx_error & (1 << I40E_RX_DESC_ERROR_HBO_SHIFT);
+>                 rx_error &= ~(1 << I40E_RX_DESC_ERROR_HBO_SHIFT);
+>
+> +               rx_ptype = (qword & I40E_RXD_QW1_PTYPE_MASK) >>
+> +                          I40E_RXD_QW1_PTYPE_SHIFT;
+>                 rx_bi->skb = NULL;
+>
+>                 /* This memory barrier is needed to keep us from reading
+> @@ -1032,13 +1077,14 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+>                 }
+>
+>                 skb->rxhash = i40e_rx_hash(rx_ring, rx_desc);
+> -               i40e_rx_checksum(vsi, skb, rx_status, rx_error);
+> -
+>                 /* probably a little skewed due to removing CRC */
+>                 total_rx_bytes += skb->len;
+>                 total_rx_packets++;
+>
+>                 skb->protocol = eth_type_trans(skb, rx_ring->netdev);
+> +
+> +               i40e_rx_checksum(vsi, skb, rx_status, rx_error, rx_ptype);
+> +
+>                 vlan_tag = rx_status & (1 << I40E_RX_DESC_STATUS_L2TAG1P_SHIFT)
+>                          ? le16_to_cpu(rx_desc->wb.qword0.lo_dword.l2tag1)
+>                          : 0;
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+> index d683c30..41f57d9 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_type.h
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+> @@ -521,7 +521,8 @@ enum i40e_rx_desc_status_bits {
+>         I40E_RX_DESC_STATUS_UMBCAST_SHIFT       = 9, /* 2 BITS */
+>         I40E_RX_DESC_STATUS_FLM_SHIFT           = 11,
+>         I40E_RX_DESC_STATUS_FLTSTAT_SHIFT       = 12, /* 2 BITS */
+> -       I40E_RX_DESC_STATUS_LPBK_SHIFT          = 14
+> +       I40E_RX_DESC_STATUS_LPBK_SHIFT          = 14,
+> +       I40E_RX_DESC_STATUS_UDP_0_SHIFT         = 16
+>  };
+>
+>  #define I40E_RXD_QW1_STATUS_TSYNINDX_SHIFT   I40E_RX_DESC_STATUS_TSYNINDX_SHIFT
+> @@ -567,28 +568,32 @@ enum i40e_rx_desc_error_l3l4e_fcoe_masks {
+>
+>  /* Packet type non-ip values */
+>  enum i40e_rx_l2_ptype {
+> -       I40E_RX_PTYPE_L2_RESERVED               = 0,
+> -       I40E_RX_PTYPE_L2_MAC_PAY2               = 1,
+> -       I40E_RX_PTYPE_L2_TIMESYNC_PAY2          = 2,
+> -       I40E_RX_PTYPE_L2_FIP_PAY2               = 3,
+> -       I40E_RX_PTYPE_L2_OUI_PAY2               = 4,
+> -       I40E_RX_PTYPE_L2_MACCNTRL_PAY2          = 5,
+> -       I40E_RX_PTYPE_L2_LLDP_PAY2              = 6,
+> -       I40E_RX_PTYPE_L2_ECP_PAY2               = 7,
+> -       I40E_RX_PTYPE_L2_EVB_PAY2               = 8,
+> -       I40E_RX_PTYPE_L2_QCN_PAY2               = 9,
+> -       I40E_RX_PTYPE_L2_EAPOL_PAY2             = 10,
+> -       I40E_RX_PTYPE_L2_ARP                    = 11,
+> -       I40E_RX_PTYPE_L2_FCOE_PAY3              = 12,
+> -       I40E_RX_PTYPE_L2_FCOE_FCDATA_PAY3       = 13,
+> -       I40E_RX_PTYPE_L2_FCOE_FCRDY_PAY3        = 14,
+> -       I40E_RX_PTYPE_L2_FCOE_FCRSP_PAY3        = 15,
+> -       I40E_RX_PTYPE_L2_FCOE_FCOTHER_PA        = 16,
+> -       I40E_RX_PTYPE_L2_FCOE_VFT_PAY3          = 17,
+> -       I40E_RX_PTYPE_L2_FCOE_VFT_FCDATA        = 18,
+> -       I40E_RX_PTYPE_L2_FCOE_VFT_FCRDY         = 19,
+> -       I40E_RX_PTYPE_L2_FCOE_VFT_FCRSP         = 20,
+> -       I40E_RX_PTYPE_L2_FCOE_VFT_FCOTHER       = 21
+> +       I40E_RX_PTYPE_L2_RESERVED                       = 0,
+> +       I40E_RX_PTYPE_L2_MAC_PAY2                       = 1,
+> +       I40E_RX_PTYPE_L2_TIMESYNC_PAY2                  = 2,
+> +       I40E_RX_PTYPE_L2_FIP_PAY2                       = 3,
+> +       I40E_RX_PTYPE_L2_OUI_PAY2                       = 4,
+> +       I40E_RX_PTYPE_L2_MACCNTRL_PAY2                  = 5,
+> +       I40E_RX_PTYPE_L2_LLDP_PAY2                      = 6,
+> +       I40E_RX_PTYPE_L2_ECP_PAY2                       = 7,
+> +       I40E_RX_PTYPE_L2_EVB_PAY2                       = 8,
+> +       I40E_RX_PTYPE_L2_QCN_PAY2                       = 9,
+> +       I40E_RX_PTYPE_L2_EAPOL_PAY2                     = 10,
+> +       I40E_RX_PTYPE_L2_ARP                            = 11,
+> +       I40E_RX_PTYPE_L2_FCOE_PAY3                      = 12,
+> +       I40E_RX_PTYPE_L2_FCOE_FCDATA_PAY3               = 13,
+> +       I40E_RX_PTYPE_L2_FCOE_FCRDY_PAY3                = 14,
+> +       I40E_RX_PTYPE_L2_FCOE_FCRSP_PAY3                = 15,
+> +       I40E_RX_PTYPE_L2_FCOE_FCOTHER_PA                = 16,
+> +       I40E_RX_PTYPE_L2_FCOE_VFT_PAY3                  = 17,
+> +       I40E_RX_PTYPE_L2_FCOE_VFT_FCDATA                = 18,
+> +       I40E_RX_PTYPE_L2_FCOE_VFT_FCRDY                 = 19,
+> +       I40E_RX_PTYPE_L2_FCOE_VFT_FCRSP                 = 20,
+> +       I40E_RX_PTYPE_L2_FCOE_VFT_FCOTHER               = 21,
+> +       I40E_RX_PTYPE_GRENAT4_MAC_PAY3                  = 58,
+> +       I40E_RX_PTYPE_GRENAT4_MACVLAN_IPV6_ICMP_PAY4    = 87,
+> +       I40E_RX_PTYPE_GRENAT6_MAC_PAY3                  = 124,
+> +       I40E_RX_PTYPE_GRENAT6_MACVLAN_IPV6_ICMP_PAY4    = 153
+>  };
+>
+>  struct i40e_rx_ptype_decoded {
+> --
+> 1.8.3.1
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
