@@ -1,49 +1,295 @@
 From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH v2 0/9] b44: add support for external PHY
-Date: Thu, 19 Dec 2013 02:28:37 +0100
-Message-ID: <1387416526-7394-1-git-send-email-hauke@hauke-m.de>
+Subject: [PATCH v2 1/9] fixed-phy: register fixed PHY as platform driver
+Date: Thu, 19 Dec 2013 02:28:38 +0100
+Message-ID: <1387416526-7394-2-git-send-email-hauke@hauke-m.de>
+References: <1387416526-7394-1-git-send-email-hauke@hauke-m.de>
 Cc: zambrano@broadcom.com, netdev@vger.kernel.org,
-	f.fainelli@gmail.com, Hauke Mehrtens <hauke@hauke-m.de>
+	f.fainelli@gmail.com, Hauke Mehrtens <hauke@hauke-m.de>,
+	Florian Fainelli <florian@openwrt.org>,
+	Vitaly Bordug <vbordug@ru.mvista.com>,
+	Anton Vorontsov <avorontsov@ru.mvista.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:44298 "EHLO
+Received: from server19320154104.serverpool.info ([193.201.54.104]:44317 "EHLO
 	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751463Ab3LSB3B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Dec 2013 20:29:01 -0500
+	id S1751328Ab3LSB3b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Dec 2013 20:29:31 -0500
+In-Reply-To: <1387416526-7394-1-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds support for an external phy connected to the mac controlled 
-by b44. This is used on home routers of the BCM47xx line where this MAC 
-core was used and is contended to an external switch core through MII. 
-These patches are in OpenWrt for some time and are tested by different 
-users with different devices.
+This changes the fixed phy driver from registering the mdio bus when
+the module gets loaded to registering it when a device was registered.
+A phy has to get registered to this driver before it registered the
+mdio bus, but this only worked when the phys are registered in some
+arch code before the system booted completely. Now we want to do so
+when the Ethernet driver gets initialized which could be happen every
+time.
 
-This also does some changes to the fixed phy driver.
+To make this driver work with such a case, convert it to a platform
+driver which could be registered every time with the phys which should
+be on the bus.
 
-v2: 
- - add fixed phy driver patch
- - use fixed phy driver in b44
- - some smaller changes and typos
+This was only tested on BCM47XX, but not on AR7 because I do not have
+such a device.
 
-Hauke Mehrtens (9):
-  fixed-phy: register fixed PHY as platform driver
-  b44: check register instead of PHY address to detect external PHY
-  b44: rename B44_PHY_ADDR_NO_PHY to B44_PHY_ADDR_NO_LOCAL_PHY
-  b44: abort when no PHY is available at all
-  b44: rename b44_mii_{read,write} to b44_mdio_{read,write}_mii
-  b44: add phylib support
-  b44: activate PHY when MAC is off
-  b44: do not set PHY address to 30 for every ext PHY
-  b44: use fixed PHY device if we do not find any
+Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+CC: Florian Fainelli <florian@openwrt.org>
+CC: Vitaly Bordug <vbordug@ru.mvista.com>
+CC: Anton Vorontsov <avorontsov@ru.mvista.com>
+---
+ arch/mips/ar7/platform.c  |   39 ++++++++++++++++++----
+ drivers/net/phy/fixed.c   |   79 ++++++++++++++++++++++-----------------------
+ include/linux/phy_fixed.h |   21 ++++++------
+ 3 files changed, 83 insertions(+), 56 deletions(-)
 
- arch/mips/ar7/platform.c              |   39 ++++-
- drivers/net/ethernet/broadcom/Kconfig |    1 +
- drivers/net/ethernet/broadcom/b44.c   |  276 ++++++++++++++++++++++++++++++---
- drivers/net/ethernet/broadcom/b44.h   |   15 +-
- drivers/net/phy/fixed.c               |   79 +++++-----
- include/linux/phy_fixed.h             |   21 +--
- 6 files changed, 349 insertions(+), 82 deletions(-)
-
+diff --git a/arch/mips/ar7/platform.c b/arch/mips/ar7/platform.c
+index 7e2356f..26ea35a 100644
+--- a/arch/mips/ar7/platform.c
++++ b/arch/mips/ar7/platform.c
+@@ -251,10 +251,35 @@ static struct resource cpmac_high_res[] = {
+ 	},
+ };
+ 
+-static struct fixed_phy_status fixed_phy_status __initdata = {
+-	.link		= 1,
+-	.speed		= 100,
+-	.duplex		= 1,
++static struct pdata_fixed_phy cpmac_phy_data = {
++	.name 		= "fixed-0",
++	.phys_num	= 1,
++	.phys		= {{
++		.phy_id	= 1,
++		.irq	= PHY_POLL,
++		.status = {
++			.link	= 1,
++			.speed	= 100,
++			.duplex	= 1,
++		},
++	},
++	{
++		.phy_id	= 1,
++		.irq	= PHY_POLL,
++		.status = {
++			.link	= 1,
++			.speed	= 100,
++			.duplex	= 1,
++		},
++	}},
++};
++
++static struct platform_device cpmac_phy = {
++	.id		= 0,
++	.name		= "fixed-phy",
++	.dev = {
++		.platform_data	= &cpmac_phy_data,
++	},
+ };
+ 
+ static struct plat_cpmac_data cpmac_low_data = {
+@@ -683,7 +708,8 @@ static int __init ar7_register_devices(void)
+ 	}
+ 
+ 	if (ar7_has_high_cpmac()) {
+-		res = fixed_phy_add(PHY_POLL, cpmac_high.id, &fixed_phy_status);
++		cpmac_phy_data.phys[1].phy_id = cpmac_high.id;
++		cpmac_phy_data.phys_num = 2;
+ 		if (!res) {
+ 			cpmac_get_mac(1, cpmac_high_data.dev_addr);
+ 
+@@ -695,7 +721,8 @@ static int __init ar7_register_devices(void)
+ 	} else
+ 		cpmac_low_data.phy_mask = 0xffffffff;
+ 
+-	res = fixed_phy_add(PHY_POLL, cpmac_low.id, &fixed_phy_status);
++	cpmac_phy_data.phys[0].phy_id = cpmac_low.id;
++	res = platform_device_register(&cpmac_phy);
+ 	if (!res) {
+ 		cpmac_get_mac(0, cpmac_low_data.dev_addr);
+ 		res = platform_device_register(&cpmac_low);
+diff --git a/drivers/net/phy/fixed.c b/drivers/net/phy/fixed.c
+index ba55adf..dd5154b 100644
+--- a/drivers/net/phy/fixed.c
++++ b/drivers/net/phy/fixed.c
+@@ -5,6 +5,7 @@
+  *         Anton Vorontsov <avorontsov@ru.mvista.com>
+  *
+  * Copyright (c) 2006-2007 MontaVista Software, Inc.
++ * Copyright (C) 2013 Hauke Mehrtens <hauke@hauke-m.de>
+  *
+  * This program is free software; you can redistribute  it and/or modify it
+  * under  the terms of  the GNU General  Public License as published by the
+@@ -39,11 +40,6 @@ struct fixed_phy {
+ 	struct list_head node;
+ };
+ 
+-static struct platform_device *pdev;
+-static struct fixed_mdio_bus platform_fmb = {
+-	.phys = LIST_HEAD_INIT(platform_fmb.phys),
+-};
+-
+ static int fixed_phy_update_regs(struct fixed_phy *fp)
+ {
+ 	u16 bmsr = BMSR_ANEGCAPABLE;
+@@ -153,7 +149,7 @@ int fixed_phy_set_link_update(struct phy_device *phydev,
+ 			      int (*link_update)(struct net_device *,
+ 						 struct fixed_phy_status *))
+ {
+-	struct fixed_mdio_bus *fmb = &platform_fmb;
++	struct fixed_mdio_bus *fmb = phydev->bus->priv;
+ 	struct fixed_phy *fp;
+ 
+ 	if (!link_update || !phydev || !phydev->bus)
+@@ -171,14 +167,14 @@ int fixed_phy_set_link_update(struct phy_device *phydev,
+ }
+ EXPORT_SYMBOL_GPL(fixed_phy_set_link_update);
+ 
+-int fixed_phy_add(unsigned int irq, int phy_id,
+-		  struct fixed_phy_status *status)
++static int fixed_phy_add(struct device *dev, struct fixed_mdio_bus *fmb,
++			 unsigned int irq, int phy_id,
++			 struct fixed_phy_status *status)
+ {
+ 	int ret;
+-	struct fixed_mdio_bus *fmb = &platform_fmb;
+ 	struct fixed_phy *fp;
+ 
+-	fp = kzalloc(sizeof(*fp), GFP_KERNEL);
++	fp = devm_kzalloc(dev, sizeof(struct fixed_phy), GFP_KERNEL);
+ 	if (!fp)
+ 		return -ENOMEM;
+ 
+@@ -191,36 +187,41 @@ int fixed_phy_add(unsigned int irq, int phy_id,
+ 
+ 	ret = fixed_phy_update_regs(fp);
+ 	if (ret)
+-		goto err_regs;
++		return ret;
+ 
+ 	list_add_tail(&fp->node, &fmb->phys);
+ 
+ 	return 0;
+-
+-err_regs:
+-	kfree(fp);
+-	return ret;
+ }
+-EXPORT_SYMBOL_GPL(fixed_phy_add);
+ 
+-static int __init fixed_mdio_bus_init(void)
++static int fixed_phy_probe(struct platform_device *pdev)
+ {
+-	struct fixed_mdio_bus *fmb = &platform_fmb;
++	struct pdata_fixed_phy *pdata = dev_get_platdata(&pdev->dev);
++	struct fixed_mdio_bus *fmb;
++	struct fixed_phy_conf *phy;
+ 	int ret;
++	int i;
+ 
+-	pdev = platform_device_register_simple("Fixed MDIO bus", 0, NULL, 0);
+-	if (IS_ERR(pdev)) {
+-		ret = PTR_ERR(pdev);
+-		goto err_pdev;
++	fmb = devm_kzalloc(&pdev->dev, sizeof(struct fixed_mdio_bus), GFP_KERNEL);
++	if (!fmb)
++		return -ENOMEM;
++	INIT_LIST_HEAD(&fmb->phys);
++	platform_set_drvdata(pdev, fmb);
++
++	for (i = 0; i < pdata->phys_num; i++) {
++		phy = &pdata->phys[i];
++		ret = fixed_phy_add(&pdev->dev, fmb, phy->irq, phy->phy_id,
++				    &phy->status);
++		if (ret < 0)
++			return ret;
+ 	}
+ 
+ 	fmb->mii_bus = mdiobus_alloc();
+-	if (fmb->mii_bus == NULL) {
+-		ret = -ENOMEM;
+-		goto err_mdiobus_reg;
++	if (!fmb->mii_bus) {
++		return -ENOMEM;
+ 	}
+ 
+-	snprintf(fmb->mii_bus->id, MII_BUS_ID_SIZE, "fixed-0");
++	snprintf(fmb->mii_bus->id, MII_BUS_ID_SIZE, pdata->name);
+ 	fmb->mii_bus->name = "Fixed MDIO Bus";
+ 	fmb->mii_bus->priv = fmb;
+ 	fmb->mii_bus->parent = &pdev->dev;
+@@ -236,29 +237,27 @@ static int __init fixed_mdio_bus_init(void)
+ 
+ err_mdiobus_alloc:
+ 	mdiobus_free(fmb->mii_bus);
+-err_mdiobus_reg:
+-	platform_device_unregister(pdev);
+-err_pdev:
+ 	return ret;
+ }
+-module_init(fixed_mdio_bus_init);
+ 
+-static void __exit fixed_mdio_bus_exit(void)
++static int fixed_phy_remove(struct platform_device *pdev)
+ {
+-	struct fixed_mdio_bus *fmb = &platform_fmb;
+-	struct fixed_phy *fp, *tmp;
++	struct fixed_mdio_bus *fmb = platform_get_drvdata(pdev);
+ 
+ 	mdiobus_unregister(fmb->mii_bus);
+ 	mdiobus_free(fmb->mii_bus);
+-	platform_device_unregister(pdev);
+-
+-	list_for_each_entry_safe(fp, tmp, &fmb->phys, node) {
+-		list_del(&fp->node);
+-		kfree(fp);
+-	}
++	return 0;
+ }
+-module_exit(fixed_mdio_bus_exit);
+ 
++static struct platform_driver fixed_phy_driver = {
++	.probe = fixed_phy_probe,
++	.remove = fixed_phy_remove,
++	.driver = {
++		.name = "fixed-phy",
++	},
++};
++
++module_platform_driver(fixed_phy_driver);
+ MODULE_DESCRIPTION("Fixed MDIO bus (MDIO bus emulation with fixed PHYs)");
+ MODULE_AUTHOR("Vitaly Bordug");
+ MODULE_LICENSE("GPL");
+diff --git a/include/linux/phy_fixed.h b/include/linux/phy_fixed.h
+index 509d8f5..f41140e 100644
+--- a/include/linux/phy_fixed.h
++++ b/include/linux/phy_fixed.h
+@@ -9,16 +9,17 @@ struct fixed_phy_status {
+ 	int asym_pause;
+ };
+ 
+-#ifdef CONFIG_FIXED_PHY
+-extern int fixed_phy_add(unsigned int irq, int phy_id,
+-			 struct fixed_phy_status *status);
+-#else
+-static inline int fixed_phy_add(unsigned int irq, int phy_id,
+-				struct fixed_phy_status *status)
+-{
+-	return -ENODEV;
+-}
+-#endif /* CONFIG_FIXED_PHY */
++struct fixed_phy_conf {
++	int phy_id;
++	unsigned int irq;
++	struct fixed_phy_status status;
++};
++
++struct pdata_fixed_phy {
++	char *name;
++	unsigned int phys_num;
++	struct fixed_phy_conf phys[];
++};
+ 
+ /*
+  * This function issued only by fixed_phy-aware drivers, no need
 -- 
 1.7.10.4
