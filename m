@@ -1,57 +1,39 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH v2 1/2] netfilter_queue: enable UID/GID socket info
- retrieval
-Date: Thu, 19 Dec 2013 12:43:40 +0100
-Message-ID: <20131219114340.GB6047@breakpoint.cc>
-References: <1387451007-14363-1-git-send-email-valentina.giusti@bmw-carit.de>
- <1387451007-14363-2-git-send-email-valentina.giusti@bmw-carit.de>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH v3 8/8] drivers: net: Mark function
+ xenvif_count_frag_slots() as static in netback.c
+Date: Thu, 19 Dec 2013 11:48:58 +0000
+Message-ID: <20131219114857.GI25969@zion.uk.xensource.com>
+References: <04fe932bc3585620c91d511bb0894e45bb762ffa.1387382457.git.rashika.kheria@gmail.com>
+ <72d6fe114ba7cc2f09f51e279313860f83142d46.1387382457.git.rashika.kheria@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	fw@strlen.de, eric.dumazet@gmail.com, tgraf@redhat.com,
-	jpa@google.com, pablo@netfilter.org, davem@davemloft.net,
-	daniel.wagner@bmw-carit.de,
-	Valentina Giusti <valentina.giusti@oss.bmw-carit.de>
-To: valentina.giusti@bmw-carit.de
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <josh@joshtriplett.org>
+To: Rashika Kheria <rashika.kheria@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1387451007-14363-2-git-send-email-valentina.giusti@bmw-carit.de>
-Sender: netfilter-devel-owner@vger.kernel.org
+In-Reply-To: <72d6fe114ba7cc2f09f51e279313860f83142d46.1387382457.git.rashika.kheria@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-valentina.giusti@bmw-carit.de <valentina.giusti@bmw-carit.de> wrote:
-> From: Valentina Giusti <valentina.giusti@oss.bmw-carit.de>
-> 
-> Thanks to commits 41063e9 (ipv4: Early TCP socket demux) and 421b388 (udp: ipv4:
-> Add udp early demux) it is now possible to parse UID and GID socket info
-> also for incoming TCP and UDP connections. Having this info available, it
-> is convenient to let NFQUEUE parse it in order to improve and refine the
-> traffic analysis in userspace.
+On Thu, Dec 19, 2013 at 02:26:47PM +0530, Rashika Kheria wrote:
+> This patch marks the function xenvif_count_frag_slots() in netback.c =
+as
+> static because they are not used outside this file.
+>=20
+> Thus, it also removes the following warning in xen-netback/netback.c:
+> drivers/net/xen-netback/netback.c:218:14: warning: no previous protot=
+ype for =E2=80=98xenvif_count_frag_slots=E2=80=99 [-Wmissing-prototypes=
+]
+>=20
+> Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
+> Reviewed-by: Josh Triplett <josh@joshtriplett.org>
+> Acked-by: Ian Campbell <ian.campbell@citrix.com>
 
-> diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-> index 21258cf..2cdef07 100644
-> --- a/net/netfilter/nfnetlink_queue_core.c
-> +++ b/net/netfilter/nfnetlink_queue_core.c
-> @@ -297,6 +297,29 @@ nfqnl_put_packet_info(struct sk_buff *nlskb, struct sk_buff *packet,
->  	return flags ? nla_put_be32(nlskb, NFQA_SKB_INFO, htonl(flags)) : 0;
->  }
->  
-> +static int nfqnl_put_sk_uidgid(struct sk_buff *skb, struct sock *sk)
-> +{
-> +	const struct cred *cred;
-> +
-> +	if (sk && sk->sk_state != TCP_TIME_WAIT) {
-[..]
-> +	if ((queue->flags & NFQA_CFG_F_UID_GID) && entskb->sk)
-> +		if (nfqnl_put_sk_uidgid(skb, entskb->sk))
-> +			goto nla_put_failure;
+Easy, there's no need to resend the patch with maintainer's Acked-by.
+DaveM will take care of this. Just be patient. :-)
 
-Minor nit: sk is tested for non-null twice.  Suggestion:
-
-if ((queue->flags & NFQA_CFG_F_UID_GID) &&
-     nfqnl_put_sk_uidgid(skb, entskb->sk))
-          goto nla_put_failure;
-
-I don't think its necessary to resubmit the patch though, thus:
-
-Reviewed-by: Florian Westphal <fw@strlen.de>
+Wei.
