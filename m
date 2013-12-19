@@ -1,53 +1,33 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [BUG][3.10.15] reading from /proc/sys/net/netfilter/nf_log/*
-Date: Thu, 19 Dec 2013 10:09:48 +0800
-Message-ID: <52B2556C.8090003@cn.fujitsu.com>
-References: <20131214101042.5626c785@gandalf.local.home>	<52AEA3F6.2090508@cn.fujitsu.com>	<20131218155549.25c09718@gandalf.local.home>	<20131218210817.GC15863@breakpoint.cc> <20131218161139.2bb1538f@gandalf.local.home>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: HW accelerated support for setting skb->pkt_type?
+Date: Wed, 18 Dec 2013 18:56:42 -0800
+Message-ID: <1387421802.19078.345.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAGVrzca0P64D181XHjcXMOSMMsyyOEEGjH2KO9bChnN0dAbaTg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Luis Claudio R. Goncalves" <lclaudio@uudg.org>,
-	Clark Williams <williams@redhat.com>
-To: Steven Rostedt <rostedt@goodmis.org>,
-	Florian Westphal <fw@strlen.de>
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:62299 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751210Ab3LSCeu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Dec 2013 21:34:50 -0500
-In-Reply-To: <20131218161139.2bb1538f@gandalf.local.home>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:63070 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751140Ab3LSC4b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 21:56:31 -0500
+Received: by mail-pa0-f54.google.com with SMTP id rd3so519780pab.41
+        for <netdev@vger.kernel.org>; Wed, 18 Dec 2013 18:56:30 -0800 (PST)
+In-Reply-To: <CAGVrzca0P64D181XHjcXMOSMMsyyOEEGjH2KO9bChnN0dAbaTg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/19/2013 05:11 AM, Steven Rostedt wrote:
-> On Wed, 18 Dec 2013 22:08:17 +0100
-> Florian Westphal <fw@strlen.de> wrote:
+On Wed, 2013-12-18 at 18:29 -0800, Florian Fainelli wrote:
+> Hi all,
 > 
->> Steven Rostedt <rostedt@goodmis.org> wrote:
->>> On Mon, 16 Dec 2013 14:55:50 +0800
->>> Gao feng <gaofeng@cn.fujitsu.com> wrote:
->>>> On 12/14/2013 11:10 PM, Steven Rostedt wrote:
->> [..]
->>>>> BUG: unable to handle kernel paging request at ffffffffa06189f0 
->>>>> IP: [<ffffffff814b7904>] nf_log_proc_dostring+0x94/0x1a0 
->> [..]
->>
->>>>> And after the module-load test, it crashes when reading those files.
->>>>>
->>>>
->>>> Oops, I forgot to unset the nf_loggers of net namespace when unload module nfnetlink_log.
->>>> I will send a patch, please have a try.
->>>
->>> Hi Gao,
->>>
->>> I haven't seen a patch. Was one sent?
->>
->> Yes, submitted to netfilter-devel, see http://patchwork.ozlabs.org/patch/301485/
+> I work with two Ethernet controllers which can tell on a per-packet
+> basis whether this is a broadcast, unicast or multicast, eventually
+> allowing me to bypass the initial checks done in eth_type_trans().
 > 
-> Thanks, someone else pointed it to me on netdev list. I wasn't on the
-> Cc, so I missed it.
-> 
+> Is there any other hardware out there which supports that, and is
+> there any interest in optimizing that operation?
 
-Sorry, I thought git send-mail will send the patch to the Reported-by.
-but now I know, it didn't. :(
+Other hardware have this as well, but I doubt it makes any difference,
+unless you have an arch with a 16 bytes cache line.
