@@ -1,113 +1,102 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH v2 9/9] b44: use fixed PHY device if we do not find any
-Date: Thu, 19 Dec 2013 02:28:46 +0100
-Message-ID: <1387416526-7394-10-git-send-email-hauke@hauke-m.de>
-References: <1387416526-7394-1-git-send-email-hauke@hauke-m.de>
-Cc: zambrano@broadcom.com, netdev@vger.kernel.org,
-	f.fainelli@gmail.com, Hauke Mehrtens <hauke@hauke-m.de>
-To: davem@davemloft.net
+From: Fan Du <fan.du@windriver.com>
+Subject: Re: [PATCHv2 ipsec-next] xfrm: Namespacify xfrm_policy_sk_bundles
+Date: Thu, 19 Dec 2013 09:35:57 +0800
+Message-ID: <52B24D7D.6060902@windriver.com>
+References: <1387337658-28951-1-git-send-email-fan.du@windriver.com> <1387342211.19078.295.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <steffen.klassert@secunet.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?B?546L6IGq?= <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:44368 "EHLO
-	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752515Ab3LSBaW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Dec 2013 20:30:22 -0500
-In-Reply-To: <1387416526-7394-1-git-send-email-hauke@hauke-m.de>
+Received: from mail.windriver.com ([147.11.1.11]:34386 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752081Ab3LSBgA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Dec 2013 20:36:00 -0500
+In-Reply-To: <1387342211.19078.295.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ADM6996L switch and some Broadcom switches with two MII interfaces
-like the BCM5325F connected to two MACs on the SoC, used on some
-routers do not return a valid value when reading the PHY id register
-and Linux thinks there is no PHY at all, but that is wrong.
-This patch registers a fixed phy in such a case and make b44 use that
-instead.
+Hi, Eric and Cong
 
-Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
----
- drivers/net/ethernet/broadcom/b44.c |   42 ++++++++++++++++++++++++++++++++++-
- drivers/net/ethernet/broadcom/b44.h |    3 +++
- 2 files changed, 44 insertions(+), 1 deletion(-)
+On 2013=E5=B9=B412=E6=9C=8818=E6=97=A5 12:50, Eric Dumazet wrote:
+>>   static DEFINE_SPINLOCK(xfrm_policy_afinfo_lock);
+>> >    static struct xfrm_policy_afinfo __rcu *xfrm_policy_afinfo[NPRO=
+TO]
+>> >    						__read_mostly;
+>> >  @@ -2108,12 +2106,8 @@ struct dst_entry *xfrm_lookup(struct net *=
+net, struct dst_entry *dst_orig,
+>> >    			}
+>> >
+>> >    			dst_hold(&xdst->u.dst);
+>> >  -
+>> >  -			spin_lock_bh(&net->xfrm.xfrm_policy_sk_bundle_lock);
+>> >  -			xdst->u.dst.next =3D xfrm_policy_sk_bundles;
+>> >  -			xfrm_policy_sk_bundles =3D&xdst->u.dst;
+>> >  -			spin_unlock_bh(&net->xfrm.xfrm_policy_sk_bundle_lock);
+>> >  -
+>> >  +			xdst->u.dst.next =3D xchg(&net->xfrm.xfrm_policy_sk_bundles,
+>> >  +						&xdst->u.dst);
+> This is not safe.
+>
+> Take a look at include/linux/llist.h if you really want to avoid the
+> spinlock.
 
-diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
-index 839dd90..ea540cd 100644
---- a/drivers/net/ethernet/broadcom/b44.c
-+++ b/drivers/net/ethernet/broadcom/b44.c
-@@ -31,6 +31,7 @@
- #include <linux/ssb/ssb.h>
- #include <linux/slab.h>
- #include <linux/phy.h>
-+#include <linux/phy_fixed.h>
- 
- #include <asm/uaccess.h>
- #include <asm/io.h>
-@@ -2233,6 +2234,11 @@ static int b44_register_phy_one(struct b44 *bp)
- 	struct ssb_device *sdev = bp->sdev;
- 	struct phy_device *phydev;
- 	char bus_id[MII_BUS_ID_SIZE + 3];
-+	struct ssb_sprom *sprom = &sdev->bus->sprom;
-+	struct platform_device *pdev;
-+	struct pdata_fixed_phy *pdata;
-+	size_t pdata_size = sizeof(struct pdata_fixed_phy) +
-+			    1 * sizeof(struct fixed_phy_conf);
- 	int err;
- 
- 	mii_bus = mdiobus_alloc();
-@@ -2266,7 +2272,41 @@ static int b44_register_phy_one(struct b44 *bp)
- 		goto err_out_mdiobus_irq;
- 	}
- 
--	snprintf(bus_id, sizeof(bus_id), PHY_ID_FMT, mii_bus->id, bp->phy_addr);
-+	if (!bp->mii_bus->phy_map[bp->phy_addr] &&
-+	    (sprom->boardflags_lo & (B44_BOARDFLAG_ROBO | B44_BOARDFLAG_ADM))) {
-+
-+		dev_info(sdev->dev,
-+			 "could not find PHY at %i, create fixed one\n",
-+			 bp->phy_addr);
-+
-+		pdata = kzalloc(pdata_size, GFP_KERNEL);
-+		if (!pdata) {
-+			dev_err(sdev->dev, "fixed phy allocation failed\n");
-+			err = -ENOMEM;
-+			goto err_out_mdiobus_unregister;
-+		}
-+		pdata->phys_num = 1;
-+		pdata->name = "fixed-0";
-+		pdata->phys[0].phy_id = bp->phy_addr;
-+		pdata->phys[0].status.duplex = DUPLEX_FULL;
-+		pdata->phys[0].status.speed = SPEED_100;
-+		pdata->phys[0].status.link = 1;
-+		
-+		pdev = platform_device_register_data(bp->sdev->dev, "fixed-phy", 0,
-+						     pdata, pdata_size);
-+		kfree(pdata);
-+		if (IS_ERR(pdev)) {
-+			err = PTR_ERR(pdev);
-+			dev_err(sdev->dev,
-+			        "fixed phy registration failed with %i\n", err);
-+			goto err_out_mdiobus_unregister;
-+		}
-+		snprintf(bus_id, sizeof(bus_id), PHY_ID_FMT, "fixed-0",
-+			 bp->phy_addr);
-+	} else {
-+		snprintf(bus_id, sizeof(bus_id), PHY_ID_FMT, mii_bus->id,
-+			 bp->phy_addr);
-+	}
- 
- 	phydev = phy_connect(bp->dev, bus_id, &b44_adjust_link,
- 			     PHY_INTERFACE_MODE_MII);
-diff --git a/drivers/net/ethernet/broadcom/b44.h b/drivers/net/ethernet/broadcom/b44.h
-index de81639..3e9c3fc 100644
---- a/drivers/net/ethernet/broadcom/b44.h
-+++ b/drivers/net/ethernet/broadcom/b44.h
-@@ -345,6 +345,9 @@ B44_STAT_REG_DECLARE
- 	struct u64_stats_sync	syncp;
- };
- 
-+#define	B44_BOARDFLAG_ROBO		0x0010  /* Board has robo switch */
-+#define	B44_BOARDFLAG_ADM		0x0080  /* Board has ADMtek switch */
-+
- struct ssb_device;
- 
- struct b44 {
--- 
-1.7.10.4
+Here is my understanding about llist_add_batch, assume when add one sin=
+gle
+entry into list, i.e., new_last equates new_first.
+
+   1         do {
+   2                 new->next =3D first =3D ACCESS_ONCE(head->first);
+   3         } while (cmpxchg(&head->first, first, new) !=3D first);
+
+
+Caller 1:Add new1 into head                          Caller 2:Add new2 =
+into head
+      line 2: Link head into new1
+                                                      line 2: Link head=
+ into new2
+                                                      line 3: Make the =
+cmpxchg, then succeed.
+
+                                                      After this, new2 =
+-> old_head
+      line 3: Make the cmpxchg, failed, try
+              again will succeed, after this
+              new1 -> new2 -> old_head
+
+So in order to not use locks, try again if cmpxchg found out someone el=
+se
+has update the head. For the case involved in the patch, the problem is=
+, after
+xchg, assign the old head to the new->next will race with the delete pa=
+rt when
+saving the head for deleting after setting the head to NULL, as the tra=
+verse
+of saved head probably not see a consistent list, that's a broken one.
+
+I think an analogy of llist_add_batch for the updating part will be ok =
+for this:
+
+                         struct dst_entry *first;
+                         do {
+                                 xdst->u.dst.next =3D first =3D ACCESS_=
+ONCE(xfrm_policy_sk_bundles);
+                         } while (cmpxchg(&xfrm_policy_sk_bundles, firs=
+t, &xdst->u.dst) !=3D first);
+
+
+And the deleting part:
+
+                         head =3D xchg(&net->xfrm.xfrm_policy_sk_bundle=
+s, NULL);
+
+
+--=20
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
+
+--fan
