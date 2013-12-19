@@ -1,53 +1,74 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Multicast routing stops functioning after 4G multicast packets
- recived.
-Date: Thu, 19 Dec 2013 07:15:37 -0800
-Message-ID: <52B30D99.5090504@candelatech.com>
-References: <20131219144816.33310@gmx.com> <20131219150923.GB24118@order.stressinduktion.org>
+From: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v3] linux: Report supported user features to the
+	kernel
+Date: Thu, 19 Dec 2013 16:20:42 +0100
+Message-ID: <399ecc79d2539f4624d9b5363f37c8d358571fae.1387466318.git.tgraf@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bob Falken <NetFestivalHaveFun@gmx.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:50374 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753159Ab3LSPQN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 10:16:13 -0500
-In-Reply-To: <20131219150923.GB24118@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 12/19/2013 07:09 AM, Hannes Frederic Sowa wrote:
-> On Thu, Dec 19, 2013 at 03:48:16PM +0100, Bob Falken wrote:
->> Hello, I have an issue after kernel 2.6.37 and above.
->> If i roll back to kernel 2.6.36.4 everything is fine.
->> if recive more than 4294967295 multicast packets, the kernel does not register the multicast packets. and multicast routing does not functioning.
->> (Tested bouth FIB_HASH and FIB_TRIE)
->> Tested with xorp and pimd.
->> I have abount 24 multicast groups, and it takes me about 17hours to reproduce the issue after a reboot.
->> Reboot is reqired to fix the issue. (Tested to stop/start pimd/xorp, reload network module for the network interface "e1000e",
->> Used birdge adapter and remove bridge adapter and readd bridge adapter to clear counters. none of thouse solves the issue.)
->
-> Please test this with a recent kernel. 2.6.37 is really old and you normally
-> won't get good support here with such old kernels.
+Following commit (''netlink: Do not enforce alignment of last Netlink
+attribute''), signal the ability to receive unaligned Netlink messages
+to the datapath to enable utilization of zerocopy optimizations.
 
-Note that he did test up to 3.11.9 and it still showed failures.
+Opening a datapath is now done by issueing a OVS_DP_CMD_SET in order
+to overwrite previously set user features.
 
-Thanks,
-Ben
+Signed-off-by: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+---
+V3: Use OVS_DP_CMD_SET when opening the datapath
 
->
-> Greetings,
->
->    Hannes
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+ lib/dpif-linux.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-
+diff --git a/lib/dpif-linux.c b/lib/dpif-linux.c
+index f64e55b..482ba77 100644
+--- a/lib/dpif-linux.c
++++ b/lib/dpif-linux.c
+@@ -73,6 +73,7 @@ struct dpif_linux_dp {
+     /* Attributes. */
+     const char *name;                  /* OVS_DP_ATTR_NAME. */
+     const uint32_t *upcall_pid;        /* OVS_DP_ATTR_UPCALL_PID. */
++    uint32_t user_features;            /* OVS_DP_ATTR_USER_FEATURES */
+     struct ovs_dp_stats stats;         /* OVS_DP_ATTR_STATS. */
+     struct ovs_dp_megaflow_stats megaflow_stats;
+                                        /* OVS_DP_ATTR_MEGAFLOW_STATS.*/
+@@ -231,9 +232,11 @@ dpif_linux_open(const struct dpif_class *class OVS_UNUSED, const char *name,
+         upcall_pid = 0;
+         dp_request.upcall_pid = &upcall_pid;
+     } else {
+-        dp_request.cmd = OVS_DP_CMD_GET;
++        /* Use OVS_DP_CMD_SET to report user features */
++        dp_request.cmd = OVS_DP_CMD_SET;
+     }
+     dp_request.name = name;
++    dp_request.user_features |= OVS_DP_F_UNALIGNED;
+     error = dpif_linux_dp_transact(&dp_request, &dp, &buf);
+     if (error) {
+         return error;
+@@ -1931,6 +1934,10 @@ dpif_linux_dp_to_ofpbuf(const struct dpif_linux_dp *dp, struct ofpbuf *buf)
+         nl_msg_put_u32(buf, OVS_DP_ATTR_UPCALL_PID, *dp->upcall_pid);
+     }
+ 
++    if (dp->user_features) {
++        nl_msg_put_u32(buf, OVS_DP_ATTR_USER_FEATURES, dp->user_features);
++    }
++
+     /* Skip OVS_DP_ATTR_STATS since we never have a reason to serialize it. */
+ }
+ 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+1.8.3.1
