@@ -1,83 +1,125 @@
-From: vaughan <vaughan.cao@oracle.com>
-Subject: error message: VF is not privileged to issue opcode 89-1
-Date: Fri, 20 Dec 2013 17:44:51 +0800
-Message-ID: <52B41193.6020908@oracle.com>
+From: Valentina Giusti <valentina.giusti@bmw-carit.de>
+Subject: Re: [PATCH v2 1/2] netfilter_queue: enable UID/GID socket info retrieval
+Date: Fri, 20 Dec 2013 10:45:31 +0100
+Message-ID: <52B411BB.3040801@bmw-carit.de>
+References: <1387451007-14363-1-git-send-email-valentina.giusti@bmw-carit.de> <1387451007-14363-2-git-send-email-valentina.giusti@bmw-carit.de> <20131220092638.GA9122@localhost> <20131220092926.GA9275@localhost>
+Reply-To: Valentina Giusti <Valentina.Giusti@bmw-carit.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: vaughan <vaughan.cao@oracle.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:18225 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754789Ab3LTJlT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 04:41:19 -0500
-Received: from acsinet21.oracle.com (acsinet21.oracle.com [141.146.126.237])
-	by userp1040.oracle.com (Sentrion-MTA-4.3.1/Sentrion-MTA-4.3.1) with ESMTP id rBK9fIVE016850
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 09:41:19 GMT
-Received: from userz7021.oracle.com (userz7021.oracle.com [156.151.31.85])
-	by acsinet21.oracle.com (8.14.4+Sun/8.14.4) with ESMTP id rBK9fGqP006355
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 09:41:17 GMT
-Received: from abhmp0001.oracle.com (abhmp0001.oracle.com [141.146.116.7])
-	by userz7021.oracle.com (8.14.4+Sun/8.14.4) with ESMTP id rBK9fGsa013727
-	for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 09:41:16 GMT
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	fw@strlen.de, eric.dumazet@gmail.com, tgraf@redhat.com,
+	jpa@google.com, davem@davemloft.net, daniel.wagner@bmw-carit.de
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20131220092926.GA9275@localhost>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi experts,
+Hi,
 
-I encounter the following error when creating SR-IOV VF for Emulex 10GB
-nic on 3.8.13 kernel.
+On 12/20/2013 10:29 AM, Pablo Neira Ayuso wrote:
+> On Fri, Dec 20, 2013 at 10:26:38AM +0100, Pablo Neira Ayuso wrote:
+>> Hi,
+>>
+>> On Thu, Dec 19, 2013 at 12:03:26PM +0100, valentina.giusti@bmw-carit=
+=2Ede wrote:
+>>> From: Valentina Giusti <valentina.giusti@oss.bmw-carit.de>
+>>>
+>>> Thanks to commits 41063e9 (ipv4: Early TCP socket demux) and 421b38=
+8 (udp: ipv4:
+>>> Add udp early demux) it is now possible to parse UID and GID socket=
+ info
+>>> also for incoming TCP and UDP connections. Having this info availab=
+le, it
+>>> is convenient to let NFQUEUE parse it in order to improve and refin=
+e the
+>>> traffic analysis in userspace.
+>>>
+>>> Signed-off-by: Valentina Giusti <valentina.giusti@bmw-carit.de>
+>>> ---
+>>>   include/uapi/linux/netfilter/nfnetlink_queue.h |  5 ++++-
+>>>   net/netfilter/nfnetlink_queue_core.c           | 31 +++++++++++++=
++++++++++++++
+>>>   2 files changed, 35 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/include/uapi/linux/netfilter/nfnetlink_queue.h b/inclu=
+de/uapi/linux/netfilter/nfnetlink_queue.h
+>>> index 0132bad..8dd819e 100644
+>>> --- a/include/uapi/linux/netfilter/nfnetlink_queue.h
+>>> +++ b/include/uapi/linux/netfilter/nfnetlink_queue.h
+>>> @@ -47,6 +47,8 @@ enum nfqnl_attr_type {
+>>>   	NFQA_CAP_LEN,			/* __u32 length of captured packet */
+>>>   	NFQA_SKB_INFO,			/* __u32 skb meta information */
+>>>   	NFQA_EXP,			/* nf_conntrack_netlink.h */
+>>> +	NFQA_UID,			/* __u32 sk uid */
+>>> +	NFQA_GID,			/* __u32 sk gid */
+>>>  =20
+>>>   	__NFQA_MAX
+>>>   };
+>>> @@ -99,7 +101,8 @@ enum nfqnl_attr_config {
+>>>   #define NFQA_CFG_F_FAIL_OPEN			(1 << 0)
+>>>   #define NFQA_CFG_F_CONNTRACK			(1 << 1)
+>>>   #define NFQA_CFG_F_GSO				(1 << 2)
+>>> -#define NFQA_CFG_F_MAX				(1 << 3)
+>>> +#define NFQA_CFG_F_UID_GID			(1 << 3)
+>>> +#define NFQA_CFG_F_MAX				(1 << 4)
+>>>  =20
+>>>   /* flags for NFQA_SKB_INFO */
+>>>   /* packet appears to have wrong checksums, but they are ok */
+>>> diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/n=
+fnetlink_queue_core.c
+>>> index 21258cf..2cdef07 100644
+>>> --- a/net/netfilter/nfnetlink_queue_core.c
+>>> +++ b/net/netfilter/nfnetlink_queue_core.c
+>>> @@ -297,6 +297,29 @@ nfqnl_put_packet_info(struct sk_buff *nlskb, s=
+truct sk_buff *packet,
+>>>   	return flags ? nla_put_be32(nlskb, NFQA_SKB_INFO, htonl(flags)) =
+: 0;
+>>>   }
+>>>  =20
+>>> +static int nfqnl_put_sk_uidgid(struct sk_buff *skb, struct sock *s=
+k)
+>>> +{
+>>> +	const struct cred *cred;
+>>> +
+>>> +	if (sk && sk->sk_state !=3D TCP_TIME_WAIT) {
+>>> +		read_lock_bh(&sk->sk_callback_lock);
+>>> +		if (sk->sk_socket && sk->sk_socket->file) {
+>>> +			cred =3D sk->sk_socket->file->f_cred;
+>>> +			if (nla_put_u32(skb, NFQA_UID, htonl(cred->fsuid)))
+>> I'm hitting this compilation error here:
+>>
+>> net/netfilter/nfnetlink_queue_core.c: In function =E2=80=98nfqnl_put=
+_sk_uidgid=E2=80=99:
+>> net/netfilter/nfnetlink_queue_core.c:308:4: error: aggregate value u=
+sed where an integer was expected
+>>
+>> It seems that in recent kernels you have to use:
+>>
+>>          from_kuid_munged(&init_user_ns, cred->fsuid);
+>>
+>> to retrieve the integer that represents the uid.
+>>
+>> Please,
+> sorry, I left this sentence incomplete, I was telling... Please, test
+> your patches with current git trees :-). Thanks.
 
-# modprobe be2net num_vfs=4
- be2net 0000:30:00.0: irq 214 for MSI/MSI-X
- be2net 0000:30:00.0: enabled 1 MSI-x vector(s)
- be2net 0000:30:00.0: created 0 RSS queue(s) and 1 default RX queue
- be2net 0000:30:00.0: created 1 TX queue(s)
- pci 0000:30:04.0: [19a2:0710] type 00 class 0x020000
- pci 0000:30:04.1: [19a2:0710] type 00 class 0x020000
- pci 0000:30:04.2: [19a2:0710] type 00 class 0x020000
- pci 0000:30:04.3: [19a2:0710] type 00 class 0x020000
- be2net 0000:30:00.0: Emulex OneConnect(be3): PF  port 0
- be2net 0000:30:00.1: irq 215 for MSI/MSI-X
- be2net 0000:30:00.1: enabled 1 MSI-x vector(s)
- be2net 0000:30:00.1: created 0 RSS queue(s) and 1 default RX queue
- be2net 0000:30:00.1: created 1 TX queue(s)
- pci 0000:30:06.0: [19a2:0710] type 00 class 0x020000
- pci 0000:30:06.1: [19a2:0710] type 00 class 0x020000
- pci 0000:30:06.2: [19a2:0710] type 00 class 0x020000
- pci 0000:30:06.3: [19a2:0710] type 00 class 0x020000
- be2net 0000:30:00.1: Emulex OneConnect(be3): PF  port 1
- be2net 0000:30:04.0: enabling device (0140 -> 0142)
- be2net 0000:30:04.0: Could not use PCIe error reporting
- be2net 0000:30:04.0: VF is not privileged to issue opcode 89-1
- be2net 0000:30:04.0: VF is not privileged to issue opcode 125-1
- be2net 0000:30:04.0: irq 216 for MSI/MSI-X
- be2net 0000:30:04.0: enabled 1 MSI-x vector(s)
- be2net 0000:30:04.0: created 0 RSS queue(s) and 1 default RX queue
- be2net 0000:30:04.0: created 1 TX queue(s)
- be2net 0000:30:04.0: VF is not privileged to issue opcode 34-1
- be2net 0000:30:04.0: Exhausted multicast HW filters.
- be2net 0000:30:04.0: Disabling HW multicast filtering.
- be2net 0000:30:04.0: VF is not privileged to issue opcode 34-1
- be2net 0000:30:04.0: Emulex OneConnect(be3): VF  port 0
-...
+Thank you for reviewing the patches, I'll send a new version soon :)
 
-But the module gets loaded and VFs are created.
-Also when the module is unloaded, below errors are seen in syslog:
-  be2net 0000:30:04.0: VF is not privileged to issue opcode 89-1
+--
+Cheers,
+Val
 
-I checked the code, this error occurs in be_probe() and the error opcode
-89 is OPCODE_COMMON_SET_INTERRUPT_ENABLE, which is essential for an
-initializing process IMO. And I also found this thread
-https://lkml.org/lkml/2013/5/14/690, which shows there is a bug that VFs
-will be probed before PFs. According to this thread, I guess I may
-encountered the same error.
-Anyone can confirm if this is a real error like I guess? Thanks.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netfilter-d=
+evel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-
--- 
-Regards,
-Vaughan
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
