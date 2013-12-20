@@ -1,255 +1,311 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 07/16] i40e: Rx checksum offload for VXLAN
-Date: Fri, 20 Dec 2013 10:21:25 -0800
-Message-ID: <1387563694-3166-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 08/16] i40e: move i40e_reset_vf
+Date: Fri, 20 Dec 2013 10:21:26 -0800
+Message-ID: <1387563694-3166-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387563694-3166-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:56088 "EHLO mga02.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:33166 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752308Ab3LTSWD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752317Ab3LTSWD (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 20 Dec 2013 13:22:03 -0500
 In-Reply-To: <1387563694-3166-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-This implements receive offload for VXLAN for i40e.  The hardware
-supports checksum offload/verification of the inner/outer header.
+The VF reset code will be refactored in future patches. Part of that
+refactor required it to call i40e_alloc_vf_res and i40e_free_vf_res, so
+the function must be moved. In order to make the future patches more
+readable, we perform the function move here, with no other changes.
 
-Change-Id: I450db300af6713f2044fef1191a0d1d294c13369
-Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Change-Id: If6567c9c0bada6caafb2ee0227e0d9d50d05f27f
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c |  6 +--
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 57 ++++++++++++++++++++++++++---
- drivers/net/ethernet/intel/i40e/i40e_type.h | 51 ++++++++++++++------------
- 4 files changed, 82 insertions(+), 33 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 256 ++++++++++-----------
+ 1 file changed, 128 insertions(+), 128 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 5d88cf4..016b83d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -29,6 +29,7 @@
- #define _I40E_H_
- 
- #include <net/tcp.h>
-+#include <net/udp.h>
- #include <linux/init.h>
- #include <linux/types.h>
- #include <linux/errno.h>
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 7b759a6..a184074 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -27,9 +27,7 @@
- 
- /* Local includes */
- #include "i40e.h"
--#if IS_ENABLED(CONFIG_VXLAN)
--#include "net/vxlan.h"
--#endif
-+#include <net/vxlan.h>
- 
- const char i40e_driver_name[] = "i40e";
- static const char i40e_driver_string[] =
-@@ -3996,9 +3994,7 @@ static int i40e_open(struct net_device *netdev)
- 				    "couldn't set broadcast err %d aq_err %d\n",
- 				    err, pf->hw.aq.asq_last_status);
- 	}
--#if IS_ENABLED(CONFIG_VXLAN)
- 	vxlan_get_rx_port(netdev);
--#endif
- 
- 	return 0;
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 01d0334..a978451 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -860,12 +860,25 @@ static void i40e_receive_skb(struct i40e_ring *rx_ring,
-  * @skb: skb currently being received and modified
-  * @rx_status: status value of last descriptor in packet
-  * @rx_error: error value of last descriptor in packet
-+ * @rx_ptype: ptype value of last descriptor in packet
-  **/
- static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
- 				    struct sk_buff *skb,
- 				    u32 rx_status,
--				    u32 rx_error)
-+				    u32 rx_error,
-+				    u16 rx_ptype)
- {
-+	bool ipv4_tunnel, ipv6_tunnel;
-+	__wsum rx_udp_csum;
-+	__sum16 csum;
-+	struct iphdr *iph;
-+
-+	ipv4_tunnel = (rx_ptype > I40E_RX_PTYPE_GRENAT4_MAC_PAY3) &&
-+		      (rx_ptype < I40E_RX_PTYPE_GRENAT4_MACVLAN_IPV6_ICMP_PAY4);
-+	ipv6_tunnel = (rx_ptype > I40E_RX_PTYPE_GRENAT6_MAC_PAY3) &&
-+		      (rx_ptype < I40E_RX_PTYPE_GRENAT6_MACVLAN_IPV6_ICMP_PAY4);
-+
-+	skb->encapsulation = ipv4_tunnel || ipv6_tunnel;
- 	skb->ip_summed = CHECKSUM_NONE;
- 
- 	/* Rx csum enabled and ip headers found? */
-@@ -873,13 +886,43 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
- 	      rx_status & (1 << I40E_RX_DESC_STATUS_L3L4P_SHIFT)))
- 		return;
- 
--	/* IP or L4 checksum error */
-+	/* IP or L4 or outmost IP checksum error */
- 	if (rx_error & ((1 << I40E_RX_DESC_ERROR_IPE_SHIFT) |
--			(1 << I40E_RX_DESC_ERROR_L4E_SHIFT))) {
-+			(1 << I40E_RX_DESC_ERROR_L4E_SHIFT) |
-+			(1 << I40E_RX_DESC_ERROR_EIPE_SHIFT))) {
- 		vsi->back->hw_csum_rx_error++;
- 		return;
- 	}
- 
-+	if (ipv4_tunnel &&
-+	    !(rx_status & (1 << I40E_RX_DESC_STATUS_UDP_0_SHIFT))) {
-+		/* If VXLAN traffic has an outer UDPv4 checksum we need to check
-+		 * it in the driver, hardware does not do it for us.
-+		 * Since L3L4P bit was set we assume a valid IHL value (>=5)
-+		 * so the total length of IPv4 header is IHL*4 bytes
-+		 */
-+		skb->transport_header = skb->mac_header +
-+					sizeof(struct ethhdr) +
-+					(ip_hdr(skb)->ihl * 4);
-+
-+		/* Add 4 bytes for VLAN tagged packets */
-+		skb->transport_header += (skb->protocol == htons(ETH_P_8021Q) ||
-+					  skb->protocol == htons(ETH_P_8021AD))
-+					  ? VLAN_HLEN : 0;
-+
-+		rx_udp_csum = udp_csum(skb);
-+		iph = ip_hdr(skb);
-+		csum = csum_tcpudp_magic(
-+				iph->saddr, iph->daddr,
-+				(skb->len - skb_transport_offset(skb)),
-+				IPPROTO_UDP, rx_udp_csum);
-+
-+		if (udp_hdr(skb)->check != csum) {
-+			vsi->back->hw_csum_rx_error++;
-+			return;
-+		}
-+	}
-+
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 1ea0886..c0e3aec 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -543,6 +543,134 @@ error_alloc_vsi_res:
  }
  
-@@ -920,6 +963,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 	union i40e_rx_desc *rx_desc;
- 	u32 rx_error, rx_status;
- 	u64 qword;
-+	u16 rx_ptype;
+ /**
++ * i40e_enable_vf_mappings
++ * @vf: pointer to the vf info
++ *
++ * enable vf mappings
++ **/
++static void i40e_enable_vf_mappings(struct i40e_vf *vf)
++{
++	struct i40e_pf *pf = vf->pf;
++	struct i40e_hw *hw = &pf->hw;
++	u32 reg, total_queue_pairs = 0;
++	int j;
++
++	/* Tell the hardware we're using noncontiguous mapping. HW requires
++	 * that VF queues be mapped using this method, even when they are
++	 * contiguous in real life
++	 */
++	wr32(hw, I40E_VSILAN_QBASE(vf->lan_vsi_id),
++	     I40E_VSILAN_QBASE_VSIQTABLE_ENA_MASK);
++
++	/* enable VF vplan_qtable mappings */
++	reg = I40E_VPLAN_MAPENA_TXRX_ENA_MASK;
++	wr32(hw, I40E_VPLAN_MAPENA(vf->vf_id), reg);
++
++	/* map PF queues to VF queues */
++	for (j = 0; j < pf->vsi[vf->lan_vsi_index]->num_queue_pairs; j++) {
++		u16 qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index, j);
++		reg = (qid & I40E_VPLAN_QTABLE_QINDEX_MASK);
++		wr32(hw, I40E_VPLAN_QTABLE(total_queue_pairs, vf->vf_id), reg);
++		total_queue_pairs++;
++	}
++
++	/* map PF queues to VSI */
++	for (j = 0; j < 7; j++) {
++		if (j * 2 >= pf->vsi[vf->lan_vsi_index]->num_queue_pairs) {
++			reg = 0x07FF07FF;	/* unused */
++		} else {
++			u16 qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index,
++							  j * 2);
++			reg = qid;
++			qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index,
++						      (j * 2) + 1);
++			reg |= qid << 16;
++		}
++		wr32(hw, I40E_VSILAN_QTABLE(j, vf->lan_vsi_id), reg);
++	}
++
++	i40e_flush(hw);
++}
++
++/**
++ * i40e_disable_vf_mappings
++ * @vf: pointer to the vf info
++ *
++ * disable vf mappings
++ **/
++static void i40e_disable_vf_mappings(struct i40e_vf *vf)
++{
++	struct i40e_pf *pf = vf->pf;
++	struct i40e_hw *hw = &pf->hw;
++	int i;
++
++	/* disable qp mappings */
++	wr32(hw, I40E_VPLAN_MAPENA(vf->vf_id), 0);
++	for (i = 0; i < I40E_MAX_VSI_QP; i++)
++		wr32(hw, I40E_VPLAN_QTABLE(i, vf->vf_id),
++		     I40E_QUEUE_END_OF_LIST);
++	i40e_flush(hw);
++}
++
++/**
++ * i40e_free_vf_res
++ * @vf: pointer to the vf info
++ *
++ * free vf resources
++ **/
++static void i40e_free_vf_res(struct i40e_vf *vf)
++{
++	struct i40e_pf *pf = vf->pf;
++
++	/* free vsi & disconnect it from the parent uplink */
++	if (vf->lan_vsi_index) {
++		i40e_vsi_release(pf->vsi[vf->lan_vsi_index]);
++		vf->lan_vsi_index = 0;
++		vf->lan_vsi_id = 0;
++	}
++
++	/* reset some of the state varibles keeping
++	 * track of the resources
++	 */
++	vf->num_queue_pairs = 0;
++	vf->vf_states = 0;
++}
++
++/**
++ * i40e_alloc_vf_res
++ * @vf: pointer to the vf info
++ *
++ * allocate vf resources
++ **/
++static int i40e_alloc_vf_res(struct i40e_vf *vf)
++{
++	struct i40e_pf *pf = vf->pf;
++	int total_queue_pairs = 0;
++	int ret;
++
++	/* allocate hw vsi context & associated resources */
++	ret = i40e_alloc_vsi_res(vf, I40E_VSI_SRIOV);
++	if (ret)
++		goto error_alloc;
++	total_queue_pairs += pf->vsi[vf->lan_vsi_index]->num_queue_pairs;
++	set_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps);
++
++	/* store the total qps number for the runtime
++	 * vf req validation
++	 */
++	vf->num_queue_pairs = total_queue_pairs;
++
++	/* vf is now completely initialized */
++	set_bit(I40E_VF_STAT_INIT, &vf->vf_states);
++
++error_alloc:
++	if (ret)
++		i40e_free_vf_res(vf);
++
++	return ret;
++}
++
++/**
+  * i40e_reset_vf
+  * @vf: pointer to the vf structure
+  * @flr: VFLR was issued or not
+@@ -673,134 +801,6 @@ int i40e_reset_vf(struct i40e_vf *vf, bool flr)
+ }
  
- 	rx_desc = I40E_RX_DESC(rx_ring, i);
- 	qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
-@@ -952,6 +996,8 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 		rx_hbo = rx_error & (1 << I40E_RX_DESC_ERROR_HBO_SHIFT);
- 		rx_error &= ~(1 << I40E_RX_DESC_ERROR_HBO_SHIFT);
- 
-+		rx_ptype = (qword & I40E_RXD_QW1_PTYPE_MASK) >>
-+			   I40E_RXD_QW1_PTYPE_SHIFT;
- 		rx_bi->skb = NULL;
- 
- 		/* This memory barrier is needed to keep us from reading
-@@ -1032,13 +1078,14 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 		}
- 
- 		skb->rxhash = i40e_rx_hash(rx_ring, rx_desc);
--		i40e_rx_checksum(vsi, skb, rx_status, rx_error);
+ /**
+- * i40e_enable_vf_mappings
+- * @vf: pointer to the vf info
+- *
+- * enable vf mappings
+- **/
+-static void i40e_enable_vf_mappings(struct i40e_vf *vf)
+-{
+-	struct i40e_pf *pf = vf->pf;
+-	struct i40e_hw *hw = &pf->hw;
+-	u32 reg, total_queue_pairs = 0;
+-	int j;
 -
- 		/* probably a little skewed due to removing CRC */
- 		total_rx_bytes += skb->len;
- 		total_rx_packets++;
- 
- 		skb->protocol = eth_type_trans(skb, rx_ring->netdev);
-+
-+		i40e_rx_checksum(vsi, skb, rx_status, rx_error, rx_ptype);
-+
- 		vlan_tag = rx_status & (1 << I40E_RX_DESC_STATUS_L2TAG1P_SHIFT)
- 			 ? le16_to_cpu(rx_desc->wb.qword0.lo_dword.l2tag1)
- 			 : 0;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index bb960cd..6e5f35e7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -522,7 +522,8 @@ enum i40e_rx_desc_status_bits {
- 	I40E_RX_DESC_STATUS_UMBCAST_SHIFT	= 9, /* 2 BITS */
- 	I40E_RX_DESC_STATUS_FLM_SHIFT		= 11,
- 	I40E_RX_DESC_STATUS_FLTSTAT_SHIFT	= 12, /* 2 BITS */
--	I40E_RX_DESC_STATUS_LPBK_SHIFT		= 14
-+	I40E_RX_DESC_STATUS_LPBK_SHIFT		= 14,
-+	I40E_RX_DESC_STATUS_UDP_0_SHIFT		= 16
- };
- 
- #define I40E_RXD_QW1_STATUS_TSYNINDX_SHIFT   I40E_RX_DESC_STATUS_TSYNINDX_SHIFT
-@@ -568,28 +569,32 @@ enum i40e_rx_desc_error_l3l4e_fcoe_masks {
- 
- /* Packet type non-ip values */
- enum i40e_rx_l2_ptype {
--	I40E_RX_PTYPE_L2_RESERVED		= 0,
--	I40E_RX_PTYPE_L2_MAC_PAY2		= 1,
--	I40E_RX_PTYPE_L2_TIMESYNC_PAY2		= 2,
--	I40E_RX_PTYPE_L2_FIP_PAY2		= 3,
--	I40E_RX_PTYPE_L2_OUI_PAY2		= 4,
--	I40E_RX_PTYPE_L2_MACCNTRL_PAY2		= 5,
--	I40E_RX_PTYPE_L2_LLDP_PAY2		= 6,
--	I40E_RX_PTYPE_L2_ECP_PAY2		= 7,
--	I40E_RX_PTYPE_L2_EVB_PAY2		= 8,
--	I40E_RX_PTYPE_L2_QCN_PAY2		= 9,
--	I40E_RX_PTYPE_L2_EAPOL_PAY2		= 10,
--	I40E_RX_PTYPE_L2_ARP			= 11,
--	I40E_RX_PTYPE_L2_FCOE_PAY3		= 12,
--	I40E_RX_PTYPE_L2_FCOE_FCDATA_PAY3	= 13,
--	I40E_RX_PTYPE_L2_FCOE_FCRDY_PAY3	= 14,
--	I40E_RX_PTYPE_L2_FCOE_FCRSP_PAY3	= 15,
--	I40E_RX_PTYPE_L2_FCOE_FCOTHER_PA	= 16,
--	I40E_RX_PTYPE_L2_FCOE_VFT_PAY3		= 17,
--	I40E_RX_PTYPE_L2_FCOE_VFT_FCDATA	= 18,
--	I40E_RX_PTYPE_L2_FCOE_VFT_FCRDY		= 19,
--	I40E_RX_PTYPE_L2_FCOE_VFT_FCRSP		= 20,
--	I40E_RX_PTYPE_L2_FCOE_VFT_FCOTHER	= 21
-+	I40E_RX_PTYPE_L2_RESERVED			= 0,
-+	I40E_RX_PTYPE_L2_MAC_PAY2			= 1,
-+	I40E_RX_PTYPE_L2_TIMESYNC_PAY2			= 2,
-+	I40E_RX_PTYPE_L2_FIP_PAY2			= 3,
-+	I40E_RX_PTYPE_L2_OUI_PAY2			= 4,
-+	I40E_RX_PTYPE_L2_MACCNTRL_PAY2			= 5,
-+	I40E_RX_PTYPE_L2_LLDP_PAY2			= 6,
-+	I40E_RX_PTYPE_L2_ECP_PAY2			= 7,
-+	I40E_RX_PTYPE_L2_EVB_PAY2			= 8,
-+	I40E_RX_PTYPE_L2_QCN_PAY2			= 9,
-+	I40E_RX_PTYPE_L2_EAPOL_PAY2			= 10,
-+	I40E_RX_PTYPE_L2_ARP				= 11,
-+	I40E_RX_PTYPE_L2_FCOE_PAY3			= 12,
-+	I40E_RX_PTYPE_L2_FCOE_FCDATA_PAY3		= 13,
-+	I40E_RX_PTYPE_L2_FCOE_FCRDY_PAY3		= 14,
-+	I40E_RX_PTYPE_L2_FCOE_FCRSP_PAY3		= 15,
-+	I40E_RX_PTYPE_L2_FCOE_FCOTHER_PA		= 16,
-+	I40E_RX_PTYPE_L2_FCOE_VFT_PAY3			= 17,
-+	I40E_RX_PTYPE_L2_FCOE_VFT_FCDATA		= 18,
-+	I40E_RX_PTYPE_L2_FCOE_VFT_FCRDY			= 19,
-+	I40E_RX_PTYPE_L2_FCOE_VFT_FCRSP			= 20,
-+	I40E_RX_PTYPE_L2_FCOE_VFT_FCOTHER		= 21,
-+	I40E_RX_PTYPE_GRENAT4_MAC_PAY3			= 58,
-+	I40E_RX_PTYPE_GRENAT4_MACVLAN_IPV6_ICMP_PAY4	= 87,
-+	I40E_RX_PTYPE_GRENAT6_MAC_PAY3			= 124,
-+	I40E_RX_PTYPE_GRENAT6_MACVLAN_IPV6_ICMP_PAY4	= 153
- };
- 
- struct i40e_rx_ptype_decoded {
+-	/* Tell the hardware we're using noncontiguous mapping. HW requires
+-	 * that VF queues be mapped using this method, even when they are
+-	 * contiguous in real life
+-	 */
+-	wr32(hw, I40E_VSILAN_QBASE(vf->lan_vsi_id),
+-	     I40E_VSILAN_QBASE_VSIQTABLE_ENA_MASK);
+-
+-	/* enable VF vplan_qtable mappings */
+-	reg = I40E_VPLAN_MAPENA_TXRX_ENA_MASK;
+-	wr32(hw, I40E_VPLAN_MAPENA(vf->vf_id), reg);
+-
+-	/* map PF queues to VF queues */
+-	for (j = 0; j < pf->vsi[vf->lan_vsi_index]->num_queue_pairs; j++) {
+-		u16 qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index, j);
+-		reg = (qid & I40E_VPLAN_QTABLE_QINDEX_MASK);
+-		wr32(hw, I40E_VPLAN_QTABLE(total_queue_pairs, vf->vf_id), reg);
+-		total_queue_pairs++;
+-	}
+-
+-	/* map PF queues to VSI */
+-	for (j = 0; j < 7; j++) {
+-		if (j * 2 >= pf->vsi[vf->lan_vsi_index]->num_queue_pairs) {
+-			reg = 0x07FF07FF;	/* unused */
+-		} else {
+-			u16 qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index,
+-							  j * 2);
+-			reg = qid;
+-			qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index,
+-						      (j * 2) + 1);
+-			reg |= qid << 16;
+-		}
+-		wr32(hw, I40E_VSILAN_QTABLE(j, vf->lan_vsi_id), reg);
+-	}
+-
+-	i40e_flush(hw);
+-}
+-
+-/**
+- * i40e_disable_vf_mappings
+- * @vf: pointer to the vf info
+- *
+- * disable vf mappings
+- **/
+-static void i40e_disable_vf_mappings(struct i40e_vf *vf)
+-{
+-	struct i40e_pf *pf = vf->pf;
+-	struct i40e_hw *hw = &pf->hw;
+-	int i;
+-
+-	/* disable qp mappings */
+-	wr32(hw, I40E_VPLAN_MAPENA(vf->vf_id), 0);
+-	for (i = 0; i < I40E_MAX_VSI_QP; i++)
+-		wr32(hw, I40E_VPLAN_QTABLE(i, vf->vf_id),
+-		     I40E_QUEUE_END_OF_LIST);
+-	i40e_flush(hw);
+-}
+-
+-/**
+- * i40e_free_vf_res
+- * @vf: pointer to the vf info
+- *
+- * free vf resources
+- **/
+-static void i40e_free_vf_res(struct i40e_vf *vf)
+-{
+-	struct i40e_pf *pf = vf->pf;
+-
+-	/* free vsi & disconnect it from the parent uplink */
+-	if (vf->lan_vsi_index) {
+-		i40e_vsi_release(pf->vsi[vf->lan_vsi_index]);
+-		vf->lan_vsi_index = 0;
+-		vf->lan_vsi_id = 0;
+-	}
+-
+-	/* reset some of the state varibles keeping
+-	 * track of the resources
+-	 */
+-	vf->num_queue_pairs = 0;
+-	vf->vf_states = 0;
+-}
+-
+-/**
+- * i40e_alloc_vf_res
+- * @vf: pointer to the vf info
+- *
+- * allocate vf resources
+- **/
+-static int i40e_alloc_vf_res(struct i40e_vf *vf)
+-{
+-	struct i40e_pf *pf = vf->pf;
+-	int total_queue_pairs = 0;
+-	int ret;
+-
+-	/* allocate hw vsi context & associated resources */
+-	ret = i40e_alloc_vsi_res(vf, I40E_VSI_SRIOV);
+-	if (ret)
+-		goto error_alloc;
+-	total_queue_pairs += pf->vsi[vf->lan_vsi_index]->num_queue_pairs;
+-	set_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps);
+-
+-	/* store the total qps number for the runtime
+-	 * vf req validation
+-	 */
+-	vf->num_queue_pairs = total_queue_pairs;
+-
+-	/* vf is now completely initialized */
+-	set_bit(I40E_VF_STAT_INIT, &vf->vf_states);
+-
+-error_alloc:
+-	if (ret)
+-		i40e_free_vf_res(vf);
+-
+-	return ret;
+-}
+-
+-/**
+  * i40e_vfs_are_assigned
+  * @pf: pointer to the pf structure
+  *
 -- 
 1.8.3.1
