@@ -1,7 +1,7 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv4 net-next 2/8] {pktgen, xfrm} Add statistics counting when transforming
-Date: Fri, 20 Dec 2013 10:33:28 +0800
-Message-ID: <1387506814-4417-3-git-send-email-fan.du@windriver.com>
+Subject: [PATCHv4 net-next 4/8] {pktgen, xfrm} Using "pgset spi xxx" to spedifiy SA for a given flow
+Date: Fri, 20 Dec 2013 10:33:30 +0800
+Message-ID: <1387506814-4417-5-git-send-email-fan.du@windriver.com>
 References: <1387506814-4417-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,52 +9,58 @@ Cc: <steffen.klassert@secunet.com>, <hadi@cyberus.ca>,
 	<netdev@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:53814 "EHLO
+Received: from mail1.windriver.com ([147.11.146.13]:53824 "EHLO
 	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932234Ab3LTCdp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 21:33:45 -0500
+	with ESMTP id S932279Ab3LTCds (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 21:33:48 -0500
 In-Reply-To: <1387506814-4417-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-so /proc/net/xfrm_stat could give user clue about what's
-wrong in this process.
+User could set specific SPI value to arm pktgen flow with IPsec
+transformation, instead of looking up SA by sadr/daddr. The reaseon
+to do so is because current state lookup scheme is both slow and, most
+important of all, in fact pktgen doesn't need to match any SA state
+addresses information, all it needs is the SA transfromation shell to
+do the encapuslation.
+
+And this option also provide user an alternative to using pktgen
+test existing SA without creating new ones.
 
 Signed-off-by: Fan Du <fan.du@windriver.com>
 ---
- net/core/pktgen.c |   10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
+ net/core/pktgen.c |   12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
 diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index b007586..156d57b 100644
+index 156d57b..8bc4ddd 100644
 --- a/net/core/pktgen.c
 +++ b/net/core/pktgen.c
-@@ -2479,6 +2479,7 @@ static int pktgen_output_ipsec(struct sk_buff *skb, struct pktgen_dev *pkt_dev)
- {
- 	struct xfrm_state *x = pkt_dev->flows[pkt_dev->curfl].x;
- 	int err = 0;
-+	struct net *net = dev_net(pkt_dev->odev);
+@@ -389,6 +389,7 @@ struct pktgen_dev {
+ #ifdef CONFIG_XFRM
+ 	__u8	ipsmode;		/* IPSEC mode (config) */
+ 	__u8	ipsproto;		/* IPSEC type (config) */
++	__u32	spi;
+ #endif
+ 	char result[512];
+ };
+@@ -1477,6 +1478,17 @@ static ssize_t pktgen_if_write(struct file *file,
+ 		return count;
+ 	}
  
- 	if (!x)
- 		return 0;
-@@ -2488,12 +2489,15 @@ static int pktgen_output_ipsec(struct sk_buff *skb, struct pktgen_dev *pkt_dev)
- 		return 0;
- 
- 	err = x->outer_mode->output(x, skb);
--	if (err)
-+	if (err) {
-+		XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTSTATEMODEERROR);
- 		goto error;
++	if (!strcmp(name, "spi")) {
++		len = num_arg(&user_buffer[i], 10, &value);
++		if (len < 0)
++			return len;
++
++		i += len;
++		pkt_dev->spi = value;
++		sprintf(pg_result, "OK: spi=%u", pkt_dev->spi);
++		return count;
 +	}
- 	err = x->type->output(x, skb);
--	if (err)
-+	if (err) {
-+		XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTSTATEPROTOERROR);
- 		goto error;
--
-+	}
- 	spin_lock_bh(&x->lock);
- 	x->curlft.bytes += skb->len;
- 	x->curlft.packets++;
++
+ 	if (!strcmp(name, "flowlen")) {
+ 		len = num_arg(&user_buffer[i], 10, &value);
+ 		if (len < 0)
 -- 
 1.7.9.5
