@@ -1,118 +1,68 @@
-From: Valentina Giusti <valentina.giusti@bmw-carit.de>
-Subject: Re: [PATCH v2 1/2] netfilter_queue: enable UID/GID socket info retrieval
-Date: Fri, 20 Dec 2013 12:18:22 +0100
-Message-ID: <52B4277E.3030607@bmw-carit.de>
-References: <1387451007-14363-1-git-send-email-valentina.giusti@bmw-carit.de> <1387451007-14363-2-git-send-email-valentina.giusti@bmw-carit.de> <20131220092638.GA9122@localhost> <20131220092926.GA9275@localhost>
-Reply-To: Valentina Giusti <Valentina.Giusti@bmw-carit.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	fw@strlen.de, eric.dumazet@gmail.com, tgraf@redhat.com,
-	jpa@google.com, davem@davemloft.net, daniel.wagner@bmw-carit.de
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Zhi Yong Wu <zwu.kernel@gmail.com>
+Subject: [RFC PATCH] net, gro: fix the truesize of all fragments
+Date: Fri, 20 Dec 2013 19:45:43 +0800
+Message-ID: <1387539943-25521-1-git-send-email-zwu.kernel@gmail.com>
+Cc: eric.dumazet@gmail.com, Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bmw-carit.de ([62.245.222.98]:51300 "EHLO
-	linuxmail.bmw-carit.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756307Ab3LTLSZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 06:18:25 -0500
-In-Reply-To: <20131220092926.GA9275@localhost>
+Received: from e39.co.us.ibm.com ([32.97.110.160]:58298 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755863Ab3LTLp6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 06:45:58 -0500
+Received: from /spool/local
+	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <zwu.kernel@gmail.com>;
+	Fri, 20 Dec 2013 04:45:58 -0700
+Received: from b01cxnp23033.gho.pok.ibm.com (b01cxnp23033.gho.pok.ibm.com [9.57.198.28])
+	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 037636E8040
+	for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 06:45:51 -0500 (EST)
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by b01cxnp23033.gho.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id rBKBjrtx9044452
+	for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 11:45:53 GMT
+Received: from d01av04.pok.ibm.com (localhost [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id rBKBjraQ023223
+	for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 06:45:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
 
-On 12/20/2013 10:29 AM, Pablo Neira Ayuso wrote:
-> On Fri, Dec 20, 2013 at 10:26:38AM +0100, Pablo Neira Ayuso wrote:
->> Hi,
->>
->> On Thu, Dec 19, 2013 at 12:03:26PM +0100, valentina.giusti@bmw-carit=
-=2Ede wrote:
->>> From: Valentina Giusti <valentina.giusti@oss.bmw-carit.de>
->>>
->>> Thanks to commits 41063e9 (ipv4: Early TCP socket demux) and 421b38=
-8 (udp: ipv4:
->>> Add udp early demux) it is now possible to parse UID and GID socket=
- info
->>> also for incoming TCP and UDP connections. Having this info availab=
-le, it
->>> is convenient to let NFQUEUE parse it in order to improve and refin=
-e the
->>> traffic analysis in userspace.
->>>
->>> Signed-off-by: Valentina Giusti <valentina.giusti@bmw-carit.de>
->>> ---
->>>   include/uapi/linux/netfilter/nfnetlink_queue.h |  5 ++++-
->>>   net/netfilter/nfnetlink_queue_core.c           | 31 +++++++++++++=
-+++++++++++++
->>>   2 files changed, 35 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/include/uapi/linux/netfilter/nfnetlink_queue.h b/inclu=
-de/uapi/linux/netfilter/nfnetlink_queue.h
->>> index 0132bad..8dd819e 100644
->>> --- a/include/uapi/linux/netfilter/nfnetlink_queue.h
->>> +++ b/include/uapi/linux/netfilter/nfnetlink_queue.h
->>> @@ -47,6 +47,8 @@ enum nfqnl_attr_type {
->>>   	NFQA_CAP_LEN,			/* __u32 length of captured packet */
->>>   	NFQA_SKB_INFO,			/* __u32 skb meta information */
->>>   	NFQA_EXP,			/* nf_conntrack_netlink.h */
->>> +	NFQA_UID,			/* __u32 sk uid */
->>> +	NFQA_GID,			/* __u32 sk gid */
->>>  =20
->>>   	__NFQA_MAX
->>>   };
->>> @@ -99,7 +101,8 @@ enum nfqnl_attr_config {
->>>   #define NFQA_CFG_F_FAIL_OPEN			(1 << 0)
->>>   #define NFQA_CFG_F_CONNTRACK			(1 << 1)
->>>   #define NFQA_CFG_F_GSO				(1 << 2)
->>> -#define NFQA_CFG_F_MAX				(1 << 3)
->>> +#define NFQA_CFG_F_UID_GID			(1 << 3)
->>> +#define NFQA_CFG_F_MAX				(1 << 4)
->>>  =20
->>>   /* flags for NFQA_SKB_INFO */
->>>   /* packet appears to have wrong checksums, but they are ok */
->>> diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/n=
-fnetlink_queue_core.c
->>> index 21258cf..2cdef07 100644
->>> --- a/net/netfilter/nfnetlink_queue_core.c
->>> +++ b/net/netfilter/nfnetlink_queue_core.c
->>> @@ -297,6 +297,29 @@ nfqnl_put_packet_info(struct sk_buff *nlskb, s=
-truct sk_buff *packet,
->>>   	return flags ? nla_put_be32(nlskb, NFQA_SKB_INFO, htonl(flags)) =
-: 0;
->>>   }
->>>  =20
->>> +static int nfqnl_put_sk_uidgid(struct sk_buff *skb, struct sock *s=
-k)
->>> +{
->>> +	const struct cred *cred;
->>> +
->>> +	if (sk && sk->sk_state !=3D TCP_TIME_WAIT) {
->>> +		read_lock_bh(&sk->sk_callback_lock);
->>> +		if (sk->sk_socket && sk->sk_socket->file) {
->>> +			cred =3D sk->sk_socket->file->f_cred;
->>> +			if (nla_put_u32(skb, NFQA_UID, htonl(cred->fsuid)))
->> I'm hitting this compilation error here:
->>
->> net/netfilter/nfnetlink_queue_core.c: In function =E2=80=98nfqnl_put=
-_sk_uidgid=E2=80=99:
->> net/netfilter/nfnetlink_queue_core.c:308:4: error: aggregate value u=
-sed where an integer was expected
->>
->> It seems that in recent kernels you have to use:
->>
->>          from_kuid_munged(&init_user_ns, cred->fsuid);
->>
->> to retrieve the integer that represents the uid.
->>
->> Please,
-> sorry, I left this sentence incomplete, I was telling... Please, test
-> your patches with current git trees :-). Thanks.
+When the truesize of all fragments was calculated, it didn't take
+the first small piece of data into account.
 
-Just to be on the safe side, I am testing my patches against the nf-nex=
-t=20
-tree, branch master. Is that correct?
+Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+---
+ net/core/skbuff.c |   10 +++++++---
+ 1 files changed, 7 insertions(+), 3 deletions(-)
 
-Thanks,
-Val
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 2b6b863..0665bd6 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3027,9 +3027,12 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 		frag->page_offset += offset;
+ 		skb_frag_size_sub(frag, offset);
+ 
+-		/* all fragments truesize : remove (head size + sk_buff) */
++		/**
++		 * all fragments truesize :
++		 * remove (head size + sk_buff + offset)
++		 */
+ 		delta_truesize = skb->truesize -
+-				 SKB_TRUESIZE(skb_end_offset(skb));
++				 SKB_TRUESIZE(skb_end_offset(skb) + offset);
+ 
+ 		skb->truesize -= skb->data_len;
+ 		skb->len -= skb->data_len;
+@@ -3060,7 +3063,8 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 		memcpy(frag + 1, skbinfo->frags, sizeof(*frag) * skbinfo->nr_frags);
+ 		/* We dont need to clear skbinfo->nr_frags here */
+ 
+-		delta_truesize = skb->truesize - SKB_DATA_ALIGN(sizeof(struct sk_buff));
++		delta_truesize = skb->truesize -
++			SKB_DATA_ALIGN(sizeof(struct sk_buff)) - offset;
+ 		NAPI_GRO_CB(skb)->free = NAPI_GRO_FREE_STOLEN_HEAD;
+ 		goto done;
+ 	}
+-- 
+1.7.6.5
