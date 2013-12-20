@@ -1,69 +1,103 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] nf_conntrack_timestamp: Fix BUG_ON after netns deletion
-Date: Fri, 20 Dec 2013 14:59:35 +0100
-Message-ID: <20131220135935.GA21047@localhost>
-References: <1387546914-24958-1-git-send-email-helmut.schaa@googlemail.com>
+From: Zhi Yong Wu <zwu.kernel@gmail.com>
+Subject: Re: [RFC PATCH] net, gro: fix the truesize of all fragments
+Date: Fri, 20 Dec 2013 21:59:59 +0800
+Message-ID: <CAEH94LhiQGG-_Ad-5KYKt20CBYkQ6YR+s93zPeELzR-fGZ4yTA@mail.gmail.com>
+References: <1387539943-25521-1-git-send-email-zwu.kernel@gmail.com>
+	<52B44B97.4060400@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	kaber@trash.net, kadlec@blackhole.kfki.hu
-To: Helmut Schaa <helmut.schaa@googlemail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1387546914-24958-1-git-send-email-helmut.schaa@googlemail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f54.google.com ([209.85.219.54]:44063 "EHLO
+	mail-oa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030190Ab3LTOAA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 09:00:00 -0500
+Received: by mail-oa0-f54.google.com with SMTP id h16so2881258oag.27
+        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 06:00:00 -0800 (PST)
+In-Reply-To: <52B44B97.4060400@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 20, 2013 at 02:41:54PM +0100, Helmut Schaa wrote:
-> When having nf_conntrack_timestamp enabled deleting a netns can lead
-> to the following BUG being triggered:
-> 
-> [63836.660000] Kernel bug detected[#1]:
-> [63836.660000] CPU: 0 PID: 0 Comm: swapper Not tainted 3.10.18 #14
-> [63836.660000] task: 802d9420 ti: 802d2000 task.ti: 802d2000
-> [63836.660000] $ 0   : 00000000 00000000 00000000 00000000
-> [63836.660000] $ 4   : 00000001 00000004 00000020 00000020
-> [63836.660000] $ 8   : 00000000 80064910 00000000 00000000
-> [63836.660000] $12   : 0bff0002 00000001 00000000 0a0a0abe
-> [63836.660000] $16   : 802e70a0 85f29d80 00000000 00000004
-> [63836.660000] $20   : 85fb62a0 00000002 802d3bc0 85fb62a0
-> [63836.660000] $24   : 00000000 87138110
-> [63836.660000] $28   : 802d2000 802d3b40 00000014 871327cc
-> [63836.660000] Hi    : 000005ff
-> [63836.660000] Lo    : f2edd000
-> [63836.660000] epc   : 87138794 __nf_ct_ext_add_length+0xe8/0x1ec [nf_conntrack]
-> [63836.660000]     Not tainted
-> [63836.660000] ra    : 871327cc nf_conntrack_in+0x31c/0x7b8 [nf_conntrack]
-> [63836.660000] Status: 1100d403 KERNEL EXL IE
-> [63836.660000] Cause : 00800034
-> [63836.660000] PrId  : 0001974c (MIPS 74Kc)
-> [63836.660000] Modules linked in: ath9k ath9k_common pppoe ppp_async iptable_nat ath9k_hw ath pppox ppp_generic nf_nat_ipv4 nf_conntrack_ipv4 mac80211 ipt_MASQUERADE cfg80211 xt_time xt_tcpudp xt_state xt_quota xt_policy xt_pkttype xt_owner xt_nat xt_multiport xt_mark xh
-> [63836.660000] Process swapper (pid: 0, threadinfo=802d2000, task=802d9420, tls=00000000)
-> [63836.660000] Stack : 802e70a0 871323d4 00000005 87080234 802e70a0 86d2a840 00000000 00000000
-> [63836.660000] Call Trace:
-> [63836.660000] [<87138794>] __nf_ct_ext_add_length+0xe8/0x1ec [nf_conntrack]
-> [63836.660000] [<871327cc>] nf_conntrack_in+0x31c/0x7b8 [nf_conntrack]
-> [63836.660000] [<801ff63c>] nf_iterate+0x90/0xec
-> [63836.660000] [<801ff730>] nf_hook_slow+0x98/0x164
-> [63836.660000] [<80205968>] ip_rcv+0x3e8/0x40c
-> [63836.660000] [<801d9754>] __netif_receive_skb_core+0x624/0x6a4
-> [63836.660000] [<801da124>] process_backlog+0xa4/0x16c
-> [63836.660000] [<801d9bb4>] net_rx_action+0x10c/0x1e0
-> [63836.660000] [<8007c5a4>] __do_softirq+0xd0/0x1bc
-> [63836.660000] [<8007c730>] do_softirq+0x48/0x68
-> [63836.660000] [<8007c964>] irq_exit+0x54/0x70
-> [63836.660000] [<80060830>] ret_from_irq+0x0/0x4
-> [63836.660000] [<8006a9f8>] r4k_wait_irqoff+0x18/0x1c
-> [63836.660000] [<8009cfb8>] cpu_startup_entry+0xa4/0x104
-> [63836.660000] [<802eb918>] start_kernel+0x394/0x3ac
-> [63836.660000]
-> [63836.660000]
-> Code: 00821021  8c420000  2c440001 <00040336> 90440011  92350010  90560010  2485ffff  02a5a821
-> [63837.040000] ---[ end trace ebf660c3ce3b55e7 ]---
-> [63837.050000] Kernel panic - not syncing: Fatal exception in interrupt
-> [63837.050000] Rebooting in 3 seconds..
-> 
-> Fix this by not unregistering the conntrack extension in the per-netns
-> cleanup code.
+On Fri, Dec 20, 2013 at 9:52 PM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> Hello.
+>
+>
+> On 20-12-2013 15:45, Zhi Yong Wu wrote:
+>
+>> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+>
+>
+>> When the truesize of all fragments was calculated, it didn't take
+>> the first small piece of data into account.
+>
+>
+>> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+>> ---
+>>   net/core/skbuff.c |   10 +++++++---
+>>   1 files changed, 7 insertions(+), 3 deletions(-)
+>
+>
+>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+>> index 2b6b863..0665bd6 100644
+>> --- a/net/core/skbuff.c
+>> +++ b/net/core/skbuff.c
+>> @@ -3027,9 +3027,12 @@ int skb_gro_receive(struct sk_buff **head, struct
+>> sk_buff *skb)
+>>                 frag->page_offset += offset;
+>>                 skb_frag_size_sub(frag, offset);
+>>
+>> -               /* all fragments truesize : remove (head size + sk_buff)
+>> */
+>> +               /**
+>
+>
+>    Why kernel-doc style comment here? Networking code uses the following
+> comment style:
+>
+> /* bla
+>  * bla
+>  */
+No, If you check other comments in networking code, you will see why i
+did as that.
 
-Applied, thanks.
+/**
+ *    skb_segment - Perform protocol segmentation on skb.
+ *    @skb: buffer to segment
+ *    @features: features for the output path (see dev->features)
+ *
+ *    This function performs segmentation on the given skb.  It returns
+ *    a pointer to the first in a list of new skbs for the segments.
+ *    In case of error it returns ERR_PTR(err).
+ */
+struct sk_buff *skb_segment
+
+
+>
+>
+>> +                * all fragments truesize :
+>> +                * remove (head size + sk_buff + offset)
+>> +                */
+>>                 delta_truesize = skb->truesize -
+>> -                                SKB_TRUESIZE(skb_end_offset(skb));
+>> +                                SKB_TRUESIZE(skb_end_offset(skb) +
+>> offset);
+>>
+>>                 skb->truesize -= skb->data_len;
+>>                 skb->len -= skb->data_len;
+>
+>
+> WBR, Sergei
+Sorry, what is WBR?
+
+>
+
+
+
+-- 
+Regards,
+
+Zhi Yong Wu
