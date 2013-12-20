@@ -1,7 +1,7 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv4 net-next 5/8] {pktgen, xfrm} Construct skb dst for tunnel mode transformation
-Date: Fri, 20 Dec 2013 10:33:31 +0800
-Message-ID: <1387506814-4417-6-git-send-email-fan.du@windriver.com>
+Subject: [PATCHv4 net-next 6/8] {pktgen, xfrm} Introduce xfrm_state_lookup_byspi for pktgen
+Date: Fri, 20 Dec 2013 10:33:32 +0800
+Message-ID: <1387506814-4417-7-git-send-email-fan.du@windriver.com>
 References: <1387506814-4417-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,88 +9,104 @@ Cc: <steffen.klassert@secunet.com>, <hadi@cyberus.ca>,
 	<netdev@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:54720 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932279Ab3LTCdu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 21:33:50 -0500
+Received: from mail1.windriver.com ([147.11.146.13]:53838 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932279Ab3LTCdw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 21:33:52 -0500
 In-Reply-To: <1387506814-4417-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IPsec tunnel mode encapuslation needs to set outter ip header
-with right protocol/ttl/id value with regard to skb->dst->child.
-
-Looking up a rt in a standard way is absolutely wrong for every
-packet transmission. In a simple way, construct a dst by setting
-neccessary information to make tunnel mode encapuslation working.
+Introduce xfrm_state_lookup_byspi to find user specified by custom
+from "pgset spi xxx". Using this scheme, any flow regardless its
+saddr/daddr could be transform by SA specified with configurable
+spi.
 
 Signed-off-by: Fan Du <fan.du@windriver.com>
 ---
- net/core/pktgen.c |   28 +++++++++++++++++++++++++++-
- 1 file changed, 27 insertions(+), 1 deletion(-)
+ include/net/xfrm.h    |    2 ++
+ net/core/pktgen.c     |   22 +++++++++++++++-------
+ net/xfrm/xfrm_state.c |   22 ++++++++++++++++++++++
+ 3 files changed, 39 insertions(+), 7 deletions(-)
 
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 6b82fdf..dfdfead 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1422,6 +1422,8 @@ struct xfrm_state *xfrm_stateonly_find(struct net *net, u32 mark,
+ 				       xfrm_address_t *saddr,
+ 				       unsigned short family,
+ 				       u8 mode, u8 proto, u32 reqid);
++struct xfrm_state *xfrm_state_lookup_byspi(struct net *net, __be32 spi,
++					      unsigned short family);
+ int xfrm_state_check_expire(struct xfrm_state *x);
+ void xfrm_state_insert(struct xfrm_state *x);
+ int xfrm_state_add(struct xfrm_state *x);
 diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 8bc4ddd..628f7c5 100644
+index 628f7c5..b553c36 100644
 --- a/net/core/pktgen.c
 +++ b/net/core/pktgen.c
-@@ -390,6 +390,8 @@ struct pktgen_dev {
- 	__u8	ipsmode;		/* IPSEC mode (config) */
- 	__u8	ipsproto;		/* IPSEC type (config) */
- 	__u32	spi;
-+	struct dst_entry dst;
-+	struct dst_ops dstops;
- #endif
- 	char result[512];
- };
-@@ -2487,6 +2489,11 @@ static void mod_cur_headers(struct pktgen_dev *pkt_dev)
- 
- 
- #ifdef CONFIG_XFRM
-+u32 pktgen_dst_metrics[RTAX_MAX + 1] = {
+@@ -2247,13 +2247,21 @@ static void get_ipsec_sa(struct pktgen_dev *pkt_dev, int flow)
+ 	struct xfrm_state *x = pkt_dev->flows[flow].x;
+ 	struct pktgen_net *pn = net_generic(dev_net(pkt_dev->odev), pg_net_id);
+ 	if (!x) {
+-		/*slow path: we dont already have xfrm_state*/
+-		x = xfrm_stateonly_find(pn->net, DUMMY_MARK,
+-					(xfrm_address_t *)&pkt_dev->cur_daddr,
+-					(xfrm_address_t *)&pkt_dev->cur_saddr,
+-					AF_INET,
+-					pkt_dev->ipsmode,
+-					pkt_dev->ipsproto, 0);
 +
-+	[RTAX_HOPLIMIT] = 0x5, /* Set a static hoplimit */
-+};
++		if (pkt_dev->spi) {
++			/* We need as quick as possible to find the right SA
++			 * Searching with minimum criteria to archieve this.
++			 */
++			x = xfrm_state_lookup_byspi(pn->net, htonl(pkt_dev->spi), AF_INET);
++		} else {
++			/* slow path: we dont already have xfrm_state */
++			x = xfrm_stateonly_find(pn->net, DUMMY_MARK,
++						(xfrm_address_t *)&pkt_dev->cur_daddr,
++						(xfrm_address_t *)&pkt_dev->cur_saddr,
++						AF_INET,
++						pkt_dev->ipsmode,
++						pkt_dev->ipsproto, 0);
++		}
+ 		if (x) {
+ 			pkt_dev->flows[flow].x = x;
+ 			set_pkt_overhead(pkt_dev);
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index f7cb4a3..d31a126 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -925,6 +925,28 @@ xfrm_stateonly_find(struct net *net, u32 mark,
+ }
+ EXPORT_SYMBOL(xfrm_stateonly_find);
+ 
++struct xfrm_state *xfrm_state_lookup_byspi(struct net *net, __be32 spi,
++					      unsigned short family)
++{
++	struct xfrm_state *x;
++	struct xfrm_state_walk *w;
 +
- static int pktgen_output_ipsec(struct sk_buff *skb, struct pktgen_dev *pkt_dev)
++	spin_lock_bh(&xfrm_state_lock);
++	list_for_each_entry(w, &net->xfrm.state_all, all) {
++		x = container_of(w, struct xfrm_state, km);
++		if (x->props.family != family ||
++			x->id.spi != spi)
++			continue;
++
++		spin_unlock_bh(&xfrm_state_lock);
++		xfrm_state_hold(x);
++		return x;
++	}
++	spin_unlock_bh(&xfrm_state_lock);
++	return NULL;
++}
++EXPORT_SYMBOL(xfrm_state_lookup_byspi);
++
+ static void __xfrm_state_insert(struct xfrm_state *x)
  {
- 	struct xfrm_state *x = pkt_dev->flows[pkt_dev->curfl].x;
-@@ -2497,10 +2504,18 @@ static int pktgen_output_ipsec(struct sk_buff *skb, struct pktgen_dev *pkt_dev)
- 		return 0;
- 	/* XXX: we dont support tunnel mode for now until
- 	 * we resolve the dst issue */
--	if (x->props.mode != XFRM_MODE_TRANSPORT)
-+	if ((x->props.mode != XFRM_MODE_TRANSPORT) && (pkt_dev->spi == 0))
- 		return 0;
- 
-+	/* But when user specify an valid SPI, transformation
-+	 * supports both transport/tunnel mode + ESP/AH type.
-+	 */
-+	if ((x->props.mode == XFRM_MODE_TUNNEL) && (pkt_dev->spi != 0))
-+		skb->_skb_refdst = (unsigned long)&pkt_dev->dst | SKB_DST_NOREF;
-+
-+	rcu_read_lock_bh();
- 	err = x->outer_mode->output(x, skb);
-+	rcu_read_unlock_bh();
- 	if (err) {
- 		XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTSTATEMODEERROR);
- 		goto error;
-@@ -3557,6 +3572,17 @@ static int pktgen_add_device(struct pktgen_thread *t, const char *ifname)
- #ifdef CONFIG_XFRM
- 	pkt_dev->ipsmode = XFRM_MODE_TRANSPORT;
- 	pkt_dev->ipsproto = IPPROTO_ESP;
-+
-+	/* xfrm tunnel mode needs additional dst to extract outter
-+	 * ip header protocol/ttl/id field, here creat a phony one.
-+	 * instead of looking for a valid rt, which definitely hurting
-+	 * performance under such circumstance.
-+	 */
-+	pkt_dev->dstops.family = AF_INET;
-+	pkt_dev->dst.dev = pkt_dev->odev;
-+	dst_init_metrics(&pkt_dev->dst, pktgen_dst_metrics, false);
-+	pkt_dev->dst.child = &pkt_dev->dst;
-+	pkt_dev->dst.ops = &pkt_dev->dstops;
- #endif
- 
- 	return add_dev_to_thread(t, pkt_dev);
+ 	struct net *net = xs_net(x);
 -- 
 1.7.9.5
