@@ -1,93 +1,126 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net_sched: fix a regression in
- tcf_proto_lookup_ops()
-Date: Fri, 20 Dec 2013 10:04:18 -0800
-Message-ID: <1387562658.19078.448.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1387526931-21814-1-git-send-email-xiyou.wangcong@gmail.com>
-	 <52B434FA.8080309@mojatatu.com>
-	 <1387550222.19078.434.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <52B45851.90208@mojatatu.com>
-	 <1387555659.19078.439.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1387560028.19078.442.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1387560578.19078.443.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: RE: [net-next v2 11/16] i40e: remove chatty log messages
+Date: Fri, 20 Dec 2013 18:04:13 +0000
+Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D654E35E2@FMSMSX113.amr.corp.intel.com>
+References: <1387557965-13241-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1387557965-13241-12-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <52B489ED.3010704@cogentembedded.com>
+	 <AAEA33E297BCAC4B9BB20A7C2DF0AB8D654E34C9@FMSMSX113.amr.corp.intel.com>
+ <1387562360.2353.51.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f42.google.com ([209.85.128.42]:61606 "EHLO
-	mail-qe0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750963Ab3LTSEW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 13:04:22 -0500
-Received: by mail-qe0-f42.google.com with SMTP id b4so2702985qen.29
-        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 10:04:21 -0800 (PST)
-In-Reply-To: <1387560578.19078.443.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mga01.intel.com ([192.55.52.88]:7635 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751289Ab3LTSEu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 13:04:50 -0500
+In-Reply-To: <1387562360.2353.51.camel@joe-AO722>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
 
-list_for_each_entry(t, &tcf_proto_base, head) doesn't
-exit with t = NULL if we reached the end of the list.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Fixes: 3627287463b4 ("net_sched: convert tcf_proto_ops to use struct 
-list_head")
-Cc: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/sched/cls_api.c |   22 ++++++++++------------
- 1 file changed, 10 insertions(+), 12 deletions(-)
+> -----Original Message-----
+> From: Joe Perches [mailto:joe@perches.com]
+> Sent: Friday, December 20, 2013 9:59 AM
+> To: Williams, Mitch A
+> Cc: Sergei Shtylyov; Kirsher, Jeffrey T; davem@davemloft.net;
+> netdev@vger.kernel.org; gospo@redhat.com; sassmann@redhat.com; Brandeburg,
+> Jesse
+> Subject: Re: [net-next v2 11/16] i40e: remove chatty log messages
+> 
+> On Fri, 2013-12-20 at 17:40 +0000, Williams, Mitch A wrote:
+> > > -----Original Message-----
+> > > From: Sergei Shtylyov [mailto:sergei.shtylyov@cogentembedded.com]
+> []
+> > > > diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> []
+> > > > @@ -2988,21 +2988,11 @@ static int i40e_vsi_control_tx(struct i40e_vsi
+> > > *vsi, bool enable)
+> > > >   		} while (j-- && ((tx_reg >> I40E_QTX_ENA_QENA_REQ_SHIFT)
+> > > >   			       ^ (tx_reg >> I40E_QTX_ENA_QENA_STAT_SHIFT)) &
+> 1);
+> > > >
+> > > > -		if (enable) {
+> > > > -			/* is STAT set ? */
+> > > > -			if ((tx_reg & I40E_QTX_ENA_QENA_STAT_MASK)) {
+> > > > -				dev_info(&pf->pdev->dev,
+> > > > -					 "Tx %d already enabled\n", i);
+> > > > +		/* Skip if the queue is already in the requested state */
+> > > > +		if (enable && (tx_reg & I40E_QTX_ENA_QENA_STAT_MASK))
+> > > >   				continue;
+> > >
+> > >     This line seems over-indented now.
+> > >
+> > > > -			}
+> > > > -		} else {
+> > > > -			/* is !STAT set ? */
+> > > > -			if (!(tx_reg & I40E_QTX_ENA_QENA_STAT_MASK)) {
+> > > > -				dev_info(&pf->pdev->dev,
+> > > > -					 "Tx %d already disabled\n", i);
+> > > > +		if (!enable && !(tx_reg & I40E_QTX_ENA_QENA_STAT_MASK))
+> > > >   				continue;
+> > >
+> > >     This one too.
+> []
+> > Sergei, if you look at the source instead of the patch, you'll see
+> > that these are correct. The whole thing is inside a for loop, so it
+> > should properly be indented two tabs.
+> 
+> I looked at the source.
+> Both continue statements _are_ overly indented.
+> 4 tabs should be 3.
+> 
+> Also, this code is inconsistent and might be
+> nicer using the same form:
+> 
+> 		/* Skip if the queue is already in the requested state */
+> 		if (enable && (tx_reg & I40E_QTX_ENA_QENA_STAT_MASK))
+> 			continue;
+> 		if (!enable && !(tx_reg & I40E_QTX_ENA_QENA_STAT_MASK))
+> 			continue;
+> 
+> [...]
+> 
+> 		/* wait for the change to finish */
+> 		for (j = 0; j < 10; j++) {
+> 			tx_reg = rd32(hw, I40E_QTX_ENA(pf_q));
+> 			if (enable) {
+> 				if ((tx_reg & I40E_QTX_ENA_QENA_STAT_MASK))
+> 					break;
+> 			} else {
+> 				if (!(tx_reg & I40E_QTX_ENA_QENA_STAT_MASK))
+> 					break;
+> 			}
+> 
+> Perhaps the first form should be like the second
+> 
+> 	if (enable) {
+> 		if (tx_reg & I40E_QTX_ENA_QENA_STAT_MASK)
+> 			continue;
+> 	} else {
+> 		if (!(tx_reg & I40E_QTX_ENA_QENA_STAT_MASK))
+> 			continue;
+> 	}
+> 
+> or maybe both should be
+> 
+> 	bool mask = tx_reg & I40E_QTX_ENA_QENA_STAT_MASK;
+> 	if (enable ^ mask)
+> 
 
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 6b085cf27a65..12e882ef596b 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -40,20 +40,20 @@ static DEFINE_RWLOCK(cls_mod_lock);
- 
- static const struct tcf_proto_ops *tcf_proto_lookup_ops(struct nlattr *kind)
- {
--	const struct tcf_proto_ops *t = NULL;
-+	const struct tcf_proto_ops *t, *res = NULL;
- 
- 	if (kind) {
- 		read_lock(&cls_mod_lock);
- 		list_for_each_entry(t, &tcf_proto_base, head) {
- 			if (nla_strcmp(kind, t->kind) == 0) {
--				if (!try_module_get(t->owner))
--					t = NULL;
-+				if (try_module_get(t->owner))
-+					res = t;
- 				break;
- 			}
- 		}
- 		read_unlock(&cls_mod_lock);
- 	}
--	return t;
-+	return res;
- }
- 
- /* Register(unregister) new classifier type */
-@@ -82,15 +82,13 @@ int unregister_tcf_proto_ops(struct tcf_proto_ops *ops)
- 	int rc = -ENOENT;
- 
- 	write_lock(&cls_mod_lock);
--	list_for_each_entry(t, &tcf_proto_base, head)
--		if (t == ops)
-+	list_for_each_entry(t, &tcf_proto_base, head) {
-+		if (t == ops) {
-+			list_del(&t->head);
-+			rc = 0;
- 			break;
--
--	if (!t)
--		goto out;
--	list_del(&t->head);
--	rc = 0;
--out:
-+		}
-+	}
- 	write_unlock(&cls_mod_lock);
- 	return rc;
- }
+Yeah, I see the messed up indent now. Jeff's going to fix and resend.
+
+I see what you mean about the inconsistent logic. Since it's not crucial, I think I'd prefer to fix this in a separate patch in the future. (I'll implement it today, but it takes a while to get through our internal validation process.)
+
+-Mitch
