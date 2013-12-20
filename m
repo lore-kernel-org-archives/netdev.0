@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 13/16] i40e: be more informative
-Date: Fri, 20 Dec 2013 08:46:02 -0800
-Message-ID: <1387557965-13241-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 12/16] i40e: fix error return
+Date: Fri, 20 Dec 2013 08:46:01 -0800
+Message-ID: <1387557965-13241-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387557965-13241-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -9,9 +9,9 @@ Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:43164 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:43156 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756515Ab3LTQsK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756496Ab3LTQsK (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 20 Dec 2013 11:48:10 -0500
 In-Reply-To: <1387557965-13241-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,31 +19,30 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Mitch Williams <mitch.a.williams@intel.com>
 
-If the VF sends a bad message, be more informative about what it
-actually is.
+If the VF asks to add an invalid MAC address, tell it that instead of
+just using a generic return code.
 
-Change-Id: I89e06d2db416a1d05aeea016dd6e8b7870cae99a
+Change-Id: I366aff5449fa5874ad51e2734cac2a71783ab14b
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 4386a2f..1dd13f4 100644
+index 1a7052a..4386a2f 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1653,7 +1653,8 @@ int i40e_vc_process_vf_msg(struct i40e_pf *pf, u16 vf_id, u32 v_opcode,
- 	ret = i40e_vc_validate_vf_msg(vf, v_opcode, v_retval, msg, msglen);
- 
- 	if (ret) {
--		dev_err(&pf->pdev->dev, "invalid message from vf %d\n", vf_id);
-+		dev_err(&pf->pdev->dev, "Invalid message from vf %d, opcode %d, len %d\n",
-+			vf_id, v_opcode, msglen);
- 		return ret;
+@@ -1340,7 +1340,7 @@ static int i40e_vc_add_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 		    is_zero_ether_addr(al->list[i].addr)) {
+ 			dev_err(&pf->pdev->dev, "invalid VF MAC addr %pMAC\n",
+ 				al->list[i].addr);
+-			aq_ret = I40E_ERR_PARAM;
++			aq_ret = I40E_ERR_INVALID_MAC_ADDR;
+ 			goto error_param;
+ 		}
  	}
- 	wr32(hw, I40E_VFGEN_RSTAT1(vf_id), I40E_VFR_VFACTIVE);
 -- 
 1.8.3.1
