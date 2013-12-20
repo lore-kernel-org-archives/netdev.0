@@ -1,91 +1,41 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: RE: [net-next v2 11/16] i40e: remove chatty log messages
-Date: Fri, 20 Dec 2013 17:40:23 +0000
-Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D654E34C9@FMSMSX113.amr.corp.intel.com>
-References: <1387557965-13241-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1387557965-13241-12-git-send-email-jeffrey.t.kirsher@intel.com>
- <52B489ED.3010704@cogentembedded.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 0/4] misc: xgene: Add support for APM X-Gene SoC Queue
+ Manager/Traffic Manager
+Date: Fri, 20 Dec 2013 17:46:16 +0000
+Message-ID: <1387561576.1549.5.camel@bwh-desktop.uk.level5networks.com>
+References: <1387507503-7565-1-git-send-email-rapatel@apm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:42621 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750874Ab3LTRmL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 12:42:11 -0500
-In-Reply-To: <52B489ED.3010704@cogentembedded.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <arnd@arndb.de>, <gregkh@linuxfoundation.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<devicetree@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <jcm@redhat.com>,
+	<patches@apm.com>
+To: Ravi Patel <rapatel@apm.com>, David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1387507503-7565-1-git-send-email-rapatel@apm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+> CONFIDENTIALITY NOTICE: This e-mail message, including any attachments, 
+> is for the sole use of the intended recipient(s) and contains information
+> that is confidential and proprietary to Applied Micro Circuits Corporation or its subsidiaries. 
+> It is to be used solely for the purpose of furthering the parties' business relationship. 
+> All unauthorized review, use, disclosure or distribution is prohibited. 
+> If you are not the intended recipient, please contact the sender by reply e-mail 
+> and destroy all copies of the original message.
 
+Well this definitely has nothing to do with any business relationship
+that may exist between AMCC and Solarflare, so please don't send any
+more of these messages either directly or via netdev.
 
-> -----Original Message-----
-> From: Sergei Shtylyov [mailto:sergei.shtylyov@cogentembedded.com]
-> Sent: Friday, December 20, 2013 10:18 AM
-> To: Kirsher, Jeffrey T; davem@davemloft.net; Williams, Mitch A
-> Cc: netdev@vger.kernel.org; gospo@redhat.com; sassmann@redhat.com;
-> Brandeburg, Jesse
-> Subject: Re: [net-next v2 11/16] i40e: remove chatty log messages
-> 
-> On 12/20/2013 07:46 PM, Jeff Kirsher wrote:
-> 
-> > From: Mitch Williams <mitch.a.williams@intel.com>
-> 
-> > Don't complain when we disable queues that are already disable, or
-> > enable them when they're already enabled. This removes a bunch of bogus
-> > log messages that we see at every VF reset.
-> 
-> > Change-Id: Ia127be572abdccc48a53d8c43f8a07b8bb920de1
-> > Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-> > Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> > Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > ---
-> >   drivers/net/ethernet/intel/i40e/i40e_main.c | 16 +++-------------
-> >   1 file changed, 3 insertions(+), 13 deletions(-)
-> 
-> > diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> > index c0f78bc..38e07e6 100644
-> > --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> > +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> > @@ -2988,21 +2988,11 @@ static int i40e_vsi_control_tx(struct i40e_vsi
-> *vsi, bool enable)
-> >   		} while (j-- && ((tx_reg >> I40E_QTX_ENA_QENA_REQ_SHIFT)
-> >   			       ^ (tx_reg >> I40E_QTX_ENA_QENA_STAT_SHIFT)) & 1);
-> >
-> > -		if (enable) {
-> > -			/* is STAT set ? */
-> > -			if ((tx_reg & I40E_QTX_ENA_QENA_STAT_MASK)) {
-> > -				dev_info(&pf->pdev->dev,
-> > -					 "Tx %d already enabled\n", i);
-> > +		/* Skip if the queue is already in the requested state */
-> > +		if (enable && (tx_reg & I40E_QTX_ENA_QENA_STAT_MASK))
-> >   				continue;
-> 
->     This line seems over-indented now.
-> 
-> > -			}
-> > -		} else {
-> > -			/* is !STAT set ? */
-> > -			if (!(tx_reg & I40E_QTX_ENA_QENA_STAT_MASK)) {
-> > -				dev_info(&pf->pdev->dev,
-> > -					 "Tx %d already disabled\n", i);
-> > +		if (!enable && !(tx_reg & I40E_QTX_ENA_QENA_STAT_MASK))
-> >   				continue;
-> 
->     This one too.
-> 
-> WBR, Sergei
+David, you'd better let all the netdev archives know to delete these
+messages... ;-)
 
-Sergei, if you look at the source instead of the patch, you'll see that these are correct. The whole thing is inside a for loop, so it should properly be indented two tabs.
+Ben.
 
--Mitch
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
