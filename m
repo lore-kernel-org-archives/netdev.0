@@ -1,184 +1,68 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 04/16] i40e: add wake-on-lan support
-Date: Fri, 20 Dec 2013 10:21:22 -0800
-Message-ID: <1387563694-3166-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1387563694-3166-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] phy: IRQ cannot be shared
+Date: Fri, 20 Dec 2013 10:24:05 -0800
+Message-ID: <CAGVrzcaUamisoHrW-j5RCt4ph=s0X32uUi7yn7_Wi7=5fxi7tw@mail.gmail.com>
+References: <201312202209.04333.sergei.shtylyov@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:33772 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750954Ab3LTSWC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Dec 2013 13:22:02 -0500
-In-Reply-To: <1387563694-3166-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:54643 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751101Ab3LTSYp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 13:24:45 -0500
+Received: by mail-pd0-f179.google.com with SMTP id r10so2871733pdi.10
+        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 10:24:45 -0800 (PST)
+In-Reply-To: <201312202209.04333.sergei.shtylyov@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+2013/12/20 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
+> With the way PHY IRQ handler is implemented (all real handling being pushed to
+> the workqueue and returning IRQ_HANDLED all the time PHY is active), we cannot
+> really claim that PHY IRQ can be shared when calling request_irq().
 
-Wake on LAN is disabled by default and will remain that way for most
-platforms, but there is an NVM setting that allows vendors to enable it
-for a port if they think they've provided the right power environment
-for the device.  This patch adds code to check the NVM setting and enable
-Magic Packet use if WoL is enabled for the port.
+Looks good, in the future we might want to be able to let the Ethernet
+MAC driver specify the flags to pass down to request_irq() but this is
+good enough for me for the time being.
 
-Since only Magic Packet is supported, there's not a lot of HW configuration
-needed.
+>
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Change-Id: I44e904a7b15695e34683009f487064cd86ea59b0
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e.h         |  1 +
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 42 ++++++++++++++++++++++++--
- drivers/net/ethernet/intel/i40e/i40e_main.c    | 16 ++++++++--
- drivers/net/ethernet/intel/i40e/i40e_type.h    |  1 +
- 4 files changed, 56 insertions(+), 4 deletions(-)
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 40706c1..31dd265 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -205,6 +205,7 @@ struct i40e_pf {
- 	u16 rss_size_max;          /* HW defined max RSS queues */
- 	u16 fdir_pf_filter_count;  /* num of guaranteed filters for this PF */
- 	u8 atr_sample_rate;
-+	bool wol_en;
- 
- 	enum i40e_interrupt_policy int_policy;
- 	u16 rx_itr_default;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index d6681f6..255a138 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -844,8 +844,45 @@ static void i40e_diag_test(struct net_device *netdev,
- static void i40e_get_wol(struct net_device *netdev,
- 			 struct ethtool_wolinfo *wol)
- {
--	wol->supported = 0;
--	wol->wolopts = 0;
-+	struct i40e_netdev_priv *np = netdev_priv(netdev);
-+	struct i40e_pf *pf = np->vsi->back;
-+	struct i40e_hw *hw = &pf->hw;
-+	u16 wol_nvm_bits;
-+
-+	/* NVM bit on means WoL disabled for the port */
-+	i40e_read_nvm_word(hw, I40E_SR_NVM_WAKE_ON_LAN, &wol_nvm_bits);
-+	if ((1 << hw->port) & wol_nvm_bits) {
-+		wol->supported = 0;
-+		wol->wolopts = 0;
-+	} else {
-+		wol->supported = WAKE_MAGIC;
-+		wol->wolopts = (pf->wol_en ? WAKE_MAGIC : 0);
-+	}
-+}
-+
-+static int i40e_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
-+{
-+	struct i40e_netdev_priv *np = netdev_priv(netdev);
-+	struct i40e_pf *pf = np->vsi->back;
-+	struct i40e_hw *hw = &pf->hw;
-+	u16 wol_nvm_bits;
-+
-+	/* NVM bit on means WoL disabled for the port */
-+	i40e_read_nvm_word(hw, I40E_SR_NVM_WAKE_ON_LAN, &wol_nvm_bits);
-+	if (((1 << hw->port) & wol_nvm_bits))
-+		return -EOPNOTSUPP;
-+
-+	/* only magic packet is supported */
-+	if (wol->wolopts && (wol->wolopts != WAKE_MAGIC))
-+		return -EOPNOTSUPP;
-+
-+	/* is this a new value? */
-+	if (pf->wol_en != !!wol->wolopts) {
-+		pf->wol_en = !!wol->wolopts;
-+		device_set_wakeup_enable(&pf->pdev->dev, pf->wol_en);
-+	}
-+
-+	return 0;
- }
- 
- static int i40e_nway_reset(struct net_device *netdev)
-@@ -1568,6 +1605,7 @@ static const struct ethtool_ops i40e_ethtool_ops = {
- 	.nway_reset		= i40e_nway_reset,
- 	.get_link		= ethtool_op_get_link,
- 	.get_wol		= i40e_get_wol,
-+	.set_wol		= i40e_set_wol,
- 	.get_eeprom_len		= i40e_get_eeprom_len,
- 	.get_eeprom		= i40e_get_eeprom,
- 	.get_ringparam		= i40e_get_ringparam,
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 22a2c0e..45b2198 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7537,6 +7537,10 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	pf->flags |= I40E_FLAG_NEED_LINK_UPDATE;
- 	pf->link_check_timeout = jiffies;
- 
-+	/* WoL defaults to disabled */
-+	pf->wol_en = false;
-+	device_set_wakeup_enable(&pf->pdev->dev, pf->wol_en);
-+
- 	/* set up the main switch operations */
- 	i40e_determine_queue_usage(pf);
- 	i40e_init_interrupt_scheme(pf);
-@@ -7858,6 +7862,7 @@ static void i40e_pci_error_resume(struct pci_dev *pdev)
- static void i40e_shutdown(struct pci_dev *pdev)
- {
- 	struct i40e_pf *pf = pci_get_drvdata(pdev);
-+	struct i40e_hw *hw = &pf->hw;
- 
- 	set_bit(__I40E_SUSPENDED, &pf->state);
- 	set_bit(__I40E_DOWN, &pf->state);
-@@ -7865,8 +7870,11 @@ static void i40e_shutdown(struct pci_dev *pdev)
- 	i40e_prep_for_reset(pf);
- 	rtnl_unlock();
- 
-+	wr32(hw, I40E_PFPM_APM, (pf->wol_en ? I40E_PFPM_APM_APME_MASK : 0));
-+	wr32(hw, I40E_PFPM_WUFC, (pf->wol_en ? I40E_PFPM_WUFC_MAG_MASK : 0));
-+
- 	if (system_state == SYSTEM_POWER_OFF) {
--		pci_wake_from_d3(pdev, false);    /* No WoL support yet */
-+		pci_wake_from_d3(pdev, pf->wol_en);
- 		pci_set_power_state(pdev, PCI_D3hot);
- 	}
- }
-@@ -7879,6 +7887,7 @@ static void i40e_shutdown(struct pci_dev *pdev)
- static int i40e_suspend(struct pci_dev *pdev, pm_message_t state)
- {
- 	struct i40e_pf *pf = pci_get_drvdata(pdev);
-+	struct i40e_hw *hw = &pf->hw;
- 
- 	set_bit(__I40E_SUSPENDED, &pf->state);
- 	set_bit(__I40E_DOWN, &pf->state);
-@@ -7886,7 +7895,10 @@ static int i40e_suspend(struct pci_dev *pdev, pm_message_t state)
- 	i40e_prep_for_reset(pf);
- 	rtnl_unlock();
- 
--	pci_wake_from_d3(pdev, false);    /* No WoL support yet */
-+	wr32(hw, I40E_PFPM_APM, (pf->wol_en ? I40E_PFPM_APM_APME_MASK : 0));
-+	wr32(hw, I40E_PFPM_WUFC, (pf->wol_en ? I40E_PFPM_WUFC_MAG_MASK : 0));
-+
-+	pci_wake_from_d3(pdev, pf->wol_en);
- 	pci_set_power_state(pdev, PCI_D3hot);
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 008a7a0..d683c30 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -1031,6 +1031,7 @@ struct i40e_hw_port_stats {
- #define I40E_SR_NVM_CONTROL_WORD		0x00
- #define I40E_SR_EMP_MODULE_PTR			0x0F
- #define I40E_SR_NVM_IMAGE_VERSION		0x18
-+#define I40E_SR_NVM_WAKE_ON_LAN			0x19
- #define I40E_SR_ALTERNATE_SAN_MAC_ADDRESS_PTR	0x27
- #define I40E_SR_NVM_EETRACK_LO			0x2D
- #define I40E_SR_NVM_EETRACK_HI			0x2E
+>
+> ---
+> The patch is against DaveM's 'net.git' repo.
+> I recommend pushing it to the stable kernels as well.
+>
+>  drivers/net/phy/phy.c |    6 ++----
+>  1 file changed, 2 insertions(+), 4 deletions(-)
+>
+> Index: net/drivers/net/phy/phy.c
+> ===================================================================
+> --- net.orig/drivers/net/phy/phy.c
+> +++ net/drivers/net/phy/phy.c
+> @@ -565,10 +565,8 @@ int phy_start_interrupts(struct phy_devi
+>         int err = 0;
+>
+>         atomic_set(&phydev->irq_disable, 0);
+> -       if (request_irq(phydev->irq, phy_interrupt,
+> -                               IRQF_SHARED,
+> -                               "phy_interrupt",
+> -                               phydev) < 0) {
+> +       if (request_irq(phydev->irq, phy_interrupt, 0, "phy_interrupt",
+> +                       phydev) < 0) {
+>                 pr_warn("%s: Can't get IRQ %d (PHY)\n",
+>                         phydev->bus->name, phydev->irq);
+>                 phydev->irq = PHY_POLL;
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
 -- 
-1.8.3.1
+Florian
