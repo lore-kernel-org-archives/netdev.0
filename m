@@ -1,73 +1,48 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next 0/2] netfilter: IPv4/v6 IPcomp match support
-Date: Fri, 20 Dec 2013 10:04:19 +0100
-Message-ID: <20131220090419.GA5661@localhost>
-References: <1386937082-30412-1-git-send-email-fan.du@windriver.com>
- <20131217130555.GA8874@localhost>
- <52B26841.40800@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, steffen.klassert@secunet.com,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <52B26841.40800@windriver.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: roy.qing.li@gmail.com
+Subject: [PATCH] ipv6: release dst properly in ipip6_tunnel_xmit
+Date: Fri, 20 Dec 2013 17:20:12 +0800
+Message-ID: <1387531212-17034-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:41964 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754720Ab3LTJUU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 04:20:20 -0500
+Received: by mail-pb0-f53.google.com with SMTP id ma3so2356964pbc.40
+        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 01:20:19 -0800 (PST)
+Received: from localhost ([1.202.252.122])
+        by mx.google.com with ESMTPSA id oc9sm12937568pbb.10.2013.12.20.01.20.16
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Fri, 20 Dec 2013 01:20:18 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 19, 2013 at 11:30:09AM +0800, Fan Du wrote:
->=20
->=20
-> On 2013=E5=B9=B412=E6=9C=8817=E6=97=A5 21:05, Pablo Neira Ayuso wrote=
-:
-> >On Fri, Dec 13, 2013 at 08:18:00PM +0800, Fan Du wrote:
-> >>Hi,
-> >>
-> >>This patchset adds IPv4/v6 IPComp 'match' plugin to enables user se=
-tting
-> >>ACTONs for IPcomp flows sepecified with SPI value.
-> >>
-> >>Corresponding iptables patchset will be sent here after soon.
-> >>
-> >>Fan Du (2):
-> >>   netfilter: add IPv4 IPComp extension match support
-> >>   netfilter: add IPv6 IPComp extension match support
-> >
-> >This looks good, but I have to ask you to merge those two modules in=
-to
-> >one single xt_ipcomp, they are fairly small and we can save the
-> >overhead of having two different modules. Moreover, at quick glance =
-I
-> >don't see any dependency with IPv4/IPv6 exported symbols that may
-> >cause ifdef pollution.
-> >
-> >Please, see net/netfilter/xt_tcpudp.c as reference to rework this.
-> >Thanks.
-> >
->=20
-> I noticed netfilter ipv4/v6 AH support also has split implementation,
-> so far, by my understanding, it's fairly enough to consolidate those
-> two implementations into one as well, as IPv4/6 AH head format are
-> identical.
->
-> If you don't mind or it won't break anything internal for netfilter,
-> I plan to combine them into one piece.
+From: Li RongQing <roy.qing.li@gmail.com>
 
-We can merge those two, but you'll have to handle dependencies with
-IPv6 core via ifdefs and Kconfig to avoid problems.
+if a dst is not attached to anywhere, it should be released before
+exit ipip6_tunnel_xmit, otherwise cause dst memory leakage.
 
-AH is not the last header, so we still have to use ipv6_find_hdr() to
-find the good header instead of par->thoff. Note that the ip6_tables
-sets par->thoff to the last IPv6 extension header.
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/ipv6/sit.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-This rises some concerns regarding your ipcomp, I think that if you
-use this with ah and esp, the ordering of the headers is
-ah+ipcomp+esp, right? In that case, you need to use ipv6_find_hdr()
-since par->thoff would point to the esp header.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 366fbba..d68a224 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -966,8 +966,10 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
+ 	tos = INET_ECN_encapsulate(tos, ipv6_get_dsfield(iph6));
+ 
+ 	skb = iptunnel_handle_offloads(skb, false, SKB_GSO_SIT);
+-	if (IS_ERR(skb))
++	if (IS_ERR(skb)) {
++		ip_rt_put(rt);
+ 		goto out;
++	}
+ 
+ 	err = iptunnel_xmit(rt, skb, fl4.saddr, fl4.daddr, IPPROTO_IPV6, tos,
+ 			    ttl, df, !net_eq(tunnel->net, dev_net(dev)));
+-- 
+1.7.10.4
