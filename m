@@ -1,32 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv4: introduce ip_dst_mtu_secure and protect
- forwarding path against pmtu spoofing
-Date: Thu, 19 Dec 2013 19:33:21 -0500 (EST)
-Message-ID: <20131219.193321.590144194287655797.davem@davemloft.net>
-References: <20131219121757.GD14429@order.stressinduktion.org>
-	<20131219.143012.205185984019527730.davem@davemloft.net>
-	<20131219235338.GA32129@order.stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] tg3: Expand 4g_overflow_test workaround to skb
+ fragments of any size.
+Date: Thu, 19 Dec 2013 16:38:53 -0800
+Message-ID: <1387499933.19078.379.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1387499052-7838-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: johnwheffner@gmail.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37151 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753917Ab3LTAdX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 19:33:23 -0500
-In-Reply-To: <20131219235338.GA32129@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	stable@vger.kernel.org, Michael Chan <mchan@broadcom.com>
+To: Nithin Nayak Sujir <nsujir@broadcom.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1387499052-7838-1-git-send-email-nsujir@broadcom.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri, 20 Dec 2013 00:53:38 +0100
+On Thu, 2013-12-19 at 16:24 -0800, Nithin Nayak Sujir wrote:
+> The current driver assumes that an skb fragment can only be upto jumbo
+> size. Presumably this was a fast-path optimization. This assumption is
+> no longer true as fragments can be upto 32k.
+> 
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> ---
+>  drivers/net/ethernet/broadcom/tg3.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> index f3dd93b..8ab21d7 100644
+> --- a/drivers/net/ethernet/broadcom/tg3.c
+> +++ b/drivers/net/ethernet/broadcom/tg3.c
+> @@ -7622,7 +7622,7 @@ static inline int tg3_4g_overflow_test(dma_addr_t mapping, int len)
+>  {
+>  	u32 base = (u32) mapping & 0xffffffff;
+>  
+> -	return (base > 0xffffdcc0) && (base + len + 8 < base);
+> +	return (base + len + 8 < base);
+>  }
 
-> I am fine dropping the knob and just unconditionally ignoring the
-> pmtu data in the forwarding path? Is that what you wanted to
-> suggest?
+And it is actually faster ;)
 
-Quite the contrary, I thought it was clear that I want the default to
-be the current behavior.
+What is 8 value exactly ?
