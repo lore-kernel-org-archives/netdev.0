@@ -1,73 +1,43 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 02/11] staging: r8188eu: Remove wrapper around spin_lock_bh
-Date: Fri, 20 Dec 2013 10:36:09 -0600
-Message-ID: <52B471F9.9080400@lwfinger.net>
-References: <1387514323-4486-1-git-send-email-Larry.Finger@lwfinger.net> <1387514323-4486-3-git-send-email-Larry.Finger@lwfinger.net> <20131220071408.GK28413@mwanda>
+From: Ajit Khaparde <Ajit.Khaparde@Emulex.Com>
+Subject: RE: error message: VF is not privileged to issue opcode 89-1
+Date: Fri, 20 Dec 2013 16:42:54 +0000
+Message-ID: <3BB8C5C6B04A1F4CBE5B241DA98A501E2D56803E@CMEXMB1.ad.emulex.com>
+References: <52B41193.6020908@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, devel@driverdev.osuosl.org,
-	netdev@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: vaughan <vaughan.cao@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:34751 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754975Ab3LTQgO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 11:36:14 -0500
-Received: by mail-pd0-f169.google.com with SMTP id v10so2731073pde.14
-        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 08:36:14 -0800 (PST)
-In-Reply-To: <20131220071408.GK28413@mwanda>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:1754 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753056Ab3LTQm4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 11:42:56 -0500
+In-Reply-To: <52B41193.6020908@oracle.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/20/2013 01:14 AM, Dan Carpenter wrote:
-> On Thu, Dec 19, 2013 at 10:38:34PM -0600, Larry Finger wrote:
->> Some comment lines that mentioned spin_lock_bh() are also removed.
->>
->> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
->> @@ -1509,10 +1509,6 @@ _func_enter_;
->>
->>   	rtw_p2p_set_state(pwdinfo, P2P_STATE_FIND_PHASE_SEARCH);
->>
->> -	_enter_critical_bh(&pmlmepriv->lock, &irqL);
->> -	_exit_critical_bh(&pmlmepriv->lock, &irqL);
->> -
->> -
->>   _func_exit_;
->>   }
->
-> This is a functionality change that slipped in.  This is like
-> spin_unlock_wait() where you want to wait until the lock is released.
->
-> In this code it's probably unintended?  But don't put these things into
-> a patch without mentioning it.
-
-Dan,
-
-Yes, I should have mentioned that I was removing a pointless lock/unlock 
-sequence. Upon further checking, I see that the original driver I received from 
-Realtek did have a reason for locking there, but a line was dropped from the 
-code. This section should contain the following:
-
-diff --git a/drivers/staging/rtl8188eu/core/rtw_p2p.c 
-b/drivers/staging/rtl8188eu/core/rtw_p2p.c
-index 402fd21..b376d09 100644
---- a/drivers/staging/rtl8188eu/core/rtw_p2p.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_p2p.c
-@@ -1505,6 +1505,9 @@ _func_enter_;
-
-         rtw_p2p_set_state(pwdinfo, P2P_STATE_FIND_PHASE_SEARCH);
-
-+        spin_lock_bh(&pmlmepriv->lock);
-+        rtw_sitesurvey_cmd(struct adapter padapter, &ssid, 1, NULL, 0);
-+        spin_unlock_bh(&pmlmepriv->lock);
-  _func_exit_;
-  }
-
-
-Thanks for reading the patches.
-
-@Greg: Is it OK if I leave the previous patch alone and submit the above as a 
-separate change?
-
-Larry
+DQoNCj4gIGJlMm5ldCAwMDAwOjMwOjA0LjA6IFZGIGlzIG5vdCBwcml2aWxlZ2VkIHRvIGlzc3Vl
+IG9wY29kZSAzNC0xDQo+ICBiZTJuZXQgMDAwMDozMDowNC4wOiBFbXVsZXggT25lQ29ubmVjdChi
+ZTMpOiBWRiAgcG9ydCAwDQo+IC4uLg0KPiANCj4gQnV0IHRoZSBtb2R1bGUgZ2V0cyBsb2FkZWQg
+YW5kIFZGcyBhcmUgY3JlYXRlZC4NCj4gQWxzbyB3aGVuIHRoZSBtb2R1bGUgaXMgdW5sb2FkZWQs
+IGJlbG93IGVycm9ycyBhcmUgc2VlbiBpbiBzeXNsb2c6DQo+ICAgYmUybmV0IDAwMDA6MzA6MDQu
+MDogVkYgaXMgbm90IHByaXZpbGVnZWQgdG8gaXNzdWUgb3Bjb2RlIDg5LTENCj4gDQo+IEkgY2hl
+Y2tlZCB0aGUgY29kZSwgdGhpcyBlcnJvciBvY2N1cnMgaW4gYmVfcHJvYmUoKSBhbmQgdGhlIGVy
+cm9yIG9wY29kZQ0KPiA4OSBpcyBPUENPREVfQ09NTU9OX1NFVF9JTlRFUlJVUFRfRU5BQkxFLCB3
+aGljaCBpcyBlc3NlbnRpYWwgZm9yIGFuDQo+IGluaXRpYWxpemluZyBwcm9jZXNzIElNTy4gQW5k
+IEkgYWxzbyBmb3VuZCB0aGlzIHRocmVhZA0KPiBodHRwczovL2xrbWwub3JnL2xrbWwvMjAxMy81
+LzE0LzY5MCwgd2hpY2ggc2hvd3MgdGhlcmUgaXMgYSBidWcgdGhhdCBWRnMNCj4gd2lsbCBiZSBw
+cm9iZWQgYmVmb3JlIFBGcy4gQWNjb3JkaW5nIHRvIHRoaXMgdGhyZWFkLCBJIGd1ZXNzIEkgbWF5
+DQo+IGVuY291bnRlcmVkIHRoZSBzYW1lIGVycm9yLg0KPiBBbnlvbmUgY2FuIGNvbmZpcm0gaWYg
+dGhpcyBpcyBhIHJlYWwgZXJyb3IgbGlrZSBJIGd1ZXNzPyBUaGFua3MuDQpUaGUgVkZzIG9uIEVt
+dWxleCBkZXZpY2VzIGFyZSBhc3NpZ25lZCBsaW1pdGVkIHByaXZpbGVnZXMgdW5saWtlIFBGcy4N
+CkR1ZSB0byB0aGlzIGNlcnRhaW4gY29tbWFuZHMgc2VudCB0byB0aGUgZmlybXdhcmUgZW5kIHVw
+IGEgcmVzcG9uc2UgYXMgc2VlbiBpbiB0aGUgbG9ncy4NCkluIG1vc3Qgb2YgdGhlIGNhc2VzIHRo
+ZSBsb2cgbWVzc2FnZSBpcyBpbmZvcm1hdGlvbmFsIGFuZCBkb2VzIG5vdCByZWFsbHkgaW1wYWN0
+IG5vcm1hbCBJL08gb3BlcmF0aW9ucy4NCg0KQnV0IGZvciB0aGlzIHBhcnRpY3VsYXIgbWVzc2Fn
+ZSBwZXJ0YWluaW5nIHRvIG9wY29kZSA4OSwgSSB3aWxsIGhhdmUgdG8gY2hlY2sgd2l0aCB0aGUg
+ZmlybXdhcmUgdGVhbSBhcyB3ZWxsLg0KV2Ugd2lsbCBnZXQgYmFjayB0byB5b3Ugb24gdGhhdC4N
+Cg0KQ291bGQgeW91IHNlbmQgdGhlIG91dHB1dCBvZiBldGh0b29sIC1pPw0KSSBhbSBpbnRlcmVz
+dGVkIGluIHRoZSBmaXJtd2FyZSB2ZXJzaW9uIG9uIHRoZSBjYXJkLg0KDQpUaGFua3MNCg==
