@@ -1,224 +1,327 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 10/11] staging: r8188eu: Replace wrappers ODM_delay_ms() and rtw_mdelay_os() with a simple mdelay
-Date: Thu, 19 Dec 2013 22:38:42 -0600
-Message-ID: <1387514323-4486-11-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 11/11] staging: r8188eu: Replace wrappers ODM_StallExecution,
+ ODM_delay_us, and rtw_udelay_os
+Date: Thu, 19 Dec 2013 22:38:43 -0600
+Message-ID: <1387514323-4486-12-git-send-email-Larry.Finger@lwfinger.net>
 References: <1387514323-4486-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
-	Larry Finger <Larry.Finger@lwfinger.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ Larry Finger <Larry.Finger@lwfinger.net>
 To: gregkh@linuxfoundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:40950 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753809Ab3LTElj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 23:41:39 -0500
-Received: by mail-pa0-f52.google.com with SMTP id ld10so2126547pab.39
-        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 20:41:39 -0800 (PST)
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 In-Reply-To: <1387514323-4486-1-git-send-email-Larry.Finger@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
+
+Each instance may bre replaced by udelay
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/staging/rtl8188eu/core/rtw_mp.c            |  4 ++--
- drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c     | 10 +++++-----
- drivers/staging/rtl8188eu/hal/odm_RegConfig8188E.c | 12 ++++++------
- drivers/staging/rtl8188eu/hal/odm_interface.c      |  5 -----
- drivers/staging/rtl8188eu/hal/rtl8188e_cmd.c       |  2 +-
- drivers/staging/rtl8188eu/hal/usb_halinit.c        |  2 +-
- drivers/staging/rtl8188eu/include/odm_interface.h  |  2 --
- drivers/staging/rtl8188eu/include/osdep_service.h  |  1 -
+ drivers/staging/rtl8188eu/core/rtw_efuse.c         |  2 +-
+ drivers/staging/rtl8188eu/hal/HalPwrSeqCmd.c       |  6 +++---
+ drivers/staging/rtl8188eu/hal/odm.c                | 10 ++++-----
+ drivers/staging/rtl8188eu/hal/odm_RegConfig8188E.c | 24 +++++++++++-----------
+ drivers/staging/rtl8188eu/hal/odm_interface.c      | 10 ---------
+ drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c  |  2 +-
+ drivers/staging/rtl8188eu/hal/rtl8188e_phycfg.c    |  6 +++---
+ drivers/staging/rtl8188eu/hal/rtl8188e_rf6052.c    |  8 ++++----
+ drivers/staging/rtl8188eu/include/odm_interface.h  |  4 ----
+ drivers/staging/rtl8188eu/include/osdep_service.h  |  2 --
  drivers/staging/rtl8188eu/os_dep/osdep_service.c   |  5 -----
- 9 files changed, 15 insertions(+), 28 deletions(-)
+ 11 files changed, 29 insertions(+), 50 deletions(-)
 
-diff --git a/drivers/staging/rtl8188eu/core/rtw_mp.c b/drivers/staging/rtl8188eu/core/rtw_mp.c
-index 76c1198..6451efd 100644
---- a/drivers/staging/rtl8188eu/core/rtw_mp.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_mp.c
-@@ -858,11 +858,11 @@ static u32 rtw_GetPSDData(struct adapter *pAdapter, u32 point)
- 	psd_val |= point;
+diff --git a/drivers/staging/rtl8188eu/core/rtw_efuse.c b/drivers/staging/rtl8188eu/core/rtw_efuse.c
+index 806f56f..6149e3a 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_efuse.c
++++ b/drivers/staging/rtl8188eu/core/rtw_efuse.c
+@@ -204,7 +204,7 @@ ReadEFuseByte(
+ 	/*  This fix the problem that Efuse read error in high temperature condition. */
+ 	/*  Designer says that there shall be some delay after ready bit is set, or the */
+ 	/*  result will always stay on last data we read. */
+-	rtw_udelay_os(50);
++	udelay(50);
+ 	value32 = rtw_read32(Adapter, EFUSE_CTRL);
  
- 	rtw_write32(pAdapter, 0x808, psd_val);
--	rtw_mdelay_os(1);
-+	mdelay(1);
- 	psd_val |= 0x00400000;
+ 	*pbuf = (u8)(value32 & 0xff);
+diff --git a/drivers/staging/rtl8188eu/hal/HalPwrSeqCmd.c b/drivers/staging/rtl8188eu/hal/HalPwrSeqCmd.c
+index 5700dbc..50f9513 100644
+--- a/drivers/staging/rtl8188eu/hal/HalPwrSeqCmd.c
++++ b/drivers/staging/rtl8188eu/hal/HalPwrSeqCmd.c
+@@ -100,7 +100,7 @@ u8 HalPwrSeqCmdParsing(struct adapter *padapter, u8 cut_vers, u8 fab_vers,
+ 					if (value == (GET_PWR_CFG_VALUE(pwrcfgcmd) & GET_PWR_CFG_MASK(pwrcfgcmd)))
+ 						poll_bit = true;
+ 					else
+-						rtw_udelay_os(10);
++						udelay(10);
  
- 	rtw_write32(pAdapter, 0x808, psd_val);
--	rtw_mdelay_os(1);
-+	mdelay(1);
- 	psd_val = rtw_read32(pAdapter, 0x8B4);
+ 					if (poll_count++ > max_poll_count) {
+ 						DBG_88E("Fail to polling Offset[%#x]\n", offset);
+@@ -111,9 +111,9 @@ u8 HalPwrSeqCmdParsing(struct adapter *padapter, u8 cut_vers, u8 fab_vers,
+ 			case PWR_CMD_DELAY:
+ 				RT_TRACE(_module_hal_init_c_ , _drv_info_, ("HalPwrSeqCmdParsing: PWR_CMD_DELAY\n"));
+ 				if (GET_PWR_CFG_VALUE(pwrcfgcmd) == PWRSEQ_DELAY_US)
+-					rtw_udelay_os(GET_PWR_CFG_OFFSET(pwrcfgcmd));
++					udelay(GET_PWR_CFG_OFFSET(pwrcfgcmd));
+ 				else
+-					rtw_udelay_os(GET_PWR_CFG_OFFSET(pwrcfgcmd)*1000);
++					udelay(GET_PWR_CFG_OFFSET(pwrcfgcmd)*1000);
+ 				break;
+ 			case PWR_CMD_END:
+ 				/*  When this command is parsed, end the process */
+diff --git a/drivers/staging/rtl8188eu/hal/odm.c b/drivers/staging/rtl8188eu/hal/odm.c
+index 285475f..dc4e389 100644
+--- a/drivers/staging/rtl8188eu/hal/odm.c
++++ b/drivers/staging/rtl8188eu/hal/odm.c
+@@ -1868,7 +1868,7 @@ u32 GetPSDData(struct odm_dm_struct *pDM_Odm, unsigned int point, u8 initial_gai
+ 	/* Start PSD calculation, Reg808[22]=0->1 */
+ 	ODM_SetBBReg(pDM_Odm, 0x808, BIT22, 1);
+ 	/* Need to wait for HW PSD report */
+-	ODM_StallExecution(30);
++	udelay(30);
+ 	ODM_SetBBReg(pDM_Odm, 0x808, BIT22, 0);
+ 	/* Read PSD report, Reg8B4[15:0] */
+ 	psd_report = ODM_GetBBReg(pDM_Odm, 0x8B4, bMaskDWord) & 0x0000FFFF;
+@@ -1986,7 +1986,7 @@ bool ODM_SingleDualAntennaDetection(struct odm_dm_struct *pDM_Odm, u8 mode)
+ 	ODM_SetBBReg(pDM_Odm, rFPGA0_XA_RFInterfaceOE, ODM_DPDT, Antenna_A);  /*  change to Antenna A */
+ 	/*  Step 1: USE IQK to transmitter single tone */
  
- 	psd_val &= 0x0000FFFF;
-diff --git a/drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c b/drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c
-index 650aefc..a317c9e 100644
---- a/drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c
-+++ b/drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c
-@@ -502,7 +502,7 @@ phy_PathA_IQK_8188E(struct adapter *adapt, bool configPathB)
- 	/*  delay x ms */
- 	ODM_RT_TRACE(dm_odm, ODM_COMP_CALIBRATION, ODM_DBG_LOUD, ("Delay %d ms for One shot, path A LOK & IQK.\n", IQK_DELAY_TIME_88E));
- 	/* PlatformStallExecution(IQK_DELAY_TIME_88E*1000); */
--	ODM_delay_ms(IQK_DELAY_TIME_88E);
-+	mdelay(IQK_DELAY_TIME_88E);
+-	ODM_StallExecution(10);
++	udelay(10);
  
- 	/*  Check failed */
- 	regeac = ODM_GetBBReg(dm_odm, rRx_Power_After_IQK_A_2, bMaskDWord);
-@@ -568,7 +568,7 @@ phy_PathA_RxIQK(struct adapter *adapt, bool configPathB)
- 	ODM_RT_TRACE(dm_odm, ODM_COMP_CALIBRATION, ODM_DBG_LOUD,
- 		     ("Delay %d ms for One shot, path A LOK & IQK.\n",
- 		     IQK_DELAY_TIME_88E));
--	ODM_delay_ms(IQK_DELAY_TIME_88E);
-+	mdelay(IQK_DELAY_TIME_88E);
+ 	/* Store A Path Register 88c, c08, 874, c50 */
+ 	Reg88c = ODM_GetBBReg(pDM_Odm, rFPGA0_AnalogParameter4, bMaskDWord);
+@@ -2048,7 +2048,7 @@ bool ODM_SingleDualAntennaDetection(struct odm_dm_struct *pDM_Odm, u8 mode)
+ 	/* IQK Single tone start */
+ 	ODM_SetBBReg(pDM_Odm, rFPGA0_IQK, bMaskDWord, 0x80800000);
+ 	ODM_SetBBReg(pDM_Odm, rIQK_AGC_Pts, bMaskDWord, 0xf8000000);
+-	ODM_StallExecution(1000);
++	udelay(1000);
+ 	PSD_report_tmp = 0x0;
  
- 	/*  Check failed */
- 	regeac = ODM_GetBBReg(dm_odm, rRx_Power_After_IQK_A_2, bMaskDWord);
-@@ -623,7 +623,7 @@ phy_PathA_RxIQK(struct adapter *adapt, bool configPathB)
- 	/*  delay x ms */
- 	ODM_RT_TRACE(dm_odm, ODM_COMP_CALIBRATION, ODM_DBG_LOUD, ("Delay %d ms for One shot, path A LOK & IQK.\n", IQK_DELAY_TIME_88E));
- 	/* PlatformStallExecution(IQK_DELAY_TIME_88E*1000); */
--	ODM_delay_ms(IQK_DELAY_TIME_88E);
-+	mdelay(IQK_DELAY_TIME_88E);
+ 	for (n = 0; n < 2; n++) {
+@@ -2060,7 +2060,7 @@ bool ODM_SingleDualAntennaDetection(struct odm_dm_struct *pDM_Odm, u8 mode)
+ 	PSD_report_tmp = 0x0;
  
- 	/*  Check failed */
- 	regeac = ODM_GetBBReg(dm_odm, rRx_Power_After_IQK_A_2, bMaskDWord);
-@@ -667,7 +667,7 @@ phy_PathB_IQK_8188E(struct adapter *adapt)
- 	ODM_RT_TRACE(dm_odm, ODM_COMP_CALIBRATION, ODM_DBG_LOUD,
- 		     ("Delay %d ms for One shot, path B LOK & IQK.\n",
- 		     IQK_DELAY_TIME_88E));
--	ODM_delay_ms(IQK_DELAY_TIME_88E);
-+	mdelay(IQK_DELAY_TIME_88E);
+ 	ODM_SetBBReg(pDM_Odm, rFPGA0_XA_RFInterfaceOE, 0x300, Antenna_B);  /*  change to Antenna B */
+-	ODM_StallExecution(10);
++	udelay(10);
  
- 	/*  Check failed */
- 	regeac = ODM_GetBBReg(dm_odm, rRx_Power_After_IQK_A_2, bMaskDWord);
-@@ -1447,7 +1447,7 @@ void PHY_LCCalibrate_8188E(struct adapter *adapt)
- 		return;
  
- 	while (*(dm_odm->pbScanInProcess) && timecount < timeout) {
--		ODM_delay_ms(50);
-+		mdelay(50);
- 		timecount += 50;
- 	}
+ 	for (n = 0; n < 2; n++) {
+@@ -2071,7 +2071,7 @@ bool ODM_SingleDualAntennaDetection(struct odm_dm_struct *pDM_Odm, u8 mode)
  
+ 	/*  change to open case */
+ 	ODM_SetBBReg(pDM_Odm, rFPGA0_XA_RFInterfaceOE, 0x300, 0);  /*  change to Ant A and B all open case */
+-	ODM_StallExecution(10);
++	udelay(10);
+ 
+ 	for (n = 0; n < 2; n++) {
+ 		PSD_report_tmp =  GetPSDData(pDM_Odm, 14, initial_gain);
 diff --git a/drivers/staging/rtl8188eu/hal/odm_RegConfig8188E.c b/drivers/staging/rtl8188eu/hal/odm_RegConfig8188E.c
-index 48cea29..4f8c3bb 100644
+index 4f8c3bb..00bc934 100644
 --- a/drivers/staging/rtl8188eu/hal/odm_RegConfig8188E.c
 +++ b/drivers/staging/rtl8188eu/hal/odm_RegConfig8188E.c
-@@ -27,9 +27,9 @@ void odm_ConfigRFReg_8188E(struct odm_dm_struct *pDM_Odm, u32 Addr,
-     if (Addr == 0xffe) {
- 		msleep(50);
- 	} else if (Addr == 0xfd) {
--		ODM_delay_ms(5);
-+		mdelay(5);
+@@ -31,15 +31,15 @@ void odm_ConfigRFReg_8188E(struct odm_dm_struct *pDM_Odm, u32 Addr,
  	} else if (Addr == 0xfc) {
--		ODM_delay_ms(1);
-+		mdelay(1);
+ 		mdelay(1);
  	} else if (Addr == 0xfb) {
- 		ODM_delay_us(50);
+-		ODM_delay_us(50);
++		udelay(50);
  	} else if (Addr == 0xfa) {
-@@ -85,9 +85,9 @@ void odm_ConfigBB_PHY_REG_PG_8188E(struct odm_dm_struct *pDM_Odm, u32 Addr,
- 	if (Addr == 0xfe) {
- 		msleep(50);
- 	} else if (Addr == 0xfd) {
--		ODM_delay_ms(5);
-+		mdelay(5);
- 	} else if (Addr == 0xfc) {
--		ODM_delay_ms(1);
-+		mdelay(1);
- 	} else if (Addr == 0xfb) {
- 		ODM_delay_us(50);
- 	} else if (Addr == 0xfa) {
-@@ -107,9 +107,9 @@ void odm_ConfigBB_PHY_8188E(struct odm_dm_struct *pDM_Odm, u32 Addr, u32 Bitmask
- 	if (Addr == 0xfe) {
- 		msleep(50);
- 	} else if (Addr == 0xfd) {
--		ODM_delay_ms(5);
-+		mdelay(5);
- 	} else if (Addr == 0xfc) {
--		ODM_delay_ms(1);
-+		mdelay(1);
- 	} else if (Addr == 0xfb) {
- 		ODM_delay_us(50);
- 	} else if (Addr == 0xfa) {
-diff --git a/drivers/staging/rtl8188eu/hal/odm_interface.c b/drivers/staging/rtl8188eu/hal/odm_interface.c
-index fa30811..4510270 100644
---- a/drivers/staging/rtl8188eu/hal/odm_interface.c
-+++ b/drivers/staging/rtl8188eu/hal/odm_interface.c
-@@ -152,11 +152,6 @@ void ODM_StallExecution(u32 usDelay)
- 	rtw_udelay_os(usDelay);
+-		ODM_delay_us(5);
++		udelay(5);
+ 	} else if (Addr == 0xf9) {
+-		ODM_delay_us(1);
++		udelay(1);
+ 	} else {
+ 		ODM_SetRFReg(pDM_Odm, RF_PATH, RegAddr, bRFRegOffsetMask, Data);
+ 		/*  Add 1us delay between BB/RF register setting. */
+-		ODM_delay_us(1);
++		udelay(1);
+ 	}
  }
  
--void ODM_delay_ms(u32 ms)
+@@ -72,7 +72,7 @@ void odm_ConfigBB_AGC_8188E(struct odm_dm_struct *pDM_Odm, u32 Addr, u32 Bitmask
+ {
+ 	ODM_SetBBReg(pDM_Odm, Addr, Bitmask, Data);
+ 	/*  Add 1us delay between BB/RF register setting. */
+-	ODM_delay_us(1);
++	udelay(1);
+ 
+ 	ODM_RT_TRACE(pDM_Odm, ODM_COMP_INIT, ODM_DBG_TRACE,
+ 		     ("===> ODM_ConfigBBWithHeaderFile: [AGC_TAB] %08X %08X\n",
+@@ -89,11 +89,11 @@ void odm_ConfigBB_PHY_REG_PG_8188E(struct odm_dm_struct *pDM_Odm, u32 Addr,
+ 	} else if (Addr == 0xfc) {
+ 		mdelay(1);
+ 	} else if (Addr == 0xfb) {
+-		ODM_delay_us(50);
++		udelay(50);
+ 	} else if (Addr == 0xfa) {
+-		ODM_delay_us(5);
++		udelay(5);
+ 	} else if (Addr == 0xf9) {
+-		ODM_delay_us(1);
++		udelay(1);
+ 	} else{
+ 		ODM_RT_TRACE(pDM_Odm, ODM_COMP_INIT, ODM_DBG_LOUD,
+ 			     ("===> @@@@@@@ ODM_ConfigBBWithHeaderFile: [PHY_REG] %08X %08X %08X\n",
+@@ -111,18 +111,18 @@ void odm_ConfigBB_PHY_8188E(struct odm_dm_struct *pDM_Odm, u32 Addr, u32 Bitmask
+ 	} else if (Addr == 0xfc) {
+ 		mdelay(1);
+ 	} else if (Addr == 0xfb) {
+-		ODM_delay_us(50);
++		udelay(50);
+ 	} else if (Addr == 0xfa) {
+-		ODM_delay_us(5);
++		udelay(5);
+ 	} else if (Addr == 0xf9) {
+-		ODM_delay_us(1);
++		udelay(1);
+ 	} else {
+ 		if (Addr == 0xa24)
+ 			pDM_Odm->RFCalibrateInfo.RegA24 = Data;
+ 		ODM_SetBBReg(pDM_Odm, Addr, Bitmask, Data);
+ 
+ 		/*  Add 1us delay between BB/RF register setting. */
+-		ODM_delay_us(1);
++		udelay(1);
+ 		ODM_RT_TRACE(pDM_Odm, ODM_COMP_INIT, ODM_DBG_TRACE,
+ 			     ("===> ODM_ConfigBBWithHeaderFile: [PHY_REG] %08X %08X\n",
+ 			     Addr, Data));
+diff --git a/drivers/staging/rtl8188eu/hal/odm_interface.c b/drivers/staging/rtl8188eu/hal/odm_interface.c
+index 4510270..e7fee79 100644
+--- a/drivers/staging/rtl8188eu/hal/odm_interface.c
++++ b/drivers/staging/rtl8188eu/hal/odm_interface.c
+@@ -147,16 +147,6 @@ void ODM_IsWorkItemScheduled(void *pRtWorkItem)
+ }
+ 
+ /*  ODM Timer relative API. */
+-void ODM_StallExecution(u32 usDelay)
 -{
--	rtw_mdelay_os(ms);
+-	rtw_udelay_os(usDelay);
 -}
 -
- void ODM_delay_us(u32 us)
+-void ODM_delay_us(u32 us)
+-{
+-	rtw_udelay_os(us);
+-}
+-
+ void ODM_sleep_us(u32 us)
  {
- 	rtw_udelay_os(us);
-diff --git a/drivers/staging/rtl8188eu/hal/rtl8188e_cmd.c b/drivers/staging/rtl8188eu/hal/rtl8188e_cmd.c
-index 8be2ad7..b409b69 100644
---- a/drivers/staging/rtl8188eu/hal/rtl8188e_cmd.c
-+++ b/drivers/staging/rtl8188eu/hal/rtl8188e_cmd.c
-@@ -656,7 +656,7 @@ _func_enter_;
- 			DLBcnCount++;
- 			do {
- 				rtw_yield_os();
--				/* rtw_mdelay_os(10); */
-+				/* mdelay(10); */
- 				/*  check rsvd page download OK. */
- 				rtw_hal_get_hwreg(adapt, HW_VAR_BCN_VALID, (u8 *)(&bcn_valid));
- 				poll++;
-diff --git a/drivers/staging/rtl8188eu/hal/usb_halinit.c b/drivers/staging/rtl8188eu/hal/usb_halinit.c
-index b867bbb..b24ad49 100644
---- a/drivers/staging/rtl8188eu/hal/usb_halinit.c
-+++ b/drivers/staging/rtl8188eu/hal/usb_halinit.c
-@@ -1894,7 +1894,7 @@ _func_enter_;
- 				/* RQPN Load 0 */
- 				rtw_write16(Adapter, REG_RQPN_NPQ, 0x0);
- 				rtw_write32(Adapter, REG_RQPN, 0x80000000);
--				rtw_mdelay_os(10);
-+				mdelay(10);
- 			}
+ 	rtw_usleep_os(us);
+diff --git a/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c b/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c
+index 0a0bc41..d81193b 100644
+--- a/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c
++++ b/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c
+@@ -574,7 +574,7 @@ static s32 _FWFreeToGo(struct adapter *padapter)
+ 			DBG_88E("%s: Polling FW ready success!! REG_MCUFWDL:0x%08x\n", __func__, value32);
+ 			return _SUCCESS;
  		}
- 		break;
+-		rtw_udelay_os(5);
++		udelay(5);
+ 	} while (counter++ < POLLING_READY_TIMEOUT_COUNT);
+ 
+ 	DBG_88E("%s: Polling FW ready fail!! REG_MCUFWDL:0x%08x\n", __func__, value32);
+diff --git a/drivers/staging/rtl8188eu/hal/rtl8188e_phycfg.c b/drivers/staging/rtl8188eu/hal/rtl8188e_phycfg.c
+index 68bb96d..8079fc6 100644
+--- a/drivers/staging/rtl8188eu/hal/rtl8188e_phycfg.c
++++ b/drivers/staging/rtl8188eu/hal/rtl8188e_phycfg.c
+@@ -190,12 +190,12 @@ phy_RFSerialRead(
+ 	tmplong2 = (tmplong2 & (~bLSSIReadAddress)) | (NewOffset<<23) | bLSSIReadEdge;	/* T65 RF */
+ 
+ 	PHY_SetBBReg(Adapter, rFPGA0_XA_HSSIParameter2, bMaskDWord, tmplong&(~bLSSIReadEdge));
+-	rtw_udelay_os(10);/*  PlatformStallExecution(10); */
++	udelay(10);/*  PlatformStallExecution(10); */
+ 
+ 	PHY_SetBBReg(Adapter, pPhyReg->rfHSSIPara2, bMaskDWord, tmplong2);
+-	rtw_udelay_os(100);/* PlatformStallExecution(100); */
++	udelay(100);/* PlatformStallExecution(100); */
+ 
+-	rtw_udelay_os(10);/* PlatformStallExecution(10); */
++	udelay(10);/* PlatformStallExecution(10); */
+ 
+ 	if (eRFPath == RF_PATH_A)
+ 		RfPiEnable = (u8)PHY_QueryBBReg(Adapter, rFPGA0_XA_HSSIParameter1, BIT8);
+diff --git a/drivers/staging/rtl8188eu/hal/rtl8188e_rf6052.c b/drivers/staging/rtl8188eu/hal/rtl8188e_rf6052.c
+index 299e03e..2999da7 100644
+--- a/drivers/staging/rtl8188eu/hal/rtl8188e_rf6052.c
++++ b/drivers/staging/rtl8188eu/hal/rtl8188e_rf6052.c
+@@ -502,18 +502,18 @@ static int phy_RF6052_Config_ParaFile(struct adapter *Adapter)
+ 		}
+ 		/*----Set RF_ENV enable----*/
+ 		PHY_SetBBReg(Adapter, pPhyReg->rfintfe, bRFSI_RFENV<<16, 0x1);
+-		rtw_udelay_os(1);/* PlatformStallExecution(1); */
++		udelay(1);/* PlatformStallExecution(1); */
+ 
+ 		/*----Set RF_ENV output high----*/
+ 		PHY_SetBBReg(Adapter, pPhyReg->rfintfo, bRFSI_RFENV, 0x1);
+-		rtw_udelay_os(1);/* PlatformStallExecution(1); */
++		udelay(1);/* PlatformStallExecution(1); */
+ 
+ 		/* Set bit number of Address and Data for RF register */
+ 		PHY_SetBBReg(Adapter, pPhyReg->rfHSSIPara2, b3WireAddressLength, 0x0);	/*  Set 1 to 4 bits for 8255 */
+-		rtw_udelay_os(1);/* PlatformStallExecution(1); */
++		udelay(1);/* PlatformStallExecution(1); */
+ 
+ 		PHY_SetBBReg(Adapter, pPhyReg->rfHSSIPara2, b3WireDataLength, 0x0);	/*  Set 0 to 12  bits for 8255 */
+-		rtw_udelay_os(1);/* PlatformStallExecution(1); */
++		udelay(1);/* PlatformStallExecution(1); */
+ 
+ 		/*----Initialize RF fom connfiguration file----*/
+ 		switch (eRFPath) {
 diff --git a/drivers/staging/rtl8188eu/include/odm_interface.h b/drivers/staging/rtl8188eu/include/odm_interface.h
-index 0585463..34ba46b 100644
+index 34ba46b..5e05d9e 100644
 --- a/drivers/staging/rtl8188eu/include/odm_interface.h
 +++ b/drivers/staging/rtl8188eu/include/odm_interface.h
-@@ -137,8 +137,6 @@ void ODM_IsWorkItemScheduled(void *pRtWorkItem);
+@@ -135,10 +135,6 @@ void ODM_ScheduleWorkItem(void *pRtWorkItem);
+ void ODM_IsWorkItemScheduled(void *pRtWorkItem);
+ 
  /*  ODM Timer relative API. */
- void ODM_StallExecution(u32 usDelay);
- 
--void ODM_delay_ms(u32 ms);
+-void ODM_StallExecution(u32 usDelay);
 -
- void ODM_delay_us(u32 us);
- 
+-void ODM_delay_us(u32 us);
+-
  void ODM_sleep_us(u32 us);
+ 
+ void ODM_SetTimer(struct odm_dm_struct *pDM_Odm, struct timer_list *pTimer,
 diff --git a/drivers/staging/rtl8188eu/include/osdep_service.h b/drivers/staging/rtl8188eu/include/osdep_service.h
-index a4ba79a..a97486e 100644
+index a97486e..6085181 100644
 --- a/drivers/staging/rtl8188eu/include/osdep_service.h
 +++ b/drivers/staging/rtl8188eu/include/osdep_service.h
-@@ -279,7 +279,6 @@ void rtw_usleep_os(int us);
+@@ -279,8 +279,6 @@ void rtw_usleep_os(int us);
  
  u32  rtw_atoi(u8 *s);
  
--void rtw_mdelay_os(int ms);
- void rtw_udelay_os(int us);
- 
+-void rtw_udelay_os(int us);
+-
  void rtw_yield_os(void);
+ 
+ static inline unsigned char _cancel_timer_ex(struct timer_list *ptimer)
 diff --git a/drivers/staging/rtl8188eu/os_dep/osdep_service.c b/drivers/staging/rtl8188eu/os_dep/osdep_service.c
-index bf1cd69..985735b 100644
+index 985735b..e62f120 100644
 --- a/drivers/staging/rtl8188eu/os_dep/osdep_service.c
 +++ b/drivers/staging/rtl8188eu/os_dep/osdep_service.c
 @@ -253,11 +253,6 @@ void rtw_usleep_os(int us)
  		msleep((us/1000) + 1);
  }
  
--void rtw_mdelay_os(int ms)
+-void rtw_udelay_os(int us)
 -{
--	mdelay((unsigned long)ms);
+-	udelay((unsigned long)us);
 -}
 -
- void rtw_udelay_os(int us)
+ void rtw_yield_os(void)
  {
- 	udelay((unsigned long)us);
+ 	yield();
 -- 
 1.8.4
