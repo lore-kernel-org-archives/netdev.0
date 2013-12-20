@@ -1,98 +1,120 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCH net-next 0/2] netfilter: IPv4/v6 IPcomp match support
-Date: Fri, 20 Dec 2013 17:21:05 +0800
-Message-ID: <52B40C01.7070406@windriver.com>
-References: <1386937082-30412-1-git-send-email-fan.du@windriver.com> <20131217130555.GA8874@localhost> <52B26841.40800@windriver.com> <20131220090419.GA5661@localhost>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v2 1/2] netfilter_queue: enable UID/GID socket info
+ retrieval
+Date: Fri, 20 Dec 2013 10:26:38 +0100
+Message-ID: <20131220092638.GA9122@localhost>
+References: <1387451007-14363-1-git-send-email-valentina.giusti@bmw-carit.de>
+ <1387451007-14363-2-git-send-email-valentina.giusti@bmw-carit.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <davem@davemloft.net>, <steffen.klassert@secunet.com>,
-	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	fw@strlen.de, eric.dumazet@gmail.com, tgraf@redhat.com,
+	jpa@google.com, davem@davemloft.net, daniel.wagner@bmw-carit.de,
+	Valentina Giusti <valentina.giusti@oss.bmw-carit.de>
+To: valentina.giusti@bmw-carit.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:39088 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754950Ab3LTJVP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 04:21:15 -0500
-In-Reply-To: <20131220090419.GA5661@localhost>
+Received: from mail.us.es ([193.147.175.20]:45799 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754952Ab3LTJ0q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Dec 2013 04:26:46 -0500
+Content-Disposition: inline
+In-Reply-To: <1387451007-14363-2-git-send-email-valentina.giusti@bmw-carit.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
+
+On Thu, Dec 19, 2013 at 12:03:26PM +0100, valentina.giusti@bmw-carit.de=
+ wrote:
+> From: Valentina Giusti <valentina.giusti@oss.bmw-carit.de>
+>=20
+> Thanks to commits 41063e9 (ipv4: Early TCP socket demux) and 421b388 =
+(udp: ipv4:
+> Add udp early demux) it is now possible to parse UID and GID socket i=
+nfo
+> also for incoming TCP and UDP connections. Having this info available=
+, it
+> is convenient to let NFQUEUE parse it in order to improve and refine =
+the
+> traffic analysis in userspace.
+>=20
+> Signed-off-by: Valentina Giusti <valentina.giusti@bmw-carit.de>
+> ---
+>  include/uapi/linux/netfilter/nfnetlink_queue.h |  5 ++++-
+>  net/netfilter/nfnetlink_queue_core.c           | 31 ++++++++++++++++=
+++++++++++
+>  2 files changed, 35 insertions(+), 1 deletion(-)
+>=20
+> diff --git a/include/uapi/linux/netfilter/nfnetlink_queue.h b/include=
+/uapi/linux/netfilter/nfnetlink_queue.h
+> index 0132bad..8dd819e 100644
+> --- a/include/uapi/linux/netfilter/nfnetlink_queue.h
+> +++ b/include/uapi/linux/netfilter/nfnetlink_queue.h
+> @@ -47,6 +47,8 @@ enum nfqnl_attr_type {
+>  	NFQA_CAP_LEN,			/* __u32 length of captured packet */
+>  	NFQA_SKB_INFO,			/* __u32 skb meta information */
+>  	NFQA_EXP,			/* nf_conntrack_netlink.h */
+> +	NFQA_UID,			/* __u32 sk uid */
+> +	NFQA_GID,			/* __u32 sk gid */
+> =20
+>  	__NFQA_MAX
+>  };
+> @@ -99,7 +101,8 @@ enum nfqnl_attr_config {
+>  #define NFQA_CFG_F_FAIL_OPEN			(1 << 0)
+>  #define NFQA_CFG_F_CONNTRACK			(1 << 1)
+>  #define NFQA_CFG_F_GSO				(1 << 2)
+> -#define NFQA_CFG_F_MAX				(1 << 3)
+> +#define NFQA_CFG_F_UID_GID			(1 << 3)
+> +#define NFQA_CFG_F_MAX				(1 << 4)
+> =20
+>  /* flags for NFQA_SKB_INFO */
+>  /* packet appears to have wrong checksums, but they are ok */
+> diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfn=
+etlink_queue_core.c
+> index 21258cf..2cdef07 100644
+> --- a/net/netfilter/nfnetlink_queue_core.c
+> +++ b/net/netfilter/nfnetlink_queue_core.c
+> @@ -297,6 +297,29 @@ nfqnl_put_packet_info(struct sk_buff *nlskb, str=
+uct sk_buff *packet,
+>  	return flags ? nla_put_be32(nlskb, NFQA_SKB_INFO, htonl(flags)) : 0=
+;
+>  }
+> =20
+> +static int nfqnl_put_sk_uidgid(struct sk_buff *skb, struct sock *sk)
+> +{
+> +	const struct cred *cred;
+> +
+> +	if (sk && sk->sk_state !=3D TCP_TIME_WAIT) {
+> +		read_lock_bh(&sk->sk_callback_lock);
+> +		if (sk->sk_socket && sk->sk_socket->file) {
+> +			cred =3D sk->sk_socket->file->f_cred;
+> +			if (nla_put_u32(skb, NFQA_UID, htonl(cred->fsuid)))
+
+I'm hitting this compilation error here:
+
+net/netfilter/nfnetlink_queue_core.c: In function =E2=80=98nfqnl_put_sk=
+_uidgid=E2=80=99:
+net/netfilter/nfnetlink_queue_core.c:308:4: error: aggregate value used=
+ where an integer was expected
+
+It seems that in recent kernels you have to use:
+
+        from_kuid_munged(&init_user_ns, cred->fsuid);
+
+to retrieve the integer that represents the uid.
+
+Please,=20
 
 
-On 2013=E5=B9=B412=E6=9C=8820=E6=97=A5 17:04, Pablo Neira Ayuso wrote:
-> On Thu, Dec 19, 2013 at 11:30:09AM +0800, Fan Du wrote:
->>
->>
->> On 2013=E5=B9=B412=E6=9C=8817=E6=97=A5 21:05, Pablo Neira Ayuso wrot=
-e:
->>> On Fri, Dec 13, 2013 at 08:18:00PM +0800, Fan Du wrote:
->>>> Hi,
->>>>
->>>> This patchset adds IPv4/v6 IPComp 'match' plugin to enables user s=
-etting
->>>> ACTONs for IPcomp flows sepecified with SPI value.
->>>>
->>>> Corresponding iptables patchset will be sent here after soon.
->>>>
->>>> Fan Du (2):
->>>>    netfilter: add IPv4 IPComp extension match support
->>>>    netfilter: add IPv6 IPComp extension match support
->>>
->>> This looks good, but I have to ask you to merge those two modules i=
-nto
->>> one single xt_ipcomp, they are fairly small and we can save the
->>> overhead of having two different modules. Moreover, at quick glance=
- I
->>> don't see any dependency with IPv4/IPv6 exported symbols that may
->>> cause ifdef pollution.
->>>
->>> Please, see net/netfilter/xt_tcpudp.c as reference to rework this.
->>> Thanks.
->>>
->>
->> I noticed netfilter ipv4/v6 AH support also has split implementation=
-,
->> so far, by my understanding, it's fairly enough to consolidate those
->> two implementations into one as well, as IPv4/6 AH head format are
->> identical.
->>
->> If you don't mind or it won't break anything internal for netfilter,
->> I plan to combine them into one piece.
->
-> We can merge those two, but you'll have to handle dependencies with
-> IPv6 core via ifdefs and Kconfig to avoid problems.
->
-> AH is not the last header, so we still have to use ipv6_find_hdr() to
-> find the good header instead of par->thoff. Note that the ip6_tables
-> sets par->thoff to the last IPv6 extension header.
+> +				goto nla_put_failure;
+> +			if (nla_put_u32(skb, NFQA_GID, htonl(cred->fsgid)))
+                                    ^^^
 
-I'm quite new to the internal of netfiler, especially about this part.
-I will take a look at the code later.
+Minor nitpick: This has to be _be32 otherwise sparse will complain
+(spotted by Florian Westphal).
 
-> This rises some concerns regarding your ipcomp, I think that if you
-> use this with ah and esp, the ordering of the headers is
-> ah+ipcomp+esp, right?
+Make sure you patch is also clean when running make C=3D2.
 
-This depends on the user land configuration of encapsulation order.
-It can be one of the three types only(ah, esp, ipcomp), the most common=
-ly
-used is ah(outer)+esp(inner).
-
-I barely see ipcomp used in production, but I remember RFC says ipcomp
-should be done first before esp, because after encryption in esp, the d=
-ata
-is polluted, i.e., not suitable for compressed anymore(I'm not sure the
-details theory behind this statement.)
-
-Anyway, no matter how ah,esp,ipcomp are ordered, I think it only makes
-sense for the outer header when using any one of those three filters, a=
-nd
-that's what I can imagine how it's been used.
-
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan
+Also remove the extra checking for socket that Florian mentioned and
+resubmit. Thanks.
