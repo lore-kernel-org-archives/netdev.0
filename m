@@ -1,58 +1,37 @@
-From: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
-Subject: Re: i386 vs x86_64 struct tpacket_hdr layout
-Date: Fri, 20 Dec 2013 22:22:52 +0100
-Message-ID: <52B4B52C.3030903@aimvalley.nl>
-References: <52B4465E.2090904@aimvalley.nl> <20131220.133854.672157982782686878.davem@davemloft.net> <52B49038.3070307@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net_sched: fix a regression in
+ tcf_proto_lookup_ops()
+Date: Fri, 20 Dec 2013 16:30:56 -0500 (EST)
+Message-ID: <20131220.163056.1860063918856296179.davem@davemloft.net>
+References: <CAM_iQpV+WJdeOHOyGENT2XWn=ytjBirBo1G4H2b_QziKHWFw0g@mail.gmail.com>
+	<1387570492.19078.463.camel@edumazet-glaptop2.roam.corp.google.com>
+	<52B4A6F4.6050702@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Cc: eric.dumazet@gmail.com, xiyou.wangcong@gmail.com,
+	netdev@vger.kernel.org
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mika.eatserver.nl ([195.20.9.75]:40135 "EHLO mika.eatserver.nl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750938Ab3LTVXM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Dec 2013 16:23:12 -0500
-In-Reply-To: <52B49038.3070307@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42807 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751832Ab3LTVa7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 16:30:59 -0500
+In-Reply-To: <52B4A6F4.6050702@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/20/13 19:45, Daniel Borkmann wrote:
-> On 12/20/2013 07:38 PM, David Miller wrote:
->> From: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
->> Date: Fri, 20 Dec 2013 14:30:06 +0100
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Fri, 20 Dec 2013 15:22:12 -0500
+
+> On 12/20/13 15:14, Eric Dumazet wrote:
+> 
+>> This will be a separate patch, as the faulty commit is different.
+>> ( 1f747c26c48bb290c79c34e155860c7e2ec3926a net_sched: convert
+>> tc_action_ops to use struct list_head)
 >>
->>>
->>> I'm compiling my 32bit application with -m32 on a x86_64
->>> system/kernel.
->>>
->>> Things aren't working because for my application tp_len is at offset 4
->>> but for the kernel it is at offset 8.
->>>
->>> struct tpacket_hdr {
->>> unsigned long tp_status;
->>> unsigned int tp_len;
->>> unsigned int tp_snaplen;
->>> unsigned short tp_mac;
->>> unsigned short tp_net;
->>> unsigned int tp_sec;
->>> unsigned int tp_usec;
->>> };
->>>
->>> How is this suppose to work ?
->>
->> This is why you should use tpacket layout v2 or v3, rather than v1,
->> they fix these issues.
->
-> Norbert, please also read Documentation/networking/packet_mmap.txt
->
-> Thanks !
+> 
+> Ok, I hope Dave pulls those changes in - plan to pay closer attention
+> over the weekend.
 
-
-Ah... thanks guys, now I see. struct tpacket2_hdr has fixed layout. I will use v2 (or v3).
-
-I could not find this info in [linux-3.6.8/]Documentation/networking/packet_mmap.txt
-though.
-
----
-Norbert.
+I will.
