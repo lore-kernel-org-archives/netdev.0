@@ -1,7 +1,7 @@
 From: Chen Weilong <chenweilong@huawei.com>
-Subject: [patch net-next 5/7] ipv4: ERROR: do not initialise globals to 0 or NULL
-Date: Fri, 20 Dec 2013 19:57:08 +0800
-Message-ID: <1387540630-11052-6-git-send-email-chenweilong@huawei.com>
+Subject: [patch net-next 3/7] ipv4: fix checkpatch error with foo * bar
+Date: Fri, 20 Dec 2013 19:57:06 +0800
+Message-ID: <1387540630-11052-4-git-send-email-chenweilong@huawei.com>
 References: <1387540630-11052-1-git-send-email-chenweilong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,42 +10,35 @@ Cc: <netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>,
 To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
 	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
 	<steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:27644 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932373Ab3LTL57 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 06:57:59 -0500
 In-Reply-To: <1387540630-11052-1-git-send-email-chenweilong@huawei.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Weilong Chen <chenweilong@huawei.com>
 
 
 Signed-off-by: Weilong Chen <chenweilong@huawei.com>
 ---
- net/ipv4/tcp_probe.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/ipv4/tcp_ipv4.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
-index 8b97d71..1f2d376 100644
---- a/net/ipv4/tcp_probe.c
-+++ b/net/ipv4/tcp_probe.c
-@@ -38,7 +38,7 @@ MODULE_DESCRIPTION("TCP cwnd snooper");
- MODULE_LICENSE("GPL");
- MODULE_VERSION("1.1");
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index bbaf8cb..7297b56 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -827,7 +827,7 @@ static int tcp_v4_send_synack(struct sock *sk, struct dst_entry *dst,
+ 	const struct inet_request_sock *ireq = inet_rsk(req);
+ 	struct flowi4 fl4;
+ 	int err = -1;
+-	struct sk_buff * skb;
++	struct sk_buff *skb;
  
--static int port __read_mostly = 0;
-+static int port __read_mostly;
- MODULE_PARM_DESC(port, "Port to match (0=all)");
- module_param(port, int, 0);
- 
-@@ -46,7 +46,7 @@ static unsigned int bufsize __read_mostly = 4096;
- MODULE_PARM_DESC(bufsize, "Log buffer size in packets (4096)");
- module_param(bufsize, uint, 0);
- 
--static unsigned int fwmark __read_mostly = 0;
-+static unsigned int fwmark __read_mostly;
- MODULE_PARM_DESC(fwmark, "skb mark to match (0=no mark)");
- module_param(fwmark, uint, 0);
- 
+ 	/* First, grab a route. */
+ 	if (!dst && (dst = inet_csk_route_req(sk, &fl4, req)) == NULL)
 -- 
 1.7.12
-
-
