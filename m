@@ -1,58 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2] arc_emac: fix potential use after free
-Date: Thu, 19 Dec 2013 18:10:40 -0800
-Message-ID: <1387505440.19078.419.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1387504737.19078.416.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCHv4 net-next 0/8] pktgen IPsec support
+Date: Fri, 20 Dec 2013 10:33:26 +0800
+Message-ID: <1387506814-4417-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
-	Richard Cochran <richardcochran@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <steffen.klassert@secunet.com>, <hadi@cyberus.ca>,
+	<netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:46199 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932089Ab3LTCKm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 21:10:42 -0500
-Received: by mail-pa0-f50.google.com with SMTP id kp14so99281pab.9
-        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 18:10:41 -0800 (PST)
-In-Reply-To: <1387504737.19078.416.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail1.windriver.com ([147.11.146.13]:53807 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932092Ab3LTCdm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 21:33:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Hi, Dave
 
-skb_tx_timestamp(skb) should be called _before_ TX completion
-has a chance to trigger, otherwise it is too late and we access
-freed memory.
+Current pktgen IPsec supports only transport/ESP combinnation,
+This patchset enables user to do almost any IPsec transformation,
+both transport/tunnel mode, and AH/ESP/IPcomp type.
 
-Fixes: e4f2379db6c6 ("ethernet/arc/arc_emac - Add new driver")
-From: Eric Dumazet <edumazet@google.com>
-Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Cc: Richard Cochran <richardcochran@gmail.com>
----
- drivers/net/ethernet/arc/emac_main.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
-index b2ffad1304d2..248baf6273fb 100644
---- a/drivers/net/ethernet/arc/emac_main.c
-+++ b/drivers/net/ethernet/arc/emac_main.c
-@@ -565,6 +565,8 @@ static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
- 	/* Make sure pointer to data buffer is set */
- 	wmb();
- 
-+	skb_tx_timestamp(skb);
-+
- 	*info = cpu_to_le32(FOR_EMAC | FIRST_OR_LAST_MASK | len);
- 
- 	/* Increment index to point to the next BD */
-@@ -579,8 +581,6 @@ static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
- 
- 	arc_reg_set(priv, R_STATUS, TXPL_MASK);
- 
--	skb_tx_timestamp(skb);
--
- 	return NETDEV_TX_OK;
- }
- 
+Below configuration has been tested, and using Wireshark could decrypt
+out plain text in good formation without any checksum/auth errors:
+
+Mode/TYPE   AH  ESP 
+Transport   x   x   
+Tunnel      x   x   
+
+ChangeLog
+v2:
+  Rebase patchset against newest net-next.
+  Patch1: Remove adding rebundant empty line spotted by Sergei.
+  Patch2: Use only one dst pointing into itself to save space.
+
+v3:
+  Align with David's requirement, that for user depends on orignal
+  a553e4a6317b2cfc7659542c10fe43184ffe53da ("IPSEC support") from
+  Jamal, their testbed configuration will not need to be changed. 
+
+  Add Patch2/7, Patch3/7 for statistic counting, as well as fixing
+  lock usage issue. 
+
+v4:
+  Add Patch8/8 to document IPsec usage in pktgen, both for orignal
+  implementation and this enhancement, adviced by Jamal. And comment
+  format fix spoted by Sergei.
+
+Fan Du (8):
+  {pktgen, xfrm} Correct xfrm state lock usage when transforming
+  {pktgen, xfrm} Add statistics counting when transforming
+  {pktgen, xfrm} Correct xfrm_state_lock usage in xfrm_stateonly_find
+  {pktgen, xfrm} Using "pgset spi xxx" to spedifiy SA for a given flow
+  {pktgen, xfrm} Construct skb dst for tunnel mode transformation
+  {pktgen, xfrm} Introduce xfrm_state_lookup_byspi for pktgen
+  {pktgen, xfrm} Show spi value properly when ipsec turned on
+  {pktgen, xfrm} Document IPsec usage in pktgen.txt
+
+ Documentation/networking/pktgen.txt |   15 +++++++
+ include/net/xfrm.h                  |    2 +
+ net/core/pktgen.c                   |   80 +++++++++++++++++++++++++++++------
+ net/xfrm/xfrm_state.c               |   26 +++++++++++-
+ 4 files changed, 107 insertions(+), 16 deletions(-)
+
+-- 
+1.7.9.5
