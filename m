@@ -1,33 +1,67 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [BUG] 3.11.5: IPv6 provoked oops?
-Date: Fri, 20 Dec 2013 22:02:43 +0000
-Message-ID: <20131220220243.GM4360@n2100.arm.linux.org.uk>
-References: <20131220203115.GL4360@n2100.arm.linux.org.uk> <20131220204321.GA14073@order.stressinduktion.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next v3 14/16] i40e: make a define from a large constant
+Date: Fri, 20 Dec 2013 14:12:37 -0800
+Message-ID: <1387577557.2353.62.camel@joe-AO722>
+References: <1387563694-3166-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1387563694-3166-15-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1387564814.2353.60.camel@joe-AO722>
+	 <1387570331.2183.97.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from adsl-gw.arm.linux.org.uk ([78.32.30.217]:35888 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753569Ab3LTWJx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 17:09:53 -0500
-Content-Disposition: inline
-In-Reply-To: <20131220204321.GA14073@order.stressinduktion.org>
+Received: from smtprelay0008.hostedemail.com ([216.40.44.8]:39571 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753569Ab3LTWMl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 17:12:41 -0500
+In-Reply-To: <1387570331.2183.97.camel@jtkirshe-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 20, 2013 at 09:43:21PM +0100, Hannes Frederic Sowa wrote:
-> On Fri, Dec 20, 2013 at 08:31:16PM +0000, Russell King - ARM Linux wrote:
-> > So, I'm now running PPPoE on this box, which also does 6to4.  I tried
-> > to ping another 6to4 address from a box on my lan, which caused this
-> > oops from 3.11.5:
+On Fri, 2013-12-20 at 12:12 -0800, Jeff Kirsher wrote:
+> On Fri, 2013-12-20 at 10:40 -0800, Joe Perches wrote:
+> > On Fri, 2013-12-20 at 10:21 -0800, Jeff Kirsher wrote:
+> > > Make a define used in the header file by both VF and PF drivers.
+> > []
+> > > diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+> > []
+> > > @@ -66,6 +66,26 @@ enum i40e_dyn_idx_t {
+> > []
+> > > +/* Supported RSS offloads */
+> > > +#define I40E_DEFAULT_RSS_HENA ( \
+> > > +	((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP) | \
+> > 
+> > BIT_ULL
+> > 
+> > > +	((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP) | \
+> > 
+> > etc...
+> > 
 > 
-> This should be fixed by the following patches:
-> 
-> http://patchwork.ozlabs.org/patch/288967/
-> http://patchwork.ozlabs.org/patch/288970/
-> 
-> I think they reached stable already.
+> Joe, I am not seeing widespread use of the macro BIT_ULL, so what is the
+> driving factor to use the macro?
 
-Thanks.  It seems I need the 3.12 stable branch for that.
+Hey Jeff.
+
+It was just introduced in October 2013.
+
+commit bfd1ff6375c82930bfb3b401eee2c96720fa8e84
+Author: Srinivas Pandruvada <srinivas.pandruvada@linux.intel.com>
+Date:   Fri Oct 11 16:54:59 2013 -0700
+
+    bitops: Introduce BIT_ULL
+    
+    Adding BIT(x) equivalent for unsigned long long type, BIT_ULL(x). Also
+    added BIT_ULL_MASK and BIT_ULL_WORD.
+    
+
+>   I know you mentioned this on a
+> previous patch I pushed and wanted to ask then, but simply forgot.
+
+Just consistency and symmetry and a few
+bug reduction possibilities using standard
+mechanisms.
