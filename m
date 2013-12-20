@@ -1,41 +1,57 @@
-From: Nithin Nayak Sujir <nsujir@broadcom.com>
-Subject: [PATCH v2 net] tg3: Expand 4g_overflow_test workaround to skb fragments of any size.
-Date: Thu, 19 Dec 2013 17:44:11 -0800
-Message-ID: <1387503851-14253-1-git-send-email-nsujir@broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] arc_emac: fix
+Date: Thu, 19 Dec 2013 17:58:57 -0800
+Message-ID: <1387504737.19078.416.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Nithin Nayak Sujir <nsujir@broadcom.com>,
-	<stable@vger.kernel.org>, Michael Chan <mchan@broadcom.com>
-To: <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
+	Richard Cochran <richardcochran@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:46823 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932206Ab3LTB7B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 20:59:01 -0500
+Received: by mail-pb0-f46.google.com with SMTP id md12so1924247pbc.5
+        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 17:59:00 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The current driver assumes that an skb fragment can only be upto jumbo
-size. Presumably this was a fast-path optimization. This assumption is
-no longer true as fragments can be upto 32k.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-v2: Remove unnecessary parantheses per Eric Dumazet.
+skb_tx_timestamp(skb) should be called _before_ TX completion
+has a chance to trigger, otherwise it is too late and we access
+freed memory.
 
-Cc: stable@vger.kernel.org
-Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Fixes: e4f2379db6c6 ("ethernet/arc/arc_emac - Add new driver")
+From: Eric Dumazet <edumazet@google.com>
+Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Cc: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/arc/emac_main.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index f3dd93b..15a66e4 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -7622,7 +7622,7 @@ static inline int tg3_4g_overflow_test(dma_addr_t mapping, int len)
- {
- 	u32 base = (u32) mapping & 0xffffffff;
+diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
+index b2ffad1304d2..248baf6273fb 100644
+--- a/drivers/net/ethernet/arc/emac_main.c
++++ b/drivers/net/ethernet/arc/emac_main.c
+@@ -565,6 +565,8 @@ static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
+ 	/* Make sure pointer to data buffer is set */
+ 	wmb();
  
--	return (base > 0xffffdcc0) && (base + len + 8 < base);
-+	return base + len + 8 < base;
++	skb_tx_timestamp(skb);
++
+ 	*info = cpu_to_le32(FOR_EMAC | FIRST_OR_LAST_MASK | len);
+ 
+ 	/* Increment index to point to the next BD */
+@@ -579,8 +581,6 @@ static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
+ 
+ 	arc_reg_set(priv, R_STATUS, TXPL_MASK);
+ 
+-	skb_tx_timestamp(skb);
+-
+ 	return NETDEV_TX_OK;
  }
  
- /* Test for TSO DMA buffers that cross into regions which are within MSS bytes
--- 
-1.8.1.4
