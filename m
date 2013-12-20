@@ -1,41 +1,37 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] ipv4: introduce ip_dst_mtu_secure and protect forwarding path against pmtu spoofing
-Date: Fri, 20 Dec 2013 10:21:10 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B74BF@saturn3.aculab.com>
-References: <20131219000759.GF3505@order.stressinduktion.org><20131219.001203.1942468169345523058.davem@davemloft.net><20131219121757.GD14429@order.stressinduktion.org> <20131219.143012.205185984019527730.davem@davemloft.net>
+From: Chen Weilong <chenweilong@huawei.com>
+Subject: [patch ipsec-next 0/5] xfrm: fix checkpatch errors
+Date: Fri, 20 Dec 2013 18:49:32 +0800
+Message-ID: <1387536577-11480-1-git-send-email-chenweilong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <johnwheffner@gmail.com>, <netdev@vger.kernel.org>,
-	<eric.dumazet@gmail.com>
-To: "David Miller" <davem@davemloft.net>, <hannes@stressinduktion.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>,
+	<davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:44583 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1756156Ab3LTKWq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 05:22:46 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 03581-01 for <netdev@vger.kernel.org>;
- Fri, 20 Dec 2013 10:22:44 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <20131219.143012.205185984019527730.davem@davemloft.net>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:25126 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932271Ab3LTKt7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 05:49:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> No end host should have rp_filter on.  It unnecessarily makes our
-> routing lookups much more expensive for zero gain on an end host.  But
-> people convinced the distributions that turning it on everywhere by
-> default was a good idea and it stuck.
+From: Weilong Chen <chenweilong@huawei.com>
 
-Yes I spent a long time trying to get asymmetric routing within a
-subnet working [1]. I didn't expect anything on the ingress side
-would discard the packets - especially with the 'host based' IP
-address scheme that linux uses.
+fix checkpatch errors.
 
-	David
+Weilong Chen (5):
+  xfrm: checkpatch errors with space
+  xfrm: checkpatch errors with foo * bar
+  xfrm: checkpatch erros with space prohibited
+  xfrm: fix checkpatch error
+  xfrm: checkpatch erros with inline keyword position
 
-[1] I wanted a netperf RR test to send on one interface and
-receive on another so that I could see whether the additional
-delays were on the tx or rx side.
+ net/xfrm/xfrm_input.c  |  6 +++---
+ net/xfrm/xfrm_policy.c | 37 ++++++++++++++++++-------------------
+ net/xfrm/xfrm_proc.c   |  2 +-
+ net/xfrm/xfrm_state.c  | 18 +++++++++---------
+ net/xfrm/xfrm_user.c   |  6 +++---
+ 5 files changed, 34 insertions(+), 35 deletions(-)
+
+-- 
+1.7.12
