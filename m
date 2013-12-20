@@ -1,117 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net_sched: fix a regression in
- tcf_proto_lookup_ops()
-Date: Fri, 20 Dec 2013 12:11:20 -0800
-Message-ID: <1387570280.19078.461.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1387526931-21814-1-git-send-email-xiyou.wangcong@gmail.com>
-	 <52B434FA.8080309@mojatatu.com>
-	 <1387550222.19078.434.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <52B45851.90208@mojatatu.com>
-	 <1387555659.19078.439.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1387560028.19078.442.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1387560578.19078.443.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1387562658.19078.448.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAM_iQpUQ3iaq+X+CngqJCGWq5Ep_XhcfWEKqrCQcZ3iC6Uz_qA@mail.gmail.com>
-	 <1387568188.19078.453.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAM_iQpV+WJdeOHOyGENT2XWn=ytjBirBo1G4H2b_QziKHWFw0g@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next v3 14/16] i40e: make a define from a large constant
+Date: Fri, 20 Dec 2013 12:12:11 -0800
+Message-ID: <1387570331.2183.97.camel@jtkirshe-mobl>
+References: <1387563694-3166-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1387563694-3166-15-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1387564814.2353.60.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-W95XL/JqbftpkVvcry+8"
+Cc: davem@davemloft.net, Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f170.google.com ([209.85.161.170]:36746 "EHLO
-	mail-gg0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751035Ab3LTUL0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 15:11:26 -0500
-Received: by mail-gg0-f170.google.com with SMTP id 24so679860gge.1
-        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 12:11:24 -0800 (PST)
-In-Reply-To: <CAM_iQpV+WJdeOHOyGENT2XWn=ytjBirBo1G4H2b_QziKHWFw0g@mail.gmail.com>
+Received: from mga01.intel.com ([192.55.52.88]:50653 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751035Ab3LTUMM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Dec 2013 15:12:12 -0500
+In-Reply-To: <1387564814.2353.60.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-12-20 at 11:57 -0800, Cong Wang wrote:
 
-> Then why mirred_cleanup_module() appears in the top of your backtrace?
+--=-W95XL/JqbftpkVvcry+8
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Because you have not understood the trace ?
+On Fri, 2013-12-20 at 10:40 -0800, Joe Perches wrote:
+> On Fri, 2013-12-20 at 10:21 -0800, Jeff Kirsher wrote:
+> > Make a define used in the header file by both VF and PF drivers.
+> []
+> > diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/=
+ethernet/intel/i40e/i40e_txrx.h
+> []
+> > @@ -66,6 +66,26 @@ enum i40e_dyn_idx_t {
+> []
+> > +/* Supported RSS offloads */
+> > +#define I40E_DEFAULT_RSS_HENA ( \
+> > +	((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP) | \
+>=20
+> BIT_ULL
+>=20
+> > +	((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP) | \
+>=20
+> etc...
+>=20
 
-Thats exactly why its not useful at all.
+Joe, I am not seeing widespread use of the macro BIT_ULL, so what is the
+driving factor to use the macro?  I know you mentioned this on a
+previous patch I pushed and wanted to ask then, but simply forgot.
 
+--=-W95XL/JqbftpkVvcry+8
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-[   76.656061] RIP: 0010:[<ffffffffa008d882>]  [<ffffffffa008d882>] mirred_cleanup_module+0x13a/0x2a [act_mirred]^M
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
 
+iQIcBAABCgAGBQJStKSbAAoJEOVv75VaS+3OHk8P/3mH6v6Co9IRaVEWTxXENzS0
+V6kc/Ejfywz9gPEWGfbZndNl5k6x8fmiFxDAClRLo0eHDMx6c0+ynE+QuWlIeVrO
+kF3Kht1yCDAqeGIrKGdSOuRGO3Y2bTpZGkkLEJiwzBp0yVEluI2mQ4TNifY27yAY
+szQTvdV1KJRPVkAjZWUfMqIVtsvu0WpLTURY8ZtRgAPCU8ZyLGea1mvAXwnw47ty
+1zLgtYk3AawLTweyzGpVm/PZW2X40/QRyeVENpP7lzl9GNhBl2uvAy8OgzB9Kw8O
+91gk0ipIkrLKcfzZMDL59dCnQ1IoNuOklVGAvThKeiU/6EWfYr68zkc321bg6kmi
+PrzI4Osu+ns9N4JcsHyJMDx0VJNp8Gr3Nx5uVmSbTXOLtJpP07lmzjIGkqkXGz3A
+KdJjQO5jETeroslIZkqC4q37JQkta51EyqtOCcwV7yDg1UcFfiV8TjHEMVoWLv3r
+deWoSK+ZFVs1SZHNEABCmN/aLclmNyK3EHV+qtkwYapTtqOFD7BStfi4qlVhGhst
+ZdXyi9TKJB4jKQWb3ifC1+Q120G+NiFUZCbUFbCezMBFs6n+jeo1k8UbLBFktHYT
+wva8TeCC7pX8RDcCQHViuOFiHx3aXvrLdTaEs2D2kpXE2vKRtzmy0AposlQdUamY
+Me+fUcz2ro65z5hDwRjX
+=YiqF
+-----END PGP SIGNATURE-----
 
-This means RIP is _after_ mirred_cleanup_module() body, as this function size if 0x2a bytes
-
-We were trying to execute a data portion which happens to be in
-the neighboring of innocent mirred_cleanup_module()
-
-When not using module, trace was different and made no sense anyway :
-
-[   86.909685] kernel tried to execute NX-protected page - exploit attempt? (uid: 0)^M
-[   86.917183] BUG: unable to handle kernel paging request at ffffffff818a4b80^M
-[   86.924190] IP: [<ffffffff818a4b80>] 0xffffffff818a4b80^M
-[   86.929439] PGD 180c067 PUD 180d063 PMD 202e851063 PTE 80000000018a4163^M
-[   86.936144] Oops: 0011 [#1] SMP ^M
-[   86.939405] Modules linked in: cls_tcindex sch_dsmark xt_multiport iptable_mangle w1_therm wire cdc_acm uhci_hcd ehci_hcd i2c_dev i2c_i801 i2c_core msr cpuid ib_uverbs mlx4_ib ib_sa ib_mad mlx4_en ib_core mlx4_core ipv6^M
-[   86.959307] CPU: 11 PID: 11378 Comm: BweTCTree_DoWor Not tainted 3.13.0-smp-DEV #413^M
-[   86.973964] task: ffff880078fc6690 ti: ffff882016886000 task.ti: ffff882016886000^M
-[   86.981467] RIP: 0010:[<ffffffff818a4b80>]  [<ffffffff818a4b80>] 0xffffffff818a4b80^M
-[   86.989153] RSP: 0018:ffff8820168879b0  EFLAGS: 00010206^M
-[   86.994482] RAX: 0000000000010000 RBX: ffff881015c59480 RCX: 0000000000000000^M
-[   87.001635] RDX: ffffffff818a4b50 RSI: ffffffffa0059790 RDI: ffff881015c59480^M
-[   87.008772] RBP: ffff882016887aa8 R08: ffff88107f4004c0 R09: ffff881015c59480^M
-[   87.015922] R10: ffff880000077680 R11: 00000000ffffff97 R12: ffff881016ae9160^M
-[   87.023094] R13: ffff881016ae9000 R14: ffff881016ae9000 R15: ffff88102e405800^M
-[   87.030277] FS:  00007f29f3858700(0000) GS:ffff88107fb60000(0000) knlGS:0000000000000000^M
-[   87.038386] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033^M
-[   87.044146] CR2: ffffffff818a4b80 CR3: 0000002030af1000 CR4: 00000000001407e0^M
-[   87.051301] Stack:^M
-[   87.053314]  ffffffff814dd0e1 0000000000000028 00000000ffffffff ffffffff818a4b50^M
-[   87.060774]  ffff880000077680 ffff88102e405824 0000000800000000 ffffffff818a1940^M
-[   87.068232]  0000000000000000 ffffffff8169ca80 0001000000010000 ffff882016887a68^M
-[   87.075750] Call Trace:^M
-[   87.078202]  [<ffffffff814dd0e1>] ? tc_ctl_tfilter+0x4a1/0x760^M
-[   87.084071]  [<ffffffff814e6fb6>] ? __netlink_sendskb+0x56/0x130^M
-[   87.090108]  [<ffffffff814caa04>] rtnetlink_rcv_msg+0xa4/0x240^M
-[   87.095945]  [<ffffffff814ca960>] ? __rtnl_unlock+0x20/0x20^M
-[   87.101538]  [<ffffffff814e9e91>] netlink_rcv_skb+0xb1/0xc0^M
-[   87.107118]  [<ffffffff814c7635>] rtnetlink_rcv+0x25/0x40^M
-[   87.112528]  [<ffffffff814e973d>] netlink_unicast+0x14d/0x1f0^M
-[   87.118314]  [<ffffffff814e9ae3>] netlink_sendmsg+0x303/0x410^M
-[   87.124092]  [<ffffffff814a048c>] sock_sendmsg+0x9c/0xd0^M
-[   87.129451]  [<ffffffff814a0da0>] ? move_addr_to_kernel+0x40/0xa0^M
-[   87.135566]  [<ffffffff814add21>] ? verify_iovec+0x51/0xd0^M
-[   87.141064]  [<ffffffff814a0c21>] ___sys_sendmsg+0x3c1/0x3d0^M
-[   87.146747]  [<ffffffff815690bc>] ? __do_page_fault+0x26c/0x500^M
-[   87.152689]  [<ffffffff811821ab>] ? do_brk+0x1bb/0x320^M
-[   87.157830]  [<ffffffff814a1809>] __sys_sendmsg+0x49/0x90^M
-[   87.163250]  [<ffffffff814a1862>] SyS_sendmsg+0x12/0x20^M
-[   87.168484]  [<ffffffff8156d992>] system_call_fastpath+0x16/0x1b^M
-[   87.174518] Code: ff ff ff 80 97 05 a0 ff ff ff ff 00 00 10 00 00 00 00 00 00 00 00 00 00 00 00 00 80 4b 8a 81 ff ff ff ff 80 4b 8a 81 ff ff ff ff <70> 4b 8a 81 ff ff ff ff 70 4b 8a 81 ff ff ff ff c0 9d ba 81 ff ^M
-[   87.194642] RIP  [<ffffffff818a4b80>] 0xffffffff818a4b80^M
-[   87.199983]  RSP <ffff8820168879b0>^M
-[   87.203472] CR2: ffffffff818a4b80^M
-[   87.206785] ---[ end trace 8ef37a4cc4cb5a8c ]---^M
-[   87.211408] Kernel panic - not syncing: Fatal exception^M
-[   87.216763] Rebooting in 10 seconds..^M
-
-We actually try to execute code at ffffffff818a4b80 == &act_mirred_ops
-
-ffffffff818a4b40 d cls_mod_lock
-ffffffff818a4b50 d tcf_proto_base
-ffffffff818a4b60 d act_mod_lock
-ffffffff818a4b70 d act_base
-ffffffff818a4b80 d act_mirred_ops
-ffffffff818a4bf0 d mirred_device_notifier
-ffffffff818a4c10 d mirred_list
-ffffffff818a4c20 d _rs.42828
-ffffffff818a4c40 d ematch_mod_lock
-ffffffff818a4c50 d ematch_ops
-
-So only a bisection actually gave me the faulty commit.
-
-Stacktrace was absolutely useless.
+--=-W95XL/JqbftpkVvcry+8--
