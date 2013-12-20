@@ -1,48 +1,37 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH v3 8/8] drivers: net: Mark function
- xenvif_count_frag_slots() as static in netback.c
-Date: Fri, 20 Dec 2013 09:38:55 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD01BE177@AMSPEX01CL01.citrite.net>
-References: <04fe932bc3585620c91d511bb0894e45bb762ffa.1387382457.git.rashika.kheria@gmail.com>
-	<72d6fe114ba7cc2f09f51e279313860f83142d46.1387382457.git.rashika.kheria@gmail.com>
- <20131219.185249.732943424956542038.davem@davemloft.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] nfnetlink_log: unset nf_loggers for net namespace when
+ unload nfnetlink_log
+Date: Fri, 20 Dec 2013 10:39:27 +0100
+Message-ID: <20131220093927.GA13151@localhost>
+References: <20131214101042.5626c785@gandalf.local.home>
+ <1387177162-2725-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"josh@joshtriplett.org" <josh@joshtriplett.org>
-To: David Miller <davem@davemloft.net>,
-	"rashika.kheria@gmail.com" <rashika.kheria@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131219.185249.732943424956542038.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	lclaudio@uudg.org, williams@redhat.com
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:49564 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756126Ab3LTJjc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Dec 2013 04:39:32 -0500
+Content-Disposition: inline
+In-Reply-To: <1387177162-2725-1-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
-aGFsZiBPZiBEYXZpZCBNaWxsZXINCj4gU2VudDogMTkgRGVjZW1iZXIgMjAxMyAyMzo1Mw0KPiBU
-bzogcmFzaGlrYS5raGVyaWFAZ21haWwuY29tDQo+IENjOiBJYW4gQ2FtcGJlbGw7IFdlaSBMaXU7
-IHhlbi1kZXZlbEBsaXN0cy54ZW5wcm9qZWN0Lm9yZzsNCj4gbmV0ZGV2QHZnZXIua2VybmVsLm9y
-ZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsNCj4gam9zaEBqb3NodHJpcGxldHQub3Jn
-DQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggdjMgOC84XSBkcml2ZXJzOiBuZXQ6IE1hcmsgZnVuY3Rp
-b24NCj4geGVudmlmX2NvdW50X2ZyYWdfc2xvdHMoKSBhcyBzdGF0aWMgaW4gbmV0YmFjay5jDQo+
-IA0KPiBGcm9tOiBSYXNoaWthIEtoZXJpYSA8cmFzaGlrYS5raGVyaWFAZ21haWwuY29tPg0KPiBE
-YXRlOiBUaHUsIDE5IERlYyAyMDEzIDE0OjI2OjQ3ICswNTMwDQo+IA0KPiA+IFRoaXMgcGF0Y2gg
-bWFya3MgdGhlIGZ1bmN0aW9uIHhlbnZpZl9jb3VudF9mcmFnX3Nsb3RzKCkgaW4gbmV0YmFjay5j
-IGFzDQo+ID4gc3RhdGljIGJlY2F1c2UgdGhleSBhcmUgbm90IHVzZWQgb3V0c2lkZSB0aGlzIGZp
-bGUuDQo+ID4NCj4gPiBUaHVzLCBpdCBhbHNvIHJlbW92ZXMgdGhlIGZvbGxvd2luZyB3YXJuaW5n
-IGluIHhlbi1uZXRiYWNrL25ldGJhY2suYzoNCj4gPiBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay9u
-ZXRiYWNrLmM6MjE4OjE0OiB3YXJuaW5nOiBubyBwcmV2aW91cw0KPiBwcm90b3R5cGUgZm9yIMq9
-eGVudmlmX2NvdW50X2ZyYWdfc2xvdHPKvCBbLVdtaXNzaW5nLXByb3RvdHlwZXNdDQo+ID4NCj4g
-PiBTaWduZWQtb2ZmLWJ5OiBSYXNoaWthIEtoZXJpYSA8cmFzaGlrYS5raGVyaWFAZ21haWwuY29t
-Pg0KPiA+IFJldmlld2VkLWJ5OiBKb3NoIFRyaXBsZXR0IDxqb3NoQGpvc2h0cmlwbGV0dC5vcmc+
-DQo+ID4gQWNrZWQtYnk6IElhbiBDYW1wYmVsbCA8aWFuLmNhbXBiZWxsQGNpdHJpeC5jb20+DQo+
-IA0KPiBUaGlzIHBhdGNoIGRvZXNuJ3QgYXBwbHkgY2xlYW5seSB0byBuZXQtbmV4dCwgcGxlYXNl
-IHJlc3Bpbi4NCj4gDQoNCkl0IHdvbid0IGFwcGx5IHRvIG5ldC1uZXh0LiBJIHJlbW92ZWQgdGhh
-dCBmdW5jdGlvbiBpbiBjL3MgY2EyZjA5ZjJiMmM2YzI1MDQ3Y2ZjNTQ1ZDA1N2M0ZWRmY2ZlNTYx
-Yy4NCg0KICBQYXVsDQo=
+On Mon, Dec 16, 2013 at 02:59:22PM +0800, Gao feng wrote:
+> Steven Rostedt and Arnaldo Carvalho de Melo reported a panic
+> when access the files /proc/sys/net/netfilter/nf_log/*.
+> 
+> This problem will occur when we do
+> echo nfnetlink_log > /proc/sys/net/netfilter/nf_log/any_file
+> ,rmmod nfnetlink_log, and then access the files.
+> 
+> Since the nf_loggers of netns hasn't been unset, it will point
+> to the memory that has been freed.
+> 
+> This bug is introduced by commit 9368a53c471b42a1bd99117d590ce2ccdc8dc3c2
+> "netfilter: nfnetlink_log: add net namespace support for nfnetlink_log"
+
+Applied, thanks.
