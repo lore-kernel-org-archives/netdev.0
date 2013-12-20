@@ -1,8 +1,8 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net] tg3: Expand 4g_overflow_test workaround to skb
  fragments of any size.
-Date: Thu, 19 Dec 2013 16:38:53 -0800
-Message-ID: <1387499933.19078.379.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Thu, 19 Dec 2013 16:41:04 -0800
+Message-ID: <1387500064.19078.381.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1387499052-7838-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -38,7 +38,9 @@ On Thu, 2013-12-19 at 16:24 -0800, Nithin Nayak Sujir wrote:
 > -	return (base > 0xffffdcc0) && (base + len + 8 < base);
 > +	return (base + len + 8 < base);
 >  }
+>  
+>  /* Test for TSO DMA buffers that cross into regions which are within MSS bytes
 
-And it is actually faster ;)
+btw this is also :
 
-What is 8 value exactly ?
+return base + len + 8 < base;
