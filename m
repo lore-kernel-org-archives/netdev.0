@@ -1,56 +1,42 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: Re: FEC performance degradation with certain packet sizes
-Date: Fri, 20 Dec 2013 08:18:59 +0800
-Message-ID: <20131220001858.GD7172@S2101-09.ap.freescale.net>
-References: <528F50AE.3030804@digi.com>
- <201311240540.23813.marex@denx.de>
- <529310A4.70906@digi.com>
- <52B1D0C6.6010305@digi.com>
- <1387388339.19078.321.camel@edumazet-glaptop2.roam.corp.google.com>
- <0afcc48493b941ffab991d52b7c97a0d@BLUPR03MB373.namprd03.prod.outlook.com>
- <1387494299.19078.378.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: mvmdio: fix interrupt timeout handling
+Date: Thu, 19 Dec 2013 19:21:36 -0500 (EST)
+Message-ID: <20131219.192136.1089859619183118911.davem@davemloft.net>
+References: <52B2D97F.4070200@gmail.com>
+	<1387458588-17231-1-git-send-email-leigh@solinno.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "fugang.duan@freescale.com" <fugang.duan@freescale.com>,
-	Hector Palacios <hector.palacios@digi.com>,
-	Marek Vasut <marex@denx.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Fabio.Estevam@freescale.com" <Fabio.Estevam@freescale.com>,
-	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from co9ehsobe005.messaging.microsoft.com ([207.46.163.28]:3708 "EHLO
-	co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756318Ab3LTARw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 19:17:52 -0500
-Content-Disposition: inline
-In-Reply-To: <1387494299.19078.378.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nschichan@freebox.fr, linux@arm.linux.org.uk, jason@lakedaemon.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	florian@openwrt.org, linux-arm-kernel@lists.infradead.org,
+	sebastian.hesselbarth@gmail.com
+To: leigh@solinno.co.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1387458588-17231-1-git-send-email-leigh@solinno.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 19, 2013 at 03:04:59PM -0800, Eric Dumazet wrote:
-> On Thu, 2013-12-19 at 02:44 +0000, fugang.duan@freescale.com wrote:
-> 
-> > Enet IP don't support tso feature.
-> > 
-> > I will reproduce the issue in imx6q/dl sd platform, and analyze the issue.
-> > Previous test, we don't use netpipe tool test ethernet performance.
-> 
-> drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c seems broken...
+From: Leigh Brown <leigh@solinno.co.uk>
+Date: Thu, 19 Dec 2013 13:09:48 +0000
 
-The fec driver running on IMX is drivers/net/ethernet/freescale/fec_main.c
+> This version corrects the whitespace issue.
+> 
+> orion_mdio_wait_ready uses wait_event_timeout to wait for the
+> SMI interrupt to fire.  wait_event_timeout waits for between
+> "timeout - 1" and "timeout" jiffies.  In this case a 1ms timeout
+> when HZ is 1000 results in a wait of 0 to 1 jiffies, causing
+> premature timeouts.
+> 
+> This fix ensures a minimum timeout of 2 jiffies, ensuring
+> wait_event_timeout will always wait at least 1 jiffie.
+> 
+> Issue reported by Nicolas Schichan.
+> 
+> Tested-by: Nicolas Schichan <nschichan@freebox.fr>
+> Signed-off-by: Leigh Brown <leigh@solinno.co.uk>
 
-Shawn
+Applied, and queued up for -stable.
 
-> 
-> If tx_skb_align_workaround() returns NULL, returning NETDEV_TX_BUSY 
-> is the worst possible thing to do.
-> 
-> Packet should be dropped instead.
-> 
-> Probably not related to your issue.
-> 
-> 
+I wonder how many other wait_event_timeout() users potentially have
+this problem.
