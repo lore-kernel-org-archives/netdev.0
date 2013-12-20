@@ -1,200 +1,279 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 06/11] staging: r8188eu: Remove wrapper around spin_lock_init
-Date: Thu, 19 Dec 2013 22:38:38 -0600
-Message-ID: <1387514323-4486-7-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 07/11] staging: r8188eu: Remove calls to _rtw_spinlock_free
+Date: Thu, 19 Dec 2013 22:38:39 -0600
+Message-ID: <1387514323-4486-8-git-send-email-Larry.Finger@lwfinger.net>
 References: <1387514323-4486-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
-	Larry Finger <Larry.Finger@lwfinger.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ Larry Finger <Larry.Finger@lwfinger.net>
 To: gregkh@linuxfoundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:52161 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751932Ab3LTEkv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 23:40:51 -0500
-Received: by mail-pa0-f41.google.com with SMTP id lf10so2136354pab.0
-        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 20:40:51 -0800 (PST)
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 In-Reply-To: <1387514323-4486-1-git-send-email-Larry.Finger@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
+
+This wrapper does nothing on Linux. When calls to it were removed, a number of
+routines became empty and could also be removed.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/staging/rtl8188eu/core/rtw_ap.c           | 2 +-
- drivers/staging/rtl8188eu/core/rtw_mlme.c         | 2 +-
- drivers/staging/rtl8188eu/core/rtw_recv.c         | 4 ++--
- drivers/staging/rtl8188eu/core/rtw_sta_mgt.c      | 8 ++++----
- drivers/staging/rtl8188eu/core/rtw_xmit.c         | 4 ++--
- drivers/staging/rtl8188eu/hal/rtl8188eu_recv.c    | 2 +-
- drivers/staging/rtl8188eu/include/osdep_service.h | 1 -
- drivers/staging/rtl8188eu/os_dep/os_intfs.c       | 2 +-
- drivers/staging/rtl8188eu/os_dep/osdep_service.c  | 7 +------
- 9 files changed, 13 insertions(+), 19 deletions(-)
+ drivers/staging/rtl8188eu/core/rtw_ap.c           |  2 -
+ drivers/staging/rtl8188eu/core/rtw_cmd.c          |  1 -
+ drivers/staging/rtl8188eu/core/rtw_mlme.c         |  9 ----
+ drivers/staging/rtl8188eu/core/rtw_recv.c         | 11 -----
+ drivers/staging/rtl8188eu/core/rtw_sta_mgt.c      | 55 -----------------------
+ drivers/staging/rtl8188eu/core/rtw_xmit.c         | 13 ------
+ drivers/staging/rtl8188eu/include/osdep_service.h |  1 -
+ drivers/staging/rtl8188eu/os_dep/os_intfs.c       |  3 --
+ drivers/staging/rtl8188eu/os_dep/osdep_service.c  |  4 --
+ 9 files changed, 99 deletions(-)
 
 diff --git a/drivers/staging/rtl8188eu/core/rtw_ap.c b/drivers/staging/rtl8188eu/core/rtw_ap.c
-index d86f671..c3a1561 100644
+index c3a1561..e022aaa 100644
 --- a/drivers/staging/rtl8188eu/core/rtw_ap.c
 +++ b/drivers/staging/rtl8188eu/core/rtw_ap.c
-@@ -33,7 +33,7 @@ void init_mlme_ap_info(struct adapter *padapter)
- 	struct wlan_acl_pool *pacl_list = &pstapriv->acl_list;
+@@ -65,8 +65,6 @@ void free_mlme_ap_info(struct adapter *padapter)
+ 	spin_lock_bh(&(pstapriv->sta_hash_lock));
+ 	rtw_free_stainfo(padapter, psta);
+ 	spin_unlock_bh(&(pstapriv->sta_hash_lock));
+-
+-	_rtw_spinlock_free(&pmlmepriv->bcn_update_lock);
+ }
  
+ static void update_BCNTIM(struct adapter *padapter)
+diff --git a/drivers/staging/rtl8188eu/core/rtw_cmd.c b/drivers/staging/rtl8188eu/core/rtw_cmd.c
+index d40ee08..64e29a9 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_cmd.c
++++ b/drivers/staging/rtl8188eu/core/rtw_cmd.c
+@@ -121,7 +121,6 @@ void _rtw_free_cmd_priv (struct	cmd_priv *pcmdpriv)
+ _func_enter_;
  
--	_rtw_spinlock_init(&pmlmepriv->bcn_update_lock);
-+	spin_lock_init(&pmlmepriv->bcn_update_lock);
+ 	if (pcmdpriv) {
+-		_rtw_spinlock_free(&(pcmdpriv->cmd_queue.lock));
+ 		_rtw_free_sema(&(pcmdpriv->cmd_queue_sema));
+ 		_rtw_free_sema(&(pcmdpriv->terminate_cmdthread_sema));
  
- 	/* for ACL */
- 	_rtw_init_queue(&pacl_list->acl_node_q);
 diff --git a/drivers/staging/rtl8188eu/core/rtw_mlme.c b/drivers/staging/rtl8188eu/core/rtw_mlme.c
-index 27dfba2..eb79bf3 100644
+index eb79bf3..3ac632c 100644
 --- a/drivers/staging/rtl8188eu/core/rtw_mlme.c
 +++ b/drivers/staging/rtl8188eu/core/rtw_mlme.c
-@@ -54,7 +54,7 @@ _func_enter_;
- 	pmlmepriv->cur_network.network.InfrastructureMode = Ndis802_11AutoUnknown;
- 	pmlmepriv->scan_mode = SCAN_ACTIVE;/*  1: active, 0: pasive. Maybe someday we should rename this varable to "active_mode" (Jeff) */
+@@ -93,13 +93,6 @@ _func_exit_;
+ 	return res;
+ }
  
--	_rtw_spinlock_init(&(pmlmepriv->lock));
-+	spin_lock_init(&(pmlmepriv->lock));
- 	_rtw_init_queue(&(pmlmepriv->free_bss_pool));
- 	_rtw_init_queue(&(pmlmepriv->scanned_queue));
+-static void rtw_mfree_mlme_priv_lock (struct mlme_priv *pmlmepriv)
+-{
+-	_rtw_spinlock_free(&pmlmepriv->lock);
+-	_rtw_spinlock_free(&(pmlmepriv->free_bss_pool.lock));
+-	_rtw_spinlock_free(&(pmlmepriv->scanned_queue.lock));
+-}
+-
+ #if defined (CONFIG_88EU_AP_MODE)
+ static void rtw_free_mlme_ie_data(u8 **ppie, u32 *plen)
+ {
+@@ -136,8 +129,6 @@ _func_enter_;
+ 	rtw_free_mlme_priv_ie_data(pmlmepriv);
  
+ 	if (pmlmepriv) {
+-		rtw_mfree_mlme_priv_lock (pmlmepriv);
+-
+ 		if (pmlmepriv->free_bss_buf) {
+ 			rtw_vmfree(pmlmepriv->free_bss_buf, MAX_BSS_CNT * sizeof(struct wlan_network));
+ 		}
 diff --git a/drivers/staging/rtl8188eu/core/rtw_recv.c b/drivers/staging/rtl8188eu/core/rtw_recv.c
-index a1bd84c..1a140de 100644
+index 1a140de..9c9d1dd 100644
 --- a/drivers/staging/rtl8188eu/core/rtw_recv.c
 +++ b/drivers/staging/rtl8188eu/core/rtw_recv.c
-@@ -49,7 +49,7 @@ _func_enter_;
+@@ -118,15 +118,6 @@ _func_exit_;
+ 	return res;
+ }
  
- 	_rtw_memset((u8 *)psta_recvpriv, 0, sizeof (struct sta_recv_priv));
+-static void rtw_mfree_recv_priv_lock(struct recv_priv *precvpriv)
+-{
+-	_rtw_spinlock_free(&precvpriv->lock);
+-	_rtw_spinlock_free(&precvpriv->free_recv_queue.lock);
+-	_rtw_spinlock_free(&precvpriv->recv_pending_queue.lock);
+-
+-	_rtw_spinlock_free(&precvpriv->free_recv_buf_queue.lock);
+-}
+-
+ void _rtw_free_recv_priv (struct recv_priv *precvpriv)
+ {
+ 	struct adapter	*padapter = precvpriv->adapter;
+@@ -135,8 +126,6 @@ _func_enter_;
  
--	_rtw_spinlock_init(&psta_recvpriv->lock);
-+	spin_lock_init(&psta_recvpriv->lock);
+ 	rtw_free_uc_swdec_pending_queue(padapter);
  
- 	_rtw_init_queue(&psta_recvpriv->defrag_q);
+-	rtw_mfree_recv_priv_lock(precvpriv);
+-
+ 	rtw_os_recv_resource_free(precvpriv);
  
-@@ -65,7 +65,7 @@ int _rtw_init_recv_priv(struct recv_priv *precvpriv, struct adapter *padapter)
- 	int	res = _SUCCESS;
- 
- _func_enter_;
--	_rtw_spinlock_init(&precvpriv->lock);
-+	spin_lock_init(&precvpriv->lock);
- 
- 	_rtw_init_queue(&precvpriv->free_recv_queue);
- 	_rtw_init_queue(&precvpriv->recv_pending_queue);
+ 	if (precvpriv->pallocated_frame_buf) {
 diff --git a/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c b/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c
-index 0b8c1bf..81bb7a5 100644
+index 81bb7a5..ff03424 100644
 --- a/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c
 +++ b/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c
-@@ -31,7 +31,7 @@ static void _rtw_init_stainfo(struct sta_info *psta)
- _func_enter_;
- 	_rtw_memset((u8 *)psta, 0, sizeof (struct sta_info));
+@@ -148,47 +148,7 @@ inline struct sta_info *rtw_get_stainfo_by_offset(struct sta_priv *stapriv, int
+ 	return (struct sta_info *)(stapriv->pstainfo_buf + offset * sizeof(struct sta_info));
+ }
  
--	 _rtw_spinlock_init(&psta->lock);
-+	 spin_lock_init(&psta->lock);
- 	_rtw_init_listhead(&psta->list);
- 	_rtw_init_listhead(&psta->hash_list);
- 	_rtw_init_queue(&psta->sleep_q);
-@@ -89,7 +89,7 @@ _func_enter_;
+-void	_rtw_free_sta_xmit_priv_lock(struct sta_xmit_priv *psta_xmitpriv);
+-void	_rtw_free_sta_xmit_priv_lock(struct sta_xmit_priv *psta_xmitpriv)
+-{
+-_func_enter_;
+-
+-	_rtw_spinlock_free(&psta_xmitpriv->lock);
+-
+-	_rtw_spinlock_free(&(psta_xmitpriv->be_q.sta_pending.lock));
+-	_rtw_spinlock_free(&(psta_xmitpriv->bk_q.sta_pending.lock));
+-	_rtw_spinlock_free(&(psta_xmitpriv->vi_q.sta_pending.lock));
+-	_rtw_spinlock_free(&(psta_xmitpriv->vo_q.sta_pending.lock));
+-_func_exit_;
+-}
+-
+-static void	_rtw_free_sta_recv_priv_lock(struct sta_recv_priv *psta_recvpriv)
+-{
+-_func_enter_;
+-
+-	_rtw_spinlock_free(&psta_recvpriv->lock);
+-
+-	_rtw_spinlock_free(&(psta_recvpriv->defrag_q.lock));
+-
+-_func_exit_;
+-}
+-
+-void rtw_mfree_stainfo(struct sta_info *psta);
+-void rtw_mfree_stainfo(struct sta_info *psta)
+-{
+-_func_enter_;
+-
+-	if (&psta->lock != NULL)
+-		 _rtw_spinlock_free(&psta->lock);
+-
+-	_rtw_free_sta_xmit_priv_lock(&psta->sta_xmitpriv);
+-	_rtw_free_sta_recv_priv_lock(&psta->sta_recvpriv);
+-
+-_func_exit_;
+-}
+-
+ /*  this function is used to free the memory of lock || sema for all stainfos */
+-void rtw_mfree_all_stainfo(struct sta_priv *pstapriv);
+ void rtw_mfree_all_stainfo(struct sta_priv *pstapriv)
+ {
+ 	struct list_head *plist, *phead;
+@@ -204,8 +164,6 @@ _func_enter_;
+ 	while ((rtw_end_of_queue_search(phead, plist)) == false) {
+ 		psta = LIST_CONTAINOR(plist, struct sta_info , list);
+ 		plist = get_next(plist);
+-
+-		rtw_mfree_stainfo(psta);
+ 	}
  
- 	_rtw_init_queue(&pstapriv->free_sta_queue);
+ 	spin_unlock_bh(&pstapriv->sta_hash_lock);
+@@ -218,20 +176,7 @@ static void rtw_mfree_sta_priv_lock(struct sta_priv *pstapriv)
+ #ifdef CONFIG_88EU_AP_MODE
+ 	struct wlan_acl_pool *pacl_list = &pstapriv->acl_list;
+ #endif
+-
+ 	 rtw_mfree_all_stainfo(pstapriv); /* be done before free sta_hash_lock */
+-
+-	_rtw_spinlock_free(&pstapriv->free_sta_queue.lock);
+-
+-	_rtw_spinlock_free(&pstapriv->sta_hash_lock);
+-	_rtw_spinlock_free(&pstapriv->wakeup_q.lock);
+-	_rtw_spinlock_free(&pstapriv->sleep_q.lock);
+-
+-#ifdef CONFIG_88EU_AP_MODE
+-	_rtw_spinlock_free(&pstapriv->asoc_list_lock);
+-	_rtw_spinlock_free(&pstapriv->auth_list_lock);
+-	_rtw_spinlock_free(&pacl_list->acl_node_q.lock);
+-#endif
+ }
  
--	_rtw_spinlock_init(&pstapriv->sta_hash_lock);
-+	spin_lock_init(&pstapriv->sta_hash_lock);
- 
- 	pstapriv->asoc_sta_count = 0;
- 	_rtw_init_queue(&pstapriv->sleep_q);
-@@ -114,8 +114,8 @@ _func_enter_;
- 
- 	_rtw_init_listhead(&pstapriv->asoc_list);
- 	_rtw_init_listhead(&pstapriv->auth_list);
--	_rtw_spinlock_init(&pstapriv->asoc_list_lock);
--	_rtw_spinlock_init(&pstapriv->auth_list_lock);
-+	spin_lock_init(&pstapriv->asoc_list_lock);
-+	spin_lock_init(&pstapriv->auth_list_lock);
- 	pstapriv->asoc_list_cnt = 0;
- 	pstapriv->auth_list_cnt = 0;
- 
+ u32	_rtw_free_sta_priv(struct	sta_priv *pstapriv)
 diff --git a/drivers/staging/rtl8188eu/core/rtw_xmit.c b/drivers/staging/rtl8188eu/core/rtw_xmit.c
-index bf01c30..c0ccbaf 100644
+index c0ccbaf..a936f81 100644
 --- a/drivers/staging/rtl8188eu/core/rtw_xmit.c
 +++ b/drivers/staging/rtl8188eu/core/rtw_xmit.c
-@@ -43,7 +43,7 @@ void	_rtw_init_sta_xmit_priv(struct sta_xmit_priv *psta_xmitpriv)
+@@ -233,19 +233,8 @@ _func_exit_;
+ 
+ static void  rtw_mfree_xmit_priv_lock (struct xmit_priv *pxmitpriv)
  {
- _func_enter_;
- 	_rtw_memset((unsigned char *)psta_xmitpriv, 0, sizeof (struct sta_xmit_priv));
--	_rtw_spinlock_init(&psta_xmitpriv->lock);
-+	spin_lock_init(&psta_xmitpriv->lock);
- 	_init_txservq(&psta_xmitpriv->be_q);
- 	_init_txservq(&psta_xmitpriv->bk_q);
- 	_init_txservq(&psta_xmitpriv->vi_q);
-@@ -67,7 +67,7 @@ _func_enter_;
+-	_rtw_spinlock_free(&pxmitpriv->lock);
+ 	_rtw_free_sema(&pxmitpriv->xmit_sema);
+ 	_rtw_free_sema(&pxmitpriv->terminate_xmitthread_sema);
+-
+-	_rtw_spinlock_free(&pxmitpriv->be_pending.lock);
+-	_rtw_spinlock_free(&pxmitpriv->bk_pending.lock);
+-	_rtw_spinlock_free(&pxmitpriv->vi_pending.lock);
+-	_rtw_spinlock_free(&pxmitpriv->vo_pending.lock);
+-	_rtw_spinlock_free(&pxmitpriv->bm_pending.lock);
+-
+-	_rtw_spinlock_free(&pxmitpriv->free_xmit_queue.lock);
+-	_rtw_spinlock_free(&pxmitpriv->free_xmitbuf_queue.lock);
+-	_rtw_spinlock_free(&pxmitpriv->pending_xmitbuf_queue.lock);
+ }
  
- 	/*  We don't need to memset padapter->XXX to zero, because adapter is allocated by rtw_zvmalloc(). */
+ void _rtw_free_xmit_priv (struct xmit_priv *pxmitpriv)
+@@ -284,8 +273,6 @@ void _rtw_free_xmit_priv (struct xmit_priv *pxmitpriv)
+ 		rtw_vmfree(pxmitpriv->pallocated_xmitbuf, NR_XMITBUFF * sizeof(struct xmit_buf) + 4);
  
--	_rtw_spinlock_init(&pxmitpriv->lock);
-+	spin_lock_init(&pxmitpriv->lock);
- 	_rtw_init_sema(&pxmitpriv->xmit_sema, 0);
- 	_rtw_init_sema(&pxmitpriv->terminate_xmitthread_sema, 0);
- 
-diff --git a/drivers/staging/rtl8188eu/hal/rtl8188eu_recv.c b/drivers/staging/rtl8188eu/hal/rtl8188eu_recv.c
-index 0f47b89..17c94f4 100644
---- a/drivers/staging/rtl8188eu/hal/rtl8188eu_recv.c
-+++ b/drivers/staging/rtl8188eu/hal/rtl8188eu_recv.c
-@@ -75,7 +75,7 @@ int	rtl8188eu_init_recv_priv(struct adapter *padapter)
- 
- 	for (i = 0; i < NR_RECVBUFF; i++) {
- 		_rtw_init_listhead(&precvbuf->list);
--		_rtw_spinlock_init(&precvbuf->recvbuf_lock);
-+		spin_lock_init(&precvbuf->recvbuf_lock);
- 		precvbuf->alloc_sz = MAX_RECVBUF_SZ;
- 		res = rtw_os_recvbuf_resource_alloc(padapter, precvbuf);
- 		if (res == _FAIL)
+ 	/*  free xmit extension buff */
+-	_rtw_spinlock_free(&pxmitpriv->free_xmit_extbuf_queue.lock);
+-
+ 	pxmitbuf = (struct xmit_buf *)pxmitpriv->pxmit_extbuf;
+ 	for (i = 0; i < num_xmit_extbuf; i++) {
+ 		rtw_os_xmit_resource_free(padapter, pxmitbuf, (max_xmit_extbuf_size + XMITBUF_ALIGN_SZ));
 diff --git a/drivers/staging/rtl8188eu/include/osdep_service.h b/drivers/staging/rtl8188eu/include/osdep_service.h
-index a42c554..4b1a6ae 100644
+index 4b1a6ae..ebfbedc 100644
 --- a/drivers/staging/rtl8188eu/include/osdep_service.h
 +++ b/drivers/staging/rtl8188eu/include/osdep_service.h
 @@ -262,7 +262,6 @@ void _rtw_up_sema(struct semaphore *sema);
  u32  _rtw_down_sema(struct semaphore *sema);
  void _rtw_mutex_init(struct mutex *pmutex);
  void _rtw_mutex_free(struct mutex *pmutex);
--void _rtw_spinlock_init(spinlock_t *plock);
- void _rtw_spinlock_free(spinlock_t *plock);
+-void _rtw_spinlock_free(spinlock_t *plock);
  
  void _rtw_init_queue(struct __queue *pqueue);
+ u32  _rtw_queue_empty(struct __queue *pqueue);
 diff --git a/drivers/staging/rtl8188eu/os_dep/os_intfs.c b/drivers/staging/rtl8188eu/os_dep/os_intfs.c
-index 17659bb..bc2986a 100644
+index bc2986a..e50e3ad 100644
 --- a/drivers/staging/rtl8188eu/os_dep/os_intfs.c
 +++ b/drivers/staging/rtl8188eu/os_dep/os_intfs.c
-@@ -924,7 +924,7 @@ _func_enter_;
+@@ -977,9 +977,6 @@ u8 rtw_free_drv_sw(struct adapter *padapter)
+ 	}
+ 	#endif
  
- 	rtw_hal_sreset_init(padapter);
+-
+-	_rtw_spinlock_free(&padapter->br_ext_lock);
+-
+ 	free_mlme_ext_priv(&padapter->mlmeextpriv);
  
--	_rtw_spinlock_init(&padapter->br_ext_lock);
-+	spin_lock_init(&padapter->br_ext_lock);
- 
- exit:
- 	RT_TRACE(_module_os_intfs_c_, _drv_info_, ("-rtw_init_drv_sw\n"));
+ 	rtw_free_cmd_priv(&padapter->cmdpriv);
 diff --git a/drivers/staging/rtl8188eu/os_dep/osdep_service.c b/drivers/staging/rtl8188eu/os_dep/osdep_service.c
-index 2ffb418..13d9b13 100644
+index 13d9b13..787626c 100644
 --- a/drivers/staging/rtl8188eu/os_dep/osdep_service.c
 +++ b/drivers/staging/rtl8188eu/os_dep/osdep_service.c
-@@ -193,11 +193,6 @@ void	_rtw_mutex_free(struct mutex *pmutex)
+@@ -193,10 +193,6 @@ void	_rtw_mutex_free(struct mutex *pmutex)
  	mutex_destroy(pmutex);
  }
  
--void	_rtw_spinlock_init(spinlock_t *plock)
+-void	_rtw_spinlock_free(spinlock_t *plock)
 -{
--	spin_lock_init(plock);
 -}
 -
- void	_rtw_spinlock_free(spinlock_t *plock)
- {
- }
-@@ -205,7 +200,7 @@ void	_rtw_spinlock_free(spinlock_t *plock)
  void	_rtw_init_queue(struct __queue *pqueue)
  {
  	_rtw_init_listhead(&(pqueue->queue));
--	_rtw_spinlock_init(&(pqueue->lock));
-+	spin_lock_init(&(pqueue->lock));
- }
- 
- u32	  _rtw_queue_empty(struct __queue *pqueue)
 -- 
 1.8.4
