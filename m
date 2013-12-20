@@ -1,50 +1,48 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next] vmxnet3: use initialized skb pointer to set hash
-Date: Fri, 20 Dec 2013 12:30:33 -0800
-Message-ID: <CA+mtBx8xHp9RYkynWczan85c0EEFvXMOH_4b5Mi_yV8-=Dw9-g@mail.gmail.com>
-References: <1387541817-7877-1-git-send-email-mschmidt@redhat.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH 01/11] staging: r8188eu: Remove pointless thread_exit macro
+Date: Fri, 20 Dec 2013 14:30:39 -0600
+Message-ID: <52B4A8EF.1010109@lwfinger.net>
+References: <1387514323-4486-1-git-send-email-Larry.Finger@lwfinger.net>
+ <1387514323-4486-2-git-send-email-Larry.Finger@lwfinger.net>
+ <20131220165859.GA12829@kroah.com> <52B47CDB.506@lwfinger.net>
+ <20131220191816.GB27254@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Michal Schmidt <mschmidt@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:43730 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751201Ab3LTUad (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 15:30:33 -0500
-Received: by mail-ig0-f170.google.com with SMTP id k19so15939987igc.1
-        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 12:30:33 -0800 (PST)
-In-Reply-To: <1387541817-7877-1-git-send-email-mschmidt@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20131220191816.GB27254@kroah.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-Acked-by: Tom Herbert <therbert@google.com>
-
-On Fri, Dec 20, 2013 at 4:16 AM, Michal Schmidt <mschmidt@redhat.com> wrote:
-> The recent conversion to skb_set_hash() was incorrect. 'skb' is
-> uninitialized at this point.
->
-> Fixes: 0b6807034791 ('net: vmxnet3 calls skb_set_hash')
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
-> ---
->  drivers/net/vmxnet3/vmxnet3_drv.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-> index c0eab72..3be786f 100644
-> --- a/drivers/net/vmxnet3/vmxnet3_drv.c
-> +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-> @@ -1235,7 +1235,8 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
->  #ifdef VMXNET3_RSS
->                         if (rcd->rssType != VMXNET3_RCD_RSS_TYPE_NONE &&
->                             (adapter->netdev->features & NETIF_F_RXHASH))
-> -                               skb_set_hash(skb, le32_to_cpu(rcd->rssHash),
-> +                               skb_set_hash(ctx->skb,
-> +                                            le32_to_cpu(rcd->rssHash),
->                                              PKT_HASH_TYPE_L3);
->  #endif
->                         skb_put(ctx->skb, rcd->len);
-> --
-> 1.8.4.2
->
+T24gMTIvMjAvMjAxMyAwMToxOCBQTSwgR3JlZyBLSCB3cm90ZToKPiBPbiBGcmksIERlYyAyMCwg
+MjAxMyBhdCAxMToyMjozNUFNIC0wNjAwLCBMYXJyeSBGaW5nZXIgd3JvdGU6Cj4+IE9uIDEyLzIw
+LzIwMTMgMTA6NTggQU0sIEdyZWcgS0ggd3JvdGU6Cj4+PiBXaXRoIHRoaXMgc2VyaWVzIGFwcGxp
+ZWQsIEkgZ2V0IGEgdG9uIG9mICJ1bnVzZWQgdmFyaWFibGUiIHdhcm5pbmdzLCBjYW4KPj4+IHlv
+dSBwbGVhc2UgZml4IHRoZW0gdXAgbm93IHRvbz8KPj4KPj4gU3RyYW5nZSwgYnV0IEkgZG9uJ3Qg
+Z2V0IGFueS4gTXkgY29tcGlsZXIgaXMgZ2NjIChTVVNFIExpbnV4KSA0LjguMSAyMDEzMDkwOQo+
+PiBbZ2NjLTRfOC1icmFuY2ggcmV2aXNpb24gMjAyMzg4XSBmcm9tIG9wZW5TVVNFIDEzLjEuIFdo
+YXQgdmVyc2lvbiBhcmUgeW91IHVzaW5nPwo+Pgo+Cj4gSSdtIHVzaW5nIGFuIG9sZGVyIHZlcnNp
+b246Cj4gCSQgZ2NjIC0tdmVyc2lvbgo+IAlnY2MgKEdlbnRvbyA0LjcuMy1yMSBwMS4zLCBwaWUt
+MC41LjUpIDQuNy4zCj4KPiBPZGQuICBJJ2xsIG1vdmUgdXAgdG8gNC44IGFuZCB0cnkgdGhhdC4u
+Lgo+Cj4gTm9wZSwgc2FtZSBwcm9ibGVtLCBoZXJlJ3Mgb25lIGV4YW1wbGUgbGluZToKPiAJZHJp
+dmVycy9zdGFnaW5nL3J0bDgxODhldS9jb3JlL3J0d19hcC5jOiBJbiBmdW5jdGlvbiDigJhydHdf
+YXBfaW5mb3JtX2NoX3N3aXRjaOKAmToKPiAJZHJpdmVycy9zdGFnaW5nL3J0bDgxODhldS9jb3Jl
+L3J0d19hcC5jOjE3NzM6MTY6IHdhcm5pbmc6IHVudXNlZCB2YXJpYWJsZSDigJhpcnFM4oCZIFst
+V3VudXNlZC12YXJpYWJsZV0KPiAJICB1bnNpZ25lZCBsb25nIGlycUw7Cj4KPiBUaGlzIGlzIHg4
+Ni02NCwgY291bGQgdGhhdCBiZSBhbiBpc3N1ZT8KCk1pbmUgaXMgeDg2XzY0IGFzIHdlbGwuCgpJ
+IHNlZSB0aGUgZXh0cmEgbGluZXMgZm9yICJpcnFMIiB0aGF0IGdjYyA0LjcgZmluZHMgYnV0IDQu
+OCBtaXNzZXMuIFlvdSBzaG91bGQgCnByb2JhYmx5IHN0YXkgYXQgNC43IHRvIGNhdGNoIHRoZSB0
+aGluZ3MgdGhhdCA0LjggbWlzc2VzLgoKTGFycnkKCgpfX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fXwpkZXZlbCBtYWlsaW5nIGxpc3QKZGV2ZWxAbGludXhkcml2
+ZXJwcm9qZWN0Lm9yZwpodHRwOi8vZHJpdmVyZGV2LmxpbnV4ZHJpdmVycHJvamVjdC5vcmcvbWFp
+bG1hbi9saXN0aW5mby9kcml2ZXJkZXYtZGV2ZWwK
