@@ -1,50 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v3 06/16] i40e: Implementation of vxlan ndo's
-Date: Fri, 20 Dec 2013 16:49:15 -0500 (EST)
-Message-ID: <20131220.164915.1182500137355120095.davem@davemloft.net>
-References: <1387563694-3166-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1387563694-3166-7-git-send-email-jeffrey.t.kirsher@intel.com>
-	<CAJZOPZLScxFtDXLFwUE+S1yRv_VJ2TL5kccA5WU_Jn4ROjdnqw@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 1/1] ipv4: arp: Always update neighbour address when a
+ gratuitous arp is received
+Date: Fri, 20 Dec 2013 14:06:17 -0800
+Message-ID: <20131220140617.09a672f7@nehalam.linuxnetplumber.net>
+References: <1387565962-9357-1-git-send-email-noureddine@aristanetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, joseph.gasparakis@intel.com,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	jesse.brandeburg@intel.com
-To: or.gerlitz@gmail.com
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org
+To: Salam Noureddine <noureddine@aristanetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42876 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754904Ab3LTVtR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 16:49:17 -0500
-In-Reply-To: <CAJZOPZLScxFtDXLFwUE+S1yRv_VJ2TL5kccA5WU_Jn4ROjdnqw@mail.gmail.com>
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:50887 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753560Ab3LTWGW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 17:06:22 -0500
+Received: by mail-pb0-f53.google.com with SMTP id ma3so3118523pbc.26
+        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 14:06:22 -0800 (PST)
+In-Reply-To: <1387565962-9357-1-git-send-email-noureddine@aristanetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Date: Fri, 20 Dec 2013 23:06:06 +0200
+On Fri, 20 Dec 2013 10:59:22 -0800
+Salam Noureddine <noureddine@aristanetworks.com> wrote:
 
-> On Fri, Dec 20, 2013 at 8:21 PM, Jeff Kirsher
-> <jeffrey.t.kirsher@intel.com> wrote:
->> @@ -244,6 +244,7 @@ config IXGBEVF
->>  config I40E
->>         tristate "Intel(R) Ethernet Controller XL710 Family support"
->>         depends on PCI
->> +       depends on VXLAN || !VXLAN
-
-I definitely want a clear detailed explanation for this gross
-dependency.
-
->> +       i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_add_udp_tunnel);
->> +
->> +       cmd->udp_port = cpu_to_le16(udp_port);
->> +       cmd->header_len = header_len;
->> +       cmd->protocol_index = protocol_index;
->> +
->> +       status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
+> Gratuitous arp packets are useful in switchover scenarios to update
+> client arp tables as quickly as possible. Currently, the mac address
+> of a neighbour is only updated after a locktime period has elapsed
+> since the last update. In most use cases such delays are unacceptable
+> for network admins. Moreover, the "updated" field of the neighbour
+> stucture doesn't record the last time the address of a neighbour
+> changed but records any change that happens to the neighbour. This is
+> clearly a bug since locktime uses that field as meaning "addr_updated".
+> With this observation, I was able to perpetuate a stale address by
+> sending a stream of gratuitous arp packets spaced less than locktime
+> apart.
 > 
-> so i40e_asq_send_command is called with a spinlock held or under
-> rcu_read_lock from the vxlan driver code but might sleep, as it takes
-> a mutex, seems problematic.
+> Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
 
-Indeed this looks like a bug.
+Doesn't this make the system more vulnerable to ARP spoofing?
