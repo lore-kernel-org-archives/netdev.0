@@ -1,62 +1,222 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 05/16] i40e: fix curly brace use and return type
-Date: Fri, 20 Dec 2013 08:45:54 -0800
-Message-ID: <1387557965-13241-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 01/16] i40e: using for_each_set_bit to simplify the code
+Date: Fri, 20 Dec 2013 08:45:50 -0800
+Message-ID: <1387557965-13241-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387557965-13241-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:43156 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754824Ab3LTQsD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Dec 2013 11:48:03 -0500
+	id S1753454Ab3LTQsA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Dec 2013 11:48:00 -0500
 In-Reply-To: <1387557965-13241-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Add curly-braces on a multi-line function.  While we're here we
-also change to return void in i40e_vsi_clear_rings() since no
-caller cares.
+Using for_each_set_bit() to simplify the code.
 
-Change-Id: I261fcef20e2a39e18d83ec08fdd14456131dee91
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 64 ++++------------------
+ 1 file changed, 12 insertions(+), 52 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 45b2198..b0cfb4c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5300,18 +5300,17 @@ free_vsi:
-  * i40e_vsi_clear_rings - Deallocates the Rx and Tx rings for the provided VSI
-  * @vsi: the VSI being cleaned
-  **/
--static s32 i40e_vsi_clear_rings(struct i40e_vsi *vsi)
-+static void i40e_vsi_clear_rings(struct i40e_vsi *vsi)
- {
- 	int i;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 68e1f8e..1ea0886 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -260,23 +260,17 @@ static void i40e_config_irq_link_list(struct i40e_vf *vf, u16 vsi_idx,
+ 		goto irq_list_done;
+ 	}
+ 	tempmap = vecmap->rxq_map;
+-	vsi_queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (vsi_queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(vsi_queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		linklistmap |= (1 <<
+ 				(I40E_VIRTCHNL_SUPPORTED_QTYPES *
+ 				 vsi_queue_id));
+-		vsi_queue_id =
+-		    find_next_bit(&tempmap, I40E_MAX_VSI_QP, vsi_queue_id + 1);
+ 	}
  
--	if (vsi->tx_rings[0])
-+	if (vsi->tx_rings[0]) {
- 		for (i = 0; i < vsi->num_queue_pairs; i++) {
- 			kfree_rcu(vsi->tx_rings[i], rcu);
- 			vsi->tx_rings[i] = NULL;
- 			vsi->rx_rings[i] = NULL;
+ 	tempmap = vecmap->txq_map;
+-	vsi_queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (vsi_queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(vsi_queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		linklistmap |= (1 <<
+ 				(I40E_VIRTCHNL_SUPPORTED_QTYPES * vsi_queue_id
+ 				 + 1));
+-		vsi_queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-					     vsi_queue_id + 1);
+ 	}
+ 
+ 	next_q = find_first_bit(&linklistmap,
+@@ -1293,27 +1287,21 @@ static int i40e_vc_config_irq_map_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 
+ 		/* lookout for the invalid queue index */
+ 		tempmap = map->rxq_map;
+-		vsi_queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-		while (vsi_queue_id < I40E_MAX_VSI_QP) {
++		for_each_set_bit(vsi_queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 			if (!i40e_vc_isvalid_queue_id(vf, vsi_id,
+ 						      vsi_queue_id)) {
+ 				aq_ret = I40E_ERR_PARAM;
+ 				goto error_param;
+ 			}
+-			vsi_queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-						     vsi_queue_id + 1);
  		}
--
--	return 0;
-+	}
- }
  
- /**
+ 		tempmap = map->txq_map;
+-		vsi_queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-		while (vsi_queue_id < I40E_MAX_VSI_QP) {
++		for_each_set_bit(vsi_queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 			if (!i40e_vc_isvalid_queue_id(vf, vsi_id,
+ 						      vsi_queue_id)) {
+ 				aq_ret = I40E_ERR_PARAM;
+ 				goto error_param;
+ 			}
+-			vsi_queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-						     vsi_queue_id + 1);
+ 		}
+ 
+ 		i40e_config_irq_link_list(vf, vsi_id, map);
+@@ -1358,31 +1346,23 @@ static int i40e_vc_enable_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 	}
+ 
+ 	tempmap = vqs->rx_queues;
+-	queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		if (!i40e_vc_isvalid_queue_id(vf, vsi_id, queue_id)) {
+ 			aq_ret = I40E_ERR_PARAM;
+ 			goto error_param;
+ 		}
+ 		i40e_ctrl_vsi_rx_queue(vf, vsi_id, queue_id,
+ 				       I40E_QUEUE_CTRL_ENABLE);
+-
+-		queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-					 queue_id + 1);
+ 	}
+ 
+ 	tempmap = vqs->tx_queues;
+-	queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		if (!i40e_vc_isvalid_queue_id(vf, vsi_id, queue_id)) {
+ 			aq_ret = I40E_ERR_PARAM;
+ 			goto error_param;
+ 		}
+ 		i40e_ctrl_vsi_tx_queue(vf, vsi_id, queue_id,
+ 				       I40E_QUEUE_CTRL_ENABLE);
+-
+-		queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-					 queue_id + 1);
+ 	}
+ 
+ 	/* Poll the status register to make sure that the
+@@ -1391,29 +1371,23 @@ static int i40e_vc_enable_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 	udelay(10);
+ 
+ 	tempmap = vqs->rx_queues;
+-	queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		if (i40e_ctrl_vsi_rx_queue(vf, vsi_id, queue_id,
+ 					   I40E_QUEUE_CTRL_ENABLECHECK)) {
+ 			dev_err(&pf->pdev->dev,
+ 				"Queue control check failed on RX queue %d of VSI %d VF %d\n",
+ 				queue_id, vsi_id, vf->vf_id);
+ 		}
+-		queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-					 queue_id + 1);
+ 	}
+ 
+ 	tempmap = vqs->tx_queues;
+-	queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		if (i40e_ctrl_vsi_tx_queue(vf, vsi_id, queue_id,
+ 					   I40E_QUEUE_CTRL_ENABLECHECK)) {
+ 			dev_err(&pf->pdev->dev,
+ 				"Queue control check failed on TX queue %d of VSI %d VF %d\n",
+ 				queue_id, vsi_id, vf->vf_id);
+ 		}
+-		queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-					 queue_id + 1);
+ 	}
+ 
+ error_param:
+@@ -1457,31 +1431,23 @@ static int i40e_vc_disable_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 	}
+ 
+ 	tempmap = vqs->rx_queues;
+-	queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		if (!i40e_vc_isvalid_queue_id(vf, vsi_id, queue_id)) {
+ 			aq_ret = I40E_ERR_PARAM;
+ 			goto error_param;
+ 		}
+ 		i40e_ctrl_vsi_rx_queue(vf, vsi_id, queue_id,
+ 				       I40E_QUEUE_CTRL_DISABLE);
+-
+-		queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-					 queue_id + 1);
+ 	}
+ 
+ 	tempmap = vqs->tx_queues;
+-	queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		if (!i40e_vc_isvalid_queue_id(vf, vsi_id, queue_id)) {
+ 			aq_ret = I40E_ERR_PARAM;
+ 			goto error_param;
+ 		}
+ 		i40e_ctrl_vsi_tx_queue(vf, vsi_id, queue_id,
+ 				       I40E_QUEUE_CTRL_DISABLE);
+-
+-		queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-					 queue_id + 1);
+ 	}
+ 
+ 	/* Poll the status register to make sure that the
+@@ -1490,29 +1456,23 @@ static int i40e_vc_disable_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 	udelay(10);
+ 
+ 	tempmap = vqs->rx_queues;
+-	queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		if (i40e_ctrl_vsi_rx_queue(vf, vsi_id, queue_id,
+ 					   I40E_QUEUE_CTRL_DISABLECHECK)) {
+ 			dev_err(&pf->pdev->dev,
+ 				"Queue control check failed on RX queue %d of VSI %d VF %d\n",
+ 				queue_id, vsi_id, vf->vf_id);
+ 		}
+-		queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-					 queue_id + 1);
+ 	}
+ 
+ 	tempmap = vqs->tx_queues;
+-	queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		if (i40e_ctrl_vsi_tx_queue(vf, vsi_id, queue_id,
+ 					   I40E_QUEUE_CTRL_DISABLECHECK)) {
+ 			dev_err(&pf->pdev->dev,
+ 				"Queue control check failed on TX queue %d of VSI %d VF %d\n",
+ 				queue_id, vsi_id, vf->vf_id);
+ 		}
+-		queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-					 queue_id + 1);
+ 	}
+ 
+ error_param:
 -- 
 1.8.3.1
