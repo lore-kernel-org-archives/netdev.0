@@ -1,44 +1,51 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 0/4] misc: xgene: Add support for APM X-Gene SoC Queue
- Manager/Traffic Manager
-Date: Fri, 20 Dec 2013 11:00:44 -0800
-Message-ID: <20131220190044.GB26584@kroah.com>
-References: <1387507503-7565-1-git-send-email-rapatel@apm.com>
- <1387561576.1549.5.camel@bwh-desktop.uk.level5networks.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] net_sched: fix a regression in tcf_proto_lookup_ops()
+Date: Fri, 20 Dec 2013 11:11:25 -0800
+Message-ID: <CAM_iQpUQ3iaq+X+CngqJCGWq5Ep_XhcfWEKqrCQcZ3iC6Uz_qA@mail.gmail.com>
+References: <1387526931-21814-1-git-send-email-xiyou.wangcong@gmail.com>
+	<52B434FA.8080309@mojatatu.com>
+	<1387550222.19078.434.camel@edumazet-glaptop2.roam.corp.google.com>
+	<52B45851.90208@mojatatu.com>
+	<1387555659.19078.439.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1387560028.19078.442.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1387560578.19078.443.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1387562658.19078.448.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>, arnd@arndb.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	jcm@redhat.com, patches@apm.com
-To: Ravi Patel <rapatel@apm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1387561576.1549.5.camel@bwh-desktop.uk.level5networks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:54459 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752682Ab3LTTL0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 14:11:26 -0500
+Received: by mail-ob0-f181.google.com with SMTP id uy5so3060586obc.26
+        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 11:11:25 -0800 (PST)
+In-Reply-To: <1387562658.19078.448.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 20, 2013 at 05:46:16PM +0000, Ben Hutchings wrote:
-> > CONFIDENTIALITY NOTICE: This e-mail message, including any attachments, 
-> > is for the sole use of the intended recipient(s) and contains information
-> > that is confidential and proprietary to Applied Micro Circuits Corporation or its subsidiaries. 
-> > It is to be used solely for the purpose of furthering the parties' business relationship. 
-> > All unauthorized review, use, disclosure or distribution is prohibited. 
-> > If you are not the intended recipient, please contact the sender by reply e-mail 
-> > and destroy all copies of the original message.
-> 
-> Well this definitely has nothing to do with any business relationship
-> that may exist between AMCC and Solarflare, so please don't send any
-> more of these messages either directly or via netdev.
+On Fri, Dec 20, 2013 at 10:04 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> list_for_each_entry(t, &tcf_proto_base, head) doesn't
+> exit with t = NULL if we reached the end of the list.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: 3627287463b4 ("net_sched: convert tcf_proto_ops to use struct
+> list_head")
+> Cc: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>  net/sched/cls_api.c |   22 ++++++++++------------
+>  1 file changed, 10 insertions(+), 12 deletions(-)
 
-Ah crap, that means I have to delete these all from my mailboxes as
-well.
+The bug you reported to me yesterday is in mirred action module cleanup,
+so how is it possible to be fixed in cls_api.c? It should be act_api.c.
 
-Ravi, I can't take any patch or communication that has this type of
-footer as it's in direct contradiction with open source development
-practices and the license of our code.
+If you meant to fix a different bug, please include the backtrace in the log?
 
-Please fix your email system.
-
-greg k-h
+Your patch looks good generally, but actually I doubt we need to check for
+an existing ops when unregistering, since we almost for sure only unregister
+existing ones as they are all static allocated.
