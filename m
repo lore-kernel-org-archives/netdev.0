@@ -1,45 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1][net-next] dccp: catch failed request_module call
- in dccp_probe init
-Date: Thu, 19 Dec 2013 19:26:22 -0500 (EST)
-Message-ID: <20131219.192622.834123418473103745.davem@davemloft.net>
-References: <52B043D9.9090808@huawei.com>
-	<20131217192433.168b39ef@liptov.cs.ualberta.ca>
-	<52B10AAC.3070400@huawei.com>
+Subject: Re: [PATCH 0/5] bridge: cleanup and fix checkpatch errors
+Date: Thu, 19 Dec 2013 19:28:20 -0500 (EST)
+Message-ID: <20131219.192820.29526772886243119.davem@davemloft.net>
+References: <1387430894-11220-1-git-send-email-tanxiaojun@huawei.com>
+	<20131219104112.3fcdbf8a@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gerrit@erg.abdn.ac.uk, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: wangweidong1@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37127 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753602Ab3LTA0Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 19:26:24 -0500
-In-Reply-To: <52B10AAC.3070400@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bridge@lists.linux-foundation.org, bart.de.schuymer@pandora.be,
+	tanxiaojun@huawei.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20131219104112.3fcdbf8a@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Wang Weidong <wangweidong1@huawei.com>
-Date: Wed, 18 Dec 2013 10:38:36 +0800
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 19 Dec 2013 10:41:12 -0800
 
-> On 2013/12/18 10:24, Gerrit Renker wrote:
->> Hi Wang,
+> On Thu, 19 Dec 2013 13:28:09 +0800
+> Tan Xiaojun <tanxiaojun@huawei.com> wrote:
+> 
+>> Clean up and fix some checkpatch errors in bridge driver.
 >> 
->> thank you for the patch, please find refactored version below, changes are
->>  (a) if request_module fails, return its error code instead of the previous ret,
->>  (b) refactor code -- setup_jprobe becomes superfluous.
->> 
->> Please add your signed off if ok, since it is essentially your patch.
->> 
->>>>>>>>>>>>>>>>>>>>>>>>> Wang's patch revised <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
->> dccp: catch failed request_module call in dccp_probe init
->> 
->> Check the return value of request_module during dccp_probe initialisation,
->> bail out if that call fails.
->> 
->> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+>> Tan Xiaojun (5):
+>>   bridge: remove unnecessary condition judgment
+>>   bridge: remove unnecessary parentheses
+>>   bridge: add space before '(/{', after ',', etc.
+>>   bridge: change "foo* bar" to "foo *bar"
+>>   bridge: change the position of '{' to the pre line
  ...
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+> 
+> Thanks, these should go to net-next.
+> 
+> Acked-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Applied, thanks.
+Series applied, thanks.
