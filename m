@@ -1,272 +1,83 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next 2/2] ipv6: add forwarding_uses_pmtu knob to protect forward path to use pmtu info
-Date: Fri, 20 Dec 2013 14:08:30 +0100
-Message-ID: <20131220130830.GH32361@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: eric.dumazet@gmail.com, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:42441 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932320Ab3LTNIb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 08:08:31 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Helmut Schaa <helmut.schaa@googlemail.com>
+Subject: [PATCH] nf_conntrack_timestamp: Fix BUG_ON after netns deletion
+Date: Fri, 20 Dec 2013 14:41:54 +0100
+Message-ID: <1387546914-24958-1-git-send-email-helmut.schaa@googlemail.com>
+Cc: netdev@vger.kernel.org, pablo@netfilter.org, kaber@trash.net,
+	kadlec@blackhole.kfki.hu,
+	Helmut Schaa <helmut.schaa@googlemail.com>
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Provide a mode where IPv6 forwarding code does not depend on path MTUs
-and just uses interface or per-route locked MTUs to judge whether a
-packet should get dropped and a PTB be generated.
+When having nf_conntrack_timestamp enabled deleting a netns can lead
+to the following BUG being triggered:
 
-Routers can be poisoned with malicious or bogus path MTU information. This
-causes the IPv6 stack to generate Packet-Too-Big notifications where
-none are needed. If those PTB notifications get blocked later on it
-is possible to create blackholes on such routers.
+[63836.660000] Kernel bug detected[#1]:
+[63836.660000] CPU: 0 PID: 0 Comm: swapper Not tainted 3.10.18 #14
+[63836.660000] task: 802d9420 ti: 802d2000 task.ti: 802d2000
+[63836.660000] $ 0   : 00000000 00000000 00000000 00000000
+[63836.660000] $ 4   : 00000001 00000004 00000020 00000020
+[63836.660000] $ 8   : 00000000 80064910 00000000 00000000
+[63836.660000] $12   : 0bff0002 00000001 00000000 0a0a0abe
+[63836.660000] $16   : 802e70a0 85f29d80 00000000 00000004
+[63836.660000] $20   : 85fb62a0 00000002 802d3bc0 85fb62a0
+[63836.660000] $24   : 00000000 87138110
+[63836.660000] $28   : 802d2000 802d3b40 00000014 871327cc
+[63836.660000] Hi    : 000005ff
+[63836.660000] Lo    : f2edd000
+[63836.660000] epc   : 87138794 __nf_ct_ext_add_length+0xe8/0x1ec [nf_conntrack]
+[63836.660000]     Not tainted
+[63836.660000] ra    : 871327cc nf_conntrack_in+0x31c/0x7b8 [nf_conntrack]
+[63836.660000] Status: 1100d403 KERNEL EXL IE
+[63836.660000] Cause : 00800034
+[63836.660000] PrId  : 0001974c (MIPS 74Kc)
+[63836.660000] Modules linked in: ath9k ath9k_common pppoe ppp_async iptable_nat ath9k_hw ath pppox ppp_generic nf_nat_ipv4 nf_conntrack_ipv4 mac80211 ipt_MASQUERADE cfg80211 xt_time xt_tcpudp xt_state xt_quota xt_policy xt_pkttype xt_owner xt_nat xt_multiport xt_mark xh
+[63836.660000] Process swapper (pid: 0, threadinfo=802d2000, task=802d9420, tls=00000000)
+[63836.660000] Stack : 802e70a0 871323d4 00000005 87080234 802e70a0 86d2a840 00000000 00000000
+[63836.660000] Call Trace:
+[63836.660000] [<87138794>] __nf_ct_ext_add_length+0xe8/0x1ec [nf_conntrack]
+[63836.660000] [<871327cc>] nf_conntrack_in+0x31c/0x7b8 [nf_conntrack]
+[63836.660000] [<801ff63c>] nf_iterate+0x90/0xec
+[63836.660000] [<801ff730>] nf_hook_slow+0x98/0x164
+[63836.660000] [<80205968>] ip_rcv+0x3e8/0x40c
+[63836.660000] [<801d9754>] __netif_receive_skb_core+0x624/0x6a4
+[63836.660000] [<801da124>] process_backlog+0xa4/0x16c
+[63836.660000] [<801d9bb4>] net_rx_action+0x10c/0x1e0
+[63836.660000] [<8007c5a4>] __do_softirq+0xd0/0x1bc
+[63836.660000] [<8007c730>] do_softirq+0x48/0x68
+[63836.660000] [<8007c964>] irq_exit+0x54/0x70
+[63836.660000] [<80060830>] ret_from_irq+0x0/0x4
+[63836.660000] [<8006a9f8>] r4k_wait_irqoff+0x18/0x1c
+[63836.660000] [<8009cfb8>] cpu_startup_entry+0xa4/0x104
+[63836.660000] [<802eb918>] start_kernel+0x394/0x3ac
+[63836.660000]
+[63836.660000]
+Code: 00821021  8c420000  2c440001 <00040336> 90440011  92350010  90560010  2485ffff  02a5a821
+[63837.040000] ---[ end trace ebf660c3ce3b55e7 ]---
+[63837.050000] Kernel panic - not syncing: Fatal exception in interrupt
+[63837.050000] Rebooting in 3 seconds..
 
-Forwarded skbs are marked with IP6SKB_FORWARDED in ip_forward. This flag
-was introduced for multicast forwarding but as it does not conflict with
-our usage in the unicast code path it is perfect for reuse.
+Fix this by not unregistering the conntrack extension in the per-netns
+cleanup code.
 
-I needed to move in6_dev_dev around to keep ip6_dst_mtu_secure as a static
-inline function in the header and to keep header dependencies happy.
-
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: David Miller <davem@davemloft.net>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Helmut Schaa <helmut.schaa@googlemail.com>
 ---
-v2:
-* forwarding_uses_pmtu default to on
-* reworded documentation and changelog
+ net/netfilter/nf_conntrack_timestamp.c | 1 -
+ 1 file changed, 1 deletion(-)
 
- Documentation/networking/ip-sysctl.txt | 12 ++++++++++++
- include/net/addrconf.h                 | 32 --------------------------------
- include/net/ip6_route.h                | 31 ++++++++++++++++++++++++++++---
- include/net/ipv6.h                     | 32 ++++++++++++++++++++++++++++++++
- include/net/netns/ipv6.h               |  1 +
- net/ipv6/af_inet6.c                    |  2 ++
- net/ipv6/ip6_output.c                  |  3 ++-
- net/ipv6/sysctl_net_ipv6.c             |  8 ++++++++
- 8 files changed, 85 insertions(+), 36 deletions(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 1077c92..8b32bbc 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1107,6 +1107,18 @@ bindv6only - BOOLEAN
- 
- 	Default: FALSE (as specified in RFC3493)
- 
-+forwarding_uses_pmtu - BOOLEAN
-+	Don't trust path MTUs while forwarding. Path MTU notifications
-+	can easily be forged and lead to unwanted and unnecessary
-+	sending of Packet-Too-Big ICMP errors to host systems. If this
-+	mode is enabled, only interface and per-route locked MTUs are
-+	considered for packet rejection and Packet-Too-Big error
-+	generation.
-+	Default: 1 (enabled)
-+	Possible values:
-+	0 - disabled
-+	1 - enabled
-+
- IPv6 Fragmentation:
- 
- ip6frag_high_thresh - INTEGER
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index 66c4a44..d2db1be 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -216,38 +216,6 @@ int inet6addr_notifier_call_chain(unsigned long val, void *v);
- void inet6_netconf_notify_devconf(struct net *net, int type, int ifindex,
- 				  struct ipv6_devconf *devconf);
- 
--/**
-- * __in6_dev_get - get inet6_dev pointer from netdevice
-- * @dev: network device
-- *
-- * Caller must hold rcu_read_lock or RTNL, because this function
-- * does not take a reference on the inet6_dev.
-- */
--static inline struct inet6_dev *__in6_dev_get(const struct net_device *dev)
--{
--	return rcu_dereference_rtnl(dev->ip6_ptr);
--}
--
--/**
-- * in6_dev_get - get inet6_dev pointer from netdevice
-- * @dev: network device
-- *
-- * This version can be used in any context, and takes a reference
-- * on the inet6_dev. Callers must use in6_dev_put() later to
-- * release this reference.
-- */
--static inline struct inet6_dev *in6_dev_get(const struct net_device *dev)
--{
--	struct inet6_dev *idev;
--
--	rcu_read_lock();
--	idev = rcu_dereference(dev->ip6_ptr);
--	if (idev)
--		atomic_inc(&idev->refcnt);
--	rcu_read_unlock();
--	return idev;
--}
--
- static inline struct neigh_parms *__in6_dev_nd_parms_get_rcu(const struct net_device *dev)
+diff --git a/net/netfilter/nf_conntrack_timestamp.c b/net/netfilter/nf_conntrack_timestamp.c
+index 902fb0a..7a394df 100644
+--- a/net/netfilter/nf_conntrack_timestamp.c
++++ b/net/netfilter/nf_conntrack_timestamp.c
+@@ -97,7 +97,6 @@ int nf_conntrack_tstamp_pernet_init(struct net *net)
+ void nf_conntrack_tstamp_pernet_fini(struct net *net)
  {
- 	struct inet6_dev *idev = __in6_dev_get(dev);
-diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-index c2626ce..7b5039d 100644
---- a/include/net/ip6_route.h
-+++ b/include/net/ip6_route.h
-@@ -174,12 +174,37 @@ static inline bool ipv6_unicast_destination(const struct sk_buff *skb)
- 
- int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *));
- 
--static inline int ip6_skb_dst_mtu(struct sk_buff *skb)
-+static inline unsigned int ip6_dst_mtu_secure(const struct dst_entry *dst,
-+					      bool forward)
-+{
-+	unsigned int mtu;
-+	struct inet6_dev *idev;
-+	struct net *net = dev_net(dst->dev);
-+
-+	if (net->ipv6.sysctl.fwd_use_pmtu ||
-+	    dst_metric_locked(dst, RTAX_MTU))
-+		return dst_mtu(dst);
-+
-+	mtu = IPV6_MIN_MTU;
-+	rcu_read_lock();
-+	idev = __in6_dev_get(dst->dev);
-+	if (idev)
-+		mtu = idev->cnf.mtu6;
-+	rcu_read_unlock();
-+
-+	return mtu;
-+}
-+
-+static inline unsigned int ip6_skb_dst_mtu(struct sk_buff *skb)
- {
- 	struct ipv6_pinfo *np = skb->sk ? inet6_sk(skb->sk) : NULL;
- 
--	return (np && np->pmtudisc >= IPV6_PMTUDISC_PROBE) ?
--	       skb_dst(skb)->dev->mtu : dst_mtu(skb_dst(skb));
-+	if (np && np->pmtudisc >= IPV6_PMTUDISC_PROBE) {
-+		return skb_dst(skb)->dev->mtu;
-+	} else {
-+		bool forward = !!(IP6CB(skb)->flags & IP6SKB_FORWARDED);
-+		return ip6_dst_mtu_secure(skb_dst(skb), forward);
-+	}
+ 	nf_conntrack_tstamp_fini_sysctl(net);
+-	nf_ct_extend_unregister(&tstamp_extend);
  }
  
- static inline bool ip6_sk_accept_pmtu(const struct sock *sk)
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index e600b89..6e4d24b 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -684,6 +684,38 @@ static inline __be32 ip6_flowlabel(const struct ipv6hdr *hdr)
- 	return *(__be32 *)hdr & IPV6_FLOWLABEL_MASK;
- }
- 
-+/**
-+ * __in6_dev_get - get inet6_dev pointer from netdevice
-+ * @dev: network device
-+ *
-+ * Caller must hold rcu_read_lock or RTNL, because this function
-+ * does not take a reference on the inet6_dev.
-+ */
-+static inline struct inet6_dev *__in6_dev_get(const struct net_device *dev)
-+{
-+	return rcu_dereference_rtnl(dev->ip6_ptr);
-+}
-+
-+/**
-+ * in6_dev_get - get inet6_dev pointer from netdevice
-+ * @dev: network device
-+ *
-+ * This version can be used in any context, and takes a reference
-+ * on the inet6_dev. Callers must use in6_dev_put() later to
-+ * release this reference.
-+ */
-+static inline struct inet6_dev *in6_dev_get(const struct net_device *dev)
-+{
-+	struct inet6_dev *idev;
-+
-+	rcu_read_lock();
-+	idev = rcu_dereference(dev->ip6_ptr);
-+	if (idev)
-+		atomic_inc(&idev->refcnt);
-+	rcu_read_unlock();
-+	return idev;
-+}
-+
- /*
-  *	Prototypes exported by ipv6
-  */
-diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
-index 0fb2401..05fef12 100644
---- a/include/net/netns/ipv6.h
-+++ b/include/net/netns/ipv6.h
-@@ -19,6 +19,7 @@ struct netns_sysctl_ipv6 {
- 	struct ctl_table_header *xfrm6_hdr;
- #endif
- 	int bindv6only;
-+	int fwd_use_pmtu;
- 	int flush_delay;
- 	int ip6_rt_max_size;
- 	int ip6_rt_gc_min_interval;
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index c921d5d..eb14ae93 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -835,6 +835,8 @@ static int __init inet6_init(void)
- 
- 	BUILD_BUG_ON(sizeof(struct inet6_skb_parm) > FIELD_SIZEOF(struct sk_buff, cb));
- 
-+	init_net.ipv6.sysctl.fwd_use_pmtu = 1;
-+
- 	/* Register the socket-side information for inet6_create.  */
- 	for (r = &inetsw6[0]; r < &inetsw6[SOCK_MAX]; ++r)
- 		INIT_LIST_HEAD(r);
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 788c01a..fbda3bf 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -441,7 +441,8 @@ int ip6_forward(struct sk_buff *skb)
- 		}
- 	}
- 
--	mtu = dst_mtu(dst);
-+	IP6CB(skb)->flags |= IP6SKB_FORWARDED;
-+	mtu = ip6_dst_mtu_secure(dst, true);
- 	if (mtu < IPV6_MIN_MTU)
- 		mtu = IPV6_MIN_MTU;
- 
-diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
-index 107b2f1..ac0e838 100644
---- a/net/ipv6/sysctl_net_ipv6.c
-+++ b/net/ipv6/sysctl_net_ipv6.c
-@@ -24,6 +24,13 @@ static struct ctl_table ipv6_table_template[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
-+	{
-+		.procname	= "forward_use_pmtu",
-+		.data		= &init_net.ipv6.sysctl.fwd_use_pmtu,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
- 	{ }
- };
- 
-@@ -51,6 +58,7 @@ static int __net_init ipv6_sysctl_net_init(struct net *net)
- 	if (!ipv6_table)
- 		goto out;
- 	ipv6_table[0].data = &net->ipv6.sysctl.bindv6only;
-+	ipv6_table[1].data = &net->ipv6.sysctl.fwd_use_pmtu;
- 
- 	ipv6_route_table = ipv6_route_sysctl_init(net);
- 	if (!ipv6_route_table)
+ int nf_conntrack_tstamp_init(void)
 -- 
-1.8.3.1
+1.8.1.4
+
