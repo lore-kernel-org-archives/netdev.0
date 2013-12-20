@@ -1,32 +1,30 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 0/2] Fix problems with earlier patches
-Date: Fri, 20 Dec 2013 13:11:34 -0800
-Message-ID: <20131220211134.GA21301@kroah.com>
-References: <1387573126-28907-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] packet: doc: add documentation for VLAN TPID delivery
+Date: Fri, 20 Dec 2013 22:13:16 +0100
+Message-ID: <52B4B2EC.6000406@redhat.com>
+References: <8738ln7gsb.wl%atzm@stratosphere.co.jp> <52B45DD9.6030807@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <1387573126-28907-1-git-send-email-Larry.Finger@lwfinger.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Atzm Watanabe <atzm@stratosphere.co.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50233 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752313Ab3LTVNW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Dec 2013 16:13:22 -0500
+In-Reply-To: <52B45DD9.6030807@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 20, 2013 at 02:58:43PM -0600, Larry Finger wrote:
-> A recent set of patches revealed that a line of code had been incorrectly
-> removed in an earlier edit. That line is added back. In addition, a configuration
-> problem resulted in a number of "unused variable" warnings.
+On 12/20/2013 04:10 PM, Daniel Borkmann wrote:
+> On 12/20/2013 03:12 PM, Atzm Watanabe wrote:
+>> Introduce TP_STATUS_VLAN_TPID_VALID bit into the documentation.
+>>
+>> Signed-off-by: Atzm Watanabe <atzm@stratosphere.co.jp>
+>
+> Acked-by: Daniel Borkmann <dborkman@redhat.com>
 
-Thanks for the quick fix, all now applied.
+(Intended for net-next since the subject doesn't say it.)
 
-greg k-h
+> Thanks !
