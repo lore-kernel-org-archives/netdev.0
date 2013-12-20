@@ -1,43 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net_sched: fix a regression in
- tcf_proto_lookup_ops()
-Date: Fri, 20 Dec 2013 12:14:52 -0800
-Message-ID: <1387570492.19078.463.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1387526931-21814-1-git-send-email-xiyou.wangcong@gmail.com>
-	 <52B434FA.8080309@mojatatu.com>
-	 <1387550222.19078.434.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <52B45851.90208@mojatatu.com>
-	 <1387555659.19078.439.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1387560028.19078.442.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1387560578.19078.443.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1387562658.19078.448.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAM_iQpUQ3iaq+X+CngqJCGWq5Ep_XhcfWEKqrCQcZ3iC6Uz_qA@mail.gmail.com>
-	 <1387568188.19078.453.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAM_iQpV+WJdeOHOyGENT2XWn=ytjBirBo1G4H2b_QziKHWFw0g@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2] can: ti_hecc: Replace platform dependency with ARM
+ dependency
+Date: Sat, 21 Dec 2013 00:17:27 +0300
+Message-ID: <52B4B3E7.8050601@cogentembedded.com>
+References: <1387570460-18409-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f43.google.com ([209.85.213.43]:38215 "EHLO
-	mail-yh0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751201Ab3LTUO4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 15:14:56 -0500
-Received: by mail-yh0-f43.google.com with SMTP id a41so714275yho.30
-        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 12:14:54 -0800 (PST)
-In-Reply-To: <CAM_iQpV+WJdeOHOyGENT2XWn=ytjBirBo1G4H2b_QziKHWFw0g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>
+To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	netdev@vger.kernel.org, linux-can@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1387570460-18409-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-12-20 at 11:57 -0800, Cong Wang wrote:
+Hello.
 
-> Sure, please fix act_api.c as well?
+On 12/20/2013 11:14 PM, Ezequiel Garcia wrote:
 
-Yep.
+> OMAP's ti_hecc driver is used to support the CAN controller on many omap2plus
+> SoCs (OMAP2430, OMAP3, OMAP4, OMAP5 and AM335x), so it's wrong to make this
+> depend on OMAP3 only. Take an extra step, to get wider build coverage, and make
+> the driver depend on ARM.
 
-This will be a separate patch, as the faulty commit is different.
-( 1f747c26c48bb290c79c34e155860c7e2ec3926a net_sched: convert
-tc_action_ops to use struct list_head)
+    To have a real wide coverage, it's probably worth adding '|| COMIPLE_TEXT' 
+to 'depends on ARCH_OMAP2PLUS'?
+
+> Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+
+WBR, Sergei
+
+
