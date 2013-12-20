@@ -1,8 +1,8 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 2/3] bonding: ust micro BOND_NO_USE_ARP to simplify
- the mode check
-Date: Fri, 20 Dec 2013 13:10:59 +0800
-Message-ID: <52B3D163.3090600@huawei.com>
+Subject: [PATCH net-next 3/3] bonding: update Documentation/networking/bonding.txt
+ for option lp_interval
+Date: Fri, 20 Dec 2013 13:11:02 +0800
+Message-ID: <52B3D166.8010706@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,51 +12,36 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:30315 "EHLO
+Received: from szxga03-in.huawei.com ([119.145.14.66]:30304 "EHLO
 	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753908Ab3LTFLu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 00:11:50 -0500
+	with ESMTP id S1753908Ab3LTFLr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 00:11:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond 3ad and TLB/ALB has the same check path, so combine them.
-
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/bonding/bond_main.c | 14 ++------------
- 1 file changed, 2 insertions(+), 12 deletions(-)
+ Documentation/networking/bonding.txt | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 368f7e4..695f8a4 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4071,8 +4071,8 @@ static int bond_check_params(struct bond_params *params)
- 		num_peer_notif = 1;
- 	}
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index 2cdb8b6..a4d925e 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -853,6 +853,14 @@ resend_igmp
  
--	/* reset values for 802.3ad */
--	if (bond_mode == BOND_MODE_8023AD) {
-+	/* reset values for 802.3ad/TLB/ALB */
-+	if (BOND_NO_USES_ARP(bond_mode)) {
- 		if (!miimon) {
- 			pr_warning("Warning: miimon must be specified, otherwise bonding will not detect link failure, speed and duplex which are essential for 802.3ad operation\n");
- 			pr_warning("Forcing miimon to 100msec\n");
-@@ -4107,16 +4107,6 @@ static int bond_check_params(struct bond_params *params)
- 		packets_per_slave = 1;
- 	}
+ 	This option was added for bonding version 3.7.0.
  
--	/* reset values for TLB/ALB */
--	if ((bond_mode == BOND_MODE_TLB) ||
--	    (bond_mode == BOND_MODE_ALB)) {
--		if (!miimon) {
--			pr_warning("Warning: miimon must be specified, otherwise bonding will not detect link failure and link speed which are essential for TLB/ALB load balancing\n");
--			pr_warning("Forcing miimon to 100msec\n");
--			miimon = BOND_DEFAULT_MIIMON;
--		}
--	}
--
- 	if (bond_mode == BOND_MODE_ALB) {
- 		pr_notice("In ALB mode you might experience client disconnections upon reconnection of a link if the bonding module updelay parameter (%d msec) is incompatible with the forwarding delay time of the switch\n",
- 			  updelay);
++lp_interval
++
++	Specifies the number of seconds between instances where the bonding
++	driver sends learning packets to each slaves peer switch.
++
++	The valid range is 1 - 0x7fffffff; the default value is 1. This Option
++	has effect only in balance-tlb and balance-alb modes.
++
+ 3. Configuring Bonding Devices
+ ==============================
+ 
 -- 
 1.8.0
