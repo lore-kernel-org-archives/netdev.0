@@ -1,46 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] bridge: cleanup and fix checkpatch errors
-Date: Thu, 19 Dec 2013 19:28:20 -0500 (EST)
-Message-ID: <20131219.192820.29526772886243119.davem@davemloft.net>
-References: <1387430894-11220-1-git-send-email-tanxiaojun@huawei.com>
-	<20131219104112.3fcdbf8a@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH net-next] ipv4: introduce ip_dst_mtu_secure and protect
+ forwarding path against pmtu spoofing
+Date: Thu, 19 Dec 2013 19:33:21 -0500 (EST)
+Message-ID: <20131219.193321.590144194287655797.davem@davemloft.net>
+References: <20131219121757.GD14429@order.stressinduktion.org>
+	<20131219.143012.205185984019527730.davem@davemloft.net>
+	<20131219235338.GA32129@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org, bart.de.schuymer@pandora.be,
-	tanxiaojun@huawei.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20131219104112.3fcdbf8a@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: johnwheffner@gmail.com, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37151 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753917Ab3LTAdX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 19:33:23 -0500
+In-Reply-To: <20131219235338.GA32129@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Thu, 19 Dec 2013 10:41:12 -0800
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Fri, 20 Dec 2013 00:53:38 +0100
 
-> On Thu, 19 Dec 2013 13:28:09 +0800
-> Tan Xiaojun <tanxiaojun@huawei.com> wrote:
-> 
->> Clean up and fix some checkpatch errors in bridge driver.
->> 
->> Tan Xiaojun (5):
->>   bridge: remove unnecessary condition judgment
->>   bridge: remove unnecessary parentheses
->>   bridge: add space before '(/{', after ',', etc.
->>   bridge: change "foo* bar" to "foo *bar"
->>   bridge: change the position of '{' to the pre line
- ...
-> 
-> Thanks, these should go to net-next.
-> 
-> Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+> I am fine dropping the knob and just unconditionally ignoring the
+> pmtu data in the forwarding path? Is that what you wanted to
+> suggest?
 
-Series applied, thanks.
+Quite the contrary, I thought it was clear that I want the default to
+be the current behavior.
