@@ -1,39 +1,45 @@
-From: Nithin Nayak Sujir <nsujir@broadcom.com>
-Subject: [PATCH net] tg3: Expand 4g_overflow_test workaround to skb fragments of any size.
-Date: Thu, 19 Dec 2013 16:24:12 -0800
-Message-ID: <1387499052-7838-1-git-send-email-nsujir@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1][net-next] dccp: catch failed request_module call
+ in dccp_probe init
+Date: Thu, 19 Dec 2013 19:26:22 -0500 (EST)
+Message-ID: <20131219.192622.834123418473103745.davem@davemloft.net>
+References: <52B043D9.9090808@huawei.com>
+	<20131217192433.168b39ef@liptov.cs.ualberta.ca>
+	<52B10AAC.3070400@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Nithin Nayak Sujir <nsujir@broadcom.com>,
-	<stable@vger.kernel.org>, Michael Chan <mchan@broadcom.com>
-To: <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gerrit@erg.abdn.ac.uk, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: wangweidong1@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37127 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753602Ab3LTA0Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 19:26:24 -0500
+In-Reply-To: <52B10AAC.3070400@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The current driver assumes that an skb fragment can only be upto jumbo
-size. Presumably this was a fast-path optimization. This assumption is
-no longer true as fragments can be upto 32k.
+From: Wang Weidong <wangweidong1@huawei.com>
+Date: Wed, 18 Dec 2013 10:38:36 +0800
 
-Cc: stable@vger.kernel.org
-Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/ethernet/broadcom/tg3.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> On 2013/12/18 10:24, Gerrit Renker wrote:
+>> Hi Wang,
+>> 
+>> thank you for the patch, please find refactored version below, changes are
+>>  (a) if request_module fails, return its error code instead of the previous ret,
+>>  (b) refactor code -- setup_jprobe becomes superfluous.
+>> 
+>> Please add your signed off if ok, since it is essentially your patch.
+>> 
+>>>>>>>>>>>>>>>>>>>>>>>>> Wang's patch revised <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+>> dccp: catch failed request_module call in dccp_probe init
+>> 
+>> Check the return value of request_module during dccp_probe initialisation,
+>> bail out if that call fails.
+>> 
+>> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+ ...
+> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index f3dd93b..8ab21d7 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -7622,7 +7622,7 @@ static inline int tg3_4g_overflow_test(dma_addr_t mapping, int len)
- {
- 	u32 base = (u32) mapping & 0xffffffff;
- 
--	return (base > 0xffffdcc0) && (base + len + 8 < base);
-+	return (base + len + 8 < base);
- }
- 
- /* Test for TSO DMA buffers that cross into regions which are within MSS bytes
--- 
-1.8.1.4
+Applied, thanks.
