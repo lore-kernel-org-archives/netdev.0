@@ -1,105 +1,62 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 14/16] i40e: make a define from a large constant
-Date: Fri, 20 Dec 2013 10:21:32 -0800
-Message-ID: <1387563694-3166-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 05/16] i40e: fix curly brace use and return type
+Date: Fri, 20 Dec 2013 10:21:23 -0800
+Message-ID: <1387563694-3166-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387563694-3166-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:33166 "EHLO mga03.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:45533 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752502Ab3LTSWF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Dec 2013 13:22:05 -0500
+	id S1752320Ab3LTSWD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Dec 2013 13:22:03 -0500
 In-Reply-To: <1387563694-3166-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Make a define used in the header file by both VF and PF drivers.
+Add curly-braces on a multi-line function.  While we're here we
+also change to return void in i40e_vsi_clear_rings() since no
+caller cares.
 
-Change-Id: Ie9e35adcc021cd6a8f7513934984eb4ed55774f5
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-Id: I261fcef20e2a39e18d83ec08fdd14456131dee91
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 21 +--------------------
- drivers/net/ethernet/intel/i40e/i40e_txrx.h | 20 ++++++++++++++++++++
- 2 files changed, 21 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 578f218..aec2483 100644
+index 45b2198..b0cfb4c 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5650,25 +5650,6 @@ static int i40e_setup_misc_vector(struct i40e_pf *pf)
+@@ -5300,18 +5300,17 @@ free_vsi:
+  * i40e_vsi_clear_rings - Deallocates the Rx and Tx rings for the provided VSI
+  * @vsi: the VSI being cleaned
   **/
- static int i40e_config_rss(struct i40e_pf *pf)
+-static s32 i40e_vsi_clear_rings(struct i40e_vsi *vsi)
++static void i40e_vsi_clear_rings(struct i40e_vsi *vsi)
  {
--	const u64 default_hena =
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_SCTP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP_SYN) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_OTHER) |
--			((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV4) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV6_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV6_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_SCTP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_OTHER) |
--			((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV6) |
--			((u64)1 << I40E_FILTER_PCTYPE_L2_PAYLOAD);
+ 	int i;
+ 
+-	if (vsi->tx_rings[0])
++	if (vsi->tx_rings[0]) {
+ 		for (i = 0; i < vsi->num_queue_pairs; i++) {
+ 			kfree_rcu(vsi->tx_rings[i], rcu);
+ 			vsi->tx_rings[i] = NULL;
+ 			vsi->rx_rings[i] = NULL;
+ 		}
 -
- 	/* Set of random keys generated using kernel random number generator */
- 	static const u32 seed[I40E_PFQF_HKEY_MAX_INDEX + 1] = {0x41b01687,
- 				0x183cfd8c, 0xce880440, 0x580cbc3c, 0x35897377,
-@@ -5686,7 +5667,7 @@ static int i40e_config_rss(struct i40e_pf *pf)
- 	/* By default we enable TCP/UDP with IPv4/IPv6 ptypes */
- 	hena = (u64)rd32(hw, I40E_PFQF_HENA(0)) |
- 		((u64)rd32(hw, I40E_PFQF_HENA(1)) << 32);
--	hena |= default_hena;
-+	hena |= I40E_DEFAULT_RSS_HENA;
- 	wr32(hw, I40E_PFQF_HENA(0), (u32)hena);
- 	wr32(hw, I40E_PFQF_HENA(1), (u32)(hena >> 32));
+-	return 0;
++	}
+ }
  
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index faabf22..2992830 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -66,6 +66,26 @@ enum i40e_dyn_idx_t {
- #define I40E_TX_ITR    I40E_IDX_ITR1
- #define I40E_PE_ITR    I40E_IDX_ITR2
- 
-+/* Supported RSS offloads */
-+#define I40E_DEFAULT_RSS_HENA ( \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_SCTP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP_SYN) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_OTHER) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV4) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV6_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV6_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_SCTP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_OTHER) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV6) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_L2_PAYLOAD))
-+
- /* Supported Rx Buffer Sizes */
- #define I40E_RXBUFFER_512   512    /* Used for packet split */
- #define I40E_RXBUFFER_2048  2048
+ /**
 -- 
 1.8.3.1
