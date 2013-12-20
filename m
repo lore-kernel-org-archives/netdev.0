@@ -1,305 +1,304 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 2/2] staging: r8188eu: Fix unused variable warnings
-Date: Fri, 20 Dec 2013 14:58:45 -0600
-Message-ID: <1387573126-28907-3-git-send-email-Larry.Finger@lwfinger.net>
-References: <1387573126-28907-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
-	Larry Finger <Larry.Finger@lwfinger.net>
-To: gregkh@linuxfoundation.org
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [net-next v3 06/16] i40e: Implementation of vxlan ndo's
+Date: Fri, 20 Dec 2013 23:06:06 +0200
+Message-ID: <CAJZOPZLScxFtDXLFwUE+S1yRv_VJ2TL5kccA5WU_Jn4ROjdnqw@mail.gmail.com>
+References: <1387563694-3166-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1387563694-3166-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:50749 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751383Ab3LTU7H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 15:59:07 -0500
-Received: by mail-pa0-f48.google.com with SMTP id rd3so3110762pab.21
-        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 12:59:06 -0800 (PST)
-In-Reply-To: <1387573126-28907-1-git-send-email-Larry.Finger@lwfinger.net>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:50269 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750938Ab3LTVGG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 16:06:06 -0500
+Received: by mail-pb0-f44.google.com with SMTP id rq2so3117928pbb.3
+        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 13:06:06 -0800 (PST)
+In-Reply-To: <1387563694-3166-7-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A previous set of patches were test compiled with one of the configuration
-variables not set. As a result, a number of unused variables were left in the
-code.
+On Fri, Dec 20, 2013 at 8:21 PM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+>
+> This adds the implementation for the vxlan ndo's.  This allows
+> the hardware to do RX checksum offload for inner packets on the UDP
+> ports that vxlan notifies us about.
+>
+> Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  drivers/net/ethernet/intel/Kconfig               |  1 +
+>  drivers/net/ethernet/intel/i40e/i40e.h           |  2 +
+>  drivers/net/ethernet/intel/i40e/i40e_common.c    | 57 +++++++++++++++
+>  drivers/net/ethernet/intel/i40e/i40e_main.c      | 92 ++++++++++++++++++++++++
+>  drivers/net/ethernet/intel/i40e/i40e_prototype.h |  6 ++
+>  drivers/net/ethernet/intel/i40e/i40e_type.h      |  1 +
+>  6 files changed, 159 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+> index 41a2fa2..38e47ed 100644
+> --- a/drivers/net/ethernet/intel/Kconfig
+> +++ b/drivers/net/ethernet/intel/Kconfig
+> @@ -244,6 +244,7 @@ config IXGBEVF
+>  config I40E
+>         tristate "Intel(R) Ethernet Controller XL710 Family support"
+>         depends on PCI
+> +       depends on VXLAN || !VXLAN
+>         ---help---
+>           This driver supports Intel(R) Ethernet Controller XL710 Family of
+>           devices.  For more information on how to identify your adapter, go
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+> index 31dd265..5d88cf4 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e.h
+> +++ b/drivers/net/ethernet/intel/i40e/i40e.h
+> @@ -207,6 +207,8 @@ struct i40e_pf {
+>         u8 atr_sample_rate;
+>         bool wol_en;
+>
+> +       __be16  vxlan_ports[I40E_MAX_PF_UDP_OFFLOAD_PORTS];
+> +
+>         enum i40e_interrupt_policy int_policy;
+>         u16 rx_itr_default;
+>         u16 tx_itr_default;
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+> index cba1eb4..ca58263 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_common.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+> @@ -1671,6 +1671,63 @@ i40e_status i40e_aq_start_lldp(struct i40e_hw *hw,
+>  }
+>
+>  /**
+> + * i40e_aq_add_udp_tunnel
+> + * @hw: pointer to the hw struct
+> + * @udp_port: the UDP port to add
+> + * @header_len: length of the tunneling header length in DWords
+> + * @protocol_index: protocol index type
+> + * @cmd_details: pointer to command details structure or NULL
+> + **/
+> +i40e_status i40e_aq_add_udp_tunnel(struct i40e_hw *hw,
+> +                               u16 udp_port, u8 header_len,
+> +                               u8 protocol_index, u8 *filter_index,
+> +                               struct i40e_asq_cmd_details *cmd_details)
+> +{
+> +       struct i40e_aq_desc desc;
+> +       struct i40e_aqc_add_udp_tunnel *cmd =
+> +               (struct i40e_aqc_add_udp_tunnel *)&desc.params.raw;
+> +       struct i40e_aqc_del_udp_tunnel_completion *resp =
+> +               (struct i40e_aqc_del_udp_tunnel_completion *)&desc.params.raw;
+> +       i40e_status status;
+> +
+> +       i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_add_udp_tunnel);
+> +
+> +       cmd->udp_port = cpu_to_le16(udp_port);
+> +       cmd->header_len = header_len;
+> +       cmd->protocol_index = protocol_index;
+> +
+> +       status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
 
-In several instances, declaration of the unused variable was the only statement
-inside ifdef .. endif pairs. In those cases, the entire block was removed.
+so i40e_asq_send_command is called with a spinlock held or under
+rcu_read_lock from the vxlan driver code but might sleep, as it takes
+a mutex, seems problematic.
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
----
- drivers/staging/rtl8188eu/core/rtw_ap.c        | 12 ------------
- drivers/staging/rtl8188eu/core/rtw_debug.c     |  1 -
- drivers/staging/rtl8188eu/core/rtw_mlme_ext.c  |  8 --------
- drivers/staging/rtl8188eu/core/rtw_recv.c      |  1 -
- drivers/staging/rtl8188eu/core/rtw_sta_mgt.c   |  4 ----
- drivers/staging/rtl8188eu/core/rtw_xmit.c      |  8 --------
- drivers/staging/rtl8188eu/os_dep/ioctl_linux.c |  1 -
- 7 files changed, 35 deletions(-)
-
-diff --git a/drivers/staging/rtl8188eu/core/rtw_ap.c b/drivers/staging/rtl8188eu/core/rtw_ap.c
-index e022aaa..8ebe6bc 100644
---- a/drivers/staging/rtl8188eu/core/rtw_ap.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_ap.c
-@@ -43,7 +43,6 @@ void init_mlme_ap_info(struct adapter *padapter)
- 
- void free_mlme_ap_info(struct adapter *padapter)
- {
--	unsigned long irqL;
- 	struct sta_info *psta = NULL;
- 	struct sta_priv *pstapriv = &padapter->stapriv;
- 	struct mlme_priv *pmlmepriv = &(padapter->mlmepriv);
-@@ -275,7 +274,6 @@ static u8 chk_sta_is_alive(struct sta_info *psta)
- 
- void	expire_timeout_chk(struct adapter *padapter)
- {
--	unsigned long irqL;
- 	struct list_head *phead, *plist;
- 	u8 updated = 0;
- 	struct sta_info *psta = NULL;
-@@ -533,7 +531,6 @@ void add_RATid(struct adapter *padapter, struct sta_info *psta, u8 rssi_level)
- 
- static void update_bmc_sta(struct adapter *padapter)
- {
--	unsigned long	irqL;
- 	u32 init_rate = 0;
- 	unsigned char	network_type, raid;
- 	int i, supportRateNum = 0;
-@@ -620,7 +617,6 @@ static void update_bmc_sta(struct adapter *padapter)
- 
- void update_sta_info_apmode(struct adapter *padapter, struct sta_info *psta)
- {
--	unsigned long	irqL;
- 	struct mlme_priv *pmlmepriv = &(padapter->mlmepriv);
- 	struct security_priv *psecuritypriv = &padapter->securitypriv;
- 	struct mlme_ext_priv	*pmlmeext = &(padapter->mlmeextpriv);
-@@ -1132,7 +1128,6 @@ void rtw_set_macaddr_acl(struct adapter *padapter, int mode)
- 
- int rtw_acl_add_sta(struct adapter *padapter, u8 *addr)
- {
--	unsigned long irqL;
- 	struct list_head *plist, *phead;
- 	u8 added = false;
- 	int i, ret = 0;
-@@ -1198,7 +1193,6 @@ int rtw_acl_add_sta(struct adapter *padapter, u8 *addr)
- 
- int rtw_acl_remove_sta(struct adapter *padapter, u8 *addr)
- {
--	unsigned long irqL;
- 	struct list_head *plist, *phead;
- 	int ret = 0;
- 	struct rtw_wlan_acl_node *paclnode;
-@@ -1371,7 +1365,6 @@ static void update_bcn_vendor_spec_ie(struct adapter *padapter, u8 *oui)
- 
- void update_beacon(struct adapter *padapter, u8 ie_id, u8 *oui, u8 tx)
- {
--	unsigned long irqL;
- 	struct mlme_priv *pmlmepriv;
- 	struct mlme_ext_priv	*pmlmeext;
- 
-@@ -1503,7 +1496,6 @@ void associated_clients_update(struct adapter *padapter, u8 updated)
- {
- 	/* update associcated stations cap. */
- 	if (updated) {
--		unsigned long irqL;
- 		struct list_head *phead, *plist;
- 		struct sta_info *psta = NULL;
- 		struct sta_priv *pstapriv = &padapter->stapriv;
-@@ -1729,7 +1721,6 @@ u8 bss_cap_update_on_sta_leave(struct adapter *padapter, struct sta_info *psta)
- u8 ap_free_sta(struct adapter *padapter, struct sta_info *psta,
- 	       bool active, u16 reason)
- {
--	unsigned long irqL;
- 	u8 beacon_updated = false;
- 	struct sta_priv *pstapriv = &padapter->stapriv;
- 
-@@ -1770,7 +1761,6 @@ u8 ap_free_sta(struct adapter *padapter, struct sta_info *psta,
- 
- int rtw_ap_inform_ch_switch(struct adapter *padapter, u8 new_ch, u8 ch_offset)
- {
--	unsigned long irqL;
- 	struct list_head *phead, *plist;
- 	int ret = 0;
- 	struct sta_info *psta = NULL;
-@@ -1806,7 +1796,6 @@ int rtw_ap_inform_ch_switch(struct adapter *padapter, u8 new_ch, u8 ch_offset)
- 
- int rtw_sta_flush(struct adapter *padapter)
- {
--	unsigned long irqL;
- 	struct list_head *phead, *plist;
- 	int ret = 0;
- 	struct sta_info *psta = NULL;
-@@ -1933,7 +1922,6 @@ void start_ap_mode(struct adapter *padapter)
- 
- void stop_ap_mode(struct adapter *padapter)
- {
--	unsigned long irqL;
- 	struct list_head *phead, *plist;
- 	struct rtw_wlan_acl_node *paclnode;
- 	struct sta_info *psta = NULL;
-diff --git a/drivers/staging/rtl8188eu/core/rtw_debug.c b/drivers/staging/rtl8188eu/core/rtw_debug.c
-index 8a1988e..af32041 100644
---- a/drivers/staging/rtl8188eu/core/rtw_debug.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_debug.c
-@@ -835,7 +835,6 @@ int proc_get_all_sta_info(char *page, char **start,
- 			  off_t offset, int count,
- 			  int *eof, void *data)
- {
--	unsigned long irqL;
- 	struct sta_info *psta;
- 	struct net_device *dev = data;
- 	struct adapter *padapter = (struct adapter *)rtw_netdev_priv(dev);
-diff --git a/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c b/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
-index c189056..9938e22 100644
---- a/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
-@@ -756,7 +756,6 @@ _END_ONBEACON_:
- unsigned int OnAuth(struct adapter *padapter, union recv_frame *precv_frame)
- {
- #ifdef CONFIG_88EU_AP_MODE
--	unsigned long irqL;
- 	unsigned int	auth_mode, ie_len;
- 	u16 seq;
- 	unsigned char	*sa, *p;
-@@ -1005,7 +1004,6 @@ authclnt_fail:
- unsigned int OnAssocReq(struct adapter *padapter, union recv_frame *precv_frame)
- {
- #ifdef CONFIG_88EU_AP_MODE
--	unsigned long irqL;
- 	u16 capab_info;
- 	struct rtw_ieee802_11_elems elems;
- 	struct sta_info	*pstat;
-@@ -1590,7 +1588,6 @@ unsigned int OnDeAuth(struct adapter *padapter, union recv_frame *precv_frame)
- 
- #ifdef CONFIG_88EU_AP_MODE
- 	if (check_fwstate(pmlmepriv, WIFI_AP_STATE)) {
--		unsigned long irqL;
- 		struct sta_info *psta;
- 		struct sta_priv *pstapriv = &padapter->stapriv;
- 
-@@ -1654,7 +1651,6 @@ unsigned int OnDisassoc(struct adapter *padapter, union recv_frame *precv_frame)
- 
- #ifdef CONFIG_88EU_AP_MODE
- 	if (check_fwstate(pmlmepriv, WIFI_AP_STATE)) {
--		unsigned long irqL;
- 		struct sta_info *psta;
- 		struct sta_priv *pstapriv = &padapter->stapriv;
- 
-@@ -4483,9 +4479,6 @@ void issue_beacon(struct adapter *padapter, int timeout_ms)
- 	__le16 *fctrl;
- 	unsigned int	rate_len;
- 	struct xmit_priv	*pxmitpriv = &(padapter->xmitpriv);
--#if defined(CONFIG_88EU_AP_MODE)
--	unsigned long irqL;
--#endif /* if defined (CONFIG_88EU_AP_MODE) */
- 	struct mlme_priv *pmlmepriv = &(padapter->mlmepriv);
- 	struct mlme_ext_priv	*pmlmeext = &(padapter->mlmeextpriv);
- 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
-@@ -8360,7 +8353,6 @@ u8 tx_beacon_hdl(struct adapter *padapter, unsigned char *pbuf)
- 	}
- #ifdef CONFIG_88EU_AP_MODE
- 	else { /* tx bc/mc frames after update TIM */
--		unsigned long irqL;
- 		struct sta_info *psta_bmc;
- 		struct list_head *xmitframe_plist, *xmitframe_phead;
- 		struct xmit_frame *pxmitframe = NULL;
-diff --git a/drivers/staging/rtl8188eu/core/rtw_recv.c b/drivers/staging/rtl8188eu/core/rtw_recv.c
-index 9c9d1dd..7c5403a 100644
---- a/drivers/staging/rtl8188eu/core/rtw_recv.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_recv.c
-@@ -1092,7 +1092,6 @@ static int validate_recv_ctrl_frame(struct adapter *padapter,
- 		}
- 
- 		if ((psta->state&WIFI_SLEEP_STATE) && (pstapriv->sta_dz_bitmap&BIT(psta->aid))) {
--			unsigned long irqL;
- 			struct list_head *xmitframe_plist, *xmitframe_phead;
- 			struct xmit_frame *pxmitframe = NULL;
- 
-diff --git a/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c b/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c
-index ff03424..ed8075d 100644
---- a/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_sta_mgt.c
-@@ -173,9 +173,6 @@ _func_exit_;
- 
- static void rtw_mfree_sta_priv_lock(struct sta_priv *pstapriv)
- {
--#ifdef CONFIG_88EU_AP_MODE
--	struct wlan_acl_pool *pacl_list = &pstapriv->acl_list;
--#endif
- 	 rtw_mfree_all_stainfo(pstapriv); /* be done before free sta_hash_lock */
- }
- 
-@@ -555,7 +552,6 @@ u8 rtw_access_ctrl(struct adapter *padapter, u8 *mac_addr)
- {
- 	u8 res = true;
- #ifdef CONFIG_88EU_AP_MODE
--	unsigned long irql;
- 	struct list_head *plist, *phead;
- 	struct rtw_wlan_acl_node *paclnode;
- 	u8 match = false;
-diff --git a/drivers/staging/rtl8188eu/core/rtw_xmit.c b/drivers/staging/rtl8188eu/core/rtw_xmit.c
-index a457385..0ebcc7a 100644
---- a/drivers/staging/rtl8188eu/core/rtw_xmit.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_xmit.c
-@@ -1651,7 +1651,6 @@ _func_exit_;
-  */
- s32 rtw_xmit_classifier(struct adapter *padapter, struct xmit_frame *pxmitframe)
- {
--	/* unsigned long irql0; */
- 	u8	ac_index;
- 	struct sta_info	*psta;
- 	struct tx_servq	*ptxservq;
-@@ -1912,9 +1911,6 @@ static void do_queue_select(struct adapter	*padapter, struct pkt_attrib *pattrib
-  */
- s32 rtw_xmit(struct adapter *padapter, struct sk_buff **ppkt)
- {
--#ifdef CONFIG_88EU_AP_MODE
--	unsigned long irql0;
--#endif
- 	struct xmit_priv *pxmitpriv = &padapter->xmitpriv;
- 	struct xmit_frame *pxmitframe = NULL;
- 	struct mlme_priv	*pmlmepriv = &padapter->mlmepriv;
-@@ -1972,7 +1968,6 @@ s32 rtw_xmit(struct adapter *padapter, struct sk_buff **ppkt)
- 
- int xmitframe_enqueue_for_sleeping_sta(struct adapter *padapter, struct xmit_frame *pxmitframe)
- {
--	unsigned long irql;
- 	int ret = false;
- 	struct sta_info *psta = NULL;
- 	struct sta_priv *pstapriv = &padapter->stapriv;
-@@ -2103,7 +2098,6 @@ static void dequeue_xmitframes_to_sleeping_queue(struct adapter *padapter, struc
- 
- void stop_sta_xmit(struct adapter *padapter, struct sta_info *psta)
- {
--	unsigned long irql0;
- 	struct sta_info *psta_bmc;
- 	struct sta_xmit_priv *pstaxmitpriv;
- 	struct sta_priv *pstapriv = &padapter->stapriv;
-@@ -2142,7 +2136,6 @@ void stop_sta_xmit(struct adapter *padapter, struct sta_info *psta)
- 
- void wakeup_sta_to_xmit(struct adapter *padapter, struct sta_info *psta)
- {
--	unsigned long irql;
- 	u8 update_mask = 0, wmmps_ac = 0;
- 	struct sta_info *psta_bmc;
- 	struct list_head *xmitframe_plist, *xmitframe_phead;
-@@ -2272,7 +2265,6 @@ void wakeup_sta_to_xmit(struct adapter *padapter, struct sta_info *psta)
- 
- void xmit_delivery_enabled_frames(struct adapter *padapter, struct sta_info *psta)
- {
--	unsigned long irql;
- 	u8 wmmps_ac = 0;
- 	struct list_head *xmitframe_plist, *xmitframe_phead;
- 	struct xmit_frame *pxmitframe = NULL;
-diff --git a/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c b/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c
-index 13f52581..c8e808e 100644
---- a/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c
-+++ b/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c
-@@ -5237,7 +5237,6 @@ static int rtw_add_sta(struct net_device *dev, struct ieee_param *param)
- 
- static int rtw_del_sta(struct net_device *dev, struct ieee_param *param)
- {
--	unsigned long irqL;
- 	int ret = 0;
- 	struct sta_info *psta = NULL;
- 	struct adapter *padapter = (struct adapter *)rtw_netdev_priv(dev);
--- 
-1.8.4
+> +
+> +       if (!status)
+> +               *filter_index = resp->index;
+> +
+> +       return status;
+> +}
+> +
+> +/**
+> + * i40e_aq_del_udp_tunnel
+> + * @hw: pointer to the hw struct
+> + * @index: filter index
+> + * @cmd_details: pointer to command details structure or NULL
+> + **/
+> +i40e_status i40e_aq_del_udp_tunnel(struct i40e_hw *hw, u8 index,
+> +                               struct i40e_asq_cmd_details *cmd_details)
+> +{
+> +       struct i40e_aq_desc desc;
+> +       struct i40e_aqc_remove_udp_tunnel *cmd =
+> +               (struct i40e_aqc_remove_udp_tunnel *)&desc.params.raw;
+> +       i40e_status status;
+> +
+> +       i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_del_udp_tunnel);
+> +
+> +       cmd->index = index;
+> +
+> +       status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
+> +
+> +       return status;
+> +}
+> +
+> +/**
+>   * i40e_aq_delete_element - Delete switch element
+>   * @hw: pointer to the hw struct
+>   * @seid: the SEID to delete from the switch
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> index b0cfb4c..7b759a6 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> @@ -27,6 +27,9 @@
+>
+>  /* Local includes */
+>  #include "i40e.h"
+> +#if IS_ENABLED(CONFIG_VXLAN)
+> +#include "net/vxlan.h"
+> +#endif
+>
+>  const char i40e_driver_name[] = "i40e";
+>  static const char i40e_driver_string[] =
+> @@ -3993,6 +3996,9 @@ static int i40e_open(struct net_device *netdev)
+>                                     "couldn't set broadcast err %d aq_err %d\n",
+>                                     err, pf->hw.aq.asq_last_status);
+>         }
+> +#if IS_ENABLED(CONFIG_VXLAN)
+> +       vxlan_get_rx_port(netdev);
+> +#endif
+>
+>         return 0;
+>
+> @@ -5900,6 +5906,90 @@ static int i40e_set_features(struct net_device *netdev,
+>         return 0;
+>  }
+>
+> +/**
+> + * i40e_get_vxlan_port_idx - Lookup a possibly offloaded for Rx UDP port
+> + * @pf: board private structure
+> + * @port: The UDP port to look up
+> + *
+> + * Returns the index number or I40E_MAX_PF_UDP_OFFLOAD_PORTS if port not found
+> + **/
+> +static u8 i40e_get_vxlan_port_idx(struct i40e_pf *pf, __be16 port)
+> +{
+> +       u8 i;
+> +
+> +       for (i = 0; i < I40E_MAX_PF_UDP_OFFLOAD_PORTS; i++) {
+> +               if (pf->vxlan_ports[i] == port)
+> +                       return i;
+> +       }
+> +
+> +       return i;
+> +}
+> +
+> +/**
+> + * i40e_add_vxlan_port - Get notifications about VXLAN ports that come up
+> + * @netdev: This physical port's netdev
+> + * @sa_family: Socket Family that VXLAN is notifying us about
+> + * @port: New UDP port number that VXLAN started listening to
+> + **/
+> +static void i40e_add_vxlan_port(struct net_device *netdev,
+> +                                sa_family_t sa_family, __be16 port)
+> +{
+> +       struct i40e_netdev_priv *np = netdev_priv(netdev);
+> +       struct i40e_vsi *vsi = np->vsi;
+> +       struct i40e_pf *pf = vsi->back;
+> +       const int vxlan_hdr_qwords = 4;
+> +       struct i40e_hw *hw = &pf->hw;
+> +       i40e_status aq_ret;
+> +       u8 filter_index;
+> +
+> +       if (sa_family == AF_INET6)
+> +               return;
+> +
+> +       aq_ret = i40e_aq_add_udp_tunnel(hw, ntohs(port), vxlan_hdr_qwords,
+> +                                    I40E_AQC_TUNNEL_TYPE_UDP, &filter_index,
+> +                                    NULL);
+> +
+> +       if (!aq_ret && filter_index < I40E_MAX_PF_UDP_OFFLOAD_PORTS)
+> +               pf->vxlan_ports[filter_index] = port;
+> +       else
+> +               dev_warn(&pf->pdev->dev, "Could not use port %d for VXLAN offload\n",
+> +                        ntohs(port));
+> +}
+> +
+> +/**
+> + * i40e_del_vxlan_port - Get notifications about VXLAN ports that go away
+> + * @netdev: This physical port's netdev
+> + * @sa_family: Socket Family that VXLAN is notifying us about
+> + * @port: UDP port number that VXLAN stopped listening to
+> + **/
+> +static void i40e_del_vxlan_port(struct net_device *netdev,
+> +                                sa_family_t sa_family, __be16 port)
+> +{
+> +       struct i40e_netdev_priv *np = netdev_priv(netdev);
+> +       struct i40e_vsi *vsi = np->vsi;
+> +       struct i40e_pf *pf = vsi->back;
+> +       struct i40e_hw *hw = &pf->hw;
+> +       i40e_status aq_ret;
+> +       u8 filter_index;
+> +
+> +       if (sa_family == AF_INET6)
+> +               return;
+> +
+> +       filter_index = i40e_get_vxlan_port_idx(pf, port);
+> +
+> +       if (filter_index < I40E_MAX_PF_UDP_OFFLOAD_PORTS) {
+> +               aq_ret = i40e_aq_del_udp_tunnel(hw, filter_index, NULL);
+> +               if (!aq_ret)
+> +                       pf->vxlan_ports[filter_index] = 0;
+> +               else
+> +                       dev_warn(&pf->pdev->dev, "Could not remove VXLAN port %d\n",
+> +                                ntohs(port));
+> +       } else {
+> +               dev_warn(&pf->pdev->dev, "Received notification to remove VXLAN port %d but port was not added before.\n",
+> +                        ntohs(port));
+> +       }
+> +}
+> +
+>  static const struct net_device_ops i40e_netdev_ops = {
+>         .ndo_open               = i40e_open,
+>         .ndo_stop               = i40e_close,
+> @@ -5921,6 +6011,8 @@ static const struct net_device_ops i40e_netdev_ops = {
+>         .ndo_set_vf_vlan        = i40e_ndo_set_vf_port_vlan,
+>         .ndo_set_vf_tx_rate     = i40e_ndo_set_vf_bw,
+>         .ndo_get_vf_config      = i40e_ndo_get_vf_config,
+> +       .ndo_add_vxlan_port     = i40e_add_vxlan_port,
+> +       .ndo_del_vxlan_port     = i40e_del_vxlan_port,
+>  };
+>
+>  /**
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+> index db7bf93..5c458bb 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+> @@ -157,6 +157,12 @@ i40e_status i40e_aq_stop_lldp(struct i40e_hw *hw, bool shutdown_agent,
+>                                 struct i40e_asq_cmd_details *cmd_details);
+>  i40e_status i40e_aq_start_lldp(struct i40e_hw *hw,
+>                                 struct i40e_asq_cmd_details *cmd_details);
+> +i40e_status i40e_aq_add_udp_tunnel(struct i40e_hw *hw,
+> +                               u16 udp_port, u8 header_len,
+> +                               u8 protocol_index, u8 *filter_index,
+> +                               struct i40e_asq_cmd_details *cmd_details);
+> +i40e_status i40e_aq_del_udp_tunnel(struct i40e_hw *hw, u8 index,
+> +                               struct i40e_asq_cmd_details *cmd_details);
+>  i40e_status i40e_aq_delete_element(struct i40e_hw *hw, u16 seid,
+>                                 struct i40e_asq_cmd_details *cmd_details);
+>  i40e_status i40e_aq_mac_address_write(struct i40e_hw *hw,
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+> index d683c30..bb960cd 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_type.h
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+> @@ -59,6 +59,7 @@
+>  #define I40E_MAX_VSI_QP                        16
+>  #define I40E_MAX_VF_VSI                        3
+>  #define I40E_MAX_CHAINED_RX_BUFFERS    5
+> +#define I40E_MAX_PF_UDP_OFFLOAD_PORTS  16
+>
+>  /* Max default timeout in ms, */
+>  #define I40E_MAX_NVM_TIMEOUT           18000
+> --
+> 1.8.3.1
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
