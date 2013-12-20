@@ -1,514 +1,420 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 08/11] staging: r8188eu: Replace rtw_get_current_time() with jiffies
-Date: Thu, 19 Dec 2013 22:38:40 -0600
-Message-ID: <1387514323-4486-9-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 09/11] staging: r8188eu: Replace wrappers ODM_sleep_ms() and rtw_msleep_os() with a simple msleep
+Date: Thu, 19 Dec 2013 22:38:41 -0600
+Message-ID: <1387514323-4486-10-git-send-email-Larry.Finger@lwfinger.net>
 References: <1387514323-4486-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
 	Larry Finger <Larry.Finger@lwfinger.net>
 To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:63060 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753670Ab3LTElP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 23:41:15 -0500
-Received: by mail-pd0-f181.google.com with SMTP id p10so2011580pdj.26
-        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 20:41:15 -0800 (PST)
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:55297 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753740Ab3LTEl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 23:41:27 -0500
+Received: by mail-pd0-f178.google.com with SMTP id y10so2032564pdj.37
+        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 20:41:27 -0800 (PST)
 In-Reply-To: <1387514323-4486-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/staging/rtl8188eu/core/rtw_cmd.c          |  6 +++---
- drivers/staging/rtl8188eu/core/rtw_ioctl_set.c    |  4 ++--
- drivers/staging/rtl8188eu/core/rtw_mlme.c         | 14 +++++++-------
- drivers/staging/rtl8188eu/core/rtw_mlme_ext.c     | 12 ++++++------
- drivers/staging/rtl8188eu/core/rtw_p2p.c          |  2 +-
- drivers/staging/rtl8188eu/core/rtw_pwrctrl.c      | 18 +++++++++---------
- drivers/staging/rtl8188eu/core/rtw_xmit.c         |  4 ++--
- drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c |  6 +++---
- drivers/staging/rtl8188eu/hal/rtl8188e_sreset.c   |  2 +-
- drivers/staging/rtl8188eu/hal/usb_halinit.c       |  4 ++--
- drivers/staging/rtl8188eu/include/osdep_service.h |  1 -
- drivers/staging/rtl8188eu/os_dep/os_intfs.c       |  4 ++--
- drivers/staging/rtl8188eu/os_dep/osdep_service.c  |  8 +-------
- drivers/staging/rtl8188eu/os_dep/recv_linux.c     |  6 +++---
- drivers/staging/rtl8188eu/os_dep/usb_intf.c       |  4 ++--
- drivers/staging/rtl8188eu/os_dep/usb_ops_linux.c  |  4 ++--
- 16 files changed, 46 insertions(+), 53 deletions(-)
+ drivers/staging/rtl8188eu/core/rtw_cmd.c           |  4 ++--
+ drivers/staging/rtl8188eu/core/rtw_mlme.c          |  2 +-
+ drivers/staging/rtl8188eu/core/rtw_mlme_ext.c      | 16 ++++++++--------
+ drivers/staging/rtl8188eu/core/rtw_mp.c            |  4 ++--
+ drivers/staging/rtl8188eu/core/rtw_mp_ioctl.c      |  6 +++---
+ drivers/staging/rtl8188eu/core/rtw_pwrctrl.c       |  2 +-
+ drivers/staging/rtl8188eu/core/rtw_xmit.c          |  4 ++--
+ drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c     |  2 +-
+ drivers/staging/rtl8188eu/hal/odm_RegConfig8188E.c |  6 +++---
+ drivers/staging/rtl8188eu/hal/odm_interface.c      |  5 -----
+ drivers/staging/rtl8188eu/hal/rtl8188e_mp.c        |  6 +++---
+ drivers/staging/rtl8188eu/include/odm_interface.h  |  2 --
+ drivers/staging/rtl8188eu/include/osdep_service.h  |  1 -
+ drivers/staging/rtl8188eu/os_dep/ioctl_linux.c     | 10 +++++-----
+ drivers/staging/rtl8188eu/os_dep/osdep_service.c   |  5 -----
+ 15 files changed, 31 insertions(+), 44 deletions(-)
 
 diff --git a/drivers/staging/rtl8188eu/core/rtw_cmd.c b/drivers/staging/rtl8188eu/core/rtw_cmd.c
-index 64e29a9..73cb2be 100644
+index 73cb2be..281608b 100644
 --- a/drivers/staging/rtl8188eu/core/rtw_cmd.c
 +++ b/drivers/staging/rtl8188eu/core/rtw_cmd.c
-@@ -529,7 +529,7 @@ _func_enter_;
- 	res = rtw_enqueue_cmd(pcmdpriv, ph2c);
+@@ -104,7 +104,7 @@ _func_enter_;
  
- 	if (res == _SUCCESS) {
--		pmlmepriv->scan_start_time = rtw_get_current_time();
-+		pmlmepriv->scan_start_time = jiffies;
+ 	_cancel_workitem_sync(&pevtpriv->c2h_wk);
+ 	while (pevtpriv->c2h_wk_alive)
+-		rtw_msleep_os(10);
++		msleep(10);
  
- 		_set_timer(&pmlmepriv->scan_to_timer, SCANNING_TIMEOUT);
+ 	while (!rtw_cbuf_empty(pevtpriv->c2h_queue)) {
+ 		void *c2h = rtw_cbuf_pop(pevtpriv->c2h_queue);
+@@ -1966,7 +1966,7 @@ static void rtw_chk_hi_queue_hdl(struct adapter *padapter)
+ 		rtw_hal_get_hwreg(padapter, HW_VAR_CHK_HI_QUEUE_EMPTY, &val);
  
-@@ -1717,7 +1717,7 @@ _func_enter_;
- 		break;
- 	case LPS_CTRL_SPECIAL_PACKET:
- 		/* DBG_88E("LPS_CTRL_SPECIAL_PACKET\n"); */
--		pwrpriv->DelayLPSLastTimeStamp = rtw_get_current_time();
-+		pwrpriv->DelayLPSLastTimeStamp = jiffies;
- 		LPS_Leave(padapter);
- 		break;
- 	case LPS_CTRL_LEAVE:
-@@ -2279,7 +2279,7 @@ _func_enter_;
- 				spin_unlock_bh(&pmlmepriv->scanned_queue.lock);
- 				goto createbss_cmd_fail;
- 			}
--			pwlan->last_scanned = rtw_get_current_time();
-+			pwlan->last_scanned = jiffies;
- 		} else {
- 			rtw_list_insert_tail(&(pwlan->list), &pmlmepriv->scanned_queue.queue);
- 		}
-diff --git a/drivers/staging/rtl8188eu/core/rtw_ioctl_set.c b/drivers/staging/rtl8188eu/core/rtw_ioctl_set.c
-index 7b54c1e..e25b39b 100644
---- a/drivers/staging/rtl8188eu/core/rtw_ioctl_set.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_ioctl_set.c
-@@ -231,7 +231,7 @@ handle_tkip_countermeasure:
- 	/* should we add something here...? */
+ 		while (!val) {
+-			rtw_msleep_os(100);
++			msleep(100);
  
- 	if (padapter->securitypriv.btkip_countermeasure) {
--		cur_time = rtw_get_current_time();
-+		cur_time = jiffies;
+ 			cnt++;
  
- 		if ((cur_time - padapter->securitypriv.btkip_countermeasure_time) > 60 * HZ) {
- 			padapter->securitypriv.btkip_countermeasure = false;
-@@ -343,7 +343,7 @@ _func_enter_;
- handle_tkip_countermeasure:
- 
- 	if (padapter->securitypriv.btkip_countermeasure) {
--		cur_time = rtw_get_current_time();
-+		cur_time = jiffies;
- 
- 		if ((cur_time - padapter->securitypriv.btkip_countermeasure_time) > 60 * HZ) {
- 			padapter->securitypriv.btkip_countermeasure = false;
 diff --git a/drivers/staging/rtl8188eu/core/rtw_mlme.c b/drivers/staging/rtl8188eu/core/rtw_mlme.c
-index 3ac632c..6078d03 100644
+index 6078d03..c738230 100644
 --- a/drivers/staging/rtl8188eu/core/rtw_mlme.c
 +++ b/drivers/staging/rtl8188eu/core/rtw_mlme.c
-@@ -202,7 +202,7 @@ _func_enter_;
- 	RT_TRACE(_module_rtl871x_mlme_c_, _drv_info_, ("_rtw_alloc_network: ptr=%p\n", plist));
- 	pnetwork->network_type = 0;
- 	pnetwork->fixed = false;
--	pnetwork->last_scanned = rtw_get_current_time();
-+	pnetwork->last_scanned = jiffies;
- 	pnetwork->aid = 0;
- 	pnetwork->join_res = 0;
- 
-@@ -229,7 +229,7 @@ _func_enter_;
- 
- 	if (pnetwork->fixed)
- 		goto exit;
--	curr_time = rtw_get_current_time();
-+	curr_time = jiffies;
- 	if ((check_fwstate(pmlmepriv, WIFI_ADHOC_MASTER_STATE)) ||
- 	    (check_fwstate(pmlmepriv, WIFI_ADHOC_STATE)))
- 		lifetime = 1;
-@@ -345,7 +345,7 @@ _func_exit_;
- 
- void rtw_generate_random_ibss(u8 *pibss)
- {
--	u32	curtime = rtw_get_current_time();
-+	u32	curtime = jiffies;
- 
- _func_enter_;
- 	pibss[0] = 0x02;  /* in ad-hoc mode bit1 must set to 1 */
-@@ -613,7 +613,7 @@ _func_enter_;
- 			memcpy(&(pnetwork->network), target,  get_wlan_bssid_ex_sz(target));
- 			/*  variable initialize */
- 			pnetwork->fixed = false;
--			pnetwork->last_scanned = rtw_get_current_time();
-+			pnetwork->last_scanned = jiffies;
- 
- 			pnetwork->network_type = 0;
- 			pnetwork->aid = 0;
-@@ -637,7 +637,7 @@ _func_enter_;
- 			rtw_hal_get_def_var(adapter, HAL_DEF_CURRENT_ANTENNA, &(target->PhyInfo.Optimum_antenna));
- 			memcpy(&(pnetwork->network), target, bssid_ex_sz);
- 
--			pnetwork->last_scanned = rtw_get_current_time();
-+			pnetwork->last_scanned = jiffies;
- 
- 			/* bss info not receiving from the right channel */
- 			if (pnetwork->network.PhyInfo.SignalQuality == 101)
-@@ -651,7 +651,7 @@ _func_enter_;
- 		 */
- 		bool update_ie = true;
- 
--		pnetwork->last_scanned = rtw_get_current_time();
-+		pnetwork->last_scanned = jiffies;
- 
- 		/* target.Reserved[0]== 1, means that scanned network is a bcn frame. */
- 		if ((pnetwork->network.IELength > target->IELength) && (target->Reserved[0] == 1))
-@@ -1053,7 +1053,7 @@ void rtw_scan_abort(struct adapter *adapter)
- 	struct mlme_priv	*pmlmepriv = &(adapter->mlmepriv);
- 	struct mlme_ext_priv	*pmlmeext = &(adapter->mlmeextpriv);
- 
--	start = rtw_get_current_time();
-+	start = jiffies;
- 	pmlmeext->scan_abort = true;
- 	while (check_fwstate(pmlmepriv, _FW_UNDER_SURVEY) &&
- 	       rtw_get_passing_time_ms(start) <= 200) {
+@@ -1060,7 +1060,7 @@ void rtw_scan_abort(struct adapter *adapter)
+ 		if (adapter->bDriverStopped || adapter->bSurpriseRemoved)
+ 			break;
+ 		DBG_88E(FUNC_NDEV_FMT"fw_state=_FW_UNDER_SURVEY!\n", FUNC_NDEV_ARG(adapter->pnetdev));
+-		rtw_msleep_os(20);
++		msleep(20);
+ 	}
+ 	if (check_fwstate(pmlmepriv, _FW_UNDER_SURVEY)) {
+ 		if (!adapter->bDriverStopped && !adapter->bSurpriseRemoved)
 diff --git a/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c b/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
-index 5f1df23..bada209 100644
+index bada209..c189056 100644
 --- a/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
 +++ b/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
-@@ -3822,7 +3822,7 @@ int issue_probereq_p2p_ex(struct adapter *adapter, u8 *da, int try_cnt, int wait
- {
- 	int ret;
- 	int i = 0;
--	u32 start = rtw_get_current_time();
-+	u32 start = jiffies;
+@@ -3833,7 +3833,7 @@ int issue_probereq_p2p_ex(struct adapter *adapter, u8 *da, int try_cnt, int wait
+ 			break;
  
- 	do {
- 		ret = _issue_probereq_p2p(adapter, da, wait_ms > 0 ? true : false);
-@@ -4968,7 +4968,7 @@ int issue_probereq_ex(struct adapter *padapter, struct ndis_802_11_ssid *pssid,
- {
- 	int ret;
- 	int i = 0;
--	u32 start = rtw_get_current_time();
-+	u32 start = jiffies;
+ 		if (i < try_cnt && wait_ms > 0 && ret == _FAIL)
+-			rtw_msleep_os(wait_ms);
++			msleep(wait_ms);
+ 	} while ((i < try_cnt) && ((ret == _FAIL) || (wait_ms == 0)));
  
- 	do {
- 		ret = _issue_probereq(padapter, pssid, da, wait_ms > 0 ? true : false);
-@@ -5689,7 +5689,7 @@ int issue_nulldata(struct adapter *padapter, unsigned char *da, unsigned int pow
- {
- 	int ret;
- 	int i = 0;
--	u32 start = rtw_get_current_time();
-+	u32 start = jiffies;
- 	struct mlme_ext_priv	*pmlmeext = &(padapter->mlmeextpriv);
- 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
+ 	if (ret != _FAIL) {
+@@ -4979,7 +4979,7 @@ int issue_probereq_ex(struct adapter *padapter, struct ndis_802_11_ssid *pssid,
+ 			break;
  
-@@ -5812,7 +5812,7 @@ int issue_qos_nulldata(struct adapter *padapter, unsigned char *da, u16 tid, int
- {
- 	int ret;
- 	int i = 0;
--	u32 start = rtw_get_current_time();
-+	u32 start = jiffies;
- 	struct mlme_ext_priv	*pmlmeext = &(padapter->mlmeextpriv);
- 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
+ 		if (i < try_cnt && wait_ms > 0 && ret == _FAIL)
+-			rtw_msleep_os(wait_ms);
++			msleep(wait_ms);
  
-@@ -5930,7 +5930,7 @@ int issue_deauth_ex(struct adapter *padapter, u8 *da, unsigned short reason, int
- {
- 	int ret;
- 	int i = 0;
--	u32 start = rtw_get_current_time();
-+	u32 start = jiffies;
+ 	} while ((i < try_cnt) && ((ret == _FAIL) || (wait_ms == 0)));
  
- 	do {
- 		ret = _issue_deauth(padapter, da, reason, wait_ms > 0 ? true : false);
-@@ -6333,7 +6333,7 @@ unsigned int send_beacon(struct adapter *padapter)
- 	int	issue = 0;
- 	int poll = 0;
+@@ -5706,7 +5706,7 @@ int issue_nulldata(struct adapter *padapter, unsigned char *da, unsigned int pow
+ 			break;
  
--	u32 start = rtw_get_current_time();
-+	u32 start = jiffies;
+ 		if (i < try_cnt && wait_ms > 0 && ret == _FAIL)
+-			rtw_msleep_os(wait_ms);
++			msleep(wait_ms);
+ 	} while ((i < try_cnt) && ((ret == _FAIL) || (wait_ms == 0)));
  
- 	rtw_hal_set_hwreg(padapter, HW_VAR_BCN_VALID, NULL);
- 	do {
-diff --git a/drivers/staging/rtl8188eu/core/rtw_p2p.c b/drivers/staging/rtl8188eu/core/rtw_p2p.c
-index f7defc7..402fd21 100644
---- a/drivers/staging/rtl8188eu/core/rtw_p2p.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_p2p.c
-@@ -1958,7 +1958,7 @@ void init_wifidirect_info(struct adapter *padapter, enum P2P_ROLE role)
+ 	if (ret != _FAIL) {
+@@ -5829,7 +5829,7 @@ int issue_qos_nulldata(struct adapter *padapter, unsigned char *da, u16 tid, int
+ 			break;
  
- 	rtw_p2p_findphase_ex_set(pwdinfo, P2P_FINDPHASE_EX_NONE);
+ 		if (i < try_cnt && wait_ms > 0 && ret == _FAIL)
+-			rtw_msleep_os(wait_ms);
++			msleep(wait_ms);
+ 	} while ((i < try_cnt) && ((ret == _FAIL) || (wait_ms == 0)));
  
--	pwdinfo->listen_dwell = (u8) ((rtw_get_current_time() % 3) + 1);
-+	pwdinfo->listen_dwell = (u8) ((jiffies % 3) + 1);
+ 	if (ret != _FAIL) {
+@@ -5941,7 +5941,7 @@ int issue_deauth_ex(struct adapter *padapter, u8 *da, unsigned short reason, int
+ 			break;
  
- 	_rtw_memset(&pwdinfo->tx_prov_disc_info, 0x00, sizeof(struct tx_provdisc_req_info));
- 	pwdinfo->tx_prov_disc_info.wps_config_method_request = WPS_CM_NONE;
-diff --git a/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c b/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c
-index b45461f..86b522f 100644
---- a/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c
-@@ -122,7 +122,7 @@ static bool rtw_pwr_unassociated_idle(struct adapter *adapter)
+ 		if (i < try_cnt && wait_ms > 0 && ret == _FAIL)
+-			rtw_msleep_os(wait_ms);
++			msleep(wait_ms);
+ 	} while ((i < try_cnt) && ((ret == _FAIL) || (wait_ms == 0)));
  
- 	bool ret = false;
+ 	if (ret != _FAIL) {
+@@ -6430,7 +6430,7 @@ void site_survey(struct adapter *padapter)
+ 					if (pmlmeext->sitesurvey_res.ssid[i].SsidLength) {
+ 						/* todo: to issue two probe req??? */
+ 						issue_probereq(padapter, &(pmlmeext->sitesurvey_res.ssid[i]), NULL);
+-						/* rtw_msleep_os(SURVEY_TO>>1); */
++						/* msleep(SURVEY_TO>>1); */
+ 						issue_probereq(padapter, &(pmlmeext->sitesurvey_res.ssid[i]), NULL);
+ 					}
+ 				}
+@@ -6438,7 +6438,7 @@ void site_survey(struct adapter *padapter)
+ 				if (pmlmeext->sitesurvey_res.scan_mode == SCAN_ACTIVE) {
+ 					/* todo: to issue two probe req??? */
+ 					issue_probereq(padapter, NULL, NULL);
+-					/* rtw_msleep_os(SURVEY_TO>>1); */
++					/* msleep(SURVEY_TO>>1); */
+ 					issue_probereq(padapter, NULL, NULL);
+ 				}
+ 			}
+@@ -8372,7 +8372,7 @@ u8 tx_beacon_hdl(struct adapter *padapter, unsigned char *pbuf)
+ 			return H2C_SUCCESS;
  
--	if (adapter->pwrctrlpriv.ips_deny_time >= rtw_get_current_time())
-+	if (adapter->pwrctrlpriv.ips_deny_time >= jiffies)
- 		goto exit;
+ 		if ((pstapriv->tim_bitmap&BIT(0)) && (psta_bmc->sleepq_len > 0)) {
+-			rtw_msleep_os(10);/*  10ms, ATIM(HIQ) Windows */
++			msleep(10);/*  10ms, ATIM(HIQ) Windows */
+ 			spin_lock_bh(&psta_bmc->sleep_q.lock);
  
- 	if (check_fwstate(pmlmepriv, WIFI_ASOC_STATE|WIFI_SITE_MONITOR) ||
-@@ -285,7 +285,7 @@ static u8 PS_RDY_CHECK(struct adapter *padapter)
- 	struct mlme_priv	*pmlmepriv = &(padapter->mlmepriv);
+ 			xmitframe_phead = get_list_head(&psta_bmc->sleep_q);
+diff --git a/drivers/staging/rtl8188eu/core/rtw_mp.c b/drivers/staging/rtl8188eu/core/rtw_mp.c
+index f347354..76c1198 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_mp.c
++++ b/drivers/staging/rtl8188eu/core/rtw_mp.c
+@@ -609,7 +609,7 @@ static int mp_xmit_packet_thread(void *context)
+ 			    padapter->bDriverStopped) {
+ 				goto exit;
+ 			} else {
+-				rtw_msleep_os(1);
++				msleep(1);
+ 				continue;
+ 			}
+ 		}
+@@ -915,7 +915,7 @@ u32 mp_query_psd(struct adapter *pAdapter, u8 *data)
+ 		i++;
+ 	}
  
- 
--	curr_time = rtw_get_current_time();
-+	curr_time = jiffies;
- 	delta_time = curr_time - pwrpriv->DelayLPSLastTimeStamp;
- 
- 	if (delta_time < LPS_DELAY_TIME)
-@@ -379,7 +379,7 @@ s32 LPS_RF_ON_check(struct adapter *padapter, u32 delay_ms)
- 	s32 err = 0;
- 
- 
--	start_time = rtw_get_current_time();
-+	start_time = jiffies;
- 	while (1) {
- 		rtw_hal_get_hwreg(padapter, HW_VAR_FWLPS_RF_ON, &bAwake);
- 		if (bAwake)
-@@ -545,7 +545,7 @@ u8 rtw_interface_ps_func(struct adapter *padapter, enum hal_intf_ps_func efunc_i
- inline void rtw_set_ips_deny(struct adapter *padapter, u32 ms)
- {
- 	struct pwrctrl_priv *pwrpriv = &padapter->pwrctrlpriv;
--	pwrpriv->ips_deny_time = rtw_get_current_time() + rtw_ms_to_systime(ms);
-+	pwrpriv->ips_deny_time = jiffies + rtw_ms_to_systime(ms);
+-	rtw_msleep_os(100);
++	msleep(100);
+ 	return strlen(data)+1;
  }
  
- /*
-@@ -561,11 +561,11 @@ int _rtw_pwr_wakeup(struct adapter *padapter, u32 ips_deffer_ms, const char *cal
- 	struct mlme_priv *pmlmepriv = &padapter->mlmepriv;
- 	int ret = _SUCCESS;
- 
--	if (pwrpriv->ips_deny_time < rtw_get_current_time() + rtw_ms_to_systime(ips_deffer_ms))
--		pwrpriv->ips_deny_time = rtw_get_current_time() + rtw_ms_to_systime(ips_deffer_ms);
-+	if (pwrpriv->ips_deny_time < jiffies + rtw_ms_to_systime(ips_deffer_ms))
-+		pwrpriv->ips_deny_time = jiffies + rtw_ms_to_systime(ips_deffer_ms);
- 
- {
--	u32 start = rtw_get_current_time();
-+	u32 start = jiffies;
+diff --git a/drivers/staging/rtl8188eu/core/rtw_mp_ioctl.c b/drivers/staging/rtl8188eu/core/rtw_mp_ioctl.c
+index f06312c..edcd8a5 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_mp_ioctl.c
++++ b/drivers/staging/rtl8188eu/core/rtw_mp_ioctl.c
+@@ -690,7 +690,7 @@ _func_enter_;
+ 		if (pmp_priv->tx.stop == 0) {
+ 			pmp_priv->tx.stop = 1;
+ 			DBG_88E("%s: pkt tx is running...\n", __func__);
+-			rtw_msleep_os(5);
++			msleep(5);
+ 		}
+ 		pmp_priv->tx.stop = 0;
+ 		pmp_priv->tx.count = 1;
+@@ -725,7 +725,7 @@ _func_enter_;
+ 		if (pmp_priv->tx.stop == 0) {
+ 			pmp_priv->tx.stop = 1;
+ 			DBG_88E("%s: pkt tx is running...\n", __func__);
+-			rtw_msleep_os(5);
++			msleep(5);
+ 		}
+ 		pmp_priv->tx.stop = 0;
+ 		pmp_priv->tx.count = 1;
+@@ -760,7 +760,7 @@ _func_enter_;
+ 		if (pmp_priv->tx.stop == 0) {
+ 			pmp_priv->tx.stop = 1;
+ 			DBG_88E("%s: pkt tx is running...\n", __func__);
+-			rtw_msleep_os(5);
++			msleep(5);
+ 		}
+ 		pmp_priv->tx.stop = 0;
+ 		pmp_priv->tx.count = 1;
+diff --git a/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c b/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c
+index 86b522f..d5ad1dc 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c
++++ b/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c
+@@ -569,7 +569,7 @@ int _rtw_pwr_wakeup(struct adapter *padapter, u32 ips_deffer_ms, const char *cal
  	if (pwrpriv->ps_processing) {
  		DBG_88E("%s wait ps_processing...\n", __func__);
  		while (pwrpriv->ps_processing && rtw_get_passing_time_ms(start) <= 3000)
-@@ -616,8 +616,8 @@ int _rtw_pwr_wakeup(struct adapter *padapter, u32 ips_deffer_ms, const char *cal
- 	}
- 
- exit:
--	if (pwrpriv->ips_deny_time < rtw_get_current_time() + rtw_ms_to_systime(ips_deffer_ms))
--		pwrpriv->ips_deny_time = rtw_get_current_time() + rtw_ms_to_systime(ips_deffer_ms);
-+	if (pwrpriv->ips_deny_time < jiffies + rtw_ms_to_systime(ips_deffer_ms))
-+		pwrpriv->ips_deny_time = jiffies + rtw_ms_to_systime(ips_deffer_ms);
- 	return ret;
- }
- 
+-			rtw_msleep_os(10);
++			msleep(10);
+ 		if (pwrpriv->ps_processing)
+ 			DBG_88E("%s wait ps_processing timeout\n", __func__);
+ 		else
 diff --git a/drivers/staging/rtl8188eu/core/rtw_xmit.c b/drivers/staging/rtl8188eu/core/rtw_xmit.c
-index a936f81..4845d96 100644
+index 4845d96..a457385 100644
 --- a/drivers/staging/rtl8188eu/core/rtw_xmit.c
 +++ b/drivers/staging/rtl8188eu/core/rtw_xmit.c
-@@ -2345,7 +2345,7 @@ void xmit_delivery_enabled_frames(struct adapter *padapter, struct sta_info *pst
- void rtw_sctx_init(struct submit_ctx *sctx, int timeout_ms)
+@@ -153,7 +153,7 @@ _func_enter_;
+ 		/* Tx buf allocation may fail sometimes, so sleep and retry. */
+ 		res = rtw_os_xmit_resource_alloc(padapter, pxmitbuf, (MAX_XMITBUF_SZ + XMITBUF_ALIGN_SZ));
+ 		if (res == _FAIL) {
+-			rtw_msleep_os(10);
++			msleep(10);
+ 			res = rtw_os_xmit_resource_alloc(padapter, pxmitbuf, (MAX_XMITBUF_SZ + XMITBUF_ALIGN_SZ));
+ 			if (res == _FAIL) {
+ 				goto exit;
+@@ -691,7 +691,7 @@ _func_enter_;
+ 			} else {
+ 				if (_rtw_memcmp(&stainfo->dot11tkiptxmickey.skey[0], null_key, 16) == true) {
+ 					/* DbgPrint("\nxmitframe_addmic:stainfo->dot11tkiptxmickey == 0\n"); */
+-					/* rtw_msleep_os(10); */
++					/* msleep(10); */
+ 					return _FAIL;
+ 				}
+ 				/* start to calculate the mic code */
+diff --git a/drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c b/drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c
+index 8a7947d..650aefc 100644
+--- a/drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c
++++ b/drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c
+@@ -1258,7 +1258,7 @@ static void phy_LCCalibrate_8188E(struct adapter *adapt, bool is2t)
+ 	/* 4. Set LC calibration begin	bit15 */
+ 	ODM_SetRFReg(dm_odm, RF_PATH_A, RF_CHNLBW, bMask12Bits, LC_Cal|0x08000);
+ 
+-	ODM_sleep_ms(100);
++	msleep(100);
+ 
+ 	/* Restore original situation */
+ 	if ((tmpreg&0x70) != 0) {
+diff --git a/drivers/staging/rtl8188eu/hal/odm_RegConfig8188E.c b/drivers/staging/rtl8188eu/hal/odm_RegConfig8188E.c
+index 18c0533..48cea29 100644
+--- a/drivers/staging/rtl8188eu/hal/odm_RegConfig8188E.c
++++ b/drivers/staging/rtl8188eu/hal/odm_RegConfig8188E.c
+@@ -25,7 +25,7 @@ void odm_ConfigRFReg_8188E(struct odm_dm_struct *pDM_Odm, u32 Addr,
+ 			   u32 RegAddr)
  {
- 	sctx->timeout_ms = timeout_ms;
--	sctx->submit_time = rtw_get_current_time();
-+	sctx->submit_time = jiffies;
- 	init_completion(&sctx->done);
- 	sctx->status = RTW_SCTX_SUBMITTED;
- }
-@@ -2406,7 +2406,7 @@ int rtw_ack_tx_wait(struct xmit_priv *pxmitpriv, u32 timeout_ms)
+     if (Addr == 0xffe) {
+-		ODM_sleep_ms(50);
++		msleep(50);
+ 	} else if (Addr == 0xfd) {
+ 		ODM_delay_ms(5);
+ 	} else if (Addr == 0xfc) {
+@@ -83,7 +83,7 @@ void odm_ConfigBB_PHY_REG_PG_8188E(struct odm_dm_struct *pDM_Odm, u32 Addr,
+ 				   u32 Bitmask, u32 Data)
  {
- 	struct submit_ctx *pack_tx_ops = &pxmitpriv->ack_tx_ops;
- 
--	pack_tx_ops->submit_time = rtw_get_current_time();
-+	pack_tx_ops->submit_time = jiffies;
- 	pack_tx_ops->timeout_ms = timeout_ms;
- 	pack_tx_ops->status = RTW_SCTX_SUBMITTED;
- 
-diff --git a/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c b/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c
-index a291d7a..0a0bc41 100644
---- a/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c
-+++ b/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c
-@@ -60,7 +60,7 @@ static s32 iol_execute(struct adapter *padapter, u8 control)
- 	reg_0x88 = rtw_read8(padapter, REG_HMEBOX_E0);
- 	rtw_write8(padapter, REG_HMEBOX_E0,  reg_0x88|control);
- 
--	start = rtw_get_current_time();
-+	start = jiffies;
- 	while ((reg_0x88 = rtw_read8(padapter, REG_HMEBOX_E0)) & control &&
- 	       (passing_time = rtw_get_passing_time_ms(start)) < 1000) {
- 		;
-@@ -238,7 +238,7 @@ static void efuse_read_phymap_from_txpktbuf(
- 		rtw_write16(adapter, REG_PKTBUF_DBG_ADDR, dbg_addr+i);
- 
- 		rtw_write8(adapter, REG_TXPKTBUF_DBG, 0);
--		start = rtw_get_current_time();
-+		start = jiffies;
- 		while (!(reg_0x143 = rtw_read8(adapter, REG_TXPKTBUF_DBG)) &&
- 		       (passing_time = rtw_get_passing_time_ms(start)) < 1000) {
- 			DBG_88E("%s polling reg_0x143:0x%02x, reg_0x106:0x%02x\n", __func__, reg_0x143, rtw_read8(adapter, 0x106));
-@@ -660,7 +660,7 @@ s32 rtl8188e_FirmwareDownload(struct adapter *padapter)
- 	}
- 
- 	_FWDownloadEnable(padapter, true);
--	fwdl_start_time = rtw_get_current_time();
-+	fwdl_start_time = jiffies;
- 	while (1) {
- 		/* reset the FWDL chksum */
- 		rtw_write8(padapter, REG_MCUFWDL, rtw_read8(padapter, REG_MCUFWDL) | FWDL_ChkSum_rpt);
-diff --git a/drivers/staging/rtl8188eu/hal/rtl8188e_sreset.c b/drivers/staging/rtl8188eu/hal/rtl8188e_sreset.c
-index 96d698e..047b534 100644
---- a/drivers/staging/rtl8188eu/hal/rtl8188e_sreset.c
-+++ b/drivers/staging/rtl8188eu/hal/rtl8188e_sreset.c
-@@ -43,7 +43,7 @@ void rtl8188e_sreset_xmit_status_check(struct adapter *padapter)
- 		rtl8188e_silentreset_for_specific_platform(padapter);
- 	}
- 	/* total xmit irp = 4 */
--	current_time = rtw_get_current_time();
-+	current_time = jiffies;
- 	if (0 == pxmitpriv->free_xmitbuf_cnt) {
- 		diff_time = jiffies_to_msecs(current_time - psrtpriv->last_tx_time);
- 
-diff --git a/drivers/staging/rtl8188eu/hal/usb_halinit.c b/drivers/staging/rtl8188eu/hal/usb_halinit.c
-index cca9732..b867bbb 100644
---- a/drivers/staging/rtl8188eu/hal/usb_halinit.c
-+++ b/drivers/staging/rtl8188eu/hal/usb_halinit.c
-@@ -705,7 +705,7 @@ static u32 rtl8188eu_hal_init(struct adapter *Adapter)
- 	struct hal_data_8188e		*haldata = GET_HAL_DATA(Adapter);
- 	struct pwrctrl_priv		*pwrctrlpriv = &Adapter->pwrctrlpriv;
- 	struct registry_priv	*pregistrypriv = &Adapter->registrypriv;
--	u32 init_start_time = rtw_get_current_time();
-+	u32 init_start_time = jiffies;
- 
- 	#define HAL_INIT_PROFILE_TAG(stage) do {} while (0)
- 
-@@ -1251,7 +1251,7 @@ static void _ReadRFType(struct adapter *Adapter)
- 
- static int _ReadAdapterInfo8188EU(struct adapter *Adapter)
+ 	if (Addr == 0xfe) {
+-		ODM_sleep_ms(50);
++		msleep(50);
+ 	} else if (Addr == 0xfd) {
+ 		ODM_delay_ms(5);
+ 	} else if (Addr == 0xfc) {
+@@ -105,7 +105,7 @@ void odm_ConfigBB_PHY_REG_PG_8188E(struct odm_dm_struct *pDM_Odm, u32 Addr,
+ void odm_ConfigBB_PHY_8188E(struct odm_dm_struct *pDM_Odm, u32 Addr, u32 Bitmask, u32 Data)
  {
--	u32 start = rtw_get_current_time();
-+	u32 start = jiffies;
- 
- 	MSG_88E("====> %s\n", __func__);
- 
-diff --git a/drivers/staging/rtl8188eu/include/osdep_service.h b/drivers/staging/rtl8188eu/include/osdep_service.h
-index ebfbedc..7a0fbe6 100644
---- a/drivers/staging/rtl8188eu/include/osdep_service.h
-+++ b/drivers/staging/rtl8188eu/include/osdep_service.h
-@@ -268,7 +268,6 @@ u32  _rtw_queue_empty(struct __queue *pqueue);
- u32  rtw_end_of_queue_search(struct list_head *queue,
- 			     struct list_head *pelement);
- 
--u32  rtw_get_current_time(void);
- u32  rtw_systime_to_ms(u32 systime);
- u32  rtw_ms_to_systime(u32 ms);
- s32  rtw_get_passing_time_ms(u32 start);
-diff --git a/drivers/staging/rtl8188eu/os_dep/os_intfs.c b/drivers/staging/rtl8188eu/os_dep/os_intfs.c
-index e50e3ad..21ca9fe 100644
---- a/drivers/staging/rtl8188eu/os_dep/os_intfs.c
-+++ b/drivers/staging/rtl8188eu/os_dep/os_intfs.c
-@@ -1154,7 +1154,7 @@ netdev_open_error:
- int rtw_ips_pwr_up(struct adapter *padapter)
- {
- 	int result;
--	u32 start_time = rtw_get_current_time();
-+	u32 start_time = jiffies;
- 	DBG_88E("===>  rtw_ips_pwr_up..............\n");
- 	rtw_reset_drv_sw(padapter);
- 
-@@ -1168,7 +1168,7 @@ int rtw_ips_pwr_up(struct adapter *padapter)
- 
- void rtw_ips_pwr_down(struct adapter *padapter)
- {
--	u32 start_time = rtw_get_current_time();
-+	u32 start_time = jiffies;
- 	DBG_88E("===> rtw_ips_pwr_down...................\n");
- 
- 	padapter->bCardDisableWOHSM = true;
-diff --git a/drivers/staging/rtl8188eu/os_dep/osdep_service.c b/drivers/staging/rtl8188eu/os_dep/osdep_service.c
-index 787626c..59c098f 100644
---- a/drivers/staging/rtl8188eu/os_dep/osdep_service.c
-+++ b/drivers/staging/rtl8188eu/os_dep/osdep_service.c
-@@ -212,11 +212,6 @@ u32 rtw_end_of_queue_search(struct list_head *head, struct list_head *plist)
- 		return false;
+ 	if (Addr == 0xfe) {
+-		ODM_sleep_ms(50);
++		msleep(50);
+ 	} else if (Addr == 0xfd) {
+ 		ODM_delay_ms(5);
+ 	} else if (Addr == 0xfc) {
+diff --git a/drivers/staging/rtl8188eu/hal/odm_interface.c b/drivers/staging/rtl8188eu/hal/odm_interface.c
+index 59ad5bf..fa30811 100644
+--- a/drivers/staging/rtl8188eu/hal/odm_interface.c
++++ b/drivers/staging/rtl8188eu/hal/odm_interface.c
+@@ -162,11 +162,6 @@ void ODM_delay_us(u32 us)
+ 	rtw_udelay_os(us);
  }
  
--u32	rtw_get_current_time(void)
+-void ODM_sleep_ms(u32 ms)
 -{
--	return jiffies;
+-	rtw_msleep_os(ms);
 -}
 -
- inline u32 rtw_systime_to_ms(u32 systime)
+ void ODM_sleep_us(u32 us)
  {
- 	return systime * 1000 / HZ;
-@@ -227,8 +222,7 @@ inline u32 rtw_ms_to_systime(u32 ms)
- 	return ms * HZ / 1000;
+ 	rtw_usleep_os(us);
+diff --git a/drivers/staging/rtl8188eu/hal/rtl8188e_mp.c b/drivers/staging/rtl8188eu/hal/rtl8188e_mp.c
+index e97ba02..ec4fb023 100644
+--- a/drivers/staging/rtl8188eu/hal/rtl8188e_mp.c
++++ b/drivers/staging/rtl8188eu/hal/rtl8188e_mp.c
+@@ -581,7 +581,7 @@ u8 Hal_ReadRFThermalMeter(struct adapter *pAdapter)
+ void Hal_GetThermalMeter(struct adapter *pAdapter, u8 *value)
+ {
+ 	Hal_TriggerRFThermalMeter(pAdapter);
+-	rtw_msleep_os(1000);
++	msleep(1000);
+ 	*value = Hal_ReadRFThermalMeter(pAdapter);
  }
  
--/*  the input parameter start use the same unit as returned by
-- *  rtw_get_current_time */
-+/*  the input parameter start must be in jiffies */
- inline s32 rtw_get_passing_time_ms(u32 start)
- {
- 	return rtw_systime_to_ms(jiffies-start);
-diff --git a/drivers/staging/rtl8188eu/os_dep/recv_linux.c b/drivers/staging/rtl8188eu/os_dep/recv_linux.c
-index 3852ff4..2a18b32 100644
---- a/drivers/staging/rtl8188eu/os_dep/recv_linux.c
-+++ b/drivers/staging/rtl8188eu/os_dep/recv_linux.c
-@@ -90,16 +90,16 @@ void rtw_handle_tkip_mic_err(struct adapter *padapter, u8 bgroup)
- 	u32 cur_time = 0;
+@@ -614,7 +614,7 @@ void Hal_SetSingleCarrierTx(struct adapter *pAdapter, u8 bStart)
+ 		write_bbreg(pAdapter, rOFDM1_LSTF, bOFDMContinueTx, bDisable);
+ 		write_bbreg(pAdapter, rOFDM1_LSTF, bOFDMSingleCarrier, bDisable);
+ 		write_bbreg(pAdapter, rOFDM1_LSTF, bOFDMSingleTone, bDisable);
+-		rtw_msleep_os(10);
++		msleep(10);
  
- 	if (psecuritypriv->last_mic_err_time == 0) {
--		psecuritypriv->last_mic_err_time = rtw_get_current_time();
-+		psecuritypriv->last_mic_err_time = jiffies;
- 	} else {
--		cur_time = rtw_get_current_time();
-+		cur_time = jiffies;
+ 		/* BB Reset */
+ 		write_bbreg(pAdapter, rPMAC_Reset, bBBResetB, 0x0);
+@@ -832,7 +832,7 @@ void Hal_SetOFDMContinuousTx(struct adapter *pAdapter, u8 bStart)
+ 		write_bbreg(pAdapter, rOFDM1_LSTF, bOFDMSingleCarrier, bDisable);
+ 		write_bbreg(pAdapter, rOFDM1_LSTF, bOFDMSingleTone, bDisable);
+ 		/* Delay 10 ms */
+-		rtw_msleep_os(10);
++		msleep(10);
+ 		/* BB Reset */
+ 		write_bbreg(pAdapter, rPMAC_Reset, bBBResetB, 0x0);
+ 		write_bbreg(pAdapter, rPMAC_Reset, bBBResetB, 0x1);
+diff --git a/drivers/staging/rtl8188eu/include/odm_interface.h b/drivers/staging/rtl8188eu/include/odm_interface.h
+index e5c8704..0585463 100644
+--- a/drivers/staging/rtl8188eu/include/odm_interface.h
++++ b/drivers/staging/rtl8188eu/include/odm_interface.h
+@@ -141,8 +141,6 @@ void ODM_delay_ms(u32 ms);
  
- 		if (cur_time - psecuritypriv->last_mic_err_time < 60*HZ) {
- 			psecuritypriv->btkip_countermeasure = true;
- 			psecuritypriv->last_mic_err_time = 0;
- 			psecuritypriv->btkip_countermeasure_time = cur_time;
- 		} else {
--			psecuritypriv->last_mic_err_time = rtw_get_current_time();
-+			psecuritypriv->last_mic_err_time = jiffies;
+ void ODM_delay_us(u32 us);
+ 
+-void ODM_sleep_ms(u32 ms);
+-
+ void ODM_sleep_us(u32 us);
+ 
+ void ODM_SetTimer(struct odm_dm_struct *pDM_Odm, struct timer_list *pTimer,
+diff --git a/drivers/staging/rtl8188eu/include/osdep_service.h b/drivers/staging/rtl8188eu/include/osdep_service.h
+index 7a0fbe6..a4ba79a 100644
+--- a/drivers/staging/rtl8188eu/include/osdep_service.h
++++ b/drivers/staging/rtl8188eu/include/osdep_service.h
+@@ -275,7 +275,6 @@ s32  rtw_get_time_interval_ms(u32 start, u32 end);
+ 
+ void rtw_sleep_schedulable(int ms);
+ 
+-void rtw_msleep_os(int ms);
+ void rtw_usleep_os(int us);
+ 
+ u32  rtw_atoi(u8 *s);
+diff --git a/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c b/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c
+index ef3ae06..13f52581 100644
+--- a/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c
++++ b/drivers/staging/rtl8188eu/os_dep/ioctl_linux.c
+@@ -1431,7 +1431,7 @@ static int rtw_wx_get_scan(struct net_device *dev, struct iw_request_info *a,
+ 	wait_status = _FW_UNDER_SURVEY | _FW_UNDER_LINKING;
+ 
+ 	while (check_fwstate(pmlmepriv, wait_status)) {
+-		rtw_msleep_os(30);
++		msleep(30);
+ 		cnt++;
+ 		if (cnt > wait_for_surveydone)
+ 			break;
+@@ -2588,7 +2588,7 @@ static int rtw_get_ap_info(struct net_device *dev,
+ 	}
+ 
+ 	while ((check_fwstate(pmlmepriv, (_FW_UNDER_SURVEY|_FW_UNDER_LINKING)))) {
+-		rtw_msleep_os(30);
++		msleep(30);
+ 		cnt++;
+ 		if (cnt > 100)
+ 			break;
+@@ -7039,7 +7039,7 @@ static int rtw_mp_ctx(struct net_device *dev,
+ 		struct mp_priv *pmp_priv = &padapter->mppriv;
+ 		if (pmp_priv->tx.stop == 0) {
+ 			pmp_priv->tx.stop = 1;
+-			rtw_msleep_os(5);
++			msleep(5);
  		}
+ 		pmp_priv->tx.stop = 0;
+ 		pmp_priv->tx.count = 1;
+@@ -7254,7 +7254,7 @@ static int rtw_mp_reset_stats(struct net_device *dev,
+ 
+ 	/* reset phy counter */
+ 	write_bbreg(padapter, 0xf14, BIT16, 0x1);
+-	rtw_msleep_os(10);
++	msleep(10);
+ 	write_bbreg(padapter, 0xf14, BIT16, 0x0);
+ 
+ 	return 0;
+@@ -7531,7 +7531,7 @@ static int rtw_mp_get(struct net_device *dev,
+ 		break;
  	}
  
-diff --git a/drivers/staging/rtl8188eu/os_dep/usb_intf.c b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
-index b21b156..527d4e7 100644
---- a/drivers/staging/rtl8188eu/os_dep/usb_intf.c
-+++ b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
-@@ -504,7 +504,7 @@ static int rtw_suspend(struct usb_interface *pusb_intf, pm_message_t message)
- 	struct pwrctrl_priv *pwrpriv = &padapter->pwrctrlpriv;
+-	rtw_msleep_os(10); /* delay 5ms for sending pkt before exit adb shell operation */
++	msleep(10); /* delay 5ms for sending pkt before exit adb shell operation */
+ 	return 0;
+ }
  
- 	int ret = 0;
--	u32 start_time = rtw_get_current_time();
-+	u32 start_time = jiffies;
+diff --git a/drivers/staging/rtl8188eu/os_dep/osdep_service.c b/drivers/staging/rtl8188eu/os_dep/osdep_service.c
+index 59c098f..bf1cd69 100644
+--- a/drivers/staging/rtl8188eu/os_dep/osdep_service.c
++++ b/drivers/staging/rtl8188eu/os_dep/osdep_service.c
+@@ -245,11 +245,6 @@ void rtw_sleep_schedulable(int ms)
+ 		return;
+ }
  
- 	_func_enter_;
- 
-@@ -586,7 +586,7 @@ int rtw_resume_process(struct adapter *padapter)
- 	struct net_device *pnetdev;
- 	struct pwrctrl_priv *pwrpriv = NULL;
- 	int ret = -1;
--	u32 start_time = rtw_get_current_time();
-+	u32 start_time = jiffies;
- 	_func_enter_;
- 
- 	DBG_88E("==> %s (%s:%d)\n", __func__, current->comm, current->pid);
-diff --git a/drivers/staging/rtl8188eu/os_dep/usb_ops_linux.c b/drivers/staging/rtl8188eu/os_dep/usb_ops_linux.c
-index 93fc5ee..7e3f2fa 100644
---- a/drivers/staging/rtl8188eu/os_dep/usb_ops_linux.c
-+++ b/drivers/staging/rtl8188eu/os_dep/usb_ops_linux.c
-@@ -146,7 +146,7 @@ _func_enter_;
- 	}
- 
- 	haldata = GET_HAL_DATA(padapter);
--	haldata->srestpriv.last_tx_complete_time = rtw_get_current_time();
-+	haldata->srestpriv.last_tx_complete_time = jiffies;
- 
- check_completion:
- 	rtw_sctx_done_err(&pxmitbuf->sctx,
-@@ -230,7 +230,7 @@ _func_enter_;
- 	if (!status) {
- 		struct hal_data_8188e	*haldata = GET_HAL_DATA(padapter);
- 
--		haldata->srestpriv.last_tx_time = rtw_get_current_time();
-+		haldata->srestpriv.last_tx_time = jiffies;
- 	} else {
- 		rtw_sctx_done_err(&pxmitbuf->sctx, RTW_SCTX_DONE_WRITE_PORT_ERR);
- 		DBG_88E("usb_write_port, status =%d\n", status);
+-void rtw_msleep_os(int ms)
+-{
+-	msleep((unsigned int)ms);
+-}
+-
+ void rtw_usleep_os(int us)
+ {
+ 	if (1 < (us/1000))
 -- 
 1.8.4
