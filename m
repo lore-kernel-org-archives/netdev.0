@@ -1,49 +1,41 @@
-From: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH 0/4] misc: xgene: Add support for APM X-Gene SoC Queue
- Manager/Traffic Manager
-Date: Thu, 19 Dec 2013 19:40:04 -0800
-Message-ID: <20131220034004.GA8160@kroah.com>
-References: <1387507503-7565-1-git-send-email-rapatel@apm.com>
- <20131220032217.GC32310@kroah.com>
- <CAN1v_PsibDTwQ9_ZxRnBtJA46BPne6fTuS_9TddWPZt6ewwgQQ@mail.gmail.com>
+From: Chen Weilong <chenweilong@huawei.com>
+Subject: [PATCH] ieee802154: space prohibited before that close parenthesis
+Date: Fri, 20 Dec 2013 11:41:15 +0800
+Message-ID: <1387510875-11632-1-git-send-email-chenweilong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, patches-qTEPVZfXA3Y@public.gmane.org
-To: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAN1v_PsibDTwQ9_ZxRnBtJA46BPne6fTuS_9TddWPZt6ewwgQQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <alex.bluesman.smirnov@gmail.com>, <dbaryshkov@gmail.com>,
+	<davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:22517 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753252Ab3LTDlb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 22:41:31 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Weilong Chen <chenweilong@huawei.com>
 
-A: No.
-Q: Should I include quotations after my reply?
+Fix checkpatch error with space.
 
-http://daringfireball.net/2007/07/on_top
+Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+---
+ net/ieee802154/wpan-class.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-On Thu, Dec 19, 2013 at 07:27:35PM -0800, Ravi Patel wrote:
-> APM X-Gene SoC Ethernet driver is planned to be submitted on Dec 20 2=
-013.
-> Ethernet driver will be using these exported API's from QMTM driver.
-
-Please submit a user of the api as part of the series, otherwise we
-can't evaluate if it's really the correct thing to do or not.
-
-> The APM X-Gene SoC Ethernet driver is going to live in=A0drivers/net/=
-ethernet/apm
-> /xgene.
-
-So this is a "bus"?  How is the ethernet device going to show up in
-sysfs as a parent of what as this isn't part of the driver model?
-
-greg k-h
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ieee802154/wpan-class.c b/net/ieee802154/wpan-class.c
+index ef56ab5..4dd3761 100644
+--- a/net/ieee802154/wpan-class.c
++++ b/net/ieee802154/wpan-class.c
+@@ -46,7 +46,7 @@ MASTER_SHOW(current_channel, "%d");
+ MASTER_SHOW(current_page, "%d");
+ MASTER_SHOW_COMPLEX(transmit_power, "%d +- %d dB",
+ 	((signed char) (phy->transmit_power << 2)) >> 2,
+-	(phy->transmit_power >> 6) ? (phy->transmit_power >> 6) * 3 : 1 );
++	(phy->transmit_power >> 6) ? (phy->transmit_power >> 6) * 3 : 1);
+ MASTER_SHOW(cca_mode, "%d");
+ 
+ static ssize_t channels_supported_show(struct device *dev,
+-- 
+1.7.12
