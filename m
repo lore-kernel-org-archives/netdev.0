@@ -1,113 +1,48 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v2 1/2] netfilter_queue: enable UID/GID socket info
- retrieval
-Date: Fri, 20 Dec 2013 10:29:26 +0100
-Message-ID: <20131220092926.GA9275@localhost>
-References: <1387451007-14363-1-git-send-email-valentina.giusti@bmw-carit.de>
- <1387451007-14363-2-git-send-email-valentina.giusti@bmw-carit.de>
- <20131220092638.GA9122@localhost>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH v3 8/8] drivers: net: Mark function
+ xenvif_count_frag_slots() as static in netback.c
+Date: Fri, 20 Dec 2013 09:38:55 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD01BE177@AMSPEX01CL01.citrite.net>
+References: <04fe932bc3585620c91d511bb0894e45bb762ffa.1387382457.git.rashika.kheria@gmail.com>
+	<72d6fe114ba7cc2f09f51e279313860f83142d46.1387382457.git.rashika.kheria@gmail.com>
+ <20131219.185249.732943424956542038.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	fw@strlen.de, eric.dumazet@gmail.com, tgraf@redhat.com,
-	jpa@google.com, davem@davemloft.net, daniel.wagner@bmw-carit.de,
-	Valentina Giusti <valentina.giusti@oss.bmw-carit.de>
-To: valentina.giusti@bmw-carit.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:46593 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753501Ab3LTJ3a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Dec 2013 04:29:30 -0500
-Content-Disposition: inline
-In-Reply-To: <20131220092638.GA9122@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"josh@joshtriplett.org" <josh@joshtriplett.org>
+To: David Miller <davem@davemloft.net>,
+	"rashika.kheria@gmail.com" <rashika.kheria@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131219.185249.732943424956542038.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 20, 2013 at 10:26:38AM +0100, Pablo Neira Ayuso wrote:
-> Hi,
->=20
-> On Thu, Dec 19, 2013 at 12:03:26PM +0100, valentina.giusti@bmw-carit.=
-de wrote:
-> > From: Valentina Giusti <valentina.giusti@oss.bmw-carit.de>
-> >=20
-> > Thanks to commits 41063e9 (ipv4: Early TCP socket demux) and 421b38=
-8 (udp: ipv4:
-> > Add udp early demux) it is now possible to parse UID and GID socket=
- info
-> > also for incoming TCP and UDP connections. Having this info availab=
-le, it
-> > is convenient to let NFQUEUE parse it in order to improve and refin=
-e the
-> > traffic analysis in userspace.
-> >=20
-> > Signed-off-by: Valentina Giusti <valentina.giusti@bmw-carit.de>
-> > ---
-> >  include/uapi/linux/netfilter/nfnetlink_queue.h |  5 ++++-
-> >  net/netfilter/nfnetlink_queue_core.c           | 31 ++++++++++++++=
-++++++++++++
-> >  2 files changed, 35 insertions(+), 1 deletion(-)
-> >=20
-> > diff --git a/include/uapi/linux/netfilter/nfnetlink_queue.h b/inclu=
-de/uapi/linux/netfilter/nfnetlink_queue.h
-> > index 0132bad..8dd819e 100644
-> > --- a/include/uapi/linux/netfilter/nfnetlink_queue.h
-> > +++ b/include/uapi/linux/netfilter/nfnetlink_queue.h
-> > @@ -47,6 +47,8 @@ enum nfqnl_attr_type {
-> >  	NFQA_CAP_LEN,			/* __u32 length of captured packet */
-> >  	NFQA_SKB_INFO,			/* __u32 skb meta information */
-> >  	NFQA_EXP,			/* nf_conntrack_netlink.h */
-> > +	NFQA_UID,			/* __u32 sk uid */
-> > +	NFQA_GID,			/* __u32 sk gid */
-> > =20
-> >  	__NFQA_MAX
-> >  };
-> > @@ -99,7 +101,8 @@ enum nfqnl_attr_config {
-> >  #define NFQA_CFG_F_FAIL_OPEN			(1 << 0)
-> >  #define NFQA_CFG_F_CONNTRACK			(1 << 1)
-> >  #define NFQA_CFG_F_GSO				(1 << 2)
-> > -#define NFQA_CFG_F_MAX				(1 << 3)
-> > +#define NFQA_CFG_F_UID_GID			(1 << 3)
-> > +#define NFQA_CFG_F_MAX				(1 << 4)
-> > =20
-> >  /* flags for NFQA_SKB_INFO */
-> >  /* packet appears to have wrong checksums, but they are ok */
-> > diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/n=
-fnetlink_queue_core.c
-> > index 21258cf..2cdef07 100644
-> > --- a/net/netfilter/nfnetlink_queue_core.c
-> > +++ b/net/netfilter/nfnetlink_queue_core.c
-> > @@ -297,6 +297,29 @@ nfqnl_put_packet_info(struct sk_buff *nlskb, s=
-truct sk_buff *packet,
-> >  	return flags ? nla_put_be32(nlskb, NFQA_SKB_INFO, htonl(flags)) :=
- 0;
-> >  }
-> > =20
-> > +static int nfqnl_put_sk_uidgid(struct sk_buff *skb, struct sock *s=
-k)
-> > +{
-> > +	const struct cred *cred;
-> > +
-> > +	if (sk && sk->sk_state !=3D TCP_TIME_WAIT) {
-> > +		read_lock_bh(&sk->sk_callback_lock);
-> > +		if (sk->sk_socket && sk->sk_socket->file) {
-> > +			cred =3D sk->sk_socket->file->f_cred;
-> > +			if (nla_put_u32(skb, NFQA_UID, htonl(cred->fsuid)))
->=20
-> I'm hitting this compilation error here:
->=20
-> net/netfilter/nfnetlink_queue_core.c: In function =E2=80=98nfqnl_put_=
-sk_uidgid=E2=80=99:
-> net/netfilter/nfnetlink_queue_core.c:308:4: error: aggregate value us=
-ed where an integer was expected
->=20
-> It seems that in recent kernels you have to use:
->=20
->         from_kuid_munged(&init_user_ns, cred->fsuid);
->=20
-> to retrieve the integer that represents the uid.
->=20
-> Please,=20
-
-sorry, I left this sentence incomplete, I was telling... Please, test
-your patches with current git trees :-). Thanks.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
+aGFsZiBPZiBEYXZpZCBNaWxsZXINCj4gU2VudDogMTkgRGVjZW1iZXIgMjAxMyAyMzo1Mw0KPiBU
+bzogcmFzaGlrYS5raGVyaWFAZ21haWwuY29tDQo+IENjOiBJYW4gQ2FtcGJlbGw7IFdlaSBMaXU7
+IHhlbi1kZXZlbEBsaXN0cy54ZW5wcm9qZWN0Lm9yZzsNCj4gbmV0ZGV2QHZnZXIua2VybmVsLm9y
+ZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsNCj4gam9zaEBqb3NodHJpcGxldHQub3Jn
+DQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggdjMgOC84XSBkcml2ZXJzOiBuZXQ6IE1hcmsgZnVuY3Rp
+b24NCj4geGVudmlmX2NvdW50X2ZyYWdfc2xvdHMoKSBhcyBzdGF0aWMgaW4gbmV0YmFjay5jDQo+
+IA0KPiBGcm9tOiBSYXNoaWthIEtoZXJpYSA8cmFzaGlrYS5raGVyaWFAZ21haWwuY29tPg0KPiBE
+YXRlOiBUaHUsIDE5IERlYyAyMDEzIDE0OjI2OjQ3ICswNTMwDQo+IA0KPiA+IFRoaXMgcGF0Y2gg
+bWFya3MgdGhlIGZ1bmN0aW9uIHhlbnZpZl9jb3VudF9mcmFnX3Nsb3RzKCkgaW4gbmV0YmFjay5j
+IGFzDQo+ID4gc3RhdGljIGJlY2F1c2UgdGhleSBhcmUgbm90IHVzZWQgb3V0c2lkZSB0aGlzIGZp
+bGUuDQo+ID4NCj4gPiBUaHVzLCBpdCBhbHNvIHJlbW92ZXMgdGhlIGZvbGxvd2luZyB3YXJuaW5n
+IGluIHhlbi1uZXRiYWNrL25ldGJhY2suYzoNCj4gPiBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay9u
+ZXRiYWNrLmM6MjE4OjE0OiB3YXJuaW5nOiBubyBwcmV2aW91cw0KPiBwcm90b3R5cGUgZm9yIMq9
+eGVudmlmX2NvdW50X2ZyYWdfc2xvdHPKvCBbLVdtaXNzaW5nLXByb3RvdHlwZXNdDQo+ID4NCj4g
+PiBTaWduZWQtb2ZmLWJ5OiBSYXNoaWthIEtoZXJpYSA8cmFzaGlrYS5raGVyaWFAZ21haWwuY29t
+Pg0KPiA+IFJldmlld2VkLWJ5OiBKb3NoIFRyaXBsZXR0IDxqb3NoQGpvc2h0cmlwbGV0dC5vcmc+
+DQo+ID4gQWNrZWQtYnk6IElhbiBDYW1wYmVsbCA8aWFuLmNhbXBiZWxsQGNpdHJpeC5jb20+DQo+
+IA0KPiBUaGlzIHBhdGNoIGRvZXNuJ3QgYXBwbHkgY2xlYW5seSB0byBuZXQtbmV4dCwgcGxlYXNl
+IHJlc3Bpbi4NCj4gDQoNCkl0IHdvbid0IGFwcGx5IHRvIG5ldC1uZXh0LiBJIHJlbW92ZWQgdGhh
+dCBmdW5jdGlvbiBpbiBjL3MgY2EyZjA5ZjJiMmM2YzI1MDQ3Y2ZjNTQ1ZDA1N2M0ZWRmY2ZlNTYx
+Yy4NCg0KICBQYXVsDQo=
