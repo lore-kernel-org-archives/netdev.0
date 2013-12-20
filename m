@@ -1,7 +1,7 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv4 net-next 6/8] {pktgen, xfrm} Introduce xfrm_state_lookup_byspi for pktgen
-Date: Fri, 20 Dec 2013 10:33:32 +0800
-Message-ID: <1387506814-4417-7-git-send-email-fan.du@windriver.com>
+Subject: [PATCHv4 net-next 8/8] {pktgen, xfrm} Document IPsec usage in pktgen.txt
+Date: Fri, 20 Dec 2013 10:33:34 +0800
+Message-ID: <1387506814-4417-9-git-send-email-fan.du@windriver.com>
 References: <1387506814-4417-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,104 +9,61 @@ Cc: <steffen.klassert@secunet.com>, <hadi@cyberus.ca>,
 	<netdev@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:53838 "EHLO
+Received: from mail1.windriver.com ([147.11.146.13]:53845 "EHLO
 	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932279Ab3LTCdw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 21:33:52 -0500
+	with ESMTP id S932290Ab3LTCd4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 21:33:56 -0500
 In-Reply-To: <1387506814-4417-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduce xfrm_state_lookup_byspi to find user specified by custom
-from "pgset spi xxx". Using this scheme, any flow regardless its
-saddr/daddr could be transform by SA specified with configurable
-spi.
+Update pktgen.txt for reference when using IPsec.
 
 Signed-off-by: Fan Du <fan.du@windriver.com>
 ---
- include/net/xfrm.h    |    2 ++
- net/core/pktgen.c     |   22 +++++++++++++++-------
- net/xfrm/xfrm_state.c |   22 ++++++++++++++++++++++
- 3 files changed, 39 insertions(+), 7 deletions(-)
+ Documentation/networking/pktgen.txt |   15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 6b82fdf..dfdfead 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1422,6 +1422,8 @@ struct xfrm_state *xfrm_stateonly_find(struct net *net, u32 mark,
- 				       xfrm_address_t *saddr,
- 				       unsigned short family,
- 				       u8 mode, u8 proto, u32 reqid);
-+struct xfrm_state *xfrm_state_lookup_byspi(struct net *net, __be32 spi,
-+					      unsigned short family);
- int xfrm_state_check_expire(struct xfrm_state *x);
- void xfrm_state_insert(struct xfrm_state *x);
- int xfrm_state_add(struct xfrm_state *x);
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 628f7c5..b553c36 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2247,13 +2247,21 @@ static void get_ipsec_sa(struct pktgen_dev *pkt_dev, int flow)
- 	struct xfrm_state *x = pkt_dev->flows[flow].x;
- 	struct pktgen_net *pn = net_generic(dev_net(pkt_dev->odev), pg_net_id);
- 	if (!x) {
--		/*slow path: we dont already have xfrm_state*/
--		x = xfrm_stateonly_find(pn->net, DUMMY_MARK,
--					(xfrm_address_t *)&pkt_dev->cur_daddr,
--					(xfrm_address_t *)&pkt_dev->cur_saddr,
--					AF_INET,
--					pkt_dev->ipsmode,
--					pkt_dev->ipsproto, 0);
-+
-+		if (pkt_dev->spi) {
-+			/* We need as quick as possible to find the right SA
-+			 * Searching with minimum criteria to archieve this.
-+			 */
-+			x = xfrm_state_lookup_byspi(pn->net, htonl(pkt_dev->spi), AF_INET);
-+		} else {
-+			/* slow path: we dont already have xfrm_state */
-+			x = xfrm_stateonly_find(pn->net, DUMMY_MARK,
-+						(xfrm_address_t *)&pkt_dev->cur_daddr,
-+						(xfrm_address_t *)&pkt_dev->cur_saddr,
-+						AF_INET,
-+						pkt_dev->ipsmode,
-+						pkt_dev->ipsproto, 0);
-+		}
- 		if (x) {
- 			pkt_dev->flows[flow].x = x;
- 			set_pkt_overhead(pkt_dev);
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index f7cb4a3..d31a126 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -925,6 +925,28 @@ xfrm_stateonly_find(struct net *net, u32 mark,
- }
- EXPORT_SYMBOL(xfrm_stateonly_find);
+diff --git a/Documentation/networking/pktgen.txt b/Documentation/networking/pktgen.txt
+index 75e4fd7..5a61a240 100644
+--- a/Documentation/networking/pktgen.txt
++++ b/Documentation/networking/pktgen.txt
+@@ -108,7 +108,9 @@ Examples:
+                               MPLS_RND, VID_RND, SVID_RND
+                               QUEUE_MAP_RND # queue map random
+                               QUEUE_MAP_CPU # queue map mirrors smp_processor_id()
++                              IPSEC # Make IPsec encapsulation for packet
  
-+struct xfrm_state *xfrm_state_lookup_byspi(struct net *net, __be32 spi,
-+					      unsigned short family)
-+{
-+	struct xfrm_state *x;
-+	struct xfrm_state_walk *w;
++ pgset spi SPI_VALUE     Set specific SA used to transform packet.
+ 
+  pgset "udp_src_min 9"   set UDP source port min, If < udp_src_max, then
+                          cycle through the port range.
+@@ -177,6 +179,18 @@ Note when adding devices to a specific CPU there good idea to also assign
+ /proc/irq/XX/smp_affinity so the TX-interrupts gets bound to the same CPU.
+ as this reduces cache bouncing when freeing skb's.
+ 
++Enable IPsec
++============
++Default IPsec transformation with ESP encapsulation plus Transport mode
++could be enabled by simply setting:
 +
-+	spin_lock_bh(&xfrm_state_lock);
-+	list_for_each_entry(w, &net->xfrm.state_all, all) {
-+		x = container_of(w, struct xfrm_state, km);
-+		if (x->props.family != family ||
-+			x->id.spi != spi)
-+			continue;
++pgset "flag IPSEC"
++pgset "flows 1"
 +
-+		spin_unlock_bh(&xfrm_state_lock);
-+		xfrm_state_hold(x);
-+		return x;
-+	}
-+	spin_unlock_bh(&xfrm_state_lock);
-+	return NULL;
-+}
-+EXPORT_SYMBOL(xfrm_state_lookup_byspi);
++To avoid breaking existing testbed scripts for using AH type and tunnel mode,
++user could use "pgset spi SPI_VALUE" to specify which formal of transformation
++to employ.
 +
- static void __xfrm_state_insert(struct xfrm_state *x)
- {
- 	struct net *net = xs_net(x);
+ 
+ Current commands and configuration options
+ ==========================================
+@@ -225,6 +239,7 @@ flag
+   UDPDST_RND
+   MACSRC_RND
+   MACDST_RND
++  IPSEC
+ 
+ dst_min
+ dst_max
 -- 
 1.7.9.5
