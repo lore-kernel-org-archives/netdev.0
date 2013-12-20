@@ -1,33 +1,115 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 1/2] Initialize arguments to iplink_parse() by default
-Date: Fri, 20 Dec 2013 08:27:07 -0800
-Message-ID: <20131220082707.674bad28@nehalam.linuxnetplumber.net>
-References: <cover.1386764590.git.popovich_sergei@mail.ru>
-	<4467313.PgxQL6MHJm@tuxracer>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sergey Popovich <popovich_sergei@mail.ru>
+From: valentina.giusti@bmw-carit.de
+Subject: [PATCH v4 1/2] netfilter_queue: enable UID/GID socket info retrieval
+Date: Fri, 20 Dec 2013 17:28:53 +0100
+Message-ID: <1387556934-7372-2-git-send-email-valentina.giusti@bmw-carit.de>
+References: <1387556934-7372-1-git-send-email-valentina.giusti@bmw-carit.de>
+Cc: netdev@vger.kernel.org, jpa@google.com, pablo@netfilter.org,
+	fw@strnel.de, daniel.wagner@bmw-carit.de
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:45346 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754573Ab3LTQ1K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 11:27:10 -0500
-Received: by mail-pb0-f49.google.com with SMTP id jt11so2796761pbb.36
-        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 08:27:10 -0800 (PST)
-In-Reply-To: <4467313.PgxQL6MHJm@tuxracer>
+Received: from mail.microon.de ([37.252.125.21]:46169 "EHLO gattino.microon.de"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753809Ab3LTQ25 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Dec 2013 11:28:57 -0500
+In-Reply-To: <1387556934-7372-1-git-send-email-valentina.giusti@bmw-carit.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Be consistent when dealing with arguments passed
-> to iplink_parse() by initializing to default values.
-> 
-> This fixes crash when ip-link(8) invoced with command:
-> 
->   ip link add dev veth1a type veth peer
-> 
-> Signed-off-by: Sergey Popovich <popovich_sergei@mail.ru>
+From: Valentina Giusti <valentina.giusti@bmw-carit.de>
 
-Rather than modifying iplink_parse, I just fixed in veth code where the bug
-was being caused.
+Thanks to commits 41063e9 (ipv4: Early TCP socket demux) and 421b388 (udp: ipv4:
+Add udp early demux) it is now possible to parse UID and GID socket info
+also for incoming TCP and UDP connections. Having this info available, it
+is convenient to let NFQUEUE parse it in order to improve and refine the
+traffic analysis in userspace.
+
+Signed-off-by: Valentina Giusti <valentina.giusti@bmw-carit.de>
+---
+ include/uapi/linux/netfilter/nfnetlink_queue.h |  5 +++-
+ net/netfilter/nfnetlink_queue_core.c           | 34 ++++++++++++++++++++++++++
+ 2 files changed, 38 insertions(+), 1 deletion(-)
+
+diff --git a/include/uapi/linux/netfilter/nfnetlink_queue.h b/include/uapi/linux/netfilter/nfnetlink_queue.h
+index 0132bad..8dd819e 100644
+--- a/include/uapi/linux/netfilter/nfnetlink_queue.h
++++ b/include/uapi/linux/netfilter/nfnetlink_queue.h
+@@ -47,6 +47,8 @@ enum nfqnl_attr_type {
+ 	NFQA_CAP_LEN,			/* __u32 length of captured packet */
+ 	NFQA_SKB_INFO,			/* __u32 skb meta information */
+ 	NFQA_EXP,			/* nf_conntrack_netlink.h */
++	NFQA_UID,			/* __u32 sk uid */
++	NFQA_GID,			/* __u32 sk gid */
+ 
+ 	__NFQA_MAX
+ };
+@@ -99,7 +101,8 @@ enum nfqnl_attr_config {
+ #define NFQA_CFG_F_FAIL_OPEN			(1 << 0)
+ #define NFQA_CFG_F_CONNTRACK			(1 << 1)
+ #define NFQA_CFG_F_GSO				(1 << 2)
+-#define NFQA_CFG_F_MAX				(1 << 3)
++#define NFQA_CFG_F_UID_GID			(1 << 3)
++#define NFQA_CFG_F_MAX				(1 << 4)
+ 
+ /* flags for NFQA_SKB_INFO */
+ /* packet appears to have wrong checksums, but they are ok */
+diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
+index 21258cf..267ac36 100644
+--- a/net/netfilter/nfnetlink_queue_core.c
++++ b/net/netfilter/nfnetlink_queue_core.c
+@@ -297,6 +297,32 @@ nfqnl_put_packet_info(struct sk_buff *nlskb, struct sk_buff *packet,
+ 	return flags ? nla_put_be32(nlskb, NFQA_SKB_INFO, htonl(flags)) : 0;
+ }
+ 
++static int nfqnl_put_sk_uidgid(struct sk_buff *skb, struct sock *sk)
++{
++	const struct cred *cred;
++
++	if (sk->sk_state == TCP_TIME_WAIT)
++		return 0;
++
++	read_lock_bh(&sk->sk_callback_lock);
++	if (sk->sk_socket && sk->sk_socket->file) {
++		cred = sk->sk_socket->file->f_cred;
++		if (nla_put_be32(skb, NFQA_UID,
++		    htonl(from_kuid_munged(&init_user_ns, cred->fsuid))))
++			goto nla_put_failure;
++		if (nla_put_be32(skb, NFQA_GID,
++		    htonl(from_kgid_munged(&init_user_ns, cred->fsgid))))
++			goto nla_put_failure;
++	}
++	read_unlock_bh(&sk->sk_callback_lock);
++
++	return 0;
++
++nla_put_failure:
++	read_unlock_bh(&sk->sk_callback_lock);
++	return -1;
++}
++
+ static struct sk_buff *
+ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 			   struct nf_queue_entry *entry,
+@@ -372,6 +398,10 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 	if (queue->flags & NFQA_CFG_F_CONNTRACK)
+ 		ct = nfqnl_ct_get(entskb, &size, &ctinfo);
+ 
++	if (queue->flags & NFQA_CFG_F_UID_GID)
++		size +=  (nla_total_size(sizeof(u_int32_t))	/* uid */
++			+ nla_total_size(sizeof(u_int32_t)));	/* gid */
++
+ 	skb = nfnetlink_alloc_skb(net, size, queue->peer_portid,
+ 				  GFP_ATOMIC);
+ 	if (!skb)
+@@ -484,6 +514,10 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 			goto nla_put_failure;
+ 	}
+ 
++	if ((queue->flags & NFQA_CFG_F_UID_GID) && entskb->sk)
++		if (nfqnl_put_sk_uidgid(skb, entskb->sk))
++			goto nla_put_failure;
++
+ 	if (ct && nfqnl_ct_put(skb, ct, ctinfo) < 0)
+ 		goto nla_put_failure;
+ 
+-- 
+1.8.5.1
