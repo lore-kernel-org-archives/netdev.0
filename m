@@ -1,229 +1,80 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv4 net-next 3/8] {pktgen, xfrm} Correct xfrm_state_lock usage in xfrm_stateonly_find
-Date: Fri, 20 Dec 2013 10:33:29 +0800
-Message-ID: <1387506814-4417-4-git-send-email-fan.du@windriver.com>
-References: <1387506814-4417-1-git-send-email-fan.du@windriver.com>
+From: Ravi Patel <rapatel@apm.com>
+Subject: [PATCH 0/4] misc: xgene: Add support for APM X-Gene SoC Queue
+ Manager/Traffic Manager
+Date: Thu, 19 Dec 2013 18:44:59 -0800
+Message-ID: <1387507503-7565-1-git-send-email-rapatel@apm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <steffen.klassert@secunet.com>, <hadi@cyberus.ca>,
-	<netdev@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:54702 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932245Ab3LTCdq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 21:33:46 -0500
-In-Reply-To: <1387506814-4417-1-git-send-email-fan.du@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org, patches@apm.com,
+ linux-kernel@vger.kernel.org, jcm@redhat.com,
+ linux-arm-kernel@lists.infradead.org, Ravi Patel <rapatel@apm.com>
+To: arnd@arndb.de,
+	gregkh@linuxfoundation.org,
+	davem@davemloft.net
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Acquiring xfrm_state_lock in process context is expected to turn BH off,
-as this lock is also used in BH context, namely xfrm state timer handler.
-Otherwise it surprises LOCKDEP with below messages.
+This patch adds support for APM X-Gene SoC Queue Manager/Traffic Manager.
+ QMTM is required by APM X-Gene SoC Ethernet, PktDMA and Security Engine
+ subsystems. All subsystems communicate with QMTM using messages which
+ include information about the work to be performed and the location of
+ associated data buffers.
 
-[   81.422781] pktgen: Packet Generator for packet performance testing. Version: 2.74
-[   81.725194]
-[   81.725211] =========================================================
-[   81.725212] [ INFO: possible irq lock inversion dependency detected ]
-[   81.725215] 3.13.0-rc2+ #92 Not tainted
-[   81.725216] ---------------------------------------------------------
-[   81.725218] kpktgend_0/2780 just changed the state of lock:
-[   81.725220]  (xfrm_state_lock){+.+...}, at: [<ffffffff816dd751>] xfrm_stateonly_find+0x41/0x1f0
-[   81.725231] but this lock was taken by another, SOFTIRQ-safe lock in the past:
-[   81.725232]  (&(&x->lock)->rlock){+.-...}
-[   81.725232]
-[   81.725232] and interrupts could create inverse lock ordering between them.
-[   81.725232]
-[   81.725235]
-[   81.725235] other info that might help us debug this:
-[   81.725237]  Possible interrupt unsafe locking scenario:
-[   81.725237]
-[   81.725238]        CPU0                    CPU1
-[   81.725240]        ----                    ----
-[   81.725241]   lock(xfrm_state_lock);
-[   81.725243]                                local_irq_disable();
-[   81.725244]                                lock(&(&x->lock)->rlock);
-[   81.725246]                                lock(xfrm_state_lock);
-[   81.725248]   <Interrupt>
-[   81.725249]     lock(&(&x->lock)->rlock);
-[   81.725251]
-[   81.725251]  *** DEADLOCK ***
-[   81.725251]
-[   81.725254] no locks held by kpktgend_0/2780.
-[   81.725255]
-[   81.725255] the shortest dependencies between 2nd lock and 1st lock:
-[   81.725269]  -> (&(&x->lock)->rlock){+.-...} ops: 8 {
-[   81.725274]     HARDIRQ-ON-W at:
-[   81.725276]                       [<ffffffff8109a64b>] __lock_acquire+0x65b/0x1d70
-[   81.725282]                       [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
-[   81.725284]                       [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
-[   81.725289]                       [<ffffffff816dc3a3>] xfrm_timer_handler+0x43/0x290
-[   81.725292]                       [<ffffffff81059437>] __tasklet_hrtimer_trampoline+0x17/0x40
-[   81.725300]                       [<ffffffff8105a1b7>] tasklet_hi_action+0xd7/0xf0
-[   81.725303]                       [<ffffffff81059ac6>] __do_softirq+0xe6/0x2d0
-[   81.725305]                       [<ffffffff8105a026>] irq_exit+0x96/0xc0
-[   81.725308]                       [<ffffffff8177fd0a>] smp_apic_timer_interrupt+0x4a/0x60
-[   81.725313]                       [<ffffffff8177e96f>] apic_timer_interrupt+0x6f/0x80
-[   81.725316]                       [<ffffffff8100b7c6>] arch_cpu_idle+0x26/0x30
-[   81.725329]                       [<ffffffff810ace28>] cpu_startup_entry+0x88/0x2b0
-[   81.725333]                       [<ffffffff8102e5b0>] start_secondary+0x190/0x1f0
-[   81.725338]     IN-SOFTIRQ-W at:
-[   81.725340]                       [<ffffffff8109a61d>] __lock_acquire+0x62d/0x1d70
-[   81.725342]                       [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
-[   81.725344]                       [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
-[   81.725347]                       [<ffffffff816dc3a3>] xfrm_timer_handler+0x43/0x290
-[   81.725349]                       [<ffffffff81059437>] __tasklet_hrtimer_trampoline+0x17/0x40
-[   81.725352]                       [<ffffffff8105a1b7>] tasklet_hi_action+0xd7/0xf0
-[   81.725355]                       [<ffffffff81059ac6>] __do_softirq+0xe6/0x2d0
-[   81.725358]                       [<ffffffff8105a026>] irq_exit+0x96/0xc0
-[   81.725360]                       [<ffffffff8177fd0a>] smp_apic_timer_interrupt+0x4a/0x60
-[   81.725363]                       [<ffffffff8177e96f>] apic_timer_interrupt+0x6f/0x80
-[   81.725365]                       [<ffffffff8100b7c6>] arch_cpu_idle+0x26/0x30
-[   81.725368]                       [<ffffffff810ace28>] cpu_startup_entry+0x88/0x2b0
-[   81.725370]                       [<ffffffff8102e5b0>] start_secondary+0x190/0x1f0
-[   81.725373]     INITIAL USE at:
-[   81.725375]                      [<ffffffff8109a31a>] __lock_acquire+0x32a/0x1d70
-[   81.725385]                      [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
-[   81.725388]                      [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
-[   81.725390]                      [<ffffffff816dc3a3>] xfrm_timer_handler+0x43/0x290
-[   81.725394]                      [<ffffffff81059437>] __tasklet_hrtimer_trampoline+0x17/0x40
-[   81.725398]                      [<ffffffff8105a1b7>] tasklet_hi_action+0xd7/0xf0
-[   81.725401]                      [<ffffffff81059ac6>] __do_softirq+0xe6/0x2d0
-[   81.725404]                      [<ffffffff8105a026>] irq_exit+0x96/0xc0
-[   81.725407]                      [<ffffffff8177fd0a>] smp_apic_timer_interrupt+0x4a/0x60
-[   81.725409]                      [<ffffffff8177e96f>] apic_timer_interrupt+0x6f/0x80
-[   81.725412]                      [<ffffffff8100b7c6>] arch_cpu_idle+0x26/0x30
-[   81.725415]                      [<ffffffff810ace28>] cpu_startup_entry+0x88/0x2b0
-[   81.725417]                      [<ffffffff8102e5b0>] start_secondary+0x190/0x1f0
-[   81.725420]   }
-[   81.725421]   ... key      at: [<ffffffff8295b9c8>] __key.46349+0x0/0x8
-[   81.725445]   ... acquired at:
-[   81.725446]    [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
-[   81.725449]    [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
-[   81.725452]    [<ffffffff816dc057>] __xfrm_state_delete+0x37/0x140
-[   81.725454]    [<ffffffff816dc18c>] xfrm_state_delete+0x2c/0x50
-[   81.725456]    [<ffffffff816dc277>] xfrm_state_flush+0xc7/0x1b0
-[   81.725458]    [<ffffffffa005f6cc>] pfkey_flush+0x7c/0x100 [af_key]
-[   81.725465]    [<ffffffffa005efb7>] pfkey_process+0x1c7/0x1f0 [af_key]
-[   81.725468]    [<ffffffffa005f139>] pfkey_sendmsg+0x159/0x260 [af_key]
-[   81.725471]    [<ffffffff8162c16f>] sock_sendmsg+0xaf/0xc0
-[   81.725476]    [<ffffffff8162c99c>] SYSC_sendto+0xfc/0x130
-[   81.725479]    [<ffffffff8162cf3e>] SyS_sendto+0xe/0x10
-[   81.725482]    [<ffffffff8177dd12>] system_call_fastpath+0x16/0x1b
-[   81.725484]
-[   81.725486] -> (xfrm_state_lock){+.+...} ops: 11 {
-[   81.725490]    HARDIRQ-ON-W at:
-[   81.725493]                     [<ffffffff8109a64b>] __lock_acquire+0x65b/0x1d70
-[   81.725504]                     [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
-[   81.725507]                     [<ffffffff81774e4b>] _raw_spin_lock_bh+0x3b/0x70
-[   81.725510]                     [<ffffffff816dc1df>] xfrm_state_flush+0x2f/0x1b0
-[   81.725513]                     [<ffffffffa005f6cc>] pfkey_flush+0x7c/0x100 [af_key]
-[   81.725516]                     [<ffffffffa005efb7>] pfkey_process+0x1c7/0x1f0 [af_key]
-[   81.725519]                     [<ffffffffa005f139>] pfkey_sendmsg+0x159/0x260 [af_key]
-[   81.725522]                     [<ffffffff8162c16f>] sock_sendmsg+0xaf/0xc0
-[   81.725525]                     [<ffffffff8162c99c>] SYSC_sendto+0xfc/0x130
-[   81.725527]                     [<ffffffff8162cf3e>] SyS_sendto+0xe/0x10
-[   81.725530]                     [<ffffffff8177dd12>] system_call_fastpath+0x16/0x1b
-[   81.725533]    SOFTIRQ-ON-W at:
-[   81.725534]                     [<ffffffff8109a67a>] __lock_acquire+0x68a/0x1d70
-[   81.725537]                     [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
-[   81.725539]                     [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
-[   81.725541]                     [<ffffffff816dd751>] xfrm_stateonly_find+0x41/0x1f0
-[   81.725544]                     [<ffffffffa008af03>] mod_cur_headers+0x793/0x7f0 [pktgen]
-[   81.725547]                     [<ffffffffa008bca2>] pktgen_thread_worker+0xd42/0x1880 [pktgen]
-[   81.725550]                     [<ffffffff81078f84>] kthread+0xe4/0x100
-[   81.725555]                     [<ffffffff8177dc6c>] ret_from_fork+0x7c/0xb0
-[   81.725565]    INITIAL USE at:
-[   81.725567]                    [<ffffffff8109a31a>] __lock_acquire+0x32a/0x1d70
-[   81.725569]                    [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
-[   81.725572]                    [<ffffffff81774e4b>] _raw_spin_lock_bh+0x3b/0x70
-[   81.725574]                    [<ffffffff816dc1df>] xfrm_state_flush+0x2f/0x1b0
-[   81.725576]                    [<ffffffffa005f6cc>] pfkey_flush+0x7c/0x100 [af_key]
-[   81.725580]                    [<ffffffffa005efb7>] pfkey_process+0x1c7/0x1f0 [af_key]
-[   81.725583]                    [<ffffffffa005f139>] pfkey_sendmsg+0x159/0x260 [af_key]
-[   81.725586]                    [<ffffffff8162c16f>] sock_sendmsg+0xaf/0xc0
-[   81.725589]                    [<ffffffff8162c99c>] SYSC_sendto+0xfc/0x130
-[   81.725594]                    [<ffffffff8162cf3e>] SyS_sendto+0xe/0x10
-[   81.725597]                    [<ffffffff8177dd12>] system_call_fastpath+0x16/0x1b
-[   81.725599]  }
-[   81.725600]  ... key      at: [<ffffffff81cadef8>] xfrm_state_lock+0x18/0x50
-[   81.725606]  ... acquired at:
-[   81.725607]    [<ffffffff810995c0>] check_usage_backwards+0x110/0x150
-[   81.725609]    [<ffffffff81099e96>] mark_lock+0x196/0x2f0
-[   81.725611]    [<ffffffff8109a67a>] __lock_acquire+0x68a/0x1d70
-[   81.725614]    [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
-[   81.725616]    [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
-[   81.725627]    [<ffffffff816dd751>] xfrm_stateonly_find+0x41/0x1f0
-[   81.725629]    [<ffffffffa008af03>] mod_cur_headers+0x793/0x7f0 [pktgen]
-[   81.725632]    [<ffffffffa008bca2>] pktgen_thread_worker+0xd42/0x1880 [pktgen]
-[   81.725635]    [<ffffffff81078f84>] kthread+0xe4/0x100
-[   81.725637]    [<ffffffff8177dc6c>] ret_from_fork+0x7c/0xb0
-[   81.725640]
-[   81.725641]
-[   81.725641] stack backtrace:
-[   81.725645] CPU: 0 PID: 2780 Comm: kpktgend_0 Not tainted 3.13.0-rc2+ #92
-[   81.725647] Hardware name: innotek GmbH VirtualBox, BIOS VirtualBox 12/01/2006
-[   81.725649]  ffffffff82537b80 ffff880018199988 ffffffff8176af37 0000000000000007
-[   81.725652]  ffff8800181999f0 ffff8800181999d8 ffffffff81099358 ffffffff82537b80
-[   81.725655]  ffffffff81a32def ffff8800181999f4 0000000000000000 ffff880002cbeaa8
-[   81.725659] Call Trace:
-[   81.725664]  [<ffffffff8176af37>] dump_stack+0x46/0x58
-[   81.725667]  [<ffffffff81099358>] print_irq_inversion_bug.part.42+0x1e8/0x1f0
-[   81.725670]  [<ffffffff810995c0>] check_usage_backwards+0x110/0x150
-[   81.725672]  [<ffffffff81099e96>] mark_lock+0x196/0x2f0
-[   81.725675]  [<ffffffff810994b0>] ? check_usage_forwards+0x150/0x150
-[   81.725685]  [<ffffffff8109a67a>] __lock_acquire+0x68a/0x1d70
-[   81.725691]  [<ffffffff810899a5>] ? sched_clock_local+0x25/0x90
-[   81.725694]  [<ffffffff81089b38>] ? sched_clock_cpu+0xa8/0x120
-[   81.725697]  [<ffffffff8109a31a>] ? __lock_acquire+0x32a/0x1d70
-[   81.725699]  [<ffffffff816dd751>] ? xfrm_stateonly_find+0x41/0x1f0
-[   81.725702]  [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
-[   81.725704]  [<ffffffff816dd751>] ? xfrm_stateonly_find+0x41/0x1f0
-[   81.725707]  [<ffffffff810899a5>] ? sched_clock_local+0x25/0x90
-[   81.725710]  [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
-[   81.725712]  [<ffffffff816dd751>] ? xfrm_stateonly_find+0x41/0x1f0
-[   81.725715]  [<ffffffff810971ec>] ? lock_release_holdtime.part.26+0x1c/0x1a0
-[   81.725717]  [<ffffffff816dd751>] xfrm_stateonly_find+0x41/0x1f0
-[   81.725721]  [<ffffffffa008af03>] mod_cur_headers+0x793/0x7f0 [pktgen]
-[   81.725724]  [<ffffffffa008bca2>] pktgen_thread_worker+0xd42/0x1880 [pktgen]
-[   81.725727]  [<ffffffffa008ba71>] ? pktgen_thread_worker+0xb11/0x1880 [pktgen]
-[   81.725729]  [<ffffffff8109cf9d>] ? trace_hardirqs_on+0xd/0x10
-[   81.725733]  [<ffffffff81775410>] ? _raw_spin_unlock_irq+0x30/0x40
-[   81.725745]  [<ffffffff8151faa0>] ? e1000_clean+0x9d0/0x9d0
-[   81.725751]  [<ffffffff81094310>] ? __init_waitqueue_head+0x60/0x60
-[   81.725753]  [<ffffffff81094310>] ? __init_waitqueue_head+0x60/0x60
-[   81.725757]  [<ffffffffa008af60>] ? mod_cur_headers+0x7f0/0x7f0 [pktgen]
-[   81.725759]  [<ffffffff81078f84>] kthread+0xe4/0x100
-[   81.725762]  [<ffffffff81078ea0>] ? flush_kthread_worker+0x170/0x170
-[   81.725765]  [<ffffffff8177dc6c>] ret_from_fork+0x7c/0xb0
-[   81.725768]  [<ffffffff81078ea0>] ? flush_kthread_worker+0x170/0x170
+Ravi Patel (4):
+  Documentation: Add documentation for APM X-Gene SoC Queue
+    Manager/Traffic Manager DTS binding
+  misc: xgene: Add base driver for APM X-Gene SoC Queue Manager/Traffic
+    Manager
+  arm64: boot: dts: Add DTS entries for APM X-Gene SoC Queue
+    Manager/Traffic Manager
+  misc: xgene: Add error handling for APM X-Gene SoC Queue
+    Manager/Traffic Manager
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
- net/xfrm/xfrm_state.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ .../devicetree/bindings/misc/apm-xgene-qmtm.txt    |   52 ++
+ MAINTAINERS                                        |    7 +
+ arch/arm64/boot/dts/apm-storm.dtsi                 |   17 +
+ drivers/misc/Kconfig                               |    1 +
+ drivers/misc/Makefile                              |    1 +
+ drivers/misc/xgene/Kconfig                         |    1 +
+ drivers/misc/xgene/Makefile                        |    5 +
+ drivers/misc/xgene/qmtm/Kconfig                    |    8 +
+ drivers/misc/xgene/qmtm/Makefile                   |    7 +
+ drivers/misc/xgene/qmtm/xgene_qmtm_error.c         |  287 ++++++++
+ drivers/misc/xgene/qmtm/xgene_qmtm_main.c          |  768 ++++++++++++++++++++
+ drivers/misc/xgene/qmtm/xgene_qmtm_main.h          |  143 ++++
+ drivers/misc/xgene/qmtm/xgene_qmtm_storm.c         |  375 ++++++++++
+ drivers/misc/xgene/qmtm/xgene_qmtm_storm.h         |  144 ++++
+ include/misc/xgene/xgene_qmtm.h                    |  282 +++++++
+ 15 files changed, 2098 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/misc/apm-xgene-qmtm.txt
+ create mode 100644 drivers/misc/xgene/Kconfig
+ create mode 100644 drivers/misc/xgene/Makefile
+ create mode 100644 drivers/misc/xgene/qmtm/Kconfig
+ create mode 100644 drivers/misc/xgene/qmtm/Makefile
+ create mode 100644 drivers/misc/xgene/qmtm/xgene_qmtm_error.c
+ create mode 100644 drivers/misc/xgene/qmtm/xgene_qmtm_main.c
+ create mode 100644 drivers/misc/xgene/qmtm/xgene_qmtm_main.h
+ create mode 100644 drivers/misc/xgene/qmtm/xgene_qmtm_storm.c
+ create mode 100644 drivers/misc/xgene/qmtm/xgene_qmtm_storm.h
+ create mode 100644 include/misc/xgene/xgene_qmtm.h
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 68c2f35..f7cb4a3 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -900,7 +900,7 @@ xfrm_stateonly_find(struct net *net, u32 mark,
- 	unsigned int h;
- 	struct xfrm_state *rx = NULL, *x = NULL;
- 
--	spin_lock(&xfrm_state_lock);
-+	spin_lock_bh(&xfrm_state_lock);
- 	h = xfrm_dst_hash(net, daddr, saddr, reqid, family);
- 	hlist_for_each_entry(x, net->xfrm.state_bydst+h, bydst) {
- 		if (x->props.family == family &&
-@@ -918,7 +918,7 @@ xfrm_stateonly_find(struct net *net, u32 mark,
- 
- 	if (rx)
- 		xfrm_state_hold(rx);
--	spin_unlock(&xfrm_state_lock);
-+	spin_unlock_bh(&xfrm_state_lock);
- 
- 
- 	return rx;
 -- 
 1.7.9.5
+
+CONFIDENTIALITY NOTICE: This e-mail message, including any attachments, 
+is for the sole use of the intended recipient(s) and contains information
+that is confidential and proprietary to Applied Micro Circuits Corporation or its subsidiaries. 
+It is to be used solely for the purpose of furthering the parties' business relationship. 
+All unauthorized review, use, disclosure or distribution is prohibited. 
+If you are not the intended recipient, please contact the sender by reply e-mail 
+and destroy all copies of the original message.
