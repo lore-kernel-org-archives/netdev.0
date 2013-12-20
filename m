@@ -1,125 +1,55 @@
-From: Valentina Giusti <valentina.giusti@bmw-carit.de>
-Subject: Re: [PATCH v2 1/2] netfilter_queue: enable UID/GID socket info retrieval
-Date: Fri, 20 Dec 2013 10:45:31 +0100
-Message-ID: <52B411BB.3040801@bmw-carit.de>
-References: <1387451007-14363-1-git-send-email-valentina.giusti@bmw-carit.de> <1387451007-14363-2-git-send-email-valentina.giusti@bmw-carit.de> <20131220092638.GA9122@localhost> <20131220092926.GA9275@localhost>
-Reply-To: Valentina Giusti <Valentina.Giusti@bmw-carit.de>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 3/9] net: phy: dp83640: fix checkpath error
+Date: Fri, 20 Dec 2013 09:46:59 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B74BD@saturn3.aculab.com>
+References: <1387345093-14168-1-git-send-email-f.fainelli@gmail.com> <1387345093-14168-4-git-send-email-f.fainelli@gmail.com> <1387492262.2353.26.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	fw@strlen.de, eric.dumazet@gmail.com, tgraf@redhat.com,
-	jpa@google.com, davem@davemloft.net, daniel.wagner@bmw-carit.de
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20131220092926.GA9275@localhost>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: "Joe Perches" <joe@perches.com>,
+	"Florian Fainelli" <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:43785 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754734Ab3LTJsf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 04:48:35 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 27957-09 for <netdev@vger.kernel.org>;
+ Fri, 20 Dec 2013 09:48:32 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <1387492262.2353.26.camel@joe-AO722>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+> From: Joe Perches
+> Sent: 19 December 2013 22:31
+> On Tue, 2013-12-17 at 21:38 -0800, Florian Fainelli wrote:
+> > diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
+> []
+> > @@ -851,8 +851,8 @@ static int match(struct sk_buff *skb, unsigned int type, struct rxts *rxts)
+> >
+> >  	seqid = (u16 *)(data + offset + OFF_PTP_SEQUENCE_ID);
+> >
+> > -	return (rxts->msgtype == (*msgtype & 0xf) &&
+> > -		rxts->seqid   == ntohs(*seqid));
+> > +	return rxts->msgtype == (*msgtype & 0xf) &&
+> > +		rxts->seqid   == ntohs(*seqid);
+> 
+> I think this isn't an improvement.
+> 
+> Maybe:
+> 	return rxts->msgtype == (*msgtype & 0xf) &&
+> 	       rxts->seqid == ntohs(*seqid);
+> or
+> 	return (rxts->msgtype == (*msgtype & 0xf)) &&
+> 	       (rxts->seqid == ntohs(*seqid));
 
-On 12/20/2013 10:29 AM, Pablo Neira Ayuso wrote:
-> On Fri, Dec 20, 2013 at 10:26:38AM +0100, Pablo Neira Ayuso wrote:
->> Hi,
->>
->> On Thu, Dec 19, 2013 at 12:03:26PM +0100, valentina.giusti@bmw-carit=
-=2Ede wrote:
->>> From: Valentina Giusti <valentina.giusti@oss.bmw-carit.de>
->>>
->>> Thanks to commits 41063e9 (ipv4: Early TCP socket demux) and 421b38=
-8 (udp: ipv4:
->>> Add udp early demux) it is now possible to parse UID and GID socket=
- info
->>> also for incoming TCP and UDP connections. Having this info availab=
-le, it
->>> is convenient to let NFQUEUE parse it in order to improve and refin=
-e the
->>> traffic analysis in userspace.
->>>
->>> Signed-off-by: Valentina Giusti <valentina.giusti@bmw-carit.de>
->>> ---
->>>   include/uapi/linux/netfilter/nfnetlink_queue.h |  5 ++++-
->>>   net/netfilter/nfnetlink_queue_core.c           | 31 +++++++++++++=
-+++++++++++++
->>>   2 files changed, 35 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/include/uapi/linux/netfilter/nfnetlink_queue.h b/inclu=
-de/uapi/linux/netfilter/nfnetlink_queue.h
->>> index 0132bad..8dd819e 100644
->>> --- a/include/uapi/linux/netfilter/nfnetlink_queue.h
->>> +++ b/include/uapi/linux/netfilter/nfnetlink_queue.h
->>> @@ -47,6 +47,8 @@ enum nfqnl_attr_type {
->>>   	NFQA_CAP_LEN,			/* __u32 length of captured packet */
->>>   	NFQA_SKB_INFO,			/* __u32 skb meta information */
->>>   	NFQA_EXP,			/* nf_conntrack_netlink.h */
->>> +	NFQA_UID,			/* __u32 sk uid */
->>> +	NFQA_GID,			/* __u32 sk gid */
->>>  =20
->>>   	__NFQA_MAX
->>>   };
->>> @@ -99,7 +101,8 @@ enum nfqnl_attr_config {
->>>   #define NFQA_CFG_F_FAIL_OPEN			(1 << 0)
->>>   #define NFQA_CFG_F_CONNTRACK			(1 << 1)
->>>   #define NFQA_CFG_F_GSO				(1 << 2)
->>> -#define NFQA_CFG_F_MAX				(1 << 3)
->>> +#define NFQA_CFG_F_UID_GID			(1 << 3)
->>> +#define NFQA_CFG_F_MAX				(1 << 4)
->>>  =20
->>>   /* flags for NFQA_SKB_INFO */
->>>   /* packet appears to have wrong checksums, but they are ok */
->>> diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/n=
-fnetlink_queue_core.c
->>> index 21258cf..2cdef07 100644
->>> --- a/net/netfilter/nfnetlink_queue_core.c
->>> +++ b/net/netfilter/nfnetlink_queue_core.c
->>> @@ -297,6 +297,29 @@ nfqnl_put_packet_info(struct sk_buff *nlskb, s=
-truct sk_buff *packet,
->>>   	return flags ? nla_put_be32(nlskb, NFQA_SKB_INFO, htonl(flags)) =
-: 0;
->>>   }
->>>  =20
->>> +static int nfqnl_put_sk_uidgid(struct sk_buff *skb, struct sock *s=
-k)
->>> +{
->>> +	const struct cred *cred;
->>> +
->>> +	if (sk && sk->sk_state !=3D TCP_TIME_WAIT) {
->>> +		read_lock_bh(&sk->sk_callback_lock);
->>> +		if (sk->sk_socket && sk->sk_socket->file) {
->>> +			cred =3D sk->sk_socket->file->f_cred;
->>> +			if (nla_put_u32(skb, NFQA_UID, htonl(cred->fsuid)))
->> I'm hitting this compilation error here:
->>
->> net/netfilter/nfnetlink_queue_core.c: In function =E2=80=98nfqnl_put=
-_sk_uidgid=E2=80=99:
->> net/netfilter/nfnetlink_queue_core.c:308:4: error: aggregate value u=
-sed where an integer was expected
->>
->> It seems that in recent kernels you have to use:
->>
->>          from_kuid_munged(&init_user_ns, cred->fsuid);
->>
->> to retrieve the integer that represents the uid.
->>
->> Please,
-> sorry, I left this sentence incomplete, I was telling... Please, test
-> your patches with current git trees :-). Thanks.
+Or even (modulo stupid errors):
+	return !((rxts->msgtype ^ (*msgtype & 0xf))
+		  | (rxts->seqid ^ ntohs(*seqid)));
+which saves a branch if the conditional is usually true.
 
-Thank you for reviewing the patches, I'll send a new version soon :)
-
---
-Cheers,
-Val
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-d=
-evel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	David
