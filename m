@@ -1,59 +1,128 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH v3 2/8] b44: rename B44_PHY_ADDR_NO_PHY to B44_PHY_ADDR_NO_LOCAL_PHY
-Date: Fri, 20 Dec 2013 02:16:07 +0100
-Message-ID: <1387502173-21743-3-git-send-email-hauke@hauke-m.de>
-References: <1387502173-21743-1-git-send-email-hauke@hauke-m.de>
-Cc: zambrano@broadcom.com, netdev@vger.kernel.org,
-	f.fainelli@gmail.com, Hauke Mehrtens <hauke@hauke-m.de>
-To: davem@davemloft.net
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH v3 net-next] sch_tbf: add TBF_BURST/TBF_PBURST attribute
+Date: Fri, 20 Dec 2013 09:24:47 +0800
+Message-ID: <52B39C5F.1010101@huawei.com>
+References: <1386927716-7896-1-git-send-email-yangyingliang@huawei.com>	 <52AFC64F.2070100@huawei.com> <1387484113.19078.375.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:53947 "EHLO
-	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755598Ab3LTBQc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Dec 2013 20:16:32 -0500
-In-Reply-To: <1387502173-21743-1-git-send-email-hauke@hauke-m.de>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:47066 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756362Ab3LTBYz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 20:24:55 -0500
+In-Reply-To: <1387484113.19078.375.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PHY address 30 means there is no local PHY, but there could be an
-external PHY like a switch connected via MII. This is the case on most
-embedded home routers where this driver is used.
+From: Yang Yingliang <yangyingliang@huawei.com>
 
-Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+When we set burst to 1514 with low rate in userspace,
+the kernel get a value of burst that less than 1514,
+which doesn't work.
+
+Because it may make some loss when transform burst
+to buffer in userspace. This makes burst lose some
+bytes, when the kernel transform the buffer back to
+burst.
+
+This patch adds two new attributes to support sending
+burst/mtu to kernel directly to avoid the loss.
+
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+
 ---
- drivers/net/ethernet/broadcom/b44.c |    2 +-
- drivers/net/ethernet/broadcom/b44.h |    6 +++---
- 2 files changed, 4 insertions(+), 4 deletions(-)
+Change note: 
 
-diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
-index 3c7909e..5c05d15 100644
---- a/drivers/net/ethernet/broadcom/b44.c
-+++ b/drivers/net/ethernet/broadcom/b44.c
-@@ -2237,7 +2237,7 @@ static int b44_init_one(struct ssb_device *sdev,
- 
- 	/* do a phy reset to test if there is an active phy */
- 	if (b44_phy_reset(bp) < 0)
--		bp->phy_addr = B44_PHY_ADDR_NO_PHY;
-+		bp->phy_addr = B44_PHY_ADDR_NO_LOCAL_PHY;
- 
- 	netdev_info(dev, "%s %pM\n", DRV_DESCRIPTION, dev->dev_addr);
- 
-diff --git a/drivers/net/ethernet/broadcom/b44.h b/drivers/net/ethernet/broadcom/b44.h
-index 8ed7d6b..57e5357 100644
---- a/drivers/net/ethernet/broadcom/b44.h
-+++ b/drivers/net/ethernet/broadcom/b44.h
-@@ -280,9 +280,9 @@ struct ring_info {
- 	dma_addr_t	mapping;
+v2 -> v3:
+	add parentheses after "else"
+
+v1 -> v2:
+	remove an unnecessary tab
+---
+ include/uapi/linux/pkt_sched.h |  2 ++
+ net/sched/sch_tbf.c            | 29 ++++++++++++++++++++++++-----
+ 2 files changed, 26 insertions(+), 5 deletions(-)
+
+diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+index 4566993..fe11920 100644
+--- a/include/uapi/linux/pkt_sched.h
++++ b/include/uapi/linux/pkt_sched.h
+@@ -173,6 +173,8 @@ enum {
+ 	TCA_TBF_PTAB,
+ 	TCA_TBF_RATE64,
+ 	TCA_TBF_PRATE64,
++	TCA_TBF_BURST,
++	TCA_TBF_PBURST,
+ 	__TCA_TBF_MAX,
  };
  
--#define B44_MCAST_TABLE_SIZE	32
--#define B44_PHY_ADDR_NO_PHY	30
--#define B44_MDC_RATIO		5000000
-+#define B44_MCAST_TABLE_SIZE		32
-+#define B44_PHY_ADDR_NO_LOCAL_PHY	30 /* no local phy regs */
-+#define B44_MDC_RATIO			5000000
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index 887e672..fbba5b0 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -307,6 +307,8 @@ static const struct nla_policy tbf_policy[TCA_TBF_MAX + 1] = {
+ 	[TCA_TBF_PTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
+ 	[TCA_TBF_RATE64]	= { .type = NLA_U64 },
+ 	[TCA_TBF_PRATE64]	= { .type = NLA_U64 },
++	[TCA_TBF_BURST] = { .type = NLA_U32 },
++	[TCA_TBF_PBURST] = { .type = NLA_U32 },
+ };
  
- #define	B44_STAT_REG_DECLARE		\
- 	_B44(tx_good_octets)		\
--- 
-1.7.10.4
+ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+@@ -358,7 +360,12 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 		rate64 = nla_get_u64(tb[TCA_TBF_RATE64]);
+ 	psched_ratecfg_precompute(&rate, &qopt->rate, rate64);
+ 
+-	max_size = min_t(u64, psched_ns_t2l(&rate, buffer), ~0U);
++	if (tb[TCA_TBF_BURST]) {
++		max_size = nla_get_u32(tb[TCA_TBF_BURST]);
++		buffer = psched_l2t_ns(&rate, max_size);
++	} else {
++		max_size = min_t(u64, psched_ns_t2l(&rate, buffer), ~0U);
++	}
+ 
+ 	if (qopt->peakrate.rate) {
+ 		if (tb[TCA_TBF_PRATE64])
+@@ -366,12 +373,18 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 		psched_ratecfg_precompute(&peak, &qopt->peakrate, prate64);
+ 		if (peak.rate_bytes_ps <= rate.rate_bytes_ps) {
+ 			pr_warn_ratelimited("sch_tbf: peakrate %llu is lower than or equals to rate %llu !\n",
+-					    peak.rate_bytes_ps, rate.rate_bytes_ps);
++					peak.rate_bytes_ps, rate.rate_bytes_ps);
+ 			err = -EINVAL;
+ 			goto done;
+ 		}
+ 
+-		max_size = min_t(u64, max_size, psched_ns_t2l(&peak, mtu));
++		if (tb[TCA_TBF_PBURST]) {
++			u32 pburst = nla_get_u32(tb[TCA_TBF_PBURST]);
++			max_size = min_t(u32, max_size, pburst);
++			mtu = psched_l2t_ns(&peak, pburst);
++		} else {
++			max_size = min_t(u64, max_size, psched_ns_t2l(&peak, mtu));
++		}
+ 	}
+ 
+ 	if (max_size < psched_mtu(qdisc_dev(sch)))
+@@ -391,9 +404,15 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 		q->qdisc = child;
+ 	}
+ 	q->limit = qopt->limit;
+-	q->mtu = PSCHED_TICKS2NS(qopt->mtu);
++	if (tb[TCA_TBF_PBURST])
++		q->mtu = mtu;
++	else
++		q->mtu = PSCHED_TICKS2NS(qopt->mtu);
+ 	q->max_size = max_size;
+-	q->buffer = PSCHED_TICKS2NS(qopt->buffer);
++	if (tb[TCA_TBF_BURST])
++		q->buffer = buffer;
++	else
++		q->buffer = PSCHED_TICKS2NS(qopt->buffer);
+ 	q->tokens = q->buffer;
+ 	q->ptokens = q->mtu;
+ 
+-- 1.8.0
