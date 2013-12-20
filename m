@@ -1,75 +1,118 @@
-From: Chen Weilong <chenweilong@huawei.com>
-Subject: [patch ipsec-next 3/5] xfrm: checkpatch erros with space prohibited
-Date: Fri, 20 Dec 2013 18:49:35 +0800
-Message-ID: <1387536577-11480-4-git-send-email-chenweilong@huawei.com>
-References: <1387536577-11480-1-git-send-email-chenweilong@huawei.com>
+From: Valentina Giusti <valentina.giusti@bmw-carit.de>
+Subject: Re: [PATCH v2 1/2] netfilter_queue: enable UID/GID socket info retrieval
+Date: Fri, 20 Dec 2013 12:18:22 +0100
+Message-ID: <52B4277E.3030607@bmw-carit.de>
+References: <1387451007-14363-1-git-send-email-valentina.giusti@bmw-carit.de> <1387451007-14363-2-git-send-email-valentina.giusti@bmw-carit.de> <20131220092638.GA9122@localhost> <20131220092926.GA9275@localhost>
+Reply-To: Valentina Giusti <Valentina.Giusti@bmw-carit.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>,
-	<davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	fw@strlen.de, eric.dumazet@gmail.com, tgraf@redhat.com,
+	jpa@google.com, davem@davemloft.net, daniel.wagner@bmw-carit.de
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:25286 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932292Ab3LTKuI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 05:50:08 -0500
-In-Reply-To: <1387536577-11480-1-git-send-email-chenweilong@huawei.com>
+Received: from mail.bmw-carit.de ([62.245.222.98]:51300 "EHLO
+	linuxmail.bmw-carit.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756307Ab3LTLSZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 06:18:25 -0500
+In-Reply-To: <20131220092926.GA9275@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Weilong Chen <chenweilong@huawei.com>
+Hi,
 
-Fix checkpatch error "space prohibited xxx".
+On 12/20/2013 10:29 AM, Pablo Neira Ayuso wrote:
+> On Fri, Dec 20, 2013 at 10:26:38AM +0100, Pablo Neira Ayuso wrote:
+>> Hi,
+>>
+>> On Thu, Dec 19, 2013 at 12:03:26PM +0100, valentina.giusti@bmw-carit=
+=2Ede wrote:
+>>> From: Valentina Giusti <valentina.giusti@oss.bmw-carit.de>
+>>>
+>>> Thanks to commits 41063e9 (ipv4: Early TCP socket demux) and 421b38=
+8 (udp: ipv4:
+>>> Add udp early demux) it is now possible to parse UID and GID socket=
+ info
+>>> also for incoming TCP and UDP connections. Having this info availab=
+le, it
+>>> is convenient to let NFQUEUE parse it in order to improve and refin=
+e the
+>>> traffic analysis in userspace.
+>>>
+>>> Signed-off-by: Valentina Giusti <valentina.giusti@bmw-carit.de>
+>>> ---
+>>>   include/uapi/linux/netfilter/nfnetlink_queue.h |  5 ++++-
+>>>   net/netfilter/nfnetlink_queue_core.c           | 31 +++++++++++++=
++++++++++++++
+>>>   2 files changed, 35 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/include/uapi/linux/netfilter/nfnetlink_queue.h b/inclu=
+de/uapi/linux/netfilter/nfnetlink_queue.h
+>>> index 0132bad..8dd819e 100644
+>>> --- a/include/uapi/linux/netfilter/nfnetlink_queue.h
+>>> +++ b/include/uapi/linux/netfilter/nfnetlink_queue.h
+>>> @@ -47,6 +47,8 @@ enum nfqnl_attr_type {
+>>>   	NFQA_CAP_LEN,			/* __u32 length of captured packet */
+>>>   	NFQA_SKB_INFO,			/* __u32 skb meta information */
+>>>   	NFQA_EXP,			/* nf_conntrack_netlink.h */
+>>> +	NFQA_UID,			/* __u32 sk uid */
+>>> +	NFQA_GID,			/* __u32 sk gid */
+>>>  =20
+>>>   	__NFQA_MAX
+>>>   };
+>>> @@ -99,7 +101,8 @@ enum nfqnl_attr_config {
+>>>   #define NFQA_CFG_F_FAIL_OPEN			(1 << 0)
+>>>   #define NFQA_CFG_F_CONNTRACK			(1 << 1)
+>>>   #define NFQA_CFG_F_GSO				(1 << 2)
+>>> -#define NFQA_CFG_F_MAX				(1 << 3)
+>>> +#define NFQA_CFG_F_UID_GID			(1 << 3)
+>>> +#define NFQA_CFG_F_MAX				(1 << 4)
+>>>  =20
+>>>   /* flags for NFQA_SKB_INFO */
+>>>   /* packet appears to have wrong checksums, but they are ok */
+>>> diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/n=
+fnetlink_queue_core.c
+>>> index 21258cf..2cdef07 100644
+>>> --- a/net/netfilter/nfnetlink_queue_core.c
+>>> +++ b/net/netfilter/nfnetlink_queue_core.c
+>>> @@ -297,6 +297,29 @@ nfqnl_put_packet_info(struct sk_buff *nlskb, s=
+truct sk_buff *packet,
+>>>   	return flags ? nla_put_be32(nlskb, NFQA_SKB_INFO, htonl(flags)) =
+: 0;
+>>>   }
+>>>  =20
+>>> +static int nfqnl_put_sk_uidgid(struct sk_buff *skb, struct sock *s=
+k)
+>>> +{
+>>> +	const struct cred *cred;
+>>> +
+>>> +	if (sk && sk->sk_state !=3D TCP_TIME_WAIT) {
+>>> +		read_lock_bh(&sk->sk_callback_lock);
+>>> +		if (sk->sk_socket && sk->sk_socket->file) {
+>>> +			cred =3D sk->sk_socket->file->f_cred;
+>>> +			if (nla_put_u32(skb, NFQA_UID, htonl(cred->fsuid)))
+>> I'm hitting this compilation error here:
+>>
+>> net/netfilter/nfnetlink_queue_core.c: In function =E2=80=98nfqnl_put=
+_sk_uidgid=E2=80=99:
+>> net/netfilter/nfnetlink_queue_core.c:308:4: error: aggregate value u=
+sed where an integer was expected
+>>
+>> It seems that in recent kernels you have to use:
+>>
+>>          from_kuid_munged(&init_user_ns, cred->fsuid);
+>>
+>> to retrieve the integer that represents the uid.
+>>
+>> Please,
+> sorry, I left this sentence incomplete, I was telling... Please, test
+> your patches with current git trees :-). Thanks.
 
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
----
- net/xfrm/xfrm_policy.c | 6 +++---
- net/xfrm/xfrm_user.c   | 2 +-
- 2 files changed, 4 insertions(+), 4 deletions(-)
+Just to be on the safe side, I am testing my patches against the nf-nex=
+t=20
+tree, branch master. Is that correct?
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index dc8bd1b..fbc72b4 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1704,7 +1704,7 @@ static int xfrm_expand_policies(const struct flowi *fl, u16 family,
- 				xfrm_pols_put(pols, *num_pols);
- 				return PTR_ERR(pols[1]);
- 			}
--			(*num_pols) ++;
-+			(*num_pols)++;
- 			(*num_xfrms) += pols[1]->xfrm_nr;
- 		}
- 	}
-@@ -2378,7 +2378,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
- 	pol->curlft.use_time = get_seconds();
- 
- 	pols[0] = pol;
--	npols ++;
-+	npols++;
- #ifdef CONFIG_XFRM_SUB_POLICY
- 	if (pols[0]->type != XFRM_POLICY_TYPE_MAIN) {
- 		pols[1] = xfrm_policy_lookup_bytype(net, XFRM_POLICY_TYPE_MAIN,
-@@ -2390,7 +2390,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
- 				return 0;
- 			}
- 			pols[1]->curlft.use_time = get_seconds();
--			npols ++;
-+			npols++;
- 		}
- 	}
- #endif
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index e50be42..3348566 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -1824,7 +1824,7 @@ static int xfrm_new_ae(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	struct net *net = sock_net(skb->sk);
- 	struct xfrm_state *x;
- 	struct km_event c;
--	int err = - EINVAL;
-+	int err = -EINVAL;
- 	u32 mark = 0;
- 	struct xfrm_mark m;
- 	struct xfrm_aevent_id *p = nlmsg_data(nlh);
--- 
-1.7.12
+Thanks,
+Val
