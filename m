@@ -1,53 +1,41 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next 1/4] net_sched: act: clean up notification functions
-Date: Thu, 19 Dec 2013 17:39:13 -0800
-Message-ID: <CAM_iQpWPSUJJcUFVy6be1qmWd6EcGqK-ZNUkegdg4QsRSBhZRQ@mail.gmail.com>
-References: <1387413403-6395-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1387413403-6395-2-git-send-email-xiyou.wangcong@gmail.com>
-	<CAM_iQpV9Z_K7DRrYLF+hO=_nqEWYoEstuEEGunG1knXe_KB-DQ@mail.gmail.com>
-	<52B30560.4090000@mojatatu.com>
+From: Nithin Nayak Sujir <nsujir@broadcom.com>
+Subject: [PATCH v2 net] tg3: Expand 4g_overflow_test workaround to skb fragments of any size.
+Date: Thu, 19 Dec 2013 17:44:11 -0800
+Message-ID: <1387503851-14253-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f52.google.com ([209.85.219.52]:43855 "EHLO
-	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756904Ab3LTBjO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 20:39:14 -0500
-Received: by mail-oa0-f52.google.com with SMTP id h16so2124502oag.25
-        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 17:39:13 -0800 (PST)
-In-Reply-To: <52B30560.4090000@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Nithin Nayak Sujir <nsujir@broadcom.com>,
+	<stable@vger.kernel.org>, Michael Chan <mchan@broadcom.com>
+To: <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 19, 2013 at 6:40 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 12/18/13 19:48, Cong Wang wrote:
->>
->> On Wed, Dec 18, 2013 at 4:36 PM, Cong Wang <xiyou.wangcong@gmail.com>
->> wrote:
->>>
->>> -               if (ret > 0)
->>> -                       return 0;
->>> -               return ret;
->>> -       }
->>> +       else /* delete */
->>> +               ret = tcf_del_notify(net, n, &actions, portid);
->>
->>
->> This piece doesn't look correct. :-) I will fix it.
->>
->
-> It is not as trivial and i dont think you have the correct tests to
-> vet it.
-> Please give me until this weekend to test your other changes
-> that are already in.
-> I also had some changes i wanted to get in. Then I will review
-> and maybe test this as well...
+The current driver assumes that an skb fragment can only be upto jumbo
+size. Presumably this was a fast-path optimization. This assumption is
+no longer true as fragments can be upto 32k.
 
+v2: Remove unnecessary parantheses per Eric Dumazet.
 
-Sure. Meanwhile, I will test this action deletion case and send
-the updated patches for you to test in the weekend.
+Cc: stable@vger.kernel.org
+Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks!
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index f3dd93b..15a66e4 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -7622,7 +7622,7 @@ static inline int tg3_4g_overflow_test(dma_addr_t mapping, int len)
+ {
+ 	u32 base = (u32) mapping & 0xffffffff;
+ 
+-	return (base > 0xffffdcc0) && (base + len + 8 < base);
++	return base + len + 8 < base;
+ }
+ 
+ /* Test for TSO DMA buffers that cross into regions which are within MSS bytes
+-- 
+1.8.1.4
