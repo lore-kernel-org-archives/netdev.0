@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 08/16] i40e: move i40e_reset_vf
-Date: Fri, 20 Dec 2013 08:45:57 -0800
-Message-ID: <1387557965-13241-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 13/16] i40e: be more informative
+Date: Fri, 20 Dec 2013 08:46:02 -0800
+Message-ID: <1387557965-13241-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387557965-13241-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -9,303 +9,41 @@ Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:43172 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:43164 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754214Ab3LTQsI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Dec 2013 11:48:08 -0500
+	id S1756515Ab3LTQsK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Dec 2013 11:48:10 -0500
 In-Reply-To: <1387557965-13241-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mitch Williams <mitch.a.williams@intel.com>
 
-The VF reset code will be refactored in future patches. Part of that
-refactor required it to call i40e_alloc_vf_res and i40e_free_vf_res, so
-the function must be moved. In order to make the future patches more
-readable, we perform the function move here, with no other changes.
+If the VF sends a bad message, be more informative about what it
+actually is.
 
-Change-Id: If6567c9c0bada6caafb2ee0227e0d9d50d05f27f
+Change-Id: I89e06d2db416a1d05aeea016dd6e8b7870cae99a
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 256 ++++++++++-----------
- 1 file changed, 128 insertions(+), 128 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 1ea0886..c0e3aec 100644
+index 4386a2f..1dd13f4 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -543,6 +543,134 @@ error_alloc_vsi_res:
- }
+@@ -1653,7 +1653,8 @@ int i40e_vc_process_vf_msg(struct i40e_pf *pf, u16 vf_id, u32 v_opcode,
+ 	ret = i40e_vc_validate_vf_msg(vf, v_opcode, v_retval, msg, msglen);
  
- /**
-+ * i40e_enable_vf_mappings
-+ * @vf: pointer to the vf info
-+ *
-+ * enable vf mappings
-+ **/
-+static void i40e_enable_vf_mappings(struct i40e_vf *vf)
-+{
-+	struct i40e_pf *pf = vf->pf;
-+	struct i40e_hw *hw = &pf->hw;
-+	u32 reg, total_queue_pairs = 0;
-+	int j;
-+
-+	/* Tell the hardware we're using noncontiguous mapping. HW requires
-+	 * that VF queues be mapped using this method, even when they are
-+	 * contiguous in real life
-+	 */
-+	wr32(hw, I40E_VSILAN_QBASE(vf->lan_vsi_id),
-+	     I40E_VSILAN_QBASE_VSIQTABLE_ENA_MASK);
-+
-+	/* enable VF vplan_qtable mappings */
-+	reg = I40E_VPLAN_MAPENA_TXRX_ENA_MASK;
-+	wr32(hw, I40E_VPLAN_MAPENA(vf->vf_id), reg);
-+
-+	/* map PF queues to VF queues */
-+	for (j = 0; j < pf->vsi[vf->lan_vsi_index]->num_queue_pairs; j++) {
-+		u16 qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index, j);
-+		reg = (qid & I40E_VPLAN_QTABLE_QINDEX_MASK);
-+		wr32(hw, I40E_VPLAN_QTABLE(total_queue_pairs, vf->vf_id), reg);
-+		total_queue_pairs++;
-+	}
-+
-+	/* map PF queues to VSI */
-+	for (j = 0; j < 7; j++) {
-+		if (j * 2 >= pf->vsi[vf->lan_vsi_index]->num_queue_pairs) {
-+			reg = 0x07FF07FF;	/* unused */
-+		} else {
-+			u16 qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index,
-+							  j * 2);
-+			reg = qid;
-+			qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index,
-+						      (j * 2) + 1);
-+			reg |= qid << 16;
-+		}
-+		wr32(hw, I40E_VSILAN_QTABLE(j, vf->lan_vsi_id), reg);
-+	}
-+
-+	i40e_flush(hw);
-+}
-+
-+/**
-+ * i40e_disable_vf_mappings
-+ * @vf: pointer to the vf info
-+ *
-+ * disable vf mappings
-+ **/
-+static void i40e_disable_vf_mappings(struct i40e_vf *vf)
-+{
-+	struct i40e_pf *pf = vf->pf;
-+	struct i40e_hw *hw = &pf->hw;
-+	int i;
-+
-+	/* disable qp mappings */
-+	wr32(hw, I40E_VPLAN_MAPENA(vf->vf_id), 0);
-+	for (i = 0; i < I40E_MAX_VSI_QP; i++)
-+		wr32(hw, I40E_VPLAN_QTABLE(i, vf->vf_id),
-+		     I40E_QUEUE_END_OF_LIST);
-+	i40e_flush(hw);
-+}
-+
-+/**
-+ * i40e_free_vf_res
-+ * @vf: pointer to the vf info
-+ *
-+ * free vf resources
-+ **/
-+static void i40e_free_vf_res(struct i40e_vf *vf)
-+{
-+	struct i40e_pf *pf = vf->pf;
-+
-+	/* free vsi & disconnect it from the parent uplink */
-+	if (vf->lan_vsi_index) {
-+		i40e_vsi_release(pf->vsi[vf->lan_vsi_index]);
-+		vf->lan_vsi_index = 0;
-+		vf->lan_vsi_id = 0;
-+	}
-+
-+	/* reset some of the state varibles keeping
-+	 * track of the resources
-+	 */
-+	vf->num_queue_pairs = 0;
-+	vf->vf_states = 0;
-+}
-+
-+/**
-+ * i40e_alloc_vf_res
-+ * @vf: pointer to the vf info
-+ *
-+ * allocate vf resources
-+ **/
-+static int i40e_alloc_vf_res(struct i40e_vf *vf)
-+{
-+	struct i40e_pf *pf = vf->pf;
-+	int total_queue_pairs = 0;
-+	int ret;
-+
-+	/* allocate hw vsi context & associated resources */
-+	ret = i40e_alloc_vsi_res(vf, I40E_VSI_SRIOV);
-+	if (ret)
-+		goto error_alloc;
-+	total_queue_pairs += pf->vsi[vf->lan_vsi_index]->num_queue_pairs;
-+	set_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps);
-+
-+	/* store the total qps number for the runtime
-+	 * vf req validation
-+	 */
-+	vf->num_queue_pairs = total_queue_pairs;
-+
-+	/* vf is now completely initialized */
-+	set_bit(I40E_VF_STAT_INIT, &vf->vf_states);
-+
-+error_alloc:
-+	if (ret)
-+		i40e_free_vf_res(vf);
-+
-+	return ret;
-+}
-+
-+/**
-  * i40e_reset_vf
-  * @vf: pointer to the vf structure
-  * @flr: VFLR was issued or not
-@@ -673,134 +801,6 @@ int i40e_reset_vf(struct i40e_vf *vf, bool flr)
- }
- 
- /**
-- * i40e_enable_vf_mappings
-- * @vf: pointer to the vf info
-- *
-- * enable vf mappings
-- **/
--static void i40e_enable_vf_mappings(struct i40e_vf *vf)
--{
--	struct i40e_pf *pf = vf->pf;
--	struct i40e_hw *hw = &pf->hw;
--	u32 reg, total_queue_pairs = 0;
--	int j;
--
--	/* Tell the hardware we're using noncontiguous mapping. HW requires
--	 * that VF queues be mapped using this method, even when they are
--	 * contiguous in real life
--	 */
--	wr32(hw, I40E_VSILAN_QBASE(vf->lan_vsi_id),
--	     I40E_VSILAN_QBASE_VSIQTABLE_ENA_MASK);
--
--	/* enable VF vplan_qtable mappings */
--	reg = I40E_VPLAN_MAPENA_TXRX_ENA_MASK;
--	wr32(hw, I40E_VPLAN_MAPENA(vf->vf_id), reg);
--
--	/* map PF queues to VF queues */
--	for (j = 0; j < pf->vsi[vf->lan_vsi_index]->num_queue_pairs; j++) {
--		u16 qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index, j);
--		reg = (qid & I40E_VPLAN_QTABLE_QINDEX_MASK);
--		wr32(hw, I40E_VPLAN_QTABLE(total_queue_pairs, vf->vf_id), reg);
--		total_queue_pairs++;
--	}
--
--	/* map PF queues to VSI */
--	for (j = 0; j < 7; j++) {
--		if (j * 2 >= pf->vsi[vf->lan_vsi_index]->num_queue_pairs) {
--			reg = 0x07FF07FF;	/* unused */
--		} else {
--			u16 qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index,
--							  j * 2);
--			reg = qid;
--			qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index,
--						      (j * 2) + 1);
--			reg |= qid << 16;
--		}
--		wr32(hw, I40E_VSILAN_QTABLE(j, vf->lan_vsi_id), reg);
--	}
--
--	i40e_flush(hw);
--}
--
--/**
-- * i40e_disable_vf_mappings
-- * @vf: pointer to the vf info
-- *
-- * disable vf mappings
-- **/
--static void i40e_disable_vf_mappings(struct i40e_vf *vf)
--{
--	struct i40e_pf *pf = vf->pf;
--	struct i40e_hw *hw = &pf->hw;
--	int i;
--
--	/* disable qp mappings */
--	wr32(hw, I40E_VPLAN_MAPENA(vf->vf_id), 0);
--	for (i = 0; i < I40E_MAX_VSI_QP; i++)
--		wr32(hw, I40E_VPLAN_QTABLE(i, vf->vf_id),
--		     I40E_QUEUE_END_OF_LIST);
--	i40e_flush(hw);
--}
--
--/**
-- * i40e_free_vf_res
-- * @vf: pointer to the vf info
-- *
-- * free vf resources
-- **/
--static void i40e_free_vf_res(struct i40e_vf *vf)
--{
--	struct i40e_pf *pf = vf->pf;
--
--	/* free vsi & disconnect it from the parent uplink */
--	if (vf->lan_vsi_index) {
--		i40e_vsi_release(pf->vsi[vf->lan_vsi_index]);
--		vf->lan_vsi_index = 0;
--		vf->lan_vsi_id = 0;
--	}
--
--	/* reset some of the state varibles keeping
--	 * track of the resources
--	 */
--	vf->num_queue_pairs = 0;
--	vf->vf_states = 0;
--}
--
--/**
-- * i40e_alloc_vf_res
-- * @vf: pointer to the vf info
-- *
-- * allocate vf resources
-- **/
--static int i40e_alloc_vf_res(struct i40e_vf *vf)
--{
--	struct i40e_pf *pf = vf->pf;
--	int total_queue_pairs = 0;
--	int ret;
--
--	/* allocate hw vsi context & associated resources */
--	ret = i40e_alloc_vsi_res(vf, I40E_VSI_SRIOV);
--	if (ret)
--		goto error_alloc;
--	total_queue_pairs += pf->vsi[vf->lan_vsi_index]->num_queue_pairs;
--	set_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps);
--
--	/* store the total qps number for the runtime
--	 * vf req validation
--	 */
--	vf->num_queue_pairs = total_queue_pairs;
--
--	/* vf is now completely initialized */
--	set_bit(I40E_VF_STAT_INIT, &vf->vf_states);
--
--error_alloc:
--	if (ret)
--		i40e_free_vf_res(vf);
--
--	return ret;
--}
--
--/**
-  * i40e_vfs_are_assigned
-  * @pf: pointer to the pf structure
-  *
+ 	if (ret) {
+-		dev_err(&pf->pdev->dev, "invalid message from vf %d\n", vf_id);
++		dev_err(&pf->pdev->dev, "Invalid message from vf %d, opcode %d, len %d\n",
++			vf_id, v_opcode, msglen);
+ 		return ret;
+ 	}
+ 	wr32(hw, I40E_VFGEN_RSTAT1(vf_id), I40E_VFR_VFACTIVE);
 -- 
 1.8.3.1
