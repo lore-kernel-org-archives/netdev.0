@@ -1,46 +1,44 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Excessive IPI interrupts with single RX queue devices and
- rps_cpus mask set
-Date: Thu, 19 Dec 2013 17:30:54 -0800
-Message-ID: <1387503054.19078.405.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAGVrzcawQhyMXw+_0394OJ=UfiN1Lyxf+JThYPbWrJM6LSZ-WA@mail.gmail.com>
+Subject: Re: [PATCH v3 net-next] sch_tbf: add TBF_BURST/TBF_PBURST attribute
+Date: Thu, 19 Dec 2013 17:31:34 -0800
+Message-ID: <1387503094.19078.406.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1386927716-7896-1-git-send-email-yangyingliang@huawei.com>
+		 <52AFC64F.2070100@huawei.com>
+	 <1387484113.19078.375.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <52B39C5F.1010101@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, therbert@google.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Yang Yingliang <yangyingliang@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:43601 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756516Ab3LTBa4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 20:30:56 -0500
-Received: by mail-pd0-f172.google.com with SMTP id g10so1855249pdj.31
-        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 17:30:56 -0800 (PST)
-In-Reply-To: <CAGVrzcawQhyMXw+_0394OJ=UfiN1Lyxf+JThYPbWrJM6LSZ-WA@mail.gmail.com>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:33134 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756516Ab3LTBbg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 20:31:36 -0500
+Received: by mail-pd0-f171.google.com with SMTP id z10so1862025pdj.30
+        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 17:31:35 -0800 (PST)
+In-Reply-To: <52B39C5F.1010101@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-12-19 at 17:12 -0800, Florian Fainelli wrote:
-> Hello,
+On Fri, 2013-12-20 at 09:24 +0800, Yang Yingliang wrote:
+> From: Yang Yingliang <yangyingliang@huawei.com>
 > 
-> After configuring the rps_cpus mask to enable all CPUs for a single RX
-> queue network device, I noticed that I was getting one interrupt per
-> packet received, with the interrupt count being splitted between NAPI
-> interrupts and IPI SMP interrupts.
+> When we set burst to 1514 with low rate in userspace,
+> the kernel get a value of burst that less than 1514,
+> which doesn't work.
 > 
-> This behavior was observed on 3.8.13 as well as 3.3. The host was
-> receiving a Gigabit UDP stream and the receiver was not consuming the
-> SKBs. Whenever there was a listener consuming the SKBs received, the
-> number of IPI/sec quickly jumped to about 4 times the number without a
-> rps_cpus mask.
+> Because it may make some loss when transform burst
+> to buffer in userspace. This makes burst lose some
+> bytes, when the kernel transform the buffer back to
+> burst.
 > 
-> Shall we prevent the rps_cpu mask to be set at all for single RX queue
-> devices since this seems to causes excessive IPI interrupts?
+> This patch adds two new attributes to support sending
+> burst/mtu to kernel directly to avoid the loss.
+> 
+> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
 
-Not sure what you mean.
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-This is the thing that highly depends on workload.
-
-(Most workloads perform better without RPS/RFS)
-
-This is why it is disabled by default.
+Thanks
