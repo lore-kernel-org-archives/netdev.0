@@ -1,60 +1,84 @@
-From: Salam Noureddine <noureddine@aristanetworks.com>
-Subject: Re: [PATCH 1/1] ipv4: arp: Always update neighbour address when a
- gratuitous arp is received
-Date: Fri, 20 Dec 2013 14:25:48 -0800
-Message-ID: <CAO7SqHBn+S74R2smEVbSFPDhManXpOAczwzRg++q8BJHYMsLRw@mail.gmail.com>
-References: <1387565962-9357-1-git-send-email-noureddine@aristanetworks.com>
-	<20131220140617.09a672f7@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: use kfree_skb_list() helper
+Date: Fri, 20 Dec 2013 14:29:08 -0800
+Message-ID: <1387578548.19078.471.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f178.google.com ([209.85.128.178]:55652 "EHLO
-	mail-ve0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753512Ab3LTWZt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 17:25:49 -0500
-Received: by mail-ve0-f178.google.com with SMTP id c14so1870672vea.9
-        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 14:25:48 -0800 (PST)
-In-Reply-To: <20131220140617.09a672f7@nehalam.linuxnetplumber.net>
+Received: from mail-gg0-f170.google.com ([209.85.161.170]:54166 "EHLO
+	mail-gg0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752114Ab3LTW3L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 17:29:11 -0500
+Received: by mail-gg0-f170.google.com with SMTP id 24so707310gge.1
+        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 14:29:11 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I could make is_garp conditional on ARP_ACCEPT. Would that be a more
-acceptable solution?
-Otherwise, if some sort of rate limiting is needed we would have to
-add an addr_updated field
-to the neighbour structure that would save the time when the address
-was updated and not just
-any update to the neighbour.
+From: Eric Dumazet <edumazet@google.com>
 
-Thanks,
+We can use kfree_skb_list() instead of open coding it.
 
-Salam
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/dev.c    |   18 +++---------------
+ net/core/skbuff.c |    5 +----
+ 2 files changed, 4 insertions(+), 19 deletions(-)
 
-On Fri, Dec 20, 2013 at 2:06 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Fri, 20 Dec 2013 10:59:22 -0800
-> Salam Noureddine <noureddine@aristanetworks.com> wrote:
->
->> Gratuitous arp packets are useful in switchover scenarios to update
->> client arp tables as quickly as possible. Currently, the mac address
->> of a neighbour is only updated after a locktime period has elapsed
->> since the last update. In most use cases such delays are unacceptable
->> for network admins. Moreover, the "updated" field of the neighbour
->> stucture doesn't record the last time the address of a neighbour
->> changed but records any change that happens to the neighbour. This is
->> clearly a bug since locktime uses that field as meaning "addr_updated".
->> With this observation, I was able to perpetuate a stale address by
->> sending a stream of gratuitous arp packets spaced less than locktime
->> apart.
->>
->> Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
->
-> Doesn't this make the system more vulnerable to ARP spoofing?
+diff --git a/net/core/dev.c b/net/core/dev.c
+index c482fe8abf87..973c23656673 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2454,13 +2454,8 @@ static void dev_gso_skb_destructor(struct sk_buff *skb)
+ {
+ 	struct dev_gso_cb *cb;
+ 
+-	do {
+-		struct sk_buff *nskb = skb->next;
+-
+-		skb->next = nskb->next;
+-		nskb->next = NULL;
+-		kfree_skb(nskb);
+-	} while (skb->next);
++	kfree_skb_list(skb->next);
++	skb->next = NULL;
+ 
+ 	cb = DEV_GSO_CB(skb);
+ 	if (cb->destructor)
+@@ -4240,17 +4235,10 @@ EXPORT_SYMBOL(netif_napi_add);
+ 
+ void netif_napi_del(struct napi_struct *napi)
+ {
+-	struct sk_buff *skb, *next;
+-
+ 	list_del_init(&napi->dev_list);
+ 	napi_free_frags(napi);
+ 
+-	for (skb = napi->gro_list; skb; skb = next) {
+-		next = skb->next;
+-		skb->next = NULL;
+-		kfree_skb(skb);
+-	}
+-
++	kfree_skb_list(napi->gro_list);
+ 	napi->gro_list = NULL;
+ 	napi->gro_count = 0;
+ }
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 2b6b863f51f2..eb96c2c22400 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2981,10 +2981,7 @@ perform_csum_check:
+ 	return segs;
+ 
+ err:
+-	while ((skb = segs)) {
+-		segs = skb->next;
+-		kfree_skb(skb);
+-	}
++	kfree_skb_list(segs);
+ 	return ERR_PTR(err);
+ }
+ EXPORT_SYMBOL_GPL(skb_segment);
