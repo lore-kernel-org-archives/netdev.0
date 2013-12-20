@@ -1,68 +1,51 @@
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: [RFC PATCH] net, gro: fix the truesize of all fragments
-Date: Fri, 20 Dec 2013 19:45:43 +0800
-Message-ID: <1387539943-25521-1-git-send-email-zwu.kernel@gmail.com>
-Cc: eric.dumazet@gmail.com, Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:58298 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755863Ab3LTLp6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 06:45:58 -0500
-Received: from /spool/local
-	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <zwu.kernel@gmail.com>;
-	Fri, 20 Dec 2013 04:45:58 -0700
-Received: from b01cxnp23033.gho.pok.ibm.com (b01cxnp23033.gho.pok.ibm.com [9.57.198.28])
-	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 037636E8040
-	for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 06:45:51 -0500 (EST)
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by b01cxnp23033.gho.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id rBKBjrtx9044452
-	for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 11:45:53 GMT
-Received: from d01av04.pok.ibm.com (localhost [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id rBKBjraQ023223
-	for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 06:45:53 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chen Weilong <chenweilong@huawei.com>
+Subject: [patch net-next 5/7] ipv4: ERROR: do not initialise globals to 0 or NULL
+Date: Fri, 20 Dec 2013 19:57:08 +0800
+Message-ID: <1387540630-11052-6-git-send-email-chenweilong@huawei.com>
+References: <1387540630-11052-1-git-send-email-chenweilong@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>,
+	<netfilter@vger.kernel.org>
+To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
+	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
+	<steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1387540630-11052-1-git-send-email-chenweilong@huawei.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+From: Weilong Chen <chenweilong@huawei.com>
 
-When the truesize of all fragments was calculated, it didn't take
-the first small piece of data into account.
 
-Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+Signed-off-by: Weilong Chen <chenweilong@huawei.com>
 ---
- net/core/skbuff.c |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
+ net/ipv4/tcp_probe.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 2b6b863..0665bd6 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3027,9 +3027,12 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 		frag->page_offset += offset;
- 		skb_frag_size_sub(frag, offset);
+diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
+index 8b97d71..1f2d376 100644
+--- a/net/ipv4/tcp_probe.c
++++ b/net/ipv4/tcp_probe.c
+@@ -38,7 +38,7 @@ MODULE_DESCRIPTION("TCP cwnd snooper");
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION("1.1");
  
--		/* all fragments truesize : remove (head size + sk_buff) */
-+		/**
-+		 * all fragments truesize :
-+		 * remove (head size + sk_buff + offset)
-+		 */
- 		delta_truesize = skb->truesize -
--				 SKB_TRUESIZE(skb_end_offset(skb));
-+				 SKB_TRUESIZE(skb_end_offset(skb) + offset);
+-static int port __read_mostly = 0;
++static int port __read_mostly;
+ MODULE_PARM_DESC(port, "Port to match (0=all)");
+ module_param(port, int, 0);
  
- 		skb->truesize -= skb->data_len;
- 		skb->len -= skb->data_len;
-@@ -3060,7 +3063,8 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 		memcpy(frag + 1, skbinfo->frags, sizeof(*frag) * skbinfo->nr_frags);
- 		/* We dont need to clear skbinfo->nr_frags here */
+@@ -46,7 +46,7 @@ static unsigned int bufsize __read_mostly = 4096;
+ MODULE_PARM_DESC(bufsize, "Log buffer size in packets (4096)");
+ module_param(bufsize, uint, 0);
  
--		delta_truesize = skb->truesize - SKB_DATA_ALIGN(sizeof(struct sk_buff));
-+		delta_truesize = skb->truesize -
-+			SKB_DATA_ALIGN(sizeof(struct sk_buff)) - offset;
- 		NAPI_GRO_CB(skb)->free = NAPI_GRO_FREE_STOLEN_HEAD;
- 		goto done;
- 	}
+-static unsigned int fwmark __read_mostly = 0;
++static unsigned int fwmark __read_mostly;
+ MODULE_PARM_DESC(fwmark, "skb mark to match (0=no mark)");
+ module_param(fwmark, uint, 0);
+ 
 -- 
-1.7.6.5
+1.7.12
+
+
