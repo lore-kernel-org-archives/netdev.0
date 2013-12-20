@@ -1,67 +1,44 @@
-From: Salam Noureddine <noureddine@aristanetworks.com>
-Subject: [PATCH 1/1] ipv4: arp: Always update neighbour address when a gratuitous arp is received
-Date: Fri, 20 Dec 2013 10:59:22 -0800
-Message-ID: <1387565962-9357-1-git-send-email-noureddine@aristanetworks.com>
-Cc: Salam Noureddine <noureddine@aristanetworks.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:39099 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751179Ab3LTS7i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 13:59:38 -0500
-Received: by mail-pb0-f52.google.com with SMTP id uo5so2960517pbc.25
-        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 10:59:37 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 0/4] misc: xgene: Add support for APM X-Gene SoC Queue
+ Manager/Traffic Manager
+Date: Fri, 20 Dec 2013 11:00:44 -0800
+Message-ID: <20131220190044.GB26584@kroah.com>
+References: <1387507503-7565-1-git-send-email-rapatel@apm.com>
+ <1387561576.1549.5.camel@bwh-desktop.uk.level5networks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>, arnd@arndb.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	jcm@redhat.com, patches@apm.com
+To: Ravi Patel <rapatel@apm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1387561576.1549.5.camel@bwh-desktop.uk.level5networks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Gratuitous arp packets are useful in switchover scenarios to update
-client arp tables as quickly as possible. Currently, the mac address
-of a neighbour is only updated after a locktime period has elapsed
-since the last update. In most use cases such delays are unacceptable
-for network admins. Moreover, the "updated" field of the neighbour
-stucture doesn't record the last time the address of a neighbour
-changed but records any change that happens to the neighbour. This is
-clearly a bug since locktime uses that field as meaning "addr_updated".
-With this observation, I was able to perpetuate a stale address by
-sending a stream of gratuitous arp packets spaced less than locktime
-apart.
+On Fri, Dec 20, 2013 at 05:46:16PM +0000, Ben Hutchings wrote:
+> > CONFIDENTIALITY NOTICE: This e-mail message, including any attachments, 
+> > is for the sole use of the intended recipient(s) and contains information
+> > that is confidential and proprietary to Applied Micro Circuits Corporation or its subsidiaries. 
+> > It is to be used solely for the purpose of furthering the parties' business relationship. 
+> > All unauthorized review, use, disclosure or distribution is prohibited. 
+> > If you are not the intended recipient, please contact the sender by reply e-mail 
+> > and destroy all copies of the original message.
+> 
+> Well this definitely has nothing to do with any business relationship
+> that may exist between AMCC and Solarflare, so please don't send any
+> more of these messages either directly or via netdev.
 
-Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
----
- net/ipv4/arp.c |   10 ++++++++--
- 1 files changed, 8 insertions(+), 2 deletions(-)
+Ah crap, that means I have to delete these all from my mailboxes as
+well.
 
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 7808093..6597708 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -904,13 +904,19 @@ static int arp_process(struct sk_buff *skb)
- 	if (n) {
- 		int state = NUD_REACHABLE;
- 		int override;
-+		bool is_garp = tip == sip &&
-+			       inet_addr_type(net, sip) == RTN_UNICAST;
- 
- 		/* If several different ARP replies follows back-to-back,
- 		   use the FIRST one. It is possible, if several proxy
- 		   agents are active. Taking the first reply prevents
--		   arp trashing and chooses the fastest router.
-+		   arp trashing and chooses the fastest router. In the
-+		   case of gratuitous arp we always set override in order
-+		   to update the address.
- 		 */
--		override = time_after(jiffies, n->updated + n->parms->locktime);
-+		override = time_after(jiffies,
-+				      n->updated + n->parms->locktime) ||
-+			   is_garp;
- 
- 		/* Broadcast replies and request packets
- 		   do not assert neighbour reachability.
--- 
-1.7.4.4
+Ravi, I can't take any patch or communication that has this type of
+footer as it's in direct contradiction with open source development
+practices and the license of our code.
+
+Please fix your email system.
+
+greg k-h
