@@ -1,48 +1,36 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] nfs: fix dead code of ipv6_addr_scope
-Date: Sat, 21 Dec 2013 05:39:04 +0100
-Message-ID: <1387600744-11366-1-git-send-email-alex.aring@gmail.com>
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	werner-SEdMjqphH88wryQfseakQg@public.gmane.org, Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: "SA" <rahul.gaurav@isik.edu.tr>
+Subject: Project
+Date: Fri, 20 Dec 2013 12:33:33 -0800
+Message-ID: <01067742-41628-4f925239354051@miladsho-2e62cv>
+Reply-To: "SA" <asuleyman43@foxmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.isik.edu.tr ([193.255.146.46]:34134 "EHLO isik.edu.tr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753841Ab3LUEkE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Dec 2013 23:40:04 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by isik.edu.tr (Postfix) with ESMTP id 8E8F7F82BE6
+	for <netdev@vger.kernel.org>; Sat, 21 Dec 2013 06:32:01 +0200 (EET)
+Received: from isik.edu.tr ([127.0.0.1])
+	by localhost (isik.edu.tr [127.0.0.1]) (amavisd-new, port 10032)
+	with ESMTP id hRfY38P6IRym for <netdev@vger.kernel.org>;
+	Sat, 21 Dec 2013 06:32:01 +0200 (EET)
+Received: from localhost (localhost [127.0.0.1])
+	by isik.edu.tr (Postfix) with ESMTP id 439F0F82BD9
+	for <netdev@vger.kernel.org>; Sat, 21 Dec 2013 06:32:01 +0200 (EET)
+Received: from isik.edu.tr ([127.0.0.1])
+	by localhost (isik.edu.tr [127.0.0.1]) (amavisd-new, port 10026)
+	with ESMTP id ewIlu2RckzGB for <netdev@vger.kernel.org>;
+	Sat, 21 Dec 2013 06:32:01 +0200 (EET)
+Received: from miladsho-2e62cv (unknown [5.39.223.26])
+	by isik.edu.tr (Postfix) with ESMTPSA id E5617F82BE6
+	for <netdev@vger.kernel.org>; Sat, 21 Dec 2013 06:32:00 +0200 (EET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The correct way to check on IPV6_ADDR_SCOPE_LINKLOCAL is to check with
-the ipv6_addr_src_scope function.
 
-Currently this can't be work, because ipv6_addr_scope returns a int with
-a mask of IPV6_ADDR_SCOPE_MASK (0x00f0U) and IPV6_ADDR_SCOPE_LINKLOCAL
-is 0x02. So the condition is always false.
-
-Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
-I think ipv6_addr_src_scope should be correct, can somebody from netdev ml
-confirm this please?
-I stumple over that and I did not compile and test it. Maybe this is something
-for stable?
-
- fs/nfs/nfs4filelayoutdev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/fs/nfs/nfs4filelayoutdev.c b/fs/nfs/nfs4filelayoutdev.c
-index c7c295e5..efac602 100644
---- a/fs/nfs/nfs4filelayoutdev.c
-+++ b/fs/nfs/nfs4filelayoutdev.c
-@@ -95,7 +95,7 @@ same_sockaddr(struct sockaddr *addr1, struct sockaddr *addr2)
- 		b6 = (struct sockaddr_in6 *)addr2;
- 
- 		/* LINKLOCAL addresses must have matching scope_id */
--		if (ipv6_addr_scope(&a6->sin6_addr) ==
-+		if (ipv6_addr_src_scope(&a6->sin6_addr) ==
- 		    IPV6_ADDR_SCOPE_LINKLOCAL &&
- 		    a6->sin6_scope_id != b6->sin6_scope_id)
- 			return false;
--- 
-1.8.5.2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+May I request for your partnership to execute a project in Asia, revert if interested
