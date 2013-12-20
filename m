@@ -1,220 +1,188 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [PATCH 1/2] net_sched: add struct net pointer to tcf_proto_ops->dump
-Date: Thu, 19 Dec 2013 17:34:51 -0800
-Message-ID: <1387503292-20078-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: [PATCH 2/2] net_sched: optimize tcf_match_indev()
+Date: Thu, 19 Dec 2013 17:34:52 -0800
+Message-ID: <1387503292-20078-2-git-send-email-xiyou.wangcong@gmail.com>
+References: <1387503292-20078-1-git-send-email-xiyou.wangcong@gmail.com>
 Cc: Cong Wang <xiyou.wangcong@gmail.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:64790 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756516Ab3LTBe6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 20:34:58 -0500
-Received: by mail-pb0-f52.google.com with SMTP id uo5so1918843pbc.39
-        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 17:34:57 -0800 (PST)
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:61919 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756904Ab3LTBe7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 20:34:59 -0500
+Received: by mail-pd0-f171.google.com with SMTP id z10so1854646pdj.16
+        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 17:34:58 -0800 (PST)
+In-Reply-To: <1387503292-20078-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It will be needed by the next patch.
+tcf_match_indev() is called in fast path, it is not wise to
+search for a netdev by ifindex and then compare by its name,
+just compare the ifindex.
+
+This will also save some bytes from the core struct of u32.
 
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 Cc: David S. Miller <davem@davemloft.net>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- include/net/sch_generic.h |  2 +-
- net/sched/cls_api.c       | 11 ++++++-----
- net/sched/cls_basic.c     |  2 +-
- net/sched/cls_bpf.c       |  2 +-
- net/sched/cls_cgroup.c    |  2 +-
- net/sched/cls_flow.c      |  2 +-
- net/sched/cls_fw.c        |  2 +-
- net/sched/cls_route.c     |  2 +-
- net/sched/cls_rsvp.h      |  2 +-
- net/sched/cls_tcindex.c   |  2 +-
- net/sched/cls_u32.c       |  2 +-
- 11 files changed, 16 insertions(+), 15 deletions(-)
+ include/net/pkt_cls.h | 30 +++++++++++++++---------------
+ net/sched/cls_fw.c    | 19 ++++++++++++-------
+ net/sched/cls_u32.c   | 19 ++++++++++++-------
+ 3 files changed, 39 insertions(+), 29 deletions(-)
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 013d96d..d062f81 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -204,7 +204,7 @@ struct tcf_proto_ops {
- 	void			(*walk)(struct tcf_proto*, struct tcf_walker *arg);
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 50ea079..a2441fb 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -338,27 +338,27 @@ static inline int tcf_valid_offset(const struct sk_buff *skb,
+ #include <net/net_namespace.h>
  
- 	/* rtnetlink specific */
--	int			(*dump)(struct tcf_proto*, unsigned long,
-+	int			(*dump)(struct net*, struct tcf_proto*, unsigned long,
- 					struct sk_buff *skb, struct tcmsg*);
- 
- 	struct module		*owner;
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 6b085cf..d07de5b 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -342,7 +342,7 @@ errout:
- 	return err;
- }
- 
--static int tcf_fill_node(struct sk_buff *skb, struct tcf_proto *tp,
-+static int tcf_fill_node(struct net *net, struct sk_buff *skb, struct tcf_proto *tp,
- 			 unsigned long fh, u32 portid, u32 seq, u16 flags, int event)
+ static inline int
+-tcf_change_indev(struct tcf_proto *tp, char *indev, struct nlattr *indev_tlv)
++tcf_change_indev(struct net *net, struct nlattr *indev_tlv)
  {
- 	struct tcmsg *tcm;
-@@ -364,7 +364,7 @@ static int tcf_fill_node(struct sk_buff *skb, struct tcf_proto *tp,
- 	tcm->tcm_handle = fh;
- 	if (RTM_DELTFILTER != event) {
- 		tcm->tcm_handle = 0;
--		if (tp->ops->dump && tp->ops->dump(tp, fh, skb, tcm) < 0)
-+		if (tp->ops->dump && tp->ops->dump(net, tp, fh, skb, tcm) < 0)
- 			goto nla_put_failure;
- 	}
- 	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
-@@ -387,7 +387,7 @@ static int tfilter_notify(struct net *net, struct sk_buff *oskb,
- 	if (!skb)
- 		return -ENOBUFS;
- 
--	if (tcf_fill_node(skb, tp, fh, portid, n->nlmsg_seq, 0, event) <= 0) {
-+	if (tcf_fill_node(net, skb, tp, fh, portid, n->nlmsg_seq, 0, event) <= 0) {
- 		kfree_skb(skb);
++	char indev[IFNAMSIZ];
++	struct net_device *dev;
++
+ 	if (nla_strlcpy(indev, indev_tlv, IFNAMSIZ) >= IFNAMSIZ)
  		return -EINVAL;
- 	}
-@@ -406,8 +406,9 @@ static int tcf_node_dump(struct tcf_proto *tp, unsigned long n,
- 			 struct tcf_walker *arg)
- {
- 	struct tcf_dump_args *a = (void *)arg;
-+	struct net *net = sock_net(a->skb->sk);
- 
--	return tcf_fill_node(a->skb, tp, n, NETLINK_CB(a->cb->skb).portid,
-+	return tcf_fill_node(net, a->skb, tp, n, NETLINK_CB(a->cb->skb).portid,
- 			     a->cb->nlh->nlmsg_seq, NLM_F_MULTI, RTM_NEWTFILTER);
+-	return 0;
++	dev = __dev_get_by_name(net, indev);
++	if (!dev)
++		return -ENODEV;
++	return dev->ifindex;
  }
  
-@@ -465,7 +466,7 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
- 		if (t > s_t)
- 			memset(&cb->args[1], 0, sizeof(cb->args)-sizeof(cb->args[0]));
- 		if (cb->args[1] == 0) {
--			if (tcf_fill_node(skb, tp, 0, NETLINK_CB(cb->skb).portid,
-+			if (tcf_fill_node(net, skb, tp, 0, NETLINK_CB(cb->skb).portid,
- 					  cb->nlh->nlmsg_seq, NLM_F_MULTI,
- 					  RTM_NEWTFILTER) <= 0)
- 				break;
-diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
-index b655203..af6bea1 100644
---- a/net/sched/cls_basic.c
-+++ b/net/sched/cls_basic.c
-@@ -241,7 +241,7 @@ skip:
- 	}
+-static inline int
+-tcf_match_indev(struct sk_buff *skb, char *indev)
++static inline bool
++tcf_match_indev(struct sk_buff *skb, int ifindex)
+ {
+-	struct net_device *dev;
+-
+-	if (indev[0]) {
+-		if  (!skb->skb_iif)
+-			return 0;
+-		dev = __dev_get_by_index(dev_net(skb->dev), skb->skb_iif);
+-		if (!dev || strcmp(indev, dev->name))
+-			return 0;
+-	}
+-
+-	return 1;
++	if (!ifindex)
++		return true;
++	if  (!skb->skb_iif)
++		return false;
++	return ifindex == skb->skb_iif;
  }
+ #endif /* CONFIG_NET_CLS_IND */
  
--static int basic_dump(struct tcf_proto *tp, unsigned long fh,
-+static int basic_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 		      struct sk_buff *skb, struct tcmsg *t)
- {
- 	struct basic_filter *f = (struct basic_filter *) fh;
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index 00a5a58..8e3cf49 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -295,7 +295,7 @@ errout:
- 	return ret;
- }
- 
--static int cls_bpf_dump(struct tcf_proto *tp, unsigned long fh,
-+static int cls_bpf_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 			struct sk_buff *skb, struct tcmsg *tm)
- {
- 	struct cls_bpf_prog *prog = (struct cls_bpf_prog *) fh;
-diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-index f9d21258..e06faf0 100644
---- a/net/sched/cls_cgroup.c
-+++ b/net/sched/cls_cgroup.c
-@@ -260,7 +260,7 @@ skip:
- 	arg->count++;
- }
- 
--static int cls_cgroup_dump(struct tcf_proto *tp, unsigned long fh,
-+static int cls_cgroup_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 			   struct sk_buff *skb, struct tcmsg *t)
- {
- 	struct cls_cgroup_head *head = tp->root;
-diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
-index dfd18a5..257029c 100644
---- a/net/sched/cls_flow.c
-+++ b/net/sched/cls_flow.c
-@@ -563,7 +563,7 @@ static void flow_put(struct tcf_proto *tp, unsigned long f)
- {
- }
- 
--static int flow_dump(struct tcf_proto *tp, unsigned long fh,
-+static int flow_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 		     struct sk_buff *skb, struct tcmsg *t)
- {
- 	struct flow_filter *f = (struct flow_filter *)fh;
 diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
-index 3f9cece..d605285 100644
+index d605285..ca662aa 100644
 --- a/net/sched/cls_fw.c
 +++ b/net/sched/cls_fw.c
-@@ -324,7 +324,7 @@ static void fw_walk(struct tcf_proto *tp, struct tcf_walker *arg)
+@@ -41,7 +41,7 @@ struct fw_filter {
+ 	u32			id;
+ 	struct tcf_result	res;
+ #ifdef CONFIG_NET_CLS_IND
+-	char			indev[IFNAMSIZ];
++	int			ifindex;
+ #endif /* CONFIG_NET_CLS_IND */
+ 	struct tcf_exts		exts;
+ };
+@@ -86,7 +86,7 @@ static int fw_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 			if (f->id == id) {
+ 				*res = f->res;
+ #ifdef CONFIG_NET_CLS_IND
+-				if (!tcf_match_indev(skb, f->indev))
++				if (!tcf_match_indev(skb, f->ifindex))
+ 					continue;
+ #endif /* CONFIG_NET_CLS_IND */
+ 				r = tcf_exts_exec(skb, &f->exts, res);
+@@ -207,9 +207,11 @@ fw_change_attrs(struct net *net, struct tcf_proto *tp, struct fw_filter *f,
+ 
+ #ifdef CONFIG_NET_CLS_IND
+ 	if (tb[TCA_FW_INDEV]) {
+-		err = tcf_change_indev(tp, f->indev, tb[TCA_FW_INDEV]);
+-		if (err < 0)
++		int ret;
++		ret = tcf_change_indev(net, tb[TCA_FW_INDEV]);
++		if (ret < 0)
+ 			goto errout;
++		f->ifindex = ret;
  	}
- }
+ #endif /* CONFIG_NET_CLS_IND */
  
--static int fw_dump(struct tcf_proto *tp, unsigned long fh,
-+static int fw_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 		   struct sk_buff *skb, struct tcmsg *t)
- {
- 	struct fw_head *head = (struct fw_head *)tp->root;
-diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
-index 2473953..c913613 100644
---- a/net/sched/cls_route.c
-+++ b/net/sched/cls_route.c
-@@ -551,7 +551,7 @@ static void route4_walk(struct tcf_proto *tp, struct tcf_walker *arg)
- 	}
- }
- 
--static int route4_dump(struct tcf_proto *tp, unsigned long fh,
-+static int route4_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 		       struct sk_buff *skb, struct tcmsg *t)
- {
- 	struct route4_filter *f = (struct route4_filter *)fh;
-diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
-index 4f25c2a..19f8e5d 100644
---- a/net/sched/cls_rsvp.h
-+++ b/net/sched/cls_rsvp.h
-@@ -594,7 +594,7 @@ static void rsvp_walk(struct tcf_proto *tp, struct tcf_walker *arg)
- 	}
- }
- 
--static int rsvp_dump(struct tcf_proto *tp, unsigned long fh,
-+static int rsvp_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 		     struct sk_buff *skb, struct tcmsg *t)
- {
- 	struct rsvp_filter *f = (struct rsvp_filter *)fh;
-diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
-index ffad187..f575353 100644
---- a/net/sched/cls_tcindex.c
-+++ b/net/sched/cls_tcindex.c
-@@ -422,7 +422,7 @@ static void tcindex_destroy(struct tcf_proto *tp)
- }
- 
- 
--static int tcindex_dump(struct tcf_proto *tp, unsigned long fh,
-+static int tcindex_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
-     struct sk_buff *skb, struct tcmsg *t)
- {
- 	struct tcindex_data *p = PRIV(tp);
+@@ -348,9 +350,12 @@ static int fw_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 	    nla_put_u32(skb, TCA_FW_CLASSID, f->res.classid))
+ 		goto nla_put_failure;
+ #ifdef CONFIG_NET_CLS_IND
+-	if (strlen(f->indev) &&
+-	    nla_put_string(skb, TCA_FW_INDEV, f->indev))
+-		goto nla_put_failure;
++	if (f->ifindex) {
++		struct net_device *dev;
++		dev = __dev_get_by_index(net, f->ifindex);
++		if (dev && nla_put_string(skb, TCA_FW_INDEV, dev->name))
++			goto nla_put_failure;
++	}
+ #endif /* CONFIG_NET_CLS_IND */
+ 	if (head->mask != 0xFFFFFFFF &&
+ 	    nla_put_u32(skb, TCA_FW_MASK, head->mask))
 diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index 20f2fb7..e25411a 100644
+index e25411a..f509b79 100644
 --- a/net/sched/cls_u32.c
 +++ b/net/sched/cls_u32.c
-@@ -712,7 +712,7 @@ static void u32_walk(struct tcf_proto *tp, struct tcf_walker *arg)
- 	}
- }
+@@ -48,7 +48,7 @@ struct tc_u_knode {
+ 	struct tc_u_hnode	*ht_up;
+ 	struct tcf_exts		exts;
+ #ifdef CONFIG_NET_CLS_IND
+-	char                     indev[IFNAMSIZ];
++	int			ifindex;
+ #endif
+ 	u8			fshift;
+ 	struct tcf_result	res;
+@@ -152,7 +152,7 @@ check_terminal:
  
--static int u32_dump(struct tcf_proto *tp, unsigned long fh,
-+static int u32_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 		     struct sk_buff *skb, struct tcmsg *t)
- {
- 	struct tc_u_knode *n = (struct tc_u_knode *)fh;
+ 				*res = n->res;
+ #ifdef CONFIG_NET_CLS_IND
+-				if (!tcf_match_indev(skb, n->indev)) {
++				if (!tcf_match_indev(skb, n->ifindex)) {
+ 					n = n->next;
+ 					goto next_knode;
+ 				}
+@@ -527,9 +527,11 @@ static int u32_set_parms(struct net *net, struct tcf_proto *tp,
+ 
+ #ifdef CONFIG_NET_CLS_IND
+ 	if (tb[TCA_U32_INDEV]) {
+-		err = tcf_change_indev(tp, n->indev, tb[TCA_U32_INDEV]);
+-		if (err < 0)
++		int ret;
++		ret = tcf_change_indev(net, tb[TCA_U32_INDEV]);
++		if (ret < 0)
+ 			goto errout;
++		n->ifindex = ret;
+ 	}
+ #endif
+ 	tcf_exts_change(tp, &n->exts, &e);
+@@ -760,9 +762,12 @@ static int u32_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 			goto nla_put_failure;
+ 
+ #ifdef CONFIG_NET_CLS_IND
+-		if (strlen(n->indev) &&
+-		    nla_put_string(skb, TCA_U32_INDEV, n->indev))
+-			goto nla_put_failure;
++		if (n->ifindex) {
++			struct net_device *dev;
++			dev = __dev_get_by_index(net, n->ifindex);
++			if (dev && nla_put_string(skb, TCA_U32_INDEV, dev->name))
++				goto nla_put_failure;
++		}
+ #endif
+ #ifdef CONFIG_CLS_U32_PERF
+ 		if (nla_put(skb, TCA_U32_PCNT,
 -- 
 1.8.3.1
