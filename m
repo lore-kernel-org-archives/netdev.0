@@ -1,34 +1,34 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [BUG] 3.11.5: IPv6 provoked oops?
-Date: Fri, 20 Dec 2013 21:43:21 +0100
-Message-ID: <20131220204321.GA14073@order.stressinduktion.org>
-References: <20131220203115.GL4360@n2100.arm.linux.org.uk>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: linux-next: Tree for Dec 20 (brocade/bna)
+Date: Fri, 20 Dec 2013 12:52:30 -0800
+Message-ID: <52B4AE0E.8070701@infradead.org>
+References: <20131220172503.b2b7cb92f437d974f032e1a4@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:43408 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750938Ab3LTUnW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 15:43:22 -0500
-Content-Disposition: inline
-In-Reply-To: <20131220203115.GL4360@n2100.arm.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Rasesh Mody <rmody@brocade.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>, linux-next@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20131220172503.b2b7cb92f437d974f032e1a4@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 20, 2013 at 08:31:16PM +0000, Russell King - ARM Linux wrote:
-> So, I'm now running PPPoE on this box, which also does 6to4.  I tried
-> to ping another 6to4 address from a box on my lan, which caused this
-> oops from 3.11.5:
+On 12/19/13 22:25, Stephen Rothwell wrote:
+> Hi all,
+> 
+> Changes since 20131219:
+> 
 
-This should be fixed by the following patches:
 
-http://patchwork.ozlabs.org/patch/288967/
-http://patchwork.ozlabs.org/patch/288970/
+on i386:
 
-I think they reached stable already.
+drivers/net/ethernet/brocade/bna/bnad.c: In function 'bnad_start_xmit':
+drivers/net/ethernet/brocade/bna/bnad.c:3074:26: error: 'struct bnad_tx_vector' has no member named 'dma_len'
 
-Greetings,
 
-  Hannes
+CONFIG_NEED_DMA_MAP_STATE is not enabled.
+
+
+-- 
+~Randy
