@@ -1,39 +1,34 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 01/11] staging: r8188eu: Remove pointless thread_exit macro
-Date: Fri, 20 Dec 2013 14:43:23 -0600
-Message-ID: <52B4ABEB.4000704@lwfinger.net>
-References: <1387514323-4486-1-git-send-email-Larry.Finger@lwfinger.net>
- <1387514323-4486-2-git-send-email-Larry.Finger@lwfinger.net>
- <20131220165859.GA12829@kroah.com> <52B47CDB.506@lwfinger.net>
- <20131220191816.GB27254@kroah.com> <52B4A8EF.1010109@lwfinger.net>
- <20131220203456.GA14617@kroah.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [BUG] 3.11.5: IPv6 provoked oops?
+Date: Fri, 20 Dec 2013 21:43:21 +0100
+Message-ID: <20131220204321.GA14073@order.stressinduktion.org>
+References: <20131220203115.GL4360@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20131220203456.GA14617@kroah.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:43408 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750938Ab3LTUnW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 15:43:22 -0500
+Content-Disposition: inline
+In-Reply-To: <20131220203115.GL4360@n2100.arm.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/20/2013 02:34 PM, Greg KH wrote:
-> Nah, I just switched to 4.8 and rebuilt all of the different kernel
-> trees on this box with it, so I'll stay there for now.
+On Fri, Dec 20, 2013 at 08:31:16PM +0000, Russell King - ARM Linux wrote:
+> So, I'm now running PPPoE on this box, which also does 6to4.  I tried
+> to ping another 6to4 address from a box on my lan, which caused this
+> oops from 3.11.5:
 
-The problem wasn't the fault of gcc 4.8. I only use the staging tree to base 
-patches to send to you, and my .config in that directory was missing one of the 
-options for r8188eu. I have found what I think are all the unused variables in 
-the driver. The patch will be sent shortly.
+This should be fixed by the following patches:
 
-Thanks,
+http://patchwork.ozlabs.org/patch/288967/
+http://patchwork.ozlabs.org/patch/288970/
 
-Larry
+I think they reached stable already.
+
+Greetings,
+
+  Hannes
