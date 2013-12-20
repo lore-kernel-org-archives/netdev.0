@@ -1,188 +1,54 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [PATCH 2/2] net_sched: optimize tcf_match_indev()
-Date: Thu, 19 Dec 2013 17:34:52 -0800
-Message-ID: <1387503292-20078-2-git-send-email-xiyou.wangcong@gmail.com>
-References: <1387503292-20078-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:61919 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756904Ab3LTBe7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 20:34:59 -0500
-Received: by mail-pd0-f171.google.com with SMTP id z10so1854646pdj.16
-        for <netdev@vger.kernel.org>; Thu, 19 Dec 2013 17:34:58 -0800 (PST)
-In-Reply-To: <1387503292-20078-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nithin Nayak Sujir <nsujir@broadcom.com>
+Subject: Re: [PATCH net] tg3: Expand 4g_overflow_test workaround to skb fragments
+ of any size.
+Date: Thu, 19 Dec 2013 17:35:50 -0800
+Message-ID: <52B39EF6.9080006@broadcom.com>
+References: <1387499052-7838-1-git-send-email-nsujir@broadcom.com> <1387500064.19078.381.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<stable@vger.kernel.org>, Michael Chan <mchan@broadcom.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1387500064.19078.381.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-tcf_match_indev() is called in fast path, it is not wise to
-search for a netdev by ifindex and then compare by its name,
-just compare the ifindex.
 
-This will also save some bytes from the core struct of u32.
 
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- include/net/pkt_cls.h | 30 +++++++++++++++---------------
- net/sched/cls_fw.c    | 19 ++++++++++++-------
- net/sched/cls_u32.c   | 19 ++++++++++++-------
- 3 files changed, 39 insertions(+), 29 deletions(-)
+On 12/19/2013 04:41 PM, Eric Dumazet wrote:
+> On Thu, 2013-12-19 at 16:24 -0800, Nithin Nayak Sujir wrote:
+>> The current driver assumes that an skb fragment can only be upto jumbo
+>> size. Presumably this was a fast-path optimization. This assumption is
+>> no longer true as fragments can be upto 32k.
+>>
+>> Cc: stable@vger.kernel.org
+>> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+>> Signed-off-by: Michael Chan <mchan@broadcom.com>
+>> ---
+>>   drivers/net/ethernet/broadcom/tg3.c | 2 +-
+>>   1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+>> index f3dd93b..8ab21d7 100644
+>> --- a/drivers/net/ethernet/broadcom/tg3.c
+>> +++ b/drivers/net/ethernet/broadcom/tg3.c
+>> @@ -7622,7 +7622,7 @@ static inline int tg3_4g_overflow_test(dma_addr_t mapping, int len)
+>>   {
+>>   	u32 base = (u32) mapping & 0xffffffff;
+>>
+>> -	return (base > 0xffffdcc0) && (base + len + 8 < base);
+>> +	return (base + len + 8 < base);
+>>   }
+>>
+>>   /* Test for TSO DMA buffers that cross into regions which are within MSS bytes
+>
+> btw this is also :
+>
+> return base + len + 8 < base;
+>
+>
+>
 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 50ea079..a2441fb 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -338,27 +338,27 @@ static inline int tcf_valid_offset(const struct sk_buff *skb,
- #include <net/net_namespace.h>
- 
- static inline int
--tcf_change_indev(struct tcf_proto *tp, char *indev, struct nlattr *indev_tlv)
-+tcf_change_indev(struct net *net, struct nlattr *indev_tlv)
- {
-+	char indev[IFNAMSIZ];
-+	struct net_device *dev;
-+
- 	if (nla_strlcpy(indev, indev_tlv, IFNAMSIZ) >= IFNAMSIZ)
- 		return -EINVAL;
--	return 0;
-+	dev = __dev_get_by_name(net, indev);
-+	if (!dev)
-+		return -ENODEV;
-+	return dev->ifindex;
- }
- 
--static inline int
--tcf_match_indev(struct sk_buff *skb, char *indev)
-+static inline bool
-+tcf_match_indev(struct sk_buff *skb, int ifindex)
- {
--	struct net_device *dev;
--
--	if (indev[0]) {
--		if  (!skb->skb_iif)
--			return 0;
--		dev = __dev_get_by_index(dev_net(skb->dev), skb->skb_iif);
--		if (!dev || strcmp(indev, dev->name))
--			return 0;
--	}
--
--	return 1;
-+	if (!ifindex)
-+		return true;
-+	if  (!skb->skb_iif)
-+		return false;
-+	return ifindex == skb->skb_iif;
- }
- #endif /* CONFIG_NET_CLS_IND */
- 
-diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
-index d605285..ca662aa 100644
---- a/net/sched/cls_fw.c
-+++ b/net/sched/cls_fw.c
-@@ -41,7 +41,7 @@ struct fw_filter {
- 	u32			id;
- 	struct tcf_result	res;
- #ifdef CONFIG_NET_CLS_IND
--	char			indev[IFNAMSIZ];
-+	int			ifindex;
- #endif /* CONFIG_NET_CLS_IND */
- 	struct tcf_exts		exts;
- };
-@@ -86,7 +86,7 @@ static int fw_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 			if (f->id == id) {
- 				*res = f->res;
- #ifdef CONFIG_NET_CLS_IND
--				if (!tcf_match_indev(skb, f->indev))
-+				if (!tcf_match_indev(skb, f->ifindex))
- 					continue;
- #endif /* CONFIG_NET_CLS_IND */
- 				r = tcf_exts_exec(skb, &f->exts, res);
-@@ -207,9 +207,11 @@ fw_change_attrs(struct net *net, struct tcf_proto *tp, struct fw_filter *f,
- 
- #ifdef CONFIG_NET_CLS_IND
- 	if (tb[TCA_FW_INDEV]) {
--		err = tcf_change_indev(tp, f->indev, tb[TCA_FW_INDEV]);
--		if (err < 0)
-+		int ret;
-+		ret = tcf_change_indev(net, tb[TCA_FW_INDEV]);
-+		if (ret < 0)
- 			goto errout;
-+		f->ifindex = ret;
- 	}
- #endif /* CONFIG_NET_CLS_IND */
- 
-@@ -348,9 +350,12 @@ static int fw_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 	    nla_put_u32(skb, TCA_FW_CLASSID, f->res.classid))
- 		goto nla_put_failure;
- #ifdef CONFIG_NET_CLS_IND
--	if (strlen(f->indev) &&
--	    nla_put_string(skb, TCA_FW_INDEV, f->indev))
--		goto nla_put_failure;
-+	if (f->ifindex) {
-+		struct net_device *dev;
-+		dev = __dev_get_by_index(net, f->ifindex);
-+		if (dev && nla_put_string(skb, TCA_FW_INDEV, dev->name))
-+			goto nla_put_failure;
-+	}
- #endif /* CONFIG_NET_CLS_IND */
- 	if (head->mask != 0xFFFFFFFF &&
- 	    nla_put_u32(skb, TCA_FW_MASK, head->mask))
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index e25411a..f509b79 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -48,7 +48,7 @@ struct tc_u_knode {
- 	struct tc_u_hnode	*ht_up;
- 	struct tcf_exts		exts;
- #ifdef CONFIG_NET_CLS_IND
--	char                     indev[IFNAMSIZ];
-+	int			ifindex;
- #endif
- 	u8			fshift;
- 	struct tcf_result	res;
-@@ -152,7 +152,7 @@ check_terminal:
- 
- 				*res = n->res;
- #ifdef CONFIG_NET_CLS_IND
--				if (!tcf_match_indev(skb, n->indev)) {
-+				if (!tcf_match_indev(skb, n->ifindex)) {
- 					n = n->next;
- 					goto next_knode;
- 				}
-@@ -527,9 +527,11 @@ static int u32_set_parms(struct net *net, struct tcf_proto *tp,
- 
- #ifdef CONFIG_NET_CLS_IND
- 	if (tb[TCA_U32_INDEV]) {
--		err = tcf_change_indev(tp, n->indev, tb[TCA_U32_INDEV]);
--		if (err < 0)
-+		int ret;
-+		ret = tcf_change_indev(net, tb[TCA_U32_INDEV]);
-+		if (ret < 0)
- 			goto errout;
-+		n->ifindex = ret;
- 	}
- #endif
- 	tcf_exts_change(tp, &n->exts, &e);
-@@ -760,9 +762,12 @@ static int u32_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 			goto nla_put_failure;
- 
- #ifdef CONFIG_NET_CLS_IND
--		if (strlen(n->indev) &&
--		    nla_put_string(skb, TCA_U32_INDEV, n->indev))
--			goto nla_put_failure;
-+		if (n->ifindex) {
-+			struct net_device *dev;
-+			dev = __dev_get_by_index(net, n->ifindex);
-+			if (dev && nla_put_string(skb, TCA_U32_INDEV, dev->name))
-+				goto nla_put_failure;
-+		}
- #endif
- #ifdef CONFIG_CLS_U32_PERF
- 		if (nla_put(skb, TCA_U32_PCNT,
--- 
-1.8.3.1
+I'll send a v2.
