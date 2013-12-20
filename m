@@ -1,69 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH] net, gro: fix the truesize of all fragments
-Date: Fri, 20 Dec 2013 06:28:15 -0800
-Message-ID: <1387549695.19078.430.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1387539943-25521-1-git-send-email-zwu.kernel@gmail.com>
+From: Valentina Giusti <valentina.giusti@bmw-carit.de>
+Subject: Re: [PATCH v3 1/2] netfilter_queue: enable UID/GID socket info retrieval
+Date: Fri, 20 Dec 2013 15:32:36 +0100
+Message-ID: <52B45504.20608@bmw-carit.de>
+References: <1387542820-16319-1-git-send-email-valentina.giusti@bmw-carit.de> <1387542820-16319-2-git-send-email-valentina.giusti@bmw-carit.de> <20131220140959.GA29632@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: Zhi Yong Wu <zwu.kernel@gmail.com>
+Cc: <netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<jpa@google.com>, <pablo@netfilter.org>,
+	<daniel.wagner@bmw-carit.de>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:45342 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030201Ab3LTO2R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 09:28:17 -0500
-Received: by mail-pa0-f44.google.com with SMTP id fa1so2689283pad.31
-        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 06:28:16 -0800 (PST)
-In-Reply-To: <1387539943-25521-1-git-send-email-zwu.kernel@gmail.com>
+Received: from mail.bmw-carit.de ([62.245.222.98]:57842 "EHLO
+	mail.bmw-carit.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161003Ab3LTOcl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 09:32:41 -0500
+In-Reply-To: <20131220140959.GA29632@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-12-20 at 19:45 +0800, Zhi Yong Wu wrote:
-> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-> 
-> When the truesize of all fragments was calculated, it didn't take
-> the first small piece of data into account.
-> 
-> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-> ---
->  net/core/skbuff.c |   10 +++++++---
->  1 files changed, 7 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 2b6b863..0665bd6 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -3027,9 +3027,12 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
->  		frag->page_offset += offset;
->  		skb_frag_size_sub(frag, offset);
->  
-> -		/* all fragments truesize : remove (head size + sk_buff) */
-> +		/**
-> +		 * all fragments truesize :
-> +		 * remove (head size + sk_buff + offset)
-> +		 */
->  		delta_truesize = skb->truesize -
-> -				 SKB_TRUESIZE(skb_end_offset(skb));
-> +				 SKB_TRUESIZE(skb_end_offset(skb) + offset);
->  
->  		skb->truesize -= skb->data_len;
->  		skb->len -= skb->data_len;
-> @@ -3060,7 +3063,8 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
->  		memcpy(frag + 1, skbinfo->frags, sizeof(*frag) * skbinfo->nr_frags);
->  		/* We dont need to clear skbinfo->nr_frags here */
->  
-> -		delta_truesize = skb->truesize - SKB_DATA_ALIGN(sizeof(struct sk_buff));
-> +		delta_truesize = skb->truesize -
-> +			SKB_DATA_ALIGN(sizeof(struct sk_buff)) - offset;
->  		NAPI_GRO_CB(skb)->free = NAPI_GRO_FREE_STOLEN_HEAD;
->  		goto done;
->  	}
+On 12/20/2013 03:09 PM, Florian Westphal wrote:
+> valentina.giusti@bmw-carit.de <valentina.giusti@bmw-carit.de> wrote:
+>> --- a/net/netfilter/nfnetlink_queue_core.c
+>> +++ b/net/netfilter/nfnetlink_queue_core.c
+>> @@ -297,6 +297,32 @@ nfqnl_put_packet_info(struct sk_buff *nlskb, struct sk_buff *packet,
+>>   	return flags ? nla_put_be32(nlskb, NFQA_SKB_INFO, htonl(flags)) : 0;
+>>   }
+>>   
+>> +static int nfqnl_put_sk_uidgid(struct sk_buff *skb, struct sock *sk)
+>> +{
+>> +	const struct cred *cred;
+>> +
+>> +	if (sk->sk_state == TCP_TIME_WAIT)
+>> +		return -1;
+> I think this should be 'return 0'?
+I put return -1 because I think that if userspace has requested to 
+receive UID and GID, then it should be dumped only packets that have 
+that information available.
+Are you suggesting that it should be otherwise?
 
-
-Nope, this patch is not needed.
-
-truesize is about tracking the memory we allocated, not the memory we
-really use.
-
-What exact issue do you have ? I suspect a bug in a driver.
+Thanks,
+- Val
