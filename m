@@ -1,37 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net_sched: fix a regression in
- tcf_proto_lookup_ops()
-Date: Fri, 20 Dec 2013 16:30:56 -0500 (EST)
-Message-ID: <20131220.163056.1860063918856296179.davem@davemloft.net>
-References: <CAM_iQpV+WJdeOHOyGENT2XWn=ytjBirBo1G4H2b_QziKHWFw0g@mail.gmail.com>
-	<1387570492.19078.463.camel@edumazet-glaptop2.roam.corp.google.com>
-	<52B4A6F4.6050702@mojatatu.com>
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Subject: Re: [PATCH v2] can: ti_hecc: Replace platform dependency with ARM
+ dependency
+Date: Fri, 20 Dec 2013 18:33:42 -0300
+Message-ID: <20131220213341.GA452@localhost>
+References: <1387570460-18409-1-git-send-email-ezequiel.garcia@free-electrons.com>
+ <52B4B3E7.8050601@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, xiyou.wangcong@gmail.com,
-	netdev@vger.kernel.org
-To: jhs@mojatatu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42807 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751832Ab3LTVa7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 16:30:59 -0500
-In-Reply-To: <52B4A6F4.6050702@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <52B4B3E7.8050601@cogentembedded.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Fri, 20 Dec 2013 15:22:12 -0500
+On Sat, Dec 21, 2013 at 12:17:27AM +0300, Sergei Shtylyov wrote:
+> On 12/20/2013 11:14 PM, Ezequiel Garcia wrote:
+>=20
+> > OMAP's ti_hecc driver is used to support the CAN controller on many=
+ omap2plus
+> > SoCs (OMAP2430, OMAP3, OMAP4, OMAP5 and AM335x), so it's wrong to m=
+ake this
+> > depend on OMAP3 only. Take an extra step, to get wider build covera=
+ge, and make
+> > the driver depend on ARM.
+>=20
+>     To have a real wide coverage, it's probably worth adding '|| COMI=
+PLE_TEXT'=20
+> to 'depends on ARCH_OMAP2PLUS'?
+>=20
 
-> On 12/20/13 15:14, Eric Dumazet wrote:
-> 
->> This will be a separate patch, as the faulty commit is different.
->> ( 1f747c26c48bb290c79c34e155860c7e2ec3926a net_sched: convert
->> tc_action_ops to use struct list_head)
->>
-> 
-> Ok, I hope Dave pulls those changes in - plan to pay closer attention
-> over the weekend.
-
-I will.
+Yup, and that was my exact proposal on my reply to v1 (which I forgot t=
+o detail
+in v2). I'd say it's Marc's call.
+--=20
+Ezequiel Garc=C3=ADa, Free Electrons
+Embedded Linux, Kernel and Android Engineering
+http://free-electrons.com
