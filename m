@@ -1,61 +1,76 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 16/16] i40e: report VF MAC addresses correctly
-Date: Fri, 20 Dec 2013 10:21:34 -0800
-Message-ID: <1387563694-3166-17-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 02/16] i40e: Suppress HMC error to Interrupt message level
+Date: Fri, 20 Dec 2013 10:21:20 -0800
+Message-ID: <1387563694-3166-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1387563694-3166-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Shannon Nelson <shannon.nelson@intel.com>,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:56088 "EHLO mga02.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:61411 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752545Ab3LTSWG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Dec 2013 13:22:06 -0500
+	id S1751049Ab3LTSWB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Dec 2013 13:22:01 -0500
 In-Reply-To: <1387563694-3166-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-If the user does not assign a VF MAC address, then just report it as
-zero.  Attempting to guess the correct primary MAC address of the VF is a
-futile and heartbreaking endeavour.
+Prevent messages from stray HMC events, except at interrupt message
+level, and refactor HMC error handling.
 
-Change-Id: I2673577a160afb6fc55094c890467b44e60c7584
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-Id: Iabd203ba1dfc26a136b638597f3e9991acfa29f3
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 1dd13f4..cc4ebf5 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -2005,7 +2005,6 @@ int i40e_ndo_get_vf_config(struct net_device *netdev,
- 			   int vf_id, struct ifla_vf_info *ivi)
- {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
--	struct i40e_mac_filter *f, *ftmp;
- 	struct i40e_vsi *vsi = np->vsi;
- 	struct i40e_pf *pf = vsi->back;
- 	struct i40e_vf *vf;
-@@ -2029,11 +2028,7 @@ int i40e_ndo_get_vf_config(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index efdf8a2..f14b31c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -2814,6 +2814,11 @@ static irqreturn_t i40e_intr(int irq, void *data)
+ 			pf->empr_count++;
+ 	}
  
- 	ivi->vf = vf_id;
- 
--	/* first entry of the list is the default ethernet address */
--	list_for_each_entry_safe(f, ftmp, &vsi->mac_filter_list, list) {
--		memcpy(&ivi->mac, f->macaddr, I40E_ETH_LENGTH_OF_ADDRESS);
--		break;
--	}
-+	memcpy(&ivi->mac, vf->default_lan_addr.addr, ETH_ALEN);
- 
- 	ivi->tx_rate = 0;
- 	ivi->vlan = le16_to_cpu(vsi->info.pvid) & I40E_VLAN_MASK;
++	if (icr0 & I40E_PFINT_ICR0_HMC_ERR_MASK) {
++		icr0 &= ~I40E_PFINT_ICR0_HMC_ERR_MASK;
++		dev_info(&pf->pdev->dev, "HMC error interrupt\n");
++	}
++
+ 	/* If a critical error is pending we have no choice but to reset the
+ 	 * device.
+ 	 * Report and mask out any remaining unexpected interrupts.
+@@ -2822,18 +2827,13 @@ static irqreturn_t i40e_intr(int irq, void *data)
+ 	if (icr0_remaining) {
+ 		dev_info(&pf->pdev->dev, "unhandled interrupt icr0=0x%08x\n",
+ 			 icr0_remaining);
+-		if ((icr0_remaining & I40E_PFINT_ICR0_HMC_ERR_MASK) ||
+-		    (icr0_remaining & I40E_PFINT_ICR0_PE_CRITERR_MASK) ||
++		if ((icr0_remaining & I40E_PFINT_ICR0_PE_CRITERR_MASK) ||
+ 		    (icr0_remaining & I40E_PFINT_ICR0_PCI_EXCEPTION_MASK) ||
+ 		    (icr0_remaining & I40E_PFINT_ICR0_ECC_ERR_MASK) ||
+ 		    (icr0_remaining & I40E_PFINT_ICR0_MAL_DETECT_MASK)) {
+-			if (icr0 & I40E_PFINT_ICR0_HMC_ERR_MASK) {
+-				dev_info(&pf->pdev->dev, "HMC error interrupt\n");
+-			} else {
+-				dev_info(&pf->pdev->dev, "device will be reset\n");
+-				set_bit(__I40E_PF_RESET_REQUESTED, &pf->state);
+-				i40e_service_event_schedule(pf);
+-			}
++			dev_info(&pf->pdev->dev, "device will be reset\n");
++			set_bit(__I40E_PF_RESET_REQUESTED, &pf->state);
++			i40e_service_event_schedule(pf);
+ 		}
+ 		ena_mask &= ~icr0_remaining;
+ 	}
 -- 
 1.8.3.1
