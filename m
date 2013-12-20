@@ -1,38 +1,49 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next v3 14/16] i40e: make a define from a large constant
-Date: Fri, 20 Dec 2013 10:40:14 -0800
-Message-ID: <1387564814.2353.60.camel@joe-AO722>
-References: <1387563694-3166-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1387563694-3166-15-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: i386 vs x86_64 struct tpacket_hdr layout
+Date: Fri, 20 Dec 2013 19:45:12 +0100
+Message-ID: <52B49038.3070307@redhat.com>
+References: <52B4465E.2090904@aimvalley.nl> <20131220.133854.672157982782686878.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: nvbolhuis@aimvalley.nl, netdev@vger.kernel.org,
+	linux-net@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0223.hostedemail.com ([216.40.44.223]:56266 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751810Ab3LTSkR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 13:40:17 -0500
-In-Reply-To: <1387563694-3166-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:43331 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751039Ab3LTSpU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Dec 2013 13:45:20 -0500
+In-Reply-To: <20131220.133854.672157982782686878.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-12-20 at 10:21 -0800, Jeff Kirsher wrote:
-> Make a define used in the header file by both VF and PF drivers.
-[]
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-[]
-> @@ -66,6 +66,26 @@ enum i40e_dyn_idx_t {
-[]
-> +/* Supported RSS offloads */
-> +#define I40E_DEFAULT_RSS_HENA ( \
-> +	((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP) | \
+On 12/20/2013 07:38 PM, David Miller wrote:
+> From: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
+> Date: Fri, 20 Dec 2013 14:30:06 +0100
+>
+>>
+>> I'm compiling my 32bit application with -m32 on a x86_64
+>> system/kernel.
+>>
+>> Things aren't working because for my application tp_len is at offset 4
+>> but for the kernel it is at offset 8.
+>>
+>> struct tpacket_hdr {
+>>          unsigned long   tp_status;
+>>          unsigned int    tp_len;
+>>          unsigned int    tp_snaplen;
+>>          unsigned short  tp_mac;
+>>          unsigned short  tp_net;
+>>          unsigned int    tp_sec;
+>>          unsigned int    tp_usec;
+>> };
+>>
+>> How is this suppose to work ?
+>
+> This is why you should use tpacket layout v2 or v3, rather than v1,
+> they fix these issues.
 
-BIT_ULL
+Norbert, please also read Documentation/networking/packet_mmap.txt
 
-> +	((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP) | \
-
-etc...
+Thanks !
