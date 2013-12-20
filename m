@@ -1,34 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Add PHY IRQ support to the 'sh_eth' driver
-Date: Thu, 19 Dec 2013 19:11:18 -0500 (EST)
-Message-ID: <20131219.191118.2238735452700839030.davem@davemloft.net>
-References: <201312200138.09307.sergei.shtylyov@cogentembedded.com>
-	<52B37684.5030206@cogentembedded.com>
+Subject: Re: [PATCH] Check return from pci_find_ext_capability() in
+ atl1c_reset_pcie()
+Date: Thu, 19 Dec 2013 19:15:09 -0500 (EST)
+Message-ID: <20131219.191509.632527739089683539.davem@davemloft.net>
+References: <1387475949-30452-1-git-send-email-betty.dall@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36988 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756295Ab3LTALT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Dec 2013 19:11:19 -0500
-In-Reply-To: <52B37684.5030206@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jcliburn@gmail.com, chris.snook@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: betty.dall@hp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1387475949-30452-1-git-send-email-betty.dall@hp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Fri, 20 Dec 2013 01:43:16 +0300
+From: Betty Dall <betty.dall@hp.com>
+Date: Thu, 19 Dec 2013 10:59:09 -0700
 
-> On 12/20/2013 01:38 AM, Sergei Shtylyov wrote:
+> The function atl1c_reset_pcie() does not check the return from
+> pci_find_ext_cabability() where it is getting the postion of the
+> PCI_EXT_CAP_ID_ERR. It is possible for the return to be 0.
 > 
->>     This patchset adds support for passing PHY's IRQ to the 'sh_eth'
->>     driver from
->> the platform code and removes now useless code that hinders the PHY
->> IRQ handing
->> by philib.
-> 
->    Ugh, forgot to mention it's against DaveM's 'net-next.git' repo.
+> Signed-off-by: Betty Dall <betty.dall@hp.com>
 
-No need, series applied, thanks.
+Applied, thank you.
