@@ -1,41 +1,39 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net-next] net_sched: fix a regression in tc actions
-Date: Fri, 20 Dec 2013 07:15:54 -0500
-Message-ID: <52B434FA.8080309@mojatatu.com>
-References: <1387526931-21814-1-git-send-email-xiyou.wangcong@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: [PATCH net-next] vmxnet3: use initialized skb pointer to set hash
+Date: Fri, 20 Dec 2013 13:16:57 +0100
+Message-ID: <1387541817-7877-1-git-send-email-mschmidt@redhat.com>
+Cc: netdev@vger.kernel.org, Tom Herbert <therbert@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:39456 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932130Ab3LTMP5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 07:15:57 -0500
-Received: by mail-ie0-f174.google.com with SMTP id at1so2941135iec.33
-        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 04:15:56 -0800 (PST)
-In-Reply-To: <1387526931-21814-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:19626 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932130Ab3LTMRB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Dec 2013 07:17:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/20/13 03:08, Cong Wang wrote:
-> This patch fixes:
-> 1) pass mask rather than size to tcf_hashinfo_init()
-> 2) the cleanup should be in reversed order in mirred_cleanup_module()
->
-> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Fixes: 369ba56787d7469c0afd ("net_sched: init struct tcf_hashinfo at register time")
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->
+The recent conversion to skb_set_hash() was incorrect. 'skb' is
+uninitialized at this point.
 
-Please Cc me - my filters will catch it faster.
+Fixes: 0b6807034791 ('net: vmxnet3 calls skb_set_hash')
+Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+---
+ drivers/net/vmxnet3/vmxnet3_drv.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-
-cheers,
-jamal
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index c0eab72..3be786f 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -1235,7 +1235,8 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
+ #ifdef VMXNET3_RSS
+ 			if (rcd->rssType != VMXNET3_RCD_RSS_TYPE_NONE &&
+ 			    (adapter->netdev->features & NETIF_F_RXHASH))
+-				skb_set_hash(skb, le32_to_cpu(rcd->rssHash),
++				skb_set_hash(ctx->skb,
++					     le32_to_cpu(rcd->rssHash),
+ 					     PKT_HASH_TYPE_L3);
+ #endif
+ 			skb_put(ctx->skb, rcd->len);
+-- 
+1.8.4.2
