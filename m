@@ -1,99 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv6: mld: Prevent skb_over_panic with large MTUs
-Date: Fri, 20 Dec 2013 17:24:58 -0800
-Message-ID: <1387589098.19078.489.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1387587610-31723-1-git-send-email-travisb@aristanetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: autocork should not hold first packet in write
+ queue
+Date: Fri, 20 Dec 2013 17:56:52 -0500 (EST)
+Message-ID: <20131220.175652.1043712694585011764.davem@davemloft.net>
+References: <1387303110.19078.279.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: Travis Brown <travisb@aristanetworks.com>
+Cc: netdev@vger.kernel.org, willemb@google.com, ncardwell@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f41.google.com ([209.85.213.41]:58853 "EHLO
-	mail-yh0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751932Ab3LUBZF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 20:25:05 -0500
-Received: by mail-yh0-f41.google.com with SMTP id f11so783294yha.0
-        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 17:25:01 -0800 (PST)
-In-Reply-To: <1387587610-31723-1-git-send-email-travisb@aristanetworks.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43777 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752135Ab3LUBhR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 20:37:17 -0500
+In-Reply-To: <1387303110.19078.279.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-12-20 at 17:00 -0800, Travis Brown wrote:
-> MLD limits the maximum skb size to fit within a single page. Later
-> code uses the device MTU, if available, to determine whether the skb
-> has sufficient room for another field. On interfaces with MTUs larger
-> than the page size, less the skb overhead, this can result in the skb
-> being overrun and a skb_over_panic being generated.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 17 Dec 2013 09:58:30 -0800
+
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Fix MLD in the same way IGMPv3 was fixed in the commit 57e1ab6e
-> ("igmp: refine skb allocations"), by storing the requested packet size
-> into skb->cb[0] and using that instead of the device MTU.
+> Willem noticed a TCP_RR regression caused by TCP autocorking
+> on a Mellanox test bed. MLX4_EN_TX_COAL_TIME is 16 us, which can be
+> right above RTT between hosts.
 > 
-> Signed-off-by: Travis Brown <travisb@aristanetworks.com>
-> ---
->  net/ipv6/mcast.c |   12 ++++++++----
->  1 files changed, 8 insertions(+), 4 deletions(-)
+> We can receive a ACK for a packet still in NIC TX ring buffer or in a
+> softnet completion queue.
 > 
-> diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-> index d18f9f9..3c6cbc3 100644
-> --- a/net/ipv6/mcast.c
-> +++ b/net/ipv6/mcast.c
-> @@ -1522,6 +1522,7 @@ static void ip6_mc_hdr(struct sock *sk, struct sk_buff *skb,
->  	hdr->daddr = *daddr;
->  }
->  
-> +#define mld_skb_size(skb) (*(unsigned int *)((skb)->cb))
->  static struct sk_buff *mld_newpack(struct inet6_dev *idev, int size)
->  {
->  	struct net_device *dev = idev->dev;
-> @@ -1531,6 +1532,7 @@ static struct sk_buff *mld_newpack(struct inet6_dev *idev, int size)
->  	struct mld2_report *pmr;
->  	struct in6_addr addr_buf;
->  	const struct in6_addr *saddr;
-> +	int skb_size;
->  	int hlen = LL_RESERVED_SPACE(dev);
->  	int tlen = dev->needed_tailroom;
->  	int err;
-> @@ -1539,14 +1541,16 @@ static struct sk_buff *mld_newpack(struct inet6_dev *idev, int size)
->  		     IPV6_TLV_PADN, 0 };
->  
->  	/* we assume size > sizeof(ra) here */
-> -	size += hlen + tlen;
-> +	skb_size = size + hlen + tlen;
->  	/* limit our allocations to order-0 page */
-> -	size = min_t(int, size, SKB_MAX_ORDER(0, 0));
-> -	skb = sock_alloc_send_skb(sk, size, 1, &err);
-> +	skb_size = min_t(int, skb_size, SKB_MAX_ORDER(0, 0));
-> +	skb = sock_alloc_send_skb(sk, skb_size, 1, &err);
->  
->  	if (!skb)
->  		return NULL;
->  
-> +	mld_skb_size(skb) = size;
-> +
->  	skb->priority = TC_PRIO_CONTROL;
->  	skb_reserve(skb, hlen);
->  
-> @@ -1661,7 +1665,7 @@ static struct sk_buff *add_grhead(struct sk_buff *skb, struct ifmcaddr6 *pmc,
->  	return skb;
->  }
->  
-> -#define AVAILABLE(skb) ((skb) ? ((skb)->dev ? (skb)->dev->mtu - (skb)->len : \
-> +#define AVAILABLE(skb) ((skb) ? ((skb)->dev ? mld_skb_size(skb) - (skb)->len : \
->  	skb_tailroom(skb)) : 0)
->  
+> Fix this by always pushing the skb if it is at the head of write queue.
+> 
+> Also, as TX completion is lockless, it's safer to perform sk_wmem_alloc
+> test after setting TSQ_THROTTLED.
+> 
+> erd:~# MIB="MIN_LATENCY,MEAN_LATENCY,MAX_LATENCY,P99_LATENCY,STDDEV_LATENCY"
+> erd:~#  ./netperf -H remote -t TCP_RR -- -o $MIB | tail -n 1
+> (repeat 3 times)
+ ...
+> Reported-by: Willem de Bruijn <willemb@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: f54b311142a9 ("tcp: auto corking")
 
-Not clear why this macro is like that....
+Applied, but please put "net-next" in the subject line next time.
 
-It looks like it should really be 
-
-#define AVAILABLE(skb) ((skb) ? (mld_skb_size(skb) - (skb)->len) : 0)
-
-Or even better use skb_availroom() as we do in TCP stack...
-(check sk_stream_alloc_skb())
-
-Nice catch, thanks Travis !
-
-Fixes: 72e09ad107e78 ("ipv6: avoid high order allocations")
+Thank you.
