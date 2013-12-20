@@ -1,8 +1,8 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 1/3] bonding: add option lp_interval for loading
- module
-Date: Fri, 20 Dec 2013 13:10:55 +0800
-Message-ID: <52B3D15F.3080703@huawei.com>
+Subject: [PATCH net-next 2/3] bonding: ust micro BOND_NO_USE_ARP to simplify
+ the mode check
+Date: Fri, 20 Dec 2013 13:10:59 +0800
+Message-ID: <52B3D163.3090600@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,66 +12,51 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:30298 "EHLO
+Received: from szxga03-in.huawei.com ([119.145.14.66]:30315 "EHLO
 	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753905Ab3LTFLr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 00:11:47 -0500
+	with ESMTP id S1753908Ab3LTFLu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 00:11:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond driver could set the lp_interval when loading module.
+The bond 3ad and TLB/ALB has the same check path, so combine them.
 
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/bonding/bond_main.c | 15 +++++++++++++--
- 1 file changed, 13 insertions(+), 2 deletions(-)
+ drivers/net/bonding/bond_main.c | 14 ++------------
+ 1 file changed, 2 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index c0456cc..368f7e4 100644
+index 368f7e4..695f8a4 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -113,6 +113,7 @@ static int all_slaves_active;
- static struct bond_params bonding_defaults;
- static int resend_igmp = BOND_DEFAULT_RESEND_IGMP;
- static int packets_per_slave = 1;
-+static int lp_interval = BOND_ALB_DEFAULT_LP_INTERVAL;
- 
- module_param(max_bonds, int, 0);
- MODULE_PARM_DESC(max_bonds, "Max number of bonded devices");
-@@ -189,7 +190,11 @@ module_param(packets_per_slave, int, 0);
- MODULE_PARM_DESC(packets_per_slave, "Packets to send per slave in balance-rr "
- 				    "mode; 0 for a random slave, 1 packet per "
- 				    "slave (default), >1 packets per slave.");
--
-+module_param(lp_interval, uint, 0);
-+MODULE_PARM_DESC(lp_interval, "The number of seconds between instances where "
-+			      "the bonding driver sends learning packets to "
-+			      "each slaves peer switch. The default is 1.");
-+	
- /*----------------------------- Global variables ----------------------------*/
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
-@@ -4271,6 +4276,12 @@ static int bond_check_params(struct bond_params *params)
- 		fail_over_mac_value = BOND_FOM_NONE;
+@@ -4071,8 +4071,8 @@ static int bond_check_params(struct bond_params *params)
+ 		num_peer_notif = 1;
  	}
  
-+	if (lp_interval == 0) {
-+		pr_warning("Warning: ip_interval must be between 1 and %d, so it was reset to %d\n",
-+			INT_MAX, BOND_ALB_DEFAULT_LP_INTERVAL);
-+		lp_interval = BOND_ALB_DEFAULT_LP_INTERVAL;
-+	}
-+
- 	/* fill params struct with the proper values */
- 	params->mode = bond_mode;
- 	params->xmit_policy = xmit_hashtype;
-@@ -4290,7 +4301,7 @@ static int bond_check_params(struct bond_params *params)
- 	params->all_slaves_active = all_slaves_active;
- 	params->resend_igmp = resend_igmp;
- 	params->min_links = min_links;
--	params->lp_interval = BOND_ALB_DEFAULT_LP_INTERVAL;
-+	params->lp_interval = lp_interval;
- 	if (packets_per_slave > 1)
- 		params->packets_per_slave = reciprocal_value(packets_per_slave);
- 	else
+-	/* reset values for 802.3ad */
+-	if (bond_mode == BOND_MODE_8023AD) {
++	/* reset values for 802.3ad/TLB/ALB */
++	if (BOND_NO_USES_ARP(bond_mode)) {
+ 		if (!miimon) {
+ 			pr_warning("Warning: miimon must be specified, otherwise bonding will not detect link failure, speed and duplex which are essential for 802.3ad operation\n");
+ 			pr_warning("Forcing miimon to 100msec\n");
+@@ -4107,16 +4107,6 @@ static int bond_check_params(struct bond_params *params)
+ 		packets_per_slave = 1;
+ 	}
+ 
+-	/* reset values for TLB/ALB */
+-	if ((bond_mode == BOND_MODE_TLB) ||
+-	    (bond_mode == BOND_MODE_ALB)) {
+-		if (!miimon) {
+-			pr_warning("Warning: miimon must be specified, otherwise bonding will not detect link failure and link speed which are essential for TLB/ALB load balancing\n");
+-			pr_warning("Forcing miimon to 100msec\n");
+-			miimon = BOND_DEFAULT_MIIMON;
+-		}
+-	}
+-
+ 	if (bond_mode == BOND_MODE_ALB) {
+ 		pr_notice("In ALB mode you might experience client disconnections upon reconnection of a link if the bonding module updelay parameter (%d msec) is incompatible with the forwarding delay time of the switch\n",
+ 			  updelay);
 -- 
 1.8.0
