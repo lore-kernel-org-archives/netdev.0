@@ -1,64 +1,39 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [RFC PATCH] net, gro: fix the truesize of all fragments
-Date: Fri, 20 Dec 2013 17:52:23 +0400
-Message-ID: <52B44B97.4060400@cogentembedded.com>
-References: <1387539943-25521-1-git-send-email-zwu.kernel@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: randconfig build error with next-20131220, in net/sctp/input.c
+Date: Fri, 20 Dec 2013 14:58:07 +0100
+Message-ID: <20131220135807.GE32129@order.stressinduktion.org>
+References: <CA+r1ZhjYQoZJQLFO=t=mtV8g4CQD5HPU1NjCcYG_HGH=L=xiZw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: Zhi Yong Wu <zwu.kernel@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f43.google.com ([209.85.215.43]:57631 "EHLO
-	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422654Ab3LTNwO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 08:52:14 -0500
-Received: by mail-la0-f43.google.com with SMTP id n7so1134059lam.30
-        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 05:52:13 -0800 (PST)
-In-Reply-To: <1387539943-25521-1-git-send-email-zwu.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	vyasevich@gmail.com, nhorman@tuxdriver.com,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: Jim Davis <jim.epost@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA+r1ZhjYQoZJQLFO=t=mtV8g4CQD5HPU1NjCcYG_HGH=L=xiZw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Fri, Dec 20, 2013 at 06:51:20AM -0700, Jim Davis wrote:
+> Building with the attached random configuration file,
+>=20
+> net/sctp/input.c: In function =E2=80=98sctp_icmp_frag_needed=E2=80=99=
+:
+> net/sctp/input.c:392:2: error: implicit declaration of function
+> =E2=80=98ip6_sk_accept_pmtu=E2=80=99 [-Werror=3Dimplicit-function-dec=
+laration]
+>   if (!ip6_sk_accept_pmtu(sk))
+>   ^
+> cc1: some warnings being treated as errors
+> make[2]: *** [net/sctp/input.o] Error 1
 
-On 20-12-2013 15:45, Zhi Yong Wu wrote:
+Sorry, for that. I already proposed a patch:
+<http://patchwork.ozlabs.org/patch/303308/>
 
-> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+Greetings,
 
-> When the truesize of all fragments was calculated, it didn't take
-> the first small piece of data into account.
-
-> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-> ---
->   net/core/skbuff.c |   10 +++++++---
->   1 files changed, 7 insertions(+), 3 deletions(-)
-
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 2b6b863..0665bd6 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -3027,9 +3027,12 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
->   		frag->page_offset += offset;
->   		skb_frag_size_sub(frag, offset);
->
-> -		/* all fragments truesize : remove (head size + sk_buff) */
-> +		/**
-
-    Why kernel-doc style comment here? Networking code uses the following 
-comment style:
-
-/* bla
-  * bla
-  */
-
-> +		 * all fragments truesize :
-> +		 * remove (head size + sk_buff + offset)
-> +		 */
->   		delta_truesize = skb->truesize -
-> -				 SKB_TRUESIZE(skb_end_offset(skb));
-> +				 SKB_TRUESIZE(skb_end_offset(skb) + offset);
->
->   		skb->truesize -= skb->data_len;
->   		skb->len -= skb->data_len;
-
-WBR, Sergei
+  Hannes
