@@ -1,58 +1,67 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH 2/2] net_sched: optimize tcf_match_indev()
-Date: Fri, 20 Dec 2013 10:55:34 -0800
-Message-ID: <CAM_iQpWz0NP_6vtYhHSSDW1p3HdALoiNm7JkwL=1-XErHOZ14w@mail.gmail.com>
-References: <1387503292-20078-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1387503292-20078-2-git-send-email-xiyou.wangcong@gmail.com>
-	<1387520573.19078.424.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAM_iQpWA2qjjEV97SFajg0Y_0WnWAY2qPY9_7vSuFVuYq5tH6Q@mail.gmail.com>
-	<1387522459.19078.427.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAM_iQpX-Ghj8K-3i4ph+ArugbxjoyZiYDkc1jxBEE+YjmYv3eg@mail.gmail.com>
-	<52B434A9.9070408@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+From: Salam Noureddine <noureddine@aristanetworks.com>
+Subject: [PATCH 1/1] ipv4: arp: Always update neighbour address when a gratuitous arp is received
+Date: Fri, 20 Dec 2013 10:59:22 -0800
+Message-ID: <1387565962-9357-1-git-send-email-noureddine@aristanetworks.com>
+Cc: Salam Noureddine <noureddine@aristanetworks.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:49472 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751797Ab3LTSze (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 13:55:34 -0500
-Received: by mail-ob0-f172.google.com with SMTP id gq1so3154437obb.31
-        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 10:55:34 -0800 (PST)
-In-Reply-To: <52B434A9.9070408@mojatatu.com>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:39099 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751179Ab3LTS7i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 13:59:38 -0500
+Received: by mail-pb0-f52.google.com with SMTP id uo5so2960517pbc.25
+        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 10:59:37 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 20, 2013 at 4:14 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->
-> Very impressive catch Eric. I would have 100% caught this with testing
-> (but you caught it by inspecting code!).
-> A simple test that dumps all the actions of a specific type would do.
-> Example in your case, Cong:
-> tc actions ls action mirred
->
+Gratuitous arp packets are useful in switchover scenarios to update
+client arp tables as quickly as possible. Currently, the mac address
+of a neighbour is only updated after a locktime period has elapsed
+since the last update. In most use cases such delays are unacceptable
+for network admins. Moreover, the "updated" field of the neighbour
+stucture doesn't record the last time the address of a neighbour
+changed but records any change that happens to the neighbour. This is
+clearly a bug since locktime uses that field as meaning "addr_updated".
+With this observation, I was able to perpetuate a stale address by
+sending a stream of gratuitous arp packets spaced less than locktime
+apart.
 
-Are you sure?? It is in my test case right after David merged it,
-I still don't see any bug it reports so far.
+Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
+---
+ net/ipv4/arp.c |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
 
-For completeness, here is my one of test cases:
-
-ip li add dev dummy0 type dummy
-ip li add dev dummy1 type dummy
-ip li add dev dummy2 type dummy
-tc qdisc del dev $1 ingress
-tc qdisc add dev $1 ingress
-tc filter add dev $1 parent ffff: protocol ip u32 match ip protocol 1
-0xff action mirred egress mirror dev dummy0 action mirred egress
-mirror dev dummy1
-tc filter add dev $1 parent ffff: protocol ip u32 match ip protocol 1
-0xff action mirred egress mirror dev dummy0 action mirred egress
-mirror dev dummy2
-tc filter show dev $1 parent ffff: && tc action ls action mirred
-ip li del dummy0
-tc filter show dev $1 parent ffff: && tc action ls action mirred
-ip li del dummy1
-tc filter show dev $1 parent ffff: && tc action ls action mirred
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 7808093..6597708 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -904,13 +904,19 @@ static int arp_process(struct sk_buff *skb)
+ 	if (n) {
+ 		int state = NUD_REACHABLE;
+ 		int override;
++		bool is_garp = tip == sip &&
++			       inet_addr_type(net, sip) == RTN_UNICAST;
+ 
+ 		/* If several different ARP replies follows back-to-back,
+ 		   use the FIRST one. It is possible, if several proxy
+ 		   agents are active. Taking the first reply prevents
+-		   arp trashing and chooses the fastest router.
++		   arp trashing and chooses the fastest router. In the
++		   case of gratuitous arp we always set override in order
++		   to update the address.
+ 		 */
+-		override = time_after(jiffies, n->updated + n->parms->locktime);
++		override = time_after(jiffies,
++				      n->updated + n->parms->locktime) ||
++			   is_garp;
+ 
+ 		/* Broadcast replies and request packets
+ 		   do not assert neighbour reachability.
+-- 
+1.7.4.4
