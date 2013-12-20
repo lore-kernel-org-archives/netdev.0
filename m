@@ -1,19 +1,19 @@
-From: Greg KH <gregkh@linuxfoundation.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
 Subject: Re: [PATCH 01/11] staging: r8188eu: Remove pointless thread_exit macro
-Date: Fri, 20 Dec 2013 12:34:56 -0800
-Message-ID: <20131220203456.GA14617@kroah.com>
+Date: Fri, 20 Dec 2013 14:43:23 -0600
+Message-ID: <52B4ABEB.4000704@lwfinger.net>
 References: <1387514323-4486-1-git-send-email-Larry.Finger@lwfinger.net>
  <1387514323-4486-2-git-send-email-Larry.Finger@lwfinger.net>
  <20131220165859.GA12829@kroah.com> <52B47CDB.506@lwfinger.net>
  <20131220191816.GB27254@kroah.com> <52B4A8EF.1010109@lwfinger.net>
+ <20131220203456.GA14617@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
 Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
+To: Greg KH <gregkh@linuxfoundation.org>
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <52B4A8EF.1010109@lwfinger.net>
+In-Reply-To: <20131220203456.GA14617@kroah.com>
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
 List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
@@ -25,29 +25,15 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-T24gRnJpLCBEZWMgMjAsIDIwMTMgYXQgMDI6MzA6MzlQTSAtMDYwMCwgTGFycnkgRmluZ2VyIHdy
-b3RlOgo+IE9uIDEyLzIwLzIwMTMgMDE6MTggUE0sIEdyZWcgS0ggd3JvdGU6Cj4gPiBPbiBGcmks
-IERlYyAyMCwgMjAxMyBhdCAxMToyMjozNUFNIC0wNjAwLCBMYXJyeSBGaW5nZXIgd3JvdGU6Cj4g
-Pj4gT24gMTIvMjAvMjAxMyAxMDo1OCBBTSwgR3JlZyBLSCB3cm90ZToKPiA+Pj4gV2l0aCB0aGlz
-IHNlcmllcyBhcHBsaWVkLCBJIGdldCBhIHRvbiBvZiAidW51c2VkIHZhcmlhYmxlIiB3YXJuaW5n
-cywgY2FuCj4gPj4+IHlvdSBwbGVhc2UgZml4IHRoZW0gdXAgbm93IHRvbz8KPiA+Pgo+ID4+IFN0
-cmFuZ2UsIGJ1dCBJIGRvbid0IGdldCBhbnkuIE15IGNvbXBpbGVyIGlzIGdjYyAoU1VTRSBMaW51
-eCkgNC44LjEgMjAxMzA5MDkKPiA+PiBbZ2NjLTRfOC1icmFuY2ggcmV2aXNpb24gMjAyMzg4XSBm
-cm9tIG9wZW5TVVNFIDEzLjEuIFdoYXQgdmVyc2lvbiBhcmUgeW91IHVzaW5nPwo+ID4+Cj4gPgo+
-ID4gSSdtIHVzaW5nIGFuIG9sZGVyIHZlcnNpb246Cj4gPiAJJCBnY2MgLS12ZXJzaW9uCj4gPiAJ
-Z2NjIChHZW50b28gNC43LjMtcjEgcDEuMywgcGllLTAuNS41KSA0LjcuMwo+ID4KPiA+IE9kZC4g
-IEknbGwgbW92ZSB1cCB0byA0LjggYW5kIHRyeSB0aGF0Li4uCj4gPgo+ID4gTm9wZSwgc2FtZSBw
-cm9ibGVtLCBoZXJlJ3Mgb25lIGV4YW1wbGUgbGluZToKPiA+IAlkcml2ZXJzL3N0YWdpbmcvcnRs
-ODE4OGV1L2NvcmUvcnR3X2FwLmM6IEluIGZ1bmN0aW9uIOKAmHJ0d19hcF9pbmZvcm1fY2hfc3dp
-dGNo4oCZOgo+ID4gCWRyaXZlcnMvc3RhZ2luZy9ydGw4MTg4ZXUvY29yZS9ydHdfYXAuYzoxNzcz
-OjE2OiB3YXJuaW5nOiB1bnVzZWQgdmFyaWFibGUg4oCYaXJxTOKAmSBbLVd1bnVzZWQtdmFyaWFi
-bGVdCj4gPiAJICB1bnNpZ25lZCBsb25nIGlycUw7Cj4gPgo+ID4gVGhpcyBpcyB4ODYtNjQsIGNv
-dWxkIHRoYXQgYmUgYW4gaXNzdWU/Cj4gCj4gTWluZSBpcyB4ODZfNjQgYXMgd2VsbC4KPiAKPiBJ
-IHNlZSB0aGUgZXh0cmEgbGluZXMgZm9yICJpcnFMIiB0aGF0IGdjYyA0LjcgZmluZHMgYnV0IDQu
-OCBtaXNzZXMuIFlvdSBzaG91bGQgCj4gcHJvYmFibHkgc3RheSBhdCA0LjcgdG8gY2F0Y2ggdGhl
-IHRoaW5ncyB0aGF0IDQuOCBtaXNzZXMuCgpOYWgsIEkganVzdCBzd2l0Y2hlZCB0byA0LjggYW5k
-IHJlYnVpbHQgYWxsIG9mIHRoZSBkaWZmZXJlbnQga2VybmVsCnRyZWVzIG9uIHRoaXMgYm94IHdp
-dGggaXQsIHNvIEknbGwgc3RheSB0aGVyZSBmb3Igbm93LgoKdGhhbmtzLAoKZ3JlZyBrLWgKX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2ZWwgbWFpbGlu
-ZyBsaXN0CmRldmVsQGxpbnV4ZHJpdmVycHJvamVjdC5vcmcKaHR0cDovL2RyaXZlcmRldi5saW51
-eGRyaXZlcnByb2plY3Qub3JnL21haWxtYW4vbGlzdGluZm8vZHJpdmVyZGV2LWRldmVsCg==
+On 12/20/2013 02:34 PM, Greg KH wrote:
+> Nah, I just switched to 4.8 and rebuilt all of the different kernel
+> trees on this box with it, so I'll stay there for now.
+
+The problem wasn't the fault of gcc 4.8. I only use the staging tree to base 
+patches to send to you, and my .config in that directory was missing one of the 
+options for r8188eu. I have found what I think are all the unused variables in 
+the driver. The patch will be sent shortly.
+
+Thanks,
+
+Larry
