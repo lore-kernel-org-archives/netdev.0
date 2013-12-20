@@ -1,70 +1,76 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] can: ti_hecc: Use the OMAP2PLUS dependency for omap2plus
- devices
-Date: Fri, 20 Dec 2013 20:56:01 +0100
-Message-ID: <52B4A0D1.9010503@pengutronix.de>
-References: <1387542110-26596-1-git-send-email-ezequiel.garcia@free-electrons.com> <52B439AE.7020304@pengutronix.de> <20131220125236.GA26648@localhost>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] net_sched: fix a regression in tcf_proto_lookup_ops()
+Date: Fri, 20 Dec 2013 11:57:25 -0800
+Message-ID: <CAM_iQpV+WJdeOHOyGENT2XWn=ytjBirBo1G4H2b_QziKHWFw0g@mail.gmail.com>
+References: <1387526931-21814-1-git-send-email-xiyou.wangcong@gmail.com>
+	<52B434FA.8080309@mojatatu.com>
+	<1387550222.19078.434.camel@edumazet-glaptop2.roam.corp.google.com>
+	<52B45851.90208@mojatatu.com>
+	<1387555659.19078.439.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1387560028.19078.442.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1387560578.19078.443.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1387562658.19078.448.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAM_iQpUQ3iaq+X+CngqJCGWq5Ep_XhcfWEKqrCQcZ3iC6Uz_qA@mail.gmail.com>
+	<1387568188.19078.453.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="uXpUOM0sWIstRUpfiL9bqjdmUWLuWl3fw"
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
-To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:55562 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754624Ab3LTT4I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 14:56:08 -0500
-In-Reply-To: <20131220125236.GA26648@localhost>
+Received: from mail-oa0-f49.google.com ([209.85.219.49]:40427 "EHLO
+	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750866Ab3LTT50 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 14:57:26 -0500
+Received: by mail-oa0-f49.google.com with SMTP id i4so3306111oah.8
+        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 11:57:25 -0800 (PST)
+In-Reply-To: <1387568188.19078.453.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---uXpUOM0sWIstRUpfiL9bqjdmUWLuWl3fw
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On 12/20/2013 01:52 PM, Ezequiel Garcia wrote:
-> On Fri, Dec 20, 2013 at 01:35:58PM +0100, Marc Kleine-Budde wrote:
->> On 12/20/2013 01:21 PM, Ezequiel Garcia wrote:
->>> OMAP's ti_hecc driver is used to support the CAN controller on many
->>> omap2plus SoCs (OMAP2430, OMAP3, OMAP4, OMAP5 and AM335x).
->>> Constrain the driver to OMAP2PLUS, which is the super-set of all the
->>> other SoCs variants.
+On Fri, Dec 20, 2013 at 11:36 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2013-12-20 at 11:11 -0800, Cong Wang wrote:
+>> On Fri, Dec 20, 2013 at 10:04 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > From: Eric Dumazet <edumazet@google.com>
+>> >
+>> > list_for_each_entry(t, &tcf_proto_base, head) doesn't
+>> > exit with t = NULL if we reached the end of the list.
+>> >
+>> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> > Fixes: 3627287463b4 ("net_sched: convert tcf_proto_ops to use struct
+>> > list_head")
+>> > Cc: Cong Wang <xiyou.wangcong@gmail.com>
+>> > ---
+>> >  net/sched/cls_api.c |   22 ++++++++++------------
+>> >  1 file changed, 10 insertions(+), 12 deletions(-)
 >>
->> Why not enable it for all ARM platforms to get a bigger compile covera=
-ge?
+>> The bug you reported to me yesterday is in mirred action module cleanup,
+>> so how is it possible to be fixed in cls_api.c? It should be act_api.c.
 >>
->=20
-> Hm.. Isn't the COMPILE_TEST option for getting compile coverage?
->=20
-> If the IP is only available on OMAP SoCs, it makes sense to only allow
-> building it there, but I don't really have a strong opinion.
+>> If you meant to fix a different bug, please include the backtrace in the log?
+>
+> Why ?
+>
+> I think the bug is obvious and do not need a verbose stack trace in the
+> changelog.
+>
+> Even you were not able to decrypt it, as you thought it was a bug in
+> mirred code. You keep saying it was cause by module cleanup, while
+> I already said the module was not removed at all.
 
-We've replaced the depends on ARCH_* in the flexcan and at91 driver by a
-depends on ARM.
+Then why mirred_cleanup_module() appears in the top of your backtrace?
 
-Marc
+>
+>>
+>> Your patch looks good generally, but actually I doubt we need to check for
+>> an existing ops when unregistering, since we almost for sure only unregister
+>> existing ones as they are all static allocated.
+>
+> Well, lets fix the bug first. I do not think there is any point trying
+> to be smart in this slow path. Particularly if I have to spend 2 more
+> hours to fix some random bug.
+>
+>
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---uXpUOM0sWIstRUpfiL9bqjdmUWLuWl3fw
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlK0oNIACgkQjTAFq1RaXHOxyACdEZYVscdBWQVbgSjw66A8ebx0
-5FcAn3sJ74tOIMNptJt529HGXhxFP9Zl
-=7TZE
------END PGP SIGNATURE-----
-
---uXpUOM0sWIstRUpfiL9bqjdmUWLuWl3fw--
+The current code is smarter actually. Sure, please fix act_api.c as well?
