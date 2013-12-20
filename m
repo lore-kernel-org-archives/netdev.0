@@ -1,38 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net-next] net_sched: fix a regression in tc actions
-Date: Fri, 20 Dec 2013 09:29:38 -0800
-Message-ID: <1387560578.19078.443.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1387526931-21814-1-git-send-email-xiyou.wangcong@gmail.com>
-	 <52B434FA.8080309@mojatatu.com>
-	 <1387550222.19078.434.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <52B45851.90208@mojatatu.com>
-	 <1387555659.19078.439.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1387560028.19078.442.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: RE: [net-next v2 11/16] i40e: remove chatty log messages
+Date: Fri, 20 Dec 2013 17:40:23 +0000
+Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D654E34C9@FMSMSX113.amr.corp.intel.com>
+References: <1387557965-13241-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1387557965-13241-12-git-send-email-jeffrey.t.kirsher@intel.com>
+ <52B489ED.3010704@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f46.google.com ([209.85.213.46]:60953 "EHLO
-	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755035Ab3LTR3l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 12:29:41 -0500
-Received: by mail-yh0-f46.google.com with SMTP id l109so670447yhq.33
-        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 09:29:41 -0800 (PST)
-In-Reply-To: <1387560028.19078.442.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mga09.intel.com ([134.134.136.24]:42621 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750874Ab3LTRmL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 12:42:11 -0500
+In-Reply-To: <52B489ED.3010704@cogentembedded.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-12-20 at 09:20 -0800, Eric Dumazet wrote:
 
-> 
-> The winner is :
-> 
 
-> # first bad commit: [3627287463b4acddb83d24fabb1e0a304e39565c]
-> net_sched: convert tcf_proto_ops to use struct list_head
+> -----Original Message-----
+> From: Sergei Shtylyov [mailto:sergei.shtylyov@cogentembedded.com]
+> Sent: Friday, December 20, 2013 10:18 AM
+> To: Kirsher, Jeffrey T; davem@davemloft.net; Williams, Mitch A
+> Cc: netdev@vger.kernel.org; gospo@redhat.com; sassmann@redhat.com;
+> Brandeburg, Jesse
+> Subject: Re: [net-next v2 11/16] i40e: remove chatty log messages
 > 
+> On 12/20/2013 07:46 PM, Jeff Kirsher wrote:
+> 
+> > From: Mitch Williams <mitch.a.williams@intel.com>
+> 
+> > Don't complain when we disable queues that are already disable, or
+> > enable them when they're already enabled. This removes a bunch of bogus
+> > log messages that we see at every VF reset.
+> 
+> > Change-Id: Ia127be572abdccc48a53d8c43f8a07b8bb920de1
+> > Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+> > Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> > Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > ---
+> >   drivers/net/ethernet/intel/i40e/i40e_main.c | 16 +++-------------
+> >   1 file changed, 3 insertions(+), 13 deletions(-)
+> 
+> > diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> > index c0f78bc..38e07e6 100644
+> > --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> > +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> > @@ -2988,21 +2988,11 @@ static int i40e_vsi_control_tx(struct i40e_vsi
+> *vsi, bool enable)
+> >   		} while (j-- && ((tx_reg >> I40E_QTX_ENA_QENA_REQ_SHIFT)
+> >   			       ^ (tx_reg >> I40E_QTX_ENA_QENA_STAT_SHIFT)) & 1);
+> >
+> > -		if (enable) {
+> > -			/* is STAT set ? */
+> > -			if ((tx_reg & I40E_QTX_ENA_QENA_STAT_MASK)) {
+> > -				dev_info(&pf->pdev->dev,
+> > -					 "Tx %d already enabled\n", i);
+> > +		/* Skip if the queue is already in the requested state */
+> > +		if (enable && (tx_reg & I40E_QTX_ENA_QENA_STAT_MASK))
+> >   				continue;
+> 
+>     This line seems over-indented now.
+> 
+> > -			}
+> > -		} else {
+> > -			/* is !STAT set ? */
+> > -			if (!(tx_reg & I40E_QTX_ENA_QENA_STAT_MASK)) {
+> > -				dev_info(&pf->pdev->dev,
+> > -					 "Tx %d already disabled\n", i);
+> > +		if (!enable && !(tx_reg & I40E_QTX_ENA_QENA_STAT_MASK))
+> >   				continue;
+> 
+>     This one too.
+> 
+> WBR, Sergei
 
-I am testing a fix.
+Sergei, if you look at the source instead of the patch, you'll see that these are correct. The whole thing is inside a for loop, so it should properly be indented two tabs.
+
+-Mitch
