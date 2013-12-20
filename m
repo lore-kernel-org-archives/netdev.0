@@ -1,47 +1,34 @@
-From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Subject: Re: [PATCH v2] arc_emac: fix potential use after free
-Date: Fri, 20 Dec 2013 14:06:07 +0000
-Message-ID: <1387548366.32574.5.camel@abrodkin-8560l>
-References: <1387504737.19078.416.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1387505440.19078.419.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH v3 1/2] netfilter_queue: enable UID/GID socket info
+ retrieval
+Date: Fri, 20 Dec 2013 15:09:59 +0100
+Message-ID: <20131220140959.GA29632@breakpoint.cc>
+References: <1387542820-16319-1-git-send-email-valentina.giusti@bmw-carit.de>
+ <1387542820-16319-2-git-send-email-valentina.giusti@bmw-carit.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"richardcochran@gmail.com" <richardcochran@gmail.com>
-To: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from us02smtp2.synopsys.com ([198.182.60.77]:34000 "EHLO
-	smtp-relay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030255Ab3LTOGL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 09:06:11 -0500
-In-Reply-To: <1387505440.19078.419.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
-Content-ID: <A2D98B9AD1461E4586284D012BE17A37@internal.synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	fw@strlen.de, jpa@google.com, pablo@netfilter.org,
+	daniel.wagner@bmw-carit.de
+To: valentina.giusti@bmw-carit.de
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1387542820-16319-2-git-send-email-valentina.giusti@bmw-carit.de>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-12-19 at 18:10 -0800, Eric Dumazet wrote:
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> 
-> skb_tx_timestamp(skb) should be called _before_ TX completion
-> has a chance to trigger, otherwise it is too late and we access
-> freed memory.
-> 
-> Fixes: e4f2379db6c6 ("ethernet/arc/arc_emac - Add new driver")
+valentina.giusti@bmw-carit.de <valentina.giusti@bmw-carit.de> wrote:
+> --- a/net/netfilter/nfnetlink_queue_core.c
+> +++ b/net/netfilter/nfnetlink_queue_core.c
+> @@ -297,6 +297,32 @@ nfqnl_put_packet_info(struct sk_buff *nlskb, struct sk_buff *packet,
+>  	return flags ? nla_put_be32(nlskb, NFQA_SKB_INFO, htonl(flags)) : 0;
+>  }
+>  
+> +static int nfqnl_put_sk_uidgid(struct sk_buff *skb, struct sock *sk)
+> +{
+> +	const struct cred *cred;
+> +
+> +	if (sk->sk_state == TCP_TIME_WAIT)
+> +		return -1;
 
-Hi Eric,
-
-thanks for this fix.
-
-Indeed I missed this part and description of "skb_tx_timestamp" which
-clearly directs to use it earlier:
-=======
- * skb_tx_timestamp() - Driver hook for transmit timestamping
- *
- * Ethernet MAC Drivers should call this function in their hard_xmit()
- * function immediately before giving the sk_buff to the MAC hardware.
-=======
-
--Alexey
+I think this should be 'return 0'?
