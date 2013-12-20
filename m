@@ -1,47 +1,38 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH next v2] nf-nat: don't use per destination incrementing
- ports in nat random mode
-Date: Fri, 20 Dec 2013 09:01:18 +0100
-Message-ID: <20131220080118.GA4234@localhost>
-References: <20131219134007.GA24118@order.stressinduktion.org>
- <52B37F6B.9010105@redhat.com>
- <20131220004822.GC32129@order.stressinduktion.org>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH net v2 5/9] bridge: Fix the way to check if a local fdb
+ entry can be deleted
+Date: Fri, 20 Dec 2013 17:02:56 +0900
+Message-ID: <1387526576.3475.5.camel@ubuntu-vm-makita>
+References: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	 <1387281821-21342-6-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	 <52B09DB2.7040700@redhat.com> <1387341972.3563.71.camel@ubuntu-vm-makita>
+	 <52B1D9E6.7020201@redhat.com> <1387455834.4084.47.camel@ubuntu-vm-makita>
+	 <20131219093921.449c5d62@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Daniel Borkmann <dborkman@redhat.com>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131220004822.GC32129@order.stressinduktion.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: vyasevic@redhat.com, "David S . Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:57542 "EHLO
+	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751383Ab3LTIDH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 03:03:07 -0500
+In-Reply-To: <20131219093921.449c5d62@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 20, 2013 at 01:48:22AM +0100, Hannes Frederic Sowa wrote:
-> We currently use prandom_u32 for allocation of ports in tcp bind(0)
-> and udp code. In case of plain SNAT we try to keep the ports as is or
-> increment on collision.
-> 
-> SNAT --random mode does use per-destination incrementing port
-> allocation. As a recent paper pointed out that this mode of port
-> allocation makes it possible an attacker to find the randomly
-> allocated ports. So NF_NAT_RANGE_PROTO_RANDOM actually weakens the port
-> randomization in regard to the attack in this paper.
-> 
-> You can find details in this paper:
-> <https://sites.google.com/site/hayashulman/files/NIC-derandomisation.pdf>.
-> 
-> The idea is to send burts of packets to a socket to overflow its receive
-> queue and measure the latency to detect a possible retransmit when the
-> port is found. Because of increasing ports to given destination and port
-> further allocations can be predicted.
-> 
-> So switch NF_NAT_RANGE_PROTO_RANDOM to prandom_u32, too.
+On Thu, 2013-12-19 at 09:39 -0800, Stephen Hemminger wrote:
+...
+> Could we make up as set of test case scripts to validate these changes.
+> Now that FDB table can be manipulated by iproute tools, should be possible
+> to have set of cases for validation.
 
-I think that we should be a bit more conservative and add a new option
-for this and document this new behaviour, so the user can select what
-approach is better according to their needs.
+Thank you for your suggestion.
+Maybe is it enough to make some test of port attach/detach and confirm
+that data/control plane doesn't result in any inconsistency or odd
+situation by tcpdump/bridge commands?
 
-There are protocols that rely on consecutive port allocation to work,
-eg. RTP/RCTP, I'm afraid that this full randomization approach will
-break them.
+Thanks,
+Toshiaki Makita
