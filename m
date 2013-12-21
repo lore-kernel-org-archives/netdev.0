@@ -1,76 +1,59 @@
-From: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
-Subject: [PATCH V2 0/4] misc: xgene: Add support for APM X-Gene SoC Queue Manager/Traffic Manager
-Date: Fri, 20 Dec 2013 18:57:27 -0800
-Message-ID: <1387594651-25771-1-git-send-email-rapatel@apm.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, patches-qTEPVZfXA3Y@public.gmane.org, Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>,
-	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
-To: arnd-r2nGTMty4D4@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Ravi Patel <rapatel@apm.com>
+Subject: [PATCH V2 3/4] arm64: boot: dts: Add DTS entries for APM X-Gene SoC Queue Manager/Traffic Manager
+Date: Fri, 20 Dec 2013 18:57:30 -0800
+Message-ID: <1387594651-25771-4-git-send-email-rapatel@apm.com>
+References: <1387594651-25771-1-git-send-email-rapatel@apm.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	jcm@redhat.com, patches@apm.com, Ravi Patel <rapatel@apm.com>,
+	Keyur Chudgar <kchudgar@apm.com>
+To: arnd@arndb.de, gregkh@linuxfoundation.org, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1387594651-25771-1-git-send-email-rapatel@apm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds support for APM X-Gene SoC Queue Manager/Traffic Manager.
- QMTM is required by APM X-Gene SoC Ethernet, PktDMA (XOR Engine) and
- Security Engine subsystems. All subsystems communicate with QMTM using
- messages which include information about the work to be performed and
- the location of associated data buffers.  
+This patch adds APM X-Gene SoC Queue Manager/Traffic Manager DTS entries.
 
-V2:
- * Adding COMPILE_TEST dependency for QMTM in Kconfig
- * Updated license banner as per review comments
- * Fixed alignment for macros
- * Changed EXPORT_SYMBOL to EXPORT_SYMBOL_GPL
-
-V1:
- * inital version
-
-Signed-off-by: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
-Signed-off-by: Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+Signed-off-by: Ravi Patel <rapatel@apm.com>
+Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
 ---
-Ravi Patel (4):
-  Documentation: Add documentation for APM X-Gene SoC Queue
-    Manager/Traffic Manager DTS binding
-  misc: xgene: Add base driver for APM X-Gene SoC Queue Manager/Traffic
-    Manager
-  arm64: boot: dts: Add DTS entries for APM X-Gene SoC Queue
-    Manager/Traffic Manager
-  misc: xgene: Add error handling for APM X-Gene SoC Queue
-    Manager/Traffic Manager
+ arch/arm64/boot/dts/apm-storm.dtsi |   17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
 
- .../devicetree/bindings/misc/apm-xgene-qmtm.txt    |   51 ++
- MAINTAINERS                                        |    7 +
- arch/arm64/boot/dts/apm-storm.dtsi                 |   17 +
- drivers/misc/Kconfig                               |    1 +
- drivers/misc/Makefile                              |    1 +
- drivers/misc/xgene/Kconfig                         |    1 +
- drivers/misc/xgene/Makefile                        |    5 +
- drivers/misc/xgene/qmtm/Kconfig                    |    9 +
- drivers/misc/xgene/qmtm/Makefile                   |    7 +
- drivers/misc/xgene/qmtm/xgene_qmtm_error.c         |  283 ++++++++
- drivers/misc/xgene/qmtm/xgene_qmtm_main.c          |  765 ++++++++++++++++++++
- drivers/misc/xgene/qmtm/xgene_qmtm_main.h          |  138 ++++
- drivers/misc/xgene/qmtm/xgene_qmtm_storm.c         |  370 ++++++++++
- drivers/misc/xgene/qmtm/xgene_qmtm_storm.h         |  139 ++++
- include/misc/xgene/xgene_qmtm.h                    |  277 +++++++
- 15 files changed, 2071 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/misc/apm-xgene-qmtm.txt
- create mode 100644 drivers/misc/xgene/Kconfig
- create mode 100644 drivers/misc/xgene/Makefile
- create mode 100644 drivers/misc/xgene/qmtm/Kconfig
- create mode 100644 drivers/misc/xgene/qmtm/Makefile
- create mode 100644 drivers/misc/xgene/qmtm/xgene_qmtm_error.c
- create mode 100644 drivers/misc/xgene/qmtm/xgene_qmtm_main.c
- create mode 100644 drivers/misc/xgene/qmtm/xgene_qmtm_main.h
- create mode 100644 drivers/misc/xgene/qmtm/xgene_qmtm_storm.c
- create mode 100644 drivers/misc/xgene/qmtm/xgene_qmtm_storm.h
- create mode 100644 include/misc/xgene/xgene_qmtm.h
-
+diff --git a/arch/arm64/boot/dts/apm-storm.dtsi b/arch/arm64/boot/dts/apm-storm.dtsi
+index d37d736..f64f946 100644
+--- a/arch/arm64/boot/dts/apm-storm.dtsi
++++ b/arch/arm64/boot/dts/apm-storm.dtsi
+@@ -152,6 +152,11 @@
+ 				reg = <0x0 0x1703C000 0x0 0x1000>;
+ 				reg-names = "csr-reg";
+ 				clock-output-names = "qmlclk";
++				status = "ok";
++				csr-offset = <0x0>;
++				csr-mask = <0x3>;
++				enable-offset = <0x8>;
++				enable-mask = <0x3>;
+ 			};
+ 
+ 			ethclk: ethclk {
+@@ -187,5 +192,17 @@
+ 			interrupt-parent = <&gic>;
+ 			interrupts = <0x0 0x4c 0x4>;
+ 		};
++
++		qmlite: qmtm@17030000 {
++			compatible = "apm,xgene-qmtm-lite";
++			reg = <0x0 0x17030000 0x0 0x10000>,
++			      <0x0 0x10000000 0x0 0x400000>;
++			slave-name = "CPU_QMTM3";
++			interrupts = <0x0 0x40 0x4>,
++				     <0x0 0x3c 0x4>;
++			status = "ok";
++			#clock-cells = <1>;
++			clocks = <&qmlclk 0>;
++		};
+ 	};
+ };
 -- 
 1.7.9.5
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
