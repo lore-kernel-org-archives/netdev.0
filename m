@@ -1,57 +1,45 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next 1/3] bonding: add option lp_interval for loading
- module
-Date: Sat, 21 Dec 2013 14:28:30 +0800
-Message-ID: <52B5350E.7060203@huawei.com>
-References: <52B3D15F.3080703@huawei.com> <469C6575-826C-4FF7-8FAE-78166EEB177B@cumulusnetworks.com>
+Subject: [PATCH net-next v2 0/3] bonding: add lp_interval option support and
+ simplify the code
+Date: Sat, 21 Dec 2013 14:39:47 +0800
+Message-ID: <52B537B3.3060504@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
+To: Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>,
 	"David S. Miller" <davem@davemloft.net>,
 	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@cumulusnetworks.com>
+	Netdev <netdev@vger.kernel.org>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:17154 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751043Ab3LUG30 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Dec 2013 01:29:26 -0500
-In-Reply-To: <469C6575-826C-4FF7-8FAE-78166EEB177B@cumulusnetworks.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:19988 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751043Ab3LUGk0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Dec 2013 01:40:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/12/21 10:06, Scott Feldman wrote:
-> 
-> On Dec 19, 2013, at 9:10 PM, Ding Tianhong <dingtianhong@huawei.com> wrote:
-> 
->> @@ -4271,6 +4276,12 @@ static int bond_check_params(struct bond_params *params)
->> 		fail_over_mac_value = BOND_FOM_NONE;
->> 	}
->>
->> +	if (lp_interval == 0) {
->> +		pr_warning("Warning: ip_interval must be between 1 and %d, so it was reset to %d\n",
->> +			INT_MAX, BOND_ALB_DEFAULT_LP_INTERVAL);
->> +		lp_interval = BOND_ALB_DEFAULT_LP_INTERVAL;
->> +	}
->> +
-> 
-> [sorry, replied with wrong email]
-> 
-> What do you think about using the new bond_option_xxx_set() functions for module parameters also?  The above code, for example, is duplicated in bond_option_lp_interval_set().  This way, we have a unified solution, where option bounds checking, compatibility, warnings, etc happened in one place for all three modes of input: sysfs, netlink, and module params.
-> 
-> -scott
-> 
+The option lp_interval could only be set by sysfs, so add support for loading module.
+and update the Documentation/networking/bonding.txt for this option.
 
-Yes, I agree with you, and I will wait for you to finish the bond_option_xxx_set() and then make the bond_check_params() use them, I think the code will be more simplify.
-Thanks
+Use micro BOND_NO_USE_ARP to simplify the code for mode check.
 
-Regards
-ding 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+v2: according to the networking coding style, the patch 01/03 need to cleanup the
+    style problem, thanks scott for his advice. The bond_check_param() have too
+    many duplicated code with bond sysfs, so I think when scott finish the bond_option_xxx_set(),
+    the bond_check_param() should be modify to use the bond_option_xxx_set() function
+    to simplify the code.
+
+Ding Tianhong (3):
+  bonding: add option lp_interval for loading module
+  bonding: ust micro BOND_NO_USE_ARP to simplify the mode check
+  bonding: update Documentation/networking/bonding.txt for option
+    lp_interval
+
+ Documentation/networking/bonding.txt | 10 ++++++++++
+ drivers/net/bonding/bond_main.c      | 29 +++++++++++++++--------------
+ 2 files changed, 25 insertions(+), 14 deletions(-)
+
+-- 
+1.8.0
