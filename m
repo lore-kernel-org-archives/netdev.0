@@ -1,8 +1,8 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 0/3] bonding: add lp_interval option support and
- simplify the code
-Date: Sat, 21 Dec 2013 14:39:47 +0800
-Message-ID: <52B537B3.3060504@huawei.com>
+Subject: [PATCH net-next v2 1/3] bonding: add option lp_interval for loading
+ module
+Date: Sat, 21 Dec 2013 14:40:12 +0800
+Message-ID: <52B537CC.1040305@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -13,33 +13,67 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Netdev <netdev@vger.kernel.org>,
 	Scott Feldman <sfeldma@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:19988 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751043Ab3LUGk0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Dec 2013 01:40:26 -0500
+Received: from szxga02-in.huawei.com ([119.145.14.65]:19129 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751166Ab3LUGkr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Dec 2013 01:40:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The option lp_interval could only be set by sysfs, so add support for loading module.
-and update the Documentation/networking/bonding.txt for this option.
+The bond driver could set the lp_interval when loading module.
 
-Use micro BOND_NO_USE_ARP to simplify the code for mode check.
+Suggested-by: Scott Feldman <sfeldma@cumulusnetworks.com>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/bonding/bond_main.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
 
-v2: according to the networking coding style, the patch 01/03 need to cleanup the
-    style problem, thanks scott for his advice. The bond_check_param() have too
-    many duplicated code with bond sysfs, so I think when scott finish the bond_option_xxx_set(),
-    the bond_check_param() should be modify to use the bond_option_xxx_set() function
-    to simplify the code.
-
-Ding Tianhong (3):
-  bonding: add option lp_interval for loading module
-  bonding: ust micro BOND_NO_USE_ARP to simplify the mode check
-  bonding: update Documentation/networking/bonding.txt for option
-    lp_interval
-
- Documentation/networking/bonding.txt | 10 ++++++++++
- drivers/net/bonding/bond_main.c      | 29 +++++++++++++++--------------
- 2 files changed, 25 insertions(+), 14 deletions(-)
-
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index c0456cc..368f7e4 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -113,6 +113,7 @@ static int all_slaves_active;
+ static struct bond_params bonding_defaults;
+ static int resend_igmp = BOND_DEFAULT_RESEND_IGMP;
+ static int packets_per_slave = 1;
++static int lp_interval = BOND_ALB_DEFAULT_LP_INTERVAL;
+ 
+ module_param(max_bonds, int, 0);
+ MODULE_PARM_DESC(max_bonds, "Max number of bonded devices");
+@@ -189,7 +190,11 @@ module_param(packets_per_slave, int, 0);
+ MODULE_PARM_DESC(packets_per_slave, "Packets to send per slave in balance-rr "
+ 				    "mode; 0 for a random slave, 1 packet per "
+ 				    "slave (default), >1 packets per slave.");
+-
++module_param(lp_interval, uint, 0);
++MODULE_PARM_DESC(lp_interval, "The number of seconds between instances where "
++			      "the bonding driver sends learning packets to "
++			      "each slaves peer switch. The default is 1.");
++	
+ /*----------------------------- Global variables ----------------------------*/
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -4271,6 +4276,12 @@ static int bond_check_params(struct bond_params *params)
+ 		fail_over_mac_value = BOND_FOM_NONE;
+ 	}
+ 
++	if (lp_interval == 0) {
++		pr_warning("Warning: ip_interval must be between 1 and %d, so it was reset to %d\n",
++			   INT_MAX, BOND_ALB_DEFAULT_LP_INTERVAL);
++		lp_interval = BOND_ALB_DEFAULT_LP_INTERVAL;
++	}
++
+ 	/* fill params struct with the proper values */
+ 	params->mode = bond_mode;
+ 	params->xmit_policy = xmit_hashtype;
+@@ -4290,7 +4301,7 @@ static int bond_check_params(struct bond_params *params)
+ 	params->all_slaves_active = all_slaves_active;
+ 	params->resend_igmp = resend_igmp;
+ 	params->min_links = min_links;
+-	params->lp_interval = BOND_ALB_DEFAULT_LP_INTERVAL;
++	params->lp_interval = lp_interval;
+ 	if (packets_per_slave > 1)
+ 		params->packets_per_slave = reciprocal_value(packets_per_slave);
+ 	else
 -- 
 1.8.0
