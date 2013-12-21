@@ -1,76 +1,85 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH 0/5] drivers: net: Adding support for APM X-Gene SoC Ethernet
- base driver
-Date: Fri, 20 Dec 2013 19:42:51 -0800
-Message-ID: <1387597376-29303-1-git-send-email-isubramanian@apm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, gregkh@linuxfoundation.org,
- Iyappan Subramanian <isubramanian@apm.com>, patches@apm.com,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org, jcm@redhat.com,
- Keyur Chudgar <kchudgar@apm.com>, linux-arm-kernel@lists.infradead.org,
- Ravi Patel <rapatel@apm.com>
-To: davem@davemloft.net
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Subject: [PATCH 2/5] arm64: dts: APM X-Gene SoC Ethernet device tree nodes
+Date: Fri, 20 Dec 2013 19:42:53 -0800
+Message-ID: <1387597376-29303-3-git-send-email-isubramanian@apm.com>
+References: <1387597376-29303-1-git-send-email-isubramanian@apm.com>
+Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	patches-qTEPVZfXA3Y@public.gmane.org, Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>,
+	Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>, Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1387597376-29303-1-git-send-email-isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-APM X-Gene SoC Ethernet subsystem communicates with a central Queue Manager
- (QMTM) using messages for transmit, receive and allocating data buffers.
- There are multiple ethernet interfaces in APM X-Gene SoC.
+Device tree files for APM X-Gene SoC Ethernet.
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-Signed-off-by: Ravi Patel <rapatel@apm.com>
-Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
+Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Signed-off-by: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
+Signed-off-by: Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
 ---
-Iyappan Subramanian (5):
-  Documentation: APM X-Gene SoC Ethernet DTS binding documentation
-  arm64: dts: APM X-Gene SoC Ethernet device tree nodes
-  drivers: net: APM X-Gene SoC Ethernet base driver
-  drivers: net: APM X-Gene SoC Ethernet driver error handling
-  drivers: net: APM X-Gene SoC Ethernet driver ethtool support
+ arch/arm64/boot/dts/apm-mustang.dts |    8 ++++++++
+ arch/arm64/boot/dts/apm-storm.dtsi  |   19 +++++++++++++++++++
+ 2 files changed, 27 insertions(+)
 
- .../devicetree/bindings/net/apm-xgene-enet.txt     |   67 +
- MAINTAINERS                                        |    7 +
- arch/arm64/boot/dts/apm-mustang.dts                |    8 +
- arch/arm64/boot/dts/apm-storm.dtsi                 |   19 +
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/apm/Kconfig                   |    1 +
- drivers/net/ethernet/apm/Makefile                  |    5 +
- drivers/net/ethernet/apm/xgene/Kconfig             |   10 +
- drivers/net/ethernet/apm/xgene/Makefile            |   12 +
- drivers/net/ethernet/apm/xgene/xgene_enet_common.c |  497 ++++++
- drivers/net/ethernet/apm/xgene/xgene_enet_common.h |  450 ++++++
- drivers/net/ethernet/apm/xgene/xgene_enet_csr.h    |  427 ++++++
- drivers/net/ethernet/apm/xgene/xgene_enet_err.c    |  715 +++++++++
- drivers/net/ethernet/apm/xgene/xgene_enet_mac.c    |  520 +++++++
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c   | 1609 ++++++++++++++++++++
- drivers/net/ethernet/apm/xgene/xgene_enet_main.h   |  177 +++
- drivers/net/ethernet/apm/xgene/xgene_enet_tools.c  |  296 ++++
- 18 files changed, 4822 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/apm-xgene-enet.txt
- create mode 100644 drivers/net/ethernet/apm/Kconfig
- create mode 100644 drivers/net/ethernet/apm/Makefile
- create mode 100644 drivers/net/ethernet/apm/xgene/Kconfig
- create mode 100644 drivers/net/ethernet/apm/xgene/Makefile
- create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_common.c
- create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_common.h
- create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_csr.h
- create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_err.c
- create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_mac.c
- create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_main.c
- create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_main.h
- create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_tools.c
-
+diff --git a/arch/arm64/boot/dts/apm-mustang.dts b/arch/arm64/boot/dts/apm-mustang.dts
+index 1247ca1..ccb2771 100644
+--- a/arch/arm64/boot/dts/apm-mustang.dts
++++ b/arch/arm64/boot/dts/apm-mustang.dts
+@@ -17,6 +17,10 @@
+ 	model = "APM X-Gene Mustang board";
+ 	compatible = "apm,mustang", "apm,xgene-storm";
+ 
++        aliases {
++                ethernet0 = &menet;
++        };
++
+ 	chosen { };
+ 
+ 	memory {
+@@ -24,3 +28,7 @@
+ 		reg = < 0x1 0x00000000 0x0 0x80000000 >; /* Updated by bootloader */
+ 	};
+ };
++
++&menet {
++        status = "ok";
++};
+diff --git a/arch/arm64/boot/dts/apm-storm.dtsi b/arch/arm64/boot/dts/apm-storm.dtsi
+index f64f946..9c7b8cd 100644
+--- a/arch/arm64/boot/dts/apm-storm.dtsi
++++ b/arch/arm64/boot/dts/apm-storm.dtsi
+@@ -204,5 +204,24 @@
+ 			#clock-cells = <1>;
+ 			clocks = <&qmlclk 0>;
+ 		};
++
++		menet: ethernet@17020000 {
++			compatible = "apm,xgene-enet";
++			status = "disabled";
++			reg = <0x0 0x17020000 0x0 0x30>,
++			      <0x0 0x17020000 0x0 0x10000>,
++			      <0x0 0x17020000 0x0 0x20>;
++			slave-name = "RGMII";
++			interrupts = <0x0 0x38 0x4>,
++				     <0x0 0x39 0x4>,
++				     <0x0 0x3a 0x4>;
++			#clock-cells = <1>;
++			clocks = <&eth8clk 0>;
++			local-mac-address = <0x0 0x11 0x3a 0x8a 0x5a 0x78>;
++			max-frame-size = <0x233a>;
++			devid = <8>;
++			phyid = <3>;
++			phy-mode = "rgmii";
++		};
+ 	};
+ };
 -- 
 1.7.9.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
