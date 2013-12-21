@@ -1,57 +1,68 @@
-From: Scott Feldman <sfeldma@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] sctp: fix missing include file
-Date: Sat, 21 Dec 2013 07:19:03 -0800
-Message-ID: <A1B7221A-6C6E-4B3B-8A7A-8492D04049D2@cumulusnetworks.com>
-References: <20131221025110.9758.12509.stgit@monster-03.cumulusnetworks.com> <20131221.000055.1377147691178558975.davem@davemloft.net> <52B562FE.4000207@redhat.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.0 \(1822\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, vyasevich@gmail.com,
-	nhorman@tuxdriver.com, Netdev <netdev@vger.kernel.org>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v2 -next] netfilter: don't use per-destination incrementing
+ ports in nat random mode
+Date: Sat, 21 Dec 2013 17:25:42 +0100
+Message-ID: <52B5C106.4060507@redhat.com>
+References: <20131219134007.GA24118@order.stressinduktion.org> <52B37F6B.9010105@redhat.com> <20131220004822.GC32129@order.stressinduktion.org> <20131220080118.GA4234@localhost> <20131220214029.GB14073@order.stressinduktion.org> <20131221121759.GA27158@localhost> <20131221122617.GF14073@order.stressinduktion.org> <20131221122751.GA27268@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	kaber@trash.net
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:36820 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754503Ab3LUPVT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Dec 2013 10:21:19 -0500
-In-Reply-To: <52B562FE.4000207@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:35066 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754063Ab3LUQZu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Dec 2013 11:25:50 -0500
+In-Reply-To: <20131221122751.GA27268@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 12/21/2013 01:27 PM, Pablo Neira Ayuso wrote:
+> On Sat, Dec 21, 2013 at 01:26:17PM +0100, Hannes Frederic Sowa wrote:
+>> On Sat, Dec 21, 2013 at 01:17:59PM +0100, Pablo Neira Ayuso wrote:
+>>>> diff --git a/include/uapi/linux/netfilter/nf_nat.h b/include/uapi/linux/netfilter/nf_nat.h
+>>>> index bf0cc37..1ad3659 100644
+>>>> --- a/include/uapi/linux/netfilter/nf_nat.h
+>>>> +++ b/include/uapi/linux/netfilter/nf_nat.h
+>>>
+>>> This is exposed to userspace.
+>>>
+>>>> @@ -4,10 +4,14 @@
+>>>>   #include <linux/netfilter.h>
+>>>>   #include <linux/netfilter/nf_conntrack_tuple_common.h>
+>>>>
+>>>> -#define NF_NAT_RANGE_MAP_IPS		1
+>>>> -#define NF_NAT_RANGE_PROTO_SPECIFIED	2
+>>>> -#define NF_NAT_RANGE_PROTO_RANDOM	4
+>>>> -#define NF_NAT_RANGE_PERSISTENT		8
+>>>> +#define NF_NAT_RANGE_MAP_IPS			(1 << 0)
+>>>> +#define NF_NAT_RANGE_PROTO_SPECIFIED		(1 << 1)
+>>>> +#define NF_NAT_RANGE_PROTO_RANDOM		(1 << 2)
+>>>> +#define NF_NAT_RANGE_PERSISTENT			(1 << 3)
+>>>> +#define NF_NAT_RANGE_PROTO_RANDOM_FULLY		(1 << 4)
+>>>
+>>> So you cannot change it. It would break old iptables binaries.
+>>
+>> There are no semantic changes besides the addition of
+>> NF_NAT_RANGE_PROTO_RANDOM_FULLY. Otherwise just the notation is changed,
+>> which looks sane to me.
+>
+> My fault sorry. I overlooked that you were just converting from
+> numeric to flag notation.
 
-On Dec 21, 2013, at 1:44 AM, Daniel Borkmann <dborkman@redhat.com> wrot=
-e:
+Yes, this was just for readability.
 
-> On 12/21/2013 06:00 AM, David Miller wrote:
->> From: Scott Feldman <sfeldma@cumulusnetworks.com>
->> Date: Fri, 20 Dec 2013 18:51:10 -0800
->>=20
->>> Compile error reported by Jim Davis on netdev.
->>>=20
->>> ip6_sk_accept_pmtu() needs net/ip6_route.h
->>>=20
->>> Signed-off-by: Scott Feldman <sfeldma@cumulusnetworks.com>
->>=20
->> Applied, thanks.
->=20
-> Sorry for the late reply as I'm on travel with limited connectivity.
->=20
-> Scott, this fix is not correct, and probably should be reverted. The
-> correct one was already in patchwork under [1]. In SCTP, we have
-> net/sctp/ipv6.c for all IPv6 related functions. Also there, this
-> include file is already present.
->=20
-> Thanks !
->=20
-> [1] http://patchwork.ozlabs.org/patch/303308/
+> This is fine.
+>
+>>> BTW, please send me the userspace part.
+>>
+>> Daniel has the patch ready, I think he will submit it later today.
 
-Oops, sorry, two ships passing, etc.  I should have looked under patchw=
-ork first.
+I was most of the part on travel today, but I'll see if I can finish
+the user space part tonight and send it out.
 
-David, please revert my change ac0917f2 pending Daniel=92s fix.
+Thanks,
 
--scott
+Daniel
