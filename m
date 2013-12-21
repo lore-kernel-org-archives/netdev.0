@@ -1,34 +1,28 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH 2/2] net_sched: optimize tcf_match_indev()
-Date: Sat, 21 Dec 2013 16:09:24 -0500
-Message-ID: <52B60384.6000002@mojatatu.com>
-References: <1387503292-20078-1-git-send-email-xiyou.wangcong@gmail.com>	<1387503292-20078-2-git-send-email-xiyou.wangcong@gmail.com> <CAM_iQpXgRzPLp=qyD2pYC=J-=xRqDqVRAxm=grZJDF2ZuCsSfw@mail.gmail.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 3/5] drivers: net: APM X-Gene SoC Ethernet base driver
+Date: Sat, 21 Dec 2013 13:11:58 -0800
+Message-ID: <20131221211158.GB30102@kroah.com>
+References: <1387597376-29303-1-git-send-email-isubramanian@apm.com>
+ <1387597376-29303-4-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:62944 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756050Ab3LUVJ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Dec 2013 16:09:28 -0500
-Received: by mail-ie0-f176.google.com with SMTP id at1so4598782iec.21
-        for <netdev@vger.kernel.org>; Sat, 21 Dec 2013 13:09:27 -0800 (PST)
-In-Reply-To: <CAM_iQpXgRzPLp=qyD2pYC=J-=xRqDqVRAxm=grZJDF2ZuCsSfw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, jcm@redhat.com,
+	patches@apm.com, Ravi Patel <rapatel@apm.com>,
+	Keyur Chudgar <kchudgar@apm.com>
+To: Iyappan Subramanian <isubramanian@apm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1387597376-29303-4-git-send-email-isubramanian@apm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/20/13 18:49, Cong Wang wrote:
+On Fri, Dec 20, 2013 at 07:42:54PM -0800, Iyappan Subramanian wrote:
+> Ethernet base device driver for APM X-Gene SoC.
 
-> Jamal, any comments on this patch itself?
->
+Why is this a platform driver and not a bus driver for a xgene device?
 
-I think the idea is good. Sorry havent paid close
-attention - starting to look at what is already
-in net-next. I could pass you a test or two to run
-for this change...
+thanks,
 
-cheers,
-jamal
+greg k-h
