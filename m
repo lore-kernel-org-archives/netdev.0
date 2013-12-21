@@ -1,84 +1,36 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net] hyperv: Fix race between probe and open calls
-Date: Fri, 20 Dec 2013 16:52:31 -0800
-Message-ID: <1387587151-1508-1-git-send-email-haiyangz@microsoft.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC Patch net-next] net_sched: make classifying lockless on
+ ingress
+Date: Fri, 20 Dec 2013 16:08:49 -0800
+Message-ID: <1387584529.19078.482.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1387582105-1789-1-git-send-email-xiyou.wangcong@gmail.com>
+	 <1387583344.19078.475.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAM_iQpWLTL-PmiNz8k7Kv9KcHsFTennATKgbwQWXX2FN8vdxjg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
- linux-kernel@vger.kernel.org, haiyangz@microsoft.com
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f50.google.com ([209.85.213.50]:52766 "EHLO
+	mail-yh0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751259Ab3LUAIw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 19:08:52 -0500
+Received: by mail-yh0-f50.google.com with SMTP id b6so760196yha.37
+        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 16:08:52 -0800 (PST)
+In-Reply-To: <CAM_iQpWLTL-PmiNz8k7Kv9KcHsFTennATKgbwQWXX2FN8vdxjg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Moving the register_netdev to the end of probe to prevent
-possible open call happens before NetVSP is connected.
+On Fri, 2013-12-20 at 15:57 -0800, Cong Wang wrote:
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/netvsc_drv.c |   20 ++++++++------------
- 1 files changed, 8 insertions(+), 12 deletions(-)
+> Just push the lock down to ->enqueue() ? Since ingress qdisc is classless
+> and its ->dequeue() is nop.
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index f813572..71baeb3 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -261,9 +261,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
- 	struct sk_buff *skb;
- 
- 	net = ((struct netvsc_device *)hv_get_drvdata(device_obj))->ndev;
--	if (!net) {
--		netdev_err(net, "got receive callback but net device"
--			" not initialized yet\n");
-+	if (!net || net->reg_state != NETREG_REGISTERED) {
- 		packet->status = NVSP_STAT_FAIL;
- 		return 0;
- 	}
-@@ -435,19 +433,11 @@ static int netvsc_probe(struct hv_device *dev,
- 	SET_ETHTOOL_OPS(net, &ethtool_ops);
- 	SET_NETDEV_DEV(net, &dev->device);
- 
--	ret = register_netdev(net);
--	if (ret != 0) {
--		pr_err("Unable to register netdev.\n");
--		free_netdev(net);
--		goto out;
--	}
--
- 	/* Notify the netvsc driver of the new device */
- 	device_info.ring_size = ring_size;
- 	ret = rndis_filter_device_add(dev, &device_info);
- 	if (ret != 0) {
- 		netdev_err(net, "unable to add netvsc device (ret %d)\n", ret);
--		unregister_netdev(net);
- 		free_netdev(net);
- 		hv_set_drvdata(dev, NULL);
- 		return ret;
-@@ -456,7 +446,13 @@ static int netvsc_probe(struct hv_device *dev,
- 
- 	netif_carrier_on(net);
- 
--out:
-+	ret = register_netdev(net);
-+	if (ret != 0) {
-+		pr_err("Unable to register netdev.\n");
-+		rndis_filter_device_remove(dev);
-+		free_netdev(net);
-+	}
-+
- 	return ret;
- }
- 
--- 
-1.7.4.1
+
+https://github.com/jrfastab/Linux-Kernel-QOS
+
+https://github.com/jrfastab/Linux-Kernel-QOS/commit/67746f95acd77cf15d7ce34f644b76058ce19813
