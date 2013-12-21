@@ -1,165 +1,54 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next] ipv4: introduce hardened ip_no_pmtu_disc mode
-Date: Sat, 21 Dec 2013 01:10:54 +0100
-Message-ID: <20131221001054.GD14073@order.stressinduktion.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH 2/2] net_sched: optimize tcf_match_indev()
+Date: Fri, 20 Dec 2013 16:12:59 -0800
+Message-ID: <CAM_iQpXcK26T1zrg0bOMfay4PP2HU3cuuRi9JyKBTZG8XY4fZg@mail.gmail.com>
+References: <1387503292-20078-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1387503292-20078-2-git-send-email-xiyou.wangcong@gmail.com>
+	<CAM_iQpXgRzPLp=qyD2pYC=J-=xRqDqVRAxm=grZJDF2ZuCsSfw@mail.gmail.com>
+	<1387583967.19078.476.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:43752 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753248Ab3LUAK4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 19:10:56 -0500
-Content-Disposition: inline
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:61948 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751882Ab3LUAM7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 19:12:59 -0500
+Received: by mail-ob0-f172.google.com with SMTP id gq1so3443300obb.17
+        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 16:12:59 -0800 (PST)
+In-Reply-To: <1387583967.19078.476.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This new ip_no_pmtu_disc mode only allowes fragmentation-needed errors
-to be honored by protocols which do more stringent validation on the
-ICMP's packet payload. This knob is useful for people who e.g. want to
-run an unmodified DNS server in a namespace where they need to use pmtu
-for TCP connections (as they are used for zone transfers or fallback
-for requests) but don't want to use possibly spoofed UDP pmtu information.
+On Fri, Dec 20, 2013 at 3:59 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2013-12-20 at 15:49 -0800, Cong Wang wrote:
+>> On Thu, Dec 19, 2013 at 5:34 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> > tcf_match_indev() is called in fast path, it is not wise to
+>> > search for a netdev by ifindex and then compare by its name,
+>> > just compare the ifindex.
+>> >
+>> > This will also save some bytes from the core struct of u32.
+>> >
+>> > Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+>> > Cc: David S. Miller <davem@davemloft.net>
+>> > Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>>
+>>
+>> Jamal, any comments on this patch itself?
+>
+> How device renaming (dev_change_name()) is handled ?
+>
+>
 
-Currently the whitelisted protocols are TCP, SCTP and DCCP as they check
-if the returned packet is in the window or if the association is valid.
+Good point.
 
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
+Before my patch, when the dev name gets changes, indev will not
+be matched any more. After my patch, it can still be matched
+and will be displayed with the new name (ifindex doesn't change).
 
-I know the pmtu patches were a bit controversial in the past but I
-think they are worth it. This is the last one from my todo list on pmtu
-hardening. ;)
-
- Documentation/networking/ip-sysctl.txt |  9 ++++++++-
- include/net/protocol.h                 |  7 ++++++-
- net/dccp/ipv4.c                        |  1 +
- net/ipv4/af_inet.c                     |  1 +
- net/ipv4/icmp.c                        | 28 ++++++++++++++++++++++++----
- net/sctp/protocol.c                    |  1 +
- 6 files changed, 41 insertions(+), 6 deletions(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index d71afa8..6d80a0b 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -26,7 +26,14 @@ ip_no_pmtu_disc - INTEGER
- 	discarded. Outgoing frames are handled the same as in mode 1,
- 	implicitly setting IP_PMTUDISC_DONT on every created socket.
- 
--	Possible values: 0-2
-+	Mode 3 is a hardend pmtu discover mode. The kernel will only
-+	accept fragmentation-needed errors if the underlying protocol
-+	can verify them besides a plain socket lookup. Current
-+	protocols for which pmtu events will be honored are TCP, SCTP
-+	and DCCP as they verify e.g. the sequence number or the
-+	association.
-+
-+	Possible values: 0-3
- 	Default: FALSE
- 
- min_pmtu - INTEGER
-diff --git a/include/net/protocol.h b/include/net/protocol.h
-index fbf7676..0e5f866 100644
---- a/include/net/protocol.h
-+++ b/include/net/protocol.h
-@@ -43,7 +43,12 @@ struct net_protocol {
- 	int			(*handler)(struct sk_buff *skb);
- 	void			(*err_handler)(struct sk_buff *skb, u32 info);
- 	unsigned int		no_policy:1,
--				netns_ok:1;
-+				netns_ok:1,
-+				/* does the protocol do more stringent
-+				 * icmp tag validation than simple
-+				 * socket lookup?
-+				 */
-+				icmp_strict_tag_validation:1;
- };
- 
- #if IS_ENABLED(CONFIG_IPV6)
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index 88299c2..22b5d81 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -989,6 +989,7 @@ static const struct net_protocol dccp_v4_protocol = {
- 	.err_handler	= dccp_v4_err,
- 	.no_policy	= 1,
- 	.netns_ok	= 1,
-+	.icmp_strict_tag_validation = 1,
- };
- 
- static const struct proto_ops inet_dccp_ops = {
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index b8bc1a3..be1f553 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1539,6 +1539,7 @@ static const struct net_protocol tcp_protocol = {
- 	.err_handler	=	tcp_v4_err,
- 	.no_policy	=	1,
- 	.netns_ok	=	1,
-+	.icmp_strict_tag_validation = 1,
- };
- 
- static const struct net_protocol udp_protocol = {
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index fb3c563..0134663 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -668,6 +668,16 @@ static void icmp_socket_deliver(struct sk_buff *skb, u32 info)
- 	rcu_read_unlock();
- }
- 
-+static bool icmp_tag_validation(int proto)
-+{
-+	bool ok;
-+
-+	rcu_read_lock();
-+	ok = rcu_dereference(inet_protos[proto])->icmp_strict_tag_validation;
-+	rcu_read_unlock();
-+	return ok;
-+}
-+
- /*
-  *	Handle ICMP_DEST_UNREACH, ICMP_TIME_EXCEED, ICMP_QUENCH, and
-  *	ICMP_PARAMETERPROB.
-@@ -705,12 +715,22 @@ static void icmp_unreach(struct sk_buff *skb)
- 		case ICMP_PORT_UNREACH:
- 			break;
- 		case ICMP_FRAG_NEEDED:
--			if (net->ipv4.sysctl_ip_no_pmtu_disc == 2) {
--				goto out;
--			} else if (net->ipv4.sysctl_ip_no_pmtu_disc) {
-+			/* for documentation of the ip_no_pmtu_disc
-+			 * values please see
-+			 * Documentation/networking/ip-sysctl.txt
-+			 */
-+			switch (net->ipv4.sysctl_ip_no_pmtu_disc) {
-+			default:
- 				LIMIT_NETDEBUG(KERN_INFO pr_fmt("%pI4: fragmentation needed and DF set\n"),
- 					       &iph->daddr);
--			} else {
-+				break;
-+			case 2:
-+				goto out;
-+			case 3:
-+				if (!icmp_tag_validation(iph->protocol))
-+					goto out;
-+				/* fall through */
-+			case 0:
- 				info = ntohs(icmph->un.frag.mtu);
- 				if (!info)
- 					goto out;
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 19bd4c5..36a1bfc 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -1030,6 +1030,7 @@ static const struct net_protocol sctp_protocol = {
- 	.err_handler = sctp_v4_err,
- 	.no_policy   = 1,
- 	.netns_ok    = 1,
-+	.icmp_strict_tag_validation = 1,
- };
- 
- /* IPv4 address related functions.  */
--- 
-1.8.3.1
+So, I think we probably need the latter behavior, otherwise we
+have to rename the indev manually too in order to match its new
+name.
