@@ -1,66 +1,83 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 1/1] ipv4: arp: Always update neighbour address when a gratuitous arp is received
-Date: Sat, 21 Dec 2013 01:36:10 +0100
-Message-ID: <20131221003610.GE14073@order.stressinduktion.org>
-References: <1387565962-9357-1-git-send-email-noureddine@aristanetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Salam Noureddine <noureddine@aristanetworks.com>
+From: Travis Brown <travisb@aristanetworks.com>
+Subject: [PATCH] ipv6: mld: Prevent skb_over_panic with large MTUs
+Date: Fri, 20 Dec 2013 17:00:10 -0800
+Message-ID: <1387587610-31723-1-git-send-email-travisb@aristanetworks.com>
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: netdev@vger.kernel.org, travisb@aristanetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:43779 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752201Ab3LUAgM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 19:36:12 -0500
-Content-Disposition: inline
-In-Reply-To: <1387565962-9357-1-git-send-email-noureddine@aristanetworks.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:46628 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752629Ab3LUBC0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 20:02:26 -0500
+Received: by mail-pa0-f46.google.com with SMTP id kp14so1426662pab.19
+        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 17:02:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 20, 2013 at 10:59:22AM -0800, Salam Noureddine wrote:
-> Gratuitous arp packets are useful in switchover scenarios to update
-> client arp tables as quickly as possible. Currently, the mac address
-> of a neighbour is only updated after a locktime period has elapsed
-> since the last update. In most use cases such delays are unacceptable
-> for network admins. Moreover, the "updated" field of the neighbour
-> stucture doesn't record the last time the address of a neighbour
-> changed but records any change that happens to the neighbour. This is
-> clearly a bug since locktime uses that field as meaning "addr_updated".
-> With this observation, I was able to perpetuate a stale address by
-> sending a stream of gratuitous arp packets spaced less than locktime
-> apart.
-> 
-> Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
-> ---
->  net/ipv4/arp.c |   10 ++++++++--
->  1 files changed, 8 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-> index 7808093..6597708 100644
-> --- a/net/ipv4/arp.c
-> +++ b/net/ipv4/arp.c
-> @@ -904,13 +904,19 @@ static int arp_process(struct sk_buff *skb)
->  	if (n) {
->  		int state = NUD_REACHABLE;
->  		int override;
-> +		bool is_garp = tip == sip &&
-> +			       inet_addr_type(net, sip) == RTN_UNICAST;
+MLD limits the maximum skb size to fit within a single page. Later
+code uses the device MTU, if available, to determine whether the skb
+has sufficient room for another field. On interfaces with MTUs larger
+than the page size, less the skb overhead, this can result in the skb
+being overrun and a skb_over_panic being generated.
 
-Would it make sense to add the following?
+Fix MLD in the same way IGMPv3 was fixed in the commit 57e1ab6e
+("igmp: refine skb allocations"), by storing the requested packet size
+into skb->cb[0] and using that instead of the device MTU.
 
-				&& arp->arp_op == htons(ARPOP_REQUEST);
+Signed-off-by: Travis Brown <travisb@aristanetworks.com>
+---
+ net/ipv6/mcast.c |   12 ++++++++----
+ 1 files changed, 8 insertions(+), 4 deletions(-)
 
-Maybe we could also check that target hardware address is the broadcast
-address, so we don't accept targetted arp spoofing attempts?
-
-Just extract *tha like we did for sha.
-
-Otherwise I am fine with that.
-
-Thanks,
-
-  Hannes
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index d18f9f9..3c6cbc3 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -1522,6 +1522,7 @@ static void ip6_mc_hdr(struct sock *sk, struct sk_buff *skb,
+ 	hdr->daddr = *daddr;
+ }
+ 
++#define mld_skb_size(skb) (*(unsigned int *)((skb)->cb))
+ static struct sk_buff *mld_newpack(struct inet6_dev *idev, int size)
+ {
+ 	struct net_device *dev = idev->dev;
+@@ -1531,6 +1532,7 @@ static struct sk_buff *mld_newpack(struct inet6_dev *idev, int size)
+ 	struct mld2_report *pmr;
+ 	struct in6_addr addr_buf;
+ 	const struct in6_addr *saddr;
++	int skb_size;
+ 	int hlen = LL_RESERVED_SPACE(dev);
+ 	int tlen = dev->needed_tailroom;
+ 	int err;
+@@ -1539,14 +1541,16 @@ static struct sk_buff *mld_newpack(struct inet6_dev *idev, int size)
+ 		     IPV6_TLV_PADN, 0 };
+ 
+ 	/* we assume size > sizeof(ra) here */
+-	size += hlen + tlen;
++	skb_size = size + hlen + tlen;
+ 	/* limit our allocations to order-0 page */
+-	size = min_t(int, size, SKB_MAX_ORDER(0, 0));
+-	skb = sock_alloc_send_skb(sk, size, 1, &err);
++	skb_size = min_t(int, skb_size, SKB_MAX_ORDER(0, 0));
++	skb = sock_alloc_send_skb(sk, skb_size, 1, &err);
+ 
+ 	if (!skb)
+ 		return NULL;
+ 
++	mld_skb_size(skb) = size;
++
+ 	skb->priority = TC_PRIO_CONTROL;
+ 	skb_reserve(skb, hlen);
+ 
+@@ -1661,7 +1665,7 @@ static struct sk_buff *add_grhead(struct sk_buff *skb, struct ifmcaddr6 *pmc,
+ 	return skb;
+ }
+ 
+-#define AVAILABLE(skb) ((skb) ? ((skb)->dev ? (skb)->dev->mtu - (skb)->len : \
++#define AVAILABLE(skb) ((skb) ? ((skb)->dev ? mld_skb_size(skb) - (skb)->len : \
+ 	skb_tailroom(skb)) : 0)
+ 
+ static struct sk_buff *add_grec(struct sk_buff *skb, struct ifmcaddr6 *pmc,
+-- 
+1.7.4.4
