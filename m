@@ -1,48 +1,34 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH V2 0/4] misc: xgene: Add support for APM X-Gene SoC Queue
- Manager/Traffic Manager
-Date: Sat, 21 Dec 2013 13:06:38 -0800
-Message-ID: <20131221210638.GA30102@kroah.com>
-References: <1387594651-25771-1-git-send-email-rapatel@apm.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH 2/2] net_sched: optimize tcf_match_indev()
+Date: Sat, 21 Dec 2013 16:09:24 -0500
+Message-ID: <52B60384.6000002@mojatatu.com>
+References: <1387503292-20078-1-git-send-email-xiyou.wangcong@gmail.com>	<1387503292-20078-2-git-send-email-xiyou.wangcong@gmail.com> <CAM_iQpXgRzPLp=qyD2pYC=J-=xRqDqVRAxm=grZJDF2ZuCsSfw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, arnd@arndb.de, netdev@vger.kernel.org,
- patches@apm.com, linux-kernel@vger.kernel.org, jcm@redhat.com,
- Keyur Chudgar <kchudgar@apm.com>, davem@davemloft.net,
- linux-arm-kernel@lists.infradead.org
-To: Ravi Patel <rapatel@apm.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1387594651-25771-1-git-send-email-rapatel@apm.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:62944 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756050Ab3LUVJ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Dec 2013 16:09:28 -0500
+Received: by mail-ie0-f176.google.com with SMTP id at1so4598782iec.21
+        for <netdev@vger.kernel.org>; Sat, 21 Dec 2013 13:09:27 -0800 (PST)
+In-Reply-To: <CAM_iQpXgRzPLp=qyD2pYC=J-=xRqDqVRAxm=grZJDF2ZuCsSfw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 20, 2013 at 06:57:27PM -0800, Ravi Patel wrote:
-> This patch adds support for APM X-Gene SoC Queue Manager/Traffic Manager.
->  QMTM is required by APM X-Gene SoC Ethernet, PktDMA (XOR Engine) and
->  Security Engine subsystems. All subsystems communicate with QMTM using
->  messages which include information about the work to be performed and
->  the location of associated data buffers.  
+On 12/20/13 18:49, Cong Wang wrote:
 
-As you failed to respond or even acknowledge any of my review comments
-before, I don't understand what you expect me to do with this patch dump
-again.
+> Jamal, any comments on this patch itself?
+>
 
-Remember, kernel development is about trust.  You need me to trust that
-you know what you are doing, and will be able to handle feedback and
-respond to issues that come up over time.  Right now that trust is in
-the negative zone, around "general annoyance" levels.  It's up to you to
-change that or not, just like it is up to me to take your code, or not.
+I think the idea is good. Sorry havent paid close
+attention - starting to look at what is already
+in net-next. I could pass you a test or two to run
+for this change...
 
-grumble,
-
-greg k-h
+cheers,
+jamal
