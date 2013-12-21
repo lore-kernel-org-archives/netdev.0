@@ -1,7 +1,7 @@
-From: Scott Feldman <sfeldma@gmail.com>
+From: Scott Feldman <sfeldma@cumulusnetworks.com>
 Subject: Re: [PATCH net-next 1/3] bonding: add option lp_interval for loading module
-Date: Fri, 20 Dec 2013 18:04:26 -0800
-Message-ID: <A2392410-472E-4995-9102-014CD5598E61@gmail.com>
+Date: Fri, 20 Dec 2013 18:06:03 -0800
+Message-ID: <469C6575-826C-4FF7-8FAE-78166EEB177B@cumulusnetworks.com>
 References: <52B3D15F.3080703@huawei.com>
 Mime-Version: 1.0 (Mac OS X Mail 7.0 \(1822\))
 Content-Type: text/plain; charset=us-ascii
@@ -13,12 +13,10 @@ Cc: Jay Vosburgh <fubar@us.ibm.com>,
 	Netdev <netdev@vger.kernel.org>
 To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:64587 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753529Ab3LUCGf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 21:06:35 -0500
-Received: by mail-ie0-f180.google.com with SMTP id tp5so3854570ieb.25
-        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 18:06:35 -0800 (PST)
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:40968 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752657Ab3LUCIO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 21:08:14 -0500
 In-Reply-To: <52B3D15F.3080703@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -36,6 +34,8 @@ On Dec 19, 2013, at 9:10 PM, Ding Tianhong <dingtianhong@huawei.com> wrote:
 > +		lp_interval = BOND_ALB_DEFAULT_LP_INTERVAL;
 > +	}
 > +
+
+[sorry, replied with wrong email]
 
 What do you think about using the new bond_option_xxx_set() functions for module parameters also?  The above code, for example, is duplicated in bond_option_lp_interval_set().  This way, we have a unified solution, where option bounds checking, compatibility, warnings, etc happened in one place for all three modes of input: sysfs, netlink, and module params.
 
