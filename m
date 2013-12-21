@@ -1,44 +1,66 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [RFC Patch net-next] net_sched: make classifying lockless on ingress
-Date: Fri, 20 Dec 2013 16:24:02 -0800
-Message-ID: <CAM_iQpXYpKE6zAAjFjzAW5KN=u7+C1gapz-bvkmVNFsNi+Jqmw@mail.gmail.com>
-References: <1387582105-1789-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1387583344.19078.475.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAM_iQpWLTL-PmiNz8k7Kv9KcHsFTennATKgbwQWXX2FN8vdxjg@mail.gmail.com>
-	<1387584529.19078.482.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH 1/1] ipv4: arp: Always update neighbour address when a gratuitous arp is received
+Date: Sat, 21 Dec 2013 01:36:10 +0100
+Message-ID: <20131221003610.GE14073@order.stressinduktion.org>
+References: <1387565962-9357-1-git-send-email-noureddine@aristanetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Salam Noureddine <noureddine@aristanetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f52.google.com ([209.85.219.52]:45523 "EHLO
-	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752657Ab3LUAYC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 19:24:02 -0500
-Received: by mail-oa0-f52.google.com with SMTP id h16so3658357oag.11
-        for <netdev@vger.kernel.org>; Fri, 20 Dec 2013 16:24:02 -0800 (PST)
-In-Reply-To: <1387584529.19078.482.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:43779 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752201Ab3LUAgM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Dec 2013 19:36:12 -0500
+Content-Disposition: inline
+In-Reply-To: <1387565962-9357-1-git-send-email-noureddine@aristanetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 20, 2013 at 4:08 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2013-12-20 at 15:57 -0800, Cong Wang wrote:
->
->> Just push the lock down to ->enqueue() ? Since ingress qdisc is classless
->> and its ->dequeue() is nop.
->
->
-> https://github.com/jrfastab/Linux-Kernel-QOS
->
-> https://github.com/jrfastab/Linux-Kernel-QOS/commit/67746f95acd77cf15d7ce34f644b76058ce19813
->
+On Fri, Dec 20, 2013 at 10:59:22AM -0800, Salam Noureddine wrote:
+> Gratuitous arp packets are useful in switchover scenarios to update
+> client arp tables as quickly as possible. Currently, the mac address
+> of a neighbour is only updated after a locktime period has elapsed
+> since the last update. In most use cases such delays are unacceptable
+> for network admins. Moreover, the "updated" field of the neighbour
+> stucture doesn't record the last time the address of a neighbour
+> changed but records any change that happens to the neighbour. This is
+> clearly a bug since locktime uses that field as meaning "addr_updated".
+> With this observation, I was able to perpetuate a stale address by
+> sending a stream of gratuitous arp packets spaced less than locktime
+> apart.
+> 
+> Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
+> ---
+>  net/ipv4/arp.c |   10 ++++++++--
+>  1 files changed, 8 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+> index 7808093..6597708 100644
+> --- a/net/ipv4/arp.c
+> +++ b/net/ipv4/arp.c
+> @@ -904,13 +904,19 @@ static int arp_process(struct sk_buff *skb)
+>  	if (n) {
+>  		int state = NUD_REACHABLE;
+>  		int override;
+> +		bool is_garp = tip == sip &&
+> +			       inet_addr_type(net, sip) == RTN_UNICAST;
 
-It's a nice idea to introduce a ->prequeue().
+Would it make sense to add the following?
 
-And so brave to play with RCU on singly linked list... maybe I can
-just steal the ->prequeue() piece. John? :-D
+				&& arp->arp_op == htons(ARPOP_REQUEST);
 
-BTW, the last commit is about 5 months ago...
+Maybe we could also check that target hardware address is the broadcast
+address, so we don't accept targetted arp spoofing attempts?
+
+Just extract *tha like we did for sha.
+
+Otherwise I am fine with that.
+
+Thanks,
+
+  Hannes
