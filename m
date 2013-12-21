@@ -1,62 +1,61 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v2 -next] netfilter: don't use per-destination
- incrementing ports in nat random mode
-Date: Sat, 21 Dec 2013 13:27:51 +0100
-Message-ID: <20131221122751.GA27268@localhost>
-References: <20131219134007.GA24118@order.stressinduktion.org>
- <52B37F6B.9010105@redhat.com>
- <20131220004822.GC32129@order.stressinduktion.org>
- <20131220080118.GA4234@localhost>
- <20131220214029.GB14073@order.stressinduktion.org>
- <20131221121759.GA27158@localhost>
- <20131221122617.GF14073@order.stressinduktion.org>
+From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH] nfs: fix dead code of ipv6_addr_scope
+Date: Sat, 21 Dec 2013 13:44:40 +0100
+Message-ID: <20131221124440.GG14073@order.stressinduktion.org>
+References: <1387600744-11366-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Daniel Borkmann <dborkman@redhat.com>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, werner-SEdMjqphH88wryQfseakQg@public.gmane.org
+To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20131221122617.GF14073@order.stressinduktion.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+In-Reply-To: <1387600744-11366-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 21, 2013 at 01:26:17PM +0100, Hannes Frederic Sowa wrote:
-> On Sat, Dec 21, 2013 at 01:17:59PM +0100, Pablo Neira Ayuso wrote:
-> > > diff --git a/include/uapi/linux/netfilter/nf_nat.h b/include/uapi/linux/netfilter/nf_nat.h
-> > > index bf0cc37..1ad3659 100644
-> > > --- a/include/uapi/linux/netfilter/nf_nat.h
-> > > +++ b/include/uapi/linux/netfilter/nf_nat.h
-> > 
-> > This is exposed to userspace.
-> > 
-> > > @@ -4,10 +4,14 @@
-> > >  #include <linux/netfilter.h>
-> > >  #include <linux/netfilter/nf_conntrack_tuple_common.h>
-> > >  
-> > > -#define NF_NAT_RANGE_MAP_IPS		1
-> > > -#define NF_NAT_RANGE_PROTO_SPECIFIED	2
-> > > -#define NF_NAT_RANGE_PROTO_RANDOM	4
-> > > -#define NF_NAT_RANGE_PERSISTENT		8
-> > > +#define NF_NAT_RANGE_MAP_IPS			(1 << 0)
-> > > +#define NF_NAT_RANGE_PROTO_SPECIFIED		(1 << 1)
-> > > +#define NF_NAT_RANGE_PROTO_RANDOM		(1 << 2)
-> > > +#define NF_NAT_RANGE_PERSISTENT			(1 << 3)
-> > > +#define NF_NAT_RANGE_PROTO_RANDOM_FULLY		(1 << 4)
-> > 
-> > So you cannot change it. It would break old iptables binaries.
+On Sat, Dec 21, 2013 at 05:39:04AM +0100, Alexander Aring wrote:
+> The correct way to check on IPV6_ADDR_SCOPE_LINKLOCAL is to check with
+> the ipv6_addr_src_scope function.
 > 
-> There are no semantic changes besides the addition of
-> NF_NAT_RANGE_PROTO_RANDOM_FULLY. Otherwise just the notation is changed,
-> which looks sane to me.
-
-My fault sorry. I overlooked that you were just converting from
-numeric to flag notation.
-
-This is fine.
-
-> > BTW, please send me the userspace part.
+> Currently this can't be work, because ipv6_addr_scope returns a int with
+> a mask of IPV6_ADDR_SCOPE_MASK (0x00f0U) and IPV6_ADDR_SCOPE_LINKLOCAL
+> is 0x02. So the condition is always false.
 > 
-> Daniel has the patch ready, I think he will submit it later today.
+> Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+> I think ipv6_addr_src_scope should be correct, can somebody from netdev ml
+> confirm this please?
+> I stumple over that and I did not compile and test it. Maybe this is something
+> for stable?
+> 
+>  fs/nfs/nfs4filelayoutdev.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/fs/nfs/nfs4filelayoutdev.c b/fs/nfs/nfs4filelayoutdev.c
+> index c7c295e5..efac602 100644
+> --- a/fs/nfs/nfs4filelayoutdev.c
+> +++ b/fs/nfs/nfs4filelayoutdev.c
+> @@ -95,7 +95,7 @@ same_sockaddr(struct sockaddr *addr1, struct sockaddr *addr2)
+>  		b6 = (struct sockaddr_in6 *)addr2;
+>  
+>  		/* LINKLOCAL addresses must have matching scope_id */
+> -		if (ipv6_addr_scope(&a6->sin6_addr) ==
+> +		if (ipv6_addr_src_scope(&a6->sin6_addr) ==
+>  		    IPV6_ADDR_SCOPE_LINKLOCAL &&
+>  		    a6->sin6_scope_id != b6->sin6_scope_id)
+>  			return false;
 
-Thanks.
+Good catch!
+
+SCOPE_TYPE also can be compared and is no bitfield, so the patch is
+good. Do you mind also proposing a patch for sctp?
+
+Thanks,
+
+  Hannes
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
