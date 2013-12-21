@@ -1,9 +1,8 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH 1/5] Documentation: APM X-Gene SoC Ethernet DTS binding
- documentation
-Date: Fri, 20 Dec 2013 19:42:52 -0800
-Message-ID: <1387597376-29303-2-git-send-email-isubramanian@apm.com>
-References: <1387597376-29303-1-git-send-email-isubramanian@apm.com>
+Subject: [PATCH 0/5] drivers: net: Adding support for APM X-Gene SoC Ethernet
+ base driver
+Date: Fri, 20 Dec 2013 19:42:51 -0800
+Message-ID: <1387597376-29303-1-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -14,7 +13,6 @@ Cc: devicetree@vger.kernel.org, gregkh@linuxfoundation.org,
  Ravi Patel <rapatel@apm.com>
 To: davem@davemloft.net
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1387597376-29303-1-git-send-email-isubramanian@apm.com>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -26,88 +24,53 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Documentation explaining dts nodes.
+APM X-Gene SoC Ethernet subsystem communicates with a central Queue Manager
+ (QMTM) using messages for transmit, receive and allocating data buffers.
+ There are multiple ethernet interfaces in APM X-Gene SoC.
 
 Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 Signed-off-by: Ravi Patel <rapatel@apm.com>
 Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
 ---
- .../devicetree/bindings/net/apm-xgene-enet.txt     |   67 ++++++++++++++++++++
- 1 file changed, 67 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+Iyappan Subramanian (5):
+  Documentation: APM X-Gene SoC Ethernet DTS binding documentation
+  arm64: dts: APM X-Gene SoC Ethernet device tree nodes
+  drivers: net: APM X-Gene SoC Ethernet base driver
+  drivers: net: APM X-Gene SoC Ethernet driver error handling
+  drivers: net: APM X-Gene SoC Ethernet driver ethtool support
 
-diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-new file mode 100644
-index 0000000..8b88b74
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-@@ -0,0 +1,67 @@
-+APM X-Gene SoC Ethernet nodes
-+
-+Ethernet nodes are defined to describe on-chip ethernet interfaces in
-+APM X-Gene SoC. Ethernet subsystem communicates with a central Queue Manager
-+(QMTM) using messages for transmit, receive and allocating data buffers.
-+There are multiple ethernet interfaces in APM X-Gene SoC. Each ethernet
-+interface has its own node. Its corresponding clock nodes are shown below.
-+
-+Required properties:
-+- compatible		: Shall be "apm,xgene-enet"
-+- reg			: First memory resource shall be the Ethernet CSR
-+			  memory resource for indirect MAC access.
-+			  Second memory resource shall be the Ethernet CSR
-+			  memory resource.
-+			  Third memory resource shall be the Ethernet CSR
-+			  memory resource for indirect MII access.
-+- slave-name		: Shall be QMTM slave name.
-+- interrupts		: First interrupt resource shall be the Ethernet global
-+			  Error interrupt.
-+			: Second interrupt resource shall be the Ethernet MAC
-+			  Error interrupt.
-+			: Third interrupt resource shall be the Ethernet QM
-+			  interface interrupt.
-+- clocks		: Reference to the clock entry.
-+- local-mac-address	: Shall be ethernet mac address.
-+- max-frame-size	: Shall be maximum ethernet frame size.
-+- devid			: Shall be ethernet interface number.
-+- phyid			: Shall be ethernet MII phy address.
-+- phy-mode		: Shall be ethernet MII mode.
-+
-+Optional properties:
-+- status		: Shall be "ok" if enabled or "disabled" if disabled.
-+			  Default is "ok".
-+
-+Example:
-+	eth8clk: eth8clk {
-+		compatible = "apm,xgene-device-clock";
-+		clock-names = "eth8clk";
-+		status = "ok";
-+	};
-+
-+	menet: ethernet@17020000 {
-+		compatible = "apm,xgene-enet";
-+		status = "disabled";
-+		reg = <0x0 0x17020000 0x0 0x30>,
-+		      <0x0 0x17020000 0x0 0x10000>,
-+		      <0x0 0x17020000 0x0 0x20>;
-+		slave-name = "RGMII";
-+		interrupts = <0x0 0x38 0x4>,
-+			     <0x0 0x39 0x4>,
-+			     <0x0 0x3a 0x4>;
-+		clocks = <&eth8clk 0>;
-+		local-mac-address = <0x0 0x11 0x3a 0x8a 0x5a 0x78>;
-+		max-frame-size = <0x233a>;
-+		devid = <8>;
-+		phyid = <3>;
-+		phy-mode = "rgmii";
-+	};
-+
-+/* Board-specific peripheral configurations */
-+aliases {
-+	ethernet0 = &menet;
-+};
-+
-+&menet {
-+        status = "ok";
-+};
+ .../devicetree/bindings/net/apm-xgene-enet.txt     |   67 +
+ MAINTAINERS                                        |    7 +
+ arch/arm64/boot/dts/apm-mustang.dts                |    8 +
+ arch/arm64/boot/dts/apm-storm.dtsi                 |   19 +
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/apm/Kconfig                   |    1 +
+ drivers/net/ethernet/apm/Makefile                  |    5 +
+ drivers/net/ethernet/apm/xgene/Kconfig             |   10 +
+ drivers/net/ethernet/apm/xgene/Makefile            |   12 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_common.c |  497 ++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_common.h |  450 ++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_csr.h    |  427 ++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_err.c    |  715 +++++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_mac.c    |  520 +++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c   | 1609 ++++++++++++++++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h   |  177 +++
+ drivers/net/ethernet/apm/xgene/xgene_enet_tools.c  |  296 ++++
+ 18 files changed, 4822 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+ create mode 100644 drivers/net/ethernet/apm/Kconfig
+ create mode 100644 drivers/net/ethernet/apm/Makefile
+ create mode 100644 drivers/net/ethernet/apm/xgene/Kconfig
+ create mode 100644 drivers/net/ethernet/apm/xgene/Makefile
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_common.c
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_common.h
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_csr.h
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_err.c
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_mac.c
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_tools.c
+
 -- 
 1.7.9.5
