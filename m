@@ -1,90 +1,166 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH iproute2 1/1] policer - retire old syntax
-Date: Sat, 21 Dec 2013 17:16:53 -0500
-Message-ID: <52B61355.6060602@mojatatu.com>
+From: "Bob Falken" <NetFestivalHaveFun@gmx.com>
+Subject: Re: Multicast routing stops functioning after 4G multicast packets
+ recived.
+Date: Sat, 21 Dec 2013 23:35:00 +0100
+Message-ID: <20131221223501.110860@gmx.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010808060008050506030300"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Ben Greear" <greearb@candelatech.com>, netdev@vger.kernel.org
+To: "Hannes Frederic Sowa" <hannes@stressinduktion.org>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:53953 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751192Ab3LUWQ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Dec 2013 17:16:56 -0500
-Received: by mail-ig0-f174.google.com with SMTP id hk11so18236759igb.1
-        for <netdev@vger.kernel.org>; Sat, 21 Dec 2013 14:16:55 -0800 (PST)
+Received: from mout.gmx.net ([212.227.17.21]:55597 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753252Ab3LUWfE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Dec 2013 17:35:04 -0500
+Received: from mailout-eu.gmx.com ([10.1.101.210]) by mrigmx.server.lan
+ (mrigmx002) with ESMTP (Nemesis) id 0MFOX4-1VgDOT3aNg-00EONd for
+ <netdev@vger.kernel.org>; Sat, 21 Dec 2013 23:35:01 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010808060008050506030300
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+OK, so at the exact time that the incoming interface for multicast pack=
+et count reaches 2^32,=20
+the /proc/net/ip_mr_cache stops updating.=20
+after a while, one by one the multicast groups in ip_mr_cache disappere=
+s, and after 227sec all of them are gone.=20
 
 
-attached.
+perf script net_dropmonitor:
+-----------
+# =3D=3D=3D=3D=3D=3D=3D=3D
+# captured on: Sat Dec 21 23:27:37 2013
+# =3D=3D=3D=3D=3D=3D=3D=3D
+#
+Starting trace (Ctrl-C to dump results)
+Warning:
+Processed 788648 events and lost 118 chunks!
+=20
+Check IO/CPU overload!
+=20
+Gathering kallsyms data
+35200/35200
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0LOCATION =
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0OF=
+=46SET =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 COUNT
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0_s=
+text =C2=A0 =C2=A0 =C2=A018446744071578845580 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 6
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0_s=
+text =C2=A0 =C2=A0 =C2=A018446744071578843536 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0785790
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0_s=
+text =C2=A0 =C2=A0 =C2=A018446744071578843530 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 1
+=20
+=20
+=20
+-------------
+=20
+netstat -s:
+Ip:
+=C2=A0 =C2=A0 622406 total packets received
+=C2=A0 =C2=A0 2 with invalid addresses
+=C2=A0 =C2=A0 0 forwarded
+=C2=A0 =C2=A0 0 incoming packets discarded
+=C2=A0 =C2=A0 599574 incoming packets delivered
+=C2=A0 =C2=A0 520762 requests sent out
+=C2=A0 =C2=A0 8 dropped because of missing route
+Icmp:
+=C2=A0 =C2=A0 19361 ICMP messages received
+=C2=A0 =C2=A0 0 input ICMP message failed.
+=C2=A0 =C2=A0 ICMP input histogram:
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 echo requests: 8415
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 echo replies: 10946
+=C2=A0 =C2=A0 19361 ICMP messages sent
+=C2=A0 =C2=A0 0 ICMP messages failed
+=C2=A0 =C2=A0 ICMP output histogram:
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 echo request: 10946
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 echo replies: 8415
+IcmpMsg:
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 InType0: 10946
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 InType8: 8415
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 OutType0: 8415
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 OutType8: 10946
+Tcp:
+=C2=A0 =C2=A0 15 active connections openings
+=C2=A0 =C2=A0 15 passive connection openings
+=C2=A0 =C2=A0 0 failed connection attempts
+=C2=A0 =C2=A0 0 connection resets received
+=C2=A0 =C2=A0 29 connections established
+=C2=A0 =C2=A0 477938 segments received
+=C2=A0 =C2=A0 482321 segments send out
+=C2=A0 =C2=A0 4 segments retransmited
+=C2=A0 =C2=A0 0 bad segments received.
+=C2=A0 =C2=A0 0 resets sent
+Udp:
+=C2=A0 =C2=A0 586 packets received
+=C2=A0 =C2=A0 0 packets to unknown port received.
+=C2=A0 =C2=A0 0 packet receive errors
+=C2=A0 =C2=A0 649 packets sent
+UdpLite:
+TcpExt:
+=C2=A0 =C2=A0 15862 delayed acks sent
+=C2=A0 =C2=A0 Quick ack mode was activated 1 times
+=C2=A0 =C2=A0 1 packets directly queued to recvmsg prequeue.
+=C2=A0 =C2=A0 390374 packet headers predicted
+=C2=A0 =C2=A0 1767 acknowledgments not containing data payload received
+=C2=A0 =C2=A0 58169 predicted acknowledgments
+=C2=A0 =C2=A0 4 congestion windows recovered without slow start after p=
+artial ack
+=C2=A0 =C2=A0 4 other TCP timeouts
+=C2=A0 =C2=A0 1 DSACKs sent for old packets
+=C2=A0 =C2=A0 4 DSACKs received
+=C2=A0 =C2=A0 TCPSackShiftFallback: 3
+IpExt:
+=C2=A0 =C2=A0 InNoRoutes: 1
+=C2=A0 =C2=A0 InMcastPkts: 40015
+=C2=A0 =C2=A0 OutMcastPkts: 18427
+=C2=A0 =C2=A0 InBcastPkts: 80035
+=C2=A0 =C2=A0 InOctets: 1116615859
+=C2=A0 =C2=A0 OutOctets: 33742922
+=C2=A0 =C2=A0 InMcastOctets: 1046924948
+=C2=A0 =C2=A0 OutMcastOctets: 734556
+=C2=A0 =C2=A0 InBcastOctets: 7255577
+ =C2=A0
+=20
+---------------------=20
+----- Original Message -----
+=46rom: Hannes Frederic Sowa
+Sent: 12/19/13 06:32 PM
+To: Eric Dumazet
+Subject: Re: Multicast routing stops functioning after 4G multicast pac=
+kets recived.
+ On Thu, Dec 19, 2013 at 09:24:18AM -0800, Eric Dumazet wrote:
+> On Thu, 2013-12-19 at 17:28 +0100, Bob Falken wrote:
+> > The only reason why i give information about 2.6.36.4 is that its t=
+he
+> > only latest kernel that was functioning properly.
+> > i.e kernel >=3D 2.6.37 is not woking. so its a bisecting of the ker=
+nel
+> > versions to help a coder see when/where the isse was implemented in
+> > the kernel.
+> >=20
+> > I do not need a backport patch for an old kernel, I generally only
+> > need the issue looked into and get fixed so that I dont have to use=
+ an
+> > old kernel. :)
+> >=20
+> > I have no issue reproducing the issue on the recent kernels. howeve=
+r i
+> > have not tried the GIT kernel.
+> >=20
+> > I restarted the server just a moment ago. i will install and run
+> > dropwatch and provide feedback in about 17hours.=20
+>=20
+> You said that "cat /proc/net/ip_mr_cache" gives nothing at all after
+> 2^32 packets ?
+>=20
+> Thats a bit scary ... maybe a 32bit refcnt overflow, because of some
+> imbalance...
 
-cheers,
-jamal
+That's my thought, too. :/
 
---------------010808060008050506030300
-Content-Type: text/plain; charset=us-ascii;
- name="kill-old-police-syntax"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="kill-old-police-syntax"
-
-commit b82057d9ec851a8aba8a295b959190ef5098f330
-Author: Jamal Hadi Salim <jhs@mojatatu.com>
-Date:   Sat Dec 21 17:00:11 2013 -0500
-
-    After a decade of trying to deprecate the old policer syntax,
-    I believe it is time to kill it. The kernel build option for old
-    policer is gone for at least 5 years now (although backward
-    compatibility is still there). Being backward compatible meant
-    hijacking the keyword "action" and was obstructing policies like:
-    
-    tc filter add dev eth0 parent ffff: protocol ip pref 10 \
-    u32 match ip protocol 1 0xff flowid 1:10 \
-    action skbedit mark 1 \
-    action police rate 10kbit burst 10k pipe \
-    action skbedit mark 2 \
-    action police rate 20kbit burst 20k pipe \
-    action action mirred egress mirror dev dummy0
-    
-    Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-diff --git a/tc/m_police.c b/tc/m_police.c
-index 300287e..df295e0 100644
---- a/tc/m_police.c
-+++ b/tc/m_police.c
-@@ -38,7 +38,6 @@ static void usage(void)
- 	fprintf(stderr, "                [ peakrate BPS ] [ avrate BPS ] [ overhead BYTES ]\n");
- 	fprintf(stderr, "                [ linklayer TYPE ] [ ACTIONTERM ]\n");
- 
--	fprintf(stderr, "Old Syntax ACTIONTERM := action <EXCEEDACT>[/NOTEXCEEDACT] \n");
- 	fprintf(stderr, "New Syntax ACTIONTERM := conform-exceed <EXCEEDACT>[/NOTEXCEEDACT] \n");
- 	fprintf(stderr, "Where: *EXCEEDACT := pipe | ok | reclassify | drop | continue \n");
- 	fprintf(stderr, "Where:  pipe is only valid for new syntax \n");
-@@ -150,6 +149,7 @@ int act_parse_police(struct action_util *a,int *argc_p, char ***argv_p, int tca_
- 
- 	while (argc > 0) {
- 
-+		fprintf(stderr,"police argc %d argv %s\n", argc, *argv);
- 		if (matches(*argv, "index") == 0) {
- 			NEXT_ARG();
- 			if (get_u32(&p.index, *argv, 10)) {
-@@ -230,8 +230,7 @@ int act_parse_police(struct action_util *a,int *argc_p, char ***argv_p, int tca_
- 			p.action = TC_POLICE_OK;
- 		} else if (matches(*argv, "pipe") == 0) {
- 			p.action = TC_POLICE_PIPE;
--		} else if (strcmp(*argv, "action") == 0 ||
--			   strcmp(*argv, "conform-exceed") == 0) {
-+		} else if (strcmp(*argv, "conform-exceed") == 0) {
- 			NEXT_ARG();
- 			if (get_police_result(&p.action, &presult, *argv)) {
- 				fprintf(stderr, "Illegal \"action\"\n");
-
---------------010808060008050506030300--
+The ipmr.c rcu conversion happend in 2.6.37.=20
