@@ -1,60 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] net_sched: act: Dont increment refcnt on
- replace
-Date: Sun, 22 Dec 2013 17:50:15 -0500 (EST)
-Message-ID: <20131222.175015.561115381077901987.davem@davemloft.net>
-References: <52B6DC9B.9060309@mojatatu.com>
+Subject: Re: [PATCH v3 0/2] sctp: Consolidate and ratelimit deprecation
+ warnings
+Date: Sun, 22 Dec 2013 17:56:59 -0500 (EST)
+Message-ID: <20131222.175659.1156282573702420627.davem@davemloft.net>
+References: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
+	<1387297199-14363-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-	eric.dumazet@gmail.com
-To: jhs@mojatatu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53057 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755438Ab3LVWuT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 17:50:19 -0500
-In-Reply-To: <52B6DC9B.9060309@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-sctp@vger.kernel.org, vyasevich@gmail.com,
+	gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: nhorman@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1387297199-14363-1-git-send-email-nhorman@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Sun, 22 Dec 2013 07:35:39 -0500
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Tue, 17 Dec 2013 11:19:57 -0500
 
-> This bug seems to have been around for some time, nothing to do with
-> recent changes; i am just doing tests i havent run in a while and
-> saw it. It is against net-next. If you think it is important enough,
-> I could also create one against linus tree..
+> The SCTP protocol has several deprecation warnings in its setsockopt path that
+> can be triggered by unprivlidged users.  Since these are not ratelimited, we can
+> spam the logs quite easily here.  Since these are all deprecation warnings, and
+> that type of warning isn't uncommon in the rest of the kernel, lets make a
+> common pr_warn_deprecated macro to produce somewhat generalized ratelimited
+> deprecation warnings easily
+> 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-Jamal, I've tried to be patient with you over the years, but I really
-need you to start submitting your changes more cleanly.
+Neil, I really wish you would CC: netdev on all of the patches in the
+series.  Otherwise only some of them end up in patchwork, and this makes
+a lot more work for me if I want to actually apply this, which I do.
 
-Your SUBJECT line MUST be the first line of the commit log message,
-optionally with a prefix of the form "[PATCH xxx]" where "xxx" can
-be "net", "net-next" and also contain versioning information such
-as "v2" or "v3" etc.
-
-Then your email message body must contain the commit message, with
-no indentation whatsoever.
-
-Then you may optionally provide a line with "---" then supplementary
-information and text which you don't wish to end up in the final
-commit message.
-
-Then you provide the patch.
-
-And this all must be inline and not as an attachment.
-
-What I get from you is the output of "git show" as an attachment and I
-absolutely cannot use that as-is.  It idents the commit message,
-amongst other things.
-
-You can use "git format-patch" instead and munge it into a proper
-email by hand.  Unlike "git show", "git format-patch" won't indent
-the commit message.
-
-Please take a few moments to read other netdev patch postings
-and see how regulars do it.  They do what works for me.
-
-Thank you.
+Please resubmit this properly, thanks.
