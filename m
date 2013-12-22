@@ -1,53 +1,57 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH 2/2] net_sched: optimize tcf_match_indev()
-Date: Sun, 22 Dec 2013 11:33:19 -0800
-Message-ID: <CAM_iQpXXD0rHiYxGvXiN7G8BtVdTQV6Xixma6BENoZ5SZ2XjZg@mail.gmail.com>
-References: <1387503292-20078-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1387503292-20078-2-git-send-email-xiyou.wangcong@gmail.com>
-	<CAM_iQpXgRzPLp=qyD2pYC=J-=xRqDqVRAxm=grZJDF2ZuCsSfw@mail.gmail.com>
-	<52B60384.6000002@mojatatu.com>
-	<52B712D3.9050605@mojatatu.com>
+Subject: Re: [PATCH net-next v4 3/8] net_sched: mirred: remove action when the
+ target device is gone
+Date: Sun, 22 Dec 2013 11:42:28 -0800
+Message-ID: <CAM_iQpW9kUzip+p8fCkD4wH7KbAv8aR-Fqa0iRwPYdzk8+4Tqw@mail.gmail.com>
+References: <1387167311-14763-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1387167311-14763-4-git-send-email-xiyou.wangcong@gmail.com>
+	<52B1B1B1.2060501@mojatatu.com>
+	<CAM_iQpUDZa-=H53Csg8476xOL0xP+rn85O8eB1O39-eF_Jo+uw@mail.gmail.com>
+	<52B1FC6D.7040005@mojatatu.com>
+	<CAM_iQpWxCShCgiBrraJ3h9qzgVU82quq0E5vmFMSEcgEwSctJQ@mail.gmail.com>
+	<52B71024.3090504@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>
 To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:33906 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753143Ab3LVTdT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 14:33:19 -0500
-Received: by mail-ob0-f173.google.com with SMTP id gq1so4758679obb.32
-        for <netdev@vger.kernel.org>; Sun, 22 Dec 2013 11:33:19 -0800 (PST)
-In-Reply-To: <52B712D3.9050605@mojatatu.com>
+Received: from mail-oa0-f51.google.com ([209.85.219.51]:52759 "EHLO
+	mail-oa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754569Ab3LVTm3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 14:42:29 -0500
+Received: by mail-oa0-f51.google.com with SMTP id i7so4906916oag.24
+        for <netdev@vger.kernel.org>; Sun, 22 Dec 2013 11:42:28 -0800 (PST)
+In-Reply-To: <52B71024.3090504@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 22, 2013 at 8:26 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 12/21/13 16:09, Jamal Hadi Salim wrote:
->>
->> On 12/20/13 18:49, Cong Wang wrote:
->>
->>> Jamal, any comments on this patch itself?
->>>
->>
->> I think the idea is good. Sorry havent paid close
->> attention - starting to look at what is already
->> in net-next. I could pass you a test or two to run
->> for this change...
->>
+On Sun, Dec 22, 2013 at 8:15 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 >
 >
-> BTW: This indev feature was supposed to be "temporary";->
-> but has stuck around all these years. Not sure how widely it is
+> I am sorry Cong - I will still object to this change. I dont want
+> to even bother testing it.
+> You are making some serious policy decisions in the kernel.
+> Such policy decisions should be made by user space not the kernel.
 
-I knew, ematch does much better. :)
-But once you added an API, it is hard to remove it...
+You know qdiscs and filters are removed too when the device
+is gone, right? So isn't that also a policy you are talking about?
 
-> used. I will send you a testcase shortly. If it passes for you
-> please add my ACKed-by
->
+This doesn't make any sense to me, if it did, you should remove
+all net device notifications in kernel, right?
 
-Will do.
+> Whoever made the idiotic decision of removing the device should
+> modify or delete the flow rule - at minimal they
+> may deserve some warning. Deleting the action is wrong. It is simple
+> graph theory.
 
-Thanks.
+Have you ever thought about how hard it is to remove a mirred action
+upon the device removal? Even with libnl, we still have to:
+
+1) monitor the device removal notification
+2) search the action cache to get the action matches the target device
+3) search for the filters that contains such actions
+4) remove the action by changing the filters it is attached
+
+Try it and see how much more work you will do, compare it with
+this kernel patch. It would not be hard to conclude which is easier.
