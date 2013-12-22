@@ -1,36 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/2] sctp: Consolidate and ratelimit deprecation
- warnings
-Date: Sun, 22 Dec 2013 17:56:59 -0500 (EST)
-Message-ID: <20131222.175659.1156282573702420627.davem@davemloft.net>
-References: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
-	<1387297199-14363-1-git-send-email-nhorman@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, vyasevich@gmail.com,
-	gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: nhorman@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1387297199-14363-1-git-send-email-nhorman@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: [PATCH v2] nfs: fix dead code of ipv6_addr_scope
+Date: Mon, 23 Dec 2013 00:01:16 +0100
+Message-ID: <1387753276-27009-1-git-send-email-alex.aring@gmail.com>
+Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	stable@vger.kernel.org, werner@almesberger.net,
+	Alexander Aring <alex.aring@gmail.com>
+To: hannes@stressinduktion.org
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Tue, 17 Dec 2013 11:19:57 -0500
+This patch corrects the check on a linklocal address.
 
-> The SCTP protocol has several deprecation warnings in its setsockopt path that
-> can be triggered by unprivlidged users.  Since these are not ratelimited, we can
-> spam the logs quite easily here.  Since these are all deprecation warnings, and
-> that type of warning isn't uncommon in the rest of the kernel, lets make a
-> common pr_warn_deprecated macro to produce somewhat generalized ratelimited
-> deprecation warnings easily
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Currently this can't be work, because ipv6_addr_scope returns a int with
+a mask of IPV6_ADDR_SCOPE_MASK (0x00f0U) and IPV6_ADDR_SCOPE_LINKLOCAL
+is 0x02. So the condition is always false.
 
-Neil, I really wish you would CC: netdev on all of the patches in the
-series.  Otherwise only some of them end up in patchwork, and this makes
-a lot more work for me if I want to actually apply this, which I do.
+Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+---
+- change check on linklocal address from
+  (ipv6_addr_src_scope(&a6->sin6_addr) == IPV6_ADDR_SCOPE_LINKLOCAL) to
+  (ipv6_addr_scope(&a6->sin6_addr) & IPV6_ADDR_LINKLOCAL) which is a
+  little bit faster.
+- change commit msg.
 
-Please resubmit this properly, thanks.
+ fs/nfs/nfs4filelayoutdev.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/fs/nfs/nfs4filelayoutdev.c b/fs/nfs/nfs4filelayoutdev.c
+index c7c295e5..dc5e9e1 100644
+--- a/fs/nfs/nfs4filelayoutdev.c
++++ b/fs/nfs/nfs4filelayoutdev.c
+@@ -95,8 +95,7 @@ same_sockaddr(struct sockaddr *addr1, struct sockaddr *addr2)
+ 		b6 = (struct sockaddr_in6 *)addr2;
+ 
+ 		/* LINKLOCAL addresses must have matching scope_id */
+-		if (ipv6_addr_scope(&a6->sin6_addr) ==
+-		    IPV6_ADDR_SCOPE_LINKLOCAL &&
++		if (ipv6_addr_scope(&a6->sin6_addr) & IPV6_ADDR_LINKLOCAL &&
+ 		    a6->sin6_scope_id != b6->sin6_scope_id)
+ 			return false;
+ 
+-- 
+1.8.5.2
