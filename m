@@ -1,144 +1,104 @@
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: [PATCH 2/2] tun: Add support for RFS on tun flows
-Date: Sun, 22 Dec 2013 18:54:32 +0800
-Message-ID: <1387709672-21917-3-git-send-email-zwu.kernel@gmail.com>
-References: <1387709672-21917-1-git-send-email-zwu.kernel@gmail.com>
-Cc: netdev@vger.kernel.org, edumazet@google.com,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:36115 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753843Ab3LVKy6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Dec 2013 05:54:58 -0500
-Received: from /spool/local
-	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <zwu.kernel@gmail.com>;
-	Sun, 22 Dec 2013 05:54:57 -0500
-Received: from b01cxnp22034.gho.pok.ibm.com (b01cxnp22034.gho.pok.ibm.com [9.57.198.24])
-	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 1060A6E803C
-	for <netdev@vger.kernel.org>; Sun, 22 Dec 2013 05:54:52 -0500 (EST)
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by b01cxnp22034.gho.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id rBMAstwN1245582
-	for <netdev@vger.kernel.org>; Sun, 22 Dec 2013 10:54:55 GMT
-Received: from d01av02.pok.ibm.com (localhost [127.0.0.1])
-	by d01av02.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id rBMAssXh004563
-	for <netdev@vger.kernel.org>; Sun, 22 Dec 2013 05:54:54 -0500
-In-Reply-To: <1387709672-21917-1-git-send-email-zwu.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] nfs: fix dead code of ipv6_addr_scope
+Date: Sun, 22 Dec 2013 13:30:14 +0100
+Message-ID: <20131222123011.GA10241@omega>
+References: <1387600744-11366-1-git-send-email-alex.aring@gmail.com>
+ <20131221124440.GG14073@order.stressinduktion.org>
+ <20131221133253.GA20745@omega>
+ <20131222023054.GH14073@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+To: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	werner-SEdMjqphH88wryQfseakQg@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20131222023054.GH14073-5j1vdhnGyZutBveJljeh2VPnkB77EeZ12LY78lusg7I@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <therbert@google.com>
+Hi Hannes,
 
-This patch adds support so that the rps_flow_tables (RFS) can be
-programmed using the tun flows which are already set up to track flows
-for the purposes of queue selection.
+On Sun, Dec 22, 2013 at 03:30:54AM +0100, Hannes Frederic Sowa wrote:
+> On Sat, Dec 21, 2013 at 02:32:54PM +0100, Alexander Aring wrote:
+> > Hi Hannes,
+> > 
+> > On Sat, Dec 21, 2013 at 01:44:40PM +0100, Hannes Frederic Sowa wrote:
+> > > On Sat, Dec 21, 2013 at 05:39:04AM +0100, Alexander Aring wrote:
+> > > > The correct way to check on IPV6_ADDR_SCOPE_LINKLOCAL is to check with
+> > > > the ipv6_addr_src_scope function.
+> > > > 
+> > > > Currently this can't be work, because ipv6_addr_scope returns a int with
+> > > > a mask of IPV6_ADDR_SCOPE_MASK (0x00f0U) and IPV6_ADDR_SCOPE_LINKLOCAL
+> > > > is 0x02. So the condition is always false.
+> > > > 
+> > > > Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > > > ---
+> > > > I think ipv6_addr_src_scope should be correct, can somebody from netdev ml
+> > > > confirm this please?
+> > > > I stumple over that and I did not compile and test it. Maybe this is something
+> > > > for stable?
+> > > > 
+> > > >  fs/nfs/nfs4filelayoutdev.c | 2 +-
+> > > >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > > > 
+> > > > diff --git a/fs/nfs/nfs4filelayoutdev.c b/fs/nfs/nfs4filelayoutdev.c
+> > > > index c7c295e5..efac602 100644
+> > > > --- a/fs/nfs/nfs4filelayoutdev.c
+> > > > +++ b/fs/nfs/nfs4filelayoutdev.c
+> > > > @@ -95,7 +95,7 @@ same_sockaddr(struct sockaddr *addr1, struct sockaddr *addr2)
+> > > >  		b6 = (struct sockaddr_in6 *)addr2;
+> > > >  
+> > > >  		/* LINKLOCAL addresses must have matching scope_id */
+> > > > -		if (ipv6_addr_scope(&a6->sin6_addr) ==
+> > > > +		if (ipv6_addr_src_scope(&a6->sin6_addr) ==
+> > > >  		    IPV6_ADDR_SCOPE_LINKLOCAL &&
+> > > >  		    a6->sin6_scope_id != b6->sin6_scope_id)
+> > > >  			return false;
+> > > 
+> > > Good catch!
+> > > 
+> > thanks.
+> > 
+> > I am still unsure if sctp is correct or not, I think it isn't correct.
+> > Because we compare and don't check if any bit is set.
+> > 
+> > We don't use IPV6_ADDR_SCOPE_TYPE here. We use IPV6_ADDR_TYPE. But we can't
+> > compare it.
+> 
+> Actually, this is fine, too. ipv6_addr_scope does mask the addr_type with
+> IPV6_ADDR_SCOPE_MASK (which is 0x00f0U). If you look at addrconf_core.c you
+> see that the 4 bits stand by itself each time.
+> 
+> Actually it seems ipv6_addr_src_scope is better suitable for multicast scope
+> handling and ipv6_addr_scope with IFA_{HOST,LINK,SITE} is fine for
+> non-multicast. In this case there is no difference.
+> 
+ah thanks, now I understand it!
 
-On the receive path (corresponding to select_queue and tun_net_xmit) the
-rxhash is saved in the flow_entry.  The original code only does flow
-lookup in select_queue, so this patch adds a flow lookup in tun_net_xmit
-if num_queues == 1 (select_queue is not called from
-dev_queue_xmit->netdev_pick_tx in that case).
+so an alternative would be:
 
-The flow is recorded (processing CPU) in tun_flow_update (TX path), and
-reset when flow is deleted.
+if (ipv6_addr_scope(&a6->sin6_addr) & IPV6_ADDR_LINKLOCAL &&
+	a6->sin6_scope_id != b6->sin6_scope_id)
+	...
 
-Signed-off-by: Tom Herbert <therbert@google.com>
-Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
----
- drivers/net/tun.c |   37 +++++++++++++++++++++++++++++++++++--
- 1 files changed, 35 insertions(+), 2 deletions(-)
+maybe this is a little bit faster instead of ipv6_addr_src_scope.
+Should I resend a v2 with the faster solution?
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index a17a701..3cf0457 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -152,6 +152,7 @@ struct tun_flow_entry {
- 	struct tun_struct *tun;
- 
- 	u32 rxhash;
-+	u32 rps_rxhash;
- 	int queue_index;
- 	unsigned long updated;
- };
-@@ -220,6 +221,7 @@ static struct tun_flow_entry *tun_flow_create(struct tun_struct *tun,
- 			  rxhash, queue_index);
- 		e->updated = jiffies;
- 		e->rxhash = rxhash;
-+		e->rps_rxhash = 0;
- 		e->queue_index = queue_index;
- 		e->tun = tun;
- 		hlist_add_head_rcu(&e->hash_link, head);
-@@ -232,6 +234,7 @@ static void tun_flow_delete(struct tun_struct *tun, struct tun_flow_entry *e)
- {
- 	tun_debug(KERN_INFO, tun, "delete flow: hash %u index %u\n",
- 		  e->rxhash, e->queue_index);
-+	sock_rps_reset_flow_hash(e->rps_rxhash);
- 	hlist_del_rcu(&e->hash_link);
- 	kfree_rcu(e, rcu);
- 	--tun->flow_count;
-@@ -325,6 +328,7 @@ static void tun_flow_update(struct tun_struct *tun, u32 rxhash,
- 		/* TODO: keep queueing to old queue until it's empty? */
- 		e->queue_index = queue_index;
- 		e->updated = jiffies;
-+		sock_rps_record_flow_hash(e->rps_rxhash);
- 	} else {
- 		spin_lock_bh(&tun->lock);
- 		if (!tun_flow_find(head, rxhash) &&
-@@ -341,6 +345,18 @@ unlock:
- 	rcu_read_unlock();
- }
- 
-+/**
-+ * Save the hash received in the stack receive path and update the
-+ * flow_hash table accordingly.
-+ */
-+static inline void tun_flow_save_rps_rxhash(struct tun_flow_entry *e, u32 hash)
-+{
-+	if (unlikely(e->rps_rxhash != hash)) {
-+		sock_rps_reset_flow_hash(e->rps_rxhash);
-+		e->rps_rxhash = hash;
-+	}
-+}
-+
- /* We try to identify a flow through its rxhash first. The reason that
-  * we do not check rxq no. is because some cards(e.g 82599), chooses
-  * the rxq based on the txq where the last packet of the flow comes. As
-@@ -361,9 +377,10 @@ static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb)
- 	txq = skb_get_hash(skb);
- 	if (txq) {
- 		e = tun_flow_find(&tun->flows[tun_hashfn(txq)], txq);
--		if (e)
-+		if (e) {
- 			txq = e->queue_index;
--		else
-+			tun_flow_save_rps_rxhash(e, txq);
-+		} else
- 			/* use multiply and shift instead of expensive divide */
- 			txq = ((u64)txq * numqueues) >> 32;
- 	} else if (likely(skb_rx_queue_recorded(skb))) {
-@@ -728,6 +745,22 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (txq >= tun->numqueues)
- 		goto drop;
- 
-+	if (tun->numqueues == 1) {
-+		/* Select queue was not called for the skbuff, so we extract the
-+		 * RPS hash and save it into the flow_table here.
-+		 */
-+		__u32 rxhash;
-+
-+		rxhash = skb_get_hash(skb);
-+		if (rxhash) {
-+			struct tun_flow_entry *e;
-+			e = tun_flow_find(&tun->flows[tun_hashfn(rxhash)],
-+					rxhash);
-+			if (e)
-+				tun_flow_save_rps_rxhash(e, rxhash);
-+		}
-+	}
-+
- 	tun_debug(KERN_INFO, tun, "tun_net_xmit %d\n", skb->len);
- 
- 	BUG_ON(!tfile);
--- 
-1.7.6.5
+> Maybe an int ipv6_cmp_sockaddr(struct in6_addr *a1, int scope1,
+> 			  struct in6_addr *a2, int scope2)
+> or
+> int ipv6_cmp_sockaddr(struct sockaddr_in6 *s1,
+> 		      struct sockaddr_in6 *s2)
+> 
+
+I don't understand why we need such a function here. We only check if
+"a6" is linklocal and has a different sin6_scope_id than "b6" sin6_scope_id
+and we don't compare "a6" and "b6" here (then "b6" should be a
+linklocal, too). I think it's too abstract for me what exactly "compare"
+means in this case. :-)
+
+- Alex
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
