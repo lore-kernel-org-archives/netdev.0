@@ -1,8 +1,7 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 28/31] staging: r8188eu: Fix sparse warning in
- core/rtw_pwrctrl.c
-Date: Sun, 22 Dec 2013 17:36:59 -0600
-Message-ID: <1387755422-11443-29-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 29/31] staging: r8188eu: Fix sparse warning in core/rtw_xmit.c
+Date: Sun, 22 Dec 2013 17:37:00 -0600
+Message-ID: <1387755422-11443-30-git-send-email-Larry.Finger@lwfinger.net>
 References: <1387755422-11443-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,32 +22,30 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-Sparse reports the following:
+Sparse reports the following warning:
 
-  CHECK   drivers/staging/rtl8188eu/core/rtw_pwrctrl.c
-drivers/staging/rtl8188eu/core/rtw_pwrctrl.c:525:6: warning: symbol 'rtw_free_pwrctrl_priv' was not declared. Should it be static?
-
-That routine is not used and has been deleted.
+  CHECK   drivers/staging/rtl8188eu/core/rtw_xmit.c
+drivers/staging/rtl8188eu/core/rtw_xmit.c:809:23: warning: incorrect type in initializer (different base types)
+drivers/staging/rtl8188eu/core/rtw_xmit.c:809:23:    expected unsigned short [usertype] *fctrl
+drivers/staging/rtl8188eu/core/rtw_xmit.c:809:23:    got restricted __le16 *<noident>
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/staging/rtl8188eu/core/rtw_pwrctrl.c | 4 ----
- 1 file changed, 4 deletions(-)
+ drivers/staging/rtl8188eu/core/rtw_xmit.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c b/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c
-index 4eec447..b5db22c 100644
---- a/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c
-@@ -522,10 +522,6 @@ _func_enter_;
- _func_exit_;
- }
+diff --git a/drivers/staging/rtl8188eu/core/rtw_xmit.c b/drivers/staging/rtl8188eu/core/rtw_xmit.c
+index 026645c..24182fb 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_xmit.c
++++ b/drivers/staging/rtl8188eu/core/rtw_xmit.c
+@@ -806,7 +806,7 @@ s32 rtw_make_wlanhdr (struct adapter *padapter , u8 *hdr, struct pkt_attrib *pat
+ 	u8 qos_option = false;
  
--void rtw_free_pwrctrl_priv(struct adapter *adapter)
--{
--}
--
- u8 rtw_interface_ps_func(struct adapter *padapter, enum hal_intf_ps_func efunc_id, u8 *val)
- {
- 	u8 bResult = true;
+ 	int res = _SUCCESS;
+-	u16 *fctrl = &pwlanhdr->frame_ctl;
++	__le16 *fctrl = &pwlanhdr->frame_ctl;
+ 
+ 	struct sta_info *psta;
+ 
 -- 
 1.8.4
