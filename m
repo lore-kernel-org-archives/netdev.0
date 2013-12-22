@@ -1,97 +1,144 @@
 From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: [PATCH 1/2] net: Allow setting sock flow hash without a sock
-Date: Sun, 22 Dec 2013 18:54:31 +0800
-Message-ID: <1387709672-21917-2-git-send-email-zwu.kernel@gmail.com>
+Subject: [PATCH 2/2] tun: Add support for RFS on tun flows
+Date: Sun, 22 Dec 2013 18:54:32 +0800
+Message-ID: <1387709672-21917-3-git-send-email-zwu.kernel@gmail.com>
 References: <1387709672-21917-1-git-send-email-zwu.kernel@gmail.com>
 Cc: netdev@vger.kernel.org, edumazet@google.com,
 	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
 To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:36114 "EHLO e9.ny.us.ibm.com"
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:36115 "EHLO e9.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753649Ab3LVKyz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Dec 2013 05:54:55 -0500
+	id S1753843Ab3LVKy6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Dec 2013 05:54:58 -0500
 Received: from /spool/local
 	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <zwu.kernel@gmail.com>;
-	Sun, 22 Dec 2013 05:54:54 -0500
-Received: from b01cxnp22033.gho.pok.ibm.com (b01cxnp22033.gho.pok.ibm.com [9.57.198.23])
-	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id 50733C90026
-	for <netdev@vger.kernel.org>; Sun, 22 Dec 2013 05:54:49 -0500 (EST)
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by b01cxnp22033.gho.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id rBMAspuC2883862
-	for <netdev@vger.kernel.org>; Sun, 22 Dec 2013 10:54:51 GMT
-Received: from d01av03.pok.ibm.com (localhost [127.0.0.1])
-	by d01av03.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id rBMAsoXV009664
-	for <netdev@vger.kernel.org>; Sun, 22 Dec 2013 05:54:51 -0500
+	Sun, 22 Dec 2013 05:54:57 -0500
+Received: from b01cxnp22034.gho.pok.ibm.com (b01cxnp22034.gho.pok.ibm.com [9.57.198.24])
+	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 1060A6E803C
+	for <netdev@vger.kernel.org>; Sun, 22 Dec 2013 05:54:52 -0500 (EST)
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by b01cxnp22034.gho.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id rBMAstwN1245582
+	for <netdev@vger.kernel.org>; Sun, 22 Dec 2013 10:54:55 GMT
+Received: from d01av02.pok.ibm.com (localhost [127.0.0.1])
+	by d01av02.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id rBMAssXh004563
+	for <netdev@vger.kernel.org>; Sun, 22 Dec 2013 05:54:54 -0500
 In-Reply-To: <1387709672-21917-1-git-send-email-zwu.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tom Herbert <therbert@google.com>
 
-This patch adds sock_rps_record_flow_hash and sock_rps_reset_flow_hash
-which take a hash value as an argument and sets the sock_flow_table
-accordingly.  This allows the table to be populated in cases where flow
-is being tracked outside of a sock structure.
+This patch adds support so that the rps_flow_tables (RFS) can be
+programmed using the tun flows which are already set up to track flows
+for the purposes of queue selection.
 
-sock_rps_record_flow and sock_rps_reset_flow call this function
-where the hash is taken from sk_rxhash.
+On the receive path (corresponding to select_queue and tun_net_xmit) the
+rxhash is saved in the flow_entry.  The original code only does flow
+lookup in select_queue, so this patch adds a flow lookup in tun_net_xmit
+if num_queues == 1 (select_queue is not called from
+dev_queue_xmit->netdev_pick_tx in that case).
+
+The flow is recorded (processing CPU) in tun_flow_update (TX path), and
+reset when flow is deleted.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
 ---
- include/net/sock.h |   18 ++++++++++++++----
- 1 files changed, 14 insertions(+), 4 deletions(-)
+ drivers/net/tun.c |   37 +++++++++++++++++++++++++++++++++++--
+ 1 files changed, 35 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 2ef3c3e..8ee90ad 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -820,30 +820,40 @@ static inline int sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
- 	return sk->sk_backlog_rcv(sk, skb);
- }
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index a17a701..3cf0457 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -152,6 +152,7 @@ struct tun_flow_entry {
+ 	struct tun_struct *tun;
  
--static inline void sock_rps_record_flow(const struct sock *sk)
-+static inline void sock_rps_record_flow_hash(__u32 hash)
+ 	u32 rxhash;
++	u32 rps_rxhash;
+ 	int queue_index;
+ 	unsigned long updated;
+ };
+@@ -220,6 +221,7 @@ static struct tun_flow_entry *tun_flow_create(struct tun_struct *tun,
+ 			  rxhash, queue_index);
+ 		e->updated = jiffies;
+ 		e->rxhash = rxhash;
++		e->rps_rxhash = 0;
+ 		e->queue_index = queue_index;
+ 		e->tun = tun;
+ 		hlist_add_head_rcu(&e->hash_link, head);
+@@ -232,6 +234,7 @@ static void tun_flow_delete(struct tun_struct *tun, struct tun_flow_entry *e)
  {
- #ifdef CONFIG_RPS
- 	struct rps_sock_flow_table *sock_flow_table;
- 
- 	rcu_read_lock();
- 	sock_flow_table = rcu_dereference(rps_sock_flow_table);
--	rps_record_sock_flow(sock_flow_table, sk->sk_rxhash);
-+	rps_record_sock_flow(sock_flow_table, hash);
+ 	tun_debug(KERN_INFO, tun, "delete flow: hash %u index %u\n",
+ 		  e->rxhash, e->queue_index);
++	sock_rps_reset_flow_hash(e->rps_rxhash);
+ 	hlist_del_rcu(&e->hash_link);
+ 	kfree_rcu(e, rcu);
+ 	--tun->flow_count;
+@@ -325,6 +328,7 @@ static void tun_flow_update(struct tun_struct *tun, u32 rxhash,
+ 		/* TODO: keep queueing to old queue until it's empty? */
+ 		e->queue_index = queue_index;
+ 		e->updated = jiffies;
++		sock_rps_record_flow_hash(e->rps_rxhash);
+ 	} else {
+ 		spin_lock_bh(&tun->lock);
+ 		if (!tun_flow_find(head, rxhash) &&
+@@ -341,6 +345,18 @@ unlock:
  	rcu_read_unlock();
- #endif
  }
  
--static inline void sock_rps_reset_flow(const struct sock *sk)
-+static inline void sock_rps_reset_flow_hash(__u32 hash)
- {
- #ifdef CONFIG_RPS
- 	struct rps_sock_flow_table *sock_flow_table;
- 
- 	rcu_read_lock();
- 	sock_flow_table = rcu_dereference(rps_sock_flow_table);
--	rps_reset_sock_flow(sock_flow_table, sk->sk_rxhash);
-+	rps_reset_sock_flow(sock_flow_table, hash);
- 	rcu_read_unlock();
- #endif
- }
- 
-+static inline void sock_rps_record_flow(const struct sock *sk)
++/**
++ * Save the hash received in the stack receive path and update the
++ * flow_hash table accordingly.
++ */
++static inline void tun_flow_save_rps_rxhash(struct tun_flow_entry *e, u32 hash)
 +{
-+	sock_rps_record_flow_hash(sk->sk_rxhash);
++	if (unlikely(e->rps_rxhash != hash)) {
++		sock_rps_reset_flow_hash(e->rps_rxhash);
++		e->rps_rxhash = hash;
++	}
 +}
 +
-+static inline void sock_rps_reset_flow(const struct sock *sk)
-+{
-+	sock_rps_reset_flow_hash(sk->sk_rxhash);
-+}
+ /* We try to identify a flow through its rxhash first. The reason that
+  * we do not check rxq no. is because some cards(e.g 82599), chooses
+  * the rxq based on the txq where the last packet of the flow comes. As
+@@ -361,9 +377,10 @@ static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb)
+ 	txq = skb_get_hash(skb);
+ 	if (txq) {
+ 		e = tun_flow_find(&tun->flows[tun_hashfn(txq)], txq);
+-		if (e)
++		if (e) {
+ 			txq = e->queue_index;
+-		else
++			tun_flow_save_rps_rxhash(e, txq);
++		} else
+ 			/* use multiply and shift instead of expensive divide */
+ 			txq = ((u64)txq * numqueues) >> 32;
+ 	} else if (likely(skb_rx_queue_recorded(skb))) {
+@@ -728,6 +745,22 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (txq >= tun->numqueues)
+ 		goto drop;
+ 
++	if (tun->numqueues == 1) {
++		/* Select queue was not called for the skbuff, so we extract the
++		 * RPS hash and save it into the flow_table here.
++		 */
++		__u32 rxhash;
 +
- static inline void sock_rps_save_rxhash(struct sock *sk,
- 					const struct sk_buff *skb)
- {
++		rxhash = skb_get_hash(skb);
++		if (rxhash) {
++			struct tun_flow_entry *e;
++			e = tun_flow_find(&tun->flows[tun_hashfn(rxhash)],
++					rxhash);
++			if (e)
++				tun_flow_save_rps_rxhash(e, rxhash);
++		}
++	}
++
+ 	tun_debug(KERN_INFO, tun, "tun_net_xmit %d\n", skb->len);
+ 
+ 	BUG_ON(!tfile);
 -- 
 1.7.6.5
