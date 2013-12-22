@@ -1,163 +1,232 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 25/31] staging: r8188eu: Cleanup of include/hal_intf.h
-Date: Sun, 22 Dec 2013 17:36:56 -0600
-Message-ID: <1387755422-11443-26-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 26/31] staging: r8188eu: Eliminate enum ODM_RADIO_PATH in favor of rf_radio_path
+Date: Sun, 22 Dec 2013 17:36:57 -0600
+Message-ID: <1387755422-11443-27-git-send-email-Larry.Finger@lwfinger.net>
 References: <1387755422-11443-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
 	Larry Finger <Larry.Finger@lwfinger.net>
 To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:51147 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756917Ab3LVXit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 18:38:49 -0500
-Received: by mail-pa0-f53.google.com with SMTP id hz1so4704714pad.12
-        for <netdev@vger.kernel.org>; Sun, 22 Dec 2013 15:38:49 -0800 (PST)
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:33628 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756923Ab3LVXiy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 18:38:54 -0500
+Received: by mail-pb0-f49.google.com with SMTP id jt11so4627240pbb.22
+        for <netdev@vger.kernel.org>; Sun, 22 Dec 2013 15:38:53 -0800 (PST)
 In-Reply-To: <1387755422-11443-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This driver only handles RTL8188EU with USB interface, thus several hardware
-defines and macros can be removed.
+There are two different enum statements that have been combined.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/staging/rtl8188eu/hal/rtl8188e_dm.c   |  2 --
- drivers/staging/rtl8188eu/hal/rtl8188e_mp.c   | 18 +++++++----------
- drivers/staging/rtl8188eu/hal/usb_ops_linux.c |  1 -
- drivers/staging/rtl8188eu/include/drv_types.h |  2 --
- drivers/staging/rtl8188eu/include/hal_intf.h  | 29 ---------------------------
- drivers/staging/rtl8188eu/os_dep/usb_intf.c   |  1 -
- 6 files changed, 7 insertions(+), 46 deletions(-)
+ drivers/staging/rtl8188eu/hal/HalHWImg8188E_RF.c   |  4 +--
+ drivers/staging/rtl8188eu/hal/odm_HWConfig.c       | 32 +++++++++++-----------
+ drivers/staging/rtl8188eu/hal/odm_RegConfig8188E.c |  6 ++--
+ drivers/staging/rtl8188eu/hal/rtl8188e_rf6052.c    |  4 +--
+ drivers/staging/rtl8188eu/include/odm.h            |  7 -----
+ drivers/staging/rtl8188eu/include/odm_HWConfig.h   |  4 +--
+ .../staging/rtl8188eu/include/odm_RegConfig8188E.h |  2 +-
+ 7 files changed, 26 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/staging/rtl8188eu/hal/rtl8188e_dm.c b/drivers/staging/rtl8188eu/hal/rtl8188e_dm.c
-index 1e7c926..4c934e2 100644
---- a/drivers/staging/rtl8188eu/hal/rtl8188e_dm.c
-+++ b/drivers/staging/rtl8188eu/hal/rtl8188e_dm.c
-@@ -63,8 +63,6 @@ static void Init_ODM_ComInfo_88E(struct adapter *Adapter)
+diff --git a/drivers/staging/rtl8188eu/hal/HalHWImg8188E_RF.c b/drivers/staging/rtl8188eu/hal/HalHWImg8188E_RF.c
+index 480c810..17c6411 100644
+--- a/drivers/staging/rtl8188eu/hal/HalHWImg8188E_RF.c
++++ b/drivers/staging/rtl8188eu/hal/HalHWImg8188E_RF.c
+@@ -211,7 +211,7 @@ enum HAL_STATUS ODM_ReadAndConfig_RadioA_1T_8188E(struct odm_dm_struct *pDM_Odm)
+ 				else if (v1 == 0xf9)
+ 					rtw_IOL_append_DELAY_US_cmd(pxmit_frame, 1);
+ 				else
+-					rtw_IOL_append_WRF_cmd(pxmit_frame, ODM_RF_PATH_A, (u16)v1, v2, bRFRegOffsetMask);
++					rtw_IOL_append_WRF_cmd(pxmit_frame, RF_PATH_A, (u16)v1, v2, bRFRegOffsetMask);
+ 			} else {
+ 				odm_ConfigRF_RadioA_8188E(pDM_Odm, v1, v2);
+ 			}
+@@ -247,7 +247,7 @@ enum HAL_STATUS ODM_ReadAndConfig_RadioA_1T_8188E(struct odm_dm_struct *pDM_Odm)
+ 						else if (v1 == 0xf9)
+ 							rtw_IOL_append_DELAY_US_cmd(pxmit_frame, 1);
+ 						else
+-							rtw_IOL_append_WRF_cmd(pxmit_frame, ODM_RF_PATH_A, (u16)v1, v2, bRFRegOffsetMask);
++							rtw_IOL_append_WRF_cmd(pxmit_frame, RF_PATH_A, (u16)v1, v2, bRFRegOffsetMask);
+ 					} else {
+ 						odm_ConfigRF_RadioA_8188E(pDM_Odm, v1, v2);
+ 					}
+diff --git a/drivers/staging/rtl8188eu/hal/odm_HWConfig.c b/drivers/staging/rtl8188eu/hal/odm_HWConfig.c
+index a452c7d..a755df3 100644
+--- a/drivers/staging/rtl8188eu/hal/odm_HWConfig.c
++++ b/drivers/staging/rtl8188eu/hal/odm_HWConfig.c
+@@ -106,8 +106,8 @@ static void odm_RxPhyStatus92CSeries_Parsing(struct odm_dm_struct *dm_odm,
  
- 	ODM_CmnInfoInit(dm_odm, ODM_CMNINFO_PLATFORM, ODM_CE);
+ 	isCCKrate = ((pPktinfo->Rate >= DESC92C_RATE1M) && (pPktinfo->Rate <= DESC92C_RATE11M)) ? true : false;
  
--	ODM_CmnInfoInit(dm_odm, ODM_CMNINFO_INTERFACE, Adapter->interface_type);/* RTL871X_HCI_TYPE */
--
- 	ODM_CmnInfoInit(dm_odm, ODM_CMNINFO_IC_TYPE, ODM_RTL8188E);
+-	pPhyInfo->RxMIMOSignalQuality[ODM_RF_PATH_A] = -1;
+-	pPhyInfo->RxMIMOSignalQuality[ODM_RF_PATH_B] = -1;
++	pPhyInfo->RxMIMOSignalQuality[RF_PATH_A] = -1;
++	pPhyInfo->RxMIMOSignalQuality[RF_PATH_B] = -1;
  
- 	fab_ver = ODM_TSMC;
-diff --git a/drivers/staging/rtl8188eu/hal/rtl8188e_mp.c b/drivers/staging/rtl8188eu/hal/rtl8188e_mp.c
-index e5dc036..3d0e6c9 100644
---- a/drivers/staging/rtl8188eu/hal/rtl8188e_mp.c
-+++ b/drivers/staging/rtl8188eu/hal/rtl8188e_mp.c
-@@ -652,12 +652,10 @@ void Hal_SetSingleToneTx(struct adapter *pAdapter, u8 bStart)
- 		/*  Start Single Tone. */
- 		RT_TRACE(_module_mp_, _drv_alert_, ("SetSingleToneTx: test start\n"));
- 		/*  <20120326, Kordan> To amplify the power of tone for Xtal calibration. (asked by Edlu) */
--		if (IS_HARDWARE_TYPE_8188E(pAdapter)) {
--			reg58 = PHY_QueryRFReg(pAdapter, RF_PATH_A, LNA_Low_Gain_3, bRFRegOffsetMask);
--			reg58 &= 0xFFFFFFF0;
--			reg58 += 2;
--			PHY_SetRFReg(pAdapter, RF_PATH_A, LNA_Low_Gain_3, bRFRegOffsetMask, reg58);
--		}
-+		reg58 = PHY_QueryRFReg(pAdapter, RF_PATH_A, LNA_Low_Gain_3, bRFRegOffsetMask);
-+		reg58 &= 0xFFFFFFF0;
-+		reg58 += 2;
-+		PHY_SetRFReg(pAdapter, RF_PATH_A, LNA_Low_Gain_3, bRFRegOffsetMask, reg58);
- 		PHY_SetBBReg(pAdapter, rFPGA0_RFMOD, bCCKEn, 0x0);
- 		PHY_SetBBReg(pAdapter, rFPGA0_RFMOD, bOFDMEn, 0x0);
+ 	if (isCCKrate) {
+ 		u8 cck_agc_rpt;
+@@ -190,15 +190,15 @@ static void odm_RxPhyStatus92CSeries_Parsing(struct odm_dm_struct *dm_odm,
+ 					SQ = ((64-SQ_rpt) * 100) / 44;
+ 			}
+ 			pPhyInfo->SignalQuality = SQ;
+-			pPhyInfo->RxMIMOSignalQuality[ODM_RF_PATH_A] = SQ;
+-			pPhyInfo->RxMIMOSignalQuality[ODM_RF_PATH_B] = -1;
++			pPhyInfo->RxMIMOSignalQuality[RF_PATH_A] = SQ;
++			pPhyInfo->RxMIMOSignalQuality[RF_PATH_B] = -1;
+ 		}
+ 	} else { /* is OFDM rate */
+ 		dm_odm->PhyDbgInfo.NumQryPhyStatusOFDM++;
  
-@@ -687,11 +685,9 @@ void Hal_SetSingleToneTx(struct adapter *pAdapter, u8 bStart)
+ 		/*  (1)Get RSSI for HT rate */
  
- 		/*  <20120326, Kordan> To amplify the power of tone for Xtal calibration. (asked by Edlu) */
- 		/*  <20120326, Kordan> Only in single tone mode. (asked by Edlu) */
--		if (IS_HARDWARE_TYPE_8188E(pAdapter)) {
--			reg58 = PHY_QueryRFReg(pAdapter, RF_PATH_A, LNA_Low_Gain_3, bRFRegOffsetMask);
--			reg58 &= 0xFFFFFFF0;
--			PHY_SetRFReg(pAdapter, RF_PATH_A, LNA_Low_Gain_3, bRFRegOffsetMask, reg58);
--		}
-+		reg58 = PHY_QueryRFReg(pAdapter, RF_PATH_A, LNA_Low_Gain_3, bRFRegOffsetMask);
-+		reg58 &= 0xFFFFFFF0;
-+		PHY_SetRFReg(pAdapter, RF_PATH_A, LNA_Low_Gain_3, bRFRegOffsetMask, reg58);
- 		write_bbreg(pAdapter, rFPGA0_RFMOD, bCCKEn, 0x1);
- 		write_bbreg(pAdapter, rFPGA0_RFMOD, bOFDMEn, 0x1);
- 		if (is92C) {
-diff --git a/drivers/staging/rtl8188eu/hal/usb_ops_linux.c b/drivers/staging/rtl8188eu/hal/usb_ops_linux.c
-index 787763e..31ae21a 100644
---- a/drivers/staging/rtl8188eu/hal/usb_ops_linux.c
-+++ b/drivers/staging/rtl8188eu/hal/usb_ops_linux.c
-@@ -723,6 +723,5 @@ void rtl8188eu_set_intf_ops(struct _io_ops	*pops)
- void rtl8188eu_set_hw_type(struct adapter *adapt)
- {
- 	adapt->chip_type = RTL8188E;
--	adapt->HardwareType = HARDWARE_TYPE_RTL8188EU;
- 	DBG_88E("CHIP TYPE: RTL8188E\n");
+-		 for (i = ODM_RF_PATH_A; i < ODM_RF_PATH_MAX; i++) {
++		 for (i = RF_PATH_A; i < RF_PATH_MAX; i++) {
+ 			/*  2008/01/30 MH we will judge RF RX path now. */
+ 			if (dm_odm->RFPathRxEnable & BIT(i))
+ 				rf_rx_num++;
+@@ -252,7 +252,7 @@ static void odm_RxPhyStatus92CSeries_Parsing(struct odm_dm_struct *dm_odm,
+ 			EVM = odm_EVMdbToPercentage((pPhyStaRpt->stream_rxevm[i]));	/* dbm */
+ 
+ 			if (pPktinfo->bPacketMatchBSSID) {
+-				if (i == ODM_RF_PATH_A) /*  Fill value in RFD, Get the first spatial stream only */
++				if (i == RF_PATH_A) /*  Fill value in RFD, Get the first spatial stream only */
+ 					pPhyInfo->SignalQuality = (u8)(EVM & 0xff);
+ 				pPhyInfo->RxMIMOSignalQuality[i] = (u8)(EVM & 0xff);
+ 			}
+@@ -330,15 +330,15 @@ static void odm_Process_RSSIForDM(struct odm_dm_struct *dm_odm,
+ 
+ 	if (pPktinfo->bPacketToSelf || pPktinfo->bPacketBeacon) {
+ 		if (!isCCKrate) { /* ofdm rate */
+-			if (pPhyInfo->RxMIMOSignalStrength[ODM_RF_PATH_B] == 0) {
+-				RSSI_Ave = pPhyInfo->RxMIMOSignalStrength[ODM_RF_PATH_A];
++			if (pPhyInfo->RxMIMOSignalStrength[RF_PATH_B] == 0) {
++				RSSI_Ave = pPhyInfo->RxMIMOSignalStrength[RF_PATH_A];
+ 			} else {
+-				if (pPhyInfo->RxMIMOSignalStrength[ODM_RF_PATH_A] > pPhyInfo->RxMIMOSignalStrength[ODM_RF_PATH_B]) {
+-					RSSI_max = pPhyInfo->RxMIMOSignalStrength[ODM_RF_PATH_A];
+-					RSSI_min = pPhyInfo->RxMIMOSignalStrength[ODM_RF_PATH_B];
++				if (pPhyInfo->RxMIMOSignalStrength[RF_PATH_A] > pPhyInfo->RxMIMOSignalStrength[RF_PATH_B]) {
++					RSSI_max = pPhyInfo->RxMIMOSignalStrength[RF_PATH_A];
++					RSSI_min = pPhyInfo->RxMIMOSignalStrength[RF_PATH_B];
+ 				} else {
+-					RSSI_max = pPhyInfo->RxMIMOSignalStrength[ODM_RF_PATH_B];
+-					RSSI_min = pPhyInfo->RxMIMOSignalStrength[ODM_RF_PATH_A];
++					RSSI_max = pPhyInfo->RxMIMOSignalStrength[RF_PATH_B];
++					RSSI_min = pPhyInfo->RxMIMOSignalStrength[RF_PATH_A];
+ 				}
+ 				if ((RSSI_max - RSSI_min) < 3)
+ 					RSSI_Ave = RSSI_max;
+@@ -445,11 +445,11 @@ void ODM_MacStatusQuery(struct odm_dm_struct *dm_odm, u8 *mac_stat,
  }
-diff --git a/drivers/staging/rtl8188eu/include/drv_types.h b/drivers/staging/rtl8188eu/include/drv_types.h
-index 00a49ef..a492a1c 100644
---- a/drivers/staging/rtl8188eu/include/drv_types.h
-+++ b/drivers/staging/rtl8188eu/include/drv_types.h
-@@ -225,8 +225,6 @@ struct adapter {
- 	int	pid[3];/* process id from UI, 0:wps, 1:hostapd, 2:dhcpcd */
- 	int	bDongle;/* build-in module or external dongle */
- 	u16	chip_type;
--	u16	HardwareType;
--	u16	interface_type;/* USB,SDIO,SPI,PCI */
  
- 	struct dvobj_priv *dvobj;
- 	struct	mlme_priv mlmepriv;
-diff --git a/drivers/staging/rtl8188eu/include/hal_intf.h b/drivers/staging/rtl8188eu/include/hal_intf.h
-index 439c3c9..c274b34 100644
---- a/drivers/staging/rtl8188eu/include/hal_intf.h
-+++ b/drivers/staging/rtl8188eu/include/hal_intf.h
-@@ -286,39 +286,10 @@ enum rt_eeprom_type {
- #define RF_CHANGE_BY_SW		BIT31
+ enum HAL_STATUS ODM_ConfigRFWithHeaderFile(struct odm_dm_struct *dm_odm,
+-					   enum ODM_RF_RADIO_PATH content,
+-					   enum ODM_RF_RADIO_PATH rfpath)
++					   enum rf_radio_path content,
++					   enum rf_radio_path rfpath)
+ {
+ 	ODM_RT_TRACE(dm_odm, ODM_COMP_INIT, ODM_DBG_LOUD, ("===>ODM_ConfigRFWithHeaderFile\n"));
+-	if (rfpath == ODM_RF_PATH_A)
++	if (rfpath == RF_PATH_A)
+ 		READ_AND_CONFIG(8188E, _RadioA_1T_);
+ 	ODM_RT_TRACE(dm_odm, ODM_COMP_INIT, ODM_DBG_LOUD, (" ===> ODM_ConfigRFWithHeaderFile() Radio_A:Rtl8188ERadioA_1TArray\n"));
+ 	ODM_RT_TRACE(dm_odm, ODM_COMP_INIT, ODM_DBG_LOUD, (" ===> ODM_ConfigRFWithHeaderFile() Radio_B:Rtl8188ERadioB_1TArray\n"));
+diff --git a/drivers/staging/rtl8188eu/hal/odm_RegConfig8188E.c b/drivers/staging/rtl8188eu/hal/odm_RegConfig8188E.c
+index 0594e70..6193d9f 100644
+--- a/drivers/staging/rtl8188eu/hal/odm_RegConfig8188E.c
++++ b/drivers/staging/rtl8188eu/hal/odm_RegConfig8188E.c
+@@ -21,7 +21,7 @@
+ #include "odm_precomp.h"
  
- enum hardware_type {
--	HARDWARE_TYPE_RTL8180,
--	HARDWARE_TYPE_RTL8185,
--	HARDWARE_TYPE_RTL8187,
--	HARDWARE_TYPE_RTL8188,
--	HARDWARE_TYPE_RTL8190P,
--	HARDWARE_TYPE_RTL8192E,
--	HARDWARE_TYPE_RTL819xU,
--	HARDWARE_TYPE_RTL8192SE,
--	HARDWARE_TYPE_RTL8192SU,
--	HARDWARE_TYPE_RTL8192CE,
--	HARDWARE_TYPE_RTL8192CU,
--	HARDWARE_TYPE_RTL8192DE,
--	HARDWARE_TYPE_RTL8192DU,
--	HARDWARE_TYPE_RTL8723AE,
--	HARDWARE_TYPE_RTL8723AU,
--	HARDWARE_TYPE_RTL8723AS,
--	HARDWARE_TYPE_RTL8188EE,
- 	HARDWARE_TYPE_RTL8188EU,
--	HARDWARE_TYPE_RTL8188ES,
- 	HARDWARE_TYPE_MAX,
- };
+ void odm_ConfigRFReg_8188E(struct odm_dm_struct *pDM_Odm, u32 Addr,
+-			   u32 Data, enum ODM_RF_RADIO_PATH RF_PATH,
++			   u32 Data, enum rf_radio_path RF_PATH,
+ 			   u32 RegAddr)
+ {
+ 	struct adapter *adapter = pDM_Odm->Adapter;
+@@ -50,7 +50,7 @@ void odm_ConfigRF_RadioA_8188E(struct odm_dm_struct *pDM_Odm, u32 Addr, u32 Data
+ 	u32  content = 0x1000; /*  RF_Content: radioa_txt */
+ 	u32 maskforPhySet = (u32)(content&0xE000);
  
--/*  RTL8188E Series */
--#define IS_HARDWARE_TYPE_8188EE(_Adapter)			\
--(((struct adapter *)_Adapter)->HardwareType == HARDWARE_TYPE_RTL8188EE)
--#define IS_HARDWARE_TYPE_8188EU(_Adapter)			\
--(((struct adapter *)_Adapter)->HardwareType == HARDWARE_TYPE_RTL8188EU)
--#define IS_HARDWARE_TYPE_8188ES(_Adapter)			\
--(((struct adapter *)_Adapter)->HardwareType == HARDWARE_TYPE_RTL8188ES)
--#define	IS_HARDWARE_TYPE_8188E(_Adapter)	\
--(IS_HARDWARE_TYPE_8188EE(_Adapter) || IS_HARDWARE_TYPE_8188EU(_Adapter) || \
-- IS_HARDWARE_TYPE_8188ES(_Adapter))
+-	odm_ConfigRFReg_8188E(pDM_Odm, Addr, Data, ODM_RF_PATH_A, Addr|maskforPhySet);
++	odm_ConfigRFReg_8188E(pDM_Odm, Addr, Data, RF_PATH_A, Addr|maskforPhySet);
+ 	ODM_RT_TRACE(pDM_Odm, ODM_COMP_INIT, ODM_DBG_TRACE, ("===> ODM_ConfigRFWithHeaderFile: [RadioA] %08X %08X\n", Addr, Data));
+ }
+ 
+@@ -59,7 +59,7 @@ void odm_ConfigRF_RadioB_8188E(struct odm_dm_struct *pDM_Odm, u32 Addr, u32 Data
+ 	u32  content = 0x1001; /*  RF_Content: radiob_txt */
+ 	u32 maskforPhySet = (u32)(content&0xE000);
+ 
+-	odm_ConfigRFReg_8188E(pDM_Odm, Addr, Data, ODM_RF_PATH_B, Addr|maskforPhySet);
++	odm_ConfigRFReg_8188E(pDM_Odm, Addr, Data, RF_PATH_B, Addr|maskforPhySet);
+ 
+ 	ODM_RT_TRACE(pDM_Odm, ODM_COMP_INIT, ODM_DBG_TRACE, ("===> ODM_ConfigRFWithHeaderFile: [RadioB] %08X %08X\n", Addr, Data));
+ }
+diff --git a/drivers/staging/rtl8188eu/hal/rtl8188e_rf6052.c b/drivers/staging/rtl8188eu/hal/rtl8188e_rf6052.c
+index 2999da7..b1cb5c4 100644
+--- a/drivers/staging/rtl8188eu/hal/rtl8188e_rf6052.c
++++ b/drivers/staging/rtl8188eu/hal/rtl8188e_rf6052.c
+@@ -518,11 +518,11 @@ static int phy_RF6052_Config_ParaFile(struct adapter *Adapter)
+ 		/*----Initialize RF fom connfiguration file----*/
+ 		switch (eRFPath) {
+ 		case RF_PATH_A:
+-			if (HAL_STATUS_FAILURE == ODM_ConfigRFWithHeaderFile(&pHalData->odmpriv, (enum ODM_RF_RADIO_PATH)eRFPath, (enum ODM_RF_RADIO_PATH)eRFPath))
++			if (HAL_STATUS_FAILURE == ODM_ConfigRFWithHeaderFile(&pHalData->odmpriv, (enum rf_radio_path)eRFPath, (enum rf_radio_path)eRFPath))
+ 				rtStatus = _FAIL;
+ 			break;
+ 		case RF_PATH_B:
+-		if (HAL_STATUS_FAILURE == ODM_ConfigRFWithHeaderFile(&pHalData->odmpriv, (enum ODM_RF_RADIO_PATH)eRFPath, (enum ODM_RF_RADIO_PATH)eRFPath))
++		if (HAL_STATUS_FAILURE == ODM_ConfigRFWithHeaderFile(&pHalData->odmpriv, (enum rf_radio_path)eRFPath, (enum rf_radio_path)eRFPath))
+ 				rtStatus = _FAIL;
+ 			break;
+ 		case RF_PATH_C:
+diff --git a/drivers/staging/rtl8188eu/include/odm.h b/drivers/staging/rtl8188eu/include/odm.h
+index cc5d0b2..8e9c92c 100644
+--- a/drivers/staging/rtl8188eu/include/odm.h
++++ b/drivers/staging/rtl8188eu/include/odm.h
+@@ -928,13 +928,6 @@ struct odm_dm_struct {
+ 
+ #define ODM_RF_PATH_MAX 3
+ 
+-enum ODM_RF_RADIO_PATH {
+-	ODM_RF_PATH_A = 0,   /* Radio Path A */
+-	ODM_RF_PATH_B = 1,   /* Radio Path B */
+-	ODM_RF_PATH_C = 2,   /* Radio Path C */
+-	ODM_RF_PATH_D = 3,   /* Radio Path D */
+-};
 -
- #define GET_EEPROM_EFUSE_PRIV(adapter) (&adapter->eeprompriv)
+ enum ODM_RF_CONTENT {
+ 	odm_radioa_txt = 0x1000,
+ 	odm_radiob_txt = 0x1001,
+diff --git a/drivers/staging/rtl8188eu/include/odm_HWConfig.h b/drivers/staging/rtl8188eu/include/odm_HWConfig.h
+index df52722..49e7e16 100644
+--- a/drivers/staging/rtl8188eu/include/odm_HWConfig.h
++++ b/drivers/staging/rtl8188eu/include/odm_HWConfig.h
+@@ -121,8 +121,8 @@ void ODM_MacStatusQuery(struct odm_dm_struct *pDM_Odm,
+ 			bool	bPacketBeacon);
  
- #define is_boot_from_eeprom(adapter) (adapter->eeprompriv.EepromOrEfuse)
-diff --git a/drivers/staging/rtl8188eu/os_dep/usb_intf.c b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
-index 35107fd..594580b 100644
---- a/drivers/staging/rtl8188eu/os_dep/usb_intf.c
-+++ b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
-@@ -657,7 +657,6 @@ static struct adapter *rtw_usb_if1_init(struct dvobj_priv *dvobj,
- 	padapter->hw_init_mutex = &usb_drv->hw_init_mutex;
+ enum HAL_STATUS ODM_ConfigRFWithHeaderFile(struct odm_dm_struct *pDM_Odm,
+-					   enum ODM_RF_RADIO_PATH Content,
+-					   enum ODM_RF_RADIO_PATH eRFPath);
++					   enum rf_radio_path Content,
++					   enum rf_radio_path eRFPath);
  
- 	/* step 1-1., decide the chip_type via vid/pid */
--	padapter->interface_type = RTW_USB;
- 	chip_by_usb_id(padapter, pdid);
+ enum HAL_STATUS ODM_ConfigBBWithHeaderFile(struct odm_dm_struct *pDM_Odm,
+ 					   enum odm_bb_config_type ConfigType);
+diff --git a/drivers/staging/rtl8188eu/include/odm_RegConfig8188E.h b/drivers/staging/rtl8188eu/include/odm_RegConfig8188E.h
+index 727e6b2..f2bf7a0 100644
+--- a/drivers/staging/rtl8188eu/include/odm_RegConfig8188E.h
++++ b/drivers/staging/rtl8188eu/include/odm_RegConfig8188E.h
+@@ -21,7 +21,7 @@
+ #define __INC_ODM_REGCONFIG_H_8188E
  
- 	if (rtw_handle_dualmac(padapter, 1) != _SUCCESS)
+ void odm_ConfigRFReg_8188E(struct odm_dm_struct *pDM_Odm, u32 Addr, u32 Data,
+-			   enum ODM_RF_RADIO_PATH  RF_PATH, u32 RegAddr);
++			   enum rf_radio_path  RF_PATH, u32 RegAddr);
+ 
+ void odm_ConfigRF_RadioA_8188E(struct odm_dm_struct *pDM_Odm,
+ 			       u32 Addr, u32 Data);
 -- 
 1.8.4
