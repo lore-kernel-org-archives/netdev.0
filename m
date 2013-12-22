@@ -1,86 +1,44 @@
-From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH] nfs: fix dead code of ipv6_addr_scope
-Date: Sun, 22 Dec 2013 03:30:54 +0100
-Message-ID: <20131222023054.GH14073@order.stressinduktion.org>
-References: <1387600744-11366-1-git-send-email-alex.aring@gmail.com> <20131221124440.GG14073@order.stressinduktion.org> <20131221133253.GA20745@omega>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] sctp: fix missing include file
+Date: Sat, 21 Dec 2013 22:01:27 -0500 (EST)
+Message-ID: <20131221.220127.245659333298463184.davem@davemloft.net>
+References: <20131221.000055.1377147691178558975.davem@davemloft.net>
+	<52B562FE.4000207@redhat.com>
+	<A1B7221A-6C6E-4B3B-8A7A-8492D04049D2@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	werner-SEdMjqphH88wryQfseakQg@public.gmane.org
-To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20131221133253.GA20745@omega>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: dborkman@redhat.com, vyasevich@gmail.com, nhorman@tuxdriver.com,
+	netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	shm@cumulusnetworks.com, hannes@stressinduktion.org,
+	linux-sctp@vger.kernel.org
+To: sfeldma@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48644 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751583Ab3LVDBd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Dec 2013 22:01:33 -0500
+In-Reply-To: <A1B7221A-6C6E-4B3B-8A7A-8492D04049D2@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 21, 2013 at 02:32:54PM +0100, Alexander Aring wrote:
-> Hi Hannes,
-> 
-> On Sat, Dec 21, 2013 at 01:44:40PM +0100, Hannes Frederic Sowa wrote:
-> > On Sat, Dec 21, 2013 at 05:39:04AM +0100, Alexander Aring wrote:
-> > > The correct way to check on IPV6_ADDR_SCOPE_LINKLOCAL is to check with
-> > > the ipv6_addr_src_scope function.
-> > > 
-> > > Currently this can't be work, because ipv6_addr_scope returns a int with
-> > > a mask of IPV6_ADDR_SCOPE_MASK (0x00f0U) and IPV6_ADDR_SCOPE_LINKLOCAL
-> > > is 0x02. So the condition is always false.
-> > > 
-> > > Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > > ---
-> > > I think ipv6_addr_src_scope should be correct, can somebody from netdev ml
-> > > confirm this please?
-> > > I stumple over that and I did not compile and test it. Maybe this is something
-> > > for stable?
-> > > 
-> > >  fs/nfs/nfs4filelayoutdev.c | 2 +-
-> > >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > > 
-> > > diff --git a/fs/nfs/nfs4filelayoutdev.c b/fs/nfs/nfs4filelayoutdev.c
-> > > index c7c295e5..efac602 100644
-> > > --- a/fs/nfs/nfs4filelayoutdev.c
-> > > +++ b/fs/nfs/nfs4filelayoutdev.c
-> > > @@ -95,7 +95,7 @@ same_sockaddr(struct sockaddr *addr1, struct sockaddr *addr2)
-> > >  		b6 = (struct sockaddr_in6 *)addr2;
-> > >  
-> > >  		/* LINKLOCAL addresses must have matching scope_id */
-> > > -		if (ipv6_addr_scope(&a6->sin6_addr) ==
-> > > +		if (ipv6_addr_src_scope(&a6->sin6_addr) ==
-> > >  		    IPV6_ADDR_SCOPE_LINKLOCAL &&
-> > >  		    a6->sin6_scope_id != b6->sin6_scope_id)
-> > >  			return false;
-> > 
-> > Good catch!
-> > 
-> thanks.
-> 
-> I am still unsure if sctp is correct or not, I think it isn't correct.
-> Because we compare and don't check if any bit is set.
-> 
-> We don't use IPV6_ADDR_SCOPE_TYPE here. We use IPV6_ADDR_TYPE. But we can't
-> compare it.
-
-Actually, this is fine, too. ipv6_addr_scope does mask the addr_type with
-IPV6_ADDR_SCOPE_MASK (which is 0x00f0U). If you look at addrconf_core.c you
-see that the 4 bits stand by itself each time.
-
-Actually it seems ipv6_addr_src_scope is better suitable for multicast scope
-handling and ipv6_addr_scope with IFA_{HOST,LINK,SITE} is fine for
-non-multicast. In this case there is no difference.
-
-Maybe an int ipv6_cmp_sockaddr(struct in6_addr *a1, int scope1,
-			  struct in6_addr *a2, int scope2)
-or
-int ipv6_cmp_sockaddr(struct sockaddr_in6 *s1,
-		      struct sockaddr_in6 *s2)
-
-would be nice so we don't need to open code it everywhere.
-
-Greetings,
-
-  Hannes
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+RnJvbTogU2NvdHQgRmVsZG1hbiA8c2ZlbGRtYUBjdW11bHVzbmV0d29ya3MuY29tPg0KRGF0ZTog
+U2F0LCAyMSBEZWMgMjAxMyAwNzoxOTowMyAtMDgwMA0KDQo+IA0KPiBPbiBEZWMgMjEsIDIwMTMs
+IGF0IDE6NDQgQU0sIERhbmllbCBCb3JrbWFubiA8ZGJvcmttYW5AcmVkaGF0LmNvbT4gd3JvdGU6
+DQo+IA0KPj4gT24gMTIvMjEvMjAxMyAwNjowMCBBTSwgRGF2aWQgTWlsbGVyIHdyb3RlOg0KPj4+
+IEZyb206IFNjb3R0IEZlbGRtYW4gPHNmZWxkbWFAY3VtdWx1c25ldHdvcmtzLmNvbT4NCj4+PiBE
+YXRlOiBGcmksIDIwIERlYyAyMDEzIDE4OjUxOjEwIC0wODAwDQo+Pj4gDQo+Pj4+IENvbXBpbGUg
+ZXJyb3IgcmVwb3J0ZWQgYnkgSmltIERhdmlzIG9uIG5ldGRldi4NCj4+Pj4gDQo+Pj4+IGlwNl9z
+a19hY2NlcHRfcG10dSgpIG5lZWRzIG5ldC9pcDZfcm91dGUuaA0KPj4+PiANCj4+Pj4gU2lnbmVk
+LW9mZi1ieTogU2NvdHQgRmVsZG1hbiA8c2ZlbGRtYUBjdW11bHVzbmV0d29ya3MuY29tPg0KPj4+
+IA0KPj4+IEFwcGxpZWQsIHRoYW5rcy4NCj4+IA0KPj4gU29ycnkgZm9yIHRoZSBsYXRlIHJlcGx5
+IGFzIEknbSBvbiB0cmF2ZWwgd2l0aCBsaW1pdGVkIGNvbm5lY3Rpdml0eS4NCj4+IA0KPj4gU2Nv
+dHQsIHRoaXMgZml4IGlzIG5vdCBjb3JyZWN0LCBhbmQgcHJvYmFibHkgc2hvdWxkIGJlIHJldmVy
+dGVkLiBUaGUNCj4+IGNvcnJlY3Qgb25lIHdhcyBhbHJlYWR5IGluIHBhdGNod29yayB1bmRlciBb
+MV0uIEluIFNDVFAsIHdlIGhhdmUNCj4+IG5ldC9zY3RwL2lwdjYuYyBmb3IgYWxsIElQdjYgcmVs
+YXRlZCBmdW5jdGlvbnMuIEFsc28gdGhlcmUsIHRoaXMNCj4+IGluY2x1ZGUgZmlsZSBpcyBhbHJl
+YWR5IHByZXNlbnQuDQo+PiANCj4+IFRoYW5rcyAhDQo+PiANCj4+IFsxXSBodHRwOi8vcGF0Y2h3
+b3JrLm96bGFicy5vcmcvcGF0Y2gvMzAzMzA4Lw0KPiANCj4gT29wcywgc29ycnksIHR3byBzaGlw
+cyBwYXNzaW5nLCBldGMuICBJIHNob3VsZCBoYXZlIGxvb2tlZCB1bmRlciBwYXRjaHdvcmsgZmly
+c3QuDQo+IA0KPiBEYXZpZCwgcGxlYXNlIHJldmVydCBteSBjaGFuZ2UgYWMwOTE3ZjIgcGVuZGlu
+ZyBEYW5pZWyicyBmaXguDQoNCkRvbmUuDQo=
