@@ -1,30 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] bna: fix sparse non static symbol warnings
-Date: Sat, 21 Dec 2013 22:04:22 -0500 (EST)
-Message-ID: <20131221.220422.1098607552319603178.davem@davemloft.net>
-References: <CAPgLHd_dx9YdxMrrCybiEovXCfuGGg0TE+rvap3XpmyezuO+wQ@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Multicast routing stops functioning after 4G multicast packets recived.
+Date: Sun, 22 Dec 2013 04:10:03 +0100
+Message-ID: <20131222031003.GI14073@order.stressinduktion.org>
+References: <20131219162810.55810@gmx.com> <1387473858.19078.362.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rmody@brocade.com, yongjun_wei@trendmicro.com.cn,
-	netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
+Content-Type: text/plain; charset=utf-8
+Cc: Bob Falken <NetFestivalHaveFun@gmx.com>,
+	Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48667 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751583Ab3LVDEY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Dec 2013 22:04:24 -0500
-In-Reply-To: <CAPgLHd_dx9YdxMrrCybiEovXCfuGGg0TE+rvap3XpmyezuO+wQ@mail.gmail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:45298 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751910Ab3LVDKF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Dec 2013 22:10:05 -0500
+Content-Disposition: inline
+In-Reply-To: <1387473858.19078.362.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Sat, 21 Dec 2013 16:40:55 +0800
+On Thu, Dec 19, 2013 at 09:24:18AM -0800, Eric Dumazet wrote:
+> On Thu, 2013-12-19 at 17:28 +0100, Bob Falken wrote:
+> > The only reason why i give information about 2.6.36.4 is that its the
+> > only latest kernel that was functioning properly.
+> > i.e kernel >= 2.6.37 is not woking. so its a bisecting of the kernel
+> > versions to help a coder see when/where the isse was implemented in
+> > the kernel.
+> > 
+> > I do not need a backport patch for an old kernel, I generally only
+> > need the issue looked into and get fixed so that I dont have to use an
+> > old kernel. :)
+> > 
+> > I have no issue reproducing the issue on the recent kernels. however i
+> > have not tried the GIT kernel.
+> > 
+> > I restarted the server just a moment ago. i will install and run
+> > dropwatch and provide feedback in about 17hours. 
+> 
+> You said that "cat /proc/net/ip_mr_cache" gives nothing at all after
+> 2^32 packets ?
+> 
+> Thats a bit scary ... maybe a 32bit refcnt overflow, because of some
+> imbalance...
 
-> -		fwimg_size = BFI_FLASH_IMAGE_SZ/sizeof(u32);
-> +		fwimg_size = bfa_nw_ioc_flash_img_get_size(ioc);
+I have the feeling it may have something to do with FIB_LOOKUP_NOREF. More
+tomorrow...
 
-This is not documented in your commit message and seems totally
-unrelated to fixing sparse warnings.
+Greetings,
 
-I'm not applying this, sorry.
+  Hannes
