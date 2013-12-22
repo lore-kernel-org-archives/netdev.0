@@ -1,7 +1,9 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 00/31] Staging: r8188eu: Various cleanups
-Date: Sun, 22 Dec 2013 17:36:31 -0600
-Message-ID: <1387755422-11443-1-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 01/31] staging: r8188eu: Replace wrappers ODM_sleep_us and
+ rtw_usleep_os
+Date: Sun, 22 Dec 2013 17:36:32 -0600
+Message-ID: <1387755422-11443-2-git-send-email-Larry.Finger@lwfinger.net>
+References: <1387755422-11443-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -9,6 +11,7 @@ Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
  Larry Finger <Larry.Finger@lwfinger.net>
 To: gregkh@linuxfoundation.org
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1387755422-11443-1-git-send-email-Larry.Finger@lwfinger.net>
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
 List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
@@ -20,90 +23,172 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-This set of patches removes a number of wrappers around standard routines,
-cleans up some sparse warhings, and also removed a smatch warning.
+Each of the uses in the code asks for a sleep of 100 usec or so. On Linux,
+these are converted to msleep(1).
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+---
+ drivers/staging/rtl8188eu/core/rtw_pwrctrl.c      |  2 +-
+ drivers/staging/rtl8188eu/hal/odm_interface.c     |  6 ------
+ drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c |  6 +++---
+ drivers/staging/rtl8188eu/hal/rtl8188e_mp.c       | 16 ++++++++--------
+ drivers/staging/rtl8188eu/include/odm_interface.h |  2 --
+ drivers/staging/rtl8188eu/include/osdep_service.h |  2 --
+ drivers/staging/rtl8188eu/os_dep/osdep_service.c  |  8 --------
+ 7 files changed, 12 insertions(+), 30 deletions(-)
 
-
-Larry Finger (31):
-  staging: r8188eu: Replace wrappers ODM_sleep_us and rtw_usleep_os
-  staging: r8188eu: Replace wrapper rtw_yield_os
-  staging: r8188eu: Remove wrapper code for rtw_suspend_lock_init,
-    rtw_suspend_lock_uninit, rtw_lock_suspend, and rtw_unlock_suspend
-  staging: r8188eu: Replace ATOMIC_T with atomic_t
-  staging: r8188eu: Replace wrapper around atomic_set()
-  staging: r8188eu: Remove unused atomic_xxx wrappers
-  staging: r8188eu: Replace wrappers for atomic_inc and
-    atomic_inc_return
-  staging: r8188eu: Remove daemonize conditional
-  staging: r8188eu: Replace wrapper around sema_init
-  staging: r8188eu: Remove wrappers _rtw_free_sema, _rtw_up_sema, and
-    _rtw_mutex_init
-  staging: r8188eu: Remove wrapper around mutex_destroy
-  staging: r8188eu: Remove macro ODM_SetBBReg
-  staging: r8188eu: Remove macro ODM_GetBBReg
-  staging: r8188eu: Remove macro ODM_SetRFReg
-  staging: r8188eu: Remove macro ODM_GetRFReg
-  staging: r8188eu: Remove macro ODM_SetMACReg
-  staging: r8188eu: Remove macro ODM_GetMACReg
-  staging: r8188eu: Remove - number of dummy and unused routines
-  staging: r8188eu: Remove more empty routines
-  staging: r8188eu: Remove even more empty routines
-  staging: r8188eu: Simplify code concerning SupportPlatform
-  staging: r8188eu: Simplify code related to SupportICType
-  staging: r8188eu: Remove unneeded prototypes from include/odm.h
-  staging: r8188eu: Additional cleanup of include/odm.h
-  staging: r8188eu: Cleanup of include/hal_intf.h
-  staging: r8188eu: Eliminate enum ODM_RADIO_PATH in favor of
-    rf_radio_path
-  staging: r8188eu: Fix sparse warning in core/rtw_sta_mgt.c
-  staging: r8188eu: Fix sparse warning in core/rtw_pwrctrl.c
-  staging: r8188eu: Fix sparce warning in core/rtw_xmit.c
-  staging: r8188eu: Fix sparse warnings in core/rtw_br_ext.c
-  staging: r8188eu: Fix smatch error
-
- drivers/staging/rtl8188eu/core/rtw_ap.c            |   2 +-
- drivers/staging/rtl8188eu/core/rtw_br_ext.c        |  43 +-
- drivers/staging/rtl8188eu/core/rtw_cmd.c           |  19 +-
- drivers/staging/rtl8188eu/core/rtw_mlme_ext.c      |  16 +-
- drivers/staging/rtl8188eu/core/rtw_pwrctrl.c       |  13 +-
- drivers/staging/rtl8188eu/core/rtw_recv.c          |   2 +-
- drivers/staging/rtl8188eu/core/rtw_sreset.c        |   2 +-
- drivers/staging/rtl8188eu/core/rtw_sta_mgt.c       |   2 +-
- drivers/staging/rtl8188eu/core/rtw_xmit.c          |  20 +-
- .../staging/rtl8188eu/hal/Hal8188ERateAdaptive.c   |   4 +-
- drivers/staging/rtl8188eu/hal/HalHWImg8188E_RF.c   |   4 +-
- drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c     | 280 +++----
- drivers/staging/rtl8188eu/hal/odm.c                | 918 ++++-----------------
- drivers/staging/rtl8188eu/hal/odm_HWConfig.c       | 361 +++-----
- drivers/staging/rtl8188eu/hal/odm_RTL8188E.c       | 163 ++--
- drivers/staging/rtl8188eu/hal/odm_RegConfig8188E.c |  20 +-
- drivers/staging/rtl8188eu/hal/odm_interface.c      |  82 --
- drivers/staging/rtl8188eu/hal/rtl8188e_cmd.c       |   2 +-
- drivers/staging/rtl8188eu/hal/rtl8188e_dm.c        |   5 -
- drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c  |   6 +-
- drivers/staging/rtl8188eu/hal/rtl8188e_mp.c        |  34 +-
- drivers/staging/rtl8188eu/hal/rtl8188e_rf6052.c    |   4 +-
- drivers/staging/rtl8188eu/hal/usb_ops_linux.c      |   1 -
- drivers/staging/rtl8188eu/include/drv_types.h      |   4 +-
- drivers/staging/rtl8188eu/include/hal_intf.h       |  29 -
- drivers/staging/rtl8188eu/include/odm.h            |  88 +-
- drivers/staging/rtl8188eu/include/odm_HWConfig.h   |   4 +-
- .../staging/rtl8188eu/include/odm_RegConfig8188E.h |   2 +-
- drivers/staging/rtl8188eu/include/odm_debug.h      |  13 +-
- drivers/staging/rtl8188eu/include/odm_interface.h  |  44 +-
- drivers/staging/rtl8188eu/include/odm_precomp.h    |   7 -
- drivers/staging/rtl8188eu/include/osdep_service.h  |  31 -
- drivers/staging/rtl8188eu/include/rtw_cmd.h        |   2 +-
- drivers/staging/rtl8188eu/include/rtw_mlme_ext.h   |   2 +-
- drivers/staging/rtl8188eu/include/rtw_pwrctrl.h    |  10 +-
- drivers/staging/rtl8188eu/include/usb_ops.h        |   4 +-
- drivers/staging/rtl8188eu/os_dep/os_intfs.c        |   4 +-
- drivers/staging/rtl8188eu/os_dep/osdep_service.c   | 103 ---
- drivers/staging/rtl8188eu/os_dep/rtw_android.c     |   2 -
- drivers/staging/rtl8188eu/os_dep/usb_intf.c        |  15 +-
- 40 files changed, 609 insertions(+), 1758 deletions(-)
-
+diff --git a/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c b/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c
+index d5ad1dc..c011efe 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c
++++ b/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c
+@@ -396,7 +396,7 @@ s32 LPS_RF_ON_check(struct adapter *padapter, u32 delay_ms)
+ 			DBG_88E("%s: Wait for FW LPS leave more than %u ms!!!\n", __func__, delay_ms);
+ 			break;
+ 		}
+-		rtw_usleep_os(100);
++		msleep(1);
+ 	}
+ 
+ 	return err;
+diff --git a/drivers/staging/rtl8188eu/hal/odm_interface.c b/drivers/staging/rtl8188eu/hal/odm_interface.c
+index e7fee79..780cb11 100644
+--- a/drivers/staging/rtl8188eu/hal/odm_interface.c
++++ b/drivers/staging/rtl8188eu/hal/odm_interface.c
+@@ -146,12 +146,6 @@ void ODM_IsWorkItemScheduled(void *pRtWorkItem)
+ {
+ }
+ 
+-/*  ODM Timer relative API. */
+-void ODM_sleep_us(u32 us)
+-{
+-	rtw_usleep_os(us);
+-}
+-
+ void ODM_SetTimer(struct odm_dm_struct *pDM_Odm, struct timer_list *pTimer, u32 msDelay)
+ {
+ 	_set_timer(pTimer, msDelay); /* ms */
+diff --git a/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c b/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c
+index d81193b..5921db8 100644
+--- a/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c
++++ b/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c
+@@ -242,7 +242,7 @@ static void efuse_read_phymap_from_txpktbuf(
+ 		while (!(reg_0x143 = rtw_read8(adapter, REG_TXPKTBUF_DBG)) &&
+ 		       (passing_time = rtw_get_passing_time_ms(start)) < 1000) {
+ 			DBG_88E("%s polling reg_0x143:0x%02x, reg_0x106:0x%02x\n", __func__, reg_0x143, rtw_read8(adapter, 0x106));
+-			rtw_usleep_os(100);
++			msleep(1);
+ 		}
+ 
+ 		lo32 = rtw_read32(adapter, REG_PKTBUF_DBG_DATA_L);
+@@ -372,7 +372,7 @@ void rtw_IOL_cmd_tx_pkt_buf_dump(struct adapter *Adapter, int data_len)
+ 	if (pbuf) {
+ 		for (addr = 0; addr < data_cnts; addr++) {
+ 			rtw_write32(Adapter, 0x140, addr);
+-			rtw_usleep_os(2);
++			msleep(1);
+ 			loop = 0;
+ 			do {
+ 				rstatus = (reg_140 = rtw_read32(Adapter, REG_PKTBUF_DBG_CTRL)&BIT24);
+@@ -383,7 +383,7 @@ void rtw_IOL_cmd_tx_pkt_buf_dump(struct adapter *Adapter, int data_len)
+ 					fifo_data = rtw_read32(Adapter, REG_PKTBUF_DBG_DATA_H);
+ 					memcpy(pbuf+(addr*8+4), &fifo_data, 4);
+ 				}
+-				rtw_usleep_os(2);
++				msleep(1);
+ 			} while (!rstatus && (loop++ < 10));
+ 		}
+ 		rtw_IOL_cmd_buf_dump(Adapter, data_len, pbuf);
+diff --git a/drivers/staging/rtl8188eu/hal/rtl8188e_mp.c b/drivers/staging/rtl8188eu/hal/rtl8188e_mp.c
+index ec4fb023..e5dc036 100644
+--- a/drivers/staging/rtl8188eu/hal/rtl8188e_mp.c
++++ b/drivers/staging/rtl8188eu/hal/rtl8188e_mp.c
+@@ -663,18 +663,18 @@ void Hal_SetSingleToneTx(struct adapter *pAdapter, u8 bStart)
+ 
+ 		if (is92C) {
+ 			_write_rfreg(pAdapter, RF_PATH_A, 0x21, BIT19, 0x01);
+-			rtw_usleep_os(100);
++			msleep(1);
+ 			if (rfPath == RF_PATH_A)
+ 				write_rfreg(pAdapter, RF_PATH_B, 0x00, 0x10000); /*  PAD all on. */
+ 			else if (rfPath == RF_PATH_B)
+ 				write_rfreg(pAdapter, RF_PATH_A, 0x00, 0x10000); /*  PAD all on. */
+ 			write_rfreg(pAdapter, rfPath, 0x00, 0x2001f); /*  PAD all on. */
+-			rtw_usleep_os(100);
++			msleep(1);
+ 		} else {
+ 			write_rfreg(pAdapter, rfPath, 0x21, 0xd4000);
+-			rtw_usleep_os(100);
++			msleep(1);
+ 			write_rfreg(pAdapter, rfPath, 0x00, 0x2001f); /*  PAD all on. */
+-			rtw_usleep_os(100);
++			msleep(1);
+ 		}
+ 
+ 		/* for dynamic set Power index. */
+@@ -696,15 +696,15 @@ void Hal_SetSingleToneTx(struct adapter *pAdapter, u8 bStart)
+ 		write_bbreg(pAdapter, rFPGA0_RFMOD, bOFDMEn, 0x1);
+ 		if (is92C) {
+ 			_write_rfreg(pAdapter, RF_PATH_A, 0x21, BIT19, 0x00);
+-			rtw_usleep_os(100);
++			msleep(1);
+ 			write_rfreg(pAdapter, RF_PATH_A, 0x00, 0x32d75); /*  PAD all on. */
+ 			write_rfreg(pAdapter, RF_PATH_B, 0x00, 0x32d75); /*  PAD all on. */
+-			rtw_usleep_os(100);
++			msleep(1);
+ 		} else {
+ 			write_rfreg(pAdapter, rfPath, 0x21, 0x54000);
+-			rtw_usleep_os(100);
++			msleep(1);
+ 			write_rfreg(pAdapter, rfPath, 0x00, 0x30000); /*  PAD all on. */
+-			rtw_usleep_os(100);
++			msleep(1);
+ 		}
+ 
+ 		/* Stop for dynamic set Power index. */
+diff --git a/drivers/staging/rtl8188eu/include/odm_interface.h b/drivers/staging/rtl8188eu/include/odm_interface.h
+index 5e05d9e..c088c85 100644
+--- a/drivers/staging/rtl8188eu/include/odm_interface.h
++++ b/drivers/staging/rtl8188eu/include/odm_interface.h
+@@ -135,8 +135,6 @@ void ODM_ScheduleWorkItem(void *pRtWorkItem);
+ void ODM_IsWorkItemScheduled(void *pRtWorkItem);
+ 
+ /*  ODM Timer relative API. */
+-void ODM_sleep_us(u32 us);
+-
+ void ODM_SetTimer(struct odm_dm_struct *pDM_Odm, struct timer_list *pTimer,
+ 		  u32 msDelay);
+ 
+diff --git a/drivers/staging/rtl8188eu/include/osdep_service.h b/drivers/staging/rtl8188eu/include/osdep_service.h
+index 6085181..818bb91 100644
+--- a/drivers/staging/rtl8188eu/include/osdep_service.h
++++ b/drivers/staging/rtl8188eu/include/osdep_service.h
+@@ -275,8 +275,6 @@ s32  rtw_get_time_interval_ms(u32 start, u32 end);
+ 
+ void rtw_sleep_schedulable(int ms);
+ 
+-void rtw_usleep_os(int us);
+-
+ u32  rtw_atoi(u8 *s);
+ 
+ void rtw_yield_os(void);
+diff --git a/drivers/staging/rtl8188eu/os_dep/osdep_service.c b/drivers/staging/rtl8188eu/os_dep/osdep_service.c
+index e62f120..aedc016 100644
+--- a/drivers/staging/rtl8188eu/os_dep/osdep_service.c
++++ b/drivers/staging/rtl8188eu/os_dep/osdep_service.c
+@@ -245,14 +245,6 @@ void rtw_sleep_schedulable(int ms)
+ 		return;
+ }
+ 
+-void rtw_usleep_os(int us)
+-{
+-	if (1 < (us/1000))
+-		msleep(1);
+-	else
+-		msleep((us/1000) + 1);
+-}
+-
+ void rtw_yield_os(void)
+ {
+ 	yield();
 -- 
 1.8.4
