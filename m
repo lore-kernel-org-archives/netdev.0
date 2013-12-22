@@ -1,49 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/6] batman-adv: free nf_bridge member on locally
- delivered skb
-Date: Sun, 22 Dec 2013 18:50:27 -0500 (EST)
-Message-ID: <20131222.185027.572777902017063381.davem@davemloft.net>
-References: <1387412132-889-1-git-send-email-antonio@meshcoding.com>
-	<1387412132-889-2-git-send-email-antonio@meshcoding.com>
+Subject: Re: [PATCH net] ipv4: consistent reporting of pmtu data in case of
+ corking
+Date: Sun, 22 Dec 2013 18:52:34 -0500 (EST)
+Message-ID: <20131222.185234.1072974003278388464.davem@davemloft.net>
+References: <20131219011336.GB14429@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	mareklindner@neomailbox.ch
-To: antonio@meshcoding.com
+Cc: netdev@vger.kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53284 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53289 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756594Ab3LVXu3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 18:50:29 -0500
-In-Reply-To: <1387412132-889-2-git-send-email-antonio@meshcoding.com>
+	with ESMTP id S1756189Ab3LVXwg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 18:52:36 -0500
+In-Reply-To: <20131219011336.GB14429@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio@meshcoding.com>
-Date: Thu, 19 Dec 2013 01:15:27 +0100
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Thu, 19 Dec 2013 02:13:36 +0100
 
-> If an interface enslaved into batman-adv is a bridge (or a
-> virtual interface built on top of a bridge) the nf_bridge
-> member of the skbs reaching the soft-interface is filled
-> with the state about "netfilter bridge" operations.
+> We report different pmtu values back on the first write and on further
+> writes on an corked socket.
 > 
-> Then, if one of such skbs is locally delivered, the nf_bridge
-> member should be cleaned up to avoid that the old state
-> could mess up with other "netfilter bridge" operations when
-> entering a second bridge.
-> This is needed because batman-adv is an encapsulation
-> protocol.
+> Also don't include the dst.header_len (respectively exthdrlen) as this
+> should already be dealt with by the interface mtu of the outgoing
+> (virtual) interface and policy of that interface should dictate if
+> fragmentation should happen.
 > 
-> However at the moment skb->nf_bridge is not released at all
-> leading to bogus "netfilter bridge" behaviours.
-> Fix this by releasing skb->nf_bridge before an skb gets
-> delivered to the upper layer in interface_rx().
+> Instead reduce the pmtu data by IP options as we do for IPv6. Make the
+> same changes for ip_append_data, where we did not care about options or
+> dst.header_len at all.
 > 
-> Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
-> Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-See nf_reset() and skb_scrub_packet().  Do not reinvent the
-wheel.
-
-Thank you.
+Looks good, applied, thanks.
