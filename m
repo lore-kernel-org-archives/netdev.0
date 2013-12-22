@@ -1,36 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH v3 1/1] drivers: net : cpsw: pass proper device
- name while requesting irq
-Date: Sun, 22 Dec 2013 18:22:43 -0500 (EST)
-Message-ID: <20131222.182243.37050518449066904.davem@davemloft.net>
-References: <1387382630-3683-1-git-send-email-mugunthanvnm@ti.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next V2 2/2] net/mlx4_en: Add netdev support for
+ TCP/IP offloads of vxlan tunneling
+Date: Sun, 22 Dec 2013 15:32:39 -0800
+Message-ID: <1387755159.22671.27.camel@joe-AO722>
+References: <1387725972-10244-1-git-send-email-ogerlitz@mellanox.com>
+	 <1387725972-10244-3-git-send-email-ogerlitz@mellanox.com>
+	 <20131222.181202.168681767663560253.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org
-To: mugunthanvnm@ti.com
+Cc: ogerlitz@mellanox.com, netdev@vger.kernel.org, amirv@mellanox.com,
+	yanb@mellanox.com, ast@plumgrid.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53204 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756181Ab3LVXWo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 18:22:44 -0500
-In-Reply-To: <1387382630-3683-1-git-send-email-mugunthanvnm@ti.com>
+Received: from smtprelay0123.hostedemail.com ([216.40.44.123]:50382 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756087Ab3LVXco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 18:32:44 -0500
+In-Reply-To: <20131222.181202.168681767663560253.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Date: Wed, 18 Dec 2013 21:33:50 +0530
+On Sun, 2013-12-22 at 18:12 -0500, David Miller wrote:
+> From: Or Gerlitz <ogerlitz@mellanox.com>
+> Date: Sun, 22 Dec 2013 17:26:12 +0200
+> 
+> > +	if ((mdev->dev->caps.tunnel_offload_mode == MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)) {
+> > +	if ((mdev->dev->caps.tunnel_offload_mode == MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)) {
+> > +	if ((mdev->dev->caps.tunnel_offload_mode == MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)) {
+> > +	    (mdev->dev->caps.tunnel_offload_mode ==  MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)) {
+> > +	if ((mdev->dev->caps.tunnel_offload_mode == MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)) {
+> 
+> Way too many parenthesis, this isn't LISP :-)
 
-> During checking the interrupts with "cat /proc/interrupts", it is showing
-> device name as (null), this change was done with commit id aa1a15e2d where
-> request_irq is changed to devm_request_irq also changing the irq name from
-> platform device name to net device name, but the net device is not
-> registered at this point with the network frame work, so devm_request_irq
-> is called with device name as NULL, by which it is showed as "(null)" in
-> "cat /proc/interrupts". So this patch changes back irq name to platform
-> device name itself in devm_request_irq so that the device name shows as
-> below.
- ...
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+Is patchwork stuttering?
+I don't see that in the patch I see.
 
-This looks a lot better, thanks.
+@@ -2400,6 +2478,13 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+        if (mdev->dev->caps.steering_mode != MLX4_STEERING_MODE_A0)
+                dev->priv_flags |= IFF_UNICAST_FLT;
+ 
++       if ((mdev->dev->caps.tunnel_offload_mode == MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)) {
++               dev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
++                                       NETIF_F_TSO | NETIF_F_GSO_UDP_TUNNEL;
++               dev->hw_features |= NETIF_F_GSO_UDP_TUNNEL;
++               dev->features    |= NETIF_F_GSO_UDP_TUNNEL;
++       }
