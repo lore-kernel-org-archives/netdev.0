@@ -1,54 +1,63 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 2/4] misc: xgene: Add base driver for APM X-Gene SoC
- Queue Manager/Traffic Manager
-Date: Sat, 21 Dec 2013 17:01:29 -0800
-Message-ID: <20131222010129.GA16366@kroah.com>
-References: <1387507503-7565-1-git-send-email-rapatel@apm.com>
- <1387507503-7565-3-git-send-email-rapatel@apm.com>
- <20131220032133.GB32310@kroah.com>
- <CAN1v_PuBZHN85xTodfSZ-+H4Wdj0T8kSFUJB56KVj9xFH3--JQ@mail.gmail.com>
- <20131220042426.GA21726@kroah.com>
- <CAN1v_Pv-RRTW7cr5xNgAMySQrZi9zMxNjJfnKPi8fa3GUhGpNg@mail.gmail.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [RFC] staging: r8188eu: Fix sparse warnings in core/rtw_br_ext.c
+Date: Sat, 21 Dec 2013 19:31:08 -0600
+Message-ID: <1387675868-18221-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	jcm@redhat.com, "patches@apm.com" <patches@apm.com>,
-	Keyur Chudgar <kchudgar@apm.com>
-To: Ravi Patel <rapatel@apm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAN1v_Pv-RRTW7cr5xNgAMySQrZi9zMxNjJfnKPi8fa3GUhGpNg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ Larry Finger <Larry.Finger@lwfinger.net>
+To: gregkh@linuxfoundation.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 21, 2013 at 04:43:06PM -0800, Ravi Patel wrote:
-> > On Thu, Dec 19, 2013 at 07:41:13PM -0800, Ravi Patel wrote:
-> >> There is no need to talk to this driver from userspace.
-> >> It is a device which is used by other IO devices to communicate with each
-> >> other, including CPU.
-> >> For example, if CPU (software) wants to send a message to Ethernet HW (i.e.
-> >> send packet),
-> >> it used this driver to enqueue a message to Ethernet.
-> >> In other direction, if Ethernet HW receives a packet, it uses QM/TM device to
-> >> send message to
-> >> CPU (software) to process packet.
-> >
-> > So it's a "bus" type of thing, right?
-> >
-> > My question of "why isn't this reflected in the driver model" still
-> > stands.
-> 
-> There is no subsystem underneath QMTM, nor QMTM does any enumeration.
-> QMTM is a centralized resource manager which manages queues circularly
-> for Ethernet, PktDMA (XOR Engine) and Security Engine subsystems.
-> Traffic Management feature of QMTM does flow control, QoS for the subsystems.
-> Because of this reasons, its not obvious that QMTM can fit as a bus.
-> However we are doing further evalution on this.
+Please tell me if the following fixes are appropriate. In particular, I am uncertain of
+the __force attributes.
 
-Just because you can't enumerate a device, doesn't mean it isn't a
-"bus".  You say so yourself that this is how devices talk to the
-hardware, so that sounds like a "bus" to me...
+Thanks,
 
-greg k-h
+Larry
+
+
+Sparse lists the following:
+
+  CHECK   drivers/staging/rtl8188eu/core/rtw_br_ext.c
+drivers/staging/rtl8188eu/core/rtw_br_ext.c:1156:63: warning: restricted __sum16 degrades to integer
+drivers/staging/rtl8188eu/core/rtw_br_ext.c:1160:69: warning: incorrect type in assignment (different base types)
+drivers/staging/rtl8188eu/core/rtw_br_ext.c:1160:69:    expected restricted __sum16 [usertype] check
+drivers/staging/rtl8188eu/core/rtw_br_ext.c:1160:69:    got int
+
+---
+ drivers/staging/rtl8188eu/core/rtw_br_ext.c | 47 +++++++++++++++--------------
+ 1 file changed, 24 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/staging/rtl8188eu/core/rtw_br_ext.c b/drivers/staging/rtl8188eu/core/rtw_br_ext.c
+index 5425bc5..54a706f 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_br_ext.c
++++ b/drivers/staging/rtl8188eu/core/rtw_br_ext.c
+
+@@ -1153,11 +1154,11 @@ void dhcp_flag_bcast(struct adapter *priv, struct sk_buff *skb)
+ 							/*  or BROADCAST flag */
+ 							dhcph->flags |= htons(BROADCAST_FLAG);
+ 							/*  recalculate checksum */
+-							sum = ~(udph->check) & 0xffff;
++							sum = (__force int)(~(udph->check)) & 0xffff;
+ 							sum += be16_to_cpu(dhcph->flags);
+ 							while (sum >> 16)
+ 								sum = (sum & 0xffff) + (sum >> 16);
+-							udph->check = ~sum;
++							udph->check = (__force __sum16)(~sum);
+ 						}
+ 					}
+ 				}
+-- 
+1.8.4
