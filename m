@@ -1,55 +1,60 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next v4 3/8] net_sched: mirred: remove action when the
- target device is gone
-Date: Sun, 22 Dec 2013 13:11:56 -0800
-Message-ID: <CAM_iQpXddH4qX2+-mY5gWLU19b6zjZzKV_RvQiyTT8sJ1sq-ow@mail.gmail.com>
-References: <1387167311-14763-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1387167311-14763-4-git-send-email-xiyou.wangcong@gmail.com>
-	<52B1B1B1.2060501@mojatatu.com>
-	<CAM_iQpUDZa-=H53Csg8476xOL0xP+rn85O8eB1O39-eF_Jo+uw@mail.gmail.com>
-	<52B1FC6D.7040005@mojatatu.com>
-	<CAM_iQpWxCShCgiBrraJ3h9qzgVU82quq0E5vmFMSEcgEwSctJQ@mail.gmail.com>
-	<52B71024.3090504@mojatatu.com>
-	<CAM_iQpW9kUzip+p8fCkD4wH7KbAv8aR-Fqa0iRwPYdzk8+4Tqw@mail.gmail.com>
-	<52B74C3A.1050900@mojatatu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next] net_sched: act: Dont increment refcnt on
+ replace
+Date: Sun, 22 Dec 2013 17:50:15 -0500 (EST)
+Message-ID: <20131222.175015.561115381077901987.davem@davemloft.net>
+References: <52B6DC9B.9060309@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+	eric.dumazet@gmail.com
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f52.google.com ([209.85.219.52]:55461 "EHLO
-	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755402Ab3LVVL5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 16:11:57 -0500
-Received: by mail-oa0-f52.google.com with SMTP id h16so5013024oag.11
-        for <netdev@vger.kernel.org>; Sun, 22 Dec 2013 13:11:57 -0800 (PST)
-In-Reply-To: <52B74C3A.1050900@mojatatu.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53057 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755438Ab3LVWuT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 17:50:19 -0500
+In-Reply-To: <52B6DC9B.9060309@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 22, 2013 at 12:31 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 12/22/13 14:42, Cong Wang wrote:
->>
->> On Sun, Dec 22, 2013 at 8:15 AM, Jamal Hadi Salim <jhs@mojatatu.com>
->> wrote:
->
->
->> You know qdiscs and filters are removed too when the device
->> is gone, right? So isn't that also a policy you are talking about?
->>
->
-> That is an easy optimization that made sense to make - we
-> deleted the root of a graph. No need to spam the policy manager.
-> What we are talking about is deleting a faulty node shared
-> by multiple graphs and deleting the vertex but then leaving
-> dangling edges around. Doesnt make sense.
-> No action that is shared between two flows or devices is EVER
-> going to be removed because you deleted a qdisc or a netdev.
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Sun, 22 Dec 2013 07:35:39 -0500
 
-NOTHING you talked about here is relevant to the policy or
-mechanism you talked previously. Just correctness.
+> This bug seems to have been around for some time, nothing to do with
+> recent changes; i am just doing tests i havent run in a while and
+> saw it. It is against net-next. If you think it is important enough,
+> I could also create one against linus tree..
 
-If removing an shared action is impossible, what about non-shared
-ones? Actually for my _own_ use case, I even don't use nor care
-about shared one...
+Jamal, I've tried to be patient with you over the years, but I really
+need you to start submitting your changes more cleanly.
+
+Your SUBJECT line MUST be the first line of the commit log message,
+optionally with a prefix of the form "[PATCH xxx]" where "xxx" can
+be "net", "net-next" and also contain versioning information such
+as "v2" or "v3" etc.
+
+Then your email message body must contain the commit message, with
+no indentation whatsoever.
+
+Then you may optionally provide a line with "---" then supplementary
+information and text which you don't wish to end up in the final
+commit message.
+
+Then you provide the patch.
+
+And this all must be inline and not as an attachment.
+
+What I get from you is the output of "git show" as an attachment and I
+absolutely cannot use that as-is.  It idents the commit message,
+amongst other things.
+
+You can use "git format-patch" instead and munge it into a proper
+email by hand.  Unlike "git show", "git format-patch" won't indent
+the commit message.
+
+Please take a few moments to read other netdev patch postings
+and see how regulars do it.  They do what works for me.
+
+Thank you.
