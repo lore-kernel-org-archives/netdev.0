@@ -1,7 +1,7 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 04/31] staging: r8188eu: Replace ATOMIC_T with atomic_t
-Date: Sun, 22 Dec 2013 17:36:35 -0600
-Message-ID: <1387755422-11443-5-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 05/31] staging: r8188eu: Replace wrapper around atomic_set()
+Date: Sun, 22 Dec 2013 17:36:36 -0600
+Message-ID: <1387755422-11443-6-git-send-email-Larry.Finger@lwfinger.net>
 References: <1387755422-11443-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,151 +24,79 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/staging/rtl8188eu/include/drv_types.h     |  2 +-
- drivers/staging/rtl8188eu/include/osdep_service.h | 22 ++++++++++------------
- drivers/staging/rtl8188eu/include/rtw_cmd.h       |  2 +-
- drivers/staging/rtl8188eu/include/rtw_mlme_ext.h  |  2 +-
- drivers/staging/rtl8188eu/os_dep/osdep_service.c  | 20 ++++++++++----------
- 5 files changed, 23 insertions(+), 25 deletions(-)
+ drivers/staging/rtl8188eu/core/rtw_cmd.c          | 2 +-
+ drivers/staging/rtl8188eu/core/rtw_mlme_ext.c     | 2 +-
+ drivers/staging/rtl8188eu/include/osdep_service.h | 1 -
+ drivers/staging/rtl8188eu/include/usb_ops.h       | 2 +-
+ drivers/staging/rtl8188eu/os_dep/osdep_service.c  | 5 -----
+ 5 files changed, 3 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/staging/rtl8188eu/include/drv_types.h b/drivers/staging/rtl8188eu/include/drv_types.h
-index ad073c8..00a49ef 100644
---- a/drivers/staging/rtl8188eu/include/drv_types.h
-+++ b/drivers/staging/rtl8188eu/include/drv_types.h
-@@ -191,7 +191,7 @@ struct dvobj_priv {
- 	struct usb_interface *pusbintf;
- 	struct usb_device *pusbdev;
+diff --git a/drivers/staging/rtl8188eu/core/rtw_cmd.c b/drivers/staging/rtl8188eu/core/rtw_cmd.c
+index 281608b..f01564f 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_cmd.c
++++ b/drivers/staging/rtl8188eu/core/rtw_cmd.c
+@@ -84,7 +84,7 @@ int _rtw_init_evt_priv(struct evt_priv *pevtpriv)
+ _func_enter_;
  
--	ATOMIC_T continual_urb_error;
-+	atomic_t continual_urb_error;
- };
+ 	/* allocate DMA-able/Non-Page memory for cmd_buf and rsp_buf */
+-	ATOMIC_SET(&pevtpriv->event_seq, 0);
++	atomic_set(&pevtpriv->event_seq, 0);
+ 	pevtpriv->evt_done_cnt = 0;
  
- static inline struct device *dvobj_to_dev(struct dvobj_priv *dvobj)
+ 	_init_workitem(&pevtpriv->c2h_wk, c2h_wk_callback, NULL);
+diff --git a/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c b/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
+index 7c467ae..f7bf98b 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
++++ b/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
+@@ -221,7 +221,7 @@ static void init_mlme_ext_priv_value(struct adapter *padapter)
+ 		_12M_RATE_, _24M_RATE_, 0xff,
+ 	};
+ 
+-	ATOMIC_SET(&pmlmeext->event_seq, 0);
++	atomic_set(&pmlmeext->event_seq, 0);
+ 	pmlmeext->mgnt_seq = 0;/* reset to zero when disconnect at client mode */
+ 
+ 	pmlmeext->cur_channel = padapter->registrypriv.channel;
 diff --git a/drivers/staging/rtl8188eu/include/osdep_service.h b/drivers/staging/rtl8188eu/include/osdep_service.h
-index 091ca4b..be588aa 100644
+index be588aa..7b2e87a 100644
 --- a/drivers/staging/rtl8188eu/include/osdep_service.h
 +++ b/drivers/staging/rtl8188eu/include/osdep_service.h
-@@ -358,18 +358,16 @@ static inline u32 bitshift(u32 bitmask)
+@@ -358,7 +358,6 @@ static inline u32 bitshift(u32 bitmask)
  #define PATH_LENGTH_MAX PATH_MAX
  
  /* Atomic integer operations */
--#define ATOMIC_T atomic_t
--
--void ATOMIC_SET(ATOMIC_T *v, int i);
--int ATOMIC_READ(ATOMIC_T *v);
--void ATOMIC_ADD(ATOMIC_T *v, int i);
--void ATOMIC_SUB(ATOMIC_T *v, int i);
--void ATOMIC_INC(ATOMIC_T *v);
--void ATOMIC_DEC(ATOMIC_T *v);
--int ATOMIC_ADD_RETURN(ATOMIC_T *v, int i);
--int ATOMIC_SUB_RETURN(ATOMIC_T *v, int i);
--int ATOMIC_INC_RETURN(ATOMIC_T *v);
--int ATOMIC_DEC_RETURN(ATOMIC_T *v);
-+void ATOMIC_SET(atomic_t *v, int i);
-+int ATOMIC_READ(atomic_t *v);
-+void ATOMIC_ADD(atomic_t *v, int i);
-+void ATOMIC_SUB(atomic_t *v, int i);
-+void ATOMIC_INC(atomic_t *v);
-+void ATOMIC_DEC(atomic_t *v);
-+int ATOMIC_ADD_RETURN(atomic_t *v, int i);
-+int ATOMIC_SUB_RETURN(atomic_t *v, int i);
-+int ATOMIC_INC_RETURN(atomic_t *v);
-+int ATOMIC_DEC_RETURN(atomic_t *v);
+-void ATOMIC_SET(atomic_t *v, int i);
+ int ATOMIC_READ(atomic_t *v);
+ void ATOMIC_ADD(atomic_t *v, int i);
+ void ATOMIC_SUB(atomic_t *v, int i);
+diff --git a/drivers/staging/rtl8188eu/include/usb_ops.h b/drivers/staging/rtl8188eu/include/usb_ops.h
+index df34237..b424442 100644
+--- a/drivers/staging/rtl8188eu/include/usb_ops.h
++++ b/drivers/staging/rtl8188eu/include/usb_ops.h
+@@ -91,7 +91,7 @@ static inline int rtw_inc_and_chk_continual_urb_error(struct dvobj_priv *dvobj)
+ */
+ static inline void rtw_reset_continual_urb_error(struct dvobj_priv *dvobj)
+ {
+-	ATOMIC_SET(&dvobj->continual_urb_error, 0);
++	atomic_set(&dvobj->continual_urb_error, 0);
+ }
  
- struct rtw_netdev_priv_indicator {
- 	void *priv;
-diff --git a/drivers/staging/rtl8188eu/include/rtw_cmd.h b/drivers/staging/rtl8188eu/include/rtw_cmd.h
-index 73e9f7d..3d34702 100644
---- a/drivers/staging/rtl8188eu/include/rtw_cmd.h
-+++ b/drivers/staging/rtl8188eu/include/rtw_cmd.h
-@@ -69,7 +69,7 @@ struct	evt_priv {
- 	bool c2h_wk_alive;
- 	struct rtw_cbuf *c2h_queue;
- 	#define C2H_QUEUE_MAX_LEN 10
--	ATOMIC_T event_seq;
-+	atomic_t event_seq;
- 	u8	*evt_buf;	/* shall be non-paged, and 4 bytes aligned */
- 	u8	*evt_allocated_buf;
- 	u32	evt_done_cnt;
-diff --git a/drivers/staging/rtl8188eu/include/rtw_mlme_ext.h b/drivers/staging/rtl8188eu/include/rtw_mlme_ext.h
-index b1bfa2e..7a4b5c6 100644
---- a/drivers/staging/rtl8188eu/include/rtw_mlme_ext.h
-+++ b/drivers/staging/rtl8188eu/include/rtw_mlme_ext.h
-@@ -401,7 +401,7 @@ struct p2p_oper_class_map {
- struct mlme_ext_priv {
- 	struct adapter	*padapter;
- 	u8	mlmeext_init;
--	ATOMIC_T	event_seq;
-+	atomic_t	event_seq;
- 	u16	mgnt_seq;
- 
- 	unsigned char	cur_channel;
+ #define USB_HIGH_SPEED_BULK_SIZE	512
 diff --git a/drivers/staging/rtl8188eu/os_dep/osdep_service.c b/drivers/staging/rtl8188eu/os_dep/osdep_service.c
-index 9c3e410..2f064e8 100644
+index 2f064e8..360703d 100644
 --- a/drivers/staging/rtl8188eu/os_dep/osdep_service.c
 +++ b/drivers/staging/rtl8188eu/os_dep/osdep_service.c
-@@ -247,52 +247,52 @@ void rtw_sleep_schedulable(int ms)
+@@ -247,11 +247,6 @@ void rtw_sleep_schedulable(int ms)
  
  #define RTW_SUSPEND_LOCK_NAME "rtw_wifi"
  
--inline void ATOMIC_SET(ATOMIC_T *v, int i)
-+inline void ATOMIC_SET(atomic_t *v, int i)
- {
- 	atomic_set(v, i);
- }
- 
--inline int ATOMIC_READ(ATOMIC_T *v)
-+inline int ATOMIC_READ(atomic_t *v)
+-inline void ATOMIC_SET(atomic_t *v, int i)
+-{
+-	atomic_set(v, i);
+-}
+-
+ inline int ATOMIC_READ(atomic_t *v)
  {
  	return atomic_read(v);
- }
- 
--inline void ATOMIC_ADD(ATOMIC_T *v, int i)
-+inline void ATOMIC_ADD(atomic_t *v, int i)
- {
- 	atomic_add(i, v);
- }
- 
--inline void ATOMIC_SUB(ATOMIC_T *v, int i)
-+inline void ATOMIC_SUB(atomic_t *v, int i)
- {
- 	atomic_sub(i, v);
- }
- 
--inline void ATOMIC_INC(ATOMIC_T *v)
-+inline void ATOMIC_INC(atomic_t *v)
- {
- 	atomic_inc(v);
- }
- 
--inline void ATOMIC_DEC(ATOMIC_T *v)
-+inline void ATOMIC_DEC(atomic_t *v)
- {
- 	atomic_dec(v);
- }
- 
--inline int ATOMIC_ADD_RETURN(ATOMIC_T *v, int i)
-+inline int ATOMIC_ADD_RETURN(atomic_t *v, int i)
- {
- 	return atomic_add_return(i, v);
- }
- 
--inline int ATOMIC_SUB_RETURN(ATOMIC_T *v, int i)
-+inline int ATOMIC_SUB_RETURN(atomic_t *v, int i)
- {
- 	return atomic_sub_return(i, v);
- }
- 
--inline int ATOMIC_INC_RETURN(ATOMIC_T *v)
-+inline int ATOMIC_INC_RETURN(atomic_t *v)
- {
- 	return atomic_inc_return(v);
- }
- 
--inline int ATOMIC_DEC_RETURN(ATOMIC_T *v)
-+inline int ATOMIC_DEC_RETURN(atomic_t *v)
- {
- 	return atomic_dec_return(v);
- }
 -- 
 1.8.4
