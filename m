@@ -1,112 +1,62 @@
-From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH] nfs: fix dead code of ipv6_addr_scope
-Date: Sun, 22 Dec 2013 13:38:36 +0100
-Message-ID: <20131222123836.GK14073@order.stressinduktion.org>
-References: <1387600744-11366-1-git-send-email-alex.aring@gmail.com> <20131221124440.GG14073@order.stressinduktion.org> <20131221133253.GA20745@omega> <20131222023054.GH14073@order.stressinduktion.org> <20131222123011.GA10241@omega>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH iproute2] simple print newline
+Date: Sun, 22 Dec 2013 07:50:09 -0500
+Message-ID: <52B6E001.60305@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	werner-SEdMjqphH88wryQfseakQg@public.gmane.org
-To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20131222123011.GA10241@omega>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------020303010504040506010505"
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:48528 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751639Ab3LVMuM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 07:50:12 -0500
+Received: by mail-ig0-f173.google.com with SMTP id uq10so19123399igb.0
+        for <netdev@vger.kernel.org>; Sun, 22 Dec 2013 04:50:12 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 22, 2013 at 01:30:14PM +0100, Alexander Aring wrote:
-> On Sun, Dec 22, 2013 at 03:30:54AM +0100, Hannes Frederic Sowa wrote:
-> > On Sat, Dec 21, 2013 at 02:32:54PM +0100, Alexander Aring wrote:
-> > > Hi Hannes,
-> > > 
-> > > On Sat, Dec 21, 2013 at 01:44:40PM +0100, Hannes Frederic Sowa wrote:
-> > > > On Sat, Dec 21, 2013 at 05:39:04AM +0100, Alexander Aring wrote:
-> > > > > The correct way to check on IPV6_ADDR_SCOPE_LINKLOCAL is to check with
-> > > > > the ipv6_addr_src_scope function.
-> > > > > 
-> > > > > Currently this can't be work, because ipv6_addr_scope returns a int with
-> > > > > a mask of IPV6_ADDR_SCOPE_MASK (0x00f0U) and IPV6_ADDR_SCOPE_LINKLOCAL
-> > > > > is 0x02. So the condition is always false.
-> > > > > 
-> > > > > Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > > > > ---
-> > > > > I think ipv6_addr_src_scope should be correct, can somebody from netdev ml
-> > > > > confirm this please?
-> > > > > I stumple over that and I did not compile and test it. Maybe this is something
-> > > > > for stable?
-> > > > > 
-> > > > >  fs/nfs/nfs4filelayoutdev.c | 2 +-
-> > > > >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > > > > 
-> > > > > diff --git a/fs/nfs/nfs4filelayoutdev.c b/fs/nfs/nfs4filelayoutdev.c
-> > > > > index c7c295e5..efac602 100644
-> > > > > --- a/fs/nfs/nfs4filelayoutdev.c
-> > > > > +++ b/fs/nfs/nfs4filelayoutdev.c
-> > > > > @@ -95,7 +95,7 @@ same_sockaddr(struct sockaddr *addr1, struct sockaddr *addr2)
-> > > > >  		b6 = (struct sockaddr_in6 *)addr2;
-> > > > >  
-> > > > >  		/* LINKLOCAL addresses must have matching scope_id */
-> > > > > -		if (ipv6_addr_scope(&a6->sin6_addr) ==
-> > > > > +		if (ipv6_addr_src_scope(&a6->sin6_addr) ==
-> > > > >  		    IPV6_ADDR_SCOPE_LINKLOCAL &&
-> > > > >  		    a6->sin6_scope_id != b6->sin6_scope_id)
-> > > > >  			return false;
-> > > > 
-> > > > Good catch!
-> > > > 
-> > > thanks.
-> > > 
-> > > I am still unsure if sctp is correct or not, I think it isn't correct.
-> > > Because we compare and don't check if any bit is set.
-> > > 
-> > > We don't use IPV6_ADDR_SCOPE_TYPE here. We use IPV6_ADDR_TYPE. But we can't
-> > > compare it.
-> > 
-> > Actually, this is fine, too. ipv6_addr_scope does mask the addr_type with
-> > IPV6_ADDR_SCOPE_MASK (which is 0x00f0U). If you look at addrconf_core.c you
-> > see that the 4 bits stand by itself each time.
-> > 
-> > Actually it seems ipv6_addr_src_scope is better suitable for multicast scope
-> > handling and ipv6_addr_scope with IFA_{HOST,LINK,SITE} is fine for
-> > non-multicast. In this case there is no difference.
-> > 
-> ah thanks, now I understand it!
-> 
-> so an alternative would be:
-> 
-> if (ipv6_addr_scope(&a6->sin6_addr) & IPV6_ADDR_LINKLOCAL &&
-> 	a6->sin6_scope_id != b6->sin6_scope_id)
-> 	...
-> 
-> maybe this is a little bit faster instead of ipv6_addr_src_scope.
-> Should I resend a v2 with the faster solution?
+This is a multi-part message in MIME format.
+--------------020303010504040506010505
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Yes, please do so. Thanks!
 
-> > Maybe an int ipv6_cmp_sockaddr(struct in6_addr *a1, int scope1,
-> > 			  struct in6_addr *a2, int scope2)
-> > or
-> > int ipv6_cmp_sockaddr(struct sockaddr_in6 *s1,
-> > 		      struct sockaddr_in6 *s2)
-> > 
-> 
-> I don't understand why we need such a function here. We only check if
-> "a6" is linklocal and has a different sin6_scope_id than "b6" sin6_scope_id
-> and we don't compare "a6" and "b6" here (then "b6" should be a
-> linklocal, too). I think it's too abstract for me what exactly "compare"
-> means in this case. :-)
+attached.
 
-That were exactly the semantics I had in mind. Something like
-ipv6_equal_sockaddr would be a better name, you are right.
+cheers,
+jamal
 
-Trying to sort ipv6 addresses depends on the specific code and I would
-leave that open-coded in the specific case.
+--------------020303010504040506010505
+Content-Type: text/plain; charset=us-ascii;
+ name="simp2"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="simp2"
 
-Greetings,
+commit d7869e6167c3553e93e254940b0647032b40fed8
+Author: Jamal Hadi Salim <jhs@mojatatu.com>
+Date:   Sun Dec 22 07:46:28 2013 -0500
 
-  Hannes
+    print new line at the end for aesthetics
+    
+    Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/tc/m_simple.c b/tc/m_simple.c
+index 0224440..a8e1d6b 100644
+--- a/tc/m_simple.c
++++ b/tc/m_simple.c
+@@ -188,9 +188,9 @@ static int print_simple(struct action_util *au, FILE * f, struct rtattr *arg)
+ 		if (tb[TCA_DEF_TM]) {
+ 			struct tcf_t *tm = RTA_DATA(tb[TCA_DEF_TM]);
+ 			print_tm(f, tm);
+-			fprintf(f, "\n");
+ 		}
+ 	}
++	fprintf(f, "\n");
+ 
+ 	return 0;
+ }
+
+--------------020303010504040506010505--
