@@ -1,8 +1,7 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 01/31] staging: r8188eu: Replace wrappers ODM_sleep_us and
- rtw_usleep_os
-Date: Sun, 22 Dec 2013 17:36:32 -0600
-Message-ID: <1387755422-11443-2-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 02/31] staging: r8188eu: Replace wrapper rtw_yield_os
+Date: Sun, 22 Dec 2013 17:36:33 -0600
+Message-ID: <1387755422-11443-3-git-send-email-Larry.Finger@lwfinger.net>
 References: <1387755422-11443-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,172 +22,70 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-Each of the uses in the code asks for a sleep of 100 usec or so. On Linux,
-these are converted to msleep(1).
+a simple yield() is sufficient.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/staging/rtl8188eu/core/rtw_pwrctrl.c      |  2 +-
- drivers/staging/rtl8188eu/hal/odm_interface.c     |  6 ------
- drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c |  6 +++---
- drivers/staging/rtl8188eu/hal/rtl8188e_mp.c       | 16 ++++++++--------
- drivers/staging/rtl8188eu/include/odm_interface.h |  2 --
- drivers/staging/rtl8188eu/include/osdep_service.h |  2 --
- drivers/staging/rtl8188eu/os_dep/osdep_service.c  |  8 --------
- 7 files changed, 12 insertions(+), 30 deletions(-)
+ drivers/staging/rtl8188eu/core/rtw_mlme_ext.c     | 2 +-
+ drivers/staging/rtl8188eu/hal/rtl8188e_cmd.c      | 2 +-
+ drivers/staging/rtl8188eu/include/osdep_service.h | 2 --
+ drivers/staging/rtl8188eu/os_dep/osdep_service.c  | 5 -----
+ 4 files changed, 2 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c b/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c
-index d5ad1dc..c011efe 100644
---- a/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_pwrctrl.c
-@@ -396,7 +396,7 @@ s32 LPS_RF_ON_check(struct adapter *padapter, u32 delay_ms)
- 			DBG_88E("%s: Wait for FW LPS leave more than %u ms!!!\n", __func__, delay_ms);
- 			break;
- 		}
--		rtw_usleep_os(100);
-+		msleep(1);
- 	}
- 
- 	return err;
-diff --git a/drivers/staging/rtl8188eu/hal/odm_interface.c b/drivers/staging/rtl8188eu/hal/odm_interface.c
-index e7fee79..780cb11 100644
---- a/drivers/staging/rtl8188eu/hal/odm_interface.c
-+++ b/drivers/staging/rtl8188eu/hal/odm_interface.c
-@@ -146,12 +146,6 @@ void ODM_IsWorkItemScheduled(void *pRtWorkItem)
- {
- }
- 
--/*  ODM Timer relative API. */
--void ODM_sleep_us(u32 us)
--{
--	rtw_usleep_os(us);
--}
--
- void ODM_SetTimer(struct odm_dm_struct *pDM_Odm, struct timer_list *pTimer, u32 msDelay)
- {
- 	_set_timer(pTimer, msDelay); /* ms */
-diff --git a/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c b/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c
-index d81193b..5921db8 100644
---- a/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c
-+++ b/drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c
-@@ -242,7 +242,7 @@ static void efuse_read_phymap_from_txpktbuf(
- 		while (!(reg_0x143 = rtw_read8(adapter, REG_TXPKTBUF_DBG)) &&
- 		       (passing_time = rtw_get_passing_time_ms(start)) < 1000) {
- 			DBG_88E("%s polling reg_0x143:0x%02x, reg_0x106:0x%02x\n", __func__, reg_0x143, rtw_read8(adapter, 0x106));
--			rtw_usleep_os(100);
-+			msleep(1);
- 		}
- 
- 		lo32 = rtw_read32(adapter, REG_PKTBUF_DBG_DATA_L);
-@@ -372,7 +372,7 @@ void rtw_IOL_cmd_tx_pkt_buf_dump(struct adapter *Adapter, int data_len)
- 	if (pbuf) {
- 		for (addr = 0; addr < data_cnts; addr++) {
- 			rtw_write32(Adapter, 0x140, addr);
--			rtw_usleep_os(2);
-+			msleep(1);
- 			loop = 0;
+diff --git a/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c b/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
+index 9938e22..7c467ae 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
++++ b/drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
+@@ -6333,7 +6333,7 @@ unsigned int send_beacon(struct adapter *padapter)
+ 		issue_beacon(padapter, 100);
+ 		issue++;
+ 		do {
+-			rtw_yield_os();
++			yield();
+ 			rtw_hal_get_hwreg(padapter, HW_VAR_BCN_VALID, (u8 *)(&bxmitok));
+ 			poll++;
+ 		} while ((poll%10) != 0 && !bxmitok && !padapter->bSurpriseRemoved && !padapter->bDriverStopped);
+diff --git a/drivers/staging/rtl8188eu/hal/rtl8188e_cmd.c b/drivers/staging/rtl8188eu/hal/rtl8188e_cmd.c
+index b409b69..ca0a708 100644
+--- a/drivers/staging/rtl8188eu/hal/rtl8188e_cmd.c
++++ b/drivers/staging/rtl8188eu/hal/rtl8188e_cmd.c
+@@ -655,7 +655,7 @@ _func_enter_;
+ 			SetFwRsvdPagePkt(adapt, false);
+ 			DLBcnCount++;
  			do {
- 				rstatus = (reg_140 = rtw_read32(Adapter, REG_PKTBUF_DBG_CTRL)&BIT24);
-@@ -383,7 +383,7 @@ void rtw_IOL_cmd_tx_pkt_buf_dump(struct adapter *Adapter, int data_len)
- 					fifo_data = rtw_read32(Adapter, REG_PKTBUF_DBG_DATA_H);
- 					memcpy(pbuf+(addr*8+4), &fifo_data, 4);
- 				}
--				rtw_usleep_os(2);
-+				msleep(1);
- 			} while (!rstatus && (loop++ < 10));
- 		}
- 		rtw_IOL_cmd_buf_dump(Adapter, data_len, pbuf);
-diff --git a/drivers/staging/rtl8188eu/hal/rtl8188e_mp.c b/drivers/staging/rtl8188eu/hal/rtl8188e_mp.c
-index ec4fb023..e5dc036 100644
---- a/drivers/staging/rtl8188eu/hal/rtl8188e_mp.c
-+++ b/drivers/staging/rtl8188eu/hal/rtl8188e_mp.c
-@@ -663,18 +663,18 @@ void Hal_SetSingleToneTx(struct adapter *pAdapter, u8 bStart)
- 
- 		if (is92C) {
- 			_write_rfreg(pAdapter, RF_PATH_A, 0x21, BIT19, 0x01);
--			rtw_usleep_os(100);
-+			msleep(1);
- 			if (rfPath == RF_PATH_A)
- 				write_rfreg(pAdapter, RF_PATH_B, 0x00, 0x10000); /*  PAD all on. */
- 			else if (rfPath == RF_PATH_B)
- 				write_rfreg(pAdapter, RF_PATH_A, 0x00, 0x10000); /*  PAD all on. */
- 			write_rfreg(pAdapter, rfPath, 0x00, 0x2001f); /*  PAD all on. */
--			rtw_usleep_os(100);
-+			msleep(1);
- 		} else {
- 			write_rfreg(pAdapter, rfPath, 0x21, 0xd4000);
--			rtw_usleep_os(100);
-+			msleep(1);
- 			write_rfreg(pAdapter, rfPath, 0x00, 0x2001f); /*  PAD all on. */
--			rtw_usleep_os(100);
-+			msleep(1);
- 		}
- 
- 		/* for dynamic set Power index. */
-@@ -696,15 +696,15 @@ void Hal_SetSingleToneTx(struct adapter *pAdapter, u8 bStart)
- 		write_bbreg(pAdapter, rFPGA0_RFMOD, bOFDMEn, 0x1);
- 		if (is92C) {
- 			_write_rfreg(pAdapter, RF_PATH_A, 0x21, BIT19, 0x00);
--			rtw_usleep_os(100);
-+			msleep(1);
- 			write_rfreg(pAdapter, RF_PATH_A, 0x00, 0x32d75); /*  PAD all on. */
- 			write_rfreg(pAdapter, RF_PATH_B, 0x00, 0x32d75); /*  PAD all on. */
--			rtw_usleep_os(100);
-+			msleep(1);
- 		} else {
- 			write_rfreg(pAdapter, rfPath, 0x21, 0x54000);
--			rtw_usleep_os(100);
-+			msleep(1);
- 			write_rfreg(pAdapter, rfPath, 0x00, 0x30000); /*  PAD all on. */
--			rtw_usleep_os(100);
-+			msleep(1);
- 		}
- 
- 		/* Stop for dynamic set Power index. */
-diff --git a/drivers/staging/rtl8188eu/include/odm_interface.h b/drivers/staging/rtl8188eu/include/odm_interface.h
-index 5e05d9e..c088c85 100644
---- a/drivers/staging/rtl8188eu/include/odm_interface.h
-+++ b/drivers/staging/rtl8188eu/include/odm_interface.h
-@@ -135,8 +135,6 @@ void ODM_ScheduleWorkItem(void *pRtWorkItem);
- void ODM_IsWorkItemScheduled(void *pRtWorkItem);
- 
- /*  ODM Timer relative API. */
--void ODM_sleep_us(u32 us);
--
- void ODM_SetTimer(struct odm_dm_struct *pDM_Odm, struct timer_list *pTimer,
- 		  u32 msDelay);
- 
+-				rtw_yield_os();
++				yield();
+ 				/* mdelay(10); */
+ 				/*  check rsvd page download OK. */
+ 				rtw_hal_get_hwreg(adapt, HW_VAR_BCN_VALID, (u8 *)(&bcn_valid));
 diff --git a/drivers/staging/rtl8188eu/include/osdep_service.h b/drivers/staging/rtl8188eu/include/osdep_service.h
-index 6085181..818bb91 100644
+index 818bb91..00c349e 100644
 --- a/drivers/staging/rtl8188eu/include/osdep_service.h
 +++ b/drivers/staging/rtl8188eu/include/osdep_service.h
-@@ -275,8 +275,6 @@ s32  rtw_get_time_interval_ms(u32 start, u32 end);
+@@ -277,8 +277,6 @@ void rtw_sleep_schedulable(int ms);
  
- void rtw_sleep_schedulable(int ms);
- 
--void rtw_usleep_os(int us);
--
  u32  rtw_atoi(u8 *s);
  
- void rtw_yield_os(void);
+-void rtw_yield_os(void);
+-
+ static inline unsigned char _cancel_timer_ex(struct timer_list *ptimer)
+ {
+ 	return del_timer_sync(ptimer);
 diff --git a/drivers/staging/rtl8188eu/os_dep/osdep_service.c b/drivers/staging/rtl8188eu/os_dep/osdep_service.c
-index e62f120..aedc016 100644
+index aedc016..2261342 100644
 --- a/drivers/staging/rtl8188eu/os_dep/osdep_service.c
 +++ b/drivers/staging/rtl8188eu/os_dep/osdep_service.c
-@@ -245,14 +245,6 @@ void rtw_sleep_schedulable(int ms)
+@@ -245,11 +245,6 @@ void rtw_sleep_schedulable(int ms)
  		return;
  }
  
--void rtw_usleep_os(int us)
+-void rtw_yield_os(void)
 -{
--	if (1 < (us/1000))
--		msleep(1);
--	else
--		msleep((us/1000) + 1);
+-	yield();
 -}
 -
- void rtw_yield_os(void)
- {
- 	yield();
+ #define RTW_SUSPEND_LOCK_NAME "rtw_wifi"
+ 
+ inline void rtw_suspend_lock_init(void)
 -- 
 1.8.4
