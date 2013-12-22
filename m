@@ -1,38 +1,47 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net-next] ipv4: fix tunneled VM traffic over hw VXLAN/GRE
- GSO NIC
-Date: Sun, 22 Dec 2013 15:25:53 +0200
-Message-ID: <CAJZOPZJsm08_EnGsitbx_qoHk28+TEnORJB__b9Zi284kcfkJw@mail.gmail.com>
-References: <1387393368-1028-1-git-send-email-weichunc@plumgrid.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>
-To: Wei-Chun Chao <weichunc@plumgrid.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 0/2] net/mlx4: Add support for TCP/IP offloads of vxlan tunneling
+Date: Sun, 22 Dec 2013 16:00:52 +0200
+Message-ID: <1387720854-1355-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com, yanb@mellanox.com,
+	ast@plumgrid.com, Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:56387 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752414Ab3LVNZy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 08:25:54 -0500
-Received: by mail-pb0-f46.google.com with SMTP id md12so4401476pbc.33
-        for <netdev@vger.kernel.org>; Sun, 22 Dec 2013 05:25:53 -0800 (PST)
-In-Reply-To: <1387393368-1028-1-git-send-email-weichunc@plumgrid.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:55298 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752290Ab3LVOBC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Dec 2013 09:01:02 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 18, 2013 at 9:02 PM, Wei-Chun Chao <weichunc@plumgrid.com> wrote:
-> This is also seen on 'net'.
->
-> VM to VM GSO traffic is broken if it goes through VXLAN or GRE
-> tunnel and the physical NIC on the host supports hardware VXLAN/GRE
-> GSO offload (e.g. bnx2x and next-gen mlx4).
+Hi Dave,
 
-Ack, this patch solves the breakage of VM traffic that is subject to
-offloaded vxlan traffic which I see with latest kernels and the mlx4
-patches I posted last week. So how we make progress here, is this
-patch getting in or the alternative suggested down the thread by
-Wei-Chun here http://patchwork.ozlabs.org/patch/303025/?
+These two patches add mlx4 support for TCP/IP offloads under vxlan tunneling.
+
+V0 was submitted rebased against the other inflight mlx4 series we sent, 
+but it turns out that there was another mlx4 patch in the air, its now merged 
+as 6917441 "net: mlx4 calls skb_set_hash" which has tiny collision with V0 
+as of content changes.
+
+changes from V0:
+ - rebased against net-next  commit 289dccb "net: use kfree_skb_list() helper",
+   to avoid git am failure as of content change
+
+Or Gerlitz (2):
+  net/mlx4_core: Add basic support for TCP/IP offloads under tunneling
+  net/mlx4_en: Add netdev support for TCP/IP offloads of vxlan
+    tunneling
+
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |   95 +++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_resources.c |    6 ++
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c        |   15 +++-
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c        |   14 +++-
+ drivers/net/ethernet/mellanox/mlx4/fw.c           |   19 ++++-
+ drivers/net/ethernet/mellanox/mlx4/main.c         |   14 +++
+ drivers/net/ethernet/mellanox/mlx4/mcg.c          |   14 +++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h      |    3 +-
+ drivers/net/ethernet/mellanox/mlx4/port.c         |   41 +++++++++
+ include/linux/mlx4/cmd.h                          |    1 +
+ include/linux/mlx4/cq.h                           |    5 +
+ include/linux/mlx4/device.h                       |   37 ++++++++-
+ include/linux/mlx4/qp.h                           |    6 ++
+ 13 files changed, 263 insertions(+), 7 deletions(-)
