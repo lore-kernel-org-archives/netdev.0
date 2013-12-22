@@ -1,27 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2013-12-22
-Date: Sat, 21 Dec 2013 22:02:51 -0500 (EST)
-Message-ID: <20131221.220251.1172779234361311544.davem@davemloft.net>
-References: <52B61F96.2000408@pengutronix.de>
+Subject: Re: [PATCH -next] bna: fix sparse non static symbol warnings
+Date: Sat, 21 Dec 2013 22:04:22 -0500 (EST)
+Message-ID: <20131221.220422.1098607552319603178.davem@davemloft.net>
+References: <CAPgLHd_dx9YdxMrrCybiEovXCfuGGg0TE+rvap3XpmyezuO+wQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <52B61F96.2000408@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: rmody@brocade.com, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48667 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751583Ab3LVDEY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Dec 2013 22:04:24 -0500
+In-Reply-To: <CAPgLHd_dx9YdxMrrCybiEovXCfuGGg0TE+rvap3XpmyezuO+wQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Sun, 22 Dec 2013 00:09:10 +0100
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Sat, 21 Dec 2013 16:40:55 +0800
 
-> this is a pull request of three patches for net-next/master.
-> 
-> There is a patch by Oliver Hartkopp, to clean up the CAN gw code.
-> Alexander Shiyan adds device tree support to the mcp251x driver and a
-> patch by Ezequiel Garcia lets the ti_hecc driver compile on all ARM
-> platforms.
+> -		fwimg_size = BFI_FLASH_IMAGE_SZ/sizeof(u32);
+> +		fwimg_size = bfa_nw_ioc_flash_img_get_size(ioc);
 
-Pulled, thanks.
+This is not documented in your commit message and seems totally
+unrelated to fixing sparse warnings.
+
+I'm not applying this, sorry.
