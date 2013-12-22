@@ -1,67 +1,109 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH] net: rose: restore old recvmsg behavior
-Date: Mon, 23 Dec 2013 00:32:31 +0100
-Message-ID: <1387755151-9653-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:43882 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756189Ab3LVXfh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 18:35:37 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 00/31] Staging: r8188eu: Various cleanups
+Date: Sun, 22 Dec 2013 17:36:31 -0600
+Message-ID: <1387755422-11443-1-git-send-email-Larry.Finger@lwfinger.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ Larry Finger <Larry.Finger@lwfinger.net>
+To: gregkh@linuxfoundation.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-recvmsg handler in net/rose/af_rose.c performs size-check ->msg_namelen.
+This set of patches removes a number of wrappers around standard routines,
+cleans up some sparse warhings, and also removed a smatch warning.
 
-After commit f3d3342602f8bcbf37d7c46641cb9bca7618eb1c
-(net: rework recvmsg handler msg_name and msg_namelen logic), we now
-always take the else branch due to namelen being initialized to 0.
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 
-Digging in netdev-vger-cvs git repo shows that msg_namelen was
-initialized with a fixed-size since at least 1995, so the else branch
-was never taken.
 
-Compile tested only.
+Larry Finger (31):
+  staging: r8188eu: Replace wrappers ODM_sleep_us and rtw_usleep_os
+  staging: r8188eu: Replace wrapper rtw_yield_os
+  staging: r8188eu: Remove wrapper code for rtw_suspend_lock_init,
+    rtw_suspend_lock_uninit, rtw_lock_suspend, and rtw_unlock_suspend
+  staging: r8188eu: Replace ATOMIC_T with atomic_t
+  staging: r8188eu: Replace wrapper around atomic_set()
+  staging: r8188eu: Remove unused atomic_xxx wrappers
+  staging: r8188eu: Replace wrappers for atomic_inc and
+    atomic_inc_return
+  staging: r8188eu: Remove daemonize conditional
+  staging: r8188eu: Replace wrapper around sema_init
+  staging: r8188eu: Remove wrappers _rtw_free_sema, _rtw_up_sema, and
+    _rtw_mutex_init
+  staging: r8188eu: Remove wrapper around mutex_destroy
+  staging: r8188eu: Remove macro ODM_SetBBReg
+  staging: r8188eu: Remove macro ODM_GetBBReg
+  staging: r8188eu: Remove macro ODM_SetRFReg
+  staging: r8188eu: Remove macro ODM_GetRFReg
+  staging: r8188eu: Remove macro ODM_SetMACReg
+  staging: r8188eu: Remove macro ODM_GetMACReg
+  staging: r8188eu: Remove - number of dummy and unused routines
+  staging: r8188eu: Remove more empty routines
+  staging: r8188eu: Remove even more empty routines
+  staging: r8188eu: Simplify code concerning SupportPlatform
+  staging: r8188eu: Simplify code related to SupportICType
+  staging: r8188eu: Remove unneeded prototypes from include/odm.h
+  staging: r8188eu: Additional cleanup of include/odm.h
+  staging: r8188eu: Cleanup of include/hal_intf.h
+  staging: r8188eu: Eliminate enum ODM_RADIO_PATH in favor of
+    rf_radio_path
+  staging: r8188eu: Fix sparse warning in core/rtw_sta_mgt.c
+  staging: r8188eu: Fix sparse warning in core/rtw_pwrctrl.c
+  staging: r8188eu: Fix sparce warning in core/rtw_xmit.c
+  staging: r8188eu: Fix sparse warnings in core/rtw_br_ext.c
+  staging: r8188eu: Fix smatch error
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/rose/af_rose.c | 16 ++++------------
- 1 file changed, 4 insertions(+), 12 deletions(-)
+ drivers/staging/rtl8188eu/core/rtw_ap.c            |   2 +-
+ drivers/staging/rtl8188eu/core/rtw_br_ext.c        |  43 +-
+ drivers/staging/rtl8188eu/core/rtw_cmd.c           |  19 +-
+ drivers/staging/rtl8188eu/core/rtw_mlme_ext.c      |  16 +-
+ drivers/staging/rtl8188eu/core/rtw_pwrctrl.c       |  13 +-
+ drivers/staging/rtl8188eu/core/rtw_recv.c          |   2 +-
+ drivers/staging/rtl8188eu/core/rtw_sreset.c        |   2 +-
+ drivers/staging/rtl8188eu/core/rtw_sta_mgt.c       |   2 +-
+ drivers/staging/rtl8188eu/core/rtw_xmit.c          |  20 +-
+ .../staging/rtl8188eu/hal/Hal8188ERateAdaptive.c   |   4 +-
+ drivers/staging/rtl8188eu/hal/HalHWImg8188E_RF.c   |   4 +-
+ drivers/staging/rtl8188eu/hal/HalPhyRf_8188e.c     | 280 +++----
+ drivers/staging/rtl8188eu/hal/odm.c                | 918 ++++-----------------
+ drivers/staging/rtl8188eu/hal/odm_HWConfig.c       | 361 +++-----
+ drivers/staging/rtl8188eu/hal/odm_RTL8188E.c       | 163 ++--
+ drivers/staging/rtl8188eu/hal/odm_RegConfig8188E.c |  20 +-
+ drivers/staging/rtl8188eu/hal/odm_interface.c      |  82 --
+ drivers/staging/rtl8188eu/hal/rtl8188e_cmd.c       |   2 +-
+ drivers/staging/rtl8188eu/hal/rtl8188e_dm.c        |   5 -
+ drivers/staging/rtl8188eu/hal/rtl8188e_hal_init.c  |   6 +-
+ drivers/staging/rtl8188eu/hal/rtl8188e_mp.c        |  34 +-
+ drivers/staging/rtl8188eu/hal/rtl8188e_rf6052.c    |   4 +-
+ drivers/staging/rtl8188eu/hal/usb_ops_linux.c      |   1 -
+ drivers/staging/rtl8188eu/include/drv_types.h      |   4 +-
+ drivers/staging/rtl8188eu/include/hal_intf.h       |  29 -
+ drivers/staging/rtl8188eu/include/odm.h            |  88 +-
+ drivers/staging/rtl8188eu/include/odm_HWConfig.h   |   4 +-
+ .../staging/rtl8188eu/include/odm_RegConfig8188E.h |   2 +-
+ drivers/staging/rtl8188eu/include/odm_debug.h      |  13 +-
+ drivers/staging/rtl8188eu/include/odm_interface.h  |  44 +-
+ drivers/staging/rtl8188eu/include/odm_precomp.h    |   7 -
+ drivers/staging/rtl8188eu/include/osdep_service.h  |  31 -
+ drivers/staging/rtl8188eu/include/rtw_cmd.h        |   2 +-
+ drivers/staging/rtl8188eu/include/rtw_mlme_ext.h   |   2 +-
+ drivers/staging/rtl8188eu/include/rtw_pwrctrl.h    |  10 +-
+ drivers/staging/rtl8188eu/include/usb_ops.h        |   4 +-
+ drivers/staging/rtl8188eu/os_dep/os_intfs.c        |   4 +-
+ drivers/staging/rtl8188eu/os_dep/osdep_service.c   | 103 ---
+ drivers/staging/rtl8188eu/os_dep/rtw_android.c     |   2 -
+ drivers/staging/rtl8188eu/os_dep/usb_intf.c        |  15 +-
+ 40 files changed, 609 insertions(+), 1758 deletions(-)
 
-diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
-index 33af772..62ced65 100644
---- a/net/rose/af_rose.c
-+++ b/net/rose/af_rose.c
-@@ -1253,6 +1253,7 @@ static int rose_recvmsg(struct kiocb *iocb, struct socket *sock,
- 
- 	if (msg->msg_name) {
- 		struct sockaddr_rose *srose;
-+		struct full_sockaddr_rose *full_srose = msg->msg_name;
- 
- 		memset(msg->msg_name, 0, sizeof(struct full_sockaddr_rose));
- 		srose = msg->msg_name;
-@@ -1260,18 +1261,9 @@ static int rose_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		srose->srose_addr   = rose->dest_addr;
- 		srose->srose_call   = rose->dest_call;
- 		srose->srose_ndigis = rose->dest_ndigis;
--		if (msg->msg_namelen >= sizeof(struct full_sockaddr_rose)) {
--			struct full_sockaddr_rose *full_srose = (struct full_sockaddr_rose *)msg->msg_name;
--			for (n = 0 ; n < rose->dest_ndigis ; n++)
--				full_srose->srose_digis[n] = rose->dest_digis[n];
--			msg->msg_namelen = sizeof(struct full_sockaddr_rose);
--		} else {
--			if (rose->dest_ndigis >= 1) {
--				srose->srose_ndigis = 1;
--				srose->srose_digi = rose->dest_digis[0];
--			}
--			msg->msg_namelen = sizeof(struct sockaddr_rose);
--		}
-+		for (n = 0 ; n < rose->dest_ndigis ; n++)
-+			full_srose->srose_digis[n] = rose->dest_digis[n];
-+		msg->msg_namelen = sizeof(struct full_sockaddr_rose);
- 	}
- 
- 	skb_free_datagram(sk, skb);
 -- 
-1.8.1.5
+1.8.4
