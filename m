@@ -1,116 +1,106 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next v3 2/2] netlink: specify netlink packet direction
- for nlmon
-Date: Mon, 23 Dec 2013 18:54:31 +0100
-Message-ID: <52B878D7.4020308@redhat.com>
-References: <1387805756-21121-1-git-send-email-dborkman@redhat.com> <1387805756-21121-3-git-send-email-dborkman@redhat.com> <52B8770B.60009@6wind.com>
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: Re: [PATCH 01/21] net: slight optimization of addr
+ compare for some modules
+Date: Mon, 23 Dec 2013 10:08:40 -0800
+Message-ID: <20131223100840.000014a5@unknown>
+References: <52B7C590.7070708@huawei.com>
+	<52B870E5.3020708@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Jakub Zawadzki <darkjames-ws@darkjames.pl>
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41093 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756494Ab3LWRyk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Dec 2013 12:54:40 -0500
-In-Reply-To: <52B8770B.60009@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Ding Tianhong <dingtianhong@huawei.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <52B870E5.3020708@intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On 12/23/2013 06:46 PM, Nicolas Dichtel wrote:
-> Le 23/12/2013 14:35, Daniel Borkmann a =C3=A9crit :
->> In order to facilitate development for netlink protocol dissector,
->> fill the unused field skb->pkt_type of the cloned skb with a hint
->> of the address space of the new owner (receiver) socket in the
->> notion of "to kernel" resp. "to user".
->>
->> At the time we invoke __netlink_deliver_tap_skb(), we already have
->> set the new skb owner via netlink_skb_set_owner_r(), so we can use
->> that for netlink_is_kernel() probing.
->>
->> In normal PF_PACKET network traffic, this field denotes if the
->> packet is destined for us (PACKET_HOST), if it's broadcast
->> (PACKET_BROADCAST), etc.
->>
->> As we only have 3 bit reserved, we can use the value (=3D 6) of
->> PACKET_FASTROUTE as it's _not used_ anywhere in the whole kernel
->> and not supported anywhere, and packets of such type were never
->> exposed to user space, so there are no overlapping users of such
->> kind. Thus, as wished, that seems the only way to make both
->> PACKET_* values non-overlapping and therefore device agnostic.
->>
->> By using those two flags for netlink skbs on nlmon devices, they
->> can be made available and picked up via sll_pkttype (previously
->> unused in netlink context) in struct sockaddr_ll. We now have
->> these two directions:
->>
->>   - PACKET_USER (=3D 6)    ->  to user space
->>   - PACKET_KERNEL (=3D 7)  ->  to kernel space
->>
->> Partial `ip a` example strace for sa_family=3DAF_NETLINK with
->> detected nl msg direction:
->>
->> syscall:                     direction:
->> sendto(3,  ...) =3D 40         /* to kernel */
->> recvmsg(3, ...) =3D 3404       /* to user */
->> recvmsg(3, ...) =3D 1120       /* to user */
->> recvmsg(3, ...) =3D 20         /* to user */
->> sendto(3,  ...) =3D 40         /* to kernel */
->> recvmsg(3, ...) =3D 168        /* to user */
->> recvmsg(3, ...) =3D 144        /* to user */
->> recvmsg(3, ...) =3D 20         /* to user */
->>
->> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
->> Signed-off-by: Jakub Zawadzki <darkjames-ws@darkjames.pl>
->> ---
->>   v1->v2:
->>    - let PACKET_* values not overlap as requested by Dave
->>   v2->v3:
->>    - fixed typo in comment spotted by Nicolas, thanks
->>
->>   include/uapi/linux/if_packet.h | 4 +++-
->>   net/netlink/af_netlink.c       | 2 ++
->>   2 files changed, 5 insertions(+), 1 deletion(-)
->>
->> diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_=
-packet.h
->> index e9d844c..06e2a28 100644
->> --- a/include/uapi/linux/if_packet.h
->> +++ b/include/uapi/linux/if_packet.h
->> @@ -26,8 +26,10 @@ struct sockaddr_ll {
->>   #define PACKET_MULTICAST    2        /* To group        */
->>   #define PACKET_OTHERHOST    3        /* To someone else     */
->>   #define PACKET_OUTGOING        4        /* Outgoing of any type */
->> -/* These ones are invisible by user level */
->>   #define PACKET_LOOPBACK        5        /* MC/BRD frame looped bac=
-k */
->> +#define PACKET_USER        6        /* To user space    */
->> +#define PACKET_KERNEL        7        /* To kernel space    */
->> +/* Unused, PACKET_FASTROUTE and PACKET_LOOPBACK are invisible to us=
-er space */
->>   #define PACKET_FASTROUTE    6        /* Fastrouted frame    */
-> Sorry to insist, I just try to understand. Why not removing the defin=
-ition of
-> PACKET_FASTROUTE?
-> Or have a name like PACKET_NL_USER to document the difference between=
- both
-> cases?
+On Mon, 23 Dec 2013 09:20:37 -0800
+Alexander Duyck <alexander.h.duyck@intel.com> wrote:
 
-It's now used by nl, but as we have purely generic names, I simply want=
-ed
-to comply with that.
+> On 12/22/2013 09:09 PM, Ding Tianhong wrote:
+> > Use the recently added and possibly more efficient
+> > ether_addr_equal_unaligned to instead of memcmp.
+> >
+> > Cc: "David S. Miller" <davem@davemloft.net>
+> > Cc: netdev@vger.kernel.org
+> > Cc: linux-kernel@vger.kernel.org
+> > Cc: e1000-devel@lists.sourceforge.net
+> > Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> > ---
+> >  drivers/net/bonding/bond_3ad.c                        |  2 +-
+> >  drivers/net/ethernet/3com/3c509.c                     |  3 +--
+> >  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c        | 10
+> > ++++------ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c     |
+> > 2 +- drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c      |  2 +-
+> >  drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c    |  2 +-
+> >  drivers/net/ethernet/chelsio/cxgb3/l2t.c              |  2 +-
+> >  drivers/net/ethernet/cisco/enic/enic_pp.c             |  2 +-
+> >  drivers/net/ethernet/emulex/benet/be_main.c           |  2 +-
+> >  drivers/net/ethernet/intel/igbvf/netdev.c             |  2 +-
+> >  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c        |  3 +--
+> >  drivers/net/ethernet/mellanox/mlx4/en_netdev.c        |  4 ++--
+> >  drivers/net/ethernet/mellanox/mlx4/resource_tracker.c |  2 +-
+> >  drivers/net/ethernet/micrel/ksz884x.c                 |  9
+> > ++++----- drivers/net/ethernet/neterion/vxge/vxge-main.c        |
+> > 2 +- drivers/net/ethernet/packetengines/yellowfin.c        |  8
+> > ++------ drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c    |  2
+> > +- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c        |  4 ++--
+> >  drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c        |  4 ++--
+> >  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c      |  4 ++--
+> >  drivers/net/ethernet/renesas/sh_eth.c                 |  2 +-
+> >  drivers/net/ethernet/seeq/sgiseeq.c                   |  2 +-
+> >  drivers/net/ethernet/sun/sunvnet.c                    |  2 +-
+> >  drivers/net/ethernet/ti/cpsw_ale.c                    |  2 +-
+> >  drivers/net/fddi/skfp/fplustm.c                       |  3 ++-
+> >  drivers/net/plip/plip.c                               |  2 +-
+> >  net/caif/cfrfml.c                                     |  2 +-
+> >  27 files changed, 39 insertions(+), 47 deletions(-)
+> 
+> What is it you are trying to optimize for, size or speed?  Most of
+> these calls are in slow path.  Replacing the memcmp with an inline
+> operation may provide little to no gain in terms of speed and in many
+> cases as you might actually be increasing the resultant driver size.
+> 
+> Also I would recommend reviewing the addresses you are comparing.  It
+> is likely that you could use ether_addr_equal or compare_ether_addr
+> in many cases as I suspect a number of spots are using 16b aligned
+> MAC addresses for both operands.
 
-We could entirely remove it as it was e.g. proposed in 2008 [1] already=
- if
-you see any value in that. Eventually it's up to Dave and if he likes, =
-I'll
-be happy to send a patch that removes this define.
+User ether_addr_equal.  compare_ether_addr was recently removed from
+the upstream kernel - as I discovered to my chagrin late one
+recent Friday evening while trying to get a build done.
 
-Best,
+- Greg
 
-Daniel
+> 
+> Thanks,
+> 
+> Alex
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-  [1] http://lists.openwall.net/netdev/2008/05/07/19
+
+------------------------------------------------------------------------------
+Rapidly troubleshoot problems before they affect your business. Most IT 
+organizations don't have a clear picture of how application performance 
+affects their revenue. With AppDynamics, you get 100% visibility into your 
+Java,.NET, & PHP application. Start your 15-day FREE TRIAL of AppDynamics Pro!
+http://pubads.g.doubleclick.net/gampad/clk?id=84349831&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
