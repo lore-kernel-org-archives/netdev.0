@@ -1,32 +1,42 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH 2/2] net_sched: optimize tcf_match_indev()
-Date: Mon, 23 Dec 2013 08:10:10 -0500
-Message-ID: <52B83632.2090602@mojatatu.com>
-References: <1387503292-20078-1-git-send-email-xiyou.wangcong@gmail.com>	<1387503292-20078-2-git-send-email-xiyou.wangcong@gmail.com>	<CAM_iQpXgRzPLp=qyD2pYC=J-=xRqDqVRAxm=grZJDF2ZuCsSfw@mail.gmail.com>	<52B60384.6000002@mojatatu.com>	<52B712D3.9050605@mojatatu.com> <CAM_iQpXXD0rHiYxGvXiN7G8BtVdTQV6Xixma6BENoZ5SZ2XjZg@mail.gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v3 0/2] sctp: Consolidate and ratelimit deprecation
+ warnings
+Date: Mon, 23 Dec 2013 08:19:32 -0500
+Message-ID: <20131223131931.GA20864@hmsreliant.think-freely.org>
+References: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
+ <1387297199-14363-1-git-send-email-nhorman@tuxdriver.com>
+ <20131222.175659.1156282573702420627.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:55960 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757040Ab3LWNKN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 08:10:13 -0500
-Received: by mail-ig0-f169.google.com with SMTP id hk11so20960175igb.0
-        for <netdev@vger.kernel.org>; Mon, 23 Dec 2013 05:10:13 -0800 (PST)
-In-Reply-To: <CAM_iQpXXD0rHiYxGvXiN7G8BtVdTQV6Xixma6BENoZ5SZ2XjZg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org, vyasevich@gmail.com,
+	gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131222.175659.1156282573702420627.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Sun, Dec 22, 2013 at 05:56:59PM -0500, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Tue, 17 Dec 2013 11:19:57 -0500
+> 
+> > The SCTP protocol has several deprecation warnings in its setsockopt path that
+> > can be triggered by unprivlidged users.  Since these are not ratelimited, we can
+> > spam the logs quite easily here.  Since these are all deprecation warnings, and
+> > that type of warning isn't uncommon in the rest of the kernel, lets make a
+> > common pr_warn_deprecated macro to produce somewhat generalized ratelimited
+> > deprecation warnings easily
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> 
+> Neil, I really wish you would CC: netdev on all of the patches in the
+> series.  Otherwise only some of them end up in patchwork, and this makes
+> a lot more work for me if I want to actually apply this, which I do.
+> 
+> Please resubmit this properly, thanks.
+> 
 
-For completion: I cant find any issues with whats already in net-next.
-I am finding other issues but nothing related to the submission.
-Thanks for you patience Cong.
-
-cheers,
-jamal
-
-PS:- I am on travel mode, so my week may not be as responsive
-other than to email.
+Will do, thanks.
+Neil
