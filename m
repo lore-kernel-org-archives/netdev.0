@@ -1,32 +1,47 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v4 1/2] netfilter_queue: enable UID/GID socket info
- retrieval
-Date: Mon, 23 Dec 2013 15:21:18 +0100
-Message-ID: <20131223142118.GA4803@localhost>
-References: <1387556934-7372-1-git-send-email-valentina.giusti@bmw-carit.de>
- <1387556934-7372-2-git-send-email-valentina.giusti@bmw-carit.de>
+From: Ding Tianhong <dthxman-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 19/21] wireless: slight optimization of addr compare
+Date: Mon, 23 Dec 2013 22:14:07 +0800
+Message-ID: <52B8452F.4070508@gmail.com>
+References: <52B7C600.8030907@huawei.com> <52B83EE1.4040705@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	jpa@google.com, fw@strnel.de, daniel.wagner@bmw-carit.de
-To: valentina.giusti@bmw-carit.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:51083 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757272Ab3LWOV2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Dec 2013 09:21:28 -0500
-Content-Disposition: inline
-In-Reply-To: <1387556934-7372-2-git-send-email-valentina.giusti@bmw-carit.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+	Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <52B83EE1.4040705-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 20, 2013 at 05:28:53PM +0100, valentina.giusti@bmw-carit.de wrote:
-> From: Valentina Giusti <valentina.giusti@bmw-carit.de>
-> 
-> Thanks to commits 41063e9 (ipv4: Early TCP socket demux) and 421b388 (udp: ipv4:
-> Add udp early demux) it is now possible to parse UID and GID socket info
-> also for incoming TCP and UDP connections. Having this info available, it
-> is convenient to let NFQUEUE parse it in order to improve and refine the
-> traffic analysis in userspace.
+=E4=BA=8E 2013/12/23 21:47, Felix Fietkau =E5=86=99=E9=81=93:
+> On 2013-12-23 06:11, Ding Tianhong wrote:
+>> Use the recently added and possibly more efficient
+>> ether_addr_equal_unaligned to instead of memcmp.
+> It looks to me like all of these (including the ones in the other
+> similar patches) are in places, where the address data is aligned to =
+at
+> least 16 bit. Because of this, using ether_addr_equal instead of
+> ether_addr_equal_unaligned would be much better for platforms without
+> CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS.
+>=20
+> - Felix
 
-Applied the kernel patch, wait for a new patch for libnetfilter_queue. Thanks.
+Yes, the most of the place should use ether_addr_equal. thanks.
+
+Regards
+Ding
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
