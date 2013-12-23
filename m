@@ -1,81 +1,101 @@
-From: Salam Noureddine <noureddine@aristanetworks.com>
-Subject: [PATCH 1/1] ipv4: arp: update neighbour address when a gratuitous arp is received and arp_accept is set
-Date: Mon, 23 Dec 2013 11:21:32 -0800
-Message-ID: <1387826492-25413-1-git-send-email-noureddine@aristanetworks.com>
-Cc: Salam Noureddine <noureddine@aristanetworks.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next] vxlan: distribute vxlan tunneled traffic
+ across multiple TXQs
+Date: Mon, 23 Dec 2013 11:28:54 -0800
+Message-ID: <20131223112854.572b11aa@nehalam.linuxnetplumber.net>
+References: <1387803413-22152-1-git-send-email-sathya.perla@emulex.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <edumazet@google.com>
+To: Sathya Perla <sathya.perla@emulex.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:37819 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755395Ab3LWTVu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 14:21:50 -0500
-Received: by mail-pd0-f171.google.com with SMTP id z10so5464121pdj.30
-        for <netdev@vger.kernel.org>; Mon, 23 Dec 2013 11:21:49 -0800 (PST)
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:45602 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757824Ab3LWT25 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 14:28:57 -0500
+Received: by mail-pd0-f177.google.com with SMTP id q10so5444714pdj.36
+        for <netdev@vger.kernel.org>; Mon, 23 Dec 2013 11:28:56 -0800 (PST)
+In-Reply-To: <1387803413-22152-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Gratuitous arp packets are useful in switchover scenarios to update
-client arp tables as quickly as possible. Currently, the mac address
-of a neighbour is only updated after a locktime period has elapsed
-since the last update. In most use cases such delays are unacceptable
-for network admins. Moreover, the "updated" field of the neighbour
-stucture doesn't record the last time the address of a neighbour
-changed but records any change that happens to theneighbour. This is
-clearly a bug since locktime uses that field as meaning "addr_updated".
-With this observation, I was able to perpetuate a stale address by
-sending a stream of gratuitous arp packets spaced less than locktime
-apart. With this change the address is updated when a gratuitous arp
-is received and the arp_accept sysctl is set.
+On Mon, 23 Dec 2013 18:26:53 +0530
+Sathya Perla <sathya.perla@emulex.com> wrote:
 
-Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
----
- net/ipv4/arp.c |   13 +++++++++----
- 1 files changed, 9 insertions(+), 4 deletions(-)
+> The vxlan driver sets itself as the socket owner for all the TX flows
+> it encapsulates (using vxlan_set_owner()) and assigns it's own skb
+> destructor. This causes all tunneled traffic to land up on only one TXQ
+> as all encapsulated skbs refer to the vxlan socket and not the original
+> socket.  Also, the vxlan skb destructor breaks some functionality for
+> tunneled traffic like wmem accounting and as Eric D. mentioned, TCP
+> small queues and FQ/pacing packet scheduler too.
+> 
+> This patch removes vxlan ownership on tunneled skbs. This causes
+> tunneled traffic to be hashed into multiple TXQs based on the original
+> socket hash.
+> 
+> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+> ---
+>  drivers/net/vxlan.c |   22 +++-------------------
+>  1 files changed, 3 insertions(+), 19 deletions(-)
+> 
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index aef44aa..eb55c08 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -1381,20 +1381,6 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
+>  	return false;
+>  }
+>  
+> -static void vxlan_sock_put(struct sk_buff *skb)
+> -{
+> -	sock_put(skb->sk);
+> -}
+> -
+> -/* On transmit, associate with the tunnel socket */
+> -static void vxlan_set_owner(struct sock *sk, struct sk_buff *skb)
+> -{
+> -	skb_orphan(skb);
+> -	sock_hold(sk);
+> -	skb->sk = sk;
+> -	skb->destructor = vxlan_sock_put;
+> -}
+> -
+>  /* Compute source port for outgoing packet
+>   *   first choice to use L4 flow hash since it will spread
+>   *     better and maybe available from hardware
+> @@ -1514,8 +1500,6 @@ static int vxlan6_xmit_skb(struct vxlan_sock *vs,
+>  	ip6h->daddr	  = *daddr;
+>  	ip6h->saddr	  = *saddr;
+>  
+> -	vxlan_set_owner(vs->sock->sk, skb);
+> -
+>  	err = handle_offloads(skb);
+>  	if (err)
+>  		return err;
+> @@ -1572,8 +1556,6 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
+>  	uh->len = htons(skb->len);
+>  	uh->check = 0;
+>  
+> -	vxlan_set_owner(vs->sock->sk, skb);
+> -
+>  	err = handle_offloads(skb);
+>  	if (err)
+>  		return err;
+> @@ -1836,8 +1818,10 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+>  		struct sk_buff *skb1;
+>  
+>  		skb1 = skb_clone(skb, GFP_ATOMIC);
+> -		if (skb1)
+> +		if (skb1) {
+> +			skb1->sk = skb->sk;
+>  			vxlan_xmit_one(skb1, dev, rdst, did_rsc);
+> +		}
+>  	}
+>  
+>  	dev_kfree_skb(skb);
 
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 7808093..c791d09 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -728,6 +728,7 @@ static int arp_process(struct sk_buff *skb)
- 	int addr_type;
- 	struct neighbour *n;
- 	struct net *net = dev_net(dev);
-+	bool is_garp = false;
- 
- 	/* arp_rcv below verifies the ARP header and verifies the device
- 	 * is ARP'able.
-@@ -894,10 +895,12 @@ static int arp_process(struct sk_buff *skb)
- 		   It is possible, that this option should be enabled for some
- 		   devices (strip is candidate)
- 		 */
-+		is_garp = arp->ar_op == htons(ARPOP_REQUEST) && tip == sip &&
-+			  inet_addr_type(net, sip) == RTN_UNICAST;
-+
- 		if (n == NULL &&
--		    (arp->ar_op == htons(ARPOP_REPLY) ||
--		     (arp->ar_op == htons(ARPOP_REQUEST) && tip == sip)) &&
--		    inet_addr_type(net, sip) == RTN_UNICAST)
-+		    ((arp->ar_op == htons(ARPOP_REPLY)  &&
-+		      inet_addr_type(net, sip) == RTN_UNICAST) || is_garp))
- 			n = __neigh_lookup(&arp_tbl, &sip, dev, 1);
- 	}
- 
-@@ -910,7 +913,9 @@ static int arp_process(struct sk_buff *skb)
- 		   agents are active. Taking the first reply prevents
- 		   arp trashing and chooses the fastest router.
- 		 */
--		override = time_after(jiffies, n->updated + n->parms->locktime);
-+		override = time_after(jiffies,
-+				      n->updated + n->parms->locktime) ||
-+			   is_garp;
- 
- 		/* Broadcast replies and request packets
- 		   do not assert neighbour reachability.
--- 
-1.7.4.4
+The idea is good, but without the destructor there is nothing to keep
+the UDP socket from being destroyed while packet is being sent on another
+CPU.
