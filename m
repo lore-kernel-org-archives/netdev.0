@@ -1,101 +1,96 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next] vxlan: distribute vxlan tunneled traffic
- across multiple TXQs
-Date: Mon, 23 Dec 2013 11:28:54 -0800
-Message-ID: <20131223112854.572b11aa@nehalam.linuxnetplumber.net>
-References: <1387803413-22152-1-git-send-email-sathya.perla@emulex.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 2/3] virtio-net: use per-receive queue page frag
+	alloc for mergeable bufs
+Date: Mon, 23 Dec 2013 21:37:04 +0200
+Message-ID: <20131223193704.GC1582@redhat.com>
+References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
+	<1387239389-13216-2-git-send-email-mwdalton@google.com>
+	<52B7F065.3010707@redhat.com>
+	<1387819627.12212.4.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <edumazet@google.com>
-To: Sathya Perla <sathya.perla@emulex.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:45602 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757824Ab3LWT25 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 14:28:57 -0500
-Received: by mail-pd0-f177.google.com with SMTP id q10so5444714pdj.36
-        for <netdev@vger.kernel.org>; Mon, 23 Dec 2013 11:28:56 -0800 (PST)
-In-Reply-To: <1387803413-22152-1-git-send-email-sathya.perla@emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1387819627.12212.4.camel@edumazet-glaptop2.roam.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 23 Dec 2013 18:26:53 +0530
-Sathya Perla <sathya.perla@emulex.com> wrote:
+On Mon, Dec 23, 2013 at 09:27:07AM -0800, Eric Dumazet wrote:
+> On Mon, 2013-12-23 at 16:12 +0800, Jason Wang wrote:
+> > On 12/17/2013 08:16 AM, Michael Dalton wrote:
+> > > The virtio-net driver currently uses netdev_alloc_frag() for GFP_ATOMIC
+> > > mergeable rx buffer allocations. This commit migrates virtio-net to use
+> > > per-receive queue page frags for GFP_ATOMIC allocation. This change unifies
+> > > mergeable rx buffer memory allocation, which now will use skb_refill_frag()
+> > > for both atomic and GFP-WAIT buffer allocations.
+> > >
+> > > To address fragmentation concerns, if after buffer allocation there
+> > > is too little space left in the page frag to allocate a subsequent
+> > > buffer, the remaining space is added to the current allocated buffer
+> > > so that the remaining space can be used to store packet data.
+> > >
+> > > Signed-off-by: Michael Dalton <mwdalton@google.com>
+> > > ---
+> > >  drivers/net/virtio_net.c | 69 ++++++++++++++++++++++++++----------------------
+> > >  1 file changed, 38 insertions(+), 31 deletions(-)
+> > >
+> > > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> > > index c51a988..d38d130 100644
+> > > --- a/drivers/net/virtio_net.c
+> > > +++ b/drivers/net/virtio_net.c
+> > > @@ -78,6 +78,9 @@ struct receive_queue {
+> > >  	/* Chain pages by the private ptr. */
+> > >  	struct page *pages;
+> > >  
+> > > +	/* Page frag for GFP_ATOMIC packet buffer allocation. */
+> > > +	struct page_frag atomic_frag;
+> > > +
+> > >  	/* RX: fragments + linear part + virtio header */
+> > >  	struct scatterlist sg[MAX_SKB_FRAGS + 2];
+> > >  
+> > > @@ -127,9 +130,9 @@ struct virtnet_info {
+> > >  	struct mutex config_lock;
+> > >  
+> > >  	/* Page_frag for GFP_KERNEL packet buffer allocation when we run
+> > > -	 * low on memory.
+> > > +	 * low on memory. May sleep.
+> > >  	 */
+> > > -	struct page_frag alloc_frag;
+> > > +	struct page_frag sleep_frag;
+> > 
+> > Any reason to use two different page_frag consider only
+> > skb_page_frag_refill() is used?
+> 
+> One is used under process context, where preemption and GFP_KERNEL are
+> allowed.
 
-> The vxlan driver sets itself as the socket owner for all the TX flows
-> it encapsulates (using vxlan_set_owner()) and assigns it's own skb
-> destructor. This causes all tunneled traffic to land up on only one TXQ
-> as all encapsulated skbs refer to the vxlan socket and not the original
-> socket.  Also, the vxlan skb destructor breaks some functionality for
-> tunneled traffic like wmem accounting and as Eric D. mentioned, TCP
-> small queues and FQ/pacing packet scheduler too.
-> 
-> This patch removes vxlan ownership on tunneled skbs. This causes
-> tunneled traffic to be hashed into multiple TXQs based on the original
-> socket hash.
-> 
-> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
-> ---
->  drivers/net/vxlan.c |   22 +++-------------------
->  1 files changed, 3 insertions(+), 19 deletions(-)
-> 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index aef44aa..eb55c08 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -1381,20 +1381,6 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
->  	return false;
->  }
->  
-> -static void vxlan_sock_put(struct sk_buff *skb)
-> -{
-> -	sock_put(skb->sk);
-> -}
-> -
-> -/* On transmit, associate with the tunnel socket */
-> -static void vxlan_set_owner(struct sock *sk, struct sk_buff *skb)
-> -{
-> -	skb_orphan(skb);
-> -	sock_hold(sk);
-> -	skb->sk = sk;
-> -	skb->destructor = vxlan_sock_put;
-> -}
-> -
->  /* Compute source port for outgoing packet
->   *   first choice to use L4 flow hash since it will spread
->   *     better and maybe available from hardware
-> @@ -1514,8 +1500,6 @@ static int vxlan6_xmit_skb(struct vxlan_sock *vs,
->  	ip6h->daddr	  = *daddr;
->  	ip6h->saddr	  = *saddr;
->  
-> -	vxlan_set_owner(vs->sock->sk, skb);
-> -
->  	err = handle_offloads(skb);
->  	if (err)
->  		return err;
-> @@ -1572,8 +1556,6 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
->  	uh->len = htons(skb->len);
->  	uh->check = 0;
->  
-> -	vxlan_set_owner(vs->sock->sk, skb);
-> -
->  	err = handle_offloads(skb);
->  	if (err)
->  		return err;
-> @@ -1836,8 +1818,10 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
->  		struct sk_buff *skb1;
->  
->  		skb1 = skb_clone(skb, GFP_ATOMIC);
-> -		if (skb1)
-> +		if (skb1) {
-> +			skb1->sk = skb->sk;
->  			vxlan_xmit_one(skb1, dev, rdst, did_rsc);
-> +		}
->  	}
->  
->  	dev_kfree_skb(skb);
+Yes but it is always used with napi disabled.
 
-The idea is good, but without the destructor there is nothing to keep
-the UDP socket from being destroyed while packet is being sent on another
-CPU.
+> One is used from softirq context and GFP_ATOMIC.
+
+This one is used only under napi.
+
+> You cant share a common
+> page_frag.
+
+So there isn't a conflict with respect to locking.
+
+Is it problematic to use same page_frag with both GFP_ATOMIC and with
+GFP_KERNEL? If yes why?
+
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> 
+> 
