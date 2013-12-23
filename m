@@ -1,80 +1,67 @@
-From: Shawn Bohrer <shawn.bohrer@gmail.com>
-Subject: Re: [PATCH net-next 1/2] mlx4_en: Add PTP hardware clock
-Date: Mon, 23 Dec 2013 10:29:58 -0600
-Message-ID: <20131223162957.GA6810@lintop.rgmadvisors.com>
-References: <1387312359-9476-1-git-send-email-shawn.bohrer@gmail.com>
- <1387312359-9476-2-git-send-email-shawn.bohrer@gmail.com>
- <52B6E568.4030400@mellanox.com>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: RE: [PATCH 0/5] drivers: net: Adding support for APM X-Gene SoC
+ Ethernet base driver
+Date: Mon, 23 Dec 2013 08:32:28 -0800
+Message-ID: <1dd2a889f23c7003b11044665329f174@mail.gmail.com>
+References: <1387597376-29303-1-git-send-email-isubramanian@apm.com> <201312221035.44961.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	netdev@vger.kernel.org, tomk@rgmadvisors.com,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: Hadar Hen Zion <hadarh@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:59405 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757490Ab3LWQaK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 11:30:10 -0500
-Received: by mail-ob0-f172.google.com with SMTP id gq1so5688062obb.31
-        for <netdev@vger.kernel.org>; Mon, 23 Dec 2013 08:30:10 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <52B6E568.4030400@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, devicetree@vger.kernel.org,
+	gregkh@linuxfoundation.org, patches <patches@apm.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jcm@redhat.com, Keyur Chudgar <kchudgar@apm.com>,
+	Ravi Patel <rapatel@apm.com>
+To: Arnd Bergmann <arnd@arndb.de>, linux-arm-kernel@lists.infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201312221035.44961.arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Dec 22, 2013 at 03:13:12PM +0200, Hadar Hen Zion wrote:
-> On 12/17/2013 10:32 PM, Shawn Bohrer wrote:
-> >From: Shawn Bohrer <sbohrer@rgmadvisors.com>
-> >
-> >This adds a PHC to the mlx4_en driver.  The code is largely based off of
-> >the e1000e driver (drivers/net/ethernet/intel/e1000e/ptp.c) which seemed
-> >very similar.
-> >
-> >This driver has been tested with both Documentation/ptp/testptp and the
-> >linuxptp project (http://linuxptp.sourceforge.net/) and appears to work
-> >on a Mellanox ConnectX-3 card.
-> >
-> >Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
-> >---
-> >  drivers/net/ethernet/mellanox/mlx4/en_clock.c   |  192 ++++++++++++++++++++++-
-> >  drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    3 +
-> >  drivers/net/ethernet/mellanox/mlx4/en_main.c    |    3 +
-> >  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    6 +
-> >  4 files changed, 196 insertions(+), 8 deletions(-)
-> >
-> >diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-> >index fd64410..9b0d515 100644
-> >--- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-> >+++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-> >@@ -103,17 +103,187 @@ void mlx4_en_fill_hwtstamps(struct mlx4_en_dev *mdev,
-> >  			    struct skb_shared_hwtstamps *hwts,
-> >  			    u64 timestamp)
-> >  {
-> >+	unsigned long flags;
-> >  	u64 nsec;
-> >
-> >+	spin_lock_irqsave(&mdev->clock_lock, flags);
-> 
-> 1. Missing initialization for clock_lock
-> 2. Adding spin lock in the data path reduce performance by 15% when
-> HW timestamping is enabled. I did some testing and replacing
-> spin_lock_irqsave with read/write_lock_irqsave prevents the
-> performance decrease.
-
-Thanks Hadar,
-
-I'm testing this change now, and will resend when I'm done.  However,
-I noticed the following in Documentation/spinlocks.txt
-
-   NOTE! We are working hard to remove reader-writer spinlocks in most
-   cases, so please don't add a new one without consensus.  (Instead, see
-   Documentation/RCU/rcu.txt for complete information.)
-
-So is there consensus for a rwlock here?
+Yes.  My third patch didn't make it to the linux-arm-kernel mailing list
+due to size.  I am waiting for the moderator's approval to get it posted.
 
 Thanks,
-Shawn
+Iyappan
+
+Your mail to 'linux-arm-kernel' with the subject
+
+    [PATCH 3/5] drivers: net: APM X-Gene SoC Ethernet base driver
+
+Is being held until the list moderator can review it for approval.
+
+The reason it is being held:
+
+    Message body is too big: 112640 bytes with a limit of 100 KB
+
+Either the message will get posted to the list, or you will receive
+notification of the moderator's decision.  If you would like to cancel
+this posting, please visit the following URL:
+
+
+http://lists.infradead.org/mailman/confirm/linux-arm-kernel/0aca8492f9ca29
+055149ebf4058771fd701fd928
+
+
+-----Original Message-----
+From: Arnd Bergmann [mailto:arnd@arndb.de]
+Sent: Sunday, December 22, 2013 1:36 AM
+To: linux-arm-kernel@lists.infradead.org
+Cc: Iyappan Subramanian; davem@davemloft.net; devicetree@vger.kernel.org;
+gregkh@linuxfoundation.org; patches@apm.com; linux-kernel@vger.kernel.org;
+netdev@vger.kernel.org; jcm@redhat.com; Keyur Chudgar; Ravi Patel
+Subject: Re: [PATCH 0/5] drivers: net: Adding support for APM X-Gene SoC
+Ethernet base driver
+
+On Saturday 21 December 2013, Iyappan Subramanian wrote:
+> Iyappan Subramanian (5):
+>   Documentation: APM X-Gene SoC Ethernet DTS binding documentation
+>   arm64: dts: APM X-Gene SoC Ethernet device tree nodes
+>   drivers: net: APM X-Gene SoC Ethernet base driver
+>   drivers: net: APM X-Gene SoC Ethernet driver error handling
+>   drivers: net: APM X-Gene SoC Ethernet driver ethtool support
+
+The third patch (the actual driver) didn't make it to the ARM mailing
+list.
+Maybe it's too large?
+
+	Arnd
