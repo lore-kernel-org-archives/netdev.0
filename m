@@ -1,69 +1,47 @@
-From: Alexandre DERUMIER <aderumier@odiso.com>
-Subject: bridge vlan_filtering don't work with tap devices (qemu guests)
-Date: Mon, 23 Dec 2013 17:02:40 +0100 (CET)
-Message-ID: <717e26b0-fda3-4c97-81a6-45e67462cb6b@mailpro>
-References: <04e69925-f469-49b2-9988-9077eb7d50d7@mailpro>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: net_dma: mark broken
+Date: Mon, 23 Dec 2013 11:21:13 -0500
+Message-ID: <20131223162113.GA20363@redhat.com>
+References: <20131220211228.BC817660C74@gitolite.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Williams <dan.j.williams@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailpro.odiso.net ([89.248.209.98]:40134 "EHLO
-	mailpro.odiso.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757544Ab3LWQN2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 11:13:28 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by mailpro.odiso.net (Postfix) with ESMTP id E34FB18032BC9
-	for <netdev@vger.kernel.org>; Mon, 23 Dec 2013 17:02:45 +0100 (CET)
-Received: from mailpro.odiso.net ([127.0.0.1])
-	by localhost (mailpro.odiso.net [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id Q4D-ZMp9rv39 for <netdev@vger.kernel.org>;
-	Mon, 23 Dec 2013 17:02:40 +0100 (CET)
-Received: from mailpro.odiso.net (mailpro.odiso.net [10.1.31.112])
-	by mailpro.odiso.net (Postfix) with ESMTP id 4EB091802511F
-	for <netdev@vger.kernel.org>; Mon, 23 Dec 2013 17:02:40 +0100 (CET)
-In-Reply-To: <04e69925-f469-49b2-9988-9077eb7d50d7@mailpro>
+Received: from mx1.redhat.com ([209.132.183.28]:62670 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757794Ab3LWQVV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Dec 2013 11:21:21 -0500
+Content-Disposition: inline
+In-Reply-To: <20131220211228.BC817660C74@gitolite.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-I'm trying to use vlan_filtering on bridge.
-
-setup is : 2 qemu virtual machines (tap0 and tap1), plugged in a bridge br0.
-           virtual machines don't tag packets.
-
-
-qemuvm1 eth0 --tap0----->br0<-------tap1---qemuvm2 eth0.
-
-
-with vlan_filtering disable, both vms can ping together.
-
-
-If I enabled filtering
-
-#echo 1 > /sys/class/net/br0/bridge/vlan_filtering
-
-Both vms cannot ping together anymore.
-
-So, I have tried to put vlan on tap interfaces with
-
-#bridge vlan add dev tap0 vid 10
-#bridge vlan add dev tap1 vid 10
-#bridge vlan show
-port	vlan ids
-br0	None
-tap0	10
-tap1    10
+On Fri, Dec 20, 2013 at 09:12:28PM +0000, Linux Kernel wrote:
+ > Gitweb:     http://git.kernel.org/linus/;a=commit;h=77873803363c9e831fc1d1e6895c084279090c22
+ > Commit:     77873803363c9e831fc1d1e6895c084279090c22
+ > Parent:     0baf8f6a2ac86c2c40ed0cacab8ea3d17371a1bb
+ > Author:     Dan Williams <dan.j.williams@intel.com>
+ > AuthorDate: Tue Dec 17 10:09:32 2013 -0800
+ > Committer:  Dan Williams <dan.j.williams@intel.com>
+ > CommitDate: Wed Dec 18 12:53:43 2013 -0800
+ > 
+ >     net_dma: mark broken
+ >     
+ >     net_dma can cause data to be copied to a stale mapping if a
+ >     copy-on-write fault occurs during dma.  The application sees missing
+ >     data.
 
 
+Since this commit, coverity picked up a possible logic contradiction in tcp_rcv_established
+Now that the only thing setting copied_early = 1 is inside an ifdef that won't be set,
+it notes that this code is unreachable..
 
-But, it doesn't work.
+5271                        if (!copied_early || tp->rcv_nxt != tp->rcv_wup)
+5272                                __tcp_ack_snd_check(sk, 0);
 
-tcpdump on bridge (tcpdump -i br0 -e -n) or in destination qemu (tcpdump -i eth0 -e -n) , don't see any packet
+I don't understand all the subtleties of that huge function, so another
+set of eyes would be appreciated.  If it's a non-issue, I'll flag it as such
+for coverity so it doesn't get picked up again.
 
-any idea ? 
-
-Regards,
-
-Alexandre Derumier
+	Dave
