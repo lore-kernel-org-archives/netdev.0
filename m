@@ -1,63 +1,104 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH 00/21] slight optimization of addr compare for some modules
-Date: Mon, 23 Dec 2013 16:45:16 +0800
-Message-ID: <52B7F81C.2080207@huawei.com>
-References: <52B7C58B.9000602@huawei.com> <1387787324.22671.57.camel@joe-AO722>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: Re: [PATCH 09/21] batman-adv: slight optimization of addr compare
+Date: Mon, 23 Dec 2013 09:46:11 +0100
+Message-ID: <52B7F853.8050806@meshcoding.com>
+References: <52B7C5C5.2050304@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="g5XcogJhD359ADB4e2ucbbDI75l6A1kmu"
+To: Ding Tianhong <dingtianhong@huawei.com>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Simon Wunderlich <sw@simonwunderlich.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	b.a.t.m.a.n@lists.open-mesh.org, Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1387787324.22671.57.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.neomailbox.net ([178.209.62.157]:7488 "EHLO
+	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752831Ab3LWIrQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 03:47:16 -0500
+In-Reply-To: <52B7C5C5.2050304@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2013/12/23 16:28, Joe Perches wrote:
-> On Mon, 2013-12-23 at 13:09 +0800, Ding Tianhong wrote:
->> I use the recently added and possibly more efficient
->> ether_addr_equal_unaligned to instead of memcmp for slight
->> optimization.
-> 
-> Hi again.
-> 
-> These are the sorts of conversions that could be
-> either ether_addr_equal or ether_addr_equal_unaligned
-> depending on the existing alignment of the addresses
-> being compared.
-> 
-> For instance, in patch 21:
-> ---
-> diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
-> []
-> @@ -131,12 +131,13 @@ static inline struct pppoe_net *pppoe_pernet(struct net *net)
->  
->  static inline int cmp_2_addr(struct pppoe_addr *a, struct pppoe_addr *b)
->  {
-> -	return a->sid == b->sid && !memcmp(a->remote, b->remote, ETH_ALEN);
-> +	return a->sid == b->sid && ether_addr_equal_unaligned(a->remote,
-> +		ther					      b->remote);
-> ---
-> 
-> This could be ether_addr_equal instead as remote is after a be16
-> and so remote is aligned to a u16.
-> 
-> include/uapi/linux/if_pppox.h:typedef __be16 sid_t;
-> []
-> include/uapi/linux/if_pppox.h:struct pppoe_addr {
-> include/uapi/linux/if_pppox.h-  sid_t         sid;                    /* Session identifier */
-> include/uapi/linux/if_pppox.h-  unsigned char remote[ETH_ALEN];       /* Remote address */
-> include/uapi/linux/if_pppox.h-  char          dev[IFNAMSIZ];          /* Local device to use */
-> include/uapi/linux/if_pppox.h-}; 
-> 
-> It's of course possible to convert the appropriate
-> ether_addr_equal_unaligned uses to ether_addr_equal later.
-> 
-> 
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--g5XcogJhD359ADB4e2ucbbDI75l6A1kmu
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Yes, I need to review the changes more clearly and then resend them, thanks.
+On 23/12/13 06:10, Ding Tianhong wrote:
 
-Regards
-Ding
-> 
+[...]
+
+> --- a/net/batman-adv/originator.c
+> +++ b/net/batman-adv/originator.c
+> @@ -41,7 +41,7 @@ int batadv_compare_orig(const struct hlist_node *node=
+, const void *data2)
+>  	const void *data1 =3D container_of(node, struct batadv_orig_node,
+>  					 hash_entry);
+> =20
+> -	return (memcmp(data1, data2, ETH_ALEN) =3D=3D 0 ? 1 : 0);
+> +	return ether_addr_equal_unaligned(data1, data2) ? 1 : 0;
+
+ether_addr_equal_unaligned() returns a bool value which is implicitly
+converted to 1 or 0: there is no need for the ternary if anymore.
+
+
+>  }
+> =20
+>  /**
+> diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/transl=
+ation-table.c
+> index 4add57d..5e66d4b 100644
+> --- a/net/batman-adv/translation-table.c
+> +++ b/net/batman-adv/translation-table.c
+> @@ -51,7 +51,7 @@ static int batadv_compare_tt(const struct hlist_node =
+*node, const void *data2)
+>  	const void *data1 =3D container_of(node, struct batadv_tt_common_entr=
+y,
+>  					 hash_entry);
+> =20
+> -	return (memcmp(data1, data2, ETH_ALEN) =3D=3D 0 ? 1 : 0);
+> +	return ether_addr_equal_unaligned(data1, data2) ? 1 : 0;
+
+same here
+
+
+Moreover, include linux/etherdevice.h in both files as explained in
+point 1) of Documentation/SubmitChecklist
+
+Thanks.
+
+
+
+Cheers,
+
+--=20
+Antonio Quartulli
+
+
+--g5XcogJhD359ADB4e2ucbbDI75l6A1kmu
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJSt/hYAAoJEEKTMo6mOh1VtSYP/Re+Vdh9ZAmAx9QhhKNjTnj8
+zLXP8iyiCavjfyEGjgODWvB8vIo7nsit4QEq2ELM+vOiDpH04mFg35Bq7eRyIymb
+SNER9N0i/9Gr0s5MUCf45Zs0nMKpuMHU0I/FPBK+89n3jU01kbXkUXOvqdvQK+Je
+CZ8+C4+fxvpfBunUqq8NdXTEsaNxrEL+0BQht/4vDu3dn0z6O7gYIh8lD1jVm++Q
+NVJtJt8xUi/E0W8+mcs0HkvdVwIv+XznRPV/imwNYL3ROdqkZe4WCtTLz5vvvpfK
+WCzglCPAQNKtp3P1qP38+/D8UDv7QDEx5N3usUj09UTwM7uirh5fivqB2LwoT3BX
+t7nuTEKZc6S9NR0BhYo0p6VPr0VwTawplkXuUvWvibUCECELYU/+78vJImKuLWZ3
+P8xRqmPNLbDr8e+kzg2riQDgMY1jfsv6BqAx71X3DL4sng2DI1GkmvtngGbb6POd
+KkeN4Wyit4FtuejfNmxAO995rhu9mlhs/9GtWnBMLHPA6vXSFX/HU4ycQqFkRdbf
+GxqQI/gSXyjajwS3YEBOG1wz/ggZqS0xW30WLKpzZ/iUUVB8h60+TfhU/j8BWSu0
+CE9tq8Z24e/hpb2/pvnhTx/PUrWdK0RZdIlGVur+yxiEUw+JD/eJmARPu0WI/X14
+vEwBBP6zO6W0xudZXCN8
+=of4y
+-----END PGP SIGNATURE-----
+
+--g5XcogJhD359ADB4e2ucbbDI75l6A1kmu--
