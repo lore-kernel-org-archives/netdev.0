@@ -1,58 +1,64 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v3 2/6] net: rfkill: gpio: convert to descriptor-based
- GPIO interface
-Date: Mon, 23 Dec 2013 22:14:47 +0100
-Message-ID: <1387833287.4412.6.camel@jlt4.sipsolutions.net>
-References: <1385460350-17543-1-git-send-email-mika.westerberg@linux.intel.com>
-	 <1385460350-17543-3-git-send-email-mika.westerberg@linux.intel.com>
-	 <CACRpkdb03X_Z7amX-vAVX8KboeCo3ia6oqv8KW79WY=nZXV7wQ@mail.gmail.com>
-	 <20131223105420.GP8621@intel.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 4/6] bnx2x: no error when RSS configuration fails
+Date: Tue, 24 Dec 2013 01:36:37 +0300
+Message-ID: <52B8BAF5.7070904@cogentembedded.com>
+References: <1387824283-15687-1-git-send-email-yuvalmin@broadcom.com> <1387824283-15687-5-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linus Walleij <linus.walleij@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-netdev@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	ACPI Devel Maling List <linux-acpi@vger.kernel.org>,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	Chris Ball <cjb@laptop.org>, Rhyland Klein <rklein@nvidia.com>,
-	Adrian Hunter <adrian.hunter@intel.com>,
-	Alexandre Courbot <acourbot@nvidia.com>,
-	Mathias Nyman <mathias.nyman@linux.intel.com>,
-	Rob Landley <rob@landley.net>,
-	Heikki Krogerus <heikki.krogerus@linux.intel.com>,
-	Stephen Warren <swarren@wwwdotorg.org>,
-	Thierry Reding <thierry.reding@gmail.com>,
-	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Mika Westerberg <mika.westerberg@linux.intel.com>
-Return-path: <linux-gpio-owner@vger.kernel.org>
-In-Reply-To: <20131223105420.GP8621@intel.com>
-Sender: linux-gpio-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ariele@broadcom.com
+To: Yuval Mintz <yuvalmin@broadcom.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:55365 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757574Ab3LWVgf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 16:36:35 -0500
+Received: by mail-lb0-f171.google.com with SMTP id w7so2496811lbi.2
+        for <netdev@vger.kernel.org>; Mon, 23 Dec 2013 13:36:34 -0800 (PST)
+In-Reply-To: <1387824283-15687-5-git-send-email-yuvalmin@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-12-23 at 12:54 +0200, Mika Westerberg wrote:
-> On Wed, Dec 11, 2013 at 01:00:18PM +0100, Linus Walleij wrote:
-> > On Tue, Nov 26, 2013 at 11:05 AM, Mika Westerberg
-> > <mika.westerberg@linux.intel.com> wrote:
-> > 
-> > > From: Heikki Krogerus <heikki.krogerus@linux.intel.com>
-> > >
-> > > Convert to the safer gpiod_* family of API functions.
-> > >
-> > > Signed-off-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
-> > > Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
-> > > Tested-by: Stephen Warren <swarren@nvidia.com>
-> 
-> Johannes B, David M,
-> 
-> Are you fine with this patch? If yes, could you ack it so that we could get
-> it merged for 3.14.
+Hello.
 
-I have no objection to this particular patch. I can't really comment on
-it, but I never really delved too deeply into the rfkill-gpio thing - I
-guess it works for whoever needed it :)
+On 12/23/2013 09:44 PM, Yuval Mintz wrote:
 
-johannes
+> It's possible for VMs with older versions of bnx2x to run over a hypervisor
+> with latest driver. If a VF in such a VM does not support RSS configuration,
+> the PF driver in the hypervisor will print an error message to system logs.
 
+> This changes the error message into a debug message, as this is very likely
+> a false alarm for an older VF (i.e., VF manages to work properly; PF simply
+> cannot configure the additional queues for it).
+
+> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+> Signed-off-by: Ariel Elior <ariele@broadcom.com>
+> ---
+>   drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c | 12 ++++++++----
+>   1 file changed, 8 insertions(+), 4 deletions(-)
+
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+> index efa8a15..c7aaf5b 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+> @@ -800,14 +800,18 @@ int bnx2x_vfpf_config_rss(struct bnx2x *bp,
+>   	}
+>
+>   	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
+> -		BNX2X_ERR("failed to send rss message to PF over Vf PF channel %d\n",
+> -			  resp->hdr.status);
+> -		rc = -EINVAL;
+> +		/* Since older drivers don't support this feature (and VF has
+> +		 * no way of knowing other than failing this), don't propogate
+
+    Sorry for the grammar nitpicking but it's "propAgate".
+
+> +		 * an error in this case.
+> +		 */
+> +		DP(BNX2X_MSG_IOV,
+> +		   "Failed to send rss message to PF over VF-PF channel [%d]\n",
+> +		   resp->hdr.status);
+>   	}
+
+WBR, Sergei
