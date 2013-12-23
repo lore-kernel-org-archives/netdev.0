@@ -1,33 +1,48 @@
-From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] drivers/net: Fix potential incorrect call for udelay()
-Date: Mon, 23 Dec 2013 11:26:37 +0000
-Message-ID: <20131223112637.46ae42e3@alan.etchedpixels.co.uk>
-References: <1387791224-29320-1-git-send-email-huawei.libin@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <hsweeten@visionengravers.com>,
-	<gregkh@linuxfoundation.org>, <tedheadster@gmail.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<dingtianhong@huawei.com>
-To: Libin <huawei.libin@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1387791224-29320-1-git-send-email-huawei.libin@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net 0/3] namespace collision fix and update FW version check on cxgb4
+Date: Mon, 23 Dec 2013 17:01:57 +0530
+Message-ID: <1387798320-29255-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, dm@chelsio.com, leedom@chelsio.com,
+	nirranjan@chelsio.com, kumaras@chelsio.com, santosh@chelsio.com,
+	hariprasad@chelsio.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:3062 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756868Ab3LWLjo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 06:39:44 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 23 Dec 2013 17:33:44 +0800
-Libin <huawei.libin@huawei.com> wrote:
+Hi All,
 
-> From: Li Bin <huawei.libin@huawei.com>
-> 
-> The variable delay_time as a module parameter can be set a value
-> exceeding the limit of the udelay function. This patch checks the
-> delay_time value to select mdelay() or udelay().
-> 
-> Signed-off-by: Li Bin <huawei.libin@huawei.com>
+This patch series provides namespace collision fix for cxgb4 & cxgb4vf driver.
+Also updated FW version check for cxgb4 driver.
 
-Nobody should need to set a delay time that long, so this seems a rather
-surplus check.
+Patch 1/3 (cxgb4: make functions static and remove dead code) was provided by
+Stephen Hemminger on netdev mailing list.
+http://www.spinics.net/lists/linux-rdma/msg18148.html
 
-Alan
+Patch series is created against David Miller's net tree.
+
+We have included all the maintainers of respective drivers. Kindly review the
+change and let us know in case of any review comments.
+
+Thanks,
+Hari
+
+Hariprasad Shenai (2):
+  cxgb4: Fix namespace collision issue.
+  cxgb4: Changed FW check version to match FW binary version
+
+Stephen Hemminger (1):
+  cxgb4: make functions static and remove dead code
+
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |  20 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         | 238 +++++----------------
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h |   1 -
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |   4 +-
+ 4 files changed, 62 insertions(+), 201 deletions(-)
+
+-- 
+1.8.0
