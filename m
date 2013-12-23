@@ -1,34 +1,78 @@
-From: RongQing Li <roy.qing.li@gmail.com>
-Subject: Re: [PATCH] ipv6: unneccessary to get address prefix in addrconf_get_prefix_route
-Date: Mon, 23 Dec 2013 09:49:40 +0800
-Message-ID: <CAJFZqHzFNRE-VvB6D-eLZKru40dbRgA_vkpL44+eTEPYDggCGw@mail.gmail.com>
-References: <1387762358-10607-1-git-send-email-roy.qing.li@gmail.com>
+From: chenweilong <chenweilong@huawei.com>
+Subject: Re: [patch net-next 6/7] ipv4: ERROR: code indent should use tabs
+ where possible
+Date: Mon, 23 Dec 2013 10:11:40 +0800
+Message-ID: <52B79BDC.4060107@huawei.com>
+References: <1387540630-11052-1-git-send-email-chenweilong@huawei.com>	 <1387540630-11052-7-git-send-email-chenweilong@huawei.com> <1387561986.1549.9.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f174.google.com ([209.85.128.174]:49626 "EHLO
-	mail-ve0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756515Ab3LWBtl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 20:49:41 -0500
-Received: by mail-ve0-f174.google.com with SMTP id pa12so2564709veb.19
-        for <netdev@vger.kernel.org>; Sun, 22 Dec 2013 17:49:40 -0800 (PST)
-In-Reply-To: <1387762358-10607-1-git-send-email-roy.qing.li@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
+	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
+	<steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>,
+	<netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>,
+	<netfilter@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1387561986.1549.9.camel@bwh-desktop.uk.level5networks.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 23, 2013 at 9:32 AM,  <roy.qing.li@gmail.com> wrote:
-> From: Li RongQing <roy.qing.li@gmail.com>
->
-> Since addrconf_get_prefix_route inputs the address prefix to fib6_locate,
-> which does not uses the data which is out of the prefix_len length,
-> so do not need to use ipv6_addr_prefix to get address prefix.
->
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> ---
->  net/ipv6/addrconf.c |    5 +----
->  1 file changed, 1 insertion(+), 4 deletions(-)
->
+On 2013/12/21 1:53, Ben Hutchings wrote:
+> On Fri, 2013-12-20 at 19:57 +0800, Chen Weilong wrote:
+>> From: Weilong Chen <chenweilong@huawei.com>
+>>
+>>
+>> Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+>> ---
+>>  net/ipv4/cipso_ipv4.c      | 6 +++---
+>>  net/ipv4/sysctl_net_ipv4.c | 2 +-
+>>  net/ipv4/xfrm4_mode_beet.c | 2 +-
+>>  3 files changed, 5 insertions(+), 5 deletions(-)
+>>
+>> diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
+>> index 4b59b6e..081f51a 100644
+>> --- a/net/ipv4/cipso_ipv4.c
+>> +++ b/net/ipv4/cipso_ipv4.c
+>> @@ -1336,7 +1336,7 @@ static int cipso_v4_parsetag_rbm(const struct cipso_v4_doi *doi_def,
+>>  
+>>  	if (tag_len > 4) {
+>>  		secattr->attr.mls.cat =
+>> -		                       netlbl_secattr_catmap_alloc(GFP_ATOMIC);
+>> +				       netlbl_secattr_catmap_alloc(GFP_ATOMIC);
+>>  		if (secattr->attr.mls.cat == NULL)
+>>  			return -ENOMEM;
+>>  
+>> @@ -1432,7 +1432,7 @@ static int cipso_v4_parsetag_enum(const struct cipso_v4_doi *doi_def,
+>>  
+>>  	if (tag_len > 4) {
+>>  		secattr->attr.mls.cat =
+>> -			               netlbl_secattr_catmap_alloc(GFP_ATOMIC);
+>> +				       netlbl_secattr_catmap_alloc(GFP_ATOMIC);
+>>  		if (secattr->attr.mls.cat == NULL)
+>>  			return -ENOMEM;
+>>  
+>> @@ -1527,7 +1527,7 @@ static int cipso_v4_parsetag_rng(const struct cipso_v4_doi *doi_def,
+>>  
+>>  	if (tag_len > 4) {
+>>  		secattr->attr.mls.cat =
+>> -			               netlbl_secattr_catmap_alloc(GFP_ATOMIC);
+>> +				       netlbl_secattr_catmap_alloc(GFP_ATOMIC);
+>>  		if (secattr->attr.mls.cat == NULL)
+>>  			return -ENOMEM;
+>>  
+> [...]
+> 
+> These lines are still excessively indented (one extra tab is enough),
+> and could just be appended to the lines above them:
+> 
+> 		secattr->attr.mls.cat = netlbl_secattr_catmap_alloc(GFP_ATOMIC);
+> 
+> (exactly 80 columns long).
+> 
+> Ben.
+> 
+OK,
+That's very good,
+Thanks!
 
-This should be for net-next, sorry.
-Thanks
