@@ -1,39 +1,67 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IPV6: ip6_pol_route panic when doing interface up and down continuously with ipv6 traffic
-Date: Mon, 23 Dec 2013 13:49:09 +0100
-Message-ID: <20131223124909.GO14073@order.stressinduktion.org>
-References: <CAOJFanWCwFuX8X0ubNXAaVma0XMwtW4Q5vG=ENvqWp0kYBaSzw@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 1/3] net: allow > 0 order atomic page alloc in
+	skb_page_frag_refill
+Date: Mon, 23 Dec 2013 14:53:21 +0200
+Message-ID: <20131223125321.GB18168@redhat.com>
+References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "open list:ETHERNET BRIDGE" <netdev@vger.kernel.org>,
-	pekkas@netcore.fi, yoshfuji@linux-ipv6.org
-To: Sasikanth babu <sasikanth.v19@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:47474 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757043Ab3LWMtK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 07:49:10 -0500
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: Michael Dalton <mwdalton@google.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <CAOJFanWCwFuX8X0ubNXAaVma0XMwtW4Q5vG=ENvqWp0kYBaSzw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1387239389-13216-1-git-send-email-mwdalton@google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 23, 2013 at 11:48:00AM +0530, Sasikanth babu wrote:
-> I have been getting two kernel panics in ipv6 stack with 2.6.34.10
-> kernel. One in ip6_pol_route and other one is in ip6_pkt_drop
-> function. It is being observed when we did interface up and down
-> continuously while ipv6 traffic going on.
+On Mon, Dec 16, 2013 at 04:16:27PM -0800, Michael Dalton wrote:
+> skb_page_frag_refill currently permits only order-0 page allocs
+> unless GFP_WAIT is used. Change skb_page_frag_refill to attempt
+> higher-order page allocations whether or not GFP_WAIT is used. If
+> memory cannot be allocated, the allocator will fall back to
+> successively smaller page allocs (down to order-0 page allocs).
 > 
-> I looked out for the patches and verified the kernel commit messages I
-> could not find anything related to these panics.
+> This change brings skb_page_frag_refill in line with the existing
+> page allocation strategy employed by netdev_alloc_frag, which attempts
+> higher-order page allocations whether or not GFP_WAIT is set, falling
+> back to successively lower-order page allocations on failure. Part
+> of migration of virtio-net to per-receive queue page frag allocators.
 > 
-> Any suggestions?
+> Signed-off-by: Michael Dalton <mwdalton@google.com>
 
-Sorry, no, besides maybe trying a newer kernel.
+I don't get how this is related to patch 3/3 exactly.
+That one seems to clamp the allocations from ewma to at most
+PAGE_SIZE, so how to we get higher-order allocations here?
+Could you clarify please?
 
-Maybe some reference counting on the idev or dev being wrong. I am sure there
-were some changes in recent kernels that might affect this.
-
-Greetings,
-
-  Hannes
+> ---
+>  net/core/sock.c | 4 +---
+>  1 file changed, 1 insertion(+), 3 deletions(-)
+> 
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index ab20ed9..7383d23 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -1865,9 +1865,7 @@ bool skb_page_frag_refill(unsigned int sz, struct page_frag *pfrag, gfp_t prio)
+>  		put_page(pfrag->page);
+>  	}
+>  
+> -	/* We restrict high order allocations to users that can afford to wait */
+> -	order = (prio & __GFP_WAIT) ? SKB_FRAG_PAGE_ORDER : 0;
+> -
+> +	order = SKB_FRAG_PAGE_ORDER;
+>  	do {
+>  		gfp_t gfp = prio;
+>  
+> -- 
+> 1.8.5.1
