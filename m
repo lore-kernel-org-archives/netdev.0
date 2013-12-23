@@ -1,62 +1,43 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next v2 0/5] sctp: fix checkpatch errors
-Date: Mon, 23 Dec 2013 08:31:00 -0500
-Message-ID: <20131223133100.GB20864@hmsreliant.think-freely.org>
-References: <1387772214-26068-1-git-send-email-wangweidong1@huawei.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 1/3] net: allow > 0 order atomic page alloc in
+	skb_page_frag_refill
+Date: Mon, 23 Dec 2013 15:35:26 +0200
+Message-ID: <20131223133526.GE18168@redhat.com>
+References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
+	<20131219.145815.1332595160898710763.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, vyasevich@gmail.com, netdev@vger.kernel.org
-To: Wang Weidong <wangweidong1@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39320 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757193Ab3LWNbE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 08:31:04 -0500
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mwdalton@google.com, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, edumazet@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1387772214-26068-1-git-send-email-wangweidong1@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20131219.145815.1332595160898710763.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 23, 2013 at 12:16:49PM +0800, Wang Weidong wrote:
-> fix checkpatch errors.
+On Thu, Dec 19, 2013 at 02:58:15PM -0500, David Miller wrote:
 > 
-> v1 -> v2:
->   -patch1: add Neil's Ack
->   -patch2: fix the subject line which is not clearly pointed out by Neil
->   -patch3: add Neil's Ack
->   -patch4: fix the subject line and blurb which is not clearly pointed out by Neil
+> Can I get some reviews of this series from virtio folks?
 > 
-> Wang Weidong (5):
->   sctp: fix checkpatch errors with space required or prohibited
->   sctp: fix checkpatch errors with (foo*)|foo * bar|foo* bar
->   sctp: fix checkpatch errors with indent
->   sctp: fix checkpatch errors with open brace '{' and trailing
->     statements
->   sctp: fix checkpatch errors with //commen
-> 
->  net/sctp/auth.c          | 27 +++++++++---------
->  net/sctp/chunk.c         |  4 +--
->  net/sctp/input.c         | 58 +++++++++++++++++++--------------------
->  net/sctp/ipv6.c          |  2 +-
->  net/sctp/objcnt.c        |  2 +-
->  net/sctp/output.c        | 11 ++++----
->  net/sctp/outqueue.c      |  8 +++---
->  net/sctp/proc.c          |  8 +++---
->  net/sctp/protocol.c      |  4 +--
->  net/sctp/sm_make_chunk.c | 71 ++++++++++++++++++++++++------------------------
->  net/sctp/sm_sideeffect.c |  4 +--
->  net/sctp/sm_statefuns.c  | 27 +++++++++---------
->  net/sctp/sm_statetable.c |  2 +-
->  net/sctp/socket.c        | 53 ++++++++++++++++++------------------
->  net/sctp/sysctl.c        |  2 +-
->  net/sctp/ulpqueue.c      | 11 ++++----
->  16 files changed, 145 insertions(+), 149 deletions(-)
-> 
-> -- 
-> 1.7.12
-> 
-> 
-> 
+> Thanks.
 
-for the series
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+I think it's a good idea, certainly the best we can do
+short term.
+Would like a couple of comments addressed before it's applied.
+
+Longer term one approach to consider is to make device
+look aheads in the VQ until it finds a large
+enough buffer.
+
+-- 
+MST
