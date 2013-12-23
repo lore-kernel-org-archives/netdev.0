@@ -1,12 +1,13 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH 06/21] zd1211rw: slight optimization of addr compare
-Date: Mon, 23 Dec 2013 13:10:09 +0800
-Message-ID: <52B7C5B1.7090103@huawei.com>
+Subject: [PATCH 13/21] mac8011: slight optimization of addr compare
+Date: Mon, 23 Dec 2013 13:10:50 +0800
+Message-ID: <52B7C5DA.9090307@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Daniel Drake <dsd@gentoo.org>, Ulrich Kunitz <kune@deine-taler.de>,
+To: Johannes Berg <johannes@sipsolutions.net>,
 	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
 	<linux-wireless@vger.kernel.org>, Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -16,43 +17,40 @@ List-Id: netdev.vger.kernel.org
 Use the recently added and possibly more efficient
 ether_addr_equal_unaligned to instead of memcmp.
 
-Cc: Daniel Drake <dsd@gentoo.org>
-Cc: Ulrich Kunitz <kune@deine-taler.de>
-Cc: "John W. Linville" <linville@tuxdriver.com>
+Cc: Johannes Berg <johannes@sipsolutions.net>
+Cc: John W. Linville <linville@tuxdriver.com>
+Cc: David Miller <davem@davemloft.net>
 Cc: linux-wireless@vger.kernel.org
 Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Tan Xiaojun <tanxiaojun@huawei.com>
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/wireless/zd1211rw/zd_mac.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ net/mac80211/iface.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
-index eff79a3..57badfb 100644
---- a/drivers/net/wireless/zd1211rw/zd_mac.c
-+++ b/drivers/net/wireless/zd1211rw/zd_mac.c
-@@ -532,9 +532,9 @@ void zd_mac_tx_failed(struct urb *urb)
- 		tx_hdr = (struct ieee80211_hdr *)skb->data;
+diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
+index 7aa9f9d..1773e17 100644
+--- a/net/mac80211/iface.c
++++ b/net/mac80211/iface.c
+@@ -1497,8 +1497,7 @@ static void ieee80211_assign_perm_addr(struct ieee80211_local *local,
+ 			bool used = false;
  
- 		/* we skip all frames not matching the reported destination */
--		if (unlikely(memcmp(tx_hdr->addr1, tx_status->mac, ETH_ALEN))) {
-+		if (unlikely(!ether_addr_equal_unaligned(tx_hdr->addr1,
-+							 tx_status->mac)))
- 			continue;
--		}
+ 			list_for_each_entry(sdata, &local->interfaces, list) {
+-				if (memcmp(local->hw.wiphy->addresses[i].addr,
+-					   sdata->vif.addr, ETH_ALEN) == 0) {
++				if (ether_addr_equal_unaligned(local->hw.wiphy->addresses[i].addr, sdata->vif.addr)) {
+ 					used = true;
+ 					break;
+ 				}
+@@ -1558,8 +1557,7 @@ static void ieee80211_assign_perm_addr(struct ieee80211_local *local,
+ 			val += inc;
  
- 		/* we skip all frames not matching the reported final rate */
- 
-@@ -997,7 +997,8 @@ static int filter_ack(struct ieee80211_hw *hw, struct ieee80211_hdr *rx_hdr,
- 		    continue;
- 
- 		tx_hdr = (struct ieee80211_hdr *)skb->data;
--		if (likely(!memcmp(tx_hdr->addr2, rx_hdr->addr1, ETH_ALEN)))
-+		if (likely(ether_addr_equal_unaligned(tx_hdr->addr2,
-+						      rx_hdr->addr1)))
- 		{
- 			found = 1;
- 			break;
+ 			list_for_each_entry(sdata, &local->interfaces, list) {
+-				if (memcmp(tmp_addr, sdata->vif.addr,
+-							ETH_ALEN) == 0) {
++				if (ether_addr_equal_unaligned(tmp_addr, sdata->vif.addr)) {
+ 					used = true;
+ 					break;
+ 				}
 -- 
 1.8.0
