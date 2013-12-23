@@ -1,170 +1,43 @@
-From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 6/6] bnx2x: add VF Multicast filters support
-Date: Mon, 23 Dec 2013 20:44:43 +0200
-Message-ID: <1387824283-15687-7-git-send-email-yuvalmin@broadcom.com>
-References: <1387824283-15687-1-git-send-email-yuvalmin@broadcom.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next 1/2] mlx4_en: Add PTP hardware clock
+Date: Mon, 23 Dec 2013 19:48:46 +0100
+Message-ID: <20131223184845.GA4922@netboy>
+References: <1387312359-9476-1-git-send-email-shawn.bohrer@gmail.com>
+ <1387312359-9476-2-git-send-email-shawn.bohrer@gmail.com>
+ <52B6E568.4030400@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <ariele@broadcom.com>, Yuval Mintz <yuvalmin@broadcom.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Shawn Bohrer <shawn.bohrer@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
+	tomk@rgmadvisors.com, Shawn Bohrer <sbohrer@rgmadvisors.com>
+To: Hadar Hen Zion <hadarh@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:15718 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757794Ab3LWSoz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 13:44:55 -0500
-In-Reply-To: <1387824283-15687-1-git-send-email-yuvalmin@broadcom.com>
+Received: from mail-bk0-f44.google.com ([209.85.214.44]:42109 "EHLO
+	mail-bk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751067Ab3LWStA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 13:49:00 -0500
+Received: by mail-bk0-f44.google.com with SMTP id d7so2097657bkh.17
+        for <netdev@vger.kernel.org>; Mon, 23 Dec 2013 10:48:58 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <52B6E568.4030400@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the necessary support for configuring (and removing) multicast
-filters to VFs.
+On Sun, Dec 22, 2013 at 03:13:12PM +0200, Hadar Hen Zion wrote:
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 49 ++++++++++++++---------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h |  1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c  |  8 ++++
- 3 files changed, 39 insertions(+), 19 deletions(-)
+> 2. Adding spin lock in the data path reduce performance by 15% when
+> HW timestamping is enabled. I did some testing and replacing
+> spin_lock_irqsave with read/write_lock_irqsave prevents the
+> performance decrease.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index 2e46c28..2518276 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -166,6 +166,7 @@ enum bnx2x_vfop_qteardown_state {
- 	   BNX2X_VFOP_QTEARDOWN_RXMODE,
- 	   BNX2X_VFOP_QTEARDOWN_CLR_VLAN,
- 	   BNX2X_VFOP_QTEARDOWN_CLR_MAC,
-+	   BNX2X_VFOP_QTEARDOWN_CLR_MCAST,
- 	   BNX2X_VFOP_QTEARDOWN_QDTOR,
- 	   BNX2X_VFOP_QTEARDOWN_DONE
- };
-@@ -1112,7 +1113,10 @@ static void bnx2x_vfop_mcast(struct bnx2x *bp, struct bnx2x_virtf *vf)
- 	switch (state) {
- 	case BNX2X_VFOP_MCAST_DEL:
- 		/* clear existing mcasts */
--		vfop->state = BNX2X_VFOP_MCAST_ADD;
-+		vfop->state = (args->mc_num) ? BNX2X_VFOP_MCAST_ADD
-+					     : BNX2X_VFOP_MCAST_CHK_DONE;
-+		mcast->mcast_list_len = vf->mcast_list_len;
-+		vf->mcast_list_len = args->mc_num;
- 		vfop->rc = bnx2x_config_mcast(bp, mcast, BNX2X_MCAST_CMD_DEL);
- 		bnx2x_vfop_finalize(vf, vfop->rc, VFOP_CONT);
- 
-@@ -1120,17 +1124,17 @@ static void bnx2x_vfop_mcast(struct bnx2x *bp, struct bnx2x_virtf *vf)
- 		if (raw->check_pending(raw))
- 			goto op_pending;
- 
--		if (args->mc_num) {
--			/* update mcast list on the ramrod params */
--			INIT_LIST_HEAD(&mcast->mcast_list);
--			for (i = 0; i < args->mc_num; i++)
--				list_add_tail(&(args->mc[i].link),
--					      &mcast->mcast_list);
--			/* add new mcasts */
--			vfop->state = BNX2X_VFOP_MCAST_CHK_DONE;
--			vfop->rc = bnx2x_config_mcast(bp, mcast,
--						      BNX2X_MCAST_CMD_ADD);
--		}
-+		/* update mcast list on the ramrod params */
-+		INIT_LIST_HEAD(&mcast->mcast_list);
-+		for (i = 0; i < args->mc_num; i++)
-+			list_add_tail(&(args->mc[i].link),
-+				      &mcast->mcast_list);
-+		mcast->mcast_list_len = args->mc_num;
-+
-+		/* add new mcasts */
-+		vfop->state = BNX2X_VFOP_MCAST_CHK_DONE;
-+		vfop->rc = bnx2x_config_mcast(bp, mcast,
-+					      BNX2X_MCAST_CMD_ADD);
- 		bnx2x_vfop_finalize(vf, vfop->rc, VFOP_DONE);
- 
- 	case BNX2X_VFOP_MCAST_CHK_DONE:
-@@ -1303,12 +1307,19 @@ static void bnx2x_vfop_qdown(struct bnx2x *bp, struct bnx2x_virtf *vf)
- 
- 	case BNX2X_VFOP_QTEARDOWN_CLR_MAC:
- 		/* mac-clear-all: consume credit */
--		vfop->state = BNX2X_VFOP_QTEARDOWN_QDTOR;
-+		vfop->state = BNX2X_VFOP_QTEARDOWN_CLR_MCAST;
- 		vfop->rc = bnx2x_vfop_mac_delall_cmd(bp, vf, &cmd, qid, false);
- 		if (vfop->rc)
- 			goto op_err;
- 		return;
- 
-+	case BNX2X_VFOP_QTEARDOWN_CLR_MCAST:
-+		vfop->state = BNX2X_VFOP_QTEARDOWN_QDTOR;
-+		vfop->rc = bnx2x_vfop_mcast_cmd(bp, vf, &cmd, NULL, 0, false);
-+		if (vfop->rc)
-+			goto op_err;
-+		return;
-+
- 	case BNX2X_VFOP_QTEARDOWN_QDTOR:
- 		/* run the queue destruction flow */
- 		DP(BNX2X_MSG_IOV, "case: BNX2X_VFOP_QTEARDOWN_QDTOR\n");
-@@ -2188,6 +2199,7 @@ int bnx2x_iov_nic_init(struct bnx2x *bp)
- 		 *  It needs to be initialized here so that it can be safely
- 		 *  handled by a subsequent FLR flow.
- 		 */
-+		vf->mcast_list_len = 0;
- 		bnx2x_init_mcast_obj(bp, &vf->mcast_obj, 0xFF,
- 				     0xFF, 0xFF, 0xFF,
- 				     bnx2x_vf_sp(bp, vf, mcast_rdata),
-@@ -2848,13 +2860,9 @@ static void bnx2x_vfop_close(struct bnx2x *bp, struct bnx2x_virtf *vf)
- 				goto op_err;
- 			return;
- 		}
--
--		/* remove multicasts */
- 		vfop->state = BNX2X_VFOP_CLOSE_HW;
--		vfop->rc = bnx2x_vfop_mcast_cmd(bp, vf, &cmd, NULL, 0, false);
--		if (vfop->rc)
--			goto op_err;
--		return;
-+		vfop->rc = 0;
-+		bnx2x_vfop_finalize(vf, vfop->rc, VFOP_CONT);
- 
- 	case BNX2X_VFOP_CLOSE_HW:
- 
-@@ -2888,6 +2896,9 @@ op_done:
- 
- 	DP(BNX2X_MSG_IOV, "set state to acquired\n");
- 	bnx2x_vfop_end(bp, vf, vfop);
-+op_pending:
-+	/* Not supported at the moment; Exists for macros only */
-+	return;
- }
- 
- int bnx2x_vfop_close_cmd(struct bnx2x *bp,
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-index 1ff6a93..a5c84a7 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-@@ -268,6 +268,7 @@ struct bnx2x_virtf {
- 	int leading_rss;
- 
- 	/* MCAST object */
-+	int mcast_list_len;
- 	struct bnx2x_mcast_obj		mcast_obj;
- 
- 	/* RSS configuration object */
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-index c7aaf5b..86ebb62 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-@@ -1420,6 +1420,14 @@ static void bnx2x_vf_mbx_setup_q(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 				setup_q->rxq.cache_line_log;
- 			rxq_params->sb_cq_index = setup_q->rxq.sb_index;
- 
-+			/* rx setup - multicast engine */
-+			if (bnx2x_vfq_is_leading(q)) {
-+				u8 mcast_id = FW_VF_HANDLE(vf->abs_vfid);
-+
-+				rxq_params->mcast_engine_id = mcast_id;
-+				__set_bit(BNX2X_Q_FLG_MCAST, &setup_p->flags);
-+			}
-+
- 			bnx2x_vfop_qctor_dump_rx(bp, vf, init_p, setup_p,
- 						 q->index, q->sb_idx);
- 		}
--- 
-1.8.1.227.g44fe835
+Why do the spin locks cause such a bottleneck?
+
+Is there really that much lock contention in your test?
+
+Your figure of 15% seems awfully high. How did you arrive at that
+figure?
+
+Thanks,
+Richard
