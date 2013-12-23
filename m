@@ -1,53 +1,51 @@
-From: Alexander Graf <agraf@suse.de>
-Subject: [PATCH] ibmveth: Fix more little endian issues
-Date: Mon, 23 Dec 2013 02:29:23 +0100
-Message-ID: <1387762163-39662-1-git-send-email-agraf@suse.de>
-Cc: Ben Herrenschmidt <benh@kernel.crashing.org>,
-	Anton Blanchard <anton@samba.org>,
-	Dinar Valeev <dvaleev@suse.com>,
-	Santiago Leon <santil@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org
-To: linuxppc-dev@lists.ozlabs.org
+From: roy.qing.li@gmail.com
+Subject: [PATCH] ipv6: unneccessary to get address prefix in addrconf_get_prefix_route
+Date: Mon, 23 Dec 2013 09:32:38 +0800
+Message-ID: <1387762358-10607-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:49720 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756512Ab3LWB32 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Dec 2013 20:29:28 -0500
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:55000 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756665Ab3LWBcp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 20:32:45 -0500
+Received: by mail-pa0-f43.google.com with SMTP id bj1so4762281pad.30
+        for <netdev@vger.kernel.org>; Sun, 22 Dec 2013 17:32:45 -0800 (PST)
+Received: from localhost ([1.202.252.122])
+        by mx.google.com with ESMTPSA id bh6sm39556786pad.20.2013.12.22.17.32.42
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Sun, 22 Dec 2013 17:32:44 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ibmveth driver is memcpy()'ing the mac address between a variable
-(register) and memory. This assumes a certain endianness of the
-system, so let's make that implicit assumption work again.
+From: Li RongQing <roy.qing.li@gmail.com>
 
-This patch adds be64_to_cpu() calls to all places where the mac address
-gets memcpy()'ed into a local variable.
+Since addrconf_get_prefix_route inputs the address prefix to fib6_locate,
+which does not uses the data which is out of the prefix_len length,
+so do not need to use ipv6_addr_prefix to get address prefix.
 
-Signed-off-by: Alexander Graf <agraf@suse.de>
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 ---
- drivers/net/ethernet/ibm/ibmveth.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/ipv6/addrconf.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
-index 952d795..97f4ee96 100644
---- a/drivers/net/ethernet/ibm/ibmveth.c
-+++ b/drivers/net/ethernet/ibm/ibmveth.c
-@@ -581,7 +581,7 @@ static int ibmveth_open(struct net_device *netdev)
- 	adapter->rx_queue.toggle = 1;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 3c3425e..def65f6 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -988,12 +988,9 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
+ 	 * --yoshfuji
+ 	 */
+ 	if ((ifp->flags & IFA_F_PERMANENT) && onlink < 1) {
+-		struct in6_addr prefix;
+ 		struct rt6_info *rt;
  
- 	memcpy(&mac_address, netdev->dev_addr, netdev->addr_len);
--	mac_address = mac_address >> 16;
-+	mac_address = be64_to_cpu(mac_address) >> 16;
- 
- 	rxq_desc.fields.flags_len = IBMVETH_BUF_VALID |
- 					adapter->rx_queue.queue_len;
-@@ -1186,6 +1186,7 @@ static void ibmveth_set_multicast_list(struct net_device *netdev)
- 			/* add the multicast address to the filter table */
- 			unsigned long mcast_addr = 0;
- 			memcpy(((char *)&mcast_addr)+2, ha->addr, ETH_ALEN);
-+			mcast_addr = cpu_to_be64(mcast_addr);
- 			lpar_rc = h_multicast_ctrl(adapter->vdev->unit_address,
- 						   IbmVethMcastAddFilter,
- 						   mcast_addr);
+-		ipv6_addr_prefix(&prefix, &ifp->addr, ifp->prefix_len);
+-
+-		rt = addrconf_get_prefix_route(&prefix,
++		rt = addrconf_get_prefix_route(&ifp->addr,
+ 					       ifp->prefix_len,
+ 					       ifp->idev->dev,
+ 					       0, RTF_GATEWAY | RTF_DEFAULT);
 -- 
-1.8.1.4
+1.7.10.4
