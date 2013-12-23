@@ -1,67 +1,90 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 1/3] net: allow > 0 order atomic page alloc in
-	skb_page_frag_refill
-Date: Mon, 23 Dec 2013 14:53:21 +0200
-Message-ID: <20131223125321.GB18168@redhat.com>
-References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH net-next] vxlan: distribute vxlan tunneled traffic across multiple TXQs
+Date: Mon, 23 Dec 2013 18:26:53 +0530
+Message-ID: <1387803413-22152-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: Michael Dalton <mwdalton@google.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1387239389-13216-1-git-send-email-mwdalton@google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <edumazet@google.com>, <stephen@networkplumber.org>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:24967 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753416Ab3LWMwk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 07:52:40 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 16, 2013 at 04:16:27PM -0800, Michael Dalton wrote:
-> skb_page_frag_refill currently permits only order-0 page allocs
-> unless GFP_WAIT is used. Change skb_page_frag_refill to attempt
-> higher-order page allocations whether or not GFP_WAIT is used. If
-> memory cannot be allocated, the allocator will fall back to
-> successively smaller page allocs (down to order-0 page allocs).
-> 
-> This change brings skb_page_frag_refill in line with the existing
-> page allocation strategy employed by netdev_alloc_frag, which attempts
-> higher-order page allocations whether or not GFP_WAIT is set, falling
-> back to successively lower-order page allocations on failure. Part
-> of migration of virtio-net to per-receive queue page frag allocators.
-> 
-> Signed-off-by: Michael Dalton <mwdalton@google.com>
+The vxlan driver sets itself as the socket owner for all the TX flows
+it encapsulates (using vxlan_set_owner()) and assigns it's own skb
+destructor. This causes all tunneled traffic to land up on only one TXQ
+as all encapsulated skbs refer to the vxlan socket and not the original
+socket.  Also, the vxlan skb destructor breaks some functionality for
+tunneled traffic like wmem accounting and as Eric D. mentioned, TCP
+small queues and FQ/pacing packet scheduler too.
 
-I don't get how this is related to patch 3/3 exactly.
-That one seems to clamp the allocations from ewma to at most
-PAGE_SIZE, so how to we get higher-order allocations here?
-Could you clarify please?
+This patch removes vxlan ownership on tunneled skbs. This causes
+tunneled traffic to be hashed into multiple TXQs based on the original
+socket hash.
 
-> ---
->  net/core/sock.c | 4 +---
->  1 file changed, 1 insertion(+), 3 deletions(-)
-> 
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index ab20ed9..7383d23 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -1865,9 +1865,7 @@ bool skb_page_frag_refill(unsigned int sz, struct page_frag *pfrag, gfp_t prio)
->  		put_page(pfrag->page);
->  	}
->  
-> -	/* We restrict high order allocations to users that can afford to wait */
-> -	order = (prio & __GFP_WAIT) ? SKB_FRAG_PAGE_ORDER : 0;
-> -
-> +	order = SKB_FRAG_PAGE_ORDER;
->  	do {
->  		gfp_t gfp = prio;
->  
-> -- 
-> 1.8.5.1
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+---
+ drivers/net/vxlan.c |   22 +++-------------------
+ 1 files changed, 3 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index aef44aa..eb55c08 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1381,20 +1381,6 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
+ 	return false;
+ }
+ 
+-static void vxlan_sock_put(struct sk_buff *skb)
+-{
+-	sock_put(skb->sk);
+-}
+-
+-/* On transmit, associate with the tunnel socket */
+-static void vxlan_set_owner(struct sock *sk, struct sk_buff *skb)
+-{
+-	skb_orphan(skb);
+-	sock_hold(sk);
+-	skb->sk = sk;
+-	skb->destructor = vxlan_sock_put;
+-}
+-
+ /* Compute source port for outgoing packet
+  *   first choice to use L4 flow hash since it will spread
+  *     better and maybe available from hardware
+@@ -1514,8 +1500,6 @@ static int vxlan6_xmit_skb(struct vxlan_sock *vs,
+ 	ip6h->daddr	  = *daddr;
+ 	ip6h->saddr	  = *saddr;
+ 
+-	vxlan_set_owner(vs->sock->sk, skb);
+-
+ 	err = handle_offloads(skb);
+ 	if (err)
+ 		return err;
+@@ -1572,8 +1556,6 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
+ 	uh->len = htons(skb->len);
+ 	uh->check = 0;
+ 
+-	vxlan_set_owner(vs->sock->sk, skb);
+-
+ 	err = handle_offloads(skb);
+ 	if (err)
+ 		return err;
+@@ -1836,8 +1818,10 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		struct sk_buff *skb1;
+ 
+ 		skb1 = skb_clone(skb, GFP_ATOMIC);
+-		if (skb1)
++		if (skb1) {
++			skb1->sk = skb->sk;
+ 			vxlan_xmit_one(skb1, dev, rdst, did_rsc);
++		}
+ 	}
+ 
+ 	dev_kfree_skb(skb);
+-- 
+1.7.1
