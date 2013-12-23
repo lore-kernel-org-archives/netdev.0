@@ -1,47 +1,37 @@
-From: Ding Tianhong <dthxman-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 19/21] wireless: slight optimization of addr compare
-Date: Mon, 23 Dec 2013 22:14:07 +0800
-Message-ID: <52B8452F.4070508@gmail.com>
-References: <52B7C600.8030907@huawei.com> <52B83EE1.4040705@openwrt.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] ibmveth: Fix more little endian issues
+Date: Mon, 23 Dec 2013 06:52:09 -0800
+Message-ID: <1387810329.22671.66.camel@joe-AO722>
+References: <1387762163-39662-1-git-send-email-agraf@suse.de>
+	 <20131223173833.0a9a6705@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
-	Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <52B83EE1.4040705-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Graf <agraf@suse.de>, linuxppc-dev@lists.ozlabs.org,
+	Ben Herrenschmidt <benh@kernel.crashing.org>,
+	Dinar Valeev <dvaleev@suse.com>,
+	Santiago Leon <santil@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org
+To: Anton Blanchard <anton@samba.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0050.hostedemail.com ([216.40.44.50]:38283 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932223Ab3LWOwM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 09:52:12 -0500
+In-Reply-To: <20131223173833.0a9a6705@kryten>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2013/12/23 21:47, Felix Fietkau =E5=86=99=E9=81=93:
-> On 2013-12-23 06:11, Ding Tianhong wrote:
->> Use the recently added and possibly more efficient
->> ether_addr_equal_unaligned to instead of memcmp.
-> It looks to me like all of these (including the ones in the other
-> similar patches) are in places, where the address data is aligned to =
-at
-> least 16 bit. Because of this, using ether_addr_equal instead of
-> ether_addr_equal_unaligned would be much better for platforms without
-> CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS.
->=20
-> - Felix
+On Mon, 2013-12-23 at 17:38 +1100, Anton Blanchard wrote:
+> The hypervisor expects MAC addresses passed in registers to be big
+> endian u64.
 
-Yes, the most of the place should use ether_addr_equal. thanks.
+So maybe use __be64 declarations?
 
-Regards
-Ding
+> +static unsigned long ibmveth_encode_mac_addr(char *mac)
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
+static __be64 ibmveth_encode_mac_addr(const char *mac)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+?
+
+etc...
