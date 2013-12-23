@@ -1,73 +1,30 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] checkpatch: Add warning with unnecessary parentheses in if
- statements
-Date: Sun, 22 Dec 2013 17:02:55 -0800
-Message-ID: <1387760575.22671.36.camel@joe-AO722>
-References: <1387725972-10244-3-git-send-email-ogerlitz@mellanox.com>
-	 <20131222.181202.168681767663560253.davem@davemloft.net>
-	 <1387755159.22671.27.camel@joe-AO722>
-	 <20131222.191400.620087948725635345.davem@davemloft.net>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH resend net-next 0/2] net_sched: do some cleanup
+Date: Mon, 23 Dec 2013 09:06:16 +0800
+Message-ID: <1387760778-25256-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: ogerlitz@mellanox.com, netdev@vger.kernel.org, amirv@mellanox.com,
-	yanb@mellanox.com, ast@plumgrid.com,
-	Andy Whitcroft <apw@shadowen.org>
-To: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0164.hostedemail.com ([216.40.44.164]:45363 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756362Ab3LWBDC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 20:03:02 -0500
-In-Reply-To: <20131222.191400.620087948725635345.davem@davemloft.net>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:54642 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756362Ab3LWBG0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 20:06:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using doubled parentheses in statements like "if ((foo == bar))"
-is unnecessary or may be a sign of an intended single assignment
-instead of a comparison.
+Prefer pr_warn(... to pr_warning(...
+Do not use C99 // comments and fix spelling.
 
-Bleat a warning message on those uses.
+Yang Yingliang (2):
+  net_sched: replace pr_warning with pr_warn
+  sch_htb: use /* comments
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
-> > On Sun, 2013-12-22 at 18:12 -0500, David Miller wrote:
-> >> > +	if ((mdev->dev->caps.tunnel_offload_mode == MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)) {
-> >> > +	if ((mdev->dev->caps.tunnel_offload_mode == MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)) {
-> >> > +	if ((mdev->dev->caps.tunnel_offload_mode == MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)) {
-> >> > +	    (mdev->dev->caps.tunnel_offload_mode ==  MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)) {
-> >> > +	if ((mdev->dev->caps.tunnel_offload_mode == MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)) {
-> >> 
-> >> Way too many parenthesis, this isn't LISP :-)
-> > 
-> > Is patchwork stuttering?
-> 
-> I edited it, I'm quoting all of the lines in your patch that add the
-> "too many parenthsis" problem.
+ net/sched/sch_cbq.c    |  4 ++--
+ net/sched/sch_dsmark.c |  4 ++--
+ net/sched/sch_gred.c   |  4 ++--
+ net/sched/sch_htb.c    | 19 +++++++++----------
+ 4 files changed, 15 insertions(+), 16 deletions(-)
 
-OK then.  Or's patch, not mine, but maybe this is useful...
-
-(this also happened today with another nominal cleanup patch)
-
- scripts/checkpatch.pl | 7 +++++++
- 1 file changed, 7 insertions(+)
-
-diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-index 8f3aecd..29af02a 100755
---- a/scripts/checkpatch.pl
-+++ b/scripts/checkpatch.pl
-@@ -3251,6 +3251,13 @@ sub process {
- 			}
- 		}
- 
-+# if statements using unnecessary parentheses - ie: if ((foo == bar))
-+		if ($^V && $^V ge 5.10.0 &&
-+		    $line =~ /\bif\s*\(\s*\(\s*$LvalOrFunc\s*$Compare\s*$LvalOrFunc\s*\)\s*\)/) {
-+			WARN("UNNECESSARY_PARENTHESES",
-+			     "Unnecessary parentheses\n" . $herecurr);
-+		}
-+
- # Return of what appears to be an errno should normally be -'ve
- 		if ($line =~ /^.\s*return\s*(E[A-Z]*)\s*;/) {
- 			my $name = $1;
+-- 
+1.7.12
