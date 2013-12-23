@@ -1,136 +1,115 @@
-From: Alexander Graf <agraf@suse.de>
-Subject: Re: [PATCH] ibmveth: Fix more little endian issues
-Date: Mon, 23 Dec 2013 11:17:47 +0100
-Message-ID: <71EC0FB0-80C9-4133-A384-35D212ACE968@suse.de>
-References: <1387762163-39662-1-git-send-email-agraf@suse.de> <20131223173833.0a9a6705@kryten>
-Mime-Version: 1.0 (Mac OS X Mail 7.1 \(1827\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: linuxppc-dev@lists.ozlabs.org,
-	Ben Herrenschmidt <benh@kernel.crashing.org>,
-	Dinar Valeev <dvaleev@suse.com>,
-	Santiago Leon <santil@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org
-To: Anton Blanchard <anton@samba.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v2 2/2] netlink: specify netlink packet direction
+ for nlmon
+Date: Mon, 23 Dec 2013 11:43:52 +0100
+Message-ID: <52B813E8.8010508@6wind.com>
+References: <1387788519-17722-1-git-send-email-dborkman@redhat.com> <1387788519-17722-3-git-send-email-dborkman@redhat.com>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Jakub Zawadzki <darkjames-ws@darkjames.pl>
+To: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:53104 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752032Ab3LWKQ0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 05:16:26 -0500
-In-Reply-To: <20131223173833.0a9a6705@kryten>
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:56462 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757186Ab3LWKnz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 05:43:55 -0500
+Received: by mail-wg0-f49.google.com with SMTP id x12so4826137wgg.16
+        for <netdev@vger.kernel.org>; Mon, 23 Dec 2013 02:43:54 -0800 (PST)
+In-Reply-To: <1387788519-17722-3-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On 23.12.2013, at 07:38, Anton Blanchard <anton@samba.org> wrote:
-
-> 
-> Hi Alex,
-> 
->> The ibmveth driver is memcpy()'ing the mac address between a variable
->> (register) and memory. This assumes a certain endianness of the
->> system, so let's make that implicit assumption work again.
-> 
-> Nice catch! I don't like how the driver has two different methods
-> for creating these MAC addresses, both without comments. How does
-> this look?
-
-Heh - I didn't even realize those two places were doing the same thing.
-
-Obviously your patch is by far nicer.
-
-Reviewed-by: Alexander Graf <agraf@suse.de>
-
-
-Alex
-
-> 
-> Anton
-> --
-> 
-> The hypervisor expects MAC addresses passed in registers to be big
-> endian u64. Create a helper function called ibmveth_encode_mac_addr
-> which does the right thing in both big and little endian.
-> 
-> We were storing the MAC address in a long in struct ibmveth_adapter.
-> It's never used so remove it - we don't need another place in the
-> driver where we create endian issues with MAC addresses.
-> 
-> Reported-by: Alexander Graf <agraf@suse.de>
-> Signed-off-by: Anton Blanchard <anton@samba.org>
+Le 23/12/2013 09:48, Daniel Borkmann a =C3=A9crit :
+> In order to facilitate development for netlink protocol dissector,
+> fill the unused field skb->pkt_type of the cloned skb with a hint
+> of the address space of the new owner (receiver) socket in the
+> notion of "to kernel" resp. "to user".
+>
+> At the time we invoke __netlink_deliver_tap_skb(), we already have
+> set the new skb owner via netlink_skb_set_owner_r(), so we can use
+> that for netlink_is_kernel() probing.
+>
+> In normal PF_PACKET network traffic, this field denotes if the
+> packet is destined for us (PACKET_HOST), if it's broadcast
+> (PACKET_BROADCAST), etc.
+>
+> As we only have 3 bit reserved, we can use the value (=3D 6) of
+> PACKET_FASTROUTE as it's _not used_ anywhere in the whole kernel
+> and packets of such type were never exposed to user space, so
+> there are no overlapping users of such kind. Thus, as wished,
+> that seems the only way to make both PACKET_* values non-overlapping
+> and therefore device agnostic.
+>
+> By using those two flags for netlink skbs on nlmon devices, they
+> can be made available and picked up via sll_pkttype (previously
+> unused in netlink context) in struct sockaddr_ll. We now have
+> these two directions:
+>
+>   - PACKET_USER (=3D 6)    ->  to user space
+>   - PACKET_KERNEL (=3D 7)  ->  to kernel space
+>
+> Partial `ip a` example strace for sa_family=3DAF_NETLINK with
+> detected nl msg direction:
+>
+> syscall:                     direction:
+> sendto(3,  ...) =3D 40         /* to kernel */
+> recvmsg(3, ...) =3D 3404       /* to user */
+> recvmsg(3, ...) =3D 1120       /* to user */
+> recvmsg(3, ...) =3D 20         /* to user */
+> sendto(3,  ...) =3D 40         /* to kernel */
+> recvmsg(3, ...) =3D 168        /* to user */
+> recvmsg(3, ...) =3D 144        /* to user */
+> recvmsg(3, ...) =3D 20         /* to user */
+>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Jakub Zawadzki <darkjames-ws@darkjames.pl>
 > ---
-> 
-> diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
-> index 952d795..044178b 100644
-> --- a/drivers/net/ethernet/ibm/ibmveth.c
-> +++ b/drivers/net/ethernet/ibm/ibmveth.c
-> @@ -523,6 +523,17 @@ retry:
-> 	return rc;
-> }
-> 
-> +/*
-> + * The hypervisor expects MAC addresses passed in registers to be
-> + * big endian u64.
-> + */
-> +static unsigned long ibmveth_encode_mac_addr(char *mac)
-> +{
-> +	unsigned long encoded = 0;
-> +	memcpy(((char *)&encoded) + 2, mac, ETH_ALEN);
-> +	return cpu_to_be64(encoded);
-> +}
-> +
-> static int ibmveth_open(struct net_device *netdev)
-> {
-> 	struct ibmveth_adapter *adapter = netdev_priv(netdev);
-> @@ -580,8 +591,7 @@ static int ibmveth_open(struct net_device *netdev)
-> 	adapter->rx_queue.num_slots = rxq_entries;
-> 	adapter->rx_queue.toggle = 1;
-> 
-> -	memcpy(&mac_address, netdev->dev_addr, netdev->addr_len);
-> -	mac_address = mac_address >> 16;
-> +	mac_address = ibmveth_encode_mac_addr(netdev->dev_addr);
-> 
-> 	rxq_desc.fields.flags_len = IBMVETH_BUF_VALID |
-> 					adapter->rx_queue.queue_len;
-> @@ -1184,8 +1194,8 @@ static void ibmveth_set_multicast_list(struct net_device *netdev)
-> 		/* add the addresses to the filter table */
-> 		netdev_for_each_mc_addr(ha, netdev) {
-> 			/* add the multicast address to the filter table */
-> -			unsigned long mcast_addr = 0;
-> -			memcpy(((char *)&mcast_addr)+2, ha->addr, ETH_ALEN);
-> +			unsigned long mcast_addr;
-> +			mcast_addr = ibmveth_encode_mac_addr(ha->addr);
-> 			lpar_rc = h_multicast_ctrl(adapter->vdev->unit_address,
-> 						   IbmVethMcastAddFilter,
-> 						   mcast_addr);
-> @@ -1369,9 +1379,6 @@ static int ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
-> 
-> 	netif_napi_add(netdev, &adapter->napi, ibmveth_poll, 16);
-> 
-> -	adapter->mac_addr = 0;
-> -	memcpy(&adapter->mac_addr, mac_addr_p, ETH_ALEN);
-> -
-> 	netdev->irq = dev->irq;
-> 	netdev->netdev_ops = &ibmveth_netdev_ops;
-> 	netdev->ethtool_ops = &netdev_ethtool_ops;
-> @@ -1380,7 +1387,7 @@ static int ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
-> 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
-> 	netdev->features |= netdev->hw_features;
-> 
-> -	memcpy(netdev->dev_addr, &adapter->mac_addr, netdev->addr_len);
-> +	memcpy(netdev->dev_addr, mac_addr_p, ETH_ALEN);
-> 
-> 	for (i = 0; i < IBMVETH_NUM_BUFF_POOLS; i++) {
-> 		struct kobject *kobj = &adapter->rx_buff_pool[i].kobj;
-> diff --git a/drivers/net/ethernet/ibm/ibmveth.h b/drivers/net/ethernet/ibm/ibmveth.h
-> index 84066ba..2c636cb 100644
-> --- a/drivers/net/ethernet/ibm/ibmveth.h
-> +++ b/drivers/net/ethernet/ibm/ibmveth.h
-> @@ -139,7 +139,6 @@ struct ibmveth_adapter {
->     struct napi_struct napi;
->     struct net_device_stats stats;
->     unsigned int mcastFilterSize;
-> -    unsigned long mac_addr;
->     void * buffer_list_addr;
->     void * filter_list_addr;
->     dma_addr_t buffer_list_dma;
+>   v1->v2:
+>    - let PACKET_* values not overlap as wished by Dave
+>
+>   include/uapi/linux/if_packet.h | 4 +++-
+>   net/netlink/af_netlink.c       | 2 ++
+>   2 files changed, 5 insertions(+), 1 deletion(-)
+>
+> diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_p=
+acket.h
+> index e9d844c..06e2a28 100644
+> --- a/include/uapi/linux/if_packet.h
+> +++ b/include/uapi/linux/if_packet.h
+> @@ -26,8 +26,10 @@ struct sockaddr_ll {
+>   #define PACKET_MULTICAST	2		/* To group		*/
+>   #define PACKET_OTHERHOST	3		/* To someone else 	*/
+>   #define PACKET_OUTGOING		4		/* Outgoing of any type */
+> -/* These ones are invisible by user level */
+>   #define PACKET_LOOPBACK		5		/* MC/BRD frame looped back */
+> +#define PACKET_USER		6		/* To user space	*/
+Reusing this value is like changing the API. If some userland apps and =
+external
+modules rely on it, this patch may break them.
+
+> +#define PACKET_KERNEL		7		/* To kernel space	*/
+> +/* Unused, PACKET_FASTROUTE and PACKET_LOOPBACK are invisble to user=
+ space */
+nitpicking: s/invisble/invisible
+
+>   #define PACKET_FASTROUTE	6		/* Fastrouted frame	*/
+>
+>   /* Packet socket options */
+> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> index 56e09d8..3f75f1c 100644
+> --- a/net/netlink/af_netlink.c
+> +++ b/net/netlink/af_netlink.c
+> @@ -204,6 +204,8 @@ static int __netlink_deliver_tap_skb(struct sk_bu=
+ff *skb,
+>   	if (nskb) {
+>   		nskb->dev =3D dev;
+>   		nskb->protocol =3D htons((u16) sk->sk_protocol);
+> +		nskb->pkt_type =3D netlink_is_kernel(sk) ?
+> +				 PACKET_KERNEL : PACKET_USER;
+>
+>   		ret =3D dev_queue_xmit(nskb);
+>   		if (unlikely(ret > 0))
+>
