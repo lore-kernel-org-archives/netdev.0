@@ -1,140 +1,209 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next v2 2/2] netlink: specify netlink packet direction
- for nlmon
-Date: Mon, 23 Dec 2013 14:21:45 +0100
-Message-ID: <52B838E9.10701@redhat.com>
-References: <1387788519-17722-1-git-send-email-dborkman@redhat.com> <1387788519-17722-3-git-send-email-dborkman@redhat.com> <52B813E8.8010508@6wind.com> <52B81496.6060807@redhat.com> <52B81875.4060201@6wind.com> <52B81A53.9020305@redhat.com> <52B835C6.3040800@6wind.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 2/3] virtio-net: use per-receive queue page frag
+	alloc for mergeable bufs
+Date: Mon, 23 Dec 2013 15:31:06 +0200
+Message-ID: <20131223133106.GC18168@redhat.com>
+References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
+	<1387239389-13216-2-git-send-email-mwdalton@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Jakub Zawadzki <darkjames-ws@darkjames.pl>
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42703 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756990Ab3LWNV6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Dec 2013 08:21:58 -0500
-In-Reply-To: <52B835C6.3040800@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: Michael Dalton <mwdalton@google.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1387239389-13216-2-git-send-email-mwdalton@google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 12/23/2013 02:08 PM, Nicolas Dichtel wrote:
-> Le 23/12/2013 12:11, Daniel Borkmann a =C3=A9crit :
->> On 12/23/2013 12:03 PM, Nicolas Dichtel wrote:
->>> Le 23/12/2013 11:46, Daniel Borkmann a =C3=A9crit :
->>>> On 12/23/2013 11:43 AM, Nicolas Dichtel wrote:
->>>>> Le 23/12/2013 09:48, Daniel Borkmann a =C3=A9crit :
->>>>>> In order to facilitate development for netlink protocol dissecto=
-r,
->>>>>> fill the unused field skb->pkt_type of the cloned skb with a hin=
-t
->>>>>> of the address space of the new owner (receiver) socket in the
->>>>>> notion of "to kernel" resp. "to user".
->>>>>>
->>>>>> At the time we invoke __netlink_deliver_tap_skb(), we already ha=
-ve
->>>>>> set the new skb owner via netlink_skb_set_owner_r(), so we can u=
-se
->>>>>> that for netlink_is_kernel() probing.
->>>>>>
->>>>>> In normal PF_PACKET network traffic, this field denotes if the
->>>>>> packet is destined for us (PACKET_HOST), if it's broadcast
->>>>>> (PACKET_BROADCAST), etc.
->>>>>>
->>>>>> As we only have 3 bit reserved, we can use the value (=3D 6) of
->>>>>> PACKET_FASTROUTE as it's _not used_ anywhere in the whole kernel
->>>>>> and packets of such type were never exposed to user space, so
->>>>>> there are no overlapping users of such kind. Thus, as wished,
->>>>>> that seems the only way to make both PACKET_* values non-overlap=
-ping
->>>>>> and therefore device agnostic.
->>>>>>
->>>>>> By using those two flags for netlink skbs on nlmon devices, they
->>>>>> can be made available and picked up via sll_pkttype (previously
->>>>>> unused in netlink context) in struct sockaddr_ll. We now have
->>>>>> these two directions:
->>>>>>
->>>>>>   - PACKET_USER (=3D 6)    ->  to user space
->>>>>>   - PACKET_KERNEL (=3D 7)  ->  to kernel space
->>>>>>
->>>>>> Partial `ip a` example strace for sa_family=3DAF_NETLINK with
->>>>>> detected nl msg direction:
->>>>>>
->>>>>> syscall:                     direction:
->>>>>> sendto(3,  ...) =3D 40         /* to kernel */
->>>>>> recvmsg(3, ...) =3D 3404       /* to user */
->>>>>> recvmsg(3, ...) =3D 1120       /* to user */
->>>>>> recvmsg(3, ...) =3D 20         /* to user */
->>>>>> sendto(3,  ...) =3D 40         /* to kernel */
->>>>>> recvmsg(3, ...) =3D 168        /* to user */
->>>>>> recvmsg(3, ...) =3D 144        /* to user */
->>>>>> recvmsg(3, ...) =3D 20         /* to user */
->>>>>>
->>>>>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
->>>>>> Signed-off-by: Jakub Zawadzki <darkjames-ws@darkjames.pl>
->>>>>> ---
->>>>>>   v1->v2:
->>>>>>    - let PACKET_* values not overlap as wished by Dave
->>>>>>
->>>>>>   include/uapi/linux/if_packet.h | 4 +++-
->>>>>>   net/netlink/af_netlink.c       | 2 ++
->>>>>>   2 files changed, 5 insertions(+), 1 deletion(-)
->>>>>>
->>>>>> diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux=
-/if_packet.h
->>>>>> index e9d844c..06e2a28 100644
->>>>>> --- a/include/uapi/linux/if_packet.h
->>>>>> +++ b/include/uapi/linux/if_packet.h
->>>>>> @@ -26,8 +26,10 @@ struct sockaddr_ll {
->>>>>>   #define PACKET_MULTICAST    2        /* To group        */
->>>>>>   #define PACKET_OTHERHOST    3        /* To someone else     */
->>>>>>   #define PACKET_OUTGOING        4        /* Outgoing of any typ=
-e */
->>>>>> -/* These ones are invisible by user level */
->>>>>>   #define PACKET_LOOPBACK        5        /* MC/BRD frame looped=
- back */
->>>>>> +#define PACKET_USER        6        /* To user space    */
->>>>> Reusing this value is like changing the API. If some userland app=
-s and external
->>>>> modules rely on it, this patch may break them.
->>>>
->>>> Sorry, but I thought I made it clear in the commit message that
->>>> PACKET_FASTROUTE is *not* used anywhere in the whole kernel tree.
->>> Yes, it's why I talk about *external* modules, which in fact are al=
-lowed
->>> to use existing API.
->>
->> Sorry, but we *never* cared about external out-of-tree modules! If
->> out-of-tree modules want to use kernel APIs and stay updated then
->> people should start submitting them to the kernel. I thought that
->> this is clear as this is the default policy here on netdev!
-> Yes, this is perfectly clear. But I was thinking not changing/breakin=
-g an API
-> was a MUST too.
+On Mon, Dec 16, 2013 at 04:16:28PM -0800, Michael Dalton wrote:
+> The virtio-net driver currently uses netdev_alloc_frag() for GFP_ATOMIC
+> mergeable rx buffer allocations. This commit migrates virtio-net to use
+> per-receive queue page frags for GFP_ATOMIC allocation. This change unifies
+> mergeable rx buffer memory allocation, which now will use skb_refill_frag()
+> for both atomic and GFP-WAIT buffer allocations.
 
-Please *explicitly* point out to me where I break something in
-user space!
+OK so just to clarify, this is intended as a cleanup
+and preparation for 3/3, not as an optimization?
+Some notes below.
 
-With this patch, on nlmon devices there'll be only skbs send up
-for PF_PACKET to user space that *either* have PACKET_USER *or*
-PACKET_KERNEL set as sll_pkttype, _nothing_ else, and netlink
-is the only user of this!
+> 
+> To address fragmentation concerns, if after buffer allocation there
+> is too little space left in the page frag to allocate a subsequent
+> buffer, the remaining space is added to the current allocated buffer
+> so that the remaining space can be used to store packet data.
+> 
+> Signed-off-by: Michael Dalton <mwdalton@google.com>
+> ---
+>  drivers/net/virtio_net.c | 69 ++++++++++++++++++++++++++----------------------
+>  1 file changed, 38 insertions(+), 31 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index c51a988..d38d130 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -78,6 +78,9 @@ struct receive_queue {
+>  	/* Chain pages by the private ptr. */
+>  	struct page *pages;
+>  
+> +	/* Page frag for GFP_ATOMIC packet buffer allocation. */
+> +	struct page_frag atomic_frag;
+> +
+>  	/* RX: fragments + linear part + virtio header */
+>  	struct scatterlist sg[MAX_SKB_FRAGS + 2];
+>  
+> @@ -127,9 +130,9 @@ struct virtnet_info {
+>  	struct mutex config_lock;
+>  
+>  	/* Page_frag for GFP_KERNEL packet buffer allocation when we run
+> -	 * low on memory.
+> +	 * low on memory. May sleep.
+>  	 */
+> -	struct page_frag alloc_frag;
+> +	struct page_frag sleep_frag;
+>  
+>  	/* Does the affinity hint is set for virtqueues? */
+>  	bool affinity_hint_set;
+> @@ -336,8 +339,8 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+>  	int num_buf = hdr->mhdr.num_buffers;
+>  	struct page *page = virt_to_head_page(buf);
+>  	int offset = buf - page_address(page);
+> -	struct sk_buff *head_skb = page_to_skb(rq, page, offset, len,
+> -					       MERGE_BUFFER_LEN);
+> +	int truesize = max_t(int, len, MERGE_BUFFER_LEN);
+> +	struct sk_buff *head_skb = page_to_skb(rq, page, offset, len, truesize);
+>  	struct sk_buff *curr_skb = head_skb;
+>  
+>  	if (unlikely(!curr_skb))
+> @@ -353,11 +356,6 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+>  			dev->stats.rx_length_errors++;
+>  			goto err_buf;
+>  		}
+> -		if (unlikely(len > MERGE_BUFFER_LEN)) {
+> -			pr_debug("%s: rx error: merge buffer too long\n",
+> -				 dev->name);
+> -			len = MERGE_BUFFER_LEN;
+> -		}
+>  
+>  		page = virt_to_head_page(buf);
+>  		--rq->num;
+> @@ -376,19 +374,20 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+>  			head_skb->truesize += nskb->truesize;
+>  			num_skb_frags = 0;
+>  		}
+> +		truesize = max_t(int, len, MERGE_BUFFER_LEN);
+>  		if (curr_skb != head_skb) {
+>  			head_skb->data_len += len;
+>  			head_skb->len += len;
+> -			head_skb->truesize += MERGE_BUFFER_LEN;
+> +			head_skb->truesize += truesize;
+>  		}
+>  		offset = buf - page_address(page);
+>  		if (skb_can_coalesce(curr_skb, num_skb_frags, page, offset)) {
+>  			put_page(page);
+>  			skb_coalesce_rx_frag(curr_skb, num_skb_frags - 1,
+> -					     len, MERGE_BUFFER_LEN);
+> +					     len, truesize);
+>  		} else {
+>  			skb_add_rx_frag(curr_skb, num_skb_frags, page,
+> -					offset, len, MERGE_BUFFER_LEN);
+> +					offset, len, truesize);
+>  		}
+>  	}
+>  
+> @@ -579,24 +578,24 @@ static int add_recvbuf_big(struct receive_queue *rq, gfp_t gfp)
+>  static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
+>  {
+>  	struct virtnet_info *vi = rq->vq->vdev->priv;
+> -	char *buf = NULL;
+> -	int err;
+> +	struct page_frag *alloc_frag;
+> +	char *buf;
+> +	int err, len, hole;
+>  
+> -	if (gfp & __GFP_WAIT) {
+> -		if (skb_page_frag_refill(MERGE_BUFFER_LEN, &vi->alloc_frag,
+> -					 gfp)) {
+> -			buf = (char *)page_address(vi->alloc_frag.page) +
+> -			      vi->alloc_frag.offset;
+> -			get_page(vi->alloc_frag.page);
+> -			vi->alloc_frag.offset += MERGE_BUFFER_LEN;
+> -		}
+> -	} else {
+> -		buf = netdev_alloc_frag(MERGE_BUFFER_LEN);
+> -	}
+> -	if (!buf)
+> +	alloc_frag = (gfp & __GFP_WAIT) ? &vi->sleep_frag : &rq->atomic_frag;
+> +	if (unlikely(!skb_page_frag_refill(MERGE_BUFFER_LEN, alloc_frag, gfp)))
+>  		return -ENOMEM;
 
-The rest (e.g. traditional PF_PACKET path of network traffic) is
-unchanged, plus *nobody ever* sets PACKET_FASTROUTE WHAT-SO-EVER!
+I note that netdev_alloc_frag sets __GFP_COLD which kind of
+makes sense.
 
-Nothing breaks ...
+I also note that netdev_alloc_frag uses some tricks to
+reduce the amount of cache lines dirtied - need to look
+at whether they actually apply here.
 
->>>> And as the comment said as well, this type was never exposed to
->>>> user land.
->>> The fact is that the value is in include/uapi/*, hence it's exposed=
- to userland.
->>
->> Ok, let me explain once more ... no packet *what-so-ever* will ever
->> go up to user space with PACKET_FASTROUTE in sll_pkttype. 1) because
->> if you grep the kernel tree then you'll see that this is _not used
->> anywhere_, 2) as the comment says, skbs of such type were invisible
->> to user land, hence _never_ exposed through PF_PACKET in user space.
-> Why keeping PACKET_FASTROUTE then?
+> +	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
+> +	get_page(alloc_frag->page);
+> +	len = MERGE_BUFFER_LEN;
+> +	alloc_frag->offset += len;
+> +	hole = alloc_frag->size - alloc_frag->offset;
+> +	if (hole < MERGE_BUFFER_LEN) {
+> +		len += hole;
+> +		alloc_frag->offset += hole;
+> +	}
+>  
+> -	sg_init_one(rq->sg, buf, MERGE_BUFFER_LEN);
+> +	sg_init_one(rq->sg, buf, len);
+>  	err = virtqueue_add_inbuf(rq->vq, rq->sg, 1, buf, gfp);
+>  	if (err < 0)
+>  		put_page(virt_to_head_page(buf));
+> @@ -1377,6 +1376,16 @@ static void free_receive_bufs(struct virtnet_info *vi)
+>  	}
+>  }
+>  
+> +static void free_receive_page_frags(struct virtnet_info *vi)
+> +{
+> +	int i;
+> +	for (i = 0; i < vi->max_queue_pairs; i++)
+> +		if (vi->rq[i].atomic_frag.page)
+> +			put_page(vi->rq[i].atomic_frag.page);
+> +	if (vi->sleep_frag.page)
+> +		put_page(vi->sleep_frag.page);
+> +}
+> +
+>  static void free_unused_bufs(struct virtnet_info *vi)
+>  {
+>  	void *buf;
+> @@ -1706,8 +1715,7 @@ free_recv_bufs:
+>  free_vqs:
+>  	cancel_delayed_work_sync(&vi->refill);
+>  	virtnet_del_vqs(vi);
+> -	if (vi->alloc_frag.page)
+> -		put_page(vi->alloc_frag.page);
+> +	free_receive_page_frags(vi);
+>  free_stats:
+>  	free_percpu(vi->stats);
+>  free:
+> @@ -1741,8 +1749,7 @@ static void virtnet_remove(struct virtio_device *vdev)
+>  	unregister_netdev(vi->dev);
+>  
+>  	remove_vq_common(vi);
+> -	if (vi->alloc_frag.page)
+> -		put_page(vi->alloc_frag.page);
+> +	free_receive_page_frags(vi);
+>  
+>  	flush_work(&vi->config_work);
+>  
+> -- 
+> 1.8.5.1
