@@ -1,55 +1,128 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH v4 1/2] printk: Add a DEPRECATED macro
-Date: Mon, 23 Dec 2013 08:29:42 -0500
-Message-ID: <1387805383-21500-2-git-send-email-nhorman@tuxdriver.com>
+Subject: [PATCH v4 2/2] SCTP: Reduce log spamming for sctp setsockopt
+Date: Mon, 23 Dec 2013 08:29:43 -0500
+Message-ID: <1387805383-21500-3-git-send-email-nhorman@tuxdriver.com>
 References: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
  <1387805383-21500-1-git-send-email-nhorman@tuxdriver.com>
 Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+	Vlad Yasevich <vyasevich@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: linux-sctp@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:39269 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757043Ab3LWNaU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 08:30:20 -0500
 In-Reply-To: <1387805383-21500-1-git-send-email-nhorman@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-sctp has several points in its setsockopt path in which it issues deprecation
-warnings.  It seems like it might be handy to macrotize such a warning so other
-subsystems can use it easily
+During a recent discussion regarding some sctp socket options, it was noted that
+we have several points at which we issue log warnings that can be flooded at an
+unbounded rate by any user.  Fix this by converting all the pr_warns in the
+sctp_setsockopt path to be pr_warn_ratelimited.
+
+Note there are several debug level messages as well.  I'm leaving those alone,
+as, if you turn on pr_debug, you likely want lots of verbosity.
 
 Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: linux-kernel@vger.kernel.org
+CC: Vlad Yasevich <vyasevich@gmail.com>
+CC: David Miller <davem@davemloft.net>
 CC: netdev@vger.kernel.org
 
 ---
-Change Notes:
+
+Change notes:
+
+V2)
+	* Based on suggestions from Daniel Borkman, and Joe Perches I'm creating
+and using a new pr_warn_deprecated macro
+
+	* Note from David Laight, The pr_warn statements come in pairs, and if
+one is printed through the ratelimit filter, the other should also be printed.
+Correct this by merging both calls into a single pr_warn_deprecated call.
 
 v3)
-* Convert to using a string prefix rather than a specific pr_ macro
+	* Convert to using DEPRECATED macro
 ---
- include/linux/printk.h | 7 +++++++
- 1 file changed, 7 insertions(+)
+ net/sctp/socket.c | 30 ++++++++++++++++++------------
+ 1 file changed, 18 insertions(+), 12 deletions(-)
 
-diff --git a/include/linux/printk.h b/include/linux/printk.h
-index 6949258..26fb95c 100644
---- a/include/linux/printk.h
-+++ b/include/linux/printk.h
-@@ -88,6 +88,13 @@ struct va_format {
- #define HW_ERR		"[Hardware Error]: "
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 42b709c..edd261e 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -2579,8 +2579,9 @@ static int sctp_setsockopt_delayed_ack(struct sock *sk,
+ 		if (params.sack_delay == 0 && params.sack_freq == 0)
+ 			return 0;
+ 	} else if (optlen == sizeof(struct sctp_assoc_value)) {
+-		pr_warn("Use of struct sctp_assoc_value in delayed_ack socket option deprecated\n");
+-		pr_warn("Use struct sctp_sack_info instead\n");
++		pr_warn_ratelimited(DEPRECATED
++				    "Use of struct sctp_assoc_value in delayed_ack socket option.\n"
++				    "Use struct sctp_sack_info instead\n");
+ 		if (copy_from_user(&params, optval, optlen))
+ 			return -EFAULT;
  
- /*
-+ * DEPRECATED
-+ * Add this to a message whenever you want to warn user space about the use
-+ * of a deprecated aspect of an API so they can stop using it
-+ */
-+#define DEPRECATED	"[Deprecated]: "
-+
-+/*
-  * Dummy printk for disabled debugging statements to use whilst maintaining
-  * gcc's format and side-effect checking.
-  */
+@@ -2995,8 +2996,9 @@ static int sctp_setsockopt_maxseg(struct sock *sk, char __user *optval, unsigned
+ 	int val;
+ 
+ 	if (optlen == sizeof(int)) {
+-		pr_warn("Use of int in maxseg socket option deprecated\n");
+-		pr_warn("Use struct sctp_assoc_value instead\n");
++		pr_warn_ratelimited(DEPRECATED
++				    "Use of int in maxseg socket option.\n"
++				    "Use struct sctp_assoc_value instead\n");
+ 		if (copy_from_user(&val, optval, optlen))
+ 			return -EFAULT;
+ 		params.assoc_id = 0;
+@@ -3253,8 +3255,9 @@ static int sctp_setsockopt_maxburst(struct sock *sk,
+ 	int assoc_id = 0;
+ 
+ 	if (optlen == sizeof(int)) {
+-		pr_warn("Use of int in max_burst socket option deprecated\n");
+-		pr_warn("Use struct sctp_assoc_value instead\n");
++		pr_warn_ratelimited(DEPRECATED
++				    "Use of int in max_burst socket option deprecated.\n"
++				    "Use struct sctp_assoc_value instead\n");
+ 		if (copy_from_user(&val, optval, optlen))
+ 			return -EFAULT;
+ 	} else if (optlen == sizeof(struct sctp_assoc_value)) {
+@@ -4574,8 +4577,9 @@ static int sctp_getsockopt_delayed_ack(struct sock *sk, int len,
+ 		if (copy_from_user(&params, optval, len))
+ 			return -EFAULT;
+ 	} else if (len == sizeof(struct sctp_assoc_value)) {
+-		pr_warn("Use of struct sctp_assoc_value in delayed_ack socket option deprecated\n");
+-		pr_warn("Use struct sctp_sack_info instead\n");
++		pr_warn_ratelimited(DEPRECATED
++				    "Use of struct sctp_assoc_value in delayed_ack socket option.\n"
++				    "Use struct sctp_sack_info instead\n");
+ 		if (copy_from_user(&params, optval, len))
+ 			return -EFAULT;
+ 	} else
+@@ -5219,8 +5223,9 @@ static int sctp_getsockopt_maxseg(struct sock *sk, int len,
+ 	struct sctp_association *asoc;
+ 
+ 	if (len == sizeof(int)) {
+-		pr_warn("Use of int in maxseg socket option deprecated\n");
+-		pr_warn("Use struct sctp_assoc_value instead\n");
++		pr_warn_ratelimited(DEPRECATED
++				    "Use of int in maxseg socket option.\n"
++				    "Use struct sctp_assoc_value instead\n");
+ 		params.assoc_id = 0;
+ 	} else if (len >= sizeof(struct sctp_assoc_value)) {
+ 		len = sizeof(struct sctp_assoc_value);
+@@ -5311,8 +5316,9 @@ static int sctp_getsockopt_maxburst(struct sock *sk, int len,
+ 	struct sctp_association *asoc;
+ 
+ 	if (len == sizeof(int)) {
+-		pr_warn("Use of int in max_burst socket option deprecated\n");
+-		pr_warn("Use struct sctp_assoc_value instead\n");
++		pr_warn_ratelimited(DEPRECATED
++				    "Use of int in max_burst socket option.\n"
++				    "Use struct sctp_assoc_value instead\n");
+ 		params.assoc_id = 0;
+ 	} else if (len >= sizeof(struct sctp_assoc_value)) {
+ 		len = sizeof(struct sctp_assoc_value);
 -- 
 1.8.3.1
