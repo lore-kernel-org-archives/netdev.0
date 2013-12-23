@@ -1,62 +1,81 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 1/3] net: allow > 0 order atomic page alloc in
-	skb_page_frag_refill
-Date: Mon, 23 Dec 2013 21:19:27 +0200
-Message-ID: <20131223191927.GA1582@redhat.com>
-References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
-	<20131223125321.GB18168@redhat.com>
-	<1387819838.12212.6.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1387819838.12212.6.camel@edumazet-glaptop2.roam.corp.google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Salam Noureddine <noureddine@aristanetworks.com>
+Subject: [PATCH 1/1] ipv4: arp: update neighbour address when a gratuitous arp is received and arp_accept is set
+Date: Mon, 23 Dec 2013 11:21:32 -0800
+Message-ID: <1387826492-25413-1-git-send-email-noureddine@aristanetworks.com>
+Cc: Salam Noureddine <noureddine@aristanetworks.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:37819 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755395Ab3LWTVu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 14:21:50 -0500
+Received: by mail-pd0-f171.google.com with SMTP id z10so5464121pdj.30
+        for <netdev@vger.kernel.org>; Mon, 23 Dec 2013 11:21:49 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 23, 2013 at 09:30:38AM -0800, Eric Dumazet wrote:
-> On Mon, 2013-12-23 at 14:53 +0200, Michael S. Tsirkin wrote:
-> > On Mon, Dec 16, 2013 at 04:16:27PM -0800, Michael Dalton wrote:
-> > > skb_page_frag_refill currently permits only order-0 page allocs
-> > > unless GFP_WAIT is used. Change skb_page_frag_refill to attempt
-> > > higher-order page allocations whether or not GFP_WAIT is used. If
-> > > memory cannot be allocated, the allocator will fall back to
-> > > successively smaller page allocs (down to order-0 page allocs).
-> > > 
-> > > This change brings skb_page_frag_refill in line with the existing
-> > > page allocation strategy employed by netdev_alloc_frag, which attempts
-> > > higher-order page allocations whether or not GFP_WAIT is set, falling
-> > > back to successively lower-order page allocations on failure. Part
-> > > of migration of virtio-net to per-receive queue page frag allocators.
-> > > 
-> > > Signed-off-by: Michael Dalton <mwdalton@google.com>
-> > 
-> > I don't get how this is related to patch 3/3 exactly.
-> > That one seems to clamp the allocations from ewma to at most
-> > PAGE_SIZE, so how to we get higher-order allocations here?
-> > Could you clarify please?
-> 
-> If your ewma stabilizes at 2050 bytes per frag, using order-0 page will
-> waste ~50% of memory.
-> 
+Gratuitous arp packets are useful in switchover scenarios to update
+client arp tables as quickly as possible. Currently, the mac address
+of a neighbour is only updated after a locktime period has elapsed
+since the last update. In most use cases such delays are unacceptable
+for network admins. Moreover, the "updated" field of the neighbour
+stucture doesn't record the last time the address of a neighbour
+changed but records any change that happens to theneighbour. This is
+clearly a bug since locktime uses that field as meaning "addr_updated".
+With this observation, I was able to perpetuate a stale address by
+sending a stream of gratuitous arp packets spaced less than locktime
+apart. With this change the address is updated when a gratuitous arp
+is received and the arp_accept sysctl is set.
 
-Aha, got it. FWIW
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
+---
+ net/ipv4/arp.c |   13 +++++++++----
+ 1 files changed, 9 insertions(+), 4 deletions(-)
 
-
-
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 7808093..c791d09 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -728,6 +728,7 @@ static int arp_process(struct sk_buff *skb)
+ 	int addr_type;
+ 	struct neighbour *n;
+ 	struct net *net = dev_net(dev);
++	bool is_garp = false;
+ 
+ 	/* arp_rcv below verifies the ARP header and verifies the device
+ 	 * is ARP'able.
+@@ -894,10 +895,12 @@ static int arp_process(struct sk_buff *skb)
+ 		   It is possible, that this option should be enabled for some
+ 		   devices (strip is candidate)
+ 		 */
++		is_garp = arp->ar_op == htons(ARPOP_REQUEST) && tip == sip &&
++			  inet_addr_type(net, sip) == RTN_UNICAST;
++
+ 		if (n == NULL &&
+-		    (arp->ar_op == htons(ARPOP_REPLY) ||
+-		     (arp->ar_op == htons(ARPOP_REQUEST) && tip == sip)) &&
+-		    inet_addr_type(net, sip) == RTN_UNICAST)
++		    ((arp->ar_op == htons(ARPOP_REPLY)  &&
++		      inet_addr_type(net, sip) == RTN_UNICAST) || is_garp))
+ 			n = __neigh_lookup(&arp_tbl, &sip, dev, 1);
+ 	}
+ 
+@@ -910,7 +913,9 @@ static int arp_process(struct sk_buff *skb)
+ 		   agents are active. Taking the first reply prevents
+ 		   arp trashing and chooses the fastest router.
+ 		 */
+-		override = time_after(jiffies, n->updated + n->parms->locktime);
++		override = time_after(jiffies,
++				      n->updated + n->parms->locktime) ||
++			   is_garp;
+ 
+ 		/* Broadcast replies and request packets
+ 		   do not assert neighbour reachability.
 -- 
-MST
+1.7.4.4
