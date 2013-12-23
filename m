@@ -1,47 +1,80 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: net_dma: mark broken
-Date: Mon, 23 Dec 2013 11:21:13 -0500
-Message-ID: <20131223162113.GA20363@redhat.com>
-References: <20131220211228.BC817660C74@gitolite.kernel.org>
+From: Shawn Bohrer <shawn.bohrer@gmail.com>
+Subject: Re: [PATCH net-next 1/2] mlx4_en: Add PTP hardware clock
+Date: Mon, 23 Dec 2013 10:29:58 -0600
+Message-ID: <20131223162957.GA6810@lintop.rgmadvisors.com>
+References: <1387312359-9476-1-git-send-email-shawn.bohrer@gmail.com>
+ <1387312359-9476-2-git-send-email-shawn.bohrer@gmail.com>
+ <52B6E568.4030400@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dan.j.williams@intel.com>
-To: netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	netdev@vger.kernel.org, tomk@rgmadvisors.com,
+	Shawn Bohrer <sbohrer@rgmadvisors.com>
+To: Hadar Hen Zion <hadarh@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62670 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757794Ab3LWQVV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Dec 2013 11:21:21 -0500
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:59405 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757490Ab3LWQaK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 11:30:10 -0500
+Received: by mail-ob0-f172.google.com with SMTP id gq1so5688062obb.31
+        for <netdev@vger.kernel.org>; Mon, 23 Dec 2013 08:30:10 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20131220211228.BC817660C74@gitolite.kernel.org>
+In-Reply-To: <52B6E568.4030400@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 20, 2013 at 09:12:28PM +0000, Linux Kernel wrote:
- > Gitweb:     http://git.kernel.org/linus/;a=commit;h=77873803363c9e831fc1d1e6895c084279090c22
- > Commit:     77873803363c9e831fc1d1e6895c084279090c22
- > Parent:     0baf8f6a2ac86c2c40ed0cacab8ea3d17371a1bb
- > Author:     Dan Williams <dan.j.williams@intel.com>
- > AuthorDate: Tue Dec 17 10:09:32 2013 -0800
- > Committer:  Dan Williams <dan.j.williams@intel.com>
- > CommitDate: Wed Dec 18 12:53:43 2013 -0800
- > 
- >     net_dma: mark broken
- >     
- >     net_dma can cause data to be copied to a stale mapping if a
- >     copy-on-write fault occurs during dma.  The application sees missing
- >     data.
+On Sun, Dec 22, 2013 at 03:13:12PM +0200, Hadar Hen Zion wrote:
+> On 12/17/2013 10:32 PM, Shawn Bohrer wrote:
+> >From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+> >
+> >This adds a PHC to the mlx4_en driver.  The code is largely based off of
+> >the e1000e driver (drivers/net/ethernet/intel/e1000e/ptp.c) which seemed
+> >very similar.
+> >
+> >This driver has been tested with both Documentation/ptp/testptp and the
+> >linuxptp project (http://linuxptp.sourceforge.net/) and appears to work
+> >on a Mellanox ConnectX-3 card.
+> >
+> >Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
+> >---
+> >  drivers/net/ethernet/mellanox/mlx4/en_clock.c   |  192 ++++++++++++++++++++++-
+> >  drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    3 +
+> >  drivers/net/ethernet/mellanox/mlx4/en_main.c    |    3 +
+> >  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    6 +
+> >  4 files changed, 196 insertions(+), 8 deletions(-)
+> >
+> >diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+> >index fd64410..9b0d515 100644
+> >--- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+> >+++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+> >@@ -103,17 +103,187 @@ void mlx4_en_fill_hwtstamps(struct mlx4_en_dev *mdev,
+> >  			    struct skb_shared_hwtstamps *hwts,
+> >  			    u64 timestamp)
+> >  {
+> >+	unsigned long flags;
+> >  	u64 nsec;
+> >
+> >+	spin_lock_irqsave(&mdev->clock_lock, flags);
+> 
+> 1. Missing initialization for clock_lock
+> 2. Adding spin lock in the data path reduce performance by 15% when
+> HW timestamping is enabled. I did some testing and replacing
+> spin_lock_irqsave with read/write_lock_irqsave prevents the
+> performance decrease.
 
+Thanks Hadar,
 
-Since this commit, coverity picked up a possible logic contradiction in tcp_rcv_established
-Now that the only thing setting copied_early = 1 is inside an ifdef that won't be set,
-it notes that this code is unreachable..
+I'm testing this change now, and will resend when I'm done.  However,
+I noticed the following in Documentation/spinlocks.txt
 
-5271                        if (!copied_early || tp->rcv_nxt != tp->rcv_wup)
-5272                                __tcp_ack_snd_check(sk, 0);
+   NOTE! We are working hard to remove reader-writer spinlocks in most
+   cases, so please don't add a new one without consensus.  (Instead, see
+   Documentation/RCU/rcu.txt for complete information.)
 
-I don't understand all the subtleties of that huge function, so another
-set of eyes would be appreciated.  If it's a non-issue, I'll flag it as such
-for coverity so it doesn't get picked up again.
+So is there consensus for a rwlock here?
 
-	Dave
+Thanks,
+Shawn
