@@ -1,116 +1,144 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH net-next v2 4/5] sctp: fix checkpatch errors with open brace '{' and trailing statements
-Date: Mon, 23 Dec 2013 12:16:53 +0800
-Message-ID: <1387772214-26068-5-git-send-email-wangweidong1@huawei.com>
-References: <1387772214-26068-1-git-send-email-wangweidong1@huawei.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH 00/21] slight optimization of addr compare for some modules
+Date: Mon, 23 Dec 2013 13:09:31 +0800
+Message-ID: <52B7C58B.9000602@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>, <vyasevich@gmail.com>,
-	<nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:27846 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756843Ab3LWERn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 23:17:43 -0500
-In-Reply-To: <1387772214-26068-1-git-send-email-wangweidong1@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-fix checkpatch errors below:
-ERROR: that open brace { should be on the previous line
-ERROR: open brace '{' following function declarations go on the next line
-ERROR: trailing statements should be on next line
+Joe Perches add ether_addr_equal_unaligned to test if
+possibly unaligned to u16 Ethernet addresses are equal.
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
----
- net/sctp/auth.c     | 3 +--
- net/sctp/input.c    | 6 ++----
- net/sctp/protocol.c | 4 ++--
- net/sctp/socket.c   | 3 ++-
- net/sctp/ulpqueue.c | 3 ++-
- 5 files changed, 9 insertions(+), 10 deletions(-)
+If CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS is set, this uses
+the slightly faster generic routine ether_addr_equal,
+otherwise this uses memcmp.
 
-diff --git a/net/sctp/auth.c b/net/sctp/auth.c
-index a594b3c..683c7d1 100644
---- a/net/sctp/auth.c
-+++ b/net/sctp/auth.c
-@@ -499,8 +499,7 @@ void sctp_auth_destroy_hmacs(struct crypto_hash *auth_hmacs[])
- 	if (!auth_hmacs)
- 		return;
- 
--	for (i = 0; i < SCTP_AUTH_NUM_HMACS; i++)
--	{
-+	for (i = 0; i < SCTP_AUTH_NUM_HMACS; i++) {
- 		if (auth_hmacs[i])
- 			crypto_free_hash(auth_hmacs[i]);
- 	}
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index b67e3d8..1f4eeb4 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -180,8 +180,7 @@ int sctp_rcv(struct sk_buff *skb)
- 	 * If a frame arrives on an interface and the receiving socket is
- 	 * bound to another interface, via SO_BINDTODEVICE, treat it as OOTB
- 	 */
--	if (sk->sk_bound_dev_if && (sk->sk_bound_dev_if != af->skb_iif(skb)))
--	{
-+	if (sk->sk_bound_dev_if && (sk->sk_bound_dev_if != af->skb_iif(skb))) {
- 		if (asoc) {
- 			sctp_association_put(asoc);
- 			asoc = NULL;
-@@ -610,8 +609,7 @@ void sctp_v4_err(struct sk_buff *skb, __u32 info)
- 		if (ICMP_FRAG_NEEDED == code) {
- 			sctp_icmp_frag_needed(sk, asoc, transport, info);
- 			goto out_unlock;
--		}
--		else {
-+		} else {
- 			if (ICMP_PROT_UNREACH == code) {
- 				sctp_icmp_proto_unreachable(sk, asoc,
- 							    transport);
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 19bd4c5..34b7726 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -1065,8 +1065,8 @@ static struct sctp_af sctp_af_inet = {
- #endif
- };
- 
--struct sctp_pf *sctp_get_pf_specific(sa_family_t family) {
--
-+struct sctp_pf *sctp_get_pf_specific(sa_family_t family)
-+{
- 	switch (family) {
- 	case PF_INET:
- 		return sctp_pf_inet_specific;
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 9f42c60..2df5564 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -5443,7 +5443,8 @@ static int sctp_getsockopt_peer_auth_chunks(struct sock *sk, int len,
- 		return -EFAULT;
- num:
- 	len = sizeof(struct sctp_authchunks) + num_chunks;
--	if (put_user(len, optlen)) return -EFAULT;
-+	if (put_user(len, optlen))
-+		return -EFAULT;
- 	if (put_user(num_chunks, &p->gauth_number_of_chunks))
- 		return -EFAULT;
- 	return 0;
-diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
-index c700369..5dc9411 100644
---- a/net/sctp/ulpqueue.c
-+++ b/net/sctp/ulpqueue.c
-@@ -336,7 +336,8 @@ static struct sctp_ulpevent *sctp_make_reassembled_event(struct net *net,
- 		pos = f_frag->next;
- 
- 	/* Get the last skb in the f_frag's frag_list if present. */
--	for (last = list; list; last = list, list = list->next);
-+	for (last = list; list; last = list, list = list->next)
-+		;
- 
- 	/* Add the list of remaining fragments to the first fragments
- 	 * frag_list.
+So I use the recently added and possibly more efficient
+ether_addr_equal_unaligned to instead of memcmp for slight
+optimization.
+
+Ding Tianhong (6):
+  net: slight optimization of addr compare for some modules
+  net: freescale: slight optimization of addr compare
+  net: pcnet: slight optimization of addr compare
+  net: atl1: slight optimization of addr compare
+  hamradio: slight optimization of addr compare
+  ppp: slight optimization of addr compare
+
+Tan Xiaojun (3):
+  zd1211rw: slight optimization of addr compare
+  ozwpan: slight optimization of addr compare
+  batman-adv: slight optimization of addr compare
+
+Wang Weidong (3):
+  infiniband: slight optimization of addr compare
+  bridge: slight optimization of addr compare
+  mac8011: slight optimization of addr compare
+
+Weilong Chen (6):
+  rtlwifi: slight optimization of addr compare
+  mwifiex: slight optimization of addr compare
+  ipw2x00: slight optimization of addr compare
+  hostap: slight optimization of addr compare
+  cw1200: slight optimization of addr compare
+  wireless: slight optimization of addr compare
+
+Yang Yingliang (3):
+  atm: slight optimization of addr compare
+  isdn: slight optimization of addr compare
+  media: dvb_core: slight optimization of addr compare
+
+ drivers/atm/nicstar.c                              |  3 +-
+ drivers/infiniband/hw/nes/nes_cm.c                 |  3 +-
+ drivers/isdn/i4l/isdn_net.c                        |  4 +--
+ drivers/media/dvb-core/dvb_net.c                   | 10 +++---
+ drivers/net/bonding/bond_3ad.c                     |  2 +-
+ drivers/net/ethernet/3com/3c509.c                  |  3 +-
+ drivers/net/ethernet/amd/pcnet32.c                 |  2 +-
+ drivers/net/ethernet/atheros/atlx/atl1.c           |  2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c     | 10 +++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c  |  2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c   |  2 +-
+ drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c |  2 +-
+ drivers/net/ethernet/chelsio/cxgb3/l2t.c           |  2 +-
+ drivers/net/ethernet/cisco/enic/enic_pp.c          |  2 +-
+ drivers/net/ethernet/emulex/benet/be_main.c        |  2 +-
+ drivers/net/ethernet/freescale/ucc_geth.c          |  2 +-
+ drivers/net/ethernet/intel/igbvf/netdev.c          |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |  3 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |  4 +--
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  2 +-
+ drivers/net/ethernet/micrel/ksz884x.c              |  9 +++---
+ drivers/net/ethernet/neterion/vxge/vxge-main.c     |  2 +-
+ drivers/net/ethernet/packetengines/yellowfin.c     |  8 ++---
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c |  2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c     |  4 +--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     |  4 +--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  4 +--
+ drivers/net/ethernet/renesas/sh_eth.c              |  2 +-
+ drivers/net/ethernet/seeq/sgiseeq.c                |  2 +-
+ drivers/net/ethernet/sun/sunvnet.c                 |  2 +-
+ drivers/net/ethernet/ti/cpsw_ale.c                 |  2 +-
+ drivers/net/fddi/skfp/fplustm.c                    |  3 +-
+ drivers/net/hamradio/bpqether.c                    |  2 +-
+ drivers/net/plip/plip.c                            |  2 +-
+ drivers/net/ppp/pppoe.c                            |  5 +--
+ drivers/net/wireless/adm8211.c                     |  2 +-
+ drivers/net/wireless/ath/ath10k/mac.c              |  2 +-
+ drivers/net/wireless/ath/ath10k/txrx.c             |  2 +-
+ drivers/net/wireless/ath/ath6kl/cfg80211.c         |  2 +-
+ drivers/net/wireless/ath/ath6kl/main.c             |  6 ++--
+ drivers/net/wireless/ath/ath6kl/txrx.c             |  3 +-
+ drivers/net/wireless/ath/ath6kl/wmi.c              |  4 +--
+ drivers/net/wireless/ath/wcn36xx/txrx.c            |  2 +-
+ drivers/net/wireless/ath/wil6210/cfg80211.c        |  2 +-
+ drivers/net/wireless/atmel.c                       | 16 +++++-----
+ drivers/net/wireless/brcm80211/brcmfmac/fwsignal.c |  2 +-
+ drivers/net/wireless/brcm80211/brcmfmac/p2p.c      |  9 +++---
+ .../net/wireless/brcm80211/brcmfmac/wl_cfg80211.c  | 10 +++---
+ drivers/net/wireless/cw1200/sta.c                  |  4 +--
+ drivers/net/wireless/cw1200/txrx.c                 |  7 ++---
+ drivers/net/wireless/hostap/hostap_80211_rx.c      | 24 +++++++--------
+ drivers/net/wireless/hostap/hostap_80211_tx.c      |  4 +--
+ drivers/net/wireless/hostap/hostap_ap.c            | 28 ++++++++---------
+ drivers/net/wireless/hostap/hostap_hw.c            |  2 +-
+ drivers/net/wireless/hostap/hostap_info.c          |  2 +-
+ drivers/net/wireless/hostap/hostap_ioctl.c         |  4 +--
+ drivers/net/wireless/hostap/hostap_main.c          |  8 ++---
+ drivers/net/wireless/ipw2x00/ipw2200.c             | 36 ++++++++++++----------
+ drivers/net/wireless/ipw2x00/libipw_rx.c           | 10 +++---
+ drivers/net/wireless/libertas/main.c               |  2 +-
+ drivers/net/wireless/mac80211_hwsim.c              |  7 ++---
+ drivers/net/wireless/mwifiex/11n.c                 |  4 +--
+ drivers/net/wireless/mwifiex/11n_rxreorder.c       |  4 +--
+ drivers/net/wireless/mwifiex/cfg80211.c            |  2 +-
+ drivers/net/wireless/mwifiex/scan.c                |  4 +--
+ drivers/net/wireless/mwifiex/sta_cmdresp.c         |  3 +-
+ drivers/net/wireless/mwifiex/sta_rx.c              |  2 +-
+ drivers/net/wireless/mwifiex/uap_event.c           |  2 +-
+ drivers/net/wireless/mwifiex/wmm.c                 |  2 +-
+ drivers/net/wireless/mwl8k.c                       |  7 ++---
+ drivers/net/wireless/orinoco/main.c                |  2 +-
+ drivers/net/wireless/prism54/isl_ioctl.c           |  9 +++---
+ drivers/net/wireless/ray_cs.c                      |  2 +-
+ drivers/net/wireless/rtlwifi/cam.c                 |  4 +--
+ drivers/net/wireless/ti/wl1251/main.c              |  2 +-
+ drivers/net/wireless/wl3501_cs.c                   |  3 +-
+ drivers/net/wireless/zd1211rw/zd_mac.c             |  7 +++--
+ drivers/staging/ozwpan/ozcdev.c                    |  3 +-
+ drivers/staging/ozwpan/ozproto.c                   |  6 ++--
+ net/batman-adv/originator.c                        |  2 +-
+ net/batman-adv/translation-table.c                 |  2 +-
+ net/bridge/br_stp_if.c                             |  2 +-
+ net/caif/cfrfml.c                                  |  2 +-
+ net/mac80211/iface.c                               |  6 ++--
+ 84 files changed, 192 insertions(+), 207 deletions(-)
+
 -- 
-1.7.12
+1.8.0
