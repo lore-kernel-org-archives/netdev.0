@@ -1,62 +1,64 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: Re: [PATCH resend net-next 1/2] net_sched: replace pr_warning with
- pr_warn
-Date: Mon, 23 Dec 2013 15:39:56 +0800
-Message-ID: <52B7E8CC.50605@huawei.com>
-References: <1387760778-25256-1-git-send-email-yangyingliang@huawei.com>	 <1387760778-25256-2-git-send-email-yangyingliang@huawei.com> <1387761616.22671.40.camel@joe-AO722>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next 1/3] net: allow > 0 order atomic page alloc in
+	skb_page_frag_refill
+Date: Mon, 23 Dec 2013 15:52:25 +0800
+Message-ID: <52B7EBB9.6050405@redhat.com>
+References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:53409 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750730Ab3LWHlW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 02:41:22 -0500
-In-Reply-To: <1387761616.22671.40.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	virtualization@lists.linux-foundation.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Michael Dalton <mwdalton@google.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1387239389-13216-1-git-send-email-mwdalton@google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 2013/12/23 9:20, Joe Perches wrote:
-> On Mon, 2013-12-23 at 09:06 +0800, Yang Yingliang wrote:
->> Prefer pr_warn(... to pr_warning(...
-> 
-> Couple of trivial comments:
-> 
->> diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
-> []
->> @@ -303,8 +303,8 @@ static struct sk_buff *dsmark_dequeue(struct Qdisc *sch)
->>  		 * and don't need yet another qdisc as a bypass.
->>  		 */
->>  		if (p->mask[index] != 0xff || p->value[index])
->> -			pr_warning("dsmark_dequeue: unsupported protocol %d\n",
->> -				   ntohs(skb->protocol));
->> +			pr_warn("dsmark_dequeue: unsupported protocol %d\n",
->> +				ntohs(skb->protocol));
-> 
-> When converting messages with embedded function names,
-> consider using "%s: ...", __func__
-> 
->> diff --git a/net/sched/sch_gred.c b/net/sched/sch_gred.c
-> []
->> @@ -370,8 +370,8 @@ static inline int gred_change_table_def(struct Qdisc *sch, struct nlattr *dps)
->>  
->>  	for (i = table->DPs; i < MAX_DPs; i++) {
->>  		if (table->tab[i]) {
->> -			pr_warning("GRED: Warning: Destroying "
->> -				   "shadowed VQ 0x%x\n", i);
->> +			pr_warn("GRED: Warning: Destroying "
->> +				"shadowed VQ 0x%x\n", i);
-> 
-> When converting formats split across multiple lines,
-> please coalesce the format fragments like:
-> 
-> 			pr_warn("GRED: Warning: Destroying shadowed V0 0x%x\n",
-> 				i);
-> 
-> 
-> 
-> 
+On 12/17/2013 08:16 AM, Michael Dalton wrote:
+> skb_page_frag_refill currently permits only order-0 page allocs
+> unless GFP_WAIT is used. Change skb_page_frag_refill to attempt
+> higher-order page allocations whether or not GFP_WAIT is used. If
+> memory cannot be allocated, the allocator will fall back to
+> successively smaller page allocs (down to order-0 page allocs).
+>
+> This change brings skb_page_frag_refill in line with the existing
+> page allocation strategy employed by netdev_alloc_frag, which attempts
+> higher-order page allocations whether or not GFP_WAIT is set, falling
+> back to successively lower-order page allocations on failure. Part
+> of migration of virtio-net to per-receive queue page frag allocators.
+>
+> Signed-off-by: Michael Dalton <mwdalton@google.com>
+> ---
+>  net/core/sock.c | 4 +---
+>  1 file changed, 1 insertion(+), 3 deletions(-)
+>
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index ab20ed9..7383d23 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -1865,9 +1865,7 @@ bool skb_page_frag_refill(unsigned int sz, struct page_frag *pfrag, gfp_t prio)
+>  		put_page(pfrag->page);
+>  	}
+>  
+> -	/* We restrict high order allocations to users that can afford to wait */
+> -	order = (prio & __GFP_WAIT) ? SKB_FRAG_PAGE_ORDER : 0;
+> -
+> +	order = SKB_FRAG_PAGE_ORDER;
+>  	do {
+>  		gfp_t gfp = prio;
+>  
 
-OK, thanks!
+The original code seems try to avoid the high order allocation for
+atomic allocation. This patch changes this, and looks like it will
+introduce some extra cost when the memory is highly fragmented.
