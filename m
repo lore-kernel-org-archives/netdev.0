@@ -1,72 +1,81 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/3] net: allow > 0 order atomic page alloc in
- skb_page_frag_refill
-Date: Mon, 23 Dec 2013 09:24:57 -0800
-Message-ID: <1387819497.12212.1.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next 2/3] virtio-net: use per-receive queue page
+	frag alloc for mergeable bufs
+Date: Mon, 23 Dec 2013 09:27:07 -0800
+Message-ID: <1387819627.12212.4.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
-	 <52B7EBB9.6050405@redhat.com>
+	<1387239389-13216-2-git-send-email-mwdalton@google.com>
+	<52B7F065.3010707@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org
+Cc: Michael Dalton <mwdalton@google.com>, "Michael S.
+	Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
 To: Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:38732 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757799Ab3LWRY7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 12:24:59 -0500
-Received: by mail-pd0-f179.google.com with SMTP id r10so5333265pdi.24
-        for <netdev@vger.kernel.org>; Mon, 23 Dec 2013 09:24:59 -0800 (PST)
-In-Reply-To: <52B7EBB9.6050405@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <52B7F065.3010707@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-12-23 at 15:52 +0800, Jason Wang wrote:
+On Mon, 2013-12-23 at 16:12 +0800, Jason Wang wrote:
 > On 12/17/2013 08:16 AM, Michael Dalton wrote:
-> > skb_page_frag_refill currently permits only order-0 page allocs
-> > unless GFP_WAIT is used. Change skb_page_frag_refill to attempt
-> > higher-order page allocations whether or not GFP_WAIT is used. If
-> > memory cannot be allocated, the allocator will fall back to
-> > successively smaller page allocs (down to order-0 page allocs).
+> > The virtio-net driver currently uses netdev_alloc_frag() for GFP_ATOMIC
+> > mergeable rx buffer allocations. This commit migrates virtio-net to use
+> > per-receive queue page frags for GFP_ATOMIC allocation. This change unifies
+> > mergeable rx buffer memory allocation, which now will use skb_refill_frag()
+> > for both atomic and GFP-WAIT buffer allocations.
 > >
-> > This change brings skb_page_frag_refill in line with the existing
-> > page allocation strategy employed by netdev_alloc_frag, which attempts
-> > higher-order page allocations whether or not GFP_WAIT is set, falling
-> > back to successively lower-order page allocations on failure. Part
-> > of migration of virtio-net to per-receive queue page frag allocators.
+> > To address fragmentation concerns, if after buffer allocation there
+> > is too little space left in the page frag to allocate a subsequent
+> > buffer, the remaining space is added to the current allocated buffer
+> > so that the remaining space can be used to store packet data.
 > >
 > > Signed-off-by: Michael Dalton <mwdalton@google.com>
 > > ---
-> >  net/core/sock.c | 4 +---
-> >  1 file changed, 1 insertion(+), 3 deletions(-)
+> >  drivers/net/virtio_net.c | 69 ++++++++++++++++++++++++++----------------------
+> >  1 file changed, 38 insertions(+), 31 deletions(-)
 > >
-> > diff --git a/net/core/sock.c b/net/core/sock.c
-> > index ab20ed9..7383d23 100644
-> > --- a/net/core/sock.c
-> > +++ b/net/core/sock.c
-> > @@ -1865,9 +1865,7 @@ bool skb_page_frag_refill(unsigned int sz, struct page_frag *pfrag, gfp_t prio)
-> >  		put_page(pfrag->page);
-> >  	}
+> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> > index c51a988..d38d130 100644
+> > --- a/drivers/net/virtio_net.c
+> > +++ b/drivers/net/virtio_net.c
+> > @@ -78,6 +78,9 @@ struct receive_queue {
+> >  	/* Chain pages by the private ptr. */
+> >  	struct page *pages;
 > >  
-> > -	/* We restrict high order allocations to users that can afford to wait */
-> > -	order = (prio & __GFP_WAIT) ? SKB_FRAG_PAGE_ORDER : 0;
-> > -
-> > +	order = SKB_FRAG_PAGE_ORDER;
-> >  	do {
-> >  		gfp_t gfp = prio;
+> > +	/* Page frag for GFP_ATOMIC packet buffer allocation. */
+> > +	struct page_frag atomic_frag;
+> > +
+> >  	/* RX: fragments + linear part + virtio header */
+> >  	struct scatterlist sg[MAX_SKB_FRAGS + 2];
 > >  
+> > @@ -127,9 +130,9 @@ struct virtnet_info {
+> >  	struct mutex config_lock;
+> >  
+> >  	/* Page_frag for GFP_KERNEL packet buffer allocation when we run
+> > -	 * low on memory.
+> > +	 * low on memory. May sleep.
+> >  	 */
+> > -	struct page_frag alloc_frag;
+> > +	struct page_frag sleep_frag;
 > 
-> The original code seems try to avoid the high order allocation for
-> atomic allocation. This patch changes this, and looks like it will
-> introduce some extra cost when the memory is highly fragmented.
+> Any reason to use two different page_frag consider only
+> skb_page_frag_refill() is used?
 
-No noticeable extra cost that I could measure.
+One is used under process context, where preemption and GFP_KERNEL are
+allowed.
 
-We use the same strategy in RX path nowadays.
+One is used from softirq context and GFP_ATOMIC. You cant share a common
+page_frag.
 
 Acked-by: Eric Dumazet <edumazet@google.com>
