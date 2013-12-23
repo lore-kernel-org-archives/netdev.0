@@ -1,28 +1,117 @@
 From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 0/6] bnx2x: new features patch series
-Date: Mon, 23 Dec 2013 20:44:37 +0200
-Message-ID: <1387824283-15687-1-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 2/6] bnx2x: Add AER support (missing bits)
+Date: Mon, 23 Dec 2013 20:44:39 +0200
+Message-ID: <1387824283-15687-3-git-send-email-yuvalmin@broadcom.com>
+References: <1387824283-15687-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <ariele@broadcom.com>
+Cc: <ariele@broadcom.com>, Yuval Mintz <yuvalmin@broadcom.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:56974 "EHLO
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:49285 "EHLO
 	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757625Ab3LWSot (ORCPT
+	with ESMTP id S1757673Ab3LWSot (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 13:44:49 -0500
+In-Reply-To: <1387824283-15687-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+This function adds several OS calls required to fully enable PCIe AER support -
+pci_enable_pcie_error_reporting() and pci_cleanup_aer_uncorrect_error_status().
 
-This patch series adds/fixes several new features in the bnx2x driver -
-it adds support for loading the bnx2x over an UNDI running on a Multi-function
-device, adds missing bits for PCIe AER support and enables VFs to properly
-configure multicast filters
-(In addition, it also contains some small improvements in driver behaviour).
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |  1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 29 ++++++++++++++++++++++++
+ 2 files changed, 30 insertions(+)
 
-Please consider applying these patches to `net-next'.
-
-Thanks,
-Yuval Mintz
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index f09fde6..4bb4f32 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -1546,6 +1546,7 @@ struct bnx2x {
+ #define INTERRUPTS_ENABLED_FLAG		(1 << 23)
+ #define BC_SUPPORTS_RMMOD_CMD		(1 << 24)
+ #define HAS_PHYS_PORT_ID		(1 << 25)
++#define AER_ENABLED			(1 << 26)
+ 
+ #define BP_NOMCP(bp)			((bp)->flags & NO_MCP_FLAG)
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 5910413..72973cc 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -27,6 +27,7 @@
+ #include <linux/slab.h>
+ #include <linux/interrupt.h>
+ #include <linux/pci.h>
++#include <linux/aer.h>
+ #include <linux/init.h>
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+@@ -12225,6 +12226,14 @@ static int bnx2x_set_coherency_mask(struct bnx2x *bp)
+ 	return 0;
+ }
+ 
++static void bnx2x_disable_pcie_error_reporting(struct bnx2x *bp)
++{
++	if (bp->flags & AER_ENABLED) {
++		pci_disable_pcie_error_reporting(bp->pdev);
++		bp->flags &= ~AER_ENABLED;
++	}
++}
++
+ static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
+ 			  struct net_device *dev, unsigned long board_type)
+ {
+@@ -12331,6 +12340,14 @@ static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
+ 	/* clean indirect addresses */
+ 	pci_write_config_dword(bp->pdev, PCICFG_GRC_ADDRESS,
+ 			       PCICFG_VENDOR_ID_OFFSET);
++
++	/* AER (Advanced Error reporting) configuration */
++	rc = pci_enable_pcie_error_reporting(pdev);
++	if (!rc)
++		bp->flags |= AER_ENABLED;
++	else
++		BNX2X_DEV_INFO("Failed To configure PCIe AER [%d]\n", rc);
++
+ 	/*
+ 	 * Clean the following indirect addresses for all functions since it
+ 	 * is not used by the driver.
+@@ -12938,6 +12955,8 @@ static int bnx2x_init_one(struct pci_dev *pdev,
+ 	return 0;
+ 
+ init_one_exit:
++	bnx2x_disable_pcie_error_reporting(bp);
++
+ 	if (bp->regview)
+ 		iounmap(bp->regview);
+ 
+@@ -13011,6 +13030,8 @@ static void __bnx2x_remove(struct pci_dev *pdev,
+ 		pci_set_power_state(pdev, PCI_D3hot);
+ 	}
+ 
++	bnx2x_disable_pcie_error_reporting(bp);
++
+ 	if (bp->regview)
+ 		iounmap(bp->regview);
+ 
+@@ -13188,6 +13209,14 @@ static pci_ers_result_t bnx2x_io_slot_reset(struct pci_dev *pdev)
+ 
+ 	rtnl_unlock();
+ 
++	/* If AER, perform cleanup of the PCIe registers */
++	if (bp->flags & AER_ENABLED) {
++		if (pci_cleanup_aer_uncorrect_error_status(pdev))
++			BNX2X_ERR("pci_cleanup_aer_uncorrect_error_status failed\n");
++		else
++			DP(NETIF_MSG_HW, "pci_cleanup_aer_uncorrect_error_status succeeded\n");
++	}
++
+ 	return PCI_ERS_RESULT_RECOVERED;
+ }
+ 
+-- 
+1.8.1.227.g44fe835
