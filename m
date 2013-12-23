@@ -1,51 +1,58 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH 12/21] bridge: slight optimization of addr compare
-Date: Mon, 23 Dec 2013 13:10:45 +0800
-Message-ID: <52B7C5D5.2040202@huawei.com>
+Subject: [PATCH 06/21] zd1211rw: slight optimization of addr compare
+Date: Mon, 23 Dec 2013 13:10:09 +0800
+Message-ID: <52B7C5B1.7090103@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Stephen Hemminger <stephen@networkplumber.org>, "David S. Miller"
-	<davem@davemloft.net>, <bridge@lists.linux-foundation.org>, Netdev
-	<netdev@vger.kernel.org>, "linux-kernel@vger.kernel.org"
-	<linux-kernel@vger.kernel.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+To: Daniel Drake <dsd@gentoo.org>, Ulrich Kunitz <kune@deine-taler.de>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	<linux-wireless@vger.kernel.org>, Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Use the recently added and possibly more efficient
 ether_addr_equal_unaligned to instead of memcmp.
 
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: David Miller <davem@davemloft.net>
-Cc: bridge@lists.linux-foundation.org
+Cc: Daniel Drake <dsd@gentoo.org>
+Cc: Ulrich Kunitz <kune@deine-taler.de>
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Cc: linux-wireless@vger.kernel.org
 Cc: netdev@vger.kernel.org
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Tan Xiaojun <tanxiaojun@huawei.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- net/bridge/br_stp_if.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/wireless/zd1211rw/zd_mac.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index 656a6f3..04217d1 100644
---- a/net/bridge/br_stp_if.c
-+++ b/net/bridge/br_stp_if.c
-@@ -229,7 +229,7 @@ bool br_stp_recalculate_bridge_id(struct net_bridge *br)
+diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
+index eff79a3..57badfb 100644
+--- a/drivers/net/wireless/zd1211rw/zd_mac.c
++++ b/drivers/net/wireless/zd1211rw/zd_mac.c
+@@ -532,9 +532,9 @@ void zd_mac_tx_failed(struct urb *urb)
+ 		tx_hdr = (struct ieee80211_hdr *)skb->data;
  
- 	list_for_each_entry(p, &br->port_list, list) {
- 		if (addr == br_mac_zero ||
--		    memcmp(p->dev->dev_addr, addr, ETH_ALEN) < 0)
-+		    !ether_addr_equal_unaligned(p->dev->dev_addr, addr) < 0)
- 			addr = p->dev->dev_addr;
+ 		/* we skip all frames not matching the reported destination */
+-		if (unlikely(memcmp(tx_hdr->addr1, tx_status->mac, ETH_ALEN))) {
++		if (unlikely(!ether_addr_equal_unaligned(tx_hdr->addr1,
++							 tx_status->mac)))
+ 			continue;
+-		}
  
- 	}
+ 		/* we skip all frames not matching the reported final rate */
+ 
+@@ -997,7 +997,8 @@ static int filter_ack(struct ieee80211_hw *hw, struct ieee80211_hdr *rx_hdr,
+ 		    continue;
+ 
+ 		tx_hdr = (struct ieee80211_hdr *)skb->data;
+-		if (likely(!memcmp(tx_hdr->addr2, rx_hdr->addr1, ETH_ALEN)))
++		if (likely(ether_addr_equal_unaligned(tx_hdr->addr2,
++						      rx_hdr->addr1)))
+ 		{
+ 			found = 1;
+ 			break;
 -- 
 1.8.0
