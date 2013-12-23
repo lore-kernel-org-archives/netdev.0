@@ -1,7 +1,7 @@
 From: Chen Weilong <chenweilong@huawei.com>
-Subject: [patch net-next v3 6/7] ipv4: ERROR: code indent should use tabs where possible
-Date: Mon, 23 Dec 2013 13:57:25 +0800
-Message-ID: <1387778246-15300-7-git-send-email-chenweilong@huawei.com>
+Subject: [patch net-next v3 7/7] ipv4: ipv4: Cleanup the comments in tcp_yeah.c
+Date: Mon, 23 Dec 2013 13:57:26 +0800
+Message-ID: <1387778246-15300-8-git-send-email-chenweilong@huawei.com>
 References: <1387778246-15300-1-git-send-email-chenweilong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,82 +11,59 @@ To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
 	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
 	<steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:62086 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:62359 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751362Ab3LWF6L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 00:58:11 -0500
+	with ESMTP id S1751601Ab3LWF6N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 00:58:13 -0500
 In-Reply-To: <1387778246-15300-1-git-send-email-chenweilong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Weilong Chen <chenweilong@huawei.com>
 
+This cleanup the comments in tcp_yeah.c.
+1.The old link is dead,use a new one to instead.
+2.'lin' add nothing useful,remove it.
+3.do not use C99 // comments.
+
 Signed-off-by: Weilong Chen <chenweilong@huawei.com>
 ---
- net/ipv4/cipso_ipv4.c      | 9 +++------
- net/ipv4/sysctl_net_ipv4.c | 2 +-
- net/ipv4/xfrm4_mode_beet.c | 2 +-
- 3 files changed, 5 insertions(+), 8 deletions(-)
+ net/ipv4/tcp_yeah.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
-index 4b59b6e..69e77c8 100644
---- a/net/ipv4/cipso_ipv4.c
-+++ b/net/ipv4/cipso_ipv4.c
-@@ -1335,8 +1335,7 @@ static int cipso_v4_parsetag_rbm(const struct cipso_v4_doi *doi_def,
- 	secattr->flags |= NETLBL_SECATTR_MLS_LVL;
+diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
+index 20cfaab..8ed96b4 100644
+--- a/net/ipv4/tcp_yeah.c
++++ b/net/ipv4/tcp_yeah.c
+@@ -3,7 +3,7 @@
+  *   YeAH TCP
+  *
+  * For further details look at:
+- *    http://wil.cs.caltech.edu/pfldnet2007/paper/YeAH_TCP.pdf
++ *   https://web.archive.org/web/20080316215752/http://wil.cs.caltech.edu/pfldnet2007/paper/YeAH_TCP.pdf 
+  *
+  */
+ #include <linux/mm.h>
+@@ -15,13 +15,13 @@
  
- 	if (tag_len > 4) {
--		secattr->attr.mls.cat =
--		                       netlbl_secattr_catmap_alloc(GFP_ATOMIC);
-+		secattr->attr.mls.cat = netlbl_secattr_catmap_alloc(GFP_ATOMIC);
- 		if (secattr->attr.mls.cat == NULL)
- 			return -ENOMEM;
+ #include "tcp_vegas.h"
  
-@@ -1431,8 +1430,7 @@ static int cipso_v4_parsetag_enum(const struct cipso_v4_doi *doi_def,
- 	secattr->flags |= NETLBL_SECATTR_MLS_LVL;
+-#define TCP_YEAH_ALPHA       80 //lin number of packets queued at the bottleneck
+-#define TCP_YEAH_GAMMA        1 //lin fraction of queue to be removed per rtt
+-#define TCP_YEAH_DELTA        3 //log minimum fraction of cwnd to be removed on loss
+-#define TCP_YEAH_EPSILON      1 //log maximum fraction to be removed on early decongestion
+-#define TCP_YEAH_PHY          8 //lin maximum delta from base
+-#define TCP_YEAH_RHO         16 //lin minimum number of consecutive rtt to consider competition on loss
+-#define TCP_YEAH_ZETA        50 //lin minimum number of state switchs to reset reno_count
++#define TCP_YEAH_ALPHA       80 /* number of packets queued at the bottleneck */
++#define TCP_YEAH_GAMMA        1 /* fraction of queue to be removed per rtt */
++#define TCP_YEAH_DELTA        3 /* log minimum fraction of cwnd to be removed on loss */
++#define TCP_YEAH_EPSILON      1 /* log maximum fraction to be removed on early decongestion */
++#define TCP_YEAH_PHY          8 /* maximum delta from base */
++#define TCP_YEAH_RHO         16 /* minimum number of consecutive rtt to consider competition on loss */
++#define TCP_YEAH_ZETA        50 /* minimum number of state switches to reset reno_count */
  
- 	if (tag_len > 4) {
--		secattr->attr.mls.cat =
--			               netlbl_secattr_catmap_alloc(GFP_ATOMIC);
-+		secattr->attr.mls.cat = netlbl_secattr_catmap_alloc(GFP_ATOMIC);
- 		if (secattr->attr.mls.cat == NULL)
- 			return -ENOMEM;
+ #define TCP_SCALABLE_AI_CNT	 100U
  
-@@ -1526,8 +1524,7 @@ static int cipso_v4_parsetag_rng(const struct cipso_v4_doi *doi_def,
- 	secattr->flags |= NETLBL_SECATTR_MLS_LVL;
- 
- 	if (tag_len > 4) {
--		secattr->attr.mls.cat =
--			               netlbl_secattr_catmap_alloc(GFP_ATOMIC);
-+		secattr->attr.mls.cat = netlbl_secattr_catmap_alloc(GFP_ATOMIC);
- 		if (secattr->attr.mls.cat == NULL)
- 			return -ENOMEM;
- 
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index d7b63a6..1d2480a 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -700,7 +700,7 @@ static struct ctl_table ipv4_table[] = {
- 		.mode           = 0644,
- 		.proc_handler   = proc_dointvec
- 	},
--        {
-+	{
- 		.procname       = "tcp_thin_dupack",
- 		.data           = &sysctl_tcp_thin_dupack,
- 		.maxlen         = sizeof(int),
-diff --git a/net/ipv4/xfrm4_mode_beet.c b/net/ipv4/xfrm4_mode_beet.c
-index e3db3f9..71acd00 100644
---- a/net/ipv4/xfrm4_mode_beet.c
-+++ b/net/ipv4/xfrm4_mode_beet.c
-@@ -48,7 +48,7 @@ static int xfrm4_beet_output(struct xfrm_state *x, struct sk_buff *skb)
- 		hdrlen += IPV4_BEET_PHMAXLEN - (optlen & 4);
- 
- 	skb_set_network_header(skb, -x->props.header_len -
--			            hdrlen + (XFRM_MODE_SKB_CB(skb)->ihl - sizeof(*top_iph)));
-+				    hdrlen + (XFRM_MODE_SKB_CB(skb)->ihl - sizeof(*top_iph)));
- 	if (x->sel.family != AF_INET6)
- 		skb->network_header += IPV4_BEET_PHMAXLEN;
- 	skb->mac_header = skb->network_header +
 -- 
 1.7.12
