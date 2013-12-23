@@ -1,36 +1,55 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH v4 0/2] sctp: Consolidate and ratelimit deprecation warnings
-Date: Mon, 23 Dec 2013 08:29:41 -0500
-Message-ID: <1387805383-21500-1-git-send-email-nhorman@tuxdriver.com>
+Subject: [PATCH v4 1/2] printk: Add a DEPRECATED macro
+Date: Mon, 23 Dec 2013 08:29:42 -0500
+Message-ID: <1387805383-21500-2-git-send-email-nhorman@tuxdriver.com>
 References: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
+ <1387805383-21500-1-git-send-email-nhorman@tuxdriver.com>
 Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: linux-sctp@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
+In-Reply-To: <1387805383-21500-1-git-send-email-nhorman@tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The SCTP protocol has several deprecation warnings in its setsockopt path that
-can be triggered by unprivlidged users.  Since these are not ratelimited, we can
-spam the logs quite easily here.  Since these are all deprecation warnings, and
-that type of warning isn't uncommon in the rest of the kernel, lets make a
-common pr_warn_deprecated macro to produce somewhat generalized ratelimited
-deprecation warnings easily
+sctp has several points in its setsockopt path in which it issues deprecation
+warnings.  It seems like it might be handy to macrotize such a warning so other
+subsystems can use it easily
 
 Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: Vlad Yasevich <vyasevich@gmail.com>
-CC: David Miller <davem@davemloft.net>
 CC: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-CC: netdev@vger.kernel.org
+CC: "David S. Miller" <davem@davemloft.net>
 CC: linux-kernel@vger.kernel.org
+CC: netdev@vger.kernel.org
 
 ---
-Change notes
+Change Notes:
 
-v2) Converted to use a pr_warn_deprecated macro
-v3) Converted to use a DEPRECATED macro with regular pr_* macros
-v4) CC netdev on all patches as per DaveM
+v3)
+* Convert to using a string prefix rather than a specific pr_ macro
+---
+ include/linux/printk.h | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/include/linux/printk.h b/include/linux/printk.h
+index 6949258..26fb95c 100644
+--- a/include/linux/printk.h
++++ b/include/linux/printk.h
+@@ -88,6 +88,13 @@ struct va_format {
+ #define HW_ERR		"[Hardware Error]: "
+ 
+ /*
++ * DEPRECATED
++ * Add this to a message whenever you want to warn user space about the use
++ * of a deprecated aspect of an API so they can stop using it
++ */
++#define DEPRECATED	"[Deprecated]: "
++
++/*
+  * Dummy printk for disabled debugging statements to use whilst maintaining
+  * gcc's format and side-effect checking.
+  */
+-- 
+1.8.3.1
