@@ -1,51 +1,170 @@
 From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 3/6] bnx2x: add Big-Endian ethtool comment
-Date: Mon, 23 Dec 2013 20:44:40 +0200
-Message-ID: <1387824283-15687-4-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 6/6] bnx2x: add VF Multicast filters support
+Date: Mon, 23 Dec 2013 20:44:43 +0200
+Message-ID: <1387824283-15687-7-git-send-email-yuvalmin@broadcom.com>
 References: <1387824283-15687-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <ariele@broadcom.com>, Yuval Mintz <yuvalmin@broadcom.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:33513 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757714Ab3LWSov (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 13:44:51 -0500
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:15718 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757794Ab3LWSoz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 13:44:55 -0500
 In-Reply-To: <1387824283-15687-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There's a known issue that using `ethtool -e' flips the endianity of the
-written data, i.e., using `ethtool -E' to dump eeprom image and than using
-`ethtool -e' to re-write that same image will result in an image where
-the data has the opposite endianity. 
-Sadly, this cannot be fixed as there are already various tools deployed
-based on the endianity of the eeprom read/write.
-Instead, a comment is added to the code to help explain why this is un-fixable.
+This patch adds the necessary support for configuring (and removing) multicast
+filters to VFs.
 
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 49 ++++++++++++++---------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h |  1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c  |  8 ++++
+ 3 files changed, 39 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index 32d0f14..92a467f 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -1639,6 +1639,12 @@ static int bnx2x_nvram_write(struct bnx2x *bp, u32 offset, u8 *data_buf,
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index 2e46c28..2518276 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -166,6 +166,7 @@ enum bnx2x_vfop_qteardown_state {
+ 	   BNX2X_VFOP_QTEARDOWN_RXMODE,
+ 	   BNX2X_VFOP_QTEARDOWN_CLR_VLAN,
+ 	   BNX2X_VFOP_QTEARDOWN_CLR_MAC,
++	   BNX2X_VFOP_QTEARDOWN_CLR_MCAST,
+ 	   BNX2X_VFOP_QTEARDOWN_QDTOR,
+ 	   BNX2X_VFOP_QTEARDOWN_DONE
+ };
+@@ -1112,7 +1113,10 @@ static void bnx2x_vfop_mcast(struct bnx2x *bp, struct bnx2x_virtf *vf)
+ 	switch (state) {
+ 	case BNX2X_VFOP_MCAST_DEL:
+ 		/* clear existing mcasts */
+-		vfop->state = BNX2X_VFOP_MCAST_ADD;
++		vfop->state = (args->mc_num) ? BNX2X_VFOP_MCAST_ADD
++					     : BNX2X_VFOP_MCAST_CHK_DONE;
++		mcast->mcast_list_len = vf->mcast_list_len;
++		vf->mcast_list_len = args->mc_num;
+ 		vfop->rc = bnx2x_config_mcast(bp, mcast, BNX2X_MCAST_CMD_DEL);
+ 		bnx2x_vfop_finalize(vf, vfop->rc, VFOP_CONT);
  
- 		memcpy(&val, data_buf, 4);
+@@ -1120,17 +1124,17 @@ static void bnx2x_vfop_mcast(struct bnx2x *bp, struct bnx2x_virtf *vf)
+ 		if (raw->check_pending(raw))
+ 			goto op_pending;
  
-+		/* Notice unlike bnx2x_nvram_read_dword() this will not
-+		 * change val using be32_to_cpu(), which causes data to flip
-+		 * if the eeprom is read and then written back. This is due
-+		 * to tools utilizing this functionality that would break
-+		 * if this would be resolved.
-+		 */
- 		rc = bnx2x_nvram_write_dword(bp, offset, val, cmd_flags);
+-		if (args->mc_num) {
+-			/* update mcast list on the ramrod params */
+-			INIT_LIST_HEAD(&mcast->mcast_list);
+-			for (i = 0; i < args->mc_num; i++)
+-				list_add_tail(&(args->mc[i].link),
+-					      &mcast->mcast_list);
+-			/* add new mcasts */
+-			vfop->state = BNX2X_VFOP_MCAST_CHK_DONE;
+-			vfop->rc = bnx2x_config_mcast(bp, mcast,
+-						      BNX2X_MCAST_CMD_ADD);
+-		}
++		/* update mcast list on the ramrod params */
++		INIT_LIST_HEAD(&mcast->mcast_list);
++		for (i = 0; i < args->mc_num; i++)
++			list_add_tail(&(args->mc[i].link),
++				      &mcast->mcast_list);
++		mcast->mcast_list_len = args->mc_num;
++
++		/* add new mcasts */
++		vfop->state = BNX2X_VFOP_MCAST_CHK_DONE;
++		vfop->rc = bnx2x_config_mcast(bp, mcast,
++					      BNX2X_MCAST_CMD_ADD);
+ 		bnx2x_vfop_finalize(vf, vfop->rc, VFOP_DONE);
  
- 		/* advance to the next dword */
+ 	case BNX2X_VFOP_MCAST_CHK_DONE:
+@@ -1303,12 +1307,19 @@ static void bnx2x_vfop_qdown(struct bnx2x *bp, struct bnx2x_virtf *vf)
+ 
+ 	case BNX2X_VFOP_QTEARDOWN_CLR_MAC:
+ 		/* mac-clear-all: consume credit */
+-		vfop->state = BNX2X_VFOP_QTEARDOWN_QDTOR;
++		vfop->state = BNX2X_VFOP_QTEARDOWN_CLR_MCAST;
+ 		vfop->rc = bnx2x_vfop_mac_delall_cmd(bp, vf, &cmd, qid, false);
+ 		if (vfop->rc)
+ 			goto op_err;
+ 		return;
+ 
++	case BNX2X_VFOP_QTEARDOWN_CLR_MCAST:
++		vfop->state = BNX2X_VFOP_QTEARDOWN_QDTOR;
++		vfop->rc = bnx2x_vfop_mcast_cmd(bp, vf, &cmd, NULL, 0, false);
++		if (vfop->rc)
++			goto op_err;
++		return;
++
+ 	case BNX2X_VFOP_QTEARDOWN_QDTOR:
+ 		/* run the queue destruction flow */
+ 		DP(BNX2X_MSG_IOV, "case: BNX2X_VFOP_QTEARDOWN_QDTOR\n");
+@@ -2188,6 +2199,7 @@ int bnx2x_iov_nic_init(struct bnx2x *bp)
+ 		 *  It needs to be initialized here so that it can be safely
+ 		 *  handled by a subsequent FLR flow.
+ 		 */
++		vf->mcast_list_len = 0;
+ 		bnx2x_init_mcast_obj(bp, &vf->mcast_obj, 0xFF,
+ 				     0xFF, 0xFF, 0xFF,
+ 				     bnx2x_vf_sp(bp, vf, mcast_rdata),
+@@ -2848,13 +2860,9 @@ static void bnx2x_vfop_close(struct bnx2x *bp, struct bnx2x_virtf *vf)
+ 				goto op_err;
+ 			return;
+ 		}
+-
+-		/* remove multicasts */
+ 		vfop->state = BNX2X_VFOP_CLOSE_HW;
+-		vfop->rc = bnx2x_vfop_mcast_cmd(bp, vf, &cmd, NULL, 0, false);
+-		if (vfop->rc)
+-			goto op_err;
+-		return;
++		vfop->rc = 0;
++		bnx2x_vfop_finalize(vf, vfop->rc, VFOP_CONT);
+ 
+ 	case BNX2X_VFOP_CLOSE_HW:
+ 
+@@ -2888,6 +2896,9 @@ op_done:
+ 
+ 	DP(BNX2X_MSG_IOV, "set state to acquired\n");
+ 	bnx2x_vfop_end(bp, vf, vfop);
++op_pending:
++	/* Not supported at the moment; Exists for macros only */
++	return;
+ }
+ 
+ int bnx2x_vfop_close_cmd(struct bnx2x *bp,
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+index 1ff6a93..a5c84a7 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+@@ -268,6 +268,7 @@ struct bnx2x_virtf {
+ 	int leading_rss;
+ 
+ 	/* MCAST object */
++	int mcast_list_len;
+ 	struct bnx2x_mcast_obj		mcast_obj;
+ 
+ 	/* RSS configuration object */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+index c7aaf5b..86ebb62 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+@@ -1420,6 +1420,14 @@ static void bnx2x_vf_mbx_setup_q(struct bnx2x *bp, struct bnx2x_virtf *vf,
+ 				setup_q->rxq.cache_line_log;
+ 			rxq_params->sb_cq_index = setup_q->rxq.sb_index;
+ 
++			/* rx setup - multicast engine */
++			if (bnx2x_vfq_is_leading(q)) {
++				u8 mcast_id = FW_VF_HANDLE(vf->abs_vfid);
++
++				rxq_params->mcast_engine_id = mcast_id;
++				__set_bit(BNX2X_Q_FLG_MCAST, &setup_p->flags);
++			}
++
+ 			bnx2x_vfop_qctor_dump_rx(bp, vf, init_p, setup_p,
+ 						 q->index, q->sb_idx);
+ 		}
 -- 
 1.8.1.227.g44fe835
