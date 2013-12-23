@@ -1,56 +1,53 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH resend net-next 1/2] net_sched: replace pr_warning with
- pr_warn
-Date: Sun, 22 Dec 2013 17:20:16 -0800
-Message-ID: <1387761616.22671.40.camel@joe-AO722>
-References: <1387760778-25256-1-git-send-email-yangyingliang@huawei.com>
-	 <1387760778-25256-2-git-send-email-yangyingliang@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Yang Yingliang <yangyingliang@huawei.com>
+From: Alexander Graf <agraf@suse.de>
+Subject: [PATCH] ibmveth: Fix more little endian issues
+Date: Mon, 23 Dec 2013 02:29:23 +0100
+Message-ID: <1387762163-39662-1-git-send-email-agraf@suse.de>
+Cc: Ben Herrenschmidt <benh@kernel.crashing.org>,
+	Anton Blanchard <anton@samba.org>,
+	Dinar Valeev <dvaleev@suse.com>,
+	Santiago Leon <santil@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org
+To: linuxppc-dev@lists.ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0089.hostedemail.com ([216.40.44.89]:47296 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756362Ab3LWBUV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Dec 2013 20:20:21 -0500
-In-Reply-To: <1387760778-25256-2-git-send-email-yangyingliang@huawei.com>
+Received: from cantor2.suse.de ([195.135.220.15]:49720 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756512Ab3LWB32 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Dec 2013 20:29:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-12-23 at 09:06 +0800, Yang Yingliang wrote:
-> Prefer pr_warn(... to pr_warning(...
+The ibmveth driver is memcpy()'ing the mac address between a variable
+(register) and memory. This assumes a certain endianness of the
+system, so let's make that implicit assumption work again.
 
-Couple of trivial comments:
+This patch adds be64_to_cpu() calls to all places where the mac address
+gets memcpy()'ed into a local variable.
 
-> diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
-[]
-> @@ -303,8 +303,8 @@ static struct sk_buff *dsmark_dequeue(struct Qdisc *sch)
->  		 * and don't need yet another qdisc as a bypass.
->  		 */
->  		if (p->mask[index] != 0xff || p->value[index])
-> -			pr_warning("dsmark_dequeue: unsupported protocol %d\n",
-> -				   ntohs(skb->protocol));
-> +			pr_warn("dsmark_dequeue: unsupported protocol %d\n",
-> +				ntohs(skb->protocol));
+Signed-off-by: Alexander Graf <agraf@suse.de>
+---
+ drivers/net/ethernet/ibm/ibmveth.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-When converting messages with embedded function names,
-consider using "%s: ...", __func__
-
-> diff --git a/net/sched/sch_gred.c b/net/sched/sch_gred.c
-[]
-> @@ -370,8 +370,8 @@ static inline int gred_change_table_def(struct Qdisc *sch, struct nlattr *dps)
->  
->  	for (i = table->DPs; i < MAX_DPs; i++) {
->  		if (table->tab[i]) {
-> -			pr_warning("GRED: Warning: Destroying "
-> -				   "shadowed VQ 0x%x\n", i);
-> +			pr_warn("GRED: Warning: Destroying "
-> +				"shadowed VQ 0x%x\n", i);
-
-When converting formats split across multiple lines,
-please coalesce the format fragments like:
-
-			pr_warn("GRED: Warning: Destroying shadowed V0 0x%x\n",
-				i);
+diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+index 952d795..97f4ee96 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.c
++++ b/drivers/net/ethernet/ibm/ibmveth.c
+@@ -581,7 +581,7 @@ static int ibmveth_open(struct net_device *netdev)
+ 	adapter->rx_queue.toggle = 1;
+ 
+ 	memcpy(&mac_address, netdev->dev_addr, netdev->addr_len);
+-	mac_address = mac_address >> 16;
++	mac_address = be64_to_cpu(mac_address) >> 16;
+ 
+ 	rxq_desc.fields.flags_len = IBMVETH_BUF_VALID |
+ 					adapter->rx_queue.queue_len;
+@@ -1186,6 +1186,7 @@ static void ibmveth_set_multicast_list(struct net_device *netdev)
+ 			/* add the multicast address to the filter table */
+ 			unsigned long mcast_addr = 0;
+ 			memcpy(((char *)&mcast_addr)+2, ha->addr, ETH_ALEN);
++			mcast_addr = cpu_to_be64(mcast_addr);
+ 			lpar_rc = h_multicast_ctrl(adapter->vdev->unit_address,
+ 						   IbmVethMcastAddFilter,
+ 						   mcast_addr);
+-- 
+1.8.1.4
