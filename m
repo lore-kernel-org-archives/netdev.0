@@ -1,109 +1,123 @@
-From: Chen Weilong <chenweilong@huawei.com>
-Subject: [resend patch net-next v3 2/7] ipv4: fix checkpatch error "space prohibited"
-Date: Mon, 23 Dec 2013 14:37:27 +0800
-Message-ID: <1387780652-16232-3-git-send-email-chenweilong@huawei.com>
-References: <1387780652-16232-1-git-send-email-chenweilong@huawei.com>
+From: Anton Blanchard <anton@samba.org>
+Subject: Re: [PATCH] ibmveth: Fix more little endian issues
+Date: Mon, 23 Dec 2013 17:38:33 +1100
+Message-ID: <20131223173833.0a9a6705@kryten>
+References: <1387762163-39662-1-git-send-email-agraf@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>,
-	<netfilter@vger.kernel.org>
-To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-	<steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@lists.ozlabs.org,
+	Ben Herrenschmidt <benh@kernel.crashing.org>,
+	Dinar Valeev <dvaleev@suse.com>,
+	Santiago Leon <santil@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org
+To: Alexander Graf <agraf@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:34618 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752509Ab3LWGiZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 01:38:25 -0500
-In-Reply-To: <1387780652-16232-1-git-send-email-chenweilong@huawei.com>
+Received: from ozlabs.org ([203.10.76.45]:57761 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757016Ab3LWGie (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Dec 2013 01:38:34 -0500
+In-Reply-To: <1387762163-39662-1-git-send-email-agraf@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Weilong Chen <chenweilong@huawei.com>
 
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+Hi Alex,
+
+> The ibmveth driver is memcpy()'ing the mac address between a variable
+> (register) and memory. This assumes a certain endianness of the
+> system, so let's make that implicit assumption work again.
+
+Nice catch! I don't like how the driver has two different methods
+for creating these MAC addresses, both without comments. How does
+this look?
+
+Anton
+--
+
+The hypervisor expects MAC addresses passed in registers to be big
+endian u64. Create a helper function called ibmveth_encode_mac_addr
+which does the right thing in both big and little endian.
+
+We were storing the MAC address in a long in struct ibmveth_adapter.
+It's never used so remove it - we don't need another place in the
+driver where we create endian issues with MAC addresses.
+
+Reported-by: Alexander Graf <agraf@suse.de>
+Signed-off-by: Anton Blanchard <anton@samba.org>
 ---
- net/ipv4/inetpeer.c                    |  4 ++--
- net/ipv4/netfilter/nf_nat_snmp_basic.c | 12 ++++++------
- net/ipv4/syncookies.c                  |  2 +-
- net/ipv4/tcp_yeah.c                    |  4 ++--
- 4 files changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index 33d5537..d047c88 100644
---- a/net/ipv4/inetpeer.c
-+++ b/net/ipv4/inetpeer.c
-@@ -227,7 +227,7 @@ static int addr_compare(const struct inetpeer_addr *a,
- 	stackptr = _stack;					\
- 	*stackptr++ = &_base->root;				\
- 	for (u = rcu_deref_locked(_base->root, _base);		\
--	     u != peer_avl_empty; ) {				\
-+	     u != peer_avl_empty;) {				\
- 		int cmp = addr_compare(_daddr, &u->daddr);	\
- 		if (cmp == 0)					\
- 			break;					\
-@@ -282,7 +282,7 @@ static struct inet_peer *lookup_rcu(const struct inetpeer_addr *daddr,
- 	*stackptr++ = &start->avl_left;				\
- 	v = &start->avl_left;					\
- 	for (u = rcu_deref_locked(*v, base);			\
--	     u->avl_right != peer_avl_empty_rcu; ) {		\
-+	     u->avl_right != peer_avl_empty_rcu;) {		\
- 		v = &u->avl_right;				\
- 		*stackptr++ = v;				\
- 		u = rcu_deref_locked(*v, base);			\
-diff --git a/net/ipv4/netfilter/nf_nat_snmp_basic.c b/net/ipv4/netfilter/nf_nat_snmp_basic.c
-index 61a9422..d551e31 100644
---- a/net/ipv4/netfilter/nf_nat_snmp_basic.c
-+++ b/net/ipv4/netfilter/nf_nat_snmp_basic.c
-@@ -461,14 +461,14 @@ static unsigned char asn1_oid_decode(struct asn1_ctx *ctx,
- 	}
+diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+index 952d795..044178b 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.c
++++ b/drivers/net/ethernet/ibm/ibmveth.c
+@@ -523,6 +523,17 @@ retry:
+ 	return rc;
+ }
  
- 	if (subid < 40) {
--		optr [0] = 0;
--		optr [1] = subid;
-+		optr[0] = 0;
-+		optr[1] = subid;
- 	} else if (subid < 80) {
--		optr [0] = 1;
--		optr [1] = subid - 40;
-+		optr[0] = 1;
-+		optr[1] = subid - 40;
- 	} else {
--		optr [0] = 2;
--		optr [1] = subid - 80;
-+		optr[0] = 2;
-+		optr[1] = subid - 80;
- 	}
++/*
++ * The hypervisor expects MAC addresses passed in registers to be
++ * big endian u64.
++ */
++static unsigned long ibmveth_encode_mac_addr(char *mac)
++{
++	unsigned long encoded = 0;
++	memcpy(((char *)&encoded) + 2, mac, ETH_ALEN);
++	return cpu_to_be64(encoded);
++}
++
+ static int ibmveth_open(struct net_device *netdev)
+ {
+ 	struct ibmveth_adapter *adapter = netdev_priv(netdev);
+@@ -580,8 +591,7 @@ static int ibmveth_open(struct net_device *netdev)
+ 	adapter->rx_queue.num_slots = rxq_entries;
+ 	adapter->rx_queue.toggle = 1;
  
- 	*len = 2;
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index b95331e..f2ed13c 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -121,7 +121,7 @@ static __u32 check_tcp_syn_cookie(__u32 cookie, __be32 saddr, __be32 daddr,
- 	cookie -= cookie_hash(saddr, daddr, sport, dport, 0, 0) + sseq;
+-	memcpy(&mac_address, netdev->dev_addr, netdev->addr_len);
+-	mac_address = mac_address >> 16;
++	mac_address = ibmveth_encode_mac_addr(netdev->dev_addr);
  
- 	/* Cookie is now reduced to (count * 2^24) ^ (hash % 2^24) */
--	diff = (count - (cookie >> COOKIEBITS)) & ((__u32) - 1 >> COOKIEBITS);
-+	diff = (count - (cookie >> COOKIEBITS)) & ((__u32) -1 >> COOKIEBITS);
- 	if (diff >= MAX_SYNCOOKIE_AGE)
- 		return (__u32)-1;
+ 	rxq_desc.fields.flags_len = IBMVETH_BUF_VALID |
+ 					adapter->rx_queue.queue_len;
+@@ -1184,8 +1194,8 @@ static void ibmveth_set_multicast_list(struct net_device *netdev)
+ 		/* add the addresses to the filter table */
+ 		netdev_for_each_mc_addr(ha, netdev) {
+ 			/* add the multicast address to the filter table */
+-			unsigned long mcast_addr = 0;
+-			memcpy(((char *)&mcast_addr)+2, ha->addr, ETH_ALEN);
++			unsigned long mcast_addr;
++			mcast_addr = ibmveth_encode_mac_addr(ha->addr);
+ 			lpar_rc = h_multicast_ctrl(adapter->vdev->unit_address,
+ 						   IbmVethMcastAddFilter,
+ 						   mcast_addr);
+@@ -1369,9 +1379,6 @@ static int ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
  
-diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
-index a347a07..20cfaab 100644
---- a/net/ipv4/tcp_yeah.c
-+++ b/net/ipv4/tcp_yeah.c
-@@ -214,9 +214,9 @@ static u32 tcp_yeah_ssthresh(struct sock *sk) {
- 	if (yeah->doing_reno_now < TCP_YEAH_RHO) {
- 		reduction = yeah->lastQ;
+ 	netif_napi_add(netdev, &adapter->napi, ibmveth_poll, 16);
  
--		reduction = min( reduction, max(tp->snd_cwnd>>1, 2U) );
-+		reduction = min(reduction, max(tp->snd_cwnd>>1, 2U));
+-	adapter->mac_addr = 0;
+-	memcpy(&adapter->mac_addr, mac_addr_p, ETH_ALEN);
+-
+ 	netdev->irq = dev->irq;
+ 	netdev->netdev_ops = &ibmveth_netdev_ops;
+ 	netdev->ethtool_ops = &netdev_ethtool_ops;
+@@ -1380,7 +1387,7 @@ static int ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+ 	netdev->features |= netdev->hw_features;
  
--		reduction = max( reduction, tp->snd_cwnd >> TCP_YEAH_DELTA);
-+		reduction = max(reduction, tp->snd_cwnd >> TCP_YEAH_DELTA);
- 	} else
- 		reduction = max(tp->snd_cwnd>>1, 2U);
+-	memcpy(netdev->dev_addr, &adapter->mac_addr, netdev->addr_len);
++	memcpy(netdev->dev_addr, mac_addr_p, ETH_ALEN);
  
--- 
-1.7.12
+ 	for (i = 0; i < IBMVETH_NUM_BUFF_POOLS; i++) {
+ 		struct kobject *kobj = &adapter->rx_buff_pool[i].kobj;
+diff --git a/drivers/net/ethernet/ibm/ibmveth.h b/drivers/net/ethernet/ibm/ibmveth.h
+index 84066ba..2c636cb 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.h
++++ b/drivers/net/ethernet/ibm/ibmveth.h
+@@ -139,7 +139,6 @@ struct ibmveth_adapter {
+     struct napi_struct napi;
+     struct net_device_stats stats;
+     unsigned int mcastFilterSize;
+-    unsigned long mac_addr;
+     void * buffer_list_addr;
+     void * filter_list_addr;
+     dma_addr_t buffer_list_dma;
