@@ -1,90 +1,82 @@
-From: Shawn Bohrer <shawn.bohrer@gmail.com>
-Subject: Re: [PATCH net-next 1/2] mlx4_en: Add PTP hardware clock
-Date: Mon, 23 Dec 2013 10:59:34 -0600
-Message-ID: <20131223165934.GB6810@lintop.rgmadvisors.com>
-References: <1387312359-9476-1-git-send-email-shawn.bohrer@gmail.com>
- <1387312359-9476-2-git-send-email-shawn.bohrer@gmail.com>
- <52B6E568.4030400@mellanox.com>
- <20131223162957.GA6810@lintop.rgmadvisors.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	netdev@vger.kernel.org, tomk@rgmadvisors.com,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: Hadar Hen Zion <hadarh@mellanox.com>
+From: Octavian Purdila <octavian.purdila@intel.com>
+Subject: [PATCH] usbnet: mcs7830: rework link state detection
+Date: Mon, 23 Dec 2013 19:06:31 +0200
+Message-ID: <1387818391-12935-1-git-send-email-octavian.purdila@intel.com>
+Cc: linux-usb@vger.kernel.org, hunold@linuxtv.org, jeroen@koekkoek.nl,
+	Octavian Purdila <octavian.purdila@intel.com>,
+	Ondrej Zary <linux@rainbow-software.org>,
+	Michael Leun <lkml20120218@newton.leun.net>,
+	Ming Lei <ming.lei@canonical.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f48.google.com ([209.85.219.48]:49091 "EHLO
-	mail-oa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757619Ab3LWQ7j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 11:59:39 -0500
-Received: by mail-oa0-f48.google.com with SMTP id l6so5848249oag.7
-        for <netdev@vger.kernel.org>; Mon, 23 Dec 2013 08:59:39 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20131223162957.GA6810@lintop.rgmadvisors.com>
+Received: from mga02.intel.com ([134.134.136.20]:36196 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754146Ab3LWRHD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Dec 2013 12:07:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 23, 2013 at 10:29:58AM -0600, Shawn Bohrer wrote:
-> On Sun, Dec 22, 2013 at 03:13:12PM +0200, Hadar Hen Zion wrote:
-> > On 12/17/2013 10:32 PM, Shawn Bohrer wrote:
-> > >From: Shawn Bohrer <sbohrer@rgmadvisors.com>
-> > >
-> > >This adds a PHC to the mlx4_en driver.  The code is largely based off of
-> > >the e1000e driver (drivers/net/ethernet/intel/e1000e/ptp.c) which seemed
-> > >very similar.
-> > >
-> > >This driver has been tested with both Documentation/ptp/testptp and the
-> > >linuxptp project (http://linuxptp.sourceforge.net/) and appears to work
-> > >on a Mellanox ConnectX-3 card.
-> > >
-> > >Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
-> > >---
-> > >  drivers/net/ethernet/mellanox/mlx4/en_clock.c   |  192 ++++++++++++++++++++++-
-> > >  drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    3 +
-> > >  drivers/net/ethernet/mellanox/mlx4/en_main.c    |    3 +
-> > >  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    6 +
-> > >  4 files changed, 196 insertions(+), 8 deletions(-)
-> > >
-> > >diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-> > >index fd64410..9b0d515 100644
-> > >--- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-> > >+++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-> > >@@ -103,17 +103,187 @@ void mlx4_en_fill_hwtstamps(struct mlx4_en_dev *mdev,
-> > >  			    struct skb_shared_hwtstamps *hwts,
-> > >  			    u64 timestamp)
-> > >  {
-> > >+	unsigned long flags;
-> > >  	u64 nsec;
-> > >
-> > >+	spin_lock_irqsave(&mdev->clock_lock, flags);
-> > 
-> > 1. Missing initialization for clock_lock
-> > 2. Adding spin lock in the data path reduce performance by 15% when
-> > HW timestamping is enabled. I did some testing and replacing
-> > spin_lock_irqsave with read/write_lock_irqsave prevents the
-> > performance decrease.
-> 
-> Thanks Hadar,
-> 
-> I'm testing this change now, and will resend when I'm done.  However,
-> I noticed the following in Documentation/spinlocks.txt
-> 
->    NOTE! We are working hard to remove reader-writer spinlocks in most
->    cases, so please don't add a new one without consensus.  (Instead, see
->    Documentation/RCU/rcu.txt for complete information.)
-> 
-> So is there consensus for a rwlock here?
+Even with the quirks in commit dabdaf0c (mcs7830: Fix link state
+detection) there are still spurious link-down events for some chips
+where the false link-down events count go over a few hundreds.
 
-Also just to make sure I'm testing the correct thing.  These all need
-to be write_lock_irqsave() except for the one in
-mlx4_en_fill_hwtstamps() protecting timecounter_cyc2time() which can
-be a read_lock_irqsave().  All of the other timecounter* calls write
-to the timecounter including timecounter_read().  I'm assuming that is
-what you tested and that should still eliminate the performance loss
-since mlx4_en_fill_hwtstamps() should be the bottleneck.
+This patch takes a more conservative approach and only looks at
+link-down events where the link-down state is not combined with other
+states (e.g. half/full speed, pending frames in SRAM or TX status
+information valid). In all other cases we assume the link is up.
 
-Thanks,
-Shawn
+Tested on MCS7830CV-DA (USB ID 9710:7830).
+
+Cc: Ondrej Zary <linux@rainbow-software.org>
+Cc: Michael Leun <lkml20120218@newton.leun.net>
+Cc: Ming Lei <ming.lei@canonical.com>
+Signed-off-by: Octavian Purdila <octavian.purdila@intel.com>
+---
+ drivers/net/usb/mcs7830.c | 19 ++++---------------
+ 1 file changed, 4 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/usb/mcs7830.c b/drivers/net/usb/mcs7830.c
+index 03832d3..f546378 100644
+--- a/drivers/net/usb/mcs7830.c
++++ b/drivers/net/usb/mcs7830.c
+@@ -117,7 +117,6 @@ enum {
+ struct mcs7830_data {
+ 	u8 multi_filter[8];
+ 	u8 config;
+-	u8 link_counter;
+ };
+ 
+ static const char driver_name[] = "MOSCHIP usb-ethernet driver";
+@@ -561,26 +560,16 @@ static void mcs7830_status(struct usbnet *dev, struct urb *urb)
+ {
+ 	u8 *buf = urb->transfer_buffer;
+ 	bool link, link_changed;
+-	struct mcs7830_data *data = mcs7830_get_data(dev);
+ 
+ 	if (urb->actual_length < 16)
+ 		return;
+ 
+-	link = !(buf[1] & 0x20);
++	link = !(buf[1] == 0x20);
+ 	link_changed = netif_carrier_ok(dev->net) != link;
+ 	if (link_changed) {
+-		data->link_counter++;
+-		/*
+-		   track link state 20 times to guard against erroneous
+-		   link state changes reported sometimes by the chip
+-		 */
+-		if (data->link_counter > 20) {
+-			data->link_counter = 0;
+-			usbnet_link_change(dev, link, 0);
+-			netdev_dbg(dev->net, "Link Status is: %d\n", link);
+-		}
+-	} else
+-		data->link_counter = 0;
++		usbnet_link_change(dev, link, 0);
++		netdev_dbg(dev->net, "Link Status is: %d\n", link);
++	}
+ }
+ 
+ static const struct driver_info moschip_info = {
+-- 
+1.8.3.2
