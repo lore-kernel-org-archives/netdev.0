@@ -1,62 +1,51 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH 09/21] batman-adv: slight optimization of addr compare
-Date: Mon, 23 Dec 2013 13:10:29 +0800
-Message-ID: <52B7C5C5.2050304@huawei.com>
+Subject: [PATCH 12/21] bridge: slight optimization of addr compare
+Date: Mon, 23 Dec 2013 13:10:45 +0800
+Message-ID: <52B7C5D5.2040202@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Marek Lindner <mareklindner@neomailbox.ch>,
-	Simon Wunderlich <sw@simonwunderlich.de>,
-	Antonio Quartulli <antonio@meshcoding.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	<b.a.t.m.a.n@lists.open-mesh.org>, Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>, "David S. Miller"
+	<davem@davemloft.net>, <bridge@lists.linux-foundation.org>, Netdev
+	<netdev@vger.kernel.org>, "linux-kernel@vger.kernel.org"
+	<linux-kernel@vger.kernel.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 Use the recently added and possibly more efficient
 ether_addr_equal_unaligned to instead of memcmp.
 
-Cc: Marek Lindner <mareklindner@neomailbox.ch>
-Cc: Simon Wunderlich <sw@simonwunderlich.de>
-Cc: Antonio Quartulli <antonio@meshcoding.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: b.a.t.m.a.n@lists.open-mesh.org
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: David Miller <davem@davemloft.net>
+Cc: bridge@lists.linux-foundation.org
 Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Tan Xiaojun <tanxiaojun@huawei.com>
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- net/batman-adv/originator.c        | 2 +-
- net/batman-adv/translation-table.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ net/bridge/br_stp_if.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 8ab1434..0490a26 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -41,7 +41,7 @@ int batadv_compare_orig(const struct hlist_node *node, const void *data2)
- 	const void *data1 = container_of(node, struct batadv_orig_node,
- 					 hash_entry);
+diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
+index 656a6f3..04217d1 100644
+--- a/net/bridge/br_stp_if.c
++++ b/net/bridge/br_stp_if.c
+@@ -229,7 +229,7 @@ bool br_stp_recalculate_bridge_id(struct net_bridge *br)
  
--	return (memcmp(data1, data2, ETH_ALEN) == 0 ? 1 : 0);
-+	return ether_addr_equal_unaligned(data1, data2) ? 1 : 0;
- }
+ 	list_for_each_entry(p, &br->port_list, list) {
+ 		if (addr == br_mac_zero ||
+-		    memcmp(p->dev->dev_addr, addr, ETH_ALEN) < 0)
++		    !ether_addr_equal_unaligned(p->dev->dev_addr, addr) < 0)
+ 			addr = p->dev->dev_addr;
  
- /**
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 4add57d..5e66d4b 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -51,7 +51,7 @@ static int batadv_compare_tt(const struct hlist_node *node, const void *data2)
- 	const void *data1 = container_of(node, struct batadv_tt_common_entry,
- 					 hash_entry);
- 
--	return (memcmp(data1, data2, ETH_ALEN) == 0 ? 1 : 0);
-+	return ether_addr_equal_unaligned(data1, data2) ? 1 : 0;
- }
- 
- /**
+ 	}
 -- 
 1.8.0
