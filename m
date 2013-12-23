@@ -1,50 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/3] net: allow > 0 order atomic page alloc in
-	skb_page_frag_refill
-Date: Mon, 23 Dec 2013 09:30:38 -0800
-Message-ID: <1387819838.12212.6.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
-	<20131223125321.GB18168@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20131223125321.GB18168@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: [PATCH] cxgb4: allow large buffer size to have page size
+Date: Mon, 23 Dec 2013 15:34:29 -0200
+Message-ID: <1387820069-13623-1-git-send-email-cascardo@linux.vnet.ibm.com>
+Cc: dm@chelsio.com, linux-kernel@vger.kernel.org, davem@davemloft.net,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-12-23 at 14:53 +0200, Michael S. Tsirkin wrote:
-> On Mon, Dec 16, 2013 at 04:16:27PM -0800, Michael Dalton wrote:
-> > skb_page_frag_refill currently permits only order-0 page allocs
-> > unless GFP_WAIT is used. Change skb_page_frag_refill to attempt
-> > higher-order page allocations whether or not GFP_WAIT is used. If
-> > memory cannot be allocated, the allocator will fall back to
-> > successively smaller page allocs (down to order-0 page allocs).
-> > 
-> > This change brings skb_page_frag_refill in line with the existing
-> > page allocation strategy employed by netdev_alloc_frag, which attempts
-> > higher-order page allocations whether or not GFP_WAIT is set, falling
-> > back to successively lower-order page allocations on failure. Part
-> > of migration of virtio-net to per-receive queue page frag allocators.
-> > 
-> > Signed-off-by: Michael Dalton <mwdalton@google.com>
-> 
-> I don't get how this is related to patch 3/3 exactly.
-> That one seems to clamp the allocations from ewma to at most
-> PAGE_SIZE, so how to we get higher-order allocations here?
-> Could you clarify please?
+Since commit 52367a763d8046190754ab43743e42638564a2d1
+("cxgb4/cxgb4vf: Code cleanup to enable T4 Configuration File support"),
+we have failures like this during cxgb4 probe:
 
-If your ewma stabilizes at 2050 bytes per frag, using order-0 page will
-waste ~50% of memory.
+cxgb4 0000:01:00.4: bad SGE FL page buffer sizes [65536, 65536]
+cxgb4: probe of 0000:01:00.4 failed with error -22
+
+This happens whenever software parameters are used, without a
+configuration file. That happens when the hardware was already
+initialized (after kexec, or after csiostor is loaded).
+
+It happens that these values are acceptable, rendering fl_pg_order equal
+to 0, which is the case of a hard init when the page size is equal or
+larger than 65536.
+
+Accepting fl_large_pg equal to fl_small_pg solves the issue, and
+shouldn't cause any trouble besides a possible performance reduction
+when smaller pages are used. And that can be fixed by a configuration
+file.
+
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/sge.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index cc380c3..cc3511a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -2581,7 +2581,7 @@ static int t4_sge_init_soft(struct adapter *adap)
+ 	#undef READ_FL_BUF
+ 
+ 	if (fl_small_pg != PAGE_SIZE ||
+-	    (fl_large_pg != 0 && (fl_large_pg <= fl_small_pg ||
++	    (fl_large_pg != 0 && (fl_large_pg < fl_small_pg ||
+ 				  (fl_large_pg & (fl_large_pg-1)) != 0))) {
+ 		dev_err(adap->pdev_dev, "bad SGE FL page buffer sizes [%d, %d]\n",
+ 			fl_small_pg, fl_large_pg);
+-- 
+1.7.1
