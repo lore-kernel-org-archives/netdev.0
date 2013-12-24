@@ -1,47 +1,73 @@
-From: Ding Tianhong <dthxman@gmail.com>
-Subject: [PATCH RESEND v2 03/20] net: pcnet: slight optimization of addr compare
-Date: Tue, 24 Dec 2013 21:47:40 +0800
-Message-ID: <52B9907C.6090002@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: Don Fry <pcnet32@frontier.com>, Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Fabio Estevam <festevam@gmail.com>
+Subject: [PATCH] fec: Do not assume that PHY reset is active low
+Date: Tue, 24 Dec 2013 12:16:01 -0200
+Message-ID: <1387894561-31494-1-git-send-email-festevam@gmail.com>
+Cc: Frank.Li@freescale.com, shawn.guo@linaro.org,
+	p.zabel@pengutronix.de, netdev@vger.kernel.org,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f50.google.com ([209.85.216.50]:34221 "EHLO
+	mail-qa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752308Ab3LXOQL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 09:16:11 -0500
+Received: by mail-qa0-f50.google.com with SMTP id i13so6236443qae.9
+        for <netdev@vger.kernel.org>; Tue, 24 Dec 2013 06:16:10 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use possibly more efficient ether_addr_equal
-to instead of memcmp.
+From: Fabio Estevam <fabio.estevam@freescale.com>
 
-Cc: Don Fry <pcnet32@frontier.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+We should not assume that the PHY reset is always active low.
+
+Retrieve this information from the device tree instead, so that the PHY reset
+can work on both cases.
+
+Reported-by: Philipp Zabel <p.zabel@pengutronix.de>
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 ---
- drivers/net/ethernet/amd/pcnet32.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/freescale/fec_main.c | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
-index 38492e0..9339ccc 100644
---- a/drivers/net/ethernet/amd/pcnet32.c
-+++ b/drivers/net/ethernet/amd/pcnet32.c
-@@ -1668,7 +1668,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
- 	for (i = 0; i < ETH_ALEN; i++)
- 		promaddr[i] = inb(ioaddr + i);
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 6530177..4b9976a0 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -2053,6 +2053,8 @@ static void fec_reset_phy(struct platform_device *pdev)
+ 	int err, phy_reset;
+ 	int msec = 1;
+ 	struct device_node *np = pdev->dev.of_node;
++	enum of_gpio_flags flags;
++	bool port;
  
--	if (memcmp(promaddr, dev->dev_addr, ETH_ALEN) ||
-+	if (!ether_addr_equal(promaddr, dev->dev_addr) ||
- 	    !is_valid_ether_addr(dev->dev_addr)) {
- 		if (is_valid_ether_addr(promaddr)) {
- 			if (pcnet32_debug & NETIF_MSG_PROBE) {
+ 	if (!np)
+ 		return;
+@@ -2062,18 +2064,22 @@ static void fec_reset_phy(struct platform_device *pdev)
+ 	if (msec > 1000)
+ 		msec = 1;
+ 
+-	phy_reset = of_get_named_gpio(np, "phy-reset-gpios", 0);
++	phy_reset = of_get_named_gpio_flags(np, "phy-reset-gpios", 0, &flags);
+ 	if (!gpio_is_valid(phy_reset))
+ 		return;
+ 
+-	err = devm_gpio_request_one(&pdev->dev, phy_reset,
+-				    GPIOF_OUT_INIT_LOW, "phy-reset");
++	if (flags & OF_GPIO_ACTIVE_LOW)
++		port = GPIOF_OUT_INIT_LOW;
++	else
++		port = GPIOF_OUT_INIT_HIGH;
++
++	err = devm_gpio_request_one(&pdev->dev, phy_reset, port, "phy-reset");
+ 	if (err) {
+ 		dev_err(&pdev->dev, "failed to get phy-reset-gpios: %d\n", err);
+ 		return;
+ 	}
+ 	msleep(msec);
+-	gpio_set_value(phy_reset, 1);
++	gpio_set_value(phy_reset, !port);
+ }
+ #else /* CONFIG_OF */
+ static void fec_reset_phy(struct platform_device *pdev)
 -- 
-1.8.0
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-.
+1.8.1.2
