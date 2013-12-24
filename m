@@ -1,39 +1,74 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2 03/20] net: pcnet: slight optimization of addr compare
-Date: Tue, 24 Dec 2013 04:38:59 -0800
-Message-ID: <1387888739.2259.7.camel@joe-AO722>
-References: <52B96FA7.10201@huawei.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: bridge vlan_filtering don't work with tap devices (qemu guests)
+Date: Tue, 24 Dec 2013 21:45:05 +0900
+Message-ID: <1387889105.3575.3.camel@ubuntu-vm-makita>
+References: <717e26b0-fda3-4c97-81a6-45e67462cb6b@mailpro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Don Fry <pcnet32@frontier.com>, Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
+Cc: netdev@vger.kernel.org
+To: Alexandre DERUMIER <aderumier@odiso.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0195.hostedemail.com ([216.40.44.195]:49522 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751017Ab3LXMjD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 07:39:03 -0500
-In-Reply-To: <52B96FA7.10201@huawei.com>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:46551 "EHLO
+	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751214Ab3LXMpM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 07:45:12 -0500
+In-Reply-To: <717e26b0-fda3-4c97-81a6-45e67462cb6b@mailpro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-12-24 at 19:27 +0800, Ding Tianhong wrote:
-> Use possibly more efficient ether_addr_equal_unaligned
-> to instead of memcmp.
+On Mon, 2013-12-23 at 17:02 +0100, Alexandre DERUMIER wrote:
+> Hello,
+> 
+> I'm trying to use vlan_filtering on bridge.
+> 
+> setup is : 2 qemu virtual machines (tap0 and tap1), plugged in a bridge br0.
+>            virtual machines don't tag packets.
+> 
+> 
+> qemuvm1 eth0 --tap0----->br0<-------tap1---qemuvm2 eth0.
+> 
+> 
+> with vlan_filtering disable, both vms can ping together.
+> 
+> 
+> If I enabled filtering
+> 
+> #echo 1 > /sys/class/net/br0/bridge/vlan_filtering
+> 
+> Both vms cannot ping together anymore.
+> 
+> So, I have tried to put vlan on tap interfaces with
+> 
+> #bridge vlan add dev tap0 vid 10
+> #bridge vlan add dev tap1 vid 10
 
-Hi again Ding.
+If you want to send untagged frames, please try to make configuration
+like this:
+# bridge vlan add dev tap0 vid 10 pvid untagged
+# bridge vlan add dev tap1 vid 10 pvid untagged
 
-> diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
-[]
-> @@ -1668,7 +1668,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
-[]
-> -	if (memcmp(promaddr, dev->dev_addr, ETH_ALEN) ||
-> +	if (!ether_addr_equal(promaddr, dev->dev_addr) ||
+Thanks,
+Toshiaki Makita
 
-Can you please make sure the commit message matches the
-code changes?
-
-This uses ether_addr_equal not ether_addr_equal_unaligned.
-
-Thanks for the work.
+> #bridge vlan show
+> port	vlan ids
+> br0	None
+> tap0	10
+> tap1    10
+> 
+> 
+> 
+> But, it doesn't work.
+> 
+> tcpdump on bridge (tcpdump -i br0 -e -n) or in destination qemu (tcpdump -i eth0 -e -n) , don't see any packet
+> 
+> any idea ? 
+> 
+> Regards,
+> 
+> Alexandre Derumier
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
