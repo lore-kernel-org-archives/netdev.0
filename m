@@ -1,77 +1,106 @@
-From: Ding Tianhong <dthxman@gmail.com>
-Subject: Re: [PATCH v2 01/20] net: slight optimization of addr
- compare for some modules
-Date: Tue, 24 Dec 2013 23:22:40 +0800
-Message-ID: <52B9A6C0.6040303@gmail.com>
-References: <52B96F9B.4020806@huawei.com>	 <1387894944.2259.31.camel@joe-AO722>
-	<52B99BB9.9030201@gmail.com> <1387897517.2259.41.camel@joe-AO722>
+From: Hadar Hen Zion <hadarh@mellanox.com>
+Subject: Re: [PATCH net-next 1/2] mlx4_en: Add PTP hardware clock
+Date: Tue, 24 Dec 2013 17:38:35 +0200
+Message-ID: <52B9AA7B.8090401@mellanox.com>
+References: <1387312359-9476-1-git-send-email-shawn.bohrer@gmail.com> <1387312359-9476-2-git-send-email-shawn.bohrer@gmail.com> <52B6E568.4030400@mellanox.com> <20131223162957.GA6810@lintop.rgmadvisors.com> <20131223165934.GB6810@lintop.rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: e1000-devel@lists.sourceforge.net, Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Ding Tianhong <dingtianhong@huawei.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1387897517.2259.41.camel@joe-AO722>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	<netdev@vger.kernel.org>, <tomk@rgmadvisors.com>,
+	Shawn Bohrer <sbohrer@rgmadvisors.com>
+To: Shawn Bohrer <shawn.bohrer@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:41744 "EHLO
+	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750987Ab3LXPiq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 10:38:46 -0500
+In-Reply-To: <20131223165934.GB6810@lintop.rgmadvisors.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-5LqOIDIwMTMvMTIvMjQgMjM6MDUsIEpvZSBQZXJjaGVzIOWGmemBkzoKPiBPbiBUdWUsIDIwMTMt
-MTItMjQgYXQgMjI6MzUgKzA4MDAsIERpbmcgVGlhbmhvbmcgd3JvdGU6Cj4+IOS6jiAyMDEzLzEy
-LzI0IDIyOjIyLCBKb2UgUGVyY2hlcyDlhpnpgZM6Cj4+PiBPbiBUdWUsIDIwMTMtMTItMjQgYXQg
-MTk6MjcgKzA4MDAsIERpbmcgVGlhbmhvbmcgd3JvdGU6Cj4+Pj4gVXNlIHBvc3NpYmx5IG1vcmUg
-ZWZmaWNpZW50IGV0aGVyX2FkZHJfZXF1YWxfdW5hbGlnbmVkCj4+Pj4gYW5kIGV0aGVyX2FkZHJf
-ZXF1YWwgdG8gaW5zdGVhZCBvZiBtZW1jbXAuCj4+Pgo+Pj4gQSBuZWdhdGl2ZSBvZiBhZGRpbmcg
-c28gbWFueSBkaWZmZXJlbnQgZHJpdmVycyBpbiBhIHNpbmdsZQo+Pj4gcGF0Y2ggaXMgdGhhdCB5
-b3UgbWlzcyBzZW5kaW5nIHBhdGNoZXMgdG8gdGhlIG5hbWVkIG1haW50YWluZXJzLgo+Pj4KPj4+
-IE1vc3Qgb2YgdGhlc2UgYmVsb3cgaGF2ZSBzZXBhcmF0ZSBpbmRpdmlkdWFsIG1haW50YWluZXJz
-Lgo+Pgo+PiB5b3UgbWVhbiB0aGF0IEkgc2hvdWxkIHNlbmQgYmVsb3cgYnkgc2VwYXJhdGUgcGF0
-Y2g/Cj4gCj4gSSB0aGluayB5ZXMsCj4gCj4gWW91IGNhbiBzZW5kIHRoZW0gdG8gbmV0ZGV2LCBi
-dXQgY2MnaW5nIHRoZSBuYW1lZAo+IG1haW50YWluZXJzIGlzIGEgcG9saXRlIHRoaW5nIHRvIGRv
-Lgo+IAo+IFNlbmRpbmcgaW5kaXZpZHVhbCBwYXRjaGVzIGNhbiBtYWtlIGl0IGVhc2llciBmb3IK
-PiBtYWludGFpbmVycyB0byByZXZpZXcgdGhlIGJpdHMgdGhhdCBhcmUgc3BlY2lmaWMKPiB0byB0
-aGVpciBwcm9qZWN0cyB3aXRob3V0IGhhdmluZyB0byB3YWRlIHRocm91Z2gKPiBvdGhlciBjaGFu
-Z2VzIHRoYXQgYXJlbid0IHJlbGV2YW50IHRvIHRoZW0uCj4gCgpPSywgSSB3aWxsIHJlYnVpbGQg
-dGhlIDAxLzIwIHBhdGNoIGFuZCBtYWtlIGl0IHRvIHNlcGVyYXRlIHBhdGNoZXMgZm9sbG93IHlv
-dXIgb3Bpbmlvbi4KYW5kIHRoZSByZXN0IG9mIHRoZSBwYXRjaGVzIEkgdGhpbmsgaXMgZml0IGFu
-ZCBubyBuZWVkIHRvIG1vZGlmeSwgaWYgeW91IGFncmVlIHdpdGggbWUsCkkgd2lsbCBzZW5kIHRo
-ZSByZXN0IDE5IHBhdGNoIGFzIHRoZSBmaXJzdCBzdGVwLCBhbmQgdGhlbiBzZXBlcmF0ZSB0aGlz
-IHBhdGNoIGFzIHRoZSBzZWNvbmQKc3RlcCwgc2VuZCB0aGVtIGluIG5ldC1uZXh0LgoKUmVnYXJk
-cwpEaW5nCgo+PiBJdCBzZWVtZWQgdGhhdCBJIAo+PiBtaXN1bmRlcnN0b29kLCBJIHVzZSB0aGUg
-Li9zY3JpcHQvZ2V0bWFpbnRlciBhbmQgZm91bmQgdGhlIG9ubHkgbWFpbnRhaW5lcgo+PiBpcyBE
-YXZpZCwgYW5kIG90aGVycyBhcmUgc3VwcG9ydCwgc28gbWF5YmUgSSB3YXMgd3JvbmcsIGJ1dCBp
-dCByZWFsbHkgYSBiaWcKPj4gcGF0Y2hzZXQsIGNvdWxkIEkgc2VuZCB0aGVtIGJ5IHNlcGVyYXRl
-IHBhdGNoc2V0PyBJIHRoaW5rIGl0IGNvdWxkIGJlIG1vcmUKPj4gY2xlYXJseS4KPiAKPj5Gcm9t
-IHRoZSBNQUlOVEFJTkVSUyBmaWxlOgo+IAlTOiBTdGF0dXMsIG9uZSBvZiB0aGUgZm9sbG93aW5n
-Ogo+IAkgICBTdXBwb3J0ZWQ6CVNvbWVvbmUgaXMgYWN0dWFsbHkgcGFpZCB0byBsb29rIGFmdGVy
-IHRoaXMuCj4gCSAgIE1haW50YWluZWQ6CVNvbWVvbmUgYWN0dWFsbHkgbG9va3MgYWZ0ZXIgaXQu
-Cj4gCSAgIE9kZCBGaXhlczoJSXQgaGFzIGEgbWFpbnRhaW5lciBidXQgdGhleSBkb24ndCBoYXZl
-IHRpbWUgdG8gZG8KPiAJCQltdWNoIG90aGVyIHRoYW4gdGhyb3cgdGhlIG9kZCBwYXRjaCBpbi4g
-U2VlIGJlbG93Li4KPiAJICAgT3JwaGFuOglObyBjdXJyZW50IG1haW50YWluZXIgW2J1dCBtYXli
-ZSB5b3UgY291bGQgdGFrZSB0aGUKPiAJCQlyb2xlIGFzIHlvdSB3cml0ZSB5b3VyIG5ldyBjb2Rl
-XS4KPiAJICAgT2Jzb2xldGU6CU9sZCBjb2RlLiBTb21ldGhpbmcgdGFnZ2VkIG9ic29sZXRlIGdl
-bmVyYWxseSBtZWFucwo+IAkJCWl0IGhhcyBiZWVuIHJlcGxhY2VkIGJ5IGEgYmV0dGVyIHN5c3Rl
-bSBhbmQgeW91Cj4gCQkJc2hvdWxkIGJlIHVzaW5nIHRoYXQuCj4gCj4gU28gInN1cHBvcnRlZCIg
-aXMgImhpZ2hlci9iZXR0ZXIiIHRoYW4gIm1haW50YWluZWQiLgo+IAoKT0sKCj4gCj4gCgoKLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tClJhcGlkbHkgdHJvdWJsZXNob290IHByb2JsZW1zIGJlZm9yZSB0
-aGV5IGFmZmVjdCB5b3VyIGJ1c2luZXNzLiBNb3N0IElUIApvcmdhbml6YXRpb25zIGRvbid0IGhh
-dmUgYSBjbGVhciBwaWN0dXJlIG9mIGhvdyBhcHBsaWNhdGlvbiBwZXJmb3JtYW5jZSAKYWZmZWN0
-cyB0aGVpciByZXZlbnVlLiBXaXRoIEFwcER5bmFtaWNzLCB5b3UgZ2V0IDEwMCUgdmlzaWJpbGl0
-eSBpbnRvIHlvdXIgCkphdmEsLk5FVCwgJiBQSFAgYXBwbGljYXRpb24uIFN0YXJ0IHlvdXIgMTUt
-ZGF5IEZSRUUgVFJJQUwgb2YgQXBwRHluYW1pY3MgUHJvIQpodHRwOi8vcHViYWRzLmcuZG91Ymxl
-Y2xpY2submV0L2dhbXBhZC9jbGs/aWQ9ODQzNDk4MzEmaXU9LzQxNDAvb3N0Zy5jbGt0cmsKX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KRTEwMDAtZGV2ZWwg
-bWFpbGluZyBsaXN0CkUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xp
-c3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApUbyBsZWFybiBt
-b3JlIGFib3V0IEludGVsJiMxNzQ7IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29tbXVuaXRpZXMu
-aW50ZWwuY29tL2NvbW11bml0eS93aXJlZAo=
+On 12/23/2013 6:59 PM, Shawn Bohrer wrote:
+> On Mon, Dec 23, 2013 at 10:29:58AM -0600, Shawn Bohrer wrote:
+>> On Sun, Dec 22, 2013 at 03:13:12PM +0200, Hadar Hen Zion wrote:
+>>> On 12/17/2013 10:32 PM, Shawn Bohrer wrote:
+>>>> From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+>>>>
+>>>> This adds a PHC to the mlx4_en driver.  The code is largely based off of
+>>>> the e1000e driver (drivers/net/ethernet/intel/e1000e/ptp.c) which seemed
+>>>> very similar.
+>>>>
+>>>> This driver has been tested with both Documentation/ptp/testptp and the
+>>>> linuxptp project (http://linuxptp.sourceforge.net/) and appears to work
+>>>> on a Mellanox ConnectX-3 card.
+>>>>
+>>>> Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
+>>>> ---
+>>>>   drivers/net/ethernet/mellanox/mlx4/en_clock.c   |  192 ++++++++++++++++++++++-
+>>>>   drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    3 +
+>>>>   drivers/net/ethernet/mellanox/mlx4/en_main.c    |    3 +
+>>>>   drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    6 +
+>>>>   4 files changed, 196 insertions(+), 8 deletions(-)
+>>>>
+>>>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+>>>> index fd64410..9b0d515 100644
+>>>> --- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+>>>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+>>>> @@ -103,17 +103,187 @@ void mlx4_en_fill_hwtstamps(struct mlx4_en_dev *mdev,
+>>>>   			    struct skb_shared_hwtstamps *hwts,
+>>>>   			    u64 timestamp)
+>>>>   {
+>>>> +	unsigned long flags;
+>>>>   	u64 nsec;
+>>>>
+>>>> +	spin_lock_irqsave(&mdev->clock_lock, flags);
+>>>
+>>> 1. Missing initialization for clock_lock
+>>> 2. Adding spin lock in the data path reduce performance by 15% when
+>>> HW timestamping is enabled. I did some testing and replacing
+>>> spin_lock_irqsave with read/write_lock_irqsave prevents the
+>>> performance decrease.
+>>
+>> Thanks Hadar,
+>>
+>> I'm testing this change now, and will resend when I'm done.  However,
+>> I noticed the following in Documentation/spinlocks.txt
+>>
+>>     NOTE! We are working hard to remove reader-writer spinlocks in most
+>>     cases, so please don't add a new one without consensus.  (Instead, see
+>>     Documentation/RCU/rcu.txt for complete information.)
+>>
+>> So is there consensus for a rwlock here?
+>
+> Also just to make sure I'm testing the correct thing.  These all need
+> to be write_lock_irqsave() except for the one in
+> mlx4_en_fill_hwtstamps() protecting timecounter_cyc2time() which can
+> be a read_lock_irqsave().  All of the other timecounter* calls write
+> to the timecounter including timecounter_read().  I'm assuming that is
+> what you tested and that should still eliminate the performance loss
+> since mlx4_en_fill_hwtstamps() should be the bottleneck.
+>
+> Thanks,
+> Shawn
+>
+Yes, you were testing the correct thing.
+
+But, after another check, I'm not sure we need any lock in 
+mlx4_en_fill_hwtstamps() data path function.
+Adding lock to mlx4_en_fill_hwtstamps() protects timecounter_cyc2time() 
+which doesn't read hardware registers.
+As you explained in your RFC mail:
+
+ > In e1000e driver they protect the timecounter code with a spinlock
+ > because the hardware reports the time in two 32bit registers.  The
+ > Mellanox code looks similar.
+
+The spin lock is needed when reading hardware registers.
+My suggestion is to stay with spin locks in all the places protecting 
+timecounter_read()/timecounter_init() and just remove the spin lock from 
+timecounter_cyc2time()
+
+Thanks,
+Hadar
