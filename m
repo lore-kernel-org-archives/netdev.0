@@ -1,62 +1,49 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v2 07/20] batman-adv: use batadv_compare_eth for concise
-Date: Tue, 24 Dec 2013 19:28:22 +0800
-Message-ID: <52B96FD6.6030309@huawei.com>
+Subject: [PATCH v2 10/20] infiniband: slight optimization of addr compare
+Date: Tue, 24 Dec 2013 19:28:34 +0800
+Message-ID: <52B96FE2.807@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Marek Lindner <mareklindner@neomailbox.ch>,
-	Simon Wunderlich <sw@simonwunderlich.de>,
-	Antonio Quartulli <antonio@meshcoding.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	<b.a.t.m.a.n@lists.open-mesh.org>, Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Faisal Latif <faisal.latif@intel.com>,
+	<linux-rdma@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It is better to use batadv_compate_eth instead of memcpy for
-concise style.
+Use the possibly more efficient ether_addr_equal
+to instead of memcmp.
 
-Cc: Marek Lindner <mareklindner@neomailbox.ch>
-Cc: Simon Wunderlich <sw@simonwunderlich.de>
-Cc: Antonio Quartulli <antonio@meshcoding.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: b.a.t.m.a.n@lists.open-mesh.org
-Cc: netdev@vger.kernel.org
+Cc: Roland Dreier <roland@kernel.org>
+Cc: Sean Hefty <sean.hefty@intel.com>
+Cc: Hal Rosenstock <hal.rosenstock@gmail.com>
+Cc: Faisal Latif <faisal.latif@intel.com>
+Cc: linux-rdma@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Tan Xiaojun <tanxiaojun@huawei.com>
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- net/batman-adv/originator.c        | 2 +-
- net/batman-adv/translation-table.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/infiniband/hw/nes/nes_cm.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 8ab1434..803ab4b 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -41,7 +41,7 @@ int batadv_compare_orig(const struct hlist_node *node, const void *data2)
- 	const void *data1 = container_of(node, struct batadv_orig_node,
- 					 hash_entry);
+diff --git a/drivers/infiniband/hw/nes/nes_cm.c b/drivers/infiniband/hw/nes/nes_cm.c
+index 6b29249..9c9f2f5 100644
+--- a/drivers/infiniband/hw/nes/nes_cm.c
++++ b/drivers/infiniband/hw/nes/nes_cm.c
+@@ -1354,8 +1354,7 @@ static int nes_addr_resolve_neigh(struct nes_vnic *nesvnic, u32 dst_ip, int arpi
+ 				  neigh->ha, ntohl(rt->rt_gateway));
  
--	return (memcmp(data1, data2, ETH_ALEN) == 0 ? 1 : 0);
-+	return batadv_compare_eth(data1, data2);
- }
- 
- /**
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 4add57d..06506e6 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -51,7 +51,7 @@ static int batadv_compare_tt(const struct hlist_node *node, const void *data2)
- 	const void *data1 = container_of(node, struct batadv_tt_common_entry,
- 					 hash_entry);
- 
--	return (memcmp(data1, data2, ETH_ALEN) == 0 ? 1 : 0);
-+	return batadv_compare_eth(data1, data2);
- }
- 
- /**
+ 			if (arpindex >= 0) {
+-				if (!memcmp(nesadapter->arp_table[arpindex].mac_addr,
+-					    neigh->ha, ETH_ALEN)) {
++				if (ether_addr_equal(nesadapter->arp_table[arpindex].mac_addr, neigh->ha)) {
+ 					/* Mac address same as in nes_arp_table */
+ 					goto out;
+ 				}
 -- 
 1.8.0
