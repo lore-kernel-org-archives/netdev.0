@@ -1,47 +1,52 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v4 0/2] sctp: Consolidate and ratelimit deprecation
- warnings
-Date: Tue, 24 Dec 2013 08:37:56 -0500
-Message-ID: <20131224133756.GA10477@hmsreliant.think-freely.org>
-References: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
- <1387805383-21500-1-git-send-email-nhorman@tuxdriver.com>
- <1387839316.1635.8.camel@bwh-desktop.uk.level5networks.com>
+From: Hadar Hen Zion <hadarh@mellanox.com>
+Subject: Re: [PATCH net-next 1/2] mlx4_en: Add PTP hardware clock
+Date: Tue, 24 Dec 2013 15:58:06 +0200
+Message-ID: <52B992EE.5030401@mellanox.com>
+References: <1387312359-9476-1-git-send-email-shawn.bohrer@gmail.com> <1387312359-9476-2-git-send-email-shawn.bohrer@gmail.com> <52B6E568.4030400@mellanox.com> <20131223184845.GA4922@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1387839316.1635.8.camel@bwh-desktop.uk.level5networks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Shawn Bohrer <shawn.bohrer@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>, <netdev@vger.kernel.org>,
+	<tomk@rgmadvisors.com>, Shawn Bohrer <sbohrer@rgmadvisors.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:49935 "EHLO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751970Ab3LXN6S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 08:58:18 -0500
+In-Reply-To: <20131223184845.GA4922@netboy>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 23, 2013 at 10:55:16PM +0000, Ben Hutchings wrote:
-> On Mon, 2013-12-23 at 08:29 -0500, Neil Horman wrote:
-> > The SCTP protocol has several deprecation warnings in its setsockopt path that
-> > can be triggered by unprivlidged users.  Since these are not ratelimited, we can
-> > spam the logs quite easily here.  Since these are all deprecation warnings, and
-> > that type of warning isn't uncommon in the rest of the kernel, lets make a
-> > common pr_warn_deprecated macro to produce somewhat generalized ratelimited
-> > deprecation warnings easily
-> [...]
-> 
-> No objection to these changes, but I think deprecation warnings should
-> log at least the command name and maybe also the pid of the caller.
-> 
-I didn't change the contents of the strings in this patch, I just wanted to
-avoid log spamming, but I think adding caller pid/name is a good idea.  I'll do
-that in a followon patch after the holidays
-Neil
+On 12/23/2013 8:48 PM, Richard Cochran wrote:
+> On Sun, Dec 22, 2013 at 03:13:12PM +0200, Hadar Hen Zion wrote:
+>
+>> 2. Adding spin lock in the data path reduce performance by 15% when
+>> HW timestamping is enabled. I did some testing and replacing
+>> spin_lock_irqsave with read/write_lock_irqsave prevents the
+>> performance decrease.
+>
+> Why do the spin locks cause such a bottleneck?
+>
+> Is there really that much lock contention in your test?
+>
+> Your figure of 15% seems awfully high. How did you arrive at that
+> figure?
+>
+> Thanks,
+> Richard
+>
 
-> Ben.
-> 
-> -- 
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
-> 
-> 
+The spin locks case such a bottleneck since I'm using multiple streams 
+in my performance test. RSS mechanism scattered the streams between 
+multiple RX rings while each RX ring is bound to a different cup.
+The describe scenario cause lock contention between the different RX rings.
+
+Performance drops from 37.8 Gbits/sec to 32.1 Gbits/sec when spin locks 
+are added and goes back to 37.8 Gbits/sec when using read/write locks.
+
+Thanks,
+Hadar
