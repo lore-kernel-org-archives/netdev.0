@@ -1,100 +1,55 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCH net-next 0/2] netfilter: IPv4/v6 IPcomp match support
-Date: Tue, 24 Dec 2013 14:19:57 +0800
-Message-ID: <52B9278D.4020905@windriver.com>
-References: <1386937082-30412-1-git-send-email-fan.du@windriver.com> <20131217130555.GA8874@localhost> <52B26841.40800@windriver.com> <20131220090419.GA5661@localhost> <52B40C01.7070406@windriver.com> <20131223121337.GA5373@localhost>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCHv4 net-next] xfrm: Namespacify xfrm_policy_sk_bundles
+Date: Tue, 24 Dec 2013 10:50:07 +0100
+Message-ID: <20131224095007.GA29716@secunet.com>
+References: <1387424650.19078.355.camel@edumazet-glaptop2.roam.corp.google.com>
+ <52B3BAD1.30205@windriver.com>
+ <52B8DF80.2010508@windriver.com>
+ <20131224.003125.1848179270970861998.davem@davemloft.net>
+ <52B91E21.1050907@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <davem@davemloft.net>, <steffen.klassert@secunet.com>,
-	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20131223121337.GA5373@localhost>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	xiyou.wangcong@gmail.com, netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:51841 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751486Ab3LXJuK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Dec 2013 04:50:10 -0500
+Content-Disposition: inline
+In-Reply-To: <52B91E21.1050907@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, Dec 24, 2013 at 01:39:45PM +0800, Fan Du wrote:
+>=20
+>=20
+> On 2013=E5=B9=B412=E6=9C=8824=E6=97=A5 13:31, David Miller wrote:
+> >From: Fan Du<fan.du@windriver.com>
+> >Date: Tue, 24 Dec 2013 09:12:32 +0800
+> >
+> >>>  I saw this patch is marked 'Not Applicable' in patchwork.
+> >It means that it doesn't go in via my tree directly, it
+> >"doesn't apply".
+> >
+> >Instead, it goes into Steffen's IPSEC tree.
+> >
 
+Yes, I'll take care about this one. I'm currently traveling,
+so I have not that much time for review and tests of patches.
+I'll integrate all pending ipsec patches after the holidays.
 
-On 2013=E5=B9=B412=E6=9C=8823=E6=97=A5 20:13, Pablo Neira Ayuso wrote:
-> Hi,
->
-> On Fri, Dec 20, 2013 at 05:21:05PM +0800, Fan Du wrote:
-> [...]
->>> AH is not the last header, so we still have to use ipv6_find_hdr() =
-to
->>> find the good header instead of par->thoff. Note that the ip6_table=
-s
->>> sets par->thoff to the last IPv6 extension header.
->>
->> I'm quite new to the internal of netfiler, especially about this par=
-t.
->> I will take a look at the code later.
->>
->>> This rises some concerns regarding your ipcomp, I think that if you
->>> use this with ah and esp, the ordering of the headers is
->>> ah+ipcomp+esp, right?
->>
->> This depends on the user land configuration of encapsulation order.
->> It can be one of the three types only(ah, esp, ipcomp), the most com=
-monly
->> used is ah(outer)+esp(inner).
->>
->> I barely see ipcomp used in production, but I remember RFC says ipco=
-mp
->> should be done first before esp, because after encryption in esp, th=
-e data
->> is polluted, i.e., not suitable for compressed anymore(I'm not sure =
-the
->> details theory behind this statement.)
->
-> In that case we have to use ipv6_find_hdr(..., IPPROTO_IPCOMP, ...),
-> since par->thoff will point to the last header which is esp. After
-> this change, the ipcomp ipv6 match will look very similar to what you
-> have in ah_mt6(...) in net/ipv6/netfilter/ip6t_ah.c. Please, rework
-> that in your ipcomp match patch and resend. Thanks.
->
+>=20
+> Thanks for your explanation!!!
+>=20
+> I'm not well understand the curtsy about patchwork, and one last ques=
+tion,
+> [PATCHv4 net-next 0/8] pktgen IPsec support is tagged as 'Awaiting Up=
+stream'
+> what does that mean and do I need to take further action about this p=
+atch set?
+>=20
 
-Hi Pablo
-
-I think we don't need to rework this patch set back to v1 by using ipv6=
-_find_hdr
-for IPv6 part, because IPcomp shared the same characteristic as esp, th=
-at's hiding
-upper layer protocol.
-
-=46or a packet encapsulated in order of ah->esp->ah->original packet, a=
-s you said
-par->thoff is set at esp, that's why netfilter esp has a unified implem=
-entation
-in net/netfilter/xt_esp.c, because it's always the last parse header ne=
-tfilter
-can reach.
-
-The same rule apply with IPcomp, for example,
-(1) ah->ipcomp->original packet
-          ^par->thoff
-(2) ipcomp->ah->original packet
-       ^par->thoff
-
-Both cases (1) and (2) par->thoff can only point into IPcomp header, so=
- in such
-circumstance, a unified implementation for both IPv4/6 is feasible, and=
- I have
-tested (2) in such implementation, it works anyway.
-
-IMO, a unified implementation suggested by you previous is ok for this =
-round review.
-
-
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I guess that means the same, it goes into the ipsec-next tree :)
