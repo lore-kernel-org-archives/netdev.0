@@ -1,63 +1,98 @@
-From: tingwei liu <tingw.liu@gmail.com>
-Subject: Re: [PATCH] drivers/net: Fix potential incorrect call for udelay()
-Date: Tue, 24 Dec 2013 11:22:36 +0800
-Message-ID: <CA+qZnSSebv-tM+nHEcUAqz4iE9ur7yZ6srQMpzi1pgAvYfFubw@mail.gmail.com>
-References: <1387791224-29320-1-git-send-email-huawei.libin@huawei.com>
+From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Subject: Re: Re: [PATCH 04/10] net: stmmac: sunxi platfrom
+ extensions for GMAC in Allwinner A20 SoC's
+Date: Tue, 24 Dec 2013 11:27:45 +0800
+Message-ID: <CAGb2v64Q1PSMw_nULBHMR5eOC44hWBPewchxE_4sO+4XN8_sDA@mail.gmail.com>
+References: <1386350983-13281-1-git-send-email-wens@csie.org>
+ <1386350983-13281-5-git-send-email-wens@csie.org> <52A5A52C.50605@st.com>
+ <CAGb2v67WiCaMpJEzA_X6o7uOu6i3w3FCEz7=N5HY0amQb01SZA@mail.gmail.com>
+ <52A72C6D.60100@st.com> <CAGb2v64qQvqJSicA6MTAxeh1sGjWY=Pk=vDq=9J3pTQW+wkXrA@mail.gmail.com>
+ <52A87A74.8040807@st.com> <20131212090415.GQ3651@lukather>
+ <CAGb2v655_83b76PTmgkDmNGCADWwTjTwW13sOgM5HFmCVkeu=w@mail.gmail.com> <20131213103822.GX3651@lukather>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: davem@davemloft.net, hsweeten@visionengravers.com,
-	gregkh@linuxfoundation.org, tedheadster@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dingtianhong@huawei.com
-To: Libin <huawei.libin@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1387791224-29320-1-git-send-email-huawei.libin@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Srinivas KANDAGATLA <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>, Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
+	devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBCMILY6JWQBBBR764OKQKGQEOW7RDKY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <20131213103822.GX3651@lukather>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi>
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 23, 2013 at 5:33 PM, Libin <huawei.libin@huawei.com> wrote:
->
-> From: Li Bin <huawei.libin@huawei.com>
->
-> The variable delay_time as a module parameter can be set a value
-> exceeding the limit of the udelay function. This patch checks the
-> delay_time value to select mdelay() or udelay().
->
-> Signed-off-by: Li Bin <huawei.libin@huawei.com>
-> ---
->  drivers/net/ethernet/8390/pcnet_cs.c | 8 ++++++--
->  1 file changed, 6 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/8390/pcnet_cs.c b/drivers/net/ethernet/8390/pcnet_cs.c
-> index 46c5aad..29fe157 100644
-> --- a/drivers/net/ethernet/8390/pcnet_cs.c
-> +++ b/drivers/net/ethernet/8390/pcnet_cs.c
-> @@ -1284,8 +1284,12 @@ static void dma_block_output(struct net_device *dev, int count,
->         }
->
->      outb_p(ENISR_RDC, nic_base + EN0_ISR);     /* Ack intr. */
-> -    if (info->flags & DELAY_OUTPUT)
-> -       udelay((long)delay_time);
-> +    if (info->flags & DELAY_OUTPUT) {
-> +               if (delay_time >= 1000)
-> +                       mdelay((long)delay_time/1000);
+Hi,
 
-Indeed use of mdelay is discouraged.
-I prefer to limit delay_time less than 1000.
+On Fri, Dec 13, 2013 at 6:38 PM, Maxime Ripard
+<maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org> wrote:
+> On Thu, Dec 12, 2013 at 06:31:43PM +0800, Chen-Yu Tsai wrote:
+>> Hi,
+>>
+>> On Thu, Dec 12, 2013 at 5:04 PM, Maxime Ripard
+>> <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org> wrote:
+>> > Hi,
+>> >
+>> > On Wed, Dec 11, 2013 at 02:45:08PM +0000, srinivas kandagatla wrote:
+>> >> >>> 1. .tx_coe
+>> >> >>>    This is not exported in the DT bindings.
+>> >> >>>    Looking at stmmac code, not setting this seems to disable all
+>> >> >>>    checksum offloading.
+>> >> >>
+>> >> >> Why cant this go via DT as well?
+>> >> >
+>> >> > If you and Giuseppe are OK with this, why not?
+>> >> Am Ok with it.
+>> >
+>> > Please note that I'm opposed to this until someone explain why putting
+>> > it in the DT is relevant (and not just convenient).
+>>
+>> Checksum offloading is an optional feature[1], implemented starting
+>> from version 3.20a. It is not tied to a specific IP version. As such,
+>> using a "snps,dwmac-<version>" compatible isn't a good fit here.
+>
+> No, but we're not in such case. Since we have a compatible of our own,
+> we can derive it from that. Putting a property in the DT would only be
+> redundant.
+>
+>> stmmac does auto-detection for optional features on MAC version > 3.50a.
+>> This is what Srinivas was referring to.
+>>
+>> Unfortunately, our MAC is < 3.50a. No auto-detection. We could add a
+>> "snps,dwmac-tx-coe" compatible for this, or the seperate DT property.
+>>
+>> The other way would be to pass the flags in the initial .data with the
+>> SoC specific compatible. Other SoCs with the same feature won't be
+>> able to reuse the same compatible though.
+>
+> Which is already pretty much the case, since we have to deal with
+> Allwinner specific code and features.
+>
+> A new compatible is cheap to maintain, a new property is not.
 
-Tingwei
->
-> +               else
-> +                       udelay(delay_time);
-> +       }
->      ei_status.dmaing &= ~0x01;
->  }
->
-> --
-> 1.8.2.2
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Srinivas,
+
+Let's keep platform data as of_data, so SoC compatibles can pass
+hardware feature flags for cores that don't support auto-detection.
+
+We can adjust the callbacks as you suggested, and I added a .free
+to complement .setup. Driver private data and platform data are
+off limits to the callbacks. My version of the callbacks:
+
+        void (*fix_mac_speed)(void *priv, unsigned int speed);
+        void (*bus_setup)(void __iomem *ioaddr);
+        void *(*setup)(struct platform_device *pdev);
+        void (*free)(struct platform_device *pdev, void *priv);
+        int (*init)(struct platform_device *pdev, void *priv);
+        void (*exit)(struct platform_device *pdev, void *priv);
+
+
+Cheers,
+
+ChenYu
