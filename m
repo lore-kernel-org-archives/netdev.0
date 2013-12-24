@@ -1,74 +1,47 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: bridge vlan_filtering don't work with tap devices (qemu guests)
-Date: Tue, 24 Dec 2013 21:45:05 +0900
-Message-ID: <1387889105.3575.3.camel@ubuntu-vm-makita>
-References: <717e26b0-fda3-4c97-81a6-45e67462cb6b@mailpro>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v4 0/2] sctp: Consolidate and ratelimit deprecation
+ warnings
+Date: Tue, 24 Dec 2013 08:37:56 -0500
+Message-ID: <20131224133756.GA10477@hmsreliant.think-freely.org>
+References: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
+ <1387805383-21500-1-git-send-email-nhorman@tuxdriver.com>
+ <1387839316.1635.8.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Alexandre DERUMIER <aderumier@odiso.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:46551 "EHLO
-	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751214Ab3LXMpM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 07:45:12 -0500
-In-Reply-To: <717e26b0-fda3-4c97-81a6-45e67462cb6b@mailpro>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1387839316.1635.8.camel@bwh-desktop.uk.level5networks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-12-23 at 17:02 +0100, Alexandre DERUMIER wrote:
-> Hello,
+On Mon, Dec 23, 2013 at 10:55:16PM +0000, Ben Hutchings wrote:
+> On Mon, 2013-12-23 at 08:29 -0500, Neil Horman wrote:
+> > The SCTP protocol has several deprecation warnings in its setsockopt path that
+> > can be triggered by unprivlidged users.  Since these are not ratelimited, we can
+> > spam the logs quite easily here.  Since these are all deprecation warnings, and
+> > that type of warning isn't uncommon in the rest of the kernel, lets make a
+> > common pr_warn_deprecated macro to produce somewhat generalized ratelimited
+> > deprecation warnings easily
+> [...]
 > 
-> I'm trying to use vlan_filtering on bridge.
+> No objection to these changes, but I think deprecation warnings should
+> log at least the command name and maybe also the pid of the caller.
 > 
-> setup is : 2 qemu virtual machines (tap0 and tap1), plugged in a bridge br0.
->            virtual machines don't tag packets.
-> 
-> 
-> qemuvm1 eth0 --tap0----->br0<-------tap1---qemuvm2 eth0.
-> 
-> 
-> with vlan_filtering disable, both vms can ping together.
-> 
-> 
-> If I enabled filtering
-> 
-> #echo 1 > /sys/class/net/br0/bridge/vlan_filtering
-> 
-> Both vms cannot ping together anymore.
-> 
-> So, I have tried to put vlan on tap interfaces with
-> 
-> #bridge vlan add dev tap0 vid 10
-> #bridge vlan add dev tap1 vid 10
+I didn't change the contents of the strings in this patch, I just wanted to
+avoid log spamming, but I think adding caller pid/name is a good idea.  I'll do
+that in a followon patch after the holidays
+Neil
 
-If you want to send untagged frames, please try to make configuration
-like this:
-# bridge vlan add dev tap0 vid 10 pvid untagged
-# bridge vlan add dev tap1 vid 10 pvid untagged
-
-Thanks,
-Toshiaki Makita
-
-> #bridge vlan show
-> port	vlan ids
-> br0	None
-> tap0	10
-> tap1    10
+> Ben.
+> 
+> -- 
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
 > 
 > 
-> 
-> But, it doesn't work.
-> 
-> tcpdump on bridge (tcpdump -i br0 -e -n) or in destination qemu (tcpdump -i eth0 -e -n) , don't see any packet
-> 
-> any idea ? 
-> 
-> Regards,
-> 
-> Alexandre Derumier
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
