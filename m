@@ -1,30 +1,47 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next 1/3] net_sched: act: Dont increment refcnt on replace
-Date: Mon, 23 Dec 2013 16:41:14 -0800
-Message-ID: <CAM_iQpX2QqJx1eg-P5G5WQq8b-CwwJS0t4Mqb67dbFb_RuZtyA@mail.gmail.com>
-References: <1387803733-19709-1-git-send-email-jhs@mojatatu.com>
-	<1387803733-19709-2-git-send-email-jhs@mojatatu.com>
+Subject: Re: [RFC Patch net-next] net_sched: make classifying lockless on ingress
+Date: Mon, 23 Dec 2013 16:56:14 -0800
+Message-ID: <CAM_iQpWAdsT=HX6AdK8oqPOFwzpBvPN__335Fuv3zEeS4HEWHQ@mail.gmail.com>
+References: <1387582105-1789-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1387583344.19078.475.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAM_iQpWLTL-PmiNz8k7Kv9KcHsFTennATKgbwQWXX2FN8vdxjg@mail.gmail.com>
+	<1387584529.19078.482.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAM_iQpXYpKE6zAAjFjzAW5KN=u7+C1gapz-bvkmVNFsNi+Jqmw@mail.gmail.com>
+	<52B4FDD1.10608@intel.com>
+	<52B61222.8080000@mojatatu.com>
+	<52B61FA3.9050904@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+	"David S. Miller" <davem@davemloft.net>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:43730 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932864Ab3LXAlP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 19:41:15 -0500
-Received: by mail-ob0-f169.google.com with SMTP id wm4so6197814obc.0
-        for <netdev@vger.kernel.org>; Mon, 23 Dec 2013 16:41:14 -0800 (PST)
-In-Reply-To: <1387803733-19709-2-git-send-email-jhs@mojatatu.com>
+Received: from mail-oa0-f42.google.com ([209.85.219.42]:56877 "EHLO
+	mail-oa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753093Ab3LXA4O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 19:56:14 -0500
+Received: by mail-oa0-f42.google.com with SMTP id i4so6355287oah.15
+        for <netdev@vger.kernel.org>; Mon, 23 Dec 2013 16:56:14 -0800 (PST)
+In-Reply-To: <52B61FA3.9050904@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 23, 2013 at 5:02 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->  This is a bug fix. The existing code tries to kill many
->  birds with one stone: Handling binding of actions to
->  filters, new actions and replacing of action
->  attributes. A simple test case to illustrate:
+On Sat, Dec 21, 2013 at 3:09 PM, John Fastabend
+<john.fastabend@gmail.com> wrote:
+>
+> I solved this by making them per CPU and synchronizing when I hit
+> an operation that required sync'ing them. Going forward if folks
+> have the time to write SMP aware qdisc's that work with eventually
+> consistent counters that would be great.
+>
 
-Therefore should go to net rather than net-next?
+Interesting, then you have to copy the same filters and actions
+to all per-cpu-ingress-qdisc, right? Also you need to handle
+CPU online/offline event.
+
+The number of CPU's grows fast today, so the total size
+of such ingress qdisc would be huge if I install lots
+of filters and action.
