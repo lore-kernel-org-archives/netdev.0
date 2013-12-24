@@ -1,46 +1,37 @@
 From: Chen Weilong <chenweilong@huawei.com>
-Subject: [resend patch ipsec-next v2 4/5] xfrm: fix checkpatch error
-Date: Tue, 24 Dec 2013 09:43:49 +0800
-Message-ID: <1387849430-17860-5-git-send-email-chenweilong@huawei.com>
-References: <1387849430-17860-1-git-send-email-chenweilong@huawei.com>
+Subject: [resend patch ipsec-next v2 0/5] fix checkpatch errors
+Date: Tue, 24 Dec 2013 09:43:45 +0800
+Message-ID: <1387849430-17860-1-git-send-email-chenweilong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>
 To: <steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>,
 	<davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:37787 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:37786 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758001Ab3LXBoH (ORCPT
+	with ESMTP id S1757715Ab3LXBoH (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 23 Dec 2013 20:44:07 -0500
-In-Reply-To: <1387849430-17860-1-git-send-email-chenweilong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Weilong Chen <chenweilong@huawei.com>
 
-Fix that "else should follow close brace '}'".
+fix checkpatch errors.
 
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
----
- net/xfrm/xfrm_policy.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Weilong Chen (5):
+  xfrm: checkpatch errors with space
+  xfrm: checkpatch errors with foo * bar
+  xfrm: checkpatch erros with space prohibited
+  xfrm: fix checkpatch error
+  xfrm: checkpatch erros with inline keyword position
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index fbc72b4..b5c315e 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1316,9 +1316,9 @@ xfrm_tmpl_resolve_one(struct xfrm_policy *policy, const struct flowi *fl,
- 			error = (x->km.state == XFRM_STATE_ERROR ?
- 				 -EINVAL : -EAGAIN);
- 			xfrm_state_put(x);
--		}
--		else if (error == -ESRCH)
-+		} else if (error == -ESRCH) {
- 			error = -EAGAIN;
-+		}
- 
- 		if (!tmpl->optional)
- 			goto fail;
+ net/xfrm/xfrm_input.c  |  6 +++---
+ net/xfrm/xfrm_policy.c | 38 +++++++++++++++++++-------------------
+ net/xfrm/xfrm_proc.c   |  2 +-
+ net/xfrm/xfrm_state.c  | 18 +++++++++---------
+ net/xfrm/xfrm_user.c   |  6 +++---
+ 5 files changed, 35 insertions(+), 35 deletions(-)
+
 -- 
 1.7.12
