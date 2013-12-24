@@ -1,67 +1,100 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC Patch net-next] net_sched: make classifying lockless on
- ingress
-Date: Mon, 23 Dec 2013 22:08:49 -0800
-Message-ID: <52B924F1.9020201@gmail.com>
-References: <1387582105-1789-1-git-send-email-xiyou.wangcong@gmail.com> <1387583344.19078.475.camel@edumazet-glaptop2.roam.corp.google.com> <CAM_iQpWLTL-PmiNz8k7Kv9KcHsFTennATKgbwQWXX2FN8vdxjg@mail.gmail.com> <1387584529.19078.482.camel@edumazet-glaptop2.roam.corp.google.com> <CAM_iQpXYpKE6zAAjFjzAW5KN=u7+C1gapz-bvkmVNFsNi+Jqmw@mail.gmail.com> <52B4FDD1.10608@intel.com> <52B61222.8080000@mojatatu.com> <52B61FA3.9050904@gmail.com> <CAM_iQpWAdsT=HX6AdK8oqPOFwzpBvPN__335Fuv3zEeS4HEWHQ@mail.gmail.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: Re: [PATCH net-next 0/2] netfilter: IPv4/v6 IPcomp match support
+Date: Tue, 24 Dec 2013 14:19:57 +0800
+Message-ID: <52B9278D.4020905@windriver.com>
+References: <1386937082-30412-1-git-send-email-fan.du@windriver.com> <20131217130555.GA8874@localhost> <52B26841.40800@windriver.com> <20131220090419.GA5661@localhost> <52B40C01.7070406@windriver.com> <20131223121337.GA5373@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f49.google.com ([209.85.219.49]:51497 "EHLO
-	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750914Ab3LXGJN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 01:09:13 -0500
-Received: by mail-oa0-f49.google.com with SMTP id i4so6450039oah.8
-        for <netdev@vger.kernel.org>; Mon, 23 Dec 2013 22:09:13 -0800 (PST)
-In-Reply-To: <CAM_iQpWAdsT=HX6AdK8oqPOFwzpBvPN__335Fuv3zEeS4HEWHQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>, <steffen.klassert@secunet.com>,
+	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20131223121337.GA5373@localhost>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/23/2013 04:56 PM, Cong Wang wrote:
-> On Sat, Dec 21, 2013 at 3:09 PM, John Fastabend
-> <john.fastabend@gmail.com> wrote:
+
+
+On 2013=E5=B9=B412=E6=9C=8823=E6=97=A5 20:13, Pablo Neira Ayuso wrote:
+> Hi,
+>
+> On Fri, Dec 20, 2013 at 05:21:05PM +0800, Fan Du wrote:
+> [...]
+>>> AH is not the last header, so we still have to use ipv6_find_hdr() =
+to
+>>> find the good header instead of par->thoff. Note that the ip6_table=
+s
+>>> sets par->thoff to the last IPv6 extension header.
 >>
->> I solved this by making them per CPU and synchronizing when I hit
->> an operation that required sync'ing them. Going forward if folks
->> have the time to write SMP aware qdisc's that work with eventually
->> consistent counters that would be great.
+>> I'm quite new to the internal of netfiler, especially about this par=
+t.
+>> I will take a look at the code later.
 >>
+>>> This rises some concerns regarding your ipcomp, I think that if you
+>>> use this with ah and esp, the ordering of the headers is
+>>> ah+ipcomp+esp, right?
+>>
+>> This depends on the user land configuration of encapsulation order.
+>> It can be one of the three types only(ah, esp, ipcomp), the most com=
+monly
+>> used is ah(outer)+esp(inner).
+>>
+>> I barely see ipcomp used in production, but I remember RFC says ipco=
+mp
+>> should be done first before esp, because after encryption in esp, th=
+e data
+>> is polluted, i.e., not suitable for compressed anymore(I'm not sure =
+the
+>> details theory behind this statement.)
 >
-> Interesting, then you have to copy the same filters and actions
-> to all per-cpu-ingress-qdisc, right? Also you need to handle
-> CPU online/offline event.
->
-> The number of CPU's grows fast today, so the total size
-> of such ingress qdisc would be huge if I install lots
-> of filters and action.
+> In that case we have to use ipv6_find_hdr(..., IPPROTO_IPCOMP, ...),
+> since par->thoff will point to the last header which is esp. After
+> this change, the ipcomp ipv6 match will look very similar to what you
+> have in ah_mt6(...) in net/ipv6/netfilter/ip6t_ah.c. Please, rework
+> that in your ipcomp match patch and resend. Thanks.
 >
 
-In this case I was specifically talking about statistics so the
-bstats and qstats.
+Hi Pablo
 
-As long as the qdisc's do not require global state this works well
-enough. However as Jamal keeps pointing out the problem is any qdisc
-which requires global state requires locking (I paraphrase but I think
-replicate the spirit correctly) and this doesn't work well with many
-CPUs. So you either replicate the qdiscs one per queue like we do in
-the mq and mqprio case effectively removing any global state or you
-develop qdiscs that don't require global state or at least work with
-eventually consistent data to avoid the constant syncing of data.
+I think we don't need to rework this patch set back to v1 by using ipv6=
+_find_hdr
+for IPv6 part, because IPcomp shared the same characteristic as esp, th=
+at's hiding
+upper layer protocol.
 
-I think though a qdisc per nic queue is really not as bad as you think.
-For example we do this on the tx side and it works OK. Note its per
-RX queue and not per CPU.
+=46or a packet encapsulated in order of ah->esp->ah->original packet, a=
+s you said
+par->thoff is set at esp, that's why netfilter esp has a unified implem=
+entation
+in net/netfilter/xt_esp.c, because it's always the last parse header ne=
+tfilter
+can reach.
 
-.John
+The same rule apply with IPcomp, for example,
+(1) ah->ipcomp->original packet
+          ^par->thoff
+(2) ipcomp->ah->original packet
+       ^par->thoff
+
+Both cases (1) and (2) par->thoff can only point into IPcomp header, so=
+ in such
+circumstance, a unified implementation for both IPv4/6 is feasible, and=
+ I have
+tested (2) in such implementation, it works anyway.
+
+IMO, a unified implementation suggested by you previous is ok for this =
+round review.
 
 
+--=20
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
 
--- 
-John Fastabend         Intel Corporation
+--fan
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
