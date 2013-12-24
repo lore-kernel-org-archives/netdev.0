@@ -1,70 +1,77 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2 01/20] net: slight optimization of addr compare for
- some modules
-Date: Tue, 24 Dec 2013 07:05:17 -0800
-Message-ID: <1387897517.2259.41.camel@joe-AO722>
-References: <52B96F9B.4020806@huawei.com>
-	 <1387894944.2259.31.camel@joe-AO722> <52B99BB9.9030201@gmail.com>
+From: Ding Tianhong <dthxman@gmail.com>
+Subject: Re: [PATCH v2 01/20] net: slight optimization of addr
+ compare for some modules
+Date: Tue, 24 Dec 2013 23:22:40 +0800
+Message-ID: <52B9A6C0.6040303@gmail.com>
+References: <52B96F9B.4020806@huawei.com>	 <1387894944.2259.31.camel@joe-AO722>
+	<52B99BB9.9030201@gmail.com> <1387897517.2259.41.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: e1000-devel@lists.sourceforge.net, Netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	e1000-devel@lists.sourceforge.net
-To: Ding Tianhong <dthxman@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0149.hostedemail.com ([216.40.44.149]:59506 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752301Ab3LXPFV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 10:05:21 -0500
-In-Reply-To: <52B99BB9.9030201@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Ding Tianhong <dingtianhong@huawei.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1387897517.2259.41.camel@joe-AO722>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-12-24 at 22:35 +0800, Ding Tianhong wrote:
-> =E4=BA=8E 2013/12/24 22:22, Joe Perches =E5=86=99=E9=81=93:
-> > On Tue, 2013-12-24 at 19:27 +0800, Ding Tianhong wrote:
-> >> Use possibly more efficient ether_addr_equal_unaligned
-> >> and ether_addr_equal to instead of memcmp.
-> >=20
-> > A negative of adding so many different drivers in a single
-> > patch is that you miss sending patches to the named maintainers.
-> >=20
-> > Most of these below have separate individual maintainers.
->
-> you mean that I should send below by separate patch?
-
-I think yes,
-
-You can send them to netdev, but cc'ing the named
-maintainers is a polite thing to do.
-
-Sending individual patches can make it easier for
-maintainers to review the bits that are specific
-to their projects without having to wade through
-other changes that aren't relevant to them.
-
-> It seemed that I=20
-> misunderstood, I use the ./script/getmainter and found the only maint=
-ainer
-> is David, and others are support, so maybe I was wrong, but it really=
- a big
-> patchset, could I send them by seperate patchset? I think it could be=
- more
-> clearly.
-
-=46rom the MAINTAINERS file:
-	S: Status, one of the following:
-	   Supported:	Someone is actually paid to look after this.
-	   Maintained:	Someone actually looks after it.
-	   Odd Fixes:	It has a maintainer but they don't have time to do
-			much other than throw the odd patch in. See below..
-	   Orphan:	No current maintainer [but maybe you could take the
-			role as you write your new code].
-	   Obsolete:	Old code. Something tagged obsolete generally means
-			it has been replaced by a better system and you
-			should be using that.
-
-So "supported" is "higher/better" than "maintained".
+5LqOIDIwMTMvMTIvMjQgMjM6MDUsIEpvZSBQZXJjaGVzIOWGmemBkzoKPiBPbiBUdWUsIDIwMTMt
+MTItMjQgYXQgMjI6MzUgKzA4MDAsIERpbmcgVGlhbmhvbmcgd3JvdGU6Cj4+IOS6jiAyMDEzLzEy
+LzI0IDIyOjIyLCBKb2UgUGVyY2hlcyDlhpnpgZM6Cj4+PiBPbiBUdWUsIDIwMTMtMTItMjQgYXQg
+MTk6MjcgKzA4MDAsIERpbmcgVGlhbmhvbmcgd3JvdGU6Cj4+Pj4gVXNlIHBvc3NpYmx5IG1vcmUg
+ZWZmaWNpZW50IGV0aGVyX2FkZHJfZXF1YWxfdW5hbGlnbmVkCj4+Pj4gYW5kIGV0aGVyX2FkZHJf
+ZXF1YWwgdG8gaW5zdGVhZCBvZiBtZW1jbXAuCj4+Pgo+Pj4gQSBuZWdhdGl2ZSBvZiBhZGRpbmcg
+c28gbWFueSBkaWZmZXJlbnQgZHJpdmVycyBpbiBhIHNpbmdsZQo+Pj4gcGF0Y2ggaXMgdGhhdCB5
+b3UgbWlzcyBzZW5kaW5nIHBhdGNoZXMgdG8gdGhlIG5hbWVkIG1haW50YWluZXJzLgo+Pj4KPj4+
+IE1vc3Qgb2YgdGhlc2UgYmVsb3cgaGF2ZSBzZXBhcmF0ZSBpbmRpdmlkdWFsIG1haW50YWluZXJz
+Lgo+Pgo+PiB5b3UgbWVhbiB0aGF0IEkgc2hvdWxkIHNlbmQgYmVsb3cgYnkgc2VwYXJhdGUgcGF0
+Y2g/Cj4gCj4gSSB0aGluayB5ZXMsCj4gCj4gWW91IGNhbiBzZW5kIHRoZW0gdG8gbmV0ZGV2LCBi
+dXQgY2MnaW5nIHRoZSBuYW1lZAo+IG1haW50YWluZXJzIGlzIGEgcG9saXRlIHRoaW5nIHRvIGRv
+Lgo+IAo+IFNlbmRpbmcgaW5kaXZpZHVhbCBwYXRjaGVzIGNhbiBtYWtlIGl0IGVhc2llciBmb3IK
+PiBtYWludGFpbmVycyB0byByZXZpZXcgdGhlIGJpdHMgdGhhdCBhcmUgc3BlY2lmaWMKPiB0byB0
+aGVpciBwcm9qZWN0cyB3aXRob3V0IGhhdmluZyB0byB3YWRlIHRocm91Z2gKPiBvdGhlciBjaGFu
+Z2VzIHRoYXQgYXJlbid0IHJlbGV2YW50IHRvIHRoZW0uCj4gCgpPSywgSSB3aWxsIHJlYnVpbGQg
+dGhlIDAxLzIwIHBhdGNoIGFuZCBtYWtlIGl0IHRvIHNlcGVyYXRlIHBhdGNoZXMgZm9sbG93IHlv
+dXIgb3Bpbmlvbi4KYW5kIHRoZSByZXN0IG9mIHRoZSBwYXRjaGVzIEkgdGhpbmsgaXMgZml0IGFu
+ZCBubyBuZWVkIHRvIG1vZGlmeSwgaWYgeW91IGFncmVlIHdpdGggbWUsCkkgd2lsbCBzZW5kIHRo
+ZSByZXN0IDE5IHBhdGNoIGFzIHRoZSBmaXJzdCBzdGVwLCBhbmQgdGhlbiBzZXBlcmF0ZSB0aGlz
+IHBhdGNoIGFzIHRoZSBzZWNvbmQKc3RlcCwgc2VuZCB0aGVtIGluIG5ldC1uZXh0LgoKUmVnYXJk
+cwpEaW5nCgo+PiBJdCBzZWVtZWQgdGhhdCBJIAo+PiBtaXN1bmRlcnN0b29kLCBJIHVzZSB0aGUg
+Li9zY3JpcHQvZ2V0bWFpbnRlciBhbmQgZm91bmQgdGhlIG9ubHkgbWFpbnRhaW5lcgo+PiBpcyBE
+YXZpZCwgYW5kIG90aGVycyBhcmUgc3VwcG9ydCwgc28gbWF5YmUgSSB3YXMgd3JvbmcsIGJ1dCBp
+dCByZWFsbHkgYSBiaWcKPj4gcGF0Y2hzZXQsIGNvdWxkIEkgc2VuZCB0aGVtIGJ5IHNlcGVyYXRl
+IHBhdGNoc2V0PyBJIHRoaW5rIGl0IGNvdWxkIGJlIG1vcmUKPj4gY2xlYXJseS4KPiAKPj5Gcm9t
+IHRoZSBNQUlOVEFJTkVSUyBmaWxlOgo+IAlTOiBTdGF0dXMsIG9uZSBvZiB0aGUgZm9sbG93aW5n
+Ogo+IAkgICBTdXBwb3J0ZWQ6CVNvbWVvbmUgaXMgYWN0dWFsbHkgcGFpZCB0byBsb29rIGFmdGVy
+IHRoaXMuCj4gCSAgIE1haW50YWluZWQ6CVNvbWVvbmUgYWN0dWFsbHkgbG9va3MgYWZ0ZXIgaXQu
+Cj4gCSAgIE9kZCBGaXhlczoJSXQgaGFzIGEgbWFpbnRhaW5lciBidXQgdGhleSBkb24ndCBoYXZl
+IHRpbWUgdG8gZG8KPiAJCQltdWNoIG90aGVyIHRoYW4gdGhyb3cgdGhlIG9kZCBwYXRjaCBpbi4g
+U2VlIGJlbG93Li4KPiAJICAgT3JwaGFuOglObyBjdXJyZW50IG1haW50YWluZXIgW2J1dCBtYXli
+ZSB5b3UgY291bGQgdGFrZSB0aGUKPiAJCQlyb2xlIGFzIHlvdSB3cml0ZSB5b3VyIG5ldyBjb2Rl
+XS4KPiAJICAgT2Jzb2xldGU6CU9sZCBjb2RlLiBTb21ldGhpbmcgdGFnZ2VkIG9ic29sZXRlIGdl
+bmVyYWxseSBtZWFucwo+IAkJCWl0IGhhcyBiZWVuIHJlcGxhY2VkIGJ5IGEgYmV0dGVyIHN5c3Rl
+bSBhbmQgeW91Cj4gCQkJc2hvdWxkIGJlIHVzaW5nIHRoYXQuCj4gCj4gU28gInN1cHBvcnRlZCIg
+aXMgImhpZ2hlci9iZXR0ZXIiIHRoYW4gIm1haW50YWluZWQiLgo+IAoKT0sKCj4gCj4gCgoKLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tClJhcGlkbHkgdHJvdWJsZXNob290IHByb2JsZW1zIGJlZm9yZSB0
+aGV5IGFmZmVjdCB5b3VyIGJ1c2luZXNzLiBNb3N0IElUIApvcmdhbml6YXRpb25zIGRvbid0IGhh
+dmUgYSBjbGVhciBwaWN0dXJlIG9mIGhvdyBhcHBsaWNhdGlvbiBwZXJmb3JtYW5jZSAKYWZmZWN0
+cyB0aGVpciByZXZlbnVlLiBXaXRoIEFwcER5bmFtaWNzLCB5b3UgZ2V0IDEwMCUgdmlzaWJpbGl0
+eSBpbnRvIHlvdXIgCkphdmEsLk5FVCwgJiBQSFAgYXBwbGljYXRpb24uIFN0YXJ0IHlvdXIgMTUt
+ZGF5IEZSRUUgVFJJQUwgb2YgQXBwRHluYW1pY3MgUHJvIQpodHRwOi8vcHViYWRzLmcuZG91Ymxl
+Y2xpY2submV0L2dhbXBhZC9jbGs/aWQ9ODQzNDk4MzEmaXU9LzQxNDAvb3N0Zy5jbGt0cmsKX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KRTEwMDAtZGV2ZWwg
+bWFpbGluZyBsaXN0CkUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xp
+c3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApUbyBsZWFybiBt
+b3JlIGFib3V0IEludGVsJiMxNzQ7IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29tbXVuaXRpZXMu
+aW50ZWwuY29tL2NvbW11bml0eS93aXJlZAo=
