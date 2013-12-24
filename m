@@ -1,83 +1,52 @@
-From: Salam Noureddine <noureddine@aristanetworks.com>
-Subject: [PATCH 1/1] ipv4: arp: update neighbour address when a gratuitous arp is received and arp_accept is set
-Date: Tue, 24 Dec 2013 14:17:02 -0800
-Message-ID: <1387923422-4247-1-git-send-email-noureddine@aristanetworks.com>
-Cc: Salam Noureddine <noureddine@aristanetworks.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [stable] netfilter: ipset: Check and reject crazy /0 input
+ parameters
+Date: Tue, 24 Dec 2013 23:42:53 +0100 (CET)
+Message-ID: <alpine.DEB.2.10.1312242342240.22624@blackhole.kfki.hu>
+References: <20131222015933.GA30757@nitrogen.neutroncom.local> <1387854004.2783.38.camel@deadeye.wl.decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	Neutron Soutmun <neo.neutron@gmail.com>,
+	732689@bugs.debian.org, netdev <netdev@vger.kernel.org>,
+	stable@vger.kerne.org
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:63269 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750956Ab3LXWRc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 17:17:32 -0500
-Received: by mail-pd0-f181.google.com with SMTP id p10so6645515pdj.40
-        for <netdev@vger.kernel.org>; Tue, 24 Dec 2013 14:17:30 -0800 (PST)
+Received: from smtp1.kfki.hu ([148.6.0.26]:46289 "EHLO smtp1.kfki.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751007Ab3LXWm6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Dec 2013 17:42:58 -0500
+In-Reply-To: <1387854004.2783.38.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Gratuitous arp packets are useful in switchover scenarios to update
-client arp tables as quickly as possible. Currently, the mac address
-of a neighbour is only updated after a locktime period has elapsed
-since the last update. In most use cases such delays are unacceptable
-for network admins. Moreover, the "updated" field of the neighbour
-stucture doesn't record the last time the address of a neighbour
-changed but records any change that happens to the neighbour. This is
-clearly a bug since locktime uses that field as meaning "addr_updated".
-With this observation, I was able to perpetuate a stale address by
-sending a stream of gratuitous arp packets spaced less than locktime
-apart. With this change the address is updated when a gratuitous arp
-is received and the arp_accept sysctl is set.
+On Tue, 24 Dec 2013, Ben Hutchings wrote:
 
-Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
----
- net/ipv4/arp.c |   15 ++++++++++-----
- 1 files changed, 10 insertions(+), 5 deletions(-)
+> This fix went into Linux 3.7:
+> 
+> commit b9fed748185a96b7cfe74afac4bd228e8af16f01
+> Author: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+> Date:   Tue Sep 4 17:45:59 2012 +0200
+> 
+>     netfilter: ipset: Check and reject crazy /0 input parameters
+>     
+>     bitmap:ip and bitmap:ip,mac type did not reject such a crazy range
+>     when created and using such a set results in a kernel crash.
+>     The hash types just silently ignored such parameters.
+>     
+>     Reject invalid /0 input parameters explicitely.
+>     
+>     Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+> 
+> Should it also go into stable 3.x.y updates?  I checked that it applies
+> and builds cleanly on top of 3.2.53.
 
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index b67cf80..8ec01ab 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -732,6 +732,7 @@ static int arp_process(struct sk_buff *skb)
- 	int addr_type;
- 	struct neighbour *n;
- 	struct net *net = dev_net(dev);
-+	bool is_garp = false;
- 
- 	/* arp_rcv below verifies the ARP header and verifies the device
- 	 * is ARP'able.
-@@ -898,10 +899,12 @@ static int arp_process(struct sk_buff *skb)
- 		   It is possible, that this option should be enabled for some
- 		   devices (strip is candidate)
- 		 */
-+		is_garp = arp->ar_op == htons(ARPOP_REQUEST) && tip == sip &&
-+			  inet_addr_type(net, sip) == RTN_UNICAST;
-+
- 		if (n == NULL &&
--		    (arp->ar_op == htons(ARPOP_REPLY) ||
--		     (arp->ar_op == htons(ARPOP_REQUEST) && tip == sip)) &&
--		    inet_addr_type(net, sip) == RTN_UNICAST)
-+		    ((arp->ar_op == htons(ARPOP_REPLY)  &&
-+		      inet_addr_type(net, sip) == RTN_UNICAST) || is_garp))
- 			n = __neigh_lookup(&arp_tbl, &sip, dev, 1);
- 	}
- 
-@@ -914,8 +917,10 @@ static int arp_process(struct sk_buff *skb)
- 		   agents are active. Taking the first reply prevents
- 		   arp trashing and chooses the fastest router.
- 		 */
--		override = time_after(jiffies, n->updated +
--					       NEIGH_VAR(n->parms, LOCKTIME));
-+		override = time_after(jiffies,
-+				      n->updated +
-+				      NEIGH_VAR(n->parms, LOCKTIME)) ||
-+			   is_garp;
- 
- 		/* Broadcast replies and request packets
- 		   do not assert neighbour reachability.
--- 
-1.7.4.4
+Yes, it should go into the stable updates too.
+
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
