@@ -1,49 +1,69 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v2 10/20] infiniband: slight optimization of addr compare
-Date: Tue, 24 Dec 2013 19:28:34 +0800
-Message-ID: <52B96FE2.807@huawei.com>
+Subject: [PATCH v2 14/20] media: dvb_core: slight optimization of addr compare
+Date: Tue, 24 Dec 2013 19:29:03 +0800
+Message-ID: <52B96FFF.3010708@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Faisal Latif <faisal.latif@intel.com>,
-	<linux-rdma@vger.kernel.org>,
+To: Mauro Carvalho Chehab <m.chehab@samsung.com>,
+	<linux-media@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	Netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:28051 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752600Ab3LXL30 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 06:29:26 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use the possibly more efficient ether_addr_equal
-to instead of memcmp.
+Use possibly more efficient ether_addr_equal
+instead of memcmp.
 
-Cc: Roland Dreier <roland@kernel.org>
-Cc: Sean Hefty <sean.hefty@intel.com>
-Cc: Hal Rosenstock <hal.rosenstock@gmail.com>
-Cc: Faisal Latif <faisal.latif@intel.com>
-Cc: linux-rdma@vger.kernel.org
+Cc: Mauro Carvalho Chehab <m.chehab@samsung.com>
+Cc: linux-media@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/infiniband/hw/nes/nes_cm.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/media/dvb-core/dvb_net.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/infiniband/hw/nes/nes_cm.c b/drivers/infiniband/hw/nes/nes_cm.c
-index 6b29249..9c9f2f5 100644
---- a/drivers/infiniband/hw/nes/nes_cm.c
-+++ b/drivers/infiniband/hw/nes/nes_cm.c
-@@ -1354,8 +1354,7 @@ static int nes_addr_resolve_neigh(struct nes_vnic *nesvnic, u32 dst_ip, int arpi
- 				  neigh->ha, ntohl(rt->rt_gateway));
+diff --git a/drivers/media/dvb-core/dvb_net.c b/drivers/media/dvb-core/dvb_net.c
+index f91c80c..3dfc33b 100644
+--- a/drivers/media/dvb-core/dvb_net.c
++++ b/drivers/media/dvb-core/dvb_net.c
+@@ -179,7 +179,7 @@ static __be16 dvb_net_eth_type_trans(struct sk_buff *skb,
+ 	eth = eth_hdr(skb);
  
- 			if (arpindex >= 0) {
--				if (!memcmp(nesadapter->arp_table[arpindex].mac_addr,
--					    neigh->ha, ETH_ALEN)) {
-+				if (ether_addr_equal(nesadapter->arp_table[arpindex].mac_addr, neigh->ha)) {
- 					/* Mac address same as in nes_arp_table */
- 					goto out;
- 				}
+ 	if (*eth->h_dest & 1) {
+-		if(memcmp(eth->h_dest,dev->broadcast, ETH_ALEN)==0)
++		if(ether_addr_equal(eth->h_dest,dev->broadcast))
+ 			skb->pkt_type=PACKET_BROADCAST;
+ 		else
+ 			skb->pkt_type=PACKET_MULTICAST;
+@@ -674,11 +674,11 @@ static void dvb_net_ule( struct net_device *dev, const u8 *buf, size_t buf_len )
+ 					if (priv->rx_mode != RX_MODE_PROMISC) {
+ 						if (priv->ule_skb->data[0] & 0x01) {
+ 							/* multicast or broadcast */
+-							if (memcmp(priv->ule_skb->data, bc_addr, ETH_ALEN)) {
++							if (!ether_addr_equal(priv->ule_skb->data, bc_addr)) {
+ 								/* multicast */
+ 								if (priv->rx_mode == RX_MODE_MULTI) {
+ 									int i;
+-									for(i = 0; i < priv->multi_num && memcmp(priv->ule_skb->data, priv->multi_macs[i], ETH_ALEN); i++)
++									for(i = 0; i < priv->multi_num && !ether_addr_equal(priv->ule_skb->data, priv->multi_macs[i]); i++)
+ 										;
+ 									if (i == priv->multi_num)
+ 										drop = 1;
+@@ -688,7 +688,7 @@ static void dvb_net_ule( struct net_device *dev, const u8 *buf, size_t buf_len )
+ 							}
+ 							/* else: broadcast */
+ 						}
+-						else if (memcmp(priv->ule_skb->data, dev->dev_addr, ETH_ALEN))
++						else if (!ether_addr_equal(priv->ule_skb->data, dev->dev_addr))
+ 							drop = 1;
+ 						/* else: destination address matches the MAC address of our receiver device */
+ 					}
 -- 
 1.8.0
