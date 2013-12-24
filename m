@@ -1,49 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv4 net-next] xfrm: Namespacify xfrm_policy_sk_bundles
-Date: Tue, 24 Dec 2013 12:54:11 -0500 (EST)
-Message-ID: <20131224.125411.922163414560760209.davem@davemloft.net>
-References: <52B8DF80.2010508@windriver.com>
-	<20131224.003125.1848179270970861998.davem@davemloft.net>
-	<52B91E21.1050907@windriver.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: 3.13-rc4: lockdep warning in network stack
+Date: Tue, 24 Dec 2013 12:55:36 -0500
+Message-ID: <CADVnQykeb8CUXxSxm5OYS2vz1XvMWz3=GObLw1ACb_P_XZ_tQg@mail.gmail.com>
+References: <52B9794C.8040506@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, xiyou.wangcong@gmail.com,
-	steffen.klassert@secunet.com, netdev@vger.kernel.org
-To: fan.du@windriver.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Arend van Spriel <arend@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37685 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752492Ab3LXRyP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 12:54:15 -0500
-In-Reply-To: <52B91E21.1050907@windriver.com>
+Received: from mail-ee0-f48.google.com ([74.125.83.48]:49881 "EHLO
+	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752329Ab3LXRzh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 12:55:37 -0500
+Received: by mail-ee0-f48.google.com with SMTP id e49so2961982eek.35
+        for <netdev@vger.kernel.org>; Tue, 24 Dec 2013 09:55:36 -0800 (PST)
+In-Reply-To: <52B9794C.8040506@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fan Du <fan.du@windriver.com>
-Date: Tue, 24 Dec 2013 13:39:45 +0800
+On Tue, Dec 24, 2013 at 7:08 AM, Arend van Spriel <arend@broadcom.com> wrote:
+> Hi David,
+>
+> Noticed this lockdep warning. As rc4 is already out for a while it may
+> already be known. It happened upon initial login, but that may have been
+> a coincidence. Attached are the dmesg output and the kernel configuration.
 
-> 
-> 
-> On 2013年12月24日 13:31, David Miller wrote:
->> From: Fan Du<fan.du@windriver.com>
->> Date: Tue, 24 Dec 2013 09:12:32 +0800
->>
->>> >  I saw this patch is marked 'Not Applicable' in patchwork.
->> It means that it doesn't go in via my tree directly, it
->> "doesn't apply".
->>
->> Instead, it goes into Steffen's IPSEC tree.
->>
-> 
-> Thanks for your explanation!!!
-> 
-> I'm not well understand the curtsy about patchwork, and one last
-> question,
-> [PATCHv4 net-next 0/8] pktgen IPsec support is tagged as 'Awaiting
-> Upstream'
-> what does that mean and do I need to take further action about this
-> patch set?
+Yes, this should be fixed in Linux 3.13-rc5 with:
 
-It means the same thing, that I expect to receive this change via
-upstream, which is Steffen's IPSEC tree.
+  e47eb5d udp: ipv4: do not use sk_dst_lock from softirq context
+
+neal
