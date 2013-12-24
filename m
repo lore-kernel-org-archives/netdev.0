@@ -1,46 +1,39 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] staging: r8712u: Set device type to wlan
-Date: Tue, 24 Dec 2013 11:22:54 -0600
-Message-ID: <1387905774-12666-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Stable <stable@vger.kernel.org>
-To: gregkh@linuxfoundation.org
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v2] nfs: fix dead code of ipv6_addr_scope
+Date: Tue, 24 Dec 2013 09:35:09 -0800
+Message-ID: <20131224173509.GA24392@kroah.com>
+References: <1387753276-27009-1-git-send-email-alex.aring@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: hannes@stressinduktion.org, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, stable@vger.kernel.org,
+	werner@almesberger.net
+To: Alexander Aring <alex.aring@gmail.com>
 Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1387753276-27009-1-git-send-email-alex.aring@gmail.com>
 Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The latest version of NetworkManager does not recognize the device as wireless
-without this change.
+On Mon, Dec 23, 2013 at 12:01:16AM +0100, Alexander Aring wrote:
+> This patch corrects the check on a linklocal address.
+> 
+> Currently this can't be work, because ipv6_addr_scope returns a int with
+> a mask of IPV6_ADDR_SCOPE_MASK (0x00f0U) and IPV6_ADDR_SCOPE_LINKLOCAL
+> is 0x02. So the condition is always false.
+> 
+> Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+> ---
+> - change check on linklocal address from
+>   (ipv6_addr_src_scope(&a6->sin6_addr) == IPV6_ADDR_SCOPE_LINKLOCAL) to
+>   (ipv6_addr_scope(&a6->sin6_addr) & IPV6_ADDR_LINKLOCAL) which is a
+>   little bit faster.
+> - change commit msg.
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Stable <stable@vger.kernel.org>
----
- drivers/staging/rtl8712/usb_intf.c | 5 +++++
- 1 file changed, 5 insertions(+)
+<formletter>
 
-diff --git a/drivers/staging/rtl8712/usb_intf.c b/drivers/staging/rtl8712/usb_intf.c
-index 38060ab..deb368c 100644
---- a/drivers/staging/rtl8712/usb_intf.c
-+++ b/drivers/staging/rtl8712/usb_intf.c
-@@ -354,6 +354,10 @@ static void disable_ht_for_spec_devid(const struct usb_device_id *pdid,
- 	}
- }
- 
-+static const struct device_type wlan_type = {
-+	.name = "wlan",
-+};
-+
- /*
-  * drv_init() - a device potentially for us
-  *
-@@ -389,6 +393,7 @@ static int r871xu_drv_init(struct usb_interface *pusb_intf,
- 	padapter->pusb_intf = pusb_intf;
- 	usb_set_intfdata(pusb_intf, pnetdev);
- 	SET_NETDEV_DEV(pnetdev, &pusb_intf->dev);
-+	pnetdev->dev.type = &wlan_type;
- 	/* step 2. */
- 	padapter->dvobj_init = &r8712_usb_dvobj_init;
- 	padapter->dvobj_deinit = &r8712_usb_dvobj_deinit;
--- 
-1.8.4
+This is not the correct way to submit patches for inclusion in the
+stable kernel tree.  Please read Documentation/stable_kernel_rules.txt
+for how to do this properly.
+
+</formletter>
