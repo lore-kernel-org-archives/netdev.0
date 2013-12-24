@@ -1,106 +1,101 @@
-From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: Re: [PATCH net-next 1/2] mlx4_en: Add PTP hardware clock
-Date: Tue, 24 Dec 2013 17:38:35 +0200
-Message-ID: <52B9AA7B.8090401@mellanox.com>
-References: <1387312359-9476-1-git-send-email-shawn.bohrer@gmail.com> <1387312359-9476-2-git-send-email-shawn.bohrer@gmail.com> <52B6E568.4030400@mellanox.com> <20131223162957.GA6810@lintop.rgmadvisors.com> <20131223165934.GB6810@lintop.rgmadvisors.com>
+From: Ethan Zhao <ethan.kernel@gmail.com>
+Subject: [PATCH 1/2] ixgbe: define IXGBE_MAX_VFS_DRV_LIMIT macro and cleanup const 63
+Date: Wed, 25 Dec 2013 00:04:53 +0800
+Message-ID: <1387901093-1630-1-git-send-email-ethan.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	<netdev@vger.kernel.org>, <tomk@rgmadvisors.com>,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: Shawn Bohrer <shawn.bohrer@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:41744 "EHLO
-	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750987Ab3LXPiq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 10:38:46 -0500
-In-Reply-To: <20131223165934.GB6810@lintop.rgmadvisors.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Ethan Zhao <ethan.kernel@gmail.com>
+To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
+	davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/23/2013 6:59 PM, Shawn Bohrer wrote:
-> On Mon, Dec 23, 2013 at 10:29:58AM -0600, Shawn Bohrer wrote:
->> On Sun, Dec 22, 2013 at 03:13:12PM +0200, Hadar Hen Zion wrote:
->>> On 12/17/2013 10:32 PM, Shawn Bohrer wrote:
->>>> From: Shawn Bohrer <sbohrer@rgmadvisors.com>
->>>>
->>>> This adds a PHC to the mlx4_en driver.  The code is largely based off of
->>>> the e1000e driver (drivers/net/ethernet/intel/e1000e/ptp.c) which seemed
->>>> very similar.
->>>>
->>>> This driver has been tested with both Documentation/ptp/testptp and the
->>>> linuxptp project (http://linuxptp.sourceforge.net/) and appears to work
->>>> on a Mellanox ConnectX-3 card.
->>>>
->>>> Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
->>>> ---
->>>>   drivers/net/ethernet/mellanox/mlx4/en_clock.c   |  192 ++++++++++++++++++++++-
->>>>   drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    3 +
->>>>   drivers/net/ethernet/mellanox/mlx4/en_main.c    |    3 +
->>>>   drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    6 +
->>>>   4 files changed, 196 insertions(+), 8 deletions(-)
->>>>
->>>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
->>>> index fd64410..9b0d515 100644
->>>> --- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
->>>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
->>>> @@ -103,17 +103,187 @@ void mlx4_en_fill_hwtstamps(struct mlx4_en_dev *mdev,
->>>>   			    struct skb_shared_hwtstamps *hwts,
->>>>   			    u64 timestamp)
->>>>   {
->>>> +	unsigned long flags;
->>>>   	u64 nsec;
->>>>
->>>> +	spin_lock_irqsave(&mdev->clock_lock, flags);
->>>
->>> 1. Missing initialization for clock_lock
->>> 2. Adding spin lock in the data path reduce performance by 15% when
->>> HW timestamping is enabled. I did some testing and replacing
->>> spin_lock_irqsave with read/write_lock_irqsave prevents the
->>> performance decrease.
->>
->> Thanks Hadar,
->>
->> I'm testing this change now, and will resend when I'm done.  However,
->> I noticed the following in Documentation/spinlocks.txt
->>
->>     NOTE! We are working hard to remove reader-writer spinlocks in most
->>     cases, so please don't add a new one without consensus.  (Instead, see
->>     Documentation/RCU/rcu.txt for complete information.)
->>
->> So is there consensus for a rwlock here?
->
-> Also just to make sure I'm testing the correct thing.  These all need
-> to be write_lock_irqsave() except for the one in
-> mlx4_en_fill_hwtstamps() protecting timecounter_cyc2time() which can
-> be a read_lock_irqsave().  All of the other timecounter* calls write
-> to the timecounter including timecounter_read().  I'm assuming that is
-> what you tested and that should still eliminate the performance loss
-> since mlx4_en_fill_hwtstamps() should be the bottleneck.
->
-> Thanks,
-> Shawn
->
-Yes, you were testing the correct thing.
+Because ixgbe driver limit the max number of VF functions could be enal=
+bed
+to 63, so define one macro IXGBE_MAX_VFS_DRV_LIMIT and cleanup the cons=
+t 63
+in code.
 
-But, after another check, I'm not sure we need any lock in 
-mlx4_en_fill_hwtstamps() data path function.
-Adding lock to mlx4_en_fill_hwtstamps() protects timecounter_cyc2time() 
-which doesn't read hardware registers.
-As you explained in your RFC mail:
+Signed-off-by: Ethan Zhao <ethan.kernel@gmail.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 4 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 5 +++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h | 5 +++++
+ 3 files changed, 10 insertions(+), 4 deletions(-)
 
- > In e1000e driver they protect the timecounter code with a spinlock
- > because the hardware reports the time in two 32bit registers.  The
- > Mellanox code looks similar.
-
-The spin lock is needed when reading hardware registers.
-My suggestion is to stay with spin locks in all the places protecting 
-timecounter_read()/timecounter_init() and just remove the spin lock from 
-timecounter_cyc2time()
-
-Thanks,
-Hadar
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/ne=
+t/ethernet/intel/ixgbe/ixgbe_main.c
+index 0ade0cd..47e9b44 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -4818,7 +4818,7 @@ static int ixgbe_sw_init(struct ixgbe_adapter *ad=
+apter)
+ #ifdef CONFIG_PCI_IOV
+ 	/* assign number of SR-IOV VFs */
+ 	if (hw->mac.type !=3D ixgbe_mac_82598EB)
+-		adapter->num_vfs =3D (max_vfs > 63) ? 0 : max_vfs;
++		adapter->num_vfs =3D (max_vfs > IXGBE_MAX_VFS_DRV_LIMIT) ? 0 : max_v=
+fs;
+=20
+ #endif
+ 	/* enable itr by default in dynamic mode */
+@@ -7640,7 +7640,7 @@ static int ixgbe_probe(struct pci_dev *pdev, cons=
+t struct pci_device_id *ent)
+ 	ixgbe_init_mbx_params_pf(hw);
+ 	memcpy(&hw->mbx.ops, ii->mbx_ops, sizeof(hw->mbx.ops));
+ 	ixgbe_enable_sriov(adapter);
+-	pci_sriov_set_totalvfs(pdev, 63);
++	pci_sriov_set_totalvfs(pdev, IXGBE_MAX_VFS_DRV_LIMIT);
+ skip_sriov:
+=20
+ #endif
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/n=
+et/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 276d7b1..6925979 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -152,7 +152,8 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapt=
+er)
+ 		 * physical function.  If the user requests greater thn
+ 		 * 63 VFs then it is an error - reset to default of zero.
+ 		 */
+-		adapter->num_vfs =3D min_t(unsigned int, adapter->num_vfs, 63);
++		adapter->num_vfs =3D min_t(unsigned int,
++					adapter->num_vfs, IXGBE_MAX_VFS_DRV_LIMIT);
+=20
+ 		err =3D pci_enable_sriov(adapter->pdev, adapter->num_vfs);
+ 		if (err) {
+@@ -259,7 +260,7 @@ static int ixgbe_pci_sriov_enable(struct pci_dev *d=
+ev, int num_vfs)
+ 	 * PF.  The PCI bus driver already checks for other values out of
+ 	 * range.
+ 	 */
+-	if (num_vfs > 63) {
++	if (num_vfs > IXGBE_MAX_VFS_DRV_LIMIT) {
+ 		err =3D -EPERM;
+ 		goto err_out;
+ 	}
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h b/drivers/n=
+et/ethernet/intel/ixgbe/ixgbe_sriov.h
+index 4713f9f..2593666 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+@@ -28,6 +28,11 @@
+ #ifndef _IXGBE_SRIOV_H_
+ #define _IXGBE_SRIOV_H_
+=20
++/*  ixgbe driver limit the max number of VFs could be enabled to
++ *  63 (IXGBE_MAX_VF_FUNCTIONS=EF=BC=8D1)
++ */
++#define IXGBE_MAX_VFS_DRV_LIMIT  (IXGBE_MAX_VF_FUNCTIONS=EF=BC=8D1)
++
+ void ixgbe_restore_vf_multicasts(struct ixgbe_adapter *adapter);
+ void ixgbe_msg_task(struct ixgbe_adapter *adapter);
+ int ixgbe_vf_configuration(struct pci_dev *pdev, unsigned int event_ma=
+sk);
+--=20
+1.8.3.4 (Apple Git-47)
