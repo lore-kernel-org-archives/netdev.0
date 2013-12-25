@@ -1,43 +1,43 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next 1/2] mlx4_en: Add PTP hardware clock
-Date: Wed, 25 Dec 2013 18:02:58 +0100
-Message-ID: <20131225170258.GA5735@netboy>
-References: <1387312359-9476-1-git-send-email-shawn.bohrer@gmail.com>
- <1387312359-9476-2-git-send-email-shawn.bohrer@gmail.com>
- <52B6E568.4030400@mellanox.com>
- <20131223184845.GA4922@netboy>
- <52B992EE.5030401@mellanox.com>
- <20131225115322.GB5378@netboy>
- <CAKBbMu33zXkG4+S1kP6zB+4iKMNNoy=XVBtoqZZEkqurRsgvQw@mail.gmail.com>
+From: Michael Dalton <mwdalton@google.com>
+Subject: Re: [PATCH stable 1/2] virtio_net: fix error handling for mergeable
+	buffers
+Date: Wed, 25 Dec 2013 10:33:37 -0800
+Message-ID: <CANJ5vPK-rs2d_TvZ3wuAXMK8ctoSvg2km8MpncMU+0cdk=TAsw@mail.gmail.com>
+References: <1387983339-1172-1-git-send-email-mst@redhat.com>
+	<1387983339-1172-2-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Ketterhagen <tomk@rgmadvisors.com>,
-	netdev <netdev@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: Shawn Bohrer <shawn.bohrer@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f48.google.com ([209.85.214.48]:56920 "EHLO
-	mail-bk0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751624Ab3LYRDL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Dec 2013 12:03:11 -0500
-Received: by mail-bk0-f48.google.com with SMTP id r7so2635736bkg.35
-        for <netdev@vger.kernel.org>; Wed, 25 Dec 2013 09:03:10 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAKBbMu33zXkG4+S1kP6zB+4iKMNNoy=XVBtoqZZEkqurRsgvQw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, David Miller <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1387983339-1172-2-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 25, 2013 at 08:11:00AM -0600, Shawn Bohrer wrote:
-> 
-> The read/write lock appears to meet these needs but also appears to be
-> frowned upon and RCU seems to be preferred.  I'm a bit ignorant when it
-> comes to RCU, but can it be used in this case?
+Hi Michael, quick question below:
 
-No, don't use RCU. It would not make sense here. Just use
-reader/writer locks.
+On Wed, Dec 25, 2013 at 6:56 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+>                 if (i >= MAX_SKB_FRAGS) {
+>                         pr_debug("%s: packet too long\n", skb->dev->name);
+>                         skb->dev->stats.rx_length_errors++;
+> -                       return -EINVAL;
+> +                       return NULL;
+>                 }
 
-Thanks,
-Richard
+Should this error handling path free the SKB before returning NULL?
+It seems like if we just return NULL we may leak memory.
+
+Best,
+
+Mike
