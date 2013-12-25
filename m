@@ -1,42 +1,37 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2] sh_eth: add R8A7791 support
-Date: Wed, 25 Dec 2013 23:35:26 +0900
-Message-ID: <20131225143519.GA29115@verge.net.au>
-References: <201312080259.19163.sergei.shtylyov@cogentembedded.com>
- <20131210.214754.1553999236888329751.davem@davemloft.net>
- <20131225071449.GA27173@verge.net.au>
- <52BABC13.201@cogentembedded.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH stable 0/2] virtio-net: backport error handling bugfix
+Date: Wed, 25 Dec 2013 16:56:18 +0200
+Message-ID: <1387983339-1172-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51967 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752035Ab3LYOwZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Dec 2013 09:52:25 -0500
 Content-Disposition: inline
-In-Reply-To: <52BABC13.201@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 25, 2013 at 03:05:55PM +0400, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 25-12-2013 11:14, Simon Horman wrote:
-> 
-> >>>Add support for yet another ARM member of the R-Car family, R-Car M2, also known
-> >>>as R8A7791 -- it will share the code and data with previously added R8A7790.
-> >>>Despite the Ether devices in these SoCs are indistinguishable at least from the
-> >>>driver's point of view, we do introduce a new platform device ID "r8a7791-ether"
-> >>>unlike the wildcard ID used for R8A7778/9 SoCs, due to newly established policy
-> >>>for the Renesas SoCs.
-> 
-> >>>Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> 
-> >>Applied, thank you.
-> 
-> >Hi Sergei, Hi Dave,
-> 
-> >I don't seem to be able to find this in net-next.
-> 
-> http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=94a12b15e4c575e0aa0ba5e24a4f213163a823d0
+Error handling for virtio-net mergeable buffers was broken
+for a long time. Backport recent bugfix to a stable
+kernel.
 
-Thanks
+Please note that it's really a single patch split out in two for ease of
+review: if we apply 1/2 only the code is correct but ugly and confusing, so I
+think it's best to backport both patches 1/2 and 2/2 same as upstream has them.
+
+Please review and consider for stable.
+
+Michael S. Tsirkin (2):
+  virtio_net: fix error handling for mergeable buffers
+  virtio-net: make all RX paths handle erors consistently
+
+ drivers/net/virtio_net.c | 103 ++++++++++++++++++++++++++++++++++-------------
+ 1 file changed, 74 insertions(+), 29 deletions(-)
+
+-- 
+MST
