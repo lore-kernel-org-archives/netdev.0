@@ -1,15 +1,14 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH stable 1/2] virtio_net: fix error handling for mergeable
-	buffers
-Date: Wed, 25 Dec 2013 16:56:21 +0200
-Message-ID: <1387983339-1172-2-git-send-email-mst@redhat.com>
+Subject: [PATCH stable 2/2] virtio-net: make all RX paths handle erors
+	consistently
+Date: Wed, 25 Dec 2013 16:56:25 +0200
+Message-ID: <1387983339-1172-3-git-send-email-mst@redhat.com>
 References: <1387983339-1172-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>, David Miller <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	virtualization@lists.linux-foundation.org
 To: netdev@vger.kernel.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
@@ -25,132 +24,100 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet noticed that if we encounter an error
-when processing a mergeable buffer, we don't
-dequeue all of the buffers from this packet,
-the result is almost sure to be loss of networking.
+receive mergeable now handles errors internally.
+Do same for big and small packet paths, otherwise
+the logic is too hard to follow.
 
-Jason Wang noticed that we also leak a page and that we don't decrement
-the rq buf count, so we won't repost buffers (a resource leak).
-
-Fix both issues.
-
-Cc: Rusty Russell <rusty@rustcorp.com.au>
-Cc: Michael Dalton <mwdalton@google.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Jason Wang <jasowang@redhat.com>
 Cc: Jason Wang <jasowang@redhat.com>
 Cc: David S. Miller <davem@davemloft.net>
-
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-(cherry picked from commit 8fc3b9e9a229778e5af3aa453c44f1a3857ba769)
+(cherry picked from commit f121159d72091f25afb22007c833e60a6845e912)
 ---
- drivers/net/virtio_net.c | 66 +++++++++++++++++++++++++++++++++---------------
- 1 file changed, 46 insertions(+), 20 deletions(-)
+ drivers/net/virtio_net.c | 56 +++++++++++++++++++++++++++++++-----------------
+ 1 file changed, 36 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 9fbdfcd..435076f 100644
+index 435076f..c0ed6d5 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -297,26 +297,33 @@ static struct sk_buff *page_to_skb(struct receive_queue *rq,
+@@ -297,6 +297,34 @@ static struct sk_buff *page_to_skb(struct receive_queue *rq,
  	return skb;
  }
  
--static int receive_mergeable(struct receive_queue *rq, struct sk_buff *skb)
-+static struct sk_buff *receive_mergeable(struct net_device *dev,
-+					 struct receive_queue *rq,
-+					 void *buf,
-+					 unsigned int len)
- {
--	struct skb_vnet_hdr *hdr = skb_vnet_hdr(skb);
--	struct page *page;
--	int num_buf, i, len;
-+	struct skb_vnet_hdr *hdr = page_address(buf);
-+	int num_buf = hdr->mhdr.num_buffers;
++static struct sk_buff *receive_small(void *buf, unsigned int len)
++{
++	struct sk_buff * skb = buf;
++
++	len -= sizeof(struct virtio_net_hdr);
++	skb_trim(skb, len);
++
++	return skb;
++}
++
++static struct sk_buff *receive_big(struct net_device *dev,
++				   struct receive_queue *rq,
++				   void *buf)
++{
 +	struct page *page = buf;
-+	struct sk_buff *skb = page_to_skb(rq, page, len);
-+	int i;
++	struct sk_buff *skb = page_to_skb(rq, page, 0);
 +
 +	if (unlikely(!skb))
-+		goto err_skb;
- 
--	num_buf = hdr->mhdr.num_buffers;
- 	while (--num_buf) {
- 		i = skb_shinfo(skb)->nr_frags;
- 		if (i >= MAX_SKB_FRAGS) {
- 			pr_debug("%s: packet too long\n", skb->dev->name);
- 			skb->dev->stats.rx_length_errors++;
--			return -EINVAL;
-+			return NULL;
- 		}
- 		page = virtqueue_get_buf(rq->vq, &len);
- 		if (!page) {
--			pr_debug("%s: rx error: %d buffers missing\n",
--				 skb->dev->name, hdr->mhdr.num_buffers);
--			skb->dev->stats.rx_length_errors++;
--			return -EINVAL;
-+			pr_debug("%s: rx error: %d buffers %d missing\n",
-+				 dev->name, hdr->mhdr.num_buffers, num_buf);
-+			dev->stats.rx_length_errors++;
-+			goto err_buf;
- 		}
- 
- 		if (len > PAGE_SIZE)
-@@ -326,7 +333,25 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *skb)
- 
- 		--rq->num;
- 	}
--	return 0;
++		goto err;
++
 +	return skb;
-+err_skb:
-+	give_pages(rq, page);
-+	while (--num_buf) {
-+		buf = virtqueue_get_buf(rq->vq, &len);
-+		if (unlikely(!buf)) {
-+			pr_debug("%s: rx error: %d buffers missing\n",
-+				 dev->name, num_buf);
-+			dev->stats.rx_length_errors++;
-+			break;
-+		}
-+		page = buf;
-+		give_pages(rq, page);
-+		--rq->num;
-+	}
-+err_buf:
++
++err:
 +	dev->stats.rx_dropped++;
-+	dev_kfree_skb(skb);
++	give_pages(rq, page);
 +	return NULL;
- }
++}
++
+ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 					 struct receive_queue *rq,
+ 					 void *buf,
+@@ -360,7 +388,6 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+ 	struct net_device *dev = vi->dev;
+ 	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
+ 	struct sk_buff *skb;
+-	struct page *page;
+ 	struct skb_vnet_hdr *hdr;
  
- static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
-@@ -354,17 +379,18 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
- 		skb_trim(skb, len);
- 	} else {
- 		page = buf;
--		skb = page_to_skb(rq, page, len);
--		if (unlikely(!skb)) {
--			dev->stats.rx_dropped++;
--			give_pages(rq, page);
--			return;
--		}
--		if (vi->mergeable_rx_bufs)
--			if (receive_mergeable(rq, skb)) {
--				dev_kfree_skb(skb);
-+		if (vi->mergeable_rx_bufs) {
-+			skb = receive_mergeable(dev, rq, page, len);
-+			if (unlikely(!skb))
-+				return;
-+		} else {
-+			skb = page_to_skb(rq, page, len);
-+			if (unlikely(!skb)) {
-+				dev->stats.rx_dropped++;
-+				give_pages(rq, page);
- 				return;
- 			}
-+		}
+ 	if (unlikely(len < sizeof(struct virtio_net_hdr) + ETH_HLEN)) {
+@@ -372,26 +399,15 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+ 			dev_kfree_skb(buf);
+ 		return;
  	}
++	if (vi->mergeable_rx_bufs)
++		skb = receive_mergeable(dev, rq, buf, len);
++	else if (vi->big_packets)
++		skb = receive_big(dev, rq, buf);
++	else
++		skb = receive_small(buf, len);
+ 
+-	if (!vi->mergeable_rx_bufs && !vi->big_packets) {
+-		skb = buf;
+-		len -= sizeof(struct virtio_net_hdr);
+-		skb_trim(skb, len);
+-	} else {
+-		page = buf;
+-		if (vi->mergeable_rx_bufs) {
+-			skb = receive_mergeable(dev, rq, page, len);
+-			if (unlikely(!skb))
+-				return;
+-		} else {
+-			skb = page_to_skb(rq, page, len);
+-			if (unlikely(!skb)) {
+-				dev->stats.rx_dropped++;
+-				give_pages(rq, page);
+-				return;
+-			}
+-		}
+-	}
++	if (unlikely(!skb))
++		return;
  
  	hdr = skb_vnet_hdr(skb);
+ 
 -- 
 MST
