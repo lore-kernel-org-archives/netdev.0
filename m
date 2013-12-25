@@ -1,79 +1,63 @@
-From: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v3 17/19] mwifiex: slight optimization of addr compare
-Date: Wed, 25 Dec 2013 11:29:55 +0800
-Message-ID: <52BA5133.5040307@huawei.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH v3 06/19] batman-adv: use batadv_compare_eth for concise
+Date: Wed, 25 Dec 2013 11:28:32 +0800
+Message-ID: <52BA50E0.1030306@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marek Lindner <mareklindner@neomailbox.ch>,
+	Simon Wunderlich <sw@simonwunderlich.de>,
+	Antonio Quartulli <antonio@meshcoding.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	<b.a.t.m.a.n@lists.open-mesh.org>, Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use possibly more efficient ether_addr_equal
-instead of memcmp.
+It is better to use batadv_compate_eth instead of memcpy for
+concise style.
 
-Cc: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
-Cc: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Signed-off-by: Weilong Chen <chenweilong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Cc: Marek Lindner <mareklindner@neomailbox.ch>
+Cc: Simon Wunderlich <sw@simonwunderlich.de>
+Cc: Antonio Quartulli <antonio@meshcoding.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: b.a.t.m.a.n@lists.open-mesh.org
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Tan Xiaojun <tanxiaojun@huawei.com>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Acked-by: Antonio Quartulli <antonio@meshcoding.com>
 ---
- drivers/net/wireless/mwifiex/11n.c         | 2 +-
- drivers/net/wireless/mwifiex/sta_cmdresp.c | 3 +--
- drivers/net/wireless/mwifiex/sta_rx.c      | 2 +-
- 3 files changed, 3 insertions(+), 4 deletions(-)
+ net/batman-adv/originator.c        | 2 +-
+ net/batman-adv/translation-table.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/mwifiex/11n.c b/drivers/net/wireless/mwifiex/11n.c
-index 0b803c0..6261f8c 100644
---- a/drivers/net/wireless/mwifiex/11n.c
-+++ b/drivers/net/wireless/mwifiex/11n.c
-@@ -483,7 +483,7 @@ mwifiex_get_ba_tbl(struct mwifiex_private *priv, int tid, u8 *ra)
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index 8ab1434..803ab4b 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -41,7 +41,7 @@ int batadv_compare_orig(const struct hlist_node *node, const void *data2)
+ 	const void *data1 = container_of(node, struct batadv_orig_node,
+ 					 hash_entry);
  
- 	spin_lock_irqsave(&priv->tx_ba_stream_tbl_lock, flags);
- 	list_for_each_entry(tx_ba_tsr_tbl, &priv->tx_ba_stream_tbl_ptr, list) {
--		if (!memcmp(tx_ba_tsr_tbl->ra, ra, ETH_ALEN) &&
-+		if (ether_addr_equal_unaligned(tx_ba_tsr_tbl->ra, ra) &&
- 		    tx_ba_tsr_tbl->tid == tid) {
- 			spin_unlock_irqrestore(&priv->tx_ba_stream_tbl_lock,
- 					       flags);
-diff --git a/drivers/net/wireless/mwifiex/sta_cmdresp.c b/drivers/net/wireless/mwifiex/sta_cmdresp.c
-index 5511946..24523e4 100644
---- a/drivers/net/wireless/mwifiex/sta_cmdresp.c
-+++ b/drivers/net/wireless/mwifiex/sta_cmdresp.c
-@@ -782,8 +782,7 @@ static int mwifiex_ret_ibss_coalescing_status(struct mwifiex_private *priv,
- 	}
+-	return (memcmp(data1, data2, ETH_ALEN) == 0 ? 1 : 0);
++	return batadv_compare_eth(data1, data2);
+ }
  
- 	/* If BSSID is diff, modify current BSS parameters */
--	if (memcmp(priv->curr_bss_params.bss_descriptor.mac_address,
--		   ibss_coal_resp->bssid, ETH_ALEN)) {
-+	if (!ether_addr_equal(priv->curr_bss_params.bss_descriptor.mac_address, ibss_coal_resp->bssid)) {
- 		/* BSSID */
- 		memcpy(priv->curr_bss_params.bss_descriptor.mac_address,
- 		       ibss_coal_resp->bssid, ETH_ALEN);
-diff --git a/drivers/net/wireless/mwifiex/sta_rx.c b/drivers/net/wireless/mwifiex/sta_rx.c
-index 0bb510d..4651d67 100644
---- a/drivers/net/wireless/mwifiex/sta_rx.c
-+++ b/drivers/net/wireless/mwifiex/sta_rx.c
-@@ -224,7 +224,7 @@ int mwifiex_process_sta_rx_packet(struct mwifiex_private *priv,
- 	 * directly to os. Don't pass thru rx reordering
- 	 */
- 	if (!IS_11N_ENABLED(priv) ||
--	    memcmp(priv->curr_addr, rx_pkt_hdr->eth803_hdr.h_dest, ETH_ALEN)) {
-+	    !ether_addr_equal_unaligned(priv->curr_addr, rx_pkt_hdr->eth803_hdr.h_dest)) {
- 		mwifiex_process_rx_packet(priv, skb);
- 		return ret;
- 	}
+ /**
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index 4add57d..06506e6 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -51,7 +51,7 @@ static int batadv_compare_tt(const struct hlist_node *node, const void *data2)
+ 	const void *data1 = container_of(node, struct batadv_tt_common_entry,
+ 					 hash_entry);
+ 
+-	return (memcmp(data1, data2, ETH_ALEN) == 0 ? 1 : 0);
++	return batadv_compare_eth(data1, data2);
+ }
+ 
+ /**
 -- 
 1.8.0
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
