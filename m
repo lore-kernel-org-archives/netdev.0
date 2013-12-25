@@ -1,69 +1,76 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next] sctp: check dst 'NULL' before use it in, sctp_packet_transmit
-Date: Wed, 25 Dec 2013 11:25:06 +0100
-Message-ID: <52BAB282.4000308@redhat.com>
-References: <52BA8DA2.6030405@huawei.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] ibmveth: Fix more little endian issues
+Date: Wed, 25 Dec 2013 10:38:28 +0000
+Message-ID: <1387967908.26981.0.camel@deadeye.wl.decadent.org.uk>
+References: <1387762163-39662-1-git-send-email-agraf@suse.de>
+	 <20131223173833.0a9a6705@kryten> <1387810329.22671.66.camel@joe-AO722>
+	 <20131224125529.58970f1b@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: Wang Weidong <wangweidong1@huawei.com>
+Cc: Joe Perches <joe@perches.com>, Alexander Graf <agraf@suse.de>,
+	<linuxppc-dev@lists.ozlabs.org>,
+	Ben Herrenschmidt <benh@kernel.crashing.org>,
+	Dinar Valeev <dvaleev@suse.com>,
+	Santiago Leon <santil@linux.vnet.ibm.com>,
+	<netdev@vger.kernel.org>
+To: Anton Blanchard <anton@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:15032 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751665Ab3LYKZd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Dec 2013 05:25:33 -0500
-In-Reply-To: <52BA8DA2.6030405@huawei.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:17149 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751813Ab3LYKih (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Dec 2013 05:38:37 -0500
+In-Reply-To: <20131224125529.58970f1b@kryten>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/25/2013 08:47 AM, Wang Weidong wrote:
-> skb_dst_set will use dst, if dst is NULL although is not a problem,
-> then goto the no_route and free nskb, so do the skb_dst_set is pointless.
-> so check dst before use it. Remove the unnecessary initialization as well.
 
-Please also cc linux-sctp as you did before!
+On Tue, 2013-12-24 at 12:55 +1100, Anton Blanchard wrote:
+> The hypervisor expects MAC addresses passed in registers to be big
+> endian u64. Create a helper function called ibmveth_encode_mac_addr
+> which does the right thing in both big and little endian.
+> 
+> We were storing the MAC address in a long in struct ibmveth_adapter.
+> It's never used so remove it - we don't need another place in the
+> driver where we create endian issues with MAC addresses.
+[...]
+> @@ -523,10 +523,20 @@ retry:
+>  	return rc;
+>  }
+>  
+> +/* The hypervisor expects MAC addresses passed in registers to be
+> + * big endian u64.
+> + */
+> +static __be64 ibmveth_encode_mac_addr(char *mac)
+> +{
+> +	unsigned long encoded = 0;
 
-Just went through the code, only reading from your subject title it first
-sounded like a NULL pointer dereference, but in fact the code is fine and
-nothing is wrong with it. I'd suggest you should make the subject sound
-more "harmless" to not confuse people, imho, since all you do here is some
-cleanup and rearrangement. "Use" sounds to me as dereferencing dst that is
-NULL.
+u64
 
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
-> ---
->   net/sctp/output.c | 4 ++--
->   1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/net/sctp/output.c b/net/sctp/output.c
-> index 3be70a4..9b76d62 100644
-> --- a/net/sctp/output.c
-> +++ b/net/sctp/output.c
-> @@ -387,7 +387,7 @@ int sctp_packet_transmit(struct sctp_packet *packet)
->   	int err = 0;
->   	int padding;		/* How much padding do we need?  */
->   	__u8 has_data = 0;
-> -	struct dst_entry *dst = tp->dst;
-> +	struct dst_entry *dst;
->   	unsigned char *auth = NULL;	/* pointer to auth in skb data */
->
->   	pr_debug("%s: packet:%p\n", __func__, packet);
-> @@ -420,9 +420,9 @@ int sctp_packet_transmit(struct sctp_packet *packet)
->   		}
->   	}
->   	dst = dst_clone(tp->dst);
-> -	skb_dst_set(nskb, dst);
->   	if (!dst)
->   		goto no_route;
+> +	memcpy(((char *)&encoded) + 2, mac, ETH_ALEN);
+> +	return cpu_to_be64(encoded);
+> +}
+[...]
 
-Nit: you should set a newline here.
+So on big-endian systems the byte order of the result will be:
 
-> +	skb_dst_set(nskb, dst);
->
->   	/* Build the SCTP header.  */
->   	sh = (struct sctphdr *)skb_push(nskb, sizeof(struct sctphdr));
->
+    0 0 mac0 mac1 mac2 mac3 mac4 mac5
+
+and on little-endian systems it's:
+
+    mac5 mac4 mac3 mac2 mac1 mac0 0 0
+
+It seems to me that 'encoded' is actually in big-endian order and this
+function returns the address in CPU order.
+
+So are you sure your explanation isn't backwards, because it looks to me
+like the driver was already holding the MAC address in big-endian order
+and perhaps the hypercall mechanism does a byte-swap when the guest is
+little-endian.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
