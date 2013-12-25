@@ -1,67 +1,39 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v3 13/19] media: dvb_core: slight optimization of addr
- compare
-Date: Wed, 25 Dec 2013 14:57:39 +0400
-Message-ID: <52BABA23.2040709@cogentembedded.com>
-References: <52BA5113.7070908@huawei.com>
+Subject: Re: [PATCH v2] sh_eth: add R8A7791 support
+Date: Wed, 25 Dec 2013 15:05:55 +0400
+Message-ID: <52BABC13.201@cogentembedded.com>
+References: <201312080259.19163.sergei.shtylyov@cogentembedded.com> <20131210.214754.1553999236888329751.davem@davemloft.net> <20131225071449.GA27173@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Ding Tianhong <dingtianhong@huawei.com>,
-	Mauro Carvalho Chehab <m.chehab@samsung.com>,
-	linux-media@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-Return-path: <linux-media-owner@vger.kernel.org>
-In-Reply-To: <52BA5113.7070908@huawei.com>
-Sender: linux-media-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20131225071449.GA27173@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hello.
 
-On 25-12-2013 7:29, Ding Tianhong wrote:
+On 25-12-2013 11:14, Simon Horman wrote:
 
-> Use possibly more efficient ether_addr_equal
-> instead of memcmp.
+>>> Add support for yet another ARM member of the R-Car family, R-Car M2, also known
+>>> as R8A7791 -- it will share the code and data with previously added R8A7790.
+>>> Despite the Ether devices in these SoCs are indistinguishable at least from the
+>>> driver's point of view, we do introduce a new platform device ID "r8a7791-ether"
+>>> unlike the wildcard ID used for R8A7778/9 SoCs, due to newly established policy
+>>> for the Renesas SoCs.
 
-> Cc: Mauro Carvalho Chehab <m.chehab@samsung.com>
-> Cc: linux-media@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> ---
->   drivers/media/dvb-core/dvb_net.c | 8 ++++----
->   1 file changed, 4 insertions(+), 4 deletions(-)
+>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-> diff --git a/drivers/media/dvb-core/dvb_net.c b/drivers/media/dvb-core/dvb_net.c
-> index f91c80c..3dfc33b 100644
-> --- a/drivers/media/dvb-core/dvb_net.c
-> +++ b/drivers/media/dvb-core/dvb_net.c
-> @@ -179,7 +179,7 @@ static __be16 dvb_net_eth_type_trans(struct sk_buff *skb,
->   	eth = eth_hdr(skb);
->
->   	if (*eth->h_dest & 1) {
-> -		if(memcmp(eth->h_dest,dev->broadcast, ETH_ALEN)==0)
-> +		if(ether_addr_equal(eth->h_dest,dev->broadcast))
+>> Applied, thank you.
 
-    There should be space after comma.
+> Hi Sergei, Hi Dave,
 
-> @@ -674,11 +674,11 @@ static void dvb_net_ule( struct net_device *dev, const u8 *buf, size_t buf_len )
->   					if (priv->rx_mode != RX_MODE_PROMISC) {
->   						if (priv->ule_skb->data[0] & 0x01) {
->   							/* multicast or broadcast */
-> -							if (memcmp(priv->ule_skb->data, bc_addr, ETH_ALEN)) {
-> +							if (!ether_addr_equal(priv->ule_skb->data, bc_addr)) {
->   								/* multicast */
->   								if (priv->rx_mode == RX_MODE_MULTI) {
->   									int i;
-> -									for(i = 0; i < priv->multi_num && memcmp(priv->ule_skb->data, priv->multi_macs[i], ETH_ALEN); i++)
-> +									for(i = 0; i < priv->multi_num && !ether_addr_equal(priv->ule_skb->data, priv->multi_macs[i]); i++)
+> I don't seem to be able to find this in net-next.
 
-    Shouldn't this line be broken?
-
->   										;
->   									if (i == priv->multi_num)
->   										drop = 1;
+http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=94a12b15e4c575e0aa0ba5e24a4f213163a823d0
 
 WBR, Sergei
+
