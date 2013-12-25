@@ -1,46 +1,61 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v3 05/19] ppp: slight optimization of addr compare
-Date: Wed, 25 Dec 2013 11:28:27 +0800
-Message-ID: <52BA50DB.2090005@huawei.com>
+Subject: [PATCH v3 10/19] mac8011: slight optimization of addr compare
+Date: Wed, 25 Dec 2013 11:29:03 +0800
+Message-ID: <52BA50FF.5070901@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Michal Ostrowski <mostrows@earthlink.net>,
-	Netdev <netdev@vger.kernel.org>,
+To: Johannes Berg <johannes@sipsolutions.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	<linux-wireless@vger.kernel.org>, Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:44358 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751448Ab3LYD36 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 22:29:58 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use possibly more efficient ether_addr_equal
+Use the possibly more efficient ether_addr_equal
 to instead of memcmp.
 
-Cc: Michal Ostrowski <mostrows@earthlink.net>
+Cc: Johannes Berg <johannes@sipsolutions.net>
+Cc: John W. Linville <linville@tuxdriver.com>
+Cc: David Miller <davem@davemloft.net>
+Cc: linux-wireless@vger.kernel.org
 Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/ppp/pppoe.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/mac80211/iface.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
-index 82ee6ed..2ea7efd 100644
---- a/drivers/net/ppp/pppoe.c
-+++ b/drivers/net/ppp/pppoe.c
-@@ -131,12 +131,12 @@ static inline struct pppoe_net *pppoe_pernet(struct net *net)
+diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
+index 7aa9f9d..a4f9812 100644
+--- a/net/mac80211/iface.c
++++ b/net/mac80211/iface.c
+@@ -1497,8 +1497,8 @@ static void ieee80211_assign_perm_addr(struct ieee80211_local *local,
+ 			bool used = false;
  
- static inline int cmp_2_addr(struct pppoe_addr *a, struct pppoe_addr *b)
- {
--	return a->sid == b->sid && !memcmp(a->remote, b->remote, ETH_ALEN);
-+	return a->sid == b->sid && ether_addr_equal(a->remote, b->remote);
- }
+ 			list_for_each_entry(sdata, &local->interfaces, list) {
+-				if (memcmp(local->hw.wiphy->addresses[i].addr,
+-					   sdata->vif.addr, ETH_ALEN) == 0) {
++				if (ether_addr_equal(local->hw.wiphy->addresses[i].addr,
++						     sdata->vif.addr)) {
+ 					used = true;
+ 					break;
+ 				}
+@@ -1558,8 +1558,7 @@ static void ieee80211_assign_perm_addr(struct ieee80211_local *local,
+ 			val += inc;
  
- static inline int cmp_addr(struct pppoe_addr *a, __be16 sid, char *addr)
- {
--	return a->sid == sid && !memcmp(a->remote, addr, ETH_ALEN);
-+	return a->sid == sid && ether_addr_equal(a->remote, addr);
- }
- 
- #if 8 % PPPOE_HASH_BITS
+ 			list_for_each_entry(sdata, &local->interfaces, list) {
+-				if (memcmp(tmp_addr, sdata->vif.addr,
+-							ETH_ALEN) == 0) {
++				if (ether_addr_equal(tmp_addr, sdata->vif.addr)) {
+ 					used = true;
+ 					break;
+ 				}
 -- 
 1.8.0
