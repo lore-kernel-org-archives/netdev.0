@@ -1,7 +1,7 @@
 From: Daniel Borkmann <dborkman@redhat.com>
 Subject: Re: [PATCH net-next] sctp: check dst 'NULL' before use it in, sctp_packet_transmit
-Date: Wed, 25 Dec 2013 11:24:06 +0100
-Message-ID: <52BAB246.7060709@redhat.com>
+Date: Wed, 25 Dec 2013 11:25:06 +0100
+Message-ID: <52BAB282.4000308@redhat.com>
 References: <52BA8DA2.6030405@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
@@ -12,10 +12,10 @@ Cc: Neil Horman <nhorman@tuxdriver.com>,
 	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
 To: Wang Weidong <wangweidong1@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53502 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:15032 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751665Ab3LYKYq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Dec 2013 05:24:46 -0500
+	id S1751665Ab3LYKZd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Dec 2013 05:25:33 -0500
 In-Reply-To: <52BA8DA2.6030405@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
