@@ -1,41 +1,49 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v3 04/19] hamradio: slight optimization of addr compare
-Date: Wed, 25 Dec 2013 11:28:20 +0800
-Message-ID: <52BA50D4.1010001@huawei.com>
+Subject: [PATCH v3 09/19] infiniband: slight optimization of addr compare
+Date: Wed, 25 Dec 2013 11:28:47 +0800
+Message-ID: <52BA50EF.90603@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Joerg Reuter <jreuter@yaina.de>, <linux-hams@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Faisal Latif <faisal.latif@intel.com>,
+	<linux-rdma@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use possibly more efficient ether_addr_equal
+Use the possibly more efficient ether_addr_equal
 to instead of memcmp.
 
-Cc: Joerg Reuter <jreuter@yaina.de>
-Cc: linux-hams@vger.kernel.org
-Cc: netdev@vger.kernel.org
+Cc: Roland Dreier <roland@kernel.org>
+Cc: Sean Hefty <sean.hefty@intel.com>
+Cc: Hal Rosenstock <hal.rosenstock@gmail.com>
+Cc: Faisal Latif <faisal.latif@intel.com>
+Cc: linux-rdma@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/hamradio/bpqether.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/infiniband/hw/nes/nes_cm.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/hamradio/bpqether.c b/drivers/net/hamradio/bpqether.c
-index f91bf0d..d50b23c 100644
---- a/drivers/net/hamradio/bpqether.c
-+++ b/drivers/net/hamradio/bpqether.c
-@@ -208,7 +208,7 @@ static int bpq_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_ty
- 	eth = eth_hdr(skb);
+diff --git a/drivers/infiniband/hw/nes/nes_cm.c b/drivers/infiniband/hw/nes/nes_cm.c
+index 6b29249..9c9f2f5 100644
+--- a/drivers/infiniband/hw/nes/nes_cm.c
++++ b/drivers/infiniband/hw/nes/nes_cm.c
+@@ -1354,8 +1354,7 @@ static int nes_addr_resolve_neigh(struct nes_vnic *nesvnic, u32 dst_ip, int arpi
+ 				  neigh->ha, ntohl(rt->rt_gateway));
  
- 	if (!(bpq->acpt_addr[0] & 0x01) &&
--	    memcmp(eth->h_source, bpq->acpt_addr, ETH_ALEN))
-+	    !ether_addr_equal(eth->h_source, bpq->acpt_addr))
- 		goto drop_unlock;
- 
- 	if (skb_cow(skb, sizeof(struct ethhdr)))
+ 			if (arpindex >= 0) {
+-				if (!memcmp(nesadapter->arp_table[arpindex].mac_addr,
+-					    neigh->ha, ETH_ALEN)) {
++				if (ether_addr_equal(nesadapter->arp_table[arpindex].mac_addr, neigh->ha)) {
+ 					/* Mac address same as in nes_arp_table */
+ 					goto out;
+ 				}
 -- 
 1.8.0
