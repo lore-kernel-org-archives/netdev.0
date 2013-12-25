@@ -1,50 +1,42 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] macvlan: fix netdev feature propagation from lower
- device
-Date: Wed, 25 Dec 2013 11:30:36 +0000
-Message-ID: <1387971036.26981.2.camel@deadeye.wl.decadent.org.uk>
-References: <1387843469-31866-1-git-send-email-fw@strlen.de>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH 1/1] ipv4: arp: update neighbour address when a gratuitous arp is received and arp_accept is set
+Date: Wed, 25 Dec 2013 12:37:10 +0100
+Message-ID: <20131225113710.GR14073@order.stressinduktion.org>
+References: <1387923422-4247-1-git-send-email-noureddine@aristanetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "Michael S. Tsirkin" <mst@redhat.com>
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=utf-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Salam Noureddine <noureddine@aristanetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:30515 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751813Ab3LYLaj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Dec 2013 06:30:39 -0500
-In-Reply-To: <1387843469-31866-1-git-send-email-fw@strlen.de>
+Received: from order.stressinduktion.org ([87.106.68.36]:50710 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751813Ab3LYLhM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Dec 2013 06:37:12 -0500
+Content-Disposition: inline
+In-Reply-To: <1387923422-4247-1-git-send-email-noureddine@aristanetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-12-24 at 01:04 +0100, Florian Westphal wrote:
-[...]
-> --- a/drivers/net/macvlan.c
-> +++ b/drivers/net/macvlan.c
-[...]
-> @@ -1010,7 +1021,12 @@ static int macvlan_device_event(struct notifier_block *unused,
->  		break;
->  	case NETDEV_FEAT_CHANGE:
->  		list_for_each_entry(vlan, &port->vlans, list) {
-> -			vlan->dev->features = dev->features & MACVLAN_FEATURES;
-> +			/* macvlan_fix_features will re-test current vlan
-> +			 * features vs. lowerdev features.
-> +			 */
-> +			vlan->dev->features =
-> +				macvlan_fix_features(vlan->dev,
-> +						     vlan->dev->features);
+On Tue, Dec 24, 2013 at 02:17:02PM -0800, Salam Noureddine wrote:
+> Gratuitous arp packets are useful in switchover scenarios to update
+> client arp tables as quickly as possible. Currently, the mac address
+> of a neighbour is only updated after a locktime period has elapsed
+> since the last update. In most use cases such delays are unacceptable
+> for network admins. Moreover, the "updated" field of the neighbour
+> stucture doesn't record the last time the address of a neighbour
+> changed but records any change that happens to the neighbour. This is
+> clearly a bug since locktime uses that field as meaning "addr_updated".
+> With this observation, I was able to perpetuate a stale address by
+> sending a stream of gratuitous arp packets spaced less than locktime
+> apart. With this change the address is updated when a gratuitous arp
+> is received and the arp_accept sysctl is set.
+> 
+> Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
 
-You must call netdev_update_features() here and not set
-net_device::features directly.
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Ben.
-
->  			vlan->dev->gso_max_size = dev->gso_max_size;
->  			netdev_features_change(vlan->dev);
->  		}
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks!
