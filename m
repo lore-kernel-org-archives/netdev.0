@@ -1,42 +1,50 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v2 2/2] tipc: make the code look more readability
-Date: Wed, 25 Dec 2013 14:47:54 +0400
-Message-ID: <52BAB7DA.6000706@cogentembedded.com>
-References: <1387937473-5804-1-git-send-email-wangweidong1@huawei.com> <1387937473-5804-3-git-send-email-wangweidong1@huawei.com>
+Subject: Re: [PATCH v3 08/19] ozwpan: slight optimization of addr compare
+Date: Wed, 25 Dec 2013 14:54:59 +0400
+Message-ID: <52BAB983.3090201@cogentembedded.com>
+References: <52BA50E9.1080203@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David.Laight@ACULAB.COM, netdev@vger.kernel.org
-To: Wang Weidong <wangweidong1@huawei.com>,
-	jeremy.kalman@windriver.com, jon.maloy@ericsson.com,
-	davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:32874 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751665Ab3LYKrx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Dec 2013 05:47:53 -0500
-Received: by mail-lb0-f178.google.com with SMTP id c11so3186366lbj.23
-        for <netdev@vger.kernel.org>; Wed, 25 Dec 2013 02:47:52 -0800 (PST)
-In-Reply-To: <1387937473-5804-3-git-send-email-wangweidong1@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>,
+	Rupesh Gujare <rupesh.gujare@atmel.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	devel@driverdev.osuosl.org, Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52BA50E9.1080203@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hello.
 
-On 25-12-2013 6:11, Wang Weidong wrote:
+On 25-12-2013 7:28, Ding Tianhong wrote:
 
-> In commit 3b8401fe9d ("tipc: kill unnecessary goto's") didn't make
-> the code look most readability,
+> Use possibly more efficient ether_addr_equal
+> instead of memcmp.
 
-    Only "readable". The same error in the subject.
-
-> so fix it. This patch is cosmetic
-> and does not change the operation of TIPC in any way.
-
-> Suggested-by: David Laight <David.Laight@ACULAB.COM>
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+> Cc: Rupesh Gujare <rupesh.gujare@atmel.com>
+> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> Cc: devel@driverdev.osuosl.org
+> Cc: linux-kernel@vger.kernel.org
+> Signed-off-by: Tan Xiaojun <tanxiaojun@huawei.com>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 > ---
->   net/tipc/socket.c | 7 ++-----
->   1 file changed, 2 insertions(+), 5 deletions(-)
+>   drivers/staging/ozwpan/ozcdev.c  | 2 +-
+>   drivers/staging/ozwpan/ozproto.c | 5 +++--
+>   2 files changed, 4 insertions(+), 3 deletions(-)
+
+> diff --git a/drivers/staging/ozwpan/ozcdev.c b/drivers/staging/ozwpan/ozcdev.c
+> index 6ce0af9..c363f66 100644
+> --- a/drivers/staging/ozwpan/ozcdev.c
+> +++ b/drivers/staging/ozwpan/ozcdev.c
+> @@ -448,7 +448,7 @@ int oz_cdev_start(struct oz_pd *pd, int resume)
+>   	}
+>   	spin_lock(&g_cdev.lock);
+>   	if ((g_cdev.active_pd == NULL) &&
+> -		(memcmp(pd->mac_addr, g_cdev.active_addr, ETH_ALEN) == 0)) {
+> +		(ether_addr_equal(pd->mac_addr, g_cdev.active_addr))) {
+
+    There's no point in enclosing function call into parens.
 
 WBR, Sergei
