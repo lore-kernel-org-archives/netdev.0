@@ -1,39 +1,50 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2] sh_eth: add R8A7791 support
-Date: Wed, 25 Dec 2013 15:05:55 +0400
-Message-ID: <52BABC13.201@cogentembedded.com>
-References: <201312080259.19163.sergei.shtylyov@cogentembedded.com> <20131210.214754.1553999236888329751.davem@davemloft.net> <20131225071449.GA27173@verge.net.au>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] macvlan: fix netdev feature propagation from lower
+ device
+Date: Wed, 25 Dec 2013 11:30:36 +0000
+Message-ID: <1387971036.26981.2.camel@deadeye.wl.decadent.org.uk>
+References: <1387843469-31866-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20131225071449.GA27173@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, "Michael S. Tsirkin" <mst@redhat.com>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:30515 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751813Ab3LYLaj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Dec 2013 06:30:39 -0500
+In-Reply-To: <1387843469-31866-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Tue, 2013-12-24 at 01:04 +0100, Florian Westphal wrote:
+[...]
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+[...]
+> @@ -1010,7 +1021,12 @@ static int macvlan_device_event(struct notifier_block *unused,
+>  		break;
+>  	case NETDEV_FEAT_CHANGE:
+>  		list_for_each_entry(vlan, &port->vlans, list) {
+> -			vlan->dev->features = dev->features & MACVLAN_FEATURES;
+> +			/* macvlan_fix_features will re-test current vlan
+> +			 * features vs. lowerdev features.
+> +			 */
+> +			vlan->dev->features =
+> +				macvlan_fix_features(vlan->dev,
+> +						     vlan->dev->features);
 
-On 25-12-2013 11:14, Simon Horman wrote:
+You must call netdev_update_features() here and not set
+net_device::features directly.
 
->>> Add support for yet another ARM member of the R-Car family, R-Car M2, also known
->>> as R8A7791 -- it will share the code and data with previously added R8A7790.
->>> Despite the Ether devices in these SoCs are indistinguishable at least from the
->>> driver's point of view, we do introduce a new platform device ID "r8a7791-ether"
->>> unlike the wildcard ID used for R8A7778/9 SoCs, due to newly established policy
->>> for the Renesas SoCs.
+Ben.
 
->>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>  			vlan->dev->gso_max_size = dev->gso_max_size;
+>  			netdev_features_change(vlan->dev);
+>  		}
 
->> Applied, thank you.
-
-> Hi Sergei, Hi Dave,
-
-> I don't seem to be able to find this in net-next.
-
-http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=94a12b15e4c575e0aa0ba5e24a4f213163a823d0
-
-WBR, Sergei
-
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
