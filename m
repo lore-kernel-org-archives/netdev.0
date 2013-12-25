@@ -1,31 +1,51 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH v2 03/20] net: pcnet: slight optimization of addr compare
-Date: Wed, 25 Dec 2013 09:40:44 +0800
-Message-ID: <52BA379C.1080302@huawei.com>
-References: <52B96FA7.10201@huawei.com>	<1387888739.2259.7.camel@joe-AO722>	<52B99072.5070809@gmail.com> <20131224.125932.1553654835250145689.davem@davemloft.net>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: [PATCH net-next v2 2/2] tipc: make the code look more readability
+Date: Wed, 25 Dec 2013 10:11:13 +0800
+Message-ID: <1387937473-5804-3-git-send-email-wangweidong1@huawei.com>
+References: <1387937473-5804-1-git-send-email-wangweidong1@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <joe@perches.com>, <pcnet32@frontier.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <dthxman@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131224.125932.1553654835250145689.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <David.Laight@ACULAB.COM>, <netdev@vger.kernel.org>
+To: <jeremy.kalman@windriver.com>, <jon.maloy@ericsson.com>,
+	<davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:21019 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751166Ab3LYCLe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 21:11:34 -0500
+In-Reply-To: <1387937473-5804-1-git-send-email-wangweidong1@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2013/12/25 1:59, David Miller wrote:
-> From: Ding Tianhong <dthxman@gmail.com>
-> Date: Tue, 24 Dec 2013 21:47:30 +0800
->=20
->> Oh=EF=BC=8C no,  maybe I was dizzy by these patches,  I should be mo=
-re careful,
->> sorry about that, I will resend this one.
->=20
-> You must resend the entire patch series when you make any changes.
->=20
-> Thank you.
->=20
->=20
+In commit 3b8401fe9d ("tipc: kill unnecessary goto's") didn't make
+the code look most readability, so fix it. This patch is cosmetic
+and does not change the operation of TIPC in any way.
 
-ok
+Suggested-by: David Laight <David.Laight@ACULAB.COM>
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+---
+ net/tipc/socket.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 83f466e..5efdeef 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -751,13 +751,10 @@ static int send_stream(struct kiocb *iocb, struct socket *sock,
+ 
+ 	/* Handle special cases where there is no connection */
+ 	if (unlikely(sock->state != SS_CONNECTED)) {
+-		res = -ENOTCONN;
+-
+ 		if (sock->state == SS_UNCONNECTED)
+ 			res = send_packet(NULL, sock, m, total_len);
+-		else if (sock->state == SS_DISCONNECTING)
+-			res = -EPIPE;
+-
++		else
++			res = sock->state == SS_DISCONNECTING ? -EPIPE : -ENOTCONN;
+ 		goto exit;
+ 	}
+ 
+-- 
+1.7.12
