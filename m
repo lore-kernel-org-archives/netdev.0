@@ -1,55 +1,60 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v3 18/19] rtlwifi: slight optimization of addr compare
-Date: Wed, 25 Dec 2013 11:30:02 +0800
-Message-ID: <52BA513A.4080502@huawei.com>
+Subject: [PATCH v3 07/19] zd1211rw: slight optimization of addr compare
+Date: Wed, 25 Dec 2013 11:28:36 +0800
+Message-ID: <52BA50E4.4040808@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
+To: Daniel Drake <dsd@gentoo.org>, Ulrich Kunitz <kune@deine-taler.de>,
 	"John W. Linville" <linville@tuxdriver.com>,
 	<linux-wireless@vger.kernel.org>, Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:54795 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751448Ab3LYD3g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 22:29:36 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use possibly more efficient ether_addr_equal_unaligned
+Use possibly more efficient ether_addr_equal
 instead of memcmp.
 
-Cc: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Chaoming Li <chaoming_li@realsil.com.cn>
-Cc: John W. Linville <linville@tuxdriver.com>
+Cc: Daniel Drake <dsd@gentoo.org>
+Cc: Ulrich Kunitz <kune@deine-taler.de>
+Cc: "John W. Linville" <linville@tuxdriver.com>
 Cc: linux-wireless@vger.kernel.org
 Cc: netdev@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+Signed-off-by: Tan Xiaojun <tanxiaojun@huawei.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/wireless/rtlwifi/cam.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/wireless/zd1211rw/zd_mac.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/wireless/rtlwifi/cam.c b/drivers/net/wireless/rtlwifi/cam.c
-index 0e510f7..0276153 100644
---- a/drivers/net/wireless/rtlwifi/cam.c
-+++ b/drivers/net/wireless/rtlwifi/cam.c
-@@ -295,7 +295,7 @@ u8 rtl_cam_get_free_entry(struct ieee80211_hw *hw, u8 *sta_addr)
- 	/* Does STA already exist? */
- 	for (i = 4; i < TOTAL_CAM_ENTRY; i++) {
- 		addr = rtlpriv->sec.hwsec_cam_sta_addr[i];
--		if (memcmp(addr, sta_addr, ETH_ALEN) == 0)
-+		if (ether_addr_equal_unaligned(addr, sta_addr))
- 			return i;
- 	}
- 	/* Get a free CAM entry. */
-@@ -335,7 +335,7 @@ void rtl_cam_del_entry(struct ieee80211_hw *hw, u8 *sta_addr)
- 		addr = rtlpriv->sec.hwsec_cam_sta_addr[i];
- 		bitmap = (rtlpriv->sec.hwsec_cam_bitmap) >> i;
- 		if (((bitmap & BIT(0)) == BIT(0)) &&
--		    (memcmp(addr, sta_addr, ETH_ALEN) == 0)) {
-+		    (ether_addr_equal_unaligned(addr, sta_addr))) {
- 			/* Remove from HW Security CAM */
- 			eth_zero_addr(rtlpriv->sec.hwsec_cam_sta_addr[i]);
- 			rtlpriv->sec.hwsec_cam_bitmap &= ~(BIT(0) << i);
+diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
+index eff79a3..e7af261 100644
+--- a/drivers/net/wireless/zd1211rw/zd_mac.c
++++ b/drivers/net/wireless/zd1211rw/zd_mac.c
+@@ -532,9 +532,8 @@ void zd_mac_tx_failed(struct urb *urb)
+ 		tx_hdr = (struct ieee80211_hdr *)skb->data;
+ 
+ 		/* we skip all frames not matching the reported destination */
+-		if (unlikely(memcmp(tx_hdr->addr1, tx_status->mac, ETH_ALEN))) {
++		if (unlikely(!ether_addr_equal(tx_hdr->addr1, tx_status->mac)))
+ 			continue;
+-		}
+ 
+ 		/* we skip all frames not matching the reported final rate */
+ 
+@@ -997,7 +996,7 @@ static int filter_ack(struct ieee80211_hw *hw, struct ieee80211_hdr *rx_hdr,
+ 		    continue;
+ 
+ 		tx_hdr = (struct ieee80211_hdr *)skb->data;
+-		if (likely(!memcmp(tx_hdr->addr2, rx_hdr->addr1, ETH_ALEN)))
++		if (likely(ether_addr_equal(tx_hdr->addr2, rx_hdr->addr1)))
+ 		{
+ 			found = 1;
+ 			break;
 -- 
 1.8.0
