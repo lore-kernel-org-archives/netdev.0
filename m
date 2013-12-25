@@ -1,42 +1,31 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: Re: [PATCH net-next 0/2] tipc: do some fixups
-Date: Wed, 25 Dec 2013 09:33:04 +0800
-Message-ID: <52BA35D0.7060003@huawei.com>
-References: <1387263827-20876-1-git-send-email-wangweidong1@huawei.com> <20131224.174541.2213038026686672610.davem@davemloft.net>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH v2 03/20] net: pcnet: slight optimization of addr compare
+Date: Wed, 25 Dec 2013 09:40:44 +0800
+Message-ID: <52BA379C.1080302@huawei.com>
+References: <52B96FA7.10201@huawei.com>	<1387888739.2259.7.camel@joe-AO722>	<52B99072.5070809@gmail.com> <20131224.125932.1553654835250145689.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <jon.maloy@ericsson.com>, <allan.stephens@windriver.com>,
-	<David.Laight@ACULAB.COM>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:55782 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751158Ab3LYBd1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 20:33:27 -0500
-In-Reply-To: <20131224.174541.2213038026686672610.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <joe@perches.com>, <pcnet32@frontier.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <dthxman@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131224.125932.1553654835250145689.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2013/12/25 6:45, David Miller wrote:
-> 
-> Referring to commit purely by SHA1 ID is ambiguous.
-> 
-> If the change is placed in other trees, such as the -stable
-> branches, they will have different SHA1 IDs.
-> 
-> This is why you must always refer to commits as the
-> SHA1 ID followed by the commit header line text of
-> the commit in parenthesis and double quotes, like
-> this:
-> 
-> Commit 0cee6bbe06f ("tipc: remove unnecessary variables and conditions")
-> 
-> Please fix this up in this entire patch series and resubmit.
-> 
-Ok, I will fix them.
+On 2013/12/25 1:59, David Miller wrote:
+> From: Ding Tianhong <dthxman@gmail.com>
+> Date: Tue, 24 Dec 2013 21:47:30 +0800
+>=20
+>> Oh=EF=BC=8C no,  maybe I was dizzy by these patches,  I should be mo=
+re careful,
+>> sorry about that, I will resend this one.
+>=20
+> You must resend the entire patch series when you make any changes.
+>=20
+> Thank you.
+>=20
+>=20
 
-Regards.
-Wang
-
-> 
+ok
