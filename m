@@ -1,48 +1,79 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v3 03/19] net: atl1: slight optimization of addr compare
-Date: Wed, 25 Dec 2013 11:28:13 +0800
-Message-ID: <52BA50CD.7010601@huawei.com>
+From: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v3 17/19] mwifiex: slight optimization of addr compare
+Date: Wed, 25 Dec 2013 11:29:55 +0800
+Message-ID: <52BA5133.5040307@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:44008 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752108Ab3LYD2t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 22:28:49 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Use the recently added and possibly more efficient
-ether_addr_equal_unaligned to instead of memcmp.
+Use possibly more efficient ether_addr_equal
+instead of memcmp.
 
-Cc: Jay Cliburn <jcliburn@gmail.com>
-Cc: Chris Snook <chris.snook@gmail.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Cc: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+Cc: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Signed-off-by: Weilong Chen <chenweilong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 ---
- drivers/net/ethernet/atheros/atlx/atl1.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/wireless/mwifiex/11n.c         | 2 +-
+ drivers/net/wireless/mwifiex/sta_cmdresp.c | 3 +--
+ drivers/net/wireless/mwifiex/sta_rx.c      | 2 +-
+ 3 files changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
-index 538211d..55d86ec 100644
---- a/drivers/net/ethernet/atheros/atlx/atl1.c
-+++ b/drivers/net/ethernet/atheros/atlx/atl1.c
-@@ -3122,7 +3122,8 @@ static void atl1_remove(struct pci_dev *pdev)
- 	 * from the BIOS during POST.  If we've been messing with the MAC
- 	 * address, we need to save the permanent one.
+diff --git a/drivers/net/wireless/mwifiex/11n.c b/drivers/net/wireless/mwifiex/11n.c
+index 0b803c0..6261f8c 100644
+--- a/drivers/net/wireless/mwifiex/11n.c
++++ b/drivers/net/wireless/mwifiex/11n.c
+@@ -483,7 +483,7 @@ mwifiex_get_ba_tbl(struct mwifiex_private *priv, int tid, u8 *ra)
+ 
+ 	spin_lock_irqsave(&priv->tx_ba_stream_tbl_lock, flags);
+ 	list_for_each_entry(tx_ba_tsr_tbl, &priv->tx_ba_stream_tbl_ptr, list) {
+-		if (!memcmp(tx_ba_tsr_tbl->ra, ra, ETH_ALEN) &&
++		if (ether_addr_equal_unaligned(tx_ba_tsr_tbl->ra, ra) &&
+ 		    tx_ba_tsr_tbl->tid == tid) {
+ 			spin_unlock_irqrestore(&priv->tx_ba_stream_tbl_lock,
+ 					       flags);
+diff --git a/drivers/net/wireless/mwifiex/sta_cmdresp.c b/drivers/net/wireless/mwifiex/sta_cmdresp.c
+index 5511946..24523e4 100644
+--- a/drivers/net/wireless/mwifiex/sta_cmdresp.c
++++ b/drivers/net/wireless/mwifiex/sta_cmdresp.c
+@@ -782,8 +782,7 @@ static int mwifiex_ret_ibss_coalescing_status(struct mwifiex_private *priv,
+ 	}
+ 
+ 	/* If BSSID is diff, modify current BSS parameters */
+-	if (memcmp(priv->curr_bss_params.bss_descriptor.mac_address,
+-		   ibss_coal_resp->bssid, ETH_ALEN)) {
++	if (!ether_addr_equal(priv->curr_bss_params.bss_descriptor.mac_address, ibss_coal_resp->bssid)) {
+ 		/* BSSID */
+ 		memcpy(priv->curr_bss_params.bss_descriptor.mac_address,
+ 		       ibss_coal_resp->bssid, ETH_ALEN);
+diff --git a/drivers/net/wireless/mwifiex/sta_rx.c b/drivers/net/wireless/mwifiex/sta_rx.c
+index 0bb510d..4651d67 100644
+--- a/drivers/net/wireless/mwifiex/sta_rx.c
++++ b/drivers/net/wireless/mwifiex/sta_rx.c
+@@ -224,7 +224,7 @@ int mwifiex_process_sta_rx_packet(struct mwifiex_private *priv,
+ 	 * directly to os. Don't pass thru rx reordering
  	 */
--	if (memcmp(adapter->hw.mac_addr, adapter->hw.perm_mac_addr, ETH_ALEN)) {
-+	if (!ether_addr_equal_unaligned(adapter->hw.mac_addr,
-+					adapter->hw.perm_mac_addr)) {
- 		memcpy(adapter->hw.mac_addr, adapter->hw.perm_mac_addr,
- 			ETH_ALEN);
- 		atl1_set_mac_addr(&adapter->hw);
+ 	if (!IS_11N_ENABLED(priv) ||
+-	    memcmp(priv->curr_addr, rx_pkt_hdr->eth803_hdr.h_dest, ETH_ALEN)) {
++	    !ether_addr_equal_unaligned(priv->curr_addr, rx_pkt_hdr->eth803_hdr.h_dest)) {
+ 		mwifiex_process_rx_packet(priv, skb);
+ 		return ret;
+ 	}
 -- 
 1.8.0
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
