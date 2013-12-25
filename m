@@ -1,76 +1,42 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] ibmveth: Fix more little endian issues
-Date: Wed, 25 Dec 2013 10:38:28 +0000
-Message-ID: <1387967908.26981.0.camel@deadeye.wl.decadent.org.uk>
-References: <1387762163-39662-1-git-send-email-agraf@suse.de>
-	 <20131223173833.0a9a6705@kryten> <1387810329.22671.66.camel@joe-AO722>
-	 <20131224125529.58970f1b@kryten>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v2 2/2] tipc: make the code look more readability
+Date: Wed, 25 Dec 2013 14:47:54 +0400
+Message-ID: <52BAB7DA.6000706@cogentembedded.com>
+References: <1387937473-5804-1-git-send-email-wangweidong1@huawei.com> <1387937473-5804-3-git-send-email-wangweidong1@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>, Alexander Graf <agraf@suse.de>,
-	<linuxppc-dev@lists.ozlabs.org>,
-	Ben Herrenschmidt <benh@kernel.crashing.org>,
-	Dinar Valeev <dvaleev@suse.com>,
-	Santiago Leon <santil@linux.vnet.ibm.com>,
-	<netdev@vger.kernel.org>
-To: Anton Blanchard <anton@samba.org>
+Cc: David.Laight@ACULAB.COM, netdev@vger.kernel.org
+To: Wang Weidong <wangweidong1@huawei.com>,
+	jeremy.kalman@windriver.com, jon.maloy@ericsson.com,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17149 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751813Ab3LYKih (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Dec 2013 05:38:37 -0500
-In-Reply-To: <20131224125529.58970f1b@kryten>
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:32874 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751665Ab3LYKrx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Dec 2013 05:47:53 -0500
+Received: by mail-lb0-f178.google.com with SMTP id c11so3186366lbj.23
+        for <netdev@vger.kernel.org>; Wed, 25 Dec 2013 02:47:52 -0800 (PST)
+In-Reply-To: <1387937473-5804-3-git-send-email-wangweidong1@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello.
 
-On Tue, 2013-12-24 at 12:55 +1100, Anton Blanchard wrote:
-> The hypervisor expects MAC addresses passed in registers to be big
-> endian u64. Create a helper function called ibmveth_encode_mac_addr
-> which does the right thing in both big and little endian.
-> 
-> We were storing the MAC address in a long in struct ibmveth_adapter.
-> It's never used so remove it - we don't need another place in the
-> driver where we create endian issues with MAC addresses.
-[...]
-> @@ -523,10 +523,20 @@ retry:
->  	return rc;
->  }
->  
-> +/* The hypervisor expects MAC addresses passed in registers to be
-> + * big endian u64.
-> + */
-> +static __be64 ibmveth_encode_mac_addr(char *mac)
-> +{
-> +	unsigned long encoded = 0;
+On 25-12-2013 6:11, Wang Weidong wrote:
 
-u64
+> In commit 3b8401fe9d ("tipc: kill unnecessary goto's") didn't make
+> the code look most readability,
 
-> +	memcpy(((char *)&encoded) + 2, mac, ETH_ALEN);
-> +	return cpu_to_be64(encoded);
-> +}
-[...]
+    Only "readable". The same error in the subject.
 
-So on big-endian systems the byte order of the result will be:
+> so fix it. This patch is cosmetic
+> and does not change the operation of TIPC in any way.
 
-    0 0 mac0 mac1 mac2 mac3 mac4 mac5
+> Suggested-by: David Laight <David.Laight@ACULAB.COM>
+> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+> ---
+>   net/tipc/socket.c | 7 ++-----
+>   1 file changed, 2 insertions(+), 5 deletions(-)
 
-and on little-endian systems it's:
-
-    mac5 mac4 mac3 mac2 mac1 mac0 0 0
-
-It seems to me that 'encoded' is actually in big-endian order and this
-function returns the address in CPU order.
-
-So are you sure your explanation isn't backwards, because it looks to me
-like the driver was already holding the MAC address in big-endian order
-and perhaps the hypercall mechanism does a byte-swap when the guest is
-little-endian.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+WBR, Sergei
