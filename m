@@ -1,49 +1,42 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next] vxlan: distribute vxlan tunneled traffic
- across multiple TXQs
-Date: Tue, 24 Dec 2013 15:05:43 -0800
-Message-ID: <20131224150543.66581c13@nehalam.linuxnetplumber.net>
-References: <1387803413-22152-1-git-send-email-sathya.perla@emulex.com>
-	<20131223112854.572b11aa@nehalam.linuxnetplumber.net>
-	<1387910346.12212.15.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: Re: [PATCH net-next 0/2] tipc: do some fixups
+Date: Wed, 25 Dec 2013 09:33:04 +0800
+Message-ID: <52BA35D0.7060003@huawei.com>
+References: <1387263827-20876-1-git-send-email-wangweidong1@huawei.com> <20131224.174541.2213038026686672610.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Sathya Perla <sathya.perla@emulex.com>, netdev@vger.kernel.org,
-	edumazet@google.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: <jon.maloy@ericsson.com>, <allan.stephens@windriver.com>,
+	<David.Laight@ACULAB.COM>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:55347 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750730Ab3LXXFq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 18:05:46 -0500
-Received: by mail-pa0-f45.google.com with SMTP id fb1so6901215pad.4
-        for <netdev@vger.kernel.org>; Tue, 24 Dec 2013 15:05:45 -0800 (PST)
-In-Reply-To: <1387910346.12212.15.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:55782 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751158Ab3LYBd1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Dec 2013 20:33:27 -0500
+In-Reply-To: <20131224.174541.2213038026686672610.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 24 Dec 2013 10:39:06 -0800
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On 2013/12/25 6:45, David Miller wrote:
+> 
+> Referring to commit purely by SHA1 ID is ambiguous.
+> 
+> If the change is placed in other trees, such as the -stable
+> branches, they will have different SHA1 IDs.
+> 
+> This is why you must always refer to commits as the
+> SHA1 ID followed by the commit header line text of
+> the commit in parenthesis and double quotes, like
+> this:
+> 
+> Commit 0cee6bbe06f ("tipc: remove unnecessary variables and conditions")
+> 
+> Please fix this up in this entire patch series and resubmit.
+> 
+Ok, I will fix them.
 
-> On Mon, 2013-12-23 at 11:28 -0800, Stephen Hemminger wrote:
-> 
-> > The idea is good, but without the destructor there is nothing to keep
-> > the UDP socket from being destroyed while packet is being sent on another
-> > CPU.
-> 
-> I see no requirement of holding a reference on the vxlan UDP socket in
-> transmit path.
-> 
-> At the time vxlan_set_owner() is called, nothing requires access to the
-> socket anymore. If you believe its needed, then its already too late.
-> 
-> Sathya, your patch is a step in the right direction, but the skb_clone()
-> thing should be done a bit differently.
-> 
-> The trick would be to avoid the skb_clone() for the last
-> vxlan_xmit_one() call.
-> 
+Regards.
+Wang
 
-That code was cloned from L2TP, I assumed that that it was required
-to hold reference when calling UDP, since that is what socket layer does.
+> 
