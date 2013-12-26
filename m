@@ -1,46 +1,30 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH net-next] bridge: remove extern from function prototypes
-Date: Thu, 26 Dec 2013 14:19:03 +0800
-Message-ID: <52BBCA57.9080706@cn.fujitsu.com>
+From: Michael Dalton <mwdalton@google.com>
+Subject: Re: [PATCH stable 1/2] virtio_net: fix error handling for mergeable
+	buffers
+Date: Wed, 25 Dec 2013 22:35:22 -0800
+Message-ID: <CANJ5vPKy8DVsAs+e6ZDak3iOGXnT-7Ur7DP4Vas7bqqzcQG3Ww@mail.gmail.com>
+References: <1387983339-1172-1-git-send-email-mst@redhat.com>
+	<1387983339-1172-2-git-send-email-mst@redhat.com>
+	<CANJ5vPK-rs2d_TvZ3wuAXMK8ctoSvg2km8MpncMU+0cdk=TAsw@mail.gmail.com>
+	<20131225191932.GB22071@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:6464 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750778Ab3LZGam (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Dec 2013 01:30:42 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, David Miller <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20131225191932.GB22071@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-
-There are a mix of function prototypes with and without extern
-in the kernel sources. Standardize on not using extern for
-function prototypes.
-
-Function prototypes don't need to be written with extern.
-extern is assumed by the compiler. Its use is as unnecessary as
-using auto to declare automatic/local variables in a block.
-
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
- net/bridge/br_private.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 2e77d92..458889e 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -762,7 +762,7 @@ unsigned long br_timer_value(const struct timer_list *timer);
- 
- /* br.c */
- #if IS_ENABLED(CONFIG_ATM_LANE)
--extern int (*br_fdb_test_addr_hook)(struct net_device *dev, unsigned char *addr);
-+int (*br_fdb_test_addr_hook)(struct net_device *dev, unsigned char *addr);
- #endif
- 
- /* br_netlink.c */
--- 
-1.8.3.1
+Acked-by: Michael Dalton <mwdalton@google.com>
