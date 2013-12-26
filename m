@@ -1,80 +1,88 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH v3 13/19] media: dvb_core: slight optimization of addr
- compare
-Date: Thu, 26 Dec 2013 19:09:10 +0800
-Message-ID: <52BC0E56.80003@huawei.com>
-References: <52BA5113.7070908@huawei.com> <52BABA23.2040709@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"Mauro Carvalho Chehab" <m.chehab@samsung.com>,
-	<linux-media@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH v2] macvlan: fix netdev feature propagation from lower device
+Date: Thu, 26 Dec 2013 12:17:00 +0100
+Message-ID: <1388056620-2008-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:60610 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751831Ab3LZLJz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 06:09:55 -0500
-In-Reply-To: <52BABA23.2040709@cogentembedded.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:51705 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751944Ab3LZLUI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 06:20:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/12/25 18:57, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 25-12-2013 7:29, Ding Tianhong wrote:
-> 
->> Use possibly more efficient ether_addr_equal
->> instead of memcmp.
-> 
->> Cc: Mauro Carvalho Chehab <m.chehab@samsung.com>
->> Cc: linux-media@vger.kernel.org
->> Cc: linux-kernel@vger.kernel.org
->> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> ---
->>   drivers/media/dvb-core/dvb_net.c | 8 ++++----
->>   1 file changed, 4 insertions(+), 4 deletions(-)
-> 
->> diff --git a/drivers/media/dvb-core/dvb_net.c b/drivers/media/dvb-core/dvb_net.c
->> index f91c80c..3dfc33b 100644
->> --- a/drivers/media/dvb-core/dvb_net.c
->> +++ b/drivers/media/dvb-core/dvb_net.c
->> @@ -179,7 +179,7 @@ static __be16 dvb_net_eth_type_trans(struct sk_buff *skb,
->>       eth = eth_hdr(skb);
->>
->>       if (*eth->h_dest & 1) {
->> -        if(memcmp(eth->h_dest,dev->broadcast, ETH_ALEN)==0)
->> +        if(ether_addr_equal(eth->h_dest,dev->broadcast))
-> 
->    There should be space after comma.
-> 
->> @@ -674,11 +674,11 @@ static void dvb_net_ule( struct net_device *dev, const u8 *buf, size_t buf_len )
->>                       if (priv->rx_mode != RX_MODE_PROMISC) {
->>                           if (priv->ule_skb->data[0] & 0x01) {
->>                               /* multicast or broadcast */
->> -                            if (memcmp(priv->ule_skb->data, bc_addr, ETH_ALEN)) {
->> +                            if (!ether_addr_equal(priv->ule_skb->data, bc_addr)) {
->>                                   /* multicast */
->>                                   if (priv->rx_mode == RX_MODE_MULTI) {
->>                                       int i;
->> -                                    for(i = 0; i < priv->multi_num && memcmp(priv->ule_skb->data, priv->multi_macs[i], ETH_ALEN); i++)
->> +                                    for(i = 0; i < priv->multi_num && !ether_addr_equal(priv->ule_skb->data, priv->multi_macs[i]); i++)
-> 
->    Shouldn't this line be broken?
-> 
+There are inconsistencies wrt. feature propagation/inheritance between
+macvlan and the underlying interface.
 
-ok, thanks.
+When a feature is turned off on the real device before a macvlan is
+created on top, these will remain enabled on the macvlan device, whereas
+turning off the feature on the lower device after macvlan creation the
+kernel will propagate the changes to the macvlan.
 
-Regards
->>                                           ;
->>                                       if (i == priv->multi_num)
->>                                           drop = 1;
-> 
-> WBR, Sergei
-> 
-> 
-> 
-> 
+The second issue is that, when propagating changes from underlying device
+to the macvlan interface, macvlan can erronously lose its NETIF_F_LLTX flag,
+as features are anded with the underlying device.
+
+However, LLTX should be kept since it has no dependencies on physical
+hardware (LLTX is set on macvlan creation regardless of the lower
+device properties, see 8ffab51b3dfc54876f145f15b351c41f3f703195
+(macvlan: lockless tx path).
+
+The LLTX flag is now forced regardless of user settings in absence of
+layer2 hw acceleration (a6cc0cfa72e0b6d9f2c8fd858aa,
+net: Add layer 2 hardware acceleration operations for macvlan devices).
+
+Use netdev_increment_features to rebuild the feature set on capability
+changes on either the lower device or on the macvlan interface.
+
+As pointed out by Ben Hutchings, use netdev_update_features on
+NETDEV_FEAT_CHANGE event (it calls macvlan_fix_features/netdev_features_change
+if needed).
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ Changes since v1:
+ - use netdev_update_features on NETDEV_FEAT_CHANGE event
+
+ drivers/net/macvlan.c | 16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 24ea994..b980b2f 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -690,8 +690,19 @@ static netdev_features_t macvlan_fix_features(struct net_device *dev,
+ 					      netdev_features_t features)
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
++	netdev_features_t mask;
+ 
+-	return features & (vlan->set_features | ~MACVLAN_FEATURES);
++	features |= NETIF_F_ALL_FOR_ALL;
++	features &= (vlan->set_features | ~MACVLAN_FEATURES);
++	mask = features;
++
++	features = netdev_increment_features(vlan->lowerdev->features,
++					     features,
++					     mask);
++	if (!vlan->fwd_priv)
++		features |= NETIF_F_LLTX;
++
++	return features;
+ }
+ 
+ static const struct ethtool_ops macvlan_ethtool_ops = {
+@@ -1010,9 +1021,8 @@ static int macvlan_device_event(struct notifier_block *unused,
+ 		break;
+ 	case NETDEV_FEAT_CHANGE:
+ 		list_for_each_entry(vlan, &port->vlans, list) {
+-			vlan->dev->features = dev->features & MACVLAN_FEATURES;
+ 			vlan->dev->gso_max_size = dev->gso_max_size;
+-			netdev_features_change(vlan->dev);
++			netdev_update_features(vlan->dev);
+ 		}
+ 		break;
+ 	case NETDEV_UNREGISTER:
+-- 
+1.8.1.5
