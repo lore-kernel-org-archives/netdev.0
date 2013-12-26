@@ -1,26 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] qlge: make local function static
-Date: Thu, 26 Dec 2013 13:30:29 -0500 (EST)
-Message-ID: <20131226.133029.333168497304514264.davem@davemloft.net>
-References: <20131226102811.18758740@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH v3.5 00/19] slight optimization of addr compare for
+ some modules
+Date: Thu, 26 Dec 2013 13:32:00 -0500 (EST)
+Message-ID: <20131226.133200.1159110493607479477.davem@davemloft.net>
+References: <52BC159C.1000903@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shahed.shaikh@qlogic.com, jitendra.kalsaria@qlogic.com,
-	ron.mercer@qlogic.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51641 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752947Ab3LZSaa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 13:30:30 -0500
-In-Reply-To: <20131226102811.18758740@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	joe@perches.com, alexander.h.duyck@intel.com,
+	antonio@meshcoding.com, sergei.shtylyov@cogentembedded.com
+To: dingtianhong@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52BC159C.1000903@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Thu, 26 Dec 2013 10:28:11 -0800
+From: Ding Tianhong <dingtianhong@huawei.com>
+Date: Thu, 26 Dec 2013 19:40:12 +0800
 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> Joe Perches add ether_addr_equal_unaligned to test if
+> possibly unaligned to u16 Ethernet addresses are equal.
+> 
+> If CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS is set, this uses
+> the slightly faster generic routine ether_addr_equal,
+> otherwise this uses memcmp.
+> 
+> So I use the recently added and possibly more efficient
+> ether_addr_equal_unaligned to instead of memcmp for slight
+> optimization.
 
-Applied.
+Series applied, thanks.
