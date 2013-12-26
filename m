@@ -1,49 +1,52 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v3.5 09/19] infiniband: slight optimization of addr compare
-Date: Thu, 26 Dec 2013 19:40:50 +0800
-Message-ID: <52BC15C2.70402@huawei.com>
+Subject: [PATCH v3.5 01/19] net: freescale: remove unused compare_addr()
+Date: Thu, 26 Dec 2013 19:40:18 +0800
+Message-ID: <52BC15A2.1080000@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Faisal Latif <faisal.latif@intel.com>,
-	<linux-rdma@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+To: Li Yang <leoli@freescale.com>, Netdev <netdev@vger.kernel.org>,
+ <linuxppc-dev@lists.ozlabs.org>, "linux-kernel@vger.kernel.org"
+ <linux-kernel@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-Use the possibly more efficient ether_addr_equal
-to instead of memcmp.
+The function did not be used any more, so remove it.
 
-Cc: Roland Dreier <roland@kernel.org>
-Cc: Sean Hefty <sean.hefty@intel.com>
-Cc: Hal Rosenstock <hal.rosenstock@gmail.com>
-Cc: Faisal Latif <faisal.latif@intel.com>
-Cc: linux-rdma@vger.kernel.org
+Cc: Li Yang <leoli@freescale.com>
+Cc: netdev@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
 Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/infiniband/hw/nes/nes_cm.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/freescale/ucc_geth.c | 5 -----
+ 1 file changed, 5 deletions(-)
 
-diff --git a/drivers/infiniband/hw/nes/nes_cm.c b/drivers/infiniband/hw/nes/nes_cm.c
-index 6b29249..9c9f2f5 100644
---- a/drivers/infiniband/hw/nes/nes_cm.c
-+++ b/drivers/infiniband/hw/nes/nes_cm.c
-@@ -1354,8 +1354,7 @@ static int nes_addr_resolve_neigh(struct nes_vnic *nesvnic, u32 dst_ip, int arpi
- 				  neigh->ha, ntohl(rt->rt_gateway));
+diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
+index 5548b6d..72291a8 100644
+--- a/drivers/net/ethernet/freescale/ucc_geth.c
++++ b/drivers/net/ethernet/freescale/ucc_geth.c
+@@ -435,11 +435,6 @@ static void hw_add_addr_in_hash(struct ucc_geth_private *ugeth,
+ 		     QE_CR_PROTOCOL_ETHERNET, 0);
+ }
  
- 			if (arpindex >= 0) {
--				if (!memcmp(nesadapter->arp_table[arpindex].mac_addr,
--					    neigh->ha, ETH_ALEN)) {
-+				if (ether_addr_equal(nesadapter->arp_table[arpindex].mac_addr, neigh->ha)) {
- 					/* Mac address same as in nes_arp_table */
- 					goto out;
- 				}
+-static inline int compare_addr(u8 **addr1, u8 **addr2)
+-{
+-	return memcmp(addr1, addr2, ETH_ALEN);
+-}
+-
+ #ifdef DEBUG
+ static void get_statistics(struct ucc_geth_private *ugeth,
+ 			   struct ucc_geth_tx_firmware_statistics *
 -- 
 1.8.0
