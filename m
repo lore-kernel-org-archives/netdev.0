@@ -1,28 +1,54 @@
-From: Michael Dalton <mwdalton@google.com>
-Subject: Re: [PATCH stable] virtio_net: don't leak memory or block when too
-	many frags
-Date: Wed, 25 Dec 2013 22:35:46 -0800
-Message-ID: <CANJ5vPJAmahQxYFFNhrNuvOxBJeWF42fODWZ0uoMdE8ZKQHqtw@mail.gmail.com>
-References: <1387983339-1172-1-git-send-email-mst@redhat.com>
-	<1387999653-22139-1-git-send-email-mst@redhat.com>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: Re: [PATCH net-next] bridge: remove extern from function prototypes
+Date: Thu, 26 Dec 2013 14:39:23 +0800
+Message-ID: <52BBCF1B.1010901@cn.fujitsu.com>
+References: <52BBCA57.9080706@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org,
-	lf-virt <virtualization@lists.linux-foundation.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1387999653-22139-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:24495 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751047Ab3LZGjj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 01:39:39 -0500
+In-Reply-To: <52BBCA57.9080706@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Acked-by: Michael Dalton <mwdalton@google.com>
+I'm so sorry, there is something wrong with it,
+please just ignore this patch!
+
+=D3=DA 2013=C4=EA12=D4=C226=C8=D5 14:19, Duan Jiong =D0=B4=B5=C0:
+>=20
+> There are a mix of function prototypes with and without extern
+> in the kernel sources. Standardize on not using extern for
+> function prototypes.
+>=20
+> Function prototypes don't need to be written with extern.
+> extern is assumed by the compiler. Its use is as unnecessary as
+> using auto to declare automatic/local variables in a block.
+>=20
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> ---
+>  net/bridge/br_private.h | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>=20
+> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+> index 2e77d92..458889e 100644
+> --- a/net/bridge/br_private.h
+> +++ b/net/bridge/br_private.h
+> @@ -762,7 +762,7 @@ unsigned long br_timer_value(const struct timer_l=
+ist *timer);
+> =20
+>  /* br.c */
+>  #if IS_ENABLED(CONFIG_ATM_LANE)
+> -extern int (*br_fdb_test_addr_hook)(struct net_device *dev, unsigned=
+ char *addr);
+> +int (*br_fdb_test_addr_hook)(struct net_device *dev, unsigned char *=
+addr);
+>  #endif
+> =20
+>  /* br_netlink.c */
+>=20
