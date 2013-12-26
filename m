@@ -1,50 +1,63 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v3.5 12/19] isdn: slight optimization of addr compare
-Date: Thu, 26 Dec 2013 19:41:05 +0800
-Message-ID: <52BC15D1.1020104@huawei.com>
+Subject: [PATCH v3.5 06/19] batman-adv: use batadv_compare_eth for concise
+Date: Thu, 26 Dec 2013 19:40:39 +0800
+Message-ID: <52BC15B7.2060209@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Karsten Keil <isdn@linux-pingi.de>,
-	Netdev <netdev@vger.kernel.org>,
+To: Marek Lindner <mareklindner@neomailbox.ch>,
+	Simon Wunderlich <sw@simonwunderlich.de>,
+	Antonio Quartulli <antonio@meshcoding.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	<b.a.t.m.a.n@lists.open-mesh.org>, Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use possibly more efficient ether_addr_equal
-instead of memcmp.
+It is better to use batadv_compate_eth instead of memcpy for
+concise style.
 
-Cc: Karsten Keil <isdn@linux-pingi.de>
+Cc: Marek Lindner <mareklindner@neomailbox.ch>
+Cc: Simon Wunderlich <sw@simonwunderlich.de>
+Cc: Antonio Quartulli <antonio@meshcoding.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: b.a.t.m.a.n@lists.open-mesh.org
 Cc: netdev@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+Signed-off-by: Tan Xiaojun <tanxiaojun@huawei.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Acked-by: Antonio Quartulli <antonio@meshcoding.com>
 ---
- drivers/isdn/i4l/isdn_net.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/batman-adv/originator.c        | 2 +-
+ net/batman-adv/translation-table.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
-index 8b98d53..d9aebbc 100644
---- a/drivers/isdn/i4l/isdn_net.c
-+++ b/drivers/isdn/i4l/isdn_net.c
-@@ -1371,7 +1371,7 @@ isdn_net_type_trans(struct sk_buff *skb, struct net_device *dev)
- 	eth = eth_hdr(skb);
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index 8ab1434..803ab4b 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -41,7 +41,7 @@ int batadv_compare_orig(const struct hlist_node *node, const void *data2)
+ 	const void *data1 = container_of(node, struct batadv_orig_node,
+ 					 hash_entry);
  
- 	if (*eth->h_dest & 1) {
--		if (memcmp(eth->h_dest, dev->broadcast, ETH_ALEN) == 0)
-+		if (ether_addr_equal(eth->h_dest, dev->broadcast))
- 			skb->pkt_type = PACKET_BROADCAST;
- 		else
- 			skb->pkt_type = PACKET_MULTICAST;
-@@ -1382,7 +1382,7 @@ isdn_net_type_trans(struct sk_buff *skb, struct net_device *dev)
- 	 */
+-	return (memcmp(data1, data2, ETH_ALEN) == 0 ? 1 : 0);
++	return batadv_compare_eth(data1, data2);
+ }
  
- 	else if (dev->flags & (IFF_PROMISC /*| IFF_ALLMULTI*/)) {
--		if (memcmp(eth->h_dest, dev->dev_addr, ETH_ALEN))
-+		if (!ether_addr_equal(eth->h_dest, dev->dev_addr))
- 			skb->pkt_type = PACKET_OTHERHOST;
- 	}
- 	if (ntohs(eth->h_proto) >= ETH_P_802_3_MIN)
+ /**
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index 4add57d..06506e6 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -51,7 +51,7 @@ static int batadv_compare_tt(const struct hlist_node *node, const void *data2)
+ 	const void *data1 = container_of(node, struct batadv_tt_common_entry,
+ 					 hash_entry);
+ 
+-	return (memcmp(data1, data2, ETH_ALEN) == 0 ? 1 : 0);
++	return batadv_compare_eth(data1, data2);
+ }
+ 
+ /**
 -- 
 1.8.0
