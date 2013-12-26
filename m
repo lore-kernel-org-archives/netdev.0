@@ -1,60 +1,133 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH stable v2 3/3] virtio_net: don't leak memory or block when
-	too many frags
-Date: Thu, 26 Dec 2013 15:32:55 +0200
-Message-ID: <1388064752-15734-4-git-send-email-mst@redhat.com>
-References: <1388064752-15734-1-git-send-email-mst@redhat.com>
+From: Alexandre DERUMIER <aderumier@odiso.com>
+Subject: Re: bridge vlan_filtering don't work with tap devices (qemu guests)
+Date: Thu, 26 Dec 2013 14:57:21 +0100 (CET)
+Message-ID: <eb3c68d9-fa1b-402a-9416-1ea38a78b68b@mailpro>
+References: <338a04d5-a1bc-4446-b03b-e59fddcb65e8@mailpro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	David Miller <davem@davemloft.net>, Michael Dalton <mwdalton@google.com>
-To: netdev@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1388064752-15734-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailpro.odiso.net ([89.248.209.98]:55789 "EHLO
+	mailpro.odiso.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752845Ab3LZN53 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 08:57:29 -0500
+In-Reply-To: <338a04d5-a1bc-4446-b03b-e59fddcb65e8@mailpro>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We leak an skb when there are too many frags,
-we also stop processing the packet in the middle,
-the result is almost sure to be loss of networking.
+Hello Again,
 
-Reported-by: Michael Dalton <mwdalton@google.com>
-Acked-by: Michael Dalton <mwdalton@google.com>
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/net/virtio_net.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+One more question :
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index c0ed6d5..b8665588 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -344,7 +344,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 		if (i >= MAX_SKB_FRAGS) {
- 			pr_debug("%s: packet too long\n", skb->dev->name);
- 			skb->dev->stats.rx_length_errors++;
--			return NULL;
-+			goto err_frags;
- 		}
- 		page = virtqueue_get_buf(rq->vq, &len);
- 		if (!page) {
-@@ -365,6 +365,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- err_skb:
- 	give_pages(rq, page);
- 	while (--num_buf) {
-+err_frags:
- 		buf = virtqueue_get_buf(rq->vq, &len);
- 		if (unlikely(!buf)) {
- 			pr_debug("%s: rx error: %d buffers missing\n",
--- 
-MST
+If I use tcpdump on br0, I don't see any tagged vlan10 packets on the b=
+ridge.
+with=20
+# bridge vlan add dev tap0 vid 10 pvid untagged=20
+# bridge vlan add dev tap1 vid 10 pvid untagged=20
+
+
+What I would like to do, is tagging vlan10, incoming (untagged) packets=
+ from tap0 and tap1.
+
+Is it possible ?
+
+With openvswitch, I can do it simply with "ovs-vsctl set port tap0 tag=3D=
+10"
+
+----- Mail original -----=20
+
+De: "Alexandre DERUMIER" <aderumier@odiso.com>=20
+=C3=80: "Toshiaki Makita" <makita.toshiaki@lab.ntt.co.jp>=20
+Cc: netdev@vger.kernel.org=20
+Envoy=C3=A9: Mardi 24 D=C3=A9cembre 2013 20:28:55=20
+Objet: Re: bridge vlan_filtering don't work with tap devices (qemu gues=
+ts)=20
+
+>>If you want to send untagged frames, please try to make configuration=
+=20
+>>like this:=20
+>># bridge vlan add dev tap0 vid 10 pvid untagged=20
+>># bridge vlan add dev tap1 vid 10 pvid untagged=20
+>>=20
+>>Thanks,=20
+>>Toshiaki Makita=20
+
+Thank you ! It's working now.=20
+I thinked that "untagged" was for not tagging from the bridge, I unders=
+tand now.=20
+
+Thanks again and merry Xmas !=20
+
+
+----- Mail original -----=20
+
+De: "Toshiaki Makita" <makita.toshiaki@lab.ntt.co.jp>=20
+=C3=80: "Alexandre DERUMIER" <aderumier@odiso.com>=20
+Cc: netdev@vger.kernel.org=20
+Envoy=C3=A9: Mardi 24 D=C3=A9cembre 2013 13:45:05=20
+Objet: Re: bridge vlan_filtering don't work with tap devices (qemu gues=
+ts)=20
+
+On Mon, 2013-12-23 at 17:02 +0100, Alexandre DERUMIER wrote:=20
+> Hello,=20
+>=20
+> I'm trying to use vlan_filtering on bridge.=20
+>=20
+> setup is : 2 qemu virtual machines (tap0 and tap1), plugged in a brid=
+ge br0.=20
+> virtual machines don't tag packets.=20
+>=20
+>=20
+> qemuvm1 eth0 --tap0----->br0<-------tap1---qemuvm2 eth0.=20
+>=20
+>=20
+> with vlan_filtering disable, both vms can ping together.=20
+>=20
+>=20
+> If I enabled filtering=20
+>=20
+> #echo 1 > /sys/class/net/br0/bridge/vlan_filtering=20
+>=20
+> Both vms cannot ping together anymore.=20
+>=20
+> So, I have tried to put vlan on tap interfaces with=20
+>=20
+> #bridge vlan add dev tap0 vid 10=20
+> #bridge vlan add dev tap1 vid 10=20
+
+If you want to send untagged frames, please try to make configuration=20
+like this:=20
+# bridge vlan add dev tap0 vid 10 pvid untagged=20
+# bridge vlan add dev tap1 vid 10 pvid untagged=20
+
+Thanks,=20
+Toshiaki Makita=20
+
+> #bridge vlan show=20
+> port vlan ids=20
+> br0 None=20
+> tap0 10=20
+> tap1 10=20
+>=20
+>=20
+>=20
+> But, it doesn't work.=20
+>=20
+> tcpdump on bridge (tcpdump -i br0 -e -n) or in destination qemu (tcpd=
+ump -i eth0 -e -n) , don't see any packet=20
+>=20
+> any idea ?=20
+>=20
+> Regards,=20
+>=20
+> Alexandre Derumier=20
+> --=20
+> To unsubscribe from this list: send the line "unsubscribe netdev" in=20
+> the body of a message to majordomo@vger.kernel.org=20
+> More majordomo info at http://vger.kernel.org/majordomo-info.html=20
+--=20
+To unsubscribe from this list: send the line "unsubscribe netdev" in=20
+the body of a message to majordomo@vger.kernel.org=20
+More majordomo info at http://vger.kernel.org/majordomo-info.html=20
