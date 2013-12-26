@@ -1,283 +1,265 @@
-From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH RFC net-next v2 1/3] sh_eth: Add support for r7s72100
-Date: Thu, 26 Dec 2013 23:04:49 +0900
-Message-ID: <1388066691-5854-2-git-send-email-horms+renesas@verge.net.au>
-References: <1388066691-5854-1-git-send-email-horms+renesas@verge.net.au>
-Cc: linux-arm-kernel@lists.infradead.org,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Simon Horman <horms+renesas@verge.net.au>
-To: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+From: Hadar Hen-Zion <hadarh@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 1/2] mlx4_en: Add PTP hardware clock
+Date: Thu, 26 Dec 2013 16:41:11 +0200
+Message-ID: <20131226144111.GB12695@mtl-eit-vdi-41.mtl.labs.mlnx>
+References: <1387312359-9476-1-git-send-email-shawn.bohrer@gmail.com>
+ <1387312359-9476-2-git-send-email-shawn.bohrer@gmail.com>
+ <52B6E568.4030400@mellanox.com>
+ <20131223184845.GA4922@netboy>
+ <52B992EE.5030401@mellanox.com>
+ <20131225115322.GB5378@netboy>
+ <52BBE84C.1030702@mellanox.com>
+ <52BBE9D6.3040006@mellanox.com>
+ <20131226091740.GA8787@netboy>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Shawn Bohrer <shawn.bohrer@gmail.com>,
+	Tom Ketterhagen <tomk@rgmadvisors.com>,
+	netdev <netdev@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:39654 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752991Ab3LZOFK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 09:05:10 -0500
-In-Reply-To: <1388066691-5854-1-git-send-email-horms+renesas@verge.net.au>
+Received: from mail-ea0-f176.google.com ([209.85.215.176]:61649 "EHLO
+	mail-ea0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753196Ab3LZOlR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 09:41:17 -0500
+Received: by mail-ea0-f176.google.com with SMTP id h14so3660292eaj.21
+        for <netdev@vger.kernel.org>; Thu, 26 Dec 2013 06:41:16 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20131226091740.GA8787@netboy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a fast ethernet controller.
+On Thu, Dec 26, 2013 at 10:17:41AM +0100, Richard Cochran wrote:
+> On Thu, Dec 26, 2013 at 10:33:26AM +0200, Hadar Hen Zion wrote:
+> > 
+> > Is there a way to time stamping packets per socket?
+> 
+> No, it is at the device level. Some devices support time stamping
+> different types of packets, like PTP events.
+> 
+> I looked again at your driver, and now it makes sense to me that the
+> spin lock is so costly in your tests. Every received packet calls
+> timecounter_cyc2time.  So you will need locking, and I think
+> reader/writer is perfectly fine for you to use.
+> 
+> Thanks,
+> Richard
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+
+The below patch is my suggestion for using RCU.
+According to my test there is no performace loss with RCU.
+If reader/writer is deprecated, why not using RCU? 
+
+Thanks,
+Hadar
 
 ---
-v2
-* As suggested by Magnus Damm and Sergei Shtylyov
-  - r7s72100 ethernet is not gigabit so do not refer to it as such
+ drivers/net/ethernet/mellanox/mlx4/en_clock.c |   82 +++++++++++++++---------
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h  |    2 +-
+ 2 files changed, 52 insertions(+), 32 deletions(-)
 
-* As suggested by Magnus Damm
-  - As RZ specific register layout rather than using the gigabit layout
-    which includes registers that do not exist on this chip.
-
-As suggested by Sergei Shtylyov
-  - Do not use sh_eth_chip_reset_r8a7740 as it accesses non-existent
-    RMII registers. Instead use sh_eth_chip_reset.
-  - Do not use sh_eth_set_rate_gether as it accesses non-existent registers.
-  - Do not use reserved LCHNG bit of ECSR
-  - Do not use reserved LCHNGIP bit of ECSIPR
-  - Document that R8A779x also needs a 16 bit shift of the RFS bits
-  - Do not document that the R7S72100 has GECMR, it does not
----
- drivers/net/ethernet/renesas/sh_eth.c | 119 ++++++++++++++++++++++++++++++++--
- drivers/net/ethernet/renesas/sh_eth.h |   4 +-
- 2 files changed, 116 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index ca742e1..aaf011c 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -194,6 +194,59 @@ static const u16 sh_eth_offset_fast_rcar[SH_ETH_MAX_REGISTER_OFFSET] = {
- 	[TRIMD]		= 0x027c,
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+index cc6a546..2fbe9aa 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+@@ -107,17 +107,54 @@ void mlx4_en_fill_hwtstamps(struct mlx4_en_dev *mdev,
+ 			    struct skb_shared_hwtstamps *hwts,
+ 			    u64 timestamp)
+ {
+-	unsigned long flags;
+ 	u64 nsec;
  
-+static const u16 sh_eth_offset_fast_rz[SH_ETH_MAX_REGISTER_OFFSET] = {
-+	[EDSR]		= 0x0000,
-+	[EDMR]		= 0x0400,
-+	[EDTRR]		= 0x0408,
-+	[EDRRR]		= 0x0410,
-+	[EESR]		= 0x0428,
-+	[EESIPR]	= 0x0430,
-+	[TDLAR]		= 0x0010,
-+	[TDFAR]		= 0x0014,
-+	[TDFXR]		= 0x0018,
-+	[TDFFR]		= 0x001c,
-+	[RDLAR]		= 0x0030,
-+	[RDFAR]		= 0x0034,
-+	[RDFXR]		= 0x0038,
-+	[RDFFR]		= 0x003c,
-+	[TRSCER]	= 0x0438,
-+	[RMFCR]		= 0x0440,
-+	[TFTR]		= 0x0448,
-+	[FDR]		= 0x0450,
-+	[RMCR]		= 0x0458,
-+	[RPADIR]	= 0x0460,
-+	[FCFTR]		= 0x0468,
-+	[CSMR]		= 0x04E4,
-+
-+	[ECMR]		= 0x0500,
-+	[ECSR]		= 0x0510,
-+	[ECSIPR]	= 0x0518,
-+	[PIR]		= 0x0520,
-+	[APR]		= 0x0554,
-+	[MPR]		= 0x0558,
-+	[PFTCR]		= 0x055c,
-+	[PFRCR]		= 0x0560,
-+	[TPAUSER]	= 0x0564,
-+	[MAHR]		= 0x05c0,
-+	[MALR]		= 0x05c8,
-+	[CEFCR]		= 0x0740,
-+	[FRECR]		= 0x0748,
-+	[TSFRCR]	= 0x0750,
-+	[TLFRCR]	= 0x0758,
-+	[RFCR]		= 0x0760,
-+	[MAFCR]		= 0x0778,
-+
-+	[ARSTR]		= 0x0000,
-+	[TSU_CTRST]	= 0x0004,
-+	[TSU_VTAG0]	= 0x0058,
-+	[TSU_ADSBSY]	= 0x0060,
-+	[TSU_TEN]	= 0x0064,
-+	[TSU_ADRH0]	= 0x0100,
-+	[TSU_ADRL0]	= 0x0104,
-+	[TSU_ADRH31]	= 0x01f8,
-+	[TSU_ADRL31]	= 0x01fc,
-+};
-+
- static const u16 sh_eth_offset_fast_sh4[SH_ETH_MAX_REGISTER_OFFSET] = {
- 	[ECMR]		= 0x0100,
- 	[RFLR]		= 0x0108,
-@@ -322,6 +375,14 @@ static int sh_eth_is_gether(struct sh_eth_private *mdp)
- 		return 0;
+-	spin_lock_irqsave(&mdev->clock_lock, flags);
+-	nsec = timecounter_cyc2time(&mdev->clock, timestamp);
+-	spin_unlock_irqrestore(&mdev->clock_lock, flags);
++	rcu_read_lock();
++	nsec = timecounter_cyc2time(rcu_dereference(mdev->clock), timestamp);
++	rcu_read_unlock();
+ 
+ 	memset(hwts, 0, sizeof(struct skb_shared_hwtstamps));
+ 	hwts->hwtstamp = ns_to_ktime(nsec);
  }
  
-+static int sh_eth_is_rz_fast_ether(struct sh_eth_private *mdp)
++void mlx4_en_timecounter_init(struct mlx4_en_dev *mdev,
++			      u64 start_tstamp)
 +{
-+	if (mdp->reg_offset == sh_eth_offset_fast_rz)
-+		return 1;
-+	else
-+		return 0;
++	struct timecounter *new_tc, *old_tc;
++	unsigned long flags;
++
++	new_tc = kmalloc(sizeof(*new_tc), GFP_KERNEL);
++
++	spin_lock_irqsave(&mdev->clock_lock, flags);
++	old_tc = mdev->clock;
++	*new_tc = *old_tc;
++	timecounter_init(new_tc, &mdev->cycles, start_tstamp);
++	rcu_assign_pointer(mdev->clock, new_tc);
++	spin_unlock_irqrestore(&mdev->clock_lock, flags);
++	synchronize_rcu();
++	kfree(old_tc);
 +}
 +
- static void sh_eth_select_mii(struct net_device *ndev)
- {
- 	u32 value = 0x0;
-@@ -705,6 +766,35 @@ static struct sh_eth_cpu_data r8a7740_data = {
- 	.shift_rd0	= 1,
- };
- 
-+/* R7S72100 */
-+static struct sh_eth_cpu_data r7s72100_data = {
-+	.chip_reset	= sh_eth_chip_reset,
-+	.set_duplex	= sh_eth_set_duplex,
++u64 mlx4_en_timecounter_read(struct mlx4_en_dev *mdev)
++{
++	struct timecounter *new_tc, *old_tc;
++	unsigned long flags;
++	s64 now;
 +
-+	.register_type	= SH_ETH_REG_FAST_RZ,
++	new_tc = kmalloc(sizeof(*new_tc), GFP_KERNEL);
 +
-+	.ecsr_value	= ECSR_ICD,
-+	.ecsipr_value	= ECSIPR_ICDIP,
-+	.eesipr_value	= 0xff7f009f,
++	spin_lock_irqsave(&mdev->clock_lock, flags);
++	old_tc = mdev->clock;
++	*new_tc = *old_tc;
++	now = timecounter_read(new_tc);
++	rcu_assign_pointer(mdev->clock, new_tc);
++	spin_unlock_irqrestore(&mdev->clock_lock, flags);
++	synchronize_rcu();
++	kfree(old_tc);
 +
-+	.tx_check	= EESR_TC1 | EESR_FTC,
-+	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
-+			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
-+			  EESR_TDE | EESR_ECI,
-+	.fdr_value	= 0x0000070f,
-+	.rmcr_value	= RMCR_RNC,
++	return now;
++}
 +
-+	.apr		= 1,
-+	.mpr		= 1,
-+	.tpauser	= 1,
-+	.hw_swap	= 1,
-+	.rpadir		= 1,
-+	.rpadir_value   = 2 << 16,
-+	.no_trimd	= 1,
-+	.tsu		= 1,
-+	.shift_rd0	= 1,
-+};
-+
- static struct sh_eth_cpu_data sh7619_data = {
- 	.register_type	= SH_ETH_REG_FAST_SH3_SH2,
- 
-@@ -771,7 +861,7 @@ static int sh_eth_reset(struct net_device *ndev)
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
- 	int ret = 0;
- 
--	if (sh_eth_is_gether(mdp)) {
-+	if (sh_eth_is_gether(mdp) || sh_eth_is_rz_fast_ether(mdp)) {
- 		sh_eth_write(ndev, EDSR_ENALL, EDSR);
- 		sh_eth_write(ndev, sh_eth_read(ndev, EDMR) | EDMR_SRST_GETHER,
- 			     EDMR);
-@@ -887,6 +977,8 @@ static unsigned long sh_eth_get_edtrr_trns(struct sh_eth_private *mdp)
- {
- 	if (sh_eth_is_gether(mdp))
- 		return EDTRR_TRNS_GETHER;
-+	else if (sh_eth_is_rz_fast_ether(mdp))
-+		return EDTRR_TRNS_RZ_ETHER;
- 	else
- 		return EDTRR_TRNS_ETHER;
+ /**
+  * mlx4_en_remove_timestamp - disable PTP device
+  * @mdev: board private structure
+@@ -129,6 +166,7 @@ void mlx4_en_remove_timestamp(struct mlx4_en_dev *mdev)
+ 	if (mdev->ptp_clock) {
+ 		ptp_clock_unregister(mdev->ptp_clock);
+ 		mdev->ptp_clock = NULL;
++		kfree(mdev->clock);
+ 		mlx4_info(mdev, "removed PHC\n");
+ 	}
  }
-@@ -1046,7 +1138,8 @@ static void sh_eth_ring_format(struct net_device *ndev)
- 		/* Rx descriptor address set */
- 		if (i == 0) {
- 			sh_eth_write(ndev, mdp->rx_desc_dma, RDLAR);
--			if (sh_eth_is_gether(mdp))
-+			if (sh_eth_is_gether(mdp) ||
-+			    sh_eth_is_rz_fast_ether(mdp))
- 				sh_eth_write(ndev, mdp->rx_desc_dma, RDFAR);
- 		}
- 	}
-@@ -1067,7 +1160,8 @@ static void sh_eth_ring_format(struct net_device *ndev)
- 		if (i == 0) {
- 			/* Tx descriptor address set */
- 			sh_eth_write(ndev, mdp->tx_desc_dma, TDLAR);
--			if (sh_eth_is_gether(mdp))
-+			if (sh_eth_is_gether(mdp) ||
-+			    sh_eth_is_rz_fast_ether(mdp))
- 				sh_eth_write(ndev, mdp->tx_desc_dma, TDFAR);
- 		}
- 	}
-@@ -1316,9 +1410,9 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 		/*
- 		 * In case of almost all GETHER/ETHERs, the Receive Frame State
- 		 * (RFS) bits in the Receive Descriptor 0 are from bit 9 to
--		 * bit 0. However, in case of the R8A7740's GETHER, the RFS
--		 * bits are from bit 25 to bit 16. So, the driver needs right
--		 * shifting by 16.
-+		 * bit 0. However, in case of the R8A7740, R8A779x and
-+		 * R7S72100 the RFS bits are from bit 25 to bit 16. So, the
-+		 * driver needs right shifting by 16.
- 		 */
- 		if (mdp->cd->shift_rd0)
- 			desc_status >>= 16;
-@@ -2063,6 +2157,10 @@ static struct net_device_stats *sh_eth_get_stats(struct net_device *ndev)
+@@ -137,12 +175,9 @@ void mlx4_en_ptp_overflow_check(struct mlx4_en_dev *mdev)
  {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
+ 	bool timeout = time_is_before_jiffies(mdev->last_overflow_check +
+ 					      mdev->overflow_period);
+-	unsigned long flags;
  
-+	if (sh_eth_is_rz_fast_ether(mdp)) {
-+		return &ndev->stats;
-+	}
-+
- 	pm_runtime_get_sync(&mdp->pdev->dev);
+ 	if (timeout) {
+-		spin_lock_irqsave(&mdev->clock_lock, flags);
+-		timecounter_read(&mdev->clock);
+-		spin_unlock_irqrestore(&mdev->clock_lock, flags);
++		mlx4_en_timecounter_read(mdev);
+ 		mdev->last_overflow_check = jiffies;
+ 	}
+ }
+@@ -160,7 +195,6 @@ static int mlx4_en_phc_adjfreq(struct ptp_clock_info *ptp, s32 delta)
+ 	u64 adj;
+ 	u32 diff, mult;
+ 	int neg_adj = 0;
+-	unsigned long flags;
+ 	struct mlx4_en_dev *mdev = container_of(ptp, struct mlx4_en_dev,
+ 						ptp_clock_info);
  
- 	ndev->stats.tx_dropped += sh_eth_read(ndev, TROCR);
-@@ -2447,6 +2545,11 @@ static int sh_eth_vlan_rx_kill_vid(struct net_device *ndev,
- /* SuperH's TSU register init function */
- static void sh_eth_tsu_init(struct sh_eth_private *mdp)
+@@ -173,10 +207,8 @@ static int mlx4_en_phc_adjfreq(struct ptp_clock_info *ptp, s32 delta)
+ 	adj *= delta;
+ 	diff = div_u64(adj, 1000000000ULL);
+ 
+-	spin_lock_irqsave(&mdev->clock_lock, flags);
+-	timecounter_read(&mdev->clock);
++	mlx4_en_timecounter_read(mdev);
+ 	mdev->cycles.mult = neg_adj ? mult - diff : mult + diff;
+-	spin_unlock_irqrestore(&mdev->clock_lock, flags);
+ 
+ 	return 0;
+ }
+@@ -192,14 +224,11 @@ static int mlx4_en_phc_adjtime(struct ptp_clock_info *ptp, s64 delta)
  {
-+	if (sh_eth_is_rz_fast_ether(mdp)) {
-+		sh_eth_tsu_write(mdp, 0, TSU_TEN); /* Disable all CAM entry */
-+		return;
-+	}
-+
- 	sh_eth_tsu_write(mdp, 0, TSU_FWEN0);	/* Disable forward(0->1) */
- 	sh_eth_tsu_write(mdp, 0, TSU_FWEN1);	/* Disable forward(1->0) */
- 	sh_eth_tsu_write(mdp, 0, TSU_FCM);	/* forward fifo 3k-3k */
-@@ -2569,6 +2672,9 @@ static const u16 *sh_eth_get_register_offset(int register_type)
- 	case SH_ETH_REG_FAST_RCAR:
- 		reg_offset = sh_eth_offset_fast_rcar;
- 		break;
-+	case SH_ETH_REG_FAST_RZ:
-+		reg_offset = sh_eth_offset_fast_rz;
-+		break;
- 	case SH_ETH_REG_FAST_SH4:
- 		reg_offset = sh_eth_offset_fast_sh4;
- 		break;
-@@ -2805,6 +2911,7 @@ static struct platform_device_id sh_eth_id_table[] = {
- 	{ "sh7757-ether", (kernel_ulong_t)&sh7757_data },
- 	{ "sh7757-gether", (kernel_ulong_t)&sh7757_data_giga },
- 	{ "sh7763-gether", (kernel_ulong_t)&sh7763_data },
-+	{ "r7s72100-ether", (kernel_ulong_t)&r7s72100_data },
- 	{ "r8a7740-gether", (kernel_ulong_t)&r8a7740_data },
- 	{ "r8a777x-ether", (kernel_ulong_t)&r8a777x_data },
- 	{ "r8a7790-ether", (kernel_ulong_t)&r8a779x_data },
-diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-index f32c169..dc5c16c 100644
---- a/drivers/net/ethernet/renesas/sh_eth.h
-+++ b/drivers/net/ethernet/renesas/sh_eth.h
-@@ -160,6 +160,7 @@ enum {
- enum {
- 	SH_ETH_REG_GIGABIT,
- 	SH_ETH_REG_FAST_RCAR,
-+	SH_ETH_REG_FAST_RZ,
- 	SH_ETH_REG_FAST_SH4,
- 	SH_ETH_REG_FAST_SH3_SH2
- };
-@@ -174,7 +175,7 @@ enum {
- /*
-  * Register's bits
-  */
--/* EDSR : sh7734, sh7757, sh7763, and r8a7740 only */
-+/* EDSR : sh7734, sh7757, sh7763, r8a7740 and r7s72100 only */
- enum EDSR_BIT {
- 	EDSR_ENT = 0x01, EDSR_ENR = 0x02,
- };
-@@ -196,6 +197,7 @@ enum DMAC_M_BIT {
- /* EDTRR */
- enum DMAC_T_BIT {
- 	EDTRR_TRNS_GETHER = 0x03,
-+	EDTRR_TRNS_RZ_ETHER = 0x03,
- 	EDTRR_TRNS_ETHER = 0x01,
- };
+ 	struct mlx4_en_dev *mdev = container_of(ptp, struct mlx4_en_dev,
+ 						ptp_clock_info);
+-	unsigned long flags;
+ 	s64 now;
  
+-	spin_lock_irqsave(&mdev->clock_lock, flags);
+-	now = timecounter_read(&mdev->clock);
++	now = mlx4_en_timecounter_read(mdev);
+ 	now += delta;
+-	timecounter_init(&mdev->clock, &mdev->cycles, now);
+-	spin_unlock_irqrestore(&mdev->clock_lock, flags);
++	mlx4_en_timecounter_init(mdev, now);
+ 
+ 	return 0;
+ }
+@@ -216,14 +245,10 @@ static int mlx4_en_phc_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
+ {
+ 	struct mlx4_en_dev *mdev = container_of(ptp, struct mlx4_en_dev,
+ 						ptp_clock_info);
+-	unsigned long flags;
+ 	u32 remainder;
+ 	u64 ns;
+ 
+-	spin_lock_irqsave(&mdev->clock_lock, flags);
+-	ns = timecounter_read(&mdev->clock);
+-	spin_unlock_irqrestore(&mdev->clock_lock, flags);
+-
++	ns = mlx4_en_timecounter_read(mdev);
+ 	ts->tv_sec = div_u64_rem(ns, NSEC_PER_SEC, &remainder);
+ 	ts->tv_nsec = remainder;
+ 
+@@ -244,12 +269,9 @@ static int mlx4_en_phc_settime(struct ptp_clock_info *ptp,
+ 	struct mlx4_en_dev *mdev = container_of(ptp, struct mlx4_en_dev,
+ 						ptp_clock_info);
+ 	u64 ns = timespec_to_ns(ts);
+-	unsigned long flags;
+ 
+ 	/* reset the timecounter */
+-	spin_lock_irqsave(&mdev->clock_lock, flags);
+-	timecounter_init(&mdev->clock, &mdev->cycles, ns);
+-	spin_unlock_irqrestore(&mdev->clock_lock, flags);
++	mlx4_en_timecounter_init(mdev, ns);
+ 
+ 	return 0;
+ }
+@@ -287,9 +309,9 @@ static const struct ptp_clock_info mlx4_en_ptp_clock_info = {
+ void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
+ {
+ 	struct mlx4_dev *dev = mdev->dev;
+-	unsigned long flags;
+ 	u64 ns;
+ 
++	mdev->clock = kmalloc(sizeof(struct timecounter), GFP_KERNEL);
+ 	memset(&mdev->cycles, 0, sizeof(mdev->cycles));
+ 	mdev->cycles.read = mlx4_en_read_clock;
+ 	mdev->cycles.mask = CLOCKSOURCE_MASK(48);
+@@ -303,10 +325,7 @@ void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
+ 		clocksource_khz2mult(1000 * dev->caps.hca_core_clock, mdev->cycles.shift);
+ 	mdev->nominal_c_mult = mdev->cycles.mult;
+ 
+-	spin_lock_irqsave(&mdev->clock_lock, flags);
+-	timecounter_init(&mdev->clock, &mdev->cycles,
+-			 ktime_to_ns(ktime_get_real()));
+-	spin_unlock_irqrestore(&mdev->clock_lock, flags);
++	mlx4_en_timecounter_init(mdev, ktime_to_ns(ktime_get_real()));
+ 
+ 	/* Calculate period in seconds to call the overflow watchdog - to make
+ 	 * sure counter is checked at least once every wrap around.
+@@ -323,6 +342,7 @@ void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
+ 					     &mdev->pdev->dev);
+ 	if (IS_ERR(mdev->ptp_clock)) {
+ 		mdev->ptp_clock = NULL;
++		kfree(mdev->clock);
+ 		mlx4_err(mdev, "ptp_clock_register failed\n");
+ 	} else {
+ 		mlx4_info(mdev, "registered PHC clock\n");
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index e7733c1..7d1d460 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -379,7 +379,7 @@ struct mlx4_en_dev {
+ 	spinlock_t		clock_lock;
+ 	u32			nominal_c_mult;
+ 	struct cyclecounter	cycles;
+-	struct timecounter	clock;
++	struct timecounter	*clock;
+ 	unsigned long		last_overflow_check;
+ 	unsigned long		overflow_period;
+ 	struct ptp_clock	*ptp_clock;
 -- 
-1.8.4
+1.7.8.2
