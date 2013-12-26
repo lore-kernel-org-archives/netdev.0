@@ -1,52 +1,50 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v3.5 01/19] net: freescale: remove unused compare_addr()
-Date: Thu, 26 Dec 2013 19:40:18 +0800
-Message-ID: <52BC15A2.1080000@huawei.com>
+Subject: [PATCH v3.5 12/19] isdn: slight optimization of addr compare
+Date: Thu, 26 Dec 2013 19:41:05 +0800
+Message-ID: <52BC15D1.1020104@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Li Yang <leoli@freescale.com>, Netdev <netdev@vger.kernel.org>,
- <linuxppc-dev@lists.ozlabs.org>, "linux-kernel@vger.kernel.org"
- <linux-kernel@vger.kernel.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+To: Karsten Keil <isdn@linux-pingi.de>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The function did not be used any more, so remove it.
+Use possibly more efficient ether_addr_equal
+instead of memcmp.
 
-Cc: Li Yang <leoli@freescale.com>
+Cc: Karsten Keil <isdn@linux-pingi.de>
 Cc: netdev@vger.kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
 Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/ethernet/freescale/ucc_geth.c | 5 -----
- 1 file changed, 5 deletions(-)
+ drivers/isdn/i4l/isdn_net.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
-index 5548b6d..72291a8 100644
---- a/drivers/net/ethernet/freescale/ucc_geth.c
-+++ b/drivers/net/ethernet/freescale/ucc_geth.c
-@@ -435,11 +435,6 @@ static void hw_add_addr_in_hash(struct ucc_geth_private *ugeth,
- 		     QE_CR_PROTOCOL_ETHERNET, 0);
- }
+diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
+index 8b98d53..d9aebbc 100644
+--- a/drivers/isdn/i4l/isdn_net.c
++++ b/drivers/isdn/i4l/isdn_net.c
+@@ -1371,7 +1371,7 @@ isdn_net_type_trans(struct sk_buff *skb, struct net_device *dev)
+ 	eth = eth_hdr(skb);
  
--static inline int compare_addr(u8 **addr1, u8 **addr2)
--{
--	return memcmp(addr1, addr2, ETH_ALEN);
--}
--
- #ifdef DEBUG
- static void get_statistics(struct ucc_geth_private *ugeth,
- 			   struct ucc_geth_tx_firmware_statistics *
+ 	if (*eth->h_dest & 1) {
+-		if (memcmp(eth->h_dest, dev->broadcast, ETH_ALEN) == 0)
++		if (ether_addr_equal(eth->h_dest, dev->broadcast))
+ 			skb->pkt_type = PACKET_BROADCAST;
+ 		else
+ 			skb->pkt_type = PACKET_MULTICAST;
+@@ -1382,7 +1382,7 @@ isdn_net_type_trans(struct sk_buff *skb, struct net_device *dev)
+ 	 */
+ 
+ 	else if (dev->flags & (IFF_PROMISC /*| IFF_ALLMULTI*/)) {
+-		if (memcmp(eth->h_dest, dev->dev_addr, ETH_ALEN))
++		if (!ether_addr_equal(eth->h_dest, dev->dev_addr))
+ 			skb->pkt_type = PACKET_OTHERHOST;
+ 	}
+ 	if (ntohs(eth->h_proto) >= ETH_P_802_3_MIN)
 -- 
 1.8.0
