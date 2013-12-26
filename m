@@ -1,170 +1,61 @@
 From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: [PATCH v2 net-next 6/6] bnx2x: add VF Multicast filters support
-Date: Thu, 26 Dec 2013 09:57:12 +0200
-Message-ID: <1388044632-9172-7-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH v2 net-next 4/6] bnx2x: no error when RSS configuration fails
+Date: Thu, 26 Dec 2013 09:57:10 +0200
+Message-ID: <1388044632-9172-5-git-send-email-yuvalmin@broadcom.com>
 References: <1388044632-9172-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <ariele@broadcom.com>, Yuval Mintz <yuvalmin@broadcom.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:47794 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752709Ab3LZH5X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 02:57:23 -0500
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:21152 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752677Ab3LZH5U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 02:57:20 -0500
 In-Reply-To: <1388044632-9172-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the necessary support for configuring (and removing) multicast
-filters to VFs.
+It's possible for VMs with older versions of bnx2x to run over a hypervisor
+with latest driver. If a VF in such a VM does not support RSS configuration,
+the PF driver in the hypervisor will print an error message to system logs.
+
+This changes the error message into a debug message, as this is very likely
+a false alarm for an older VF (i.e., VF manages to work properly; PF simply
+cannot configure the additional queues for it).
 
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 49 ++++++++++++++---------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h |  1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c  |  8 ++++
- 3 files changed, 39 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index 2e46c28..2518276 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -166,6 +166,7 @@ enum bnx2x_vfop_qteardown_state {
- 	   BNX2X_VFOP_QTEARDOWN_RXMODE,
- 	   BNX2X_VFOP_QTEARDOWN_CLR_VLAN,
- 	   BNX2X_VFOP_QTEARDOWN_CLR_MAC,
-+	   BNX2X_VFOP_QTEARDOWN_CLR_MCAST,
- 	   BNX2X_VFOP_QTEARDOWN_QDTOR,
- 	   BNX2X_VFOP_QTEARDOWN_DONE
- };
-@@ -1112,7 +1113,10 @@ static void bnx2x_vfop_mcast(struct bnx2x *bp, struct bnx2x_virtf *vf)
- 	switch (state) {
- 	case BNX2X_VFOP_MCAST_DEL:
- 		/* clear existing mcasts */
--		vfop->state = BNX2X_VFOP_MCAST_ADD;
-+		vfop->state = (args->mc_num) ? BNX2X_VFOP_MCAST_ADD
-+					     : BNX2X_VFOP_MCAST_CHK_DONE;
-+		mcast->mcast_list_len = vf->mcast_list_len;
-+		vf->mcast_list_len = args->mc_num;
- 		vfop->rc = bnx2x_config_mcast(bp, mcast, BNX2X_MCAST_CMD_DEL);
- 		bnx2x_vfop_finalize(vf, vfop->rc, VFOP_CONT);
- 
-@@ -1120,17 +1124,17 @@ static void bnx2x_vfop_mcast(struct bnx2x *bp, struct bnx2x_virtf *vf)
- 		if (raw->check_pending(raw))
- 			goto op_pending;
- 
--		if (args->mc_num) {
--			/* update mcast list on the ramrod params */
--			INIT_LIST_HEAD(&mcast->mcast_list);
--			for (i = 0; i < args->mc_num; i++)
--				list_add_tail(&(args->mc[i].link),
--					      &mcast->mcast_list);
--			/* add new mcasts */
--			vfop->state = BNX2X_VFOP_MCAST_CHK_DONE;
--			vfop->rc = bnx2x_config_mcast(bp, mcast,
--						      BNX2X_MCAST_CMD_ADD);
--		}
-+		/* update mcast list on the ramrod params */
-+		INIT_LIST_HEAD(&mcast->mcast_list);
-+		for (i = 0; i < args->mc_num; i++)
-+			list_add_tail(&(args->mc[i].link),
-+				      &mcast->mcast_list);
-+		mcast->mcast_list_len = args->mc_num;
-+
-+		/* add new mcasts */
-+		vfop->state = BNX2X_VFOP_MCAST_CHK_DONE;
-+		vfop->rc = bnx2x_config_mcast(bp, mcast,
-+					      BNX2X_MCAST_CMD_ADD);
- 		bnx2x_vfop_finalize(vf, vfop->rc, VFOP_DONE);
- 
- 	case BNX2X_VFOP_MCAST_CHK_DONE:
-@@ -1303,12 +1307,19 @@ static void bnx2x_vfop_qdown(struct bnx2x *bp, struct bnx2x_virtf *vf)
- 
- 	case BNX2X_VFOP_QTEARDOWN_CLR_MAC:
- 		/* mac-clear-all: consume credit */
--		vfop->state = BNX2X_VFOP_QTEARDOWN_QDTOR;
-+		vfop->state = BNX2X_VFOP_QTEARDOWN_CLR_MCAST;
- 		vfop->rc = bnx2x_vfop_mac_delall_cmd(bp, vf, &cmd, qid, false);
- 		if (vfop->rc)
- 			goto op_err;
- 		return;
- 
-+	case BNX2X_VFOP_QTEARDOWN_CLR_MCAST:
-+		vfop->state = BNX2X_VFOP_QTEARDOWN_QDTOR;
-+		vfop->rc = bnx2x_vfop_mcast_cmd(bp, vf, &cmd, NULL, 0, false);
-+		if (vfop->rc)
-+			goto op_err;
-+		return;
-+
- 	case BNX2X_VFOP_QTEARDOWN_QDTOR:
- 		/* run the queue destruction flow */
- 		DP(BNX2X_MSG_IOV, "case: BNX2X_VFOP_QTEARDOWN_QDTOR\n");
-@@ -2188,6 +2199,7 @@ int bnx2x_iov_nic_init(struct bnx2x *bp)
- 		 *  It needs to be initialized here so that it can be safely
- 		 *  handled by a subsequent FLR flow.
- 		 */
-+		vf->mcast_list_len = 0;
- 		bnx2x_init_mcast_obj(bp, &vf->mcast_obj, 0xFF,
- 				     0xFF, 0xFF, 0xFF,
- 				     bnx2x_vf_sp(bp, vf, mcast_rdata),
-@@ -2848,13 +2860,9 @@ static void bnx2x_vfop_close(struct bnx2x *bp, struct bnx2x_virtf *vf)
- 				goto op_err;
- 			return;
- 		}
--
--		/* remove multicasts */
- 		vfop->state = BNX2X_VFOP_CLOSE_HW;
--		vfop->rc = bnx2x_vfop_mcast_cmd(bp, vf, &cmd, NULL, 0, false);
--		if (vfop->rc)
--			goto op_err;
--		return;
-+		vfop->rc = 0;
-+		bnx2x_vfop_finalize(vf, vfop->rc, VFOP_CONT);
- 
- 	case BNX2X_VFOP_CLOSE_HW:
- 
-@@ -2888,6 +2896,9 @@ op_done:
- 
- 	DP(BNX2X_MSG_IOV, "set state to acquired\n");
- 	bnx2x_vfop_end(bp, vf, vfop);
-+op_pending:
-+	/* Not supported at the moment; Exists for macros only */
-+	return;
- }
- 
- int bnx2x_vfop_close_cmd(struct bnx2x *bp,
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-index 1ff6a93..a5c84a7 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-@@ -268,6 +268,7 @@ struct bnx2x_virtf {
- 	int leading_rss;
- 
- 	/* MCAST object */
-+	int mcast_list_len;
- 	struct bnx2x_mcast_obj		mcast_obj;
- 
- 	/* RSS configuration object */
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-index c7aaf5b..86ebb62 100644
+index efa8a15..c7aaf5b 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-@@ -1420,6 +1420,14 @@ static void bnx2x_vf_mbx_setup_q(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 				setup_q->rxq.cache_line_log;
- 			rxq_params->sb_cq_index = setup_q->rxq.sb_index;
+@@ -800,14 +800,18 @@ int bnx2x_vfpf_config_rss(struct bnx2x *bp,
+ 	}
  
-+			/* rx setup - multicast engine */
-+			if (bnx2x_vfq_is_leading(q)) {
-+				u8 mcast_id = FW_VF_HANDLE(vf->abs_vfid);
-+
-+				rxq_params->mcast_engine_id = mcast_id;
-+				__set_bit(BNX2X_Q_FLG_MCAST, &setup_p->flags);
-+			}
-+
- 			bnx2x_vfop_qctor_dump_rx(bp, vf, init_p, setup_p,
- 						 q->index, q->sb_idx);
- 		}
+ 	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
+-		BNX2X_ERR("failed to send rss message to PF over Vf PF channel %d\n",
+-			  resp->hdr.status);
+-		rc = -EINVAL;
++		/* Since older drivers don't support this feature (and VF has
++		 * no way of knowing other than failing this), don't propagate
++		 * an error in this case.
++		 */
++		DP(BNX2X_MSG_IOV,
++		   "Failed to send rss message to PF over VF-PF channel [%d]\n",
++		   resp->hdr.status);
+ 	}
+ out:
+ 	bnx2x_vfpf_finalize(bp, &req->first_tlv);
+ 
+-	return 0;
++	return rc;
+ }
+ 
+ int bnx2x_vfpf_set_mcast(struct net_device *dev)
 -- 
 1.8.1.227.g44fe835
