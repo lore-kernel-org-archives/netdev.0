@@ -1,51 +1,51 @@
-From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: [PATCH v2 net-next 3/6] bnx2x: add Big-Endian ethtool comment
-Date: Thu, 26 Dec 2013 09:57:09 +0200
-Message-ID: <1388044632-9172-4-git-send-email-yuvalmin@broadcom.com>
-References: <1388044632-9172-1-git-send-email-yuvalmin@broadcom.com>
+From: Hadar Hen Zion <hadarh@mellanox.com>
+Subject: Re: [PATCH net-next 1/2] mlx4_en: Add PTP hardware clock
+Date: Thu, 26 Dec 2013 10:26:52 +0200
+Message-ID: <52BBE84C.1030702@mellanox.com>
+References: <1387312359-9476-1-git-send-email-shawn.bohrer@gmail.com> <1387312359-9476-2-git-send-email-shawn.bohrer@gmail.com> <52B6E568.4030400@mellanox.com> <20131223184845.GA4922@netboy> <52B992EE.5030401@mellanox.com> <20131225115322.GB5378@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <ariele@broadcom.com>, Yuval Mintz <yuvalmin@broadcom.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Shawn Bohrer <shawn.bohrer@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tomk@rgmadvisors.com" <tomk@rgmadvisors.com>,
+	Shawn Bohrer <sbohrer@rgmadvisors.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:47794 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752669Ab3LZH5T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 02:57:19 -0500
-In-Reply-To: <1388044632-9172-1-git-send-email-yuvalmin@broadcom.com>
+Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:52750 "EHLO
+	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751381Ab3LZI1P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 03:27:15 -0500
+In-Reply-To: <20131225115322.GB5378@netboy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There's a known issue that using `ethtool -e' flips the endianity of the
-written data, i.e., using `ethtool -E' to dump eeprom image and than using
-`ethtool -e' to re-write that same image will result in an image where
-the data has the opposite endianity. 
-Sadly, this cannot be fixed as there are already various tools deployed
-based on the endianity of the eeprom read/write.
-Instead, a comment is added to the code to help explain why this is un-fixable.
+On 12/25/2013 1:53 PM, Richard Cochran wrote:
+> On Tue, Dec 24, 2013 at 03:58:06PM +0200, Hadar Hen Zion wrote:
+>>
+>> The spin locks case such a bottleneck since I'm using multiple
+>> streams in my performance test. RSS mechanism scattered the streams
+>> between multiple RX rings while each RX ring is bound to a different
+>> cup.
+>> The describe scenario cause lock contention between the different RX rings.
+>>
+>> Performance drops from 37.8 Gbits/sec to 32.1 Gbits/sec when spin
+>> locks are added and goes back to 37.8 Gbits/sec when using
+>> read/write locks.
+>
+> And you are time stamping every received packet?
+>
+> Thanks,
+> Richard
+>
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+Yes, current implementation time stamping every received packet.
+I do think time stamping only packets from the relevant socket will make 
+more sense but SIOCSHWTSTAMP ioctl provides only the device without any 
+socket attributes.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index 32d0f14..92a467f 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -1639,6 +1639,12 @@ static int bnx2x_nvram_write(struct bnx2x *bp, u32 offset, u8 *data_buf,
- 
- 		memcpy(&val, data_buf, 4);
- 
-+		/* Notice unlike bnx2x_nvram_read_dword() this will not
-+		 * change val using be32_to_cpu(), which causes data to flip
-+		 * if the eeprom is read and then written back. This is due
-+		 * to tools utilizing this functionality that would break
-+		 * if this would be resolved.
-+		 */
- 		rc = bnx2x_nvram_write_dword(bp, offset, val, cmd_flags);
- 
- 		/* advance to the next dword */
--- 
-1.8.1.227.g44fe835
+Thanks,
+Hadar
