@@ -1,11 +1,12 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v3.5 02/19] net: pcnet: slight optimization of addr compare
-Date: Thu, 26 Dec 2013 19:40:22 +0800
-Message-ID: <52BC15A6.2080803@huawei.com>
+Subject: [PATCH v3.5 05/19] ppp: slight optimization of addr compare
+Date: Thu, 26 Dec 2013 19:40:35 +0800
+Message-ID: <52BC15B3.8030502@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Don Fry <pcnet32@frontier.com>, Netdev <netdev@vger.kernel.org>,
+To: Michal Ostrowski <mostrows@earthlink.net>,
+	Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -14,26 +15,32 @@ List-Id: netdev.vger.kernel.org
 Use possibly more efficient ether_addr_equal
 to instead of memcmp.
 
-Cc: Don Fry <pcnet32@frontier.com>
+Cc: Michal Ostrowski <mostrows@earthlink.net>
 Cc: netdev@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/ethernet/amd/pcnet32.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ppp/pppoe.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
-index 38492e0..9339ccc 100644
---- a/drivers/net/ethernet/amd/pcnet32.c
-+++ b/drivers/net/ethernet/amd/pcnet32.c
-@@ -1668,7 +1668,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
- 	for (i = 0; i < ETH_ALEN; i++)
- 		promaddr[i] = inb(ioaddr + i);
+diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
+index 82ee6ed..2ea7efd 100644
+--- a/drivers/net/ppp/pppoe.c
++++ b/drivers/net/ppp/pppoe.c
+@@ -131,12 +131,12 @@ static inline struct pppoe_net *pppoe_pernet(struct net *net)
  
--	if (memcmp(promaddr, dev->dev_addr, ETH_ALEN) ||
-+	if (!ether_addr_equal(promaddr, dev->dev_addr) ||
- 	    !is_valid_ether_addr(dev->dev_addr)) {
- 		if (is_valid_ether_addr(promaddr)) {
- 			if (pcnet32_debug & NETIF_MSG_PROBE) {
+ static inline int cmp_2_addr(struct pppoe_addr *a, struct pppoe_addr *b)
+ {
+-	return a->sid == b->sid && !memcmp(a->remote, b->remote, ETH_ALEN);
++	return a->sid == b->sid && ether_addr_equal(a->remote, b->remote);
+ }
+ 
+ static inline int cmp_addr(struct pppoe_addr *a, __be16 sid, char *addr)
+ {
+-	return a->sid == sid && !memcmp(a->remote, addr, ETH_ALEN);
++	return a->sid == sid && ether_addr_equal(a->remote, addr);
+ }
+ 
+ #if 8 % PPPOE_HASH_BITS
 -- 
 1.8.0
