@@ -1,72 +1,46 @@
 From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH] ipv6: shouldn't dump the expired routes
-Date: Thu, 26 Dec 2013 14:00:25 +0800
-Message-ID: <52BBC5F9.4050904@cn.fujitsu.com>
+Subject: [PATCH net-next] bridge: remove extern from function prototypes
+Date: Thu, 26 Dec 2013 14:19:03 +0800
+Message-ID: <52BBCA57.9080706@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:35254 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:6464 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750745Ab3LZGAm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Dec 2013 01:00:42 -0500
+	id S1750778Ab3LZGam (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Dec 2013 01:30:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-If we execute the command "ip -6 route show table all", those routes
-that have been expired will be dumped.  But as everyone knows, those
-expired routes will not be used, and they will be deleted by the kernel.
-So why we still need to dump they, and just don't dump them.
+There are a mix of function prototypes with and without extern
+in the kernel sources. Standardize on not using extern for
+function prototypes.
+
+Function prototypes don't need to be written with extern.
+extern is assumed by the compiler. Its use is as unnecessary as
+using auto to declare automatic/local variables in a block.
 
 Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 ---
- include/net/ip6_route.h | 2 ++
- net/ipv6/ip6_fib.c      | 3 +++
- net/ipv6/route.c        | 2 +-
- 3 files changed, 6 insertions(+), 1 deletion(-)
+ net/bridge/br_private.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-index c2626ce..32fa188 100644
---- a/include/net/ip6_route.h
-+++ b/include/net/ip6_route.h
-@@ -103,6 +103,8 @@ void fib6_force_start_gc(struct net *net);
- struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
- 				    const struct in6_addr *addr, bool anycast);
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 2e77d92..458889e 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -762,7 +762,7 @@ unsigned long br_timer_value(const struct timer_list *timer);
  
-+bool rt6_check_expired(const struct rt6_info *rt);
-+
- /*
-  *	support functions for ND
-  *
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 5550a81..f57a6bb 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -278,6 +278,9 @@ static int fib6_dump_node(struct fib6_walker_t *w)
- 	struct rt6_info *rt;
+ /* br.c */
+ #if IS_ENABLED(CONFIG_ATM_LANE)
+-extern int (*br_fdb_test_addr_hook)(struct net_device *dev, unsigned char *addr);
++int (*br_fdb_test_addr_hook)(struct net_device *dev, unsigned char *addr);
+ #endif
  
- 	for (rt = w->leaf; rt; rt = rt->dst.rt6_next) {
-+		if (rt6_check_expired(rt))
-+			continue;
-+
- 		res = rt6_dump_route(rt, w->args);
- 		if (res < 0) {
- 			/* Frame is full, suspend walking */
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 89b2735..abf5f05 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -348,7 +348,7 @@ static void ip6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
- 	}
- }
- 
--static bool rt6_check_expired(const struct rt6_info *rt)
-+bool rt6_check_expired(const struct rt6_info *rt)
- {
- 	if (rt->rt6i_flags & RTF_EXPIRES) {
- 		if (time_after(jiffies, rt->dst.expires))
+ /* br_netlink.c */
 -- 
 1.8.3.1
