@@ -1,46 +1,129 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next 0/6] bnx2x: new features patch series
-Date: Thu, 26 Dec 2013 11:13:47 -0800
-Message-ID: <1388085227.12212.19.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1388044632-9172-1-git-send-email-yuvalmin@broadcom.com>
-	 <20131226.133853.2211726123097632477.davem@davemloft.net>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH] iproute: Make it possible to specify index on link creation
+Date: Thu, 26 Dec 2013 23:15:20 +0400
+Message-ID: <52BC8048.4080205@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: yuvalmin@broadcom.com, netdev@vger.kernel.org, ariele@broadcom.com
-To: David Miller <davem@davemloft.net>
+To: Linux Netdev List <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:50354 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753651Ab3LZTNx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 14:13:53 -0500
-Received: by mail-pb0-f43.google.com with SMTP id rq2so8447066pbb.16
-        for <netdev@vger.kernel.org>; Thu, 26 Dec 2013 11:13:53 -0800 (PST)
-In-Reply-To: <20131226.133853.2211726123097632477.davem@davemloft.net>
+Received: from relay.parallels.com ([195.214.232.42]:57334 "EHLO
+	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753611Ab3LZTPZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 14:15:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-12-26 at 13:38 -0500, David Miller wrote:
-> From: Yuval Mintz <yuvalmin@broadcom.com>
-> Date: Thu, 26 Dec 2013 09:57:06 +0200
-> 
-> > This patch series adds/fixes several new features in the bnx2x driver -
-> > it adds support for loading the bnx2x over an UNDI running on a Multi-function
-> > device, adds missing bits for PCIe AER support and enables VFs to properly
-> > configure multicast filters
-> > (In addition, it also contains some small improvements in driver behaviour).
-> > 
-> > Please consider applying these patches to `net-next'.
-> > 
-> > Changes from previous versions
-> > ------------------------------
-> >   v2:
-> >      - Fixed comment typo in patch 4 (propogate --> propagate)
-> 
-> Applied, thanks.
+The RTM_NEWLINK message accepts ifi_index non-zero value and lets
+creation of links with given index (if it's free, or course). This
+functionality is available since linux-v3.5.
 
-Quick note :
+This patch makes this API available via ip tool.
 
-drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c: In function 'bnx2x_drv_info_ether_stat':
-drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c:3302:46: error: dereferencing pointer to incomplete type
-make[6]: *** [drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.o] Error 1
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+
+---
+
+diff --git a/include/utils.h b/include/utils.h
+index a3e310e..a4b5b4c 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -156,5 +156,5 @@ extern int inet_get_addr(const char *src, __u32 *dst, struct in6_addr *dst6);
+ struct iplink_req;
+ int iplink_parse(int argc, char **argv, struct iplink_req *req,
+ 		char **name, char **type, char **link, char **dev,
+-		int *group);
++		int *group, int *index);
+ #endif /* __UTILS_H__ */
+diff --git a/ip/iplink.c b/ip/iplink.c
+index e0c14e6..343b29f 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -47,7 +47,7 @@ void iplink_usage(void)
+ 		fprintf(stderr, "                   [ txqueuelen PACKETS ]\n");
+ 		fprintf(stderr, "                   [ address LLADDR ]\n");
+ 		fprintf(stderr, "                   [ broadcast LLADDR ]\n");
+-		fprintf(stderr, "                   [ mtu MTU ]\n");
++		fprintf(stderr, "                   [ mtu MTU ] [index IDX ]\n");
+ 		fprintf(stderr, "                   [ numtxqueues QUEUE_COUNT ]\n");
+ 		fprintf(stderr, "                   [ numrxqueues QUEUE_COUNT ]\n");
+ 		fprintf(stderr, "                   type TYPE [ ARGS ]\n");
+@@ -291,7 +291,7 @@ static int iplink_parse_vf(int vf, int *argcp, char ***argvp,
+ }
+ 
+ int iplink_parse(int argc, char **argv, struct iplink_req *req,
+-		char **name, char **type, char **link, char **dev, int *group)
++		char **name, char **type, char **link, char **dev, int *group, int *index)
+ {
+ 	int ret, len;
+ 	char abuf[32];
+@@ -315,6 +315,9 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
+ 		} else if (strcmp(*argv, "name") == 0) {
+ 			NEXT_ARG();
+ 			*name = *argv;
++		} else if (strcmp(*argv, "index") == 0) {
++			NEXT_ARG();
++			*index = atoi(*argv);
+ 		} else if (matches(*argv, "link") == 0) {
+ 			NEXT_ARG();
+ 			*link = *argv;
+@@ -506,6 +509,7 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
+ 	char *name = NULL;
+ 	char *link = NULL;
+ 	char *type = NULL;
++	int index = 0;
+ 	int group;
+ 	struct link_util *lu = NULL;
+ 	struct iplink_req req;
+@@ -518,7 +522,7 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
+ 	req.n.nlmsg_type = cmd;
+ 	req.i.ifi_family = preferred_family;
+ 
+-	ret = iplink_parse(argc, argv, &req, &name, &type, &link, &dev, &group);
++	ret = iplink_parse(argc, argv, &req, &name, &type, &link, &dev, &group, &index);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -578,6 +582,8 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
+ 			}
+ 			addattr_l(&req.n, sizeof(req), IFLA_LINK, &ifindex, 4);
+ 		}
++
++		req.i.ifi_index = index;
+ 	}
+ 
+ 	if (name) {
+diff --git a/ip/link_veth.c b/ip/link_veth.c
+index 62cb5a5..3cbeb54 100644
+--- a/ip/link_veth.c
++++ b/ip/link_veth.c
+@@ -30,6 +30,7 @@ static int veth_parse_opt(struct link_util *lu, int argc, char **argv,
+ 	char *name = NULL;
+ 	char *link = NULL;
+ 	char *type = NULL;
++	int index = 0;
+ 	int err, len;
+ 	struct rtattr * data;
+ 	int group;
+@@ -45,7 +46,7 @@ static int veth_parse_opt(struct link_util *lu, int argc, char **argv,
+ 	hdr->nlmsg_len += sizeof(struct ifinfomsg);
+ 
+ 	err = iplink_parse(argc - 1, argv + 1, (struct iplink_req *)hdr,
+-			   &name, &type, &link, &dev, &group);
++			   &name, &type, &link, &dev, &group, &index);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -56,6 +57,11 @@ static int veth_parse_opt(struct link_util *lu, int argc, char **argv,
+ 		addattr_l(hdr, 1024, IFLA_IFNAME, name, len);
+ 	}
+ 
++	if (index) {
++		struct ifinfomsg *ifi = (struct ifinfomsg *)(data + 1);
++		ifi->ifi_index = index;
++	}
++
+ 	if (group != -1)
+ 		addattr32(hdr, 1024, IFLA_GROUP, group);
+ 
