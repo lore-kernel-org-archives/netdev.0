@@ -1,74 +1,54 @@
 From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH RFC v2 3/3] ARM: shmobile: genmai: Enable r7s72100-ether
-Date: Thu, 26 Dec 2013 23:04:51 +0900
-Message-ID: <1388066691-5854-4-git-send-email-horms+renesas@verge.net.au>
-References: <1388066691-5854-1-git-send-email-horms+renesas@verge.net.au>
-Cc: linux-arm-kernel@lists.infradead.org,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Simon Horman <horms+renesas@verge.net.au>
-To: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:39650 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752989Ab3LZOFJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 09:05:09 -0500
-In-Reply-To: <1388066691-5854-1-git-send-email-horms+renesas@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH RFC v2 0/3] Add ethernet support for r7s72100
+Date: Thu, 26 Dec 2013 23:04:48 +0900
+Message-ID: <1388066691-5854-1-git-send-email-horms+renesas@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Simon Horman <horms+renesas@verge.net.au>,
+ Magnus Damm <magnus.damm@gmail.com>,
+ Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+ linux-arm-kernel@lists.infradead.org
+To: netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
----
-v2
-* As suggested by Magnus Damm and Sergei Shtylyov
-  - r7s72100 ethernet is not gigabit so do not refer to it as such
+Hi,
 
-* As suggested by Sergei Shtylyov
-  - set no_ether_link as there is no LINK signal documented
-    in the manual
----
- arch/arm/mach-shmobile/board-genmai.c | 21 +++++++++++++++++++++
- 1 file changed, 21 insertions(+)
+this is a second pass at adding ethernet support to sh-pfc for
+the r7s72100 SoC.
 
-diff --git a/arch/arm/mach-shmobile/board-genmai.c b/arch/arm/mach-shmobile/board-genmai.c
-index 3e92e3c..a1f6fe1 100644
---- a/arch/arm/mach-shmobile/board-genmai.c
-+++ b/arch/arm/mach-shmobile/board-genmai.c
-@@ -20,15 +20,36 @@
- 
- #include <linux/kernel.h>
- #include <linux/platform_device.h>
-+#include <linux/sh_eth.h>
- #include <mach/common.h>
-+#include <mach/irqs.h>
- #include <mach/r7s72100.h>
- #include <asm/mach-types.h>
- #include <asm/mach/arch.h>
- 
-+/* Ether */
-+static const struct sh_eth_plat_data ether_pdata __initconst = {
-+	.phy			= 0x00, /* PD60610 */
-+	.edmac_endian		= EDMAC_LITTLE_ENDIAN,
-+	.phy_interface		= PHY_INTERFACE_MODE_MII,
-+	.no_ether_link		= 1
-+};
-+
-+static const struct resource ether_resources[] __initconst = {
-+	DEFINE_RES_MEM(0xe8203000, 0x800),
-+	DEFINE_RES_MEM(0xe8204800, 0x200),
-+	DEFINE_RES_IRQ(gic_iid(359)),
-+};
-+
- static void __init genmai_add_standard_devices(void)
- {
- 	r7s72100_clock_init();
- 	r7s72100_add_dt_devices();
-+
-+	platform_device_register_resndata(&platform_bus, "r7s72100-ether", -1,
-+					  ether_resources,
-+					  ARRAY_SIZE(ether_resources),
-+					  &ether_pdata, sizeof(ether_pdata));
- }
- 
- static const char * const genmai_boards_compat_dt[] __initconst = {
+It has been written with reference to the hardware documentation
+but not well tested.
+
+This series is based on a merge of:
+* The topic/r7s72100-v3.13-rc5-20131226 tag in my renesas tree
+* net-next
+  - Head revision: db34de939ae28954
+    ("rose: cleanup checkpatch errors,spaces required")
+
+Changes since v1 are noted in the changelog of each patch.
+
+Simon Horman (3):
+  sh_eth: Add support for r7s72100
+  ARM: shmobile: r7s72100: Add clock for r7s72100-ether
+  ARM: shmobile: genmai: Enable r7s72100-ether
+
+ arch/arm/mach-shmobile/board-genmai.c   |  21 ++++++
+ arch/arm/mach-shmobile/clock-r7s72100.c |   4 ++
+ drivers/net/ethernet/renesas/sh_eth.c   | 119 ++++++++++++++++++++++++++++++--
+ drivers/net/ethernet/renesas/sh_eth.h   |   4 +-
+ 4 files changed, 141 insertions(+), 7 deletions(-)
+
 -- 
 1.8.4
