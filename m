@@ -1,20 +1,20 @@
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: Re: [PATCH stable 2/2] virtio-net: make all RX paths handle erors
-	consistently
-Date: Thu, 26 Dec 2013 15:31:21 +0800
-Message-ID: <CAEH94Lj4j-MM4iPqT2h2x95OC174LRR0Y349f+gcKQdnm5YX8Q@mail.gmail.com>
-References: <1387983339-1172-1-git-send-email-mst@redhat.com>
-	<1387983339-1172-3-git-send-email-mst@redhat.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next 3/3] net: auto-tune mergeable rx buffer size
+	for improved performance
+Date: Thu, 26 Dec 2013 15:33:01 +0800
+Message-ID: <52BBDBAD.8030609@redhat.com>
+References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
+	<1387239389-13216-3-git-send-email-mwdalton@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	lf-virt <virtualization@lists.linux-foundation.org>,
-	linux-kernel mlist <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	virtualization@lists.linux-foundation.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Michael Dalton <mwdalton@google.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1387983339-1172-3-git-send-email-mst@redhat.com>
+In-Reply-To: <1387239389-13216-3-git-send-email-mwdalton@google.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -26,117 +26,41 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-typo in the subject....
+On 12/17/2013 08:16 AM, Michael Dalton wrote:
+> Commit 2613af0ed18a ("virtio_net: migrate mergeable rx buffers to page frag
+> allocators") changed the mergeable receive buffer size from PAGE_SIZE to
+> MTU-size, introducing a single-stream regression for benchmarks with large
+> average packet size. There is no single optimal buffer size for all
+> workloads.  For workloads with packet size <= MTU bytes, MTU + virtio-net
+> header-sized buffers are preferred as larger buffers reduce the TCP window
+> due to SKB truesize. However, single-stream workloads with large average
+> packet sizes have higher throughput if larger (e.g., PAGE_SIZE) buffers
+> are used.
+>
+> This commit auto-tunes the mergeable receiver buffer packet size by
+> choosing the packet buffer size based on an EWMA of the recent packet
+> sizes for the receive queue. Packet buffer sizes range from MTU_SIZE +
+> virtio-net header len to PAGE_SIZE. This improves throughput for
+> large packet workloads, as any workload with average packet size >=
+> PAGE_SIZE will use PAGE_SIZE buffers.
+>
+> These optimizations interact positively with recent commit
+> ba275241030c ("virtio-net: coalesce rx frags when possible during rx"),
+> which coalesces adjacent RX SKB fragments in virtio_net. The coalescing
+> optimizations benefit buffers of any size.
+>
+> Benchmarks taken from an average of 5 netperf 30-second TCP_STREAM runs
+> between two QEMU VMs on a single physical machine. Each VM has two VCPUs
+> with all offloads & vhost enabled. All VMs and vhost threads run in a
+> single 4 CPU cgroup cpuset, using cgroups to ensure that other processes
+> in the system will not be scheduled on the benchmark CPUs. Trunk includes
+> SKB rx frag coalescing.
+>
+> net-next w/ virtio_net before 2613af0ed18a (PAGE_SIZE bufs): 14642.85Gb/s
+> net-next (MTU-size bufs):  13170.01Gb/s
+> net-next + auto-tune: 14555.94Gb/s
+>
+> Signed-off-by: Michael Dalton <mwdalton@google.com>
 
-s/erors/errors/
-
-On Wed, Dec 25, 2013 at 10:56 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> receive mergeable now handles errors internally.
-> Do same for big and small packet paths, otherwise
-> the logic is too hard to follow.
->
-> Cc: Jason Wang <jasowang@redhat.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->
-> (cherry picked from commit f121159d72091f25afb22007c833e60a6845e912)
-> ---
->  drivers/net/virtio_net.c | 56 +++++++++++++++++++++++++++++++-----------------
->  1 file changed, 36 insertions(+), 20 deletions(-)
->
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 435076f..c0ed6d5 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -297,6 +297,34 @@ static struct sk_buff *page_to_skb(struct receive_queue *rq,
->         return skb;
->  }
->
-> +static struct sk_buff *receive_small(void *buf, unsigned int len)
-> +{
-> +       struct sk_buff * skb = buf;
-> +
-> +       len -= sizeof(struct virtio_net_hdr);
-> +       skb_trim(skb, len);
-> +
-> +       return skb;
-> +}
-> +
-> +static struct sk_buff *receive_big(struct net_device *dev,
-> +                                  struct receive_queue *rq,
-> +                                  void *buf)
-> +{
-> +       struct page *page = buf;
-> +       struct sk_buff *skb = page_to_skb(rq, page, 0);
-> +
-> +       if (unlikely(!skb))
-> +               goto err;
-> +
-> +       return skb;
-> +
-> +err:
-> +       dev->stats.rx_dropped++;
-> +       give_pages(rq, page);
-> +       return NULL;
-> +}
-> +
->  static struct sk_buff *receive_mergeable(struct net_device *dev,
->                                          struct receive_queue *rq,
->                                          void *buf,
-> @@ -360,7 +388,6 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
->         struct net_device *dev = vi->dev;
->         struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
->         struct sk_buff *skb;
-> -       struct page *page;
->         struct skb_vnet_hdr *hdr;
->
->         if (unlikely(len < sizeof(struct virtio_net_hdr) + ETH_HLEN)) {
-> @@ -372,26 +399,15 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
->                         dev_kfree_skb(buf);
->                 return;
->         }
-> +       if (vi->mergeable_rx_bufs)
-> +               skb = receive_mergeable(dev, rq, buf, len);
-> +       else if (vi->big_packets)
-> +               skb = receive_big(dev, rq, buf);
-> +       else
-> +               skb = receive_small(buf, len);
->
-> -       if (!vi->mergeable_rx_bufs && !vi->big_packets) {
-> -               skb = buf;
-> -               len -= sizeof(struct virtio_net_hdr);
-> -               skb_trim(skb, len);
-> -       } else {
-> -               page = buf;
-> -               if (vi->mergeable_rx_bufs) {
-> -                       skb = receive_mergeable(dev, rq, page, len);
-> -                       if (unlikely(!skb))
-> -                               return;
-> -               } else {
-> -                       skb = page_to_skb(rq, page, len);
-> -                       if (unlikely(!skb)) {
-> -                               dev->stats.rx_dropped++;
-> -                               give_pages(rq, page);
-> -                               return;
-> -                       }
-> -               }
-> -       }
-> +       if (unlikely(!skb))
-> +               return;
->
->         hdr = skb_vnet_hdr(skb);
->
-> --
-> MST
->
-> _______________________________________________
-> Virtualization mailing list
-> Virtualization@lists.linux-foundation.org
-> https://lists.linuxfoundation.org/mailman/listinfo/virtualization
-
-
-
--- 
-Regards,
-
-Zhi Yong Wu
+The patch looks good to me and test this patch with mlx4, it help to
+increase the rx performance from about 22Gb/s to about 26 Gb/s.
