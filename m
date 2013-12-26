@@ -1,11 +1,12 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v3.5 17/19] mwifiex: slight optimization of addr compare
-Date: Thu, 26 Dec 2013 19:41:27 +0800
-Message-ID: <52BC15E7.7050205@huawei.com>
+Subject: [PATCH v3.5 18/19] rtlwifi: slight optimization of addr compare
+Date: Thu, 26 Dec 2013 19:41:30 +0800
+Message-ID: <52BC15EA.2020603@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Bing Zhao <bzhao@marvell.com>,
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
 	"John W. Linville" <linville@tuxdriver.com>,
 	<linux-wireless@vger.kernel.org>, Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
@@ -13,10 +14,11 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use possibly more efficient ether_addr_equal
+Use possibly more efficient ether_addr_equal_unaligned
 instead of memcmp.
 
-Cc: Bing Zhao <bzhao@marvell.com>
+Cc: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Chaoming Li <chaoming_li@realsil.com.cn>
 Cc: John W. Linville <linville@tuxdriver.com>
 Cc: linux-wireless@vger.kernel.org
 Cc: netdev@vger.kernel.org
@@ -24,50 +26,30 @@ Cc: linux-kernel@vger.kernel.org
 Signed-off-by: Weilong Chen <chenweilong@huawei.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/wireless/mwifiex/11n.c         | 2 +-
- drivers/net/wireless/mwifiex/sta_cmdresp.c | 3 +--
- drivers/net/wireless/mwifiex/sta_rx.c      | 2 +-
- 3 files changed, 3 insertions(+), 4 deletions(-)
+ drivers/net/wireless/rtlwifi/cam.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/mwifiex/11n.c b/drivers/net/wireless/mwifiex/11n.c
-index 0b803c0..6261f8c 100644
---- a/drivers/net/wireless/mwifiex/11n.c
-+++ b/drivers/net/wireless/mwifiex/11n.c
-@@ -483,7 +483,7 @@ mwifiex_get_ba_tbl(struct mwifiex_private *priv, int tid, u8 *ra)
- 
- 	spin_lock_irqsave(&priv->tx_ba_stream_tbl_lock, flags);
- 	list_for_each_entry(tx_ba_tsr_tbl, &priv->tx_ba_stream_tbl_ptr, list) {
--		if (!memcmp(tx_ba_tsr_tbl->ra, ra, ETH_ALEN) &&
-+		if (ether_addr_equal_unaligned(tx_ba_tsr_tbl->ra, ra) &&
- 		    tx_ba_tsr_tbl->tid == tid) {
- 			spin_unlock_irqrestore(&priv->tx_ba_stream_tbl_lock,
- 					       flags);
-diff --git a/drivers/net/wireless/mwifiex/sta_cmdresp.c b/drivers/net/wireless/mwifiex/sta_cmdresp.c
-index 5511946..24523e4 100644
---- a/drivers/net/wireless/mwifiex/sta_cmdresp.c
-+++ b/drivers/net/wireless/mwifiex/sta_cmdresp.c
-@@ -782,8 +782,7 @@ static int mwifiex_ret_ibss_coalescing_status(struct mwifiex_private *priv,
+diff --git a/drivers/net/wireless/rtlwifi/cam.c b/drivers/net/wireless/rtlwifi/cam.c
+index 0e510f7..0276153 100644
+--- a/drivers/net/wireless/rtlwifi/cam.c
++++ b/drivers/net/wireless/rtlwifi/cam.c
+@@ -295,7 +295,7 @@ u8 rtl_cam_get_free_entry(struct ieee80211_hw *hw, u8 *sta_addr)
+ 	/* Does STA already exist? */
+ 	for (i = 4; i < TOTAL_CAM_ENTRY; i++) {
+ 		addr = rtlpriv->sec.hwsec_cam_sta_addr[i];
+-		if (memcmp(addr, sta_addr, ETH_ALEN) == 0)
++		if (ether_addr_equal_unaligned(addr, sta_addr))
+ 			return i;
  	}
- 
- 	/* If BSSID is diff, modify current BSS parameters */
--	if (memcmp(priv->curr_bss_params.bss_descriptor.mac_address,
--		   ibss_coal_resp->bssid, ETH_ALEN)) {
-+	if (!ether_addr_equal(priv->curr_bss_params.bss_descriptor.mac_address, ibss_coal_resp->bssid)) {
- 		/* BSSID */
- 		memcpy(priv->curr_bss_params.bss_descriptor.mac_address,
- 		       ibss_coal_resp->bssid, ETH_ALEN);
-diff --git a/drivers/net/wireless/mwifiex/sta_rx.c b/drivers/net/wireless/mwifiex/sta_rx.c
-index 0bb510d..4651d67 100644
---- a/drivers/net/wireless/mwifiex/sta_rx.c
-+++ b/drivers/net/wireless/mwifiex/sta_rx.c
-@@ -224,7 +224,7 @@ int mwifiex_process_sta_rx_packet(struct mwifiex_private *priv,
- 	 * directly to os. Don't pass thru rx reordering
- 	 */
- 	if (!IS_11N_ENABLED(priv) ||
--	    memcmp(priv->curr_addr, rx_pkt_hdr->eth803_hdr.h_dest, ETH_ALEN)) {
-+	    !ether_addr_equal_unaligned(priv->curr_addr, rx_pkt_hdr->eth803_hdr.h_dest)) {
- 		mwifiex_process_rx_packet(priv, skb);
- 		return ret;
- 	}
+ 	/* Get a free CAM entry. */
+@@ -335,7 +335,7 @@ void rtl_cam_del_entry(struct ieee80211_hw *hw, u8 *sta_addr)
+ 		addr = rtlpriv->sec.hwsec_cam_sta_addr[i];
+ 		bitmap = (rtlpriv->sec.hwsec_cam_bitmap) >> i;
+ 		if (((bitmap & BIT(0)) == BIT(0)) &&
+-		    (memcmp(addr, sta_addr, ETH_ALEN) == 0)) {
++		    (ether_addr_equal_unaligned(addr, sta_addr))) {
+ 			/* Remove from HW Security CAM */
+ 			eth_zero_addr(rtlpriv->sec.hwsec_cam_sta_addr[i]);
+ 			rtlpriv->sec.hwsec_cam_bitmap &= ~(BIT(0) << i);
 -- 
 1.8.0
