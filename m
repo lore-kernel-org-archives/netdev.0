@@ -1,38 +1,45 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: 3.13-rc4: lockdep warning in network stack
-Date: Thu, 26 Dec 2013 16:54:34 +0100
-Message-ID: <52BC513A.3010501@broadcom.com>
-References: <52B9794C.8040506@broadcom.com> <CADVnQykeb8CUXxSxm5OYS2vz1XvMWz3=GObLw1ACb_P_XZ_tQg@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] ipv6: shouldn't dump the expired routes
+Date: Thu, 26 Dec 2013 09:48:19 -0800
+Message-ID: <20131226094819.613cee5b@nehalam.linuxnetplumber.net>
+References: <52BBC5F9.4050904@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Neal Cardwell <ncardwell@google.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:59493 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753386Ab3LZPyh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 10:54:37 -0500
-In-Reply-To: <CADVnQykeb8CUXxSxm5OYS2vz1XvMWz3=GObLw1ACb_P_XZ_tQg@mail.gmail.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:48065 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753137Ab3LZRsX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 12:48:23 -0500
+Received: by mail-pa0-f50.google.com with SMTP id kp14so6629011pab.9
+        for <netdev@vger.kernel.org>; Thu, 26 Dec 2013 09:48:23 -0800 (PST)
+In-Reply-To: <52BBC5F9.4050904@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/24/2013 06:55 PM, Neal Cardwell wrote:
-> On Tue, Dec 24, 2013 at 7:08 AM, Arend van Spriel <arend@broadcom.com> wrote:
->> Hi David,
->>
->> Noticed this lockdep warning. As rc4 is already out for a while it may
->> already be known. It happened upon initial login, but that may have been
->> a coincidence. Attached are the dmesg output and the kernel configuration.
+On Thu, 26 Dec 2013 14:00:25 +0800
+Duan Jiong <duanj.fnst@cn.fujitsu.com> wrote:
+
 > 
-> Yes, this should be fixed in Linux 3.13-rc5 with:
+> If we execute the command "ip -6 route show table all", those routes
+> that have been expired will be dumped.  But as everyone knows, those
+> expired routes will not be used, and they will be deleted by the kernel.
+> So why we still need to dump they, and just don't dump them.
 > 
->   e47eb5d udp: ipv4: do not use sk_dst_lock from softirq context
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-Thanks, Neal
+I can see three issues with this patch.
 
-That looks promising. Will move to rc5 then.
+1. You are changing output of iproute2, and there is a slim chance somebody is
+   expecting those routes in some test script.
 
-Regards,
-Arend
+2. Developers maybe using this to check that the expiration of routes is really
+   working.
+
+3. By making rt6_check_expired a global symbol, it can't be optimized as well in
+   a potentially hot path for routing.
+
+I am not saying the patch shouldn't go in, just raising the possibility that such
+a seemingly trivial change could cause other impacts.
