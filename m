@@ -1,14 +1,14 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v3.5 13/19] media: dvb_core: slight optimization of addr compare
-Date: Thu, 26 Dec 2013 19:41:10 +0800
-Message-ID: <52BC15D6.4010805@huawei.com>
+Subject: [PATCH v3.5 11/19] atm: slight optimization of addr compare
+Date: Thu, 26 Dec 2013 19:41:02 +0800
+Message-ID: <52BC15CE.9080906@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Mauro Carvalho Chehab <m.chehab@samsung.com>,
-	<linux-media@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
+To: Chas Williams <chas@cmf.nrl.navy.mil>,
+	<linux-atm-general@lists.sourceforge.net>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -16,52 +16,37 @@ List-Id: netdev.vger.kernel.org
 Use possibly more efficient ether_addr_equal
 instead of memcmp.
 
-Cc: Mauro Carvalho Chehab <m.chehab@samsung.com>
-Cc: linux-media@vger.kernel.org
+Cc: Chas Williams <chas@cmf.nrl.navy.mil>
+Cc: linux-atm-general@lists.sourceforge.net
+Cc: netdev@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
 Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/media/dvb-core/dvb_net.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+ drivers/atm/nicstar.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/media/dvb-core/dvb_net.c b/drivers/media/dvb-core/dvb_net.c
-index f91c80c..8a86b30 100644
---- a/drivers/media/dvb-core/dvb_net.c
-+++ b/drivers/media/dvb-core/dvb_net.c
-@@ -179,7 +179,7 @@ static __be16 dvb_net_eth_type_trans(struct sk_buff *skb,
- 	eth = eth_hdr(skb);
- 
- 	if (*eth->h_dest & 1) {
--		if(memcmp(eth->h_dest,dev->broadcast, ETH_ALEN)==0)
-+		if(ether_addr_equal(eth->h_dest,dev->broadcast))
- 			skb->pkt_type=PACKET_BROADCAST;
- 		else
- 			skb->pkt_type=PACKET_MULTICAST;
-@@ -674,11 +674,13 @@ static void dvb_net_ule( struct net_device *dev, const u8 *buf, size_t buf_len )
- 					if (priv->rx_mode != RX_MODE_PROMISC) {
- 						if (priv->ule_skb->data[0] & 0x01) {
- 							/* multicast or broadcast */
--							if (memcmp(priv->ule_skb->data, bc_addr, ETH_ALEN)) {
-+							if (!ether_addr_equal(priv->ule_skb->data, bc_addr)) {
- 								/* multicast */
- 								if (priv->rx_mode == RX_MODE_MULTI) {
- 									int i;
--									for(i = 0; i < priv->multi_num && memcmp(priv->ule_skb->data, priv->multi_macs[i], ETH_ALEN); i++)
-+									for(i = 0; i < priv->multi_num &&
-+									    !ether_addr_equal(priv->ule_skb->data,
-+											      priv->multi_macs[i]); i++)
- 										;
- 									if (i == priv->multi_num)
- 										drop = 1;
-@@ -688,7 +690,7 @@ static void dvb_net_ule( struct net_device *dev, const u8 *buf, size_t buf_len )
- 							}
- 							/* else: broadcast */
- 						}
--						else if (memcmp(priv->ule_skb->data, dev->dev_addr, ETH_ALEN))
-+						else if (!ether_addr_equal(priv->ule_skb->data, dev->dev_addr))
- 							drop = 1;
- 						/* else: destination address matches the MAC address of our receiver device */
- 					}
+diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
+index 5aca5f4..9587e95 100644
+--- a/drivers/atm/nicstar.c
++++ b/drivers/atm/nicstar.c
+@@ -52,6 +52,7 @@
+ #include <asm/io.h>
+ #include <asm/uaccess.h>
+ #include <linux/atomic.h>
++#include <linux/etherdevice.h>
+ #include "nicstar.h"
+ #ifdef CONFIG_ATM_NICSTAR_USE_SUNI
+ #include "suni.h"
+@@ -781,8 +782,7 @@ static int ns_init_card(int i, struct pci_dev *pcidev)
+ 	if (mac[i] == NULL || !mac_pton(mac[i], card->atmdev->esi)) {
+ 		nicstar_read_eprom(card->membase, NICSTAR_EPROM_MAC_ADDR_OFFSET,
+ 				   card->atmdev->esi, 6);
+-		if (memcmp(card->atmdev->esi, "\x00\x00\x00\x00\x00\x00", 6) ==
+-		    0) {
++		if (ether_addr_equal(card->atmdev->esi, "\x00\x00\x00\x00\x00\x00")) {
+ 			nicstar_read_eprom(card->membase,
+ 					   NICSTAR_EPROM_MAC_ADDR_OFFSET_ALT,
+ 					   card->atmdev->esi, 6);
 -- 
 1.8.0
