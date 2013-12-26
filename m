@@ -1,123 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv4: fix tunneled VM traffic over hw
- VXLAN/GRE GSO NIC
-Date: Thu, 26 Dec 2013 13:10:59 -0500 (EST)
-Message-ID: <20131226.131059.774046353564501606.davem@davemloft.net>
-References: <1387393368-1028-1-git-send-email-weichunc@plumgrid.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next] mdio: unused ethtool functions
+Date: Thu, 26 Dec 2013 10:12:41 -0800
+Message-ID: <20131226101241.5f38e392@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, ast@plumgrid.com, netdev@vger.kernel.org,
-	joseph.gasparakis@intel.com, or.gerlitz@gmail.com
-To: weichunc@plumgrid.com
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51523 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753733Ab3LZSLE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 13:11:04 -0500
-In-Reply-To: <1387393368-1028-1-git-send-email-weichunc@plumgrid.com>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:52348 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753468Ab3LZSMq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 13:12:46 -0500
+Received: by mail-pd0-f179.google.com with SMTP id r10so8269169pdi.38
+        for <netdev@vger.kernel.org>; Thu, 26 Dec 2013 10:12:45 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei-Chun Chao <weichunc@plumgrid.com>
-Date: Wed, 18 Dec 2013 11:02:48 -0800
+Use it or lose it.
 
-> This is also seen on 'net'.
-> 
-> VM to VM GSO traffic is broken if it goes through VXLAN or GRE
-> tunnel and the physical NIC on the host supports hardware VXLAN/GRE
-> GSO offload (e.g. bnx2x and next-gen mlx4).
-> 
-> Two issues -
-> (VXLAN) VM traffic has SKB_GSO_DODGY and SKB_GSO_UDP_TUNNEL with
-> SKB_GSO_TCP/UDP set depending on the inner protocol. GSO header
-> integrity check fails in udp4_ufo_fragment if inner protocol is
-> TCP. Also gso_segs is calculated incorrectly using skb->len that
-> includes tunnel header. Fix: robust check should only be applied
-> to the inner packet.
-> 
-> (VXLAN & GRE) Once GSO header integrity check passes, NULL segs
-> is returned and the original skb is sent to hardware. However the
-> tunnel header is already pulled. Fix: tunnel header needs to be
-> restored so that hardware can perform GSO properly on the original
-> packet.
-> 
-> Signed-off-by: Wei-Chun Chao <weichunc@plumgrid.com>
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-I'd like to see some changes to this patch:
+---
+ drivers/net/mdio.c   |   28 ----------------------------
+ include/linux/mdio.h |    3 ---
+ 2 files changed, 31 deletions(-)
 
-> @@ -73,7 +74,19 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
->  	/* segment inner packet. */
->  	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
->  	segs = skb_mac_gso_segment(skb, enc_features);
-> -	if (!segs || IS_ERR(segs))
-> +	/* Verifying header integrity only. */
-> +	if (!segs) {
-> +		skb->protocol = protocol;
-> +		skb->encapsulation = 1;
-> +		skb_push(skb, ghl);
-> +		skb_reset_transport_header(skb);
-> +		skb->mac_header = mac_offset;
-> +		skb->network_header = skb->mac_header + mac_len;
-> +		skb->mac_len = mac_len;
-> +		goto out;
-> +	}
-> +
-> +	if (IS_ERR(segs))
->  		goto out;
->  
->  	skb = segs;
- ...
-> @@ -2493,7 +2494,19 @@ struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
->  	/* segment inner packet. */
->  	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
->  	segs = skb_mac_gso_segment(skb, enc_features);
-> -	if (!segs || IS_ERR(segs))
-> +	/* Verifying header integrity only. */
-> +	if (!segs) {
-> +		skb->encapsulation = 1;
-> +		skb_push(skb, tnl_hlen);
-> +		skb_reset_transport_header(skb);
-> +		skb->mac_header = mac_offset;
-> +		skb->network_header = skb->mac_header + mac_len;
-> +		skb->mac_len = mac_len;
-> +		skb->protocol = protocol;
-> +		goto out;
-> +	}
-> +
-
-These two code blocks are identical, please make a helper function that
-does something like:
-
-static inline void skb_gso_error_unwind(struct sk_buff *skb, __be16 protocol,
-					int pulled_hlen, u16 mac_offset, int mac_len)
-{
-	skb->protocol = protocol;
-	skb->encapsulation = 1;
-	skb_push(skb, pulled_hlen);
-	skb_reset_transport_header(skb);
-	skb->mac_header = mac_offset;
-	skb->network_header = skb->mac_header + mac_len;
-	skb->mac_len = mac_len;
-}
-
-And call it from the two spots above.
-
-Secondly, in gre_gso_segment(), we clear skb->encapsulation and set the
-skb->protocol too early, for if:
-
-	if (unlikely(!pskb_may_pull(skb, ghl)))
-		goto out;
-
-fails, we will not unwind those changes.  I'd suggest simply moving the:
-
-	skb->protocol = greh->protocol;
-	skb->encapsulation = 0;
-
-after the pskb_may_pull() check.  That way this function will leave the
-skb unmodified if the pskb_may_pull() fails.
-
-skb_udp_tunnel_segment() already gets this right.
-
-I'd like to apply this to 'net' so please make your patch against that
-tree, thanks.
+--- a/drivers/net/mdio.c	2013-12-24 15:37:35.779661759 -0800
++++ b/drivers/net/mdio.c	2013-12-24 15:38:26.054970175 -0800
+@@ -342,34 +342,6 @@ void mdio45_ethtool_gset_npage(const str
+ EXPORT_SYMBOL(mdio45_ethtool_gset_npage);
+ 
+ /**
+- * mdio45_ethtool_spauseparam_an - set auto-negotiated pause parameters
+- * @mdio: MDIO interface
+- * @ecmd: Ethtool request structure
+- *
+- * This function assumes that the PHY has an auto-negotiation MMD.  It
+- * will enable and disable advertising of flow control as appropriate.
+- */
+-void mdio45_ethtool_spauseparam_an(const struct mdio_if_info *mdio,
+-				   const struct ethtool_pauseparam *ecmd)
+-{
+-	int adv, old_adv;
+-
+-	WARN_ON(!(mdio->mmds & MDIO_DEVS_AN));
+-
+-	old_adv = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_AN,
+-				  MDIO_AN_ADVERTISE);
+-	adv = ((old_adv & ~(ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM)) |
+-	       mii_advertise_flowctrl((ecmd->rx_pause ? FLOW_CTRL_RX : 0) |
+-				      (ecmd->tx_pause ? FLOW_CTRL_TX : 0)));
+-	if (adv != old_adv) {
+-		mdio->mdio_write(mdio->dev, mdio->prtad, MDIO_MMD_AN,
+-				 MDIO_AN_ADVERTISE, adv);
+-		mdio45_nway_restart(mdio);
+-	}
+-}
+-EXPORT_SYMBOL(mdio45_ethtool_spauseparam_an);
+-
+-/**
+  * mdio_mii_ioctl - MII ioctl interface for MDIO (clause 22 or 45) PHYs
+  * @mdio: MDIO interface
+  * @mii_data: MII ioctl data structure
+--- a/include/linux/mdio.h	2013-12-24 15:37:35.779661759 -0800
++++ b/include/linux/mdio.h	2013-12-24 15:38:26.054970175 -0800
+@@ -70,9 +70,6 @@ extern int mdio45_nway_restart(const str
+ extern void mdio45_ethtool_gset_npage(const struct mdio_if_info *mdio,
+ 				      struct ethtool_cmd *ecmd,
+ 				      u32 npage_adv, u32 npage_lpa);
+-extern void
+-mdio45_ethtool_spauseparam_an(const struct mdio_if_info *mdio,
+-			      const struct ethtool_pauseparam *ecmd);
+ 
+ /**
+  * mdio45_ethtool_gset - get settings for ETHTOOL_GSET
