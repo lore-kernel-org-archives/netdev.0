@@ -1,48 +1,80 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next 1/2] mlx4_en: Add PTP hardware clock
-Date: Thu, 26 Dec 2013 10:17:41 +0100
-Message-ID: <20131226091740.GA8787@netboy>
-References: <1387312359-9476-1-git-send-email-shawn.bohrer@gmail.com>
- <1387312359-9476-2-git-send-email-shawn.bohrer@gmail.com>
- <52B6E568.4030400@mellanox.com>
- <20131223184845.GA4922@netboy>
- <52B992EE.5030401@mellanox.com>
- <20131225115322.GB5378@netboy>
- <52BBE84C.1030702@mellanox.com>
- <52BBE9D6.3040006@mellanox.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH v3 13/19] media: dvb_core: slight optimization of addr
+ compare
+Date: Thu, 26 Dec 2013 19:09:10 +0800
+Message-ID: <52BC0E56.80003@huawei.com>
+References: <52BA5113.7070908@huawei.com> <52BABA23.2040709@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Shawn Bohrer <shawn.bohrer@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tomk@rgmadvisors.com" <tomk@rgmadvisors.com>,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: Hadar Hen Zion <hadarh@mellanox.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"Mauro Carvalho Chehab" <m.chehab@samsung.com>,
+	<linux-media@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f180.google.com ([209.85.215.180]:47545 "EHLO
-	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750792Ab3LZJRz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 04:17:55 -0500
-Received: by mail-ea0-f180.google.com with SMTP id f15so3608664eak.39
-        for <netdev@vger.kernel.org>; Thu, 26 Dec 2013 01:17:52 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <52BBE9D6.3040006@mellanox.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:60610 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751831Ab3LZLJz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 06:09:55 -0500
+In-Reply-To: <52BABA23.2040709@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 26, 2013 at 10:33:26AM +0200, Hadar Hen Zion wrote:
+On 2013/12/25 18:57, Sergei Shtylyov wrote:
+> Hello.
 > 
-> Is there a way to time stamping packets per socket?
+> On 25-12-2013 7:29, Ding Tianhong wrote:
+> 
+>> Use possibly more efficient ether_addr_equal
+>> instead of memcmp.
+> 
+>> Cc: Mauro Carvalho Chehab <m.chehab@samsung.com>
+>> Cc: linux-media@vger.kernel.org
+>> Cc: linux-kernel@vger.kernel.org
+>> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>> ---
+>>   drivers/media/dvb-core/dvb_net.c | 8 ++++----
+>>   1 file changed, 4 insertions(+), 4 deletions(-)
+> 
+>> diff --git a/drivers/media/dvb-core/dvb_net.c b/drivers/media/dvb-core/dvb_net.c
+>> index f91c80c..3dfc33b 100644
+>> --- a/drivers/media/dvb-core/dvb_net.c
+>> +++ b/drivers/media/dvb-core/dvb_net.c
+>> @@ -179,7 +179,7 @@ static __be16 dvb_net_eth_type_trans(struct sk_buff *skb,
+>>       eth = eth_hdr(skb);
+>>
+>>       if (*eth->h_dest & 1) {
+>> -        if(memcmp(eth->h_dest,dev->broadcast, ETH_ALEN)==0)
+>> +        if(ether_addr_equal(eth->h_dest,dev->broadcast))
+> 
+>    There should be space after comma.
+> 
+>> @@ -674,11 +674,11 @@ static void dvb_net_ule( struct net_device *dev, const u8 *buf, size_t buf_len )
+>>                       if (priv->rx_mode != RX_MODE_PROMISC) {
+>>                           if (priv->ule_skb->data[0] & 0x01) {
+>>                               /* multicast or broadcast */
+>> -                            if (memcmp(priv->ule_skb->data, bc_addr, ETH_ALEN)) {
+>> +                            if (!ether_addr_equal(priv->ule_skb->data, bc_addr)) {
+>>                                   /* multicast */
+>>                                   if (priv->rx_mode == RX_MODE_MULTI) {
+>>                                       int i;
+>> -                                    for(i = 0; i < priv->multi_num && memcmp(priv->ule_skb->data, priv->multi_macs[i], ETH_ALEN); i++)
+>> +                                    for(i = 0; i < priv->multi_num && !ether_addr_equal(priv->ule_skb->data, priv->multi_macs[i]); i++)
+> 
+>    Shouldn't this line be broken?
+> 
 
-No, it is at the device level. Some devices support time stamping
-different types of packets, like PTP events.
+ok, thanks.
 
-I looked again at your driver, and now it makes sense to me that the
-spin lock is so costly in your tests. Every received packet calls
-timecounter_cyc2time.  So you will need locking, and I think
-reader/writer is perfectly fine for you to use.
-
-Thanks,
-Richard
+Regards
+>>                                           ;
+>>                                       if (i == priv->multi_num)
+>>                                           drop = 1;
+> 
+> WBR, Sergei
+> 
+> 
+> 
+> 
