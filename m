@@ -1,52 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/3] virtio-net: use per-receive queue page
- frag alloc for mergeable bufs
-Date: Thu, 26 Dec 2013 14:00:58 -0800
-Message-ID: <1388095258.12212.37.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
-	 <1387239389-13216-2-git-send-email-mwdalton@google.com>
-	 <52B7F065.3010707@redhat.com>
-	 <1387819627.12212.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131223193704.GC1582@redhat.com>
-	 <CANJ5vPLEV_Z-D-0tThwhWXbHVaRWOLv566Xk1eD4TNYqNvknHw@mail.gmail.com>
-	 <20131226213727.GA10259@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/6] bnx2x: new features patch series
+Date: Thu, 26 Dec 2013 18:33:37 -0500 (EST)
+Message-ID: <20131226.183337.1915444723736545207.davem@davemloft.net>
+References: <1388044632-9172-1-git-send-email-yuvalmin@broadcom.com>
+	<20131226.133853.2211726123097632477.davem@davemloft.net>
+	<1388085227.12212.19.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>,
-	Jason Wang <jasowang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	lf-virt <virtualization@lists.linux-foundation.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: yuvalmin@broadcom.com, netdev@vger.kernel.org, ariele@broadcom.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:50449 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752140Ab3LZWBA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 17:01:00 -0500
-Received: by mail-pb0-f53.google.com with SMTP id ma3so8517086pbc.26
-        for <netdev@vger.kernel.org>; Thu, 26 Dec 2013 14:00:59 -0800 (PST)
-In-Reply-To: <20131226213727.GA10259@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53684 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753891Ab3LZXdi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 18:33:38 -0500
+In-Reply-To: <1388085227.12212.19.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-12-26 at 23:37 +0200, Michael S. Tsirkin wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 26 Dec 2013 11:13:47 -0800
 
-> Interesting. But if we can't allocate a buffer how can we
-> do network processing?
+> drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c: In function 'bnx2x_drv_info_ether_stat':
+> drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c:3302:46: error: dereferencing pointer to incomplete type
+> make[6]: *** [drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.o] Error 1
 
-How typical NIC drivers handle this case ?
+Fixing this like the following for now, thanks:
 
-Answer : nothing special should happen, we drop incoming traffic,
-and make sure the driver recovers properly. (like not NULL deref or
-crazy things like that)
+--------------------
+[PATCH] bnx2x: Fix build with SRIOV disabled.
 
-Why virtio_net should be different ?
+drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c: In function 'bnx2x_drv_info_ether_stat':
+drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c:3302:46: error: dereferencing pointer to incomplete type
+make[6]: *** [drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.o] Error 1
 
-> 
-> If we can reproduce the problem, we can maybe move
-> allocation out of napi disabled section, but then
-> we'll need to add more locking.
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-More exactly, use appropriate locking ;)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 094dfc8..d3748bf 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -3299,7 +3299,9 @@ static void bnx2x_drv_info_ether_stat(struct bnx2x *bp)
+ 	ether_stat->txq_size = bp->tx_ring_size;
+ 	ether_stat->rxq_size = bp->rx_ring_size;
+ 
++#ifdef CONFIG_BNX2X_SRIOV
+ 	ether_stat->vf_cnt = IS_SRIOV(bp) ? bp->vfdb->sriov.nr_virtfn : 0;
++#endif
+ }
+ 
+ static void bnx2x_drv_info_fcoe_stat(struct bnx2x *bp)
+-- 
+1.7.11.7
