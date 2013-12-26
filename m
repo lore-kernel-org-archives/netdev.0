@@ -1,133 +1,74 @@
-From: Alexandre DERUMIER <aderumier@odiso.com>
-Subject: Re: bridge vlan_filtering don't work with tap devices (qemu guests)
-Date: Thu, 26 Dec 2013 14:57:21 +0100 (CET)
-Message-ID: <eb3c68d9-fa1b-402a-9416-1ea38a78b68b@mailpro>
-References: <338a04d5-a1bc-4446-b03b-e59fddcb65e8@mailpro>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+From: Simon Horman <horms+renesas@verge.net.au>
+Subject: [PATCH RFC v2 3/3] ARM: shmobile: genmai: Enable r7s72100-ether
+Date: Thu, 26 Dec 2013 23:04:51 +0900
+Message-ID: <1388066691-5854-4-git-send-email-horms+renesas@verge.net.au>
+References: <1388066691-5854-1-git-send-email-horms+renesas@verge.net.au>
+Cc: linux-arm-kernel@lists.infradead.org,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Simon Horman <horms+renesas@verge.net.au>
+To: netdev@vger.kernel.org, linux-sh@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailpro.odiso.net ([89.248.209.98]:55789 "EHLO
-	mailpro.odiso.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752845Ab3LZN53 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 08:57:29 -0500
-In-Reply-To: <338a04d5-a1bc-4446-b03b-e59fddcb65e8@mailpro>
+Received: from kirsty.vergenet.net ([202.4.237.240]:39650 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752989Ab3LZOFJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 09:05:09 -0500
+In-Reply-To: <1388066691-5854-1-git-send-email-horms+renesas@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Again,
+---
+v2
+* As suggested by Magnus Damm and Sergei Shtylyov
+  - r7s72100 ethernet is not gigabit so do not refer to it as such
 
-One more question :
+* As suggested by Sergei Shtylyov
+  - set no_ether_link as there is no LINK signal documented
+    in the manual
+---
+ arch/arm/mach-shmobile/board-genmai.c | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
 
-If I use tcpdump on br0, I don't see any tagged vlan10 packets on the b=
-ridge.
-with=20
-# bridge vlan add dev tap0 vid 10 pvid untagged=20
-# bridge vlan add dev tap1 vid 10 pvid untagged=20
-
-
-What I would like to do, is tagging vlan10, incoming (untagged) packets=
- from tap0 and tap1.
-
-Is it possible ?
-
-With openvswitch, I can do it simply with "ovs-vsctl set port tap0 tag=3D=
-10"
-
------ Mail original -----=20
-
-De: "Alexandre DERUMIER" <aderumier@odiso.com>=20
-=C3=80: "Toshiaki Makita" <makita.toshiaki@lab.ntt.co.jp>=20
-Cc: netdev@vger.kernel.org=20
-Envoy=C3=A9: Mardi 24 D=C3=A9cembre 2013 20:28:55=20
-Objet: Re: bridge vlan_filtering don't work with tap devices (qemu gues=
-ts)=20
-
->>If you want to send untagged frames, please try to make configuration=
-=20
->>like this:=20
->># bridge vlan add dev tap0 vid 10 pvid untagged=20
->># bridge vlan add dev tap1 vid 10 pvid untagged=20
->>=20
->>Thanks,=20
->>Toshiaki Makita=20
-
-Thank you ! It's working now.=20
-I thinked that "untagged" was for not tagging from the bridge, I unders=
-tand now.=20
-
-Thanks again and merry Xmas !=20
-
-
------ Mail original -----=20
-
-De: "Toshiaki Makita" <makita.toshiaki@lab.ntt.co.jp>=20
-=C3=80: "Alexandre DERUMIER" <aderumier@odiso.com>=20
-Cc: netdev@vger.kernel.org=20
-Envoy=C3=A9: Mardi 24 D=C3=A9cembre 2013 13:45:05=20
-Objet: Re: bridge vlan_filtering don't work with tap devices (qemu gues=
-ts)=20
-
-On Mon, 2013-12-23 at 17:02 +0100, Alexandre DERUMIER wrote:=20
-> Hello,=20
->=20
-> I'm trying to use vlan_filtering on bridge.=20
->=20
-> setup is : 2 qemu virtual machines (tap0 and tap1), plugged in a brid=
-ge br0.=20
-> virtual machines don't tag packets.=20
->=20
->=20
-> qemuvm1 eth0 --tap0----->br0<-------tap1---qemuvm2 eth0.=20
->=20
->=20
-> with vlan_filtering disable, both vms can ping together.=20
->=20
->=20
-> If I enabled filtering=20
->=20
-> #echo 1 > /sys/class/net/br0/bridge/vlan_filtering=20
->=20
-> Both vms cannot ping together anymore.=20
->=20
-> So, I have tried to put vlan on tap interfaces with=20
->=20
-> #bridge vlan add dev tap0 vid 10=20
-> #bridge vlan add dev tap1 vid 10=20
-
-If you want to send untagged frames, please try to make configuration=20
-like this:=20
-# bridge vlan add dev tap0 vid 10 pvid untagged=20
-# bridge vlan add dev tap1 vid 10 pvid untagged=20
-
-Thanks,=20
-Toshiaki Makita=20
-
-> #bridge vlan show=20
-> port vlan ids=20
-> br0 None=20
-> tap0 10=20
-> tap1 10=20
->=20
->=20
->=20
-> But, it doesn't work.=20
->=20
-> tcpdump on bridge (tcpdump -i br0 -e -n) or in destination qemu (tcpd=
-ump -i eth0 -e -n) , don't see any packet=20
->=20
-> any idea ?=20
->=20
-> Regards,=20
->=20
-> Alexandre Derumier=20
-> --=20
-> To unsubscribe from this list: send the line "unsubscribe netdev" in=20
-> the body of a message to majordomo@vger.kernel.org=20
-> More majordomo info at http://vger.kernel.org/majordomo-info.html=20
---=20
-To unsubscribe from this list: send the line "unsubscribe netdev" in=20
-the body of a message to majordomo@vger.kernel.org=20
-More majordomo info at http://vger.kernel.org/majordomo-info.html=20
+diff --git a/arch/arm/mach-shmobile/board-genmai.c b/arch/arm/mach-shmobile/board-genmai.c
+index 3e92e3c..a1f6fe1 100644
+--- a/arch/arm/mach-shmobile/board-genmai.c
++++ b/arch/arm/mach-shmobile/board-genmai.c
+@@ -20,15 +20,36 @@
+ 
+ #include <linux/kernel.h>
+ #include <linux/platform_device.h>
++#include <linux/sh_eth.h>
+ #include <mach/common.h>
++#include <mach/irqs.h>
+ #include <mach/r7s72100.h>
+ #include <asm/mach-types.h>
+ #include <asm/mach/arch.h>
+ 
++/* Ether */
++static const struct sh_eth_plat_data ether_pdata __initconst = {
++	.phy			= 0x00, /* PD60610 */
++	.edmac_endian		= EDMAC_LITTLE_ENDIAN,
++	.phy_interface		= PHY_INTERFACE_MODE_MII,
++	.no_ether_link		= 1
++};
++
++static const struct resource ether_resources[] __initconst = {
++	DEFINE_RES_MEM(0xe8203000, 0x800),
++	DEFINE_RES_MEM(0xe8204800, 0x200),
++	DEFINE_RES_IRQ(gic_iid(359)),
++};
++
+ static void __init genmai_add_standard_devices(void)
+ {
+ 	r7s72100_clock_init();
+ 	r7s72100_add_dt_devices();
++
++	platform_device_register_resndata(&platform_bus, "r7s72100-ether", -1,
++					  ether_resources,
++					  ARRAY_SIZE(ether_resources),
++					  &ether_pdata, sizeof(ether_pdata));
+ }
+ 
+ static const char * const genmai_boards_compat_dt[] __initconst = {
+-- 
+1.8.4
