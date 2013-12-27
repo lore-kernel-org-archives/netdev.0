@@ -1,56 +1,43 @@
-From: Weiping Pan <panweiping3@gmail.com>
-Subject: [PATCH net] tcp: do not grow receive window if skb->len < 128
-Date: Fri, 27 Dec 2013 11:20:54 +0800
-Message-ID: <2245b9d01fa91d84a8af1e17e1b97f0763f1b792.1388114391.git.panweiping3@gmail.com>
-To: netdev@vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH net-next] netfilter: ipvs: remove the unused variable
+Date: Fri, 27 Dec 2013 12:21:37 +0900
+Message-ID: <20131227032137.GB3795@verge.net.au>
+References: <52B258A9.70002@huawei.com>
+ <alpine.LFD.2.11.1312190912090.1749@ja.home.ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Wang Weidong <wangweidong1@huawei.com>, wensong@linux-vs.org,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61353 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754132Ab3L0DVN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Dec 2013 22:21:13 -0500
-Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id rBR3LCAQ018677
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 26 Dec 2013 22:21:13 -0500
-Received: from localhost.localdomain.com (dhcp-17-97.nay.redhat.com [10.66.17.97])
-	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id rBR3LBCa018755
-	for <netdev@vger.kernel.org>; Thu, 26 Dec 2013 22:21:12 -0500
+Received: from kirsty.vergenet.net ([202.4.237.240]:59421 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754352Ab3L0DVj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 22:21:39 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.11.1312190912090.1749@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 4e4f1fc22681(tcp: properly increase rcv_ssthresh for ofo packets) can
-grow receive window for out of order packets,
-but for in order packets, we only call tcp_grow_window() if skb->len >= 128,
-I think we should add the same condition for out of order packets.
+On Thu, Dec 19, 2013 at 09:17:17AM +0200, Julian Anastasov wrote:
+>=20
+> 	Hello,
+>=20
+> On Thu, 19 Dec 2013, Wang Weidong wrote:
+>=20
+> > when I built the netfilter, I got that:
+> > net/netfilter/ipvs/ip_vs_sync.c: In function sync_thread_master=E2=80=
+=99:
+> > net/netfilter/ipvs/ip_vs_sync.c:1640: warning: unused variable =E2=80=
+=98ret=E2=80=99
+>=20
+> 	There is another patch that we plan to apply but
+> due to possible merge conflict it was delayed:
+>=20
+> http://marc.info/?t=3D138426695600002&r=3D1&w=3D2
+> http://marc.info/?t=3D138426469400008&r=3D1&w=3D2
+>=20
+> 	May be it is time to apply it...
 
-Signed-off-by: Weiping Pan <panweiping3@gmail.com>
----
- net/ipv4/tcp_input.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index c53b7f3..2272774 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -343,6 +343,9 @@ static void tcp_grow_window(struct sock *sk, const struct sk_buff *skb)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 
-+	if (skb->len < 128)
-+		return;
-+
- 	/* Check #1 */
- 	if (tp->rcv_ssthresh < tp->window_clamp &&
- 	    (int)tp->rcv_ssthresh < tcp_space(sk) &&
-@@ -654,8 +657,7 @@ static void tcp_event_data_recv(struct sock *sk, struct sk_buff *skb)
- 
- 	TCP_ECN_check_ce(tp, skb);
- 
--	if (skb->len >= 128)
--		tcp_grow_window(sk, skb);
-+	tcp_grow_window(sk, skb);
- }
- 
- /* Called to compute a smoothed rtt estimate. The data fed to this
--- 
-1.7.4
+Thanks, I have done so.
