@@ -1,47 +1,63 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 04/20] net: enic: slight optimization of addr compare
-Date: Fri, 27 Dec 2013 14:48:20 +0800
-Message-ID: <52BD22B4.5080400@huawei.com>
+From: Weiping Pan <panweiping3@gmail.com>
+Subject: Re: [PATCH net] tcp: do not grow receive window if skb->len < 128
+Date: Fri, 27 Dec 2013 15:40:20 +0800
+Message-ID: <52BD2EE4.9090801@gmail.com>
+References: <2245b9d01fa91d84a8af1e17e1b97f0763f1b792.1388114391.git.panweiping3@gmail.com> <1388124668.12212.51.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Christian Benvenuti <benve@cisco.com>,
-	Sujith Sankar <ssujith@cisco.com>,
-	Govindarajulu Varadarajan <govindarajulu90@gmail.com>,
-	Neel Patel <neepatel@cisco.com>,
-	Nishank Trivedi <nistrive@cisco.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:52991 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753496Ab3L0Hkh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 02:40:37 -0500
+Received: by mail-pd0-f170.google.com with SMTP id g10so8791100pdj.15
+        for <netdev@vger.kernel.org>; Thu, 26 Dec 2013 23:40:36 -0800 (PST)
+In-Reply-To: <1388124668.12212.51.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use possibly more efficient ether_addr_equal
-to instead of memcmp.
+On 12/27/2013 02:11 PM, Eric Dumazet wrote:
+> On Fri, 2013-12-27 at 11:20 +0800, Weiping Pan wrote:
+>> Commit 4e4f1fc22681(tcp: properly increase rcv_ssthresh for ofo packets) can
+>> grow receive window for out of order packets,
+>> but for in order packets, we only call tcp_grow_window() if skb->len >= 128,
+>> I think we should add the same condition for out of order packets.
+>>
+> Why do you think so ? Do you have any experimental data to share ?
+Hi, Eric,
 
-Cc: Christian Benvenuti <benve@cisco.com>
-Cc: Sujith Sankar <ssujith@cisco.com>
-Cc: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
-Cc: Neel Patel <neepatel@cisco.com>
-Cc: Nishank Trivedi <nistrive@cisco.com>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/ethernet/cisco/enic/enic_pp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+No. I am just wondering why you not treat out of order and in order 
+packets in the same way,
+so I raised this question.
+>
+> I personally think the basic test in tcp_event_data_recv() is redundant
+> with the logic in tcp_grow_window()
+I think the original purpose of this test is to reduce the number of 
+times of modifying rcv_ssthresh,
+then to avoid SWS. And it can help reduce CPU cycles waisted in 
+tcp_grow_window()
+since it is on the critical path for in order packets.
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_pp.c b/drivers/net/ethernet/cisco/enic/enic_pp.c
-index 43464f0..e6a8319 100644
---- a/drivers/net/ethernet/cisco/enic/enic_pp.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_pp.c
-@@ -162,7 +162,7 @@ static int enic_are_pp_different(struct enic_port_profile *pp1,
- 	return strcmp(pp1->name, pp2->name) | !!memcmp(pp1->instance_uuid,
- 		pp2->instance_uuid, PORT_UUID_MAX) |
- 		!!memcmp(pp1->host_uuid, pp2->host_uuid, PORT_UUID_MAX) |
--		!!memcmp(pp1->mac_addr, pp2->mac_addr, ETH_ALEN);
-+		!ether_addr_equal(pp1->mac_addr, pp2->mac_addr);
- }
- 
- static int enic_pp_preassociate(struct enic *enic, int vf,
--- 
-1.8.0
+>
+> skb->len < 128 seems a poor test, real factor is skb->len/skb->truesize
+> ratio.
+Yes.
+But since we already have "if (tcp_win_from_space(skb->truesize) <= 
+skb->len)" in tcp_grow_window(),
+I do not know how to choose another test, or the logic in 
+tcp_grow_window() is enough and we can skip that test
+in tcp_event_data_recv().
+>
+> Note: Please always CC a patch author when you mention a commit in
+> a changelog.
+Ok, I will remember that.
+
+thanks
+Weiping Pan
+>
+> Thanks
+>
+>
