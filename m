@@ -1,12 +1,11 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 10/20] net: vxge: slight optimization of addr compare
-Date: Fri, 27 Dec 2013 14:48:44 +0800
-Message-ID: <52BD22CC.3030800@huawei.com>
+Subject: [PATCH net-next 18/20] net: fddi: slight optimization of addr compare
+Date: Fri, 27 Dec 2013 14:49:13 +0800
+Message-ID: <52BD22E9.1070600@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Jon Mason <jdmason@kudzu.us>,
-	"David S. Miller" <davem@davemloft.net>,
+To: "David S. Miller" <davem@davemloft.net>,
 	Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -16,24 +15,32 @@ List-Id: netdev.vger.kernel.org
 Use possibly more efficient ether_addr_equal
 to instead of memcmp.
 
-Cc: Jon Mason <jdmason@kudzu.us>
+Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/ethernet/neterion/vxge/vxge-main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/fddi/skfp/fplustm.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-index 11b1c70..6eae216 100644
---- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
-+++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-@@ -1430,7 +1430,7 @@ vxge_search_mac_addr_in_da_table(struct vxge_vpath *vpath, struct macInfo *mac)
- 		return status;
- 	}
+diff --git a/drivers/net/fddi/skfp/fplustm.c b/drivers/net/fddi/skfp/fplustm.c
+index d918d8a..7d3779a 100644
+--- a/drivers/net/fddi/skfp/fplustm.c
++++ b/drivers/net/fddi/skfp/fplustm.c
+@@ -23,6 +23,7 @@
+ #include "h/smc.h"
+ #include "h/supern_2.h"
+ #include <linux/bitrev.h>
++#include <linux/etherdevice.h>
  
--	while (memcmp(mac->macaddr, macaddr, ETH_ALEN)) {
-+	while (!ether_addr_equal(mac->macaddr, macaddr)) {
- 		status = vxge_hw_vpath_mac_addr_get_next(vpath->handle,
- 				macaddr, macmask);
- 		if (status != VXGE_HW_OK)
+ #ifndef	lint
+ static const char ID_sccs[] = "@(#)fplustm.c	1.32 99/02/23 (C) SK " ;
+@@ -1082,7 +1083,7 @@ static struct s_fpmc* mac_get_mc_table(struct s_smc *smc,
+ 				slot = tb ;
+ 			continue ;
+ 		}
+-		if (memcmp((char *)&tb->a,(char *)own,6))
++		if (!ether_addr_equal((char *)&tb->a, (char *)own))
+ 			continue ;
+ 		return tb;
+ 	}
 -- 
 1.8.0
