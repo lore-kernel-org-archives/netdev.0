@@ -1,63 +1,73 @@
-From: Weiping Pan <panweiping3@gmail.com>
-Subject: Re: [PATCH net] tcp: do not grow receive window if skb->len < 128
-Date: Fri, 27 Dec 2013 15:40:20 +0800
-Message-ID: <52BD2EE4.9090801@gmail.com>
-References: <2245b9d01fa91d84a8af1e17e1b97f0763f1b792.1388114391.git.panweiping3@gmail.com> <1388124668.12212.51.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: bridge vlan_filtering don't work with tap devices (qemu guests)
+Date: Fri, 27 Dec 2013 17:28:37 +0900
+Message-ID: <1388132917.8290.22.camel@ubuntu-vm-makita>
+References: <eb3c68d9-fa1b-402a-9416-1ea38a78b68b@mailpro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Vlad Yasevich <vyasevic@redhat.com>
+To: Alexandre DERUMIER <aderumier@odiso.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:52991 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753496Ab3L0Hkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 02:40:37 -0500
-Received: by mail-pd0-f170.google.com with SMTP id g10so8791100pdj.15
-        for <netdev@vger.kernel.org>; Thu, 26 Dec 2013 23:40:36 -0800 (PST)
-In-Reply-To: <1388124668.12212.51.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:41052 "EHLO
+	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754024Ab3L0I2t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 03:28:49 -0500
+In-Reply-To: <eb3c68d9-fa1b-402a-9416-1ea38a78b68b@mailpro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/27/2013 02:11 PM, Eric Dumazet wrote:
-> On Fri, 2013-12-27 at 11:20 +0800, Weiping Pan wrote:
->> Commit 4e4f1fc22681(tcp: properly increase rcv_ssthresh for ofo packets) can
->> grow receive window for out of order packets,
->> but for in order packets, we only call tcp_grow_window() if skb->len >= 128,
->> I think we should add the same condition for out of order packets.
->>
-> Why do you think so ? Do you have any experimental data to share ?
-Hi, Eric,
+2013-12-26 (=E6=9C=A8) =E3=81=AE 14:57 +0100 =E3=81=AB Alexandre DERUMI=
+ER =E3=81=95=E3=82=93=E3=81=AF=E6=9B=B8=E3=81=8D=E3=81=BE=E3=81=97=E3=81=
+=9F:
+> Hello Again,
+>=20
+> One more question :
+>=20
+> If I use tcpdump on br0, I don't see any tagged vlan10 packets on the=
+ bridge.
+> with=20
+> # bridge vlan add dev tap0 vid 10 pvid untagged=20
+> # bridge vlan add dev tap1 vid 10 pvid untagged=20
 
-No. I am just wondering why you not treat out of order and in order 
-packets in the same way,
-so I raised this question.
->
-> I personally think the basic test in tcp_event_data_recv() is redundant
-> with the logic in tcp_grow_window()
-I think the original purpose of this test is to reduce the number of 
-times of modifying rcv_ssthresh,
-then to avoid SWS. And it can help reduce CPU cycles waisted in 
-tcp_grow_window()
-since it is on the critical path for in order packets.
+With these settings, you should be able to see tagged frames on bridge
+device with promisc mode.
+Are you sure you enabled vlan_filtering by sysfs?
+Or didn't you set br0 in the same way as other ports like below?
+# bridge vlan add dev br0 vid 10 pvid untagged self
 
->
-> skb->len < 128 seems a poor test, real factor is skb->len/skb->truesize
-> ratio.
-Yes.
-But since we already have "if (tcp_win_from_space(skb->truesize) <= 
-skb->len)" in tcp_grow_window(),
-I do not know how to choose another test, or the logic in 
-tcp_grow_window() is enough and we can skip that test
-in tcp_event_data_recv().
->
-> Note: Please always CC a patch author when you mention a commit in
-> a changelog.
-Ok, I will remember that.
+>=20
+>=20
+> What I would like to do, is tagging vlan10, incoming (untagged) packe=
+ts from tap0 and tap1.
+>=20
+> Is it possible ?
 
-thanks
-Weiping Pan
->
-> Thanks
->
->
+If you set pvid, incoming frames from the port will be tagged with the
+vlan.
+If you set untagged, outgoing frames with the vlan from the port will b=
+e
+untagged.
+
+So, if you want to send frames tagged with vlan 10, please don't set vi=
+d
+10 untagged on outgoing ports you want.
+
+
+BTW:
+(CC: Vlad)
+I tested to execute tcpdump on br0 with vlan_filtering enabled, but
+kernel panic occurred with upstream net-tree kernel. br_handle_vlan()
+seems to have a bug that it doesn't check pv is NULL or not.
+br_pass_frame_up() calls br_handle_vlan() even if br->vlan_info is NULL
+when bridge device is promisc mode.
+This will occur if we don't add any vlan on the bridge device.
+I'm going to make a patch to fix it.
+
+Thanks,
+Toshiaki Makita
+
+>=20
+> With openvswitch, I can do it simply with "ovs-vsctl set port tap0 ta=
+g=3D10"
+>=20
