@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 4/6] r8152: add rtl_ops
-Date: Fri, 27 Dec 2013 10:34:08 +0800
-Message-ID: <1388111649-1014-5-git-send-email-hayeswang@realtek.com>
+Subject: [PATCH net-next 5/6] r8152: split rtl8152_enable
+Date: Fri, 27 Dec 2013 10:34:09 +0800
+Message-ID: <1388111649-1014-6-git-send-email-hayeswang@realtek.com>
 References: <1388111649-1014-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,143 +13,60 @@ In-Reply-To: <1388111649-1014-1-git-send-email-hayeswang@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The different chips may have different settings. This makes it easy
-to let different chips have the same flow with differnt settings.
+Split the contents of rtl8152_enable() into rtl_set_eee_plus() and
+rtl_enable().
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 56 ++++++++++++++++++++++++++++++++++++++++++-------
- 1 file changed, 49 insertions(+), 7 deletions(-)
+ drivers/net/usb/r8152.c | 18 +++++++++++++++---
+ 1 file changed, 15 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index a8ea848..040ef73 100644
+index 040ef73..5777737 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -367,6 +367,15 @@ struct r8152 {
- 	spinlock_t rx_lock, tx_lock;
- 	struct delayed_work schedule;
- 	struct mii_if_info mii;
-+
-+	struct rtl_ops {
-+		void (*init)(struct r8152 *);
-+		int (*enable)(struct r8152 *);
-+		void (*disable)(struct r8152 *);
-+		void (*down)(struct r8152 *);
-+		void (*unload)(struct r8152 *);
-+	} rtl_ops;
-+
- 	int intr_interval;
- 	u32 msg_enable;
- 	u32 tx_qlen;
-@@ -1751,7 +1760,7 @@ static void set_carrier(struct r8152 *tp)
- 
- 	if (speed & LINK_STATUS) {
- 		if (!(tp->speed & LINK_STATUS)) {
--			rtl8152_enable(tp);
-+			tp->rtl_ops.enable(tp);
- 			set_bit(RTL8152_SET_RX_MODE, &tp->flags);
- 			netif_carrier_on(netdev);
- 		}
-@@ -1759,7 +1768,7 @@ static void set_carrier(struct r8152 *tp)
- 		if (tp->speed & LINK_STATUS) {
- 			netif_carrier_off(netdev);
- 			tasklet_disable(&tp->tl);
--			rtl8152_disable(tp);
-+			tp->rtl_ops.disable(tp);
- 			tasklet_enable(&tp->tl);
- 		}
- 	}
-@@ -1819,7 +1828,7 @@ static int rtl8152_close(struct net_device *netdev)
- 	cancel_delayed_work_sync(&tp->schedule);
- 	netif_stop_queue(netdev);
- 	tasklet_disable(&tp->tl);
--	rtl8152_disable(tp);
-+	tp->rtl_ops.disable(tp);
- 	tasklet_enable(&tp->tl);
- 
- 	return res;
-@@ -1945,7 +1954,7 @@ static int rtl8152_suspend(struct usb_interface *intf, pm_message_t message)
- 		tasklet_disable(&tp->tl);
- 	}
- 
--	rtl8152_down(tp);
-+	tp->rtl_ops.down(tp);
- 
- 	return 0;
+@@ -1447,13 +1447,11 @@ static inline u8 rtl8152_get_speed(struct r8152 *tp)
+ 	return ocp_read_byte(tp, MCU_TYPE_PLA, PLA_PHYSTATUS);
  }
-@@ -1954,7 +1963,7 @@ static int rtl8152_resume(struct usb_interface *intf)
+ 
+-static int rtl8152_enable(struct r8152 *tp)
++static void rtl_set_eee_plus(struct r8152 *tp)
  {
- 	struct r8152 *tp = usb_get_intfdata(intf);
+ 	u32 ocp_data;
+-	int i, ret;
+ 	u8 speed;
  
--	r8152b_init(tp);
-+	tp->rtl_ops.init(tp);
- 	netif_device_attach(tp->netdev);
- 	if (netif_running(tp->netdev)) {
- 		rtl8152_set_speed(tp, AUTONEG_ENABLE, SPEED_100, DUPLEX_FULL);
-@@ -2083,6 +2092,34 @@ static void rtl8152_unload(struct r8152 *tp)
- 	ocp_write_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS, ocp_data);
- }
- 
-+static int rtl_ops_init(struct r8152 *tp, const struct usb_device_id *id)
-+{
-+	struct rtl_ops *ops = &tp->rtl_ops;
-+	int ret = 0;
-+
-+	switch (id->idVendor) {
-+	case VENDOR_ID_REALTEK:
-+		switch (id->idProduct) {
-+		case PRODUCT_ID_RTL8152:
-+			ops->init		= r8152b_init;
-+			ops->enable		= rtl8152_enable;
-+			ops->disable		= rtl8152_disable;
-+			ops->down		= rtl8152_down;
-+			ops->unload		= rtl8152_unload;
-+			break;
-+		default:
-+			ret = -EFAULT;
-+			break;
-+		}
-+		break;
-+
-+	default:
-+		ret = -EFAULT;
-+		break;
-+	}
-+	return ret;
+-	set_tx_qlen(tp);
+ 	speed = rtl8152_get_speed(tp);
+ 	if (speed & _10bps) {
+ 		ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_EEEP_CR);
+@@ -1464,6 +1462,12 @@ static int rtl8152_enable(struct r8152 *tp)
+ 		ocp_data &= ~EEEP_CR_EEEP_TX;
+ 		ocp_write_word(tp, MCU_TYPE_PLA, PLA_EEEP_CR, ocp_data);
+ 	}
 +}
 +
- static int rtl8152_probe(struct usb_interface *intf,
- 			 const struct usb_device_id *id)
- {
-@@ -2106,6 +2143,11 @@ static int rtl8152_probe(struct usb_interface *intf,
- 	tp = netdev_priv(netdev);
- 	tp->msg_enable = 0x7FFF;
++static int rtl_enable(struct r8152 *tp)
++{
++	u32 ocp_data;
++	int i, ret;
  
-+	if (rtl_ops_init(tp, id)) {
-+		netif_err(tp, probe, netdev, "Unknown Device");
-+		return -ENODEV;
-+	}
+ 	r8152b_reset_packet_filter(tp);
+ 
+@@ -1485,6 +1489,14 @@ static int rtl8152_enable(struct r8152 *tp)
+ 	return ret;
+ }
+ 
++static int rtl8152_enable(struct r8152 *tp)
++{
++	set_tx_qlen(tp);
++	rtl_set_eee_plus(tp);
 +
- 	tasklet_init(&tp->tl, bottom_half, (unsigned long)tp);
- 	INIT_DELAYED_WORK(&tp->schedule, rtl_work_func_t);
- 
-@@ -2128,7 +2170,7 @@ static int rtl8152_probe(struct usb_interface *intf,
- 	tp->mii.supports_gmii = 0;
- 
- 	r8152b_get_version(tp);
--	r8152b_init(tp);
-+	tp->rtl_ops.init(tp);
- 	set_ethernet_addr(tp);
- 
- 	ret = alloc_all_mem(tp);
-@@ -2163,7 +2205,7 @@ static void rtl8152_disconnect(struct usb_interface *intf)
- 		set_bit(RTL8152_UNPLUG, &tp->flags);
- 		tasklet_kill(&tp->tl);
- 		unregister_netdev(tp->netdev);
--		rtl8152_unload(tp);
-+		tp->rtl_ops.unload(tp);
- 		free_all_mem(tp);
- 		free_netdev(tp->netdev);
- 	}
++	return rtl_enable(tp);
++}
++
+ static void rtl8152_disable(struct r8152 *tp)
+ {
+ 	struct net_device_stats *stats = rtl8152_get_stats(tp->netdev);
 -- 
 1.8.3.1
