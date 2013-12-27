@@ -1,95 +1,63 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 19/20] net: plip: slight optimization of addr
- compare
-Date: Fri, 27 Dec 2013 12:46:57 -0800
-Message-ID: <1388177217.30298.24.camel@joe-AO722>
-References: <52BD22ED.4030302@huawei.com>
-	 <1388159283.12212.80.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1388163982.30298.12.camel@joe-AO722>
-	 <alpine.DEB.2.02.1312272112110.2018@localhost6.localdomain6>
+From: Michael Dalton <mwdalton@google.com>
+Subject: Re: [PATCH net-next 3/3] net: auto-tune mergeable rx buffer size for
+	improved performance
+Date: Fri, 27 Dec 2013 13:41:28 -0800
+Message-ID: <CANJ5vPJdHPkmz1DpmsULXjcXvToOox4cgjadKvc_HCKws=CGzw@mail.gmail.com>
+References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
+	<1387239389-13216-3-git-send-email-mwdalton@google.com>
+	<52BBDBAD.8030609@redhat.com>
+	<CANJ5vPJX1yTKJXpFe+PO7u89-tYRjNPdJwrBLjAop3veye1pDg@mail.gmail.com>
+	<52BCEE4E.7070106@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Ding Tianhong <dingtianhong@huawei.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Julia Lawall <julia.lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1312272112110.2018@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <52BCEE4E.7070106@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-12-27 at 21:12 +0100, Julia Lawall wrote:
-> On Fri, 27 Dec 2013, Joe Perches wrote:
-> 
-> > On Fri, 2013-12-27 at 07:48 -0800, Eric Dumazet wrote:
-> > > On Fri, 2013-12-27 at 14:49 +0800, Ding Tianhong wrote:
-> > > > Use possibly more efficient ether_addr_equal
-> > > > to instead of memcmp.
-> > []
-> > > > diff --git a/drivers/net/plip/plip.c b/drivers/net/plip/plip.c
-> > []
-> > > > @@ -549,7 +549,7 @@ static __be16 plip_type_trans(struct sk_buff *skb, struct net_device *dev)
-> > > >  
-> > > >  	if(*eth->h_dest&1)
-> > > >  	{
-> > > > -		if(memcmp(eth->h_dest,dev->broadcast, ETH_ALEN)==0)
-> > > > +		if(ether_addr_equal(eth->h_dest, dev->broadcast))
-> > > >  			skb->pkt_type=PACKET_BROADCAST;
-> > > >  		else
-> > > >  			skb->pkt_type=PACKET_MULTICAST;
-> > > 
-> > > What about :
-> > > 
-> > >         if (is_multicast_ether_addr(eth->h_dest)) {
-> > >                 if (ether_addr_equal_64bits(eth->h_dest, dev->broadcast))
-> > >                         skb->pkt_type = PACKET_BROADCAST;
-> > >                 else
-> > >                         skb->pkt_type = PACKET_MULTICAST;
-> > >         }
-> > 
-> > That is better though I wonder how many systems are
-> > still using laplink via parallel null-printer cables.
-> > 
-> > No matter, better is better.
-> > 
-> > The same optimization using ether_addr_equal_64bits
-> > may be possible to do in other places given other
-> > structs too.
-> > 
-> > Perhaps it's a possible spatch/coccinelle conversion,
-> > 
-> > I don't know spatch well enough to know if a
-> > mechanism to check if structure members have other
-> > fields that follow them in the structure or if the
-> > structure member is an array of a minimum size.
-> > 
-> > Maybe Julia does.  (cc'd)
-> 
-> I'm not sure to competely understand the issues.  Could you explain more?
+I'm working on a followup patchset to address current feedback. I think
+it will be cleaner to do a debugfs implementation for per-receive queue
+packet buffer size exporting, so I'm trying that out.
 
-Hi Julia.
+On Thu, Dec 26, 2013 at 7:04 PM, Jason Wang <jasowang@redhat.com> wrote:
+> We can make this more accurate by using extra data structure to track
+> the real buf size and using it as token.
 
-Maybe this explanation is helpful?
+I agree -- we can do precise buffer total len tracking. Something like
+struct mergeable_packet_buffer_ctx {
+   void *buf;
+   unsigned int total_len;
+};
 
-ethernet addresses are u8[6] (48 bits)
+Each receive queue could have a pointer to an array of N buffer contexts,
+where N is queue size (kzalloc'd in init_vqs or similar). That would
+allow us to allocate all of our buffer context data at startup.
 
-ether_addr_equal_64bits gets passed a pointer to u8[8]
-and is more efficient on 64 bit architectures than
-ether_addr_equal because the test can be done with a
-single compare and shift.
+Would this be preferred to the current approach or is there another
+approach you would prefer? All other things being equal, having precise
+length tracking is advantageous, so I'm inclined to try this out and
+see how it goes.
 
-The idea is not to access past the end of the ethernet
-address as appropriate (think pointer to eeprom or other
-such end-of-addressable memory conditions)
+I think this is a big design point - for example, if we have an extra
+buffer context structure, then per-receive queue frag allocators are not
+required for auto-tuning and we can reduce the number of patches in
+this patchset.
 
-If a struct containing an ethernet address has additional
-members after the ethernet address, or the u8[6] address
-passed to ether_addr_equal is not going to access past
-the end of memory or the structure, then
-ether_addr_equal_64bits should be used in lieu of
-ether_addr_equal.
+I'm happy to implement either way.  Thanks!
 
-Joe
+Best,
+
+Mike
