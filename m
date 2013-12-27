@@ -1,88 +1,72 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] mdio: unused ethtool functions
-Date: Fri, 27 Dec 2013 10:06:43 +0100
-Message-ID: <1388135203.26981.22.camel@deadeye.wl.decadent.org.uk>
-References: <20131226101241.5f38e392@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: roy.qing.li@gmail.com
+Subject: [PATCH net-next] core: remove old parameter for __dst_destroy_metrics_generic
+Date: Fri, 27 Dec 2013 17:26:45 +0800
+Message-ID: <1388136405-25019-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:15757 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754060Ab3L0JGt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 04:06:49 -0500
-In-Reply-To: <20131226101241.5f38e392@nehalam.linuxnetplumber.net>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:33645 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754119Ab3L0J0v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 04:26:51 -0500
+Received: by mail-pd0-f179.google.com with SMTP id r10so8832649pdi.24
+        for <netdev@vger.kernel.org>; Fri, 27 Dec 2013 01:26:50 -0800 (PST)
+Received: from localhost ([1.202.252.122])
+        by mx.google.com with ESMTPSA id vh3sm60799643pbc.8.2013.12.27.01.26.47
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Fri, 27 Dec 2013 01:26:49 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-12-26 at 10:12 -0800, Stephen Hemminger wrote:
-> Use it or lose it.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+From: Li RongQing <roy.qing.li@gmail.com>
 
-Right, this was called by sfc for a while but not since 2.6.33 as we set
-all the autoneg bits at once.
+when call __dst_destroy_metrics_generic, we always know who old is, so
+do not need to pass it.
 
-Ben.
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ include/net/dst.h |    7 +++----
+ net/core/dst.c    |    5 +++--
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-> ---
->  drivers/net/mdio.c   |   28 ----------------------------
->  include/linux/mdio.h |    3 ---
->  2 files changed, 31 deletions(-)
-> 
-> --- a/drivers/net/mdio.c	2013-12-24 15:37:35.779661759 -0800
-> +++ b/drivers/net/mdio.c	2013-12-24 15:38:26.054970175 -0800
-> @@ -342,34 +342,6 @@ void mdio45_ethtool_gset_npage(const str
->  EXPORT_SYMBOL(mdio45_ethtool_gset_npage);
->  
->  /**
-> - * mdio45_ethtool_spauseparam_an - set auto-negotiated pause parameters
-> - * @mdio: MDIO interface
-> - * @ecmd: Ethtool request structure
-> - *
-> - * This function assumes that the PHY has an auto-negotiation MMD.  It
-> - * will enable and disable advertising of flow control as appropriate.
-> - */
-> -void mdio45_ethtool_spauseparam_an(const struct mdio_if_info *mdio,
-> -				   const struct ethtool_pauseparam *ecmd)
-> -{
-> -	int adv, old_adv;
-> -
-> -	WARN_ON(!(mdio->mmds & MDIO_DEVS_AN));
-> -
-> -	old_adv = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_AN,
-> -				  MDIO_AN_ADVERTISE);
-> -	adv = ((old_adv & ~(ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM)) |
-> -	       mii_advertise_flowctrl((ecmd->rx_pause ? FLOW_CTRL_RX : 0) |
-> -				      (ecmd->tx_pause ? FLOW_CTRL_TX : 0)));
-> -	if (adv != old_adv) {
-> -		mdio->mdio_write(mdio->dev, mdio->prtad, MDIO_MMD_AN,
-> -				 MDIO_AN_ADVERTISE, adv);
-> -		mdio45_nway_restart(mdio);
-> -	}
-> -}
-> -EXPORT_SYMBOL(mdio45_ethtool_spauseparam_an);
-> -
-> -/**
->   * mdio_mii_ioctl - MII ioctl interface for MDIO (clause 22 or 45) PHYs
->   * @mdio: MDIO interface
->   * @mii_data: MII ioctl data structure
-> --- a/include/linux/mdio.h	2013-12-24 15:37:35.779661759 -0800
-> +++ b/include/linux/mdio.h	2013-12-24 15:38:26.054970175 -0800
-> @@ -70,9 +70,6 @@ extern int mdio45_nway_restart(const str
->  extern void mdio45_ethtool_gset_npage(const struct mdio_if_info *mdio,
->  				      struct ethtool_cmd *ecmd,
->  				      u32 npage_adv, u32 npage_lpa);
-> -extern void
-> -mdio45_ethtool_spauseparam_an(const struct mdio_if_info *mdio,
-> -			      const struct ethtool_pauseparam *ecmd);
->  
->  /**
->   * mdio45_ethtool_gset - get settings for ETHTOOL_GSET
-
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 77eb53f..7c86f3e 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -119,13 +119,12 @@ static inline bool dst_metrics_read_only(const struct dst_entry *dst)
+ 	return dst->_metrics & DST_METRICS_READ_ONLY;
+ }
+ 
+-void __dst_destroy_metrics_generic(struct dst_entry *dst, unsigned long old);
++void __dst_destroy_metrics_generic(struct dst_entry *dst);
+ 
+ static inline void dst_destroy_metrics_generic(struct dst_entry *dst)
+ {
+-	unsigned long val = dst->_metrics;
+-	if (!(val & DST_METRICS_READ_ONLY))
+-		__dst_destroy_metrics_generic(dst, val);
++	if (!dst_metrics_read_only(dst))
++		__dst_destroy_metrics_generic(dst);
+ }
+ 
+ static inline u32 *dst_metrics_write_ptr(struct dst_entry *dst)
+diff --git a/net/core/dst.c b/net/core/dst.c
+index ca4231e..f1875ee 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -308,10 +308,11 @@ u32 *dst_cow_metrics_generic(struct dst_entry *dst, unsigned long old)
+ EXPORT_SYMBOL(dst_cow_metrics_generic);
+ 
+ /* Caller asserts that dst_metrics_read_only(dst) is false.  */
+-void __dst_destroy_metrics_generic(struct dst_entry *dst, unsigned long old)
++void __dst_destroy_metrics_generic(struct dst_entry *dst)
+ {
+-	unsigned long prev, new;
++	unsigned long prev, new, old;
+ 
++	old = dst->_metrics;
+ 	new = ((unsigned long) dst_default_metrics) | DST_METRICS_READ_ONLY;
+ 	prev = cmpxchg(&dst->_metrics, old, new);
+ 	if (prev == old)
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.10.4
