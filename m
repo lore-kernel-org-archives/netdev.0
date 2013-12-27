@@ -1,64 +1,37 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 19/20] net: plip: slight optimization of addr
- compare
-Date: Fri, 27 Dec 2013 09:06:22 -0800
-Message-ID: <1388163982.30298.12.camel@joe-AO722>
-References: <52BD22ED.4030302@huawei.com>
-	 <1388159283.12212.80.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] core: remove old parameter for
+ __dst_destroy_metrics_generic
+Date: Fri, 27 Dec 2013 12:08:20 -0500 (EST)
+Message-ID: <20131227.120820.827902523607182899.davem@davemloft.net>
+References: <1388136405-25019-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Julia Lawall <julia.lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1388159283.12212.80.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59553 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753069Ab3L0RIY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 12:08:24 -0500
+In-Reply-To: <1388136405-25019-1-git-send-email-roy.qing.li@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-12-27 at 07:48 -0800, Eric Dumazet wrote:
-> On Fri, 2013-12-27 at 14:49 +0800, Ding Tianhong wrote:
-> > Use possibly more efficient ether_addr_equal
-> > to instead of memcmp.
-[]
-> > diff --git a/drivers/net/plip/plip.c b/drivers/net/plip/plip.c
-[]
-> > @@ -549,7 +549,7 @@ static __be16 plip_type_trans(struct sk_buff *skb, struct net_device *dev)
-> >  
-> >  	if(*eth->h_dest&1)
-> >  	{
-> > -		if(memcmp(eth->h_dest,dev->broadcast, ETH_ALEN)==0)
-> > +		if(ether_addr_equal(eth->h_dest, dev->broadcast))
-> >  			skb->pkt_type=PACKET_BROADCAST;
-> >  		else
-> >  			skb->pkt_type=PACKET_MULTICAST;
+From: roy.qing.li@gmail.com
+Date: Fri, 27 Dec 2013 17:26:45 +0800
+
+> From: Li RongQing <roy.qing.li@gmail.com>
 > 
-> What about :
+> when call __dst_destroy_metrics_generic, we always know who old is, so
+> do not need to pass it.
 > 
->         if (is_multicast_ether_addr(eth->h_dest)) {
->                 if (ether_addr_equal_64bits(eth->h_dest, dev->broadcast))
->                         skb->pkt_type = PACKET_BROADCAST;
->                 else
->                         skb->pkt_type = PACKET_MULTICAST;
->         }
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
-That is better though I wonder how many systems are
-still using laplink via parallel null-printer cables.
+It's a parameter so that we pass it in a register, rather than having the
+caller and the function both have to perform a memory operation and load
+the value.
 
-No matter, better is better.
+It's an optimization.
 
-The same optimization using ether_addr_equal_64bits
-may be possible to do in other places given other
-structs too.
-
-Perhaps it's a possible spatch/coccinelle conversion,
-
-I don't know spatch well enough to know if a
-mechanism to check if structure members have other
-fields that follow them in the structure or if the
-structure member is an array of a minimum size.
-
-Maybe Julia does.  (cc'd)
+I'm not applying this, sorry.
