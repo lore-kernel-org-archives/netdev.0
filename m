@@ -1,33 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RESEND][PATCH next 2/2] bgmac: use phy_mii_ioctl in ioctl
- handler
-Date: Fri, 27 Dec 2013 13:28:31 -0500 (EST)
-Message-ID: <20131227.132831.2245162248220320159.davem@davemloft.net>
-References: <1386668966-24562-2-git-send-email-zajec5@gmail.com>
-	<1387550085-32432-1-git-send-email-zajec5@gmail.com>
+Subject: Re: [PATCH] phy: IRQ cannot be shared
+Date: Fri, 27 Dec 2013 13:43:33 -0500 (EST)
+Message-ID: <20131227.134333.1370704464169101441.davem@davemloft.net>
+References: <201312202209.04333.sergei.shtylyov@cogentembedded.com>
+	<CAGVrzcaUamisoHrW-j5RCt4ph=s0X32uUi7yn7_Wi7=5fxi7tw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, hauke@hauke-m.de, f.fainelli@gmail.com
-To: zajec5@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60219 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60323 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754507Ab3L0S2d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 13:28:33 -0500
-In-Reply-To: <1387550085-32432-1-git-send-email-zajec5@gmail.com>
+	with ESMTP id S1752234Ab3L0Snf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 13:43:35 -0500
+In-Reply-To: <CAGVrzcaUamisoHrW-j5RCt4ph=s0X32uUi7yn7_Wi7=5fxi7tw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-Date: Fri, 20 Dec 2013 15:34:45 +0100
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Fri, 20 Dec 2013 10:24:05 -0800
 
-> From: Hauke Mehrtens <hauke@hauke-m.de>
->=20
-> This works pretty much the same way, so avoid duplicating the code.
->=20
-> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
-> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+> 2013/12/20 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
+>> With the way PHY IRQ handler is implemented (all real handling being pushed to
+>> the workqueue and returning IRQ_HANDLED all the time PHY is active), we cannot
+>> really claim that PHY IRQ can be shared when calling request_irq().
+> 
+> Looks good, in the future we might want to be able to let the Ethernet
+> MAC driver specify the flags to pass down to request_irq() but this is
+> good enough for me for the time being.
+> 
+>>
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> 
 > Acked-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Applied.
+I really worry that putting this new restriction in place is going to
+break a bunch of drivers.
+
+Arguably they are broken, but they are least mostly working right now
+and probes will completely fail after this change.
+
+Feel free to allay my concerns, but tossing this into 'net' and
+-stable with such a possible risk really concerns me.
