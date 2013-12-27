@@ -1,138 +1,89 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 3/6] r8152: change some definitions
-Date: Fri, 27 Dec 2013 10:34:07 +0800
-Message-ID: <1388111649-1014-4-git-send-email-hayeswang@realtek.com>
-References: <1388111649-1014-1-git-send-email-hayeswang@realtek.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next 3/3] net: auto-tune mergeable rx buffer size
+	for improved performance
+Date: Fri, 27 Dec 2013 11:04:46 +0800
+Message-ID: <52BCEE4E.7070106@redhat.com>
+References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
+	<1387239389-13216-3-git-send-email-mwdalton@google.com>
+	<52BBDBAD.8030609@redhat.com>
+	<CANJ5vPJX1yTKJXpFe+PO7u89-tYRjNPdJwrBLjAop3veye1pDg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1388111649-1014-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: Michael Dalton <mwdalton@google.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CANJ5vPJX1yTKJXpFe+PO7u89-tYRjNPdJwrBLjAop3veye1pDg@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Replace RX_BUF_THR with RX_THR_HIGH.
-Replace RWSUME_INDICATE with RESUME_INDICATE.
-Add CRC_SIZE, TX_ALIGN, and RX_ALIGN.
+On 12/27/2013 04:06 AM, Michael Dalton wrote:
+> On Mon, Dec 23, 2013 at 4:51 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+>> OK so a high level benchmark shows it's worth it,
+>> but how well does the logic work?
+>> I think we should make the buffer size accessible in sysfs
+>> or debugfs, and look at it, otherwise we don't really know.
+>>
+> Exporting the size sounds good to me, it is definitely an
+> important metric and would give more visibility to the admin.
+>
+> Do you have a preference for implementation strategy? I was
+> thinking just add a DEVICE_ATTR to create a read-only sysfs file,
+> 'mergeable_rx_buffer_size', and return a space-separated list of the
+> current buffer size (computed from the average packet size) for each
+> receive queue. -EINVAL or a similar error could be returned if the
+> netdev was not configured for mergeable rx buffers.
+>
+>> I don't get the real motivation for this.
+>>
+>> We have skbs A,B,C sharing a page, with chunk D being unused.
+>> This randomly charges chunk D to an skb that ended up last
+>> in the page.
+>> Correct?
+>> Why does this make sense?
+> The intent of this code is to adjust the SKB true size for
+> the packet. We should completely use each packet buffer except
+> for the last buffer. For all buffers except the last buffer, it
+> should be the case that 'len' (bytes received) = buffer size. For
+> the last buffer, this code adjusts the truesize by comparing the
+> approximated buffer size with the bytes received into the buffer,
+> and adding the difference to the SKB truesize if the buffer size
+> is greater than the number of bytes received.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 27 ++++++++++++++++-----------
- 1 file changed, 16 insertions(+), 11 deletions(-)
+But look like it does not take the 'hole' into account which may cause
+under estimation of trusize.
+>
+> We approximate the buffer size by using the last packet buffer size
+> from that same page, which as you have correctly noted may be a buffer
+> that belongs to a different packet on the same virtio-net device. This
+> buffer size should be very close to the actual buffer size because our
+> EWMA estimator uses a high weight (so the packet buffer size changes very
+> slowly) and there are only a handful packets on a page (even order-3).
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index b8bc3eb..a8ea848 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -209,7 +209,7 @@
- #define TX_AGG_MAX_THRESHOLD	0x03
- 
- /* USB_RX_BUF_TH */
--#define RX_BUF_THR		0x7a120180
-+#define RX_THR_HIGH		0x7a120180
- 
- /* USB_TX_DMA */
- #define TEST_MODE_DISABLE	0x00000001
-@@ -219,7 +219,7 @@
- #define POWER_CUT		0x0100
- 
- /* USB_PM_CTRL_STATUS */
--#define RWSUME_INDICATE		0x0001
-+#define RESUME_INDICATE		0x0001
- 
- /* USB_USB_CTRL */
- #define RX_AGG_DISABLE		0x0010
-@@ -274,6 +274,9 @@ enum rtl_register_content {
- #define RTL8152_MAX_TX		10
- #define RTL8152_MAX_RX		10
- #define INTBUFSIZE		2
-+#define CRC_SIZE		4
-+#define TX_ALIGN		4
-+#define RX_ALIGN		8
- 
- #define INTR_LINK		0x0004
- 
-@@ -916,12 +919,12 @@ resubmit:
- 
- static inline void *rx_agg_align(void *data)
- {
--	return (void *)ALIGN((uintptr_t)data, 8);
-+	return (void *)ALIGN((uintptr_t)data, RX_ALIGN);
- }
- 
- static inline void *tx_agg_align(void *data)
- {
--	return (void *)ALIGN((uintptr_t)data, 4);
-+	return (void *)ALIGN((uintptr_t)data, TX_ALIGN);
- }
- 
- static void free_all_mem(struct r8152 *tp)
-@@ -990,7 +993,8 @@ static int alloc_all_mem(struct r8152 *tp)
- 
- 		if (buf != rx_agg_align(buf)) {
- 			kfree(buf);
--			buf = kmalloc_node(rx_buf_sz + 8, GFP_KERNEL, node);
-+			buf = kmalloc_node(rx_buf_sz + RX_ALIGN, GFP_KERNEL,
-+					   node);
- 			if (!buf)
- 				goto err1;
- 		}
-@@ -1015,7 +1019,8 @@ static int alloc_all_mem(struct r8152 *tp)
- 
- 		if (buf != tx_agg_align(buf)) {
- 			kfree(buf);
--			buf = kmalloc_node(rx_buf_sz + 4, GFP_KERNEL, node);
-+			buf = kmalloc_node(rx_buf_sz + TX_ALIGN, GFP_KERNEL,
-+					   node);
- 			if (!buf)
- 				goto err1;
- 		}
-@@ -1215,7 +1220,7 @@ static void rx_bottom(struct r8152 *tp)
- 
- 			stats = rtl8152_get_stats(netdev);
- 
--			pkt_len -= 4; /* CRC */
-+			pkt_len -= CRC_SIZE; /* CRC */
- 			rx_data += sizeof(struct rx_desc);
- 
- 			skb = netdev_alloc_skb_ip_align(netdev, pkt_len);
-@@ -1230,7 +1235,7 @@ static void rx_bottom(struct r8152 *tp)
- 			stats->rx_packets++;
- 			stats->rx_bytes += pkt_len;
- 
--			rx_data = rx_agg_align(rx_data + pkt_len + 4);
-+			rx_data = rx_agg_align(rx_data + pkt_len + CRC_SIZE);
- 			rx_desc = (struct rx_desc *)rx_data;
- 			len_used = (int)(rx_data - (u8 *)agg->head);
- 			len_used += sizeof(struct rx_desc);
-@@ -1580,7 +1585,7 @@ static void r8152b_exit_oob(struct r8152 *tp)
- 	ocp_write_dword(tp, MCU_TYPE_PLA, PLA_TXFIFO_CTRL, TXFIFO_THR_NORMAL);
- 
- 	ocp_write_byte(tp, MCU_TYPE_USB, USB_TX_AGG, TX_AGG_MAX_THRESHOLD);
--	ocp_write_dword(tp, MCU_TYPE_USB, USB_RX_BUF_TH, RX_BUF_THR);
-+	ocp_write_dword(tp, MCU_TYPE_USB, USB_RX_BUF_TH, RX_THR_HIGH);
- 	ocp_write_dword(tp, MCU_TYPE_USB, USB_TX_DMA,
- 			TEST_MODE_DISABLE | TX_SIZE_ADJUST1);
- 
-@@ -1893,7 +1898,7 @@ static void r8152b_init(struct r8152 *tp)
- 	ocp_write_word(tp, MCU_TYPE_USB, USB_UPS_CTRL, ocp_data);
- 
- 	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS);
--	ocp_data &= ~RWSUME_INDICATE;
-+	ocp_data &= ~RESUME_INDICATE;
- 	ocp_write_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS, ocp_data);
- 
- 	r8152b_exit_oob(tp);
-@@ -2074,7 +2079,7 @@ static void rtl8152_unload(struct r8152 *tp)
- 	}
- 
- 	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS);
--	ocp_data &= ~RWSUME_INDICATE;
-+	ocp_data &= ~RESUME_INDICATE;
- 	ocp_write_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS, ocp_data);
- }
- 
--- 
-1.8.3.1
+We can make this more accurate by using extra data structure to track
+the real buf size and using it as token.
+>> Why head_skb only? Why not full buffer size that comes from host?
+>> This is simply len.
+> Sorry, I believe this code fragment should be clearer. Basically, we
+> have a corner case in that for packets with size <= GOOD_COPY_LEN, there
+> are no frags because page_to_skb() already unref'd the page and the entire
+> packet contents are copied to skb->data. In this case, the SKB truesize
+> is already accurate and should not be updated (and it would be unsafe to
+> access page->private as page is already unref'd).
+>
+> I'll look at the above code again and cleanup (please let me know if you
+> have a preference) and/or add a comment to clarify.
+>
+> Best,
+>
+> Mike
