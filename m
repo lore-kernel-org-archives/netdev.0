@@ -1,38 +1,96 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 17/20] net: ti: slight optimization of addr compare
-Date: Fri, 27 Dec 2013 14:49:10 +0800
-Message-ID: <52BD22E6.3090101@huawei.com>
+Subject: [PATCH net-next 13/20] net: qlcnic: slight optimization of addr compare
+Date: Fri, 27 Dec 2013 14:48:54 +0800
+Message-ID: <52BD22D6.50100@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
+To: Himanshu Madhani <himanshu.madhani@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	"David S. Miller" <davem@davemloft.net>,
 	Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use possibly more efficient ether_addr_equal
-to instead of memcmp.
+Use the possibly more efficient ether_addr_equal or
+ether_addr_equal_unaligned to instead of memcmp.
 
-Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Cc: Rajesh Borundia <rajesh.borundia@qlogic.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/ethernet/ti/cpsw_ale.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c   | 4 ++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c   | 4 ++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 4 ++--
+ 3 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw_ale.c b/drivers/net/ethernet/ti/cpsw_ale.c
-index 7fa60d6..63e9819 100644
---- a/drivers/net/ethernet/ti/cpsw_ale.c
-+++ b/drivers/net/ethernet/ti/cpsw_ale.c
-@@ -163,7 +163,7 @@ int cpsw_ale_match_addr(struct cpsw_ale *ale, u8 *addr, u16 vid)
- 		if (cpsw_ale_get_vlan_id(ale_entry) != vid)
- 			continue;
- 		cpsw_ale_get_addr(ale_entry, entry_addr);
--		if (memcmp(entry_addr, addr, 6) == 0)
-+		if (ether_addr_equal(entry_addr, addr))
- 			return idx;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+index 3fe971c..a9a149b 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+@@ -462,7 +462,7 @@ int qlcnic_nic_del_mac(struct qlcnic_adapter *adapter, const u8 *addr)
+ 	/* Delete MAC from the existing list */
+ 	list_for_each(head, &adapter->mac_list) {
+ 		cur = list_entry(head, struct qlcnic_mac_vlan_list, list);
+-		if (memcmp(addr, cur->mac_addr, ETH_ALEN) == 0) {
++		if (ether_addr_equal(addr, cur->mac_addr)) {
+ 			err = qlcnic_sre_macaddr_change(adapter, cur->mac_addr,
+ 							0, QLCNIC_MAC_DEL);
+ 			if (err)
+@@ -483,7 +483,7 @@ int qlcnic_nic_add_mac(struct qlcnic_adapter *adapter, const u8 *addr, u16 vlan)
+ 	/* look up if already exists */
+ 	list_for_each(head, &adapter->mac_list) {
+ 		cur = list_entry(head, struct qlcnic_mac_vlan_list, list);
+-		if (memcmp(addr, cur->mac_addr, ETH_ALEN) == 0 &&
++		if (ether_addr_equal(addr, cur->mac_addr) &&
+ 		    cur->vlan_id == vlan)
+ 			return 0;
  	}
- 	return -ENOENT;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+index 0538022..a215e0f 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+@@ -202,7 +202,7 @@ static struct qlcnic_filter *qlcnic_find_mac_filter(struct hlist_head *head,
+ 	struct hlist_node *n;
+ 
+ 	hlist_for_each_entry_safe(tmp_fil, n, head, fnode) {
+-		if (!memcmp(tmp_fil->faddr, addr, ETH_ALEN) &&
++		if (ether_addr_equal(tmp_fil->faddr, addr) &&
+ 		    tmp_fil->vlan_id == vlan_id)
+ 			return tmp_fil;
+ 	}
+@@ -346,7 +346,7 @@ static void qlcnic_send_filter(struct qlcnic_adapter *adapter,
+ 	head = &(adapter->fhash.fhead[hindex]);
+ 
+ 	hlist_for_each_entry_safe(tmp_fil, n, head, fnode) {
+-		if (!memcmp(tmp_fil->faddr, &src_addr, ETH_ALEN) &&
++		if (ether_addr_equal(tmp_fil->faddr, &src_addr) &&
+ 		    tmp_fil->vlan_id == vlan_id) {
+ 			if (jiffies > (QLCNIC_READD_AGE * HZ + tmp_fil->ftime))
+ 				qlcnic_change_filter(adapter, &src_addr,
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index bf132c9..d131ec1 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -313,7 +313,7 @@ static void qlcnic_delete_adapter_mac(struct qlcnic_adapter *adapter)
+ 
+ 	list_for_each(head, &adapter->mac_list) {
+ 		cur = list_entry(head, struct qlcnic_mac_vlan_list, list);
+-		if (!memcmp(adapter->mac_addr, cur->mac_addr, ETH_ALEN)) {
++		if (ether_addr_equal_unaligned(adapter->mac_addr, cur->mac_addr)) {
+ 			qlcnic_sre_macaddr_change(adapter, cur->mac_addr,
+ 						  0, QLCNIC_MAC_DEL);
+ 			list_del(&cur->list);
+@@ -337,7 +337,7 @@ static int qlcnic_set_mac(struct net_device *netdev, void *p)
+ 	if (!is_valid_ether_addr(addr->sa_data))
+ 		return -EINVAL;
+ 
+-	if (!memcmp(adapter->mac_addr, addr->sa_data, ETH_ALEN))
++	if (ether_addr_equal_unaligned(adapter->mac_addr, addr->sa_data))
+ 		return 0;
+ 
+ 	if (test_bit(__QLCNIC_DEV_UP, &adapter->state)) {
 -- 
 1.8.0
