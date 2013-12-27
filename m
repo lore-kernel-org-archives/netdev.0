@@ -1,62 +1,76 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] macvlan: make start_xmit local
-Date: Fri, 27 Dec 2013 12:06:46 -0800
-Message-ID: <20131227120646.52138f4b@nehalam.linuxnetplumber.net>
+Subject: [PATCH net-next] netfilter: xtables make functions local
+Date: Fri, 27 Dec 2013 12:09:37 -0800
+Message-ID: <20131227120937.702bc383@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>,
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
 	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:64243 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754652Ab3L0UGy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 15:06:54 -0500
-Received: by mail-pa0-f53.google.com with SMTP id hz1so9621940pad.12
-        for <netdev@vger.kernel.org>; Fri, 27 Dec 2013 12:06:54 -0800 (PST)
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:34025 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754722Ab3L0UJk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 15:09:40 -0500
+Received: by mail-pa0-f41.google.com with SMTP id lf10so9632417pab.14
+        for <netdev@vger.kernel.org>; Fri, 27 Dec 2013 12:09:40 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Only used in one file, no need to expose
+A couple of functions only used in x_tables, don't need to be global
 
 Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
 ---
- drivers/net/macvlan.c      |    5 ++---
- include/linux/if_macvlan.h |    3 ---
+ include/linux/netfilter/x_tables.h |    2 --
+ net/netfilter/x_tables.c           |    6 ++----
  2 files changed, 2 insertions(+), 6 deletions(-)
 
---- a/drivers/net/macvlan.c	2013-12-24 15:15:26.885739628 -0800
-+++ b/drivers/net/macvlan.c	2013-12-24 15:15:59.221305048 -0800
-@@ -290,8 +290,8 @@ xmit_world:
- 	return dev_queue_xmit(skb);
- }
+--- a/include/linux/netfilter/x_tables.h	2013-12-24 15:14:54.502174551 -0800
++++ b/include/linux/netfilter/x_tables.h	2013-12-24 15:16:01.889269178 -0800
+@@ -255,8 +255,6 @@ struct xt_table_info *xt_replace_table(s
+ 				       struct xt_table_info *newinfo,
+ 				       int *error);
  
--netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
--			       struct net_device *dev)
-+static netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
-+				      struct net_device *dev)
+-struct xt_match *xt_find_match(u8 af, const char *name, u8 revision);
+-struct xt_target *xt_find_target(u8 af, const char *name, u8 revision);
+ struct xt_match *xt_request_find_match(u8 af, const char *name, u8 revision);
+ struct xt_target *xt_request_find_target(u8 af, const char *name, u8 revision);
+ int xt_find_revision(u8 af, const char *name, u8 revision, int target,
+--- a/net/netfilter/x_tables.c	2013-12-24 15:14:54.502174551 -0800
++++ b/net/netfilter/x_tables.c	2013-12-24 15:16:01.889269178 -0800
+@@ -189,7 +189,7 @@ EXPORT_SYMBOL(xt_unregister_matches);
+  */
+ 
+ /* Find match, grabs ref.  Returns ERR_PTR() on error. */
+-struct xt_match *xt_find_match(u8 af, const char *name, u8 revision)
++static struct xt_match *xt_find_match(u8 af, const char *name, u8 revision)
  {
- 	unsigned int len = skb->len;
- 	int ret;
-@@ -317,7 +317,6 @@ netdev_tx_t macvlan_start_xmit(struct sk
- 	}
- 	return ret;
+ 	struct xt_match *m;
+ 	int err = -ENOENT;
+@@ -216,7 +216,6 @@ struct xt_match *xt_find_match(u8 af, co
+ 
+ 	return ERR_PTR(err);
  }
--EXPORT_SYMBOL_GPL(macvlan_start_xmit);
+-EXPORT_SYMBOL(xt_find_match);
  
- static int macvlan_hard_header(struct sk_buff *skb, struct net_device *dev,
- 			       unsigned short type, const void *daddr,
---- a/include/linux/if_macvlan.h	2013-12-24 15:15:26.885739628 -0800
-+++ b/include/linux/if_macvlan.h	2013-12-24 15:15:59.221305048 -0800
-@@ -111,9 +111,6 @@ extern void macvlan_dellink(struct net_d
+ struct xt_match *
+ xt_request_find_match(uint8_t nfproto, const char *name, uint8_t revision)
+@@ -234,7 +233,7 @@ xt_request_find_match(uint8_t nfproto, c
+ EXPORT_SYMBOL_GPL(xt_request_find_match);
  
- extern int macvlan_link_register(struct rtnl_link_ops *ops);
+ /* Find target, grabs ref.  Returns ERR_PTR() on error. */
+-struct xt_target *xt_find_target(u8 af, const char *name, u8 revision)
++static struct xt_target *xt_find_target(u8 af, const char *name, u8 revision)
+ {
+ 	struct xt_target *t;
+ 	int err = -ENOENT;
+@@ -261,7 +260,6 @@ struct xt_target *xt_find_target(u8 af,
  
--extern netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
--				      struct net_device *dev);
--
- #if IS_ENABLED(CONFIG_MACVLAN)
- static inline struct net_device *
- macvlan_dev_real_dev(const struct net_device *dev)
+ 	return ERR_PTR(err);
+ }
+-EXPORT_SYMBOL(xt_find_target);
+ 
+ struct xt_target *xt_request_find_target(u8 af, const char *name, u8 revision)
+ {
