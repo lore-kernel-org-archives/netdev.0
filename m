@@ -1,43 +1,74 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 05/20] net: benet: slight optimization of addr compare
-Date: Fri, 27 Dec 2013 14:48:24 +0800
-Message-ID: <52BD22B8.9060204@huawei.com>
+Subject: [PATCH net-next 00/20] slight optimization of addr compare for net
+ modules
+Date: Fri, 27 Dec 2013 14:47:52 +0800
+Message-ID: <52BD2298.1070105@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Sathya Perla <sathya.perla@emulex.com>,
-	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
-	Ajit Khaparde <ajit.khaparde@emulex.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
+To: "David S. Miller" <davem@davemloft.net>,
+	Joe Perches <joe@perches.com>, Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use possibly more efficient ether_addr_equal
-to instead of memcmp.
+This is the second patchset for slight optimization of address compare,
+mainly for net tree, just following the Joe's opinion, it will help review
+the code for maintainers and supports.
 
-Cc: Sathya Perla <sathya.perla@emulex.com>
-Cc: Subbu Seetharaman <subbu.seetharaman@emulex.com>
-Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Best Regards
+Ding
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index f67586a..b5c238a 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -287,7 +287,7 @@ static int be_mac_addr_set(struct net_device *netdev, void *p)
- 	/* The MAC change did not happen, either due to lack of privilege
- 	 * or PF didn't pre-provision.
- 	 */
--	if (memcmp(addr->sa_data, mac, ETH_ALEN)) {
-+	if (!ether_addr_equal(addr->sa_data, mac)) {
- 		status = -EPERM;
- 		goto err;
- 	}
+Ding Tianhong (20):
+  net: 3com: slight optimization of addr compare
+  net: bnx2x: slight optimization of addr compare
+  net: cxgb3: slight optimization of addr compare
+  net: enic: slight optimization of addr compare
+  net: benet: slight optimization of addr compare
+  net: igbvf: slight optimization of addr compare
+  net: ixgbe: slight optimization of addr compare
+  net: mlx4: slight optimization of addr compare
+  net: ksz884x: slight optimization of addr compare
+  net: vxge: slight optimization of addr compare
+  net: packetengines: slight optimization of addr compare
+  net: netxen: slight optimization of addr compare
+  net: qlcnic: slight optimization of addr compare
+  net: renesas: slight optimization of addr compare
+  net: seeq: slight optimization of addr compare
+  net: sun: optimization of addr compare
+  net: ti: slight optimization of addr compare
+  net: fddi: slight optimization of addr compare
+  net: plip: slight optimization of addr compare
+  net: caif: slight optimization of addr compare
+
+ drivers/net/ethernet/3com/3c509.c                     |  3 +--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c        | 10 ++++------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c     |  2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c      |  2 +-
+ drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c    |  2 +-
+ drivers/net/ethernet/chelsio/cxgb3/l2t.c              |  2 +-
+ drivers/net/ethernet/cisco/enic/enic_pp.c             |  2 +-
+ drivers/net/ethernet/emulex/benet/be_main.c           |  2 +-
+ drivers/net/ethernet/intel/igbvf/netdev.c             |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c        |  3 +--
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c        |  4 ++--
+ drivers/net/ethernet/mellanox/mlx4/resource_tracker.c |  2 +-
+ drivers/net/ethernet/micrel/ksz884x.c                 |  9 ++++-----
+ drivers/net/ethernet/neterion/vxge/vxge-main.c        |  2 +-
+ drivers/net/ethernet/packetengines/yellowfin.c        |  8 ++------
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c    |  2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c        |  4 ++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c        |  4 ++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c      |  4 ++--
+ drivers/net/ethernet/renesas/sh_eth.c                 |  2 +-
+ drivers/net/ethernet/seeq/sgiseeq.c                   |  2 +-
+ drivers/net/ethernet/sun/sunvnet.c                    |  2 +-
+ drivers/net/ethernet/ti/cpsw_ale.c                    |  2 +-
+ drivers/net/fddi/skfp/fplustm.c                       |  3 ++-
+ drivers/net/plip/plip.c                               |  2 +-
+ net/caif/cfrfml.c                                     |  2 +-
+ 26 files changed, 38 insertions(+), 46 deletions(-)
+
 -- 
 1.8.0
