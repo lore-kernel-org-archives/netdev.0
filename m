@@ -1,31 +1,19 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tile_net: Always enable PTP clock support on TILE-Gx
-Date: Fri, 27 Dec 2013 12:45:11 -0500 (EST)
-Message-ID: <20131227.124511.1712801659294116790.davem@davemloft.net>
-References: <1387480874.1876.33.camel@bwh-desktop.uk.level5networks.com>
+From: Nicole Ellsmore <nellsmore@mail.plymouth.edu>
+Subject: (unknown)
+Date: Fri, 27 Dec 2013 12:40:07 -0500 (EST)
+Message-ID: <2115126785.424768.1388166007585.JavaMail.zimbra__30418.5265362777$1388166464$gmane$org@mail.plymouth.edu>
+Reply-To: Qatar Foundation <innfrost11@blumail.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: cmetcalf@tilera.com, richardcochran@gmail.com,
-	netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59877 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753923Ab3L0RpM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 12:45:12 -0500
-In-Reply-To: <1387480874.1876.33.camel@bwh-desktop.uk.level5networks.com>
+Received: from aquila.plymouth.edu ([158.136.1.199]:38765 "HELO
+	aquila.plymouth.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1753716Ab3L0RrT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 12:47:19 -0500
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 19 Dec 2013 19:21:14 +0000
-
-> All other net drivers with PTP support enable it unconditionally.
-> Make tile_net consistent with this.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
-> Totally untested as I don't have even a compiler for this.
-
-Applied to net-next, thanks.
+You are QATAR Foundation beneficiary of $2 Million US Dollars this season. To claim contact Mr. Tony Burt via email: innfrost11@blumail.org within 24hrs
