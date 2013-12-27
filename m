@@ -1,280 +1,163 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] i40e: use ether_addr_equal_64bits
-Date: Fri, 27 Dec 2013 13:59:58 -0800
-Message-ID: <1388181598.2183.176.camel@jtkirshe-mobl>
-References: <52BD22ED.4030302@huawei.com>
-	<1388159283.12212.80.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1388163982.30298.12.camel@joe-AO722>
-	<alpine.DEB.2.02.1312272112110.2018@localhost6.localdomain6>
-	<1388177217.30298.24.camel@joe-AO722>
-	<1388181371.30298.38.camel@joe-AO722>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH net-next 19/20] net: plip: slight optimization of addr
+ compare
+Date: Fri, 27 Dec 2013 23:47:57 +0100 (CET)
+Message-ID: <alpine.DEB.2.02.1312272338170.2018@localhost6.localdomain6>
+References: <52BD22ED.4030302@huawei.com>  <1388159283.12212.80.camel@edumazet-glaptop2.roam.corp.google.com>  <1388163982.30298.12.camel@joe-AO722>  <alpine.DEB.2.02.1312272112110.2018@localhost6.localdomain6> <1388177217.30298.24.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0327653932282800136=="
-Cc: e1000-devel@lists.sourceforge.net, Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	Ding Tianhong <dingtianhong@huawei.com>, "David
-	S. Miller" <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Julia Lawall <julia.lawall@lip6.fr>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ding Tianhong <dingtianhong@huawei.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 To: Joe Perches <joe@perches.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1388181371.30298.38.camel@joe-AO722>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1388177217.30298.24.camel@joe-AO722>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> Hi Julia.
+> 
+> Maybe this explanation is helpful?
+> 
+> ethernet addresses are u8[6] (48 bits)
+> 
+> ether_addr_equal_64bits gets passed a pointer to u8[8]
+> and is more efficient on 64 bit architectures than
+> ether_addr_equal because the test can be done with a
+> single compare and shift.
+> 
+> The idea is not to access past the end of the ethernet
+> address as appropriate (think pointer to eeprom or other
+> such end-of-addressable memory conditions)
+> 
+> If a struct containing an ethernet address has additional
+> members after the ethernet address, or the u8[6] address
+> passed to ether_addr_equal is not going to access past
+> the end of memory or the structure, then
+> ether_addr_equal_64bits should be used in lieu of
+> ether_addr_equal.
 
---===============0327653932282800136==
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-MrLncDV2xTjMWa3m3dqG"
+I tried the following semantic patch:
 
+@r@
+type T;
+T *eth;
+identifier fld;
+type T1;
+T1 *eth1;
+identifier fld1;
+expression e1;
+position p;
+@@
 
---=-MrLncDV2xTjMWa3m3dqG
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+ether_addr_equal@p(eth->fld, eth1->fld1)
 
-On Fri, 2013-12-27 at 13:56 -0800, Joe Perches wrote:
-> All ether_addr_equal tests in i40e can use the
-> slightly more efficient ether_addr_equal_64bits.
->=20
-> All addresses passed to the various functions that
-> use ether_addr_equal are using structs that have 2
-> or more bytes of additional data after the mac addr
-> being tested.
->=20
-> struct i40e_mac_filter.macaddr[6] (followed by s16 vlan)
-> struct net_device.dev_addr (pointer to char array of MAX_ADDR_LEN)
-> struct sockaddr.sa_data (array of 14 bytes)
-> struct netdev_hw_addr.addr (pointer to char array of MAX_ADDR_LEN)
->=20
-> Signed-off-by: Joe Perches <joe@perches.com>
+@ok@
+type r.T, t1, t2;
+identifier r.fld, fld2;
+@@
 
-It looks good, but I would like Jesse and Shannon to review it since we
-just were talking about a similar patch last week.
+T { ...
+    t1 fld[...];
+    t2 fld2;
+    ...
+  };
 
-I will add the patch to my queue for now, thanks Joe.
+@ok1@
+type r.T1, t1, t2;
+identifier r.fld1, fld2;
+@@
 
-> ---
->=20
-> On Fri, 2013-12-27 at 12:46 -0800, Joe Perches wrote:
-> > On Fri, 2013-12-27 at 21:12 +0100, Julia Lawall wrote:
-> > > On Fri, 27 Dec 2013, Joe Perches wrote:
-> > >=20
-> > > > On Fri, 2013-12-27 at 07:48 -0800, Eric Dumazet wrote:
-> > > > > On Fri, 2013-12-27 at 14:49 +0800, Ding Tianhong wrote:
-> > > > > > Use possibly more efficient ether_addr_equal
-> > > > > > to instead of memcmp.
-> > > > []
-> > > > > > diff --git a/drivers/net/plip/plip.c b/drivers/net/plip/plip.c
-> > > > []
-> > > > > > @@ -549,7 +549,7 @@ static __be16 plip_type_trans(struct sk_buf=
-f *skb, struct net_device *dev)
-> > > > > > =20
-> > > > > >  	if(*eth->h_dest&1)
-> > > > > >  	{
-> > > > > > -		if(memcmp(eth->h_dest,dev->broadcast, ETH_ALEN)=3D=3D0)
-> > > > > > +		if(ether_addr_equal(eth->h_dest, dev->broadcast))
-> > > > > >  			skb->pkt_type=3DPACKET_BROADCAST;
-> > > > > >  		else
-> > > > > >  			skb->pkt_type=3DPACKET_MULTICAST;
-> > > > >=20
-> > > > > What about :
-> > > > >=20
-> > > > >         if (is_multicast_ether_addr(eth->h_dest)) {
-> > > > >                 if (ether_addr_equal_64bits(eth->h_dest, dev->bro=
-adcast))
-> > > > >                         skb->pkt_type =3D PACKET_BROADCAST;
-> > > > >                 else
-> > > > >                         skb->pkt_type =3D PACKET_MULTICAST;
-> > > > >         }
-> > > >=20
-> > > > That is better though I wonder how many systems are
-> > > > still using laplink via parallel null-printer cables.
-> > > >=20
-> > > > No matter, better is better.
-> > > >=20
-> > > > The same optimization using ether_addr_equal_64bits
-> > > > may be possible to do in other places given other
-> > > > structs too.
-> > > >=20
-> > > > Perhaps it's a possible spatch/coccinelle conversion,
-> > > >=20
-> > > > I don't know spatch well enough to know if a
-> > > > mechanism to check if structure members have other
-> > > > fields that follow them in the structure or if the
-> > > > structure member is an array of a minimum size.
-> > > >=20
-> > > > Maybe Julia does.  (cc'd)
-> > >=20
-> > > I'm not sure to competely understand the issues.  Could you explain m=
-ore?
-> >=20
-> > Hi Julia.
-> >=20
-> > Maybe this explanation is helpful?
-> >=20
-> > ethernet addresses are u8[6] (48 bits)
-> >=20
-> > ether_addr_equal_64bits gets passed a pointer to u8[8]
-> > and is more efficient on 64 bit architectures than
-> > ether_addr_equal because the test can be done with a
-> > single compare and shift.
-> >=20
-> > The idea is not to access past the end of the ethernet
-> > address as appropriate (think pointer to eeprom or other
-> > such end-of-addressable memory conditions)
-> >=20
-> > If a struct containing an ethernet address has additional
-> > members after the ethernet address, or the u8[6] addressa
-> > passed to ether_addr_equal is not going to access past
-> > the end of memory or the structure, then
-> > ether_addr_equal_64bits should be used in lieu of
-> > ether_addr_equal.
->=20
-> I believe this is correct, but maybe the
-> conditions for using ether_addr_equal_64bits
-> could be documented a bit better.
->=20
-> Jeff/Intel folk?  What do you think?
->=20
->  drivers/net/ethernet/intel/i40e/i40e_main.c | 18 +++++++++++-------
->  1 file changed, 11 insertions(+), 7 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/et=
-hernet/intel/i40e/i40e_main.c
-> index efdf8a2..4c1d35c 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> @@ -992,7 +992,7 @@ static struct i40e_mac_filter *i40e_find_filter(struc=
-t i40e_vsi *vsi,
->  		return NULL;
-> =20
->  	list_for_each_entry(f, &vsi->mac_filter_list, list) {
-> -		if ((ether_addr_equal(macaddr, f->macaddr)) &&
-> +		if (ether_addr_equal_64bits(macaddr, f->macaddr) &&
->  		    (vlan =3D=3D f->vlan)    &&
->  		    (!is_vf || f->is_vf) &&
->  		    (!is_netdev || f->is_netdev))
-> @@ -1020,7 +1020,7 @@ struct i40e_mac_filter *i40e_find_mac(struct i40e_v=
-si *vsi, u8 *macaddr,
->  		return NULL;
-> =20
->  	list_for_each_entry(f, &vsi->mac_filter_list, list) {
-> -		if ((ether_addr_equal(macaddr, f->macaddr)) &&
-> +		if (ether_addr_equal_64bits(macaddr, f->macaddr) &&
->  		    (!is_vf || f->is_vf) &&
->  		    (!is_netdev || f->is_netdev))
->  			return f;
-> @@ -1209,7 +1209,7 @@ static int i40e_set_mac(struct net_device *netdev, =
-void *p)
-> =20
->  	netdev_info(netdev, "set mac address=3D%pM\n", addr->sa_data);
-> =20
-> -	if (ether_addr_equal(netdev->dev_addr, addr->sa_data))
-> +	if (ether_addr_equal_64bits(netdev->dev_addr, addr->sa_data))
->  		return 0;
-> =20
->  	if (vsi->type =3D=3D I40E_VSI_MAIN) {
-> @@ -1409,21 +1409,24 @@ static void i40e_set_rx_mode(struct net_device *n=
-etdev)
-> =20
->  		if (is_multicast_ether_addr(f->macaddr)) {
->  			netdev_for_each_mc_addr(mca, netdev) {
-> -				if (ether_addr_equal(mca->addr, f->macaddr)) {
-> +				if (ether_addr_equal_64bits(mca->addr,
-> +							    f->macaddr)) {
->  					found =3D true;
->  					break;
->  				}
->  			}
->  		} else {
->  			netdev_for_each_uc_addr(uca, netdev) {
-> -				if (ether_addr_equal(uca->addr, f->macaddr)) {
-> +				if (ether_addr_equal_64bits(uca->addr,
-> +							    f->macaddr)) {
->  					found =3D true;
->  					break;
->  				}
->  			}
-> =20
->  			for_each_dev_addr(netdev, ha) {
-> -				if (ether_addr_equal(ha->addr, f->macaddr)) {
-> +				if (ether_addr_equal_64bits(ha->addr,
-> +							    f->macaddr)) {
->  					found =3D true;
->  					break;
->  				}
-> @@ -1889,7 +1892,8 @@ int i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vi=
-d)
->  	list_for_each_entry(f, &vsi->mac_filter_list, list) {
->  		if (is_netdev) {
->  			if (f->vlan &&
-> -			    ether_addr_equal(netdev->dev_addr, f->macaddr))
-> +			    ether_addr_equal_64bits(netdev->dev_addr,
-> +						    f->macaddr))
->  				filter_count++;
->  		}
-> =20
->=20
->=20
+T1 { ...
+    t1 fld1[...];
+    t2 fld2;
+    ...
+  };
 
+@depends on ok && ok1@
+position r.p;
+@@
 
+*ether_addr_equal@p(...)
 
---=-MrLncDV2xTjMWa3m3dqG
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+The first rule finds an existing call to ether_addr_equal where both 
+arguments are structure field references.  It gets the type of the 
+structure in each case, and notes the field name.  The next two rules 
+check each of the structure declarations to ensure that the field is 
+declared as an array and it is followed by at least one other field.  The 
+last rule generates some output for cases where both fields pass the test.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
+Note that this is not at all exhaustive, because it is not checking cases 
+where one argument is a parameter that is passed from some call site where 
+the argument is a field that has this property.  Thus, it does not find 
+the case in drivers/net/ethernet/intel/i40e/i40e_main.c.  Nevertheless, it 
+does find a few occurrences, as shown below.  In this output, - indicates 
+an item of interest, not something to be removed.  It is not a patch, even 
+though it looks like one.
 
-iQIcBAABCgAGBQJSvfheAAoJEOVv75VaS+3OwzcQAIpZSKTvxSXaDlbMQko4btFG
-XESCfFq+th7n55WXnWYk+7/4YAlY+n1oP3Ul8zmUGInvIZ8ZONJrV4w4Mg9zfLz9
-5uP1GM/wX/OBICICUhKvq6CGZb0Q6B0/pY9loQNw0jclTcw0M4xyMG4HnyEdlcFt
-eHUHjvfgapcolKTdWkNvdp3H03Rv4fQvwLJSVCPSySpPGodcwjpDZxOj8Nr2R3b8
-eG+T4mizAmR9kUVcnaHc+S8oyD28IZps/M7TCU+dK98sRIJmnnNPpCj986Hs1soC
-bcAUAaLTXKkfXf8QFNcoIs2hrYTohRrPyodfGCRKQG9m2aW/cy00/W4F7FGZ8Ckn
-8G2nUQqN0aIUixlnr1MlbexXN8AibFSFhc2dxAQsc4bsePa7TEbk5J2jxfUWu8xX
-8pP9RYcR2hEKODbnUdoSn1mhEaSYa/2aq207pMjxyhnFtDwevApTKvMg1aMxC23l
-qp7pkalKTZbXw2U2uG3nQl6VN5eEzVnmo+0uwsaiWrT4wK6d3XuFFyoyOQstnZ8d
-kZ4oWYfjfWVZzsA38adKZDQPQx5gh5G3rtwvncDouYIVfbCdJ0xbcQy/jXDlA8tG
-qwUvo9FX33YV9/YRPUSRZHfNhFdakLaK1l6NehJDQ80wnrpBgb6ugvKgZscI1FSR
-Y8bj1ZoGLnIbvCnslsuZ
-=1+Ak
------END PGP SIGNATURE-----
+One can get quite a lot more results if one doesn't require that both 
+arguments satisfy the property, ie allowing one argument to be a function 
+parameter rather than a structure field reference.  So perhaps it would be 
+worth making a (more complicated) semantic patch to find such cases.
 
---=-MrLncDV2xTjMWa3m3dqG--
+julia
 
-
-
---===============0327653932282800136==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Rapidly troubleshoot problems before they affect your business. Most IT 
-organizations don't have a clear picture of how application performance 
-affects their revenue. With AppDynamics, you get 100% visibility into your 
-Java,.NET, & PHP application. Start your 15-day FREE TRIAL of AppDynamics Pro!
-http://pubads.g.doubleclick.net/gampad/clk?id=84349831&iu=/4140/ostg.clktrk
---===============0327653932282800136==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============0327653932282800136==--
+diff -u -p /var/linuxes/linux-next/drivers/net/wireless/ipw2x00/libipw_rx.c /tmp/nothing/drivers/net/wireless/ipw2x00/libipw_rx.c
+--- /var/linuxes/linux-next/drivers/net/wireless/ipw2x00/libipw_rx.c
++++ /tmp/nothing/drivers/net/wireless/ipw2x00/libipw_rx.c
+@@ -1468,7 +1468,6 @@ static inline int is_same_network(struct
+ 	 * as one network */
+ 	return ((src->ssid_len == dst->ssid_len) &&
+ 		(src->channel == dst->channel) &&
+-		ether_addr_equal(src->bssid, dst->bssid) &&
+ 		!memcmp(src->ssid, dst->ssid, src->ssid_len));
+ }
+ 
+diff -u -p /var/linuxes/linux-next/drivers/scsi/fcoe/fcoe_ctlr.c /tmp/nothing/drivers/scsi/fcoe/fcoe_ctlr.c
+--- /var/linuxes/linux-next/drivers/scsi/fcoe/fcoe_ctlr.c
++++ /tmp/nothing/drivers/scsi/fcoe/fcoe_ctlr.c
+@@ -339,7 +339,6 @@ static void fcoe_ctlr_announce(struct fc
+ 	spin_unlock_bh(&fip->ctlr_lock);
+ 	sel = fip->sel_fcf;
+ 
+-	if (sel && ether_addr_equal(sel->fcf_mac, fip->dest_addr))
+ 		goto unlock;
+ 	if (!is_zero_ether_addr(fip->dest_addr)) {
+ 		printk(KERN_NOTICE "libfcoe: host%d: "
+diff -u -p /var/linuxes/linux-next/drivers/scsi/fcoe/fcoe_sysfs.c /tmp/nothing/drivers/scsi/fcoe/fcoe_sysfs.c
+--- /var/linuxes/linux-next/drivers/scsi/fcoe/fcoe_sysfs.c
++++ /tmp/nothing/drivers/scsi/fcoe/fcoe_sysfs.c
+@@ -657,7 +657,6 @@ static int fcoe_fcf_device_match(struct
+ 	if (new->switch_name == old->switch_name &&
+ 	    new->fabric_name == old->fabric_name &&
+ 	    new->fc_map == old->fc_map &&
+-	    ether_addr_equal(new->mac, old->mac))
+ 		return 1;
+ 	return 0;
+ }
+diff -u -p /var/linuxes/linux-next/drivers/staging/slicoss/slicoss.c /tmp/nothing/drivers/staging/slicoss/slicoss.c
+--- /var/linuxes/linux-next/drivers/staging/slicoss/slicoss.c
++++ /tmp/nothing/drivers/staging/slicoss/slicoss.c
+@@ -787,8 +787,6 @@ static bool slic_mac_filter(struct adapt
+ 			struct mcast_address *mcaddr = adapter->mcastaddrs;
+ 
+ 			while (mcaddr) {
+-				if (ether_addr_equal(mcaddr->address,
+-						     ether_frame->ether_dhost)) {
+ 					adapter->rcv_multicasts++;
+ 					netdev->stats.multicast++;
+ 					return true;
+diff -u -p /var/linuxes/linux-next/drivers/staging/vt6655/wpactl.c /tmp/nothing/drivers/staging/vt6655/wpactl.c
+--- /var/linuxes/linux-next/drivers/staging/vt6655/wpactl.c
++++ /tmp/nothing/drivers/staging/vt6655/wpactl.c
+@@ -394,7 +394,6 @@ int wpa_set_keys(PSDevice pDevice, void
+ 
+ 		} else {
+ 			// Key Table Full
+-			if (ether_addr_equal(param->addr, pDevice->abyBSSID)) {
+ 				//DBG_PRN_WLAN03(("return NDIS_STATUS_INVALID_DATA -Key Table Full.2\n"));
+ 				//spin_unlock_irq(&pDevice->lock);
+ 				return -EINVAL;
