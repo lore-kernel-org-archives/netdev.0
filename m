@@ -1,54 +1,150 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 19/20] net: plip: slight optimization of addr
- compare
-Date: Fri, 27 Dec 2013 07:48:03 -0800
-Message-ID: <1388159283.12212.80.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <52BD22ED.4030302@huawei.com>
+From: Alexandre DERUMIER <aderumier@odiso.com>
+Subject: Re: bridge vlan_filtering don't work with tap devices (qemu guests)
+Date: Fri, 27 Dec 2013 17:17:13 +0100 (CET)
+Message-ID: <ecd32790-8561-4b95-9e2f-2e5aad97d8fe@mailpro>
+References: <5dd2cfa8-b0d2-4f6b-a1bc-cbfbff4c7517@mailpro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Vlad Yasevich <vyasevic@redhat.com>
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:60501 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751134Ab3L0PsH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 10:48:07 -0500
-In-Reply-To: <52BD22ED.4030302@huawei.com>
+Received: from mailpro.odiso.net ([89.248.209.98]:44339 "EHLO
+	mailpro.odiso.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752238Ab3L0QRV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 11:17:21 -0500
+In-Reply-To: <5dd2cfa8-b0d2-4f6b-a1bc-cbfbff4c7517@mailpro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-12-27 at 14:49 +0800, Ding Tianhong wrote:
-> Use possibly more efficient ether_addr_equal
-> to instead of memcmp.
-> 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> ---
->  drivers/net/plip/plip.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/plip/plip.c b/drivers/net/plip/plip.c
-> index 7b4ff35..26614df 100644
-> --- a/drivers/net/plip/plip.c
-> +++ b/drivers/net/plip/plip.c
-> @@ -549,7 +549,7 @@ static __be16 plip_type_trans(struct sk_buff *skb, struct net_device *dev)
->  
->  	if(*eth->h_dest&1)
->  	{
-> -		if(memcmp(eth->h_dest,dev->broadcast, ETH_ALEN)==0)
-> +		if(ether_addr_equal(eth->h_dest, dev->broadcast))
->  			skb->pkt_type=PACKET_BROADCAST;
->  		else
->  			skb->pkt_type=PACKET_MULTICAST;
+Little update:=20
 
-What about :
+I can see now tagged packet on br0 with tcpdump, if I have
 
-        if (is_multicast_ether_addr(eth->h_dest)) {
-                if (ether_addr_equal_64bits(eth->h_dest, dev->broadcast))
-                        skb->pkt_type = PACKET_BROADCAST;
-                else
-                        skb->pkt_type = PACKET_MULTICAST;
-        }
+#bridge vlan add dev br0 vid 10 self.
+
+All is working fine now.
+
+I have a last question :=20
+
+Is it possible to allow all vlans to go through a port. (or disable fil=
+tering for 1 specific port) ?
+
+If not, maybe could be it great to be able to add multiple vlans with b=
+ridge command,like=20
+"bridge vlan add dev xxx vid 1-4096"
+or
+"bridge vlan add dev xxx vid 1,2,3-10,12,13-4096"
+
+----- Mail original -----=20
+
+De: "Alexandre DERUMIER" <aderumier@odiso.com>=20
+=C3=80: "Toshiaki Makita" <makita.toshiaki@lab.ntt.co.jp>=20
+Cc: netdev@vger.kernel.org, "Vlad Yasevich" <vyasevic@redhat.com>=20
+Envoy=C3=A9: Vendredi 27 D=C3=A9cembre 2013 10:46:38=20
+Objet: Re: bridge vlan_filtering don't work with tap devices (qemu gues=
+ts)=20
+
+>>With these settings, you should be able to see tagged frames on bridg=
+e=20
+>>device with promisc mode.=20
+>>Are you sure you enabled vlan_filtering by sysfs?=20
+Yes,It's enabled.=20
+
+>>Or didn't you set br0 in the same way as other ports like below?=20
+>># bridge vlan add dev br0 vid 10 pvid untagged self=20
+
+Indeed I didn't set vlan on br0. Isn't it only to tag packets coming fr=
+om the bridge itself? (like a bridge management ip for example).=20
+Or do we need to define all vlans allowed to pass through the bridge ?=20
+
+about tcdpump:=20
+
+I'm just using tcpdump -i br0 -e -n , and don't see any vlan tag.=20
+But maybe it's related to tcpdump bug, I have also had some random kern=
+el panic.=20
+
+
+>>If you set pvid, incoming frames from the port will be tagged with th=
+e=20
+>>vlan.=20
+>>If you set untagged, outgoing frames with the vlan from the port will=
+ be=20
+>>untagged.=20
+
+>>So, if you want to send frames tagged with vlan 10, please don't set =
+vid=20
+>>10 untagged on outgoing ports you want.=20
+
+Oh, ok, it's clear now.=20
+
+
+
+----- Mail original -----=20
+
+De: "Toshiaki Makita" <makita.toshiaki@lab.ntt.co.jp>=20
+=C3=80: "Alexandre DERUMIER" <aderumier@odiso.com>=20
+Cc: netdev@vger.kernel.org, "Vlad Yasevich" <vyasevic@redhat.com>=20
+Envoy=C3=A9: Vendredi 27 D=C3=A9cembre 2013 09:28:37=20
+Objet: Re: bridge vlan_filtering don't work with tap devices (qemu gues=
+ts)=20
+
+2013-12-26 (=E6=9C=A8) =E3=81=AE 14:57 +0100 =E3=81=AB Alexandre DERUMI=
+ER =E3=81=95=E3=82=93=E3=81=AF=E6=9B=B8=E3=81=8D=E3=81=BE=E3=81=97=E3=81=
+=9F:=20
+> Hello Again,=20
+>=20
+> One more question :=20
+>=20
+> If I use tcpdump on br0, I don't see any tagged vlan10 packets on the=
+ bridge.=20
+> with=20
+> # bridge vlan add dev tap0 vid 10 pvid untagged=20
+> # bridge vlan add dev tap1 vid 10 pvid untagged=20
+
+With these settings, you should be able to see tagged frames on bridge=20
+device with promisc mode.=20
+Are you sure you enabled vlan_filtering by sysfs?=20
+Or didn't you set br0 in the same way as other ports like below?=20
+# bridge vlan add dev br0 vid 10 pvid untagged self=20
+
+>=20
+>=20
+> What I would like to do, is tagging vlan10, incoming (untagged) packe=
+ts from tap0 and tap1.=20
+>=20
+> Is it possible ?=20
+
+If you set pvid, incoming frames from the port will be tagged with the=20
+vlan.=20
+If you set untagged, outgoing frames with the vlan from the port will b=
+e=20
+untagged.=20
+
+So, if you want to send frames tagged with vlan 10, please don't set vi=
+d=20
+10 untagged on outgoing ports you want.=20
+
+
+BTW:=20
+(CC: Vlad)=20
+I tested to execute tcpdump on br0 with vlan_filtering enabled, but=20
+kernel panic occurred with upstream net-tree kernel. br_handle_vlan()=20
+seems to have a bug that it doesn't check pv is NULL or not.=20
+br_pass_frame_up() calls br_handle_vlan() even if br->vlan_info is NULL=
+=20
+when bridge device is promisc mode.=20
+This will occur if we don't add any vlan on the bridge device.=20
+I'm going to make a patch to fix it.=20
+
+Thanks,=20
+Toshiaki Makita=20
+
+>=20
+> With openvswitch, I can do it simply with "ovs-vsctl set port tap0 ta=
+g=3D10"=20
+>=20
+--=20
+To unsubscribe from this list: send the line "unsubscribe netdev" in=20
+the body of a message to majordomo@vger.kernel.org=20
+More majordomo info at http://vger.kernel.org/majordomo-info.html=20
