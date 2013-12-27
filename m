@@ -1,89 +1,87 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next 3/3] net: auto-tune mergeable rx buffer size
-	for improved performance
-Date: Fri, 27 Dec 2013 11:04:46 +0800
-Message-ID: <52BCEE4E.7070106@redhat.com>
-References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
-	<1387239389-13216-3-git-send-email-mwdalton@google.com>
-	<52BBDBAD.8030609@redhat.com>
-	<CANJ5vPJX1yTKJXpFe+PO7u89-tYRjNPdJwrBLjAop3veye1pDg@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH -v2] ipvs: Remove unused variable ret from
+ sync_thread_master()
+Date: Fri, 27 Dec 2013 12:18:45 +0900
+Message-ID: <20131227031845.GA3795@verge.net.au>
+References: <1384266864-564-1-git-send-email-geert@linux-m68k.org>
+ <alpine.LFD.2.03.1311130934390.1647@ssi.bg>
+ <alpine.LFD.2.11.1312190919160.2940@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	lf-virt <virtualization@lists.linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: Michael Dalton <mwdalton@google.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CANJ5vPJX1yTKJXpFe+PO7u89-tYRjNPdJwrBLjAop3veye1pDg@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Ingo Molnar <mingo@kernel.org>, netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Fabio Estevam <festevam@gmail.com>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.11.1312190919160.2940@ja.home.ssi.bg>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/27/2013 04:06 AM, Michael Dalton wrote:
-> On Mon, Dec 23, 2013 at 4:51 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
->> OK so a high level benchmark shows it's worth it,
->> but how well does the logic work?
->> I think we should make the buffer size accessible in sysfs
->> or debugfs, and look at it, otherwise we don't really know.
->>
-> Exporting the size sounds good to me, it is definitely an
-> important metric and would give more visibility to the admin.
->
-> Do you have a preference for implementation strategy? I was
-> thinking just add a DEVICE_ATTR to create a read-only sysfs file,
-> 'mergeable_rx_buffer_size', and return a space-separated list of the
-> current buffer size (computed from the average packet size) for each
-> receive queue. -EINVAL or a similar error could be returned if the
-> netdev was not configured for mergeable rx buffers.
->
->> I don't get the real motivation for this.
->>
->> We have skbs A,B,C sharing a page, with chunk D being unused.
->> This randomly charges chunk D to an skb that ended up last
->> in the page.
->> Correct?
->> Why does this make sense?
-> The intent of this code is to adjust the SKB true size for
-> the packet. We should completely use each packet buffer except
-> for the last buffer. For all buffers except the last buffer, it
-> should be the case that 'len' (bytes received) = buffer size. For
-> the last buffer, this code adjusts the truesize by comparing the
-> approximated buffer size with the bytes received into the buffer,
-> and adding the difference to the SKB truesize if the buffer size
-> is greater than the number of bytes received.
+On Thu, Dec 19, 2013 at 09:23:51AM +0200, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Wed, 13 Nov 2013, Julian Anastasov wrote:
+> 
+> > On Tue, 12 Nov 2013, Geert Uytterhoeven wrote:
+> > 
+> > > net/netfilter/ipvs/ip_vs_sync.c: In function 'sync_thread_master':
+> > > net/netfilter/ipvs/ip_vs_sync.c:1640:8: warning: unused variable 'ret' [-Wunused-variable]
+> > > 
+> > > Commit 35a2af94c7ce7130ca292c68b1d27fcfdb648f6b ("sched/wait: Make the
+> > > __wait_event*() interface more friendly") changed how the interruption
+> > > state is returned. However, sync_thread_master() ignores this state,
+> > > now causing a compile warning.
+> > > 
+> > > According to Julian Anastasov <ja@ssi.bg>, this behavior is OK:
+> > > 
+> > >     "Yes, your patch looks ok to me. In the past we used ssleep() but IPVS
+> > >      users were confused why IPVS threads increase the load average. So, we
+> > >      switched to _interruptible calls and later the socket polling was
+> > >      added."
+> > > 
+> > > Document this, as requested by Peter Zijlstra, to avoid precious developers
+> > > disappearing in this pitfall in the future.
+> > > 
+> > > Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> > > ---
+> > > v2: Document that sync_thread_master() ignores the interruption state,
+> > > 
+> > >  net/netfilter/ipvs/ip_vs_sync.c |    5 ++++-
+> > >  1 file changed, 4 insertions(+), 1 deletion(-)
+> > > 
+> > > diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+> > > index f63c2388f38d..db801263ee9f 100644
+> > > --- a/net/netfilter/ipvs/ip_vs_sync.c
+> > > +++ b/net/netfilter/ipvs/ip_vs_sync.c
+> > > @@ -1637,7 +1637,10 @@ static int sync_thread_master(void *data)
+> > >  			continue;
+> > >  		}
+> > >  		while (ip_vs_send_sync_msg(tinfo->sock, sb->mesg) < 0) {
+> > > -			int ret = __wait_event_interruptible(*sk_sleep(sk),
+> > > +			/* (Ab)use interruptible sleep to avoid increasing
+> > > +			 * the load avg.
+> > > +			 */
+> > > +			__wait_event_interruptible(*sk_sleep(sk),
+> > >  						   sock_writeable(sk) ||
+> > >  						   kthread_should_stop());
+> > >  			if (unlikely(kthread_should_stop()))
+> > 
+> > 	Fabio Estevam posted similar change too early but
+> > we are better with such comment.
+> > 
+> > Acked-by: Julian Anastasov <ja@ssi.bg>
+> > 
+> > 	Also, the TASK_UNINTERRUPTIBLE | TASK_IDLE idea looks good
+> > to me. If such change is planned may be the above patch
+> > better not to go via the ipvs-next tree to avoid conflicts?
+> > As we don't have any changes in this area let us know if
+> > someone takes the above patch for another tree.
+> 
+> 	Simon, lets apply this patch to ipvs-next tree...
 
-But look like it does not take the 'hole' into account which may cause
-under estimation of trusize.
->
-> We approximate the buffer size by using the last packet buffer size
-> from that same page, which as you have correctly noted may be a buffer
-> that belongs to a different packet on the same virtio-net device. This
-> buffer size should be very close to the actual buffer size because our
-> EWMA estimator uses a high weight (so the packet buffer size changes very
-> slowly) and there are only a handful packets on a page (even order-3).
-
-We can make this more accurate by using extra data structure to track
-the real buf size and using it as token.
->> Why head_skb only? Why not full buffer size that comes from host?
->> This is simply len.
-> Sorry, I believe this code fragment should be clearer. Basically, we
-> have a corner case in that for packets with size <= GOOD_COPY_LEN, there
-> are no frags because page_to_skb() already unref'd the page and the entire
-> packet contents are copied to skb->data. In this case, the SKB truesize
-> is already accurate and should not be updated (and it would be unsafe to
-> access page->private as page is already unref'd).
->
-> I'll look at the above code again and cleanup (please let me know if you
-> have a preference) and/or add a comment to clarify.
->
-> Best,
->
-> Mike
+Thanks, done.
