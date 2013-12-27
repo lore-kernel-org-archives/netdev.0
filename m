@@ -1,12 +1,14 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 09/20] net: ksz884x: slight optimization of addr
- compare
-Date: Fri, 27 Dec 2013 14:48:39 +0800
-Message-ID: <52BD22C7.6000806@huawei.com>
+Subject: [PATCH net-next 12/20] net: netxen: slight optimization of addr compare
+Date: Fri, 27 Dec 2013 14:48:50 +0800
+Message-ID: <52BD22D2.1020900@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
+To: Manish Chopra <manish.chopra@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	"David S. Miller" <davem@davemloft.net>,
 	Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -16,47 +18,26 @@ List-Id: netdev.vger.kernel.org
 Use possibly more efficient ether_addr_equal
 to instead of memcmp.
 
-Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Manish Chopra <manish.chopra@qlogic.com>
+Cc: Sony Chacko <sony.chacko@qlogic.com>
+Cc: Rajesh Borundia <rajesh.borundia@qlogic.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/ethernet/micrel/ksz884x.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
-index ddd252a..8e9dad7 100644
---- a/drivers/net/ethernet/micrel/ksz884x.c
-+++ b/drivers/net/ethernet/micrel/ksz884x.c
-@@ -4128,10 +4128,10 @@ static int hw_add_addr(struct ksz_hw *hw, u8 *mac_addr)
- 	int i;
- 	int j = ADDITIONAL_ENTRIES;
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+index b72b6be..db4280c 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+@@ -661,7 +661,7 @@ static int nx_p3_nic_add_mac(struct netxen_adapter *adapter,
+ 	list_for_each(head, del_list) {
+ 		cur = list_entry(head, nx_mac_list_t, list);
  
--	if (!memcmp(hw->override_addr, mac_addr, ETH_ALEN))
-+	if (ether_addr_equal(hw->override_addr, mac_addr))
- 		return 0;
- 	for (i = 0; i < hw->addr_list_size; i++) {
--		if (!memcmp(hw->address[i], mac_addr, ETH_ALEN))
-+		if (ether_addr_equal(hw->address[i], mac_addr))
+-		if (memcmp(addr, cur->mac_addr, ETH_ALEN) == 0) {
++		if (ether_addr_equal(addr, cur->mac_addr)) {
+ 			list_move_tail(head, &adapter->mac_list);
  			return 0;
- 		if (ADDITIONAL_ENTRIES == j && empty_addr(hw->address[i]))
- 			j = i;
-@@ -4149,7 +4149,7 @@ static int hw_del_addr(struct ksz_hw *hw, u8 *mac_addr)
- 	int i;
- 
- 	for (i = 0; i < hw->addr_list_size; i++) {
--		if (!memcmp(hw->address[i], mac_addr, ETH_ALEN)) {
-+		if (ether_addr_equal(hw->address[i], mac_addr)) {
- 			memset(hw->address[i], 0, ETH_ALEN);
- 			writel(0, hw->io + ADD_ADDR_INCR * i +
- 				KS_ADD_ADDR_0_HI);
-@@ -7104,8 +7104,7 @@ static int pcidev_init(struct pci_dev *pdev, const struct pci_device_id *id)
- 			       ETH_ALEN);
- 		else {
- 			memcpy(dev->dev_addr, sw->other_addr, ETH_ALEN);
--			if (!memcmp(sw->other_addr, hw->override_addr,
--				    ETH_ALEN))
-+			if (ether_addr_equal(sw->other_addr, hw->override_addr))
- 				dev->dev_addr[5] += port->first_port;
  		}
- 
 -- 
 1.8.0
