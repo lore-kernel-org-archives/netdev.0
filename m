@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 18/20] net: fddi: slight optimization of addr compare
-Date: Fri, 27 Dec 2013 14:49:13 +0800
-Message-ID: <52BD22E9.1070600@huawei.com>
+Subject: [PATCH net-next 19/20] net: plip: slight optimization of addr compare
+Date: Fri, 27 Dec 2013 14:49:17 +0800
+Message-ID: <52BD22ED.4030302@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -18,29 +18,21 @@ to instead of memcmp.
 Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/fddi/skfp/fplustm.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/plip/plip.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/fddi/skfp/fplustm.c b/drivers/net/fddi/skfp/fplustm.c
-index d918d8a..7d3779a 100644
---- a/drivers/net/fddi/skfp/fplustm.c
-+++ b/drivers/net/fddi/skfp/fplustm.c
-@@ -23,6 +23,7 @@
- #include "h/smc.h"
- #include "h/supern_2.h"
- #include <linux/bitrev.h>
-+#include <linux/etherdevice.h>
+diff --git a/drivers/net/plip/plip.c b/drivers/net/plip/plip.c
+index 7b4ff35..26614df 100644
+--- a/drivers/net/plip/plip.c
++++ b/drivers/net/plip/plip.c
+@@ -549,7 +549,7 @@ static __be16 plip_type_trans(struct sk_buff *skb, struct net_device *dev)
  
- #ifndef	lint
- static const char ID_sccs[] = "@(#)fplustm.c	1.32 99/02/23 (C) SK " ;
-@@ -1082,7 +1083,7 @@ static struct s_fpmc* mac_get_mc_table(struct s_smc *smc,
- 				slot = tb ;
- 			continue ;
- 		}
--		if (memcmp((char *)&tb->a,(char *)own,6))
-+		if (!ether_addr_equal((char *)&tb->a, (char *)own))
- 			continue ;
- 		return tb;
- 	}
+ 	if(*eth->h_dest&1)
+ 	{
+-		if(memcmp(eth->h_dest,dev->broadcast, ETH_ALEN)==0)
++		if(ether_addr_equal(eth->h_dest, dev->broadcast))
+ 			skb->pkt_type=PACKET_BROADCAST;
+ 		else
+ 			skb->pkt_type=PACKET_MULTICAST;
 -- 
 1.8.0
