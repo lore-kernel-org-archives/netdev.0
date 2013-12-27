@@ -1,74 +1,62 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 00/20] slight optimization of addr compare for net
- modules
-Date: Fri, 27 Dec 2013 14:47:52 +0800
-Message-ID: <52BD2298.1070105@huawei.com>
+Subject: [PATCH net-next 08/20] net: mlx4: slight optimization of addr compare
+Date: Fri, 27 Dec 2013 14:48:35 +0800
+Message-ID: <52BD22C3.9070908@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>, Netdev <netdev@vger.kernel.org>,
+To: Amir Vadai <amirv@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is the second patchset for slight optimization of address compare,
-mainly for net tree, just following the Joe's opinion, it will help review
-the code for maintainers and supports.
+Use possibly more efficient ether_addr_equal
+to instead of memcmp.
 
-Best Regards
-Ding
+Cc: Amir Vadai <amirv@mellanox.com>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c        | 4 ++--
+ drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-Ding Tianhong (20):
-  net: 3com: slight optimization of addr compare
-  net: bnx2x: slight optimization of addr compare
-  net: cxgb3: slight optimization of addr compare
-  net: enic: slight optimization of addr compare
-  net: benet: slight optimization of addr compare
-  net: igbvf: slight optimization of addr compare
-  net: ixgbe: slight optimization of addr compare
-  net: mlx4: slight optimization of addr compare
-  net: ksz884x: slight optimization of addr compare
-  net: vxge: slight optimization of addr compare
-  net: packetengines: slight optimization of addr compare
-  net: netxen: slight optimization of addr compare
-  net: qlcnic: slight optimization of addr compare
-  net: renesas: slight optimization of addr compare
-  net: seeq: slight optimization of addr compare
-  net: sun: optimization of addr compare
-  net: ti: slight optimization of addr compare
-  net: fddi: slight optimization of addr compare
-  net: plip: slight optimization of addr compare
-  net: caif: slight optimization of addr compare
-
- drivers/net/ethernet/3com/3c509.c                     |  3 +--
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c        | 10 ++++------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c     |  2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c      |  2 +-
- drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c    |  2 +-
- drivers/net/ethernet/chelsio/cxgb3/l2t.c              |  2 +-
- drivers/net/ethernet/cisco/enic/enic_pp.c             |  2 +-
- drivers/net/ethernet/emulex/benet/be_main.c           |  2 +-
- drivers/net/ethernet/intel/igbvf/netdev.c             |  2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c        |  3 +--
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c        |  4 ++--
- drivers/net/ethernet/mellanox/mlx4/resource_tracker.c |  2 +-
- drivers/net/ethernet/micrel/ksz884x.c                 |  9 ++++-----
- drivers/net/ethernet/neterion/vxge/vxge-main.c        |  2 +-
- drivers/net/ethernet/packetengines/yellowfin.c        |  8 ++------
- drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c    |  2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c        |  4 ++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c        |  4 ++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c      |  4 ++--
- drivers/net/ethernet/renesas/sh_eth.c                 |  2 +-
- drivers/net/ethernet/seeq/sgiseeq.c                   |  2 +-
- drivers/net/ethernet/sun/sunvnet.c                    |  2 +-
- drivers/net/ethernet/ti/cpsw_ale.c                    |  2 +-
- drivers/net/fddi/skfp/fplustm.c                       |  3 ++-
- drivers/net/plip/plip.c                               |  2 +-
- net/caif/cfrfml.c                                     |  2 +-
- 26 files changed, 38 insertions(+), 46 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 6f92090..7e43858 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -782,7 +782,7 @@ static void update_mclist_flags(struct mlx4_en_priv *priv,
+ 	list_for_each_entry(dst_tmp, dst, list) {
+ 		found = false;
+ 		list_for_each_entry(src_tmp, src, list) {
+-			if (!memcmp(dst_tmp->addr, src_tmp->addr, ETH_ALEN)) {
++			if (ether_addr_equal(dst_tmp->addr, src_tmp->addr)) {
+ 				found = true;
+ 				break;
+ 			}
+@@ -797,7 +797,7 @@ static void update_mclist_flags(struct mlx4_en_priv *priv,
+ 	list_for_each_entry(src_tmp, src, list) {
+ 		found = false;
+ 		list_for_each_entry(dst_tmp, dst, list) {
+-			if (!memcmp(dst_tmp->addr, src_tmp->addr, ETH_ALEN)) {
++			if (ether_addr_equal(dst_tmp->addr, src_tmp->addr)) {
+ 				dst_tmp->action = MCLIST_NONE;
+ 				found = true;
+ 				break;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 2f3f2bc..2e3232c 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -3634,7 +3634,7 @@ static int validate_eth_header_mac(int slave, struct _rule_hw *eth_header,
+ 	    !is_broadcast_ether_addr(eth_header->eth.dst_mac)) {
+ 		list_for_each_entry_safe(res, tmp, rlist, list) {
+ 			be_mac = cpu_to_be64(res->mac << 16);
+-			if (!memcmp(&be_mac, eth_header->eth.dst_mac, ETH_ALEN))
++			if (ether_addr_equal((u8 *)&be_mac, eth_header->eth.dst_mac))
+ 				return 0;
+ 		}
+ 		pr_err("MAC %pM doesn't belong to VF %d, Steering rule rejected\n",
 -- 
 1.8.0
