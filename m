@@ -1,63 +1,41 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH nf-next] ipvs: Remove unused variable ret from sync_thread_master()
-Date: Fri, 27 Dec 2013 12:46:12 +0900
-Message-ID: <1388115972-11861-2-git-send-email-horms@verge.net.au>
-References: <1388115972-11861-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1388115972-11861-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 2/2] tipc: make the code look more readable
+Date: Thu, 26 Dec 2013 23:04:15 -0500 (EST)
+Message-ID: <20131226.230415.76472710052184859.davem@davemloft.net>
+References: <1387263827-20876-3-git-send-email-wangweidong1@huawei.com>
+	<52BCDBA4.9050607@huawei.com>
+	<52BCDD0C.6030508@windriver.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: wangweidong1@huawei.com, jon.maloy@ericsson.com,
+	allan.stephens@windriver.com, David.Laight@ACULAB.COM,
+	netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com
+To: ying.xue@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54737 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754218Ab3L0EER (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 23:04:17 -0500
+In-Reply-To: <52BCDD0C.6030508@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
+From: Ying Xue <ying.xue@windriver.com>
+Date: Fri, 27 Dec 2013 09:51:08 +0800
 
-net/netfilter/ipvs/ip_vs_sync.c: In function 'sync_thread_master':
-net/netfilter/ipvs/ip_vs_sync.c:1640:8: warning: unused variable 'ret' [-Wunused-variable]
+> On 12/27/2013 09:45 AM, Wang Weidong wrote:
+>> In commit 3b8401fe9d ("tipc: kill unnecessary goto's") didn't make
+>> the code look most readable, so fix it. This patch is cosmetic
+>> and does not change the operation of TIPC in any way.
+>> 
+>> v3: fix the spelling error which pointed out by Sergei.
+>> 
+>> v2: fix the problem "Referring commit purely by
+>>     SHA1 ID is ambiguous" which pointed out by David.
+>> 
+> 
+> Please don't add review version history into patch head comments.
 
-Commit 35a2af94c7ce7130ca292c68b1d27fcfdb648f6b ("sched/wait: Make the
-__wait_event*() interface more friendly") changed how the interruption
-state is returned. However, sync_thread_master() ignores this state,
-now causing a compile warning.
-
-According to Julian Anastasov <ja@ssi.bg>, this behavior is OK:
-
-    "Yes, your patch looks ok to me. In the past we used ssleep() but IPVS
-     users were confused why IPVS threads increase the load average. So, we
-     switched to _interruptible calls and later the socket polling was
-     added."
-
-Document this, as requested by Peter Zijlstra, to avoid precious developers
-disappearing in this pitfall in the future.
-
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_sync.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index f63c238..db80126 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -1637,7 +1637,10 @@ static int sync_thread_master(void *data)
- 			continue;
- 		}
- 		while (ip_vs_send_sync_msg(tinfo->sock, sb->mesg) < 0) {
--			int ret = __wait_event_interruptible(*sk_sleep(sk),
-+			/* (Ab)use interruptible sleep to avoid increasing
-+			 * the load avg.
-+			 */
-+			__wait_event_interruptible(*sk_sleep(sk),
- 						   sock_writeable(sk) ||
- 						   kthread_should_stop());
- 			if (unlikely(kthread_should_stop()))
--- 
-1.8.4
-
+And please _always_ resubmit the entire series, not just the patches
+you are changing.
