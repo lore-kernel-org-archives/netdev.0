@@ -1,51 +1,70 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] ipv4: make fib_detect_death static
-Date: Fri, 27 Dec 2013 12:10:53 -0800
-Message-ID: <20131227121053.5f3445ac@nehalam.linuxnetplumber.net>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH net-next 19/20] net: plip: slight optimization of addr
+ compare
+Date: Fri, 27 Dec 2013 21:12:37 +0100 (CET)
+Message-ID: <alpine.DEB.2.02.1312272112110.2018@localhost6.localdomain6>
+References: <52BD22ED.4030302@huawei.com>  <1388159283.12212.80.camel@edumazet-glaptop2.roam.corp.google.com> <1388163982.30298.12.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:35476 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754684Ab3L0UKz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 15:10:55 -0500
-Received: by mail-pd0-f174.google.com with SMTP id x10so9233279pdj.5
-        for <netdev@vger.kernel.org>; Fri, 27 Dec 2013 12:10:55 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	Ding Tianhong <dingtianhong@huawei.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1388163982.30298.12.camel@joe-AO722>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Make fib_detect_death function static only used in one file.
+On Fri, 27 Dec 2013, Joe Perches wrote:
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> On Fri, 2013-12-27 at 07:48 -0800, Eric Dumazet wrote:
+> > On Fri, 2013-12-27 at 14:49 +0800, Ding Tianhong wrote:
+> > > Use possibly more efficient ether_addr_equal
+> > > to instead of memcmp.
+> []
+> > > diff --git a/drivers/net/plip/plip.c b/drivers/net/plip/plip.c
+> []
+> > > @@ -549,7 +549,7 @@ static __be16 plip_type_trans(struct sk_buff *skb, struct net_device *dev)
+> > >  
+> > >  	if(*eth->h_dest&1)
+> > >  	{
+> > > -		if(memcmp(eth->h_dest,dev->broadcast, ETH_ALEN)==0)
+> > > +		if(ether_addr_equal(eth->h_dest, dev->broadcast))
+> > >  			skb->pkt_type=PACKET_BROADCAST;
+> > >  		else
+> > >  			skb->pkt_type=PACKET_MULTICAST;
+> > 
+> > What about :
+> > 
+> >         if (is_multicast_ether_addr(eth->h_dest)) {
+> >                 if (ether_addr_equal_64bits(eth->h_dest, dev->broadcast))
+> >                         skb->pkt_type = PACKET_BROADCAST;
+> >                 else
+> >                         skb->pkt_type = PACKET_MULTICAST;
+> >         }
+> 
+> That is better though I wonder how many systems are
+> still using laplink via parallel null-printer cables.
+> 
+> No matter, better is better.
+> 
+> The same optimization using ether_addr_equal_64bits
+> may be possible to do in other places given other
+> structs too.
+> 
+> Perhaps it's a possible spatch/coccinelle conversion,
+> 
+> I don't know spatch well enough to know if a
+> mechanism to check if structure members have other
+> fields that follow them in the structure or if the
+> structure member is an array of a minimum size.
+> 
+> Maybe Julia does.  (cc'd)
 
+I'm not sure to competely understand the issues.  Could you explain more?
 
----
- net/ipv4/fib_lookup.h    |    2 --
- net/ipv4/fib_semantics.c |    2 +-
- 2 files changed, 1 insertion(+), 3 deletions(-)
-
---- a/net/ipv4/fib_lookup.h	2013-12-24 15:15:26.849740111 -0800
-+++ b/net/ipv4/fib_lookup.h	2013-12-24 15:15:59.393302735 -0800
-@@ -33,8 +33,6 @@ int fib_dump_info(struct sk_buff *skb, u
- void rtmsg_fib(int event, __be32 key, struct fib_alias *fa, int dst_len,
- 	       u32 tb_id, const struct nl_info *info, unsigned int nlm_flags);
- struct fib_alias *fib_find_alias(struct list_head *fah, u8 tos, u32 prio);
--int fib_detect_death(struct fib_info *fi, int order,
--		     struct fib_info **last_resort, int *last_idx, int dflt);
- 
- static inline void fib_result_assign(struct fib_result *res,
- 				     struct fib_info *fi)
---- a/net/ipv4/fib_semantics.c	2013-12-24 15:15:26.849740111 -0800
-+++ b/net/ipv4/fib_semantics.c	2013-12-24 15:15:59.393302735 -0800
-@@ -426,7 +426,7 @@ struct fib_alias *fib_find_alias(struct
- 	return NULL;
- }
- 
--int fib_detect_death(struct fib_info *fi, int order,
-+static int fib_detect_death(struct fib_info *fi, int order,
- 		     struct fib_info **last_resort, int *last_idx, int dflt)
- {
- 	struct neighbour *n;
+thanks,
+julia
