@@ -1,49 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 20/38] net: iucv: add missing put_device call
-Date: Fri, 27 Dec 2013 12:41:50 -0500 (EST)
-Message-ID: <20131227.124150.654187539741639427.davem@davemloft.net>
-References: <1387465429-3568-2-git-send-email-levex@linux.com>
-	<1387465429-3568-21-git-send-email-levex@linux.com>
+Subject: Re: [PATCH] tile_net: Always enable PTP clock support on TILE-Gx
+Date: Fri, 27 Dec 2013 12:45:11 -0500 (EST)
+Message-ID: <20131227.124511.1712801659294116790.davem@davemloft.net>
+References: <1387480874.1876.33.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, ursula.braun@de.ibm.com,
-	linux390@de.ibm.com, linux-s390@vger.kernel.org,
+Cc: cmetcalf@tilera.com, richardcochran@gmail.com,
 	netdev@vger.kernel.org
-To: levex@linux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1387465429-3568-21-git-send-email-levex@linux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59877 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753923Ab3L0RpM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 12:45:12 -0500
+In-Reply-To: <1387480874.1876.33.camel@bwh-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Levente Kurusa <levex@linux.com>
-Date: Thu, 19 Dec 2013 16:03:31 +0100
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Thu, 19 Dec 2013 19:21:14 +0000
 
-> This is required so that we give up the last reference to the device.
+> All other net drivers with PTP support enable it unconditionally.
+> Make tile_net consistent with this.
 > 
-> Signed-off-by: Levente Kurusa <levex@linux.com>
- ...
-> @@ -2377,8 +2377,10 @@ static int afiucv_iucv_init(void)
->  	af_iucv_dev->release = (void (*)(struct device *))kfree;
->  	af_iucv_dev->driver = &af_iucv_driver;
->  	err = device_register(af_iucv_dev);
-> -	if (err)
-> +	if (err) {
-> +		put_device(af_iucv_dev);
->  		goto out_driver;
-> +	}
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> ---
+> Totally untested as I don't have even a compiler for this.
 
-This has the same problem as the ATM patch, there is no reference held on
-af_iucv_dev, I mean look at where it comes from:
-
-	af_iucv_dev = kzalloc(sizeof(struct device), GFP_KERNEL);
- ...
-	dev_set_name(af_iucv_dev, "af_iucv");
-	af_iucv_dev->bus = pr_iucv->bus;
-	af_iucv_dev->parent = pr_iucv->root;
-	af_iucv_dev->release = (void (*)(struct device *))kfree;
-	af_iucv_dev->driver = &af_iucv_driver;
-
-No reference count is incremented or set to one for af_iucv_dev.
-
-Please study these code paths more carefully, thank you.
+Applied to net-next, thanks.
