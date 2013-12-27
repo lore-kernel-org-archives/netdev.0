@@ -1,76 +1,51 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] netfilter: xtables make functions local
-Date: Fri, 27 Dec 2013 12:09:37 -0800
-Message-ID: <20131227120937.702bc383@nehalam.linuxnetplumber.net>
+Subject: [PATCH net-next] ipv4: make fib_detect_death static
+Date: Fri, 27 Dec 2013 12:10:53 -0800
+Message-ID: <20131227121053.5f3445ac@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:34025 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754722Ab3L0UJk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 15:09:40 -0500
-Received: by mail-pa0-f41.google.com with SMTP id lf10so9632417pab.14
-        for <netdev@vger.kernel.org>; Fri, 27 Dec 2013 12:09:40 -0800 (PST)
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:35476 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754684Ab3L0UKz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 15:10:55 -0500
+Received: by mail-pd0-f174.google.com with SMTP id x10so9233279pdj.5
+        for <netdev@vger.kernel.org>; Fri, 27 Dec 2013 12:10:55 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A couple of functions only used in x_tables, don't need to be global
+Make fib_detect_death function static only used in one file.
 
 Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
----
- include/linux/netfilter/x_tables.h |    2 --
- net/netfilter/x_tables.c           |    6 ++----
- 2 files changed, 2 insertions(+), 6 deletions(-)
 
---- a/include/linux/netfilter/x_tables.h	2013-12-24 15:14:54.502174551 -0800
-+++ b/include/linux/netfilter/x_tables.h	2013-12-24 15:16:01.889269178 -0800
-@@ -255,8 +255,6 @@ struct xt_table_info *xt_replace_table(s
- 				       struct xt_table_info *newinfo,
- 				       int *error);
+---
+ net/ipv4/fib_lookup.h    |    2 --
+ net/ipv4/fib_semantics.c |    2 +-
+ 2 files changed, 1 insertion(+), 3 deletions(-)
+
+--- a/net/ipv4/fib_lookup.h	2013-12-24 15:15:26.849740111 -0800
++++ b/net/ipv4/fib_lookup.h	2013-12-24 15:15:59.393302735 -0800
+@@ -33,8 +33,6 @@ int fib_dump_info(struct sk_buff *skb, u
+ void rtmsg_fib(int event, __be32 key, struct fib_alias *fa, int dst_len,
+ 	       u32 tb_id, const struct nl_info *info, unsigned int nlm_flags);
+ struct fib_alias *fib_find_alias(struct list_head *fah, u8 tos, u32 prio);
+-int fib_detect_death(struct fib_info *fi, int order,
+-		     struct fib_info **last_resort, int *last_idx, int dflt);
  
--struct xt_match *xt_find_match(u8 af, const char *name, u8 revision);
--struct xt_target *xt_find_target(u8 af, const char *name, u8 revision);
- struct xt_match *xt_request_find_match(u8 af, const char *name, u8 revision);
- struct xt_target *xt_request_find_target(u8 af, const char *name, u8 revision);
- int xt_find_revision(u8 af, const char *name, u8 revision, int target,
---- a/net/netfilter/x_tables.c	2013-12-24 15:14:54.502174551 -0800
-+++ b/net/netfilter/x_tables.c	2013-12-24 15:16:01.889269178 -0800
-@@ -189,7 +189,7 @@ EXPORT_SYMBOL(xt_unregister_matches);
-  */
- 
- /* Find match, grabs ref.  Returns ERR_PTR() on error. */
--struct xt_match *xt_find_match(u8 af, const char *name, u8 revision)
-+static struct xt_match *xt_find_match(u8 af, const char *name, u8 revision)
- {
- 	struct xt_match *m;
- 	int err = -ENOENT;
-@@ -216,7 +216,6 @@ struct xt_match *xt_find_match(u8 af, co
- 
- 	return ERR_PTR(err);
+ static inline void fib_result_assign(struct fib_result *res,
+ 				     struct fib_info *fi)
+--- a/net/ipv4/fib_semantics.c	2013-12-24 15:15:26.849740111 -0800
++++ b/net/ipv4/fib_semantics.c	2013-12-24 15:15:59.393302735 -0800
+@@ -426,7 +426,7 @@ struct fib_alias *fib_find_alias(struct
+ 	return NULL;
  }
--EXPORT_SYMBOL(xt_find_match);
  
- struct xt_match *
- xt_request_find_match(uint8_t nfproto, const char *name, uint8_t revision)
-@@ -234,7 +233,7 @@ xt_request_find_match(uint8_t nfproto, c
- EXPORT_SYMBOL_GPL(xt_request_find_match);
- 
- /* Find target, grabs ref.  Returns ERR_PTR() on error. */
--struct xt_target *xt_find_target(u8 af, const char *name, u8 revision)
-+static struct xt_target *xt_find_target(u8 af, const char *name, u8 revision)
+-int fib_detect_death(struct fib_info *fi, int order,
++static int fib_detect_death(struct fib_info *fi, int order,
+ 		     struct fib_info **last_resort, int *last_idx, int dflt)
  {
- 	struct xt_target *t;
- 	int err = -ENOENT;
-@@ -261,7 +260,6 @@ struct xt_target *xt_find_target(u8 af,
- 
- 	return ERR_PTR(err);
- }
--EXPORT_SYMBOL(xt_find_target);
- 
- struct xt_target *xt_request_find_target(u8 af, const char *name, u8 revision)
- {
+ 	struct neighbour *n;
