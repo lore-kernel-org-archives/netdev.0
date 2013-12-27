@@ -1,89 +1,40 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/3] virtio-net: use per-receive queue page
-	frag alloc for mergeable bufs
-Date: Thu, 26 Dec 2013 21:46:50 -0800
-Message-ID: <1388123210.12212.44.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
-	<1387239389-13216-2-git-send-email-mwdalton@google.com>
-	<52B7F065.3010707@redhat.com>
-	<1387819627.12212.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20131223193704.GC1582@redhat.com>
-	<CANJ5vPLEV_Z-D-0tThwhWXbHVaRWOLv566Xk1eD4TNYqNvknHw@mail.gmail.com>
-	<1388094991.12212.34.camel@edumazet-glaptop2.roam.corp.google.com>
-	<52BD084F.5040301@redhat.com>
+Subject: Re: [PATCH net] tcp: do not grow receive window if skb->len < 128
+Date: Thu, 26 Dec 2013 22:11:08 -0800
+Message-ID: <1388124668.12212.51.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <2245b9d01fa91d84a8af1e17e1b97f0763f1b792.1388114391.git.panweiping3@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org,
-	lf-virt <virtualization@lists.linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <52BD084F.5040301@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Weiping Pan <panweiping3@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:41684 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753358Ab3L0GLK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 01:11:10 -0500
+Received: by mail-pb0-f48.google.com with SMTP id md12so8892070pbc.21
+        for <netdev@vger.kernel.org>; Thu, 26 Dec 2013 22:11:10 -0800 (PST)
+In-Reply-To: <2245b9d01fa91d84a8af1e17e1b97f0763f1b792.1388114391.git.panweiping3@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-12-27 at 12:55 +0800, Jason Wang wrote:
-> On 12/27/2013 05:56 AM, Eric Dumazet wrote:
-> > On Thu, 2013-12-26 at 13:28 -0800, Michael Dalton wrote:
-> >> On Mon, Dec 23, 2013 at 11:37 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> >>> So there isn't a conflict with respect to locking.
-> >>>
-> >>> Is it problematic to use same page_frag with both GFP_ATOMIC and with
-> >>> GFP_KERNEL? If yes why?
-> >> I believe it is safe to use the same page_frag and I will send out a
-> >> followup patchset using just the per-receive page_frags. For future
-> >> consideration, Eric noted that disabling NAPI before GFP_KERNEL
-> >> allocs can potentially inhibit virtio-net network processing for some
-> >> time (e.g., during a blocking memory allocation or preemption).
-> > Yep, using napi_disable() in the refill process looks quite inefficient
-> > to me, it not buggy.
-> >
-> > napi_disable() is a big hammer, while whole idea of having a process to
-> > block on GFP_KERNEL allocations is to allow some asynchronous behavior.
-> >
-> > I have hard time to convince myself virtio_net is safe anyway with this
-> > work queue thing.
-> >
-> > virtnet_open() seems racy for example :
-> >
-> >         for (i = 0; i < vi->max_queue_pairs; i++) {
-> >                 if (i < vi->curr_queue_pairs)
-> >                         /* Make sure we have some buffers: if oom use wq. */
-> >                         if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
-> >                                 schedule_delayed_work(&vi->refill, 0);
-> >                 virtnet_napi_enable(&vi->rq[i]);
-> >
-> >
-> > What if the workqueue is scheduled _before_ the call to virtnet_napi_enable(&vi->rq[i]) ?
+On Fri, 2013-12-27 at 11:20 +0800, Weiping Pan wrote:
+> Commit 4e4f1fc22681(tcp: properly increase rcv_ssthresh for ofo packets) can
+> grow receive window for out of order packets,
+> but for in order packets, we only call tcp_grow_window() if skb->len >= 128,
+> I think we should add the same condition for out of order packets.
 > 
-> Then napi_disable() in refill_work() will busy wait until napi is
-> enabled by virtnet_napi_enable() which looks safe. Looks like the real
-> issue is in virtnet_restore() who calls try_fill_recv() in neither napi
-> context nor napi disabled context.
 
-I think you don't really get the race.
+Why do you think so ? Do you have any experimental data to share ?
 
-The issue is the following :
+I personally think the basic test in tcp_event_data_recv() is redundant
+with the logic in tcp_grow_window()
 
-CPU0                                                        CPU1
+skb->len < 128 seems a poor test, real factor is skb->len/skb->truesize
+ratio.
 
-schedule_delayed_work()
-                                          napi_disable(&rq->napi);
-                                          try_fill_recv(rq, GFP_KERNEL);
+Note: Please always CC a patch author when you mention a commit in
+a changelog.
 
-virtnet_napi_enable(&vi->rq[i]);
-...
-try_fill_recv(rq, GFP_ATOMIC);
-
-                                         napi_enable();// crash on :
-                                           BUG_ON(!test_bit(NAPI_STATE_SCHED, &n->state)); 
+Thanks
