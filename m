@@ -1,119 +1,88 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 2/2] ixgbe: set driver_max_VFs should be
- done before enabling SRIOV
-Date: Fri, 27 Dec 2013 01:03:23 -0800
-Message-ID: <1388135003.2183.145.camel@jtkirshe-mobl>
-References: <1387901251-1672-1-git-send-email-ethan.kernel@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next] mdio: unused ethtool functions
+Date: Fri, 27 Dec 2013 10:06:43 +0100
+Message-ID: <1388135203.26981.22.camel@deadeye.wl.decadent.org.uk>
+References: <20131226101241.5f38e392@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============7217586863618566306=="
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
-	linux-kernel@vger.kernel.org, davem@davemloft.net
-To: Ethan Zhao <ethan.kernel@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1387901251-1672-1-git-send-email-ethan.kernel@gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
-
-
---===============7217586863618566306==
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-w8qPRrrI0g8Z0RHX0NYt"
-
-
---=-w8qPRrrI0g8Z0RHX0NYt
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:15757 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754060Ab3L0JGt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 04:06:49 -0500
+In-Reply-To: <20131226101241.5f38e392@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-12-25 at 00:07 +0800, Ethan Zhao wrote:
-> commit 43dc4e01 Limit number of reported VFs to device specific value
-> It doesn't work and always returns -EBUSY because VFs ware already
-> enabled.
->=20
-> ixgbe_enable_sriov()
->         pci_enable_sriov()
->                 sriov_enable()
->                 {
->                 ... ..
->                 iov->ctrl |=3D PCI_SRIOV_CTRL_VFE | PCI_SRIOV_CTRL_MSE;
->                 pci_cfg_access_lock(dev);
->                 ... ...
->                 }
->=20
-> pci_sriov_set_totalvfs()
-> {
-> ... ...
-> if (dev->sriov->ctrl & PCI_SRIOV_CTRL_VFE)
->                 return -EBUSY;
-> ...
-> }
->=20
-> So should set driver_max_VFs with pci_sriov_set_totalvfs() before
-> enable VFs with ixgbe_enable_sriov().
->=20
-> Signed-off-by: Ethan Zhao <ethan.kernel@gmail.com>
+On Thu, 2013-12-26 at 10:12 -0800, Stephen Hemminger wrote:
+> Use it or lose it.
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+
+Right, this was called by sfc for a while but not since 2.6.33 as we set
+all the autoneg bits at once.
+
+Ben.
+
 > ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+>  drivers/net/mdio.c   |   28 ----------------------------
+>  include/linux/mdio.h |    3 ---
+>  2 files changed, 31 deletions(-)
+> 
+> --- a/drivers/net/mdio.c	2013-12-24 15:37:35.779661759 -0800
+> +++ b/drivers/net/mdio.c	2013-12-24 15:38:26.054970175 -0800
+> @@ -342,34 +342,6 @@ void mdio45_ethtool_gset_npage(const str
+>  EXPORT_SYMBOL(mdio45_ethtool_gset_npage);
+>  
+>  /**
+> - * mdio45_ethtool_spauseparam_an - set auto-negotiated pause parameters
+> - * @mdio: MDIO interface
+> - * @ecmd: Ethtool request structure
+> - *
+> - * This function assumes that the PHY has an auto-negotiation MMD.  It
+> - * will enable and disable advertising of flow control as appropriate.
+> - */
+> -void mdio45_ethtool_spauseparam_an(const struct mdio_if_info *mdio,
+> -				   const struct ethtool_pauseparam *ecmd)
+> -{
+> -	int adv, old_adv;
+> -
+> -	WARN_ON(!(mdio->mmds & MDIO_DEVS_AN));
+> -
+> -	old_adv = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_AN,
+> -				  MDIO_AN_ADVERTISE);
+> -	adv = ((old_adv & ~(ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM)) |
+> -	       mii_advertise_flowctrl((ecmd->rx_pause ? FLOW_CTRL_RX : 0) |
+> -				      (ecmd->tx_pause ? FLOW_CTRL_TX : 0)));
+> -	if (adv != old_adv) {
+> -		mdio->mdio_write(mdio->dev, mdio->prtad, MDIO_MMD_AN,
+> -				 MDIO_AN_ADVERTISE, adv);
+> -		mdio45_nway_restart(mdio);
+> -	}
+> -}
+> -EXPORT_SYMBOL(mdio45_ethtool_spauseparam_an);
+> -
+> -/**
+>   * mdio_mii_ioctl - MII ioctl interface for MDIO (clause 22 or 45) PHYs
+>   * @mdio: MDIO interface
+>   * @mii_data: MII ioctl data structure
+> --- a/include/linux/mdio.h	2013-12-24 15:37:35.779661759 -0800
+> +++ b/include/linux/mdio.h	2013-12-24 15:38:26.054970175 -0800
+> @@ -70,9 +70,6 @@ extern int mdio45_nway_restart(const str
+>  extern void mdio45_ethtool_gset_npage(const struct mdio_if_info *mdio,
+>  				      struct ethtool_cmd *ecmd,
+>  				      u32 npage_adv, u32 npage_lpa);
+> -extern void
+> -mdio45_ethtool_spauseparam_an(const struct mdio_if_info *mdio,
+> -			      const struct ethtool_pauseparam *ecmd);
+>  
+>  /**
+>   * mdio45_ethtool_gset - get settings for ETHTOOL_GSET
 
-Thanks Ethan, I have added this patch as well to my queue.
-
---=-w8qPRrrI0g8Z0RHX0NYt
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-
-iQIcBAABCgAGBQJSvUJbAAoJEOVv75VaS+3OFf0P/3A2eH7tHcNsfM0FtBH/iFGj
-PBKsJ+z4ObPUCmQoJEiVUHM9N6cpfYs9aD0ph9ktfAN9N2tvxfiKR+CXUetS+RYL
-WqAM+35Uhy4b26MyceLn/0Xeo3V3de7aZuWgmRPvVWrZkuOOooj8J6CUusqihuvh
-NGKwZ/PAB/ZuZ1frhndy8rBZRlkxxJpYt7j40jZlARoay4/LmuPZhM0fEZSpIPCq
-SwkI0WsPewnwH+0u95b8QSMYXYMF/UP5PgkXf1O7pzgsW3hVHmU9AiiPwJXSf4eq
-zMiF2OLrPU61DnOFb58oEfHvPCwrYO6GkJ6CvZtrH9LKQJmreZaJMRVFnjc44vSe
-GmtmcMda8QpOvrfuboDxkM4X/zVsdv2RZKbuoiYit/mh7ZS9ohlYGRQgrA8DlMP2
-XgDmq3TZq/QTbDe2o3yzBmRi8CfNufgrUS8eolk9es/OH9hxjV+DHAWFsM7ZBEce
-DC/5EUG9X24x2E7gCKbxv/V6+Hf58qhMYfg9VbENczXo/Rhp4XZzyveqEWQCOQCV
-1sIoCXlIMudzWAJNXxjSKY0YMlkjXe3kzT9CCIQCtrGcBo5PbrAhuQEnUPW23X00
-An6img9c5HSwp54A8Po5NnRoWZb14vlOG+P73wQLzEcYRnYyhc0VX3bVXuszXVyl
-Q/dNNac4yhMyeF13YkDP
-=5G+d
------END PGP SIGNATURE-----
-
---=-w8qPRrrI0g8Z0RHX0NYt--
-
-
-
---===============7217586863618566306==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Rapidly troubleshoot problems before they affect your business. Most IT 
-organizations don't have a clear picture of how application performance 
-affects their revenue. With AppDynamics, you get 100% visibility into your 
-Java,.NET, & PHP application. Start your 15-day FREE TRIAL of AppDynamics Pro!
-http://pubads.g.doubleclick.net/gampad/clk?id=84349831&iu=/4140/ostg.clktrk
---===============7217586863618566306==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============7217586863618566306==--
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
