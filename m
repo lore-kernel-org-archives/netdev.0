@@ -1,25 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rds: prevent dereference of a NULL device
-Date: Fri, 27 Dec 2013 12:34:27 -0500 (EST)
-Message-ID: <20131227.123427.362811725046494702.davem@davemloft.net>
-References: <1387428582-961-1-git-send-email-sasha.levin@oracle.com>
+Subject: Re: [PATCH 19/38] net: atm: add missing put_device call
+Date: Fri, 27 Dec 2013 12:40:22 -0500 (EST)
+Message-ID: <20131227.124022.439150072696415687.davem@davemloft.net>
+References: <1387465429-3568-2-git-send-email-levex@linux.com>
+	<1387465429-3568-20-git-send-email-levex@linux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: venkat.x.venkatsubra@oracle.com, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: sasha.levin@oracle.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: levex@linux.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1387428582-961-1-git-send-email-sasha.levin@oracle.com>
+In-Reply-To: <1387465429-3568-20-git-send-email-levex@linux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sasha Levin <sasha.levin@oracle.com>
-Date: Wed, 18 Dec 2013 23:49:42 -0500
+From: Levente Kurusa <levex@linux.com>
+Date: Thu, 19 Dec 2013 16:03:30 +0100
 
-> Binding might result in a NULL device, which is dereferenced
-> causing this BUG:
+> This is required so that we give up the last reference to the device.
+> 
+> Signed-off-by: Levente Kurusa <levex@linux.com>
  ...
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> @@ -154,8 +154,10 @@ int atm_register_sysfs(struct atm_dev *adev, struct device *parent)
+>  
+>  	dev_set_name(cdev, "%s%d", adev->type, adev->number);
+>  	err = device_register(cdev);
+> -	if (err < 0)
+> +	if (err < 0) {
+> +		put_device(cdev);
+>  		return err;
+> +	}
 
-Applied and queued up for -stable, thanks.
+This doesn't make any sense.
+
+Nothing has a reference to 'cdev'.  Yes, 'adev' has a reference,
+acquired by the caller of this function, but that's not what we're
+working with here.
