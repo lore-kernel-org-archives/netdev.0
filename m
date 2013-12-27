@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ieee802154: space prohibited before that close
- parenthesis
-Date: Fri, 27 Dec 2013 13:06:58 -0500 (EST)
-Message-ID: <20131227.130658.1442630471596630684.davem@davemloft.net>
-References: <1387510875-11632-1-git-send-email-chenweilong@huawei.com>
+Subject: Re: [PATCH] netxen: Correct off-by-one errors in bounds checks
+Date: Fri, 27 Dec 2013 13:08:47 -0500 (EST)
+Message-ID: <20131227.130847.840672527417825080.davem@davemloft.net>
+References: <1387512644-31759-1-git-send-email-david@gibson.dropbear.id.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	netdev@vger.kernel.org
-To: chenweilong@huawei.com
+Cc: manish.chopra@qlogic.com, sony.chacko@qlogic.com,
+	rajesh.borundia@qlogic.com, netdev@vger.kernel.org
+To: david@gibson.dropbear.id.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60041 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60062 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754476Ab3L0SG7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 13:06:59 -0500
-In-Reply-To: <1387510875-11632-1-git-send-email-chenweilong@huawei.com>
+	with ESMTP id S1754047Ab3L0SIt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Dec 2013 13:08:49 -0500
+In-Reply-To: <1387512644-31759-1-git-send-email-david@gibson.dropbear.id.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chen Weilong <chenweilong@huawei.com>
-Date: Fri, 20 Dec 2013 11:41:15 +0800
+From: David Gibson <david@gibson.dropbear.id.au>
+Date: Fri, 20 Dec 2013 15:10:44 +1100
 
-> From: Weilong Chen <chenweilong@huawei.com>
+> netxen_process_lro() contains two bounds checks.  One for the ring number
+> against the number of rings, and one for the Rx buffer ID against the
+> array of receive buffers.
 > 
-> Fix checkpatch error with space.
+> Both of these have off-by-one errors, using > instead of >=. The correct
+> versions are used in netxen_process_rcv(), they're just wrong in
+> netxen_process_lro().
 > 
-> Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+> Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
 
-Applied.
+Looks good, applied, thanks David.
