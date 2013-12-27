@@ -1,33 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 4/6] r8152: add rtl_ops
-Date: Fri, 27 Dec 2013 12:28:13 -0500 (EST)
-Message-ID: <20131227.122813.901851776030758668.davem@davemloft.net>
-References: <1388111649-1014-1-git-send-email-hayeswang@realtek.com>
-	<1388111649-1014-5-git-send-email-hayeswang@realtek.com>
+Subject: Re: [PATCH] rds: prevent dereference of a NULL device
+Date: Fri, 27 Dec 2013 12:34:27 -0500 (EST)
+Message-ID: <20131227.123427.362811725046494702.davem@davemloft.net>
+References: <1387428582-961-1-git-send-email-sasha.levin@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
+Cc: venkat.x.venkatsubra@oracle.com, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: sasha.levin@oracle.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1388111649-1014-5-git-send-email-hayeswang@realtek.com>
+In-Reply-To: <1387428582-961-1-git-send-email-sasha.levin@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Fri, 27 Dec 2013 10:34:08 +0800
+From: Sasha Levin <sasha.levin@oracle.com>
+Date: Wed, 18 Dec 2013 23:49:42 -0500
 
->  
-> +static int rtl_ops_init(struct r8152 *tp, const struct usb_device_id *id)
+> Binding might result in a NULL device, which is dereferenced
+> causing this BUG:
  ...
->  
-> +	if (rtl_ops_init(tp, id)) {
-> +		netif_err(tp, probe, netdev, "Unknown Device");
-> +		return -ENODEV;
+> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
 
-You're completely ignoring the error code returned from rtl_ops_init()
-(which, as an aside, uses -EFAULT which doesn't seem all that
-appropriate).
-
-You might as well have rtl_ops_init() return a boolean.
+Applied and queued up for -stable, thanks.
