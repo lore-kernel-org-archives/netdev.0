@@ -1,62 +1,240 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH net-next RESEND v3] tipc: make the code look more readable
-Date: Fri, 27 Dec 2013 10:09:39 +0800
-Message-ID: <52BCE163.2060706@huawei.com>
-References: <1387263827-20876-1-git-send-email-wangweidong1@huawei.com> <1387263827-20876-3-git-send-email-wangweidong1@huawei.com> <52BCDBA4.9050607@huawei.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH] tipc: fix deadlock during socket release
+Date: Fri, 27 Dec 2013 10:18:28 +0800
+Message-ID: <1388110708-11890-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <David.Laight@ACULAB.COM>, <netdev@vger.kernel.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Ying Xue <ying.xue@windriver.com>
-To: <jon.maloy@ericsson.com>, <allan.stephens@windriver.com>,
-	<davem@davemloft.net>
+Content-Type: text/plain
+Cc: <Paul.Gortmaker@windriver.com>, <erik.hugne@ericsson.com>,
+	<lars.everbrand@ericsson.com>, <ying.xue@windriver.com>,
+	<tipc-discussion@lists.sourceforge.net>
+To: <netdev@vger.kernel.org>, <jon.maloy@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:53611 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754011Ab3L0CLX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 21:11:23 -0500
-In-Reply-To: <52BCDBA4.9050607@huawei.com>
+Received: from mail.windriver.com ([147.11.1.11]:54543 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754011Ab3L0CSr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Dec 2013 21:18:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit 3b8401fe9d ("tipc: kill unnecessary goto's") didn't make
-the code look most readable, so fix it. This patch is cosmetic
-and does not change the operation of TIPC in any way.
+A deadlock might occur if name table is withdrawn in socket release
+routine, and while packets are still being received from bearer.
 
-Suggested-by: David Laight <David.Laight@ACULAB.COM>
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+       CPU0                       CPU1
+T0:   recv_msg()               release()
+T1:   tipc_recv_msg()          tipc_withdraw()
+T2:   [grab node lock]         [grab port lock]
+T3:   tipc_link_wakeup_ports() tipc_nametbl_withdraw()
+T4:   [grab port lock]*        named_cluster_distribute()
+T5:   wakeupdispatch()         tipc_link_send()
+T6:                            [grab node lock]*
+
+The opposite order of holding port lock and node lock on above two
+different paths may result in a deadlock. If socket lock instead of
+port lock is used to protect port instance in tipc_withdraw(), the
+reverse order of holding port lock and node lock will be eliminated,
+as a result, the deadlock is killed as well.
+
+Reported-by: Lars Everbrand <lars.everbrand@ericsson.com>
+Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
 ---
-Change note: 
+ net/tipc/port.c   |   45 +++++++++++++++------------------------------
+ net/tipc/port.h   |    6 +++---
+ net/tipc/socket.c |   46 +++++++++++++++++++++++++++++++---------------
+ 3 files changed, 49 insertions(+), 48 deletions(-)
 
-v3: fix the spelling error which pointed out by Sergei.
-
-v2: fix the problem "Referring commit purely by
-    SHA1 ID is ambiguous" which pointed out by David.
-
----
- net/tipc/socket.c | 7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
-
+diff --git a/net/tipc/port.c b/net/tipc/port.c
+index c081a76..d43f318 100644
+--- a/net/tipc/port.c
++++ b/net/tipc/port.c
+@@ -251,18 +251,15 @@ struct tipc_port *tipc_createport(struct sock *sk,
+ 	return p_ptr;
+ }
+ 
+-int tipc_deleteport(u32 ref)
++int tipc_deleteport(struct tipc_port *p_ptr)
+ {
+-	struct tipc_port *p_ptr;
+ 	struct sk_buff *buf = NULL;
+ 
+-	tipc_withdraw(ref, 0, NULL);
+-	p_ptr = tipc_port_lock(ref);
+-	if (!p_ptr)
+-		return -EINVAL;
++	tipc_withdraw(p_ptr, 0, NULL);
+ 
+-	tipc_ref_discard(ref);
+-	tipc_port_unlock(p_ptr);
++	spin_lock_bh(p_ptr->lock);
++	tipc_ref_discard(p_ptr->ref);
++	spin_unlock_bh(p_ptr->lock);
+ 
+ 	k_cancel_timer(&p_ptr->timer);
+ 	if (p_ptr->connected) {
+@@ -704,47 +701,36 @@ int tipc_set_portimportance(u32 ref, unsigned int imp)
+ }
+ 
+ 
+-int tipc_publish(u32 ref, unsigned int scope, struct tipc_name_seq const *seq)
++int tipc_publish(struct tipc_port *p_ptr, unsigned int scope,
++		 struct tipc_name_seq const *seq)
+ {
+-	struct tipc_port *p_ptr;
+ 	struct publication *publ;
+ 	u32 key;
+-	int res = -EINVAL;
+ 
+-	p_ptr = tipc_port_lock(ref);
+-	if (!p_ptr)
++	if (p_ptr->connected)
+ 		return -EINVAL;
++	key = p_ptr->ref + p_ptr->pub_count + 1;
++	if (key == p_ptr->ref)
++		return -EADDRINUSE;
+ 
+-	if (p_ptr->connected)
+-		goto exit;
+-	key = ref + p_ptr->pub_count + 1;
+-	if (key == ref) {
+-		res = -EADDRINUSE;
+-		goto exit;
+-	}
+ 	publ = tipc_nametbl_publish(seq->type, seq->lower, seq->upper,
+ 				    scope, p_ptr->ref, key);
+ 	if (publ) {
+ 		list_add(&publ->pport_list, &p_ptr->publications);
+ 		p_ptr->pub_count++;
+ 		p_ptr->published = 1;
+-		res = 0;
++		return 0;
+ 	}
+-exit:
+-	tipc_port_unlock(p_ptr);
+-	return res;
++	return -EINVAL;
+ }
+ 
+-int tipc_withdraw(u32 ref, unsigned int scope, struct tipc_name_seq const *seq)
++int tipc_withdraw(struct tipc_port *p_ptr, unsigned int scope,
++		  struct tipc_name_seq const *seq)
+ {
+-	struct tipc_port *p_ptr;
+ 	struct publication *publ;
+ 	struct publication *tpubl;
+ 	int res = -EINVAL;
+ 
+-	p_ptr = tipc_port_lock(ref);
+-	if (!p_ptr)
+-		return -EINVAL;
+ 	if (!seq) {
+ 		list_for_each_entry_safe(publ, tpubl,
+ 					 &p_ptr->publications, pport_list) {
+@@ -771,7 +757,6 @@ int tipc_withdraw(u32 ref, unsigned int scope, struct tipc_name_seq const *seq)
+ 	}
+ 	if (list_empty(&p_ptr->publications))
+ 		p_ptr->published = 0;
+-	tipc_port_unlock(p_ptr);
+ 	return res;
+ }
+ 
+diff --git a/net/tipc/port.h b/net/tipc/port.h
+index 9122535..34f12bd 100644
+--- a/net/tipc/port.h
++++ b/net/tipc/port.h
+@@ -116,7 +116,7 @@ int tipc_reject_msg(struct sk_buff *buf, u32 err);
+ 
+ void tipc_acknowledge(u32 port_ref, u32 ack);
+ 
+-int tipc_deleteport(u32 portref);
++int tipc_deleteport(struct tipc_port *p_ptr);
+ 
+ int tipc_portimportance(u32 portref, unsigned int *importance);
+ int tipc_set_portimportance(u32 portref, unsigned int importance);
+@@ -127,9 +127,9 @@ int tipc_set_portunreliable(u32 portref, unsigned int isunreliable);
+ int tipc_portunreturnable(u32 portref, unsigned int *isunreturnable);
+ int tipc_set_portunreturnable(u32 portref, unsigned int isunreturnable);
+ 
+-int tipc_publish(u32 portref, unsigned int scope,
++int tipc_publish(struct tipc_port *p_ptr, unsigned int scope,
+ 		 struct tipc_name_seq const *name_seq);
+-int tipc_withdraw(u32 portref, unsigned int scope,
++int tipc_withdraw(struct tipc_port *p_ptr, unsigned int scope,
+ 		  struct tipc_name_seq const *name_seq);
+ 
+ int tipc_connect(u32 portref, struct tipc_portid const *port);
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 83f466e..5efdeef 100644
+index 3b61851..e741416 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -751,13 +751,10 @@ static int send_stream(struct kiocb *iocb, struct socket *sock,
+@@ -354,7 +354,7 @@ static int release(struct socket *sock)
+ 	 * Delete TIPC port; this ensures no more messages are queued
+ 	 * (also disconnects an active connection & sends a 'FIN-' to peer)
+ 	 */
+-	res = tipc_deleteport(tport->ref);
++	res = tipc_deleteport(tport);
  
- 	/* Handle special cases where there is no connection */
- 	if (unlikely(sock->state != SS_CONNECTED)) {
--		res = -ENOTCONN;
--
- 		if (sock->state == SS_UNCONNECTED)
- 			res = send_packet(NULL, sock, m, total_len);
--		else if (sock->state == SS_DISCONNECTING)
--			res = -EPIPE;
--
-+		else
-+			res = sock->state == SS_DISCONNECTING ? -EPIPE : -ENOTCONN;
- 		goto exit;
- 	}
+ 	/* Discard any remaining (connection-based) messages in receive queue */
+ 	__skb_queue_purge(&sk->sk_receive_queue);
+@@ -386,30 +386,46 @@ static int release(struct socket *sock)
+  */
+ static int bind(struct socket *sock, struct sockaddr *uaddr, int uaddr_len)
+ {
++	struct sock *sk = sock->sk;
+ 	struct sockaddr_tipc *addr = (struct sockaddr_tipc *)uaddr;
+-	u32 portref = tipc_sk_port(sock->sk)->ref;
++	struct tipc_port *tport = tipc_sk_port(sock->sk);
++	int res = -EINVAL;
  
+-	if (unlikely(!uaddr_len))
+-		return tipc_withdraw(portref, 0, NULL);
++	lock_sock(sk);
++	if (unlikely(!uaddr_len)) {
++		res = tipc_withdraw(tport, 0, NULL);
++		goto exit;
++	}
+ 
+-	if (uaddr_len < sizeof(struct sockaddr_tipc))
+-		return -EINVAL;
+-	if (addr->family != AF_TIPC)
+-		return -EAFNOSUPPORT;
++	if (uaddr_len < sizeof(struct sockaddr_tipc)) {
++		res = -EINVAL;
++		goto exit;
++	}
++	if (addr->family != AF_TIPC) {
++		res = -EAFNOSUPPORT;
++		goto exit;
++	}
+ 
+ 	if (addr->addrtype == TIPC_ADDR_NAME)
+ 		addr->addr.nameseq.upper = addr->addr.nameseq.lower;
+-	else if (addr->addrtype != TIPC_ADDR_NAMESEQ)
+-		return -EAFNOSUPPORT;
++	else if (addr->addrtype != TIPC_ADDR_NAMESEQ) {
++		res = -EAFNOSUPPORT;
++		goto exit;
++	}
+ 
+ 	if ((addr->addr.nameseq.type < TIPC_RESERVED_TYPES) &&
+ 	    (addr->addr.nameseq.type != TIPC_TOP_SRV) &&
+-	    (addr->addr.nameseq.type != TIPC_CFG_SRV))
+-		return -EACCES;
++	    (addr->addr.nameseq.type != TIPC_CFG_SRV)) {
++		res = -EACCES;
++		goto exit;
++	}
+ 
+-	return (addr->scope > 0) ?
+-		tipc_publish(portref, addr->scope, &addr->addr.nameseq) :
+-		tipc_withdraw(portref, -addr->scope, &addr->addr.nameseq);
++	res = (addr->scope > 0) ?
++		tipc_publish(tport, addr->scope, &addr->addr.nameseq) :
++		tipc_withdraw(tport, -addr->scope, &addr->addr.nameseq);
++exit:
++	release_sock(sk);
++	return res;
+ }
+ 
+ /**
 -- 
-1.7.12
+1.7.9.5
