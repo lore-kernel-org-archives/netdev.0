@@ -1,63 +1,69 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next 07/20] net: ixgbe: slight optimization of addr
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 02/20] net: bnx2x: slight optimization of addr
  compare
-Date: Fri, 27 Dec 2013 01:49:03 -0800
-Message-ID: <1388137743.2183.151.camel@jtkirshe-mobl>
-References: <52BD22BF.70108@huawei.com>
+Date: Fri, 27 Dec 2013 18:56:18 +0400
+Message-ID: <52BD9512.5040105@cogentembedded.com>
+References: <52BD22AD.3090702@huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-0jDMcv8i2aUI0N+A8kzu"
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Ding Tianhong <dingtianhong@huawei.com>,
+	Ariel Elior <ariele@broadcom.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52BD22BF.70108@huawei.com>
+In-Reply-To: <52BD22AD.3090702@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello.
 
---=-0jDMcv8i2aUI0N+A8kzu
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+On 27-12-2013 10:48, Ding Tianhong wrote:
 
-On Fri, 2013-12-27 at 14:48 +0800, Ding Tianhong wrote:
-> Use possibly more efficient ether_addr_equal
-> to instead of memcmp.
->=20
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Cc: Bruce Allan <bruce.w.allan@intel.com>
+> Use the possibly more efficient ether_addr_equal or
+> ether_addr_equal_unaligned to instead of memcmp.
+
+> Cc: Ariel Elior <ariele@broadcom.com>
 > Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 > ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
+>   drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c    | 10 ++++------
+>   drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c |  2 +-
+>   drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c  |  2 +-
+>   3 files changed, 6 insertions(+), 8 deletions(-)
 
-Thanks Ding, I have added this patch to my queue.
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+> index 32c92ab..a83c67c 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+[...]
+> @@ -696,8 +696,7 @@ static int bnx2x_check_vlan_mac_add(struct bnx2x *bp,
+>
+>   	list_for_each_entry(pos, &o->head, link)
+>   		if ((data->vlan_mac.vlan == pos->u.vlan_mac.vlan) &&
+> -		    (!memcmp(data->vlan_mac.mac, pos->u.vlan_mac.mac,
+> -				  ETH_ALEN)) &&
+> +		    (ether_addr_equal_unaligned(data->vlan_mac.mac, pos->u.vlan_mac.mac)) &&
 
---=-0jDMcv8i2aUI0N+A8kzu
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+    Pointless parens around function call again.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
+> @@ -716,7 +715,7 @@ static struct bnx2x_vlan_mac_registry_elem *
+>   	DP(BNX2X_MSG_SP, "Checking MAC %pM for DEL command\n", data->mac.mac);
+>
+>   	list_for_each_entry(pos, &o->head, link)
+> -		if ((!memcmp(data->mac.mac, pos->u.mac.mac, ETH_ALEN)) &&
+> +		if ((ether_addr_equal(data->mac.mac, pos->u.mac.mac)) &&
 
-iQIcBAABCgAGBQJSvU0PAAoJEOVv75VaS+3Oi9wP/jSFVgwDTUbJH7HX+zKbGgGr
-ZNgd+2iJXABOTh3pCgizF+rKzIQVaLuk4S6Vn8SkSx12tugxMMoPt5C7d7zQOzMD
-lrpO7hGjMG+JHPaJCQWOVli200jUO+9zQYTKCBmzs5pCoGAwy3pwO7Zq67o/wBNU
-lwDGdBxyatk2hIcMCzlW9mQluosS/TgLy3VfXP4x6nIFx4lwbjCZ613c43qqiqSh
-BmhcE/3iTDgouT+gwLjEKvmLG19yEdzDedQ2SK7jSZg43Qcrmm3iu8QM35DMvRmQ
-w9I7uWw99MuCiRf9MAe+iYiVoaPign/5rEm2+Cwi6AIpw57JDmcN/kGXZHEuddYx
-M+dBuq4diJoGzOjfSwj6PCzksFJtpHZwu+uu9sBxkhPl5ELkjHY+6ISbauHI+Xy/
-757CNWUQLSW0BCoDm09/BiEZOZssaf9p+Gm0hU4O/4JnbEMFCG2b2mZIxPnbJgF9
-nRcCiZ/WmzlsVkaIiIzzVhTbSFr6WtoAyPSmKfzSCNfbvRE5dtClgau0ZHEuU5Cs
-sGWzTPW8hIqfeiwndr8rvwwbYRSg+GOXLF4IpMZfsSXoR6QGls8Fv/9/iSCt62UI
-OQeyvUFKx63R2sA2AG3Pk6jjGMcZ9GMB5pGuoJrXQ6CndECGTF8CRIhyfvqHoV2e
-p8L/lfXstboSAVi+7HjZ
-=SxhN
------END PGP SIGNATURE-----
+    ... and again.
 
---=-0jDMcv8i2aUI0N+A8kzu--
+> @@ -751,8 +750,7 @@ static struct bnx2x_vlan_mac_registry_elem *
+>
+>   	list_for_each_entry(pos, &o->head, link)
+>   		if ((data->vlan_mac.vlan == pos->u.vlan_mac.vlan) &&
+> -		    (!memcmp(data->vlan_mac.mac, pos->u.vlan_mac.mac,
+> -			     ETH_ALEN)) &&
+> +		    (ether_addr_equal_unaligned(data->vlan_mac.mac, pos->u.vlan_mac.mac)) &&
+
+    ... and again.
+
+WBR, Sergei
