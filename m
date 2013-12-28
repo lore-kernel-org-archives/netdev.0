@@ -1,13 +1,12 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 08/20] net: mlx4: slight optimization of addr
+Subject: [PATCH net-next v2 15/20] net: seeq: slight optimization of addr
  compare
-Date: Sat, 28 Dec 2013 14:17:37 +0800
-Message-ID: <52BE6D01.1010109@huawei.com>
+Date: Sat, 28 Dec 2013 14:18:04 +0800
+Message-ID: <52BE6D1C.5090101@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Amir Vadai <amirv@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
+To: "David S. Miller" <davem@davemloft.net>,
 	Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -17,47 +16,24 @@ List-Id: netdev.vger.kernel.org
 Use possibly more efficient ether_addr_equal
 to instead of memcmp.
 
-Cc: Amir Vadai <amirv@mellanox.com>
+Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c        | 4 ++--
- drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/seeq/sgiseeq.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 6f92090..7e43858 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -782,7 +782,7 @@ static void update_mclist_flags(struct mlx4_en_priv *priv,
- 	list_for_each_entry(dst_tmp, dst, list) {
- 		found = false;
- 		list_for_each_entry(src_tmp, src, list) {
--			if (!memcmp(dst_tmp->addr, src_tmp->addr, ETH_ALEN)) {
-+			if (ether_addr_equal(dst_tmp->addr, src_tmp->addr)) {
- 				found = true;
- 				break;
- 			}
-@@ -797,7 +797,7 @@ static void update_mclist_flags(struct mlx4_en_priv *priv,
- 	list_for_each_entry(src_tmp, src, list) {
- 		found = false;
- 		list_for_each_entry(dst_tmp, dst, list) {
--			if (!memcmp(dst_tmp->addr, src_tmp->addr, ETH_ALEN)) {
-+			if (ether_addr_equal(dst_tmp->addr, src_tmp->addr)) {
- 				dst_tmp->action = MCLIST_NONE;
- 				found = true;
- 				break;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 2f3f2bc..2e3232c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -3634,7 +3634,7 @@ static int validate_eth_header_mac(int slave, struct _rule_hw *eth_header,
- 	    !is_broadcast_ether_addr(eth_header->eth.dst_mac)) {
- 		list_for_each_entry_safe(res, tmp, rlist, list) {
- 			be_mac = cpu_to_be64(res->mac << 16);
--			if (!memcmp(&be_mac, eth_header->eth.dst_mac, ETH_ALEN))
-+			if (ether_addr_equal((u8 *)&be_mac, eth_header->eth.dst_mac))
- 				return 0;
- 		}
- 		pr_err("MAC %pM doesn't belong to VF %d, Steering rule rejected\n",
+diff --git a/drivers/net/ethernet/seeq/sgiseeq.c b/drivers/net/ethernet/seeq/sgiseeq.c
+index c765718..ced5b13 100644
+--- a/drivers/net/ethernet/seeq/sgiseeq.c
++++ b/drivers/net/ethernet/seeq/sgiseeq.c
+@@ -356,7 +356,7 @@ static inline void sgiseeq_rx(struct net_device *dev, struct sgiseeq_private *sp
+ 		if (pkt_status & SEEQ_RSTAT_FIG) {
+ 			/* Packet is OK. */
+ 			/* We don't want to receive our own packets */
+-			if (memcmp(rd->skb->data + 6, dev->dev_addr, ETH_ALEN)) {
++			if (!ether_addr_equal(rd->skb->data + 6, dev->dev_addr)) {
+ 				if (len > rx_copybreak) {
+ 					skb = rd->skb;
+ 					newskb = netdev_alloc_skb(dev, PKT_BUF_SZ);
 -- 
 1.8.0
