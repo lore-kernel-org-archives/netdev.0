@@ -1,62 +1,30 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 09/20] net: ksz884x: slight optimization of addr
- compare
-Date: Sat, 28 Dec 2013 14:17:41 +0800
-Message-ID: <52BE6D05.90505@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next v4 06/16] i40e: Implementation of VXLAN ndo's
+Date: Sat, 28 Dec 2013 01:17:33 -0500 (EST)
+Message-ID: <20131228.011733.510584636992289362.davem@davemloft.net>
+References: <1388200940-9113-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1388200940-9113-7-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	or.gerlitz@gmail.com, joseph.gasparakis@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35142 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751342Ab3L1GRf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 01:17:35 -0500
+In-Reply-To: <1388200940-9113-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use possibly more efficient ether_addr_equal
-to instead of memcmp.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 27 Dec 2013 19:22:10 -0800
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/ethernet/micrel/ksz884x.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
+> +#ifdef CONFIG_I40E_VXLAN
+> +#include "net/vxlan.h"
+> +#endif
 
-diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
-index ddd252a..8e9dad7 100644
---- a/drivers/net/ethernet/micrel/ksz884x.c
-+++ b/drivers/net/ethernet/micrel/ksz884x.c
-@@ -4128,10 +4128,10 @@ static int hw_add_addr(struct ksz_hw *hw, u8 *mac_addr)
- 	int i;
- 	int j = ADDITIONAL_ENTRIES;
- 
--	if (!memcmp(hw->override_addr, mac_addr, ETH_ALEN))
-+	if (ether_addr_equal(hw->override_addr, mac_addr))
- 		return 0;
- 	for (i = 0; i < hw->addr_list_size; i++) {
--		if (!memcmp(hw->address[i], mac_addr, ETH_ALEN))
-+		if (ether_addr_equal(hw->address[i], mac_addr))
- 			return 0;
- 		if (ADDITIONAL_ENTRIES == j && empty_addr(hw->address[i]))
- 			j = i;
-@@ -4149,7 +4149,7 @@ static int hw_del_addr(struct ksz_hw *hw, u8 *mac_addr)
- 	int i;
- 
- 	for (i = 0; i < hw->addr_list_size; i++) {
--		if (!memcmp(hw->address[i], mac_addr, ETH_ALEN)) {
-+		if (ether_addr_equal(hw->address[i], mac_addr)) {
- 			memset(hw->address[i], 0, ETH_ALEN);
- 			writel(0, hw->io + ADD_ADDR_INCR * i +
- 				KS_ADD_ADDR_0_HI);
-@@ -7104,8 +7104,7 @@ static int pcidev_init(struct pci_dev *pdev, const struct pci_device_id *id)
- 			       ETH_ALEN);
- 		else {
- 			memcpy(dev->dev_addr, sw->other_addr, ETH_ALEN);
--			if (!memcmp(sw->other_addr, hw->override_addr,
--				    ETH_ALEN))
-+			if (ether_addr_equal(sw->other_addr, hw->override_addr))
- 				dev->dev_addr[5] += port->first_port;
- 		}
- 
--- 
-1.8.0
+Please use <net/vxlan.h>, move this snippet into i40e.h if you have
+to.
