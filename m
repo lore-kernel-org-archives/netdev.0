@@ -1,50 +1,62 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 06/20] net: igbvf: slight optimization of addr
+Subject: [PATCH net-next v2 09/20] net: ksz884x: slight optimization of addr
  compare
-Date: Sat, 28 Dec 2013 14:17:28 +0800
-Message-ID: <52BE6CF8.5030806@huawei.com>
+Date: Sat, 28 Dec 2013 14:17:41 +0800
+Message-ID: <52BE6D05.90505@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
+To: "David S. Miller" <davem@davemloft.net>,
 	Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:24911 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751337Ab3L1GRf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 01:17:35 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Use possibly more efficient ether_addr_equal
 to instead of memcmp.
 
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>
+Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/ethernet/intel/igbvf/netdev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/micrel/ksz884x.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
-index 04bf22e..675435f 100644
---- a/drivers/net/ethernet/intel/igbvf/netdev.c
-+++ b/drivers/net/ethernet/intel/igbvf/netdev.c
-@@ -1745,7 +1745,7 @@ static int igbvf_set_mac(struct net_device *netdev, void *p)
+diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
+index ddd252a..8e9dad7 100644
+--- a/drivers/net/ethernet/micrel/ksz884x.c
++++ b/drivers/net/ethernet/micrel/ksz884x.c
+@@ -4128,10 +4128,10 @@ static int hw_add_addr(struct ksz_hw *hw, u8 *mac_addr)
+ 	int i;
+ 	int j = ADDITIONAL_ENTRIES;
  
- 	hw->mac.ops.rar_set(hw, hw->mac.addr, 0);
+-	if (!memcmp(hw->override_addr, mac_addr, ETH_ALEN))
++	if (ether_addr_equal(hw->override_addr, mac_addr))
+ 		return 0;
+ 	for (i = 0; i < hw->addr_list_size; i++) {
+-		if (!memcmp(hw->address[i], mac_addr, ETH_ALEN))
++		if (ether_addr_equal(hw->address[i], mac_addr))
+ 			return 0;
+ 		if (ADDITIONAL_ENTRIES == j && empty_addr(hw->address[i]))
+ 			j = i;
+@@ -4149,7 +4149,7 @@ static int hw_del_addr(struct ksz_hw *hw, u8 *mac_addr)
+ 	int i;
  
--	if (memcmp(addr->sa_data, hw->mac.addr, 6))
-+	if (!ether_addr_equal(addr->sa_data, hw->mac.addr))
- 		return -EADDRNOTAVAIL;
+ 	for (i = 0; i < hw->addr_list_size; i++) {
+-		if (!memcmp(hw->address[i], mac_addr, ETH_ALEN)) {
++		if (ether_addr_equal(hw->address[i], mac_addr)) {
+ 			memset(hw->address[i], 0, ETH_ALEN);
+ 			writel(0, hw->io + ADD_ADDR_INCR * i +
+ 				KS_ADD_ADDR_0_HI);
+@@ -7104,8 +7104,7 @@ static int pcidev_init(struct pci_dev *pdev, const struct pci_device_id *id)
+ 			       ETH_ALEN);
+ 		else {
+ 			memcpy(dev->dev_addr, sw->other_addr, ETH_ALEN);
+-			if (!memcmp(sw->other_addr, hw->override_addr,
+-				    ETH_ALEN))
++			if (ether_addr_equal(sw->other_addr, hw->override_addr))
+ 				dev->dev_addr[5] += port->first_port;
+ 		}
  
- 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
 -- 
 1.8.0
