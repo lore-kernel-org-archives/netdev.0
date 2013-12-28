@@ -1,93 +1,67 @@
-From: Ding Tianhong <dthxman@gmail.com>
-Subject: Re: [PATCH net-next v2 11/20] net: packetengines: slight optimization
- of addr
-Date: Sat, 28 Dec 2013 23:18:45 +0800
-Message-ID: <52BEEBD5.1040301@gmail.com>
-References: <52BE6D0D.9050301@huawei.com> <52BED8ED.2040908@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Ding Tianhong <dingtianhong@huawei.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:60122 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754677Ab3L1Pa3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 10:30:29 -0500
-In-Reply-To: <52BED8ED.2040908@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+Subject: [PATCH 6/7] batman-adv: clean nf state when removing
+	protocol header
+Date: Sat, 28 Dec 2013 17:05:59 +0100
+Message-ID: <1388246760-3335-7-git-send-email-antonio@meshcoding.com>
+References: <1388246760-3335-1-git-send-email-antonio@meshcoding.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>,
+ Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1388246760-3335-1-git-send-email-antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-=E4=BA=8E 2013/12/28 21:58, Sergei Shtylyov =E5=86=99=E9=81=93:
-> Hello.
->=20
-> On 28-12-2013 10:17, Ding Tianhong wrote:
->=20
->> Use possibly more efficient ether_addr_equal
->> to instead of memcmp.
->=20
->> Cc: "David S. Miller" <davem@davemloft.net>
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> ---
->>   drivers/net/ethernet/packetengines/yellowfin.c |   12 ++++++------
->>   1 files changed, 6 insertions(+), 6 deletions(-)
->=20
->> diff --git a/drivers/net/ethernet/packetengines/yellowfin.c b/driver=
-s/net/ethernet/packetengines/yellowfin.c
->> index d28593b..b83ac0e 100644
->> --- a/drivers/net/ethernet/packetengines/yellowfin.c
->> +++ b/drivers/net/ethernet/packetengines/yellowfin.c
->> @@ -1097,12 +1097,12 @@ static int yellowfin_rx(struct net_device *d=
-ev)
->>               if (status2 & 0x80) dev->stats.rx_dropped++;
->>   #ifdef YF_PROTOTYPE        /* Support for prototype hardware errat=
-a. */
->>           } else if ((yp->flags & HasMACAddrBug)  &&
->> -            memcmp(le32_to_cpu(yp->rx_ring_dma +
->> -                entry*sizeof(struct yellowfin_desc)),
->> -                dev->dev_addr, 6) !=3D 0 &&
->> -            memcmp(le32_to_cpu(yp->rx_ring_dma +
->> -                entry*sizeof(struct yellowfin_desc)),
->> -                "\377\377\377\377\377\377", 6) !=3D 0) {
->> +            !ether_addr_equal(le32_to_cpu(yp->rx_ring_dma +
->> +                              entry * sizeof(struct yellowfin_desc)=
-),
->> +                              dev->dev_addr) &&
->=20
->    Previous line was aligned correctly, the above line should start u=
-nder le32_to_cpu.
->=20
->> +            !ether_addr_equal(le32_to_cpu(yp->rx_ring_dma +
->> +                              entry * sizeof(struct yellowfin_desc)=
-),
->=20
->    Start the continuation lines under 'yp', please.
->=20
->> +                              "\377\377\377\377\377\377")) {
->=20
->    This line should start under le32_to_cpu.
->=20
-> WBR, Sergei
->=20
+If an interface enslaved into batman-adv is a bridge (or a
+virtual interface built on top of a bridge) the nf_bridge
+member of the skbs reaching the soft-interface is filled
+with the state about "netfilter bridge" operations.
 
-Hi sergei:
-you mean this way?
-	!ether_addr_equal(le32_to_cpu(yp->rx_ring_dma +
-				      entry * sizeof(struct yellowfin_desc)),
-			  dev->dev_addr) &&
+Then, if one of such skbs is locally delivered, the nf_bridge
+member should be cleaned up to avoid that the old state
+could mess up with other "netfilter bridge" operations when
+entering a second bridge.
+This is needed because batman-adv is an encapsulation
+protocol.
 
-	!ether_addr_equal(le32_to_cpu(yp->rx_ring_dma +
-				      entry * sizeof(struct yellowfin_desc)),
-			  "\377\377\377\377\377\377")) {
+However at the moment skb->nf_bridge is not released at all
+leading to bogus "netfilter bridge" behaviours.
 
-Regards
-Ding
+Fix this by cleaning the netfilter state of the skb before
+it gets delivered to the upper layer in interface_rx().
 
-> --=20
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
+Signed-off-by: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
+---
+ net/batman-adv/soft-interface.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index b4881f8..875a702 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -346,6 +346,11 @@ void batadv_interface_rx(struct net_device *soft_iface,
+ 	skb_pull_rcsum(skb, hdr_size);
+ 	skb_reset_mac_header(skb);
+ 
++	/* clean the netfilter state now that the batman-adv header has been
++	 * removed
++	 */
++	nf_reset(skb);
++
+ 	vid = batadv_get_vid(skb, hdr_size);
+ 	ethhdr = eth_hdr(skb);
+ 
+-- 
+1.8.5.2
