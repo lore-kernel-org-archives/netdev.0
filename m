@@ -1,37 +1,68 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next] netfilter: xtables make functions local
-Date: Sat, 28 Dec 2013 13:50:43 +0100
-Message-ID: <20131228125043.GA24243@localhost>
-References: <20131227120937.702bc383@nehalam.linuxnetplumber.net>
- <20131228.012129.170537567898112631.davem@davemloft.net>
- <alpine.LSU.2.11.1312281230300.16819@nerf08.vanv.qr>
+From: Toshiaki Makita <toshiaki.makita1@gmail.com>
+Subject: Re: bridge vlan_filtering don't work with tap devices (qemu guests)
+Date: Sat, 28 Dec 2013 22:00:31 +0900
+Message-ID: <1388235631.1754.23.camel@localhost.localdomain>
+References: <ecd32790-8561-4b95-9e2f-2e5aad97d8fe@mailpro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stephen@networkplumber.org, David Miller <davem@davemloft.net>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>,
-	Linux Networking Developer Mailing List
-	<netdev@vger.kernel.org>
-To: Jan Engelhardt <jengelh@inai.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LSU.2.11.1312281230300.16819@nerf08.vanv.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	netdev@vger.kernel.org, Vlad Yasevich <vyasevic@redhat.com>
+To: Alexandre DERUMIER <aderumier@odiso.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:50630 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755324Ab3L1NAj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 08:00:39 -0500
+Received: by mail-pa0-f48.google.com with SMTP id rd3so10129591pab.21
+        for <netdev@vger.kernel.org>; Sat, 28 Dec 2013 05:00:38 -0800 (PST)
+In-Reply-To: <ecd32790-8561-4b95-9e2f-2e5aad97d8fe@mailpro>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 28, 2013 at 12:31:26PM +0100, Jan Engelhardt wrote:
-> On Saturday 2013-12-28 07:21, David Miller wrote:
+On Fri, 2013-12-27 at 17:17 +0100, Alexandre DERUMIER wrote:
+> Little update: 
 > 
-> >From: Stephen Hemminger <stephen@networkplumber.org>
-> >Date: Fri, 27 Dec 2013 12:09:37 -0800
-> >
-> >> A couple of functions only used in x_tables, don't need to be global
-> >> 
-> >> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> >
-> >I'll let Pablo pick this up, thanks.
+> I can see now tagged packet on br0 with tcpdump, if I have
 > 
-> Negative, there is at least one known external modules using these.
+> #bridge vlan add dev br0 vid 10 self.
+> 
+> All is working fine now.
+> 
+> I have a last question : 
+> 
+> Is it possible to allow all vlans to go through a port. (or disable filtering for 1 specific port) ?
 
-Unfortunately, we cannot keep symbols for out of tree modules, that
-has been the longterm policy.
+AFAIK, it is impossible.
+
+> 
+> If not, maybe could be it great to be able to add multiple vlans with bridge command,like 
+> "bridge vlan add dev xxx vid 1-4096"
+> or
+> "bridge vlan add dev xxx vid 1,2,3-10,12,13-4096"
+
+Such commands seem to be not supported yet.
+
+> 
+[...]
+> >>Or didn't you set br0 in the same way as other ports like below? 
+> >># bridge vlan add dev br0 vid 10 pvid untagged self 
+> 
+> Indeed I didn't set vlan on br0. Isn't it only to tag packets coming from the bridge itself? (like a bridge management ip for example). 
+> Or do we need to define all vlans allowed to pass through the bridge ? 
+
+If br0 is promiscuous mode, you should be able to see all frames going
+through the bridge.
+But if vid 10 untagged is set on br0, incoming frames with vid 10 will
+be seen after untagged.
+
+If br0 is not promisc mode, you can see only packets delivered to or
+transmitted from br0.
+
+tcpdump normally puts a device into promisc mode, without -p option.
+
+You don't need to add all vids to pass through the bridge.
+Settings on br0 will affect only frames coming from or going to br0.
+
+Thanks,
+Toshiaki Makita
