@@ -1,91 +1,92 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 7/8] netfilter: nf_tables: fix oops when updating table with user chains
-Date: Sat, 28 Dec 2013 23:03:06 +0100
-Message-ID: <1388268187-11569-8-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/8] netfilter: nf_ct_timestamp: Fix BUG_ON after netns deletion
+Date: Sat, 28 Dec 2013 23:03:02 +0100
+Message-ID: <1388268187-11569-4-git-send-email-pablo@netfilter.org>
 References: <1388268187-11569-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:43888 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751586Ab3L1WDg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Dec 2013 17:03:36 -0500
 In-Reply-To: <1388268187-11569-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a crash while trying to deactivate a table that
-contains user chains. You can reproduce it via:
+From: Helmut Schaa <helmut.schaa@googlemail.com>
 
-% nft add table table1
-% nft add chain table1 chain1
-% nft-table-upd ip table1 dormant
+When having nf_conntrack_timestamp enabled deleting a netns
+can lead to the following BUG being triggered:
 
-[  253.021026] BUG: unable to handle kernel NULL pointer dereference at 0000000000000030
-[  253.021114] IP: [<ffffffff8134cebd>] nf_register_hook+0x35/0x6f
-[  253.021167] PGD 30fa5067 PUD 30fa2067 PMD 0
-[  253.021208] Oops: 0000 [#1] SMP
-[...]
-[  253.023305] Call Trace:
-[  253.023331]  [<ffffffffa0885020>] nf_tables_newtable+0x11c/0x258 [nf_tables]
-[  253.023385]  [<ffffffffa0878592>] nfnetlink_rcv_msg+0x1f4/0x226 [nfnetlink]
-[  253.023438]  [<ffffffffa0878418>] ? nfnetlink_rcv_msg+0x7a/0x226 [nfnetlink]
-[  253.023491]  [<ffffffffa087839e>] ? nfnetlink_bind+0x45/0x45 [nfnetlink]
-[  253.023542]  [<ffffffff8134b47e>] netlink_rcv_skb+0x3c/0x88
-[  253.023586]  [<ffffffffa0878973>] nfnetlink_rcv+0x3af/0x3e4 [nfnetlink]
-[  253.023638]  [<ffffffff813fb0d4>] ? _raw_read_unlock+0x22/0x34
-[  253.023683]  [<ffffffff8134af17>] netlink_unicast+0xe2/0x161
-[  253.023727]  [<ffffffff8134b29a>] netlink_sendmsg+0x304/0x332
-[  253.023773]  [<ffffffff8130d250>] __sock_sendmsg_nosec+0x25/0x27
-[  253.023820]  [<ffffffff8130fb93>] sock_sendmsg+0x5a/0x7b
-[  253.023861]  [<ffffffff8130d5d5>] ? copy_from_user+0x2a/0x2c
-[  253.023905]  [<ffffffff8131066f>] ? move_addr_to_kernel+0x35/0x60
-[  253.023952]  [<ffffffff813107b3>] SYSC_sendto+0x119/0x15c
-[  253.023995]  [<ffffffff81401107>] ? sysret_check+0x1b/0x56
-[  253.024039]  [<ffffffff8108dc30>] ? trace_hardirqs_on_caller+0x140/0x1db
-[  253.024090]  [<ffffffff8120164e>] ? trace_hardirqs_on_thunk+0x3a/0x3f
-[  253.024141]  [<ffffffff81310caf>] SyS_sendto+0x9/0xb
-[  253.026219]  [<ffffffff814010e2>] system_call_fastpath+0x16/0x1b
+[63836.660000] Kernel bug detected[#1]:
+[63836.660000] CPU: 0 PID: 0 Comm: swapper Not tainted 3.10.18 #14
+[63836.660000] task: 802d9420 ti: 802d2000 task.ti: 802d2000
+[63836.660000] $ 0   : 00000000 00000000 00000000 00000000
+[63836.660000] $ 4   : 00000001 00000004 00000020 00000020
+[63836.660000] $ 8   : 00000000 80064910 00000000 00000000
+[63836.660000] $12   : 0bff0002 00000001 00000000 0a0a0abe
+[63836.660000] $16   : 802e70a0 85f29d80 00000000 00000004
+[63836.660000] $20   : 85fb62a0 00000002 802d3bc0 85fb62a0
+[63836.660000] $24   : 00000000 87138110
+[63836.660000] $28   : 802d2000 802d3b40 00000014 871327cc
+[63836.660000] Hi    : 000005ff
+[63836.660000] Lo    : f2edd000
+[63836.660000] epc   : 87138794 __nf_ct_ext_add_length+0xe8/0x1ec [nf_conntrack]
+[63836.660000]     Not tainted
+[63836.660000] ra    : 871327cc nf_conntrack_in+0x31c/0x7b8 [nf_conntrack]
+[63836.660000] Status: 1100d403 KERNEL EXL IE
+[63836.660000] Cause : 00800034
+[63836.660000] PrId  : 0001974c (MIPS 74Kc)
+[63836.660000] Modules linked in: ath9k ath9k_common pppoe ppp_async iptable_nat ath9k_hw ath pppox ppp_generic nf_nat_ipv4 nf_conntrack_ipv4 mac80211 ipt_MASQUERADE cfg80211 xt_time xt_tcpudp xt_state xt_quota xt_policy xt_pkttype xt_owner xt_nat xt_multiport xt_mark xh
+[63836.660000] Process swapper (pid: 0, threadinfo=802d2000, task=802d9420, tls=00000000)
+[63836.660000] Stack : 802e70a0 871323d4 00000005 87080234 802e70a0 86d2a840 00000000 00000000
+[63836.660000] Call Trace:
+[63836.660000] [<87138794>] __nf_ct_ext_add_length+0xe8/0x1ec [nf_conntrack]
+[63836.660000] [<871327cc>] nf_conntrack_in+0x31c/0x7b8 [nf_conntrack]
+[63836.660000] [<801ff63c>] nf_iterate+0x90/0xec
+[63836.660000] [<801ff730>] nf_hook_slow+0x98/0x164
+[63836.660000] [<80205968>] ip_rcv+0x3e8/0x40c
+[63836.660000] [<801d9754>] __netif_receive_skb_core+0x624/0x6a4
+[63836.660000] [<801da124>] process_backlog+0xa4/0x16c
+[63836.660000] [<801d9bb4>] net_rx_action+0x10c/0x1e0
+[63836.660000] [<8007c5a4>] __do_softirq+0xd0/0x1bc
+[63836.660000] [<8007c730>] do_softirq+0x48/0x68
+[63836.660000] [<8007c964>] irq_exit+0x54/0x70
+[63836.660000] [<80060830>] ret_from_irq+0x0/0x4
+[63836.660000] [<8006a9f8>] r4k_wait_irqoff+0x18/0x1c
+[63836.660000] [<8009cfb8>] cpu_startup_entry+0xa4/0x104
+[63836.660000] [<802eb918>] start_kernel+0x394/0x3ac
+[63836.660000]
+[63836.660000]
+Code: 00821021  8c420000  2c440001 <00040336> 90440011  92350010  90560010  2485ffff  02a5a821
+[63837.040000] ---[ end trace ebf660c3ce3b55e7 ]---
+[63837.050000] Kernel panic - not syncing: Fatal exception in interrupt
+[63837.050000] Rebooting in 3 seconds..
 
-Reported-by: Alex Wei <alex.kern.mentor@gmail.com>
+Fix this by not unregistering the conntrack extension in the per-netns
+cleanup code.
+
+This bug was introduced in (73f4001 netfilter: nf_ct_tstamp: move
+initialization out of pernet_operations).
+
+Signed-off-by: Helmut Schaa <helmut.schaa@googlemail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_tables_api.c |   12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ net/netfilter/nf_conntrack_timestamp.c |    1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index d9fcd27..d65c80b 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -312,6 +312,9 @@ static int nf_tables_table_enable(struct nft_table *table)
- 	int err, i = 0;
- 
- 	list_for_each_entry(chain, &table->chains, list) {
-+		if (!(chain->flags & NFT_BASE_CHAIN))
-+			continue;
-+
- 		err = nf_register_hook(&nft_base_chain(chain)->ops);
- 		if (err < 0)
- 			goto err;
-@@ -321,6 +324,9 @@ static int nf_tables_table_enable(struct nft_table *table)
- 	return 0;
- err:
- 	list_for_each_entry(chain, &table->chains, list) {
-+		if (!(chain->flags & NFT_BASE_CHAIN))
-+			continue;
-+
- 		if (i-- <= 0)
- 			break;
- 
-@@ -333,8 +339,10 @@ static int nf_tables_table_disable(struct nft_table *table)
+diff --git a/net/netfilter/nf_conntrack_timestamp.c b/net/netfilter/nf_conntrack_timestamp.c
+index 902fb0a..7a394df 100644
+--- a/net/netfilter/nf_conntrack_timestamp.c
++++ b/net/netfilter/nf_conntrack_timestamp.c
+@@ -97,7 +97,6 @@ int nf_conntrack_tstamp_pernet_init(struct net *net)
+ void nf_conntrack_tstamp_pernet_fini(struct net *net)
  {
- 	struct nft_chain *chain;
- 
--	list_for_each_entry(chain, &table->chains, list)
--		nf_unregister_hook(&nft_base_chain(chain)->ops);
-+	list_for_each_entry(chain, &table->chains, list) {
-+		if (chain->flags & NFT_BASE_CHAIN)
-+			nf_unregister_hook(&nft_base_chain(chain)->ops);
-+	}
- 
- 	return 0;
+ 	nf_conntrack_tstamp_fini_sysctl(net);
+-	nf_ct_extend_unregister(&tstamp_extend);
  }
+ 
+ int nf_conntrack_tstamp_init(void)
 -- 
 1.7.10.4
-
