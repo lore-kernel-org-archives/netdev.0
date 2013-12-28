@@ -1,33 +1,50 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [patch iproute2 2/2] add support for IFA_F_MANAGETEMPADDR
-Date: Sat, 28 Dec 2013 11:27:50 -0800
-Message-ID: <20131228112750.23193536@nehalam.linuxnetplumber.net>
-References: <1386319522-2102-1-git-send-email-jiri@resnulli.us>
-	<1386319587-2149-1-git-send-email-jiri@resnulli.us>
-	<1386319587-2149-2-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH iproute2] iptunnel: Allow GRE_KEY for vti interface
+Date: Sat, 28 Dec 2013 11:31:28 -0800
+Message-ID: <20131228113128.5898cdfe@nehalam.linuxnetplumber.net>
+References: <1386260341-9103-1-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	thaller@redhat.com, hannes@stressinduktion.org,
-	vyasevich@gmail.com, dcbw@redhat.com, David.Laight@ACULAB.COM
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: network dev <netdev@vger.kernel.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Hangbin Liu <liuhangbin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:42075 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751126Ab3L1T1z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 14:27:55 -0500
-Received: by mail-pd0-f176.google.com with SMTP id w10so10030869pde.7
-        for <netdev@vger.kernel.org>; Sat, 28 Dec 2013 11:27:54 -0800 (PST)
-In-Reply-To: <1386319587-2149-2-git-send-email-jiri@resnulli.us>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:55494 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750711Ab3L1Tba (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 14:31:30 -0500
+Received: by mail-pd0-f177.google.com with SMTP id q10so9995134pdj.22
+        for <netdev@vger.kernel.org>; Sat, 28 Dec 2013 11:31:30 -0800 (PST)
+In-Reply-To: <1386260341-9103-1-git-send-email-liuhangbin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri,  6 Dec 2013 09:46:27 +0100
-Jiri Pirko <jiri@resnulli.us> wrote:
+On Fri,  6 Dec 2013 00:19:01 +0800
+Hangbin Liu <liuhangbin@gmail.com> wrote:
 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> The vti interface will use GRE_KEY to match the right policy in kernel. So we
+> can not return fail when the tunnel is vti.
+> 
+> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> ---
+>  ip/iptunnel.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/ip/iptunnel.c b/ip/iptunnel.c
+> index 40186d3..950f984 100644
+> --- a/ip/iptunnel.c
+> +++ b/ip/iptunnel.c
+> @@ -240,8 +240,8 @@ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
+>  		}
+>  	}
+>  
+> -	if (p->iph.protocol == IPPROTO_IPIP || p->iph.protocol == IPPROTO_IPV6) {
+> -		if ((p->i_flags & GRE_KEY) || (p->o_flags & GRE_KEY)) {
+> +	if ((p->i_flags & GRE_KEY) || (p->o_flags & GRE_KEY)) {
+> +		if (!(p->i_flags & VTI_ISVTI) && (p->iph.protocol != IPPROTO_GRE)) {
+>  			fprintf(stderr, "Keys are not allowed with ipip and sit tunnels\n");
+>  			return -1;
+>  		}
 
-This is ok, but since patch depends on previous one can't apply.
-Please resubmit when first patch is fixed.
+Accepted. Hope this works for everyone
