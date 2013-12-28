@@ -1,27 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv4: remove unused function
-Date: Sat, 28 Dec 2013 17:03:39 -0500 (EST)
-Message-ID: <20131228.170339.682715043271645568.davem@davemloft.net>
-References: <20131228110822.1ce0b9cd@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41155 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751738Ab3L1WDp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 17:03:45 -0500
-In-Reply-To: <20131228110822.1ce0b9cd@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 2/8] netfilter: nft_exthdr: call ipv6_find_hdr() with explicitly initialized offset
+Date: Sat, 28 Dec 2013 23:03:01 +0100
+Message-ID: <1388268187-11569-3-git-send-email-pablo@netfilter.org>
+References: <1388268187-11569-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1388268187-11569-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Sat, 28 Dec 2013 11:08:22 -0800
+From: Daniel Borkmann <dborkman@redhat.com>
 
-> inetpeer_invalidate_family defined but never used
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+In nft's nft_exthdr_eval() routine we process IPv6 extension header
+through invoking ipv6_find_hdr(), but we call it with an uninitialized
+offset variable that contains some stack value. In ipv6_find_hdr()
+we then test if the value of offset != 0 and call skb_header_pointer()
+on that offset in order to map struct ipv6hdr into it. Fix it up by
+initializing offset to 0 as it was probably intended to be.
 
-Applied.
+Fixes: 96518518cc41 ("netfilter: add nftables")
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nft_exthdr.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/netfilter/nft_exthdr.c b/net/netfilter/nft_exthdr.c
+index 8e0bb75..55c939f 100644
+--- a/net/netfilter/nft_exthdr.c
++++ b/net/netfilter/nft_exthdr.c
+@@ -31,7 +31,7 @@ static void nft_exthdr_eval(const struct nft_expr *expr,
+ {
+ 	struct nft_exthdr *priv = nft_expr_priv(expr);
+ 	struct nft_data *dest = &data[priv->dreg];
+-	unsigned int offset;
++	unsigned int offset = 0;
+ 	int err;
+ 
+ 	err = ipv6_find_hdr(pkt->skb, &offset, priv->type, NULL, NULL);
+-- 
+1.7.10.4
+
