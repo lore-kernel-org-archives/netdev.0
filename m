@@ -1,97 +1,75 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/8] Netfilter/IPVS fixes for net
-Date: Sat, 28 Dec 2013 23:02:59 +0100
-Message-ID: <1388268187-11569-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/8] netfilter: nfnetlink_log: unset nf_loggers for netns when unloading module
+Date: Sat, 28 Dec 2013 23:03:00 +0100
+Message-ID: <1388268187-11569-2-git-send-email-pablo@netfilter.org>
+References: <1388268187-11569-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:43857 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751150Ab3L1WDY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Dec 2013 17:03:24 -0500
+In-Reply-To: <1388268187-11569-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Gao feng <gaofeng@cn.fujitsu.com>
 
-This patchset contains four nf_tables fixes, one IPVS fix due to
-missing updates in the interaction with the new sedadj conntrack
-extension that was added to support the netfilter synproxy code,
-and a couple of one-liners to fix netnamespace netfilter issues.
-More specifically, they are:
+Steven Rostedt and Arnaldo Carvalho de Melo reported a panic
+when access the files /proc/sys/net/netfilter/nf_log/*.
 
-* Fix ipv6_find_hdr() call without offset being explicitly initialized
-  in nft_exthdr, as required by that function, from Daniel Borkmann.
+This problem will occur when we do:
 
-* Fix oops in nfnetlink_log when using netns and unloading the kernel
-  module, from Gao feng.
+ echo nfnetlink_log > /proc/sys/net/netfilter/nf_log/any_file
+ rmmod nfnetlink_log
 
-* Fix BUG_ON in nf_ct_timestamp extension after netns is destroyed,
-  from Helmut Schaa.
+and then access the files.
 
-* Fix crash in IPVS due to missing sequence adjustment extension being
-  allocated in the conntrack, from Jesper Dangaard Brouer.
+Since the nf_loggers of netns hasn't been unset, it will point
+to the memory that has been freed.
 
-* Add bugtrap to spot a warning in case you deference sequence adjustment
-  conntrack area when not available, this should help to catch similar
-  invalid dereferences in the Netfilter tree, also from Jesper.
+This bug is introduced by commit 9368a53c ("netfilter: nfnetlink_log:
+add net namespace support for nfnetlink_log").
 
-* Fix incomple dumping of sets in nf_tables when retrieving by family,
-  from me.
+[17261.822047] BUG: unable to handle kernel paging request at ffffffffa0d49090
+[17261.822056] IP: [<ffffffff8157aba0>] nf_log_proc_dostring+0xf0/0x1d0
+[...]
+[17261.822226] Call Trace:
+[17261.822235]  [<ffffffff81297b98>] ? security_capable+0x18/0x20
+[17261.822240]  [<ffffffff8106fa09>] ? ns_capable+0x29/0x50
+[17261.822247]  [<ffffffff8163d25f>] ? net_ctl_permissions+0x1f/0x90
+[17261.822254]  [<ffffffff81216613>] proc_sys_call_handler+0xb3/0xc0
+[17261.822258]  [<ffffffff81216651>] proc_sys_read+0x11/0x20
+[17261.822265]  [<ffffffff811a80de>] vfs_read+0x9e/0x170
+[17261.822270]  [<ffffffff811a8c09>] SyS_read+0x49/0xa0
+[17261.822276]  [<ffffffff810e6496>] ? __audit_syscall_exit+0x1f6/0x2a0
+[17261.822283]  [<ffffffff81656e99>] system_call_fastpath+0x16/0x1b
+[17261.822285] Code: cc 81 4d 63 e4 4c 89 45 88 48 89 4d 90 e8 19 03 0d 00 4b 8b 84 e5 28 08 00 00 48 8b 4d 90 4c 8b 45 88 48 85 c0 0f 84 a8 00 00 00 <48> 8b 40 10 48 89 43 08 48 89 df 4c 89 f2 31 f6 e8 4b 35 af ff
+[17261.822329] RIP  [<ffffffff8157aba0>] nf_log_proc_dostring+0xf0/0x1d0
+[17261.822334]  RSP <ffff880274d3fe28>
+[17261.822336] CR2: ffffffffa0d49090
+[17261.822340] ---[ end trace a14ce54c0897a90d ]---
 
-* Fix oops when updating the table state (dormant <-> active) and having
-  user (not base ) chains, from me.
+Reported-by: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Reported-by: Steven Rostedt <rostedt@goodmis.org>
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nfnetlink_log.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-* Fix wrong validation in set element data that results in returning
-  -EINVAL when using the nf_tables dictionary feature with mappings,
-  also from me.
-
-We don't usually have this amount of fixes by this time (as we're already
-in -rc5 of the development cycle), although half of them are related to
-nf_tables which is a relatively new thing, and I also belive that holidays
-have also delayed the flight of bugfixes to mainstream a bit.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-Thanks!
-
-P.S: Have a nice entrance to new year.
-
-----------------------------------------------------------------
-
-The following changes since commit a7c12639bdf571a09578aed626875848d209d24f:
-
-  Merge branch 'qlcnic' (2013-12-17 16:25:24 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-for you to fetch changes up to 2ee0d3c80fdb7974cfa1c7e25b5048e9fcaf69b6:
-
-  netfilter: nf_tables: fix wrong datatype in nft_validate_data_load() (2013-12-28 22:32:28 +0100)
-
-----------------------------------------------------------------
-Daniel Borkmann (1):
-      netfilter: nft_exthdr: call ipv6_find_hdr() with explicitly initialized offset
-
-Gao feng (1):
-      netfilter: nfnetlink_log: unset nf_loggers for netns when unloading module
-
-Helmut Schaa (1):
-      netfilter: nf_ct_timestamp: Fix BUG_ON after netns deletion
-
-Jesper Dangaard Brouer (2):
-      netfilter: WARN about wrong usage of sequence number adjustments
-      ipvs: correct usage/allocation of seqadj ext in ipvs
-
-Pablo Neira Ayuso (3):
-      netfilter: nf_tables: fix dumping with large number of sets
-      netfilter: nf_tables: fix oops when updating table with user chains
-      netfilter: nf_tables: fix wrong datatype in nft_validate_data_load()
-
- net/netfilter/ipvs/ip_vs_nfct.c        |    6 ++++++
- net/netfilter/nf_conntrack_seqadj.c    |    5 +++++
- net/netfilter/nf_conntrack_timestamp.c |    1 -
- net/netfilter/nf_tables_api.c          |   26 ++++++++++++++++++++------
- net/netfilter/nfnetlink_log.c          |    1 +
- net/netfilter/nft_exthdr.c             |    2 +-
- 6 files changed, 33 insertions(+), 8 deletions(-)
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index 3c4b69e..a155d19 100644
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -1053,6 +1053,7 @@ static void __net_exit nfnl_log_net_exit(struct net *net)
+ #ifdef CONFIG_PROC_FS
+ 	remove_proc_entry("nfnetlink_log", net->nf.proc_netfilter);
+ #endif
++	nf_log_unset(net, &nfulnl_logger);
+ }
+ 
+ static struct pernet_operations nfnl_log_net_ops = {
+-- 
+1.7.10.4
