@@ -1,27 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv4: make fib_detect_death static
-Date: Sat, 28 Dec 2013 01:21:42 -0500 (EST)
-Message-ID: <20131228.012142.2197039481840374168.davem@davemloft.net>
-References: <20131227121053.5f3445ac@nehalam.linuxnetplumber.net>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next v2 10/20] net: vxge: slight optimization of addr
+ compare
+Date: Sat, 28 Dec 2013 14:17:45 +0800
+Message-ID: <52BE6D09.5040106@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35195 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750844Ab3L1GVn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 01:21:43 -0500
-In-Reply-To: <20131227121053.5f3445ac@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Jon Mason <jdmason@kudzu.us>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Fri, 27 Dec 2013 12:10:53 -0800
+Use possibly more efficient ether_addr_equal
+to instead of memcmp.
 
-> -int fib_detect_death(struct fib_info *fi, int order,
-> +static int fib_detect_death(struct fib_info *fi, int order,
->  		     struct fib_info **last_resort, int *last_idx, int dflt)
+Cc: Jon Mason <jdmason@kudzu.us>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/ethernet/neterion/vxge/vxge-main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Please reindent the args.
+diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
+index 11b1c70..6eae216 100644
+--- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
++++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
+@@ -1430,7 +1430,7 @@ vxge_search_mac_addr_in_da_table(struct vxge_vpath *vpath, struct macInfo *mac)
+ 		return status;
+ 	}
+ 
+-	while (memcmp(mac->macaddr, macaddr, ETH_ALEN)) {
++	while (!ether_addr_equal(mac->macaddr, macaddr)) {
+ 		status = vxge_hw_vpath_mac_addr_get_next(vpath->handle,
+ 				macaddr, macmask);
+ 		if (status != VXGE_HW_OK)
+-- 
+1.8.0
