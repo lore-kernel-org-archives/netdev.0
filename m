@@ -1,68 +1,51 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH RESEND -v2 2/2] net/7990: Make lance_private.name const
-Date: Sat, 28 Dec 2013 21:11:15 +0100
-Message-ID: <1388261475-7332-2-git-send-email-geert@linux-m68k.org>
-References: <1388261475-7332-1-git-send-email-geert@linux-m68k.org>
-Cc: netdev@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>
-To: "David S. Miller" <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch iproute2 1/2] add support for extended ifa_flags
+Date: Sat, 28 Dec 2013 22:20:18 +0100
+Message-ID: <20131228212018.GA2447@minipsycho>
+References: <1386319522-2102-1-git-send-email-jiri@resnulli.us>
+ <1386319587-2149-1-git-send-email-jiri@resnulli.us>
+ <20131228112147.67756b9c@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	thaller@redhat.com, hannes@stressinduktion.org,
+	vyasevich@gmail.com, dcbw@redhat.com, David.Laight@ACULAB.COM
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from juliette.telenet-ops.be ([195.130.137.74]:40515 "EHLO
-	juliette.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750854Ab3L1ULa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 15:11:30 -0500
-In-Reply-To: <1388261475-7332-1-git-send-email-geert@linux-m68k.org>
+Received: from mail-ea0-f172.google.com ([209.85.215.172]:39170 "EHLO
+	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750739Ab3L1VUX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 16:20:23 -0500
+Received: by mail-ea0-f172.google.com with SMTP id q10so3864123ead.17
+        for <netdev@vger.kernel.org>; Sat, 28 Dec 2013 13:20:21 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20131228112147.67756b9c@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This allows to drop a few casts.
+Sat, Dec 28, 2013 at 08:21:47PM CET, stephen@networkplumber.org wrote:
+>Was about to apply this but found something while reviewing.
+>
+>On Fri,  6 Dec 2013 09:46:26 +0100
+>Jiri Pirko <jiri@resnulli.us> wrote:
+>
+>> +	req.ifa.ifa_flags = ifa_flags & 0xff;
+>> +	addattr32(&req.n, sizeof(req), IFA_FLAGS, ifa_flags);
+>
+>I don't like the mystery mask (0xff) here. I think this was to mask
+>off private flags. Perhaps a manifest constant should be added to if.h
+>lie IFA_F_RDONLY_MASK??
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
-v2: Rebase after whitespace cleanup
+Hmm.. I wanted to emhasize that only 1 byte of value is taken.
+But I think that simple "req.ifa.ifa_flags = ifa_flags" should be fine
+here.
 
- drivers/net/ethernet/amd/7990.h    |    2 +-
- drivers/net/ethernet/amd/hplance.c |    2 +-
- drivers/net/ethernet/amd/mvme147.c |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+I will change this and repost.
 
-diff --git a/drivers/net/ethernet/amd/7990.h b/drivers/net/ethernet/amd/7990.h
-index 6cf566c3d249..e9e0be313804 100644
---- a/drivers/net/ethernet/amd/7990.h
-+++ b/drivers/net/ethernet/amd/7990.h
-@@ -98,7 +98,7 @@ struct lance_init_block {
-  * drivers to add things...
-  */
- struct lance_private {
--	char *name;
-+	const char *name;
- 	unsigned long base;
- 	volatile struct lance_init_block *init_block; /* CPU address of RAM */
- 	volatile struct lance_init_block *lance_init_block; /* LANCE address of RAM */
-diff --git a/drivers/net/ethernet/amd/hplance.c b/drivers/net/ethernet/amd/hplance.c
-index 88a81a18374d..47ce57c2c893 100644
---- a/drivers/net/ethernet/amd/hplance.c
-+++ b/drivers/net/ethernet/amd/hplance.c
-@@ -149,7 +149,7 @@ static void hplance_init(struct net_device *dev, struct dio_dev *d)
- 	}
- 
- 	lp = netdev_priv(dev);
--	lp->lance.name = (char *)d->name;                /* discards const, shut up gcc */
-+	lp->lance.name = d->name;
- 	lp->lance.base = va;
- 	lp->lance.init_block = (struct lance_init_block *)(va + HPLANCE_MEMOFF); /* CPU addr */
- 	lp->lance.lance_init_block = NULL;              /* LANCE addr of same RAM */
-diff --git a/drivers/net/ethernet/amd/mvme147.c b/drivers/net/ethernet/amd/mvme147.c
-index 15a5e366af29..0e8399dec054 100644
---- a/drivers/net/ethernet/amd/mvme147.c
-+++ b/drivers/net/ethernet/amd/mvme147.c
-@@ -118,7 +118,7 @@ struct net_device * __init mvme147lance_probe(int unit)
- 		return ERR_PTR(-ENOMEM);
- 	}
- 
--	lp->lance.name = (char *)name;                   /* discards const, shut up gcc */
-+	lp->lance.name = name;
- 	lp->lance.base = dev->base_addr;
- 	lp->lance.init_block = (struct lance_init_block *)(lp->ram); /* CPU addr */
- 	lp->lance.lance_init_block = (struct lance_init_block *)(lp->ram);                 /* LANCE addr of same RAM */
--- 
-1.7.9.5
+Thanks!
+
+>
+>Plus from an API point of view, hard coding a value (even in #define)
+>seems like a problem when future values get added.
+>
