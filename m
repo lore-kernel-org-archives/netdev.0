@@ -1,8 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 14/20] net: renesas: slight optimization of addr
- compare
-Date: Sat, 28 Dec 2013 14:18:01 +0800
-Message-ID: <52BE6D19.4010701@huawei.com>
+Subject: [PATCH net-next v2 16/20] net: sun: optimization of addr compare
+Date: Sat, 28 Dec 2013 14:18:08 +0800
+Message-ID: <52BE6D20.4040509@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -10,10 +9,10 @@ To: "David S. Miller" <davem@davemloft.net>,
 	Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:42656 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755174Ab3L1GSG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 01:18:06 -0500
+Received: from szxga01-in.huawei.com ([119.145.14.64]:18186 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755218Ab3L1GSN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 01:18:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -23,21 +22,21 @@ to instead of memcmp.
 Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/ethernet/renesas/sh_eth.c | 2 +-
+ drivers/net/ethernet/sun/sunvnet.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index ca742e1..2d00bce 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2207,7 +2207,7 @@ static int sh_eth_tsu_find_entry(struct net_device *ndev, const u8 *addr)
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index 3df5684..1c24a8f 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -751,7 +751,7 @@ static struct vnet_mcast_entry *__vnet_mc_find(struct vnet *vp, u8 *addr)
+ 	struct vnet_mcast_entry *m;
  
- 	for (i = 0; i < SH_ETH_TSU_CAM_ENTRIES; i++, reg_offset += 8) {
- 		sh_eth_tsu_read_entry(reg_offset, c_addr);
--		if (memcmp(addr, c_addr, ETH_ALEN) == 0)
-+		if (ether_addr_equal(addr, c_addr))
- 			return i;
+ 	for (m = vp->mcast_list; m; m = m->next) {
+-		if (!memcmp(m->addr, addr, ETH_ALEN))
++		if (ether_addr_equal(m->addr, addr))
+ 			return m;
  	}
- 
+ 	return NULL;
 -- 
 1.8.0
