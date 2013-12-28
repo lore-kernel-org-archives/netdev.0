@@ -1,76 +1,61 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v4 02/16] i40e: Suppress HMC error to Interrupt message level
-Date: Fri, 27 Dec 2013 19:22:06 -0800
-Message-ID: <1388200940-9113-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1388200940-9113-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:32854 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754986Ab3L1DW2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Dec 2013 22:22:28 -0500
-In-Reply-To: <1388200940-9113-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next 19/20] net: plip: slight optimization of addr
+ compare
+Date: Sat, 28 Dec 2013 13:05:49 +0800
+Message-ID: <52BE5C2D.1030602@huawei.com>
+References: <52BD22ED.4030302@huawei.com> <1388159283.12212.80.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1388159283.12212.80.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+On 2013/12/27 23:48, Eric Dumazet wrote:
+> On Fri, 2013-12-27 at 14:49 +0800, Ding Tianhong wrote:
+>> Use possibly more efficient ether_addr_equal
+>> to instead of memcmp.
+>>
+>> Cc: "David S. Miller" <davem@davemloft.net>
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>> ---
+>>  drivers/net/plip/plip.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/plip/plip.c b/drivers/net/plip/plip.c
+>> index 7b4ff35..26614df 100644
+>> --- a/drivers/net/plip/plip.c
+>> +++ b/drivers/net/plip/plip.c
+>> @@ -549,7 +549,7 @@ static __be16 plip_type_trans(struct sk_buff *skb, struct net_device *dev)
+>>  
+>>  	if(*eth->h_dest&1)
+>>  	{
+>> -		if(memcmp(eth->h_dest,dev->broadcast, ETH_ALEN)==0)
+>> +		if(ether_addr_equal(eth->h_dest, dev->broadcast))
+>>  			skb->pkt_type=PACKET_BROADCAST;
+>>  		else
+>>  			skb->pkt_type=PACKET_MULTICAST;
+> 
+> What about :
+> 
+>         if (is_multicast_ether_addr(eth->h_dest)) {
+>                 if (ether_addr_equal_64bits(eth->h_dest, dev->broadcast))
+>                         skb->pkt_type = PACKET_BROADCAST;
+>                 else
+>                         skb->pkt_type = PACKET_MULTICAST;
+>         }
+> 
+> 
+> 
+more better, thanks.
 
-Prevent messages from stray HMC events, except at interrupt message
-level, and refactor HMC error handling.
+Regards
+Ding
 
-Change-Id: Iabd203ba1dfc26a136b638597f3e9991acfa29f3
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index efdf8a2..f14b31c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2814,6 +2814,11 @@ static irqreturn_t i40e_intr(int irq, void *data)
- 			pf->empr_count++;
- 	}
- 
-+	if (icr0 & I40E_PFINT_ICR0_HMC_ERR_MASK) {
-+		icr0 &= ~I40E_PFINT_ICR0_HMC_ERR_MASK;
-+		dev_info(&pf->pdev->dev, "HMC error interrupt\n");
-+	}
-+
- 	/* If a critical error is pending we have no choice but to reset the
- 	 * device.
- 	 * Report and mask out any remaining unexpected interrupts.
-@@ -2822,18 +2827,13 @@ static irqreturn_t i40e_intr(int irq, void *data)
- 	if (icr0_remaining) {
- 		dev_info(&pf->pdev->dev, "unhandled interrupt icr0=0x%08x\n",
- 			 icr0_remaining);
--		if ((icr0_remaining & I40E_PFINT_ICR0_HMC_ERR_MASK) ||
--		    (icr0_remaining & I40E_PFINT_ICR0_PE_CRITERR_MASK) ||
-+		if ((icr0_remaining & I40E_PFINT_ICR0_PE_CRITERR_MASK) ||
- 		    (icr0_remaining & I40E_PFINT_ICR0_PCI_EXCEPTION_MASK) ||
- 		    (icr0_remaining & I40E_PFINT_ICR0_ECC_ERR_MASK) ||
- 		    (icr0_remaining & I40E_PFINT_ICR0_MAL_DETECT_MASK)) {
--			if (icr0 & I40E_PFINT_ICR0_HMC_ERR_MASK) {
--				dev_info(&pf->pdev->dev, "HMC error interrupt\n");
--			} else {
--				dev_info(&pf->pdev->dev, "device will be reset\n");
--				set_bit(__I40E_PF_RESET_REQUESTED, &pf->state);
--				i40e_service_event_schedule(pf);
--			}
-+			dev_info(&pf->pdev->dev, "device will be reset\n");
-+			set_bit(__I40E_PF_RESET_REQUESTED, &pf->state);
-+			i40e_service_event_schedule(pf);
- 		}
- 		ena_mask &= ~icr0_remaining;
- 	}
--- 
-1.8.3.1
+> 
+> 
