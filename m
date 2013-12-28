@@ -1,64 +1,95 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next v2 07/20] net: ixgbe: slight optimization of
- addr compare
-Date: Sat, 28 Dec 2013 05:16:24 -0800
-Message-ID: <1388236584.2183.192.camel@jtkirshe-mobl>
-References: <52BE6CFD.4090403@huawei.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-P7tuZEL6HSYBcQ0j9lO6"
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52BE6CFD.4090403@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH] macvlan: fix oops with vlan-on-top and HW_VLAN_CTAG_TX lowerdev
+Date: Sat, 28 Dec 2013 14:38:40 +0100
+Message-ID: <1388237920-5140-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:58134 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755356Ab3L1Nl5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 08:41:57 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+commit 797f87f83b60685ff8a13fa0572d2f10393c50d3
+(macvlan: fix netdev feature propagation from lower device) can result
+in oops:
 
---=-P7tuZEL6HSYBcQ0j9lO6
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+[   81.011639] 8021q: adding VLAN 0 to HW filter on device wan0
+[   81.030402] BUG: unable to handle kernel NULL pointer dereference at 00000000000001e0
+[   81.032267] IP: [<ffffffff813269d0>] macvlan_hard_header+0x40/0x60
+[..]
+[   81.034359] RIP: 0010:[<ffffffff813269d0>]  [<ffffffff813269d0>] macvlan_hard_header+0x40/0x60
+[..]
+[   81.034359]  <IRQ> 
+[   81.034359]  [<ffffffff8139c7ed>] ? neigh_resolve_output+0x16d/0x2b0
+[   81.034359]  [<ffffffff81484246>] ? ip6_finish_output2+0x176/0x600
+[   81.034359]  [<ffffffff81484246>] ip6_finish_output2+0x176/0x600
+[   81.034359]  [<ffffffff81484129>] ? ip6_finish_output2+0x59/0x600
+[   81.034359]  [<ffffffff814865c6>] ip6_finish_output+0x96/0x1f0
+[   81.034359]  [<ffffffff81486773>] ip6_output+0x53/0x1c0
+[   81.034359]  [<ffffffff814a7dc2>] mld_sendpack+0x2b2/0x330
+[   81.034359]  [<ffffffff814a8774>] mld_ifc_timer_expire+0x194/0x2c0
 
-On Sat, 2013-12-28 at 14:17 +0800, Ding Tianhong wrote:
-> Use possibly more efficient ether_addr_equal
-> to instead of memcmp.
->=20
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Cc: Bruce Allan <bruce.w.allan@intel.com>
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
+...if the lower device supports NETIF_F_HW_VLAN_CTAG_TX flag and a vlan
+is created on top of the macvlan device, i.e.
 
-Thanks Ding, I will update the patch in my queue with this updated
-version.
+ip link add link eth0 name wan0 type macvlan
+ip link add link wan0 name wan1 type vlan id 2
+ip link set wan0 up
 
---=-P7tuZEL6HSYBcQ0j9lO6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+reason is that 8021q sets dev->header_ops to the realdev in
+'NETIF_F_HW_VLAN_CTAG_TX present' case - but macvlan_heard_header
+assumes that the *dev pointer passed is a macvlan device.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
+But thats not the case in the above scenario.
+macvlan_hard_header is invokes with *dev being the 8021q interface,
+which then oopses since the netdev_priv area is something completely different.
 
-iQIcBAABCgAGBQJSvs8oAAoJEOVv75VaS+3OGX4P/RrOfivPqLRPw4STa27SxEMt
-bvwbEQ9fGwhT5KZq6tBj8BDvesbXVWx/5niB05Y3QFpp7I26OMMKgPvhefl2n4qw
-9SAQd8Ytjsmc4FdZ3md2la0v5iPtHRIcTQXk79uIUrFTOP1xT+3TRgNsHgojZyAw
-rxN6NYF4D0Ggb64bAxfRx1VctTE5v7TG65bH1tNp1UItJKU6TxPdWcc3r2aVvxXV
-5O5NPNB1XBBkE20LqOwCA10VK+MpZ8E2lXiX4x7ozhOFr9VIXohmcEBf5dp96JML
-uPf1JRFedJyWHcRjzV/kaTIsKOs2TX4INxhJ2b4GRGQUarvOXrJwchE6bKbAJkTL
-TRV0ozGNQsar7tG1scidIKIgPTLOnL8+Ts05jqt2sWCfAhisUKiNjD9lIFo/A93k
-AGWPeOXa35lxhQtLh5FqDYJNXwXpPWFCaCP26Bmiw/SdvEa6NkH1n0HjV+S0o29X
-WQtWDNdFgedilvgXMvYVqq3JSISz1r+Ykbixeb+LcZrGeQgRLU/5V93jE3idz+Xs
-A216dgxrPySDHD+DINarR8CSBgJTFyyjmlvHQwYlR6PDaIRUr0lT5umt0oRieFJ0
-vMbGRvNPMzPwOLx897dRvE2lAi21sW7KvBauS66J2VTVuh/lLeg4yYPeRnkFU4K/
-Z3ELDDHGD8r5s949KfWI
-=ykeH
------END PGP SIGNATURE-----
+Cap lowerdev feature set to the one explicitly set via MACVLAN_FEATURES
+before trying to increment any features.
 
---=-P7tuZEL6HSYBcQ0j9lO6--
+Fixes: 797f87f83b ("macvlan: fix netdev feature propagation from lower device")
+Reported-by: Will Trives <renevant@internode.on.net>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ WARNING: I am not sure this is correct.
+
+ We lose flags that the lowerdev of the macvlan could handle.
+
+ What 8021q is doing in net/8021q/vlan_dev.c:vlan_dev_init seems strange to me.
+
+ Where does it say that is ok to just do
+  dev->header_ops      = real_dev->header_ops;
+
+ and then assume that header_ops->create() et al. will cope
+ with dev being a 8021q device instead of real_dev?
+
+ To me this was completely unexpected.
+
+ Or is the real bug the use of netdev_priv in macvlan_hard_header()?
+
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 60406b0..cd2791b 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -690,13 +690,13 @@ static netdev_features_t macvlan_fix_features(struct net_device *dev,
+ 					      netdev_features_t features)
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+-	netdev_features_t mask;
++	netdev_features_t mask, lowerdev_features;
+ 
+-	features |= NETIF_F_ALL_FOR_ALL;
+ 	features &= (vlan->set_features | ~MACVLAN_FEATURES);
++	lowerdev_features = vlan->lowerdev->features & MACVLAN_FEATURES;
+ 	mask = features;
+ 
+-	features = netdev_increment_features(vlan->lowerdev->features,
++	features = netdev_increment_features(lowerdev_features,
+ 					     features,
+ 					     mask);
+ 	if (!vlan->fwd_priv)
+-- 
+1.8.1.5
