@@ -1,56 +1,57 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next v2] ipv4: make fib_detect_death static
-Date: Sat, 28 Dec 2013 11:06:05 -0800
-Message-ID: <20131228110605.3e48211b@nehalam.linuxnetplumber.net>
+Subject: [PATCH net-next] arp:  make arp_invalidate static
+Date: Sat, 28 Dec 2013 11:07:18 -0800
+Message-ID: <20131228110718.256a8711@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:39707 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751594Ab3L1TGJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 14:06:09 -0500
-Received: by mail-pb0-f54.google.com with SMTP id un15so10355589pbc.27
-        for <netdev@vger.kernel.org>; Sat, 28 Dec 2013 11:06:08 -0800 (PST)
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:62945 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752267Ab3L1THW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 14:07:22 -0500
+Received: by mail-pa0-f41.google.com with SMTP id lf10so10350653pab.14
+        for <netdev@vger.kernel.org>; Sat, 28 Dec 2013 11:07:21 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make fib_detect_death function static only used in one file.
+Don't export arp_invalidate, only used in arp.c
 
 Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
 
 ---
-v2 - reindent
-
- net/ipv4/fib_lookup.h    |    2 --
- net/ipv4/fib_semantics.c |    2 +-
+ include/net/arp.h |    1 -
+ net/ipv4/arp.c    |    3 +--
  2 files changed, 1 insertion(+), 3 deletions(-)
 
---- a/net/ipv4/fib_lookup.h	2013-12-28 00:02:18.986981011 -0800
-+++ b/net/ipv4/fib_lookup.h	2013-12-28 00:02:52.970473541 -0800
-@@ -33,8 +33,6 @@ int fib_dump_info(struct sk_buff *skb, u
- void rtmsg_fib(int event, __be32 key, struct fib_alias *fa, int dst_len,
- 	       u32 tb_id, const struct nl_info *info, unsigned int nlm_flags);
- struct fib_alias *fib_find_alias(struct list_head *fah, u8 tos, u32 prio);
--int fib_detect_death(struct fib_info *fi, int order,
--		     struct fib_info **last_resort, int *last_idx, int dflt);
+--- a/include/net/arp.h	2013-12-24 15:15:26.817740541 -0800
++++ b/include/net/arp.h	2013-12-24 15:15:59.561300476 -0800
+@@ -62,6 +62,5 @@ struct sk_buff *arp_create(int type, int
+ 			   const unsigned char *src_hw,
+ 			   const unsigned char *target_hw);
+ void arp_xmit(struct sk_buff *skb);
+-int arp_invalidate(struct net_device *dev, __be32 ip);
  
- static inline void fib_result_assign(struct fib_result *res,
- 				     struct fib_info *fi)
---- a/net/ipv4/fib_semantics.c	2013-12-28 00:02:18.986981011 -0800
-+++ b/net/ipv4/fib_semantics.c	2013-12-28 00:03:12.446182803 -0800
-@@ -426,8 +426,9 @@ struct fib_alias *fib_find_alias(struct
- 	return NULL;
+ #endif	/* _ARP_H */
+--- a/net/ipv4/arp.c	2013-12-24 15:15:26.817740541 -0800
++++ b/net/ipv4/arp.c	2013-12-24 15:15:59.561300476 -0800
+@@ -1112,7 +1112,7 @@ static int arp_req_get(struct arpreq *r,
+ 	return err;
  }
  
--int fib_detect_death(struct fib_info *fi, int order,
--		     struct fib_info **last_resort, int *last_idx, int dflt)
-+static int fib_detect_death(struct fib_info *fi, int order,
-+			    struct fib_info **last_resort, int *last_idx,
-+			    int dflt)
+-int arp_invalidate(struct net_device *dev, __be32 ip)
++static int arp_invalidate(struct net_device *dev, __be32 ip)
  {
- 	struct neighbour *n;
- 	int state = NUD_NONE;
+ 	struct neighbour *neigh = neigh_lookup(&arp_tbl, &ip, dev);
+ 	int err = -ENXIO;
+@@ -1127,7 +1127,6 @@ int arp_invalidate(struct net_device *de
+ 
+ 	return err;
+ }
+-EXPORT_SYMBOL(arp_invalidate);
+ 
+ static int arp_req_delete_public(struct net *net, struct arpreq *r,
+ 		struct net_device *dev)
