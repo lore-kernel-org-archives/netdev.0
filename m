@@ -1,68 +1,66 @@
-From: Toshiaki Makita <toshiaki.makita1@gmail.com>
-Subject: Re: bridge vlan_filtering don't work with tap devices (qemu guests)
-Date: Sat, 28 Dec 2013 22:00:31 +0900
-Message-ID: <1388235631.1754.23.camel@localhost.localdomain>
-References: <ecd32790-8561-4b95-9e2f-2e5aad97d8fe@mailpro>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next v2 06/20] net: igbvf: slight optimization of
+ addr compare
+Date: Sat, 28 Dec 2013 05:15:38 -0800
+Message-ID: <1388236538.2183.190.camel@jtkirshe-mobl>
+References: <52BE6CF8.5030806@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-t0/fUJ7RPWcAN+vVqjrS"
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52BE6CF8.5030806@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+
+--=-t0/fUJ7RPWcAN+vVqjrS
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Sat, 2013-12-28 at 14:17 +0800, Ding Tianhong wrote:
+> Use possibly more efficient ether_addr_equal
+> to instead of memcmp.
+>=20
+> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
+> Cc: Don Skidmore <donald.c.skidmore@intel.com>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> ---
+>  drivers/net/ethernet/intel/igbvf/netdev.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+
+Thanks Ding, I will update the patch in my queue with this updated
+version.
+
+--=-t0/fUJ7RPWcAN+vVqjrS
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	netdev@vger.kernel.org, Vlad Yasevich <vyasevic@redhat.com>
-To: Alexandre DERUMIER <aderumier@odiso.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:50630 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755324Ab3L1NAj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 08:00:39 -0500
-Received: by mail-pa0-f48.google.com with SMTP id rd3so10129591pab.21
-        for <netdev@vger.kernel.org>; Sat, 28 Dec 2013 05:00:38 -0800 (PST)
-In-Reply-To: <ecd32790-8561-4b95-9e2f-2e5aad97d8fe@mailpro>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-12-27 at 17:17 +0100, Alexandre DERUMIER wrote:
-> Little update: 
-> 
-> I can see now tagged packet on br0 with tcpdump, if I have
-> 
-> #bridge vlan add dev br0 vid 10 self.
-> 
-> All is working fine now.
-> 
-> I have a last question : 
-> 
-> Is it possible to allow all vlans to go through a port. (or disable filtering for 1 specific port) ?
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
 
-AFAIK, it is impossible.
+iQIcBAABCgAGBQJSvs76AAoJEOVv75VaS+3OF7QQAJGjxd5i76w3ja7dL0WlwhY5
+f3F834YSKZrhTq1jtISnKzkt5eseqylvEyftoAblGm+CG+kUzI8spLzTvySfPdLY
+hri+Qfg9q7xNoiKdcbgP1/mZ3G0jpqh/lGq6Mni8S+G6XtjRFUIm8pgWiH1Q+KQ2
+++33SKVM5ffO/yCyLwMtys+/SlvhvtzMFuW1nEqBk2okG07o8i5vgE60L57azm/p
+ndQsK7ZGbkBwX/9kJfzCJXIxUAM+O7j1xdt006PKhiSkmDNVUlK/wjqfY7dWJuex
+VCCwUf1KBZacz2mC8ENM0uvqmzIQyxq6cRO021EmbOqBFWvHgUHOI5Poa3qxhADh
+DHmKYaIEURiilpSOT2CkYF/T/RdEjQxZlIUDrjKbYOJD5xt8bIB+b9AhWZ5LC0ms
+Th6jJOoB0S35Vo2r5ZHh1gjbsqmdBgsp2VyC4FOrafM+5FzkhUpC9acezYBV/9qt
+z9XAmrQg+sPEKf0nDLlHgwxDi6UTvOsZEQZC7oYLDDO+fiF4ULgJfJpmuSZV29Q9
+zsekBrjwvR/FMOMhFTGLaEPzxXxLmgcb+XSwS1AnZOssXGTr0zIocAxxnv5Ul9gc
+EsIh6jzEoRNXkOpy7CAuz4DceUxKDpXQHzTATDclSUQX7YBj5fMLV1qg1jdiGCBG
+hKpBwQQRGmirEGoydCfm
+=GMLg
+-----END PGP SIGNATURE-----
 
-> 
-> If not, maybe could be it great to be able to add multiple vlans with bridge command,like 
-> "bridge vlan add dev xxx vid 1-4096"
-> or
-> "bridge vlan add dev xxx vid 1,2,3-10,12,13-4096"
-
-Such commands seem to be not supported yet.
-
-> 
-[...]
-> >>Or didn't you set br0 in the same way as other ports like below? 
-> >># bridge vlan add dev br0 vid 10 pvid untagged self 
-> 
-> Indeed I didn't set vlan on br0. Isn't it only to tag packets coming from the bridge itself? (like a bridge management ip for example). 
-> Or do we need to define all vlans allowed to pass through the bridge ? 
-
-If br0 is promiscuous mode, you should be able to see all frames going
-through the bridge.
-But if vid 10 untagged is set on br0, incoming frames with vid 10 will
-be seen after untagged.
-
-If br0 is not promisc mode, you can see only packets delivered to or
-transmitted from br0.
-
-tcpdump normally puts a device into promisc mode, without -p option.
-
-You don't need to add all vids to pass through the bridge.
-Settings on br0 will affect only frames coming from or going to br0.
-
-Thanks,
-Toshiaki Makita
+--=-t0/fUJ7RPWcAN+vVqjrS--
