@@ -1,31 +1,22 @@
-From: Jan Engelhardt <jengelh@inai.de>
-Subject: Re: [PATCH net-next] netfilter: xtables make functions local
-Date: Sat, 28 Dec 2013 12:31:26 +0100 (CET)
-Message-ID: <alpine.LSU.2.11.1312281230300.16819@nerf08.vanv.qr>
-References: <20131227120937.702bc383@nehalam.linuxnetplumber.net> <20131228.012129.170537567898112631.davem@davemloft.net>
+From: "mr.sinzoganchabi" <valter.ciavattella@tin.it>
+Subject: I want to transfer an abandoned
+Date: Sat, 28 Dec 2013 13:32:51 +0100 (CET)
+Message-ID: <14339315871.valter.ciavattella@tin.it>
+Reply-To: mr.sinzoganchabi11@gmail.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	David Miller <davem@davemloft.net>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>,
-	Linux Networking Developer Mailing List
-	<netdev@vger.kernel.org>
-To: stephen@networkplumber.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20131228.012129.170537567898112631.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp3web.tin.it ([212.216.176.237]:56884 "EHLO smtp3web.tin.it"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755313Ab3L1Mem (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Dec 2013 07:34:42 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday 2013-12-28 07:21, David Miller wrote:
-
->From: Stephen Hemminger <stephen@networkplumber.org>
->Date: Fri, 27 Dec 2013 12:09:37 -0800
->
->> A couple of functions only used in x_tables, don't need to be global
->> 
->> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->
->I'll let Pablo pick this up, thanks.
-
-Negative, there is at least one known external modules using these.
+Hi friend I am a banker in IDB BANK. I want to transfer an abandoned 
+USD5.5Million to your Bank account. 40/percent will be your share. No 
+risk involved but keep it as secret.Contact me for more details.Please 
+I will like you to reply.
+thank you,mr.sinzogan  chabi. 
