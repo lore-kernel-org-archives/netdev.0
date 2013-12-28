@@ -1,20 +1,123 @@
-From: "Mr. Tom Hook" <tomhook57@outlook.com>
-Subject: Good day
-Date: Sat, 28 Dec 2013 06:56:09 +0700
-Message-ID: <d1c5ee47-e947-4aa5-ad60-a41c97993b0f@COSEXCH10.lsi.com>
-Reply-To: <tomhook57@yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
-To: Undisclosed recipients:;
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v4 00/16][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 27 Dec 2013 19:22:04 -0800
+Message-ID: <1388200940-9113-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com, bhutchings@solarflare.com,
+	or.gerlitz@gmail.com, sergei.shtylyov@cogentembedded.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [157.56.110.129] ([157.56.110.129]:10921 "EHLO
-	na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754898Ab3L0X70 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Dec 2013 18:59:26 -0500
+Received: from mga02.intel.com ([134.134.136.20]:32854 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754905Ab3L1DWZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Dec 2013 22:22:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Can we invest in your country.My name is Mr.Tom Hook a banker here; there is an unfinished business transaction in my branch. This is a business that will profit both of us, if you are interested get back to me for more details please because the money needs to invest outside my country. I wait for your quick response 
-Mr. Tom Hook
+This series contains updates to i40e only.
+
+Anjali provides a patch to prevent messages from stray HMC events, except
+at interrupt message level, and refactors the HMC error handling.
+  
+Catherine adds routines in probe to populate/check PCI bus speed and width,
+then verify we are in a 8GT/s x8 PCIe slot and warn when we are not.
+  
+Shannon adds Wake-on-LAN support for i40e, fixes curly brace use as well as
+return type for i40e_vsi_clear_rings().
+  
+Joseph implements receive offload for VXLAN for i40e, where the hardware
+supports checksum offload/verification of the inner/outer header.
+
+Mitch provides the bulk of the changes, where he refactors the VF reset
+code so that it works on real hardware.  Then does code cleanup by
+calling existing functions to enable and disable queues for VFs and
+remove unused functions.  Removes a unnecessary log messages that are
+seen at every VF reset, for example complaining about disabling queues
+that are already disabled.  Fixes an error return when the VF asks to
+add an invalid MAC address and if the VF sends a bad message, make it
+more informative about what is actually going on.
+
+Jesse refactors the LED function to flash LED lights correctly.
+
+v2:
+ - removed patch 5 "i40e: add set settings and pauseparam" based on
+   feedback from Ben Hutchings, will re-work that patch for later
+   submission
+ - Added patch "i40e: Implementation of vxlan ndo's" from Joseph to
+   address Or Gerlitz's questions and concerns.  This patch adds the
+   implementation for the VXLAN ndo's and allows the hardware to do
+   receive checksum offload for inner packets on the UDP ports that
+   VXLAN notifies us about.
+ - Added patch "i40e: using for_each_set_bit to simplify the code"
+   from Wei Yongjun.  This patch uses for_each_set_bit() to simply
+   the code.
+
+v3:
+ - fixed indentation issue in patch 11 based on feedback from
+   Sergei Shtylyov.
+
+Sorry for the delayed release of v4, it was delayed to the holidays.
+
+v4:
+ - Addressed Or Gerlitz's concerns about trying to get a hold of a mutex
+   while holding a spin lock in patch 6 by executing the AQ commands from
+   a subtask.
+ - Addressed David Miller's Kconfig concerns by creating a Kconfig VXLAN
+   option for i40e and wrapped appropriate code with the config option in
+   patch 6.
+ - Updated patch 7 based on the changes made in patch 6 in the above two
+   bullets.
+
+The following are changes since commit 69c588529d71b0cae55e5e314b27b1d0300d2e02:
+  bgmac: use phy_mii_ioctl in ioctl handler
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Anjali Singhai Jain (1):
+  i40e: Suppress HMC error to Interrupt message level
+
+Catherine Sullivan (1):
+  i40e: Populate and check pci bus speed and width
+
+Jeff Kirsher (1):
+  i40e: Implementation of VXLAN ndo's
+
+Jesse Brandeburg (1):
+  i40e: update led set args
+
+Joseph Gasparakis (1):
+  i40e: Rx checksum offload for VXLAN
+
+Mitch Williams (8):
+  i40e: move i40e_reset_vf
+  i40e: refactor VF reset flow
+  i40e: remove redundant code
+  i40e: remove chatty log messages
+  i40e: fix error return
+  i40e: be more informative
+  i40e: make a define from a large constant
+  i40e: report VF MAC addresses correctly
+
+Shannon Nelson (2):
+  i40e: add wake-on-lan support
+  i40e: fix curly brace use and return type
+
+Wei Yongjun (1):
+  i40e: using for_each_set_bit to simplify the code
+
+ drivers/net/ethernet/intel/Kconfig                 |  13 +
+ drivers/net/ethernet/intel/i40e/i40e.h             |  13 +-
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |   1 +
+ drivers/net/ethernet/intel/i40e/i40e_common.c      | 193 ++++++-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  48 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 264 ++++++++--
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   9 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  57 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h        |  20 +
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |  62 ++-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 581 ++++++---------------
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |   2 +-
+ 12 files changed, 724 insertions(+), 539 deletions(-)
+
+-- 
+1.8.3.1
