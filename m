@@ -1,8 +1,8 @@
 From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
-Subject: [PATCH 5/7] batman-adv: fix alignment for
-	batadv_tvlv_tt_change
-Date: Sat, 28 Dec 2013 17:05:58 +0100
-Message-ID: <1388246760-3335-6-git-send-email-antonio@meshcoding.com>
+Subject: [PATCH 1/7] batman-adv: fix alignment for
+	batadv_coded_packet
+Date: Sat, 28 Dec 2013 17:05:54 +0100
+Message-ID: <1388246760-3335-2-git-send-email-antonio@meshcoding.com>
 References: <1388246760-3335-1-git-send-email-antonio@meshcoding.com>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
  <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -23,59 +23,40 @@ Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Make struct batadv_tvlv_tt_change a multiple 4 bytes long
-to avoid padding on any architecture.
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 
-Signed-off-by: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+The compiler may decide to pad the structure, and then it does not
+have the expected size of 46 byte. Fix this by moving it in the
+pragma pack(2) part of the code.
+
+Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
+Signed-off-by: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
 ---
- net/batman-adv/packet.h            | 4 ++--
- net/batman-adv/translation-table.c | 6 ++++--
- 2 files changed, 6 insertions(+), 4 deletions(-)
+ net/batman-adv/packet.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
-index 04cf27c..2dd8f24 100644
+index 207459b..10597a6 100644
 --- a/net/batman-adv/packet.h
 +++ b/net/batman-adv/packet.h
-@@ -484,13 +484,13 @@ struct batadv_tvlv_tt_vlan_data {
-  * struct batadv_tvlv_tt_change - translation table diff data
-  * @flags: status indicators concerning the non-mesh client (see
-  *  batadv_tt_client_flags)
-- * @reserved: reserved field
-+ * @reserved: reserved field - useful for alignment purposes only
-  * @addr: mac address of non-mesh client that triggered this tt change
-  * @vid: VLAN identifier
-  */
- struct batadv_tvlv_tt_change {
- 	uint8_t flags;
--	uint8_t reserved;
-+	uint8_t reserved[3];
- 	uint8_t addr[ETH_ALEN];
- 	__be16 vid;
+@@ -315,8 +315,6 @@ struct batadv_bcast_packet {
+ 	 */
  };
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 4add57d..ff625fe 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -333,7 +333,8 @@ static void batadv_tt_local_event(struct batadv_priv *bat_priv,
- 		return;
  
- 	tt_change_node->change.flags = flags;
--	tt_change_node->change.reserved = 0;
-+	memset(tt_change_node->change.reserved, 0,
-+	       sizeof(tt_change_node->change.reserved));
- 	memcpy(tt_change_node->change.addr, common->addr, ETH_ALEN);
- 	tt_change_node->change.vid = htons(common->vid);
+-#pragma pack()
+-
+ /**
+  * struct batadv_coded_packet - network coded packet
+  * @header: common batman packet header and ttl of first included packet
+@@ -349,6 +347,8 @@ struct batadv_coded_packet {
+ 	__be16   coded_len;
+ };
  
-@@ -2221,7 +2222,8 @@ static void batadv_tt_tvlv_generate(struct batadv_priv *bat_priv,
- 			       ETH_ALEN);
- 			tt_change->flags = tt_common_entry->flags;
- 			tt_change->vid = htons(tt_common_entry->vid);
--			tt_change->reserved = 0;
-+			memset(tt_change->reserved, 0,
-+			       sizeof(tt_change->reserved));
- 
- 			tt_num_entries++;
- 			tt_change++;
++#pragma pack()
++
+ /**
+  * struct batadv_unicast_tvlv - generic unicast packet with tvlv payload
+  * @header: common batman packet header
 -- 
 1.8.5.2
