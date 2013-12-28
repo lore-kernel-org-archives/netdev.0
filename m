@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v4 14/16] i40e: make a define from a large constant
-Date: Fri, 27 Dec 2013 19:22:18 -0800
-Message-ID: <1388200940-9113-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v4 13/16] i40e: be more informative
+Date: Fri, 27 Dec 2013 19:22:17 -0800
+Message-ID: <1388200940-9113-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1388200940-9113-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -11,95 +11,39 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:32854 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755053Ab3L1DWq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Dec 2013 22:22:46 -0500
+	id S1755049Ab3L1DWp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Dec 2013 22:22:45 -0500
 In-Reply-To: <1388200940-9113-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mitch Williams <mitch.a.williams@intel.com>
 
-Make a define used in the header file by both VF and PF drivers.
+If the VF sends a bad message, be more informative about what it
+actually is.
 
-Change-Id: Ie9e35adcc021cd6a8f7513934984eb4ed55774f5
+Change-Id: I89e06d2db416a1d05aeea016dd6e8b7870cae99a
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 21 +--------------------
- drivers/net/ethernet/intel/i40e/i40e_txrx.h | 20 ++++++++++++++++++++
- 2 files changed, 21 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index b196940..00c9c0b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5703,25 +5703,6 @@ static int i40e_setup_misc_vector(struct i40e_pf *pf)
-  **/
- static int i40e_config_rss(struct i40e_pf *pf)
- {
--	const u64 default_hena =
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_SCTP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP_SYN) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_OTHER) |
--			((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV4) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV6_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV6_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_SCTP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_OTHER) |
--			((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV6) |
--			((u64)1 << I40E_FILTER_PCTYPE_L2_PAYLOAD);
--
- 	/* Set of random keys generated using kernel random number generator */
- 	static const u32 seed[I40E_PFQF_HKEY_MAX_INDEX + 1] = {0x41b01687,
- 				0x183cfd8c, 0xce880440, 0x580cbc3c, 0x35897377,
-@@ -5739,7 +5720,7 @@ static int i40e_config_rss(struct i40e_pf *pf)
- 	/* By default we enable TCP/UDP with IPv4/IPv6 ptypes */
- 	hena = (u64)rd32(hw, I40E_PFQF_HENA(0)) |
- 		((u64)rd32(hw, I40E_PFQF_HENA(1)) << 32);
--	hena |= default_hena;
-+	hena |= I40E_DEFAULT_RSS_HENA;
- 	wr32(hw, I40E_PFQF_HENA(0), (u32)hena);
- 	wr32(hw, I40E_PFQF_HENA(1), (u32)(hena >> 32));
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 4386a2f..1dd13f4 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1653,7 +1653,8 @@ int i40e_vc_process_vf_msg(struct i40e_pf *pf, u16 vf_id, u32 v_opcode,
+ 	ret = i40e_vc_validate_vf_msg(vf, v_opcode, v_retval, msg, msglen);
  
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index faabf22..2992830 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -66,6 +66,26 @@ enum i40e_dyn_idx_t {
- #define I40E_TX_ITR    I40E_IDX_ITR1
- #define I40E_PE_ITR    I40E_IDX_ITR2
- 
-+/* Supported RSS offloads */
-+#define I40E_DEFAULT_RSS_HENA ( \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_SCTP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP_SYN) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_OTHER) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV4) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV6_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV6_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_SCTP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_OTHER) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV6) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_L2_PAYLOAD))
-+
- /* Supported Rx Buffer Sizes */
- #define I40E_RXBUFFER_512   512    /* Used for packet split */
- #define I40E_RXBUFFER_2048  2048
+ 	if (ret) {
+-		dev_err(&pf->pdev->dev, "invalid message from vf %d\n", vf_id);
++		dev_err(&pf->pdev->dev, "Invalid message from vf %d, opcode %d, len %d\n",
++			vf_id, v_opcode, msglen);
+ 		return ret;
+ 	}
+ 	wr32(hw, I40E_VFGEN_RSTAT1(vf_id), I40E_VFR_VFACTIVE);
 -- 
 1.8.3.1
