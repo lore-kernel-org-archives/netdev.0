@@ -1,44 +1,41 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 19/20] net: plip: slight optimization of addr
+Subject: [PATCH net-next v2 20/20] net: caif: slight optimization of addr
  compare
-Date: Sat, 28 Dec 2013 14:18:52 +0800
-Message-ID: <52BE6D4C.5050307@huawei.com>
+Date: Sat, 28 Dec 2013 14:18:56 +0800
+Message-ID: <52BE6D50.9000308@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
+To: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
+	"David S. Miller" <davem@davemloft.net>,
 	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use possibly more efficient ether_addr_equal_64bits
+Use possibly more efficient ether_addr_equal
 to instead of memcmp.
 
+Cc: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
 Cc: "David S. Miller" <davem@davemloft.net>
-Suggested-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/plip/plip.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/caif/cfrfml.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/plip/plip.c b/drivers/net/plip/plip.c
-index 7b4ff35..040b897 100644
---- a/drivers/net/plip/plip.c
-+++ b/drivers/net/plip/plip.c
-@@ -547,9 +547,9 @@ static __be16 plip_type_trans(struct sk_buff *skb, struct net_device *dev)
- 	skb_pull(skb,dev->hard_header_len);
- 	eth = eth_hdr(skb);
+diff --git a/net/caif/cfrfml.c b/net/caif/cfrfml.c
+index 61d7617..c680414 100644
+--- a/net/caif/cfrfml.c
++++ b/net/caif/cfrfml.c
+@@ -79,7 +79,7 @@ static struct cfpkt *rfm_append(struct cfrfml *rfml, char *seghead,
+ 		return NULL;
  
--	if(*eth->h_dest&1)
-+	if(is_multicast_ether_addr(eth->h_dest))
- 	{
--		if(memcmp(eth->h_dest,dev->broadcast, ETH_ALEN)==0)
-+		if(ether_addr_equal_64bits(eth->h_dest, dev->broadcast))
- 			skb->pkt_type=PACKET_BROADCAST;
- 		else
- 			skb->pkt_type=PACKET_MULTICAST;
+ 	/* Verify correct header */
+-	if (memcmp(seghead, rfml->seghead, 6) != 0)
++	if (!ether_addr_equal(seghead, rfml->seghead))
+ 		return NULL;
+ 
+ 	tmppkt = cfpkt_append(rfml->incomplete_frm, pkt,
 -- 
-1.6.0.2
+1.8.0
