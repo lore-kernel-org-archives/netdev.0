@@ -1,32 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v4 02/16] i40e: Suppress HMC error to Interrupt
- message level
-Date: Sat, 28 Dec 2013 01:11:07 -0500 (EST)
-Message-ID: <20131228.011107.307499594588026836.davem@davemloft.net>
-References: <1388200940-9113-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1388200940-9113-3-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next v2 01/20] net: 3com: slight optimization of addr
+ compare
+Date: Sat, 28 Dec 2013 14:17:01 +0800
+Message-ID: <52BE6CDD.40904@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: anjali.singhai@intel.com, netdev@vger.kernel.org, gospo@redhat.com,
-	sassmann@redhat.com, shannon.nelson@intel.com,
-	jesse.brandeburg@intel.com
-To: jeffrey.t.kirsher@intel.com
+To: "David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35115 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750768Ab3L1GLJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 01:11:09 -0500
-In-Reply-To: <1388200940-9113-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:42516 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750764Ab3L1GRH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 01:17:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 27 Dec 2013 19:22:06 -0800
+Use possibly more efficient ether_addr_equal
+to instead of memcmp.
 
-> Prevent messages from stray HMC events, except at interrupt message
-> level, and refactor HMC error handling.
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/ethernet/3com/3c509.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-I don't understand this commit message.  How is this change only
-showing the HME event message "at interrupt message level".  It's
-using plain dev_info() to report it in the new location too.
+diff --git a/drivers/net/ethernet/3com/3c509.c b/drivers/net/ethernet/3com/3c509.c
+index ede8daa..9142b47 100644
+--- a/drivers/net/ethernet/3com/3c509.c
++++ b/drivers/net/ethernet/3com/3c509.c
+@@ -252,8 +252,7 @@ static int el3_isa_id_sequence(__be16 *phys_addr)
+ 		for (i = 0; i < el3_cards; i++) {
+ 			struct el3_private *lp = netdev_priv(el3_devs[i]);
+ 			if (lp->type == EL3_PNP &&
+-			    !memcmp(phys_addr, el3_devs[i]->dev_addr,
+-				    ETH_ALEN)) {
++			    ether_addr_equal(phys_addr, el3_devs[i]->dev_addr)) {
+ 				if (el3_debug > 3)
+ 					pr_debug("3c509 with address %02x %02x %02x %02x %02x %02x was found by ISAPnP\n",
+ 						phys_addr[0] & 0xff, phys_addr[0] >> 8,
+-- 
+1.8.0
