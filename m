@@ -1,7 +1,7 @@
 From: Scott Feldman <sfeldma@cumulusnetworks.com>
-Subject: [PATCH net-next 0/4] bonding: final set of netlink patches
-Date: Fri, 27 Dec 2013 23:15:34 -0800
-Message-ID: <20131228065712.6296.34291.stgit@monster-03.cumulusnetworks.com>
+Subject: [PATCH net-next 2/4] bonding: add ad_select attribute netlink support
+Date: Fri, 27 Dec 2013 23:15:48 -0800
+Message-ID: <20131228071548.6296.98915.stgit@monster-03.cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,48 +9,168 @@ Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
 	shm@cumulusnetworks.com, jiri@resnulli.us
 To: vfalico@redhat.com, fubar@us.ibm.com, andy@greyhouse.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:48557 "EHLO
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:48588 "EHLO
 	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751071Ab3L1HPj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 02:15:39 -0500
+	with ESMTP id S1751298Ab3L1HPy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Dec 2013 02:15:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series implements the last set of bonding netlink attributes
-for 802.3ad mode:
+Add IFLA_BOND_AD_SELECT to allow get/set of bonding parameter
+ad_select via netlink.
 
-	lacp_rate
-	ad_select
-	ad_info, nest of:
-		ad_aggregator
-		ad_num_ports
-		ad_actor_key
-		ad_partner_key
-		ad_partner_mac
-
-The last patch adds an additional netlink attribute, active_slaves, which
-is a nested list of ifindices for current active slaves.  We're using this
-list to enable/disable hashing of ports in a hardware LAG implementation.
-In the same way bonding driver includes/excludes ports for 802.3ad egress
-hashing, hardware ports are included/excluded from egress hashing by
-hardware based on port active status.  Yes, data path offloaded to
-hardware, control path remains in kernel via bonding driver.
-
+Signed-off-by: Scott Feldman <sfeldma@cumulusnetworks.com>
 ---
+ drivers/net/bonding/bond_netlink.c |   14 ++++++++++++++
+ drivers/net/bonding/bond_options.c |   22 ++++++++++++++++++++++
+ drivers/net/bonding/bond_sysfs.c   |   29 ++++++++++++-----------------
+ drivers/net/bonding/bonding.h      |    1 +
+ include/uapi/linux/if_link.h       |    1 +
+ 5 files changed, 50 insertions(+), 17 deletions(-)
 
-Scott Feldman (4):
-      bonding: add lacp_rate attribute netlink support
-      bonding: add ad_select attribute netlink support
-      bonding: add ad_info attribute netlink support
-      bonding: add active_slaves attribute
-
-
- drivers/net/bonding/bond_netlink.c |  100 +++++++++++++++++++++++++++++++++
- drivers/net/bonding/bond_options.c |   51 +++++++++++++++++
- drivers/net/bonding/bond_sysfs.c   |  108 +++++++++++++++++++++---------------
- drivers/net/bonding/bonding.h      |    2 +
- include/uapi/linux/if_link.h       |   15 +++++
- 5 files changed, 229 insertions(+), 47 deletions(-)
-
--- 
-Signature
+diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
+index 45de873..df66dd8 100644
+--- a/drivers/net/bonding/bond_netlink.c
++++ b/drivers/net/bonding/bond_netlink.c
+@@ -44,6 +44,7 @@ static const struct nla_policy bond_policy[IFLA_BOND_MAX + 1] = {
+ 	[IFLA_BOND_LP_INTERVAL]		= { .type = NLA_U32 },
+ 	[IFLA_BOND_PACKETS_PER_SLAVE]	= { .type = NLA_U32 },
+ 	[IFLA_BOND_AD_LACP_RATE]	= { .type = NLA_U8 },
++	[IFLA_BOND_AD_SELECT]		= { .type = NLA_U8 },
+ };
+ 
+ static int bond_validate(struct nlattr *tb[], struct nlattr *data[])
+@@ -261,6 +262,14 @@ static int bond_changelink(struct net_device *bond_dev,
+ 		if (err)
+ 			return err;
+ 	}
++	if (data[IFLA_BOND_AD_SELECT]) {
++		int ad_select =
++			nla_get_u8(data[IFLA_BOND_AD_SELECT]);
++
++		err = bond_option_ad_select_set(bond, ad_select);
++		if (err)
++			return err;
++	}
+ 	return 0;
+ }
+ 
+@@ -300,6 +309,7 @@ static size_t bond_get_size(const struct net_device *bond_dev)
+ 		nla_total_size(sizeof(u32)) +	/* IFLA_BOND_LP_INTERVAL */
+ 		nla_total_size(sizeof(u32)) +  /* IFLA_BOND_PACKETS_PER_SLAVE */
+ 		nla_total_size(sizeof(u8)) +	/* IFLA_BOND_AD_LACP_RATE */
++		nla_total_size(sizeof(u8)) +	/* IFLA_BOND_AD_SELECT */
+ 		0;
+ }
+ 
+@@ -409,6 +419,10 @@ static int bond_fill_info(struct sk_buff *skb,
+ 		       bond->params.lacp_fast))
+ 		goto nla_put_failure;
+ 
++	if (nla_put_u8(skb, IFLA_BOND_AD_SELECT,
++		       bond->params.ad_select))
++		goto nla_put_failure;
++
+ 	return 0;
+ 
+ nla_put_failure:
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index ad67fbf..6fdb8c0 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -685,3 +685,25 @@ int bond_option_lacp_rate_set(struct bonding *bond, int lacp_rate)
+ 
+ 	return 0;
+ }
++
++int bond_option_ad_select_set(struct bonding *bond, int ad_select)
++{
++	if (bond->dev->flags & IFF_UP) {
++		pr_err("%s: Unable to update ad_select because interface is up.\n",
++		       bond->dev->name);
++		return -EPERM;
++	}
++
++	if (1 <= ad_select && ad_select <= 3) {
++		bond->params.ad_select = ad_select;
++		pr_info("%s: Setting ad_select to %s (%d).\n",
++			bond->dev->name, ad_select_tbl[ad_select].modename,
++			ad_select);
++	} else {
++		pr_err("%s: Ignoring invalid ad_select value %d.\n",
++		       bond->dev->name, ad_select);
++		return -EINVAL;
++	}
++
++	return 0;
++}
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 62d33dc..9a1ea4a 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -733,29 +733,24 @@ static ssize_t bonding_store_ad_select(struct device *d,
+ 				       struct device_attribute *attr,
+ 				       const char *buf, size_t count)
+ {
+-	int new_value, ret = count;
++	int new_value, ret;
+ 	struct bonding *bond = to_bond(d);
+ 
+-	if (bond->dev->flags & IFF_UP) {
+-		pr_err("%s: Unable to update ad_select because interface is up.\n",
+-		       bond->dev->name);
+-		ret = -EPERM;
+-		goto out;
+-	}
+-
+ 	new_value = bond_parse_parm(buf, ad_select_tbl);
+-
+-	if (new_value != -1) {
+-		bond->params.ad_select = new_value;
+-		pr_info("%s: Setting ad_select to %s (%d).\n",
+-			bond->dev->name, ad_select_tbl[new_value].modename,
+-			new_value);
+-	} else {
++	if (new_value < 0) {
+ 		pr_err("%s: Ignoring invalid ad_select value %.*s.\n",
+ 		       bond->dev->name, (int)strlen(buf) - 1, buf);
+-		ret = -EINVAL;
++		return -EINVAL;
+ 	}
+-out:
++
++	if (!rtnl_trylock())
++		return restart_syscall();
++
++	ret = bond_option_ad_select_set(bond, new_value);
++	if (!ret)
++		ret = count;
++
++	rtnl_unlock();
+ 	return ret;
+ }
+ static DEVICE_ATTR(ad_select, S_IRUGO | S_IWUSR,
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index ef93667..3dec554 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -469,6 +469,7 @@ int bond_option_lp_interval_set(struct bonding *bond, int min_links);
+ int bond_option_packets_per_slave_set(struct bonding *bond,
+ 				      int packets_per_slave);
+ int bond_option_lacp_rate_set(struct bonding *bond, int lacp_rate);
++int bond_option_ad_select_set(struct bonding *bond, int ad_select);
+ struct net_device *bond_option_active_slave_get_rcu(struct bonding *bond);
+ struct net_device *bond_option_active_slave_get(struct bonding *bond);
+ 
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 0f8f38f..0fbb018 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -350,6 +350,7 @@ enum {
+ 	IFLA_BOND_LP_INTERVAL,
+ 	IFLA_BOND_PACKETS_PER_SLAVE,
+ 	IFLA_BOND_AD_LACP_RATE,
++	IFLA_BOND_AD_SELECT,
+ 	__IFLA_BOND_MAX,
+ };
+ 
