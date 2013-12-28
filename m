@@ -1,311 +1,398 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v4 08/16] i40e: move i40e_reset_vf
-Date: Fri, 27 Dec 2013 19:22:12 -0800
-Message-ID: <1388200940-9113-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v4 06/16] i40e: Implementation of VXLAN ndo's
+Date: Fri, 27 Dec 2013 19:22:10 -0800
+Message-ID: <1388200940-9113-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1388200940-9113-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com, or.gerlitz@gmail.com,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:32854 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755034Ab3L1DWh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Dec 2013 22:22:37 -0500
+	id S1755006Ab3L1DWe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Dec 2013 22:22:34 -0500
 In-Reply-To: <1388200940-9113-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+This adds the implementation for the VXLAN ndo's.  This allows the
+hardware to do RX checksum offload for inner packets on the UDP ports
+that VXLAN notifies us about.
 
-The VF reset code will be refactored in future patches. Part of that
-refactor required it to call i40e_alloc_vf_res and i40e_free_vf_res, so
-the function must be moved. In order to make the future patches more
-readable, we perform the function move here, with no other changes.
-
-Change-Id: If6567c9c0bada6caafb2ee0227e0d9d50d05f27f
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 256 ++++++++++-----------
- 1 file changed, 128 insertions(+), 128 deletions(-)
+ drivers/net/ethernet/intel/Kconfig                |  13 ++
+ drivers/net/ethernet/intel/i40e/i40e.h            |  10 +-
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h |   1 +
+ drivers/net/ethernet/intel/i40e/i40e_common.c     |  57 ++++++++
+ drivers/net/ethernet/intel/i40e/i40e_main.c       | 157 ++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h  |   6 +
+ drivers/net/ethernet/intel/i40e/i40e_type.h       |   1 +
+ 7 files changed, 244 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 1ea0886..c0e3aec 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -543,6 +543,134 @@ error_alloc_vsi_res:
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+index 41a2fa2..8bfa2ec 100644
+--- a/drivers/net/ethernet/intel/Kconfig
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -259,4 +259,17 @@ config I40E
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called i40e.
+ 
++config I40E_VXLAN
++	bool "Virtual eXtensible Local Area Network Support"
++	default n
++	depends on I40E && VXLAN && !(I40E=y && VXLAN=m)
++	---help---
++	  This allows one to create VXLAN virtual interfaces that provide
++	  Layer 2 Networks over Layer 3 Networks. VXLAN is often used
++	  to tunnel virtual network infrastructure in virtualized environments.
++	  Say Y here if you want to use Virtual eXtensible Local Area Network
++	  (VXLAN) in the driver.
++
++	  If unsure, say N.
++
+ endif # NET_VENDOR_INTEL
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 31dd265..6f1edc1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -207,6 +207,11 @@ struct i40e_pf {
+ 	u8 atr_sample_rate;
+ 	bool wol_en;
+ 
++#ifdef CONFIG_I40E_VXLAN
++	__be16  vxlan_ports[I40E_MAX_PF_UDP_OFFLOAD_PORTS];
++	u16 pending_vxlan_bitmap;
++
++#endif
+ 	enum i40e_interrupt_policy int_policy;
+ 	u16 rx_itr_default;
+ 	u16 tx_itr_default;
+@@ -238,7 +243,10 @@ struct i40e_pf {
+ #define I40E_FLAG_DCB_ENABLED                  (u64)(1 << 21)
+ #define I40E_FLAG_FDIR_ENABLED                 (u64)(1 << 22)
+ #define I40E_FLAG_FDIR_ATR_ENABLED             (u64)(1 << 23)
+-#define I40E_FLAG_MFP_ENABLED                  (u64)(1 << 27)
++#define I40E_FLAG_MFP_ENABLED                  (u64)(1 << 26)
++#ifdef CONFIG_I40E_VXLAN
++#define I40E_FLAG_VXLAN_FILTER_SYNC            (u64)(1 << 27)
++#endif
+ 
+ 	u16 num_tx_queues;
+ 	u16 num_rx_queues;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+index e61ebdd..2859377 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+@@ -1918,6 +1918,7 @@ struct i40e_aqc_add_udp_tunnel {
+ 	u8     protocol_index;
+ #define I40E_AQC_TUNNEL_TYPE_MAC    0x0
+ #define I40E_AQC_TUNNEL_TYPE_UDP    0x1
++#define I40E_AQC_TUNNEL_TYPE_VXLAN  0x2
+ 	u8     reserved[12];
+ };
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index cba1eb4..ca58263 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -1671,6 +1671,63 @@ i40e_status i40e_aq_start_lldp(struct i40e_hw *hw,
  }
  
  /**
-+ * i40e_enable_vf_mappings
-+ * @vf: pointer to the vf info
-+ *
-+ * enable vf mappings
++ * i40e_aq_add_udp_tunnel
++ * @hw: pointer to the hw struct
++ * @udp_port: the UDP port to add
++ * @header_len: length of the tunneling header length in DWords
++ * @protocol_index: protocol index type
++ * @cmd_details: pointer to command details structure or NULL
 + **/
-+static void i40e_enable_vf_mappings(struct i40e_vf *vf)
++i40e_status i40e_aq_add_udp_tunnel(struct i40e_hw *hw,
++				u16 udp_port, u8 header_len,
++				u8 protocol_index, u8 *filter_index,
++				struct i40e_asq_cmd_details *cmd_details)
 +{
-+	struct i40e_pf *pf = vf->pf;
-+	struct i40e_hw *hw = &pf->hw;
-+	u32 reg, total_queue_pairs = 0;
-+	int j;
++	struct i40e_aq_desc desc;
++	struct i40e_aqc_add_udp_tunnel *cmd =
++		(struct i40e_aqc_add_udp_tunnel *)&desc.params.raw;
++	struct i40e_aqc_del_udp_tunnel_completion *resp =
++		(struct i40e_aqc_del_udp_tunnel_completion *)&desc.params.raw;
++	i40e_status status;
 +
-+	/* Tell the hardware we're using noncontiguous mapping. HW requires
-+	 * that VF queues be mapped using this method, even when they are
-+	 * contiguous in real life
-+	 */
-+	wr32(hw, I40E_VSILAN_QBASE(vf->lan_vsi_id),
-+	     I40E_VSILAN_QBASE_VSIQTABLE_ENA_MASK);
++	i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_add_udp_tunnel);
 +
-+	/* enable VF vplan_qtable mappings */
-+	reg = I40E_VPLAN_MAPENA_TXRX_ENA_MASK;
-+	wr32(hw, I40E_VPLAN_MAPENA(vf->vf_id), reg);
++	cmd->udp_port = cpu_to_le16(udp_port);
++	cmd->header_len = header_len;
++	cmd->protocol_index = protocol_index;
 +
-+	/* map PF queues to VF queues */
-+	for (j = 0; j < pf->vsi[vf->lan_vsi_index]->num_queue_pairs; j++) {
-+		u16 qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index, j);
-+		reg = (qid & I40E_VPLAN_QTABLE_QINDEX_MASK);
-+		wr32(hw, I40E_VPLAN_QTABLE(total_queue_pairs, vf->vf_id), reg);
-+		total_queue_pairs++;
-+	}
++	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
 +
-+	/* map PF queues to VSI */
-+	for (j = 0; j < 7; j++) {
-+		if (j * 2 >= pf->vsi[vf->lan_vsi_index]->num_queue_pairs) {
-+			reg = 0x07FF07FF;	/* unused */
-+		} else {
-+			u16 qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index,
-+							  j * 2);
-+			reg = qid;
-+			qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index,
-+						      (j * 2) + 1);
-+			reg |= qid << 16;
-+		}
-+		wr32(hw, I40E_VSILAN_QTABLE(j, vf->lan_vsi_id), reg);
-+	}
++	if (!status)
++		*filter_index = resp->index;
 +
-+	i40e_flush(hw);
++	return status;
 +}
 +
 +/**
-+ * i40e_disable_vf_mappings
-+ * @vf: pointer to the vf info
-+ *
-+ * disable vf mappings
++ * i40e_aq_del_udp_tunnel
++ * @hw: pointer to the hw struct
++ * @index: filter index
++ * @cmd_details: pointer to command details structure or NULL
 + **/
-+static void i40e_disable_vf_mappings(struct i40e_vf *vf)
++i40e_status i40e_aq_del_udp_tunnel(struct i40e_hw *hw, u8 index,
++				struct i40e_asq_cmd_details *cmd_details)
 +{
-+	struct i40e_pf *pf = vf->pf;
++	struct i40e_aq_desc desc;
++	struct i40e_aqc_remove_udp_tunnel *cmd =
++		(struct i40e_aqc_remove_udp_tunnel *)&desc.params.raw;
++	i40e_status status;
++
++	i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_del_udp_tunnel);
++
++	cmd->index = index;
++
++	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
++
++	return status;
++}
++
++/**
+  * i40e_aq_delete_element - Delete switch element
+  * @hw: pointer to the hw struct
+  * @seid: the SEID to delete from the switch
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index b0cfb4c..acb7e3d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -27,6 +27,9 @@
+ 
+ /* Local includes */
+ #include "i40e.h"
++#ifdef CONFIG_I40E_VXLAN
++#include "net/vxlan.h"
++#endif
+ 
+ const char i40e_driver_name[] = "i40e";
+ static const char i40e_driver_string[] =
+@@ -3993,6 +3996,9 @@ static int i40e_open(struct net_device *netdev)
+ 				    "couldn't set broadcast err %d aq_err %d\n",
+ 				    err, pf->hw.aq.asq_last_status);
+ 	}
++#ifdef CONFIG_I40E_VXLAN
++	vxlan_get_rx_port(netdev);
++#endif
+ 
+ 	return 0;
+ 
+@@ -5016,6 +5022,52 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
+ 	i40e_flush(hw);
+ }
+ 
++#ifdef CONFIG_I40E_VXLAN
++/**
++ * i40e_sync_vxlan_filters_subtask - Sync the VSI filter list with HW
++ * @pf: board private structure
++ **/
++static void i40e_sync_vxlan_filters_subtask(struct i40e_pf *pf)
++{
++	const int vxlan_hdr_qwords = 4;
 +	struct i40e_hw *hw = &pf->hw;
++	i40e_status ret;
++	u8 filter_index;
++	__be16 port;
 +	int i;
 +
-+	/* disable qp mappings */
-+	wr32(hw, I40E_VPLAN_MAPENA(vf->vf_id), 0);
-+	for (i = 0; i < I40E_MAX_VSI_QP; i++)
-+		wr32(hw, I40E_VPLAN_QTABLE(i, vf->vf_id),
-+		     I40E_QUEUE_END_OF_LIST);
-+	i40e_flush(hw);
-+}
++	if (!(pf->flags & I40E_FLAG_VXLAN_FILTER_SYNC))
++		return;
 +
-+/**
-+ * i40e_free_vf_res
-+ * @vf: pointer to the vf info
-+ *
-+ * free vf resources
-+ **/
-+static void i40e_free_vf_res(struct i40e_vf *vf)
-+{
-+	struct i40e_pf *pf = vf->pf;
++	pf->flags &= ~I40E_FLAG_VXLAN_FILTER_SYNC;
 +
-+	/* free vsi & disconnect it from the parent uplink */
-+	if (vf->lan_vsi_index) {
-+		i40e_vsi_release(pf->vsi[vf->lan_vsi_index]);
-+		vf->lan_vsi_index = 0;
-+		vf->lan_vsi_id = 0;
++	for (i = 0; i < I40E_MAX_PF_UDP_OFFLOAD_PORTS; i++) {
++		if (pf->pending_vxlan_bitmap & (1 << i)) {
++			pf->pending_vxlan_bitmap &= ~(1 << i);
++			port = pf->vxlan_ports[i];
++			ret = port ?
++			      i40e_aq_add_udp_tunnel(hw, ntohs(port),
++						     vxlan_hdr_qwords,
++						     I40E_AQC_TUNNEL_TYPE_VXLAN,
++						     &filter_index, NULL)
++			      : i40e_aq_del_udp_tunnel(hw, i, NULL);
++
++			if (ret) {
++				dev_info(&pf->pdev->dev, "Failed to execute AQ command for %s port %d with index %d\n",
++					 port ? "adding" : "deleting",
++					 ntohs(port), port ? i : i);
++
++				pf->vxlan_ports[i] = 0;
++			} else {
++				dev_info(&pf->pdev->dev, "%s port %d with AQ command with index %d\n",
++					 port ? "Added" : "Deleted",
++					 ntohs(port), port ? i : filter_index);
++			}
++		}
 +	}
-+
-+	/* reset some of the state varibles keeping
-+	 * track of the resources
-+	 */
-+	vf->num_queue_pairs = 0;
-+	vf->vf_states = 0;
 +}
 +
-+/**
-+ * i40e_alloc_vf_res
-+ * @vf: pointer to the vf info
-+ *
-+ * allocate vf resources
-+ **/
-+static int i40e_alloc_vf_res(struct i40e_vf *vf)
-+{
-+	struct i40e_pf *pf = vf->pf;
-+	int total_queue_pairs = 0;
-+	int ret;
-+
-+	/* allocate hw vsi context & associated resources */
-+	ret = i40e_alloc_vsi_res(vf, I40E_VSI_SRIOV);
-+	if (ret)
-+		goto error_alloc;
-+	total_queue_pairs += pf->vsi[vf->lan_vsi_index]->num_queue_pairs;
-+	set_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps);
-+
-+	/* store the total qps number for the runtime
-+	 * vf req validation
-+	 */
-+	vf->num_queue_pairs = total_queue_pairs;
-+
-+	/* vf is now completely initialized */
-+	set_bit(I40E_VF_STAT_INIT, &vf->vf_states);
-+
-+error_alloc:
-+	if (ret)
-+		i40e_free_vf_res(vf);
-+
-+	return ret;
-+}
-+
-+/**
-  * i40e_reset_vf
-  * @vf: pointer to the vf structure
-  * @flr: VFLR was issued or not
-@@ -673,134 +801,6 @@ int i40e_reset_vf(struct i40e_vf *vf, bool flr)
++#endif
+ /**
+  * i40e_service_task - Run the driver's async subtasks
+  * @work: pointer to work_struct containing our data
+@@ -5034,6 +5086,9 @@ static void i40e_service_task(struct work_struct *work)
+ 	i40e_fdir_reinit_subtask(pf);
+ 	i40e_check_hang_subtask(pf);
+ 	i40e_sync_filters_subtask(pf);
++#ifdef CONFIG_I40E_VXLAN
++	i40e_sync_vxlan_filters_subtask(pf);
++#endif
+ 	i40e_clean_adminq_subtask(pf);
+ 
+ 	i40e_service_event_complete(pf);
+@@ -5900,6 +5955,104 @@ static int i40e_set_features(struct net_device *netdev,
+ 	return 0;
  }
  
++#ifdef CONFIG_I40E_VXLAN
++/**
++ * i40e_get_vxlan_port_idx - Lookup a possibly offloaded for Rx UDP port
++ * @pf: board private structure
++ * @port: The UDP port to look up
++ *
++ * Returns the index number or I40E_MAX_PF_UDP_OFFLOAD_PORTS if port not found
++ **/
++static u8 i40e_get_vxlan_port_idx(struct i40e_pf *pf, __be16 port)
++{
++	u8 i;
++
++	for (i = 0; i < I40E_MAX_PF_UDP_OFFLOAD_PORTS; i++) {
++		if (pf->vxlan_ports[i] == port)
++			return i;
++	}
++
++	return i;
++}
++
++/**
++ * i40e_add_vxlan_port - Get notifications about VXLAN ports that come up
++ * @netdev: This physical port's netdev
++ * @sa_family: Socket Family that VXLAN is notifying us about
++ * @port: New UDP port number that VXLAN started listening to
++ **/
++static void i40e_add_vxlan_port(struct net_device *netdev,
++				sa_family_t sa_family, __be16 port)
++{
++	struct i40e_netdev_priv *np = netdev_priv(netdev);
++	struct i40e_vsi *vsi = np->vsi;
++	struct i40e_pf *pf = vsi->back;
++	u8 next_idx;
++	u8 idx;
++
++	if (sa_family == AF_INET6)
++		return;
++
++	idx = i40e_get_vxlan_port_idx(pf, port);
++
++	/* Check if port already exists */
++	if (idx < I40E_MAX_PF_UDP_OFFLOAD_PORTS) {
++		netdev_info(netdev, "Port %d already offloaded\n", ntohs(port));
++		return;
++	}
++
++	/* Now check if there is space to add the new port */
++	next_idx = i40e_get_vxlan_port_idx(pf, 0);
++
++	if (next_idx == I40E_MAX_PF_UDP_OFFLOAD_PORTS) {
++		netdev_info(netdev, "Maximum number of UDP ports reached, not adding port %d\n",
++			    ntohs(port));
++		return;
++	}
++
++	/* New port: add it and mark its index in the bitmap */
++	pf->vxlan_ports[next_idx] = port;
++	pf->pending_vxlan_bitmap |= (1 << next_idx);
++
++	pf->flags |= I40E_FLAG_VXLAN_FILTER_SYNC;
++}
++
++/**
++ * i40e_del_vxlan_port - Get notifications about VXLAN ports that go away
++ * @netdev: This physical port's netdev
++ * @sa_family: Socket Family that VXLAN is notifying us about
++ * @port: UDP port number that VXLAN stopped listening to
++ **/
++static void i40e_del_vxlan_port(struct net_device *netdev,
++				sa_family_t sa_family, __be16 port)
++{
++	struct i40e_netdev_priv *np = netdev_priv(netdev);
++	struct i40e_vsi *vsi = np->vsi;
++	struct i40e_pf *pf = vsi->back;
++	u8 idx;
++
++	if (sa_family == AF_INET6)
++		return;
++
++	idx = i40e_get_vxlan_port_idx(pf, port);
++
++	/* Check if port already exists */
++	if (idx < I40E_MAX_PF_UDP_OFFLOAD_PORTS) {
++		/* if port exists, set it to 0 (mark for deletion)
++		 * and make it pending
++		 */
++		pf->vxlan_ports[idx] = 0;
++
++		pf->pending_vxlan_bitmap |= (1 << idx);
++
++		pf->flags |= I40E_FLAG_VXLAN_FILTER_SYNC;
++	} else {
++		netdev_warn(netdev, "Port %d was not found, not deleting\n",
++			    ntohs(port));
++	}
++}
++
++#endif
+ static const struct net_device_ops i40e_netdev_ops = {
+ 	.ndo_open		= i40e_open,
+ 	.ndo_stop		= i40e_close,
+@@ -5921,6 +6074,10 @@ static const struct net_device_ops i40e_netdev_ops = {
+ 	.ndo_set_vf_vlan	= i40e_ndo_set_vf_port_vlan,
+ 	.ndo_set_vf_tx_rate	= i40e_ndo_set_vf_bw,
+ 	.ndo_get_vf_config	= i40e_ndo_get_vf_config,
++#ifdef CONFIG_I40E_VXLAN
++	.ndo_add_vxlan_port	= i40e_add_vxlan_port,
++	.ndo_del_vxlan_port	= i40e_del_vxlan_port,
++#endif
+ };
+ 
  /**
-- * i40e_enable_vf_mappings
-- * @vf: pointer to the vf info
-- *
-- * enable vf mappings
-- **/
--static void i40e_enable_vf_mappings(struct i40e_vf *vf)
--{
--	struct i40e_pf *pf = vf->pf;
--	struct i40e_hw *hw = &pf->hw;
--	u32 reg, total_queue_pairs = 0;
--	int j;
--
--	/* Tell the hardware we're using noncontiguous mapping. HW requires
--	 * that VF queues be mapped using this method, even when they are
--	 * contiguous in real life
--	 */
--	wr32(hw, I40E_VSILAN_QBASE(vf->lan_vsi_id),
--	     I40E_VSILAN_QBASE_VSIQTABLE_ENA_MASK);
--
--	/* enable VF vplan_qtable mappings */
--	reg = I40E_VPLAN_MAPENA_TXRX_ENA_MASK;
--	wr32(hw, I40E_VPLAN_MAPENA(vf->vf_id), reg);
--
--	/* map PF queues to VF queues */
--	for (j = 0; j < pf->vsi[vf->lan_vsi_index]->num_queue_pairs; j++) {
--		u16 qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index, j);
--		reg = (qid & I40E_VPLAN_QTABLE_QINDEX_MASK);
--		wr32(hw, I40E_VPLAN_QTABLE(total_queue_pairs, vf->vf_id), reg);
--		total_queue_pairs++;
--	}
--
--	/* map PF queues to VSI */
--	for (j = 0; j < 7; j++) {
--		if (j * 2 >= pf->vsi[vf->lan_vsi_index]->num_queue_pairs) {
--			reg = 0x07FF07FF;	/* unused */
--		} else {
--			u16 qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index,
--							  j * 2);
--			reg = qid;
--			qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index,
--						      (j * 2) + 1);
--			reg |= qid << 16;
--		}
--		wr32(hw, I40E_VSILAN_QTABLE(j, vf->lan_vsi_id), reg);
--	}
--
--	i40e_flush(hw);
--}
--
--/**
-- * i40e_disable_vf_mappings
-- * @vf: pointer to the vf info
-- *
-- * disable vf mappings
-- **/
--static void i40e_disable_vf_mappings(struct i40e_vf *vf)
--{
--	struct i40e_pf *pf = vf->pf;
--	struct i40e_hw *hw = &pf->hw;
--	int i;
--
--	/* disable qp mappings */
--	wr32(hw, I40E_VPLAN_MAPENA(vf->vf_id), 0);
--	for (i = 0; i < I40E_MAX_VSI_QP; i++)
--		wr32(hw, I40E_VPLAN_QTABLE(i, vf->vf_id),
--		     I40E_QUEUE_END_OF_LIST);
--	i40e_flush(hw);
--}
--
--/**
-- * i40e_free_vf_res
-- * @vf: pointer to the vf info
-- *
-- * free vf resources
-- **/
--static void i40e_free_vf_res(struct i40e_vf *vf)
--{
--	struct i40e_pf *pf = vf->pf;
--
--	/* free vsi & disconnect it from the parent uplink */
--	if (vf->lan_vsi_index) {
--		i40e_vsi_release(pf->vsi[vf->lan_vsi_index]);
--		vf->lan_vsi_index = 0;
--		vf->lan_vsi_id = 0;
--	}
--
--	/* reset some of the state varibles keeping
--	 * track of the resources
--	 */
--	vf->num_queue_pairs = 0;
--	vf->vf_states = 0;
--}
--
--/**
-- * i40e_alloc_vf_res
-- * @vf: pointer to the vf info
-- *
-- * allocate vf resources
-- **/
--static int i40e_alloc_vf_res(struct i40e_vf *vf)
--{
--	struct i40e_pf *pf = vf->pf;
--	int total_queue_pairs = 0;
--	int ret;
--
--	/* allocate hw vsi context & associated resources */
--	ret = i40e_alloc_vsi_res(vf, I40E_VSI_SRIOV);
--	if (ret)
--		goto error_alloc;
--	total_queue_pairs += pf->vsi[vf->lan_vsi_index]->num_queue_pairs;
--	set_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps);
--
--	/* store the total qps number for the runtime
--	 * vf req validation
--	 */
--	vf->num_queue_pairs = total_queue_pairs;
--
--	/* vf is now completely initialized */
--	set_bit(I40E_VF_STAT_INIT, &vf->vf_states);
--
--error_alloc:
--	if (ret)
--		i40e_free_vf_res(vf);
--
--	return ret;
--}
--
--/**
-  * i40e_vfs_are_assigned
-  * @pf: pointer to the pf structure
-  *
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+index db7bf93..5c458bb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+@@ -157,6 +157,12 @@ i40e_status i40e_aq_stop_lldp(struct i40e_hw *hw, bool shutdown_agent,
+ 				struct i40e_asq_cmd_details *cmd_details);
+ i40e_status i40e_aq_start_lldp(struct i40e_hw *hw,
+ 				struct i40e_asq_cmd_details *cmd_details);
++i40e_status i40e_aq_add_udp_tunnel(struct i40e_hw *hw,
++				u16 udp_port, u8 header_len,
++				u8 protocol_index, u8 *filter_index,
++				struct i40e_asq_cmd_details *cmd_details);
++i40e_status i40e_aq_del_udp_tunnel(struct i40e_hw *hw, u8 index,
++				struct i40e_asq_cmd_details *cmd_details);
+ i40e_status i40e_aq_delete_element(struct i40e_hw *hw, u16 seid,
+ 				struct i40e_asq_cmd_details *cmd_details);
+ i40e_status i40e_aq_mac_address_write(struct i40e_hw *hw,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index d683c30..bb960cd 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -59,6 +59,7 @@
+ #define I40E_MAX_VSI_QP			16
+ #define I40E_MAX_VF_VSI			3
+ #define I40E_MAX_CHAINED_RX_BUFFERS	5
++#define I40E_MAX_PF_UDP_OFFLOAD_PORTS	16
+ 
+ /* Max default timeout in ms, */
+ #define I40E_MAX_NVM_TIMEOUT		18000
 -- 
 1.8.3.1
