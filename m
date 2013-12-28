@@ -1,45 +1,52 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/8] netfilter: nft_exthdr: call ipv6_find_hdr() with explicitly initialized offset
-Date: Sat, 28 Dec 2013 23:03:01 +0100
-Message-ID: <1388268187-11569-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 4/8] netfilter: WARN about wrong usage of sequence number adjustments
+Date: Sat, 28 Dec 2013 23:03:03 +0100
+Message-ID: <1388268187-11569-5-git-send-email-pablo@netfilter.org>
 References: <1388268187-11569-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:43863 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751433Ab3L1WD0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Dec 2013 17:03:26 -0500
 In-Reply-To: <1388268187-11569-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
 
-In nft's nft_exthdr_eval() routine we process IPv6 extension header
-through invoking ipv6_find_hdr(), but we call it with an uninitialized
-offset variable that contains some stack value. In ipv6_find_hdr()
-we then test if the value of offset != 0 and call skb_header_pointer()
-on that offset in order to map struct ipv6hdr into it. Fix it up by
-initializing offset to 0 as it was probably intended to be.
+Since commit 41d73ec053d2 (netfilter: nf_conntrack: make sequence
+number adjustments usuable without NAT), the sequence number extension
+is dynamically allocated.
 
-Fixes: 96518518cc41 ("netfilter: add nftables")
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Instead of dying, give a WARN splash, in case of wrong usage of the
+seqadj code, e.g. when forgetting to allocate via nfct_seqadj_ext_add().
+
+Wrong usage have been seen in the IPVS code path.
+
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/nft_exthdr.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/nf_conntrack_seqadj.c |    5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/net/netfilter/nft_exthdr.c b/net/netfilter/nft_exthdr.c
-index 8e0bb75..55c939f 100644
---- a/net/netfilter/nft_exthdr.c
-+++ b/net/netfilter/nft_exthdr.c
-@@ -31,7 +31,7 @@ static void nft_exthdr_eval(const struct nft_expr *expr,
- {
- 	struct nft_exthdr *priv = nft_expr_priv(expr);
- 	struct nft_data *dest = &data[priv->dreg];
--	unsigned int offset;
-+	unsigned int offset = 0;
- 	int err;
+diff --git a/net/netfilter/nf_conntrack_seqadj.c b/net/netfilter/nf_conntrack_seqadj.c
+index 17c1bcb..b2d38da 100644
+--- a/net/netfilter/nf_conntrack_seqadj.c
++++ b/net/netfilter/nf_conntrack_seqadj.c
+@@ -36,6 +36,11 @@ int nf_ct_seqadj_set(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
+ 	if (off == 0)
+ 		return 0;
  
- 	err = ipv6_find_hdr(pkt->skb, &offset, priv->type, NULL, NULL);
++	if (unlikely(!seqadj)) {
++		WARN(1, "Wrong seqadj usage, missing nfct_seqadj_ext_add()\n");
++		return 0;
++	}
++
+ 	set_bit(IPS_SEQ_ADJUST_BIT, &ct->status);
+ 
+ 	spin_lock_bh(&ct->lock);
 -- 
 1.7.10.4
-
