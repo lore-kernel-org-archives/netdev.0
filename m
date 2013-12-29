@@ -1,88 +1,72 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6 addrconf:fix preferred lifetime state-changing behavior while valid_lft is infinity
-Date: Sun, 29 Dec 2013 16:32:22 +0100
-Message-ID: <20131229153222.GU14073@order.stressinduktion.org>
-References: <20131214091917.GB23563@order.stressinduktion.org> <1388303260-3668-1-git-send-email-yazzep@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org,
-	Yasushi Asano <yasushi.asano@jp.fujitsu.com>
-To: yazzep@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:57345 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750968Ab3L2PcY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Dec 2013 10:32:24 -0500
-Content-Disposition: inline
-In-Reply-To: <1388303260-3668-1-git-send-email-yazzep@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH nf-next v4 0/3] xtables socket classid matching
+Date: Sun, 29 Dec 2013 18:13:14 +0100
+Message-ID: <1388337197-10885-1-git-send-email-dborkman@redhat.com>
+Cc: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Dec 29, 2013 at 04:47:40PM +0900, yazzep@gmail.com wrote:
-> From: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
-> 
-> Fixed a problem with setting the lifetime of an IPv6
-> address. When setting preferred_lft to a value not zero or
-> infinity, while valid_lft is infinity(0xffffffff) preferred
-> lifetime is set to forever and does not update. Therefore
-> preferred lifetime never becomes deprecated. valid lifetime
-> and preferred lifetime should be set independently, even if
-> valid lifetime is infinity, preferred lifetime must expire
-> correctly (meaning it must eventually become deprecated)
+The main patch is patch 3, please refer to the detailled description
+there. Patch 1 has been requested by cgroups people to have as a
+cleanup. While at it, I've also added a minor, trivial cleanup in
+patch 2 for consistency reasons.
 
-This looks much better. I'll give it a try and do a review today.
+Changelog:
 
-> Signed-off-by: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
-> ---
->  net/ipv6/addrconf.c | 14 ++++++++++----
->  1 file changed, 10 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index cd2d7d0..796d52a 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -3479,7 +3479,8 @@ restart:
->  					 &inet6_addr_lst[i], addr_lst) {
->  			unsigned long age;
->  
-> -			if (ifp->flags & IFA_F_PERMANENT)
-> +			if ((ifp->flags & IFA_F_PERMANENT) &&
-> +			    (ifp->prefered_lft == INFINITY_LIFE_TIME))
->  				continue;
+* v3->v4:
+  - Patch 3 is unchanged from previous version (only minor Kconfig update)
+  - Added patch 1 upon request, and while at it also patch 2
+* v2->v3:
+  - After discussions w/ Tejun, let's not add any cgroups code here,
+    thus we _only_ add code in netfilter area, nowhere else, that's
+    even more simple and cleaner than proposed.
+* v1->v2:
+  - Updated commit message, rebased
+  - Applied Gao Feng's feedback
 
-I would like to see a comment here why IFA_F_PERMANENT could have a
-non-infinity life time. Something like that we always handle manually set
-routes as IFA_F_PERMANENT but those routes could also have a prefered_lft of
-non-infinity, so we must check if those interface prefix needs to be
-deprecated.
+Previous discussions, design considerations etc can be found in:
 
->  			spin_lock(&ifp->lock);
-> @@ -3504,8 +3505,12 @@ restart:
->  					ifp->flags |= IFA_F_DEPRECATED;
->  				}
->  
-> -				if (time_before(ifp->tstamp + ifp->valid_lft * HZ, next))
-> -					next = ifp->tstamp + ifp->valid_lft * HZ;
-> +				if (ifp->valid_lft != INFINITY_LIFE_TIME) {
-> +				    if (time_before(ifp->tstamp +
-> +					    ifp->valid_lft * HZ, next))
-> +						next = ifp->tstamp +
-> +							 ifp->valid_lft * HZ;
-> +				}
->  
->  				spin_unlock(&ifp->lock);
->  
-> @@ -3804,7 +3809,8 @@ static int inet6_fill_ifaddr(struct sk_buff *skb, struct inet6_ifaddr *ifa,
->  	put_ifaddrmsg(nlh, ifa->prefix_len, ifa->flags, rt_scope(ifa->scope),
->  		      ifa->idev->dev->ifindex);
->  
-> -	if (!(ifa->flags&IFA_F_PERMANENT)) {
-> +	if (!((ifa->flags&IFA_F_PERMANENT) &&
-> +	      (ifa->prefered_lft == INFINITY_LIFE_TIME))) {
->  		preferred = ifa->prefered_lft;
->  		valid = ifa->valid_lft;
->  		if (preferred != INFINITY_LIFE_TIME) {
+  - v1: http://patchwork.ozlabs.org/patch/280687/
+  - v1/alt: http://patchwork.ozlabs.org/patch/282477/
+  - v2: http://patchwork.ozlabs.org/patch/284582/
+  - v3: http://patchwork.ozlabs.org/patch/304825/
 
-Thank you,
+Pablo, please find the unchanged user space part in [1].
 
-  Hannes
+Thanks !
+
+ [1] http://patchwork.ozlabs.org/patch/304826/
+
+Daniel Borkmann (3):
+  net: net_cls: move cgroupfs classid handling into core
+  net: netprio: rename config to be more consistent with cgroup configs
+  netfilter: xtables: lightweight process control group matching
+
+ Documentation/cgroups/net_cls.txt        |   5 ++
+ include/linux/cgroup_subsys.h            |   4 +-
+ include/linux/netdevice.h                |   2 +-
+ include/net/cls_cgroup.h                 |  40 ++++-------
+ include/net/netprio_cgroup.h             |  18 ++---
+ include/net/sock.h                       |   2 +-
+ include/uapi/linux/netfilter/Kbuild      |   1 +
+ include/uapi/linux/netfilter/xt_cgroup.h |  11 +++
+ net/Kconfig                              |  11 ++-
+ net/core/Makefile                        |   3 +-
+ net/core/dev.c                           |   2 +-
+ net/core/netclassid_cgroup.c             | 120 +++++++++++++++++++++++++++++++
+ net/core/sock.c                          |  14 +---
+ net/netfilter/Kconfig                    |  10 +++
+ net/netfilter/Makefile                   |   1 +
+ net/netfilter/xt_cgroup.c                |  71 ++++++++++++++++++
+ net/sched/Kconfig                        |   1 +
+ net/sched/cls_cgroup.c                   | 111 +---------------------------
+ 18 files changed, 256 insertions(+), 171 deletions(-)
+ create mode 100644 include/uapi/linux/netfilter/xt_cgroup.h
+ create mode 100644 net/core/netclassid_cgroup.c
+ create mode 100644 net/netfilter/xt_cgroup.c
+
+-- 
+1.8.3.1
