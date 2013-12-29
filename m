@@ -1,73 +1,51 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] tcp: make local functions static
-Date: Sun, 29 Dec 2013 11:39:51 -0800
-Message-ID: <20131229113951.6ef99f27@nehalam.linuxnetplumber.net>
+Subject: [PATCH net-next] bonding: make local function static
+Date: Sun, 29 Dec 2013 11:41:25 -0800
+Message-ID: <20131229114125.1db8d541@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:36272 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752072Ab3L2TkD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Dec 2013 14:40:03 -0500
-Received: by mail-pd0-f181.google.com with SMTP id p10so10668335pdj.12
-        for <netdev@vger.kernel.org>; Sun, 29 Dec 2013 11:40:03 -0800 (PST)
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:41827 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752307Ab3L2Tl3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Dec 2013 14:41:29 -0500
+Received: by mail-pd0-f174.google.com with SMTP id x10so10721676pdj.33
+        for <netdev@vger.kernel.org>; Sun, 29 Dec 2013 11:41:28 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following are only used in one file:
-  tcp_connect_init
-  tcp_set_rto
+bond_xmit_slave_id is only used in main.
 
 Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-
 ---
- include/net/tcp.h     |    3 ---
- net/ipv4/tcp_input.c  |    2 +-
- net/ipv4/tcp_output.c |    2 +-
- 3 files changed, 2 insertions(+), 5 deletions(-)
+ drivers/net/bonding/bond_main.c |    2 +-
+ drivers/net/bonding/bonding.h   |    1 -
+ 2 files changed, 1 insertion(+), 2 deletions(-)
 
---- a/include/net/tcp.h	2013-12-24 15:15:26.685742315 -0800
-+++ b/include/net/tcp.h	2013-12-24 15:16:00.241291333 -0800
-@@ -468,7 +468,6 @@ struct sk_buff *tcp_make_synack(struct s
- 				struct tcp_fastopen_cookie *foc);
- int tcp_disconnect(struct sock *sk, int flags);
- 
--void tcp_connect_init(struct sock *sk);
- void tcp_finish_connect(struct sock *sk, struct sk_buff *skb);
- int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t size);
- void inet_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb);
-@@ -623,8 +622,6 @@ static inline u32 __tcp_set_rto(const st
- 	return (tp->srtt >> 3) + tp->rttvar;
- }
- 
--void tcp_set_rto(struct sock *sk);
--
- static inline void __tcp_fast_path_on(struct tcp_sock *tp, u32 snd_wnd)
- {
- 	tp->pred_flags = htonl((tp->tcp_header_len << 26) |
---- a/net/ipv4/tcp_input.c	2013-12-24 15:15:26.685742315 -0800
-+++ b/net/ipv4/tcp_input.c	2013-12-24 15:16:00.245291279 -0800
-@@ -766,7 +766,7 @@ static void tcp_update_pacing_rate(struc
- /* Calculate rto without backoff.  This is the second half of Van Jacobson's
-  * routine referred to above.
+--- a/drivers/net/bonding/bond_main.c	2013-12-24 15:15:26.649742798 -0800
++++ b/drivers/net/bonding/bond_main.c	2013-12-24 15:16:00.429288806 -0800
+@@ -3511,7 +3511,7 @@ unwind:
+  * it fails, it tries to find the first available slave for transmission.
+  * The skb is consumed in all cases, thus the function is void.
   */
--void tcp_set_rto(struct sock *sk)
-+static void tcp_set_rto(struct sock *sk)
+-void bond_xmit_slave_id(struct bonding *bond, struct sk_buff *skb, int slave_id)
++static void bond_xmit_slave_id(struct bonding *bond, struct sk_buff *skb, int slave_id)
  {
- 	const struct tcp_sock *tp = tcp_sk(sk);
- 	/* Old crap is replaced with new one. 8)
---- a/net/ipv4/tcp_output.c	2013-12-24 15:15:26.685742315 -0800
-+++ b/net/ipv4/tcp_output.c	2013-12-24 15:16:00.245291279 -0800
-@@ -2777,7 +2777,7 @@ struct sk_buff *tcp_make_synack(struct s
- EXPORT_SYMBOL(tcp_make_synack);
+ 	struct list_head *iter;
+ 	struct slave *slave;
+--- a/drivers/net/bonding/bonding.h	2013-12-24 15:15:26.649742798 -0800
++++ b/drivers/net/bonding/bonding.h	2013-12-24 15:16:00.429288806 -0800
+@@ -417,7 +417,6 @@ struct bond_net;
  
- /* Do all connect socket setups that can be done AF independent. */
--void tcp_connect_init(struct sock *sk)
-+static void tcp_connect_init(struct sock *sk)
- {
- 	const struct dst_entry *dst = __sk_dst_get(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
+ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond, struct slave *slave);
+ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_device *slave_dev);
+-void bond_xmit_slave_id(struct bonding *bond, struct sk_buff *skb, int slave_id);
+ int bond_create(struct net *net, const char *name);
+ int bond_create_sysfs(struct bond_net *net);
+ void bond_destroy_sysfs(struct bond_net *net);
