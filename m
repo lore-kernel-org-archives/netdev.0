@@ -1,117 +1,135 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: [PATCH net-next] mlx5: remove dead code
-Date: Sun, 29 Dec 2013 13:51:37 -0800
-Message-ID: <20131229135137.7a8566da@nehalam.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] macvlan: fix oops with vlan-on-top and HW_VLAN_CTAG_TX
+ lowerdev
+Date: Sun, 29 Dec 2013 17:01:21 -0500 (EST)
+Message-ID: <20131229.170121.154913581019152817.davem@davemloft.net>
+References: <1388237920-5140-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Eli Cohen <eli@mellanox.com>, David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:15312 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752424Ab3L2Vvu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Dec 2013 16:51:50 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:48574 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752943Ab3L2WBX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Dec 2013 17:01:23 -0500
+In-Reply-To: <1388237920-5140-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are 3 functions in the mlx5 driver which are used and should be
-deleted. Upstream is not the repository to hold old dead code, or code
-which is used by outside drivers, or code intended for future undetermined
-features.
+From: Florian Westphal <fw@strlen.de>
+Date: Sat, 28 Dec 2013 14:38:40 +0100
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+>  Or is the real bug the use of netdev_priv in macvlan_hard_header()?
 
+That's a really good question.
 
---- a/drivers/net/ethernet/mellanox/mlx5/core/cq.c	2013-10-06 14:48:23.738461842 -0700
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/cq.c	2013-12-29 13:40:54.666481807 -0800
-@@ -199,13 +199,6 @@ int mlx5_core_query_cq(struct mlx5_core_
- }
- EXPORT_SYMBOL(mlx5_core_query_cq);
+On the surface it really looks like header ops cannot assume anything
+about the netdev_priv().  These operations are really meant to be
+stateless and apply to an entire class of devices.  macvlan is trying
+to make it's operations specific to exactly one device.
+
+For example, eth_header() only assumes that the device the packet is
+going over has an ETH_ALEN length MAC address.
+
+Or at least, based upon what the vlan is trying to do it appears this
+way.
+
+But, ironically, vlan_dev_hard_header() makes this same assumption.  It
+uses netdev_priv() the same way macvlan is.
+
+So the more I think about this, the more I think that the operations
+assignment VLAN is doing is illegal.  If it wants to "pass through"
+it must do so with explicit handlers, ones that pass the expected
+device to the hard header ops.
+
+So vlan_dev.c would have things like:
+
+static int vlan_passthru_hard_header(struct sk_buff *skb, struct net_device *dev,
+				     unsigned short type,
+				     const void *daddr, const void *saddr,
+				     unsigned int len)
+{
+	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
+	struct net_device *real_dev = vlan->real_dev;
+
+	return real_dev->header_ops->create(skb, real_dev, type, daddr, saddr, len);
+}
+
+static int vlan_passthru_rebuild_header(struct sk_buff *skb)
+{
+	struct net_device *dev = skb->dev;
+	struct net_device *real_dev;
+	struct vlan_dev_priv *vlan;
+
+	vlan = vlan_dev_priv(dev);
+	real_dev = vlan->real_dev;
+
+	return real_dev->header_ops->rebuild(skb);
+}
+
+and then:
+
+static const struct header_ops vlan_passthru_header_ops = {
+	.create	 = vlan_passthru_hard_header,
+	.rebuild = vlan_passthru_rebuild_header,
+	.parse	 = eth_header_parse,
+};
+
+BTW, ARCNET is another case which cares about the netdev_priv() in it's
+header_ops.
+
+Can someone test this?
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 762896e..91eb467 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -530,6 +530,35 @@ static const struct header_ops vlan_header_ops = {
+ 	.parse	 = eth_header_parse,
+ };
  
--
--int mlx5_core_modify_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
--			int type, struct mlx5_cq_modify_params *params)
--{
--	return -ENOSYS;
--}
--
- int mlx5_init_cq_table(struct mlx5_core_dev *dev)
- {
- 	struct mlx5_cq_table *table = &dev->priv.cq_table;
---- a/drivers/net/ethernet/mellanox/mlx5/core/mr.c	2013-12-05 14:47:25.812499721 -0800
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/mr.c	2013-12-29 13:40:05.899556889 -0800
-@@ -98,49 +98,3 @@ int mlx5_core_destroy_mkey(struct mlx5_c
- 	return err;
- }
- EXPORT_SYMBOL(mlx5_core_destroy_mkey);
--
--int mlx5_core_query_mkey(struct mlx5_core_dev *dev, struct mlx5_core_mr *mr,
--			 struct mlx5_query_mkey_mbox_out *out, int outlen)
--{
--	struct mlx5_destroy_mkey_mbox_in in;
--	int err;
--
--	memset(&in, 0, sizeof(in));
--	memset(out, 0, outlen);
--
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_QUERY_MKEY);
--	in.mkey = cpu_to_be32(mlx5_mkey_to_idx(mr->key));
--	err = mlx5_cmd_exec(dev, &in, sizeof(in), out, outlen);
--	if (err)
--		return err;
--
--	if (out->hdr.status)
--		return mlx5_cmd_status_to_err(&out->hdr);
--
--	return err;
--}
--EXPORT_SYMBOL(mlx5_core_query_mkey);
--
--int mlx5_core_dump_fill_mkey(struct mlx5_core_dev *dev, struct mlx5_core_mr *mr,
--			     u32 *mkey)
--{
--	struct mlx5_query_special_ctxs_mbox_in in;
--	struct mlx5_query_special_ctxs_mbox_out out;
--	int err;
--
--	memset(&in, 0, sizeof(in));
--	memset(&out, 0, sizeof(out));
--
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_QUERY_SPECIAL_CONTEXTS);
--	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
--	if (err)
--		return err;
--
--	if (out.hdr.status)
--		return mlx5_cmd_status_to_err(&out.hdr);
--
--	*mkey = be32_to_cpu(out.dump_fill_mkey);
--
--	return err;
--}
--EXPORT_SYMBOL(mlx5_core_dump_fill_mkey);
---- a/include/linux/mlx5/cq.h	2013-10-06 14:48:24.762451839 -0700
-+++ b/include/linux/mlx5/cq.h	2013-12-29 13:40:47.454639349 -0800
-@@ -157,8 +157,6 @@ int mlx5_core_create_cq(struct mlx5_core
- int mlx5_core_destroy_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq);
- int mlx5_core_query_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
- 		       struct mlx5_query_cq_mbox_out *out);
--int mlx5_core_modify_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
--			int type, struct mlx5_cq_modify_params *params);
- int mlx5_debug_cq_add(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq);
- void mlx5_debug_cq_remove(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq);
++static int vlan_passthru_hard_header(struct sk_buff *skb, struct net_device *dev,
++				     unsigned short type,
++				     const void *daddr, const void *saddr,
++				     unsigned int len)
++{
++	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
++	struct net_device *real_dev = vlan->real_dev;
++
++	return real_dev->header_ops->create(skb, real_dev, type, daddr, saddr, len);
++}
++
++static int vlan_passthru_rebuild_header(struct sk_buff *skb)
++{
++	struct net_device *dev = skb->dev;
++	struct net_device *real_dev;
++	struct vlan_dev_priv *vlan;
++
++	vlan = vlan_dev_priv(dev);
++	real_dev = vlan->real_dev;
++
++	return real_dev->header_ops->rebuild(skb);
++}
++
++static const struct header_ops vlan_passthru_header_ops = {
++	.create	 = vlan_passthru_hard_header,
++	.rebuild = vlan_passthru_rebuild_header,
++	.parse	 = eth_header_parse,
++};
++
+ static struct device_type vlan_type = {
+ 	.name	= "vlan",
+ };
+@@ -573,7 +602,7 @@ static int vlan_dev_init(struct net_device *dev)
  
---- a/include/linux/mlx5/driver.h	2013-12-05 14:47:26.036496073 -0800
-+++ b/include/linux/mlx5/driver.h	2013-12-29 13:40:10.647451164 -0800
-@@ -687,10 +687,6 @@ int mlx5_core_create_mkey(struct mlx5_co
- 			  mlx5_cmd_cbk_t callback, void *context,
- 			  struct mlx5_create_mkey_mbox_out *out);
- int mlx5_core_destroy_mkey(struct mlx5_core_dev *dev, struct mlx5_core_mr *mr);
--int mlx5_core_query_mkey(struct mlx5_core_dev *dev, struct mlx5_core_mr *mr,
--			 struct mlx5_query_mkey_mbox_out *out, int outlen);
--int mlx5_core_dump_fill_mkey(struct mlx5_core_dev *dev, struct mlx5_core_mr *mr,
--			     u32 *mkey);
- int mlx5_core_alloc_pd(struct mlx5_core_dev *dev, u32 *pdn);
- int mlx5_core_dealloc_pd(struct mlx5_core_dev *dev, u32 pdn);
- int mlx5_core_mad_ifc(struct mlx5_core_dev *dev, void *inb, void *outb,
+ 	dev->needed_headroom = real_dev->needed_headroom;
+ 	if (real_dev->features & NETIF_F_HW_VLAN_CTAG_TX) {
+-		dev->header_ops      = real_dev->header_ops;
++		dev->header_ops      = &vlan_passthru_header_ops;
+ 		dev->hard_header_len = real_dev->hard_header_len;
+ 	} else {
+ 		dev->header_ops      = &vlan_header_ops;
