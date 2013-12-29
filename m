@@ -1,76 +1,32 @@
-From: yazzep@gmail.com
-Subject: [PATCH] ipv6 addrconf:fix preferred lifetime state-changing behavior while valid_lft is infinity
-Date: Sun, 29 Dec 2013 16:47:40 +0900
-Message-ID: <1388303260-3668-1-git-send-email-yazzep@gmail.com>
-References: <20131214091917.GB23563@order.stressinduktion.org>
-Cc: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
+From: ivanka ignatova <vaneto_70@abv.bg>
+Subject: li4en zaem
+Date: Sun, 29 Dec 2013 11:24:11 +0000 (UTC)
+Message-ID: <loom.20131229T122113-246@post.gmane.org>
+References: <521775399.848739.1367916929307.JavaMail.root@supernet.com.bo>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:36181 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751048Ab3L2Hru (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Dec 2013 02:47:50 -0500
-Received: by mail-pd0-f172.google.com with SMTP id g10so10322030pdj.17
-        for <netdev@vger.kernel.org>; Sat, 28 Dec 2013 23:47:49 -0800 (PST)
-In-Reply-To: <20131214091917.GB23563@order.stressinduktion.org>
+Received: from plane.gmane.org ([80.91.229.3]:47755 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752096Ab3L2LaG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Dec 2013 06:30:06 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1VxEZI-0006FH-G8
+	for netdev@vger.kernel.org; Sun, 29 Dec 2013 12:30:04 +0100
+Received: from 89.25.118.136 ([89.25.118.136])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 29 Dec 2013 12:30:04 +0100
+Received: from vaneto_70 by 89.25.118.136 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 29 Dec 2013 12:30:04 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
+zdr,spe6no mi trqbva zaem do 30.12.2013,razmer na 3100lv,za 36 meseca,do 100lv  
+vnoska na mesec,ako mojete pomognete mi,blagodarqvi
 
-Fixed a problem with setting the lifetime of an IPv6
-address. When setting preferred_lft to a value not zero or
-infinity, while valid_lft is infinity(0xffffffff) preferred
-lifetime is set to forever and does not update. Therefore
-preferred lifetime never becomes deprecated. valid lifetime
-and preferred lifetime should be set independently, even if
-valid lifetime is infinity, preferred lifetime must expire
-correctly (meaning it must eventually become deprecated)
-
-
-Signed-off-by: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
----
- net/ipv6/addrconf.c | 14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index cd2d7d0..796d52a 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3479,7 +3479,8 @@ restart:
- 					 &inet6_addr_lst[i], addr_lst) {
- 			unsigned long age;
- 
--			if (ifp->flags & IFA_F_PERMANENT)
-+			if ((ifp->flags & IFA_F_PERMANENT) &&
-+			    (ifp->prefered_lft == INFINITY_LIFE_TIME))
- 				continue;
- 
- 			spin_lock(&ifp->lock);
-@@ -3504,8 +3505,12 @@ restart:
- 					ifp->flags |= IFA_F_DEPRECATED;
- 				}
- 
--				if (time_before(ifp->tstamp + ifp->valid_lft * HZ, next))
--					next = ifp->tstamp + ifp->valid_lft * HZ;
-+				if (ifp->valid_lft != INFINITY_LIFE_TIME) {
-+				    if (time_before(ifp->tstamp +
-+					    ifp->valid_lft * HZ, next))
-+						next = ifp->tstamp +
-+							 ifp->valid_lft * HZ;
-+				}
- 
- 				spin_unlock(&ifp->lock);
- 
-@@ -3804,7 +3809,8 @@ static int inet6_fill_ifaddr(struct sk_buff *skb, struct inet6_ifaddr *ifa,
- 	put_ifaddrmsg(nlh, ifa->prefix_len, ifa->flags, rt_scope(ifa->scope),
- 		      ifa->idev->dev->ifindex);
- 
--	if (!(ifa->flags&IFA_F_PERMANENT)) {
-+	if (!((ifa->flags&IFA_F_PERMANENT) &&
-+	      (ifa->prefered_lft == INFINITY_LIFE_TIME))) {
- 		preferred = ifa->prefered_lft;
- 		valid = ifa->valid_lft;
- 		if (preferred != INFINITY_LIFE_TIME) {
--- 
-1.7.12.4
+> 
