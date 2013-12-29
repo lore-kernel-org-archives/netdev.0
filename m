@@ -1,22 +1,31 @@
-From: "yasushi.asano" <yazzep@gmail.com>
+From: yazzep@gmail.com
 Subject: [PATCH] ipv6 addrconf:fix preferred lifetime state-changing behavior while valid_lft is infinity
-Date: Sun, 29 Dec 2013 16:34:01 +0900
-Message-ID: <1388302441-3293-1-git-send-email-yazzep@gmail.com>
+Date: Sun, 29 Dec 2013 16:47:40 +0900
+Message-ID: <1388303260-3668-1-git-send-email-yazzep@gmail.com>
 References: <20131214091917.GB23563@order.stressinduktion.org>
 Cc: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:58721 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751178Ab3L2Hec (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Dec 2013 02:34:32 -0500
-Received: by mail-pb0-f45.google.com with SMTP id rp16so10560741pbb.18
-        for <netdev@vger.kernel.org>; Sat, 28 Dec 2013 23:34:32 -0800 (PST)
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:36181 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751048Ab3L2Hru (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Dec 2013 02:47:50 -0500
+Received: by mail-pd0-f172.google.com with SMTP id g10so10322030pdj.17
+        for <netdev@vger.kernel.org>; Sat, 28 Dec 2013 23:47:49 -0800 (PST)
 In-Reply-To: <20131214091917.GB23563@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
+
+Fixed a problem with setting the lifetime of an IPv6
+address. When setting preferred_lft to a value not zero or
+infinity, while valid_lft is infinity(0xffffffff) preferred
+lifetime is set to forever and does not update. Therefore
+preferred lifetime never becomes deprecated. valid lifetime
+and preferred lifetime should be set independently, even if
+valid lifetime is infinity, preferred lifetime must expire
+correctly (meaning it must eventually become deprecated)
 
 
 Signed-off-by: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
