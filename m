@@ -1,74 +1,192 @@
-From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH nf-next v5 0/3] xtables socket classid matching
-Date: Sun, 29 Dec 2013 18:27:09 +0100
-Message-ID: <1388338032-14713-1-git-send-email-dborkman@redhat.com>
-Cc: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH nf-next v5 2/3] net: netprio: rename config to be more consistent with cgroup configs
+Date: Sun, 29 Dec 2013 18:27:11 +0100
+Message-ID: <1388338032-14713-3-git-send-email-dborkman@redhat.com>
+References: <1388338032-14713-1-git-send-email-dborkman@redhat.com>
+Cc: netfilter-devel@vger.kernel.org, cgroups@vger.kernel.org,
+	netdev@vger.kernel.org, Zefan Li <lizefan@huawei.com>
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1388338032-14713-1-git-send-email-dborkman@redhat.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The main patch is patch 3, please refer to the detailled description
-there. Patch 1 has been requested by cgroups people to have as a
-cleanup. While at it, I've also added a minor, trivial cleanup in
-patch 2 for consistency reasons.
+While we're at it and introduced CGROUP_NET_CLASSID, lets also make
+NETPRIO_CGROUP more consistent with the rest of cgroups and rename it
+into CONFIG_CGROUP_NET_PRIO so that for networking, we now have
+CONFIG_CGROUP_NET_{PRIO,CLASSID}. This not only makes the CONFIG
+option consistent among networking cgroups, but also among cgroups
+CONFIG conventions in general as the vast majority has a prefix of
+CONFIG_CGROUP_<SUBSYS>.
 
-Changelog:
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Zefan Li <lizefan@huawei.com>
+Cc: cgroups@vger.kernel.org
+---
+ include/linux/cgroup_subsys.h |  2 +-
+ include/linux/netdevice.h     |  2 +-
+ include/net/netprio_cgroup.h  | 18 ++++++------------
+ include/net/sock.h            |  2 +-
+ net/Kconfig                   |  4 ++--
+ net/core/Makefile             |  2 +-
+ net/core/dev.c                |  2 +-
+ net/core/sock.c               |  2 +-
+ 8 files changed, 14 insertions(+), 20 deletions(-)
 
-* v4->v5:
-  - Fixed typo in patch 1, sorry for that, rest unchanged.
-* v3->v4:
-  - Patch 3 is unchanged from previous version (only minor Kconfig update)
-  - Added patch 1 upon request, and while at it also patch 2
-* v2->v3:
-  - After discussions w/ Tejun, let's not add any cgroups code here,
-    thus we _only_ add code in netfilter area, nowhere else, that's
-    even more simple and cleaner than proposed.
-* v1->v2:
-  - Updated commit message, rebased
-  - Applied Gao Feng's feedback
-
-Previous discussions, design considerations etc can be found in:
-
-  - v1: http://patchwork.ozlabs.org/patch/280687/
-  - v1/alt: http://patchwork.ozlabs.org/patch/282477/
-  - v2: http://patchwork.ozlabs.org/patch/284582/
-  - v3: http://patchwork.ozlabs.org/patch/304825/
-
-Pablo, please find the unchanged user space part in [1].
-
-Thanks !
-
- [1] http://patchwork.ozlabs.org/patch/304826/
-
-Daniel Borkmann (3):
-  net: net_cls: move cgroupfs classid handling into core
-  net: netprio: rename config to be more consistent with cgroup configs
-  netfilter: xtables: lightweight process control group matching
-
- Documentation/cgroups/net_cls.txt        |   5 ++
- include/linux/cgroup_subsys.h            |   4 +-
- include/linux/netdevice.h                |   2 +-
- include/net/cls_cgroup.h                 |  40 ++++-------
- include/net/netprio_cgroup.h             |  18 ++---
- include/net/sock.h                       |   2 +-
- include/uapi/linux/netfilter/Kbuild      |   1 +
- include/uapi/linux/netfilter/xt_cgroup.h |  11 +++
- net/Kconfig                              |  11 ++-
- net/core/Makefile                        |   3 +-
- net/core/dev.c                           |   2 +-
- net/core/netclassid_cgroup.c             | 120 +++++++++++++++++++++++++++++++
- net/core/sock.c                          |  14 +---
- net/netfilter/Kconfig                    |  10 +++
- net/netfilter/Makefile                   |   1 +
- net/netfilter/xt_cgroup.c                |  71 ++++++++++++++++++
- net/sched/Kconfig                        |   1 +
- net/sched/cls_cgroup.c                   | 111 +---------------------------
- 18 files changed, 256 insertions(+), 171 deletions(-)
- create mode 100644 include/uapi/linux/netfilter/xt_cgroup.h
- create mode 100644 net/core/netclassid_cgroup.c
- create mode 100644 net/netfilter/xt_cgroup.c
-
+diff --git a/include/linux/cgroup_subsys.h b/include/linux/cgroup_subsys.h
+index 58bf94d..7b99d71 100644
+--- a/include/linux/cgroup_subsys.h
++++ b/include/linux/cgroup_subsys.h
+@@ -43,7 +43,7 @@ SUBSYS(blkio)
+ SUBSYS(perf)
+ #endif
+ 
+-#if IS_SUBSYS_ENABLED(CONFIG_NETPRIO_CGROUP)
++#if IS_SUBSYS_ENABLED(CONFIG_CGROUP_NET_PRIO)
+ SUBSYS(net_prio)
+ #endif
+ 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 5260d2e..45cf681 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1444,7 +1444,7 @@ struct net_device {
+ 	/* max exchange id for FCoE LRO by ddp */
+ 	unsigned int		fcoe_ddp_xid;
+ #endif
+-#if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
++#if IS_ENABLED(CONFIG_CGROUP_NET_PRIO)
+ 	struct netprio_map __rcu *priomap;
+ #endif
+ 	/* phy device may attach itself for hardware timestamping */
+diff --git a/include/net/netprio_cgroup.h b/include/net/netprio_cgroup.h
+index 099d027..dafc09f 100644
+--- a/include/net/netprio_cgroup.h
++++ b/include/net/netprio_cgroup.h
+@@ -13,12 +13,12 @@
+ 
+ #ifndef _NETPRIO_CGROUP_H
+ #define _NETPRIO_CGROUP_H
++
+ #include <linux/cgroup.h>
+ #include <linux/hardirq.h>
+ #include <linux/rcupdate.h>
+ 
+-
+-#if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
++#if IS_ENABLED(CONFIG_CGROUP_NET_PRIO)
+ struct netprio_map {
+ 	struct rcu_head rcu;
+ 	u32 priomap_len;
+@@ -27,8 +27,7 @@ struct netprio_map {
+ 
+ void sock_update_netprioidx(struct sock *sk);
+ 
+-#if IS_BUILTIN(CONFIG_NETPRIO_CGROUP)
+-
++#if IS_BUILTIN(CONFIG_CGROUP_NET_PRIO)
+ static inline u32 task_netprioidx(struct task_struct *p)
+ {
+ 	struct cgroup_subsys_state *css;
+@@ -40,9 +39,7 @@ static inline u32 task_netprioidx(struct task_struct *p)
+ 	rcu_read_unlock();
+ 	return idx;
+ }
+-
+-#elif IS_MODULE(CONFIG_NETPRIO_CGROUP)
+-
++#elif IS_MODULE(CONFIG_CGROUP_NET_PRIO)
+ static inline u32 task_netprioidx(struct task_struct *p)
+ {
+ 	struct cgroup_subsys_state *css;
+@@ -56,9 +53,7 @@ static inline u32 task_netprioidx(struct task_struct *p)
+ 	return idx;
+ }
+ #endif
+-
+-#else /* !CONFIG_NETPRIO_CGROUP */
+-
++#else /* !CONFIG_CGROUP_NET_PRIO */
+ static inline u32 task_netprioidx(struct task_struct *p)
+ {
+ 	return 0;
+@@ -66,6 +61,5 @@ static inline u32 task_netprioidx(struct task_struct *p)
+ 
+ #define sock_update_netprioidx(sk)
+ 
+-#endif /* CONFIG_NETPRIO_CGROUP */
+-
++#endif /* CONFIG_CGROUP_NET_PRIO */
+ #endif  /* _NET_CLS_CGROUP_H */
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 2ef3c3e..ef5e2be 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -395,7 +395,7 @@ struct sock {
+ 	unsigned short		sk_ack_backlog;
+ 	unsigned short		sk_max_ack_backlog;
+ 	__u32			sk_priority;
+-#if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
++#if IS_ENABLED(CONFIG_CGROUP_NET_PRIO)
+ 	__u32			sk_cgrp_prioidx;
+ #endif
+ 	struct pid		*sk_peer_pid;
+diff --git a/net/Kconfig b/net/Kconfig
+index 7da10b8..e411046 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -238,12 +238,12 @@ config XPS
+ 	depends on SMP
+ 	default y
+ 
+-config NETPRIO_CGROUP
++config CGROUP_NET_PRIO
+ 	tristate "Network priority cgroup"
+ 	depends on CGROUPS
+ 	---help---
+ 	  Cgroup subsystem for use in assigning processes to network priorities on
+-	  a per-interface basis
++	  a per-interface basis.
+ 
+ config CGROUP_NET_CLASSID
+ 	boolean "Network classid cgroup"
+diff --git a/net/core/Makefile b/net/core/Makefile
+index 9c5c4e5..923f09a 100644
+--- a/net/core/Makefile
++++ b/net/core/Makefile
+@@ -21,5 +21,5 @@ obj-$(CONFIG_FIB_RULES) += fib_rules.o
+ obj-$(CONFIG_TRACEPOINTS) += net-traces.o
+ obj-$(CONFIG_NET_DROP_MONITOR) += drop_monitor.o
+ obj-$(CONFIG_NETWORK_PHY_TIMESTAMPING) += timestamping.o
+-obj-$(CONFIG_NETPRIO_CGROUP) += netprio_cgroup.o
++obj-$(CONFIG_CGROUP_NET_PRIO) += netprio_cgroup.o
+ obj-$(CONFIG_CGROUP_NET_CLASSID) += classid_cgroup.o
+diff --git a/net/core/dev.c b/net/core/dev.c
+index c95d664..888a79b 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2747,7 +2747,7 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+ 	return rc;
+ }
+ 
+-#if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
++#if IS_ENABLED(CONFIG_CGROUP_NET_PRIO)
+ static void skb_update_prio(struct sk_buff *skb)
+ {
+ 	struct netprio_map *map = rcu_dereference_bh(skb->dev->priomap);
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 3f15072..a29735c 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1308,7 +1308,7 @@ static void sk_prot_free(struct proto *prot, struct sock *sk)
+ 	module_put(owner);
+ }
+ 
+-#if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
++#if IS_ENABLED(CONFIG_CGROUP_NET_PRIO)
+ void sock_update_netprioidx(struct sock *sk)
+ {
+ 	if (in_interrupt())
 -- 
 1.8.3.1
+
