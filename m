@@ -1,80 +1,38 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v2 11/20] net: packetengines: slight optimization
- of addr
-Date: Sun, 29 Dec 2013 02:25:29 +0300
-Message-ID: <52BF5DE9.3060501@cogentembedded.com>
-References: <52BE6D0D.9050301@huawei.com> <52BED8ED.2040908@cogentembedded.com> <52BEEBD5.1040301@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/8] Netfilter/IPVS fixes for net
+Date: Sun, 29 Dec 2013 00:29:50 -0500 (EST)
+Message-ID: <20131229.002950.956841716132299134.davem@davemloft.net>
+References: <1388268187-11569-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Ding Tianhong <dthxman@gmail.com>,
-	Ding Tianhong <dingtianhong@huawei.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52BEEBD5.1040301@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1388268187-11569-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Sat, 28 Dec 2013 23:02:59 +0100
 
-On 12/28/2013 06:18 PM, Ding Tianhong wrote:
+> This patchset contains four nf_tables fixes, one IPVS fix due to
+> missing updates in the interaction with the new sedadj conntrack
+> extension that was added to support the netfilter synproxy code,
+> and a couple of one-liners to fix netnamespace netfilter issues.
+> More specifically, they are:
+  ...
+> We don't usually have this amount of fixes by this time (as we're already
+> in -rc5 of the development cycle), although half of them are related to
+> nf_tables which is a relatively new thing, and I also belive that holidays
+> have also delayed the flight of bugfixes to mainstream a bit.
+> 
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
 
->>> Use possibly more efficient ether_addr_equal
->>> to instead of memcmp.
+Pulled, thanks Pablo.
 
->>> Cc: "David S. Miller" <davem@davemloft.net>
->>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->>> ---
->>>    drivers/net/ethernet/packetengines/yellowfin.c |   12 ++++++------
->>>    1 files changed, 6 insertions(+), 6 deletions(-)
+> P.S: Have a nice entrance to new year.
 
->>> diff --git a/drivers/net/ethernet/packetengines/yellowfin.c b/drivers/net/ethernet/packetengines/yellowfin.c
->>> index d28593b..b83ac0e 100644
->>> --- a/drivers/net/ethernet/packetengines/yellowfin.c
->>> +++ b/drivers/net/ethernet/packetengines/yellowfin.c
->>> @@ -1097,12 +1097,12 @@ static int yellowfin_rx(struct net_device *dev)
->>>                if (status2 & 0x80) dev->stats.rx_dropped++;
->>>    #ifdef YF_PROTOTYPE        /* Support for prototype hardware errata. */
->>>            } else if ((yp->flags & HasMACAddrBug)  &&
->>> -            memcmp(le32_to_cpu(yp->rx_ring_dma +
->>> -                entry*sizeof(struct yellowfin_desc)),
->>> -                dev->dev_addr, 6) != 0 &&
->>> -            memcmp(le32_to_cpu(yp->rx_ring_dma +
->>> -                entry*sizeof(struct yellowfin_desc)),
->>> -                "\377\377\377\377\377\377", 6) != 0) {
->>> +            !ether_addr_equal(le32_to_cpu(yp->rx_ring_dma +
->>> +                              entry * sizeof(struct yellowfin_desc)),
->>> +                              dev->dev_addr) &&
-
->>     Previous line was aligned correctly, the above line should start under le32_to_cpu.
-
->>> +            !ether_addr_equal(le32_to_cpu(yp->rx_ring_dma +
->>> +                              entry * sizeof(struct yellowfin_desc)),
-
->>     Start the continuation lines under 'yp', please.
-
->>> +                              "\377\377\377\377\377\377")) {
-
->>     This line should start under le32_to_cpu.
-
->> WBR, Sergei
-
-
-> Hi sergei:
-> you mean this way?
-> 	!ether_addr_equal(le32_to_cpu(yp->rx_ring_dma +
-> 				      entry * sizeof(struct yellowfin_desc)),
-> 			  dev->dev_addr) &&
->
-> 	!ether_addr_equal(le32_to_cpu(yp->rx_ring_dma +
-> 				      entry * sizeof(struct yellowfin_desc)),
-> 			  "\377\377\377\377\377\377")) {
-
-    Yes, exactly.
-
-> Regards
-> Ding
-
-WBR, Sergei
+Same to you. :)
