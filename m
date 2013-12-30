@@ -1,8 +1,8 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v3 18/19] net: fddi: slight optimization of addr
+Subject: [PATCH net-next v3 15/19] net: seeq: slight optimization of addr
  compare
-Date: Mon, 30 Dec 2013 15:41:30 +0800
-Message-ID: <52C123AA.1050008@huawei.com>
+Date: Mon, 30 Dec 2013 15:41:21 +0800
+Message-ID: <52C123A1.5010907@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -19,29 +19,21 @@ to instead of memcmp.
 Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/fddi/skfp/fplustm.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/seeq/sgiseeq.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/fddi/skfp/fplustm.c b/drivers/net/fddi/skfp/fplustm.c
-index d918d8a..7d3779a 100644
---- a/drivers/net/fddi/skfp/fplustm.c
-+++ b/drivers/net/fddi/skfp/fplustm.c
-@@ -23,6 +23,7 @@
- #include "h/smc.h"
- #include "h/supern_2.h"
- #include <linux/bitrev.h>
-+#include <linux/etherdevice.h>
- 
- #ifndef	lint
- static const char ID_sccs[] = "@(#)fplustm.c	1.32 99/02/23 (C) SK " ;
-@@ -1082,7 +1083,7 @@ static struct s_fpmc* mac_get_mc_table(struct s_smc *smc,
- 				slot = tb ;
- 			continue ;
- 		}
--		if (memcmp((char *)&tb->a,(char *)own,6))
-+		if (!ether_addr_equal((char *)&tb->a, (char *)own))
- 			continue ;
- 		return tb;
- 	}
+diff --git a/drivers/net/ethernet/seeq/sgiseeq.c b/drivers/net/ethernet/seeq/sgiseeq.c
+index c765718..ced5b13 100644
+--- a/drivers/net/ethernet/seeq/sgiseeq.c
++++ b/drivers/net/ethernet/seeq/sgiseeq.c
+@@ -356,7 +356,7 @@ static inline void sgiseeq_rx(struct net_device *dev, struct sgiseeq_private *sp
+ 		if (pkt_status & SEEQ_RSTAT_FIG) {
+ 			/* Packet is OK. */
+ 			/* We don't want to receive our own packets */
+-			if (memcmp(rd->skb->data + 6, dev->dev_addr, ETH_ALEN)) {
++			if (!ether_addr_equal(rd->skb->data + 6, dev->dev_addr)) {
+ 				if (len > rx_copybreak) {
+ 					skb = rd->skb;
+ 					newskb = netdev_alloc_skb(dev, PKT_BUF_SZ);
 -- 
 1.8.0
