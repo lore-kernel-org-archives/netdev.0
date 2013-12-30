@@ -1,124 +1,85 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] netlink: cleanup rntl_af_register
-Date: Mon, 30 Dec 2013 10:41:32 -0800
-Message-ID: <20131230104132.13a10e3d@nehalam.linuxnetplumber.net>
+Subject: [PATCH net-next] bonding: make more functions static
+Date: Mon, 30 Dec 2013 10:43:41 -0800
+Message-ID: <20131230104341.3e7be183@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Andy Gospodarek <andy@greyhouse.net>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:33060 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932254Ab3L3Sle (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Dec 2013 13:41:34 -0500
-Received: by mail-pd0-f181.google.com with SMTP id p10so11494787pdj.26
-        for <netdev@vger.kernel.org>; Mon, 30 Dec 2013 10:41:34 -0800 (PST)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:64129 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756358Ab3L3Sno (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Dec 2013 13:43:44 -0500
+Received: by mail-pa0-f48.google.com with SMTP id rd3so11881828pab.21
+        for <netdev@vger.kernel.org>; Mon, 30 Dec 2013 10:43:43 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The function __rtnl_af_register is never called outside this
-code, and the return value is always 0.
+More functions in bonding that can be declared static because
+they are only used in one file.
 
----
- include/net/rtnetlink.h |    3 +--
- net/bridge/br_netlink.c |    5 +----
- net/core/rtnetlink.c    |   22 ++--------------------
- net/ipv6/addrconf.c     |    5 +----
- 4 files changed, 5 insertions(+), 30 deletions(-)
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
---- a/include/net/rtnetlink.h	2013-12-24 15:23:13.903434901 -0800
-+++ b/include/net/rtnetlink.h	2013-12-24 15:25:37.329487072 -0800
-@@ -115,10 +115,9 @@ struct rtnl_af_ops {
- 					       const struct nlattr *attr);
- };
- 
--int __rtnl_af_register(struct rtnl_af_ops *ops);
- void __rtnl_af_unregister(struct rtnl_af_ops *ops);
- 
--int rtnl_af_register(struct rtnl_af_ops *ops);
-+void rtnl_af_register(struct rtnl_af_ops *ops);
- void rtnl_af_unregister(struct rtnl_af_ops *ops);
- 
- struct net *rtnl_link_get_net(struct net *src_net, struct nlattr *tb[]);
---- a/net/core/rtnetlink.c	2013-12-24 15:23:13.903434901 -0800
-+++ b/net/core/rtnetlink.c	2013-12-24 15:25:37.329487072 -0800
-@@ -403,34 +403,16 @@ static const struct rtnl_af_ops *rtnl_af
- }
- 
- /**
-- * __rtnl_af_register - Register rtnl_af_ops with rtnetlink.
-- * @ops: struct rtnl_af_ops * to register
-- *
-- * The caller must hold the rtnl_mutex.
-- *
-- * Returns 0 on success or a negative error code.
-- */
--int __rtnl_af_register(struct rtnl_af_ops *ops)
--{
--	list_add_tail(&ops->list, &rtnl_af_ops);
--	return 0;
--}
--EXPORT_SYMBOL_GPL(__rtnl_af_register);
--
--/**
-  * rtnl_af_register - Register rtnl_af_ops with rtnetlink.
-  * @ops: struct rtnl_af_ops * to register
-  *
-  * Returns 0 on success or a negative error code.
+
+--- a/drivers/net/bonding/bond_main.c	2013-12-30 10:08:06.594601098 -0800
++++ b/drivers/net/bonding/bond_main.c	2013-12-30 10:32:43.105732815 -0800
+@@ -2085,7 +2085,7 @@ do_failover:
+  * an acquisition of appropriate locks followed by a commit phase to
+  * implement whatever link state changes are indicated.
   */
--int rtnl_af_register(struct rtnl_af_ops *ops)
-+void rtnl_af_register(struct rtnl_af_ops *ops)
+-void bond_mii_monitor(struct work_struct *work)
++static void bond_mii_monitor(struct work_struct *work)
  {
--	int err;
--
- 	rtnl_lock();
--	err = __rtnl_af_register(ops);
-+	list_add_tail(&ops->list, &rtnl_af_ops);
- 	rtnl_unlock();
--	return err;
+ 	struct bonding *bond = container_of(work, struct bonding,
+ 					    mii_work.work);
+@@ -2374,7 +2374,7 @@ static bool bond_time_in_interval(struct
+  * arp is transmitted to generate traffic. see activebackup_arp_monitor for
+  * arp monitoring in active backup mode.
+  */
+-void bond_loadbalance_arp_mon(struct work_struct *work)
++static void bond_loadbalance_arp_mon(struct work_struct *work)
+ {
+ 	struct bonding *bond = container_of(work, struct bonding,
+ 					    arp_work.work);
+@@ -2711,7 +2711,7 @@ static void bond_ab_arp_probe(struct bon
+ 	rcu_assign_pointer(bond->current_arp_slave, new_slave);
  }
- EXPORT_SYMBOL_GPL(rtnl_af_register);
  
---- a/net/bridge/br_netlink.c	2013-12-24 15:23:13.903434901 -0800
-+++ b/net/bridge/br_netlink.c	2013-12-24 15:25:37.329487072 -0800
-@@ -481,9 +481,7 @@ int __init br_netlink_init(void)
- 	int err;
+-void bond_activebackup_arp_mon(struct work_struct *work)
++static void bond_activebackup_arp_mon(struct work_struct *work)
+ {
+ 	struct bonding *bond = container_of(work, struct bonding,
+ 					    arp_work.work);
+@@ -3511,7 +3511,8 @@ unwind:
+  * it fails, it tries to find the first available slave for transmission.
+  * The skb is consumed in all cases, thus the function is void.
+  */
+-void bond_xmit_slave_id(struct bonding *bond, struct sk_buff *skb, int slave_id)
++static void bond_xmit_slave_id(struct bonding *bond, struct sk_buff *skb,
++			       int slave_id)
+ {
+ 	struct list_head *iter;
+ 	struct slave *slave;
+--- a/drivers/net/bonding/bonding.h	2013-12-30 10:08:06.594601098 -0800
++++ b/drivers/net/bonding/bonding.h	2013-12-30 10:32:54.625597899 -0800
+@@ -417,16 +417,12 @@ struct bond_net;
  
- 	br_mdb_init();
--	err = rtnl_af_register(&br_af_ops);
--	if (err)
--		goto out;
-+	rtnl_af_register(&br_af_ops);
- 
- 	err = rtnl_link_register(&br_link_ops);
- 	if (err)
-@@ -493,7 +491,6 @@ int __init br_netlink_init(void)
- 
- out_af:
- 	rtnl_af_unregister(&br_af_ops);
--out:
- 	br_mdb_uninit();
- 	return err;
- }
---- a/net/ipv6/addrconf.c	2013-12-24 15:23:13.903434901 -0800
-+++ b/net/ipv6/addrconf.c	2013-12-24 15:25:37.329487072 -0800
-@@ -5210,9 +5210,7 @@ int __init addrconf_init(void)
- 
- 	addrconf_verify(0);
- 
--	err = rtnl_af_register(&inet6_ops);
--	if (err < 0)
--		goto errout_af;
-+	rtnl_af_register(&inet6_ops);
- 
- 	err = __rtnl_register(PF_INET6, RTM_GETLINK, NULL, inet6_dump_ifinfo,
- 			      NULL);
-@@ -5236,7 +5234,6 @@ int __init addrconf_init(void)
- 	return 0;
- errout:
- 	rtnl_af_unregister(&inet6_ops);
--errout_af:
- 	unregister_netdevice_notifier(&ipv6_dev_notf);
- errlo:
- 	unregister_pernet_subsys(&addrconf_ops);
+ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond, struct slave *slave);
+ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_device *slave_dev);
+-void bond_xmit_slave_id(struct bonding *bond, struct sk_buff *skb, int slave_id);
+ int bond_create(struct net *net, const char *name);
+ int bond_create_sysfs(struct bond_net *net);
+ void bond_destroy_sysfs(struct bond_net *net);
+ void bond_prepare_sysfs_group(struct bonding *bond);
+ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev);
+ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev);
+-void bond_mii_monitor(struct work_struct *);
+-void bond_loadbalance_arp_mon(struct work_struct *);
+-void bond_activebackup_arp_mon(struct work_struct *);
+ int bond_xmit_hash(struct bonding *bond, struct sk_buff *skb, int count);
+ int bond_parse_parm(const char *mode_arg, const struct bond_parm_tbl *tbl);
+ void bond_select_active_slave(struct bonding *bond);
