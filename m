@@ -1,12 +1,15 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v3 10/19] net: vxge: slight optimization of addr
+Subject: [PATCH net-next v3 06/19] net: igbvf: slight optimization of addr
  compare
-Date: Mon, 30 Dec 2013 15:41:02 +0800
-Message-ID: <52C1238E.5090608@huawei.com>
+Date: Mon, 30 Dec 2013 15:40:46 +0800
+Message-ID: <52C1237E.5070308@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Jon Mason <jdmason@kudzu.us>,
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
@@ -17,24 +20,27 @@ List-Id: netdev.vger.kernel.org
 Use possibly more efficient ether_addr_equal
 to instead of memcmp.
 
-Cc: Jon Mason <jdmason@kudzu.us>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/ethernet/neterion/vxge/vxge-main.c | 2 +-
+ drivers/net/ethernet/intel/igbvf/netdev.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-index 11b1c70..6eae216 100644
---- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
-+++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-@@ -1430,7 +1430,7 @@ vxge_search_mac_addr_in_da_table(struct vxge_vpath *vpath, struct macInfo *mac)
- 		return status;
- 	}
+diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+index 04bf22e..675435f 100644
+--- a/drivers/net/ethernet/intel/igbvf/netdev.c
++++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+@@ -1745,7 +1745,7 @@ static int igbvf_set_mac(struct net_device *netdev, void *p)
  
--	while (memcmp(mac->macaddr, macaddr, ETH_ALEN)) {
-+	while (!ether_addr_equal(mac->macaddr, macaddr)) {
- 		status = vxge_hw_vpath_mac_addr_get_next(vpath->handle,
- 				macaddr, macmask);
- 		if (status != VXGE_HW_OK)
+ 	hw->mac.ops.rar_set(hw, hw->mac.addr, 0);
+ 
+-	if (memcmp(addr->sa_data, hw->mac.addr, 6))
++	if (!ether_addr_equal(addr->sa_data, hw->mac.addr))
+ 		return -EADDRNOTAVAIL;
+ 
+ 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
 -- 
 1.8.0
