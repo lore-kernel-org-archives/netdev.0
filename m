@@ -1,49 +1,41 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next v2 11/20] net: packetengines: slight optimization
- of addr
-Date: Mon, 30 Dec 2013 14:19:14 +0800
-Message-ID: <52C11062.9040906@huawei.com>
-References: <52BE6D0D.9050301@huawei.com>	 <52BED8ED.2040908@cogentembedded.com> <52BEEBD5.1040301@gmail.com>	 <1388251380.24123.15.camel@joe-AO722> <52C0DCF7.6040402@huawei.com> <1388383526.26796.21.camel@joe-AO722>
+From: Hariprasad S <hariprasad@chelsio.com>
+Subject: Re: [PATCH net 0/3] namespace collision fix and update FW version
+ check on cxgb4
+Date: Mon, 30 Dec 2013 12:46:42 +0530
+Message-ID: <20131230071641.GA11909@hariprasad-pc>
+References: <1387798320-29255-1-git-send-email-hariprasad@chelsio.com>
+ <20131229.223021.1188738781129653670.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ding Tianhong <dthxman@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1388383526.26796.21.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <dm@chelsio.com>, <leedom@chelsio.com>,
+	<nirranjan@chelsio.com>, <kumaras@chelsio.com>,
+	<santosh@chelsio.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:8956 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751230Ab3L3HQO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Dec 2013 02:16:14 -0500
+Content-Disposition: inline
+In-Reply-To: <20131229.223021.1188738781129653670.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2013/12/30 14:05, Joe Perches wrote:
-> On Mon, 2013-12-30 at 10:39 +0800, Ding Tianhong wrote:
->> I don't understand packetengine NIC anymore, But I think the change is clearly,
->> as your said, the broadcast check is enough here, did you mean that?
->>
->> 	!is_broadcast_ether_addr((u8 *)(le32_to_cpu(yp->rx_ring_dma) +
->> 						    entry * sizeof(struct yellowfin_desc)))
+On Sun, Dec 29, 2013 at 22:30:21 -0500, David Miller wrote:
+> From: Hariprasad Shenai <hariprasad@chelsio.com>
+> Date: Mon, 23 Dec 2013 17:01:57 +0530
 > 
-> Not quite.  I meant this could be:
+> > Patch 1/3 (cxgb4: make functions static and remove dead code) was provided by
+> > Stephen Hemminger on netdev mailing list.
+> > http://www.spinics.net/lists/linux-rdma/msg18148.html
 > 
-> 		u8 *addr = (u8 *)(unsigned long)le32_to_cpu(yp->rx_ring_dma) +
-> 							    entry * sizeof(struct yellowfin_desc);
-> 
-> 		if (!ether_addr_equal(addr, dev->dev_addr) &&
-> 		    !is_broadcast_ether_addr(addr)) {
-> 			etc...
-> 
-> but again, I think thus hardly matters and could just as well
-> be left alone.
-> 
-> 
+> Such cleanups really are not appropriate for 'net'.
 
-Ok, I will focus on ether_addr_equal in this patch, anymore will left alone. Thanks
+Ok.
+Sorry, my bad.
 
-Regards
-Ding
+I will re-base these patches on top of net-next and re-submit.
 
-> 
-> 
+
+Thanks,
+Hari.
