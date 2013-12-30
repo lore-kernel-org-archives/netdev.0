@@ -1,55 +1,56 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 1/11] rt2x00: use ether_addr_equal_64bits
-Date: Mon, 30 Dec 2013 19:14:57 +0100
-Message-ID: <1388427307-8691-2-git-send-email-Julia.Lawall@lip6.fr>
-References: <1388427307-8691-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-	Gertjan van Wingerde <gwingerde@gmail.com>,
-	Helmut Schaa <helmut.schaa@googlemail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Ivo van Doorn <IvDoorn@gmail.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next v2 2/9] xen-netback: Change TX path
+ from grant copy to mapping
+Date: Mon, 30 Dec 2013 17:58:47 +0000
+Message-ID: <52C1B457.90609@citrix.com>
+References: <1386892097-15502-1-git-send-email-zoltan.kiss@citrix.com> <1386892097-15502-3-git-send-email-zoltan.kiss@citrix.com> <20131217214919.GC32553@phenom.dumpdata.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1388427307-8691-1-git-send-email-Julia.Lawall@lip6.fr>
+In-Reply-To: <20131217214919.GC32553@phenom.dumpdata.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+On 17/12/13 21:49, Konrad Rzeszutek Wilk wrote:
+> On Thu, Dec 12, 2013 at 11:48:10PM +0000, Zoltan Kiss wrote:
+>> @@ -485,6 +520,22 @@ void xenvif_disconnect(struct xenvif *vif)
+>>
+>>   void xenvif_free(struct xenvif *vif)
+>>   {
+>> +	int i, unmap_timeout = 0;
+>> +
+>> +	for (i = 0; i < MAX_PENDING_REQS; ++i) {
+>> +		if (vif->grant_tx_handle[i] != NETBACK_INVALID_HANDLE) {
+>> +			i = 0;
+>> +			unmap_timeout++;
+>> +			msleep(1000);
+>
+> You don't want to use schedule() and a wakeup here to allow other threads
+> to do their work?
+Yep, schedule_timeout() would be nicer indeed
 
-Ether_addr_equal_64bits is more efficient than ether_addr_equal, and can be
-used when each argument is an array within a structure that contains at
-least two bytes of data beyond the array.
+>
+>> +			if (unmap_timeout > 9 &&
+>> +				net_ratelimit())
+>> +				netdev_err(vif->dev,
+>> +					"Page still granted! Index: %x\n", i);
+>> +		}
+>> +	}
+>> +
+>> +	free_xenballooned_pages(MAX_PENDING_REQS, vif->mmap_pages);
+>
+> How about just stashing those pages on a 'I can't free them' list that will
+> keep them forever. And if that list gets truly large then switch back to
+> grant_copy?
+But then what would you answer to the guest? You can't shoot the shared 
+ring until there is an outstanding slot.
+On the other hand, doing a copy would just move the memory leak into the 
+backend, which could be problematic if a guest figures out how to make a 
+packet which can get stucked somewhere in the backend.
 
-The structures involved are:
-ieee80211_bar defined in include/linux/ieee80211.h and
-rt2x00_bar_list_entry defined in drivers/net/wireless/rt2x00/rt2x00.h.
-
-This was done using Coccinelle (http://coccinelle.lip6.fr/).
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
-The semantic patch used is rather long and can be found in message 0 of
-this patch series.
-
- drivers/net/wireless/rt2x00/rt2x00dev.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/rt2x00/rt2x00dev.c b/drivers/net/wireless/rt2x00/rt2x00dev.c
-index 00c3fae..2bde672 100644
---- a/drivers/net/wireless/rt2x00/rt2x00dev.c
-+++ b/drivers/net/wireless/rt2x00/rt2x00dev.c
-@@ -565,10 +565,10 @@ static void rt2x00lib_rxdone_check_ba(struct rt2x00_dev *rt2x00dev,
- 
- #undef TID_CHECK
- 
--		if (!ether_addr_equal(ba->ra, entry->ta))
-+		if (!ether_addr_equal_64bits(ba->ra, entry->ta))
- 			continue;
- 
--		if (!ether_addr_equal(ba->ta, entry->ra))
-+		if (!ether_addr_equal_64bits(ba->ta, entry->ra))
- 			continue;
- 
- 		/* Mark BAR since we received the according BA */
+Zoli
