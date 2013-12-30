@@ -1,44 +1,38 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v3 19/19] net: plip: slight optimization of addr
- compare
-Date: Mon, 30 Dec 2013 15:41:33 +0800
-Message-ID: <52C123AD.9010908@huawei.com>
+Subject: [PATCH net-next v3 17/19] net: ti: slight optimization of addr compare
+Date: Mon, 30 Dec 2013 15:41:27 +0800
+Message-ID: <52C123A7.6050908@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 To: "David S. Miller" <davem@davemloft.net>,
 	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use possibly more efficient ether_addr_equal_64bits
+Use possibly more efficient ether_addr_equal
 to instead of memcmp.
 
 Cc: "David S. Miller" <davem@davemloft.net>
-Suggested-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/plip/plip.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/ti/cpsw_ale.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/plip/plip.c b/drivers/net/plip/plip.c
-index 7b4ff35..040b897 100644
---- a/drivers/net/plip/plip.c
-+++ b/drivers/net/plip/plip.c
-@@ -547,9 +547,9 @@ static __be16 plip_type_trans(struct sk_buff *skb, struct net_device *dev)
- 	skb_pull(skb,dev->hard_header_len);
- 	eth = eth_hdr(skb);
- 
--	if(*eth->h_dest&1)
-+	if(is_multicast_ether_addr(eth->h_dest))
- 	{
--		if(memcmp(eth->h_dest,dev->broadcast, ETH_ALEN)==0)
-+		if(ether_addr_equal_64bits(eth->h_dest, dev->broadcast))
- 			skb->pkt_type=PACKET_BROADCAST;
- 		else
- 			skb->pkt_type=PACKET_MULTICAST;
+diff --git a/drivers/net/ethernet/ti/cpsw_ale.c b/drivers/net/ethernet/ti/cpsw_ale.c
+index 7fa60d6..63e9819 100644
+--- a/drivers/net/ethernet/ti/cpsw_ale.c
++++ b/drivers/net/ethernet/ti/cpsw_ale.c
+@@ -163,7 +163,7 @@ int cpsw_ale_match_addr(struct cpsw_ale *ale, u8 *addr, u16 vid)
+ 		if (cpsw_ale_get_vlan_id(ale_entry) != vid)
+ 			continue;
+ 		cpsw_ale_get_addr(ale_entry, entry_addr);
+-		if (memcmp(entry_addr, addr, 6) == 0)
++		if (ether_addr_equal(entry_addr, addr))
+ 			return idx;
+ 	}
+ 	return -ENOENT;
 -- 
-1.6.0.2
+1.8.0
