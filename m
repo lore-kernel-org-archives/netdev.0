@@ -1,38 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phy: IRQ cannot be shared
-Date: Sun, 29 Dec 2013 22:35:44 -0500 (EST)
-Message-ID: <20131229.223544.776831699070481195.davem@davemloft.net>
-References: <CAGVrzcaUamisoHrW-j5RCt4ph=s0X32uUi7yn7_Wi7=5fxi7tw@mail.gmail.com>
-	<20131227.134333.1370704464169101441.davem@davemloft.net>
-	<52BDDAC4.2050100@cogentembedded.com>
+Subject: Re: [PATCH net] Fix incorrect spinlock release in stmmac_ptp.c and
+ incorrect PTP capabilities detection in PTP initialization.
+Date: Sun, 29 Dec 2013 22:38:52 -0500 (EST)
+Message-ID: <20131229.223852.1418279531462143872.davem@davemloft.net>
+References: <vbridgers2013@gmail.com>
+	<1387559974-31872-1-git-send-email-vbridgers2013@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
+Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com,
+	rayagond@vayavyalabs.com
+To: vbridgers2013@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50265 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50285 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753454Ab3L3Dfp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Dec 2013 22:35:45 -0500
-In-Reply-To: <52BDDAC4.2050100@cogentembedded.com>
+	with ESMTP id S1754073Ab3L3Diy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Dec 2013 22:38:54 -0500
+In-Reply-To: <1387559974-31872-1-git-send-email-vbridgers2013@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Fri, 27 Dec 2013 22:53:40 +0300
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Date: Fri, 20 Dec 2013 11:19:34 -0600
 
->> Arguably they are broken,
+> This patch corrects a problem in stmmac_ptp.c, functions
+> stmmac_adjust_time and stmmac_adjust_freq where the incorrect spinlocks 
+> were released. This patch also addresses a problem in stmmac_main, 
+> function stmmac_init_ptp where the capability detection for 
+> advanced timestamping was masked by message masking. 
 > 
->    Yes, they already are.
+> This patch was touch tested using linuxptp, and runs without the previously
+> observed instabilities. More extensive testing is ongoing.
 > 
->> but they are least mostly working right now
->> and probes will completely fail after this change.
-> 
->    I don't see how the probes will fail. Have you seen the surrounding
->    code? It should just switch to PHY polling if request_irq() fails and
->    return 0. Am I missing something?
+> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
 
-Indeed, right you are.
+Applied, but please provide a more suitable subject line next time.
 
-Applied, thanks.
+Subject lines should, after "[PATCH net]" should have an appropriate
+prefix followed by a colon and a space.
+
+Here, that would be "stmmac: "
+
+Also, your Subject line is exceedingly long, try to keep it down to
+80 columns.  I edited it to be:
+
+stmmac: Fix incorrect spinlock release and PTP cap detection.
