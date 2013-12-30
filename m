@@ -1,90 +1,42 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] netlink: cleanup tap related functions
-Date: Mon, 30 Dec 2013 10:49:22 -0800
-Message-ID: <20131230104922.7b16965e@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH net-next 0/2] net_sched: two improvements to sch_netem
+Date: Mon, 30 Dec 2013 10:55:02 -0800
+Message-ID: <20131230105502.32d814b8@nehalam.linuxnetplumber.net>
+References: <1387964115-31168-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Johannes Berg <johannes@sipsolutions.net>
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<eric.dumazet@gmail.com>
+To: Yang Yingliang <yangyingliang@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:38476 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932069Ab3L3St0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Dec 2013 13:49:26 -0500
-Received: by mail-pd0-f170.google.com with SMTP id g10so11597589pdj.15
-        for <netdev@vger.kernel.org>; Mon, 30 Dec 2013 10:49:24 -0800 (PST)
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:59870 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932094Ab3L3SzF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Dec 2013 13:55:05 -0500
+Received: by mail-pa0-f44.google.com with SMTP id fa1so11904707pad.31
+        for <netdev@vger.kernel.org>; Mon, 30 Dec 2013 10:55:04 -0800 (PST)
+In-Reply-To: <1387964115-31168-1-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cleanups in netlink_tap code
- * remove unused function netlink_clear_multicast_users
- * make local function static
+On Wed, 25 Dec 2013 17:35:13 +0800
+Yang Yingliang <yangyingliang@huawei.com> wrote:
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> This patchset makes two improvements to sch_netem.
+> 
+>  patch 1/2: Make bytes on wire more precise with qdisc_pkt_len().
+>  patch 2/2: Add a new attribute to support 64-bit rates.
+> 
+> Yang Yingliang (2):
+>   sch_netem: more precise length of packets
+>   sch_netem: support of 64bit rates
+> 
+>  include/uapi/linux/pkt_sched.h |  1 +
+>  net/sched/sch_netem.c          | 17 ++++++++++++++---
+>  2 files changed, 15 insertions(+), 3 deletions(-)
+> 
 
----
- include/linux/netlink.h  |    2 --
- net/netlink/af_netlink.c |   18 +-----------------
- 2 files changed, 1 insertion(+), 19 deletions(-)
+Looks good.
 
---- a/include/linux/netlink.h	2013-12-24 15:14:54.530174175 -0800
-+++ b/include/linux/netlink.h	2013-12-24 15:16:01.721271435 -0800
-@@ -62,7 +62,6 @@ extern void netlink_kernel_release(struc
- extern int __netlink_change_ngroups(struct sock *sk, unsigned int groups);
- extern int netlink_change_ngroups(struct sock *sk, unsigned int groups);
- extern void __netlink_clear_multicast_users(struct sock *sk, unsigned int group);
--extern void netlink_clear_multicast_users(struct sock *sk, unsigned int group);
- extern void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err);
- extern int netlink_has_listeners(struct sock *sk, unsigned int group);
- extern struct sk_buff *netlink_alloc_skb(struct sock *ssk, unsigned int size,
-@@ -168,7 +167,6 @@ struct netlink_tap {
- };
- 
- extern int netlink_add_tap(struct netlink_tap *nt);
--extern int __netlink_remove_tap(struct netlink_tap *nt);
- extern int netlink_remove_tap(struct netlink_tap *nt);
- 
- #endif	/* __LINUX_NETLINK_H */
---- a/net/netlink/af_netlink.c	2013-12-24 15:14:54.530174175 -0800
-+++ b/net/netlink/af_netlink.c	2013-12-24 15:16:01.721271435 -0800
-@@ -131,7 +131,7 @@ int netlink_add_tap(struct netlink_tap *
- }
- EXPORT_SYMBOL_GPL(netlink_add_tap);
- 
--int __netlink_remove_tap(struct netlink_tap *nt)
-+static int __netlink_remove_tap(struct netlink_tap *nt)
- {
- 	bool found = false;
- 	struct netlink_tap *tmp;
-@@ -155,7 +155,6 @@ out:
- 
- 	return found ? 0 : -ENODEV;
- }
--EXPORT_SYMBOL_GPL(__netlink_remove_tap);
- 
- int netlink_remove_tap(struct netlink_tap *nt)
- {
-@@ -2535,21 +2534,6 @@ void __netlink_clear_multicast_users(str
- 		netlink_update_socket_mc(nlk_sk(sk), group, 0);
- }
- 
--/**
-- * netlink_clear_multicast_users - kick off multicast listeners
-- *
-- * This function removes all listeners from the given group.
-- * @ksk: The kernel netlink socket, as returned by
-- *	netlink_kernel_create().
-- * @group: The multicast group to clear.
-- */
--void netlink_clear_multicast_users(struct sock *ksk, unsigned int group)
--{
--	netlink_table_grab();
--	__netlink_clear_multicast_users(ksk, group);
--	netlink_table_ungrab();
--}
--
- struct nlmsghdr *
- __nlmsg_put(struct sk_buff *skb, u32 portid, u32 seq, int type, int len, int flags)
- {
+Acked-by: Stephen Hemminger <stephen@networkplumber.org>
