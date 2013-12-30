@@ -1,68 +1,40 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next 3/3] net: auto-tune mergeable rx buffer size
-	for improved performance
-Date: Mon, 30 Dec 2013 13:38:19 +0800
-Message-ID: <52C106CB.2040006@redhat.com>
-References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
-	<1387239389-13216-3-git-send-email-mwdalton@google.com>
-	<52BBDBAD.8030609@redhat.com>
-	<CANJ5vPJX1yTKJXpFe+PO7u89-tYRjNPdJwrBLjAop3veye1pDg@mail.gmail.com>
-	<52BCEE4E.7070106@redhat.com>
-	<CANJ5vPJdHPkmz1DpmsULXjcXvToOox4cgjadKvc_HCKws=CGzw@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next v2 11/20] net: packetengines: slight
+ optimization of addr
+Date: Sun, 29 Dec 2013 22:05:26 -0800
+Message-ID: <1388383526.26796.21.camel@joe-AO722>
+References: <52BE6D0D.9050301@huawei.com>
+	 <52BED8ED.2040908@cogentembedded.com> <52BEEBD5.1040301@gmail.com>
+	 <1388251380.24123.15.camel@joe-AO722> <52C0DCF7.6040402@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	lf-virt <virtualization@lists.linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: Michael Dalton <mwdalton@google.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CANJ5vPJdHPkmz1DpmsULXjcXvToOox4cgjadKvc_HCKws=CGzw@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: Ding Tianhong <dthxman@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52C0DCF7.6040402@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/28/2013 05:41 AM, Michael Dalton wrote:
-> I'm working on a followup patchset to address current feedback. I think
-> it will be cleaner to do a debugfs implementation for per-receive queue
-> packet buffer size exporting, so I'm trying that out.
->
-> On Thu, Dec 26, 2013 at 7:04 PM, Jason Wang <jasowang@redhat.com> wrote:
->> We can make this more accurate by using extra data structure to track
->> the real buf size and using it as token.
-> I agree -- we can do precise buffer total len tracking. Something like
-> struct mergeable_packet_buffer_ctx {
->    void *buf;
->    unsigned int total_len;
-> };
->
-> Each receive queue could have a pointer to an array of N buffer contexts,
-> where N is queue size (kzalloc'd in init_vqs or similar). That would
-> allow us to allocate all of our buffer context data at startup.
->
-> Would this be preferred to the current approach or is there another
-> approach you would prefer? All other things being equal, having precise
-> length tracking is advantageous, so I'm inclined to try this out and
-> see how it goes.
->
-> I think this is a big design point - for example, if we have an extra
-> buffer context structure, then per-receive queue frag allocators are not
-> required for auto-tuning and we can reduce the number of patches in
-> this patchset.
+On Mon, 2013-12-30 at 10:39 +0800, Ding Tianhong wrote:
+> I don't understand packetengine NIC anymore, But I think the change is clearly,
+> as your said, the broadcast check is enough here, did you mean that?
+> 
+> 	!is_broadcast_ether_addr((u8 *)(le32_to_cpu(yp->rx_ring_dma) +
+> 						    entry * sizeof(struct yellowfin_desc)))
 
-Not required but better keep it. Consider we may have multiple
-virtio-net cards, using per-receive queue frag may increase the
-possibility of coalescing.
->
-> I'm happy to implement either way.  Thanks!
->
-> Best,
->
-> Mike
+Not quite.  I meant this could be:
+
+		u8 *addr = (u8 *)(unsigned long)le32_to_cpu(yp->rx_ring_dma) +
+							    entry * sizeof(struct yellowfin_desc);
+
+		if (!ether_addr_equal(addr, dev->dev_addr) &&
+		    !is_broadcast_ether_addr(addr)) {
+			etc...
+
+but again, I think thus hardly matters and could just as well
+be left alone.
