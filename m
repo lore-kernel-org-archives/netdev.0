@@ -1,93 +1,124 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6 addrconf:fix preferred lifetime state-changing behavior while valid_lft is infinity
-Date: Mon, 30 Dec 2013 03:17:54 +0100
-Message-ID: <20131230021754.GA7718@order.stressinduktion.org>
-References: <20131214091917.GB23563@order.stressinduktion.org> <1388303260-3668-1-git-send-email-yazzep@gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next v2 11/20] net: packetengines: slight optimization
+ of addr
+Date: Mon, 30 Dec 2013 10:39:51 +0800
+Message-ID: <52C0DCF7.6040402@huawei.com>
+References: <52BE6D0D.9050301@huawei.com>	 <52BED8ED.2040908@cogentembedded.com> <52BEEBD5.1040301@gmail.com> <1388251380.24123.15.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org,
-	Yasushi Asano <yasushi.asano@jp.fujitsu.com>
-To: yazzep@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:58134 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753368Ab3L3CR4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Dec 2013 21:17:56 -0500
-Content-Disposition: inline
-In-Reply-To: <1388303260-3668-1-git-send-email-yazzep@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>, Ding Tianhong <dthxman@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1388251380.24123.15.camel@joe-AO722>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Dec 29, 2013 at 04:47:40PM +0900, yazzep@gmail.com wrote:
+On 2013/12/29 1:23, Joe Perches wrote:
+> On Sat, 2013-12-28 at 23:18 +0800, Ding Tianhong wrote:
+>> =E4=BA=8E 2013/12/28 21:58, Sergei Shtylyov =E5=86=99=E9=81=93:
+>>> Hello.
+>>>
+>>> On 28-12-2013 10:17, Ding Tianhong wrote:
+>>>
+>>>> Use possibly more efficient ether_addr_equal
+>>>> to instead of memcmp.
+>>>
+>>>> Cc: "David S. Miller" <davem@davemloft.net>
+>>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>>>> ---
+>>>>   drivers/net/ethernet/packetengines/yellowfin.c |   12 ++++++----=
+--
+>>>>   1 files changed, 6 insertions(+), 6 deletions(-)
+>>>
+>>>> diff --git a/drivers/net/ethernet/packetengines/yellowfin.c b/driv=
+ers/net/ethernet/packetengines/yellowfin.c
+>>>> index d28593b..b83ac0e 100644
+>>>> --- a/drivers/net/ethernet/packetengines/yellowfin.c
+>>>> +++ b/drivers/net/ethernet/packetengines/yellowfin.c
+>>>> @@ -1097,12 +1097,12 @@ static int yellowfin_rx(struct net_device =
+*dev)
+>>>>               if (status2 & 0x80) dev->stats.rx_dropped++;
+>>>>   #ifdef YF_PROTOTYPE        /* Support for prototype hardware err=
+ata. */
+>>>>           } else if ((yp->flags & HasMACAddrBug)  &&
+>>>> -            memcmp(le32_to_cpu(yp->rx_ring_dma +
+>>>> -                entry*sizeof(struct yellowfin_desc)),
+>>>> -                dev->dev_addr, 6) !=3D 0 &&
+>>>> -            memcmp(le32_to_cpu(yp->rx_ring_dma +
+>>>> -                entry*sizeof(struct yellowfin_desc)),
+>>>> -                "\377\377\377\377\377\377", 6) !=3D 0) {
+>>>> +            !ether_addr_equal(le32_to_cpu(yp->rx_ring_dma +
+>>>> +                              entry * sizeof(struct yellowfin_des=
+c)),
+>>>> +                              dev->dev_addr) &&
+>>>
+>>>    Previous line was aligned correctly, the above line should start=
+ under le32_to_cpu.
+>>>
+>>>> +            !ether_addr_equal(le32_to_cpu(yp->rx_ring_dma +
+>>>> +                              entry * sizeof(struct yellowfin_des=
+c)),
+>>>
+>>>    Start the continuation lines under 'yp', please.
+>>>
+>>>> +                              "\377\377\377\377\377\377")) {
+>>>
+>>>    This line should start under le32_to_cpu.
+>>>
+>>> WBR, Sergei
+>>>
+>>
+>> Hi sergei:
+>> you mean this way?
+>> 	!ether_addr_equal(le32_to_cpu(yp->rx_ring_dma +
+>> 				      entry * sizeof(struct yellowfin_desc)),
+>> 			  dev->dev_addr) &&
+>>
+>> 	!ether_addr_equal(le32_to_cpu(yp->rx_ring_dma +
+>> 				      entry * sizeof(struct yellowfin_desc)),
+>> 			  "\377\377\377\377\377\377")) {
+>=20
+> Does this really matter?
+> Does anyone have a packetengine NIC anymore?
+>=20
+> \377 octal is 0xff, so this is matching a broadcast address.
+> is_broadcast_ether_addr(addr) would be appropriate.
+>=20
+> So would using a temporary address.
+>=20
+> u8 *addr =3D (u8 *)(unsigned long)le32_to_cpu(etc)
+>=20
+> but the whole thing looks very suspect as an le32
+> value could not be added to correctly on a
+> big-endian arch anyway.
+>=20
+> My guess is this was tested only on an x86 and
+> it should be:
+>=20
+> 	u8 *addr =3D (u8 *)(unsigned long)(le32_to_cpu(yp->rx_ring_dma) +
+> 					 entry * sizeof(struct yellowfin_desc));
+>=20
+> It maybe better just to leave these two alone.
+>=20
 
-Subject: Re: [PATCH] ipv6 addrconf:fix preferred lifetime state-changing behavior while valid_lft is infinity
+Hi Joe:
 
-Please a space between addrconf: and fix.
+I don't understand packetengine NIC anymore, But I think the change is =
+clearly,
+as your said, the broadcast check is enough here, did you mean that?
 
-> Fixed a problem with setting the lifetime of an IPv6
-> address. When setting preferred_lft to a value not zero or
-> infinity, while valid_lft is infinity(0xffffffff) preferred
-> lifetime is set to forever and does not update. Therefore
-> preferred lifetime never becomes deprecated. valid lifetime
-> and preferred lifetime should be set independently, even if
-> valid lifetime is infinity, preferred lifetime must expire
-> correctly (meaning it must eventually become deprecated)
-> 
-> 
-> Signed-off-by: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
-> ---
->  net/ipv6/addrconf.c | 14 ++++++++++----
->  1 file changed, 10 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index cd2d7d0..796d52a 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -3479,7 +3479,8 @@ restart:
->  					 &inet6_addr_lst[i], addr_lst) {
->  			unsigned long age;
->  
-> -			if (ifp->flags & IFA_F_PERMANENT)
-> +			if ((ifp->flags & IFA_F_PERMANENT) &&
-> +			    (ifp->prefered_lft == INFINITY_LIFE_TIME))
->  				continue;
+	!is_broadcast_ether_addr((u8 *)(le32_to_cpu(yp->rx_ring_dma) +
+						    entry * sizeof(struct yellowfin_desc)))
 
-As in the first mail, a comment would be nice how permanent addresses where
-prefered_lft != INFINITY_LIFE_TIME could come from.
+Thanks
 
-Maybe we could also add this to the header file where IFA_F_PERMANENT is
-declared. There was recently confusion about that with another patch.
+Regards
+Ding
 
->  			spin_lock(&ifp->lock);
-> @@ -3504,8 +3505,12 @@ restart:
->  					ifp->flags |= IFA_F_DEPRECATED;
->  				}
->  
-> -				if (time_before(ifp->tstamp + ifp->valid_lft * HZ, next))
-> -					next = ifp->tstamp + ifp->valid_lft * HZ;
-> +				if (ifp->valid_lft != INFINITY_LIFE_TIME) {
-> +				    if (time_before(ifp->tstamp +
-> +					    ifp->valid_lft * HZ, next))
-> +						next = ifp->tstamp +
-> +							 ifp->valid_lft * HZ;
-> +				}
-
-Please combine the two if-tests here (with &&).
-
->  
->  				spin_unlock(&ifp->lock);
->  
-> @@ -3804,7 +3809,8 @@ static int inet6_fill_ifaddr(struct sk_buff *skb, struct inet6_ifaddr *ifa,
->  	put_ifaddrmsg(nlh, ifa->prefix_len, ifa->flags, rt_scope(ifa->scope),
->  		      ifa->idev->dev->ifindex);
->  
-> -	if (!(ifa->flags&IFA_F_PERMANENT)) {
-> +	if (!((ifa->flags&IFA_F_PERMANENT) &&
-> +	      (ifa->prefered_lft == INFINITY_LIFE_TIME))) {
->  		preferred = ifa->prefered_lft;
->  		valid = ifa->valid_lft;
->  		if (preferred != INFINITY_LIFE_TIME) {
-
-Otherwise the patch looks good and my testing showed no problems.
-
-Thank you!
+>=20
+> .
+>=20
