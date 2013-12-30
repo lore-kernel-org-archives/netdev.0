@@ -1,53 +1,74 @@
-From: JP Abgrall <jpa@google.com>
-Subject: Re: [PATCH 0/2] Add UID/GID info to NFQUEUE
-Date: Mon, 30 Dec 2013 14:39:30 -0800
-Message-ID: <CAKP4w2SuiJej0pWF_=V0XoMuTxxPN5Do--1=wVTDxp4koNLt5w@mail.gmail.com>
-References: <1387389844-5263-1-git-send-email-valentina.giusti@bmw-carit.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com, tgraf@redhat.com,
-	Pablo Neira Ayuso <pablo@netfilter.org>, davem@davemloft.net,
-	daniel.wagner@bmw-carit.de
-To: valentina.giusti@bmw-carit.de
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] net: llc: fix use after free in llc_ui_recvmsg
+Date: Mon, 30 Dec 2013 23:40:50 +0100
+Message-ID: <1388443250-30224-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f50.google.com ([209.85.219.50]:37937 "EHLO
-	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932334Ab3L3Wjv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Dec 2013 17:39:51 -0500
-Received: by mail-oa0-f50.google.com with SMTP id n16so12667861oag.9
-        for <netdev@vger.kernel.org>; Mon, 30 Dec 2013 14:39:51 -0800 (PST)
-In-Reply-To: <1387389844-5263-1-git-send-email-valentina.giusti@bmw-carit.de>
+Received: from mx1.redhat.com ([209.132.183.28]:1138 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932334Ab3L3WlB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Dec 2013 17:41:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 18, 2013 at 10:04 AM,  <valentina.giusti@bmw-carit.de> wrote:
-> At the Linux Plumbers Conference 2013, there have been quite interesting
-> discussions on the topic of network statistics, and it was proposed that it
-> would make more sense to use NFQUEUE for this purpose, letting therefore
-> userspace use the UID/GID information for application-based statistics purposes.
-> This way the UID and GID information of the incoming TCP and UDP traffic is not
-> "wasted" and can be used for more refined statistics.
+While commit 30a584d944fb fixes datagram interface in LLC, a use
+after free bug has been introduced for SOCK_STREAM sockets that do
+not make use of MSG_PEEK.
 
-Some things to keep in mind when doing these changes...
-For mobile devices, having the UID/GID is not sufficient when services
-are involved (download manager, http service, ...).
-Currently, Android's xt_qtaguid netfilter module supports the notion
-of "delegation" which is achieved by having the service "tag" a socket
-(tracked internally based on the struct sock address), via the file
-descriptor, with a UID of who should be blamed for the statistics.
-It would be nice if NFQUEUE presented/tracked some data related to the
-socket that could be used to that effect.
-This tagging of the socket needs to have the following properties:
- - a socket can stay open and be re-tagged (happens when pools are
-used or when a stream can be used for multiple reasons).
- - a socket can be tagged with a different UID only if the current
-UID/GID/pcap allows for it.
- - an app can have multiple sockets, each one belonging to different
-UIDs (so no UID to UID mapping).
-There are a few more, but those can be managed outside of the NFQUEUE changes.
+The flow is as follow ...
 
-Concerning the comment about TCP_TIMEWAIT in some other thread: the sk
-is not a "struct sock" but "struct inet_timewait_sock" which is
-missing fields. So beware when manipulating it. xt_qtaguid had to
-ignore those struct sock.
+  if (!(flags & MSG_PEEK)) {
+    ...
+    sk_eat_skb(sk, skb, false);
+    ...
+  }
+  ...
+  if (used + offset < skb->len)
+    continue;
+
+... where sk_eat_skb() calls __kfree_skb(). Therefore, cache
+original length and work on skb_len to check partial reads.
+
+Fixes: 30a584d944fb ("[LLX]: SOCK_DGRAM interface fixes")
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+---
+ net/llc/af_llc.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
+index 7b01b9f..c71b699 100644
+--- a/net/llc/af_llc.c
++++ b/net/llc/af_llc.c
+@@ -715,7 +715,7 @@ static int llc_ui_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	unsigned long cpu_flags;
+ 	size_t copied = 0;
+ 	u32 peek_seq = 0;
+-	u32 *seq;
++	u32 *seq, skb_len;
+ 	unsigned long used;
+ 	int target;	/* Read at least this many bytes */
+ 	long timeo;
+@@ -812,6 +812,7 @@ static int llc_ui_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		}
+ 		continue;
+ 	found_ok_skb:
++		skb_len = skb->len;
+ 		/* Ok so how much can we use? */
+ 		used = skb->len - offset;
+ 		if (len < used)
+@@ -844,7 +845,7 @@ static int llc_ui_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		}
+ 
+ 		/* Partial read */
+-		if (used + offset < skb->len)
++		if (used + offset < skb_len)
+ 			continue;
+ 	} while (len > 0);
+ 
+-- 
+1.7.11.7
