@@ -1,43 +1,44 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v3 14/19] net: renesas: slight optimization of addr
+Subject: [PATCH net-next v3 12/19] net: netxen: slight optimization of addr
  compare
-Date: Mon, 30 Dec 2013 15:41:17 +0800
-Message-ID: <52C1239D.1040409@huawei.com>
+Date: Mon, 30 Dec 2013 15:41:10 +0800
+Message-ID: <52C12396.6000206@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
+To: Manish Chopra <manish.chopra@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	"David S. Miller" <davem@davemloft.net>,
 	Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:30104 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754511Ab3L3HlW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Dec 2013 02:41:22 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Use possibly more efficient ether_addr_equal
 to instead of memcmp.
 
-Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Manish Chopra <manish.chopra@qlogic.com>
+Cc: Sony Chacko <sony.chacko@qlogic.com>
+Cc: Rajesh Borundia <rajesh.borundia@qlogic.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/ethernet/renesas/sh_eth.c | 2 +-
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index ca742e1..2d00bce 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2207,7 +2207,7 @@ static int sh_eth_tsu_find_entry(struct net_device *ndev, const u8 *addr)
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+index b72b6be..db4280c 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+@@ -661,7 +661,7 @@ static int nx_p3_nic_add_mac(struct netxen_adapter *adapter,
+ 	list_for_each(head, del_list) {
+ 		cur = list_entry(head, nx_mac_list_t, list);
  
- 	for (i = 0; i < SH_ETH_TSU_CAM_ENTRIES; i++, reg_offset += 8) {
- 		sh_eth_tsu_read_entry(reg_offset, c_addr);
--		if (memcmp(addr, c_addr, ETH_ALEN) == 0)
-+		if (ether_addr_equal(addr, c_addr))
- 			return i;
- 	}
- 
+-		if (memcmp(addr, cur->mac_addr, ETH_ALEN) == 0) {
++		if (ether_addr_equal(addr, cur->mac_addr)) {
+ 			list_move_tail(head, &adapter->mac_list);
+ 			return 0;
+ 		}
 -- 
 1.8.0
