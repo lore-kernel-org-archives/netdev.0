@@ -1,69 +1,52 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next 3/3] net: auto-tune mergeable rx buffer size
-	for improved performance
-Date: Mon, 30 Dec 2013 12:50:51 +0800
-Message-ID: <52C0FBAB.9090004@redhat.com>
-References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
-	<1387239389-13216-3-git-send-email-mwdalton@google.com>
-	<52BBDBAD.8030609@redhat.com>
-	<CANJ5vPJX1yTKJXpFe+PO7u89-tYRjNPdJwrBLjAop3veye1pDg@mail.gmail.com>
-	<52BCEE4E.7070106@redhat.com>
-	<CANJ5vPJdHPkmz1DpmsULXjcXvToOox4cgjadKvc_HCKws=CGzw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	lf-virt <virtualization@lists.linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: Michael Dalton <mwdalton@google.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CANJ5vPJdHPkmz1DpmsULXjcXvToOox4cgjadKvc_HCKws=CGzw@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Subject: [PATCH] net: Cleanup in eth-netx.h
+Date: Mon, 30 Dec 2013 10:41:56 +0530
+Message-ID: <1388380316-1884-1-git-send-email-sachin.kamat@linaro.org>
+Cc: davem@davemloft.net, sachin.kamat@linaro.org, patches@linaro.org,
+	Sascha Hauer <s.hauer@pengutronix.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:50972 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750780Ab3L3FPd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Dec 2013 00:15:33 -0500
+Received: by mail-pd0-f169.google.com with SMTP id v10so11020455pde.28
+        for <netdev@vger.kernel.org>; Sun, 29 Dec 2013 21:15:33 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/28/2013 05:41 AM, Michael Dalton wrote:
-> I'm working on a followup patchset to address current feedback. I think
-> it will be cleaner to do a debugfs implementation for per-receive queue
-> packet buffer size exporting, so I'm trying that out.
->
-> On Thu, Dec 26, 2013 at 7:04 PM, Jason Wang <jasowang@redhat.com> wrote:
->> We can make this more accurate by using extra data structure to track
->> the real buf size and using it as token.
-> I agree -- we can do precise buffer total len tracking. Something like
-> struct mergeable_packet_buffer_ctx {
->    void *buf;
->    unsigned int total_len;
-> };
->
-> Each receive queue could have a pointer to an array of N buffer contexts,
-> where N is queue size (kzalloc'd in init_vqs or similar). That would
-> allow us to allocate all of our buffer context data at startup.
->
-> Would this be preferred to the current approach or is there another
-> approach you would prefer? All other things being equal, having precise
-> length tracking is advantageous, so I'm inclined to try this out and
-> see how it goes.
+Commit 2960ed346877 ("ARM: netx: move platform_data definitions")
+moved the file to the current location but forgot to remove the pointer
+to its previous location. Clean it up. While at it also change the header
+file protection macros appropriately.
 
-I think this is better since it was accurate and easier to be
-implemented and understand.
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Cc: Sascha Hauer <s.hauer@pengutronix.de>
+---
+ include/linux/platform_data/eth-netx.h |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-Thanks
->
-> I think this is a big design point - for example, if we have an extra
-> buffer context structure, then per-receive queue frag allocators are not
-> required for auto-tuning and we can reduce the number of patches in
-> this patchset.
->
-> I'm happy to implement either way.  Thanks!
->
-> Best,
->
-> Mike
+diff --git a/include/linux/platform_data/eth-netx.h b/include/linux/platform_data/eth-netx.h
+index 88af1ac28ead..a395159725d5 100644
+--- a/include/linux/platform_data/eth-netx.h
++++ b/include/linux/platform_data/eth-netx.h
+@@ -1,6 +1,4 @@
+ /*
+- * arch/arm/mach-netx/include/mach/eth.h
+- *
+  * Copyright (c) 2005 Sascha Hauer <s.hauer@pengutronix.de>, Pengutronix
+  *
+  * This program is free software; you can redistribute it and/or modify
+@@ -17,8 +15,8 @@
+  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+  */
+ 
+-#ifndef ASMARM_ARCH_ETH_H
+-#define ASMARM_ARCH_ETH_H
++#ifndef __ETH_NETX_H
++#define __ETH_NETX_H
+ 
+ struct netxeth_platform_data {
+ 	unsigned int xcno;	/* number of xmac/xpec engine this eth uses */
+-- 
+1.7.9.5
