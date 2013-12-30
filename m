@@ -1,91 +1,38 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] macvlan: fix oops with vlan-on-top and HW_VLAN_CTAG_TX
- lowerdev
-Date: Mon, 30 Dec 2013 11:27:12 +0100
-Message-ID: <20131230102712.GO29632@breakpoint.cc>
-References: <1388237920-5140-1-git-send-email-fw@strlen.de>
- <20131229.170121.154913581019152817.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] mlx5: remove dead code
+Date: Mon, 30 Dec 2013 15:56:10 +0400
+Message-ID: <52C15F5A.80601@cogentembedded.com>
+References: <20131229135137.7a8566da@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fw@strlen.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>,
+	Eli Cohen <eli@mellanox.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:33497 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754490Ab3L3K1O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Dec 2013 05:27:14 -0500
-Content-Disposition: inline
-In-Reply-To: <20131229.170121.154913581019152817.davem@davemloft.net>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:49999 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754728Ab3L3L4O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Dec 2013 06:56:14 -0500
+Received: by mail-la0-f42.google.com with SMTP id ec20so5608104lab.29
+        for <netdev@vger.kernel.org>; Mon, 30 Dec 2013 03:56:12 -0800 (PST)
+In-Reply-To: <20131229135137.7a8566da@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
-> From: Florian Westphal <fw@strlen.de>
-> Date: Sat, 28 Dec 2013 14:38:40 +0100
-> 
-> >  Or is the real bug the use of netdev_priv in macvlan_hard_header()?
-> 
-> That's a really good question.
-[..]
-> So the more I think about this, the more I think that the operations
-> assignment VLAN is doing is illegal.  If it wants to "pass through"
-> it must do so with explicit handlers, ones that pass the expected
-> device to the hard header ops.
+Hello.
 
-Both bonding and team seem to do the same.  Guess it was never
-a problem since most create hooks don't use netdev_priv.
+On 30-12-2013 1:51, Stephen Hemminger wrote:
 
-> So vlan_dev.c would have things like:
-> 
-> static int vlan_passthru_hard_header(struct sk_buff *skb, struct net_device *dev,
-> 				     unsigned short type,
-> 				     const void *daddr, const void *saddr,
-> 				     unsigned int len)
-> {
-> 	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
-> 	struct net_device *real_dev = vlan->real_dev;
-> 
-> 	return real_dev->header_ops->create(skb, real_dev, type, daddr, saddr, len);
-> }
+> There are 3 functions in the mlx5 driver which are used and should be
 
-I wonder if this needs to use dev_hard_header() to protect against
-NULL header_ops/create hook. macvlan does this.
+    s/used/unused/, I think.
 
-> static int vlan_passthru_rebuild_header(struct sk_buff *skb)
-> {
-> 	struct net_device *dev = skb->dev;
-> 	struct net_device *real_dev;
-> 	struct vlan_dev_priv *vlan;
-> 
-> 	vlan = vlan_dev_priv(dev);
-> 	real_dev = vlan->real_dev;
-> 
-> 	return real_dev->header_ops->rebuild(skb);
-> }
+> deleted. Upstream is not the repository to hold old dead code, or code
+> which is used by outside drivers, or code intended for future undetermined
+> features.
 
-similar, e.g. drivers/net/plip/plip.c defines 'create' and 'cache' but
-no 'rebuild'.
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-> Can someone test this?
-
-Here is what i did in qemu guest running net-tree+your patch below:
-
-ip link add link eth0 name wan0 type macvlan
-ip link add link wan0 name wan1 type vlan id 2
-ip link set wan0 up
-
-[ without your patch it would oops real soon now ]
-
-ip addr add 10.0.0.2/8 dev wan1
-ip link set wan1 up
-
-- host/guest can xmit data using vlan interface (tested with netcat)
-- tcpdump -ne on host shows:
-[ .. ] 9:fc:b7, ethertype 802.1Q (0x8100), length 1518: vlan 2, p 0, ethertype IPv4, 10.0.0.1.12345 > 10.0.0.2.50369 [..]
-ethtool -k wan0 on guest shows:
-rx-vlan-offload: on [fixed]
-tx-vlan-offload: on [fixed]
-
-So, this looks good to me.
-
-Many thanks for investigating this issue!
+WBR, Sergei
