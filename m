@@ -1,12 +1,12 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v3 03/19] net: cxgb3: slight optimization of addr
+Subject: [PATCH net-next v3 08/19] net: mlx4: slight optimization of addr
  compare
-Date: Mon, 30 Dec 2013 15:40:35 +0800
-Message-ID: <52C12373.1010502@huawei.com>
+Date: Mon, 30 Dec 2013 15:40:55 +0800
+Message-ID: <52C12387.4030801@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Santosh Raspatur <santosh@chelsio.com>,
+To: Amir Vadai <amirv@mellanox.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
@@ -17,38 +17,48 @@ List-Id: netdev.vger.kernel.org
 Use possibly more efficient ether_addr_equal
 to instead of memcmp.
 
-Cc: Santosh Raspatur <santosh@chelsio.com>
+Cc: Amir Vadai <amirv@mellanox.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Acked-By: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c | 2 +-
- drivers/net/ethernet/chelsio/cxgb3/l2t.c           | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c        | 4 ++--
+ drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
-index 76ae0999..c0a9dd5 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
-@@ -182,7 +182,7 @@ static struct net_device *get_iff_from_mac(struct adapter *adapter,
- 	for_each_port(adapter, i) {
- 		struct net_device *dev = adapter->port[i];
- 
--		if (!memcmp(dev->dev_addr, mac, ETH_ALEN)) {
-+		if (ether_addr_equal(dev->dev_addr, mac)) {
- 			rcu_read_lock();
- 			if (vlan && vlan != VLAN_VID_MASK) {
- 				dev = __vlan_find_dev_deep(dev, htons(ETH_P_8021Q), vlan);
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/l2t.c b/drivers/net/ethernet/chelsio/cxgb3/l2t.c
-index 8d53438..5f226ed 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/l2t.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/l2t.c
-@@ -429,7 +429,7 @@ found:
- 		} else {
- 			e->state = neigh->nud_state & NUD_CONNECTED ?
- 			    L2T_STATE_VALID : L2T_STATE_STALE;
--			if (memcmp(e->dmac, neigh->ha, 6))
-+			if (!ether_addr_equal(e->dmac, neigh->ha))
- 				setup_l2e_send_pending(dev, NULL, e);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 6f92090..7e43858 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -782,7 +782,7 @@ static void update_mclist_flags(struct mlx4_en_priv *priv,
+ 	list_for_each_entry(dst_tmp, dst, list) {
+ 		found = false;
+ 		list_for_each_entry(src_tmp, src, list) {
+-			if (!memcmp(dst_tmp->addr, src_tmp->addr, ETH_ALEN)) {
++			if (ether_addr_equal(dst_tmp->addr, src_tmp->addr)) {
+ 				found = true;
+ 				break;
+ 			}
+@@ -797,7 +797,7 @@ static void update_mclist_flags(struct mlx4_en_priv *priv,
+ 	list_for_each_entry(src_tmp, src, list) {
+ 		found = false;
+ 		list_for_each_entry(dst_tmp, dst, list) {
+-			if (!memcmp(dst_tmp->addr, src_tmp->addr, ETH_ALEN)) {
++			if (ether_addr_equal(dst_tmp->addr, src_tmp->addr)) {
+ 				dst_tmp->action = MCLIST_NONE;
+ 				found = true;
+ 				break;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 2f3f2bc..2e3232c 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -3634,7 +3634,7 @@ static int validate_eth_header_mac(int slave, struct _rule_hw *eth_header,
+ 	    !is_broadcast_ether_addr(eth_header->eth.dst_mac)) {
+ 		list_for_each_entry_safe(res, tmp, rlist, list) {
+ 			be_mac = cpu_to_be64(res->mac << 16);
+-			if (!memcmp(&be_mac, eth_header->eth.dst_mac, ETH_ALEN))
++			if (ether_addr_equal((u8 *)&be_mac, eth_header->eth.dst_mac))
+ 				return 0;
  		}
- 	}
+ 		pr_err("MAC %pM doesn't belong to VF %d, Steering rule rejected\n",
 -- 
 1.8.0
