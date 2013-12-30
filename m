@@ -1,16 +1,11 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v3 06/19] net: igbvf: slight optimization of addr
- compare
-Date: Mon, 30 Dec 2013 15:40:46 +0800
-Message-ID: <52C1237E.5070308@huawei.com>
+Subject: [PATCH net-next v3 16/19] net: sun: optimization of addr compare
+Date: Mon, 30 Dec 2013 15:41:24 +0800
+Message-ID: <52C123A4.3000803@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
+To: "David S. Miller" <davem@davemloft.net>,
 	Netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -20,27 +15,24 @@ List-Id: netdev.vger.kernel.org
 Use possibly more efficient ether_addr_equal
 to instead of memcmp.
 
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>
+Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/ethernet/intel/igbvf/netdev.c | 2 +-
+ drivers/net/ethernet/sun/sunvnet.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
-index 04bf22e..675435f 100644
---- a/drivers/net/ethernet/intel/igbvf/netdev.c
-+++ b/drivers/net/ethernet/intel/igbvf/netdev.c
-@@ -1745,7 +1745,7 @@ static int igbvf_set_mac(struct net_device *netdev, void *p)
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index 3df5684..1c24a8f 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -751,7 +751,7 @@ static struct vnet_mcast_entry *__vnet_mc_find(struct vnet *vp, u8 *addr)
+ 	struct vnet_mcast_entry *m;
  
- 	hw->mac.ops.rar_set(hw, hw->mac.addr, 0);
- 
--	if (memcmp(addr->sa_data, hw->mac.addr, 6))
-+	if (!ether_addr_equal(addr->sa_data, hw->mac.addr))
- 		return -EADDRNOTAVAIL;
- 
- 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+ 	for (m = vp->mcast_list; m; m = m->next) {
+-		if (!memcmp(m->addr, addr, ETH_ALEN))
++		if (ether_addr_equal(m->addr, addr))
+ 			return m;
+ 	}
+ 	return NULL;
 -- 
 1.8.0
