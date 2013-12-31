@@ -1,66 +1,47 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 1/2] ipv4: add forwarding_uses_pmtu knob to protect forward path to use pmtu info
-Date: Tue, 31 Dec 2013 04:52:47 +0100
-Message-ID: <20131231035247.GA27636@order.stressinduktion.org>
-References: <20131220130822.GD32129@order.stressinduktion.org> <20131230.222044.884570280065942449.davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: don't call addrconf_dst_alloc again when enable lo
+Date: Tue, 31 Dec 2013 04:57:18 +0100
+Message-ID: <20131231035718.GB27636@order.stressinduktion.org>
+References: <1371352470-3226-1-git-send-email-gaofeng@cn.fujitsu.com> <20130619.230532.1329281330568271336.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+Cc: gaofeng@cn.fujitsu.com, kumaran.4353@gmail.com,
+	netdev@vger.kernel.org, chenweilong@huawei.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:59832 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:59837 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751331Ab3LaDwt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Dec 2013 22:52:49 -0500
+	with ESMTP id S1751331Ab3LaD5T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Dec 2013 22:57:19 -0500
 Content-Disposition: inline
-In-Reply-To: <20131230.222044.884570280065942449.davem@davemloft.net>
+In-Reply-To: <20130619.230532.1329281330568271336.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 30, 2013 at 10:20:44PM -0500, David Miller wrote:
-> Sorry Hannes, I'm still not happy with this change at all.
+On Wed, Jun 19, 2013 at 11:05:32PM -0700, David Miller wrote:
+> From: Gao feng <gaofeng@cn.fujitsu.com>
+> Date: Sun, 16 Jun 2013 11:14:30 +0800
 > 
-> First of all, you misunderstood what I said last time around.
-> I basically was trying to say that if you make this facility
-> available at all, distributions are going to turn it on by
-> default even if you make the kernel default to off.
-
-Yes, I am sorry for that.
-
-> That drives me nuts, and I don't want to give people this
-> opportunity to screw things up again just like they did
-> for rp_filter, which also defaults to off.
+> > If we disable all of the net interfaces, and enable
+> > un-lo interface before lo interface, we already allocated
+> > the addrconf dst in ipv6_add_addr. So we shouldn't allocate
+> > it again when we enable lo interface.
+> > 
+> > Otherwise the message below will be triggered.
+> > unregister_netdevice: waiting for sit1 to become free. Usage count = 1
+> > 
+> > This problem is introduced by commit 25fb6ca4ed9cad72f14f61629b68dc03c0d9713f
+> > "net IPv6 : Fix broken IPv6 routing table after loopback down-up"
+> > 
+> > Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 > 
-> Secondly, I don't see how this is as big of an issue as you
-> present it to be.  At best, the language is way too strong.
+> This is the second such regression added by that commit :-/
 > 
-> How can PMTU information be injected into the kernel?
+> Applied and queue up for -stable, thanks.
 
-I used icmp_err handler with type == ICMP_ECHOREPLY. It is pretty open
-as it does not validate (and cannot) validate local socket state.
+Hmm, and this change also has a regression and breaks the original fix. :/
 
-This also applies to ipv6 and raw handler could also be a problem.
+https://bugzilla.kernel.org/show_bug.cgi?id=67951
 
-> Local connections, well we want that and it's good.  And for TCP you
-> have to be able to inject a valid TCP packet that can be validated by
-> the stack for the PMTU information to stick.
-> 
-> Tunnels, well you said that tunnels don't apply to this change.
-> 
-> The only thing left are things like AH and ESP, which also perform
-> some level of validation making sure that some state exists.  And
-> frankly for non-tunneled IPSEC this PMTU information is absolutely
-> essential.
->
-> I really don't want to apply these changes, sorry.
-
-I can understand.
-
-I'll do more research on this and try to present more convincing reasons
-why this could be a problem and explain and check more carefully how
-this interacts with the xfrm subsystem. I am still convinced we should
-suppress path mtu information in forwarding path.
-
-I'll review the language of this change, too. ;)
-
-Thank you for the review and a happy new year!
+I tried to track it down but it seems pretty complicated. Maybe we have to
+special-case the take-down of the loopback device.
