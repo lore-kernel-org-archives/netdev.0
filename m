@@ -1,58 +1,45 @@
-From: Chen Weilong <chenweilong@huawei.com>
-Subject: [PATCH 1/2] ipv4: spaces required around that '='
-Date: Tue, 31 Dec 2013 15:11:27 +0800
-Message-ID: <1388473888-10860-1-git-send-email-chenweilong@huawei.com>
+From: Wei-Chun Chao <weichunc@plumgrid.com>
+Subject: Re: [GIT] Networking
+Date: Tue, 31 Dec 2013 00:05:52 -0800
+Message-ID: <CACviX4GFbB4VY+TaZVghDrbmaWVz4eHh=3znF2i1w1eLODOT=Q@mail.gmail.com>
+References: <CAJZOPZLciJ=X9_h9eqd0KrdkrOT6tKw93wFnmDKY6cQfG_4ZTw@mail.gmail.com>
+	<20131230.195209.1342950946997239413.davem@davemloft.net>
+	<CAJZOPZJo1oEkGDp+FiiNT81xs5jwH4uEaBDW8ywP5OAw185UCw@mail.gmail.com>
+	<20131231.010554.335340250542861948.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Or Gerlitz <or.gerlitz@gmail.com>, netdev <netdev@vger.kernel.org>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:5291 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751656Ab3LaHND (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 02:13:03 -0500
+Received: from mail-ve0-f177.google.com ([209.85.128.177]:35293 "EHLO
+	mail-ve0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751762Ab3LaIFx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 03:05:53 -0500
+Received: by mail-ve0-f177.google.com with SMTP id db12so6162805veb.8
+        for <netdev@vger.kernel.org>; Tue, 31 Dec 2013 00:05:52 -0800 (PST)
+In-Reply-To: <20131231.010554.335340250542861948.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Weilong Chen <chenweilong@huawei.com>
+> On Mon, Dec 30, 2013 at 10:05 PM, David Miller <davem@davemloft.net> wrote:
+> From: Or Gerlitz <or.gerlitz@gmail.com>
+> Date: Tue, 31 Dec 2013 07:56:04 +0200
+>
+>> I am somehow under the impression that we are aligned on the initial
+>> approach + your feedback addressed, so I missed something along the
+>> way?
+>
+> ... sounds like you need to simply repost.
 
+Hi Dave,
+I reworked the patch according to your comments -
+http://patchwork.ozlabs.org/patch/305310/
 
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
----
- net/ipv4/proc.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+Though the v2 patch was against 'net' (as you requested). I wonder if
+it is because of that the state has not moved forward from "Change
+Requested"?
 
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index 8ecd7ad..a6c8a80 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -333,22 +333,22 @@ static void icmp_put(struct seq_file *seq)
- 	atomic_long_t *ptr = net->mib.icmpmsg_statistics->mibs;
- 
- 	seq_puts(seq, "\nIcmp: InMsgs InErrors InCsumErrors");
--	for (i=0; icmpmibmap[i].name != NULL; i++)
-+	for (i = 0; icmpmibmap[i].name != NULL; i++)
- 		seq_printf(seq, " In%s", icmpmibmap[i].name);
- 	seq_printf(seq, " OutMsgs OutErrors");
--	for (i=0; icmpmibmap[i].name != NULL; i++)
-+	for (i = 0; icmpmibmap[i].name != NULL; i++)
- 		seq_printf(seq, " Out%s", icmpmibmap[i].name);
- 	seq_printf(seq, "\nIcmp: %lu %lu %lu",
- 		snmp_fold_field((void __percpu **) net->mib.icmp_statistics, ICMP_MIB_INMSGS),
- 		snmp_fold_field((void __percpu **) net->mib.icmp_statistics, ICMP_MIB_INERRORS),
- 		snmp_fold_field((void __percpu **) net->mib.icmp_statistics, ICMP_MIB_CSUMERRORS));
--	for (i=0; icmpmibmap[i].name != NULL; i++)
-+	for (i = 0; icmpmibmap[i].name != NULL; i++)
- 		seq_printf(seq, " %lu",
- 			   atomic_long_read(ptr + icmpmibmap[i].index));
- 	seq_printf(seq, " %lu %lu",
- 		snmp_fold_field((void __percpu **) net->mib.icmp_statistics, ICMP_MIB_OUTMSGS),
- 		snmp_fold_field((void __percpu **) net->mib.icmp_statistics, ICMP_MIB_OUTERRORS));
--	for (i=0; icmpmibmap[i].name != NULL; i++)
-+	for (i = 0; icmpmibmap[i].name != NULL; i++)
- 		seq_printf(seq, " %lu",
- 			   atomic_long_read(ptr + (icmpmibmap[i].index | 0x100)));
- }
--- 
-1.7.12
+Thanks,
+Weichun
