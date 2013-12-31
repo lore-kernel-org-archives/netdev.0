@@ -1,78 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] ipv4: add forwarding_uses_pmtu knob to
- protect forward path to use pmtu info
-Date: Mon, 30 Dec 2013 22:20:44 -0500 (EST)
-Message-ID: <20131230.222044.884570280065942449.davem@davemloft.net>
-References: <20131220130822.GD32129@order.stressinduktion.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 1/2] ipv4: add forwarding_uses_pmtu knob to protect forward path to use pmtu info
+Date: Tue, 31 Dec 2013 04:52:47 +0100
+Message-ID: <20131231035247.GA27636@order.stressinduktion.org>
+References: <20131220130822.GD32129@order.stressinduktion.org> <20131230.222044.884570280065942449.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=utf-8
 Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: hannes@stressinduktion.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58437 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751144Ab3LaDUs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Dec 2013 22:20:48 -0500
-In-Reply-To: <20131220130822.GD32129@order.stressinduktion.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:59832 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751331Ab3LaDwt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Dec 2013 22:52:49 -0500
+Content-Disposition: inline
+In-Reply-To: <20131230.222044.884570280065942449.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri, 20 Dec 2013 14:08:22 +0100
-
-> Provide a mode where the forwarding path does not use the protocol path
-> MTU to calculate the maximum size for a forwarded packet but instead
-> uses the interface or the per-route locked MTU.
+On Mon, Dec 30, 2013 at 10:20:44PM -0500, David Miller wrote:
+> Sorry Hannes, I'm still not happy with this change at all.
 > 
-> It is easy to inject bogus or malicious path mtu information which
-> will cause either unneeded fragmentation-needed icmp errors (in case
-> of DF-bit set) or unnecessary fragmentation of packets (by default down
-> to min_pmtu). This could be used to either create blackholes on routers
-> (if the generated DF-bit gets dropped later on) or to leverage attacks
-> on fragmentation.
+> First of all, you misunderstood what I said last time around.
+> I basically was trying to say that if you make this facility
+> available at all, distributions are going to turn it on by
+> default even if you make the kernel default to off.
+
+Yes, I am sorry for that.
+
+> That drives me nuts, and I don't want to give people this
+> opportunity to screw things up again just like they did
+> for rp_filter, which also defaults to off.
 > 
-> Forwarded skbs are marked with IPSKB_FORWARDED in ip_forward. This flag
-> was introduced for multicast forwarding, but as it does not conflict with
-> our usage in the unicast code path it is perfect for reuse.
+> Secondly, I don't see how this is as big of an issue as you
+> present it to be.  At best, the language is way too strong.
 > 
-> I moved the functions ip_sk_accept_pmtu, ip_sk_use_pmtu and ip_skb_dst_mtu
-> along with the new ip_dst_mtu_secure to net/ip.h to fix circular
-> dependencies because of IPSKB_FORWARDED.
+> How can PMTU information be injected into the kernel?
+
+I used icmp_err handler with type == ICMP_ECHOREPLY. It is pretty open
+as it does not validate (and cannot) validate local socket state.
+
+This also applies to ipv6 and raw handler could also be a problem.
+
+> Local connections, well we want that and it's good.  And for TCP you
+> have to be able to inject a valid TCP packet that can be validated by
+> the stack for the PMTU information to stick.
 > 
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: David Miller <davem@davemloft.net>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
-> v2:
-> * forwarding_uses_pmtu default to on
-> * reworded documentation and changelog
+> Tunnels, well you said that tunnels don't apply to this change.
+> 
+> The only thing left are things like AH and ESP, which also perform
+> some level of validation making sure that some state exists.  And
+> frankly for non-tunneled IPSEC this PMTU information is absolutely
+> essential.
+>
+> I really don't want to apply these changes, sorry.
 
-Sorry Hannes, I'm still not happy with this change at all.
+I can understand.
 
-First of all, you misunderstood what I said last time around.
-I basically was trying to say that if you make this facility
-available at all, distributions are going to turn it on by
-default even if you make the kernel default to off.
+I'll do more research on this and try to present more convincing reasons
+why this could be a problem and explain and check more carefully how
+this interacts with the xfrm subsystem. I am still convinced we should
+suppress path mtu information in forwarding path.
 
-That drives me nuts, and I don't want to give people this
-opportunity to screw things up again just like they did
-for rp_filter, which also defaults to off.
+I'll review the language of this change, too. ;)
 
-Secondly, I don't see how this is as big of an issue as you
-present it to be.  At best, the language is way too strong.
-
-How can PMTU information be injected into the kernel?
-
-Local connections, well we want that and it's good.  And for TCP you
-have to be able to inject a valid TCP packet that can be validated by
-the stack for the PMTU information to stick.
-
-Tunnels, well you said that tunnels don't apply to this change.
-
-The only thing left are things like AH and ESP, which also perform
-some level of validation making sure that some state exists.  And
-frankly for non-tunneled IPSEC this PMTU information is absolutely
-essential.
-
-I really don't want to apply these changes, sorry.
+Thank you for the review and a happy new year!
