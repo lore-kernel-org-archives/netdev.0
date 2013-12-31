@@ -1,55 +1,90 @@
-From: =?ISO-8859-1?Q?Fejes_J=F3zsef?= <jozsef.fejes@gmail.com>
-Subject: Re: NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
-Date: Tue, 31 Dec 2013 12:27:46 +0100
-Message-ID: <CALU-w99eT4TX0xHc_KZBoP_JFpEex-0B8iH3sb8wUMfO4WuOHg@mail.gmail.com>
-References: <CALU-w9860x_rWhu35v50N39b8AxiPB_wOk1OUKdBr9eBLzEZFA@mail.gmail.com>
-	<20131230233833.GA434@electric-eye.fr.zoreil.com>
+From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Subject: Re: [PATCH nf-next v5 0/3] xtables socket classid matching
+Date: Tue, 31 Dec 2013 15:04:59 +0100
+Message-ID: <20131231140459.GA4238@localhost>
+References: <1388338032-14713-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:63553 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752750Ab3LaL1r convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 06:27:47 -0500
-Received: by mail-wi0-f170.google.com with SMTP id hq4so16454945wib.5
-        for <netdev@vger.kernel.org>; Tue, 31 Dec 2013 03:27:46 -0800 (PST)
-In-Reply-To: <20131230233833.GA434@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1388338032-14713-1-git-send-email-dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 Hi,
 
-The paste is from 3.11.6 actually, but 3.12.6 produces the same
-behavior. Nothing changed recently in my networking setup.
-Immediately, when I plug in my laptop to that interface, the error is
-produced, ifconfig on the machine shows that packets are sent out, but
-I see no received packets in my laptop on the other end.
+@David: This patchset that Daniel sent me contains changes for
+/net/core/ stuff, let me know how you want me to handle this or if you
+please to apply this directly yourself.
 
-I haven't used that interface for quite some time, a year at most. I
-keep up to date with the stable kernels, so a version change broke it,
-but I'm not sure which. Would it be the best course of action if I
-tried some older versions?
+Thanks!
 
-Best regards, Jozsef
-
-
-On Tue, Dec 31, 2013 at 12:38 AM, Francois Romieu <romieu@fr.zoreil.com=
-> wrote:
-> Fejes J=F3zsef <jozsef.fejes@gmail.com> :
-> [...]
->> I'm having the issue mentioned in the subject line with the latest
->> stable kernel, 3.12.6.
->>
->> This network controller is integrated into a D945GSEJT motherboard, =
-dmesg info:
->
-> It's thus an old setup (bridge included), nothing changed recently
-> and it qualifies as a regression, right ?
->
-> If so, wherefrom ?
->
-> --
-> Ueimor
+On Sun, Dec 29, 2013 at 06:27:09PM +0100, Daniel Borkmann wrote:
+> The main patch is patch 3, please refer to the detailled description
+> there. Patch 1 has been requested by cgroups people to have as a
+> cleanup. While at it, I've also added a minor, trivial cleanup in
+> patch 2 for consistency reasons.
+> 
+> Changelog:
+> 
+> * v4->v5:
+>   - Fixed typo in patch 1, sorry for that, rest unchanged.
+> * v3->v4:
+>   - Patch 3 is unchanged from previous version (only minor Kconfig update)
+>   - Added patch 1 upon request, and while at it also patch 2
+> * v2->v3:
+>   - After discussions w/ Tejun, let's not add any cgroups code here,
+>     thus we _only_ add code in netfilter area, nowhere else, that's
+>     even more simple and cleaner than proposed.
+> * v1->v2:
+>   - Updated commit message, rebased
+>   - Applied Gao Feng's feedback
+> 
+> Previous discussions, design considerations etc can be found in:
+> 
+>   - v1: http://patchwork.ozlabs.org/patch/280687/
+>   - v1/alt: http://patchwork.ozlabs.org/patch/282477/
+>   - v2: http://patchwork.ozlabs.org/patch/284582/
+>   - v3: http://patchwork.ozlabs.org/patch/304825/
+> 
+> Pablo, please find the unchanged user space part in [1].
+> 
+> Thanks !
+> 
+>  [1] http://patchwork.ozlabs.org/patch/304826/
+> 
+> Daniel Borkmann (3):
+>   net: net_cls: move cgroupfs classid handling into core
+>   net: netprio: rename config to be more consistent with cgroup configs
+>   netfilter: xtables: lightweight process control group matching
+> 
+>  Documentation/cgroups/net_cls.txt        |   5 ++
+>  include/linux/cgroup_subsys.h            |   4 +-
+>  include/linux/netdevice.h                |   2 +-
+>  include/net/cls_cgroup.h                 |  40 ++++-------
+>  include/net/netprio_cgroup.h             |  18 ++---
+>  include/net/sock.h                       |   2 +-
+>  include/uapi/linux/netfilter/Kbuild      |   1 +
+>  include/uapi/linux/netfilter/xt_cgroup.h |  11 +++
+>  net/Kconfig                              |  11 ++-
+>  net/core/Makefile                        |   3 +-
+>  net/core/dev.c                           |   2 +-
+>  net/core/netclassid_cgroup.c             | 120 +++++++++++++++++++++++++++++++
+>  net/core/sock.c                          |  14 +---
+>  net/netfilter/Kconfig                    |  10 +++
+>  net/netfilter/Makefile                   |   1 +
+>  net/netfilter/xt_cgroup.c                |  71 ++++++++++++++++++
+>  net/sched/Kconfig                        |   1 +
+>  net/sched/cls_cgroup.c                   | 111 +---------------------------
+>  18 files changed, 256 insertions(+), 171 deletions(-)
+>  create mode 100644 include/uapi/linux/netfilter/xt_cgroup.h
+>  create mode 100644 net/core/netclassid_cgroup.c
+>  create mode 100644 net/netfilter/xt_cgroup.c
+> 
+> -- 
+> 1.8.3.1
+> 
