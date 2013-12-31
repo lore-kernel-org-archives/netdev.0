@@ -1,51 +1,142 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 1/2] ipv4: add forwarding_uses_pmtu knob to protect forward path to use pmtu info
-Date: Tue, 31 Dec 2013 05:28:40 +0100
-Message-ID: <20131231042840.GC27636@order.stressinduktion.org>
-References: <20131220130822.GD32129@order.stressinduktion.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RESEND v4 net-next] net: pkt_sched: PIE AQM scheme
+Date: Tue, 31 Dec 2013 00:03:01 -0500 (EST)
+Message-ID: <20131231.000301.890578431556006541.davem@davemloft.net>
+References: <52b4c162.06d8440a.4580.7da8@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, davem@davemloft.net
-To: steffen.klassert@secunet.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
+	eric.dumazet@gmail.com, mysuryan@cisco.com,
+	dave.taht@bufferbloat.net
+To: subramanian.vijay@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:59858 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751620Ab3LaE2l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Dec 2013 23:28:41 -0500
-Content-Disposition: inline
-In-Reply-To: <20131220130822.GD32129@order.stressinduktion.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58784 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750746Ab3LaFFf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 00:05:35 -0500
+In-Reply-To: <52b4c162.06d8440a.4580.7da8@mx.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Steffen!
+From: subramanian.vijay@gmail.com
+Date: Fri, 20 Dec 2013 14:10:12 -0800
 
-On Fri, Dec 20, 2013 at 02:08:22PM +0100, Hannes Frederic Sowa wrote:
-> Provide a mode where the forwarding path does not use the protocol path
-> MTU to calculate the maximum size for a forwarded packet but instead
-> uses the interface or the per-route locked MTU.
-> 
-> It is easy to inject bogus or malicious path mtu information which
-> will cause either unneeded fragmentation-needed icmp errors (in case
-> of DF-bit set) or unnecessary fragmentation of packets (by default down
-> to min_pmtu). This could be used to either create blackholes on routers
-> (if the generated DF-bit gets dropped later on) or to leverage attacks
-> on fragmentation.
-> 
-> Forwarded skbs are marked with IPSKB_FORWARDED in ip_forward. This flag
-> was introduced for multicast forwarding, but as it does not conflict with
-> our usage in the unicast code path it is perfect for reuse.
-> 
-> I moved the functions ip_sk_accept_pmtu, ip_sk_use_pmtu and ip_skb_dst_mtu
-> along with the new ip_dst_mtu_secure to net/ip.h to fix circular
-> dependencies because of IPSKB_FORWARDED.
+> --- a/include/uapi/linux/pkt_sched.h
+> +++ b/include/uapi/linux/pkt_sched.h
+> @@ -815,4 +815,29 @@ struct tc_hhf_xstats {
+>  	__u32	hh_tot_count;   /* number of captured heavy-hitters so far */
+>  	__u32	hh_cur_count;   /* number of current heavy-hitters */
+>  };
+> +
+> +/*PIE*/
 
-IIRC you have a (semi-)automatic test suite to test for (p)mtu problems? Would
-these checks cover such a change?
+Please, a space before and after PIE.
 
-Maybe your test suite is publicly available so I could test these changes
-myself or otherwise could you give them a testdrive? That would be very
-helpful.
+> diff --git a/net/sched/sch_pie.c b/net/sched/sch_pie.c
+> new file mode 100644
+> index 0000000..1658b65
+> --- /dev/null
+> +++ b/net/sched/sch_pie.c
+ ...
+> +/* statistics gathering*/
 
-Thank you,
+Space after "gathering"
 
-  Hannes
+> +	/* default of 100 ms in pschedtime  */
+
+Please delete the extra space at the end of that comment.
+
+> +	/* tupdate is in us */
+> +	if (tb[TCA_PIE_TUPDATE])
+> +		q->params.tupdate = nla_get_u32(tb[TCA_PIE_TUPDATE]);
+> +
+ ...
+> +	/* reset the timer to fire after 'tupdate'. Convert from us to jiffies.
+> +	 */
+> +	if (q->params.tupdate)
+> +		mod_timer(&q->adapt_timer, jiffies +
+> +			  usecs_to_jiffies(q->params.tupdate));
+
+Timers run more often than configuration changes, please precompute the
+jiffies from the user given usecs so you don't have to continually
+recompute it over and over every time the timer gets rescheduled.
+
+> +	/* convert from microseconds to pschedtime */
+> +	if (tb[TCA_PIE_TARGET]) {
+> +		/* target is in us */
+> +		u32 target = nla_get_u32(tb[TCA_PIE_TARGET]);
+> +		/* convert to pschedtime */
+> +		q->params.target = PSCHED_NS2TICKS((u64)target * NSEC_PER_USEC);
+
+Please put an empty line after variable declarations.
+
+> +	if (tb[TCA_PIE_LIMIT]) {
+> +		u32 limit = nla_get_u32(tb[TCA_PIE_LIMIT]);
+> +		q->params.limit = limit;
+> +		sch->limit = limit;
+
+Likewise.
+
+> +	/* If current queue is about 10 packets or more and dq_count is unset
+> +	 *  we have enough packets to calculate the drain rate. Save
+> +	 *  current time as dq_tstamp and start measurement cycle.
+> +	 */
+ ...
+> +	/*  Calculate the average drain rate from this value.  If queue length
+> +	 *  has receded to a small value viz., <= QUEUE_THRESHOLD bytes,reset
+> +	 *  the dq_count to -1 as we don't have enough packets to calculate the
+> +	 *  drain rate anymore The following if block is entered only when we
+> +	 *  have a substantial queue built up (QUEUE_THRESHOLD bytes or more)
+> +	 *  and we calculate the drain rate for the threshold here.  dq_count is
+> +	 *  in bytes, time difference in psched_time, hence rate is in
+> +	 *  bytes/psched_time.
+> +	 */
+ ...
+> +	/* addition to ensure we increase probability in steps of no
+> +	 *  more than 2%
+> +	 */
+ ...
+> +	/*  Non-linear drop
+> +	 *  Tune drop probability to increase quickly for high delays
+> +	 *  (250ms and above)
+> +	 *  250ms is derived through experiments and provides error protection
+> +	 */
+
+Please format your comments consistently, one space after the "*" on each
+line.
+
+> +	if (q->vars.dq_count != DQCOUNT_INVALID) {
+> +
+> +		q->vars.dq_count += skb->len;
+
+Please delete that extraneous empty line.
+
+> +	if (delta > (s32) (MAX_PROB / (100 / 2))
+> +	    && q->vars.prob >= MAX_PROB / 10)
+> +		delta = (MAX_PROB / 100) * 2;
+> +
+> +
+
+Likewise.
+
+> +	/* Non-linear drop in probability */
+> +	/* Reduce drop probability quickly if delay is 0 for 2 consecutive
+> +	 * Tupdate periods
+> +	 */
+
+Just make this all one comment.
+
+> +	if ((q->vars.qdelay < q->params.target / 2)
+> +	    && (q->vars.qdelay_old < q->params.target / 2)
+> +	    && (q->vars.prob == 0)
+> +	    && q->vars.avg_dq_rate > 0)
+> +		pie_vars_init(&q->vars);
+
+Please format this as:
+
+	if (A &&
+	    B &&
+
+Do not place the "&&" or similar operator at the beginning of the
+line.
