@@ -1,36 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/3] bonding: add lp_interval option
- support and simplify the code
-Date: Tue, 31 Dec 2013 00:40:46 -0500 (EST)
-Message-ID: <20131231.004046.2152145923402030558.davem@davemloft.net>
-References: <52B537B3.3060504@huawei.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] ipv4: introduce hardened ip_no_pmtu_disc mode
+Date: Tue, 31 Dec 2013 06:44:30 +0100
+Message-ID: <20131231054430.GD27636@order.stressinduktion.org>
+References: <20131221001054.GD14073@order.stressinduktion.org> <20131231.003711.245680762305512090.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, andy@greyhouse.net, vfalico@redhat.com,
-	netdev@vger.kernel.org, sfeldma@cumulusnetworks.com
-To: dingtianhong@huawei.com
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58922 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751099Ab3LaFks (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 00:40:48 -0500
-In-Reply-To: <52B537B3.3060504@huawei.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:59908 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750746Ab3LaFoc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 00:44:32 -0500
+Content-Disposition: inline
+In-Reply-To: <20131231.003711.245680762305512090.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Sat, 21 Dec 2013 14:39:47 +0800
-
-> The option lp_interval could only be set by sysfs, so add support for loading module.
-> and update the Documentation/networking/bonding.txt for this option.
+On Tue, Dec 31, 2013 at 12:37:11AM -0500, David Miller wrote:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Sat, 21 Dec 2013 01:10:54 +0100
 > 
-> Use micro BOND_NO_USE_ARP to simplify the code for mode check.
+> > This new ip_no_pmtu_disc mode only allowes fragmentation-needed errors
+> > to be honored by protocols which do more stringent validation on the
+> > ICMP's packet payload. This knob is useful for people who e.g. want to
+> > run an unmodified DNS server in a namespace where they need to use pmtu
+> > for TCP connections (as they are used for zone transfers or fallback
+> > for requests) but don't want to use possibly spoofed UDP pmtu information.
+> > 
+> > Currently the whitelisted protocols are TCP, SCTP and DCCP as they check
+> > if the returned packet is in the window or if the association is valid.
+> > 
+> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 > 
-> v2: according to the networking coding style, the patch 01/03 need to cleanup the
->     style problem, thanks scott for his advice. The bond_check_param() have too
->     many duplicated code with bond sysfs, so I think when scott finish the bond_option_xxx_set(),
->     the bond_check_param() should be modify to use the bond_option_xxx_set() function
->     to simplify the code.
+> I think this is going to have the same problem as the forwarding
+> sysctl, someone is going to convince some distribution to turn this
+> thing to the new "3" hardened mode by default.
+> 
+> I'm not applying this... for now, sorry.
 
-Series applied, thanks.
+Ok, I see your concerns. I really intended its use just for a namespace
+sealing off a name server.
+
+Should I make this mode unavailable in init_net? ;)
+(maybe, seriously?)
+
+Thanks!
