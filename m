@@ -1,53 +1,43 @@
-From: Shawn Bohrer <shawn.bohrer@gmail.com>
-Subject: [PATCH net-next v4 0/2] mlx4_en: Add PTP support
-Date: Tue, 31 Dec 2013 11:39:38 -0600
-Message-ID: <1388511580-3657-1-git-send-email-shawn.bohrer@gmail.com>
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	netdev@vger.kernel.org, tomk@rgmadvisors.com,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] mlx5: remove dead code
+Date: Tue, 31 Dec 2013 21:45:55 +0300
+Message-ID: <52C310E3.8070401@cogentembedded.com>
+References: <20131229135137.7a8566da@nehalam.linuxnetplumber.net> <52C15F5A.80601@cogentembedded.com> <20131231160306.GA20236@mtldesk30>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemming@brocade.com>,
+	Eli Cohen <eli@mellanox.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eli Cohen <eli@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f53.google.com ([209.85.219.53]:60965 "EHLO
-	mail-oa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753897Ab3LaRkN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 12:40:13 -0500
-Received: by mail-oa0-f53.google.com with SMTP id m1so13438383oag.12
-        for <netdev@vger.kernel.org>; Tue, 31 Dec 2013 09:40:12 -0800 (PST)
+Received: from mail-la0-f43.google.com ([209.85.215.43]:52086 "EHLO
+	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754843Ab3LaRp7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 12:45:59 -0500
+Received: by mail-la0-f43.google.com with SMTP id n7so6332044lam.16
+        for <netdev@vger.kernel.org>; Tue, 31 Dec 2013 09:45:57 -0800 (PST)
+In-Reply-To: <20131231160306.GA20236@mtldesk30>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Hello.
 
-This adds support to the mlx4_en driver to support running a PTP client
-with hardware timestamp support.  It also allows synchronization of the
-hardware timestamped packets with the system clock.
+On 12/31/2013 07:03 PM, Eli Cohen wrote:
 
-v2:
-* Implemented mlx4_en_phc_adjfreq() in software.
-* Protected timecounter with a spinlock
-* Set the phc_index in mlx4_en_get_ts_info()
-* Use a hard-coded ptp_clock_info.name
+> Thanks. I noticed that and will address in the next patch set I plan
+> to send.
 
-v3: is code identical to v2.  I simply finished testing it with
-linuxptp, cleaned up the commit description a little and sent to davem.
+    Noticed what? Unused functions? They were removed by Stephen, not me.
 
-v4:
-* Initialize clock_lock
-* Use reader/writer spinlock for clock_lock to improve performance when
- timetamping is enabled.
+>>> There are 3 functions in the mlx5 driver which are used and should be
 
-Shawn Bohrer (2):
-  mlx4_en: Add PTP hardware clock
-  mlx4_en: Only cycle port if HW timestamp config changes
+>>     s/used/unused/, I think.
 
- drivers/net/ethernet/mellanox/mlx4/en_clock.c   |  198 ++++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    3 +
- drivers/net/ethernet/mellanox/mlx4/en_main.c    |    3 +
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    6 +
- 4 files changed, 202 insertions(+), 8 deletions(-)
+>>> deleted. Upstream is not the repository to hold old dead code, or code
+>>> which is used by outside drivers, or code intended for future undetermined
+>>> features.
 
--- 
-1.7.7.6
+>>> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+
+WBR, Sergei
