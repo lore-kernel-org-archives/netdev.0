@@ -1,75 +1,78 @@
-From: Yasushi Asano <yazzep@gmail.com>
-Subject: [PATCH] ipv6 addrconf: fix preferred lifetime state-changing behavior while valid_lft is infinity
-Date: Tue, 31 Dec 2013 12:04:19 +0900
-Message-ID: <1388459059-2563-1-git-send-email-yazzep@gmail.com>
-References: <20131230021754.GA7718@order.stressinduktion.org>
-Cc: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/2] ipv4: add forwarding_uses_pmtu knob to
+ protect forward path to use pmtu info
+Date: Mon, 30 Dec 2013 22:20:44 -0500 (EST)
+Message-ID: <20131230.222044.884570280065942449.davem@davemloft.net>
+References: <20131220130822.GD32129@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:48718 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752559Ab3LaDEd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Dec 2013 22:04:33 -0500
-Received: by mail-pd0-f180.google.com with SMTP id q10so11887551pdj.25
-        for <netdev@vger.kernel.org>; Mon, 30 Dec 2013 19:04:33 -0800 (PST)
-In-Reply-To: <20131230021754.GA7718@order.stressinduktion.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58437 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751144Ab3LaDUs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Dec 2013 22:20:48 -0500
+In-Reply-To: <20131220130822.GD32129@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Fri, 20 Dec 2013 14:08:22 +0100
 
-Fixed a problem with setting the lifetime of an IPv6
-address. When setting preferred_lft to a value not zero or
-infinity, while valid_lft is infinity(0xffffffff) preferred
-lifetime is set to forever and does not update. Therefore
-preferred lifetime never becomes deprecated. valid lifetime
-and preferred lifetime should be set independently, even if
-valid lifetime is infinity, preferred lifetime must expire
-correctly (meaning it must eventually become deprecated)
+> Provide a mode where the forwarding path does not use the protocol path
+> MTU to calculate the maximum size for a forwarded packet but instead
+> uses the interface or the per-route locked MTU.
+> 
+> It is easy to inject bogus or malicious path mtu information which
+> will cause either unneeded fragmentation-needed icmp errors (in case
+> of DF-bit set) or unnecessary fragmentation of packets (by default down
+> to min_pmtu). This could be used to either create blackholes on routers
+> (if the generated DF-bit gets dropped later on) or to leverage attacks
+> on fragmentation.
+> 
+> Forwarded skbs are marked with IPSKB_FORWARDED in ip_forward. This flag
+> was introduced for multicast forwarding, but as it does not conflict with
+> our usage in the unicast code path it is perfect for reuse.
+> 
+> I moved the functions ip_sk_accept_pmtu, ip_sk_use_pmtu and ip_skb_dst_mtu
+> along with the new ip_dst_mtu_secure to net/ip.h to fix circular
+> dependencies because of IPSKB_FORWARDED.
+> 
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: David Miller <davem@davemloft.net>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+> v2:
+> * forwarding_uses_pmtu default to on
+> * reworded documentation and changelog
 
+Sorry Hannes, I'm still not happy with this change at all.
 
-Signed-off-by: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
----
- net/ipv6/addrconf.c |   13 ++++++++++---
- 1 files changed, 10 insertions(+), 3 deletions(-)
+First of all, you misunderstood what I said last time around.
+I basically was trying to say that if you make this facility
+available at all, distributions are going to turn it on by
+default even if you make the kernel default to off.
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index cd2d7d0..a9371fc 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3479,7 +3479,12 @@ restart:
- 					 &inet6_addr_lst[i], addr_lst) {
- 			unsigned long age;
- 
--			if (ifp->flags & IFA_F_PERMANENT)
-+			/* When setting preferred_lft to a value not zero or
-+			 * infinity, while valid_lft is infinity
-+			 * IFA_F_PERMANENT has a non-infinity life time.
-+			 */
-+			if ((ifp->flags & IFA_F_PERMANENT) &&
-+			    (ifp->prefered_lft == INFINITY_LIFE_TIME))
- 				continue;
- 
- 			spin_lock(&ifp->lock);
-@@ -3504,7 +3509,8 @@ restart:
- 					ifp->flags |= IFA_F_DEPRECATED;
- 				}
- 
--				if (time_before(ifp->tstamp + ifp->valid_lft * HZ, next))
-+				if ((ifp->valid_lft != INFINITY_LIFE_TIME) &&
-+				    (time_before(ifp->tstamp + ifp->valid_lft * HZ, next)))
- 					next = ifp->tstamp + ifp->valid_lft * HZ;
- 
- 				spin_unlock(&ifp->lock);
-@@ -3804,7 +3810,8 @@ static int inet6_fill_ifaddr(struct sk_buff *skb, struct inet6_ifaddr *ifa,
- 	put_ifaddrmsg(nlh, ifa->prefix_len, ifa->flags, rt_scope(ifa->scope),
- 		      ifa->idev->dev->ifindex);
- 
--	if (!(ifa->flags&IFA_F_PERMANENT)) {
-+	if (!((ifa->flags&IFA_F_PERMANENT) &&
-+	      (ifa->prefered_lft == INFINITY_LIFE_TIME))) {
- 		preferred = ifa->prefered_lft;
- 		valid = ifa->valid_lft;
- 		if (preferred != INFINITY_LIFE_TIME) {
--- 
-1.7.7.6
+That drives me nuts, and I don't want to give people this
+opportunity to screw things up again just like they did
+for rp_filter, which also defaults to off.
+
+Secondly, I don't see how this is as big of an issue as you
+present it to be.  At best, the language is way too strong.
+
+How can PMTU information be injected into the kernel?
+
+Local connections, well we want that and it's good.  And for TCP you
+have to be able to inject a valid TCP packet that can be validated by
+the stack for the PMTU information to stick.
+
+Tunnels, well you said that tunnels don't apply to this change.
+
+The only thing left are things like AH and ESP, which also perform
+some level of validation making sure that some state exists.  And
+frankly for non-tunneled IPSEC this PMTU information is absolutely
+essential.
+
+I really don't want to apply these changes, sorry.
