@@ -1,51 +1,39 @@
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: [PATCH 2/2] net, sch: fix the typo in register_qdisc()
-Date: Wed,  1 Jan 2014 04:34:51 +0800
-Message-ID: <1388522091-17536-2-git-send-email-zwu.kernel@gmail.com>
-References: <1388522091-17536-1-git-send-email-zwu.kernel@gmail.com>
-Cc: davem@davemloft.net, Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next bugfix] net, rps: fix build failure when CONFIG_RPS
+ isn't set
+Date: Tue, 31 Dec 2013 15:54:59 -0500 (EST)
+Message-ID: <20131231.155459.1250298598367444558.davem@davemloft.net>
+References: <1388521861-17410-1-git-send-email-zwu.kernel@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, therbert@google.com,
+	fengguang.wu@intel.com, wuzhy@linux.vnet.ibm.com
+To: zwu.kernel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:60438 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756521Ab3LaUfI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 15:35:08 -0500
-Received: from /spool/local
-	by e36.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <zwu.kernel@gmail.com>;
-	Tue, 31 Dec 2013 13:35:07 -0700
-Received: from b03cxnp08025.gho.boulder.ibm.com (b03cxnp08025.gho.boulder.ibm.com [9.17.130.17])
-	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id A87361FF001A
-	for <netdev@vger.kernel.org>; Tue, 31 Dec 2013 13:34:38 -0700 (MST)
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by b03cxnp08025.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id rBVKZ6WF9961814
-	for <netdev@vger.kernel.org>; Tue, 31 Dec 2013 21:35:06 +0100
-Received: from d03av03.boulder.ibm.com (localhost [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id rBVKZ5aD012898
-	for <netdev@vger.kernel.org>; Tue, 31 Dec 2013 13:35:05 -0700
-In-Reply-To: <1388522091-17536-1-git-send-email-zwu.kernel@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36173 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754838Ab3LaUzE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 15:55:04 -0500
+In-Reply-To: <1388521861-17410-1-git-send-email-zwu.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+From: Zhi Yong Wu <zwu.kernel@gmail.com>
+Date: Wed,  1 Jan 2014 04:31:01 +0800
 
-Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
----
- net/sched/sch_api.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> @@ -846,12 +846,16 @@ static inline void sock_rps_reset_flow_hash(__u32 hash)
+>  
+>  static inline void sock_rps_record_flow(const struct sock *sk)
+>  {
+> +#ifdef CONFIG_RPS
+>  	sock_rps_record_flow_hash(sk->sk_rxhash);
+> +#endif
+>  }
 
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index c31190e..1313145 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -135,7 +135,7 @@ static DEFINE_RWLOCK(qdisc_mod_lock);
- 
- static struct Qdisc_ops *qdisc_base;
- 
--/* Register/uregister queueing discipline */
-+/* Register/unregister queueing discipline */
- 
- int register_qdisc(struct Qdisc_ops *qops)
- {
--- 
-1.7.6.5
+Why is this necessary?  sock_rps_record_flow_hash() is provided
+unconditionally, regardless of CONFIG_RPS.
+
+I'm not applying this, it doesn't make any sense.  Either there is
+no build failure, or the existing CONFIG_RPS ifdef inside of the
+implementation of sock_rps_record_flow_hash() is bogus.
