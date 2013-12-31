@@ -1,8 +1,8 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [net-next bugfix] net, rps: fix build failure when CONFIG_RPS
  isn't set
-Date: Tue, 31 Dec 2013 16:08:26 -0500 (EST)
-Message-ID: <20131231.160826.966509294799970296.davem@davemloft.net>
+Date: Tue, 31 Dec 2013 16:08:51 -0500 (EST)
+Message-ID: <20131231.160851.1101721532410450212.davem@davemloft.net>
 References: <1388521861-17410-1-git-send-email-zwu.kernel@gmail.com>
 	<52C33F26.8070609@cogentembedded.com>
 Mime-Version: 1.0
@@ -12,10 +12,10 @@ Cc: zwu.kernel@gmail.com, netdev@vger.kernel.org, therbert@google.com,
 	fengguang.wu@intel.com, wuzhy@linux.vnet.ibm.com
 To: sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36300 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36321 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754838Ab3LaVI2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 16:08:28 -0500
+	with ESMTP id S1756426Ab3LaVIx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 16:08:53 -0500
 In-Reply-To: <52C33F26.8070609@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -58,4 +58,5 @@ Date: Wed, 01 Jan 2014 01:03:18 +0300
 > 
 >    A lot better style would be:
 
-No, the functions have to be available, but have a NOP implementation.
+Sorry, I meant to say, this is consistent with how the other functions
+dependent upon RPS are handled.
