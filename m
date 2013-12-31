@@ -1,42 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 00/19] slight optimization of addr compare
- for net modules
-Date: Tue, 31 Dec 2013 16:49:12 -0500 (EST)
-Message-ID: <20131231.164912.1373331336904065031.davem@davemloft.net>
-References: <52C12369.7020206@huawei.com>
+Subject: Re: [PATCH] usbnet: mcs7830: rework link state detection
+Date: Tue, 31 Dec 2013 16:54:10 -0500 (EST)
+Message-ID: <20131231.165410.1591097579937834027.davem@davemloft.net>
+References: <1387818391-12935-1-git-send-email-octavian.purdila@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
-	edumazet@google.com
-To: dingtianhong@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52C12369.7020206@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	hunold@linuxtv.org, jeroen@koekkoek.nl, linux@rainbow-software.org,
+	lkml20120218@newton.leun.net, ming.lei@canonical.com
+To: octavian.purdila@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36560 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756383Ab3LaVyM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 16:54:12 -0500
+In-Reply-To: <1387818391-12935-1-git-send-email-octavian.purdila@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Mon, 30 Dec 2013 15:40:25 +0800
+From: Octavian Purdila <octavian.purdila@intel.com>
+Date: Mon, 23 Dec 2013 19:06:31 +0200
 
-> This is the second patchset for slight optimization of address compare,
-> mainly for net tree, just following the Joe's opinion, it will help review
-> the code for maintainers and supports.
+> Even with the quirks in commit dabdaf0c (mcs7830: Fix link state
+> detection) there are still spurious link-down events for some chips
+> where the false link-down events count go over a few hundreds.
 > 
-> v2: Change some style for patch 2.
->     According Eric's suggestion, use the ether_addr_equal_64bits to instead
->     of ether_addr_equal for patch 19.
->     In fact, there are a lot of places which could use ether_addr_equal_64bits
->     to instead of ether_addr_equal, but not this time, thanks for Joe's
->     opinion.
+> This patch takes a more conservative approach and only looks at
+> link-down events where the link-down state is not combined with other
+> states (e.g. half/full speed, pending frames in SRAM or TX status
+> information valid). In all other cases we assume the link is up.
 > 
-> v3: Change some style for patch 11/19:
->     (net: packetengines: slight optimization of addr compare).
->     Joe pointed out that is_broadcast_ether_addr(addr) would be appropriate here,
->     but this should be left alone and not in this patch, so fix it later.
+> Tested on MCS7830CV-DA (USB ID 9710:7830).
 > 
->     In the patch (net: caif: slight optimization of addr compare), the operand for
->     memcmp is not mac address, so it is unsuitable to use the ether_addr_equal
->     to compare a non mac address, so remove the patch from the series.
+> Cc: Ondrej Zary <linux@rainbow-software.org>
+> Cc: Michael Leun <lkml20120218@newton.leun.net>
+> Cc: Ming Lei <ming.lei@canonical.com>
+> Signed-off-by: Octavian Purdila <octavian.purdila@intel.com>
 
-Series applied, thanks.
+Applied, thanks.
