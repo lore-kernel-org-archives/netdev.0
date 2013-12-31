@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] ipv4: add forwarding_uses_pmtu knob to
- protect forward path to use pmtu info
-Date: Tue, 31 Dec 2013 01:04:03 -0500 (EST)
-Message-ID: <20131231.010403.73052460631688921.davem@davemloft.net>
-References: <20131220130822.GD32129@order.stressinduktion.org>
-	<20131230.222044.884570280065942449.davem@davemloft.net>
-	<20131231035247.GA27636@order.stressinduktion.org>
+Subject: Re: [GIT] Networking
+Date: Tue, 31 Dec 2013 01:05:54 -0500 (EST)
+Message-ID: <20131231.010554.335340250542861948.davem@davemloft.net>
+References: <CAJZOPZLciJ=X9_h9eqd0KrdkrOT6tKw93wFnmDKY6cQfG_4ZTw@mail.gmail.com>
+	<20131230.195209.1342950946997239413.davem@davemloft.net>
+	<CAJZOPZJo1oEkGDp+FiiNT81xs5jwH4uEaBDW8ywP5OAw185UCw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org, ast@plumgrid.com, weichunc@plumgrid.com,
+	stephen@networkplumber.org
+To: or.gerlitz@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59034 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59038 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750720Ab3LaGEH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 01:04:07 -0500
-In-Reply-To: <20131231035247.GA27636@order.stressinduktion.org>
+	with ESMTP id S1750811Ab3LaGF4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 01:05:56 -0500
+In-Reply-To: <CAJZOPZJo1oEkGDp+FiiNT81xs5jwH4uEaBDW8ywP5OAw185UCw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 31 Dec 2013 04:52:47 +0100
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Date: Tue, 31 Dec 2013 07:56:04 +0200
 
-> I am still convinced we should suppress path mtu information in
-> forwarding path.
+> I am somehow under the impression that we are aligned on the initial
+> approach + your feedback addressed, so I missed something along the
+> way?
 
-This is why it disappoints me that the person who felt differently,
-you left out of the CC: when you reposted your patches.  He's
-the person who made the code the way it is right now.
+... sounds like you need to simply repost.
