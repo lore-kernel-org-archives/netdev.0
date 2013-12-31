@@ -1,35 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 0/2] sctp: Consolidate and ratelimit deprecation
- warnings
-Date: Tue, 31 Dec 2013 14:00:00 -0500 (EST)
-Message-ID: <20131231.140000.463004971089550957.davem@davemloft.net>
-References: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
-	<1387805383-21500-1-git-send-email-nhorman@tuxdriver.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6 addrconf: fix preferred lifetime state-changing behavior while valid_lft is infinity
+Date: Tue, 31 Dec 2013 20:05:41 +0100
+Message-ID: <20131231190541.GC31490@order.stressinduktion.org>
+References: <20131230021754.GA7718@order.stressinduktion.org> <1388459059-2563-1-git-send-email-yazzep@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, vyasevich@gmail.com,
-	gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: nhorman@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1387805383-21500-1-git-send-email-nhorman@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org,
+	Yasushi Asano <yasushi.asano@jp.fujitsu.com>
+To: Yasushi Asano <yazzep@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:60754 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756260Ab3LaTFn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 14:05:43 -0500
+Content-Disposition: inline
+In-Reply-To: <1388459059-2563-1-git-send-email-yazzep@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Mon, 23 Dec 2013 08:29:41 -0500
-
-> The SCTP protocol has several deprecation warnings in its setsockopt path that
-> can be triggered by unprivlidged users.  Since these are not ratelimited, we can
-> spam the logs quite easily here.  Since these are all deprecation warnings, and
-> that type of warning isn't uncommon in the rest of the kernel, lets make a
-> common pr_warn_deprecated macro to produce somewhat generalized ratelimited
-> deprecation warnings easily
+On Tue, Dec 31, 2013 at 12:04:19PM +0900, Yasushi Asano wrote:
+> From: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
 > 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> Fixed a problem with setting the lifetime of an IPv6
+> address. When setting preferred_lft to a value not zero or
+> infinity, while valid_lft is infinity(0xffffffff) preferred
+> lifetime is set to forever and does not update. Therefore
+> preferred lifetime never becomes deprecated. valid lifetime
+> and preferred lifetime should be set independently, even if
+> valid lifetime is infinity, preferred lifetime must expire
+> correctly (meaning it must eventually become deprecated)
+> 
+> 
+> Signed-off-by: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
 
-Series applied, thanks Neil.
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Please consider Ben's suggestion to provide the offending command string
-in the log output.
+Thanks!
