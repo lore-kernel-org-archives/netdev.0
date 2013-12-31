@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: unneccessary to get address prefix in
- addrconf_get_prefix_route
-Date: Tue, 31 Dec 2013 13:38:03 -0500 (EST)
-Message-ID: <20131231.133803.2135086760819574850.davem@davemloft.net>
-References: <1387762358-10607-1-git-send-email-roy.qing.li@gmail.com>
+Subject: Re: [PATCH] packet: fix "foo * bar" and "(foo*)" problems
+Date: Tue, 31 Dec 2013 13:38:58 -0500 (EST)
+Message-ID: <20131231.133858.2265478405155097745.davem@davemloft.net>
+References: <1387769498-15392-1-git-send-email-chenweilong@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
+To: chenweilong@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35222 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35238 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754832Ab3LaSiF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 13:38:05 -0500
-In-Reply-To: <1387762358-10607-1-git-send-email-roy.qing.li@gmail.com>
+	with ESMTP id S1755513Ab3LaSi7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 13:38:59 -0500
+In-Reply-To: <1387769498-15392-1-git-send-email-chenweilong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: roy.qing.li@gmail.com
-Date: Mon, 23 Dec 2013 09:32:38 +0800
+From: Chen Weilong <chenweilong@huawei.com>
+Date: Mon, 23 Dec 2013 11:31:38 +0800
 
-> From: Li RongQing <roy.qing.li@gmail.com>
+> From: Weilong Chen <chenweilong@huawei.com>
 > 
-> Since addrconf_get_prefix_route inputs the address prefix to fib6_locate,
-> which does not uses the data which is out of the prefix_len length,
-> so do not need to use ipv6_addr_prefix to get address prefix.
+> Cleanup checkpatch errors.Specially,the second changed line
+> is exactly 80 columns long.
 > 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> Signed-off-by: Weilong Chen <chenweilong@huawei.com>
 
-Applied, thanks.
+Applied.
