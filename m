@@ -1,44 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cxgb4: allow large buffer size to have page size
-Date: Tue, 31 Dec 2013 16:54:29 -0500 (EST)
-Message-ID: <20131231.165429.1269765488967765151.davem@davemloft.net>
-References: <1387820069-13623-1-git-send-email-cascardo@linux.vnet.ibm.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 0/2] tun: add the RFS support
+Date: Tue, 31 Dec 2013 14:33:11 -0800
+Message-ID: <CA+mtBx8b_D+JQaphS4LCbAVKRWE5Tz1-P_eVxJJdG-FbMdWPdw@mail.gmail.com>
+References: <1387709672-21917-1-git-send-email-zwu.kernel@gmail.com>
+	<20131231.133200.1111966466957616549.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dm@chelsio.com,
-	linux-kernel@vger.kernel.org
-To: cascardo@linux.vnet.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1387820069-13623-1-git-send-email-cascardo@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Zhi Yong Wu <zwu.kernel@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:60507 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756481Ab3LaWdO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 17:33:14 -0500
+Received: by mail-ig0-f177.google.com with SMTP id uy17so30733387igb.4
+        for <netdev@vger.kernel.org>; Tue, 31 Dec 2013 14:33:12 -0800 (PST)
+In-Reply-To: <20131231.133200.1111966466957616549.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Date: Mon, 23 Dec 2013 15:34:29 -0200
+Zhi,
 
-> Since commit 52367a763d8046190754ab43743e42638564a2d1
-> ("cxgb4/cxgb4vf: Code cleanup to enable T4 Configuration File support"),
-> we have failures like this during cxgb4 probe:
-> 
-> cxgb4 0000:01:00.4: bad SGE FL page buffer sizes [65536, 65536]
-> cxgb4: probe of 0000:01:00.4 failed with error -22
-> 
-> This happens whenever software parameters are used, without a
-> configuration file. That happens when the hardware was already
-> initialized (after kexec, or after csiostor is loaded).
-> 
-> It happens that these values are acceptable, rendering fl_pg_order equal
-> to 0, which is the case of a hard init when the page size is equal or
-> larger than 65536.
-> 
-> Accepting fl_large_pg equal to fl_small_pg solves the issue, and
-> shouldn't cause any trouble besides a possible performance reduction
-> when smaller pages are used. And that can be fixed by a configuration
-> file.
-> 
-> Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Thanks for following up on these patches. It would still be nice to
+have performance numbers to show the impact. These will be helpful for
+the next task of integrating RFS into virtio-net.
 
-Can I get a review from one of the cxgb4 driver maintainers?
+Tom
 
-Thanks.
+On Tue, Dec 31, 2013 at 10:32 AM, David Miller <davem@davemloft.net> wrote:
+> From: Zhi Yong Wu <zwu.kernel@gmail.com>
+> Date: Sun, 22 Dec 2013 18:54:30 +0800
+>
+>> Since Tom Herbert's hash related patchset was modified and got merged,
+>> his pachset about adding support for RFS on tun flows also need to get
+>> adjusted accordingly. I tried to update them, and before i will start
+>> to do some perf tests, i hope to get one correct code base, so it's time
+>> to post them out now. Any constructive comments are welcome, thanks.
+>
+> Series applied to net-next, thanks.
