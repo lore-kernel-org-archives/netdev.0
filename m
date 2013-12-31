@@ -1,71 +1,117 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 1/2] ipv4: add forwarding_uses_pmtu knob to protect forward path to use pmtu info
-Date: Tue, 31 Dec 2013 19:41:09 +0100
-Message-ID: <20131231184109.GB31490@order.stressinduktion.org>
-References: <20131220130822.GD32129@order.stressinduktion.org> <20131230.222044.884570280065942449.davem@davemloft.net> <20131231035247.GA27636@order.stressinduktion.org> <20131231.010403.73052460631688921.davem@davemloft.net> <20131231070223.GE27636@order.stressinduktion.org> <CABrhC0kqn2Gpjv=4sseOf_2CmubKjaJaY4C3icsDpUeBsVWDXg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 2/2] netlink: specify netlink packet
+ direction for nlmon
+Date: Tue, 31 Dec 2013 13:48:20 -0500 (EST)
+Message-ID: <20131231.134820.1660434103068706486.davem@davemloft.net>
+References: <1387788519-17722-1-git-send-email-dborkman@redhat.com>
+	<1387788519-17722-3-git-send-email-dborkman@redhat.com>
+	<52B813E8.8010508@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: John Heffner <johnwheffner@gmail.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dborkman@redhat.com, netdev@vger.kernel.org,
+	darkjames-ws@darkjames.pl
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:60716 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755555Ab3LaSlK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 13:41:10 -0500
-Content-Disposition: inline
-In-Reply-To: <CABrhC0kqn2Gpjv=4sseOf_2CmubKjaJaY4C3icsDpUeBsVWDXg@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35307 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755555Ab3LaSsW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 13:48:22 -0500
+In-Reply-To: <52B813E8.8010508@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+=46rom: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Mon, 23 Dec 2013 11:43:52 +0100
 
-On Tue, Dec 31, 2013 at 12:59:06PM -0500, John Heffner wrote:
-> I'm not completely sure I understand the attack.  Perhaps a more
-> thorough explanation or concrete example is in order.  I understand
-> that it might be possible to spoof ICMP packet-too-big messages to a
-> router, but that router would need a socket listening that would
-> handle these messages.
+> Le 23/12/2013 09:48, Daniel Borkmann a =E9crit :
+>> In order to facilitate development for netlink protocol dissector,
+>> fill the unused field skb->pkt_type of the cloned skb with a hint
+>> of the address space of the new owner (receiver) socket in the
+>> notion of "to kernel" resp. "to user".
+>>
+>> At the time we invoke __netlink_deliver_tap_skb(), we already have
+>> set the new skb owner via netlink_skb_set_owner_r(), so we can use
+>> that for netlink_is_kernel() probing.
+>>
+>> In normal PF_PACKET network traffic, this field denotes if the
+>> packet is destined for us (PACKET_HOST), if it's broadcast
+>> (PACKET_BROADCAST), etc.
+>>
+>> As we only have 3 bit reserved, we can use the value (=3D 6) of
+>> PACKET_FASTROUTE as it's _not used_ anywhere in the whole kernel
+>> and packets of such type were never exposed to user space, so
+>> there are no overlapping users of such kind. Thus, as wished,
+>> that seems the only way to make both PACKET_* values non-overlapping
+>> and therefore device agnostic.
+>>
+>> By using those two flags for netlink skbs on nlmon devices, they
+>> can be made available and picked up via sll_pkttype (previously
+>> unused in netlink context) in struct sockaddr_ll. We now have
+>> these two directions:
+>>
+>>   - PACKET_USER (=3D 6)    ->  to user space
+>>   - PACKET_KERNEL (=3D 7)  ->  to kernel space
+>>
+>> Partial `ip a` example strace for sa_family=3DAF_NETLINK with
+>> detected nl msg direction:
+>>
+>> syscall:                     direction:
+>> sendto(3,  ...) =3D 40         /* to kernel */
+>> recvmsg(3, ...) =3D 3404       /* to user */
+>> recvmsg(3, ...) =3D 1120       /* to user */
+>> recvmsg(3, ...) =3D 20         /* to user */
+>> sendto(3,  ...) =3D 40         /* to kernel */
+>> recvmsg(3, ...) =3D 168        /* to user */
+>> recvmsg(3, ...) =3D 144        /* to user */
+>> recvmsg(3, ...) =3D 20         /* to user */
+>>
+>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> Signed-off-by: Jakub Zawadzki <darkjames-ws@darkjames.pl>
+>> ---
+>>   v1->v2:
+>>    - let PACKET_* values not overlap as wished by Dave
+>>
+>>   include/uapi/linux/if_packet.h | 4 +++-
+>>   net/netlink/af_netlink.c       | 2 ++
+>>   2 files changed, 5 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/include/uapi/linux/if_packet.h
+>> b/include/uapi/linux/if_packet.h
+>> index e9d844c..06e2a28 100644
+>> --- a/include/uapi/linux/if_packet.h
+>> +++ b/include/uapi/linux/if_packet.h
+>> @@ -26,8 +26,10 @@ struct sockaddr_ll {
+>>   #define PACKET_MULTICAST	2		/* To group		*/
+>>   #define PACKET_OTHERHOST	3		/* To someone else 	*/
+>>   #define PACKET_OUTGOING 4 /* Outgoing of any type */
+>> -/* These ones are invisible by user level */
+>>   #define PACKET_LOOPBACK 5 /* MC/BRD frame looped back */
+>> +#define PACKET_USER 6 /* To user space */
+> Reusing this value is like changing the API. If some userland apps an=
+d
+> external
+> modules rely on it, this patch may break them.
 
-No, an open socket is not needed in case of icmp echo reply payloads
-on frag_needed notifications. And you really have to be careful about
-bound raw sockets to any addresses on such an interface (e.g. some dhcp
-clients, or maybe not bound at all to an interface).
+Interpretation of a value is contextual, please stop ignoring this
+fact.
 
-> Is this a problem in practice?  Routers in
-> critical forwarding paths are usually pretty well hardened, and don't
-> have services running on the forwarding path interfaces (or use
-> firewall rules to control access to those services).  Are such routers
-> vulnerable?  Is there a reason we need to compromise and increase
-> complexity of the routing code to handle poorly-configured routers?
+And in this context, Daniel's reappropriation of the PACKET_FASTROUTE
+value causes no harm to anyone.
 
-Given the whole complexity in forwarding path I don't think that this
-change does add a lot more.
+Values never used by us at any point in the past, yet nevertheless
+were placed in a user visible header file, have to be kept around.  But
+that doesn't mean that we can't reuse them for other meanings.
 
-The essential part of the attack is, that there is a way to spray the
-fragmentation queue with already made-up answers and correctly guessed
-fragmentation ids and wait for a user to issue a DNS request whose answer
-is gonna to be fragmented on the path (or on the DNS name system, that
-is the reason for IP_PMTUDISC_INTERFACE). In the paper they also found
-a way to precompute the checksums so that after reassembling the valid
-packet with the spoofed one, the whole packet is still valid. Sorry, I
-don't have access to working code, as this does not yet seemed published.
+The worst thing that could exist, is that some code out there builds,
+for example, string tables using PACKET_* values and whoever did them
+decided to be complete enough to build entries even for effectively
+unused values such as PACKET_FASTROUTE.
 
-The trick to prevent this attack is to configure the DNS server to
-not emit packets above a specified size and make sure they don't get
-fragmented locally (the mtu value needs to be somewhat lower than the
-average MTU size of the internet, some people even say default min_pmtu
-is the right choice). Of course, packets on paths which have a mtu below the
-max-udp-size mtu will still get (rightfully) fragmented. But there seem to be
-not that many paths out there (I hope, I don't have numbers for that).
+If you actually do searches for code making reference to
+PACKET_FASTROUTE or other similarly unused defines, that's what you
+find.  There is nothing looking semantically at this value at all.
 
-Bascially all forwarding hops could be used for that, not only the
-routers in critical forwarding paths.
-
-Also IMHO I think using the mtu of the next-hop forwarding network is
-just the right thing to do besides the presented attack on DNS.
-
-Greetings,
-
-  Hannes
+Any objections to Daniel's changes will fall on deaf ears until
+someone can really provide an actual existing way that things can
+break.  Because I'm very sure that they cannot.
