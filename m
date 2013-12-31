@@ -1,106 +1,71 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH 4/11]  use ether_addr_equal_64bits
-Date: Tue, 31 Dec 2013 17:40:24 +0100 (CET)
-Message-ID: <alpine.DEB.2.10.1312311732080.2074@hadrien>
-References: <1388427307-8691-1-git-send-email-Julia.Lawall@lip6.fr>  <1388427307-8691-5-git-send-email-Julia.Lawall@lip6.fr>  <1388429761.4410.1.camel@jlt4.sipsolutions.net>  <alpine.DEB.2.02.1312302057420.2209@localhost6.localdomain6>
- <1388438724.4573.2.camel@jlt4.sipsolutions.net>  <20131230215701.GA4938@khazad-dum.debian.net>  <1388445188.18164.0.camel@jlt4.sipsolutions.net> <1388445422.26796.38.camel@joe-AO722> <alpine.DEB.2.02.1312310726540.1930@localhost6.localdomain6>
- <52C2E8BA.6000800@candelatech.com> <alpine.DEB.2.10.1312311704320.2074@hadrien> <52C2F056.1020005@candelatech.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Julia Lawall <julia.lawall@lip6.fr>, Joe Perches <joe@perches.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Henrique de Moraes Holschuh <hmh@hmh.eng.br>,
-	kernel-janitors@vger.kernel.org,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
+From: Gertjan van Wingerde <gwingerde@gmail.com>
+Subject: Re: [PATCH 1/11] rt2x00: use ether_addr_equal_64bits
+Date: Tue, 31 Dec 2013 17:44:03 +0100
+Message-ID: <DF2F19A7-DC12-44CE-8488-9BCC92A23D84@gmail.com>
+References: <1388427307-8691-1-git-send-email-Julia.Lawall@lip6.fr> <1388427307-8691-2-git-send-email-Julia.Lawall@lip6.fr>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Ivo van Doorn <IvDoorn@gmail.com>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	Helmut Schaa <helmut.schaa@googlemail.com>,
 	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"users@rt2x00.serialmonkey.com" <users@rt2x00.serialmonkey.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Julia Lawall <Julia.Lawall@lip6.fr>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52C2F056.1020005@candelatech.com>
+In-Reply-To: <1388427307-8691-2-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
 
-On Tue, 31 Dec 2013, Ben Greear wrote:
+Sent from my iPad
 
-> On 12/31/2013 08:09 AM, Julia Lawall wrote:
-> >
-> >
-> > On Tue, 31 Dec 2013, Ben Greear wrote:
-> >
-> > > On 12/30/2013 10:32 PM, Julia Lawall wrote:
-> > > > > > > > I'm just thinking of a programmer, e.g. changing a struct like
-> > > > > > > > this:
-> > > > > > > >
-> > > > > > > >    struct foo {
-> > > > > > > >      u8 addr[ETH_ALEN];
-> > > > > > > > -  u16 dummy;
-> > > > > > > >    };
-> > > > >
-> > > > > I don't know of a way to catch that.
-> > > > > Anyone else?
-> > > >
-> > > > Well, one could have a semantic patch that checks for that.  But the
-> > > > problem is that it is very slow, and it only covers the cases that I can
-> > > > transform automatically, which currently means no pointers, only
-> > > > explicit
-> > > > arrays.
-> > > >
-> > > > On the other hand, I am finding the structure definition, so I can
-> > > > easily
-> > > > update the structure definition with an appropriate comment.
-> > > >
-> > > > struct foo {
-> > > >       u8 addr[ETH_ALEN]; /* must be followed by two bytes in the
-> > > > structure */
-> > > >       u16 dummy;
-> > > > };
-> > > >
-> > > > Unfortunately it is kind of verbose.  Could there be an attribute?  That
-> > > > could even easily be checked.
-> > >
-> > > Can you not just add a build-time macro to check that sizeof(foo) >= 8
-> > > for each of these struct foos?  Or, is it required that the dummy field
-> > > be there and be not used by anything else?
-> >
-> > It doesn't matter what the field is used for.  The problem is that is it
-> > necessary to ensure a property of the position of addr within the
-> > structure.  It has to have at least 16 bytes after it.
->
-> You mean 16 bits?
+> On 30 dec. 2013, at 19:14, Julia Lawall <Julia.Lawall@lip6.fr> wrote:
+> 
+> From: Julia Lawall <Julia.Lawall@lip6.fr>
+> 
+> Ether_addr_equal_64bits is more efficient than ether_addr_equal, and can be
+> used when each argument is an array within a structure that contains at
+> least two bytes of data beyond the array.
+> 
+> The structures involved are:
+> ieee80211_bar defined in include/linux/ieee80211.h and
+> rt2x00_bar_list_entry defined in drivers/net/wireless/rt2x00/rt2x00.h.
+> 
+> This was done using Coccinelle (http://coccinelle.lip6.fr/).
+> 
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Oops, yes.  16 bits.
+Acked-by: Gertjan van Wingerde <gwingerde@gmail.com>
 
-> >
-> > But maybe something with sizeof(foo) and offset_of would do?
-> >
-> > Could the macro be put near the declaration of the structure somehow?
->
-> I think that would work, but do not know all of the details of such
-> macros, so it's possible there is some catch.
->
-> If nothing else, then some run-time code that calculates the offset off
-> and asserts if it is broken in module initialization or similar might
-> be good enough.
-
-Could be OK.  Something right in or after the structure declaration would
-be nicest.
-
-julia
-
->
-> Thanks,
-> Ben
->
-> --
-> Ben Greear <greearb@candelatech.com>
-> Candela Technologies Inc  http://www.candelatech.com
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+> 
+> ---
+> The semantic patch used is rather long and can be found in message 0 of
+> this patch series.
+> 
+> drivers/net/wireless/rt2x00/rt2x00dev.c |    4 ++--
+> 1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/rt2x00/rt2x00dev.c b/drivers/net/wireless/rt2x00/rt2x00dev.c
+> index 00c3fae..2bde672 100644
+> --- a/drivers/net/wireless/rt2x00/rt2x00dev.c
+> +++ b/drivers/net/wireless/rt2x00/rt2x00dev.c
+> @@ -565,10 +565,10 @@ static void rt2x00lib_rxdone_check_ba(struct rt2x00_dev *rt2x00dev,
+> 
+> #undef TID_CHECK
+> 
+> -        if (!ether_addr_equal(ba->ra, entry->ta))
+> +        if (!ether_addr_equal_64bits(ba->ra, entry->ta))
+>            continue;
+> 
+> -        if (!ether_addr_equal(ba->ta, entry->ra))
+> +        if (!ether_addr_equal_64bits(ba->ta, entry->ra))
+>            continue;
+> 
+>        /* Mark BAR since we received the according BA */
+> 
