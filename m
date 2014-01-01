@@ -1,43 +1,41 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next v3 2/2] netlink: specify netlink packet direction
- for nlmon
-Date: Wed, 01 Jan 2014 05:16:49 +0100
-Message-ID: <52C396B1.8010503@redhat.com>
-References: <1387805756-21121-3-git-send-email-dborkman@redhat.com> <52B8770B.60009@6wind.com> <52B878D7.4020308@redhat.com> <20131231.135008.1712348847039091134.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
-	darkjames-ws@darkjames.pl
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58191 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751721AbaAAEQ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Dec 2013 23:16:58 -0500
-In-Reply-To: <20131231.135008.1712348847039091134.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Nazarewicz <mina86@mina86.com>
+Subject: [PATCH RESEND] netfilter: remove unused variable
+Date: Wed,  1 Jan 2014 06:27:19 +0100
+Message-ID: <1388554039-28452-1-git-send-email-mina86@mina86.com>
+Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Michal Nazarewicz <mina86@mina86.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/31/2013 07:50 PM, David Miller wrote:
-> From: Daniel Borkmann <dborkman@redhat.com>
-> Date: Mon, 23 Dec 2013 18:54:31 +0100
->
->> We could entirely remove it as it was e.g. proposed in 2008 [1]
->> already if you see any value in that. Eventually it's up to Dave and
->> if he likes, I'll be happy to send a patch that removes this define.
->
-> Removing user visible defines can break source builds, for example
-> someone building string tables or auto-generating things to facilitate
-> accessing these values from languages other than C.
->
-> It's harmless, since nobody semantically expects anything of it, but
-> we have to keep it around.
+The nfmsg variable is not used (except in sizeof operator which does
+not care about its value) between the first and second time it is
+assigned the value.  Furthermore, nlmsg_data has no side effects, so
+the assignment can be safely removed.
 
-Ok, that's fine by me.
+Signed-off-by: Michal Nazarewicz <mina86@mina86.com>
+Cc: Patrick McHardy <kaber@trash.net>
+---
+ net/netfilter/nf_tables_api.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-Thanks for applying Dave and a happy new year!
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index f93b7d0..9c56adc 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -2521,7 +2521,6 @@ static int nf_tables_dump_set(struct sk_buff *skb, struct netlink_callback *cb)
+ 	u32 portid, seq;
+ 	int event, err;
+ 
+-	nfmsg = nlmsg_data(cb->nlh);
+ 	err = nlmsg_parse(cb->nlh, sizeof(*nfmsg), nla, NFTA_SET_ELEM_LIST_MAX,
+ 			  nft_set_elem_list_policy);
+ 	if (err < 0)
+-- 
+1.8.4
 
-Best,
-
-Daniel
