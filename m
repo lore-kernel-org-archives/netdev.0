@@ -1,198 +1,152 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 7/8] i40evf: add driver to kernel build system
-Date: Tue, 31 Dec 2013 16:53:12 -0800
-Message-ID: <1388537594-24601-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 8/8] i40evf: A0 silicon specific
+Date: Tue, 31 Dec 2013 16:53:13 -0800
+Message-ID: <1388537594-24601-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1388537594-24601-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Mitch Williams <mitch.a.williams@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:41918 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:27211 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756706AbaAAAxe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Dec 2013 19:53:34 -0500
+	id S1756707AbaAAAxf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Dec 2013 19:53:35 -0500
 In-Reply-To: <1388537594-24601-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Greg Rose <gregory.v.rose@intel.com>
 
-Modify the existing Kconfig, Makefile, and MAINTAINERS to add the driver
-to the kernel. Add a Makefile and a documentation
+A0 stepping silicon specific code
 
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- Documentation/networking/i40evf.txt        | 47 ++++++++++++++++++++++++++++++
- MAINTAINERS                                |  4 ++-
- drivers/net/ethernet/intel/Kconfig         | 19 ++++++++++++
- drivers/net/ethernet/intel/Makefile        |  1 +
- drivers/net/ethernet/intel/i40evf/Makefile | 33 +++++++++++++++++++++
- 5 files changed, 103 insertions(+), 1 deletion(-)
- create mode 100644 Documentation/networking/i40evf.txt
- create mode 100644 drivers/net/ethernet/intel/i40evf/Makefile
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    | 28 ++++++++++++++++++++--
+ drivers/net/ethernet/intel/i40evf/i40e_lan_hmc.h   |  2 +-
+ drivers/net/ethernet/intel/i40evf/i40e_register.h  | 12 +++++++---
+ 3 files changed, 36 insertions(+), 6 deletions(-)
 
-diff --git a/Documentation/networking/i40evf.txt b/Documentation/networking/i40evf.txt
-new file mode 100644
-index 0000000..21e4127
---- /dev/null
-+++ b/Documentation/networking/i40evf.txt
-@@ -0,0 +1,47 @@
-+Linux* Base Driver for Intel(R) Network Connection
-+==================================================
-+
-+Intel XL710 X710 Virtual Function Linux driver.
-+Copyright(c) 2013 Intel Corporation.
-+
-+Contents
-+========
-+
-+- Identifying Your Adapter
-+- Known Issues/Troubleshooting
-+- Support
-+
-+This file describes the i40evf Linux* Base Driver for the Intel(R) XL710
-+X710 Virtual Function.
-+
-+The i40evf driver supports XL710 and X710 virtual function devices that
-+can only be activated on kernels with CONFIG_PCI_IOV enabled.
-+
-+The guest OS loading the i40evf driver must support MSI-X interrupts.
-+
-+Identifying Your Adapter
-+========================
-+
-+For more information on how to identify your adapter, go to the Adapter &
-+Driver ID Guide at:
-+
-+    http://support.intel.com/support/go/network/adapter/idguide.htm
-+
-+Known Issues/Troubleshooting
-+============================
-+
-+
-+Support
-+=======
-+
-+For general information, go to the Intel support website at:
-+
-+    http://support.intel.com
-+
-+or the Intel Wired Networking project hosted by Sourceforge at:
-+
-+    http://sourceforge.net/projects/e1000
-+
-+If an issue is identified with the released source code on the supported
-+kernel with a supported adapter, email the specific information related
-+to the issue to e1000-devel@lists.sf.net
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 9bae790..2b70143 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -4451,7 +4451,7 @@ M:	Deepak Saxena <dsaxena@plexity.net>
- S:	Maintained
- F:	drivers/char/hw_random/ixp4xx-rng.c
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+index 3e14ba0..f7cea1b 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+@@ -32,6 +32,7 @@
  
--INTEL ETHERNET DRIVERS (e100/e1000/e1000e/igb/igbvf/ixgb/ixgbe/ixgbevf/i40e)
-+INTEL ETHERNET DRIVERS (e100/e1000/e1000e/igb/igbvf/ixgb/ixgbe/ixgbevf/i40e/i40evf)
- M:	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
- M:	Jesse Brandeburg <jesse.brandeburg@intel.com>
- M:	Bruce Allan <bruce.w.allan@intel.com>
-@@ -4460,6 +4460,7 @@ M:	Don Skidmore <donald.c.skidmore@intel.com>
- M:	Greg Rose <gregory.v.rose@intel.com>
- M:	Alex Duyck <alexander.h.duyck@intel.com>
- M:	John Ronciak <john.ronciak@intel.com>
-+M:	Mitch Williams <mitch.a.williams@intel.com>
- L:	e1000-devel@lists.sourceforge.net
- W:	http://www.intel.com/support/feedback.htm
- W:	http://e1000.sourceforge.net/
-@@ -4475,6 +4476,7 @@ F:	Documentation/networking/ixgb.txt
- F:	Documentation/networking/ixgbe.txt
- F:	Documentation/networking/ixgbevf.txt
- F:	Documentation/networking/i40e.txt
-+F:	Documentation/networking/i40evf.txt
- F:	drivers/net/ethernet/intel/
+ #define I40E_FW_API_VERSION_MAJOR  0x0001
+ #define I40E_FW_API_VERSION_MINOR  0x0001
++#define I40E_FW_API_VERSION_A0_MINOR  0x0000
  
- INTEL-MID GPIO DRIVER
-diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
-index 41a2fa2..94adb89 100644
---- a/drivers/net/ethernet/intel/Kconfig
-+++ b/drivers/net/ethernet/intel/Kconfig
-@@ -259,4 +259,23 @@ config I40E
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called i40e.
+ struct i40e_aq_desc {
+ 	__le16 flags;
+@@ -1198,6 +1199,9 @@ struct i40e_aqc_add_remove_cloud_filters_element_data {
+ #define I40E_AQC_ADD_CLOUD_FILTER_SHIFT                 0
+ #define I40E_AQC_ADD_CLOUD_FILTER_MASK                  (0x3F << \
+ 					I40E_AQC_ADD_CLOUD_FILTER_SHIFT)
++#define I40E_AQC_ADD_CLOUD_FILTER_OIP_GRE               0x0002
++#define I40E_AQC_ADD_CLOUD_FILTER_IMAC_IVLAN_GRE        0x0004
++#define I40E_AQC_ADD_CLOUD_FILTER_IMAC_IVLAN_VNL        0x0007
+ /* 0x0000 reserved */
+ #define I40E_AQC_ADD_CLOUD_FILTER_OIP                   0x0001
+ /* 0x0002 reserved */
+@@ -1977,7 +1981,9 @@ I40E_CHECK_CMD_LENGTH(i40e_aqc_add_udp_tunnel_completion);
+ struct i40e_aqc_remove_udp_tunnel {
+ 	u8     reserved[2];
+ 	u8     index; /* 0 to 15 */
+-	u8     reserved2[13];
++	u8     pf_filters;
++	u8     total_filters;
++	u8     reserved2[11];
+ };
  
-+config I40EVF
-+	tristate "Intel(R) XL710 X710 Virtual Function Ethernet support"
-+	depends on PCI_MSI
-+	---help---
-+	  This driver supports Intel(R) XL710 and X710 virtual functions.
-+	  For more information on how to identify your adapter, go to the
-+	  Adapter & Driver ID Guide at:
+ I40E_CHECK_CMD_LENGTH(i40e_aqc_remove_udp_tunnel);
+@@ -1987,13 +1993,31 @@ struct i40e_aqc_del_udp_tunnel_completion {
+ 	u8     index; /* 0 to 15 */
+ 	u8     multiple_pfs;
+ 	u8     total_filters_used;
+-	u8     reserved1[11];
++	u8     reserved;
++	u8     tunnels_free;
++	u8     reserved1[9];
+ };
+ 
+ I40E_CHECK_CMD_LENGTH(i40e_aqc_del_udp_tunnel_completion);
+ 
+ /* tunnel key structure 0x0B10 */
+ 
++struct i40e_aqc_tunnel_key_structure_A0 {
++	__le16     key1_off;
++	__le16     key1_len;
++	__le16     key2_off;
++	__le16     key2_len;
++	__le16     flags;
++#define I40E_AQC_TUNNEL_KEY_STRUCT_OVERRIDE 0x01
++/* response flags */
++#define I40E_AQC_TUNNEL_KEY_STRUCT_SUCCESS    0x01
++#define I40E_AQC_TUNNEL_KEY_STRUCT_MODIFIED   0x02
++#define I40E_AQC_TUNNEL_KEY_STRUCT_OVERRIDDEN 0x03
++	u8         resreved[6];
++};
 +
-+	  <http://support.intel.com/support/network/sb/CS-008441.htm>
++I40E_CHECK_CMD_LENGTH(i40e_aqc_tunnel_key_structure_A0);
 +
-+	  For general information and support, go to the Intel support
-+	  website at:
+ struct i40e_aqc_tunnel_key_structure {
+ 	u8	key1_off;
+ 	u8	key2_off;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_lan_hmc.h b/drivers/net/ethernet/intel/i40evf/i40e_lan_hmc.h
+index 6bcfc6c..17e42ca 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_lan_hmc.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_lan_hmc.h
+@@ -109,7 +109,7 @@ enum i40e_hmc_lan_object_size {
+ #define I40E_HMC_L2OBJ_BASE_ALIGNMENT 512
+ #define I40E_HMC_OBJ_SIZE_TXQ         128
+ #define I40E_HMC_OBJ_SIZE_RXQ         32
+-#define I40E_HMC_OBJ_SIZE_FCOE_CNTX   64
++#define I40E_HMC_OBJ_SIZE_FCOE_CNTX   128
+ #define I40E_HMC_OBJ_SIZE_FCOE_FILT   64
+ 
+ enum i40e_hmc_lan_rsrc_type {
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_register.h b/drivers/net/ethernet/intel/i40evf/i40e_register.h
+index 9c5b3f3..30af953 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_register.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_register.h
+@@ -186,7 +186,7 @@
+ #define I40E_PFCM_LAN_ERRINFO_RLU_ERROR_CNT_MASK (0xFF << I40E_PFCM_LAN_ERRINFO_RLU_ERROR_CNT_SHIFT)
+ #define I40E_PFCM_LAN_ERRINFO_RLS_ERROR_CNT_SHIFT 24
+ #define I40E_PFCM_LAN_ERRINFO_RLS_ERROR_CNT_MASK (0xFF << I40E_PFCM_LAN_ERRINFO_RLS_ERROR_CNT_SHIFT)
+-#define I40E_PFCM_LANCTXCTL 0x0010C300
++#define I40E_PFCM_LANCTXCTL(_pf) (0x0010C300 + ((_pf) * 4))/* _pf=0..15 */
+ #define I40E_PFCM_LANCTXCTL_QUEUE_NUM_SHIFT 0
+ #define I40E_PFCM_LANCTXCTL_QUEUE_NUM_MASK (0xFFF << I40E_PFCM_LANCTXCTL_QUEUE_NUM_SHIFT)
+ #define I40E_PFCM_LANCTXCTL_SUB_LINE_SHIFT 12
+@@ -195,11 +195,11 @@
+ #define I40E_PFCM_LANCTXCTL_QUEUE_TYPE_MASK (0x3 << I40E_PFCM_LANCTXCTL_QUEUE_TYPE_SHIFT)
+ #define I40E_PFCM_LANCTXCTL_OP_CODE_SHIFT 17
+ #define I40E_PFCM_LANCTXCTL_OP_CODE_MASK (0x3 << I40E_PFCM_LANCTXCTL_OP_CODE_SHIFT)
+-#define I40E_PFCM_LANCTXDATA(_i) (0x0010C100 + ((_i) * 128)) /* _i=0...3 */
++#define I40E_PFCM_LANCTXDATA(_i, _pf) (0x0010C100 + ((_i) * 4) + ((_pf) * 16))/* _i=0...3 _pf=0..15 */
+ #define I40E_PFCM_LANCTXDATA_MAX_INDEX 3
+ #define I40E_PFCM_LANCTXDATA_DATA_SHIFT 0
+ #define I40E_PFCM_LANCTXDATA_DATA_MASK (0xFFFFFFFF << I40E_PFCM_LANCTXDATA_DATA_SHIFT)
+-#define I40E_PFCM_LANCTXSTAT 0x0010C380
++#define I40E_PFCM_LANCTXSTAT(_pf) (0x0010C380 + ((_pf) * 4))/* _pf=0..15 */
+ #define I40E_PFCM_LANCTXSTAT_CTX_DONE_SHIFT 0
+ #define I40E_PFCM_LANCTXSTAT_CTX_DONE_MASK (0x1 << I40E_PFCM_LANCTXSTAT_CTX_DONE_SHIFT)
+ #define I40E_PFCM_LANCTXSTAT_CTX_MISS_SHIFT 1
+@@ -2206,6 +2206,12 @@
+ #define I40E_GLPCI_PCIERR 0x000BE4FC
+ #define I40E_GLPCI_PCIERR_PCIE_ERR_REP_SHIFT 0
+ #define I40E_GLPCI_PCIERR_PCIE_ERR_REP_MASK (0xFFFFFFFF << I40E_GLPCI_PCIERR_PCIE_ERR_REP_SHIFT)
++#define I40E_GLPCI_PCITEST2 0x000BE4BC
++#define I40E_GLPCI_PCITEST2_IOV_TEST_MODE_SHIFT 0
++#define I40E_GLPCI_PCITEST2_IOV_TEST_MODE_MASK (0x1 << I40E_GLPCI_PCITEST2_IOV_TEST_MODE_SHIFT)
++#define I40E_GLPCI_PCITEST2_TAG_ALLOC_SHIFT 1
++#define I40E_GLPCI_PCITEST2_TAG_ALLOC_MASK (0x1 << I40E_GLPCI_PCITEST2_TAG_ALLOC_SHIFT)
 +
-+	  <http://support.intel.com>
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called i40evf.  MSI-X interrupt support is required
-+	  for this driver to work correctly.
-+
- endif # NET_VENDOR_INTEL
-diff --git a/drivers/net/ethernet/intel/Makefile b/drivers/net/ethernet/intel/Makefile
-index 5bae933..cdbbca8 100644
---- a/drivers/net/ethernet/intel/Makefile
-+++ b/drivers/net/ethernet/intel/Makefile
-@@ -11,3 +11,4 @@ obj-$(CONFIG_IXGBE) += ixgbe/
- obj-$(CONFIG_IXGBEVF) += ixgbevf/
- obj-$(CONFIG_I40E) += i40e/
- obj-$(CONFIG_IXGB) += ixgb/
-+obj-$(CONFIG_I40EVF) += i40evf/
-diff --git a/drivers/net/ethernet/intel/i40evf/Makefile b/drivers/net/ethernet/intel/i40evf/Makefile
-new file mode 100644
-index 0000000..e09be37
---- /dev/null
-+++ b/drivers/net/ethernet/intel/i40evf/Makefile
-@@ -0,0 +1,33 @@
-+################################################################################
-+#
-+# Intel Ethernet Controller XL710 Family Linux Virtual Function Driver
-+# Copyright(c) 2013 Intel Corporation.
-+#
-+# This program is free software; you can redistribute it and/or modify it
-+# under the terms and conditions of the GNU General Public License,
-+# version 2, as published by the Free Software Foundation.
-+#
-+# This program is distributed in the hope it will be useful, but WITHOUT
-+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+# more details.
-+#
-+# The full GNU General Public License is included in this distribution in
-+# the file called "COPYING".
-+#
-+# Contact Information:
-+# e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+# Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+#
-+################################################################################
-+
-+#
-+## Makefile for the Intel(R) 40GbE VF driver
-+#
-+#
-+
-+obj-$(CONFIG_I40EVF) += i40evf.o
-+
-+i40evf-objs :=	i40evf_main.o i40evf_ethtool.o i40evf_virtchnl.o \
-+		i40e_txrx.o i40e_common.o i40e_adminq.o
-+
+ #define I40E_GLPCI_PKTCT 0x0009C4BC
+ #define I40E_GLPCI_PKTCT_PCI_COUNT_BW_PCT_SHIFT 0
+ #define I40E_GLPCI_PKTCT_PCI_COUNT_BW_PCT_MASK (0xFFFFFFFF << I40E_GLPCI_PKTCT_PCI_COUNT_BW_PCT_SHIFT)
 -- 
 1.8.3.1
