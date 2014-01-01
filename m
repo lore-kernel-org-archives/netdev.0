@@ -1,43 +1,62 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net/mlx4: Revert "mlx4: set maximal number
- of default RSS queues"
-Date: Wed, 1 Jan 2014 23:50:33 +0200
-Message-ID: <CAJZOPZ++ETzuttO9_ZTy6Atx6=wKyhXUhxyQHj2Ed5nTUBNC0A@mail.gmail.com>
-References: <1388581537-4810-1-git-send-email-amirv@mellanox.com>
-	<1388581537-4810-3-git-send-email-amirv@mellanox.com>
-	<979A8436335E3744ADCD3A9F2A2B68A52AF21A1A@SJEXCHMB10.corp.ad.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Amir Vadai <amirv@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>
-To: Yuval Mintz <yuvalmin@broadcom.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] net: llc: fix order of evaluation in llc_conn_ac_inc_vr_by_1
+Date: Wed,  1 Jan 2014 23:04:25 +0100
+Message-ID: <1388613865-25003-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:44406 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754644AbaAAVue (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jan 2014 16:50:34 -0500
-Received: by mail-pd0-f175.google.com with SMTP id w10so13513430pde.20
-        for <netdev@vger.kernel.org>; Wed, 01 Jan 2014 13:50:33 -0800 (PST)
-In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A52AF21A1A@SJEXCHMB10.corp.ad.broadcom.com>
+Received: from mx1.redhat.com ([209.132.183.28]:62657 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754655AbaAAWEb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jan 2014 17:04:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 1, 2014 at 8:46 PM, Yuval Mintz <yuvalmin@broadcom.com> wrote:
->
-> [...] If you believe this is a better default (or some relaxation will be, e.g.,  16 instead of 8),  why not set it as default for ALL multi-queue networking drivers?
+Function llc_conn_ac_inc_vr_by_1() evaluates via macro
+PDU_GET_NEXT_Vr() into ...
 
-Going back to your original commit 16917b87a "net-next: Add
-netif_get_num_default_rss_queues" I am still not clear why we want
+  llc_sk(sk)->vR = ++llc_sk(sk)->vR & 0xffffffffffffff7f
 
-1. why we want a common default to all MQ devices?
+... but the order in which the side effects take place is
+undefined because there is no intervening sequence point.
 
-2. why this default has to be hard coded and not derived e.g from the
-number of cores or alike attribute of the system?
+As llc_sk(sk)->vR is written in llc_sk(sk)->vR (assignment
+left-hand side) and written in ++llc_sk(sk)->vR & 0xffffffffffffff7f
+this might possibly yield undefined behavior.
 
-Can you please elaborate?
+The final value of llc_sk(sk)->vR is ambiguous, because,
+depending on the order of expression evaluation, the
+increment may occur before, after, or interleaved with
+the assignment. In C, evaluating such an expression yields
+undefined behavior.
 
-Or.
+Since we're doing the increment via PDU_GET_NEXT_Vr() macro
+and the only place it is being used is from
+llc_conn_ac_inc_vr_by_1(), in order to increment vR by 1
+with a follow-up optimized modulo, rewrite the expression
+into ((vR + 1) & CONST) in order to fix this.
+
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+---
+ include/net/llc_pdu.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/net/llc_pdu.h b/include/net/llc_pdu.h
+index 31e2de7..c0f0a13 100644
+--- a/include/net/llc_pdu.h
++++ b/include/net/llc_pdu.h
+@@ -142,7 +142,7 @@
+ #define LLC_S_PF_IS_1(pdu)     ((pdu->ctrl_2 & LLC_S_PF_BIT_MASK) ? 1 : 0)
+ 
+ #define PDU_SUPV_GET_Nr(pdu)   ((pdu->ctrl_2 & 0xFE) >> 1)
+-#define PDU_GET_NEXT_Vr(sn)    (++sn & ~LLC_2_SEQ_NBR_MODULO)
++#define PDU_GET_NEXT_Vr(sn)    (((sn) + 1) & ~LLC_2_SEQ_NBR_MODULO)
+ 
+ /* FRMR information field macros */
+ 
+-- 
+1.7.11.7
