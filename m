@@ -1,48 +1,48 @@
-From: Yaniv Rosner <yanivr@broadcom.com>
-Subject: [PATCH net 4/5] bnx2x: Fix incorrect link-up report
-Date: Wed, 1 Jan 2014 11:06:44 +0200
-Message-ID: <1388567205-20210-5-git-send-email-yanivr@broadcom.com>
-References: <1388567205-20210-1-git-send-email-yanivr@broadcom.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next v4 1/2] mlx4_en: Add PTP hardware clock
+Date: Wed, 1 Jan 2014 10:46:45 +0100
+Message-ID: <20140101094644.GA7682@netboy>
+References: <1388511580-3657-1-git-send-email-shawn.bohrer@gmail.com>
+ <1388511580-3657-2-git-send-email-shawn.bohrer@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>,
-	Yaniv Rosner <yanivr@broadcom.com>,
-	Ariel Elior <ariele@broadcom.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
+	tomk@rgmadvisors.com, Hadar Hen Zion <hadarh@mellanox.com>,
+	Shawn Bohrer <sbohrer@rgmadvisors.com>
+To: Shawn Bohrer <shawn.bohrer@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:21489 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753354AbaAAJIF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jan 2014 04:08:05 -0500
-In-Reply-To: <1388567205-20210-1-git-send-email-yanivr@broadcom.com>
+Received: from mail-ea0-f179.google.com ([209.85.215.179]:57332 "EHLO
+	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752800AbaAAJq4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jan 2014 04:46:56 -0500
+Received: by mail-ea0-f179.google.com with SMTP id r15so5890625ead.10
+        for <netdev@vger.kernel.org>; Wed, 01 Jan 2014 01:46:54 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1388511580-3657-2-git-send-email-shawn.bohrer@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix a problem where link is reported to be up when SFP+ module is plugged in
-without cable. This occurs with specific module types which may generate
-temporary TX_FAULT indication. Solution is to avoid changing any link parameters
-when checking TX_FAULT indication while physical link is down.
+On Tue, Dec 31, 2013 at 11:39:39AM -0600, Shawn Bohrer wrote:
+> From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+> 
+> This adds a PHC to the mlx4_en driver. We use reader/writer spinlocks to
+> protect the timecounter since every packet received needs to call
+> timecounter_cycle2time() when timestamping is enabled.  This can become
+> a performance bottleneck with RSS and multiple receive queues if normal
+> spinlocks are used.
+> 
+> This driver has been tested with both Documentation/ptp/testptp and the
+> linuxptp project (http://linuxptp.sourceforge.net/) on a Mellanox
+> ConnectX-3 card.
+> 
+> Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/en_clock.c   |  194 ++++++++++++++++++++++-
+>  drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    3 +
+>  drivers/net/ethernet/mellanox/mlx4/en_main.c    |    3 +
+>  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    6 +
+>  4 files changed, 198 insertions(+), 8 deletions(-)
 
-Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 68417e1..998cce3 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -13360,6 +13360,10 @@ static u8 bnx2x_analyze_link_error(struct link_params *params,
- 	DP(NETIF_MSG_LINK, "Link changed:[%x %x]->%x\n", vars->link_up,
- 	   old_status, status);
- 
-+	/* Do not touch the link in case physical link down */
-+	if ((vars->phy_flags & PHY_PHYSICAL_LINK_FLAG) == 0)
-+		return 1;
-+
- 	/* a. Update shmem->link_status accordingly
- 	 * b. Update link_vars->link_up
- 	 */
--- 
-1.7.1
+Acked-by: Richard Cochran <richardcochran@gmail.com>
