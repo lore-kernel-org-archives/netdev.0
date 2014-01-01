@@ -1,51 +1,77 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
-Date: Wed, 1 Jan 2014 23:38:06 +0100
-Message-ID: <20140101223806.GA18715@electric-eye.fr.zoreil.com>
-References: <CALU-w9860x_rWhu35v50N39b8AxiPB_wOk1OUKdBr9eBLzEZFA@mail.gmail.com>
- <20131230233833.GA434@electric-eye.fr.zoreil.com>
- <CALU-w99eT4TX0xHc_KZBoP_JFpEex-0B8iH3sb8wUMfO4WuOHg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Fejes =?utf-8?Q?J=C3=B3zsef?= <jozsef.fejes@gmail.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH 0/5] alx: add statistics
+Date: Thu,  2 Jan 2014 00:40:23 +0100
+Message-ID: <1388619628-3373-1-git-send-email-sd@queasysnail.net>
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
+	Sabrina Dubroca <sd@queasysnail.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:34759 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754686AbaAAWiK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jan 2014 17:38:10 -0500
-Content-Disposition: inline
-In-Reply-To: <CALU-w99eT4TX0xHc_KZBoP_JFpEex-0B8iH3sb8wUMfO4WuOHg@mail.gmail.com>
+Received: from smtp6-g21.free.fr ([212.27.42.6]:37475 "EHLO smtp6-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754686AbaAAXnV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jan 2014 18:43:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46ejes J=C3=B3zsef <jozsef.fejes@gmail.com> :
-[...]
-> The paste is from 3.11.6 actually, but 3.12.6 produces the same
-> behavior. Nothing changed recently in my networking setup.
-> Immediately, when I plug in my laptop to that interface, the error is
-> produced, ifconfig on the machine shows that packets are sent out, bu=
-t
-> I see no received packets in my laptop on the other end.
+Currently, the alx driver doesn't support statistics [1,2]. The
+original alx driver [3] that Johannes Berg modified provided
+statistics. This patch is an adaptation of the statistics code from
+the original driver to the alx driver included in the kernel.
 
-Ok.
+The original driver has a different version of the
+__alx_update_hw_stats function (patch 3). I rewrote it because I
+thought the code was not as clear, and it could be cause bugs if the
+stats structure was modified. Here is the original version:
 
-Could you check the irq count and ethtool -S eth0 as well ?
+void __alx_update_hw_stats(struct alx_hw *hw)
+{
+	u16 reg;
+	u32 data;
+	unsigned long *p;
 
-Does the laptop also include a different operating system ?
+	/* RX stats */
+	reg = ALX_RX_STATS_BIN;
+	p = &hw->stats.rx_ok;
+	while (reg <=  ALX_RX_STATS_END) {
+		data = alx_read_mem32(hw, reg);
+		*p++ += data;
+		reg += 4;
+	}
 
-> I haven't used that interface for quite some time, a year at most. I
-> keep up to date with the stable kernels, so a version change broke it=
-,
-> but I'm not sure which. Would it be the best course of action if I
-> tried some older versions?
+	/* TX stats */
+	reg = ALX_TX_STATS_BIN;
+	p = &hw->stats.tx_ok;
+	while (reg <= ALX_TX_STATS_END) {
+		data = alx_read_mem32(hw, reg);
+		*p++ += data;
+		reg += 4;
+	}
+}
 
-Yes, please do.
+If you prefer this version, I can resend the patches with this code
+instead of the one in patch 3.
+Patch 2 removes the constants used in the original version of the
+update function and adds the ones necessary for patch 3, so it shouldn't
+be used with the original version (above).
 
-There has been no specific change in this timeframe for the chipset you
-use (RTL_GIGA_MAC_VER_25). The problem may have been unnoticed for a
-rather long time. :o/
+[1] https://bugzilla.kernel.org/show_bug.cgi?id=63401
+[2] http://www.spinics.net/lists/netdev/msg245544.html
+[3] https://github.com/mcgrof/alx
 
---=20
-Ueimor
+Sabrina Dubroca (5):
+  alx: add a hardware stats structure
+  alx: add constants for the stats fields
+  alx: add stats update function
+  alx: add alx_get_stats operation
+  alx: add stats to ethtool
+
+ drivers/net/ethernet/atheros/alx/alx.h     |  3 +
+ drivers/net/ethernet/atheros/alx/ethtool.c | 95 ++++++++++++++++++++++++++++++
+ drivers/net/ethernet/atheros/alx/hw.c      | 58 ++++++++++++++++++
+ drivers/net/ethernet/atheros/alx/hw.h      | 61 +++++++++++++++++++
+ drivers/net/ethernet/atheros/alx/main.c    | 44 ++++++++++++++
+ drivers/net/ethernet/atheros/alx/reg.h     | 52 ++++++++++++++--
+ 6 files changed, 309 insertions(+), 4 deletions(-)
+
+-- 
+1.8.5.2
