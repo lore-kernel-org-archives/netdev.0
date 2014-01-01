@@ -1,93 +1,92 @@
 From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH 1/5] alx: add a hardware stats structure
-Date: Thu,  2 Jan 2014 00:40:24 +0100
-Message-ID: <1388619628-3373-2-git-send-email-sd@queasysnail.net>
+Subject: [PATCH 2/5] alx: add constants for the stats fields
+Date: Thu,  2 Jan 2014 00:40:25 +0100
+Message-ID: <1388619628-3373-3-git-send-email-sd@queasysnail.net>
 References: <1388619628-3373-1-git-send-email-sd@queasysnail.net>
 Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
 	Sabrina Dubroca <sd@queasysnail.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:37977 "EHLO smtp6-g21.free.fr"
+Received: from smtp6-g21.free.fr ([212.27.42.6]:54334 "EHLO smtp6-g21.free.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754769AbaAAXnl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Jan 2014 18:43:41 -0500
+	id S1754769AbaAAXn4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jan 2014 18:43:56 -0500
 In-Reply-To: <1388619628-3373-1-git-send-email-sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 ---
- drivers/net/ethernet/atheros/alx/hw.h | 58 +++++++++++++++++++++++++++++++++++
- 1 file changed, 58 insertions(+)
+ drivers/net/ethernet/atheros/alx/reg.h | 52 +++++++++++++++++++++++++++++++---
+ 1 file changed, 48 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/atheros/alx/hw.h b/drivers/net/ethernet/atheros/alx/hw.h
-index 96f3b43..207bcc6 100644
---- a/drivers/net/ethernet/atheros/alx/hw.h
-+++ b/drivers/net/ethernet/atheros/alx/hw.h
-@@ -381,6 +381,64 @@ struct alx_rrd {
- 				 ALX_ISR_RX_Q6 | \
- 				 ALX_ISR_RX_Q7)
+diff --git a/drivers/net/ethernet/atheros/alx/reg.h b/drivers/net/ethernet/atheros/alx/reg.h
+index e4358c9..af006b4 100644
+--- a/drivers/net/ethernet/atheros/alx/reg.h
++++ b/drivers/net/ethernet/atheros/alx/reg.h
+@@ -404,15 +404,59 @@
  
-+/* Statistics counters collected by the MAC */
-+struct alx_hw_stats {
-+	/* rx */
-+	unsigned long rx_ok;
-+	unsigned long rx_bcast;
-+	unsigned long rx_mcast;
-+	unsigned long rx_pause;
-+	unsigned long rx_ctrl;
-+	unsigned long rx_fcs_err;
-+	unsigned long rx_len_err;
-+	unsigned long rx_byte_cnt;
-+	unsigned long rx_runt;
-+	unsigned long rx_frag;
-+	unsigned long rx_sz_64B;
-+	unsigned long rx_sz_127B;
-+	unsigned long rx_sz_255B;
-+	unsigned long rx_sz_511B;
-+	unsigned long rx_sz_1023B;
-+	unsigned long rx_sz_1518B;
-+	unsigned long rx_sz_max;
-+	unsigned long rx_ov_sz;
-+	unsigned long rx_ov_rxf;
-+	unsigned long rx_ov_rrd;
-+	unsigned long rx_align_err;
-+	unsigned long rx_bc_byte_cnt;
-+	unsigned long rx_mc_byte_cnt;
-+	unsigned long rx_err_addr;
+ /* MIB */
+ #define ALX_MIB_BASE					0x1700
 +
-+	/* tx */
-+	unsigned long tx_ok;
-+	unsigned long tx_bcast;
-+	unsigned long tx_mcast;
-+	unsigned long tx_pause;
-+	unsigned long tx_exc_defer;
-+	unsigned long tx_ctrl;
-+	unsigned long tx_defer;
-+	unsigned long tx_byte_cnt;
-+	unsigned long tx_sz_64B;
-+	unsigned long tx_sz_127B;
-+	unsigned long tx_sz_255B;
-+	unsigned long tx_sz_511B;
-+	unsigned long tx_sz_1023B;
-+	unsigned long tx_sz_1518B;
-+	unsigned long tx_sz_max;
-+	unsigned long tx_single_col;
-+	unsigned long tx_multi_col;
-+	unsigned long tx_late_col;
-+	unsigned long tx_abort_col;
-+	unsigned long tx_underrun;
-+	unsigned long tx_trd_eop;
-+	unsigned long tx_len_err;
-+	unsigned long tx_trunc;
-+	unsigned long tx_bc_byte_cnt;
-+	unsigned long tx_mc_byte_cnt;
-+	unsigned long update;
-+};
+ #define ALX_MIB_RX_OK					(ALX_MIB_BASE + 0)
++#define ALX_MIB_RX_BCAST				(ALX_MIB_BASE + 4)
++#define ALX_MIB_RX_MCAST				(ALX_MIB_BASE + 8)
++#define ALX_MIB_RX_PAUSE				(ALX_MIB_BASE + 12)
++#define ALX_MIB_RX_CTRL					(ALX_MIB_BASE + 16)
++#define ALX_MIB_RX_FCS_ERR				(ALX_MIB_BASE + 20)
++#define ALX_MIB_RX_LEN_ERR				(ALX_MIB_BASE + 24)
++#define ALX_MIB_RX_BYTE_CNT				(ALX_MIB_BASE + 28)
++#define ALX_MIB_RX_RUNT					(ALX_MIB_BASE + 32)
++#define ALX_MIB_RX_FRAG					(ALX_MIB_BASE + 36)
++#define ALX_MIB_RX_SZ_64B				(ALX_MIB_BASE + 40)
++#define ALX_MIB_RX_SZ_127B				(ALX_MIB_BASE + 44)
++#define ALX_MIB_RX_SZ_255B				(ALX_MIB_BASE + 48)
++#define ALX_MIB_RX_SZ_511B				(ALX_MIB_BASE + 52)
++#define ALX_MIB_RX_SZ_1023B				(ALX_MIB_BASE + 56)
++#define ALX_MIB_RX_SZ_1518B				(ALX_MIB_BASE + 60)
++#define ALX_MIB_RX_SZ_MAX				(ALX_MIB_BASE + 64)
++#define ALX_MIB_RX_OV_SZ				(ALX_MIB_BASE + 68)
++#define ALX_MIB_RX_OV_RXF				(ALX_MIB_BASE + 72)
++#define ALX_MIB_RX_OV_RRD				(ALX_MIB_BASE + 76)
++#define ALX_MIB_RX_ALIGN_ERR				(ALX_MIB_BASE + 80)
++#define ALX_MIB_RX_BCCNT				(ALX_MIB_BASE + 84)
++#define ALX_MIB_RX_MCCNT				(ALX_MIB_BASE + 88)
+ #define ALX_MIB_RX_ERRADDR				(ALX_MIB_BASE + 92)
 +
-+
- /* maximum interrupt vectors for msix */
- #define ALX_MAX_MSIX_INTRS	16
+ #define ALX_MIB_TX_OK					(ALX_MIB_BASE + 96)
++#define ALX_MIB_TX_BCAST				(ALX_MIB_BASE + 100)
++#define ALX_MIB_TX_MCAST				(ALX_MIB_BASE + 104)
++#define ALX_MIB_TX_PAUSE				(ALX_MIB_BASE + 108)
++#define ALX_MIB_TX_EXC_DEFER				(ALX_MIB_BASE + 112)
++#define ALX_MIB_TX_CTRL					(ALX_MIB_BASE + 116)
++#define ALX_MIB_TX_DEFER				(ALX_MIB_BASE + 120)
++#define ALX_MIB_TX_BYTE_CNT				(ALX_MIB_BASE + 124)
++#define ALX_MIB_TX_SZ_64B				(ALX_MIB_BASE + 128)
++#define ALX_MIB_TX_SZ_127B				(ALX_MIB_BASE + 132)
++#define ALX_MIB_TX_SZ_255B				(ALX_MIB_BASE + 136)
++#define ALX_MIB_TX_SZ_511B				(ALX_MIB_BASE + 140)
++#define ALX_MIB_TX_SZ_1023B				(ALX_MIB_BASE + 144)
++#define ALX_MIB_TX_SZ_1518B				(ALX_MIB_BASE + 148)
++#define ALX_MIB_TX_SZ_MAX				(ALX_MIB_BASE + 152)
++#define ALX_MIB_TX_SINGLE_COL				(ALX_MIB_BASE + 156)
++#define ALX_MIB_TX_MULTI_COL				(ALX_MIB_BASE + 160)
++#define ALX_MIB_TX_LATE_COL				(ALX_MIB_BASE + 164)
++#define ALX_MIB_TX_ABORT_COL				(ALX_MIB_BASE + 168)
++#define ALX_MIB_TX_UNDERRUN				(ALX_MIB_BASE + 172)
++#define ALX_MIB_TX_TRD_EOP				(ALX_MIB_BASE + 176)
++#define ALX_MIB_TX_LEN_ERR				(ALX_MIB_BASE + 180)
++#define ALX_MIB_TX_TRUNC				(ALX_MIB_BASE + 184)
++#define ALX_MIB_TX_BCCNT				(ALX_MIB_BASE + 188)
+ #define ALX_MIB_TX_MCCNT				(ALX_MIB_BASE + 192)
++#define ALX_MIB_UPDATE					(ALX_MIB_BASE + 196)
  
+-#define ALX_RX_STATS_BIN				ALX_MIB_RX_OK
+-#define ALX_RX_STATS_END				ALX_MIB_RX_ERRADDR
+-#define ALX_TX_STATS_BIN				ALX_MIB_TX_OK
+-#define ALX_TX_STATS_END				ALX_MIB_TX_MCCNT
+ 
+ #define ALX_ISR						0x1600
+ #define ALX_ISR_DIS					BIT(31)
 -- 
 1.8.5.2
