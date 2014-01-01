@@ -1,192 +1,82 @@
-From: Wei-Chun Chao <weichunc@plumgrid.com>
-Subject: [PATCH net REPOST] ipv4: fix tunneled VM traffic over hw VXLAN/GRE GSO NIC
-Date: Tue, 31 Dec 2013 14:52:27 -0800
-Message-ID: <1388530347-4850-1-git-send-email-weichunc@plumgrid.com>
-Cc: ast@plumgrid.com, netdev@vger.kernel.org, or.gerlitz@gmail.com
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/8][pull request] Intel Wired LAN Driver Updates
+Date: Tue, 31 Dec 2013 16:53:05 -0800
+Message-ID: <1388537594-24601-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:57857 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756481Ab3LaWwd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Dec 2013 17:52:33 -0500
-Received: by mail-pa0-f45.google.com with SMTP id fb1so13175851pad.32
-        for <netdev@vger.kernel.org>; Tue, 31 Dec 2013 14:52:33 -0800 (PST)
+Received: from mga09.intel.com ([134.134.136.24]:27211 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753957AbaAAAx3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Dec 2013 19:53:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VM to VM GSO traffic is broken if it goes through VXLAN or GRE
-tunnel and the physical NIC on the host supports hardware VXLAN/GRE
-GSO offload (e.g. bnx2x and next-gen mlx4).
+This series implements the Linux Virtual Function (VF) driver for
+the Intel Ethernet Controller XL710 family.
 
-Two issues -
-(VXLAN) VM traffic has SKB_GSO_DODGY and SKB_GSO_UDP_TUNNEL with
-SKB_GSO_TCP/UDP set depending on the inner protocol. GSO header
-integrity check fails in udp4_ufo_fragment if inner protocol is
-TCP. Also gso_segs is calculated incorrectly using skb->len that
-includes tunnel header. Fix: robust check should only be applied
-to the inner packet.
+The following are changes since commit 21eb218989523b7bee28900aaec9f9296b70fa27:
+  net, sch: fix the typo in register_qdisc()
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-(VXLAN & GRE) Once GSO header integrity check passes, NULL segs
-is returned and the original skb is sent to hardware. However the
-tunnel header is already pulled. Fix: tunnel header needs to be
-restored so that hardware can perform GSO properly on the original
-packet.
+Greg Rose (8):
+  i40evf: main driver core
+  i40evf: transmit and receive functionality
+  i40evf: core ethtool functionality
+  i40evf: virtual channel interface
+  i40evf: driver core headers
+  i40evf: init code and hardware support
+  i40evf: add driver to kernel build system
+  i40evf: A0 silicon specific
 
-Signed-off-by: Wei-Chun Chao <weichunc@plumgrid.com>
----
- include/linux/netdevice.h |   13 +++++++++++++
- net/ipv4/gre_offload.c    |   11 +++++++----
- net/ipv4/udp.c            |    6 +++++-
- net/ipv4/udp_offload.c    |   37 +++++++++++++++++++------------------
- 4 files changed, 44 insertions(+), 23 deletions(-)
+ Documentation/networking/i40evf.txt                |   47 +
+ MAINTAINERS                                        |    4 +-
+ drivers/net/ethernet/intel/Kconfig                 |   19 +
+ drivers/net/ethernet/intel/Makefile                |    1 +
+ drivers/net/ethernet/intel/i40evf/Makefile         |   33 +
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.c    |  927 ++++
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.h    |  106 +
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    | 2153 +++++++++
+ drivers/net/ethernet/intel/i40evf/i40e_alloc.h     |   55 +
+ drivers/net/ethernet/intel/i40evf/i40e_common.c    |  254 ++
+ drivers/net/ethernet/intel/i40evf/i40e_hmc.h       |  238 +
+ drivers/net/ethernet/intel/i40evf/i40e_lan_hmc.h   |  165 +
+ drivers/net/ethernet/intel/i40evf/i40e_osdep.h     |   72 +
+ drivers/net/ethernet/intel/i40evf/i40e_prototype.h |   84 +
+ drivers/net/ethernet/intel/i40evf/i40e_register.h  | 4667 ++++++++++++++++++++
+ drivers/net/ethernet/intel/i40evf/i40e_status.h    |   97 +
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      | 1573 +++++++
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |  296 ++
+ drivers/net/ethernet/intel/i40evf/i40e_type.h      | 1152 +++++
+ drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h  |  364 ++
+ drivers/net/ethernet/intel/i40evf/i40evf.h         |  321 ++
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |  390 ++
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 2353 ++++++++++
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  772 ++++
+ 24 files changed, 16142 insertions(+), 1 deletion(-)
+ create mode 100644 Documentation/networking/i40evf.txt
+ create mode 100644 drivers/net/ethernet/intel/i40evf/Makefile
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_adminq.c
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_adminq.h
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_alloc.h
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_common.c
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_hmc.h
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_lan_hmc.h
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_osdep.h
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_prototype.h
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_register.h
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_status.h
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_type.h
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40evf.h
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40evf_main.c
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index d9a550b..e59518a 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3008,6 +3008,19 @@ static inline void netif_set_gso_max_size(struct net_device *dev,
- 	dev->gso_max_size = size;
- }
- 
-+static inline void skb_gso_error_unwind(struct sk_buff *skb, __be16 protocol,
-+					int pulled_hlen, u16 mac_offset,
-+					int mac_len)
-+{
-+	skb->protocol = protocol;
-+	skb->encapsulation = 1;
-+	skb_push(skb, pulled_hlen);
-+	skb_reset_transport_header(skb);
-+	skb->mac_header = mac_offset;
-+	skb->network_header = skb->mac_header + mac_len;
-+	skb->mac_len = mac_len;
-+}
-+
- static inline bool netif_is_macvlan(struct net_device *dev)
- {
- 	return dev->priv_flags & IFF_MACVLAN;
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index e5d4361..2cd02f3 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -28,6 +28,7 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
- 	netdev_features_t enc_features;
- 	int ghl = GRE_HEADER_SECTION;
- 	struct gre_base_hdr *greh;
-+	u16 mac_offset = skb->mac_header;
- 	int mac_len = skb->mac_len;
- 	__be16 protocol = skb->protocol;
- 	int tnl_hlen;
-@@ -58,13 +59,13 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
- 	} else
- 		csum = false;
- 
-+	if (unlikely(!pskb_may_pull(skb, ghl)))
-+		goto out;
-+
- 	/* setup inner skb. */
- 	skb->protocol = greh->protocol;
- 	skb->encapsulation = 0;
- 
--	if (unlikely(!pskb_may_pull(skb, ghl)))
--		goto out;
--
- 	__skb_pull(skb, ghl);
- 	skb_reset_mac_header(skb);
- 	skb_set_network_header(skb, skb_inner_network_offset(skb));
-@@ -73,8 +74,10 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
- 	/* segment inner packet. */
- 	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
- 	segs = skb_mac_gso_segment(skb, enc_features);
--	if (!segs || IS_ERR(segs))
-+	if (!segs || IS_ERR(segs)) {
-+		skb_gso_error_unwind(skb, protocol, ghl, mac_offset, mac_len);
- 		goto out;
-+	}
- 
- 	skb = segs;
- 	tnl_hlen = skb_tnl_header_len(skb);
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index f140048..a7e4729 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -2478,6 +2478,7 @@ struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
- 				       netdev_features_t features)
- {
- 	struct sk_buff *segs = ERR_PTR(-EINVAL);
-+	u16 mac_offset = skb->mac_header;
- 	int mac_len = skb->mac_len;
- 	int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
- 	__be16 protocol = skb->protocol;
-@@ -2497,8 +2498,11 @@ struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
- 	/* segment inner packet. */
- 	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
- 	segs = skb_mac_gso_segment(skb, enc_features);
--	if (!segs || IS_ERR(segs))
-+	if (!segs || IS_ERR(segs)) {
-+		skb_gso_error_unwind(skb, protocol, tnl_hlen, mac_offset,
-+				     mac_len);
- 		goto out;
-+	}
- 
- 	outer_hlen = skb_tnl_header_len(skb);
- 	skb = segs;
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 83206de..79c62bd 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -41,6 +41,14 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
- {
- 	struct sk_buff *segs = ERR_PTR(-EINVAL);
- 	unsigned int mss;
-+	int offset;
-+	__wsum csum;
-+
-+	if (skb->encapsulation &&
-+	    skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) {
-+		segs = skb_udp_tunnel_segment(skb, features);
-+		goto out;
-+	}
- 
- 	mss = skb_shinfo(skb)->gso_size;
- 	if (unlikely(skb->len <= mss))
-@@ -63,27 +71,20 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
- 		goto out;
- 	}
- 
-+	/* Do software UFO. Complete and fill in the UDP checksum as
-+	 * HW cannot do checksum of UDP packets sent as multiple
-+	 * IP fragments.
-+	 */
-+	offset = skb_checksum_start_offset(skb);
-+	csum = skb_checksum(skb, offset, skb->len - offset, 0);
-+	offset += skb->csum_offset;
-+	*(__sum16 *)(skb->data + offset) = csum_fold(csum);
-+	skb->ip_summed = CHECKSUM_NONE;
-+
- 	/* Fragment the skb. IP headers of the fragments are updated in
- 	 * inet_gso_segment()
- 	 */
--	if (skb->encapsulation && skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL)
--		segs = skb_udp_tunnel_segment(skb, features);
--	else {
--		int offset;
--		__wsum csum;
--
--		/* Do software UFO. Complete and fill in the UDP checksum as
--		 * HW cannot do checksum of UDP packets sent as multiple
--		 * IP fragments.
--		 */
--		offset = skb_checksum_start_offset(skb);
--		csum = skb_checksum(skb, offset, skb->len - offset, 0);
--		offset += skb->csum_offset;
--		*(__sum16 *)(skb->data + offset) = csum_fold(csum);
--		skb->ip_summed = CHECKSUM_NONE;
--
--		segs = skb_segment(skb, features);
--	}
-+	segs = skb_segment(skb, features);
- out:
- 	return segs;
- }
 -- 
-1.7.9.5
+1.8.3.1
