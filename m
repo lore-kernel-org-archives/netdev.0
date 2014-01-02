@@ -1,55 +1,43 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH, RFC 21/30] isdn: divert, hysdn: fix interruptible_sleep_on race
-Date: Thu, 02 Jan 2014 17:48:47 +0100
-Message-ID: <3610183.tucaANtxQk@wuerfel>
-References: <1388664474-1710039-1-git-send-email-arnd@arndb.de> <1388664474-1710039-22-git-send-email-arnd@arndb.de> <52C57F3B.9070509@cogentembedded.com>
+From: Grant Grundler <grantgrundler@gmail.com>
+Subject: Re: question about tulip/winbond-840.c
+Date: Thu, 2 Jan 2014 08:53:07 -0800
+Message-ID: <CAP6odjiCpBxAhWrMLjTQTwnwNsBiFo5ojDpFo+MPpT0Jd8xyNw@mail.gmail.com>
+References: <alpine.DEB.2.10.1401021520280.2088@hadrien>
+	<CAP6odjj2jPfgEBdHv+GGDhVaHt4KEm_DWCX3PdCxCjUbApWc8Q@mail.gmail.com>
+	<alpine.DEB.2.10.1401021641230.2088@hadrien>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-kernel@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>,
-	netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52C57F3B.9070509@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	"open list:TULIP NETWORK DRI..." <netdev@vger.kernel.org>
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f49.google.com ([209.85.219.49]:33488 "EHLO
+	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751753AbaABQxI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 11:53:08 -0500
+Received: by mail-oa0-f49.google.com with SMTP id i4so14966485oah.22
+        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 08:53:07 -0800 (PST)
+In-Reply-To: <alpine.DEB.2.10.1401021641230.2088@hadrien>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 02 January 2014 19:01:15 Sergei Shtylyov wrote:
-> > diff --git a/drivers/isdn/divert/divert_procfs.c b/drivers/isdn/divert/divert_procfs.c
-> > index fb4f1ba..1c5dc34 100644
-> > --- a/drivers/isdn/divert/divert_procfs.c
-> > +++ b/drivers/isdn/divert/divert_procfs.c
-> > @@ -86,12 +86,13 @@ isdn_divert_read(struct file *file, char __user *buf, size_t count, loff_t *off)
-> >       struct divert_info *inf;
-> >       int len;
-> >
-> > -     if (!*((struct divert_info **) file->private_data)) {
-> > +     if (!(inf = *((struct divert_info **) file->private_data))) {
-> 
->     checkpatch.pl shouldn't approve assignment inside *if*. Though you're 
-> moving it from the existing code, it wouldn't hurt to fix it.
+On Thu, Jan 2, 2014 at 8:16 AM, Julia Lawall <julia.lawall@lip6.fr> wrote:
+...
+> It does set up more things.  But it doesn't do much if the device has not
+> been disabled.
+> http://lxr.free-electrons.com/source/drivers/pci/pci.c#L1190
 
-I tried to touch as little as possible, and while I wouldn't use that
-style myself, it is applied consistently in this driver, including the
-wait_event line I'm adding, where I feel it actually makes sense.
+Sure...but this driver _should_ disable on suspend. But who knows...my
+guess is that if anyone has tried suspending this device, it works
+anyway on resume.
 
-> >               if (file->f_flags & O_NONBLOCK)
-> >                       return -EAGAIN;
-> > -             interruptible_sleep_on(&(rd_queue));
-> > +             wait_event_interruptible(rd_queue, (inf =
-> > +                     *((struct divert_info **) file->private_data)));
-> 
->     Parens around assignment are hardly useful.
+> Looking across the entire Linux kernel, I see cases where there are
+> enables but no disables, and cases where there are disables and no
+> enables.  So I wouldn't really know whether a change is needed.
 
-We get a gcc warning without them:
+I think both cases are wrong. I'm pretty sure enable/disable should be
+symmetric for both "init_one/remove_one"  and suspend/resume.  I'm not
+aware of any reason why they would not be.
 
-drivers/isdn/divert/divert_procfs.c:95:14: warning: suggest parentheses around assignment used as truth value [-Wparentheses]
-    *((struct divert_info **) file->private_data));
-
-
-I can still change the first one (in both files) if you think it's important,
-but I'd rather not spend too much energy at coding style changes.
-
-Thanks for taking a look.
-
-	Arnd
+cheers,
+grant
