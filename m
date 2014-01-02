@@ -1,44 +1,62 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [Patch] netxen_nic: Bugfix for wrong RUNNING status of NX3031
- NICs with no link
-Date: Thu, 2 Jan 2014 14:47:13 +0000
-Message-ID: <1388674033.1607.3.camel@bwh-desktop.uk.level5networks.com>
-References: <OFAE440C7C.FE33E30C-ON48257C54.0013C383-48257C54.0013F43B@zte.com.cn>
+Subject: Re: [PATCH net-next] ipv6: fix the use of pcpu_tstats in ip6_tunnel
+Date: Thu, 2 Jan 2014 14:53:24 +0000
+Message-ID: <1388674404.1607.4.camel@bwh-desktop.uk.level5networks.com>
+References: <1388623780-1484-1-git-send-email-roy.qing.li@gmail.com>
+	 <20140101.225033.1351962333260167430.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Sony Chacko <sony.chacko@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	<netdev@vger.kernel.org>, <li.fengmao@zte.com.cn>
-To: <jiang.biao2@zte.com.cn>
+Cc: <roy.qing.li@gmail.com>, <netdev@vger.kernel.org>,
+	<edumazet@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17723 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:17864 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750814AbaABOrb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 09:47:31 -0500
-In-Reply-To: <OFAE440C7C.FE33E30C-ON48257C54.0013C383-48257C54.0013F43B@zte.com.cn>
+	with ESMTP id S1751258AbaABOx2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 09:53:28 -0500
+In-Reply-To: <20140101.225033.1351962333260167430.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-01-02 at 11:37 +0800, jiang.biao2@zte.com.cn wrote:
-> From: Li Fengmao <li.fengmao@zte.com.cn>
+On Wed, 2014-01-01 at 22:50 -0500, David Miller wrote:
+> From: roy.qing.li@gmail.com
+> Date: Thu,  2 Jan 2014 08:49:40 +0800
 > 
-> Ifconfig command displays RUNNING status when there is no link on
-> NX3031 NICs. The problem is caused by the wrong calling order of
-> netif_carrier_off() and register_netdev() in netxen_setup_netdev(),
-> dev->reg_state is initialized to NETREG_UNINITIALIZED before
-> registering network device, so the linkwatch_fire_event() will not
-> be called to notify the link change event in netif_carrier_off(),
-> and the operational status of network device will be set to
-> IF_OPER_UNKNOWN. In that case, the IFF_RUNNING flags will be set,
-> which result in the wrong RUNNING status in the result of ifconfig
-> command.
-[...]
+> > Eric Dumazet <edumazet@google.com>
+> 
+> What is this?
+> 
+> > Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+>  ...
+> >  {
+> > -	struct pcpu_tstats sum = { 0 };
+> > +	struct pcpu_tstats tmp, sum = { 0 };
+> >  	int i;
+> >  
+> > -	for_each_possible_cpu(i) {
+> > -		const struct pcpu_tstats *tstats = per_cpu_ptr(dev->tstats, i);
+> > +	BUILD_BUG_ON(offsetof(typeof(tmp), syncp) !=
+> > +		     sizeof(tmp) - sizeof(tmp.syncp));
+> >  
+> > -		sum.rx_packets += tstats->rx_packets;
+> > -		sum.rx_bytes   += tstats->rx_bytes;
+> > -		sum.tx_packets += tstats->tx_packets;
+> > -		sum.tx_bytes   += tstats->tx_bytes;
+> > +	for_each_possible_cpu(i) {
+> > +		unsigned int start;
+> > +		const struct pcpu_tstats *stat = per_cpu_ptr(dev->tstats, i);
+> > +
+> > +		do {
+> > +			start = u64_stats_fetch_begin_bh(&stat->syncp);
+> > +			memcpy(&tmp, stat, sizeof(tmp) - sizeof(stat->syncp));
+> > +		} while (u64_stats_fetch_retry_bh(&stat->syncp, start));
+> 
+> It's entirely wasteful and non-canonical to use an on-stack copy for this,
+> just surround the entire set of statistic increments within the u64 stats
+> updata sequence.  Then you don't need the on-stack thing.
 
-This was fixed in Linux 3.7.  The driver should not be changed.
-
-(This change may be worthwhile in an out-of-tree version for older
-kernel versions, but beware of races with opening of the device.)
+Then you add them to the sum repeatedly in case of a retry...
 
 Ben.
 
