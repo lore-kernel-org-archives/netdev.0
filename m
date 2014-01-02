@@ -1,61 +1,92 @@
-From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH net 2/3] qlcnic: Fix resource allocation for TX queues
-Date: Thu, 2 Jan 2014 13:38:44 -0500
-Message-ID: <1388687925-17882-3-git-send-email-manish.chopra@qlogic.com>
-References: <1388687925-17882-1-git-send-email-manish.chopra@qlogic.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <rajesh.borundia@qlogic.com>,
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: <davem@davemloft.net>
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: [PATCH 1/5] bcma: export bcma_find_core_unit()
+Date: Thu,  2 Jan 2014 20:18:58 +0100
+Message-ID: <1388690342-27213-1-git-send-email-hauke@hauke-m.de>
+Cc: zajec5@gmail.com, netdev@vger.kernel.org,
+	Hauke Mehrtens <hauke@hauke-m.de>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:27831 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750782AbaABTS0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 14:18:26 -0500
-In-Reply-To: <1388687925-17882-1-git-send-email-manish.chopra@qlogic.com>
+Received: from server19320154104.serverpool.info ([193.201.54.104]:51579 "EHLO
+	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751406AbaABTTL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jan 2014 14:19:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o TX queues allocation was getting distributed equally among all the
-  functions of the port including VFs and PF. Which was leading to failure
-  in PF's multiple TX queues creation.
+This function is used to get a specific core when there is more than
+one core of that specific type. This is used in bgmac to reset all GMAC
+cores.
 
-o Instead of dividing queues equally allocate one TX queue for each VF as VF
-  doesn't support multiple TX queues.
-
-Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/bcma/bcma_private.h |    2 --
+ drivers/bcma/main.c         |   13 +------------
+ include/linux/bcma/bcma.h   |    9 ++++++++-
+ 3 files changed, 9 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-index 686f460..024f816 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-@@ -75,7 +75,6 @@ static int qlcnic_sriov_pf_cal_res_limit(struct qlcnic_adapter *adapter,
- 	num_vfs = sriov->num_vfs;
- 	max = num_vfs + 1;
- 	info->bit_offsets = 0xffff;
--	info->max_tx_ques = res->num_tx_queues / max;
- 	info->max_rx_mcast_mac_filters = res->num_rx_mcast_mac_filters;
- 	num_vf_macs = QLCNIC_SRIOV_VF_MAX_MAC;
+diff --git a/drivers/bcma/bcma_private.h b/drivers/bcma/bcma_private.h
+index 0215f9a..09b632a 100644
+--- a/drivers/bcma/bcma_private.h
++++ b/drivers/bcma/bcma_private.h
+@@ -33,8 +33,6 @@ int __init bcma_bus_early_register(struct bcma_bus *bus,
+ int bcma_bus_suspend(struct bcma_bus *bus);
+ int bcma_bus_resume(struct bcma_bus *bus);
+ #endif
+-struct bcma_device *bcma_find_core_unit(struct bcma_bus *bus, u16 coreid,
+-					u8 unit);
  
-@@ -86,6 +85,7 @@ static int qlcnic_sriov_pf_cal_res_limit(struct qlcnic_adapter *adapter,
- 		info->max_tx_mac_filters = temp;
- 		info->min_tx_bw = 0;
- 		info->max_tx_bw = MAX_BW;
-+		info->max_tx_ques = res->num_tx_queues - sriov->num_vfs;
- 	} else {
- 		id = qlcnic_sriov_func_to_index(adapter, func);
- 		if (id < 0)
-@@ -95,6 +95,7 @@ static int qlcnic_sriov_pf_cal_res_limit(struct qlcnic_adapter *adapter,
- 		info->max_tx_bw = vp->max_tx_bw;
- 		info->max_rx_ucast_mac_filters = num_vf_macs;
- 		info->max_tx_mac_filters = num_vf_macs;
-+		info->max_tx_ques = QLCNIC_SINGLE_RING;
+ /* scan.c */
+ int bcma_bus_scan(struct bcma_bus *bus);
+diff --git a/drivers/bcma/main.c b/drivers/bcma/main.c
+index 5a9f6bd..34ea4c5 100644
+--- a/drivers/bcma/main.c
++++ b/drivers/bcma/main.c
+@@ -78,18 +78,6 @@ static u16 bcma_cc_core_id(struct bcma_bus *bus)
+ 	return BCMA_CORE_CHIPCOMMON;
+ }
+ 
+-struct bcma_device *bcma_find_core(struct bcma_bus *bus, u16 coreid)
+-{
+-	struct bcma_device *core;
+-
+-	list_for_each_entry(core, &bus->cores, list) {
+-		if (core->id.id == coreid)
+-			return core;
+-	}
+-	return NULL;
+-}
+-EXPORT_SYMBOL_GPL(bcma_find_core);
+-
+ struct bcma_device *bcma_find_core_unit(struct bcma_bus *bus, u16 coreid,
+ 					u8 unit)
+ {
+@@ -101,6 +89,7 @@ struct bcma_device *bcma_find_core_unit(struct bcma_bus *bus, u16 coreid,
  	}
+ 	return NULL;
+ }
++EXPORT_SYMBOL_GPL(bcma_find_core_unit);
  
- 	info->max_rx_ip_addr = res->num_destip / max;
+ bool bcma_wait_value(struct bcma_device *core, u16 reg, u32 mask, u32 value,
+ 		     int timeout)
+diff --git a/include/linux/bcma/bcma.h b/include/linux/bcma/bcma.h
+index 4d043c3..0b3bb16 100644
+--- a/include/linux/bcma/bcma.h
++++ b/include/linux/bcma/bcma.h
+@@ -418,7 +418,14 @@ static inline void bcma_maskset16(struct bcma_device *cc,
+ 	bcma_write16(cc, offset, (bcma_read16(cc, offset) & mask) | set);
+ }
+ 
+-extern struct bcma_device *bcma_find_core(struct bcma_bus *bus, u16 coreid);
++extern struct bcma_device *bcma_find_core_unit(struct bcma_bus *bus, u16 coreid,
++					       u8 unit);
++static inline struct bcma_device *bcma_find_core(struct bcma_bus *bus,
++						 u16 coreid)
++{
++	return bcma_find_core_unit(bus, coreid, 0);
++}
++
+ extern bool bcma_core_is_enabled(struct bcma_device *core);
+ extern void bcma_core_disable(struct bcma_device *core, u32 flags);
+ extern int bcma_core_enable(struct bcma_device *core, u32 flags);
 -- 
-1.8.3.1
+1.7.10.4
