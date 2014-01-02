@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: remove prune parameter for
- fib6_clean_all
-Date: Thu, 02 Jan 2014 03:30:58 -0500 (EST)
-Message-ID: <20140102.033058.1338542354904693822.davem@davemloft.net>
-References: <1388133158-4142-1-git-send-email-roy.qing.li@gmail.com>
+Subject: Re: [PATCH 13/25] hamradio: 6pack: fix error return code
+Date: Thu, 02 Jan 2014 03:31:17 -0500 (EST)
+Message-ID: <20140102.033117.1926462846239862157.davem@davemloft.net>
+References: <1388357260-4843-1-git-send-email-Julia.Lawall@lip6.fr>
+	<1388357260-4843-14-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47564 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750796AbaABIbE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 03:31:04 -0500
-In-Reply-To: <1388133158-4142-1-git-send-email-roy.qing.li@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ajk@comnets.uni-bremen.de, linux-hams@vger.kernel.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Julia.Lawall@lip6.fr
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <1388357260-4843-14-git-send-email-Julia.Lawall@lip6.fr>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: roy.qing.li@gmail.com
-Date: Fri, 27 Dec 2013 16:32:38 +0800
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Sun, 29 Dec 2013 23:47:28 +0100
 
-> From: Li RongQing <roy.qing.li@gmail.com>
+> From: Julia Lawall <Julia.Lawall@lip6.fr>
 > 
-> since the prune parameter for fib6_clean_all always is 0, remove it.
+> Set the return variable to an error code as done elsewhere in the function.
 > 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> A simplified version of the semantic match that finds this problem is as
+> follows: (http://coccinelle.lip6.fr/)
+ ...
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 Applied.
