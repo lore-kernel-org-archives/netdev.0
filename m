@@ -1,94 +1,99 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: [net-next 0/9][pull request] Intel Wired LAN Driver Updates
-Date: Thu, 2 Jan 2014 19:06:32 +0000
-Message-ID: <E5031C0F-8B35-477A-842F-33CDBA98C097@intel.com>
-References: <1388655221-25428-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1388686871.9947.20.camel@bwh-desktop.uk.level5networks.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: IrDA woes..
+Date: Thu, 2 Jan 2014 11:11:42 -0800
+Message-ID: <CA+55aFz_qDYP_P0PLUNv0wotoy=5PcS+7Qtt=U6EzvL4h4E69A@mail.gmail.com>
+References: <CA+55aFz2CQ4B1JSpQ75TuQrrd9sUnhV+u=T2dWZY2NTTT5OmpQ@mail.gmail.com>
+	<20140102.034653.1968429090467668489.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-	boundary="Apple-Mail=_4ABA425F-A606-432A-B01C-FB303916F369";
-	protocol="application/pgp-signature"; micalg=pgp-sha1
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Samuel Ortiz <samuel@sortiz.org>,
+	Network Development <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:2888 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750782AbaABTGe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jan 2014 14:06:34 -0500
-In-Reply-To: <1388686871.9947.20.camel@bwh-desktop.uk.level5networks.com>
-Content-Language: en-US
+Received: from mail-ee0-f54.google.com ([74.125.83.54]:62859 "EHLO
+	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750945AbaABTLo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 14:11:44 -0500
+Received: by mail-ee0-f54.google.com with SMTP id e51so5502109eek.13
+        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 11:11:42 -0800 (PST)
+In-Reply-To: <20140102.034653.1968429090467668489.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Apple-Mail=_4ABA425F-A606-432A-B01C-FB303916F369
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=windows-1252
+On Thu, Jan 2, 2014 at 12:46 AM, David Miller <davem@davemloft.net> wrote:
+> From: Linus Torvalds <torvalds@linux-foundation.org>
+> Date: Tue, 31 Dec 2013 12:08:43 -0800
+>
+>> One of the oopses seems simple: irda_attach() will do
+>
+> I assume you mean irda_connect().
 
-On Jan 2, 2014, at 10:21 AM, Ben Hutchings <bhutchings@solarflare.com> =
-wrote:
+Yup, sorry, mindfart.
 
-> On Thu, 2014-01-02 at 01:33 -0800, Jeff Kirsher wrote:
->> This series contains updates to ixgbe, e1000e and igb.
->>=20
->> Most notably is Mark Rustad's ixgbe patches to add the Live Error
->> Recovery option to ixgbe as well as additional cleanups to the =
-driver.
-> [...]
->=20
-> The Live Error Recovery option is pretty odd; it looks like a
-> combination of PCI hotplug and EEH.  Why is it not integrated with
-> either of those?
+>>         if (sk->sk_prot->disconnect(sk, flags))
+>>                 sock->state = SS_DISCONNECTING;
+>>
+>> if the connection fails. But sk_prot->disconnect is NULL for IrDA, so
+>> that will just oops. Apparently real devices don't end up ever
+>> triggering that, but I don't think it can ever have worked.
+>
+> That sk_prot should be irda_proto, which doesn't provide any non-NULL
+> operations ?!?!
 
-It certainly is related to both of those. The issue being addressed here =
-is specific to this driver in that the driver can be the first to get a =
-read return of all one=92s when a device is suddenly removed. This code =
-allows the driver to determine whether such a return is valid, or is a =
-sign of the device having been removed. Without those checks, there are =
-paths where the driver will crash in such a case. This code will race =
-with hotplug, so it allows hotplug to drive the logical removal, but it =
-makes the driver =93safe=94 in the mean time.
+That was how I read it too. I'm just surprised by how google doesn't
+seem to find any matching oopses with irda_connect(). Admittedly I'm
+doing odd things, so..
 
-Thanks for the comments. You are absolutely right about the need for =
-ACCESS_ONCE and better Kconfig help text.
+> I think the thing to do for now is to simply remove those two lines.
 
-> Ben.
->=20
-> --=20
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
+Ack, that was my feeling too. I added just a test for NULL for my
+further testing, but I can't see how it could ever *not* be NULL.
 
---=20
-Mark Rustad, Networking Division, Intel Corporation
+> I don't believe that anyone has looked closely at this code for
+> a long time except with automated tools like semantic checkers.
 
+So looking at the code, the locking seems to be entirely lacking too,
+which is what I *think* is the source of my other oops. It traverses
+the internal irda wx_list at softirq time, and as far as I can tell,
+there is no locking anywhere. And the irda code ends up being called
+from timers, from the network receive function, and presumably from
+process context.
 
---Apple-Mail=_4ABA425F-A606-432A-B01C-FB303916F369
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="signature.asc"
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Message signed with OpenPGP using GPGMail
+I get the feeling that the code was written back in the bad old days
+when we had the big kernel lock, and timers and network bottom half
+handling were all mutually exclusive.
 
------BEGIN PGP SIGNATURE-----
-Comment: GPGTools - http://gpgtools.org
+Is anybody actually really using or maintaining irda any more? Because
+nothing seems to work. I think the following is *supposed* to work as
+a way to emulate having two irda dongles without actually having the
+hardware:
 
-iQIcBAEBAgAGBQJSxbi2AAoJEDwO/+eO4+5uUScP/1ZNBMEoGh90/TN3g+U7y/t3
-ZtNRQ19xLC4VOL1K/NwCzLLHPXxTslCZLmES3alBQXI/upyjm20L1L+zjaOYxPRF
-0k39cJTspdNusgvMbodrxuxvE12mGEUvrZwTvKiOpWa3J+xfsPrfI9tfnWb8ibGY
-QH63LkbAxjdbMINMiN5AOgoA7AJgwiNwDRyiNDdlZZrXYaOeCKpWlcSCpJaCswkm
-OasOlQ5KKfA2xo6OAtOXDJkI+bqc89VffiYSnH4kg45G13qyKGidi7kTGLox6IBb
-B1y8FqCHV6qKbzbc5rdpJAZRTJLMrHk6hB9wNZ6S7YjfQdRqTmDr3PoCAILDH5MH
-9bl72hPrEc1R/5k2uvZI+0nnihVuNWJLzID396gkaQWGNslaGgCmOYZEQ3OAFg1W
-/hmFZLxupvYqjBv1qSc+fDDlMkQTUmuSGwDcEaeDb18rEL49Mo1xEhFqH0mYLtx+
-VhPyz1BoE6yzNXXDjonKeFksQ7uuk1+roIapjRtGAr6TB7l0E5Tys/KgKzVV1DJF
-zXYEioB2zllvrKKKIJJyiBuPfdg2KEHHn5N1GslaQLoo/KwfktiBmH2VYF3dQ6Lt
-WL4r+/+dVC8pTCA4qqlL/Kd/GbzXRbmo4+mJJ0bX19vb8O9t2V1PYfwDh7NFdE0B
-jF9LFxH5SL0SF0FVhc4V
-=dsdk
------END PGP SIGNATURE-----
+ - in terminal 1:
 
---Apple-Mail=_4ABA425F-A606-432A-B01C-FB303916F369--
+        socat PTY,link=/tmp/ttyS0 PTY,link=/tmp/ttyS1
+
+ - terminal 2:
+
+        irattach $(readlink /tmp/ttyS0) -s
+        irattach $(readlink /tmp/ttyS1) -s
+
+ - in terminal 3:
+
+        echo "Duh" > /dev/ircomm0
+
+ - in terminal 4:
+
+        cat /dev/ircomm1
+
+(expecting to see "Duh" in terminal 4) but it really doesn't work for me.
+
+The odd thing is that I *have* seen it work, a couple of times, so
+it's not like it *never* works (in which case I'd just think that the
+above simply isn't even supposed to work at all), but the "it actually
+worked" is a very rare occurrence. Most of the time opening the ircomm
+blocks. But sometimes it works after a few seconds. Very odd.
+
+Samuel is listed as maintainer, but I'm getting the feeling he has
+long since moved on.
+
+               Linus
