@@ -1,43 +1,95 @@
-From: Grant Grundler <grantgrundler@gmail.com>
-Subject: Re: question about tulip/winbond-840.c
-Date: Thu, 2 Jan 2014 08:53:07 -0800
-Message-ID: <CAP6odjiCpBxAhWrMLjTQTwnwNsBiFo5ojDpFo+MPpT0Jd8xyNw@mail.gmail.com>
-References: <alpine.DEB.2.10.1401021520280.2088@hadrien>
-	<CAP6odjj2jPfgEBdHv+GGDhVaHt4KEm_DWCX3PdCxCjUbApWc8Q@mail.gmail.com>
-	<alpine.DEB.2.10.1401021641230.2088@hadrien>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v2] IPv6: add option to use Subnet-Router anycast addresses as source addresses
+Date: Thu, 2 Jan 2014 18:17:31 +0100
+Message-ID: <20140102171731.GE22494@order.stressinduktion.org>
+References: <1388678028-15413-1-git-send-email-fx.lebail@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Grant Grundler <grundler@parisc-linux.org>,
-	"open list:TULIP NETWORK DRI..." <netdev@vger.kernel.org>
-To: Julia Lawall <julia.lawall@lip6.fr>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f49.google.com ([209.85.219.49]:33488 "EHLO
-	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751753AbaABQxI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 11:53:08 -0500
-Received: by mail-oa0-f49.google.com with SMTP id i4so14966485oah.22
-        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 08:53:07 -0800 (PST)
-In-Reply-To: <alpine.DEB.2.10.1401021641230.2088@hadrien>
+Received: from order.stressinduktion.org ([87.106.68.36]:35527 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752490AbaABRRc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 12:17:32 -0500
+Content-Disposition: inline
+In-Reply-To: <1388678028-15413-1-git-send-email-fx.lebail@yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 2, 2014 at 8:16 AM, Julia Lawall <julia.lawall@lip6.fr> wrote:
-...
-> It does set up more things.  But it doesn't do much if the device has not
-> been disabled.
-> http://lxr.free-electrons.com/source/drivers/pci/pci.c#L1190
+On Thu, Jan 02, 2014 at 04:53:48PM +0100, Francois-Xavier Le Bail wrote:
+> This change allows to follow a recommandation of RFC4942.
+> 
+> - Add "enable_anycast_src" sysctl to control the use of Subnet-Router anycast
+>   addresses as source addresses. This sysctl is false by default to preserve
+>   existing behavior.
+> - Use it in ip6_datagram_send_ctl() and icmpv6_echo_reply().
 
-Sure...but this driver _should_ disable on suspend. But who knows...my
-guess is that if anyone has tried suspending this device, it works
-anyway on resume.
+It is very cool that you are working on this. I had this on my TODO list for a
+long time.
 
-> Looking across the entire Linux kernel, I see cases where there are
-> enables but no disables, and cases where there are disables and no
-> enables.  So I wouldn't really know whether a change is needed.
+> Reference:
+> RFC4942 - IPv6 Transition/Coexistence Security Considerations
+>    (http://tools.ietf.org/html/rfc4942#section-2.1.6)
+> 
+> 2.1.6. Anycast Traffic Identification and Security
+> 
+>    [...]
+>    To avoid exposing knowledge about the internal structure of the
+>    network, it is recommended that anycast servers now take advantage of
+>    the ability to return responses with the anycast address as the
+>    source address if possible.
 
-I think both cases are wrong. I'm pretty sure enable/disable should be
-symmetric for both "init_one/remove_one"  and suspend/resume.  I'm not
-aware of any reason why they would not be.
+Actually, the restriction was lifted by RFC 4291 ("IP Version 6 Addressing
+Architecture").
 
-cheers,
-grant
+
+> Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+> ---
+>  Documentation/networking/ip-sysctl.txt |    6 ++++++
+>  include/net/netns/ipv6.h               |    1 +
+>  net/ipv6/datagram.c                    |    3 +++
+>  net/ipv6/icmp.c                        |    4 +++-
+>  net/ipv6/sysctl_net_ipv6.c             |    8 ++++++++
+>  5 files changed, 21 insertions(+), 1 deletion(-)
+> 
+> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> index d71afa8..2a062a7 100644
+> --- a/Documentation/networking/ip-sysctl.txt
+> +++ b/Documentation/networking/ip-sysctl.txt
+> @@ -1094,6 +1094,12 @@ bindv6only - BOOLEAN
+>  
+>  	Default: FALSE (as specified in RFC3493)
+>  
+> +enable_anycast_src - BOOLEAN
+> +	Controls the use of Subnet-Router anycast addresses as source addresses
+> +	TRUE:  enabled
+> +	FALSE: disabled
+> +	Default: FALSE
+> +
+
+I wouldn't actually add this knob, we can just enable that by default.
+Also it should be no problem to bind() to those addresses.
+
+I am still unsure what to do with a bind to any or if the address must be
+bound specifically (maybe that is worth a knob).
+
+In the long term I would like to see that we can add additional anycast
+addresses via iproute:
+
+ip -6 a a 1234::1/64 dev eth0 anycast
+
+or something like that. That should be rather easy, as in just incrementing
+the anycast counter for an interface in inet6_rtm_newaddr and adding a flag
+to ifa_flags which gets passed down by iproute2.
+
+I'll do some research on if this should also get integrated with source
+address selection.
+
+Thanks very much, that is really cool,
+
+  Hannes
