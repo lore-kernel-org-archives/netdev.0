@@ -1,47 +1,46 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH 3/5] bgmac: add support for new BGMAC_CMDCFG_SR position
- on core rev >= 4
-Date: Thu, 2 Jan 2014 21:28:31 +0100
-Message-ID: <CACna6rz56gCNaTnvh1Dig=Dk8mE-=xK2gWuUoOMxiyUWowwXVA@mail.gmail.com>
-References: <1388690342-27213-1-git-send-email-hauke@hauke-m.de>
-	<1388690342-27213-3-git-send-email-hauke@hauke-m.de>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] sctp: Add process name and pid to deprecation warnings
+Date: Thu, 2 Jan 2014 15:30:36 -0500
+Message-ID: <20140102203036.GC7526@hmsreliant.think-freely.org>
+References: <1388685267-18319-1-git-send-email-nhorman@tuxdriver.com>
+ <1388692350.9947.37.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Hauke Mehrtens <hauke@hauke-m.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:34966 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752012AbaABU2c convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 15:28:32 -0500
-Received: by mail-ob0-f174.google.com with SMTP id wn1so14888962obc.33
-        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 12:28:31 -0800 (PST)
-In-Reply-To: <1388690342-27213-3-git-send-email-hauke@hauke-m.de>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:46546 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752309AbaABUax (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 15:30:53 -0500
+Content-Disposition: inline
+In-Reply-To: <1388692350.9947.37.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014/1/2 Hauke Mehrtens <hauke@hauke-m.de>:
-> The BGMAC_CMDCFG_SR register is at a different position on core rev >=
-=3D 4
-> -#define  BGMAC_CMDCFG_SR                       0x00000800      /* Se=
-t to reset mode */
-> +#define  BGMAC_CMDCFG_SR_REVO                  0x00000800      /* Se=
-t to reset mode, for other revs */
-> +#define  BGMAC_CMDCFG_SR_REV4                  0x00002000      /* Se=
-t to reset mode, only for core rev 4 */
-> +#define  BGMAC_CMDCFG_SR(rev)  ((rev >=3D 4) ? BGMAC_CMDCFG_SR_REV4 =
-: BGMAC_CMDCFG_SR_REVO)
+On Thu, Jan 02, 2014 at 07:52:30PM +0000, Ben Hutchings wrote:
+> On Thu, 2014-01-02 at 12:54 -0500, Neil Horman wrote:
+> > Recently I updated the sctp socket option deprecation warnings to be both a bit
+> > more clear and ratelimited to prevent user processes from spamming the log file.
+> > Ben Hutchings suggested that I add the process name and pid to these warnings so
+> > that users can tell who is responsible for using the deprecated apis.  This
+> > patch accomplishes that.
+> [...]
+> 
+> I grepped for existing deprecation warnings that log the command and/or
+> PID.  The warnings are not consistent, but where the include both comand
+> and PID it's generally in the format "%s (%d)", comm, pid.  So please
+> could you follow that format?
+> 
+Thats not really true, Subsystems vary widely in how they present process
+name/pid warnings.  In fact, the first example you give below that uses both
+process and pid, the format is <pid> (<name>)
 
-If you use _REV4 for rev 4+, then what about using _REV0 for rev 0+?
+There are alot that use <name> (<pid>), I argee, but theres quite alot of others
+as well (the lockdep subssytem uses %s/%d, and several of the arm trap handlers
+actually use Process <name> (pid: <pid>).  I don't have any issue with changing
+it, but I'm not sure what the advantage is if theres not going to be consistent
+use throughout the kernel.
 
-I guess REVO stands for OTHERS, but others doesn't actually mean rev !=3D=
- 4 here.
-
-Unless it was supposed to be 0 from the beginning and it's just a typo?
-
-In future you may need to use _REV7 or whatever number.
-
---=20
-Rafa=C5=82
+Neil
