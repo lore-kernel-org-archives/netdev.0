@@ -1,60 +1,20 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH 4/5] bgmac: reset all cores on Northstar SoC
-Date: Thu,  2 Jan 2014 20:19:01 +0100
-Message-ID: <1388690342-27213-4-git-send-email-hauke@hauke-m.de>
-References: <1388690342-27213-1-git-send-email-hauke@hauke-m.de>
-Cc: zajec5@gmail.com, netdev@vger.kernel.org,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: davem@davemloft.net
+From: "Mr. Tom Hook" <tomhook230@outlook.com>
+Subject: Good day
+Date: Fri, 3 Jan 2014 02:20:00 +0700
+Message-ID: <c803f2cd-6a65-43ae-a621-5112d39c4aed@COSEXCH10.lsi.com>
+Reply-To: <tomhook230@yahoo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
+To: Undisclosed recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:51606 "EHLO
-	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751406AbaABTT1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jan 2014 14:19:27 -0500
-In-Reply-To: <1388690342-27213-1-git-send-email-hauke@hauke-m.de>
+Received: from mail-bn1bhn0124.outbound.protection.outlook.com ([157.56.111.124]:39525
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751740AbaABTfs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jan 2014 14:35:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On the Northstar SoC (BCM4707 and BCM53018) we have to enable all GMAC
-cores when we just want to use on. We iterate over all the cores and
-activate them.
-
-Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
----
- drivers/net/ethernet/broadcom/bgmac.c |   21 +++++++++++++++++++++
- 1 file changed, 21 insertions(+)
-
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index 88ec69e..2cdacb8 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -1446,6 +1446,27 @@ static int bgmac_probe(struct bcma_device *core)
- 
- 	bgmac_chip_reset(bgmac);
- 
-+	/* For Northstar, we have to take all GMAC core out of reset */
-+	if (core->id.id == BCMA_CHIP_ID_BCM4707 ||
-+	    core->id.id == BCMA_CHIP_ID_BCM53018) {
-+		struct bcma_device *ns_core;
-+		int ns_gmac;
-+
-+		/* Northstar has 4 GMAC cores */
-+		for (ns_gmac = 0; ns_gmac < 4; ns_gmac++) {
-+			/* As northstar requirement, we have to reset all GAMCs
-+			 * before accessing one. bgmac_chip_reset() call
-+			 * bcma_core_enable() for this core. Then the other
-+			 * three GAMCs didn't reset.  We do it here.
-+			 */
-+			ns_core = bcma_find_core_unit(core->bus,
-+						      BCMA_CORE_MAC_GBIT,
-+						      ns_gmac);
-+			if (ns_core && !bcma_core_is_enabled(ns_core))
-+				bcma_core_enable(ns_core, 0);
-+		}
-+	}
-+
- 	err = bgmac_dma_alloc(bgmac);
- 	if (err) {
- 		bgmac_err(bgmac, "Unable to alloc memory for DMA\n");
--- 
-1.7.10.4
+Can we invest in your country.My name is Mr.Tom Hook a banker here; there is an unfinished business transaction in my branch. This is a business that will profit both of us, if you are interested get back to me for more details please because the money needs to invest outside my country. I wait for your quick response
+Mr. Tom Hook
