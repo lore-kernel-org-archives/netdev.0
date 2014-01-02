@@ -1,89 +1,129 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: [PATCH net-next] tcp: do not increase the rcv window when the FIN has been received
-Date: Thu, 2 Jan 2014 23:40:21 +0100
-Message-ID: <20140102224021.GA20358@1wt.eu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: IrDA woes..
+Date: Thu, 02 Jan 2014 17:41:36 -0500 (EST)
+Message-ID: <20140102.174136.1587468571877727139.davem@davemloft.net>
+References: <20140102.034653.1968429090467668489.davem@davemloft.net>
+	<CA+55aFz_qDYP_P0PLUNv0wotoy=5PcS+7Qtt=U6EzvL4h4E69A@mail.gmail.com>
+	<CA+55aFyFAaHgoTe_ZVs3F0Giy4qDndKsE6GbB4DgcaK7QkXOkA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: samuel@sortiz.org, netdev@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:54742 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750740AbaABWk3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jan 2014 17:40:29 -0500
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:54108 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751258AbaABWli (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 17:41:38 -0500
+In-Reply-To: <CA+55aFyFAaHgoTe_ZVs3F0Giy4qDndKsE6GbB4DgcaK7QkXOkA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In HTTP performance tests it appeared that my client was always sending
-an ACK immediately after receiving the FIN from the server and that the
-sole purpose of this ACK was to advertise a larger window. This is not
-nedeed when the FIN is received since the peer won't send any more data,
-and wastes a packet in the direction to the server. Adding a check for
-RCV_SHUTDOWN to the condition to send this packet fixes the issue, as
-all packet sizes now behave like the short version. BTW that this is
-even visible on the loopback.
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Thu, 2 Jan 2014 13:07:05 -0800
 
-Before the patch :
+> So I'd be inclined to take the queue lock (self->wx_list.lock) around
+> that skb_queue_walk(). Or am I just dazed and confused?
 
-A 536-byte payload induces an immediate ACK after the server's FIN is
-received :
+Yes, something like the following untested patch.
 
-    $ injectl464 -o 1 -u 1  -G 192.168.0.176:9000/?s=386 -T 1000
+I used irq blocking locking to be consistent with what the helpers
+like skb_dequeue() use.  And you have to be careful to adjust code
+to __skb_dequeue() that you put behind explicit taking of the lock.
+skb_dequeue() is just a wrapper that take the lock around a call
+to __skb_dequeue().
 
-    15:08:38.939425 IP 192.168.0.176.35781 > 192.168.0.176.9000: Flags [S], seq 4152512456, win 43690, options [mss 65495,sackOK,TS val 1581485 ecr 0,nop,wscale 7], length 0
-    15:08:38.939441 IP 192.168.0.176.9000 > 192.168.0.176.35781: Flags [S.], seq 691229241, ack 4152512457, win 43690, options [mss 65495,sackOK,TS val 1581485 ecr 1581485,nop,wscale 7], length 0
-    15:08:38.939457 IP 192.168.0.176.35781 > 192.168.0.176.9000: Flags [.], ack 691229242, win 342, options [nop,nop,TS val 1581485 ecr 1581485], length 0
-    15:08:38.939501 IP 192.168.0.176.35781 > 192.168.0.176.9000: Flags [P.], seq 4152512457:4152512584, ack 691229242, win 342, options [nop,nop,TS val 1581485 ecr 1581485], length 127
-    15:08:38.939570 IP 192.168.0.176.9000 > 192.168.0.176.35781: Flags [F.], seq 691229242:691229778, ack 4152512584, win 342, options [nop,nop,TS val 1581485 ecr 1581485], length 536
-    15:08:38.939595 IP 192.168.0.176.35781 > 192.168.0.176.9000: Flags [.], ack 691229779, win 342, options [nop,nop,TS val 1581485 ecr 1581485], length 0
-    15:08:38.940017 IP 192.168.0.176.35781 > 192.168.0.176.9000: Flags [F.], seq 4152512584, ack 691229779, win 342, options [nop,nop,TS val 1581486 ecr 1581485], length 0
-    15:08:38.940035 IP 192.168.0.176.9000 > 192.168.0.176.35781: Flags [.], ack 4152512585, win 342, options [nop,nop,TS val 1581486 ecr 1581486], length 0
-
-A smaller payload (535 bytes and below) does not cause this to happen :
-
-    $ injectl464 -o 1 -u 1  -G 192.168.0.176:9000/?s=385 -T 1000
-
-    15:08:43.691785 IP 192.168.0.176.35782 > 192.168.0.176.9000: Flags [S], seq 1414138895, win 43690, options [mss 65495,sackOK,TS val 1582673 ecr 0,nop,wscale 7], length 0
-    15:08:43.691810 IP 192.168.0.176.9000 > 192.168.0.176.35782: Flags [S.], seq 1784595528, ack 1414138896, win 43690, options [mss 65495,sackOK,TS val 1582673 ecr 1582673,nop,wscale 7], length 0
-    15:08:43.691825 IP 192.168.0.176.35782 > 192.168.0.176.9000: Flags [.], ack 1784595529, win 342, options [nop,nop,TS val 1582673 ecr 1582673], length 0
-    15:08:43.691868 IP 192.168.0.176.35782 > 192.168.0.176.9000: Flags [P.], seq 1414138896:1414139023, ack 1784595529, win 342, options [nop,nop,TS val 1582673 ecr 1582673], length 127
-    15:08:43.691933 IP 192.168.0.176.9000 > 192.168.0.176.35782: Flags [F.], seq 1784595529:1784596064, ack 1414139023, win 342, options [nop,nop,TS val 1582673 ecr 1582673], length 535
-    15:08:43.692034 IP 192.168.0.176.35782 > 192.168.0.176.9000: Flags [F.], seq 1414139023, ack 1784596065, win 342, options [nop,nop,TS val 1582674 ecr 1582673], length 0
-    15:08:43.692048 IP 192.168.0.176.9000 > 192.168.0.176.35782: Flags [.], ack 1414139024, win 342, options [nop,nop,TS val 1582674 ecr 1582674], length 0
-
-Signed-off-by: Willy Tarreau <w@1wt.eu>
----
- net/ipv4/tcp.c       | 3 ++-
- net/ipv4/tcp_input.c | 2 ++
- 2 files changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index c4638e6..1eab74c 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1350,7 +1350,8 @@ void tcp_cleanup_rbuf(struct sock *sk, int copied)
- 		    * receive. */
- 		if (icsk->icsk_ack.blocked ||
- 		    /* Once-per-two-segments ACK was not sent by tcp_input.c */
--		    tp->rcv_nxt - tp->rcv_wup > icsk->icsk_ack.rcv_mss ||
-+		    (!(sk->sk_shutdown & RCV_SHUTDOWN) &&
-+		     tp->rcv_nxt - tp->rcv_wup > icsk->icsk_ack.rcv_mss) ||
- 		    /*
- 		     * If this read emptied read buffer, we send ACK, if
- 		     * connection is not bidirectional, user drained
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index c53b7f3..c6c0420 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4796,6 +4796,8 @@ static void __tcp_ack_snd_check(struct sock *sk, int ofo_possible)
+diff --git a/net/irda/irlap.c b/net/irda/irlap.c
+index 005b424..1334625 100644
+--- a/net/irda/irlap.c
++++ b/net/irda/irlap.c
+@@ -698,19 +698,22 @@ int irlap_generate_rand_time_slot(int S, int s)
+ void irlap_update_nr_received(struct irlap_cb *self, int nr)
+ {
+ 	struct sk_buff *skb = NULL;
++	unsigned long flags;
+ 	int count = 0;
  
- 	    /* More than one full frame received... */
- 	if (((tp->rcv_nxt - tp->rcv_wup) > inet_csk(sk)->icsk_ack.rcv_mss &&
-+	     /* and peer is interested in our window updates */
-+	     !(sk->sk_shutdown & RCV_SHUTDOWN) &&
- 	     /* ... and right edge of window advances far enough.
- 	      * (tcp_recvmsg() will send ACK otherwise). Or...
- 	      */
--- 
-1.7.12.2.21.g234cd45.dirty
+ 	/*
+ 	 * Remove all the ack-ed frames from the window queue.
+ 	 */
+ 
++	spin_lock_irqsave(&self->wx_list.lock, flags);
++
+ 	/*
+ 	 *  Optimize for the common case. It is most likely that the receiver
+ 	 *  will acknowledge all the frames we have sent! So in that case we
+ 	 *  delete all frames stored in window.
+ 	 */
+ 	if (nr == self->vs) {
+-		while ((skb = skb_dequeue(&self->wx_list)) != NULL) {
++		while ((skb = __skb_dequeue(&self->wx_list)) != NULL) {
+ 			dev_kfree_skb(skb);
+ 		}
+ 		/* The last acked frame is the next to send minus one */
+@@ -720,7 +723,7 @@ void irlap_update_nr_received(struct irlap_cb *self, int nr)
+ 		while ((skb_peek(&self->wx_list) != NULL) &&
+ 		       (((self->va+1) % 8) != nr))
+ 		{
+-			skb = skb_dequeue(&self->wx_list);
++			skb = __skb_dequeue(&self->wx_list);
+ 			dev_kfree_skb(skb);
+ 
+ 			self->va = (self->va + 1) % 8;
+@@ -730,6 +733,8 @@ void irlap_update_nr_received(struct irlap_cb *self, int nr)
+ 
+ 	/* Advance window */
+ 	self->window = self->window_size - skb_queue_len(&self->wx_list);
++
++	spin_unlock_irqrestore(&self->wx_list.lock, flags);
+ }
+ 
+ /*
+diff --git a/net/irda/irlap_frame.c b/net/irda/irlap_frame.c
+index 9ea0c93..45fd93f 100644
+--- a/net/irda/irlap_frame.c
++++ b/net/irda/irlap_frame.c
+@@ -983,10 +983,13 @@ void irlap_resend_rejected_frames(struct irlap_cb *self, int command)
+ {
+ 	struct sk_buff *tx_skb;
+ 	struct sk_buff *skb;
++	unsigned long flags;
+ 
+ 	IRDA_ASSERT(self != NULL, return;);
+ 	IRDA_ASSERT(self->magic == LAP_MAGIC, return;);
+ 
++	spin_lock_irqsave(&self->wx_list.lock, flags);
++
+ 	/*  Resend unacknowledged frame(s) */
+ 	skb_queue_walk(&self->wx_list, skb) {
+ 		irlap_wait_min_turn_around(self, &self->qos_tx);
+@@ -1039,16 +1042,20 @@ void irlap_resend_rejected_frames(struct irlap_cb *self, int command)
+ 		}
+ 	}
+ #endif
++	spin_unlock_irqrestore(&self->wx_list.lock, flags);
+ }
+ 
+ void irlap_resend_rejected_frame(struct irlap_cb *self, int command)
+ {
+ 	struct sk_buff *tx_skb;
++	unsigned long flags;
+ 	struct sk_buff *skb;
+ 
+ 	IRDA_ASSERT(self != NULL, return;);
+ 	IRDA_ASSERT(self->magic == LAP_MAGIC, return;);
+ 
++	spin_lock_irqsave(&self->wx_list.lock, flags);
++
+ 	/*  Resend unacknowledged frame(s) */
+ 	skb = skb_peek(&self->wx_list);
+ 	if (skb != NULL) {
+@@ -1072,6 +1079,8 @@ void irlap_resend_rejected_frame(struct irlap_cb *self, int command)
+ 
+ 		irlap_send_i_frame(self, tx_skb, command);
+ 	}
++
++	spin_unlock_irqrestore(&self->wx_list.lock, flags);
+ }
+ 
+ /*
