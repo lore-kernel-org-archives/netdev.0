@@ -1,70 +1,30 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH RESEND net-next 4/7] bonding: slight optimizztion for bond_slave_override()
-Date: Thu, 2 Jan 2014 09:13:06 +0800
-Message-ID: <52C4BD22.2040704@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/4] bnx2: Add better support for auto-mdix
+Date: Wed, 01 Jan 2014 22:05:15 -0500 (EST)
+Message-ID: <20140101.220515.1211296379156437288.davem@davemloft.net>
+References: <1388560955-32586-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Julia Lawall <julia.lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45946 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750715AbaABDFU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jan 2014 22:05:20 -0500
+In-Reply-To: <1388560955-32586-1-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When the skb is xmit by the function bond_slave_override(),
-it will have duplicate judgement for slave state, and I think it
-will consumes a little performance, maybe it is negligible,
-so I simplify the function and remove the unwanted judgement.
+From: Michael Chan <mchan@broadcom.com>
+Date: Tue, 31 Dec 2013 23:22:31 -0800
 
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/bonding/bond_main.c | 20 ++++++++------------
- 1 file changed, 8 insertions(+), 12 deletions(-)
+> Michael Chan (4):
+>   bnx2: Advertise nothing when speed is forced
+>   bnx2: Enable auto-mdix when autoneg is disabled.
+>   bnx2: Report MDI/MDIX status to ethtool.
+>   bnx2: Update version to 2.2.5.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index c0456cc..f14e235 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3668,28 +3668,24 @@ static inline int bond_slave_override(struct bonding *bond,
- 				      struct sk_buff *skb)
- {
- 	struct slave *slave = NULL;
--	struct slave *check_slave;
- 	struct list_head *iter;
--	int res = 1;
- 
- 	if (!skb->queue_mapping)
- 		return 1;
- 
- 	/* Find out if any slaves have the same mapping as this skb. */
--	bond_for_each_slave_rcu(bond, check_slave, iter) {
--		if (check_slave->queue_id == skb->queue_mapping) {
--			slave = check_slave;
-+	bond_for_each_slave_rcu(bond, slave, iter) {
-+		if (slave->queue_id == skb->queue_mapping) {
-+			if (slave_can_tx(slave)) {
-+				bond_dev_queue_xmit(bond, skb, slave->dev);
-+				return 0;
-+			}
-+			/* If the slave isn't UP, use default transmit policy. */
- 			break;
- 		}
- 	}
- 
--	/* If the slave isn't UP, use default transmit policy. */
--	if (slave && slave->queue_id && IS_UP(slave->dev) &&
--	    (slave->link == BOND_LINK_UP)) {
--		res = bond_dev_queue_xmit(bond, skb, slave->dev);
--	}
--
--	return res;
-+	return 1;
- }
- 
- 
--- 
-1.8.0
+Series applied, please consider the enhancement for advertising this
+feature via ethtool that Ben mentioned.
