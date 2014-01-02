@@ -1,42 +1,110 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/5] alx: add alx_get_stats operation
-Date: Thu, 02 Jan 2014 12:39:21 -0500 (EST)
-Message-ID: <20140102.123921.1427916612449970973.davem@davemloft.net>
-References: <1388619628-3373-5-git-send-email-sd@queasysnail.net>
-	<20140101.222702.1562824655053158808.davem@davemloft.net>
-	<1388663813.22017.12.camel@deadeye.wl.decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sd@queasysnail.net, johannes@sipsolutions.net,
-	netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] sctp: Add process name and pid to deprecation warnings
+Date: Thu,  2 Jan 2014 12:54:27 -0500
+Message-ID: <1388685267-18319-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51780 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751812AbaABRjW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 12:39:22 -0500
-In-Reply-To: <1388663813.22017.12.camel@deadeye.wl.decadent.org.uk>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:45131 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750993AbaABRyr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 12:54:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 2 Jan 2014 11:56:53 +0000
+Recently I updated the sctp socket option deprecation warnings to be both a bit
+more clear and ratelimited to prevent user processes from spamming the log file.
+Ben Hutchings suggested that I add the process name and pid to these warnings so
+that users can tell who is responsible for using the deprecated apis.  This
+patch accomplishes that.
 
-> On Wed, 2014-01-01 at 22:27 -0500, David Miller wrote:
->> From: Sabrina Dubroca <sd@queasysnail.net>
->> Date: Thu,  2 Jan 2014 00:40:27 +0100
->> 
->> > +	spin_lock(&alx->stats_lock);
->> > +
->> > +	__alx_update_hw_stats(&alx->hw);
->> 
->> Please use something like the linux/u64_stats_sync.h stuff rather
->> than spin locking.
-> 
-> I don't think that'sa useful, as we can have multiple writers
-> (concurrent calls to get_stats).  And there is really no harm in using a
-> spinlock to serialise get_stats calls.  The u64_stats API is good for
-> statistics updated from the data path.
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Vlad Yasevich <vyasevich@gmail.com>
+CC: Ben Hutchings <bhutchings@solarflare.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: netdev@vger.kernel.org
+---
+ net/sctp/socket.c | 24 ++++++++++++++++++------
+ 1 file changed, 18 insertions(+), 6 deletions(-)
 
-Fair enough.
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index e9c5121..d32dae7 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -2579,8 +2579,10 @@ static int sctp_setsockopt_delayed_ack(struct sock *sk,
+ 			return 0;
+ 	} else if (optlen == sizeof(struct sctp_assoc_value)) {
+ 		pr_warn_ratelimited(DEPRECATED
++				    "%s (pid %d) "
+ 				    "Use of struct sctp_assoc_value in delayed_ack socket option.\n"
+-				    "Use struct sctp_sack_info instead\n");
++				    "Use struct sctp_sack_info instead\n",
++				    current->comm, task_pid_nr(current));
+ 		if (copy_from_user(&params, optval, optlen))
+ 			return -EFAULT;
+ 
+@@ -2996,8 +2998,10 @@ static int sctp_setsockopt_maxseg(struct sock *sk, char __user *optval, unsigned
+ 
+ 	if (optlen == sizeof(int)) {
+ 		pr_warn_ratelimited(DEPRECATED
++				    "%s (pid %d) "
+ 				    "Use of int in maxseg socket option.\n"
+-				    "Use struct sctp_assoc_value instead\n");
++				    "Use struct sctp_assoc_value instead\n",
++				    current->comm, task_pid_nr(current));
+ 		if (copy_from_user(&val, optval, optlen))
+ 			return -EFAULT;
+ 		params.assoc_id = 0;
+@@ -3255,8 +3259,10 @@ static int sctp_setsockopt_maxburst(struct sock *sk,
+ 
+ 	if (optlen == sizeof(int)) {
+ 		pr_warn_ratelimited(DEPRECATED
++				    "%s (pid %d) "
+ 				    "Use of int in max_burst socket option deprecated.\n"
+-				    "Use struct sctp_assoc_value instead\n");
++				    "Use struct sctp_assoc_value instead\n",
++				    current->comm, task_pid_nr(current));
+ 		if (copy_from_user(&val, optval, optlen))
+ 			return -EFAULT;
+ 	} else if (optlen == sizeof(struct sctp_assoc_value)) {
+@@ -4577,8 +4583,10 @@ static int sctp_getsockopt_delayed_ack(struct sock *sk, int len,
+ 			return -EFAULT;
+ 	} else if (len == sizeof(struct sctp_assoc_value)) {
+ 		pr_warn_ratelimited(DEPRECATED
++				    "%s (pid %d) "
+ 				    "Use of struct sctp_assoc_value in delayed_ack socket option.\n"
+-				    "Use struct sctp_sack_info instead\n");
++				    "Use struct sctp_sack_info instead\n",
++				    current->comm, task_pid_nr(current));
+ 		if (copy_from_user(&params, optval, len))
+ 			return -EFAULT;
+ 	} else
+@@ -5223,8 +5231,10 @@ static int sctp_getsockopt_maxseg(struct sock *sk, int len,
+ 
+ 	if (len == sizeof(int)) {
+ 		pr_warn_ratelimited(DEPRECATED
++				    "%s (pid %d) "
+ 				    "Use of int in maxseg socket option.\n"
+-				    "Use struct sctp_assoc_value instead\n");
++				    "Use struct sctp_assoc_value instead\n",
++				    current->comm, task_pid_nr(current));
+ 		params.assoc_id = 0;
+ 	} else if (len >= sizeof(struct sctp_assoc_value)) {
+ 		len = sizeof(struct sctp_assoc_value);
+@@ -5316,8 +5326,10 @@ static int sctp_getsockopt_maxburst(struct sock *sk, int len,
+ 
+ 	if (len == sizeof(int)) {
+ 		pr_warn_ratelimited(DEPRECATED
++				    "%s (pid %d) "
+ 				    "Use of int in max_burst socket option.\n"
+-				    "Use struct sctp_assoc_value instead\n");
++				    "Use struct sctp_assoc_value instead\n",
++				    current->comm, task_pid_nr(current));
+ 		params.assoc_id = 0;
+ 	} else if (len >= sizeof(struct sctp_assoc_value)) {
+ 		len = sizeof(struct sctp_assoc_value);
+-- 
+1.8.3.1
