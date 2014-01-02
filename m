@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v2 1/6] r8152: move rtl8152_unload and ocp_reg_write
-Date: Thu, 2 Jan 2014 11:22:39 +0800
-Message-ID: <1388632963-1341-2-git-send-email-hayeswang@realtek.com>
+Subject: [PATCH net-next v2 3/6] r8152: change some definitions
+Date: Thu, 2 Jan 2014 11:22:41 +0800
+Message-ID: <1388632963-1341-4-git-send-email-hayeswang@realtek.com>
 References: <1388111649-1014-1-git-send-email-hayeswang@realtek.com>
  <1388632963-1341-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
@@ -14,102 +14,126 @@ In-Reply-To: <1388632963-1341-1-git-send-email-hayeswang@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Change the locations of rtl8152_unload() and ocp_reg_write().
+Replace RX_BUF_THR with RX_THR_HIGH.
+Replace RWSUME_INDICATE with RESUME_INDICATE.
+Add CRC_SIZE, TX_ALIGN, and RX_ALIGN.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 58 ++++++++++++++++++++++++-------------------------
- 1 file changed, 29 insertions(+), 29 deletions(-)
+ drivers/net/usb/r8152.c | 27 ++++++++++++++++-----------
+ 1 file changed, 16 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 5107372..79bb553 100644
+index b8bc3eb..85862a8 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -653,6 +653,20 @@ static void ocp_write_byte(struct r8152 *tp, u16 type, u16 index, u32 data)
- 	generic_ocp_write(tp, index, byen, sizeof(tmp), &tmp, type);
- }
+@@ -209,7 +209,7 @@
+ #define TX_AGG_MAX_THRESHOLD	0x03
  
-+static void ocp_reg_write(struct r8152 *tp, u16 addr, u16 data)
-+{
-+	u16 ocp_base, ocp_index;
-+
-+	ocp_base = addr & 0xf000;
-+	if (ocp_base != tp->ocp_base) {
-+		ocp_write_word(tp, MCU_TYPE_PLA, PLA_OCP_GPHY_BASE, ocp_base);
-+		tp->ocp_base = ocp_base;
-+	}
-+
-+	ocp_index = (addr & 0x0fff) | 0xb000;
-+	ocp_write_word(tp, MCU_TYPE_PLA, ocp_index, data);
-+}
-+
- static void r8152_mdio_write(struct r8152 *tp, u32 reg_addr, u32 value)
+ /* USB_RX_BUF_TH */
+-#define RX_BUF_THR		0x7a120180
++#define RX_THR_HIGH		0x7a120180
+ 
+ /* USB_TX_DMA */
+ #define TEST_MODE_DISABLE	0x00000001
+@@ -219,7 +219,7 @@
+ #define POWER_CUT		0x0100
+ 
+ /* USB_PM_CTRL_STATUS */
+-#define RWSUME_INDICATE		0x0001
++#define RESUME_INDICATE		0x0001
+ 
+ /* USB_USB_CTRL */
+ #define RX_AGG_DISABLE		0x0010
+@@ -274,6 +274,9 @@ enum rtl_register_content {
+ #define RTL8152_MAX_TX		10
+ #define RTL8152_MAX_RX		10
+ #define INTBUFSIZE		2
++#define CRC_SIZE		4
++#define TX_ALIGN		4
++#define RX_ALIGN		8
+ 
+ #define INTR_LINK		0x0004
+ 
+@@ -916,12 +919,12 @@ resubmit:
+ 
+ static inline void *rx_agg_align(void *data)
  {
- 	u32	ocp_data;
-@@ -715,20 +729,6 @@ void write_mii_word(struct net_device *netdev, int phy_id, int reg, int val)
- 	r8152_mdio_write(tp, reg, val);
+-	return (void *)ALIGN((uintptr_t)data, 8);
++	return (void *)ALIGN((uintptr_t)data, RX_ALIGN);
  }
  
--static void ocp_reg_write(struct r8152 *tp, u16 addr, u16 data)
--{
--	u16 ocp_base, ocp_index;
--
--	ocp_base = addr & 0xf000;
--	if (ocp_base != tp->ocp_base) {
--		ocp_write_word(tp, MCU_TYPE_PLA, PLA_OCP_GPHY_BASE, ocp_base);
--		tp->ocp_base = ocp_base;
--	}
--
--	ocp_index = (addr & 0x0fff) | 0xb000;
--	ocp_write_word(tp, MCU_TYPE_PLA, ocp_index, data);
--}
--
- static
- int r8152_submit_rx(struct r8152 *tp, struct rx_agg *agg, gfp_t mem_flags);
- 
-@@ -2079,6 +2079,21 @@ static void r8152b_get_version(struct r8152 *tp)
- 	}
- }
- 
-+static void rtl8152_unload(struct r8152 *tp)
-+{
-+	u32	ocp_data;
-+
-+	if (tp->version != RTL_VER_01) {
-+		ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_UPS_CTRL);
-+		ocp_data |= POWER_CUT;
-+		ocp_write_word(tp, MCU_TYPE_USB, USB_UPS_CTRL, ocp_data);
-+	}
-+
-+	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS);
-+	ocp_data &= ~RWSUME_INDICATE;
-+	ocp_write_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS, ocp_data);
-+}
-+
- static int rtl8152_probe(struct usb_interface *intf,
- 			 const struct usb_device_id *id)
+ static inline void *tx_agg_align(void *data)
  {
-@@ -2150,21 +2165,6 @@ out:
- 	return ret;
+-	return (void *)ALIGN((uintptr_t)data, 4);
++	return (void *)ALIGN((uintptr_t)data, TX_ALIGN);
  }
  
--static void rtl8152_unload(struct r8152 *tp)
--{
--	u32	ocp_data;
--
--	if (tp->version != RTL_VER_01) {
--		ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_UPS_CTRL);
--		ocp_data |= POWER_CUT;
--		ocp_write_word(tp, MCU_TYPE_USB, USB_UPS_CTRL, ocp_data);
--	}
--
--	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS);
+ static void free_all_mem(struct r8152 *tp)
+@@ -990,7 +993,8 @@ static int alloc_all_mem(struct r8152 *tp)
+ 
+ 		if (buf != rx_agg_align(buf)) {
+ 			kfree(buf);
+-			buf = kmalloc_node(rx_buf_sz + 8, GFP_KERNEL, node);
++			buf = kmalloc_node(rx_buf_sz + RX_ALIGN, GFP_KERNEL,
++					   node);
+ 			if (!buf)
+ 				goto err1;
+ 		}
+@@ -1015,7 +1019,8 @@ static int alloc_all_mem(struct r8152 *tp)
+ 
+ 		if (buf != tx_agg_align(buf)) {
+ 			kfree(buf);
+-			buf = kmalloc_node(rx_buf_sz + 4, GFP_KERNEL, node);
++			buf = kmalloc_node(rx_buf_sz + TX_ALIGN, GFP_KERNEL,
++					   node);
+ 			if (!buf)
+ 				goto err1;
+ 		}
+@@ -1215,7 +1220,7 @@ static void rx_bottom(struct r8152 *tp)
+ 
+ 			stats = rtl8152_get_stats(netdev);
+ 
+-			pkt_len -= 4; /* CRC */
++			pkt_len -= CRC_SIZE;
+ 			rx_data += sizeof(struct rx_desc);
+ 
+ 			skb = netdev_alloc_skb_ip_align(netdev, pkt_len);
+@@ -1230,7 +1235,7 @@ static void rx_bottom(struct r8152 *tp)
+ 			stats->rx_packets++;
+ 			stats->rx_bytes += pkt_len;
+ 
+-			rx_data = rx_agg_align(rx_data + pkt_len + 4);
++			rx_data = rx_agg_align(rx_data + pkt_len + CRC_SIZE);
+ 			rx_desc = (struct rx_desc *)rx_data;
+ 			len_used = (int)(rx_data - (u8 *)agg->head);
+ 			len_used += sizeof(struct rx_desc);
+@@ -1580,7 +1585,7 @@ static void r8152b_exit_oob(struct r8152 *tp)
+ 	ocp_write_dword(tp, MCU_TYPE_PLA, PLA_TXFIFO_CTRL, TXFIFO_THR_NORMAL);
+ 
+ 	ocp_write_byte(tp, MCU_TYPE_USB, USB_TX_AGG, TX_AGG_MAX_THRESHOLD);
+-	ocp_write_dword(tp, MCU_TYPE_USB, USB_RX_BUF_TH, RX_BUF_THR);
++	ocp_write_dword(tp, MCU_TYPE_USB, USB_RX_BUF_TH, RX_THR_HIGH);
+ 	ocp_write_dword(tp, MCU_TYPE_USB, USB_TX_DMA,
+ 			TEST_MODE_DISABLE | TX_SIZE_ADJUST1);
+ 
+@@ -1893,7 +1898,7 @@ static void r8152b_init(struct r8152 *tp)
+ 	ocp_write_word(tp, MCU_TYPE_USB, USB_UPS_CTRL, ocp_data);
+ 
+ 	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS);
 -	ocp_data &= ~RWSUME_INDICATE;
--	ocp_write_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS, ocp_data);
--}
--
- static void rtl8152_disconnect(struct usb_interface *intf)
- {
- 	struct r8152 *tp = usb_get_intfdata(intf);
++	ocp_data &= ~RESUME_INDICATE;
+ 	ocp_write_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS, ocp_data);
+ 
+ 	r8152b_exit_oob(tp);
+@@ -2074,7 +2079,7 @@ static void rtl8152_unload(struct r8152 *tp)
+ 	}
+ 
+ 	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS);
+-	ocp_data &= ~RWSUME_INDICATE;
++	ocp_data &= ~RESUME_INDICATE;
+ 	ocp_write_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS, ocp_data);
+ }
+ 
 -- 
 1.8.3.1
