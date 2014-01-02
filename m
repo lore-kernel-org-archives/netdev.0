@@ -1,81 +1,108 @@
-From: Petr Pisar <ppisar@redhat.com>
-Subject: Re: [PATCH] Do not listen if rtnl_send() fails in ip link
- iplink_have_newlink() test
-Date: Thu, 2 Jan 2014 08:42:57 +0100
-Message-ID: <20140102074257.GA1637@dhcp-0-146.brq.redhat.com>
-References: <20131211105749.1ee87844@nehalam.linuxnetplumber.net>
- <1386832705-3101-1-git-send-email-ppisar@redhat.com>
- <20131220082107.0467d57c@nehalam.linuxnetplumber.net>
+From: chenweilong <chenweilong@huawei.com>
+Subject: Re: [PATCH] ipv6: don't call addrconf_dst_alloc again when enable
+ lo
+Date: Thu, 2 Jan 2014 15:58:22 +0800
+Message-ID: <52C51C1E.9040603@huawei.com>
+References: <1371352470-3226-1-git-send-email-gaofeng@cn.fujitsu.com> <20130619.230532.1329281330568271336.davem@davemloft.net> <20131231035718.GB27636@order.stressinduktion.org> <52C4FDBE.5030607@huawei.com> <20140102065429.GB22494@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="T4sUOijqQbZv57TR"
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>, <gaofeng@cn.fujitsu.com>,
+	<kumaran.4353@gmail.com>, <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9474 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750800AbaABHnE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jan 2014 02:43:04 -0500
-Content-Disposition: inline
-In-Reply-To: <20131220082107.0467d57c@nehalam.linuxnetplumber.net>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:8602 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750721AbaABH6h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 02:58:37 -0500
+In-Reply-To: <20140102065429.GB22494@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 2014/1/2 14:54, Hannes Frederic Sowa wrote:
+> On Thu, Jan 02, 2014 at 01:48:46PM +0800, chenweilong wrote:
+>> On 2013/12/31 11:57, Hannes Frederic Sowa wrote:
+>>> On Wed, Jun 19, 2013 at 11:05:32PM -0700, David Miller wrote:
+>>>> From: Gao feng <gaofeng@cn.fujitsu.com>
+>>>> Date: Sun, 16 Jun 2013 11:14:30 +0800
+>>>>
+>>>>> If we disable all of the net interfaces, and enable
+>>>>> un-lo interface before lo interface, we already allocated
+>>>>> the addrconf dst in ipv6_add_addr. So we shouldn't allocate
+>>>>> it again when we enable lo interface.
+>>>>>
+>>>>> Otherwise the message below will be triggered.
+>>>>> unregister_netdevice: waiting for sit1 to become free. Usage count = 1
+>>>>>
+>>>>> This problem is introduced by commit 25fb6ca4ed9cad72f14f61629b68dc03c0d9713f
+>>>>> "net IPv6 : Fix broken IPv6 routing table after loopback down-up"
+>>>>>
+>>>>> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+>>>>
+>>>> This is the second such regression added by that commit :-/
+>>>>
+>>>> Applied and queue up for -stable, thanks.
+>>>
+>>> Hmm, and this change also has a regression and breaks the original fix. :/
+>>>
+>>> https://bugzilla.kernel.org/show_bug.cgi?id=67951
+>>>
+>>> I tried to track it down but it seems pretty complicated. Maybe we have to
+>>> special-case the take-down of the loopback device.
+>>>
+>>>
+>>>
+>>
+>> When I did the tests,If 'ifconfig lo down',all IPv6 connection broken,
+>> but IPv4 connection were still OK.
+>>
+>> Is it designed like that or a bug?
+> 
+> This seems to solve the loopback up/down problem, but there are still
+> some issues with up/down of interfaces and routing table interactions.
+> 
+> We enable routes over interfaces when interface is actually down and
+> kick manually specified on-link routes when we actually should try to
+> keep them and just disable them.
+> 
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 6c16345..61d752a 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -2629,8 +2629,10 @@ static void init_loopback(struct net_device *dev)
+>  			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
+>  				continue;
+>  
+> -			if (sp_ifa->rt)
+> +			if (sp_ifa->rt) {
+> +				ip6_ins_rt(sp_ifa->rt);
+>  				continue;
+> +			}
+>  
+>  			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, false);
+>  
+> 
+> .
+> 
+I test the patch,it has the problem Gao feng reported.
 
---T4sUOijqQbZv57TR
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+How about this:
 
-On Fri, Dec 20, 2013 at 08:21:07AM -0800, Stephen Hemminger wrote:
-> I took your idea and enhanced it to all of iproute2 by doing the followin=
-g:
->=20
-> From c4b6330a3a033bd9c9b0664c5f844493137ae599 Mon Sep 17 00:00:00 2001
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Fri, 20 Dec 2013 08:15:02 -0800
-> Subject: [PATCH] check return value of rtnl_send and related functions
-> MIME-Version: 1.0
-> Content-Type: text/plain; charset=3DUTF-8
-> Content-Transfer-Encoding: 8bit
->=20
-> Use warn_unused_result to enforce checking return value of rtnl_send,
-> and fix where the errors are.
->=20
-[...]
-> diff --git a/ip/iplink.c b/ip/iplink.c
-> index 58b6c20..e0c14e6 100644
-> --- a/ip/iplink.c
-> +++ b/ip/iplink.c
-> @@ -178,7 +178,10 @@ static int iplink_have_newlink(void)
->  		req.n.nlmsg_type =3D RTM_NEWLINK;
->  		req.i.ifi_family =3D AF_UNSPEC;
-> =20
-> -		rtnl_send(&rth, &req.n, req.n.nlmsg_len);
-> +		if (rtnl_send(&rth, &req.n, req.n.nlmsg_len) < 0) {
-> +			perror("request send failed");
-> +			exit(1);
-> +		}
->  		rtnl_listen(&rth, accept_msg, NULL);
->  	}
->  	return have_rtnl_newlink;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index d5fa5b8..5e2db6e 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2609,10 +2609,13 @@ static void init_loopback(struct net_device *dev)
 
-This one exits instead of falling back to IOCTL. iplink_have_newlink() is
-called even from iplink_usage(). This even prevents from printing usage.
+                        if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
+                                continue;
 
-I think failure in this very place should be treated as I suggested.
+-                       if (sp_ifa->rt)
+-                               continue;
++                       if (sp_ifa->rt && sp_ifa->rt->dst.dev == dev){
++                               ip6_del_rt(sp_ifa->rt);
++                       }
 
--- Petr
+                        sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, false);
 
---T4sUOijqQbZv57TR
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iF4EABEIAAYFAlLFGIEACgkQEsnFx2fG+qKzdAD/WJOviG3b0q7Pn5fVmmM0q2/C
-pi1DPPp+Sf1RexWjC7ABAIDdU+C8UiLcARChw+g93WXxHTQsmU+cOD+88X0Ibz2q
-=Ab+p
------END PGP SIGNATURE-----
-
---T4sUOijqQbZv57TR--
+                        /* Failure cases are ignored */
