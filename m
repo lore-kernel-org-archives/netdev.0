@@ -1,106 +1,94 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: Re: [PATCH net-next v2] IPv6: add option to use Subnet-Router anycast addresses as source addresses
-Date: Thu, 2 Jan 2014 10:56:17 -0800 (PST)
-Message-ID: <1388688977.95873.YahooMailBasic@web125502.mail.ne1.yahoo.com>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [net-next 0/9][pull request] Intel Wired LAN Driver Updates
+Date: Thu, 2 Jan 2014 19:06:32 +0000
+Message-ID: <E5031C0F-8B35-477A-842F-33CDBA98C097@intel.com>
+References: <1388655221-25428-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1388686871.9947.20.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: multipart/signed;
+	boundary="Apple-Mail=_4ABA425F-A606-432A-B01C-FB303916F369";
+	protocol="application/pgp-signature"; micalg=pgp-sha1
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
+	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm38.bullet.mail.ne1.yahoo.com ([98.138.229.31]:30892 "HELO
-	nm38.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751574AbaABS7H convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jan 2014 13:59:07 -0500
+Received: from mga09.intel.com ([134.134.136.24]:2888 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750782AbaABTGe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jan 2014 14:06:34 -0500
+In-Reply-To: <1388686871.9947.20.camel@bwh-desktop.uk.level5networks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 1/2/14, Hannes Frederic Sowa <hannes@stressinduktion.org> wrote=
-:
+--Apple-Mail=_4ABA425F-A606-432A-B01C-FB303916F369
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=windows-1252
 
->> This change allows to follow a recommandation of RFC4942.
+On Jan 2, 2014, at 10:21 AM, Ben Hutchings <bhutchings@solarflare.com> =
+wrote:
+
+> On Thu, 2014-01-02 at 01:33 -0800, Jeff Kirsher wrote:
+>> This series contains updates to ixgbe, e1000e and igb.
 >>=20
->> - Add "enable_anycast_src" sysctl to control the use of Subnet-Route=
-r anycast
->>=A0=A0=A0addresses as source addresses. This sysctl is false by defau=
-lt to preserve
->>=A0=A0=A0existing behavior.
->> - Use it in ip6_datagram_send_ctl() and icmpv6_echo_reply().
-=20
- > It is very cool that you are working on this. I had this on my TODO =
-list for a
- long time.
+>> Most notably is Mark Rustad's ixgbe patches to add the Live Error
+>> Recovery option to ixgbe as well as additional cleanups to the =
+driver.
+> [...]
+>=20
+> The Live Error Recovery option is pretty odd; it looks like a
+> combination of PCI hotplug and EEH.  Why is it not integrated with
+> either of those?
 
-Thanks,I think also it is useful.
+It certainly is related to both of those. The issue being addressed here =
+is specific to this driver in that the driver can be the first to get a =
+read return of all one=92s when a device is suddenly removed. This code =
+allows the driver to determine whether such a return is valid, or is a =
+sign of the device having been removed. Without those checks, there are =
+paths where the driver will crash in such a case. This code will race =
+with hotplug, so it allows hotplug to drive the logical removal, but it =
+makes the driver =93safe=94 in the mean time.
 
->> Reference:
->> RFC4942 - IPv6 Transition/Coexistence Security Considerations
->>=A0 =A0 (http://tools.ietf.org/html/rfc4942#section-2.1.6)
->>=20
->> 2.1.6. Anycast Traffic Identification and Security
->>=20
->>=A0 =A0 [...]
-=20
-> Actually, the restriction was lifted by RFC 4291 ("IP Version 6
-> Addressing Architecture").
-=20
-Exact.
-=20
-> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/n=
-etworking/ip-sysctl.txt
-> index d71afa8..2a062a7 100644
-> --- a/Documentation/networking/ip-sysctl.txt
-> +++ b/Documentation/networking/ip-sysctl.txt
-> @@ -1094,6 +1094,12 @@ bindv6only - BOOLEAN
->=A0=20
->=A0 =A0=A0=A0 Default: FALSE (as specified in RFC3493)
->=A0=20
-> +enable_anycast_src - BOOLEAN
-> +=A0=A0=A0 Controls the use of Subnet-Router anycast addresses as sou=
-rce addresses
-> +=A0=A0=A0 TRUE:=A0 enabled
-> +=A0=A0=A0 FALSE: disabled
-> +=A0=A0=A0 Default: FALSE
-> +
-=20
-> I wouldn't actually add this knob, we can just enable that by default=
-=2E
+Thanks for the comments. You are absolutely right about the need for =
+ACCESS_ONCE and better Kconfig help text.
 
-I think we need to keep by default the existing behaviour (ICMPv6 echo =
-reply with unicast)
-in case some setups use it, and use "enable_anycast_src" to change the =
-behaviour=20
-according to RFC4942.
+> Ben.
+>=20
+> --=20
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
 
-> Also it should be no problem to bind() to those addresses.
-=20
-> I am still unsure what to do with a bind to any or if the address mus=
-t be
-> bound specifically (maybe that is worth a knob).
+--=20
+Mark Rustad, Networking Division, Intel Corporation
 
-> In the long term I would like to see that we can add additional anyca=
-st
-> addresses via iproute:
-=20
-> ip -6 a a 1234::1/64 dev eth0 anycast
-=20
-> or something like that. That should be rather easy, as in just increm=
-enting
-> the anycast counter for an interface in inet6_rtm_newaddr
-> and adding a flag to ifa_flags which gets passed down by iproute2.
-=20
-> I'll do some research on if this should also get integrated with sour=
-ce address selection.
 
-It can be the objects of future evolutions.
-I have to think about these.
-=20
-> Hannes
-=20
-Thanks,
-=46rancois-Xavier
+--Apple-Mail=_4ABA425F-A606-432A-B01C-FB303916F369
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="signature.asc"
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Message signed with OpenPGP using GPGMail
+
+-----BEGIN PGP SIGNATURE-----
+Comment: GPGTools - http://gpgtools.org
+
+iQIcBAEBAgAGBQJSxbi2AAoJEDwO/+eO4+5uUScP/1ZNBMEoGh90/TN3g+U7y/t3
+ZtNRQ19xLC4VOL1K/NwCzLLHPXxTslCZLmES3alBQXI/upyjm20L1L+zjaOYxPRF
+0k39cJTspdNusgvMbodrxuxvE12mGEUvrZwTvKiOpWa3J+xfsPrfI9tfnWb8ibGY
+QH63LkbAxjdbMINMiN5AOgoA7AJgwiNwDRyiNDdlZZrXYaOeCKpWlcSCpJaCswkm
+OasOlQ5KKfA2xo6OAtOXDJkI+bqc89VffiYSnH4kg45G13qyKGidi7kTGLox6IBb
+B1y8FqCHV6qKbzbc5rdpJAZRTJLMrHk6hB9wNZ6S7YjfQdRqTmDr3PoCAILDH5MH
+9bl72hPrEc1R/5k2uvZI+0nnihVuNWJLzID396gkaQWGNslaGgCmOYZEQ3OAFg1W
+/hmFZLxupvYqjBv1qSc+fDDlMkQTUmuSGwDcEaeDb18rEL49Mo1xEhFqH0mYLtx+
+VhPyz1BoE6yzNXXDjonKeFksQ7uuk1+roIapjRtGAr6TB7l0E5Tys/KgKzVV1DJF
+zXYEioB2zllvrKKKIJJyiBuPfdg2KEHHn5N1GslaQLoo/KwfktiBmH2VYF3dQ6Lt
+WL4r+/+dVC8pTCA4qqlL/Kd/GbzXRbmo4+mJJ0bX19vb8O9t2V1PYfwDh7NFdE0B
+jF9LFxH5SL0SF0FVhc4V
+=dsdk
+-----END PGP SIGNATURE-----
+
+--Apple-Mail=_4ABA425F-A606-432A-B01C-FB303916F369--
