@@ -1,62 +1,63 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2 v2 2/2] add support for IFA_F_MANAGETEMPADDR
-Date: Thu,  2 Jan 2014 16:34:39 +0100
-Message-ID: <1388676879-2603-3-git-send-email-jiri@resnulli.us>
-References: <1388676879-2603-1-git-send-email-jiri@resnulli.us>
-Cc: stephen@networkplumber.org, thaller@redhat.com
-To: netdev@vger.kernel.org
+From: Grant Grundler <grantgrundler@gmail.com>
+Subject: Re: question about tulip/winbond-840.c
+Date: Thu, 2 Jan 2014 07:37:54 -0800
+Message-ID: <CAP6odjj2jPfgEBdHv+GGDhVaHt4KEm_DWCX3PdCxCjUbApWc8Q@mail.gmail.com>
+References: <alpine.DEB.2.10.1401021520280.2088@hadrien>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	"open list:TULIP NETWORK DRI..." <netdev@vger.kernel.org>
+To: Julia Lawall <julia.lawall@lip6.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f178.google.com ([209.85.215.178]:41519 "EHLO
-	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752163AbaABPet (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 10:34:49 -0500
-Received: by mail-ea0-f178.google.com with SMTP id d10so6480464eaj.9
-        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 07:34:48 -0800 (PST)
-In-Reply-To: <1388676879-2603-1-git-send-email-jiri@resnulli.us>
+Received: from mail-oa0-f52.google.com ([209.85.219.52]:44775 "EHLO
+	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750914AbaABPh4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 10:37:56 -0500
+Received: by mail-oa0-f52.google.com with SMTP id h16so14898882oag.39
+        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 07:37:55 -0800 (PST)
+In-Reply-To: <alpine.DEB.2.10.1401021520280.2088@hadrien>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- include/linux/if_addr.h | 1 +
- ip/ipaddress.c          | 6 ++++++
- 2 files changed, 7 insertions(+)
+On Thu, Jan 2, 2014 at 6:24 AM, Julia Lawall <julia.lawall@lip6.fr> wrote:
+> I don't know if you want to bother about this, because it is very old code
+> and is apparently not hurting anyone, but I don't see the point of the
+> call to pci_enable_device in the function w840_resume.
 
-diff --git a/include/linux/if_addr.h b/include/linux/if_addr.h
-index cced59f..e1e95ce 100644
---- a/include/linux/if_addr.h
-+++ b/include/linux/if_addr.h
-@@ -45,6 +45,7 @@ enum {
- #define IFA_F_DEPRECATED	0x20
- #define IFA_F_TENTATIVE		0x40
- #define IFA_F_PERMANENT		0x80
-+#define IFA_F_MANAGETEMPADDR	0x0100
- 
- struct ifa_cacheinfo {
- 	__u32	ifa_prefered;
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 1e3f22c..5dbb017 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -703,6 +703,10 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 		ifa_flags &= ~IFA_F_NODAD;
- 		fprintf(fp, "nodad ");
- 	}
-+	if (ifa_flags & IFA_F_MANAGETEMPADDR) {
-+		ifa_flags &= ~IFA_F_MANAGETEMPADDR;
-+		fprintf(fp, "mngtmpaddr ");
-+	}
- 	if (!(ifa_flags & IFA_F_PERMANENT)) {
- 		fprintf(fp, "dynamic ");
- 	} else
-@@ -1345,6 +1349,8 @@ static int ipaddr_modify(int cmd, int flags, int argc, char **argv)
- 			ifa_flags |= IFA_F_HOMEADDRESS;
- 		} else if (strcmp(*argv, "nodad") == 0) {
- 			ifa_flags |= IFA_F_NODAD;
-+		} else if (strcmp(*argv, "mngtmpaddr") == 0) {
-+			ifa_flags |= IFA_F_MANAGETEMPADDR;
- 		} else {
- 			if (strcmp(*argv, "local") == 0) {
- 				NEXT_ARG();
--- 
-1.8.3.1
+I believe the call to pci_enable_device is required:
+    http://lxr.free-electrons.com/source/Documentation/PCI/pci.txt
+
+
+254 3.1 Enable the PCI device
+255 ~~~~~~~~~~~~~~~~~~~~~~~~~
+256 Before touching any device registers, the driver needs to enable
+257 the PCI device by calling pci_enable_device(). This will:
+258         o wake up the device if it was in suspended state,
+259         o allocate I/O and memory regions of the device (if BIOS did not),
+260         o allocate an IRQ (if BIOS did not).
+
+> The driver had a
+> call to pci_enable_device in its probe function, but it contains no call
+> to pci_disable_device, unlike some other tulip drivers.
+
+I think the bug is the pci_disable_device is not called. The driver
+should call pci_disable_device in suspend function and on failure path
+in the resume function. I've never looked at this code before and I
+believe has existed before PCI API was "mature". That's probably why
+it's not using the API correctly.
+
+>  Perhaps the call has a small functionality,
+
+Yes - assuming pci.txt isn't stale. :)
+
+> but it seems like it can at least never return
+> a value other than 0, because the result of
+> atomic_inc_return(&dev->enable_cnt) in pci_enable_device_flags should
+> be greater than 1.
+
+Off hand I don't recall..pci_enable_device used to setup alot more
+stuff including power state and many of those could fail.
+
+
+>
+> julia
