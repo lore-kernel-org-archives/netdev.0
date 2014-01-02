@@ -1,7 +1,7 @@
 From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH net 1/3] qlcnic: Fix loopback diagnostic test
-Date: Thu, 2 Jan 2014 13:38:43 -0500
-Message-ID: <1388687925-17882-2-git-send-email-manish.chopra@qlogic.com>
+Subject: [PATCH net 2/3] qlcnic: Fix resource allocation for TX queues
+Date: Thu, 2 Jan 2014 13:38:44 -0500
+Message-ID: <1388687925-17882-3-git-send-email-manish.chopra@qlogic.com>
 References: <1388687925-17882-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,84 +9,53 @@ Cc: <netdev@vger.kernel.org>, <rajesh.borundia@qlogic.com>,
 	<Dept_NX_Linux_NIC_Driver@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:41135 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:27831 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751067AbaABTS1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 14:18:27 -0500
+	by vger.kernel.org with ESMTP id S1750782AbaABTS0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 14:18:26 -0500
 In-Reply-To: <1388687925-17882-1-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o Adapter requires that if the port is in loopback mode no traffic should
-  be flowing through that port, so on arrival of Link up AEN, do not advertise
-  Link up to the stack until port is out of loopback mode
+o TX queues allocation was getting distributed equally among all the
+  functions of the port including VFs and PF. Which was leading to failure
+  in PF's multiple TX queues creation.
+
+o Instead of dividing queues equally allocate one TX queue for each VF as VF
+  doesn't support multiple TX queues.
 
 Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h         | 2 ++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c | 7 +------
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c      | 4 ++++
- 3 files changed, 7 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 631ea0a..4dfef81 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -487,6 +487,7 @@ struct qlcnic_hardware_context {
- 	struct qlcnic_mailbox *mailbox;
- 	u8 extend_lb_time;
- 	u8 phys_port_id[ETH_ALEN];
-+	u8 lb_mode;
- };
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
+index 686f460..024f816 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
+@@ -75,7 +75,6 @@ static int qlcnic_sriov_pf_cal_res_limit(struct qlcnic_adapter *adapter,
+ 	num_vfs = sriov->num_vfs;
+ 	max = num_vfs + 1;
+ 	info->bit_offsets = 0xffff;
+-	info->max_tx_ques = res->num_tx_queues / max;
+ 	info->max_rx_mcast_mac_filters = res->num_rx_mcast_mac_filters;
+ 	num_vf_macs = QLCNIC_SRIOV_VF_MAX_MAC;
  
- struct qlcnic_adapter_stats {
-@@ -808,6 +809,7 @@ struct qlcnic_mac_list_s {
+@@ -86,6 +85,7 @@ static int qlcnic_sriov_pf_cal_res_limit(struct qlcnic_adapter *adapter,
+ 		info->max_tx_mac_filters = temp;
+ 		info->min_tx_bw = 0;
+ 		info->max_tx_bw = MAX_BW;
++		info->max_tx_ques = res->num_tx_queues - sriov->num_vfs;
+ 	} else {
+ 		id = qlcnic_sriov_func_to_index(adapter, func);
+ 		if (id < 0)
+@@ -95,6 +95,7 @@ static int qlcnic_sriov_pf_cal_res_limit(struct qlcnic_adapter *adapter,
+ 		info->max_tx_bw = vp->max_tx_bw;
+ 		info->max_rx_ucast_mac_filters = num_vf_macs;
+ 		info->max_tx_mac_filters = num_vf_macs;
++		info->max_tx_ques = QLCNIC_SINGLE_RING;
+ 	}
  
- #define QLCNIC_ILB_MODE		0x1
- #define QLCNIC_ELB_MODE		0x2
-+#define QLCNIC_LB_MODE_MASK	0x3
- 
- #define QLCNIC_LINKEVENT	0x1
- #define QLCNIC_LB_RESPONSE	0x2
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 6055d39..f776f99 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -1684,12 +1684,6 @@ int qlcnic_83xx_loopback_test(struct net_device *netdev, u8 mode)
- 		}
- 	} while ((adapter->ahw->linkup && ahw->has_link_events) != 1);
- 
--	/* Make sure carrier is off and queue is stopped during loopback */
--	if (netif_running(netdev)) {
--		netif_carrier_off(netdev);
--		netif_tx_stop_all_queues(netdev);
--	}
--
- 	ret = qlcnic_do_lb_test(adapter, mode);
- 
- 	qlcnic_83xx_clear_lb_mode(adapter, mode);
-@@ -2121,6 +2115,7 @@ static void qlcnic_83xx_handle_link_aen(struct qlcnic_adapter *adapter,
- 	ahw->link_autoneg = MSB(MSW(data[3]));
- 	ahw->module_type = MSB(LSW(data[3]));
- 	ahw->has_link_events = 1;
-+	ahw->lb_mode = data[4] & QLCNIC_LB_MODE_MASK;
- 	qlcnic_advert_link_change(adapter, link_status);
- }
- 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-index eda6c69..1362976 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-@@ -689,6 +689,10 @@ void qlcnic_advert_link_change(struct qlcnic_adapter *adapter, int linkup)
- 		adapter->ahw->linkup = 0;
- 		netif_carrier_off(netdev);
- 	} else if (!adapter->ahw->linkup && linkup) {
-+		/* Do not advertise Link up if the port is in loopback mode */
-+		if (qlcnic_83xx_check(adapter) && adapter->ahw->lb_mode)
-+			return;
-+
- 		netdev_info(netdev, "NIC Link is up\n");
- 		adapter->ahw->linkup = 1;
- 		netif_carrier_on(netdev);
+ 	info->max_rx_ip_addr = res->num_destip / max;
 -- 
 1.8.3.1
