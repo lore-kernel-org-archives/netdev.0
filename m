@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH, RFC 21/30] isdn: divert, hysdn: fix interruptible_sleep_on race
-Date: Thu,  2 Jan 2014 13:07:45 +0100
-Message-ID: <1388664474-1710039-22-git-send-email-arnd@arndb.de>
+Subject: [PATCH, RFC 22/30] isdn: fix multiple sleep_on races
+Date: Thu,  2 Jan 2014 13:07:46 +0100
+Message-ID: <1388664474-1710039-23-git-send-email-arnd@arndb.de>
 References: <1388664474-1710039-1-git-send-email-arnd@arndb.de>
 Cc: Arnd Bergmann <arnd@arndb.de>, Karsten Keil <isdn@linux-pingi.de>,
 	netdev@vger.kernel.org
@@ -11,67 +11,63 @@ In-Reply-To: <1388664474-1710039-1-git-send-email-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-These two drivers use identical code for their procfs status
-file handling, which contains a small race against status
-data becoming available while reading the file.
-
-This uses wait_event_interruptible instead to fix this
-particular race and eventually get rid of all sleep_on
-instances. There seems to be another race involving
-multiple concurrent readers of the same procfs file, which
-I don't try to fix here.
+The isdn core code uses a couple of wait queues with
+interruptible_sleep_on, which is racy and about to get
+removed from the kernel. Fortunately, we know for each case
+what we are waiting for, so they can all be converted to
+the better wait_event_interruptible interface.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 Cc: Karsten Keil <isdn@linux-pingi.de>
 Cc: netdev@vger.kernel.org
 ---
- drivers/isdn/divert/divert_procfs.c | 7 ++++---
- drivers/isdn/hysdn/hysdn_proclog.c  | 7 ++++---
- 2 files changed, 8 insertions(+), 6 deletions(-)
+ drivers/isdn/i4l/isdn_common.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/isdn/divert/divert_procfs.c b/drivers/isdn/divert/divert_procfs.c
-index fb4f1ba..1c5dc34 100644
---- a/drivers/isdn/divert/divert_procfs.c
-+++ b/drivers/isdn/divert/divert_procfs.c
-@@ -86,12 +86,13 @@ isdn_divert_read(struct file *file, char __user *buf, size_t count, loff_t *off)
- 	struct divert_info *inf;
- 	int len;
- 
--	if (!*((struct divert_info **) file->private_data)) {
-+	if (!(inf = *((struct divert_info **) file->private_data))) {
- 		if (file->f_flags & O_NONBLOCK)
- 			return -EAGAIN;
--		interruptible_sleep_on(&(rd_queue));
-+		wait_event_interruptible(rd_queue, (inf =
-+			*((struct divert_info **) file->private_data)));
+diff --git a/drivers/isdn/i4l/isdn_common.c b/drivers/isdn/i4l/isdn_common.c
+index 9bb12ba..130f216 100644
+--- a/drivers/isdn/i4l/isdn_common.c
++++ b/drivers/isdn/i4l/isdn_common.c
+@@ -777,7 +777,8 @@ isdn_readbchan(int di, int channel, u_char *buf, u_char *fp, int len, wait_queue
+ 		return 0;
+ 	if (skb_queue_empty(&dev->drv[di]->rpqueue[channel])) {
+ 		if (sleep)
+-			interruptible_sleep_on(sleep);
++			wait_event_interruptible(*sleep,
++				!skb_queue_empty(&dev->drv[di]->rpqueue[channel]));
+ 		else
+ 			return 0;
  	}
--	if (!(inf = *((struct divert_info **) file->private_data)))
-+	if (!inf)
- 		return (0);
- 
- 	inf->usage_cnt--;	/* new usage count */
-diff --git a/drivers/isdn/hysdn/hysdn_proclog.c b/drivers/isdn/hysdn/hysdn_proclog.c
-index b61e8d5..7b5fd8f 100644
---- a/drivers/isdn/hysdn/hysdn_proclog.c
-+++ b/drivers/isdn/hysdn/hysdn_proclog.c
-@@ -175,14 +175,15 @@ hysdn_log_read(struct file *file, char __user *buf, size_t count, loff_t *off)
- 	int len;
- 	hysdn_card *card = PDE_DATA(file_inode(file));
- 
--	if (!*((struct log_data **) file->private_data)) {
-+	if (!(inf = *((struct log_data **) file->private_data))) {
- 		struct procdata *pd = card->proclog;
- 		if (file->f_flags & O_NONBLOCK)
- 			return (-EAGAIN);
- 
--		interruptible_sleep_on(&(pd->rd_queue));
-+		wait_event_interruptible(pd->rd_queue, (inf =
-+				*((struct log_data **) file->private_data)));
+@@ -1072,7 +1073,8 @@ isdn_read(struct file *file, char __user *buf, size_t count, loff_t *off)
+ 				retval = -EAGAIN;
+ 				goto out;
+ 			}
+-			interruptible_sleep_on(&(dev->info_waitq));
++			wait_event_interruptible(dev->info_waitq,
++						 file->private_data);
+ 		}
+ 		p = isdn_statstr();
+ 		file->private_data = NULL;
+@@ -1128,7 +1130,8 @@ isdn_read(struct file *file, char __user *buf, size_t count, loff_t *off)
+ 				retval = -EAGAIN;
+ 				goto out;
+ 			}
+-			interruptible_sleep_on(&(dev->drv[drvidx]->st_waitq));
++			wait_event_interruptible(dev->drv[drvidx]->st_waitq,
++						 dev->drv[drvidx]->stavail);
+ 		}
+ 		if (dev->drv[drvidx]->interface->readstat) {
+ 			if (count > dev->drv[drvidx]->stavail)
+@@ -1188,8 +1191,8 @@ isdn_write(struct file *file, const char __user *buf, size_t count, loff_t *off)
+ 			goto out;
+ 		}
+ 		chidx = isdn_minor2chan(minor);
+-		while ((retval = isdn_writebuf_stub(drvidx, chidx, buf, count)) == 0)
+-			interruptible_sleep_on(&dev->drv[drvidx]->snd_waitq[chidx]);
++		wait_event_interruptible(dev->drv[drvidx]->snd_waitq[chidx],
++			(retval = isdn_writebuf_stub(drvidx, chidx, buf, count)));
+ 		goto out;
  	}
--	if (!(inf = *((struct log_data **) file->private_data)))
-+	if (!inf)
- 		return (0);
- 
- 	inf->usage_cnt--;	/* new usage count */
+ 	if (minor <= ISDN_MINOR_CTRLMAX) {
 -- 
 1.8.3.2
