@@ -1,25 +1,24 @@
 From: chenweilong <chenweilong@huawei.com>
 Subject: Re: [PATCH] ipv6: don't call addrconf_dst_alloc again when enable
  lo
-Date: Thu, 2 Jan 2014 15:58:22 +0800
-Message-ID: <52C51C1E.9040603@huawei.com>
-References: <1371352470-3226-1-git-send-email-gaofeng@cn.fujitsu.com> <20130619.230532.1329281330568271336.davem@davemloft.net> <20131231035718.GB27636@order.stressinduktion.org> <52C4FDBE.5030607@huawei.com> <20140102065429.GB22494@order.stressinduktion.org>
+Date: Thu, 2 Jan 2014 16:13:40 +0800
+Message-ID: <52C51FB4.3000008@huawei.com>
+References: <1371352470-3226-1-git-send-email-gaofeng@cn.fujitsu.com> <20130619.230532.1329281330568271336.davem@davemloft.net> <20131231035718.GB27636@order.stressinduktion.org> <52C4FDBE.5030607@huawei.com> <20140102060318.GA22494@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, <gaofeng@cn.fujitsu.com>,
-	<kumaran.4353@gmail.com>, <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:8602 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750721AbaABH6h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 02:58:37 -0500
-In-Reply-To: <20140102065429.GB22494@order.stressinduktion.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:63886 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750763AbaABIOZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 03:14:25 -0500
+In-Reply-To: <20140102060318.GA22494@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/1/2 14:54, Hannes Frederic Sowa wrote:
+On 2014/1/2 14:03, Hannes Frederic Sowa wrote:
 > On Thu, Jan 02, 2014 at 01:48:46PM +0800, chenweilong wrote:
 >> On 2013/12/31 11:57, Hannes Frederic Sowa wrote:
 >>> On Wed, Jun 19, 2013 at 11:05:32PM -0700, David Miller wrote:
@@ -58,51 +57,15 @@ On 2014/1/2 14:54, Hannes Frederic Sowa wrote:
 >>
 >> Is it designed like that or a bug?
 > 
-> This seems to solve the loopback up/down problem, but there are still
-> some issues with up/down of interfaces and routing table interactions.
+> It is designed this way.
 > 
-> We enable routes over interfaces when interface is actually down and
-> kick manually specified on-link routes when we actually should try to
-> keep them and just disable them.
+> Greetings,
 > 
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 6c16345..61d752a 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -2629,8 +2629,10 @@ static void init_loopback(struct net_device *dev)
->  			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
->  				continue;
->  
-> -			if (sp_ifa->rt)
-> +			if (sp_ifa->rt) {
-> +				ip6_ins_rt(sp_ifa->rt);
->  				continue;
-> +			}
->  
->  			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, false);
->  
+>   Hannes
+> 
 > 
 > .
 > 
-I test the patch,it has the problem Gao feng reported.
+Can you give more explanation about this please?
 
-How about this:
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index d5fa5b8..5e2db6e 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2609,10 +2609,13 @@ static void init_loopback(struct net_device *dev)
-
-                        if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
-                                continue;
-
--                       if (sp_ifa->rt)
--                               continue;
-+                       if (sp_ifa->rt && sp_ifa->rt->dst.dev == dev){
-+                               ip6_del_rt(sp_ifa->rt);
-+                       }
-
-                        sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, false);
-
-                        /* Failure cases are ignored */
+Thanks!
