@@ -1,44 +1,39 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH 24/31] staging: r8188eu: Additional cleanup of
- include/odm.h
-Date: Thu, 2 Jan 2014 12:05:16 +0300
-Message-ID: <20140102090516.GB5443@mwanda>
-References: <1387755422-11443-1-git-send-email-Larry.Finger@lwfinger.net>
- <1387755422-11443-25-git-send-email-Larry.Finger@lwfinger.net>
+From: chenweilong <chenweilong@huawei.com>
+Subject: Re: [PATCH] ipv6: don't call addrconf_dst_alloc again when enable
+ lo
+Date: Thu, 2 Jan 2014 17:08:15 +0800
+Message-ID: <52C52C7F.6080108@huawei.com>
+References: <1371352470-3226-1-git-send-email-gaofeng@cn.fujitsu.com> <20130619.230532.1329281330568271336.davem@davemloft.net> <20131231035718.GB27636@order.stressinduktion.org> <52C4FDBE.5030607@huawei.com> <20140102060318.GA22494@order.stressinduktion.org> <52C51FB4.3000008@huawei.com> <20140102083200.GD22494@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, gregkh@linuxfoundation.org,
- netdev@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <1387755422-11443-25-git-send-email-Larry.Finger@lwfinger.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:55698 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750711AbaABJJd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 04:09:33 -0500
+In-Reply-To: <20140102083200.GD22494@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 22, 2013 at 05:36:55PM -0600, Larry Finger wrote:
-> --- a/drivers/staging/rtl8188eu/include/odm_interface.h
-> +++ b/drivers/staging/rtl8188eu/include/odm_interface.h
-> @@ -51,7 +51,7 @@ ODM_REG(DIG,_pDM_Odm)
->  
->  #define _cat(_name, _ic_type, _func)					\
->  	(								\
-> -		((_ic_type) & ODM_IC_11N_SERIES) ? _func##_11N(_name) :	\
-> +		(_ic_type) ? _func##_11N(_name) :			\
->  		_func##_11AC(_name)					\
->  	)
-
-The original version of this function was more readable...  I think
-_ic_type is either zero or 16?
-
-regards,
-dan carpenter
+On 2014/1/2 16:32, Hannes Frederic Sowa wrote:
+> On Thu, Jan 02, 2014 at 04:13:40PM +0800, chenweilong wrote:
+>> Can you give more explanation about this please?
+> 
+> If you look at the routing table for local addresses (ip -6 route list table
+> local), you see that every address which is RTF_LOCAL (and thus passes up the
+> packets via ip6_input) has as its device the loopback device.
+> 
+> In case you shutdown loopback you clear all those routes, thus incoming
+> packets won't find the corresponding rt6_info which directs the packets to
+> passed up the stack.
+> 
+> I guess it was done to satisfy the scoped architecture of IPv6.
+> 
+> Does this help you?
+> 
+> 
+> 
+Yes,thanks very much!
