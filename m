@@ -1,51 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: llc: fix order of evaluation in
- llc_conn_ac_inc_vr_by_1
-Date: Wed, 01 Jan 2014 22:23:23 -0500 (EST)
-Message-ID: <20140101.222323.688931116639418849.davem@davemloft.net>
-References: <1388613865-25003-1-git-send-email-dborkman@redhat.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next v2 0/6] support new chip
+Date: Thu, 2 Jan 2014 11:22:38 +0800
+Message-ID: <1388632963-1341-1-git-send-email-hayeswang@realtek.com>
+References: <1388111649-1014-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, acme@ghostprotocols.net,
-	stephen@networkplumber.org
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46038 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750707AbaABDXZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jan 2014 22:23:25 -0500
-In-Reply-To: <1388613865-25003-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1388111649-1014-1-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Wed,  1 Jan 2014 23:04:25 +0100
+Remove the trailing "/* CRC */" for patch #3.
 
-> Function llc_conn_ac_inc_vr_by_1() evaluates via macro
-> PDU_GET_NEXT_Vr() into ...
-> 
->   llc_sk(sk)->vR = ++llc_sk(sk)->vR & 0xffffffffffffff7f
-> 
-> ... but the order in which the side effects take place is
-> undefined because there is no intervening sequence point.
-> 
-> As llc_sk(sk)->vR is written in llc_sk(sk)->vR (assignment
-> left-hand side) and written in ++llc_sk(sk)->vR & 0xffffffffffffff7f
-> this might possibly yield undefined behavior.
-> 
-> The final value of llc_sk(sk)->vR is ambiguous, because,
-> depending on the order of expression evaluation, the
-> increment may occur before, after, or interleaved with
-> the assignment. In C, evaluating such an expression yields
-> undefined behavior.
-> 
-> Since we're doing the increment via PDU_GET_NEXT_Vr() macro
-> and the only place it is being used is from
-> llc_conn_ac_inc_vr_by_1(), in order to increment vR by 1
-> with a follow-up optimized modulo, rewrite the expression
-> into ((vR + 1) & CONST) in order to fix this.
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Change the return value type of rtl_ops_init() from int to boolean
+for patch #4.
 
-Applied, thanks Daniel.
+Replace VENDOR_ID_SAMSUNG with SAMSUNG_VENDOR_ID for patch #6.
+
+Hayes Wang (6):
+  r8152: move rtl8152_unload and ocp_reg_write
+  r8152: modify the method of accessing PHY
+  r8152: change some definitions
+  r8152: add rtl_ops
+  r8152: split rtl8152_enable
+  r8152: support RTL8153
+
+ drivers/net/usb/cdc_ether.c |  10 +
+ drivers/net/usb/r8152.c     | 813 +++++++++++++++++++++++++++++++++++++++-----
+ drivers/net/usb/r815x.c     |   2 +-
+ 3 files changed, 742 insertions(+), 83 deletions(-)
+
+-- 
+1.8.3.1
