@@ -1,48 +1,44 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 3/3] smsc9420: use named constants for pci_power_t values
-Date: Fri,  3 Jan 2014 00:40:31 +0100
-Message-ID: <1388706031-22180-4-git-send-email-Julia.Lawall@lip6.fr>
-References: <1388706031-22180-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Steve Glendinning <steve.glendinning@shawell.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1388706031-22180-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: IrDA woes..
+Date: Thu, 2 Jan 2014 14:47:44 -0800
+Message-ID: <CA+55aFwBCATuEWKZTK7aueSyO4JAOBGvqq3FZnsqynmouGOQog@mail.gmail.com>
+References: <20140102.034653.1968429090467668489.davem@davemloft.net>
+	<CA+55aFz_qDYP_P0PLUNv0wotoy=5PcS+7Qtt=U6EzvL4h4E69A@mail.gmail.com>
+	<CA+55aFyFAaHgoTe_ZVs3F0Giy4qDndKsE6GbB4DgcaK7QkXOkA@mail.gmail.com>
+	<20140102.174136.1587468571877727139.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Samuel Ortiz <samuel@sortiz.org>,
+	Network Development <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f53.google.com ([74.125.83.53]:48403 "EHLO
+	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752550AbaABWrp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 17:47:45 -0500
+Received: by mail-ee0-f53.google.com with SMTP id b57so6488659eek.40
+        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 14:47:44 -0800 (PST)
+In-Reply-To: <20140102.174136.1587468571877727139.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+On Thu, Jan 2, 2014 at 2:41 PM, David Miller <davem@davemloft.net> wrote:
+>
+> Yes, something like the following untested patch.
 
-The semantic patch that makes this change is as follows:
-(http://coccinelle.lip6.fr/)
+I did that initially too, but that doesn't work, because the code
+inside the skb_queue_walk() loop ends up calling irlap_send_i_frame()
+which calls irlap_queue_xmit(), which does dev_queue_xmit().
 
-// <smpl>
-@@
-expression e1,e2;
-@@
+Which will do a bh_disable/bh_enable() (as part of spin_[un]lock_bh(), iirc).
 
-pci_enable_wake(e1,
-- 0
-+ PCI_D0
-,e2)
-// </smpl>
+So you can't use "spin_lock_irqsave()", because it doesn't nest around
+a softirq-disable.
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+You could use spin_lock_bh(), but if it's true that it's all in a
+softirq context, I think it should be safe to just do "spin_lock()".
+Afaik, there is nothing that actually does anything in real hardirq
+context in there. I *think* all the network _rcv() functions are
+called from softirqs, right?
 
----
- drivers/net/ethernet/smsc/smsc9420.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/smsc/smsc9420.c b/drivers/net/ethernet/smsc/smsc9420.c
-index 9d6effe..d3b967a 100644
---- a/drivers/net/ethernet/smsc/smsc9420.c
-+++ b/drivers/net/ethernet/smsc/smsc9420.c
-@@ -1540,7 +1540,7 @@ static int smsc9420_resume(struct pci_dev *pdev)
- 
- 	pci_set_master(pdev);
- 
--	err = pci_enable_wake(pdev, 0, 0);
-+	err = pci_enable_wake(pdev, PCI_D0, 0);
- 	if (err)
- 		netif_warn(pd, ifup, pd->dev, "pci_enable_wake failed: %d\n",
- 			   err);
+             Linus
