@@ -1,59 +1,83 @@
-From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: RE: [PATCH net-next 2/2] net/mlx4: Revert "mlx4: set maximal number
- of default RSS queues"
-Date: Thu, 2 Jan 2014 06:04:49 +0000
-Message-ID: <979A8436335E3744ADCD3A9F2A2B68A52AF21C13@SJEXCHMB10.corp.ad.broadcom.com>
-References: <1388581537-4810-1-git-send-email-amirv@mellanox.com>
-	<1388581537-4810-3-git-send-email-amirv@mellanox.com>
-	<979A8436335E3744ADCD3A9F2A2B68A52AF21A1A@SJEXCHMB10.corp.ad.broadcom.com>
- <CAJZOPZ++ETzuttO9_ZTy6Atx6=wKyhXUhxyQHj2Ed5nTUBNC0A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Amir Vadai <amirv@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+From: roy.qing.li@gmail.com
+Subject: [PATCH] ipv6: fix the use of pcpu_tstats in ip6_vti.c
+Date: Thu,  2 Jan 2014 14:24:36 +0800
+Message-ID: <1388643876-31865-1-git-send-email-roy.qing.li@gmail.com>
+Cc: stephen@networkplumber.org, edumazet@google.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:60612 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750860AbaABGEu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 01:04:50 -0500
-In-Reply-To: <CAJZOPZ++ETzuttO9_ZTy6Atx6=wKyhXUhxyQHj2Ed5nTUBNC0A@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:42553 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750860AbaABGYq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 01:24:46 -0500
+Received: by mail-pd0-f181.google.com with SMTP id p10so13813680pdj.12
+        for <netdev@vger.kernel.org>; Wed, 01 Jan 2014 22:24:44 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > [...] If you believe this is a better default (or some relaxation will be, e.g.,  16
-> instead of 8),  why not set it as default for ALL multi-queue networking
-> drivers?
-> 
-> Going back to your original commit 16917b87a "net-next: Add
-> netif_get_num_default_rss_queues" I am still not clear why we want
-> 
-> 1. why we want a common default to all MQ devices?
+From: Li RongQing <roy.qing.li@gmail.com>
 
-Although networking benefits from multiple Interrupt vectors
-(enabling more rings, better performance, etc.), bounding this
-number only to the number of cpus is unreasonable as it strains
-system resources; e.g., consider a 40-cpu server - we might wish
-to have 40 vectors per device, but that means that connecting
-several devices to the same server might cause other functions 
-to fail probe as they will no longer be able to acquire interrupt
-vectors of their own.
+when read/write the 64bit data, the correct lock should be hold.
+and we can use the generic vti6_get_stats to return stats, and
+not define a new one in ip6_vti.c
 
-Since networking has an API allowing the user to manually set the
-number of channels, the default is upper-bounded.
+Fixes: 87b6d218f3adb ("tunnel: implement 64 bits statistics")
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/ipv6/ip6_vti.c |   24 +++---------------------
+ 1 file changed, 3 insertions(+), 21 deletions(-)
 
-> 2. why this default has to be hard coded and not derived e.g from the
-> number of cores or alike attribute of the system?
-
-This is not entirely correct; The default number is derived from
-the number of online cpus - it's only upper bounded by some
-hard-coded value.
-
-Cheers,
-Yuval
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index ed94ba6..a4564b0 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -75,26 +75,6 @@ struct vti6_net {
+ 	struct ip6_tnl __rcu **tnls[2];
+ };
+ 
+-static struct net_device_stats *vti6_get_stats(struct net_device *dev)
+-{
+-	struct pcpu_tstats sum = { 0 };
+-	int i;
+-
+-	for_each_possible_cpu(i) {
+-		const struct pcpu_tstats *tstats = per_cpu_ptr(dev->tstats, i);
+-
+-		sum.rx_packets += tstats->rx_packets;
+-		sum.rx_bytes   += tstats->rx_bytes;
+-		sum.tx_packets += tstats->tx_packets;
+-		sum.tx_bytes   += tstats->tx_bytes;
+-	}
+-	dev->stats.rx_packets = sum.rx_packets;
+-	dev->stats.rx_bytes   = sum.rx_bytes;
+-	dev->stats.tx_packets = sum.tx_packets;
+-	dev->stats.tx_bytes   = sum.tx_bytes;
+-	return &dev->stats;
+-}
+-
+ #define for_each_vti6_tunnel_rcu(start) \
+ 	for (t = rcu_dereference(start); t; t = rcu_dereference(t->next))
+ 
+@@ -331,8 +311,10 @@ static int vti6_rcv(struct sk_buff *skb)
+ 		}
+ 
+ 		tstats = this_cpu_ptr(t->dev->tstats);
++		u64_stats_update_begin(&tstats->syncp);
+ 		tstats->rx_packets++;
+ 		tstats->rx_bytes += skb->len;
++		u64_stats_update_end(&tstats->syncp);
+ 
+ 		skb->mark = 0;
+ 		secpath_reset(skb);
+@@ -716,7 +698,7 @@ static const struct net_device_ops vti6_netdev_ops = {
+ 	.ndo_start_xmit = vti6_tnl_xmit,
+ 	.ndo_do_ioctl	= vti6_ioctl,
+ 	.ndo_change_mtu = vti6_change_mtu,
+-	.ndo_get_stats	= vti6_get_stats,
++	.ndo_get_stats64 = ip_tunnel_get_stats64,
+ };
+ 
+ /**
+-- 
+1.7.10.4
