@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/8][pull request] Intel Wired LAN Driver Updates
-Date: Wed, 01 Jan 2014 23:01:44 -0500 (EST)
-Message-ID: <20140101.230144.1089784999738194633.davem@davemloft.net>
-References: <1388537594-24601-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH stable v2 0/3] virtio-net: backport error handling
+ bugfix
+Date: Wed, 01 Jan 2014 23:16:40 -0500 (EST)
+Message-ID: <20140101.231640.983120067744057608.davem@davemloft.net>
+References: <1388064752-15734-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, rusty@rustcorp.com.au
+To: mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46294 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46338 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750719AbaABEBq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jan 2014 23:01:46 -0500
-In-Reply-To: <1388537594-24601-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1751125AbaABEQm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jan 2014 23:16:42 -0500
+In-Reply-To: <1388064752-15734-1-git-send-email-mst@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 31 Dec 2013 16:53:05 -0800
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 26 Dec 2013 15:32:44 +0200
 
-> This series implements the Linux Virtual Function (VF) driver for
-> the Intel Ethernet Controller XL710 family.
+> Error handling for virtio-net mergeable buffers was broken
+> for a long time. Backport recent bugfix to a stable
+> kernel.
 > 
-> The following are changes since commit 21eb218989523b7bee28900aaec9f9296b70fa27:
->   net, sch: fix the typo in register_qdisc()
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+> Please note that it's really a single change split out for ease of
+> review - that's why 2/2 is here even though it's not
+> stricktly a bugfix - the code becomes too confusing without it.
+> 
+> Please review and consider for stable.
 
-Pulled, thanks Jeff.
+Queued up for -stable, thanks Michael.
