@@ -1,51 +1,77 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH, RFC 18/30] atm: firestream: fix interruptible_sleep_on race
-Date: Thu,  2 Jan 2014 13:07:42 +0100
-Message-ID: <1388664474-1710039-19-git-send-email-arnd@arndb.de>
+Subject: [PATCH, RFC 21/30] isdn: divert, hysdn: fix interruptible_sleep_on race
+Date: Thu,  2 Jan 2014 13:07:45 +0100
+Message-ID: <1388664474-1710039-22-git-send-email-arnd@arndb.de>
 References: <1388664474-1710039-1-git-send-email-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	Chas Williams <chas@cmf.nrl.navy.mil>,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, Karsten Keil <isdn@linux-pingi.de>,
+	netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1388664474-1710039-1-git-send-email-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-interruptible_sleep_on is racy and going away. This replaces the one use
-in the firestream driver with the appropriate wait_event_interruptible
-variant.
+These two drivers use identical code for their procfs status
+file handling, which contains a small race against status
+data becoming available while reading the file.
+
+This uses wait_event_interruptible instead to fix this
+particular race and eventually get rid of all sleep_on
+instances. There seems to be another race involving
+multiple concurrent readers of the same procfs file, which
+I don't try to fix here.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: Chas Williams <chas@cmf.nrl.navy.mil>
-Cc: linux-atm-general@lists.sourceforge.net
+Cc: Karsten Keil <isdn@linux-pingi.de>
 Cc: netdev@vger.kernel.org
 ---
- drivers/atm/firestream.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/isdn/divert/divert_procfs.c | 7 ++++---
+ drivers/isdn/hysdn/hysdn_proclog.c  | 7 ++++---
+ 2 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/atm/firestream.c b/drivers/atm/firestream.c
-index b41c948..f43e1c1 100644
---- a/drivers/atm/firestream.c
-+++ b/drivers/atm/firestream.c
-@@ -736,8 +736,8 @@ static void process_txdone_queue (struct fs_dev *dev, struct queue *q)
-       
- 			skb = td->skb;
- 			if (skb == FS_VCC (ATM_SKB(skb)->vcc)->last_skb) {
--				wake_up_interruptible (& FS_VCC (ATM_SKB(skb)->vcc)->close_wait);
- 				FS_VCC (ATM_SKB(skb)->vcc)->last_skb = NULL;
-+				wake_up_interruptible (& FS_VCC (ATM_SKB(skb)->vcc)->close_wait);
- 			}
- 			td->dev->ntxpckts--;
+diff --git a/drivers/isdn/divert/divert_procfs.c b/drivers/isdn/divert/divert_procfs.c
+index fb4f1ba..1c5dc34 100644
+--- a/drivers/isdn/divert/divert_procfs.c
++++ b/drivers/isdn/divert/divert_procfs.c
+@@ -86,12 +86,13 @@ isdn_divert_read(struct file *file, char __user *buf, size_t count, loff_t *off)
+ 	struct divert_info *inf;
+ 	int len;
  
-@@ -1123,7 +1123,7 @@ static void fs_close(struct atm_vcc *atm_vcc)
- 		   this sleep_on, we'll lose any reference to these packets. Memory leak!
- 		   On the other hand, it's awfully convenient that we can abort a "close" that
- 		   is taking too long. Maybe just use non-interruptible sleep on? -- REW */
--		interruptible_sleep_on (& vcc->close_wait);
-+		wait_event_interruptible(vcc->close_wait, !vcc->last_skb);
+-	if (!*((struct divert_info **) file->private_data)) {
++	if (!(inf = *((struct divert_info **) file->private_data))) {
+ 		if (file->f_flags & O_NONBLOCK)
+ 			return -EAGAIN;
+-		interruptible_sleep_on(&(rd_queue));
++		wait_event_interruptible(rd_queue, (inf =
++			*((struct divert_info **) file->private_data)));
  	}
+-	if (!(inf = *((struct divert_info **) file->private_data)))
++	if (!inf)
+ 		return (0);
  
- 	txtp = &atm_vcc->qos.txtp;
+ 	inf->usage_cnt--;	/* new usage count */
+diff --git a/drivers/isdn/hysdn/hysdn_proclog.c b/drivers/isdn/hysdn/hysdn_proclog.c
+index b61e8d5..7b5fd8f 100644
+--- a/drivers/isdn/hysdn/hysdn_proclog.c
++++ b/drivers/isdn/hysdn/hysdn_proclog.c
+@@ -175,14 +175,15 @@ hysdn_log_read(struct file *file, char __user *buf, size_t count, loff_t *off)
+ 	int len;
+ 	hysdn_card *card = PDE_DATA(file_inode(file));
+ 
+-	if (!*((struct log_data **) file->private_data)) {
++	if (!(inf = *((struct log_data **) file->private_data))) {
+ 		struct procdata *pd = card->proclog;
+ 		if (file->f_flags & O_NONBLOCK)
+ 			return (-EAGAIN);
+ 
+-		interruptible_sleep_on(&(pd->rd_queue));
++		wait_event_interruptible(pd->rd_queue, (inf =
++				*((struct log_data **) file->private_data)));
+ 	}
+-	if (!(inf = *((struct log_data **) file->private_data)))
++	if (!inf)
+ 		return (0);
+ 
+ 	inf->usage_cnt--;	/* new usage count */
 -- 
 1.8.3.2
