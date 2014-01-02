@@ -1,58 +1,65 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [PATCH] infiniband: make sure the src net is infiniband when create new link
-Date: Thu,  2 Jan 2014 17:37:38 +0800
-Message-ID: <1388655458-25269-1-git-send-email-liuhangbin@gmail.com>
-Cc: David Miller <davem@davemloft.net>, Weiping Pan <wpan@redhat.com>,
-	Hangbin Liu <liuhangbin@gmail.com>
-To: network dev <netdev@vger.kernel.org>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next 2/2] net/mlx4: Revert "mlx4: set maximal number
+ of default RSS queues"
+Date: Thu, 2 Jan 2014 11:35:23 +0200
+Message-ID: <52C532DB.9000200@mellanox.com>
+References: <1388581537-4810-1-git-send-email-amirv@mellanox.com>	<1388581537-4810-3-git-send-email-amirv@mellanox.com>	<979A8436335E3744ADCD3A9F2A2B68A52AF21A1A@SJEXCHMB10.corp.ad.broadcom.com> <CAJZOPZ++ETzuttO9_ZTy6Atx6=wKyhXUhxyQHj2Ed5nTUBNC0A@mail.gmail.com> <979A8436335E3744ADCD3A9F2A2B68A52AF21C13@SJEXCHMB10.corp.ad.broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Amir Vadai <amirv@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>
+To: Yuval Mintz <yuvalmin@broadcom.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:54311 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750707AbaABJiT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 04:38:19 -0500
-Received: by mail-pa0-f49.google.com with SMTP id kx10so14309130pab.22
-        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 01:38:18 -0800 (PST)
+Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:35468 "EHLO
+	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750707AbaABJlR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 04:41:17 -0500
+In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A52AF21C13@SJEXCHMB10.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we create a new infiniband link with uninfiniband device, e.g. `ip link
-add link em1 type ipoib pkey 0x8001`. We will get a NULL pointer dereference
-cause other dev like Ethernet don't have struct ib_device.
+On 02/01/2014 08:04, Yuval Mintz wrote:
+>>> [...] If you believe this is a better default (or some relaxation will be, e.g.,  16
+>> instead of 8),  why not set it as default for ALL multi-queue networking
+>> drivers?
+>>
+>> Going back to your original commit 16917b87a "net-next: Add
+>> netif_get_num_default_rss_queues" I am still not clear why we want
+>>
+>> 1. why we want a common default to all MQ devices?
+> Although networking benefits from multiple Interrupt vectors
+> (enabling more rings, better performance, etc.), bounding this
+> number only to the number of cpus is unreasonable as it strains
+> system resources; e.g., consider a 40-cpu server - we might wish
+> to have 40 vectors per device, but that means that connecting
+> several devices to the same server might cause other functions
+> to fail probe as they will no longer be able to acquire interrupt
+> vectors of their own.
 
-The code path is:
-rtnl_newlink
-  |-- ipoib_new_child_link
-        |-- __ipoib_vlan_add
-              |-- ipoib_set_dev_features
-	            |-- ib_query_device
+Modern servers which have tens of CPUs typically have thousands of MSI-X 
+vectors which means you should be easily able to plug four cards into a 
+server with 64 cores which will consume 256 out of the 1-4K vectors out 
+there. Anyway, let me continue your approach - how about raising the 
+default hard limit to 16 or having it as the number of cores @ the numa 
+node where the card is plugged?
 
-Fix this bug by make sure the src net is infiniband when create new link.
+Or.
 
-Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
----
- drivers/infiniband/ulp/ipoib/ipoib_netlink.c | 3 +++
- 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_netlink.c b/drivers/infiniband/ulp/ipoib/ipoib_netlink.c
-index c29b5c8..de340c9 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_netlink.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_netlink.c
-@@ -31,6 +31,7 @@
-  */
- 
- #include <linux/netdevice.h>
-+#include <linux/if_arp.h>	/* For ARPHRD_xxx */
- #include <linux/module.h>
- #include <net/rtnetlink.h>
- #include "ipoib.h"
-@@ -105,6 +106,8 @@ static int ipoib_new_child_link(struct net *src_net, struct net_device *dev,
- 	pdev = __dev_get_by_index(src_net, nla_get_u32(tb[IFLA_LINK]));
- 	if (!pdev)
- 		return -ENODEV;
-+	if (pdev->type != ARPHRD_INFINIBAND)
-+		return -ENODEV;
- 
- 	ppriv = netdev_priv(pdev);
- 
--- 
-1.8.1.4
+>
+> Since networking has an API allowing the user to manually set the
+> number of channels, the default is upper-bounded.
+>
+>> 2. why this default has to be hard coded and not derived e.g from the
+>> number of cores or alike attribute of the system?
+> This is not entirely correct; The default number is derived from
+> the number of online cpus - it's only upper bounded by some
+> hard-coded value.
+>
+> Cheers,
+> Yuval
