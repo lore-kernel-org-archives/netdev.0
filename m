@@ -1,27 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: IrDA woes..
-Date: Thu, 02 Jan 2014 17:42:12 -0500 (EST)
-Message-ID: <20140102.174212.451220013291367465.davem@davemloft.net>
-References: <CA+55aFz2CQ4B1JSpQ75TuQrrd9sUnhV+u=T2dWZY2NTTT5OmpQ@mail.gmail.com>
-	<20140102.034653.1968429090467668489.davem@davemloft.net>
-	<CA+55aFz_qDYP_P0PLUNv0wotoy=5PcS+7Qtt=U6EzvL4h4E69A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, netdev@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54113 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751258AbaABWmN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 17:42:13 -0500
-In-Reply-To: <CA+55aFz_qDYP_P0PLUNv0wotoy=5PcS+7Qtt=U6EzvL4h4E69A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 0/3] use named constants for pci_power_t values
+Date: Fri,  3 Jan 2014 00:40:28 +0100
+Message-ID: <1388706031-22180-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: alsa-devel@alsa-project.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Thu, 2 Jan 2014 11:11:42 -0800
+Replace numbers by named constants.  The complete semantic patch used is as
+follows (http://coccinelle.lip6.fr/):
 
-> Is anybody actually really using or maintaining irda any more?
+// <smpl>
+@@
+expression pdev;
+@@
 
-No, not to my knowledge.
+pci_set_power_state(pdev,
+(
+- 0
++ PCI_D0
+|
+- 1
++ PCI_D1
+|
+- 2
++ PCI_D2
+|
+- 3
++ PCI_D3hot
+|
+- 4
++ PCI_D3cold
+|
+- 5
++ PCI_UNKNOWN
+|
+- -1
++ PCI_POWER_ERROR
+)
+ )
+
+@@
+expression e1,e2;
+@@
+
+pci_enable_wake(e1,
+(
+- 0
++ PCI_D0
+|
+- 1
++ PCI_D1
+|
+- 2
++ PCI_D2
+|
+- 3
++ PCI_D3hot
+|
+- 4
++ PCI_D3cold
+|
+- 5
++ PCI_UNKNOWN
+|
+- -1
++ PCI_POWER_ERROR
+)
+,e2)
+// </smpl>
