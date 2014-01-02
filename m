@@ -1,44 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch v2] ipv6: mld: Prevent skb_over_panic with large MTUs
-Date: Wed, 01 Jan 2014 23:30:22 -0500 (EST)
-Message-ID: <20140101.233022.923203259739709098.davem@davemloft.net>
-References: <1387586456-25892-1-git-send-email-travisb@aristanetworks.com>
-	<1387840581-10995-1-git-send-email-travisb@aristanetworks.com>
+Subject: Re: [PATCH 1/1] ipv4: arp: update neighbour address when a
+ gratuitous arp is received and arp_accept is set
+Date: Wed, 01 Jan 2014 23:38:34 -0500 (EST)
+Message-ID: <20140101.233834.1721631702711130638.davem@davemloft.net>
+References: <1387923422-4247-1-git-send-email-noureddine@aristanetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: travisb@aristanetworks.com
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, hannes@stressinduktion.org, netdev@vger.kernel.org
+To: noureddine@aristanetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46389 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46433 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750762AbaABEaX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jan 2014 23:30:23 -0500
-In-Reply-To: <1387840581-10995-1-git-send-email-travisb@aristanetworks.com>
+	with ESMTP id S1750774AbaABEig (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jan 2014 23:38:36 -0500
+In-Reply-To: <1387923422-4247-1-git-send-email-noureddine@aristanetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Travis Brown <travisb@aristanetworks.com>
-Date: Mon, 23 Dec 2013 15:16:21 -0800
+From: Salam Noureddine <noureddine@aristanetworks.com>
+Date: Tue, 24 Dec 2013 14:17:02 -0800
 
-> MLD limits the maximum skb size to fit within a single page. Later
-> code uses the device MTU, if available, to determine whether the skb
-> has sufficient room for another field. On interfaces with MTUs larger
-> than the page size, less the skb overhead, this can result in the skb
-> being overrun and a skb_over_panic being generated.
+> Gratuitous arp packets are useful in switchover scenarios to update
+> client arp tables as quickly as possible. Currently, the mac address
+> of a neighbour is only updated after a locktime period has elapsed
+> since the last update. In most use cases such delays are unacceptable
+> for network admins. Moreover, the "updated" field of the neighbour
+> stucture doesn't record the last time the address of a neighbour
+> changed but records any change that happens to the neighbour. This is
+> clearly a bug since locktime uses that field as meaning "addr_updated".
+> With this observation, I was able to perpetuate a stale address by
+> sending a stream of gratuitous arp packets spaced less than locktime
+> apart. With this change the address is updated when a gratuitous arp
+> is received and the arp_accept sysctl is set.
 > 
-> Use skb_availroom() instead of MTU check.
-> 
-> Signed-off-by: Travis Brown <travisb@aristanetworks.com>
-> Fixes: 72e09ad107e78 ("ipv6: avoid high order allocations")
+> Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
 
-I would rather that you, for consistency, mimick what the ipv4
-multicast code does, which is:
-
-1) Try the requested size, no matter how large, then progressively
-   try smaller sizes.
-
-2) Store the obtained size in the SKB control block.
-
-Thanks.
+This patch doesn't apply, please regenerate this patch against current
+sources.
