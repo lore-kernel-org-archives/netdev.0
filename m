@@ -1,34 +1,29 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [resend patch ipsec-next v2 0/5] fix checkpatch errors
-Date: Thu, 2 Jan 2014 08:34:30 +0100
-Message-ID: <20140102073430.GO31491@secunet.com>
-References: <1387849430-17860-1-git-send-email-chenweilong@huawei.com>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH RESEND net-next 1/7] bonding: use ether_addr_equal_unaligned
+ for bond addr compare
+Date: Thu, 2 Jan 2014 08:39:29 +0100 (CET)
+Message-ID: <alpine.DEB.2.02.1401020839000.2182@localhost6.localdomain6>
+References: <52C4BD16.5010702@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Chen Weilong <chenweilong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:39089 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750715AbaABHed (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jan 2014 02:34:33 -0500
-Content-Disposition: inline
-In-Reply-To: <1387849430-17860-1-git-send-email-chenweilong@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Joe Perches <joe@perches.com>, Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52C4BD16.5010702@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 24, 2013 at 09:43:45AM +0800, Chen Weilong wrote:
-> From: Weilong Chen <chenweilong@huawei.com>
-> 
-> fix checkpatch errors.
-> 
-> Weilong Chen (5):
->   xfrm: checkpatch errors with space
->   xfrm: checkpatch errors with foo * bar
->   xfrm: checkpatch erros with space prohibited
->   xfrm: fix checkpatch error
->   xfrm: checkpatch erros with inline keyword position
-> 
+> -// compare MAC addresses
+> -#define MAC_ADDRESS_COMPARE(A, B) memcmp(A, B, ETH_ALEN)
+> +/* compare MAC addresses */
+> +#define MAC_ADDRESS_EQUAL(A, B)	\
+> +	ether_addr_equal_64bits((const u8 *)A, (const u8 *)B)
 
-All applied to ipsec-next, thanks.
+Are the casts needed?
+
+julia
