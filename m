@@ -1,43 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: =?iso-2022-jp-3?B?GyRCRXobJChQJTsbKEI6?= Re: [Patch]
- netxen_nic: Bugfix for wrong RUNNING status of NX3031 NICs with no link
-Date: Thu, 02 Jan 2014 12:33:31 -0500 (EST)
-Message-ID: <20140102.123331.611627665684699985.davem@davemloft.net>
-References: <20140102.032423.2130522873875479421.davem@davemloft.net>
-	<OFB91B6321.D74C0B57-ON48257C54.00308F8C-48257C54.0030D7E7@zte.com.cn>
+Subject: Re: [PATCH 4/5] alx: add alx_get_stats operation
+Date: Thu, 02 Jan 2014 12:39:21 -0500 (EST)
+Message-ID: <20140102.123921.1427916612449970973.davem@davemloft.net>
+References: <1388619628-3373-5-git-send-email-sd@queasysnail.net>
+	<20140101.222702.1562824655053158808.davem@davemloft.net>
+	<1388663813.22017.12.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: li.fengmao@zte.com.cn, manish.chopra@qlogic.com,
-	netdev@vger.kernel.org, rajesh.borundia@qlogic.com,
-	sony.chacko@qlogic.com
-To: jiang.biao2@zte.com.cn
+Cc: sd@queasysnail.net, johannes@sipsolutions.net,
+	netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51750 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51780 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753274AbaABRdf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 12:33:35 -0500
-In-Reply-To: <OFB91B6321.D74C0B57-ON48257C54.00308F8C-48257C54.0030D7E7@zte.com.cn>
+	with ESMTP id S1751812AbaABRjW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 12:39:22 -0500
+In-Reply-To: <1388663813.22017.12.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: jiang.biao2@zte.com.cn
-Date: Thu, 2 Jan 2014 16:53:17 +0800
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Thu, 2 Jan 2014 11:56:53 +0000
 
->> You cannot do this, because at the very exact moment you call
->> register_netdevice() the device can be brought up and once the
->> device is up the link can be brought up.
+> On Wed, 2014-01-01 at 22:27 -0500, David Miller wrote:
+>> From: Sabrina Dubroca <sd@queasysnail.net>
+>> Date: Thu,  2 Jan 2014 00:40:27 +0100
+>> 
+>> > +	spin_lock(&alx->stats_lock);
+>> > +
+>> > +	__alx_update_hw_stats(&alx->hw);
+>> 
+>> Please use something like the linux/u64_stats_sync.h stuff rather
+>> than spin locking.
 > 
->> Therefore if you invoke netif_carrier_off() right after
->> register_netdevice(), it can cancel out a legitimate
->> netif_carrier_on() call.
-> 
-> register_netdevice() should be call in probe(), at that time, is
-> it impossible to bring up device because the driver loading has
-> not finished?
+> I don't think that'sa useful, as we can have multiple writers
+> (concurrent calls to get_stats).  And there is really no harm in using a
+> spinlock to serialise get_stats calls.  The u64_stats API is good for
+> statistics updated from the data path.
 
-Scripts in userspace listen for device events, such as registry, and
-in response can immediately open the device.
-
-That can occur before register_netdevice() returns, it is completely
-and %100 asynchronous.
+Fair enough.
