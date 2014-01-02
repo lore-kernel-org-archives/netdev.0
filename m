@@ -1,45 +1,44 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH RESEND net-next 1/7] bonding: use ether_addr_equal_unaligned
- for bond addr compare
-Date: Thu, 2 Jan 2014 17:00:29 +0800
-Message-ID: <52C52AAD.8040603@huawei.com>
-References: <52C4BD16.5010702@huawei.com> <alpine.DEB.2.02.1401020839000.2182@localhost6.localdomain6> <52C52180.2030707@huawei.com> <alpine.DEB.2.02.1401020937490.2182@localhost6.localdomain6>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH 24/31] staging: r8188eu: Additional cleanup of
+ include/odm.h
+Date: Thu, 2 Jan 2014 12:05:16 +0300
+Message-ID: <20140102090516.GB5443@mwanda>
+References: <1387755422-11443-1-git-send-email-Larry.Finger@lwfinger.net>
+ <1387755422-11443-25-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Joe Perches <joe@perches.com>, Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Julia Lawall <julia.lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1401020937490.2182@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, gregkh@linuxfoundation.org,
+ netdev@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <1387755422-11443-25-git-send-email-Larry.Finger@lwfinger.net>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-On 2014/1/2 16:38, Julia Lawall wrote:
-> On Thu, 2 Jan 2014, Ding Tianhong wrote:
->=20
->> On 2014/1/2 15:39, Julia Lawall wrote:
->>> Are the casts needed
->>
->>
->> Yes, otherwise the warming will report:
->>
->> /net-next/drivers/net/bonding/bond_3ad.c:427: warning: passing argum=
-ent 1 of =E2=80=98ether_addr_equal_64bits=E2=80=99 from incompatible po=
-inter type
->=20
-> Is it necessary for this driver to use a different type from everyone=
-=20
-> else?
->=20
-> julia
->=20
-Did you mean the MAC_ADDRESS_EQUAL is excess?
-I did not remove it because the codes no need to be changed more and it=
- looks that didn't take any negative effect.
+On Sun, Dec 22, 2013 at 05:36:55PM -0600, Larry Finger wrote:
+> --- a/drivers/staging/rtl8188eu/include/odm_interface.h
+> +++ b/drivers/staging/rtl8188eu/include/odm_interface.h
+> @@ -51,7 +51,7 @@ ODM_REG(DIG,_pDM_Odm)
+>  
+>  #define _cat(_name, _ic_type, _func)					\
+>  	(								\
+> -		((_ic_type) & ODM_IC_11N_SERIES) ? _func##_11N(_name) :	\
+> +		(_ic_type) ? _func##_11N(_name) :			\
+>  		_func##_11AC(_name)					\
+>  	)
 
-Regards
-Ding
+The original version of this function was more readable...  I think
+_ic_type is either zero or 16?
+
+regards,
+dan carpenter
