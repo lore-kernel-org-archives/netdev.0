@@ -1,83 +1,69 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH 0/2 v3] ipv4: Cache dst in tunnels
-Date: Thu, 02 Jan 2014 13:51:45 -0800
-Message-ID: <52C5DF71.3080906@hp.com>
-References: <alpine.DEB.2.02.1401021139500.32654@tomh.mtv.corp.google.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH, RFC 21/30] isdn: divert, hysdn: fix interruptible_sleep_on
+ race
+Date: Fri, 03 Jan 2014 02:00:58 +0300
+Message-ID: <52C5EFAA.2070403@cogentembedded.com>
+References: <1388664474-1710039-1-git-send-email-arnd@arndb.de> <1388664474-1710039-22-git-send-email-arnd@arndb.de> <52C57F3B.9070509@cogentembedded.com> <3610183.tucaANtxQk@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Tom Herbert <therbert@google.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:7671 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750814AbaABVvr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 16:51:47 -0500
-In-Reply-To: <alpine.DEB.2.02.1401021139500.32654@tomh.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>,
+	netdev@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3610183.tucaANtxQk@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Nothing that calls for a V4, but a couple of nits and such.
+Hello.
 
-On 01/02/2014 11:48 AM, Tom Herbert wrote:
-> Without patches
-> 71.22% CPU utilization
-> 138/180/244 90/95/99% latencies
+On 01/02/2014 07:48 PM, Arnd Bergmann wrote:
 
-The netperf version I have, for which I think I faithfully applied the 
-patches from Google for the percentiles is 50, 90 and 99.
+>>> diff --git a/drivers/isdn/divert/divert_procfs.c b/drivers/isdn/divert/divert_procfs.c
+>>> index fb4f1ba..1c5dc34 100644
+>>> --- a/drivers/isdn/divert/divert_procfs.c
+>>> +++ b/drivers/isdn/divert/divert_procfs.c
+>>> @@ -86,12 +86,13 @@ isdn_divert_read(struct file *file, char __user *buf, size_t count, loff_t *off)
+>>>        struct divert_info *inf;
+>>>        int len;
+>>>
+>>> -     if (!*((struct divert_info **) file->private_data)) {
+>>> +     if (!(inf = *((struct divert_info **) file->private_data))) {
 
-raj@tardy:~$ netperf -- -O ? | grep -i laten
-RT_LATENCY
-MIN_LATENCY
-MAX_LATENCY
-P50_LATENCY
-P90_LATENCY
-P99_LATENCY
-MEAN_LATENCY
-STDDEV_LATENCY
+>>      checkpatch.pl shouldn't approve assignment inside *if*. Though you're
+>> moving it from the existing code, it wouldn't hurt to fix it.
 
-> 1.30465e+06 CPU/tps
+> I tried to touch as little as possible, and while I wouldn't use that
+> style myself, it is applied consistently in this driver, including the
+> wait_event line I'm adding, where I feel it actually makes sense.
 
-That is TPS rather than CPU/TPS I am guessing.
+    I wasn't feeling sure about that one. It seems to me now that it doesn't 
+make much sense -- we could do the assignment beforehand.
 
-> 18318 CPU/tps
+>>>                if (file->f_flags & O_NONBLOCK)
+>>>                        return -EAGAIN;
+>>> -             interruptible_sleep_on(&(rd_queue));
+>>> +             wait_event_interruptible(rd_queue, (inf =
+>>> +                     *((struct divert_info **) file->private_data)));
 
-TPS/CPU%
+>>      Parens around assignment are hardly useful.
 
->
-> With patches
-> 69.84%
-> 142/186/249 90/95/99% latencies
-> 1.30827e+06
-> 18732 CPU/tps
+> We get a gcc warning without them:
 
-Any idea as to the source of the similarly modest increase in the latencies?
+> drivers/isdn/divert/divert_procfs.c:95:14: warning: suggest parentheses around assignment used as truth value [-Wparentheses]
+>      *((struct divert_info **) file->private_data));
 
-Speaking of which, given the overhead of measuring the individual 
-latencies, you might try a pair of runs without them being measured and 
-see if you show a larger delta in tps and/or CPU utilization.
+    Ah...
 
-raj@tardy:~/netperf2_trunk/src$ ./netperf -i 30,3 -t TCP_RR -- -o 
-throughput,p50_latency,p90_latency,p99_latency;  ./netperf -i 30,3 -t 
-TCP_RR -- -o throughput
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET 
-to localhost.localdomain () port 0 AF_INET : +/-2.500% @ 99% conf.  : 
-interval : demo : first burst 0
-Throughput,50th Percentile Latency Microseconds,90th Percentile Latency 
-Microseconds,99th Percentile Latency Microseconds
-46248.37,21,22,28
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET 
-to localhost.localdomain () port 0 AF_INET : +/-2.500% @ 99% conf.  : 
-interval : demo : first burst 0
-Throughput
-48098.45
+> I can still change the first one (in both files) if you think it's important,
 
-A nitpick from the 1/2 email:
+    I always prefer checkpatch.pl-clean patches, though some people do argue 
+when they are just moving the badly styled code around.
 
-> the tunnel is "connected" so that all the rouitng parameters are
+> but I'd rather not spend too much energy at coding style changes.
 
+    Let's wait for the maintainer's opinion on this.
 
-happy benchmarking,
+> 	Arnd
 
-rick jones
+WBR, Sergei
