@@ -1,33 +1,29 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: don't call addrconf_dst_alloc again when enable lo
-Date: Thu, 2 Jan 2014 09:32:00 +0100
-Message-ID: <20140102083200.GD22494@order.stressinduktion.org>
-References: <1371352470-3226-1-git-send-email-gaofeng@cn.fujitsu.com> <20130619.230532.1329281330568271336.davem@davemloft.net> <20131231035718.GB27636@order.stressinduktion.org> <52C4FDBE.5030607@huawei.com> <20140102060318.GA22494@order.stressinduktion.org> <52C51FB4.3000008@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v4 0/2] mlx4_en: Add PTP support
+Date: Thu, 02 Jan 2014 03:32:11 -0500 (EST)
+Message-ID: <20140102.033211.1823635212851916910.davem@davemloft.net>
+References: <1388511580-3657-1-git-send-email-shawn.bohrer@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: chenweilong <chenweilong@huawei.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ogerlitz@mellanox.com, amirv@mellanox.com,
+	richardcochran@gmail.com, netdev@vger.kernel.org,
+	tomk@rgmadvisors.com, hadarh@mellanox.com, sbohrer@rgmadvisors.com
+To: shawn.bohrer@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:34678 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751694AbaABIcB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 03:32:01 -0500
-Content-Disposition: inline
-In-Reply-To: <52C51FB4.3000008@huawei.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47601 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751739AbaABIcN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 03:32:13 -0500
+In-Reply-To: <1388511580-3657-1-git-send-email-shawn.bohrer@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 02, 2014 at 04:13:40PM +0800, chenweilong wrote:
-> Can you give more explanation about this please?
+From: Shawn Bohrer <shawn.bohrer@gmail.com>
+Date: Tue, 31 Dec 2013 11:39:38 -0600
 
-If you look at the routing table for local addresses (ip -6 route list table
-local), you see that every address which is RTF_LOCAL (and thus passes up the
-packets via ip6_input) has as its device the loopback device.
+> This adds support to the mlx4_en driver to support running a PTP client
+> with hardware timestamp support.  It also allows synchronization of the
+> hardware timestamped packets with the system clock.
 
-In case you shutdown loopback you clear all those routes, thus incoming
-packets won't find the corresponding rt6_info which directs the packets to
-passed up the stack.
-
-I guess it was done to satisfy the scoped architecture of IPv6.
-
-Does this help you?
+Both patches applied.
