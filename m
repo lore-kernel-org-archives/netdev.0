@@ -1,47 +1,83 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: IrDA woes..
-Date: Thu, 2 Jan 2014 13:49:25 -0800
-Message-ID: <CA+55aFwF6f84Rd0C8WmLia4EcJc1CZH8GvEZXWfE2=VH0_mxSw@mail.gmail.com>
-References: <CA+55aFz2CQ4B1JSpQ75TuQrrd9sUnhV+u=T2dWZY2NTTT5OmpQ@mail.gmail.com>
-	<20140102.034653.1968429090467668489.davem@davemloft.net>
-	<CA+55aFz_qDYP_P0PLUNv0wotoy=5PcS+7Qtt=U6EzvL4h4E69A@mail.gmail.com>
-	<370106E9-5C39-4917-AE74-2ED5E376DA11@holtmann.org>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH 0/2 v3] ipv4: Cache dst in tunnels
+Date: Thu, 02 Jan 2014 13:51:45 -0800
+Message-ID: <52C5DF71.3080906@hp.com>
+References: <alpine.DEB.2.02.1401021139500.32654@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Samuel Ortiz <samuel@sortiz.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Marcel Holtmann <marcel@holtmann.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Tom Herbert <therbert@google.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f179.google.com ([209.85.215.179]:38816 "EHLO
-	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751075AbaABVt0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 16:49:26 -0500
-Received: by mail-ea0-f179.google.com with SMTP id r15so6471746ead.24
-        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 13:49:25 -0800 (PST)
-In-Reply-To: <370106E9-5C39-4917-AE74-2ED5E376DA11@holtmann.org>
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:7671 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750814AbaABVvr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 16:51:47 -0500
+In-Reply-To: <alpine.DEB.2.02.1401021139500.32654@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 2, 2014 at 1:41 PM, Marcel Holtmann <marcel@holtmann.org> wrote:
+Nothing that calls for a V4, but a couple of nits and such.
+
+On 01/02/2014 11:48 AM, Tom Herbert wrote:
+> Without patches
+> 71.22% CPU utilization
+> 138/180/244 90/95/99% latencies
+
+The netperf version I have, for which I think I faithfully applied the 
+patches from Google for the percentiles is 50, 90 and 99.
+
+raj@tardy:~$ netperf -- -O ? | grep -i laten
+RT_LATENCY
+MIN_LATENCY
+MAX_LATENCY
+P50_LATENCY
+P90_LATENCY
+P99_LATENCY
+MEAN_LATENCY
+STDDEV_LATENCY
+
+> 1.30465e+06 CPU/tps
+
+That is TPS rather than CPU/TPS I am guessing.
+
+> 18318 CPU/tps
+
+TPS/CPU%
+
 >
-> if you are using the stir4200 driver then you are using an USB dongle that does not need the irattach to make it known to the IrDA subsystem. It will automatically make it known. For every IrDA dongle you attach you should see an irdaX with ifconfig.
+> With patches
+> 69.84%
+> 142/186/249 90/95/99% latencies
+> 1.30827e+06
+> 18732 CPU/tps
 
-I don't actually want to use the USB dongle if I can avoid it. I've
-*tried* it, but it has the exact same issue as the pty has, namely
-that it doesn't really work reliably.
+Any idea as to the source of the similarly modest increase in the latencies?
 
-So for debugging I'd actually much prefer to use the pty approach.
+Speaking of which, given the overhead of measuring the individual 
+latencies, you might try a pair of runs without them being measured and 
+see if you show a larger delta in tps and/or CPU utilization.
 
-I don't have any devices that use irda (the dive computers that showed
-the problem are expensive and not any that I personally would actually
-want to buy), so I'm trying to recreate the problems using a loopback
-system.
+raj@tardy:~/netperf2_trunk/src$ ./netperf -i 30,3 -t TCP_RR -- -o 
+throughput,p50_latency,p90_latency,p99_latency;  ./netperf -i 30,3 -t 
+TCP_RR -- -o throughput
+MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET 
+to localhost.localdomain () port 0 AF_INET : +/-2.500% @ 99% conf.  : 
+interval : demo : first burst 0
+Throughput,50th Percentile Latency Microseconds,90th Percentile Latency 
+Microseconds,99th Percentile Latency Microseconds
+46248.37,21,22,28
+MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET 
+to localhost.localdomain () port 0 AF_INET : +/-2.500% @ 99% conf.  : 
+interval : demo : first burst 0
+Throughput
+48098.45
 
-(I have a non-ircomm version too, which has a device emulation on one
-end of the pty, and uses a irda socket on another end. That one is
-very specialized for the dive computer thing, though, which is why I
-wanted to first try to do something "simpler" using just ircomm at
-both ends).
+A nitpick from the 1/2 email:
 
-               Linus
+> the tunnel is "connected" so that all the rouitng parameters are
+
+
+happy benchmarking,
+
+rick jones
