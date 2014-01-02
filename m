@@ -1,117 +1,64 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH v2] sctp: Add process name and pid to deprecation warnings
-Date: Thu,  2 Jan 2014 15:39:27 -0500
-Message-ID: <1388695167-21896-1-git-send-email-nhorman@tuxdriver.com>
-References: <1388685267-18319-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-sctp@vger.kernel.org
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH 5/5] bgmac: add support for Northstar SoC (BCM4707, BCM53018)
+Date: Thu, 2 Jan 2014 21:40:00 +0100
+Message-ID: <CACna6rxrOOcb=xbeCytjWALAPOAj-P7Js5Xe7L1ykCimmDa4Sw@mail.gmail.com>
+References: <1388690342-27213-1-git-send-email-hauke@hauke-m.de>
+	<1388690342-27213-5-git-send-email-hauke@hauke-m.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>
+To: Hauke Mehrtens <hauke@hauke-m.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46650 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752521AbaABUkA (ORCPT
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:60273 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752573AbaABUkA convert rfc822-to-8bit (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 15:40:00 -0500
-In-Reply-To: <1388685267-18319-1-git-send-email-nhorman@tuxdriver.com>
+Received: by mail-ob0-f179.google.com with SMTP id wm4so14832832obc.38
+        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 12:40:00 -0800 (PST)
+In-Reply-To: <1388690342-27213-5-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recently I updated the sctp socket option deprecation warnings to be both a bit
-more clear and ratelimited to prevent user processes from spamming the log file.
-Ben Hutchings suggested that I add the process name and pid to these warnings so
-that users can tell who is responsible for using the deprecated apis.  This
-patch accomplishes that.
+ > +       if (ci->id =3D=3D BCMA_CHIP_ID_BCM4707 ||
+> +           ci->id =3D=3D BCMA_CHIP_ID_BCM53018) {
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: Vlad Yasevich <vyasevich@gmail.com>
-CC: Ben Hutchings <bhutchings@solarflare.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: netdev@vger.kernel.org
+Please add a missing
+if (bgmac->phyaddr !=3D BGMAC_PHY_NOREGS)
+return;
+at the beginning of this 4707/53018 block
 
----
-Change Notes
-v2) Convert formatting to use  %s (%d) rather than %s (pid %d) as per request
-from Ben
----
- net/sctp/socket.c | 24 ++++++++++++++++++------
- 1 file changed, 18 insertions(+), 6 deletions(-)
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index e9c5121..bcc71aa 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -2579,8 +2579,10 @@ static int sctp_setsockopt_delayed_ack(struct sock *sk,
- 			return 0;
- 	} else if (optlen == sizeof(struct sctp_assoc_value)) {
- 		pr_warn_ratelimited(DEPRECATED
-+				    "%s (%d) "
- 				    "Use of struct sctp_assoc_value in delayed_ack socket option.\n"
--				    "Use struct sctp_sack_info instead\n");
-+				    "Use struct sctp_sack_info instead\n",
-+				    current->comm, task_pid_nr(current));
- 		if (copy_from_user(&params, optval, optlen))
- 			return -EFAULT;
- 
-@@ -2996,8 +2998,10 @@ static int sctp_setsockopt_maxseg(struct sock *sk, char __user *optval, unsigned
- 
- 	if (optlen == sizeof(int)) {
- 		pr_warn_ratelimited(DEPRECATED
-+				    "%s (%d) "
- 				    "Use of int in maxseg socket option.\n"
--				    "Use struct sctp_assoc_value instead\n");
-+				    "Use struct sctp_assoc_value instead\n",
-+				    current->comm, task_pid_nr(current));
- 		if (copy_from_user(&val, optval, optlen))
- 			return -EFAULT;
- 		params.assoc_id = 0;
-@@ -3255,8 +3259,10 @@ static int sctp_setsockopt_maxburst(struct sock *sk,
- 
- 	if (optlen == sizeof(int)) {
- 		pr_warn_ratelimited(DEPRECATED
-+				    "%s (%d) "
- 				    "Use of int in max_burst socket option deprecated.\n"
--				    "Use struct sctp_assoc_value instead\n");
-+				    "Use struct sctp_assoc_value instead\n",
-+				    current->comm, task_pid_nr(current));
- 		if (copy_from_user(&val, optval, optlen))
- 			return -EFAULT;
- 	} else if (optlen == sizeof(struct sctp_assoc_value)) {
-@@ -4577,8 +4583,10 @@ static int sctp_getsockopt_delayed_ack(struct sock *sk, int len,
- 			return -EFAULT;
- 	} else if (len == sizeof(struct sctp_assoc_value)) {
- 		pr_warn_ratelimited(DEPRECATED
-+				    "%s (%d) "
- 				    "Use of struct sctp_assoc_value in delayed_ack socket option.\n"
--				    "Use struct sctp_sack_info instead\n");
-+				    "Use struct sctp_sack_info instead\n",
-+				    current->comm, task_pid_nr(current));
- 		if (copy_from_user(&params, optval, len))
- 			return -EFAULT;
- 	} else
-@@ -5223,8 +5231,10 @@ static int sctp_getsockopt_maxseg(struct sock *sk, int len,
- 
- 	if (len == sizeof(int)) {
- 		pr_warn_ratelimited(DEPRECATED
-+				    "%s (%d) "
- 				    "Use of int in maxseg socket option.\n"
--				    "Use struct sctp_assoc_value instead\n");
-+				    "Use struct sctp_assoc_value instead\n",
-+				    current->comm, task_pid_nr(current));
- 		params.assoc_id = 0;
- 	} else if (len >= sizeof(struct sctp_assoc_value)) {
- 		len = sizeof(struct sctp_assoc_value);
-@@ -5316,8 +5326,10 @@ static int sctp_getsockopt_maxburst(struct sock *sk, int len,
- 
- 	if (len == sizeof(int)) {
- 		pr_warn_ratelimited(DEPRECATED
-+				    "%s (%d) "
- 				    "Use of int in max_burst socket option.\n"
--				    "Use struct sctp_assoc_value instead\n");
-+				    "Use struct sctp_assoc_value instead\n",
-+				    current->comm, task_pid_nr(current));
- 		params.assoc_id = 0;
- 	} else if (len >= sizeof(struct sctp_assoc_value)) {
- 		len = sizeof(struct sctp_assoc_value);
--- 
-1.8.3.1
+> +               bcma_awrite32(core, BCMA_IOCTL,
+> +                             bcma_aread32(core, BCMA_IOCTL) | 0x44);
+
+Please use
+BGMAC_BCMA_IOCTL_SW_CLKEN | 0x40
+(unless you know 0x40, then replace it too).
+
+
+> +                       bgmac->mac_speed =3D SPEED_2500;
+> +                       bgmac->mac_duplex =3D DUPLEX_FULL;
+> +                       bgmac_mac_speed(bgmac);
+
+Wrong indent above.
+
+
+> @@ -911,7 +926,8 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
+>
+>         bcma_core_enable(core, flags);
+
+Look closer. Don't calculate flags and don't call bcma_core_enable for
+4707 (but call it for 53018).
+
+
+> -       if (core->id.rev > 2) {
+> +       if (core->id.rev > 2 && ci->id !=3D BCMA_CHIP_ID_BCM4707 &&
+> +           ci->id !=3D BCMA_CHIP_ID_BCM53018) {
+
+Could you put 4707 check on the separated line? I'm not pushing however=
+=2E
+
+--=20
+Rafa=C5=82
