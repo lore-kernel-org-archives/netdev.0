@@ -1,44 +1,62 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] ipv4: introduce ip_dst_mtu_secure and protect forwarding path against pmtu spoofing
-Date: Thu, 2 Jan 2014 18:57:17 +0100
-Message-ID: <20140102175717.GG22494@order.stressinduktion.org>
-References: <20131219000759.GF3505@order.stressinduktion.org> <20131219.001203.1942468169345523058.davem@davemloft.net> <20131219121757.GD14429@order.stressinduktion.org> <20131219.143012.205185984019527730.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [Patch] netxen_nic: Bugfix for wrong RUNNING status of NX3031
+ NICs with no link
+Date: Thu, 2 Jan 2014 18:00:24 +0000
+Message-ID: <1388685624.9947.7.camel@bwh-desktop.uk.level5networks.com>
+References: <OFEE191896.FD28476A-ON48257C54.003205EE-48257C54.0032F33D@zte.com.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: johnwheffner@gmail.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <li.fengmao@zte.com.cn>,
+	<manish.chopra@qlogic.com>, <netdev@vger.kernel.org>,
+	<rajesh.borundia@qlogic.com>, <sony.chacko@qlogic.com>
+To: <jiang.biao2@zte.com.cn>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:35635 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750993AbaABR5S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 12:57:18 -0500
-Content-Disposition: inline
-In-Reply-To: <20131219.143012.205185984019527730.davem@davemloft.net>
+Received: from webmail.solarflare.com ([12.187.104.25]:64954 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751210AbaABSA3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 13:00:29 -0500
+In-Reply-To: <OFEE191896.FD28476A-ON48257C54.003205EE-48257C54.0032F33D@zte.com.cn>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 19, 2013 at 02:30:12PM -0500, David Miller wrote:
-> No end host should have rp_filter on.  It unnecessarily makes our
-> routing lookups much more expensive for zero gain on an end host.  But
-> people convinced the distributions that turning it on everywhere by
-> default was a good idea and it stuck.
+On Thu, 2014-01-02 at 17:16 +0800, jiang.biao2@zte.com.cn wrote:
+> > You cannot do this, because at the very exact moment you call
+> > register_netdevice() the device can be brought up and once the
+> > device is up the link can be brought up.
+> 
+> > Therefore if you invoke netif_carrier_off() right after
+> > register_netdevice(), it can cancel out a legitimate
+> > netif_carrier_on() call.
+> 
+> register_netdevice() should be call in probe(), at that time, is
+> it impossible to bring up device because the driver loading has
+> not finished?
 
-Just was thinking about that again when reading the quote on lwn:
+So far as the networking core is concerned, when register_netdevice() is
+called the device is ready to use.  But you can do:
 
-Maybe distributions just wanted to be always on the safe side.  As there
-is no easy conditional system to enable rp_filter in case a user enables
-forwarding, maybe something like
+rtnl_lock();
+register_netdevice();
+netif_carrier_off();
+rtnl_unlock();
 
-rp_filter:
-0 - disable
-1 - enable only in case of forwarding
-2 - always enable
+However, as I said before, the current order in netxen_nic works and
+only older kernel versions require you to call netif_carrier_off() after
+registering the device.
 
-could be helpful?
+> Even that, the netif_carrier_off() will be called before
+> netif_carrier_on(), and that will not be a problem.
+> 
+> Besides, the other net drivers(e.g igb, e1000, e1000e) I saw all
+> call netif_carrier_off() after register_netdev(). There is no such
+> problems in these drivers.
 
-I guess it is too late to change this.
+It is not easy to hit the race condition but it is real.
 
-Greetings,
+Ben.
 
-  Hannes
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
