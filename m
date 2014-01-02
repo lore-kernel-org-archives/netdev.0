@@ -1,168 +1,85 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 2/2 v3] ipv4: Use percpu Cache route in IP tunnels
-Date: Thu, 2 Jan 2014 11:48:33 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1401021140470.32674@tomh.mtv.corp.google.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] sctp: Add process name and pid to deprecation warnings
+Date: Thu, 2 Jan 2014 19:52:30 +0000
+Message-ID: <1388692350.9947.37.camel@bwh-desktop.uk.level5networks.com>
+References: <1388685267-18319-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org, eric.dumazet@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-sctp@vger.kernel.org>, Vlad Yasevich <vyasevich@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f202.google.com ([209.85.216.202]:60850 "EHLO
-	mail-qc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751915AbaABTsf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 14:48:35 -0500
-Received: by mail-qc0-f202.google.com with SMTP id i17so944893qcy.1
-        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 11:48:34 -0800 (PST)
+Received: from webmail.solarflare.com ([12.187.104.25]:30257 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751172AbaABTwe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 14:52:34 -0500
+In-Reply-To: <1388685267-18319-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-percpu route cache eliminates share of dst refcnt between CPUs.
+On Thu, 2014-01-02 at 12:54 -0500, Neil Horman wrote:
+> Recently I updated the sctp socket option deprecation warnings to be both a bit
+> more clear and ratelimited to prevent user processes from spamming the log file.
+> Ben Hutchings suggested that I add the process name and pid to these warnings so
+> that users can tell who is responsible for using the deprecated apis.  This
+> patch accomplishes that.
+[...]
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- include/net/ip_tunnels.h |  8 ++++++--
- net/ipv4/ip_tunnel.c     | 44 ++++++++++++++++++++++++++++++++------------
- 2 files changed, 38 insertions(+), 14 deletions(-)
+I grepped for existing deprecation warnings that log the command and/or
+PID.  The warnings are not consistent, but where the include both comand
+and PID it's generally in the format "%s (%d)", comm, pid.  So please
+could you follow that format?
 
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index bde50fc..9e25b1b 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -38,6 +38,11 @@ struct ip_tunnel_prl_entry {
- 	struct rcu_head			rcu_head;
- };
- 
-+struct ip_tunnel_dst {
-+	struct dst_entry __rcu 		*dst;
-+	spinlock_t			lock;
-+};
-+
- struct ip_tunnel {
- 	struct ip_tunnel __rcu	*next;
- 	struct hlist_node hash_node;
-@@ -54,8 +59,7 @@ struct ip_tunnel {
- 	int		hlen;		/* Precalculated header length */
- 	int		mlink;
- 
--	struct		dst_entry __rcu *dst_cache;
--	spinlock_t	dst_lock;
-+	struct ip_tunnel_dst __percpu *dst_cache;
- 
- 	struct ip_tunnel_parm parms;
- 
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 27d756f..b153486 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -68,23 +68,24 @@ static unsigned int ip_tunnel_hash(struct ip_tunnel_net *itn,
- 			 IP_TNL_HASH_BITS);
- }
- 
--static inline void __tunnel_dst_set(struct ip_tunnel *t, struct dst_entry *dst)
-+static inline void __tunnel_dst_set(struct ip_tunnel_dst *idst,
-+				    struct dst_entry *dst)
- {
- 	struct dst_entry *old_dst;
- 
- 	if (dst && (dst->flags & DST_NOCACHE))
- 		dst = NULL;
- 
--	spin_lock_bh(&t->dst_lock);
--	old_dst = rcu_dereference_raw(t->dst_cache);
--	rcu_assign_pointer(t->dst_cache, dst);
-+	spin_lock_bh(&idst->lock);
-+	old_dst = rcu_dereference(idst->dst);
-+	rcu_assign_pointer(idst->dst, dst);
- 	dst_release(old_dst);
--	spin_unlock_bh(&t->dst_lock);
-+	spin_unlock_bh(&idst->lock);
- }
- 
- static inline void tunnel_dst_set(struct ip_tunnel *t, struct dst_entry *dst)
- {
--	__tunnel_dst_set(t, dst);
-+	__tunnel_dst_set(this_cpu_ptr(t->dst_cache), dst);
- }
- 
- static inline void tunnel_dst_reset(struct ip_tunnel *t)
-@@ -92,12 +93,20 @@ static inline void tunnel_dst_reset(struct ip_tunnel *t)
- 	tunnel_dst_set(t, NULL);
- }
- 
-+static void tunnel_dst_reset_all(struct ip_tunnel *t)
-+{
-+	int i;
-+
-+	for_each_possible_cpu(i)
-+		__tunnel_dst_set(per_cpu_ptr(t->dst_cache, i), NULL);
-+}
-+
- static inline struct dst_entry *tunnel_dst_get(struct ip_tunnel *t)
- {
- 	struct dst_entry *dst;
- 
- 	rcu_read_lock();
--	dst = rcu_dereference(t->dst_cache);
-+	dst = rcu_dereference(this_cpu_ptr(t->dst_cache)->dst);
- 	if (dst)
- 		dst_hold(dst);
- 	rcu_read_unlock();
-@@ -755,7 +764,7 @@ static void ip_tunnel_update(struct ip_tunnel_net *itn,
- 		if (set_mtu)
- 			dev->mtu = mtu;
- 	}
--	tunnel_dst_reset(t);
-+	tunnel_dst_reset_all(t);
- 	netdev_state_change(dev);
- }
- 
-@@ -871,6 +880,7 @@ static void ip_tunnel_dev_free(struct net_device *dev)
- 	struct ip_tunnel *tunnel = netdev_priv(dev);
- 
- 	gro_cells_destroy(&tunnel->gro_cells);
-+	free_percpu(tunnel->dst_cache);
- 	free_percpu(dev->tstats);
- 	free_netdev(dev);
- }
-@@ -1049,8 +1059,21 @@ int ip_tunnel_init(struct net_device *dev)
- 		u64_stats_init(&ipt_stats->syncp);
- 	}
- 
-+	tunnel->dst_cache = alloc_percpu(struct ip_tunnel_dst *);
-+	if (!tunnel->dst_cache) {
-+		free_percpu(dev->tstats);
-+		return -ENOMEM;
-+	}
-+
-+	for_each_possible_cpu(i) {
-+		struct ip_tunnel_dst *idst = per_cpu_ptr(tunnel->dst_cache, i);
-+		idst-> dst = NULL;
-+		spin_lock_init(&idst->lock);
-+	}
-+
- 	err = gro_cells_init(&tunnel->gro_cells, dev);
- 	if (err) {
-+		free_percpu(tunnel->dst_cache);
- 		free_percpu(dev->tstats);
- 		return err;
- 	}
-@@ -1061,9 +1084,6 @@ int ip_tunnel_init(struct net_device *dev)
- 	iph->version		= 4;
- 	iph->ihl		= 5;
- 
--	tunnel->dst_cache = NULL;
--	spin_lock_init(&tunnel->dst_lock);
--
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(ip_tunnel_init);
-@@ -1079,7 +1099,7 @@ void ip_tunnel_uninit(struct net_device *dev)
- 	if (itn->fb_tunnel_dev != dev)
- 		ip_tunnel_del(netdev_priv(dev));
- 
--	tunnel_dst_reset(tunnel);
-+	tunnel_dst_reset_all(tunnel);
- }
- EXPORT_SYMBOL_GPL(ip_tunnel_uninit);
- 
+block/scsi_ioctl.c:                     printk(KERN_WARNING "program %s is using a deprecated SCSI ioctl, please convert it to SG_IO\n", current->comm);
+
+drivers/net/wireless/hostap/hostap_ioctl.c:     printk(KERN_DEBUG "%s: process %d (%s) used deprecated iwpriv monitor "
+drivers/net/wireless/hostap/hostap_ioctl.c-            "- update software to use iwconfig mode monitor\n",
+drivers/net/wireless/hostap/hostap_ioctl.c-            dev->name, task_pid_nr(current), current->comm);
+
+drivers/scsi/scsi_ioctl.c:              printk(KERN_WARNING "program %s is using a deprecated SCSI "
+drivers/scsi/scsi_ioctl.c-                     "ioctl, please convert it to SG_IO\n", current->comm);
+
+drivers/tty/mxser.c:            printk_ratelimited(KERN_WARNING "mxser: '%s' uses deprecated ioctl "
+drivers/tty/mxser.c-                                    "%x (GET_MAJOR), fix your userspace\n",
+drivers/tty/mxser.c-                                    current->comm, cmd);
+
+drivers/tty/serial/serial_core.c-                               printk(KERN_NOTICE
+drivers/tty/serial/serial_core.c-                                      "%s sets custom speed on %s. This "
+drivers/tty/serial/serial_core.c:                                      "is deprecated.\n", current->comm,
+drivers/tty/serial/serial_core.c-                                      tty_name(port->tty, buf));
+
+fs/hugetlbfs/inode.c-                   printk_once(KERN_WARNING
+fs/hugetlbfs/inode.c:                           "%s (%d): Using mlock ulimits for SHM_HUGETLB is deprecated\n",
+fs/hugetlbfs/inode.c-                           current->comm, current->pid);
+
+fs/proc/base.c: pr_warn_once("%s (%d): /proc/%d/oom_adj is deprecated, please use /proc/%d/oom_score_adj instead.\n",
+fs/proc/base.c-           current->comm, task_pid_nr(current), task_pid_nr(task),
+fs/proc/base.c-           task_pid_nr(task));
+
+kernel/capability.c:            printk(KERN_INFO "warning: `%s' uses deprecated v2"
+kernel/capability.c-                   " capabilities in a way that may be insecure.\n",
+kernel/capability.c-                   get_task_comm(name, current));
+
+kernel/cgroup.c:                pr_warning("cgroup: option changes via remount are deprecated (pid=%d comm=%s)\n",
+kernel/cgroup.c-                           task_tgid_nr(current), current->comm);
+
+kernel/printk/printk.c-                 pr_warn_once("%s (%d): Attempt to access syslog with "
+kernel/printk/printk.c-                              "CAP_SYS_ADMIN but no CAP_SYSLOG "
+kernel/printk/printk.c:                              "(deprecated).\n",
+kernel/printk/printk.c-                          current->comm, task_pid_nr(current));
+
+kernel/sysctl_binary.c-         printk(KERN_INFO
+kernel/sysctl_binary.c:                 "warning: process `%s' used the deprecated sysctl "
+kernel/sysctl_binary.c-                 "system call with ", current->comm);
+
+net/ipv6/ndisc.c:               pr_warn("process `%s' is using deprecated sysctl (%s) net.ipv6.neigh.%s.%s - use net.ipv6.neigh.%s.%s_ms instead\n",
+net/ipv6/ndisc.c-                       warncomm, func,
+net/ipv6/ndisc.c-                       dev_name, ctl->procname,
+
+Ben.
+
 -- 
-1.8.5.1
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
