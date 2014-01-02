@@ -1,27 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sched classifier: make cgroup table local
-Date: Thu, 02 Jan 2014 03:32:45 -0500 (EST)
-Message-ID: <20140102.033245.753507031073805994.davem@davemloft.net>
-References: <20131231115529.5d70c393@nehalam.linuxnetplumber.net>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH 30/31] staging: r8188eu: Fix sparse warnings in
+ core/rtw_br_ext.c
+Date: Thu, 2 Jan 2014 11:36:02 +0300
+Message-ID: <20140102083602.GX28413@mwanda>
+References: <1387755422-11443-1-git-send-email-Larry.Finger@lwfinger.net>
+ <1387755422-11443-31-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47612 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750773AbaABIcq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 03:32:46 -0500
-In-Reply-To: <20131231115529.5d70c393@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, gregkh@linuxfoundation.org,
+ netdev@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <1387755422-11443-31-git-send-email-Larry.Finger@lwfinger.net>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Tue, 31 Dec 2013 11:55:29 -0800
+A couple of these are real endian bugs, it's not just "warnings".
 
-> Doesn't need to be global.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-
-Applied.
+regards,
+dan carpenter
