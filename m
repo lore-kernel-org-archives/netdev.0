@@ -1,106 +1,131 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH 4/5] alx: add alx_get_stats operation
-Date: Thu, 2 Jan 2014 17:05:31 +0100
-Message-ID: <20140102160531.GA25216@kria>
-References: <1388619628-3373-1-git-send-email-sd@queasysnail.net>
- <1388619628-3373-5-git-send-email-sd@queasysnail.net>
- <20140101.222702.1562824655053158808.davem@davemloft.net>
- <1388663813.22017.12.camel@deadeye.wl.decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, johannes@sipsolutions.net,
-	netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+Subject: [PATCH net-next v2] IPv6: add option to use Subnet-Router anycast addresses as source addresses
+Date: Thu,  2 Jan 2014 16:53:48 +0100
+Message-ID: <1388678028-15413-1-git-send-email-fx.lebail@yahoo.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:41784 "EHLO smtp6-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751067AbaABQFp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jan 2014 11:05:45 -0500
-Content-Disposition: inline
-In-Reply-To: <1388663813.22017.12.camel@deadeye.wl.decadent.org.uk>
+Received: from smtp11.smtpout.orange.fr ([80.12.242.133]:41374 "EHLO
+	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751136AbaABQJX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 11:09:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[2014-01-02, 11:56:53] Ben Hutchings wrote:
-> On Wed, 2014-01-01 at 22:27 -0500, David Miller wrote:
-> > From: Sabrina Dubroca <sd@queasysnail.net>
-> > Date: Thu,  2 Jan 2014 00:40:27 +0100
-> > 
-> > > +	spin_lock(&alx->stats_lock);
-> > > +
-> > > +	__alx_update_hw_stats(&alx->hw);
-> > 
-> > Please use something like the linux/u64_stats_sync.h stuff rather
-> > than spin locking.
-> 
-> I don't think that'sa useful, as we can have multiple writers
-> (concurrent calls to get_stats).  And there is really no harm in using a
-> spinlock to serialise get_stats calls.  The u64_stats API is good for
-> statistics updated from the data path.
+This change allows to follow a recommandation of RFC4942.
 
-I've read the comments in linux/u64_stats_sync.h, which mentions the
-need for exclusive access to the data. I've looked at other drivers
-(broadcom/b44.c, nvidia/forcedeth.c) that use the u64_stats functions
-to get stats from hardware, and they use a spin_lock around the update
-code. The other drivers that I've looked at and that use u64_stats
-have software stats that they update on rx/tx, so I think the
-situation is a bit different.
+- Add "enable_anycast_src" sysctl to control the use of Subnet-Router anycast
+  addresses as source addresses. This sysctl is false by default to preserve
+  existing behavior.
+- Use it in ip6_datagram_send_ctl() and icmpv6_echo_reply().
 
+Reference:
+RFC4942 - IPv6 Transition/Coexistence Security Considerations
+   (http://tools.ietf.org/html/rfc4942#section-2.1.6)
 
-For now I've added u64_stats and modified the functions this way:
+2.1.6. Anycast Traffic Identification and Security
 
-static struct net_device_stats *alx_get_stats(struct net_device *netdev)
-{
-	struct alx_priv *alx = netdev_priv(netdev);
-	struct net_device_stats *net_stats = &netdev->stats;
-	struct alx_hw_stats *hw_stats = &alx->hw.stats;
+   [...]
+   To avoid exposing knowledge about the internal structure of the
+   network, it is recommended that anycast servers now take advantage of
+   the ability to return responses with the anycast address as the
+   source address if possible.
 
-	unsigned int start;
+Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+---
+ Documentation/networking/ip-sysctl.txt |    6 ++++++
+ include/net/netns/ipv6.h               |    1 +
+ net/ipv6/datagram.c                    |    3 +++
+ net/ipv6/icmp.c                        |    4 +++-
+ net/ipv6/sysctl_net_ipv6.c             |    8 ++++++++
+ 5 files changed, 21 insertions(+), 1 deletion(-)
 
-	spin_lock(&alx->stats_lock);
-
-	__alx_update_hw_stats(&alx->hw);
-
-	spin_unlock(&alx->stats_lock);
-
-	do {
-		start = u64_stats_fetch_begin(&hw_stats->syncp);
-		/* fill net_stat... */
-	} while (u64_stats_fetch_retry(&hw_stats->syncp, start));
-
-	return net_stats;
-}
-
-
-void __alx_update_hw_stats(struct alx_hw *hw)
-{
-	u64_stats_update_begin(&hw->stats.syncp);
-
-	/* fill hw->stats */
-
-	u64_stats_update_end(&hw->stats.syncp);
-}
-
-
-static void alx_get_ethtool_stats(struct net_device *netdev,
-				  struct ethtool_stats *estats, u64 *data)
-{
-	struct alx_priv *alx = netdev_priv(netdev);
-	struct alx_hw *hw = &alx->hw;
-
-	unsigned int start;
-
-	spin_lock(&alx->stats_lock);
-	__alx_update_hw_stats(hw);
-	spin_unlock(&alx->stats_lock);
-
-	do {
-		start = u64_stats_fetch_begin(&hw->stats.syncp);
-		memcpy(data, &hw->stats, sizeof(hw->stats));
-	} while (u64_stats_fetch_retry(&hw->stats.syncp, start));
-}
-
-Thanks,
-
--- 
-Sabrina Dubroca
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index d71afa8..2a062a7 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1094,6 +1094,12 @@ bindv6only - BOOLEAN
+ 
+ 	Default: FALSE (as specified in RFC3493)
+ 
++enable_anycast_src - BOOLEAN
++	Controls the use of Subnet-Router anycast addresses as source addresses
++	TRUE:  enabled
++	FALSE: disabled
++	Default: FALSE
++
+ IPv6 Fragmentation:
+ 
+ ip6frag_high_thresh - INTEGER
+diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
+index 0fb2401..3d3aa86 100644
+--- a/include/net/netns/ipv6.h
++++ b/include/net/netns/ipv6.h
+@@ -73,6 +73,7 @@ struct netns_ipv6 {
+ #endif
+ 	atomic_t		dev_addr_genid;
+ 	atomic_t		rt_genid;
++	int			enable_anycast_src;
+ };
+ 
+ #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 6983058..0b32095 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -668,6 +668,9 @@ int ip6_datagram_send_ctl(struct net *net, struct sock *sk,
+ 			if (addr_type != IPV6_ADDR_ANY) {
+ 				int strict = __ipv6_addr_src_scope(addr_type) <= IPV6_ADDR_SCOPE_LINKLOCAL;
+ 				if (!(inet_sk(sk)->freebind || inet_sk(sk)->transparent) &&
++					!(net->ipv6.enable_anycast_src &&
++					  ipv6_chk_acast_addr(net, NULL,
++							      &src_info->ipi6_addr)) &&
+ 				    !ipv6_chk_addr(net, &src_info->ipi6_addr,
+ 						   strict ? dev : NULL, 0))
+ 					err = -EINVAL;
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 5d42009..1c25c85 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -556,7 +556,9 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+ 
+ 	saddr = &ipv6_hdr(skb)->daddr;
+ 
+-	if (!ipv6_unicast_destination(skb))
++	if (!ipv6_unicast_destination(skb) &&
++	    !(net->ipv6.enable_anycast_src &&
++	      ipv6_chk_acast_addr(net, NULL, saddr)))
+ 		saddr = NULL;
+ 
+ 	memcpy(&tmp_hdr, icmph, sizeof(tmp_hdr));
+diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
+index 107b2f1..67c09f5 100644
+--- a/net/ipv6/sysctl_net_ipv6.c
++++ b/net/ipv6/sysctl_net_ipv6.c
+@@ -24,6 +24,13 @@ static struct ctl_table ipv6_table_template[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec
+ 	},
++	{
++		.procname	= "enable_anycast_src",
++		.data		= &init_net.ipv6.enable_anycast_src,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
+ 	{ }
+ };
+ 
+@@ -51,6 +58,7 @@ static int __net_init ipv6_sysctl_net_init(struct net *net)
+ 	if (!ipv6_table)
+ 		goto out;
+ 	ipv6_table[0].data = &net->ipv6.sysctl.bindv6only;
++	ipv6_table[1].data = &net->ipv6.enable_anycast_src;
+ 
+ 	ipv6_route_table = ipv6_route_sysctl_init(net);
+ 	if (!ipv6_route_table)
