@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH, RFC 19/30] isdn: pcbit: fix interruptible_sleep_on race
-Date: Thu,  2 Jan 2014 13:07:43 +0100
-Message-ID: <1388664474-1710039-20-git-send-email-arnd@arndb.de>
+Subject: [PATCH, RFC 20/30] isdn: hisax/elsa: fix sleep_on race in elsa FSM
+Date: Thu,  2 Jan 2014 13:07:44 +0100
+Message-ID: <1388664474-1710039-21-git-send-email-arnd@arndb.de>
 References: <1388664474-1710039-1-git-send-email-arnd@arndb.de>
 Cc: Arnd Bergmann <arnd@arndb.de>, Karsten Keil <isdn@linux-pingi.de>,
 	netdev@vger.kernel.org
@@ -11,50 +11,66 @@ In-Reply-To: <1388664474-1710039-1-git-send-email-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-interruptible_sleep_on is racy and going away. In case of pcbit,
-the driver would run into a timeout if the card is initialized
-before we start waiting for it. This uses wait_event to fix the
-race. In order to do this, the state machine handling for the
-timeout case has to get trivially reorganized so we actually know
-whether the timeout has occorred or not.
+The state machine code in the elsa driver uses interruptible_sleep_on
+to wait for state changes, which is racy. A closer look at the possible
+states reveals that it is always used to wait for getting back into
+ARCOFI_NOP, so we can use wait_event_interruptible instead.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 Cc: Karsten Keil <isdn@linux-pingi.de>
 Cc: netdev@vger.kernel.org
 ---
- drivers/isdn/pcbit/drv.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/isdn/hisax/elsa.c     | 9 ++++++---
+ drivers/isdn/hisax/elsa_ser.c | 3 ++-
+ 2 files changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/isdn/pcbit/drv.c b/drivers/isdn/pcbit/drv.c
-index 1eaf622..f02cc50 100644
---- a/drivers/isdn/pcbit/drv.c
-+++ b/drivers/isdn/pcbit/drv.c
-@@ -796,6 +796,7 @@ static void set_running_timeout(unsigned long ptr)
- #endif
- 	dev = (struct pcbit_dev *) ptr;
- 
-+	dev->l2_state = L2_DOWN;
- 	wake_up_interruptible(&dev->set_running_wq);
+diff --git a/drivers/isdn/hisax/elsa.c b/drivers/isdn/hisax/elsa.c
+index 2be1c8a..d8ef64d 100644
+--- a/drivers/isdn/hisax/elsa.c
++++ b/drivers/isdn/hisax/elsa.c
+@@ -509,7 +509,8 @@ static void
+ set_arcofi(struct IsdnCardState *cs, int bc) {
+ 	cs->dc.isac.arcofi_bc = bc;
+ 	arcofi_fsm(cs, ARCOFI_START, &ARCOFI_COP_5);
+-	interruptible_sleep_on(&cs->dc.isac.arcofi_wait);
++	wait_event_interruptible(cs->dc.isac.arcofi_wait,
++				 cs->dc.isac.arcofi_state == ARCOFI_NOP);
  }
  
-@@ -818,7 +819,8 @@ static int set_protocol_running(struct pcbit_dev *dev)
- 
- 	add_timer(&dev->set_running_timer);
- 
--	interruptible_sleep_on(&dev->set_running_wq);
-+	wait_event(dev->set_running_wq, dev->l2_state == L2_RUNNING ||
-+					dev->l2_state == L2_DOWN);
- 
- 	del_timer(&dev->set_running_timer);
- 
-@@ -842,8 +844,6 @@ static int set_protocol_running(struct pcbit_dev *dev)
- 		printk(KERN_DEBUG "pcbit: initialization failed\n");
- 		printk(KERN_DEBUG "pcbit: firmware not loaded\n");
- 
--		dev->l2_state = L2_DOWN;
--
- #ifdef DEBUG
- 		printk(KERN_DEBUG "Bank3 = %02x\n",
- 		       readb(dev->sh_mem + BANK3));
+ static int
+@@ -528,7 +529,8 @@ check_arcofi(struct IsdnCardState *cs)
+ 		}
+ 	cs->dc.isac.arcofi_bc = 0;
+ 	arcofi_fsm(cs, ARCOFI_START, &ARCOFI_VERSION);
+-	interruptible_sleep_on(&cs->dc.isac.arcofi_wait);
++	wait_event_interruptible(cs->dc.isac.arcofi_wait,
++				 cs->dc.isac.arcofi_state == ARCOFI_NOP);
+ 	if (!test_and_clear_bit(FLG_ARCOFI_ERROR, &cs->HW_Flags)) {
+ 		debugl1(cs, "Arcofi response received %d bytes", cs->dc.isac.mon_rxp);
+ 		p = cs->dc.isac.mon_rx;
+@@ -595,7 +597,8 @@ check_arcofi(struct IsdnCardState *cs)
+ 			       Elsa_Types[cs->subtyp],
+ 			       cs->hw.elsa.base + 8);
+ 		arcofi_fsm(cs, ARCOFI_START, &ARCOFI_XOP_0);
+-		interruptible_sleep_on(&cs->dc.isac.arcofi_wait);
++		wait_event_interruptible(cs->dc.isac.arcofi_wait,
++				 cs->dc.isac.arcofi_state == ARCOFI_NOP);
+ 		return (1);
+ 	}
+ 	return (0);
+diff --git a/drivers/isdn/hisax/elsa_ser.c b/drivers/isdn/hisax/elsa_ser.c
+index 3f84dd8..a2a358c 100644
+--- a/drivers/isdn/hisax/elsa_ser.c
++++ b/drivers/isdn/hisax/elsa_ser.c
+@@ -573,7 +573,8 @@ modem_l2l1(struct PStack *st, int pr, void *arg)
+ 		test_and_clear_bit(BC_FLG_ACTIV, &bcs->Flag);
+ 		bcs->cs->dc.isac.arcofi_bc = st->l1.bc;
+ 		arcofi_fsm(bcs->cs, ARCOFI_START, &ARCOFI_XOP_0);
+-		interruptible_sleep_on(&bcs->cs->dc.isac.arcofi_wait);
++		wait_event_interruptible(bcs->cs->dc.isac.arcofi_wait,
++				 bcs->cs->dc.isac.arcofi_state == ARCOFI_NOP);
+ 		bcs->cs->hw.elsa.MFlag = 1;
+ 	} else {
+ 		printk(KERN_WARNING "ElsaSer: unknown pr %x\n", pr);
 -- 
 1.8.3.2
