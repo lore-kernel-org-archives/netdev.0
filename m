@@ -1,44 +1,31 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 31/31] staging: r8188eu: Fix smatch error
-Date: Thu, 02 Jan 2014 16:19:33 -0600
-Message-ID: <52C5E5F5.8030200@lwfinger.net>
-References: <1387755422-11443-1-git-send-email-Larry.Finger@lwfinger.net> <1387755422-11443-32-git-send-email-Larry.Finger@lwfinger.net> <20140102084410.GY28413@mwanda>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/3] qlcnic: Fix loopback diagnostic test
+Date: Thu, 02 Jan 2014 17:19:46 -0500 (EST)
+Message-ID: <20140102.171946.1398718564941668424.davem@davemloft.net>
+References: <1388687925-17882-1-git-send-email-manish.chopra@qlogic.com>
+	<1388687925-17882-2-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, devel@driverdev.osuosl.org,
-	netdev@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Cc: netdev@vger.kernel.org, rajesh.borundia@qlogic.com,
+	Dept_NX_Linux_NIC_Driver@qlogic.com
+To: manish.chopra@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:62265 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751301AbaABWTg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 17:19:36 -0500
-Received: by mail-pb0-f49.google.com with SMTP id jt11so14750326pbb.8
-        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 14:19:36 -0800 (PST)
-In-Reply-To: <20140102084410.GY28413@mwanda>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53969 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751301AbaABWTu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 17:19:50 -0500
+In-Reply-To: <1388687925-17882-2-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/02/2014 02:44 AM, Dan Carpenter wrote:
-> On Sun, Dec 22, 2013 at 05:37:02PM -0600, Larry Finger wrote:
->> Smatch shows the following:
->>
->>    CHECK   drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
->> drivers/staging/rtl8188eu/core/rtw_mlme_ext.c:1401 OnAssocReq() error: buffer overflow 'pstapriv->sta_aid' 32 <= 32
->>
->
-> This is a false positive in Smatch.  Don't do work arounds for buggy
-> tools.
->
-> If you have the cross function database built on the latest version of
-> Smatch then I think it understands the code correctly and doesn't print
-> a warning.
+From: Manish Chopra <manish.chopra@qlogic.com>
+Date: Thu, 2 Jan 2014 13:38:43 -0500
 
-When I analyzed the loop in question, I thought it resulted in a subscript of 
-[NUM_STA], but I now see that the largest one is [NUM_STA-1]. I will drop this 
-patch in the next round.
+> o Adapter requires that if the port is in loopback mode no traffic should
+>   be flowing through that port, so on arrival of Link up AEN, do not advertise
+>   Link up to the stack until port is out of loopback mode
+> 
+> Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
 
-Thanks for the info regarding a new version of Smatch. I'll update now.
-
-Larry
+Applied.
