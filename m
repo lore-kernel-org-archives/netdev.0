@@ -1,142 +1,46 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH 5/5] alx: add stats to ethtool
-Date: Thu,  2 Jan 2014 00:40:28 +0100
-Message-ID: <1388619628-3373-6-git-send-email-sd@queasysnail.net>
-References: <1388619628-3373-1-git-send-email-sd@queasysnail.net>
-Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
-	Sabrina Dubroca <sd@queasysnail.net>
-To: davem@davemloft.net
+From: roy.qing.li@gmail.com
+Subject: [PATCH net-next] ipv6: fix the use of pcpu_tstats in sit
+Date: Thu,  2 Jan 2014 08:49:36 +0800
+Message-ID: <1388623776-1448-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:55410 "EHLO smtp6-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754769AbaAAXos (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Jan 2014 18:44:48 -0500
-In-Reply-To: <1388619628-3373-1-git-send-email-sd@queasysnail.net>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:47175 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750706AbaABAth (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jan 2014 19:49:37 -0500
+Received: by mail-pa0-f42.google.com with SMTP id lj1so14035949pab.29
+        for <netdev@vger.kernel.org>; Wed, 01 Jan 2014 16:49:36 -0800 (PST)
+Received: from localhost ([1.202.252.122])
+        by mx.google.com with ESMTPSA id ik1sm97585480pbc.9.2014.01.01.16.49.33
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Wed, 01 Jan 2014 16:49:35 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
- drivers/net/ethernet/atheros/alx/ethtool.c | 95 ++++++++++++++++++++++++++++++
- 1 file changed, 95 insertions(+)
+From: Li RongQing <roy.qing.li@gmail.com>
 
-diff --git a/drivers/net/ethernet/atheros/alx/ethtool.c b/drivers/net/ethernet/atheros/alx/ethtool.c
-index 45b3650..259056f 100644
---- a/drivers/net/ethernet/atheros/alx/ethtool.c
-+++ b/drivers/net/ethernet/atheros/alx/ethtool.c
-@@ -46,6 +46,62 @@
- #include "reg.h"
- #include "hw.h"
+when read/write the 64bit data, the correct lock should be hold.
+
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/ipv6/sit.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 366fbba..1e33d77 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -702,8 +702,10 @@ static int ipip6_rcv(struct sk_buff *skb)
+ 		}
  
-+static const char alx_gstrings_stats[][ETH_GSTRING_LEN] = {
-+	"rx_packets",
-+	"rx_bcast_packets",
-+	"rx_mcast_packets",
-+	"rx_pause_packets",
-+	"rx_ctrl_packets",
-+	"rx_fcs_errors",
-+	"rx_length_errors",
-+	"rx_bytes",
-+	"rx_runt_packets",
-+	"rx_fragments",
-+	"rx_64B_or_less_packets",
-+	"rx_65B_to_127B_packets",
-+	"rx_128B_to_255B_packets",
-+	"rx_256B_to_511B_packets",
-+	"rx_512B_to_1023B_packets",
-+	"rx_1024B_to_1518B_packets",
-+	"rx_1519B_to_mtu_packets",
-+	"rx_oversize_packets",
-+	"rx_rxf_ov_drop_packets",
-+	"rx_rrd_ov_drop_packets",
-+	"rx_align_errors",
-+	"rx_bcast_bytes",
-+	"rx_mcast_bytes",
-+	"rx_address_errors",
-+	"tx_packets",
-+	"tx_bcast_packets",
-+	"tx_mcast_packets",
-+	"tx_pause_packets",
-+	"tx_exc_defer_packets",
-+	"tx_ctrl_packets",
-+	"tx_defer_packets",
-+	"tx_bytes",
-+	"tx_64B_or_less_packets",
-+	"tx_65B_to_127B_packets",
-+	"tx_128B_to_255B_packets",
-+	"tx_256B_to_511B_packets",
-+	"tx_512B_to_1023B_packets",
-+	"tx_1024B_to_1518B_packets",
-+	"tx_1519B_to_mtu_packets",
-+	"tx_single_collision",
-+	"tx_multiple_collisions",
-+	"tx_late_collision",
-+	"tx_abort_collision",
-+	"tx_underrun",
-+	"tx_trd_eop",
-+	"tx_length_errors",
-+	"tx_trunc_packets",
-+	"tx_bcast_bytes",
-+	"tx_mcast_bytes",
-+	"tx_update",
-+};
-+
-+#define ALX_NUM_STATS ARRAY_SIZE(alx_gstrings_stats)
-+
-+
- static u32 alx_get_supported_speeds(struct alx_hw *hw)
- {
- 	u32 supported = SUPPORTED_10baseT_Half |
-@@ -201,6 +257,42 @@ static void alx_set_msglevel(struct net_device *netdev, u32 data)
- 	alx->msg_enable = data;
- }
+ 		tstats = this_cpu_ptr(tunnel->dev->tstats);
++		u64_stats_update_begin(&tstats->syncp);
+ 		tstats->rx_packets++;
+ 		tstats->rx_bytes += skb->len;
++		u64_stats_update_end(&tstats->syncp);
  
-+static void alx_get_ethtool_stats(struct net_device *netdev,
-+				  struct ethtool_stats *estats, u64 *data)
-+{
-+	struct alx_priv *alx = netdev_priv(netdev);
-+	struct alx_hw *hw = &alx->hw;
-+
-+	spin_lock(&alx->stats_lock);
-+
-+	__alx_update_hw_stats(hw);
-+	memcpy(data, &hw->stats, sizeof(hw->stats));
-+
-+	spin_unlock(&alx->stats_lock);
-+}
-+
-+static void alx_get_strings(struct net_device *netdev, u32 stringset, u8 *buf)
-+{
-+	switch (stringset) {
-+	case ETH_SS_STATS:
-+		memcpy(buf, &alx_gstrings_stats, sizeof(alx_gstrings_stats));
-+		break;
-+	default:
-+		WARN_ON(1);
-+		break;
-+	}
-+}
-+
-+static int alx_get_sset_count(struct net_device *netdev, int sset)
-+{
-+	switch (sset) {
-+	case ETH_SS_STATS:
-+		return ALX_NUM_STATS;
-+	default:
-+		return -ENOTSUPP;
-+	}
-+}
-+
- const struct ethtool_ops alx_ethtool_ops = {
- 	.get_settings	= alx_get_settings,
- 	.set_settings	= alx_set_settings,
-@@ -209,4 +301,7 @@ const struct ethtool_ops alx_ethtool_ops = {
- 	.get_msglevel	= alx_get_msglevel,
- 	.set_msglevel	= alx_set_msglevel,
- 	.get_link	= ethtool_op_get_link,
-+	.get_strings	= alx_get_strings,
-+	.get_sset_count	= alx_get_sset_count,
-+	.get_ethtool_stats	= alx_get_ethtool_stats,
- };
+ 		netif_rx(skb);
+ 
 -- 
-1.8.5.2
+1.7.10.4
