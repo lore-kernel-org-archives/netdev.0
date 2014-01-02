@@ -1,168 +1,58 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/9] ixgbe: Make ethtool register test use accessors
-Date: Thu,  2 Jan 2014 01:33:34 -0800
-Message-ID: <1388655221-25428-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1388655221-25428-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: [PATCH] infiniband: make sure the src net is infiniband when create new link
+Date: Thu,  2 Jan 2014 17:37:38 +0800
+Message-ID: <1388655458-25269-1-git-send-email-liuhangbin@gmail.com>
+Cc: David Miller <davem@davemloft.net>, Weiping Pan <wpan@redhat.com>,
+	Hangbin Liu <liuhangbin@gmail.com>
+To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:49542 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750740AbaABJdq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jan 2014 04:33:46 -0500
-In-Reply-To: <1388655221-25428-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:54311 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750707AbaABJiT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 04:38:19 -0500
+Received: by mail-pa0-f49.google.com with SMTP id kx10so14309130pab.22
+        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 01:38:18 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+When we create a new infiniband link with uninfiniband device, e.g. `ip link
+add link em1 type ipoib pkey 0x8001`. We will get a NULL pointer dereference
+cause other dev like Ethernet don't have struct ib_device.
 
-Make the ethtool register test use the normal register accessor
-functions. Also eliminate macros used for calling register test
-functions to make error exits clearer.
+The code path is:
+rtnl_newlink
+  |-- ipoib_new_child_link
+        |-- __ipoib_vlan_add
+              |-- ipoib_set_dev_features
+	            |-- ib_query_device
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Fix this bug by make sure the src net is infiniband when create new link.
+
+Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 80 +++++++++++-------------
- 1 file changed, 38 insertions(+), 42 deletions(-)
+ drivers/infiniband/ulp/ipoib/ipoib_netlink.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 4e7c9b0..70f2ccc 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -1343,19 +1343,18 @@ static bool reg_pattern_test(struct ixgbe_adapter *adapter, u64 *data, int reg,
- 		0x5A5A5A5A, 0xA5A5A5A5, 0x00000000, 0xFFFFFFFF};
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_netlink.c b/drivers/infiniband/ulp/ipoib/ipoib_netlink.c
+index c29b5c8..de340c9 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_netlink.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_netlink.c
+@@ -31,6 +31,7 @@
+  */
  
- 	for (pat = 0; pat < ARRAY_SIZE(test_pattern); pat++) {
--		before = readl(adapter->hw.hw_addr + reg);
--		writel((test_pattern[pat] & write),
--		       (adapter->hw.hw_addr + reg));
--		val = readl(adapter->hw.hw_addr + reg);
-+		before = IXGBE_READ_REG(&adapter->hw, reg);
-+		IXGBE_WRITE_REG(&adapter->hw, reg, test_pattern[pat] & write);
-+		val = IXGBE_READ_REG(&adapter->hw, reg);
- 		if (val != (test_pattern[pat] & write & mask)) {
- 			e_err(drv, "pattern test reg %04X failed: got "
- 			      "0x%08X expected 0x%08X\n",
- 			      reg, val, (test_pattern[pat] & write & mask));
- 			*data = reg;
--			writel(before, adapter->hw.hw_addr + reg);
-+			IXGBE_WRITE_REG(&adapter->hw, reg, before);
- 			return 1;
- 		}
--		writel(before, adapter->hw.hw_addr + reg);
-+		IXGBE_WRITE_REG(&adapter->hw, reg, before);
- 	}
- 	return 0;
- }
-@@ -1364,33 +1363,21 @@ static bool reg_set_and_check(struct ixgbe_adapter *adapter, u64 *data, int reg,
- 			      u32 mask, u32 write)
- {
- 	u32 val, before;
--	before = readl(adapter->hw.hw_addr + reg);
--	writel((write & mask), (adapter->hw.hw_addr + reg));
--	val = readl(adapter->hw.hw_addr + reg);
-+
-+	before = IXGBE_READ_REG(&adapter->hw, reg);
-+	IXGBE_WRITE_REG(&adapter->hw, reg, write & mask);
-+	val = IXGBE_READ_REG(&adapter->hw, reg);
- 	if ((write & mask) != (val & mask)) {
- 		e_err(drv, "set/check reg %04X test failed: got 0x%08X "
- 		      "expected 0x%08X\n", reg, (val & mask), (write & mask));
- 		*data = reg;
--		writel(before, (adapter->hw.hw_addr + reg));
-+		IXGBE_WRITE_REG(&adapter->hw, reg, before);
- 		return 1;
- 	}
--	writel(before, (adapter->hw.hw_addr + reg));
-+	IXGBE_WRITE_REG(&adapter->hw, reg, before);
- 	return 0;
- }
+ #include <linux/netdevice.h>
++#include <linux/if_arp.h>	/* For ARPHRD_xxx */
+ #include <linux/module.h>
+ #include <net/rtnetlink.h>
+ #include "ipoib.h"
+@@ -105,6 +106,8 @@ static int ipoib_new_child_link(struct net *src_net, struct net_device *dev,
+ 	pdev = __dev_get_by_index(src_net, nla_get_u32(tb[IFLA_LINK]));
+ 	if (!pdev)
+ 		return -ENODEV;
++	if (pdev->type != ARPHRD_INFINIBAND)
++		return -ENODEV;
  
--#define REG_PATTERN_TEST(reg, mask, write)				      \
--	do {								      \
--		if (reg_pattern_test(adapter, data, reg, mask, write))	      \
--			return 1;					      \
--	} while (0)							      \
--
--
--#define REG_SET_AND_CHECK(reg, mask, write)				      \
--	do {								      \
--		if (reg_set_and_check(adapter, data, reg, mask, write))	      \
--			return 1;					      \
--	} while (0)							      \
--
- static int ixgbe_reg_test(struct ixgbe_adapter *adapter, u64 *data)
- {
- 	const struct ixgbe_reg_test *test;
-@@ -1438,38 +1425,47 @@ static int ixgbe_reg_test(struct ixgbe_adapter *adapter, u64 *data)
- 	 */
- 	while (test->reg) {
- 		for (i = 0; i < test->array_len; i++) {
-+			bool b = false;
-+
- 			switch (test->test_type) {
- 			case PATTERN_TEST:
--				REG_PATTERN_TEST(test->reg + (i * 0x40),
--						 test->mask,
--						 test->write);
-+				b = reg_pattern_test(adapter, data,
-+						     test->reg + (i * 0x40),
-+						     test->mask,
-+						     test->write);
- 				break;
- 			case SET_READ_TEST:
--				REG_SET_AND_CHECK(test->reg + (i * 0x40),
--						  test->mask,
--						  test->write);
-+				b = reg_set_and_check(adapter, data,
-+						      test->reg + (i * 0x40),
-+						      test->mask,
-+						      test->write);
- 				break;
- 			case WRITE_NO_TEST:
--				writel(test->write,
--				       (adapter->hw.hw_addr + test->reg)
--				       + (i * 0x40));
-+				IXGBE_WRITE_REG(&adapter->hw,
-+						test->reg + (i * 0x40),
-+						test->write);
- 				break;
- 			case TABLE32_TEST:
--				REG_PATTERN_TEST(test->reg + (i * 4),
--						 test->mask,
--						 test->write);
-+				b = reg_pattern_test(adapter, data,
-+						     test->reg + (i * 4),
-+						     test->mask,
-+						     test->write);
- 				break;
- 			case TABLE64_TEST_LO:
--				REG_PATTERN_TEST(test->reg + (i * 8),
--						 test->mask,
--						 test->write);
-+				b = reg_pattern_test(adapter, data,
-+						     test->reg + (i * 8),
-+						     test->mask,
-+						     test->write);
- 				break;
- 			case TABLE64_TEST_HI:
--				REG_PATTERN_TEST((test->reg + 4) + (i * 8),
--						 test->mask,
--						 test->write);
-+				b = reg_pattern_test(adapter, data,
-+						     (test->reg + 4) + (i * 8),
-+						     test->mask,
-+						     test->write);
- 				break;
- 			}
-+			if (b)
-+				return 1;
- 		}
- 		test++;
- 	}
+ 	ppriv = netdev_priv(pdev);
+ 
 -- 
-1.8.3.1
+1.8.1.4
