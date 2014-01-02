@@ -1,90 +1,41 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH net-next v2 6/6] r8152: support RTL8153
-Date: Thu, 02 Jan 2014 15:25:13 +0100
-Message-ID: <877gai8nqu.fsf@nemi.mork.no>
-References: <1388632963-1341-1-git-send-email-hayeswang@realtek.com>
-	<1388633110-1435-1-git-send-email-hayeswang@realtek.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v4 0/2] sctp: Consolidate and ratelimit deprecation
+ warnings
+Date: Thu, 2 Jan 2014 09:31:35 -0500
+Message-ID: <20140102143135.GA7526@hmsreliant.think-freely.org>
+References: <1387205049-22752-1-git-send-email-nhorman@tuxdriver.com>
+ <1387805383-21500-1-git-send-email-nhorman@tuxdriver.com>
+ <20131231.140000.463004971089550957.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <oliver@neukum.org>, <netdev@vger.kernel.org>,
-	<nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>
-To: Hayes Wang <hayeswang@realtek.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org, vyasevich@gmail.com,
+	gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1388633110-1435-1-git-send-email-hayeswang@realtek.com> (Hayes
-	Wang's message of "Thu, 2 Jan 2014 11:25:10 +0800")
+Content-Disposition: inline
+In-Reply-To: <20131231.140000.463004971089550957.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hayes Wang <hayeswang@realtek.com> writes:
-
-> Support new chip RTL8153 which is the USB 3.0 giga ethernet adapter.
->
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> ---
->  drivers/net/usb/cdc_ether.c |  10 +
->  drivers/net/usb/r8152.c     | 615 ++++++++++++++++++++++++++++++++++=
-+++++++++-
->  drivers/net/usb/r815x.c     |   2 +-
->  3 files changed, 621 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.=
-c
-> index 4b1c0f3..640406a 100644
-> --- a/drivers/net/usb/cdc_ether.c
-> +++ b/drivers/net/usb/cdc_ether.c
-> @@ -486,6 +486,7 @@ static const struct driver_info wwan_info =3D {
->  #define ZTE_VENDOR_ID		0x19D2
->  #define DELL_VENDOR_ID		0x413C
->  #define REALTEK_VENDOR_ID	0x0bda
-> +#define SAMSUNG_VENDOR_ID	0x04e8
-> =20
->  static const struct usb_device_id	products[] =3D {
->  /* BLACKLIST !!
-> @@ -652,6 +653,15 @@ static const struct usb_device_id	products[] =3D=
- {
->  	.driver_info =3D 0,
->  },
-> =20
-> +#if defined(CONFIG_USB_RTL8152) || defined(CONFIG_USB_RTL8152_MODULE=
-)
-> +/* Samsung USB Ethernet Adapters */
-> +{
-> +	USB_DEVICE_AND_INTERFACE_INFO(SAMSUNG_VENDOR_ID, 0xa101, USB_CLASS_=
-COMM,
-> +			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
-> +	.driver_info =3D 0,
-> +},
-> +#endif
-
-
-We don't play the if-other-driver-is-enabled for any other of the
-blacklisted devices, including other devices supported by the RTL8152
-driver.  Why do we need it here?
-
-
-
-> diff --git a/drivers/net/usb/r815x.c b/drivers/net/usb/r815x.c
-> index 2df2f4f..5fd2ca6 100644
-> --- a/drivers/net/usb/r815x.c
-> +++ b/drivers/net/usb/r815x.c
-> @@ -226,7 +226,7 @@ static const struct usb_device_id products[] =3D =
-{
->  {
->  	USB_DEVICE_AND_INTERFACE_INFO(REALTEK_VENDOR_ID, 0x8153, USB_CLASS_=
-COMM,
->  			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
-> -#if defined(CONFIG_USB_RTL8153) || defined(CONFIG_USB_RTL8153_MODULE=
-)
-> +#if defined(CONFIG_USB_RTL8152) || defined(CONFIG_USB_RTL8152_MODULE=
-)
->  	.driver_info =3D 0,
->  #else
->  	.driver_info =3D (unsigned long) &r8153_info,
-
-This hunk seems like a completely unrelated bugfix?  This should have
-been a separate patch.
-
-
-Bj=C3=B8rn
+On Tue, Dec 31, 2013 at 02:00:00PM -0500, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Mon, 23 Dec 2013 08:29:41 -0500
+> 
+> > The SCTP protocol has several deprecation warnings in its setsockopt path that
+> > can be triggered by unprivlidged users.  Since these are not ratelimited, we can
+> > spam the logs quite easily here.  Since these are all deprecation warnings, and
+> > that type of warning isn't uncommon in the rest of the kernel, lets make a
+> > common pr_warn_deprecated macro to produce somewhat generalized ratelimited
+> > deprecation warnings easily
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> 
+> Series applied, thanks Neil.
+> 
+> Please consider Ben's suggestion to provide the offending command string
+> in the log output.
+> 
+Of course, I'll take care of it this week after I dig through all the holiday
+email.
+Neil
