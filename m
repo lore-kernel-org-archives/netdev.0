@@ -1,58 +1,69 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next] net: revert "sched classifier: make cgroup table local"
-Date: Thu,  2 Jan 2014 14:58:41 -0800
-Message-ID: <1388703521-5535-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v2] IPv6: add option to use Subnet-Router anycast addresses as source addresses
+Date: Fri, 3 Jan 2014 00:17:30 +0100
+Message-ID: <20140102231730.GH22494@order.stressinduktion.org>
+References: <1388688977.95873.YahooMailBasic@web125502.mail.ne1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: =?utf-8?Q?Fran=C3=A7ois-Xavier?= Le Bail <fx.lebail@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:36227 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750782AbaABW6v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 17:58:51 -0500
-Received: by mail-pb0-f51.google.com with SMTP id up15so14884833pbc.24
-        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 14:58:51 -0800 (PST)
+Received: from order.stressinduktion.org ([87.106.68.36]:36146 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751258AbaABXRb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 18:17:31 -0500
+Content-Disposition: inline
+In-Reply-To: <1388688977.95873.YahooMailBasic@web125502.mail.ne1.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit de6fb288b1246a5c4e00c0cdbfe3a838a360b3f4.
-Otherwise we got:
+On Thu, Jan 02, 2014 at 10:56:17AM -0800, Fran=C3=A7ois-Xavier Le Bail =
+wrote:
+> > I wouldn't actually add this knob, we can just enable that by defau=
+lt.
+>=20
+> I think we need to keep by default the existing behaviour (ICMPv6 ech=
+o reply with unicast)
+> in case some setups use it, and use "enable_anycast_src" to change th=
+e behaviour=20
+> according to RFC4942.
 
-net/sched/cls_cgroup.c:106:29: error: static declaration of =E2=80=98ne=
-t_cls_subsys=E2=80=99 follows non-static declaration
- static struct cgroup_subsys net_cls_subsys =3D {
-                             ^
-In file included from include/linux/cgroup.h:654:0,
-                 from net/sched/cls_cgroup.c:18:
-include/linux/cgroup_subsys.h:35:29: note: previous declaration of =E2=80=
-=98net_cls_subsys=E2=80=99 was here
- SUBSYS(net_cls)
-                             ^
-make[2]: *** [net/sched/cls_cgroup.o] Error 1
+We try to extract the destination address and reuse it in the reply. Th=
+e
+other system should not notice if it communicates with a unicast or
+anycast address. Am I missing something?
 
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/sched/cls_cgroup.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> > Also it should be no problem to bind() to those addresses.
+> =20
+> > I am still unsure what to do with a bind to any or if the address m=
+ust be
+> > bound specifically (maybe that is worth a knob).
+>=20
+> > In the long term I would like to see that we can add additional any=
+cast
+> > addresses via iproute:
+> =20
+> > ip -6 a a 1234::1/64 dev eth0 anycast
+> =20
+> > or something like that. That should be rather easy, as in just incr=
+ementing
+> > the anycast counter for an interface in inet6_rtm_newaddr
+> > and adding a flag to ifa_flags which gets passed down by iproute2.
+> =20
+> > I'll do some research on if this should also get integrated with so=
+urce address selection.
+>=20
+> It can be the objects of future evolutions.
+> I have to think about these.
 
-diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-index 161a03e..f9d21258 100644
---- a/net/sched/cls_cgroup.c
-+++ b/net/sched/cls_cgroup.c
-@@ -103,7 +103,7 @@ static struct cftype ss_files[] =3D {
- 	{ }	/* terminate */
- };
-=20
--static struct cgroup_subsys net_cls_subsys =3D {
-+struct cgroup_subsys net_cls_subsys =3D {
- 	.name		=3D "net_cls",
- 	.css_alloc	=3D cgrp_css_alloc,
- 	.css_online	=3D cgrp_css_online,
---=20
-1.8.3.1
+Me, too. :) I don't know what the consequences are if we make the whole
+unicast path agnostic to anycast. It could very well be a bad idea.
+
+Thanks,
+
+  Hannes
