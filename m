@@ -1,10 +1,9 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH, RFC 17/30] atm: nicstar: remove interruptible_sleep_on_timeout
-Date: Thu,  2 Jan 2014 13:07:41 +0100
-Message-ID: <1388664474-1710039-18-git-send-email-arnd@arndb.de>
+Subject: [PATCH, RFC 18/30] atm: firestream: fix interruptible_sleep_on race
+Date: Thu,  2 Jan 2014 13:07:42 +0100
+Message-ID: <1388664474-1710039-19-git-send-email-arnd@arndb.de>
 References: <1388664474-1710039-1-git-send-email-arnd@arndb.de>
 Cc: Arnd Bergmann <arnd@arndb.de>,
-	"David S. Miller" <davem@davemloft.net>,
 	Chas Williams <chas@cmf.nrl.navy.mil>,
 	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
@@ -13,52 +12,40 @@ In-Reply-To: <1388664474-1710039-1-git-send-email-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We are trying to finally kill off interruptible_sleep_on_timeout.
-the two uses in the nicstar driver can be trivially replaced
-with wait_event_interruptible_lock_irq_timeout, which prevents the
-wake-up race and is able to check the buffer state with scq->lock
-held.
+interruptible_sleep_on is racy and going away. This replaces the one use
+in the firestream driver with the appropriate wait_event_interruptible
+variant.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: David S. Miller <davem@davemloft.net>
 Cc: Chas Williams <chas@cmf.nrl.navy.mil>
 Cc: linux-atm-general@lists.sourceforge.net
 Cc: netdev@vger.kernel.org
 ---
- drivers/atm/nicstar.c | 13 ++++++-------
- 1 file changed, 6 insertions(+), 7 deletions(-)
+ drivers/atm/firestream.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
-index 5aca5f4..3c079eb 100644
---- a/drivers/atm/nicstar.c
-+++ b/drivers/atm/nicstar.c
-@@ -1739,10 +1739,9 @@ static int push_scqe(ns_dev * card, vc_map * vc, scq_info * scq, ns_scqe * tbd,
- 		}
+diff --git a/drivers/atm/firestream.c b/drivers/atm/firestream.c
+index b41c948..f43e1c1 100644
+--- a/drivers/atm/firestream.c
++++ b/drivers/atm/firestream.c
+@@ -736,8 +736,8 @@ static void process_txdone_queue (struct fs_dev *dev, struct queue *q)
+       
+ 			skb = td->skb;
+ 			if (skb == FS_VCC (ATM_SKB(skb)->vcc)->last_skb) {
+-				wake_up_interruptible (& FS_VCC (ATM_SKB(skb)->vcc)->close_wait);
+ 				FS_VCC (ATM_SKB(skb)->vcc)->last_skb = NULL;
++				wake_up_interruptible (& FS_VCC (ATM_SKB(skb)->vcc)->close_wait);
+ 			}
+ 			td->dev->ntxpckts--;
  
- 		scq->full = 1;
--		spin_unlock_irqrestore(&scq->lock, flags);
--		interruptible_sleep_on_timeout(&scq->scqfull_waitq,
--					       SCQFULL_TIMEOUT);
--		spin_lock_irqsave(&scq->lock, flags);
-+		wait_event_interruptible_lock_irq_timeout(scq->scqfull_waitq,
-+				scq->tail != scq->next, scq->lock,
-+				SCQFULL_TIMEOUT);
+@@ -1123,7 +1123,7 @@ static void fs_close(struct atm_vcc *atm_vcc)
+ 		   this sleep_on, we'll lose any reference to these packets. Memory leak!
+ 		   On the other hand, it's awfully convenient that we can abort a "close" that
+ 		   is taking too long. Maybe just use non-interruptible sleep on? -- REW */
+-		interruptible_sleep_on (& vcc->close_wait);
++		wait_event_interruptible(vcc->close_wait, !vcc->last_skb);
+ 	}
  
- 		if (scq->full) {
- 			spin_unlock_irqrestore(&scq->lock, flags);
-@@ -1789,10 +1788,10 @@ static int push_scqe(ns_dev * card, vc_map * vc, scq_info * scq, ns_scqe * tbd,
- 			scq->full = 1;
- 			if (has_run++)
- 				break;
--			spin_unlock_irqrestore(&scq->lock, flags);
--			interruptible_sleep_on_timeout(&scq->scqfull_waitq,
-+			wait_event_interruptible_lock_irq_timeout(scq->scqfull_waitq,
-+						       scq->tail != scq->next,
-+						       scq->lock,
- 						       SCQFULL_TIMEOUT);
--			spin_lock_irqsave(&scq->lock, flags);
- 		}
- 
- 		if (!scq->full) {
+ 	txtp = &atm_vcc->qos.txtp;
 -- 
 1.8.3.2
