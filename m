@@ -1,73 +1,27 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 1/2] net: Pre-step for supporting GRO on vxlan traffic
-Date: Thu,  2 Jan 2014 15:27:55 +0200
-Message-ID: <1388669276-6206-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: hkchu@google.com, edumazet@google.com, herbert@gondor.apana.org.au
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: question about tulip/winbond-840.c
+Date: Thu, 2 Jan 2014 15:24:49 +0100 (CET)
+Message-ID: <alpine.DEB.2.10.1401021520280.2088@hadrien>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: grundler@parisc-linux.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:43538 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750733AbaABN2D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jan 2014 08:28:03 -0500
+Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:43855
+	"EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750942AbaABOZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 09:25:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As a pre-step for supporting vxlan with the GRO stack, move the
-vxlan header structure definition to common header file and
-enhance the vxlan code not to alter the ip_summed field for RX
-skb's marked with CHECKSUM_PARTIAL, as done by the TCP GRO code.
+I don't know if you want to bother about this, because it is very old code
+and is apparently not hurting anyone, but I don't see the point of the
+call to pci_enable_device in the function w840_resume.  The driver had a
+call to pci_enable_device in its probe function, but it contains no call
+to pci_disable_device, unlike some other tulip drivers.  Perhaps the call
+has a small functionality, but it seems like it can at least never return
+a value other than 0, because the result of
+atomic_inc_return(&dev->enable_cnt) in pci_enable_device_flags should
+be greater than 1.
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/vxlan.c |   10 ++--------
- include/net/vxlan.h |    6 ++++++
- 2 files changed, 8 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index ea203c1..438d8ef 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -64,12 +64,6 @@
- 
- #define VXLAN_FLAGS 0x08000000	/* struct vxlanhdr.vx_flags required value. */
- 
--/* VXLAN protocol header */
--struct vxlanhdr {
--	__be32 vx_flags;
--	__be32 vx_vni;
--};
--
- /* UDP port for VXLAN traffic.
-  * The IANA assigned port is 4789, but the Linux default is 8472
-  * for compatibility with early adopters.
-@@ -1125,8 +1119,8 @@ static void vxlan_rcv(struct vxlan_sock *vs,
- 	 * leave the CHECKSUM_UNNECESSARY, the device checksummed it
- 	 * for us. Otherwise force the upper layers to verify it.
- 	 */
--	if (skb->ip_summed != CHECKSUM_UNNECESSARY || !skb->encapsulation ||
--	    !(vxlan->dev->features & NETIF_F_RXCSUM))
-+	if ((skb->ip_summed != CHECKSUM_UNNECESSARY && skb->ip_summed != CHECKSUM_PARTIAL)
-+	    || !skb->encapsulation || !(vxlan->dev->features & NETIF_F_RXCSUM))
- 		skb->ip_summed = CHECKSUM_NONE;
- 
- 	skb->encapsulation = 0;
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index 6b6d180..dede91c 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -5,6 +5,12 @@
- #include <linux/netdevice.h>
- #include <linux/udp.h>
- 
-+/* VXLAN protocol header */
-+struct vxlanhdr {
-+	__be32 vx_flags;
-+	__be32 vx_vni;
-+};
-+
- #define VNI_HASH_BITS	10
- #define VNI_HASH_SIZE	(1<<VNI_HASH_BITS)
- 
--- 
-1.7.1
+julia
