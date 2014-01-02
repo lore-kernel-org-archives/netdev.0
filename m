@@ -1,143 +1,80 @@
 From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH 2/5] bgmac: initialize the DMA controller of core rev >= 4
-Date: Thu,  2 Jan 2014 20:18:59 +0100
-Message-ID: <1388690342-27213-2-git-send-email-hauke@hauke-m.de>
+Subject: [PATCH 3/5] bgmac: add support for new BGMAC_CMDCFG_SR position on core rev >= 4
+Date: Thu,  2 Jan 2014 20:19:00 +0100
+Message-ID: <1388690342-27213-3-git-send-email-hauke@hauke-m.de>
 References: <1388690342-27213-1-git-send-email-hauke@hauke-m.de>
 Cc: zajec5@gmail.com, netdev@vger.kernel.org,
 	Hauke Mehrtens <hauke@hauke-m.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:51588 "EHLO
+Received: from server19320154104.serverpool.info ([193.201.54.104]:51592 "EHLO
 	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751406AbaABTTN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jan 2014 14:19:13 -0500
+	id S1751406AbaABTTQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jan 2014 14:19:16 -0500
 In-Reply-To: <1388690342-27213-1-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The DMA controller used in the device supported by GMAC with core rev
->= 4 has some new options which are now set to the default values used
-in the Broadcom SDK.
+The BGMAC_CMDCFG_SR register is at a different position on core rev >= 4
 
 Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 ---
- drivers/net/ethernet/broadcom/bgmac.c |   23 +++++++++++++++
- drivers/net/ethernet/broadcom/bgmac.h |   50 +++++++++++++++++++++++++++++++++
- 2 files changed, 73 insertions(+)
+ drivers/net/ethernet/broadcom/bgmac.c |    8 ++++----
+ drivers/net/ethernet/broadcom/bgmac.h |    4 +++-
+ 2 files changed, 7 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index 39efb86..aa5e289 100644
+index aa5e289..88ec69e 100644
 --- a/drivers/net/ethernet/broadcom/bgmac.c
 +++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -96,6 +96,19 @@ static void bgmac_dma_tx_enable(struct bgmac *bgmac,
- 	u32 ctl;
+@@ -768,13 +768,13 @@ static void bgmac_cmdcfg_maskset(struct bgmac *bgmac, u32 mask, u32 set,
+ 	u32 cmdcfg = bgmac_read(bgmac, BGMAC_CMDCFG);
+ 	u32 new_val = (cmdcfg & mask) | set;
  
- 	ctl = bgmac_read(bgmac, ring->mmio_base + BGMAC_DMA_TX_CTL);
-+	if (bgmac->core->id.rev >= 4) {
-+		ctl &= ~BGMAC_DMA_TX_BL_MASK;
-+		ctl |= BGMAC_DMA_TX_BL_128 << BGMAC_DMA_TX_BL_SHIFT;
-+
-+		ctl &= ~BGMAC_DMA_TX_MR_MASK;
-+		ctl |= BGMAC_DMA_TX_MR_2 << BGMAC_DMA_TX_MR_SHIFT;
-+
-+		ctl &= ~BGMAC_DMA_TX_PC_MASK;
-+		ctl |= BGMAC_DMA_TX_PC_16 << BGMAC_DMA_TX_PC_SHIFT;
-+
-+		ctl &= ~BGMAC_DMA_TX_PT_MASK;
-+		ctl |= BGMAC_DMA_TX_PT_8 << BGMAC_DMA_TX_PT_SHIFT;
-+	}
- 	ctl |= BGMAC_DMA_TX_ENABLE;
- 	ctl |= BGMAC_DMA_TX_PARITY_DISABLE;
- 	bgmac_write(bgmac, ring->mmio_base + BGMAC_DMA_TX_CTL, ctl);
-@@ -240,6 +253,16 @@ static void bgmac_dma_rx_enable(struct bgmac *bgmac,
- 	u32 ctl;
+-	bgmac_set(bgmac, BGMAC_CMDCFG, BGMAC_CMDCFG_SR);
++	bgmac_set(bgmac, BGMAC_CMDCFG, BGMAC_CMDCFG_SR(bgmac->core->id.rev));
+ 	udelay(2);
  
- 	ctl = bgmac_read(bgmac, ring->mmio_base + BGMAC_DMA_RX_CTL);
-+	if (bgmac->core->id.rev >= 4) {
-+		ctl &= ~BGMAC_DMA_RX_BL_MASK;
-+		ctl |= BGMAC_DMA_RX_BL_128 << BGMAC_DMA_RX_BL_SHIFT;
-+
-+		ctl &= ~BGMAC_DMA_RX_PC_MASK;
-+		ctl |= BGMAC_DMA_RX_PC_8 << BGMAC_DMA_RX_PC_SHIFT;
-+
-+		ctl &= ~BGMAC_DMA_RX_PT_MASK;
-+		ctl |= BGMAC_DMA_RX_PT_1 << BGMAC_DMA_RX_PT_SHIFT;
-+	}
- 	ctl &= BGMAC_DMA_RX_ADDREXT_MASK;
- 	ctl |= BGMAC_DMA_RX_ENABLE;
- 	ctl |= BGMAC_DMA_RX_PARITY_DISABLE;
+ 	if (new_val != cmdcfg || force)
+ 		bgmac_write(bgmac, BGMAC_CMDCFG, new_val);
+ 
+-	bgmac_mask(bgmac, BGMAC_CMDCFG, ~BGMAC_CMDCFG_SR);
++	bgmac_mask(bgmac, BGMAC_CMDCFG, ~BGMAC_CMDCFG_SR(bgmac->core->id.rev));
+ 	udelay(2);
+ }
+ 
+@@ -977,7 +977,7 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
+ 			     BGMAC_CMDCFG_PROM |
+ 			     BGMAC_CMDCFG_NLC |
+ 			     BGMAC_CMDCFG_CFE |
+-			     BGMAC_CMDCFG_SR,
++			     BGMAC_CMDCFG_SR(core->id.rev),
+ 			     false);
+ 	bgmac->mac_speed = SPEED_UNKNOWN;
+ 	bgmac->mac_duplex = DUPLEX_UNKNOWN;
+@@ -1020,7 +1020,7 @@ static void bgmac_enable(struct bgmac *bgmac)
+ 
+ 	cmdcfg = bgmac_read(bgmac, BGMAC_CMDCFG);
+ 	bgmac_cmdcfg_maskset(bgmac, ~(BGMAC_CMDCFG_TE | BGMAC_CMDCFG_RE),
+-			     BGMAC_CMDCFG_SR, true);
++			     BGMAC_CMDCFG_SR(bgmac->core->id.rev), true);
+ 	udelay(2);
+ 	cmdcfg |= BGMAC_CMDCFG_TE | BGMAC_CMDCFG_RE;
+ 	bgmac_write(bgmac, BGMAC_CMDCFG, cmdcfg);
 diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
-index 130b16b..71adac9 100644
+index 71adac9..ceeaac6 100644
 --- a/drivers/net/ethernet/broadcom/bgmac.h
 +++ b/drivers/net/ethernet/broadcom/bgmac.h
-@@ -237,9 +237,34 @@
- #define  BGMAC_DMA_TX_SUSPEND			0x00000002
- #define  BGMAC_DMA_TX_LOOPBACK			0x00000004
- #define  BGMAC_DMA_TX_FLUSH			0x00000010
-+#define  BGMAC_DMA_TX_MR_MASK			0x000000C0	/* Multiple outstanding reads */
-+#define  BGMAC_DMA_TX_MR_SHIFT			6
-+#define   BGMAC_DMA_TX_MR_1			0
-+#define   BGMAC_DMA_TX_MR_2			1
- #define  BGMAC_DMA_TX_PARITY_DISABLE		0x00000800
- #define  BGMAC_DMA_TX_ADDREXT_MASK		0x00030000
- #define  BGMAC_DMA_TX_ADDREXT_SHIFT		16
-+#define  BGMAC_DMA_TX_BL_MASK			0x001C0000	/* BurstLen bits */
-+#define  BGMAC_DMA_TX_BL_SHIFT			18
-+#define   BGMAC_DMA_TX_BL_16			0
-+#define   BGMAC_DMA_TX_BL_32			1
-+#define   BGMAC_DMA_TX_BL_64			2
-+#define   BGMAC_DMA_TX_BL_128			3
-+#define   BGMAC_DMA_TX_BL_256			4
-+#define   BGMAC_DMA_TX_BL_512			5
-+#define   BGMAC_DMA_TX_BL_1024			6
-+#define  BGMAC_DMA_TX_PC_MASK			0x00E00000	/* Prefetch control */
-+#define  BGMAC_DMA_TX_PC_SHIFT			21
-+#define   BGMAC_DMA_TX_PC_0			0
-+#define   BGMAC_DMA_TX_PC_4			1
-+#define   BGMAC_DMA_TX_PC_8			2
-+#define   BGMAC_DMA_TX_PC_16			3
-+#define  BGMAC_DMA_TX_PT_MASK			0x03000000	/* Prefetch threshold */
-+#define  BGMAC_DMA_TX_PT_SHIFT			24
-+#define   BGMAC_DMA_TX_PT_1			0
-+#define   BGMAC_DMA_TX_PT_2			1
-+#define   BGMAC_DMA_TX_PT_4			2
-+#define   BGMAC_DMA_TX_PT_8			3
- #define BGMAC_DMA_TX_INDEX			0x04
- #define BGMAC_DMA_TX_RINGLO			0x08
- #define BGMAC_DMA_TX_RINGHI			0x0C
-@@ -267,8 +292,33 @@
- #define  BGMAC_DMA_RX_DIRECT_FIFO		0x00000100
- #define  BGMAC_DMA_RX_OVERFLOW_CONT		0x00000400
- #define  BGMAC_DMA_RX_PARITY_DISABLE		0x00000800
-+#define  BGMAC_DMA_RX_MR_MASK			0x000000C0	/* Multiple outstanding reads */
-+#define  BGMAC_DMA_RX_MR_SHIFT			6
-+#define   BGMAC_DMA_TX_MR_1			0
-+#define   BGMAC_DMA_TX_MR_2			1
- #define  BGMAC_DMA_RX_ADDREXT_MASK		0x00030000
- #define  BGMAC_DMA_RX_ADDREXT_SHIFT		16
-+#define  BGMAC_DMA_RX_BL_MASK			0x001C0000	/* BurstLen bits */
-+#define  BGMAC_DMA_RX_BL_SHIFT			18
-+#define   BGMAC_DMA_RX_BL_16			0
-+#define   BGMAC_DMA_RX_BL_32			1
-+#define   BGMAC_DMA_RX_BL_64			2
-+#define   BGMAC_DMA_RX_BL_128			3
-+#define   BGMAC_DMA_RX_BL_256			4
-+#define   BGMAC_DMA_RX_BL_512			5
-+#define   BGMAC_DMA_RX_BL_1024			6
-+#define  BGMAC_DMA_RX_PC_MASK			0x00E00000	/* Prefetch control */
-+#define  BGMAC_DMA_RX_PC_SHIFT			21
-+#define   BGMAC_DMA_RX_PC_0			0
-+#define   BGMAC_DMA_RX_PC_4			1
-+#define   BGMAC_DMA_RX_PC_8			2
-+#define   BGMAC_DMA_RX_PC_16			3
-+#define  BGMAC_DMA_RX_PT_MASK			0x03000000	/* Prefetch threshold */
-+#define  BGMAC_DMA_RX_PT_SHIFT			24
-+#define   BGMAC_DMA_RX_PT_1			0
-+#define   BGMAC_DMA_RX_PT_2			1
-+#define   BGMAC_DMA_RX_PT_4			2
-+#define   BGMAC_DMA_RX_PT_8			3
- #define BGMAC_DMA_RX_INDEX			0x24
- #define BGMAC_DMA_RX_RINGLO			0x28
- #define BGMAC_DMA_RX_RINGHI			0x2C
+@@ -197,7 +197,9 @@
+ #define  BGMAC_CMDCFG_TAI			0x00000200
+ #define  BGMAC_CMDCFG_HD			0x00000400	/* Set if in half duplex mode */
+ #define  BGMAC_CMDCFG_HD_SHIFT			10
+-#define  BGMAC_CMDCFG_SR			0x00000800	/* Set to reset mode */
++#define  BGMAC_CMDCFG_SR_REVO			0x00000800	/* Set to reset mode, for other revs */
++#define  BGMAC_CMDCFG_SR_REV4			0x00002000	/* Set to reset mode, only for core rev 4 */
++#define  BGMAC_CMDCFG_SR(rev)  ((rev >= 4) ? BGMAC_CMDCFG_SR_REV4 : BGMAC_CMDCFG_SR_REVO)
+ #define  BGMAC_CMDCFG_ML			0x00008000	/* Set to activate mac loopback mode */
+ #define  BGMAC_CMDCFG_AE			0x00400000
+ #define  BGMAC_CMDCFG_CFE			0x00800000
 -- 
 1.7.10.4
