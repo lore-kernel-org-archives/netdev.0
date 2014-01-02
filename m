@@ -1,46 +1,58 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: IrDA woes..
-Date: Thu, 2 Jan 2014 14:54:39 -0800
-Message-ID: <CA+55aFz2FJt0jJzC_aSPAHafM1sSCHtn2152aER6XgioUJcxVg@mail.gmail.com>
-References: <CA+55aFz2CQ4B1JSpQ75TuQrrd9sUnhV+u=T2dWZY2NTTT5OmpQ@mail.gmail.com>
-	<20140102.034653.1968429090467668489.davem@davemloft.net>
-	<CA+55aFz_qDYP_P0PLUNv0wotoy=5PcS+7Qtt=U6EzvL4h4E69A@mail.gmail.com>
-	<370106E9-5C39-4917-AE74-2ED5E376DA11@holtmann.org>
-	<CA+55aFwF6f84Rd0C8WmLia4EcJc1CZH8GvEZXWfE2=VH0_mxSw@mail.gmail.com>
-	<0A3D681C-9597-44F0-9540-B42F259004D1@holtmann.org>
-	<CA+55aFywkFkrRPoG9Ze_Vc=09qG-9iYS81D13OUDhPRDsvuQeA@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] net: revert "sched classifier: make cgroup table local"
+Date: Thu,  2 Jan 2014 14:58:41 -0800
+Message-ID: <1388703521-5535-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Samuel Ortiz <samuel@sortiz.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Marcel Holtmann <marcel@holtmann.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f170.google.com ([209.85.215.170]:60304 "EHLO
-	mail-ea0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750744AbaABWyk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 17:54:40 -0500
-Received: by mail-ea0-f170.google.com with SMTP id k10so6467918eaj.15
-        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 14:54:39 -0800 (PST)
-In-Reply-To: <CA+55aFywkFkrRPoG9Ze_Vc=09qG-9iYS81D13OUDhPRDsvuQeA@mail.gmail.com>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:36227 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750782AbaABW6v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 17:58:51 -0500
+Received: by mail-pb0-f51.google.com with SMTP id up15so14884833pbc.24
+        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 14:58:51 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 2, 2014 at 2:29 PM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
->
-> So I do have two dongles, because I was afraid of that. Can you tell
-> me how to debug *those* just connected to each other? Preferably on
-> the same machine, because I'll be traveling soon..
+This reverts commit de6fb288b1246a5c4e00c0cdbfe3a838a360b3f4.
+Otherwise we got:
 
-Side note: is there any *reason* why two pty's connected to each other
-can't work? They should look very much like a dongle that just doesn't
-do any encapsulation of the data, and it really *almost* works. I can
-actually get the simulator that uses the irda sockets to run over
-them, except it will hang eventually in some timing-dependent manner.
+net/sched/cls_cgroup.c:106:29: error: static declaration of =E2=80=98ne=
+t_cls_subsys=E2=80=99 follows non-static declaration
+ static struct cgroup_subsys net_cls_subsys =3D {
+                             ^
+In file included from include/linux/cgroup.h:654:0,
+                 from net/sched/cls_cgroup.c:18:
+include/linux/cgroup_subsys.h:35:29: note: previous declaration of =E2=80=
+=98net_cls_subsys=E2=80=99 was here
+ SUBSYS(net_cls)
+                             ^
+make[2]: *** [net/sched/cls_cgroup.o] Error 1
 
-It works well enough that I'd be inclined to blame some kernel bug.
-Especially considering that I found what looked like obvious kernel
-bugs already (neither of which fixes the hang, though).
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/sched/cls_cgroup.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-             Linus
+diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+index 161a03e..f9d21258 100644
+--- a/net/sched/cls_cgroup.c
++++ b/net/sched/cls_cgroup.c
+@@ -103,7 +103,7 @@ static struct cftype ss_files[] =3D {
+ 	{ }	/* terminate */
+ };
+=20
+-static struct cgroup_subsys net_cls_subsys =3D {
++struct cgroup_subsys net_cls_subsys =3D {
+ 	.name		=3D "net_cls",
+ 	.css_alloc	=3D cgrp_css_alloc,
+ 	.css_online	=3D cgrp_css_online,
+--=20
+1.8.3.1
