@@ -1,42 +1,46 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH 31/31] staging: r8188eu: Fix smatch error
-Date: Thu, 2 Jan 2014 11:44:10 +0300
-Message-ID: <20140102084410.GY28413@mwanda>
-References: <1387755422-11443-1-git-send-email-Larry.Finger@lwfinger.net>
- <1387755422-11443-32-git-send-email-Larry.Finger@lwfinger.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: IrDA woes..
+Date: Thu, 02 Jan 2014 03:46:53 -0500 (EST)
+Message-ID: <20140102.034653.1968429090467668489.davem@davemloft.net>
+References: <CA+55aFz2CQ4B1JSpQ75TuQrrd9sUnhV+u=T2dWZY2NTTT5OmpQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, gregkh@linuxfoundation.org,
- netdev@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <1387755422-11443-32-git-send-email-Larry.Finger@lwfinger.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: samuel@sortiz.org, netdev@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47719 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751249AbaABIqz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 03:46:55 -0500
+In-Reply-To: <CA+55aFz2CQ4B1JSpQ75TuQrrd9sUnhV+u=T2dWZY2NTTT5OmpQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 22, 2013 at 05:37:02PM -0600, Larry Finger wrote:
-> Smatch shows the following:
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Tue, 31 Dec 2013 12:08:43 -0800
+
+> One of the oopses seems simple: irda_attach() will do
+
+I assume you mean irda_connect().
+
+>         if (sk->sk_prot->disconnect(sk, flags))
+>                 sock->state = SS_DISCONNECTING;
 > 
->   CHECK   drivers/staging/rtl8188eu/core/rtw_mlme_ext.c
-> drivers/staging/rtl8188eu/core/rtw_mlme_ext.c:1401 OnAssocReq() error: buffer overflow 'pstapriv->sta_aid' 32 <= 32
-> 
+> if the connection fails. But sk_prot->disconnect is NULL for IrDA, so
+> that will just oops. Apparently real devices don't end up ever
+> triggering that, but I don't think it can ever have worked.
 
-This is a false positive in Smatch.  Don't do work arounds for buggy
-tools.
+That sk_prot should be irda_proto, which doesn't provide any non-NULL
+operations ?!?!
 
-If you have the cross function database built on the latest version of
-Smatch then I think it understands the code correctly and doesn't print
-a warning.
+That snippet was probably cut and pasted from another protocol's
+create implementation.
 
-regards,
-dan carpenter
+Generic code (such as that in net/core/sock.c) checks if the
+various sk_prot methods are NULL before trying to invoke them.
+
+I think the thing to do for now is to simply remove those two lines.
+
+I don't believe that anyone has looked closely at this code for
+a long time except with automated tools like semantic checkers.
