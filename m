@@ -1,64 +1,162 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH 5/5] bgmac: add support for Northstar SoC (BCM4707, BCM53018)
-Date: Thu, 2 Jan 2014 21:40:00 +0100
-Message-ID: <CACna6rxrOOcb=xbeCytjWALAPOAj-P7Js5Xe7L1ykCimmDa4Sw@mail.gmail.com>
-References: <1388690342-27213-1-git-send-email-hauke@hauke-m.de>
-	<1388690342-27213-5-git-send-email-hauke@hauke-m.de>
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: Re: [net-next v4 07/16] i40e: Rx checksum offload for VXLAN
+Date: Thu, 2 Jan 2014 12:57:56 -0800 (PST)
+Message-ID: <alpine.LFD.2.03.1401021252500.4979@intel.com>
+References: <1388200940-9113-1-git-send-email-jeffrey.t.kirsher@intel.com> <1388200940-9113-8-git-send-email-jeffrey.t.kirsher@intel.com> <CAJZOPZ+XpHNcMdOKYpALvUXq5-yYuxcwAqG2AEe4DU=d=VGPtg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Hauke Mehrtens <hauke@hauke-m.de>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Gasparakis, Joseph" <joseph.gasparakis@intel.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:60273 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752573AbaABUkA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 15:40:00 -0500
-Received: by mail-ob0-f179.google.com with SMTP id wm4so14832832obc.38
-        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 12:40:00 -0800 (PST)
-In-Reply-To: <1388690342-27213-5-git-send-email-hauke@hauke-m.de>
+Received: from mga11.intel.com ([192.55.52.93]:59998 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752633AbaABUlE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jan 2014 15:41:04 -0500
+In-Reply-To: <CAJZOPZ+XpHNcMdOKYpALvUXq5-yYuxcwAqG2AEe4DU=d=VGPtg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- > +       if (ci->id =3D=3D BCMA_CHIP_ID_BCM4707 ||
-> +           ci->id =3D=3D BCMA_CHIP_ID_BCM53018) {
-
-Please add a missing
-if (bgmac->phyaddr !=3D BGMAC_PHY_NOREGS)
-return;
-at the beginning of this 4707/53018 block
 
 
-> +               bcma_awrite32(core, BCMA_IOCTL,
-> +                             bcma_aread32(core, BCMA_IOCTL) | 0x44);
+On Thu, 2 Jan 2014, Or Gerlitz wrote:
 
-Please use
-BGMAC_BCMA_IOCTL_SW_CLKEN | 0x40
-(unless you know 0x40, then replace it too).
+> On Sat, Dec 28, 2013 at 5:22 AM, Jeff Kirsher
+> <jeffrey.t.kirsher@intel.com> wrote:
+> > From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+> >
+> > This implements receive offload for VXLAN for i40e.  The hardware
+> > supports checksum offload/verification of the inner/outer header.
+> >
+> > Change-Id: I450db300af6713f2044fef1191a0d1d294c13369
+> > Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
+> > Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > ---
+> >  drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
+> >  drivers/net/ethernet/intel/i40e/i40e_txrx.c | 57 ++++++++++++++++++++++++++---
+> >  drivers/net/ethernet/intel/i40e/i40e_type.h | 51 ++++++++++++++------------
+> >  3 files changed, 81 insertions(+), 28 deletions(-)
+> >
+> > diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+> > index 6f1edc1..34a54e7 100644
+> > --- a/drivers/net/ethernet/intel/i40e/i40e.h
+> > +++ b/drivers/net/ethernet/intel/i40e/i40e.h
+> > @@ -29,6 +29,7 @@
+> >  #define _I40E_H_
+> >
+> >  #include <net/tcp.h>
+> > +#include <net/udp.h>
+> >  #include <linux/init.h>
+> >  #include <linux/types.h>
+> >  #include <linux/errno.h>
+> > diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> > index 01d0334..a978451 100644
+> > --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> > +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> > @@ -860,12 +860,25 @@ static void i40e_receive_skb(struct i40e_ring *rx_ring,
+> >   * @skb: skb currently being received and modified
+> >   * @rx_status: status value of last descriptor in packet
+> >   * @rx_error: error value of last descriptor in packet
+> > + * @rx_ptype: ptype value of last descriptor in packet
+> >   **/
+> >  static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
+> >                                     struct sk_buff *skb,
+> >                                     u32 rx_status,
+> > -                                   u32 rx_error)
+> > +                                   u32 rx_error,
+> > +                                   u16 rx_ptype)
+> >  {
+> > +       bool ipv4_tunnel, ipv6_tunnel;
+> > +       __wsum rx_udp_csum;
+> > +       __sum16 csum;
+> > +       struct iphdr *iph;
+> > +
+> > +       ipv4_tunnel = (rx_ptype > I40E_RX_PTYPE_GRENAT4_MAC_PAY3) &&
+> > +                     (rx_ptype < I40E_RX_PTYPE_GRENAT4_MACVLAN_IPV6_ICMP_PAY4);
+> > +       ipv6_tunnel = (rx_ptype > I40E_RX_PTYPE_GRENAT6_MAC_PAY3) &&
+> > +                     (rx_ptype < I40E_RX_PTYPE_GRENAT6_MACVLAN_IPV6_ICMP_PAY4);
+> > +
+> > +       skb->encapsulation = ipv4_tunnel || ipv6_tunnel;
 
+skb->encapulation is set (or not) here.
 
-> +                       bgmac->mac_speed =3D SPEED_2500;
-> +                       bgmac->mac_duplex =3D DUPLEX_FULL;
-> +                       bgmac_mac_speed(bgmac);
+> >         skb->ip_summed = CHECKSUM_NONE;
+> >
+> >         /* Rx csum enabled and ip headers found? */
+> > @@ -873,13 +886,43 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
+> >               rx_status & (1 << I40E_RX_DESC_STATUS_L3L4P_SHIFT)))
+> >                 return;
+> >
+> > -       /* IP or L4 checksum error */
+> > +       /* IP or L4 or outmost IP checksum error */
+> >         if (rx_error & ((1 << I40E_RX_DESC_ERROR_IPE_SHIFT) |
+> > -                       (1 << I40E_RX_DESC_ERROR_L4E_SHIFT))) {
+> > +                       (1 << I40E_RX_DESC_ERROR_L4E_SHIFT) |
+> > +                       (1 << I40E_RX_DESC_ERROR_EIPE_SHIFT))) {
+> >                 vsi->back->hw_csum_rx_error++;
+> >                 return;
+> >         }
+> >
+> > +       if (ipv4_tunnel &&
+> > +           !(rx_status & (1 << I40E_RX_DESC_STATUS_UDP_0_SHIFT))) {
+> > +               /* If VXLAN traffic has an outer UDPv4 checksum we need to check
+> > +                * it in the driver, hardware does not do it for us.
+> > +                * Since L3L4P bit was set we assume a valid IHL value (>=5)
+> > +                * so the total length of IPv4 header is IHL*4 bytes
+> > +                */
+> 
+> The comment says that the driver has to compute the udp checksum
+> **if** the packet has an outer udp checksum,
+> but the driver call to issue checksumming is done unconditionally
+> 
 
-Wrong indent above.
+This code runs when the right bits are set in the rx hardware descriptor 
+field (rx_ptype and rx_status), which implies the hardware has detected 
+ipv4 tunneling and there is non zero UDP csum.
 
+> > +               skb->transport_header = skb->mac_header +
+> > +                                       sizeof(struct ethhdr) +
+> > +                                       (ip_hdr(skb)->ihl * 4);
+> > +
+> > +               /* Add 4 bytes for VLAN tagged packets */
+> > +               skb->transport_header += (skb->protocol == htons(ETH_P_8021Q) ||
+> > +                                         skb->protocol == htons(ETH_P_8021AD))
+> > +                                         ? VLAN_HLEN : 0;
+> > +
+> > +               rx_udp_csum = udp_csum(skb);
+> > +               iph = ip_hdr(skb);
+> > +               csum = csum_tcpudp_magic(
+> > +                               iph->saddr, iph->daddr,
+> > +                               (skb->len - skb_transport_offset(skb)),
+> > +                               IPPROTO_UDP, rx_udp_csum);
+> > +
+> > +               if (udp_hdr(skb)->check != csum) {
+> > +                       vsi->back->hw_csum_rx_error++;
+> > +                       return;
+> > +               }
+> > +       }
+> > +
+> >         skb->ip_summed = CHECKSUM_UNNECESSARY;
+> >  }
+> 
+> Commit 0afb1666fe4 "vxlan: Add capability of Rx checksum offload for
+> inner packet" dictates that
+> the driver is expected to set the skb->encapsulation bit, this is
+> missing here, and indeed in vxlan_udp_encap_recv
+> your setting of ip_summed will be ignored and over-rided with
+> CHECKSUM_NONE, agree?
 
-> @@ -911,7 +926,8 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
->
->         bcma_core_enable(core, flags);
+It is setting skb->encapsulation when hw detects it. I have pointed it out 
+above.
 
-Look closer. Don't calculate flags and don't call bcma_core_enable for
-4707 (but call it for 53018).
-
-
-> -       if (core->id.rev > 2) {
-> +       if (core->id.rev > 2 && ci->id !=3D BCMA_CHIP_ID_BCM4707 &&
-> +           ci->id !=3D BCMA_CHIP_ID_BCM53018) {
-
-Could you put 4707 check on the separated line? I'm not pushing however=
-=2E
-
---=20
-Rafa=C5=82
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
