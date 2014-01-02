@@ -1,83 +1,70 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH] ipv6: fix the use of pcpu_tstats in ip6_vti.c
-Date: Thu,  2 Jan 2014 14:24:36 +0800
-Message-ID: <1388643876-31865-1-git-send-email-roy.qing.li@gmail.com>
-Cc: stephen@networkplumber.org, edumazet@google.com
-To: netdev@vger.kernel.org
+From: jiang.biao2@zte.com.cn
+Subject: [Patch] netxen_nic: Bugfix for wrong RUNNING status of NX3031 NICs with no
+ link
+Date: Thu, 2 Jan 2014 14:32:32 +0800
+Message-ID: <OFFF20C6AD.9ACCA9A7-ON48257C54.00238C88-48257C54.0023F52A@zte.com.cn>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org, li.fengmao@zte.com.cn
+To: Manish Chopra <manish.chopra@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:42553 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750860AbaABGYq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 01:24:46 -0500
-Received: by mail-pd0-f181.google.com with SMTP id p10so13813680pdj.12
-        for <netdev@vger.kernel.org>; Wed, 01 Jan 2014 22:24:44 -0800 (PST)
+Received: from mx7.zte.com.cn ([202.103.147.169]:42111 "EHLO zte.com.cn"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750927AbaABGdR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jan 2014 01:33:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
 
-when read/write the 64bit data, the correct lock should be hold.
-and we can use the generic vti6_get_stats to return stats, and
-not define a new one in ip6_vti.c
 
-Fixes: 87b6d218f3adb ("tunnel: implement 64 bits statistics")
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- net/ipv6/ip6_vti.c |   24 +++---------------------
- 1 file changed, 3 insertions(+), 21 deletions(-)
+From: Li Fengmao <li.fengmao@zte.com.cn>
 
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index ed94ba6..a4564b0 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -75,26 +75,6 @@ struct vti6_net {
- 	struct ip6_tnl __rcu **tnls[2];
- };
- 
--static struct net_device_stats *vti6_get_stats(struct net_device *dev)
--{
--	struct pcpu_tstats sum = { 0 };
--	int i;
+Ifconfig command displays RUNNING status when there is no link on
+NX3031 NICs. The problem is caused by the wrong calling order of
+netif_carrier_off() and register_netdev() in netxen_setup_netdev(),
+dev->reg_state is initialized to NETREG_UNINITIALIZED before
+registering network device, so the linkwatch_fire_event() will not
+be called to notify the link change event in netif_carrier_off(),
+and the operational status of network device will be set to
+IF_OPER_UNKNOWN. In that case, the IFF_RUNNING flags will be set,
+which result in the wrong RUNNING status in the result of ifconfig
+command.
+
+It can be solved by calling netif_carrier_off() after
+register_netdev() in netxen_setup_netdev() to ensure the
+notification of the link change event. And then the operational
+status of device will be set to IF_OPER_DOWN correctly.
+
+Steps to reproduce the bug:
+1. Prepare a NX3031 NIC with no network cable on it.
+2. Reboot the system. (e.g exec reboot command)
+3. Activate the interface. (e.g ifconfig eth0 up)
+4. The operstatus of the NX3031 NIC will be RUNNING in the result of
+ifconfig command.
+
+Signed-off-by: Li Fengmao <li.fengmao@zte.com.cn>
+Reviewed-by: Long Chun <long.chun@zte.com.cn>
+Reviewed-by: Wang Liang <wang.liang82@zte.com.cn>
+Reviewed-by: Cai Qu <cai.qu@zte.com.cn>
+Reviewed-by: Jiang Biao <jiang.biao2@zte.com.cn>
+
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -1404,13 +1404,13 @@ netxen_setup_netdev(struct netxen_adapte
+ 	if (netxen_read_mac_addr(adapter))
+ 		dev_warn(&pdev->dev, "failed to read mac addr\n");
+
+-	netif_carrier_off(netdev);
 -
--	for_each_possible_cpu(i) {
--		const struct pcpu_tstats *tstats = per_cpu_ptr(dev->tstats, i);
--
--		sum.rx_packets += tstats->rx_packets;
--		sum.rx_bytes   += tstats->rx_bytes;
--		sum.tx_packets += tstats->tx_packets;
--		sum.tx_bytes   += tstats->tx_bytes;
--	}
--	dev->stats.rx_packets = sum.rx_packets;
--	dev->stats.rx_bytes   = sum.rx_bytes;
--	dev->stats.tx_packets = sum.tx_packets;
--	dev->stats.tx_bytes   = sum.tx_bytes;
--	return &dev->stats;
--}
--
- #define for_each_vti6_tunnel_rcu(start) \
- 	for (t = rcu_dereference(start); t; t = rcu_dereference(t->next))
- 
-@@ -331,8 +311,10 @@ static int vti6_rcv(struct sk_buff *skb)
- 		}
- 
- 		tstats = this_cpu_ptr(t->dev->tstats);
-+		u64_stats_update_begin(&tstats->syncp);
- 		tstats->rx_packets++;
- 		tstats->rx_bytes += skb->len;
-+		u64_stats_update_end(&tstats->syncp);
- 
- 		skb->mark = 0;
- 		secpath_reset(skb);
-@@ -716,7 +698,7 @@ static const struct net_device_ops vti6_netdev_ops = {
- 	.ndo_start_xmit = vti6_tnl_xmit,
- 	.ndo_do_ioctl	= vti6_ioctl,
- 	.ndo_change_mtu = vti6_change_mtu,
--	.ndo_get_stats	= vti6_get_stats,
-+	.ndo_get_stats64 = ip_tunnel_get_stats64,
- };
- 
- /**
--- 
-1.7.10.4
+ 	err = register_netdev(netdev);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "failed to register net device\n");
+ 		return err;
+ 	}
++
++	netif_carrier_off(netdev);
+
+ 	return 0;
+ }
