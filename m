@@ -1,57 +1,132 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: [PATCH 3/4] tcp: metrics: Delete all entries matching a certain
- destination
-Date: Thu, 2 Jan 2014 10:18:23 +0100
-Message-ID: <20140102091823.GA31178@cpaasch-mac>
-References: <1387109444-1104-1-git-send-email-christoph.paasch@uclouvain.be>
- <1387109444-1104-4-git-send-email-christoph.paasch@uclouvain.be>
- <20131217.145751.53681780657108721.davem@davemloft.net>
+From: chenweilong <chenweilong@huawei.com>
+Subject: Re: [PATCH] ipv6: don't call addrconf_dst_alloc again when enable
+ lo
+Date: Thu, 2 Jan 2014 17:33:15 +0800
+Message-ID: <52C5325B.8020900@huawei.com>
+References: <1371352470-3226-1-git-send-email-gaofeng@cn.fujitsu.com> <20130619.230532.1329281330568271336.davem@davemloft.net> <20131231035718.GB27636@order.stressinduktion.org> <52C4FDBE.5030607@huawei.com> <20140102065429.GB22494@order.stressinduktion.org> <52C51C1E.9040603@huawei.com> <20140102082325.GC22494@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, ja@ssi.bg
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>, <gaofeng@cn.fujitsu.com>,
+	<kumaran.4353@gmail.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:51397 "EHLO
-	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751420AbaABJSb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 04:18:31 -0500
-Content-Disposition: inline
-In-Reply-To: <20131217.145751.53681780657108721.davem@davemloft.net>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:3419 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750707AbaABJdi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 04:33:38 -0500
+In-Reply-To: <20140102082325.GC22494@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-On 17/12/13 - 14:57:51, David Miller wrote:
-> From: Christoph Paasch <christoph.paasch@uclouvain.be>
-> Date: Sun, 15 Dec 2013 13:10:43 +0100
-> > As we now can have multiple entries per destination-IP, the "ip
-> > tcp_metrics delete address ADDRESS" command should delete all of them.
-> > 
-> > Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+On 2014/1/2 16:23, Hannes Frederic Sowa wrote:
+> On Thu, Jan 02, 2014 at 03:58:22PM +0800, chenweilong wrote:
+>> On 2014/1/2 14:54, Hannes Frederic Sowa wrote:
+>>> On Thu, Jan 02, 2014 at 01:48:46PM +0800, chenweilong wrote:
+>>>> On 2013/12/31 11:57, Hannes Frederic Sowa wrote:
+>>>>> On Wed, Jun 19, 2013 at 11:05:32PM -0700, David Miller wrote:
+>>>>>> From: Gao feng <gaofeng@cn.fujitsu.com>
+>>>>>> Date: Sun, 16 Jun 2013 11:14:30 +0800
+>>>>>>
+>>>>>>> If we disable all of the net interfaces, and enable
+>>>>>>> un-lo interface before lo interface, we already allocated
+>>>>>>> the addrconf dst in ipv6_add_addr. So we shouldn't allocate
+>>>>>>> it again when we enable lo interface.
+>>>>>>>
+>>>>>>> Otherwise the message below will be triggered.
+>>>>>>> unregister_netdevice: waiting for sit1 to become free. Usage count = 1
+>>>>>>>
+>>>>>>> This problem is introduced by commit 25fb6ca4ed9cad72f14f61629b68dc03c0d9713f
+>>>>>>> "net IPv6 : Fix broken IPv6 routing table after loopback down-up"
+>>>>>>>
+>>>>>>> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+>>>>>>
+>>>>>> This is the second such regression added by that commit :-/
+>>>>>>
+>>>>>> Applied and queue up for -stable, thanks.
+>>>>>
+>>>>> Hmm, and this change also has a regression and breaks the original fix. :/
+>>>>>
+>>>>> https://bugzilla.kernel.org/show_bug.cgi?id=67951
+>>>>>
+>>>>> I tried to track it down but it seems pretty complicated. Maybe we have to
+>>>>> special-case the take-down of the loopback device.
+>>>>>
+>>>>>
+>>>>>
+>>>>
+>>>> When I did the tests,If 'ifconfig lo down',all IPv6 connection broken,
+>>>> but IPv4 connection were still OK.
+>>>>
+>>>> Is it designed like that or a bug?
+>>>
+>>> This seems to solve the loopback up/down problem, but there are still
+>>> some issues with up/down of interfaces and routing table interactions.
+>>>
+>>> We enable routes over interfaces when interface is actually down and
+>>> kick manually specified on-link routes when we actually should try to
+>>> keep them and just disable them.
+>>>
+>>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>>> index 6c16345..61d752a 100644
+>>> --- a/net/ipv6/addrconf.c
+>>> +++ b/net/ipv6/addrconf.c
+>>> @@ -2629,8 +2629,10 @@ static void init_loopback(struct net_device *dev)
+>>>  			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
+>>>  				continue;
+>>>  
+>>> -			if (sp_ifa->rt)
+>>> +			if (sp_ifa->rt) {
+>>> +				ip6_ins_rt(sp_ifa->rt);
+>>>  				continue;
+>>> +			}
+>>>  
+>>>  			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, false);
+>>>  
+>>>
+>>> .
+>>>
+>> I test the patch,it has the problem Gao feng reported.
 > 
-> You have to adjust how you're doing patches #3 and #4.
+> Thanks for testing. I wonder why.
 > 
-> Create the new attribute for the source address first, then
-> allow the source address to be specified in the deletion
-> command.
+>> How about this:
+>>
+>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>> index d5fa5b8..5e2db6e 100644
+>> --- a/net/ipv6/addrconf.c
+>> +++ b/net/ipv6/addrconf.c
+>> @@ -2609,10 +2609,13 @@ static void init_loopback(struct net_device *dev)
+>>
+>>                         if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
+>>                                 continue;
+>>
+>> -                       if (sp_ifa->rt)
+>> -                               continue;
+>> +                       if (sp_ifa->rt && sp_ifa->rt->dst.dev == dev){
+>> +                               ip6_del_rt(sp_ifa->rt);
+>> +                       }
+>>
 > 
-> Make the source address optional in delete commands, to be
-> compatible with existing tools, and have it mean "ANY".
+> It could work, but it looks like a band-aid for another problem to me. I am
+> not sure if it is in init_loopback, yet.
+> 
+> 
+> .
+> 
+Fix some sapce errors in my post.
 
-I have to come back on this one.
-Can you explain what you mean by "ANY"?
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 62d1799..d2f8c0a 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2422,8 +2422,9 @@ static void init_loopback(struct net_device *dev)
+ 			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
+ 				continue;
 
-Do you mean that if no source-IP is given in the netlink command that all
-entries matching the dst should be deleted or rather only one of them (and that it
-would be non-deterministic which one)?
+-			if (sp_ifa->rt)
+-				continue;
++			if (sp_ifa->rt && sp_ifa->rt->dst.dev == dev) {
++				ip6_del_rt(sp_ifa->rt);
++			}
 
-Because, if I delete all of them, then "ip tcp_metrics flush PREFIX" of
-today's iproute2 will complain, because iproute2 expects that for each entry of
-"ip tcp_metrics show" a delete-call must be done.
-
-But, the non-deterministic case also feels a bit odd to me.
-
-
-Thanks,
-Christoph
+ 			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
