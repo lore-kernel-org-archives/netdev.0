@@ -1,74 +1,106 @@
-From: Grant Grundler <grantgrundler@gmail.com>
-Subject: Re: [PATCH] net: tulip: delete useless tests on netdev_priv
-Date: Thu, 2 Jan 2014 07:57:26 -0800
-Message-ID: <CAP6odjhqzKPiBdxQVm5BbbOFwiekJu66_WgSE+E4g_nkHh+-dQ@mail.gmail.com>
-References: <1388680129-13661-1-git-send-email-Julia.Lawall@lip6.fr>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH 4/5] alx: add alx_get_stats operation
+Date: Thu, 2 Jan 2014 17:05:31 +0100
+Message-ID: <20140102160531.GA25216@kria>
+References: <1388619628-3373-1-git-send-email-sd@queasysnail.net>
+ <1388619628-3373-5-git-send-email-sd@queasysnail.net>
+ <20140101.222702.1562824655053158808.davem@davemloft.net>
+ <1388663813.22017.12.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Grant Grundler <grundler@parisc-linux.org>,
-	kernel-janitors@vger.kernel.org,
-	"open list:TULIP NETWORK DRI..." <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>
-To: Julia Lawall <Julia.Lawall@lip6.fr>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <1388680129-13661-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>, johannes@sipsolutions.net,
+	netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp6-g21.free.fr ([212.27.42.6]:41784 "EHLO smtp6-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751067AbaABQFp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jan 2014 11:05:45 -0500
+Content-Disposition: inline
+In-Reply-To: <1388663813.22017.12.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 2, 2014 at 8:28 AM, Julia Lawall <Julia.Lawall@lip6.fr> wrote:
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
->
-> Netdev_priv performs an addition, not a pointer dereference, so it seems
-> quit unlikely that its result would ever be NULL.
+[2014-01-02, 11:56:53] Ben Hutchings wrote:
+> On Wed, 2014-01-01 at 22:27 -0500, David Miller wrote:
+> > From: Sabrina Dubroca <sd@queasysnail.net>
+> > Date: Thu,  2 Jan 2014 00:40:27 +0100
+> > 
+> > > +	spin_lock(&alx->stats_lock);
+> > > +
+> > > +	__alx_update_hw_stats(&alx->hw);
+> > 
+> > Please use something like the linux/u64_stats_sync.h stuff rather
+> > than spin locking.
+> 
+> I don't think that'sa useful, as we can have multiple writers
+> (concurrent calls to get_stats).  And there is really no harm in using a
+> spinlock to serialise get_stats calls.  The u64_stats API is good for
+> statistics updated from the data path.
 
-LGTM.
+I've read the comments in linux/u64_stats_sync.h, which mentions the
+need for exclusive access to the data. I've looked at other drivers
+(broadcom/b44.c, nvidia/forcedeth.c) that use the u64_stats functions
+to get stats from hardware, and they use a spin_lock around the update
+code. The other drivers that I've looked at and that use u64_stats
+have software stats that they update on rx/tx, so I think the
+situation is a bit different.
 
- >
-> A semantic patch that makes this change is as follows:
-> (http://coccinelle.lip6.fr/)
->
-> // <smpl>
-> @@
-> statement S;
-> @@
->
-> - if (!netdev_priv(...)) S
-> // </smpl>
->
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Acked-by: Grant Grundler <grundler@parisc-linux.org>
+For now I've added u64_stats and modified the functions this way:
 
-cheers,
-grant
+static struct net_device_stats *alx_get_stats(struct net_device *netdev)
+{
+	struct alx_priv *alx = netdev_priv(netdev);
+	struct net_device_stats *net_stats = &netdev->stats;
+	struct alx_hw_stats *hw_stats = &alx->hw.stats;
 
->
-> ---
->  drivers/net/ethernet/dec/tulip/uli526x.c |    6 ------
->  1 file changed, 6 deletions(-)
->
-> diff --git a/drivers/net/ethernet/dec/tulip/uli526x.c b/drivers/net/ethernet/dec/tulip/uli526x.c
-> index a5397b1..aa4ee38 100644
-> --- a/drivers/net/ethernet/dec/tulip/uli526x.c
-> +++ b/drivers/net/ethernet/dec/tulip/uli526x.c
-> @@ -1192,9 +1192,6 @@ static int uli526x_suspend(struct pci_dev *pdev, pm_message_t state)
->
->         ULI526X_DBUG(0, "uli526x_suspend", 0);
->
-> -       if (!netdev_priv(dev))
-> -               return 0;
-> -
->         pci_save_state(pdev);
->
->         if (!netif_running(dev))
-> @@ -1228,9 +1225,6 @@ static int uli526x_resume(struct pci_dev *pdev)
->
->         ULI526X_DBUG(0, "uli526x_resume", 0);
->
-> -       if (!netdev_priv(dev))
-> -               return 0;
-> -
->         pci_restore_state(pdev);
->
->         if (!netif_running(dev))
->
+	unsigned int start;
+
+	spin_lock(&alx->stats_lock);
+
+	__alx_update_hw_stats(&alx->hw);
+
+	spin_unlock(&alx->stats_lock);
+
+	do {
+		start = u64_stats_fetch_begin(&hw_stats->syncp);
+		/* fill net_stat... */
+	} while (u64_stats_fetch_retry(&hw_stats->syncp, start));
+
+	return net_stats;
+}
+
+
+void __alx_update_hw_stats(struct alx_hw *hw)
+{
+	u64_stats_update_begin(&hw->stats.syncp);
+
+	/* fill hw->stats */
+
+	u64_stats_update_end(&hw->stats.syncp);
+}
+
+
+static void alx_get_ethtool_stats(struct net_device *netdev,
+				  struct ethtool_stats *estats, u64 *data)
+{
+	struct alx_priv *alx = netdev_priv(netdev);
+	struct alx_hw *hw = &alx->hw;
+
+	unsigned int start;
+
+	spin_lock(&alx->stats_lock);
+	__alx_update_hw_stats(hw);
+	spin_unlock(&alx->stats_lock);
+
+	do {
+		start = u64_stats_fetch_begin(&hw->stats.syncp);
+		memcpy(data, &hw->stats, sizeof(hw->stats));
+	} while (u64_stats_fetch_retry(&hw->stats.syncp, start));
+}
+
+Thanks,
+
+-- 
+Sabrina Dubroca
