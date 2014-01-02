@@ -1,30 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: How to add IPv6 multiple routing tables support to 2.6.16.26
- kernel
-Date: Thu, 02 Jan 2014 17:25:53 -0500 (EST)
-Message-ID: <20140102.172553.495305715386787286.davem@davemloft.net>
-References: <1388687224.9947.25.camel@bwh-desktop.uk.level5networks.com>
-	<CAMBtn_3OnZWZdSWHN3sg0jwG74mUWprNO+H9gE9tDgRO-j2f3g@mail.gmail.com>
-	<CAMBtn_3a48iiSetS=EyASDrJk_86Lt7hpt5ZN5NfEzUVYa6-Lg@mail.gmail.com>
+Subject: Re: [PATCH net] sctp: Remove outqueue empty state
+Date: Thu, 02 Jan 2014 17:23:34 -0500 (EST)
+Message-ID: <20140102.172334.1775225132082706633.davem@davemloft.net>
+References: <1388691584-11211-1-git-send-email-vyasevich@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
-To: asili22@gmail.com
+Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com, jhs@mojatatu.com
+To: vyasevich@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54001 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53988 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751452AbaABWZz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 17:25:55 -0500
-In-Reply-To: <CAMBtn_3a48iiSetS=EyASDrJk_86Lt7hpt5ZN5NfEzUVYa6-Lg@mail.gmail.com>
+	with ESMTP id S1752709AbaABWXf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 17:23:35 -0500
+In-Reply-To: <1388691584-11211-1-git-send-email-vyasevich@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Asi Lichtenstein <asili22@gmail.com>
-Date: Thu, 2 Jan 2014 22:06:41 +0200
+From: Vlad Yasevich <vyasevich@gmail.com>
+Date: Thu,  2 Jan 2014 14:39:44 -0500
 
-> Do you think I could find only the patch I'm looking for?
+> The SCTP outqueue structure maintains a data chunks
+> that are pending transmission, the list of chunks that
+> are pending a retransmission and a length of data in
+> flight.  It also tries to keep the emtpy state so that
+> it can performe shutdown sequence or notify user.
+> 
+> The problem is that the empy state is inconsistently
+> tracked.  It is possible to completely drain the queue
+> without sending anything when using PR-SCTP.  In this
+> case, the empty state will not be correctly state as
+> report by Jamal Hadi Salim <jhs@mojatatu.com>.  This
+> can cause an association to be perminantly stuck in the
+> SHUTDOWN_PENDING state.
+> 
+> Additionally, SCTP is incredibly inefficient when setting
+> the empty state.  Even though all the data is availaible
+> in the outqueue structure, we ignore it and walk a list
+> of trasnports.
+> 
+> In the end, we can completely remove the extra empty
+> state and figure out if the queue is empty by looking
+> at 3 things:  length of pending data, length of in-flight
+> data, and exisiting of retransmit data.  All of these
+> are already in the strucutre.
+> 
+> Reported-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
 
-Sorry, this is an absolutely unreasonable expectation, changes of this
-nature and size are intermingled with thousands of cleanups, data
-structure restructuring, and code restructuring.
+Applied, but:
+
+> + */ 
+      ^^
+
+Trailing whitespace which I had to fixup when applying this.
+
+THanks.
