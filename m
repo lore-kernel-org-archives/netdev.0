@@ -1,42 +1,48 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next v2 03/11] ixgbe: Use static inlines instead of macros
-Date: Thu, 02 Jan 2014 21:28:04 -0800
-Message-ID: <1388726884.2527.4.camel@joe-AO722>
-References: <1388726310-2996-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1388726310-2996-4-git-send-email-jeffrey.t.kirsher@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next] net: revert "sched classifier: make cgroup
+ table local"
+Date: Fri, 03 Jan 2014 00:32:40 -0500 (EST)
+Message-ID: <20140103.003240.1512279497184743710.davem@davemloft.net>
+References: <1388703521-5535-1-git-send-email-xiyou.wangcong@gmail.com>
+	<20140102.190323.819558246638891031.davem@davemloft.net>
+	<20140102172110.38e0c473@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Mark Rustad <mark.d.rustad@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0098.hostedemail.com ([216.40.44.98]:34939 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750717AbaACF2J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 00:28:09 -0500
-In-Reply-To: <1388726310-2996-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56096 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750809AbaACFcn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 00:32:43 -0500
+In-Reply-To: <20140102172110.38e0c473@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-01-02 at 21:18 -0800, Jeff Kirsher wrote:
-> From: Mark Rustad <mark.d.rustad@intel.com>
-[]
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-[]
-> @@ -124,22 +124,31 @@ s32 ixgbe_reset_pipeline_82599(struct ixgbe_hw *hw);
->  #ifndef writeq
->  #define writeq(val, addr) writel((u32) (val), addr); \
->      writel((u32) (val >> 32), (addr + 4));
->  #endif
-
-This is unchanged, but it would be nicer with a do {} while.
-
-#ifndef writeq
-#define writeq(val, addr)				\
-do {							\
-	writel((u32)(val), addr);			\
-	writel((u32)((val) >> 32), (addr + 4));		\
-} while (0)
-
-Even then, this could be nicer as an inline too.
+RnJvbTogU3RlcGhlbiBIZW1taW5nZXIgPHN0ZXBoZW5AbmV0d29ya3BsdW1iZXIub3JnPg0KRGF0
+ZTogVGh1LCAyIEphbiAyMDE0IDE3OjIxOjEwIC0wODAwDQoNCj4gT24gVGh1LCAwMiBKYW4gMjAx
+NCAxOTowMzoyMyAtMDUwMCAoRVNUKQ0KPiBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5u
+ZXQ+IHdyb3RlOg0KPiANCj4+IEZyb206IENvbmcgV2FuZyA8eGl5b3Uud2FuZ2NvbmdAZ21haWwu
+Y29tPg0KPj4gRGF0ZTogVGh1LCAgMiBKYW4gMjAxNCAxNDo1ODo0MSAtMDgwMA0KPj4gDQo+PiA+
+IFRoaXMgcmV2ZXJ0cyBjb21taXQgZGU2ZmIyODhiMTI0NmE1YzRlMDBjMGNkYmZlM2E4MzhhMzYw
+YjNmNC4NCj4+ID4gT3RoZXJ3aXNlIHdlIGdvdDoNCj4+ID4gDQo+PiA+IG5ldC9zY2hlZC9jbHNf
+Y2dyb3VwLmM6MTA2OjI5OiBlcnJvcjogc3RhdGljIGRlY2xhcmF0aW9uIG9mIKFuZXRfY2xzX3N1
+YnN5c6IgZm9sbG93cyBub24tc3RhdGljIGRlY2xhcmF0aW9uDQo+PiA+ICBzdGF0aWMgc3RydWN0
+IGNncm91cF9zdWJzeXMgbmV0X2Nsc19zdWJzeXMgPSB7DQo+PiA+ICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgXg0KPj4gPiBJbiBmaWxlIGluY2x1ZGVkIGZyb20gaW5jbHVkZS9saW51eC9j
+Z3JvdXAuaDo2NTQ6MCwNCj4+ID4gICAgICAgICAgICAgICAgICBmcm9tIG5ldC9zY2hlZC9jbHNf
+Y2dyb3VwLmM6MTg6DQo+PiA+IGluY2x1ZGUvbGludXgvY2dyb3VwX3N1YnN5cy5oOjM1OjI5OiBu
+b3RlOiBwcmV2aW91cyBkZWNsYXJhdGlvbiBvZiChbmV0X2Nsc19zdWJzeXOiIHdhcyBoZXJlDQo+
+PiA+ICBTVUJTWVMobmV0X2NscykNCj4+ID4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICBe
+DQo+PiA+IG1ha2VbMl06ICoqKiBbbmV0L3NjaGVkL2Nsc19jZ3JvdXAub10gRXJyb3IgMQ0KPj4g
+PiANCj4+ID4gQ2M6IFN0ZXBoZW4gSGVtbWluZ2VyIDxzdGVwaGVuQG5ldHdvcmtwbHVtYmVyLm9y
+Zz4NCj4+ID4gQ2M6IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCj4+ID4g
+U2lnbmVkLW9mZi1ieTogQ29uZyBXYW5nIDx4aXlvdS53YW5nY29uZ0BnbWFpbC5jb20+DQo+PiAN
+Cj4+IFRoaXMgaXMgc28gZGFtbiB1bmludHVpdGl2ZSwgYW5kIHRoYXQgYnVpbGQgZXJyb3Igb25s
+eSBvY2N1cnMgaWYgeW91DQo+PiBidWlsZCBjbHNfY2dyb3VwIHN0YXRpY2FsbHkuDQo+PiANCj4+
+IEFwcGxpZWQsIGJ1dCB0aGUgd2F5IHRoaXMgd29ya3MgaXMgdGVycmlibGUuDQo+IA0KPiBKdXN0
+IHJlbW92aW5nIGZyb20gdGhlIGluY2x1ZGUgZmlsZSBpcyBwcm9iYWJseSBlbm91Z2ggdG8gZml4
+IGl0Lg0KDQpJdCdzIGJlaW5nIHJlZmVyZW5jZWQgdmlhIHRoZSAiU1VCU1lTIiBtYWNybywgYW5k
+IHRoYXQgaXMgaG93IHRoaXMNCmNncm91cCBzdWJzeXN0ZW0gaW5zdGFudGlhdGVkIGluIHRoZSBz
+dGF0aWMgYnVpbGQuDQoNCllvdSBjYW4ndCBqdXN0IGRlbGV0ZSBpdC4NCg0K
