@@ -1,87 +1,112 @@
-From: Debabrata Banerjee <dbavatar@gmail.com>
-Subject: Re: [PATCH net-next 1/3] net: allow > 0 order atomic page alloc in skb_page_frag_refill
-Date: Thu, 2 Jan 2014 20:59:13 -0500
-Message-ID: <CAATkVEyL-7W4aa_U+_7ZsqnyR0AnAskBNejzeUZD+jE8CmRdhw@mail.gmail.com>
-References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
-	<20131224.174647.2276571374631580479.davem@davemloft.net>
-	<CAATkVExsrzKyx3da=sApxdR5DJRTWBw1MOcLE9WiWQN56WfcdA@mail.gmail.com>
-	<1388710591.12212.110.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1388712396.12212.112.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCHv2 net] {vxlan,inet6} Mark vxlan_dev flags with VXLAN_F_IPV6 properly
+Date: Fri, 3 Jan 2014 10:18:58 +0800
+Message-ID: <1388715538-27385-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, mwdalton@google.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	rusty@rustcorp.com.au, mst@redhat.com, jasowang@redhat.com,
-	virtualization@lists.linux-foundation.org,
-	"Banerjee, Debabrata" <dbanerje@akamai.com>, jbaron@akamai.com,
-	Joshua Hunt <johunt@akamai.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: <rcwhelan@gmail.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+To: <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f170.google.com ([209.85.214.170]:56030 "EHLO
-	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751528AbaACB7Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 20:59:16 -0500
-Received: by mail-ob0-f170.google.com with SMTP id wp18so15213701obc.1
-        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 17:59:13 -0800 (PST)
-In-Reply-To: <1388712396.12212.112.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail.windriver.com ([147.11.1.11]:63036 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753056AbaACCTE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 21:19:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 2, 2014 at 8:26 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2014-01-02 at 16:56 -0800, Eric Dumazet wrote:
->
->>
->> My suggestion is to use a recent kernel, and/or eventually backport the
->> mm fixes if any.
->>
->> order-3 allocations should not reclaim 2GB out of 8GB.
->>
->> There is a reason PAGE_ALLOC_COSTLY_ORDER exists and is 3
+Even if user doesn't supply the physical netdev to attach vxlan dev
+to, and at the same time user want to vxlan sit top of IPv6, mark
+vxlan_dev flags with VXLAN_F_IPV6 to create IPv6 based socket.
+Otherwise kernel crashes safely every time spitting below messages,
 
-Sorry 2GB cache out of 8GB phys, ~1GB gets reclaimed. Regardless the
-reclaimation of cache is minor compared to the compaction event that
-precedes it, I haven't spotted something addressing that yet -
-isolate_migratepages_range ()/compact_checklock_irqsave(). If even
-more of memory was unmoveable, the compaction routines would be hit
-even harder as reclaimation wouldn't do anything - mm would have to
-get very very smart about unmoveable pages being freed and just fail
-allocations/oom kill if nothing has changed without running through
-compaction/reclaim fruitlessly.
+Steps to reproduce:
+ip link add vxlan0 type vxlan id 42 group ff0e::110
+ip link set vxlan0 up
 
-I guess this is a bit of a tangent since what I'm saying proves the
-patch from Michael doesn't make this behavior worse.
+[   62.656266] BUG: unable to handle kernel NULL pointer dereference[   62.656320] ip (3008) used greatest stack depth: 3912 bytes left
+ at 0000000000000046
+[   62.656423] IP: [<ffffffff816d822d>] ip6_route_output+0xbd/0xe0
+[   62.656525] PGD 2c966067 PUD 2c9a2067 PMD 0
+[   62.656674] Oops: 0000 [#1] SMP
+[   62.656781] Modules linked in: vxlan netconsole deflate zlib_deflate af_key
+[   62.657083] CPU: 1 PID: 2128 Comm: whoopsie Not tainted 3.12.0+ #182
+[   62.657083] Hardware name: innotek GmbH VirtualBox, BIOS VirtualBox 12/01/2006
+[   62.657083] task: ffff88002e2335d0 ti: ffff88002c94c000 task.ti: ffff88002c94c000
+[   62.657083] RIP: 0010:[<ffffffff816d822d>]  [<ffffffff816d822d>] ip6_route_output+0xbd/0xe0
+[   62.657083] RSP: 0000:ffff88002fd038f8  EFLAGS: 00210296
+[   62.657083] RAX: 0000000000000000 RBX: ffff88002fd039e0 RCX: 0000000000000000
+[   62.657083] RDX: ffff88002fd0eb68 RSI: ffff88002fd0d278 RDI: ffff88002fd0d278
+[   62.657083] RBP: ffff88002fd03918 R08: 0000000002000000 R09: 0000000000000000
+[   62.657083] R10: 00000000000001ff R11: 0000000000000000 R12: 0000000000000001
+[   62.657083] R13: ffff88002d96b480 R14: ffffffff81c8e2c0 R15: 0000000000000001
+[   62.657083] FS:  0000000000000000(0000) GS:ffff88002fd00000(0063) knlGS:00000000f693b740
+[   62.657083] CS:  0010 DS: 002b ES: 002b CR0: 0000000080050033
+[   62.657083] CR2: 0000000000000046 CR3: 000000002c9d2000 CR4: 00000000000006e0
+[   62.657083] Stack:
+[   62.657083]  ffff88002fd03a40 ffffffff81c8e2c0 ffff88002fd039e0 ffff88002d96b480
+[   62.657083]  ffff88002fd03958 ffffffff816cac8b ffff880019277cc0 ffff8800192b5d00
+[   62.657083]  ffff88002d5bc000 ffff880019277cc0 0000000000001821 0000000000000001
+[   62.657083] Call Trace:
+[   62.657083]  <IRQ>
+[   62.657083]  [<ffffffff816cac8b>] ip6_dst_lookup_tail+0xdb/0xf0
+[   62.657083]  [<ffffffff816caea0>] ip6_dst_lookup+0x10/0x20
+[   62.657083]  [<ffffffffa0020c13>] vxlan_xmit_one+0x193/0x9c0 [vxlan]
+[   62.657083]  [<ffffffff8137b3b7>] ? account+0xc7/0x1f0
+[   62.657083]  [<ffffffffa0021513>] vxlan_xmit+0xd3/0x400 [vxlan]
+[   62.657083]  [<ffffffff8161390d>] dev_hard_start_xmit+0x49d/0x5e0
+[   62.657083]  [<ffffffff81613d29>] dev_queue_xmit+0x2d9/0x480
+[   62.657083]  [<ffffffff817cb854>] ? _raw_write_unlock_bh+0x14/0x20
+[   62.657083]  [<ffffffff81630565>] ? eth_header+0x35/0xe0
+[   62.657083]  [<ffffffff8161bc5e>] neigh_resolve_output+0x11e/0x1e0
+[   62.657083]  [<ffffffff816ce0e0>] ? ip6_fragment+0xad0/0xad0
+[   62.657083]  [<ffffffff816cb465>] ip6_finish_output2+0x2f5/0x470
+[   62.657083]  [<ffffffff816ce166>] ip6_finish_output+0x86/0xc0
+[   62.657083]  [<ffffffff816ce218>] ip6_output+0x78/0xb0
+[   62.657083]  [<ffffffff816eadd6>] mld_sendpack+0x256/0x2a0
+[   62.657083]  [<ffffffff816ebd8c>] mld_ifc_timer_expire+0x17c/0x290
+[   62.657083]  [<ffffffff816ebc10>] ? igmp6_timer_handler+0x80/0x80
+[   62.657083]  [<ffffffff816ebc10>] ? igmp6_timer_handler+0x80/0x80
+[   62.657083]  [<ffffffff81051065>] call_timer_fn+0x45/0x150
+[   62.657083]  [<ffffffff816ebc10>] ? igmp6_timer_handler+0x80/0x80
+[   62.657083]  [<ffffffff81052353>] run_timer_softirq+0x1f3/0x2a0
+[   62.657083]  [<ffffffff8102dfd8>] ? lapic_next_event+0x18/0x20
+[   62.657083]  [<ffffffff8109e36f>] ? clockevents_program_event+0x6f/0x110
+[   62.657083]  [<ffffffff8104a2f6>] __do_softirq+0xd6/0x2b0
+[   62.657083]  [<ffffffff8104a75e>] irq_exit+0x7e/0xa0
+[   62.657083]  [<ffffffff8102ea15>] smp_apic_timer_interrupt+0x45/0x60
+[   62.657083]  [<ffffffff817d3eca>] apic_timer_interrupt+0x6a/0x70
+[   62.657083]  <EOI>
+[   62.657083]  [<ffffffff817d4a35>] ? sysenter_dispatch+0x7/0x1a
+[   62.657083] Code: 4d 8b 85 a8 02 00 00 4c 89 e9 ba 03 04 00 00 48 c7 c6 c0 be 8d 81 48 c7 c7 48 35 a3 81 31 c0 e8 db 68 0e 00 49 8b 85 a8 02 00 00 <0f> b6 40 46 c0 e8 05 0f b6 c0 c1 e0 03 41 09 c4 e9 77 ff ff ff
+[   62.657083] RIP  [<ffffffff816d822d>] ip6_route_output+0xbd/0xe0
+[   62.657083]  RSP <ffff88002fd038f8>
+[   62.657083] CR2: 0000000000000046
+[   62.657083] ---[ end trace ba8a9583d7cd1934 ]---
+[   62.657083] Kernel panic - not syncing: Fatal exception in interrupt
 
->
-> Hmm... it looks like I missed __GFP_NORETRY
->
->
->
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index 5393b4b719d7..5f42a4d70cb2 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -1872,7 +1872,7 @@ bool skb_page_frag_refill(unsigned int sz, struct page_frag *pfrag, gfp_t prio)
->                 gfp_t gfp = prio;
->
->                 if (order)
-> -                       gfp |= __GFP_COMP | __GFP_NOWARN;
-> +                       gfp |= __GFP_COMP | __GFP_NOWARN | __GFP_NORETRY;
->                 pfrag->page = alloc_pages(gfp, order);
->                 if (likely(pfrag->page)) {
->                         pfrag->offset = 0;
->
->
->
+Signed-off-by: Fan Du <fan.du@windriver.com>
+Reported-by: Ryan Whelan <rcwhelan@gmail.com>
+---
+v2:
+  - Rebase with current net tree. 
+---
+ drivers/net/vxlan.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Yes this seems like it will make the situation better, but one send()
-may still cause a direct_compact and direct_reclaim() cycle to happen,
-followed immediately by another direct_compact() if direct_reclaim()
-didn't free an order-3. Now have all cpu's doing a send(), you can
-still get heavy spinlock contention in the routines described above.
-The major change I see here is that allocations > order-0 used to be
-rare, now it's on every send().
-
-I can try your patch to see how much things improve.
-
--Debabrata
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 249e01c..ed384fe 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2440,7 +2440,8 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
+ 		/* update header length based on lower device */
+ 		dev->hard_header_len = lowerdev->hard_header_len +
+ 				       (use_ipv6 ? VXLAN6_HEADROOM : VXLAN_HEADROOM);
+-	}
++	} else if (use_ipv6)
++		vxlan->flags |= VXLAN_F_IPV6;
+ 
+ 	if (data[IFLA_VXLAN_TOS])
+ 		vxlan->tos  = nla_get_u8(data[IFLA_VXLAN_TOS]);
+-- 
+1.7.9.5
