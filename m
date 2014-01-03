@@ -1,312 +1,89 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 11/11] igb: make local functions static and remove dead code
-Date: Thu,  2 Jan 2014 21:18:30 -0800
-Message-ID: <1388726310-2996-12-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1388726310-2996-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 00/11][pull request] Intel Wired LAN Driver Updates
+Date: Thu,  2 Jan 2014 21:18:19 -0800
+Message-ID: <1388726310-2996-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+	gospo@redhat.com, sassmann@redhat.com, bhutchings@solarflare.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:5649 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:48918 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750907AbaACFSj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jan 2014 00:18:39 -0500
-In-Reply-To: <1388726310-2996-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1750717AbaACFSh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jan 2014 00:18:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Based on Stephen Hemminger's original patch.
-Make local functions static, and remove unused functions.
+This series contains updates to ixgbe, e1000e and igb.
 
-Reported-by: Stephen Hemminger <stephen@networkplumber.org>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
----
- drivers/net/ethernet/intel/igb/e1000_82575.c |  4 +-
- drivers/net/ethernet/intel/igb/e1000_82575.h |  2 -
- drivers/net/ethernet/intel/igb/e1000_i210.c  | 20 ++++----
- drivers/net/ethernet/intel/igb/e1000_i210.h  |  9 ----
- drivers/net/ethernet/intel/igb/e1000_phy.c   | 71 ----------------------------
- drivers/net/ethernet/intel/igb/e1000_phy.h   |  1 -
- drivers/net/ethernet/intel/igb/igb.h         |  2 -
- drivers/net/ethernet/intel/igb/igb_ptp.c     |  6 ++-
- 8 files changed, 17 insertions(+), 98 deletions(-)
+Most notable are the patches to add Live Error Recovery (LER)
+support to the ixgbe driver. This support also improves behavior
+in Thunderbolt environments. This involves checking all register
+reads for a value of all one's and when that is seen, to read the
+status register, which should never properly return all one's, to
+confirm whether the received value was correct. When this detects
+a removal, the hw_addr field is cleared to indicate the removal.
+This then blocks subsequent access to the device registers.
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index 06df692..0ee7049 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -2720,7 +2720,7 @@ static const u8 e1000_emc_therm_limit[4] = {
-  *
-  *  Updates the temperatures in mac.thermal_sensor_data
-  **/
--s32 igb_get_thermal_sensor_data_generic(struct e1000_hw *hw)
-+static s32 igb_get_thermal_sensor_data_generic(struct e1000_hw *hw)
- {
- 	s32 status = E1000_SUCCESS;
- 	u16 ets_offset;
-@@ -2774,7 +2774,7 @@ s32 igb_get_thermal_sensor_data_generic(struct e1000_hw *hw)
-  *  Sets the thermal sensor thresholds according to the NVM map
-  *  and save off the threshold and location values into mac.thermal_sensor_data
-  **/
--s32 igb_init_thermal_sensor_thresh_generic(struct e1000_hw *hw)
-+static s32 igb_init_thermal_sensor_thresh_generic(struct e1000_hw *hw)
- {
- 	s32 status = E1000_SUCCESS;
- 	u16 ets_offset;
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.h b/drivers/net/ethernet/intel/igb/e1000_82575.h
-index 8c24377..622d80d 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.h
-@@ -266,8 +266,6 @@ u16 igb_rxpbs_adjust_82580(u32 data);
- s32 igb_read_emi_reg(struct e1000_hw *, u16 addr, u16 *data);
- s32 igb_set_eee_i350(struct e1000_hw *);
- s32 igb_set_eee_i354(struct e1000_hw *);
--s32 igb_init_thermal_sensor_thresh_generic(struct e1000_hw *);
--s32 igb_get_thermal_sensor_data_generic(struct e1000_hw *hw);
- 
- #define E1000_I2C_THERMAL_SENSOR_ADDR	0xF8
- #define E1000_EMC_INTERNAL_DATA		0x00
-diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.c b/drivers/net/ethernet/intel/igb/e1000_i210.c
-index 0c03933..9f32c78 100644
---- a/drivers/net/ethernet/intel/igb/e1000_i210.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_i210.c
-@@ -35,6 +35,8 @@
- #include "e1000_hw.h"
- #include "e1000_i210.h"
- 
-+static s32 igb_update_flash_i210(struct e1000_hw *hw);
-+
- /**
-  * igb_get_hw_semaphore_i210 - Acquire hardware semaphore
-  *  @hw: pointer to the HW structure
-@@ -111,7 +113,7 @@ static s32 igb_get_hw_semaphore_i210(struct e1000_hw *hw)
-  *  Return successful if access grant bit set, else clear the request for
-  *  EEPROM access and return -E1000_ERR_NVM (-1).
-  **/
--s32 igb_acquire_nvm_i210(struct e1000_hw *hw)
-+static s32 igb_acquire_nvm_i210(struct e1000_hw *hw)
- {
- 	return igb_acquire_swfw_sync_i210(hw, E1000_SWFW_EEP_SM);
- }
-@@ -123,7 +125,7 @@ s32 igb_acquire_nvm_i210(struct e1000_hw *hw)
-  *  Stop any current commands to the EEPROM and clear the EEPROM request bit,
-  *  then release the semaphores acquired.
-  **/
--void igb_release_nvm_i210(struct e1000_hw *hw)
-+static void igb_release_nvm_i210(struct e1000_hw *hw)
- {
- 	igb_release_swfw_sync_i210(hw, E1000_SWFW_EEP_SM);
- }
-@@ -206,8 +208,8 @@ void igb_release_swfw_sync_i210(struct e1000_hw *hw, u16 mask)
-  *  Reads a 16 bit word from the Shadow Ram using the EERD register.
-  *  Uses necessary synchronization semaphores.
-  **/
--s32 igb_read_nvm_srrd_i210(struct e1000_hw *hw, u16 offset, u16 words,
--			     u16 *data)
-+static s32 igb_read_nvm_srrd_i210(struct e1000_hw *hw, u16 offset, u16 words,
-+				  u16 *data)
- {
- 	s32 status = E1000_SUCCESS;
- 	u16 i, count;
-@@ -306,8 +308,8 @@ out:
-  *  If error code is returned, data and Shadow RAM may be inconsistent - buffer
-  *  partially written.
-  **/
--s32 igb_write_nvm_srwr_i210(struct e1000_hw *hw, u16 offset, u16 words,
--			      u16 *data)
-+static s32 igb_write_nvm_srwr_i210(struct e1000_hw *hw, u16 offset, u16 words,
-+				   u16 *data)
- {
- 	s32 status = E1000_SUCCESS;
- 	u16 i, count;
-@@ -555,7 +557,7 @@ s32 igb_read_invm_version(struct e1000_hw *hw,
-  *  Calculates the EEPROM checksum by reading/adding each word of the EEPROM
-  *  and then verifies that the sum of the EEPROM is equal to 0xBABA.
-  **/
--s32 igb_validate_nvm_checksum_i210(struct e1000_hw *hw)
-+static s32 igb_validate_nvm_checksum_i210(struct e1000_hw *hw)
- {
- 	s32 status = E1000_SUCCESS;
- 	s32 (*read_op_ptr)(struct e1000_hw *, u16, u16, u16 *);
-@@ -590,7 +592,7 @@ s32 igb_validate_nvm_checksum_i210(struct e1000_hw *hw)
-  *  up to the checksum.  Then calculates the EEPROM checksum and writes the
-  *  value to the EEPROM. Next commit EEPROM data onto the Flash.
-  **/
--s32 igb_update_nvm_checksum_i210(struct e1000_hw *hw)
-+static s32 igb_update_nvm_checksum_i210(struct e1000_hw *hw)
- {
- 	s32 ret_val = E1000_SUCCESS;
- 	u16 checksum = 0;
-@@ -684,7 +686,7 @@ bool igb_get_flash_presence_i210(struct e1000_hw *hw)
-  *  @hw: pointer to the HW structure
-  *
-  **/
--s32 igb_update_flash_i210(struct e1000_hw *hw)
-+static s32 igb_update_flash_i210(struct e1000_hw *hw)
- {
- 	s32 ret_val = E1000_SUCCESS;
- 	u32 flup;
-diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.h b/drivers/net/ethernet/intel/igb/e1000_i210.h
-index 2d91371..a068866 100644
---- a/drivers/net/ethernet/intel/igb/e1000_i210.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_i210.h
-@@ -28,17 +28,8 @@
- #ifndef _E1000_I210_H_
- #define _E1000_I210_H_
- 
--s32 igb_update_flash_i210(struct e1000_hw *hw);
--s32 igb_update_nvm_checksum_i210(struct e1000_hw *hw);
--s32 igb_validate_nvm_checksum_i210(struct e1000_hw *hw);
--s32 igb_write_nvm_srwr_i210(struct e1000_hw *hw, u16 offset, u16 words,
--			    u16 *data);
--s32 igb_read_nvm_srrd_i210(struct e1000_hw *hw, u16 offset, u16 words,
--			   u16 *data);
- s32 igb_acquire_swfw_sync_i210(struct e1000_hw *hw, u16 mask);
- void igb_release_swfw_sync_i210(struct e1000_hw *hw, u16 mask);
--s32 igb_acquire_nvm_i210(struct e1000_hw *hw);
--void igb_release_nvm_i210(struct e1000_hw *hw);
- s32 igb_valid_led_default_i210(struct e1000_hw *hw, u16 *data);
- s32 igb_read_invm_version(struct e1000_hw *hw,
- 			  struct e1000_fw_version *invm_ver);
-diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
-index ad2b74d..c0f2a16 100644
---- a/drivers/net/ethernet/intel/igb/e1000_phy.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
-@@ -394,77 +394,6 @@ s32 igb_read_sfp_data_byte(struct e1000_hw *hw, u16 offset, u8 *data)
- }
- 
- /**
-- *  e1000_write_sfp_data_byte - Writes SFP module data.
-- *  @hw: pointer to the HW structure
-- *  @offset: byte location offset to write to
-- *  @data: data to write
-- *
-- *  Writes one byte to SFP module data stored
-- *  in SFP resided EEPROM memory or SFP diagnostic area.
-- *  Function should be called with
-- *  E1000_I2CCMD_SFP_DATA_ADDR(<byte offset>) for SFP module database access
-- *  E1000_I2CCMD_SFP_DIAG_ADDR(<byte offset>) for SFP diagnostics parameters
-- *  access
-- **/
--s32 e1000_write_sfp_data_byte(struct e1000_hw *hw, u16 offset, u8 data)
--{
--	u32 i = 0;
--	u32 i2ccmd = 0;
--	u32 data_local = 0;
--
--	if (offset > E1000_I2CCMD_SFP_DIAG_ADDR(255)) {
--		hw_dbg("I2CCMD command address exceeds upper limit\n");
--		return -E1000_ERR_PHY;
--	}
--	/* The programming interface is 16 bits wide
--	 * so we need to read the whole word first
--	 * then update appropriate byte lane and write
--	 * the updated word back.
--	 */
--	/* Set up Op-code, EEPROM Address,in the I2CCMD
--	 * register. The MAC will take care of interfacing
--	 * with an EEPROM to write the data given.
--	 */
--	i2ccmd = ((offset << E1000_I2CCMD_REG_ADDR_SHIFT) |
--		  E1000_I2CCMD_OPCODE_READ);
--	/* Set a command to read single word */
--	wr32(E1000_I2CCMD, i2ccmd);
--	for (i = 0; i < E1000_I2CCMD_PHY_TIMEOUT; i++) {
--		udelay(50);
--		/* Poll the ready bit to see if lastly
--		 * launched I2C operation completed
--		 */
--		i2ccmd = rd32(E1000_I2CCMD);
--		if (i2ccmd & E1000_I2CCMD_READY) {
--			/* Check if this is READ or WRITE phase */
--			if ((i2ccmd & E1000_I2CCMD_OPCODE_READ) ==
--			    E1000_I2CCMD_OPCODE_READ) {
--				/* Write the selected byte
--				 * lane and update whole word
--				 */
--				data_local = i2ccmd & 0xFF00;
--				data_local |= data;
--				i2ccmd = ((offset <<
--					E1000_I2CCMD_REG_ADDR_SHIFT) |
--					E1000_I2CCMD_OPCODE_WRITE | data_local);
--				wr32(E1000_I2CCMD, i2ccmd);
--			} else {
--				break;
--			}
--		}
--	}
--	if (!(i2ccmd & E1000_I2CCMD_READY)) {
--		hw_dbg("I2CCMD Write did not complete\n");
--		return -E1000_ERR_PHY;
--	}
--	if (i2ccmd & E1000_I2CCMD_ERROR) {
--		hw_dbg("I2CCMD Error bit set\n");
--		return -E1000_ERR_PHY;
--	}
--	return 0;
--}
--
--/**
-  *  igb_read_phy_reg_igp - Read igp PHY register
-  *  @hw: pointer to the HW structure
-  *  @offset: register offset to be read
-diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.h b/drivers/net/ethernet/intel/igb/e1000_phy.h
-index 6a0873f..55b3f8c 100644
---- a/drivers/net/ethernet/intel/igb/e1000_phy.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_phy.h
-@@ -70,7 +70,6 @@ s32  igb_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data);
- s32  igb_read_phy_reg_i2c(struct e1000_hw *hw, u32 offset, u16 *data);
- s32  igb_write_phy_reg_i2c(struct e1000_hw *hw, u32 offset, u16 data);
- s32  igb_read_sfp_data_byte(struct e1000_hw *hw, u16 offset, u8 *data);
--s32  e1000_write_sfp_data_byte(struct e1000_hw *hw, u16 offset, u8 data);
- s32  igb_copper_link_setup_82580(struct e1000_hw *hw);
- s32  igb_get_phy_info_82580(struct e1000_hw *hw);
- s32  igb_phy_force_speed_duplex_82580(struct e1000_hw *hw);
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index ccf472f..65f3c77 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -525,9 +525,7 @@ void igb_set_fw_version(struct igb_adapter *);
- void igb_ptp_init(struct igb_adapter *adapter);
- void igb_ptp_stop(struct igb_adapter *adapter);
- void igb_ptp_reset(struct igb_adapter *adapter);
--void igb_ptp_tx_work(struct work_struct *work);
- void igb_ptp_rx_hang(struct igb_adapter *adapter);
--void igb_ptp_tx_hwtstamp(struct igb_adapter *adapter);
- void igb_ptp_rx_rgtstamp(struct igb_q_vector *q_vector, struct sk_buff *skb);
- void igb_ptp_rx_pktstamp(struct igb_q_vector *q_vector, unsigned char *va,
- 			 struct sk_buff *skb);
-diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
-index 5a54e3d..d9f3976 100644
---- a/drivers/net/ethernet/intel/igb/igb_ptp.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
-@@ -75,6 +75,8 @@
- #define INCVALUE_82576			(16 << IGB_82576_TSYNC_SHIFT)
- #define IGB_NBITS_82580			40
- 
-+static void igb_ptp_tx_hwtstamp(struct igb_adapter *adapter);
-+
- /* SYSTIM read access for the 82576 */
- static cycle_t igb_ptp_read_82576(const struct cyclecounter *cc)
- {
-@@ -372,7 +374,7 @@ static int igb_ptp_enable(struct ptp_clock_info *ptp,
-  * This work function polls the TSYNCTXCTL valid bit to determine when a
-  * timestamp has been taken for the current stored skb.
-  **/
--void igb_ptp_tx_work(struct work_struct *work)
-+static void igb_ptp_tx_work(struct work_struct *work)
- {
- 	struct igb_adapter *adapter = container_of(work, struct igb_adapter,
- 						   ptp_tx_work);
-@@ -466,7 +468,7 @@ void igb_ptp_rx_hang(struct igb_adapter *adapter)
-  * available, then it must have been for this skb here because we only
-  * allow only one such packet into the queue.
-  **/
--void igb_ptp_tx_hwtstamp(struct igb_adapter *adapter)
-+static void igb_ptp_tx_hwtstamp(struct igb_adapter *adapter)
- {
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct skb_shared_hwtstamps shhwtstamps;
+The register access macros have been changed to static inline
+functions and all register accesses now use them. A configuration
+option is added to allow the LER feature to be disabled. The added
+checks on register accesses results in a small increase in cpu 
+utilization, so disabling the option makes it possible to avoid 
+paying that price in environments that have no need for LER. The
+option is enabled by default because the cost is not high and
+it makes the driver more robust.
+
+The __IXGBE_DOWN bit is no longer overloaded to also mean that
+device removal has been initiated. Now the bit can be used to
+protect ixgbe_down from multiple entry via test_and_set_bit. A
+needed smp_mb__before_clear_bit was also added.
+
+v2 Changes:
+- Use ACCESS_ONCE where needed, thanks to Ben Hutchings
+- Fix crash on module removal
+- Use boolean values for boolean returns instead of 0 and 1
+- Reword Kconfig help text
+
+The following are changes since commit c1ddf295f5183a5189196a8035546842caa2055a:
+  net: revert "sched classifier: make cgroup table local"
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Jeff Kirsher (1):
+  igb: make local functions static and remove dead code
+
+Mark Rustad (8):
+  ixbge: Protect ixgbe_down with __IXGBE_DOWN bit
+  ixgbe: Indicate removal state explicitly
+  ixgbe: Use static inlines instead of macros
+  ixgbe: Make ethtool register test use accessors
+  ixgbe: Check register reads for adapter removal
+  ixgbe: Check for adapter removal on register writes
+  ixgbe: Additional adapter removal checks
+  ixgbe: Add Live Error Recovery configuration option
+
+Tom Herbert (2):
+  net: e1000e calls skb_set_hash
+  net: igb calls skb_set_hash
+
+ drivers/net/ethernet/intel/Kconfig               |  11 +++
+ drivers/net/ethernet/intel/e1000e/netdev.c       |   2 +-
+ drivers/net/ethernet/intel/igb/e1000_82575.c     |   4 +-
+ drivers/net/ethernet/intel/igb/e1000_82575.h     |   2 -
+ drivers/net/ethernet/intel/igb/e1000_i210.c      |  20 +++--
+ drivers/net/ethernet/intel/igb/e1000_i210.h      |   9 --
+ drivers/net/ethernet/intel/igb/e1000_phy.c       |  71 ---------------
+ drivers/net/ethernet/intel/igb/e1000_phy.h       |   1 -
+ drivers/net/ethernet/intel/igb/igb.h             |   2 -
+ drivers/net/ethernet/intel/igb/igb_main.c        |   4 +-
+ drivers/net/ethernet/intel/igb/igb_ptp.c         |   6 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |  12 +++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h  |  58 +++++++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 110 +++++++++++++----------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  82 ++++++++++++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c     |   3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     |   2 +-
+ 17 files changed, 229 insertions(+), 170 deletions(-)
+
 -- 
 1.8.3.1
