@@ -1,69 +1,126 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] cls_cgroup: fix memory leak in cls_cgroup_change()
-Date: Fri,  3 Jan 2014 11:13:19 -0800
-Message-ID: <1388776399-27657-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, Thomas Graf <tgraf@suug.ch>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: netdev@vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net v2 1/9] bridge: Fix the way to find old local fdb
+ entries in br_fdb_changeaddr
+Date: Fri, 03 Jan 2014 14:28:35 -0500
+Message-ID: <52C70F63.4020604@redhat.com>
+References: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp> <1387281821-21342-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Reply-To: vyasevic@redhat.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	"David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:48121 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752436AbaACTNd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 14:13:33 -0500
-Received: by mail-pd0-f180.google.com with SMTP id q10so15633376pdj.25
-        for <netdev@vger.kernel.org>; Fri, 03 Jan 2014 11:13:33 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:15917 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752436AbaACT2n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jan 2014 14:28:43 -0500
+In-Reply-To: <1387281821-21342-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix it by moving allocation to ->init().
+On 12/17/2013 07:03 AM, Toshiaki Makita wrote:
+> br_fdb_changeaddr() assumes that there is at most one local entry per port
+> per vlan. It used to be true, but since commit 36fd2b63e3b4 ("bridge: allow
+> creating/deleting fdb entries via netlink"), it has not been so.
+> Therefore, the function might fail to search a correct previous address
+> to be deleted and delete an arbitrary local entry if user has added local
+> entries manually.
+> 
+> Example of problematic case:
+>   ip link set eth0 address ee:ff:12:34:56:78
+>   brctl addif br0 eth0
+>   bridge fdb add 12:34:56:78:90:ab dev eth0 master
+>   ip link set eth0 address aa:bb:cc:dd:ee:ff
+> Then, the address 12:34:56:78:90:ab might be deleted instead of
+> ee:ff:12:34:56:78, the original mac address of eth0.
+> 
+> Address this issue by introducing a new flag, added_by_user, to struct
+> net_bridge_fdb_entry.
+> 
+> Note that br_fdb_delete_by_port() has to set added_by_user to 0 in case
+> like:
+>   ip link set eth0 address 12:34:56:78:90:ab
+>   ip link set eth1 address aa:bb:cc:dd:ee:ff
+>   brctl addif br0 eth0
+>   bridge fdb add aa:bb:cc:dd:ee:ff dev eth0 master
+>   brctl addif br0 eth1
+>   brctl delif br0 eth0
+> In this case, kernel should delete the user-added entry aa:bb:cc:dd:ee:ff,
+> but it also should have been added by "brctl addif br0 eth1" originally,
+> so we don't delete it and treat it a new kernel-created entry.
+> 
 
-Cc: Thomas Graf <tgraf@suug.ch>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/sched/cls_cgroup.c | 19 ++++++-------------
- 1 file changed, 6 insertions(+), 13 deletions(-)
+I was looking over my patch series that adds something similar to this
+and noticed that you are not handing the NTF_USE case.  That case was
+always troublesome for me as it allows for 2 different way to create
+the same FDB: one through br_fdb_update() and one through fdb_add_entry().
 
-diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-index 16006c9..f0d1e81 100644
---- a/net/sched/cls_cgroup.c
-+++ b/net/sched/cls_cgroup.c
-@@ -169,6 +169,11 @@ static void cls_cgroup_put(struct tcf_proto *tp, unsigned long f)
- 
- static int cls_cgroup_init(struct tcf_proto *tp)
- {
-+	struct cls_cgroup_head *head;
-+	head = kzalloc(sizeof(*head), GFP_KERNEL);
-+	if (head == NULL)
-+		return -ENOBUFS;
-+	tp->root = head;
- 	return 0;
- }
- 
-@@ -195,21 +200,9 @@ static int cls_cgroup_change(struct net *net, struct sk_buff *in_skb,
- 	if (!tca[TCA_OPTIONS])
- 		return -EINVAL;
- 
--	if (head == NULL) {
--		if (!handle)
--			return -EINVAL;
--
--		head = kzalloc(sizeof(*head), GFP_KERNEL);
--		if (head == NULL)
--			return -ENOBUFS;
--
-+	if (head->handle == 0)
- 		head->handle = handle;
- 
--		tcf_tree_lock(tp);
--		tp->root = head;
--		tcf_tree_unlock(tp);
--	}
--
- 	if (handle != head->handle)
- 		return -ENOENT;
- 
--- 
-1.8.3.1
+It is possible, though I haven't found any users yet, that NTF_USE
+may be used and in that case, bridge will create a dynamic fdb and
+disregard all NUD flags.  In case case, add_by_user will not be set
+either.
+
+I think that the above is broken and plan to submit a fix shortly.
+
+Thanks
+-vlad
+
+> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> ---
+>  net/bridge/br_fdb.c     | 5 ++++-
+>  net/bridge/br_private.h | 1 +
+>  2 files changed, 5 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+> index 33e8f23..5dab230 100644
+> --- a/net/bridge/br_fdb.c
+> +++ b/net/bridge/br_fdb.c
+> @@ -104,7 +104,7 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
+>  			struct net_bridge_fdb_entry *f;
+>  
+>  			f = hlist_entry(h, struct net_bridge_fdb_entry, hlist);
+> -			if (f->dst == p && f->is_local) {
+> +			if (f->dst == p && f->is_local && !f->added_by_user) {
+>  				/* maybe another port has same hw addr? */
+>  				struct net_bridge_port *op;
+>  				u16 vid = f->vlan_id;
+> @@ -247,6 +247,7 @@ void br_fdb_delete_by_port(struct net_bridge *br,
+>  					    ether_addr_equal(op->dev->dev_addr,
+>  							     f->addr.addr)) {
+>  						f->dst = op;
+> +						f->added_by_user = 0;
+>  						goto skip_delete;
+>  					}
+>  				}
+> @@ -397,6 +398,7 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
+>  		fdb->vlan_id = vid;
+>  		fdb->is_local = 0;
+>  		fdb->is_static = 0;
+> +		fdb->added_by_user = 0;
+>  		fdb->updated = fdb->used = jiffies;
+>  		hlist_add_head_rcu(&fdb->hlist, head);
+>  	}
+> @@ -648,6 +650,7 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
+>  
+>  		modified = true;
+>  	}
+> +	fdb->added_by_user = 1;
+>  
+>  	fdb->used = jiffies;
+>  	if (modified) {
+> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+> index 045d56e..91fb2c2 100644
+> --- a/net/bridge/br_private.h
+> +++ b/net/bridge/br_private.h
+> @@ -104,6 +104,7 @@ struct net_bridge_fdb_entry
+>  	mac_addr			addr;
+>  	unsigned char			is_local;
+>  	unsigned char			is_static;
+> +	unsigned char			added_by_user;
+>  	__u16				vlan_id;
+>  };
+>  
+> 
