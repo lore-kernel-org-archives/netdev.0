@@ -1,45 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: llc: fix use after free in llc_ui_recvmsg
-Date: Thu, 02 Jan 2014 19:31:55 -0500 (EST)
-Message-ID: <20140102.193155.570848830875823542.davem@davemloft.net>
-References: <1388443250-30224-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH] sh_eth: coding style fixes
+Date: Thu, 02 Jan 2014 19:34:07 -0500 (EST)
+Message-ID: <20140102.193407.23280653408847634.davem@davemloft.net>
+References: <201312310325.21951.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	acme@ghostprotocols.net
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54787 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751574AbaACAb4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 19:31:56 -0500
-In-Reply-To: <1388443250-30224-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <201312310325.21951.sergei.shtylyov@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Mon, 30 Dec 2013 23:40:50 +0100
-
-> While commit 30a584d944fb fixes datagram interface in LLC, a use
-> after free bug has been introduced for SOCK_STREAM sockets that do
-> not make use of MSG_PEEK.
-> 
-> The flow is as follow ...
-> 
->   if (!(flags & MSG_PEEK)) {
->     ...
->     sk_eat_skb(sk, skb, false);
->     ...
->   }
->   ...
->   if (used + offset < skb->len)
->     continue;
-> 
-> ... where sk_eat_skb() calls __kfree_skb(). Therefore, cache
-> original length and work on skb_len to check partial reads.
-> 
-> Fixes: 30a584d944fb ("[LLX]: SOCK_DGRAM interface fixes")
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-
-Applied and queued up for -stable, thanks!
+RnJvbTogU2VyZ2VpIFNodHlseW92IDxzZXJnZWkuc2h0eWx5b3ZAY29nZW50ZW1iZWRkZWQuY29t
+Pg0KRGF0ZTogVHVlLCAzMSBEZWMgMjAxMyAwMzoyNToyMSArMDMwMA0KDQo+IEBAIC0xOTUyLDgg
+KzE5NDksOCBAQCBzdGF0aWMgdm9pZCBzaF9ldGhfdHhfdGltZW91dChzdHJ1Y3QgbmV0DQo+ICAJ
+bmV0aWZfc3RvcF9xdWV1ZShuZGV2KTsNCj4gIA0KPiAgCWlmIChuZXRpZl9tc2dfdGltZXIobWRw
+KSkNCj4gLQkJZGV2X2VycigmbmRldi0+ZGV2LCAiJXM6IHRyYW5zbWl0IHRpbWVkIG91dCwgc3Rh
+dHVzICU4Ljh4LCINCj4gLQkgICAgICAgIiByZXNldHRpbmcuLi5cbiIsIG5kZXYtPm5hbWUsIChp
+bnQpc2hfZXRoX3JlYWQobmRldiwgRUVTUikpOw0KPiArCQlkZXZfZXJyKCZuZGV2LT5kZXYsICIl
+czogdHJhbnNtaXQgdGltZWQgb3V0LCBzdGF0dXMgJTguOHgsIHJlc2V0dGluZy4uLlxuIg0KPiAr
+CQkJbmRldi0+bmFtZSwgKGludClzaF9ldGhfcmVhZChuZGV2LCBFRVNSKSk7DQo+ICANCj4gIAkv
+KiB0eF9lcnJvcnMgY291bnQgdXAgKi8NCj4gIAluZGV2LT5zdGF0cy50eF9lcnJvcnMrKzsNCg0K
+WW91IGRpZCBub3QgYnVpbGQgdGVzdCB0aGlzLg0KDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9yZW5l
+c2FzL3NoX2V0aC5jOiBJbiBmdW5jdGlvbiChc2hfZXRoX3R4X3RpbWVvdXSiOg0KZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvcmVuZXNhcy9zaF9ldGguYzoxOTUzOjQ6IGVycm9yOiBleHBlY3RlZCChKaIg
+YmVmb3JlIKFuZGV2og0KZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVuZXNhcy9zaF9ldGguYzoxOTUz
+OjQ6IHdhcm5pbmc6IGZvcm1hdCChJXOiIGV4cGVjdHMgYSBtYXRjaGluZyChY2hhciAqoiBhcmd1
+bWVudCBbLVdmb3JtYXRdDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9yZW5lc2FzL3NoX2V0aC5jOjE5
+NTM6NDogd2FybmluZzogZm9ybWF0IKEleKIgZXhwZWN0cyBhIG1hdGNoaW5nIKF1bnNpZ25lZCBp
+bnSiIGFyZ3VtZW50IFstV2Zvcm1hdF0NCg==
