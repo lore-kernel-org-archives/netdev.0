@@ -1,39 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6 addrconf: fix preferred lifetime state-changing
- behavior while valid_lft is infinity
-Date: Thu, 02 Jan 2014 19:35:09 -0500 (EST)
-Message-ID: <20140102.193509.1856056053797832475.davem@davemloft.net>
-References: <20131230021754.GA7718@order.stressinduktion.org>
-	<1388459059-2563-1-git-send-email-yazzep@gmail.com>
+Subject: Re: [PATCH v2] ipv6: fix the use of pcpu_tstats in ip6_tunnel
+Date: Thu, 02 Jan 2014 19:37:51 -0500 (EST)
+Message-ID: <20140102.193751.1547689349010215687.davem@davemloft.net>
+References: <1388640012-16406-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yasushi.asano@jp.fujitsu.com
-To: yazzep@gmail.com
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	edumazet@google.com
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54814 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54833 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753000AbaACAfK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 19:35:10 -0500
-In-Reply-To: <1388459059-2563-1-git-send-email-yazzep@gmail.com>
+	with ESMTP id S1752146AbaACAhx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 19:37:53 -0500
+In-Reply-To: <1388640012-16406-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yasushi Asano <yazzep@gmail.com>
-Date: Tue, 31 Dec 2013 12:04:19 +0900
+From: roy.qing.li@gmail.com
+Date: Thu,  2 Jan 2014 13:20:12 +0800
 
-> From: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
+> From: Li RongQing <roy.qing.li@gmail.com>
 > 
-> Fixed a problem with setting the lifetime of an IPv6
-> address. When setting preferred_lft to a value not zero or
-> infinity, while valid_lft is infinity(0xffffffff) preferred
-> lifetime is set to forever and does not update. Therefore
-> preferred lifetime never becomes deprecated. valid lifetime
-> and preferred lifetime should be set independently, even if
-> valid lifetime is infinity, preferred lifetime must expire
-> correctly (meaning it must eventually become deprecated)
+> when read/write the 64bit data, the correct lock should be hold.
 > 
+> Fixes: 87b6d218f3adb ("tunnel: implement 64 bits statistics")
 > 
-> Signed-off-by: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
 Applied.
