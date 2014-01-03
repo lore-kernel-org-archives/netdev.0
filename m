@@ -1,139 +1,69 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv4 net-next 1/8] {pktgen, xfrm} Correct xfrm state lock usage when transforming
-Date: Fri, 3 Jan 2014 11:18:27 +0800
-Message-ID: <1388719114-26244-2-git-send-email-fan.du@windriver.com>
-References: <1388719114-26244-1-git-send-email-fan.du@windriver.com>
+Subject: [PATCHv5 net-next 0/8] pktgen IPsec support
+Date: Fri, 3 Jan 2014 11:18:26 +0800
+Message-ID: <1388719114-26244-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
 To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:35157 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751521AbaACDSl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 22:18:41 -0500
-In-Reply-To: <1388719114-26244-1-git-send-email-fan.du@windriver.com>
+Received: from mail1.windriver.com ([147.11.146.13]:47818 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751521AbaACDSk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 22:18:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-xfrm_state lock protects its state, i.e., VALID/DEAD and statistics,
-not the transforming procedure, as both mode/type output functions
-are reentrant.
+Hi, Dave
 
-Another issue is state lock can be used in BH context when state timer
-alarmed, after transformation in pktgen, update state statistics acquiring
-state lock should disabled BH context for a moment. Otherwise LOCKDEP
-critisize this:
+Current pktgen IPsec supports only transport/ESP combinnation,
+This patchset enables user to do almost any IPsec transformation,
+both transport/tunnel mode, and AH/ESP/IPcomp type.
 
-[   62.354339] pktgen: Packet Generator for packet performance testing. Version: 2.74
-[   62.655444]
-[   62.655448] =================================
-[   62.655451] [ INFO: inconsistent lock state ]
-[   62.655455] 3.13.0-rc2+ #70 Not tainted
-[   62.655457] ---------------------------------
-[   62.655459] inconsistent {IN-SOFTIRQ-W} -> {SOFTIRQ-ON-W} usage.
-[   62.655463] kpktgend_0/2764 [HC0[0]:SC0[0]:HE1:SE1] takes:
-[   62.655466]  (&(&x->lock)->rlock){+.?...}, at: [<ffffffffa00886f6>] pktgen_thread_worker+0x1796/0x1860 [pktgen]
-[   62.655479] {IN-SOFTIRQ-W} state was registered at:
-[   62.655484]   [<ffffffff8109a61d>] __lock_acquire+0x62d/0x1d70
-[   62.655492]   [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
-[   62.655498]   [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
-[   62.655505]   [<ffffffff816dc3a3>] xfrm_timer_handler+0x43/0x290
-[   62.655511]   [<ffffffff81059437>] __tasklet_hrtimer_trampoline+0x17/0x40
-[   62.655519]   [<ffffffff8105a1b7>] tasklet_hi_action+0xd7/0xf0
-[   62.655523]   [<ffffffff81059ac6>] __do_softirq+0xe6/0x2d0
-[   62.655526]   [<ffffffff8105a026>] irq_exit+0x96/0xc0
-[   62.655530]   [<ffffffff8177fd0a>] smp_apic_timer_interrupt+0x4a/0x60
-[   62.655537]   [<ffffffff8177e96f>] apic_timer_interrupt+0x6f/0x80
-[   62.655541]   [<ffffffff8100b7c6>] arch_cpu_idle+0x26/0x30
-[   62.655547]   [<ffffffff810ace28>] cpu_startup_entry+0x88/0x2b0
-[   62.655552]   [<ffffffff81761c3c>] rest_init+0xbc/0xd0
-[   62.655557]   [<ffffffff81ea5e5e>] start_kernel+0x3c4/0x3d1
-[   62.655583]   [<ffffffff81ea55a8>] x86_64_start_reservations+0x2a/0x2c
-[   62.655588]   [<ffffffff81ea569f>] x86_64_start_kernel+0xf5/0xfc
-[   62.655592] irq event stamp: 77
-[   62.655594] hardirqs last  enabled at (77): [<ffffffff810ab7f2>] vprintk_emit+0x1b2/0x520
-[   62.655597] hardirqs last disabled at (76): [<ffffffff810ab684>] vprintk_emit+0x44/0x520
-[   62.655601] softirqs last  enabled at (22): [<ffffffff81059b57>] __do_softirq+0x177/0x2d0
-[   62.655605] softirqs last disabled at (15): [<ffffffff8105a026>] irq_exit+0x96/0xc0
-[   62.655609]
-[   62.655609] other info that might help us debug this:
-[   62.655613]  Possible unsafe locking scenario:
-[   62.655613]
-[   62.655616]        CPU0
-[   62.655617]        ----
-[   62.655618]   lock(&(&x->lock)->rlock);
-[   62.655622]   <Interrupt>
-[   62.655623]     lock(&(&x->lock)->rlock);
-[   62.655626]
-[   62.655626]  *** DEADLOCK ***
-[   62.655626]
-[   62.655629] no locks held by kpktgend_0/2764.
-[   62.655631]
-[   62.655631] stack backtrace:
-[   62.655636] CPU: 0 PID: 2764 Comm: kpktgend_0 Not tainted 3.13.0-rc2+ #70
-[   62.655638] Hardware name: innotek GmbH VirtualBox, BIOS VirtualBox 12/01/2006
-[   62.655642]  ffffffff8216b7b0 ffff88001be43ab8 ffffffff8176af37 0000000000000007
-[   62.655652]  ffff88001c8d4fc0 ffff88001be43b18 ffffffff81766d78 0000000000000000
-[   62.655663]  ffff880000000001 ffff880000000001 ffffffff8101025f ffff88001be43b18
-[   62.655671] Call Trace:
-[   62.655680]  [<ffffffff8176af37>] dump_stack+0x46/0x58
-[   62.655685]  [<ffffffff81766d78>] print_usage_bug+0x1f1/0x202
-[   62.655691]  [<ffffffff8101025f>] ? save_stack_trace+0x2f/0x50
-[   62.655696]  [<ffffffff81099f8c>] mark_lock+0x28c/0x2f0
-[   62.655700]  [<ffffffff810994b0>] ? check_usage_forwards+0x150/0x150
-[   62.655704]  [<ffffffff8109a67a>] __lock_acquire+0x68a/0x1d70
-[   62.655712]  [<ffffffff81115b09>] ? irq_work_queue+0x69/0xb0
-[   62.655717]  [<ffffffff810ab7f2>] ? vprintk_emit+0x1b2/0x520
-[   62.655722]  [<ffffffff8109cec5>] ? trace_hardirqs_on_caller+0x105/0x1d0
-[   62.655730]  [<ffffffffa00886f6>] ? pktgen_thread_worker+0x1796/0x1860 [pktgen]
-[   62.655734]  [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
-[   62.655741]  [<ffffffffa00886f6>] ? pktgen_thread_worker+0x1796/0x1860 [pktgen]
-[   62.655745]  [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
-[   62.655752]  [<ffffffffa00886f6>] ? pktgen_thread_worker+0x1796/0x1860 [pktgen]
-[   62.655758]  [<ffffffffa00886f6>] pktgen_thread_worker+0x1796/0x1860 [pktgen]
-[   62.655766]  [<ffffffffa0087a79>] ? pktgen_thread_worker+0xb19/0x1860 [pktgen]
-[   62.655771]  [<ffffffff8109cf9d>] ? trace_hardirqs_on+0xd/0x10
-[   62.655777]  [<ffffffff81775410>] ? _raw_spin_unlock_irq+0x30/0x40
-[   62.655785]  [<ffffffff8151faa0>] ? e1000_clean+0x9d0/0x9d0
-[   62.655791]  [<ffffffff81094310>] ? __init_waitqueue_head+0x60/0x60
-[   62.655795]  [<ffffffff81094310>] ? __init_waitqueue_head+0x60/0x60
-[   62.655800]  [<ffffffffa0086f60>] ? mod_cur_headers+0x7f0/0x7f0 [pktgen]
-[   62.655806]  [<ffffffff81078f84>] kthread+0xe4/0x100
-[   62.655813]  [<ffffffff81078ea0>] ? flush_kthread_worker+0x170/0x170
-[   62.655819]  [<ffffffff8177dc6c>] ret_from_fork+0x7c/0xb0
-[   62.655824]  [<ffffffff81078ea0>] ? flush_kthread_worker+0x170/0x170
+Below configuration has been tested, and using Wireshark could decrypt
+out plain text in good formation without any checksum/auth errors:
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
- net/core/pktgen.c |    5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+Mode/TYPE   AH  ESP 
+Transport   x   x   
+Tunnel      x   x   
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index a797fff..b007586 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2487,8 +2487,6 @@ static int pktgen_output_ipsec(struct sk_buff *skb, struct pktgen_dev *pkt_dev)
- 	if (x->props.mode != XFRM_MODE_TRANSPORT)
- 		return 0;
- 
--	spin_lock(&x->lock);
--
- 	err = x->outer_mode->output(x, skb);
- 	if (err)
- 		goto error;
-@@ -2496,10 +2494,11 @@ static int pktgen_output_ipsec(struct sk_buff *skb, struct pktgen_dev *pkt_dev)
- 	if (err)
- 		goto error;
- 
-+	spin_lock_bh(&x->lock);
- 	x->curlft.bytes += skb->len;
- 	x->curlft.packets++;
-+	spin_unlock_bh(&x->lock);
- error:
--	spin_unlock(&x->lock);
- 	return err;
- }
- 
+ChangeLog
+v2:
+  Rebase patchset against newest net-next.
+  Patch1: Remove adding rebundant empty line spotted by Sergei.
+  Patch2: Use only one dst pointing into itself to save space.
+
+v3:
+  Align with David's requirement, that for user depends on orignal
+  a553e4a6317b2cfc7659542c10fe43184ffe53da ("IPSEC support") from
+  Jamal, their testbed configuration will not need to be changed. 
+
+  Add Patch2/7, Patch3/7 for statistic counting, as well as fixing
+  lock usage issue. 
+
+v4:
+  Add Patch8/8 to document IPsec usage in pktgen, both for orignal
+  implementation and this enhancement, adviced by Jamal. And comment
+  format fix spoted by Sergei.
+
+v5:
+  Rebase this patchset on top of xfrm locks namespace support.
+
+Fan Du (8):
+  {pktgen, xfrm} Correct xfrm state lock usage when transforming
+  {pktgen, xfrm} Add statistics counting when transforming
+  {pktgen, xfrm} Correct xfrm_state_lock usage in xfrm_stateonly_find
+  {pktgen, xfrm} Using "pgset spi xxx" to spedifiy SA for a given flow
+  {pktgen, xfrm} Construct skb dst for tunnel mode transformation
+  {pktgen, xfrm} Introduce xfrm_state_lookup_byspi for pktgen
+  {pktgen, xfrm} Show spi value properly when ipsec turned on
+  {pktgen, xfrm} Document IPsec usage in pktgen.txt
+
+ Documentation/networking/pktgen.txt |   15 +++++++
+ include/net/xfrm.h                  |    2 +
+ net/core/pktgen.c                   |   80 +++++++++++++++++++++++++++++------
+ net/xfrm/xfrm_state.c               |   26 +++++++++++-
+ 4 files changed, 107 insertions(+), 16 deletions(-)
+
 -- 
 1.7.9.5
