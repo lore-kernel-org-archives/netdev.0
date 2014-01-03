@@ -1,35 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: fix the use of pcpu_tstats in ip6_vti.c
-Date: Thu, 02 Jan 2014 19:37:57 -0500 (EST)
-Message-ID: <20140102.193757.1196904087317455511.davem@davemloft.net>
-References: <1388643876-31865-1-git-send-email-roy.qing.li@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv4: move rt_genid to different cache line
+Date: Thu, 02 Jan 2014 16:38:54 -0800
+Message-ID: <1388709534.12212.106.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.DEB.2.02.1401021155330.32674@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	edumazet@google.com
-To: roy.qing.li@gmail.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54837 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751067AbaACAh6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 19:37:58 -0500
-In-Reply-To: <1388643876-31865-1-git-send-email-roy.qing.li@gmail.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:37326 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753010AbaACAi4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 19:38:56 -0500
+Received: by mail-pa0-f50.google.com with SMTP id kp14so13197660pab.23
+        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 16:38:56 -0800 (PST)
+In-Reply-To: <alpine.DEB.2.02.1401021155330.32674@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: roy.qing.li@gmail.com
-Date: Thu,  2 Jan 2014 14:24:36 +0800
-
-> From: Li RongQing <roy.qing.li@gmail.com>
+On Thu, 2014-01-02 at 12:00 -0800, Tom Herbert wrote:
+> Running a simple netperf TCP_RR test with 200 clients shows that
+> ipv4_dst_check is high on the list of functions in 'perf top'. The
+> pertinent action in this function is in the call to rt_is_expired
+> which checks the route genid (rt->rt_gentid) against the global value.
+> rt_genid is in the same cacheline as dst->__refcnt which is causing
+> false sharing.
 > 
-> when read/write the 64bit data, the correct lock should be hold.
-> and we can use the generic vti6_get_stats to return stats, and
-> not define a new one in ip6_vti.c
-> 
-> Fixes: 87b6d218f3adb ("tunnel: implement 64 bits statistics")
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> This fix moves rt_genid into the first cacheline of the dst structure.
+> The dst structue is explicitly packed for cacheline optimization, so to
+> make room for the genid, I moved xfrm to cacheline with __refcnt (under
+> the assumption it is less likely to be in the critical path).
 
-Applied.
+This looks like a difficult to check assumption to me ....
+
+rcu_head surely could be moved without performance impact.
+
+Again, optimizing network stack for 200 TCP_RR special case is very
+questionable. The dst must be refcounted because of special prequeue
+mode, where a thread is blocked in a recvmsg() call.
+
+Any modern application handling lot of sockets uses poll()/epoll()
+anyway and prequeue is disabled : No refcount is taken, as the dst is
+released (no refcount touch because of RCU) before the skb is queued
+into socket receive queue.
