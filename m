@@ -1,94 +1,120 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH net] bridge: Fix crash with vlan filtering and tcpdump
-Date: Fri,  3 Jan 2014 11:12:33 -0500
-Message-ID: <1388765553-12965-1-git-send-email-vyasevic@redhat.com>
-Cc: Vlad Yasevich <vyasevic@redhat.com>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+Subject: [PATCH net-next v4] IPv6: use anycast addresses as source addresses in echo reply
+Date: Fri,  3 Jan 2014 17:43:31 +0100
+Message-ID: <1388767411-17818-1-git-send-email-fx.lebail@yahoo.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Francois-Xavier Le Bail <fx.lebail@yahoo.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27583 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750863AbaACQMw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jan 2014 11:12:52 -0500
+Received: from smtp04.smtpout.orange.fr ([80.12.242.126]:52628 "EHLO
+	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750935AbaACQ6f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 11:58:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the vlan filtering is enabled on the bridge, but
-the filter is not configured on the bridge device itself,
-running tcpdump on the bridge device will result in a
-an Ooops with NULL pointer dereference.  The reason
-is that br_pass_frame_up() will bypass the vlan
-check because promisc flag is set.  It will then try
-to get the table pointer and process the packet based
-on the table.  Since the table pointer is NULL, we oops.
-Catch this special condition in br_handle_vlan().
+This change allows to follow a recommandation of RFC4942.
 
-Reported-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-CC: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+- Add "anycast_src_echo_reply" sysctl to control the use of anycast addresses
+  as source addresses for ICMPv6 echo reply. This sysctl is false by default
+  to preserve existing behavior.
+- Use it in icmpv6_echo_reply().
+
+Reference:
+RFC4942 - IPv6 Transition/Coexistence Security Considerations
+   (http://tools.ietf.org/html/rfc4942#section-2.1.6)
+
+2.1.6. Anycast Traffic Identification and Security
+
+   [...]
+   To avoid exposing knowledge about the internal structure of the
+   network, it is recommended that anycast servers now take advantage of
+   the ability to return responses with the anycast address as the
+   source address if possible.
+
+Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
 ---
- net/bridge/br_input.c | 11 ++++++-----
- net/bridge/br_vlan.c  | 12 ++++++++++++
- 2 files changed, 18 insertions(+), 5 deletions(-)
+v4: update Subject and Documentation, this work also with anycast addresses
+    created via API, not just with Subnet-Router anycast addresses.
 
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 7e73c32..67fbea0 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -29,6 +29,7 @@ static int br_pass_frame_up(struct sk_buff *skb)
- 	struct net_device *indev, *brdev = BR_INPUT_SKB_CB(skb)->brdev;
- 	struct net_bridge *br = netdev_priv(brdev);
- 	struct br_cpu_netstats *brstats = this_cpu_ptr(br->stats);
-+	struct net_port_vlans *pv;
+ Documentation/networking/ip-sysctl.txt |    7 +++++++
+ include/net/netns/ipv6.h               |    1 +
+ net/ipv6/icmp.c                        |    4 +++-
+ net/ipv6/sysctl_net_ipv6.c             |    8 ++++++++
+ 4 files changed, 19 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index d71afa8..7373115 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1094,6 +1094,13 @@ bindv6only - BOOLEAN
  
- 	u64_stats_update_begin(&brstats->syncp);
- 	brstats->rx_packets++;
-@@ -39,18 +40,18 @@ static int br_pass_frame_up(struct sk_buff *skb)
- 	 * packet is allowed except in promisc modue when someone
- 	 * may be running packet capture.
- 	 */
-+	pv = br_get_vlan_info(br);
- 	if (!(brdev->flags & IFF_PROMISC) &&
--	    !br_allowed_egress(br, br_get_vlan_info(br), skb)) {
-+	    !br_allowed_egress(br, pv, skb)) {
- 		kfree_skb(skb);
- 		return NET_RX_DROP;
- 	}
+ 	Default: FALSE (as specified in RFC3493)
  
--	skb = br_handle_vlan(br, br_get_vlan_info(br), skb);
--	if (!skb)
--		return NET_RX_DROP;
--
- 	indev = skb->dev;
- 	skb->dev = brdev;
-+	skb = br_handle_vlan(br, pv, skb);
-+	if (!skb)
-+		return NET_RX_DROP;
- 
- 	return NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, skb, indev, NULL,
- 		       netif_receive_skb);
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index af5ebd1..ea0c29b 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -144,6 +144,18 @@ struct sk_buff *br_handle_vlan(struct net_bridge *br,
- 	if (!br->vlan_enabled)
- 		goto out;
- 
-+	/* Vlan filter table must be configrured at this point.  The
-+	 * only exception is the bridge is set in promisc mode and the
-+	 * packet is destined for the bridge device.  In this case
-+	 * pass the packet as is.
-+	 */
-+	if (!pv) {
-+       		if ((br->dev->flags & IFF_PROMISC) && skb->dev == br->dev)
-+			goto out;
-+		else
-+			BUG();
-+	}
++anycast_src_echo_reply - BOOLEAN
++	Controls the use of anycast addresses as source addresses for ICMPv6
++	echo reply
++	TRUE:  enabled
++	FALSE: disabled
++	Default: FALSE
 +
- 	/* At this point, we know that the frame was filtered and contains
- 	 * a valid vlan id.  If the vlan id is set in the untagged bitmap,
- 	 * send untagged; otherwise, send taged.
--- 
-1.8.4.2
+ IPv6 Fragmentation:
+ 
+ ip6frag_high_thresh - INTEGER
+diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
+index 0fb2401..76fc7d1 100644
+--- a/include/net/netns/ipv6.h
++++ b/include/net/netns/ipv6.h
+@@ -73,6 +73,7 @@ struct netns_ipv6 {
+ #endif
+ 	atomic_t		dev_addr_genid;
+ 	atomic_t		rt_genid;
++	int			anycast_src_echo_reply;
+ };
+ 
+ #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 5d42009..65c8619 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -556,7 +556,9 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+ 
+ 	saddr = &ipv6_hdr(skb)->daddr;
+ 
+-	if (!ipv6_unicast_destination(skb))
++	if (!ipv6_unicast_destination(skb) &&
++	    !(net->ipv6.anycast_src_echo_reply &&
++	      ipv6_chk_acast_addr(net, NULL, saddr)))
+ 		saddr = NULL;
+ 
+ 	memcpy(&tmp_hdr, icmph, sizeof(tmp_hdr));
+diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
+index 107b2f1..6b6a2c8 100644
+--- a/net/ipv6/sysctl_net_ipv6.c
++++ b/net/ipv6/sysctl_net_ipv6.c
+@@ -24,6 +24,13 @@ static struct ctl_table ipv6_table_template[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec
+ 	},
++	{
++		.procname	= "anycast_src_echo_reply",
++		.data		= &init_net.ipv6.anycast_src_echo_reply,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
+ 	{ }
+ };
+ 
+@@ -51,6 +58,7 @@ static int __net_init ipv6_sysctl_net_init(struct net *net)
+ 	if (!ipv6_table)
+ 		goto out;
+ 	ipv6_table[0].data = &net->ipv6.sysctl.bindv6only;
++	ipv6_table[1].data = &net->ipv6.anycast_src_echo_reply;
+ 
+ 	ipv6_route_table = ipv6_route_sysctl_init(net);
+ 	if (!ipv6_route_table)
