@@ -1,59 +1,50 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [RFC PATCH net-next 3/4] veth: backup classid befor switch net_ns
-Date: Fri, 03 Jan 2014 14:45:19 +0400
-Message-ID: <52C694BF.3020903@cogentembedded.com>
-References: <52C62A52.8050003@huawei.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] macvlan: fix oops with vlan-on-top and HW_VLAN_CTAG_TX
+ lowerdev
+Date: Fri, 3 Jan 2014 12:39:04 +0100
+Message-ID: <20140103113904.GB28854@breakpoint.cc>
+References: <1388237920-5140-1-git-send-email-fw@strlen.de>
+ <20131229.170121.154913581019152817.davem@davemloft.net>
+ <20131230102712.GO29632@breakpoint.cc>
+ <20131231.162448.1656983197554902144.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
-	honkiko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Serge Hallyn <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>
-To: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <52C62A52.8050003-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: fw@strlen.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:43079 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751085AbaACLjH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 06:39:07 -0500
+Content-Disposition: inline
+In-Reply-To: <20131231.162448.1656983197554902144.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+David Miller <davem@davemloft.net> wrote:
+> vlan: Fix header ops passthru when doing TX VLAN offload.
+> 
+> When the vlan code detects that the real device can do TX VLAN offloads
+> in hardware, it tries to arrange for the real device's header_ops to
+> be invoked directly.
 
-On 03-01-2014 7:11, Libo Chen wrote:
+Sorry for the late reply.
 
-> dev_forward_skb will clear skb->sk, so we need save classid
-> before that, otherwise the skb can not be under control by
-> net_cls.
-
-> Signed-off-by: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> ---
->   drivers/net/veth.c | 7 +++++++
->   1 file changed, 7 insertions(+)
-
-> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-> index 2ec2041..ce43a2d 100644
-> --- a/drivers/net/veth.c
-> +++ b/drivers/net/veth.c
-[...]
-> @@ -123,6 +124,12 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
->   	    rcv->features & NETIF_F_RXCSUM)
->   		skb->ip_summed = CHECKSUM_UNNECESSARY;
->
-> +	/**
-
-    Why you're using kernel-doc style comments out of place? The format of 
-multi-line comments  in the networking code is this:
-
-/* bla
-  * bla
-  */
-
-> +	 * dev_forward_sbk will clear skb->sk, so save
-> +	 * skb->sk->sk_classid for Qos
-> +	 */
-> +	bk_cls_classid(skb);
+> +static inline int dev_rebuild_header(struct sk_buff *skb)
+> +{
+> +	const struct net_device *dev = skb->dev;
 > +
+> +	if (!dev->header_ops || !dev->header_ops->rebuild)
+> +		return 0;
+> +	return dev->header_ops->rebuild(skb);
+> +}
+> +
+[..]
 
-WBR, Sergei
+> +static const struct header_ops vlan_passthru_header_ops = {
+> +	.create	 = vlan_passthru_hard_header,
+> +	.rebuild = dev_rebuild_header,
+
+Doesn't that result in infinite recursion when invoking
+dev_rebuild_header() on skb whose dev->header_ops is
+vlan_passthru_header_ops?
