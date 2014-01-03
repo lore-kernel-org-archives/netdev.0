@@ -1,57 +1,81 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH RESEND] netfilter: remove unused variable
-Date: Sat, 4 Jan 2014 00:11:46 +0100
-Message-ID: <20140103231146.GA23904@localhost>
-References: <1388554039-28452-1-git-send-email-mina86@mina86.com>
+From: Debabrata Banerjee <dbavatar@gmail.com>
+Subject: Re: [PATCH net-next 1/3] net: allow > 0 order atomic page alloc in skb_page_frag_refill
+Date: Fri, 3 Jan 2014 18:27:11 -0500
+Message-ID: <CAATkVExrEiETydLxuHjpy9hwXhNx9Cq1jP1-4f_2TiGiZZ=qCQ@mail.gmail.com>
+References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
+	<20131224.174647.2276571374631580479.davem@davemloft.net>
+	<CAATkVExsrzKyx3da=sApxdR5DJRTWBw1MOcLE9WiWQN56WfcdA@mail.gmail.com>
+	<1388710591.12212.110.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1388712396.12212.112.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAATkVEyL-7W4aa_U+_7ZsqnyR0AnAskBNejzeUZD+jE8CmRdhw@mail.gmail.com>
+	<CAATkVExrpHZHDFFdfR2ab7SeFSBLyAm0BLoVqLDGHF1ZPwEBZA@mail.gmail.com>
+	<1388789693.12212.149.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Michal Nazarewicz <mina86@mina86.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1388554039-28452-1-git-send-email-mina86@mina86.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Michael Dalton <mwdalton@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Rusty Russell <rusty@rustcorp.com.au>, mst@redhat.com,
+	jasowang@redhat.com, virtualization@lists.linux-foundation.org,
+	"Banerjee, Debabrata" <dbanerje@akamai.com>, jbaron@akamai.com,
+	Joshua Hunt <johunt@akamai.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f41.google.com ([209.85.219.41]:51838 "EHLO
+	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753492AbaACX1M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 18:27:12 -0500
+Received: by mail-oa0-f41.google.com with SMTP id j17so16752105oag.14
+        for <netdev@vger.kernel.org>; Fri, 03 Jan 2014 15:27:11 -0800 (PST)
+In-Reply-To: <1388789693.12212.149.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 01, 2014 at 06:27:19AM +0100, Michal Nazarewicz wrote:
-> The nfmsg variable is not used (except in sizeof operator which does
-> not care about its value) between the first and second time it is
-> assigned the value.  Furthermore, nlmsg_data has no side effects, so
-> the assignment can be safely removed.
+On Fri, Jan 3, 2014 at 5:54 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> This is in GFP_ATOMIC cases, I dont think it can ever start compaction.
 
-Applied with minor glitch, see below.
+I think that's right I probably finally got it back to normal behavior
+with order-0 allocations.
 
-Thanks.
+>
+> It seems that you shoot the messenger : If memory is fragmented, then
+> one order-1 allocation is going to start compaction.
+>
+> It can be a simple fork().
+>
+> If your workload never fork(), then yes, you never needed compaction.
+>
 
-> Signed-off-by: Michal Nazarewicz <mina86@mina86.com>
-> Cc: Patrick McHardy <kaber@trash.net>
-> ---
->  net/netfilter/nf_tables_api.c | 1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-> index f93b7d0..9c56adc 100644
-> --- a/net/netfilter/nf_tables_api.c
-> +++ b/net/netfilter/nf_tables_api.c
-> @@ -2521,7 +2521,6 @@ static int nf_tables_dump_set(struct sk_buff *skb, struct netlink_callback *cb)
->  	u32 portid, seq;
->  	int event, err;
->  
-> -	nfmsg = nlmsg_data(cb->nlh);
->  	err = nlmsg_parse(cb->nlh, sizeof(*nfmsg), nla, NFTA_SET_ELEM_LIST_MAX,
+Sure but the rate of network packets in and out and subsequent
+allocations would be more equivalent to a fork bomb than normal
+forking. I understand mm should work more sanely in this scenario but
+at the same time we see a bad regression with this code, I see we're
+not alone.
 
-mangled this patch to use sizeof(struct nfgenmsg) instead. That change
-is not required from the semantic point of view, of course, but for
-readability reasons I think it's better not to refer to a variable
-that is not used in that context.
+>
+> We are not trying to optimize the kernel behavior for hosts in deep
+> memory pressure.
 
->  			  nft_set_elem_list_policy);
->  	if (err < 0)
-> -- 
-> 1.8.4
-> 
+We're leaving about half for the kernel so I wouldn't call it "deep".
+Any server application that is using page cache and mlocked memory
+will run into similar issues.
+
+> It doesn't really matter to say that which memory allocation triggered
+> compaction, which is a normal step in mm layer.
+>
+> If you believe its badly done, you should ask to mm guys to fix/improve
+> it, not netdev...
+>
+> Using order-3 pages in TCP stack improves performance for 99% of the
+> hosts, there might be something wrong on your side ?
+>
+
+Having lots of memory mlocked is bad right now yes, but not
+necessarily an uncommon scenario. We're handing mm an almost
+intractable problem. I see compaction of mlocked pages has been
+discussed a few times over there, but no patch has actually made it
+in.
+
+-Debabrata
