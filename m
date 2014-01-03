@@ -1,41 +1,63 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [RFC PATCH net-next 1/4] net: introduce backup_classid to
-	struct skbuff
-Date: Fri, 03 Jan 2014 00:34:04 -0500 (EST)
-Message-ID: <20140103.003404.1439874071277993396.davem@davemloft.net>
-References: <52C62A48.1050604@huawei.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH 3/5] bgmac: add support for new BGMAC_CMDCFG_SR position
+ on core rev >= 4
+Date: Fri, 3 Jan 2014 07:05:34 +0100
+Message-ID: <CACna6rznd+BKa5JYnZCQrOJF-puX35WSQdUkA9LtnsdZXzD5HQ@mail.gmail.com>
+References: <1388690342-27213-1-git-send-email-hauke@hauke-m.de>
+	<1388690342-27213-3-git-send-email-hauke@hauke-m.de>
+	<CACna6rz56gCNaTnvh1Dig=Dk8mE-=xK2gWuUoOMxiyUWowwXVA@mail.gmail.com>
+	<52C5E727.4060603@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <52C62A48.1050604-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>
+To: Hauke Mehrtens <hauke@hauke-m.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f47.google.com ([209.85.219.47]:47424 "EHLO
+	mail-oa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750803AbaACGFf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 01:05:35 -0500
+Received: by mail-oa0-f47.google.com with SMTP id k1so15622978oag.6
+        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 22:05:34 -0800 (PST)
+In-Reply-To: <52C5E727.4060603@hauke-m.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Date: Fri, 3 Jan 2014 11:11:04 +0800
+2014/1/2 Hauke Mehrtens <hauke@hauke-m.de>:
+> On 01/02/2014 09:28 PM, Rafa=C5=82 Mi=C5=82ecki wrote:
+>> 2014/1/2 Hauke Mehrtens <hauke@hauke-m.de>:
+>>> The BGMAC_CMDCFG_SR register is at a different position on core rev=
+ >=3D 4
+>>> -#define  BGMAC_CMDCFG_SR                       0x00000800      /* =
+Set to reset mode */
+>>> +#define  BGMAC_CMDCFG_SR_REVO                  0x00000800      /* =
+Set to reset mode, for other revs */
+>>> +#define  BGMAC_CMDCFG_SR_REV4                  0x00002000      /* =
+Set to reset mode, only for core rev 4 */
+>>> +#define  BGMAC_CMDCFG_SR(rev)  ((rev >=3D 4) ? BGMAC_CMDCFG_SR_REV=
+4 : BGMAC_CMDCFG_SR_REVO)
+>>
+>> If you use _REV4 for rev 4+, then what about using _REV0 for rev 0+?
+>>
+>> I guess REVO stands for OTHERS, but others doesn't actually mean rev=
+ !=3D 4 here.
+>>
+>> Unless it was supposed to be 0 from the beginning and it's just a ty=
+po?
+>>
+>> In future you may need to use _REV7 or whatever number.
+>>
+> This should be REV0, 0 and O are just so similar.
+>
+> I will also change this from rev >=3D 4 to rev =3D=3D 4, as the Broad=
+com
+> driver does the same.
 
-> 
-> introduce backup_classid to struct skbuff,
-> we can use it to backup sk_classid when net_ns switch.
-> 
-> Signed-off-by: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Ahh, if this is only for rev =3D=3D 4, then maybe BGMAC_CMDCFG_SR or
+BGMAC_CMDCFG_SR_REVO aren't bad after all.
 
-Sorry, no new sk_buff members unless there is absolutely not other
-possible implementation.
+It's up to you in this situation :)
 
-sk_buff is too big as-is.
+--=20
+Rafa=C5=82
