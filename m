@@ -1,29 +1,73 @@
-From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Subject: Re: [PATCH nf-next v5 0/3] xtables socket classid matching
-Date: Fri, 3 Jan 2014 23:56:13 +0100
-Message-ID: <20140103225613.GA18418@localhost>
-References: <1388338032-14713-1-git-send-email-dborkman@redhat.com>
- <52C264F6.7050602@huawei.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v2 -next] netfilter: don't use per-destination incrementing
+ ports in nat random mode
+Date: Sat, 04 Jan 2014 00:11:32 +0100
+Message-ID: <52C743A4.7090406@redhat.com>
+References: <20131219134007.GA24118@order.stressinduktion.org> <52B37F6B.9010105@redhat.com> <20131220004822.GC32129@order.stressinduktion.org> <20131220080118.GA4234@localhost> <20131220214029.GB14073@order.stressinduktion.org> <20140103225236.GA18357@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <52C264F6.7050602-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	kaber@trash.net
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50465 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753750AbaACXLk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jan 2014 18:11:40 -0500
+In-Reply-To: <20140103225236.GA18357@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 31, 2013 at 02:32:22PM +0800, Li Zefan wrote:
-> On 2013/12/30 1:27, Daniel Borkmann wrote:
-> > The main patch is patch 3, please refer to the detailled description
-> > there. Patch 1 has been requested by cgroups people to have as a
-> > cleanup. While at it, I've also added a minor, trivial cleanup in
-> > patch 2 for consistency reasons.
-> > 
-> 
-> Looks good to me.
+On 01/03/2014 11:52 PM, Pablo Neira Ayuso wrote:
+> On Fri, Dec 20, 2013 at 10:40:29PM +0100, Hannes Frederic Sowa wrote:
+>> From: Daniel Borkmann <dborkman@redhat.com>
+>>
+>> We currently use prandom_u32() for allocation of ports in tcp bind(0)
+>> and udp code. In case of plain SNAT we try to keep the ports as is
+>> or increment on collision.
+>>
+>> SNAT --random mode does use per-destination incrementing port
+>> allocation. As a recent paper pointed out in [1] that this mode of
+>> port allocation makes it possible to an attacker to find the randomly
+>> allocated ports through a timing side-channel in a socket overloading
+>> attack conducted through an off-path attacker.
+>>
+>> So, NF_NAT_RANGE_PROTO_RANDOM actually weakens the port randomization
+>> in regard to the attack described in this paper. As we need to keep
+>> compatibility, add another flag called NF_NAT_RANGE_PROTO_RANDOM_FULLY
+>> that would replace the NF_NAT_RANGE_PROTO_RANDOM hash-based port
+>> selection algorithm with a simple prandom_u32() in order to mitigate
+>> this attack vector. Note that the lfsr113's internal state is
+>> periodically reseeded by the kernel through a local secure entropy
+>> source.
+>>
+>> More details can be found in [1], the basic idea is to send bursts
+>> of packets to a socket to overflow its receive queue and measure
+>> the latency to detect a possible retransmit when the port is found.
+>> Because of increasing ports to given destination and port, further
+>> allocations can be predicted. This information could then be used by
+>> an attacker for e.g. for cache-poisoning, NS pinning, and degradation
+>> of service attacks against DNS servers [1]:
+>>
+>>    The best defense against the poisoning attacks is to properly
+>>    deploy and validate DNSSEC; DNSSEC provides security not only
+>>    against off-path attacker but even against MitM attacker. We hope
+>>    that our results will help motivate administrators to adopt DNSSEC.
+>>    However, full DNSSEC deployment make take significant time, and
+>>    until that happens, we recommend short-term, non-cryptographic
+>>    defenses. We recommend to support full port randomisation,
+>>    according to practices recommended in [2], and to avoid
+>>    per-destination sequential port allocation, which we show may be
+>>    vulnerable to derandomisation attacks.
+>>
+>> Joint work between Hannes Frederic Sowa and Daniel Borkmann.
+>
+> Applied, thanks.
+>
+> I have renamed the title of this patch to: "add full port
+> randomization support" which I though a bit more descriptive with the
+> final patch that has settled down, just in case you look for it in the
+> nf-next tree.
 
-Series applied, thanks.
+That's fine, thanks a lot Pablo!
