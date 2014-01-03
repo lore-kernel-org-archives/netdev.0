@@ -1,33 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: IrDA woes..
-Date: Thu, 02 Jan 2014 19:05:11 -0500 (EST)
-Message-ID: <20140102.190511.837169616985438729.davem@davemloft.net>
-References: <CA+55aFyFAaHgoTe_ZVs3F0Giy4qDndKsE6GbB4DgcaK7QkXOkA@mail.gmail.com>
-	<20140102.174136.1587468571877727139.davem@davemloft.net>
-	<CA+55aFwBCATuEWKZTK7aueSyO4JAOBGvqq3FZnsqynmouGOQog@mail.gmail.com>
+Subject: Re: [PATCH net REPOST] ipv4: fix tunneled VM traffic over hw
+ VXLAN/GRE GSO NIC
+Date: Thu, 02 Jan 2014 19:08:12 -0500 (EST)
+Message-ID: <20140102.190812.1451263235156146450.davem@davemloft.net>
+References: <1388530347-4850-1-git-send-email-weichunc@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, netdev@vger.kernel.org
-To: torvalds@linux-foundation.org
+Cc: ast@plumgrid.com, netdev@vger.kernel.org, or.gerlitz@gmail.com
+To: weichunc@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54549 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54563 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752550AbaACAFM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 19:05:12 -0500
-In-Reply-To: <CA+55aFwBCATuEWKZTK7aueSyO4JAOBGvqq3FZnsqynmouGOQog@mail.gmail.com>
+	with ESMTP id S1754210AbaACAIN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 19:08:13 -0500
+In-Reply-To: <1388530347-4850-1-git-send-email-weichunc@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Thu, 2 Jan 2014 14:47:44 -0800
 
-> You could use spin_lock_bh(), but if it's true that it's all in a
-> softirq context, I think it should be safe to just do "spin_lock()".
-> Afaik, there is nothing that actually does anything in real hardirq
-> context in there. I *think* all the network _rcv() functions are
-> called from softirqs, right?
+There is never a need to repost patches like this.
 
-I'm worried that mixing hardIRQ locking (via the direct calls to
-skb_dequeue() et al.) with explicit softIRQ locking will make lockdep
-complain.
+Your patch was properly queued up in patchwork and would get processed
+when I got the time to do so.
