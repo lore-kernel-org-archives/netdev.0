@@ -1,126 +1,42 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net v2 1/9] bridge: Fix the way to find old local fdb
- entries in br_fdb_changeaddr
-Date: Fri, 03 Jan 2014 14:28:35 -0500
-Message-ID: <52C70F63.4020604@redhat.com>
-References: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp> <1387281821-21342-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Reply-To: vyasevic@redhat.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv4: move rt_genid to different cache line
+Date: Fri, 03 Jan 2014 12:04:43 -0800
+Message-ID: <1388779483.12212.129.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.DEB.2.02.1401021155330.32674@tomh.mtv.corp.google.com>
+	 <1388709534.12212.106.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+mtBx_HKz3BNF=_FRTS-a-JZj9ss5TWaJU9d=oFewZbCu1_NQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	"David S . Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:15917 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752436AbaACT2n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jan 2014 14:28:43 -0500
-In-Reply-To: <1387281821-21342-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:41379 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753765AbaACUEp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 15:04:45 -0500
+Received: by mail-pd0-f169.google.com with SMTP id v10so15816011pde.28
+        for <netdev@vger.kernel.org>; Fri, 03 Jan 2014 12:04:45 -0800 (PST)
+In-Reply-To: <CA+mtBx_HKz3BNF=_FRTS-a-JZj9ss5TWaJU9d=oFewZbCu1_NQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/17/2013 07:03 AM, Toshiaki Makita wrote:
-> br_fdb_changeaddr() assumes that there is at most one local entry per port
-> per vlan. It used to be true, but since commit 36fd2b63e3b4 ("bridge: allow
-> creating/deleting fdb entries via netlink"), it has not been so.
-> Therefore, the function might fail to search a correct previous address
-> to be deleted and delete an arbitrary local entry if user has added local
-> entries manually.
-> 
-> Example of problematic case:
->   ip link set eth0 address ee:ff:12:34:56:78
->   brctl addif br0 eth0
->   bridge fdb add 12:34:56:78:90:ab dev eth0 master
->   ip link set eth0 address aa:bb:cc:dd:ee:ff
-> Then, the address 12:34:56:78:90:ab might be deleted instead of
-> ee:ff:12:34:56:78, the original mac address of eth0.
-> 
-> Address this issue by introducing a new flag, added_by_user, to struct
-> net_bridge_fdb_entry.
-> 
-> Note that br_fdb_delete_by_port() has to set added_by_user to 0 in case
-> like:
->   ip link set eth0 address 12:34:56:78:90:ab
->   ip link set eth1 address aa:bb:cc:dd:ee:ff
->   brctl addif br0 eth0
->   bridge fdb add aa:bb:cc:dd:ee:ff dev eth0 master
->   brctl addif br0 eth1
->   brctl delif br0 eth0
-> In this case, kernel should delete the user-added entry aa:bb:cc:dd:ee:ff,
-> but it also should have been added by "brctl addif br0 eth1" originally,
-> so we don't delete it and treat it a new kernel-created entry.
-> 
+On Fri, 2014-01-03 at 10:01 -0800, Tom Herbert wrote:
 
-I was looking over my patch series that adds something similar to this
-and noticed that you are not handing the NTF_USE case.  That case was
-always troublesome for me as it allows for 2 different way to create
-the same FDB: one through br_fdb_update() and one through fdb_add_entry().
+> It seems to me you have more of an issue with prequeue itself. Maybe
+> it is worth considering removing it to eliminate the disparate
+> behavior between read and poll+read, but then removing a long lived
+> optimization has is own pitfalls.
 
-It is possible, though I haven't found any users yet, that NTF_USE
-may be used and in that case, bridge will create a dynamic fdb and
-disregard all NUD flags.  In case case, add_by_user will not be set
-either.
+The prequeue stuff made sense in the old model of a few concurrent flows
+and one thread per flow, where the gain was worth it. It is still
+interesting if you have a single flow trying to fully utilize the
+bandwidth of a 20Gbp or 40Gbp link (no dst false sharing in this case)
 
-I think that the above is broken and plan to submit a fix shortly.
+Nowadays, the hit ratio of prequeue mode is almost 0 on servers where
+network performance of concurrent flows is an issue.
 
-Thanks
--vlad
-
-> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> ---
->  net/bridge/br_fdb.c     | 5 ++++-
->  net/bridge/br_private.h | 1 +
->  2 files changed, 5 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> index 33e8f23..5dab230 100644
-> --- a/net/bridge/br_fdb.c
-> +++ b/net/bridge/br_fdb.c
-> @@ -104,7 +104,7 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
->  			struct net_bridge_fdb_entry *f;
->  
->  			f = hlist_entry(h, struct net_bridge_fdb_entry, hlist);
-> -			if (f->dst == p && f->is_local) {
-> +			if (f->dst == p && f->is_local && !f->added_by_user) {
->  				/* maybe another port has same hw addr? */
->  				struct net_bridge_port *op;
->  				u16 vid = f->vlan_id;
-> @@ -247,6 +247,7 @@ void br_fdb_delete_by_port(struct net_bridge *br,
->  					    ether_addr_equal(op->dev->dev_addr,
->  							     f->addr.addr)) {
->  						f->dst = op;
-> +						f->added_by_user = 0;
->  						goto skip_delete;
->  					}
->  				}
-> @@ -397,6 +398,7 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
->  		fdb->vlan_id = vid;
->  		fdb->is_local = 0;
->  		fdb->is_static = 0;
-> +		fdb->added_by_user = 0;
->  		fdb->updated = fdb->used = jiffies;
->  		hlist_add_head_rcu(&fdb->hlist, head);
->  	}
-> @@ -648,6 +650,7 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
->  
->  		modified = true;
->  	}
-> +	fdb->added_by_user = 1;
->  
->  	fdb->used = jiffies;
->  	if (modified) {
-> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> index 045d56e..91fb2c2 100644
-> --- a/net/bridge/br_private.h
-> +++ b/net/bridge/br_private.h
-> @@ -104,6 +104,7 @@ struct net_bridge_fdb_entry
->  	mac_addr			addr;
->  	unsigned char			is_local;
->  	unsigned char			is_static;
-> +	unsigned char			added_by_user;
->  	__u16				vlan_id;
->  };
->  
-> 
+https://code.google.com/p/sockperf/ is a good step using realistic
+benchmark, trying to mimic the behavior of current high performance
+programs.
