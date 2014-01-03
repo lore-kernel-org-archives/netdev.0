@@ -1,49 +1,117 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next 0/3] net_sched: act: Various fixes
-Date: Fri, 03 Jan 2014 07:24:54 -0500
-Message-ID: <52C6AC16.4000103@mojatatu.com>
-References: <1387803733-19709-1-git-send-email-jhs@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-	eric.dumazet@gmail.com, Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
+From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+Subject: [PATCH net-next v3] IPv6: use Subnet-Router anycast addresses as source addresses in echo reply
+Date: Fri,  3 Jan 2014 14:02:51 +0100
+Message-ID: <1388754171-3220-1-git-send-email-fx.lebail@yahoo.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:40647 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750837AbaACMY5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 07:24:57 -0500
-Received: by mail-ie0-f180.google.com with SMTP id tp5so15213610ieb.25
-        for <netdev@vger.kernel.org>; Fri, 03 Jan 2014 04:24:56 -0800 (PST)
-In-Reply-To: <1387803733-19709-1-git-send-email-jhs@mojatatu.com>
+Received: from smtp05.smtpout.orange.fr ([80.12.242.127]:59255 "EHLO
+	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751085AbaACNSI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 08:18:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
+This change allows to follow a recommandation of RFC4942.
 
-Patches 2 + 3 are missing (from both tree and patchwork).
+- Add "anycast_src_echo_reply" sysctl to control the use of Subnet-Router
+  anycast addresses as source addresses for ICMPv6 echo reply. This sysctl
+  is false by default to preserve existing behavior.
+- Use it in icmpv6_echo_reply().
 
-cheers,
-jamal
+Reference:
+RFC4942 - IPv6 Transition/Coexistence Security Considerations
+   (http://tools.ietf.org/html/rfc4942#section-2.1.6)
 
-On 12/23/13 08:02, Jamal Hadi Salim wrote:
-> The first and last are bug fixes. The second one is a code improvement
->
-> Jamal Hadi Salim (3):
->    Dont increment refcnt on replace
->    Remove unnecessary checks for act->ops
->    action flushing missaccounting
->
->   net/sched/act_api.c     |   51 +++++++++++++++++------------------------------
->   net/sched/act_csum.c    |   10 +++++-----
->   net/sched/act_gact.c    |    7 ++++---
->   net/sched/act_ipt.c     |    8 +++++---
->   net/sched/act_nat.c     |   10 +++++-----
->   net/sched/act_pedit.c   |    8 +++++---
->   net/sched/act_police.c  |    4 +++-
->   net/sched/act_simple.c  |    9 ++++++---
->   net/sched/act_skbedit.c |    7 ++++---
->   net/sched/cls_api.c     |    2 +-
->   10 files changed, 56 insertions(+), 60 deletions(-)
->
+2.1.6. Anycast Traffic Identification and Security
+
+   [...]
+   To avoid exposing knowledge about the internal structure of the
+   network, it is recommended that anycast servers now take advantage of
+   the ability to return responses with the anycast address as the
+   source address if possible.
+
+Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+---
+ Documentation/networking/ip-sysctl.txt |    7 +++++++
+ include/net/netns/ipv6.h               |    1 +
+ net/ipv6/icmp.c                        |    4 +++-
+ net/ipv6/sysctl_net_ipv6.c             |    8 ++++++++
+ 4 files changed, 19 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index d71afa8..3044df7 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1094,6 +1094,13 @@ bindv6only - BOOLEAN
+ 
+ 	Default: FALSE (as specified in RFC3493)
+ 
++anycast_src_echo_reply - BOOLEAN
++	Controls the use of Subnet-Router anycast addresses as source addresses
++	for ICMPv6 echo reply
++	TRUE:  enabled
++	FALSE: disabled
++	Default: FALSE
++
+ IPv6 Fragmentation:
+ 
+ ip6frag_high_thresh - INTEGER
+diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
+index 0fb2401..76fc7d1 100644
+--- a/include/net/netns/ipv6.h
++++ b/include/net/netns/ipv6.h
+@@ -73,6 +73,7 @@ struct netns_ipv6 {
+ #endif
+ 	atomic_t		dev_addr_genid;
+ 	atomic_t		rt_genid;
++	int			anycast_src_echo_reply;
+ };
+ 
+ #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 5d42009..65c8619 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -556,7 +556,9 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+ 
+ 	saddr = &ipv6_hdr(skb)->daddr;
+ 
+-	if (!ipv6_unicast_destination(skb))
++	if (!ipv6_unicast_destination(skb) &&
++	    !(net->ipv6.anycast_src_echo_reply &&
++	      ipv6_chk_acast_addr(net, NULL, saddr)))
+ 		saddr = NULL;
+ 
+ 	memcpy(&tmp_hdr, icmph, sizeof(tmp_hdr));
+diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
+index 107b2f1..6b6a2c8 100644
+--- a/net/ipv6/sysctl_net_ipv6.c
++++ b/net/ipv6/sysctl_net_ipv6.c
+@@ -24,6 +24,13 @@ static struct ctl_table ipv6_table_template[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec
+ 	},
++	{
++		.procname	= "anycast_src_echo_reply",
++		.data		= &init_net.ipv6.anycast_src_echo_reply,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
+ 	{ }
+ };
+ 
+@@ -51,6 +58,7 @@ static int __net_init ipv6_sysctl_net_init(struct net *net)
+ 	if (!ipv6_table)
+ 		goto out;
+ 	ipv6_table[0].data = &net->ipv6.sysctl.bindv6only;
++	ipv6_table[1].data = &net->ipv6.anycast_src_echo_reply;
+ 
+ 	ipv6_route_table = ipv6_route_sysctl_init(net);
+ 	if (!ipv6_route_table)
