@@ -1,54 +1,139 @@
-From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [RFC PATCH net-next 0/4] net_cls for sys container
-Date: Fri, 3 Jan 2014 11:11:00 +0800
-Message-ID: <52C62A44.4070304@huawei.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCHv4 net-next 1/8] {pktgen, xfrm} Correct xfrm state lock usage when transforming
+Date: Fri, 3 Jan 2014 11:18:27 +0800
+Message-ID: <1388719114-26244-2-git-send-email-fan.du@windriver.com>
+References: <1388719114-26244-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	Serge Hallyn <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>, pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
-	kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Li Zefan
-	<lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:35157 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751521AbaACDSl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 22:18:41 -0500
+In-Reply-To: <1388719114-26244-1-git-send-email-fan.du@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi guys,
+xfrm_state lock protects its state, i.e., VALID/DEAD and statistics,
+not the transforming procedure, as both mode/type output functions
+are reentrant.
 
-Now, lxc created with veth can not be under control by
-cls_cgroup.
+Another issue is state lock can be used in BH context when state timer
+alarmed, after transformation in pktgen, update state statistics acquiring
+state lock should disabled BH context for a moment. Otherwise LOCKDEP
+critisize this:
 
-the former discussion:
-http://lkml.indiana.edu/hypermail/linux/kernel/1312.1/00214.html
+[   62.354339] pktgen: Packet Generator for packet performance testing. Version: 2.74
+[   62.655444]
+[   62.655448] =================================
+[   62.655451] [ INFO: inconsistent lock state ]
+[   62.655455] 3.13.0-rc2+ #70 Not tainted
+[   62.655457] ---------------------------------
+[   62.655459] inconsistent {IN-SOFTIRQ-W} -> {SOFTIRQ-ON-W} usage.
+[   62.655463] kpktgend_0/2764 [HC0[0]:SC0[0]:HE1:SE1] takes:
+[   62.655466]  (&(&x->lock)->rlock){+.?...}, at: [<ffffffffa00886f6>] pktgen_thread_worker+0x1796/0x1860 [pktgen]
+[   62.655479] {IN-SOFTIRQ-W} state was registered at:
+[   62.655484]   [<ffffffff8109a61d>] __lock_acquire+0x62d/0x1d70
+[   62.655492]   [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
+[   62.655498]   [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
+[   62.655505]   [<ffffffff816dc3a3>] xfrm_timer_handler+0x43/0x290
+[   62.655511]   [<ffffffff81059437>] __tasklet_hrtimer_trampoline+0x17/0x40
+[   62.655519]   [<ffffffff8105a1b7>] tasklet_hi_action+0xd7/0xf0
+[   62.655523]   [<ffffffff81059ac6>] __do_softirq+0xe6/0x2d0
+[   62.655526]   [<ffffffff8105a026>] irq_exit+0x96/0xc0
+[   62.655530]   [<ffffffff8177fd0a>] smp_apic_timer_interrupt+0x4a/0x60
+[   62.655537]   [<ffffffff8177e96f>] apic_timer_interrupt+0x6f/0x80
+[   62.655541]   [<ffffffff8100b7c6>] arch_cpu_idle+0x26/0x30
+[   62.655547]   [<ffffffff810ace28>] cpu_startup_entry+0x88/0x2b0
+[   62.655552]   [<ffffffff81761c3c>] rest_init+0xbc/0xd0
+[   62.655557]   [<ffffffff81ea5e5e>] start_kernel+0x3c4/0x3d1
+[   62.655583]   [<ffffffff81ea55a8>] x86_64_start_reservations+0x2a/0x2c
+[   62.655588]   [<ffffffff81ea569f>] x86_64_start_kernel+0xf5/0xfc
+[   62.655592] irq event stamp: 77
+[   62.655594] hardirqs last  enabled at (77): [<ffffffff810ab7f2>] vprintk_emit+0x1b2/0x520
+[   62.655597] hardirqs last disabled at (76): [<ffffffff810ab684>] vprintk_emit+0x44/0x520
+[   62.655601] softirqs last  enabled at (22): [<ffffffff81059b57>] __do_softirq+0x177/0x2d0
+[   62.655605] softirqs last disabled at (15): [<ffffffff8105a026>] irq_exit+0x96/0xc0
+[   62.655609]
+[   62.655609] other info that might help us debug this:
+[   62.655613]  Possible unsafe locking scenario:
+[   62.655613]
+[   62.655616]        CPU0
+[   62.655617]        ----
+[   62.655618]   lock(&(&x->lock)->rlock);
+[   62.655622]   <Interrupt>
+[   62.655623]     lock(&(&x->lock)->rlock);
+[   62.655626]
+[   62.655626]  *** DEADLOCK ***
+[   62.655626]
+[   62.655629] no locks held by kpktgend_0/2764.
+[   62.655631]
+[   62.655631] stack backtrace:
+[   62.655636] CPU: 0 PID: 2764 Comm: kpktgend_0 Not tainted 3.13.0-rc2+ #70
+[   62.655638] Hardware name: innotek GmbH VirtualBox, BIOS VirtualBox 12/01/2006
+[   62.655642]  ffffffff8216b7b0 ffff88001be43ab8 ffffffff8176af37 0000000000000007
+[   62.655652]  ffff88001c8d4fc0 ffff88001be43b18 ffffffff81766d78 0000000000000000
+[   62.655663]  ffff880000000001 ffff880000000001 ffffffff8101025f ffff88001be43b18
+[   62.655671] Call Trace:
+[   62.655680]  [<ffffffff8176af37>] dump_stack+0x46/0x58
+[   62.655685]  [<ffffffff81766d78>] print_usage_bug+0x1f1/0x202
+[   62.655691]  [<ffffffff8101025f>] ? save_stack_trace+0x2f/0x50
+[   62.655696]  [<ffffffff81099f8c>] mark_lock+0x28c/0x2f0
+[   62.655700]  [<ffffffff810994b0>] ? check_usage_forwards+0x150/0x150
+[   62.655704]  [<ffffffff8109a67a>] __lock_acquire+0x68a/0x1d70
+[   62.655712]  [<ffffffff81115b09>] ? irq_work_queue+0x69/0xb0
+[   62.655717]  [<ffffffff810ab7f2>] ? vprintk_emit+0x1b2/0x520
+[   62.655722]  [<ffffffff8109cec5>] ? trace_hardirqs_on_caller+0x105/0x1d0
+[   62.655730]  [<ffffffffa00886f6>] ? pktgen_thread_worker+0x1796/0x1860 [pktgen]
+[   62.655734]  [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
+[   62.655741]  [<ffffffffa00886f6>] ? pktgen_thread_worker+0x1796/0x1860 [pktgen]
+[   62.655745]  [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
+[   62.655752]  [<ffffffffa00886f6>] ? pktgen_thread_worker+0x1796/0x1860 [pktgen]
+[   62.655758]  [<ffffffffa00886f6>] pktgen_thread_worker+0x1796/0x1860 [pktgen]
+[   62.655766]  [<ffffffffa0087a79>] ? pktgen_thread_worker+0xb19/0x1860 [pktgen]
+[   62.655771]  [<ffffffff8109cf9d>] ? trace_hardirqs_on+0xd/0x10
+[   62.655777]  [<ffffffff81775410>] ? _raw_spin_unlock_irq+0x30/0x40
+[   62.655785]  [<ffffffff8151faa0>] ? e1000_clean+0x9d0/0x9d0
+[   62.655791]  [<ffffffff81094310>] ? __init_waitqueue_head+0x60/0x60
+[   62.655795]  [<ffffffff81094310>] ? __init_waitqueue_head+0x60/0x60
+[   62.655800]  [<ffffffffa0086f60>] ? mod_cur_headers+0x7f0/0x7f0 [pktgen]
+[   62.655806]  [<ffffffff81078f84>] kthread+0xe4/0x100
+[   62.655813]  [<ffffffff81078ea0>] ? flush_kthread_worker+0x170/0x170
+[   62.655819]  [<ffffffff8177dc6c>] ret_from_fork+0x7c/0xb0
+[   62.655824]  [<ffffffff81078ea0>] ? flush_kthread_worker+0x170/0x170
 
-In short, because cls_cgroup relys classid attached to sock
-filter skb, but sock will be cleared inside dev_forward_skb()
-in veth_xmit().
+Signed-off-by: Fan Du <fan.du@windriver.com>
+---
+ net/core/pktgen.c |    5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-so I add backup_classid in struct sk_buffer to save classid
-before dev_forward_skb(). In cls_cgroup_classify(), if skb->sk
-is NULL, we can try to restore classid form skb->bk_classid.
-
-
-Libo Chen (4):
-  net: introduce bk_classid to struct sk_buff
-  cls_cgroup: introduce a helper: bk_cls_classid()
-  veth: backup classid befor switch net_ns
-  cls_cgroup: restore classid from skb->sk_classid
-
- drivers/net/veth.c       |  5 +++++
- include/linux/skbuff.h   |  3 +++
- include/net/cls_cgroup.h | 11 +++++++++++
- net/sched/cls_cgroup.c   |  8 ++++----
- 4 files changed, 23 insertions(+), 4 deletions(-)
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index a797fff..b007586 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -2487,8 +2487,6 @@ static int pktgen_output_ipsec(struct sk_buff *skb, struct pktgen_dev *pkt_dev)
+ 	if (x->props.mode != XFRM_MODE_TRANSPORT)
+ 		return 0;
+ 
+-	spin_lock(&x->lock);
+-
+ 	err = x->outer_mode->output(x, skb);
+ 	if (err)
+ 		goto error;
+@@ -2496,10 +2494,11 @@ static int pktgen_output_ipsec(struct sk_buff *skb, struct pktgen_dev *pkt_dev)
+ 	if (err)
+ 		goto error;
+ 
++	spin_lock_bh(&x->lock);
+ 	x->curlft.bytes += skb->len;
+ 	x->curlft.packets++;
++	spin_unlock_bh(&x->lock);
+ error:
+-	spin_unlock(&x->lock);
+ 	return err;
+ }
+ 
+-- 
+1.7.9.5
