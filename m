@@ -1,32 +1,66 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH 24/31] staging: r8188eu: Additional cleanup of
- include/odm.h
-Date: Sat, 4 Jan 2014 00:12:59 +0300
-Message-ID: <20140103211259.GD5443@mwanda>
-References: <1387755422-11443-1-git-send-email-Larry.Finger@lwfinger.net>
- <1387755422-11443-25-git-send-email-Larry.Finger@lwfinger.net>
- <20140102090516.GB5443@mwanda> <52C5E26A.5000704@lwfinger.net>
+From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Subject: Re: [net-next] pci_regs.h: Add PCI bus link speed and width defines
+Date: Fri, 3 Jan 2014 13:53:08 -0800
+Message-ID: <CAEuXFEw=A0mppxtgzpmnh3feLiKYb+LJQvFRMrW3C4h+jHpO2Q@mail.gmail.com>
+References: <1388234173-31654-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20140102.192133.1585340046080167370.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, gregkh@linuxfoundation.org,
- netdev@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <52C5E26A.5000704@lwfinger.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	NetDEV list <netdev@vger.kernel.org>, gospo@redhat.com,
+	sassmann@redhat.com,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Bjorn Helgaas <bjorn.helgaas@hp.com>
+To: David Miller <davem@davemloft.net>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20140102.192133.1585340046080167370.davem@davemloft.net>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fine, fine.  I don't have strong feelings about this...
++linux-pci
 
-regards,
-dan carpenter
+<and see note below>
+
+On Thu, Jan 2, 2014 at 4:21 PM, David Miller <davem@davemloft.net> wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Sat, 28 Dec 2013 04:36:13 -0800
+>
+>> Add missing PCI bus link speed 8.0 GT/s and bus link widths of
+>> x1, x2, x4 and x8.
+>>
+>> CC: <linux-kernel@vger.kernel.org>
+>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>
+> Can a PCI person please ACK this?  This is a prerequisite for some
+> networking driver changes Jeff would like to push to me.
+>
+> Thanks.
+>
+>> ---
+>>  include/uapi/linux/pci_regs.h | 5 +++++
+>>  1 file changed, 5 insertions(+)
+>>
+>> diff --git a/include/uapi/linux/pci_regs.h b/include/uapi/linux/pci_regs.h
+>> index 4a98e85..c870c2a 100644
+>> --- a/include/uapi/linux/pci_regs.h
+>> +++ b/include/uapi/linux/pci_regs.h
+>> @@ -489,7 +489,12 @@
+>>  #define  PCI_EXP_LNKSTA_CLS  0x000f  /* Current Link Speed */
+>>  #define  PCI_EXP_LNKSTA_CLS_2_5GB 0x0001 /* Current Link Speed 2.5GT/s */
+>>  #define  PCI_EXP_LNKSTA_CLS_5_0GB 0x0002 /* Current Link Speed 5.0GT/s */
+>> +#define  PCI_EXP_LNKSTA_CLS_8_0GB 0x0003 /* Current Link Speed 8.0GT/s */
+>>  #define  PCI_EXP_LNKSTA_NLW  0x03f0  /* Negotiated Link Width */
+>> +#define  PCI_EXP_LNKSTA_NLW_X1       0x0010  /* Current Link Width x1 */
+>> +#define  PCI_EXP_LNKSTA_NLW_X2       0x0020  /* Current Link Width x2 */
+>> +#define  PCI_EXP_LNKSTA_NLW_X4       0x0040  /* Current Link Width x4 */
+>> +#define  PCI_EXP_LNKSTA_NLW_X8       0x0080  /* Current Link Width x8 */
+>>  #define  PCI_EXP_LNKSTA_NLW_SHIFT 4  /* start of NLW mask in link status */
+>>  #define  PCI_EXP_LNKSTA_LT   0x0800  /* Link Training */
+>>  #define  PCI_EXP_LNKSTA_SLC  0x1000  /* Slot Clock Configuration */
+
+also note that these defines from this patch are already partially
+defined in drivers/pci/probe.c but likely need to move into a header
+file and be consolidated throughout the kernel.  That said I don't see
+any issue with adding these as a separate set of defines in
+uapi/linux/pci_regs.h
