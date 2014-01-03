@@ -1,42 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] virtio-net: fix refill races during restore
-Date: Thu, 02 Jan 2014 19:23:54 -0500 (EST)
-Message-ID: <20140102.192354.1248162707820922093.davem@davemloft.net>
-References: <1388374480-3872-1-git-send-email-jasowang@redhat.com>
+From: Christian Lamparter <chunkeey@googlemail.com>
+Subject: Re: [PATCH] wireless: delete non-required instances of include <linux/init.h>
+Date: Fri, 03 Jan 2014 01:29:16 +0100
+Message-ID: <7093338.RGBiBKGbAL@debian64>
+References: <1388707112-5669-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, amit.shah@redhat.com
-To: jasowang@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1388374480-3872-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7Bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f48.google.com ([74.125.83.48]:38894 "EHLO
+	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751067AbaACA3a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 19:29:30 -0500
+In-Reply-To: <1388707112-5669-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Mon, 30 Dec 2013 11:34:40 +0800
-
-> During restoring, try_fill_recv() was called with neither napi lock nor napi
-> disabled. This can lead two try_fill_recv() was called in the same time. Fix
-> this by refilling before trying to enable napi.
+On Thursday, January 02, 2014 06:58:32 PM Paul Gortmaker wrote:
+> None of these files are actually using any __init type directives
+> and hence don't need to include <linux/init.h>.  Most are just a
+> left over from __devinit and __cpuinit removal, or simply due to
+> code getting copied from one driver to the next.
 > 
-> Fixes 0741bcb5584f9e2390ae6261573c4de8314999f2
-> (virtio: net: Add freeze, restore handlers to support S4).
-> 
-> Cc: Amit Shah <amit.shah@redhat.com>
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> ---
+Acked-by: Christian Lamparter <chunkeey@googlemail.com>
 
-Applied and queued up for -stable, thanks.
+for p54 and carl9170 parts.
+
+Thanks,
+
+Christian
