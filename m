@@ -1,173 +1,38 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 04/11] ixgbe: Make ethtool register test use accessors
-Date: Thu,  2 Jan 2014 21:18:23 -0800
-Message-ID: <1388726310-2996-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1388726310-2996-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:30860 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750862AbaACFSi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jan 2014 00:18:38 -0500
-In-Reply-To: <1388726310-2996-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCH net-next 0/4] net_cls for sys container
+Date: Thu, 2 Jan 2014 21:20:30 -0800
+Message-ID: <CAM_iQpW0+Ftvk=QBE+0yMNW00VkBee1+yAEmbPkT+zjij9RX-Q@mail.gmail.com>
+References: <52C62A44.4070304@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
+	jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>,
+	Serge Hallyn <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
+	Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <52C62A44.4070304-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+On Thu, Jan 2, 2014 at 7:11 PM, Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org> wrote:
+> Hi guys,
+>
+> Now, lxc created with veth can not be under control by
+> cls_cgroup.
+>
+> the former discussion:
+> http://lkml.indiana.edu/hypermail/linux/kernel/1312.1/00214.html
+>
+> In short, because cls_cgroup relys classid attached to sock
+> filter skb, but sock will be cleared inside dev_forward_skb()
+> in veth_xmit().
 
-Make the ethtool register test use the normal register accessor
-functions. Also eliminate macros used for calling register test
-functions to make error exits clearer. Use boolean values for
-boolean returns instead of 0 and 1.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 88 +++++++++++-------------
- 1 file changed, 42 insertions(+), 46 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 4e7c9b0..412cb1a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -1343,54 +1343,41 @@ static bool reg_pattern_test(struct ixgbe_adapter *adapter, u64 *data, int reg,
- 		0x5A5A5A5A, 0xA5A5A5A5, 0x00000000, 0xFFFFFFFF};
- 
- 	for (pat = 0; pat < ARRAY_SIZE(test_pattern); pat++) {
--		before = readl(adapter->hw.hw_addr + reg);
--		writel((test_pattern[pat] & write),
--		       (adapter->hw.hw_addr + reg));
--		val = readl(adapter->hw.hw_addr + reg);
-+		before = IXGBE_READ_REG(&adapter->hw, reg);
-+		IXGBE_WRITE_REG(&adapter->hw, reg, test_pattern[pat] & write);
-+		val = IXGBE_READ_REG(&adapter->hw, reg);
- 		if (val != (test_pattern[pat] & write & mask)) {
- 			e_err(drv, "pattern test reg %04X failed: got "
- 			      "0x%08X expected 0x%08X\n",
- 			      reg, val, (test_pattern[pat] & write & mask));
- 			*data = reg;
--			writel(before, adapter->hw.hw_addr + reg);
--			return 1;
-+			IXGBE_WRITE_REG(&adapter->hw, reg, before);
-+			return true;
- 		}
--		writel(before, adapter->hw.hw_addr + reg);
-+		IXGBE_WRITE_REG(&adapter->hw, reg, before);
- 	}
--	return 0;
-+	return false;
- }
- 
- static bool reg_set_and_check(struct ixgbe_adapter *adapter, u64 *data, int reg,
- 			      u32 mask, u32 write)
- {
- 	u32 val, before;
--	before = readl(adapter->hw.hw_addr + reg);
--	writel((write & mask), (adapter->hw.hw_addr + reg));
--	val = readl(adapter->hw.hw_addr + reg);
-+
-+	before = IXGBE_READ_REG(&adapter->hw, reg);
-+	IXGBE_WRITE_REG(&adapter->hw, reg, write & mask);
-+	val = IXGBE_READ_REG(&adapter->hw, reg);
- 	if ((write & mask) != (val & mask)) {
- 		e_err(drv, "set/check reg %04X test failed: got 0x%08X "
- 		      "expected 0x%08X\n", reg, (val & mask), (write & mask));
- 		*data = reg;
--		writel(before, (adapter->hw.hw_addr + reg));
--		return 1;
-+		IXGBE_WRITE_REG(&adapter->hw, reg, before);
-+		return true;
- 	}
--	writel(before, (adapter->hw.hw_addr + reg));
--	return 0;
-+	IXGBE_WRITE_REG(&adapter->hw, reg, before);
-+	return false;
- }
- 
--#define REG_PATTERN_TEST(reg, mask, write)				      \
--	do {								      \
--		if (reg_pattern_test(adapter, data, reg, mask, write))	      \
--			return 1;					      \
--	} while (0)							      \
--
--
--#define REG_SET_AND_CHECK(reg, mask, write)				      \
--	do {								      \
--		if (reg_set_and_check(adapter, data, reg, mask, write))	      \
--			return 1;					      \
--	} while (0)							      \
--
- static int ixgbe_reg_test(struct ixgbe_adapter *adapter, u64 *data)
- {
- 	const struct ixgbe_reg_test *test;
-@@ -1438,38 +1425,47 @@ static int ixgbe_reg_test(struct ixgbe_adapter *adapter, u64 *data)
- 	 */
- 	while (test->reg) {
- 		for (i = 0; i < test->array_len; i++) {
-+			bool b = false;
-+
- 			switch (test->test_type) {
- 			case PATTERN_TEST:
--				REG_PATTERN_TEST(test->reg + (i * 0x40),
--						 test->mask,
--						 test->write);
-+				b = reg_pattern_test(adapter, data,
-+						     test->reg + (i * 0x40),
-+						     test->mask,
-+						     test->write);
- 				break;
- 			case SET_READ_TEST:
--				REG_SET_AND_CHECK(test->reg + (i * 0x40),
--						  test->mask,
--						  test->write);
-+				b = reg_set_and_check(adapter, data,
-+						      test->reg + (i * 0x40),
-+						      test->mask,
-+						      test->write);
- 				break;
- 			case WRITE_NO_TEST:
--				writel(test->write,
--				       (adapter->hw.hw_addr + test->reg)
--				       + (i * 0x40));
-+				IXGBE_WRITE_REG(&adapter->hw,
-+						test->reg + (i * 0x40),
-+						test->write);
- 				break;
- 			case TABLE32_TEST:
--				REG_PATTERN_TEST(test->reg + (i * 4),
--						 test->mask,
--						 test->write);
-+				b = reg_pattern_test(adapter, data,
-+						     test->reg + (i * 4),
-+						     test->mask,
-+						     test->write);
- 				break;
- 			case TABLE64_TEST_LO:
--				REG_PATTERN_TEST(test->reg + (i * 8),
--						 test->mask,
--						 test->write);
-+				b = reg_pattern_test(adapter, data,
-+						     test->reg + (i * 8),
-+						     test->mask,
-+						     test->write);
- 				break;
- 			case TABLE64_TEST_HI:
--				REG_PATTERN_TEST((test->reg + 4) + (i * 8),
--						 test->mask,
--						 test->write);
-+				b = reg_pattern_test(adapter, data,
-+						     (test->reg + 4) + (i * 8),
-+						     test->mask,
-+						     test->write);
- 				break;
- 			}
-+			if (b)
-+				return 1;
- 		}
- 		test++;
- 	}
--- 
-1.8.3.1
+So what are you trying to achieve here?
