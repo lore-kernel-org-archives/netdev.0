@@ -1,75 +1,53 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: Add process name and pid to deprecation warnings
-Date: Thu, 2 Jan 2014 21:30:19 -0500
-Message-ID: <20140103023019.GA26508@neilslaptop.think-freely.org>
-References: <1388685267-18319-1-git-send-email-nhorman@tuxdriver.com>
- <1388692350.9947.37.camel@bwh-desktop.uk.level5networks.com>
- <20140102203036.GC7526@hmsreliant.think-freely.org>
- <1388708317.22017.25.camel@deadeye.wl.decadent.org.uk>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH net-next v2 6/6] r8152: support RTL8153
+Date: Fri, 3 Jan 2014 10:56:02 +0800
+Message-ID: <605671F106F540BA9665A195CACB78A0@realtek.com.tw>
+References: <1388632963-1341-1-git-send-email-hayeswang@realtek.com><1388633110-1435-1-git-send-email-hayeswang@realtek.com> <877gai8nqu.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:49879 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751788AbaACCai (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 21:30:38 -0500
-Content-Disposition: inline
-In-Reply-To: <1388708317.22017.25.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <oliver@neukum.org>, <netdev@vger.kernel.org>,
+	'nic_swsd' <nic_swsd@realtek.com>,
+	<linux-kernel@vger.kernel.org>, <linux-usb@vger.kernel.org>
+To: =?iso-8859-1?Q?'Bj=F8rn_Mork'?= <bjorn@mork.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <877gai8nqu.fsf@nemi.mork.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 03, 2014 at 12:18:37AM +0000, Ben Hutchings wrote:
-> On Thu, 2014-01-02 at 15:30 -0500, Neil Horman wrote:
-> > On Thu, Jan 02, 2014 at 07:52:30PM +0000, Ben Hutchings wrote:
-> > > On Thu, 2014-01-02 at 12:54 -0500, Neil Horman wrote:
-> > > > Recently I updated the sctp socket option deprecation warnings to be both a bit
-> > > > more clear and ratelimited to prevent user processes from spamming the log file.
-> > > > Ben Hutchings suggested that I add the process name and pid to these warnings so
-> > > > that users can tell who is responsible for using the deprecated apis.  This
-> > > > patch accomplishes that.
-> > > [...]
-> > > 
-> > > I grepped for existing deprecation warnings that log the command and/or
-> > > PID.  The warnings are not consistent, but where the include both comand
-> > > and PID it's generally in the format "%s (%d)", comm, pid.  So please
-> > > could you follow that format?
-> > > 
-> > Thats not really true, Subsystems vary widely in how they present process
-> > name/pid warnings.  In fact, the first example you give below that uses both
-> > process and pid, the format is <pid> (<name>)
-> > 
-> > There are alot that use <name> (<pid>), I argee, but theres quite alot of others
-> > as well (the lockdep subssytem uses %s/%d, and several of the arm trap handlers
-> > actually use Process <name> (pid: <pid>).
-> 
-> Ah, I was just looking specifically at deprecation warnings.  I can see
-> that broader consistency is also worthwhile.
-> 
-I'm not disagreeing, just pointing out that there is no real consistency in this
-format.
+ Bj=F8rn Mork [mailto:bjorn@mork.no]=20
+> Sent: Thursday, January 02, 2014 10:25 PM
+> To: Hayeswang
+> Cc: oliver@neukum.org; netdev@vger.kernel.org; nic_swsd;=20
+> linux-kernel@vger.kernel.org; linux-usb@vger.kernel.org
+> Subject: Re: [PATCH net-next v2 6/6] r8152: support RTL8153
+>=20
+[...]
+> > +#if defined(CONFIG_USB_RTL8152) ||=20
+> defined(CONFIG_USB_RTL8152_MODULE)
+> > +/* Samsung USB Ethernet Adapters */
+> > +{
+> > +	USB_DEVICE_AND_INTERFACE_INFO(SAMSUNG_VENDOR_ID,=20
+> 0xa101, USB_CLASS_COMM,
+> > +			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
+> > +	.driver_info =3D 0,
+> > +},
+> > +#endif
+>=20
+>=20
+> We don't play the if-other-driver-is-enabled for any other of the
+> blacklisted devices, including other devices supported by the RTL8152
+> driver.  Why do we need it here?
 
-> > I don't have any issue with changing
-> > it, but I'm not sure what the advantage is if theres not going to be consistent
-> > use throughout the kernel.
-> 
-> Well I thought you were trying to improve that, starting with that
-> DEPRECATED macro.
-> 
-Which is why I changed it, although I don't think theres going to be any
-noticible change here unless theres a larger cross-subsystem effort undertaken
-here.  Maybe I'll try to do that next time I have some free time.
-
-Regards
-Neil
-
-> Ben.
-> 
-> -- 
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
-> 
-> 
+The USB nic have two configurations. One is the config 2 which is the E=
+CM
+mode and uses the driver of cdc_ether. The other is the config 1 which =
+use
+the driver of r8152. When the dangle is plugged, I find the configurati=
+on
+is 2 and the ECM driver would be loaded. By this way, you could select
+which mode you want to run. Some people would select ECM mode for
+performance, and the other would select r8152 for power saving.
+=20
+Best Regards,
+Hayes
