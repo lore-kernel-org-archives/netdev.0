@@ -1,76 +1,45 @@
 From: Libo Chen <clbchenlibo.chen@huawei.com>
-Subject: [RFC PATCH net-next 2/4] cls_cgroup: introduce a helper: bk_cls_classid()
-Date: Fri, 3 Jan 2014 11:11:09 +0800
-Message-ID: <52C62A4D.5010000@huawei.com>
+Subject: [RFC PATCH net-next 1/4] net: introduce backup_classid to struct
+ skbuff
+Date: Fri, 3 Jan 2014 11:11:04 +0800
+Message-ID: <52C62A48.1050604@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-	<ebiederm@xmission.com>, <containers@lists.linux-foundation.org>,
-	<cgroups@vger.kernel.org>, Serge Hallyn <serge.hallyn@ubuntu.com>,
+Cc: <edumazet@google.com>, <jasowang@redhat.com>, <horms@verge.net.au>,
+	Serge Hallyn <serge.hallyn@ubuntu.com>,
+	<netdev@vger.kernel.org>, <cgroups@vger.kernel.org>,
+	<containers@lists.linux-foundation.org>, <kaber@trash.net>,
+	<xemul@openvz.org>, <ebiederm@xmission.com>,
+	LKML <linux-kernel@vger.kernel.org>, <jhs@mojatatu.com>,
 	Li Zefan <lizefan@huawei.com>
-To: David Miller <davem@davemloft.net>, <jhs@mojatatu.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-it can save classid from skb->sk->sk_classid
-to skb->bk_classid
+introduce backup_classid to struct skbuff,
+we can use it to backup sk_classid when net_ns switch.
 
 Signed-off-by: Libo Chen <clbchenlibo.chen@huawei.com>
 ---
- include/net/cls_cgroup.h | 11 +++++++++++
- net/sched/cls_cgroup.c   |  1 -
- 2 files changed, 11 insertions(+), 1 deletion(-)
+ include/linux/skbuff.h | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
-index 33d03b6..4249ea3 100644
---- a/include/net/cls_cgroup.h
-+++ b/include/net/cls_cgroup.h
-@@ -16,6 +16,7 @@
- #include <linux/cgroup.h>
- #include <linux/hardirq.h>
- #include <linux/rcupdate.h>
-+#include <net/sock.h>
-
- #if IS_ENABLED(CONFIG_NET_CLS_CGROUP)
- struct cgroup_cls_state
-@@ -26,6 +27,12 @@ struct cgroup_cls_state
-
- void sock_update_classid(struct sock *sk);
-
-+static inline void bk_cls_classid(struct sk_buff *skb)
-+{
-+	if (skb->sk && skb->sk->sk_classid)
-+		skb->backup_classid = skb->sk->sk_classid;
-+}
-+
- #if IS_BUILTIN(CONFIG_NET_CLS_CGROUP)
- static inline u32 task_cls_classid(struct task_struct *p)
- {
-@@ -61,6 +68,10 @@ static inline u32 task_cls_classid(struct task_struct *p)
- }
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index c5cd016..b76e871 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -492,6 +492,9 @@ struct sk_buff {
+ #ifdef CONFIG_NET_CLS_ACT
+ 	__u16			tc_verd;	/* traffic control verdict */
  #endif
- #else /* !CGROUP_NET_CLS_CGROUP */
-+static inline void bk_cls_classid(struct sk_buff *skb)
-+{
-+}
-+
- static inline void sock_update_classid(struct sock *sk)
- {
- }
-diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-index f9d21258..d228a5d 100644
---- a/net/sched/cls_cgroup.c
-+++ b/net/sched/cls_cgroup.c
-@@ -20,7 +20,6 @@
- #include <linux/fdtable.h>
- #include <net/rtnetlink.h>
- #include <net/pkt_cls.h>
--#include <net/sock.h>
- #include <net/cls_cgroup.h>
++#ifdef CONFIG_NET_CLS_CGROUP
++	__u32			backup_classid;
++#endif
+ #endif
 
- static inline struct cgroup_cls_state *css_cls_state(struct cgroup_subsys_state *css)
+ 	__u16			queue_mapping;
 -- 
 1.8.2.2
