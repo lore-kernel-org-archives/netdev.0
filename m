@@ -1,65 +1,36 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv4 net-next 4/8] {pktgen, xfrm} Using "pgset spi xxx" to spedifiy SA for a given flow
-Date: Fri, 3 Jan 2014 11:18:30 +0800
-Message-ID: <1388719114-26244-5-git-send-email-fan.du@windriver.com>
-References: <1388719114-26244-1-git-send-email-fan.du@windriver.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next] r8152: fix the wrong return value
+Date: Fri, 3 Jan 2014 11:21:56 +0800
+Message-ID: <1388719316-5702-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:47830 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753631AbaACDSo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 22:18:44 -0500
-In-Reply-To: <1388719114-26244-1-git-send-email-fan.du@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-kernel@vger.kernel.org>, <linux-usb@vger.kernel.org>,
+	Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-User could set specific SPI value to arm pktgen flow with IPsec
-transformation, instead of looking up SA by sadr/daddr. The reaseon
-to do so is because current state lookup scheme is both slow and, most
-important of all, in fact pktgen doesn't need to match any SA state
-addresses information, all it needs is the SA transfromation shell to
-do the encapuslation.
+The return value should be the boolean value, not the error code.
 
-And this option also provide user an alternative to using pktgen
-test existing SA without creating new ones.
-
-Signed-off-by: Fan Du <fan.du@windriver.com>
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+Spotted-by: Dan Carpenter <dan.carpenter@oracle.com>
 ---
- net/core/pktgen.c |   12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ drivers/net/usb/r8152.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 156d57b..8bc4ddd 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -389,6 +389,7 @@ struct pktgen_dev {
- #ifdef CONFIG_XFRM
- 	__u8	ipsmode;		/* IPSEC mode (config) */
- 	__u8	ipsproto;		/* IPSEC type (config) */
-+	__u32	spi;
- #endif
- 	char result[512];
- };
-@@ -1477,6 +1478,17 @@ static ssize_t pktgen_if_write(struct file *file,
- 		return count;
- 	}
- 
-+	if (!strcmp(name, "spi")) {
-+		len = num_arg(&user_buffer[i], 10, &value);
-+		if (len < 0)
-+			return len;
-+
-+		i += len;
-+		pkt_dev->spi = value;
-+		sprintf(pg_result, "OK: spi=%u", pkt_dev->spi);
-+		return count;
-+	}
-+
- 	if (!strcmp(name, "flowlen")) {
- 		len = num_arg(&user_buffer[i], 10, &value);
- 		if (len < 0)
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index e3d878c..13fabbb 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -2708,7 +2708,7 @@ static bool rtl_ops_init(struct r8152 *tp, const struct usb_device_id *id)
+ 			ops->unload		= rtl8153_unload;
+ 			break;
+ 		default:
+-			ret = -EFAULT;
++			ret = false;
+ 			break;
+ 		}
+ 		break;
 -- 
-1.7.9.5
+1.8.4.2
