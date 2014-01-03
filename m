@@ -1,53 +1,41 @@
-From: David Cohen <david.a.cohen@linux.intel.com>
-Subject: Re: [PATCH net-next] r8152: fix the wrong return value
-Date: Thu, 2 Jan 2014 21:38:17 -0800
-Message-ID: <20140103053817.GA3403@psi-dev26.jf.intel.com>
-References: <1388719316-5702-1-git-send-email-hayeswang@realtek.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [RFC PATCH net-next 1/4] net: introduce backup_classid to
+	struct skbuff
+Date: Fri, 03 Jan 2014 00:34:04 -0500 (EST)
+Message-ID: <20140103.003404.1439874071277993396.davem@davemloft.net>
+References: <52C62A48.1050604@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1388719316-5702-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <52C62A48.1050604-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 03, 2014 at 11:21:56AM +0800, Hayes Wang wrote:
-> The return value should be the boolean value, not the error code.
-> 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> Spotted-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
->  drivers/net/usb/r8152.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-> index e3d878c..13fabbb 100644
-> --- a/drivers/net/usb/r8152.c
-> +++ b/drivers/net/usb/r8152.c
-> @@ -2708,7 +2708,7 @@ static bool rtl_ops_init(struct r8152 *tp, const struct usb_device_id *id)
->  			ops->unload		= rtl8153_unload;
->  			break;
->  		default:
-> -			ret = -EFAULT;
-> +			ret = false;
+From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Date: Fri, 3 Jan 2014 11:11:04 +0800
 
-How about fix the function's return type instead?
-Returning bool for success/error in Linux kernel is not natural. You
-gotta check rtl_ops_init() for success and !rtl_ops_init() for error.
-And you are unable to return the error value.
-
-Br, David
-
->  			break;
->  		}
->  		break;
-> -- 
-> 1.8.4.2
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> introduce backup_classid to struct skbuff,
+> we can use it to backup sk_classid when net_ns switch.
+> 
+> Signed-off-by: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+
+Sorry, no new sk_buff members unless there is absolutely not other
+possible implementation.
+
+sk_buff is too big as-is.
