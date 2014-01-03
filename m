@@ -1,64 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/3] net: allow > 0 order atomic page alloc in
-	skb_page_frag_refill
-Date: Thu, 02 Jan 2014 16:56:31 -0800
-Message-ID: <1388710591.12212.110.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
-	<20131224.174647.2276571374631580479.davem@davemloft.net>
-	<CAATkVExsrzKyx3da=sApxdR5DJRTWBw1MOcLE9WiWQN56WfcdA@mail.gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: IrDA woes..
+Date: Thu, 2 Jan 2014 17:00:06 -0800
+Message-ID: <CA+55aFyte5bC4703QVruVL3y_DV3Y6CbRPpXo=OkyRiJKtoMTA@mail.gmail.com>
+References: <CA+55aFyFAaHgoTe_ZVs3F0Giy4qDndKsE6GbB4DgcaK7QkXOkA@mail.gmail.com>
+	<20140102.174136.1587468571877727139.davem@davemloft.net>
+	<CA+55aFwBCATuEWKZTK7aueSyO4JAOBGvqq3FZnsqynmouGOQog@mail.gmail.com>
+	<20140102.190511.837169616985438729.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Banerjee, Debabrata" <dbanerje@akamai.com>, mwdalton@google.com,
-	mst@redhat.com, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	jbaron@akamai.com, virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>, Joshua Hunt <johunt@akamai.com>,
-	David Miller <davem@davemloft.net>
-To: Debabrata Banerjee <dbavatar@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAATkVExsrzKyx3da=sApxdR5DJRTWBw1MOcLE9WiWQN56WfcdA@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Samuel Ortiz <samuel@sortiz.org>,
+	Network Development <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f44.google.com ([74.125.83.44]:46691 "EHLO
+	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751528AbaACBAH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 20:00:07 -0500
+Received: by mail-ee0-f44.google.com with SMTP id b57so6483001eek.17
+        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 17:00:06 -0800 (PST)
+In-Reply-To: <20140102.190511.837169616985438729.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-01-02 at 19:42 -0500, Debabrata Banerjee wrote:
-> Currently because of how mm behaves (3.10.y) the code even before the
-> patch is a problem. I believe what may fix it is if instead of just
-> removing the conditional on __GFP_WAIT, the initial order > 0
-> allocation should be made GFP_ATOMIC, then fallback to the original
-> gfp mask for the order-0 allocations.
-> 
-> On systems that have highly fragmented main memory with pressure,
-> skb_page_frag_refill() causes problems. mm enters significant
-> compaction cycles on all cpu's which in itself is bad (add
-> considerable spinlock contention in isolate_migratepages_range() for
-> several seconds in kernel at 100% cpu), however even without this
-> happening basically we have large memory reclaimation when only
-> allocations from order-3 were necessary. For example, I might see half
-> the existing page cache on a system (2GB out of 8GB) reclaimed in a
-> burst, which effectively means the application has to wait even longer
-> after this compact/reclaim cycle for those pages to be read back from
-> disk. This is a significant reduction in useful memory from before
-> skb_page_frag_refill() existed, as one of our systems could run in
-> steady state will little free memory and 100% fragmentation. Now I see
-> 10-30x more memory free (read: not utilized). Order > 0 allocations
-> were happening rarely before, now it happens consistently from this
-> function.
-> 
-> My suggestion above would avoid mm going through
-> __alloc_pages_direct_compact() and triggering the bad events above. It
-> will take me several days to try this experiment.
+On Thu, Jan 2, 2014 at 4:05 PM, David Miller <davem@davemloft.net> wrote:
+>
+> I'm worried that mixing hardIRQ locking (via the direct calls to
+> skb_dequeue() et al.) with explicit softIRQ locking will make lockdep
+> complain.
 
-My suggestion is to use a recent kernel, and/or eventually backport the
-mm fixes if any.
+You're probably right. I don't see how to do it right, though. lockdep
+(or maybe it's DEBUG_ATOMIC_SLEEP or whatever) definitely complains
+about the "enable softirq's with hardirqs disabled" part, and the way
+the queueing is set up in irda, I don't see how else to do it.
 
-order-3 allocations should not reclaim 2GB out of 8GB.
+Unless it would be ok to only re-send the oldest packet, not all of
+them. And thus get rid of the loop entirely. But with the obvious lack
+of testing irda is getting, that kind of change sounds like a really
+bad idea.
 
-There is a reason PAGE_ALLOC_COSTLY_ORDER exists and is 3
+The warning is, in case you care:
+
+  WARNING: CPU: 2 PID: 0 at kernel/softirq.c:156 local_bh_enable+0x62/0x90()
+  Call Trace:
+   dev_queue_xmit
+   irlap_queue_xmit
+   irlap_send_i_frame
+   irlap_resend_rejected_frames
+   irlap_state_nrm_s
+   irlap_do_event
+   irlap_driver_rcv
+   __netif_receive_skb_core
+
+and without the _irqsave() at least that part is fine. But no, I
+didn't try it with lockdep, and I think you're right that it would
+break.
+
+Oh well. Since I can't seem to get my test-case to work anyway, I
+guess it doesn't much matter..
+
+              Linus
