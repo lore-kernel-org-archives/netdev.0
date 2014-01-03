@@ -1,24 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: spin_unlock is missed in function (netpoll_send_skb_on_dev) in
- file (linux-3.12/net/core/netpoll.c)
-Date: Fri, 03 Jan 2014 15:50:18 -0500 (EST)
-Message-ID: <20140103.155018.1759974817523071637.davem@davemloft.net>
-References: <CAFZT-jLtQNZnsoWO8nzJ0i5qUE6J--wXhg+gUXvh4qdmxMG4=g@mail.gmail.com>
-	<CAFZT-jLEyU2taPCypVPoV=U8GSVKbqeAB5U+8VtWLnLOKjjZEg@mail.gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH 24/31] staging: r8188eu: Additional cleanup of
+ include/odm.h
+Date: Sat, 4 Jan 2014 00:12:59 +0300
+Message-ID: <20140103211259.GD5443@mwanda>
+References: <1387755422-11443-1-git-send-email-Larry.Finger@lwfinger.net>
+ <1387755422-11443-25-git-send-email-Larry.Finger@lwfinger.net>
+ <20140102090516.GB5443@mwanda> <52C5E26A.5000704@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ahmedtamrawi@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34210 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752756AbaACUuT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 15:50:19 -0500
-In-Reply-To: <CAFZT-jLEyU2taPCypVPoV=U8GSVKbqeAB5U+8VtWLnLOKjjZEg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, gregkh@linuxfoundation.org,
+ netdev@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <52C5E26A.5000704@lwfinger.net>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
+Fine, fine.  I don't have strong feelings about this...
 
-Stephen already forwarded your report to the list and I already fixed
-it last night.
+regards,
+dan carpenter
