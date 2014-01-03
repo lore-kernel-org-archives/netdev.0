@@ -1,61 +1,54 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] sctp: Add process name and pid to deprecation warnings
-Date: Fri, 3 Jan 2014 00:18:37 +0000
-Message-ID: <1388708317.22017.25.camel@deadeye.wl.decadent.org.uk>
-References: <1388685267-18319-1-git-send-email-nhorman@tuxdriver.com>
-	 <1388692350.9947.37.camel@bwh-desktop.uk.level5networks.com>
-	 <20140102203036.GC7526@hmsreliant.think-freely.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next] pci_regs.h: Add PCI bus link speed and width defines
+Date: Thu, 02 Jan 2014 19:21:33 -0500 (EST)
+Message-ID: <20140102.192133.1585340046080167370.davem@davemloft.net>
+References: <1388234173-31654-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <linux-sctp@vger.kernel.org>, Vlad Yasevich <vyasevich@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:46297 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753675AbaACASk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 19:18:40 -0500
-In-Reply-To: <20140102203036.GC7526@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	linux-kernel@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1388234173-31654-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-01-02 at 15:30 -0500, Neil Horman wrote:
-> On Thu, Jan 02, 2014 at 07:52:30PM +0000, Ben Hutchings wrote:
-> > On Thu, 2014-01-02 at 12:54 -0500, Neil Horman wrote:
-> > > Recently I updated the sctp socket option deprecation warnings to be both a bit
-> > > more clear and ratelimited to prevent user processes from spamming the log file.
-> > > Ben Hutchings suggested that I add the process name and pid to these warnings so
-> > > that users can tell who is responsible for using the deprecated apis.  This
-> > > patch accomplishes that.
-> > [...]
-> > 
-> > I grepped for existing deprecation warnings that log the command and/or
-> > PID.  The warnings are not consistent, but where the include both comand
-> > and PID it's generally in the format "%s (%d)", comm, pid.  So please
-> > could you follow that format?
-> > 
-> Thats not really true, Subsystems vary widely in how they present process
-> name/pid warnings.  In fact, the first example you give below that uses both
-> process and pid, the format is <pid> (<name>)
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Sat, 28 Dec 2013 04:36:13 -0800
+
+> Add missing PCI bus link speed 8.0 GT/s and bus link widths of
+> x1, x2, x4 and x8.
 > 
-> There are alot that use <name> (<pid>), I argee, but theres quite alot of others
-> as well (the lockdep subssytem uses %s/%d, and several of the arm trap handlers
-> actually use Process <name> (pid: <pid>).
+> CC: <linux-kernel@vger.kernel.org>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Ah, I was just looking specifically at deprecation warnings.  I can see
-that broader consistency is also worthwhile.
+Can a PCI person please ACK this?  This is a prerequisite for some
+networking driver changes Jeff would like to push to me.
 
-> I don't have any issue with changing
-> it, but I'm not sure what the advantage is if theres not going to be consistent
-> use throughout the kernel.
+Thanks.
 
-Well I thought you were trying to improve that, starting with that
-DEPRECATED macro.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> ---
+>  include/uapi/linux/pci_regs.h | 5 +++++
+>  1 file changed, 5 insertions(+)
+> 
+> diff --git a/include/uapi/linux/pci_regs.h b/include/uapi/linux/pci_regs.h
+> index 4a98e85..c870c2a 100644
+> --- a/include/uapi/linux/pci_regs.h
+> +++ b/include/uapi/linux/pci_regs.h
+> @@ -489,7 +489,12 @@
+>  #define  PCI_EXP_LNKSTA_CLS	0x000f	/* Current Link Speed */
+>  #define  PCI_EXP_LNKSTA_CLS_2_5GB 0x0001 /* Current Link Speed 2.5GT/s */
+>  #define  PCI_EXP_LNKSTA_CLS_5_0GB 0x0002 /* Current Link Speed 5.0GT/s */
+> +#define  PCI_EXP_LNKSTA_CLS_8_0GB 0x0003 /* Current Link Speed 8.0GT/s */
+>  #define  PCI_EXP_LNKSTA_NLW	0x03f0	/* Negotiated Link Width */
+> +#define  PCI_EXP_LNKSTA_NLW_X1	0x0010	/* Current Link Width x1 */
+> +#define  PCI_EXP_LNKSTA_NLW_X2	0x0020	/* Current Link Width x2 */
+> +#define  PCI_EXP_LNKSTA_NLW_X4	0x0040	/* Current Link Width x4 */
+> +#define  PCI_EXP_LNKSTA_NLW_X8	0x0080	/* Current Link Width x8 */
+>  #define  PCI_EXP_LNKSTA_NLW_SHIFT 4	/* start of NLW mask in link status */
+>  #define  PCI_EXP_LNKSTA_LT	0x0800	/* Link Training */
+>  #define  PCI_EXP_LNKSTA_SLC	0x1000	/* Slot Clock Configuration */
+> -- 
+> 1.8.3.1
+> 
