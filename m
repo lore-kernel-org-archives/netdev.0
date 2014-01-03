@@ -1,46 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: move rt_genid to different cache line
-Date: Thu, 02 Jan 2014 16:38:54 -0800
-Message-ID: <1388709534.12212.106.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.DEB.2.02.1401021155330.32674@tomh.mtv.corp.google.com>
+From: Debabrata Banerjee <dbavatar@gmail.com>
+Subject: Re: [PATCH net-next 1/3] net: allow > 0 order atomic page alloc in skb_page_frag_refill
+Date: Thu, 2 Jan 2014 19:42:00 -0500
+Message-ID: <CAATkVExsrzKyx3da=sApxdR5DJRTWBw1MOcLE9WiWQN56WfcdA@mail.gmail.com>
+References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
+	<20131224.174647.2276571374631580479.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	rusty@rustcorp.com.au, mst@redhat.com, jasowang@redhat.com,
+	virtualization@lists.linux-foundation.org,
+	"Banerjee, Debabrata" <dbanerje@akamai.com>, jbaron@akamai.com,
+	Joshua Hunt <johunt@akamai.com>
+To: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, mwdalton@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:37326 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753010AbaACAi4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 19:38:56 -0500
-Received: by mail-pa0-f50.google.com with SMTP id kp14so13197660pab.23
-        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 16:38:56 -0800 (PST)
-In-Reply-To: <alpine.DEB.2.02.1401021155330.32674@tomh.mtv.corp.google.com>
+Received: from mail-oa0-f54.google.com ([209.85.219.54]:63404 "EHLO
+	mail-oa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751301AbaACAmA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 19:42:00 -0500
+Received: by mail-oa0-f54.google.com with SMTP id h16so15536607oag.41
+        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 16:42:00 -0800 (PST)
+In-Reply-To: <20131224.174647.2276571374631580479.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-01-02 at 12:00 -0800, Tom Herbert wrote:
-> Running a simple netperf TCP_RR test with 200 clients shows that
-> ipv4_dst_check is high on the list of functions in 'perf top'. The
-> pertinent action in this function is in the call to rt_is_expired
-> which checks the route genid (rt->rt_gentid) against the global value.
-> rt_genid is in the same cacheline as dst->__refcnt which is causing
-> false sharing.
-> 
-> This fix moves rt_genid into the first cacheline of the dst structure.
-> The dst structue is explicitly packed for cacheline optimization, so to
-> make room for the genid, I moved xfrm to cacheline with __refcnt (under
-> the assumption it is less likely to be in the critical path).
+Currently because of how mm behaves (3.10.y) the code even before the
+patch is a problem. I believe what may fix it is if instead of just
+removing the conditional on __GFP_WAIT, the initial order > 0
+allocation should be made GFP_ATOMIC, then fallback to the original
+gfp mask for the order-0 allocations.
 
-This looks like a difficult to check assumption to me ....
+On systems that have highly fragmented main memory with pressure,
+skb_page_frag_refill() causes problems. mm enters significant
+compaction cycles on all cpu's which in itself is bad (add
+considerable spinlock contention in isolate_migratepages_range() for
+several seconds in kernel at 100% cpu), however even without this
+happening basically we have large memory reclaimation when only
+allocations from order-3 were necessary. For example, I might see half
+the existing page cache on a system (2GB out of 8GB) reclaimed in a
+burst, which effectively means the application has to wait even longer
+after this compact/reclaim cycle for those pages to be read back from
+disk. This is a significant reduction in useful memory from before
+skb_page_frag_refill() existed, as one of our systems could run in
+steady state will little free memory and 100% fragmentation. Now I see
+10-30x more memory free (read: not utilized). Order > 0 allocations
+were happening rarely before, now it happens consistently from this
+function.
 
-rcu_head surely could be moved without performance impact.
+My suggestion above would avoid mm going through
+__alloc_pages_direct_compact() and triggering the bad events above. It
+will take me several days to try this experiment.
 
-Again, optimizing network stack for 200 TCP_RR special case is very
-questionable. The dst must be refcounted because of special prequeue
-mode, where a thread is blocked in a recvmsg() call.
+-Debabrata
 
-Any modern application handling lot of sockets uses poll()/epoll()
-anyway and prequeue is disabled : No refcount is taken, as the dst is
-released (no refcount touch because of RCU) before the skb is queued
-into socket receive queue.
+On Tue, Dec 24, 2013 at 5:46 PM, David Miller <davem@davemloft.net> wrote:
+>
+> There is still feedback and/or minor adjustments being asked for wrt.
+> this series.   These changes have been sitting for more than a week
+> which is a bit rediculous.
+>
+> Please resubmit these changes once everything is resolved to
+> everyone's satisfaction, thanks.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
