@@ -1,35 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: =?iso-2022-jp-3?B?GyRCRXobJChQJTsbKEI6?= Re: [Patch]
- netxen_nic: Bugfix for wrong RUNNING status of NX3031 NICs with no link
-Date: Fri, 03 Jan 2014 02:18:31 -0500 (EST)
-Message-ID: <20140103.021831.1305273132366498641.davem@davemloft.net>
-References: <1388685624.9947.7.camel@bwh-desktop.uk.level5networks.com>
-	<OF9AC42061.4BF09F2E-ON48257C55.00253C5A-48257C55.0027274D@zte.com.cn>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Multicast routing stops functioning after 4G multicast packets recived.
+Date: Fri, 3 Jan 2014 08:37:19 +0100
+Message-ID: <20140103073719.GN22494@order.stressinduktion.org>
+References: <20131221223501.110860@gmx.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, li.fengmao@zte.com.cn,
-	manish.chopra@qlogic.com, netdev@vger.kernel.org,
-	rajesh.borundia@qlogic.com, sony.chacko@qlogic.com,
-	wang.liang82@zte.com.cn, cai.qu@zte.com.cn, long.chun@zte.com.cn
-To: jiang.biao2@zte.com.cn
+Content-Type: text/plain; charset=utf-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org
+To: Bob Falken <NetFestivalHaveFun@gmx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56620 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750748AbaACHSd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 02:18:33 -0500
-In-Reply-To: <OF9AC42061.4BF09F2E-ON48257C55.00253C5A-48257C55.0027274D@zte.com.cn>
+Received: from order.stressinduktion.org ([87.106.68.36]:36763 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750802AbaACHhU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 02:37:20 -0500
+Content-Disposition: inline
+In-Reply-To: <20131221223501.110860@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: jiang.biao2@zte.com.cn
-Date: Fri, 3 Jan 2014 15:07:27 +0800
+On Sat, Dec 21, 2013 at 11:35:00PM +0100, Bob Falken wrote:
+>  On Thu, Dec 19, 2013 at 09:24:18AM -0800, Eric Dumazet wrote:
+> > On Thu, 2013-12-19 at 17:28 +0100, Bob Falken wrote:
+> > > The only reason why i give information about 2.6.36.4 is that its the
+> > > only latest kernel that was functioning properly.
+> > > i.e kernel >= 2.6.37 is not woking. so its a bisecting of the kernel
+> > > versions to help a coder see when/where the isse was implemented in
+> > > the kernel.
+> > > 
+> > > I do not need a backport patch for an old kernel, I generally only
+> > > need the issue looked into and get fixed so that I dont have to use an
+> > > old kernel. :)
+> > > 
+> > > I have no issue reproducing the issue on the recent kernels. however i
+> > > have not tried the GIT kernel.
+> > > 
+> > > I restarted the server just a moment ago. i will install and run
+> > > dropwatch and provide feedback in about 17hours. 
+> > 
+> > You said that "cat /proc/net/ip_mr_cache" gives nothing at all after
+> > 2^32 packets ?
+> > 
+> > Thats a bit scary ... maybe a 32bit refcnt overflow, because of some
+> > imbalance...
+> 
+> That's my thought, too. :/
+> 
+> The ipmr.c rcu conversion happend in 2.6.37. 
+> 
 
-> netif_carrier_off();
-> netdev->operstate=IF_OPER_DOWN;
-> register_netdevice();
+Just as a follow-up. You could verify if we actually have a refcount overflow
+if you try a grsec kernel with PAX_REFCOUNT enabled. If a refcoount overflow
+happens, dmesg should show then.
 
-This is too gross for words.
+Greetings,
 
-Stop fighting the way that device registraction and initial carrier
-state works, please.
+  Hannes
