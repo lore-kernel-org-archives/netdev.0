@@ -1,34 +1,73 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: Re: [PATCH net-next v2] IPv6: add option to use Subnet-Router anycast addresses as source addresses
-Date: Thu, 2 Jan 2014 21:58:56 -0800 (PST)
-Message-ID: <1388728736.50849.YahooMailBasic@web125506.mail.ne1.yahoo.com>
-References: <20140102231921.GI22494@order.stressinduktion.org>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH 5/5] bgmac: add support for Northstar SoC (BCM4707, BCM53018)
+Date: Fri, 3 Jan 2014 07:13:30 +0100
+Message-ID: <CACna6rzgno_pQQkP018snvS7rKDgoNzaufx4WphEnOXhs53v0A@mail.gmail.com>
+References: <1388690342-27213-1-git-send-email-hauke@hauke-m.de>
+	<1388690342-27213-5-git-send-email-hauke@hauke-m.de>
+	<CACna6rxrOOcb=xbeCytjWALAPOAj-P7Js5Xe7L1ykCimmDa4Sw@mail.gmail.com>
+	<52C5E67B.9070306@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>
+To: Hauke Mehrtens <hauke@hauke-m.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm45.bullet.mail.ne1.yahoo.com ([98.138.120.52]:41866 "HELO
-	nm45.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750812AbaACGIR convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jan 2014 01:08:17 -0500
-In-Reply-To: <20140102231921.GI22494@order.stressinduktion.org>
+Received: from mail-ob0-f182.google.com ([209.85.214.182]:54650 "EHLO
+	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750803AbaACGNb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 01:13:31 -0500
+Received: by mail-ob0-f182.google.com with SMTP id wp4so15260526obc.41
+        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 22:13:30 -0800 (PST)
+In-Reply-To: <52C5E67B.9070306@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---------------------------------------------
-On Thu, 1/2/14, Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
- 
-> Ah, I guess you are hinting at the situation where you ping
-> a pre-defined
-> anycast address and expect back a unicast address for
-> discovering the unicast
-> address of a router e.g.? Ok, I see...
- 
-Exact
+2014/1/2 Hauke Mehrtens <hauke@hauke-m.de>:
+> On 01/02/2014 09:40 PM, Rafa=C5=82 Mi=C5=82ecki wrote:
+>>  > +       if (ci->id =3D=3D BCMA_CHIP_ID_BCM4707 ||
+>>> +           ci->id =3D=3D BCMA_CHIP_ID_BCM53018) {
+>>
+>> Please add a missing
+>> if (bgmac->phyaddr !=3D BGMAC_PHY_NOREGS)
+>> return;
+>> at the beginning of this 4707/53018 block
+>
+> Why should I add that there?
+
+This is what I can see in etcgmac.c version:
+* $Id: etcgmac.c 414031 2013-07-23 10:54:51Z $
+
+
+>>> +               bcma_awrite32(core, BCMA_IOCTL,
+>>> +                             bcma_aread32(core, BCMA_IOCTL) | 0x44=
+);
+>>
+>> Please use
+>> BGMAC_BCMA_IOCTL_SW_CLKEN | 0x40
+>> (unless you know 0x40, then replace it too).
+>
+> The Documentation says this is:
+> * Bit 2 : TX_CLK_OUT_INVERT_EN - If set, this will invert the TX cloc=
+k
+> out of AMAC.
+> And the other is:
+> * Bit 12:8  "interface_mode"  This field is programmed through IDM
+> control bits [6:2]
+>
+> see this:
+> https://github.com/RMerl/asuswrt-merlin/blob/master/release/src-rt-6.=
+x.4708/et/sys/etcgmac.c#L1039
+
+Documentation is about "BCM4707 GMAC DevStatus register" which is:
+#define BGMAC_DEV_CTL
+That explains why you can't execute:
+devstatus =3D R_REG(ch->osh, &regs->devstatus);
+mode =3D ((devstatus & DS_MM_MASK) >> DS_MM_SHIFT);
+code/path on BCM4707 family.
+
+si_core_cflags -> ai_core_cflags operates on ai->ioctrl register (and
+so does bcma_awrite32), so these documented bits don't apply to it.
+
+--=20
+Rafa=C5=82
