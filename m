@@ -1,35 +1,36 @@
-From: Christian Lamparter <chunkeey@googlemail.com>
-Subject: Re: [PATCH] wireless: delete non-required instances of include <linux/init.h>
-Date: Fri, 03 Jan 2014 01:29:16 +0100
-Message-ID: <7093338.RGBiBKGbAL@debian64>
-References: <1388707112-5669-1-git-send-email-paul.gortmaker@windriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net-gre-gro: Add GRE support to the GRO stack
+Date: Thu, 02 Jan 2014 19:30:26 -0500 (EST)
+Message-ID: <20140102.193026.342067029221260651.davem@davemloft.net>
+References: <1388423651-12481-1-git-send-email-hkchu@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, herbert@gondor.apana.org.au,
+	ogerlitz@mellanox.com, netdev@vger.kernel.org
+To: hkchu@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f48.google.com ([74.125.83.48]:38894 "EHLO
-	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751067AbaACA3a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 19:29:30 -0500
-In-Reply-To: <1388707112-5669-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54782 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751521AbaACAa2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 19:30:28 -0500
+In-Reply-To: <1388423651-12481-1-git-send-email-hkchu@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday, January 02, 2014 06:58:32 PM Paul Gortmaker wrote:
-> None of these files are actually using any __init type directives
-> and hence don't need to include <linux/init.h>.  Most are just a
-> left over from __devinit and __cpuinit removal, or simply due to
-> code getting copied from one driver to the next.
-> 
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-> ---
-Acked-by: Christian Lamparter <chunkeey@googlemail.com>
+From: "H.K. Jerry Chu" <hkchu@google.com>
+Date: Mon, 30 Dec 2013 09:14:11 -0800
 
-for p54 and carl9170 parts.
+> +extern struct list_head offload_base;
 
-Thanks,
+Please add a programmatical interface to do the lookups you need
+rather than exporting this symbol externally.
 
-Christian
+As best I can tell you're trying to "find gro receive by type"
+and "find gro complete by type".  So function signatures ought
+to look something like.
+
+struct packet_offload *gro_find_receive_by_type(__be16 type);
+struct packet_offload *gro_find_complete_by_type(__be16 type);
+
+Thanks.
