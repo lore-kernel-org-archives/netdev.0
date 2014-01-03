@@ -1,47 +1,41 @@
-From: Jerry Chu <hkchu@google.com>
-Subject: Re: [PATCH net-next] net-gre-gro: Add GRE support to the GRO stack
-Date: Fri, 3 Jan 2014 21:32:17 +0800
-Message-ID: <CAPshTChj12sNe6f0TraABDemy6jCYRUzPjLXOa3kHu3PE9s6qg@mail.gmail.com>
-References: <1388423651-12481-1-git-send-email-hkchu@google.com>
-	<20140102.193026.342067029221260651.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Gertjan van Wingerde <gwingerde@gmail.com>
+Subject: Re: [PATCH] wireless: delete non-required instances of include <linux/init.h>
+Date: Fri, 3 Jan 2014 14:32:43 +0100
+Message-ID: <61233E8B-3101-4CDB-9F32-FA775C9186AD@gmail.com>
+References: <1388707112-5669-1-git-send-email-paul.gortmaker@windriver.com>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"<linux-wireless@vger.kernel.org>" <linux-wireless@vger.kernel.org>,
+	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f49.google.com ([209.85.216.49]:63654 "EHLO
-	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752185AbaACNcR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 08:32:17 -0500
-Received: by mail-qa0-f49.google.com with SMTP id ii20so433508qab.8
-        for <netdev@vger.kernel.org>; Fri, 03 Jan 2014 05:32:17 -0800 (PST)
-In-Reply-To: <20140102.193026.342067029221260651.davem@davemloft.net>
+Received: from mail-ea0-f173.google.com ([209.85.215.173]:64137 "EHLO
+	mail-ea0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752148AbaACNcr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 08:32:47 -0500
+In-Reply-To: <1388707112-5669-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 3, 2014 at 8:30 AM, David Miller <davem@davemloft.net> wrote:
-> From: "H.K. Jerry Chu" <hkchu@google.com>
-> Date: Mon, 30 Dec 2013 09:14:11 -0800
->
->> +extern struct list_head offload_base;
->
-> Please add a programmatical interface to do the lookups you need
-> rather than exporting this symbol externally.
->
-> As best I can tell you're trying to "find gro receive by type"
-> and "find gro complete by type".  So function signatures ought
-> to look something like.
->
-> struct packet_offload *gro_find_receive_by_type(__be16 type);
-> struct packet_offload *gro_find_complete_by_type(__be16 type);
->
-> Thanks.
 
-Done. Will resubmit in a minute.
 
-Thanks,
+Sent from my iPad
 
-Jerry
+> On 3 jan. 2014, at 00:58, Paul Gortmaker <paul.gortmaker@windriver.com> wrote:
+> 
+> None of these files are actually using any __init type directives
+> and hence don't need to include <linux/init.h>.  Most are just a
+> left over from __devinit and __cpuinit removal, or simply due to
+> code getting copied from one driver to the next.
+> 
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+
+For the rt2x00 parts:
+Acked-by: Gertjan van Wingerde <gwingerde@gmail.com>
+
+---
+Gertjan
