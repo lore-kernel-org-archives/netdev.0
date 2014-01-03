@@ -1,38 +1,42 @@
-From: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC PATCH net-next 0/4] net_cls for sys container
-Date: Thu, 2 Jan 2014 21:20:30 -0800
-Message-ID: <CAM_iQpW0+Ftvk=QBE+0yMNW00VkBee1+yAEmbPkT+zjij9RX-Q@mail.gmail.com>
-References: <52C62A44.4070304@huawei.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next v2 03/11] ixgbe: Use static inlines instead of macros
+Date: Thu, 02 Jan 2014 21:28:04 -0800
+Message-ID: <1388726884.2527.4.camel@joe-AO722>
+References: <1388726310-2996-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1388726310-2996-4-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
-	jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>,
-	Serge Hallyn <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
-	Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <52C62A44.4070304-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Mark Rustad <mark.d.rustad@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0098.hostedemail.com ([216.40.44.98]:34939 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750717AbaACF2J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 00:28:09 -0500
+In-Reply-To: <1388726310-2996-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 2, 2014 at 7:11 PM, Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org> wrote:
-> Hi guys,
->
-> Now, lxc created with veth can not be under control by
-> cls_cgroup.
->
-> the former discussion:
-> http://lkml.indiana.edu/hypermail/linux/kernel/1312.1/00214.html
->
-> In short, because cls_cgroup relys classid attached to sock
-> filter skb, but sock will be cleared inside dev_forward_skb()
-> in veth_xmit().
+On Thu, 2014-01-02 at 21:18 -0800, Jeff Kirsher wrote:
+> From: Mark Rustad <mark.d.rustad@intel.com>
+[]
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+[]
+> @@ -124,22 +124,31 @@ s32 ixgbe_reset_pipeline_82599(struct ixgbe_hw *hw);
+>  #ifndef writeq
+>  #define writeq(val, addr) writel((u32) (val), addr); \
+>      writel((u32) (val >> 32), (addr + 4));
+>  #endif
 
+This is unchanged, but it would be nicer with a do {} while.
 
-So what are you trying to achieve here?
+#ifndef writeq
+#define writeq(val, addr)				\
+do {							\
+	writel((u32)(val), addr);			\
+	writel((u32)((val) >> 32), (addr + 4));		\
+} while (0)
+
+Even then, this could be nicer as an inline too.
