@@ -1,56 +1,55 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH 5/5] bgmac: add support for Northstar SoC (BCM4707, BCM53018)
-Date: Fri, 3 Jan 2014 07:18:54 +0100
-Message-ID: <CACna6rz-R0=L9ZhfV13R_9wvG0FMowmx_YYgdXYM7EaSkXDgmw@mail.gmail.com>
-References: <1388690342-27213-1-git-send-email-hauke@hauke-m.de>
-	<1388690342-27213-5-git-send-email-hauke@hauke-m.de>
-	<CACna6rxrOOcb=xbeCytjWALAPOAj-P7Js5Xe7L1ykCimmDa4Sw@mail.gmail.com>
-	<52C5E67B.9070306@hauke-m.de>
-	<CACna6rzgno_pQQkP018snvS7rKDgoNzaufx4WphEnOXhs53v0A@mail.gmail.com>
+From: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCH net-next 1/4] net: introduce backup_classid to struct
+	skbuff
+Date: Thu, 02 Jan 2014 22:21:38 -0800
+Message-ID: <52C656F2.8060803@gmail.com>
+References: <52C62A48.1050604@huawei.com>
+	<20140103.003404.1439874071277993396.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Hauke Mehrtens <hauke@hauke-m.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f47.google.com ([209.85.219.47]:45460 "EHLO
-	mail-oa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750717AbaACGSy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 01:18:54 -0500
-Received: by mail-oa0-f47.google.com with SMTP id k1so15723946oag.34
-        for <netdev@vger.kernel.org>; Thu, 02 Jan 2014 22:18:54 -0800 (PST)
-In-Reply-To: <CACna6rzgno_pQQkP018snvS7rKDgoNzaufx4WphEnOXhs53v0A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20140103.003404.1439874071277993396.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-2014/1/3 Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>:
-> 2014/1/2 Hauke Mehrtens <hauke@hauke-m.de>:
->> On 01/02/2014 09:40 PM, Rafa=C5=82 Mi=C5=82ecki wrote:
->>>  > +       if (ci->id =3D=3D BCMA_CHIP_ID_BCM4707 ||
->>>> +           ci->id =3D=3D BCMA_CHIP_ID_BCM53018) {
->>>
->>> Please add a missing
->>> if (bgmac->phyaddr !=3D BGMAC_PHY_NOREGS)
->>> return;
->>> at the beginning of this 4707/53018 block
->>
->> Why should I add that there?
+On 01/02/2014 09:34 PM, David Miller wrote:
+> From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> Date: Fri, 3 Jan 2014 11:11:04 +0800
 >
-> This is what I can see in etcgmac.c version:
-> * $Id: etcgmac.c 414031 2013-07-23 10:54:51Z $
+>>
+>> introduce backup_classid to struct skbuff,
+>> we can use it to backup sk_classid when net_ns switch.
+>>
+>> Signed-off-by: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>
+> Sorry, no new sk_buff members unless there is absolutely not other
+> possible implementation.
+>
+> sk_buff is too big as-is.
 
-Hm, this is weird. I think this
-* $Id: etcgmac.c 414031 2013-07-23 10:54:51Z $
-is not any version, but just a timestamp of executing some cleaning-scr=
-ipt.
+To get what you want fix the dev_forward_skb() call. But its
+not clear to me why you would expect the sock info to be propagated
+like this. It seems like an incorrect assumption or a misunderstanding
+somewhere. If the virtual link was a physical link you wouldn't expect
+to know anything about the senders socket.
 
-Anyway, your reference code is 6.37.14.62:
-https://github.com/RMerl/asuswrt-merlin/blob/master/release/src-rt-6.x.=
-4708/include/epivers.h
+Thanks,
+John
 
-And mine is 6.37.14.34 (GPL_RT_AC68U_30004374205.zip).
-
-So it seems your is newer one...
-
-OK, leave this code like it is, ignore that my comment for now.
+-- 
+John Fastabend         Intel Corporation
