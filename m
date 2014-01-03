@@ -1,48 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] net: revert "sched classifier: make cgroup
- table local"
-Date: Fri, 03 Jan 2014 00:32:40 -0500 (EST)
-Message-ID: <20140103.003240.1512279497184743710.davem@davemloft.net>
-References: <1388703521-5535-1-git-send-email-xiyou.wangcong@gmail.com>
-	<20140102.190323.819558246638891031.davem@davemloft.net>
-	<20140102172110.38e0c473@nehalam.linuxnetplumber.net>
+From: David Cohen <david.a.cohen@linux.intel.com>
+Subject: Re: [PATCH net-next] r8152: fix the wrong return value
+Date: Thu, 2 Jan 2014 21:38:17 -0800
+Message-ID: <20140103053817.GA3403@psi-dev26.jf.intel.com>
+References: <1388719316-5702-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56096 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750809AbaACFcn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 00:32:43 -0500
-In-Reply-To: <20140102172110.38e0c473@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1388719316-5702-1-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogU3RlcGhlbiBIZW1taW5nZXIgPHN0ZXBoZW5AbmV0d29ya3BsdW1iZXIub3JnPg0KRGF0
-ZTogVGh1LCAyIEphbiAyMDE0IDE3OjIxOjEwIC0wODAwDQoNCj4gT24gVGh1LCAwMiBKYW4gMjAx
-NCAxOTowMzoyMyAtMDUwMCAoRVNUKQ0KPiBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5u
-ZXQ+IHdyb3RlOg0KPiANCj4+IEZyb206IENvbmcgV2FuZyA8eGl5b3Uud2FuZ2NvbmdAZ21haWwu
-Y29tPg0KPj4gRGF0ZTogVGh1LCAgMiBKYW4gMjAxNCAxNDo1ODo0MSAtMDgwMA0KPj4gDQo+PiA+
-IFRoaXMgcmV2ZXJ0cyBjb21taXQgZGU2ZmIyODhiMTI0NmE1YzRlMDBjMGNkYmZlM2E4MzhhMzYw
-YjNmNC4NCj4+ID4gT3RoZXJ3aXNlIHdlIGdvdDoNCj4+ID4gDQo+PiA+IG5ldC9zY2hlZC9jbHNf
-Y2dyb3VwLmM6MTA2OjI5OiBlcnJvcjogc3RhdGljIGRlY2xhcmF0aW9uIG9mIKFuZXRfY2xzX3N1
-YnN5c6IgZm9sbG93cyBub24tc3RhdGljIGRlY2xhcmF0aW9uDQo+PiA+ICBzdGF0aWMgc3RydWN0
-IGNncm91cF9zdWJzeXMgbmV0X2Nsc19zdWJzeXMgPSB7DQo+PiA+ICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgXg0KPj4gPiBJbiBmaWxlIGluY2x1ZGVkIGZyb20gaW5jbHVkZS9saW51eC9j
-Z3JvdXAuaDo2NTQ6MCwNCj4+ID4gICAgICAgICAgICAgICAgICBmcm9tIG5ldC9zY2hlZC9jbHNf
-Y2dyb3VwLmM6MTg6DQo+PiA+IGluY2x1ZGUvbGludXgvY2dyb3VwX3N1YnN5cy5oOjM1OjI5OiBu
-b3RlOiBwcmV2aW91cyBkZWNsYXJhdGlvbiBvZiChbmV0X2Nsc19zdWJzeXOiIHdhcyBoZXJlDQo+
-PiA+ICBTVUJTWVMobmV0X2NscykNCj4+ID4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICBe
-DQo+PiA+IG1ha2VbMl06ICoqKiBbbmV0L3NjaGVkL2Nsc19jZ3JvdXAub10gRXJyb3IgMQ0KPj4g
-PiANCj4+ID4gQ2M6IFN0ZXBoZW4gSGVtbWluZ2VyIDxzdGVwaGVuQG5ldHdvcmtwbHVtYmVyLm9y
-Zz4NCj4+ID4gQ2M6IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCj4+ID4g
-U2lnbmVkLW9mZi1ieTogQ29uZyBXYW5nIDx4aXlvdS53YW5nY29uZ0BnbWFpbC5jb20+DQo+PiAN
-Cj4+IFRoaXMgaXMgc28gZGFtbiB1bmludHVpdGl2ZSwgYW5kIHRoYXQgYnVpbGQgZXJyb3Igb25s
-eSBvY2N1cnMgaWYgeW91DQo+PiBidWlsZCBjbHNfY2dyb3VwIHN0YXRpY2FsbHkuDQo+PiANCj4+
-IEFwcGxpZWQsIGJ1dCB0aGUgd2F5IHRoaXMgd29ya3MgaXMgdGVycmlibGUuDQo+IA0KPiBKdXN0
-IHJlbW92aW5nIGZyb20gdGhlIGluY2x1ZGUgZmlsZSBpcyBwcm9iYWJseSBlbm91Z2ggdG8gZml4
-IGl0Lg0KDQpJdCdzIGJlaW5nIHJlZmVyZW5jZWQgdmlhIHRoZSAiU1VCU1lTIiBtYWNybywgYW5k
-IHRoYXQgaXMgaG93IHRoaXMNCmNncm91cCBzdWJzeXN0ZW0gaW5zdGFudGlhdGVkIGluIHRoZSBz
-dGF0aWMgYnVpbGQuDQoNCllvdSBjYW4ndCBqdXN0IGRlbGV0ZSBpdC4NCg0K
+On Fri, Jan 03, 2014 at 11:21:56AM +0800, Hayes Wang wrote:
+> The return value should be the boolean value, not the error code.
+> 
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> Spotted-by: Dan Carpenter <dan.carpenter@oracle.com>
+> ---
+>  drivers/net/usb/r8152.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+> index e3d878c..13fabbb 100644
+> --- a/drivers/net/usb/r8152.c
+> +++ b/drivers/net/usb/r8152.c
+> @@ -2708,7 +2708,7 @@ static bool rtl_ops_init(struct r8152 *tp, const struct usb_device_id *id)
+>  			ops->unload		= rtl8153_unload;
+>  			break;
+>  		default:
+> -			ret = -EFAULT;
+> +			ret = false;
+
+How about fix the function's return type instead?
+Returning bool for success/error in Linux kernel is not natural. You
+gotta check rtl_ops_init() for success and !rtl_ops_init() for error.
+And you are unable to return the error value.
+
+Br, David
+
+>  			break;
+>  		}
+>  		break;
+> -- 
+> 1.8.4.2
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
