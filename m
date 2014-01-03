@@ -1,53 +1,72 @@
-From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: RE: [PATCH net 2/3] qlcnic: Fix resource allocation for TX queues
-Date: Fri, 3 Jan 2014 06:57:34 +0000
-Message-ID: <31AFFC7280259C4184970ABA9AFE8B938CF8D0B6@avmb3.qlogic.org>
-References: <1388687925-17882-1-git-send-email-manish.chopra@qlogic.com>
-	<1388687925-17882-3-git-send-email-manish.chopra@qlogic.com>
- <20140102.171958.2254381067633302234.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v2] IPv6: add option to use Subnet-Router anycast addresses as source addresses
+Date: Fri, 3 Jan 2014 08:04:26 +0100
+Message-ID: <20140103070426.GL22494@order.stressinduktion.org>
+References: <20140103063041.GJ22494@order.stressinduktion.org> <1388731742.39393.YahooMailBasic@web125506.mail.ne1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	Dept-NX Linux NIC Driver
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: =?utf-8?Q?Fran=C3=A7ois-Xavier?= Le Bail <fx.lebail@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:19490 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750907AbaACG5k convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jan 2014 01:57:40 -0500
-In-Reply-To: <20140102.171958.2254381067633302234.davem@davemloft.net>
-Content-Language: en-US
+Received: from order.stressinduktion.org ([87.106.68.36]:36726 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750907AbaACHEi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 02:04:38 -0500
+Content-Disposition: inline
+In-Reply-To: <1388731742.39393.YahooMailBasic@web125506.mail.ne1.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
->On Behalf Of David Miller
->Sent: Friday, January 03, 2014 3:50 AM
->To: Manish Chopra
->Cc: netdev; Rajesh Borundia; Dept-NX Linux NIC Driver
->Subject: Re: [PATCH net 2/3] qlcnic: Fix resource allocation for TX queues
->
->From: Manish Chopra <manish.chopra@qlogic.com>
->Date: Thu, 2 Jan 2014 13:38:44 -0500
->
->> o TX queues allocation was getting distributed equally among all the
->>   functions of the port including VFs and PF. Which was leading to failure
->>   in PF's multiple TX queues creation.
->>
->> o Instead of dividing queues equally allocate one TX queue for each VF as VF
->>   doesn't support multiple TX queues.
->>
->> Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
->
->Applied.
->
->I did not see the third patch.
->--
+On Thu, Jan 02, 2014 at 10:49:02PM -0800, Fran=C3=A7ois-Xavier Le Bail =
+wrote:
+> On Fri, 1/3/14, Hannes Frederic Sowa <hannes@stressinduktion.org> wro=
+te:
+>=20
+> On Thu, Jan 02, 2014 at 10:19:24PM  -0800, Fran=C3=A7ois-Xavier Le Ba=
+il wrote:
+>=20
+> >> Some setup may use a ping to Subnet-Router anycast
+> >> address and expect a reply to discover a unicast address
+> >> (not very secure, but ...).
+> >>
+> >> It is the reason why, I want to keep existing default.
+> =20
+> > Yep, with pre-defined anycast address I actually meant the
+> > subnet router
+> > anycast address. We currently don't need to deal with more
+> > than that one:
+> > https://www.iana.org/assignments/ipv6-anycast-addresses/ipv6-anycas=
+t-addresses.xhtml
+> =20
+> > As soon as this patch gets applied, we have to keep the knob stable
+> > in its semantic.=C2=A0 So my proposal would be to change the knob t=
+o just
+> > control the behaviour of ping replies and also change its
+> > name to reflect this.
+> =20
+> > Leave datagram sending with specific anycast address as
+> > source just open and
+> > don't protect it with this knob. Would that be a plan?
+> =20
+> But service discovery may be done also with UDP, so I see the knob as=
+ a router policy:
+> It enable or not anycast source.
 
-Yes David. Somehow it didn't go to netdev. I will send third patch as a separate patch
+Wouldn't distributions just enable this unconditionally and no one will=
+ ever
+look at this option again?
 
-Thank you 
+IMHO it would be better if it could be controlled per application, beca=
+use
+they ultimately know how their discovery protocol works. In case of pin=
+g, it
+is ok, because applications cannot control the source address here.
+
+Greetings,
+
+  Hannes
