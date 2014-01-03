@@ -1,83 +1,70 @@
-From: Debabrata Banerjee <dbavatar@gmail.com>
-Subject: Re: [PATCH net-next 1/3] net: allow > 0 order atomic page alloc in skb_page_frag_refill
-Date: Fri, 3 Jan 2014 17:47:20 -0500
-Message-ID: <CAATkVExrpHZHDFFdfR2ab7SeFSBLyAm0BLoVqLDGHF1ZPwEBZA@mail.gmail.com>
-References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
-	<20131224.174647.2276571374631580479.davem@davemloft.net>
-	<CAATkVExsrzKyx3da=sApxdR5DJRTWBw1MOcLE9WiWQN56WfcdA@mail.gmail.com>
-	<1388710591.12212.110.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1388712396.12212.112.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAATkVEyL-7W4aa_U+_7ZsqnyR0AnAskBNejzeUZD+jE8CmRdhw@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v2 -next] netfilter: don't use per-destination
+ incrementing ports in nat random mode
+Date: Fri, 3 Jan 2014 23:52:36 +0100
+Message-ID: <20140103225236.GA18357@localhost>
+References: <20131219134007.GA24118@order.stressinduktion.org>
+ <52B37F6B.9010105@redhat.com>
+ <20131220004822.GC32129@order.stressinduktion.org>
+ <20131220080118.GA4234@localhost>
+ <20131220214029.GB14073@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Michael Dalton <mwdalton@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Rusty Russell <rusty@rustcorp.com.au>, mst@redhat.com,
-	jasowang@redhat.com, virtualization@lists.linux-foundation.org,
-	"Banerjee, Debabrata" <dbanerje@akamai.com>, jbaron@akamai.com,
-	Joshua Hunt <johunt@akamai.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f50.google.com ([209.85.219.50]:41502 "EHLO
-	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754181AbaACWrV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 17:47:21 -0500
-Received: by mail-oa0-f50.google.com with SMTP id n16so16873076oag.9
-        for <netdev@vger.kernel.org>; Fri, 03 Jan 2014 14:47:20 -0800 (PST)
-In-Reply-To: <CAATkVEyL-7W4aa_U+_7ZsqnyR0AnAskBNejzeUZD+jE8CmRdhw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: Daniel Borkmann <dborkman@redhat.com>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131220214029.GB14073@order.stressinduktion.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> On Thu, 2014-01-02 at 16:56 -0800, Eric Dumazet wrote:
->>
->> Hmm... it looks like I missed __GFP_NORETRY
->>
->>
->>
->> diff --git a/net/core/sock.c b/net/core/sock.c
->> index 5393b4b719d7..5f42a4d70cb2 100644
->> --- a/net/core/sock.c
->> +++ b/net/core/sock.c
->> @@ -1872,7 +1872,7 @@ bool skb_page_frag_refill(unsigned int sz, struct page_frag *pfrag, gfp_t prio)
->>                 gfp_t gfp = prio;
->>
->>                 if (order)
->> -                       gfp |= __GFP_COMP | __GFP_NOWARN;
->> +                       gfp |= __GFP_COMP | __GFP_NOWARN | __GFP_NORETRY;
->>                 pfrag->page = alloc_pages(gfp, order);
->>                 if (likely(pfrag->page)) {
->>                         pfrag->offset = 0;
->>
->>
->>
+On Fri, Dec 20, 2013 at 10:40:29PM +0100, Hannes Frederic Sowa wrote:
+> From: Daniel Borkmann <dborkman@redhat.com>
+> 
+> We currently use prandom_u32() for allocation of ports in tcp bind(0)
+> and udp code. In case of plain SNAT we try to keep the ports as is
+> or increment on collision.
+> 
+> SNAT --random mode does use per-destination incrementing port
+> allocation. As a recent paper pointed out in [1] that this mode of
+> port allocation makes it possible to an attacker to find the randomly
+> allocated ports through a timing side-channel in a socket overloading
+> attack conducted through an off-path attacker.
+> 
+> So, NF_NAT_RANGE_PROTO_RANDOM actually weakens the port randomization
+> in regard to the attack described in this paper. As we need to keep
+> compatibility, add another flag called NF_NAT_RANGE_PROTO_RANDOM_FULLY
+> that would replace the NF_NAT_RANGE_PROTO_RANDOM hash-based port
+> selection algorithm with a simple prandom_u32() in order to mitigate
+> this attack vector. Note that the lfsr113's internal state is
+> periodically reseeded by the kernel through a local secure entropy
+> source.
+> 
+> More details can be found in [1], the basic idea is to send bursts
+> of packets to a socket to overflow its receive queue and measure
+> the latency to detect a possible retransmit when the port is found.
+> Because of increasing ports to given destination and port, further
+> allocations can be predicted. This information could then be used by
+> an attacker for e.g. for cache-poisoning, NS pinning, and degradation
+> of service attacks against DNS servers [1]:
+> 
+>   The best defense against the poisoning attacks is to properly
+>   deploy and validate DNSSEC; DNSSEC provides security not only
+>   against off-path attacker but even against MitM attacker. We hope
+>   that our results will help motivate administrators to adopt DNSSEC.
+>   However, full DNSSEC deployment make take significant time, and
+>   until that happens, we recommend short-term, non-cryptographic
+>   defenses. We recommend to support full port randomisation,
+>   according to practices recommended in [2], and to avoid
+>   per-destination sequential port allocation, which we show may be
+>   vulnerable to derandomisation attacks.
+> 
+> Joint work between Hannes Frederic Sowa and Daniel Borkmann.
 
-There is another patch needed (looks like good stable fixes):
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 06e72d3..d42d48c 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -378,7 +378,7 @@ refill:
-                        gfp_t gfp = gfp_mask;
+Applied, thanks.
 
-                        if (order)
--                               gfp |= __GFP_COMP | __GFP_NOWARN;
-+                               gfp |= __GFP_COMP | __GFP_NOWARN |
-__GFP_NORETRY;
-                        nc->frag.page = alloc_pages(gfp, order);
-                        if (likely(nc->frag.page))
-                                break;
-
-This reduces the really pathological compact/reclaim behavior but
-doesn't fix it. Actually it still really quite bad because the whole
-thing loops until it gets to order-0 so it's effectively trying the
-allocation 4 times anyway. I typically see non-zero order allocations
-very rarely without these two pieces of code. I hotpatched a running
-system to get results from this quickly. Even setting the max order to
-order-1 I still see bad behavior. If anything this behavior should be
-conditional until this is ironed out.
-
-Performance data: http://pastebin.ubuntu.com/6687527/
-
--Debabrata
+I have renamed the title of this patch to: "add full port
+randomization support" which I though a bit more descriptive with the
+final patch that has settled down, just in case you look for it in the
+nf-next tree.
