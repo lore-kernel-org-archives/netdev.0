@@ -1,36 +1,29 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH iptables] iptables: snat: add randomize-full support
-Date: Sat, 4 Jan 2014 00:43:32 +0100
-Message-ID: <20140103234332.GA27882@localhost>
-References: <20131219134007.GA24118@order.stressinduktion.org>
- <52B37F6B.9010105@redhat.com>
- <20131220004822.GC32129@order.stressinduktion.org>
- <20131220080118.GA4234@localhost>
- <20131220214029.GB14073@order.stressinduktion.org>
- <20131222031538.GJ14073@order.stressinduktion.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next] pci_regs.h: Add PCI bus link speed and width defines
+Date: Fri, 03 Jan 2014 18:56:07 -0500 (EST)
+Message-ID: <20140103.185607.1380379872647540168.davem@davemloft.net>
+References: <20140102.192133.1585340046080167370.davem@davemloft.net>
+	<CAEuXFEw=A0mppxtgzpmnh3feLiKYb+LJQvFRMrW3C4h+jHpO2Q@mail.gmail.com>
+	<CAErSpo7K3OBuTEZrXmhQ3iXtLf3M5JNnEqmAvaceroJ46VAOKg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Daniel Borkmann <dborkman@redhat.com>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	kaber@trash.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:40174 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753834AbaACXni (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jan 2014 18:43:38 -0500
-Content-Disposition: inline
-In-Reply-To: <20131222031538.GJ14073@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jesse.brandeburg@gmail.com, linux-pci@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	linux-kernel@vger.kernel.org, bjorn.helgaas@hp.com
+To: bhelgaas@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAErSpo7K3OBuTEZrXmhQ3iXtLf3M5JNnEqmAvaceroJ46VAOKg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Dec 22, 2013 at 04:15:38AM +0100, Hannes Frederic Sowa wrote:
-> From: Daniel Borkmann <dborkman@redhat.com>
-> 
-> This patch provides the user space part for dnat in order to make
-> randomize-full support available in {ip,nf}tables. It allows for
-> enabling full port randomization that was motivated in [1] and
-> introduced to the kernel in [2].
-> 
-> Joint work between Hannes Frederic Sowa and Daniel Borkmann.
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Fri, 3 Jan 2014 15:15:57 -0700
 
-Applied to iptables-next, thanks.
+> However, I do raise my eyebrows a bit at drivers that poke around in
+> the PCIe capability.  I would prefer to have PCI core interfaces that
+> handle that instead.  But I haven't seen Jeff's changes yet.
+
+The changes just read the link status to interpret the speed at which
+the PCI-E link is running at.
