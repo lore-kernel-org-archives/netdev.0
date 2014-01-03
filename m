@@ -1,99 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug 68011] New: spin_unlock is missed in function
- (netpoll_send_skb_on_dev) in file (linux-3.12/net/core/netpoll.c)
-Date: Thu, 02 Jan 2014 19:51:16 -0500 (EST)
-Message-ID: <20140102.195116.2109511693723200480.davem@davemloft.net>
-References: <20140101215231.50ea361e@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/3] net: allow > 0 order atomic page alloc in
+	skb_page_frag_refill
+Date: Thu, 02 Jan 2014 16:56:31 -0800
+Message-ID: <1388710591.12212.110.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
+	<20131224.174647.2276571374631580479.davem@davemloft.net>
+	<CAATkVExsrzKyx3da=sApxdR5DJRTWBw1MOcLE9WiWQN56WfcdA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54928 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753274AbaACAvS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jan 2014 19:51:18 -0500
-In-Reply-To: <20140101215231.50ea361e@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Banerjee, Debabrata" <dbanerje@akamai.com>, mwdalton@google.com,
+	mst@redhat.com, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	jbaron@akamai.com, virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>, Joshua Hunt <johunt@akamai.com>,
+	David Miller <davem@davemloft.net>
+To: Debabrata Banerjee <dbavatar@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAATkVExsrzKyx3da=sApxdR5DJRTWBw1MOcLE9WiWQN56WfcdA@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Wed, 1 Jan 2014 21:52:31 -0800
-
-> In function (netpoll_send_skb_on_dev) in file (linux-3.12/net/core/netpoll.c):
+On Thu, 2014-01-02 at 19:42 -0500, Debabrata Banerjee wrote:
+> Currently because of how mm behaves (3.10.y) the code even before the
+> patch is a problem. I believe what may fix it is if instead of just
+> removing the conditional on __GFP_WAIT, the initial order > 0
+> allocation should be made GFP_ATOMIC, then fallback to the original
+> gfp mask for the order-0 allocations.
 > 
-> The structure (txq->_xmit_lock) gets successfully locked at line (383) by
-> (__netif_tx_trylock(txq)) and unlocked by (__netif_tx_unlock(txq)) at line
-> (398).
+> On systems that have highly fragmented main memory with pressure,
+> skb_page_frag_refill() causes problems. mm enters significant
+> compaction cycles on all cpu's which in itself is bad (add
+> considerable spinlock contention in isolate_migratepages_range() for
+> several seconds in kernel at 100% cpu), however even without this
+> happening basically we have large memory reclaimation when only
+> allocations from order-3 were necessary. For example, I might see half
+> the existing page cache on a system (2GB out of 8GB) reclaimed in a
+> burst, which effectively means the application has to wait even longer
+> after this compact/reclaim cycle for those pages to be read back from
+> disk. This is a significant reduction in useful memory from before
+> skb_page_frag_refill() existed, as one of our systems could run in
+> steady state will little free memory and 100% fragmentation. Now I see
+> 10-30x more memory free (read: not utilized). Order > 0 allocations
+> were happening rarely before, now it happens consistently from this
+> function.
 > 
-> The problem occurs when the loop breaks at line (390) and the structure
-> (txq->_xmit_lock) still locked. In that case, the structure (txq->_xmit_lock)
-> never gets unlocked.
-> 
-> A possible solution is to call (__netif_tx_unlock(txq)) before the break at
-> line (390)
+> My suggestion above would avoid mm going through
+> __alloc_pages_direct_compact() and triggering the bad events above. It
+> will take me several days to try this experiment.
 
-This code path has another problem, if __vlan_put_tag() returns NULL then
-the function exit path is going to try and insert that NULL skb back onto
-the npinfo->txq, resulting in a crash.
+My suggestion is to use a recent kernel, and/or eventually backport the
+mm fixes if any.
 
-We effectively, therefore, don't have the packet any more and as
-things stand the one and only thing we could do is just unlock and
-return immediately.  But this means we won't retry sending later, and
-will thus lose the frame.
+order-3 allocations should not reclaim 2GB out of 8GB.
 
-netpoll should try to be as drop free as possible, that's why it has all
-of this retry logic.
-
-There really should be a version of __vlan_put_tag() that allows the caller
-to unwind and try again somehow.
-
-Here's what I'll apply and queue up for -stable, thanks.
-
-====================
-[PATCH] netpoll: Fix missing TXQ unlock and and OOPS.
-
-The VLAN tag handling code in netpoll_send_skb_on_dev() has two problems.
-
-1) It exits without unlocking the TXQ.
-
-2) It then tries to queue a NULL skb to npinfo->txq.
-
-Reported-by: Ahmed Tamrawi <atamrawi@iastate.edu>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/core/netpoll.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 8f97199..3030978 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -386,8 +386,14 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
- 					    !vlan_hw_offload_capable(netif_skb_features(skb),
- 								     skb->vlan_proto)) {
- 						skb = __vlan_put_tag(skb, skb->vlan_proto, vlan_tx_tag_get(skb));
--						if (unlikely(!skb))
--							break;
-+						if (unlikely(!skb)) {
-+							/* This is actually a packet drop, but we
-+							 * don't want the code at the end of this
-+							 * function to try and re-queue a NULL skb.
-+							 */
-+							status = NETDEV_TX_OK;
-+							goto unlock_txq;
-+						}
- 						skb->vlan_tci = 0;
- 					}
- 
-@@ -395,6 +401,7 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
- 					if (status == NETDEV_TX_OK)
- 						txq_trans_update(txq);
- 				}
-+			unlock_txq:
- 				__netif_tx_unlock(txq);
- 
- 				if (status == NETDEV_TX_OK)
--- 
-1.7.11.7
+There is a reason PAGE_ALLOC_COSTLY_ORDER exists and is 3
