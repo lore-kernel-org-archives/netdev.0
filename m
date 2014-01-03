@@ -1,40 +1,77 @@
-From: Vincent Li <vincent.mc.li@gmail.com>
-Subject: Re: How to test netfilter SYNPROXY target properly?
-Date: Fri, 3 Jan 2014 09:24:15 -0800
-Message-ID: <CAK3+h2yNp9W3QrKVPR6EDct==xA8g9aq4ho6Aq_syYv-bkGN3w@mail.gmail.com>
-References: <CAK3+h2wX3PvcMyNhYWYTnxyQyr9YN_2Mzr21gD4OrpF2P6+TcQ@mail.gmail.com>
-	<20140103131908.GA26268@macbook.localnet>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net] bridge: Fix crash with vlan filtering and tcpdump
+Date: Fri, 03 Jan 2014 12:41:01 -0500
+Message-ID: <52C6F62D.4080908@redhat.com>
+References: <1388765553-12965-1-git-send-email-vyasevic@redhat.com> <52C6FC2D.1000800@cogentembedded.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20140103131908.GA26268@macbook.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:6290 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750935AbaACRlG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jan 2014 12:41:06 -0500
+In-Reply-To: <52C6FC2D.1000800@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks Patrick, put SYNPROXY in FORWARD did it.
+On 01/03/2014 01:06 PM, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 01/03/2014 07:12 PM, Vlad Yasevich wrote:
+> 
+>> When the vlan filtering is enabled on the bridge, but
+>> the filter is not configured on the bridge device itself,
+>> running tcpdump on the bridge device will result in a
+>> an Ooops with NULL pointer dereference.  The reason
+>> is that br_pass_frame_up() will bypass the vlan
+>> check because promisc flag is set.  It will then try
+>> to get the table pointer and process the packet based
+>> on the table.  Since the table pointer is NULL, we oops.
+>> Catch this special condition in br_handle_vlan().
+> 
+>> Reported-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>> CC: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> [...]
+> 
+>> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+>> index af5ebd1..ea0c29b 100644
+>> --- a/net/bridge/br_vlan.c
+>> +++ b/net/bridge/br_vlan.c
+>> @@ -144,6 +144,18 @@ struct sk_buff *br_handle_vlan(struct net_bridge
+>> *br,
+>>       if (!br->vlan_enabled)
+>>           goto out;
+>>
+>> +    /* Vlan filter table must be configrured at this point.  The
+> 
+>    Only "configured".
+> 
+>> +     * only exception is the bridge is set in promisc mode and the
+>> +     * packet is destined for the bridge device.  In this case
+>> +     * pass the packet as is.
+>> +     */
+>> +    if (!pv) {
+>> +               if ((br->dev->flags & IFF_PROMISC) && skb->dev ==
+>> br->dev)
+> 
+>    You've indented this *if* too much.
 
-On Fri, Jan 3, 2014 at 5:19 AM, Patrick McHardy <kaber@trash.net> wrote:
-> On Thu, Jan 02, 2014 at 03:30:21PM -0800, Vincent Li wrote:
->> Hi Patrick
->>
->> I should have put this question in user list instead of dev list, but
->> I couldn't find any user based documentation on how to test the
->> SYNPROXY target other than the message in the SYNPROXY patch series.
->> so here is my setup:
->>
->> ---packet flow
->>
->> client 10.1.72.99 (vlan 1101)  <->Linux with SYNPROXY rule - 10.1.72.9
->> (vlan 1101) 10.2.72.139 (vlan 1102) <->server 10.2.72.99
->> ...
->> /usr/local/sbin/iptables -A INPUT -i $EXTIF -p tcp --dport 80 -m state
->> --state UNTRACKED,INVALID -j SYNPROXY --sack-perm --timestamp --mss
->> 1460 --wscale 5
->> 00000000        00000000
->>
->> I think I might miss something and not testing the SYNPROXY properly, any clue?
->
-> I guess you need to put the SYNPROXY rule in FORWARD instead of INPUT.
+Thanks, will fix in v2.  For now, will now wait for a few more reviews.
+
+-vlad
+
+> 
+>> +            goto out;
+>> +        else
+>> +            BUG();
+>> +    }
+>> +
+> 
+> WBR, Sergei
+> 
