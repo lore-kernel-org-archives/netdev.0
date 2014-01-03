@@ -1,77 +1,68 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net] bridge: Fix crash with vlan filtering and tcpdump
-Date: Fri, 03 Jan 2014 12:41:01 -0500
-Message-ID: <52C6F62D.4080908@redhat.com>
-References: <1388765553-12965-1-git-send-email-vyasevic@redhat.com> <52C6FC2D.1000800@cogentembedded.com>
-Reply-To: vyasevic@redhat.com
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH] ipv4: move rt_genid to different cache line
+Date: Fri, 3 Jan 2014 10:01:47 -0800
+Message-ID: <CA+mtBx_HKz3BNF=_FRTS-a-JZj9ss5TWaJU9d=oFewZbCu1_NQ@mail.gmail.com>
+References: <alpine.DEB.2.02.1401021155330.32674@tomh.mtv.corp.google.com>
+	<1388709534.12212.106.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6290 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750935AbaACRlG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jan 2014 12:41:06 -0500
-In-Reply-To: <52C6FC2D.1000800@cogentembedded.com>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:36100 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751125AbaACSBs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 13:01:48 -0500
+Received: by mail-ig0-f181.google.com with SMTP id k19so1663855igc.2
+        for <netdev@vger.kernel.org>; Fri, 03 Jan 2014 10:01:47 -0800 (PST)
+In-Reply-To: <1388709534.12212.106.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/03/2014 01:06 PM, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 01/03/2014 07:12 PM, Vlad Yasevich wrote:
-> 
->> When the vlan filtering is enabled on the bridge, but
->> the filter is not configured on the bridge device itself,
->> running tcpdump on the bridge device will result in a
->> an Ooops with NULL pointer dereference.  The reason
->> is that br_pass_frame_up() will bypass the vlan
->> check because promisc flag is set.  It will then try
->> to get the table pointer and process the packet based
->> on the table.  Since the table pointer is NULL, we oops.
->> Catch this special condition in br_handle_vlan().
-> 
->> Reported-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
->> CC: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
->> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> [...]
-> 
->> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
->> index af5ebd1..ea0c29b 100644
->> --- a/net/bridge/br_vlan.c
->> +++ b/net/bridge/br_vlan.c
->> @@ -144,6 +144,18 @@ struct sk_buff *br_handle_vlan(struct net_bridge
->> *br,
->>       if (!br->vlan_enabled)
->>           goto out;
+On Thu, Jan 2, 2014 at 4:38 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2014-01-02 at 12:00 -0800, Tom Herbert wrote:
+>> Running a simple netperf TCP_RR test with 200 clients shows that
+>> ipv4_dst_check is high on the list of functions in 'perf top'. The
+>> pertinent action in this function is in the call to rt_is_expired
+>> which checks the route genid (rt->rt_gentid) against the global value.
+>> rt_genid is in the same cacheline as dst->__refcnt which is causing
+>> false sharing.
 >>
->> +    /* Vlan filter table must be configrured at this point.  The
-> 
->    Only "configured".
-> 
->> +     * only exception is the bridge is set in promisc mode and the
->> +     * packet is destined for the bridge device.  In this case
->> +     * pass the packet as is.
->> +     */
->> +    if (!pv) {
->> +               if ((br->dev->flags & IFF_PROMISC) && skb->dev ==
->> br->dev)
-> 
->    You've indented this *if* too much.
+>> This fix moves rt_genid into the first cacheline of the dst structure.
+>> The dst structue is explicitly packed for cacheline optimization, so to
+>> make room for the genid, I moved xfrm to cacheline with __refcnt (under
+>> the assumption it is less likely to be in the critical path).
+>
+> This looks like a difficult to check assumption to me ....
+>
+> rcu_head surely could be moved without performance impact.
+>
+Yes, I had thought about that. It's two pointers so this will generate
+a extra hole, probably not worth moving it for 64 bit pointer case I
+suppose. I can try a patch for that.
 
-Thanks, will fix in v2.  For now, will now wait for a few more reviews.
+> Again, optimizing network stack for 200 TCP_RR special case is very
+> questionable. The dst must be refcounted because of special prequeue
+> mode, where a thread is blocked in a recvmsg() call.
+>
+If you can suggest an alternate test we should be running that
+reflects the "real world", I can run that.
 
--vlad
+> Any modern application handling lot of sockets uses poll()/epoll()
+> anyway and prequeue is disabled : No refcount is taken, as the dst is
+> released (no refcount touch because of RCU) before the skb is queued
+> into socket receive queue.
+>
+Notwithstanding that we can't feasibly audit a million applications to
+verify that they follow the "correct" design, it is still common to
+dispatch individual sockets to worker threads which will do blocking
+reads for long lived requests.
 
-> 
->> +            goto out;
->> +        else
->> +            BUG();
->> +    }
->> +
-> 
-> WBR, Sergei
-> 
+It seems to me you have more of an issue with prequeue itself. Maybe
+it is worth considering removing it to eliminate the disparate
+behavior between read and poll+read, but then removing a long lived
+optimization has is own pitfalls.
+
+>
+>
