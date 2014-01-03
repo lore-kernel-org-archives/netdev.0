@@ -1,73 +1,57 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v2 -next] netfilter: don't use per-destination incrementing
- ports in nat random mode
-Date: Sat, 04 Jan 2014 00:11:32 +0100
-Message-ID: <52C743A4.7090406@redhat.com>
-References: <20131219134007.GA24118@order.stressinduktion.org> <52B37F6B.9010105@redhat.com> <20131220004822.GC32129@order.stressinduktion.org> <20131220080118.GA4234@localhost> <20131220214029.GB14073@order.stressinduktion.org> <20140103225236.GA18357@localhost>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH RESEND] netfilter: remove unused variable
+Date: Sat, 4 Jan 2014 00:11:46 +0100
+Message-ID: <20140103231146.GA23904@localhost>
+References: <1388554039-28452-1-git-send-email-mina86@mina86.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	kaber@trash.net
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50465 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753750AbaACXLk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jan 2014 18:11:40 -0500
-In-Reply-To: <20140103225236.GA18357@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Michal Nazarewicz <mina86@mina86.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1388554039-28452-1-git-send-email-mina86@mina86.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/03/2014 11:52 PM, Pablo Neira Ayuso wrote:
-> On Fri, Dec 20, 2013 at 10:40:29PM +0100, Hannes Frederic Sowa wrote:
->> From: Daniel Borkmann <dborkman@redhat.com>
->>
->> We currently use prandom_u32() for allocation of ports in tcp bind(0)
->> and udp code. In case of plain SNAT we try to keep the ports as is
->> or increment on collision.
->>
->> SNAT --random mode does use per-destination incrementing port
->> allocation. As a recent paper pointed out in [1] that this mode of
->> port allocation makes it possible to an attacker to find the randomly
->> allocated ports through a timing side-channel in a socket overloading
->> attack conducted through an off-path attacker.
->>
->> So, NF_NAT_RANGE_PROTO_RANDOM actually weakens the port randomization
->> in regard to the attack described in this paper. As we need to keep
->> compatibility, add another flag called NF_NAT_RANGE_PROTO_RANDOM_FULLY
->> that would replace the NF_NAT_RANGE_PROTO_RANDOM hash-based port
->> selection algorithm with a simple prandom_u32() in order to mitigate
->> this attack vector. Note that the lfsr113's internal state is
->> periodically reseeded by the kernel through a local secure entropy
->> source.
->>
->> More details can be found in [1], the basic idea is to send bursts
->> of packets to a socket to overflow its receive queue and measure
->> the latency to detect a possible retransmit when the port is found.
->> Because of increasing ports to given destination and port, further
->> allocations can be predicted. This information could then be used by
->> an attacker for e.g. for cache-poisoning, NS pinning, and degradation
->> of service attacks against DNS servers [1]:
->>
->>    The best defense against the poisoning attacks is to properly
->>    deploy and validate DNSSEC; DNSSEC provides security not only
->>    against off-path attacker but even against MitM attacker. We hope
->>    that our results will help motivate administrators to adopt DNSSEC.
->>    However, full DNSSEC deployment make take significant time, and
->>    until that happens, we recommend short-term, non-cryptographic
->>    defenses. We recommend to support full port randomisation,
->>    according to practices recommended in [2], and to avoid
->>    per-destination sequential port allocation, which we show may be
->>    vulnerable to derandomisation attacks.
->>
->> Joint work between Hannes Frederic Sowa and Daniel Borkmann.
->
-> Applied, thanks.
->
-> I have renamed the title of this patch to: "add full port
-> randomization support" which I though a bit more descriptive with the
-> final patch that has settled down, just in case you look for it in the
-> nf-next tree.
+On Wed, Jan 01, 2014 at 06:27:19AM +0100, Michal Nazarewicz wrote:
+> The nfmsg variable is not used (except in sizeof operator which does
+> not care about its value) between the first and second time it is
+> assigned the value.  Furthermore, nlmsg_data has no side effects, so
+> the assignment can be safely removed.
 
-That's fine, thanks a lot Pablo!
+Applied with minor glitch, see below.
+
+Thanks.
+
+> Signed-off-by: Michal Nazarewicz <mina86@mina86.com>
+> Cc: Patrick McHardy <kaber@trash.net>
+> ---
+>  net/netfilter/nf_tables_api.c | 1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+> index f93b7d0..9c56adc 100644
+> --- a/net/netfilter/nf_tables_api.c
+> +++ b/net/netfilter/nf_tables_api.c
+> @@ -2521,7 +2521,6 @@ static int nf_tables_dump_set(struct sk_buff *skb, struct netlink_callback *cb)
+>  	u32 portid, seq;
+>  	int event, err;
+>  
+> -	nfmsg = nlmsg_data(cb->nlh);
+>  	err = nlmsg_parse(cb->nlh, sizeof(*nfmsg), nla, NFTA_SET_ELEM_LIST_MAX,
+
+mangled this patch to use sizeof(struct nfgenmsg) instead. That change
+is not required from the semantic point of view, of course, but for
+readability reasons I think it's better not to refer to a variable
+that is not used in that context.
+
+>  			  nft_set_elem_list_policy);
+>  	if (err < 0)
+> -- 
+> 1.8.4
+> 
