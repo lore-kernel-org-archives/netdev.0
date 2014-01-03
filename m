@@ -1,69 +1,151 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] Do not listen if rtnl_send() fails in ip link
- iplink_have_newlink() test
-Date: Fri, 3 Jan 2014 12:36:05 -0800
-Message-ID: <20140103123605.07468944@nehalam.linuxnetplumber.net>
-References: <20131211105749.1ee87844@nehalam.linuxnetplumber.net>
-	<1386832705-3101-1-git-send-email-ppisar@redhat.com>
-	<20131220082107.0467d57c@nehalam.linuxnetplumber.net>
-	<20140102074257.GA1637@dhcp-0-146.brq.redhat.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net v2 1/9] bridge: Fix the way to find old local fdb
+ entries in br_fdb_changeaddr
+Date: Fri, 03 Jan 2014 15:46:04 -0500
+Message-ID: <52C7218C.2000205@redhat.com>
+References: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp> <1387281821-21342-2-git-send-email-makita.toshiaki@lab.ntt.co.jp> <52C70F63.4020604@redhat.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Petr Pisar <ppisar@redhat.com>
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	"David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:42295 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753621AbaACUgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 15:36:08 -0500
-Received: by mail-pb0-f45.google.com with SMTP id rp16so16132750pbb.32
-        for <netdev@vger.kernel.org>; Fri, 03 Jan 2014 12:36:08 -0800 (PST)
-In-Reply-To: <20140102074257.GA1637@dhcp-0-146.brq.redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:11357 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752463AbaACUqK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jan 2014 15:46:10 -0500
+In-Reply-To: <52C70F63.4020604@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2 Jan 2014 08:42:57 +0100
-Petr Pisar <ppisar@redhat.com> wrote:
+On 01/03/2014 02:28 PM, Vlad Yasevich wrote:
+> On 12/17/2013 07:03 AM, Toshiaki Makita wrote:
+>> br_fdb_changeaddr() assumes that there is at most one local entry per port
+>> per vlan. It used to be true, but since commit 36fd2b63e3b4 ("bridge: allow
+>> creating/deleting fdb entries via netlink"), it has not been so.
+>> Therefore, the function might fail to search a correct previous address
+>> to be deleted and delete an arbitrary local entry if user has added local
+>> entries manually.
+>>
+>> Example of problematic case:
+>>   ip link set eth0 address ee:ff:12:34:56:78
+>>   brctl addif br0 eth0
+>>   bridge fdb add 12:34:56:78:90:ab dev eth0 master
+>>   ip link set eth0 address aa:bb:cc:dd:ee:ff
+>> Then, the address 12:34:56:78:90:ab might be deleted instead of
+>> ee:ff:12:34:56:78, the original mac address of eth0.
+>>
+>> Address this issue by introducing a new flag, added_by_user, to struct
+>> net_bridge_fdb_entry.
+>>
+>> Note that br_fdb_delete_by_port() has to set added_by_user to 0 in case
+>> like:
+>>   ip link set eth0 address 12:34:56:78:90:ab
+>>   ip link set eth1 address aa:bb:cc:dd:ee:ff
+>>   brctl addif br0 eth0
+>>   bridge fdb add aa:bb:cc:dd:ee:ff dev eth0 master
+>>   brctl addif br0 eth1
+>>   brctl delif br0 eth0
+>> In this case, kernel should delete the user-added entry aa:bb:cc:dd:ee:ff,
+>> but it also should have been added by "brctl addif br0 eth1" originally,
+>> so we don't delete it and treat it a new kernel-created entry.
+>>
+> 
+> I was looking over my patch series that adds something similar to this
+> and noticed that you are not handing the NTF_USE case.  That case was
+> always troublesome for me as it allows for 2 different way to create
+> the same FDB: one through br_fdb_update() and one through fdb_add_entry().
+> 
+> It is possible, though I haven't found any users yet, that NTF_USE
+> may be used and in that case, bridge will create a dynamic fdb and
+> disregard all NUD flags.  In case case, add_by_user will not be set
+> either.
+> 
+> I think that the above is broken and plan to submit a fix shortly.
 
-> On Fri, Dec 20, 2013 at 08:21:07AM -0800, Stephen Hemminger wrote:
-> > I took your idea and enhanced it to all of iproute2 by doing the following:
-> > 
-> > From c4b6330a3a033bd9c9b0664c5f844493137ae599 Mon Sep 17 00:00:00 2001
-> > From: Stephen Hemminger <stephen@networkplumber.org>
-> > Date: Fri, 20 Dec 2013 08:15:02 -0800
-> > Subject: [PATCH] check return value of rtnl_send and related functions
-> > MIME-Version: 1.0
-> > Content-Type: text/plain; charset=UTF-8
-> > Content-Transfer-Encoding: 8bit
-> > 
-> > Use warn_unused_result to enforce checking return value of rtnl_send,
-> > and fix where the errors are.
-> > 
-> [...]
-> > diff --git a/ip/iplink.c b/ip/iplink.c
-> > index 58b6c20..e0c14e6 100644
-> > --- a/ip/iplink.c
-> > +++ b/ip/iplink.c
-> > @@ -178,7 +178,10 @@ static int iplink_have_newlink(void)
-> >  		req.n.nlmsg_type = RTM_NEWLINK;
-> >  		req.i.ifi_family = AF_UNSPEC;
-> >  
-> > -		rtnl_send(&rth, &req.n, req.n.nlmsg_len);
-> > +		if (rtnl_send(&rth, &req.n, req.n.nlmsg_len) < 0) {
-> > +			perror("request send failed");
-> > +			exit(1);
-> > +		}
-> >  		rtnl_listen(&rth, accept_msg, NULL);
-> >  	}
-> >  	return have_rtnl_newlink;
-> 
-> This one exits instead of falling back to IOCTL. iplink_have_newlink() is
-> called even from iplink_usage(). This even prevents from printing usage.
-> 
-> I think failure in this very place should be treated as I suggested.
-> 
-> -- Petr
+Just looked again at my NTF_USE patch and while it seems ok, the whole
+NTF_USE usage is racy to begin with and I am really starting to question
+it's validity.
 
-The code gets used in multiple paths, some should fail and others have
-fallback. I will fix the cases where fallback is possible.
+Presently, br_fdb_update() will not update local fdb entries.   Instead
+it will log a misleading warning...  It will only let you update
+non-local entries.  This is fine for user-created entries, but any
+operation on dynamically created entries will only persist until
+the next packet.  It also races against the packet, so there is
+absolutely no guarantee that the values of fdb->dst and fdb->updated
+will be consistent..
+
+It seems to me that the update capability of NTF_USE would actually be
+of more value on local or user-created fdb entries.
+
+The fdb creation capability of NTF_USE should be disabled.
+
+Thoughts?
+
+-vlad
+
+
+> 
+> Thanks
+> -vlad
+> 
+>> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>> ---
+>>  net/bridge/br_fdb.c     | 5 ++++-
+>>  net/bridge/br_private.h | 1 +
+>>  2 files changed, 5 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+>> index 33e8f23..5dab230 100644
+>> --- a/net/bridge/br_fdb.c
+>> +++ b/net/bridge/br_fdb.c
+>> @@ -104,7 +104,7 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
+>>  			struct net_bridge_fdb_entry *f;
+>>  
+>>  			f = hlist_entry(h, struct net_bridge_fdb_entry, hlist);
+>> -			if (f->dst == p && f->is_local) {
+>> +			if (f->dst == p && f->is_local && !f->added_by_user) {
+>>  				/* maybe another port has same hw addr? */
+>>  				struct net_bridge_port *op;
+>>  				u16 vid = f->vlan_id;
+>> @@ -247,6 +247,7 @@ void br_fdb_delete_by_port(struct net_bridge *br,
+>>  					    ether_addr_equal(op->dev->dev_addr,
+>>  							     f->addr.addr)) {
+>>  						f->dst = op;
+>> +						f->added_by_user = 0;
+>>  						goto skip_delete;
+>>  					}
+>>  				}
+>> @@ -397,6 +398,7 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
+>>  		fdb->vlan_id = vid;
+>>  		fdb->is_local = 0;
+>>  		fdb->is_static = 0;
+>> +		fdb->added_by_user = 0;
+>>  		fdb->updated = fdb->used = jiffies;
+>>  		hlist_add_head_rcu(&fdb->hlist, head);
+>>  	}
+>> @@ -648,6 +650,7 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
+>>  
+>>  		modified = true;
+>>  	}
+>> +	fdb->added_by_user = 1;
+>>  
+>>  	fdb->used = jiffies;
+>>  	if (modified) {
+>> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+>> index 045d56e..91fb2c2 100644
+>> --- a/net/bridge/br_private.h
+>> +++ b/net/bridge/br_private.h
+>> @@ -104,6 +104,7 @@ struct net_bridge_fdb_entry
+>>  	mac_addr			addr;
+>>  	unsigned char			is_local;
+>>  	unsigned char			is_static;
+>> +	unsigned char			added_by_user;
+>>  	__u16				vlan_id;
+>>  };
+>>  
+>>
+> 
