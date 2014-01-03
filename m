@@ -1,15 +1,17 @@
 From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [RFC PATCH net-next 3/4] veth: backup classid befor switch net_ns
-Date: Fri, 3 Jan 2014 11:11:14 +0800
-Message-ID: <52C62A52.8050003@huawei.com>
+Subject: [RFC PATCH net-next 0/4] net_cls for sys container
+Date: Fri, 3 Jan 2014 11:11:00 +0800
+Message-ID: <52C62A44.4070304@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	Serge Hallyn <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, honkiko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	Serge Hallyn <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>, pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
+	kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Li Zefan
+	<lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
 	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
@@ -22,40 +24,31 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Hi guys,
 
-dev_forward_skb will clear skb->sk, so we need save classid
-before that, otherwise the skb can not be under control by
-net_cls.
+Now, lxc created with veth can not be under control by
+cls_cgroup.
 
-Signed-off-by: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
----
- drivers/net/veth.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+the former discussion:
+http://lkml.indiana.edu/hypermail/linux/kernel/1312.1/00214.html
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 2ec2041..ce43a2d 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -18,6 +18,7 @@
- #include <net/xfrm.h>
- #include <linux/veth.h>
- #include <linux/module.h>
-+#include <net/cls_cgroup.h>
+In short, because cls_cgroup relys classid attached to sock
+filter skb, but sock will be cleared inside dev_forward_skb()
+in veth_xmit().
 
- #define DRV_NAME	"veth"
- #define DRV_VERSION	"1.0"
-@@ -123,6 +124,12 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
- 	    rcv->features & NETIF_F_RXCSUM)
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+so I add backup_classid in struct sk_buffer to save classid
+before dev_forward_skb(). In cls_cgroup_classify(), if skb->sk
+is NULL, we can try to restore classid form skb->bk_classid.
 
-+	/**
-+	 * dev_forward_sbk will clear skb->sk, so save
-+	 * skb->sk->sk_classid for Qos
-+	 */
-+	bk_cls_classid(skb);
-+
- 	if (likely(dev_forward_skb(rcv, skb) == NET_RX_SUCCESS)) {
- 		struct pcpu_vstats *stats = this_cpu_ptr(dev->vstats);
 
--- 
-1.8.2.2
+Libo Chen (4):
+  net: introduce bk_classid to struct sk_buff
+  cls_cgroup: introduce a helper: bk_cls_classid()
+  veth: backup classid befor switch net_ns
+  cls_cgroup: restore classid from skb->sk_classid
+
+ drivers/net/veth.c       |  5 +++++
+ include/linux/skbuff.h   |  3 +++
+ include/net/cls_cgroup.h | 11 +++++++++++
+ net/sched/cls_cgroup.c   |  8 ++++----
+ 4 files changed, 23 insertions(+), 4 deletions(-)
