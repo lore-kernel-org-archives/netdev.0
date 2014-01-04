@@ -1,34 +1,38 @@
-From: COMMON WEALTH <ca20@Commoninc.onmicrosoft.com>
-Subject: Common Wealth Notification..
-Date: Sat, 4 Jan 2014 23:17:00 +0530
-Message-ID: <cffa199a-864e-4d07-8609-eaea5b5261f2@HKNPR02MB260.apcprd02.prod.outlook.com>
-Reply-To: <atmdispatch0122@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 0/6] phylib: cleanups
+Date: Sat, 04 Jan 2014 21:53:59 +0300
+Message-ID: <52C858C7.1010300@cogentembedded.com>
+References: <201401040413.06853.sergei.shtylyov@cogentembedded.com> <20140104155338.GG4925@netboy> <52C8417D.6020502@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <ca20@Commoninc.onmicrosoft.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emea01-am1-ndr.ptr.protection.outlook.com ([157.56.116.104]:62288
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754858AbaADRrp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 12:47:45 -0500
-Content-Description: Mail message body
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:48085 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751313AbaADRx5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 12:53:57 -0500
+Received: by mail-lb0-f179.google.com with SMTP id w7so8706032lbi.24
+        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 09:53:55 -0800 (PST)
+In-Reply-To: <52C8417D.6020502@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your Fund worth of (US$10.5 Million) was Converted into ATM-Card from Common Wealth Organization which You Can make Withdraw of US$5,600.00 in Any ATM Cash Point Machine Worldwide.Your ATM Card Have Been Programmed By Us The issuing Bank (Common Wealth Bnak) And Your Personal Identification Number is ATM-4278763100030014. The ATM Card has a daily withdrawal limit of $5,600.00 USD per Day.  You are advised to contact (MR NELSON ADAMS) with Your full information For Delivery. 
+On 01/04/2014 08:14 PM, Sergei Shtylyov wrote:
 
-1. Full Name:
-2. Age:
-3. Sex:
-4. Occupation:
-5. Mobile Number:
-6. Delivery Address:
-7. State:
-8. Country:
+>>>     This patchset mainly cleans up the phylib's coding style but then also
+>>> removes some historically unused stuff.
 
-Contact Email: atmdispatch01@admin.in.th
-Regards,
-Mr. Shawn T. Bongard
-Common Wealth Bank
+>> Why not put the author of the code onto CC?
+
+>     Because get_maintainer.pl doesn't suggest it and because Andy Fleming
+> seems no longer interested in maintaining his code written back in 2004.
+
+    Besides, I don't have his current email address (the source code doesn't 
+provide any).
+
+>> Thanks,
+>> Richard
+
+WBR, Sergei
