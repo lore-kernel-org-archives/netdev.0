@@ -1,40 +1,64 @@
-From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH nf-next v5 0/3] xtables socket classid matching
-Date: Sat, 04 Jan 2014 15:48:50 +0100
-Message-ID: <52C81F52.5080904@redhat.com>
-References: <1388338032-14713-1-git-send-email-dborkman@redhat.com> <52C264F6.7050602@huawei.com> <20140103225613.GA18418@localhost> <52C7D76A.3020106@redhat.com> <20140104144642.GA4010@localhost>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 4/6] phy: kill excess code
+Date: Sat, 04 Jan 2014 19:24:19 +0300
+Message-ID: <52C835B3.80103@cogentembedded.com>
+References: <201401040413.06853.sergei.shtylyov@cogentembedded.com>	<201401040419.14818.sergei.shtylyov@cogentembedded.com> <CAGVrzcadLFE-FWvgDQE5gkd6COZkGs2Q4SQdnOdKE4Deu-qa0A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140104144642.GA4010@localhost>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f53.google.com ([209.85.215.53]:47561 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754242AbaADPYR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 10:24:17 -0500
+Received: by mail-la0-f53.google.com with SMTP id mc6so8681733lab.26
+        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 07:24:16 -0800 (PST)
+In-Reply-To: <CAGVrzcadLFE-FWvgDQE5gkd6COZkGs2Q4SQdnOdKE4Deu-qa0A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/04/2014 03:46 PM, Pablo Neira Ayuso wrote:
-> On Sat, Jan 04, 2014 at 10:42:02AM +0100, Daniel Borkmann wrote:
->> On 01/03/2014 11:56 PM, Pablo Neira Ayuso wrote:
->>> On Tue, Dec 31, 2013 at 02:32:22PM +0800, Li Zefan wrote:
->>>> On 2013/12/30 1:27, Daniel Borkmann wrote:
->>>>> The main patch is patch 3, please refer to the detailled description
->>>>> there. Patch 1 has been requested by cgroups people to have as a
->>>>> cleanup. While at it, I've also added a minor, trivial cleanup in
->>>>> patch 2 for consistency reasons.
->>>>>
->>>>
->>>> Looks good to me.
->>>
->>> Series applied, thanks.
->>
->> Thanks a lot Pablo, as mentioned in [1], the _unchanged_ user space
->> part is available in [2].
->>
->> Let me know if you want me to resend it, or if you would like to
->> take it from there.
->
-> No need to. I have applied that patch to iptables-next, thanks.
+Hello.
 
-Awesome, thanks Pablo!
+On 01/04/2014 01:12 PM, Florian Fainelli wrote:
+
+>  > Remove tens of lines of unnecessary code:
+
+>  > - kill empty lines between a function call and its result check;
+
+>  > - convert assignments to initializers;
+
+>  > - kill useless assignments before *return*;
+
+>  > - kill excess empty lines.
+
+> I might be completely out of date on what checkpatch is picky about these days
+
+    Yes, you probably are.
+
+> but it seems to me like all of these changes would trigger new warnings, I
+
+    No new warnings were added. You should really have checked before you 
+spoken out.
+
+> will take a closer look, but for now I don't see this patch making any
+> reability improvements, quite the contrary.
+
+    Apparently, tastes vary. To me, e.g. empty lines between the function call 
+and result (error) check are a waste of space which is avoided by all other 
+kernel code I had to read.
+
+>  > Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com
+> <mailto:sergei.shtylyov@cogentembedded.com>>
+
+>  > ---
+>  >  drivers/net/phy/phy.c        |   31 ++++------------------------
+>  >  drivers/net/phy/phy_device.c |   46
+> +++++++------------------------------------
+>  >  2 files changed, 13 insertions(+), 64 deletions(-)
+
+    May I ask you not to quote the full patch if you're replying only to the 
+header? Please show some respect to people who read your messages.
+
+WBR, Sergei
