@@ -1,49 +1,47 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch iproute2 v2 0/2] add support for IFA_F_MANAGETEMPADDR
-Date: Sat, 4 Jan 2014 12:35:43 +0100
-Message-ID: <20140104113543.GC25828@order.stressinduktion.org>
-References: <1388676879-2603-1-git-send-email-jiri@resnulli.us> <20140102172949.GF22494@order.stressinduktion.org> <20140104104331.GB9295@minipsycho.orion> <20140104105515.GA25828@order.stressinduktion.org> <20140104110557.GD9295@minipsycho.orion> <20140104111546.GB25828@order.stressinduktion.org> <1388834511.7407.5.camel@weing>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net PATCH] netfilter: only warn once on wrong seqadj usage
+Date: Sat, 04 Jan 2014 14:10:43 +0100
+Message-ID: <20140104130944.28481.30891.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	stephen@networkplumber.org
-To: Thomas Haller <thaller@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:38686 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751982AbaADLfo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 06:35:44 -0500
-Content-Disposition: inline
-In-Reply-To: <1388834511.7407.5.camel@weing>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, Florian Westphal <fw@strlen.de>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Flavio Leitner <fbl@redhat.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 04, 2014 at 12:21:51PM +0100, Thomas Haller wrote:
-> > > >Also, I saw that NetworkManager switched to install autoconf addresses
-> > > >as /128, doesn't this break with IFA_F_MANAGETEMPADDR, as you expect a /64
-> > > >prefixlen?
-> > > 
-> > > /64 is required
-> > 
-> > Ok, currently NM seems to "violate" that as it installs autoconf addresses
-> > with 128 prefixlen, so IFA_F_MANAGETEMPADDR should not work on them.
-> > (currently observed on Fedora 20).
-> 
-> True, I noticed that too. I think that is a bug in NM to add the
-> addresses as /128. Probably, we will fix that soon.
+Avoid potentially spamming the kernel log with WARN splash messages
+when catching wrong usage of seqadj, by simply using WARN_ONCE.
 
-The change could be valid. Otherwise currently NM could not correctly handle
-prefix information in RAs in some cases:
+This is a followup to commit db12cf274353 (netfilter: WARN about
+wrong usage of sequence number adjustments)
 
-It is possible to let the client generate an autonomously address in a
-prefix which is actually not on-link (L=0). Kernel would automatically
-create prefix route by mistake, if NM tries to install such an address
-with /64 prefix. This does not happen if the prefix address uses 128
-prefixlen.
+Suggested-by: Flavio Leitner <fbl@redhat.com>
+Suggested-by: Daniel Borkmann <dborkman@redhat.com>
+Suggested-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+---
+Nitpick found by internal RedHat review process ;-)
 
-Would be great to have feedback on this, as this could be easily solved by an
-additional ifa_flag.
+ net/netfilter/nf_conntrack_seqadj.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Greetings,
+diff --git a/net/netfilter/nf_conntrack_seqadj.c b/net/netfilter/nf_conntrack_seqadj.c
+index b2d38da..f6e2ae9 100644
+--- a/net/netfilter/nf_conntrack_seqadj.c
++++ b/net/netfilter/nf_conntrack_seqadj.c
+@@ -37,7 +37,7 @@ int nf_ct_seqadj_set(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
+ 		return 0;
+ 
+ 	if (unlikely(!seqadj)) {
+-		WARN(1, "Wrong seqadj usage, missing nfct_seqadj_ext_add()\n");
++		WARN_ONCE(1, "Missing nfct_seqadj_ext_add() setup call\n");
+ 		return 0;
+ 	}
+ 
 
-  Hannes
