@@ -1,86 +1,33 @@
-From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH man-pages] man: packet.7: document fanout, ring and
- auxiliary options
-Date: Sun, 5 Jan 2014 10:57:28 +1300
-Message-ID: <CAKgNAkj8G6VvPLYF56884XcAWw+yOTUcF1UZSRwcYTk52D--zg@mail.gmail.com>
-References: <52A1F7D7.6040305@redhat.com> <1386350329-32723-1-git-send-email-willemb@google.com>
- <52A22B78.8070109@redhat.com> <52C81EF8.6090908@redhat.com>
-Reply-To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v2 3/5] alx: add stats update function
+Date: Sat, 4 Jan 2014 14:16:08 -0800
+Message-ID: <20140104141608.5d882082@nehalam.linuxnetplumber.net>
+References: <1388854031-24142-1-git-send-email-sd@queasysnail.net>
+	<1388854031-24142-4-git-send-email-sd@queasysnail.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	linux-man <linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <52C81EF8.6090908-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, bhutchings@solarflare.com,
+	johannes@sipsolutions.net, netdev@vger.kernel.org
+To: Sabrina Dubroca <sd@queasysnail.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:33449 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754352AbaADWQM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 17:16:12 -0500
+Received: by mail-pa0-f51.google.com with SMTP id fa1so17014351pad.24
+        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 14:16:11 -0800 (PST)
+In-Reply-To: <1388854031-24142-4-git-send-email-sd@queasysnail.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Daniel, and Willem,
+On Sat,  4 Jan 2014 17:47:09 +0100
+Sabrina Dubroca <sd@queasysnail.net> wrote:
 
-On Sun, Jan 5, 2014 at 3:47 AM, Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> On 12/06/2013 08:54 PM, Daniel Borkmann wrote:
->>
->> On 12/06/2013 06:18 PM, Willem de Bruijn wrote:
->>>
->>> The packet socket manual page does not list all socket options.
->>>
->>> This patch adds descriptions of the common packet socket options
->>>    PACKET_AUXDATA, PACKET_FANOUT, PACKET_RX_RING, PACKET_STATISTICS,
->>>    PACKET_TX_RING
->>>
->>> and the ring-specific options
->>>    PACKET_LOSS, PACKET_RESERVE, PACKET_TIMESTAMP, PACKET_VERSION
->>>
->>> It does not yet add descriptions for
->>>    PACKET_COPY_THRESH, PACKET_HDRLEN, PACKET_ORIGDEV,
->>>    PACKET_TX_HAS_OFF, PACKET_TX_TIMESTAMP, PACKET_VNET_HDR
->>>
->>> It tries to balance being informative with exposing kernel detail
->>> that is unlikely to be used by most readers or that may change
->>> frequently. For implementation details, the manpage points to the
->>> documentation in kernel Documentation/networking. Let me know if
->>> options should be added or removed.
->>>
->>> Source: PACKET_FANOUT, PACKET_RX_RING and PACKET_VERSION are in
->>> /tools/testing/net/psock_fanout.c in the latest Linux kernel source
->>> tree. PACKET_STATISTICS was in the first version of that test.
->>> PACKET_TX_RING I have used elsewhere. The other options are based
->>> on reading kernel code.
->>>
->>>   [Very minor fixups. -dborkman]
->>>
->>> Signed-off-by: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
->>
->>
->> Acked-by: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->>
->> I went over the man page again, and it looks good to me.
->>
->> Great work and thanks for following up Willem!
->
->
-> Ping, Michael, any progress on this one? Lets not get this work
-> lost somewhere as it happened in March last year ...
+>  }
+> +
+> +void __alx_update_hw_stats(struct alx_hw *hw)
 
-Thanks for the ping, and sorry for the delay. I've applied the patch:
-http://git.kernel.org/cgit/docs/man-pages/man-pages.git/commit/?id=dbb4f7516b22663da977ea5c37691c5940bb3eb7
-
-I added kernel version numbers for two of the newly documented
-options. You may want to check them:
-http://git.kernel.org/cgit/docs/man-pages/man-pages.git/commit/?id=342639d9e9d766b7b3b3a03045144be64f1f556c
-
-Cheers,
-
-Michael
-
--- 
-Michael Kerrisk
-Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-Linux/UNIX System Programming Training: http://man7.org/training/
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Minor NIT:
+Why __ prefix? that is usually reserved for functions only
+called from one file (or when wrapping an existing API)
