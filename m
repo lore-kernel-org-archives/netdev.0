@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v5 15/17] i40e: make a define from a large constant
-Date: Fri,  3 Jan 2014 21:56:43 -0800
-Message-ID: <1388815005-23166-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v5 10/17] i40e: refactor VF reset flow
+Date: Fri,  3 Jan 2014 21:56:38 -0800
+Message-ID: <1388815005-23166-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1388815005-23166-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -9,97 +9,378 @@ Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:51754 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:53902 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754793AbaADF5R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Jan 2014 00:57:17 -0500
+	id S1754705AbaADF44 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Jan 2014 00:56:56 -0500
 In-Reply-To: <1388815005-23166-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mitch Williams <mitch.a.williams@intel.com>
 
-Make a define used in the header file by both VF and PF drivers.
+Fix the VF reset flow so that it works on real hardware. After
+discussions with the HW team, the reset flow has been changed
+somewhat.
 
-Change-Id: Ie9e35adcc021cd6a8f7513934984eb4ed55774f5
+- Change the i40e_reset_vf function to a void type, and fix
+  up the callers to reflect this.
+- Move the MSI-X disable code to i40e_free_vf_res since it must
+  be done every time the VF is freed, regardless of whether or
+  not it is reset.
+- Ensure that the PCIe bus is quiet before polling the reset bit.
+- Don't clear the VFGEN_RSTAT1 register at the beginning as it is
+  cleared by the reset.
+- Poll longer for the reset to be done.
+- Disable the queues using an existing function rather than
+  rolling our own.
+- Free and reallocate the VSI after reset to avoid rx hang.
+
+Change-Id: I11e2590431cb73e8663714d1cc5b23d59b809033
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 21 +--------------------
- drivers/net/ethernet/intel/i40e/i40e_txrx.h | 20 ++++++++++++++++++++
- 2 files changed, 21 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h             |   1 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 202 ++++++++++-----------
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |   2 +-
+ 4 files changed, 99 insertions(+), 108 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 34a54e7..df569fd 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -543,6 +543,7 @@ struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
+ int i40e_vsi_release(struct i40e_vsi *vsi);
+ struct i40e_vsi *i40e_vsi_lookup(struct i40e_pf *pf, enum i40e_vsi_type type,
+ 				 struct i40e_vsi *start_vsi);
++int i40e_vsi_control_rings(struct i40e_vsi *vsi, bool enable);
+ int i40e_reconfig_rss_queues(struct i40e_pf *pf, int queue_count);
+ struct i40e_veb *i40e_veb_setup(struct i40e_pf *pf, u16 flags, u16 uplink_seid,
+ 				u16 downlink_seid, u8 enabled_tc);
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 82ed436..d5719bd 100644
+index 97add1f..a109ae4 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5703,25 +5703,6 @@ static int i40e_setup_misc_vector(struct i40e_pf *pf)
+@@ -3110,7 +3110,7 @@ static int i40e_vsi_control_rx(struct i40e_vsi *vsi, bool enable)
+  * @vsi: the VSI being configured
+  * @enable: start or stop the rings
   **/
- static int i40e_config_rss(struct i40e_pf *pf)
+-static int i40e_vsi_control_rings(struct i40e_vsi *vsi, bool request)
++int i40e_vsi_control_rings(struct i40e_vsi *vsi, bool request)
  {
--	const u64 default_hena =
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_SCTP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP_SYN) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_OTHER) |
--			((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV4) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV6_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV6_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_UDP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_SCTP) |
--			((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_OTHER) |
--			((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV6) |
--			((u64)1 << I40E_FILTER_PCTYPE_L2_PAYLOAD);
--
- 	/* Set of random keys generated using kernel random number generator */
- 	static const u32 seed[I40E_PFQF_HKEY_MAX_INDEX + 1] = {0x41b01687,
- 				0x183cfd8c, 0xce880440, 0x580cbc3c, 0x35897377,
-@@ -5739,7 +5720,7 @@ static int i40e_config_rss(struct i40e_pf *pf)
- 	/* By default we enable TCP/UDP with IPv4/IPv6 ptypes */
- 	hena = (u64)rd32(hw, I40E_PFQF_HENA(0)) |
- 		((u64)rd32(hw, I40E_PFQF_HENA(1)) << 32);
--	hena |= default_hena;
-+	hena |= I40E_DEFAULT_RSS_HENA;
- 	wr32(hw, I40E_PFQF_HENA(0), (u32)hena);
- 	wr32(hw, I40E_PFQF_HENA(1), (u32)(hena >> 32));
+ 	int ret;
  
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index faabf22..2992830 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -66,6 +66,26 @@ enum i40e_dyn_idx_t {
- #define I40E_TX_ITR    I40E_IDX_ITR1
- #define I40E_PE_ITR    I40E_IDX_ITR2
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index c0e3aec..8fdc842 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -621,6 +621,9 @@ static void i40e_disable_vf_mappings(struct i40e_vf *vf)
+ static void i40e_free_vf_res(struct i40e_vf *vf)
+ {
+ 	struct i40e_pf *pf = vf->pf;
++	struct i40e_hw *hw = &pf->hw;
++	u32 reg_idx, reg;
++	int i, msix_vf;
  
-+/* Supported RSS offloads */
-+#define I40E_DEFAULT_RSS_HENA ( \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_SCTP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP_SYN) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_OTHER) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV4) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_UNICAST_IPV6_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV6_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_UDP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_SCTP) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_OTHER) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV6) | \
-+	((u64)1 << I40E_FILTER_PCTYPE_L2_PAYLOAD))
+ 	/* free vsi & disconnect it from the parent uplink */
+ 	if (vf->lan_vsi_index) {
+@@ -628,7 +631,34 @@ static void i40e_free_vf_res(struct i40e_vf *vf)
+ 		vf->lan_vsi_index = 0;
+ 		vf->lan_vsi_id = 0;
+ 	}
++	msix_vf = pf->hw.func_caps.num_msix_vectors_vf + 1;
++	/* disable interrupts so the VF starts in a known state */
++	for (i = 0; i < msix_vf; i++) {
++		/* format is same for both registers */
++		if (0 == i)
++			reg_idx = I40E_VFINT_DYN_CTL0(vf->vf_id);
++		else
++			reg_idx = I40E_VFINT_DYN_CTLN(((msix_vf - 1) *
++						      (vf->vf_id))
++						     + (i - 1));
++		wr32(hw, reg_idx, I40E_VFINT_DYN_CTLN_CLEARPBA_MASK);
++		i40e_flush(hw);
++	}
+ 
++	/* clear the irq settings */
++	for (i = 0; i < msix_vf; i++) {
++		/* format is same for both registers */
++		if (0 == i)
++			reg_idx = I40E_VPINT_LNKLST0(vf->vf_id);
++		else
++			reg_idx = I40E_VPINT_LNKLSTN(((msix_vf - 1) *
++						      (vf->vf_id))
++						     + (i - 1));
++		reg = (I40E_VPINT_LNKLSTN_FIRSTQ_TYPE_MASK |
++		       I40E_VPINT_LNKLSTN_FIRSTQ_INDX_MASK);
++		wr32(hw, reg_idx, reg);
++		i40e_flush(hw);
++	}
+ 	/* reset some of the state varibles keeping
+ 	 * track of the resources
+ 	 */
+@@ -670,6 +700,36 @@ error_alloc:
+ 	return ret;
+ }
+ 
++#define VF_DEVICE_STATUS 0xAA
++#define VF_TRANS_PENDING_MASK 0x20
++/**
++ * i40e_quiesce_vf_pci
++ * @vf: pointer to the vf structure
++ *
++ * Wait for VF PCI transactions to be cleared after reset. Returns -EIO
++ * if the transactions never clear.
++ **/
++static int i40e_quiesce_vf_pci(struct i40e_vf *vf)
++{
++	struct i40e_pf *pf = vf->pf;
++	struct i40e_hw *hw = &pf->hw;
++	int vf_abs_id, i;
++	u32 reg;
 +
- /* Supported Rx Buffer Sizes */
- #define I40E_RXBUFFER_512   512    /* Used for packet split */
- #define I40E_RXBUFFER_2048  2048
++	reg = rd32(hw, I40E_PF_VT_PFALLOC);
++	vf_abs_id = vf->vf_id + (reg & I40E_PF_VT_PFALLOC_FIRSTVF_MASK);
++
++	wr32(hw, I40E_PF_PCI_CIAA,
++	     VF_DEVICE_STATUS | (vf_abs_id << I40E_PF_PCI_CIAA_VF_NUM_SHIFT));
++	for (i = 0; i < 100; i++) {
++		reg = rd32(hw, I40E_PF_PCI_CIAD);
++		if ((reg & VF_TRANS_PENDING_MASK) == 0)
++			return 0;
++		udelay(1);
++	}
++	return -EIO;
++}
++
+ /**
+  * i40e_reset_vf
+  * @vf: pointer to the vf structure
+@@ -677,35 +737,36 @@ error_alloc:
+  *
+  * reset the vf
+  **/
+-int i40e_reset_vf(struct i40e_vf *vf, bool flr)
++void i40e_reset_vf(struct i40e_vf *vf, bool flr)
+ {
+-	int ret = -ENOENT;
+ 	struct i40e_pf *pf = vf->pf;
+ 	struct i40e_hw *hw = &pf->hw;
+-	u32 reg, reg_idx, msix_vf;
+ 	bool rsd = false;
+-	u16 pf_queue_id;
+-	int i, j;
++	int i;
++	u32 reg;
+ 
+ 	/* warn the VF */
+-	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_INPROGRESS);
+-
+ 	clear_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states);
+ 
+-	/* PF triggers VFR only when VF requests, in case of
+-	 * VFLR, HW triggers VFR
++	/* In the case of a VFLR, the HW has already reset the VF and we
++	 * just need to clean up, so don't hit the VFRTRIG register.
+ 	 */
+ 	if (!flr) {
+ 		/* reset vf using VPGEN_VFRTRIG reg */
+-		reg = I40E_VPGEN_VFRTRIG_VFSWR_MASK;
++		reg = rd32(hw, I40E_VPGEN_VFRTRIG(vf->vf_id));
++		reg |= I40E_VPGEN_VFRTRIG_VFSWR_MASK;
+ 		wr32(hw, I40E_VPGEN_VFRTRIG(vf->vf_id), reg);
+ 		i40e_flush(hw);
+ 	}
+ 
++	if (i40e_quiesce_vf_pci(vf))
++		dev_err(&pf->pdev->dev, "VF %d PCI transactions stuck\n",
++			vf->vf_id);
++
+ 	/* poll VPGEN_VFRSTAT reg to make sure
+ 	 * that reset is complete
+ 	 */
+-	for (i = 0; i < 4; i++) {
++	for (i = 0; i < 100; i++) {
+ 		/* vf reset requires driver to first reset the
+ 		 * vf & than poll the status register to make sure
+ 		 * that the requested op was completed
+@@ -720,84 +781,29 @@ int i40e_reset_vf(struct i40e_vf *vf, bool flr)
+ 	}
+ 
+ 	if (!rsd)
+-		dev_err(&pf->pdev->dev, "VF reset check timeout %d\n",
++		dev_err(&pf->pdev->dev, "VF reset check timeout on VF %d\n",
+ 			vf->vf_id);
+-
+-	/* fast disable qps */
+-	for (j = 0; j < pf->vsi[vf->lan_vsi_index]->num_queue_pairs; j++) {
+-		ret = i40e_ctrl_vsi_tx_queue(vf, vf->lan_vsi_index, j,
+-					     I40E_QUEUE_CTRL_FASTDISABLE);
+-		ret = i40e_ctrl_vsi_rx_queue(vf, vf->lan_vsi_index, j,
+-					     I40E_QUEUE_CTRL_FASTDISABLE);
+-	}
+-
+-	/* Queue enable/disable requires driver to
+-	 * first reset the vf & than poll the status register
+-	 * to make sure that the requested op was completed
+-	 * successfully
+-	 */
+-	udelay(10);
+-	for (j = 0; j < pf->vsi[vf->lan_vsi_index]->num_queue_pairs; j++) {
+-		ret = i40e_ctrl_vsi_tx_queue(vf, vf->lan_vsi_index, j,
+-					     I40E_QUEUE_CTRL_FASTDISABLECHECK);
+-		if (ret)
+-			dev_info(&pf->pdev->dev,
+-				 "Queue control check failed on Tx queue %d of VSI %d VF %d\n",
+-				 j, vf->lan_vsi_index, vf->vf_id);
+-		ret = i40e_ctrl_vsi_rx_queue(vf, vf->lan_vsi_index, j,
+-					     I40E_QUEUE_CTRL_FASTDISABLECHECK);
+-		if (ret)
+-			dev_info(&pf->pdev->dev,
+-				 "Queue control check failed on Rx queue %d of VSI %d VF %d\n",
+-				 j, vf->lan_vsi_index, vf->vf_id);
+-	}
+-
+-	/* clear the irq settings */
+-	msix_vf = pf->hw.func_caps.num_msix_vectors_vf;
+-	for (i = 0; i < msix_vf; i++) {
+-		/* format is same for both registers */
+-		if (0 == i)
+-			reg_idx = I40E_VPINT_LNKLST0(vf->vf_id);
+-		else
+-			reg_idx = I40E_VPINT_LNKLSTN(((msix_vf - 1) *
+-						      (vf->vf_id))
+-						     + (i - 1));
+-		reg = (I40E_VPINT_LNKLSTN_FIRSTQ_TYPE_MASK |
+-		       I40E_VPINT_LNKLSTN_FIRSTQ_INDX_MASK);
+-		wr32(hw, reg_idx, reg);
+-		i40e_flush(hw);
+-	}
+-	/* disable interrupts so the VF starts in a known state */
+-	for (i = 0; i < msix_vf; i++) {
+-		/* format is same for both registers */
+-		if (0 == i)
+-			reg_idx = I40E_VFINT_DYN_CTL0(vf->vf_id);
+-		else
+-			reg_idx = I40E_VFINT_DYN_CTLN(((msix_vf - 1) *
+-						      (vf->vf_id))
+-						     + (i - 1));
+-		wr32(hw, reg_idx, I40E_VFINT_DYN_CTLN_CLEARPBA_MASK);
+-		i40e_flush(hw);
+-	}
+-
+-	/* set the defaults for the rqctl & tqctl registers */
+-	reg = (I40E_QINT_RQCTL_NEXTQ_INDX_MASK | I40E_QINT_RQCTL_ITR_INDX_MASK |
+-	       I40E_QINT_RQCTL_NEXTQ_TYPE_MASK);
+-	for (j = 0; j < pf->vsi[vf->lan_vsi_index]->num_queue_pairs; j++) {
+-		pf_queue_id = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index, j);
+-		wr32(hw, I40E_QINT_RQCTL(pf_queue_id), reg);
+-		wr32(hw, I40E_QINT_TQCTL(pf_queue_id), reg);
+-	}
+-
++	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_COMPLETED);
+ 	/* clear the reset bit in the VPGEN_VFRTRIG reg */
+ 	reg = rd32(hw, I40E_VPGEN_VFRTRIG(vf->vf_id));
+ 	reg &= ~I40E_VPGEN_VFRTRIG_VFSWR_MASK;
+ 	wr32(hw, I40E_VPGEN_VFRTRIG(vf->vf_id), reg);
++
++	/* On initial reset, we won't have any queues */
++	if (vf->lan_vsi_index == 0)
++		goto complete_reset;
++
++	i40e_vsi_control_rings(pf->vsi[vf->lan_vsi_index], false);
++complete_reset:
++	/* reallocate vf resources to reset the VSI state */
++	i40e_free_vf_res(vf);
++	mdelay(10);
++	i40e_alloc_vf_res(vf);
++	i40e_enable_vf_mappings(vf);
++
+ 	/* tell the VF the reset is done */
+-	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_COMPLETED);
++	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_VFACTIVE);
+ 	i40e_flush(hw);
+-
+-	return ret;
+ }
+ 
+ /**
+@@ -909,11 +915,8 @@ static int i40e_alloc_vfs(struct i40e_pf *pf, u16 num_alloc_vfs)
+ 
+ 		/* assign default capabilities */
+ 		set_bit(I40E_VIRTCHNL_VF_CAP_L2, &vfs[i].vf_caps);
+-
+-		ret = i40e_alloc_vf_res(&vfs[i]);
+-		i40e_reset_vf(&vfs[i], true);
+-		if (ret)
+-			break;
++		/* vf resources get allocated during reset */
++		i40e_reset_vf(&vfs[i], false);
+ 
+ 		/* enable vf vplan_qtable mappings */
+ 		i40e_enable_vf_mappings(&vfs[i]);
+@@ -1140,12 +1143,10 @@ err:
+  * unlike other virtchnl messages, pf driver
+  * doesn't send the response back to the vf
+  **/
+-static int i40e_vc_reset_vf_msg(struct i40e_vf *vf)
++static void i40e_vc_reset_vf_msg(struct i40e_vf *vf)
+ {
+-	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states))
+-		return -ENOENT;
+-
+-	return i40e_reset_vf(vf, false);
++	if (test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states))
++		i40e_reset_vf(vf, false);
+ }
+ 
+ /**
+@@ -1879,7 +1880,8 @@ int i40e_vc_process_vf_msg(struct i40e_pf *pf, u16 vf_id, u32 v_opcode,
+ 		ret = i40e_vc_get_vf_resources_msg(vf);
+ 		break;
+ 	case I40E_VIRTCHNL_OP_RESET_VF:
+-		ret = i40e_vc_reset_vf_msg(vf);
++		i40e_vc_reset_vf_msg(vf);
++		ret = 0;
+ 		break;
+ 	case I40E_VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE:
+ 		ret = i40e_vc_config_promiscuous_mode_msg(vf, msg, msglen);
+@@ -1950,19 +1952,7 @@ int i40e_vc_process_vflr_event(struct i40e_pf *pf)
+ 			/* clear the bit in GLGEN_VFLRSTAT */
+ 			wr32(hw, I40E_GLGEN_VFLRSTAT(reg_idx), (1 << bit_idx));
+ 
+-			if (i40e_reset_vf(vf, true))
+-				dev_err(&pf->pdev->dev,
+-					"Unable to reset the VF %d\n", vf_id);
+-			/* free up vf resources to destroy vsi state */
+-			i40e_free_vf_res(vf);
+-
+-			/* allocate new vf resources with the default state */
+-			if (i40e_alloc_vf_res(vf))
+-				dev_err(&pf->pdev->dev,
+-					"Unable to allocate VF resources %d\n",
+-					vf_id);
+-
+-			i40e_enable_vf_mappings(vf);
++			i40e_reset_vf(vf, true);
+ 		}
+ 	}
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
+index 360382c..d0b712c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
+@@ -104,7 +104,7 @@ int i40e_pci_sriov_configure(struct pci_dev *dev, int num_vfs);
+ int i40e_vc_process_vf_msg(struct i40e_pf *pf, u16 vf_id, u32 v_opcode,
+ 			   u32 v_retval, u8 *msg, u16 msglen);
+ int i40e_vc_process_vflr_event(struct i40e_pf *pf);
+-int i40e_reset_vf(struct i40e_vf *vf, bool flr);
++void i40e_reset_vf(struct i40e_vf *vf, bool flr);
+ void i40e_vc_notify_vf_reset(struct i40e_vf *vf);
+ 
+ /* vf configuration related iplink handlers */
 -- 
 1.8.3.1
