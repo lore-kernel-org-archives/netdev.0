@@ -1,94 +1,71 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH v2 1/5] bcma: export bcma_find_core_unit()
-Date: Sat,  4 Jan 2014 19:13:54 +0100
-Message-ID: <1388859238-22808-2-git-send-email-hauke@hauke-m.de>
-References: <1388859238-22808-1-git-send-email-hauke@hauke-m.de>
-Cc: zajec5@gmail.com, netdev@vger.kernel.org,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: davem@davemloft.net
+From: "Bob Falken" <NetFestivalHaveFun@gmx.com>
+Subject: Re: Multicast routing stops functioning after 4G multicast packets
+ recived.
+Date: Sat, 04 Jan 2014 19:53:13 +0100
+Message-ID: <20140104185313.18790@gmx.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Ben Greear" <greearb@candelatech.com>, netdev@vger.kernel.org
+To: "Hannes Frederic Sowa" <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:59461 "EHLO
-	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753656AbaADSOS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Jan 2014 13:14:18 -0500
-In-Reply-To: <1388859238-22808-1-git-send-email-hauke@hauke-m.de>
+Received: from mout.gmx.net ([212.227.17.22]:62215 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752404AbaADSxR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Jan 2014 13:53:17 -0500
+Received: from mailout-eu.gmx.com ([10.1.101.213]) by mrigmx.server.lan
+ (mrigmx001) with ESMTP (Nemesis) id 0MbvXU-1VjVf80cqM-00JIXm for
+ <netdev@vger.kernel.org>; Sat, 04 Jan 2014 19:53:16 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This function is used to get a specific core when there is more than
-one core of that specific type. This is used in bgmac to reset all GMAC
-cores.
+Hello, I compiled kernel 3.2.53 with the lates stable grsec patch, and enabled the CONFIG_PAX_REFCOUNT.
 
-Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
----
- drivers/bcma/bcma_private.h |    2 --
- drivers/bcma/main.c         |   13 +------------
- include/linux/bcma/bcma.h   |    9 ++++++++-
- 3 files changed, 9 insertions(+), 15 deletions(-)
+Unfortuantly the server lockedup after about 13hours so i did not get a dmesg event. forgot to disable vty blank, so don't know the reason for the server lockup.(could just be a bad kernel build).
 
-diff --git a/drivers/bcma/bcma_private.h b/drivers/bcma/bcma_private.h
-index 0215f9a..09b632a 100644
---- a/drivers/bcma/bcma_private.h
-+++ b/drivers/bcma/bcma_private.h
-@@ -33,8 +33,6 @@ int __init bcma_bus_early_register(struct bcma_bus *bus,
- int bcma_bus_suspend(struct bcma_bus *bus);
- int bcma_bus_resume(struct bcma_bus *bus);
- #endif
--struct bcma_device *bcma_find_core_unit(struct bcma_bus *bus, u16 coreid,
--					u8 unit);
- 
- /* scan.c */
- int bcma_bus_scan(struct bcma_bus *bus);
-diff --git a/drivers/bcma/main.c b/drivers/bcma/main.c
-index 5a9f6bd..34ea4c5 100644
---- a/drivers/bcma/main.c
-+++ b/drivers/bcma/main.c
-@@ -78,18 +78,6 @@ static u16 bcma_cc_core_id(struct bcma_bus *bus)
- 	return BCMA_CORE_CHIPCOMMON;
- }
- 
--struct bcma_device *bcma_find_core(struct bcma_bus *bus, u16 coreid)
--{
--	struct bcma_device *core;
--
--	list_for_each_entry(core, &bus->cores, list) {
--		if (core->id.id == coreid)
--			return core;
--	}
--	return NULL;
--}
--EXPORT_SYMBOL_GPL(bcma_find_core);
--
- struct bcma_device *bcma_find_core_unit(struct bcma_bus *bus, u16 coreid,
- 					u8 unit)
- {
-@@ -101,6 +89,7 @@ struct bcma_device *bcma_find_core_unit(struct bcma_bus *bus, u16 coreid,
- 	}
- 	return NULL;
- }
-+EXPORT_SYMBOL_GPL(bcma_find_core_unit);
- 
- bool bcma_wait_value(struct bcma_device *core, u16 reg, u32 mask, u32 value,
- 		     int timeout)
-diff --git a/include/linux/bcma/bcma.h b/include/linux/bcma/bcma.h
-index 4d043c3..0b3bb16 100644
---- a/include/linux/bcma/bcma.h
-+++ b/include/linux/bcma/bcma.h
-@@ -418,7 +418,14 @@ static inline void bcma_maskset16(struct bcma_device *cc,
- 	bcma_write16(cc, offset, (bcma_read16(cc, offset) & mask) | set);
- }
- 
--extern struct bcma_device *bcma_find_core(struct bcma_bus *bus, u16 coreid);
-+extern struct bcma_device *bcma_find_core_unit(struct bcma_bus *bus, u16 coreid,
-+					       u8 unit);
-+static inline struct bcma_device *bcma_find_core(struct bcma_bus *bus,
-+						 u16 coreid)
-+{
-+	return bcma_find_core_unit(bus, coreid, 0);
-+}
-+
- extern bool bcma_core_is_enabled(struct bcma_device *core);
- extern void bcma_core_disable(struct bcma_device *core, u32 flags);
- extern int bcma_core_enable(struct bcma_device *core, u32 flags);
--- 
-1.7.10.4
+I have rebuildt the kernel and will report back with the result, should have some results in about 16hours, unless the server locksup again.
+
+
+----- Original Message -----
+From: Hannes Frederic Sowa
+Sent: 01/03/14 08:37 AM
+To: Bob Falken
+Subject: Re: Multicast routing stops functioning after 4G multicast packets recived.
+ On Sat, Dec 21, 2013 at 11:35:00PM +0100, Bob Falken wrote:
+> On Thu, Dec 19, 2013 at 09:24:18AM -0800, Eric Dumazet wrote:
+> > On Thu, 2013-12-19 at 17:28 +0100, Bob Falken wrote:
+> > > The only reason why i give information about 2.6.36.4 is that its the
+> > > only latest kernel that was functioning properly.
+> > > i.e kernel >= 2.6.37 is not woking. so its a bisecting of the kernel
+> > > versions to help a coder see when/where the isse was implemented in
+> > > the kernel.
+> > > 
+> > > I do not need a backport patch for an old kernel, I generally only
+> > > need the issue looked into and get fixed so that I dont have to use an
+> > > old kernel. :)
+> > > 
+> > > I have no issue reproducing the issue on the recent kernels. however i
+> > > have not tried the GIT kernel.
+> > > 
+> > > I restarted the server just a moment ago. i will install and run
+> > > dropwatch and provide feedback in about 17hours. 
+> > 
+> > You said that "cat /proc/net/ip_mr_cache" gives nothing at all after
+> > 2^32 packets ?
+> > 
+> > Thats a bit scary ... maybe a 32bit refcnt overflow, because of some
+> > imbalance...
+> 
+> That's my thought, too. :/
+> 
+> The ipmr.c rcu conversion happend in 2.6.37. 
+> 
+
+Just as a follow-up. You could verify if we actually have a refcount overflow
+if you try a grsec kernel with PAX_REFCOUNT enabled. If a refcoount overflow
+happens, dmesg should show then.
+
+Greetings,
+
+ Hannes 
