@@ -1,44 +1,34 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 0/6] phylib: cleanups
-Date: Sat, 04 Jan 2014 19:41:09 +0300
-Message-ID: <52C839A5.2070807@cogentembedded.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 4/6] phy: kill excess code
+Date: Sat, 4 Jan 2014 16:42:29 +0100
+Message-ID: <20140104154229.GE4925@netboy>
 References: <201401040413.06853.sergei.shtylyov@cogentembedded.com>
+ <201401040419.14818.sergei.shtylyov@cogentembedded.com>
+ <20140104073639.GB4261@netboy>
+ <52C836EF.1010705@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:42108 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754378AbaADPlH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 10:41:07 -0500
-Received: by mail-la0-f53.google.com with SMTP id mc6so8688055lab.26
-        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 07:41:06 -0800 (PST)
-Received: from wasted.dev.rtsoft.ru (ppp91-76-87-5.pppoe.mtu-net.ru. [91.76.87.5])
-        by mx.google.com with ESMTPSA id ld10sm49947039lab.8.2014.01.04.07.41.04
-        for <netdev@vger.kernel.org>
-        (version=TLSv1 cipher=ECDHE-RSA-RC4-SHA bits=128/128);
-        Sat, 04 Jan 2014 07:41:05 -0800 (PST)
-In-Reply-To: <201401040413.06853.sergei.shtylyov@cogentembedded.com>
+Received: from mail-ea0-f175.google.com ([209.85.215.175]:54080 "EHLO
+	mail-ea0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754378AbaADPmk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 10:42:40 -0500
+Received: by mail-ea0-f175.google.com with SMTP id z10so7124262ead.20
+        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 07:42:39 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <52C836EF.1010705@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Sat, Jan 04, 2014 at 07:29:35PM +0300, Sergei Shtylyov wrote:
+> 
+>    Both kinds of empty lines are consistently avoided by all other
+> code I had to read. They don't really improve anything.
 
-On 01/04/2014 04:13 AM, Sergei Shtylyov wrote:
+But both your subject line and body talk about lines of code. Just
+removing blank lines is not the same as removing "excess code."
 
->     This patchset mainly cleans up the phylib's coding style but then also
-> removes some historically unused stuff.
-
-> [1/6] phy: coding style fixes
-> [2/6] mdio_bus: coding style fixes
-
-    <linux/phy.h> also causes checkpatch.pl errors/warnings/checks but I just 
-forgot about it. I feel the series should be extended now...
-
-> [3/6] phy: kill useless local variables
-> [4/6] phy: kill excess code
-> [5/6] phylib: remove unused adjust_state callback
-> [6/6] phylib: make phy_scan_fixups() static
-
-WBR, Sergei
+Thanks,
+Richard
