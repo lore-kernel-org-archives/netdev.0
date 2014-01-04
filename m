@@ -1,134 +1,222 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v5 00/17][pull request] Intel Wired LAN Driver Updates
-Date: Fri,  3 Jan 2014 21:56:28 -0800
-Message-ID: <1388815005-23166-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next v5 02/17] i40e: using for_each_set_bit to simplify the code
+Date: Fri,  3 Jan 2014 21:56:30 -0800
+Message-ID: <1388815005-23166-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1388815005-23166-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:31987 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751680AbaADF4u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Jan 2014 00:56:50 -0500
+	id S1752987AbaADF4v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Jan 2014 00:56:51 -0500
+In-Reply-To: <1388815005-23166-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and pci_regs.h.
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Anjali provides a patch to prevent messages from stray HMC events, except
-at interrupt message level, and refactors the HMC error handling.
-  
-Catherine adds routines in probe to populate/check PCI bus speed and width,
-then verify we are in a 8GT/s x8 PCIe slot and warn when we are not.
-  
-Shannon adds Wake-on-LAN support for i40e, fixes curly brace use as well as
-return type for i40e_vsi_clear_rings().
-  
-Joseph implements receive offload for VXLAN for i40e, where the hardware
-supports checksum offload/verification of the inner/outer header.
+Using for_each_set_bit() to simplify the code.
 
-Mitch provides the bulk of the changes, where he refactors the VF reset
-code so that it works on real hardware.  Then does code cleanup by
-calling existing functions to enable and disable queues for VFs and
-remove unused functions.  Removes a unnecessary log messages that are
-seen at every VF reset, for example complaining about disabling queues
-that are already disabled.  Fixes an error return when the VF asks to
-add an invalid MAC address and if the VF sends a bad message, make it
-more informative about what is actually going on.
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 64 ++++------------------
+ 1 file changed, 12 insertions(+), 52 deletions(-)
 
-Jesse refactors the LED function to flash LED lights correctly.
-
-v2:
- - removed patch 5 "i40e: add set settings and pauseparam" based on
-   feedback from Ben Hutchings, will re-work that patch for later
-   submission
- - Added patch "i40e: Implementation of vxlan ndo's" from Joseph to
-   address Or Gerlitz's questions and concerns.  This patch adds the
-   implementation for the VXLAN ndo's and allows the hardware to do
-   receive checksum offload for inner packets on the UDP ports that
-   VXLAN notifies us about.
- - Added patch "i40e: using for_each_set_bit to simplify the code"
-   from Wei Yongjun.  This patch uses for_each_set_bit() to simply
-   the code.
-
-v3:
- - fixed indentation issue in patch 11 based on feedback from
-   Sergei Shtylyov.
-
-Sorry for the delayed release of v4, it was delayed to the holidays.
-
-v4:
- - Addressed Or Gerlitz's concerns about trying to get a hold of a mutex
-   while holding a spin lock in patch 6 by executing the AQ commands from
-   a subtask.
- - Addressed David Miller's Kconfig concerns by creating a Kconfig VXLAN
-   option for i40e and wrapped appropriate code with the config option in
-   patch 6.
- - Updated patch 7 based on the changes made in patch 6 in the above two
-   bullets.
-
-v5:
- - Added the patch to pci_regs.h based on David Miller's feedback to add
-   PCI defines for speed and width
- - Updated patch 3 description to better explain the changes based on
-   feedback from David Miller
- - Updated patch 4 to use the newly added defines to pci_regs.h instead
-   of local defines
- - Updated patch 7 to use <net/vxlan.h> in the #include based on feedback
-   from David Miller
-
-The following are changes since commit 128296fc3fa2f607050cc2c5d6dc90237f3cedb3:
-  sh_eth: coding style fixes
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Anjali Singhai Jain (1):
-  i40e: Suppress HMC error to Interrupt message level
-
-Catherine Sullivan (1):
-  i40e: Populate and check pci bus speed and width
-
-Jeff Kirsher (2):
-  pci_regs.h: Add PCI bus link speed and width defines
-  i40e: Implementation of VXLAN ndo's
-
-Jesse Brandeburg (1):
-  i40e: update led set args
-
-Joseph Gasparakis (1):
-  i40e: Rx checksum offload for VXLAN
-
-Mitch Williams (8):
-  i40e: move i40e_reset_vf
-  i40e: refactor VF reset flow
-  i40e: remove redundant code
-  i40e: remove chatty log messages
-  i40e: fix error return
-  i40e: be more informative
-  i40e: make a define from a large constant
-  i40e: report VF MAC addresses correctly
-
-Shannon Nelson (2):
-  i40e: add wake-on-lan support
-  i40e: fix curly brace use and return type
-
-Wei Yongjun (1):
-  i40e: using for_each_set_bit to simplify the code
-
- drivers/net/ethernet/intel/Kconfig                 |  13 +
- drivers/net/ethernet/intel/i40e/i40e.h             |  13 +-
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |   1 +
- drivers/net/ethernet/intel/i40e/i40e_common.c      | 193 ++++++-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  48 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 264 ++++++++--
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   9 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  57 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        |  20 +
- drivers/net/ethernet/intel/i40e/i40e_type.h        |  53 +-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 581 ++++++---------------
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |   2 +-
- include/uapi/linux/pci_regs.h                      |   5 +
- 13 files changed, 720 insertions(+), 539 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 68e1f8e..1ea0886 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -260,23 +260,17 @@ static void i40e_config_irq_link_list(struct i40e_vf *vf, u16 vsi_idx,
+ 		goto irq_list_done;
+ 	}
+ 	tempmap = vecmap->rxq_map;
+-	vsi_queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (vsi_queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(vsi_queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		linklistmap |= (1 <<
+ 				(I40E_VIRTCHNL_SUPPORTED_QTYPES *
+ 				 vsi_queue_id));
+-		vsi_queue_id =
+-		    find_next_bit(&tempmap, I40E_MAX_VSI_QP, vsi_queue_id + 1);
+ 	}
+ 
+ 	tempmap = vecmap->txq_map;
+-	vsi_queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (vsi_queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(vsi_queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		linklistmap |= (1 <<
+ 				(I40E_VIRTCHNL_SUPPORTED_QTYPES * vsi_queue_id
+ 				 + 1));
+-		vsi_queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-					     vsi_queue_id + 1);
+ 	}
+ 
+ 	next_q = find_first_bit(&linklistmap,
+@@ -1293,27 +1287,21 @@ static int i40e_vc_config_irq_map_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 
+ 		/* lookout for the invalid queue index */
+ 		tempmap = map->rxq_map;
+-		vsi_queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-		while (vsi_queue_id < I40E_MAX_VSI_QP) {
++		for_each_set_bit(vsi_queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 			if (!i40e_vc_isvalid_queue_id(vf, vsi_id,
+ 						      vsi_queue_id)) {
+ 				aq_ret = I40E_ERR_PARAM;
+ 				goto error_param;
+ 			}
+-			vsi_queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-						     vsi_queue_id + 1);
+ 		}
+ 
+ 		tempmap = map->txq_map;
+-		vsi_queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-		while (vsi_queue_id < I40E_MAX_VSI_QP) {
++		for_each_set_bit(vsi_queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 			if (!i40e_vc_isvalid_queue_id(vf, vsi_id,
+ 						      vsi_queue_id)) {
+ 				aq_ret = I40E_ERR_PARAM;
+ 				goto error_param;
+ 			}
+-			vsi_queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-						     vsi_queue_id + 1);
+ 		}
+ 
+ 		i40e_config_irq_link_list(vf, vsi_id, map);
+@@ -1358,31 +1346,23 @@ static int i40e_vc_enable_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 	}
+ 
+ 	tempmap = vqs->rx_queues;
+-	queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		if (!i40e_vc_isvalid_queue_id(vf, vsi_id, queue_id)) {
+ 			aq_ret = I40E_ERR_PARAM;
+ 			goto error_param;
+ 		}
+ 		i40e_ctrl_vsi_rx_queue(vf, vsi_id, queue_id,
+ 				       I40E_QUEUE_CTRL_ENABLE);
+-
+-		queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-					 queue_id + 1);
+ 	}
+ 
+ 	tempmap = vqs->tx_queues;
+-	queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		if (!i40e_vc_isvalid_queue_id(vf, vsi_id, queue_id)) {
+ 			aq_ret = I40E_ERR_PARAM;
+ 			goto error_param;
+ 		}
+ 		i40e_ctrl_vsi_tx_queue(vf, vsi_id, queue_id,
+ 				       I40E_QUEUE_CTRL_ENABLE);
+-
+-		queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-					 queue_id + 1);
+ 	}
+ 
+ 	/* Poll the status register to make sure that the
+@@ -1391,29 +1371,23 @@ static int i40e_vc_enable_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 	udelay(10);
+ 
+ 	tempmap = vqs->rx_queues;
+-	queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		if (i40e_ctrl_vsi_rx_queue(vf, vsi_id, queue_id,
+ 					   I40E_QUEUE_CTRL_ENABLECHECK)) {
+ 			dev_err(&pf->pdev->dev,
+ 				"Queue control check failed on RX queue %d of VSI %d VF %d\n",
+ 				queue_id, vsi_id, vf->vf_id);
+ 		}
+-		queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-					 queue_id + 1);
+ 	}
+ 
+ 	tempmap = vqs->tx_queues;
+-	queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		if (i40e_ctrl_vsi_tx_queue(vf, vsi_id, queue_id,
+ 					   I40E_QUEUE_CTRL_ENABLECHECK)) {
+ 			dev_err(&pf->pdev->dev,
+ 				"Queue control check failed on TX queue %d of VSI %d VF %d\n",
+ 				queue_id, vsi_id, vf->vf_id);
+ 		}
+-		queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-					 queue_id + 1);
+ 	}
+ 
+ error_param:
+@@ -1457,31 +1431,23 @@ static int i40e_vc_disable_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 	}
+ 
+ 	tempmap = vqs->rx_queues;
+-	queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		if (!i40e_vc_isvalid_queue_id(vf, vsi_id, queue_id)) {
+ 			aq_ret = I40E_ERR_PARAM;
+ 			goto error_param;
+ 		}
+ 		i40e_ctrl_vsi_rx_queue(vf, vsi_id, queue_id,
+ 				       I40E_QUEUE_CTRL_DISABLE);
+-
+-		queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-					 queue_id + 1);
+ 	}
+ 
+ 	tempmap = vqs->tx_queues;
+-	queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		if (!i40e_vc_isvalid_queue_id(vf, vsi_id, queue_id)) {
+ 			aq_ret = I40E_ERR_PARAM;
+ 			goto error_param;
+ 		}
+ 		i40e_ctrl_vsi_tx_queue(vf, vsi_id, queue_id,
+ 				       I40E_QUEUE_CTRL_DISABLE);
+-
+-		queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-					 queue_id + 1);
+ 	}
+ 
+ 	/* Poll the status register to make sure that the
+@@ -1490,29 +1456,23 @@ static int i40e_vc_disable_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 	udelay(10);
+ 
+ 	tempmap = vqs->rx_queues;
+-	queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		if (i40e_ctrl_vsi_rx_queue(vf, vsi_id, queue_id,
+ 					   I40E_QUEUE_CTRL_DISABLECHECK)) {
+ 			dev_err(&pf->pdev->dev,
+ 				"Queue control check failed on RX queue %d of VSI %d VF %d\n",
+ 				queue_id, vsi_id, vf->vf_id);
+ 		}
+-		queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-					 queue_id + 1);
+ 	}
+ 
+ 	tempmap = vqs->tx_queues;
+-	queue_id = find_first_bit(&tempmap, I40E_MAX_VSI_QP);
+-	while (queue_id < I40E_MAX_VSI_QP) {
++	for_each_set_bit(queue_id, &tempmap, I40E_MAX_VSI_QP) {
+ 		if (i40e_ctrl_vsi_tx_queue(vf, vsi_id, queue_id,
+ 					   I40E_QUEUE_CTRL_DISABLECHECK)) {
+ 			dev_err(&pf->pdev->dev,
+ 				"Queue control check failed on TX queue %d of VSI %d VF %d\n",
+ 				queue_id, vsi_id, vf->vf_id);
+ 		}
+-		queue_id = find_next_bit(&tempmap, I40E_MAX_VSI_QP,
+-					 queue_id + 1);
+ 	}
+ 
+ error_param:
 -- 
 1.8.3.1
