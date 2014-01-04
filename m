@@ -1,58 +1,86 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next] net-gre-gro: Add GRE support to the GRO stack
-Date: Sat, 4 Jan 2014 13:52:49 -0800
-Message-ID: <20140104135249.7930977c@nehalam.linuxnetplumber.net>
-References: <1388756813-10875-1-git-send-email-hkchu@google.com>
-	<20140103.205131.1429670011198294911.davem@davemloft.net>
-	<CAPshTCgnwX4g1CSgrEK+OwRPjfE5+z2g4YPbHfqhjVND=2xZKQ@mail.gmail.com>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH man-pages] man: packet.7: document fanout, ring and
+ auxiliary options
+Date: Sun, 5 Jan 2014 10:57:28 +1300
+Message-ID: <CAKgNAkj8G6VvPLYF56884XcAWw+yOTUcF1UZSRwcYTk52D--zg@mail.gmail.com>
+References: <52A1F7D7.6040305@redhat.com> <1386350329-32723-1-git-send-email-willemb@google.com>
+ <52A22B78.8070109@redhat.com> <52C81EF8.6090908@redhat.com>
+Reply-To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jerry Chu <hkchu@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:49911 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753656AbaADVwx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 16:52:53 -0500
-Received: by mail-pd0-f170.google.com with SMTP id g10so16749085pdj.1
-        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 13:52:53 -0800 (PST)
-In-Reply-To: <CAPshTCgnwX4g1CSgrEK+OwRPjfE5+z2g4YPbHfqhjVND=2xZKQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	linux-man <linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <52C81EF8.6090908-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 4 Jan 2014 13:20:28 +0800
-Jerry Chu <hkchu@google.com> wrote:
+Hello Daniel, and Willem,
 
-> On Sat, Jan 4, 2014 at 9:51 AM, David Miller <davem@davemloft.net> wrote:
-> > From: "H.K. Jerry Chu" <hkchu@google.com>
-> > Date: Fri,  3 Jan 2014 05:46:53 -0800
-> >
-> >> +     if (skb->ip_summed == CHECKSUM_COMPLETE)
-> >> +             NAPI_GRO_CB(skb)->csum = csum_sub(NAPI_GRO_CB(skb)->csum,
-> >> +                     csum_partial(start, len, 0));
-> >
-> > The csum_partial() call as argument needs to line up to exactly the
-> > first column after the openning parenthesis of the csum_sub()
-> > invocation.
-> >
-> > You must use the appropriate number of TAB then SPACE characters
-> > necessary to achieve this.
-> >
-> > If you indent only using TABS then likely you are doing it wrong :)
-> 
-> Yes I know but sometimes trying to line up arguments either causes > 80
-> column long line, or many shorter but highly indented fragmented lines
-> following.
-> 
-> I've fixed the above case and it worked (stopped at 79th column).
-> 
-> Jerry
+On Sun, Jan 5, 2014 at 3:47 AM, Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> On 12/06/2013 08:54 PM, Daniel Borkmann wrote:
+>>
+>> On 12/06/2013 06:18 PM, Willem de Bruijn wrote:
+>>>
+>>> The packet socket manual page does not list all socket options.
+>>>
+>>> This patch adds descriptions of the common packet socket options
+>>>    PACKET_AUXDATA, PACKET_FANOUT, PACKET_RX_RING, PACKET_STATISTICS,
+>>>    PACKET_TX_RING
+>>>
+>>> and the ring-specific options
+>>>    PACKET_LOSS, PACKET_RESERVE, PACKET_TIMESTAMP, PACKET_VERSION
+>>>
+>>> It does not yet add descriptions for
+>>>    PACKET_COPY_THRESH, PACKET_HDRLEN, PACKET_ORIGDEV,
+>>>    PACKET_TX_HAS_OFF, PACKET_TX_TIMESTAMP, PACKET_VNET_HDR
+>>>
+>>> It tries to balance being informative with exposing kernel detail
+>>> that is unlikely to be used by most readers or that may change
+>>> frequently. For implementation details, the manpage points to the
+>>> documentation in kernel Documentation/networking. Let me know if
+>>> options should be added or removed.
+>>>
+>>> Source: PACKET_FANOUT, PACKET_RX_RING and PACKET_VERSION are in
+>>> /tools/testing/net/psock_fanout.c in the latest Linux kernel source
+>>> tree. PACKET_STATISTICS was in the first version of that test.
+>>> PACKET_TX_RING I have used elsewhere. The other options are based
+>>> on reading kernel code.
+>>>
+>>>   [Very minor fixups. -dborkman]
+>>>
+>>> Signed-off-by: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+>>
+>>
+>> Acked-by: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>>
+>> I went over the man page again, and it looks good to me.
+>>
+>> Great work and thanks for following up Willem!
+>
+>
+> Ping, Michael, any progress on this one? Lets not get this work
+> lost somewhere as it happened in March last year ...
 
-80 columns is recommendation not an absolute requirement.
-Also, when things get too long, it often means it could be
-made clearer by having a helper function or a temporary variable.
+Thanks for the ping, and sorry for the delay. I've applied the patch:
+http://git.kernel.org/cgit/docs/man-pages/man-pages.git/commit/?id=dbb4f7516b22663da977ea5c37691c5940bb3eb7
+
+I added kernel version numbers for two of the newly documented
+options. You may want to check them:
+http://git.kernel.org/cgit/docs/man-pages/man-pages.git/commit/?id=342639d9e9d766b7b3b3a03045144be64f1f556c
+
+Cheers,
+
+Michael
+
+-- 
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Linux/UNIX System Programming Training: http://man7.org/training/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
