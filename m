@@ -1,71 +1,142 @@
-From: "Bob Falken" <NetFestivalHaveFun@gmx.com>
-Subject: Re: Multicast routing stops functioning after 4G multicast packets
- recived.
-Date: Sat, 04 Jan 2014 19:53:13 +0100
-Message-ID: <20140104185313.18790@gmx.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Ben Greear" <greearb@candelatech.com>, netdev@vger.kernel.org
-To: "Hannes Frederic Sowa" <hannes@stressinduktion.org>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next] net/mlx4_core: Warn if device doesn't have enough PCI bandwidth
+Date: Sat,  4 Jan 2014 21:17:04 +0200
+Message-ID: <1388863024-8718-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eyal Perry <eyalpe@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.22]:62215 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752404AbaADSxR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Jan 2014 13:53:17 -0500
-Received: from mailout-eu.gmx.com ([10.1.101.213]) by mrigmx.server.lan
- (mrigmx001) with ESMTP (Nemesis) id 0MbvXU-1VjVf80cqM-00JIXm for
- <netdev@vger.kernel.org>; Sat, 04 Jan 2014 19:53:16 +0100
+Received: from mailp.voltaire.com ([193.47.165.129]:56613 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753432AbaADTRR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Jan 2014 14:17:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, I compiled kernel 3.2.53 with the lates stable grsec patch, and enabled the CONFIG_PAX_REFCOUNT.
+From: Eyal Perry <eyalpe@mellanox.com>
 
-Unfortuantly the server lockedup after about 13hours so i did not get a dmesg event. forgot to disable vty blank, so don't know the reason for the server lockup.(could just be a bad kernel build).
+Check if the device get enough bandwidth from the entire PCI chain to satisfy
+its capabilities. This patch determines the PCIe device's bandwidth capabilities
+by reading its PCIe Link Capabilities registers and then call the
+pcie_get_minimum_link function to ensure that the adapter is hooked into a slot
+which is capable of providing the necessary bandwidth capabilities.
 
-I have rebuildt the kernel and will report back with the result, should have some results in about 16hours, unless the server locksup again.
+Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
 
+---
+We're still working on fixing/discussing the other 2 patches for
+mlx4_core/mlx4_en drivers, which are under review in the list now.
+meanwhile I would like to push this patch which has no conflicts with those 2.
 
------ Original Message -----
-From: Hannes Frederic Sowa
-Sent: 01/03/14 08:37 AM
-To: Bob Falken
-Subject: Re: Multicast routing stops functioning after 4G multicast packets recived.
- On Sat, Dec 21, 2013 at 11:35:00PM +0100, Bob Falken wrote:
-> On Thu, Dec 19, 2013 at 09:24:18AM -0800, Eric Dumazet wrote:
-> > On Thu, 2013-12-19 at 17:28 +0100, Bob Falken wrote:
-> > > The only reason why i give information about 2.6.36.4 is that its the
-> > > only latest kernel that was functioning properly.
-> > > i.e kernel >= 2.6.37 is not woking. so its a bisecting of the kernel
-> > > versions to help a coder see when/where the isse was implemented in
-> > > the kernel.
-> > > 
-> > > I do not need a backport patch for an old kernel, I generally only
-> > > need the issue looked into and get fixed so that I dont have to use an
-> > > old kernel. :)
-> > > 
-> > > I have no issue reproducing the issue on the recent kernels. however i
-> > > have not tried the GIT kernel.
-> > > 
-> > > I restarted the server just a moment ago. i will install and run
-> > > dropwatch and provide feedback in about 17hours. 
-> > 
-> > You said that "cat /proc/net/ip_mr_cache" gives nothing at all after
-> > 2^32 packets ?
-> > 
-> > Thats a bit scary ... maybe a 32bit refcnt overflow, because of some
-> > imbalance...
-> 
-> That's my thought, too. :/
-> 
-> The ipmr.c rcu conversion happend in 2.6.37. 
-> 
+Thanks,
+Amir
 
-Just as a follow-up. You could verify if we actually have a refcount overflow
-if you try a grsec kernel with PAX_REFCOUNT enabled. If a refcoount overflow
-happens, dmesg should show then.
+ drivers/net/ethernet/mellanox/mlx4/main.c | 84 +++++++++++++++++++++++++++++++
+ 1 file changed, 84 insertions(+)
 
-Greetings,
-
- Hannes 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index d2b8b39..417a595 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -388,6 +388,84 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 
+ 	return 0;
+ }
++
++static int mlx4_get_pcie_dev_link_caps(struct mlx4_dev *dev,
++				       enum pci_bus_speed *speed,
++				       enum pcie_link_width *width)
++{
++	u32 lnkcap1, lnkcap2;
++	int err1, err2;
++
++#define  PCIE_MLW_CAP_SHIFT 4	/* start of MLW mask in link capabilities */
++
++	*speed = PCI_SPEED_UNKNOWN;
++	*width = PCIE_LNK_WIDTH_UNKNOWN;
++
++	err1 = pcie_capability_read_dword(dev->pdev, PCI_EXP_LNKCAP, &lnkcap1);
++	err2 = pcie_capability_read_dword(dev->pdev, PCI_EXP_LNKCAP2, &lnkcap2);
++	if (!err2 && lnkcap2) { /* PCIe r3.0-compliant */
++		if (lnkcap2 & PCI_EXP_LNKCAP2_SLS_8_0GB)
++			*speed = PCIE_SPEED_8_0GT;
++		else if (lnkcap2 & PCI_EXP_LNKCAP2_SLS_5_0GB)
++			*speed = PCIE_SPEED_5_0GT;
++		else if (lnkcap2 & PCI_EXP_LNKCAP2_SLS_2_5GB)
++			*speed = PCIE_SPEED_2_5GT;
++	}
++	if (!err1) {
++		*width = (lnkcap1 & PCI_EXP_LNKCAP_MLW) >> PCIE_MLW_CAP_SHIFT;
++		if (!lnkcap2) { /* pre-r3.0 */
++			if (lnkcap1 & PCI_EXP_LNKCAP_SLS_5_0GB)
++				*speed = PCIE_SPEED_5_0GT;
++			else if (lnkcap1 & PCI_EXP_LNKCAP_SLS_2_5GB)
++				*speed = PCIE_SPEED_2_5GT;
++		}
++	}
++
++	if (*speed == PCI_SPEED_UNKNOWN || *width == PCIE_LNK_WIDTH_UNKNOWN) {
++		return err1 ? err1 :
++			err2 ? err2 : -EINVAL;
++	}
++	return 0;
++}
++
++static int mlx4_check_pcie_caps(struct mlx4_dev *dev)
++{
++	enum pcie_link_width width, width_cap;
++	enum pci_bus_speed speed, speed_cap;
++	int err;
++
++#define PCIE_SPEED_STR(speed) \
++	(speed == PCIE_SPEED_8_0GT ? "8.0GT/s" : \
++	 speed == PCIE_SPEED_5_0GT ? "5.0GT/s" : \
++	 speed == PCIE_SPEED_2_5GT ? "2.5GT/s" : \
++	 "Unknown")
++
++	err = mlx4_get_pcie_dev_link_caps(dev, &speed_cap, &width_cap);
++	if (err) {
++		mlx4_warn(dev,
++			  "Unable to determine PCIe device BW capabilities\n");
++		return err;
++	}
++
++	err = pcie_get_minimum_link(dev->pdev, &speed, &width);
++	if (err || speed == PCI_SPEED_UNKNOWN ||
++	    width == PCIE_LNK_WIDTH_UNKNOWN) {
++		mlx4_warn(dev,
++			  "Unable to determine PCI device chain minimum BW\n");
++		return err ? err : -EINVAL;
++	}
++
++	if (width != width_cap || speed != speed_cap)
++		mlx4_warn(dev,
++			  "PCIe BW is different than device's capability\n");
++
++	mlx4_info(dev, "PCIe link speed is %s, device supports %s\n",
++		  PCIE_SPEED_STR(speed), PCIE_SPEED_STR(speed_cap));
++	mlx4_info(dev, "PCIe link width is x%d, device supports x%d\n",
++		  width, width_cap);
++	return 0;
++}
++
+ /*The function checks if there are live vf, return the num of them*/
+ static int mlx4_how_many_lives_vf(struct mlx4_dev *dev)
+ {
+@@ -2306,6 +2384,12 @@ slave_start:
+ 			goto err_mfunc;
+ 	}
+ 
++	/* check if the device is functioning at its maximum possible speed
++	 * ignoring function return code, just warn the user in case of PCI
++	 * express device capabilities are under-satisfied by the bus.
++	 */
++	mlx4_check_pcie_caps(dev);
++
+ 	/* In master functions, the communication channel must be initialized
+ 	 * after obtaining its address from fw */
+ 	if (mlx4_is_master(dev)) {
+-- 
+1.8.3.4
