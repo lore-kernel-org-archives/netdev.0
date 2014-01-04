@@ -1,82 +1,94 @@
 From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH v2 3/5] bgmac: add support for new BGMAC_CMDCFG_SR position on core rev >= 4
-Date: Sat,  4 Jan 2014 19:13:56 +0100
-Message-ID: <1388859238-22808-4-git-send-email-hauke@hauke-m.de>
+Subject: [PATCH v2 1/5] bcma: export bcma_find_core_unit()
+Date: Sat,  4 Jan 2014 19:13:54 +0100
+Message-ID: <1388859238-22808-2-git-send-email-hauke@hauke-m.de>
 References: <1388859238-22808-1-git-send-email-hauke@hauke-m.de>
 Cc: zajec5@gmail.com, netdev@vger.kernel.org,
 	Hauke Mehrtens <hauke@hauke-m.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:59487 "EHLO
+Received: from server19320154104.serverpool.info ([193.201.54.104]:59461 "EHLO
 	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755038AbaADSOt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Jan 2014 13:14:49 -0500
+	id S1753656AbaADSOS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Jan 2014 13:14:18 -0500
 In-Reply-To: <1388859238-22808-1-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The BGMAC_CMDCFG_SR register is at a different position on core rev >= 4
-We do not know where this register is on a rev 5 or higher core, I have
-newer seen such a core.
+This function is used to get a specific core when there is more than
+one core of that specific type. This is used in bgmac to reset all GMAC
+cores.
 
 Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 ---
- drivers/net/ethernet/broadcom/bgmac.c |    8 ++++----
- drivers/net/ethernet/broadcom/bgmac.h |    4 +++-
- 2 files changed, 7 insertions(+), 5 deletions(-)
+ drivers/bcma/bcma_private.h |    2 --
+ drivers/bcma/main.c         |   13 +------------
+ include/linux/bcma/bcma.h   |    9 ++++++++-
+ 3 files changed, 9 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index aa5e289..88ec69e 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -768,13 +768,13 @@ static void bgmac_cmdcfg_maskset(struct bgmac *bgmac, u32 mask, u32 set,
- 	u32 cmdcfg = bgmac_read(bgmac, BGMAC_CMDCFG);
- 	u32 new_val = (cmdcfg & mask) | set;
+diff --git a/drivers/bcma/bcma_private.h b/drivers/bcma/bcma_private.h
+index 0215f9a..09b632a 100644
+--- a/drivers/bcma/bcma_private.h
++++ b/drivers/bcma/bcma_private.h
+@@ -33,8 +33,6 @@ int __init bcma_bus_early_register(struct bcma_bus *bus,
+ int bcma_bus_suspend(struct bcma_bus *bus);
+ int bcma_bus_resume(struct bcma_bus *bus);
+ #endif
+-struct bcma_device *bcma_find_core_unit(struct bcma_bus *bus, u16 coreid,
+-					u8 unit);
  
--	bgmac_set(bgmac, BGMAC_CMDCFG, BGMAC_CMDCFG_SR);
-+	bgmac_set(bgmac, BGMAC_CMDCFG, BGMAC_CMDCFG_SR(bgmac->core->id.rev));
- 	udelay(2);
- 
- 	if (new_val != cmdcfg || force)
- 		bgmac_write(bgmac, BGMAC_CMDCFG, new_val);
- 
--	bgmac_mask(bgmac, BGMAC_CMDCFG, ~BGMAC_CMDCFG_SR);
-+	bgmac_mask(bgmac, BGMAC_CMDCFG, ~BGMAC_CMDCFG_SR(bgmac->core->id.rev));
- 	udelay(2);
+ /* scan.c */
+ int bcma_bus_scan(struct bcma_bus *bus);
+diff --git a/drivers/bcma/main.c b/drivers/bcma/main.c
+index 5a9f6bd..34ea4c5 100644
+--- a/drivers/bcma/main.c
++++ b/drivers/bcma/main.c
+@@ -78,18 +78,6 @@ static u16 bcma_cc_core_id(struct bcma_bus *bus)
+ 	return BCMA_CORE_CHIPCOMMON;
  }
  
-@@ -977,7 +977,7 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
- 			     BGMAC_CMDCFG_PROM |
- 			     BGMAC_CMDCFG_NLC |
- 			     BGMAC_CMDCFG_CFE |
--			     BGMAC_CMDCFG_SR,
-+			     BGMAC_CMDCFG_SR(core->id.rev),
- 			     false);
- 	bgmac->mac_speed = SPEED_UNKNOWN;
- 	bgmac->mac_duplex = DUPLEX_UNKNOWN;
-@@ -1020,7 +1020,7 @@ static void bgmac_enable(struct bgmac *bgmac)
+-struct bcma_device *bcma_find_core(struct bcma_bus *bus, u16 coreid)
+-{
+-	struct bcma_device *core;
+-
+-	list_for_each_entry(core, &bus->cores, list) {
+-		if (core->id.id == coreid)
+-			return core;
+-	}
+-	return NULL;
+-}
+-EXPORT_SYMBOL_GPL(bcma_find_core);
+-
+ struct bcma_device *bcma_find_core_unit(struct bcma_bus *bus, u16 coreid,
+ 					u8 unit)
+ {
+@@ -101,6 +89,7 @@ struct bcma_device *bcma_find_core_unit(struct bcma_bus *bus, u16 coreid,
+ 	}
+ 	return NULL;
+ }
++EXPORT_SYMBOL_GPL(bcma_find_core_unit);
  
- 	cmdcfg = bgmac_read(bgmac, BGMAC_CMDCFG);
- 	bgmac_cmdcfg_maskset(bgmac, ~(BGMAC_CMDCFG_TE | BGMAC_CMDCFG_RE),
--			     BGMAC_CMDCFG_SR, true);
-+			     BGMAC_CMDCFG_SR(bgmac->core->id.rev), true);
- 	udelay(2);
- 	cmdcfg |= BGMAC_CMDCFG_TE | BGMAC_CMDCFG_RE;
- 	bgmac_write(bgmac, BGMAC_CMDCFG, cmdcfg);
-diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
-index 71adac9..2da12ed 100644
---- a/drivers/net/ethernet/broadcom/bgmac.h
-+++ b/drivers/net/ethernet/broadcom/bgmac.h
-@@ -197,7 +197,9 @@
- #define  BGMAC_CMDCFG_TAI			0x00000200
- #define  BGMAC_CMDCFG_HD			0x00000400	/* Set if in half duplex mode */
- #define  BGMAC_CMDCFG_HD_SHIFT			10
--#define  BGMAC_CMDCFG_SR			0x00000800	/* Set to reset mode */
-+#define  BGMAC_CMDCFG_SR_REV0			0x00000800	/* Set to reset mode, for other revs */
-+#define  BGMAC_CMDCFG_SR_REV4			0x00002000	/* Set to reset mode, only for core rev 4 */
-+#define  BGMAC_CMDCFG_SR(rev)  ((rev == 4) ? BGMAC_CMDCFG_SR_REV4 : BGMAC_CMDCFG_SR_REV0)
- #define  BGMAC_CMDCFG_ML			0x00008000	/* Set to activate mac loopback mode */
- #define  BGMAC_CMDCFG_AE			0x00400000
- #define  BGMAC_CMDCFG_CFE			0x00800000
+ bool bcma_wait_value(struct bcma_device *core, u16 reg, u32 mask, u32 value,
+ 		     int timeout)
+diff --git a/include/linux/bcma/bcma.h b/include/linux/bcma/bcma.h
+index 4d043c3..0b3bb16 100644
+--- a/include/linux/bcma/bcma.h
++++ b/include/linux/bcma/bcma.h
+@@ -418,7 +418,14 @@ static inline void bcma_maskset16(struct bcma_device *cc,
+ 	bcma_write16(cc, offset, (bcma_read16(cc, offset) & mask) | set);
+ }
+ 
+-extern struct bcma_device *bcma_find_core(struct bcma_bus *bus, u16 coreid);
++extern struct bcma_device *bcma_find_core_unit(struct bcma_bus *bus, u16 coreid,
++					       u8 unit);
++static inline struct bcma_device *bcma_find_core(struct bcma_bus *bus,
++						 u16 coreid)
++{
++	return bcma_find_core_unit(bus, coreid, 0);
++}
++
+ extern bool bcma_core_is_enabled(struct bcma_device *core);
+ extern void bcma_core_disable(struct bcma_device *core, u32 flags);
+ extern int bcma_core_enable(struct bcma_device *core, u32 flags);
 -- 
 1.7.10.4
