@@ -1,184 +1,228 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v5 05/17] i40e: add wake-on-lan support
-Date: Fri,  3 Jan 2014 21:56:33 -0800
-Message-ID: <1388815005-23166-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v5 08/17] i40e: Rx checksum offload for VXLAN
+Date: Fri,  3 Jan 2014 21:56:36 -0800
+Message-ID: <1388815005-23166-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1388815005-23166-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:60845 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:53902 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754425AbaADF4x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Jan 2014 00:56:53 -0500
+	id S1754568AbaADF4z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Jan 2014 00:56:55 -0500
 In-Reply-To: <1388815005-23166-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
 
-Wake on LAN is disabled by default and will remain that way for most
-platforms, but there is an NVM setting that allows vendors to enable it
-for a port if they think they've provided the right power environment
-for the device.  This patch adds code to check the NVM setting and enable
-Magic Packet use if WoL is enabled for the port.
+This implements receive offload for VXLAN for i40e.  The hardware
+supports checksum offload/verification of the inner/outer header.
 
-Since only Magic Packet is supported, there's not a lot of HW configuration
-needed.
-
-Change-Id: I44e904a7b15695e34683009f487064cd86ea59b0
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-Id: I450db300af6713f2044fef1191a0d1d294c13369
+Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h         |  1 +
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 42 ++++++++++++++++++++++++--
- drivers/net/ethernet/intel/i40e/i40e_main.c    | 16 ++++++++--
- drivers/net/ethernet/intel/i40e/i40e_type.h    |  1 +
- 4 files changed, 56 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 57 ++++++++++++++++++++++++++---
+ drivers/net/ethernet/intel/i40e/i40e_type.h | 51 ++++++++++++++------------
+ 3 files changed, 81 insertions(+), 28 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 40706c1..31dd265 100644
+index 6f1edc1..34a54e7 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e.h
 +++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -205,6 +205,7 @@ struct i40e_pf {
- 	u16 rss_size_max;          /* HW defined max RSS queues */
- 	u16 fdir_pf_filter_count;  /* num of guaranteed filters for this PF */
- 	u8 atr_sample_rate;
-+	bool wol_en;
+@@ -29,6 +29,7 @@
+ #define _I40E_H_
  
- 	enum i40e_interrupt_policy int_policy;
- 	u16 rx_itr_default;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index d6681f6..255a138 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -844,8 +844,45 @@ static void i40e_diag_test(struct net_device *netdev,
- static void i40e_get_wol(struct net_device *netdev,
- 			 struct ethtool_wolinfo *wol)
+ #include <net/tcp.h>
++#include <net/udp.h>
+ #include <linux/init.h>
+ #include <linux/types.h>
+ #include <linux/errno.h>
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 01d0334..a978451 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -860,12 +860,25 @@ static void i40e_receive_skb(struct i40e_ring *rx_ring,
+  * @skb: skb currently being received and modified
+  * @rx_status: status value of last descriptor in packet
+  * @rx_error: error value of last descriptor in packet
++ * @rx_ptype: ptype value of last descriptor in packet
+  **/
+ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
+ 				    struct sk_buff *skb,
+ 				    u32 rx_status,
+-				    u32 rx_error)
++				    u32 rx_error,
++				    u16 rx_ptype)
  {
--	wol->supported = 0;
--	wol->wolopts = 0;
-+	struct i40e_netdev_priv *np = netdev_priv(netdev);
-+	struct i40e_pf *pf = np->vsi->back;
-+	struct i40e_hw *hw = &pf->hw;
-+	u16 wol_nvm_bits;
++	bool ipv4_tunnel, ipv6_tunnel;
++	__wsum rx_udp_csum;
++	__sum16 csum;
++	struct iphdr *iph;
 +
-+	/* NVM bit on means WoL disabled for the port */
-+	i40e_read_nvm_word(hw, I40E_SR_NVM_WAKE_ON_LAN, &wol_nvm_bits);
-+	if ((1 << hw->port) & wol_nvm_bits) {
-+		wol->supported = 0;
-+		wol->wolopts = 0;
-+	} else {
-+		wol->supported = WAKE_MAGIC;
-+		wol->wolopts = (pf->wol_en ? WAKE_MAGIC : 0);
-+	}
-+}
++	ipv4_tunnel = (rx_ptype > I40E_RX_PTYPE_GRENAT4_MAC_PAY3) &&
++		      (rx_ptype < I40E_RX_PTYPE_GRENAT4_MACVLAN_IPV6_ICMP_PAY4);
++	ipv6_tunnel = (rx_ptype > I40E_RX_PTYPE_GRENAT6_MAC_PAY3) &&
++		      (rx_ptype < I40E_RX_PTYPE_GRENAT6_MACVLAN_IPV6_ICMP_PAY4);
 +
-+static int i40e_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
-+{
-+	struct i40e_netdev_priv *np = netdev_priv(netdev);
-+	struct i40e_pf *pf = np->vsi->back;
-+	struct i40e_hw *hw = &pf->hw;
-+	u16 wol_nvm_bits;
-+
-+	/* NVM bit on means WoL disabled for the port */
-+	i40e_read_nvm_word(hw, I40E_SR_NVM_WAKE_ON_LAN, &wol_nvm_bits);
-+	if (((1 << hw->port) & wol_nvm_bits))
-+		return -EOPNOTSUPP;
-+
-+	/* only magic packet is supported */
-+	if (wol->wolopts && (wol->wolopts != WAKE_MAGIC))
-+		return -EOPNOTSUPP;
-+
-+	/* is this a new value? */
-+	if (pf->wol_en != !!wol->wolopts) {
-+		pf->wol_en = !!wol->wolopts;
-+		device_set_wakeup_enable(&pf->pdev->dev, pf->wol_en);
-+	}
-+
-+	return 0;
- }
++	skb->encapsulation = ipv4_tunnel || ipv6_tunnel;
+ 	skb->ip_summed = CHECKSUM_NONE;
  
- static int i40e_nway_reset(struct net_device *netdev)
-@@ -1568,6 +1605,7 @@ static const struct ethtool_ops i40e_ethtool_ops = {
- 	.nway_reset		= i40e_nway_reset,
- 	.get_link		= ethtool_op_get_link,
- 	.get_wol		= i40e_get_wol,
-+	.set_wol		= i40e_set_wol,
- 	.get_eeprom_len		= i40e_get_eeprom_len,
- 	.get_eeprom		= i40e_get_eeprom,
- 	.get_ringparam		= i40e_get_ringparam,
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 22a2c0e..45b2198 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7537,6 +7537,10 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	pf->flags |= I40E_FLAG_NEED_LINK_UPDATE;
- 	pf->link_check_timeout = jiffies;
+ 	/* Rx csum enabled and ip headers found? */
+@@ -873,13 +886,43 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
+ 	      rx_status & (1 << I40E_RX_DESC_STATUS_L3L4P_SHIFT)))
+ 		return;
  
-+	/* WoL defaults to disabled */
-+	pf->wol_en = false;
-+	device_set_wakeup_enable(&pf->pdev->dev, pf->wol_en);
-+
- 	/* set up the main switch operations */
- 	i40e_determine_queue_usage(pf);
- 	i40e_init_interrupt_scheme(pf);
-@@ -7858,6 +7862,7 @@ static void i40e_pci_error_resume(struct pci_dev *pdev)
- static void i40e_shutdown(struct pci_dev *pdev)
- {
- 	struct i40e_pf *pf = pci_get_drvdata(pdev);
-+	struct i40e_hw *hw = &pf->hw;
- 
- 	set_bit(__I40E_SUSPENDED, &pf->state);
- 	set_bit(__I40E_DOWN, &pf->state);
-@@ -7865,8 +7870,11 @@ static void i40e_shutdown(struct pci_dev *pdev)
- 	i40e_prep_for_reset(pf);
- 	rtnl_unlock();
- 
-+	wr32(hw, I40E_PFPM_APM, (pf->wol_en ? I40E_PFPM_APM_APME_MASK : 0));
-+	wr32(hw, I40E_PFPM_WUFC, (pf->wol_en ? I40E_PFPM_WUFC_MAG_MASK : 0));
-+
- 	if (system_state == SYSTEM_POWER_OFF) {
--		pci_wake_from_d3(pdev, false);    /* No WoL support yet */
-+		pci_wake_from_d3(pdev, pf->wol_en);
- 		pci_set_power_state(pdev, PCI_D3hot);
+-	/* IP or L4 checksum error */
++	/* IP or L4 or outmost IP checksum error */
+ 	if (rx_error & ((1 << I40E_RX_DESC_ERROR_IPE_SHIFT) |
+-			(1 << I40E_RX_DESC_ERROR_L4E_SHIFT))) {
++			(1 << I40E_RX_DESC_ERROR_L4E_SHIFT) |
++			(1 << I40E_RX_DESC_ERROR_EIPE_SHIFT))) {
+ 		vsi->back->hw_csum_rx_error++;
+ 		return;
  	}
- }
-@@ -7879,6 +7887,7 @@ static void i40e_shutdown(struct pci_dev *pdev)
- static int i40e_suspend(struct pci_dev *pdev, pm_message_t state)
- {
- 	struct i40e_pf *pf = pci_get_drvdata(pdev);
-+	struct i40e_hw *hw = &pf->hw;
  
- 	set_bit(__I40E_SUSPENDED, &pf->state);
- 	set_bit(__I40E_DOWN, &pf->state);
-@@ -7886,7 +7895,10 @@ static int i40e_suspend(struct pci_dev *pdev, pm_message_t state)
- 	i40e_prep_for_reset(pf);
- 	rtnl_unlock();
- 
--	pci_wake_from_d3(pdev, false);    /* No WoL support yet */
-+	wr32(hw, I40E_PFPM_APM, (pf->wol_en ? I40E_PFPM_APM_APME_MASK : 0));
-+	wr32(hw, I40E_PFPM_WUFC, (pf->wol_en ? I40E_PFPM_WUFC_MAG_MASK : 0));
++	if (ipv4_tunnel &&
++	    !(rx_status & (1 << I40E_RX_DESC_STATUS_UDP_0_SHIFT))) {
++		/* If VXLAN traffic has an outer UDPv4 checksum we need to check
++		 * it in the driver, hardware does not do it for us.
++		 * Since L3L4P bit was set we assume a valid IHL value (>=5)
++		 * so the total length of IPv4 header is IHL*4 bytes
++		 */
++		skb->transport_header = skb->mac_header +
++					sizeof(struct ethhdr) +
++					(ip_hdr(skb)->ihl * 4);
 +
-+	pci_wake_from_d3(pdev, pf->wol_en);
- 	pci_set_power_state(pdev, PCI_D3hot);
++		/* Add 4 bytes for VLAN tagged packets */
++		skb->transport_header += (skb->protocol == htons(ETH_P_8021Q) ||
++					  skb->protocol == htons(ETH_P_8021AD))
++					  ? VLAN_HLEN : 0;
++
++		rx_udp_csum = udp_csum(skb);
++		iph = ip_hdr(skb);
++		csum = csum_tcpudp_magic(
++				iph->saddr, iph->daddr,
++				(skb->len - skb_transport_offset(skb)),
++				IPPROTO_UDP, rx_udp_csum);
++
++		if (udp_hdr(skb)->check != csum) {
++			vsi->back->hw_csum_rx_error++;
++			return;
++		}
++	}
++
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+ }
  
- 	return 0;
+@@ -920,6 +963,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 	union i40e_rx_desc *rx_desc;
+ 	u32 rx_error, rx_status;
+ 	u64 qword;
++	u16 rx_ptype;
+ 
+ 	rx_desc = I40E_RX_DESC(rx_ring, i);
+ 	qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
+@@ -952,6 +996,8 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 		rx_hbo = rx_error & (1 << I40E_RX_DESC_ERROR_HBO_SHIFT);
+ 		rx_error &= ~(1 << I40E_RX_DESC_ERROR_HBO_SHIFT);
+ 
++		rx_ptype = (qword & I40E_RXD_QW1_PTYPE_MASK) >>
++			   I40E_RXD_QW1_PTYPE_SHIFT;
+ 		rx_bi->skb = NULL;
+ 
+ 		/* This memory barrier is needed to keep us from reading
+@@ -1032,13 +1078,14 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 		}
+ 
+ 		skb->rxhash = i40e_rx_hash(rx_ring, rx_desc);
+-		i40e_rx_checksum(vsi, skb, rx_status, rx_error);
+-
+ 		/* probably a little skewed due to removing CRC */
+ 		total_rx_bytes += skb->len;
+ 		total_rx_packets++;
+ 
+ 		skb->protocol = eth_type_trans(skb, rx_ring->netdev);
++
++		i40e_rx_checksum(vsi, skb, rx_status, rx_error, rx_ptype);
++
+ 		vlan_tag = rx_status & (1 << I40E_RX_DESC_STATUS_L2TAG1P_SHIFT)
+ 			 ? le16_to_cpu(rx_desc->wb.qword0.lo_dword.l2tag1)
+ 			 : 0;
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 72a6028..8bf1cac 100644
+index b3a659c..7bbcc71 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_type.h
 +++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -1022,6 +1022,7 @@ struct i40e_hw_port_stats {
- #define I40E_SR_NVM_CONTROL_WORD		0x00
- #define I40E_SR_EMP_MODULE_PTR			0x0F
- #define I40E_SR_NVM_IMAGE_VERSION		0x18
-+#define I40E_SR_NVM_WAKE_ON_LAN			0x19
- #define I40E_SR_ALTERNATE_SAN_MAC_ADDRESS_PTR	0x27
- #define I40E_SR_NVM_EETRACK_LO			0x2D
- #define I40E_SR_NVM_EETRACK_HI			0x2E
+@@ -513,7 +513,8 @@ enum i40e_rx_desc_status_bits {
+ 	I40E_RX_DESC_STATUS_UMBCAST_SHIFT	= 9, /* 2 BITS */
+ 	I40E_RX_DESC_STATUS_FLM_SHIFT		= 11,
+ 	I40E_RX_DESC_STATUS_FLTSTAT_SHIFT	= 12, /* 2 BITS */
+-	I40E_RX_DESC_STATUS_LPBK_SHIFT		= 14
++	I40E_RX_DESC_STATUS_LPBK_SHIFT		= 14,
++	I40E_RX_DESC_STATUS_UDP_0_SHIFT		= 16
+ };
+ 
+ #define I40E_RXD_QW1_STATUS_TSYNINDX_SHIFT   I40E_RX_DESC_STATUS_TSYNINDX_SHIFT
+@@ -559,28 +560,32 @@ enum i40e_rx_desc_error_l3l4e_fcoe_masks {
+ 
+ /* Packet type non-ip values */
+ enum i40e_rx_l2_ptype {
+-	I40E_RX_PTYPE_L2_RESERVED		= 0,
+-	I40E_RX_PTYPE_L2_MAC_PAY2		= 1,
+-	I40E_RX_PTYPE_L2_TIMESYNC_PAY2		= 2,
+-	I40E_RX_PTYPE_L2_FIP_PAY2		= 3,
+-	I40E_RX_PTYPE_L2_OUI_PAY2		= 4,
+-	I40E_RX_PTYPE_L2_MACCNTRL_PAY2		= 5,
+-	I40E_RX_PTYPE_L2_LLDP_PAY2		= 6,
+-	I40E_RX_PTYPE_L2_ECP_PAY2		= 7,
+-	I40E_RX_PTYPE_L2_EVB_PAY2		= 8,
+-	I40E_RX_PTYPE_L2_QCN_PAY2		= 9,
+-	I40E_RX_PTYPE_L2_EAPOL_PAY2		= 10,
+-	I40E_RX_PTYPE_L2_ARP			= 11,
+-	I40E_RX_PTYPE_L2_FCOE_PAY3		= 12,
+-	I40E_RX_PTYPE_L2_FCOE_FCDATA_PAY3	= 13,
+-	I40E_RX_PTYPE_L2_FCOE_FCRDY_PAY3	= 14,
+-	I40E_RX_PTYPE_L2_FCOE_FCRSP_PAY3	= 15,
+-	I40E_RX_PTYPE_L2_FCOE_FCOTHER_PA	= 16,
+-	I40E_RX_PTYPE_L2_FCOE_VFT_PAY3		= 17,
+-	I40E_RX_PTYPE_L2_FCOE_VFT_FCDATA	= 18,
+-	I40E_RX_PTYPE_L2_FCOE_VFT_FCRDY		= 19,
+-	I40E_RX_PTYPE_L2_FCOE_VFT_FCRSP		= 20,
+-	I40E_RX_PTYPE_L2_FCOE_VFT_FCOTHER	= 21
++	I40E_RX_PTYPE_L2_RESERVED			= 0,
++	I40E_RX_PTYPE_L2_MAC_PAY2			= 1,
++	I40E_RX_PTYPE_L2_TIMESYNC_PAY2			= 2,
++	I40E_RX_PTYPE_L2_FIP_PAY2			= 3,
++	I40E_RX_PTYPE_L2_OUI_PAY2			= 4,
++	I40E_RX_PTYPE_L2_MACCNTRL_PAY2			= 5,
++	I40E_RX_PTYPE_L2_LLDP_PAY2			= 6,
++	I40E_RX_PTYPE_L2_ECP_PAY2			= 7,
++	I40E_RX_PTYPE_L2_EVB_PAY2			= 8,
++	I40E_RX_PTYPE_L2_QCN_PAY2			= 9,
++	I40E_RX_PTYPE_L2_EAPOL_PAY2			= 10,
++	I40E_RX_PTYPE_L2_ARP				= 11,
++	I40E_RX_PTYPE_L2_FCOE_PAY3			= 12,
++	I40E_RX_PTYPE_L2_FCOE_FCDATA_PAY3		= 13,
++	I40E_RX_PTYPE_L2_FCOE_FCRDY_PAY3		= 14,
++	I40E_RX_PTYPE_L2_FCOE_FCRSP_PAY3		= 15,
++	I40E_RX_PTYPE_L2_FCOE_FCOTHER_PA		= 16,
++	I40E_RX_PTYPE_L2_FCOE_VFT_PAY3			= 17,
++	I40E_RX_PTYPE_L2_FCOE_VFT_FCDATA		= 18,
++	I40E_RX_PTYPE_L2_FCOE_VFT_FCRDY			= 19,
++	I40E_RX_PTYPE_L2_FCOE_VFT_FCRSP			= 20,
++	I40E_RX_PTYPE_L2_FCOE_VFT_FCOTHER		= 21,
++	I40E_RX_PTYPE_GRENAT4_MAC_PAY3			= 58,
++	I40E_RX_PTYPE_GRENAT4_MACVLAN_IPV6_ICMP_PAY4	= 87,
++	I40E_RX_PTYPE_GRENAT6_MAC_PAY3			= 124,
++	I40E_RX_PTYPE_GRENAT6_MACVLAN_IPV6_ICMP_PAY4	= 153
+ };
+ 
+ struct i40e_rx_ptype_decoded {
 -- 
 1.8.3.1
