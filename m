@@ -1,36 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] net: Pre-step for supporting GRO on vxlan
- traffic
-Date: Fri, 03 Jan 2014 19:34:15 -0500 (EST)
-Message-ID: <20140103.193415.802802822047682766.davem@davemloft.net>
-References: <1388669276-6206-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH] net: tulip: delete useless tests on netdev_priv
+Date: Fri, 03 Jan 2014 19:35:39 -0500 (EST)
+Message-ID: <20140103.193539.332685938065529152.davem@davemloft.net>
+References: <1388680129-13661-1-git-send-email-Julia.Lawall@lip6.fr>
+	<CAP6odjhqzKPiBdxQVm5BbbOFwiekJu66_WgSE+E4g_nkHh+-dQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hkchu@google.com, edumazet@google.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: ogerlitz@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35372 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753866AbaADAeQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 19:34:16 -0500
-In-Reply-To: <1388669276-6206-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Julia.Lawall@lip6.fr, grundler@parisc-linux.org,
+	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: grantgrundler@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAP6odjhqzKPiBdxQVm5BbbOFwiekJu66_WgSE+E4g_nkHh+-dQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Thu,  2 Jan 2014 15:27:55 +0200
+From: Grant Grundler <grantgrundler@gmail.com>
+Date: Thu, 2 Jan 2014 07:57:26 -0800
 
-> @@ -1125,8 +1119,8 @@ static void vxlan_rcv(struct vxlan_sock *vs,
->  	 * leave the CHECKSUM_UNNECESSARY, the device checksummed it
->  	 * for us. Otherwise force the upper layers to verify it.
->  	 */
-> -	if (skb->ip_summed != CHECKSUM_UNNECESSARY || !skb->encapsulation ||
-> -	    !(vxlan->dev->features & NETIF_F_RXCSUM))
-> +	if ((skb->ip_summed != CHECKSUM_UNNECESSARY && skb->ip_summed != CHECKSUM_PARTIAL)
-> +	    || !skb->encapsulation || !(vxlan->dev->features & NETIF_F_RXCSUM))
+> On Thu, Jan 2, 2014 at 8:28 AM, Julia Lawall <Julia.Lawall@lip6.fr> wrote:
+>> From: Julia Lawall <Julia.Lawall@lip6.fr>
+>>
+>> Netdev_priv performs an addition, not a pointer dereference, so it seems
+>> quit unlikely that its result would ever be NULL.
+> 
+> LGTM.
+> 
+>  >
+>> A semantic patch that makes this change is as follows:
+>> (http://coccinelle.lip6.fr/)
+>>
+>> // <smpl>
+>> @@
+>> statement S;
+>> @@
+>>
+>> - if (!netdev_priv(...)) S
+>> // </smpl>
+>>
+>> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> 
+> Acked-by: Grant Grundler <grundler@parisc-linux.org>
 
-Never start conditional continuation lines with the conditional operator.
-
-Operators in a chain always _end_ a line, never begin them.
+Applied, thanks everyone.
