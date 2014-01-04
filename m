@@ -1,45 +1,37 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH nf-next v5 0/3] xtables socket classid matching
-Date: Sat, 04 Jan 2014 10:42:02 +0100
-Message-ID: <52C7D76A.3020106@redhat.com>
-References: <1388338032-14713-1-git-send-email-dborkman@redhat.com> <52C264F6.7050602@huawei.com> <20140103225613.GA18418@localhost>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v2 0/5] bonding: final set of netlink patches
+Date: Sat, 4 Jan 2014 11:39:39 +0100
+Message-ID: <20140104103939.GA9295@minipsycho.orion>
+References: <20140103220806.1659.25199.stgit@monster-03.cumulusnetworks.com>
+ <20140103.210354.861329857516687285.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Li Zefan <lizefan@huawei.com>, netfilter-devel@vger.kernel.org,
-	cgroups@vger.kernel.org, netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: sfeldma@cumulusnetworks.com, vfalico@redhat.com, fubar@us.ibm.com,
+	andy@greyhouse.net, netdev@vger.kernel.org,
+	roopa@cumulusnetworks.com, shm@cumulusnetworks.com,
+	dingtianhong@huawei.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63686 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751217AbaADJmL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Jan 2014 04:42:11 -0500
-In-Reply-To: <20140103225613.GA18418@localhost>
+Received: from mail-ee0-f48.google.com ([74.125.83.48]:34958 "EHLO
+	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750746AbaADKjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 05:39:43 -0500
+Received: by mail-ee0-f48.google.com with SMTP id e49so6994105eek.35
+        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 02:39:42 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20140103.210354.861329857516687285.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/03/2014 11:56 PM, Pablo Neira Ayuso wrote:
-> On Tue, Dec 31, 2013 at 02:32:22PM +0800, Li Zefan wrote:
->> On 2013/12/30 1:27, Daniel Borkmann wrote:
->>> The main patch is patch 3, please refer to the detailled description
->>> there. Patch 1 has been requested by cgroups people to have as a
->>> cleanup. While at it, I've also added a minor, trivial cleanup in
->>> patch 2 for consistency reasons.
->>>
->>
->> Looks good to me.
+Sat, Jan 04, 2014 at 03:03:54AM CET, davem@davemloft.net wrote:
+>From: Scott Feldman <sfeldma@cumulusnetworks.com>
+>Date: Fri, 03 Jan 2014 14:18:34 -0800
 >
-> Series applied, thanks.
+>> The following series implements the last set of bonding netlink attributes
+>> for 802.3ad mode:
+>
+>Series applied, thanks Scott.
 
-Thanks a lot Pablo, as mentioned in [1], the _unchanged_ user space
-part is available in [2].
-
-Let me know if you want me to resend it, or if you would like to
-take it from there.
-
-Thanks,
-
-Daniel
-
-  [1] http://www.spinics.net/lists/netfilter-devel/msg29467.html
-  [2] http://patchwork.ozlabs.org/patch/304826/
+Just for the record:
+Set
+Reviewed-by: Jiri Pirko <jiri@resnulli.us>
