@@ -1,53 +1,74 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 4/6] phy: kill excess code
-Date: Sun, 05 Jan 2014 03:50:30 +0300
-Message-ID: <52C8AC56.7030804@cogentembedded.com>
-References: <201401040413.06853.sergei.shtylyov@cogentembedded.com> <201401040419.14818.sergei.shtylyov@cogentembedded.com> <20140104073639.GB4261@netboy> <52C836EF.1010705@cogentembedded.com> <20140104154229.GE4925@netboy> <52C83B25.7030505@cogentembedded.com> <20140104155114.GF4925@netboy>
+From: Ravi Patel <rapatel@apm.com>
+Subject: Re: [PATCH V2 0/4] misc: xgene: Add support for APM X-Gene SoC Queue
+ Manager/Traffic Manager
+Date: Sat, 4 Jan 2014 15:59:46 -0800
+Message-ID: <CAN1v_PtFz42crHW5=cUgw-fAnPn3rQht=o0t3nmjJRamYSLDMg@mail.gmail.com>
+References: <1387594651-25771-1-git-send-email-rapatel@apm.com>
+ <201312212111.40576.arnd@arndb.de>
+ <CAPw-ZTnsu_EmOW3aZTVKAVjQsdi8qMy95y2ZcYxzgVrjGkirTA@mail.gmail.com>
+ <1441245.xPZLG2iNZ6@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:48457 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754579AbaADXuc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 18:50:32 -0500
-Received: by mail-la0-f42.google.com with SMTP id ec20so9116490lab.29
-        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 15:50:30 -0800 (PST)
-In-Reply-To: <20140104155114.GF4925@netboy>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+ netdev@vger.kernel.org, "patches@apm.com" <patches@apm.com>,
+ linux-kernel@vger.kernel.org, Loc Ho <lho@apm.com>,
+ Jon Masters <jcm@redhat.com>, Keyur Chudgar <kchudgar@apm.com>,
+ davem@davemloft.net,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
+To: Arnd Bergmann <arnd@arndb.de>, Greg KH <gregkh@linuxfoundation.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1441245.xPZLG2iNZ6@wuerfel>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Sat, Dec 21, 2013 at 11:03 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+> On Saturday 21 December 2013 17:00:51 Loc Ho wrote:
+>> On Sat, Dec 21, 2013 at 12:11 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+>> > On Saturday 21 December 2013, Ravi Patel wrote:
+>> >> This patch adds support for APM X-Gene SoC Queue Manager/Traffic Manager.
+>> >>  QMTM is required by APM X-Gene SoC Ethernet, PktDMA (XOR Engine) and
+>> >>  Security Engine subsystems. All subsystems communicate with QMTM using
+>> >>  messages which include information about the work to be performed and
+>> >>  the location of associated data buffers.
+>> >
+>> > Please describe here what the purpose of the qmtm is, as this is not
+>> > entirely clear from the code.
+>> >
+>> > In particular, please describe how this differs from a dmaengine driver
+>> > and why it is not possible to extend the dma slave API to describe qmtm
+>> > as a dma engine.
+>> >
+>> [Loc Ho]
+>> If the QM driver implements the DMA API, what about the actual DMA
+>> engine driver which interfaces with this QM driver. We would have DMA
+>> client interfaces with the X-Gene DMA driver (not available yet) via
+>> DMA API which in turn interfaces with this QM driver via DMA API.
+>> Won't this be kind of awkward? Also, the QM only manage messages (or
+>> descriptors) which are 32-bytes or 64-bytes. It doesn't actually do
+>> any data transfer of various sizes.
+>
+> Please describe here what the purpose of the qmtm is, as this is not
+> entirely clear from the code or from your reply.
+>
+> Greg was guessing that it's a bus controller, my best guess is a DMA
+> engine. If it's something completely different, you have to let
+> us know what it is so we can do a proper review rather than guessing.
+>
+> Please provide a link to the data sheet if you are unable to explain.
 
-On 01/04/2014 06:51 PM, Richard Cochran wrote:
+Here is URL to a text document explaining role of QMTM device with CPU, Ethernet
+subsystem.
 
->>>>     Both kinds of empty lines are consistently avoided by all other
->>>> code I had to read. They don't really improve anything.
+https://drive.google.com/file/d/0B28TgQZ3JLoRRGNnbjJoUGNHWW8/edit?usp=sharing
 
->>> But both your subject line and body talk about lines of code. Just
->>> removing blank lines is not the same as removing "excess code."
-
->>     To me, all source file lines are code. So what you are
->> suggesting, splitting the patch?
-
-> Yes, exactly that.
-
-    OK, done.
-
-> If the title reads, "fix whitespace errors" or "remove blank lines",
-> then I don't need to waste my time looking at it.
-
-    Maybe I'd go too far and remove too much? :-)
-
-> But if it reads, "remove excess code", then I want to make sure that
-> you don't go and delete something important.
-
-    I don't delete the meaningful code at all, just kind of compact it. Maybe 
-I should have renamed that patch...
-
-> Thanks,
-> Richard
-
-WBR, Sergei
+For simplicity, I have shown only Ethernet.
+PktDMA and Security subsystem interfaces with QMTM in the same way as Ethernet.
