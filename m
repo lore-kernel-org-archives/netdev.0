@@ -1,33 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2 v3] ipv4: Cache dst in tunnels
-Date: Fri, 03 Jan 2014 19:42:33 -0500 (EST)
-Message-ID: <20140103.194233.1475063659612788745.davem@davemloft.net>
-References: <alpine.DEB.2.02.1401021139500.32654@tomh.mtv.corp.google.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] net: unify the pcpu_tstats and br_cpu_netstats
+Date: Fri, 3 Jan 2014 16:43:37 -0800
+Message-ID: <CAM_iQpUNgwUioWxDXe2DAhVFo0gvPudM1-_CXiNG2rZCnzLTag@mail.gmail.com>
+References: <1388653054-4341-1-git-send-email-roy.qing.li@gmail.com>
+	<slrnlccgj7.3uh.xiyou.wangcong@linux-6brj.site>
+	<20140103.193253.2226162174184357030.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: therbert@google.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35419 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753866AbaADAme (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 19:42:34 -0500
-In-Reply-To: <alpine.DEB.2.02.1401021139500.32654@tomh.mtv.corp.google.com>
+Received: from mail-oa0-f47.google.com ([209.85.219.47]:62384 "EHLO
+	mail-oa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753866AbaADAni (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jan 2014 19:43:38 -0500
+Received: by mail-oa0-f47.google.com with SMTP id k1so16675254oag.20
+        for <netdev@vger.kernel.org>; Fri, 03 Jan 2014 16:43:38 -0800 (PST)
+In-Reply-To: <20140103.193253.2226162174184357030.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogVG9tIEhlcmJlcnQgPHRoZXJiZXJ0QGdvb2dsZS5jb20+DQpEYXRlOiBUaHUsIDIgSmFu
-IDIwMTQgMTE6NDg6MTggLTA4MDAgKFBTVCkNCg0KPiBWZXJzaW9uIDMgb2YgY2FjaGluZyByb3V0
-ZXMgaW4gdHVubmVscy4NCg0KQXBwbGllZCwgYnV0IEkgcmVhbGx5IGhhdmUgdG8gd29uZGVyIHdo
-ZW4gSSBoYXZlIHRvIGZpeCB1cCB0aGluZ3MgbGlrZQ0KdGhpczoNCg0KbmV0L2lwdjQvaXBfdHVu
-bmVsLmM6IEluIGZ1bmN0aW9uIKFpcF90dW5uZWxfaW5pdKI6DQpuZXQvaXB2NC9pcF90dW5uZWwu
-YzoxMDYyOjIwOiB3YXJuaW5nOiBhc3NpZ25tZW50IGZyb20gaW5jb21wYXRpYmxlIHBvaW50ZXIg
-dHlwZSBbZW5hYmxlZCBieSBkZWZhdWx0XQ0KDQotLT4NCg0KLS0tIGEvbmV0L2lwdjQvaXBfdHVu
-bmVsLmMNCisrKyBiL25ldC9pcHY0L2lwX3R1bm5lbC5jDQpAQCAtMTA1OSw3ICsxMDU5LDcgQEAg
-aW50IGlwX3R1bm5lbF9pbml0KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpDQogCQl1NjRfc3RhdHNf
-aW5pdCgmaXB0X3N0YXRzLT5zeW5jcCk7DQogCX0NCiANCi0JdHVubmVsLT5kc3RfY2FjaGUgPSBh
-bGxvY19wZXJjcHUoc3RydWN0IGlwX3R1bm5lbF9kc3QgKik7DQorCXR1bm5lbC0+ZHN0X2NhY2hl
-ID0gYWxsb2NfcGVyY3B1KHN0cnVjdCBpcF90dW5uZWxfZHN0KTsNCiAJaWYgKCF0dW5uZWwtPmRz
-dF9jYWNoZSkgew0KIAkJZnJlZV9wZXJjcHUoZGV2LT50c3RhdHMpOw0KIAkJcmV0dXJuIC1FTk9N
-RU07DQo=
+On Fri, Jan 3, 2014 at 4:32 PM, David Miller <davem@davemloft.net> wrote:
+> From: Cong Wang <xiyou.wangcong@gmail.com>
+> Date: Fri, 3 Jan 2014 04:53:47 +0000 (UTC)
+>
+>> On Thu, 02 Jan 2014 at 08:57 GMT, roy.qing.li@gmail.com <roy.qing.li@gmail.com> wrote:
+>>> From: Li RongQing <roy.qing.li@gmail.com>
+>>>
+>>> They are same, so unify them as one, pcpu_tstats.
+>>> and move pcpu_tstat into netdevice.h
+>>>
+>>
+>> tstats means Tunnel STATS, right? So, it has to be
+>> in if_tunnel.h.
+>
+> They are being used in the bridging code now, did you read the
+> patch?
+>
+> So not really limited to just tunnels, and therefore they really do
+> belong somewhere generic like netdevice.h
+
+I knew, my point is we should find a better name than "tstat".
+
+>
+> This also means that since they are now an encapsulation thing we
+> should rename them to pcpu_encap_stats or similar, thanks.
+
+Not sure "encap" makes sense for bridge too.
+
+Thanks.
