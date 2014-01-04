@@ -1,63 +1,40 @@
 From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH man-pages] man: packet.7: document fanout, ring and auxiliary
- options
-Date: Sat, 04 Jan 2014 15:47:20 +0100
-Message-ID: <52C81EF8.6090908@redhat.com>
-References: <52A1F7D7.6040305@redhat.com> <1386350329-32723-1-git-send-email-willemb@google.com> <52A22B78.8070109@redhat.com>
+Subject: Re: [PATCH nf-next v5 0/3] xtables socket classid matching
+Date: Sat, 04 Jan 2014 15:48:50 +0100
+Message-ID: <52C81F52.5080904@redhat.com>
+References: <1388338032-14713-1-git-send-email-dborkman@redhat.com> <52C264F6.7050602@huawei.com> <20140103225613.GA18418@localhost> <52C7D76A.3020106@redhat.com> <20140104144642.GA4010@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <52A22B78.8070109-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140104144642.GA4010@localhost>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 12/06/2013 08:54 PM, Daniel Borkmann wrote:
-> On 12/06/2013 06:18 PM, Willem de Bruijn wrote:
->> The packet socket manual page does not list all socket options.
+On 01/04/2014 03:46 PM, Pablo Neira Ayuso wrote:
+> On Sat, Jan 04, 2014 at 10:42:02AM +0100, Daniel Borkmann wrote:
+>> On 01/03/2014 11:56 PM, Pablo Neira Ayuso wrote:
+>>> On Tue, Dec 31, 2013 at 02:32:22PM +0800, Li Zefan wrote:
+>>>> On 2013/12/30 1:27, Daniel Borkmann wrote:
+>>>>> The main patch is patch 3, please refer to the detailled description
+>>>>> there. Patch 1 has been requested by cgroups people to have as a
+>>>>> cleanup. While at it, I've also added a minor, trivial cleanup in
+>>>>> patch 2 for consistency reasons.
+>>>>>
+>>>>
+>>>> Looks good to me.
+>>>
+>>> Series applied, thanks.
 >>
->> This patch adds descriptions of the common packet socket options
->>    PACKET_AUXDATA, PACKET_FANOUT, PACKET_RX_RING, PACKET_STATISTICS,
->>    PACKET_TX_RING
+>> Thanks a lot Pablo, as mentioned in [1], the _unchanged_ user space
+>> part is available in [2].
 >>
->> and the ring-specific options
->>    PACKET_LOSS, PACKET_RESERVE, PACKET_TIMESTAMP, PACKET_VERSION
->>
->> It does not yet add descriptions for
->>    PACKET_COPY_THRESH, PACKET_HDRLEN, PACKET_ORIGDEV,
->>    PACKET_TX_HAS_OFF, PACKET_TX_TIMESTAMP, PACKET_VNET_HDR
->>
->> It tries to balance being informative with exposing kernel detail
->> that is unlikely to be used by most readers or that may change
->> frequently. For implementation details, the manpage points to the
->> documentation in kernel Documentation/networking. Let me know if
->> options should be added or removed.
->>
->> Source: PACKET_FANOUT, PACKET_RX_RING and PACKET_VERSION are in
->> /tools/testing/net/psock_fanout.c in the latest Linux kernel source
->> tree. PACKET_STATISTICS was in the first version of that test.
->> PACKET_TX_RING I have used elsewhere. The other options are based
->> on reading kernel code.
->>
->>   [Very minor fixups. -dborkman]
->>
->> Signed-off-by: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+>> Let me know if you want me to resend it, or if you would like to
+>> take it from there.
 >
-> Acked-by: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->
-> I went over the man page again, and it looks good to me.
->
-> Great work and thanks for following up Willem!
+> No need to. I have applied that patch to iptables-next, thanks.
 
-Ping, Michael, any progress on this one? Lets not get this work
-lost somewhere as it happened in March last year ...
-
-Thanks,
-Daniel
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Awesome, thanks Pablo!
