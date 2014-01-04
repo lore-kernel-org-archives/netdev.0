@@ -1,36 +1,50 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net-next 1/2] net: Pre-step for supporting GRO on vxlan traffic
-Date: Sat, 4 Jan 2014 23:38:25 +0200
-Message-ID: <CAJZOPZKPvAX7tz517NcDjVOhN8HHSKi94NCdtz-LeDS6cf=yfA@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next 1/2] dccp: make local variable static
+Date: Sat, 4 Jan 2014 13:46:29 -0800
+Message-ID: <20140104134629.6658ab1c@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Or Gerlitz <ogerlitz@mellanox.com>, Jerry Chu <hkchu@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:54344 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753656AbaADViZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 16:38:25 -0500
-Received: by mail-pa0-f48.google.com with SMTP id rd3so17032893pab.21
-        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 13:38:25 -0800 (PST)
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:37167 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753656AbaADVqc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 16:46:32 -0500
+Received: by mail-pd0-f179.google.com with SMTP id r10so16693068pdi.38
+        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 13:46:32 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 4, 2014 at 2:34 AM, David Miller <davem@davemloft.net> wrote:
->
-> From: Or Gerlitz <ogerlitz@mellanox.com>
-> Date: Thu,  2 Jan 2014 15:27:55 +0200
->
->
-> Never start conditional continuation lines with the conditional operator.
-> Operators in a chain always _end_ a line, never begin them.
+Make DCCP module config variable static, only used in one file.
 
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
+---
+ net/dccp/ccids/lib/tfrc.c |    2 +-
+ net/dccp/ccids/lib/tfrc.h |    1 -
+ 2 files changed, 1 insertion(+), 2 deletions(-)
 
-OK, will do. I will also rebase patch 2/2 on top of Jerry's gre-gro
-patch to use the gro_find_xxx_by_type helpers.
-
-Or.
+--- a/net/dccp/ccids/lib/tfrc.c	2014-01-04 13:39:54.476218461 -0800
++++ b/net/dccp/ccids/lib/tfrc.c	2014-01-04 13:42:22.249773638 -0800
+@@ -8,7 +8,7 @@
+ #include "tfrc.h"
+ 
+ #ifdef CONFIG_IP_DCCP_TFRC_DEBUG
+-bool tfrc_debug;
++static bool tfrc_debug;
+ module_param(tfrc_debug, bool, 0644);
+ MODULE_PARM_DESC(tfrc_debug, "Enable TFRC debug messages");
+ #endif
+--- a/net/dccp/ccids/lib/tfrc.h	2014-01-04 13:39:54.476218461 -0800
++++ b/net/dccp/ccids/lib/tfrc.h	2014-01-04 13:42:22.249773638 -0800
+@@ -21,7 +21,6 @@
+ #include "packet_history.h"
+ 
+ #ifdef CONFIG_IP_DCCP_TFRC_DEBUG
+-extern bool tfrc_debug;
+ #define tfrc_pr_debug(format, a...)	DCCP_PR_DEBUG(tfrc_debug, format, ##a)
+ #else
+ #define tfrc_pr_debug(format, a...)
