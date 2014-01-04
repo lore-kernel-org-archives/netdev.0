@@ -1,144 +1,44 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v5 04/17] i40e: Populate and check pci bus speed and width
-Date: Fri,  3 Jan 2014 21:56:32 -0800
-Message-ID: <1388815005-23166-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v5 01/17] pci_regs.h: Add PCI bus link speed and width defines
+Date: Fri,  3 Jan 2014 21:56:29 -0800
+Message-ID: <1388815005-23166-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1388815005-23166-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	<linux-kernel@vger.kernel.org>, Bjorn Helgaas <bhelgaas@google.com>
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:31987 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754318AbaADF4x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Jan 2014 00:56:53 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1388815005-23166-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
+Add missing PCI bus link speed 8.0 GT/s and bus link widths of
+x1, x2, x4 and x8.
 
-Call i40e_set_pci_config_data from probe, then check that
-we are in a 8GT/s x8 PCIe slot and send a warning if we are not.
-
-Change-Id: I62815c574cee50d2787c50bbe956dde7a7a75a11
+CC: <linux-kernel@vger.kernel.org>
 CC: Bjorn Helgaas <bhelgaas@google.com>
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Acked-by: Bjorn Helgaas <bhelgaas@google.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c    | 44 ++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_main.c      | 23 +++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_prototype.h |  1 +
- 3 files changed, 68 insertions(+)
+ include/uapi/linux/pci_regs.h | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 8b6d56a..a69959e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -2029,3 +2029,47 @@ i40e_status i40e_set_filter_control(struct i40e_hw *hw,
- 
- 	return 0;
- }
-+/**
-+ * i40e_set_pci_config_data - store PCI bus info
-+ * @hw: pointer to hardware structure
-+ * @link_status: the link status word from PCI config space
-+ *
-+ * Stores the PCI bus info (speed, width, type) within the i40e_hw structure
-+ **/
-+void i40e_set_pci_config_data(struct i40e_hw *hw, u16 link_status)
-+{
-+	hw->bus.type = i40e_bus_type_pci_express;
-+
-+	switch (link_status & PCI_EXP_LNKSTA_NLW) {
-+	case PCI_EXP_LNKSTA_NLW_X1:
-+		hw->bus.width = i40e_bus_width_pcie_x1;
-+		break;
-+	case PCI_EXP_LNKSTA_NLW_X2:
-+		hw->bus.width = i40e_bus_width_pcie_x2;
-+		break;
-+	case PCI_EXP_LNKSTA_NLW_X4:
-+		hw->bus.width = i40e_bus_width_pcie_x4;
-+		break;
-+	case PCI_EXP_LNKSTA_NLW_X8:
-+		hw->bus.width = i40e_bus_width_pcie_x8;
-+		break;
-+	default:
-+		hw->bus.width = i40e_bus_width_unknown;
-+		break;
-+	}
-+
-+	switch (link_status & PCI_EXP_LNKSTA_CLS) {
-+	case PCI_EXP_LNKSTA_CLS_2_5GB:
-+		hw->bus.speed = i40e_bus_speed_2500;
-+		break;
-+	case PCI_EXP_LNKSTA_CLS_5_0GB:
-+		hw->bus.speed = i40e_bus_speed_5000;
-+		break;
-+	case PCI_EXP_LNKSTA_CLS_8_0GB:
-+		hw->bus.speed = i40e_bus_speed_8000;
-+		break;
-+	default:
-+		hw->bus.speed = i40e_bus_speed_unknown;
-+		break;
-+	}
-+}
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index f14b31c..22a2c0e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7369,6 +7369,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	struct i40e_pf *pf;
- 	struct i40e_hw *hw;
- 	static u16 pfs_found;
-+	u16 link_status;
- 	int err = 0;
- 	u32 len;
- 
-@@ -7603,6 +7604,28 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	mod_timer(&pf->service_timer,
- 		  round_jiffies(jiffies + pf->service_timer_period));
- 
-+	/* Get the negotiated link width and speed from PCI config space */
-+	pcie_capability_read_word(pf->pdev, PCI_EXP_LNKSTA, &link_status);
-+
-+	i40e_set_pci_config_data(hw, link_status);
-+
-+	dev_info(&pdev->dev, "PCI Express: %s %s\n",
-+		(hw->bus.speed == i40e_bus_speed_8000 ? "Speed 8.0GT/s" :
-+		 hw->bus.speed == i40e_bus_speed_5000 ? "Speed 5.0GT/s" :
-+		 hw->bus.speed == i40e_bus_speed_2500 ? "Speed 2.5GT/s" :
-+		 "Unknown"),
-+		(hw->bus.width == i40e_bus_width_pcie_x8 ? "Width x8" :
-+		 hw->bus.width == i40e_bus_width_pcie_x4 ? "Width x4" :
-+		 hw->bus.width == i40e_bus_width_pcie_x2 ? "Width x2" :
-+		 hw->bus.width == i40e_bus_width_pcie_x1 ? "Width x1" :
-+		 "Unknown"));
-+
-+	if (hw->bus.width < i40e_bus_width_pcie_x8 ||
-+	    hw->bus.speed < i40e_bus_speed_8000) {
-+		dev_warn(&pdev->dev, "PCI-Express bandwidth available for this device may be insufficient for optimal performance.\n");
-+		dev_warn(&pdev->dev, "Please move the device to a different PCI-e link with more lanes and/or higher transfer rate.\n");
-+	}
-+
- 	return 0;
- 
- 	/* Unwind what we've done if something failed in the setup */
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-index 2fc9ce5..db7bf93 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-@@ -215,6 +215,7 @@ i40e_status i40e_read_nvm_buffer(struct i40e_hw *hw, u16 offset,
- 					   u16 *words, u16 *data);
- i40e_status i40e_validate_nvm_checksum(struct i40e_hw *hw,
- 						 u16 *checksum);
-+void i40e_set_pci_config_data(struct i40e_hw *hw, u16 link_status);
- 
- /* prototype for functions used for SW locks */
- 
+diff --git a/include/uapi/linux/pci_regs.h b/include/uapi/linux/pci_regs.h
+index 4a98e85..c870c2a 100644
+--- a/include/uapi/linux/pci_regs.h
++++ b/include/uapi/linux/pci_regs.h
+@@ -489,7 +489,12 @@
+ #define  PCI_EXP_LNKSTA_CLS	0x000f	/* Current Link Speed */
+ #define  PCI_EXP_LNKSTA_CLS_2_5GB 0x0001 /* Current Link Speed 2.5GT/s */
+ #define  PCI_EXP_LNKSTA_CLS_5_0GB 0x0002 /* Current Link Speed 5.0GT/s */
++#define  PCI_EXP_LNKSTA_CLS_8_0GB 0x0003 /* Current Link Speed 8.0GT/s */
+ #define  PCI_EXP_LNKSTA_NLW	0x03f0	/* Negotiated Link Width */
++#define  PCI_EXP_LNKSTA_NLW_X1	0x0010	/* Current Link Width x1 */
++#define  PCI_EXP_LNKSTA_NLW_X2	0x0020	/* Current Link Width x2 */
++#define  PCI_EXP_LNKSTA_NLW_X4	0x0040	/* Current Link Width x4 */
++#define  PCI_EXP_LNKSTA_NLW_X8	0x0080	/* Current Link Width x8 */
+ #define  PCI_EXP_LNKSTA_NLW_SHIFT 4	/* start of NLW mask in link status */
+ #define  PCI_EXP_LNKSTA_LT	0x0800	/* Link Training */
+ #define  PCI_EXP_LNKSTA_SLC	0x1000	/* Slot Clock Configuration */
 -- 
 1.8.3.1
