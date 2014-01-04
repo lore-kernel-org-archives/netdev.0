@@ -1,51 +1,80 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [net PATCH] netfilter: only warn once on wrong seqadj usage
-Date: Sat, 4 Jan 2014 13:16:48 +0000
-Message-ID: <20140104131648.GA18176@macbook.localnet>
-References: <20140104130944.28481.30891.stgit@dragon>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] macvlan: fix oops with vlan-on-top and HW_VLAN_CTAG_TX
+ lowerdev
+Date: Sat, 4 Jan 2014 14:51:32 +0100
+Message-ID: <20140104135132.GA2106@breakpoint.cc>
+References: <20131230102712.GO29632@breakpoint.cc>
+ <20131231.162448.1656983197554902144.davem@davemloft.net>
+ <20140103113904.GB28854@breakpoint.cc>
+ <20140103.153352.166630160016412696.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Flavio Leitner <fbl@redhat.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: fw@strlen.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:45528 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753152AbaADNvg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 08:51:36 -0500
 Content-Disposition: inline
-In-Reply-To: <20140104130944.28481.30891.stgit@dragon>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20140103.153352.166630160016412696.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 04, 2014 at 02:10:43PM +0100, Jesper Dangaard Brouer wrote:
-> Avoid potentially spamming the kernel log with WARN splash messages
-> when catching wrong usage of seqadj, by simply using WARN_ONCE.
+David Miller <davem@davemloft.net> wrote:
+> From: Florian Westphal <fw@strlen.de>
+> Date: Fri, 3 Jan 2014 12:39:04 +0100
 > 
-> This is a followup to commit db12cf274353 (netfilter: WARN about
-> wrong usage of sequence number adjustments)
+> >> +static const struct header_ops vlan_passthru_header_ops = {
+> >> +	.create	 = vlan_passthru_hard_header,
+> >> +	.rebuild = dev_rebuild_header,
+> > 
+> > Doesn't that result in infinite recursion when invoking
+> > dev_rebuild_header() on skb whose dev->header_ops is
+> > vlan_passthru_header_ops?
 > 
-> Suggested-by: Flavio Leitner <fbl@redhat.com>
-> Suggested-by: Daniel Borkmann <dborkman@redhat.com>
-> Suggested-by: Florian Westphal <fw@strlen.de>
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> ---
-> Nitpick found by internal RedHat review process ;-)
-> 
->  net/netfilter/nf_conntrack_seqadj.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/netfilter/nf_conntrack_seqadj.c b/net/netfilter/nf_conntrack_seqadj.c
-> index b2d38da..f6e2ae9 100644
-> --- a/net/netfilter/nf_conntrack_seqadj.c
-> +++ b/net/netfilter/nf_conntrack_seqadj.c
-> @@ -37,7 +37,7 @@ int nf_ct_seqadj_set(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
->  		return 0;
->  
->  	if (unlikely(!seqadj)) {
-> -		WARN(1, "Wrong seqadj usage, missing nfct_seqadj_ext_add()\n");
-> +		WARN_ONCE(1, "Missing nfct_seqadj_ext_add() setup call\n");
->  		return 0;
+> The skb->dev should be the real_dev at this point, no?
 
-I missed the patch that added the WARN. Since when do we add runtime checks
-for API misuse instead of simply letting it crash?
+Oh, this is fun.
 
+I grep'd for invocations of ->rebuild() because I wanted to understand
+when/where it is used.
+
+I only found one single instance, namely
+
+neigh_compat_output() in net/core/neighbour.c
+
+It does
+        struct net_device *dev = skb->dev;
+        __skb_pull(skb, skb_network_offset(skb));
+       if (dev_hard_header(skb, dev, ntohs(skb->protocol), NULL, NULL, skb->len) < 0 &&
+            dev->header_ops->rebuild(skb))
+               return 0;
+
+So I thought, if skb->dev is the vlan device, we would invoke
+dev_rebuild_header(), which grabs skb->dev again and invokes
+dev_rebuild_header again, etc. etc.
+
+But: neigh_compat_output (suspicious name...) is only wired up in
+net/ipv4/arp.c, in 'static const struct neigh_ops arp_broken_ops'.
+... and arp_broken_ops is only set if dev->type is one of
+ARPHRD_ROSE, ARPHRD_AX25, ARPHRD_NETROM.
+
+Could it be that ->rebuild() is completely obsolete and could be removed
+from almost all drivers (except above types)?
+
+Archeology exercise #1 digs up 3b04ddde02c in linux.git, which
+creats header_ops->rebuild, from the old  dev->rebuild_header.
+
+Exercise #2 then finds commit 275513d2e1c78 in netdev-vger-cvs.git tree.
+Quote from commit message:
+
+        - dev->rebuild_header WILL DISAPPEAR. All the code
+          relying on its existance is wrong, though still works.
+
+Alexey calling from 1997 ;-)
+
+I'll do some more digging before working on this.
+
+I've placed a BUG() in eth_rebuild_header on my workstation, lets see if
+it dies 8-}
