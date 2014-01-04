@@ -1,80 +1,72 @@
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: Re: [PATCH 0/2] tun: add the RFS support
-Date: Sat, 4 Jan 2014 18:53:09 +0800
-Message-ID: <CAEH94LgDLTvx0F6N6rDuyRR+DKkZC8CUsYQD6iFhrUURjx5BLg@mail.gmail.com>
-References: <1387709672-21917-1-git-send-email-zwu.kernel@gmail.com>
-	<20131231.133200.1111966466957616549.davem@davemloft.net>
-	<CA+mtBx8b_D+JQaphS4LCbAVKRWE5Tz1-P_eVxJJdG-FbMdWPdw@mail.gmail.com>
-	<CAEH94LiYzvHFy-5oMOnkj8KJAZXUnY+wcrkFAMnrjkOM4Sb6hA@mail.gmail.com>
-	<CA+mtBx_-kzKYLYww8C6AXX33DzxPxMX9enGj4QXJZWjDFghVKg@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [patch iproute2 v2 0/2] add support for IFA_F_MANAGETEMPADDR
+Date: Sat, 4 Jan 2014 11:55:15 +0100
+Message-ID: <20140104105515.GA25828@order.stressinduktion.org>
+References: <1388676879-2603-1-git-send-email-jiri@resnulli.us> <20140102172949.GF22494@order.stressinduktion.org> <20140104104331.GB9295@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: Tom Herbert <therbert@google.com>, Jerry Chu <hkchu@google.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	thaller@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:40057 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751302AbaADKxM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 05:53:12 -0500
-Received: by mail-ob0-f172.google.com with SMTP id gq1so16545594obb.17
-        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 02:53:09 -0800 (PST)
-In-Reply-To: <CA+mtBx_-kzKYLYww8C6AXX33DzxPxMX9enGj4QXJZWjDFghVKg@mail.gmail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:38612 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751161AbaADKzQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 05:55:16 -0500
+Content-Disposition: inline
+In-Reply-To: <20140104104331.GB9295@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-HI, Jerry
+On Sat, Jan 04, 2014 at 11:43:31AM +0100, Jiri Pirko wrote:
+> Thu, Jan 02, 2014 at 06:29:49PM CET, hannes@stressinduktion.org wrote:
+> >On Thu, Jan 02, 2014 at 04:34:37PM +0100, Jiri Pirko wrote:
+> >> v1->v2: Removed 0xff masking of ifa_flags
+> >> 
+> >> Jiri Pirko (2):
+> >>   add support for extended ifa_flags
+> >>   add support for IFA_F_MANAGETEMPADDR
+> >> 
+> >>  include/linux/if_addr.h |  2 ++
+> >>  ip/ipaddress.c          | 50 +++++++++++++++++++++++++++++++++++--------------
+> >>  2 files changed, 38 insertions(+), 14 deletions(-)
+> >
+> >I still wonder how source address selection should work for
+> >IFA_F_MANAGETEMPADDR if use_tempaddr != 2 mode is not available for
+> >those addresses.
+> >
+> >Up until now applications can bind to those addresses and traffic can be
+> >received for them, but there is now way how a user can specify to favor them
+> >in case of use_tempaddr == 0.
+> 
+> I'm not sure I understand you. Can you please elaborate more? Not sure
+> how this is related to iproute2.
 
-Would you like to share it? It is really appreciated if you'd like.
-Can you let me know your opinion? thanks.
+Sorry, it is not related to this patch set at all but more to
+IFA_F_MANAGETEMPADDR as a whole (maybe it could be a follow-up feature).
 
-On Fri, Jan 3, 2014 at 2:13 AM, Tom Herbert <therbert@google.com> wrote:
-> +hkchu
->
-> I believe Jerry Chu was using a little uspace program to turn tun into
-> a network interface so that netperf and others can easily be run.
-> Jerry, can you share how you did that?
->
-> Thanks,
-> Tom
->
-> On Tue, Dec 31, 2013 at 10:44 PM, Zhi Yong Wu <zwu.kernel@gmail.com> wrote:
->> On Wed, Jan 1, 2014 at 6:33 AM, Tom Herbert <therbert@google.com> wrote:
->>> Zhi,
->>>
->>> Thanks for following up on these patches. It would still be nice to
->>> have performance numbers to show the impact. These will be helpful for
->>> the next task of integrating RFS into virtio-net.
->> Will try to do them after holiday, if you have any special test cases,
->> please let me know, thanks.
->>
->>>
->>> Tom
->>>
->>> On Tue, Dec 31, 2013 at 10:32 AM, David Miller <davem@davemloft.net> wrote:
->>>> From: Zhi Yong Wu <zwu.kernel@gmail.com>
->>>> Date: Sun, 22 Dec 2013 18:54:30 +0800
->>>>
->>>>> Since Tom Herbert's hash related patchset was modified and got merged,
->>>>> his pachset about adding support for RFS on tun flows also need to get
->>>>> adjusted accordingly. I tried to update them, and before i will start
->>>>> to do some perf tests, i hope to get one correct code base, so it's time
->>>>> to post them out now. Any constructive comments are welcome, thanks.
->>>>
->>>> Series applied to net-next, thanks.
->>
->>
->>
->> --
->> Regards,
->>
->> Zhi Yong Wu
+> Anyway, the kernel behaviour wrt use_tempaddr settings remains unchanged
+> with the addition of IFA_F_MANAGETEMPADDR. It only allows to create temp
+> addresses for other addresses than the ones created by kernel (by RA).
 
+I assume that systems with NetworkManager won't activate use_tempaddr. If
+you look at ipv6_get_saddr_eval we only prefer privacy addresses to
+normal ones, if use_tempaddr == 2, which also implies that kernel does
+generate privacy addresses.
 
+So currently privacy addresses are correctly installed, but we cannot control
+if we want prefer them to global addresses for outgoing connections where the
+socket is not bound to a specific address.
 
--- 
-Regards,
+Also, I saw that NetworkManager switched to install autoconf addresses
+as /128, doesn't this break with IFA_F_MANAGETEMPADDR, as you expect a /64
+prefixlen?
 
-Zhi Yong Wu
+I guess NetworkManager wants a way to add /64 addresses without installing the
+on-link prefix route?
+
+Hope that makes sense?
+
+Greetings,
+
+  Hannes
