@@ -1,120 +1,97 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/15] i40e: guard against vf message races
-Date: Sun,  5 Jan 2014 02:46:57 -0800
-Message-ID: <1388918827-13430-6-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1388918827-13430-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
+Date: Sun,  5 Jan 2014 02:46:52 -0800
+Message-ID: <1388918827-13430-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:26680 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:21383 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751093AbaAEKrN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Jan 2014 05:47:13 -0500
-In-Reply-To: <1388918827-13430-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751083AbaAEKrK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Jan 2014 05:47:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+This series contains updates to i40e only.
 
-When disabling and enabling VFs on a live system with the VF driver
-loaded, it's possible to receive an admin queue message from the VF
-driver at an inconvenient time, e.g. when the associated data structures
-aren't present or configured. This causes a rather inconvenient panic.
+Anjali provides two cleanups to remove unnecessary code and a fix
+to resolve debugfs dumping only half the NVM.  Then provides a fix
+to ethtool NVM reads where shadow RAM was used instead of actual
+NVM reads.
 
-To guard against this, we change the order of when we set num_alloc_vfs
-when turning off SR-IOV, and then gate processing of any VF messages
-based upon that value. Likewise, when enabling VFs, we shut off the
-relevant interrupt until configuration is complete.
+Jesse provides a couple of fixes, one removes custom i40e functions
+which duplicate existing kernel functionality.  Second fixes constant
+cast issues by replacing __constant_htons with htons.
 
-Change-Id: I0c172c056616c2bebd78bbc807ab446eb484deea
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 23 +++++++++++++++++-----
- 1 file changed, 18 insertions(+), 5 deletions(-)
+Mitch provides a couple of fixes for the VF interfaces in i40e.  First
+provides a fix to guard against VF message races with can cause a panic.
+Second fix reinitializes the buffer size each time we clean the ARQ,
+because subsequent messages can be truncated. Lastly adds functionality
+to enable/disable ICR 0 dynamically.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index cc4ebf5..ed25fcb 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -720,7 +720,7 @@ static bool i40e_vfs_are_assigned(struct i40e_pf *pf)
- void i40e_free_vfs(struct i40e_pf *pf)
- {
- 	struct i40e_hw *hw = &pf->hw;
--	int i;
-+	int i, tmp;
- 
- 	if (!pf->vf)
- 		return;
-@@ -728,9 +728,11 @@ void i40e_free_vfs(struct i40e_pf *pf)
- 	/* Disable interrupt 0 so we don't try to handle the VFLR. */
- 	wr32(hw, I40E_PFINT_DYN_CTL0, 0);
- 	i40e_flush(hw);
--
-+	mdelay(10); /* let any messages in transit get finished up */
- 	/* free up vf resources */
--	for (i = 0; i < pf->num_alloc_vfs; i++) {
-+	tmp = pf->num_alloc_vfs;
-+	pf->num_alloc_vfs = 0;
-+	for (i = 0; i < tmp; i++) {
- 		if (test_bit(I40E_VF_STAT_INIT, &pf->vf[i].vf_states))
- 			i40e_free_vf_res(&pf->vf[i]);
- 		/* disable qp mappings */
-@@ -739,7 +741,6 @@ void i40e_free_vfs(struct i40e_pf *pf)
- 
- 	kfree(pf->vf);
- 	pf->vf = NULL;
--	pf->num_alloc_vfs = 0;
- 
- 	if (!i40e_vfs_are_assigned(pf))
- 		pci_disable_sriov(pf->pdev);
-@@ -765,9 +766,13 @@ void i40e_free_vfs(struct i40e_pf *pf)
-  **/
- static int i40e_alloc_vfs(struct i40e_pf *pf, u16 num_alloc_vfs)
- {
-+	struct i40e_hw *hw = &pf->hw;
- 	struct i40e_vf *vfs;
- 	int i, ret = 0;
- 
-+	/* Disable interrupt 0 so we don't try to handle the VFLR. */
-+	wr32(hw, I40E_PFINT_DYN_CTL0, 0);
-+	i40e_flush(hw);
- 	ret = pci_enable_sriov(pf->pdev, num_alloc_vfs);
- 	if (ret) {
- 		dev_err(&pf->pdev->dev,
-@@ -804,6 +809,11 @@ err_alloc:
- 	if (ret)
- 		i40e_free_vfs(pf);
- err_iov:
-+	/* Re-enable interrupt 0. */
-+	wr32(hw, I40E_PFINT_DYN_CTL0,
-+	     I40E_PFINT_DYN_CTL0_INTENA_MASK |
-+	     I40E_PFINT_DYN_CTL0_CLEARPBA_MASK |
-+	     (I40E_ITR_NONE << I40E_PFINT_DYN_CTL0_ITR_INDX_SHIFT));
- 	return ret;
- }
- 
-@@ -1644,11 +1654,14 @@ static int i40e_vc_validate_vf_msg(struct i40e_vf *vf, u32 v_opcode,
- int i40e_vc_process_vf_msg(struct i40e_pf *pf, u16 vf_id, u32 v_opcode,
- 			   u32 v_retval, u8 *msg, u16 msglen)
- {
--	struct i40e_vf *vf = &(pf->vf[vf_id]);
- 	struct i40e_hw *hw = &pf->hw;
-+	struct i40e_vf *vf;
- 	int ret;
- 
- 	pf->vf_aq_requests++;
-+	if (vf_id >= pf->num_alloc_vfs)
-+		return -EINVAL;
-+	vf = &(pf->vf[vf_id]);
- 	/* perform basic checks on the msg */
- 	ret = i40e_vc_validate_vf_msg(vf, v_opcode, v_retval, msg, msglen);
- 
+Vasu adds a simple guard against multiple includes of the i40e_txrx.h
+file.
+
+Shannon provides a couple of fixes, first fix swaps a couple of lines
+around in the error handling if the allocation for the VSI array fails.
+Second fixes an issue where we try to free the q_vector that has not
+been setup which can panic the kernel.
+
+David provides a patch to save off the point to memory and the length
+of 2 structs used in the admin queue in order to store all info about
+allocated kernel memory.
+
+Neerav fixes ring allocation where allocation and clearing of rings
+for a VSI should be using the alloc_queue_pairs and not num_queue_pairs.
+Then removes the unused define for multi-queue enabled.
+
+The following are changes since commit a1d4b03a076d95edc88d070f7627a73ab80abddc:
+  Merge branch 'bgmac'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Anjali Singhai Jain (4):
+  i40e: Dump the whole NVM, not half
+  i40e: Change the ethtool NVM read method to use AQ
+  i40e: Remove unnecessary prototypes
+  i40e: remove un-necessary io-write
+
+David Cassard (1):
+  i40e: keep allocated memory in structs
+
+Jesse Brandeburg (2):
+  i40e: fix mac address checking
+  i40e: fix constant cast issues
+
+Mitch Williams (3):
+  i40e: guard against vf message races
+  i40e: use functions to enable and disable icr 0
+  i40e: reinit buffer size each time
+
+Neerav Parikh (2):
+  i40e: Fix ring allocation
+  i40e: I40E_FLAG_MQ_ENABLED is not used
+
+Shannon Nelson (2):
+  i40e: fix error handling when alloc of vsi array fails
+  i40e: catch unset q_vector
+
+Vasu Dev (1):
+  i40e: add header file flag _I40E_TXRX_H_
+
+ drivers/net/ethernet/intel/i40e/i40e.h             |  40 +++-----
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c      | 103 +++++++++------------
+ drivers/net/ethernet/intel/i40e/i40e_adminq.h      |  13 +--
+ drivers/net/ethernet/intel/i40e/i40e_common.c      |  27 ------
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |   8 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  68 +++++++++-----
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |  47 +++++-----
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   1 -
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |   8 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h        |   4 +
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  28 +++---
+ 11 files changed, 162 insertions(+), 185 deletions(-)
+
 -- 
 1.8.3.1
