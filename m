@@ -1,7 +1,7 @@
 From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH v3 1/5] bcma: export bcma_find_core_unit()
-Date: Sun,  5 Jan 2014 01:10:43 +0100
-Message-ID: <1388880647-7611-2-git-send-email-hauke@hauke-m.de>
+Subject: [PATCH v3 4/5] bgmac: reset all cores on Northstar SoC
+Date: Sun,  5 Jan 2014 01:10:46 +0100
+Message-ID: <1388880647-7611-5-git-send-email-hauke@hauke-m.de>
 References: <1388880647-7611-1-git-send-email-hauke@hauke-m.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -10,97 +10,56 @@ Cc: zajec5@gmail.com, netdev@vger.kernel.org,
 	Hauke Mehrtens <hauke@hauke-m.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:60053 "EHLO
+Received: from server19320154104.serverpool.info ([193.201.54.104]:60066 "EHLO
 	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755139AbaAEAK6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Jan 2014 19:10:58 -0500
+	id S1755139AbaAEALF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Jan 2014 19:11:05 -0500
 In-Reply-To: <1388880647-7611-1-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This function is used to get a specific core when there is more than
-one core of that specific type. This is used in bgmac to reset all GMAC
-cores.
+On the Northstar SoC (BCM4707 and BCM53018) we have to enable all GMAC
+cores when we just want to use on. We iterate over all the cores and
+activate them.
 
 Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 Acked-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
 ---
- drivers/bcma/bcma_private.h |    2 --
- drivers/bcma/main.c         |   13 +------------
- include/linux/bcma/bcma.h   |    9 ++++++++-
- 3 files changed, 9 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/broadcom/bgmac.c |   21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
 
-diff --git a/drivers/bcma/bcma_private.h b/drivers/bcma/bcma_private.h
-index 0215f9a..09b632a 100644
---- a/drivers/bcma/bcma_private.h
-+++ b/drivers/bcma/bcma_private.h
-@@ -33,8 +33,6 @@ int __init bcma_bus_early_register(struct bcma_bus *b=
-us,
- int bcma_bus_suspend(struct bcma_bus *bus);
- int bcma_bus_resume(struct bcma_bus *bus);
- #endif
--struct bcma_device *bcma_find_core_unit(struct bcma_bus *bus, u16 core=
-id,
--					u8 unit);
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
+et/broadcom/bgmac.c
+index 88ec69e..2cdacb8 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -1446,6 +1446,27 @@ static int bgmac_probe(struct bcma_device *core)
 =20
- /* scan.c */
- int bcma_bus_scan(struct bcma_bus *bus);
-diff --git a/drivers/bcma/main.c b/drivers/bcma/main.c
-index 5a9f6bd..34ea4c5 100644
---- a/drivers/bcma/main.c
-+++ b/drivers/bcma/main.c
-@@ -78,18 +78,6 @@ static u16 bcma_cc_core_id(struct bcma_bus *bus)
- 	return BCMA_CORE_CHIPCOMMON;
- }
+ 	bgmac_chip_reset(bgmac);
 =20
--struct bcma_device *bcma_find_core(struct bcma_bus *bus, u16 coreid)
--{
--	struct bcma_device *core;
--
--	list_for_each_entry(core, &bus->cores, list) {
--		if (core->id.id =3D=3D coreid)
--			return core;
--	}
--	return NULL;
--}
--EXPORT_SYMBOL_GPL(bcma_find_core);
--
- struct bcma_device *bcma_find_core_unit(struct bcma_bus *bus, u16 core=
-id,
- 					u8 unit)
- {
-@@ -101,6 +89,7 @@ struct bcma_device *bcma_find_core_unit(struct bcma_=
-bus *bus, u16 coreid,
- 	}
- 	return NULL;
- }
-+EXPORT_SYMBOL_GPL(bcma_find_core_unit);
-=20
- bool bcma_wait_value(struct bcma_device *core, u16 reg, u32 mask, u32 =
-value,
- 		     int timeout)
-diff --git a/include/linux/bcma/bcma.h b/include/linux/bcma/bcma.h
-index 4d043c3..0b3bb16 100644
---- a/include/linux/bcma/bcma.h
-+++ b/include/linux/bcma/bcma.h
-@@ -418,7 +418,14 @@ static inline void bcma_maskset16(struct bcma_devi=
-ce *cc,
- 	bcma_write16(cc, offset, (bcma_read16(cc, offset) & mask) | set);
- }
-=20
--extern struct bcma_device *bcma_find_core(struct bcma_bus *bus, u16 co=
-reid);
-+extern struct bcma_device *bcma_find_core_unit(struct bcma_bus *bus, u=
-16 coreid,
-+					       u8 unit);
-+static inline struct bcma_device *bcma_find_core(struct bcma_bus *bus,
-+						 u16 coreid)
-+{
-+	return bcma_find_core_unit(bus, coreid, 0);
-+}
++	/* For Northstar, we have to take all GMAC core out of reset */
++	if (core->id.id =3D=3D BCMA_CHIP_ID_BCM4707 ||
++	    core->id.id =3D=3D BCMA_CHIP_ID_BCM53018) {
++		struct bcma_device *ns_core;
++		int ns_gmac;
 +
- extern bool bcma_core_is_enabled(struct bcma_device *core);
- extern void bcma_core_disable(struct bcma_device *core, u32 flags);
- extern int bcma_core_enable(struct bcma_device *core, u32 flags);
++		/* Northstar has 4 GMAC cores */
++		for (ns_gmac =3D 0; ns_gmac < 4; ns_gmac++) {
++			/* As northstar requirement, we have to reset all GAMCs
++			 * before accessing one. bgmac_chip_reset() call
++			 * bcma_core_enable() for this core. Then the other
++			 * three GAMCs didn't reset.  We do it here.
++			 */
++			ns_core =3D bcma_find_core_unit(core->bus,
++						      BCMA_CORE_MAC_GBIT,
++						      ns_gmac);
++			if (ns_core && !bcma_core_is_enabled(ns_core))
++				bcma_core_enable(ns_core, 0);
++		}
++	}
++
+ 	err =3D bgmac_dma_alloc(bgmac);
+ 	if (err) {
+ 		bgmac_err(bgmac, "Unable to alloc memory for DMA\n");
 --=20
 1.7.10.4
