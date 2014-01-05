@@ -1,58 +1,115 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 05/12] ipvs: Remove unused variable ret from sync_thread_master()
-Date: Mon,  6 Jan 2014 00:12:59 +0100
-Message-ID: <1388963586-5049-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 03/12] netfilter: nfnetlink_queue: enable UID/GID socket info retrieval
+Date: Mon,  6 Jan 2014 00:12:57 +0100
+Message-ID: <1388963586-5049-4-git-send-email-pablo@netfilter.org>
 References: <1388963586-5049-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:56242 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752086AbaAEXNZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Jan 2014 18:13:25 -0500
 In-Reply-To: <1388963586-5049-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
+From: Valentina Giusti <valentina.giusti@bmw-carit.de>
 
-net/netfilter/ipvs/ip_vs_sync.c: In function 'sync_thread_master':
-net/netfilter/ipvs/ip_vs_sync.c:1640:8: warning: unused variable 'ret' [-Wunused-variable]
+Thanks to commits 41063e9 (ipv4: Early TCP socket demux) and 421b388
+(udp: ipv4: Add udp early demux) it is now possible to parse UID and
+GID socket info also for incoming TCP and UDP connections. Having
+this info available, it is convenient to let NFQUEUE parse it in
+order to improve and refine the traffic analysis in userspace.
 
-Commit 35a2af94c7ce7130ca292c68b1d27fcfdb648f6b ("sched/wait: Make the
-__wait_event*() interface more friendly") changed how the interruption
-state is returned. However, sync_thread_master() ignores this state,
-now causing a compile warning.
-
-According to Julian Anastasov <ja@ssi.bg>, this behavior is OK:
-
-    "Yes, your patch looks ok to me. In the past we used ssleep() but IPVS
-     users were confused why IPVS threads increase the load average. So, we
-     switched to _interruptible calls and later the socket polling was
-     added."
-
-Document this, as requested by Peter Zijlstra, to avoid precious developers
-disappearing in this pitfall in the future.
-
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Valentina Giusti <valentina.giusti@bmw-carit.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_sync.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ include/uapi/linux/netfilter/nfnetlink_queue.h |    5 +++-
+ net/netfilter/nfnetlink_queue_core.c           |   34 ++++++++++++++++++++++++
+ 2 files changed, 38 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index f63c238..db80126 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -1637,7 +1637,10 @@ static int sync_thread_master(void *data)
- 			continue;
- 		}
- 		while (ip_vs_send_sync_msg(tinfo->sock, sb->mesg) < 0) {
--			int ret = __wait_event_interruptible(*sk_sleep(sk),
-+			/* (Ab)use interruptible sleep to avoid increasing
-+			 * the load avg.
-+			 */
-+			__wait_event_interruptible(*sk_sleep(sk),
- 						   sock_writeable(sk) ||
- 						   kthread_should_stop());
- 			if (unlikely(kthread_should_stop()))
+diff --git a/include/uapi/linux/netfilter/nfnetlink_queue.h b/include/uapi/linux/netfilter/nfnetlink_queue.h
+index 0132bad..8dd819e 100644
+--- a/include/uapi/linux/netfilter/nfnetlink_queue.h
++++ b/include/uapi/linux/netfilter/nfnetlink_queue.h
+@@ -47,6 +47,8 @@ enum nfqnl_attr_type {
+ 	NFQA_CAP_LEN,			/* __u32 length of captured packet */
+ 	NFQA_SKB_INFO,			/* __u32 skb meta information */
+ 	NFQA_EXP,			/* nf_conntrack_netlink.h */
++	NFQA_UID,			/* __u32 sk uid */
++	NFQA_GID,			/* __u32 sk gid */
+ 
+ 	__NFQA_MAX
+ };
+@@ -99,7 +101,8 @@ enum nfqnl_attr_config {
+ #define NFQA_CFG_F_FAIL_OPEN			(1 << 0)
+ #define NFQA_CFG_F_CONNTRACK			(1 << 1)
+ #define NFQA_CFG_F_GSO				(1 << 2)
+-#define NFQA_CFG_F_MAX				(1 << 3)
++#define NFQA_CFG_F_UID_GID			(1 << 3)
++#define NFQA_CFG_F_MAX				(1 << 4)
+ 
+ /* flags for NFQA_SKB_INFO */
+ /* packet appears to have wrong checksums, but they are ok */
+diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
+index 21258cf..d3cf12b 100644
+--- a/net/netfilter/nfnetlink_queue_core.c
++++ b/net/netfilter/nfnetlink_queue_core.c
+@@ -297,6 +297,31 @@ nfqnl_put_packet_info(struct sk_buff *nlskb, struct sk_buff *packet,
+ 	return flags ? nla_put_be32(nlskb, NFQA_SKB_INFO, htonl(flags)) : 0;
+ }
+ 
++static int nfqnl_put_sk_uidgid(struct sk_buff *skb, struct sock *sk)
++{
++	const struct cred *cred;
++
++	if (sk->sk_state == TCP_TIME_WAIT)
++		return 0;
++
++	read_lock_bh(&sk->sk_callback_lock);
++	if (sk->sk_socket && sk->sk_socket->file) {
++		cred = sk->sk_socket->file->f_cred;
++		if (nla_put_be32(skb, NFQA_UID,
++		    htonl(from_kuid_munged(&init_user_ns, cred->fsuid))))
++			goto nla_put_failure;
++		if (nla_put_be32(skb, NFQA_GID,
++		    htonl(from_kgid_munged(&init_user_ns, cred->fsgid))))
++			goto nla_put_failure;
++	}
++	read_unlock_bh(&sk->sk_callback_lock);
++	return 0;
++
++nla_put_failure:
++	read_unlock_bh(&sk->sk_callback_lock);
++	return -1;
++}
++
+ static struct sk_buff *
+ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 			   struct nf_queue_entry *entry,
+@@ -372,6 +397,11 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 	if (queue->flags & NFQA_CFG_F_CONNTRACK)
+ 		ct = nfqnl_ct_get(entskb, &size, &ctinfo);
+ 
++	if (queue->flags & NFQA_CFG_F_UID_GID) {
++		size +=  (nla_total_size(sizeof(u_int32_t))	/* uid */
++			+ nla_total_size(sizeof(u_int32_t)));	/* gid */
++	}
++
+ 	skb = nfnetlink_alloc_skb(net, size, queue->peer_portid,
+ 				  GFP_ATOMIC);
+ 	if (!skb)
+@@ -484,6 +514,10 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 			goto nla_put_failure;
+ 	}
+ 
++	if ((queue->flags & NFQA_CFG_F_UID_GID) && entskb->sk &&
++	    nfqnl_put_sk_uidgid(skb, entskb->sk) < 0)
++		goto nla_put_failure;
++
+ 	if (ct && nfqnl_ct_put(skb, ct, ctinfo) < 0)
+ 		goto nla_put_failure;
+ 
 -- 
 1.7.10.4
-
