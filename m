@@ -1,65 +1,66 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/15] i40e: Dump the whole NVM, not half
-Date: Sun,  5 Jan 2014 02:46:53 -0800
-Message-ID: <1388918827-13430-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/15] i40e: fix constant cast issues
+Date: Sun,  5 Jan 2014 02:46:56 -0800
+Message-ID: <1388918827-13430-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1388918827-13430-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:21383 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:33338 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751093AbaAEKrL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Jan 2014 05:47:11 -0500
+	id S1751083AbaAEKrM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Jan 2014 05:47:12 -0500
 In-Reply-To: <1388918827-13430-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Debugfs was reading exactly half the number of words, fix it.
+Replace __constant_htons with htons
 
-Change-Id: Ieb217f3c6dca455d44e50a0dc61a6664c0cb2265
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-Id: I123a5318bae34c8b004c71db07c56f137c685849
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h         | 2 +-
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index df569fd..934623e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -65,7 +65,7 @@
- #define I40E_MAX_NPAR_QPS     32
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index a978451..2584d6b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1317,7 +1317,7 @@ static int i40e_tx_prepare_vlan_flags(struct sk_buff *skb,
+ 		tx_flags |= vlan_tx_tag_get(skb) << I40E_TX_FLAGS_VLAN_SHIFT;
+ 		tx_flags |= I40E_TX_FLAGS_HW_VLAN;
+ 	/* else if it is a SW VLAN, check the next protocol and store the tag */
+-	} else if (protocol == __constant_htons(ETH_P_8021Q)) {
++	} else if (protocol == htons(ETH_P_8021Q)) {
+ 		struct vlan_hdr *vhdr, _vhdr;
+ 		vhdr = skb_header_pointer(skb, ETH_HLEN, sizeof(_vhdr), &_vhdr);
+ 		if (!vhdr)
+@@ -1382,7 +1382,7 @@ static int i40e_tso(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 			return err;
+ 	}
  
- #define I40E_MAX_NUM_DESCRIPTORS      4096
--#define I40E_MAX_REGISTER     0x0038FFFF
-+#define I40E_MAX_REGISTER     0x800000
- #define I40E_DEFAULT_NUM_DESCRIPTORS  512
- #define I40E_REQ_DESCRIPTOR_MULTIPLE  32
- #define I40E_MIN_NUM_DESCRIPTORS      64
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index e201060..7f448b6 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -1740,10 +1740,10 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 			dev_info(&pf->pdev->dev,
- 				 "Read NVM module=0x%x offset=0x%x words=%d\n",
- 				 module, offset, buffer_len);
--			if (buffer_len)
-+			if (bytes)
- 				print_hex_dump(KERN_INFO, "NVM Dump: ",
- 					DUMP_PREFIX_OFFSET, 16, 2,
--					buff, buffer_len, true);
-+					buff, bytes, true);
- 		}
- 		kfree(buff);
- 		buff = NULL;
+-	if (protocol == __constant_htons(ETH_P_IP)) {
++	if (protocol == htons(ETH_P_IP)) {
+ 		iph = skb->encapsulation ? inner_ip_hdr(skb) : ip_hdr(skb);
+ 		tcph = skb->encapsulation ? inner_tcp_hdr(skb) : tcp_hdr(skb);
+ 		iph->tot_len = 0;
+@@ -1805,9 +1805,9 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
+ 	first = &tx_ring->tx_bi[tx_ring->next_to_use];
+ 
+ 	/* setup IPv4/IPv6 offloads */
+-	if (protocol == __constant_htons(ETH_P_IP))
++	if (protocol == htons(ETH_P_IP))
+ 		tx_flags |= I40E_TX_FLAGS_IPV4;
+-	else if (protocol == __constant_htons(ETH_P_IPV6))
++	else if (protocol == htons(ETH_P_IPV6))
+ 		tx_flags |= I40E_TX_FLAGS_IPV6;
+ 
+ 	tso = i40e_tso(tx_ring, skb, tx_flags, protocol, &hdr_len,
 -- 
 1.8.3.1
