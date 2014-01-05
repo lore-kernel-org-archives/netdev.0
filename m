@@ -1,64 +1,458 @@
 From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: [PATCH net 1/5] bnx2x: limit number of interrupt vectors for 57711
-Date: Sun, 5 Jan 2014 18:33:50 +0200
-Message-ID: <1388939634-19948-2-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net 5/5] bnx2x: fix VLAN configuration for VFs.
+Date: Sun, 5 Jan 2014 18:33:54 +0200
+Message-ID: <1388939634-19948-6-git-send-email-yuvalmin@broadcom.com>
 References: <1388939634-19948-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <ariele@broadcom.com>, Dmitry Kravkov <dmitry@broadcom.com>,
-	Yuval Mintz <yuvalmin@broadcom.com>
+Cc: <ariele@broadcom.com>, Yuval Mintz <yuvalmin@broadcom.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:13126 "EHLO
 	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751454AbaAEQeK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 11:34:10 -0500
+	with ESMTP id S1751469AbaAEQeL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 11:34:11 -0500
 In-Reply-To: <1388939634-19948-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Kravkov <dmitry@broadcom.com>
+If the hypervisor configures a vlan for the VF via the PF, the expected
+result is that only packets tagged by said vlan will be received by the VF
+(and that vlan will be silently removed).
+Do to an incorrect manipulation of vlan filters in the driver, the
+VF can receive untagged traffic even if the hypervisor configured
+some vlan for it.
 
-Original straightforward division may lead to zeroing number of SB and
-null-pointer dereference when device is short of MSIX vectors or lacks
-MSIX capabilities.
+This patch corrects the behaviour.
 
-Reported-by: Vladislav Zolotarov <vladz@cloudius-systems.com>
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      | 2 ++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 6 +++---
- 2 files changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c    |  10 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h    |   7 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 245 ++++++++++++----------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h |   1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c  |  23 +-
+ 5 files changed, 174 insertions(+), 112 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index a1f66e2..cb30d1a 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -2499,4 +2499,6 @@ void bnx2x_set_local_cmng(struct bnx2x *bp);
- #define MCPR_SCRATCH_BASE(bp) \
- 	(CHIP_IS_E1x(bp) ? MCP_REG_MCPR_SCRATCH : MCP_A_REG_MCPR_SCRATCH)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+index 95feada..18438a5 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+@@ -2038,6 +2038,7 @@ static int bnx2x_vlan_mac_del_all(struct bnx2x *bp,
+ 	struct bnx2x_vlan_mac_ramrod_params p;
+ 	struct bnx2x_exe_queue_obj *exeq = &o->exe_queue;
+ 	struct bnx2x_exeq_elem *exeq_pos, *exeq_pos_n;
++	unsigned long flags;
+ 	int read_lock;
+ 	int rc = 0;
  
-+#define E1H_MAX_MF_SB_COUNT (HC_SB_MAX_SB_E1X/(E1HVN_MAX * PORT_MAX))
+@@ -2046,8 +2047,9 @@ static int bnx2x_vlan_mac_del_all(struct bnx2x *bp,
+ 	spin_lock_bh(&exeq->lock);
+ 
+ 	list_for_each_entry_safe(exeq_pos, exeq_pos_n, &exeq->exe_queue, link) {
+-		if (exeq_pos->cmd_data.vlan_mac.vlan_mac_flags ==
+-		    *vlan_mac_flags) {
++		flags = exeq_pos->cmd_data.vlan_mac.vlan_mac_flags;
++		if (BNX2X_VLAN_MAC_CMP_FLAGS(flags) ==
++		    BNX2X_VLAN_MAC_CMP_FLAGS(*vlan_mac_flags)) {
+ 			rc = exeq->remove(bp, exeq->owner, exeq_pos);
+ 			if (rc) {
+ 				BNX2X_ERR("Failed to remove command\n");
+@@ -2080,7 +2082,9 @@ static int bnx2x_vlan_mac_del_all(struct bnx2x *bp,
+ 		return read_lock;
+ 
+ 	list_for_each_entry(pos, &o->head, link) {
+-		if (pos->vlan_mac_flags == *vlan_mac_flags) {
++		flags = pos->vlan_mac_flags;
++		if (BNX2X_VLAN_MAC_CMP_FLAGS(flags) ==
++		    BNX2X_VLAN_MAC_CMP_FLAGS(*vlan_mac_flags)) {
+ 			p.user_req.vlan_mac_flags = pos->vlan_mac_flags;
+ 			memcpy(&p.user_req.u, &pos->u, sizeof(pos->u));
+ 			rc = bnx2x_config_vlan_mac(bp, &p);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+index 658f4e3..6a53c15 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+@@ -266,6 +266,13 @@ enum {
+ 	BNX2X_DONT_CONSUME_CAM_CREDIT,
+ 	BNX2X_DONT_CONSUME_CAM_CREDIT_DEST,
+ };
++/* When looking for matching filters, some flags are not interesting */
++#define BNX2X_VLAN_MAC_CMP_MASK	(1 << BNX2X_UC_LIST_MAC | \
++				 1 << BNX2X_ETH_MAC | \
++				 1 << BNX2X_ISCSI_ETH_MAC | \
++				 1 << BNX2X_NETQ_ETH_MAC)
++#define BNX2X_VLAN_MAC_CMP_FLAGS(flags) \
++	((flags) & BNX2X_VLAN_MAC_CMP_MASK)
+ 
+ struct bnx2x_vlan_mac_ramrod_params {
+ 	/* Object to run the command from */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index ddd95b9..e7845e5 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -1209,6 +1209,11 @@ static void bnx2x_vfop_rxmode(struct bnx2x *bp, struct bnx2x_virtf *vf)
+ 		/* next state */
+ 		vfop->state = BNX2X_VFOP_RXMODE_DONE;
+ 
++		/* record the accept flags in vfdb so hypervisor can modify them
++		 * if necessary
++		 */
++		bnx2x_vfq(vf, ramrod->cl_id - vf->igu_base_id, accept_flags) =
++			ramrod->rx_accept_flags;
+ 		vfop->rc = bnx2x_config_rx_mode(bp, ramrod);
+ 		bnx2x_vfop_finalize(vf, vfop->rc, VFOP_DONE);
+ op_err:
+@@ -1224,39 +1229,43 @@ op_pending:
+ 	return;
+ }
+ 
++static void bnx2x_vf_prep_rx_mode(struct bnx2x *bp, u8 qid,
++				  struct bnx2x_rx_mode_ramrod_params *ramrod,
++				  struct bnx2x_virtf *vf,
++				  unsigned long accept_flags)
++{
++	struct bnx2x_vf_queue *vfq = vfq_get(vf, qid);
 +
- #endif /* bnx2x.h */
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 814d0ec..8b3107b 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -11447,9 +11447,9 @@ static int bnx2x_get_hwinfo(struct bnx2x *bp)
++	memset(ramrod, 0, sizeof(*ramrod));
++	ramrod->cid = vfq->cid;
++	ramrod->cl_id = vfq_cl_id(vf, vfq);
++	ramrod->rx_mode_obj = &bp->rx_mode_obj;
++	ramrod->func_id = FW_VF_HANDLE(vf->abs_vfid);
++	ramrod->rx_accept_flags = accept_flags;
++	ramrod->tx_accept_flags = accept_flags;
++	ramrod->pstate = &vf->filter_state;
++	ramrod->state = BNX2X_FILTER_RX_MODE_PENDING;
++
++	set_bit(BNX2X_FILTER_RX_MODE_PENDING, &vf->filter_state);
++	set_bit(RAMROD_RX, &ramrod->ramrod_flags);
++	set_bit(RAMROD_TX, &ramrod->ramrod_flags);
++
++	ramrod->rdata = bnx2x_vf_sp(bp, vf, rx_mode_rdata.e2);
++	ramrod->rdata_mapping = bnx2x_vf_sp_map(bp, vf, rx_mode_rdata.e2);
++}
++
+ int bnx2x_vfop_rxmode_cmd(struct bnx2x *bp,
+ 			  struct bnx2x_virtf *vf,
+ 			  struct bnx2x_vfop_cmd *cmd,
+ 			  int qid, unsigned long accept_flags)
+ {
+-	struct bnx2x_vf_queue *vfq = vfq_get(vf, qid);
+ 	struct bnx2x_vfop *vfop = bnx2x_vfop_add(bp, vf);
+ 
+ 	if (vfop) {
+ 		struct bnx2x_rx_mode_ramrod_params *ramrod =
+ 			&vf->op_params.rx_mode;
+ 
+-		memset(ramrod, 0, sizeof(*ramrod));
+-
+-		/* Prepare ramrod parameters */
+-		ramrod->cid = vfq->cid;
+-		ramrod->cl_id = vfq_cl_id(vf, vfq);
+-		ramrod->rx_mode_obj = &bp->rx_mode_obj;
+-		ramrod->func_id = FW_VF_HANDLE(vf->abs_vfid);
+-
+-		ramrod->rx_accept_flags = accept_flags;
+-		ramrod->tx_accept_flags = accept_flags;
+-		ramrod->pstate = &vf->filter_state;
+-		ramrod->state = BNX2X_FILTER_RX_MODE_PENDING;
+-
+-		set_bit(BNX2X_FILTER_RX_MODE_PENDING, &vf->filter_state);
+-		set_bit(RAMROD_RX, &ramrod->ramrod_flags);
+-		set_bit(RAMROD_TX, &ramrod->ramrod_flags);
+-
+-		ramrod->rdata =
+-			bnx2x_vf_sp(bp, vf, rx_mode_rdata.e2);
+-		ramrod->rdata_mapping =
+-			bnx2x_vf_sp_map(bp, vf, rx_mode_rdata.e2);
++		bnx2x_vf_prep_rx_mode(bp, qid, ramrod, vf, accept_flags);
+ 
+ 		bnx2x_vfop_opset(BNX2X_VFOP_RXMODE_CONFIG,
+ 				 bnx2x_vfop_rxmode, cmd->done);
+@@ -3439,10 +3448,18 @@ out:
+ 
+ int bnx2x_set_vf_vlan(struct net_device *dev, int vfidx, u16 vlan, u8 qos)
+ {
++	struct bnx2x_queue_state_params q_params = {NULL};
++	struct bnx2x_vlan_mac_ramrod_params ramrod_param;
++	struct bnx2x_queue_update_params *update_params;
++	struct pf_vf_bulletin_content *bulletin = NULL;
++	struct bnx2x_rx_mode_ramrod_params rx_ramrod;
+ 	struct bnx2x *bp = netdev_priv(dev);
+-	int rc, q_logical_state;
++	struct bnx2x_vlan_mac_obj *vlan_obj;
++	unsigned long vlan_mac_flags = 0;
++	unsigned long ramrod_flags = 0;
+ 	struct bnx2x_virtf *vf = NULL;
+-	struct pf_vf_bulletin_content *bulletin = NULL;
++	unsigned long accept_flags;
++	int rc;
+ 
+ 	/* sanity and init */
+ 	rc = bnx2x_vf_ndo_prep(bp, vfidx, &vf, &bulletin);
+@@ -3460,104 +3477,118 @@ int bnx2x_set_vf_vlan(struct net_device *dev, int vfidx, u16 vlan, u8 qos)
+ 	/* update PF's copy of the VF's bulletin. No point in posting the vlan
+ 	 * to the VF since it doesn't have anything to do with it. But it useful
+ 	 * to store it here in case the VF is not up yet and we can only
+-	 * configure the vlan later when it does.
++	 * configure the vlan later when it does. Treat vlan id 0 as remove the
++	 * Host tag.
+ 	 */
+-	bulletin->valid_bitmap |= 1 << VLAN_VALID;
++	if (vlan > 0)
++		bulletin->valid_bitmap |= 1 << VLAN_VALID;
++	else
++		bulletin->valid_bitmap &= ~(1 << VLAN_VALID);
+ 	bulletin->vlan = vlan;
+ 
+ 	/* is vf initialized and queue set up? */
+-	q_logical_state =
+-		bnx2x_get_q_logical_state(bp, &bnx2x_leading_vfq(vf, sp_obj));
+-	if (vf->state == VF_ENABLED &&
+-	    q_logical_state == BNX2X_Q_LOGICAL_STATE_ACTIVE) {
+-		/* configure the vlan in device on this vf's queue */
+-		unsigned long ramrod_flags = 0;
+-		unsigned long vlan_mac_flags = 0;
+-		struct bnx2x_vlan_mac_obj *vlan_obj =
+-			&bnx2x_leading_vfq(vf, vlan_obj);
+-		struct bnx2x_vlan_mac_ramrod_params ramrod_param;
+-		struct bnx2x_queue_state_params q_params = {NULL};
+-		struct bnx2x_queue_update_params *update_params;
++	if (vf->state != VF_ENABLED ||
++	    bnx2x_get_q_logical_state(bp, &bnx2x_leading_vfq(vf, sp_obj)) !=
++	    BNX2X_Q_LOGICAL_STATE_ACTIVE)
++		return rc;
+ 
+-		rc = validate_vlan_mac(bp, &bnx2x_leading_vfq(vf, mac_obj));
+-		if (rc)
+-			return rc;
+-		memset(&ramrod_param, 0, sizeof(ramrod_param));
++	/* configure the vlan in device on this vf's queue */
++	vlan_obj = &bnx2x_leading_vfq(vf, vlan_obj);
++	rc = validate_vlan_mac(bp, &bnx2x_leading_vfq(vf, mac_obj));
++	if (rc)
++		return rc;
+ 
+-		/* must lock vfpf channel to protect against vf flows */
+-		bnx2x_lock_vf_pf_channel(bp, vf, CHANNEL_TLV_PF_SET_VLAN);
++	/* must lock vfpf channel to protect against vf flows */
++	bnx2x_lock_vf_pf_channel(bp, vf, CHANNEL_TLV_PF_SET_VLAN);
+ 
+-		/* remove existing vlans */
+-		__set_bit(RAMROD_COMP_WAIT, &ramrod_flags);
+-		rc = vlan_obj->delete_all(bp, vlan_obj, &vlan_mac_flags,
+-					  &ramrod_flags);
+-		if (rc) {
+-			BNX2X_ERR("failed to delete vlans\n");
+-			rc = -EINVAL;
+-			goto out;
+-		}
++	/* remove existing vlans */
++	__set_bit(RAMROD_COMP_WAIT, &ramrod_flags);
++	rc = vlan_obj->delete_all(bp, vlan_obj, &vlan_mac_flags,
++				  &ramrod_flags);
++	if (rc) {
++		BNX2X_ERR("failed to delete vlans\n");
++		rc = -EINVAL;
++		goto out;
++	}
++
++	/* need to remove/add the VF's accept_any_vlan bit */
++	accept_flags = bnx2x_leading_vfq(vf, accept_flags);
++	if (vlan)
++		clear_bit(BNX2X_ACCEPT_ANY_VLAN, &accept_flags);
++	else
++		set_bit(BNX2X_ACCEPT_ANY_VLAN, &accept_flags);
++
++	bnx2x_vf_prep_rx_mode(bp, LEADING_IDX, &rx_ramrod, vf,
++			      accept_flags);
++	bnx2x_leading_vfq(vf, accept_flags) = accept_flags;
++	bnx2x_config_rx_mode(bp, &rx_ramrod);
++
++	/* configure the new vlan to device */
++	memset(&ramrod_param, 0, sizeof(ramrod_param));
++	__set_bit(RAMROD_COMP_WAIT, &ramrod_flags);
++	ramrod_param.vlan_mac_obj = vlan_obj;
++	ramrod_param.ramrod_flags = ramrod_flags;
++	set_bit(BNX2X_DONT_CONSUME_CAM_CREDIT,
++		&ramrod_param.user_req.vlan_mac_flags);
++	ramrod_param.user_req.u.vlan.vlan = vlan;
++	ramrod_param.user_req.cmd = BNX2X_VLAN_MAC_ADD;
++	rc = bnx2x_config_vlan_mac(bp, &ramrod_param);
++	if (rc) {
++		BNX2X_ERR("failed to configure vlan\n");
++		rc =  -EINVAL;
++		goto out;
++	}
+ 
+-		/* send queue update ramrod to configure default vlan and silent
+-		 * vlan removal
++	/* send queue update ramrod to configure default vlan and silent
++	 * vlan removal
++	 */
++	__set_bit(RAMROD_COMP_WAIT, &q_params.ramrod_flags);
++	q_params.cmd = BNX2X_Q_CMD_UPDATE;
++	q_params.q_obj = &bnx2x_leading_vfq(vf, sp_obj);
++	update_params = &q_params.params.update;
++	__set_bit(BNX2X_Q_UPDATE_DEF_VLAN_EN_CHNG,
++		  &update_params->update_flags);
++	__set_bit(BNX2X_Q_UPDATE_SILENT_VLAN_REM_CHNG,
++		  &update_params->update_flags);
++	if (vlan == 0) {
++		/* if vlan is 0 then we want to leave the VF traffic
++		 * untagged, and leave the incoming traffic untouched
++		 * (i.e. do not remove any vlan tags).
+ 		 */
+-		__set_bit(RAMROD_COMP_WAIT, &q_params.ramrod_flags);
+-		q_params.cmd = BNX2X_Q_CMD_UPDATE;
+-		q_params.q_obj = &bnx2x_leading_vfq(vf, sp_obj);
+-		update_params = &q_params.params.update;
+-		__set_bit(BNX2X_Q_UPDATE_DEF_VLAN_EN_CHNG,
++		__clear_bit(BNX2X_Q_UPDATE_DEF_VLAN_EN,
++			    &update_params->update_flags);
++		__clear_bit(BNX2X_Q_UPDATE_SILENT_VLAN_REM,
++			    &update_params->update_flags);
++	} else {
++		/* configure default vlan to vf queue and set silent
++		 * vlan removal (the vf remains unaware of this vlan).
++		 */
++		__set_bit(BNX2X_Q_UPDATE_DEF_VLAN_EN,
+ 			  &update_params->update_flags);
+-		__set_bit(BNX2X_Q_UPDATE_SILENT_VLAN_REM_CHNG,
++		__set_bit(BNX2X_Q_UPDATE_SILENT_VLAN_REM,
+ 			  &update_params->update_flags);
++		update_params->def_vlan = vlan;
++		update_params->silent_removal_value =
++			vlan & VLAN_VID_MASK;
++		update_params->silent_removal_mask = VLAN_VID_MASK;
++	}
+ 
+-		if (vlan == 0) {
+-			/* if vlan is 0 then we want to leave the VF traffic
+-			 * untagged, and leave the incoming traffic untouched
+-			 * (i.e. do not remove any vlan tags).
+-			 */
+-			__clear_bit(BNX2X_Q_UPDATE_DEF_VLAN_EN,
+-				    &update_params->update_flags);
+-			__clear_bit(BNX2X_Q_UPDATE_SILENT_VLAN_REM,
+-				    &update_params->update_flags);
+-		} else {
+-			/* configure the new vlan to device */
+-			__set_bit(RAMROD_COMP_WAIT, &ramrod_flags);
+-			ramrod_param.vlan_mac_obj = vlan_obj;
+-			ramrod_param.ramrod_flags = ramrod_flags;
+-			ramrod_param.user_req.u.vlan.vlan = vlan;
+-			ramrod_param.user_req.cmd = BNX2X_VLAN_MAC_ADD;
+-			rc = bnx2x_config_vlan_mac(bp, &ramrod_param);
+-			if (rc) {
+-				BNX2X_ERR("failed to configure vlan\n");
+-				rc =  -EINVAL;
+-				goto out;
+-			}
+-
+-			/* configure default vlan to vf queue and set silent
+-			 * vlan removal (the vf remains unaware of this vlan).
+-			 */
+-			update_params = &q_params.params.update;
+-			__set_bit(BNX2X_Q_UPDATE_DEF_VLAN_EN,
+-				  &update_params->update_flags);
+-			__set_bit(BNX2X_Q_UPDATE_SILENT_VLAN_REM,
+-				  &update_params->update_flags);
+-			update_params->def_vlan = vlan;
+-		}
++	/* Update the Queue state */
++	rc = bnx2x_queue_state_change(bp, &q_params);
++	if (rc) {
++		BNX2X_ERR("Failed to configure default VLAN\n");
++		goto out;
++	}
+ 
+-		/* Update the Queue state */
+-		rc = bnx2x_queue_state_change(bp, &q_params);
+-		if (rc) {
+-			BNX2X_ERR("Failed to configure default VLAN\n");
+-			goto out;
+-		}
+ 
+-		/* clear the flag indicating that this VF needs its vlan
+-		 * (will only be set if the HV configured the Vlan before vf was
+-		 * up and we were called because the VF came up later
+-		 */
++	/* clear the flag indicating that this VF needs its vlan
++	 * (will only be set if the HV configured the Vlan before vf was
++	 * up and we were called because the VF came up later
++	 */
+ out:
+-		vf->cfg_flags &= ~VF_CFG_VLAN;
+-		bnx2x_unlock_vf_pf_channel(bp, vf, CHANNEL_TLV_PF_SET_VLAN);
+-	}
++	vf->cfg_flags &= ~VF_CFG_VLAN;
++	bnx2x_unlock_vf_pf_channel(bp, vf, CHANNEL_TLV_PF_SET_VLAN);
++
+ 	return rc;
+ }
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+index 1ff6a93..8c213fa52 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+@@ -74,6 +74,7 @@ struct bnx2x_vf_queue {
+ 	/* VLANs object */
+ 	struct bnx2x_vlan_mac_obj	vlan_obj;
+ 	atomic_t vlan_count;		/* 0 means vlan-0 is set  ~ untagged */
++	unsigned long accept_flags;	/* last accept flags configured */
+ 
+ 	/* Queue Slow-path State object */
+ 	struct bnx2x_queue_sp_obj	sp_obj;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+index 26fcba2..0756d7d 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+@@ -1598,6 +1598,8 @@ static void bnx2x_vfop_mbx_qfilters(struct bnx2x *bp, struct bnx2x_virtf *vf)
+ 
+ 		if (msg->flags & VFPF_SET_Q_FILTERS_RX_MASK_CHANGED) {
+ 			unsigned long accept = 0;
++			struct pf_vf_bulletin_content *bulletin =
++				BP_VF_BULLETIN(bp, vf->index);
+ 
+ 			/* covert VF-PF if mask to bnx2x accept flags */
+ 			if (msg->rx_mask & VFPF_RX_MASK_ACCEPT_MATCHED_UNICAST)
+@@ -1617,9 +1619,11 @@ static void bnx2x_vfop_mbx_qfilters(struct bnx2x *bp, struct bnx2x_virtf *vf)
+ 				__set_bit(BNX2X_ACCEPT_BROADCAST, &accept);
+ 
+ 			/* A packet arriving the vf's mac should be accepted
+-			 * with any vlan
++			 * with any vlan, unless a vlan has already been
++			 * configured.
+ 			 */
+-			__set_bit(BNX2X_ACCEPT_ANY_VLAN, &accept);
++			if (!(bulletin->valid_bitmap & (1 << VLAN_VALID)))
++				__set_bit(BNX2X_ACCEPT_ANY_VLAN, &accept);
+ 
+ 			/* set rx-mode */
+ 			rc = bnx2x_vfop_rxmode_cmd(bp, vf, &cmd,
+@@ -1710,6 +1714,21 @@ static void bnx2x_vf_mbx_set_q_filters(struct bnx2x *bp,
+ 			goto response;
  		}
  	}
++	/* if vlan was set by hypervisor we don't allow guest to config vlan */
++	if (bulletin->valid_bitmap & 1 << VLAN_VALID) {
++		int i;
++
++		/* search for vlan filters */
++		for (i = 0; i < filters->n_mac_vlan_filters; i++) {
++			if (filters->filters[i].flags &
++			    VFPF_Q_FILTER_VLAN_TAG_VALID) {
++				BNX2X_ERR("VF[%d] attempted to configure vlan but one was already set by Hypervisor. Aborting request\n",
++					  vf->abs_vfid);
++				vf->op_rc = -EPERM;
++				goto response;
++			}
++		}
++	}
  
--	/* adjust igu_sb_cnt to MF for E1x */
--	if (CHIP_IS_E1x(bp) && IS_MF(bp))
--		bp->igu_sb_cnt /= E1HVN_MAX;
-+	/* adjust igu_sb_cnt to MF for E1H */
-+	if (CHIP_IS_E1H(bp) && IS_MF(bp))
-+		bp->igu_sb_cnt = min_t(u8, bp->igu_sb_cnt, E1H_MAX_MF_SB_COUNT);
- 
- 	/* port info */
- 	bnx2x_get_port_hwinfo(bp);
+ 	/* verify vf_qid */
+ 	if (filters->vf_qid > vf_rxq_count(vf))
 -- 
 1.8.1.227.g44fe835
