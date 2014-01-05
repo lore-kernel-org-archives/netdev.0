@@ -1,45 +1,71 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: Re: How to add IPv6 multiple routing tables support to 2.6.16.26 kernel
-Date: Sun, 5 Jan 2014 05:25:28 -0800 (PST)
-Message-ID: <1388928328.15823.YahooMailBasic@web125504.mail.ne1.yahoo.com>
-References: <CAMBtn_3=6-W0VG2oxBt6SUJ6ead0ao4oV49K8w4oSNNGu190mw@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 0/6] phylib: cleanups
+Date: Sun, 05 Jan 2014 17:40:08 +0400
+Message-ID: <52C960B8.1020607@cogentembedded.com>
+References: <201401040413.06853.sergei.shtylyov@cogentembedded.com> <20140104155338.GG4925@netboy> <52C8417D.6020502@cogentembedded.com> <52C858C7.1010300@cogentembedded.com> <20140105083109.GB4933@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev <netdev@vger.kernel.org>,
-	Asi Lichtenstein <asili22@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm37.bullet.mail.ne1.yahoo.com ([98.138.229.30]:34505 "HELO
-	nm37.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751115AbaAEN2X convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Jan 2014 08:28:23 -0500
-In-Reply-To: <CAMBtn_3=6-W0VG2oxBt6SUJ6ead0ao4oV49K8w4oSNNGu190mw@mail.gmail.com>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:36093 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751115AbaAENkK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 08:40:10 -0500
+Received: by mail-lb0-f174.google.com with SMTP id y6so9156659lbh.19
+        for <netdev@vger.kernel.org>; Sun, 05 Jan 2014 05:40:09 -0800 (PST)
+In-Reply-To: <20140105083109.GB4933@netboy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On 05-01-2014 12:31, Richard Cochran wrote:
 
-Are you looking for this ?
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/patch/?id=c71099acce933455123ee505cc75964610a209ad
+>>>     Because get_maintainer.pl doesn't suggest it and because Andy Fleming
+>>> seems no longer interested in maintaining his code written back in 2004.
 
-BR
+> It never hurts to ask.
 
---------------------------------------------
-On Sun, 1/5/14, Asi Lichtenstein <asili22@gmail.com> wrote:
+    I would have probably asked if there were not so many obstacles to doing that.
 
- Subject: Re: How to add IPv6 multiple routing tables support to 2.6.16.26 kernel
- To: "netdev" <netdev@vger.kernel.org>
- Date: Sunday, January 5, 2014, 6:33 AM
- 
- I know that this kernel is way too
- long but this is something that I
- can't change.
- It is not up to me to decide on kernel upgrade.
- 
- I was talking about IPv6 multiple route tables.
- This is something that was added later in:
- http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=c71099acce933455123ee505cc75964610a209ad
- I've posted this thread to help me finding this patch:
- http://thread.gmane.org/gmane.linux.network/41149
- 
+> Your patches are saying, "Andy, your code has poor style."
+
+    It's coming back from 2004, so maybe the style wasn't considered bad at 
+that time...
+
+> I don't
+> agree, especially about #3.
+
+    It's your right. However, v2 of the patchset has been applied already.
+
+> Also, maybe the deleted callback will
+> useful one day.
+
+    We kept it for almost 10 years and it never got useful. As I understood 
+DaveM's policy it is "we don't keep unused stuff".
+
+> After all, there are not that many phylib drivers.
+
+    Really? I find the number to be intimidating enough to not do the cleanups 
+on them also in this same patchset. Anyway, the callback was intended for the 
+Ethernet drivers.
+
+> Perhaps future MAC drivers will need this.
+
+    We can always add it back in that case. However, phy_start_machine() which 
+is the only way to set the callback was not even exported, so not generally 
+usable for the MAC drivers. I guess this facility wasn't well thought out from 
+the start.
+
+>>     Besides, I don't have his current email address (the source code
+>> doesn't provide any).
+
+> Here, let me find that for you.
+
+    Thanks I found those eventually. However, my LinkedIn account told me that 
+Andy left Freescale about that time (it also gave up his private email though).
+
+> Thanks,
+> Richard
+
+WBR, Sergei
