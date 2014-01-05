@@ -1,87 +1,69 @@
-From: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+From: Arnd Bergmann <arnd@arndb.de>
 Subject: Re: [PATCH V2 0/4] misc: xgene: Add support for APM X-Gene SoC Queue
  Manager/Traffic Manager
-Date: Sun, 5 Jan 2014 10:01:22 -0800
-Message-ID: <20140105180122.GB980@kroah.com>
+Date: Sun, 5 Jan 2014 19:11:12 +0100
+Message-ID: <201401051911.12349.arnd@arndb.de>
 References: <1387594651-25771-1-git-send-email-rapatel@apm.com>
- <201312212111.40576.arnd@arndb.de>
- <CAPw-ZTnsu_EmOW3aZTVKAVjQsdi8qMy95y2ZcYxzgVrjGkirTA@mail.gmail.com>
  <1441245.xPZLG2iNZ6@wuerfel>
  <CAN1v_PtFz42crHW5=cUgw-fAnPn3rQht=o0t3nmjJRamYSLDMg@mail.gmail.com>
- <20140105033848.GA22595@kroah.com>
- <CAPw-ZT=noCwc+3o_762ewTcn2J3SjZ5u11V=Aa8RrZZf4DT5Yw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	Jon Masters <jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"patches-qTEPVZfXA3Y@public.gmane.org" <patches-qTEPVZfXA3Y@public.gmane.org>,
-	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
-To: Loc Ho <lho-qTEPVZfXA3Y@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAPw-ZT=noCwc+3o_762ewTcn2J3SjZ5u11V=Aa8RrZZf4DT5Yw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+ Jon Masters <jcm@redhat.com>, Greg KH <gregkh@linuxfoundation.org>,
+ "patches@apm.com" <patches@apm.com>, linux-kernel@vger.kernel.org,
+ Loc Ho <lho@apm.com>, netdev@vger.kernel.org, Keyur Chudgar <kchudgar@apm.com>,
+ davem@davemloft.net,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
+To: Ravi Patel <rapatel@apm.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAN1v_PtFz42crHW5=cUgw-fAnPn3rQht=o0t3nmjJRamYSLDMg@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 04, 2014 at 09:39:08PM -0800, Loc Ho wrote:
-> Hi,
-> 
-> >> >> >> This patch adds support for APM X-Gene SoC Queue Manager/Traffic Manager.
-> >> >> >>  QMTM is required by APM X-Gene SoC Ethernet, PktDMA (XOR Engine) and
-> >> >> >>  Security Engine subsystems. All subsystems communicate with QMTM using
-> >> >> >>  messages which include information about the work to be performed and
-> >> >> >>  the location of associated data buffers.
-> >> >> >
-> >> >> > Please describe here what the purpose of the qmtm is, as this is not
-> >> >> > entirely clear from the code.
-> >> >> >
-> >> >> > In particular, please describe how this differs from a dmaengine driver
-> >> >> > and why it is not possible to extend the dma slave API to describe qmtm
-> >> >> > as a dma engine.
-> >> >> >
-> >> >> [Loc Ho]
-> >> >> If the QM driver implements the DMA API, what about the actual DMA
-> >> >> engine driver which interfaces with this QM driver. We would have DMA
-> >> >> client interfaces with the X-Gene DMA driver (not available yet) via
-> >> >> DMA API which in turn interfaces with this QM driver via DMA API.
-> >> >> Won't this be kind of awkward? Also, the QM only manage messages (or
-> >> >> descriptors) which are 32-bytes or 64-bytes. It doesn't actually do
-> >> >> any data transfer of various sizes.
-> >> >
-> >> > Please describe here what the purpose of the qmtm is, as this is not
-> >> > entirely clear from the code or from your reply.
-> >> >
-> >> > Greg was guessing that it's a bus controller, my best guess is a DMA
-> >> > engine. If it's something completely different, you have to let
-> >> > us know what it is so we can do a proper review rather than guessing.
-> >> >
-> >> > Please provide a link to the data sheet if you are unable to explain.
-> >>
-> >> Here is URL to a text document explaining role of QMTM device with CPU, Ethernet
-> >> subsystem.
-> >>
-> >> https://drive.google.com/file/d/0B28TgQZ3JLoRRGNnbjJoUGNHWW8/edit?usp=sharing
+On Sunday 05 January 2014, Ravi Patel wrote:
+> On Sat, Dec 21, 2013 at 11:03 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+> > On Saturday 21 December 2013 17:00:51 Loc Ho wrote:
+> >> On Sat, Dec 21, 2013 at 12:11 PM, Arnd Bergmann <arnd@arndb.de> wrote:
 > >
-> > There is nothing at this link :(
+> > Please describe here what the purpose of the qmtm is, as this is not
+> > entirely clear from the code or from your reply.
+> >
+> > Greg was guessing that it's a bus controller, my best guess is a DMA
+> > engine. If it's something completely different, you have to let
+> > us know what it is so we can do a proper review rather than guessing.
+> >
+> > Please provide a link to the data sheet if you are unable to explain.
 > 
-> I tried click on the txt file link from web site
-> http://www.spinics.net/lists/netdev/msg264628.html and don't see any
-> problem with accessing the txt file.
+> Here is URL to a text document explaining role of QMTM device with CPU, Ethernet
+> subsystem.
+> 
+> https://drive.google.com/file/d/0B28TgQZ3JLoRRGNnbjJoUGNHWW8/edit?usp=sharing
+> 
+> For simplicity, I have shown only Ethernet.
+> PktDMA and Security subsystem interfaces with QMTM in the same way as Ethernet.
+> 
 
-Now it's working :)
+Thanks, that helps a lot. Please add this file to an appropriate place
+in the Documentation directory in the next version of your patches.
 
-Anyway, as this is a .txt file, why wasn't it just sent in email, and
-added to the patch series as a documentation file?
+There is still one central aspect that remains unclear to me, which is
+what the QMTM is actually good for, as opposed to how it gets used from
+the OS. In the text description, it sounds like the ethernet is the DMA
+master and performs DMA all by itself but from that it's not clear why
+a message to and from the QMTM is needed. From your drawing on the other
+hand, it seems like the QMTM is really the DMA master and performs the
+DMA on behalf of the ethernet device, which isn't connected to the
+coherent interface itself. If this is correct, it seems that QMTM is more
+like a DMA engine after all that should use the existing slave API to
+provide services to slave drivers.
 
-thanks,
-
-greg k-h
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	Arnd
