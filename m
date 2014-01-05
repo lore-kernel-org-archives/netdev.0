@@ -1,37 +1,40 @@
-From: Ravi Patel <rapatel@apm.com>
+From: Loc Ho <lho@apm.com>
 Subject: Re: [PATCH V2 0/4] misc: xgene: Add support for APM X-Gene SoC Queue
  Manager/Traffic Manager
-Date: Sat, 4 Jan 2014 21:27:30 -0800
-Message-ID: <CAN1v_Pv7GoXqceu_vDpK-Rk3FzJKFjY=77JCw1fOOUOcuUHAjA@mail.gmail.com>
+Date: Sat, 4 Jan 2014 21:39:08 -0800
+Message-ID: <CAPw-ZT=noCwc+3o_762ewTcn2J3SjZ5u11V=Aa8RrZZf4DT5Yw@mail.gmail.com>
 References: <1387594651-25771-1-git-send-email-rapatel@apm.com>
-	<201312212111.40576.arnd@arndb.de>
-	<CAPw-ZTnsu_EmOW3aZTVKAVjQsdi8qMy95y2ZcYxzgVrjGkirTA@mail.gmail.com>
-	<1441245.xPZLG2iNZ6@wuerfel>
-	<CAN1v_PtFz42crHW5=cUgw-fAnPn3rQht=o0t3nmjJRamYSLDMg@mail.gmail.com>
-	<20140105033848.GA22595@kroah.com>
+ <201312212111.40576.arnd@arndb.de>
+ <CAPw-ZTnsu_EmOW3aZTVKAVjQsdi8qMy95y2ZcYxzgVrjGkirTA@mail.gmail.com>
+ <1441245.xPZLG2iNZ6@wuerfel>
+ <CAN1v_PtFz42crHW5=cUgw-fAnPn3rQht=o0t3nmjJRamYSLDMg@mail.gmail.com>
+ <20140105033848.GA22595@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Arnd Bergmann <arnd@arndb.de>, Loc Ho <lho@apm.com>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Jon Masters <jcm@redhat.com>,
-	"patches@apm.com" <patches@apm.com>,
-	Keyur Chudgar <kchudgar@apm.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+ Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+ "patches@apm.com" <patches@apm.com>, linux-kernel@vger.kernel.org,
+ Jon Masters <jcm@redhat.com>, Keyur Chudgar <kchudgar@apm.com>,
+ davem@davemloft.net,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ Ravi Patel <rapatel@apm.com>
 To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <20140105033848.GA22595@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 4, 2014 at 7:38 PM, Greg KH <gregkh@linuxfoundation.org> wrote:
-> On Sat, Jan 04, 2014 at 03:59:46PM -0800, Ravi Patel wrote:
->> On Sat, Dec 21, 2013 at 11:03 PM, Arnd Bergmann <arnd@arndb.de> wrote:
->> > On Saturday 21 December 2013 17:00:51 Loc Ho wrote:
->> >> On Sat, Dec 21, 2013 at 12:11 PM, Arnd Bergmann <arnd@arndb.de> wrote:
->> >> > On Saturday 21 December 2013, Ravi Patel wrote:
+Hi,
+
 >> >> >> This patch adds support for APM X-Gene SoC Queue Manager/Traffic Manager.
 >> >> >>  QMTM is required by APM X-Gene SoC Ethernet, PktDMA (XOR Engine) and
 >> >> >>  Security Engine subsystems. All subsystems communicate with QMTM using
@@ -70,24 +73,8 @@ On Sat, Jan 4, 2014 at 7:38 PM, Greg KH <gregkh@linuxfoundation.org> wrote:
 >
 > There is nothing at this link :(
 
-The URL is pointing to text document.
-I created another URL to the same document in pdf format.
-https://docs.google.com/file/d/0B28TgQZ3JLoRbXJiUXJjSUNxeDA/edit?usp=sharing&pli=1
+I tried click on the txt file link from web site
+http://www.spinics.net/lists/netdev/msg264628.html and don't see any
+problem with accessing the txt file.
 
-
->> PktDMA and Security subsystem interfaces with QMTM in the same way as Ethernet.
->
-> How does a "security" subsystem have anything to do with ethernet?
->
-> confused,
-
-PktDMA and Security are completely independent of Ethernet.
-Security Subsystem (SEC) is a CPU offload packet processing engine for security
- applications.
-PktDMA subsystem is a general purpose data transfer engine which moves data
- from one location in memory to another.
-PktDMA can perform certain data manipulation functions like XOR as
-data is passing
- through the engine.
-Both PktDMA and Security engine has their own QMTM work message format which
- will be prepared by their driver
+-Loc
