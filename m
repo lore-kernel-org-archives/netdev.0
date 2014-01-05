@@ -1,7 +1,7 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH v2 6/8] phy: kill excess empty lines
-Date: Sun, 5 Jan 2014 03:24:55 +0300
-Message-ID: <201401050324.56097.sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH v2 7/8] phylib: remove unused adjust_state() callback
+Date: Sun, 5 Jan 2014 03:27:17 +0300
+Message-ID: <201401050327.17328.sergei.shtylyov@cogentembedded.com>
 References: <201401050315.29587.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
@@ -9,266 +9,150 @@ Content-Type: Text/Plain;
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:52904 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755152AbaADXY5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 18:24:57 -0500
-Received: by mail-lb0-f172.google.com with SMTP id x18so9049006lbi.3
-        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 15:24:55 -0800 (PST)
+Received: from mail-la0-f43.google.com ([209.85.215.43]:35064 "EHLO
+	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754579AbaADX1S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 18:27:18 -0500
+Received: by mail-la0-f43.google.com with SMTP id n7so9159737lam.30
+        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 15:27:16 -0800 (PST)
 Received: from wasted.dev.rtsoft.ru (ppp91-76-87-5.pppoe.mtu-net.ru. [91.76.87.5])
-        by mx.google.com with ESMTPSA id t9sm50795513lat.1.2014.01.04.15.24.54
+        by mx.google.com with ESMTPSA id mx3sm39497541lbc.14.2014.01.04.15.27.16
         for <netdev@vger.kernel.org>
         (version=TLSv1 cipher=RC4-SHA bits=128/128);
-        Sat, 04 Jan 2014 15:24:55 -0800 (PST)
+        Sat, 04 Jan 2014 15:27:16 -0800 (PST)
 In-Reply-To: <201401050315.29587.sergei.shtylyov@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove excess empty lines such as those between a function call and its result
-check and just duplicate ones between functions.
+Remove adjust_state() callback from 'struct phy_device' since it seems to have
+never been really used from the inception: phy_start_machine() has been always
+called with 2nd argument equal to NULL.
 
 Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
 ---
 Changes in version 2:
-- split from the previous patch in series;
-- killed 2 lines in phy_disable_interrupts().
+- resolved reject, refreshed the patch;
+- added () to the subject.
 
- drivers/net/phy/phy.c        |   14 --------------
- drivers/net/phy/phy_device.c |   17 -----------------
- 2 files changed, 31 deletions(-)
+ drivers/net/phy/mdio_bus.c   |    4 ++--
+ drivers/net/phy/phy.c        |   17 +++--------------
+ drivers/net/phy/phy_device.c |    2 +-
+ include/linux/phy.h          |    7 +------
+ 4 files changed, 7 insertions(+), 23 deletions(-)
 
+Index: net-next/drivers/net/phy/mdio_bus.c
+===================================================================
+--- net-next.orig/drivers/net/phy/mdio_bus.c
++++ net-next/drivers/net/phy/mdio_bus.c
+@@ -379,7 +379,7 @@ static int mdio_bus_resume(struct device
+ 
+ no_resume:
+ 	if (phydev->attached_dev && phydev->adjust_link)
+-		phy_start_machine(phydev, NULL);
++		phy_start_machine(phydev);
+ 
+ 	return 0;
+ }
+@@ -401,7 +401,7 @@ static int mdio_bus_restore(struct devic
+ 	phydev->link = 0;
+ 	phydev->state = PHY_UP;
+ 
+-	phy_start_machine(phydev, NULL);
++	phy_start_machine(phydev);
+ 
+ 	return 0;
+ }
 Index: net-next/drivers/net/phy/phy.c
 ===================================================================
 --- net-next.orig/drivers/net/phy/phy.c
 +++ net-next/drivers/net/phy/phy.c
-@@ -384,7 +384,6 @@ int phy_start_aneg(struct phy_device *ph
- 		phy_sanitize_settings(phydev);
- 
- 	err = phydev->drv->config_aneg(phydev);
--
- 	if (err < 0)
- 		goto out_unlock;
- 
-@@ -404,7 +403,6 @@ out_unlock:
- }
- EXPORT_SYMBOL(phy_start_aneg);
- 
--
+@@ -406,21 +406,15 @@ EXPORT_SYMBOL(phy_start_aneg);
  /**
   * phy_start_machine - start PHY state machine tracking
   * @phydev: the phy_device struct
-@@ -514,13 +512,11 @@ static int phy_disable_interrupts(struct
- 
- 	/* Disable PHY interrupts */
- 	err = phy_config_interrupt(phydev, PHY_INTERRUPT_DISABLED);
+- * @handler: callback function for state change notifications
+  *
+  * Description: The PHY infrastructure can run a state machine
+  *   which tracks whether the PHY is starting up, negotiating,
+  *   etc.  This function starts the timer which tracks the state
+- *   of the PHY.  If you want to be notified when the state changes,
+- *   pass in the callback @handler, otherwise, pass NULL.  If you
+- *   want to maintain your own state machine, do not call this
+- *   function.
++ *   of the PHY.  If you want to maintain your own state machine,
++ *   do not call this function.
+  */
+-void phy_start_machine(struct phy_device *phydev,
+-		       void (*handler)(struct net_device *))
++void phy_start_machine(struct phy_device *phydev)
+ {
+-	phydev->adjust_state = handler;
 -
- 	if (err)
- 		goto phy_err;
- 
- 	/* Clear the interrupt */
- 	err = phy_clear_interrupt(phydev);
--
- 	if (err)
- 		goto phy_err;
- 
-@@ -589,7 +585,6 @@ int phy_stop_interrupts(struct phy_devic
+ 	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue, HZ);
  }
- EXPORT_SYMBOL(phy_stop_interrupts);
  
+@@ -440,8 +434,6 @@ void phy_stop_machine(struct phy_device 
+ 	if (phydev->state > PHY_UP)
+ 		phydev->state = PHY_UP;
+ 	mutex_unlock(&phydev->lock);
 -
- /**
-  * phy_change - Scheduled by the phy_interrupt/timer to handle PHY changes
-  * @work: work_struct that describes the work to be done
-@@ -622,7 +617,6 @@ void phy_change(struct work_struct *work
- 	/* reschedule state queue work to run as soon as possible */
- 	cancel_delayed_work_sync(&phydev->state_queue);
- 	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue, 0);
--
- 	return;
- 
- ignore:
-@@ -668,7 +662,6 @@ out_unlock:
+-	phydev->adjust_state = NULL;
  }
- EXPORT_SYMBOL(phy_stop);
  
--
  /**
-  * phy_start - start or restart a PHY device
-  * @phydev: target phy_device struct
-@@ -730,7 +723,6 @@ void phy_state_machine(struct work_struc
- 		break;
- 	case PHY_AN:
- 		err = phy_read_status(phydev);
--
- 		if (err < 0)
- 			break;
+@@ -706,9 +698,6 @@ void phy_state_machine(struct work_struc
  
-@@ -762,7 +754,6 @@ void phy_state_machine(struct work_struc
- 		break;
- 	case PHY_NOLINK:
- 		err = phy_read_status(phydev);
--
- 		if (err)
- 			break;
+ 	mutex_lock(&phydev->lock);
  
-@@ -774,7 +765,6 @@ void phy_state_machine(struct work_struc
- 		break;
- 	case PHY_FORCING:
- 		err = genphy_update_link(phydev);
+-	if (phydev->adjust_state)
+-		phydev->adjust_state(phydev->attached_dev);
 -
- 		if (err)
- 			break;
- 
-@@ -797,7 +787,6 @@ void phy_state_machine(struct work_struc
- 		break;
- 	case PHY_CHANGELINK:
- 		err = phy_read_status(phydev);
--
- 		if (err)
- 			break;
- 
-@@ -824,14 +813,11 @@ void phy_state_machine(struct work_struc
- 		}
- 		break;
- 	case PHY_RESUMING:
--
- 		err = phy_clear_interrupt(phydev);
--
- 		if (err)
- 			break;
- 
- 		err = phy_config_interrupt(phydev, PHY_INTERRUPT_ENABLED);
--
- 		if (err)
- 			break;
- 
+ 	switch (phydev->state) {
+ 	case PHY_DOWN:
+ 	case PHY_STARTING:
 Index: net-next/drivers/net/phy/phy_device.c
 ===================================================================
 --- net-next.orig/drivers/net/phy/phy_device.c
 +++ net-next/drivers/net/phy/phy_device.c
-@@ -151,7 +151,6 @@ struct phy_device *phy_device_create(str
+@@ -422,7 +422,7 @@ int phy_connect_direct(struct net_device
+ 		return rc;
  
- 	/* We allocate the device, and initialize the default values */
- 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+ 	phy_prepare_link(phydev, handler);
+-	phy_start_machine(phydev, NULL);
++	phy_start_machine(phydev);
+ 	if (phydev->irq > 0)
+ 		phy_start_interrupts(phydev);
+ 
+Index: net-next/include/linux/phy.h
+===================================================================
+--- net-next.orig/include/linux/phy.h
++++ net-next/include/linux/phy.h
+@@ -282,8 +282,6 @@ struct phy_c45_device_ids {
+  * attached_dev: The attached enet driver's device instance ptr
+  * adjust_link: Callback for the enet controller to respond to
+  * changes in the link state.
+- * adjust_state: Callback for the enet driver to respond to
+- * changes in the state machine.
+  *
+  * speed, duplex, pause, supported, advertising, lp_advertising,
+  * and autoneg are used like in mii_if_info
+@@ -364,8 +362,6 @@ struct phy_device {
+ 	struct net_device *attached_dev;
+ 
+ 	void (*adjust_link)(struct net_device *dev);
 -
- 	if (NULL == dev)
- 		return (struct phy_device *)PTR_ERR((void *)-ENOMEM);
+-	void (*adjust_state)(struct net_device *dev);
+ };
+ #define to_phy_device(d) container_of(d, struct phy_device, dev)
  
-@@ -294,7 +293,6 @@ static int get_phy_id(struct mii_bus *bu
- 
- 	/* Grab the bits from PHYIR1, and put them in the upper half */
- 	phy_reg = mdiobus_read(bus, addr, MII_PHYSID1);
--
- 	if (phy_reg < 0)
- 		return -EIO;
- 
-@@ -302,7 +300,6 @@ static int get_phy_id(struct mii_bus *bu
- 
- 	/* Grab the bits from PHYIR2, and put them in the lower half */
- 	phy_reg = mdiobus_read(bus, addr, MII_PHYSID2);
--
- 	if (phy_reg < 0)
- 		return -EIO;
- 
-@@ -724,7 +721,6 @@ static int genphy_config_advert(struct p
- 
- 	/* Setup standard advertisement */
- 	adv = phy_read(phydev, MII_ADVERTISE);
--
- 	if (adv < 0)
- 		return adv;
- 
-@@ -745,7 +741,6 @@ static int genphy_config_advert(struct p
- 	if (phydev->supported & (SUPPORTED_1000baseT_Half |
- 				 SUPPORTED_1000baseT_Full)) {
- 		adv = phy_read(phydev, MII_CTRL1000);
--
- 		if (adv < 0)
- 			return adv;
- 
-@@ -812,7 +807,6 @@ int genphy_restart_aneg(struct phy_devic
- }
- EXPORT_SYMBOL(genphy_restart_aneg);
- 
--
- /**
-  * genphy_config_aneg - restart auto-negotiation or write BMCR
-  * @phydev: target phy_device struct
-@@ -829,10 +823,8 @@ int genphy_config_aneg(struct phy_device
- 		return genphy_setup_forced(phydev);
- 
- 	result = genphy_config_advert(phydev);
--
- 	if (result < 0) /* error */
- 		return result;
--
- 	if (result == 0) {
- 		/* Advertisement hasn't changed, but maybe aneg was never on to
- 		 * begin with?  Or maybe phy was isolated?
-@@ -870,13 +862,11 @@ int genphy_update_link(struct phy_device
- 
- 	/* Do a fake read */
- 	status = phy_read(phydev, MII_BMSR);
--
- 	if (status < 0)
- 		return status;
- 
- 	/* Read link and autonegotiation status */
- 	status = phy_read(phydev, MII_BMSR);
--
- 	if (status < 0)
- 		return status;
- 
-@@ -916,12 +906,10 @@ int genphy_read_status(struct phy_device
- 		if (phydev->supported & (SUPPORTED_1000baseT_Half
- 					| SUPPORTED_1000baseT_Full)) {
- 			lpagb = phy_read(phydev, MII_STAT1000);
--
- 			if (lpagb < 0)
- 				return lpagb;
- 
- 			adv = phy_read(phydev, MII_CTRL1000);
--
- 			if (adv < 0)
- 				return adv;
- 
-@@ -931,14 +919,12 @@ int genphy_read_status(struct phy_device
- 		}
- 
- 		lpa = phy_read(phydev, MII_LPA);
--
- 		if (lpa < 0)
- 			return lpa;
- 
- 		phydev->lp_advertising |= mii_lpa_to_ethtool_lpa_t(lpa);
- 
- 		adv = phy_read(phydev, MII_ADVERTISE);
--
- 		if (adv < 0)
- 			return adv;
- 
-@@ -1007,7 +993,6 @@ static int genphy_config_init(struct phy
- 
- 	/* Do we support autonegotiation? */
- 	val = phy_read(phydev, MII_BMSR);
--
- 	if (val < 0)
- 		return val;
- 
-@@ -1025,7 +1010,6 @@ static int genphy_config_init(struct phy
- 
- 	if (val & BMSR_ESTATEN) {
- 		val = phy_read(phydev, MII_ESTATUS);
--
- 		if (val < 0)
- 			return val;
- 
-@@ -1146,7 +1130,6 @@ int phy_driver_register(struct phy_drive
- 	new_driver->driver.remove = phy_remove;
- 
- 	retval = driver_register(&new_driver->driver);
--
- 	if (retval) {
- 		pr_err("%s: Error %d in registering driver\n",
- 		       new_driver->name, retval);
+@@ -585,8 +581,7 @@ int phy_drivers_register(struct phy_driv
+ void phy_state_machine(struct work_struct *work);
+ void phy_change(struct work_struct *work);
+ void phy_mac_interrupt(struct phy_device *phydev, int new_link);
+-void phy_start_machine(struct phy_device *phydev,
+-		       void (*handler)(struct net_device *));
++void phy_start_machine(struct phy_device *phydev);
+ void phy_stop_machine(struct phy_device *phydev);
+ int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd);
+ int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd);
