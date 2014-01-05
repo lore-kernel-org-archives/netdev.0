@@ -1,144 +1,375 @@
-From: Eyal Perry <eyalpe@dev.mellanox.co.il>
-Subject: Re: net/mlx4_core: Warn if device doesn't have enough PCI bandwidth
-Date: Sun, 5 Jan 2014 14:07:27 +0200
-Message-ID: <20140105120727.GA6690@mtl-eit-vdi-146.mtl.labs.mlnx>
-References: <1388863024-8718-1-git-send-email-amirv@mellanox.com>
- <20140104.201605.1540682078247113302.davem@davemloft.net>
+From: Ariel Elior <ariele@broadcom.com>
+Subject: [PATCH net] bnx2x: Introducing 2014 and updating maintainer
+Date: Sun, 5 Jan 2014 14:34:33 +0200
+Message-ID: <1388925273-12512-1-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: amirv@mellanox.com, netdev@vger.kernel.org, ogerlitz@mellanox.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>
+To: <ariele@broadcom.com>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f173.google.com ([209.85.215.173]:50083 "EHLO
-	mail-ea0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751036AbaAEMHs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 07:07:48 -0500
-Received: by mail-ea0-f173.google.com with SMTP id o10so7297414eaj.18
-        for <netdev@vger.kernel.org>; Sun, 05 Jan 2014 04:07:46 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20140104.201605.1540682078247113302.davem@davemloft.net>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:1027 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750881AbaAEMcj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 07:32:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From c10ba4586a64b6897bbc06876d5df4cf895db14c Mon Sep 17 00:00:00 2001
-From: Eyal Perry <eyalpe@mellanox.com>
-Date: Mon, 23 Dec 2013 09:13:43 +0200
-Subject: [PATCH] net/mlx4_core: Warn if device doesn't have enough PCI
- bandwidth
-
-Check if the device get enough bandwidth from the entire PCI chain to satisfy
-its capabilities. This patch determines the PCIe device's bandwidth capabilities
-by reading its PCIe Link Capabilities registers and then call the
-pcie_get_minimum_link function to ensure that the adapter is hooked into a slot
-which is capable of providing the necessary bandwidth capabilities.
-
-Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/main.c | 84 +++++++++++++++++++++++++++++++
- 1 file changed, 84 insertions(+)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |    4 ++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |    4 ++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |    4 ++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c    |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.h    |    2 +-
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |    4 ++--
+ .../net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h    |    2 +-
+ .../ethernet/broadcom/bnx2x/bnx2x_fw_file_hdr.h    |    4 ++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h    |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_init.h   |    4 ++--
+ .../net/ethernet/broadcom/bnx2x/bnx2x_init_ops.h   |    4 ++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |    4 ++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h    |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c     |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h     |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c  |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h  |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c  |    4 ++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h  |    4 ++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c   |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h   |    2 +-
+ 21 files changed, 31 insertions(+), 31 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index fbebfb0..7d42b89 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -388,6 +388,84 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index dad6790..c2ba99f 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -1,12 +1,12 @@
+ /* bnx2x.h: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2013 Broadcom Corporation
++ * Copyright (c) 2007-2014 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation.
+  *
+- * Maintained by: Eilon Greenstein <eilong@broadcom.com>
++ * Maintained by: Ariel Elior <ariele@broadcom.com>
+  * Written by: Eliezer Tamir
+  * Based on code from Michael Chan's bnx2 driver
+  */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 282ebf6..bbfe828 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -1,12 +1,12 @@
+ /* bnx2x_cmn.c: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2013 Broadcom Corporation
++ * Copyright (c) 2007-2014 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation.
+  *
+- * Maintained by: Eilon Greenstein <eilong@broadcom.com>
++ * Maintained by: Ariel Elior <ariele@broadcom.com>
+  * Written by: Eliezer Tamir
+  * Based on code from Michael Chan's bnx2 driver
+  * UDP CSUM errata workaround by Arik Gendelman
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index da8fcaa..273272a 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -1,12 +1,12 @@
+ /* bnx2x_cmn.h: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2013 Broadcom Corporation
++ * Copyright (c) 2007-2014 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation.
+  *
+- * Maintained by: Eilon Greenstein <eilong@broadcom.com>
++ * Maintained by: Ariel Elior <ariele@broadcom.com>
+  * Written by: Eliezer Tamir
+  * Based on code from Michael Chan's bnx2 driver
+  * UDP CSUM errata workaround by Arik Gendelman
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+index fdace20..459c842 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+@@ -12,7 +12,7 @@
+  * license other than the GPL, without Broadcom's express prior written
+  * consent.
+  *
+- * Maintained by: Eilon Greenstein <eilong@broadcom.com>
++ * Maintained by: Ariel Elior <ariele@broadcom.com>
+  * Written by: Dmitry Kravkov
+  *
+  */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.h
+index 804b8f6..affc3ec 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.h
+@@ -12,7 +12,7 @@
+  * license other than the GPL, without Broadcom's express prior written
+  * consent.
+  *
+- * Maintained by: Eilon Greenstein <eilong@broadcom.com>
++ * Maintained by: Ariel Elior <ariele@broadcom.com>
+  * Written by: Dmitry Kravkov
+  *
+  */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index 92a467f..b0447f1 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -1,12 +1,12 @@
+ /* bnx2x_ethtool.c: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2013 Broadcom Corporation
++ * Copyright (c) 2007-2014 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation.
+  *
+- * Maintained by: Eilon Greenstein <eilong@broadcom.com>
++ * Maintained by: Ariel Elior <ariele@broadcom.com>
+  * Written by: Eliezer Tamir
+  * Based on code from Michael Chan's bnx2 driver
+  * UDP CSUM errata workaround by Arik Gendelman
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h
+index 84aecdf..4b98746 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h
+@@ -1,6 +1,6 @@
+ /* bnx2x_fw_defs.h: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2013 Broadcom Corporation
++ * Copyright (c) 2007-2014 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_file_hdr.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_file_hdr.h
+index f572ae1..e27ee1c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_file_hdr.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_file_hdr.h
+@@ -1,12 +1,12 @@
+ /* bnx2x_fw_file_hdr.h: FW binary file header structure.
+  *
+- * Copyright (c) 2007-2013 Broadcom Corporation
++ * Copyright (c) 2007-2014 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation.
+  *
+- * Maintained by: Eilon Greenstein <eilong@broadcom.com>
++ * Maintained by: Ariel Elior <ariele@broadcom.com>
+  * Written by: Vladislav Zolotarov <vladz@broadcom.com>
+  * Based on the original idea of John Wright <john.wright@hp.com>.
+  */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+index cf1df8b..8ea84f3 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+@@ -1,6 +1,6 @@
+ /* bnx2x_hsi.h: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2013 Broadcom Corporation
++ * Copyright (c) 2007-2014 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init.h
+index c2dfea7..bfb111b 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init.h
+@@ -1,13 +1,13 @@
+ /* bnx2x_init.h: Broadcom Everest network driver.
+  *               Structures and macroes needed during the initialization.
+  *
+- * Copyright (c) 2007-2013 Broadcom Corporation
++ * Copyright (c) 2007-2014 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation.
+  *
+- * Maintained by: Eilon Greenstein <eilong@broadcom.com>
++ * Maintained by: Ariel Elior <ariele@broadcom.com>
+  * Written by: Eliezer Tamir
+  * Modified by: Vladislav Zolotarov <vladz@broadcom.com>
+  */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init_ops.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init_ops.h
+index 8ab0dd9..0d86077 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init_ops.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init_ops.h
+@@ -2,13 +2,13 @@
+  *               Static functions needed during the initialization.
+  *               This file is "included" in bnx2x_main.c.
+  *
+- * Copyright (c) 2007-2013 Broadcom Corporation
++ * Copyright (c) 2007-2014 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation.
+  *
+- * Maintained by: Eilon Greenstein <eilong@broadcom.com>
++ * Maintained by: Ariel Elior <ariele@broadcom.com>
+  * Written by: Vladislav Zolotarov <vladz@broadcom.com>
+  */
  
- 	return 0;
- }
-+
-+static int mlx4_get_pcie_dev_link_caps(struct mlx4_dev *dev,
-+				       enum pci_bus_speed *speed,
-+				       enum pcie_link_width *width)
-+{
-+	u32 lnkcap1, lnkcap2;
-+	int err1, err2;
-+
-+#define  PCIE_MLW_CAP_SHIFT 4	/* start of MLW mask in link capabilities */
-+
-+	*speed = PCI_SPEED_UNKNOWN;
-+	*width = PCIE_LNK_WIDTH_UNKNOWN;
-+
-+	err1 = pcie_capability_read_dword(dev->pdev, PCI_EXP_LNKCAP, &lnkcap1);
-+	err2 = pcie_capability_read_dword(dev->pdev, PCI_EXP_LNKCAP2, &lnkcap2);
-+	if (!err2 && lnkcap2) { /* PCIe r3.0-compliant */
-+		if (lnkcap2 & PCI_EXP_LNKCAP2_SLS_8_0GB)
-+			*speed = PCIE_SPEED_8_0GT;
-+		else if (lnkcap2 & PCI_EXP_LNKCAP2_SLS_5_0GB)
-+			*speed = PCIE_SPEED_5_0GT;
-+		else if (lnkcap2 & PCI_EXP_LNKCAP2_SLS_2_5GB)
-+			*speed = PCIE_SPEED_2_5GT;
-+	}
-+	if (!err1) {
-+		*width = (lnkcap1 & PCI_EXP_LNKCAP_MLW) >> PCIE_MLW_CAP_SHIFT;
-+		if (!lnkcap2) { /* pre-r3.0 */
-+			if (lnkcap1 & PCI_EXP_LNKCAP_SLS_5_0GB)
-+				*speed = PCIE_SPEED_5_0GT;
-+			else if (lnkcap1 & PCI_EXP_LNKCAP_SLS_2_5GB)
-+				*speed = PCIE_SPEED_2_5GT;
-+		}
-+	}
-+
-+	if (*speed == PCI_SPEED_UNKNOWN || *width == PCIE_LNK_WIDTH_UNKNOWN) {
-+		return err1 ? err1 :
-+			err2 ? err2 : -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+static void mlx4_check_pcie_caps(struct mlx4_dev *dev)
-+{
-+	enum pcie_link_width width, width_cap;
-+	enum pci_bus_speed speed, speed_cap;
-+	int err;
-+
-+#define PCIE_SPEED_STR(speed) \
-+	(speed == PCIE_SPEED_8_0GT ? "8.0GT/s" : \
-+	 speed == PCIE_SPEED_5_0GT ? "5.0GT/s" : \
-+	 speed == PCIE_SPEED_2_5GT ? "2.5GT/s" : \
-+	 "Unknown")
-+
-+	err = mlx4_get_pcie_dev_link_caps(dev, &speed_cap, &width_cap);
-+	if (err) {
-+		mlx4_warn(dev,
-+			  "Unable to determine PCIe device BW capabilities\n");
-+		return err;
-+	}
-+
-+	err = pcie_get_minimum_link(dev->pdev, &speed, &width);
-+	if (err || speed == PCI_SPEED_UNKNOWN ||
-+	    width == PCIE_LNK_WIDTH_UNKNOWN) {
-+		mlx4_warn(dev,
-+			  "Unable to determine PCI device chain minimum BW\n");
-+		return err ? err : -EINVAL;
-+	}
-+
-+	if (width != width_cap || speed != speed_cap)
-+		mlx4_warn(dev,
-+			  "PCIe BW is different than device's capability\n");
-+
-+	mlx4_info(dev, "PCIe link speed is %s, device supports %s\n",
-+		  PCIE_SPEED_STR(speed), PCIE_SPEED_STR(speed_cap));
-+	mlx4_info(dev, "PCIe link width is x%d, device supports x%d\n",
-+		  width, width_cap);
-+	return 0;
-+}
-+
- /*The function checks if there are live vf, return the num of them*/
- static int mlx4_how_many_lives_vf(struct mlx4_dev *dev)
- {
-@@ -2292,6 +2370,12 @@ slave_start:
- 			goto err_mfunc;
- 	}
- 
-+	/* check if the device is functioning at its maximum possible speed.
-+	 * No return code for this call, just warn the user in case of PCI
-+	 * express device capabilities are under-satisfied by the bus.
-+	 */
-+	mlx4_check_pcie_caps(dev);
-+
- 	/* In master functions, the communication channel must be initialized
- 	 * after obtaining its address from fw */
- 	if (mlx4_is_master(dev)) {
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index d3748bf..c54b071 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -1,12 +1,12 @@
+ /* bnx2x_main.c: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2013 Broadcom Corporation
++ * Copyright (c) 2007-2014 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation.
+  *
+- * Maintained by: Eilon Greenstein <eilong@broadcom.com>
++ * Maintained by: Ariel Elior <ariele@broadcom.com>
+  * Written by: Eliezer Tamir
+  * Based on code from Michael Chan's bnx2 driver
+  * UDP CSUM errata workaround by Arik Gendelman
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+index 08f8047..290fb3d 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+@@ -1,6 +1,6 @@
+ /* bnx2x_reg.h: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2013 Broadcom Corporation
++ * Copyright (c) 2007-2014 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+index babf7b9..326a3fa 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+@@ -12,7 +12,7 @@
+  * license other than the GPL, without Broadcom's express prior written
+  * consent.
+  *
+- * Maintained by: Eilon Greenstein <eilong@broadcom.com>
++ * Maintained by: Ariel Elior <ariele@broadcom.com>
+  * Written by: Vladislav Zolotarov
+  *
+  */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+index 658f4e3..ea91c4d 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+@@ -12,7 +12,7 @@
+  * license other than the GPL, without Broadcom's express prior written
+  * consent.
+  *
+- * Maintained by: Eilon Greenstein <eilong@broadcom.com>
++ * Maintained by: Ariel Elior <ariele@broadcom.com>
+  * Written by: Vladislav Zolotarov
+  *
+  */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index 6fe52d3..e8556aa 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -12,7 +12,7 @@
+  * license other than the GPL, without Broadcom's express prior written
+  * consent.
+  *
+- * Maintained by: Eilon Greenstein <eilong@broadcom.com>
++ * Maintained by: Ariel Elior <ariele@broadcom.com>
+  * Written by: Shmulik Ravid <shmulikr@broadcom.com>
+  *	       Ariel Elior <ariele@broadcom.com>
+  *
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+index a5c84a7..8586ed0 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+@@ -12,7 +12,7 @@
+  * license other than the GPL, without Broadcom's express prior written
+  * consent.
+  *
+- * Maintained by: Eilon Greenstein <eilong@broadcom.com>
++ * Maintained by: Ariel Elior <ariele@broadcom.com>
+  * Written by: Shmulik Ravid <shmulikr@broadcom.com>
+  *	       Ariel Elior <ariele@broadcom.com>
+  */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+index 3b75070..9c2d466 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+@@ -1,12 +1,12 @@
+ /* bnx2x_stats.c: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2013 Broadcom Corporation
++ * Copyright (c) 2007-2014 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation.
+  *
+- * Maintained by: Eilon Greenstein <eilong@broadcom.com>
++ * Maintained by: Ariel Elior <ariele@broadcom.com>
+  * Written by: Eliezer Tamir
+  * Based on code from Michael Chan's bnx2 driver
+  * UDP CSUM errata workaround by Arik Gendelman
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
+index f358450..dec51ff 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
+@@ -1,12 +1,12 @@
+ /* bnx2x_stats.h: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2013 Broadcom Corporation
++ * Copyright (c) 2007-2014 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation.
+  *
+- * Maintained by: Eilon Greenstein <eilong@broadcom.com>
++ * Maintained by: Ariel Elior <ariele@broadcom.com>
+  * Written by: Eliezer Tamir
+  * Based on code from Michael Chan's bnx2 driver
+  * UDP CSUM errata workaround by Arik Gendelman
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+index e5f7985..e0407d2 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+@@ -12,7 +12,7 @@
+  * license other than the GPL, without Broadcom's express prior written
+  * consent.
+  *
+- * Maintained by: Eilon Greenstein <eilong@broadcom.com>
++ * Maintained by: Ariel Elior <ariele@broadcom.com>
+  * Written by: Shmulik Ravid <shmulikr@broadcom.com>
+  *	       Ariel Elior <ariele@broadcom.com>
+  */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
+index 208568b..b94fbae 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
+@@ -12,7 +12,7 @@
+  * license other than the GPL, without Broadcom's express prior written
+  * consent.
+  *
+- * Maintained by: Eilon Greenstein <eilong@broadcom.com>
++ * Maintained by: Ariel Elior <ariele@broadcom.com>
+  * Written by: Ariel Elior <ariele@broadcom.com>
+  */
+ #ifndef VF_PF_IF_H
 -- 
-1.7.11.3
+1.7.1
