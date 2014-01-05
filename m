@@ -1,104 +1,136 @@
-From: Toshiaki Makita <toshiaki.makita1@gmail.com>
-Subject: Re: [PATCH net v2 1/9] bridge: Fix the way to find old local fdb
- entries in br_fdb_changeaddr
-Date: Mon, 06 Jan 2014 00:26:18 +0900
-Message-ID: <1388935578.1906.26.camel@localhost.localdomain>
-References: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	 <1387281821-21342-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	 <52C70F63.4020604@redhat.com> <52C7218C.2000205@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	"David S . Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
-To: vyasevic@redhat.com
+From: Eyal Perry <eyalpe@mellanox.com>
+Subject: [PATCH net-next V1] net/mlx4_core: Warn if device doesn't have enough PCI bandwidth
+Date: Sun,  5 Jan 2014 17:41:08 +0200
+Message-ID: <1388936468-5293-1-git-send-email-eyalpe@mellanox.com>
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
+	Eyal Perry <eyalpe@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:62565 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751287AbaAEP02 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 10:26:28 -0500
-Received: by mail-pd0-f181.google.com with SMTP id p10so17090283pdj.40
-        for <netdev@vger.kernel.org>; Sun, 05 Jan 2014 07:26:28 -0800 (PST)
-In-Reply-To: <52C7218C.2000205@redhat.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:60273 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751186AbaAEPlQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Jan 2014 10:41:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-01-03 at 15:46 -0500, Vlad Yasevich wrote:
-> On 01/03/2014 02:28 PM, Vlad Yasevich wrote:
-> > On 12/17/2013 07:03 AM, Toshiaki Makita wrote:
-> >> br_fdb_changeaddr() assumes that there is at most one local entry per port
-> >> per vlan. It used to be true, but since commit 36fd2b63e3b4 ("bridge: allow
-> >> creating/deleting fdb entries via netlink"), it has not been so.
-> >> Therefore, the function might fail to search a correct previous address
-> >> to be deleted and delete an arbitrary local entry if user has added local
-> >> entries manually.
-> >>
-> >> Example of problematic case:
-> >>   ip link set eth0 address ee:ff:12:34:56:78
-> >>   brctl addif br0 eth0
-> >>   bridge fdb add 12:34:56:78:90:ab dev eth0 master
-> >>   ip link set eth0 address aa:bb:cc:dd:ee:ff
-> >> Then, the address 12:34:56:78:90:ab might be deleted instead of
-> >> ee:ff:12:34:56:78, the original mac address of eth0.
-> >>
-> >> Address this issue by introducing a new flag, added_by_user, to struct
-> >> net_bridge_fdb_entry.
-> >>
-> >> Note that br_fdb_delete_by_port() has to set added_by_user to 0 in case
-> >> like:
-> >>   ip link set eth0 address 12:34:56:78:90:ab
-> >>   ip link set eth1 address aa:bb:cc:dd:ee:ff
-> >>   brctl addif br0 eth0
-> >>   bridge fdb add aa:bb:cc:dd:ee:ff dev eth0 master
-> >>   brctl addif br0 eth1
-> >>   brctl delif br0 eth0
-> >> In this case, kernel should delete the user-added entry aa:bb:cc:dd:ee:ff,
-> >> but it also should have been added by "brctl addif br0 eth1" originally,
-> >> so we don't delete it and treat it a new kernel-created entry.
-> >>
-> > 
-> > I was looking over my patch series that adds something similar to this
-> > and noticed that you are not handing the NTF_USE case.  That case was
-> > always troublesome for me as it allows for 2 different way to create
-> > the same FDB: one through br_fdb_update() and one through fdb_add_entry().
-> > 
-> > It is possible, though I haven't found any users yet, that NTF_USE
-> > may be used and in that case, bridge will create a dynamic fdb and
-> > disregard all NUD flags.  In case case, add_by_user will not be set
-> > either.
-> > 
-> > I think that the above is broken and plan to submit a fix shortly.
-> 
-> Just looked again at my NTF_USE patch and while it seems ok, the whole
-> NTF_USE usage is racy to begin with and I am really starting to question
-> it's validity.
-> 
-> Presently, br_fdb_update() will not update local fdb entries.   Instead
-> it will log a misleading warning...  It will only let you update
-> non-local entries.  This is fine for user-created entries, but any
-> operation on dynamically created entries will only persist until
-> the next packet.  It also races against the packet, so there is
-> absolutely no guarantee that the values of fdb->dst and fdb->updated
-> will be consistent..
-> 
-> It seems to me that the update capability of NTF_USE would actually be
-> of more value on local or user-created fdb entries.
-> 
-> The fdb creation capability of NTF_USE should be disabled.
-> 
-> Thoughts?
+Check if the device get enough bandwidth from the entire PCI chain to satisfy
+its capabilities. This patch determines the PCIe device's bandwidth capabilities
+by reading its PCIe Link Capabilities registers and then call the
+pcie_get_minimum_link function to ensure that the adapter is hooked into a slot
+which is capable of providing the necessary bandwidth capabilities.
 
-I ignored NTF_USE in this patch because I regard it as emulating kernel
-creating entries after investigating git log.
+Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
 
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=0c5c2d3089068d4aa378f7a40d2b5ad9d4f52ce8
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=292d1398983f3514a0eab13b7606df7f4730b498
+Changes from V0:
+Make mlx4_check_pcie_caps return value void, since it is ignored anyway.
 
-So I think NTF_USE shouldn't set added_by_user.
-And to emulate kernel creating entries, simply calling br_fdb_update()
-is the right way, isn't it?
+ drivers/net/ethernet/mellanox/mlx4/main.c | 84 +++++++++++++++++++++++++++++++
+ 1 file changed, 84 insertions(+)
 
-Thanks,
-Toshiaki Makita
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index fbebfb0..a93913f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -388,6 +388,84 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 
+ 	return 0;
+ }
++
++static int mlx4_get_pcie_dev_link_caps(struct mlx4_dev *dev,
++				       enum pci_bus_speed *speed,
++				       enum pcie_link_width *width)
++{
++	u32 lnkcap1, lnkcap2;
++	int err1, err2;
++
++#define  PCIE_MLW_CAP_SHIFT 4	/* start of MLW mask in link capabilities */
++
++	*speed = PCI_SPEED_UNKNOWN;
++	*width = PCIE_LNK_WIDTH_UNKNOWN;
++
++	err1 = pcie_capability_read_dword(dev->pdev, PCI_EXP_LNKCAP, &lnkcap1);
++	err2 = pcie_capability_read_dword(dev->pdev, PCI_EXP_LNKCAP2, &lnkcap2);
++	if (!err2 && lnkcap2) { /* PCIe r3.0-compliant */
++		if (lnkcap2 & PCI_EXP_LNKCAP2_SLS_8_0GB)
++			*speed = PCIE_SPEED_8_0GT;
++		else if (lnkcap2 & PCI_EXP_LNKCAP2_SLS_5_0GB)
++			*speed = PCIE_SPEED_5_0GT;
++		else if (lnkcap2 & PCI_EXP_LNKCAP2_SLS_2_5GB)
++			*speed = PCIE_SPEED_2_5GT;
++	}
++	if (!err1) {
++		*width = (lnkcap1 & PCI_EXP_LNKCAP_MLW) >> PCIE_MLW_CAP_SHIFT;
++		if (!lnkcap2) { /* pre-r3.0 */
++			if (lnkcap1 & PCI_EXP_LNKCAP_SLS_5_0GB)
++				*speed = PCIE_SPEED_5_0GT;
++			else if (lnkcap1 & PCI_EXP_LNKCAP_SLS_2_5GB)
++				*speed = PCIE_SPEED_2_5GT;
++		}
++	}
++
++	if (*speed == PCI_SPEED_UNKNOWN || *width == PCIE_LNK_WIDTH_UNKNOWN) {
++		return err1 ? err1 :
++			err2 ? err2 : -EINVAL;
++	}
++	return 0;
++}
++
++static void mlx4_check_pcie_caps(struct mlx4_dev *dev)
++{
++	enum pcie_link_width width, width_cap;
++	enum pci_bus_speed speed, speed_cap;
++	int err;
++
++#define PCIE_SPEED_STR(speed) \
++	(speed == PCIE_SPEED_8_0GT ? "8.0GT/s" : \
++	 speed == PCIE_SPEED_5_0GT ? "5.0GT/s" : \
++	 speed == PCIE_SPEED_2_5GT ? "2.5GT/s" : \
++	 "Unknown")
++
++	err = mlx4_get_pcie_dev_link_caps(dev, &speed_cap, &width_cap);
++	if (err) {
++		mlx4_warn(dev,
++			  "Unable to determine PCIe device BW capabilities\n");
++		return;
++	}
++
++	err = pcie_get_minimum_link(dev->pdev, &speed, &width);
++	if (err || speed == PCI_SPEED_UNKNOWN ||
++	    width == PCIE_LNK_WIDTH_UNKNOWN) {
++		mlx4_warn(dev,
++			  "Unable to determine PCI device chain minimum BW\n");
++		return;
++	}
++
++	if (width != width_cap || speed != speed_cap)
++		mlx4_warn(dev,
++			  "PCIe BW is different than device's capability\n");
++
++	mlx4_info(dev, "PCIe link speed is %s, device supports %s\n",
++		  PCIE_SPEED_STR(speed), PCIE_SPEED_STR(speed_cap));
++	mlx4_info(dev, "PCIe link width is x%d, device supports x%d\n",
++		  width, width_cap);
++	return;
++}
++
+ /*The function checks if there are live vf, return the num of them*/
+ static int mlx4_how_many_lives_vf(struct mlx4_dev *dev)
+ {
+@@ -2292,6 +2370,12 @@ slave_start:
+ 			goto err_mfunc;
+ 	}
+ 
++	/* check if the device is functioning at its maximum possible speed.
++	 * No return code for this call, just warn the user in case of PCI
++	 * express device capabilities are under-satisfied by the bus.
++	 */
++	mlx4_check_pcie_caps(dev);
++
+ 	/* In master functions, the communication channel must be initialized
+ 	 * after obtaining its address from fw */
+ 	if (mlx4_is_master(dev)) {
+-- 
+1.7.11.3
