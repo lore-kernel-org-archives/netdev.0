@@ -1,7 +1,7 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH v2 2/8] mdio_bus: coding style fixes
-Date: Sun, 5 Jan 2014 03:18:27 +0300
-Message-ID: <201401050318.27852.sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH v2 3/8] <linux/phy.h>: coding style fixes
+Date: Sun, 5 Jan 2014 03:20:17 +0300
+Message-ID: <201401050320.17188.sergei.shtylyov@cogentembedded.com>
 References: <201401050315.29587.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
@@ -9,126 +9,142 @@ Content-Type: Text/Plain;
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f179.google.com ([209.85.217.179]:63298 "EHLO
-	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754739AbaADXS3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 18:18:29 -0500
-Received: by mail-lb0-f179.google.com with SMTP id w7so8921741lbi.38
-        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 15:18:28 -0800 (PST)
+Received: from mail-la0-f48.google.com ([209.85.215.48]:63549 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754854AbaADXUS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 18:20:18 -0500
+Received: by mail-la0-f48.google.com with SMTP id n7so8820911lam.7
+        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 15:20:16 -0800 (PST)
 Received: from wasted.dev.rtsoft.ru (ppp91-76-87-5.pppoe.mtu-net.ru. [91.76.87.5])
-        by mx.google.com with ESMTPSA id mx3sm39484458lbc.14.2014.01.04.15.18.26
+        by mx.google.com with ESMTPSA id h11sm39505094lbg.8.2014.01.04.15.20.15
         for <netdev@vger.kernel.org>
         (version=TLSv1 cipher=RC4-SHA bits=128/128);
-        Sat, 04 Jan 2014 15:18:26 -0800 (PST)
+        Sat, 04 Jan 2014 15:20:16 -0800 (PST)
 In-Reply-To: <201401050315.29587.sergei.shtylyov@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The recent patch from Florian Fainelli fixed all 'checkpatch.pl' errors but left
-some warnings like:
+Running 'checkpatch.pl' gives some errors and warnings:
 
-- including <asm/io.h> instead of <linux/io.h>;
+- no spaces around =;
 
-- including <asm/uaccess.h> instead of <linux/uaccess.h>;
+- * separated by space from the function name;
 
-- block comments using empty /* line;
+- { in function definition not on a separate line;
 
-- 'struct dev_pm_ops' variable not being *const*.
+- line over 80 characters.
 
-While fixing these, also fix the following style issues (some of which were
-found running 'checkpatch.pl --strict'):
+While fixing these, also fix the following style issues:
 
-- alignment not matching open paren;
+- file name in the heading comment;
 
-- file name in the heading comment.
+- alignment not matching open paren.
 
 Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
 ---
- drivers/net/phy/mdio_bus.c |   27 +++++++++------------------
- 1 file changed, 9 insertions(+), 18 deletions(-)
+Changes in version 2:
+- new patch in this series.
 
-Index: net-next/drivers/net/phy/mdio_bus.c
+ include/linux/phy.h |   38 +++++++++++++++++++-------------------
+ 1 file changed, 19 insertions(+), 19 deletions(-)
+
+Index: net-next/include/linux/phy.h
 ===================================================================
---- net-next.orig/drivers/net/phy/mdio_bus.c
-+++ net-next/drivers/net/phy/mdio_bus.c
-@@ -1,7 +1,4 @@
--/*
-- * drivers/net/phy/mdio_bus.c
+--- net-next.orig/include/linux/phy.h
++++ net-next/include/linux/phy.h
+@@ -1,6 +1,4 @@
+ /*
+- * include/linux/phy.h
 - *
-- * MDIO Bus interface
-+/* MDIO Bus interface
+  * Framework and drivers for configuring and reading different PHYs
+  * Based on code in sungem_phy.c and gianfar_phy.c
   *
-  * Author: Andy Fleming
-  *
-@@ -36,10 +33,10 @@
- #include <linux/mii.h>
- #include <linux/ethtool.h>
- #include <linux/phy.h>
-+#include <linux/io.h>
-+#include <linux/uaccess.h>
- 
--#include <asm/io.h>
- #include <asm/irq.h>
--#include <asm/uaccess.h>
- 
- /**
-  * mdiobus_alloc_size - allocate a mii_bus structure
-@@ -139,8 +136,7 @@ int mdiobus_register(struct mii_bus *bus
- 	int i, err;
- 
- 	if (NULL == bus || NULL == bus->name ||
--			NULL == bus->read ||
--			NULL == bus->write)
-+	    NULL == bus->read || NULL == bus->write)
- 		return -EINVAL;
- 
- 	BUG_ON(bus->state != MDIOBUS_ALLOCATED &&
-@@ -214,9 +210,7 @@ EXPORT_SYMBOL(mdiobus_unregister);
+@@ -240,7 +238,7 @@ int mdiobus_write(struct mii_bus *bus, i
+  * - phy_stop moves to HALTED
   */
- void mdiobus_free(struct mii_bus *bus)
- {
--	/*
--	 * For compatibility with error handling in drivers.
--	 */
-+	/* For compatibility with error handling in drivers. */
- 	if (bus->state == MDIOBUS_ALLOCATED) {
- 		kfree(bus);
- 		return;
-@@ -335,15 +329,13 @@ static bool mdio_bus_phy_may_suspend(str
- 	if (!netdev)
- 		return true;
- 
--	/*
--	 * Don't suspend PHY if the attched netdev parent may wakeup.
-+	/* Don't suspend PHY if the attched netdev parent may wakeup.
- 	 * The parent may point to a PCI device, as in tg3 driver.
- 	 */
- 	if (netdev->dev.parent && device_may_wakeup(netdev->dev.parent))
- 		return false;
- 
--	/*
--	 * Also don't suspend PHY if the netdev itself may wakeup. This
-+	/* Also don't suspend PHY if the netdev itself may wakeup. This
- 	 * is the case for devices w/o underlaying pwr. mgmt. aware bus,
- 	 * e.g. SoC devices.
- 	 */
-@@ -358,8 +350,7 @@ static int mdio_bus_suspend(struct devic
- 	struct phy_driver *phydrv = to_phy_driver(dev->driver);
- 	struct phy_device *phydev = to_phy_device(dev);
- 
--	/*
--	 * We must stop the state machine manually, otherwise it stops out of
-+	/* We must stop the state machine manually, otherwise it stops out of
- 	 * control, possibly with the phydev->lock held. Upon resume, netdev
- 	 * may call phy routines that try to grab the same lock, and that may
- 	 * lead to a deadlock.
-@@ -415,7 +406,7 @@ static int mdio_bus_restore(struct devic
- 	return 0;
+ enum phy_state {
+-	PHY_DOWN=0,
++	PHY_DOWN = 0,
+ 	PHY_STARTING,
+ 	PHY_READY,
+ 	PHY_PENDING,
+@@ -544,21 +542,22 @@ static inline bool phy_is_internal(struc
  }
  
--static struct dev_pm_ops mdio_bus_pm_ops = {
-+static const struct dev_pm_ops mdio_bus_pm_ops = {
- 	.suspend = mdio_bus_suspend,
- 	.resume = mdio_bus_resume,
- 	.freeze = mdio_bus_suspend,
+ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
+-		bool is_c45, struct phy_c45_device_ids *c45_ids);
++				     bool is_c45,
++				     struct phy_c45_device_ids *c45_ids);
+ struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45);
+ int phy_device_register(struct phy_device *phy);
+ int phy_init_hw(struct phy_device *phydev);
+ int phy_suspend(struct phy_device *phydev);
+ int phy_resume(struct phy_device *phydev);
+-struct phy_device * phy_attach(struct net_device *dev,
+-		const char *bus_id, phy_interface_t interface);
++struct phy_device *phy_attach(struct net_device *dev, const char *bus_id,
++			      phy_interface_t interface);
+ struct phy_device *phy_find_first(struct mii_bus *bus);
+ int phy_connect_direct(struct net_device *dev, struct phy_device *phydev,
+-		void (*handler)(struct net_device *),
+-		phy_interface_t interface);
+-struct phy_device * phy_connect(struct net_device *dev, const char *bus_id,
+-		void (*handler)(struct net_device *),
+-		phy_interface_t interface);
++		       void (*handler)(struct net_device *),
++		       phy_interface_t interface);
++struct phy_device *phy_connect(struct net_device *dev, const char *bus_id,
++			       void (*handler)(struct net_device *),
++			       phy_interface_t interface);
+ void phy_disconnect(struct phy_device *phydev);
+ void phy_detach(struct phy_device *phydev);
+ void phy_start(struct phy_device *phydev);
+@@ -567,7 +566,8 @@ int phy_start_aneg(struct phy_device *ph
+ 
+ int phy_stop_interrupts(struct phy_device *phydev);
+ 
+-static inline int phy_read_status(struct phy_device *phydev) {
++static inline int phy_read_status(struct phy_device *phydev)
++{
+ 	return phydev->drv->read_status(phydev);
+ }
+ 
+@@ -586,22 +586,21 @@ void phy_state_machine(struct work_struc
+ void phy_change(struct work_struct *work);
+ void phy_mac_interrupt(struct phy_device *phydev, int new_link);
+ void phy_start_machine(struct phy_device *phydev,
+-		void (*handler)(struct net_device *));
++		       void (*handler)(struct net_device *));
+ void phy_stop_machine(struct phy_device *phydev);
+ int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd);
+ int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd);
+-int phy_mii_ioctl(struct phy_device *phydev,
+-		struct ifreq *ifr, int cmd);
++int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd);
+ int phy_start_interrupts(struct phy_device *phydev);
+ void phy_print_status(struct phy_device *phydev);
+ void phy_device_free(struct phy_device *phydev);
+ 
+ int phy_register_fixup(const char *bus_id, u32 phy_uid, u32 phy_uid_mask,
+-		int (*run)(struct phy_device *));
++		       int (*run)(struct phy_device *));
+ int phy_register_fixup_for_id(const char *bus_id,
+-		int (*run)(struct phy_device *));
++			      int (*run)(struct phy_device *));
+ int phy_register_fixup_for_uid(u32 phy_uid, u32 phy_uid_mask,
+-		int (*run)(struct phy_device *));
++			       int (*run)(struct phy_device *));
+ int phy_scan_fixups(struct phy_device *phydev);
+ 
+ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable);
+@@ -609,7 +608,8 @@ int phy_get_eee_err(struct phy_device *p
+ int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data);
+ int phy_ethtool_get_eee(struct phy_device *phydev, struct ethtool_eee *data);
+ int phy_ethtool_set_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol);
+-void phy_ethtool_get_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol);
++void phy_ethtool_get_wol(struct phy_device *phydev,
++			 struct ethtool_wolinfo *wol);
+ 
+ int __init mdio_bus_init(void);
+ void mdio_bus_exit(void);
