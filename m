@@ -1,49 +1,21 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v4] IPv6: use anycast addresses as source addresses in echo reply
-Date: Mon, 6 Jan 2014 00:05:05 +0100
-Message-ID: <20140105230505.GA29910@order.stressinduktion.org>
-References: <1388767411-17818-1-git-send-email-fx.lebail@yahoo.com>
+From: "Mr. Warmback Lynnton" <darrelynn@live.com>
+Subject: Payment!
+Date: Sun, 05 Jan 2014 17:43:05 -0500
+Message-ID: <LLAIMAJbBVVI6x9isZ2000174a6@rosen.cl>
+Reply-To: dwarmback@yahoo.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <darrelynn@live.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:40846 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751805AbaAEXFH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 18:05:07 -0500
-Content-Disposition: inline
-In-Reply-To: <1388767411-17818-1-git-send-email-fx.lebail@yahoo.com>
+Received: from mail.rosen.cl ([200.54.77.44]:57839 "EHLO rosen.cl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751405AbaAEXHR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 18:07:17 -0500
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 03, 2014 at 05:43:31PM +0100, Francois-Xavier Le Bail wrote:
-> diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-> index 5d42009..65c8619 100644
-> --- a/net/ipv6/icmp.c
-> +++ b/net/ipv6/icmp.c
-> @@ -556,7 +556,9 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
->  
->  	saddr = &ipv6_hdr(skb)->daddr;
->  
-> -	if (!ipv6_unicast_destination(skb))
-> +	if (!ipv6_unicast_destination(skb) &&
-> +	    !(net->ipv6.anycast_src_echo_reply &&
-> +	      ipv6_chk_acast_addr(net, NULL, saddr)))
->  		saddr = NULL;
+Hello,
 
-I am not sure why you left out the device at ipv6_chk_acast_addr?
-
-IMHO this logic is a bit more complex, we can pass NULL for ipv6 addresses of
-scope global but need to check the interface for scope link.
-
-It is already possible via setsockopt JOIN_ANYCAST that an ll address is
-anycast on another interface which may not be checked here.
-
-Greetings,
-
-  Hannes
+After my intensive search, I understand that you share same last name with our late client who passed on few years ago, and I'm seeking your consent to present you as heir to his estate estimated 30.5mUSD.if you interested, please send your cell/phone, fax and names, for more details. Mr.Warmback Lynnton
