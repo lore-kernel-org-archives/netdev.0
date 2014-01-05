@@ -1,65 +1,717 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net-gre-gro: Add GRE support to the GRO stack
-Date: Sat, 04 Jan 2014 17:33:08 -0800
-Message-ID: <1388885588.12212.158.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1388813047-5262-1-git-send-email-hkchu@google.com>
-	 <20140104.200931.524755895829922293.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: hkchu@google.com, edumazet@google.com, herbert@gondor.apana.org.au,
-	ogerlitz@mellanox.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: [PATCH v5 net-next] net: pkt_sched: PIE AQM scheme
+Date: Sat,  4 Jan 2014 17:33:55 -0800
+Message-ID: <1388885635-19939-1-git-send-email-subramanian.vijay@gmail.com>
+Cc: davem@davemloft.net, shemminger@vyatta.com,
+	Vijay Subramanian <subramanian.vijay@gmail.com>,
+	Mythili Prabhu <mysuryan@cisco.com>,
+	Dave Taht <dave.taht@bufferbloat.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:47625 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750865AbaAEBdL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 20:33:11 -0500
-Received: by mail-pb0-f48.google.com with SMTP id md12so17046891pbc.21
-        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 17:33:10 -0800 (PST)
-In-Reply-To: <20140104.200931.524755895829922293.davem@davemloft.net>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:47496 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750767AbaAEBiI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 20:38:08 -0500
+Received: by mail-pb0-f49.google.com with SMTP id jt11so16862418pbb.8
+        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 17:38:08 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-01-04 at 20:09 -0500, David Miller wrote:
-> From: "H.K. Jerry Chu" <hkchu@google.com>
-> Date: Fri,  3 Jan 2014 21:24:07 -0800
-> 
-> > +struct packet_offload *gro_find_receive_by_type(__be16 type);
-> > +struct packet_offload *gro_find_complete_by_type(__be16 type);
-> 
-> You're not exporting these to modules, therefore if GRE is built
-> modular it won't work.
+From: Vijay Subramanian <vijaynsu@cisco.com>
 
+Proportional Integral controller Enhanced (PIE) is a scheduler to address the
+bufferbloat problem.
 
-Ah, I see now net/ipv4/gre_offload.c is not statically included.
+>From the IETF draft below:
+" Bufferbloat is a phenomenon where excess buffers in the network cause high
+latency and jitter. As more and more interactive applications (e.g. voice over
+IP, real time video streaming and financial transactions) run in the Internet,
+high latency and jitter degrade application performance. There is a pressing
+need to design intelligent queue management schemes that can control latency and
+jitter; and hence provide desirable quality of service to users.
 
-This is unfortunate, as GRO/GSO should be fully enabled on routers, even
-if no GRE tunnel is setup on the host.
+We present here a lightweight design, PIE(Proportional Integral controller
+Enhanced) that can effectively control the average queueing latency to a target
+value. Simulation results, theoretical analysis and Linux testbed results have
+shown that PIE can ensure low latency and achieve high link utilization under
+various congestion situations. The design does not require per-packet
+timestamp, so it incurs very small overhead and is simple enough to implement
+in both hardware and software.  "
 
-Whole point of moving this stuff in separate gre_offload.c (commit
-c50cd357887ac "net: gre: move GSO functions to gre_offload") was offer
-offload capabilities without having to load GRE module.
+Many thanks to Dave Taht for extensive feedback, reviews, testing and
+suggestions. Thanks also to Stephen Hemminger and Eric Dumazet for reviews and
+suggestions.  Naeem Khademi and Dave Taht independently contributed to ECN
+support.
 
-diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
-index 4b81e91c80fe..f8c49ce5b283 100644
---- a/net/ipv4/Makefile
-+++ b/net/ipv4/Makefile
-@@ -11,7 +11,7 @@ obj-y     := route.o inetpeer.o protocol.o \
- 	     tcp_offload.o datagram.o raw.o udp.o udplite.o \
- 	     udp_offload.o arp.o icmp.o devinet.o af_inet.o igmp.o \
- 	     fib_frontend.o fib_semantics.o fib_trie.o \
--	     inet_fragment.o ping.o ip_tunnel_core.o
-+	     inet_fragment.o ping.o ip_tunnel_core.o gre_offload.o
+For more information, please see technical paper about PIE in the IEEE
+Conference on High Performance Switching and Routing 2013. A copy of the paper
+can be found at ftp://ftpeng.cisco.com/pie/.
+
+Please also refer to the IETF draft submission at
+http://tools.ietf.org/html/draft-pan-tsvwg-pie-00
+
+All relevant code, documents and test scripts and results can be found at
+ftp://ftpeng.cisco.com/pie/.
+
+For problems with the iproute2/tc or Linux kernel code, please contact Vijay
+Subramanian (vijaynsu@cisco.com or subramanian.vijay@gmail.com) Mythili Prabhu
+(mysuryan@cisco.com)
+
+Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+Signed-off-by: Mythili Prabhu <mysuryan@cisco.com>
+CC: Dave Taht <dave.taht@bufferbloat.net>
+---
+Changes from V4: Fixed various style issues and 'tupdate' is now precomputed in
+jiffies.
+
+Changes from V3: Change default value of limit to 1000 packets and increase
+QUEUE_THRESHOLD to 10000 bytes. Refactor pie_qdisc_enqueue() to update stats
+correctly.
+
+Changes from V2: Prevent timer deadlock on qdisc destroy. Also maintain timer
+period 'tupdate' in us throughout instead of in psched units.
+
+Changes from V1: Addressed review comments regarding coding style and various
+implementation issues. In particular 1) add locking for the timer and 2) use
+psched timer directly instead of a custom timer based on psched.
+
+ include/uapi/linux/pkt_sched.h |   25 ++
+ net/sched/Kconfig              |   13 +
+ net/sched/Makefile             |    1 +
+ net/sched/sch_pie.c            |  555 ++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 594 insertions(+)
+ create mode 100644 net/sched/sch_pie.c
+
+diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+index fe11920..7baf83b 100644
+--- a/include/uapi/linux/pkt_sched.h
++++ b/include/uapi/linux/pkt_sched.h
+@@ -817,4 +817,29 @@ struct tc_hhf_xstats {
+ 	__u32	hh_tot_count;   /* number of captured heavy-hitters so far */
+ 	__u32	hh_cur_count;   /* number of current heavy-hitters */
+ };
++
++/* PIE */
++enum {
++	TCA_PIE_UNSPEC,
++	TCA_PIE_TARGET,
++	TCA_PIE_LIMIT,
++	TCA_PIE_TUPDATE,
++	TCA_PIE_ALPHA,
++	TCA_PIE_BETA,
++	TCA_PIE_ECN,
++	TCA_PIE_BYTEMODE,
++	__TCA_PIE_MAX
++};
++#define TCA_PIE_MAX   (__TCA_PIE_MAX - 1)
++
++struct tc_pie_xstats {
++	__u32 prob;             /* current probability */
++	__u32 delay;            /* current delay in ms */
++	__u32 avg_dq_rate;      /* current average dq_rate in bits/pie_time */
++	__u32 packets_in;       /* total number of packets enqueued */
++	__u32 dropped;          /* packets dropped due to pie_action */
++	__u32 overlimit;        /* dropped due to lack of space in queue */
++	__u32 maxq;             /* maximum queue size */
++	__u32 ecn_mark;         /* packets marked with ecn*/
++};
+ #endif
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index 919847b..65cacec 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -295,6 +295,19 @@ config NET_SCH_HHF
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called sch_hhf.
  
- obj-$(CONFIG_NET_IP_TUNNEL) += ip_tunnel.o
- obj-$(CONFIG_SYSCTL) += sysctl_net_ipv4.o
-@@ -19,7 +19,7 @@ obj-$(CONFIG_PROC_FS) += proc.o
- obj-$(CONFIG_IP_MULTIPLE_TABLES) += fib_rules.o
- obj-$(CONFIG_IP_MROUTE) += ipmr.o
- obj-$(CONFIG_NET_IPIP) += ipip.o
--gre-y := gre_demux.o gre_offload.o
-+gre-y := gre_demux.o
- obj-$(CONFIG_NET_IPGRE_DEMUX) += gre.o
- obj-$(CONFIG_NET_IPGRE) += ip_gre.o
- obj-$(CONFIG_NET_IPVTI) += ip_vti.o
++config NET_SCH_PIE
++	tristate "Proportional Integral controller Enhanced (PIE) scheduler"
++	help
++	  Say Y here if you want to use the Proportional Integral controller
++	  Enhanced scheduler packet scheduling algorithm.
++	  For more information, please see
++	  http://tools.ietf.org/html/draft-pan-tsvwg-pie-00
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called sch_pie.
++
++	  If unsure, say N.
++
+ config NET_SCH_INGRESS
+ 	tristate "Ingress Qdisc"
+ 	depends on NET_CLS_ACT
+diff --git a/net/sched/Makefile b/net/sched/Makefile
+index 3442e5f..0a869a1 100644
+--- a/net/sched/Makefile
++++ b/net/sched/Makefile
+@@ -41,6 +41,7 @@ obj-$(CONFIG_NET_SCH_CODEL)	+= sch_codel.o
+ obj-$(CONFIG_NET_SCH_FQ_CODEL)	+= sch_fq_codel.o
+ obj-$(CONFIG_NET_SCH_FQ)	+= sch_fq.o
+ obj-$(CONFIG_NET_SCH_HHF)	+= sch_hhf.o
++obj-$(CONFIG_NET_SCH_PIE)	+= sch_pie.o
+ 
+ obj-$(CONFIG_NET_CLS_U32)	+= cls_u32.o
+ obj-$(CONFIG_NET_CLS_ROUTE4)	+= cls_route.o
+diff --git a/net/sched/sch_pie.c b/net/sched/sch_pie.c
+new file mode 100644
+index 0000000..fe65340
+--- /dev/null
++++ b/net/sched/sch_pie.c
+@@ -0,0 +1,555 @@
++/* Copyright (C) 2013 Cisco Systems, Inc, 2013.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * Author: Vijay Subramanian <vijaynsu@cisco.com>
++ * Author: Mythili Prabhu <mysuryan@cisco.com>
++ *
++ * ECN support is added by Naeem Khademi <naeemk@ifi.uio.no>
++ * University of Oslo, Norway.
++ */
++
++#include <linux/module.h>
++#include <linux/slab.h>
++#include <linux/types.h>
++#include <linux/kernel.h>
++#include <linux/errno.h>
++#include <linux/skbuff.h>
++#include <net/pkt_sched.h>
++#include <net/inet_ecn.h>
++
++#define QUEUE_THRESHOLD 10000
++#define DQCOUNT_INVALID -1
++#define MAX_PROB  0xffffffff
++#define PIE_SCALE 8
++
++/* parameters used */
++struct pie_params {
++	psched_time_t target;	/* user specified target delay in pschedtime */
++	u32 tupdate;		/* timer frequency (in jiffies) */
++	u32 limit;		/* number of packets that can be enqueued */
++	u32 alpha;		/* alpha and beta are between -4 and 4 */
++	u32 beta;		/* and are used for shift relative to 1 */
++	bool ecn;		/* true if ecn is enabled */
++	bool bytemode;		/* to scale drop early prob based on pkt size */
++};
++
++/* variables used */
++struct pie_vars {
++	u32 prob;		/* probability but scaled by u32 limit. */
++	psched_time_t burst_time;
++	psched_time_t qdelay;
++	psched_time_t qdelay_old;
++	u64 dq_count;		/* measured in bytes */
++	psched_time_t dq_tstamp;	/* drain rate */
++	u32 avg_dq_rate;	/* bytes per pschedtime tick,scaled */
++	u32 qlen_old;		/* in bytes */
++};
++
++/* statistics gathering */
++struct pie_stats {
++	u32 packets_in;		/* total number of packets enqueued */
++	u32 dropped;		/* packets dropped due to pie_action */
++	u32 overlimit;		/* dropped due to lack of space in queue */
++	u32 maxq;		/* maximum queue size */
++	u32 ecn_mark;		/* packets marked with ECN */
++};
++
++/* private data for the Qdisc */
++struct pie_sched_data {
++	struct pie_params params;
++	struct pie_vars vars;
++	struct pie_stats stats;
++	struct timer_list adapt_timer;
++};
++
++static void pie_params_init(struct pie_params *params)
++{
++	params->alpha = 2;
++	params->beta = 20;
++	params->tupdate = usecs_to_jiffies(30 * USEC_PER_MSEC);	/* 30 ms */
++	params->limit = 1000;	/* default of 1000 packets */
++	params->target = PSCHED_NS2TICKS(20 * NSEC_PER_MSEC);	/* 20 ms */
++	params->ecn = false;
++	params->bytemode = false;
++}
++
++static void pie_vars_init(struct pie_vars *vars)
++{
++	vars->dq_count = DQCOUNT_INVALID;
++	vars->avg_dq_rate = 0;
++	/* default of 100 ms in pschedtime */
++	vars->burst_time = PSCHED_NS2TICKS(100 * NSEC_PER_MSEC);
++}
++
++static bool drop_early(struct Qdisc *sch, u32 packet_size)
++{
++	struct pie_sched_data *q = qdisc_priv(sch);
++	u32 rnd;
++	u32 local_prob = q->vars.prob;
++	u32 mtu = psched_mtu(qdisc_dev(sch));
++
++	/* If there is still burst allowance left skip random early drop */
++	if (q->vars.burst_time > 0)
++		return false;
++
++	/* If current delay is less than half of target, and
++	 * if drop prob is low already, disable early_drop
++	 */
++	if ((q->vars.qdelay < q->params.target / 2)
++	    && (q->vars.prob < MAX_PROB / 5))
++		return false;
++
++	/* If we have fewer than 2 mtu-sized packets, disable drop_early,
++	 * similar to min_th in RED
++	 */
++	if (sch->qstats.backlog < 2 * mtu)
++		return false;
++
++	/* If bytemode is turned on, use packet size to compute new
++	 * probablity. Smaller packets will have lower drop prob in this case
++	 */
++	if (q->params.bytemode && packet_size <= mtu)
++		local_prob = (local_prob / mtu) * packet_size;
++	else
++		local_prob = q->vars.prob;
++
++	rnd = net_random();
++	if (rnd < local_prob)
++		return true;
++
++	return false;
++}
++
++static int pie_qdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
++{
++	struct pie_sched_data *q = qdisc_priv(sch);
++	bool enqueue = false;
++
++	if (unlikely(qdisc_qlen(sch) >= sch->limit)) {
++		q->stats.overlimit++;
++		goto out;
++	}
++
++	if (!drop_early(sch, skb->len)) {
++		enqueue = true;
++	} else if (q->params.ecn && (q->vars.prob <= MAX_PROB / 10) &&
++		   INET_ECN_set_ce(skb)) {
++		/* If packet is ecn capable, mark it if drop probability
++		 * is lower than 10%, else drop it.
++		 */
++		q->stats.ecn_mark++;
++		enqueue = true;
++	}
++
++	/* we can enqueue the packet */
++	if (enqueue) {
++		q->stats.packets_in++;
++		if (qdisc_qlen(sch) > q->stats.maxq)
++			q->stats.maxq = qdisc_qlen(sch);
++
++		return qdisc_enqueue_tail(skb, sch);
++	}
++
++out:
++	q->stats.dropped++;
++	return qdisc_drop(skb, sch);
++}
++
++static const struct nla_policy pie_policy[TCA_PIE_MAX + 1] = {
++	[TCA_PIE_TARGET] = {.type = NLA_U32},
++	[TCA_PIE_LIMIT] = {.type = NLA_U32},
++	[TCA_PIE_TUPDATE] = {.type = NLA_U32},
++	[TCA_PIE_ALPHA] = {.type = NLA_U32},
++	[TCA_PIE_BETA] = {.type = NLA_U32},
++	[TCA_PIE_ECN] = {.type = NLA_U32},
++	[TCA_PIE_BYTEMODE] = {.type = NLA_U32},
++};
++
++static int pie_change(struct Qdisc *sch, struct nlattr *opt)
++{
++	struct pie_sched_data *q = qdisc_priv(sch);
++	struct nlattr *tb[TCA_PIE_MAX + 1];
++	unsigned int qlen;
++	int err;
++
++	if (!opt)
++		return -EINVAL;
++
++	err = nla_parse_nested(tb, TCA_PIE_MAX, opt, pie_policy);
++	if (err < 0)
++		return err;
++
++	sch_tree_lock(sch);
++
++	/* convert from microseconds to pschedtime */
++	if (tb[TCA_PIE_TARGET]) {
++		/* target is in us */
++		u32 target = nla_get_u32(tb[TCA_PIE_TARGET]);
++
++		/* convert to pschedtime */
++		q->params.target = PSCHED_NS2TICKS((u64)target * NSEC_PER_USEC);
++	}
++
++	/* tupdate is in jiffies */
++	if (tb[TCA_PIE_TUPDATE])
++		q->params.tupdate = usecs_to_jiffies(nla_get_u32(tb[TCA_PIE_TUPDATE]));
++
++	if (tb[TCA_PIE_LIMIT]) {
++		u32 limit = nla_get_u32(tb[TCA_PIE_LIMIT]);
++
++		q->params.limit = limit;
++		sch->limit = limit;
++	}
++
++	if (tb[TCA_PIE_ALPHA])
++		q->params.alpha = nla_get_u32(tb[TCA_PIE_ALPHA]);
++
++	if (tb[TCA_PIE_BETA])
++		q->params.beta = nla_get_u32(tb[TCA_PIE_BETA]);
++
++	if (tb[TCA_PIE_ECN])
++		q->params.ecn = nla_get_u32(tb[TCA_PIE_ECN]);
++
++	if (tb[TCA_PIE_BYTEMODE])
++		q->params.bytemode = nla_get_u32(tb[TCA_PIE_BYTEMODE]);
++
++	/* Drop excess packets if new limit is lower */
++	qlen = sch->q.qlen;
++	while (sch->q.qlen > sch->limit) {
++		struct sk_buff *skb = __skb_dequeue(&sch->q);
++
++		sch->qstats.backlog -= qdisc_pkt_len(skb);
++		qdisc_drop(skb, sch);
++	}
++	qdisc_tree_decrease_qlen(sch, qlen - sch->q.qlen);
++
++	sch_tree_unlock(sch);
++	return 0;
++}
++
++static void pie_process_dequeue(struct Qdisc *sch, struct sk_buff *skb)
++{
++
++	struct pie_sched_data *q = qdisc_priv(sch);
++	int qlen = sch->qstats.backlog;	/* current queue size in bytes */
++
++	/* If current queue is about 10 packets or more and dq_count is unset
++	 * we have enough packets to calculate the drain rate. Save
++	 * current time as dq_tstamp and start measurement cycle.
++	 */
++	if (qlen >= QUEUE_THRESHOLD && q->vars.dq_count == DQCOUNT_INVALID) {
++		q->vars.dq_tstamp = psched_get_time();
++		q->vars.dq_count = 0;
++	}
++
++	/* Calculate the average drain rate from this value.  If queue length
++	 * has receded to a small value viz., <= QUEUE_THRESHOLD bytes,reset
++	 * the dq_count to -1 as we don't have enough packets to calculate the
++	 * drain rate anymore The following if block is entered only when we
++	 * have a substantial queue built up (QUEUE_THRESHOLD bytes or more)
++	 * and we calculate the drain rate for the threshold here.  dq_count is
++	 * in bytes, time difference in psched_time, hence rate is in
++	 * bytes/psched_time.
++	 */
++	if (q->vars.dq_count != DQCOUNT_INVALID) {
++		q->vars.dq_count += skb->len;
++
++		if (q->vars.dq_count >= QUEUE_THRESHOLD) {
++			psched_time_t now = psched_get_time();
++			u32 dtime = now - q->vars.dq_tstamp;
++			u32 count = q->vars.dq_count << PIE_SCALE;
++
++			if (dtime == 0)
++				return;
++
++			count = count / dtime;
++
++			if (q->vars.avg_dq_rate == 0)
++				q->vars.avg_dq_rate = count;
++			else
++				q->vars.avg_dq_rate =
++				    (q->vars.avg_dq_rate -
++				     (q->vars.avg_dq_rate >> 3)) + (count >> 3);
++
++			/* If the queue has receded below the threshold, we hold
++			 * on to the last drain rate calculated, else we reset
++			 * dq_count to 0 to re-enter the if block when the next
++			 * packet is dequeued
++			 */
++			if (qlen < QUEUE_THRESHOLD)
++				q->vars.dq_count = DQCOUNT_INVALID;
++			else {
++				q->vars.dq_count = 0;
++				q->vars.dq_tstamp = psched_get_time();
++			}
++
++			if (q->vars.burst_time > 0) {
++				if (q->vars.burst_time > dtime)
++					q->vars.burst_time -= dtime;
++				else
++					q->vars.burst_time = 0;
++			}
++		}
++	}
++}
++
++static void calculate_probability(struct Qdisc *sch)
++{
++	struct pie_sched_data *q = qdisc_priv(sch);
++	u32 qlen = sch->qstats.backlog;	/* queue size in bytes */
++	psched_time_t qdelay = 0;	/* in pschedtime */
++	psched_time_t qdelay_old = q->vars.qdelay;	/* in pschedtime */
++	s32 delta = 0;		/* determines the change in probability */
++	u32 oldprob;
++	u32 alpha, beta;
++	bool update_prob = true;
++
++	q->vars.qdelay_old = q->vars.qdelay;
++
++	if (q->vars.avg_dq_rate > 0)
++		qdelay = (qlen << PIE_SCALE) / q->vars.avg_dq_rate;
++	else
++		qdelay = 0;
++
++	/* If qdelay is zero and qlen is not, it means qlen is very small, less
++	 * than dequeue_rate, so we do not update probabilty in this round
++	 */
++	if (qdelay == 0 && qlen != 0)
++		update_prob = false;
++
++	/* Add ranges for alpha and beta, more aggressive for high dropping
++	 * mode and gentle steps for light dropping mode
++	 * In light dropping mode, take gentle steps; in medium dropping mode,
++	 * take medium steps; in high dropping mode, take big steps.
++	 */
++	if (q->vars.prob < MAX_PROB / 100) {
++		alpha =
++		    (q->params.alpha * (MAX_PROB / PSCHED_TICKS_PER_SEC)) >> 7;
++		beta =
++		    (q->params.beta * (MAX_PROB / PSCHED_TICKS_PER_SEC)) >> 7;
++	} else if (q->vars.prob < MAX_PROB / 10) {
++		alpha =
++		    (q->params.alpha * (MAX_PROB / PSCHED_TICKS_PER_SEC)) >> 5;
++		beta =
++		    (q->params.beta * (MAX_PROB / PSCHED_TICKS_PER_SEC)) >> 5;
++	} else {
++		alpha =
++		    (q->params.alpha * (MAX_PROB / PSCHED_TICKS_PER_SEC)) >> 4;
++		beta =
++		    (q->params.beta * (MAX_PROB / PSCHED_TICKS_PER_SEC)) >> 4;
++	}
++
++	/* alpha and beta should be between 0 and 32, in multiples of 1/16 */
++	delta += alpha * ((qdelay - q->params.target));
++	delta += beta * ((qdelay - qdelay_old));
++
++	oldprob = q->vars.prob;
++
++	/* to ensure we increase probability in steps of no more than 2% */
++	if (delta > (s32) (MAX_PROB / (100 / 2)) &&
++	    q->vars.prob >= MAX_PROB / 10)
++		delta = (MAX_PROB / 100) * 2;
++
++	/* Non-linear drop:
++	 * Tune drop probability to increase quickly for high delays(>= 250ms)
++	 * 250ms is derived through experiments and provides error protection
++	 */
++
++	if (qdelay > (PSCHED_NS2TICKS(250 * NSEC_PER_MSEC)))
++		delta += MAX_PROB / (100 / 2);
++
++	q->vars.prob += delta;
++
++	if (delta > 0) {
++		/* prevent overflow */
++		if (q->vars.prob < oldprob) {
++			q->vars.prob = MAX_PROB;
++			/* Prevent normalization error. If probability is at
++			 * maximum value already, we normalize it here, and
++			 * skip the check to do a non-linear drop in the next
++			 * section.
++			 */
++			update_prob = false;
++		}
++	} else {
++		/* prevent underflow */
++		if (q->vars.prob > oldprob)
++			q->vars.prob = 0;
++	}
++
++	/* Non-linear drop in probability: Reduce drop probability quickly if
++	 * delay is 0 for 2 consecutive Tupdate periods.
++	 */
++
++	if ((qdelay == 0) && (qdelay_old == 0) && update_prob)
++		q->vars.prob = (q->vars.prob * 98) / 100;
++
++	q->vars.qdelay = qdelay;
++	q->vars.qlen_old = qlen;
++
++	/* We restart the measurement cycle if the following conditions are met
++	 * 1. If the delay has been low for 2 consecutive Tupdate periods
++	 * 2. Calculated drop probability is zero
++	 * 3. We have atleast one estimate for the avg_dq_rate ie.,
++	 *    is a non-zero value
++	 */
++	if ((q->vars.qdelay < q->params.target / 2) &&
++	    (q->vars.qdelay_old < q->params.target / 2) &&
++	    (q->vars.prob == 0) &&
++	    (q->vars.avg_dq_rate > 0))
++		pie_vars_init(&q->vars);
++}
++
++static void pie_timer(unsigned long arg)
++{
++	struct Qdisc *sch = (struct Qdisc *)arg;
++	struct pie_sched_data *q = qdisc_priv(sch);
++	spinlock_t *root_lock = qdisc_lock(qdisc_root_sleeping(sch));
++
++	spin_lock(root_lock);
++	calculate_probability(sch);
++
++	/* reset the timer to fire after 'tupdate'. tupdate is in jiffies. */
++	if (q->params.tupdate)
++		mod_timer(&q->adapt_timer, jiffies + q->params.tupdate);
++	spin_unlock(root_lock);
++
++}
++
++static int pie_init(struct Qdisc *sch, struct nlattr *opt)
++{
++	struct pie_sched_data *q = qdisc_priv(sch);
++
++	pie_params_init(&q->params);
++	pie_vars_init(&q->vars);
++	sch->limit = q->params.limit;
++
++	setup_timer(&q->adapt_timer, pie_timer, (unsigned long)sch);
++	mod_timer(&q->adapt_timer, jiffies + HZ / 2);
++
++	if (opt) {
++		int err = pie_change(sch, opt);
++
++		if (err)
++			return err;
++	}
++
++	return 0;
++}
++
++static int pie_dump(struct Qdisc *sch, struct sk_buff *skb)
++{
++	struct pie_sched_data *q = qdisc_priv(sch);
++	struct nlattr *opts;
++
++	opts = nla_nest_start(skb, TCA_OPTIONS);
++	if (opts == NULL)
++		goto nla_put_failure;
++
++	/* convert target from pschedtime to us */
++	if (nla_put_u32(skb, TCA_PIE_TARGET,
++			((u32) PSCHED_TICKS2NS(q->params.target)) /
++			NSEC_PER_USEC) ||
++	    nla_put_u32(skb, TCA_PIE_LIMIT, sch->limit) ||
++	    nla_put_u32(skb, TCA_PIE_TUPDATE, jiffies_to_usecs(q->params.tupdate)) ||
++	    nla_put_u32(skb, TCA_PIE_ALPHA, q->params.alpha) ||
++	    nla_put_u32(skb, TCA_PIE_BETA, q->params.beta) ||
++	    nla_put_u32(skb, TCA_PIE_ECN, q->params.ecn) ||
++	    nla_put_u32(skb, TCA_PIE_BYTEMODE, q->params.bytemode))
++		goto nla_put_failure;
++
++	return nla_nest_end(skb, opts);
++
++nla_put_failure:
++	nla_nest_cancel(skb, opts);
++	return -1;
++
++}
++
++static int pie_dump_stats(struct Qdisc *sch, struct gnet_dump *d)
++{
++	struct pie_sched_data *q = qdisc_priv(sch);
++	struct tc_pie_xstats st = {
++		.prob		= q->vars.prob,
++		.delay		= ((u32) PSCHED_TICKS2NS(q->vars.qdelay)) /
++				   NSEC_PER_USEC,
++		/* unscale and return dq_rate in bytes per sec */
++		.avg_dq_rate	= q->vars.avg_dq_rate *
++				  (PSCHED_TICKS_PER_SEC) >> PIE_SCALE,
++		.packets_in	= q->stats.packets_in,
++		.overlimit	= q->stats.overlimit,
++		.maxq		= q->stats.maxq,
++		.dropped	= q->stats.dropped,
++		.ecn_mark	= q->stats.ecn_mark,
++	};
++
++	return gnet_stats_copy_app(d, &st, sizeof(st));
++}
++
++static struct sk_buff *pie_qdisc_dequeue(struct Qdisc *sch)
++{
++	struct sk_buff *skb;
++	skb = __qdisc_dequeue_head(sch, &sch->q);
++
++	if (!skb)
++		return NULL;
++
++	pie_process_dequeue(sch, skb);
++	return skb;
++}
++
++static void pie_reset(struct Qdisc *sch)
++{
++	struct pie_sched_data *q = qdisc_priv(sch);
++	qdisc_reset_queue(sch);
++	pie_vars_init(&q->vars);
++}
++
++static void pie_destroy(struct Qdisc *sch)
++{
++	struct pie_sched_data *q = qdisc_priv(sch);
++	q->params.tupdate = 0;
++	del_timer_sync(&q->adapt_timer);
++}
++
++static struct Qdisc_ops pie_qdisc_ops __read_mostly = {
++	.id = "pie",
++	.priv_size	= sizeof(struct pie_sched_data),
++	.enqueue	= pie_qdisc_enqueue,
++	.dequeue	= pie_qdisc_dequeue,
++	.peek		= qdisc_peek_dequeued,
++	.init		= pie_init,
++	.destroy	= pie_destroy,
++	.reset		= pie_reset,
++	.change		= pie_change,
++	.dump		= pie_dump,
++	.dump_stats	= pie_dump_stats,
++	.owner		= THIS_MODULE,
++};
++
++static int __init pie_module_init(void)
++{
++	return register_qdisc(&pie_qdisc_ops);
++}
++
++static void __exit pie_module_exit(void)
++{
++	unregister_qdisc(&pie_qdisc_ops);
++}
++
++module_init(pie_module_init);
++module_exit(pie_module_exit);
++
++MODULE_DESCRIPTION("Proportional Integral controller Enhanced (PIE) scheduler");
++MODULE_AUTHOR("Vijay Subramanian");
++MODULE_AUTHOR("Mythili Prabhu");
++MODULE_LICENSE("GPL");
+-- 
+1.7.9.5
