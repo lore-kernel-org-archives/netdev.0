@@ -1,47 +1,68 @@
-From: Asi Lichtenstein <asili22@gmail.com>
-Subject: Re: How to add IPv6 multiple routing tables support to 2.6.16.26 kernel
-Date: Sun, 5 Jan 2014 16:09:21 +0200
-Message-ID: <CAMBtn_2LttBQ6u5C_GEc1hh4=iSiAnzpN+2+MZO6j6GB2XBtNA@mail.gmail.com>
-References: <CAMBtn_3jpNh=gvxkzVzSqgj3OEXYyqUdPb7Y63Jm-PVhx7U=DA@mail.gmail.com>
-	<1388930162.16576.YahooMailBasic@web125504.mail.ne1.yahoo.com>
+From: Toshiaki Makita <toshiaki.makita1@gmail.com>
+Subject: Re: [PATCH net] bridge: Fix crash with vlan filtering and tcpdump
+Date: Mon, 06 Jan 2014 00:02:27 +0900
+Message-ID: <1388934147.1906.17.camel@localhost.localdomain>
+References: <1388765553-12965-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?Fran=E7ois=2DXavier_Le_Bail?= <fx.lebail@yahoo.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f44.google.com ([209.85.219.44]:64627 "EHLO
-	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751141AbaAEOJY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 09:09:24 -0500
-Received: by mail-oa0-f44.google.com with SMTP id h16so771038oag.3
-        for <netdev@vger.kernel.org>; Sun, 05 Jan 2014 06:09:23 -0800 (PST)
-In-Reply-To: <1388930162.16576.YahooMailBasic@web125504.mail.ne1.yahoo.com>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:38999 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751167AbaAEPCb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 10:02:31 -0500
+Received: by mail-pd0-f182.google.com with SMTP id v10so17161409pde.13
+        for <netdev@vger.kernel.org>; Sun, 05 Jan 2014 07:02:31 -0800 (PST)
+In-Reply-To: <1388765553-12965-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 5, 2014 at 3:56 PM, Fran=E7ois-Xavier Le Bail
-<fx.lebail@yahoo.com> wrote:
-> On Sun, 1/5/14, Asi Lichtenstein <asili22@gmail.com> wrote:
->
->> It does look promising, are there any other related
->> patches?
->
-> I dont' know.
-> I just follow the link "(patch)" at the url you sent.
-> Please reply at end of message.
->
-> BR
->
->> On Sun, Jan 5, 2014 at 3:25 PM, Fran=E7ois-Xavier Le Bail
->  <fx.lebail@yahoo.com>
->  wrote:
->> > Hello,
->> >
->> > Are you looking for this ?
->> > http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/pat=
-ch/?id=3Dc71099acce933455123ee505cc75964610a209ad
->
+On Fri, 2014-01-03 at 11:12 -0500, Vlad Yasevich wrote:
+> When the vlan filtering is enabled on the bridge, but
+> the filter is not configured on the bridge device itself,
+> running tcpdump on the bridge device will result in a
+> an Ooops with NULL pointer dereference.  The reason
+    ^^^^^
+Oops?
 
-I applied the patch you were referring to, but I think I am missing
-some higher level code with netlink.
+> is that br_pass_frame_up() will bypass the vlan
+> check because promisc flag is set.  It will then try
+> to get the table pointer and process the packet based
+> on the table.  Since the table pointer is NULL, we oops.
+> Catch this special condition in br_handle_vlan().
+> 
+> Reported-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> CC: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> ---
+...
+> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+> index af5ebd1..ea0c29b 100644
+> --- a/net/bridge/br_vlan.c
+> +++ b/net/bridge/br_vlan.c
+> @@ -144,6 +144,18 @@ struct sk_buff *br_handle_vlan(struct net_bridge *br,
+>  	if (!br->vlan_enabled)
+>  		goto out;
+>  
+> +	/* Vlan filter table must be configrured at this point.  The
+> +	 * only exception is the bridge is set in promisc mode and the
+> +	 * packet is destined for the bridge device.  In this case
+> +	 * pass the packet as is.
+> +	 */
+> +	if (!pv) {
+> +       		if ((br->dev->flags & IFF_PROMISC) && skb->dev == br->dev)
+> +			goto out;
+
+Currently this function is calling __vlan_put_tag() if port_idx==0.
+You are going to bypass it only if br is promisc mode.
+
+However it doesn't seem to lead any problem because
+__netif_receive_skb_core() can handle hw accel vlan tag.
+
+Instead, I doubt if __vlan_put_tag() is necessary in br_handle_vlan()...
+
+Thanks,
+Toshiaki Makita
