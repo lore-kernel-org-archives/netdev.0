@@ -1,44 +1,98 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH V1 net-next 2/2] net: Add UDP GRO support for vxlan traffic
-Date: Sun, 5 Jan 2014 21:56:49 +0200
-Message-ID: <CAJZOPZJh9Z2G5VtDX3x37bCXmVXaKxbaQPhKLrAwo9G_01ZYNg@mail.gmail.com>
-References: <1388935422-7331-1-git-send-email-ogerlitz@mellanox.com>
-	<1388935422-7331-3-git-send-email-ogerlitz@mellanox.com>
-	<CAJZOPZKJvpk9ZW6iRnXzm9OHppStAF+2=COw3zWNy5rMy3r0qg@mail.gmail.com>
-	<1388951306.12212.169.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
+Subject: Re: [PATCH V2 0/4] misc: xgene: Add support for APM X-Gene SoC Queue
+ Manager/Traffic Manager
+Date: Sun, 5 Jan 2014 12:48:36 -0800
+Message-ID: <CAN1v_PsaAeDiLaiP7FfTHFbNRG=UHuom6-2L6NMwzyOOyB+5cA@mail.gmail.com>
+References: <1387594651-25771-1-git-send-email-rapatel@apm.com>
+	<1441245.xPZLG2iNZ6@wuerfel>
+	<CAN1v_PtFz42crHW5=cUgw-fAnPn3rQht=o0t3nmjJRamYSLDMg@mail.gmail.com>
+	<201401051911.12349.arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Or Gerlitz <ogerlitz@mellanox.com>, Jerry Chu <hkchu@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Yan Burman <yanb@mellanox.com>,
-	Shlomo Pongratz <shlomop@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:45710 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751304AbaAET4t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 14:56:49 -0500
-Received: by mail-pb0-f47.google.com with SMTP id um1so17680681pbc.20
-        for <netdev@vger.kernel.org>; Sun, 05 Jan 2014 11:56:49 -0800 (PST)
-In-Reply-To: <1388951306.12212.169.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>, Loc Ho <lho-qTEPVZfXA3Y@public.gmane.org>,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	Jon Masters <jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"patches-qTEPVZfXA3Y@public.gmane.org" <patches-qTEPVZfXA3Y@public.gmane.org>,
+	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201401051911.12349.arnd-r2nGTMty4D4@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 5, 2014 at 9:48 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sun, 2014-01-05 at 21:39 +0200, Or Gerlitz wrote:
+On Sun, Jan 5, 2014 at 10:11 AM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
+> On Sunday 05 January 2014, Ravi Patel wrote:
+>> On Sat, Dec 21, 2013 at 11:03 PM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
+>> > On Saturday 21 December 2013 17:00:51 Loc Ho wrote:
+>> >> On Sat, Dec 21, 2013 at 12:11 PM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
+>> >
+>> > Please describe here what the purpose of the qmtm is, as this is not
+>> > entirely clear from the code or from your reply.
+>> >
+>> > Greg was guessing that it's a bus controller, my best guess is a DMA
+>> > engine. If it's something completely different, you have to let
+>> > us know what it is so we can do a proper review rather than guessing.
+>> >
+>> > Please provide a link to the data sheet if you are unable to explain.
+>>
+>> Here is URL to a text document explaining role of QMTM device with CPU, Ethernet
+>> subsystem.
+>>
+>> https://drive.google.com/file/d/0B28TgQZ3JLoRRGNnbjJoUGNHWW8/edit?usp=sharing
+>>
+>> For simplicity, I have shown only Ethernet.
+>> PktDMA and Security subsystem interfaces with QMTM in the same way as Ethernet.
 >
->> To be accurate here, V1 (this patch) still has RFC aspects -- it
->> suggests a solution to the above matter -- the gro udp code exports
->> two callbacks which are invoked by the vxlan driver to add/delete udp
->> listening port. The callbacks maintain an O(1) accessed array which is
->> beeing looked from the fast path to determine if the destination udp
->> port of the packet under inspection is a vxlan listening port.
+> Thanks, that helps a lot. Please add this file to an appropriate place
+> in the Documentation directory in the next version of your patches.
 >
-> This implementation uses a u8 for 64K ports, I am pretty sure you could
-> use a bitmap instead so that a UDP forwarding workload do not need to
-> bring 64KB in cpu caches, but only 8KB.
+> There is still one central aspect that remains unclear to me, which is
+> what the QMTM is actually good for, as opposed to how it gets used from
+> the OS.
 
-sure, I'll fix that V2.
+The document shows the run-time flow of messages between CPU, QMTM and Ethernet.
+QMTM is a centralized resource manager/driver which exports APIs to
+1. Initialize & allocate queue & pbn to the Ethernet, PktDMA and
+Security subsystem.
+2. Read queue state so that subsystems driver knows how much more work
+it can offload
+    to its subsystem.
+3. Apply QoS for subsystems on their queues.
+
+> In the text description, it sounds like the ethernet is the DMA
+> master and performs DMA all by itself but from that it's not clear why
+> a message to and from the QMTM is needed. From your drawing on the other
+> hand, it seems like the QMTM is really the DMA master and performs the
+> DMA on behalf of the ethernet device, which isn't connected to the
+> coherent interface itself. If this is correct, it seems that QMTM is more
+> like a DMA engine after all that should use the existing slave API to
+> provide services to slave drivers.
+
+Each subsystem defines their own format of work message.
+A message (or queue descriptor) has attribute fields (QMTM specific)
+which is common
+ for all subsystem work messages.
+The remaining fields of a message are specific to subsystem.
+QMTM device doesn't have any knowledge of these subsystem specific
+fields and the data
+operation which subsystem is going to perform using these fields.
+e.g.
+1. Ethernet work message includes data address & length which is used
+by Ethernet
+DMA engine for copying the data to/from its internal FIFO
+2. PktDMA work message includes multiple data addresses & lengths for
+doing scatter/gather,
+XOR operations and result data address/es to give back result to the
+CPU (driver)
+3. Security work message includes data address & length for doing
+encryption or decryption,
+the type of encryption or decryption and result data address to give
+back result to the CPU (driver)
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
