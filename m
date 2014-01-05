@@ -1,48 +1,41 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH RFC 0/7] Generic UDP Encapsulation
-Date: Sat, 4 Jan 2014 15:13:53 -0800
-Message-ID: <CA+mtBx__0zfV-ageMPNXe_xJw1n2hCdCwW=_HBhb58c9SMXDyQ@mail.gmail.com>
-References: <alpine.DEB.2.02.1401021400260.32181@tomh.mtv.corp.google.com>
-	<20140104143338.246740e3@nehalam.linuxnetplumber.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH v2 0/6] phylib: cleanups
+Date: Sun, 5 Jan 2014 03:15:29 +0300
+Message-ID: <201401050315.29587.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jerry Chu <hkchu@google.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:45309 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754545AbaADXNy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 18:13:54 -0500
-Received: by mail-ie0-f178.google.com with SMTP id lx4so16605064iec.23
-        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 15:13:53 -0800 (PST)
-In-Reply-To: <20140104143338.246740e3@nehalam.linuxnetplumber.net>
+Received: from mail-la0-f45.google.com ([209.85.215.45]:48061 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754545AbaADXPa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 18:15:30 -0500
+Received: by mail-la0-f45.google.com with SMTP id eh20so9102804lab.32
+        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 15:15:29 -0800 (PST)
+Received: from wasted.dev.rtsoft.ru (ppp91-76-87-5.pppoe.mtu-net.ru. [91.76.87.5])
+        by mx.google.com with ESMTPSA id j1sm39493842lbl.10.2014.01.04.15.15.28
+        for <netdev@vger.kernel.org>
+        (version=TLSv1 cipher=RC4-SHA bits=128/128);
+        Sat, 04 Jan 2014 15:15:28 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 4, 2014 at 2:33 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Thu, 2 Jan 2014 14:12:06 -0800 (PST)
-> Tom Herbert <therbert@google.com> wrote:
->
->> This patch series implements Generic UDP Encapsulation (GUE).
->> Intelligently encapsulating packets in UDP leverages device
->> support for UDP flows. The 5-tuple hash can be computed for UDP
->> to provide good ECMP, RSS, or link aggregation port selection.
->>
->> Generic UDP encapsulation refers to encapsulating packets of
->> arbitray IP protocols in UDP packets. Two flavors of GUE
->> are implemented in these patches:
->>
->> 1) Direct protocol encapsulation
->> 2) Encapsualtion in generic UDP encapsulation
->
-> Is this a new wire protocol, or a simplification of existing
-> tunnel code? It seems to be VXLAN without the VNI header.
+Hello.
 
-It is a new protocol. See
-http://tools.ietf.org/html/draft-herbert-gue-00. GUE is different from
-VXLAN in that it includes a protocol type (L2, L3, L4 packets can be
-encapsulated), header length and more flag bits (for extensibility),
-and is not specific to the virtualization use case.
+   This patchset mainly cleans up the phylib's coding style but then also
+removes some historically unused stuff. It's kind of follow up to the recent
+Florian Fainelli's series which didn't finish checkpatch.pl complaint fixing.
+The patchset is against DaveM's 'net-next.git' repo.
+
+[1/8] phy: coding style fixes
+[2/8] mdio_bus: coding style fixes
+[3/8] <linux/phy.h>: coding style fixes
+[4/8] phy: kill useless local variables
+[5/8] phy: kill excess code
+[6/8] phy: kill excess empty lines
+[7/8] phylib: remove unused adjust_state() callback
+[8/8] phylib: make phy_scan_fixups() static
+
+WBR, Sergei
