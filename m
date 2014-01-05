@@ -1,97 +1,133 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
-Date: Sun,  5 Jan 2014 02:46:52 -0800
-Message-ID: <1388918827-13430-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 03/15] i40e: Change the ethtool NVM read method to use AQ
+Date: Sun,  5 Jan 2014 02:46:55 -0800
+Message-ID: <1388918827-13430-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1388918827-13430-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:21383 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751083AbaAEKrK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Jan 2014 05:47:10 -0500
+	id S1751126AbaAEKrL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Jan 2014 05:47:11 -0500
+In-Reply-To: <1388918827-13430-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e only.
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Anjali provides two cleanups to remove unnecessary code and a fix
-to resolve debugfs dumping only half the NVM.  Then provides a fix
-to ethtool NVM reads where shadow RAM was used instead of actual
-NVM reads.
+Earlier we were reading Shadow RAM (copy of the NVM) which can differ
+from the actual NVM. Use AQ instead to read the actual NVM.
 
-Jesse provides a couple of fixes, one removes custom i40e functions
-which duplicate existing kernel functionality.  Second fixes constant
-cast issues by replacing __constant_htons with htons.
+Change-Id: Ia0f2773b722db77d093f738c068af872be69bbd4
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 68 +++++++++++++++++---------
+ 1 file changed, 46 insertions(+), 22 deletions(-)
 
-Mitch provides a couple of fixes for the VF interfaces in i40e.  First
-provides a fix to guard against VF message races with can cause a panic.
-Second fix reinitializes the buffer size each time we clean the ARQ,
-because subsequent messages can be truncated. Lastly adds functionality
-to enable/disable ICR 0 dynamically.
-
-Vasu adds a simple guard against multiple includes of the i40e_txrx.h
-file.
-
-Shannon provides a couple of fixes, first fix swaps a couple of lines
-around in the error handling if the allocation for the VSI array fails.
-Second fixes an issue where we try to free the q_vector that has not
-been setup which can panic the kernel.
-
-David provides a patch to save off the point to memory and the length
-of 2 structs used in the admin queue in order to store all info about
-allocated kernel memory.
-
-Neerav fixes ring allocation where allocation and clearing of rings
-for a VSI should be using the alloc_queue_pairs and not num_queue_pairs.
-Then removes the unused define for multi-queue enabled.
-
-The following are changes since commit a1d4b03a076d95edc88d070f7627a73ab80abddc:
-  Merge branch 'bgmac'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Anjali Singhai Jain (4):
-  i40e: Dump the whole NVM, not half
-  i40e: Change the ethtool NVM read method to use AQ
-  i40e: Remove unnecessary prototypes
-  i40e: remove un-necessary io-write
-
-David Cassard (1):
-  i40e: keep allocated memory in structs
-
-Jesse Brandeburg (2):
-  i40e: fix mac address checking
-  i40e: fix constant cast issues
-
-Mitch Williams (3):
-  i40e: guard against vf message races
-  i40e: use functions to enable and disable icr 0
-  i40e: reinit buffer size each time
-
-Neerav Parikh (2):
-  i40e: Fix ring allocation
-  i40e: I40E_FLAG_MQ_ENABLED is not used
-
-Shannon Nelson (2):
-  i40e: fix error handling when alloc of vsi array fails
-  i40e: catch unset q_vector
-
-Vasu Dev (1):
-  i40e: add header file flag _I40E_TXRX_H_
-
- drivers/net/ethernet/intel/i40e/i40e.h             |  40 +++-----
- drivers/net/ethernet/intel/i40e/i40e_adminq.c      | 103 +++++++++------------
- drivers/net/ethernet/intel/i40e/i40e_adminq.h      |  13 +--
- drivers/net/ethernet/intel/i40e/i40e_common.c      |  27 ------
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |   8 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  68 +++++++++-----
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  47 +++++-----
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   1 -
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |   8 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        |   4 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  28 +++---
- 11 files changed, 162 insertions(+), 185 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 0359c36..42c36d1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -351,38 +351,56 @@ static int i40e_get_eeprom(struct net_device *netdev,
+ {
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_hw *hw = &np->vsi->back->hw;
+-	int first_word, last_word;
+-	u16 i, eeprom_len;
+-	u16 *eeprom_buff;
+-	int ret_val = 0;
+-
++	struct i40e_pf *pf = np->vsi->back;
++	int ret_val = 0, len;
++	u8 *eeprom_buff;
++	u16 i, sectors;
++	bool last;
++#define I40E_NVM_SECTOR_SIZE  4096
+ 	if (eeprom->len == 0)
+ 		return -EINVAL;
+ 
+ 	eeprom->magic = hw->vendor_id | (hw->device_id << 16);
+ 
+-	first_word = eeprom->offset >> 1;
+-	last_word = (eeprom->offset + eeprom->len - 1) >> 1;
+-	eeprom_len = last_word - first_word + 1;
+-
+-	eeprom_buff = kmalloc(sizeof(u16) * eeprom_len, GFP_KERNEL);
++	eeprom_buff = kzalloc(eeprom->len, GFP_KERNEL);
+ 	if (!eeprom_buff)
+ 		return -ENOMEM;
+ 
+-	ret_val = i40e_read_nvm_buffer(hw, first_word, &eeprom_len,
+-					   eeprom_buff);
+-	if (eeprom_len == 0) {
+-		kfree(eeprom_buff);
+-		return -EACCES;
++	ret_val = i40e_acquire_nvm(hw, I40E_RESOURCE_READ);
++	if (ret_val) {
++		dev_info(&pf->pdev->dev,
++			 "Failed Acquiring NVM resource for read err=%d status=0x%x\n",
++			 ret_val, hw->aq.asq_last_status);
++		goto free_buff;
+ 	}
+ 
+-	/* Device's eeprom is always little-endian, word addressable */
+-	for (i = 0; i < eeprom_len; i++)
+-		le16_to_cpus(&eeprom_buff[i]);
++	sectors = eeprom->len / I40E_NVM_SECTOR_SIZE;
++	sectors += (eeprom->len % I40E_NVM_SECTOR_SIZE) ? 1 : 0;
++	len = I40E_NVM_SECTOR_SIZE;
++	last = false;
++	for (i = 0; i < sectors; i++) {
++		if (i == (sectors - 1)) {
++			len = eeprom->len - (I40E_NVM_SECTOR_SIZE * i);
++			last = true;
++		}
++		ret_val = i40e_aq_read_nvm(hw, 0x0,
++				eeprom->offset + (I40E_NVM_SECTOR_SIZE * i),
++				len,
++				(u8 *)eeprom_buff + (I40E_NVM_SECTOR_SIZE * i),
++				last, NULL);
++		if (ret_val) {
++			dev_info(&pf->pdev->dev,
++				 "read NVM failed err=%d status=0x%x\n",
++				 ret_val, hw->aq.asq_last_status);
++			goto release_nvm;
++		}
++	}
+ 
+-	memcpy(bytes, (u8 *)eeprom_buff + (eeprom->offset & 1), eeprom->len);
++release_nvm:
++	i40e_release_nvm(hw);
++	memcpy(bytes, (u8 *)eeprom_buff, eeprom->len);
++free_buff:
+ 	kfree(eeprom_buff);
+-
+ 	return ret_val;
+ }
+ 
+@@ -390,8 +408,14 @@ static int i40e_get_eeprom_len(struct net_device *netdev)
+ {
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_hw *hw = &np->vsi->back->hw;
+-
+-	return hw->nvm.sr_size * 2;
++	u32 val;
++
++	val = (rd32(hw, I40E_GLPCI_LBARCTRL)
++		& I40E_GLPCI_LBARCTRL_FL_SIZE_MASK)
++		>> I40E_GLPCI_LBARCTRL_FL_SIZE_SHIFT;
++	/* register returns value in power of 2, 64Kbyte chunks. */
++	val = (64 * 1024) * (1 << val);
++	return val;
+ }
+ 
+ static void i40e_get_drvinfo(struct net_device *netdev,
 -- 
 1.8.3.1
