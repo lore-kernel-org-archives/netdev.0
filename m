@@ -1,38 +1,54 @@
-From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: RE: [PATCH net 5/5] bnx2x: fix VLAN configuration for VFs.
-Date: Sun, 5 Jan 2014 19:24:27 +0000
-Message-ID: <979A8436335E3744ADCD3A9F2A2B68A52AF22CDE@SJEXCHMB10.corp.ad.broadcom.com>
-References: <1388939634-19948-1-git-send-email-yuvalmin@broadcom.com>
-	<1388939634-19948-6-git-send-email-yuvalmin@broadcom.com>
- <CAJZOPZJ7NQZspnNksr=w9Yo1MtgstLhVbqwxUWE0k+tbhCaO4g@mail.gmail.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH V1 net-next 2/2] net: Add UDP GRO support for vxlan traffic
+Date: Sun, 5 Jan 2014 21:39:38 +0200
+Message-ID: <CAJZOPZKJvpk9ZW6iRnXzm9OHppStAF+2=COw3zWNy5rMy3r0qg@mail.gmail.com>
+References: <1388935422-7331-1-git-send-email-ogerlitz@mellanox.com>
+	<1388935422-7331-3-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jerry Chu <hkchu@google.com>, Eric Dumazet <edumazet@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ariel Elior <ariele@broadcom.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+	David Miller <davem@davemloft.net>,
+	Yan Burman <yanb@mellanox.com>,
+	Shlomo Pongratz <shlomop@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:12289 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751304AbaAETY2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 14:24:28 -0500
-In-Reply-To: <CAJZOPZJ7NQZspnNksr=w9Yo1MtgstLhVbqwxUWE0k+tbhCaO4g@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:45102 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751119AbaAETji (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 14:39:38 -0500
+Received: by mail-pd0-f169.google.com with SMTP id v10so17353544pde.0
+        for <netdev@vger.kernel.org>; Sun, 05 Jan 2014 11:39:38 -0800 (PST)
+In-Reply-To: <1388935422-7331-3-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On Sun, Jan 5, 2014 at 6:33 PM, Yuval Mintz <yuvalmin@broadcom.com>
-> wrote:
-> > If the hypervisor configures a vlan for the VF via the PF, the expected
-> > result is that only packets tagged by said vlan will be received by the VF
-> > (and that vlan will be silently removed).
-> > Do to an incorrect manipulation of vlan filters in the driver, the
-> 
-> Did you want to say "Due to an incorrect"?
+On Sun, Jan 5, 2014 at 5:23 PM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+> Add GRO handlers for UDP, with the intent of being able to coalesce vxlan
+> packets which encapsulate packets belonging to the same TCP session.
+>
+> The UDP GRO handler will only attempt to coalesce packets whose
+> destination port is used as vxlan listening port. There are two
+> issues here for which I will be happy to get feedback
+>
+> 1. what is the most efficient way to determine if a udp port is
+> owned by the vxlan driver, e.g maybe through a bit map exported by
+> the vxlan driver?
 
-Yeps... Typo, obviously.
+To be accurate here, V1 (this patch) still has RFC aspects -- it
+suggests a solution to the above matter -- the gro udp code exports
+two callbacks which are invoked by the vxlan driver to add/delete udp
+listening port. The callbacks maintain an O(1) accessed array which is
+beeing looked from the fast path to determine if the destination udp
+port of the packet under inspection is a vxlan listening port.
 
-> 
-> > VF can receive untagged traffic even if the hypervisor configured
-> > some vlan for it.
+> 2. how to prevent the host GRO stack from coalescing guest UDP
+> packets which went through vxlan encapsulation and happen to carry
+> the same udp destination port as used by the host vxlan driver..
+
+For this one, I was thinking to add some field to struct napi_gro_cb
+which will be zeroed when the gro stacks starts to work on the skb and
+set once we pass udp_gro_receive, such that if we arrive again to
+udp_gro_recieve and this field is set, which means the encapsulated
+packet is udp one, we flush.
