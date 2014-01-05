@@ -1,37 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/6] phylib: cleanups
-Date: Sat, 04 Jan 2014 19:39:47 -0500 (EST)
-Message-ID: <20140104.193947.2145307655427550677.davem@davemloft.net>
-References: <201401050315.29587.sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next v5 04/17] i40e: Populate and check pci bus speed and
+ width
+Date: Sat, 04 Jan 2014 19:49:42 -0500 (EST)
+Message-ID: <20140104.194942.638270130526105275.davem@davemloft.net>
+References: <1388815005-23166-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1388815005-23166-5-git-send-email-jeffrey.t.kirsher@intel.com>
+	<CAErSpo5fHrxTqhU+eHnB9oVwvghU=m5p=ANfkJQU0kOt9Tryww@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
+Cc: jeffrey.t.kirsher@intel.com, catherine.sullivan@intel.com,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	jesse.brandeburg@intel.com, jacob.e.keller@intel.com
+To: bhelgaas@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44512 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44545 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754955AbaAEAjv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 19:39:51 -0500
-In-Reply-To: <201401050315.29587.sergei.shtylyov@cogentembedded.com>
+	with ESMTP id S1754811AbaAEAto (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 19:49:44 -0500
+In-Reply-To: <CAErSpo5fHrxTqhU+eHnB9oVwvghU=m5p=ANfkJQU0kOt9Tryww@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Sun, 5 Jan 2014 03:15:29 +0300
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Sat, 4 Jan 2014 14:04:30 -0700
 
->    This patchset mainly cleans up the phylib's coding style but then also
-> removes some historically unused stuff. It's kind of follow up to the recent
-> Florian Fainelli's series which didn't finish checkpatch.pl complaint fixing.
-> The patchset is against DaveM's 'net-next.git' repo.
+> I don't see anything device-specific here.  This all looks to be
+> generic per the PCIe spec, without anything specific to the i40e.  In
+> fact, this new code looks almost identical to what Jacob added to
+> ixgbe with e027d1aec4bb, except that Jacob's code checks the whole
+> path up to the root, not just the single link leading to the device.
 > 
-> [1/8] phy: coding style fixes
-> [2/8] mdio_bus: coding style fixes
-> [3/8] <linux/phy.h>: coding style fixes
-> [4/8] phy: kill useless local variables
-> [5/8] phy: kill excess code
-> [6/8] phy: kill excess empty lines
-> [7/8] phylib: remove unused adjust_state() callback
-> [8/8] phylib: make phy_scan_fixups() static
+> Since you're doing basically the same thing, it'd be nice if the code
+> looked basically the same.
 
-Series applied, thanks.
+Agreed.
+
+I'm going to pull from Jeff's tree meanwhile and ask that this consolidation
+happens as follow-up changes.
+
+Thanks.
