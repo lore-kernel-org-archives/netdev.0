@@ -1,31 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] macvlan: unify macvlan_pcpu_stats and
- vlan_pcpu_stats
-Date: Sat, 04 Jan 2014 20:12:11 -0500 (EST)
-Message-ID: <20140104.201211.770660095970227474.davem@davemloft.net>
-References: <1388816554-17366-1-git-send-email-roy.qing.li@gmail.com>
+Subject: Re: [PATCH] macvlan: fix oops with vlan-on-top and HW_VLAN_CTAG_TX
+ lowerdev
+Date: Sat, 04 Jan 2014 20:13:33 -0500 (EST)
+Message-ID: <20140104.201333.315186906532701163.davem@davemloft.net>
+References: <20140103113904.GB28854@breakpoint.cc>
+	<20140103.153352.166630160016412696.davem@davemloft.net>
+	<20140104135132.GA2106@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44630 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44636 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755152AbaAEBMM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 20:12:12 -0500
-In-Reply-To: <1388816554-17366-1-git-send-email-roy.qing.li@gmail.com>
+	with ESMTP id S1754921AbaAEBNf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 20:13:35 -0500
+In-Reply-To: <20140104135132.GA2106@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: roy.qing.li@gmail.com
-Date: Sat,  4 Jan 2014 14:22:34 +0800
+From: Florian Westphal <fw@strlen.de>
+Date: Sat, 4 Jan 2014 14:51:32 +0100
 
-> From: Li RongQing <roy.qing.li@gmail.com>
+> Archeology exercise #1 digs up 3b04ddde02c in linux.git, which
+> creats header_ops->rebuild, from the old  dev->rebuild_header.
 > 
-> They are same, so unify them as one; since macvlan is a kind of vlan,
-> vlan_pcpu_stats should be a proper name for vlan and macvlan.
+> Exercise #2 then finds commit 275513d2e1c78 in netdev-vger-cvs.git tree.
+> Quote from commit message:
 > 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+>         - dev->rebuild_header WILL DISAPPEAR. All the code
+>           relying on its existance is wrong, though still works.
+> 
+> Alexey calling from 1997 ;-)
 
-Applied.
+These protocols which use the broken ARP ops are special, the
+problem is that they do things like send packets out when their
+header ops are invoked.
+
+It's non-trivial to undo this design, and these aren't easy protocols
+to test.
+
+That's why we've had this compat stuff for them for more than a
+decade.
