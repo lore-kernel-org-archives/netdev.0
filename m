@@ -1,87 +1,58 @@
-From: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
-Subject: Re: [PATCH V2 0/4] misc: xgene: Add support for APM X-Gene SoC Queue
- Manager/Traffic Manager
-Date: Sun, 5 Jan 2014 12:52:05 -0800
-Message-ID: <CAN1v_PsE2mevK4-2D3MTevtwQF4XkaMzVGHpDZUoqR+a6uMUyg@mail.gmail.com>
-References: <1387594651-25771-1-git-send-email-rapatel@apm.com>
-	<201312212111.40576.arnd@arndb.de>
-	<CAPw-ZTnsu_EmOW3aZTVKAVjQsdi8qMy95y2ZcYxzgVrjGkirTA@mail.gmail.com>
-	<1441245.xPZLG2iNZ6@wuerfel>
-	<CAN1v_PtFz42crHW5=cUgw-fAnPn3rQht=o0t3nmjJRamYSLDMg@mail.gmail.com>
-	<20140105033848.GA22595@kroah.com>
-	<CAPw-ZT=noCwc+3o_762ewTcn2J3SjZ5u11V=Aa8RrZZf4DT5Yw@mail.gmail.com>
-	<20140105180122.GB980@kroah.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH] xen-netback: Include header for vmalloc
+Date: Sun, 5 Jan 2014 22:22:21 +0000
+Message-ID: <20140105222221.GA16984@zion.uk.xensource.com>
+References: <20140105152401.GF18517@hansolo.jdub.homelinux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Loc Ho <lho-qTEPVZfXA3Y@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	Jon Masters <jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"patches-qTEPVZfXA3Y@public.gmane.org" <patches-qTEPVZfXA3Y@public.gmane.org>,
-	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
-To: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140105180122.GB980-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Paul Durrant <Paul.Durrant@citrix.com>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<linux-kernel@vger.kernel.org>
+To: Josh Boyer <jwboyer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:54322 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751335AbaAEWWX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Jan 2014 17:22:23 -0500
+Content-Disposition: inline
+In-Reply-To: <20140105152401.GF18517@hansolo.jdub.homelinux.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 5, 2014 at 10:01 AM, Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org> wrote:
-> On Sat, Jan 04, 2014 at 09:39:08PM -0800, Loc Ho wrote:
->> Hi,
->>
->> >> >> >> This patch adds support for APM X-Gene SoC Queue Manager/Traffic Manager.
->> >> >> >>  QMTM is required by APM X-Gene SoC Ethernet, PktDMA (XOR Engine) and
->> >> >> >>  Security Engine subsystems. All subsystems communicate with QMTM using
->> >> >> >>  messages which include information about the work to be performed and
->> >> >> >>  the location of associated data buffers.
->> >> >> >
->> >> >> > Please describe here what the purpose of the qmtm is, as this is not
->> >> >> > entirely clear from the code.
->> >> >> >
->> >> >> > In particular, please describe how this differs from a dmaengine driver
->> >> >> > and why it is not possible to extend the dma slave API to describe qmtm
->> >> >> > as a dma engine.
->> >> >> >
->> >> >> [Loc Ho]
->> >> >> If the QM driver implements the DMA API, what about the actual DMA
->> >> >> engine driver which interfaces with this QM driver. We would have DMA
->> >> >> client interfaces with the X-Gene DMA driver (not available yet) via
->> >> >> DMA API which in turn interfaces with this QM driver via DMA API.
->> >> >> Won't this be kind of awkward? Also, the QM only manage messages (or
->> >> >> descriptors) which are 32-bytes or 64-bytes. It doesn't actually do
->> >> >> any data transfer of various sizes.
->> >> >
->> >> > Please describe here what the purpose of the qmtm is, as this is not
->> >> > entirely clear from the code or from your reply.
->> >> >
->> >> > Greg was guessing that it's a bus controller, my best guess is a DMA
->> >> > engine. If it's something completely different, you have to let
->> >> > us know what it is so we can do a proper review rather than guessing.
->> >> >
->> >> > Please provide a link to the data sheet if you are unable to explain.
->> >>
->> >> Here is URL to a text document explaining role of QMTM device with CPU, Ethernet
->> >> subsystem.
->> >>
->> >> https://drive.google.com/file/d/0B28TgQZ3JLoRRGNnbjJoUGNHWW8/edit?usp=sharing
->> >
->> > There is nothing at this link :(
->>
->> I tried click on the txt file link from web site
->> http://www.spinics.net/lists/netdev/msg264628.html and don't see any
->> problem with accessing the txt file.
->
-> Now it's working :)
->
-> Anyway, as this is a .txt file, why wasn't it just sent in email, and
-> added to the patch series as a documentation file?
+On Sun, Jan 05, 2014 at 10:24:01AM -0500, Josh Boyer wrote:
+> Commit ac3d5ac27735 ("xen-netback: fix guest-receive-side array sizes")
+> added calls to vmalloc and vfree in the interface.c file without including
+> <linux/vmalloc.h>.  This causes build failures if the
+> -Werror=implicit-function-declaration flag is passed.
+> 
+> Signed-off-by: Josh Boyer <jwboyer@fedoraproject.org>
 
-Sure I will include the text documentation to an appropriate place in the
-Documentation directory in my next version of QMTM patch.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+
+Thanks
+Wei.
+
+> ---
+>  drivers/net/xen-netback/interface.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+> index 34ca4e5..fff8cdd 100644
+> --- a/drivers/net/xen-netback/interface.c
+> +++ b/drivers/net/xen-netback/interface.c
+> @@ -34,6 +34,7 @@
+>  #include <linux/ethtool.h>
+>  #include <linux/rtnetlink.h>
+>  #include <linux/if_vlan.h>
+> +#include <linux/vmalloc.h>
+>  
+>  #include <xen/events.h>
+>  #include <asm/xen/hypercall.h>
+> -- 
+> 1.8.4.2
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
