@@ -1,78 +1,93 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next v5 04/17] i40e: Populate and check pci bus speed and
- width
-Date: Sat, 04 Jan 2014 21:12:38 -0800
-Message-ID: <1388898758.2987.1.camel@jtkirshe-mobl>
-References: <1388815005-23166-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1388815005-23166-5-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <CAErSpo5fHrxTqhU+eHnB9oVwvghU=m5p=ANfkJQU0kOt9Tryww@mail.gmail.com>
-	 <20140104.194942.638270130526105275.davem@davemloft.net>
+From: Ravi Patel <rapatel@apm.com>
+Subject: Re: [PATCH V2 0/4] misc: xgene: Add support for APM X-Gene SoC Queue
+ Manager/Traffic Manager
+Date: Sat, 4 Jan 2014 21:27:30 -0800
+Message-ID: <CAN1v_Pv7GoXqceu_vDpK-Rk3FzJKFjY=77JCw1fOOUOcuUHAjA@mail.gmail.com>
+References: <1387594651-25771-1-git-send-email-rapatel@apm.com>
+	<201312212111.40576.arnd@arndb.de>
+	<CAPw-ZTnsu_EmOW3aZTVKAVjQsdi8qMy95y2ZcYxzgVrjGkirTA@mail.gmail.com>
+	<1441245.xPZLG2iNZ6@wuerfel>
+	<CAN1v_PtFz42crHW5=cUgw-fAnPn3rQht=o0t3nmjJRamYSLDMg@mail.gmail.com>
+	<20140105033848.GA22595@kroah.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-oR/dAou87Sw2fJjjn29M"
-Cc: bhelgaas@google.com, catherine.sullivan@intel.com,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	jesse.brandeburg@intel.com, jacob.e.keller@intel.com
-To: David Miller <davem@davemloft.net>, jesse.brandeburg@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:56301 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750747AbaAEFMv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Jan 2014 00:12:51 -0500
-In-Reply-To: <20140104.194942.638270130526105275.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Arnd Bergmann <arnd@arndb.de>, Loc Ho <lho@apm.com>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Jon Masters <jcm@redhat.com>,
+	"patches@apm.com" <patches@apm.com>,
+	Keyur Chudgar <kchudgar@apm.com>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140105033848.GA22595@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Sat, Jan 4, 2014 at 7:38 PM, Greg KH <gregkh@linuxfoundation.org> wrote:
+> On Sat, Jan 04, 2014 at 03:59:46PM -0800, Ravi Patel wrote:
+>> On Sat, Dec 21, 2013 at 11:03 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+>> > On Saturday 21 December 2013 17:00:51 Loc Ho wrote:
+>> >> On Sat, Dec 21, 2013 at 12:11 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+>> >> > On Saturday 21 December 2013, Ravi Patel wrote:
+>> >> >> This patch adds support for APM X-Gene SoC Queue Manager/Traffic Manager.
+>> >> >>  QMTM is required by APM X-Gene SoC Ethernet, PktDMA (XOR Engine) and
+>> >> >>  Security Engine subsystems. All subsystems communicate with QMTM using
+>> >> >>  messages which include information about the work to be performed and
+>> >> >>  the location of associated data buffers.
+>> >> >
+>> >> > Please describe here what the purpose of the qmtm is, as this is not
+>> >> > entirely clear from the code.
+>> >> >
+>> >> > In particular, please describe how this differs from a dmaengine driver
+>> >> > and why it is not possible to extend the dma slave API to describe qmtm
+>> >> > as a dma engine.
+>> >> >
+>> >> [Loc Ho]
+>> >> If the QM driver implements the DMA API, what about the actual DMA
+>> >> engine driver which interfaces with this QM driver. We would have DMA
+>> >> client interfaces with the X-Gene DMA driver (not available yet) via
+>> >> DMA API which in turn interfaces with this QM driver via DMA API.
+>> >> Won't this be kind of awkward? Also, the QM only manage messages (or
+>> >> descriptors) which are 32-bytes or 64-bytes. It doesn't actually do
+>> >> any data transfer of various sizes.
+>> >
+>> > Please describe here what the purpose of the qmtm is, as this is not
+>> > entirely clear from the code or from your reply.
+>> >
+>> > Greg was guessing that it's a bus controller, my best guess is a DMA
+>> > engine. If it's something completely different, you have to let
+>> > us know what it is so we can do a proper review rather than guessing.
+>> >
+>> > Please provide a link to the data sheet if you are unable to explain.
+>>
+>> Here is URL to a text document explaining role of QMTM device with CPU, Ethernet
+>> subsystem.
+>>
+>> https://drive.google.com/file/d/0B28TgQZ3JLoRRGNnbjJoUGNHWW8/edit?usp=sharing
+>
+> There is nothing at this link :(
+
+The URL is pointing to text document.
+I created another URL to the same document in pdf format.
+https://docs.google.com/file/d/0B28TgQZ3JLoRbXJiUXJjSUNxeDA/edit?usp=sharing&pli=1
 
 
---=-oR/dAou87Sw2fJjjn29M
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+>> PktDMA and Security subsystem interfaces with QMTM in the same way as Ethernet.
+>
+> How does a "security" subsystem have anything to do with ethernet?
+>
+> confused,
 
-On Sat, 2014-01-04 at 19:49 -0500, David Miller wrote:
-> From: Bjorn Helgaas <bhelgaas@google.com>
-> Date: Sat, 4 Jan 2014 14:04:30 -0700
->=20
-> > I don't see anything device-specific here.  This all looks to be
-> > generic per the PCIe spec, without anything specific to the i40e.  In
-> > fact, this new code looks almost identical to what Jacob added to
-> > ixgbe with e027d1aec4bb, except that Jacob's code checks the whole
-> > path up to the root, not just the single link leading to the device.
-> >=20
-> > Since you're doing basically the same thing, it'd be nice if the code
-> > looked basically the same.
->=20
-> Agreed.
->=20
-> I'm going to pull from Jeff's tree meanwhile and ask that this consolidat=
-ion
-> happens as follow-up changes.
->=20
-> Thanks.
-
-Agreed, I will work with Jesse to make sure those changes get into the
-driver in a follow-on patch.
-
---=-oR/dAou87Sw2fJjjn29M
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAABCgAGBQJSyOnGAAoJEOVv75VaS+3OWogP/22D9irOt1nx0as04+vdnSER
-rFgNfr6fBpbYIchvqqef59ZelvEkGA0iNnwvEwg3TX/XBHl9NM4LEfWzAC45mlZJ
-AQ6qoP6WbQjRhUSBC1o3TkYFE1hftdn2NLOBk12arqamFeKUhUZxlhbQNSeo742A
-ihFLTKpgugNoPsL1LZ6x3CV2BGIgocWEknUuUZX7qT9jI5DVsjmYlS4lkUaGaWGw
-AzYv5urF9SSffR8a6t09rMWJn/eRd1Z/BsjHXyoqWGBsVJVnpE7vqv3rCV6JGFth
-QJSqk1iQ4RcsNamW5syF3DwcBzXAh7ZxDCSG6QYebQz+vwG6VroLNrywblW+hiQA
-/x2RjwGuoZBYabrslDpY+YL2mXGZYnla0Q+ww09vio32CW4NJ2af95cy7zGPL8wn
-CRSEkHeyBv/iU+pFKxiIkOdPhiWfSAtZEKKojULL7Tl/rU8f+VoQ6KWE6yPjjVtQ
-tkvEya2kHd+6sBKyS2Id9KRmbh5t8+nOIJgP44c8AV8HEtNrJcnxoaS3r3Ysvqjr
-LHvwIGohsdxl981GeA8CkazuPXZjtoBlyNl17AFtoi01dmk6hpwWmP2evYnKsytO
-b3atY/6M4HXbo4s1ajPyDzzqjddrlMOsSJ7Gnh6DNI7y3Y9Qdrz3rZ4EbIckinSn
-ZnAewSKo619w7xAQT76Q
-=njvc
------END PGP SIGNATURE-----
-
---=-oR/dAou87Sw2fJjjn29M--
+PktDMA and Security are completely independent of Ethernet.
+Security Subsystem (SEC) is a CPU offload packet processing engine for security
+ applications.
+PktDMA subsystem is a general purpose data transfer engine which moves data
+ from one location in memory to another.
+PktDMA can perform certain data manipulation functions like XOR as
+data is passing
+ through the engine.
+Both PktDMA and Security engine has their own QMTM work message format which
+ will be prepared by their driver
