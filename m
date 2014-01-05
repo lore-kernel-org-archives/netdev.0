@@ -1,55 +1,72 @@
-From: =?ISO-8859-1?Q?Fejes_J=F3zsef?= <jozsef.fejes@gmail.com>
-Subject: Re: NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
-Date: Sun, 5 Jan 2014 08:28:06 +0100
-Message-ID: <CALU-w99x8k+J46xaK28wn0gMr=D4Q6YHHKi-wjwOXfFCBo-vEw@mail.gmail.com>
-References: <CALU-w9860x_rWhu35v50N39b8AxiPB_wOk1OUKdBr9eBLzEZFA@mail.gmail.com>
-	<20131230233833.GA434@electric-eye.fr.zoreil.com>
-	<CALU-w99eT4TX0xHc_KZBoP_JFpEex-0B8iH3sb8wUMfO4WuOHg@mail.gmail.com>
-	<20140101223806.GA18715@electric-eye.fr.zoreil.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 0/6] phylib: cleanups
+Date: Sun, 5 Jan 2014 09:31:10 +0100
+Message-ID: <20140105083109.GB4933@netboy>
+References: <201401040413.06853.sergei.shtylyov@cogentembedded.com>
+ <20140104155338.GG4925@netboy>
+ <52C8417D.6020502@cogentembedded.com>
+ <52C858C7.1010300@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:44266 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750816AbaAEH2I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 02:28:08 -0500
-Received: by mail-wg0-f45.google.com with SMTP id y10so14535379wgg.0
-        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 23:28:07 -0800 (PST)
-In-Reply-To: <20140101223806.GA18715@electric-eye.fr.zoreil.com>
+Received: from mail-ea0-f171.google.com ([209.85.215.171]:44853 "EHLO
+	mail-ea0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750816AbaAEIbW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 03:31:22 -0500
+Received: by mail-ea0-f171.google.com with SMTP id h10so7445665eak.30
+        for <netdev@vger.kernel.org>; Sun, 05 Jan 2014 00:31:21 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <52C858C7.1010300@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Could you check the irq count and ethtool -S eth0 as well ?
+On Sat, Jan 04, 2014 at 09:53:59PM +0300, Sergei Shtylyov wrote:
+> 
+> >    Because get_maintainer.pl doesn't suggest it and because Andy Fleming
+> >seems no longer interested in maintaining his code written back in 2004.
 
-Here you go: http://pastebin.com/acabFBHv
+It never hurts to ask.
 
-> Does the laptop also include a different operating system ?
+Your patches are saying, "Andy, your code has poor style." I don't
+agree, especially about #3. Also, maybe the deleted callback will
+useful one day. After all, there are not that many phylib
+drivers. Perhaps future MAC drivers will need this.
+ 
+>    Besides, I don't have his current email address (the source code
+> doesn't provide any).
 
-Yes, Windows 7.
+Here, let me find that for you.
 
->> I haven't used that interface for quite some time, a year at most. I
->> keep up to date with the stable kernels, so a version change broke it,
->> but I'm not sure which. Would it be the best course of action if I
->> tried some older versions?
->
-> Yes, please do.
->
-> There has been no specific change in this timeframe for the chipset you
-> use (RTL_GIGA_MAC_VER_25). The problem may have been unnoticed for a
-> rather long time. :o/
+Thanks,
+Richard
+---
+git log --author="Andy Fleming"
 
-I booted into an old kernel I found in the Debian repository: Linux
-wicklow 3.2.0-4-686-pae #1 SMP Debian 3.2.53-2 i686 GNU/Linux
+commit 39fd40274d1f3a52152ae6fc22f428d93f1a8363
+Author: Andy Fleming <afleming@freescale.com>
+Date:   Mon Aug 5 14:58:35 2013 -0500
 
-And the same issue happened. Queue times out, no packets are received
-on the other end.
+    powerpc: Convert platforms to smp_generic_cpu_bootable
+    
+    T4, Cell, powernv, and pseries had the same implementation, so switch
+    them to use a generic version. A2 apparently had a version, but
+    removed it at some point, so we remove the declaration, too.
+    
+    Signed-off-by: Andy Fleming <afleming@freescale.com>
+    Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 
-Could it be that this regression ended up in this long-term supported
-kernel? Or could it be a hardware problem? My Windows laptop's
-ethernet definitely works in other places, so could be the cable or
-the integrated NIC in the Linux machine...
+commit 3cd852502316d42e3e75859e92d9f0a952bb55a2
+Author: Andy Fleming <afleming@freescale.com>
+Date:   Mon Aug 5 14:58:34 2013 -0500
 
-Best regards,
-Jozsef
+    powerpc: Add smp_generic_cpu_bootable
+    
+    Cell and PSeries both implemented their own versions of a
+    cpu_bootable smp_op which do the same thing (well, the PSeries
+    one has support for more than 2 threads). Copy the PSeries one
+    to generic code, and rename it smp_generic_cpu_bootable.
+    
+    Signed-off-by: Andy Fleming <afleming@freescale.com>
+    Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
