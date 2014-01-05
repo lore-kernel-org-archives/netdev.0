@@ -1,150 +1,225 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 06/12] netfilter: nf_nat: add full port randomization support
-Date: Mon,  6 Jan 2014 00:13:00 +0100
-Message-ID: <1388963586-5049-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 04/12] netfilter: add IPv4/6 IPComp extension match support
+Date: Mon,  6 Jan 2014 00:12:58 +0100
+Message-ID: <1388963586-5049-5-git-send-email-pablo@netfilter.org>
 References: <1388963586-5049-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:56241 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:56232 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752085AbaAEXNY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Jan 2014 18:13:24 -0500
+	id S1752013AbaAEXNX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Jan 2014 18:13:23 -0500
 In-Reply-To: <1388963586-5049-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
+From: "fan.du" <fan.du@windriver.com>
 
-We currently use prandom_u32() for allocation of ports in tcp bind(0)
-and udp code. In case of plain SNAT we try to keep the ports as is
-or increment on collision.
+With this plugin, user could specify IPComp tagged with certain
+CPI that host not interested will be DROPped or any other action.
 
-SNAT --random mode does use per-destination incrementing port
-allocation. As a recent paper pointed out in [1] that this mode of
-port allocation makes it possible to an attacker to find the randomly
-allocated ports through a timing side-channel in a socket overloading
-attack conducted through an off-path attacker.
+For example:
+iptables  -A INPUT -p 108 -m ipcomp --ipcompspi 0x87 -j DROP
+ip6tables -A INPUT -p 108 -m ipcomp --ipcompspi 0x87 -j DROP
 
-So, NF_NAT_RANGE_PROTO_RANDOM actually weakens the port randomization
-in regard to the attack described in this paper. As we need to keep
-compatibility, add another flag called NF_NAT_RANGE_PROTO_RANDOM_FULLY
-that would replace the NF_NAT_RANGE_PROTO_RANDOM hash-based port
-selection algorithm with a simple prandom_u32() in order to mitigate
-this attack vector. Note that the lfsr113's internal state is
-periodically reseeded by the kernel through a local secure entropy
-source.
+Then input IPComp packet with CPI equates 0x87 will not reach
+upper layer anymore.
 
-More details can be found in [1], the basic idea is to send bursts
-of packets to a socket to overflow its receive queue and measure
-the latency to detect a possible retransmit when the port is found.
-Because of increasing ports to given destination and port, further
-allocations can be predicted. This information could then be used by
-an attacker for e.g. for cache-poisoning, NS pinning, and degradation
-of service attacks against DNS servers [1]:
-
-  The best defense against the poisoning attacks is to properly
-  deploy and validate DNSSEC; DNSSEC provides security not only
-  against off-path attacker but even against MitM attacker. We hope
-  that our results will help motivate administrators to adopt DNSSEC.
-  However, full DNSSEC deployment make take significant time, and
-  until that happens, we recommend short-term, non-cryptographic
-  defenses. We recommend to support full port randomisation,
-  according to practices recommended in [2], and to avoid
-  per-destination sequential port allocation, which we show may be
-  vulnerable to derandomisation attacks.
-
-Joint work between Hannes Frederic Sowa and Daniel Borkmann.
-
- [1] https://sites.google.com/site/hayashulman/files/NIC-derandomisation.pdf
- [2] http://arxiv.org/pdf/1205.5190v1.pdf
-
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Fan Du <fan.du@windriver.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/nf_nat.h |   12 ++++++++----
- net/netfilter/nf_nat_core.c           |    4 ++--
- net/netfilter/nf_nat_proto_common.c   |   10 ++++++----
- 3 files changed, 16 insertions(+), 10 deletions(-)
+ include/uapi/linux/netfilter/Kbuild      |    1 +
+ include/uapi/linux/netfilter/xt_ipcomp.h |   16 +++++
+ net/netfilter/Kconfig                    |    9 +++
+ net/netfilter/Makefile                   |    1 +
+ net/netfilter/xt_ipcomp.c                |  111 ++++++++++++++++++++++++++++++
+ 5 files changed, 138 insertions(+)
+ create mode 100644 include/uapi/linux/netfilter/xt_ipcomp.h
+ create mode 100644 net/netfilter/xt_ipcomp.c
 
-diff --git a/include/uapi/linux/netfilter/nf_nat.h b/include/uapi/linux/netfilter/nf_nat.h
-index bf0cc37..1ad3659 100644
---- a/include/uapi/linux/netfilter/nf_nat.h
-+++ b/include/uapi/linux/netfilter/nf_nat.h
-@@ -4,10 +4,14 @@
- #include <linux/netfilter.h>
- #include <linux/netfilter/nf_conntrack_tuple_common.h>
- 
--#define NF_NAT_RANGE_MAP_IPS		1
--#define NF_NAT_RANGE_PROTO_SPECIFIED	2
--#define NF_NAT_RANGE_PROTO_RANDOM	4
--#define NF_NAT_RANGE_PERSISTENT		8
-+#define NF_NAT_RANGE_MAP_IPS			(1 << 0)
-+#define NF_NAT_RANGE_PROTO_SPECIFIED		(1 << 1)
-+#define NF_NAT_RANGE_PROTO_RANDOM		(1 << 2)
-+#define NF_NAT_RANGE_PERSISTENT			(1 << 3)
-+#define NF_NAT_RANGE_PROTO_RANDOM_FULLY		(1 << 4)
+diff --git a/include/uapi/linux/netfilter/Kbuild b/include/uapi/linux/netfilter/Kbuild
+index 17c3af2..91be8ce 100644
+--- a/include/uapi/linux/netfilter/Kbuild
++++ b/include/uapi/linux/netfilter/Kbuild
+@@ -54,6 +54,7 @@ header-y += xt_ecn.h
+ header-y += xt_esp.h
+ header-y += xt_hashlimit.h
+ header-y += xt_helper.h
++header-y += xt_ipcomp.h
+ header-y += xt_iprange.h
+ header-y += xt_ipvs.h
+ header-y += xt_length.h
+diff --git a/include/uapi/linux/netfilter/xt_ipcomp.h b/include/uapi/linux/netfilter/xt_ipcomp.h
+new file mode 100644
+index 0000000..45c7e40
+--- /dev/null
++++ b/include/uapi/linux/netfilter/xt_ipcomp.h
+@@ -0,0 +1,16 @@
++#ifndef _XT_IPCOMP_H
++#define _XT_IPCOMP_H
 +
-+#define NF_NAT_RANGE_PROTO_RANDOM_ALL		\
-+	(NF_NAT_RANGE_PROTO_RANDOM | NF_NAT_RANGE_PROTO_RANDOM_FULLY)
++#include <linux/types.h>
++
++struct xt_ipcomp {
++	__u32 spis[2];	/* Security Parameter Index */
++	__u8 invflags;	/* Inverse flags */
++	__u8 hdrres;	/* Test of the Reserved Filed */
++};
++
++/* Values for "invflags" field in struct xt_ipcomp. */
++#define XT_IPCOMP_INV_SPI	0x01	/* Invert the sense of spi. */
++#define XT_IPCOMP_INV_MASK	0x01	/* All possible flags. */
++
++#endif /*_XT_IPCOMP_H*/
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index c3398cd..6d8e48b 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -1035,6 +1035,15 @@ config NETFILTER_XT_MATCH_HL
+ 	in the IPv6 header, or the time-to-live field in the IPv4
+ 	header of the packet.
  
- struct nf_nat_ipv4_range {
- 	unsigned int			flags;
-diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
-index 63a8154..d3f5cd6 100644
---- a/net/netfilter/nf_nat_core.c
-+++ b/net/netfilter/nf_nat_core.c
-@@ -315,7 +315,7 @@ get_unique_tuple(struct nf_conntrack_tuple *tuple,
- 	 * manips not an issue.
- 	 */
- 	if (maniptype == NF_NAT_MANIP_SRC &&
--	    !(range->flags & NF_NAT_RANGE_PROTO_RANDOM)) {
-+	    !(range->flags & NF_NAT_RANGE_PROTO_RANDOM_ALL)) {
- 		/* try the original tuple first */
- 		if (in_range(l3proto, l4proto, orig_tuple, range)) {
- 			if (!nf_nat_used_tuple(orig_tuple, ct)) {
-@@ -339,7 +339,7 @@ get_unique_tuple(struct nf_conntrack_tuple *tuple,
- 	 */
- 
- 	/* Only bother mapping if it's not already in range and unique */
--	if (!(range->flags & NF_NAT_RANGE_PROTO_RANDOM)) {
-+	if (!(range->flags & NF_NAT_RANGE_PROTO_RANDOM_ALL)) {
- 		if (range->flags & NF_NAT_RANGE_PROTO_SPECIFIED) {
- 			if (l4proto->in_range(tuple, maniptype,
- 					      &range->min_proto,
-diff --git a/net/netfilter/nf_nat_proto_common.c b/net/netfilter/nf_nat_proto_common.c
-index 9baaf73..83a72a2 100644
---- a/net/netfilter/nf_nat_proto_common.c
-+++ b/net/netfilter/nf_nat_proto_common.c
-@@ -74,22 +74,24 @@ void nf_nat_l4proto_unique_tuple(const struct nf_nat_l3proto *l3proto,
- 		range_size = ntohs(range->max_proto.all) - min + 1;
- 	}
- 
--	if (range->flags & NF_NAT_RANGE_PROTO_RANDOM)
-+	if (range->flags & NF_NAT_RANGE_PROTO_RANDOM) {
- 		off = l3proto->secure_port(tuple, maniptype == NF_NAT_MANIP_SRC
- 						  ? tuple->dst.u.all
- 						  : tuple->src.u.all);
--	else
-+	} else if (range->flags & NF_NAT_RANGE_PROTO_RANDOM_FULLY) {
-+		off = prandom_u32();
-+	} else {
- 		off = *rover;
++config NETFILTER_XT_MATCH_IPCOMP
++	tristate '"ipcomp" match support'
++	depends on NETFILTER_ADVANCED
++	help
++	  This match extension allows you to match a range of CPIs(16 bits)
++	  inside IPComp header of IPSec packets.
++
++	  To compile it as a module, choose M here.  If unsure, say N.
++
+ config NETFILTER_XT_MATCH_IPRANGE
+ 	tristate '"iprange" address range match support'
+ 	depends on NETFILTER_ADVANCED
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index 394483b..398cd70 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -133,6 +133,7 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_ESP) += xt_esp.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_HASHLIMIT) += xt_hashlimit.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_HELPER) += xt_helper.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_HL) += xt_hl.o
++obj-$(CONFIG_NETFILTER_XT_MATCH_IPCOMP) += xt_ipcomp.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_IPRANGE) += xt_iprange.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_IPVS) += xt_ipvs.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_LENGTH) += xt_length.o
+diff --git a/net/netfilter/xt_ipcomp.c b/net/netfilter/xt_ipcomp.c
+new file mode 100644
+index 0000000..a4c7561
+--- /dev/null
++++ b/net/netfilter/xt_ipcomp.c
+@@ -0,0 +1,111 @@
++/*  Kernel module to match IPComp parameters for IPv4 and IPv6
++ *
++ *  Copyright (C) 2013 WindRiver
++ *
++ *  Author:
++ *  Fan Du <fan.du@windriver.com>
++ *
++ *  Based on:
++ *  net/netfilter/xt_esp.c
++ *
++ *  This program is free software; you can redistribute it and/or
++ *  modify it under the terms of the GNU General Public License
++ *  as published by the Free Software Foundation; either version
++ *  2 of the License, or (at your option) any later version.
++ */
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++#include <linux/in.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/ip.h>
++
++#include <linux/netfilter/xt_ipcomp.h>
++#include <linux/netfilter/x_tables.h>
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Fan Du <fan.du@windriver.com>");
++MODULE_DESCRIPTION("Xtables: IPv4/6 IPsec-IPComp SPI match");
++
++/* Returns 1 if the spi is matched by the range, 0 otherwise */
++static inline bool
++spi_match(u_int32_t min, u_int32_t max, u_int32_t spi, bool invert)
++{
++	bool r;
++	pr_debug("spi_match:%c 0x%x <= 0x%x <= 0x%x\n",
++		 invert ? '!' : ' ', min, spi, max);
++	r = (spi >= min && spi <= max) ^ invert;
++	pr_debug(" result %s\n", r ? "PASS" : "FAILED");
++	return r;
++}
++
++static bool comp_mt(const struct sk_buff *skb, struct xt_action_param *par)
++{
++	struct ip_comp_hdr _comphdr;
++	const struct ip_comp_hdr *chdr;
++	const struct xt_ipcomp *compinfo = par->matchinfo;
++
++	/* Must not be a fragment. */
++	if (par->fragoff != 0)
++		return false;
++
++	chdr = skb_header_pointer(skb, par->thoff, sizeof(_comphdr), &_comphdr);
++	if (chdr == NULL) {
++		/* We've been asked to examine this packet, and we
++		 * can't.  Hence, no choice but to drop.
++		 */
++		pr_debug("Dropping evil IPComp tinygram.\n");
++		par->hotdrop = true;
++		return 0;
 +	}
- 
- 	for (i = 0; ; ++off) {
- 		*portptr = htons(min + off % range_size);
- 		if (++i != range_size && nf_nat_used_tuple(tuple, ct))
- 			continue;
--		if (!(range->flags & NF_NAT_RANGE_PROTO_RANDOM))
-+		if (!(range->flags & NF_NAT_RANGE_PROTO_RANDOM_ALL))
- 			*rover = off;
- 		return;
- 	}
--	return;
- }
- EXPORT_SYMBOL_GPL(nf_nat_l4proto_unique_tuple);
- 
++
++	return spi_match(compinfo->spis[0], compinfo->spis[1],
++			 ntohl(chdr->cpi << 16),
++			 !!(compinfo->invflags & XT_IPCOMP_INV_SPI));
++}
++
++static int comp_mt_check(const struct xt_mtchk_param *par)
++{
++	const struct xt_ipcomp *compinfo = par->matchinfo;
++
++	/* Must specify no unknown invflags */
++	if (compinfo->invflags & ~XT_IPCOMP_INV_MASK) {
++		pr_err("unknown flags %X\n", compinfo->invflags);
++		return -EINVAL;
++	}
++	return 0;
++}
++
++static struct xt_match comp_mt_reg[] __read_mostly = {
++	{
++		.name		= "ipcomp",
++		.family		= NFPROTO_IPV4,
++		.match		= comp_mt,
++		.matchsize	= sizeof(struct xt_ipcomp),
++		.proto		= IPPROTO_COMP,
++		.checkentry	= comp_mt_check,
++		.me		= THIS_MODULE,
++	},
++	{
++		.name		= "ipcomp",
++		.family		= NFPROTO_IPV6,
++		.match		= comp_mt,
++		.matchsize	= sizeof(struct xt_ipcomp),
++		.proto		= IPPROTO_COMP,
++		.checkentry	= comp_mt_check,
++		.me		= THIS_MODULE,
++	},
++};
++
++static int __init comp_mt_init(void)
++{
++	return xt_register_matches(comp_mt_reg, ARRAY_SIZE(comp_mt_reg));
++}
++
++static void __exit comp_mt_exit(void)
++{
++	xt_unregister_matches(comp_mt_reg, ARRAY_SIZE(comp_mt_reg));
++}
++
++module_init(comp_mt_init);
++module_exit(comp_mt_exit);
 -- 
 1.7.10.4
