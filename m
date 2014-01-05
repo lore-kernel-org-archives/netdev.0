@@ -1,80 +1,55 @@
-From: Loc Ho <lho@apm.com>
-Subject: Re: [PATCH V2 0/4] misc: xgene: Add support for APM X-Gene SoC Queue
- Manager/Traffic Manager
-Date: Sat, 4 Jan 2014 21:39:08 -0800
-Message-ID: <CAPw-ZT=noCwc+3o_762ewTcn2J3SjZ5u11V=Aa8RrZZf4DT5Yw@mail.gmail.com>
-References: <1387594651-25771-1-git-send-email-rapatel@apm.com>
- <201312212111.40576.arnd@arndb.de>
- <CAPw-ZTnsu_EmOW3aZTVKAVjQsdi8qMy95y2ZcYxzgVrjGkirTA@mail.gmail.com>
- <1441245.xPZLG2iNZ6@wuerfel>
- <CAN1v_PtFz42crHW5=cUgw-fAnPn3rQht=o0t3nmjJRamYSLDMg@mail.gmail.com>
- <20140105033848.GA22595@kroah.com>
+From: =?ISO-8859-1?Q?Fejes_J=F3zsef?= <jozsef.fejes@gmail.com>
+Subject: Re: NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
+Date: Sun, 5 Jan 2014 08:28:06 +0100
+Message-ID: <CALU-w99x8k+J46xaK28wn0gMr=D4Q6YHHKi-wjwOXfFCBo-vEw@mail.gmail.com>
+References: <CALU-w9860x_rWhu35v50N39b8AxiPB_wOk1OUKdBr9eBLzEZFA@mail.gmail.com>
+	<20131230233833.GA434@electric-eye.fr.zoreil.com>
+	<CALU-w99eT4TX0xHc_KZBoP_JFpEex-0B8iH3sb8wUMfO4WuOHg@mail.gmail.com>
+	<20140101223806.GA18715@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
- Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
- "patches@apm.com" <patches@apm.com>, linux-kernel@vger.kernel.org,
- Jon Masters <jcm@redhat.com>, Keyur Chudgar <kchudgar@apm.com>,
- davem@davemloft.net,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
- Ravi Patel <rapatel@apm.com>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20140105033848.GA22595@kroah.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:44266 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750816AbaAEH2I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 02:28:08 -0500
+Received: by mail-wg0-f45.google.com with SMTP id y10so14535379wgg.0
+        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 23:28:07 -0800 (PST)
+In-Reply-To: <20140101223806.GA18715@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+> Could you check the irq count and ethtool -S eth0 as well ?
 
->> >> >> This patch adds support for APM X-Gene SoC Queue Manager/Traffic Manager.
->> >> >>  QMTM is required by APM X-Gene SoC Ethernet, PktDMA (XOR Engine) and
->> >> >>  Security Engine subsystems. All subsystems communicate with QMTM using
->> >> >>  messages which include information about the work to be performed and
->> >> >>  the location of associated data buffers.
->> >> >
->> >> > Please describe here what the purpose of the qmtm is, as this is not
->> >> > entirely clear from the code.
->> >> >
->> >> > In particular, please describe how this differs from a dmaengine driver
->> >> > and why it is not possible to extend the dma slave API to describe qmtm
->> >> > as a dma engine.
->> >> >
->> >> [Loc Ho]
->> >> If the QM driver implements the DMA API, what about the actual DMA
->> >> engine driver which interfaces with this QM driver. We would have DMA
->> >> client interfaces with the X-Gene DMA driver (not available yet) via
->> >> DMA API which in turn interfaces with this QM driver via DMA API.
->> >> Won't this be kind of awkward? Also, the QM only manage messages (or
->> >> descriptors) which are 32-bytes or 64-bytes. It doesn't actually do
->> >> any data transfer of various sizes.
->> >
->> > Please describe here what the purpose of the qmtm is, as this is not
->> > entirely clear from the code or from your reply.
->> >
->> > Greg was guessing that it's a bus controller, my best guess is a DMA
->> > engine. If it's something completely different, you have to let
->> > us know what it is so we can do a proper review rather than guessing.
->> >
->> > Please provide a link to the data sheet if you are unable to explain.
->>
->> Here is URL to a text document explaining role of QMTM device with CPU, Ethernet
->> subsystem.
->>
->> https://drive.google.com/file/d/0B28TgQZ3JLoRRGNnbjJoUGNHWW8/edit?usp=sharing
+Here you go: http://pastebin.com/acabFBHv
+
+> Does the laptop also include a different operating system ?
+
+Yes, Windows 7.
+
+>> I haven't used that interface for quite some time, a year at most. I
+>> keep up to date with the stable kernels, so a version change broke it,
+>> but I'm not sure which. Would it be the best course of action if I
+>> tried some older versions?
 >
-> There is nothing at this link :(
+> Yes, please do.
+>
+> There has been no specific change in this timeframe for the chipset you
+> use (RTL_GIGA_MAC_VER_25). The problem may have been unnoticed for a
+> rather long time. :o/
 
-I tried click on the txt file link from web site
-http://www.spinics.net/lists/netdev/msg264628.html and don't see any
-problem with accessing the txt file.
+I booted into an old kernel I found in the Debian repository: Linux
+wicklow 3.2.0-4-686-pae #1 SMP Debian 3.2.53-2 i686 GNU/Linux
 
--Loc
+And the same issue happened. Queue times out, no packets are received
+on the other end.
+
+Could it be that this regression ended up in this long-term supported
+kernel? Or could it be a hardware problem? My Windows laptop's
+ethernet definitely works in other places, so could be the cable or
+the integrated NIC in the Linux machine...
+
+Best regards,
+Jozsef
