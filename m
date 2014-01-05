@@ -1,72 +1,53 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Multicast routing stops functioning after 4G multicast packets recived.
-Date: Sun, 5 Jan 2014 00:38:40 +0100
-Message-ID: <20140104233840.GD25828@order.stressinduktion.org>
-References: <20131219144816.33310@gmx.com> <alpine.LFD.2.11.1401042143330.1598@ja.home.ssi.bg>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 4/6] phy: kill excess code
+Date: Sun, 05 Jan 2014 03:50:30 +0300
+Message-ID: <52C8AC56.7030804@cogentembedded.com>
+References: <201401040413.06853.sergei.shtylyov@cogentembedded.com> <201401040419.14818.sergei.shtylyov@cogentembedded.com> <20140104073639.GB4261@netboy> <52C836EF.1010705@cogentembedded.com> <20140104154229.GE4925@netboy> <52C83B25.7030505@cogentembedded.com> <20140104155114.GF4925@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Bob Falken <NetFestivalHaveFun@gmx.com>, netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:39520 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754579AbaADXil (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 18:38:41 -0500
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.11.1401042143330.1598@ja.home.ssi.bg>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:48457 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754579AbaADXuc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 18:50:32 -0500
+Received: by mail-la0-f42.google.com with SMTP id ec20so9116490lab.29
+        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 15:50:30 -0800 (PST)
+In-Reply-To: <20140104155114.GF4925@netboy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 04, 2014 at 09:55:51PM +0200, Julian Anastasov wrote:
->=20
-> 	Hello,
->=20
-> On Thu, 19 Dec 2013, Bob Falken wrote:
->=20
-> > Hello, I have an issue after kernel 2.6.37 and above.
-> > If i roll back to kernel 2.6.36.4 everything is fine.
-> > if recive more than=C2=A04294967295 multicast packets, the kernel d=
-oes not register the multicast packets. and multicast routing does not =
-functioning.
->=20
-> ...
->=20
-> > I think there might be a variable in the kernel that get overflown.=
- though i cannot be sure as im not a programmer.=20
-> >=20
-> > Let me know if you need more debug information.
-> >=20
-> > Please help.=C2=A0=20
->=20
-> 	As Hannes guessed, may be it is really the missing
-> flags =3D FIB_LOOKUP_NOREF in ipmr_fib_lookup() when calling
-> fib_rules_lookup(), we have an atomic_inc_not_zero() there that
-> can stop to work after 4G lookups when rule's refcnt reaches 0.
-> As result, fib_rules_lookup() can start to return -ESRCH.
+Hello.
 
-I guess we should just try. I somehow forgot to look after that. Thanks
-for reminding, Julian.
+On 01/04/2014 06:51 PM, Richard Cochran wrote:
 
-Bob, can you try with this patch again?
+>>>>     Both kinds of empty lines are consistently avoided by all other
+>>>> code I had to read. They don't really improve anything.
 
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 421a249..b9b3472 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -157,9 +157,12 @@ static struct mr_table *ipmr_get_table(struct net =
-*net, u32 id)
- static int ipmr_fib_lookup(struct net *net, struct flowi4 *flp4,
- 			   struct mr_table **mrt)
- {
--	struct ipmr_result res;
--	struct fib_lookup_arg arg =3D { .result =3D &res, };
- 	int err;
-+	struct ipmr_result res;
-+	struct fib_lookup_arg arg =3D {
-+		.result =3D &res,
-+		.flags =3D FIB_LOOKUP_NOREF,
-+	};
-=20
- 	err =3D fib_rules_lookup(net->ipv4.mr_rules_ops,
- 			       flowi4_to_flowi(flp4), 0, &arg);
+>>> But both your subject line and body talk about lines of code. Just
+>>> removing blank lines is not the same as removing "excess code."
+
+>>     To me, all source file lines are code. So what you are
+>> suggesting, splitting the patch?
+
+> Yes, exactly that.
+
+    OK, done.
+
+> If the title reads, "fix whitespace errors" or "remove blank lines",
+> then I don't need to waste my time looking at it.
+
+    Maybe I'd go too far and remove too much? :-)
+
+> But if it reads, "remove excess code", then I want to make sure that
+> you don't go and delete something important.
+
+    I don't delete the meaningful code at all, just kind of compact it. Maybe 
+I should have renamed that patch...
+
+> Thanks,
+> Richard
+
+WBR, Sergei
