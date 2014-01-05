@@ -1,7 +1,7 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH v2 4/8] phy: kill useless local variables
-Date: Sun, 5 Jan 2014 03:21:52 +0300
-Message-ID: <201401050321.52499.sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH v2 5/8] phy: kill excess code
+Date: Sun, 5 Jan 2014 03:23:19 +0300
+Message-ID: <201401050323.20133.sergei.shtylyov@cogentembedded.com>
 References: <201401050315.29587.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
@@ -9,254 +9,168 @@ Content-Type: Text/Plain;
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:33156 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754579AbaADXVx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 18:21:53 -0500
-Received: by mail-lb0-f171.google.com with SMTP id w7so9157479lbi.30
-        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 15:21:52 -0800 (PST)
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:35051 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755086AbaADXXV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 18:23:21 -0500
+Received: by mail-lb0-f178.google.com with SMTP id c11so8822013lbj.23
+        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 15:23:19 -0800 (PST)
 Received: from wasted.dev.rtsoft.ru (ppp91-76-87-5.pppoe.mtu-net.ru. [91.76.87.5])
-        by mx.google.com with ESMTPSA id n13sm39484009lbl.17.2014.01.04.15.21.51
+        by mx.google.com with ESMTPSA id di11sm50800385lac.0.2014.01.04.15.23.18
         for <netdev@vger.kernel.org>
         (version=TLSv1 cipher=RC4-SHA bits=128/128);
-        Sat, 04 Jan 2014 15:21:51 -0800 (PST)
+        Sat, 04 Jan 2014 15:23:19 -0800 (PST)
 In-Reply-To: <201401050315.29587.sergei.shtylyov@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A number of functions (especially in phy.c) has local variables that were hardly
-needed in the first place -- remove them.
+Remove some excess code:
+
+- convert assignments to initializers;
+
+- kill useless assignments before *return*.
 
 Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
 ---
 Changes in version 2:
-- refreshed the patch.
+- split removal of empty lines into a new patch.
 
- drivers/net/phy/phy.c        |   55 ++++++++++++-------------------------------
- drivers/net/phy/phy_device.c |   10 +------
- 2 files changed, 18 insertions(+), 47 deletions(-)
+ drivers/net/phy/phy.c        |   19 +++++--------------
+ drivers/net/phy/phy_device.c |   29 ++++++++---------------------
+ 2 files changed, 13 insertions(+), 35 deletions(-)
 
 Index: net-next/drivers/net/phy/phy.c
 ===================================================================
 --- net-next.orig/drivers/net/phy/phy.c
 +++ net-next/drivers/net/phy/phy.c
-@@ -67,12 +67,10 @@ EXPORT_SYMBOL(phy_print_status);
+@@ -100,9 +100,7 @@ static int phy_config_interrupt(struct p
   */
- static int phy_clear_interrupt(struct phy_device *phydev)
+ static inline int phy_aneg_done(struct phy_device *phydev)
  {
--	int err = 0;
+-	int retval;
 -
- 	if (phydev->drv->ack_interrupt)
--		err = phydev->drv->ack_interrupt(phydev);
-+		return phydev->drv->ack_interrupt(phydev);
+-	retval = phy_read(phydev, MII_BMSR);
++	int retval = phy_read(phydev, MII_BMSR);
  
--	return err;
-+	return 0;
+ 	return (retval < 0) ? retval : (retval & BMSR_ANEGCOMPLETE);
  }
- 
- /**
-@@ -84,13 +82,11 @@ static int phy_clear_interrupt(struct ph
+@@ -498,16 +496,12 @@ static irqreturn_t phy_interrupt(int irq
   */
- static int phy_config_interrupt(struct phy_device *phydev, u32 interrupts)
- {
--	int err = 0;
--
- 	phydev->interrupts = interrupts;
- 	if (phydev->drv->config_intr)
--		err = phydev->drv->config_intr(phydev);
-+		return phydev->drv->config_intr(phydev);
- 
--	return err;
-+	return 0;
- }
- 
- 
-@@ -314,7 +310,6 @@ int phy_mii_ioctl(struct phy_device *phy
- {
- 	struct mii_ioctl_data *mii_data = if_mii(ifr);
- 	u16 val = mii_data->val_in;
--	int ret = 0;
- 
- 	switch (cmd) {
- 	case SIOCGMIIPHY:
-@@ -324,7 +319,7 @@ int phy_mii_ioctl(struct phy_device *phy
- 	case SIOCGMIIREG:
- 		mii_data->val_out = mdiobus_read(phydev->bus, mii_data->phy_id,
- 						 mii_data->reg_num);
--		break;
-+		return 0;
- 
- 	case SIOCSMIIREG:
- 		if (mii_data->phy_id == phydev->addr) {
-@@ -358,8 +353,8 @@ int phy_mii_ioctl(struct phy_device *phy
- 
- 		if (mii_data->reg_num == MII_BMCR &&
- 		    val & BMCR_RESET)
--			ret = phy_init_hw(phydev);
--		break;
-+			return phy_init_hw(phydev);
-+		return 0;
- 
- 	case SIOCSHWTSTAMP:
- 		if (phydev->drv->hwtstamp)
-@@ -369,8 +364,6 @@ int phy_mii_ioctl(struct phy_device *phy
- 	default:
- 		return -EOPNOTSUPP;
- 	}
--
--	return ret;
- }
- EXPORT_SYMBOL(phy_mii_ioctl);
- 
-@@ -557,8 +550,6 @@ phy_err:
-  */
- int phy_start_interrupts(struct phy_device *phydev)
- {
--	int err = 0;
--
- 	atomic_set(&phydev->irq_disable, 0);
- 	if (request_irq(phydev->irq, phy_interrupt,
- 				IRQF_SHARED,
-@@ -570,9 +561,7 @@ int phy_start_interrupts(struct phy_devi
- 		return 0;
- 	}
- 
--	err = phy_enable_interrupts(phydev);
--
--	return err;
-+	return phy_enable_interrupts(phydev);
- }
- EXPORT_SYMBOL(phy_start_interrupts);
- 
-@@ -615,7 +604,6 @@ EXPORT_SYMBOL(phy_stop_interrupts);
-  */
- void phy_change(struct work_struct *work)
+ static int phy_enable_interrupts(struct phy_device *phydev)
  {
 -	int err;
- 	struct phy_device *phydev =
- 		container_of(work, struct phy_device, phy_queue);
- 
-@@ -623,9 +611,7 @@ void phy_change(struct work_struct *work
- 	    !phydev->drv->did_interrupt(phydev))
- 		goto ignore;
- 
--	err = phy_disable_interrupts(phydev);
 -
--	if (err)
-+	if (phy_disable_interrupts(phydev))
- 		goto phy_err;
+-	err = phy_clear_interrupt(phydev);
++	int err = phy_clear_interrupt(phydev);
  
- 	mutex_lock(&phydev->lock);
-@@ -637,10 +623,8 @@ void phy_change(struct work_struct *work
- 	enable_irq(phydev->irq);
+ 	if (err < 0)
+ 		return err;
  
- 	/* Reenable interrupts */
--	if (PHY_HALTED != phydev->state)
--		err = phy_config_interrupt(phydev, PHY_INTERRUPT_ENABLED);
+-	err = phy_config_interrupt(phydev, PHY_INTERRUPT_ENABLED);
 -
--	if (err)
-+	if (PHY_HALTED != phydev->state &&
-+	    phy_config_interrupt(phydev, PHY_INTERRUPT_ENABLED))
- 		goto irq_enable_err;
- 
- 	/* reschedule state queue work to run as soon as possible */
-@@ -953,14 +937,10 @@ static inline void mmd_phy_indirect(stru
- static int phy_read_mmd_indirect(struct mii_bus *bus, int prtad, int devad,
- 				 int addr)
- {
--	u32 ret;
--
- 	mmd_phy_indirect(bus, prtad, devad, addr);
- 
- 	/* Read the content of the MMD's selected register */
--	ret = bus->read(bus, addr, MII_MMD_DATA);
--
--	return ret;
-+	return bus->read(bus, addr, MII_MMD_DATA);
+-	return err;
++	return phy_config_interrupt(phydev, PHY_INTERRUPT_ENABLED);
  }
  
  /**
-@@ -1000,8 +980,6 @@ static void phy_write_mmd_indirect(struc
+@@ -571,9 +565,7 @@ EXPORT_SYMBOL(phy_start_interrupts);
   */
- int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
+ int phy_stop_interrupts(struct phy_device *phydev)
  {
--	int ret = -EPROTONOSUPPORT;
+-	int err;
 -
- 	/* According to 802.3az,the EEE is supported only in full duplex-mode.
- 	 * Also EEE feature is active when core is operating with MII, GMII
- 	 * or RGMII.
-@@ -1027,7 +1005,7 @@ int phy_init_eee(struct phy_device *phyd
+-	err = phy_disable_interrupts(phydev);
++	int err = phy_disable_interrupts(phydev);
  
- 		cap = mmd_eee_cap_to_ethtool_sup_t(eee_cap);
- 		if (!cap)
--			goto eee_exit;
-+			return -EPROTONOSUPPORT;
+ 	if (err)
+ 		phy_error(phydev);
+@@ -1108,9 +1100,8 @@ EXPORT_SYMBOL(phy_ethtool_get_eee);
+  */
+ int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
+ {
+-	int val;
++	int val = ethtool_adv_to_mmd_eee_adv_t(data->advertised);
  
- 		/* Check which link settings negotiated and verify it in
- 		 * the EEE advertising registers.
-@@ -1046,7 +1024,7 @@ int phy_init_eee(struct phy_device *phyd
- 		lp = mmd_eee_adv_to_ethtool_adv_t(eee_lp);
- 		idx = phy_find_setting(phydev->speed, phydev->duplex);
- 		if (!(lp & adv & settings[idx].setting))
--			goto eee_exit;
-+			return -EPROTONOSUPPORT;
- 
- 		if (clk_stop_enable) {
- 			/* Configure the PHY to stop receiving xMII
-@@ -1063,11 +1041,10 @@ int phy_init_eee(struct phy_device *phyd
- 					       MDIO_MMD_PCS, phydev->addr, val);
- 		}
- 
--		ret = 0; /* EEE supported */
-+		return 0; /* EEE supported */
- 	}
- 
--eee_exit:
--	return ret;
-+	return -EPROTONOSUPPORT;
- }
- EXPORT_SYMBOL(phy_init_eee);
+-	val = ethtool_adv_to_mmd_eee_adv_t(data->advertised);
+ 	phy_write_mmd_indirect(phydev->bus, MDIO_AN_EEE_ADV, MDIO_MMD_AN,
+ 			       phydev->addr, val);
  
 Index: net-next/drivers/net/phy/phy_device.c
 ===================================================================
 --- net-next.orig/drivers/net/phy/phy_device.c
 +++ net-next/drivers/net/phy/phy_device.c
-@@ -327,7 +327,6 @@ static int get_phy_id(struct mii_bus *bu
- struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45)
+@@ -70,9 +70,8 @@ static int phy_attach_direct(struct net_
+ int phy_register_fixup(const char *bus_id, u32 phy_uid, u32 phy_uid_mask,
+ 		       int (*run)(struct phy_device *))
  {
- 	struct phy_c45_device_ids c45_ids = {0};
--	struct phy_device *dev = NULL;
- 	u32 phy_id = 0;
- 	int r;
+-	struct phy_fixup *fixup;
++	struct phy_fixup *fixup = kzalloc(sizeof(*fixup), GFP_KERNEL);
  
-@@ -339,9 +338,7 @@ struct phy_device *get_phy_device(struct
- 	if ((phy_id & 0x1fffffff) == 0x1fffffff)
- 		return NULL;
+-	fixup = kzalloc(sizeof(*fixup), GFP_KERNEL);
+ 	if (!fixup)
+ 		return -ENOMEM;
  
--	dev = phy_device_create(bus, addr, phy_id, is_c45, &c45_ids);
+@@ -130,9 +129,7 @@ int phy_scan_fixups(struct phy_device *p
+ 	mutex_lock(&phy_fixup_lock);
+ 	list_for_each_entry(fixup, &phy_fixup_list, list) {
+ 		if (phy_needs_fixup(phydev, fixup)) {
+-			int err;
 -
--	return dev;
-+	return phy_device_create(bus, addr, phy_id, is_c45, &c45_ids);
- }
- EXPORT_SYMBOL(get_phy_device);
+-			err = fixup->run(phydev);
++			int err = fixup->run(phydev);
  
-@@ -781,7 +778,6 @@ static int genphy_config_advert(struct p
+ 			if (err < 0) {
+ 				mutex_unlock(&phy_fixup_lock);
+@@ -801,9 +798,7 @@ EXPORT_SYMBOL(genphy_setup_forced);
   */
- int genphy_setup_forced(struct phy_device *phydev)
+ int genphy_restart_aneg(struct phy_device *phydev)
  {
--	int err;
- 	int ctl = 0;
- 
- 	phydev->pause = 0;
-@@ -795,9 +791,7 @@ int genphy_setup_forced(struct phy_devic
- 	if (DUPLEX_FULL == phydev->duplex)
- 		ctl |= BMCR_FULLDPLX;
- 
--	err = phy_write(phydev, MII_BMCR, ctl);
+-	int ctl;
 -
--	return err;
+-	ctl = phy_read(phydev, MII_BMCR);
++	int ctl = phy_read(phydev, MII_BMCR);
+ 
+ 	if (ctl < 0)
+ 		return ctl;
+@@ -813,9 +808,7 @@ int genphy_restart_aneg(struct phy_devic
+ 	/* Don't isolate the PHY if we're negotiating */
+ 	ctl &= ~BMCR_ISOLATE;
+ 
+-	ctl = phy_write(phydev, MII_BMCR, ctl);
+-
+-	return ctl;
 +	return phy_write(phydev, MII_BMCR, ctl);
  }
- EXPORT_SYMBOL(genphy_setup_forced);
+ EXPORT_SYMBOL(genphy_restart_aneg);
  
+@@ -1087,15 +1080,11 @@ EXPORT_SYMBOL(genphy_resume);
+  */
+ static int phy_probe(struct device *dev)
+ {
+-	struct phy_device *phydev;
+-	struct phy_driver *phydrv;
+-	struct device_driver *drv;
++	struct phy_device *phydev = to_phy_device(dev);
++	struct device_driver *drv = phydev->dev.driver;
++	struct phy_driver *phydrv = to_phy_driver(drv);
+ 	int err = 0;
+ 
+-	phydev = to_phy_device(dev);
+-
+-	drv = phydev->dev.driver;
+-	phydrv = to_phy_driver(drv);
+ 	phydev->drv = phydrv;
+ 
+ 	/* Disable the interrupt if the PHY doesn't support it
+@@ -1130,9 +1119,7 @@ static int phy_probe(struct device *dev)
+ 
+ static int phy_remove(struct device *dev)
+ {
+-	struct phy_device *phydev;
+-
+-	phydev = to_phy_device(dev);
++	struct phy_device *phydev = to_phy_device(dev);
+ 
+ 	mutex_lock(&phydev->lock);
+ 	phydev->state = PHY_DOWN;
