@@ -1,56 +1,364 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/15] i40e: reinit buffer size each time
-Date: Sun,  5 Jan 2014 02:47:00 -0800
-Message-ID: <1388918827-13430-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/15] i40e: keep allocated memory in structs
+Date: Sun,  5 Jan 2014 02:47:02 -0800
+Message-ID: <1388918827-13430-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1388918827-13430-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: David Cassard <david.g.cassard@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:5665 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:5196 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751205AbaAEKrO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Jan 2014 05:47:14 -0500
+	id S1751209AbaAEKrP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Jan 2014 05:47:15 -0500
 In-Reply-To: <1388918827-13430-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: David Cassard <david.g.cassard@intel.com>
 
-When cleaning the ARQ, we must reinitialize the buffer size each time we
-go through the loop, because i40e_clean_arq_element returns the message
-length in the same field. Without this change, subsequent messages can
-be truncated to the length of the previous message.
+Save both a pointer to memory and the length in order to store all
+info about allocated kernel memory.  This patch changes some adminq
+allocations to preserve the full i40e_dma_mem/i40e_virt_mem structs
+for every allocation.
 
-Change-Id: Ic9c32ff843faf0fc3196d21351a1c3a60c6158eb
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-Id: Ibcf96159aba4ba61f839d16d87d19478df28e630
+Signed-off-by: David Cassard <david.g.cassard@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c  | 103 +++++++++++--------------
+ drivers/net/ethernet/intel/i40e/i40e_adminq.h  |  13 ++--
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c |   4 +-
+ 3 files changed, 51 insertions(+), 69 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 94d0e45..7194277 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -4493,12 +4493,12 @@ static void i40e_clean_adminq_subtask(struct i40e_pf *pf)
- 	if (!test_bit(__I40E_ADMINQ_EVENT_PENDING, &pf->state))
- 		return;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+index c7e2866..d04ad3b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+@@ -66,9 +66,8 @@ static void i40e_adminq_init_regs(struct i40e_hw *hw)
+ static i40e_status i40e_alloc_adminq_asq_ring(struct i40e_hw *hw)
+ {
+ 	i40e_status ret_code;
+-	struct i40e_virt_mem mem;
  
--	event.msg_size = I40E_MAX_AQ_BUF_SIZE;
- 	event.msg_buf = kzalloc(event.msg_size, GFP_KERNEL);
- 	if (!event.msg_buf)
- 		return;
+-	ret_code = i40e_allocate_dma_mem(hw, &hw->aq.asq_mem,
++	ret_code = i40e_allocate_dma_mem(hw, &hw->aq.asq.desc_buf,
+ 					 i40e_mem_atq_ring,
+ 					 (hw->aq.num_asq_entries *
+ 					 sizeof(struct i40e_aq_desc)),
+@@ -76,21 +75,14 @@ static i40e_status i40e_alloc_adminq_asq_ring(struct i40e_hw *hw)
+ 	if (ret_code)
+ 		return ret_code;
  
- 	do {
-+		event.msg_size = I40E_MAX_AQ_BUF_SIZE; /* reinit each time */
- 		ret = i40e_clean_arq_element(hw, &event, &pending);
- 		if (ret == I40E_ERR_ADMIN_QUEUE_NO_WORK) {
- 			dev_info(&pf->pdev->dev, "No ARQ event found\n");
+-	hw->aq.asq.desc = hw->aq.asq_mem.va;
+-	hw->aq.asq.dma_addr = hw->aq.asq_mem.pa;
+-
+-	ret_code = i40e_allocate_virt_mem(hw, &mem,
++	ret_code = i40e_allocate_virt_mem(hw, &hw->aq.asq.cmd_buf,
+ 					  (hw->aq.num_asq_entries *
+ 					  sizeof(struct i40e_asq_cmd_details)));
+ 	if (ret_code) {
+-		i40e_free_dma_mem(hw, &hw->aq.asq_mem);
+-		hw->aq.asq_mem.va = NULL;
+-		hw->aq.asq_mem.pa = 0;
++		i40e_free_dma_mem(hw, &hw->aq.asq.desc_buf);
+ 		return ret_code;
+ 	}
+ 
+-	hw->aq.asq.details = mem.va;
+-
+ 	return ret_code;
+ }
+ 
+@@ -102,16 +94,11 @@ static i40e_status i40e_alloc_adminq_arq_ring(struct i40e_hw *hw)
+ {
+ 	i40e_status ret_code;
+ 
+-	ret_code = i40e_allocate_dma_mem(hw, &hw->aq.arq_mem,
++	ret_code = i40e_allocate_dma_mem(hw, &hw->aq.arq.desc_buf,
+ 					 i40e_mem_arq_ring,
+ 					 (hw->aq.num_arq_entries *
+ 					 sizeof(struct i40e_aq_desc)),
+ 					 I40E_ADMINQ_DESC_ALIGNMENT);
+-	if (ret_code)
+-		return ret_code;
+-
+-	hw->aq.arq.desc = hw->aq.arq_mem.va;
+-	hw->aq.arq.dma_addr = hw->aq.arq_mem.pa;
+ 
+ 	return ret_code;
+ }
+@@ -125,14 +112,7 @@ static i40e_status i40e_alloc_adminq_arq_ring(struct i40e_hw *hw)
+  **/
+ static void i40e_free_adminq_asq(struct i40e_hw *hw)
+ {
+-	struct i40e_virt_mem mem;
+-
+-	i40e_free_dma_mem(hw, &hw->aq.asq_mem);
+-	hw->aq.asq_mem.va = NULL;
+-	hw->aq.asq_mem.pa = 0;
+-	mem.va = hw->aq.asq.details;
+-	i40e_free_virt_mem(hw, &mem);
+-	hw->aq.asq.details = NULL;
++	i40e_free_dma_mem(hw, &hw->aq.asq.desc_buf);
+ }
+ 
+ /**
+@@ -144,9 +124,7 @@ static void i40e_free_adminq_asq(struct i40e_hw *hw)
+  **/
+ static void i40e_free_adminq_arq(struct i40e_hw *hw)
+ {
+-	i40e_free_dma_mem(hw, &hw->aq.arq_mem);
+-	hw->aq.arq_mem.va = NULL;
+-	hw->aq.arq_mem.pa = 0;
++	i40e_free_dma_mem(hw, &hw->aq.arq.desc_buf);
+ }
+ 
+ /**
+@@ -157,7 +135,6 @@ static i40e_status i40e_alloc_arq_bufs(struct i40e_hw *hw)
+ {
+ 	i40e_status ret_code;
+ 	struct i40e_aq_desc *desc;
+-	struct i40e_virt_mem mem;
+ 	struct i40e_dma_mem *bi;
+ 	int i;
+ 
+@@ -166,11 +143,11 @@ static i40e_status i40e_alloc_arq_bufs(struct i40e_hw *hw)
+ 	 */
+ 
+ 	/* buffer_info structures do not need alignment */
+-	ret_code = i40e_allocate_virt_mem(hw, &mem, (hw->aq.num_arq_entries *
+-					  sizeof(struct i40e_dma_mem)));
++	ret_code = i40e_allocate_virt_mem(hw, &hw->aq.arq.dma_head,
++		(hw->aq.num_arq_entries * sizeof(struct i40e_dma_mem)));
+ 	if (ret_code)
+ 		goto alloc_arq_bufs;
+-	hw->aq.arq.r.arq_bi = (struct i40e_dma_mem *)mem.va;
++	hw->aq.arq.r.arq_bi = (struct i40e_dma_mem *)hw->aq.arq.dma_head.va;
+ 
+ 	/* allocate the mapped buffers */
+ 	for (i = 0; i < hw->aq.num_arq_entries; i++) {
+@@ -212,8 +189,7 @@ unwind_alloc_arq_bufs:
+ 	i--;
+ 	for (; i >= 0; i--)
+ 		i40e_free_dma_mem(hw, &hw->aq.arq.r.arq_bi[i]);
+-	mem.va = hw->aq.arq.r.arq_bi;
+-	i40e_free_virt_mem(hw, &mem);
++	i40e_free_virt_mem(hw, &hw->aq.arq.dma_head);
+ 
+ 	return ret_code;
+ }
+@@ -225,16 +201,15 @@ unwind_alloc_arq_bufs:
+ static i40e_status i40e_alloc_asq_bufs(struct i40e_hw *hw)
+ {
+ 	i40e_status ret_code;
+-	struct i40e_virt_mem mem;
+ 	struct i40e_dma_mem *bi;
+ 	int i;
+ 
+ 	/* No mapped memory needed yet, just the buffer info structures */
+-	ret_code = i40e_allocate_virt_mem(hw, &mem, (hw->aq.num_asq_entries *
+-					  sizeof(struct i40e_dma_mem)));
++	ret_code = i40e_allocate_virt_mem(hw, &hw->aq.asq.dma_head,
++		(hw->aq.num_asq_entries * sizeof(struct i40e_dma_mem)));
+ 	if (ret_code)
+ 		goto alloc_asq_bufs;
+-	hw->aq.asq.r.asq_bi = (struct i40e_dma_mem *)mem.va;
++	hw->aq.asq.r.asq_bi = (struct i40e_dma_mem *)hw->aq.asq.dma_head.va;
+ 
+ 	/* allocate the mapped buffers */
+ 	for (i = 0; i < hw->aq.num_asq_entries; i++) {
+@@ -254,8 +229,7 @@ unwind_alloc_asq_bufs:
+ 	i--;
+ 	for (; i >= 0; i--)
+ 		i40e_free_dma_mem(hw, &hw->aq.asq.r.asq_bi[i]);
+-	mem.va = hw->aq.asq.r.asq_bi;
+-	i40e_free_virt_mem(hw, &mem);
++	i40e_free_virt_mem(hw, &hw->aq.asq.dma_head);
+ 
+ 	return ret_code;
+ }
+@@ -266,14 +240,17 @@ unwind_alloc_asq_bufs:
+  **/
+ static void i40e_free_arq_bufs(struct i40e_hw *hw)
+ {
+-	struct i40e_virt_mem mem;
+ 	int i;
+ 
++	/* free descriptors */
+ 	for (i = 0; i < hw->aq.num_arq_entries; i++)
+ 		i40e_free_dma_mem(hw, &hw->aq.arq.r.arq_bi[i]);
+ 
+-	mem.va = hw->aq.arq.r.arq_bi;
+-	i40e_free_virt_mem(hw, &mem);
++	/* free the descriptor memory */
++	i40e_free_dma_mem(hw, &hw->aq.arq.desc_buf);
++
++	/* free the dma header */
++	i40e_free_virt_mem(hw, &hw->aq.arq.dma_head);
+ }
+ 
+ /**
+@@ -282,7 +259,6 @@ static void i40e_free_arq_bufs(struct i40e_hw *hw)
+  **/
+ static void i40e_free_asq_bufs(struct i40e_hw *hw)
+ {
+-	struct i40e_virt_mem mem;
+ 	int i;
+ 
+ 	/* only unmap if the address is non-NULL */
+@@ -290,9 +266,14 @@ static void i40e_free_asq_bufs(struct i40e_hw *hw)
+ 		if (hw->aq.asq.r.asq_bi[i].pa)
+ 			i40e_free_dma_mem(hw, &hw->aq.asq.r.asq_bi[i]);
+ 
+-	/* now free the buffer info list */
+-	mem.va = hw->aq.asq.r.asq_bi;
+-	i40e_free_virt_mem(hw, &mem);
++	/* free the buffer info list */
++	i40e_free_virt_mem(hw, &hw->aq.asq.cmd_buf);
++
++	/* free the descriptor memory */
++	i40e_free_dma_mem(hw, &hw->aq.asq.desc_buf);
++
++	/* free the dma header */
++	i40e_free_virt_mem(hw, &hw->aq.asq.dma_head);
+ }
+ 
+ /**
+@@ -305,14 +286,18 @@ static void i40e_config_asq_regs(struct i40e_hw *hw)
+ {
+ 	if (hw->mac.type == I40E_MAC_VF) {
+ 		/* configure the transmit queue */
+-		wr32(hw, I40E_VF_ATQBAH1, upper_32_bits(hw->aq.asq.dma_addr));
+-		wr32(hw, I40E_VF_ATQBAL1, lower_32_bits(hw->aq.asq.dma_addr));
++		wr32(hw, I40E_VF_ATQBAH1,
++		    upper_32_bits(hw->aq.asq.desc_buf.pa));
++		wr32(hw, I40E_VF_ATQBAL1,
++		    lower_32_bits(hw->aq.asq.desc_buf.pa));
+ 		wr32(hw, I40E_VF_ATQLEN1, (hw->aq.num_asq_entries |
+ 					  I40E_VF_ATQLEN1_ATQENABLE_MASK));
+ 	} else {
+ 		/* configure the transmit queue */
+-		wr32(hw, I40E_PF_ATQBAH, upper_32_bits(hw->aq.asq.dma_addr));
+-		wr32(hw, I40E_PF_ATQBAL, lower_32_bits(hw->aq.asq.dma_addr));
++		wr32(hw, I40E_PF_ATQBAH,
++		    upper_32_bits(hw->aq.asq.desc_buf.pa));
++		wr32(hw, I40E_PF_ATQBAL,
++		    lower_32_bits(hw->aq.asq.desc_buf.pa));
+ 		wr32(hw, I40E_PF_ATQLEN, (hw->aq.num_asq_entries |
+ 					  I40E_PF_ATQLEN_ATQENABLE_MASK));
+ 	}
+@@ -328,14 +313,18 @@ static void i40e_config_arq_regs(struct i40e_hw *hw)
+ {
+ 	if (hw->mac.type == I40E_MAC_VF) {
+ 		/* configure the receive queue */
+-		wr32(hw, I40E_VF_ARQBAH1, upper_32_bits(hw->aq.arq.dma_addr));
+-		wr32(hw, I40E_VF_ARQBAL1, lower_32_bits(hw->aq.arq.dma_addr));
++		wr32(hw, I40E_VF_ARQBAH1,
++		    upper_32_bits(hw->aq.arq.desc_buf.pa));
++		wr32(hw, I40E_VF_ARQBAL1,
++		    lower_32_bits(hw->aq.arq.desc_buf.pa));
+ 		wr32(hw, I40E_VF_ARQLEN1, (hw->aq.num_arq_entries |
+ 					  I40E_VF_ARQLEN1_ARQENABLE_MASK));
+ 	} else {
+ 		/* configure the receive queue */
+-		wr32(hw, I40E_PF_ARQBAH, upper_32_bits(hw->aq.arq.dma_addr));
+-		wr32(hw, I40E_PF_ARQBAL, lower_32_bits(hw->aq.arq.dma_addr));
++		wr32(hw, I40E_PF_ARQBAH,
++		    upper_32_bits(hw->aq.arq.desc_buf.pa));
++		wr32(hw, I40E_PF_ARQBAL,
++		    lower_32_bits(hw->aq.arq.desc_buf.pa));
+ 		wr32(hw, I40E_PF_ARQLEN, (hw->aq.num_arq_entries |
+ 					  I40E_PF_ARQLEN_ARQENABLE_MASK));
+ 	}
+@@ -483,8 +472,6 @@ static i40e_status i40e_shutdown_asq(struct i40e_hw *hw)
+ 
+ 	/* free ring buffers */
+ 	i40e_free_asq_bufs(hw);
+-	/* free the ring descriptors */
+-	i40e_free_adminq_asq(hw);
+ 
+ 	mutex_unlock(&hw->aq.asq_mutex);
+ 
+@@ -516,8 +503,6 @@ static i40e_status i40e_shutdown_arq(struct i40e_hw *hw)
+ 
+ 	/* free ring buffers */
+ 	i40e_free_arq_bufs(hw);
+-	/* free the ring descriptors */
+-	i40e_free_adminq_arq(hw);
+ 
+ 	mutex_unlock(&hw->aq.arq_mutex);
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.h b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
+index f8c2c44..21801c3 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
+@@ -32,20 +32,20 @@
+ #include "i40e_adminq_cmd.h"
+ 
+ #define I40E_ADMINQ_DESC(R, i)   \
+-	(&(((struct i40e_aq_desc *)((R).desc))[i]))
++	(&(((struct i40e_aq_desc *)((R).desc_buf.va))[i]))
+ 
+ #define I40E_ADMINQ_DESC_ALIGNMENT 4096
+ 
+ struct i40e_adminq_ring {
+-	void *desc;		/* Descriptor ring memory */
+-	void *details;		/* ASQ details */
++	struct i40e_virt_mem dma_head;	/* space for dma structures */
++	struct i40e_dma_mem desc_buf;	/* descriptor ring memory */
++	struct i40e_virt_mem cmd_buf;	/* command buffer memory */
+ 
+ 	union {
+ 		struct i40e_dma_mem *asq_bi;
+ 		struct i40e_dma_mem *arq_bi;
+ 	} r;
+ 
+-	u64 dma_addr;		/* Physical address of the ring */
+ 	u16 count;		/* Number of descriptors */
+ 	u16 rx_buf_len;		/* Admin Receive Queue buffer length */
+ 
+@@ -70,7 +70,7 @@ struct i40e_asq_cmd_details {
+ };
+ 
+ #define I40E_ADMINQ_DETAILS(R, i)   \
+-	(&(((struct i40e_asq_cmd_details *)((R).details))[i]))
++	(&(((struct i40e_asq_cmd_details *)((R).cmd_buf.va))[i]))
+ 
+ /* ARQ event information */
+ struct i40e_arq_event_info {
+@@ -95,9 +95,6 @@ struct i40e_adminq_info {
+ 	struct mutex asq_mutex; /* Send queue lock */
+ 	struct mutex arq_mutex; /* Receive queue lock */
+ 
+-	struct i40e_dma_mem asq_mem;    /* send queue dynamic memory */
+-	struct i40e_dma_mem arq_mem;    /* receive queue dynamic memory */
+-
+ 	/* last status values on send and receive queues */
+ 	enum i40e_admin_queue_err asq_last_status;
+ 	enum i40e_admin_queue_err arq_last_status;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index 7f448b6..22fcf94 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -192,12 +192,12 @@ static ssize_t i40e_dbg_dump_write(struct file *filp,
+ 
+ 			len = (sizeof(struct i40e_aq_desc)
+ 					* pf->hw.aq.num_asq_entries);
+-			memcpy(p, pf->hw.aq.asq.desc, len);
++			memcpy(p, pf->hw.aq.asq.desc_buf.va, len);
+ 			p += len;
+ 
+ 			len = (sizeof(struct i40e_aq_desc)
+ 					* pf->hw.aq.num_arq_entries);
+-			memcpy(p, pf->hw.aq.arq.desc, len);
++			memcpy(p, pf->hw.aq.arq.desc_buf.va, len);
+ 			p += len;
+ 
+ 			i40e_dbg_dump_data_len = buflen;
 -- 
 1.8.3.1
