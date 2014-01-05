@@ -1,72 +1,57 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 0/6] phylib: cleanups
-Date: Sun, 5 Jan 2014 09:31:10 +0100
-Message-ID: <20140105083109.GB4933@netboy>
-References: <201401040413.06853.sergei.shtylyov@cogentembedded.com>
- <20140104155338.GG4925@netboy>
- <52C8417D.6020502@cogentembedded.com>
- <52C858C7.1010300@cogentembedded.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: Multicast routing stops functioning after 4G multicast packets
+ recived.
+Date: Sun, 5 Jan 2014 10:56:55 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1401051050320.1538@ja.home.ssi.bg>
+References: <20131219144816.33310@gmx.com> <alpine.LFD.2.11.1401042143330.1598@ja.home.ssi.bg> <20140104233840.GD25828@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Bob Falken <NetFestivalHaveFun@gmx.com>, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f171.google.com ([209.85.215.171]:44853 "EHLO
-	mail-ea0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750816AbaAEIbW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 03:31:22 -0500
-Received: by mail-ea0-f171.google.com with SMTP id h10so7445665eak.30
-        for <netdev@vger.kernel.org>; Sun, 05 Jan 2014 00:31:21 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <52C858C7.1010300@cogentembedded.com>
+Received: from ja.ssi.bg ([178.16.129.10]:53210 "EHLO ja.home.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750826AbaAEI5Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Jan 2014 03:57:16 -0500
+In-Reply-To: <20140104233840.GD25828@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 04, 2014 at 09:53:59PM +0300, Sergei Shtylyov wrote:
+
+	Hello,
+
+On Sun, 5 Jan 2014, Hannes Frederic Sowa wrote:
+
+> I guess we should just try. I somehow forgot to look after that. Thanks
+> for reminding, Julian.
+
+	If that patch solves the problem, do not forget
+to include same fix for ip6mr_fib_lookup(). As for net/decnet/,
+it looks ok, it uses fib_rule_put() in dn_fib_res_put().
+
+> Bob, can you try with this patch again?
 > 
-> >    Because get_maintainer.pl doesn't suggest it and because Andy Fleming
-> >seems no longer interested in maintaining his code written back in 2004.
+> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+> index 421a249..b9b3472 100644
+> --- a/net/ipv4/ipmr.c
+> +++ b/net/ipv4/ipmr.c
+> @@ -157,9 +157,12 @@ static struct mr_table *ipmr_get_table(struct net *net, u32 id)
+>  static int ipmr_fib_lookup(struct net *net, struct flowi4 *flp4,
+>  			   struct mr_table **mrt)
+>  {
+> -	struct ipmr_result res;
+> -	struct fib_lookup_arg arg = { .result = &res, };
+>  	int err;
+> +	struct ipmr_result res;
+> +	struct fib_lookup_arg arg = {
+> +		.result = &res,
+> +		.flags = FIB_LOOKUP_NOREF,
+> +	};
+>  
+>  	err = fib_rules_lookup(net->ipv4.mr_rules_ops,
+>  			       flowi4_to_flowi(flp4), 0, &arg);
 
-It never hurts to ask.
+Regards
 
-Your patches are saying, "Andy, your code has poor style." I don't
-agree, especially about #3. Also, maybe the deleted callback will
-useful one day. After all, there are not that many phylib
-drivers. Perhaps future MAC drivers will need this.
- 
->    Besides, I don't have his current email address (the source code
-> doesn't provide any).
-
-Here, let me find that for you.
-
-Thanks,
-Richard
----
-git log --author="Andy Fleming"
-
-commit 39fd40274d1f3a52152ae6fc22f428d93f1a8363
-Author: Andy Fleming <afleming@freescale.com>
-Date:   Mon Aug 5 14:58:35 2013 -0500
-
-    powerpc: Convert platforms to smp_generic_cpu_bootable
-    
-    T4, Cell, powernv, and pseries had the same implementation, so switch
-    them to use a generic version. A2 apparently had a version, but
-    removed it at some point, so we remove the declaration, too.
-    
-    Signed-off-by: Andy Fleming <afleming@freescale.com>
-    Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-
-commit 3cd852502316d42e3e75859e92d9f0a952bb55a2
-Author: Andy Fleming <afleming@freescale.com>
-Date:   Mon Aug 5 14:58:34 2013 -0500
-
-    powerpc: Add smp_generic_cpu_bootable
-    
-    Cell and PSeries both implemented their own versions of a
-    cpu_bootable smp_op which do the same thing (well, the PSeries
-    one has support for more than 2 threads). Copy the PSeries one
-    to generic code, and rename it smp_generic_cpu_bootable.
-    
-    Signed-off-by: Andy Fleming <afleming@freescale.com>
-    Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+--
+Julian Anastasov <ja@ssi.bg>
