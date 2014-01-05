@@ -1,7 +1,7 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH v2 7/8] phylib: remove unused adjust_state() callback
-Date: Sun, 5 Jan 2014 03:27:17 +0300
-Message-ID: <201401050327.17328.sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH v2 8/8] phylib: make phy_scan_fixups() static
+Date: Sun, 5 Jan 2014 03:28:27 +0300
+Message-ID: <201401050328.28217.sergei.shtylyov@cogentembedded.com>
 References: <201401050315.29587.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
@@ -9,150 +9,66 @@ Content-Type: Text/Plain;
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f43.google.com ([209.85.215.43]:35064 "EHLO
-	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754579AbaADX1S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 18:27:18 -0500
-Received: by mail-la0-f43.google.com with SMTP id n7so9159737lam.30
-        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 15:27:16 -0800 (PST)
+Received: from mail-lb0-f172.google.com ([209.85.217.172]:64880 "EHLO
+	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754953AbaADX23 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jan 2014 18:28:29 -0500
+Received: by mail-lb0-f172.google.com with SMTP id x18so9154826lbi.31
+        for <netdev@vger.kernel.org>; Sat, 04 Jan 2014 15:28:27 -0800 (PST)
 Received: from wasted.dev.rtsoft.ru (ppp91-76-87-5.pppoe.mtu-net.ru. [91.76.87.5])
-        by mx.google.com with ESMTPSA id mx3sm39497541lbc.14.2014.01.04.15.27.16
+        by mx.google.com with ESMTPSA id bl6sm39522433lbb.5.2014.01.04.15.28.26
         for <netdev@vger.kernel.org>
         (version=TLSv1 cipher=RC4-SHA bits=128/128);
-        Sat, 04 Jan 2014 15:27:16 -0800 (PST)
+        Sat, 04 Jan 2014 15:28:27 -0800 (PST)
 In-Reply-To: <201401050315.29587.sergei.shtylyov@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove adjust_state() callback from 'struct phy_device' since it seems to have
-never been really used from the inception: phy_start_machine() has been always
-called with 2nd argument equal to NULL.
+phy_scan_fixups()  isn't and shouldn't be called by the drivers directly, so
+unexport it. And since Florian Fainelli's recent patches, the function is only
+called locally, so we can make it static as well.
 
 Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
 ---
 Changes in version 2:
 - resolved reject, refreshed the patch;
-- added () to the subject.
+- added signoff.
 
- drivers/net/phy/mdio_bus.c   |    4 ++--
- drivers/net/phy/phy.c        |   17 +++--------------
- drivers/net/phy/phy_device.c |    2 +-
- include/linux/phy.h          |    7 +------
- 4 files changed, 7 insertions(+), 23 deletions(-)
+ drivers/net/phy/phy_device.c |    3 +--
+ include/linux/phy.h          |    1 -
+ 2 files changed, 1 insertion(+), 3 deletions(-)
 
-Index: net-next/drivers/net/phy/mdio_bus.c
-===================================================================
---- net-next.orig/drivers/net/phy/mdio_bus.c
-+++ net-next/drivers/net/phy/mdio_bus.c
-@@ -379,7 +379,7 @@ static int mdio_bus_resume(struct device
- 
- no_resume:
- 	if (phydev->attached_dev && phydev->adjust_link)
--		phy_start_machine(phydev, NULL);
-+		phy_start_machine(phydev);
- 
- 	return 0;
- }
-@@ -401,7 +401,7 @@ static int mdio_bus_restore(struct devic
- 	phydev->link = 0;
- 	phydev->state = PHY_UP;
- 
--	phy_start_machine(phydev, NULL);
-+	phy_start_machine(phydev);
- 
- 	return 0;
- }
-Index: net-next/drivers/net/phy/phy.c
-===================================================================
---- net-next.orig/drivers/net/phy/phy.c
-+++ net-next/drivers/net/phy/phy.c
-@@ -406,21 +406,15 @@ EXPORT_SYMBOL(phy_start_aneg);
- /**
-  * phy_start_machine - start PHY state machine tracking
-  * @phydev: the phy_device struct
-- * @handler: callback function for state change notifications
-  *
-  * Description: The PHY infrastructure can run a state machine
-  *   which tracks whether the PHY is starting up, negotiating,
-  *   etc.  This function starts the timer which tracks the state
-- *   of the PHY.  If you want to be notified when the state changes,
-- *   pass in the callback @handler, otherwise, pass NULL.  If you
-- *   want to maintain your own state machine, do not call this
-- *   function.
-+ *   of the PHY.  If you want to maintain your own state machine,
-+ *   do not call this function.
-  */
--void phy_start_machine(struct phy_device *phydev,
--		       void (*handler)(struct net_device *))
-+void phy_start_machine(struct phy_device *phydev)
- {
--	phydev->adjust_state = handler;
--
- 	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue, HZ);
- }
- 
-@@ -440,8 +434,6 @@ void phy_stop_machine(struct phy_device 
- 	if (phydev->state > PHY_UP)
- 		phydev->state = PHY_UP;
- 	mutex_unlock(&phydev->lock);
--
--	phydev->adjust_state = NULL;
- }
- 
- /**
-@@ -706,9 +698,6 @@ void phy_state_machine(struct work_struc
- 
- 	mutex_lock(&phydev->lock);
- 
--	if (phydev->adjust_state)
--		phydev->adjust_state(phydev->attached_dev);
--
- 	switch (phydev->state) {
- 	case PHY_DOWN:
- 	case PHY_STARTING:
 Index: net-next/drivers/net/phy/phy_device.c
 ===================================================================
 --- net-next.orig/drivers/net/phy/phy_device.c
 +++ net-next/drivers/net/phy/phy_device.c
-@@ -422,7 +422,7 @@ int phy_connect_direct(struct net_device
- 		return rc;
+@@ -122,7 +122,7 @@ static int phy_needs_fixup(struct phy_de
+ }
  
- 	phy_prepare_link(phydev, handler);
--	phy_start_machine(phydev, NULL);
-+	phy_start_machine(phydev);
- 	if (phydev->irq > 0)
- 		phy_start_interrupts(phydev);
+ /* Runs any matching fixups for this phydev */
+-int phy_scan_fixups(struct phy_device *phydev)
++static int phy_scan_fixups(struct phy_device *phydev)
+ {
+ 	struct phy_fixup *fixup;
  
+@@ -141,7 +141,6 @@ int phy_scan_fixups(struct phy_device *p
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL(phy_scan_fixups);
+ 
+ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
+ 				     bool is_c45,
 Index: net-next/include/linux/phy.h
 ===================================================================
 --- net-next.orig/include/linux/phy.h
 +++ net-next/include/linux/phy.h
-@@ -282,8 +282,6 @@ struct phy_c45_device_ids {
-  * attached_dev: The attached enet driver's device instance ptr
-  * adjust_link: Callback for the enet controller to respond to
-  * changes in the link state.
-- * adjust_state: Callback for the enet driver to respond to
-- * changes in the state machine.
-  *
-  * speed, duplex, pause, supported, advertising, lp_advertising,
-  * and autoneg are used like in mii_if_info
-@@ -364,8 +362,6 @@ struct phy_device {
- 	struct net_device *attached_dev;
+@@ -596,7 +596,6 @@ int phy_register_fixup_for_id(const char
+ 			      int (*run)(struct phy_device *));
+ int phy_register_fixup_for_uid(u32 phy_uid, u32 phy_uid_mask,
+ 			       int (*run)(struct phy_device *));
+-int phy_scan_fixups(struct phy_device *phydev);
  
- 	void (*adjust_link)(struct net_device *dev);
--
--	void (*adjust_state)(struct net_device *dev);
- };
- #define to_phy_device(d) container_of(d, struct phy_device, dev)
- 
-@@ -585,8 +581,7 @@ int phy_drivers_register(struct phy_driv
- void phy_state_machine(struct work_struct *work);
- void phy_change(struct work_struct *work);
- void phy_mac_interrupt(struct phy_device *phydev, int new_link);
--void phy_start_machine(struct phy_device *phydev,
--		       void (*handler)(struct net_device *));
-+void phy_start_machine(struct phy_device *phydev);
- void phy_stop_machine(struct phy_device *phydev);
- int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd);
- int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd);
+ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable);
+ int phy_get_eee_err(struct phy_device *phydev);
