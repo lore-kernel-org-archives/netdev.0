@@ -1,26 +1,57 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH 4/11]  use ether_addr_equal_64bits
-Date: Mon, 6 Jan 2014 09:48:21 +0100 (CET)
-Message-ID: <alpine.DEB.2.10.1401060947550.2079@hadrien>
-References: <1388427307-8691-1-git-send-email-Julia.Lawall@lip6.fr>  <1388427307-8691-5-git-send-email-Julia.Lawall@lip6.fr>  <1388429761.4410.1.camel@jlt4.sipsolutions.net>  <alpine.DEB.2.02.1312302057420.2209@localhost6.localdomain6>
- <1388438724.4573.2.camel@jlt4.sipsolutions.net>  <20131230215701.GA4938@khazad-dum.debian.net>  <1388445188.18164.0.camel@jlt4.sipsolutions.net> <1388445422.26796.38.camel@joe-AO722>
+From: Asi Lichtenstein <asili22@gmail.com>
+Subject: Re: How to add IPv6 multiple routing tables support to 2.6.16.26 kernel
+Date: Mon, 6 Jan 2014 10:56:17 +0200
+Message-ID: <CAMBtn_3MaW+Hk=y7egXHo7sSEwdh-S=ZXs0Lne_ysf2pEOrrWA@mail.gmail.com>
+References: <CAMBtn_3jpNh=gvxkzVzSqgj3OEXYyqUdPb7Y63Jm-PVhx7U=DA@mail.gmail.com>
+	<1388930162.16576.YahooMailBasic@web125504.mail.ne1.yahoo.com>
+	<CAMBtn_2LttBQ6u5C_GEc1hh4=iSiAnzpN+2+MZO6j6GB2XBtNA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Henrique de Moraes Holschuh <hmh@hmh.eng.br>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	kernel-janitors@vger.kernel.org,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1388445422.26796.38.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f54.google.com ([209.85.219.54]:49746 "EHLO
+	mail-oa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752798AbaAFI4S convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 03:56:18 -0500
+Received: by mail-oa0-f54.google.com with SMTP id o6so1892326oag.13
+        for <netdev@vger.kernel.org>; Mon, 06 Jan 2014 00:56:18 -0800 (PST)
+In-Reply-To: <CAMBtn_2LttBQ6u5C_GEc1hh4=iSiAnzpN+2+MZO6j6GB2XBtNA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Is there any way to get sizeof evaluated at build time?
+Does anyone know where I can find this patch:
+http://thread.gmane.org/gmane.linux.network/41149
 
-julia
+the link is broken, I've sent Thomas an email but did not get any respo=
+nse.
+
+10x
+
+On Sun, Jan 5, 2014 at 4:09 PM, Asi Lichtenstein <asili22@gmail.com> wr=
+ote:
+> On Sun, Jan 5, 2014 at 3:56 PM, Fran=E7ois-Xavier Le Bail
+> <fx.lebail@yahoo.com> wrote:
+>> On Sun, 1/5/14, Asi Lichtenstein <asili22@gmail.com> wrote:
+>>
+>>> It does look promising, are there any other related
+>>> patches?
+>>
+>> I dont' know.
+>> I just follow the link "(patch)" at the url you sent.
+>> Please reply at end of message.
+>>
+>> BR
+>>
+>>> On Sun, Jan 5, 2014 at 3:25 PM, Fran=E7ois-Xavier Le Bail
+>>  <fx.lebail@yahoo.com>
+>>  wrote:
+>>> > Hello,
+>>> >
+>>> > Are you looking for this ?
+>>> > http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/pa=
+tch/?id=3Dc71099acce933455123ee505cc75964610a209ad
+>>
+>
+> I applied the patch you were referring to, but I think I am missing
+> some higher level code with netlink.
