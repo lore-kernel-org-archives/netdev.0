@@ -1,53 +1,54 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net-next 1/2] ipv4: add forwarding_uses_pmtu knob to
- protect forward path to use pmtu info
-Date: Mon, 6 Jan 2014 10:05:21 +0100
-Message-ID: <20140106090521.GQ31491@secunet.com>
-References: <20131220130822.GD32129@order.stressinduktion.org>
- <20131231042840.GC27636@order.stressinduktion.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 4/11]  use ether_addr_equal_64bits
+Date: Mon, 06 Jan 2014 10:05:47 +0100
+Message-ID: <1388999147.5891.2.camel@jlt4.sipsolutions.net>
+References: <1388427307-8691-1-git-send-email-Julia.Lawall@lip6.fr>
+	  <1388427307-8691-5-git-send-email-Julia.Lawall@lip6.fr>
+	  <1388429761.4410.1.camel@jlt4.sipsolutions.net>
+	  <alpine.DEB.2.02.1312302057420.2209@localhost6.localdomain6>
+	  <1388438724.4573.2.camel@jlt4.sipsolutions.net>
+	  <20131230215701.GA4938@khazad-dum.debian.net>
+	  <1388445188.18164.0.camel@jlt4.sipsolutions.net>
+	 <1388445422.26796.38.camel@joe-AO722>
+	 <alpine.DEB.2.02.1312310726540.1930@localhost6.localdomain6>
+	 <52C2E8BA.6000800@candelatech.com>
+	 <alpine.DEB.2.10.1312311704320.2074@hadrien>
+	 <52C2F056.1020005@candelatech.com>
+	 <alpine.DEB.2.10.1312311732080.2074@hadrien>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org, eric.dumazet@gmail.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:45131 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753026AbaAFJFY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jan 2014 04:05:24 -0500
-Content-Disposition: inline
-In-Reply-To: <20131231042840.GC27636@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Greear <greearb@candelatech.com>,
+	Joe Perches <joe@perches.com>,
+	Henrique de Moraes Holschuh <hmh@hmh.eng.br>,
+	kernel-janitors@vger.kernel.org,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.10.1312311732080.2074@hadrien>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 31, 2013 at 05:28:40AM +0100, Hannes Frederic Sowa wrote:
-> Hi Steffen!
-> 
-> On Fri, Dec 20, 2013 at 02:08:22PM +0100, Hannes Frederic Sowa wrote:
-> > Provide a mode where the forwarding path does not use the protocol path
-> > MTU to calculate the maximum size for a forwarded packet but instead
-> > uses the interface or the per-route locked MTU.
-> > 
-> > It is easy to inject bogus or malicious path mtu information which
-> > will cause either unneeded fragmentation-needed icmp errors (in case
-> > of DF-bit set) or unnecessary fragmentation of packets (by default down
-> > to min_pmtu). This could be used to either create blackholes on routers
-> > (if the generated DF-bit gets dropped later on) or to leverage attacks
-> > on fragmentation.
-> > 
-> > Forwarded skbs are marked with IPSKB_FORWARDED in ip_forward. This flag
-> > was introduced for multicast forwarding, but as it does not conflict with
-> > our usage in the unicast code path it is perfect for reuse.
-> > 
-> > I moved the functions ip_sk_accept_pmtu, ip_sk_use_pmtu and ip_skb_dst_mtu
-> > along with the new ip_dst_mtu_secure to net/ip.h to fix circular
-> > dependencies because of IPSKB_FORWARDED.
-> 
-> IIRC you have a (semi-)automatic test suite to test for (p)mtu problems? Would
-> these checks cover such a change?
-> 
+On Tue, 2013-12-31 at 17:40 +0100, Julia Lawall wrote:
 
-I'm currenlty testing these patches. ipv4 looks good but on
-ipv6 with 'ping6' the packet size is not reduced according
-to the pmtu when forward_use_pmtu is set to 0.
+> > If nothing else, then some run-time code that calculates the offset off
+> > and asserts if it is broken in module initialization or similar might
+> > be good enough.
+> 
+> Could be OK.  Something right in or after the structure declaration would
+> be nicest.
 
-I'll run the tests again with your updated v3 patches.
+I don't think you can put a BUILD_BUG_ON() into the structure
+declaration (it's code, not declarations), but I think you could just
+put
+
+BUILD_BUG_ON(sizeof(struct foo) - offsetof(struct foo, addr) < 8);
+
+with the user(s?) and that should catch the scenario I was worrying
+about?
+
+johannes
