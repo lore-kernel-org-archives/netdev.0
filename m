@@ -1,100 +1,143 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v4] IPv6: use anycast addresses as source addresses in echo reply
-Date: Mon, 6 Jan 2014 16:52:53 +0100
-Message-ID: <20140106155253.GA10204@order.stressinduktion.org>
-References: <20140106105614.GB4611@order.stressinduktion.org> <1389016096.57230.YahooMailBasic@web125502.mail.ne1.yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: =?utf-8?Q?Fran=C3=A7ois-Xavier?= Le Bail <fx.lebail@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:42455 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754973AbaAFPwy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 10:52:54 -0500
-Content-Disposition: inline
-In-Reply-To: <1389016096.57230.YahooMailBasic@web125502.mail.ne1.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrey Vagin <avagin@openvz.org>
+Subject: [PATCH] netfilter: nf_conntrack: release conntrack from rcu callback
+Date: Mon,  6 Jan 2014 19:54:32 +0400
+Message-ID: <1389023672-14351-1-git-send-email-avagin@openvz.org>
+Cc: netfilter@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	vvs@openvz.org, Andrey Vagin <avagin@openvz.org>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cyrill Gorcunov <gorcunov@openvz.org>
+To: netfilter-devel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 06, 2014 at 05:48:16AM -0800, Fran=C3=A7ois-Xavier Le Bail =
-wrote:
-> On Mon, 1/6/14, Hannes Frederic Sowa <hannes@stressinduktion.org> wro=
-te:
->=20
-> > On Mon, Jan 06, 2014 at 02:41:41AM -0800, Fran=C3=A7ois-Xavier Le B=
-ail wrote:
-> > > On Sun, 1/5/14, Hannes Frederic Sowa <hannes@stressinduktion.org>=
- wrote:
-> > >=20
-> > > > On Fri, Jan 03, 2014 at 05:43:31PM +0100, Francois-Xavier Le Ba=
-il wrote:
-> > > > > diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-> > > > > index 5d42009..65c8619 100644
-> > > > > --- a/net/ipv6/icmp.c
-> > > > > +++ b/net/ipv6/icmp.c
-> > > > > @@ -556,7 +556,9 @@ static void icmpv6_echo_reply(struct sk_b=
-uff *skb)
-> > > > > =20
-> > > > >  	saddr =3D &ipv6_hdr(skb)->daddr;
-> > > > > =20
-> > > > > -	if (!ipv6_unicast_destination(skb))
-> > > > > +	if (!ipv6_unicast_destination(skb) &&
-> > > > > +	    !(net->ipv6.anycast_src_echo_reply &&
-> > > > > +	      ipv6_chk_acast_addr(net, NULL, saddr)))
-> > > > >  		saddr =3D NULL;
-> > >=20
-> > > > I am not sure why you left out the device at ipv6_chk_acast_add=
-r?
-> > >=20
-> > > > IMHO this logic is a bit more complex, we can pass NULL for ipv=
-6 addresses of
-> > > > scope global but need to check the interface for scope link.
-> > >=20
-> > > > It is already possible via setsockopt JOIN_ANYCAST that an ll a=
-ddress is
-> > > > anycast on another interface which may not be checked here.
-> > >=20
-> > > In this case, there are neighbor solicitations "who has LL anycas=
-t" with no reply, so no echo request is sent.
-> >=20
-> > A counter-example would be NOARP interfaces where we also don't spe=
-ak ndisc.
->=20
-> Right. But if an echo request arrive on an interface which do not lis=
-ten at this LL anycast, is a reply can occur ?
+Lets look at destroy_conntrack:
 
-I thought quite the opposite with anycast + forwarding enabled, that
-we would process the packet. But a quick test with this snippet showed =
-no
-problems on a tunnel router. Local input is ok, too.
+hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
+...
+nf_conntrack_free(ct)
+	kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <net/if.h>
+The hash is protected by rcu, so readers look up conntracks without
+locks.
+A conntrack is removed from the hash, but in this moment a few readers
+still can use the conntrack, so if we call kmem_cache_free now, all
+readers will read released object.
 
-int main(int argc, char **argv)
-{
-  struct ipv6_mreq mreq =3D {0};
-  int sockfd=3Dsocket(AF_INET6, SOCK_DGRAM,0);
-  inet_pton(AF_INET6, "fe80::AAAA", &mreq.ipv6mr_multiaddr);
-  mreq.ipv6mr_interface =3D if_nametoindex("dummy0");
-  setsockopt(sockfd, IPPROTO_IPV6, IPV6_JOIN_ANYCAST, &mreq, sizeof(mre=
-q));
-  pause();
-}
+Bellow you can find more tricky race condition of three tasks.
 
-I guess, I would have added skb->dev for the sake of defensive style
-(and maybe performance, if tables get large). I have not tested that
-and it's your choice (or Davids, of course). But I currently don't see
-a reason why it should break. ;)
+task 1			task 2			task 3
+			nf_conntrack_find_get
+			 ____nf_conntrack_find
+destroy_conntrack
+ hlist_nulls_del_rcu
+ nf_conntrack_free
+ kmem_cache_free
+						__nf_conntrack_alloc
+						 kmem_cache_alloc
+						 memset(&ct->tuplehash[IP_CT_DIR_MAX],
+			 if (nf_ct_is_dying(ct))
 
-Greetings,
+In this case the task 2 will not understand, that it uses a wrong
+conntrack.
 
-  Hannes
+I'm not sure, that I have ever seen this race condition in a real life.
+Currently we are investigating a bug, which is reproduced on a few node.
+In our case one conntrack is initialized from a few tasks concurrently,
+we don't have any other explanation for this.
+
+<2>[46267.083061] kernel BUG at net/ipv4/netfilter/nf_nat_core.c:322!
+...
+<4>[46267.083951] RIP: 0010:[<ffffffffa01e00a4>]  [<ffffffffa01e00a4>] nf_nat_setup_info+0x564/0x590 [nf_nat]
+...
+<4>[46267.085549] Call Trace:
+<4>[46267.085622]  [<ffffffffa023421b>] alloc_null_binding+0x5b/0xa0 [iptable_nat]
+<4>[46267.085697]  [<ffffffffa02342bc>] nf_nat_rule_find+0x5c/0x80 [iptable_nat]
+<4>[46267.085770]  [<ffffffffa0234521>] nf_nat_fn+0x111/0x260 [iptable_nat]
+<4>[46267.085843]  [<ffffffffa0234798>] nf_nat_out+0x48/0xd0 [iptable_nat]
+<4>[46267.085919]  [<ffffffff814841b9>] nf_iterate+0x69/0xb0
+<4>[46267.085991]  [<ffffffff81494e70>] ? ip_finish_output+0x0/0x2f0
+<4>[46267.086063]  [<ffffffff81484374>] nf_hook_slow+0x74/0x110
+<4>[46267.086133]  [<ffffffff81494e70>] ? ip_finish_output+0x0/0x2f0
+<4>[46267.086207]  [<ffffffff814b5890>] ? dst_output+0x0/0x20
+<4>[46267.086277]  [<ffffffff81495204>] ip_output+0xa4/0xc0
+<4>[46267.086346]  [<ffffffff814b65a4>] raw_sendmsg+0x8b4/0x910
+<4>[46267.086419]  [<ffffffff814c10fa>] inet_sendmsg+0x4a/0xb0
+<4>[46267.086491]  [<ffffffff814459aa>] ? sock_update_classid+0x3a/0x50
+<4>[46267.086562]  [<ffffffff81444d67>] sock_sendmsg+0x117/0x140
+<4>[46267.086638]  [<ffffffff8151997b>] ? _spin_unlock_bh+0x1b/0x20
+<4>[46267.086712]  [<ffffffff8109d370>] ? autoremove_wake_function+0x0/0x40
+<4>[46267.086785]  [<ffffffff81495e80>] ? do_ip_setsockopt+0x90/0xd80
+<4>[46267.086858]  [<ffffffff8100be0e>] ? call_function_interrupt+0xe/0x20
+<4>[46267.086936]  [<ffffffff8118cb10>] ? ub_slab_ptr+0x20/0x90
+<4>[46267.087006]  [<ffffffff8118cb10>] ? ub_slab_ptr+0x20/0x90
+<4>[46267.087081]  [<ffffffff8118f2e8>] ? kmem_cache_alloc+0xd8/0x1e0
+<4>[46267.087151]  [<ffffffff81445599>] sys_sendto+0x139/0x190
+<4>[46267.087229]  [<ffffffff81448c0d>] ? sock_setsockopt+0x16d/0x6f0
+<4>[46267.087303]  [<ffffffff810efa47>] ? audit_syscall_entry+0x1d7/0x200
+<4>[46267.087378]  [<ffffffff810ef795>] ? __audit_syscall_exit+0x265/0x290
+<4>[46267.087454]  [<ffffffff81474885>] ? compat_sys_setsockopt+0x75/0x210
+<4>[46267.087531]  [<ffffffff81474b5f>] compat_sys_socketcall+0x13f/0x210
+<4>[46267.087607]  [<ffffffff8104dea3>] ia32_sysret+0x0/0x5
+<4>[46267.087676] Code: 91 20 e2 01 75 29 48 89 de 4c 89 f7 e8 56 fa ff ff 85 c0 0f 84 68 fc ff ff 0f b6 4d c6 41 8b 45 00 e9 4d fb ff ff e8 7c 19 e9 e0 <0f> 0b eb fe f6 05 17 91 20 e2 80 74 ce 80 3d 5f 2e 00 00 00 74
+<1>[46267.088023] RIP  [<ffffffffa01e00a4>] nf_nat_setup_info+0x564/0x590
+
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Cyrill Gorcunov <gorcunov@openvz.org>
+Signed-off-by: Andrey Vagin <avagin@openvz.org>
+---
+ include/net/netfilter/nf_conntrack.h |  2 ++
+ net/netfilter/nf_conntrack_core.c    | 11 +++++++++--
+ 2 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index 01ea6ee..492e857 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -76,6 +76,8 @@ struct nf_conn {
+            plus 1 for any connection(s) we are `master' for */
+ 	struct nf_conntrack ct_general;
+ 
++	struct rcu_head rcu;
++
+ 	spinlock_t lock;
+ 
+ 	/* XXX should I move this to the tail ? - Y.K */
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 43549eb..40e0d61 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -198,6 +198,14 @@ clean_from_lists(struct nf_conn *ct)
+ 	nf_ct_remove_expectations(ct);
+ }
+ 
++static void nf_conntrack_free_rcu(struct rcu_head *head)
++{
++	struct nf_conn *ct = container_of(head, struct nf_conn, rcu);
++
++	pr_debug("destroy_conntrack: returning ct=%p to slab\n", ct);
++	nf_conntrack_free(ct);
++}
++
+ static void
+ destroy_conntrack(struct nf_conntrack *nfct)
+ {
+@@ -236,8 +244,7 @@ destroy_conntrack(struct nf_conntrack *nfct)
+ 	if (ct->master)
+ 		nf_ct_put(ct->master);
+ 
+-	pr_debug("destroy_conntrack: returning ct=%p to slab\n", ct);
+-	nf_conntrack_free(ct);
++	call_rcu(&ct->rcu, nf_conntrack_free_rcu);
+ }
+ 
+ static void nf_ct_delete_from_lists(struct nf_conn *ct)
+-- 
+1.8.4.2
