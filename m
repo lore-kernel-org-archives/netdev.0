@@ -1,51 +1,53 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 07/13] netfilter: select NFNETLINK when enabling NF_TABLES
-Date: Mon,  6 Jan 2014 14:46:36 +0100
-Message-ID: <1389016002-9116-8-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 11/13] netfilter: nf_tables: fix type in parsing in nf_tables_set_alloc_name()
+Date: Mon,  6 Jan 2014 14:46:40 +0100
+Message-ID: <1389016002-9116-12-git-send-email-pablo@netfilter.org>
 References: <1389016002-9116-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59551 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754716AbaAFNq6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jan 2014 08:46:58 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1389016002-9116-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Leblond <eric@regit.org>
+From: Daniel Borkmann <dborkman@redhat.com>
 
-In Kconfig, nf_tables depends on NFNETLINK so building nf_tables as
-a module or inside kernel depends on the state of NFNETLINK inside
-the kernel config. If someone wants to build nf_tables inside the
-kernel, it is necessary to also build NFNETLINK inside the kernel.
-But NFNETLINK can not be set in the menu so it is necessary to
-toggle other nfnetlink subsystems such as logging and nfacct to see
-the nf_tables switch.
+In nf_tables_set_alloc_name(), we are trying to find a new, unused
+name for our new set and interate through the list of present sets.
+As far as I can see, we're using format string %d to parse already
+present names in order to mark their presence in a bitmap, so that
+we can later on find the first 0 in that map to assign the new set
+name to. We should rather use a temporary variable of type int to
+store the result of sscanf() to, and for making sanity checks on.
 
-This patch changes the dependency from 'depend' to 'select' inside
-Kconfig to allow to set the build of nftables as modules or inside
-kernel independently.
-
-Signed-off-by: Eric Leblond <eric@regit.org>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/Kconfig |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/nf_tables_api.c |    9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 4371c98..01f9f64 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -414,7 +414,7 @@ config NETFILTER_SYNPROXY
- endif # NF_CONNTRACK
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 604512d..aa4df58 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -1954,11 +1954,14 @@ static int nf_tables_set_alloc_name(struct nft_ctx *ctx, struct nft_set *set,
+ 			return -ENOMEM;
  
- config NF_TABLES
--	depends on NETFILTER_NETLINK
-+	select NETFILTER_NETLINK
- 	tristate "Netfilter nf_tables support"
+ 		list_for_each_entry(i, &ctx->table->sets, list) {
+-			if (!sscanf(i->name, name, &n))
++			int tmp;
++
++			if (!sscanf(i->name, name, &tmp))
+ 				continue;
+-			if (n < 0 || n > BITS_PER_LONG * PAGE_SIZE)
++			if (tmp < 0 || tmp > BITS_PER_LONG * PAGE_SIZE)
+ 				continue;
+-			set_bit(n, inuse);
++
++			set_bit(tmp, inuse);
+ 		}
  
- config NFT_EXTHDR
+ 		n = find_first_zero_bit(inuse, BITS_PER_LONG * PAGE_SIZE);
 -- 
 1.7.10.4
+
