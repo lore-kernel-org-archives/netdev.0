@@ -1,121 +1,263 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 00/13] nftables updates for net-next
-Date: Mon,  6 Jan 2014 14:46:29 +0100
-Message-ID: <1389016002-9116-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Subject: [PATCH 05/13] netfilter: nf_tables: nft_meta module get/set ops
+Date: Mon,  6 Jan 2014 14:46:34 +0100
+Message-ID: <1389016002-9116-6-git-send-email-pablo@netfilter.org>
+References: <1389016002-9116-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1389016002-9116-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+From: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
 
-The following patchset contains nftables updates for your net-next tree,
-they are:
+This patch adds kernel support for the meta expression in get/set
+flavour. The set operation indicates that a given packet has to be
+set with a property, currently one of mark, priority, nftrace.
+The get op is what was currently working: evaluate the given
+packet property.
 
-* Add set operation to the meta expression by means of the select_ops()
-  infrastructure, this allows us to set the packet mark among other things.
-  From Arturo Borrero Gonzalez.
+In the nftrace case, the value is always 1. Such behaviour is copied
+from net/netfilter/xt_TRACE.c
 
-* Fix wrong format in sscanf in nf_tables_set_alloc_name(), from Daniel
-  Borkmann.
+The NFTA_META_DREG and NFTA_META_SREG attributes are mutually
+exclusives.
 
-* Add new queue expression to nf_tables. These comes with two previous patches
-  to prepare this new feature, one to add mask in nf_tables_core to
-  evaluate the queue verdict appropriately and another to refactor common
-  code with xt_NFQUEUE, from Eric Leblond.
+Signed-off-by: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ include/uapi/linux/netfilter/nf_tables.h |    2 +
+ net/netfilter/nft_meta.c                 |  146 +++++++++++++++++++++++++-----
+ 2 files changed, 125 insertions(+), 23 deletions(-)
 
-* Do not hide nftables from Kconfig if nfnetlink is not enabled, also from
-  Eric Leblond.
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index b25481e..aa86a152 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -555,11 +555,13 @@ enum nft_meta_keys {
+  *
+  * @NFTA_META_DREG: destination register (NLA_U32)
+  * @NFTA_META_KEY: meta data item to load (NLA_U32: nft_meta_keys)
++ * @NFTA_META_SREG: source register (NLA_U32)
+  */
+ enum nft_meta_attributes {
+ 	NFTA_META_UNSPEC,
+ 	NFTA_META_DREG,
+ 	NFTA_META_KEY,
++	NFTA_META_SREG,
+ 	__NFTA_META_MAX
+ };
+ #define NFTA_META_MAX		(__NFTA_META_MAX - 1)
+diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
+index 8c28220..1ceaaa6 100644
+--- a/net/netfilter/nft_meta.c
++++ b/net/netfilter/nft_meta.c
+@@ -21,12 +21,15 @@
+ 
+ struct nft_meta {
+ 	enum nft_meta_keys	key:8;
+-	enum nft_registers	dreg:8;
++	union {
++		enum nft_registers	dreg:8;
++		enum nft_registers	sreg:8;
++	};
+ };
+ 
+-static void nft_meta_eval(const struct nft_expr *expr,
+-			  struct nft_data data[NFT_REG_MAX + 1],
+-			  const struct nft_pktinfo *pkt)
++static void nft_meta_get_eval(const struct nft_expr *expr,
++			      struct nft_data data[NFT_REG_MAX + 1],
++			      const struct nft_pktinfo *pkt)
+ {
+ 	const struct nft_meta *priv = nft_expr_priv(expr);
+ 	const struct sk_buff *skb = pkt->skb;
+@@ -132,23 +135,50 @@ err:
+ 	data[NFT_REG_VERDICT].verdict = NFT_BREAK;
+ }
+ 
++static void nft_meta_set_eval(const struct nft_expr *expr,
++			      struct nft_data data[NFT_REG_MAX + 1],
++			      const struct nft_pktinfo *pkt)
++{
++	const struct nft_meta *meta = nft_expr_priv(expr);
++	struct sk_buff *skb = pkt->skb;
++	u32 value = data[meta->sreg].data[0];
++
++	switch (meta->key) {
++	case NFT_META_MARK:
++		skb->mark = value;
++		break;
++	case NFT_META_PRIORITY:
++		skb->priority = value;
++		break;
++	case NFT_META_NFTRACE:
++		skb->nf_trace = 1;
++		break;
++	default:
++		WARN_ON(1);
++	}
++}
++
+ static const struct nla_policy nft_meta_policy[NFTA_META_MAX + 1] = {
+ 	[NFTA_META_DREG]	= { .type = NLA_U32 },
+ 	[NFTA_META_KEY]		= { .type = NLA_U32 },
++	[NFTA_META_SREG]	= { .type = NLA_U32 },
+ };
+ 
+-static int nft_meta_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
+-			 const struct nlattr * const tb[])
++static int nft_meta_init_validate_set(uint32_t key)
+ {
+-	struct nft_meta *priv = nft_expr_priv(expr);
+-	int err;
+-
+-	if (tb[NFTA_META_DREG] == NULL ||
+-	    tb[NFTA_META_KEY] == NULL)
+-		return -EINVAL;
++	switch (key) {
++	case NFT_META_MARK:
++	case NFT_META_PRIORITY:
++	case NFT_META_NFTRACE:
++		return 0;
++	default:
++		return -EOPNOTSUPP;
++	}
++}
+ 
+-	priv->key = ntohl(nla_get_be32(tb[NFTA_META_KEY]));
+-	switch (priv->key) {
++static int nft_meta_init_validate_get(uint32_t key)
++{
++	switch (key) {
+ 	case NFT_META_LEN:
+ 	case NFT_META_PROTOCOL:
+ 	case NFT_META_PRIORITY:
+@@ -167,26 +197,69 @@ static int nft_meta_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
+ #ifdef CONFIG_NETWORK_SECMARK
+ 	case NFT_META_SECMARK:
+ #endif
+-		break;
++		return 0;
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
+ 
+-	priv->dreg = ntohl(nla_get_be32(tb[NFTA_META_DREG]));
+-	err = nft_validate_output_register(priv->dreg);
++}
++
++static int nft_meta_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
++			 const struct nlattr * const tb[])
++{
++	struct nft_meta *priv = nft_expr_priv(expr);
++	int err;
++
++	priv->key = ntohl(nla_get_be32(tb[NFTA_META_KEY]));
++
++	if (tb[NFTA_META_DREG]) {
++		err = nft_meta_init_validate_get(priv->key);
++		if (err < 0)
++			return err;
++
++		priv->dreg = ntohl(nla_get_be32(tb[NFTA_META_DREG]));
++		err = nft_validate_output_register(priv->dreg);
++		if (err < 0)
++			return err;
++
++		return nft_validate_data_load(ctx, priv->dreg, NULL,
++					      NFT_DATA_VALUE);
++	}
++
++	err = nft_meta_init_validate_set(priv->key);
+ 	if (err < 0)
+ 		return err;
+-	return nft_validate_data_load(ctx, priv->dreg, NULL, NFT_DATA_VALUE);
++
++	priv->sreg = ntohl(nla_get_be32(tb[NFTA_META_SREG]));
++
++	return 0;
+ }
+ 
+-static int nft_meta_dump(struct sk_buff *skb, const struct nft_expr *expr)
++static int nft_meta_get_dump(struct sk_buff *skb,
++			     const struct nft_expr *expr)
+ {
+ 	const struct nft_meta *priv = nft_expr_priv(expr);
+ 
++	if (nla_put_be32(skb, NFTA_META_KEY, htonl(priv->key)))
++		goto nla_put_failure;
+ 	if (nla_put_be32(skb, NFTA_META_DREG, htonl(priv->dreg)))
+ 		goto nla_put_failure;
++	return 0;
++
++nla_put_failure:
++	return -1;
++}
++
++static int nft_meta_set_dump(struct sk_buff *skb,
++			     const struct nft_expr *expr)
++{
++	const struct nft_meta *priv = nft_expr_priv(expr);
++
+ 	if (nla_put_be32(skb, NFTA_META_KEY, htonl(priv->key)))
+ 		goto nla_put_failure;
++	if (nla_put_be32(skb, NFTA_META_SREG, htonl(priv->sreg)))
++		goto nla_put_failure;
++
+ 	return 0;
+ 
+ nla_put_failure:
+@@ -194,17 +267,44 @@ nla_put_failure:
+ }
+ 
+ static struct nft_expr_type nft_meta_type;
+-static const struct nft_expr_ops nft_meta_ops = {
++static const struct nft_expr_ops nft_meta_get_ops = {
+ 	.type		= &nft_meta_type,
+ 	.size		= NFT_EXPR_SIZE(sizeof(struct nft_meta)),
+-	.eval		= nft_meta_eval,
++	.eval		= nft_meta_get_eval,
+ 	.init		= nft_meta_init,
+-	.dump		= nft_meta_dump,
++	.dump		= nft_meta_get_dump,
+ };
+ 
++static const struct nft_expr_ops nft_meta_set_ops = {
++	.type		= &nft_meta_type,
++	.size		= NFT_EXPR_SIZE(sizeof(struct nft_meta)),
++	.eval		= nft_meta_set_eval,
++	.init		= nft_meta_init,
++	.dump		= nft_meta_set_dump,
++};
++
++static const struct nft_expr_ops *
++nft_meta_select_ops(const struct nft_ctx *ctx,
++		    const struct nlattr * const tb[])
++{
++	if (tb[NFTA_META_KEY] == NULL)
++		return ERR_PTR(-EINVAL);
++
++	if (tb[NFTA_META_DREG] && tb[NFTA_META_SREG])
++		return ERR_PTR(-EINVAL);
++
++	if (tb[NFTA_META_DREG])
++		return &nft_meta_get_ops;
++
++	if (tb[NFTA_META_SREG])
++		return &nft_meta_set_ops;
++
++	return ERR_PTR(-EINVAL);
++}
++
+ static struct nft_expr_type nft_meta_type __read_mostly = {
+ 	.name		= "meta",
+-	.ops		= &nft_meta_ops,
++	.select_ops	= &nft_meta_select_ops,
+ 	.policy		= nft_meta_policy,
+ 	.maxattr	= NFTA_META_MAX,
+ 	.owner		= THIS_MODULE,
+-- 
+1.7.10.4
 
-* Add the reject expression to nf_tables, this adds the missing TCP RST
-  support. It comes with an initial patch to refactor common code with
-  xt_NFQUEUE, again from Eric Leblond.
-
-* Remove an unused variable assignment in nf_tables_dump_set(), from Michal
-  Nazarewicz.
-
-* Remove the nft_meta_target code, now that Arturo added the set operation
-  to the meta expression, from me.
-
-* Add help information for nf_tables to Kconfig, also from me.
-
-* Allow to dump all sets by specifying NFPROTO_UNSPEC, similar feature is
-  available to other nf_tables objects, requested by Arturo, from me.
-
-* Expose the table usage counter, so we can know how many chains are using
-  this table without dumping the list of chains, from Tomasz Bursztyka.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nftables.git master
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit cfce0a2b61d0658d40bc2af2dca28a817804e17a:
-
-  Merge branch 'for-davem' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next (2013-11-05 02:34:57 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nftables.git master
-
-for you to fetch changes up to c9c8e485978a308c8a359140da187d55120f8fee:
-
-  netfilter: nf_tables: dump sets in all existing families (2014-01-04 00:23:11 +0100)
-
-----------------------------------------------------------------
-Arturo Borrero Gonzalez (1):
-      netfilter: nf_tables: nft_meta module get/set ops
-
-Daniel Borkmann (1):
-      netfilter: nf_tables: fix type in parsing in nf_tables_set_alloc_name()
-
-Eric Leblond (6):
-      netfilter: nf_tables: fix issue with verdict support
-      netfilter: xt_NFQUEUE: separate reusable code
-      netfilter: nft: add queue module
-      netfilter: select NFNETLINK when enabling NF_TABLES
-      netfilter: REJECT: separate reusable code
-      netfilter: nft_reject: support for IPv6 and TCP reset
-
-Michal Nazarewicz (1):
-      netfilter: nf_tables: remove unused variable in nf_tables_dump_set()
-
-Pablo Neira Ayuso (3):
-      netfilter: nf_tables: remove nft_meta_target
-      netfilter: add help information to new nf_tables Kconfig options
-      netfilter: nf_tables: dump sets in all existing families
-
-Tomasz Bursztyka (1):
-      netfilter: nf_tables: Expose the table usage counter via netlink
-
- include/net/netfilter/ipv4/nf_reject.h             |  128 ++++++++++++++
- include/net/netfilter/ipv6/nf_reject.h             |  171 +++++++++++++++++++
- include/net/netfilter/nf_queue.h                   |   62 +++++++
- include/uapi/linux/netfilter/nf_tables.h           |   24 +++
- net/ipv4/netfilter/Kconfig                         |   18 +-
- net/ipv4/netfilter/Makefile                        |    1 -
- net/ipv4/netfilter/ipt_REJECT.c                    |  140 ++-------------
- net/ipv6/netfilter/Kconfig                         |   12 ++
- net/ipv6/netfilter/ip6t_REJECT.c                   |  179 +-------------------
- net/netfilter/Kconfig                              |   59 ++++++-
- net/netfilter/Makefile                             |    3 +-
- net/netfilter/nf_tables_api.c                      |  104 ++++++++++--
- net/netfilter/nf_tables_core.c                     |    5 +-
- net/netfilter/nft_meta.c                           |  146 +++++++++++++---
- net/netfilter/nft_meta_target.c                    |  117 -------------
- net/netfilter/nft_queue.c                          |  134 +++++++++++++++
- .../nft_reject_ipv4.c => netfilter/nft_reject.c}   |   25 ++-
- net/netfilter/xt_NFQUEUE.c                         |   80 ++-------
- 18 files changed, 873 insertions(+), 535 deletions(-)
- create mode 100644 include/net/netfilter/ipv4/nf_reject.h
- create mode 100644 include/net/netfilter/ipv6/nf_reject.h
- delete mode 100644 net/netfilter/nft_meta_target.c
- create mode 100644 net/netfilter/nft_queue.c
- rename net/{ipv4/netfilter/nft_reject_ipv4.c => netfilter/nft_reject.c} (77%)
