@@ -1,43 +1,36 @@
 From: hayeswang <hayeswang@realtek.com>
-Subject: RE: [PATCH net-next] r8152: fix the wrong return value
+Subject: RE: [PATCH net-next v2 6/6] r8152: support RTL8153
 Date: Mon, 6 Jan 2014 11:20:43 +0800
-Message-ID: <85A9FCBA3D724C2FA135DD70BCF1FF4F@realtek.com.tw>
-References: <1388719316-5702-1-git-send-email-hayeswang@realtek.com> <20140103.203759.2168117129392277198.davem@davemloft.net>
+Message-ID: <AA7EB9EA13B74B14BBE08C4278F7948C@realtek.com.tw>
+References: <1388632963-1341-1-git-send-email-hayeswang@realtek.com><1388633110-1435-1-git-send-email-hayeswang@realtek.com><877gai8nqu.fsf@nemi.mork.no><605671F106F540BA9665A195CACB78A0@realtek.com.tw> <8738l58pyd.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>
-To: 'David Miller' <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:33957 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751460AbaAFDUn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 22:20:43 -0500
-In-Reply-To: <20140103.203759.2168117129392277198.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <oliver@neukum.org>, <netdev@vger.kernel.org>,
+	'nic_swsd' <nic_swsd@realtek.com>,
+	<linux-kernel@vger.kernel.org>, <linux-usb@vger.kernel.org>
+To: =?iso-8859-1?Q?'Bj=F8rn_Mork'?= <bjorn@mork.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8738l58pyd.fsf@nemi.mork.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- David Miller [mailto:davem@davemloft.net] 
-> Sent: Saturday, January 04, 2014 9:38 AM
-> To: Hayeswang
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; 
-> linux-usb@vger.kernel.org
-> Subject: Re: [PATCH net-next] r8152: fix the wrong return value
-> 
-> From: Hayes Wang <hayeswang@realtek.com>
-> Date: Fri, 3 Jan 2014 11:21:56 +0800
-> 
-> > The return value should be the boolean value, not the error code.
-> > 
-> > Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> > Spotted-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> Applied, but I agree with others that it's more canonical to have the
-> function return either an error code, or zero for success, rather than
-> a boolean.
+ Bj=F8rn Mork [mailto:bjorn@mork.no]=20
+[...]
+> Sorry, but then this makes even less sense.  The active USB
+> configuration is user selectable and you should make any of=20
+> them work if
+> possible.  Why can't the drivers figure out this at runtime?
 
-Thanks. I would find if there is suitable error code.
- 
+Excuse me. I have no idea about how to switch the configuration at
+the runtime ,and how to change the default configuration when a
+USB device is plugged. When a user select one of the configurations,
+he/she would wish to fix the configuration number after rebooting or
+after the dangle is unplugged and plugged again. For these reasons,
+this is the simple way which I could think. Maybe I choose the wrong
+method because I don't know how to satisfy the requests. May you
+provide me the relative information? Then, I could replace the current
+method. Thanks.
+=20
 Best Regards,
 Hayes
