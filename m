@@ -1,27 +1,29 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 3/3] r8152: replace the return value of
- rtl_ops_init
-Date: Sun, 05 Jan 2014 22:59:22 -0800
-Message-ID: <1388991562.5808.39.camel@joe-AO722>
-References: <1388990366-8508-1-git-send-email-hayeswang@realtek.com>
-	 <1388990366-8508-4-git-send-email-hayeswang@realtek.com>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH 0/3] be2net: patch set
+Date: Mon, 6 Jan 2014 13:02:22 +0530
+Message-ID: <1388993545-25634-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1388990366-8508-4-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:19240 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750810AbaAFH2W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 02:28:22 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-[]
-> @@ -2721,18 +2722,20 @@ static bool rtl_ops_init(struct r8152 *tp, const struct usb_device_id *id)
-[]
-> +	if (ret)
-> +		netif_err(tp, probe, tp->netdev, "Unknown Device");
+Pls apply the following bug fixes to the 'net' tree. Thanks.
 
-This format should have a terminating newline
-"Unknown Device\n"
+Suresh Reddy (2):
+  be2net: increase the timeout value for loopback-test FW cmd
+  be2net: fix max_evt_qs calculation for BE3 in SR-IOV config
+
+Vasundhara Volam (1):
+  be2net: disable RSS when number of RXQs is reduced to 1 via
+    set-channels
+
+ drivers/net/ethernet/emulex/benet/be.h      |    3 +-
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   33 ++++++++++++++++++--------
+ drivers/net/ethernet/emulex/benet/be_main.c |   29 ++++++++++++++---------
+ 3 files changed, 43 insertions(+), 22 deletions(-)
