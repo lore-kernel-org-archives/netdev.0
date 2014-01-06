@@ -1,68 +1,112 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH v2 5/5] alx: add stats to ethtool
-Date: Mon, 6 Jan 2014 15:56:29 +0100
-Message-ID: <20140106145629.GA7886@kria>
-References: <1388854031-24142-1-git-send-email-sd@queasysnail.net>
- <1388854031-24142-6-git-send-email-sd@queasysnail.net>
- <1388998990.5891.0.camel@jlt4.sipsolutions.net>
- <20140106105742.GA30142@kria>
- <1389017496.5891.15.camel@jlt4.sipsolutions.net>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net 2/2] net: core: explicitly select a
+ txq before doing l2 forwarding
+Date: Mon, 06 Jan 2014 07:06:25 -0800
+Message-ID: <52CAC671.4040208@gmail.com>
+References: <1388978467-2075-1-git-send-email-jasowang@redhat.com>
+	<1388978467-2075-2-git-send-email-jasowang@redhat.com>
+	<20140106124248.GB24280@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, bhutchings@solarflare.com,
-	netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1-g21.free.fr ([212.27.42.1]:46962 "EHLO smtp1-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751580AbaAFO4q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jan 2014 09:56:46 -0500
-Content-Disposition: inline
-In-Reply-To: <1389017496.5891.15.camel@jlt4.sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Jason Wang <jasowang@redhat.com>, linux-kernel@vger.kernel.org,
+	John Fastabend <john.r.fastabend@intel.com>, davem@davemloft.net
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20140106124248.GB24280@hmsreliant.think-freely.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-2014-01-06, 15:11:36 +0100, Johannes Berg wrote:
-> On Mon, 2014-01-06 at 11:57 +0100, Sabrina Dubroca wrote:
-> > [2014-01-06, 10:03:10] Johannes Berg wrote:
-> > > On Sat, 2014-01-04 at 17:47 +0100, Sabrina Dubroca wrote:
-> > > 
-> > > > +	__alx_update_hw_stats(hw);
-> > > > +	BUILD_BUG_ON(sizeof(hw->stats) - offsetof(struct alx_hw_stats, rx_ok) <
-> > > > +		     ALX_NUM_STATS * sizeof(u64));
-> > > 
-> > > I think you should make that != instead of <, otherwise you won't catch
-> > > all possible differences.
-> > 
-> > With a !=, BUILD_BUG_ON is triggered if a new field is added at the
-> > end of the structure. 
-> 
-> That seems reasonable, you'd want to export that field as well? Fields
-> that shouldn't be exported could be added before rx_ok.
+On 01/06/2014 04:42 AM, Neil Horman wrote:
+> On Mon, Jan 06, 2014 at 11:21:07AM +0800, Jason Wang wrote:
+>> Currently, the tx queue were selected implicitly in ndo_dfwd_start_xmit(). The
+>> will cause several issues:
+>>
+>> - NETIF_F_LLTX was forced for macvlan device in this case which lead extra lock
+>>    contention.
+>> - dev_hard_start_xmit() was called with NULL txq which bypasses the net device
+>>    watchdog
+>> - dev_hard_start_xmit() does not check txq everywhere which will lead a crash
+>>    when tso is disabled for lower device.
+>>
+>> Fix this by explicitly introducing a select queue method just for l2 forwarding
+>> offload (ndo_dfwd_select_queue), and introducing dfwd_direct_xmit() to do the
+>> queue selecting and transmitting for l2 forwarding.
+>>
+>> With this fixes, NETIF_F_LLTX could be preserved for macvlan and there's no need
+>> to check txq against NULL in dev_hard_start_xmit().
+>>
+>> In the future, it was also required for macvtap l2 forwarding support since it
+>> provides a necessary synchronization method.
+>>
+>> Cc: John Fastabend <john.r.fastabend@intel.com>
+>> Cc: Neil Horman <nhorman@tuxdriver.com>
+>> Cc: e1000-devel@lists.sourceforge.net
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>
+> Instead of creating another operation here to do special queue selection, why
+> not just have ndo_dfwd_start_xmit include a pointer to a pointer in its argument
+> list, so it can pass the txq it used back to the caller (dev_hard_start_xmit)?
+> ndo_dfwd_start_xmit already knows which queue set to pick from (since their
+> reserved for the device doing the transmitting).  It seems more clear to me than
+> creating a new netdevice operation.
+>
+> As for the crash issue, I'm not sure what you mean.  Where in
+> dev_hard_start_xmit would we need to check txq that we're not currently, and
+> what crash results?
+>
+> Also, can you elaborate on what you mean by additional lock contention?  What
+> contention do you see that goes above and beyond the normal locking required by
+> txq access?  I suppose its extra locking above and beyond in the macvtap case,
+> where you would otherwise never hit hardware, but that not the only use case,
+> and I think the solution there is likely to add some code in the macvlan feature
+> set handler so that NETIF_F_LLTX is cleared if you disable the hardware
+> forwarding acceleration via ethtool.
+>
 
-I don't have anything else to add here, I'm just considering what
-others might want to do. Maybe overthinking. But, yeah, that's the idea.
-(and fields added to the end of the struct but that don't have a
-description in alx_gstrings_stats are ignored)
+NETIF_F_LLTX is cleared in macvlan_open() which should be used in the
+macvtap case.
 
-> > But adding a field doesn't break the code,
-> > though I'm not sure allowing this is useful. The offsetof (and the
-> > source in memcpy) also allows to add new fields at the beginning.
-> > 
-> > And the way alx_update_hw_stats is written already includes a kind of
-> > check that all fields are present.
-> 
-> I was more worried about type mismatches. That's not really a concern
-> with u64 since that's the largest type that really makes sense here, but
-> if the type of some variables changed vs. the ethtool type u64...
+           if (lowerdev->features & NETIF_F_HW_L2FW_DOFFLOAD) {
+                   vlan->fwd_priv =
+ 
+lowerdev->netdev_ops->ndo_dfwd_add_station(lowerdev, dev);
 
-Add "all stats fields must be u64" to the comment before the struct?
+                   /* If we get a NULL pointer back, or if we get an error
+                    * then we should just fall through to the non 
+accelerated path
+                    */
+                   if (IS_ERR_OR_NULL(vlan->fwd_priv)) {
+                           vlan->fwd_priv = NULL;
+                   } else {
+                           dev->features &= ~NETIF_F_LLTX;
+                           return 0;
+                   }
+           }
 
+Thanks,
+John
 
-> Maybe I'm overly worried. It seems likely nobody will ever touch this
-> code again :)
-
-:)
 
 -- 
-Sabrina
+John Fastabend         Intel Corporation
+
+------------------------------------------------------------------------------
+Rapidly troubleshoot problems before they affect your business. Most IT 
+organizations don't have a clear picture of how application performance 
+affects their revenue. With AppDynamics, you get 100% visibility into your 
+Java,.NET, & PHP application. Start your 15-day FREE TRIAL of AppDynamics Pro!
+http://pubads.g.doubleclick.net/gampad/clk?id=84349831&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
