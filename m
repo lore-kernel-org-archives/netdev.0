@@ -1,31 +1,37 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [net PATCH] netfilter: only warn once on wrong seqadj usage
-Date: Mon, 6 Jan 2014 14:23:55 +0100
-Message-ID: <20140106132355.GA8798@localhost>
-References: <20140104130944.28481.30891.stgit@dragon>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 1/2] ipv4: add forwarding_uses_pmtu knob to protect forward path to use pmtu info
+Date: Mon, 6 Jan 2014 14:29:04 +0100
+Message-ID: <20140106132904.GD4611@order.stressinduktion.org>
+References: <20131220130822.GD32129@order.stressinduktion.org> <20131231042840.GC27636@order.stressinduktion.org> <20140106090521.GQ31491@secunet.com> <20140106131822.GU31491@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Flavio Leitner <fbl@redhat.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, davem@davemloft.net
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:42150 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750990AbaAFN3F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 08:29:05 -0500
 Content-Disposition: inline
-In-Reply-To: <20140104130944.28481.30891.stgit@dragon>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20140106131822.GU31491@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 04, 2014 at 02:10:43PM +0100, Jesper Dangaard Brouer wrote:
-> Avoid potentially spamming the kernel log with WARN splash messages
-> when catching wrong usage of seqadj, by simply using WARN_ONCE.
+On Mon, Jan 06, 2014 at 02:18:22PM +0100, Steffen Klassert wrote:
+> On Mon, Jan 06, 2014 at 10:05:21AM +0100, Steffen Klassert wrote:
+> > > 
+> > > IIRC you have a (semi-)automatic test suite to test for (p)mtu problems? Would
+> > > these checks cover such a change?
+> > > 
+> > 
+> > I'm currenlty testing these patches. ipv4 looks good but on
+> > ipv6 with 'ping6' the packet size is not reduced according
+> > to the pmtu when forward_use_pmtu is set to 0.
+> > 
+> > I'll run the tests again with your updated v3 patches.
+> > 
 > 
-> This is a followup to commit db12cf274353 (netfilter: WARN about
-> wrong usage of sequence number adjustments)
-> 
-> Suggested-by: Flavio Leitner <fbl@redhat.com>
-> Suggested-by: Daniel Borkmann <dborkman@redhat.com>
-> Suggested-by: Florian Westphal <fw@strlen.de>
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> The v3 version of your patches don't show any obvious regressions
+> on our pmtu test suite.
 
-Applied, thanks Jesper.
+I am happy to hear that. Thanks again for testing!
