@@ -1,9 +1,9 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v3 4/5] alx: add alx_get_stats64 operation
-Date: Mon, 6 Jan 2014 19:07:33 +0000
-Message-ID: <1389035253.9947.93.camel@bwh-desktop.uk.level5networks.com>
+Subject: Re: [PATCH v3 5/5] alx: add stats to ethtool
+Date: Mon, 6 Jan 2014 19:08:37 +0000
+Message-ID: <1389035317.9947.94.camel@bwh-desktop.uk.level5networks.com>
 References: <1389026023-18743-1-git-send-email-sd@queasysnail.net>
-	 <1389026023-18743-5-git-send-email-sd@queasysnail.net>
+	 <1389026023-18743-6-git-send-email-sd@queasysnail.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -11,87 +11,166 @@ Cc: <davem@davemloft.net>, <johannes@sipsolutions.net>,
 	<stephen@networkplumber.org>, <netdev@vger.kernel.org>
 To: Sabrina Dubroca <sd@queasysnail.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:49886 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:49906 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753979AbaAFTHh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 14:07:37 -0500
-In-Reply-To: <1389026023-18743-5-git-send-email-sd@queasysnail.net>
+	with ESMTP id S1755518AbaAFTIk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 14:08:40 -0500
+In-Reply-To: <1389026023-18743-6-git-send-email-sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Mon, 2014-01-06 at 17:33 +0100, Sabrina Dubroca wrote:
-[...]
-> --- a/drivers/net/ethernet/atheros/alx/main.c
-> +++ b/drivers/net/ethernet/atheros/alx/main.c
-> @@ -1166,10 +1166,54 @@ static void alx_poll_controller(struct net_device *netdev)
->  }
->  #endif
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+
+Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+
+> ---
+>  drivers/net/ethernet/atheros/alx/ethtool.c | 101 +++++++++++++++++++++++++++++
+>  drivers/net/ethernet/atheros/alx/hw.h      |   7 +-
+>  2 files changed, 107 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/atheros/alx/ethtool.c b/drivers/net/ethernet/atheros/alx/ethtool.c
+> index 45b3650..08e22df 100644
+> --- a/drivers/net/ethernet/atheros/alx/ethtool.c
+> +++ b/drivers/net/ethernet/atheros/alx/ethtool.c
+> @@ -46,6 +46,66 @@
+>  #include "reg.h"
+>  #include "hw.h"
 >  
-> +static struct rtnl_link_stats64 *alx_get_stats64(struct net_device *dev,
-> +					struct rtnl_link_stats64 *net_stats)
+> +/* The order of these strings must match the order of the fields in
+> + * struct alx_hw_stats
+> + * See hw.h
+> + */
+> +static const char alx_gstrings_stats[][ETH_GSTRING_LEN] = {
+> +	"rx_packets",
+> +	"rx_bcast_packets",
+> +	"rx_mcast_packets",
+> +	"rx_pause_packets",
+> +	"rx_ctrl_packets",
+> +	"rx_fcs_errors",
+> +	"rx_length_errors",
+> +	"rx_bytes",
+> +	"rx_runt_packets",
+> +	"rx_fragments",
+> +	"rx_64B_or_less_packets",
+> +	"rx_65B_to_127B_packets",
+> +	"rx_128B_to_255B_packets",
+> +	"rx_256B_to_511B_packets",
+> +	"rx_512B_to_1023B_packets",
+> +	"rx_1024B_to_1518B_packets",
+> +	"rx_1519B_to_mtu_packets",
+> +	"rx_oversize_packets",
+> +	"rx_rxf_ov_drop_packets",
+> +	"rx_rrd_ov_drop_packets",
+> +	"rx_align_errors",
+> +	"rx_bcast_bytes",
+> +	"rx_mcast_bytes",
+> +	"rx_address_errors",
+> +	"tx_packets",
+> +	"tx_bcast_packets",
+> +	"tx_mcast_packets",
+> +	"tx_pause_packets",
+> +	"tx_exc_defer_packets",
+> +	"tx_ctrl_packets",
+> +	"tx_defer_packets",
+> +	"tx_bytes",
+> +	"tx_64B_or_less_packets",
+> +	"tx_65B_to_127B_packets",
+> +	"tx_128B_to_255B_packets",
+> +	"tx_256B_to_511B_packets",
+> +	"tx_512B_to_1023B_packets",
+> +	"tx_1024B_to_1518B_packets",
+> +	"tx_1519B_to_mtu_packets",
+> +	"tx_single_collision",
+> +	"tx_multiple_collisions",
+> +	"tx_late_collision",
+> +	"tx_abort_collision",
+> +	"tx_underrun",
+> +	"tx_trd_eop",
+> +	"tx_length_errors",
+> +	"tx_trunc_packets",
+> +	"tx_bcast_bytes",
+> +	"tx_mcast_bytes",
+> +	"tx_update",
+> +};
+> +
+> +#define ALX_NUM_STATS ARRAY_SIZE(alx_gstrings_stats)
+> +
+> +
+>  static u32 alx_get_supported_speeds(struct alx_hw *hw)
+>  {
+>  	u32 supported = SUPPORTED_10baseT_Half |
+> @@ -201,6 +261,44 @@ static void alx_set_msglevel(struct net_device *netdev, u32 data)
+>  	alx->msg_enable = data;
+>  }
+>  
+> +static void alx_get_ethtool_stats(struct net_device *netdev,
+> +				  struct ethtool_stats *estats, u64 *data)
 > +{
-> +	struct alx_priv *alx = netdev_priv(dev);
-> +	struct alx_hw_stats *hw_stats = &alx->hw.stats;
+> +	struct alx_priv *alx = netdev_priv(netdev);
+> +	struct alx_hw *hw = &alx->hw;
 > +
 > +	spin_lock(&alx->stats_lock);
 > +
-> +	alx_update_hw_stats(&alx->hw);
+> +	alx_update_hw_stats(hw);
+> +	BUILD_BUG_ON(sizeof(hw->stats) - offsetof(struct alx_hw_stats, rx_ok) <
+> +		     ALX_NUM_STATS * sizeof(u64));
+> +	memcpy(data, &hw->stats.rx_ok, ALX_NUM_STATS * sizeof(u64));
 > +
-> +	net_stats->tx_packets = hw_stats->tx_ok;
-
-I think this should be set to hw_stats->tx_ok + net_stats->tx_errors
-(after you set tx_errors).
-
-> +	net_stats->tx_bytes   = hw_stats->tx_byte_cnt;
-> +	net_stats->rx_packets = hw_stats->rx_ok;
-
-Similarly, I think this should be hw_stats->rx_ok +
-net_stats->rx_errors.
-
-> +	net_stats->rx_bytes   = hw_stats->rx_byte_cnt;
-> +	net_stats->multicast  = hw_stats->rx_mcast;
-> +	net_stats->collisions = hw_stats->tx_single_col +
-> +				hw_stats->tx_multi_col * 2 +
-
-I would expect this to count the number of packets that had collisions
-rather than total number of collisions (which you're only guessing at by
-using * 2).
-
-> +				hw_stats->tx_late_col + hw_stats->tx_abort_col;
+> +	spin_unlock(&alx->stats_lock);
+> +}
 > +
-> +	net_stats->rx_errors  = hw_stats->rx_frag + hw_stats->rx_fcs_err +
-> +				hw_stats->rx_len_err + hw_stats->rx_ov_sz +
-> +				hw_stats->rx_ov_rrd + hw_stats->rx_align_err;
+> +static void alx_get_strings(struct net_device *netdev, u32 stringset, u8 *buf)
+> +{
+> +	switch (stringset) {
+> +	case ETH_SS_STATS:
+> +		memcpy(buf, &alx_gstrings_stats, sizeof(alx_gstrings_stats));
+> +		break;
+> +	default:
+> +		WARN_ON(1);
+> +		break;
+> +	}
+> +}
 > +
-> +	net_stats->rx_fifo_errors   = hw_stats->rx_ov_rxf;
-> +	net_stats->rx_length_errors = hw_stats->rx_len_err;
-> +	net_stats->rx_crc_errors    = hw_stats->rx_fcs_err;
-> +	net_stats->rx_frame_errors  = hw_stats->rx_align_err;
-> +	net_stats->rx_over_errors   = hw_stats->rx_ov_rrd + hw_stats->rx_ov_rxf;
-
-rx_over_errors is commented as 'receiver ring buff overflow' and
-ifconfig includes it in the 'frame' error count.  I think it is intended
-to count frames which are too large for on-chip RX buffers and should
-always be 0 for devices that do RX DMA.
-
-Each error should contribute to at most one specific error stat, so
-don't count rx_ov_rxf in both rx_fifo_errors and rx_over_errors.  I
-would guess rx_fifo_errors is the right counter.
-
-I don't know what rx_ov_rrd represents, but if it's the number of
-packets dropped because the RX descriptor ring was empty then it should
-be counted in rx_dropped not rx_over_errors.
-
-> +	net_stats->rx_missed_errors = hw_stats->rx_ov_rrd + hw_stats->rx_ov_rxf;
-[...]
-
-This counter is commented as 'receiver missed packet'.  I think this
-means the MAC detected SOF but was somehow too busy to receive the
-packet, but I'm not sure.  I don't think these hardware counters match
-the description, and certainly they shouldn't be counted here as well as
-the other specific error stats.
-
-Ben.
+> +static int alx_get_sset_count(struct net_device *netdev, int sset)
+> +{
+> +	switch (sset) {
+> +	case ETH_SS_STATS:
+> +		return ALX_NUM_STATS;
+> +	default:
+> +		return -EINVAL;
+> +	}
+> +}
+> +
+>  const struct ethtool_ops alx_ethtool_ops = {
+>  	.get_settings	= alx_get_settings,
+>  	.set_settings	= alx_set_settings,
+> @@ -209,4 +307,7 @@ const struct ethtool_ops alx_ethtool_ops = {
+>  	.get_msglevel	= alx_get_msglevel,
+>  	.set_msglevel	= alx_set_msglevel,
+>  	.get_link	= ethtool_op_get_link,
+> +	.get_strings	= alx_get_strings,
+> +	.get_sset_count	= alx_get_sset_count,
+> +	.get_ethtool_stats	= alx_get_ethtool_stats,
+>  };
+> diff --git a/drivers/net/ethernet/atheros/alx/hw.h b/drivers/net/ethernet/atheros/alx/hw.h
+> index a97edfb..5978253 100644
+> --- a/drivers/net/ethernet/atheros/alx/hw.h
+> +++ b/drivers/net/ethernet/atheros/alx/hw.h
+> @@ -381,7 +381,12 @@ struct alx_rrd {
+>  				 ALX_ISR_RX_Q6 | \
+>  				 ALX_ISR_RX_Q7)
+>  
+> -/* Statistics counters collected by the MAC */
+> +/* Statistics counters collected by the MAC
+> + *
+> + * The order of the fields must match the strings in alx_gstrings_stats
+> + * All stats fields should be u64
+> + * See ethtool.c
+> + */
+>  struct alx_hw_stats {
+>  	/* rx */
+>  	u64 rx_ok;
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
