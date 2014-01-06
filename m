@@ -1,77 +1,120 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: out_of_order_queue do not use its lock
-Date: Mon, 06 Jan 2014 09:36:12 -0800
-Message-ID: <1389029772.12212.190.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH 1/1] ipv6 addrconf: add IFA_F_NOPREFIXROUTE flag to
+ suppress creation of IP6 routes
+Date: Mon, 6 Jan 2014 18:38:37 +0100
+Message-ID: <20140106173837.GA2571@minipsycho.orion>
+References: <20140106160139.GB10204@order.stressinduktion.org>
+ <1389029375-17698-1-git-send-email-thaller@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, stephen@networkplumber.org, dcbw@redhat.com
+To: Thomas Haller <thaller@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f179.google.com ([209.85.161.179]:47915 "EHLO
-	mail-gg0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754620AbaAFRgQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 12:36:16 -0500
-Received: by mail-gg0-f179.google.com with SMTP id l4so3573866ggi.24
-        for <netdev@vger.kernel.org>; Mon, 06 Jan 2014 09:36:14 -0800 (PST)
+Received: from mail-ee0-f47.google.com ([74.125.83.47]:47371 "EHLO
+	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753298AbaAFRik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 12:38:40 -0500
+Received: by mail-ee0-f47.google.com with SMTP id e51so6788713eek.20
+        for <netdev@vger.kernel.org>; Mon, 06 Jan 2014 09:38:39 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1389029375-17698-1-git-send-email-thaller@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Mon, Jan 06, 2014 at 06:29:35PM CET, thaller@redhat.com wrote:
+>When adding/modifying an IPv6 address, the userspace application needs
+>a way to suppress adding a prefix route. This is for example relevant
+>together with IFA_F_MANAGERTEMPADDR, where userspace creates autoconf
+>generated addresses, but depending on on-link, no route should for the
+>prefix should be added.
+>
+>This flag will not be set as ifa_flags of the address, it is only
+>considered as parameter while adding/modifying an address.
+>
+>Signed-off-by: Thomas Haller <thaller@redhat.com>
+>---
+> Hi, how about this?
+>
+> The flag is only a parameter for the netlink command.
+> This might be unexpected, because when adding an address,
+> you won't see the flag in `ip -6 addr`.
+> Still, I think, it is better to do it this way, because having
+> an address with the NOPREFIXROUTE flag, does not mean, that
+> there is no route for this prefix. It only means, that at the
+> moment of setting the address, no route was added.
+>
+> The alternative would be, not to add a prefix route, when
+> IFA_F_MANAGERTEMPADDR is set.
+>
+> Thomas
+>
+> include/uapi/linux/if_addr.h |  1 +
+> net/ipv6/addrconf.c          | 19 +++++++++++++------
+> 2 files changed, 14 insertions(+), 6 deletions(-)
+>
+>diff --git a/include/uapi/linux/if_addr.h b/include/uapi/linux/if_addr.h
+>index cfed10b..dea10a8 100644
+>--- a/include/uapi/linux/if_addr.h
+>+++ b/include/uapi/linux/if_addr.h
+>@@ -49,6 +49,7 @@ enum {
+> #define IFA_F_TENTATIVE		0x40
+> #define IFA_F_PERMANENT		0x80
+> #define IFA_F_MANAGETEMPADDR	0x100
+>+#define IFA_F_NOPREFIXROUTE	0x200
+> 
+> struct ifa_cacheinfo {
+> 	__u32	ifa_prefered;
+>diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>index 6c16345..51bd757 100644
+>--- a/net/ipv6/addrconf.c
+>+++ b/net/ipv6/addrconf.c
+>@@ -2429,12 +2429,16 @@ static int inet6_addr_add(struct net *net, int ifindex,
+> 		prefered_lft = timeout;
+> 	}
+> 
+>-	ifp = ipv6_add_addr(idev, pfx, peer_pfx, plen, scope, ifa_flags,
+>+	ifp = ipv6_add_addr(idev, pfx, peer_pfx, plen, scope,
+>+			    ifa_flags & ~IFA_F_NOPREFIXROUTE,
+> 			    valid_lft, prefered_lft);
+> 
+> 	if (!IS_ERR(ifp)) {
+>-		addrconf_prefix_route(&ifp->addr, ifp->prefix_len, dev,
+>-				      expires, flags);
+>+		if (ifa_flags & IFA_F_NOPREFIXROUTE == 0) {
 
-TCP out_of_order_queue lock is not used, as queue manipulation
-happens with socket lock held and we therefore use the lockless
-skb queue routines (as __skb_queue_head())
+if (!(ifa_flags & IFA_F_NOPREFIXROUTE)) {
 
-We can use __skb_queue_head_init() instead of skb_queue_head_init()
-to make this more consistent.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/linux/tcp.h      |    5 ++++-
- net/ipv4/tcp.c           |    2 +-
- net/ipv4/tcp_minisocks.c |    2 +-
- 3 files changed, 6 insertions(+), 3 deletions(-)
-
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index d68633452d9b..4ad0706d40eb 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -248,7 +248,10 @@ struct tcp_sock {
- 	struct sk_buff* lost_skb_hint;
- 	struct sk_buff *retransmit_skb_hint;
- 
--	struct sk_buff_head	out_of_order_queue; /* Out of order segments go here */
-+	/* OOO segments go in this list. Note that socket lock must be held,
-+	 * as we do not use sk_buff_head lock.
-+	 */
-+	struct sk_buff_head	out_of_order_queue;
- 
- 	/* SACKs data, these 2 need to be together (see tcp_options_write) */
- 	struct tcp_sack_block duplicate_sack[1]; /* D-SACK block */
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index d099f9a055c6..e2a40515e665 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -381,7 +381,7 @@ void tcp_init_sock(struct sock *sk)
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
- 
--	skb_queue_head_init(&tp->out_of_order_queue);
-+	__skb_queue_head_init(&tp->out_of_order_queue);
- 	tcp_init_xmit_timers(sk);
- 	tcp_prequeue_init(tp);
- 	INIT_LIST_HEAD(&tp->tsq_node);
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 97b684159861..3aa9e3247991 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -425,7 +425,7 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
- 
- 		tcp_set_ca_state(newsk, TCP_CA_Open);
- 		tcp_init_xmit_timers(newsk);
--		skb_queue_head_init(&newtp->out_of_order_queue);
-+		__skb_queue_head_init(&newtp->out_of_order_queue);
- 		newtp->write_seq = newtp->pushed_seq = treq->snt_isn + 1;
- 
- 		newtp->rx_opt.saw_tstamp = 0;
+>+			addrconf_prefix_route(&ifp->addr, ifp->prefix_len, dev,
+>+					      expires, flags);
+>+		}
+>+
+> 		/*
+> 		 * Note that section 3.1 of RFC 4429 indicates
+> 		 * that the Optimistic flag should not be set for
+>@@ -3662,8 +3666,10 @@ static int inet6_addr_modify(struct inet6_ifaddr *ifp, u32 ifa_flags,
+> 	if (!(ifp->flags&IFA_F_TENTATIVE))
+> 		ipv6_ifa_notify(0, ifp);
+> 
+>-	addrconf_prefix_route(&ifp->addr, ifp->prefix_len, ifp->idev->dev,
+>-			      expires, flags);
+>+	if (ifa_flags & IFA_F_NOPREFIXROUTE == 0) {
+>+		addrconf_prefix_route(&ifp->addr, ifp->prefix_len, ifp->idev->dev,
+>+				      expires, flags);
+>+	}
+> 
+> 	if (was_managetempaddr || ifp->flags & IFA_F_MANAGETEMPADDR) {
+> 		if (was_managetempaddr && !(ifp->flags & IFA_F_MANAGETEMPADDR))
+>@@ -3717,7 +3723,8 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
+> 	ifa_flags = tb[IFA_FLAGS] ? nla_get_u32(tb[IFA_FLAGS]) : ifm->ifa_flags;
+> 
+> 	/* We ignore other flags so far. */
+>-	ifa_flags &= IFA_F_NODAD | IFA_F_HOMEADDRESS | IFA_F_MANAGETEMPADDR;
+>+	ifa_flags &= IFA_F_NODAD | IFA_F_HOMEADDRESS | IFA_F_MANAGETEMPADDR |
+>+		     IFA_F_NOPREFIXROUTE;
+> 
+> 	ifa = ipv6_get_ifaddr(net, pfx, dev, 1);
+> 	if (ifa == NULL) {
+>-- 
+>1.8.4.2
+>
