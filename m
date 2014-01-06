@@ -1,109 +1,54 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: [PATCH] hso: fix handling of modem port SERIAL_STATE notifications
-Date: Mon, 06 Jan 2014 10:07:29 -0600
-Message-ID: <1389024449.1866.3.camel@dcbw.local>
-References: <B1808224-5850-41E3-9A8F-0F350F84FF89@goldelico.com>
-	 <541AADAC-7D20-4410-90FC-3E354B0C1457@goldelico.com>
-	 <1387222829.2156.51.camel@dcbw.foobar.com>
-	 <174CD81C-6425-4560-A3FA-3BFAA83BA770@goldelico.com>
-	 <1387319242.28943.42.camel@dcbw.local>
-	 <54ED5542-6C9E-4AC6-90CC-ED77972D8CB1@goldelico.com>
-	 <1387388963.5549.11.camel@dcbw.local>
-	 <874B65AE-8B15-4427-8EF4-F0CA2BC55062@goldelico.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next] net: netdev_kobject_init: annotate with __init
+Date: Mon, 06 Jan 2014 17:18:19 +0100
+Message-ID: <52CAD74B.6070602@redhat.com>
+References: <1388967611-14263-1-git-send-email-dborkman@redhat.com> <52CAC804.9080603@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jan Dumon <j.dumon@option.com>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Belisko Marek <marek.belisko@gmail.com>, e.verdonck@option.com
-To: "Dr. H. Nikolaus Schaller" <hns@goldelico.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <874B65AE-8B15-4427-8EF4-F0CA2BC55062@goldelico.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60830 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754699AbaAFQS0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jan 2014 11:18:26 -0500
+In-Reply-To: <52CAC804.9080603@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The existing serial state notification handling expected older Option
-devices, having a hardcoded assumption that the Modem port was always
-USB interface #2.  That isn't true for devices from the past few years.
+On 01/06/2014 04:13 PM, Sergei Shtylyov wrote:
+> Hello.
+>
+> On 06-01-2014 4:20, Daniel Borkmann wrote:
+>
+>> netdev_kobject_init() is only being called from __init context,
+>> that is, net_dev_init(), so annotate it with __init as well, thus
+>> the kernel can take this as a hint that the function is used only
+>> during the initialization phase and free up used memory resources
+>> after its invocation.
+>
+>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> [...]
+>
+>> diff --git a/net/core/net-sysfs.h b/net/core/net-sysfs.h
+>> index bd7751e..2745a1b 100644
+>> --- a/net/core/net-sysfs.h
+>> +++ b/net/core/net-sysfs.h
+>> @@ -1,7 +1,7 @@
+>>   #ifndef __NET_SYSFS_H__
+>>   #define __NET_SYSFS_H__
+>>
+>> -int netdev_kobject_init(void);
+>> +int __init netdev_kobject_init(void);
+>
+>     There's no need to also annotate function prototype.
 
-hso_serial_state_notification is a local cache of a USB Communications
-Interface Class SERIAL_STATE notification from the device, and the
-USB CDC specification (section 6.3, table 67 "Class-Specific Notifications")
-defines wIndex as the USB interface the event applies to.  For hso
-devices this will always be the Modem port, as the Modem port is the
-only port which is set up to receive them by the driver.
+Hm, is that general convention? Having this in a header file
+annotated (even if not strictly necessary) would probably
+better prevent from possible misuse resp. section mismatches
+if people forget to look into the actual c file where the
+function is being defined.
 
-So instead of always expecting USB interface #2, instead validate the
-notification with the actual USB interface number of the Modem port.
-
-Signed-off-by: Dan Williams <dcbw@redhat.com>
-Tested-by: H. Nikolaus Schaller <hns@goldelico.com>
----
- drivers/net/usb/hso.c | 13 +++++++++++--
- 1 file changed, 11 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index 86292e6..1a48234 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -181,15 +181,14 @@ enum rx_ctrl_state{
- 	RX_SENT,
- 	RX_PENDING
- };
- 
- #define BM_REQUEST_TYPE (0xa1)
- #define B_NOTIFICATION  (0x20)
- #define W_VALUE         (0x0)
--#define W_INDEX         (0x2)
- #define W_LENGTH        (0x2)
- 
- #define B_OVERRUN       (0x1<<6)
- #define B_PARITY        (0x1<<5)
- #define B_FRAMING       (0x1<<4)
- #define B_RING_SIGNAL   (0x1<<3)
- #define B_BREAK         (0x1<<2)
-@@ -1483,31 +1482,41 @@ static void tiocmget_intr_callback(struct urb *urb)
- 	struct hso_serial *serial = urb->context;
- 	struct hso_tiocmget *tiocmget;
- 	int status = urb->status;
- 	u16 UART_state_bitmap, prev_UART_state_bitmap;
- 	struct uart_icount *icount;
- 	struct hso_serial_state_notification *serial_state_notification;
- 	struct usb_device *usb;
-+	int if_num;
- 
- 	/* Sanity checks */
- 	if (!serial)
- 		return;
- 	if (status) {
- 		handle_usb_error(status, __func__, serial->parent);
- 		return;
- 	}
-+
-+	/* tiocmget is only supported on HSO_PORT_MODEM */
- 	tiocmget = serial->tiocmget;
- 	if (!tiocmget)
- 		return;
-+	BUG_ON((serial->parent->port_spec & HSO_PORT_MASK) != HSO_PORT_MODEM);
-+
- 	usb = serial->parent->usb;
-+	if_num = serial->parent->interface->altsetting->desc.bInterfaceNumber;
-+
-+	/* wIndex should be the USB interface number of the port to which the
-+	 * notification applies, which should always be the Modem port.
-+	 */
- 	serial_state_notification = &tiocmget->serial_state_notification;
- 	if (serial_state_notification->bmRequestType != BM_REQUEST_TYPE ||
- 	    serial_state_notification->bNotification != B_NOTIFICATION ||
- 	    le16_to_cpu(serial_state_notification->wValue) != W_VALUE ||
--	    le16_to_cpu(serial_state_notification->wIndex) != W_INDEX ||
-+	    le16_to_cpu(serial_state_notification->wIndex) != if_num ||
- 	    le16_to_cpu(serial_state_notification->wLength) != W_LENGTH) {
- 		dev_warn(&usb->dev,
- 			 "hso received invalid serial state notification\n");
- 		DUMP(serial_state_notification,
- 		     sizeof(struct hso_serial_state_notification));
- 	} else {
- 
--- 
-1.8.3.1
+> WBR, Sergei
+>
