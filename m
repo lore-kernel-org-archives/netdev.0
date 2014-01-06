@@ -1,30 +1,25 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [PATCH] netfilter: nf_conntrack: release conntrack from rcu
-  callback
-Date: Mon, 6 Jan 2014 22:09:33 +0400
-Message-ID: <20140106180933.GB2360@moon>
-References: <1389023672-14351-1-git-send-email-avagin@openvz.org>
- <20140106170235.GJ28854@breakpoint.cc>
- <20140106172130.GA2360@moon>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] be2net: patch set
+Date: Mon, 06 Jan 2014 13:10:19 -0500 (EST)
+Message-ID: <20140106.131019.1398482267784215690.davem@davemloft.net>
+References: <1388993545-25634-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrey Vagin <avagin@openvz.org>, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	vvs@openvz.org, Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140106172130.GA2360@moon>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:32869 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755838AbaAFSKY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 13:10:24 -0500
+In-Reply-To: <1388993545-25634-1-git-send-email-sathya.perla@emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 06, 2014 at 09:21:30PM +0400, Cyrill Gorcunov wrote:
-> 
-> No? Or there something obvious I'm missing?
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Mon, 6 Jan 2014 13:02:22 +0530
 
-Drop my assumption, it can't happen (iow either dying bit is set,
-either it clean but tuple can't match then).
+> Pls apply the following bug fixes to the 'net' tree. Thanks.
+
+Series applied, thanks.
