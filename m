@@ -1,48 +1,38 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] net: netdev_kobject_init: annotate with __init
-Date: Mon, 06 Jan 2014 19:13:08 +0400
-Message-ID: <52CAC804.9080603@cogentembedded.com>
-References: <1388967611-14263-1-git-send-email-dborkman@redhat.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH v2 5/5] alx: add stats to ethtool
+Date: Mon, 06 Jan 2014 16:16:31 +0100
+Message-ID: <1389021391.5891.26.camel@jlt4.sipsolutions.net>
+References: <1388854031-24142-1-git-send-email-sd@queasysnail.net>
+	 <1388854031-24142-6-git-send-email-sd@queasysnail.net>
+	 <1388998990.5891.0.camel@jlt4.sipsolutions.net>
+	 <20140106105742.GA30142@kria>
+	 <1389017496.5891.15.camel@jlt4.sipsolutions.net>
+	 <20140106145629.GA7886@kria>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net
+Cc: davem@davemloft.net, bhutchings@solarflare.com,
+	netdev@vger.kernel.org
+To: Sabrina Dubroca <sd@queasysnail.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:38603 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753888AbaAFPNK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 10:13:10 -0500
-Received: by mail-la0-f54.google.com with SMTP id b8so10106547lan.27
-        for <netdev@vger.kernel.org>; Mon, 06 Jan 2014 07:13:08 -0800 (PST)
-In-Reply-To: <1388967611-14263-1-git-send-email-dborkman@redhat.com>
+Received: from s3.sipsolutions.net ([144.76.43.152]:43063 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755165AbaAFPQh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 10:16:37 -0500
+In-Reply-To: <20140106145629.GA7886@kria>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Mon, 2014-01-06 at 15:56 +0100, Sabrina Dubroca wrote:
 
-On 06-01-2014 4:20, Daniel Borkmann wrote:
+> > I was more worried about type mismatches. That's not really a concern
+> > with u64 since that's the largest type that really makes sense here, but
+> > if the type of some variables changed vs. the ethtool type u64...
+> 
+> Add "all stats fields must be u64" to the comment before the struct?
 
-> netdev_kobject_init() is only being called from __init context,
-> that is, net_dev_init(), so annotate it with __init as well, thus
-> the kernel can take this as a hint that the function is used only
-> during the initialization phase and free up used memory resources
-> after its invocation.
+I guess that's OK. I can live with either of these solutions really, I
+have no plans to change this driver ever again (though I might need WOL
+soon ... *sigh*)
 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-[...]
-
-> diff --git a/net/core/net-sysfs.h b/net/core/net-sysfs.h
-> index bd7751e..2745a1b 100644
-> --- a/net/core/net-sysfs.h
-> +++ b/net/core/net-sysfs.h
-> @@ -1,7 +1,7 @@
->   #ifndef __NET_SYSFS_H__
->   #define __NET_SYSFS_H__
->
-> -int netdev_kobject_init(void);
-> +int __init netdev_kobject_init(void);
-
-    There's no need to also annotate function prototype.
-
-WBR, Sergei
+johannes
