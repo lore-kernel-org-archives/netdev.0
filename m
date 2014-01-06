@@ -1,36 +1,51 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: [PATCH net-next v2 6/6] r8152: support RTL8153
-Date: Mon, 6 Jan 2014 11:20:43 +0800
-Message-ID: <AA7EB9EA13B74B14BBE08C4278F7948C@realtek.com.tw>
-References: <1388632963-1341-1-git-send-email-hayeswang@realtek.com><1388633110-1435-1-git-send-email-hayeswang@realtek.com><877gai8nqu.fsf@nemi.mork.no><605671F106F540BA9665A195CACB78A0@realtek.com.tw> <8738l58pyd.fsf@nemi.mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <oliver@neukum.org>, <netdev@vger.kernel.org>,
-	'nic_swsd' <nic_swsd@realtek.com>,
-	<linux-kernel@vger.kernel.org>, <linux-usb@vger.kernel.org>
-To: =?iso-8859-1?Q?'Bj=F8rn_Mork'?= <bjorn@mork.no>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net 1/2] macvlan: forbid L2 fowarding offload for macvtap
+Date: Mon,  6 Jan 2014 11:21:06 +0800
+Message-ID: <1388978467-2075-1-git-send-email-jasowang@redhat.com>
+Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8738l58pyd.fsf@nemi.mork.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- Bj=F8rn Mork [mailto:bjorn@mork.no]=20
-[...]
-> Sorry, but then this makes even less sense.  The active USB
-> configuration is user selectable and you should make any of=20
-> them work if
-> possible.  Why can't the drivers figure out this at runtime?
+L2 fowarding offload will bypass the rx handler of real device. This will make
+the packet could not be forwarded to macvtap device. Another problem is the
+dev_hard_start_xmit() called for macvtap does not have any synchronization.
 
-Excuse me. I have no idea about how to switch the configuration at
-the runtime ,and how to change the default configuration when a
-USB device is plugged. When a user select one of the configurations,
-he/she would wish to fix the configuration number after rebooting or
-after the dangle is unplugged and plugged again. For these reasons,
-this is the simple way which I could think. Maybe I choose the wrong
-method because I don't know how to satisfy the requests. May you
-provide me the relative information? Then, I could replace the current
-method. Thanks.
-=20
-Best Regards,
-Hayes
+Fix this by forbidding L2 forwarding for macvtap.
+
+Cc: John Fastabend <john.r.fastabend@intel.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/net/macvlan.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 60406b0..5360f73 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -338,6 +338,8 @@ static const struct header_ops macvlan_hard_header_ops = {
+ 	.cache_update	= eth_header_cache_update,
+ };
+ 
++static struct rtnl_link_ops macvlan_link_ops;
++
+ static int macvlan_open(struct net_device *dev)
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+@@ -353,7 +355,8 @@ static int macvlan_open(struct net_device *dev)
+ 		goto hash_add;
+ 	}
+ 
+-	if (lowerdev->features & NETIF_F_HW_L2FW_DOFFLOAD) {
++	if (lowerdev->features & NETIF_F_HW_L2FW_DOFFLOAD &&
++	    dev->rtnl_link_ops == &macvlan_link_ops) {
+ 		vlan->fwd_priv =
+ 		      lowerdev->netdev_ops->ndo_dfwd_add_station(lowerdev, dev);
+ 
+-- 
+1.7.1
