@@ -1,28 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: mmotm 2014-01-02-14-35 uploaded (brocade/bna)
-Date: Mon, 06 Jan 2014 17:24:27 -0500 (EST)
-Message-ID: <20140106.172427.1901836894729408800.davem@davemloft.net>
-References: <20140102223649.D8FB931C206@corp2gmr1-1.hot.corp.google.com>
-	<52C700B9.8040504@infradead.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, rmody@brocade.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org
-To: rdunlap@infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52C700B9.8040504@infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: [PATCH] bgmac: fix typos
+Date: Mon,  6 Jan 2014 23:24:29 +0100
+Message-ID: <1389047069-27919-1-git-send-email-hauke@hauke-m.de>
+Cc: zajec5@gmail.com, netdev@vger.kernel.org,
+	Hauke Mehrtens <hauke@hauke-m.de>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from server19320154104.serverpool.info ([193.201.54.104]:39602 "EHLO
+	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756019AbaAFWYm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jan 2014 17:24:42 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap@infradead.org>
-Date: Fri, 03 Jan 2014 10:26:01 -0800
+This fixes some typos found by Sergei.
 
-> as reported for linux-next of Dec.20, 2013
-> when CONFIG_NEED_DMA_MAP_STATE is not enabled:
-> 
-> drivers/net/ethernet/brocade/bna/bnad.c: In function 'bnad_start_xmit':
-> drivers/net/ethernet/brocade/bna/bnad.c:3074:26: error: 'struct bnad_tx_vector' has no member named 'dma_len'
+Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+---
+ drivers/net/ethernet/broadcom/bgmac.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Sorry for taking so long, I plan to look into this tonight Randy.
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index 5d41f41..7f968a9 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -1481,10 +1481,10 @@ static int bgmac_probe(struct bcma_device *core)
+ 
+ 		/* Northstar has 4 GMAC cores */
+ 		for (ns_gmac = 0; ns_gmac < 4; ns_gmac++) {
+-			/* As northstar requirement, we have to reset all GAMCs
++			/* As Northstar requirement, we have to reset all GMACs
+ 			 * before accessing one. bgmac_chip_reset() call
+ 			 * bcma_core_enable() for this core. Then the other
+-			 * three GAMCs didn't reset.  We do it here.
++			 * three GMACs didn't reset.  We do it here.
+ 			 */
+ 			ns_core = bcma_find_core_unit(core->bus,
+ 						      BCMA_CORE_MAC_GBIT,
+-- 
+1.7.10.4
