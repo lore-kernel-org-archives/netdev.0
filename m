@@ -1,34 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fec: Revert "fec: Do not assume that PHY reset is
- active low"
-Date: Sun, 05 Jan 2014 20:24:40 -0500 (EST)
-Message-ID: <20140105.202440.1690703258987846842.davem@davemloft.net>
-References: <1388966905-8092-1-git-send-email-festevam@gmail.com>
+Subject: Re: [PATCH net] net: 6lowpan: fix lowpan_header_create
+ non-compression memcpy call
+Date: Sun, 05 Jan 2014 20:25:57 -0500 (EST)
+Message-ID: <20140105.202557.550937656683679021.davem@davemloft.net>
+References: <1388969150-16041-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shawn.guo@linaro.org, olof@lixom.net, linux@arm.linux.org.uk,
-	netdev@vger.kernel.org, fabio.estevam@freescale.com
-To: festevam@gmail.com
+Cc: netdev@vger.kernel.org, alex.bluesman.smirnov@gmail.com,
+	dbaryshkov@gmail.com, werner@almesberger.net
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53484 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53495 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751460AbaAFBYm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 20:24:42 -0500
-In-Reply-To: <1388966905-8092-1-git-send-email-festevam@gmail.com>
+	with ESMTP id S1751460AbaAFBZ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 20:25:58 -0500
+In-Reply-To: <1388969150-16041-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <festevam@gmail.com>
-Date: Sun,  5 Jan 2014 22:08:25 -0200
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Mon,  6 Jan 2014 01:45:50 +0100
 
-> From: Fabio Estevam <fabio.estevam@freescale.com>
+> In function lowpan_header_create(), we invoke the following code
+> construct:
 > 
-> In order to keep DT compatibility we need to revert this, otherwise the original
-> dts files will no longer work with this driver change.
+>   struct ipv6hdr *hdr;
+>   ...
+>   hdr = ipv6_hdr(skb);
+>   ...
+>   if (...)
+>     memcpy(hc06_ptr + 1, &hdr->flow_lbl[1], 2);
+>   else
+>     memcpy(hc06_ptr, &hdr, 4);
 > 
-> This reverts commit 7a399e3a2e05bc580a78ea72371b3896827f72e1.
+> Where the else path of the condition, that is, non-compression
+> path, calls memcpy() with a pointer to struct ipv6hdr *hdr as
+> source, thus two levels of indirection. This cannot be correct,
+> and likely only one level of pointer was intended as source
+> buffer for memcpy() here.
 > 
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+> Fixes: 44331fe2aa0d ("IEEE802.15.4: 6LoWPAN basic support")
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-Applied.
+Looks good, applied, thanks.
