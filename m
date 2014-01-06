@@ -1,48 +1,59 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 12/13] netfilter: nf_tables: remove unused variable in nf_tables_dump_set()
-Date: Mon,  6 Jan 2014 14:46:41 +0100
-Message-ID: <1389016002-9116-13-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 04/13] netfilter: nf_tables: Expose the table usage counter via netlink
+Date: Mon,  6 Jan 2014 14:46:33 +0100
+Message-ID: <1389016002-9116-5-git-send-email-pablo@netfilter.org>
 References: <1389016002-9116-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59569 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754752AbaAFNrC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jan 2014 08:47:02 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1389016002-9116-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michal Nazarewicz <mina86@mina86.com>
+From: Tomasz Bursztyka <tomasz.bursztyka@linux.intel.com>
 
-The nfmsg variable is not used (except in sizeof operator which does
-not care about its value) between the first and second time it is
-assigned the value.  Furthermore, nlmsg_data has no side effects, so
-the assignment can be safely removed.
+Userspace can therefore know whether a table is in use or not, and
+by how many chains. Suggested by Pablo Neira Ayuso.
 
-Signed-off-by: Michal Nazarewicz <mina86@mina86.com>
-Cc: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Tomasz Bursztyka <tomasz.bursztyka@linux.intel.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_tables_api.c |    5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ include/uapi/linux/netfilter/nf_tables.h |    2 ++
+ net/netfilter/nf_tables_api.c            |    3 ++-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
 
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index 256d36b..b25481e 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -110,11 +110,13 @@ enum nft_table_flags {
+  *
+  * @NFTA_TABLE_NAME: name of the table (NLA_STRING)
+  * @NFTA_TABLE_FLAGS: bitmask of enum nft_table_flags (NLA_U32)
++ * @NFTA_TABLE_USE: number of chains in this table (NLA_U32)
+  */
+ enum nft_table_attributes {
+ 	NFTA_TABLE_UNSPEC,
+ 	NFTA_TABLE_NAME,
+ 	NFTA_TABLE_FLAGS,
++	NFTA_TABLE_USE,
+ 	__NFTA_TABLE_MAX
+ };
+ #define NFTA_TABLE_MAX		(__NFTA_TABLE_MAX - 1)
 diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index aa4df58..37f0e69 100644
+index dcddc49..604512d 100644
 --- a/net/netfilter/nf_tables_api.c
 +++ b/net/netfilter/nf_tables_api.c
-@@ -2505,9 +2505,8 @@ static int nf_tables_dump_set(struct sk_buff *skb, struct netlink_callback *cb)
- 	u32 portid, seq;
- 	int event, err;
+@@ -180,7 +180,8 @@ static int nf_tables_fill_table_info(struct sk_buff *skb, u32 portid, u32 seq,
+ 	nfmsg->res_id		= 0;
  
--	nfmsg = nlmsg_data(cb->nlh);
--	err = nlmsg_parse(cb->nlh, sizeof(*nfmsg), nla, NFTA_SET_ELEM_LIST_MAX,
--			  nft_set_elem_list_policy);
-+	err = nlmsg_parse(cb->nlh, sizeof(struct nfgenmsg), nla,
-+			  NFTA_SET_ELEM_LIST_MAX, nft_set_elem_list_policy);
- 	if (err < 0)
- 		return err;
+ 	if (nla_put_string(skb, NFTA_TABLE_NAME, table->name) ||
+-	    nla_put_be32(skb, NFTA_TABLE_FLAGS, htonl(table->flags)))
++	    nla_put_be32(skb, NFTA_TABLE_FLAGS, htonl(table->flags)) ||
++	    nla_put_be32(skb, NFTA_TABLE_USE, htonl(table->use)))
+ 		goto nla_put_failure;
  
+ 	return nlmsg_end(skb, nlh);
 -- 
 1.7.10.4
+
