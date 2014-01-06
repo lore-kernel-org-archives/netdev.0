@@ -1,49 +1,94 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH net-next] netfilter: nfnetlink_queue: fix compilation problem due missing header
-Date: Mon,  6 Jan 2014 17:34:49 +0100
-Message-ID: <1389026089-4917-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH v3 1/5] alx: add a hardware stats structure
+Date: Mon,  6 Jan 2014 17:33:39 +0100
+Message-ID: <1389026023-18743-2-git-send-email-sd@queasysnail.net>
+References: <1389026023-18743-1-git-send-email-sd@queasysnail.net>
+Cc: bhutchings@solarflare.com, johannes@sipsolutions.net,
+	stephen@networkplumber.org, netdev@vger.kernel.org,
+	Sabrina Dubroca <sd@queasysnail.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:43424 "EHLO mail.us.es"
+Received: from smtp1-g21.free.fr ([212.27.42.1]:42163 "EHLO smtp1-g21.free.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755650AbaAFQe7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jan 2014 11:34:59 -0500
+	id S1753882AbaAFQe4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jan 2014 11:34:56 -0500
+In-Reply-To: <1389026023-18743-1-git-send-email-sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In 08c0cad ("netfilter: nfnetlink_queue: enable UID/GID socket info
-retrieval"), the header that defines TCP_TIME_WAIT.
-
-net/netfilter/nfnetlink_queue_core.c: In function 'nfqnl_put_sk_uidgid':
-net/netfilter/nfnetlink_queue_core.c:304:35: error: 'TCP_TIME_WAIT' undeclared (first use in this function)
-net/netfilter/nfnetlink_queue_core.c:304:35: note: each undeclared identifier is reported only once for each function it appears in make[3]: *** [net/netfilter/nfnetlink_queue_core.o] Error 1
-
-Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 ---
-Hi David,
+ drivers/net/ethernet/atheros/alx/hw.h | 58 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 58 insertions(+)
 
-Please, put this patch into net-next. It seems this compilation problem is
-depending on the .config selections as I didn't reproducible when testing the
-patches.
-
-Thanks!
-
- net/netfilter/nfnetlink_queue_core.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-index d3cf12b..ce20bd8 100644
---- a/net/netfilter/nfnetlink_queue_core.c
-+++ b/net/netfilter/nfnetlink_queue_core.c
-@@ -32,6 +32,7 @@
- #include <net/netfilter/nf_queue.h>
- #include <net/netns/generic.h>
- #include <net/netfilter/nfnetlink_queue.h>
-+#include <net/tcp_states.h>
+diff --git a/drivers/net/ethernet/atheros/alx/hw.h b/drivers/net/ethernet/atheros/alx/hw.h
+index 96f3b43..1c1a0ee 100644
+--- a/drivers/net/ethernet/atheros/alx/hw.h
++++ b/drivers/net/ethernet/atheros/alx/hw.h
+@@ -381,6 +381,64 @@ struct alx_rrd {
+ 				 ALX_ISR_RX_Q6 | \
+ 				 ALX_ISR_RX_Q7)
  
- #include <linux/atomic.h>
++/* Statistics counters collected by the MAC */
++struct alx_hw_stats {
++	/* rx */
++	u64 rx_ok;
++	u64 rx_bcast;
++	u64 rx_mcast;
++	u64 rx_pause;
++	u64 rx_ctrl;
++	u64 rx_fcs_err;
++	u64 rx_len_err;
++	u64 rx_byte_cnt;
++	u64 rx_runt;
++	u64 rx_frag;
++	u64 rx_sz_64B;
++	u64 rx_sz_127B;
++	u64 rx_sz_255B;
++	u64 rx_sz_511B;
++	u64 rx_sz_1023B;
++	u64 rx_sz_1518B;
++	u64 rx_sz_max;
++	u64 rx_ov_sz;
++	u64 rx_ov_rxf;
++	u64 rx_ov_rrd;
++	u64 rx_align_err;
++	u64 rx_bc_byte_cnt;
++	u64 rx_mc_byte_cnt;
++	u64 rx_err_addr;
++
++	/* tx */
++	u64 tx_ok;
++	u64 tx_bcast;
++	u64 tx_mcast;
++	u64 tx_pause;
++	u64 tx_exc_defer;
++	u64 tx_ctrl;
++	u64 tx_defer;
++	u64 tx_byte_cnt;
++	u64 tx_sz_64B;
++	u64 tx_sz_127B;
++	u64 tx_sz_255B;
++	u64 tx_sz_511B;
++	u64 tx_sz_1023B;
++	u64 tx_sz_1518B;
++	u64 tx_sz_max;
++	u64 tx_single_col;
++	u64 tx_multi_col;
++	u64 tx_late_col;
++	u64 tx_abort_col;
++	u64 tx_underrun;
++	u64 tx_trd_eop;
++	u64 tx_len_err;
++	u64 tx_trunc;
++	u64 tx_bc_byte_cnt;
++	u64 tx_mc_byte_cnt;
++	u64 update;
++};
++
++
+ /* maximum interrupt vectors for msix */
+ #define ALX_MAX_MSIX_INTRS	16
  
 -- 
-1.7.10.4
+1.8.5.2
