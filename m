@@ -1,104 +1,120 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/15] i40e: support VFs on PFs other than 0
-Date: Mon,  6 Jan 2014 04:30:30 -0800
-Message-ID: <1389011436-18424-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/15] i40e: Do not allow AQ calls from ndo-ops
+Date: Mon,  6 Jan 2014 04:30:36 -0800
+Message-ID: <1389011436-18424-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389011436-18424-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:44283 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:22497 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753643AbaAFMan (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jan 2014 07:30:43 -0500
+	id S1753739AbaAFMaq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jan 2014 07:30:46 -0500
 In-Reply-To: <1389011436-18424-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-When communicating with VF devices over the AQ, the FW refers to the
-VF by its global VF ID, not local the VF ID with reference to its
-parent PF. Since the global and local VF IDs are identical for PF 0,
-the code worked correctly on PF 0.
+If the device is not in a working state avoid making admin
+queue (AQ) calls that rely on a working AQ.
 
-However, we cannot just use global IDs throughout the code as most of
-the other references to the VF (VSI setup, register offsets, etc.)
-require the local VF ID. Instead, we just add or subtract our base VF
-ID when sending and receiving AQ messages.
-
-Change-Id: I92f4332b4876bc68b2f9af9ebf48761f63b6bd97
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-Id: Ifbba6d257b3a5b51bfe92938c04088c0baa21433
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 18 ++++++++++--------
- 1 file changed, 10 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 30 +++++++++++++----------------
+ 1 file changed, 13 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index e91f9d7..a983858 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -903,6 +903,7 @@ static int i40e_vc_send_msg_to_vf(struct i40e_vf *vf, u32 v_opcode,
- {
- 	struct i40e_pf *pf = vf->pf;
- 	struct i40e_hw *hw = &pf->hw;
-+	int true_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
- 	i40e_status aq_ret;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index fd24ee4..483126c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -1215,6 +1215,10 @@ static int i40e_set_mac(struct net_device *netdev, void *p)
+ 	if (ether_addr_equal(netdev->dev_addr, addr->sa_data))
+ 		return 0;
  
- 	/* single place to detect unsuccessful return values */
-@@ -922,8 +923,8 @@ static int i40e_vc_send_msg_to_vf(struct i40e_vf *vf, u32 v_opcode,
- 		vf->num_valid_msgs++;
++	if (test_bit(__I40E_DOWN, &vsi->back->state) ||
++	    test_bit(__I40E_RESET_RECOVERY_PENDING, &vsi->back->state))
++		return -EADDRNOTAVAIL;
++
+ 	if (vsi->type == I40E_VSI_MAIN) {
+ 		i40e_status ret;
+ 		ret = i40e_aq_mac_address_write(&vsi->back->hw,
+@@ -1779,7 +1783,6 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
+ {
+ 	struct i40e_mac_filter *f, *add_f;
+ 	bool is_netdev, is_vf;
+-	int ret;
+ 
+ 	is_vf = (vsi->type == I40E_VSI_SRIOV);
+ 	is_netdev = !!(vsi->netdev);
+@@ -1805,13 +1808,6 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
+ 		}
  	}
  
--	aq_ret = i40e_aq_send_msg_to_vf(hw, vf->vf_id, v_opcode, v_retval,
--				     msg, msglen, NULL);
-+	aq_ret = i40e_aq_send_msg_to_vf(hw, true_vf_id,	v_opcode, v_retval,
-+					msg, msglen, NULL);
- 	if (aq_ret) {
- 		dev_err(&pf->pdev->dev,
- 			"Unable to send the message to VF %d aq_err %d\n",
-@@ -1664,22 +1665,23 @@ int i40e_vc_process_vf_msg(struct i40e_pf *pf, u16 vf_id, u32 v_opcode,
- 			   u32 v_retval, u8 *msg, u16 msglen)
- {
- 	struct i40e_hw *hw = &pf->hw;
-+	int local_vf_id = vf_id - hw->func_caps.vf_base_id;
- 	struct i40e_vf *vf;
- 	int ret;
- 
- 	pf->vf_aq_requests++;
--	if (vf_id >= pf->num_alloc_vfs)
-+	if (local_vf_id >= pf->num_alloc_vfs)
- 		return -EINVAL;
--	vf = &(pf->vf[vf_id]);
-+	vf = &(pf->vf[local_vf_id]);
- 	/* perform basic checks on the msg */
- 	ret = i40e_vc_validate_vf_msg(vf, v_opcode, v_retval, msg, msglen);
- 
- 	if (ret) {
- 		dev_err(&pf->pdev->dev, "Invalid message from vf %d, opcode %d, len %d\n",
--			vf_id, v_opcode, msglen);
-+			local_vf_id, v_opcode, msglen);
- 		return ret;
+-	ret = i40e_sync_vsi_filters(vsi);
+-	if (ret) {
+-		dev_info(&vsi->back->pdev->dev,
+-			 "Could not sync filters for vid %d\n", vid);
+-		return ret;
+-	}
+-
+ 	/* Now if we add a vlan tag, make sure to check if it is the first
+ 	 * tag (i.e. a "tag" -1 does exist) and if so replace the -1 "tag"
+ 	 * with 0, so we now accept untagged and specified tagged traffic
+@@ -1848,10 +1844,13 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
+ 				}
+ 			}
+ 		}
+-		ret = i40e_sync_vsi_filters(vsi);
  	}
--	wr32(hw, I40E_VFGEN_RSTAT1(vf_id), I40E_VFR_VFACTIVE);
-+	wr32(hw, I40E_VFGEN_RSTAT1(local_vf_id), I40E_VFR_VFACTIVE);
- 	switch (v_opcode) {
- 	case I40E_VIRTCHNL_OP_VERSION:
- 		ret = i40e_vc_get_version_msg(vf);
-@@ -1723,8 +1725,8 @@ int i40e_vc_process_vf_msg(struct i40e_pf *pf, u16 vf_id, u32 v_opcode,
- 		break;
- 	case I40E_VIRTCHNL_OP_UNKNOWN:
- 	default:
--		dev_err(&pf->pdev->dev,
--			"Unsupported opcode %d from vf %d\n", v_opcode, vf_id);
-+		dev_err(&pf->pdev->dev, "Unsupported opcode %d from vf %d\n",
-+			v_opcode, local_vf_id);
- 		ret = i40e_vc_send_resp_to_vf(vf, v_opcode,
- 					      I40E_ERR_NOT_IMPLEMENTED);
- 		break;
+ 
+-	return ret;
++	if (test_bit(__I40E_DOWN, &vsi->back->state) ||
++	    test_bit(__I40E_RESET_RECOVERY_PENDING, &vsi->back->state))
++		return 0;
++
++	return i40e_sync_vsi_filters(vsi);
+ }
+ 
+ /**
+@@ -1867,7 +1866,6 @@ int i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
+ 	struct i40e_mac_filter *f, *add_f;
+ 	bool is_vf, is_netdev;
+ 	int filter_count = 0;
+-	int ret;
+ 
+ 	is_vf = (vsi->type == I40E_VSI_SRIOV);
+ 	is_netdev = !!(netdev);
+@@ -1878,12 +1876,6 @@ int i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
+ 	list_for_each_entry(f, &vsi->mac_filter_list, list)
+ 		i40e_del_filter(vsi, f->macaddr, vid, is_vf, is_netdev);
+ 
+-	ret = i40e_sync_vsi_filters(vsi);
+-	if (ret) {
+-		dev_info(&vsi->back->pdev->dev, "Could not sync filters\n");
+-		return ret;
+-	}
+-
+ 	/* go through all the filters for this VSI and if there is only
+ 	 * vid == 0 it means there are no other filters, so vid 0 must
+ 	 * be replaced with -1. This signifies that we should from now
+@@ -1926,6 +1918,10 @@ int i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
+ 		}
+ 	}
+ 
++	if (test_bit(__I40E_DOWN, &vsi->back->state) ||
++	    test_bit(__I40E_RESET_RECOVERY_PENDING, &vsi->back->state))
++		return 0;
++
+ 	return i40e_sync_vsi_filters(vsi);
+ }
+ 
 -- 
 1.8.3.1
