@@ -1,54 +1,70 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: Re: [PATCH net-next v4] IPv6: use anycast addresses as source addresses in echo reply
-Date: Mon, 6 Jan 2014 02:41:41 -0800 (PST)
-Message-ID: <1389004901.29746.YahooMailBasic@web125506.mail.ne1.yahoo.com>
-References: <20140105230505.GA29910@order.stressinduktion.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH 4/11]  use ether_addr_equal_64bits
+Date: Mon, 6 Jan 2014 13:48:02 +0300
+Message-ID: <20140106104802.GN30234@mwanda>
+References: <1388427307-8691-1-git-send-email-Julia.Lawall@lip6.fr>
+ <1388427307-8691-5-git-send-email-Julia.Lawall@lip6.fr>
+ <1388429761.4410.1.camel@jlt4.sipsolutions.net>
+ <alpine.DEB.2.02.1312302057420.2209@localhost6.localdomain6>
+ <1388438724.4573.2.camel@jlt4.sipsolutions.net>
+ <20131230215701.GA4938@khazad-dum.debian.net>
+ <1388445188.18164.0.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm33.bullet.mail.ne1.yahoo.com ([98.138.229.26]:33126 "HELO
-	nm33.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752672AbaAFKo1 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jan 2014 05:44:27 -0500
-In-Reply-To: <20140105230505.GA29910@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Henrique de Moraes Holschuh <hmh@hmh.eng.br>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	kernel-janitors@vger.kernel.org,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1388445188.18164.0.camel@jlt4.sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 1/5/14, Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+On Tue, Dec 31, 2013 at 12:13:08AM +0100, Johannes Berg wrote:
+> On Mon, 2013-12-30 at 19:57 -0200, Henrique de Moraes Holschuh wrote:
+> > On Mon, 30 Dec 2013, Johannes Berg wrote:
+> > > On Mon, 2013-12-30 at 20:58 +0100, Julia Lawall wrote:
+> > > > > Is there any way we could catch (sparse, or some other script?) that
+> > > > > struct reorganising won't break the condition needed ("within a
+> > > > > structure that contains at least two more bytes")?
+> > > > 
+> > > > What kind of reorganizing could happen?  Do you mean that the programmer 
+> > > > might do at some time in the future, or something the compiler might do?
+> > > 
+> > > I'm just thinking of a programmer, e.g. changing a struct like this:
+> > > 
+> > >  struct foo {
+> > >    u8 addr[ETH_ALEN];
+> > > -  u16 dummy;
+> > >  };
+> > > 
+> > > for example.
+> > 
+> > That is easily resolved by:
+> > 
+> > struct foo {
+> > 	u8 addr[ETH_ALEN];
+> > 	u16 required_padding;	/* do not remove upon pain of death */
+> > };
+> 
+> That'd be a stupid waste of struct space. If anything, there should be
+> *only* a comment saying that at least two bytes are needed - I'd still
+> prefer an automated check.
+> 
 
-> On Fri, Jan 03, 2014 at 05:43:31PM +0100, Francois-Xavier Le Bail wrote:
-> > diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-> > index 5d42009..65c8619 100644
-> > --- a/net/ipv6/icmp.c
-> > +++ b/net/ipv6/icmp.c
-> > @@ -556,7 +556,9 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
-> >  
-> >  	saddr = &ipv6_hdr(skb)->daddr;
-> >  
-> > -	if (!ipv6_unicast_destination(skb))
-> > +	if (!ipv6_unicast_destination(skb) &&
-> > +	    !(net->ipv6.anycast_src_echo_reply &&
-> > +	      ipv6_chk_acast_addr(net, NULL, saddr)))
-> >  		saddr = NULL;
+This is the sort of thing where Smatch is probably the right tool.  I'll
+let you know how it turns out.
 
-> I am not sure why you left out the device at ipv6_chk_acast_addr?
+My guess is that it would be rare to run into this bug in real life.
+Most structs have 4 or 8 byte alignment and most times the addr is not
+at the end of the struct.  But I also agree that this function should
+only be used in a fast path.
 
-> IMHO this logic is a bit more complex, we can pass NULL for ipv6 addresses of
-> scope global but need to check the interface for scope link.
-
-> It is already possible via setsockopt JOIN_ANYCAST that an ll address is
-> anycast on another interface which may not be checked here.
-
-In this case, there are neighbor solicitations "who has LL anycast" with no reply, so no echo request is sent.
-
-Do you find some problem testing my patch ?
-
-BR
+regards,
+dan carpenter
