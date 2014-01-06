@@ -1,72 +1,39 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next 08/15] i40e: acknowledge VFLR when disabling SR-IOV
-Date: Mon, 06 Jan 2014 20:43:24 +0400
-Message-ID: <52CADD2C.2090103@cogentembedded.com>
-References: <1389011436-18424-1-git-send-email-jeffrey.t.kirsher@intel.com> <1389011436-18424-9-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [BUG] bnx2x : lockdep assertion
+Date: Mon, 06 Jan 2014 08:49:34 -0800
+Message-ID: <1389026974.12212.180.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1388939634-19948-1-git-send-email-yuvalmin@broadcom.com>
+	 <1388939634-19948-3-git-send-email-yuvalmin@broadcom.com>
+	 <1389025680.12212.178.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <6AE768456CEC4B4A9B2248CB6B87EB3E1BFBE6A6@SJEXCHMB05.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	sassmann@redhat.com, Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>
+Cc: Yuval Mintz <yuvalmin@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Michal Kalderon <michal.spivak@broadcom.com>
+To: Ariel Elior <ariele@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f49.google.com ([209.85.215.49]:65408 "EHLO
-	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752574AbaAFQn1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 11:43:27 -0500
-Received: by mail-la0-f49.google.com with SMTP id er20so9945332lab.36
-        for <netdev@vger.kernel.org>; Mon, 06 Jan 2014 08:43:25 -0800 (PST)
-In-Reply-To: <1389011436-18424-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:54961 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755628AbaAFQth (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 11:49:37 -0500
+Received: by mail-pd0-f182.google.com with SMTP id v10so18502203pde.27
+        for <netdev@vger.kernel.org>; Mon, 06 Jan 2014 08:49:37 -0800 (PST)
+In-Reply-To: <6AE768456CEC4B4A9B2248CB6B87EB3E1BFBE6A6@SJEXCHMB05.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06.01.2014 16:30, Jeff Kirsher wrote:
+On Mon, 2014-01-06 at 16:35 +0000, Ariel Elior wrote:
 
-> From: Mitch Williams <mitch.a.williams@intel.com>
+> Hi Eric,
+> This was introduced by the low latency patch which added a 'might_sleep()' to napi_disable a while ago.
+> There is a fix in the works.
+> Thanks,
 
-> When SR-IOV is disabled, the (now nonexistent) virtual function
-> devices undergo a VFLR event. We don't need to handle this event
-> because the VFs are gone, but we do need to tell the HW that they are
-> complete. This fixes an issue with a phantom VFLR and broken VFs when
-> SR-IOV is re-enabled.
+Hmm, commit 80c33ddd31d0e801953 is 3 months old.
 
-> Change-Id: I7580b49ded0158172a85b14661ec212af77000c8
-> Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Tested-by: Sibai Li <sibai.li@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->   drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 15 +++++++++++++--
->   1 file changed, 13 insertions(+), 2 deletions(-)
+Do you have an idea of ETA for the fix ?
 
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-> index f92404c..e91f9d7 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-[...]
-> @@ -748,8 +750,17 @@ void i40e_free_vfs(struct i40e_pf *pf)
->   	kfree(pf->vf);
->   	pf->vf = NULL;
->
-> -	if (!i40e_vfs_are_assigned(pf))
-> +	if (!i40e_vfs_are_assigned(pf)) {
->   		pci_disable_sriov(pf->pdev);
-> +		/* Acknowledge VFLR for all VFS. Without this, VFs will fail to
-> +		 * work correctly when SR-IOV gets re-enabled.
-> +		 */
-> +		for (vf_id = 0; vf_id < tmp; vf_id++) {
-> +			reg_idx = (hw->func_caps.vf_base_id + vf_id) / 32;
-> +			bit_idx = (hw->func_caps.vf_base_id + vf_id) % 32;
-> +			wr32(hw, I40E_GLGEN_VFLRSTAT(reg_idx), (1 << bit_idx));
-> +		}
-> +	}
->   	else
-
-    } and *else* should be on the same line. And the *else* arm should also 
-have {} now.
-
->   		dev_warn(&pf->pdev->dev,
->   			 "unable to disable SR-IOV because VFs are assigned.\n");
-
-WBR, Sergei
+Thanks !
