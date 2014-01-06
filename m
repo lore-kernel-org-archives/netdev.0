@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: merge net into net-next ?
-Date: Mon, 06 Jan 2014 01:16:33 -0500 (EST)
-Message-ID: <20140106.011633.1399394664159421567.davem@davemloft.net>
-References: <52C93D6D.7050101@meshcoding.com>
+Subject: Re: [PATCH net] bnx2x: Introducing 2014 and updating maintainer
+Date: Mon, 06 Jan 2014 01:30:29 -0500 (EST)
+Message-ID: <20140106.013029.1195007411131993187.davem@davemloft.net>
+References: <1388925273-12512-1-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: antonio@meshcoding.com
+To: ariele@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54929 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54998 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751052AbaAFGQh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 01:16:37 -0500
-In-Reply-To: <52C93D6D.7050101@meshcoding.com>
+	with ESMTP id S1751052AbaAFGab (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 01:30:31 -0500
+In-Reply-To: <1388925273-12512-1-git-send-email-ariele@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio@meshcoding.com>
-Date: Sun, 05 Jan 2014 12:09:33 +0100
 
-> Do you have any plan about merging net into net-next?
-> 
-> I have a pull request for net-next that I'd like to send soon (it looks
-> like we have not much time before 3.13 is released) but it requires the
-> changes into net to be applied first.
+It is absolutely not appropriate to bump the date in all of these
+source files, and for that to be the sole and only change.
 
-I plan to do this some time on Monday.
+Bump the dates when you make real other changes to these files,
+and no sooner.
+
+Furthermore, this is doubly not legitimate for the 'net' tree
+which should only be getting real and serious bug fixes right
+now.
