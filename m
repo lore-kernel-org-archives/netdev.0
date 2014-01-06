@@ -1,56 +1,59 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net-next 1/2] bridge: use spin_lock_bh() in br_multicast_set_hash_max
-Date: Mon, 6 Jan 2014 11:11:45 -0800
-Message-ID: <CAHA+R7MB4Pf=eF-7=3gGH-j1mmJLtrjxFqv0bBXF1BBd1D=kuQ@mail.gmail.com>
-References: <20140106190032.10912.1521.stgit@monster-03.cumulusnetworks.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH v3.5 18/19] rtlwifi: slight optimization of addr compare
+Date: Mon, 6 Jan 2014 14:53:03 -0500
+Message-ID: <20140106195302.GF10885@tuxdriver.com>
+References: <52BC15EA.2020603@huawei.com>
+ <52BC2576.3090601@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-	roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
-	curt@cumulusnetworks.com, shm@cumulusnetworks.com
-To: Scott Feldman <sfeldma@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:38463 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753979AbaAFTLr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 14:11:47 -0500
-Received: by mail-la0-f51.google.com with SMTP id ec20so10077603lab.38
-        for <netdev@vger.kernel.org>; Mon, 06 Jan 2014 11:11:45 -0800 (PST)
-In-Reply-To: <20140106190032.10912.1521.stgit@monster-03.cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ding Tianhong <dingtianhong@huawei.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	linux-wireless@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <52BC2576.3090601@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 6, 2014 at 11:00 AM, Scott Feldman
-<sfeldma@cumulusnetworks.com> wrote:
-> From: Curt Brune <curt@cumulusnetworks.com>
->
-> br_multicast_set_hash_max() is called from process context in
-> net/bridge/br_sysfs_br.c by the sysfs store_hash_max() function.
->
-> br_multicast_set_hash_max() calls spin_lock(&br->multicast_lock),
-> which can deadlock the CPU if a softirq that also tries to take the
-> same lock interrupts br_multicast_set_hash_max() while the lock is
-> held .  This can happen quite easily when any of the bridge multicast
-> timers expire, which try to take the same lock.
->
-> The fix here is to use spin_lock_bh(), preventing other softirqs from
-> executing on this CPU.
->
-> Steps to reproduce:
->
-> 1. Create a bridge with several interfaces (I used 4).
-> 2. Set the "multicast query interval" to a low number, like 2.
-> 3. Enable the bridge as a multicast querier.
-> 4. Repeatedly set the bridge hash_max parameter via sysfs.
->
->   # brctl addbr br0
->   # brctl addif br0 eth1 eth2 eth3 eth4
->   # brctl setmcqi br0 2
->   # brctl setmcquerier br0 1
->
->   # while true ; do echo 4096 > /sys/class/net/br0/bridge/hash_max; done
->
+On Thu, Dec 26, 2013 at 04:47:50PM +0400, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 26-12-2013 15:41, Ding Tianhong wrote:
+> 
+> >Use possibly more efficient ether_addr_equal_unaligned
+> >instead of memcmp.
+> 
+> >Cc: Larry Finger <Larry.Finger@lwfinger.net>
+> >Cc: Chaoming Li <chaoming_li@realsil.com.cn>
+> >Cc: John W. Linville <linville@tuxdriver.com>
+> >Cc: linux-wireless@vger.kernel.org
+> >Cc: netdev@vger.kernel.org
+> >Cc: linux-kernel@vger.kernel.org
+> >Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+> >Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> >---
+> >  drivers/net/wireless/rtlwifi/cam.c | 4 ++--
+> >  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> >diff --git a/drivers/net/wireless/rtlwifi/cam.c b/drivers/net/wireless/rtlwifi/cam.c
+> >index 0e510f7..0276153 100644
+> >--- a/drivers/net/wireless/rtlwifi/cam.c
+> >+++ b/drivers/net/wireless/rtlwifi/cam.c
+> [...]
+> >@@ -335,7 +335,7 @@ void rtl_cam_del_entry(struct ieee80211_hw *hw, u8 *sta_addr)
+> >  		addr = rtlpriv->sec.hwsec_cam_sta_addr[i];
+> >  		bitmap = (rtlpriv->sec.hwsec_cam_bitmap) >> i;
+> >  		if (((bitmap & BIT(0)) == BIT(0)) &&
+> >-		    (memcmp(addr, sta_addr, ETH_ALEN) == 0)) {
+> >+		    (ether_addr_equal_unaligned(addr, sta_addr))) {
+> 
+>    It's pointless to enclose function call in parens, again.
 
+I'll correct that issue when merging the patch.
 
-I think this should probably go to net instead of net-next,
-and -stable too.
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
