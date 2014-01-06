@@ -1,83 +1,128 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 03/12] netfilter: nfnetlink_queue: enable UID/GID socket
- info retrieval
-Date: Mon, 06 Jan 2014 07:32:33 -0800
-Message-ID: <1389022353.12212.176.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1388963586-5049-1-git-send-email-pablo@netfilter.org>
-	 <1388963586-5049-4-git-send-email-pablo@netfilter.org>
+From: Thomas Haller <thaller@redhat.com>
+Subject: Re: [patch iproute2 v2 0/2] add support for IFA_F_MANAGETEMPADDR
+Date: Mon, 06 Jan 2014 16:41:49 +0100
+Message-ID: <1389022909.23397.4.camel@weing>
+References: <1388676879-2603-1-git-send-email-jiri@resnulli.us>
+	 <20140102172949.GF22494@order.stressinduktion.org>
+	 <20140104104331.GB9295@minipsycho.orion>
+	 <20140104105515.GA25828@order.stressinduktion.org>
+	 <20140104110557.GD9295@minipsycho.orion>
+	 <20140104111546.GB25828@order.stressinduktion.org>
+	 <1388834511.7407.5.camel@weing>
+	 <20140104113543.GC25828@order.stressinduktion.org>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
+	boundary="=-Rf3zEAKNNfaHopbGed8r"
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	stephen@networkplumber.org, dcbw@redhat.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55010 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755218AbaAFPmF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jan 2014 10:42:05 -0500
+In-Reply-To: <20140104113543.GC25828@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-Rf3zEAKNNfaHopbGed8r
 Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Sat, 2014-01-04 at 12:35 +0100, Hannes Frederic Sowa wrote:
+> On Sat, Jan 04, 2014 at 12:21:51PM +0100, Thomas Haller wrote:
+> > > > >Also, I saw that NetworkManager switched to install autoconf addre=
+sses
+> > > > >as /128, doesn't this break with IFA_F_MANAGETEMPADDR, as you expe=
+ct a /64
+> > > > >prefixlen?
+> > > >=20
+> > > > /64 is required
+> > >=20
+> > > Ok, currently NM seems to "violate" that as it installs autoconf addr=
+esses
+> > > with 128 prefixlen, so IFA_F_MANAGETEMPADDR should not work on them.
+> > > (currently observed on Fedora 20).
+> >=20
+> > True, I noticed that too. I think that is a bug in NM to add the
+> > addresses as /128. Probably, we will fix that soon.
+>=20
+> The change could be valid. Otherwise currently NM could not correctly han=
+dle
+> prefix information in RAs in some cases:
+>=20
+> It is possible to let the client generate an autonomously address in a
+> prefix which is actually not on-link (L=3D0). Kernel would automatically
+> create prefix route by mistake, if NM tries to install such an address
+> with /64 prefix. This does not happen if the prefix address uses 128
+> prefixlen.
+>=20
+> Would be great to have feedback on this, as this could be easily solved b=
+y an
+> additional ifa_flag.
+>=20
+> Greetings,
+>=20
+>   Hannes
+>=20
+
+
+Hi Hannes,
+
+
+good point. I think, the user-space application (NetworkManager) should
+add the autoconf addresses as /64. But the kernel should not generate
+any routes in that case. It's up to the application to add them
+(depending on the on-link flag).
+
+
+What do you think about something like:
+
+
+
+diff --git i/net/ipv6/addrconf.c w/net/ipv6/addrconf.c
+index 6c16345..5a4c382 100644
+--- i/net/ipv6/addrconf.c
++++ w/net/ipv6/addrconf.c
+@@ -2433,8 +2433,11 @@ static int inet6_addr_add(struct net *net, int ifind=
+ex,
+ 			    valid_lft, prefered_lft);
+=20
+ 	if (!IS_ERR(ifp)) {
+-		addrconf_prefix_route(&ifp->addr, ifp->prefix_len, dev,
+-				      expires, flags);
++		if (ifa_flags & IFA_F_MANAGETEMPADDR =3D=3D 0) {
++			addrconf_prefix_route(&ifp->addr, ifp->prefix_len, dev,
++					      expires, flags);
++		}
++
+ 		/*
+ 		 * Note that section 3.1 of RFC 4429 indicates
+ 		 * that the Optimistic flag should not be set for
+
+
+--=-Rf3zEAKNNfaHopbGed8r
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Valentina Giusti <valentina.giusti@bmw-carit.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1388963586-5049-4-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-01-06 at 00:12 +0100, Pablo Neira Ayuso wrote:
-> From: Valentina Giusti <valentina.giusti@bmw-carit.de>
-> 
-> Thanks to commits 41063e9 (ipv4: Early TCP socket demux) and 421b388
-> (udp: ipv4: Add udp early demux) it is now possible to parse UID and
-> GID socket info also for incoming TCP and UDP connections. Having
-> this info available, it is convenient to let NFQUEUE parse it in
-> order to improve and refine the traffic analysis in userspace.
-> 
-> Signed-off-by: Valentina Giusti <valentina.giusti@bmw-carit.de>
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> ---
->  include/uapi/linux/netfilter/nfnetlink_queue.h |    5 +++-
->  net/netfilter/nfnetlink_queue_core.c           |   34 ++++++++++++++++++++++++
->  2 files changed, 38 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/uapi/linux/netfilter/nfnetlink_queue.h b/include/uapi/linux/netfilter/nfnetlink_queue.h
-> index 0132bad..8dd819e 100644
-> --- a/include/uapi/linux/netfilter/nfnetlink_queue.h
-> +++ b/include/uapi/linux/netfilter/nfnetlink_queue.h
-> @@ -47,6 +47,8 @@ enum nfqnl_attr_type {
->  	NFQA_CAP_LEN,			/* __u32 length of captured packet */
->  	NFQA_SKB_INFO,			/* __u32 skb meta information */
->  	NFQA_EXP,			/* nf_conntrack_netlink.h */
-> +	NFQA_UID,			/* __u32 sk uid */
-> +	NFQA_GID,			/* __u32 sk gid */
->  
->  	__NFQA_MAX
->  };
-> @@ -99,7 +101,8 @@ enum nfqnl_attr_config {
->  #define NFQA_CFG_F_FAIL_OPEN			(1 << 0)
->  #define NFQA_CFG_F_CONNTRACK			(1 << 1)
->  #define NFQA_CFG_F_GSO				(1 << 2)
-> -#define NFQA_CFG_F_MAX				(1 << 3)
-> +#define NFQA_CFG_F_UID_GID			(1 << 3)
-> +#define NFQA_CFG_F_MAX				(1 << 4)
->  
->  /* flags for NFQA_SKB_INFO */
->  /* packet appears to have wrong checksums, but they are ok */
-> diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-> index 21258cf..d3cf12b 100644
-> --- a/net/netfilter/nfnetlink_queue_core.c
-> +++ b/net/netfilter/nfnetlink_queue_core.c
-> @@ -297,6 +297,31 @@ nfqnl_put_packet_info(struct sk_buff *nlskb, struct sk_buff *packet,
->  	return flags ? nla_put_be32(nlskb, NFQA_SKB_INFO, htonl(flags)) : 0;
->  }
->  
-> +static int nfqnl_put_sk_uidgid(struct sk_buff *skb, struct sock *sk)
-> +{
-> +	const struct cred *cred;
-> +
-> +	if (sk->sk_state == TCP_TIME_WAIT)
-> +		return 0;
-> +
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-net/netfilter/nfnetlink_queue_core.c: In function 'nfqnl_put_sk_uidgid':
-net/netfilter/nfnetlink_queue_core.c:304:35: error: 'TCP_TIME_WAIT' undeclared (first use in this function)
-net/netfilter/nfnetlink_queue_core.c:304:35: note: each undeclared identifier is reported only once for each function it appears in
-make[3]: *** [net/netfilter/nfnetlink_queue_core.o] Error 1
+iQIcBAABAgAGBQJSys69AAoJECnCNm5N/Fco3poP/ixyg4Zjbz04g6sjPDJldSOf
+GXOysDA+jTKQHExhmhm7lB+Nd9TRnYTLadyq1vCKW7m9X89EkX77DXPl4dFaEsdc
+nAiTqpqNYAe+EaYQndAeILYWtPXmHFZRARB25jtSiW2y7kk9Y0GN5UTwnGsoCP6c
+VwyzVs4LYcQbcZO0f1hmbi86y+IZh1FJAQemZgnW+IrBBWHerpANu122CCZdcueW
+xiT+vozIYFIXokWEf02JekVmuZQyjMyOcoHihQoSYJpD+4t2XVZDY+bNqHGIS27y
+ACEru23wd1cx0I3sOTHJR1fd9t9tXnGjVfV7ttrVNd1I9BW0lTZMpUuUk80q3dWN
+MqBPjfEn9OiFR3FSGrOotE1mJxh35kgHj6CdgxKzLHIt7erb2KlMW/v7m/KHJR8b
+9mac7Jke97Tu6Ra1jjNeEm823PJiGhCF+PFjreesM38N4JOOvl14FSkNw50B2546
+9l4sfQMCc7R+/Sugu8SqFvlZoquo3kI7C+xuiXfOnpzrNAXlVt4A0BpbC30EUdUT
+rJMLKSTs8jR31NZuuvouowdFfFTRlEn227RSPRTAFsNKieqG7ToKIhD+hox6wqOx
+uppvYEMiAmUB95VLYRQW2bcgCEDTA+g7QKBVXeHf+wH48CEgu+K6FCAegYY8nGmW
+JcfJ4W1LUqd0YzdJ3p8z
+=9KJq
+-----END PGP SIGNATURE-----
 
-Fix is obvious (#include <net/tcp_states.h>), but I have to run...
-
-
-
+--=-Rf3zEAKNNfaHopbGed8r--
