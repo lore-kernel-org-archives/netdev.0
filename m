@@ -1,119 +1,52 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net] r8152: add terminating newline
-Date: Mon, 06 Jan 2014 10:42:41 -0800
-Message-ID: <1389033761.2433.7.camel@joe-AO722>
-References: <1388999999-9218-1-git-send-email-hayeswang@realtek.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH V1 net-next 2/2] net: Add UDP GRO support for vxlan traffic
+Date: Mon, 6 Jan 2014 10:46:32 -0800
+Message-ID: <CA+mtBx-aiCMyJocmDw8MfoGxWns2yppjFr8-hn6mH7yrFbMrGA@mail.gmail.com>
+References: <1388935422-7331-1-git-send-email-ogerlitz@mellanox.com>
+	<1388935422-7331-3-git-send-email-ogerlitz@mellanox.com>
+	<CA+mtBx-g1tsBEG6D0oOmG-J_fz68fr6py2OY6RAtoJHUts7h3g@mail.gmail.com>
+	<CAJZOPZJ2DRP13LRzcu__rh=JxY7oAvCQ37dCpmO40ptiRn5hFw@mail.gmail.com>
+	<CAJZOPZLZNEvao9PxtX78sfpg_4GVamgxNMNU52QQ1aFqAxQDZA@mail.gmail.com>
+	<CA+mtBx_B+7CU3GDiod+n7tHfwBcA_3DEhD7tvPYhsZMebiwY8w@mail.gmail.com>
+	<CAJZOPZKfxws+S3ZtTqKQ_yXYhoV=UTOXscM+rVB24UA2d1Fopg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1388999999-9218-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <ogerlitz@mellanox.com>, Jerry Chu <hkchu@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Yan Burman <yanb@mellanox.com>,
+	Shlomo Pongratz <shlomop@mellanox.com>
+To: Or Gerlitz <or.gerlitz@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:63451 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755798AbaAFSqd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 13:46:33 -0500
+Received: by mail-ig0-f178.google.com with SMTP id ut6so7974597igb.5
+        for <netdev@vger.kernel.org>; Mon, 06 Jan 2014 10:46:33 -0800 (PST)
+In-Reply-To: <CAJZOPZKfxws+S3ZtTqKQ_yXYhoV=UTOXscM+rVB24UA2d1Fopg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-01-06 at 17:19 +0800, Hayes Wang wrote:
-> The netif_err() and netif_info() should have the terminating newline
-> at the end of the message.
+On Mon, Jan 6, 2014 at 10:13 AM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
+> On Mon, Jan 6, 2014 at 6:50 PM, Tom Herbert <therbert@google.com> wrote:
+>> I think this would be a good start. We can further optimize the encap
+>> path later on.
+>
+> good, did you had the chance to look on the 2nd problem I was facing,
+> e.g how to prevent gro-ing encapsulated VM (this issue will not happen
+> for non-virtualization schemes, I think) udp packets which happen to
+> carry a destination port which belongs to an encapsulation protocol?
+> as I wrote earlier here, I was thinking to add some field to struct
+> napi_gro_cb which will be zeroed when the gro stacks starts to work on
+> the skb and set once we pass udp_gro_receive, such that if we arrive
+> again to udp_gro_recieve and this field is set, which means the
+> encapsulated
+> packet is udp one, we flush.
 
-dev_<level> uses also need terminating newlines.
-
-Perhaps it's a bit more comprehensive to convert the
-pr_<level>_ratelimited uses to use net_ratelimit and
-netdev_<level>.
----
- drivers/net/usb/r8152.c | 25 ++++++++++++++-----------
- 1 file changed, 14 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 13fabbb..8ae97a5 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -966,10 +966,12 @@ static void read_bulk_callback(struct urb *urb)
- 	case -ENOENT:
- 		return;	/* the urb is in unlink state */
- 	case -ETIME:
--		pr_warn_ratelimited("may be reset is needed?..\n");
-+		if (net_ratelimit())
-+			netdev_warn(netdev, "maybe reset is needed?\n");
- 		break;
- 	default:
--		pr_warn_ratelimited("Rx status %d\n", status);
-+		if (net_ratelimit())
-+			netdev_warn(netdev, "Rx status %d\n", status);
- 		break;
- 	}
- 
-@@ -1002,7 +1004,8 @@ static void write_bulk_callback(struct urb *urb)
- 
- 	stats = rtl8152_get_stats(tp->netdev);
- 	if (status) {
--		pr_warn_ratelimited("Tx status %d\n", status);
-+		if (net_ratelimit())
-+			netdev_warn(tp->netdev, "Tx status %d\n", status);
- 		stats->tx_errors += agg->skb_num;
- 	} else {
- 		stats->tx_packets += agg->skb_num;
-@@ -1079,7 +1082,7 @@ resubmit:
- 		netif_device_detach(tp->netdev);
- 	else if (res)
- 		netif_err(tp, intr, tp->netdev,
--			"can't resubmit intr, status %d\n", res);
-+			  "can't resubmit intr, status %d\n", res);
- }
- 
- static inline void *rx_agg_align(void *data)
-@@ -1490,7 +1493,7 @@ static void rtl8152_tx_timeout(struct net_device *netdev)
- 	struct r8152 *tp = netdev_priv(netdev);
- 	int i;
- 
--	netif_warn(tp, tx_err, netdev, "Tx timeout.\n");
-+	netif_warn(tp, tx_err, netdev, "Tx timeout\n");
- 	for (i = 0; i < RTL8152_MAX_TX; i++)
- 		usb_unlink_urb(tp->tx_info[i].urb);
- }
-@@ -2284,8 +2287,8 @@ static int rtl8152_open(struct net_device *netdev)
- 	if (res) {
- 		if (res == -ENODEV)
- 			netif_device_detach(tp->netdev);
--		netif_warn(tp, ifup, netdev,
--			"intr_urb submit failed: %d\n", res);
-+		netif_warn(tp, ifup, netdev, "intr_urb submit failed: %d\n",
-+			   res);
- 		return res;
- 	}
- 
-@@ -2751,7 +2754,7 @@ static int rtl8152_probe(struct usb_interface *intf,
- 
- 	netdev = alloc_etherdev(sizeof(struct r8152));
- 	if (!netdev) {
--		dev_err(&intf->dev, "Out of memory");
-+		dev_err(&intf->dev, "Out of memory\n");
- 		return -ENOMEM;
- 	}
- 
-@@ -2760,7 +2763,7 @@ static int rtl8152_probe(struct usb_interface *intf,
- 	tp->msg_enable = 0x7FFF;
- 
- 	if (!rtl_ops_init(tp, id)) {
--		netif_err(tp, probe, netdev, "Unknown Device");
-+		netif_err(tp, probe, netdev, "Unknown Device\n");
- 		return -ENODEV;
- 	}
- 
-@@ -2797,11 +2800,11 @@ static int rtl8152_probe(struct usb_interface *intf,
- 
- 	ret = register_netdev(netdev);
- 	if (ret != 0) {
--		netif_err(tp, probe, netdev, "couldn't register the device");
-+		netif_err(tp, probe, netdev, "couldn't register the device\n");
- 		goto out1;
- 	}
- 
--	netif_info(tp, probe, netdev, "%s", DRIVER_VERSION);
-+	netif_info(tp, probe, netdev, "%s\n", DRIVER_VERSION);
- 
- 	return 0;
- 
+I don't see what the problem is, GRO should not be recursively applied
+to an inner UDP header for encapsulation. The guest may try to do it's
+own version of GRO on an inner UDP packet, but interpreting the
+destination port correctly is its responsibility then.
