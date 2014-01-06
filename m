@@ -1,42 +1,29 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Mon, 6 Jan 2014 06:10:43 +0100
-Message-ID: <20140106051043.GA3307@order.stressinduktion.org>
-References: <20140106155413.914ed0922423400deaf87926@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: merge net into net-next ?
+Date: Mon, 06 Jan 2014 01:16:33 -0500 (EST)
+Message-ID: <20140106.011633.1399394664159421567.davem@davemloft.net>
+References: <52C93D6D.7050101@meshcoding.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Li RongQing <roy.qing.li@gmail.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140106155413.914ed0922423400deaf87926@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: antonio@meshcoding.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54929 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751052AbaAFGQh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 01:16:37 -0500
+In-Reply-To: <52C93D6D.7050101@meshcoding.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 06, 2014 at 03:54:13PM +1100, Stephen Rothwell wrote:
-> Hi all,
-> 
-> After merging the net-next tree, today's linux-next build (powerpc
-> ppc64_defconfig) failed like this:
-> 
-> In file included from net/core/dev.c:134:0:
-> include/linux/if_macvlan.h: In function 'macvlan_count_rx':
-> include/linux/if_macvlan.h:68:3: error: invalid use of undefined type 'struct vlan_pcpu_stats'
->    pcpu_stats = this_cpu_ptr(vlan->pcpu_stats);
->    ^
-> 
-> And lots more.
-> 
-> Caused by commit cdf3e274cf1b ("macvlan: unify macvlan_pcpu_stats and
-> vlan_pcpu_stats");
-> 
-> I have reverted that commit for today.
+From: Antonio Quartulli <antonio@meshcoding.com>
+Date: Sun, 05 Jan 2014 12:09:33 +0100
 
-This is fixed by:
-https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=1e85c9b66d86a776e78c332d5d32ae370ab84d3f
+> Do you have any plan about merging net into net-next?
+> 
+> I have a pull request for net-next that I'd like to send soon (it looks
+> like we have not much time before 3.13 is released) but it requires the
+> changes into net to be applied first.
 
-Greetings,
-
-  Hannes
+I plan to do this some time on Monday.
