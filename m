@@ -1,53 +1,79 @@
-From: Scott Feldman <sfeldma@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] bonding: fix kstrtou8() return value verification in num_peer_notif
-Date: Mon, 6 Jan 2014 09:02:18 -0800
-Message-ID: <0E8BD1B8-4D60-4292-8694-CF0E988AA2BD@cumulusnetworks.com>
-References: <1389005680-9063-1-git-send-email-vfalico@redhat.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.1 \(1827\))
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] netfilter: nf_conntrack: release conntrack from rcu
+ callback
+Date: Mon, 6 Jan 2014 18:02:35 +0100
+Message-ID: <20140106170235.GJ28854@breakpoint.cc>
+References: <1389023672-14351-1-git-send-email-avagin@openvz.org>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Netdev <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Veaceslav Falico <vfalico@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:46697 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755470AbaAFRCZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 12:02:25 -0500
-In-Reply-To: <1389005680-9063-1-git-send-email-vfalico@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, vvs@openvz.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cyrill Gorcunov <gorcunov@openvz.org>
+To: Andrey Vagin <avagin@openvz.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1389023672-14351-1-git-send-email-avagin@openvz.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Jan 6, 2014, at 2:54 AM, Veaceslav Falico <vfalico@redhat.com> wrote:
-
-> It returns 0 in case of success, !0 error otherwise. Fix the improper error
-> verification.
+Andrey Vagin <avagin@openvz.org> wrote:
+> Lets look at destroy_conntrack:
 > 
-> Fixes: 2c9839c143bbc ("bonding: add num_grat_arp attribute netlink support")
-> CC: sfeldma@cumulusnetworks.com
-> CC: Jay Vosburgh <fubar@us.ibm.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-> ---
-> drivers/net/bonding/bond_sysfs.c | 2 +-
-> 1 file changed, 1 insertion(+), 1 deletion(-)
+> hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
+> ...
+> nf_conntrack_free(ct)
+> 	kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
 > 
-> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-> index 9a1ea4a..011f163 100644
-> --- a/drivers/net/bonding/bond_sysfs.c
-> +++ b/drivers/net/bonding/bond_sysfs.c
-> @@ -776,7 +776,7 @@ static ssize_t bonding_store_num_peer_notif(struct device *d,
-> 	int ret;
+> The hash is protected by rcu, so readers look up conntracks without
+> locks.
+> A conntrack is removed from the hash, but in this moment a few readers
+> still can use the conntrack, so if we call kmem_cache_free now, all
+> readers will read released object.
 > 
-> 	ret = kstrtou8(buf, 10, &new_value);
-> -	if (!ret) {
-> +	if (ret) {
-> 		pr_err("%s: invalid value %s specified.\n",
-> 		       bond->dev->name, buf);
-> 		return ret;
-> -- 
-> 1.8.4
+> Bellow you can find more tricky race condition of three tasks.
+> 
+> task 1			task 2			task 3
+> 			nf_conntrack_find_get
+> 			 ____nf_conntrack_find
+> destroy_conntrack
+>  hlist_nulls_del_rcu
+>  nf_conntrack_free
+>  kmem_cache_free
+> 						__nf_conntrack_alloc
+> 						 kmem_cache_alloc
+> 						 memset(&ct->tuplehash[IP_CT_DIR_MAX],
+> 			 if (nf_ct_is_dying(ct))
+> 
+> In this case the task 2 will not understand, that it uses a wrong
+> conntrack.
 
-Thanks!
+Can you elaborate?
+Yes, nf_ct_is_dying(ct) might be called for the wrong conntrack.
 
-Acked-by: Scott Feldman <sfeldma@cumulusnetworks.com>
+But, in case we _think_ that its the right one we call
+nf_ct_tuple_equal() to verify we indeed found the right one:
+
+       h = ____nf_conntrack_find(net, zone, tuple, hash);
+       if (h) { // might be released right now, but page won't go away (SLAB_BY_RCU)
+                ct = nf_ct_tuplehash_to_ctrack(h);
+                if (unlikely(nf_ct_is_dying(ct) ||
+                             !atomic_inc_not_zero(&ct->ct_general.use)))
+			// which means we should hit this path (0 ref).
+                        h = NULL;
+                else {
+			// otherwise, it cannot go away from under us, since
+			// we own a reference now.
+                        if (unlikely(!nf_ct_tuple_equal(tuple, &h->tuple) ||
+                                     nf_ct_zone(ct) != zone)) {
+			// if we get here, the entry got recycled on other cpu
+			// for a different tuple, we can bail out and drop
+			// the reference safely and re-try the lookup
+                                nf_ct_put(ct);
+                                goto begin;
+                        }
+                }
