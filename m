@@ -1,46 +1,83 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH v2 00/16] wl1251 patches from linux-n900 tree
-Date: Mon, 6 Jan 2014 15:00:50 -0500
-Message-ID: <20140106200050.GG10885@tuxdriver.com>
-References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
- <1386494714-21070-1-git-send-email-pali.rohar@gmail.com>
- <201312311047.30147@pali>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: =?UTF-8?Q?=E7=AD=94=E5=A4=8D=3A?= Re: [Patch] netxen_nic:
+ Bugfix for wrong RUNNING status of NX3031 NICs with no link
+Date: Mon, 6 Jan 2014 20:24:39 +0000
+Message-ID: <1389039879.9947.104.camel@bwh-desktop.uk.level5networks.com>
+References: <OF9AC42061.4BF09F2E-ON48257C55.00253C5A-48257C55.0027274D@zte.com.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Luciano Coelho <luca@coelho.fi>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	freemangordon@abv.bg, aaro.koskinen@iki.fi, pavel@ucw.cz,
-	sre@ring0.de, joni.lapilainen@gmail.com,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Felipe Contreras <felipe.contreras@gmail.com>
-To: Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201312311047.30147@pali>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <li.fengmao@zte.com.cn>,
+	<manish.chopra@qlogic.com>, <netdev@vger.kernel.org>,
+	<rajesh.borundia@qlogic.com>, <sony.chacko@qlogic.com>,
+	<wang.liang82@zte.com.cn>, <cai.qu@zte.com.cn>,
+	<long.chun@zte.com.cn>
+To: <jiang.biao2@zte.com.cn>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:36161 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754699AbaAFUYo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 15:24:44 -0500
+In-Reply-To: <OF9AC42061.4BF09F2E-ON48257C55.00253C5A-48257C55.0027274D@zte.com.cn>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 31, 2013 at 10:47:29AM +0100, Pali Roh=E1r wrote:
-> On Sunday 08 December 2013 10:24:58 Pali Roh=E1r wrote:
-> > Hello, I'm sending wl1251 patches from linux-n900 tree [1] for
-> > comments. More patches come from David's monitor & packet
-> > injection work. Patches are tested with 3.12 rc5 kernel on
-> > Nokia N900.
-> >=20
-> > Second version contains new patch for fixing NULL pointer
-> > dereference which sometimes cause kernel panic and fixes code
-> > suggested by Pavel Machek.
-=20
-> So far, there are no new comments for patches 01, 03-13 and 16.=20
-> Are there any other problems with that patches or can be accepted=20
-> for upstream?
-=20
-They are probably fine to merge now.  Of course, I was still deleting
-wl12xx patches when they were originally posted, so I'll need someone
-to resend the patches to me...
+On Fri, 2014-01-03 at 15:07 +0800, jiang.biao2@zte.com.cn wrote:
+> >>> You cannot do this, because at the very exact moment you call
+> >>> register_netdevice() the device can be brought up and once the
+> >>> device is up the link can be brought up.
+> 
+> >>> Therefore if you invoke netif_carrier_off() right after
+> >>> register_netdevice(), it can cancel out a legitimate
+> >>> netif_carrier_on() call.
+> 
+> >> register_netdevice() should be call in probe(), at that time, is
+> >> it impossible to bring up device because the driver loading has
+> >> not finished?
+> 
+> > So far as the networking core is concerned, when register_netdevice() is
+> > called the device is ready to use.  But you can do:
+> 
+> > rtnl_lock();
+> > register_netdevice();
+> > netif_carrier_off();
+> > rtnl_unlock();
+> 
+> > However, as I said before, the current order in netxen_nic works and
+> > only older kernel versions require you to call netif_carrier_off() after
+> > registering the device.
+> 
+> >> Even that, the netif_carrier_off() will be called before
+> >> netif_carrier_on(), and that will not be a problem.
+> 
+> >> Besides, the other net drivers(e.g igb, e1000, e1000e) I saw all
+> >> call netif_carrier_off() after register_netdev(). There is no such
+> >> problems in these drivers.
+> 
+> > It is not easy to hit the race condition but it is real.
+> 
+> But the problem I depicted really exists in the current netxen_nic driver,
+> you can easily reproduce it following the reproduction steps.
 
-John
---=20
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+'Current' as in Linux 3.12/3.13-rc7?
+
+I don't know where I would find a Netxen card now.  So I can't test
+netxen_nic myself, but I can assure you the sfc driver does things in
+the same order and it works correctly.
+
+> Can the following modification fix both the problem I faced and the race
+> you worried?
+> 
+> netif_carrier_off();
+> netdev->operstate=IF_OPER_DOWN;
+> register_netdevice();
+
+register_netdevice() calls linkwatch_init_dev() which sets the operstate
+if necessary.  You should not set it directly.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
