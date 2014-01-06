@@ -1,59 +1,89 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net] net: 6lowpan: fix lowpan_header_create non-compression memcpy call
-Date: Mon,  6 Jan 2014 01:45:50 +0100
-Message-ID: <1388969150-16041-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org,
-	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	Werner Almesberger <werner@almesberger.net>
-To: davem@davemloft.net
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next v2 0/5] bonding: final set of netlink patches
+Date: Mon, 6 Jan 2014 08:52:52 +0800
+Message-ID: <52C9FE64.1040207@huawei.com>
+References: <20140103220806.1659.25199.stgit@monster-03.cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <roopa@cumulusnetworks.com>,
+	<shm@cumulusnetworks.com>, <jiri@resnulli.us>
+To: Scott Feldman <sfeldma@cumulusnetworks.com>, <vfalico@redhat.com>,
+	<fubar@us.ibm.com>, <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:64698 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752018AbaAFAp7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Jan 2014 19:45:59 -0500
+Received: from szxga01-in.huawei.com ([119.145.14.64]:24827 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751318AbaAFAxY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 19:53:24 -0500
+In-Reply-To: <20140103220806.1659.25199.stgit@monster-03.cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In function lowpan_header_create(), we invoke the following code
-construct:
+On 2014/1/4 6:18, Scott Feldman wrote:
+> v2:
+> ====
+> 
+>  - per Jiri's comment, fix ad_select checking against parm table by
+>    spliting bond_parse_parm() into several funcs.  Go ahead and apply
+>    same technique to all parameters using parm table.
+> 
+>  - fix netlink msg size to including missing nest attr
+> 
+>  - drop the last patch for active_slaves.  This patch needs to be
+>    reworked per Jiri's comments and shouldn't hold up finalizing
+>    the conversion of the existing parameter to netlink attributes.
+> 
+> Ding, assuming this patch set goes in, you should have all you
+> need to start converting module parameter setting/checking over to
+> funcs in *_options.c.
+> 
 
-  struct ipv6hdr *hdr;
-  ...
-  hdr = ipv6_hdr(skb);
-  ...
-  if (...)
-    memcpy(hc06_ptr + 1, &hdr->flow_lbl[1], 2);
-  else
-    memcpy(hc06_ptr, &hdr, 4);
+OK, thanks!
 
-Where the else path of the condition, that is, non-compression
-path, calls memcpy() with a pointer to struct ipv6hdr *hdr as
-source, thus two levels of indirection. This cannot be correct,
-and likely only one level of pointer was intended as source
-buffer for memcpy() here.
+Regards
+Ding
 
-Fixes: 44331fe2aa0d ("IEEE802.15.4: 6LoWPAN basic support")
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Cc: Werner Almesberger <werner@almesberger.net>
----
- net/ieee802154/6lowpan.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 459e200..a2d2456 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -547,7 +547,7 @@ static int lowpan_header_create(struct sk_buff *skb,
- 			hc06_ptr += 3;
- 		} else {
- 			/* compress nothing */
--			memcpy(hc06_ptr, &hdr, 4);
-+			memcpy(hc06_ptr, hdr, 4);
- 			/* replace the top byte with new ECN | DSCP format */
- 			*hc06_ptr = tmp;
- 			hc06_ptr += 4;
--- 
-1.7.11.7
+> I'll send iproute2 patch for bonding netlink support once this patch
+> set is accepted.
+> 
+> v1:
+> =====
+> 
+> The following series implements the last set of bonding netlink attributes
+> for 802.3ad mode:
+> 
+> 	lacp_rate
+> 	ad_select
+> 	ad_info, nest of:
+> 		ad_aggregator
+> 		ad_num_ports
+> 		ad_actor_key
+> 		ad_partner_key
+> 		ad_partner_mac
+> 
+> The last patch adds an additional netlink attribute, active_slaves, which
+> is a nested list of ifindices for current active slaves.  We're using this
+> list to enable/disable hashing of ports in a hardware LAG implementation.
+> In the same way bonding driver includes/excludes ports for 802.3ad egress
+> hashing, hardware ports are included/excluded from egress hashing by
+> hardware based on port active status.  Yes, data path offloaded to
+> hardware, control path remains in kernel via bonding driver.
+> 
+> ---
+> 
+> Scott Feldman (5):
+>       bonding: add lacp_rate attribute netlink support
+>       bonding: add ad_select attribute netlink support
+>       bonding: add ad_info attribute netlink support
+>       bonding: fix netlink msg size
+>       bonding: add bounds checking for tbl params
+> 
+> 
+>  drivers/net/bonding/bond_main.c    |   45 +++++++++++------
+>  drivers/net/bonding/bond_netlink.c |   67 +++++++++++++++++++++++++
+>  drivers/net/bonding/bond_options.c |   96 ++++++++++++++++++++++++++++++++----
+>  drivers/net/bonding/bond_sysfs.c   |   69 +++++++++-----------------
+>  drivers/net/bonding/bonding.h      |    3 +
+>  include/uapi/linux/if_link.h       |   14 +++++
+>  6 files changed, 221 insertions(+), 73 deletions(-)
+> 
