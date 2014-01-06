@@ -1,42 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: don't install anycast address for /128
- addresses on routers
-Date: Mon, 06 Jan 2014 16:33:16 -0500 (EST)
-Message-ID: <20140106.163316.2147203775291363000.davem@davemloft.net>
-References: <20140106165314.GC10204@order.stressinduktion.org>
+Subject: Re: [PATCH net-next] tcp: out_of_order_queue do not use its lock
+Date: Mon, 06 Jan 2014 16:35:24 -0500 (EST)
+Message-ID: <20140106.163524.1758210592972482694.davem@davemloft.net>
+References: <1389029772.12212.190.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, fx.lebail@yahoo.com, thaller@redhat.com,
-	jiri@resnulli.us
-To: hannes@stressinduktion.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34832 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34868 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755453AbaAFVdS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 16:33:18 -0500
-In-Reply-To: <20140106165314.GC10204@order.stressinduktion.org>
+	with ESMTP id S1754517AbaAFVf0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 16:35:26 -0500
+In-Reply-To: <1389029772.12212.190.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Mon, 6 Jan 2014 17:53:14 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 06 Jan 2014 09:36:12 -0800
 
-> It does not make sense to create an anycast address for an /128-prefi=
-x.
-> Suppress it.
->=20
-> As 32019e651c6fce ("ipv6: Do not leave router anycast address for /12=
-7
-> prefixes.") shows we also may not leave them, because we could accide=
-ntally
-> remove an anycast address the user has allocated or got added via ano=
-ther
-> prefix.
->=20
-> Cc: Fran=E7ois-Xavier Le Bail <fx.lebail@yahoo.com>
-> Cc: Thomas Haller <thaller@redhat.com>
-> Cc: Jiri Pirko <jiri@resnulli.us>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> TCP out_of_order_queue lock is not used, as queue manipulation
+> happens with socket lock held and we therefore use the lockless
+> skb queue routines (as __skb_queue_head())
+> 
+> We can use __skb_queue_head_init() instead of skb_queue_head_init()
+> to make this more consistent.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thank you.
+Applied, thanks Eric.
+
+We should probably at some point try to make an sk_buff_head_lite
+that only has the two pointers, so that we could shrink various
+structures which have queues which we use like this.
