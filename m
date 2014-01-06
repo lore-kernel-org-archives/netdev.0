@@ -1,27 +1,29 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 1/2] ipv4: add forwarding_uses_pmtu knob to protect forward path to use pmtu info
-Date: Mon, 6 Jan 2014 10:14:08 +0100
-Message-ID: <20140106091408.GA4611@order.stressinduktion.org>
-References: <20131220130822.GD32129@order.stressinduktion.org> <20131231042840.GC27636@order.stressinduktion.org> <20140106090521.GQ31491@secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, davem@davemloft.net
-To: Steffen Klassert <steffen.klassert@secunet.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch iproute2 v3 0/2] add support for IFA_F_MANAGETEMPADDR
+Date: Mon,  6 Jan 2014 10:17:08 +0100
+Message-ID: <1388999830-1753-1-git-send-email-jiri@resnulli.us>
+Cc: stephen@networkplumber.org, thaller@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:41611 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751395AbaAFJOJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 04:14:09 -0500
-Content-Disposition: inline
-In-Reply-To: <20140106090521.GQ31491@secunet.com>
+Received: from mail-ee0-f43.google.com ([74.125.83.43]:38006 "EHLO
+	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752292AbaAFJRO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 04:17:14 -0500
+Received: by mail-ee0-f43.google.com with SMTP id c13so7699903eek.16
+        for <netdev@vger.kernel.org>; Mon, 06 Jan 2014 01:17:13 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 06, 2014 at 10:05:21AM +0100, Steffen Klassert wrote:
-> I'm currenlty testing these patches. ipv4 looks good but on
-> ipv6 with 'ping6' the packet size is not reduced according
-> to the pmtu when forward_use_pmtu is set to 0.
-> 
-> I'll run the tests again with your updated v3 patches.
+v1->v2: Removed 0xff masking of ifa_flags
+v2->v3: Incorporated changes that Thomas suggested
 
-Thank you very much!
+Jiri Pirko (2):
+  add support for extended ifa_flags
+  add support for IFA_F_MANAGETEMPADDR
+
+ include/linux/if_addr.h |  2 ++
+ ip/ipaddress.c          | 55 +++++++++++++++++++++++++++++++++++--------------
+ 2 files changed, 42 insertions(+), 15 deletions(-)
+
+-- 
+1.8.3.1
