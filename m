@@ -1,89 +1,31 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] net: can: Disable broken flexcan driver build for big
- endian CPU on ARM
-Date: Mon, 06 Jan 2014 10:00:35 +0100
-Message-ID: <52CA70B3.5020004@pengutronix.de>
-References: <1388944283-29990-1-git-send-email-linux@roeck-us.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH v2 5/5] alx: add stats to ethtool
+Date: Mon, 06 Jan 2014 10:03:10 +0100
+Message-ID: <1388998990.5891.0.camel@jlt4.sipsolutions.net>
+References: <1388854031-24142-1-git-send-email-sd@queasysnail.net>
+	 <1388854031-24142-6-git-send-email-sd@queasysnail.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="KLRVP1ajhAdnpIXU12PQGGVjt9qLKNMg2"
-Cc: Wolfgang Grandegger <wg@grandegger.com>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1388944283-29990-1-git-send-email-linux@roeck-us.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, bhutchings@solarflare.com,
+	netdev@vger.kernel.org
+To: Sabrina Dubroca <sd@queasysnail.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([144.76.43.152]:41898 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751063AbaAFJDY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 04:03:24 -0500
+In-Reply-To: <1388854031-24142-6-git-send-email-sd@queasysnail.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---KLRVP1ajhAdnpIXU12PQGGVjt9qLKNMg2
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On Sat, 2014-01-04 at 17:47 +0100, Sabrina Dubroca wrote:
 
-On 01/05/2014 06:51 PM, Guenter Roeck wrote:
-> Building arm:allmodconfig fails with
->=20
-> flexcan.c: In function 'flexcan_read':
-> flexcan.c:243:2: error: implicit declaration of function 'in_be32'
-> flexcan.c: In function 'flexcan_write':
-> flexcan.c:248:2: error: implicit declaration of function 'out_be32'
->=20
-> in_be32 and out_be32 do not (or no longer) exist for ARM targets.
-> Mark the build for arm on big endian CPUs as broken.
+> +	__alx_update_hw_stats(hw);
+> +	BUILD_BUG_ON(sizeof(hw->stats) - offsetof(struct alx_hw_stats, rx_ok) <
+> +		     ALX_NUM_STATS * sizeof(u64));
 
-I think there isn't any ARM with this CAN core that supports BE (at
-least on Linux).
+I think you should make that != instead of <, otherwise you won't catch
+all possible differences.
 
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-> ---
-> If there is a better solution, please let me know and I'll be happy
-> to provide a patch.
->=20
->  drivers/net/can/Kconfig |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
-> index 3c06947..8d202f4 100644
-> --- a/drivers/net/can/Kconfig
-> +++ b/drivers/net/can/Kconfig
-> @@ -104,7 +104,7 @@ config CAN_JANZ_ICAN3
-> =20
->  config CAN_FLEXCAN
->  	tristate "Support for Freescale FLEXCAN based chips"
-> -	depends on ARM || PPC
-> +	depends on (ARM || PPC) && (BROKEN || !ARM || CPU_LITTLE_ENDIAN)
-
-Why not make it:
-
-	depends on (ARM && CPU_LITTLE_ENDIAN) || PPC
-
->  	---help---
->  	  Say Y here if you want to support for Freescale FlexCAN.
-> =20
->=20
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---KLRVP1ajhAdnpIXU12PQGGVjt9qLKNMg2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlLKcLMACgkQjTAFq1RaXHOjMgCfaoiOijjMdGb7W7JGoUb/rxqR
-NtEAn2BXIkcFk5/5fkKkGaaliQHVGjix
-=bgyR
------END PGP SIGNATURE-----
-
---KLRVP1ajhAdnpIXU12PQGGVjt9qLKNMg2--
+johannes
