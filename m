@@ -1,67 +1,58 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH v3] isdn: Drop big endian cpp checks from telespci and hfc_pci drivers
-Date: Sun,  5 Jan 2014 20:31:39 -0800
-Message-ID: <1388982699-11514-1-git-send-email-linux@roeck-us.net>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Guenter Roeck <linux@roeck-us.net>
-To: Karsten Keil <isdn@linux-pingi.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Mon, 6 Jan 2014 15:35:40 +1100
+Message-ID: <20140106153540.179f4fb01293599f5b5099ba@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Mon__6_Jan_2014_15_35_40_+1100_Kurqa2Paerr4wb7L"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Li RongQing <roy.qing.li@gmail.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With arm:allmodconfig, building the Teles PCI driver fails with
+--Signature=_Mon__6_Jan_2014_15_35_40_+1100_Kurqa2Paerr4wb7L
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-telespci.c:294:2: error: #error "not running on big endian machines now"
+Hi all,
 
-Similar, building the driver for HFC PCI-Bus cards fails with
+Today's linux-next merge of the net-next tree got a conflict in
+net/ipv6/ip6_vti.c between commit 469bdcefdc47 ("ipv6: fix the use of
+pcpu_tstats in ip6_vti.c") from the net tree and commit 8f84985fec10
+("net: unify the pcpu_tstats and br_cpu_netstats as one") from the
+net-next tree.
 
-hfc_pci.c:1647:2: error: #error "not running on big endian machines now"
+I fixed it up (I just used the former version which removes the code
+modified by the latter) and can carry the fix as necessary (no action is
+required).
 
-Remove the big endian cpp check from both drivers to fix the build errors.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
----
-v3: Instead of marking build as broken, remove cpp endianness checks.
-    Updated headline to match the changes.
+--Signature=_Mon__6_Jan_2014_15_35_40_+1100_Kurqa2Paerr4wb7L
+Content-Type: application/pgp-signature
 
-v2: Turns out CPU_LITTLE_ENDIAN is not defined for little-endian-only
-    architectures. Instead of messing with the overall Kconfig architecture,
-    mark build as broken for big endian ARM machines.
-    Also updated headline accordingly.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
 
- drivers/isdn/hisax/hfc_pci.c  |    4 ----
- drivers/isdn/hisax/telespci.c |    4 ----
- 2 files changed, 8 deletions(-)
+iQIcBAEBCAAGBQJSyjKgAAoJEMDTa8Ir7ZwVzysP/0RXqG5LoSTwd/7tzGQPjTqS
+knndAW+XqVL3sjFi+wM1iOQQ0bDCUqcWL02kSE2rh8i+Z6sU8VunLv/7BzOxMKX2
+RitfRDlp9j3OI5jvEwDhLdF9kCXtNbIECbp0E1OuGc7VrZk8Rq5r07XWhZRsUe8e
+ll13BrbgA9eytz3leTNp4kcO4lcsVLifBZgJEnWTx8veM+j3+VSJTk2Hwx1BojbP
+pTxnJ8uzcDtFhJmrB9Fiu57ZS2FP2o9Z/5+xMAPOljxSvcOONYHLwgHgbTxdQNpi
+4+Lgf24A6LY8aRCACAWLZ57kSZwSUyWsbo8nLTUIzRKZwEvydwCRhDEwBy8wXx3f
+TpcHZpvPk2UvrmULmldPeHAY2Qn8uqGOSgPW5DwCoM6zwJbEArgQ//RMUSHJT1oi
+VTYdVWu0vpzjDY4mqkMgMlnmpIVqXHBaXs0+nVYzV698qmZBhmuNrl5Ibq/VHgxA
+Eh/gXSO06hwHZoq50M6oQ9t4Gcytg2Y8imdZUR1PoCG8r5JfReyYvAmNG/5TETjW
+3TP/WKP51CyzJMiCJLUwNMnyciLERpzvtuCtUtJS3XKxLfonBZsww7VCWtJ861cy
+cLAbXAMuTJTAhyXz0WPUV2HMbZeZYlLy4rpWj62KwwOVtB0k5fMMmqWq530em3z+
+1g6H38lbsLgwIOpoWq4I
+=ZOvz
+-----END PGP SIGNATURE-----
 
-diff --git a/drivers/isdn/hisax/hfc_pci.c b/drivers/isdn/hisax/hfc_pci.c
-index 497bd02..4a48255 100644
---- a/drivers/isdn/hisax/hfc_pci.c
-+++ b/drivers/isdn/hisax/hfc_pci.c
-@@ -1643,10 +1643,6 @@ setup_hfcpci(struct IsdnCard *card)
- 	int i;
- 	struct pci_dev *tmp_hfcpci = NULL;
- 
--#ifdef __BIG_ENDIAN
--#error "not running on big endian machines now"
--#endif
--
- 	strcpy(tmp, hfcpci_revision);
- 	printk(KERN_INFO "HiSax: HFC-PCI driver Rev. %s\n", HiSax_getrev(tmp));
- 
-diff --git a/drivers/isdn/hisax/telespci.c b/drivers/isdn/hisax/telespci.c
-index f6ab63a..33eeb46 100644
---- a/drivers/isdn/hisax/telespci.c
-+++ b/drivers/isdn/hisax/telespci.c
-@@ -290,10 +290,6 @@ int setup_telespci(struct IsdnCard *card)
- 	struct IsdnCardState *cs = card->cs;
- 	char tmp[64];
- 
--#ifdef __BIG_ENDIAN
--#error "not running on big endian machines now"
--#endif
--
- 	strcpy(tmp, telespci_revision);
- 	printk(KERN_INFO "HiSax: Teles/PCI driver Rev. %s\n", HiSax_getrev(tmp));
- 	if (cs->typ != ISDN_CTYPE_TELESPCI)
--- 
-1.7.9.7
+--Signature=_Mon__6_Jan_2014_15_35_40_+1100_Kurqa2Paerr4wb7L--
