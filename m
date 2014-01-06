@@ -1,77 +1,54 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH] fec: Revert "fec: Do not assume that PHY reset is active low"
-Date: Sun,  5 Jan 2014 22:08:25 -0200
-Message-ID: <1388966905-8092-1-git-send-email-festevam@gmail.com>
-Cc: shawn.guo@linaro.org, olof@lixom.net, linux@arm.linux.org.uk,
-	netdev@vger.kernel.org, Fabio Estevam <fabio.estevam@freescale.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: netdev_kobject_init: annotate with __init
+Date: Mon,  6 Jan 2014 01:20:11 +0100
+Message-ID: <1388967611-14263-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f50.google.com ([209.85.216.50]:41369 "EHLO
-	mail-qa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751407AbaAFAIr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 19:08:47 -0500
-Received: by mail-qa0-f50.google.com with SMTP id k15so853369qaq.2
-        for <netdev@vger.kernel.org>; Sun, 05 Jan 2014 16:08:46 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:56320 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751407AbaAFAUO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Jan 2014 19:20:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <fabio.estevam@freescale.com>
+netdev_kobject_init() is only being called from __init context,
+that is, net_dev_init(), so annotate it with __init as well, thus
+the kernel can take this as a hint that the function is used only
+during the initialization phase and free up used memory resources
+after its invocation.
 
-In order to keep DT compatibility we need to revert this, otherwise the original
-dts files will no longer work with this driver change.
-
-This reverts commit 7a399e3a2e05bc580a78ea72371b3896827f72e1.
-
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
-David,
+ net/core/net-sysfs.c | 2 +-
+ net/core/net-sysfs.h | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-We need this for 3.13.
-
-Sorry for the breakage.
-
- drivers/net/ethernet/freescale/fec_main.c | 14 ++++----------
- 1 file changed, 4 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 45b8b22..50bb71c 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2049,8 +2049,6 @@ static void fec_reset_phy(struct platform_device *pdev)
- 	int err, phy_reset;
- 	int msec = 1;
- 	struct device_node *np = pdev->dev.of_node;
--	enum of_gpio_flags flags;
--	bool port;
- 
- 	if (!np)
- 		return;
-@@ -2060,22 +2058,18 @@ static void fec_reset_phy(struct platform_device *pdev)
- 	if (msec > 1000)
- 		msec = 1;
- 
--	phy_reset = of_get_named_gpio_flags(np, "phy-reset-gpios", 0, &flags);
-+	phy_reset = of_get_named_gpio(np, "phy-reset-gpios", 0);
- 	if (!gpio_is_valid(phy_reset))
- 		return;
- 
--	if (flags & OF_GPIO_ACTIVE_LOW)
--		port = GPIOF_OUT_INIT_LOW;
--	else
--		port = GPIOF_OUT_INIT_HIGH;
--
--	err = devm_gpio_request_one(&pdev->dev, phy_reset, port, "phy-reset");
-+	err = devm_gpio_request_one(&pdev->dev, phy_reset,
-+				    GPIOF_OUT_INIT_LOW, "phy-reset");
- 	if (err) {
- 		dev_err(&pdev->dev, "failed to get phy-reset-gpios: %d\n", err);
- 		return;
- 	}
- 	msleep(msec);
--	gpio_set_value(phy_reset, !port);
-+	gpio_set_value(phy_reset, 1);
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 1a7b7b1..49843bf 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -1358,7 +1358,7 @@ void netdev_class_remove_file_ns(struct class_attribute *class_attr,
  }
- #else /* CONFIG_OF */
- static void fec_reset_phy(struct platform_device *pdev)
+ EXPORT_SYMBOL(netdev_class_remove_file_ns);
+ 
+-int netdev_kobject_init(void)
++int __init netdev_kobject_init(void)
+ {
+ 	kobj_ns_type_register(&net_ns_type_operations);
+ 	return class_register(&net_class);
+diff --git a/net/core/net-sysfs.h b/net/core/net-sysfs.h
+index bd7751e..2745a1b 100644
+--- a/net/core/net-sysfs.h
++++ b/net/core/net-sysfs.h
+@@ -1,7 +1,7 @@
+ #ifndef __NET_SYSFS_H__
+ #define __NET_SYSFS_H__
+ 
+-int netdev_kobject_init(void);
++int __init netdev_kobject_init(void);
+ int netdev_register_kobject(struct net_device *);
+ void netdev_unregister_kobject(struct net_device *);
+ int net_rx_queue_update_kobjects(struct net_device *, int old_num, int new_num);
 -- 
-1.8.1.2
+1.7.11.7
