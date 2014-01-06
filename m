@@ -1,94 +1,35 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH v3 1/5] alx: add a hardware stats structure
-Date: Mon,  6 Jan 2014 17:33:39 +0100
-Message-ID: <1389026023-18743-2-git-send-email-sd@queasysnail.net>
-References: <1389026023-18743-1-git-send-email-sd@queasysnail.net>
-Cc: bhutchings@solarflare.com, johannes@sipsolutions.net,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	Sabrina Dubroca <sd@queasysnail.net>
-To: davem@davemloft.net
+From: Ariel Elior <ariele@broadcom.com>
+Subject: RE: [BUG] bnx2x : lockdep assertion
+Date: Mon, 6 Jan 2014 16:35:18 +0000
+Message-ID: <6AE768456CEC4B4A9B2248CB6B87EB3E1BFBE6A6@SJEXCHMB05.corp.ad.broadcom.com>
+References: <1388939634-19948-1-git-send-email-yuvalmin@broadcom.com>
+	 <1388939634-19948-3-git-send-email-yuvalmin@broadcom.com>
+ <1389025680.12212.178.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Michal Kalderon <michal.spivak@broadcom.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Yuval Mintz <yuvalmin@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1-g21.free.fr ([212.27.42.1]:42163 "EHLO smtp1-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753882AbaAFQe4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jan 2014 11:34:56 -0500
-In-Reply-To: <1389026023-18743-1-git-send-email-sd@queasysnail.net>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:55230 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755689AbaAFQfU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 11:35:20 -0500
+In-Reply-To: <1389025680.12212.178.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
- drivers/net/ethernet/atheros/alx/hw.h | 58 +++++++++++++++++++++++++++++++++++
- 1 file changed, 58 insertions(+)
-
-diff --git a/drivers/net/ethernet/atheros/alx/hw.h b/drivers/net/ethernet/atheros/alx/hw.h
-index 96f3b43..1c1a0ee 100644
---- a/drivers/net/ethernet/atheros/alx/hw.h
-+++ b/drivers/net/ethernet/atheros/alx/hw.h
-@@ -381,6 +381,64 @@ struct alx_rrd {
- 				 ALX_ISR_RX_Q6 | \
- 				 ALX_ISR_RX_Q7)
- 
-+/* Statistics counters collected by the MAC */
-+struct alx_hw_stats {
-+	/* rx */
-+	u64 rx_ok;
-+	u64 rx_bcast;
-+	u64 rx_mcast;
-+	u64 rx_pause;
-+	u64 rx_ctrl;
-+	u64 rx_fcs_err;
-+	u64 rx_len_err;
-+	u64 rx_byte_cnt;
-+	u64 rx_runt;
-+	u64 rx_frag;
-+	u64 rx_sz_64B;
-+	u64 rx_sz_127B;
-+	u64 rx_sz_255B;
-+	u64 rx_sz_511B;
-+	u64 rx_sz_1023B;
-+	u64 rx_sz_1518B;
-+	u64 rx_sz_max;
-+	u64 rx_ov_sz;
-+	u64 rx_ov_rxf;
-+	u64 rx_ov_rrd;
-+	u64 rx_align_err;
-+	u64 rx_bc_byte_cnt;
-+	u64 rx_mc_byte_cnt;
-+	u64 rx_err_addr;
-+
-+	/* tx */
-+	u64 tx_ok;
-+	u64 tx_bcast;
-+	u64 tx_mcast;
-+	u64 tx_pause;
-+	u64 tx_exc_defer;
-+	u64 tx_ctrl;
-+	u64 tx_defer;
-+	u64 tx_byte_cnt;
-+	u64 tx_sz_64B;
-+	u64 tx_sz_127B;
-+	u64 tx_sz_255B;
-+	u64 tx_sz_511B;
-+	u64 tx_sz_1023B;
-+	u64 tx_sz_1518B;
-+	u64 tx_sz_max;
-+	u64 tx_single_col;
-+	u64 tx_multi_col;
-+	u64 tx_late_col;
-+	u64 tx_abort_col;
-+	u64 tx_underrun;
-+	u64 tx_trd_eop;
-+	u64 tx_len_err;
-+	u64 tx_trunc;
-+	u64 tx_bc_byte_cnt;
-+	u64 tx_mc_byte_cnt;
-+	u64 update;
-+};
-+
-+
- /* maximum interrupt vectors for msix */
- #define ALX_MAX_MSIX_INTRS	16
- 
--- 
-1.8.5.2
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBNb25kYXksIEphbnVhcnkgMDYsIDIw
+MTQgNjoyOCBQTQ0KPiBUbzogWXV2YWwgTWludHoNCj4gQ2M6IGRhdmVtQGRhdmVtbG9mdC5uZXQ7
+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEFyaWVsIEVsaW9yOyBNaWNoYWwNCj4gS2FsZGVyb24N
+Cj4gU3ViamVjdDogW0JVR10gYm54MnggOiBsb2NrZGVwIGFzc2VydGlvbg0KPiANCj4gQ2F1Z2h0
+IHRoaXMgd2l0aCBsYXRlc3QgbmV0LW5leHQgdHJlZSA6DQo+IA0KPiBEb2VzIHRoaXMgcmluZyBh
+IGJlbGwgdG8geW91IGd1eXMgPw0KPiANCg0KSGkgRXJpYywNClRoaXMgd2FzIGludHJvZHVjZWQg
+YnkgdGhlIGxvdyBsYXRlbmN5IHBhdGNoIHdoaWNoIGFkZGVkIGEgJ21pZ2h0X3NsZWVwKCknIHRv
+IG5hcGlfZGlzYWJsZSBhIHdoaWxlIGFnby4NClRoZXJlIGlzIGEgZml4IGluIHRoZSB3b3Jrcy4N
+ClRoYW5rcywNCkFyaWVsIA0KDQo=
