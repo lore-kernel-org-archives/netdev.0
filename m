@@ -1,241 +1,73 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 02/13] netfilter: xt_NFQUEUE: separate reusable code
-Date: Mon,  6 Jan 2014 14:46:31 +0100
-Message-ID: <1389016002-9116-3-git-send-email-pablo@netfilter.org>
-References: <1389016002-9116-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+Subject: Re: [PATCH net-next v4] IPv6: use anycast addresses as source addresses in echo reply
+Date: Mon, 6 Jan 2014 05:48:16 -0800 (PST)
+Message-ID: <1389016096.57230.YahooMailBasic@web125502.mail.ne1.yahoo.com>
+References: <20140106105614.GB4611@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59527 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754654AbaAFNqz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jan 2014 08:46:55 -0500
-In-Reply-To: <1389016002-9116-1-git-send-email-pablo@netfilter.org>
+Received: from nm35.bullet.mail.ne1.yahoo.com ([98.138.229.28]:35277 "HELO
+	nm35.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750990AbaAFNvO convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jan 2014 08:51:14 -0500
+In-Reply-To: <20140106105614.GB4611@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Leblond <eric@regit.org>
+On Mon, 1/6/14, Hannes Frederic Sowa <hannes@stressinduktion.org> wrote=
+:
 
-This patch prepares the addition of nft_queue module by moving
-reusable code into a header file.
+> On Mon, Jan 06, 2014 at 02:41:41AM -0800, Fran=E7ois-Xavier Le Bail w=
+rote:
+> > On Sun, 1/5/14, Hannes Frederic Sowa <hannes@stressinduktion.org> w=
+rote:
+> >=20
+> > > On Fri, Jan 03, 2014 at 05:43:31PM +0100, Francois-Xavier Le Bail=
+ wrote:
+> > > > diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+> > > > index 5d42009..65c8619 100644
+> > > > --- a/net/ipv6/icmp.c
+> > > > +++ b/net/ipv6/icmp.c
+> > > > @@ -556,7 +556,9 @@ static void icmpv6_echo_reply(struct sk_buf=
+f *skb)
+> > > > =20
+> > > >  	saddr =3D &ipv6_hdr(skb)->daddr;
+> > > > =20
+> > > > -	if (!ipv6_unicast_destination(skb))
+> > > > +	if (!ipv6_unicast_destination(skb) &&
+> > > > +	    !(net->ipv6.anycast_src_echo_reply &&
+> > > > +	      ipv6_chk_acast_addr(net, NULL, saddr)))
+> > > >  		saddr =3D NULL;
+> >=20
+> > > I am not sure why you left out the device at ipv6_chk_acast_addr?
+> >=20
+> > > IMHO this logic is a bit more complex, we can pass NULL for ipv6 =
+addresses of
+> > > scope global but need to check the interface for scope link.
+> >=20
+> > > It is already possible via setsockopt JOIN_ANYCAST that an ll add=
+ress is
+> > > anycast on another interface which may not be checked here.
+> >=20
+> > In this case, there are neighbor solicitations "who has LL anycast"=
+ with no reply, so no echo request is sent.
+>=20
+> A counter-example would be NOARP interfaces where we also don't speak=
+ ndisc.
 
-This patch also converts NFQUEUE to use prandom_u32 to initialize
-the random jhash seed as suggested by Florian Westphal.
+Right. But if an echo request arrive on an interface which do not liste=
+n at this LL anycast, is a reply can occur ?
 
-Signed-off-by: Eric Leblond <eric@regit.org>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- include/net/netfilter/nf_queue.h |   62 +++++++++++++++++++++++++++++
- net/netfilter/xt_NFQUEUE.c       |   80 ++++++--------------------------------
- 2 files changed, 74 insertions(+), 68 deletions(-)
+> > Do you find some problem testing my patch ?
+>=20
+> A quick test I did yesterday looked good.
 
-diff --git a/include/net/netfilter/nf_queue.h b/include/net/netfilter/nf_queue.h
-index c1d5b3e..84a53d7 100644
---- a/include/net/netfilter/nf_queue.h
-+++ b/include/net/netfilter/nf_queue.h
-@@ -1,6 +1,10 @@
- #ifndef _NF_QUEUE_H
- #define _NF_QUEUE_H
- 
-+#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include <linux/jhash.h>
-+
- /* Each queued (to userspace) skbuff has one of these. */
- struct nf_queue_entry {
- 	struct list_head	list;
-@@ -33,4 +37,62 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict);
- bool nf_queue_entry_get_refs(struct nf_queue_entry *entry);
- void nf_queue_entry_release_refs(struct nf_queue_entry *entry);
- 
-+static inline void init_hashrandom(u32 *jhash_initval)
-+{
-+	while (*jhash_initval == 0)
-+		*jhash_initval = prandom_u32();
-+}
-+
-+static inline u32 hash_v4(const struct sk_buff *skb, u32 jhash_initval)
-+{
-+	const struct iphdr *iph = ip_hdr(skb);
-+
-+	/* packets in either direction go into same queue */
-+	if ((__force u32)iph->saddr < (__force u32)iph->daddr)
-+		return jhash_3words((__force u32)iph->saddr,
-+			(__force u32)iph->daddr, iph->protocol, jhash_initval);
-+
-+	return jhash_3words((__force u32)iph->daddr,
-+			(__force u32)iph->saddr, iph->protocol, jhash_initval);
-+}
-+
-+#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
-+static inline u32 hash_v6(const struct sk_buff *skb, u32 jhash_initval)
-+{
-+	const struct ipv6hdr *ip6h = ipv6_hdr(skb);
-+	u32 a, b, c;
-+
-+	if ((__force u32)ip6h->saddr.s6_addr32[3] <
-+	    (__force u32)ip6h->daddr.s6_addr32[3]) {
-+		a = (__force u32) ip6h->saddr.s6_addr32[3];
-+		b = (__force u32) ip6h->daddr.s6_addr32[3];
-+	} else {
-+		b = (__force u32) ip6h->saddr.s6_addr32[3];
-+		a = (__force u32) ip6h->daddr.s6_addr32[3];
-+	}
-+
-+	if ((__force u32)ip6h->saddr.s6_addr32[1] <
-+	    (__force u32)ip6h->daddr.s6_addr32[1])
-+		c = (__force u32) ip6h->saddr.s6_addr32[1];
-+	else
-+		c = (__force u32) ip6h->daddr.s6_addr32[1];
-+
-+	return jhash_3words(a, b, c, jhash_initval);
-+}
-+#endif
-+
-+static inline u32
-+nfqueue_hash(const struct sk_buff *skb, u16 queue, u16 queues_total, u8 family,
-+	     u32 jhash_initval)
-+{
-+	if (family == NFPROTO_IPV4)
-+		queue += ((u64) hash_v4(skb, jhash_initval) * queues_total) >> 32;
-+#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
-+	else if (family == NFPROTO_IPV6)
-+		queue += ((u64) hash_v6(skb, jhash_initval) * queues_total) >> 32;
-+#endif
-+
-+	return queue;
-+}
-+
- #endif /* _NF_QUEUE_H */
-diff --git a/net/netfilter/xt_NFQUEUE.c b/net/netfilter/xt_NFQUEUE.c
-index ed00fef..8f1779f 100644
---- a/net/netfilter/xt_NFQUEUE.c
-+++ b/net/netfilter/xt_NFQUEUE.c
-@@ -11,15 +11,13 @@
- #include <linux/module.h>
- #include <linux/skbuff.h>
- 
--#include <linux/ip.h>
--#include <linux/ipv6.h>
--#include <linux/jhash.h>
--
- #include <linux/netfilter.h>
- #include <linux/netfilter_arp.h>
- #include <linux/netfilter/x_tables.h>
- #include <linux/netfilter/xt_NFQUEUE.h>
- 
-+#include <net/netfilter/nf_queue.h>
-+
- MODULE_AUTHOR("Harald Welte <laforge@netfilter.org>");
- MODULE_DESCRIPTION("Xtables: packet forwarding to netlink");
- MODULE_LICENSE("GPL");
-@@ -28,7 +26,6 @@ MODULE_ALIAS("ip6t_NFQUEUE");
- MODULE_ALIAS("arpt_NFQUEUE");
- 
- static u32 jhash_initval __read_mostly;
--static bool rnd_inited __read_mostly;
- 
- static unsigned int
- nfqueue_tg(struct sk_buff *skb, const struct xt_action_param *par)
-@@ -38,69 +35,16 @@ nfqueue_tg(struct sk_buff *skb, const struct xt_action_param *par)
- 	return NF_QUEUE_NR(tinfo->queuenum);
- }
- 
--static u32 hash_v4(const struct sk_buff *skb)
--{
--	const struct iphdr *iph = ip_hdr(skb);
--
--	/* packets in either direction go into same queue */
--	if ((__force u32)iph->saddr < (__force u32)iph->daddr)
--		return jhash_3words((__force u32)iph->saddr,
--			(__force u32)iph->daddr, iph->protocol, jhash_initval);
--
--	return jhash_3words((__force u32)iph->daddr,
--			(__force u32)iph->saddr, iph->protocol, jhash_initval);
--}
--
--#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
--static u32 hash_v6(const struct sk_buff *skb)
--{
--	const struct ipv6hdr *ip6h = ipv6_hdr(skb);
--	u32 a, b, c;
--
--	if ((__force u32)ip6h->saddr.s6_addr32[3] <
--	    (__force u32)ip6h->daddr.s6_addr32[3]) {
--		a = (__force u32) ip6h->saddr.s6_addr32[3];
--		b = (__force u32) ip6h->daddr.s6_addr32[3];
--	} else {
--		b = (__force u32) ip6h->saddr.s6_addr32[3];
--		a = (__force u32) ip6h->daddr.s6_addr32[3];
--	}
--
--	if ((__force u32)ip6h->saddr.s6_addr32[1] <
--	    (__force u32)ip6h->daddr.s6_addr32[1])
--		c = (__force u32) ip6h->saddr.s6_addr32[1];
--	else
--		c = (__force u32) ip6h->daddr.s6_addr32[1];
--
--	return jhash_3words(a, b, c, jhash_initval);
--}
--#endif
--
--static u32
--nfqueue_hash(const struct sk_buff *skb, const struct xt_action_param *par)
--{
--	const struct xt_NFQ_info_v1 *info = par->targinfo;
--	u32 queue = info->queuenum;
--
--	if (par->family == NFPROTO_IPV4)
--		queue += ((u64) hash_v4(skb) * info->queues_total) >> 32;
--#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
--	else if (par->family == NFPROTO_IPV6)
--		queue += ((u64) hash_v6(skb) * info->queues_total) >> 32;
--#endif
--
--	return queue;
--}
--
- static unsigned int
- nfqueue_tg_v1(struct sk_buff *skb, const struct xt_action_param *par)
- {
- 	const struct xt_NFQ_info_v1 *info = par->targinfo;
- 	u32 queue = info->queuenum;
- 
--	if (info->queues_total > 1)
--		queue = nfqueue_hash(skb, par);
--
-+	if (info->queues_total > 1) {
-+		queue = nfqueue_hash(skb, queue, info->queues_total,
-+				     par->family, jhash_initval);
-+	}
- 	return NF_QUEUE_NR(queue);
- }
- 
-@@ -120,10 +64,8 @@ static int nfqueue_tg_check(const struct xt_tgchk_param *par)
- 	const struct xt_NFQ_info_v3 *info = par->targinfo;
- 	u32 maxid;
- 
--	if (unlikely(!rnd_inited)) {
--		get_random_bytes(&jhash_initval, sizeof(jhash_initval));
--		rnd_inited = true;
--	}
-+	init_hashrandom(&jhash_initval);
-+
- 	if (info->queues_total == 0) {
- 		pr_err("NFQUEUE: number of total queues is 0\n");
- 		return -EINVAL;
-@@ -154,8 +96,10 @@ nfqueue_tg_v3(struct sk_buff *skb, const struct xt_action_param *par)
- 			int cpu = smp_processor_id();
- 
- 			queue = info->queuenum + cpu % info->queues_total;
--		} else
--			queue = nfqueue_hash(skb, par);
-+		} else {
-+			queue = nfqueue_hash(skb, queue, info->queues_total,
-+					     par->family, jhash_initval);
-+		}
- 	}
- 
- 	ret = NF_QUEUE_NR(queue);
--- 
-1.7.10.4
+Thanks for the test.
