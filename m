@@ -1,85 +1,49 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net 1/2] macvlan: forbid L2 fowarding offload for macvtap
-Date: Mon, 6 Jan 2014 07:26:28 -0500
-Message-ID: <20140106122628.GA24280@hmsreliant.think-freely.org>
-References: <1388978467-2075-1-git-send-email-jasowang@redhat.com>
- <52CA5CDA.1020503@gmail.com>
- <52CA612D.2000902@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mst@redhat.com, John Fastabend <john.r.fastabend@intel.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <52CA612D.2000902@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/15] i40e: avoid unnecessary register read
+Date: Mon,  6 Jan 2014 04:30:25 -0800
+Message-ID: <1389011436-18424-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1389011436-18424-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:44283 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751345AbaAFMak (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jan 2014 07:30:40 -0500
+In-Reply-To: <1389011436-18424-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 06, 2014 at 03:54:21PM +0800, Jason Wang wrote:
-> On 01/06/2014 03:35 PM, John Fastabend wrote:
-> > On 01/05/2014 07:21 PM, Jason Wang wrote:
-> >> L2 fowarding offload will bypass the rx handler of real device. This
-> >> will make
-> >> the packet could not be forwarded to macvtap device. Another problem
-> >> is the
-> >> dev_hard_start_xmit() called for macvtap does not have any
-> >> synchronization.
-> >>
-> >> Fix this by forbidding L2 forwarding for macvtap.
-> >>
-> >> Cc: John Fastabend <john.r.fastabend@intel.com>
-> >> Cc: Neil Horman <nhorman@tuxdriver.com>
-> >> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> >> ---
-> >>   drivers/net/macvlan.c |    5 ++++-
-> >>   1 files changed, 4 insertions(+), 1 deletions(-)
-> >>
-> >
-> > I must be missing something.
-> >
-> > The lower layer device should set skb->dev to the correct macvtap
-> > device on receive so that in netif_receive_skb_core() the macvtap
-> > handler is hit. Skipping the macvlan receive handler should be OK
-> > because the switching was done by the hardware. If I read macvtap.c
-> > correctly macvlan_common_newlink() is called with 'dev' where 'dev'
-> > is the macvtap device. Any idea what I'm missing? I guess I'll need
-> > to setup a macvtap test case.
-> 
-> Unlike macvlan, macvtap depends on rx handler on the lower device to
-> work. In this case macvlan_handle_frame() will call macvtap_receive().
-> So doing netif_receive_skb_core() for macvtap device directly won't work
-> since we need to forward the packet to userspace instead of kernel.
-> 
-> For net-next.git, it may work since commit
-> 6acf54f1cf0a6747bac9fea26f34cfc5a9029523 let macvtap device register an
-> rx handler for itself.
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-I agree, this seems like it should already be fixed with the above commit.  With
-this the macvlan rx handler should effectively be a no-op as far as the
-reception of frames is concerned.  As long as the driver sets the dev correctly
-to the macvtap device (and it appears to), macvtap will get frames to user
-space, regardless of weather the software or hardware did the switching.  If
-thats the case though, I think the solution is moving that fix to -stable
-(pending testing of course), rather than comming up with a new fix.
+We don't need to read the base VF id. It's already stashed in the HW
+struct.
 
-> >
-> > And what synchronization are you worried about on dev_hard_start_xmit()?
-> > In the L2 forwarding offload case macvlan_open() clears the NETIF_F_LLTX
-> > flag so HARD_TX_LOCK protects the driver txq. We might hit this warning
-> > in dev_queue_xmit() though,
-> >
-> >   net_crit_ratelimited("Virtual device %s asks to queue packet!\n",
-> >
-> > Perhaps we can remove it.
-> 
-> The problem is macvtap does not call dev_queue_xmit() for macvlan
-> device. It calls macvlan_start_xmit() directly from macvtap_get_user().
-> So HARD_TX_LOCK was not done for the txq.
-This seems to also be fixed by 6acf54f1cf0a6747bac9fea26f34cfc5a9029523.
-Macvtap does, as of that commit use dev_queue_xmit for the transmission of
-frames to the lowerdevice.
+Change-Id: Ib81e2f76fc40b12c966e014a856b481912cafefc
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-Regards
-Neil
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 2c042a26..bed6022 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -600,8 +600,7 @@ static int i40e_quiesce_vf_pci(struct i40e_vf *vf)
+ 	int vf_abs_id, i;
+ 	u32 reg;
+ 
+-	reg = rd32(hw, I40E_PF_VT_PFALLOC);
+-	vf_abs_id = vf->vf_id + (reg & I40E_PF_VT_PFALLOC_FIRSTVF_MASK);
++	vf_abs_id = vf->vf_id + hw->func_caps.vf_base_id;
+ 
+ 	wr32(hw, I40E_PF_PCI_CIAA,
+ 	     VF_DEVICE_STATUS | (vf_abs_id << I40E_PF_PCI_CIAA_VF_NUM_SHIFT));
+-- 
+1.8.3.1
