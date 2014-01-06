@@ -1,120 +1,180 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 15/15] i40e: Do not allow AQ calls from ndo-ops
-Date: Mon,  6 Jan 2014 04:30:36 -0800
-Message-ID: <1389011436-18424-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/15] i40e: Fix VF driver MAC address configuration
+Date: Mon,  6 Jan 2014 04:30:31 -0800
+Message-ID: <1389011436-18424-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389011436-18424-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:22497 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:44283 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753739AbaAFMaq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jan 2014 07:30:46 -0500
+	id S1751345AbaAFMao (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jan 2014 07:30:44 -0500
 In-Reply-To: <1389011436-18424-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-If the device is not in a working state avoid making admin
-queue (AQ) calls that rely on a working AQ.
+Fix a problem where the 'ip link show' command would display stale
+link address information after the link address was set via the 'ip
+link set' command.  In addition, fix problem with the user being
+allowed to overwrite the administratively set VF MAC address.
 
-Change-Id: Ifbba6d257b3a5b51bfe92938c04088c0baa21433
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-Id: I669ed14e55f2b633ef7b456b713632b08468671c
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 30 +++++++++++++----------------
- 1 file changed, 13 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 60 +++++++++++++++++-----
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  1 +
+ 2 files changed, 48 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index fd24ee4..483126c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1215,6 +1215,10 @@ static int i40e_set_mac(struct net_device *netdev, void *p)
- 	if (ether_addr_equal(netdev->dev_addr, addr->sa_data))
- 		return 0;
- 
-+	if (test_bit(__I40E_DOWN, &vsi->back->state) ||
-+	    test_bit(__I40E_RESET_RECOVERY_PENDING, &vsi->back->state))
-+		return -EADDRNOTAVAIL;
-+
- 	if (vsi->type == I40E_VSI_MAIN) {
- 		i40e_status ret;
- 		ret = i40e_aq_mac_address_write(&vsi->back->hw,
-@@ -1779,7 +1783,6 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
- {
- 	struct i40e_mac_filter *f, *add_f;
- 	bool is_netdev, is_vf;
--	int ret;
- 
- 	is_vf = (vsi->type == I40E_VSI_SRIOV);
- 	is_netdev = !!(vsi->netdev);
-@@ -1805,13 +1808,6 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
- 		}
- 	}
- 
--	ret = i40e_sync_vsi_filters(vsi);
--	if (ret) {
--		dev_info(&vsi->back->pdev->dev,
--			 "Could not sync filters for vid %d\n", vid);
--		return ret;
--	}
--
- 	/* Now if we add a vlan tag, make sure to check if it is the first
- 	 * tag (i.e. a "tag" -1 does exist) and if so replace the -1 "tag"
- 	 * with 0, so we now accept untagged and specified tagged traffic
-@@ -1848,10 +1844,13 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
- 				}
- 			}
- 		}
--		ret = i40e_sync_vsi_filters(vsi);
- 	}
- 
--	return ret;
-+	if (test_bit(__I40E_DOWN, &vsi->back->state) ||
-+	    test_bit(__I40E_RESET_RECOVERY_PENDING, &vsi->back->state))
-+		return 0;
-+
-+	return i40e_sync_vsi_filters(vsi);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index a983858..55ec2db 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1331,6 +1331,37 @@ error_param:
  }
  
  /**
-@@ -1867,7 +1866,6 @@ int i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
- 	struct i40e_mac_filter *f, *add_f;
- 	bool is_vf, is_netdev;
- 	int filter_count = 0;
--	int ret;
++ * i40e_check_vf_permission
++ * @vf: pointer to the vf info
++ * @macaddr: pointer to the MAC Address being checked
++ *
++ * Check if the VF has permission to add or delete unicast MAC address
++ * filters and return error code -EPERM if not.  Then check if the
++ * address filter requested is broadcast or zero and if so return
++ * an invalid MAC address error code.
++ **/
++static inline int i40e_check_vf_permission(struct i40e_vf *vf, u8 *macaddr)
++{
++	struct i40e_pf *pf = vf->pf;
++	int ret = 0;
++
++	if (is_broadcast_ether_addr(macaddr) ||
++		   is_zero_ether_addr(macaddr)) {
++		dev_err(&pf->pdev->dev, "invalid VF MAC addr %pM\n", macaddr);
++		ret = I40E_ERR_INVALID_MAC_ADDR;
++	} else if (vf->pf_set_mac && !is_multicast_ether_addr(macaddr)) {
++		/* If the host VMM administrator has set the VF MAC address
++		 * administratively via the ndo_set_vf_mac command then deny
++		 * permission to the VF to add or delete unicast MAC addresses.
++		 */
++		dev_err(&pf->pdev->dev,
++			"VF attempting to override administratively set MAC address\nPlease reload the VF driver to resume normal operation\n");
++		ret = -EPERM;
++	}
++	return ret;
++}
++
++/**
+  * i40e_vc_add_mac_addr_msg
+  * @vf: pointer to the vf info
+  * @msg: pointer to the msg buffer
+@@ -1345,24 +1376,20 @@ static int i40e_vc_add_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 	struct i40e_pf *pf = vf->pf;
+ 	struct i40e_vsi *vsi = NULL;
+ 	u16 vsi_id = al->vsi_id;
+-	i40e_status aq_ret = 0;
++	i40e_status ret = 0;
+ 	int i;
  
- 	is_vf = (vsi->type == I40E_VSI_SRIOV);
- 	is_netdev = !!(netdev);
-@@ -1878,12 +1876,6 @@ int i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
- 	list_for_each_entry(f, &vsi->mac_filter_list, list)
- 		i40e_del_filter(vsi, f->macaddr, vid, is_vf, is_netdev);
- 
--	ret = i40e_sync_vsi_filters(vsi);
--	if (ret) {
--		dev_info(&vsi->back->pdev->dev, "Could not sync filters\n");
--		return ret;
--	}
--
- 	/* go through all the filters for this VSI and if there is only
- 	 * vid == 0 it means there are no other filters, so vid 0 must
- 	 * be replaced with -1. This signifies that we should from now
-@@ -1926,6 +1918,10 @@ int i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
- 		}
+ 	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states) ||
+ 	    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps) ||
+ 	    !i40e_vc_isvalid_vsi_id(vf, vsi_id)) {
+-		aq_ret = I40E_ERR_PARAM;
++		ret = I40E_ERR_PARAM;
+ 		goto error_param;
  	}
  
-+	if (test_bit(__I40E_DOWN, &vsi->back->state) ||
-+	    test_bit(__I40E_RESET_RECOVERY_PENDING, &vsi->back->state))
-+		return 0;
-+
- 	return i40e_sync_vsi_filters(vsi);
+ 	for (i = 0; i < al->num_elements; i++) {
+-		if (is_broadcast_ether_addr(al->list[i].addr) ||
+-		    is_zero_ether_addr(al->list[i].addr)) {
+-			dev_err(&pf->pdev->dev, "invalid VF MAC addr %pMAC\n",
+-				al->list[i].addr);
+-			aq_ret = I40E_ERR_INVALID_MAC_ADDR;
++		ret = i40e_check_vf_permission(vf, al->list[i].addr);
++		if (ret)
+ 			goto error_param;
+-		}
+ 	}
+ 	vsi = pf->vsi[vsi_id];
+ 
+@@ -1383,7 +1410,7 @@ static int i40e_vc_add_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 		if (!f) {
+ 			dev_err(&pf->pdev->dev,
+ 				"Unable to add VF MAC filter\n");
+-			aq_ret = I40E_ERR_PARAM;
++			ret = I40E_ERR_PARAM;
+ 			goto error_param;
+ 		}
+ 	}
+@@ -1395,7 +1422,7 @@ static int i40e_vc_add_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ error_param:
+ 	/* send the response to the vf */
+ 	return i40e_vc_send_resp_to_vf(vf, I40E_VIRTCHNL_OP_ADD_ETHER_ADDRESS,
+-				       aq_ret);
++				       ret);
  }
  
+ /**
+@@ -1413,15 +1440,21 @@ static int i40e_vc_del_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 	struct i40e_pf *pf = vf->pf;
+ 	struct i40e_vsi *vsi = NULL;
+ 	u16 vsi_id = al->vsi_id;
+-	i40e_status aq_ret = 0;
++	i40e_status ret = 0;
+ 	int i;
+ 
+ 	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states) ||
+ 	    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps) ||
+ 	    !i40e_vc_isvalid_vsi_id(vf, vsi_id)) {
+-		aq_ret = I40E_ERR_PARAM;
++		ret = I40E_ERR_PARAM;
+ 		goto error_param;
+ 	}
++
++	for (i = 0; i < al->num_elements; i++) {
++		ret = i40e_check_vf_permission(vf, al->list[i].addr);
++		if (ret)
++			goto error_param;
++	}
+ 	vsi = pf->vsi[vsi_id];
+ 
+ 	/* delete addresses from the list */
+@@ -1436,7 +1469,7 @@ static int i40e_vc_del_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ error_param:
+ 	/* send the response to the vf */
+ 	return i40e_vc_send_resp_to_vf(vf, I40E_VIRTCHNL_OP_DEL_ETHER_ADDRESS,
+-				       aq_ret);
++				       ret);
+ }
+ 
+ /**
+@@ -1918,6 +1951,7 @@ int i40e_ndo_set_vf_mac(struct net_device *netdev, int vf_id, u8 *mac)
+ 		goto error_param;
+ 	}
+ 	memcpy(vf->default_lan_addr.addr, mac, ETH_ALEN);
++	vf->pf_set_mac = true;
+ 	dev_info(&pf->pdev->dev, "Reload the VF driver to make this change effective.\n");
+ 	ret = 0;
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
+index bf3384f..8d0f4dd 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
+@@ -83,6 +83,7 @@ struct i40e_vf {
+ 	struct i40e_virtchnl_ether_addr default_lan_addr;
+ 	struct i40e_virtchnl_ether_addr default_fcoe_addr;
+ 	u16 port_vlan_id;
++	bool pf_set_mac;	/* The VMM admin set the VF MAC address */
+ 
+ 	/* VSI indices - actual VSI pointers are maintained in the PF structure
+ 	 * When assigned, these will be non-zero, because VSI 0 is always
 -- 
 1.8.3.1
