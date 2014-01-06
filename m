@@ -1,71 +1,54 @@
-From: Sebastian Reichel <sre@ring0.de>
-Subject: Re: [PATCHv2 0/5] wl1251 device tree support
-Date: Mon, 6 Jan 2014 23:57:09 +0100
-Message-ID: <20140106225709.GA23070@earth.universe>
-References: <1382890469-25286-1-git-send-email-sre@debian.org>
- <1386289336-26704-1-git-send-email-sre@debian.org>
+From: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
+Subject: single process receives own frames due to PACKET_MMAP
+Date: Mon, 06 Jan 2014 23:58:01 +0100
+Message-ID: <52CB34F9.6020906@aimvalley.nl>
+References: <52B4465E.2090904@aimvalley.nl>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="YZ5djTAD1cGYuMQK"
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-omap@vger.kernel.org, netdev@vger.kernel.org
-To: Luciano Coelho <luca@coelho.fi>, Tony Lindgren <tony@atomide.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1386289336-26704-1-git-send-email-sre@debian.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	David Miller <davem@davemloft.net>, uaca@alumni.uv.es
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mika.eatserver.nl ([195.20.9.75]:54747 "EHLO mika.eatserver.nl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757060AbaAFW7P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jan 2014 17:59:15 -0500
+In-Reply-To: <52B4465E.2090904@aimvalley.nl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---YZ5djTAD1cGYuMQK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Our application uses raw AF_PACKET socket to send and receive
+on one particular ethernet interface.
 
-Hi John,
+Recently we started using PACKET_MMAP (TPACKET_V2). This makes
+the Appl use a TX socket and a RX socket.
+Both sockets are bound to the same (eth) interface. I noticed
+the RX socket receives all frames that are sent via the
+TX socket (same process, different thread). This I do not want.
 
-> The following patchset adds device tree support to
-> the spi variant of the wl1251 driver.
->
-> Luciano Coelho (1):
->   wl1251: split wl251 platform data to a separate structure
->=20
-> Sebastian Reichel (4):
->   wl1251: move power GPIO handling into the driver
->   wl1251: spi: add vio regulator support
->   wl1251: spi: add device tree support
->   Documentation: dt: wireless: Add wl1251
+I know it is supposed to happen for different processes
+(otherwise wireshark won't work), but I did not expect it to
+happen for one single process (with different threads).
 
-What's the status of this patchset? Tony prepared an immutable
-branch for patches 1+2 [0]. I think the other patches are also ok
-(at least there were no more complains from the DT binding
-maintainers). It would be nice to have wl1251 DT support in 3.14.
+I can filter them out in user-space (PACKET_OUTGOING)
+or via kernel packet filter (SO_ATTACH_FILTER), but performance is
+critical.
 
-[0] http://www.spinics.net/lists/linux-omap/msg101165.html
+I wonder whether this (PACKET_MMAP) behaviour is OK.
 
--- Sebastian
+It did not happen before (with a non-PACKET_MMAP AF_PACKET socket
+which was used by both threads of the same Appl process). So
+why is it happening now ?
+I'd say it makes no sense to make the same process receive its
+own transmitted frames on that same interface (unless its lo).
 
---YZ5djTAD1cGYuMQK
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+If I'm not doing something wrong, this means this behaviour
+causes my CPU to be loaded much more (since all transmitted frames
+have to be filtered out).
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
+Let me know what you think.
 
-iQIcBAEBCAAGBQJSyzTEAAoJENju1/PIO/qaoSsP/2A++jAylp/9jdo77OoJl50B
-s2Bk6i+g3G/G0ZF5prK/eRRDW6anfU7rzrqNowO0RXkEufRn+vviKaKwXGdCtHmJ
-Oa3fi4clbsrFZKvRQjKNdhX8NAoiZsd8wdhXQJXkhS8htenfiGL0Uh7Bs+gVKfyf
-1UVsb1nMvBR+MKRdKKNTO59Odm6NCtzZD+WIL0zAzN684vaYTYaV5dNVGsqt+82P
-+WPxhqZQPuObRb4HWRm1+HDFWs/zVIXgw6HJPZOeKuSN7bYwNtHstC/s76q7SBBR
-m3nkfqOsaAwfiVUVmqla9pac83Gf/2LXdmu8C12Qr4edix1E0KhXTQjVj1MWuR4q
-hzqhGVX1GD9pSbWZFxytf0m4Cl52HTvolj7T1zJyKtC95A4fobQQdqEeWoWy98JO
-j+iojeGq4bWcMcST7UR7rqK26DKFccm4+E6UQHEFtJDRrsjaojT/qM0UUrPnn5d2
-nmseSd9BfC+XGG8Ll6cny1//luCJp9gY4nwg6r/q2mNWaZslTdxKvdmkuP4UsS4m
-4DIpB4mTgKtcwfrt3Ba5T4oLuSpiSFmaZPynb3FekInpXhlkQ0731RZ0pAQANhGY
-IviRwgCYDU6pawzSXpuwaYW/MQPCpbsGXwQlgSUhKPnVK4YHDpRDjy10e7mFtrbD
-119RrTc5DfF/tzCdzboH
-=nadp
------END PGP SIGNATURE-----
-
---YZ5djTAD1cGYuMQK--
+thanks,
+Norbert van Bolhuis
