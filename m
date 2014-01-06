@@ -1,111 +1,62 @@
-From: Shaohui Xie <Shaohui.Xie@freescale.com>
-Subject: RE: [PATCH 1/6][v3] phylib: Add Clause 45 read/write functions
-Date: Mon, 6 Jan 2014 07:54:04 +0000
-Message-ID: <51bdf0e57ba941bf92b1d969631e440b@BLUPR03MB067.namprd03.prod.outlook.com>
-References: <1385703912-12800-1-git-send-email-shh.xie@gmail.com>
+From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC PATCH net-next 1/4] net: introduce backup_classid to struct
+	skbuff
+Date: Mon, 6 Jan 2014 16:16:59 +0800
+Message-ID: <52CA667B.4090606@huawei.com>
+References: <52C62A48.1050604@huawei.com>
+	<20140103.003404.1439874071277993396.davem@davemloft.net>
+	<52C656F2.8060803@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Shaohui Xie <Shaohui.Xie@freescale.com>
-To: "shh.xie@gmail.com" <shh.xie@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"jg1.han@samsung.com" <jg1.han@samsung.com>,
-	"mugunthanvnm@ti.com" <mugunthanvnm@ti.com>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1385703912-12800-1-git-send-email-shh.xie@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <52C656F2.8060803-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi, All,
+On 2014/1/3 14:21, John Fastabend wrote:
+> On 01/02/2014 09:34 PM, David Miller wrote:
+>> From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>> Date: Fri, 3 Jan 2014 11:11:04 +0800
+>>
+>>>
+>>> introduce backup_classid to struct skbuff,
+>>> we can use it to backup sk_classid when net_ns switch.
+>>>
+>>> Signed-off-by: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>>
+>> Sorry, no new sk_buff members unless there is absolutely not other
+>> possible implementation.
+>>
+>> sk_buff is too big as-is.
+> 
+> To get what you want fix the dev_forward_skb() call. But its
+> not clear to me why you would expect the sock info to be propagated
+> like this. It seems like an incorrect assumption or a misunderstanding
+> somewhere. If the virtual link was a physical link you wouldn't expect
+> to know anything about the senders socket.
 
-I saw the state of this patch sets were set to "Deferred", may I know if there is any plan or request for these patches, or is there a big picture for supporting 10G PHYs?
+AFAIK, once the sock is created, sock->sk_classid will be set, see sk_alloc()
+so I think it is safe.
 
-Best Regards, 
-Shaohui Xie
+thanks,
+Libo
 
-
-> -----Original Message-----
-> From: shh.xie@gmail.com [mailto:shh.xie@gmail.com]
-> Sent: Friday, November 29, 2013 1:45 PM
-> To: davem@davemloft.net; jg1.han@samsung.com; mugunthanvnm@ti.com;
-> f.fainelli@gmail.com; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org
-> Cc: Xie Shaohui-B21989
-> Subject: [PATCH 1/6][v3] phylib: Add Clause 45 read/write functions
 > 
-> From: Andy Fleming <afleming@freescale.com>
+> Thanks,
+> John
 > 
-> Need an extra parameter to read or write Clause 45 PHYs, so need a
-> different API with the extra parameter.
-> 
-> Signed-off-by: Andy Fleming <afleming@freescale.com>
-> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
-> ---
-> v3 changes: add C45 check.
-> 
->  include/linux/phy.h | 39 +++++++++++++++++++++++++++++++++++++++
->  1 file changed, 39 insertions(+)
-> 
-> diff --git a/include/linux/phy.h b/include/linux/phy.h index
-> 48a4dc3..0ff2476 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -498,6 +498,24 @@ static inline int phy_read(struct phy_device *phydev,
-> u32 regnum)  }
-> 
->  /**
-> + * phy_read_mmd - Convenience function for reading a register
-> + * from an MMD on a given PHY.
-> + * @phydev: The phy_device struct
-> + * @devad: The MMD to read from
-> + * @regnum: The register on the MMD to read
-> + *
-> + * Same rules as for phy_read();
-> + */
-> +static inline int phy_read_mmd(struct phy_device *phydev, int devad,
-> +u32 regnum) {
-> +	if (!phydev->is_c45)
-> +		return -EOPNOTSUPP;
-> +
-> +	return mdiobus_read(phydev->bus, phydev->addr,
-> +		MII_ADDR_C45 | (devad << 16) | (regnum & 0xffff)); }
-> +
-> +/**
->   * phy_write - Convenience function for writing a given PHY register
->   * @phydev: the phy_device struct
->   * @regnum: register number to write
-> @@ -533,6 +551,27 @@ static inline bool phy_is_internal(struct phy_device
-> *phydev)
->  	return phydev->is_internal;
->  }
-> 
-> +/**
-> + * phy_write_mmd - Convenience function for writing a register
-> + * on an MMD on a given PHY.
-> + * @phydev: The phy_device struct
-> + * @devad: The MMD to read from
-> + * @regnum: The register on the MMD to read
-> + * @val: value to write to @regnum
-> + *
-> + * Same rules as for phy_write();
-> + */
-> +static inline int phy_write_mmd(struct phy_device *phydev, int devad,
-> +		u32 regnum, u16 val)
-> +{
-> +	if (!phydev->is_c45)
-> +		return -EOPNOTSUPP;
-> +
-> +	regnum = MII_ADDR_C45 | ((devad & 0x1f) << 16) | (regnum & 0xffff);
-> +
-> +	return mdiobus_write(phydev->bus, phydev->addr, regnum, val); }
-> +
->  struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int
-> phy_id,
->  		bool is_c45, struct phy_c45_device_ids *c45_ids);  struct
-> phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45);
-> --
-> 1.8.4.1
