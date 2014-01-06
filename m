@@ -1,50 +1,104 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/15] i40e: Hide the Port VLAN VLAN ID
-Date: Mon,  6 Jan 2014 04:30:33 -0800
-Message-ID: <1389011436-18424-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/15] i40e: support VFs on PFs other than 0
+Date: Mon,  6 Jan 2014 04:30:30 -0800
+Message-ID: <1389011436-18424-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389011436-18424-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:22497 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:44283 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753845AbaAFMap (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jan 2014 07:30:45 -0500
+	id S1753643AbaAFMan (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jan 2014 07:30:43 -0500
 In-Reply-To: <1389011436-18424-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-The VF VSI Port VLAN settings still allow the user to view VLAN tag in
-the descriptor.  Fix the settings to hide the VLAN ID from the VF. The
-VF is not supposed to be aware it is on a VLAN in the Port VLAN
-scenario.
+When communicating with VF devices over the AQ, the FW refers to the
+VF by its global VF ID, not local the VF ID with reference to its
+parent PF. Since the global and local VF IDs are identical for PF 0,
+the code worked correctly on PF 0.
 
-Change-Id: I976f2bacb455dbb750f8c53a781c689f02cb8907
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+However, we cannot just use global IDs throughout the code as most of
+the other references to the VF (VSI setup, register offsets, etc.)
+require the local VF ID. Instead, we just add or subtract our base VF
+ID when sending and receiving AQ messages.
+
+Change-Id: I92f4332b4876bc68b2f9af9ebf48761f63b6bd97
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 40484e0..9c16aa8 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2018,7 +2018,7 @@ int i40e_vsi_add_pvid(struct i40e_vsi *vsi, u16 vid)
- 	vsi->info.pvid = cpu_to_le16(vid);
- 	vsi->info.port_vlan_flags = I40E_AQ_VSI_PVLAN_MODE_TAGGED |
- 				    I40E_AQ_VSI_PVLAN_INSERT_PVID |
--				    I40E_AQ_VSI_PVLAN_EMOD_STR_BOTH;
-+				    I40E_AQ_VSI_PVLAN_EMOD_STR;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index e91f9d7..a983858 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -903,6 +903,7 @@ static int i40e_vc_send_msg_to_vf(struct i40e_vf *vf, u32 v_opcode,
+ {
+ 	struct i40e_pf *pf = vf->pf;
+ 	struct i40e_hw *hw = &pf->hw;
++	int true_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
+ 	i40e_status aq_ret;
  
- 	ctxt.seid = vsi->seid;
- 	memcpy(&ctxt.info, &vsi->info, sizeof(vsi->info));
+ 	/* single place to detect unsuccessful return values */
+@@ -922,8 +923,8 @@ static int i40e_vc_send_msg_to_vf(struct i40e_vf *vf, u32 v_opcode,
+ 		vf->num_valid_msgs++;
+ 	}
+ 
+-	aq_ret = i40e_aq_send_msg_to_vf(hw, vf->vf_id, v_opcode, v_retval,
+-				     msg, msglen, NULL);
++	aq_ret = i40e_aq_send_msg_to_vf(hw, true_vf_id,	v_opcode, v_retval,
++					msg, msglen, NULL);
+ 	if (aq_ret) {
+ 		dev_err(&pf->pdev->dev,
+ 			"Unable to send the message to VF %d aq_err %d\n",
+@@ -1664,22 +1665,23 @@ int i40e_vc_process_vf_msg(struct i40e_pf *pf, u16 vf_id, u32 v_opcode,
+ 			   u32 v_retval, u8 *msg, u16 msglen)
+ {
+ 	struct i40e_hw *hw = &pf->hw;
++	int local_vf_id = vf_id - hw->func_caps.vf_base_id;
+ 	struct i40e_vf *vf;
+ 	int ret;
+ 
+ 	pf->vf_aq_requests++;
+-	if (vf_id >= pf->num_alloc_vfs)
++	if (local_vf_id >= pf->num_alloc_vfs)
+ 		return -EINVAL;
+-	vf = &(pf->vf[vf_id]);
++	vf = &(pf->vf[local_vf_id]);
+ 	/* perform basic checks on the msg */
+ 	ret = i40e_vc_validate_vf_msg(vf, v_opcode, v_retval, msg, msglen);
+ 
+ 	if (ret) {
+ 		dev_err(&pf->pdev->dev, "Invalid message from vf %d, opcode %d, len %d\n",
+-			vf_id, v_opcode, msglen);
++			local_vf_id, v_opcode, msglen);
+ 		return ret;
+ 	}
+-	wr32(hw, I40E_VFGEN_RSTAT1(vf_id), I40E_VFR_VFACTIVE);
++	wr32(hw, I40E_VFGEN_RSTAT1(local_vf_id), I40E_VFR_VFACTIVE);
+ 	switch (v_opcode) {
+ 	case I40E_VIRTCHNL_OP_VERSION:
+ 		ret = i40e_vc_get_version_msg(vf);
+@@ -1723,8 +1725,8 @@ int i40e_vc_process_vf_msg(struct i40e_pf *pf, u16 vf_id, u32 v_opcode,
+ 		break;
+ 	case I40E_VIRTCHNL_OP_UNKNOWN:
+ 	default:
+-		dev_err(&pf->pdev->dev,
+-			"Unsupported opcode %d from vf %d\n", v_opcode, vf_id);
++		dev_err(&pf->pdev->dev, "Unsupported opcode %d from vf %d\n",
++			v_opcode, local_vf_id);
+ 		ret = i40e_vc_send_resp_to_vf(vf, v_opcode,
+ 					      I40E_ERR_NOT_IMPLEMENTED);
+ 		break;
 -- 
 1.8.3.1
