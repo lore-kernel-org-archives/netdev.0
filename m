@@ -1,83 +1,79 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch iproute2 v2 0/2] add support for IFA_F_MANAGETEMPADDR
-Date: Mon, 6 Jan 2014 17:01:39 +0100
-Message-ID: <20140106160139.GB10204@order.stressinduktion.org>
-References: <1388676879-2603-1-git-send-email-jiri@resnulli.us> <20140102172949.GF22494@order.stressinduktion.org> <20140104104331.GB9295@minipsycho.orion> <20140104105515.GA25828@order.stressinduktion.org> <20140104110557.GD9295@minipsycho.orion> <20140104111546.GB25828@order.stressinduktion.org> <1388834511.7407.5.camel@weing> <20140104113543.GC25828@order.stressinduktion.org> <1389022909.23397.4.camel@weing>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net] bridge: Fix crash with vlan filtering and tcpdump
+Date: Mon, 06 Jan 2014 11:02:34 -0500
+Message-ID: <52CAD39A.7040607@redhat.com>
+References: <1388765553-12965-1-git-send-email-vyasevic@redhat.com> <1388934147.1906.17.camel@localhost.localdomain>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	stephen@networkplumber.org, dcbw@redhat.com
-To: Thomas Haller <thaller@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+To: Toshiaki Makita <toshiaki.makita1@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:42487 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753292AbaAFQBl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 11:01:41 -0500
-Content-Disposition: inline
-In-Reply-To: <1389022909.23397.4.camel@weing>
+Received: from mx1.redhat.com ([209.132.183.28]:61831 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754752AbaAFQCk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jan 2014 11:02:40 -0500
+In-Reply-To: <1388934147.1906.17.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 06, 2014 at 04:41:49PM +0100, Thomas Haller wrote:
-> On Sat, 2014-01-04 at 12:35 +0100, Hannes Frederic Sowa wrote:
-> > On Sat, Jan 04, 2014 at 12:21:51PM +0100, Thomas Haller wrote:
-> > > > > >Also, I saw that NetworkManager switched to install autoconf addresses
-> > > > > >as /128, doesn't this break with IFA_F_MANAGETEMPADDR, as you expect a /64
-> > > > > >prefixlen?
-> > > > > 
-> > > > > /64 is required
-> > > > 
-> > > > Ok, currently NM seems to "violate" that as it installs autoconf addresses
-> > > > with 128 prefixlen, so IFA_F_MANAGETEMPADDR should not work on them.
-> > > > (currently observed on Fedora 20).
-> > > 
-> > > True, I noticed that too. I think that is a bug in NM to add the
-> > > addresses as /128. Probably, we will fix that soon.
-> > 
-> > The change could be valid. Otherwise currently NM could not correctly handle
-> > prefix information in RAs in some cases:
-> > 
-> > It is possible to let the client generate an autonomously address in a
-> > prefix which is actually not on-link (L=0). Kernel would automatically
-> > create prefix route by mistake, if NM tries to install such an address
-> > with /64 prefix. This does not happen if the prefix address uses 128
-> > prefixlen.
-> > 
-> > Would be great to have feedback on this, as this could be easily solved by an
-> > additional ifa_flag.
-> > 
-> > Greetings,
-> > 
-> >   Hannes
-> > 
+On 01/05/2014 10:02 AM, Toshiaki Makita wrote:
+> On Fri, 2014-01-03 at 11:12 -0500, Vlad Yasevich wrote:
+>> When the vlan filtering is enabled on the bridge, but
+>> the filter is not configured on the bridge device itself,
+>> running tcpdump on the bridge device will result in a
+>> an Ooops with NULL pointer dereference.  The reason
+>     ^^^^^
+> Oops?
 > 
+>> is that br_pass_frame_up() will bypass the vlan
+>> check because promisc flag is set.  It will then try
+>> to get the table pointer and process the packet based
+>> on the table.  Since the table pointer is NULL, we oops.
+>> Catch this special condition in br_handle_vlan().
+>>
+>> Reported-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>> CC: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>> ---
+> ...
+>> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+>> index af5ebd1..ea0c29b 100644
+>> --- a/net/bridge/br_vlan.c
+>> +++ b/net/bridge/br_vlan.c
+>> @@ -144,6 +144,18 @@ struct sk_buff *br_handle_vlan(struct net_bridge *br,
+>>  	if (!br->vlan_enabled)
+>>  		goto out;
+>>  
+>> +	/* Vlan filter table must be configrured at this point.  The
+>> +	 * only exception is the bridge is set in promisc mode and the
+>> +	 * packet is destined for the bridge device.  In this case
+>> +	 * pass the packet as is.
+>> +	 */
+>> +	if (!pv) {
+>> +       		if ((br->dev->flags & IFF_PROMISC) && skb->dev == br->dev)
+>> +			goto out;
 > 
-> Hi Hannes,
+> Currently this function is calling __vlan_put_tag() if port_idx==0.
+> You are going to bypass it only if br is promisc mode.
 > 
+> However it doesn't seem to lead any problem because
+> __netif_receive_skb_core() can handle hw accel vlan tag.
 > 
-> good point. I think, the user-space application (NetworkManager) should
-> add the autoconf addresses as /64. But the kernel should not generate
-> any routes in that case. It's up to the application to add them
-> (depending on the on-link flag).
-> 
-> 
-> What do you think about something like:
+> Instead, I doubt if __vlan_put_tag() is necessary in br_handle_vlan()...
 
-I would introduce a new flag for that and also make it accessible via
-iproute, maybe later. Otherwise IFA_F_MANAGETEMPADDR is overloaded and
-doesn't do justice to its name. And since Jiri made new room in ifa_flags,
-it shoud be no problem. ;)
+I'll need to re-test, but I remember having had to add that code to make
+it work on the bridge...
 
-Btw. while just reviewing anycast changes, I noticed a funny thing:
-Kernel does allocate an anycast address which is the same as the autoconf
-address, if NM installs /128 address and you have ipv6 forwarding enabled
-(fedora 20 install + ipv6 forwarding because of libvirt). You can see the
-addresses pop up in /proc/net/anycast6. I currenlty don't know if that
-is problematic.  Everything seems to work here for me. ;)
+Looking at it again, I agree that special handling for forwarding to the
+bridge doesn't seem to be needed.
 
-In the end, I don't think we should install anycast for /128, but I am not
-sure, yet.
+-vlad
 
-Greetings,
-
-  Hannes
+> 
+> Thanks,
+> Toshiaki Makita
+> 
+> 
