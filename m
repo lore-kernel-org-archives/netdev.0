@@ -1,38 +1,56 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v2 5/5] alx: add stats to ethtool
-Date: Mon, 06 Jan 2014 16:16:31 +0100
-Message-ID: <1389021391.5891.26.camel@jlt4.sipsolutions.net>
-References: <1388854031-24142-1-git-send-email-sd@queasysnail.net>
-	 <1388854031-24142-6-git-send-email-sd@queasysnail.net>
-	 <1388998990.5891.0.camel@jlt4.sipsolutions.net>
-	 <20140106105742.GA30142@kria>
-	 <1389017496.5891.15.camel@jlt4.sipsolutions.net>
-	 <20140106145629.GA7886@kria>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 4/11] use ether_addr_equal_64bits
+Date: Mon, 06 Jan 2014 07:18:42 -0800
+Message-ID: <1389021522.12212.174.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1388427307-8691-1-git-send-email-Julia.Lawall@lip6.fr>
+	 <1388427307-8691-5-git-send-email-Julia.Lawall@lip6.fr>
+	 <1388429761.4410.1.camel@jlt4.sipsolutions.net>
+	 <alpine.DEB.2.02.1312302057420.2209@localhost6.localdomain6>
+	 <1388438724.4573.2.camel@jlt4.sipsolutions.net>
+	 <20131230215701.GA4938@khazad-dum.debian.net>
+	 <1388445188.18164.0.camel@jlt4.sipsolutions.net>
+	 <CANUX_P0PX1g8uHJUHYoB4UyMMgbtLas0_pf4TYrLTgND5V37rg@mail.gmail.com>
+	 <CAMuHMdXZQO7jj+V2mMyyLgDoz6iSLJ25+55Yow-Acb1=tE5sMg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, bhutchings@solarflare.com,
-	netdev@vger.kernel.org
-To: Sabrina Dubroca <sd@queasysnail.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:43063 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755165AbaAFPQh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 10:16:37 -0500
-In-Reply-To: <20140106145629.GA7886@kria>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Emmanuel Grumbach <egrumbach@gmail.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Henrique de Moraes Holschuh <hmh@hmh.eng.br>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdXZQO7jj+V2mMyyLgDoz6iSLJ25+55Yow-Acb1=tE5sMg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-01-06 at 15:56 +0100, Sabrina Dubroca wrote:
+On Mon, 2014-01-06 at 10:24 +0100, Geert Uytterhoeven wrote:
 
-> > I was more worried about type mismatches. That's not really a concern
-> > with u64 since that's the largest type that really makes sense here, but
-> > if the type of some variables changed vs. the ethtool type u64...
+> Thanks to this discussion, my eye fell on:
 > 
-> Add "all stats fields must be u64" to the comment before the struct?
+> static inline unsigned compare_ether_addr(const u8 *addr1, const u8 *addr2)
+> {
+>         const u16 *a = (const u16 *) addr1;
+>         const u16 *b = (const u16 *) addr2;
+> 
+>         BUILD_BUG_ON(ETH_ALEN != 6);
+>         return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | (a[2] ^ b[2])) != 0;
+> }
+> 
+> What if addr1 or addr2 are odd, and this is running on an architecture that
+> doesn't support unaligned accesses at all?? Have we been lucky forever?
 
-I guess that's OK. I can live with either of these solutions really, I
-have no plans to change this driver ever again (though I might need WOL
-soon ... *sigh*)
+This function always had the guarantee of u16 alignment.
 
-johannes
+No protocol ever included an ether address at an odd alignment, and
+drivers always make sure a frame is at least 2-byte aligned.
+
+Its kind of obvious for networking people, Stephen did not mention this
+property in commit 360ac8e2f1a38c34
