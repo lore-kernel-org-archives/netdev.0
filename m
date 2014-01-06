@@ -1,65 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vxlan: keep original skb ownership
-Date: Mon, 06 Jan 2014 16:41:40 -0500 (EST)
-Message-ID: <20140106.164140.1492662570549981799.davem@davemloft.net>
-References: <1387803413-22152-1-git-send-email-sathya.perla@emulex.com>
-	<1389030871.12212.203.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [PATCH] netfilter: nf_conntrack: release conntrack from rcu
+ callback
+Date: Tue, 7 Jan 2014 01:44:38 +0400
+Message-ID: <20140106214438.GC2360@moon>
+References: <1389023672-14351-1-git-send-email-avagin@openvz.org>
+ <20140106170235.GJ28854@breakpoint.cc>
+ <20140106172130.GA2360@moon>
+ <20140106212326.GB9894@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sathya.perla@emulex.com, netdev@vger.kernel.org,
-	edumazet@google.com, stephen@networkplumber.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34917 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755462AbaAFVlm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 16:41:42 -0500
-In-Reply-To: <1389030871.12212.203.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrey Vagin <avagin@openvz.org>, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	vvs@openvz.org, Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140106212326.GB9894@breakpoint.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 06 Jan 2014 09:54:31 -0800
+On Mon, Jan 06, 2014 at 10:23:26PM +0100, Florian Westphal wrote:
+> > 
+> > No? Or there something obvious I'm missing?
+> 
+> IMHO this isn't obvious at all :-)
+> 
+> But, in the example above, the atomic_inc_not_zero() should fail
+> until after __nf_conntrack_alloc() re-inits the refcount to 1.
+> 
+> The mb there should make sure ____nf_conntrack_find() doesn't
+> find an outdated tuple before this.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Sathya Perla posted a patch trying to address following problem :
-> 
-> <quote>
->  The vxlan driver sets itself as the socket owner for all the TX flows
->  it encapsulates (using vxlan_set_owner()) and assigns it's own skb
->  destructor. This causes all tunneled traffic to land up on only one TXQ
->  as all encapsulated skbs refer to the vxlan socket and not the original
->  socket.  Also, the vxlan skb destructor breaks some functionality for
->  tunneled traffic like wmem accounting and as TCP small queues and
->  FQ/pacing packet scheduler.
-> </quote>
-> 
-> I reworked Sathya patch and added some explanations.
-> 
-> vxlan_xmit() can avoid one skb_clone()/dev_kfree_skb() pair
-> and gain better drop monitor accuracy, by calling kfree_skb() when
-> appropriate.
-> 
-> The UDP socket used by vxlan to perform encapsulation of xmit packets
-> do not need to be alive while packets leave vxlan code. Its better
-> to keep original socket ownership to get proper feedback from qdisc and
-> NIC layers.
-> 
-> We use skb->sk to 
-> 
-> A) control amount of bytes/packets queued on behalf of a socket, but
-> prior vxlan code did the skb->sk transfert without any limit/control
-> on vxlan socket sk_sndbuf.
-> 
-> B) security purposes (as selinux) or netfilter uses, and I do not think
-> anything is prepared to handle vxlan stacked case in this area.
-> 
-> By not changing ownership, vxlan tunnels behave like other tunnels.
-> As Stephen mentioned, we might do the same change in L2TP.
-> 
-> Reported-by: Sathya Perla <sathya.perla@emulex.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-
-Applied, thanks a lot Eric.
+Yeah, thanks!
