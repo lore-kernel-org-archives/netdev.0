@@ -1,47 +1,69 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/15] i40e: use struct assign instead of memcpy
-Date: Mon,  6 Jan 2014 04:30:27 -0800
-Message-ID: <1389011436-18424-7-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1389011436-18424-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:44283 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750914AbaAFMal (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jan 2014 07:30:41 -0500
-In-Reply-To: <1389011436-18424-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net 2/2] net: core: explicitly select a txq before doing
+ l2 forwarding
+Date: Mon, 6 Jan 2014 07:42:48 -0500
+Message-ID: <20140106124248.GB24280@hmsreliant.think-freely.org>
+References: <1388978467-2075-1-git-send-email-jasowang@redhat.com>
+ <1388978467-2075-2-git-send-email-jasowang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com,
+	John Fastabend <john.r.fastabend@intel.com>,
+	e1000-devel@lists.sourceforge.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1388978467-2075-2-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+On Mon, Jan 06, 2014 at 11:21:07AM +0800, Jason Wang wrote:
+> Currently, the tx queue were selected implicitly in ndo_dfwd_start_xmit(). The
+> will cause several issues:
+> 
+> - NETIF_F_LLTX was forced for macvlan device in this case which lead extra lock
+>   contention.
+> - dev_hard_start_xmit() was called with NULL txq which bypasses the net device
+>   watchdog
+> - dev_hard_start_xmit() does not check txq everywhere which will lead a crash
+>   when tso is disabled for lower device.
+> 
+> Fix this by explicitly introducing a select queue method just for l2 forwarding
+> offload (ndo_dfwd_select_queue), and introducing dfwd_direct_xmit() to do the
+> queue selecting and transmitting for l2 forwarding.
+> 
+> With this fixes, NETIF_F_LLTX could be preserved for macvlan and there's no need
+> to check txq against NULL in dev_hard_start_xmit().
+> 
+> In the future, it was also required for macvtap l2 forwarding support since it
+> provides a necessary synchronization method.
+> 
+> Cc: John Fastabend <john.r.fastabend@intel.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Cc: e1000-devel@lists.sourceforge.net
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Use struct assignment rather than an expensive memory copy.
+Instead of creating another operation here to do special queue selection, why
+not just have ndo_dfwd_start_xmit include a pointer to a pointer in its argument
+list, so it can pass the txq it used back to the caller (dev_hard_start_xmit)?
+ndo_dfwd_start_xmit already knows which queue set to pick from (since their
+reserved for the device doing the transmitting).  It seems more clear to me than
+creating a new netdevice operation.  
 
-Change-Id: I1d18d510774dfd41a9c1250cdef238a4187528f5
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+As for the crash issue, I'm not sure what you mean.  Where in
+dev_hard_start_xmit would we need to check txq that we're not currently, and
+what crash results?
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index bed6022..f92404c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1310,7 +1310,7 @@ static int i40e_vc_get_stats_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 		goto error_param;
- 	}
- 	i40e_update_eth_stats(vsi);
--	memcpy(&stats, &vsi->eth_stats, sizeof(struct i40e_eth_stats));
-+	stats = vsi->eth_stats;
- 
- error_param:
- 	/* send the response back to the vf */
--- 
-1.8.3.1
+Also, can you elaborate on what you mean by additional lock contention?  What
+contention do you see that goes above and beyond the normal locking required by
+txq access?  I suppose its extra locking above and beyond in the macvtap case,
+where you would otherwise never hit hardware, but that not the only use case,
+and I think the solution there is likely to add some code in the macvlan feature
+set handler so that NETIF_F_LLTX is cleared if you disable the hardware
+forwarding acceleration via ethtool.
+
+Regards
+Neil
+
+> 
