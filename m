@@ -1,67 +1,36 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH v3.5 18/19] rtlwifi: slight optimization of addr compare
-Date: Mon, 6 Jan 2014 15:51:43 -0500
-Message-ID: <20140106205143.GH10885@tuxdriver.com>
-References: <52BC15EA.2020603@huawei.com>
- <52BC2576.3090601@cogentembedded.com>
- <20140106195302.GF10885@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 1/3] ipv4: introduce ip_dst_mtu_secure and
+ protect forwarding path against pmtu spoofing
+Date: Mon, 06 Jan 2014 16:08:46 -0500 (EST)
+Message-ID: <20140106.160846.544525591241855516.davem@davemloft.net>
+References: <20140106084827.GA5766@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	linux-wireless@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140106195302.GF10885@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	johnwheffner@gmail.com, steffen.klassert@secunet.com,
+	fweimer@redhat.com
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34667 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753979AbaAFVIt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 16:08:49 -0500
+In-Reply-To: <20140106084827.GA5766@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 06, 2014 at 02:53:02PM -0500, John W. Linville wrote:
-> On Thu, Dec 26, 2013 at 04:47:50PM +0400, Sergei Shtylyov wrote:
-> > Hello.
-> > 
-> > On 26-12-2013 15:41, Ding Tianhong wrote:
-> > 
-> > >Use possibly more efficient ether_addr_equal_unaligned
-> > >instead of memcmp.
-> > 
-> > >Cc: Larry Finger <Larry.Finger@lwfinger.net>
-> > >Cc: Chaoming Li <chaoming_li@realsil.com.cn>
-> > >Cc: John W. Linville <linville@tuxdriver.com>
-> > >Cc: linux-wireless@vger.kernel.org
-> > >Cc: netdev@vger.kernel.org
-> > >Cc: linux-kernel@vger.kernel.org
-> > >Signed-off-by: Weilong Chen <chenweilong@huawei.com>
-> > >Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> > >---
-> > >  drivers/net/wireless/rtlwifi/cam.c | 4 ++--
-> > >  1 file changed, 2 insertions(+), 2 deletions(-)
-> > 
-> > >diff --git a/drivers/net/wireless/rtlwifi/cam.c b/drivers/net/wireless/rtlwifi/cam.c
-> > >index 0e510f7..0276153 100644
-> > >--- a/drivers/net/wireless/rtlwifi/cam.c
-> > >+++ b/drivers/net/wireless/rtlwifi/cam.c
-> > [...]
-> > >@@ -335,7 +335,7 @@ void rtl_cam_del_entry(struct ieee80211_hw *hw, u8 *sta_addr)
-> > >  		addr = rtlpriv->sec.hwsec_cam_sta_addr[i];
-> > >  		bitmap = (rtlpriv->sec.hwsec_cam_bitmap) >> i;
-> > >  		if (((bitmap & BIT(0)) == BIT(0)) &&
-> > >-		    (memcmp(addr, sta_addr, ETH_ALEN) == 0)) {
-> > >+		    (ether_addr_equal_unaligned(addr, sta_addr))) {
-> > 
-> >    It's pointless to enclose function call in parens, again.
-> 
-> I'll correct that issue when merging the patch.
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Mon, 6 Jan 2014 09:48:27 +0100
 
-Well, that was the plan...  But since ether_addr_equal_unaligned
-isn't in the wireless trees at the moment, it will have to wait or go
-through another tree that has that definition.  Feel free to respin
-with the extra parenthesis removed...
+> I want to put these patches up for discussion again. I did more testing
+> to them (xfrm, tunnel), did some rewording and rewrote the IPv6 patch.
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+I'm still thinking about this series.
+
+I would have been nice if you provided a "0/3" introductory posting
+discussing your point of view, and giving a more detailed analysis of
+your view of the situation so that John and others have something to
+reply to.
+
+Thanks.
