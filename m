@@ -1,79 +1,64 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] netfilter: nf_conntrack: release conntrack from rcu
- callback
-Date: Mon, 6 Jan 2014 18:02:35 +0100
-Message-ID: <20140106170235.GJ28854@breakpoint.cc>
-References: <1389023672-14351-1-git-send-email-avagin@openvz.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] net: netdev_kobject_init: annotate with __init
+Date: Mon, 06 Jan 2014 21:13:41 +0400
+Message-ID: <52CAE445.5080201@cogentembedded.com>
+References: <1388967611-14263-1-git-send-email-dborkman@redhat.com> <52CAC804.9080603@cogentembedded.com> <52CAD74B.6070602@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vvs@openvz.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cyrill Gorcunov <gorcunov@openvz.org>
-To: Andrey Vagin <avagin@openvz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1389023672-14351-1-git-send-email-avagin@openvz.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:47354 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753883AbaAFRNn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 12:13:43 -0500
+Received: by mail-lb0-f179.google.com with SMTP id w7so9852561lbi.24
+        for <netdev@vger.kernel.org>; Mon, 06 Jan 2014 09:13:42 -0800 (PST)
+In-Reply-To: <52CAD74B.6070602@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrey Vagin <avagin@openvz.org> wrote:
-> Lets look at destroy_conntrack:
-> 
-> hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
-> ...
-> nf_conntrack_free(ct)
-> 	kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
-> 
-> The hash is protected by rcu, so readers look up conntracks without
-> locks.
-> A conntrack is removed from the hash, but in this moment a few readers
-> still can use the conntrack, so if we call kmem_cache_free now, all
-> readers will read released object.
-> 
-> Bellow you can find more tricky race condition of three tasks.
-> 
-> task 1			task 2			task 3
-> 			nf_conntrack_find_get
-> 			 ____nf_conntrack_find
-> destroy_conntrack
->  hlist_nulls_del_rcu
->  nf_conntrack_free
->  kmem_cache_free
-> 						__nf_conntrack_alloc
-> 						 kmem_cache_alloc
-> 						 memset(&ct->tuplehash[IP_CT_DIR_MAX],
-> 			 if (nf_ct_is_dying(ct))
-> 
-> In this case the task 2 will not understand, that it uses a wrong
-> conntrack.
+On 06.01.2014 20:18, Daniel Borkmann wrote:
 
-Can you elaborate?
-Yes, nf_ct_is_dying(ct) might be called for the wrong conntrack.
+>>> netdev_kobject_init() is only being called from __init context,
+>>> that is, net_dev_init(), so annotate it with __init as well, thus
+>>> the kernel can take this as a hint that the function is used only
+>>> during the initialization phase and free up used memory resources
+>>> after its invocation.
 
-But, in case we _think_ that its the right one we call
-nf_ct_tuple_equal() to verify we indeed found the right one:
+>>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> [...]
 
-       h = ____nf_conntrack_find(net, zone, tuple, hash);
-       if (h) { // might be released right now, but page won't go away (SLAB_BY_RCU)
-                ct = nf_ct_tuplehash_to_ctrack(h);
-                if (unlikely(nf_ct_is_dying(ct) ||
-                             !atomic_inc_not_zero(&ct->ct_general.use)))
-			// which means we should hit this path (0 ref).
-                        h = NULL;
-                else {
-			// otherwise, it cannot go away from under us, since
-			// we own a reference now.
-                        if (unlikely(!nf_ct_tuple_equal(tuple, &h->tuple) ||
-                                     nf_ct_zone(ct) != zone)) {
-			// if we get here, the entry got recycled on other cpu
-			// for a different tuple, we can bail out and drop
-			// the reference safely and re-try the lookup
-                                nf_ct_put(ct);
-                                goto begin;
-                        }
-                }
+>>> diff --git a/net/core/net-sysfs.h b/net/core/net-sysfs.h
+>>> index bd7751e..2745a1b 100644
+>>> --- a/net/core/net-sysfs.h
+>>> +++ b/net/core/net-sysfs.h
+>>> @@ -1,7 +1,7 @@
+>>>   #ifndef __NET_SYSFS_H__
+>>>   #define __NET_SYSFS_H__
+>>>
+>>> -int netdev_kobject_init(void);
+>>> +int __init netdev_kobject_init(void);
+
+>>     There's no need to also annotate function prototype.
+
+> Hm, is that general convention?
+
+    More or less, though I've seen some prototypes annotated.
+
+> Having this in a header file
+> annotated (even if not strictly necessary) would probably
+> better prevent from possible misuse resp. section mismatches
+> if people forget to look into the actual c file where the
+> function is being defined.
+
+    Dunno about vi users, I'm using Alt-. in EMACS when I want to find a 
+function, and it gets me right to the definition, not the prototype.
+
+>> WBR, Sergei
+
+PS: The patch was merged already, so my comment seems to have been posted too 
+late anyway.
+
+WBR, Sergei
