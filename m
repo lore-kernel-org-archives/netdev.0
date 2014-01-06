@@ -1,49 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/15] i40e: check asq alive before notify
-Date: Mon,  6 Jan 2014 04:30:35 -0800
-Message-ID: <1389011436-18424-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/15] i40e: Hide the Port VLAN VLAN ID
+Date: Mon,  6 Jan 2014 04:30:33 -0800
+Message-ID: <1389011436-18424-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389011436-18424-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:58842 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:22497 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753643AbaAFMaq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jan 2014 07:30:46 -0500
+	id S1753845AbaAFMap (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jan 2014 07:30:45 -0500
 In-Reply-To: <1389011436-18424-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-Driver needs to make sure the send queue is alive before
-trying to use it.
+The VF VSI Port VLAN settings still allow the user to view VLAN tag in
+the descriptor.  Fix the settings to hide the VLAN ID from the VF. The
+VF is not supposed to be aware it is on a VLAN in the Port VLAN
+scenario.
 
-Chagne-Id: I9bd1f6159c45c98e63f562e3a8dfb57edfe50e13
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-Id: I976f2bacb455dbb750f8c53a781c689f02cb8907
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index c97fc0c..fd24ee4 100644
+index 40484e0..9c16aa8 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -4776,7 +4776,8 @@ static int i40e_prep_for_reset(struct i40e_pf *pf)
+@@ -2018,7 +2018,7 @@ int i40e_vsi_add_pvid(struct i40e_vsi *vsi, u16 vid)
+ 	vsi->info.pvid = cpu_to_le16(vid);
+ 	vsi->info.port_vlan_flags = I40E_AQ_VSI_PVLAN_MODE_TAGGED |
+ 				    I40E_AQ_VSI_PVLAN_INSERT_PVID |
+-				    I40E_AQ_VSI_PVLAN_EMOD_STR_BOTH;
++				    I40E_AQ_VSI_PVLAN_EMOD_STR;
  
- 	dev_info(&pf->pdev->dev, "Tearing down internal switch for reset\n");
- 
--	i40e_vc_notify_reset(pf);
-+	if (i40e_check_asq_alive(hw))
-+		i40e_vc_notify_reset(pf);
- 
- 	/* quiesce the VSIs and their queues that are not already DOWN */
- 	i40e_pf_quiesce_all_vsi(pf);
+ 	ctxt.seid = vsi->seid;
+ 	memcpy(&ctxt.info, &vsi->info, sizeof(vsi->info));
 -- 
 1.8.3.1
