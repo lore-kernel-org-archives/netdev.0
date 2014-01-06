@@ -1,68 +1,64 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build warning after merge of the net-next tree
-Date: Mon, 6 Jan 2014 15:53:34 +1100
-Message-ID: <20140106155334.7e449a674943bc43890f4a08@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net-next tree
+Date: Mon, 6 Jan 2014 15:54:13 +1100
+Message-ID: <20140106155413.914ed0922423400deaf87926@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: multipart/signed; protocol="application/pgp-signature";
  micalg="PGP-SHA256";
- boundary="Signature=_Mon__6_Jan_2014_15_53_34_+1100_XK_4A7FJNY.t17HM"
+ boundary="Signature=_Mon__6_Jan_2014_15_54_13_+1100_t/eSSbbBpBEs5k0T"
 Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dingtianhong <dingtianhong@huawei.com>
+	Li RongQing <roy.qing.li@gmail.com>
 To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <linux-next-owner@vger.kernel.org>
 Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Mon__6_Jan_2014_15_53_34_+1100_XK_4A7FJNY.t17HM
+--Signature=_Mon__6_Jan_2014_15_54_13_+1100_t/eSSbbBpBEs5k0T
 Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
 Hi all,
 
-After merging the net-next tree, today's linux-next build (x86_64
-allmodconfig) produced this warning:
+After merging the net-next tree, today's linux-next build (powerpc
+ppc64_defconfig) failed like this:
 
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c: In function 'qlcnic_send_fi=
-lter':
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c:349:3: warning: passing argu=
-ment 2 of 'ether_addr_equal' from incompatible pointer type [enabled by def=
-ault]
-   if (ether_addr_equal(tmp_fil->faddr, &src_addr) &&
+In file included from net/core/dev.c:134:0:
+include/linux/if_macvlan.h: In function 'macvlan_count_rx':
+include/linux/if_macvlan.h:68:3: error: invalid use of undefined type 'stru=
+ct vlan_pcpu_stats'
+   pcpu_stats =3D this_cpu_ptr(vlan->pcpu_stats);
    ^
-In file included from include/linux/if_vlan.h:16:0,
-                 from drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c:9:
-include/linux/etherdevice.h:244:20: note: expected 'const u8 *' but argumen=
-t is of type 'u64 *'
- static inline bool ether_addr_equal(const u8 *addr1, const u8 *addr2)
-                    ^
 
-Introduced by commit 6878f79a8b71 ("net: qlcnic: slight optimization of
-addr compare").
+And lots more.
 
---=20
+Caused by commit cdf3e274cf1b ("macvlan: unify macvlan_pcpu_stats and
+vlan_pcpu_stats");
+
+I have reverted that commit for today.
+---=20
 Cheers,
 Stephen Rothwell                    sfr@canb.auug.org.au
 
---Signature=_Mon__6_Jan_2014_15_53_34_+1100_XK_4A7FJNY.t17HM
+--Signature=_Mon__6_Jan_2014_15_54_13_+1100_t/eSSbbBpBEs5k0T
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2.0.22 (GNU/Linux)
 
-iQIcBAEBCAAGBQJSyjbSAAoJEMDTa8Ir7ZwVUvsP/3MbRJq/r/3wu8NVaR6nM3rt
-zXtAwYQf619AY+EeDQLFdn8FMq6JsBvOKPizsFw71D7w3Wn7EZBhoDEUmCvc2c0f
-GMcGRYmAaOeHPeVnb+FLPPgDCpd/9Ym6ndrZCEDTv3YVKtqLRop+fLFeBL/gzycA
-7NFLN8DuP32qVbiDOEdMeQeuM72AjFWIx1F932hswpFLP/JiHodwoyd42dW7iYN1
-u1ZhaagmB0/lGi+SpoBXP+SqW2cW50wDdcmmObTy0BoQBcNwes14yHRpe4IwF2kM
-I6LqKlYfgsRqYuPtNNndD8SuMU5E+JM6ByA94xXS7RNhENGz2gxak9SUMB0mHnWI
-L5HNtUmVNf5MxxtEP2tvz2i+YIrH35s2gCXr7GuNtz4hecxjySarRY4s4Czh0yNR
-xhYJlWRN124v8WhFZWOJi3V/UfoOpjBtG3svrNuV1mPmCOLAjXbagd5Vq7VvLjzt
-GtgWNVaa+5V/dzBDfA8j8BVSv73/CJb9JMX2j/JunFf7Ez6wDci3CVYgnTUILThV
-0bqpp58r0wdhPid6AP0QJ2+GjTJSAqrWcvphlFZscG7Cqwj7+CW1W1mMik4pLWIc
-2lnd6CPRmH+o8uQaZgcs7iza6x7kJNGBy0CtrBl/HZiokPRYrEXRHjJPpkwtVY4u
-/BXQkF0p3CsXOT+h6gq5
-=sl1l
+iQIcBAEBCAAGBQJSyjb1AAoJEMDTa8Ir7ZwVzrcP/3cBNc2ZTM6hOd6cSwkt6znO
+C0w3tdLTQpFOJDDWZ87lGRga44M6V454b9u64fh/GE9En2rdWT4JjMYld6QVhS9Z
+fb7MxQEwMZi9s5cgdA8ERk1+WoS14ikNwWivETMdZ7MR1lfF7jJaeHDDep9LuQ11
+tn+iaDt2VBWFi3jjPwjtaesxkrazTmcyJD2YwdVxOS+RJKTw3grSppxOWeFYNgBh
+djKOvbFlqF5JdisTmJ1hZRLbh5UNTkVAijo+Go6m1FN26vRXNiuxUD/IPqBI0gpO
+CqP5zZ5av1HX5pS5S6AVL4bXEZcQtPiZvwx16ni7e4SoVXVTv4mHWB+ToROhJAXm
+nTj1NdBcULOmKbqiPB5SDqTFeirt9S64PPTlysvvDbr9RxgD0zs9im9cXdslT4cM
+ujae5V/YrwKFSEJVblXsf3PyBCw2i2JdEVzOypmNrDecBgdFlyKDa8Npg1yNsyTd
+5Z7v1X6icDL9zAjJ86nFq0CTLeJ9hwaId0JvfJ1zLCqdiLw5PelulZ0JARVM+pAU
+Pj+o/5QGU9/MBA5Os5aqM8ABhIQ2DsHU3/zvzbOVHYsxd43mFSgYTcFwIZGwlAJJ
+dEqFZeSHXL6r3V6om5u1lu1ySJke1vt4P25rOpa68QgsoAhgu7Qxg9b4Eogi5fXI
+yAXNaysMSjB4jj2B5OqZ
+=EP/6
 -----END PGP SIGNATURE-----
 
---Signature=_Mon__6_Jan_2014_15_53_34_+1100_XK_4A7FJNY.t17HM--
+--Signature=_Mon__6_Jan_2014_15_54_13_+1100_t/eSSbbBpBEs5k0T--
