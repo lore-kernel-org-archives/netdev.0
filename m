@@ -1,127 +1,60 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 0/6] phylib: cleanups
-Date: Mon, 6 Jan 2014 09:35:42 +0100
-Message-ID: <20140106083542.GA4897@netboy>
-References: <201401040413.06853.sergei.shtylyov@cogentembedded.com>
- <20140104155338.GG4925@netboy>
- <52C8417D.6020502@cogentembedded.com>
- <52C858C7.1010300@cogentembedded.com>
- <20140105083109.GB4933@netboy>
- <52C960B8.1020607@cogentembedded.com>
+From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Subject: Re: [RFC PATCH net-next 0/4] net_cls for sys container
+Date: Mon, 06 Jan 2014 16:42:40 +0800
+Message-ID: <52CA6C80.9060002@cn.fujitsu.com>
+References: <52C62A44.4070304@huawei.com>
+	<CAM_iQpW0+Ftvk=QBE+0yMNW00VkBee1+yAEmbPkT+zjij9RX-Q@mail.gmail.com>
+	<52CA614D.6040702@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:38878 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751758AbaAFIfs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 03:35:48 -0500
-Received: by mail-ea0-f174.google.com with SMTP id b10so7599620eae.5
-        for <netdev@vger.kernel.org>; Mon, 06 Jan 2014 00:35:47 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <52C960B8.1020607@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
+	Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Serge Hallyn <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
+	pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <52CA614D.6040702-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 05, 2014 at 05:40:08PM +0400, Sergei Shtylyov wrote:
-> On 05-01-2014 12:31, Richard Cochran wrote:
-> >After all, there are not that many phylib drivers.
+On 01/06/2014 03:54 PM, Libo Chen wrote:
+> On 2014/1/3 13:20, Cong Wang wrote:
+>> On Thu, Jan 2, 2014 at 7:11 PM, Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org> wrote:
+>>> Hi guys,
+>>>
+>>> Now, lxc created with veth can not be under control by
+>>> cls_cgroup.
+>>>
+>>> the former discussion:
+>>> http://lkml.indiana.edu/hypermail/linux/kernel/1312.1/00214.html
+>>>
+>>> In short, because cls_cgroup relys classid attached to sock
+>>> filter skb, but sock will be cleared inside dev_forward_skb()
+>>> in veth_xmit().
+>>
+>>
+>> So what are you trying to achieve here?
 > 
->    Really? I find the number to be intimidating enough to not do the
-> cleanups on them also in this same patchset. Anyway, the callback
-> was intended for the Ethernet drivers.
+> sys container using veth can be controlled by cls_cgroup basing on physic network interface
+> 
 
-I once made a list using cscope, in order find all phylib drivers that
-are missing skb_tx_timestamp. Here is what I came up with at that
-time. Discounting those files under 'phylib' and 'unlikely', I only
-found 30 drivers.
+It's a problem about virtual nic, not container/net namespace.
 
-Finding files #including file: linux/phy.h
+If veth device is running in host. the skb is transmitted firstly by veth device and then delivered
+by physical device. if you set both qdisc rule on veth and physical device. which qdisc rule will take
+effect?
 
-* arm
-  drivers/net/arm/ixp4xx_eth.c
-  drivers/net/davinci_emac.c
-  drivers/net/macb.c
-  drivers/net/pxa168_eth.c
-  drivers/net/ax88796.c
-  drivers/net/smsc911x.c
-* powerpc
-  drivers/net/fec_mpc52xx.c
-  drivers/net/fs_enet/fs_enet-main.c
-  drivers/net/ll_temac_main.c
-  drivers/net/mv643xx_eth.c
-  drivers/net/ucc_geth.c
-  drivers/net/xilinx_emaclite.c
-* x86
-  drivers/net/dnet.c
-  drivers/net/ethoc.c
-  drivers/net/fec.c
-  drivers/net/r6040.c
-  drivers/net/smsc9420.c
-  drivers/net/stmmac/stmmac_main.c
-  drivers/net/tg3.c
-* mips
-  drivers/net/au1000_eth.c
-  drivers/net/bcm63xx_enet.h
-  drivers/net/cpmac.c
-  drivers/net/lantiq_etop.c
-  drivers/net/octeon/octeon_mgmt.c
-  drivers/net/sb1250-mac.c
-  drivers/net/tc35815.c
-* sparc
-  drivers/net/greth.h
-* superh
-  drivers/net/sh_eth.c
-  drivers/net/sh_eth.h
-* xtensa
-  drivers/net/s6gmac.c
-* phylib
-  drivers/net/phy/bcm63xx.c
-  drivers/net/phy/broadcom.c
-  drivers/net/phy/cicada.c
-  drivers/net/phy/davicom.c
-  drivers/net/phy/dp83640.c
-  drivers/net/phy/et1011c.c
-  drivers/net/phy/fixed.c
-  drivers/net/phy/icplus.c
-  drivers/net/phy/lxt.c
-  drivers/net/phy/marvell.c
-  drivers/net/phy/mdio-octeon.c
-  drivers/net/phy/mdio_bus.c
-  drivers/net/phy/micrel.c
-  drivers/net/phy/national.c
-  drivers/net/phy/phy.c
-  drivers/net/phy/phy_device.c
-  drivers/net/phy/qsemi.c
-  drivers/net/phy/realtek.c
-  drivers/net/phy/smsc.c
-  drivers/net/phy/ste10Xp.c
-  drivers/net/phy/vitesse.c
-* unlikely
-  drivers/net/pasemi_mac.h
-  drivers/of/of_mdio.c
-  drivers/staging/octeon/ethernet-mdio.c
-  drivers/staging/octeon/ethernet-rgmii.c
-  drivers/staging/octeon/ethernet.c
-  include/linux/bfin_mac.h
-  include/linux/fec.h
-  include/linux/mdio-bitbang.h
-  include/linux/of_mdio.h
-  include/linux/smsc911x.h
-  net/core/timestamping.c
-  net/dsa/dsa_priv.h
-  net/dsa/mv88e6060.c
-  net/dsa/mv88e6123_61_65.c
-  net/dsa/mv88e6131.c
-  net/dsa/mv88e6xxx.c
-  net/dsa/slave.c
- 
->    Thanks I found those eventually. However, my LinkedIn account
-> told me that Andy left Freescale about that time (it also gave up
-> his private email though).
-
-Okay, so you know more than I do.
-
-Thanks,
-Richard
+In your patch, both qdisc rule are effective. it looks strange.
