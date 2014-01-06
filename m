@@ -1,65 +1,76 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
-Date: Mon, 06 Jan 2014 10:49:53 -0800
-Message-ID: <1389034193.2278.9.camel@jtkirshe-mobl>
-References: <1389011436-18424-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20140106.132628.418605275145035482.davem@davemloft.net>
+From: Scott Feldman <sfeldma@cumulusnetworks.com>
+Subject: [PATCH net-next 1/2] bridge: use spin_lock_bh() in
+ br_multicast_set_hash_max
+Date: Mon, 06 Jan 2014 11:00:32 -0800
+Message-ID: <20140106190032.10912.1521.stgit@monster-03.cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-A4ARbroV8rVcqtBulb9h"
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	bridge@lists.linux-foundation.org, curt@cumulusnetworks.com,
+	shm@cumulusnetworks.com
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:27935 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754699AbaAFSty (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jan 2014 13:49:54 -0500
-In-Reply-To: <20140106.132628.418605275145035482.davem@davemloft.net>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:56987 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754221AbaAFTAn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 14:00:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Curt Brune <curt@cumulusnetworks.com>
 
---=-A4ARbroV8rVcqtBulb9h
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+br_multicast_set_hash_max() is called from process context in
+net/bridge/br_sysfs_br.c by the sysfs store_hash_max() function.
 
-On Mon, 2014-01-06 at 13:26 -0500, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Mon,  6 Jan 2014 04:30:21 -0800
->=20
-> > This series contains updates to i40e only.
->  ...
-> >   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next maste=
-r
->=20
-> Pulled, please make sure the coding style feedback does actually
-> get addressed.
->=20
-> Thanks Jeff.
+br_multicast_set_hash_max() calls spin_lock(&br->multicast_lock),
+which can deadlock the CPU if a softirq that also tries to take the
+same lock interrupts br_multicast_set_hash_max() while the lock is
+held .  This can happen quite easily when any of the bridge multicast
+timers expire, which try to take the same lock.
 
-Yes, I will make sure it is in one of the upcoming series.
+The fix here is to use spin_lock_bh(), preventing other softirqs from
+executing on this CPU.
 
---=-A4ARbroV8rVcqtBulb9h
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Steps to reproduce:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+1. Create a bridge with several interfaces (I used 4).
+2. Set the "multicast query interval" to a low number, like 2.
+3. Enable the bridge as a multicast querier.
+4. Repeatedly set the bridge hash_max parameter via sysfs.
 
-iQIcBAABCgAGBQJSyvrRAAoJEOVv75VaS+3Om6oP/irEv5WsIBZKOMeu5SjoXiLX
-gKXGd/vDDq7ueA+MZp76UW7utHDh8xnf7TO1ZRKAEfpHfuXXR75wjPSoUrI+DtFP
-tdmM4aU90ASIo4VHX8dZ5OiBXUVwXB7s7IcGCsqkZQvHOwI4AiknvJlvWXvCMnMs
-1EdiiDRlTz5kUoJXHiS63YCorX9Og+VolGWs+sWFU1IF7qaw5U1OWjv6RnrzurEq
-jCMan4ml6SHHNRSmXQSr+ZWqHot9WNxrBY8X97qQlzNg4LLjG3sW2w0kXjZ4C+20
-C7en1fV+SuXFUQ8cOeX6E0ywkdB4a8fd7YPm16UfoygG3Zjk5LEAvnlFj0VIdRFw
-G87IXR3q2mb2+/hSg1C+BFKdSerZo8OrTQtn/FplQ1zRkCudLolp8QmR3qp6/WZa
-5ApBaO2Yfa5YFrFjr6EJ7DOk6zty77OLe0wiDelS/O7yvI8UkXcueEkonpanXTk7
-VIPnIZ+k4tfwWbUnCtOuyeElK9vFVvLbc7r3parjUpyqCftVXssO5hkzzETSeG1A
-tj9yi919GyrWZFjrL8jt27ireUZrBFzPWIIzlnDSaHYdYdPRV1vCROWd1UvMz7b6
-c/7RAToTtF7PA8pgYXEAv3oP8rzKLRnRf8cmYzqaxUnpDBApaBEzVzSQF1AV9W1o
-cA/gcbOj5BII4GDQZ6JP
-=U9nQ
------END PGP SIGNATURE-----
+  # brctl addbr br0
+  # brctl addif br0 eth1 eth2 eth3 eth4
+  # brctl setmcqi br0 2
+  # brctl setmcquerier br0 1
 
---=-A4ARbroV8rVcqtBulb9h--
+  # while true ; do echo 4096 > /sys/class/net/br0/bridge/hash_max; done
+
+Signed-off-by: Curt Brune <curt@cumulusnetworks.com>
+Signed-off-by: Scott Feldman <sfeldma@cumulusnetworks.com>
+---
+ net/bridge/br_multicast.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 4c214b2..ef66365 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1998,7 +1998,7 @@ int br_multicast_set_hash_max(struct net_bridge *br, unsigned long val)
+ 	u32 old;
+ 	struct net_bridge_mdb_htable *mdb;
+ 
+-	spin_lock(&br->multicast_lock);
++	spin_lock_bh(&br->multicast_lock);
+ 	if (!netif_running(br->dev))
+ 		goto unlock;
+ 
+@@ -2030,7 +2030,7 @@ rollback:
+ 	}
+ 
+ unlock:
+-	spin_unlock(&br->multicast_lock);
++	spin_unlock_bh(&br->multicast_lock);
+ 
+ 	return err;
+ }
