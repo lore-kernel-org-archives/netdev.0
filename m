@@ -1,57 +1,49 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH v2 0/5] alx: add statistics
-Date: Mon,  6 Jan 2014 17:33:38 +0100
-Message-ID: <1389026023-18743-1-git-send-email-sd@queasysnail.net>
-Cc: bhutchings@solarflare.com, johannes@sipsolutions.net,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	Sabrina Dubroca <sd@queasysnail.net>
-To: davem@davemloft.net
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH net-next] netfilter: nfnetlink_queue: fix compilation problem due missing header
+Date: Mon,  6 Jan 2014 17:34:49 +0100
+Message-ID: <1389026089-4917-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1-g21.free.fr ([212.27.42.1]:40380 "EHLO smtp1-g21.free.fr"
+Received: from mail.us.es ([193.147.175.20]:43424 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755624AbaAFQel (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jan 2014 11:34:41 -0500
+	id S1755650AbaAFQe7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jan 2014 11:34:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, the alx driver doesn't support statistics [1,2]. The
-original alx driver [3] that Johannes Berg modified provided
-statistics. This patch is an adaptation of the statistics code from
-the original driver to the alx driver included in the kernel.
+In 08c0cad ("netfilter: nfnetlink_queue: enable UID/GID socket info
+retrieval"), the header that defines TCP_TIME_WAIT.
 
+net/netfilter/nfnetlink_queue_core.c: In function 'nfqnl_put_sk_uidgid':
+net/netfilter/nfnetlink_queue_core.c:304:35: error: 'TCP_TIME_WAIT' undeclared (first use in this function)
+net/netfilter/nfnetlink_queue_core.c:304:35: note: each undeclared identifier is reported only once for each function it appears in make[3]: *** [net/netfilter/nfnetlink_queue_core.o] Error 1
 
-v3:
- - renamed __alx_update_hw_stats to alx_update_hw_stats (Stephen Hemminger)
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+Hi David,
 
-v2:
- - use u64 instead of unsigned long  (Ben Hutchings)
- - implement ndo_get_stats64 instead of ndo_get_stats (Ben Hutchings)
- - use EINVAL instead of ENOTSUPP  (Ben Hutchings)
- - add BUILD_BUG_ON to check the size of the stats (Johannes Berg, Ben
-   Hutchings)
- - add a comment regarding persistence of the stats (Stephen Hemminger)
- - align assignments in __alx_update_hw_stats
+Please, put this patch into net-next. It seems this compilation problem is
+depending on the .config selections as I didn't reproducible when testing the
+patches.
 
+Thanks!
 
-[1] https://bugzilla.kernel.org/show_bug.cgi?id=63401
-[2] http://www.spinics.net/lists/netdev/msg245544.html
-[3] https://github.com/mcgrof/alx
+ net/netfilter/nfnetlink_queue_core.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-
-Sabrina Dubroca (5):
-  alx: add a hardware stats structure
-  alx: add constants for the stats fields
-  alx: add stats update function
-  alx: add alx_get_stats64 operation
-  alx: add stats to ethtool
-
- drivers/net/ethernet/atheros/alx/alx.h     |   3 +
- drivers/net/ethernet/atheros/alx/ethtool.c | 101 +++++++++++++++++++++++++++++
- drivers/net/ethernet/atheros/alx/hw.c      |  58 +++++++++++++++++
- drivers/net/ethernet/atheros/alx/hw.h      |  67 +++++++++++++++++++
- drivers/net/ethernet/atheros/alx/main.c    |  44 +++++++++++++
- drivers/net/ethernet/atheros/alx/reg.h     |  52 +++++++++++++--
- 6 files changed, 321 insertions(+), 4 deletions(-)
-
+diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
+index d3cf12b..ce20bd8 100644
+--- a/net/netfilter/nfnetlink_queue_core.c
++++ b/net/netfilter/nfnetlink_queue_core.c
+@@ -32,6 +32,7 @@
+ #include <net/netfilter/nf_queue.h>
+ #include <net/netns/generic.h>
+ #include <net/netfilter/nfnetlink_queue.h>
++#include <net/tcp_states.h>
+ 
+ #include <linux/atomic.h>
+ 
 -- 
-1.8.5.2
+1.7.10.4
