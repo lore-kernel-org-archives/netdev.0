@@ -1,69 +1,109 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [PATCH] netfilter: nf_conntrack: release conntrack from rcu
- callback
-Date: Mon, 6 Jan 2014 21:21:30 +0400
-Message-ID: <20140106172130.GA2360@moon>
-References: <1389023672-14351-1-git-send-email-avagin@openvz.org>
- <20140106170235.GJ28854@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrey Vagin <avagin@openvz.org>, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	vvs@openvz.org, Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140106170235.GJ28854@breakpoint.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Haller <thaller@redhat.com>
+Subject: [PATCH 1/1] ipv6 addrconf: add IFA_F_NOPREFIXROUTE flag to suppress creation of IP6 routes
+Date: Mon,  6 Jan 2014 18:29:35 +0100
+Message-ID: <1389029375-17698-1-git-send-email-thaller@redhat.com>
+References: <20140106160139.GB10204@order.stressinduktion.org>
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	stephen@networkplumber.org, dcbw@redhat.com,
+	Thomas Haller <thaller@redhat.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:18044 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753298AbaAFR35 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jan 2014 12:29:57 -0500
+In-Reply-To: <20140106160139.GB10204@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 06, 2014 at 06:02:35PM +0100, Florian Westphal wrote:
-> 
-> Can you elaborate?
-> Yes, nf_ct_is_dying(ct) might be called for the wrong conntrack.
-> 
-> But, in case we _think_ that its the right one we call
-> nf_ct_tuple_equal() to verify we indeed found the right one:
-> 
->        h = ____nf_conntrack_find(net, zone, tuple, hash);
->        if (h) { // might be released right now, but page won't go away (SLAB_BY_RCU)
->                 ct = nf_ct_tuplehash_to_ctrack(h);
->                 if (unlikely(nf_ct_is_dying(ct) ||
->                              !atomic_inc_not_zero(&ct->ct_general.use)))
-> 			// which means we should hit this path (0 ref).
->                         h = NULL;
->                 else {
-> 			// otherwise, it cannot go away from under us, since
-> 			// we own a reference now.
->                         if (unlikely(!nf_ct_tuple_equal(tuple, &h->tuple) ||
->                                      nf_ct_zone(ct) != zone)) {
-> 			// if we get here, the entry got recycled on other cpu
-> 			// for a different tuple, we can bail out and drop
-> 			// the reference safely and re-try the lookup
->                                 nf_ct_put(ct);
->                                 goto begin;
->                         }
->                 }
+When adding/modifying an IPv6 address, the userspace application needs
+a way to suppress adding a prefix route. This is for example relevant
+together with IFA_F_MANAGERTEMPADDR, where userspace creates autoconf
+generated addresses, but depending on on-link, no route should for the
+prefix should be added.
 
-I think tuple may match if
+This flag will not be set as ifa_flags of the address, it is only
+considered as parameter while adding/modifying an address.
 
-task 1                  task 2                  task 3
-                        nf_conntrack_find_get
-                         ____nf_conntrack_find
-destroy_conntrack
- hlist_nulls_del_rcu
- nf_conntrack_free
- kmem_cache_free
-                                                __nf_conntrack_alloc
-                                                 kmem_cache_alloc
-                         if (nf_ct_is_dying(ct))
+Signed-off-by: Thomas Haller <thaller@redhat.com>
+---
+ Hi, how about this?
 
-						data is not yet cleaned
+ The flag is only a parameter for the netlink command.
+ This might be unexpected, because when adding an address,
+ you won't see the flag in `ip -6 addr`.
+ Still, I think, it is better to do it this way, because having
+ an address with the NOPREFIXROUTE flag, does not mean, that
+ there is no route for this prefix. It only means, that at the
+ moment of setting the address, no route was added.
 
-                                                 memset(&ct->tuplehash[IP_CT_DIR_MAX],
+ The alternative would be, not to add a prefix route, when
+ IFA_F_MANAGERTEMPADDR is set.
 
-No? Or there something obvious I'm missing?
+ Thomas
+
+ include/uapi/linux/if_addr.h |  1 +
+ net/ipv6/addrconf.c          | 19 +++++++++++++------
+ 2 files changed, 14 insertions(+), 6 deletions(-)
+
+diff --git a/include/uapi/linux/if_addr.h b/include/uapi/linux/if_addr.h
+index cfed10b..dea10a8 100644
+--- a/include/uapi/linux/if_addr.h
++++ b/include/uapi/linux/if_addr.h
+@@ -49,6 +49,7 @@ enum {
+ #define IFA_F_TENTATIVE		0x40
+ #define IFA_F_PERMANENT		0x80
+ #define IFA_F_MANAGETEMPADDR	0x100
++#define IFA_F_NOPREFIXROUTE	0x200
+ 
+ struct ifa_cacheinfo {
+ 	__u32	ifa_prefered;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 6c16345..51bd757 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2429,12 +2429,16 @@ static int inet6_addr_add(struct net *net, int ifindex,
+ 		prefered_lft = timeout;
+ 	}
+ 
+-	ifp = ipv6_add_addr(idev, pfx, peer_pfx, plen, scope, ifa_flags,
++	ifp = ipv6_add_addr(idev, pfx, peer_pfx, plen, scope,
++			    ifa_flags & ~IFA_F_NOPREFIXROUTE,
+ 			    valid_lft, prefered_lft);
+ 
+ 	if (!IS_ERR(ifp)) {
+-		addrconf_prefix_route(&ifp->addr, ifp->prefix_len, dev,
+-				      expires, flags);
++		if (ifa_flags & IFA_F_NOPREFIXROUTE == 0) {
++			addrconf_prefix_route(&ifp->addr, ifp->prefix_len, dev,
++					      expires, flags);
++		}
++
+ 		/*
+ 		 * Note that section 3.1 of RFC 4429 indicates
+ 		 * that the Optimistic flag should not be set for
+@@ -3662,8 +3666,10 @@ static int inet6_addr_modify(struct inet6_ifaddr *ifp, u32 ifa_flags,
+ 	if (!(ifp->flags&IFA_F_TENTATIVE))
+ 		ipv6_ifa_notify(0, ifp);
+ 
+-	addrconf_prefix_route(&ifp->addr, ifp->prefix_len, ifp->idev->dev,
+-			      expires, flags);
++	if (ifa_flags & IFA_F_NOPREFIXROUTE == 0) {
++		addrconf_prefix_route(&ifp->addr, ifp->prefix_len, ifp->idev->dev,
++				      expires, flags);
++	}
+ 
+ 	if (was_managetempaddr || ifp->flags & IFA_F_MANAGETEMPADDR) {
+ 		if (was_managetempaddr && !(ifp->flags & IFA_F_MANAGETEMPADDR))
+@@ -3717,7 +3723,8 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	ifa_flags = tb[IFA_FLAGS] ? nla_get_u32(tb[IFA_FLAGS]) : ifm->ifa_flags;
+ 
+ 	/* We ignore other flags so far. */
+-	ifa_flags &= IFA_F_NODAD | IFA_F_HOMEADDRESS | IFA_F_MANAGETEMPADDR;
++	ifa_flags &= IFA_F_NODAD | IFA_F_HOMEADDRESS | IFA_F_MANAGETEMPADDR |
++		     IFA_F_NOPREFIXROUTE;
+ 
+ 	ifa = ipv6_get_ifaddr(net, pfx, dev, 1);
+ 	if (ifa == NULL) {
+-- 
+1.8.4.2
