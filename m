@@ -1,75 +1,68 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH 3/3] be2net: fix max_evt_qs calculation for BE3 in SR-IOV config
-Date: Mon, 6 Jan 2014 13:02:25 +0530
-Message-ID: <1388993545-25634-4-git-send-email-sathya.perla@emulex.com>
-References: <1388993545-25634-1-git-send-email-sathya.perla@emulex.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net PATCH] netfilter: only warn once on wrong seqadj usage
+Date: Mon, 6 Jan 2014 08:32:39 +0100
+Message-ID: <20140106083239.7811ac9e@redhat.com>
+References: <20140104130944.28481.30891.stgit@dragon>
+	<20140104131648.GA18176@macbook.localnet>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:19013 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751457AbaAFH2g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 02:28:36 -0500
-In-Reply-To: <1388993545-25634-1-git-send-email-sathya.perla@emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, Florian Westphal <fw@strlen.de>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Flavio Leitner <fbl@redhat.com>,
+	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20140104131648.GA18176@macbook.localnet>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Suresh Reddy <suresh.reddy@emulex.com>
+On Sat, 4 Jan 2014 13:16:48 +0000
+Patrick McHardy <kaber@trash.net> wrote:
 
-The driver wrongly assumes 16 EQs/vectors are available for each BE3 PF.
-When SR-IOV is enabled, a BE3 PF can support only a max of 8 EQs.
+> On Sat, Jan 04, 2014 at 02:10:43PM +0100, Jesper Dangaard Brouer wrote:
+> > Avoid potentially spamming the kernel log with WARN splash messages
+> > when catching wrong usage of seqadj, by simply using WARN_ONCE.
+> > 
+> > This is a followup to commit db12cf274353 (netfilter: WARN about
+> > wrong usage of sequence number adjustments)
+> > 
+> > Suggested-by: Flavio Leitner <fbl@redhat.com>
+> > Suggested-by: Daniel Borkmann <dborkman@redhat.com>
+> > Suggested-by: Florian Westphal <fw@strlen.de>
+> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> > ---
+> > Nitpick found by internal RedHat review process ;-)
+> > 
+> >  net/netfilter/nf_conntrack_seqadj.c |    2 +-
+> >  1 files changed, 1 insertions(+), 1 deletions(-)
+> > 
+> > diff --git a/net/netfilter/nf_conntrack_seqadj.c b/net/netfilter/nf_conntrack_seqadj.c
+> > index b2d38da..f6e2ae9 100644
+> > --- a/net/netfilter/nf_conntrack_seqadj.c
+> > +++ b/net/netfilter/nf_conntrack_seqadj.c
+> > @@ -37,7 +37,7 @@ int nf_ct_seqadj_set(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
+> >  		return 0;
+> >  
+> >  	if (unlikely(!seqadj)) {
+> > -		WARN(1, "Wrong seqadj usage, missing nfct_seqadj_ext_add()\n");
+> > +		WARN_ONCE(1, "Missing nfct_seqadj_ext_add() setup call\n");
+> >  		return 0;
+> 
+> I missed the patch that added the WARN. Since when do we add runtime checks
+> for API misuse instead of simply letting it crash?
 
-Signed-off-by: Suresh Reddy <suresh.reddy@emulex.com>
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be.h      |    1 +
- drivers/net/ethernet/emulex/benet/be_main.c |   12 ++++++++----
- 2 files changed, 9 insertions(+), 4 deletions(-)
+We changed an existing API which broke IPVS. And I think we still have
+a use-case in IPVS, which can hit this case/bug, thus I added a stack
+dump warning (instead of crashing), so I can catch this use-case and
+fix it later.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 2e031f2..4ccaf9a 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -104,6 +104,7 @@ static inline char *nic_name(struct pci_dev *pdev)
- #define BE3_MAX_RSS_QS		16
- #define BE3_MAX_TX_QS		16
- #define BE3_MAX_EVT_QS		16
-+#define BE3_SRIOV_MAX_EVT_QS	8
- 
- #define MAX_RX_QS		32
- #define MAX_EVT_QS		32
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index fa44bba..bf40fda 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3127,11 +3127,11 @@ static void BEx_get_resources(struct be_adapter *adapter,
- {
- 	struct pci_dev *pdev = adapter->pdev;
- 	bool use_sriov = false;
-+	int max_vfs;
- 
--	if (BE3_chip(adapter) && sriov_want(adapter)) {
--		int max_vfs;
-+	max_vfs = pci_sriov_get_totalvfs(pdev);
- 
--		max_vfs = pci_sriov_get_totalvfs(pdev);
-+	if (BE3_chip(adapter) && sriov_want(adapter)) {
- 		res->max_vfs = max_vfs > 0 ? min(MAX_VFS, max_vfs) : 0;
- 		use_sriov = res->max_vfs;
- 	}
-@@ -3162,7 +3162,11 @@ static void BEx_get_resources(struct be_adapter *adapter,
- 					   BE3_MAX_RSS_QS : BE2_MAX_RSS_QS;
- 	res->max_rx_qs = res->max_rss_qs + 1;
- 
--	res->max_evt_qs = be_physfn(adapter) ? BE3_MAX_EVT_QS : 1;
-+	if (be_physfn(adapter))
-+		res->max_evt_qs = (max_vfs > 0) ?
-+					BE3_SRIOV_MAX_EVT_QS : BE3_MAX_EVT_QS;
-+	else
-+		res->max_evt_qs = 1;
- 
- 	res->if_cap_flags = BE_IF_CAP_FLAGS_WANT;
- 	if (!(adapter->function_caps & BE_FUNCTION_CAPS_RSS))
 -- 
-1.7.1
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
