@@ -1,46 +1,89 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 4/11]  use ether_addr_equal_64bits
-Date: Mon, 06 Jan 2014 00:59:10 -0800
-Message-ID: <1388998750.5808.43.camel@joe-AO722>
-References: <1388427307-8691-1-git-send-email-Julia.Lawall@lip6.fr>
-	 <1388427307-8691-5-git-send-email-Julia.Lawall@lip6.fr>
-	 <1388429761.4410.1.camel@jlt4.sipsolutions.net>
-	 <alpine.DEB.2.02.1312302057420.2209@localhost6.localdomain6>
-	 <1388438724.4573.2.camel@jlt4.sipsolutions.net>
-	 <20131230215701.GA4938@khazad-dum.debian.net>
-	 <1388445188.18164.0.camel@jlt4.sipsolutions.net>
-	 <1388445422.26796.38.camel@joe-AO722>
-	 <alpine.DEB.2.10.1401060947550.2079@hadrien>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] net: can: Disable broken flexcan driver build for big
+ endian CPU on ARM
+Date: Mon, 06 Jan 2014 10:00:35 +0100
+Message-ID: <52CA70B3.5020004@pengutronix.de>
+References: <1388944283-29990-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Henrique de Moraes Holschuh <hmh@hmh.eng.br>,
-	kernel-janitors@vger.kernel.org,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia Lawall <julia.lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.10.1401060947550.2079@hadrien>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="KLRVP1ajhAdnpIXU12PQGGVjt9qLKNMg2"
+Cc: Wolfgang Grandegger <wg@grandegger.com>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Guenter Roeck <linux@roeck-us.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1388944283-29990-1-git-send-email-linux@roeck-us.net>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-01-06 at 09:48 +0100, Julia Lawall wrote:
-> Is there any way to get sizeof evaluated at build time?
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--KLRVP1ajhAdnpIXU12PQGGVjt9qLKNMg2
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-I'm confused a bit by what you want to accomplish.
+On 01/05/2014 06:51 PM, Guenter Roeck wrote:
+> Building arm:allmodconfig fails with
+>=20
+> flexcan.c: In function 'flexcan_read':
+> flexcan.c:243:2: error: implicit declaration of function 'in_be32'
+> flexcan.c: In function 'flexcan_write':
+> flexcan.c:248:2: error: implicit declaration of function 'out_be32'
+>=20
+> in_be32 and out_be32 do not (or no longer) exist for ARM targets.
+> Mark the build for arm on big endian CPUs as broken.
 
-Except for variable length arrays, isn't sizeof always
-evaluated at build time?
+I think there isn't any ARM with this CAN core that supports BE (at
+least on Linux).
 
-6.5.3.4 The sizeof operator
-Constraints
-[]
-2 The sizeof operator yields the size (in bytes) of its operand, which may be an
-expression or the parenthesized name of a type. The size is determined from the type of
-the operand. The result is an integer. If the type of the operand is a variable length array
-type, the operand is evaluated; otherwise, the operand is not evaluated and the result is an
-integer constant.
+> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+> ---
+> If there is a better solution, please let me know and I'll be happy
+> to provide a patch.
+>=20
+>  drivers/net/can/Kconfig |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>=20
+> diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
+> index 3c06947..8d202f4 100644
+> --- a/drivers/net/can/Kconfig
+> +++ b/drivers/net/can/Kconfig
+> @@ -104,7 +104,7 @@ config CAN_JANZ_ICAN3
+> =20
+>  config CAN_FLEXCAN
+>  	tristate "Support for Freescale FLEXCAN based chips"
+> -	depends on ARM || PPC
+> +	depends on (ARM || PPC) && (BROKEN || !ARM || CPU_LITTLE_ENDIAN)
+
+Why not make it:
+
+	depends on (ARM && CPU_LITTLE_ENDIAN) || PPC
+
+>  	---help---
+>  	  Say Y here if you want to support for Freescale FlexCAN.
+> =20
+>=20
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--KLRVP1ajhAdnpIXU12PQGGVjt9qLKNMg2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlLKcLMACgkQjTAFq1RaXHOjMgCfaoiOijjMdGb7W7JGoUb/rxqR
+NtEAn2BXIkcFk5/5fkKkGaaliQHVGjix
+=bgyR
+-----END PGP SIGNATURE-----
+
+--KLRVP1ajhAdnpIXU12PQGGVjt9qLKNMg2--
