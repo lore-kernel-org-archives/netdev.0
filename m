@@ -1,62 +1,127 @@
-From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC PATCH net-next 1/4] net: introduce backup_classid to struct
-	skbuff
-Date: Mon, 6 Jan 2014 16:16:59 +0800
-Message-ID: <52CA667B.4090606@huawei.com>
-References: <52C62A48.1050604@huawei.com>
-	<20140103.003404.1439874071277993396.davem@davemloft.net>
-	<52C656F2.8060803@gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 0/6] phylib: cleanups
+Date: Mon, 6 Jan 2014 09:35:42 +0100
+Message-ID: <20140106083542.GA4897@netboy>
+References: <201401040413.06853.sergei.shtylyov@cogentembedded.com>
+ <20140104155338.GG4925@netboy>
+ <52C8417D.6020502@cogentembedded.com>
+ <52C858C7.1010300@cogentembedded.com>
+ <20140105083109.GB4933@netboy>
+ <52C960B8.1020607@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <52C656F2.8060803-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:38878 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751758AbaAFIfs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 03:35:48 -0500
+Received: by mail-ea0-f174.google.com with SMTP id b10so7599620eae.5
+        for <netdev@vger.kernel.org>; Mon, 06 Jan 2014 00:35:47 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <52C960B8.1020607@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2014/1/3 14:21, John Fastabend wrote:
-> On 01/02/2014 09:34 PM, David Miller wrote:
->> From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
->> Date: Fri, 3 Jan 2014 11:11:04 +0800
->>
->>>
->>> introduce backup_classid to struct skbuff,
->>> we can use it to backup sk_classid when net_ns switch.
->>>
->>> Signed-off-by: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
->>
->> Sorry, no new sk_buff members unless there is absolutely not other
->> possible implementation.
->>
->> sk_buff is too big as-is.
+On Sun, Jan 05, 2014 at 05:40:08PM +0400, Sergei Shtylyov wrote:
+> On 05-01-2014 12:31, Richard Cochran wrote:
+> >After all, there are not that many phylib drivers.
 > 
-> To get what you want fix the dev_forward_skb() call. But its
-> not clear to me why you would expect the sock info to be propagated
-> like this. It seems like an incorrect assumption or a misunderstanding
-> somewhere. If the virtual link was a physical link you wouldn't expect
-> to know anything about the senders socket.
+>    Really? I find the number to be intimidating enough to not do the
+> cleanups on them also in this same patchset. Anyway, the callback
+> was intended for the Ethernet drivers.
 
-AFAIK, once the sock is created, sock->sk_classid will be set, see sk_alloc()
-so I think it is safe.
+I once made a list using cscope, in order find all phylib drivers that
+are missing skb_tx_timestamp. Here is what I came up with at that
+time. Discounting those files under 'phylib' and 'unlikely', I only
+found 30 drivers.
 
-thanks,
-Libo
+Finding files #including file: linux/phy.h
 
-> 
-> Thanks,
-> John
-> 
+* arm
+  drivers/net/arm/ixp4xx_eth.c
+  drivers/net/davinci_emac.c
+  drivers/net/macb.c
+  drivers/net/pxa168_eth.c
+  drivers/net/ax88796.c
+  drivers/net/smsc911x.c
+* powerpc
+  drivers/net/fec_mpc52xx.c
+  drivers/net/fs_enet/fs_enet-main.c
+  drivers/net/ll_temac_main.c
+  drivers/net/mv643xx_eth.c
+  drivers/net/ucc_geth.c
+  drivers/net/xilinx_emaclite.c
+* x86
+  drivers/net/dnet.c
+  drivers/net/ethoc.c
+  drivers/net/fec.c
+  drivers/net/r6040.c
+  drivers/net/smsc9420.c
+  drivers/net/stmmac/stmmac_main.c
+  drivers/net/tg3.c
+* mips
+  drivers/net/au1000_eth.c
+  drivers/net/bcm63xx_enet.h
+  drivers/net/cpmac.c
+  drivers/net/lantiq_etop.c
+  drivers/net/octeon/octeon_mgmt.c
+  drivers/net/sb1250-mac.c
+  drivers/net/tc35815.c
+* sparc
+  drivers/net/greth.h
+* superh
+  drivers/net/sh_eth.c
+  drivers/net/sh_eth.h
+* xtensa
+  drivers/net/s6gmac.c
+* phylib
+  drivers/net/phy/bcm63xx.c
+  drivers/net/phy/broadcom.c
+  drivers/net/phy/cicada.c
+  drivers/net/phy/davicom.c
+  drivers/net/phy/dp83640.c
+  drivers/net/phy/et1011c.c
+  drivers/net/phy/fixed.c
+  drivers/net/phy/icplus.c
+  drivers/net/phy/lxt.c
+  drivers/net/phy/marvell.c
+  drivers/net/phy/mdio-octeon.c
+  drivers/net/phy/mdio_bus.c
+  drivers/net/phy/micrel.c
+  drivers/net/phy/national.c
+  drivers/net/phy/phy.c
+  drivers/net/phy/phy_device.c
+  drivers/net/phy/qsemi.c
+  drivers/net/phy/realtek.c
+  drivers/net/phy/smsc.c
+  drivers/net/phy/ste10Xp.c
+  drivers/net/phy/vitesse.c
+* unlikely
+  drivers/net/pasemi_mac.h
+  drivers/of/of_mdio.c
+  drivers/staging/octeon/ethernet-mdio.c
+  drivers/staging/octeon/ethernet-rgmii.c
+  drivers/staging/octeon/ethernet.c
+  include/linux/bfin_mac.h
+  include/linux/fec.h
+  include/linux/mdio-bitbang.h
+  include/linux/of_mdio.h
+  include/linux/smsc911x.h
+  net/core/timestamping.c
+  net/dsa/dsa_priv.h
+  net/dsa/mv88e6060.c
+  net/dsa/mv88e6123_61_65.c
+  net/dsa/mv88e6131.c
+  net/dsa/mv88e6xxx.c
+  net/dsa/slave.c
+ 
+>    Thanks I found those eventually. However, my LinkedIn account
+> told me that Andy left Freescale about that time (it also gave up
+> his private email though).
+
+Okay, so you know more than I do.
+
+Thanks,
+Richard
