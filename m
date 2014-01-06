@@ -1,38 +1,27 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [PATCH] netfilter: nf_conntrack: release conntrack from rcu
- callback
-Date: Tue, 7 Jan 2014 01:44:38 +0400
-Message-ID: <20140106214438.GC2360@moon>
-References: <1389023672-14351-1-git-send-email-avagin@openvz.org>
- <20140106170235.GJ28854@breakpoint.cc>
- <20140106172130.GA2360@moon>
- <20140106212326.GB9894@breakpoint.cc>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] net_sched: act: Various fixes
+Date: Mon, 06 Jan 2014 16:46:05 -0500 (EST)
+Message-ID: <20140106.164605.1491234489431746576.davem@davemloft.net>
+References: <1387803733-19709-1-git-send-email-jhs@mojatatu.com>
+	<52C6AC16.4000103@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrey Vagin <avagin@openvz.org>, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	vvs@openvz.org, Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140106212326.GB9894@breakpoint.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+	eric.dumazet@gmail.com
+To: jhs@mojatatu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34953 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755983AbaAFVqH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 16:46:07 -0500
+In-Reply-To: <52C6AC16.4000103@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 06, 2014 at 10:23:26PM +0100, Florian Westphal wrote:
-> > 
-> > No? Or there something obvious I'm missing?
-> 
-> IMHO this isn't obvious at all :-)
-> 
-> But, in the example above, the atomic_inc_not_zero() should fail
-> until after __nf_conntrack_alloc() re-inits the refcount to 1.
-> 
-> The mb there should make sure ____nf_conntrack_find() doesn't
-> find an outdated tuple before this.
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Fri, 03 Jan 2014 07:24:54 -0500
 
-Yeah, thanks!
+> Patches 2 + 3 are missing (from both tree and patchwork).
+
+I'll take a look.
