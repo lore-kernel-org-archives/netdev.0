@@ -1,68 +1,80 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net PATCH] netfilter: only warn once on wrong seqadj usage
-Date: Mon, 6 Jan 2014 08:32:39 +0100
-Message-ID: <20140106083239.7811ac9e@redhat.com>
-References: <20140104130944.28481.30891.stgit@dragon>
-	<20140104131648.GA18176@macbook.localnet>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net 1/2] macvlan: forbid L2 fowarding offload for macvtap
+Date: Sun, 05 Jan 2014 23:35:54 -0800
+Message-ID: <52CA5CDA.1020503@gmail.com>
+References: <1388978467-2075-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Flavio Leitner <fbl@redhat.com>,
-	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20140104131648.GA18176@macbook.localnet>
-Sender: lvs-devel-owner@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1388978467-2075-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 4 Jan 2014 13:16:48 +0000
-Patrick McHardy <kaber@trash.net> wrote:
+On 01/05/2014 07:21 PM, Jason Wang wrote:
+> L2 fowarding offload will bypass the rx handler of real device. This will make
+> the packet could not be forwarded to macvtap device. Another problem is the
+> dev_hard_start_xmit() called for macvtap does not have any synchronization.
+>
+> Fix this by forbidding L2 forwarding for macvtap.
+>
+> Cc: John Fastabend <john.r.fastabend@intel.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>   drivers/net/macvlan.c |    5 ++++-
+>   1 files changed, 4 insertions(+), 1 deletions(-)
+>
 
-> On Sat, Jan 04, 2014 at 02:10:43PM +0100, Jesper Dangaard Brouer wrote:
-> > Avoid potentially spamming the kernel log with WARN splash messages
-> > when catching wrong usage of seqadj, by simply using WARN_ONCE.
-> > 
-> > This is a followup to commit db12cf274353 (netfilter: WARN about
-> > wrong usage of sequence number adjustments)
-> > 
-> > Suggested-by: Flavio Leitner <fbl@redhat.com>
-> > Suggested-by: Daniel Borkmann <dborkman@redhat.com>
-> > Suggested-by: Florian Westphal <fw@strlen.de>
-> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> > ---
-> > Nitpick found by internal RedHat review process ;-)
-> > 
-> >  net/netfilter/nf_conntrack_seqadj.c |    2 +-
-> >  1 files changed, 1 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/net/netfilter/nf_conntrack_seqadj.c b/net/netfilter/nf_conntrack_seqadj.c
-> > index b2d38da..f6e2ae9 100644
-> > --- a/net/netfilter/nf_conntrack_seqadj.c
-> > +++ b/net/netfilter/nf_conntrack_seqadj.c
-> > @@ -37,7 +37,7 @@ int nf_ct_seqadj_set(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
-> >  		return 0;
-> >  
-> >  	if (unlikely(!seqadj)) {
-> > -		WARN(1, "Wrong seqadj usage, missing nfct_seqadj_ext_add()\n");
-> > +		WARN_ONCE(1, "Missing nfct_seqadj_ext_add() setup call\n");
-> >  		return 0;
-> 
-> I missed the patch that added the WARN. Since when do we add runtime checks
-> for API misuse instead of simply letting it crash?
+I must be missing something.
 
-We changed an existing API which broke IPVS. And I think we still have
-a use-case in IPVS, which can hit this case/bug, thus I added a stack
-dump warning (instead of crashing), so I can catch this use-case and
-fix it later.
+The lower layer device should set skb->dev to the correct macvtap
+device on receive so that in netif_receive_skb_core() the macvtap
+handler is hit. Skipping the macvlan receive handler should be OK
+because the switching was done by the hardware. If I read macvtap.c
+correctly macvlan_common_newlink() is called with 'dev' where 'dev'
+is the macvtap device. Any idea what I'm missing? I guess I'll need
+to setup a macvtap test case.
+
+And what synchronization are you worried about on dev_hard_start_xmit()?
+In the L2 forwarding offload case macvlan_open() clears the NETIF_F_LLTX
+flag so HARD_TX_LOCK protects the driver txq. We might hit this warning
+in dev_queue_xmit() though,
+
+   net_crit_ratelimited("Virtual device %s asks to queue packet!\n",
+
+Perhaps we can remove it.
+
+> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> index 60406b0..5360f73 100644
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+> @@ -338,6 +338,8 @@ static const struct header_ops macvlan_hard_header_ops = {
+>   	.cache_update	= eth_header_cache_update,
+>   };
+>
+> +static struct rtnl_link_ops macvlan_link_ops;
+> +
+>   static int macvlan_open(struct net_device *dev)
+>   {
+>   	struct macvlan_dev *vlan = netdev_priv(dev);
+> @@ -353,7 +355,8 @@ static int macvlan_open(struct net_device *dev)
+>   		goto hash_add;
+>   	}
+>
+> -	if (lowerdev->features & NETIF_F_HW_L2FW_DOFFLOAD) {
+> +	if (lowerdev->features & NETIF_F_HW_L2FW_DOFFLOAD &&
+> +	    dev->rtnl_link_ops == &macvlan_link_ops) {
+>   		vlan->fwd_priv =
+>   		      lowerdev->netdev_ops->ndo_dfwd_add_station(lowerdev, dev);
+>
+>
+
 
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+John Fastabend         Intel Corporation
