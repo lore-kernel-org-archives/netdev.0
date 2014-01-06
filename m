@@ -1,60 +1,106 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 4/11]  use ether_addr_equal_64bits
-Date: Mon, 06 Jan 2014 11:17:47 +0100
-Message-ID: <1389003467.5891.5.camel@jlt4.sipsolutions.net>
-References: <1388427307-8691-1-git-send-email-Julia.Lawall@lip6.fr>
-	   <1388427307-8691-5-git-send-email-Julia.Lawall@lip6.fr>
-	   <1388429761.4410.1.camel@jlt4.sipsolutions.net>
-	   <alpine.DEB.2.02.1312302057420.2209@localhost6.localdomain6>
-	   <1388438724.4573.2.camel@jlt4.sipsolutions.net>
-	   <20131230215701.GA4938@khazad-dum.debian.net>
-	   <1388445188.18164.0.camel@jlt4.sipsolutions.net>
-	  <1388445422.26796.38.camel@joe-AO722>
-	  <alpine.DEB.2.02.1312310726540.1930@localhost6.localdomain6>
-	  <52C2E8BA.6000800@candelatech.com>
-	  <alpine.DEB.2.10.1312311704320.2074@hadrien>
-	  <52C2F056.1020005@candelatech.com>
-	  <alpine.DEB.2.10.1312311732080.2074@hadrien>
-	 <1388999147.5891.2.camel@jlt4.sipsolutions.net>
-	 <alpine.DEB.2.10.1401061007160.2079@hadrien>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCHv4 net-next] xfrm: Namespacify xfrm_policy_sk_bundles
+Date: Mon, 6 Jan 2014 11:35:12 +0100
+Message-ID: <20140106103512.GR31491@secunet.com>
+References: <1387342211.19078.295.camel@edumazet-glaptop2.roam.corp.google.com>
+ <52B24D7D.6060902@windriver.com>
+ <1387419308.19078.343.camel@edumazet-glaptop2.roam.corp.google.com>
+ <52B26553.9070103@windriver.com>
+ <1387424650.19078.355.camel@edumazet-glaptop2.roam.corp.google.com>
+ <52B3BAD1.30205@windriver.com>
+ <20131224103521.GB29716@secunet.com>
+ <52BA7DE4.9070404@windriver.com>
+ <20131225101104.224f9b87@vostro>
+ <52BA9AEA.7050301@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-	Joe Perches <joe@perches.com>,
-	Henrique de Moraes Holschuh <hmh@hmh.eng.br>,
-	kernel-janitors@vger.kernel.org,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia Lawall <julia.lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.10.1401061007160.2079@hadrien>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Timo Teras <timo.teras@iki.fi>,
+	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:46746 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751395AbaAFKfP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jan 2014 05:35:15 -0500
+Content-Disposition: inline
+In-Reply-To: <52BA9AEA.7050301@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-01-06 at 10:09 +0100, Julia Lawall wrote:
-
-> > BUILD_BUG_ON(sizeof(struct foo) - offsetof(struct foo, addr) < 8);
+On Wed, Dec 25, 2013 at 04:44:26PM +0800, Fan Du wrote:
+>=20
+>=20
+> On 2013=E5=B9=B412=E6=9C=8825=E6=97=A5 16:11, Timo Teras wrote:
+> >On Wed, 25 Dec 2013 14:40:36 +0800
+> >Fan Du<fan.du@windriver.com>  wrote:
 > >
-> > with the user(s?) and that should catch the scenario I was worrying
-> > about?
-> 
-> OK, thanks.  That is what I had in mind.  But I was hoping to be able to
-> put it with the structure.  
+> >>>  ccing Timo
+> >>>
+> >>>  On 2013=E5=B9=B412=E6=9C=8824=E6=97=A5 18:35, Steffen Klassert w=
+rote:
+> >>>>  >  On Fri, Dec 20, 2013 at 11:34:41AM +0800, Fan Du wrote:
+> >>>>>  >>
+> >>>>>  >>  Subject: [PATCHv4 net-next] xfrm: Namespacify
+> >>>>>  >>  xfrm_policy_sk_bundles
+> >>>>>  >>
+> >>>>>  >>  xfrm_policy_sk_bundles, protected by
+> >>>>>  >>  net->xfrm.xfrm_policy_sk_bundle_lock should be put into ne=
+tns xfrm
+> >>>>>  >>  structure, otherwise xfrm_policy_sk_bundles can be corrupt=
+ed from
+> >>>>>  >>  different net namespace.
+> >>>>  >
+> >>>>  >  I'm ok with this patch, but I wonder where we use these cach=
+ed
+> >>>>  >  socket bundles. After a quick look I see where we add and wh=
+ere we
+> >>>>  >  delete them, but I can't see how we use these cached bundles=
+=2E
+> >>>
+> >>>  Interesting
+> >>>
+> >>>  The per socket bundles is introduced by Timo in commit 80c802f3
+> >>>  ("xfrm: cache bundles instead of policies for outgoing flows")
+> >Those existed even before. I just did systematic transformation of t=
+he
+> >caching code to work on bundle level instead of policy level.
+>=20
+> Apologizes and thanks for your quick reply :)
+>=20
+> >>>  But one fundamental question is why not use existing flow cache
+> >>>  for per socket bundles as well? then no need to create such per
+> >>>  sock xdst for every packet, and also share the same flow cache
+> >>>  flush mechanism.
+> >It was needed when the flow cache cached policies. They explicitly
+> >needed to check the socket for per-socket policy. So it made no sens=
+e
+> >to have anything socket related in the cache.
+>=20
+> I understand your concern.
+>=20
+> per sk bundles could be distinguished by putting per sk policy pointe=
+r into
+> struct flow_cache_entry, and then compare sk policy between cached po=
+licy
+> against with sk policy.
 
-Right - you might be able to do that with BUILD_BUG_ON_ZERO() as you
-pointed out, I haven't looked at these macros in a while.
+Most protocols cache the used routes at the sockets, so I'm not sure if
+we really need to cache them in xfrm too.
 
-> Perhaps there is a way to make a macro that
-> expands to a dummy function that contains the BUILD_BUG_ON?  But I guess
-> that would waste space?
-> 
-> I think that 8 should be 16?
+Given the fact that we don't use these cached socket policy bundles,
+it would be already an improvement if we would simply remove this cachi=
+ng.
+All we are doing here is wasting memory.
 
-No, that should be ETH_ALEN+2 really, I guess - it's not taking into
-account the size of the address member itself at all.
+>=20
+> And I also notice flow cache is global across different namespaces, b=
+ut flow
+> cache flush is doing a per-cpu(also global) operation, that's not fai=
+r for
+> slim netns as compared with fat netns which floods flow cache. Maybe =
+it's
+> time to make flow cache also name space aware.
 
-johannes
+Yes, making the flow cache namespace aware would be a good thing.
