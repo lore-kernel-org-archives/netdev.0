@@ -1,101 +1,66 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] netfilter: nf_conntrack: release conntrack from rcu
- callback
-Date: Mon, 6 Jan 2014 22:53:35 +0100
-Message-ID: <20140106215335.GC9894@breakpoint.cc>
-References: <1389023672-14351-1-git-send-email-avagin@openvz.org>
- <20140106170235.GJ28854@breakpoint.cc>
- <20140106205414.GA19788@gmail.com>
+From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+Subject: Re: [PATCH net-next v4] IPv6: use anycast addresses as source addresses in echo reply
+Date: Mon, 6 Jan 2014 13:53:49 -0800 (PST)
+Message-ID: <1389045229.42277.YahooMailBasic@web125505.mail.ne1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, Andrey Vagin <avagin@openvz.org>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vvs@openvz.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cyrill Gorcunov <gorcunov@openvz.org>
-To: Andrew Vagin <avagin@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140106205414.GA19788@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: hannes@stressinduktion.org, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm40.bullet.mail.ne1.yahoo.com ([98.138.229.33]:28541 "HELO
+	nm40.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756099AbaAFV4d convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jan 2014 16:56:33 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrew Vagin <avagin@gmail.com> wrote:
-> On Mon, Jan 06, 2014 at 06:02:35PM +0100, Florian Westphal wrote:
-> > Andrey Vagin <avagin@openvz.org> wrote:
-> > > Lets look at destroy_conntrack:
-> > > 
-> > > hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
-> > > ...
-> > > nf_conntrack_free(ct)
-> > > 	kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
-> > > 
-> > > The hash is protected by rcu, so readers look up conntracks without
-> > > locks.
-> > > A conntrack is removed from the hash, but in this moment a few readers
-> > > still can use the conntrack, so if we call kmem_cache_free now, all
-> > > readers will read released object.
-> > > 
-> > > Bellow you can find more tricky race condition of three tasks.
-> > > 
-> > > task 1			task 2			task 3
-> > > 			nf_conntrack_find_get
-> > > 			 ____nf_conntrack_find
-> > > destroy_conntrack
-> > >  hlist_nulls_del_rcu
-> > >  nf_conntrack_free
-> > >  kmem_cache_free
-> > > 						__nf_conntrack_alloc
-> > > 						 kmem_cache_alloc
-> > > 						 memset(&ct->tuplehash[IP_CT_DIR_MAX],
-> > > 			 if (nf_ct_is_dying(ct))
-> > > 
-> > > In this case the task 2 will not understand, that it uses a wrong
-> > > conntrack.
-> > 
-> > Can you elaborate?
-> > Yes, nf_ct_is_dying(ct) might be called for the wrong conntrack.
-> > 
-> > But, in case we _think_ that its the right one we call
-> > nf_ct_tuple_equal() to verify we indeed found the right one:
-> 
-> Ok. task3 creates a new contrack and nf_ct_tuple_equal() returns true on
-> it. Looks like it's possible.
+On Mon, 1/6/14, David Miller <davem@davemloft.net> wrote:
 
-IFF we're recycling the exact same tuple (i.e., flow was destroyed/terminated
-AND has been re-created in identical fashion on another cpu)
-AND it is not yet confirmed (ie. its not in hash table any more but in
-unconfirmed list) then, yes, I think you're right.
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Mon, 6 Jan 2014 00:05:05 +0100
 
-> unitialized contrack. It's really bad, because the code supposes that
-> conntrack can not be initialized in two threads concurrently. For
-> example BUG can be triggered from nf_nat_setup_info():
-> 
-> BUG_ON(nf_nat_initialized(ct, maniptype));
+>> On Fri, Jan 03, 2014 at 05:43:31PM +0100, Francois-Xavier Le Bail wr=
+ote:
+>>> diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+>>> index 5d42009..65c8619 100644
+>>> --- a/net/ipv6/icmp.c
+>>> +++ b/net/ipv6/icmp.c
+>>> @@ -556,7 +556,9 @@ static void icmpv6_echo_reply(struct sk_buff *s=
+kb)
+>>>=A0=20
+>>>=A0 =A0=A0=A0 saddr =3D &ipv6_hdr(skb)->daddr;
+>>>=A0=20
+>>> -=A0=A0=A0 if (!ipv6_unicast_destination(skb))
+>>> +=A0=A0=A0 if (!ipv6_unicast_destination(skb) &&
+>>> +=A0=A0=A0 =A0 =A0 !(net->ipv6.anycast_src_echo_reply &&
+>>> +=A0=A0=A0 =A0 =A0 =A0 ipv6_chk_acast_addr(net, NULL, saddr)))
+>>>=A0 =A0=A0=A0 =A0=A0=A0 saddr =3D NULL;
+>>=20
+>> I am not sure why you left out the device at ipv6_chk_acast_addr?
+>>=20
+>> IMHO this logic is a bit more complex, we can pass NULL for ipv6 add=
+resses of
+>> scope global but need to check the interface for scope link.
+>>=20
+>> It is already possible via setsockopt JOIN_ANYCAST that an ll addres=
+s is
+>> anycast on another interface which may not be checked here.
 
-Right, since a new conntrack entry is not supposed to be in the hash
-table.
+> I think we should pass a valid device in unless it breaks something
+> obvious.
 
-> >                 ct = nf_ct_tuplehash_to_ctrack(h);
-> >                 if (unlikely(nf_ct_is_dying(ct) ||
-> >                              !atomic_inc_not_zero(&ct->ct_general.use)))
-> > 			// which means we should hit this path (0 ref).
-> >                         h = NULL;
-> >                 else {
-> > 			// otherwise, it cannot go away from under us, since
-> > 			// we own a reference now.
-> >                         if (unlikely(!nf_ct_tuple_equal(tuple, &h->tuple) ||
-> >                                      nf_ct_zone(ct) != zone)) {
+The problem is that "saddr" is not necessarily an address on "skb->dev"
+in icmpv6_echo_reply(). It may be an address on another interface.
 
-Perhaps this needs additional !nf_ct_is_confirmed()?
+If dev arg is NULL, ipv6_chk_acast_addr() searches all devices for "sad=
+dr", that what we need.
 
-It would cover your case (found a recycled element that has been put on
-the unconfirmed list (refcnt already set to 1, ct->tuple is set) on another cpu,
-extensions possibly not yet fully initialised), and the same tuple).
+It works for global scope and link-local anycast address.
 
-Regards,
-Florian
+So passing a valid device to ipv6_chk_acast_addr() breaks the goal of t=
+he patch.
+
+Thanks.
