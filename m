@@ -1,79 +1,109 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net] bridge: Fix crash with vlan filtering and tcpdump
-Date: Mon, 06 Jan 2014 11:02:34 -0500
-Message-ID: <52CAD39A.7040607@redhat.com>
-References: <1388765553-12965-1-git-send-email-vyasevic@redhat.com> <1388934147.1906.17.camel@localhost.localdomain>
-Reply-To: vyasevic@redhat.com
+From: Dan Williams <dcbw@redhat.com>
+Subject: [PATCH] hso: fix handling of modem port SERIAL_STATE notifications
+Date: Mon, 06 Jan 2014 10:07:29 -0600
+Message-ID: <1389024449.1866.3.camel@dcbw.local>
+References: <B1808224-5850-41E3-9A8F-0F350F84FF89@goldelico.com>
+	 <541AADAC-7D20-4410-90FC-3E354B0C1457@goldelico.com>
+	 <1387222829.2156.51.camel@dcbw.foobar.com>
+	 <174CD81C-6425-4560-A3FA-3BFAA83BA770@goldelico.com>
+	 <1387319242.28943.42.camel@dcbw.local>
+	 <54ED5542-6C9E-4AC6-90CC-ED77972D8CB1@goldelico.com>
+	 <1387388963.5549.11.camel@dcbw.local>
+	 <874B65AE-8B15-4427-8EF4-F0CA2BC55062@goldelico.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-To: Toshiaki Makita <toshiaki.makita1@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61831 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754752AbaAFQCk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jan 2014 11:02:40 -0500
-In-Reply-To: <1388934147.1906.17.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jan Dumon <j.dumon@option.com>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Belisko Marek <marek.belisko@gmail.com>, e.verdonck@option.com
+To: "Dr. H. Nikolaus Schaller" <hns@goldelico.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <874B65AE-8B15-4427-8EF4-F0CA2BC55062@goldelico.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/05/2014 10:02 AM, Toshiaki Makita wrote:
-> On Fri, 2014-01-03 at 11:12 -0500, Vlad Yasevich wrote:
->> When the vlan filtering is enabled on the bridge, but
->> the filter is not configured on the bridge device itself,
->> running tcpdump on the bridge device will result in a
->> an Ooops with NULL pointer dereference.  The reason
->     ^^^^^
-> Oops?
-> 
->> is that br_pass_frame_up() will bypass the vlan
->> check because promisc flag is set.  It will then try
->> to get the table pointer and process the packet based
->> on the table.  Since the table pointer is NULL, we oops.
->> Catch this special condition in br_handle_vlan().
->>
->> Reported-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
->> CC: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
->> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->> ---
-> ...
->> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
->> index af5ebd1..ea0c29b 100644
->> --- a/net/bridge/br_vlan.c
->> +++ b/net/bridge/br_vlan.c
->> @@ -144,6 +144,18 @@ struct sk_buff *br_handle_vlan(struct net_bridge *br,
->>  	if (!br->vlan_enabled)
->>  		goto out;
->>  
->> +	/* Vlan filter table must be configrured at this point.  The
->> +	 * only exception is the bridge is set in promisc mode and the
->> +	 * packet is destined for the bridge device.  In this case
->> +	 * pass the packet as is.
->> +	 */
->> +	if (!pv) {
->> +       		if ((br->dev->flags & IFF_PROMISC) && skb->dev == br->dev)
->> +			goto out;
-> 
-> Currently this function is calling __vlan_put_tag() if port_idx==0.
-> You are going to bypass it only if br is promisc mode.
-> 
-> However it doesn't seem to lead any problem because
-> __netif_receive_skb_core() can handle hw accel vlan tag.
-> 
-> Instead, I doubt if __vlan_put_tag() is necessary in br_handle_vlan()...
+The existing serial state notification handling expected older Option
+devices, having a hardcoded assumption that the Modem port was always
+USB interface #2.  That isn't true for devices from the past few years.
 
-I'll need to re-test, but I remember having had to add that code to make
-it work on the bridge...
+hso_serial_state_notification is a local cache of a USB Communications
+Interface Class SERIAL_STATE notification from the device, and the
+USB CDC specification (section 6.3, table 67 "Class-Specific Notifications")
+defines wIndex as the USB interface the event applies to.  For hso
+devices this will always be the Modem port, as the Modem port is the
+only port which is set up to receive them by the driver.
 
-Looking at it again, I agree that special handling for forwarding to the
-bridge doesn't seem to be needed.
+So instead of always expecting USB interface #2, instead validate the
+notification with the actual USB interface number of the Modem port.
 
--vlad
+Signed-off-by: Dan Williams <dcbw@redhat.com>
+Tested-by: H. Nikolaus Schaller <hns@goldelico.com>
+---
+ drivers/net/usb/hso.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-> 
-> Thanks,
-> Toshiaki Makita
-> 
-> 
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index 86292e6..1a48234 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -181,15 +181,14 @@ enum rx_ctrl_state{
+ 	RX_SENT,
+ 	RX_PENDING
+ };
+ 
+ #define BM_REQUEST_TYPE (0xa1)
+ #define B_NOTIFICATION  (0x20)
+ #define W_VALUE         (0x0)
+-#define W_INDEX         (0x2)
+ #define W_LENGTH        (0x2)
+ 
+ #define B_OVERRUN       (0x1<<6)
+ #define B_PARITY        (0x1<<5)
+ #define B_FRAMING       (0x1<<4)
+ #define B_RING_SIGNAL   (0x1<<3)
+ #define B_BREAK         (0x1<<2)
+@@ -1483,31 +1482,41 @@ static void tiocmget_intr_callback(struct urb *urb)
+ 	struct hso_serial *serial = urb->context;
+ 	struct hso_tiocmget *tiocmget;
+ 	int status = urb->status;
+ 	u16 UART_state_bitmap, prev_UART_state_bitmap;
+ 	struct uart_icount *icount;
+ 	struct hso_serial_state_notification *serial_state_notification;
+ 	struct usb_device *usb;
++	int if_num;
+ 
+ 	/* Sanity checks */
+ 	if (!serial)
+ 		return;
+ 	if (status) {
+ 		handle_usb_error(status, __func__, serial->parent);
+ 		return;
+ 	}
++
++	/* tiocmget is only supported on HSO_PORT_MODEM */
+ 	tiocmget = serial->tiocmget;
+ 	if (!tiocmget)
+ 		return;
++	BUG_ON((serial->parent->port_spec & HSO_PORT_MASK) != HSO_PORT_MODEM);
++
+ 	usb = serial->parent->usb;
++	if_num = serial->parent->interface->altsetting->desc.bInterfaceNumber;
++
++	/* wIndex should be the USB interface number of the port to which the
++	 * notification applies, which should always be the Modem port.
++	 */
+ 	serial_state_notification = &tiocmget->serial_state_notification;
+ 	if (serial_state_notification->bmRequestType != BM_REQUEST_TYPE ||
+ 	    serial_state_notification->bNotification != B_NOTIFICATION ||
+ 	    le16_to_cpu(serial_state_notification->wValue) != W_VALUE ||
+-	    le16_to_cpu(serial_state_notification->wIndex) != W_INDEX ||
++	    le16_to_cpu(serial_state_notification->wIndex) != if_num ||
+ 	    le16_to_cpu(serial_state_notification->wLength) != W_LENGTH) {
+ 		dev_warn(&usb->dev,
+ 			 "hso received invalid serial state notification\n");
+ 		DUMP(serial_state_notification,
+ 		     sizeof(struct hso_serial_state_notification));
+ 	} else {
+ 
+-- 
+1.8.3.1
