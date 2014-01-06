@@ -1,66 +1,132 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH 01/12] netfilter: avoid get_random_bytes calls
-Date: Mon, 6 Jan 2014 12:54:36 +0100
-Message-ID: <20140106115436.GE28854@breakpoint.cc>
-References: <1388963586-5049-1-git-send-email-pablo@netfilter.org>
- <1388963586-5049-2-git-send-email-pablo@netfilter.org>
- <20140105234157.GB29910@order.stressinduktion.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net 2/2] net: core: explicitly select a
+ txq before doing l2 forwarding
+Date: Mon, 06 Jan 2014 04:04:50 -0800
+Message-ID: <1389009890.2278.3.camel@jtkirshe-mobl>
+References: <1388978467-2075-1-git-send-email-jasowang@redhat.com>
+	<1388978467-2075-2-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, fw@strlen.de
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140105234157.GB29910@order.stressinduktion.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============0078291306742499502=="
+Cc: Neil Horman <nhorman@tuxdriver.com>, mst@redhat.com,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	John Fastabend <john.r.fastabend@intel.com>, davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>, aaron.f.brown@intel.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1388978467-2075-2-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> On Mon, Jan 06, 2014 at 12:12:55AM +0100, Pablo Neira Ayuso wrote:
-> > From: Florian Westphal <fw@strlen.de>
-> > 
-> > All these users need an initial seed value for jhash, prandom is
-> > perfectly fine.  This avoids draining the entropy pool where
-> > its not strictly required.
-> 
-> Secrets protecting hash tables should be rather strong.
 
-Yes, which is why e.g. conntrack hash is not converted.
+--===============0078291306742499502==
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-usxU0gsJzdZiHWGJRdcL"
 
-> prandom_u32() has two seeding points at boot-up. One is at late_initcall.
 
-Yes.  None of these locations are executed via initcalls, they are all
-in _checkentry (i.e., run when userspace iptables inserts a rule using
-the target/match), except hashlimit where its delayed until the first
-address is stored (so its even later).
+--=-usxU0gsJzdZiHWGJRdcL
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> Thanks to parallel boot-up this gets executed fairly early. The other one is
-> when the RNG nonblocking pool is fully initialized. Only after this point we
-> can assume prandom_u32() returns truely random values. In between, only
-> get_random_bytes or net_get_random_once are safe for use.
+On Mon, 2014-01-06 at 11:21 +0800, Jason Wang wrote:
+> Currently, the tx queue were selected implicitly in
+> ndo_dfwd_start_xmit(). The
+> will cause several issues:
+>=20
+> - NETIF_F_LLTX was forced for macvlan device in this case which lead
+> extra lock
+>   contention.
+> - dev_hard_start_xmit() was called with NULL txq which bypasses the
+> net device
+>   watchdog
+> - dev_hard_start_xmit() does not check txq everywhere which will lead
+> a crash
+>   when tso is disabled for lower device.
+>=20
+> Fix this by explicitly introducing a select queue method just for l2
+> forwarding
+> offload (ndo_dfwd_select_queue), and introducing dfwd_direct_xmit() to
+> do the
+> queue selecting and transmitting for l2 forwarding.
+>=20
+> With this fixes, NETIF_F_LLTX could be preserved for macvlan and
+> there's no need
+> to check txq against NULL in dev_hard_start_xmit().
+>=20
+> In the future, it was also required for macvtap l2 forwarding support
+> since it
+> provides a necessary synchronization method.
+>=20
+> Cc: John Fastabend <john.r.fastabend@intel.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Cc: e1000-devel@lists.sourceforge.net
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   15 +++++++++----
+>  drivers/net/macvlan.c                         |    3 +-
+>  include/linux/netdevice.h                     |   11 +++++++++
+>  net/core/dev.c                                |   28
+> ++++++++++++++++++++++++-
+>  4 files changed, 49 insertions(+), 8 deletions(-)
 
-Can you elaborate?  If entropy estimate is really really low
-(because we're booting up), why would get_random_bytes() be a better
-choice [ i understand net_get_random_once() is for delaying
-the actual random_bytes call until a later point in time where we've
-hopefully collected more entropy ]
+Thanks Jason, I have added this to my queue since it has changes against
+ixgbe.
 
-> To get the impression when prandom_u32 gets truely seeded, watch out
-> for the message "random: nonblocking pool is initialized" in dmesg. ;)
+--=-usxU0gsJzdZiHWGJRdcL
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-It happens very very early on my machine, even before / is remounted
-rw.  I would be more interested in what happens on small embedded
-boxes...
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-> Hmm, some of them look like good candidates for net_get_random_once. I don't
-> see such a problem with draining entropy pool, especially as they don't run
-> that early and they don't request so many random bits.
+iQIcBAABCgAGBQJSypviAAoJEOVv75VaS+3OUMoP/2bcNAE+64dSKRQ8QR7a/lde
+qUt+QH9Ft4LgN0SZPm28EnLffv86wH6OwOuhrKZ/ry9gt9QaC1ZkJuIDthzy7GWt
+BWv0siuPTQvxHZMeQ56JHkSyxz5Ihz3YujGx0nrsBOvp5dAkvFjGiUjTy43MyvXL
+7/g/r1ZkXogBdJBWkS/bUi48RBBRUqaaW2L3TUR3B42U/P6/9Q5HYW3kEBLR/YL+
+Csw0IRxHAhWG+yGDSmlGeXykTdI7Qr7LDDyV9fVeE1hsSrCIKSC17Wup/Rrs5yLf
+vmYEA3+LxAH6E8GYmdPuJm9rb9c+xLP9JCnZxZvByY+m1NaCjRKkRnksAHtZMcQ1
+/LYDzjBzLm6ESxA5mUZghyaf92zmJgbbgFmyn3l0EYI1qhF8fFqMqdN8dZXPFICX
+sKcozswKHrmSpBShXZmjJi97nPLVgdETMXu7oWQOCy4nCcFknjgYKMBe18y0SFAM
+5wjZmKO9cWV37UeRtf2YzuTTD69PnTzjY++Et3RwyJ9TBMeaG/1hYD4x38OhUO9K
+rIvDOJGiIOwKfjDGW19rPy/i1JpfMRmWGoqassZ+eWw38JuMUgQRvmHAjCAj+LqF
+Mm9Tr5ctsdnP+WlrGfdT8jcjyOpMGsvY0oRZQ/dVXfTf/Xcvf4SNjgFpUYFL5gmD
+H1ggGxqDV9NnyL/7mR9K
+=GfAn
+-----END PGP SIGNATURE-----
 
-I specifically did not use net_get_random_once once because checkentry is
-not a hotpath.
+--=-usxU0gsJzdZiHWGJRdcL--
 
-I don't see why get_random_bytes use increases the security margin, especially
-considering none of these hashes have periodic run-time rehashing?
 
-But sure, if you think this change is a problem, Pablo can just revert it.
+
+--===============0078291306742499502==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+Rapidly troubleshoot problems before they affect your business. Most IT 
+organizations don't have a clear picture of how application performance 
+affects their revenue. With AppDynamics, you get 100% visibility into your 
+Java,.NET, & PHP application. Start your 15-day FREE TRIAL of AppDynamics Pro!
+http://pubads.g.doubleclick.net/gampad/clk?id=84349831&iu=/4140/ostg.clktrk
+--===============0078291306742499502==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
+--===============0078291306742499502==--
