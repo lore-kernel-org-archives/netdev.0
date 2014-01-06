@@ -1,105 +1,115 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: tx-nocache-copy performance
-Date: Mon, 06 Jan 2014 12:57:35 -0800
-Message-ID: <1389041855.12212.210.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140106202754.GA5877@d2.synalogic.ca>
+From: Andrew Vagin <avagin@gmail.com>
+Subject: Re: [PATCH] netfilter: nf_conntrack: release conntrack from rcu
+ callback
+Date: Tue, 7 Jan 2014 00:54:15 +0400
+Message-ID: <20140106205414.GA19788@gmail.com>
+References: <1389023672-14351-1-git-send-email-avagin@openvz.org>
+ <20140106170235.GJ28854@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: Benjamin Poirier <bpoirier@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f45.google.com ([209.85.213.45]:51399 "EHLO
-	mail-yh0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755523AbaAFU5i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 15:57:38 -0500
-Received: by mail-yh0-f45.google.com with SMTP id v1so3736866yhn.18
-        for <netdev@vger.kernel.org>; Mon, 06 Jan 2014 12:57:38 -0800 (PST)
-In-Reply-To: <20140106202754.GA5877@d2.synalogic.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=koi8-r
+Cc: Andrey Vagin <avagin@openvz.org>, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	vvs@openvz.org, Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cyrill Gorcunov <gorcunov@openvz.org>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140106170235.GJ28854@breakpoint.cc>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-01-06 at 15:27 -0500, Benjamin Poirier wrote:
-> Hi Tom,
->=20
-> In commit "c6e1a0d net: Allow no-cache copy from user on transmit
-> (v3.0-rc1)" you introduced the tx-nocache-copy performance optimizati=
-on
-> and set it to on by default. I've tried to reproduce your testcase, a=
-s
-> well as a few more, but I did not find any performance improvement fr=
-om
-> turning on tx-nocache-copy. Do you think tx-nocache-copy is still a
-> worthwhile optimization and it should remain on by default? In which
-> situations does it help?
->=20
-> I've ran latency tests similar to the ones you described in the commi=
-t
-> log. I've also tested how the option affects single stream throughput
-> tests. According to the results I obtained, it seems that
-> tx-nocache-copy has either no impact (in the latency test) or a negat=
-ive
-> impact (in the throughput test).
->=20
-> My test results follow. I tested using 3.12.6 on one Intel Xeon W3565
-> and one i7 920 connected by ixgbe adapters. The results are from the
-> Xeon, but they're similar on the i7. All numbers report the mean=C2=B1=
-stddev
-> over 10 runs of 10s.
->=20
-> 1) latency tests similar to what you described
-> There is no statistically significant difference between tx-nocache-c=
-opy
-> on/off.
-> nic irqs spread out (one queue per cpu)
->=20
-> 200x netperf -r 1400,1
-> tx-nocache-copy off
->         692000=C2=B11000 tps
->         50/90/95/99% latency (us): 275=C2=B12/643.8=C2=B10.4/799=C2=B1=
-1/2474.4=C2=B10.3
-> tx-nocache-copy on
->         693000=C2=B11000 tps
->         50/90/95/99% latency (us): 274=C2=B11/644.1=C2=B10.7/800=C2=B1=
-2/2474.5=C2=B10.7
->=20
-> 200x netperf -r 14000,14000
-> tx-nocache-copy off
->         86450=C2=B180 tps
->         50/90/95/99% latency (us): 334.37=C2=B10.02/838=C2=B11/2100=C2=
-=B120/3990=C2=B140
-> tx-nocache-copy on
->         86110=C2=B160 tps
->         50/90/95/99% latency (us): 334.28=C2=B10.01/837=C2=B12/2110=C2=
-=B120/3990=C2=B120
->=20
-> 2) single stream throughput tests
-> tx-nocache-copy leads to higher service demand
->=20
->                         throughput  cpu0        cpu1        demand
->                         (Gb/s)      (Gcycle)    (Gcycle)    (cycle/B)
->=20
-> nic irqs and netperf on cpu0 (1x netperf -T0,0 -t omni -- -d send)
->=20
-> tx-nocache-copy off     9402=C2=B15      9.4=C2=B10.2                =
- 0.80=C2=B10.01
-> tx-nocache-copy on      9403=C2=B13      9.85=C2=B10.04              =
- 0.838=C2=B10.004
->=20
-> nic irqs on cpu0, netperf on cpu1 (1x netperf -T1,1 -t omni -- -d sen=
-d)
->=20
-> tx-nocache-copy off     9401=C2=B15      5.83=C2=B10.03   5.0=C2=B10.=
-1     0.923=C2=B10.007
-> tx-nocache-copy on      9404=C2=B12      5.74=C2=B10.03   5.523=C2=B1=
-0.009 0.958=C2=B10.002
->=20
-> -Benjamin
+On Mon, Jan 06, 2014 at 06:02:35PM +0100, Florian Westphal wrote:
+> Andrey Vagin <avagin@openvz.org> wrote:
+> > Lets look at destroy_conntrack:
+> > 
+> > hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
+> > ...
+> > nf_conntrack_free(ct)
+> > 	kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
+> > 
+> > The hash is protected by rcu, so readers look up conntracks without
+> > locks.
+> > A conntrack is removed from the hash, but in this moment a few readers
+> > still can use the conntrack, so if we call kmem_cache_free now, all
+> > readers will read released object.
+> > 
+> > Bellow you can find more tricky race condition of three tasks.
+> > 
+> > task 1			task 2			task 3
+> > 			nf_conntrack_find_get
+> > 			 ____nf_conntrack_find
+> > destroy_conntrack
+> >  hlist_nulls_del_rcu
+> >  nf_conntrack_free
+> >  kmem_cache_free
+> > 						__nf_conntrack_alloc
+> > 						 kmem_cache_alloc
+> > 						 memset(&ct->tuplehash[IP_CT_DIR_MAX],
+> > 			 if (nf_ct_is_dying(ct))
+> > 
+> > In this case the task 2 will not understand, that it uses a wrong
+> > conntrack.
+> 
+> Can you elaborate?
+> Yes, nf_ct_is_dying(ct) might be called for the wrong conntrack.
+> 
+> But, in case we _think_ that its the right one we call
+> nf_ct_tuple_equal() to verify we indeed found the right one:
 
-We raised this point last year, for same reasons.
+Ok. task3 creates a new contrack and nf_ct_tuple_equal() returns true on
+it. Looks like it's possible. In this case we have two threads with one
+unitialized contrack. It's really bad, because the code supposes that
+conntrack can not be initialized in two threads concurrently. For
+example BUG can be triggered from nf_nat_setup_info():
 
-http://www.spinics.net/lists/netdev/msg226501.html
+BUG_ON(nf_nat_initialized(ct, maniptype));
 
-I agree we should revert the default.
 
-I'll post new perf data using latest net-next kernel and a bnx2x NIC.
+> 
+>        h = ____nf_conntrack_find(net, zone, tuple, hash);
+>        if (h) { // might be released right now, but page won't go away (SLAB_BY_RCU)
+
+I did not take SLAB_BY_RCU into account. Thank you. But it doesn't say,
+that we don't have the race condition here. It explains why we don't
+have really bad situations, when a completely wrong contract is
+used. We always use a "right" conntrack, but sometimes it is
+uninitialized and here is a problem.
+
+The race window is tiny, because usually we check that conntrack is not
+initialized and only then we execute its initialization. We don't hold
+any locks in these moments.
+
+Task2					| Task3
+if (!nf_nat_initialized(ct))		|
+					| if (!nf_nat_initialized(ct)
+ alloc_null_binding			|
+					|  alloc_null_binding
+  nf_nat_setup_info			|
+   ct->status |= IPS_SRC_NAT_DONE	|
+					|   nf_nat_setup_info
+					|    BUG_ON(nf_nat_initialized(ct));
+
+>                 ct = nf_ct_tuplehash_to_ctrack(h);
+>                 if (unlikely(nf_ct_is_dying(ct) ||
+>                              !atomic_inc_not_zero(&ct->ct_general.use)))
+> 			// which means we should hit this path (0 ref).
+>                         h = NULL;
+>                 else {
+> 			// otherwise, it cannot go away from under us, since
+> 			// we own a reference now.
+>                         if (unlikely(!nf_ct_tuple_equal(tuple, &h->tuple) ||
+>                                      nf_ct_zone(ct) != zone)) {
+> 			// if we get here, the entry got recycled on other cpu
+> 			// for a different tuple, we can bail out and drop
+> 			// the reference safely and re-try the lookup
+>                                 nf_ct_put(ct);
+>                                 goto begin;
+>                         }
+>                 }
+
+Thanks,
+Andrey
