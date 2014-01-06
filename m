@@ -1,65 +1,71 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH 01/12] netfilter: avoid get_random_bytes calls
-Date: Mon, 6 Jan 2014 14:04:51 +0100
-Message-ID: <20140106130451.GF28854@breakpoint.cc>
-References: <1388963586-5049-1-git-send-email-pablo@netfilter.org>
- <1388963586-5049-2-git-send-email-pablo@netfilter.org>
- <20140105234157.GB29910@order.stressinduktion.org>
- <20140106115436.GE28854@breakpoint.cc>
- <20140106124340.GC4611@order.stressinduktion.org>
+From: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+Subject: Re: [Xen-devel] [PATCH net] xen-netback: fix guest-receive-side
+ array sizes
+Date: Mon, 6 Jan 2014 13:04:39 +0000
+Message-ID: <alpine.DEB.2.02.1401061303480.8667@kaball.uk.xensource.com>
+References: <1387790838-8852-1-git-send-email-paul.durrant@citrix.com> <alpine.DEB.2.02.1401061257360.8667@kaball.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Florian Westphal <fw@strlen.de>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140106124340.GC4611@order.stressinduktion.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Paul Durrant <paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
+	<xen-devel@lists.xen.org>, Ian Campbell <ian.campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Wei Liu <wei.liu2@citrix.com>, <davem@davemloft.net>
+To: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:37005 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754448AbaAFNFz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jan 2014 08:05:55 -0500
+In-Reply-To: <alpine.DEB.2.02.1401061257360.8667@kaball.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> On Mon, Jan 06, 2014 at 12:54:36PM +0100, Florian Westphal wrote:
-> > Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> > Can you elaborate?  If entropy estimate is really really low
-> > (because we're booting up), why would get_random_bytes() be a better
-> > choice [ i understand net_get_random_once() is for delaying
-> > the actual random_bytes call until a later point in time where we've
-> > hopefully collected more entropy ]
-
-[..]
-
-> On some of my small virtual machines (amd64) I even see this message while
-> login on the console (small iptables set also loaded before). In the mean
-> time prandom_u32() is still seeded with maybe 3 bits (I once measured it)
-> at the beginning and won't get a refresh until the nonblocking pool is
-> fully initialized.
-
-I see.  In this case it indeed could be a problem; I was doing this
-change with the assumption that prandom is useable at ->checkenty time.
-
-> > I specifically did not use net_get_random_once once because checkentry is
-> > not a hotpath.
+On Mon, 6 Jan 2014, Stefano Stabellini wrote:
+> On Mon, 23 Dec 2013, Paul Durrant wrote:
+> > The sizes chosen for the metadata and grant_copy_op arrays on the guest
+> > receive size are wrong;
 > > 
-> > I don't see why get_random_bytes use increases the security margin, especially
-> > considering none of these hashes have periodic run-time rehashing?
+> > - The meta array is needlessly twice the ring size, when we only ever
+> >   consume a single array element per RX ring slot
+> > - The grant_copy_op array is way too small. It's sized based on a bogus
+> >   assumption: that at most two copy ops will be used per ring slot. This
+> >   may have been true at some point in the past but it's clear from looking
+> >   at start_new_rx_buffer() that a new ring slot is only consumed if a frag
+> >   would overflow the current slot (plus some other conditions) so the actual
+> >   limit is MAX_SKB_FRAGS grant_copy_ops per ring slot.
 > > 
-> > But sure, if you think this change is a problem, Pablo can just revert it.
+> > This patch fixes those two sizing issues and, because grant_copy_ops grows
+> > so much, it pulls it out into a separate chunk of vmalloc()ed memory.
+> > 
+> > Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> > Acked-by: Wei Liu <wei.liu2@citrix.com>
+> > Cc: Ian Campbell <ian.campbell@citrix.com>
+> > Cc: David Vrabel <david.vrabel@citrix.com>
 > 
-> I don't know if it is a real problem. Most of the time the initial seed
-> should be enough, but I guess get_random_bytes would still be a more
-> defensive choice. I would have used it. ;)
+> Unfortunately this patch (now in 3.13-rc7) breaks the ARM build:
+> 
+>   CC      drivers/net/xen-netback/interface.o
+> drivers/net/xen-netback/interface.c: In function 'xenvif_alloc':
+> drivers/net/xen-netback/interface.c:311:2: error: implicit declaration of function 'vmalloc' [-Werror=implicit-function-declaration]
+>   vif->grant_copy_op = vmalloc(sizeof(struct gnttab_copy) *
+>   ^
+> drivers/net/xen-netback/interface.c:311:21: warning: assignment makes pointer from integer without a cast [enabled by default]
+>   vif->grant_copy_op = vmalloc(sizeof(struct gnttab_copy) *
+>                      ^
+> drivers/net/xen-netback/interface.c: In function 'xenvif_free':
+> drivers/net/xen-netback/interface.c:499:2: error: implicit declaration of function 'vfree' [-Werror=implicit-function-declaration]
+>   vfree(vif->grant_copy_op);
+>   ^
+> cc1: some warnings being treated as errors
+> make[3]: *** [drivers/net/xen-netback/interface.o] Error 1
+> make[2]: *** [drivers/net/xen-netback] Error 2
+> make[1]: *** [drivers/net] Error 2
+> make: *** [drivers] Error 2
+> 
+> I suggest we fix it (probably by reverting it) ASAP otherwise we risk
+> break the release.
 
-Alright.  Given that this went into -next, I think we have a few weeks to
-investigate.
+Actually I realized that the issue has already been fixed, thanks!
 
-I will check if the specific hash uses are problematic in their own right
-(due to lack of reseed) or if they are weakened by this change only.
-
-I'll follow up on this.
-
-Pablo/David, if you think this needs to be fixed RIGHT NOW then please
-just issue a revert for a42b99a6e329654d376b330de057eff87686d890.
-
-Thanks!
+http://marc.info/?l=linux-kernel&m=138897212904706&w=2
