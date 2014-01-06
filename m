@@ -1,69 +1,39 @@
-From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC PATCH net-next 3/4] veth: backup classid befor switch net_ns
-Date: Mon, 6 Jan 2014 10:16:30 +0800
-Message-ID: <52CA11FE.1090608@huawei.com>
-References: <52C62A52.8050003@huawei.com> <52C694BF.3020903@cogentembedded.com>
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: Re: [BUG] v3.13-rc7: freescale fec_main bugs on boot
+Date: Mon, 6 Jan 2014 10:28:50 +0800
+Message-ID: <20140106022847.GB26128@S2101-09.ap.freescale.net>
+References: <20140105170448.GC27432@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	<honkiko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>, <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Serge Hallyn <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>
-To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <52C694BF.3020903-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Sascha Hauer <kernel@pengutronix.de>,
+	Philipp Zabel <p.zabel@pengutronix.de>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	<devicetree@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db8lp0189.outbound.messaging.microsoft.com ([213.199.154.189]:35198
+	"EHLO db8outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752151AbaAFC2N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jan 2014 21:28:13 -0500
+Content-Disposition: inline
+In-Reply-To: <20140105170448.GC27432@n2100.arm.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2014/1/3 18:45, Sergei Shtylyov wrote:
-> Hello.
+On Sun, Jan 05, 2014 at 05:04:48PM +0000, Russell King - ARM Linux wrote:
+> Second thing is this which was introduced by 7a399e3a2e05 between rc6
+> and rc7:
 > 
-> On 03-01-2014 7:11, Libo Chen wrote:
+> +       if (flags & OF_GPIO_ACTIVE_LOW)
+> +               port = GPIOF_OUT_INIT_LOW;
+> +       else
+> +               port = GPIOF_OUT_INIT_HIGH;
 > 
->> dev_forward_skb will clear skb->sk, so we need save classid
->> before that, otherwise the skb can not be under control by
->> net_cls.
-> 
->> Signed-off-by: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
->> ---
->>   drivers/net/veth.c | 7 +++++++
->>   1 file changed, 7 insertions(+)
-> 
->> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
->> index 2ec2041..ce43a2d 100644
->> --- a/drivers/net/veth.c
->> +++ b/drivers/net/veth.c
-> [...]
->> @@ -123,6 +124,12 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
->>           rcv->features & NETIF_F_RXCSUM)
->>           skb->ip_summed = CHECKSUM_UNNECESSARY;
->>
->> +    /**
-> 
->    Why you're using kernel-doc style comments out of place? The format of multi-line comments  in the networking code is this:
-> 
-> /* bla
->  * bla
->  */
+> -       gpio_set_value(phy_reset, 1);
+> +       gpio_set_value(phy_reset, !port);
 
-thank you
+Fabio just sent a patch to revert it, and David has queued it.  Sorry
+for that I did not catch it.
 
-Libo
-
-> 
->> +     * dev_forward_sbk will clear skb->sk, so save
->> +     * skb->sk->sk_classid for Qos
->> +     */
->> +    bk_cls_classid(skb);
->> +
-> 
-> WBR, Sergei
-> 
-> 
-> 
-> .
-> 
+Shawn
