@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/2] macvlan: forbid L2 fowarding offload for
- macvtap
-Date: Mon, 06 Jan 2014 15:47:40 -0500 (EST)
-Message-ID: <20140106.154740.590358835696689785.davem@davemloft.net>
-References: <1388978467-2075-1-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH v3] isdn: Drop big endian cpp checks from telespci and
+ hfc_pci drivers
+Date: Mon, 06 Jan 2014 15:51:16 -0500 (EST)
+Message-ID: <20140106.155116.2301761686285996039.davem@davemloft.net>
+References: <1388982699-11514-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mst@redhat.com, john.r.fastabend@intel.com, nhorman@tuxdriver.com
-To: jasowang@redhat.com
+Cc: isdn@linux-pingi.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linux@roeck-us.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1388978467-2075-1-git-send-email-jasowang@redhat.com>
+In-Reply-To: <1388982699-11514-1-git-send-email-linux@roeck-us.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Mon,  6 Jan 2014 11:21:06 +0800
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Sun,  5 Jan 2014 20:31:39 -0800
 
-> L2 fowarding offload will bypass the rx handler of real device. This will make
-> the packet could not be forwarded to macvtap device. Another problem is the
-> dev_hard_start_xmit() called for macvtap does not have any synchronization.
+> With arm:allmodconfig, building the Teles PCI driver fails with
 > 
-> Fix this by forbidding L2 forwarding for macvtap.
+> telespci.c:294:2: error: #error "not running on big endian machines now"
 > 
-> Cc: John Fastabend <john.r.fastabend@intel.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Similar, building the driver for HFC PCI-Bus cards fails with
+> 
+> hfc_pci.c:1647:2: error: #error "not running on big endian machines now"
+> 
+> Remove the big endian cpp check from both drivers to fix the build errors.
+> 
+> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 
-I think I agree with Neil that the rx_handler change might be the best
-way to fix this.  That change seems to have a lot of nice unintended
-side effects, no?
+Applied, thank you.
