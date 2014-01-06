@@ -1,238 +1,241 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 03/13] netfilter: nft: add queue module
-Date: Mon,  6 Jan 2014 14:46:32 +0100
-Message-ID: <1389016002-9116-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 02/13] netfilter: xt_NFQUEUE: separate reusable code
+Date: Mon,  6 Jan 2014 14:46:31 +0100
+Message-ID: <1389016002-9116-3-git-send-email-pablo@netfilter.org>
 References: <1389016002-9116-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59535 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:59527 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754685AbaAFNq4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jan 2014 08:46:56 -0500
+	id S1754654AbaAFNqz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jan 2014 08:46:55 -0500
 In-Reply-To: <1389016002-9116-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Leblond <eric@regit.org>
 
-This patch adds a new nft module named "nft_queue" which provides
-a new nftables expression that allows you to enqueue packets to
-userspace via the nfnetlink_queue subsystem. It provides the same
-level of functionality as NFQUEUE and it shares some code with it.
+This patch prepares the addition of nft_queue module by moving
+reusable code into a header file.
+
+This patch also converts NFQUEUE to use prandom_u32 to initialize
+the random jhash seed as suggested by Florian Westphal.
 
 Signed-off-by: Eric Leblond <eric@regit.org>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/nf_tables.h |   20 +++++
- net/netfilter/Kconfig                    |    9 ++
- net/netfilter/Makefile                   |    1 +
- net/netfilter/nft_queue.c                |  134 ++++++++++++++++++++++++++++++
- 4 files changed, 164 insertions(+)
- create mode 100644 net/netfilter/nft_queue.c
+ include/net/netfilter/nf_queue.h |   62 +++++++++++++++++++++++++++++
+ net/netfilter/xt_NFQUEUE.c       |   80 ++++++--------------------------------
+ 2 files changed, 74 insertions(+), 68 deletions(-)
 
-diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-index fbfd229..256d36b 100644
---- a/include/uapi/linux/netfilter/nf_tables.h
-+++ b/include/uapi/linux/netfilter/nf_tables.h
-@@ -658,6 +658,26 @@ enum nft_log_attributes {
- #define NFTA_LOG_MAX		(__NFTA_LOG_MAX - 1)
+diff --git a/include/net/netfilter/nf_queue.h b/include/net/netfilter/nf_queue.h
+index c1d5b3e..84a53d7 100644
+--- a/include/net/netfilter/nf_queue.h
++++ b/include/net/netfilter/nf_queue.h
+@@ -1,6 +1,10 @@
+ #ifndef _NF_QUEUE_H
+ #define _NF_QUEUE_H
  
- /**
-+ * enum nft_queue_attributes - nf_tables queue expression netlink attributes
-+ *
-+ * @NFTA_QUEUE_NUM: netlink queue to send messages to (NLA_U16)
-+ * @NFTA_QUEUE_TOTAL: number of queues to load balance packets on (NLA_U16)
-+ * @NFTA_QUEUE_FLAGS: various flags (NLA_U16)
-+ */
-+enum nft_queue_attributes {
-+	NFTA_QUEUE_UNSPEC,
-+	NFTA_QUEUE_NUM,
-+	NFTA_QUEUE_TOTAL,
-+	NFTA_QUEUE_FLAGS,
-+	__NFTA_QUEUE_MAX
-+};
-+#define NFTA_QUEUE_MAX		(__NFTA_QUEUE_MAX - 1)
-+
-+#define NFT_QUEUE_FLAG_BYPASS		0x01 /* for compatibility with v2 */
-+#define NFT_QUEUE_FLAG_CPU_FANOUT	0x02 /* use current CPU (no hashing) */
-+#define NFT_QUEUE_FLAG_MASK		0x03
-+
-+/**
-  * enum nft_reject_types - nf_tables reject expression reject types
-  *
-  * @NFT_REJECT_ICMP_UNREACH: reject using ICMP unreachable
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 48acec1..4371c98 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -456,6 +456,15 @@ config NFT_NAT
- 	depends on NF_NAT
- 	tristate "Netfilter nf_tables nat module"
- 
-+config NFT_QUEUE
-+	depends on NF_TABLES
-+	depends on NETFILTER_XTABLES
-+	depends on NETFILTER_NETLINK_QUEUE
-+	tristate "Netfilter nf_tables queue module"
-+	help
-+	  This is required if you intend to use the userspace queueing
-+	  infrastructure (also known as NFQUEUE) from nftables.
-+
- config NFT_COMPAT
- 	depends on NF_TABLES
- 	depends on NETFILTER_XTABLES
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 394483b..e763746 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -76,6 +76,7 @@ obj-$(CONFIG_NFT_META)		+= nft_meta.o
- obj-$(CONFIG_NFT_CT)		+= nft_ct.o
- obj-$(CONFIG_NFT_LIMIT)		+= nft_limit.o
- obj-$(CONFIG_NFT_NAT)		+= nft_nat.o
-+obj-$(CONFIG_NFT_QUEUE)		+= nft_queue.o
- #nf_tables-objs			+= nft_meta_target.o
- obj-$(CONFIG_NFT_RBTREE)	+= nft_rbtree.o
- obj-$(CONFIG_NFT_HASH)		+= nft_hash.o
-diff --git a/net/netfilter/nft_queue.c b/net/netfilter/nft_queue.c
-new file mode 100644
-index 0000000..cbea473
---- /dev/null
-+++ b/net/netfilter/nft_queue.c
-@@ -0,0 +1,134 @@
-+/*
-+ * Copyright (c) 2013 Eric Leblond <eric@regit.org>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ *
-+ * Development of this code partly funded by OISF
-+ * (http://www.openinfosecfoundation.org/)
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/init.h>
-+#include <linux/module.h>
-+#include <linux/netlink.h>
++#include <linux/ip.h>
++#include <linux/ipv6.h>
 +#include <linux/jhash.h>
-+#include <linux/netfilter.h>
-+#include <linux/netfilter/nf_tables.h>
-+#include <net/netfilter/nf_tables.h>
++
+ /* Each queued (to userspace) skbuff has one of these. */
+ struct nf_queue_entry {
+ 	struct list_head	list;
+@@ -33,4 +37,62 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict);
+ bool nf_queue_entry_get_refs(struct nf_queue_entry *entry);
+ void nf_queue_entry_release_refs(struct nf_queue_entry *entry);
+ 
++static inline void init_hashrandom(u32 *jhash_initval)
++{
++	while (*jhash_initval == 0)
++		*jhash_initval = prandom_u32();
++}
++
++static inline u32 hash_v4(const struct sk_buff *skb, u32 jhash_initval)
++{
++	const struct iphdr *iph = ip_hdr(skb);
++
++	/* packets in either direction go into same queue */
++	if ((__force u32)iph->saddr < (__force u32)iph->daddr)
++		return jhash_3words((__force u32)iph->saddr,
++			(__force u32)iph->daddr, iph->protocol, jhash_initval);
++
++	return jhash_3words((__force u32)iph->daddr,
++			(__force u32)iph->saddr, iph->protocol, jhash_initval);
++}
++
++#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
++static inline u32 hash_v6(const struct sk_buff *skb, u32 jhash_initval)
++{
++	const struct ipv6hdr *ip6h = ipv6_hdr(skb);
++	u32 a, b, c;
++
++	if ((__force u32)ip6h->saddr.s6_addr32[3] <
++	    (__force u32)ip6h->daddr.s6_addr32[3]) {
++		a = (__force u32) ip6h->saddr.s6_addr32[3];
++		b = (__force u32) ip6h->daddr.s6_addr32[3];
++	} else {
++		b = (__force u32) ip6h->saddr.s6_addr32[3];
++		a = (__force u32) ip6h->daddr.s6_addr32[3];
++	}
++
++	if ((__force u32)ip6h->saddr.s6_addr32[1] <
++	    (__force u32)ip6h->daddr.s6_addr32[1])
++		c = (__force u32) ip6h->saddr.s6_addr32[1];
++	else
++		c = (__force u32) ip6h->daddr.s6_addr32[1];
++
++	return jhash_3words(a, b, c, jhash_initval);
++}
++#endif
++
++static inline u32
++nfqueue_hash(const struct sk_buff *skb, u16 queue, u16 queues_total, u8 family,
++	     u32 jhash_initval)
++{
++	if (family == NFPROTO_IPV4)
++		queue += ((u64) hash_v4(skb, jhash_initval) * queues_total) >> 32;
++#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
++	else if (family == NFPROTO_IPV6)
++		queue += ((u64) hash_v6(skb, jhash_initval) * queues_total) >> 32;
++#endif
++
++	return queue;
++}
++
+ #endif /* _NF_QUEUE_H */
+diff --git a/net/netfilter/xt_NFQUEUE.c b/net/netfilter/xt_NFQUEUE.c
+index ed00fef..8f1779f 100644
+--- a/net/netfilter/xt_NFQUEUE.c
++++ b/net/netfilter/xt_NFQUEUE.c
+@@ -11,15 +11,13 @@
+ #include <linux/module.h>
+ #include <linux/skbuff.h>
+ 
+-#include <linux/ip.h>
+-#include <linux/ipv6.h>
+-#include <linux/jhash.h>
+-
+ #include <linux/netfilter.h>
+ #include <linux/netfilter_arp.h>
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter/xt_NFQUEUE.h>
+ 
 +#include <net/netfilter/nf_queue.h>
 +
-+static u32 jhash_initval __read_mostly;
-+
-+struct nft_queue {
-+	u16	queuenum;
-+	u16	queues_total;
-+	u16	flags;
-+	u8	family;
-+};
-+
-+static void nft_queue_eval(const struct nft_expr *expr,
-+			   struct nft_data data[NFT_REG_MAX + 1],
-+			   const struct nft_pktinfo *pkt)
-+{
-+	struct nft_queue *priv = nft_expr_priv(expr);
-+	u32 queue = priv->queuenum;
-+	u32 ret;
-+
-+	if (priv->queues_total > 1) {
-+		if (priv->flags & NFT_QUEUE_FLAG_CPU_FANOUT) {
-+			int cpu = smp_processor_id();
-+
-+			queue = priv->queuenum + cpu % priv->queues_total;
-+		} else {
-+			queue = nfqueue_hash(pkt->skb, queue,
-+					     priv->queues_total, priv->family,
-+					     jhash_initval);
-+		}
+ MODULE_AUTHOR("Harald Welte <laforge@netfilter.org>");
+ MODULE_DESCRIPTION("Xtables: packet forwarding to netlink");
+ MODULE_LICENSE("GPL");
+@@ -28,7 +26,6 @@ MODULE_ALIAS("ip6t_NFQUEUE");
+ MODULE_ALIAS("arpt_NFQUEUE");
+ 
+ static u32 jhash_initval __read_mostly;
+-static bool rnd_inited __read_mostly;
+ 
+ static unsigned int
+ nfqueue_tg(struct sk_buff *skb, const struct xt_action_param *par)
+@@ -38,69 +35,16 @@ nfqueue_tg(struct sk_buff *skb, const struct xt_action_param *par)
+ 	return NF_QUEUE_NR(tinfo->queuenum);
+ }
+ 
+-static u32 hash_v4(const struct sk_buff *skb)
+-{
+-	const struct iphdr *iph = ip_hdr(skb);
+-
+-	/* packets in either direction go into same queue */
+-	if ((__force u32)iph->saddr < (__force u32)iph->daddr)
+-		return jhash_3words((__force u32)iph->saddr,
+-			(__force u32)iph->daddr, iph->protocol, jhash_initval);
+-
+-	return jhash_3words((__force u32)iph->daddr,
+-			(__force u32)iph->saddr, iph->protocol, jhash_initval);
+-}
+-
+-#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
+-static u32 hash_v6(const struct sk_buff *skb)
+-{
+-	const struct ipv6hdr *ip6h = ipv6_hdr(skb);
+-	u32 a, b, c;
+-
+-	if ((__force u32)ip6h->saddr.s6_addr32[3] <
+-	    (__force u32)ip6h->daddr.s6_addr32[3]) {
+-		a = (__force u32) ip6h->saddr.s6_addr32[3];
+-		b = (__force u32) ip6h->daddr.s6_addr32[3];
+-	} else {
+-		b = (__force u32) ip6h->saddr.s6_addr32[3];
+-		a = (__force u32) ip6h->daddr.s6_addr32[3];
+-	}
+-
+-	if ((__force u32)ip6h->saddr.s6_addr32[1] <
+-	    (__force u32)ip6h->daddr.s6_addr32[1])
+-		c = (__force u32) ip6h->saddr.s6_addr32[1];
+-	else
+-		c = (__force u32) ip6h->daddr.s6_addr32[1];
+-
+-	return jhash_3words(a, b, c, jhash_initval);
+-}
+-#endif
+-
+-static u32
+-nfqueue_hash(const struct sk_buff *skb, const struct xt_action_param *par)
+-{
+-	const struct xt_NFQ_info_v1 *info = par->targinfo;
+-	u32 queue = info->queuenum;
+-
+-	if (par->family == NFPROTO_IPV4)
+-		queue += ((u64) hash_v4(skb) * info->queues_total) >> 32;
+-#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
+-	else if (par->family == NFPROTO_IPV6)
+-		queue += ((u64) hash_v6(skb) * info->queues_total) >> 32;
+-#endif
+-
+-	return queue;
+-}
+-
+ static unsigned int
+ nfqueue_tg_v1(struct sk_buff *skb, const struct xt_action_param *par)
+ {
+ 	const struct xt_NFQ_info_v1 *info = par->targinfo;
+ 	u32 queue = info->queuenum;
+ 
+-	if (info->queues_total > 1)
+-		queue = nfqueue_hash(skb, par);
+-
++	if (info->queues_total > 1) {
++		queue = nfqueue_hash(skb, queue, info->queues_total,
++				     par->family, jhash_initval);
 +	}
-+
-+	ret = NF_QUEUE_NR(queue);
-+	if (priv->flags & NFT_QUEUE_FLAG_BYPASS)
-+		ret |= NF_VERDICT_FLAG_QUEUE_BYPASS;
-+
-+	data[NFT_REG_VERDICT].verdict = ret;
-+}
-+
-+static const struct nla_policy nft_queue_policy[NFTA_QUEUE_MAX + 1] = {
-+	[NFTA_QUEUE_NUM]	= { .type = NLA_U16 },
-+	[NFTA_QUEUE_TOTAL]	= { .type = NLA_U16 },
-+	[NFTA_QUEUE_FLAGS]	= { .type = NLA_U16 },
-+};
-+
-+static int nft_queue_init(const struct nft_ctx *ctx,
-+			   const struct nft_expr *expr,
-+			   const struct nlattr * const tb[])
-+{
-+	struct nft_queue *priv = nft_expr_priv(expr);
-+
-+	if (tb[NFTA_QUEUE_NUM] == NULL)
-+		return -EINVAL;
-+
+ 	return NF_QUEUE_NR(queue);
+ }
+ 
+@@ -120,10 +64,8 @@ static int nfqueue_tg_check(const struct xt_tgchk_param *par)
+ 	const struct xt_NFQ_info_v3 *info = par->targinfo;
+ 	u32 maxid;
+ 
+-	if (unlikely(!rnd_inited)) {
+-		get_random_bytes(&jhash_initval, sizeof(jhash_initval));
+-		rnd_inited = true;
+-	}
 +	init_hashrandom(&jhash_initval);
-+	priv->family = ctx->afi->family;
-+	priv->queuenum = ntohs(nla_get_be16(tb[NFTA_QUEUE_NUM]));
 +
-+	if (tb[NFTA_QUEUE_TOTAL] != NULL)
-+		priv->queues_total = ntohs(nla_get_be16(tb[NFTA_QUEUE_TOTAL]));
-+	if (tb[NFTA_QUEUE_FLAGS] != NULL) {
-+		priv->flags = ntohs(nla_get_be16(tb[NFTA_QUEUE_FLAGS]));
-+		if (priv->flags & ~NFT_QUEUE_FLAG_MASK)
-+			return -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+static int nft_queue_dump(struct sk_buff *skb, const struct nft_expr *expr)
-+{
-+	const struct nft_queue *priv = nft_expr_priv(expr);
-+
-+	if (nla_put_be16(skb, NFTA_QUEUE_NUM, htons(priv->queuenum)) ||
-+	    nla_put_be16(skb, NFTA_QUEUE_TOTAL, htons(priv->queues_total)) ||
-+	    nla_put_be16(skb, NFTA_QUEUE_FLAGS, htons(priv->flags)))
-+		goto nla_put_failure;
-+
-+	return 0;
-+
-+nla_put_failure:
-+	return -1;
-+}
-+
-+static struct nft_expr_type nft_queue_type;
-+static const struct nft_expr_ops nft_queue_ops = {
-+	.type		= &nft_queue_type,
-+	.size		= NFT_EXPR_SIZE(sizeof(struct nft_queue)),
-+	.eval		= nft_queue_eval,
-+	.init		= nft_queue_init,
-+	.dump		= nft_queue_dump,
-+};
-+
-+static struct nft_expr_type nft_queue_type __read_mostly = {
-+	.name		= "queue",
-+	.ops		= &nft_queue_ops,
-+	.policy		= nft_queue_policy,
-+	.maxattr	= NFTA_QUEUE_MAX,
-+	.owner		= THIS_MODULE,
-+};
-+
-+static int __init nft_queue_module_init(void)
-+{
-+	return nft_register_expr(&nft_queue_type);
-+}
-+
-+static void __exit nft_queue_module_exit(void)
-+{
-+	nft_unregister_expr(&nft_queue_type);
-+}
-+
-+module_init(nft_queue_module_init);
-+module_exit(nft_queue_module_exit);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Eric Leblond <eric@regit.org>");
-+MODULE_ALIAS_NFT_EXPR("queue");
+ 	if (info->queues_total == 0) {
+ 		pr_err("NFQUEUE: number of total queues is 0\n");
+ 		return -EINVAL;
+@@ -154,8 +96,10 @@ nfqueue_tg_v3(struct sk_buff *skb, const struct xt_action_param *par)
+ 			int cpu = smp_processor_id();
+ 
+ 			queue = info->queuenum + cpu % info->queues_total;
+-		} else
+-			queue = nfqueue_hash(skb, par);
++		} else {
++			queue = nfqueue_hash(skb, queue, info->queues_total,
++					     par->family, jhash_initval);
++		}
+ 	}
+ 
+ 	ret = NF_QUEUE_NR(queue);
 -- 
 1.7.10.4
