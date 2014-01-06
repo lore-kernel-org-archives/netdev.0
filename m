@@ -1,45 +1,114 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH v2 5/5] alx: add stats to ethtool
-Date: Mon, 6 Jan 2014 11:57:42 +0100
-Message-ID: <20140106105742.GA30142@kria>
-References: <1388854031-24142-1-git-send-email-sd@queasysnail.net>
- <1388854031-24142-6-git-send-email-sd@queasysnail.net>
- <1388998990.5891.0.camel@jlt4.sipsolutions.net>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net v2 1/9] bridge: Fix the way to find old local fdb
+ entries in br_fdb_changeaddr
+Date: Mon, 06 Jan 2014 06:29:28 -0500
+Message-ID: <52CA9398.3090603@redhat.com>
+References: <1387281821-21342-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>	 <1387281821-21342-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>	 <52C70F63.4020604@redhat.com> <52C7218C.2000205@redhat.com> <1388935578.1906.26.camel@localhost.localdomain>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, bhutchings@solarflare.com,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	"David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
 	netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+To: Toshiaki Makita <toshiaki.makita1@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpfb2-g21.free.fr ([212.27.42.10]:50116 "EHLO
-	smtpfb2-g21.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752082AbaAFK6R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 05:58:17 -0500
-Received: from smtp5-g21.free.fr (smtp5-g21.free.fr [212.27.42.5])
-	by smtpfb2-g21.free.fr (Postfix) with ESMTP id BB682D19B59
-	for <netdev@vger.kernel.org>; Mon,  6 Jan 2014 11:58:13 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <1388998990.5891.0.camel@jlt4.sipsolutions.net>
+Received: from mx1.redhat.com ([209.132.183.28]:16923 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753298AbaAFL3f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jan 2014 06:29:35 -0500
+In-Reply-To: <1388935578.1906.26.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[2014-01-06, 10:03:10] Johannes Berg wrote:
-> On Sat, 2014-01-04 at 17:47 +0100, Sabrina Dubroca wrote:
+On 01/05/2014 10:26 AM, Toshiaki Makita wrote:
+> On Fri, 2014-01-03 at 15:46 -0500, Vlad Yasevich wrote:
+>> On 01/03/2014 02:28 PM, Vlad Yasevich wrote:
+>>> On 12/17/2013 07:03 AM, Toshiaki Makita wrote:
+>>>> br_fdb_changeaddr() assumes that there is at most one local entry per port
+>>>> per vlan. It used to be true, but since commit 36fd2b63e3b4 ("bridge: allow
+>>>> creating/deleting fdb entries via netlink"), it has not been so.
+>>>> Therefore, the function might fail to search a correct previous address
+>>>> to be deleted and delete an arbitrary local entry if user has added local
+>>>> entries manually.
+>>>>
+>>>> Example of problematic case:
+>>>>   ip link set eth0 address ee:ff:12:34:56:78
+>>>>   brctl addif br0 eth0
+>>>>   bridge fdb add 12:34:56:78:90:ab dev eth0 master
+>>>>   ip link set eth0 address aa:bb:cc:dd:ee:ff
+>>>> Then, the address 12:34:56:78:90:ab might be deleted instead of
+>>>> ee:ff:12:34:56:78, the original mac address of eth0.
+>>>>
+>>>> Address this issue by introducing a new flag, added_by_user, to struct
+>>>> net_bridge_fdb_entry.
+>>>>
+>>>> Note that br_fdb_delete_by_port() has to set added_by_user to 0 in case
+>>>> like:
+>>>>   ip link set eth0 address 12:34:56:78:90:ab
+>>>>   ip link set eth1 address aa:bb:cc:dd:ee:ff
+>>>>   brctl addif br0 eth0
+>>>>   bridge fdb add aa:bb:cc:dd:ee:ff dev eth0 master
+>>>>   brctl addif br0 eth1
+>>>>   brctl delif br0 eth0
+>>>> In this case, kernel should delete the user-added entry aa:bb:cc:dd:ee:ff,
+>>>> but it also should have been added by "brctl addif br0 eth1" originally,
+>>>> so we don't delete it and treat it a new kernel-created entry.
+>>>>
+>>>
+>>> I was looking over my patch series that adds something similar to this
+>>> and noticed that you are not handing the NTF_USE case.  That case was
+>>> always troublesome for me as it allows for 2 different way to create
+>>> the same FDB: one through br_fdb_update() and one through fdb_add_entry().
+>>>
+>>> It is possible, though I haven't found any users yet, that NTF_USE
+>>> may be used and in that case, bridge will create a dynamic fdb and
+>>> disregard all NUD flags.  In case case, add_by_user will not be set
+>>> either.
+>>>
+>>> I think that the above is broken and plan to submit a fix shortly.
+>>
+>> Just looked again at my NTF_USE patch and while it seems ok, the whole
+>> NTF_USE usage is racy to begin with and I am really starting to question
+>> it's validity.
+>>
+>> Presently, br_fdb_update() will not update local fdb entries.   Instead
+>> it will log a misleading warning...  It will only let you update
+>> non-local entries.  This is fine for user-created entries, but any
+>> operation on dynamically created entries will only persist until
+>> the next packet.  It also races against the packet, so there is
+>> absolutely no guarantee that the values of fdb->dst and fdb->updated
+>> will be consistent..
+>>
+>> It seems to me that the update capability of NTF_USE would actually be
+>> of more value on local or user-created fdb entries.
+>>
+>> The fdb creation capability of NTF_USE should be disabled.
+>>
+>> Thoughts?
 > 
-> > +	__alx_update_hw_stats(hw);
-> > +	BUILD_BUG_ON(sizeof(hw->stats) - offsetof(struct alx_hw_stats, rx_ok) <
-> > +		     ALX_NUM_STATS * sizeof(u64));
+> I ignored NTF_USE in this patch because I regard it as emulating kernel
+> creating entries after investigating git log.
 > 
-> I think you should make that != instead of <, otherwise you won't catch
-> all possible differences.
+> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=0c5c2d3089068d4aa378f7a40d2b5ad9d4f52ce8
+> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=292d1398983f3514a0eab13b7606df7f4730b498
+> 
+> So I think NTF_USE shouldn't set added_by_user.
+> And to emulate kernel creating entries, simply calling br_fdb_update()
+> is the right way, isn't it?
 
-With a !=, BUILD_BUG_ON is triggered if a new field is added at the
-end of the structure. But adding a field doesn't break the code,
-though I'm not sure allowing this is useful. The offsetof (and the
-source in memcpy) also allows to add new fields at the beginning.
+You can create dynamic entries (emulating the kernel) without NTF_USE.
+Just set the NUD_REACHABLE.  Notice that arp cache only uses NTF_USE
+to trigger and arp notification.  The creation is still triggered via
+other netlink flags.
 
-And the way alx_update_hw_stats is written already includes a kind of
-check that all fields are present.
+The more I look at this the more I think NTF_USE should not create
+an entry all by itself.
 
--- 
-Sabrina
+-vlad
+
+> 
+> Thanks,
+> Toshiaki Makita
+> 
