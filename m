@@ -1,59 +1,52 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH v3.5 18/19] rtlwifi: slight optimization of addr compare
-Date: Mon, 6 Jan 2014 14:53:03 -0500
-Message-ID: <20140106195302.GF10885@tuxdriver.com>
-References: <52BC15EA.2020603@huawei.com>
- <52BC2576.3090601@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v4] IPv6: use anycast addresses as source
+ addresses in echo reply
+Date: Mon, 06 Jan 2014 15:11:52 -0500 (EST)
+Message-ID: <20140106.151152.229689152907259833.davem@davemloft.net>
+References: <1388767411-17818-1-git-send-email-fx.lebail@yahoo.com>
+	<20140105230505.GA29910@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	linux-wireless@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <52BC2576.3090601@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: fx.lebail@yahoo.com, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34223 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754806AbaAFUL5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 15:11:57 -0500
+In-Reply-To: <20140105230505.GA29910@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 26, 2013 at 04:47:50PM +0400, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 26-12-2013 15:41, Ding Tianhong wrote:
-> 
-> >Use possibly more efficient ether_addr_equal_unaligned
-> >instead of memcmp.
-> 
-> >Cc: Larry Finger <Larry.Finger@lwfinger.net>
-> >Cc: Chaoming Li <chaoming_li@realsil.com.cn>
-> >Cc: John W. Linville <linville@tuxdriver.com>
-> >Cc: linux-wireless@vger.kernel.org
-> >Cc: netdev@vger.kernel.org
-> >Cc: linux-kernel@vger.kernel.org
-> >Signed-off-by: Weilong Chen <chenweilong@huawei.com>
-> >Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> >---
-> >  drivers/net/wireless/rtlwifi/cam.c | 4 ++--
-> >  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> >diff --git a/drivers/net/wireless/rtlwifi/cam.c b/drivers/net/wireless/rtlwifi/cam.c
-> >index 0e510f7..0276153 100644
-> >--- a/drivers/net/wireless/rtlwifi/cam.c
-> >+++ b/drivers/net/wireless/rtlwifi/cam.c
-> [...]
-> >@@ -335,7 +335,7 @@ void rtl_cam_del_entry(struct ieee80211_hw *hw, u8 *sta_addr)
-> >  		addr = rtlpriv->sec.hwsec_cam_sta_addr[i];
-> >  		bitmap = (rtlpriv->sec.hwsec_cam_bitmap) >> i;
-> >  		if (((bitmap & BIT(0)) == BIT(0)) &&
-> >-		    (memcmp(addr, sta_addr, ETH_ALEN) == 0)) {
-> >+		    (ether_addr_equal_unaligned(addr, sta_addr))) {
-> 
->    It's pointless to enclose function call in parens, again.
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Mon, 6 Jan 2014 00:05:05 +0100
 
-I'll correct that issue when merging the patch.
+> On Fri, Jan 03, 2014 at 05:43:31PM +0100, Francois-Xavier Le Bail wrote:
+>> diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+>> index 5d42009..65c8619 100644
+>> --- a/net/ipv6/icmp.c
+>> +++ b/net/ipv6/icmp.c
+>> @@ -556,7 +556,9 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+>>  
+>>  	saddr = &ipv6_hdr(skb)->daddr;
+>>  
+>> -	if (!ipv6_unicast_destination(skb))
+>> +	if (!ipv6_unicast_destination(skb) &&
+>> +	    !(net->ipv6.anycast_src_echo_reply &&
+>> +	      ipv6_chk_acast_addr(net, NULL, saddr)))
+>>  		saddr = NULL;
+> 
+> I am not sure why you left out the device at ipv6_chk_acast_addr?
+> 
+> IMHO this logic is a bit more complex, we can pass NULL for ipv6 addresses of
+> scope global but need to check the interface for scope link.
+> 
+> It is already possible via setsockopt JOIN_ANYCAST that an ll address is
+> anycast on another interface which may not be checked here.
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+I think we should pass a valid device in unless it breaks something
+obvious.
+
+Thanks.
