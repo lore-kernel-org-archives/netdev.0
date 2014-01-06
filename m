@@ -1,24 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: net has been merged into net-next
-Date: Mon, 06 Jan 2014 17:39:17 -0500 (EST)
-Message-ID: <20140106.173917.1838736570522420610.davem@davemloft.net>
+From: Andrew Collins <bsderandrew@gmail.com>
+Subject: Re: Possible to add netfilter hooks to IFB driver?
+Date: Mon, 6 Jan 2014 15:51:37 -0700
+Message-ID: <CAKTPYJTDj82YM8peU-bbS5OtuXnq1ty4+f-Wyk_bE2LBf4vGmw@mail.gmail.com>
+References: <522653F1.6090902@ecessa.com>
+	<20140106135123.3c7e6645@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Brad Johnson <bjohnson@ecessa.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35446 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932386AbaAFWjT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 17:39:19 -0500
-Received: from localhost (nat-pool-rdu-t.redhat.com [66.187.233.202])
-	(Authenticated sender: davem-davemloft)
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 18CD3587B3C
-	for <netdev@vger.kernel.org>; Mon,  6 Jan 2014 14:39:18 -0800 (PST)
+Received: from mail-vc0-f170.google.com ([209.85.220.170]:46816 "EHLO
+	mail-vc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755273AbaAFWvi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 17:51:38 -0500
+Received: by mail-vc0-f170.google.com with SMTP id ld13so1395325vcb.1
+        for <netdev@vger.kernel.org>; Mon, 06 Jan 2014 14:51:37 -0800 (PST)
+In-Reply-To: <20140106135123.3c7e6645@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Jan 6, 2014 at 2:51 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+>
+> The risk is creating the same races that made IMQ unacceptable.
+> --
 
-Just FYI.
+I believe openwrt nowadays uses a TC action which runs the packet
+through prerouting then pulls in the mark off the ct entry into the
+skb, so ingress+IFB can take action on it.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Perhaps a cleaned up version of this would be suitable for upstream?
