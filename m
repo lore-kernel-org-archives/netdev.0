@@ -1,37 +1,69 @@
-From: Alban Crequy <alban.crequy@collabora.co.uk>
-Subject: Re: Possible to add netfilter hooks to IFB driver?
-Date: Mon, 6 Jan 2014 17:18:08 +0000
-Message-ID: <20140106171808.7f491286@rainbow.cbg.collabora.co.uk>
-References: <522653F1.6090902@ecessa.com>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [PATCH] netfilter: nf_conntrack: release conntrack from rcu
+ callback
+Date: Mon, 6 Jan 2014 21:21:30 +0400
+Message-ID: <20140106172130.GA2360@moon>
+References: <1389023672-14351-1-git-send-email-avagin@openvz.org>
+ <20140106170235.GJ28854@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Brad Johnson <bjohnson@ecessa.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bhuna.collabora.co.uk ([93.93.135.160]:60190 "EHLO
-	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755259AbaAFRSL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 12:18:11 -0500
-In-Reply-To: <522653F1.6090902@ecessa.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrey Vagin <avagin@openvz.org>, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	vvs@openvz.org, Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140106170235.GJ28854@breakpoint.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 03 Sep 2013 16:26:09 -0500
-Brad Johnson <bjohnson@ecessa.com> wrote:
+On Mon, Jan 06, 2014 at 06:02:35PM +0100, Florian Westphal wrote:
+> 
+> Can you elaborate?
+> Yes, nf_ct_is_dying(ct) might be called for the wrong conntrack.
+> 
+> But, in case we _think_ that its the right one we call
+> nf_ct_tuple_equal() to verify we indeed found the right one:
+> 
+>        h = ____nf_conntrack_find(net, zone, tuple, hash);
+>        if (h) { // might be released right now, but page won't go away (SLAB_BY_RCU)
+>                 ct = nf_ct_tuplehash_to_ctrack(h);
+>                 if (unlikely(nf_ct_is_dying(ct) ||
+>                              !atomic_inc_not_zero(&ct->ct_general.use)))
+> 			// which means we should hit this path (0 ref).
+>                         h = NULL;
+>                 else {
+> 			// otherwise, it cannot go away from under us, since
+> 			// we own a reference now.
+>                         if (unlikely(!nf_ct_tuple_equal(tuple, &h->tuple) ||
+>                                      nf_ct_zone(ct) != zone)) {
+> 			// if we get here, the entry got recycled on other cpu
+> 			// for a different tuple, we can bail out and drop
+> 			// the reference safely and re-try the lookup
+>                                 nf_ct_put(ct);
+>                                 goto begin;
+>                         }
+>                 }
 
-> I would like to add netfilter hooks to the IFB driver so I can do 
-> iptables -j IFB (just like we can with IMQ). But I would like to know 
-> first if there are any reasons this can not work. Please advise if
-> this is possible, and if so any tips would be appreciated.
+I think tuple may match if
 
-I would like to have the same feature for ingress shaping via
-connection marking. But this page says "wont go back to putting
-netfilter hooks" but have a "contrack related action":
-http://www.linuxfoundation.org/collaborate/workgroups/networking/ifb
-http://thread.gmane.org/gmane.linux.network/21224
+task 1                  task 2                  task 3
+                        nf_conntrack_find_get
+                         ____nf_conntrack_find
+destroy_conntrack
+ hlist_nulls_del_rcu
+ nf_conntrack_free
+ kmem_cache_free
+                                                __nf_conntrack_alloc
+                                                 kmem_cache_alloc
+                         if (nf_ct_is_dying(ct))
 
-I don't know if someone made a patch for either implementation.
+						data is not yet cleaned
 
-Best regards,
-Alban
+                                                 memset(&ct->tuplehash[IP_CT_DIR_MAX],
+
+No? Or there something obvious I'm missing?
