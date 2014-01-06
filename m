@@ -1,142 +1,75 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH 2/3] be2net: increase the timeout value for loopback-test FW cmd
-Date: Mon, 6 Jan 2014 13:02:24 +0530
-Message-ID: <1388993545-25634-3-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH 3/3] be2net: fix max_evt_qs calculation for BE3 in SR-IOV config
+Date: Mon, 6 Jan 2014 13:02:25 +0530
+Message-ID: <1388993545-25634-4-git-send-email-sathya.perla@emulex.com>
 References: <1388993545-25634-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:19242 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751457AbaAFH2e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 02:28:34 -0500
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:19013 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751457AbaAFH2g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 02:28:36 -0500
 In-Reply-To: <1388993545-25634-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Suresh Reddy <suresh.reddy@emulex.com>
 
-The loopback test FW cmd may need upto 15 seconds to complete on
-certain PHYs. This patch also fixes the name of the completion variable
-used to synchronize FW cmd completions as it not used by the flashing
-cmd alone anymore.
+The driver wrongly assumes 16 EQs/vectors are available for each BE3 PF.
+When SR-IOV is enabled, a BE3 PF can support only a max of 8 EQs.
 
 Signed-off-by: Suresh Reddy <suresh.reddy@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h      |    2 +-
- drivers/net/ethernet/emulex/benet/be_cmds.c |   30 ++++++++++++++++++---------
- drivers/net/ethernet/emulex/benet/be_main.c |    2 +-
- 3 files changed, 22 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h      |    1 +
+ drivers/net/ethernet/emulex/benet/be_main.c |   12 ++++++++----
+ 2 files changed, 9 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 5878df6..2e031f2 100644
+index 2e031f2..4ccaf9a 100644
 --- a/drivers/net/ethernet/emulex/benet/be.h
 +++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -480,7 +480,7 @@ struct be_adapter {
- 	struct list_head entry;
+@@ -104,6 +104,7 @@ static inline char *nic_name(struct pci_dev *pdev)
+ #define BE3_MAX_RSS_QS		16
+ #define BE3_MAX_TX_QS		16
+ #define BE3_MAX_EVT_QS		16
++#define BE3_SRIOV_MAX_EVT_QS	8
  
- 	u32 flash_status;
--	struct completion flash_compl;
-+	struct completion et_cmd_compl;
- 
- 	struct be_resources res;	/* resources available for the func */
- 	u16 num_vfs;			/* Number of VFs provisioned by PF */
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index b84902e..94c35c8 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -141,11 +141,17 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
- 		subsystem = resp_hdr->subsystem;
- 	}
- 
-+	if (opcode == OPCODE_LOWLEVEL_LOOPBACK_TEST &&
-+	    subsystem == CMD_SUBSYSTEM_LOWLEVEL) {
-+		complete(&adapter->et_cmd_compl);
-+		return 0;
-+	}
-+
- 	if (((opcode == OPCODE_COMMON_WRITE_FLASHROM) ||
- 	     (opcode == OPCODE_COMMON_WRITE_OBJECT)) &&
- 	    (subsystem == CMD_SUBSYSTEM_COMMON)) {
- 		adapter->flash_status = compl_status;
--		complete(&adapter->flash_compl);
-+		complete(&adapter->et_cmd_compl);
- 	}
- 
- 	if (compl_status == MCC_STATUS_SUCCESS) {
-@@ -2163,7 +2169,7 @@ int lancer_cmd_write_object(struct be_adapter *adapter, struct be_dma_mem *cmd,
- 	be_mcc_notify(adapter);
- 	spin_unlock_bh(&adapter->mcc_lock);
- 
--	if (!wait_for_completion_timeout(&adapter->flash_compl,
-+	if (!wait_for_completion_timeout(&adapter->et_cmd_compl,
- 					 msecs_to_jiffies(60000)))
- 		status = -1;
- 	else
-@@ -2258,8 +2264,8 @@ int be_cmd_write_flashrom(struct be_adapter *adapter, struct be_dma_mem *cmd,
- 	be_mcc_notify(adapter);
- 	spin_unlock_bh(&adapter->mcc_lock);
- 
--	if (!wait_for_completion_timeout(&adapter->flash_compl,
--			msecs_to_jiffies(40000)))
-+	if (!wait_for_completion_timeout(&adapter->et_cmd_compl,
-+					 msecs_to_jiffies(40000)))
- 		status = -1;
- 	else
- 		status = adapter->flash_status;
-@@ -2370,6 +2376,7 @@ int be_cmd_loopback_test(struct be_adapter *adapter, u32 port_num,
- {
- 	struct be_mcc_wrb *wrb;
- 	struct be_cmd_req_loopback_test *req;
-+	struct be_cmd_resp_loopback_test *resp;
- 	int status;
- 
- 	spin_lock_bh(&adapter->mcc_lock);
-@@ -2384,8 +2391,8 @@ int be_cmd_loopback_test(struct be_adapter *adapter, u32 port_num,
- 
- 	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_LOWLEVEL,
- 			OPCODE_LOWLEVEL_LOOPBACK_TEST, sizeof(*req), wrb, NULL);
--	req->hdr.timeout = cpu_to_le32(4);
- 
-+	req->hdr.timeout = cpu_to_le32(15);
- 	req->pattern = cpu_to_le64(pattern);
- 	req->src_port = cpu_to_le32(port_num);
- 	req->dest_port = cpu_to_le32(port_num);
-@@ -2393,12 +2400,15 @@ int be_cmd_loopback_test(struct be_adapter *adapter, u32 port_num,
- 	req->num_pkts = cpu_to_le32(num_pkts);
- 	req->loopback_type = cpu_to_le32(loopback_type);
- 
--	status = be_mcc_notify_wait(adapter);
--	if (!status) {
--		struct be_cmd_resp_loopback_test *resp = embedded_payload(wrb);
--		status = le32_to_cpu(resp->status);
--	}
-+	be_mcc_notify(adapter);
-+
-+	spin_unlock_bh(&adapter->mcc_lock);
- 
-+	wait_for_completion(&adapter->et_cmd_compl);
-+	resp = embedded_payload(wrb);
-+	status = le32_to_cpu(resp->status);
-+
-+	return status;
- err:
- 	spin_unlock_bh(&adapter->mcc_lock);
- 	return status;
+ #define MAX_RX_QS		32
+ #define MAX_EVT_QS		32
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 6b774a5..fa44bba 100644
+index fa44bba..bf40fda 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4208,7 +4208,7 @@ static int be_ctrl_init(struct be_adapter *adapter)
- 	spin_lock_init(&adapter->mcc_lock);
- 	spin_lock_init(&adapter->mcc_cq_lock);
+@@ -3127,11 +3127,11 @@ static void BEx_get_resources(struct be_adapter *adapter,
+ {
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	bool use_sriov = false;
++	int max_vfs;
  
--	init_completion(&adapter->flash_compl);
-+	init_completion(&adapter->et_cmd_compl);
- 	pci_save_state(adapter->pdev);
- 	return 0;
+-	if (BE3_chip(adapter) && sriov_want(adapter)) {
+-		int max_vfs;
++	max_vfs = pci_sriov_get_totalvfs(pdev);
  
+-		max_vfs = pci_sriov_get_totalvfs(pdev);
++	if (BE3_chip(adapter) && sriov_want(adapter)) {
+ 		res->max_vfs = max_vfs > 0 ? min(MAX_VFS, max_vfs) : 0;
+ 		use_sriov = res->max_vfs;
+ 	}
+@@ -3162,7 +3162,11 @@ static void BEx_get_resources(struct be_adapter *adapter,
+ 					   BE3_MAX_RSS_QS : BE2_MAX_RSS_QS;
+ 	res->max_rx_qs = res->max_rss_qs + 1;
+ 
+-	res->max_evt_qs = be_physfn(adapter) ? BE3_MAX_EVT_QS : 1;
++	if (be_physfn(adapter))
++		res->max_evt_qs = (max_vfs > 0) ?
++					BE3_SRIOV_MAX_EVT_QS : BE3_MAX_EVT_QS;
++	else
++		res->max_evt_qs = 1;
+ 
+ 	res->if_cap_flags = BE_IF_CAP_FLAGS_WANT;
+ 	if (!(adapter->function_caps & BE_FUNCTION_CAPS_RSS))
 -- 
 1.7.1
