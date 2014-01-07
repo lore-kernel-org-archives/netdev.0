@@ -1,37 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] cxgb4: Fix namespace collision issue.
-Date: Tue, 07 Jan 2014 15:48:13 -0500 (EST)
-Message-ID: <20140107.154813.1483946457674959301.davem@davemloft.net>
-References: <1389094088-6261-1-git-send-email-hariprasad@chelsio.com>
-	<1389094088-6261-2-git-send-email-hariprasad@chelsio.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v5] IPv6: add the option to use anycast addresses as source addresses in echo reply
+Date: Tue, 7 Jan 2014 21:51:01 +0100
+Message-ID: <20140107205101.GJ30393@order.stressinduktion.org>
+References: <1389103047-3380-1-git-send-email-fx.lebail@yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dm@chelsio.com, leedom@chelsio.com,
-	nirranjan@chelsio.com, kumaras@chelsio.com, santosh@chelsio.com
-To: hariprasad@chelsio.com
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44526 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753558AbaAGUsP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 15:48:15 -0500
-In-Reply-To: <1389094088-6261-2-git-send-email-hariprasad@chelsio.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:46253 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752610AbaAGUvC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 15:51:02 -0500
+Content-Disposition: inline
+In-Reply-To: <1389103047-3380-1-git-send-email-fx.lebail@yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Tue,  7 Jan 2014 16:58:07 +0530
+On Tue, Jan 07, 2014 at 02:57:27PM +0100, Francois-Xavier Le Bail wrote:
+> --- a/include/net/netns/ipv6.h
+> +++ b/include/net/netns/ipv6.h
+> @@ -73,6 +73,7 @@ struct netns_ipv6 {
+>  #endif
+>  	atomic_t		dev_addr_genid;
+>  	atomic_t		rt_genid;
+> +	int			anycast_src_echo_reply;
+>  };
+>  
 
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
-  ...
+Sorry, I missed that on first review and you could also do that as a
+follow-up:
 
-> -int t4_init_tp_params(struct adapter *adap)
+Could you move anycast_src_echo_reply to netns_sysctl_ipv6?
 
-There is no reason that an already exported function must be moved
-to solve a namespace issue.
+Thanks,
 
-If you want to move this function for another reason, fine, but do
-it in a seperate change with a clear description of that reason in
-your commit message.
-
-I'm not applying this series.
+  Hannes
