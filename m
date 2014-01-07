@@ -1,175 +1,134 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH net 1/2] macvlan: forbid L2 fowarding offload for macvtap
-Date: Mon, 06 Jan 2014 23:26:34 -0800
-Message-ID: <52CBAC2A.90005@intel.com>
-References: <1388978467-2075-1-git-send-email-jasowang@redhat.com> <52CA5CDA.1020503@gmail.com> <52CA612D.2000902@redhat.com> <20140106122628.GA24280@hmsreliant.think-freely.org> <52CB7009.2030903@redhat.com> <52CB8D54.9090506@gmail.com> <52CB9D1A.1050101@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mst@redhat.com, Vlad Yasevich <vyasevic@redhat.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52CB9D1A.1050101@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: roy.qing.li@gmail.com
+Subject: [PATCH] ipv6: pcpu_tstats.syncp should be initialised in ip6_vti.c
+Date: Tue,  7 Jan 2014 15:39:43 +0800
+Message-ID: <1389080383-25655-1-git-send-email-roy.qing.li@gmail.com>
+References: <20140105022017.GB16180@localhost>
+Cc: fengguang.wu@intel.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:59036 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755388AbaAGHjy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 02:39:54 -0500
+Received: by mail-pa0-f53.google.com with SMTP id hz1so33683pad.12
+        for <netdev@vger.kernel.org>; Mon, 06 Jan 2014 23:39:54 -0800 (PST)
+In-Reply-To: <20140105022017.GB16180@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[...]
+From: Li RongQing <roy.qing.li@gmail.com>
 
->>> Unfortunately not. This commit has a side effect that it in fact
->>> disables the multiqueue macvtap transmission. Since all macvtap queues
->>> will contend on a single qdisc lock.
->>>
->>
->> They will only contend on a single qdisc lock if the lower device has
->> 1 queue.
->
-> I think we are talking about 6acf54f1cf0a6747bac9fea26f34cfc5a9029523.
+initialise pcpu_tstats.syncp to kill the calltrace
+[   11.973950] Call Trace:
+[   11.973950]  [<819bbaff>] dump_stack+0x48/0x60
+[   11.973950]  [<819bbaff>] dump_stack+0x48/0x60
+[   11.973950]  [<81078dcf>] __lock_acquire.isra.22+0x1bf/0xc10
+[   11.973950]  [<81078dcf>] __lock_acquire.isra.22+0x1bf/0xc10
+[   11.973950]  [<81079fa7>] lock_acquire+0x77/0xa0
+[   11.973950]  [<81079fa7>] lock_acquire+0x77/0xa0
+[   11.973950]  [<817ca7ab>] ? dev_get_stats+0xcb/0x130
+[   11.973950]  [<817ca7ab>] ? dev_get_stats+0xcb/0x130
+[   11.973950]  [<8183862d>] ip_tunnel_get_stats64+0x6d/0x230
+[   11.973950]  [<8183862d>] ip_tunnel_get_stats64+0x6d/0x230
+[   11.973950]  [<817ca7ab>] ? dev_get_stats+0xcb/0x130
+[   11.973950]  [<817ca7ab>] ? dev_get_stats+0xcb/0x130
+[   11.973950]  [<811cf8c1>] ? __nla_reserve+0x21/0xd0
+[   11.973950]  [<811cf8c1>] ? __nla_reserve+0x21/0xd0
+[   11.973950]  [<817ca7ab>] dev_get_stats+0xcb/0x130
+[   11.973950]  [<817ca7ab>] dev_get_stats+0xcb/0x130
+[   11.973950]  [<817d5409>] rtnl_fill_ifinfo+0x569/0xe20
+[   11.973950]  [<817d5409>] rtnl_fill_ifinfo+0x569/0xe20
+[   11.973950]  [<810352e0>] ? kvm_clock_read+0x20/0x30
+[   11.973950]  [<810352e0>] ? kvm_clock_read+0x20/0x30
+[   11.973950]  [<81008e38>] ? sched_clock+0x8/0x10
+[   11.973950]  [<81008e38>] ? sched_clock+0x8/0x10
+[   11.973950]  [<8106ba45>] ? sched_clock_local+0x25/0x170
+[   11.973950]  [<8106ba45>] ? sched_clock_local+0x25/0x170
+[   11.973950]  [<810da6bd>] ? __kmalloc+0x3d/0x90
+[   11.973950]  [<810da6bd>] ? __kmalloc+0x3d/0x90
+[   11.973950]  [<817b8c10>] ? __kmalloc_reserve.isra.41+0x20/0x70
+[   11.973950]  [<817b8c10>] ? __kmalloc_reserve.isra.41+0x20/0x70
+[   11.973950]  [<810da81a>] ? slob_alloc_node+0x2a/0x60
+[   11.973950]  [<810da81a>] ? slob_alloc_node+0x2a/0x60
+[   11.973950]  [<817b919a>] ? __alloc_skb+0x6a/0x2b0
+[   11.973950]  [<817b919a>] ? __alloc_skb+0x6a/0x2b0
+[   11.973950]  [<817d8795>] rtmsg_ifinfo+0x65/0xe0
+[   11.973950]  [<817d8795>] rtmsg_ifinfo+0x65/0xe0
+[   11.973950]  [<817cbd31>] register_netdevice+0x531/0x5a0
+[   11.973950]  [<817cbd31>] register_netdevice+0x531/0x5a0
+[   11.973950]  [<81892b87>] ? ip6_tnl_get_cap+0x27/0x90
+[   11.973950]  [<81892b87>] ? ip6_tnl_get_cap+0x27/0x90
+[   11.973950]  [<817cbdb6>] register_netdev+0x16/0x30
+[   11.973950]  [<817cbdb6>] register_netdev+0x16/0x30
+[   11.973950]  [<81f574a6>] vti6_init_net+0x1c4/0x1d4
+[   11.973950]  [<81f574a6>] vti6_init_net+0x1c4/0x1d4
+[   11.973950]  [<81f573af>] ? vti6_init_net+0xcd/0x1d4
+[   11.973950]  [<81f573af>] ? vti6_init_net+0xcd/0x1d4
+[   11.973950]  [<817c16df>] ops_init.constprop.11+0x17f/0x1c0
+[   11.973950]  [<817c16df>] ops_init.constprop.11+0x17f/0x1c0
+[   11.973950]  [<817c1779>] register_pernet_operations.isra.9+0x59/0x90
+[   11.973950]  [<817c1779>] register_pernet_operations.isra.9+0x59/0x90
+[   11.973950]  [<817c18d1>] register_pernet_device+0x21/0x60
+[   11.973950]  [<817c18d1>] register_pernet_device+0x21/0x60
+[   11.973950]  [<81f574b6>] ? vti6_init_net+0x1d4/0x1d4
+[   11.973950]  [<81f574b6>] ? vti6_init_net+0x1d4/0x1d4
+[   11.973950]  [<81f574c7>] vti6_tunnel_init+0x11/0x68
+[   11.973950]  [<81f574c7>] vti6_tunnel_init+0x11/0x68
+[   11.973950]  [<81f572a1>] ? mip6_init+0x73/0xb4
+[   11.973950]  [<81f572a1>] ? mip6_init+0x73/0xb4
+[   11.973950]  [<81f0cba4>] do_one_initcall+0xbb/0x15b
+[   11.973950]  [<81f0cba4>] do_one_initcall+0xbb/0x15b
+[   11.973950]  [<811a00d8>] ? sha_transform+0x528/0x1150
+[   11.973950]  [<811a00d8>] ? sha_transform+0x528/0x1150
+[   11.973950]  [<81f0c544>] ? repair_env_string+0x12/0x51
+[   11.973950]  [<81f0c544>] ? repair_env_string+0x12/0x51
+[   11.973950]  [<8105c30d>] ? parse_args+0x2ad/0x440
+[   11.973950]  [<8105c30d>] ? parse_args+0x2ad/0x440
+[   11.973950]  [<810546be>] ? __usermodehelper_set_disable_depth+0x3e/0x50
+[   11.973950]  [<810546be>] ? __usermodehelper_set_disable_depth+0x3e/0x50
+[   11.973950]  [<81f0cd27>] kernel_init_freeable+0xe3/0x182
+[   11.973950]  [<81f0cd27>] kernel_init_freeable+0xe3/0x182
+[   11.973950]  [<81f0c532>] ? do_early_param+0x7a/0x7a
+[   11.973950]  [<81f0c532>] ? do_early_param+0x7a/0x7a
+[   11.973950]  [<819b5b1b>] kernel_init+0xb/0x100
+[   11.973950]  [<819b5b1b>] kernel_init+0xb/0x100
+[   11.973950]  [<819cebf7>] ret_from_kernel_thread+0x1b/0x28
+[   11.973950]  [<819cebf7>] ret_from_kernel_thread+0x1b/0x28
+[   11.973950]  [<819b5b10>] ? rest_init+0xc0/0xc0
+[   11.973950]  [<819b5b10>] ? rest_init+0xc0/0xc0
 
-Yes.
+Before 469bdcefdc ("ipv6: fix the use of pcpu_tstats in ip6_vti.c"),
+the pcpu_tstats.syncp is not used to pretect the 64bit elements of
+pcpu_tstats, so not appear this calltrace.
 
->
-> The qdisc or txq lock were macvlan device itself since dev_queue_xmit()
-> was called for macvlan device itself. So even if lower device has
-> multiple txqs, if you just create a one queue macvlan device, you will
-> get lock contention on macvlan device. And even if you explicitly
-> specifying the txq numbers ( though I don't believe most management
-> software will do this) when creating the macvlan/macvtap device, you
-> must also configure the XPS for macvlan to make sure it has the
-> possibility of using multiple transmit queues.
->
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/ipv6/ip6_vti.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
-OK I think I'm finally putting all the pieces together thanks.
-
-Do you know why macvtap is setting dev->tx_queue_len by default? If you
-zero this then the noqueue_qdisc is used and the q->enqueue check in
-dev_queue_xmit will fail.
-
-Also if XPS is not configured then skb_tx_hash is used so multiple
-transmit queues will still be used.
-
->> Perhaps defaulting the L2 forwarding devices to 1queue was a
->> mistake. But the same issue arises when running macvtap over a
->> non-multiqueue nic. Or even if you have a multiqueue device and create
->> many more macvtap queues than the lower device has queues.
->>
->> Shouldn't the macvtap configuration take into account the lowest level
->> devices queues?
->
-> See commit 8ffab51b3dfc54876f145f15b351c41f3f703195 ("macvlan: lockless
-> tx path"). It allows the management to create a device without worrying
-> the underlying device.
-
-OK.
-
->> How does using the L2 forwarding device change the
->> contention issues? Without the L2 forwarding LLTX is enabled but the
->> qdisc lock, etc is still acquired on the device below the macvlan.
->>
->
-> That's the point. We need make sure the txq selection and qdisc lock
-> were done for the lower device not for the macvlan device itself. Then
-> macvlan can automatically benefit from the multi-queue capable lower
-> devices. But L2 forwarding needs to contend on the txq lock on macvlan
-> device itself, which is unnecessary and can complex the management.
-
-If I make the l2 forwarding defaults a bit better then using the L2
-forwarding case should not be any more complex. And because the queues
-are dedicated to the macvtap device any contention from qdisc lock, etc
-comes from the upper device only. Also if I get the bandwidth controls
-in we can set the max/min bandwidth per macvtap device this way. That
-is future work though.
-
->> The ixgbe driver as it is currently written can be configured for up to
->> 4 queues by setting numtxqueues when the device is created. I assume
->> when creating macvtap queues the user needs to account for the number
->> of queues supported by the lower device.
->>
->
-> We'd better not complicate the task of management, lockless tx path work
-> very well so we can just keep it. Btw, there's no way for the user to
-> know the maximum number of queues that L2 forwarding supports.
-
-Good point I'll add an attribute to query it.
-
->>> For L2 forwarding offload itself, more issues need to be addressed for
->>> multiqueue macvtap:
->>>
->>> - ndo_dfwd_add_station() can only create queues per device at ndo_open,
->>> but multiqueue macvtap allows user to create and destroy queues at their
->>> will and at any time.
->>
->> same argument as above, isn't this the same when running macvtap without
->> the l2 offloads over a real device? I expect you hit the same contention
->> points when running over a real device.
->
-> Not true and not only for contention.
->
-> Macvtap allows user to create or destroy a queue by simply open or close
-> to character device /dev/tapX. But currently, we do nothing when a new
-> queue was created or destroyed for L2 forwarding offload.
->
-> For contention, lockless tx path make the contention only happens for
-> the txq or qdisc for the lower device, but L2 forwarding offload make
-> contention also happen for the macvlan device itself.
-
-Right, but there will be less contention there because those queues
-are a dedicated resource for the upper device.
-
-At this point I think I need to put together a real testbed and
-benchmark some of this with netperf and perf running to get real
-numbers. When I originally did the l2 forwarding I did not do any
-testing with multiple macvtap queues and only very limited work with
-macvtap.
-
->
->>
->>
->>> - it looks that ixgbe has a upper limit of 4 queues per station, but
->>> macvtap currently allows up to 16 queues per device.
->>>
->>
->> The 4 limit was to simplify the code because the queue mapping in the
->> driver gets complicated if it is greater than 4. We can probably
->> increase this latter. But sorry reiterating how is this different than
->> a macvtap on a real device that supports a max of 4 queues?
->
-> Well, it maybe easy. I just point out possible issues we may meet currently.
-
-Right.
-
->>
->>> So more works need to be done and unless those above 3 issues were
->>> addressed, this patch is really needed to make sure macvtap works.
->>>
->>
->> Agreed there is a lot more work here to improve things I'm just not
->> sure we need to disable this now. Also note its the l2 forwarding
->> should be disabled by default so a user would have to enable the
->> feature flag.
->
-> Even if it was disabled by default. We should not surprise the user who
-> want to enable it for macvtap.
-
-So the question is what to do in net while we improve net-next. Either
-we fix the crash from the null txq and note that with l2 forwarding
-some non default configuration is needed for optimal performance OR
-for now disable it as your patch does. I would prefer to fix the crash
-and note the configuration but I see your point about surprising users
-so could go either way.
-
-Neil any thoughts?
-
-To fix the null txq in the gso case adding a check for a non-null
-txq before calling txq_trans_update() makes sense to me. We already
-have the check in the non-gso case so making it symmetric fixes it.
-
->>
->> Thanks,
->> John
->>
->
-> Thanks
->
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index a4564b0..7b42d5e 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -732,12 +732,18 @@ static void vti6_dev_setup(struct net_device *dev)
+ static inline int vti6_dev_init_gen(struct net_device *dev)
+ {
+ 	struct ip6_tnl *t = netdev_priv(dev);
++	int i;
+ 
+ 	t->dev = dev;
+ 	t->net = dev_net(dev);
+ 	dev->tstats = alloc_percpu(struct pcpu_tstats);
+ 	if (!dev->tstats)
+ 		return -ENOMEM;
++	for_each_possible_cpu(i) {
++		struct pcpu_tstats *stats;
++		stats = per_cpu_ptr(dev->tstats, i);
++		u64_stats_init(&stats->syncp);
++	}
+ 	return 0;
+ }
+ 
+-- 
+1.7.10.4
