@@ -1,39 +1,25 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v5] IPv6: add the option to use anycast addresses as source addresses in echo reply
-Date: Wed, 8 Jan 2014 00:39:29 +0100
-Message-ID: <20140107233929.GN30393@order.stressinduktion.org>
-References: <1389103047-3380-1-git-send-email-fx.lebail@yahoo.com> <20140107175507.fb543c70.billfink@mindspring.com> <20140107.183305.1907441201345858474.davem@davemloft.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/2] src: add support for UID/GID socket info
+Date: Wed, 8 Jan 2014 00:42:22 +0100
+Message-ID: <20140107234222.GA17986@localhost>
+References: <20131221113804.GA17964@localhost>
+ <1389101420-16557-1-git-send-email-valentina.giusti@bmw-carit.de>
+ <1389101420-16557-2-git-send-email-valentina.giusti@bmw-carit.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: billfink@mindspring.com, fx.lebail@yahoo.com,
-	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:46655 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753585AbaAGXjb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 18:39:31 -0500
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	fw@strlen.de, daniel.wagner@bmw-carit.de
+To: valentina.giusti@bmw-carit.de
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20140107.183305.1907441201345858474.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1389101420-16557-2-git-send-email-valentina.giusti@bmw-carit.de>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 07, 2014 at 06:33:05PM -0500, David Miller wrote:
-> From: Bill Fink <billfink@mindspring.com>
-> Date: Tue, 7 Jan 2014 17:55:07 -0500
+On Tue, Jan 07, 2014 at 02:30:19PM +0100, valentina.giusti@bmw-carit.de wrote:
+> From: Valentina Giusti <Valentina.Giusti@bmw-carit.de>
 > 
-> > Why is ICMPV6 Echo Reply special?  Can't the internal structure
-> > of the network be divined from other ICMPv6 responses such as
-> > Destination Unreachable, Time Exceeded (Hop Limit), and Parameter
-> > Problem.
-> 
-> Right, this RFC is talking about source address selection in general,
-> so this anycast handling should be in a generic place too.
+> With this patch libnetfilter_queue is able to parse UID/GID
+> socket information.
 
-I think it would be reasonable to change future behavior to always
-send back icmp errors with the anycast address (same as original packet
-destination). Ping is a bit special as it is used for service discovery.
-
-UDP sockets can use their source address at will. So I still think this change
-is reasonable.
+applied, thanks.
