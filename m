@@ -1,59 +1,51 @@
 From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net-next V2 3/3] net: Add GRO support for vxlan traffic
-Date: Tue, 7 Jan 2014 22:12:06 +0200
-Message-ID: <CAJZOPZ+_1z+Qq0U0XnEAMygXMXTivN7giZ5P-QH-L_dkz2_hFw@mail.gmail.com>
+Subject: Re: [PATCH net-next V2 1/3] net: Add GRO support for UDP
+ encapsulating protocols
+Date: Tue, 7 Jan 2014 22:19:10 +0200
+Message-ID: <CAJZOPZ+q=uc4Svia+dFHrQfYyfJfsSVmqH1avJ99f4O0ES3QoQ@mail.gmail.com>
 References: <1389108594-665-1-git-send-email-ogerlitz@mellanox.com>
-	<1389108594-665-4-git-send-email-ogerlitz@mellanox.com>
-	<CA+mtBx-fUe_VbUUnjEVXeJO=87yypoDuMfoctO0Q3nMx+6UZFA@mail.gmail.com>
-	<CAJZOPZKHC1t6tGjZ9ZyTD912-5Bw_Vtin8N2MnqkOi4W2wPrzA@mail.gmail.com>
-	<1389124947.26646.54.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1389108594-665-2-git-send-email-ogerlitz@mellanox.com>
+	<1389112433.26646.28.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Tom Herbert <therbert@google.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jerry Chu <hkchu@google.com>,
+Cc: Or Gerlitz <ogerlitz@mellanox.com>, Jerry Chu <hkchu@google.com>,
 	Eric Dumazet <edumazet@google.com>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
-	Linux Netdev List <netdev@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
 	Yan Burman <yanb@mellanox.com>,
 	Shlomo Pongratz <shlomop@mellanox.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:35350 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752413AbaAGUMH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 15:12:07 -0500
-Received: by mail-pd0-f170.google.com with SMTP id g10so804350pdj.29
-        for <netdev@vger.kernel.org>; Tue, 07 Jan 2014 12:12:07 -0800 (PST)
-In-Reply-To: <1389124947.26646.54.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:33767 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752413AbaAGUTK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 15:19:10 -0500
+Received: by mail-pd0-f169.google.com with SMTP id v10so801566pde.28
+        for <netdev@vger.kernel.org>; Tue, 07 Jan 2014 12:19:10 -0800 (PST)
+In-Reply-To: <1389112433.26646.28.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 7, 2014 at 10:02 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2014-01-07 at 21:43 +0200, Or Gerlitz wrote:
->> On Tue, Jan 7, 2014 at 8:08 PM, Tom Herbert <therbert@google.com> wrote:
->
->> > Why ^ instead of != ?
+On Tue, Jan 7, 2014 at 6:33 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2014-01-07 at 17:29 +0200, Or Gerlitz wrote:
 >>
->> The XOR approach is very popular in the GRO stack, e.g see the IPv4 chain
->> of inet_gro_receive() && tcp_gro_receive(), I guess this might relates
->> to more efficient assembly code for ^ vs. != and/or the fast/elegant
->> transitive nature of that operator
+>> +
+>> +#define MAX_UDP_PORT (1 << 16)
+>> +extern const struct net_offload __rcu *udp_offloads[MAX_UDP_PORT];
 >
-> This trick is only needed/used when many compares are folded into a
-> single conditional :
->
-> if (a->f1 != b->f1 || a->f2 != b->f2)
->
-> ->
->
-> if (((a->f1 ^ b->f1) | (a->f2 ^ b->f2)) != 0)
->
-> Please do not use XOR for a single compare.
+> Thats 512 KB of memory.
+> This will greatly impact forwarding performance of UDP packets with
+> random ports, and will increase kernel memory size for embedded devices.
 
-OK, but just out of curiosity -- what's the reasoning? clarity or
-efficiency or both?
->
->
->
+Re forwarding, are you referring to the case where the forwarded
+packets are encapsulated? packets which are not encapusalted will be
+flushed in the gro receive handler (this went out by mistake in V2 but
+exists in V1)  if skb->encapsulation isn't set.
+
+As for encapsulated packets, when you say random ports, are you
+referring to a router which has multiple udp encapsulating protocols
+where each uses different udp port? for this case and also to reduce
+the memory footprint, we can use lookup in a list as done for the L2
+protocols gro handlers in the list_for_each loop of dev_gro_receive(),
+makes sense?
