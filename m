@@ -1,36 +1,62 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2 0/2] ipv6 addrconf: add IFA_F_NOPREFIXROUTE flag to suppress creation of IP6 routes
-Date: Tue, 7 Jan 2014 17:03:28 +0100
-Message-ID: <20140107160328.GF24730@order.stressinduktion.org>
-References: <1389029375-17698-1-git-send-email-thaller@redhat.com> <1389105553-21230-1-git-send-email-thaller@redhat.com>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH] ixgbevf: delete unneeded call to
+	pci_set_power_state
+Date: Tue,  7 Jan 2014 18:00:26 +0100
+Message-ID: <1389114026-27854-1-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	stephen@networkplumber.org, dcbw@redhat.com
-To: Thomas Haller <thaller@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:45551 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751364AbaAGQD3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 11:03:29 -0500
-Content-Disposition: inline
-In-Reply-To: <1389105553-21230-1-git-send-email-thaller@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, kernel-janitors@vger.kernel.org,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org,
+	John Ronciak <john.ronciak@intel.com>, netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 07, 2014 at 03:39:11PM +0100, Thomas Haller wrote:
-> Now, the IFA_F_NOPREFIXROUTE flag is saved in ifp->flags.
-> The second patch reworks the deletion of addresses/cleanup of prefix
-> routes and considers IFA_F_NOPREFIXROUTE.
-> 
-> Thomas Haller (2):
->   ipv6 addrconf: add IFA_F_NOPREFIXROUTE flag to suppress creation of
->     IP6 routes
->   ipv6 addrconf: don't cleanup route prefix for IFA_F_NOPREFIXROUTE
+From: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Maybe you could look into if a small patch implementing noprefixroute would be
-doable. That would help testing these changes a lot. ;)
+This driver does not need to adjust the power state on suspend, so the
+call to pci_set_power_state in the resume function is a no-op.  Drop it, to
+make the code more understandable.
 
-Greetings,
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-  Hannes
+---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index a5d3167..5709fb0 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -3226,7 +3226,6 @@ static int ixgbevf_resume(struct pci_dev *pdev)
+ 	struct net_device *netdev = adapter->netdev;
+ 	u32 err;
+ 
+-	pci_set_power_state(pdev, PCI_D0);
+ 	pci_restore_state(pdev);
+ 	/*
+ 	 * pci_restore_state clears dev->state_saved so call
+
+
+------------------------------------------------------------------------------
+Rapidly troubleshoot problems before they affect your business. Most IT 
+organizations don't have a clear picture of how application performance 
+affects their revenue. With AppDynamics, you get 100% visibility into your 
+Java,.NET, & PHP application. Start your 15-day FREE TRIAL of AppDynamics Pro!
+http://pubads.g.doubleclick.net/gampad/clk?id=84349831&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
