@@ -1,102 +1,63 @@
-From: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
-Subject: Re: single process receives own frames due to PACKET_MMAP
-Date: Tue, 07 Jan 2014 16:16:49 +0100
-Message-ID: <52CC1A61.5080205@aimvalley.nl>
-References: <52B4465E.2090904@aimvalley.nl> <52CB34F9.6020906@aimvalley.nl> <52CBC991.8030701@redhat.com> <20140107110609.74f71979@redhat.com> <52CBFE13.8@aimvalley.nl> <20140107150938.1058b358@redhat.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v2 6/9] xen-netback: Handle guests with too many
+ frags
+Date: Tue, 7 Jan 2014 15:23:15 +0000
+Message-ID: <52CC1BE3.8080502@citrix.com>
+References: <1386892097-15502-1-git-send-email-zoltan.kiss@citrix.com> <1386892097-15502-7-git-send-email-zoltan.kiss@citrix.com> <20131213154307.GN21900@zion.uk.xensource.com> <52AF2602.2000409@citrix.com> <20131216180908.GC25969@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	uaca@alumni.uv.es
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Daniel Borkmann <dborkman@redhat.com>
+Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mika.eatserver.nl ([195.20.9.75]:51061 "EHLO mika.eatserver.nl"
+Received: from smtp.citrix.com ([66.165.176.89]:11122 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751000AbaAGPSD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 10:18:03 -0500
-In-Reply-To: <20140107150938.1058b358@redhat.com>
+	id S1751198AbaAGPXT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jan 2014 10:23:19 -0500
+In-Reply-To: <20131216180908.GC25969@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/07/14 15:09, Jesper Dangaard Brouer wrote:
->
-> On Tue, 07 Jan 2014 14:16:03 +0100
-> Norbert van Bolhuis<nvbolhuis@aimvalley.nl>  wrote:
->> On 01/07/14 11:06, Jesper Dangaard Brouer wrote:
->>> On Tue, 07 Jan 2014 10:32:01 +0100
->>> Daniel Borkmann<dborkman@redhat.com>   wrote:
->>>
->>>> On 01/06/2014 11:58 PM, Norbert van Bolhuis wrote:
->>>>>
-> [...]
+On 16/12/13 18:09, Wei Liu wrote:
+>>>> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+>>>> index e26cdda..f6ed1c8 100644
+>>>> --- a/drivers/net/xen-netback/netback.c
+>>>> +++ b/drivers/net/xen-netback/netback.c
+>>>> @@ -906,11 +906,15 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
+>>>>   	u16 pending_idx = *((u16 *)skb->data);
+>>>>   	int start;
+>>>>   	pending_ring_idx_t index;
+>>>> -	unsigned int nr_slots;
+>>>> +	unsigned int nr_slots, frag_overflow = 0;
 >>>>
->>>>> I'd say it makes no sense to make the same process receive its
->>>>> own transmitted frames on that same interface (unless its lo).
+>>>>   	/* At this point shinfo->nr_frags is in fact the number of
+>>>>   	 * slots, which can be as large as XEN_NETBK_LEGACY_SLOTS_MAX.
+>>>>   	 */
+>>>> +	if (shinfo->nr_frags > MAX_SKB_FRAGS) {
+>>>> +		frag_overflow = shinfo->nr_frags - MAX_SKB_FRAGS;
+>>>> +		shinfo->nr_frags = MAX_SKB_FRAGS;
+>>>> +	}
+>>>>   	nr_slots = shinfo->nr_frags;
+>>>>
 >>>
->>> Have you setup:
->>>    ring->s_ll.sll_protocol = 0
->>>
->>> This is what I did in trafgen to avoid this problem.
->>>
->>> See line 55 in netsniff-ng/ring.c:
->>>    https://github.com/borkmann/netsniff-ng/blob/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1/ring.c#L55
->>>
->>> Commit:
->>>    https://github.com/borkmann/netsniff-ng/commit/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1
->>>
+>>> It is also probably better to check whether shinfo->nr_frags is too
+>>> large which makes frag_overflow > MAX_SKB_FRAGS. I know skb should be
+>>> already be valid at this point but it wouldn't hurt to be more careful.
+>> Ok, I've added this:
+>> 	/* At this point shinfo->nr_frags is in fact the number of
+>> 	 * slots, which can be as large as XEN_NETBK_LEGACY_SLOTS_MAX.
+>> 	 */
+>> +	if (shinfo->nr_frags > MAX_SKB_FRAGS) {
+>> +		if (shinfo->nr_frags > XEN_NETBK_LEGACY_SLOTS_MAX) return NULL;
+>> +		frag_overflow = shinfo->nr_frags - MAX_SKB_FRAGS;
 >>
->>
->> No I did not do that, I was checking my code against netsniff-ng-0.5.8-rc4.
->>
->> But I just tried it, I believe I do the same as netsniff-ng-0.5.8-rc5, but it doesn't
->> work for me. Maybe because I have an old FC14 system (kernel 2.6.35.14-106.fc14.x86_64).
->>
->> So I tried to see whether netsniff-ng-0.5.8-rc5/trafgen still makes the
->> kernel call packet_rcv() on my FC14 system. So I build and run it, but I'm not sure
->> how to (easily) check that.
 >
-> The easiest way is to:
->    cat /proc/net/ptype
-> And look if someone registered a proto handler/function: packet_rcv (or tpacket_rcv).
+> What I suggested is
 >
-> The more exact method is, to run "perf record -a -g" and then look (at
-> the result with "perf report") for a lock contention, and "expand" the
-> spin_lock and see if packet_rcv() is calling this spin lock.
->
+>     BUG_ON(frag_overflow > MAX_SKB_FRAGS)
 
+Ok, I've changed it.
 
-I checked the easy way.
-Even on my old FC14 system the "protocol=0 patch" seems to make a difference
-for trafgen.
-Without the patch I see for each CPU in use by trafgen a "packet_rcv entry" in
-/proc/net/ptype.
-With the patch I see no additional "packet_rcv entry".
-
-It could be my Appl is wrong or maybe the "protocol=0 patch" does not help.
-I think the latter, afterall my Appl has, unlike trafgen, another RX
-(AF_PACKET) socket.
-
-
->
->> In anyway, Wireshark does capture the trafgen generated
->> frames, does that say anything ?
->
-> Be careful not to start a wireshark/tcpdump, at the sametime, as this
-> will slow you down.
->
->> In the future, I can at least use PACKET_QDISC_BYPASS as a "workaround".
->
-> And in the future with PACKET_QDISC_BYPASS, your wireshark will not
-> catch these packets, remember that.
->
-
-
-Yes, this is why I would love to see the "protocol=0 patch" work for my Appl.
-
-So I will try my Appl with the latest net-next kernel to see if that makes
-it work. Hopefully I can find some time in the next coming days, I will keep
-you informed.
-
----
-Norbert
+Zoli
