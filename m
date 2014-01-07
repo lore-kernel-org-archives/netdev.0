@@ -1,48 +1,118 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5] IPv6: add the option to use anycast
- addresses as source addresses in echo reply
-Date: Tue, 07 Jan 2014 15:52:03 -0500 (EST)
-Message-ID: <20140107.155203.1722933383519867782.davem@davemloft.net>
-References: <1389103047-3380-1-git-send-email-fx.lebail@yahoo.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net 1/1] tipc: correctly unlink packets
+	from deferred packet queue
+Date: Tue,  7 Jan 2014 15:51:36 -0500
+Message-ID: <1389127896-7428-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: fx.lebail@yahoo.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44564 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753896AbaAGUwF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 15:52:05 -0500
-In-Reply-To: <1389103047-3380-1-git-send-email-fx.lebail@yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: davem@davemloft.net
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
-Date: Tue,  7 Jan 2014 14:57:27 +0100
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-> This change allows to follow a recommandation of RFC4942.
-> 
-> - Add "anycast_src_echo_reply" sysctl to control the use of anycast addresses
->   as source addresses for ICMPv6 echo reply. This sysctl is false by default
->   to preserve existing behavior.
-> - Add inline check ipv6_anycast_destination().
-> - Use them in icmpv6_echo_reply().
-> 
-> Reference:
-> RFC4942 - IPv6 Transition/Coexistence Security Considerations
->    (http://tools.ietf.org/html/rfc4942#section-2.1.6)
-> 
-> 2.1.6. Anycast Traffic Identification and Security
-> 
->    [...]
->    To avoid exposing knowledge about the internal structure of the
->    network, it is recommended that anycast servers now take advantage of
->    the ability to return responses with the anycast address as the
->    source address if possible.
-> 
-> Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+When we pull a received packet from a link's 'deferred packets' queue
+for processing, its 'next' pointer is not cleared, and still refers to
+the next packet in that queue, if any. This is incorrect, but caused
+no harm before commit 40ba3cdf542a469aaa9083fa041656e59b109b90 ("tipc:
+message reassembly using fragment chain") was introduced. After that
+commit, it may sometimes lead to the following oops:
 
-Looks good, applied, thanks.
+general protection fault: 0000 [#1] SMP DEBUG_PAGEALLOC
+Modules linked in: tipc
+CPU: 4 PID: 0 Comm: swapper/4 Tainted: G        W 3.13.0-rc2+ #6
+Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
+task: ffff880017af4880 ti: ffff880017aee000 task.ti: ffff880017aee000
+RIP: 0010:[<ffffffff81710694>]  [<ffffffff81710694>] skb_try_coalesce+0x44/0x3d0
+RSP: 0018:ffff880016603a78  EFLAGS: 00010212
+RAX: 6b6b6b6bd6d6d6d6 RBX: ffff880013106ac0 RCX: ffff880016603ad0
+RDX: ffff880016603ad7 RSI: ffff88001223ed00 RDI: ffff880013106ac0
+RBP: ffff880016603ab8 R08: 0000000000000000 R09: 0000000000000000
+R10: 0000000000000001 R11: 0000000000000000 R12: ffff88001223ed00
+R13: ffff880016603ad0 R14: 000000000000058c R15: ffff880012297650
+FS:  0000000000000000(0000) GS:ffff880016600000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+CR2: 000000000805b000 CR3: 0000000011f5d000 CR4: 00000000000006e0
+Stack:
+ ffff880016603a88 ffffffff810a38ed ffff880016603aa8 ffff88001223ed00
+ 0000000000000001 ffff880012297648 ffff880016603b68 ffff880012297650
+ ffff880016603b08 ffffffffa0006c51 ffff880016603b08 00ffffffa00005fc
+Call Trace:
+ <IRQ>
+ [<ffffffff810a38ed>] ? trace_hardirqs_on+0xd/0x10
+ [<ffffffffa0006c51>] tipc_link_recv_fragment+0xd1/0x1b0 [tipc]
+ [<ffffffffa0007214>] tipc_recv_msg+0x4e4/0x920 [tipc]
+ [<ffffffffa00016f0>] ? tipc_l2_rcv_msg+0x40/0x250 [tipc]
+ [<ffffffffa000177c>] tipc_l2_rcv_msg+0xcc/0x250 [tipc]
+ [<ffffffffa00016f0>] ? tipc_l2_rcv_msg+0x40/0x250 [tipc]
+ [<ffffffff8171e65b>] __netif_receive_skb_core+0x80b/0xd00
+ [<ffffffff8171df94>] ? __netif_receive_skb_core+0x144/0xd00
+ [<ffffffff8171eb76>] __netif_receive_skb+0x26/0x70
+ [<ffffffff8171ed6d>] netif_receive_skb+0x2d/0x200
+ [<ffffffff8171fe70>] napi_gro_receive+0xb0/0x130
+ [<ffffffff815647c2>] e1000_clean_rx_irq+0x2c2/0x530
+ [<ffffffff81565986>] e1000_clean+0x266/0x9c0
+ [<ffffffff81985f7b>] ? notifier_call_chain+0x2b/0x160
+ [<ffffffff8171f971>] net_rx_action+0x141/0x310
+ [<ffffffff81051c1b>] __do_softirq+0xeb/0x480
+ [<ffffffff819817bb>] ? _raw_spin_unlock+0x2b/0x40
+ [<ffffffff810b8c42>] ? handle_fasteoi_irq+0x72/0x100
+ [<ffffffff81052346>] irq_exit+0x96/0xc0
+ [<ffffffff8198cbc3>] do_IRQ+0x63/0xe0
+ [<ffffffff81981def>] common_interrupt+0x6f/0x6f
+ <EOI>
+
+This happens when the last fragment of a message has passed through the
+the receiving link's 'deferred packets' queue, and at least one other
+packet was added to that queue while it was there. After the fragment
+chain with the complete message has been successfully delivered to the
+receiving socket, it is released. Since 'next' pointer of the last
+fragment in the released chain now is non-NULL, we get the crash shown
+above.
+
+We fix this by clearing the 'next' pointer of all received packets,
+including those being pulled from the 'deferred' queue, before they
+undergo any further processing.
+
+Fixes: 40ba3cdf542a4 ("tipc: message reassembly using fragment chain")
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+Reported-by: Ying Xue <ying.xue@windriver.com>
+Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/link.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 69cd9bf..13b9877 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1498,6 +1498,7 @@ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *b_ptr)
+ 		int type;
+ 
+ 		head = head->next;
++		buf->next = NULL;
+ 
+ 		/* Ensure bearer is still enabled */
+ 		if (unlikely(!b_ptr->active))
+-- 
+1.7.9.5
+
+
+------------------------------------------------------------------------------
+Rapidly troubleshoot problems before they affect your business. Most IT 
+organizations don't have a clear picture of how application performance 
+affects their revenue. With AppDynamics, you get 100% visibility into your 
+Java,.NET, & PHP application. Start your 15-day FREE TRIAL of AppDynamics Pro!
+http://pubads.g.doubleclick.net/gampad/clk?id=84349831&iu=/4140/ostg.clktrk
