@@ -1,47 +1,57 @@
-From: Giri Reddy <giri.reddy@qlogic.com>
-Subject: Re: Use of 'SIOCDEVPRIVATE' in ethernet drivers.
-Date: Tue, 7 Jan 2014 22:22:45 +0000
-Message-ID: <124064C45E1FC84193A69A61ED3A1F46E230D6@AVMB1.qlogic.org>
-References: <124064C45E1FC84193A69A61ED3A1F46E22D07@AVMB1.qlogic.org>
- <20140107.140520.1985936966889106257.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: skbuff: const-ify casts in skb_queue_* functions
+Date: Tue,  7 Jan 2014 23:23:44 +0100
+Message-ID: <1389133424-11176-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:49651 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754139AbaAGWWu convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 17:22:50 -0500
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:41787 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753627AbaAGWXq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jan 2014 17:23:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/7/14 11:05 AM, David Miller wrote:
-> From: Giri Reddy <giri.reddy@qlogic.com>
-> Date: Tue, 7 Jan 2014 18:21:17 +0000
->
->> Are we still allowed to use 'SIOCDEVPRIVATE' in drivers if there the
->> deprecation efforts are on hold.
-> To say that use of SIOCDEVPRIVATE is discouraged would be an
-> understatement.
->
-> Please create a generic ethtool based facility that other drivers in
-> similar situations can use as well.
+We should const-ify comparisons on skb_queue_* inline helper
+functions as their parameters are const as well, so lets not
+drop that.
 
-Thanks for the input. I will explore the 'ethtool' option. We will have
-multiple control frames exchanged between user space and kernel for
-every flash update operation, most of this will be proprietary stuff
-that will get exchanged - I will explore how to provide a generic
-interface for that.
+Suggested-by: Brad Spengler <spender@grsecurity.net>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ include/linux/skbuff.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Giri
-
->
-
-
-________________________________
-
-This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 956e11a..d97f2d0 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -827,7 +827,7 @@ static inline struct skb_shared_hwtstamps *skb_hwtstamps(struct sk_buff *skb)
+  */
+ static inline int skb_queue_empty(const struct sk_buff_head *list)
+ {
+-	return list->next == (struct sk_buff *)list;
++	return list->next == (const struct sk_buff *) list;
+ }
+ 
+ /**
+@@ -840,7 +840,7 @@ static inline int skb_queue_empty(const struct sk_buff_head *list)
+ static inline bool skb_queue_is_last(const struct sk_buff_head *list,
+ 				     const struct sk_buff *skb)
+ {
+-	return skb->next == (struct sk_buff *)list;
++	return skb->next == (const struct sk_buff *) list;
+ }
+ 
+ /**
+@@ -853,7 +853,7 @@ static inline bool skb_queue_is_last(const struct sk_buff_head *list,
+ static inline bool skb_queue_is_first(const struct sk_buff_head *list,
+ 				      const struct sk_buff *skb)
+ {
+-	return skb->prev == (struct sk_buff *)list;
++	return skb->prev == (const struct sk_buff *) list;
+ }
+ 
+ /**
+-- 
+1.7.11.7
