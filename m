@@ -1,7 +1,7 @@
 From: John Fastabend <john.fastabend@gmail.com>
 Subject: Re: [PATCH net 1/2] macvlan: forbid L2 fowarding offload for macvtap
-Date: Mon, 06 Jan 2014 21:15:00 -0800
-Message-ID: <52CB8D54.9090506@gmail.com>
+Date: Mon, 06 Jan 2014 21:16:51 -0800
+Message-ID: <52CB8DC3.40605@gmail.com>
 References: <1388978467-2075-1-git-send-email-jasowang@redhat.com> <52CA5CDA.1020503@gmail.com> <52CA612D.2000902@redhat.com> <20140106122628.GA24280@hmsreliant.think-freely.org> <52CB7009.2030903@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
@@ -11,14 +11,10 @@ Cc: Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net,
 	mst@redhat.com, John Fastabend <john.r.fastabend@intel.com>,
 	Vlad Yasevich <vyasevic@redhat.com>
 To: Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f52.google.com ([209.85.219.52]:49613 "EHLO
-	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750817AbaAGFPg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 00:15:36 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <52CB7009.2030903@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 On 01/06/2014 07:10 PM, Jason Wang wrote:
 > On 01/06/2014 08:26 PM, Neil Horman wrote:
