@@ -1,50 +1,36 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/2] netfilter fixes for net
-Date: Tue,  7 Jan 2014 23:13:37 +0100
-Message-ID: <1389132819-9697-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v3 3/3] ARM: shmobile: genmai: Enable r7s72100-ether
+Date: Wed, 08 Jan 2014 02:13:47 +0400
+Message-ID: <52CC7C1B.20807@cogentembedded.com>
+References: <1389061635-4083-1-git-send-email-horms+renesas@verge.net.au> <1389061635-4083-4-git-send-email-horms+renesas@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-arm-kernel@lists.infradead.org,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Simon Horman <horms+renesas@verge.net.au>, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1389061635-4083-4-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+Hello.
 
-The following patchset contains two patches:
+On 07-01-2014 6:27, Simon Horman wrote:
 
-* fix the IRC NAT helper which was broken when adding (incomplete) IPv6
-  support, from Daniel Borkmann.
+    You've removed RFC but still haven't signed off. :-)
 
-* Refine the previous bugtrap that Jesper added to catch problems for the
-  usage of the sequence adjustment extension in IPVs in Dec 16th, it may
-  spam messages in case of finding a real bug.
+> ---
+> v2
+> * As suggested by Magnus Damm and Sergei Shtylyov
+>    - r7s72100 ethernet is not gigabit so do not refer to it as such
 
-I know it's fairly late, so please let me know if you prefer that I pass
-you these via net-next.
+> * As suggested by Sergei Shtylyov
+>    - set no_ether_link as there is no LINK signal documented
+>      in the manual
 
-Thanks!
+    I'm OK with the patch, you can add my Acked-by.
 
-----------------------------------------------------------------
+WBR, Sergei
 
-The following changes since commit f35f76ee76df008131bbe01a2297de0c55ee2297:
-
-  xen-netback: Include header for vmalloc (2014-01-05 20:34:36 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-for you to fetch changes up to f2661adc0c134d890d84c32d7cb54a2b4d1f0a5f:
-
-  netfilter: only warn once on wrong seqadj usage (2014-01-06 14:23:17 +0100)
-
-----------------------------------------------------------------
-Daniel Borkmann (1):
-      netfilter: nf_nat: fix access to uninitialized buffer in IRC NAT helper
-
-Jesper Dangaard Brouer (1):
-      netfilter: only warn once on wrong seqadj usage
-
- net/netfilter/nf_conntrack_seqadj.c |    2 +-
- net/netfilter/nf_nat_irc.c          |   32 +++++++++++++++++++++++++++-----
- 2 files changed, 28 insertions(+), 6 deletions(-)
