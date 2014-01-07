@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/15] i40e: Allow VF to set already assigned MAC address
-Date: Tue,  7 Jan 2014 01:32:18 -0800
-Message-ID: <1389087149-27962-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/15] i40e: Stop accepting any VLAN tag on VLAN 0 filter set
+Date: Tue,  7 Jan 2014 01:32:17 -0800
+Message-ID: <1389087149-27962-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389087149-27962-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -9,46 +9,58 @@ Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:6799 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:6793 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750895AbaAGJcf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 04:32:35 -0500
+	id S1752108AbaAGJce (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jan 2014 04:32:34 -0500
 In-Reply-To: <1389087149-27962-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Greg Rose <gregory.v.rose@intel.com>
 
-The VF is allowed to request the PF to set its already assigned
-MAC address without generating an error.
+When the 8021q driver is loaded it sets VLAN 0 filters on all devices.
+This does not mean that any VLAN tagged packet should be accepted.
+Instead accept only VLAN 0 tagged packets so that upper layers can
+interpret the priority bits.
 
-Change-Id: I8dfdf353396995dbbb26cafab4e42b451911da3d
+Change-Id: I17274a540b613749612ffe23a3aef2b8ee6ff6a4
 Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Acked-by: Shannon Nelson <shannon.nelson@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 11 -----------
+ 1 file changed, 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index fee368a..5c99164 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1348,10 +1348,13 @@ static inline int i40e_check_vf_permission(struct i40e_vf *vf, u8 *macaddr)
- 		   is_zero_ether_addr(macaddr)) {
- 		dev_err(&pf->pdev->dev, "invalid VF MAC addr %pM\n", macaddr);
- 		ret = I40E_ERR_INVALID_MAC_ADDR;
--	} else if (vf->pf_set_mac && !is_multicast_ether_addr(macaddr)) {
-+	} else if (vf->pf_set_mac && !is_multicast_ether_addr(macaddr) &&
-+		   !ether_addr_equal(macaddr, vf->default_lan_addr.addr)) {
- 		/* If the host VMM administrator has set the VF MAC address
- 		 * administratively via the ndo_set_vf_mac command then deny
- 		 * permission to the VF to add or delete unicast MAC addresses.
-+		 * The VF may request to set the MAC address filter already
-+		 * assigned to it so do not return an error in that case.
- 		 */
- 		dev_err(&pf->pdev->dev,
- 			"VF attempting to override administratively set MAC address\nPlease reload the VF driver to resume normal operation\n");
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 5ddbd54..2a42470 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -1509,11 +1509,6 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 				cpu_to_le16((u16)(f->vlan ==
+ 					    I40E_VLAN_ANY ? 0 : f->vlan));
+ 
+-			/* vlan0 as wild card to allow packets from all vlans */
+-			if (f->vlan == I40E_VLAN_ANY ||
+-			    (vsi->netdev && !(vsi->netdev->features &
+-					      NETIF_F_HW_VLAN_CTAG_FILTER)))
+-				cmd_flags |= I40E_AQC_MACVLAN_DEL_IGNORE_VLAN;
+ 			cmd_flags |= I40E_AQC_MACVLAN_DEL_PERFECT_MATCH;
+ 			del_list[num_del].flags = cmd_flags;
+ 			num_del++;
+@@ -1579,12 +1574,6 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 			add_list[num_add].queue_number = 0;
+ 
+ 			cmd_flags |= I40E_AQC_MACVLAN_ADD_PERFECT_MATCH;
+-
+-			/* vlan0 as wild card to allow packets from all vlans */
+-			if (f->vlan == I40E_VLAN_ANY || (vsi->netdev &&
+-			    !(vsi->netdev->features &
+-						 NETIF_F_HW_VLAN_CTAG_FILTER)))
+-				cmd_flags |= I40E_AQC_MACVLAN_ADD_IGNORE_VLAN;
+ 			add_list[num_add].flags = cpu_to_le16(cmd_flags);
+ 			num_add++;
+ 
 -- 
 1.8.3.1
