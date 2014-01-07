@@ -1,35 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: xfrm: xfrm_policy: fix inline not at
- beginning of declaration
-Date: Tue, 07 Jan 2014 18:34:12 -0500 (EST)
-Message-ID: <20140107.183412.1584306758322996233.davem@davemloft.net>
-References: <1389133227-11086-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH 0/2] netfilter fixes for net
+Date: Tue, 07 Jan 2014 18:38:54 -0500 (EST)
+Message-ID: <20140107.183854.1098172581398083314.davem@davemloft.net>
+References: <1389132819-9697-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45921 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754374AbaAGXeP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 18:34:15 -0500
-In-Reply-To: <1389133227-11086-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1389132819-9697-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Tue,  7 Jan 2014 23:20:27 +0100
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Tue,  7 Jan 2014 23:13:37 +0100
 
-> Fix three warnings related to:
+> The following patchset contains two patches:
 > 
->   net/xfrm/xfrm_policy.c:1644:1: warning: 'inline' is not at beginning of declaration [-Wold-style-declaration]
->   net/xfrm/xfrm_policy.c:1656:1: warning: 'inline' is not at beginning of declaration [-Wold-style-declaration]
->   net/xfrm/xfrm_policy.c:1668:1: warning: 'inline' is not at beginning of declaration [-Wold-style-declaration]
+> * fix the IRC NAT helper which was broken when adding (incomplete) IPv6
+>   support, from Daniel Borkmann.
 > 
-> Just removing the inline keyword is sufficient as the compiler will
-> decide on its own about inlining or not.
+> * Refine the previous bugtrap that Jesper added to catch problems for the
+>   usage of the sequence adjustment extension in IPVs in Dec 16th, it may
+>   spam messages in case of finding a real bug.
 > 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> I know it's fairly late, so please let me know if you prefer that I pass
+> you these via net-next.
 
-Applied.
+These look fine, thanks Pablo.
