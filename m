@@ -1,169 +1,69 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/15] i40e: Expose AQ debugfs hooks
-Date: Tue,  7 Jan 2014 01:32:15 -0800
-Message-ID: <1389087149-27962-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/15] i40e: check MAC type before any REG access
+Date: Tue,  7 Jan 2014 01:32:24 -0800
+Message-ID: <1389087149-27962-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389087149-27962-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Kamil Krawczyk <kamil.krawczyk@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:6799 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:6793 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751262AbaAGJcd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 04:32:33 -0500
+	id S1753283AbaAGJci (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jan 2014 04:32:38 -0500
 In-Reply-To: <1389087149-27962-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Add more functionality to debugfs to assist development
-and testing of AQ commands.
+We need to check if we are dealing with the correct MAC type before we
+try to read anything from the registers.
 
-adds:
-send aq_cmd
-send indirect aq_cmd
-
-Change-Id: I01710cddd33110a6c1e1aabf84cb6e93cda4c42a
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-Id: I3989516999d06c3009e87d6a2eafc20af305c5c2
+Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 112 +++++++++++++++++++++++++
- 1 file changed, 112 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_common.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index 45bdcca..a236f59 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -1523,6 +1523,116 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 		} else {
- 			dev_info(&pf->pdev->dev, "clear_stats vsi [seid] or clear_stats pf\n");
- 		}
-+	} else if (strncmp(cmd_buf, "send aq_cmd", 11) == 0) {
-+		struct i40e_aq_desc *desc;
-+		i40e_status ret;
-+		desc = kzalloc(sizeof(struct i40e_aq_desc), GFP_KERNEL);
-+		if (!desc)
-+			goto command_write_done;
-+		cnt = sscanf(&cmd_buf[11],
-+			     "%hx %hx %hx %hx %x %x %x %x %x %x",
-+			     &desc->flags,
-+			     &desc->opcode, &desc->datalen, &desc->retval,
-+			     &desc->cookie_high, &desc->cookie_low,
-+			     &desc->params.internal.param0,
-+			     &desc->params.internal.param1,
-+			     &desc->params.internal.param2,
-+			     &desc->params.internal.param3);
-+		if (cnt != 10) {
-+			dev_info(&pf->pdev->dev,
-+				 "send aq_cmd: bad command string, cnt=%d\n",
-+				 cnt);
-+			kfree(desc);
-+			desc = NULL;
-+			goto command_write_done;
-+		}
-+		ret = i40e_asq_send_command(&pf->hw, desc, NULL, 0, NULL);
-+		if (!ret) {
-+			dev_info(&pf->pdev->dev, "AQ command sent Status : Success\n");
-+		} else if (ret == I40E_ERR_ADMIN_QUEUE_ERROR) {
-+			dev_info(&pf->pdev->dev,
-+				 "AQ command send failed Opcode %x AQ Error: %d\n",
-+				 desc->opcode, pf->hw.aq.asq_last_status);
-+		} else {
-+			dev_info(&pf->pdev->dev,
-+				 "AQ command send failed Opcode %x Status: %d\n",
-+				 desc->opcode, ret);
-+		}
-+		dev_info(&pf->pdev->dev,
-+			 "AQ desc WB 0x%04x 0x%04x 0x%04x 0x%04x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
-+			 desc->flags, desc->opcode, desc->datalen, desc->retval,
-+			 desc->cookie_high, desc->cookie_low,
-+			 desc->params.internal.param0,
-+			 desc->params.internal.param1,
-+			 desc->params.internal.param2,
-+			 desc->params.internal.param3);
-+		kfree(desc);
-+		desc = NULL;
-+	} else if (strncmp(cmd_buf, "send indirect aq_cmd", 20) == 0) {
-+		struct i40e_aq_desc *desc;
-+		i40e_status ret;
-+		u16 buffer_len;
-+		u8 *buff;
-+		desc = kzalloc(sizeof(struct i40e_aq_desc), GFP_KERNEL);
-+		if (!desc)
-+			goto command_write_done;
-+		cnt = sscanf(&cmd_buf[20],
-+			     "%hx %hx %hx %hx %x %x %x %x %x %x %hd",
-+			     &desc->flags,
-+			     &desc->opcode, &desc->datalen, &desc->retval,
-+			     &desc->cookie_high, &desc->cookie_low,
-+			     &desc->params.internal.param0,
-+			     &desc->params.internal.param1,
-+			     &desc->params.internal.param2,
-+			     &desc->params.internal.param3,
-+			     &buffer_len);
-+		if (cnt != 11) {
-+			dev_info(&pf->pdev->dev,
-+				 "send indirect aq_cmd: bad command string, cnt=%d\n",
-+				 cnt);
-+			kfree(desc);
-+			desc = NULL;
-+			goto command_write_done;
-+		}
-+		/* Just stub a buffer big enough in case user messed up */
-+		if (buffer_len == 0)
-+			buffer_len = 1280;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 02ad529..7e34de1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -180,14 +180,6 @@ i40e_status i40e_init_shared_code(struct i40e_hw *hw)
+ 	i40e_status status = 0;
+ 	u32 reg;
+ 
+-	hw->phy.get_link_info = true;
+-
+-	/* Determine port number */
+-	reg = rd32(hw, I40E_PFGEN_PORTNUM);
+-	reg = ((reg & I40E_PFGEN_PORTNUM_PORT_NUM_MASK) >>
+-	       I40E_PFGEN_PORTNUM_PORT_NUM_SHIFT);
+-	hw->port = (u8)reg;
+-
+ 	i40e_set_mac_type(hw);
+ 
+ 	switch (hw->mac.type) {
+@@ -198,6 +190,14 @@ i40e_status i40e_init_shared_code(struct i40e_hw *hw)
+ 		break;
+ 	}
+ 
++	hw->phy.get_link_info = true;
 +
-+		buff = kzalloc(buffer_len, GFP_KERNEL);
-+		if (!buff) {
-+			kfree(desc);
-+			desc = NULL;
-+			goto command_write_done;
-+		}
-+		desc->flags |= cpu_to_le16((u16)I40E_AQ_FLAG_BUF);
-+		ret = i40e_asq_send_command(&pf->hw, desc, buff,
-+					    buffer_len, NULL);
-+		if (!ret) {
-+			dev_info(&pf->pdev->dev, "AQ command sent Status : Success\n");
-+		} else if (ret == I40E_ERR_ADMIN_QUEUE_ERROR) {
-+			dev_info(&pf->pdev->dev,
-+				 "AQ command send failed Opcode %x AQ Error: %d\n",
-+				 desc->opcode, pf->hw.aq.asq_last_status);
-+		} else {
-+			dev_info(&pf->pdev->dev,
-+				 "AQ command send failed Opcode %x Status: %d\n",
-+				 desc->opcode, ret);
-+		}
-+		dev_info(&pf->pdev->dev,
-+			 "AQ desc WB 0x%04x 0x%04x 0x%04x 0x%04x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
-+			 desc->flags, desc->opcode, desc->datalen, desc->retval,
-+			 desc->cookie_high, desc->cookie_low,
-+			 desc->params.internal.param0,
-+			 desc->params.internal.param1,
-+			 desc->params.internal.param2,
-+			 desc->params.internal.param3);
-+		print_hex_dump(KERN_INFO, "AQ buffer WB: ",
-+			       DUMP_PREFIX_OFFSET, 16, 1,
-+			       buff, buffer_len, true);
-+		kfree(buff);
-+		buff = NULL;
-+		kfree(desc);
-+		desc = NULL;
- 	} else if ((strncmp(cmd_buf, "add fd_filter", 13) == 0) ||
- 		   (strncmp(cmd_buf, "rem fd_filter", 13) == 0)) {
- 		struct i40e_fdir_data fd_data;
-@@ -1774,6 +1884,8 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 		dev_info(&pf->pdev->dev, "  pfr\n");
- 		dev_info(&pf->pdev->dev, "  corer\n");
- 		dev_info(&pf->pdev->dev, "  globr\n");
-+		dev_info(&pf->pdev->dev, "  send aq_cmd <flags> <opcode> <datalen> <retval> <cookie_h> <cookie_l> <param0> <param1> <param2> <param3>\n");
-+		dev_info(&pf->pdev->dev, "  send indirect aq_cmd <flags> <opcode> <datalen> <retval> <cookie_h> <cookie_l> <param0> <param1> <param2> <param3> <buffer_len>\n");
- 		dev_info(&pf->pdev->dev, "  add fd_filter <dest q_index> <flex_off> <pctype> <dest_vsi> <dest_ctl> <fd_status> <cnt_index> <fd_id> <packet_len> <packet>\n");
- 		dev_info(&pf->pdev->dev, "  rem fd_filter <dest q_index> <flex_off> <pctype> <dest_vsi> <dest_ctl> <fd_status> <cnt_index> <fd_id> <packet_len> <packet>\n");
- 		dev_info(&pf->pdev->dev, "  lldp start\n");
++	/* Determine port number */
++	reg = rd32(hw, I40E_PFGEN_PORTNUM);
++	reg = ((reg & I40E_PFGEN_PORTNUM_PORT_NUM_MASK) >>
++	       I40E_PFGEN_PORTNUM_PORT_NUM_SHIFT);
++	hw->port = (u8)reg;
++
+ 	/* Determine the PF number based on the PCI fn */
+ 	reg = rd32(hw, I40E_GLPCI_CAPSUP);
+ 	if (reg & I40E_GLPCI_CAPSUP_ARI_EN_MASK)
 -- 
 1.8.3.1
