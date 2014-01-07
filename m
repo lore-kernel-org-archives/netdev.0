@@ -1,48 +1,44 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH v2 00/16] wl1251 patches from linux-n900 tree
-Date: Tue, 7 Jan 2014 13:15:02 +0100
-Message-ID: <20140107121502.GB10358@amd.pavel.ucw.cz>
-References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
- <1386494714-21070-1-git-send-email-pali.rohar@gmail.com>
- <201312311047.30147@pali>
- <20140106200050.GG10885@tuxdriver.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH 1/1] ipv6 addrconf: add IFA_F_NOPREFIXROUTE flag to suppress creation of IP6 routes
+Date: Tue, 7 Jan 2014 13:22:03 +0100
+Message-ID: <20140107122203.GC24730@order.stressinduktion.org>
+References: <20140106160139.GB10204@order.stressinduktion.org> <1389029375-17698-1-git-send-email-thaller@redhat.com> <20140107120111.GB24730@order.stressinduktion.org> <1389096874.2248.7.camel@weing>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>,
-	Luciano Coelho <luca@coelho.fi>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
-	aaro.koskinen@iki.fi, sre@ring0.de, joni.lapilainen@gmail.com,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Felipe Contreras <felipe.contreras@gmail.com>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	stephen@networkplumber.org, dcbw@redhat.com
+To: Thomas Haller <thaller@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:44887 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750840AbaAGMWF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 07:22:05 -0500
 Content-Disposition: inline
-In-Reply-To: <20140106200050.GG10885@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1389096874.2248.7.camel@weing>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
+Hi Thomas!
 
-> > > Second version contains new patch for fixing NULL pointer
-> > > dereference which sometimes cause kernel panic and fixes code
-> > > suggested by Pavel Machek.
->  
-> > So far, there are no new comments for patches 01, 03-13 and 16. 
-> > Are there any other problems with that patches or can be accepted 
-> > for upstream?
->  
-> They are probably fine to merge now.  Of course, I was still deleting
-> wl12xx patches when they were originally posted, so I'll need someone
-> to resend the patches to me...
+On Tue, Jan 07, 2014 at 01:14:34PM +0100, Thomas Haller wrote:
+> I am about to resent the patch, so that IFA_F_NOPREFIXROUTE is saved in
+> the flags of the address. Later, when deleting such address, this is
+> used to indicate ~not~ to delete any prefix route... just as you suggest
+> in your earlier email (if I understood you right).
 
-Patches should be in your inbox now, with subjects "[PATCH v3 13/13]
-wl1251:". I hand selected patches 01, 03-13 and 16. I was doing
-forwarding by hand, sorry for extra (fwd) in 06/13.
+Ok, good.
 
-Best regards,
-									Pavel
+> About this suggestion now, I tend to "no". Yes, it could be sensible, on
+> the other hand, if user space already controls the routes (as indicated
+> by it's use of IFA_F_NOPREFIXROUTES), I would just leave it to the user
+> to clean up the wrong prefix route.
+>
+> What do you think?
 
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+It is a matter of usability. As prefix routes are added to main routing
+table and are visible via simple ip -6 r l (and not ip -6 r l table
+something), I am fine with that, too.
+
+Greetings,
+
+  Hannes
