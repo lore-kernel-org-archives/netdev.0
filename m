@@ -1,38 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: pcpu_tstats.syncp should be initialised in
- ip6_vti.c
-Date: Tue, 07 Jan 2014 14:15:20 -0500 (EST)
-Message-ID: <20140107.141520.487944276245801094.davem@davemloft.net>
-References: <20140105022017.GB16180@localhost>
-	<1389080383-25655-1-git-send-email-roy.qing.li@gmail.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH net-next V2 3/3] net: Add GRO support for vxlan traffic
+Date: Tue, 7 Jan 2014 21:43:06 +0200
+Message-ID: <CAJZOPZKHC1t6tGjZ9ZyTD912-5Bw_Vtin8N2MnqkOi4W2wPrzA@mail.gmail.com>
+References: <1389108594-665-1-git-send-email-ogerlitz@mellanox.com>
+	<1389108594-665-4-git-send-email-ogerlitz@mellanox.com>
+	<CA+mtBx-fUe_VbUUnjEVXeJO=87yypoDuMfoctO0Q3nMx+6UZFA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fengguang.wu@intel.com
-To: roy.qing.li@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Or Gerlitz <ogerlitz@mellanox.com>, Jerry Chu <hkchu@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Yan Burman <yanb@mellanox.com>,
+	Shlomo Pongratz <shlomop@mellanox.com>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43869 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751315AbaAGTPW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 14:15:22 -0500
-In-Reply-To: <1389080383-25655-1-git-send-email-roy.qing.li@gmail.com>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:49725 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752610AbaAGTnH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 14:43:07 -0500
+Received: by mail-pb0-f50.google.com with SMTP id rr13so546746pbb.37
+        for <netdev@vger.kernel.org>; Tue, 07 Jan 2014 11:43:06 -0800 (PST)
+In-Reply-To: <CA+mtBx-fUe_VbUUnjEVXeJO=87yypoDuMfoctO0Q3nMx+6UZFA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: roy.qing.li@gmail.com
-Date: Tue,  7 Jan 2014 15:39:43 +0800
+On Tue, Jan 7, 2014 at 8:08 PM, Tom Herbert <therbert@google.com> wrote:
+> On Tue, Jan 7, 2014 at 7:29 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+>> +static struct sk_buff **vxlan_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+>> +{
+>> +       struct sk_buff *p, **pp = NULL;
+>> +       struct vxlanhdr *vh, *vh2;
+>> +       struct ethhdr *eh;
+>> +       unsigned int hlen, off, off_eth;
+>> +       const struct packet_offload *ptype;
+>> +       __be16 type;
+>> +       int flush = 1;
+>> +
+>> +       off  = skb_gro_offset(skb);
+>> +       hlen = off + sizeof(*vh);
+>> +       vh   = skb_gro_header_fast(skb, off);
+>> +       if (skb_gro_header_hard(skb, hlen)) {
+>> +               vh = skb_gro_header_slow(skb, hlen, off);
+>> +               if (unlikely(!vh))
+>> +                       goto out;
+>> +       }
+>> +
+>> +       flush = 0;
+>> +
+>> +       for (p = *head; p; p = p->next) {
+>> +               if (!NAPI_GRO_CB(p)->same_flow)
+>> +                       continue;
+>> +
+>> +               vh2 = (struct vxlanhdr   *)(p->data + off);
+>> +               if (vh->vx_vni ^ vh2->vx_vni) {
+>
+> Why ^ instead of != ?
 
-> From: Li RongQing <roy.qing.li@gmail.com>
-> 
-> initialise pcpu_tstats.syncp to kill the calltrace
- ...
-> Before 469bdcefdc ("ipv6: fix the use of pcpu_tstats in ip6_vti.c"),
-> the pcpu_tstats.syncp is not used to pretect the 64bit elements of
-> pcpu_tstats, so not appear this calltrace.
-> 
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-
-Applied, thanks.
-
-It looks like ip6_tunnel.c and sit.c are OK in this area.
+The XOR approach is very popular in the GRO stack, e.g see the IPv4 chain
+of inet_gro_receive() && tcp_gro_receive(), I guess this might relates
+to more efficient assembly code for ^ vs. != and/or the fast/elegant
+transitive nature of that operator
