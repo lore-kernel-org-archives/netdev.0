@@ -1,65 +1,120 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 0/2] Pack struct xfrm_usersa_info and struct
- xfrm_userpolicy_info
-Date: Tue, 7 Jan 2014 10:00:35 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D453AEE@AcuExch.aculab.com>
-References: <1389077339-12814-1-git-send-email-fan.du@windriver.com>
- <20140107074724.GV31491@secunet.com> <52CBB3FC.9050207@windriver.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH v3 4/5] alx: add alx_get_stats64 operation
+Date: Tue, 7 Jan 2014 11:02:05 +0100
+Message-ID: <20140107100205.GA9886@kria>
+References: <1389026023-18743-1-git-send-email-sd@queasysnail.net>
+ <1389026023-18743-5-git-send-email-sd@queasysnail.net>
+ <1389035253.9947.93.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"dev@lists.strongswan.org" <dev@lists.strongswan.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Fan Du' <fan.du@windriver.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, johannes@sipsolutions.net,
+	stephen@networkplumber.org, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:37795 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751262AbaAGKCP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 05:02:15 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 17905-06 for <netdev@vger.kernel.org>;
- Tue,  7 Jan 2014 10:02:11 +0000 (GMT)
-In-Reply-To: <52CBB3FC.9050207@windriver.com>
-Content-Language: en-US
+Received: from smtp6-g21.free.fr ([212.27.42.6]:44711 "EHLO smtp6-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751262AbaAGKCZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jan 2014 05:02:25 -0500
+Content-Disposition: inline
+In-Reply-To: <1389035253.9947.93.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBGYW4gRHUNCj4gU2VudDogMDcgSmFudWFyeSAyMDE0IDA4OjAwDQo+IE9uIDIwMTQ/
-MDE/MDc/IDE1OjQ3LCBTdGVmZmVuIEtsYXNzZXJ0IHdyb3RlOg0KPiA+IE9uIFR1ZSwgSmFuIDA3
-LCAyMDE0IGF0IDAyOjQ4OjU3UE0gKzA4MDAsIEZhbiBEdSB3cm90ZToNCj4gPj4gV2hlbiB0cnlp
-bmcgdG8gc2V0dXAgSVBzZWMgY29uZmlndXJhdGlvbiBvbiBhIDY0Yml0cyBob3N0IHdpdGgNCj4g
-Pj4gaXByb3V0ZTIoMzJiaXRzIGNvbXBpbGVkKSwgdGhlIGludGVuZWQgeGZybSBwb2xpY3kgYW5k
-IHNhIGlzDQo+ID4+IGVpdGhlciBkZWZpY2l0IG9yIHdyb25nIHdoZW4ga2VybmVsIHRyeWluZyB0
-byBwYXJzZSB1c2VyIGxhbmQNCj4gPj4gaW5mb3JtYXRpb24uDQo+ID4+DQo+ID4+IEZ1cnRoZXIg
-aW52ZXN0aWdhdGlubyBzaG93cyB0aGF0Og0KPiA+PiBMOiBrZXJuZWwNCj4gPj4gUjogaXByb3V0
-ZTINCj4gPj4NCj4gPj4gICAgICAgICAgICBzaXplb2YgICAgICAgdXNlcnBvbGljeSAgICAgIHVz
-ZXJzYQ0KPiA+PiA2NGJpdHModW5wYWNrZWQpICAgICAgICAxNjgvMTY4ICAgICAgICAyMjQvMjI0
-DQo+ID4+IDMyYml0cyh1bnBhY2tlZCkgICAgICAgIDE2NC8xNjQgICAgICAgIDIyMC8yMjANCj4g
-Pj4gICAgICAgICAgICAgICAgICAgICAgICAgICBeICAgXg0KPiA+PiAgICAgICAgICAgICAgICAg
-ICAgICAgICAgIEwgICBSDQo+ID4+DQo+ID4+IFRvIGtlZXAga2VybmVsIGFuZCB1c2VyIGxhbmQg
-c2VlIGEgY29uc2lzdGVudCBzdHJ1Y3R1cmUsIGFmdGVyDQo+ID4+IGFkZCBwYWNraW5nIGF0dHJp
-YnV0ZSwgbm93IGl0IGxvb2tzIGxpa2UgdGhpczoNCj4gPj4NCj4gPj4gNjRiaXRzKCAgcGFja2Vk
-KSAgICAgICAgMTY0LzE2NCAgICAgICAgMjE3LzIxNw0KPiA+PiAzMmJpdHMoICBwYWNrZWQpICAg
-ICAgICAxNjQvMTY0ICAgICAgICAyMTcvMjE3DQo+ID4+ICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgXiAgIF4NCj4gPj4gICAgICAgICAgICAgICAgICAgICAgICAgICBMICAgUg0KPiA+Pg0KPiA+
-DQo+ID4gV2UgZG9uJ3QgY2hhbmdlIHVzZXJzcGFjZSBleHBvcnRlZCBzdHJ1Y3R1cmVzLiBUaGlz
-IGJyZWFrcw0KPiA+IGV4aXN0aW5nIHVzZXJzcGFjZSB0b29scy4NCj4gPg0KPiANCj4gVGhlbiB1
-c2VyIHdpdGggMzJiaXRzIGlwcm91dGUyIG9yIFN0cm9uZ1N3YW4gaGFzIHRvIHJlYnVpbGQgYXMg
-NjRiaXRzPw0KDQpUaGUga2VybmVsIGhhcyBzdXBwb3J0IChpbiB2YXJpb3VzIHBsYWNlcykgZm9y
-IGRpZmZlcmVudCBzdHJ1Y3R1cmUNCmxheW91dHMgZm9yIDMyYml0IGFuZCA2NGJpdCBwcm9jZXNz
-ZXMuDQpMb29rcyBsaWtlIGl0IG5lZWRzIG9uZSBoZXJlIGFzIHdlbGwgKEknbSBub3Qgdm9sdW50
-ZWVyaW5nIHRob3VnaCkuDQoNCkF0IGEgZ3Vlc3MgdGhlIHN0cnVjdHVyZXMgY29udGFpbiBhIDY0
-Yml0IGZpZWxkIHRoYXQgaXMgb24gYW4gOG4rNA0KYnl0ZSBib3VuZGFyeS4gT24gaTM4NiA2NGJp
-dCBmaWVsZHMgYXJlIG9ubHkgNCBieXRlIGFsaWduZWQsIG9uDQphbWQ2NCB0aGV5IGFyZSA4IGJ5
-dGUgYWxpZ25lZC4NCg0KUGFja2luZyB0aGUgc3RydWN0dXJlcyBpcyBkZWZpbml0ZWx5IHdyb25n
-LiBTb21lIDMyYml0IHN5c3RlbXMgKElJUkMgc3BhcmMpDQphbGlnbiA2NGJpdCBpdGVtcyBvbiA4
-IGJ5dGUgYm91bmRhcmllcy4gTm90IHRvIG1lbnRpb24gdGhlIGV4cGVuc2l2ZSBieXRlDQpieSBi
-eXRlIGFjY2Vzc2VzIHRoaXMgZm9yY2VzIG9uIHNvbWUgc3lzdGVtcy4NCg0KVGhlIHN0cnVjdHVy
-ZSBjb3VsZCBoYXZlIGJlZW4gZGVmaW5lZCB3aXRoIHRoZSA2NGJpdCBmaWVsZCBtYXJrZWQNCl9f
-YXR0cmlidXRlX18oKGFsaWduZWQoNCkpKSAtIHNvIHVzaW5nIHRoZSBzYW1lIGxheW91dCBvbiAz
-MmJpdA0KYW5kIDY0IGJpdCBzeXN0ZW1zICwgYnV0IGl0IGlzIHRvbyBsYXRlIHRvIGRvIHRoYXQg
-bm93Lg0KDQoJRGF2aWQNCg0K
+Then the stats in all atheros drivers are a bit broken? They all use
+the same formulas for ndo_get_stats.
+
+Other atheros drivers (atl1e/atl1e.h and atl1c/atl1c.h) have the same
+stats structure with a comment for each field. I will copy the
+comments to alx.h.
+
+
+2014-01-06, 19:07:33 +0000, Ben Hutchings wrote:
+> On Mon, 2014-01-06 at 17:33 +0100, Sabrina Dubroca wrote:
+> [...]
+> > --- a/drivers/net/ethernet/atheros/alx/main.c
+> > +++ b/drivers/net/ethernet/atheros/alx/main.c
+> > @@ -1166,10 +1166,54 @@ static void alx_poll_controller(struct net_device *netdev)
+> >  }
+> >  #endif
+> >  
+> > +static struct rtnl_link_stats64 *alx_get_stats64(struct net_device *dev,
+> > +					struct rtnl_link_stats64 *net_stats)
+> > +{
+> > +	struct alx_priv *alx = netdev_priv(dev);
+> > +	struct alx_hw_stats *hw_stats = &alx->hw.stats;
+> > +
+> > +	spin_lock(&alx->stats_lock);
+> > +
+> > +	alx_update_hw_stats(&alx->hw);
+> > +
+> > +	net_stats->tx_packets = hw_stats->tx_ok;
+> 
+> I think this should be set to hw_stats->tx_ok + net_stats->tx_errors
+> (after you set tx_errors).
+> 
+> > +	net_stats->tx_bytes   = hw_stats->tx_byte_cnt;
+> > +	net_stats->rx_packets = hw_stats->rx_ok;
+> 
+> Similarly, I think this should be hw_stats->rx_ok +
+> net_stats->rx_errors.
+> 
+> > +	net_stats->rx_bytes   = hw_stats->rx_byte_cnt;
+> > +	net_stats->multicast  = hw_stats->rx_mcast;
+> > +	net_stats->collisions = hw_stats->tx_single_col +
+> > +				hw_stats->tx_multi_col * 2 +
+> 
+> I would expect this to count the number of packets that had collisions
+> rather than total number of collisions (which you're only guessing at by
+> using * 2).
+
+Okay, all changed.
+
+
+> > +				hw_stats->tx_late_col + hw_stats->tx_abort_col;
+> > +
+> > +	net_stats->rx_errors  = hw_stats->rx_frag + hw_stats->rx_fcs_err +
+> > +				hw_stats->rx_len_err + hw_stats->rx_ov_sz +
+> > +				hw_stats->rx_ov_rrd + hw_stats->rx_align_err;
+> > +
+> > +	net_stats->rx_fifo_errors   = hw_stats->rx_ov_rxf;
+> > +	net_stats->rx_length_errors = hw_stats->rx_len_err;
+> > +	net_stats->rx_crc_errors    = hw_stats->rx_fcs_err;
+> > +	net_stats->rx_frame_errors  = hw_stats->rx_align_err;
+> > +	net_stats->rx_over_errors   = hw_stats->rx_ov_rrd + hw_stats->rx_ov_rxf;
+> 
+> rx_over_errors is commented as 'receiver ring buff overflow' and
+> ifconfig includes it in the 'frame' error count.  I think it is intended
+> to count frames which are too large for on-chip RX buffers and should
+> always be 0 for devices that do RX DMA.
+> 
+> Each error should contribute to at most one specific error stat, so
+> don't count rx_ov_rxf in both rx_fifo_errors and rx_over_errors.  I
+> would guess rx_fifo_errors is the right counter.
+>
+> I don't know what rx_ov_rrd represents, but if it's the number of
+> packets dropped because the RX descriptor ring was empty then it should
+> be counted in rx_dropped not rx_over_errors.
+
+in atl1e/atl1e.h:
+rx_ov_rxf: The number of frame dropped due to occurrence of RX FIFO overflow.
+rx_ov_rrd: The number of frame dropped due to occurrence of RRD overflow.
+
+I'm not sure which counter fits these best.
+
+
+> > +	net_stats->rx_missed_errors = hw_stats->rx_ov_rrd + hw_stats->rx_ov_rxf;
+> [...]
+> 
+> This counter is commented as 'receiver missed packet'.  I think this
+> means the MAC detected SOF but was somehow too busy to receive the
+> packet, but I'm not sure.  I don't think these hardware counters match
+> the description, and certainly they shouldn't be counted here as well as
+> the other specific error stats.
+
+Okay.
+
+
+Thanks,
+
+-- 
+Sabrina
