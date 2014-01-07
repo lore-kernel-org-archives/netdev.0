@@ -1,134 +1,36 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: single process receives own frames due to PACKET_MMAP
-Date: Tue, 07 Jan 2014 16:57:42 +0100
-Message-ID: <52CC23F6.1070801@redhat.com>
-References: <52B4465E.2090904@aimvalley.nl> <52CB34F9.6020906@aimvalley.nl> <52CBC991.8030701@redhat.com> <20140107110609.74f71979@redhat.com> <52CBFE13.8@aimvalley.nl> <20140107150938.1058b358@redhat.com> <52CC1A61.5080205@aimvalley.nl> <52CC1C94.2060808@redhat.com> <52CC2168.9060401@aimvalley.nl>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2 0/2] ipv6 addrconf: add IFA_F_NOPREFIXROUTE flag to suppress creation of IP6 routes
+Date: Tue, 7 Jan 2014 17:03:28 +0100
+Message-ID: <20140107160328.GF24730@order.stressinduktion.org>
+References: <1389029375-17698-1-git-send-email-thaller@redhat.com> <1389105553-21230-1-git-send-email-thaller@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>, uaca@alumni.uv.es
-To: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
+Content-Type: text/plain; charset=utf-8
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	stephen@networkplumber.org, dcbw@redhat.com
+To: Thomas Haller <thaller@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55752 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751464AbaAGP6y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 10:58:54 -0500
-In-Reply-To: <52CC2168.9060401@aimvalley.nl>
+Received: from order.stressinduktion.org ([87.106.68.36]:45551 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751364AbaAGQD3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 11:03:29 -0500
+Content-Disposition: inline
+In-Reply-To: <1389105553-21230-1-git-send-email-thaller@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/07/2014 04:46 PM, Norbert van Bolhuis wrote:
-> On 01/07/14 16:26, Daniel Borkmann wrote:
->> On 01/07/2014 04:16 PM, Norbert van Bolhuis wrote:
->>> On 01/07/14 15:09, Jesper Dangaard Brouer wrote:
->>>> On Tue, 07 Jan 2014 14:16:03 +0100
->>>> Norbert van Bolhuis<nvbolhuis@aimvalley.nl> wrote:
->>>>> On 01/07/14 11:06, Jesper Dangaard Brouer wrote:
->>>>>> On Tue, 07 Jan 2014 10:32:01 +0100
->>>>>> Daniel Borkmann<dborkman@redhat.com> wrote:
->>>>>>
->>>>>>> On 01/06/2014 11:58 PM, Norbert van Bolhuis wrote:
->>>>>>>>
->>>> [...]
->>>>>>>
->>>>>>>> I'd say it makes no sense to make the same process receive its
->>>>>>>> own transmitted frames on that same interface (unless its lo).
->>>>>>
->>>>>> Have you setup:
->>>>>> ring->s_ll.sll_protocol = 0
->>>>>>
->>>>>> This is what I did in trafgen to avoid this problem.
->>>>>>
->>>>>> See line 55 in netsniff-ng/ring.c:
->>>>>> https://github.com/borkmann/netsniff-ng/blob/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1/ring.c#L55
->>>>>>
->>>>>> Commit:
->>>>>> https://github.com/borkmann/netsniff-ng/commit/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1
->>>>>>
->>>>>
->>>>>
->>>>> No I did not do that, I was checking my code against netsniff-ng-0.5.8-rc4.
->>>>>
->>>>> But I just tried it, I believe I do the same as netsniff-ng-0.5.8-rc5, but it doesn't
->>>>> work for me. Maybe because I have an old FC14 system (kernel 2.6.35.14-106.fc14.x86_64).
->>>>>
->>>>> So I tried to see whether netsniff-ng-0.5.8-rc5/trafgen still makes the
->>>>> kernel call packet_rcv() on my FC14 system. So I build and run it, but I'm not sure
->>>>> how to (easily) check that.
->>>>
->>>> The easiest way is to:
->>>> cat /proc/net/ptype
->>>> And look if someone registered a proto handler/function: packet_rcv (or tpacket_rcv).
->>>>
->>>> The more exact method is, to run "perf record -a -g" and then look (at
->>>> the result with "perf report") for a lock contention, and "expand" the
->>>> spin_lock and see if packet_rcv() is calling this spin lock.
->>>>
->>>
->>>
->>> I checked the easy way.
->>> Even on my old FC14 system the "protocol=0 patch" seems to make a difference
->>> for trafgen.
->>> Without the patch I see for each CPU in use by trafgen a "packet_rcv entry" in
->>> /proc/net/ptype.
->>> With the patch I see no additional "packet_rcv entry".
->>
->> Yes, that is expected behaviour. ;-) See more below.
->>
->>> It could be my Appl is wrong or maybe the "protocol=0 patch" does not help.
->>> I think the latter, afterall my Appl has, unlike trafgen, another RX
->>> (AF_PACKET) socket.
->>>
->>>
->>>>
->>>>> In anyway, Wireshark does capture the trafgen generated
->>>>> frames, does that say anything ?
->>>>
->>>> Be careful not to start a wireshark/tcpdump, at the sametime, as this
->>>> will slow you down.
->>>>
->>>>> In the future, I can at least use PACKET_QDISC_BYPASS as a "workaround".
->>>>
->>>> And in the future with PACKET_QDISC_BYPASS, your wireshark will not
->>>> catch these packets, remember that.
->>>>
->>>
->>>
->>> Yes, this is why I would love to see the "protocol=0 patch" work for my Appl.
->>>
->>> So I will try my Appl with the latest net-next kernel to see if that makes
->>> it work. Hopefully I can find some time in the next coming days, I will keep
->>> you informed.
->>
->> As long as there's at least one single PF_PACKET receive socket open and you
->> do not make use of PACKET_QDISC_BYPASS on your tx socket, then those packets go
->> back the dev_queue_xmit_nit() path, even if your tx socket uses protocol=0.
->>
->> If you make use of PACKET_QDISC_BYPASS [1] for your particular tx socket, then
->> packets generated by that socket will not hit the dev_queue_xmit_nit() path
->> back to other possible rx listeners that are present on your system (w/ the
->> side-effects for tx as described in [1]).
->>
->> [1] Documentation/networking/packet_mmap.txt +960
->>
->
->
-> Ok, that's clear.
->
-> But this means my PF_PACKET socket application performs worse because of
-> using PACKET_MMAP. I expected the opposit.
->
-> Afterall my old PF_PACKET socket application (which does not use PACKET_MMAP)
-> uses only one PF_PACKET socket (for TX and RX). Because packets are never sent
-> back to the socket they originated from, my old PF_PACKET socket application
-> performs better.
->
-> Is there a way to use one PF_PACKET socket for both TX and RX and use PACKET_MMAP ?
+On Tue, Jan 07, 2014 at 03:39:11PM +0100, Thomas Haller wrote:
+> Now, the IFA_F_NOPREFIXROUTE flag is saved in ifp->flags.
+> The second patch reworks the deletion of addresses/cleanup of prefix
+> routes and considers IFA_F_NOPREFIXROUTE.
+> 
+> Thomas Haller (2):
+>   ipv6 addrconf: add IFA_F_NOPREFIXROUTE flag to suppress creation of
+>     IP6 routes
+>   ipv6 addrconf: don't cleanup route prefix for IFA_F_NOPREFIXROUTE
 
-Yep:
+Maybe you could look into if a small patch implementing noprefixroute would be
+doable. That would help testing these changes a lot. ;)
 
-http://thread.gmane.org/gmane.linux.network/269129/focus=269188
+Greetings,
 
-Feel free to make a patch and add this to Documentation/networking/packet_mmap.txt
-I think could be useful for others as well.
+  Hannes
