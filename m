@@ -1,52 +1,44 @@
-From: <shh.xie@gmail.com>
-Subject: [PATCH 2/6] [v4] phylib: introduce PHY_INTERFACE_MODE_XGMII for 10G PHY
-Date: Tue, 7 Jan 2014 10:13:37 +0800
-Message-ID: <1389060817-7002-1-git-send-email-shh.xie@gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH v3.5 10/19] mac8011: slight optimization of addr compare
+Date: Tue, 7 Jan 2014 11:40:38 +0800
+Message-ID: <52CB7736.701@huawei.com>
+References: <52BC15C8.2080400@huawei.com> <1389021111.5891.21.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Shaohui.Xie@freescale.com>, Andy Fleming <afleming@gmail.com>
-To: <davem@davemloft.net>, <jg1.han@samsung.com>,
-	<mugunthanvnm@ti.com>, <f.fainelli@gmail.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	<linux-wireless@vger.kernel.org>, Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1389021111.5891.21.camel@jlt4.sipsolutions.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andy Fleming <afleming@gmail.com>
+On 2014/1/6 23:11, Johannes Berg wrote:
+> On Thu, 2013-12-26 at 19:40 +0800, Ding Tianhong wrote:
+>> Use the possibly more efficient ether_addr_equal
+>> to instead of memcmp.
+> 
+> This is a slow-path, I don't think that's really worth it. It kinda
+> makes sense, but relies on the struct mac_address allocation for
+> alignment and the fact that there are no other members in that struct,
+> so it seems to me that this ought to also add some alignment attributes?
+> 
+> johannes
+> 
+> 
 
-Signed-off-by: Andy Fleming <afleming@gmail.com>
-Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
----
-resend for v4.
+Yes, I had to say that it is really a slight optimization.And I am sure the address in the struct
+is alignment, otherwise I have to use the ether_addr_equal_unaligned().
 
- drivers/of/of_net.c | 1 +
- include/linux/phy.h | 1 +
- 2 files changed, 2 insertions(+)
+Regards
+Ding 
 
-diff --git a/drivers/of/of_net.c b/drivers/of/of_net.c
-index 8f9be2e..a208a45 100644
---- a/drivers/of/of_net.c
-+++ b/drivers/of/of_net.c
-@@ -30,6 +30,7 @@ static const char *phy_modes[] = {
- 	[PHY_INTERFACE_MODE_RGMII_TXID] = "rgmii-txid",
- 	[PHY_INTERFACE_MODE_RTBI]	= "rtbi",
- 	[PHY_INTERFACE_MODE_SMII]	= "smii",
-+	[PHY_INTERFACE_MODE_XGMII]	= "xgmii",
- };
- 
- /**
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 0ff2476..1d6d1b9 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -66,6 +66,7 @@ typedef enum {
- 	PHY_INTERFACE_MODE_RGMII_TXID,
- 	PHY_INTERFACE_MODE_RTBI,
- 	PHY_INTERFACE_MODE_SMII,
-+	PHY_INTERFACE_MODE_XGMII,
- } phy_interface_t;
- 
- 
--- 
-1.8.4.1
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
