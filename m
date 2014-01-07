@@ -1,184 +1,95 @@
-From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: [PATCH net] bnx2x: prevent WARN during driver unload
-Date: Tue, 7 Jan 2014 12:07:41 +0200
-Message-ID: <1389089261-25714-1-git-send-email-yuvalmin@broadcom.com>
+From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Subject: Re: Re: [PATCH 04/10] net: stmmac: sunxi platfrom
+ extensions for GMAC in Allwinner A20 SoC's
+Date: Tue, 7 Jan 2014 18:24:55 +0800
+Message-ID: <CAGb2v67iSZOivEokrye7haQss06MvUaPCNGF=E+odasgzhoWFg@mail.gmail.com>
+References: <1386350983-13281-1-git-send-email-wens@csie.org>
+ <1386350983-13281-5-git-send-email-wens@csie.org> <52A5A52C.50605@st.com>
+ <CAGb2v67WiCaMpJEzA_X6o7uOu6i3w3FCEz7=N5HY0amQb01SZA@mail.gmail.com>
+ <52A72C6D.60100@st.com> <CAGb2v64qQvqJSicA6MTAxeh1sGjWY=Pk=vDq=9J3pTQW+wkXrA@mail.gmail.com>
+ <52A87A74.8040807@st.com> <20131212090415.GQ3651@lukather>
+ <CAGb2v655_83b76PTmgkDmNGCADWwTjTwW13sOgM5HFmCVkeu=w@mail.gmail.com>
+ <20131213103822.GX3651@lukather> <CAGb2v64Q1PSMw_nULBHMR5eOC44hWBPewchxE_4sO+4XN8_sDA@mail.gmail.com>
+ <52C5656A.4060402@st.com>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yuval Mintz <yuvalmin@broadcom.com>,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	Ariel Elior <ariele@broadcom.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:61722 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750954AbaAGKIF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 05:08:05 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>, devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: srinivas kandagatla <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>
+Return-path: <linux-sunxi+bncBCMILY6JWQBBBDNMV6LAKGQETPFF6KY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <52C5656A.4060402-qxv4g6HH51o@public.gmane.org>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi>
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Starting with commit 80c33dd "net: add might_sleep() call to napi_disable"
-bnx2x fails the might_sleep tests causing a stack trace to appear whenever
-the driver is unloaded, as local_bh_disable() is being called before 
-napi_disable().
+Hi,
 
-This changes the locking schematics related to CONFIG_NET_RX_BUSY_POLL,
-preventing the need for calling local_bh_disable() and thus eliminating
-the issue.
+On Thu, Jan 2, 2014 at 9:11 PM, srinivas kandagatla
+<srinivas.kandagatla-qxv4g6HH51o@public.gmane.org> wrote:
+> Hi Chen,
+>
+> On 24/12/13 03:27, Chen-Yu Tsai wrote:
+>> Srinivas,
+>>
+>> Let's keep platform data as of_data, so SoC compatibles can pass
+>> hardware feature flags for cores that don't support auto-detection.
+>
+> I understand your concern here, But making platform_data as of_data
+> would just open a wide door for other hacky stuff too. So other glue
+> drivers would just use this interface instead, ignoring standard
+> interfaces. Also there would be issues on who takes the priority if the
+> parameters are specified in multiple places.
+>
+>
+> Can't this field/s be one of the variable in the struct stmmac_of_data
+> rather than reusing platform data?
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
----
-Hi Dave,
+We (sunxi) need .has_gmac and .tx_coe.
 
-Please apply this to `net'.
+To be generic and usable to other SoCs, it seems like I would be
+adding most of the fields from platform data. But maybe future
+glue layers will only need the callbacks. I can not be sure.
 
-Thanks,
-Yuval Mintz
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h     | 44 +++++++++++++++++++------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 12 +++----
- 2 files changed, 38 insertions(+), 18 deletions(-)
+Also since snps,phy-addr should be deprecated, I am thinking of
+changing the default phy address to auto-detect, until
+Giuseppe merges his phy node support work.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index a1f66e2..46eeace 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -520,10 +520,12 @@ struct bnx2x_fastpath {
- #define BNX2X_FP_STATE_IDLE		      0
- #define BNX2X_FP_STATE_NAPI		(1 << 0)    /* NAPI owns this FP */
- #define BNX2X_FP_STATE_POLL		(1 << 1)    /* poll owns this FP */
--#define BNX2X_FP_STATE_NAPI_YIELD	(1 << 2)    /* NAPI yielded this FP */
--#define BNX2X_FP_STATE_POLL_YIELD	(1 << 3)    /* poll yielded this FP */
-+#define BNX2X_FP_STATE_DISABLED		(1 << 2)
-+#define BNX2X_FP_STATE_NAPI_YIELD	(1 << 3)    /* NAPI yielded this FP */
-+#define BNX2X_FP_STATE_POLL_YIELD	(1 << 4)    /* poll yielded this FP */
-+#define BNX2X_FP_OWNED	(BNX2X_FP_STATE_NAPI | BNX2X_FP_STATE_POLL)
- #define BNX2X_FP_YIELD	(BNX2X_FP_STATE_NAPI_YIELD | BNX2X_FP_STATE_POLL_YIELD)
--#define BNX2X_FP_LOCKED	(BNX2X_FP_STATE_NAPI | BNX2X_FP_STATE_POLL)
-+#define BNX2X_FP_LOCKED	(BNX2X_FP_OWNED | BNX2X_FP_STATE_DISABLED)
- #define BNX2X_FP_USER_PEND (BNX2X_FP_STATE_POLL | BNX2X_FP_STATE_POLL_YIELD)
- 	/* protect state */
- 	spinlock_t lock;
-@@ -613,7 +615,7 @@ static inline bool bnx2x_fp_lock_napi(struct bnx2x_fastpath *fp)
- {
- 	bool rc = true;
- 
--	spin_lock(&fp->lock);
-+	spin_lock_bh(&fp->lock);
- 	if (fp->state & BNX2X_FP_LOCKED) {
- 		WARN_ON(fp->state & BNX2X_FP_STATE_NAPI);
- 		fp->state |= BNX2X_FP_STATE_NAPI_YIELD;
-@@ -622,7 +624,7 @@ static inline bool bnx2x_fp_lock_napi(struct bnx2x_fastpath *fp)
- 		/* we don't care if someone yielded */
- 		fp->state = BNX2X_FP_STATE_NAPI;
- 	}
--	spin_unlock(&fp->lock);
-+	spin_unlock_bh(&fp->lock);
- 	return rc;
- }
- 
-@@ -631,14 +633,16 @@ static inline bool bnx2x_fp_unlock_napi(struct bnx2x_fastpath *fp)
- {
- 	bool rc = false;
- 
--	spin_lock(&fp->lock);
-+	spin_lock_bh(&fp->lock);
- 	WARN_ON(fp->state &
- 		(BNX2X_FP_STATE_POLL | BNX2X_FP_STATE_NAPI_YIELD));
- 
- 	if (fp->state & BNX2X_FP_STATE_POLL_YIELD)
- 		rc = true;
--	fp->state = BNX2X_FP_STATE_IDLE;
--	spin_unlock(&fp->lock);
-+
-+	/* state ==> idle, unless currently disabled */
-+	fp->state &= BNX2X_FP_STATE_DISABLED;
-+	spin_unlock_bh(&fp->lock);
- 	return rc;
- }
- 
-@@ -669,7 +673,9 @@ static inline bool bnx2x_fp_unlock_poll(struct bnx2x_fastpath *fp)
- 
- 	if (fp->state & BNX2X_FP_STATE_POLL_YIELD)
- 		rc = true;
--	fp->state = BNX2X_FP_STATE_IDLE;
-+
-+	/* state ==> idle, unless currently disabled */
-+	fp->state &= BNX2X_FP_STATE_DISABLED;
- 	spin_unlock_bh(&fp->lock);
- 	return rc;
- }
-@@ -677,9 +683,23 @@ static inline bool bnx2x_fp_unlock_poll(struct bnx2x_fastpath *fp)
- /* true if a socket is polling, even if it did not get the lock */
- static inline bool bnx2x_fp_ll_polling(struct bnx2x_fastpath *fp)
- {
--	WARN_ON(!(fp->state & BNX2X_FP_LOCKED));
-+	WARN_ON(!(fp->state & BNX2X_FP_OWNED));
- 	return fp->state & BNX2X_FP_USER_PEND;
- }
-+
-+/* false if fp is currently owned */
-+static inline bool bnx2x_fp_ll_disable(struct bnx2x_fastpath *fp)
-+{
-+	int rc = true;
-+
-+	spin_lock_bh(&fp->lock);
-+	if (fp->state & BNX2X_FP_OWNED)
-+		rc = false;
-+	fp->state |= BNX2X_FP_STATE_DISABLED;
-+	spin_unlock_bh(&fp->lock);
-+
-+	return rc;
-+}
- #else
- static inline void bnx2x_fp_init_lock(struct bnx2x_fastpath *fp)
- {
-@@ -709,6 +729,10 @@ static inline bool bnx2x_fp_ll_polling(struct bnx2x_fastpath *fp)
- {
- 	return false;
- }
-+static inline bool bnx2x_fp_ll_disable(struct bnx2x_fastpath *fp)
-+{
-+	return true;
-+}
- #endif /* CONFIG_NET_RX_BUSY_POLL */
- 
- /* Use 2500 as a mini-jumbo MTU for FCoE */
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index ec96130..c6745d7 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -1790,26 +1790,22 @@ static void bnx2x_napi_disable_cnic(struct bnx2x *bp)
- {
- 	int i;
- 
--	local_bh_disable();
- 	for_each_rx_queue_cnic(bp, i) {
- 		napi_disable(&bnx2x_fp(bp, i, napi));
--		while (!bnx2x_fp_lock_napi(&bp->fp[i]))
--			mdelay(1);
-+		while (!bnx2x_fp_ll_disable(&bp->fp[i]))
-+			usleep_range(1000, 2000);
- 	}
--	local_bh_enable();
- }
- 
- static void bnx2x_napi_disable(struct bnx2x *bp)
- {
- 	int i;
- 
--	local_bh_disable();
- 	for_each_eth_queue(bp, i) {
- 		napi_disable(&bnx2x_fp(bp, i, napi));
--		while (!bnx2x_fp_lock_napi(&bp->fp[i]))
--			mdelay(1);
-+		while (!bnx2x_fp_ll_disable(&bp->fp[i]))
-+			usleep_range(1000, 2000);
- 	}
--	local_bh_enable();
- }
- 
- void bnx2x_netif_start(struct bnx2x *bp)
--- 
-1.8.1.227.g44fe835
+I will post a v2 series this week.
+
+>>
+>> We can adjust the callbacks as you suggested, and I added a .free
+>> to complement .setup. Driver private data and platform data are
+>> off limits to the callbacks. My version of the callbacks:
+>>
+>>         void (*fix_mac_speed)(void *priv, unsigned int speed);
+>>         void (*bus_setup)(void __iomem *ioaddr);
+>
+> In reply to your question in last email:
+> bus_setup this is something very specific to ST which configures the bus
+> parameters of AMBA-to-STBUS converter. This register falls inside the
+> memory map of stmmac.
+
+I see. IMHO it could be merged into .init?
+
+>
+>>         void *(*setup)(struct platform_device *pdev);
+>>         void (*free)(struct platform_device *pdev, void *priv);
+>>         int (*init)(struct platform_device *pdev, void *priv);
+>>         void (*exit)(struct platform_device *pdev, void *priv);
+>>
+>
+> The callbacks to Ok to me, unless Peppe has more comments on this.
+
+Ok.
+
+
+Cheers
+ChenYu
