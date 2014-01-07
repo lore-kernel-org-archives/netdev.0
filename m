@@ -1,51 +1,32 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 16/17] openvswitch: Compute checksum in
-	skb_gso_segment() if needed
-Date: Mon,  6 Jan 2014 16:16:15 -0800
-Message-ID: <1389053776-62865-17-git-send-email-jesse@nicira.com>
-References: <1389053776-62865-1-git-send-email-jesse@nicira.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 1/3] ipv4: introduce ip_dst_mtu_secure and
+ protect forwarding path against pmtu spoofing
+Date: Mon, 06 Jan 2014 19:42:03 -0500 (EST)
+Message-ID: <20140106.194203.1057131663158804667.davem@davemloft.net>
+References: <20140106084827.GA5766@order.stressinduktion.org>
+	<20140106.160846.544525591241855516.davem@davemloft.net>
+	<20140107001103.GE10204@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1389053776-62865-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	johnwheffner@gmail.com, steffen.klassert@secunet.com,
+	fweimer@redhat.com
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36433 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754620AbaAGAmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 19:42:07 -0500
+In-Reply-To: <20140107001103.GE10204@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Tue, 7 Jan 2014 01:11:03 +0100
 
-The copy & csum optimization is no longer present with zerocopy
-enabled. Compute the checksum in skb_gso_segment() directly by
-dropping the HW CSUM capability from the features passed in.
+> Have you seen that Steffen did test these patches with his pmtu
+> testsuite successfully and they showed no obvious regressions (he
+> posted to the old thread)?
 
-Signed-off-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
----
- net/openvswitch/datapath.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 8557834..61ae3b8 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -311,7 +311,7 @@ static int queue_gso_packets(struct datapath *dp, struct sk_buff *skb,
- 	struct sk_buff *segs, *nskb;
- 	int err;
- 
--	segs = __skb_gso_segment(skb, NETIF_F_SG | NETIF_F_HW_CSUM, false);
-+	segs = __skb_gso_segment(skb, NETIF_F_SG, false);
- 	if (IS_ERR(segs))
- 		return PTR_ERR(segs);
- 
--- 
-1.8.3.2
+Yes I saw that.
