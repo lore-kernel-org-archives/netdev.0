@@ -1,87 +1,184 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: single process receives own frames due to PACKET_MMAP
-Date: Tue, 7 Jan 2014 11:06:09 +0100
-Message-ID: <20140107110609.74f71979@redhat.com>
-References: <52B4465E.2090904@aimvalley.nl>
-	<52CB34F9.6020906@aimvalley.nl>
-	<52CBC991.8030701@redhat.com>
+From: Yuval Mintz <yuvalmin@broadcom.com>
+Subject: [PATCH net] bnx2x: prevent WARN during driver unload
+Date: Tue, 7 Jan 2014 12:07:41 +0200
+Message-ID: <1389089261-25714-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>, uaca@alumni.uv.es
-To: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
+Content-Type: text/plain
+Cc: Yuval Mintz <yuvalmin@broadcom.com>,
+	Dmitry Kravkov <dmitry@broadcom.com>,
+	Ariel Elior <ariele@broadcom.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31631 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750938AbaAGKHW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 05:07:22 -0500
-In-Reply-To: <52CBC991.8030701@redhat.com>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:61722 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750954AbaAGKIF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 05:08:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 07 Jan 2014 10:32:01 +0100
-Daniel Borkmann <dborkman@redhat.com> wrote:
+Starting with commit 80c33dd "net: add might_sleep() call to napi_disable"
+bnx2x fails the might_sleep tests causing a stack trace to appear whenever
+the driver is unloaded, as local_bh_disable() is being called before 
+napi_disable().
 
-> On 01/06/2014 11:58 PM, Norbert van Bolhuis wrote:
-> >
-> > Our application uses raw AF_PACKET socket to send and receive
-> > on one particular ethernet interface.
-> >
-> > Recently we started using PACKET_MMAP (TPACKET_V2). This makes
-> > the Appl use a TX socket and a RX socket.
-> > Both sockets are bound to the same (eth) interface. I noticed
-> > the RX socket receives all frames that are sent via the
-> > TX socket (same process, different thread). This I do not want.
-> >
-> > I know it is supposed to happen for different processes
-> > (otherwise wireshark won't work), but I did not expect it to
-> > happen for one single process (with different threads).
-> >
-> > I can filter them out in user-space (PACKET_OUTGOING)
-> > or via kernel packet filter (SO_ATTACH_FILTER), but performance is
-> > critical.
-> >
-> > I wonder whether this (PACKET_MMAP) behaviour is OK.
-> 
-> For your use-case, we recently introduced in d346a3fae3ff1
-> ("packet: introduce PACKET_QDISC_BYPASS socket option") a
-> bypass of dev_queue_xmit() (that internally invokes
-> dev_queue_xmit_nit()).
-> 
-> > It did not happen before (with a non-PACKET_MMAP AF_PACKET socket
-> > which was used by both threads of the same Appl process). So
-> > why is it happening now ?
-> 
-> Can you elaborate a bit on which kernel versions that behaviour
-> changed?
-> 
-> > I'd say it makes no sense to make the same process receive its
-> > own transmitted frames on that same interface (unless its lo).
+This changes the locking schematics related to CONFIG_NET_RX_BUSY_POLL,
+preventing the need for calling local_bh_disable() and thus eliminating
+the issue.
 
-Have you setup:
- ring->s_ll.sll_protocol = 0
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+---
+Hi Dave,
 
-This is what I did in trafgen to avoid this problem.
+Please apply this to `net'.
 
-See line 55 in netsniff-ng/ring.c:
- https://github.com/borkmann/netsniff-ng/blob/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1/ring.c#L55
+Thanks,
+Yuval Mintz
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h     | 44 +++++++++++++++++++------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 12 +++----
+ 2 files changed, 38 insertions(+), 18 deletions(-)
 
-Commit:
- https://github.com/borkmann/netsniff-ng/commit/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1
-
-> > If I'm not doing something wrong, this means this behaviour
-> > causes my CPU to be loaded much more (since all transmitted frames
-> > have to be filtered out).
-> >
-> > Let me know what you think.
-> >
-> > thanks,
-> > Norbert van Bolhuis
-
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index a1f66e2..46eeace 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -520,10 +520,12 @@ struct bnx2x_fastpath {
+ #define BNX2X_FP_STATE_IDLE		      0
+ #define BNX2X_FP_STATE_NAPI		(1 << 0)    /* NAPI owns this FP */
+ #define BNX2X_FP_STATE_POLL		(1 << 1)    /* poll owns this FP */
+-#define BNX2X_FP_STATE_NAPI_YIELD	(1 << 2)    /* NAPI yielded this FP */
+-#define BNX2X_FP_STATE_POLL_YIELD	(1 << 3)    /* poll yielded this FP */
++#define BNX2X_FP_STATE_DISABLED		(1 << 2)
++#define BNX2X_FP_STATE_NAPI_YIELD	(1 << 3)    /* NAPI yielded this FP */
++#define BNX2X_FP_STATE_POLL_YIELD	(1 << 4)    /* poll yielded this FP */
++#define BNX2X_FP_OWNED	(BNX2X_FP_STATE_NAPI | BNX2X_FP_STATE_POLL)
+ #define BNX2X_FP_YIELD	(BNX2X_FP_STATE_NAPI_YIELD | BNX2X_FP_STATE_POLL_YIELD)
+-#define BNX2X_FP_LOCKED	(BNX2X_FP_STATE_NAPI | BNX2X_FP_STATE_POLL)
++#define BNX2X_FP_LOCKED	(BNX2X_FP_OWNED | BNX2X_FP_STATE_DISABLED)
+ #define BNX2X_FP_USER_PEND (BNX2X_FP_STATE_POLL | BNX2X_FP_STATE_POLL_YIELD)
+ 	/* protect state */
+ 	spinlock_t lock;
+@@ -613,7 +615,7 @@ static inline bool bnx2x_fp_lock_napi(struct bnx2x_fastpath *fp)
+ {
+ 	bool rc = true;
+ 
+-	spin_lock(&fp->lock);
++	spin_lock_bh(&fp->lock);
+ 	if (fp->state & BNX2X_FP_LOCKED) {
+ 		WARN_ON(fp->state & BNX2X_FP_STATE_NAPI);
+ 		fp->state |= BNX2X_FP_STATE_NAPI_YIELD;
+@@ -622,7 +624,7 @@ static inline bool bnx2x_fp_lock_napi(struct bnx2x_fastpath *fp)
+ 		/* we don't care if someone yielded */
+ 		fp->state = BNX2X_FP_STATE_NAPI;
+ 	}
+-	spin_unlock(&fp->lock);
++	spin_unlock_bh(&fp->lock);
+ 	return rc;
+ }
+ 
+@@ -631,14 +633,16 @@ static inline bool bnx2x_fp_unlock_napi(struct bnx2x_fastpath *fp)
+ {
+ 	bool rc = false;
+ 
+-	spin_lock(&fp->lock);
++	spin_lock_bh(&fp->lock);
+ 	WARN_ON(fp->state &
+ 		(BNX2X_FP_STATE_POLL | BNX2X_FP_STATE_NAPI_YIELD));
+ 
+ 	if (fp->state & BNX2X_FP_STATE_POLL_YIELD)
+ 		rc = true;
+-	fp->state = BNX2X_FP_STATE_IDLE;
+-	spin_unlock(&fp->lock);
++
++	/* state ==> idle, unless currently disabled */
++	fp->state &= BNX2X_FP_STATE_DISABLED;
++	spin_unlock_bh(&fp->lock);
+ 	return rc;
+ }
+ 
+@@ -669,7 +673,9 @@ static inline bool bnx2x_fp_unlock_poll(struct bnx2x_fastpath *fp)
+ 
+ 	if (fp->state & BNX2X_FP_STATE_POLL_YIELD)
+ 		rc = true;
+-	fp->state = BNX2X_FP_STATE_IDLE;
++
++	/* state ==> idle, unless currently disabled */
++	fp->state &= BNX2X_FP_STATE_DISABLED;
+ 	spin_unlock_bh(&fp->lock);
+ 	return rc;
+ }
+@@ -677,9 +683,23 @@ static inline bool bnx2x_fp_unlock_poll(struct bnx2x_fastpath *fp)
+ /* true if a socket is polling, even if it did not get the lock */
+ static inline bool bnx2x_fp_ll_polling(struct bnx2x_fastpath *fp)
+ {
+-	WARN_ON(!(fp->state & BNX2X_FP_LOCKED));
++	WARN_ON(!(fp->state & BNX2X_FP_OWNED));
+ 	return fp->state & BNX2X_FP_USER_PEND;
+ }
++
++/* false if fp is currently owned */
++static inline bool bnx2x_fp_ll_disable(struct bnx2x_fastpath *fp)
++{
++	int rc = true;
++
++	spin_lock_bh(&fp->lock);
++	if (fp->state & BNX2X_FP_OWNED)
++		rc = false;
++	fp->state |= BNX2X_FP_STATE_DISABLED;
++	spin_unlock_bh(&fp->lock);
++
++	return rc;
++}
+ #else
+ static inline void bnx2x_fp_init_lock(struct bnx2x_fastpath *fp)
+ {
+@@ -709,6 +729,10 @@ static inline bool bnx2x_fp_ll_polling(struct bnx2x_fastpath *fp)
+ {
+ 	return false;
+ }
++static inline bool bnx2x_fp_ll_disable(struct bnx2x_fastpath *fp)
++{
++	return true;
++}
+ #endif /* CONFIG_NET_RX_BUSY_POLL */
+ 
+ /* Use 2500 as a mini-jumbo MTU for FCoE */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index ec96130..c6745d7 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -1790,26 +1790,22 @@ static void bnx2x_napi_disable_cnic(struct bnx2x *bp)
+ {
+ 	int i;
+ 
+-	local_bh_disable();
+ 	for_each_rx_queue_cnic(bp, i) {
+ 		napi_disable(&bnx2x_fp(bp, i, napi));
+-		while (!bnx2x_fp_lock_napi(&bp->fp[i]))
+-			mdelay(1);
++		while (!bnx2x_fp_ll_disable(&bp->fp[i]))
++			usleep_range(1000, 2000);
+ 	}
+-	local_bh_enable();
+ }
+ 
+ static void bnx2x_napi_disable(struct bnx2x *bp)
+ {
+ 	int i;
+ 
+-	local_bh_disable();
+ 	for_each_eth_queue(bp, i) {
+ 		napi_disable(&bnx2x_fp(bp, i, napi));
+-		while (!bnx2x_fp_lock_napi(&bp->fp[i]))
+-			mdelay(1);
++		while (!bnx2x_fp_ll_disable(&bp->fp[i]))
++			usleep_range(1000, 2000);
+ 	}
+-	local_bh_enable();
+ }
+ 
+ void bnx2x_netif_start(struct bnx2x *bp)
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+1.8.1.227.g44fe835
