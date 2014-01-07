@@ -1,88 +1,134 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V2 3/3] net: Add GRO support for vxlan traffic
-Date: Tue,  7 Jan 2014 17:29:54 +0200
-Message-ID: <1389108594-665-4-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V2 1/3] net: Add GRO support for UDP encapsulating protocols
+Date: Tue,  7 Jan 2014 17:29:52 +0200
+Message-ID: <1389108594-665-2-git-send-email-ogerlitz@mellanox.com>
 References: <1389108594-665-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, davem@davemloft.net, yanb@mellanox.com,
 	shlomop@mellanox.com, Or Gerlitz <ogerlitz@mellanox.com>
 To: hkchu@google.com, edumazet@google.com, herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:38846 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:38843 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750933AbaAGPaG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751276AbaAGPaG (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 7 Jan 2014 10:30:06 -0500
 In-Reply-To: <1389108594-665-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add gro handlers for vxlan using the udp gro infrastructure
+Add GRO handlers for protocols that do UDP encapsulation, with the intent of
+being able to coalesce packets which encapsulate packets belonging to
+the same TCP session.
 
-On my setup, which is net-next (now with the mlx4 vxlan offloads patches) -- 
-for single TCP session that goes through vxlan tunneling I got nice improvement
-from 6.8Gbs to 11.5Gbs
+For GRO purposes, the destination UDP port takes the role of the ether type 
+field in the ethernet header or the next protocol in the IP header.
 
---> UDP/VXLAN GRO disabled
-$ netperf  -H 192.168.52.147 -c -C
-
-$ netperf -t TCP_STREAM -H 192.168.52.147 -c -C
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.52.147 () port 0 AF_INET
-Recv   Send    Send                          Utilization       Service Demand
-Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-Size   Size    Size     Time     Throughput  local    remote   local   remote
-bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
-
- 87380  65536  65536    10.00      6799.75   12.54    24.79    0.604   1.195
-
---> UDP/VXLAN GRO enabled
-
-$ netperf -t TCP_STREAM -H 192.168.52.147 -c -C
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.52.147 () port 0 AF_INET
-Recv   Send    Send                          Utilization       Service Demand
-Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-Size   Size    Size     Time     Throughput  local    remote   local   remote
-bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
-
- 87380  65536  65536    10.00      11562.72   24.90    20.34    0.706   0.577
+The UDP GRO handler will only attempt to coalesce packets whose destination
+port is registered to have gro handler.
 
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/vxlan.c |  101 ++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 99 insertions(+), 2 deletions(-)
+ include/net/protocol.h |    6 ++++
+ net/ipv4/protocol.c    |   21 ++++++++++++++
+ net/ipv4/udp_offload.c |   69 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 96 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 481f85d..b51823b 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -40,6 +40,7 @@
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
- #include <net/vxlan.h>
-+#include <net/protocol.h>
+diff --git a/include/net/protocol.h b/include/net/protocol.h
+index fbf7676..d776c08 100644
+--- a/include/net/protocol.h
++++ b/include/net/protocol.h
+@@ -92,6 +92,10 @@ extern const struct net_protocol __rcu *inet_protos[MAX_INET_PROTOS];
+ extern const struct net_offload __rcu *inet_offloads[MAX_INET_PROTOS];
+ extern const struct net_offload __rcu *inet6_offloads[MAX_INET_PROTOS];
+ 
++
++#define MAX_UDP_PORT (1 << 16)
++extern const struct net_offload __rcu *udp_offloads[MAX_UDP_PORT];
++
  #if IS_ENABLED(CONFIG_IPV6)
- #include <net/ipv6.h>
- #include <net/addrconf.h>
-@@ -554,6 +555,98 @@ static int vxlan_fdb_append(struct vxlan_fdb *f,
- 	return 1;
+ extern const struct inet6_protocol __rcu *inet6_protos[MAX_INET_PROTOS];
+ #endif
+@@ -102,6 +106,8 @@ int inet_add_offload(const struct net_offload *prot, unsigned char num);
+ int inet_del_offload(const struct net_offload *prot, unsigned char num);
+ void inet_register_protosw(struct inet_protosw *p);
+ void inet_unregister_protosw(struct inet_protosw *p);
++int udp_add_offload(const struct net_offload *prot, __be16 port);
++int udp_del_offload(const struct net_offload *prot, __be16 port);
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+ int inet6_add_protocol(const struct inet6_protocol *prot, unsigned char num);
+diff --git a/net/ipv4/protocol.c b/net/ipv4/protocol.c
+index 46d6a1c..426eae5 100644
+--- a/net/ipv4/protocol.c
++++ b/net/ipv4/protocol.c
+@@ -30,6 +30,7 @@
+ 
+ const struct net_protocol __rcu *inet_protos[MAX_INET_PROTOS] __read_mostly;
+ const struct net_offload __rcu *inet_offloads[MAX_INET_PROTOS] __read_mostly;
++const struct net_offload __rcu *udp_offloads[MAX_UDP_PORT] __read_mostly;
+ 
+ int inet_add_protocol(const struct net_protocol *prot, unsigned char protocol)
+ {
+@@ -51,6 +52,13 @@ int inet_add_offload(const struct net_offload *prot, unsigned char protocol)
+ }
+ EXPORT_SYMBOL(inet_add_offload);
+ 
++int udp_add_offload(const struct net_offload *prot, __be16 port)
++{
++	return !cmpxchg((const struct net_offload **)&udp_offloads[port],
++			NULL, prot) ? 0 : -1;
++}
++EXPORT_SYMBOL(udp_add_offload);
++
+ int inet_del_protocol(const struct net_protocol *prot, unsigned char protocol)
+ {
+ 	int ret;
+@@ -76,3 +84,16 @@ int inet_del_offload(const struct net_offload *prot, unsigned char protocol)
+ 	return ret;
+ }
+ EXPORT_SYMBOL(inet_del_offload);
++
++int udp_del_offload(const struct net_offload *prot, __be16 port)
++{
++	int ret;
++
++	ret = (cmpxchg((const struct net_offload **)&udp_offloads[port],
++		       prot, NULL) == prot) ? 0 : -1;
++
++	synchronize_net();
++
++	return ret;
++}
++EXPORT_SYMBOL(udp_del_offload);
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index 79c62bd..0a8fdd6 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -89,10 +89,79 @@ out:
+ 	return segs;
  }
  
-+static struct sk_buff **vxlan_gro_receive(struct sk_buff **head, struct sk_buff *skb)
++
++static struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb)
 +{
++	const struct net_offload *ops;
 +	struct sk_buff *p, **pp = NULL;
-+	struct vxlanhdr *vh, *vh2;
-+	struct ethhdr *eh;
-+	unsigned int hlen, off, off_eth;
-+	const struct packet_offload *ptype;
-+	__be16 type;
++	struct udphdr *uh, *uh2;
++	unsigned int hlen, off;
 +	int flush = 1;
 +
 +	off  = skb_gro_offset(skb);
-+	hlen = off + sizeof(*vh);
-+	vh   = skb_gro_header_fast(skb, off);
++	hlen = off + sizeof(*uh);
++	uh   = skb_gro_header_fast(skb, off);
 +	if (skb_gro_header_hard(skb, hlen)) {
-+		vh = skb_gro_header_slow(skb, hlen, off);
-+		if (unlikely(!vh))
++		uh = skb_gro_header_slow(skb, hlen, off);
++		if (unlikely(!uh))
 +			goto out;
 +	}
++
++	rcu_read_lock();
++	ops = rcu_dereference(udp_offloads[uh->dest]);
++	if (!ops || !ops->callbacks.gro_receive)
++		goto out_unlock;
 +
 +	flush = 0;
 +
@@ -90,8 +136,8 @@ index 481f85d..b51823b 100644
 +		if (!NAPI_GRO_CB(p)->same_flow)
 +			continue;
 +
-+		vh2 = (struct vxlanhdr   *)(p->data + off);
-+		if (vh->vx_vni ^ vh2->vx_vni) {
++		uh2 = (struct udphdr   *)(p->data + off);
++		if ((*(u32 *)&uh->source ^ *(u32 *)&uh2->source)) {
 +			NAPI_GRO_CB(p)->same_flow = 0;
 +			continue;
 +		}
@@ -99,27 +145,8 @@ index 481f85d..b51823b 100644
 +	}
 +
 +found:
-+	skb_gro_pull(skb, sizeof(struct vxlanhdr)); /* pull vxlan header */
-+
-+	off_eth = skb_gro_offset(skb);
-+	hlen = off_eth + sizeof(*eh);
-+	eh   = skb_gro_header_fast(skb, off_eth);
-+	if (skb_gro_header_hard(skb, hlen)) {
-+		eh = skb_gro_header_slow(skb, hlen, off_eth);
-+		if (unlikely(!eh))
-+			goto out;
-+	}
-+	type = eh->h_proto;
-+
-+	rcu_read_lock();
-+	ptype = gro_find_receive_by_type(type);
-+	if (ptype == NULL) {
-+		flush = 1;
-+		goto out_unlock;
-+	}
-+
-+	skb_gro_pull(skb, sizeof(*eh)); /* pull inner eth header */
-+	pp = ptype->callbacks.gro_receive(head, skb);
++	skb_gro_pull(skb, sizeof(struct udphdr)); /* pull encapsulating udp header */
++	pp = ops->callbacks.gro_receive(head, skb);
 +
 +out_unlock:
 +	rcu_read_unlock();
@@ -129,65 +156,32 @@ index 481f85d..b51823b 100644
 +	return pp;
 +}
 +
-+static int vxlan_gro_complete(struct sk_buff *skb, int nhoff)
++static int udp_gro_complete(struct sk_buff *skb, int nhoff)
 +{
-+	struct ethhdr *eh;
-+	struct packet_offload *ptype;
-+	__be16 type;
-+	/* 22 = 8 bytes for the vlxan header + 14 bytes for the inner eth header */
-+	int vxlan_len  = 22;
++	const struct net_offload *ops;
++	__be16 newlen = htons(skb->len - nhoff);
++	struct udphdr *uh = (struct udphdr *)(skb->data + nhoff);
 +	int err = -ENOSYS;
 +
-+	eh = (struct ethhdr *)(skb->data + nhoff + sizeof (struct vxlanhdr));
-+	type = eh->h_proto;
++	uh->len = newlen;
 +
 +	rcu_read_lock();
-+	ptype = gro_find_complete_by_type(type);
-+	if (ptype != NULL)
-+		err = ptype->callbacks.gro_complete(skb, nhoff + vxlan_len);
++	ops = rcu_dereference(udp_offloads[uh->dest]);
++	if (ops && ops->callbacks.gro_complete)
++		err = ops->callbacks.gro_complete(skb, nhoff + sizeof(struct udphdr));
 +
 +	rcu_read_unlock();
 +	return err;
 +}
 +
-+static const struct net_offload vxlan_offload = {
-+	.callbacks = {
-+		.gro_receive  =	vxlan_gro_receive,
-+		.gro_complete =	vxlan_gro_complete,
-+	},
-+};
-+
- /* Notify netdevs that UDP port started listening */
- static void vxlan_notify_add_rx_port(struct sock *sk)
- {
-@@ -568,6 +661,8 @@ static void vxlan_notify_add_rx_port(struct sock *sk)
- 			dev->netdev_ops->ndo_add_vxlan_port(dev, sa_family,
- 							    port);
- 	}
-+	if (sa_family == AF_INET)
-+		udp_add_offload(&vxlan_offload, port);
- 	rcu_read_unlock();
- }
+ static const struct net_offload udpv4_offload = {
+ 	.callbacks = {
+ 		.gso_send_check = udp4_ufo_send_check,
+ 		.gso_segment = udp4_ufo_fragment,
++		.gro_receive  =	udp_gro_receive,
++		.gro_complete =	udp_gro_complete,
+ 	},
+ };
  
-@@ -585,6 +680,8 @@ static void vxlan_notify_del_rx_port(struct sock *sk)
- 			dev->netdev_ops->ndo_del_vxlan_port(dev, sa_family,
- 							    port);
- 	}
-+	if (sa_family == AF_INET)
-+		udp_del_offload(&vxlan_offload, port);
- 	rcu_read_unlock();
- }
- 
-@@ -1125,8 +1222,8 @@ static void vxlan_rcv(struct vxlan_sock *vs,
- 	 * leave the CHECKSUM_UNNECESSARY, the device checksummed it
- 	 * for us. Otherwise force the upper layers to verify it.
- 	 */
--	if (skb->ip_summed != CHECKSUM_UNNECESSARY || !skb->encapsulation ||
--	    !(vxlan->dev->features & NETIF_F_RXCSUM))
-+	if ((skb->ip_summed != CHECKSUM_UNNECESSARY && skb->ip_summed != CHECKSUM_PARTIAL) ||
-+	    !skb->encapsulation || !(vxlan->dev->features & NETIF_F_RXCSUM))
- 		skb->ip_summed = CHECKSUM_NONE;
- 
- 	skb->encapsulation = 0;
 -- 
 1.7.1
