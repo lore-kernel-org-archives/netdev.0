@@ -1,36 +1,45 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v3 3/3] ARM: shmobile: genmai: Enable r7s72100-ether
-Date: Wed, 08 Jan 2014 02:13:47 +0400
-Message-ID: <52CC7C1B.20807@cogentembedded.com>
-References: <1389061635-4083-1-git-send-email-horms+renesas@verge.net.au> <1389061635-4083-4-git-send-email-horms+renesas@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Simon Horman <horms+renesas@verge.net.au>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1389061635-4083-4-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 2/2] netfilter: only warn once on wrong seqadj usage
+Date: Tue,  7 Jan 2014 23:13:39 +0100
+Message-ID: <1389132819-9697-3-git-send-email-pablo@netfilter.org>
+References: <1389132819-9697-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1389132819-9697-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+From: Jesper Dangaard Brouer <brouer@redhat.com>
 
-On 07-01-2014 6:27, Simon Horman wrote:
+Avoid potentially spamming the kernel log with WARN splash messages
+when catching wrong usage of seqadj, by simply using WARN_ONCE.
 
-    You've removed RFC but still haven't signed off. :-)
+This is a followup to commit db12cf274353 (netfilter: WARN about
+wrong usage of sequence number adjustments)
 
-> ---
-> v2
-> * As suggested by Magnus Damm and Sergei Shtylyov
->    - r7s72100 ethernet is not gigabit so do not refer to it as such
+Suggested-by: Flavio Leitner <fbl@redhat.com>
+Suggested-by: Daniel Borkmann <dborkman@redhat.com>
+Suggested-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nf_conntrack_seqadj.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> * As suggested by Sergei Shtylyov
->    - set no_ether_link as there is no LINK signal documented
->      in the manual
-
-    I'm OK with the patch, you can add my Acked-by.
-
-WBR, Sergei
+diff --git a/net/netfilter/nf_conntrack_seqadj.c b/net/netfilter/nf_conntrack_seqadj.c
+index b2d38da..f6e2ae9 100644
+--- a/net/netfilter/nf_conntrack_seqadj.c
++++ b/net/netfilter/nf_conntrack_seqadj.c
+@@ -37,7 +37,7 @@ int nf_ct_seqadj_set(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
+ 		return 0;
+ 
+ 	if (unlikely(!seqadj)) {
+-		WARN(1, "Wrong seqadj usage, missing nfct_seqadj_ext_add()\n");
++		WARN_ONCE(1, "Missing nfct_seqadj_ext_add() setup call\n");
+ 		return 0;
+ 	}
+ 
+-- 
+1.7.10.4
 
