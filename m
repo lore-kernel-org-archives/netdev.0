@@ -1,87 +1,144 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: single process receives own frames due to PACKET_MMAP
-Date: Tue, 7 Jan 2014 15:09:38 +0100
-Message-ID: <20140107150938.1058b358@redhat.com>
-References: <52B4465E.2090904@aimvalley.nl>
-	<52CB34F9.6020906@aimvalley.nl>
-	<52CBC991.8030701@redhat.com>
-	<20140107110609.74f71979@redhat.com>
-	<52CBFE13.8@aimvalley.nl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>, uaca@alumni.uv.es
-To: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
+From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+Subject: [PATCH net-next v5] IPv6: add the option to use anycast addresses as source addresses in echo reply
+Date: Tue,  7 Jan 2014 14:57:27 +0100
+Message-ID: <1389103047-3380-1-git-send-email-fx.lebail@yahoo.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59922 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752448AbaAGOKv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 09:10:51 -0500
-In-Reply-To: <52CBFE13.8@aimvalley.nl>
+Received: from smtp07.smtpout.orange.fr ([80.12.242.129]:23735 "EHLO
+	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752617AbaAGOOX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 09:14:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This change allows to follow a recommandation of RFC4942.
 
-On Tue, 07 Jan 2014 14:16:03 +0100
-Norbert van Bolhuis <nvbolhuis@aimvalley.nl> wrote:
-> On 01/07/14 11:06, Jesper Dangaard Brouer wrote:
-> > On Tue, 07 Jan 2014 10:32:01 +0100
-> > Daniel Borkmann<dborkman@redhat.com>  wrote:
-> >
-> >> On 01/06/2014 11:58 PM, Norbert van Bolhuis wrote:
-> >>>
-[...]
-> >>
-> >>> I'd say it makes no sense to make the same process receive its
-> >>> own transmitted frames on that same interface (unless its lo).
-> >
-> > Have you setup:
-> >   ring->s_ll.sll_protocol = 0
-> >
-> > This is what I did in trafgen to avoid this problem.
-> >
-> > See line 55 in netsniff-ng/ring.c:
-> >   https://github.com/borkmann/netsniff-ng/blob/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1/ring.c#L55
-> >
-> > Commit:
-> >   https://github.com/borkmann/netsniff-ng/commit/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1
-> >
-> 
-> 
-> No I did not do that, I was checking my code against netsniff-ng-0.5.8-rc4.
-> 
-> But I just tried it, I believe I do the same as netsniff-ng-0.5.8-rc5, but it doesn't
-> work for me. Maybe because I have an old FC14 system (kernel 2.6.35.14-106.fc14.x86_64).
-> 
-> So I tried to see whether netsniff-ng-0.5.8-rc5/trafgen still makes the
-> kernel call packet_rcv() on my FC14 system. So I build and run it, but I'm not sure
-> how to (easily) check that.
+- Add "anycast_src_echo_reply" sysctl to control the use of anycast addresses
+  as source addresses for ICMPv6 echo reply. This sysctl is false by default
+  to preserve existing behavior.
+- Add inline check ipv6_anycast_destination().
+- Use them in icmpv6_echo_reply().
 
-The easiest way is to:
-  cat /proc/net/ptype
-And look if someone registered a proto handler/function: packet_rcv (or tpacket_rcv).
+Reference:
+RFC4942 - IPv6 Transition/Coexistence Security Considerations
+   (http://tools.ietf.org/html/rfc4942#section-2.1.6)
 
-The more exact method is, to run "perf record -a -g" and then look (at
-the result with "perf report") for a lock contention, and "expand" the
-spin_lock and see if packet_rcv() is calling this spin lock.
+2.1.6. Anycast Traffic Identification and Security
 
+   [...]
+   To avoid exposing knowledge about the internal structure of the
+   network, it is recommended that anycast servers now take advantage of
+   the ability to return responses with the anycast address as the
+   source address if possible.
 
-> In anyway, Wireshark does capture the trafgen generated
-> frames, does that say anything ?
+Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+---
+v4: update Subject and Documentation, this work also with anycast addresses
+    created via API, not just with Subnet-Router anycast addresses.
 
-Be careful not to start a wireshark/tcpdump, at the sametime, as this
-will slow you down.
+v5: alternative way, replace ipv6_chk_acast_addr() test by
+    ipv6_anycast_destination() test.
+
+ Documentation/networking/ip-sysctl.txt |    7 +++++++
+ include/net/ip6_route.h                |    7 +++++++
+ include/net/netns/ipv6.h               |    1 +
+ net/ipv6/icmp.c                        |    4 +++-
+ net/ipv6/sysctl_net_ipv6.c             |    8 ++++++++
+ 5 files changed, 26 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index d71afa8..7373115 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1094,6 +1094,13 @@ bindv6only - BOOLEAN
  
-> In the future, I can at least use PACKET_QDISC_BYPASS as a "workaround".
-
-And in the future with PACKET_QDISC_BYPASS, your wireshark will not
-catch these packets, remember that.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+ 	Default: FALSE (as specified in RFC3493)
+ 
++anycast_src_echo_reply - BOOLEAN
++	Controls the use of anycast addresses as source addresses for ICMPv6
++	echo reply
++	TRUE:  enabled
++	FALSE: disabled
++	Default: FALSE
++
+ IPv6 Fragmentation:
+ 
+ ip6frag_high_thresh - INTEGER
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index 1fb6cdd..017badb 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -152,6 +152,13 @@ static inline bool ipv6_unicast_destination(const struct sk_buff *skb)
+ 	return rt->rt6i_flags & RTF_LOCAL;
+ }
+ 
++static inline bool ipv6_anycast_destination(const struct sk_buff *skb)
++{
++	struct rt6_info *rt = (struct rt6_info *) skb_dst(skb);
++
++	return rt->rt6i_flags & RTF_ANYCAST;
++}
++
+ int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *));
+ 
+ static inline int ip6_skb_dst_mtu(struct sk_buff *skb)
+diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
+index 0fb2401..76fc7d1 100644
+--- a/include/net/netns/ipv6.h
++++ b/include/net/netns/ipv6.h
+@@ -73,6 +73,7 @@ struct netns_ipv6 {
+ #endif
+ 	atomic_t		dev_addr_genid;
+ 	atomic_t		rt_genid;
++	int			anycast_src_echo_reply;
+ };
+ 
+ #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 5d42009..9a809a4 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -556,7 +556,9 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+ 
+ 	saddr = &ipv6_hdr(skb)->daddr;
+ 
+-	if (!ipv6_unicast_destination(skb))
++	if (!ipv6_unicast_destination(skb) &&
++	    !(net->ipv6.anycast_src_echo_reply &&
++	      ipv6_anycast_destination(skb)))
+ 		saddr = NULL;
+ 
+ 	memcpy(&tmp_hdr, icmph, sizeof(tmp_hdr));
+diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
+index 107b2f1..6b6a2c8 100644
+--- a/net/ipv6/sysctl_net_ipv6.c
++++ b/net/ipv6/sysctl_net_ipv6.c
+@@ -24,6 +24,13 @@ static struct ctl_table ipv6_table_template[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec
+ 	},
++	{
++		.procname	= "anycast_src_echo_reply",
++		.data		= &init_net.ipv6.anycast_src_echo_reply,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
+ 	{ }
+ };
+ 
+@@ -51,6 +58,7 @@ static int __net_init ipv6_sysctl_net_init(struct net *net)
+ 	if (!ipv6_table)
+ 		goto out;
+ 	ipv6_table[0].data = &net->ipv6.sysctl.bindv6only;
++	ipv6_table[1].data = &net->ipv6.anycast_src_echo_reply;
+ 
+ 	ipv6_route_table = ipv6_route_sysctl_init(net);
+ 	if (!ipv6_route_table)
