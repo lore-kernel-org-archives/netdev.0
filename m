@@ -1,136 +1,55 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/15] i40e: Enable/Disable PF switch LB on SR-IOV configure changes
-Date: Tue,  7 Jan 2014 01:32:27 -0800
-Message-ID: <1389087149-27962-14-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1389087149-27962-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH 1/1] ipv6 addrconf: add IFA_F_NOPREFIXROUTE flag to suppress creation of IP6 routes
+Date: Tue, 7 Jan 2014 10:39:42 +0100
+Message-ID: <20140107093942.GA24730@order.stressinduktion.org>
+References: <20140106160139.GB10204@order.stressinduktion.org> <1389029375-17698-1-git-send-email-thaller@redhat.com> <20140106173837.GA2571@minipsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: Thomas Haller <thaller@redhat.com>, netdev@vger.kernel.org,
+	stephen@networkplumber.org, dcbw@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:6793 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754137AbaAGJcl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 04:32:41 -0500
-In-Reply-To: <1389087149-27962-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:44527 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750849AbaAGJj5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 04:39:57 -0500
+Content-Disposition: inline
+In-Reply-To: <20140106173837.GA2571@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+On Mon, Jan 06, 2014 at 06:38:37PM +0100, Jiri Pirko wrote:
+> Mon, Jan 06, 2014 at 06:29:35PM CET, thaller@redhat.com wrote:
+> >When adding/modifying an IPv6 address, the userspace application needs
+> >a way to suppress adding a prefix route. This is for example relevant
+> >together with IFA_F_MANAGERTEMPADDR, where userspace creates autoconf
+> >generated addresses, but depending on on-link, no route should for the
+> >prefix should be added.
+> >
+> >This flag will not be set as ifa_flags of the address, it is only
+> >considered as parameter while adding/modifying an address.
+> >
+> >Signed-off-by: Thomas Haller <thaller@redhat.com>
+> >---
+> > Hi, how about this?
+> >
+> > The flag is only a parameter for the netlink command.
+> > This might be unexpected, because when adding an address,
+> > you won't see the flag in `ip -6 addr`.
+> > Still, I think, it is better to do it this way, because having
+> > an address with the NOPREFIXROUTE flag, does not mean, that
+> > there is no route for this prefix. It only means, that at the
+> > moment of setting the address, no route was added.
+> >
+> > The alternative would be, not to add a prefix route, when
+> > IFA_F_MANAGERTEMPADDR is set.
 
-The PF VSI was never updated to enable or disable internal switch loopback
-when VFs were created or destroyed via the sysfs interface.  Add some
-helper functions to take care of that.
+Looks good, maybe you could apply Jiri's feedback.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 76 +++++++++++++++++++++-
- 1 file changed, 74 insertions(+), 2 deletions(-)
+Otherwise we could skip trying to find a corresponding prefix route in
+ipv6_del_addr. You would need to add the IFA_F_NOPREFIXROUTE test just before
+the addrconf_get_prefix_route and ip6_del_rt.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 5c99164..efb9a24 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -716,6 +716,76 @@ static bool i40e_vfs_are_assigned(struct i40e_pf *pf)
- 
- 	return false;
- }
-+#ifdef CONFIG_PCI_IOV
-+
-+/**
-+ * i40e_enable_pf_switch_lb
-+ * @pf: pointer to the pf structure
-+ *
-+ * enable switch loop back or die - no point in a return value
-+ **/
-+static void i40e_enable_pf_switch_lb(struct i40e_pf *pf)
-+{
-+	struct i40e_vsi *vsi = pf->vsi[pf->lan_vsi];
-+	struct i40e_vsi_context ctxt;
-+	int aq_ret;
-+
-+	ctxt.seid = pf->main_vsi_seid;
-+	ctxt.pf_num = pf->hw.pf_id;
-+	ctxt.vf_num = 0;
-+	aq_ret = i40e_aq_get_vsi_params(&pf->hw, &ctxt, NULL);
-+	if (aq_ret) {
-+		dev_info(&pf->pdev->dev,
-+			 "%s couldn't get pf vsi config, err %d, aq_err %d\n",
-+			 __func__, aq_ret, pf->hw.aq.asq_last_status);
-+		return;
-+	}
-+	ctxt.flags = I40E_AQ_VSI_TYPE_PF;
-+	ctxt.info.valid_sections = cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
-+	ctxt.info.switch_id |= cpu_to_le16(I40E_AQ_VSI_SW_ID_FLAG_ALLOW_LB);
-+
-+	aq_ret = i40e_aq_update_vsi_params(&vsi->back->hw, &ctxt, NULL);
-+	if (aq_ret) {
-+		dev_info(&pf->pdev->dev,
-+			 "%s: update vsi switch failed, aq_err=%d\n",
-+			 __func__, vsi->back->hw.aq.asq_last_status);
-+	}
-+}
-+#endif
-+
-+/**
-+ * i40e_disable_pf_switch_lb
-+ * @pf: pointer to the pf structure
-+ *
-+ * disable switch loop back or die - no point in a return value
-+ **/
-+static void i40e_disable_pf_switch_lb(struct i40e_pf *pf)
-+{
-+	struct i40e_vsi *vsi = pf->vsi[pf->lan_vsi];
-+	struct i40e_vsi_context ctxt;
-+	int aq_ret;
-+
-+	ctxt.seid = pf->main_vsi_seid;
-+	ctxt.pf_num = pf->hw.pf_id;
-+	ctxt.vf_num = 0;
-+	aq_ret = i40e_aq_get_vsi_params(&pf->hw, &ctxt, NULL);
-+	if (aq_ret) {
-+		dev_info(&pf->pdev->dev,
-+			 "%s couldn't get pf vsi config, err %d, aq_err %d\n",
-+			 __func__, aq_ret, pf->hw.aq.asq_last_status);
-+		return;
-+	}
-+	ctxt.flags = I40E_AQ_VSI_TYPE_PF;
-+	ctxt.info.valid_sections = cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
-+	ctxt.info.switch_id &= ~cpu_to_le16(I40E_AQ_VSI_SW_ID_FLAG_ALLOW_LB);
-+
-+	aq_ret = i40e_aq_update_vsi_params(&vsi->back->hw, &ctxt, NULL);
-+	if (aq_ret) {
-+		dev_info(&pf->pdev->dev,
-+			 "%s: update vsi switch failed, aq_err=%d\n",
-+			 __func__, vsi->back->hw.aq.asq_last_status);
-+	}
-+}
- 
- /**
-  * i40e_free_vfs
-@@ -759,10 +829,11 @@ void i40e_free_vfs(struct i40e_pf *pf)
- 			bit_idx = (hw->func_caps.vf_base_id + vf_id) % 32;
- 			wr32(hw, I40E_GLGEN_VFLRSTAT(reg_idx), (1 << bit_idx));
- 		}
--	}
--	else
-+		i40e_disable_pf_switch_lb(pf);
-+	} else {
- 		dev_warn(&pf->pdev->dev,
- 			 "unable to disable SR-IOV because VFs are assigned.\n");
-+	}
- 
- 	/* Re-enable interrupt 0. */
- 	i40e_irq_dynamic_enable_icr0(pf);
-@@ -816,6 +887,7 @@ static int i40e_alloc_vfs(struct i40e_pf *pf, u16 num_alloc_vfs)
- 	pf->vf = vfs;
- 	pf->num_alloc_vfs = num_alloc_vfs;
- 
-+	i40e_enable_pf_switch_lb(pf);
- err_alloc:
- 	if (ret)
- 		i40e_free_vfs(pf);
--- 
-1.8.3.1
+Greetings,
+
+  Hannes
