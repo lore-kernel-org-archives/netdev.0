@@ -1,8 +1,8 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 04/17] openvswitch: Silence RCU lockdep
-	checks from flow lookup.
-Date: Mon,  6 Jan 2014 16:16:03 -0800
-Message-ID: <1389053776-62865-5-git-send-email-jesse@nicira.com>
+Subject: [PATCH net-next 05/17] genl: Add genlmsg_new_unicast()
+	for unicast message allocation
+Date: Mon,  6 Jan 2014 16:16:04 -0800
+Message-ID: <1389053776-62865-6-git-send-email-jesse@nicira.com>
 References: <1389053776-62865-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,58 +22,88 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Flow lookup can happen either in packet processing context or userspace
-context but it was annotated as requiring RCU read lock to be held. This
-also allows OVS mutex to be held without causing warnings.
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
 
-Reported-by: Justin Pettit <jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Allocates a new sk_buff large enough to cover the specified payload
+plus required Netlink headers. Will check receiving socket for
+memory mapped i/o capability and use it if enabled. Will fall back
+to non-mapped skb if message size exceeds the frame size of the ring.
+
+Signed-of-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Reviewed-by: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Reviewed-by: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 ---
- net/openvswitch/datapath.c   | 3 +--
- net/openvswitch/datapath.h   | 2 ++
- net/openvswitch/flow_table.c | 2 +-
- 3 files changed, 4 insertions(+), 3 deletions(-)
+ include/net/genetlink.h |  4 ++++
+ net/netlink/genetlink.c | 21 +++++++++++++++++++++
+ 2 files changed, 25 insertions(+)
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index fcaed98..0727aaa 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -701,8 +701,7 @@ static int ovs_flow_cmd_fill_info(struct sw_flow *flow, struct datapath *dp,
- 	if (start) {
- 		const struct sw_flow_actions *sf_acts;
+diff --git a/include/net/genetlink.h b/include/net/genetlink.h
+index 1b177ed..93695f0 100644
+--- a/include/net/genetlink.h
++++ b/include/net/genetlink.h
+@@ -73,6 +73,7 @@ struct genl_family {
+  * @attrs: netlink attributes
+  * @_net: network namespace
+  * @user_ptr: user pointers
++ * @dst_sk: destination socket
+  */
+ struct genl_info {
+ 	u32			snd_seq;
+@@ -85,6 +86,7 @@ struct genl_info {
+ 	struct net *		_net;
+ #endif
+ 	void *			user_ptr[2];
++	struct sock *		dst_sk;
+ };
  
--		sf_acts = rcu_dereference_check(flow->sf_acts,
--						lockdep_ovsl_is_held());
-+		sf_acts = rcu_dereference_ovsl(flow->sf_acts);
+ static inline struct net *genl_info_net(struct genl_info *info)
+@@ -177,6 +179,8 @@ void genl_notify(struct genl_family *family,
+ 		 struct sk_buff *skb, struct net *net, u32 portid,
+ 		 u32 group, struct nlmsghdr *nlh, gfp_t flags);
  
- 		err = ovs_nla_put_actions(sf_acts->actions,
- 					  sf_acts->actions_len, skb);
-diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
-index 4067ea4..ba13be4 100644
---- a/net/openvswitch/datapath.h
-+++ b/net/openvswitch/datapath.h
-@@ -145,6 +145,8 @@ int lockdep_ovsl_is_held(void);
- #define ASSERT_OVSL()		WARN_ON(unlikely(!lockdep_ovsl_is_held()))
- #define ovsl_dereference(p)					\
- 	rcu_dereference_protected(p, lockdep_ovsl_is_held())
-+#define rcu_dereference_ovsl(p)					\
-+	rcu_dereference_check(p, lockdep_ovsl_is_held())
++struct sk_buff *genlmsg_new_unicast(size_t payload, struct genl_info *info,
++				    gfp_t flags);
+ void *genlmsg_put(struct sk_buff *skb, u32 portid, u32 seq,
+ 		  struct genl_family *family, int flags, u8 cmd);
  
- static inline struct net *ovs_dp_get_net(struct datapath *dp)
- {
-diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
-index 261a54e..7b9cf2c 100644
---- a/net/openvswitch/flow_table.c
-+++ b/net/openvswitch/flow_table.c
-@@ -433,7 +433,7 @@ struct sw_flow *ovs_flow_tbl_lookup_stats(struct flow_table *tbl,
- 				    const struct sw_flow_key *key,
- 				    u32 *n_mask_hit)
- {
--	struct table_instance *ti = rcu_dereference(tbl->ti);
-+	struct table_instance *ti = rcu_dereference_ovsl(tbl->ti);
- 	struct sw_flow_mask *mask;
- 	struct sw_flow *flow;
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 4518a57..85bf42e 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -454,6 +454,26 @@ int genl_unregister_family(struct genl_family *family)
+ EXPORT_SYMBOL(genl_unregister_family);
+ 
+ /**
++ * genlmsg_new_unicast - Allocate generic netlink message for unicast
++ * @payload: size of the message payload
++ * @info: information on destination
++ * @flags: the type of memory to allocate
++ *
++ * Allocates a new sk_buff large enough to cover the specified payload
++ * plus required Netlink headers. Will check receiving socket for
++ * memory mapped i/o capability and use it if enabled. Will fall back
++ * to non-mapped skb if message size exceeds the frame size of the ring.
++ */
++struct sk_buff *genlmsg_new_unicast(size_t payload, struct genl_info *info,
++				    gfp_t flags)
++{
++	size_t len = nlmsg_total_size(genlmsg_total_size(payload));
++
++	return netlink_alloc_skb(info->dst_sk, len, info->snd_portid, flags);
++}
++EXPORT_SYMBOL_GPL(genlmsg_new_unicast);
++
++/**
+  * genlmsg_put - Add generic netlink header to netlink message
+  * @skb: socket buffer holding the message
+  * @portid: netlink portid the message is addressed to
+@@ -593,6 +613,7 @@ static int genl_family_rcv_msg(struct genl_family *family,
+ 	info.genlhdr = nlmsg_data(nlh);
+ 	info.userhdr = nlmsg_data(nlh) + GENL_HDRLEN;
+ 	info.attrs = attrbuf;
++	info.dst_sk = skb->sk;
+ 	genl_info_net_set(&info, net);
+ 	memset(&info.user_ptr, 0, sizeof(info.user_ptr));
  
 -- 
 1.8.3.2
