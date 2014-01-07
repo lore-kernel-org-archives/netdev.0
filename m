@@ -1,46 +1,87 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: Re: [PATCH net-next v4] IPv6: use anycast addresses as source addresses in echo reply
-Date: Tue, 7 Jan 2014 06:03:31 -0800 (PST)
-Message-ID: <1389103411.55503.YahooMailBasic@web125502.mail.ne1.yahoo.com>
-References: <20140107130101.GD24730@order.stressinduktion.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: single process receives own frames due to PACKET_MMAP
+Date: Tue, 7 Jan 2014 15:09:38 +0100
+Message-ID: <20140107150938.1058b358@redhat.com>
+References: <52B4465E.2090904@aimvalley.nl>
+	<52CB34F9.6020906@aimvalley.nl>
+	<52CBC991.8030701@redhat.com>
+	<20140107110609.74f71979@redhat.com>
+	<52CBFE13.8@aimvalley.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, uaca@alumni.uv.es
+To: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm47.bullet.mail.ne1.yahoo.com ([98.138.120.54]:36776 "HELO
-	nm47.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751647AbaAGOG3 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 09:06:29 -0500
-In-Reply-To: <20140107130101.GD24730@order.stressinduktion.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59922 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752448AbaAGOKv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jan 2014 09:10:51 -0500
+In-Reply-To: <52CBFE13.8@aimvalley.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 1/7/14, Hannes Frederic Sowa <hannes@stressinduktion.org> wrote=
-:
 
->> Anyway, although I think that this solution is valid, I
->> am testing another way to do this change.
-=20
-> Ok, thanks for explaining, I see now, of course.
-=20
-> Maybe we could just do=20
-> (ipv6_addr_type(addr) & IPV6_ADDR_LINKLOCAL) ? skb->dev : NULL?
-=20
-> I guess the NULL solution would be ok now, too. You can
-> decide. I just  think we can be a bit more defensive here with no add=
-itional
-> cost. Routing table behaviour is pretty complicated and maybe can cha=
-nge
-> in future.
-=20
-I see.
-first solution : I add this "defensive" update.
-second solution : the v5 patch I will send soon.
+On Tue, 07 Jan 2014 14:16:03 +0100
+Norbert van Bolhuis <nvbolhuis@aimvalley.nl> wrote:
+> On 01/07/14 11:06, Jesper Dangaard Brouer wrote:
+> > On Tue, 07 Jan 2014 10:32:01 +0100
+> > Daniel Borkmann<dborkman@redhat.com>  wrote:
+> >
+> >> On 01/06/2014 11:58 PM, Norbert van Bolhuis wrote:
+> >>>
+[...]
+> >>
+> >>> I'd say it makes no sense to make the same process receive its
+> >>> own transmitted frames on that same interface (unless its lo).
+> >
+> > Have you setup:
+> >   ring->s_ll.sll_protocol = 0
+> >
+> > This is what I did in trafgen to avoid this problem.
+> >
+> > See line 55 in netsniff-ng/ring.c:
+> >   https://github.com/borkmann/netsniff-ng/blob/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1/ring.c#L55
+> >
+> > Commit:
+> >   https://github.com/borkmann/netsniff-ng/commit/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1
+> >
+> 
+> 
+> No I did not do that, I was checking my code against netsniff-ng-0.5.8-rc4.
+> 
+> But I just tried it, I believe I do the same as netsniff-ng-0.5.8-rc5, but it doesn't
+> work for me. Maybe because I have an old FC14 system (kernel 2.6.35.14-106.fc14.x86_64).
+> 
+> So I tried to see whether netsniff-ng-0.5.8-rc5/trafgen still makes the
+> kernel call packet_rcv() on my FC14 system. So I build and run it, but I'm not sure
+> how to (easily) check that.
 
-Thanks for the review.
-=46ran=E7ois-Xavier
+The easiest way is to:
+  cat /proc/net/ptype
+And look if someone registered a proto handler/function: packet_rcv (or tpacket_rcv).
+
+The more exact method is, to run "perf record -a -g" and then look (at
+the result with "perf report") for a lock contention, and "expand" the
+spin_lock and see if packet_rcv() is calling this spin lock.
+
+
+> In anyway, Wireshark does capture the trafgen generated
+> frames, does that say anything ?
+
+Be careful not to start a wireshark/tcpdump, at the sametime, as this
+will slow you down.
+ 
+> In the future, I can at least use PACKET_QDISC_BYPASS as a "workaround".
+
+And in the future with PACKET_QDISC_BYPASS, your wireshark will not
+catch these packets, remember that.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
