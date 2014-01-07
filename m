@@ -1,45 +1,52 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH net-next 2/2] include/uapi/linux/xfrm.h: Pack struct xfrm_usersa_info
-Date: Tue, 7 Jan 2014 14:48:59 +0800
-Message-ID: <1389077339-12814-3-git-send-email-fan.du@windriver.com>
+Subject: Re: [PATCH net-next 0/2] Pack struct
+ xfrm_usersa_info and struct xfrm_userpolicy_info
+Date: Tue, 7 Jan 2014 14:55:21 +0800
+Message-ID: <52CBA4D9.60806@windriver.com>
 References: <1389077339-12814-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <stephen@networkplumber.org>,
-	<dev@lists.strongswan.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org, davem@davemloft.net,
+	dev@lists.strongswan.org
 To: <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:56471 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753459AbaAGGtM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 01:49:12 -0500
+Return-path: <dev-bounces+gnvsd-dev=m.gmane.org@lists.strongswan.org>
 In-Reply-To: <1389077339-12814-1-git-send-email-fan.du@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.strongswan.org/mailman/listinfo/dev>,
+	<mailto:dev-request@lists.strongswan.org?subject=unsubscribe>
+List-Archive: <http://lists.strongswan.org/pipermail/dev>
+List-Post: <mailto:dev@lists.strongswan.org>
+List-Help: <mailto:dev-request@lists.strongswan.org?subject=help>
+List-Subscribe: <https://lists.strongswan.org/mailman/listinfo/dev>,
+	<mailto:dev-request@lists.strongswan.org?subject=subscribe>
+Sender: dev-bounces+gnvsd-dev=m.gmane.org@lists.strongswan.org
+Errors-To: dev-bounces+gnvsd-dev=m.gmane.org@lists.strongswan.org
+List-Id: netdev.vger.kernel.org
 
-Otherwise 64bits kernel has sizeof(struct xfrm_usersa_info) 224 bytes,
-while 32bits compiled iproute2 see the same structure as 220 bytes, which
-leading deficit xfrm sa, in turn broken IPsec connectivity.
-
-Fix this by packing the structure.
-
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
- include/uapi/linux/xfrm.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/uapi/linux/xfrm.h b/include/uapi/linux/xfrm.h
-index 470bfae..61460c4 100644
---- a/include/uapi/linux/xfrm.h
-+++ b/include/uapi/linux/xfrm.h
-@@ -366,7 +366,7 @@ struct xfrm_usersa_info {
- #define XFRM_STATE_AF_UNSPEC	32
- #define XFRM_STATE_ALIGN4	64
- #define XFRM_STATE_ESN		128
--};
-+} __attribute__((packed));
- 
- #define XFRM_SA_XFLAG_DONT_ENCAP_DSCP	1
- 
--- 
-1.7.9.5
+T2gsIEkgZG9uJ3Qga25vdyB3aHkgJ1tzdHJvbmdTd2FuLWRldl0nIGlzIHRhZ2dlZCBpbiBmcm9u
+dCBvZiBzdWJqZWN0IGZvciBvbmx5IHBhcnQgb2Ygd2hvbGUgcGF0Y2ggc2V0LgpJbiBmYWN0LCBJ
+IGRpZG4ndCBtZWFuIHRvIGFkZCAnW3N0cm9uZ1N3YW4tZGV2XScgaW50byBzdWJqZWN0IGxpbmUu
+IFNvcnJ5IGZvciB0aGUgaW5jb252ZW5pZW5jZS4KCk9uIDIwMTTlubQwMeaciDA35pelIDE0OjQ4
+LCBGYW4gRHUgd3JvdGU6Cj4gV2hlbiB0cnlpbmcgdG8gc2V0dXAgSVBzZWMgY29uZmlndXJhdGlv
+biBvbiBhIDY0Yml0cyBob3N0IHdpdGgKPiBpcHJvdXRlMigzMmJpdHMgY29tcGlsZWQpLCB0aGUg
+aW50ZW5lZCB4ZnJtIHBvbGljeSBhbmQgc2EgaXMKPiBlaXRoZXIgZGVmaWNpdCBvciB3cm9uZyB3
+aGVuIGtlcm5lbCB0cnlpbmcgdG8gcGFyc2UgdXNlciBsYW5kCj4gaW5mb3JtYXRpb24uCj4KPiBG
+dXJ0aGVyIGludmVzdGlnYXRpbm8gc2hvd3MgdGhhdDoKPiBMOiBrZXJuZWwKPiBSOiBpcHJvdXRl
+Mgo+Cj4gICAgICAgICAgICBzaXplb2YgICAgICAgdXNlcnBvbGljeSAgICAgIHVzZXJzYQo+IDY0
+Yml0cyh1bnBhY2tlZCkgICAgICAgIDE2OC8xNjggICAgICAgIDIyNC8yMjQKPiAzMmJpdHModW5w
+YWNrZWQpICAgICAgICAxNjQvMTY0ICAgICAgICAyMjAvMjIwCj4gICAgICAgICAgICAgICAgICAg
+ICAgICAgICBeICAgXgo+ICAgICAgICAgICAgICAgICAgICAgICAgICAgTCAgIFIKPgo+IFRvIGtl
+ZXAga2VybmVsIGFuZCB1c2VyIGxhbmQgc2VlIGEgY29uc2lzdGVudCBzdHJ1Y3R1cmUsIGFmdGVy
+Cj4gYWRkIHBhY2tpbmcgYXR0cmlidXRlLCBub3cgaXQgbG9va3MgbGlrZSB0aGlzOgo+Cj4gNjRi
+aXRzKCAgcGFja2VkKSAgICAgICAgMTY0LzE2NCAgICAgICAgMjE3LzIxNwo+IDMyYml0cyggIHBh
+Y2tlZCkgICAgICAgIDE2NC8xNjQgICAgICAgIDIxNy8yMTcKPiAgICAgICAgICAgICAgICAgICAg
+ICAgICAgIF4gICBeCj4gICAgICAgICAgICAgICAgICAgICAgICAgICBMICAgUgo+Cj4gVGhlbiBk
+aWZmZXJlbnQga2VybmVsL2lwcm91dGUyIGJ1aWxkIGNvbmZpZ3VyYXRpb24gd2lsbCBub3QgaW1w
+YWN0IElQc2VjIHNldHVwLgo+Cj4gRmFuIER1ICgyKToKPiAgICBpbmNsdWRlL3VhcGkvbGludXgv
+eGZybS5oOiBQYWNrIHN0cnVjdCB4ZnJtX3VzZXJwb2xpY3lfaW5mbwo+ICAgIGluY2x1ZGUvdWFw
+aS9saW51eC94ZnJtLmg6IFBhY2sgc3RydWN0IHhmcm1fdXNlcnNhX2luZm8KPgo+ICAgaW5jbHVk
+ZS91YXBpL2xpbnV4L3hmcm0uaCB8ICAgIDQgKystLQo+ICAgMSBmaWxlIGNoYW5nZWQsIDIgaW5z
+ZXJ0aW9ucygrKSwgMiBkZWxldGlvbnMoLSkKPgoKLS0gCua1ruayiemaj+a1quWPquiusOS7iuac
+neeskQoKLS1mYW4KCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fCkRldiBtYWlsaW5nIGxpc3QKRGV2QGxpc3RzLnN0cm9uZ3N3YW4ub3JnCmh0dHBzOi8vbGlz
+dHMuc3Ryb25nc3dhbi5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXY=
