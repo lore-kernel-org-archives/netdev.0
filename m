@@ -1,66 +1,107 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/15] i40e: Stop accepting any VLAN tag on VLAN 0 filter set
-Date: Tue,  7 Jan 2014 01:32:17 -0800
-Message-ID: <1389087149-27962-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/15] i40e: Add code to wait for FW to complete in reset path
+Date: Tue,  7 Jan 2014 01:32:20 -0800
+Message-ID: <1389087149-27962-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389087149-27962-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Anjali Singhai Jain <anjali.singhai@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:6793 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:6804 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752108AbaAGJce (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 04:32:34 -0500
+	id S1752392AbaAGJcg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jan 2014 04:32:36 -0500
 In-Reply-To: <1389087149-27962-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-When the 8021q driver is loaded it sets VLAN 0 filters on all devices.
-This does not mean that any VLAN tagged packet should be accepted.
-Instead accept only VLAN 0 tagged packets so that upper layers can
-interpret the priority bits.
+The RSTAT comes back with DEVICE READY to indicate that the HW is ready,
+but we still have to wait for the FW to indicate that the Core and Global
+modules are back up again.  This needs a read of the NVM_ULD register.
 
-Change-Id: I17274a540b613749612ffe23a3aef2b8ee6ff6a4
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
+Change-Id: I88276165f9cd446d2f166fb4b8cff00521af4bec
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 11 -----------
- 1 file changed, 11 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c   | 20 ++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_register.h | 22 ++++++++++++++++++++++
+ 2 files changed, 42 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 5ddbd54..2a42470 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1509,11 +1509,6 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- 				cpu_to_le16((u16)(f->vlan ==
- 					    I40E_VLAN_ANY ? 0 : f->vlan));
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 7cd59ce..337e913 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -335,6 +335,7 @@ static enum i40e_media_type i40e_get_media_type(struct i40e_hw *hw)
+ i40e_status i40e_pf_reset(struct i40e_hw *hw)
+ {
+ 	u32 cnt = 0;
++	u32 cnt1 = 0;
+ 	u32 reg = 0;
+ 	u32 grst_del;
  
--			/* vlan0 as wild card to allow packets from all vlans */
--			if (f->vlan == I40E_VLAN_ANY ||
--			    (vsi->netdev && !(vsi->netdev->features &
--					      NETIF_F_HW_VLAN_CTAG_FILTER)))
--				cmd_flags |= I40E_AQC_MACVLAN_DEL_IGNORE_VLAN;
- 			cmd_flags |= I40E_AQC_MACVLAN_DEL_PERFECT_MATCH;
- 			del_list[num_del].flags = cmd_flags;
- 			num_del++;
-@@ -1579,12 +1574,6 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- 			add_list[num_add].queue_number = 0;
+@@ -355,6 +356,25 @@ i40e_status i40e_pf_reset(struct i40e_hw *hw)
+ 		return I40E_ERR_RESET_FAILED;
+ 	}
  
- 			cmd_flags |= I40E_AQC_MACVLAN_ADD_PERFECT_MATCH;
--
--			/* vlan0 as wild card to allow packets from all vlans */
--			if (f->vlan == I40E_VLAN_ANY || (vsi->netdev &&
--			    !(vsi->netdev->features &
--						 NETIF_F_HW_VLAN_CTAG_FILTER)))
--				cmd_flags |= I40E_AQC_MACVLAN_ADD_IGNORE_VLAN;
- 			add_list[num_add].flags = cpu_to_le16(cmd_flags);
- 			num_add++;
- 
++	/* Now Wait for the FW to be ready */
++	for (cnt1 = 0; cnt1 < I40E_PF_RESET_WAIT_COUNT; cnt1++) {
++		reg = rd32(hw, I40E_GLNVM_ULD);
++		reg &= (I40E_GLNVM_ULD_CONF_CORE_DONE_MASK |
++			I40E_GLNVM_ULD_CONF_GLOBAL_DONE_MASK);
++		if (reg == (I40E_GLNVM_ULD_CONF_CORE_DONE_MASK |
++			    I40E_GLNVM_ULD_CONF_GLOBAL_DONE_MASK)) {
++			hw_dbg(hw, "Core and Global modules ready %d\n", cnt1);
++			break;
++		}
++		usleep_range(10000, 20000);
++	}
++	if (!(reg & (I40E_GLNVM_ULD_CONF_CORE_DONE_MASK |
++		     I40E_GLNVM_ULD_CONF_GLOBAL_DONE_MASK))) {
++		hw_dbg(hw, "wait for FW Reset complete timedout\n");
++		hw_dbg(hw, "I40E_GLNVM_ULD = 0x%x\n", reg);
++		return I40E_ERR_RESET_FAILED;
++	}
++
+ 	/* Determine the PF number based on the PCI fn */
+ 	reg = rd32(hw, I40E_GLPCI_CAPSUP);
+ 	if (reg & I40E_GLPCI_CAPSUP_ARI_EN_MASK)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_register.h b/drivers/net/ethernet/intel/i40e/i40e_register.h
+index 2394c66..d188ec0 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_register.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_register.h
+@@ -2053,6 +2053,28 @@
+ #define I40E_GLNVM_SRDATA_WRDATA_MASK (0xFFFF << I40E_GLNVM_SRDATA_WRDATA_SHIFT)
+ #define I40E_GLNVM_SRDATA_RDDATA_SHIFT 16
+ #define I40E_GLNVM_SRDATA_RDDATA_MASK (0xFFFF << I40E_GLNVM_SRDATA_RDDATA_SHIFT)
++#define I40E_GLNVM_ULD 0x000B6008
++#define I40E_GLNVM_ULD_CONF_PCIR_DONE_SHIFT 0
++#define I40E_GLNVM_ULD_CONF_PCIR_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_PCIR_DONE_SHIFT)
++#define I40E_GLNVM_ULD_CONF_PCIRTL_DONE_SHIFT 1
++#define I40E_GLNVM_ULD_CONF_PCIRTL_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_PCIRTL_DONE_SHIFT)
++#define I40E_GLNVM_ULD_CONF_LCB_DONE_SHIFT 2
++#define I40E_GLNVM_ULD_CONF_LCB_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_LCB_DONE_SHIFT)
++#define I40E_GLNVM_ULD_CONF_CORE_DONE_SHIFT 3
++#define I40E_GLNVM_ULD_CONF_CORE_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_CORE_DONE_SHIFT)
++#define I40E_GLNVM_ULD_CONF_GLOBAL_DONE_SHIFT 4
++#define I40E_GLNVM_ULD_CONF_GLOBAL_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_GLOBAL_DONE_SHIFT)
++#define I40E_GLNVM_ULD_CONF_POR_DONE_SHIFT 5
++#define I40E_GLNVM_ULD_CONF_POR_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_POR_DONE_SHIFT)
++#define I40E_GLNVM_ULD_CONF_PCIE_ANA_DONE_SHIFT 6
++#define I40E_GLNVM_ULD_CONF_PCIE_ANA_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_PCIE_ANA_DONE_SHIFT)
++#define I40E_GLNVM_ULD_CONF_PHY_ANA_DONE_SHIFT 7
++#define I40E_GLNVM_ULD_CONF_PHY_ANA_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_PHY_ANA_DONE_SHIFT)
++#define I40E_GLNVM_ULD_CONF_EMP_DONE_SHIFT 8
++#define I40E_GLNVM_ULD_CONF_EMP_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_EMP_DONE_SHIFT)
++#define I40E_GLNVM_ULD_CONF_PCIALT_DONE_SHIFT 9
++#define I40E_GLNVM_ULD_CONF_PCIALT_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_PCIALT_DONE_SHIFT)
++
+ #define I40E_GLPCI_BYTCTH 0x0009C484
+ #define I40E_GLPCI_BYTCTH_PCI_COUNT_BW_BCT_SHIFT 0
+ #define I40E_GLPCI_BYTCTH_PCI_COUNT_BW_BCT_MASK (0xFFFFFFFF << I40E_GLPCI_BYTCTH_PCI_COUNT_BW_BCT_SHIFT)
 -- 
 1.8.3.1
