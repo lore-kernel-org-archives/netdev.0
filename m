@@ -1,51 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 1/3] sh_eth: Add support for r7s72100
-Date: Tue, 07 Jan 2014 14:07:55 -0500 (EST)
-Message-ID: <20140107.140755.1722284527902829385.davem@davemloft.net>
-References: <1389061635-4083-1-git-send-email-horms+renesas@verge.net.au>
-	<1389061635-4083-2-git-send-email-horms+renesas@verge.net.au>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v5] IPv6: add the option to use anycast addresses as source addresses in echo reply
+Date: Tue, 7 Jan 2014 20:14:36 +0100
+Message-ID: <20140107191436.GE30393@order.stressinduktion.org>
+References: <1389103047-3380-1-git-send-email-fx.lebail@yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, magnus.damm@gmail.com,
-	sergei.shtylyov@cogentembedded.com
-To: horms+renesas@verge.net.au
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43804 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753131AbaAGTH5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 14:07:57 -0500
-In-Reply-To: <1389061635-4083-2-git-send-email-horms+renesas@verge.net.au>
+Received: from order.stressinduktion.org ([87.106.68.36]:46015 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751057AbaAGTOh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 14:14:37 -0500
+Content-Disposition: inline
+In-Reply-To: <1389103047-3380-1-git-send-email-fx.lebail@yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms+renesas@verge.net.au>
-Date: Tue,  7 Jan 2014 11:27:13 +0900
+On Tue, Jan 07, 2014 at 02:57:27PM +0100, Francois-Xavier Le Bail wrote:
+> This change allows to follow a recommandation of RFC4942.
+> 
+> - Add "anycast_src_echo_reply" sysctl to control the use of anycast addresses
+>   as source addresses for ICMPv6 echo reply. This sysctl is false by default
+>   to preserve existing behavior.
+> - Add inline check ipv6_anycast_destination().
+> - Use them in icmpv6_echo_reply().
+> 
+> Reference:
+> RFC4942 - IPv6 Transition/Coexistence Security Considerations
+>    (http://tools.ietf.org/html/rfc4942#section-2.1.6)
+> 
+> 2.1.6. Anycast Traffic Identification and Security
+> 
+>    [...]
+>    To avoid exposing knowledge about the internal structure of the
+>    network, it is recommended that anycast servers now take advantage of
+>    the ability to return responses with the anycast address as the
+>    source address if possible.
+> 
+> Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
 
-> @@ -318,6 +371,14 @@ static int sh_eth_is_gether(struct sh_eth_private *mdp)
->  		return 0;
->  }
->  
-> +static int sh_eth_is_rz_fast_ether(struct sh_eth_private *mdp)
-> +{
-> +	if (mdp->reg_offset == sh_eth_offset_fast_rz)
-> +		return 1;
-> +	else
-> +		return 0;
-> +}
+Works and best solution IMHO.
 
-Please make this return a boolean and use true/false.
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-> @@ -2061,6 +2155,10 @@ static struct net_device_stats *sh_eth_get_stats(struct net_device *ndev)
->  {
->  	struct sh_eth_private *mdp = netdev_priv(ndev);
->  
-> +	if (sh_eth_is_rz_fast_ether(mdp)) {
-> +		return &ndev->stats;
-> +	}
+Thanks,
 
-Single statement basic blocks do not need curly braces, therefore
-please remove them here.
-
-THanks.
+  Hannes
