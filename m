@@ -1,50 +1,60 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] vti: get rid of nf mark rule in prerouting
-Date: Mon, 6 Jan 2014 20:59:32 -0800
-Message-ID: <20140106205932.29553fd2@nehalam.linuxnetplumber.net>
-References: <1381245682-15523-1-git-send-email-christophe.gouault@6wind.com>
-	<20131011.145304.305063991853045981.davem@davemloft.net>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: inconsistency of ethtool feature names for get vs. set
+Date: Mon, 6 Jan 2014 23:58:58 -0500
+Message-ID: <20140106235858.5ce80054.billfink@mindspring.com>
+References: <52C535B9.7080208@mellanox.com>
+	<1388675034.1607.9.camel@bwh-desktop.uk.level5networks.com>
+	<1388688114.9947.30.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: christophe.gouault@6wind.com, netdev@vger.kernel.org,
-	amwang@redhat.com, saurabh@vyatta.com
-To: David Miller <davem@davemloft.net>
+Cc: Or Gerlitz <ogerlitz@mellanox.com>, netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:59818 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751985AbaAGE7j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 23:59:39 -0500
-Received: by mail-pd0-f172.google.com with SMTP id g10so19000189pdj.17
-        for <netdev@vger.kernel.org>; Mon, 06 Jan 2014 20:59:38 -0800 (PST)
-In-Reply-To: <20131011.145304.305063991853045981.davem@davemloft.net>
+Received: from elasmtp-junco.atl.sa.earthlink.net ([209.86.89.63]:45846 "EHLO
+	elasmtp-junco.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751581AbaAGFFU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 00:05:20 -0500
+In-Reply-To: <1388688114.9947.30.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 11 Oct 2013 14:53:04 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+On Thu, 2 Jan 2014, Ben Hutchings wrote:
 
-> From: Christophe Gouault <christophe.gouault@6wind.com>
-> Date: Tue,  8 Oct 2013 17:21:22 +0200
+> On Thu, 2014-01-02 at 15:03 +0000, Ben Hutchings wrote:
+> > On Thu, 2014-01-02 at 11:47 +0200, Or Gerlitz wrote:
+> [...]
+> > > $ ethtool -k eth1  | grep generic-receive-offload
+> > > generic-receive-offload: on
+> > > 
+> > > $ ethtool -K eth1  generic-receive-offload off
+> > > ethtool: bad command line argument(s)
+> > > For more information run ethtool -h
+> > > 
+> > > --> looking in the sources and realizing I need to use "rx-gro"
+> > 
+> > Or 'gro'.  All the old feature names that can be used with the -K option
+> > are listed in the manual page.  All the new feature names are consistent
+> > between -k/-K.
 > 
-> > This patch fixes and improves the use of vti interfaces (while
-> > lightly changing the way of configuring them).
->  ...
-> > Signed-off-by: Christophe Gouault <christophe.gouault@6wind.com>
-> > ---
-> > This is is both a fix and enhancement patch. However, there are 2 ways
-> > of fixing the inbound processing bug:
-> > - either keep the current configuration model (ikey + netfilter rule)
-> >   and change the tunnel lookup method. This patch would then be reverted
-> >   by the enhancement (this sounds counterproductive).
-> > - or directly change the configuration model (okey, no netfilter rule) and keep
-> >   the current tunnel lookup method.
+> By 'new feature names' I mean names for features that weren't previously
+> exposed through ethtool.
 > 
-> Ok, applied and queued up for -stable, thanks.
+> [...]
+> > > Basically, this can be resolved by fairly simple patch, but I wasn't 
+> > > sure if you want it in user space, in the kernel or both...
+> > 
+> > How do you intend to resolve this, given the compatibility requirement
+> > that the old names must still be reported by -k and accepted by -K?
+> 
+> Just to be clear, I do see that there's a problem here but the fix may
+> have to be mostly or entirely in documentation rather than code.
 
-I hate to reply to old threads, but this keeps context.
+Wouldn't one simple option be to allow the long form like
+generic-receive-offload for setting in addition to the existing
+shortcuts rx-gro and gro?  That way a user doing "ethtool -k"
+could use the name provided to do a set via "ethtool -K" without
+needing to consult a man page (or "ethtool -h"), while still
+allowing more knowledgeable users to use the shortcut names.
 
-We have discovered a problem with this patch, it breaks the earlier use of VTI
-because it loses the mark applied through iptables. It was not a "light change"
-to the way to configure them and should have gotten more review and was not
-appropriate for -stable.
+					-Bill
