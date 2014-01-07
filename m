@@ -1,41 +1,70 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] gre_offload: statically build GRE offloading
- support
-Date: Mon, 06 Jan 2014 20:28:58 -0500 (EST)
-Message-ID: <20140106.202858.1587542022573250516.davem@davemloft.net>
-References: <1388896679-23152-1-git-send-email-hkchu@google.com>
-	<1389045787.26646.9.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1389047695.26646.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: mmotm 2014-01-02-14-35 uploaded (brocade/bna)
+Date: Mon, 06 Jan 2014 20:38:06 -0500 (EST)
+Message-ID: <20140106.203806.913798650848633178.davem@davemloft.net>
+References: <20140102223649.D8FB931C206@corp2gmr1-1.hot.corp.google.com>
+	<52C700B9.8040504@infradead.org>
+	<20140106.172427.1901836894729408800.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hkchu@google.com, herbert@gondor.apana.org.au,
-	ogerlitz@mellanox.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36663 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754400AbaAGB27 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 20:28:59 -0500
-In-Reply-To: <1389047695.26646.10.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, rmody@brocade.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org
+To: rdunlap@infradead.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20140106.172427.1901836894729408800.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 06 Jan 2014 14:34:55 -0800
+From: David Miller <davem@davemloft.net>
+Date: Mon, 06 Jan 2014 17:24:27 -0500 (EST)
 
-> On Mon, 2014-01-06 at 14:03 -0800, Eric Dumazet wrote:
+> From: Randy Dunlap <rdunlap@infradead.org>
+> Date: Fri, 03 Jan 2014 10:26:01 -0800
 > 
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
->> Cc: H.K. Jerry Chu <hkchu@google.com>
->> ---
->> Note : We probably can remove EXPORT_SYMBOL() on inet_add_offload()
->> and inet_del_protocol() on a followup patch if there is interest.
+>> as reported for linux-next of Dec.20, 2013
+>> when CONFIG_NEED_DMA_MAP_STATE is not enabled:
+>> 
+>> drivers/net/ethernet/brocade/bna/bnad.c: In function 'bnad_start_xmit':
+>> drivers/net/ethernet/brocade/bna/bnad.c:3074:26: error: 'struct bnad_tx_vector' has no member named 'dma_len'
 > 
-> 
-> There is a typo on this note, of course : inet_del_offload() was
-> intended, not inet_del_protocol()
+> Sorry for taking so long, I plan to look into this tonight Randy.
 
-Understood.
+I just committed the following fix for this, thanks!
 
-This looks a lot better, applied, thanks.
+====================
+[PATCH] bna: Fix build due to missing use of dma_unmap_len_set()
+
+> as reported for linux-next of Dec.20, 2013
+> when CONFIG_NEED_DMA_MAP_STATE is not enabled:
+>
+> drivers/net/ethernet/brocade/bna/bnad.c: In function 'bnad_start_xmit':
+> drivers/net/ethernet/brocade/bna/bnad.c:3074:26: error: 'struct bnad_tx_vector' has no member named 'dma_len'
+
+Reported-by: Randy Dunlap <rdunlap@infradead.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/brocade/bna/bnad.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index d31524f..5f24a9f 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -3071,11 +3071,11 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 
+ 		dma_addr = skb_frag_dma_map(&bnad->pcidev->dev, frag,
+ 					    0, size, DMA_TO_DEVICE);
+-		unmap->vectors[vect_id].dma_len = size;
++		dma_unmap_len_set(&unmap->vectors[vect_id], dma_len, size);
+ 		BNA_SET_DMA_ADDR(dma_addr, &txqent->vector[vect_id].host_addr);
+ 		txqent->vector[vect_id].length = htons(size);
+ 		dma_unmap_addr_set(&unmap->vectors[vect_id], dma_addr,
+-						dma_addr);
++				   dma_addr);
+ 		head_unmap->nvecs++;
+ 	}
+ 
+-- 
+1.7.11.7
