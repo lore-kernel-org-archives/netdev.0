@@ -1,44 +1,116 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH v3.5 10/19] mac8011: slight optimization of addr compare
-Date: Tue, 7 Jan 2014 11:40:38 +0800
-Message-ID: <52CB7736.701@huawei.com>
-References: <52BC15C8.2080400@huawei.com> <1389021111.5891.21.camel@jlt4.sipsolutions.net>
+From: <shh.xie@gmail.com>
+Subject: [PATCH 3/6] [v4] phylib: turn genphy_driver to an array
+Date: Tue, 7 Jan 2014 10:13:50 +0800
+Message-ID: <1389060830-7051-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	<linux-wireless@vger.kernel.org>, Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain
+Cc: <Shaohui.Xie@freescale.com>
+To: <davem@davemloft.net>, <jg1.han@samsung.com>,
+	<mugunthanvnm@ti.com>, <f.fainelli@gmail.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389021111.5891.21.camel@jlt4.sipsolutions.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2014/1/6 23:11, Johannes Berg wrote:
-> On Thu, 2013-12-26 at 19:40 +0800, Ding Tianhong wrote:
->> Use the possibly more efficient ether_addr_equal
->> to instead of memcmp.
-> 
-> This is a slow-path, I don't think that's really worth it. It kinda
-> makes sense, but relies on the struct mac_address allocation for
-> alignment and the fact that there are no other members in that struct,
-> so it seems to me that this ought to also add some alignment attributes?
-> 
-> johannes
-> 
-> 
+From: Shaohui Xie <Shaohui.Xie@freescale.com>
 
-Yes, I had to say that it is really a slight optimization.And I am sure the address in the struct
-is alignment, otherwise I have to use the ether_addr_equal_unaligned().
+Then other generic phy driver such as generic 10g phy driver can join it.
 
-Regards
-Ding 
+Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+---
+resend for v4.
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+ drivers/net/phy/phy_device.c | 29 +++++++++++++++++++++--------
+ 1 file changed, 21 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index d6447b3..748bf07 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -53,7 +53,12 @@ static void phy_device_release(struct device *dev)
+ 	kfree(to_phy_device(dev));
+ }
+ 
+-static struct phy_driver genphy_driver;
++enum genphy_driver {
++	GENPHY_DRV_1G,
++	GENPHY_DRV_MAX
++};
++
++static struct phy_driver genphy_driver[GENPHY_DRV_MAX];
+ extern int mdio_bus_init(void);
+ extern void mdio_bus_exit(void);
+ 
+@@ -539,7 +544,7 @@ static int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 			return -ENODEV;
+ 		}
+ 
+-		d->driver = &genphy_driver.driver;
++		d->driver = &genphy_driver[GENPHY_DRV_1G].driver;
+ 
+ 		err = d->driver->probe(d);
+ 		if (err >= 0)
+@@ -613,6 +618,7 @@ EXPORT_SYMBOL(phy_attach);
+  */
+ void phy_detach(struct phy_device *phydev)
+ {
++	int i;
+ 	phydev->attached_dev->phydev = NULL;
+ 	phydev->attached_dev = NULL;
+ 
+@@ -620,8 +626,12 @@ void phy_detach(struct phy_device *phydev)
+ 	 * was using the generic driver), we unbind the device
+ 	 * from the generic driver so that there's a chance a
+ 	 * real driver could be loaded */
+-	if (phydev->dev.driver == &genphy_driver.driver)
+-		device_release_driver(&phydev->dev);
++	for (i = 0; i < ARRAY_SIZE(genphy_driver); i++) {
++		if (phydev->dev.driver == &genphy_driver[i].driver) {
++			device_release_driver(&phydev->dev);
++			break;
++		}
++	}
+ }
+ EXPORT_SYMBOL(phy_detach);
+ 
+@@ -1116,7 +1126,8 @@ void phy_drivers_unregister(struct phy_driver *drv, int n)
+ }
+ EXPORT_SYMBOL(phy_drivers_unregister);
+ 
+-static struct phy_driver genphy_driver = {
++static struct phy_driver genphy_driver[] = {
++{
+ 	.phy_id		= 0xffffffff,
+ 	.phy_id_mask	= 0xffffffff,
+ 	.name		= "Generic PHY",
+@@ -1127,7 +1138,7 @@ static struct phy_driver genphy_driver = {
+ 	.suspend	= genphy_suspend,
+ 	.resume		= genphy_resume,
+ 	.driver		= {.owner= THIS_MODULE, },
+-};
++} };
+ 
+ static int __init phy_init(void)
+ {
+@@ -1137,7 +1148,8 @@ static int __init phy_init(void)
+ 	if (rc)
+ 		return rc;
+ 
+-	rc = phy_driver_register(&genphy_driver);
++	rc = phy_drivers_register(genphy_driver,
++				  ARRAY_SIZE(genphy_driver));
+ 	if (rc)
+ 		mdio_bus_exit();
+ 
+@@ -1146,7 +1158,8 @@ static int __init phy_init(void)
+ 
+ static void __exit phy_exit(void)
+ {
+-	phy_driver_unregister(&genphy_driver);
++	phy_drivers_unregister(genphy_driver,
++			       ARRAY_SIZE(genphy_driver));
+ 	mdio_bus_exit();
+ }
+ 
+-- 
+1.8.4.1
