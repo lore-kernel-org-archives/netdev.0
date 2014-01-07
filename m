@@ -1,68 +1,163 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net-next V2 3/3] net: Add GRO support for vxlan traffic
-Date: Tue, 7 Jan 2014 22:10:44 +0200
-Message-ID: <CAJZOPZ+LOw8UVwk768md-Nn0F+cR8Y05eXW6=pkfbfmqaBCBXg@mail.gmail.com>
-References: <1389108594-665-1-git-send-email-ogerlitz@mellanox.com>
-	<1389108594-665-4-git-send-email-ogerlitz@mellanox.com>
-	<1389112461.26646.29.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAJZOPZ+8bNi+HZ=eyGBwzFDdrkroMVyPzoGERFqcnZPq3rBZ6Q@mail.gmail.com>
-	<1389125042.26646.56.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Multicast routing stops functioning after 4G multicast packets recived.
+Date: Tue, 7 Jan 2014 21:11:47 +0100
+Message-ID: <20140107201147.GG30393@order.stressinduktion.org>
+References: <20140107170145.317040@gmx.com> <20140107174322.GC30393@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Or Gerlitz <ogerlitz@mellanox.com>, Jerry Chu <hkchu@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Yan Burman <yanb@mellanox.com>,
-	Shlomo Pongratz <shlomop@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+To: Bob Falken <NetFestivalHaveFun@gmx.com>,
+	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:60616 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752413AbaAGUKp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 15:10:45 -0500
-Received: by mail-pd0-f169.google.com with SMTP id v10so797606pde.14
-        for <netdev@vger.kernel.org>; Tue, 07 Jan 2014 12:10:44 -0800 (PST)
-In-Reply-To: <1389125042.26646.56.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:46151 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752413AbaAGULs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 15:11:48 -0500
+Content-Disposition: inline
+In-Reply-To: <20140107174322.GC30393@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 7, 2014 at 10:04 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2014-01-07 at 21:43 +0200, Or Gerlitz wrote:
->> On Tue, Jan 7, 2014 at 6:34 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Tue, 2014-01-07 at 17:29 +0200, Or Gerlitz wrote:
->> >> Add gro handlers for vxlan using the udp gro infrastructure
->> >>
->> >
->> >
->> >>  static void vxlan_notify_add_rx_port(struct sock *sk)
->> >>  {
->> >> @@ -568,6 +661,8 @@ static void vxlan_notify_add_rx_port(struct sock *sk)
->> >>                       dev->netdev_ops->ndo_add_vxlan_port(dev, sa_family,
->> >>                                                           port);
->> >>       }
->> >> +     if (sa_family == AF_INET)
->> >> +             udp_add_offload(&vxlan_offload, port);
->> >>       rcu_read_unlock();
->> >>  }
->> >>
->> >
->> > This means two vxlan tunnels can not share same port.
->> > Is that a valid assertion ?
->>
->> nope -- the vxlan driver opens a listener udp socket per per listening
->> port, but N > 1 vxlan tunnels can sit on that port, the driver does
->> further demuxing based on the vnid carried in the vxlan header, see
->> the call to vxlan_find_vni() from vxlan_rcv()
->> --
->
-> So if we use same port, it seems to me udp_del_offload() of the first
-> dismantled tunnel will remove the offload for the remaining tunnel.
->
-> You forgot to implement a refcount somehow.
+On Tue, Jan 07, 2014 at 06:43:22PM +0100, Hannes Frederic Sowa wrote:
+> On Tue, Jan 07, 2014 at 06:01:44PM +0100, Bob Falken wrote:
+> > Hello,
+> > 
+> > I patched, kernel 3.2.53 yesterday,
+> > 8774002632packets, and ~9.1TB later, the multicast routing seems to function properly. :)
+> > 
+> > Kudos for fixing this.
+> > 
+> > I will keep checking the next days.
+> > 
+> > As for IPv6 MR, my current setup i.e: the Multicast source, does not support IPv6, so cannot do a check for that natively.
+> > 
+> > Unless I can translate IPv4 multicast into IPv6 multicast easily, using some iptable prerouting rules(?).
+> 
+> Thank you for testing!
+> 
+> I'll review the RCU regions again and will prepare the patches (before
+> introduction of ebc0ffae5dfb44 ("fib: RCU conversion of fib_lookup()")
+> and after.
 
-no, the vxlan driver does it for me on a higher level, you can see in
-vxlan_sock_release() that vxlan_notify_del_rx_port() is called only if
-the ref count which is associated with the listener socket drops to
-zero.
+It seems ip(6)mr_fib_lookup is not always called  from rcu section
+(ndo_start_xmit), so I had to restructure a bit. Could you retest this
+patch as preparation for a submission to stable? Thanks!
+
+RCU conversion can be done later then.
+
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 421a249..9ae4ae7 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -157,9 +157,12 @@ static struct mr_table *ipmr_get_table(struct net *net, u32 id)
+ static int ipmr_fib_lookup(struct net *net, struct flowi4 *flp4,
+ 			   struct mr_table **mrt)
+ {
+-	struct ipmr_result res;
+-	struct fib_lookup_arg arg = { .result = &res, };
+ 	int err;
++	struct ipmr_result res;
++	struct fib_lookup_arg arg = {
++		.result = &res,
++		.flags = FIB_LOOKUP_NOREF,
++	};
+ 
+ 	err = fib_rules_lookup(net->ipv4.mr_rules_ops,
+ 			       flowi4_to_flowi(flp4), 0, &arg);
+@@ -448,16 +451,23 @@ failure:
+ 
+ static netdev_tx_t reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
++	int err;
++	struct ipmr_result res;
+ 	struct net *net = dev_net(dev);
+-	struct mr_table *mrt;
++
++	struct fib_lookup_arg arg = {
++		.result = &res,
++		.flags = FIB_LOOKUP_NOREF,
++	};
++
+ 	struct flowi4 fl4 = {
+ 		.flowi4_oif	= dev->ifindex,
+ 		.flowi4_iif	= skb->skb_iif,
+ 		.flowi4_mark	= skb->mark,
+ 	};
+-	int err;
+ 
+-	err = ipmr_fib_lookup(net, &fl4, &mrt);
++	err = fib_rules_lookup(net->ipv4.mr_rules_ops,
++			       flowi4_to_flowi(&fl4), 0, &arg);
+ 	if (err < 0) {
+ 		kfree_skb(skb);
+ 		return err;
+@@ -466,9 +476,12 @@ static netdev_tx_t reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	read_lock(&mrt_lock);
+ 	dev->stats.tx_bytes += skb->len;
+ 	dev->stats.tx_packets++;
+-	ipmr_cache_report(mrt, skb, mrt->mroute_reg_vif_num, IGMPMSG_WHOLEPKT);
++	ipmr_cache_report(res.mrt, skb, res.mrt->mroute_reg_vif_num,
++			  IGMPMSG_WHOLEPKT);
+ 	read_unlock(&mrt_lock);
+ 	kfree_skb(skb);
++	if (arg.rule)
++		fib_rule_put(arg.rule);
+ 	return NETDEV_TX_OK;
+ }
+ 
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index f365310..45ec621 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -141,9 +141,12 @@ static struct mr6_table *ip6mr_get_table(struct net *net, u32 id)
+ static int ip6mr_fib_lookup(struct net *net, struct flowi6 *flp6,
+ 			    struct mr6_table **mrt)
+ {
+-	struct ip6mr_result res;
+-	struct fib_lookup_arg arg = { .result = &res, };
+ 	int err;
++	struct ip6mr_result res;
++	struct fib_lookup_arg arg = {
++		.result = &res,
++		.flags = FIB_LOOKUP_NOREF,
++	};
+ 
+ 	err = fib_rules_lookup(net->ipv6.mr6_rules_ops,
+ 			       flowi6_to_flowi(flp6), 0, &arg);
+@@ -693,16 +696,20 @@ static const struct inet6_protocol pim6_protocol = {
+ static netdev_tx_t reg_vif_xmit(struct sk_buff *skb,
+ 				      struct net_device *dev)
+ {
++	int err;
++	struct ip6mr_result res;
+ 	struct net *net = dev_net(dev);
+-	struct mr6_table *mrt;
+ 	struct flowi6 fl6 = {
+ 		.flowi6_oif	= dev->ifindex,
+ 		.flowi6_iif	= skb->skb_iif,
+ 		.flowi6_mark	= skb->mark,
+ 	};
+-	int err;
++	struct fib_lookup_arg arg = {
++		.result = &res,
++	};
+ 
+-	err = ip6mr_fib_lookup(net, &fl6, &mrt);
++	err = fib_rules_lookup(net->ipv6.mr6_rules_ops,
++			flowi6_to_flowi(&fl6), 0, &arg);
+ 	if (err < 0) {
+ 		kfree_skb(skb);
+ 		return err;
+@@ -711,9 +718,12 @@ static netdev_tx_t reg_vif_xmit(struct sk_buff *skb,
+ 	read_lock(&mrt_lock);
+ 	dev->stats.tx_bytes += skb->len;
+ 	dev->stats.tx_packets++;
+-	ip6mr_cache_report(mrt, skb, mrt->mroute_reg_vif_num, MRT6MSG_WHOLEPKT);
++	ip6mr_cache_report(res.mrt, skb, res.mrt->mroute_reg_vif_num,
++			   MRT6MSG_WHOLEPKT);
+ 	read_unlock(&mrt_lock);
+ 	kfree_skb(skb);
++	if (arg.rule)
++		fib_rule_put(arg.rule);
+ 	return NETDEV_TX_OK;
+ }
+ 
