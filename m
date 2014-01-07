@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] r8152: correct some messages
-Date: Tue, 07 Jan 2014 00:45:50 -0500 (EST)
-Message-ID: <20140107.004550.1024697128774275576.davem@davemloft.net>
-References: <1388999999-9218-1-git-send-email-hayeswang@realtek.com>
-	<1389064702-1173-1-git-send-email-hayeswang@realtek.com>
+Subject: Re: [PATCH 5/6] [v4] phylib: Support attaching to generic 10g
+ driver
+Date: Tue, 07 Jan 2014 00:56:07 -0500 (EST)
+Message-ID: <20140107.005607.716747884959539511.davem@davemloft.net>
+References: <1389060865-7143-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
+Cc: jg1.han@samsung.com, mugunthanvnm@ti.com, f.fainelli@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Shaohui.Xie@freescale.com, afleming@gmail.com
+To: shh.xie@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389064702-1173-1-git-send-email-hayeswang@realtek.com>
+In-Reply-To: <1389060865-7143-1-git-send-email-shh.xie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Tue, 7 Jan 2014 11:18:22 +0800
+From: <shh.xie@gmail.com>
+Date: Tue, 7 Jan 2014 10:14:25 +0800
 
->  - Replace pr_warn_ratelimited() with net_ratelimit() and netdev_warn().
->  - Adjust the algnment of some messages.
->  - Remove the peroid.
->  - Fix some messages don't have terminating newline.
-> 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> -static int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+> +int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+>  			     u32 flags, phy_interface_t interface)
 
-I only want major bug fixes in 'net' at this time so I've applied
-this to 'net-next'.
-
-Thanks.
+Since you are changing where the open parenthesis is, you must reindent
+the arguments on the second line so that they start exactly at the
+first column after that openning parenthesis.
