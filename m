@@ -1,47 +1,67 @@
-From: Giri Reddy <giri.reddy@qlogic.com>
-Subject: Use of 'SIOCDEVPRIVATE' in ethernet drivers.
-Date: Tue, 7 Jan 2014 18:21:17 +0000
-Message-ID: <124064C45E1FC84193A69A61ED3A1F46E22D07@AVMB1.qlogic.org>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: Re: [PATCH -next] qlcnic: use vzalloc() instead of
+ vmalloc()/memset(0)
+Date: Tue, 7 Jan 2014 18:22:51 +0000
+Message-ID: <BECD8E8A1B550B48A1BF97C13991F60E46CF1A67@avmb2.qlogic.org>
+References: <CAPgLHd9kdVxAPmxcyZeRpJC7_s8HGyefA+CoYkhhz9pEM2xGKg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-To: netdev <netdev@vger.kernel.org>
+Cc: "yongjun_wei@trendmicro.com.cn" <yongjun_wei@trendmicro.com.cn>,
+	"Dept-Eng Linux Driver" <Linux-Driver@qlogic.com>,
+	netdev <netdev@vger.kernel.org>
+To: Wei Yongjun <weiyj.lk@gmail.com>,
+	Himanshu Madhani <himanshu.madhani@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:51873 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752049AbaAGSVU convert rfc822-to-8bit
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:3307 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752676AbaAGSWz convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 13:21:20 -0500
-Received: from pps.filterd (m0000643.ppops.net [127.0.0.1])
-	by mx0b-0016ce01.pphosted.com (8.14.5/8.14.5) with SMTP id s07IDJVt025463
-	for <netdev@vger.kernel.org>; Tue, 7 Jan 2014 10:21:20 -0800
-Received: from avcashub1.qlogic.com (avcashub3.qlogic.com [198.70.193.117])
-	by mx0b-0016ce01.pphosted.com with ESMTP id 1h8eux8m9k-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 07 Jan 2014 10:21:19 -0800
+	Tue, 7 Jan 2014 13:22:55 -0500
+In-Reply-To: <CAPgLHd9kdVxAPmxcyZeRpJC7_s8HGyefA+CoYkhhz9pEM2xGKg@mail.gmail.com>
 Content-Language: en-US
+Content-ID: <F4C3AE8C529ACC40863E4758034D1913@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm implementing a new interface for upgrading the firmware for our next
-generation of Qlogic drivers. We need to transfer control information
-between userspace and driver, in addition to the firmware payload. I'm
-considering using 'SIOCDEVPRIVATE' ioctl interface to pass control
-information between userland and driver.
 
-I also see comments in the source (include/linux/sockios.h) that
-'SIOCDEVPRIVATE' will be deprecated 2.5.x. What is the current status of
-deprecation in the latest versions of the kernel?
+On 1/7/14 5:48 AM, "Wei Yongjun" <weiyj.lk@gmail.com> wrote:
 
-Are we still allowed to use 'SIOCDEVPRIVATE' in drivers if there the
-deprecation efforts are on hold.
+>From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+>
+>Use vzalloc() instead of vmalloc() and memset(0).
+>
+>Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+>---
+> drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c | 3 +--
+> 1 file changed, 1 insertion(+), 2 deletions(-)
 
-Any input will be appreciated.
+Acked-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+>
+>diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+>b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+>index b529667..16912e2 100644
+>--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+>+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+>@@ -935,11 +935,10 @@ static ssize_t qlcnic_sysfs_read_pci_config(struct
+>file *file,
+> 		return QL_STATUS_INVALID_PARAM;
+> 
+> 	pci_info_sz = pci_func_count * sizeof(*pci_info);
+>-	pci_info = vmalloc(pci_info_sz);
+>+	pci_info = vzalloc(pci_info_sz);
+> 	if (!pci_info)
+> 		return -ENOMEM;
+> 
+>-	memset(pci_info, 0, pci_info_sz);
+> 	memset(buf, 0, pci_cfg_sz);
+> 	pci_cfg = (struct qlcnic_pci_func_cfg *)buf;
+> 
+>
 
-Thanks.
-Giri
-Qlogic
-
-________________________________
-
-This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
+Thanks,
+Jiten
