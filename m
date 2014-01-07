@@ -1,49 +1,34 @@
-From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC PATCH net-next 1/4] net: introduce backup_classid to struct
- skbuff
-Date: Tue, 7 Jan 2014 20:54:03 +0800
-Message-ID: <52CBF8EB.6000803@huawei.com>
-References: <52C62A48.1050604@huawei.com> <20140103.003404.1439874071277993396.davem@davemloft.net>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: [PATCH 0/2] net/mlx4_core: clean up two functions
+Date: Tue, 07 Jan 2014 14:00:22 +0100
+Message-ID: <1389099622.15032.18.camel@x41>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>,
-	<serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	<kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>, <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	<lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140103.003404.1439874071277993396.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Or Gerlitz <ogerlitz@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Rony Efraim <ronye@mellanox.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2014/1/3 13:34, David Miller wrote:
-> From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> Date: Fri, 3 Jan 2014 11:11:04 +0800
-> 
->>
->> introduce backup_classid to struct skbuff,
->> we can use it to backup sk_classid when net_ns switch.
->>
->> Signed-off-by: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> 
-> Sorry, no new sk_buff members unless there is absolutely not other
-> possible implementation.
-> 
+0) These two patches are very similar. They both clean up a function to
+help GCC understand the codeflow. Both help silence a warning.
 
-I'm kind of banging my head against the wall with this,
-but can not think of a better way.
+1) Compile tested only (on 32 bits x86). I do not have this hardware.
 
-skb_shared_info is the extension for sk_buffer, how about moving into it?
+2) Please note that there's no MAINTAINERS entry for mlx4_core. (Neither
+is there an entry for the MLX4 IB driver.) Shouldn't it be added? 
 
-any comments are appreciated!
+Paul Bolle (2):
+  net/mlx4_core: clean up cq_res_start_move_to()
+  net/mlx4_core: clean up srq_res_start_move_to()
 
-thanks,
-Libo
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  | 96 ++++++++--------------
+ 1 file changed, 35 insertions(+), 61 deletions(-)
 
-> sk_buff is too big as-is.
-> 
-> .
-> 
+-- 
+1.8.4.2
