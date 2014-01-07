@@ -1,120 +1,87 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH v3 4/5] alx: add alx_get_stats64 operation
-Date: Tue, 7 Jan 2014 11:02:05 +0100
-Message-ID: <20140107100205.GA9886@kria>
-References: <1389026023-18743-1-git-send-email-sd@queasysnail.net>
- <1389026023-18743-5-git-send-email-sd@queasysnail.net>
- <1389035253.9947.93.camel@bwh-desktop.uk.level5networks.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: single process receives own frames due to PACKET_MMAP
+Date: Tue, 7 Jan 2014 11:06:09 +0100
+Message-ID: <20140107110609.74f71979@redhat.com>
+References: <52B4465E.2090904@aimvalley.nl>
+	<52CB34F9.6020906@aimvalley.nl>
+	<52CBC991.8030701@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, johannes@sipsolutions.net,
-	stephen@networkplumber.org, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, uaca@alumni.uv.es
+To: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:44711 "EHLO smtp6-g21.free.fr"
+Received: from mx1.redhat.com ([209.132.183.28]:31631 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751262AbaAGKCZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 05:02:25 -0500
-Content-Disposition: inline
-In-Reply-To: <1389035253.9947.93.camel@bwh-desktop.uk.level5networks.com>
+	id S1750938AbaAGKHW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jan 2014 05:07:22 -0500
+In-Reply-To: <52CBC991.8030701@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Then the stats in all atheros drivers are a bit broken? They all use
-the same formulas for ndo_get_stats.
+On Tue, 07 Jan 2014 10:32:01 +0100
+Daniel Borkmann <dborkman@redhat.com> wrote:
 
-Other atheros drivers (atl1e/atl1e.h and atl1c/atl1c.h) have the same
-stats structure with a comment for each field. I will copy the
-comments to alx.h.
-
-
-2014-01-06, 19:07:33 +0000, Ben Hutchings wrote:
-> On Mon, 2014-01-06 at 17:33 +0100, Sabrina Dubroca wrote:
-> [...]
-> > --- a/drivers/net/ethernet/atheros/alx/main.c
-> > +++ b/drivers/net/ethernet/atheros/alx/main.c
-> > @@ -1166,10 +1166,54 @@ static void alx_poll_controller(struct net_device *netdev)
-> >  }
-> >  #endif
-> >  
-> > +static struct rtnl_link_stats64 *alx_get_stats64(struct net_device *dev,
-> > +					struct rtnl_link_stats64 *net_stats)
-> > +{
-> > +	struct alx_priv *alx = netdev_priv(dev);
-> > +	struct alx_hw_stats *hw_stats = &alx->hw.stats;
-> > +
-> > +	spin_lock(&alx->stats_lock);
-> > +
-> > +	alx_update_hw_stats(&alx->hw);
-> > +
-> > +	net_stats->tx_packets = hw_stats->tx_ok;
+> On 01/06/2014 11:58 PM, Norbert van Bolhuis wrote:
+> >
+> > Our application uses raw AF_PACKET socket to send and receive
+> > on one particular ethernet interface.
+> >
+> > Recently we started using PACKET_MMAP (TPACKET_V2). This makes
+> > the Appl use a TX socket and a RX socket.
+> > Both sockets are bound to the same (eth) interface. I noticed
+> > the RX socket receives all frames that are sent via the
+> > TX socket (same process, different thread). This I do not want.
+> >
+> > I know it is supposed to happen for different processes
+> > (otherwise wireshark won't work), but I did not expect it to
+> > happen for one single process (with different threads).
+> >
+> > I can filter them out in user-space (PACKET_OUTGOING)
+> > or via kernel packet filter (SO_ATTACH_FILTER), but performance is
+> > critical.
+> >
+> > I wonder whether this (PACKET_MMAP) behaviour is OK.
 > 
-> I think this should be set to hw_stats->tx_ok + net_stats->tx_errors
-> (after you set tx_errors).
+> For your use-case, we recently introduced in d346a3fae3ff1
+> ("packet: introduce PACKET_QDISC_BYPASS socket option") a
+> bypass of dev_queue_xmit() (that internally invokes
+> dev_queue_xmit_nit()).
 > 
-> > +	net_stats->tx_bytes   = hw_stats->tx_byte_cnt;
-> > +	net_stats->rx_packets = hw_stats->rx_ok;
+> > It did not happen before (with a non-PACKET_MMAP AF_PACKET socket
+> > which was used by both threads of the same Appl process). So
+> > why is it happening now ?
 > 
-> Similarly, I think this should be hw_stats->rx_ok +
-> net_stats->rx_errors.
+> Can you elaborate a bit on which kernel versions that behaviour
+> changed?
 > 
-> > +	net_stats->rx_bytes   = hw_stats->rx_byte_cnt;
-> > +	net_stats->multicast  = hw_stats->rx_mcast;
-> > +	net_stats->collisions = hw_stats->tx_single_col +
-> > +				hw_stats->tx_multi_col * 2 +
-> 
-> I would expect this to count the number of packets that had collisions
-> rather than total number of collisions (which you're only guessing at by
-> using * 2).
+> > I'd say it makes no sense to make the same process receive its
+> > own transmitted frames on that same interface (unless its lo).
 
-Okay, all changed.
+Have you setup:
+ ring->s_ll.sll_protocol = 0
 
+This is what I did in trafgen to avoid this problem.
 
-> > +				hw_stats->tx_late_col + hw_stats->tx_abort_col;
-> > +
-> > +	net_stats->rx_errors  = hw_stats->rx_frag + hw_stats->rx_fcs_err +
-> > +				hw_stats->rx_len_err + hw_stats->rx_ov_sz +
-> > +				hw_stats->rx_ov_rrd + hw_stats->rx_align_err;
-> > +
-> > +	net_stats->rx_fifo_errors   = hw_stats->rx_ov_rxf;
-> > +	net_stats->rx_length_errors = hw_stats->rx_len_err;
-> > +	net_stats->rx_crc_errors    = hw_stats->rx_fcs_err;
-> > +	net_stats->rx_frame_errors  = hw_stats->rx_align_err;
-> > +	net_stats->rx_over_errors   = hw_stats->rx_ov_rrd + hw_stats->rx_ov_rxf;
-> 
-> rx_over_errors is commented as 'receiver ring buff overflow' and
-> ifconfig includes it in the 'frame' error count.  I think it is intended
-> to count frames which are too large for on-chip RX buffers and should
-> always be 0 for devices that do RX DMA.
-> 
-> Each error should contribute to at most one specific error stat, so
-> don't count rx_ov_rxf in both rx_fifo_errors and rx_over_errors.  I
-> would guess rx_fifo_errors is the right counter.
->
-> I don't know what rx_ov_rrd represents, but if it's the number of
-> packets dropped because the RX descriptor ring was empty then it should
-> be counted in rx_dropped not rx_over_errors.
+See line 55 in netsniff-ng/ring.c:
+ https://github.com/borkmann/netsniff-ng/blob/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1/ring.c#L55
 
-in atl1e/atl1e.h:
-rx_ov_rxf: The number of frame dropped due to occurrence of RX FIFO overflow.
-rx_ov_rrd: The number of frame dropped due to occurrence of RRD overflow.
+Commit:
+ https://github.com/borkmann/netsniff-ng/commit/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1
 
-I'm not sure which counter fits these best.
-
-
-> > +	net_stats->rx_missed_errors = hw_stats->rx_ov_rrd + hw_stats->rx_ov_rxf;
-> [...]
-> 
-> This counter is commented as 'receiver missed packet'.  I think this
-> means the MAC detected SOF but was somehow too busy to receive the
-> packet, but I'm not sure.  I don't think these hardware counters match
-> the description, and certainly they shouldn't be counted here as well as
-> the other specific error stats.
-
-Okay.
-
-
-Thanks,
+> > If I'm not doing something wrong, this means this behaviour
+> > causes my CPU to be loaded much more (since all transmitted frames
+> > have to be filtered out).
+> >
+> > Let me know what you think.
+> >
+> > thanks,
+> > Norbert van Bolhuis
 
 -- 
-Sabrina
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
