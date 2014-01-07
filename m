@@ -1,31 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] netfilter fixes for net
-Date: Tue, 07 Jan 2014 18:38:54 -0500 (EST)
-Message-ID: <20140107.183854.1098172581398083314.davem@davemloft.net>
-References: <1389132819-9697-1-git-send-email-pablo@netfilter.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v5] IPv6: add the option to use anycast addresses as source addresses in echo reply
+Date: Wed, 8 Jan 2014 00:39:29 +0100
+Message-ID: <20140107233929.GN30393@order.stressinduktion.org>
+References: <1389103047-3380-1-git-send-email-fx.lebail@yahoo.com> <20140107175507.fb543c70.billfink@mindspring.com> <20140107.183305.1907441201345858474.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1389132819-9697-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: billfink@mindspring.com, fx.lebail@yahoo.com,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:46655 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753585AbaAGXjb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 18:39:31 -0500
+Content-Disposition: inline
+In-Reply-To: <20140107.183305.1907441201345858474.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Tue,  7 Jan 2014 23:13:37 +0100
+On Tue, Jan 07, 2014 at 06:33:05PM -0500, David Miller wrote:
+> From: Bill Fink <billfink@mindspring.com>
+> Date: Tue, 7 Jan 2014 17:55:07 -0500
+> 
+> > Why is ICMPV6 Echo Reply special?  Can't the internal structure
+> > of the network be divined from other ICMPv6 responses such as
+> > Destination Unreachable, Time Exceeded (Hop Limit), and Parameter
+> > Problem.
+> 
+> Right, this RFC is talking about source address selection in general,
+> so this anycast handling should be in a generic place too.
 
-> The following patchset contains two patches:
-> 
-> * fix the IRC NAT helper which was broken when adding (incomplete) IPv6
->   support, from Daniel Borkmann.
-> 
-> * Refine the previous bugtrap that Jesper added to catch problems for the
->   usage of the sequence adjustment extension in IPVs in Dec 16th, it may
->   spam messages in case of finding a real bug.
-> 
-> I know it's fairly late, so please let me know if you prefer that I pass
-> you these via net-next.
+I think it would be reasonable to change future behavior to always
+send back icmp errors with the anycast address (same as original packet
+destination). Ping is a bit special as it is used for service discovery.
 
-These look fine, thanks Pablo.
+UDP sockets can use their source address at will. So I still think this change
+is reasonable.
