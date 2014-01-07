@@ -1,69 +1,280 @@
 From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH v3 2/3] ARM: shmobile: r7s72100: Add clock for r7s72100-ether
-Date: Tue,  7 Jan 2014 11:27:14 +0900
-Message-ID: <1389061635-4083-3-git-send-email-horms+renesas@verge.net.au>
+Subject: [PATCH v3 net-next 1/3] sh_eth: Add support for r7s72100
+Date: Tue,  7 Jan 2014 11:27:13 +0900
+Message-ID: <1389061635-4083-2-git-send-email-horms+renesas@verge.net.au>
 References: <1389061635-4083-1-git-send-email-horms+renesas@verge.net.au>
 Cc: linux-arm-kernel@lists.infradead.org,
 	Magnus Damm <magnus.damm@gmail.com>,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	Simon Horman <horms+renesas@verge.net.au>
 To: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:40437 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756152AbaAGC1j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 21:27:39 -0500
+Return-path: <linux-sh-owner@vger.kernel.org>
 In-Reply-To: <1389061635-4083-1-git-send-email-horms+renesas@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is a fast ethernet controller.
 
 Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
 
 ---
 v2
-* As suggested by Sergei Shtylyov
-  - Add MSTP74 to beginning of enum on a line by itself
-* As suggested by Magnus Damm
+* As suggested by Magnus Damm and Sergei Shtylyov
   - r7s72100 ethernet is not gigabit so do not refer to it as such
----
- arch/arm/mach-shmobile/clock-r7s72100.c | 4 ++++
- 1 file changed, 4 insertions(+)
 
-diff --git a/arch/arm/mach-shmobile/clock-r7s72100.c b/arch/arm/mach-shmobile/clock-r7s72100.c
-index e6ab0cd..c4ba651 100644
---- a/arch/arm/mach-shmobile/clock-r7s72100.c
-+++ b/arch/arm/mach-shmobile/clock-r7s72100.c
-@@ -27,6 +27,7 @@
- #define FRQCR2		0xfcfe0014
- #define STBCR3		0xfcfe0420
- #define STBCR4		0xfcfe0424
-+#define STBCR7		0xfcfe0430
- #define STBCR9		0xfcfe0438
- 
- #define PLL_RATE 30
-@@ -146,6 +147,7 @@ struct clk div4_clks[DIV4_NR] = {
+* As suggested by Magnus Damm
+  - As RZ specific register layout rather than using the gigabit layout
+    which includes registers that do not exist on this chip.
+
+As suggested by Sergei Shtylyov
+  - Do not use sh_eth_chip_reset_r8a7740 as it accesses non-existent
+    RMII registers. Instead use sh_eth_chip_reset.
+  - Do not use sh_eth_set_rate_gether as it accesses non-existent registers.
+  - Do not use reserved LCHNG bit of ECSR
+  - Do not use reserved LCHNGIP bit of ECSIPR
+  - Document that R8A779x also needs a 16 bit shift of the RFS bits
+  - Do not document that the R7S72100 has GECMR, it does not
+---
+ drivers/net/ethernet/renesas/sh_eth.c | 119 ++++++++++++++++++++++++++++++++--
+ drivers/net/ethernet/renesas/sh_eth.h |   4 +-
+ 2 files changed, 116 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 8884107..de1a437 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -190,6 +190,59 @@ static const u16 sh_eth_offset_fast_rcar[SH_ETH_MAX_REGISTER_OFFSET] = {
+ 	[TRIMD]		= 0x027c,
  };
  
- enum {	MSTP97, MSTP96, MSTP95, MSTP94,
-+	MSTP74,
- 	MSTP47, MSTP46, MSTP45, MSTP44, MSTP43, MSTP42, MSTP41, MSTP40,
- 	MSTP33,	MSTP_NR };
++static const u16 sh_eth_offset_fast_rz[SH_ETH_MAX_REGISTER_OFFSET] = {
++	[EDSR]		= 0x0000,
++	[EDMR]		= 0x0400,
++	[EDTRR]		= 0x0408,
++	[EDRRR]		= 0x0410,
++	[EESR]		= 0x0428,
++	[EESIPR]	= 0x0430,
++	[TDLAR]		= 0x0010,
++	[TDFAR]		= 0x0014,
++	[TDFXR]		= 0x0018,
++	[TDFFR]		= 0x001c,
++	[RDLAR]		= 0x0030,
++	[RDFAR]		= 0x0034,
++	[RDFXR]		= 0x0038,
++	[RDFFR]		= 0x003c,
++	[TRSCER]	= 0x0438,
++	[RMFCR]		= 0x0440,
++	[TFTR]		= 0x0448,
++	[FDR]		= 0x0450,
++	[RMCR]		= 0x0458,
++	[RPADIR]	= 0x0460,
++	[FCFTR]		= 0x0468,
++	[CSMR]		= 0x04E4,
++
++	[ECMR]		= 0x0500,
++	[ECSR]		= 0x0510,
++	[ECSIPR]	= 0x0518,
++	[PIR]		= 0x0520,
++	[APR]		= 0x0554,
++	[MPR]		= 0x0558,
++	[PFTCR]		= 0x055c,
++	[PFRCR]		= 0x0560,
++	[TPAUSER]	= 0x0564,
++	[MAHR]		= 0x05c0,
++	[MALR]		= 0x05c8,
++	[CEFCR]		= 0x0740,
++	[FRECR]		= 0x0748,
++	[TSFRCR]	= 0x0750,
++	[TLFRCR]	= 0x0758,
++	[RFCR]		= 0x0760,
++	[MAFCR]		= 0x0778,
++
++	[ARSTR]		= 0x0000,
++	[TSU_CTRST]	= 0x0004,
++	[TSU_VTAG0]	= 0x0058,
++	[TSU_ADSBSY]	= 0x0060,
++	[TSU_TEN]	= 0x0064,
++	[TSU_ADRH0]	= 0x0100,
++	[TSU_ADRL0]	= 0x0104,
++	[TSU_ADRH31]	= 0x01f8,
++	[TSU_ADRL31]	= 0x01fc,
++};
++
+ static const u16 sh_eth_offset_fast_sh4[SH_ETH_MAX_REGISTER_OFFSET] = {
+ 	[ECMR]		= 0x0100,
+ 	[RFLR]		= 0x0108,
+@@ -318,6 +371,14 @@ static int sh_eth_is_gether(struct sh_eth_private *mdp)
+ 		return 0;
+ }
  
-@@ -154,6 +156,7 @@ static struct clk mstp_clks[MSTP_NR] = {
- 	[MSTP96] = SH_CLK_MSTP8(&peripheral0_clk, STBCR9, 6, 0), /* RIIC1 */
- 	[MSTP95] = SH_CLK_MSTP8(&peripheral0_clk, STBCR9, 5, 0), /* RIIC2 */
- 	[MSTP94] = SH_CLK_MSTP8(&peripheral0_clk, STBCR9, 4, 0), /* RIIC3 */
-+	[MSTP74] = SH_CLK_MSTP8(&peripheral1_clk, STBCR7, 4, 0), /* Ether */
- 	[MSTP47] = SH_CLK_MSTP8(&peripheral1_clk, STBCR4, 7, 0), /* SCIF0 */
- 	[MSTP46] = SH_CLK_MSTP8(&peripheral1_clk, STBCR4, 6, 0), /* SCIF1 */
- 	[MSTP45] = SH_CLK_MSTP8(&peripheral1_clk, STBCR4, 5, 0), /* SCIF2 */
-@@ -176,6 +179,7 @@ static struct clk_lookup lookups[] = {
- 	CLKDEV_CON_ID("cpu_clk", &div4_clks[DIV4_I]),
++static int sh_eth_is_rz_fast_ether(struct sh_eth_private *mdp)
++{
++	if (mdp->reg_offset == sh_eth_offset_fast_rz)
++		return 1;
++	else
++		return 0;
++}
++
+ static void sh_eth_select_mii(struct net_device *ndev)
+ {
+ 	u32 value = 0x0;
+@@ -701,6 +762,35 @@ static struct sh_eth_cpu_data r8a7740_data = {
+ 	.shift_rd0	= 1,
+ };
  
- 	/* MSTP clocks */
-+	CLKDEV_DEV_ID("r7s72100-ether", &mstp_clks[MSTP74]),
- 	CLKDEV_CON_ID("mtu2_fck", &mstp_clks[MSTP33]),
++/* R7S72100 */
++static struct sh_eth_cpu_data r7s72100_data = {
++	.chip_reset	= sh_eth_chip_reset,
++	.set_duplex	= sh_eth_set_duplex,
++
++	.register_type	= SH_ETH_REG_FAST_RZ,
++
++	.ecsr_value	= ECSR_ICD,
++	.ecsipr_value	= ECSIPR_ICDIP,
++	.eesipr_value	= 0xff7f009f,
++
++	.tx_check	= EESR_TC1 | EESR_FTC,
++	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
++			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
++			  EESR_TDE | EESR_ECI,
++	.fdr_value	= 0x0000070f,
++	.rmcr_value	= RMCR_RNC,
++
++	.apr		= 1,
++	.mpr		= 1,
++	.tpauser	= 1,
++	.hw_swap	= 1,
++	.rpadir		= 1,
++	.rpadir_value   = 2 << 16,
++	.no_trimd	= 1,
++	.tsu		= 1,
++	.shift_rd0	= 1,
++};
++
+ static struct sh_eth_cpu_data sh7619_data = {
+ 	.register_type	= SH_ETH_REG_FAST_SH3_SH2,
  
- 	/* ICK */
+@@ -767,7 +857,7 @@ static int sh_eth_reset(struct net_device *ndev)
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
+ 	int ret = 0;
+ 
+-	if (sh_eth_is_gether(mdp)) {
++	if (sh_eth_is_gether(mdp) || sh_eth_is_rz_fast_ether(mdp)) {
+ 		sh_eth_write(ndev, EDSR_ENALL, EDSR);
+ 		sh_eth_write(ndev, sh_eth_read(ndev, EDMR) | EDMR_SRST_GETHER,
+ 			     EDMR);
+@@ -880,6 +970,8 @@ static unsigned long sh_eth_get_edtrr_trns(struct sh_eth_private *mdp)
+ {
+ 	if (sh_eth_is_gether(mdp))
+ 		return EDTRR_TRNS_GETHER;
++	else if (sh_eth_is_rz_fast_ether(mdp))
++		return EDTRR_TRNS_RZ_ETHER;
+ 	else
+ 		return EDTRR_TRNS_ETHER;
+ }
+@@ -1041,7 +1133,8 @@ static void sh_eth_ring_format(struct net_device *ndev)
+ 		/* Rx descriptor address set */
+ 		if (i == 0) {
+ 			sh_eth_write(ndev, mdp->rx_desc_dma, RDLAR);
+-			if (sh_eth_is_gether(mdp))
++			if (sh_eth_is_gether(mdp) ||
++			    sh_eth_is_rz_fast_ether(mdp))
+ 				sh_eth_write(ndev, mdp->rx_desc_dma, RDFAR);
+ 		}
+ 	}
+@@ -1062,7 +1155,8 @@ static void sh_eth_ring_format(struct net_device *ndev)
+ 		if (i == 0) {
+ 			/* Tx descriptor address set */
+ 			sh_eth_write(ndev, mdp->tx_desc_dma, TDLAR);
+-			if (sh_eth_is_gether(mdp))
++			if (sh_eth_is_gether(mdp) ||
++			    sh_eth_is_rz_fast_ether(mdp))
+ 				sh_eth_write(ndev, mdp->tx_desc_dma, TDFAR);
+ 		}
+ 	}
+@@ -1309,9 +1403,9 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
+ 
+ 		/* In case of almost all GETHER/ETHERs, the Receive Frame State
+ 		 * (RFS) bits in the Receive Descriptor 0 are from bit 9 to
+-		 * bit 0. However, in case of the R8A7740's GETHER, the RFS
+-		 * bits are from bit 25 to bit 16. So, the driver needs right
+-		 * shifting by 16.
++		 * bit 0. However, in case of the R8A7740, R8A779x and
++		 * R7S72100 the RFS bits are from bit 25 to bit 16. So, the
++		 * driver needs right shifting by 16.
+ 		 */
+ 		if (mdp->cd->shift_rd0)
+ 			desc_status >>= 16;
+@@ -2061,6 +2155,10 @@ static struct net_device_stats *sh_eth_get_stats(struct net_device *ndev)
+ {
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
+ 
++	if (sh_eth_is_rz_fast_ether(mdp)) {
++		return &ndev->stats;
++	}
++
+ 	pm_runtime_get_sync(&mdp->pdev->dev);
+ 
+ 	ndev->stats.tx_dropped += sh_eth_read(ndev, TROCR);
+@@ -2442,6 +2540,11 @@ static int sh_eth_vlan_rx_kill_vid(struct net_device *ndev,
+ /* SuperH's TSU register init function */
+ static void sh_eth_tsu_init(struct sh_eth_private *mdp)
+ {
++	if (sh_eth_is_rz_fast_ether(mdp)) {
++		sh_eth_tsu_write(mdp, 0, TSU_TEN); /* Disable all CAM entry */
++		return;
++	}
++
+ 	sh_eth_tsu_write(mdp, 0, TSU_FWEN0);	/* Disable forward(0->1) */
+ 	sh_eth_tsu_write(mdp, 0, TSU_FWEN1);	/* Disable forward(1->0) */
+ 	sh_eth_tsu_write(mdp, 0, TSU_FCM);	/* forward fifo 3k-3k */
+@@ -2564,6 +2667,9 @@ static const u16 *sh_eth_get_register_offset(int register_type)
+ 	case SH_ETH_REG_FAST_RCAR:
+ 		reg_offset = sh_eth_offset_fast_rcar;
+ 		break;
++	case SH_ETH_REG_FAST_RZ:
++		reg_offset = sh_eth_offset_fast_rz;
++		break;
+ 	case SH_ETH_REG_FAST_SH4:
+ 		reg_offset = sh_eth_offset_fast_sh4;
+ 		break;
+@@ -2799,6 +2905,7 @@ static struct platform_device_id sh_eth_id_table[] = {
+ 	{ "sh7757-ether", (kernel_ulong_t)&sh7757_data },
+ 	{ "sh7757-gether", (kernel_ulong_t)&sh7757_data_giga },
+ 	{ "sh7763-gether", (kernel_ulong_t)&sh7763_data },
++	{ "r7s72100-ether", (kernel_ulong_t)&r7s72100_data },
+ 	{ "r8a7740-gether", (kernel_ulong_t)&r8a7740_data },
+ 	{ "r8a777x-ether", (kernel_ulong_t)&r8a777x_data },
+ 	{ "r8a7790-ether", (kernel_ulong_t)&r8a779x_data },
+diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
+index 0fe35b7..0bcde90 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.h
++++ b/drivers/net/ethernet/renesas/sh_eth.h
+@@ -156,6 +156,7 @@ enum {
+ enum {
+ 	SH_ETH_REG_GIGABIT,
+ 	SH_ETH_REG_FAST_RCAR,
++	SH_ETH_REG_FAST_RZ,
+ 	SH_ETH_REG_FAST_SH4,
+ 	SH_ETH_REG_FAST_SH3_SH2
+ };
+@@ -169,7 +170,7 @@ enum {
+ 
+ /* Register's bits
+  */
+-/* EDSR : sh7734, sh7757, sh7763, and r8a7740 only */
++/* EDSR : sh7734, sh7757, sh7763, r8a7740 and r7s72100 only */
+ enum EDSR_BIT {
+ 	EDSR_ENT = 0x01, EDSR_ENR = 0x02,
+ };
+@@ -191,6 +192,7 @@ enum DMAC_M_BIT {
+ /* EDTRR */
+ enum DMAC_T_BIT {
+ 	EDTRR_TRNS_GETHER = 0x03,
++	EDTRR_TRNS_RZ_ETHER = 0x03,
+ 	EDTRR_TRNS_ETHER = 0x01,
+ };
+ 
 -- 
 1.8.4
+
