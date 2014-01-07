@@ -1,30 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V2 1/3] net: Add GRO support for UDP
- encapsulating protocols
-Date: Tue, 07 Jan 2014 16:19:58 -0500 (EST)
-Message-ID: <20140107.161958.2246599406178837029.davem@davemloft.net>
-References: <1389108594-665-1-git-send-email-ogerlitz@mellanox.com>
-	<1389108594-665-2-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH v2] net: Do not enable tx-nocache-copy by default
+Date: Tue, 07 Jan 2014 16:20:53 -0500 (EST)
+Message-ID: <20140107.162053.1127386147694253061.davem@davemloft.net>
+References: <20140106.200002.1747627391067832069.davem@davemloft.net>
+	<1389107470-18213-1-git-send-email-bpoirier@suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hkchu@google.com, edumazet@google.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, yanb@mellanox.com, shlomop@mellanox.com
-To: ogerlitz@mellanox.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: edumazet@google.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, therbert@google.com
+To: bpoirier@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44800 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44814 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753626AbaAGVUA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 16:20:00 -0500
-In-Reply-To: <1389108594-665-2-git-send-email-ogerlitz@mellanox.com>
+	with ESMTP id S1751350AbaAGVUz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 16:20:55 -0500
+In-Reply-To: <1389107470-18213-1-git-send-email-bpoirier@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Tue,  7 Jan 2014 17:29:52 +0200
+=46rom: Benjamin Poirier <bpoirier@suse.de>
+Date: Tue,  7 Jan 2014 10:11:10 -0500
 
-> +#define MAX_UDP_PORT (1 << 16)
-> +extern const struct net_offload __rcu *udp_offloads[MAX_UDP_PORT];
+> There are many cases where this feature does not improve performance =
+or even
+> reduces it.
+>=20
+> For example, here are the results from tests that I've run using 3.12=
+=2E6 on one
+> Intel Xeon W3565 and one i7 920 connected by ixgbe adapters. The resu=
+lts are
+> from the Xeon, but they're similar on the i7. All numbers report the
+> mean=B1stddev over 10 runs of 10s.
+>=20
+> 1) latency tests similar to what is described in "c6e1a0d net: Allow =
+no-cache
+> copy from user on transmit"
+> There is no statistically significant difference between tx-nocache-c=
+opy
+> on/off.
+> nic irqs spread out (one queue per cpu)
+ ...
+> CC: Tom Herbert <therbert@google.com>
+> Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
 
-Bloating the kernel up by half a megabyte just for this feature is
-beyond unacceptable.
+Looks good, applied, thanks.
