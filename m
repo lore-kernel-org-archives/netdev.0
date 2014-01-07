@@ -1,97 +1,46 @@
-From: Mauro Carvalho Chehab <m.chehab@samsung.com>
-Subject: Re: [PATCH v3 13/19] media: dvb_core: slight optimization of addr
- compare
-Date: Tue, 07 Jan 2014 11:54:38 -0200
-Message-ID: <20140107115438.02c7424e@samsung.com>
-References: <52BA5113.7070908@huawei.com> <52BABA23.2040709@cogentembedded.com>
- <52BC0E56.80003@huawei.com>
+From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+Subject: Re: [PATCH net-next v4] IPv6: use anycast addresses as source addresses in echo reply
+Date: Tue, 7 Jan 2014 06:03:31 -0800 (PST)
+Message-ID: <1389103411.55503.YahooMailBasic@web125502.mail.ne1.yahoo.com>
+References: <20140107130101.GD24730@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	linux-media@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.w2.samsung.com ([211.189.100.12]:9398 "EHLO
-	usmailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751640AbaAGNyq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 08:54:46 -0500
-In-reply-to: <52BC0E56.80003@huawei.com>
+Received: from nm47.bullet.mail.ne1.yahoo.com ([98.138.120.54]:36776 "HELO
+	nm47.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751647AbaAGOG3 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jan 2014 09:06:29 -0500
+In-Reply-To: <20140107130101.GD24730@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Thu, 26 Dec 2013 19:09:10 +0800
-Ding Tianhong <dingtianhong@huawei.com> escreveu:
+On Tue, 1/7/14, Hannes Frederic Sowa <hannes@stressinduktion.org> wrote=
+:
 
-> On 2013/12/25 18:57, Sergei Shtylyov wrote:
-> > Hello.
-> > 
-> > On 25-12-2013 7:29, Ding Tianhong wrote:
-> > 
-> >> Use possibly more efficient ether_addr_equal
-> >> instead of memcmp.
-> > 
-> >> Cc: Mauro Carvalho Chehab <m.chehab@samsung.com>
-> >> Cc: linux-media@vger.kernel.org
-> >> Cc: linux-kernel@vger.kernel.org
-> >> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-> >> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> >> ---
-> >>   drivers/media/dvb-core/dvb_net.c | 8 ++++----
-> >>   1 file changed, 4 insertions(+), 4 deletions(-)
-> > 
-> >> diff --git a/drivers/media/dvb-core/dvb_net.c b/drivers/media/dvb-core/dvb_net.c
-> >> index f91c80c..3dfc33b 100644
-> >> --- a/drivers/media/dvb-core/dvb_net.c
-> >> +++ b/drivers/media/dvb-core/dvb_net.c
-> >> @@ -179,7 +179,7 @@ static __be16 dvb_net_eth_type_trans(struct sk_buff *skb,
-> >>       eth = eth_hdr(skb);
-> >>
-> >>       if (*eth->h_dest & 1) {
-> >> -        if(memcmp(eth->h_dest,dev->broadcast, ETH_ALEN)==0)
-> >> +        if(ether_addr_equal(eth->h_dest,dev->broadcast))
-> > 
-> >    There should be space after comma.
-> > 
-> >> @@ -674,11 +674,11 @@ static void dvb_net_ule( struct net_device *dev, const u8 *buf, size_t buf_len )
-> >>                       if (priv->rx_mode != RX_MODE_PROMISC) {
-> >>                           if (priv->ule_skb->data[0] & 0x01) {
-> >>                               /* multicast or broadcast */
-> >> -                            if (memcmp(priv->ule_skb->data, bc_addr, ETH_ALEN)) {
-> >> +                            if (!ether_addr_equal(priv->ule_skb->data, bc_addr)) {
-> >>                                   /* multicast */
-> >>                                   if (priv->rx_mode == RX_MODE_MULTI) {
-> >>                                       int i;
-> >> -                                    for(i = 0; i < priv->multi_num && memcmp(priv->ule_skb->data, priv->multi_macs[i], ETH_ALEN); i++)
-> >> +                                    for(i = 0; i < priv->multi_num && !ether_addr_equal(priv->ule_skb->data, priv->multi_macs[i]); i++)
-> > 
-> >    Shouldn't this line be broken?
-> > 
-> 
-> ok, thanks.
+>> Anyway, although I think that this solution is valid, I
+>> am testing another way to do this change.
+=20
+> Ok, thanks for explaining, I see now, of course.
+=20
+> Maybe we could just do=20
+> (ipv6_addr_type(addr) & IPV6_ADDR_LINKLOCAL) ? skb->dev : NULL?
+=20
+> I guess the NULL solution would be ok now, too. You can
+> decide. I just  think we can be a bit more defensive here with no add=
+itional
+> cost. Routing table behaviour is pretty complicated and maybe can cha=
+nge
+> in future.
+=20
+I see.
+first solution : I add this "defensive" update.
+second solution : the v5 patch I will send soon.
 
-Also, since you're touching on those lines, could you please add an space
-after 'if' (on the first hunk) and after 'for' (on the second one)?
-
-> 
-> Regards
-> >>                                           ;
-> >>                                       if (i == priv->multi_num)
-> >>                                           drop = 1;
-> > 
-> > WBR, Sergei
-> > 
-> > 
-> > 
-> > 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-media" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-Thanks,
-Mauro
+Thanks for the review.
+=46ran=E7ois-Xavier
