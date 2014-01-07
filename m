@@ -1,60 +1,139 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: inconsistency of ethtool feature names for get vs. set
-Date: Mon, 6 Jan 2014 23:58:58 -0500
-Message-ID: <20140106235858.5ce80054.billfink@mindspring.com>
-References: <52C535B9.7080208@mellanox.com>
-	<1388675034.1607.9.camel@bwh-desktop.uk.level5networks.com>
-	<1388688114.9947.30.camel@bwh-desktop.uk.level5networks.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net 1/2] macvlan: forbid L2 fowarding offload for macvtap
+Date: Mon, 06 Jan 2014 21:15:00 -0800
+Message-ID: <52CB8D54.9090506@gmail.com>
+References: <1388978467-2075-1-git-send-email-jasowang@redhat.com> <52CA5CDA.1020503@gmail.com> <52CA612D.2000902@redhat.com> <20140106122628.GA24280@hmsreliant.think-freely.org> <52CB7009.2030903@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz@mellanox.com>, netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mst@redhat.com, John Fastabend <john.r.fastabend@intel.com>,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-junco.atl.sa.earthlink.net ([209.86.89.63]:45846 "EHLO
-	elasmtp-junco.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751581AbaAGFFU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 00:05:20 -0500
-In-Reply-To: <1388688114.9947.30.camel@bwh-desktop.uk.level5networks.com>
+Received: from mail-oa0-f52.google.com ([209.85.219.52]:49613 "EHLO
+	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750817AbaAGFPg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 00:15:36 -0500
+In-Reply-To: <52CB7009.2030903@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2 Jan 2014, Ben Hutchings wrote:
+On 01/06/2014 07:10 PM, Jason Wang wrote:
+> On 01/06/2014 08:26 PM, Neil Horman wrote:
+>> On Mon, Jan 06, 2014 at 03:54:21PM +0800, Jason Wang wrote:
+>>> On 01/06/2014 03:35 PM, John Fastabend wrote:
+>>>> On 01/05/2014 07:21 PM, Jason Wang wrote:
+>>>>> L2 fowarding offload will bypass the rx handler of real device. This
+>>>>> will make
+>>>>> the packet could not be forwarded to macvtap device. Another problem
+>>>>> is the
+>>>>> dev_hard_start_xmit() called for macvtap does not have any
+>>>>> synchronization.
+>>>>>
+>>>>> Fix this by forbidding L2 forwarding for macvtap.
+>>>>>
+>>>>> Cc: John Fastabend <john.r.fastabend@intel.com>
+>>>>> Cc: Neil Horman <nhorman@tuxdriver.com>
+>>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>>>>> ---
+>>>>>    drivers/net/macvlan.c |    5 ++++-
+>>>>>    1 files changed, 4 insertions(+), 1 deletions(-)
+>>>>>
+>>>> I must be missing something.
+>>>>
+>>>> The lower layer device should set skb->dev to the correct macvtap
+>>>> device on receive so that in netif_receive_skb_core() the macvtap
+>>>> handler is hit. Skipping the macvlan receive handler should be OK
+>>>> because the switching was done by the hardware. If I read macvtap.c
+>>>> correctly macvlan_common_newlink() is called with 'dev' where 'dev'
+>>>> is the macvtap device. Any idea what I'm missing? I guess I'll need
+>>>> to setup a macvtap test case.
+>>> Unlike macvlan, macvtap depends on rx handler on the lower device to
+>>> work. In this case macvlan_handle_frame() will call macvtap_receive().
+>>> So doing netif_receive_skb_core() for macvtap device directly won't work
+>>> since we need to forward the packet to userspace instead of kernel.
+>>>
+>>> For net-next.git, it may work since commit
+>>> 6acf54f1cf0a6747bac9fea26f34cfc5a9029523 let macvtap device register an
+>>> rx handler for itself.
+>> I agree, this seems like it should already be fixed with the above commit.  With
+>> this the macvlan rx handler should effectively be a no-op as far as the
+>> reception of frames is concerned.  As long as the driver sets the dev correctly
+>> to the macvtap device (and it appears to), macvtap will get frames to user
+>> space, regardless of weather the software or hardware did the switching.  If
+>> thats the case though, I think the solution is moving that fix to -stable
+>> (pending testing of course), rather than comming up with a new fix.
+>>
+>>>> And what synchronization are you worried about on dev_hard_start_xmit()?
+>>>> In the L2 forwarding offload case macvlan_open() clears the NETIF_F_LLTX
+>>>> flag so HARD_TX_LOCK protects the driver txq. We might hit this warning
+>>>> in dev_queue_xmit() though,
+>>>>
+>>>>    net_crit_ratelimited("Virtual device %s asks to queue packet!\n",
+>>>>
+>>>> Perhaps we can remove it.
+>>> The problem is macvtap does not call dev_queue_xmit() for macvlan
+>>> device. It calls macvlan_start_xmit() directly from macvtap_get_user().
+>>> So HARD_TX_LOCK was not done for the txq.
+>> This seems to also be fixed by 6acf54f1cf0a6747bac9fea26f34cfc5a9029523.
+>> Macvtap does, as of that commit use dev_queue_xmit for the transmission of
+>> frames to the lowerdevice.
+>
+> Unfortunately not. This commit has a side effect that it in fact
+> disables the multiqueue macvtap transmission. Since all macvtap queues
+> will contend on a single qdisc lock.
+>
 
-> On Thu, 2014-01-02 at 15:03 +0000, Ben Hutchings wrote:
-> > On Thu, 2014-01-02 at 11:47 +0200, Or Gerlitz wrote:
-> [...]
-> > > $ ethtool -k eth1  | grep generic-receive-offload
-> > > generic-receive-offload: on
-> > > 
-> > > $ ethtool -K eth1  generic-receive-offload off
-> > > ethtool: bad command line argument(s)
-> > > For more information run ethtool -h
-> > > 
-> > > --> looking in the sources and realizing I need to use "rx-gro"
-> > 
-> > Or 'gro'.  All the old feature names that can be used with the -K option
-> > are listed in the manual page.  All the new feature names are consistent
-> > between -k/-K.
-> 
-> By 'new feature names' I mean names for features that weren't previously
-> exposed through ethtool.
-> 
-> [...]
-> > > Basically, this can be resolved by fairly simple patch, but I wasn't 
-> > > sure if you want it in user space, in the kernel or both...
-> > 
-> > How do you intend to resolve this, given the compatibility requirement
-> > that the old names must still be reported by -k and accepted by -K?
-> 
-> Just to be clear, I do see that there's a problem here but the fix may
-> have to be mostly or entirely in documentation rather than code.
+They will only contend on a single qdisc lock if the lower device has
+1 queue. Perhaps defaulting the L2 forwarding devices to 1queue was a
+mistake. But the same issue arises when running macvtap over a
+non-multiqueue nic. Or even if you have a multiqueue device and create
+many more macvtap queues than the lower device has queues.
 
-Wouldn't one simple option be to allow the long form like
-generic-receive-offload for setting in addition to the existing
-shortcuts rx-gro and gro?  That way a user doing "ethtool -k"
-could use the name provided to do a set via "ethtool -K" without
-needing to consult a man page (or "ethtool -h"), while still
-allowing more knowledgeable users to use the shortcut names.
+Shouldn't the macvtap configuration take into account the lowest level
+devices queues? How does using the L2 forwarding device change the
+contention issues? Without the L2 forwarding LLTX is enabled but the
+qdisc lock, etc is still acquired on the device below the macvlan.
 
-					-Bill
+The ixgbe driver as it is currently written can be configured for up to
+4 queues by setting numtxqueues when the device is created. I assume
+when creating macvtap queues the user needs to account for the number
+of queues supported by the lower device.
+
+> For L2 forwarding offload itself, more issues need to be addressed for
+> multiqueue macvtap:
+>
+> - ndo_dfwd_add_station() can only create queues per device at ndo_open,
+> but multiqueue macvtap allows user to create and destroy queues at their
+> will and at any time.
+
+same argument as above, isn't this the same when running macvtap without
+the l2 offloads over a real device? I expect you hit the same contention
+points when running over a real device.
+
+
+> - it looks that ixgbe has a upper limit of 4 queues per station, but
+> macvtap currently allows up to 16 queues per device.
+>
+
+The 4 limit was to simplify the code because the queue mapping in the
+driver gets complicated if it is greater than 4. We can probably
+increase this latter. But sorry reiterating how is this different than
+a macvtap on a real device that supports a max of 4 queues?
+
+> So more works need to be done and unless those above 3 issues were
+> addressed, this patch is really needed to make sure macvtap works.
+>
+
+Agreed there is a lot more work here to improve things I'm just not
+sure we need to disable this now. Also note its the l2 forwarding
+should be disabled by default so a user would have to enable the
+feature flag.
+
+Thanks,
+John
+
+-- 
+John Fastabend         Intel Corporation
