@@ -1,57 +1,53 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] net: skbuff: const-ify casts in skb_queue_* functions
-Date: Tue,  7 Jan 2014 23:23:44 +0100
-Message-ID: <1389133424-11176-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 1/2] include/uapi/linux/xfrm.h: Pack struct xfrm_userpolicy_info
+Date: Wed, 08 Jan 2014 02:52:11 +0400
+Message-ID: <52CC851B.2060401@cogentembedded.com>
+References: <1389077339-12814-1-git-send-email-fan.du@windriver.com> <1389077339-12814-2-git-send-email-fan.du@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, stephen@networkplumber.org,
+	dev@lists.strongswan.org, netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>, steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41787 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753627AbaAGWXq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 17:23:46 -0500
+Received: from mail-la0-f42.google.com ([209.85.215.42]:48353 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754162AbaAGWwM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 17:52:12 -0500
+Received: by mail-la0-f42.google.com with SMTP id ec20so604913lab.29
+        for <netdev@vger.kernel.org>; Tue, 07 Jan 2014 14:52:10 -0800 (PST)
+In-Reply-To: <1389077339-12814-2-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We should const-ify comparisons on skb_queue_* inline helper
-functions as their parameters are const as well, so lets not
-drop that.
+Hello.
 
-Suggested-by: Brad Spengler <spender@grsecurity.net>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- include/linux/skbuff.h | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+On 07-01-2014 10:48, Fan Du wrote:
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 956e11a..d97f2d0 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -827,7 +827,7 @@ static inline struct skb_shared_hwtstamps *skb_hwtstamps(struct sk_buff *skb)
-  */
- static inline int skb_queue_empty(const struct sk_buff_head *list)
- {
--	return list->next == (struct sk_buff *)list;
-+	return list->next == (const struct sk_buff *) list;
- }
- 
- /**
-@@ -840,7 +840,7 @@ static inline int skb_queue_empty(const struct sk_buff_head *list)
- static inline bool skb_queue_is_last(const struct sk_buff_head *list,
- 				     const struct sk_buff *skb)
- {
--	return skb->next == (struct sk_buff *)list;
-+	return skb->next == (const struct sk_buff *) list;
- }
- 
- /**
-@@ -853,7 +853,7 @@ static inline bool skb_queue_is_last(const struct sk_buff_head *list,
- static inline bool skb_queue_is_first(const struct sk_buff_head *list,
- 				      const struct sk_buff *skb)
- {
--	return skb->prev == (struct sk_buff *)list;
-+	return skb->prev == (const struct sk_buff *) list;
- }
- 
- /**
--- 
-1.7.11.7
+> Otherwise 64bits kernel has sizeof(struct xfrm_userpolicy_info) 168 bytes,
+> while 32bits compiled iproute2 see the same structure as 164 bytes, which
+> leading deficit xfrm policy, in turn broken IPsec connectivity.
+
+> Fix this by packing the structure.
+
+    This will force byte-by-byte access to all members on some arches like ARM...
+
+> Signed-off-by: Fan Du <fan.du@windriver.com>
+> ---
+>   include/uapi/linux/xfrm.h |    2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+
+> diff --git a/include/uapi/linux/xfrm.h b/include/uapi/linux/xfrm.h
+> index a8cd6a4..470bfae 100644
+> --- a/include/uapi/linux/xfrm.h
+> +++ b/include/uapi/linux/xfrm.h
+> @@ -405,7 +405,7 @@ struct xfrm_userpolicy_info {
+>   	/* Automatically expand selector to include matching ICMP payloads. */
+>   #define XFRM_POLICY_ICMP	2
+>   	__u8				share;
+> -};
+> +} __attribute__((packed));
+
+    Please use the __packed macro instead. I guess you haven't run checkpatch.pl?
+
+WBR, Sergei
