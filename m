@@ -1,115 +1,103 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCHv4 net-next] xfrm: Namespacify xfrm_policy_sk_bundles
-Date: Tue, 7 Jan 2014 10:43:38 +0800
-Message-ID: <52CB69DA.7000101@windriver.com>
-References: <1387342211.19078.295.camel@edumazet-glaptop2.roam.corp.google.com> <52B24D7D.6060902@windriver.com> <1387419308.19078.343.camel@edumazet-glaptop2.roam.corp.google.com> <52B26553.9070103@windriver.com> <1387424650.19078.355.camel@edumazet-glaptop2.roam.corp.google.com> <52B3BAD1.30205@windriver.com> <20131224103521.GB29716@secunet.com> <52BA7DE4.9070404@windriver.com> <20131225101104.224f9b87@vostro> <52BA9AEA.7050301@windriver.com> <20140106103512.GR31491@secunet.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net 1/2] macvlan: forbid L2 fowarding offload for macvtap
+Date: Tue, 07 Jan 2014 11:10:01 +0800
+Message-ID: <52CB7009.2030903@redhat.com>
+References: <1388978467-2075-1-git-send-email-jasowang@redhat.com> <52CA5CDA.1020503@gmail.com> <52CA612D.2000902@redhat.com> <20140106122628.GA24280@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Timo Teras <timo.teras@iki.fi>,
-	Eric Dumazet <eric.dumazet@gmail.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:46471 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756500AbaAGCmp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 21:42:45 -0500
-In-Reply-To: <20140106103512.GR31491@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mst@redhat.com, John Fastabend <john.r.fastabend@intel.com>,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140106122628.GA24280@hmsreliant.think-freely.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-
-On 2014=E5=B9=B401=E6=9C=8806=E6=97=A5 18:35, Steffen Klassert wrote:
-> On Wed, Dec 25, 2013 at 04:44:26PM +0800, Fan Du wrote:
->>
->>
->> On 2013=E5=B9=B412=E6=9C=8825=E6=97=A5 16:11, Timo Teras wrote:
->>> On Wed, 25 Dec 2013 14:40:36 +0800
->>> Fan Du<fan.du@windriver.com>   wrote:
+On 01/06/2014 08:26 PM, Neil Horman wrote:
+> On Mon, Jan 06, 2014 at 03:54:21PM +0800, Jason Wang wrote:
+>> On 01/06/2014 03:35 PM, John Fastabend wrote:
+>>> On 01/05/2014 07:21 PM, Jason Wang wrote:
+>>>> L2 fowarding offload will bypass the rx handler of real device. This
+>>>> will make
+>>>> the packet could not be forwarded to macvtap device. Another problem
+>>>> is the
+>>>> dev_hard_start_xmit() called for macvtap does not have any
+>>>> synchronization.
+>>>>
+>>>> Fix this by forbidding L2 forwarding for macvtap.
+>>>>
+>>>> Cc: John Fastabend <john.r.fastabend@intel.com>
+>>>> Cc: Neil Horman <nhorman@tuxdriver.com>
+>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>>>> ---
+>>>>   drivers/net/macvlan.c |    5 ++++-
+>>>>   1 files changed, 4 insertions(+), 1 deletions(-)
+>>>>
+>>> I must be missing something.
 >>>
->>>>>   ccing Timo
->>>>>
->>>>>   On 2013=E5=B9=B412=E6=9C=8824=E6=97=A5 18:35, Steffen Klassert =
-wrote:
->>>>>>   >   On Fri, Dec 20, 2013 at 11:34:41AM +0800, Fan Du wrote:
->>>>>>>   >>
->>>>>>>   >>   Subject: [PATCHv4 net-next] xfrm: Namespacify
->>>>>>>   >>   xfrm_policy_sk_bundles
->>>>>>>   >>
->>>>>>>   >>   xfrm_policy_sk_bundles, protected by
->>>>>>>   >>   net->xfrm.xfrm_policy_sk_bundle_lock should be put into =
-netns xfrm
->>>>>>>   >>   structure, otherwise xfrm_policy_sk_bundles can be corru=
-pted from
->>>>>>>   >>   different net namespace.
->>>>>>   >
->>>>>>   >   I'm ok with this patch, but I wonder where we use these ca=
-ched
->>>>>>   >   socket bundles. After a quick look I see where we add and =
-where we
->>>>>>   >   delete them, but I can't see how we use these cached bundl=
-es.
->>>>>
->>>>>   Interesting
->>>>>
->>>>>   The per socket bundles is introduced by Timo in commit 80c802f3
->>>>>   ("xfrm: cache bundles instead of policies for outgoing flows")
->>> Those existed even before. I just did systematic transformation of =
-the
->>> caching code to work on bundle level instead of policy level.
+>>> The lower layer device should set skb->dev to the correct macvtap
+>>> device on receive so that in netif_receive_skb_core() the macvtap
+>>> handler is hit. Skipping the macvlan receive handler should be OK
+>>> because the switching was done by the hardware. If I read macvtap.c
+>>> correctly macvlan_common_newlink() is called with 'dev' where 'dev'
+>>> is the macvtap device. Any idea what I'm missing? I guess I'll need
+>>> to setup a macvtap test case.
+>> Unlike macvlan, macvtap depends on rx handler on the lower device to
+>> work. In this case macvlan_handle_frame() will call macvtap_receive().
+>> So doing netif_receive_skb_core() for macvtap device directly won't work
+>> since we need to forward the packet to userspace instead of kernel.
 >>
->> Apologizes and thanks for your quick reply :)
->>
->>>>>   But one fundamental question is why not use existing flow cache
->>>>>   for per socket bundles as well? then no need to create such per
->>>>>   sock xdst for every packet, and also share the same flow cache
->>>>>   flush mechanism.
->>> It was needed when the flow cache cached policies. They explicitly
->>> needed to check the socket for per-socket policy. So it made no sen=
-se
->>> to have anything socket related in the cache.
->>
->> I understand your concern.
->>
->> per sk bundles could be distinguished by putting per sk policy point=
-er into
->> struct flow_cache_entry, and then compare sk policy between cached p=
-olicy
->> against with sk policy.
-
-Yes, I tested sk policy with udp, when transmit, dst will be cached int=
-o sk
-by sk_dst_set. Let's leave current implementation as it is.
-
-Please kindly review if there is any concern about v4.
-
-> Most protocols cache the used routes at the sockets, so I'm not sure =
-if
-> we really need to cache them in xfrm too.
+>> For net-next.git, it may work since commit
+>> 6acf54f1cf0a6747bac9fea26f34cfc5a9029523 let macvtap device register an
+>> rx handler for itself.
+> I agree, this seems like it should already be fixed with the above commit.  With
+> this the macvlan rx handler should effectively be a no-op as far as the
+> reception of frames is concerned.  As long as the driver sets the dev correctly
+> to the macvtap device (and it appears to), macvtap will get frames to user
+> space, regardless of weather the software or hardware did the switching.  If
+> thats the case though, I think the solution is moving that fix to -stable
+> (pending testing of course), rather than comming up with a new fix.
 >
-> Given the fact that we don't use these cached socket policy bundles,
-> it would be already an improvement if we would simply remove this cac=
-hing.
-> All we are doing here is wasting memory.
->>
->> And I also notice flow cache is global across different namespaces, =
-but flow
->> cache flush is doing a per-cpu(also global) operation, that's not fa=
-ir for
->> slim netns as compared with fat netns which floods flow cache. Maybe=
- it's
->> time to make flow cache also name space aware.
+>>> And what synchronization are you worried about on dev_hard_start_xmit()?
+>>> In the L2 forwarding offload case macvlan_open() clears the NETIF_F_LLTX
+>>> flag so HARD_TX_LOCK protects the driver txq. We might hit this warning
+>>> in dev_queue_xmit() though,
+>>>
+>>>   net_crit_ratelimited("Virtual device %s asks to queue packet!\n",
+>>>
+>>> Perhaps we can remove it.
+>> The problem is macvtap does not call dev_queue_xmit() for macvlan
+>> device. It calls macvlan_start_xmit() directly from macvtap_get_user().
+>> So HARD_TX_LOCK was not done for the txq.
+> This seems to also be fixed by 6acf54f1cf0a6747bac9fea26f34cfc5a9029523.
+> Macvtap does, as of that commit use dev_queue_xmit for the transmission of
+> frames to the lowerdevice.
+
+Unfortunately not. This commit has a side effect that it in fact
+disables the multiqueue macvtap transmission. Since all macvtap queues
+will contend on a single qdisc lock.
+
+For L2 forwarding offload itself, more issues need to be addressed for
+multiqueue macvtap:
+
+- ndo_dfwd_add_station() can only create queues per device at ndo_open,
+but multiqueue macvtap allows user to create and destroy queues at their
+will and at any time.
+- it looks that ixgbe has a upper limit of 4 queues per station, but
+macvtap currently allows up to 16 queues per device.
+
+So more works need to be done and unless those above 3 issues were
+addressed, this patch is really needed to make sure macvtap works.
+
 >
-> Yes, making the flow cache namespace aware would be a good thing.
+> Regards
+> Neil
 >
-
-I will give it a try :)
-
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
