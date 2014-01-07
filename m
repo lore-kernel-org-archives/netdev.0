@@ -1,106 +1,97 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: single process receives own frames due to PACKET_MMAP
-Date: Tue, 07 Jan 2014 14:47:45 +0100
-Message-ID: <52CC0581.6000501@redhat.com>
-References: <52B4465E.2090904@aimvalley.nl> <52CB34F9.6020906@aimvalley.nl> <52CBC991.8030701@redhat.com> <20140107110609.74f71979@redhat.com> <52CBFE13.8@aimvalley.nl>
+From: Mauro Carvalho Chehab <m.chehab@samsung.com>
+Subject: Re: [PATCH v3 13/19] media: dvb_core: slight optimization of addr
+ compare
+Date: Tue, 07 Jan 2014 11:54:38 -0200
+Message-ID: <20140107115438.02c7424e@samsung.com>
+References: <52BA5113.7070908@huawei.com> <52BABA23.2040709@cogentembedded.com>
+ <52BC0E56.80003@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>, uaca@alumni.uv.es
-To: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	linux-media@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60220 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751102AbaAGNs5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 08:48:57 -0500
-In-Reply-To: <52CBFE13.8@aimvalley.nl>
+Received: from mailout2.w2.samsung.com ([211.189.100.12]:9398 "EHLO
+	usmailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751640AbaAGNyq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 08:54:46 -0500
+In-reply-to: <52BC0E56.80003@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/07/2014 02:16 PM, Norbert van Bolhuis wrote:
-> On 01/07/14 11:06, Jesper Dangaard Brouer wrote:
->> On Tue, 07 Jan 2014 10:32:01 +0100
->> Daniel Borkmann<dborkman@redhat.com>  wrote:
->>> On 01/06/2014 11:58 PM, Norbert van Bolhuis wrote:
->>>>
->>>> Our application uses raw AF_PACKET socket to send and receive
->>>> on one particular ethernet interface.
->>>>
->>>> Recently we started using PACKET_MMAP (TPACKET_V2). This makes
->>>> the Appl use a TX socket and a RX socket.
->>>> Both sockets are bound to the same (eth) interface. I noticed
->>>> the RX socket receives all frames that are sent via the
->>>> TX socket (same process, different thread). This I do not want.
->>>>
->>>> I know it is supposed to happen for different processes
->>>> (otherwise wireshark won't work), but I did not expect it to
->>>> happen for one single process (with different threads).
->>>>
->>>> I can filter them out in user-space (PACKET_OUTGOING)
->>>> or via kernel packet filter (SO_ATTACH_FILTER), but performance is
->>>> critical.
->>>>
->>>> I wonder whether this (PACKET_MMAP) behaviour is OK.
->>>
->>> For your use-case, we recently introduced in d346a3fae3ff1
->>> ("packet: introduce PACKET_QDISC_BYPASS socket option") a
->>> bypass of dev_queue_xmit() (that internally invokes
->>> dev_queue_xmit_nit()).
->>>
->>>> It did not happen before (with a non-PACKET_MMAP AF_PACKET socket
->>>> which was used by both threads of the same Appl process). So
->>>> why is it happening now ?
->>>
->>> Can you elaborate a bit on which kernel versions that behaviour
->>> changed?
->
->
-> Sorry, I wasn't very clear. This does not regard kernel (versions).
-> With "before" I mean our previous version of our application which
-> used an AF_PACKET socket, but not the PACKET_MMAP option.
+Em Thu, 26 Dec 2013 19:09:10 +0800
+Ding Tianhong <dingtianhong@huawei.com> escreveu:
 
-Hmm, taking a look into 2.6.35.14, it doesn't seem to be so much of
-a difference.
+> On 2013/12/25 18:57, Sergei Shtylyov wrote:
+> > Hello.
+> > 
+> > On 25-12-2013 7:29, Ding Tianhong wrote:
+> > 
+> >> Use possibly more efficient ether_addr_equal
+> >> instead of memcmp.
+> > 
+> >> Cc: Mauro Carvalho Chehab <m.chehab@samsung.com>
+> >> Cc: linux-media@vger.kernel.org
+> >> Cc: linux-kernel@vger.kernel.org
+> >> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+> >> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> >> ---
+> >>   drivers/media/dvb-core/dvb_net.c | 8 ++++----
+> >>   1 file changed, 4 insertions(+), 4 deletions(-)
+> > 
+> >> diff --git a/drivers/media/dvb-core/dvb_net.c b/drivers/media/dvb-core/dvb_net.c
+> >> index f91c80c..3dfc33b 100644
+> >> --- a/drivers/media/dvb-core/dvb_net.c
+> >> +++ b/drivers/media/dvb-core/dvb_net.c
+> >> @@ -179,7 +179,7 @@ static __be16 dvb_net_eth_type_trans(struct sk_buff *skb,
+> >>       eth = eth_hdr(skb);
+> >>
+> >>       if (*eth->h_dest & 1) {
+> >> -        if(memcmp(eth->h_dest,dev->broadcast, ETH_ALEN)==0)
+> >> +        if(ether_addr_equal(eth->h_dest,dev->broadcast))
+> > 
+> >    There should be space after comma.
+> > 
+> >> @@ -674,11 +674,11 @@ static void dvb_net_ule( struct net_device *dev, const u8 *buf, size_t buf_len )
+> >>                       if (priv->rx_mode != RX_MODE_PROMISC) {
+> >>                           if (priv->ule_skb->data[0] & 0x01) {
+> >>                               /* multicast or broadcast */
+> >> -                            if (memcmp(priv->ule_skb->data, bc_addr, ETH_ALEN)) {
+> >> +                            if (!ether_addr_equal(priv->ule_skb->data, bc_addr)) {
+> >>                                   /* multicast */
+> >>                                   if (priv->rx_mode == RX_MODE_MULTI) {
+> >>                                       int i;
+> >> -                                    for(i = 0; i < priv->multi_num && memcmp(priv->ule_skb->data, priv->multi_macs[i], ETH_ALEN); i++)
+> >> +                                    for(i = 0; i < priv->multi_num && !ether_addr_equal(priv->ule_skb->data, priv->multi_macs[i]); i++)
+> > 
+> >    Shouldn't this line be broken?
+> > 
+> 
+> ok, thanks.
 
-W/o seeing how you've invoked mmap vs non-mmap API, it's hard to say.
-Could you try with latest upstream resp. net-next kernel?
+Also, since you're touching on those lines, could you please add an space
+after 'if' (on the first hunk) and after 'for' (on the second one)?
 
->>>> I'd say it makes no sense to make the same process receive its
->>>> own transmitted frames on that same interface (unless its lo).
->>
->> Have you setup:
->>   ring->s_ll.sll_protocol = 0
->>
->> This is what I did in trafgen to avoid this problem.
->>
->> See line 55 in netsniff-ng/ring.c:
->>   https://github.com/borkmann/netsniff-ng/blob/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1/ring.c#L55
->>
->> Commit:
->>   https://github.com/borkmann/netsniff-ng/commit/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1
->>
->
->
-> No I did not do that, I was checking my code against netsniff-ng-0.5.8-rc4.
->
-> But I just tried it, I believe I do the same as netsniff-ng-0.5.8-rc5, but it doesn't
-> work for me. Maybe because I have an old FC14 system (kernel 2.6.35.14-106.fc14.x86_64).
->
-> So I tried to see whether netsniff-ng-0.5.8-rc5/trafgen still makes the
-> kernel call packet_rcv() on my FC14 system. So I build and run it, but I'm not sure
-> how to (easily) check that. In anyway, Wireshark does capture the trafgen generated
-> frames, does that say anything ?
-
-Yep, kernel is definitely too old for that.
-
-> In the future, I can at least use PACKET_QDISC_BYPASS as a "workaround".
->
-> Thanks a lot for your answers.
->
-> ---
-> Norbert
+> 
+> Regards
+> >>                                           ;
+> >>                                       if (i == priv->multi_num)
+> >>                                           drop = 1;
+> > 
+> > WBR, Sergei
+> > 
+> > 
+> > 
+> > 
+> 
+> 
 > --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> To unsubscribe from this list: send the line "unsubscribe linux-media" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Thanks,
+Mauro
