@@ -1,55 +1,65 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 1/1] ipv6 addrconf: add IFA_F_NOPREFIXROUTE flag to suppress creation of IP6 routes
-Date: Tue, 7 Jan 2014 10:39:42 +0100
-Message-ID: <20140107093942.GA24730@order.stressinduktion.org>
-References: <20140106160139.GB10204@order.stressinduktion.org> <1389029375-17698-1-git-send-email-thaller@redhat.com> <20140106173837.GA2571@minipsycho.orion>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 0/2] Pack struct xfrm_usersa_info and struct
+ xfrm_userpolicy_info
+Date: Tue, 7 Jan 2014 10:00:35 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D453AEE@AcuExch.aculab.com>
+References: <1389077339-12814-1-git-send-email-fan.du@windriver.com>
+ <20140107074724.GV31491@secunet.com> <52CBB3FC.9050207@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Thomas Haller <thaller@redhat.com>, netdev@vger.kernel.org,
-	stephen@networkplumber.org, dcbw@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"dev@lists.strongswan.org" <dev@lists.strongswan.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Fan Du' <fan.du@windriver.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:44527 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750849AbaAGJj5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 04:39:57 -0500
-Content-Disposition: inline
-In-Reply-To: <20140106173837.GA2571@minipsycho.orion>
+Received: from mx0.aculab.com ([213.249.233.131]:37795 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751262AbaAGKCP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jan 2014 05:02:15 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 17905-06 for <netdev@vger.kernel.org>;
+ Tue,  7 Jan 2014 10:02:11 +0000 (GMT)
+In-Reply-To: <52CBB3FC.9050207@windriver.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 06, 2014 at 06:38:37PM +0100, Jiri Pirko wrote:
-> Mon, Jan 06, 2014 at 06:29:35PM CET, thaller@redhat.com wrote:
-> >When adding/modifying an IPv6 address, the userspace application needs
-> >a way to suppress adding a prefix route. This is for example relevant
-> >together with IFA_F_MANAGERTEMPADDR, where userspace creates autoconf
-> >generated addresses, but depending on on-link, no route should for the
-> >prefix should be added.
-> >
-> >This flag will not be set as ifa_flags of the address, it is only
-> >considered as parameter while adding/modifying an address.
-> >
-> >Signed-off-by: Thomas Haller <thaller@redhat.com>
-> >---
-> > Hi, how about this?
-> >
-> > The flag is only a parameter for the netlink command.
-> > This might be unexpected, because when adding an address,
-> > you won't see the flag in `ip -6 addr`.
-> > Still, I think, it is better to do it this way, because having
-> > an address with the NOPREFIXROUTE flag, does not mean, that
-> > there is no route for this prefix. It only means, that at the
-> > moment of setting the address, no route was added.
-> >
-> > The alternative would be, not to add a prefix route, when
-> > IFA_F_MANAGERTEMPADDR is set.
-
-Looks good, maybe you could apply Jiri's feedback.
-
-Otherwise we could skip trying to find a corresponding prefix route in
-ipv6_del_addr. You would need to add the IFA_F_NOPREFIXROUTE test just before
-the addrconf_get_prefix_route and ip6_del_rt.
-
-Greetings,
-
-  Hannes
+PiBGcm9tOiBGYW4gRHUNCj4gU2VudDogMDcgSmFudWFyeSAyMDE0IDA4OjAwDQo+IE9uIDIwMTQ/
+MDE/MDc/IDE1OjQ3LCBTdGVmZmVuIEtsYXNzZXJ0IHdyb3RlOg0KPiA+IE9uIFR1ZSwgSmFuIDA3
+LCAyMDE0IGF0IDAyOjQ4OjU3UE0gKzA4MDAsIEZhbiBEdSB3cm90ZToNCj4gPj4gV2hlbiB0cnlp
+bmcgdG8gc2V0dXAgSVBzZWMgY29uZmlndXJhdGlvbiBvbiBhIDY0Yml0cyBob3N0IHdpdGgNCj4g
+Pj4gaXByb3V0ZTIoMzJiaXRzIGNvbXBpbGVkKSwgdGhlIGludGVuZWQgeGZybSBwb2xpY3kgYW5k
+IHNhIGlzDQo+ID4+IGVpdGhlciBkZWZpY2l0IG9yIHdyb25nIHdoZW4ga2VybmVsIHRyeWluZyB0
+byBwYXJzZSB1c2VyIGxhbmQNCj4gPj4gaW5mb3JtYXRpb24uDQo+ID4+DQo+ID4+IEZ1cnRoZXIg
+aW52ZXN0aWdhdGlubyBzaG93cyB0aGF0Og0KPiA+PiBMOiBrZXJuZWwNCj4gPj4gUjogaXByb3V0
+ZTINCj4gPj4NCj4gPj4gICAgICAgICAgICBzaXplb2YgICAgICAgdXNlcnBvbGljeSAgICAgIHVz
+ZXJzYQ0KPiA+PiA2NGJpdHModW5wYWNrZWQpICAgICAgICAxNjgvMTY4ICAgICAgICAyMjQvMjI0
+DQo+ID4+IDMyYml0cyh1bnBhY2tlZCkgICAgICAgIDE2NC8xNjQgICAgICAgIDIyMC8yMjANCj4g
+Pj4gICAgICAgICAgICAgICAgICAgICAgICAgICBeICAgXg0KPiA+PiAgICAgICAgICAgICAgICAg
+ICAgICAgICAgIEwgICBSDQo+ID4+DQo+ID4+IFRvIGtlZXAga2VybmVsIGFuZCB1c2VyIGxhbmQg
+c2VlIGEgY29uc2lzdGVudCBzdHJ1Y3R1cmUsIGFmdGVyDQo+ID4+IGFkZCBwYWNraW5nIGF0dHJp
+YnV0ZSwgbm93IGl0IGxvb2tzIGxpa2UgdGhpczoNCj4gPj4NCj4gPj4gNjRiaXRzKCAgcGFja2Vk
+KSAgICAgICAgMTY0LzE2NCAgICAgICAgMjE3LzIxNw0KPiA+PiAzMmJpdHMoICBwYWNrZWQpICAg
+ICAgICAxNjQvMTY0ICAgICAgICAyMTcvMjE3DQo+ID4+ICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgXiAgIF4NCj4gPj4gICAgICAgICAgICAgICAgICAgICAgICAgICBMICAgUg0KPiA+Pg0KPiA+
+DQo+ID4gV2UgZG9uJ3QgY2hhbmdlIHVzZXJzcGFjZSBleHBvcnRlZCBzdHJ1Y3R1cmVzLiBUaGlz
+IGJyZWFrcw0KPiA+IGV4aXN0aW5nIHVzZXJzcGFjZSB0b29scy4NCj4gPg0KPiANCj4gVGhlbiB1
+c2VyIHdpdGggMzJiaXRzIGlwcm91dGUyIG9yIFN0cm9uZ1N3YW4gaGFzIHRvIHJlYnVpbGQgYXMg
+NjRiaXRzPw0KDQpUaGUga2VybmVsIGhhcyBzdXBwb3J0IChpbiB2YXJpb3VzIHBsYWNlcykgZm9y
+IGRpZmZlcmVudCBzdHJ1Y3R1cmUNCmxheW91dHMgZm9yIDMyYml0IGFuZCA2NGJpdCBwcm9jZXNz
+ZXMuDQpMb29rcyBsaWtlIGl0IG5lZWRzIG9uZSBoZXJlIGFzIHdlbGwgKEknbSBub3Qgdm9sdW50
+ZWVyaW5nIHRob3VnaCkuDQoNCkF0IGEgZ3Vlc3MgdGhlIHN0cnVjdHVyZXMgY29udGFpbiBhIDY0
+Yml0IGZpZWxkIHRoYXQgaXMgb24gYW4gOG4rNA0KYnl0ZSBib3VuZGFyeS4gT24gaTM4NiA2NGJp
+dCBmaWVsZHMgYXJlIG9ubHkgNCBieXRlIGFsaWduZWQsIG9uDQphbWQ2NCB0aGV5IGFyZSA4IGJ5
+dGUgYWxpZ25lZC4NCg0KUGFja2luZyB0aGUgc3RydWN0dXJlcyBpcyBkZWZpbml0ZWx5IHdyb25n
+LiBTb21lIDMyYml0IHN5c3RlbXMgKElJUkMgc3BhcmMpDQphbGlnbiA2NGJpdCBpdGVtcyBvbiA4
+IGJ5dGUgYm91bmRhcmllcy4gTm90IHRvIG1lbnRpb24gdGhlIGV4cGVuc2l2ZSBieXRlDQpieSBi
+eXRlIGFjY2Vzc2VzIHRoaXMgZm9yY2VzIG9uIHNvbWUgc3lzdGVtcy4NCg0KVGhlIHN0cnVjdHVy
+ZSBjb3VsZCBoYXZlIGJlZW4gZGVmaW5lZCB3aXRoIHRoZSA2NGJpdCBmaWVsZCBtYXJrZWQNCl9f
+YXR0cmlidXRlX18oKGFsaWduZWQoNCkpKSAtIHNvIHVzaW5nIHRoZSBzYW1lIGxheW91dCBvbiAz
+MmJpdA0KYW5kIDY0IGJpdCBzeXN0ZW1zICwgYnV0IGl0IGlzIHRvbyBsYXRlIHRvIGRvIHRoYXQg
+bm93Lg0KDQoJRGF2aWQNCg0K
