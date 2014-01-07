@@ -1,25 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: merge net into net-next ?
-Date: Mon, 06 Jan 2014 17:39:30 -0500 (EST)
-Message-ID: <20140106.173930.2110538472481497348.davem@davemloft.net>
-References: <52C93D6D.7050101@meshcoding.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v3 1/3] ipv4: introduce ip_dst_mtu_secure and protect forwarding path against pmtu spoofing
+Date: Tue, 7 Jan 2014 01:11:03 +0100
+Message-ID: <20140107001103.GE10204@order.stressinduktion.org>
+References: <20140106084827.GA5766@order.stressinduktion.org> <20140106.160846.544525591241855516.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: antonio@meshcoding.com
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	johnwheffner@gmail.com, steffen.klassert@secunet.com,
+	fweimer@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35450 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932466AbaAFWjb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 17:39:31 -0500
-In-Reply-To: <52C93D6D.7050101@meshcoding.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:43788 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932755AbaAGALF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 19:11:05 -0500
+Content-Disposition: inline
+In-Reply-To: <20140106.160846.544525591241855516.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio@meshcoding.com>
-Date: Sun, 05 Jan 2014 12:09:33 +0100
+On Mon, Jan 06, 2014 at 04:08:46PM -0500, David Miller wrote:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Mon, 6 Jan 2014 09:48:27 +0100
+> 
+> > I want to put these patches up for discussion again. I did more testing
+> > to them (xfrm, tunnel), did some rewording and rewrote the IPv6 patch.
+> 
+> I'm still thinking about this series.
+> 
+> I would have been nice if you provided a "0/3" introductory posting
+> discussing your point of view, and giving a more detailed analysis of
+> your view of the situation so that John and others have something to
+> reply to.
 
-> Do you have any plan about merging net into net-next?
+I'll do next time, sorry.
 
-This is now done.
+I am around for discussion. Have you seen that Steffen did test these
+patches with his pmtu testsuite successfully and they showed no obvious
+regressions (he posted to the old thread)?
+
+Thanks,
+
+  Hannes
