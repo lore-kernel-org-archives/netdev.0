@@ -1,8 +1,8 @@
 From: Michael Dalton <mwdalton@google.com>
-Subject: [PATCH net-next v2 3/4] virtio-net: auto-tune mergeable rx buffer
-	size for improved performance
-Date: Mon,  6 Jan 2014 21:25:54 -0800
-Message-ID: <1389072355-20666-3-git-send-email-mwdalton@google.com>
+Subject: [PATCH net-next v2 4/4] virtio-net: initial debugfs support,
+	export mergeable rx buffer size
+Date: Mon,  6 Jan 2014 21:25:55 -0800
+Message-ID: <1389072355-20666-4-git-send-email-mwdalton@google.com>
 References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,366 +24,487 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Commit 2613af0ed18a ("virtio_net: migrate mergeable rx buffers to page frag
-allocators") changed the mergeable receive buffer size from PAGE_SIZE to
-MTU-size, introducing a single-stream regression for benchmarks with large
-average packet size. There is no single optimal buffer size for all
-workloads.  For workloads with packet size <= MTU bytes, MTU + virtio-net
-header-sized buffers are preferred as larger buffers reduce the TCP window
-due to SKB truesize. However, single-stream workloads with large average
-packet sizes have higher throughput if larger (e.g., PAGE_SIZE) buffers
-are used.
-
-This commit auto-tunes the mergeable receiver buffer packet size by
-choosing the packet buffer size based on an EWMA of the recent packet
-sizes for the receive queue. Packet buffer sizes range from MTU_SIZE +
-virtio-net header len to PAGE_SIZE. This improves throughput for
-large packet workloads, as any workload with average packet size >=
-PAGE_SIZE will use PAGE_SIZE buffers.
-
-These optimizations interact positively with recent commit
-ba275241030c ("virtio-net: coalesce rx frags when possible during rx"),
-which coalesces adjacent RX SKB fragments in virtio_net. The coalescing
-optimizations benefit buffers of any size.
-
-Benchmarks taken from an average of 5 netperf 30-second TCP_STREAM runs
-between two QEMU VMs on a single physical machine. Each VM has two VCPUs
-with all offloads & vhost enabled. All VMs and vhost threads run in a
-single 4 CPU cgroup cpuset, using cgroups to ensure that other processes
-in the system will not be scheduled on the benchmark CPUs. Trunk includes
-SKB rx frag coalescing.
-
-net-next w/ virtio_net before 2613af0ed18a (PAGE_SIZE bufs): 14642.85Gb/s
-net-next (MTU-size bufs):  13170.01Gb/s
-net-next + auto-tune: 14555.94Gb/s
-
-Jason Wang also reported a throughput increase on mlx4 from 22Gb/s
-using MTU-sized buffers to about 26Gb/s using auto-tuning.
+Add initial support for debugfs to virtio-net. Each virtio-net network
+device will have a directory under /virtio-net in debugfs. The
+per-network device directory will contain one sub-directory per active,
+enabled receive queue. If mergeable receive buffers are enabled, each
+receive queue directory will contain a read-only file that returns the
+current packet buffer size for the receive queue.
 
 Signed-off-by: Michael Dalton <mwdalton@google.com>
 ---
-v2: Add per-receive queue metadata ring to track precise truesize for
-    mergeable receive buffers. Remove all truesize approximation. Never
-    try to fill a full RX ring (required for metadata ring in v2).
-
- drivers/net/virtio_net.c | 145 ++++++++++++++++++++++++++++++++++-------------
- 1 file changed, 107 insertions(+), 38 deletions(-)
+ drivers/net/virtio_net.c | 314 ++++++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 296 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 526dfd8..f6e1ee0 100644
+index f6e1ee0..5da18d6 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -26,6 +26,7 @@
- #include <linux/if_vlan.h>
+@@ -27,6 +27,9 @@
  #include <linux/slab.h>
  #include <linux/cpu.h>
-+#include <linux/average.h>
+ #include <linux/average.h>
++#include <linux/seqlock.h>
++#include <linux/kref.h>
++#include <linux/debugfs.h>
  
  static int napi_weight = NAPI_POLL_WEIGHT;
  module_param(napi_weight, int, 0444);
-@@ -36,11 +37,15 @@ module_param(gso, bool, 0444);
+@@ -35,6 +38,9 @@ static bool csum = true, gso = true;
+ module_param(csum, bool, 0444);
+ module_param(gso, bool, 0444);
  
++/* Debugfs root directory for all virtio-net devices. */
++static struct dentry *virtnet_debugfs_root;
++
  /* FIXME: MTU in config. */
  #define GOOD_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
--#define MERGE_BUFFER_LEN (ALIGN(GOOD_PACKET_LEN + \
--                                sizeof(struct virtio_net_hdr_mrg_rxbuf), \
--                                L1_CACHE_BYTES))
  #define GOOD_COPY_LEN	128
- 
-+/* Weight used for the RX packet size EWMA. The average packet size is used to
-+ * determine the packet buffer size when refilling RX rings. As the entire RX
-+ * ring may be refilled at once, the weight is chosen so that the EWMA will be
-+ * insensitive to short-term, transient changes in packet size.
-+ */
-+#define RECEIVE_AVG_WEIGHT 64
-+
- #define VIRTNET_DRIVER_VERSION "1.0.0"
- 
- struct virtnet_stats {
-@@ -65,11 +70,30 @@ struct send_queue {
- 	char name[40];
- };
- 
-+/* Per-packet buffer context for mergeable receive buffers. */
-+struct mergeable_receive_buf_ctx {
-+	/* Packet buffer base address. */
-+	void *buf;
-+
-+	/* Original size of the packet buffer for use in SKB truesize. Does not
-+	 * include any padding space used to avoid internal fragmentation.
-+	 */
-+	unsigned int truesize;
-+};
-+
- /* Internal representation of a receive virtqueue */
- struct receive_queue {
- 	/* Virtqueue associated with this receive_queue */
- 	struct virtqueue *vq;
- 
-+	/* Circular buffer of mergeable rxbuf contexts. */
-+	struct mergeable_receive_buf_ctx *mrg_buf_ctx;
-+
-+	/* Number of elements & head index of mrg_buf_ctx. Size must be
-+	 * equal to the associated virtqueue's vring size.
-+	 */
-+	unsigned int mrg_buf_ctx_size, mrg_buf_ctx_head;
-+
- 	struct napi_struct napi;
- 
- 	/* Number of input buffers, and max we've ever had. */
-@@ -78,6 +102,9 @@ struct receive_queue {
+@@ -102,9 +108,6 @@ struct receive_queue {
  	/* Chain pages by the private ptr. */
  	struct page *pages;
  
-+	/* Average packet length for mergeable receive buffers. */
-+	struct ewma mrg_avg_pkt_len;
-+
+-	/* Average packet length for mergeable receive buffers. */
+-	struct ewma mrg_avg_pkt_len;
+-
  	/* Page frag for packet buffer allocation. */
  	struct page_frag alloc_frag;
  
-@@ -327,32 +354,32 @@ err:
+@@ -115,6 +118,28 @@ struct receive_queue {
+ 	char name[40];
+ };
  
- static struct sk_buff *receive_mergeable(struct net_device *dev,
- 					 struct receive_queue *rq,
--					 void *buf,
-+					 struct mergeable_receive_buf_ctx *ctx,
++/* Per-receive queue statistics exported via debugfs. */
++struct receive_queue_stats {
++	/* Average packet length of receive queue (for mergeable rx buffers). */
++	struct ewma avg_pkt_len;
++
++	/* Per-receive queue stats debugfs directory. */
++	struct dentry *dbg;
++
++	/* Reference count for the receive queue statistics, needed because
++	 * an open debugfs file may outlive the receive queue and netdevice.
++	 * Open files will remain in-use until all outstanding file descriptors
++	 * are closed, even after the underlying file is unlinked.
++	 */
++	struct kref refcount;
++
++	/* Sequence counter to allow debugfs readers to safely access stats.
++	 * Assumes a single virtio-net writer, which is enforced by virtio-net
++	 * and NAPI.
++	 */
++	seqcount_t dbg_seq;
++};
++
+ struct virtnet_info {
+ 	struct virtio_device *vdev;
+ 	struct virtqueue *cvq;
+@@ -147,6 +172,15 @@ struct virtnet_info {
+ 	/* Active statistics */
+ 	struct virtnet_stats __percpu *stats;
+ 
++	/* Per-receive queue statstics exported via debugfs. Stored in
++	 * virtnet_info to survive freeze/restore -- a task may have a per-rq
++	 * debugfs file open at the time of freeze.
++	 */
++	struct receive_queue_stats **rq_stats;
++
++	/* Per-netdevice debugfs directory. */
++	struct dentry *dbg_dev_root;
++
+ 	/* Work struct for refilling if we run low on memory. */
+ 	struct delayed_work refill;
+ 
+@@ -358,6 +392,8 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
  					 unsigned int len)
  {
--	struct skb_vnet_hdr *hdr = buf;
-+	struct skb_vnet_hdr *hdr = ctx->buf;
+ 	struct skb_vnet_hdr *hdr = ctx->buf;
++	struct virtnet_info *vi = netdev_priv(dev);
++	struct receive_queue_stats *rq_stats = vi->rq_stats[vq2rxq(rq->vq)];
  	int num_buf = hdr->mhdr.num_buffers;
--	struct page *page = virt_to_head_page(buf);
--	int offset = buf - page_address(page);
--	unsigned int truesize = max_t(unsigned int, len, MERGE_BUFFER_LEN);
-+	struct page *page = virt_to_head_page(ctx->buf);
-+	int offset = ctx->buf - page_address(page);
-+	unsigned int truesize = max(len, ctx->truesize);
-+
- 	struct sk_buff *head_skb = page_to_skb(rq, page, offset, len, truesize);
- 	struct sk_buff *curr_skb = head_skb;
- 
- 	if (unlikely(!curr_skb))
- 		goto err_skb;
--
- 	while (--num_buf) {
- 		int num_skb_frags;
- 
--		buf = virtqueue_get_buf(rq->vq, &len);
--		if (unlikely(!buf)) {
-+		ctx = virtqueue_get_buf(rq->vq, &len);
-+		if (unlikely(!ctx)) {
- 			pr_debug("%s: rx error: %d buffers out of %d missing\n",
- 				 dev->name, num_buf, hdr->mhdr.num_buffers);
- 			dev->stats.rx_length_errors++;
- 			goto err_buf;
- 		}
- 
--		page = virt_to_head_page(buf);
-+		page = virt_to_head_page(ctx->buf);
- 		--rq->num;
- 
- 		num_skb_frags = skb_shinfo(curr_skb)->nr_frags;
-@@ -369,13 +396,13 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 			head_skb->truesize += nskb->truesize;
- 			num_skb_frags = 0;
- 		}
--		truesize = max_t(unsigned int, len, MERGE_BUFFER_LEN);
-+		truesize = max(len, ctx->truesize);
- 		if (curr_skb != head_skb) {
- 			head_skb->data_len += len;
- 			head_skb->len += len;
- 			head_skb->truesize += truesize;
- 		}
--		offset = buf - page_address(page);
-+		offset = ctx->buf - page_address(page);
- 		if (skb_can_coalesce(curr_skb, num_skb_frags, page, offset)) {
- 			put_page(page);
- 			skb_coalesce_rx_frag(curr_skb, num_skb_frags - 1,
-@@ -386,19 +413,20 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 	struct page *page = virt_to_head_page(ctx->buf);
+ 	int offset = ctx->buf - page_address(page);
+@@ -413,7 +449,9 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
  		}
  	}
  
-+	ewma_add(&rq->mrg_avg_pkt_len, head_skb->len);
+-	ewma_add(&rq->mrg_avg_pkt_len, head_skb->len);
++	write_seqcount_begin(&rq_stats->dbg_seq);
++	ewma_add(&rq_stats->avg_pkt_len, head_skb->len);
++	write_seqcount_end(&rq_stats->dbg_seq);
  	return head_skb;
  
  err_skb:
- 	put_page(page);
- 	while (--num_buf) {
--		buf = virtqueue_get_buf(rq->vq, &len);
--		if (unlikely(!buf)) {
-+		ctx = virtqueue_get_buf(rq->vq, &len);
-+		if (unlikely(!ctx)) {
- 			pr_debug("%s: rx error: %d buffers missing\n",
- 				 dev->name, num_buf);
- 			dev->stats.rx_length_errors++;
- 			break;
- 		}
--		page = virt_to_head_page(buf);
-+		page = virt_to_head_page(ctx->buf);
- 		put_page(page);
- 		--rq->num;
- 	}
-@@ -419,12 +447,14 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
- 	if (unlikely(len < sizeof(struct virtio_net_hdr) + ETH_HLEN)) {
- 		pr_debug("%s: short packet %i\n", dev->name, len);
- 		dev->stats.rx_length_errors++;
--		if (vi->mergeable_rx_bufs)
--			put_page(virt_to_head_page(buf));
--		else if (vi->big_packets)
-+		if (vi->mergeable_rx_bufs) {
-+			struct mergeable_receive_buf_ctx *ctx = buf;
-+			put_page(virt_to_head_page(ctx->buf));
-+		} else if (vi->big_packets) {
- 			give_pages(rq, buf);
--		else
-+		} else {
- 			dev_kfree_skb(buf);
-+		}
- 		return;
- 	}
+@@ -600,18 +638,30 @@ static int add_recvbuf_big(struct receive_queue *rq, gfp_t gfp)
+ 	return err;
+ }
  
-@@ -572,29 +602,43 @@ static int add_recvbuf_big(struct receive_queue *rq, gfp_t gfp)
- 
++static unsigned int get_mergeable_buf_len(struct ewma *avg_pkt_len)
++{
++	const size_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
++	unsigned int len;
++
++	len = hdr_len + clamp_t(unsigned int, ewma_read(avg_pkt_len),
++				GOOD_PACKET_LEN, PAGE_SIZE - hdr_len);
++	return ALIGN(len, L1_CACHE_BYTES);
++}
++
  static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
  {
-+	const unsigned int ring_size = rq->mrg_buf_ctx_size;
-+	const size_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
+ 	const unsigned int ring_size = rq->mrg_buf_ctx_size;
+-	const size_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
  	struct page_frag *alloc_frag = &rq->alloc_frag;
--	char *buf;
-+	struct mergeable_receive_buf_ctx *ctx;
++	struct virtnet_info *vi = rq->vq->vdev->priv;
+ 	struct mergeable_receive_buf_ctx *ctx;
  	int err;
  	unsigned int len, hole;
  
--	if (unlikely(!skb_page_frag_refill(MERGE_BUFFER_LEN, alloc_frag, gfp)))
-+	len = hdr_len + clamp_t(unsigned int, ewma_read(&rq->mrg_avg_pkt_len),
-+				GOOD_PACKET_LEN, PAGE_SIZE - hdr_len);
-+	len = ALIGN(len, L1_CACHE_BYTES);
-+	if (unlikely(!skb_page_frag_refill(len, alloc_frag, gfp)))
+-	len = hdr_len + clamp_t(unsigned int, ewma_read(&rq->mrg_avg_pkt_len),
+-				GOOD_PACKET_LEN, PAGE_SIZE - hdr_len);
+-	len = ALIGN(len, L1_CACHE_BYTES);
++	/* avg_pkt_len is written only in NAPI rx softirq context. We may
++	 * read avg_pkt_len without using the dbg_seq seqcount, as this code
++	 * is called only in NAPI rx softirq context or when NAPI is disabled.
++	 */
++	len = get_mergeable_buf_len(&vi->rq_stats[vq2rxq(rq->vq)]->avg_pkt_len);
+ 	if (unlikely(!skb_page_frag_refill(len, alloc_frag, gfp)))
  		return -ENOMEM;
--	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
-+
-+	ctx = &rq->mrg_buf_ctx[rq->mrg_buf_ctx_head];
-+	ctx->buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
-+	ctx->truesize = len;
- 	get_page(alloc_frag->page);
--	len = MERGE_BUFFER_LEN;
- 	alloc_frag->offset += len;
- 	hole = alloc_frag->size - alloc_frag->offset;
--	if (hole < MERGE_BUFFER_LEN) {
-+	if (hole < len) {
-+		/* To avoid internal fragmentation, if there is very likely not
-+		 * enough space for another buffer, add the remaining space to
-+		 * the current buffer. This extra space is not included in
-+		 * ctx->truesize.
-+		 */
- 		len += hole;
- 		alloc_frag->offset += hole;
- 	}
  
--	sg_init_one(rq->sg, buf, len);
--	err = virtqueue_add_inbuf(rq->vq, rq->sg, 1, buf, gfp);
--	if (err < 0)
--		put_page(virt_to_head_page(buf));
--
--	return err;
-+	sg_init_one(rq->sg, ctx->buf, len);
-+	err = virtqueue_add_inbuf(rq->vq, rq->sg, 1, ctx, gfp);
-+	if (err < 0) {
-+		put_page(virt_to_head_page(ctx->buf));
-+		return err;
-+	}
-+	rq->mrg_buf_ctx_head = (rq->mrg_buf_ctx_head + 1) & (ring_size - 1);
-+	return 0;
+@@ -1274,13 +1324,101 @@ static void virtnet_get_drvinfo(struct net_device *dev,
+ 
  }
  
- /*
-@@ -610,6 +654,9 @@ static bool try_fill_recv(struct receive_queue *rq, gfp_t gfp)
- 	int err;
- 	bool oom;
- 
-+	/* Do not attempt to add a buffer if the RX ring is full. */
-+	if (unlikely(!rq->vq->num_free))
-+		return true;
- 	gfp |= __GFP_COLD;
- 	do {
- 		if (vi->mergeable_rx_bufs)
-@@ -1354,8 +1401,10 @@ static void virtnet_free_queues(struct virtnet_info *vi)
- {
- 	int i;
- 
--	for (i = 0; i < vi->max_queue_pairs; i++)
-+	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		netif_napi_del(&vi->rq[i].napi);
-+		kfree(vi->rq[i].mrg_buf_ctx);
++static ssize_t mergeable_rx_buffer_size_read(struct file *file,
++					     char __user *userbuf,
++					     size_t count,
++					     loff_t *ppos)
++{
++	struct receive_queue_stats *rq_stats = file->private_data;
++	char buf[32];
++	struct ewma avg;
++	unsigned int start, len;
++
++	/* Don't allow partial reads. */
++	if (*ppos)
++		return 0;
++	do {
++		start = read_seqcount_begin(&rq_stats->dbg_seq);
++		avg = rq_stats->avg_pkt_len;
++	} while (read_seqcount_retry(&rq_stats->dbg_seq, start));
++	len = scnprintf(buf, sizeof(buf), "%u\n", get_mergeable_buf_len(&avg));
++	return simple_read_from_buffer(userbuf, count, ppos, buf, len);
++}
++
++void receive_queue_stats_free(struct kref *ref)
++{
++	struct receive_queue_stats *rq_stats;
++
++	rq_stats = container_of(ref, struct receive_queue_stats, refcount);
++	kfree(rq_stats);
++}
++
++static int receive_queue_stats_debugfs_open(struct inode *inode,
++					    struct file *file)
++{
++	struct receive_queue_stats *rq_stats = inode->i_private;
++	kref_get(&rq_stats->refcount);
++	file->private_data = rq_stats;
++	return 0;
++}
++
++static int receive_queue_stats_debugfs_release(struct inode *inode,
++					       struct file *file)
++{
++	struct receive_queue_stats *rq_stats = inode->i_private;
++	kref_put(&rq_stats->refcount, receive_queue_stats_free);
++	file->private_data = NULL;
++	return 0;
++}
++
++static const struct file_operations mergeable_rx_buffer_size_fops = {
++	.owner = THIS_MODULE,
++	.open = receive_queue_stats_debugfs_open,
++	.read = mergeable_rx_buffer_size_read,
++	.llseek = default_llseek,
++	.release = receive_queue_stats_debugfs_release,
++};
++
++static void receive_queue_debugfs_add(struct receive_queue *rq)
++{
++	struct virtnet_info *vi = rq->vq->vdev->priv;
++	unsigned int rq_index = vq2rxq(rq->vq);
++	struct receive_queue_stats *rq_stats = vi->rq_stats[rq_index];
++	struct dentry *dentry;
++	char name[32];
++
++	if (IS_ERR_OR_NULL(vi->dbg_dev_root))
++		return;
++	scnprintf(name, sizeof(name), "rx-%u", rq_index);
++	dentry = debugfs_create_dir(name, vi->dbg_dev_root);
++	if (IS_ERR_OR_NULL(dentry)) {
++		pr_warn("%s: could not create %s rx queue debugfs dir\n",
++			vi->dev->name, name);
++		return;
 +	}
++	rq_stats->dbg = dentry;
++	if (vi->mergeable_rx_bufs)
++		debugfs_create_file("mergeable_rx_buffer_size", S_IRUSR,
++				rq_stats->dbg, rq_stats,
++				&mergeable_rx_buffer_size_fops);
++}
++
++static void receive_queue_debugfs_del(struct receive_queue *rq)
++{
++	struct virtnet_info *vi = rq->vq->vdev->priv;
++	struct receive_queue_stats *rq_stats = vi->rq_stats[vq2rxq(rq->vq)];
++	debugfs_remove_recursive(rq_stats->dbg);
++	rq_stats->dbg = NULL;
++}
++
+ /* TODO: Eliminate OOO packets during switching */
+ static int virtnet_set_channels(struct net_device *dev,
+ 				struct ethtool_channels *channels)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+-	u16 queue_pairs = channels->combined_count;
+-	int err;
++	u16 new_queue_pairs = channels->combined_count;
++	u16 old_queue_pairs = vi->curr_queue_pairs;
++	int err, i;
  
- 	kfree(vi->rq);
- 	kfree(vi->sq);
-@@ -1394,12 +1443,14 @@ static void free_unused_bufs(struct virtnet_info *vi)
- 		struct virtqueue *vq = vi->rq[i].vq;
+ 	/* We don't support separate rx/tx channels.
+ 	 * We don't allow setting 'other' channels.
+@@ -1288,14 +1426,21 @@ static int virtnet_set_channels(struct net_device *dev,
+ 	if (channels->rx_count || channels->tx_count || channels->other_count)
+ 		return -EINVAL;
  
- 		while ((buf = virtqueue_detach_unused_buf(vq)) != NULL) {
--			if (vi->mergeable_rx_bufs)
--				put_page(virt_to_head_page(buf));
--			else if (vi->big_packets)
-+			if (vi->mergeable_rx_bufs) {
-+				struct mergeable_receive_buf_ctx *ctx = buf;
-+				put_page(virt_to_head_page(ctx->buf));
-+			} else if (vi->big_packets) {
- 				give_pages(&vi->rq[i], buf);
--			else
-+			} else {
- 				dev_kfree_skb(buf);
-+			}
- 			--vi->rq[i].num;
- 		}
- 		BUG_ON(vi->rq[i].num != 0);
-@@ -1509,6 +1560,7 @@ static int virtnet_alloc_queues(struct virtnet_info *vi)
+-	if (queue_pairs > vi->max_queue_pairs)
++	if (new_queue_pairs > vi->max_queue_pairs)
+ 		return -EINVAL;
+ 
+ 	get_online_cpus();
+-	err = virtnet_set_queues(vi, queue_pairs);
++	err = virtnet_set_queues(vi, new_queue_pairs);
+ 	if (!err) {
+-		netif_set_real_num_tx_queues(dev, queue_pairs);
+-		netif_set_real_num_rx_queues(dev, queue_pairs);
++		if (new_queue_pairs < old_queue_pairs) {
++			for (i = new_queue_pairs; i < old_queue_pairs; i++)
++				receive_queue_debugfs_del(&vi->rq[i]);
++		} else {
++			for (i = old_queue_pairs; i < new_queue_pairs; i++)
++				receive_queue_debugfs_add(&vi->rq[i]);
++		}
++		netif_set_real_num_tx_queues(dev, new_queue_pairs);
++		netif_set_real_num_rx_queues(dev, new_queue_pairs);
+ 
+ 		virtnet_set_affinity(vi);
+ 	}
+@@ -1336,7 +1481,44 @@ static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
+ 	return 0;
+ }
+ 
++/* Must be called only after the net_device name has been expanded. */
++static void virtnet_debugfs_init(struct virtnet_info *vi)
++{
++	int i;
++
++	if (IS_ERR_OR_NULL(virtnet_debugfs_root))
++		return;
++	vi->dbg_dev_root = debugfs_create_dir(vi->dev->name,
++					      virtnet_debugfs_root);
++	if (IS_ERR_OR_NULL(vi->dbg_dev_root)) {
++		pr_warn("%s: could not create netdevice debugfs dir\n",
++			vi->dev->name);
++		return;
++	}
++	for (i = 0; i < vi->curr_queue_pairs; i++)
++		receive_queue_debugfs_add(&vi->rq[i]);
++}
++
++static void virtnet_debugfs_cleanup(struct virtnet_info *vi)
++{
++	int i;
++
++	for (i = 0; i < vi->max_queue_pairs; i++)
++		receive_queue_debugfs_del(&vi->rq[i]);
++	debugfs_remove_recursive(vi->dbg_dev_root);
++	vi->dbg_dev_root = NULL;
++}
++
++static int virtnet_init(struct net_device *dev)
++{
++	struct virtnet_info *vi = netdev_priv(dev);
++
++	virtnet_debugfs_init(vi);
++	return 0;
++}
++
+ static const struct net_device_ops virtnet_netdev = {
++	.ndo_init	     = virtnet_init,
+ 	.ndo_open            = virtnet_open,
+ 	.ndo_stop   	     = virtnet_close,
+ 	.ndo_start_xmit      = start_xmit,
+@@ -1560,7 +1742,6 @@ static int virtnet_alloc_queues(struct virtnet_info *vi)
  			       napi_weight);
  
  		sg_init_table(vi->rq[i].sg, ARRAY_SIZE(vi->rq[i].sg));
-+		ewma_init(&vi->rq[i].mrg_avg_pkt_len, 1, RECEIVE_AVG_WEIGHT);
+-		ewma_init(&vi->rq[i].mrg_avg_pkt_len, 1, RECEIVE_AVG_WEIGHT);
  		sg_init_table(vi->sq[i].sg, ARRAY_SIZE(vi->sq[i].sg));
  	}
  
-@@ -1522,7 +1574,8 @@ err_sq:
+@@ -1614,6 +1795,39 @@ err:
+ 	return ret;
+ }
  
- static int init_vqs(struct virtnet_info *vi)
++static int virtnet_rename(struct notifier_block *this,
++			  unsigned long event, void *ptr)
++{
++	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++	struct virtnet_info *vi;
++
++	if (event != NETDEV_CHANGENAME || dev->netdev_ops != &virtnet_netdev)
++		return NOTIFY_DONE;
++	vi = netdev_priv(dev);
++	if (IS_ERR_OR_NULL(vi->dbg_dev_root))
++		return NOTIFY_DONE;
++	if (IS_ERR_OR_NULL(debugfs_rename(virtnet_debugfs_root,
++					  vi->dbg_dev_root,
++					  virtnet_debugfs_root, dev->name))) {
++		pr_warn("%s: failed debugfs rename, removing old debugfs dir\n",
++			dev->name);
++		virtnet_debugfs_cleanup(vi);
++	}
++	return NOTIFY_DONE;
++}
++
++static void virtnet_release_receive_queue_stats(struct virtnet_info *vi)
++{
++	int i;
++
++	for (i = 0; i < vi->max_queue_pairs; i++) {
++		struct receive_queue_stats *rq_stats = vi->rq_stats[i];
++		if (rq_stats)
++			kref_put(&rq_stats->refcount, receive_queue_stats_free);
++	}
++	kfree(vi->rq_stats);
++}
++
+ static int virtnet_probe(struct virtio_device *vdev)
  {
--	int ret;
-+	struct virtio_device *vdev = vi->vdev;
-+	int i, ret;
+ 	int i, err;
+@@ -1723,10 +1937,24 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	vi->curr_queue_pairs = 1;
+ 	vi->max_queue_pairs = max_queue_pairs;
  
- 	/* Allocate send & receive queues */
- 	ret = virtnet_alloc_queues(vi);
-@@ -1533,12 +1586,28 @@ static int init_vqs(struct virtnet_info *vi)
- 	if (ret)
- 		goto err_free;
- 
-+	if (vi->mergeable_rx_bufs) {
-+		for (i = 0; i < vi->max_queue_pairs; i++) {
-+			struct receive_queue *rq = &vi->rq[i];
-+			rq->mrg_buf_ctx_size = virtqueue_get_vring_size(rq->vq);
-+			rq->mrg_buf_ctx = kmalloc(sizeof(*rq->mrg_buf_ctx) *
-+						  rq->mrg_buf_ctx_size,
-+						  GFP_KERNEL);
-+			if (!rq->mrg_buf_ctx) {
-+				ret = -ENOMEM;
-+				goto err_del_vqs;
-+			}
-+		}
++	vi->rq_stats = kzalloc(sizeof(vi->rq_stats[0]) *
++			       vi->max_queue_pairs, GFP_KERNEL);
++	if (!vi->rq_stats)
++		goto free_dev_stats;
++	for (i = 0; i < vi->max_queue_pairs; i++) {
++		vi->rq_stats[i] = kzalloc(sizeof(*vi->rq_stats[0]), GFP_KERNEL);
++		if (!vi->rq_stats[i])
++			goto free_rq_stats;
++		seqcount_init(&vi->rq_stats[i]->dbg_seq);
++		kref_init(&vi->rq_stats[i]->refcount);
++		ewma_init(&vi->rq_stats[i]->avg_pkt_len, 1,
++			  RECEIVE_AVG_WEIGHT);
 +	}
 +
- 	get_online_cpus();
- 	virtnet_set_affinity(vi);
- 	put_online_cpus();
+ 	/* Allocate/initialize the rx/tx queues, and invoke find_vqs */
+ 	err = init_vqs(vi);
+ 	if (err)
+-		goto free_stats;
++		goto free_rq_stats;
  
- 	return 0;
+ 	netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
+ 	netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
+@@ -1777,8 +2005,11 @@ free_recv_bufs:
+ free_vqs:
+ 	cancel_delayed_work_sync(&vi->refill);
+ 	free_receive_page_frags(vi);
++	virtnet_debugfs_cleanup(vi);
+ 	virtnet_del_vqs(vi);
+-free_stats:
++free_rq_stats:
++	virtnet_release_receive_queue_stats(vi);
++free_dev_stats:
+ 	free_percpu(vi->stats);
+ free:
+ 	free_netdev(dev);
+@@ -1812,10 +2043,12 @@ static void virtnet_remove(struct virtio_device *vdev)
  
-+err_del_vqs:
-+	vdev->config->del_vqs(vdev);
- err_free:
- 	virtnet_free_queues(vi);
- err:
+ 	unregister_netdev(vi->dev);
+ 
++	virtnet_debugfs_cleanup(vi);
+ 	remove_vq_common(vi);
+ 
+ 	flush_work(&vi->config_work);
+ 
++	virtnet_release_receive_queue_stats(vi);
+ 	free_percpu(vi->stats);
+ 	free_netdev(vi->dev);
+ }
+@@ -1884,6 +2117,19 @@ static int virtnet_restore(struct virtio_device *vdev)
+ }
+ #endif
+ 
++static void virtnet_register_debugfs(void)
++{
++	virtnet_debugfs_root = debugfs_create_dir("virtio-net", NULL);
++	if (IS_ERR_OR_NULL(virtnet_debugfs_root))
++		pr_warn("Could not create virtio-net debugfs dir\n");
++}
++
++static void virtnet_unregister_debugfs(void)
++{
++	debugfs_remove_recursive(virtnet_debugfs_root);
++	virtnet_debugfs_root = NULL;
++}
++
+ static struct virtio_device_id id_table[] = {
+ 	{ VIRTIO_ID_NET, VIRTIO_DEV_ANY_ID },
+ 	{ 0 },
+@@ -1917,7 +2163,39 @@ static struct virtio_driver virtio_net_driver = {
+ #endif
+ };
+ 
+-module_virtio_driver(virtio_net_driver);
++static struct notifier_block virtnet_rename_notifier = {
++	.notifier_call = virtnet_rename,
++};
++
++static int __init init(void)
++{
++	int err;
++
++	virtnet_register_debugfs();
++	err = register_netdevice_notifier(&virtnet_rename_notifier);
++	if (err)
++		goto free_debugfs;
++	err = register_virtio_driver(&virtio_net_driver);
++	if (err)
++		goto free_notifier;
++	return 0;
++
++free_notifier:
++	unregister_netdevice_notifier(&virtnet_rename_notifier);
++free_debugfs:
++	virtnet_unregister_debugfs();
++	return err;
++}
++
++static void __exit cleanup(void)
++{
++	unregister_virtio_driver(&virtio_net_driver);
++	unregister_netdevice_notifier(&virtnet_rename_notifier);
++	virtnet_unregister_debugfs();
++}
++
++module_init(init);
++module_exit(cleanup);
+ 
+ MODULE_DEVICE_TABLE(virtio, id_table);
+ MODULE_DESCRIPTION("Virtio network driver");
 -- 
 1.8.5.1
