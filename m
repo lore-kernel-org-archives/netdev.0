@@ -1,53 +1,62 @@
-From: Jerry Chu <hkchu@google.com>
-Subject: Re: [PATCH net-next] net-gre-gro: Add GRE support to the GRO stack
-Date: Tue, 7 Jan 2014 14:55:34 -0800
-Message-ID: <CAPshTCj+jXjvKCRdBPZYdxPQzTXqKUdF7x2DJE-fBjECVZfH6A@mail.gmail.com>
-References: <1389118999-16359-1-git-send-email-hkchu@google.com>
-	<20140107.162251.778631453084913688.davem@davemloft.net>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH net-next v5] IPv6: add the option to use anycast
+ addresses as source addresses in echo reply
+Date: Tue, 7 Jan 2014 17:55:07 -0500
+Message-ID: <20140107175507.fb543c70.billfink@mindspring.com>
+References: <1389103047-3380-1-git-send-email-fx.lebail@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f45.google.com ([209.85.128.45]:49859 "EHLO
-	mail-qe0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753585AbaAGWzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 17:55:35 -0500
-Received: by mail-qe0-f45.google.com with SMTP id 6so1054150qea.32
-        for <netdev@vger.kernel.org>; Tue, 07 Jan 2014 14:55:34 -0800 (PST)
-In-Reply-To: <20140107.162251.778631453084913688.davem@davemloft.net>
+Received: from elasmtp-curtail.atl.sa.earthlink.net ([209.86.89.64]:53089 "EHLO
+	elasmtp-curtail.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753585AbaAGWz6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 17:55:58 -0500
+In-Reply-To: <1389103047-3380-1-git-send-email-fx.lebail@yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 7, 2014 at 1:22 PM, David Miller <davem@davemloft.net> wrote:
-> From: "H.K. Jerry Chu" <hkchu@google.com>
-> Date: Tue,  7 Jan 2014 10:23:19 -0800
->
->> From: Jerry Chu <hkchu@google.com>
->>
->> This patch built on top of Commit 299603e8370a93dd5d8e8d800f0dff1ce2c53d36
->> ("net-gro: Prepare GRO stack for the upcoming tunneling support") to add
->> the support of the standard GRE (RFC1701/RFC2784/RFC2890) to the GRO
->> stack. It also serves as an example for supporting other encapsulation
->> protocols in the GRO stack in the future.
->  ...
->> Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
->> Reviewed-by: Eric Dumazet <edumazet@google.com>
->
-> Applied, thanks.
->
-> We really need to talk about what we want to happen with these GRO
-> offloads when GRE is not configured into the kernel.
->
-> Right now, the GRO offloads simply won't happen.
->
+On Tue,  7 Jan 2014, Francois-Xavier Le Bail wrote:
 
-I hope I've understood this correctly but with Eric's recent patch
-"gre_offload: statically build GRE offloading support", gre_offload.o
-is always present in the kernel regardless of the GRE configuration
-option. And gre_offload.o is all that's needed for GRE-GRO to happen.
+> This change allows to follow a recommandation of RFC4942.
+> 
+> - Add "anycast_src_echo_reply" sysctl to control the use of anycast addresses
+>   as source addresses for ICMPv6 echo reply. This sysctl is false by default
+>   to preserve existing behavior.
+> - Add inline check ipv6_anycast_destination().
+> - Use them in icmpv6_echo_reply().
+> 
+> Reference:
+> RFC4942 - IPv6 Transition/Coexistence Security Considerations
+>    (http://tools.ietf.org/html/rfc4942#section-2.1.6)
+> 
+> 2.1.6. Anycast Traffic Identification and Security
+> 
+>    [...]
+>    To avoid exposing knowledge about the internal structure of the
+>    network, it is recommended that anycast servers now take advantage of
+>    the ability to return responses with the anycast address as the
+>    source address if possible.
+> 
+> Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+> ---
+> v4: update Subject and Documentation, this work also with anycast addresses
+>     created via API, not just with Subnet-Router anycast addresses.
+> 
+> v5: alternative way, replace ipv6_chk_acast_addr() test by
+>     ipv6_anycast_destination() test.
 
-Jerry
+Why is ICMPV6 Echo Reply special?  Can't the internal structure
+of the network be divined from other ICMPv6 responses such as
+Destination Unreachable, Time Exceeded (Hop Limit), and Parameter
+Problem.
+
+					-Bill
