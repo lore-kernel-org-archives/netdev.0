@@ -1,55 +1,48 @@
-From: Andrey Wagin <avagin@gmail.com>
-Subject: Re: [PATCH] netfilter: nf_conntrack: release conntrack from rcu callback
-Date: Tue, 7 Jan 2014 14:39:14 +0400
-Message-ID: <CANaxB-w0-ErUvrEiGmG7dxV-dBwnYX3eX8rE0NQ=boKbc6HU8w@mail.gmail.com>
-References: <1389023672-14351-1-git-send-email-avagin@openvz.org>
-	<20140106170235.GJ28854@breakpoint.cc>
-	<20140106205414.GA19788@gmail.com>
-	<20140106215335.GC9894@breakpoint.cc>
+From: Alban Crequy <alban.crequy@collabora.co.uk>
+Subject: Re: Possible to add netfilter hooks to IFB driver?
+Date: Tue, 7 Jan 2014 11:18:07 +0000
+Message-ID: <20140107111807.38624f74@rainbow.cbg.collabora.co.uk>
+References: <522653F1.6090902@ecessa.com>
+	<20140106135123.3c7e6645@nehalam.linuxnetplumber.net>
+	<CAKTPYJTDj82YM8peU-bbS5OtuXnq1ty4+f-Wyk_bE2LBf4vGmw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, vvs@openvz.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cyrill Gorcunov <gorcunov@openvz.org>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140106215335.GC9894@breakpoint.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Brad Johnson <bjohnson@ecessa.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Andrew Collins <bsderandrew@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bhuna.collabora.co.uk ([93.93.135.160]:60587 "EHLO
+	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751276AbaAGLSL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 06:18:11 -0500
+In-Reply-To: <CAKTPYJTDj82YM8peU-bbS5OtuXnq1ty4+f-Wyk_bE2LBf4vGmw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+On Mon, 6 Jan 2014 15:51:37 -0700
+Andrew Collins <bsderandrew@gmail.com> wrote:
 
-2014/1/7 Florian Westphal <fw@strlen.de>:
-> Andrew Vagin <avagin@gmail.com> wrote:
+> On Mon, Jan 6, 2014 at 2:51 PM, Stephen Hemminger
+> <stephen@networkplumber.org> wrote:
+> >
+> > The risk is creating the same races that made IMQ unacceptable.
+> > --
+> 
+> I believe openwrt nowadays uses a TC action which runs the packet
+> through prerouting then pulls in the mark off the ct entry into the
+> skb, so ingress+IFB can take action on it.
 
->> >                 ct = nf_ct_tuplehash_to_ctrack(h);
->> >                 if (unlikely(nf_ct_is_dying(ct) ||
->> >                              !atomic_inc_not_zero(&ct->ct_general.use)))
->> >                     // which means we should hit this path (0 ref).
->> >                         h = NULL;
->> >                 else {
->> >                     // otherwise, it cannot go away from under us, since
->> >                     // we own a reference now.
->> >                         if (unlikely(!nf_ct_tuple_equal(tuple, &h->tuple) ||
->> >                                      nf_ct_zone(ct) != zone)) {
->
-> Perhaps this needs additional !nf_ct_is_confirmed()?
+Thanks for the info. I guess the implementation is this one:
 
-Yes, it think it must help. Thank you for the comments. I resent this patch:
-[PATCH] netfilter: nf_conntrack: fix RCU race in nf_conntrack_find_get
+https://dev.openwrt.org/browser/trunk/target/linux/generic/patches-3.12/621-sched_act_connmark.patch
+https://dev.openwrt.org/browser/trunk/package/network/utils/iproute2/patches/210-add-act_connmark.patch
+https://dev.openwrt.org/browser/trunk/package/network/config/qos-scripts/files/usr/lib/qos/generate.sh#L343
 
->
-> It would cover your case (found a recycled element that has been put on
-> the unconfirmed list (refcnt already set to 1, ct->tuple is set) on another cpu,
-> extensions possibly not yet fully initialised), and the same tuple).
->
-> Regards,
-> Florian
+> Perhaps a cleaned up version of this would be suitable for upstream?
 
-Thanks,
-Andrey
+I don't know but this seems a useful feature to me.
+
+Best regards,
+Alban
