@@ -1,107 +1,52 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/15] i40e: Add code to wait for FW to complete in reset path
-Date: Tue,  7 Jan 2014 01:32:20 -0800
-Message-ID: <1389087149-27962-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/15] i40e: Reduce range of interrupt reg in reg test
+Date: Tue,  7 Jan 2014 01:32:22 -0800
+Message-ID: <1389087149-27962-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389087149-27962-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Anjali Singhai Jain <anjali.singhai@intel.com>,
+	Kamil Krawczyk <kamil.krawczyk@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:6804 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:6793 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752392AbaAGJcg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 04:32:36 -0500
+	id S1752852AbaAGJch (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jan 2014 04:32:37 -0500
 In-Reply-To: <1389087149-27962-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-The RSTAT comes back with DEVICE READY to indicate that the HW is ready,
-but we still have to wait for the FW to indicate that the Core and Global
-modules are back up again.  This needs a read of the NVM_ULD register.
+Use a smaller range of test registers in MFP mode as there are fewer
+resources than when in SFP mode.
 
-Change-Id: I88276165f9cd446d2f166fb4b8cff00521af4bec
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-Id: I08424890c3f57b5dde5ee99e99724ce252e0875a
+Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c   | 20 ++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_register.h | 22 ++++++++++++++++++++++
- 2 files changed, 42 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_diag.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 7cd59ce..337e913 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -335,6 +335,7 @@ static enum i40e_media_type i40e_get_media_type(struct i40e_hw *hw)
- i40e_status i40e_pf_reset(struct i40e_hw *hw)
- {
- 	u32 cnt = 0;
-+	u32 cnt1 = 0;
- 	u32 reg = 0;
- 	u32 grst_del;
- 
-@@ -355,6 +356,25 @@ i40e_status i40e_pf_reset(struct i40e_hw *hw)
- 		return I40E_ERR_RESET_FAILED;
- 	}
- 
-+	/* Now Wait for the FW to be ready */
-+	for (cnt1 = 0; cnt1 < I40E_PF_RESET_WAIT_COUNT; cnt1++) {
-+		reg = rd32(hw, I40E_GLNVM_ULD);
-+		reg &= (I40E_GLNVM_ULD_CONF_CORE_DONE_MASK |
-+			I40E_GLNVM_ULD_CONF_GLOBAL_DONE_MASK);
-+		if (reg == (I40E_GLNVM_ULD_CONF_CORE_DONE_MASK |
-+			    I40E_GLNVM_ULD_CONF_GLOBAL_DONE_MASK)) {
-+			hw_dbg(hw, "Core and Global modules ready %d\n", cnt1);
-+			break;
-+		}
-+		usleep_range(10000, 20000);
-+	}
-+	if (!(reg & (I40E_GLNVM_ULD_CONF_CORE_DONE_MASK |
-+		     I40E_GLNVM_ULD_CONF_GLOBAL_DONE_MASK))) {
-+		hw_dbg(hw, "wait for FW Reset complete timedout\n");
-+		hw_dbg(hw, "I40E_GLNVM_ULD = 0x%x\n", reg);
-+		return I40E_ERR_RESET_FAILED;
-+	}
-+
- 	/* Determine the PF number based on the PCI fn */
- 	reg = rd32(hw, I40E_GLPCI_CAPSUP);
- 	if (reg & I40E_GLPCI_CAPSUP_ARI_EN_MASK)
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_register.h b/drivers/net/ethernet/intel/i40e/i40e_register.h
-index 2394c66..d188ec0 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_register.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_register.h
-@@ -2053,6 +2053,28 @@
- #define I40E_GLNVM_SRDATA_WRDATA_MASK (0xFFFF << I40E_GLNVM_SRDATA_WRDATA_SHIFT)
- #define I40E_GLNVM_SRDATA_RDDATA_SHIFT 16
- #define I40E_GLNVM_SRDATA_RDDATA_MASK (0xFFFF << I40E_GLNVM_SRDATA_RDDATA_SHIFT)
-+#define I40E_GLNVM_ULD 0x000B6008
-+#define I40E_GLNVM_ULD_CONF_PCIR_DONE_SHIFT 0
-+#define I40E_GLNVM_ULD_CONF_PCIR_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_PCIR_DONE_SHIFT)
-+#define I40E_GLNVM_ULD_CONF_PCIRTL_DONE_SHIFT 1
-+#define I40E_GLNVM_ULD_CONF_PCIRTL_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_PCIRTL_DONE_SHIFT)
-+#define I40E_GLNVM_ULD_CONF_LCB_DONE_SHIFT 2
-+#define I40E_GLNVM_ULD_CONF_LCB_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_LCB_DONE_SHIFT)
-+#define I40E_GLNVM_ULD_CONF_CORE_DONE_SHIFT 3
-+#define I40E_GLNVM_ULD_CONF_CORE_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_CORE_DONE_SHIFT)
-+#define I40E_GLNVM_ULD_CONF_GLOBAL_DONE_SHIFT 4
-+#define I40E_GLNVM_ULD_CONF_GLOBAL_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_GLOBAL_DONE_SHIFT)
-+#define I40E_GLNVM_ULD_CONF_POR_DONE_SHIFT 5
-+#define I40E_GLNVM_ULD_CONF_POR_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_POR_DONE_SHIFT)
-+#define I40E_GLNVM_ULD_CONF_PCIE_ANA_DONE_SHIFT 6
-+#define I40E_GLNVM_ULD_CONF_PCIE_ANA_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_PCIE_ANA_DONE_SHIFT)
-+#define I40E_GLNVM_ULD_CONF_PHY_ANA_DONE_SHIFT 7
-+#define I40E_GLNVM_ULD_CONF_PHY_ANA_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_PHY_ANA_DONE_SHIFT)
-+#define I40E_GLNVM_ULD_CONF_EMP_DONE_SHIFT 8
-+#define I40E_GLNVM_ULD_CONF_EMP_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_EMP_DONE_SHIFT)
-+#define I40E_GLNVM_ULD_CONF_PCIALT_DONE_SHIFT 9
-+#define I40E_GLNVM_ULD_CONF_PCIALT_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_PCIALT_DONE_SHIFT)
-+
- #define I40E_GLPCI_BYTCTH 0x0009C484
- #define I40E_GLPCI_BYTCTH_PCI_COUNT_BW_BCT_SHIFT 0
- #define I40E_GLPCI_BYTCTH_PCI_COUNT_BW_BCT_MASK (0xFFFFFFFF << I40E_GLPCI_BYTCTH_PCI_COUNT_BW_BCT_SHIFT)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_diag.c b/drivers/net/ethernet/intel/i40e/i40e_diag.c
+index 98c1ef5..6a1657e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_diag.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_diag.c
+@@ -70,9 +70,9 @@ struct i40e_diag_reg_test_info i40e_reg_list[] = {
+ 	/* offset               mask         elements   stride */
+ 	{I40E_QTX_CTL(0),       0x0000FFBF,   4, I40E_QTX_CTL(1) - I40E_QTX_CTL(0)},
+ 	{I40E_PFINT_ITR0(0),    0x00000FFF,   3, I40E_PFINT_ITR0(1) - I40E_PFINT_ITR0(0)},
+-	{I40E_PFINT_ITRN(0, 0), 0x00000FFF,  64, I40E_PFINT_ITRN(0, 1) - I40E_PFINT_ITRN(0, 0)},
+-	{I40E_PFINT_ITRN(1, 0), 0x00000FFF,  64, I40E_PFINT_ITRN(1, 1) - I40E_PFINT_ITRN(1, 0)},
+-	{I40E_PFINT_ITRN(2, 0), 0x00000FFF,  64, I40E_PFINT_ITRN(2, 1) - I40E_PFINT_ITRN(2, 0)},
++	{I40E_PFINT_ITRN(0, 0), 0x00000FFF,   8, I40E_PFINT_ITRN(0, 1) - I40E_PFINT_ITRN(0, 0)},
++	{I40E_PFINT_ITRN(1, 0), 0x00000FFF,   8, I40E_PFINT_ITRN(1, 1) - I40E_PFINT_ITRN(1, 0)},
++	{I40E_PFINT_ITRN(2, 0), 0x00000FFF,   8, I40E_PFINT_ITRN(2, 1) - I40E_PFINT_ITRN(2, 0)},
+ 	{I40E_PFINT_STAT_CTL0,  0x0000000C,   1, 0},
+ 	{I40E_PFINT_LNKLST0,    0x00001FFF,   1, 0},
+ 	{I40E_PFINT_LNKLSTN(0), 0x000007FF,  64, I40E_PFINT_LNKLSTN(1) - I40E_PFINT_LNKLSTN(0)},
 -- 
 1.8.3.1
