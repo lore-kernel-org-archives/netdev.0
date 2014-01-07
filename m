@@ -1,68 +1,69 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/15] i40e: move PF ID init from PF reset to SC init
-Date: Tue,  7 Jan 2014 01:32:23 -0800
-Message-ID: <1389087149-27962-10-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1389087149-27962-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Kamil Krawczyk <kamil.krawczyk@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: single process receives own frames due to PACKET_MMAP
+Date: Tue, 07 Jan 2014 10:32:01 +0100
+Message-ID: <52CBC991.8030701@redhat.com>
+References: <52B4465E.2090904@aimvalley.nl> <52CB34F9.6020906@aimvalley.nl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	uaca@alumni.uv.es, Jesper Dangaard Brouer <jbrouer@redhat.com>
+To: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:6804 "EHLO mga09.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:24332 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752916AbaAGJci (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 04:32:38 -0500
-In-Reply-To: <1389087149-27962-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751470AbaAGJdR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jan 2014 04:33:17 -0500
+In-Reply-To: <52CB34F9.6020906@aimvalley.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+On 01/06/2014 11:58 PM, Norbert van Bolhuis wrote:
+>
+> Our application uses raw AF_PACKET socket to send and receive
+> on one particular ethernet interface.
+>
+> Recently we started using PACKET_MMAP (TPACKET_V2). This makes
+> the Appl use a TX socket and a RX socket.
+> Both sockets are bound to the same (eth) interface. I noticed
+> the RX socket receives all frames that are sent via the
+> TX socket (same process, different thread). This I do not want.
+>
+> I know it is supposed to happen for different processes
+> (otherwise wireshark won't work), but I did not expect it to
+> happen for one single process (with different threads).
+>
+> I can filter them out in user-space (PACKET_OUTGOING)
+> or via kernel packet filter (SO_ATTACH_FILTER), but performance is
+> critical.
+>
+> I wonder whether this (PACKET_MMAP) behaviour is OK.
 
-Move PF ID initialization code from PF reset routine to earlier driver
-initialization function.  There are a few operations which need the
-PF ID before the first PF reset is called.
+For your use-case, we recently introduced in d346a3fae3ff1
+("packet: introduce PACKET_QDISC_BYPASS socket option") a
+bypass of dev_queue_xmit() (that internally invokes
+dev_queue_xmit_nit()).
 
-Change-Id: I7e971f7556b46a837149850ec05ce115c35db575
-Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_common.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+> It did not happen before (with a non-PACKET_MMAP AF_PACKET socket
+> which was used by both threads of the same Appl process). So
+> why is it happening now ?
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 96c8f15..02ad529 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -198,6 +198,13 @@ i40e_status i40e_init_shared_code(struct i40e_hw *hw)
- 		break;
- 	}
- 
-+	/* Determine the PF number based on the PCI fn */
-+	reg = rd32(hw, I40E_GLPCI_CAPSUP);
-+	if (reg & I40E_GLPCI_CAPSUP_ARI_EN_MASK)
-+		hw->pf_id = (u8)((hw->bus.device << 3) | hw->bus.func);
-+	else
-+		hw->pf_id = (u8)hw->bus.func;
-+
- 	status = i40e_init_nvm(hw);
- 	return status;
- }
-@@ -375,13 +382,6 @@ i40e_status i40e_pf_reset(struct i40e_hw *hw)
- 		return I40E_ERR_RESET_FAILED;
- 	}
- 
--	/* Determine the PF number based on the PCI fn */
--	reg = rd32(hw, I40E_GLPCI_CAPSUP);
--	if (reg & I40E_GLPCI_CAPSUP_ARI_EN_MASK)
--		hw->pf_id = (u8)((hw->bus.device << 3) | hw->bus.func);
--	else
--		hw->pf_id = (u8)hw->bus.func;
--
- 	/* If there was a Global Reset in progress when we got here,
- 	 * we don't need to do the PF Reset
- 	 */
--- 
-1.8.3.1
+Can you elaborate a bit on which kernel versions that behaviour
+changed?
+
+> I'd say it makes no sense to make the same process receive its
+> own transmitted frames on that same interface (unless its lo).
+>
+> If I'm not doing something wrong, this means this behaviour
+> causes my CPU to be loaded much more (since all transmitted frames
+> have to be filtered out).
+>
+> Let me know what you think.
+>
+> thanks,
+> Norbert van Bolhuis
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
