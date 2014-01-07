@@ -1,99 +1,70 @@
-From: "Bob Falken" <NetFestivalHaveFun@gmx.com>
-Subject: Re: Multicast routing stops functioning after 4G multicast packets
- recived.
-Date: Tue, 07 Jan 2014 18:01:44 +0100
-Message-ID: <20140107170145.317040@gmx.com>
+From: Linus Walleij <linus.walleij@linaro.org>
+Subject: Re: [PATCH v3 2/6] net: rfkill: gpio: convert to descriptor-based
+ GPIO interface
+Date: Tue, 7 Jan 2014 18:43:22 +0100
+Message-ID: <CACRpkdYmSQD8u3ZutYVC=3hAch_ikkPXAcKa6d0o6T+N+QFqGw@mail.gmail.com>
+References: <1385460350-17543-1-git-send-email-mika.westerberg@linux.intel.com>
+	<1385460350-17543-3-git-send-email-mika.westerberg@linux.intel.com>
+	<CACRpkdb03X_Z7amX-vAVX8KboeCo3ia6oqv8KW79WY=nZXV7wQ@mail.gmail.com>
+	<20131223105420.GP8621@intel.com>
+	<1387833287.4412.6.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "Hannes Frederic Sowa" <hannes@stressinduktion.org>,
-	"Julian Anastasov" <ja@ssi.bg>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Mika Westerberg <mika.westerberg@linux.intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-netdev@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	ACPI Devel Maling List <linux-acpi@vger.kernel.org>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	Chris Ball <cjb@laptop.org>, Rhyland Klein <rklein@nvidia.com>,
+	Adrian Hunter <adrian.hunter@intel.com>,
+	Alexandre Courbot <acourbot@nvidia.com>,
+	Mathias Nyman <mathias.nyman@linux.intel.com>,
+	Rob Landley <rob@landley.net>,
+	Heikki Krogerus <heikki.krogerus@linux.intel.com>,
+	Stephen Warren <swarren@wwwdotorg.org>,
+	Thierry Reding <thierry.reding@gmail.com>,
+	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.19]:62486 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751561AbaAGRBq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 12:01:46 -0500
-Received: from mailout-eu.gmx.com ([10.1.101.213]) by mrigmx.server.lan
- (mrigmx002) with ESMTP (Nemesis) id 0MBHw3-1W8WeC2jlV-00AFAP for
- <netdev@vger.kernel.org>; Tue, 07 Jan 2014 18:01:45 +0100
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:46629 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753237AbaAGRnX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 12:43:23 -0500
+Received: by mail-ob0-f178.google.com with SMTP id uz6so501575obc.23
+        for <netdev@vger.kernel.org>; Tue, 07 Jan 2014 09:43:23 -0800 (PST)
+In-Reply-To: <1387833287.4412.6.camel@jlt4.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Mon, Dec 23, 2013 at 10:14 PM, Johannes Berg
+<johannes@sipsolutions.net> wrote:
+> On Mon, 2013-12-23 at 12:54 +0200, Mika Westerberg wrote:
+>> On Wed, Dec 11, 2013 at 01:00:18PM +0100, Linus Walleij wrote:
+>> > On Tue, Nov 26, 2013 at 11:05 AM, Mika Westerberg
+>> > <mika.westerberg@linux.intel.com> wrote:
+>> >
+>> > > From: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+>> > >
+>> > > Convert to the safer gpiod_* family of API functions.
+>> > >
+>> > > Signed-off-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+>> > > Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
+>> > > Tested-by: Stephen Warren <swarren@nvidia.com>
+>>
+>> Johannes B, David M,
+>>
+>> Are you fine with this patch? If yes, could you ack it so that we could get
+>> it merged for 3.14.
+>
+> I have no objection to this particular patch. I can't really comment on
+> it, but I never really delved too deeply into the rfkill-gpio thing - I
+> guess it works for whoever needed it :)
 
-I patched, kernel 3.2.53 yesterday,
-8774002632packets, and ~9.1TB later, the multicast routing seems to fun=
-ction properly. :)
+I take that as an ACK ;-)
 
-Kudos for fixing this.
+Patch applied.
 
-I will keep checking the next days.
-
-As for IPv6 MR, my current setup i.e: the Multicast source, does not su=
-pport IPv6, so cannot do a check for that natively.
-
-Unless I can translate IPv4 multicast into IPv6 multicast easily, using=
- some iptable prerouting rules(?).
-
-Thanks again.
-
-
------ Original Message -----
-=46rom: Hannes Frederic Sowa
-Sent: 01/05/14 12:38 AM
-To: Julian Anastasov
-Subject: Re: Multicast routing stops functioning after 4G multicast pac=
-kets recived.
- On Sat, Jan 04, 2014 at 09:55:51PM +0200, Julian Anastasov wrote:
->=20
-> Hello,
->=20
-> On Thu, 19 Dec 2013, Bob Falken wrote:
->=20
-> > Hello, I have an issue after kernel 2.6.37 and above.
-> > If i roll back to kernel 2.6.36.4 everything is fine.
-> > if recive more than=C2=A04294967295 multicast packets, the kernel d=
-oes not register the multicast packets. and multicast routing does not =
-functioning.
->=20
-> ...
->=20
-> > I think there might be a variable in the kernel that get overflown.=
- though i cannot be sure as im not a programmer.=20
-> >=20
-> > Let me know if you need more debug information.
-> >=20
-> > Please help.=C2=A0=20
->=20
-> As Hannes guessed, may be it is really the missing
-> flags =3D FIB_LOOKUP_NOREF in ipmr_fib_lookup() when calling
-> fib_rules_lookup(), we have an atomic_inc_not_zero() there that
-> can stop to work after 4G lookups when rule's refcnt reaches 0.
-> As result, fib_rules_lookup() can start to return -ESRCH.
-
-I guess we should just try. I somehow forgot to look after that. Thanks
-for reminding, Julian.
-
-Bob, can you try with this patch again?
-
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 421a249..b9b3472 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -157,9 +157,12 @@ static struct mr_table *ipmr_get_table(struct net =
-*net, u32 id)
- static int ipmr_fib_lookup(struct net *net, struct flowi4 *flp4,
- struct mr_table **mrt)
- {
-- struct ipmr_result res;
-- struct fib_lookup_arg arg =3D { .result =3D &res};
- int err;
-+ struct ipmr_result res;
-+ struct fib_lookup_arg arg =3D {
-+ .result =3D &res,
-+ .flags =3D FIB_LOOKUP_NOREF,
-+ };
-=20
- err =3D fib_rules_lookup(net->ipv4.mr_rules_ops,
- flowi4_to_flowi(flp4), 0, &arg);=20
+Yours,
+Linus Walleij
