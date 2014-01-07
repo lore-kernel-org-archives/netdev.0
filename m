@@ -1,73 +1,47 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] net: xfrm: xfrm_policy: fix inline not at beginning of declaration
-Date: Tue,  7 Jan 2014 23:20:27 +0100
-Message-ID: <1389133227-11086-1-git-send-email-dborkman@redhat.com>
+From: Giri Reddy <giri.reddy@qlogic.com>
+Subject: Re: Use of 'SIOCDEVPRIVATE' in ethernet drivers.
+Date: Tue, 7 Jan 2014 22:22:45 +0000
+Message-ID: <124064C45E1FC84193A69A61ED3A1F46E230D6@AVMB1.qlogic.org>
+References: <124064C45E1FC84193A69A61ED3A1F46E22D07@AVMB1.qlogic.org>
+ <20140107.140520.1985936966889106257.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7071 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753914AbaAGWUb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 17:20:31 -0500
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:49651 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754139AbaAGWWu convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jan 2014 17:22:50 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix three warnings related to:
+On 1/7/14 11:05 AM, David Miller wrote:
+> From: Giri Reddy <giri.reddy@qlogic.com>
+> Date: Tue, 7 Jan 2014 18:21:17 +0000
+>
+>> Are we still allowed to use 'SIOCDEVPRIVATE' in drivers if there the
+>> deprecation efforts are on hold.
+> To say that use of SIOCDEVPRIVATE is discouraged would be an
+> understatement.
+>
+> Please create a generic ethtool based facility that other drivers in
+> similar situations can use as well.
 
-  net/xfrm/xfrm_policy.c:1644:1: warning: 'inline' is not at beginning of declaration [-Wold-style-declaration]
-  net/xfrm/xfrm_policy.c:1656:1: warning: 'inline' is not at beginning of declaration [-Wold-style-declaration]
-  net/xfrm/xfrm_policy.c:1668:1: warning: 'inline' is not at beginning of declaration [-Wold-style-declaration]
+Thanks for the input. I will explore the 'ethtool' option. We will have
+multiple control frames exchanged between user space and kernel for
+every flash update operation, most of this will be proprietary stuff
+that will get exchanged - I will explore how to provide a generic
+interface for that.
 
-Just removing the inline keyword is sufficient as the compiler will
-decide on its own about inlining or not.
+Giri
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/xfrm/xfrm_policy.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+>
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index a7487f3..b390446 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1641,20 +1641,20 @@ free_dst:
- 	goto out;
- }
- 
--static int inline
--xfrm_dst_alloc_copy(void **target, const void *src, int size)
-+static int xfrm_dst_alloc_copy(void **target, const void *src, int size)
- {
- 	if (!*target) {
- 		*target = kmalloc(size, GFP_ATOMIC);
- 		if (!*target)
- 			return -ENOMEM;
- 	}
-+
- 	memcpy(*target, src, size);
- 	return 0;
- }
- 
--static int inline
--xfrm_dst_update_parent(struct dst_entry *dst, const struct xfrm_selector *sel)
-+static int xfrm_dst_update_parent(struct dst_entry *dst,
-+				  const struct xfrm_selector *sel)
- {
- #ifdef CONFIG_XFRM_SUB_POLICY
- 	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
-@@ -1665,8 +1665,8 @@ xfrm_dst_update_parent(struct dst_entry *dst, const struct xfrm_selector *sel)
- #endif
- }
- 
--static int inline
--xfrm_dst_update_origin(struct dst_entry *dst, const struct flowi *fl)
-+static int xfrm_dst_update_origin(struct dst_entry *dst,
-+				  const struct flowi *fl)
- {
- #ifdef CONFIG_XFRM_SUB_POLICY
- 	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
--- 
-1.7.11.7
+
+________________________________
+
+This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
