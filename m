@@ -1,47 +1,36 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: Use of 'SIOCDEVPRIVATE' in ethernet drivers.
-Date: Tue, 7 Jan 2014 15:44:56 -0800
-Message-ID: <20140107154456.7e5af377@nehalam.linuxnetplumber.net>
-References: <124064C45E1FC84193A69A61ED3A1F46E22D07@AVMB1.qlogic.org>
-	<20140107.140520.1985936966889106257.davem@davemloft.net>
-	<124064C45E1FC84193A69A61ED3A1F46E230D6@AVMB1.qlogic.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/4] tipc: link setup and failover improvements
+Date: Tue, 07 Jan 2014 18:45:08 -0500 (EST)
+Message-ID: <20140107.184508.1028018727000763031.davem@davemloft.net>
+References: <1389132164-32451-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Giri Reddy <giri.reddy@qlogic.com>
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:57412 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753875AbaAGXpC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 18:45:02 -0500
-Received: by mail-pa0-f54.google.com with SMTP id kl14so1049077pab.27
-        for <netdev@vger.kernel.org>; Tue, 07 Jan 2014 15:45:01 -0800 (PST)
-In-Reply-To: <124064C45E1FC84193A69A61ED3A1F46E230D6@AVMB1.qlogic.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46001 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754375AbaAGXpP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 18:45:15 -0500
+In-Reply-To: <1389132164-32451-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 7 Jan 2014 22:22:45 +0000
-Giri Reddy <giri.reddy@qlogic.com> wrote:
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Tue,  7 Jan 2014 17:02:40 -0500
 
-> On 1/7/14 11:05 AM, David Miller wrote:
-> > From: Giri Reddy <giri.reddy@qlogic.com>
-> > Date: Tue, 7 Jan 2014 18:21:17 +0000
-> >
-> >> Are we still allowed to use 'SIOCDEVPRIVATE' in drivers if there the
-> >> deprecation efforts are on hold.
-> > To say that use of SIOCDEVPRIVATE is discouraged would be an
-> > understatement.
-> >
-> > Please create a generic ethtool based facility that other drivers in
-> > similar situations can use as well.
+> This series consists of four unrelated commits with different purposes.
 > 
-> Thanks for the input. I will explore the 'ethtool' option. We will have
-> multiple control frames exchanged between user space and kernel for
-> every flash update operation, most of this will be proprietary stuff
-> that will get exchanged - I will explore how to provide a generic
-> interface for that.
-> 
-> Giri
+> - Commit #1 is purely cosmetic and pedagogic, hopefully making the
+>   failover/tunneling logics slightly easier to understand. 
+> - Commit #2 fixes a bug that has always been in the code, but was not
+>   discovered until very recently.
+> - Commit #3 fixes a non-fatal race issue in the neighbour discovery
+>   code.
+> - Commit #4 removes an unnecessary indirection step during link 
+>   startup.
 
-Maybe a debugfs or sysfs filesystem would work better than adding ioctl';s
+Series applied, thank you.
