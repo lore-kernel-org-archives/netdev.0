@@ -1,32 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 1/3] ipv4: introduce ip_dst_mtu_secure and
- protect forwarding path against pmtu spoofing
-Date: Mon, 06 Jan 2014 19:42:03 -0500 (EST)
-Message-ID: <20140106.194203.1057131663158804667.davem@davemloft.net>
-References: <20140106084827.GA5766@order.stressinduktion.org>
-	<20140106.160846.544525591241855516.davem@davemloft.net>
-	<20140107001103.GE10204@order.stressinduktion.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [GIT net-next] Open vSwitch
+Date: Mon, 06 Jan 2014 19:49:01 -0500 (EST)
+Message-ID: <20140106.194901.1806376120640813139.davem@davemloft.net>
+References: <1389053776-62865-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	johnwheffner@gmail.com, steffen.klassert@secunet.com,
-	fweimer@redhat.com
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36433 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754620AbaAGAmH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jan 2014 19:42:07 -0500
-In-Reply-To: <20140107001103.GE10204@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1389053776-62865-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 7 Jan 2014 01:11:03 +0100
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Date: Mon,  6 Jan 2014 16:15:59 -0800
 
-> Have you seen that Steffen did test these patches with his pmtu
-> testsuite successfully and they showed no obvious regressions (he
-> posted to the old thread)?
+> Open vSwitch changes for net-next/3.14. Highlights are:
+>  * Performance improvements in the mechanism to get packets to userspace
+>    using memory mapped netlink and skb zero copy where appropriate.
+>  * Per-cpu flow stats in situations where flows are likely to be shared
+>    across CPUs. Standard flow stats are used in other situations to save
+>    memory and allocation time.
+>  * A handful of code cleanups and rationalization.
 
-Yes I saw that.
+Lots of good stuff in here, pulled, thanks Jesse.
