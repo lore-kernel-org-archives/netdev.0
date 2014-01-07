@@ -1,114 +1,193 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: single process receives own frames due to PACKET_MMAP
-Date: Tue, 07 Jan 2014 16:26:12 +0100
-Message-ID: <52CC1C94.2060808@redhat.com>
-References: <52B4465E.2090904@aimvalley.nl> <52CB34F9.6020906@aimvalley.nl> <52CBC991.8030701@redhat.com> <20140107110609.74f71979@redhat.com> <52CBFE13.8@aimvalley.nl> <20140107150938.1058b358@redhat.com> <52CC1A61.5080205@aimvalley.nl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>, uaca@alumni.uv.es
-To: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next V2 3/3] net: Add GRO support for vxlan traffic
+Date: Tue,  7 Jan 2014 17:29:54 +0200
+Message-ID: <1389108594-665-4-git-send-email-ogerlitz@mellanox.com>
+References: <1389108594-665-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, yanb@mellanox.com,
+	shlomop@mellanox.com, Or Gerlitz <ogerlitz@mellanox.com>
+To: hkchu@google.com, edumazet@google.com, herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27768 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751057AbaAGP1Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jan 2014 10:27:25 -0500
-In-Reply-To: <52CC1A61.5080205@aimvalley.nl>
+Received: from mailp.voltaire.com ([193.47.165.129]:38846 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750933AbaAGPaG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jan 2014 10:30:06 -0500
+In-Reply-To: <1389108594-665-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/07/2014 04:16 PM, Norbert van Bolhuis wrote:
-> On 01/07/14 15:09, Jesper Dangaard Brouer wrote:
->> On Tue, 07 Jan 2014 14:16:03 +0100
->> Norbert van Bolhuis<nvbolhuis@aimvalley.nl>  wrote:
->>> On 01/07/14 11:06, Jesper Dangaard Brouer wrote:
->>>> On Tue, 07 Jan 2014 10:32:01 +0100
->>>> Daniel Borkmann<dborkman@redhat.com>   wrote:
->>>>
->>>>> On 01/06/2014 11:58 PM, Norbert van Bolhuis wrote:
->>>>>>
->> [...]
->>>>>
->>>>>> I'd say it makes no sense to make the same process receive its
->>>>>> own transmitted frames on that same interface (unless its lo).
->>>>
->>>> Have you setup:
->>>>    ring->s_ll.sll_protocol = 0
->>>>
->>>> This is what I did in trafgen to avoid this problem.
->>>>
->>>> See line 55 in netsniff-ng/ring.c:
->>>>    https://github.com/borkmann/netsniff-ng/blob/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1/ring.c#L55
->>>>
->>>> Commit:
->>>>    https://github.com/borkmann/netsniff-ng/commit/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1
->>>>
->>>
->>>
->>> No I did not do that, I was checking my code against netsniff-ng-0.5.8-rc4.
->>>
->>> But I just tried it, I believe I do the same as netsniff-ng-0.5.8-rc5, but it doesn't
->>> work for me. Maybe because I have an old FC14 system (kernel 2.6.35.14-106.fc14.x86_64).
->>>
->>> So I tried to see whether netsniff-ng-0.5.8-rc5/trafgen still makes the
->>> kernel call packet_rcv() on my FC14 system. So I build and run it, but I'm not sure
->>> how to (easily) check that.
->>
->> The easiest way is to:
->>    cat /proc/net/ptype
->> And look if someone registered a proto handler/function: packet_rcv (or tpacket_rcv).
->>
->> The more exact method is, to run "perf record -a -g" and then look (at
->> the result with "perf report") for a lock contention, and "expand" the
->> spin_lock and see if packet_rcv() is calling this spin lock.
->>
->
->
-> I checked the easy way.
-> Even on my old FC14 system the "protocol=0 patch" seems to make a difference
-> for trafgen.
-> Without the patch I see for each CPU in use by trafgen a "packet_rcv entry" in
-> /proc/net/ptype.
-> With the patch I see no additional "packet_rcv entry".
+Add gro handlers for vxlan using the udp gro infrastructure
 
-Yes, that is expected behaviour. ;-) See more below.
+On my setup, which is net-next (now with the mlx4 vxlan offloads patches) -- 
+for single TCP session that goes through vxlan tunneling I got nice improvement
+from 6.8Gbs to 11.5Gbs
 
-> It could be my Appl is wrong or maybe the "protocol=0 patch" does not help.
-> I think the latter, afterall my Appl has, unlike trafgen, another RX
-> (AF_PACKET) socket.
->
->
->>
->>> In anyway, Wireshark does capture the trafgen generated
->>> frames, does that say anything ?
->>
->> Be careful not to start a wireshark/tcpdump, at the sametime, as this
->> will slow you down.
->>
->>> In the future, I can at least use PACKET_QDISC_BYPASS as a "workaround".
->>
->> And in the future with PACKET_QDISC_BYPASS, your wireshark will not
->> catch these packets, remember that.
->>
->
->
-> Yes, this is why I would love to see the "protocol=0 patch" work for my Appl.
->
-> So I will try my Appl with the latest net-next kernel to see if that makes
-> it work. Hopefully I can find some time in the next coming days, I will keep
-> you informed.
+--> UDP/VXLAN GRO disabled
+$ netperf  -H 192.168.52.147 -c -C
 
-As long as there's at least one single PF_PACKET receive socket open and you
-do not make use of PACKET_QDISC_BYPASS on your tx socket, then those packets go
-back the dev_queue_xmit_nit() path, even if your tx socket uses protocol=0.
+$ netperf -t TCP_STREAM -H 192.168.52.147 -c -C
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.52.147 () port 0 AF_INET
+Recv   Send    Send                          Utilization       Service Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local   remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
 
-If you make use of PACKET_QDISC_BYPASS [1] for your particular tx socket, then
-packets generated by that socket will not hit the dev_queue_xmit_nit() path
-back to other possible rx listeners that are present on your system (w/ the
-side-effects for tx as described in [1]).
+ 87380  65536  65536    10.00      6799.75   12.54    24.79    0.604   1.195
 
-   [1] Documentation/networking/packet_mmap.txt +960
+--> UDP/VXLAN GRO enabled
 
-> ---
-> Norbert
+$ netperf -t TCP_STREAM -H 192.168.52.147 -c -C
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.52.147 () port 0 AF_INET
+Recv   Send    Send                          Utilization       Service Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local   remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+
+ 87380  65536  65536    10.00      11562.72   24.90    20.34    0.706   0.577
+
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/vxlan.c |  101 ++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 99 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 481f85d..b51823b 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -40,6 +40,7 @@
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
+ #include <net/vxlan.h>
++#include <net/protocol.h>
+ #if IS_ENABLED(CONFIG_IPV6)
+ #include <net/ipv6.h>
+ #include <net/addrconf.h>
+@@ -554,6 +555,98 @@ static int vxlan_fdb_append(struct vxlan_fdb *f,
+ 	return 1;
+ }
+ 
++static struct sk_buff **vxlan_gro_receive(struct sk_buff **head, struct sk_buff *skb)
++{
++	struct sk_buff *p, **pp = NULL;
++	struct vxlanhdr *vh, *vh2;
++	struct ethhdr *eh;
++	unsigned int hlen, off, off_eth;
++	const struct packet_offload *ptype;
++	__be16 type;
++	int flush = 1;
++
++	off  = skb_gro_offset(skb);
++	hlen = off + sizeof(*vh);
++	vh   = skb_gro_header_fast(skb, off);
++	if (skb_gro_header_hard(skb, hlen)) {
++		vh = skb_gro_header_slow(skb, hlen, off);
++		if (unlikely(!vh))
++			goto out;
++	}
++
++	flush = 0;
++
++	for (p = *head; p; p = p->next) {
++		if (!NAPI_GRO_CB(p)->same_flow)
++			continue;
++
++		vh2 = (struct vxlanhdr   *)(p->data + off);
++		if (vh->vx_vni ^ vh2->vx_vni) {
++			NAPI_GRO_CB(p)->same_flow = 0;
++			continue;
++		}
++		goto found;
++	}
++
++found:
++	skb_gro_pull(skb, sizeof(struct vxlanhdr)); /* pull vxlan header */
++
++	off_eth = skb_gro_offset(skb);
++	hlen = off_eth + sizeof(*eh);
++	eh   = skb_gro_header_fast(skb, off_eth);
++	if (skb_gro_header_hard(skb, hlen)) {
++		eh = skb_gro_header_slow(skb, hlen, off_eth);
++		if (unlikely(!eh))
++			goto out;
++	}
++	type = eh->h_proto;
++
++	rcu_read_lock();
++	ptype = gro_find_receive_by_type(type);
++	if (ptype == NULL) {
++		flush = 1;
++		goto out_unlock;
++	}
++
++	skb_gro_pull(skb, sizeof(*eh)); /* pull inner eth header */
++	pp = ptype->callbacks.gro_receive(head, skb);
++
++out_unlock:
++	rcu_read_unlock();
++out:
++	NAPI_GRO_CB(skb)->flush |= flush;
++
++	return pp;
++}
++
++static int vxlan_gro_complete(struct sk_buff *skb, int nhoff)
++{
++	struct ethhdr *eh;
++	struct packet_offload *ptype;
++	__be16 type;
++	/* 22 = 8 bytes for the vlxan header + 14 bytes for the inner eth header */
++	int vxlan_len  = 22;
++	int err = -ENOSYS;
++
++	eh = (struct ethhdr *)(skb->data + nhoff + sizeof (struct vxlanhdr));
++	type = eh->h_proto;
++
++	rcu_read_lock();
++	ptype = gro_find_complete_by_type(type);
++	if (ptype != NULL)
++		err = ptype->callbacks.gro_complete(skb, nhoff + vxlan_len);
++
++	rcu_read_unlock();
++	return err;
++}
++
++static const struct net_offload vxlan_offload = {
++	.callbacks = {
++		.gro_receive  =	vxlan_gro_receive,
++		.gro_complete =	vxlan_gro_complete,
++	},
++};
++
+ /* Notify netdevs that UDP port started listening */
+ static void vxlan_notify_add_rx_port(struct sock *sk)
+ {
+@@ -568,6 +661,8 @@ static void vxlan_notify_add_rx_port(struct sock *sk)
+ 			dev->netdev_ops->ndo_add_vxlan_port(dev, sa_family,
+ 							    port);
+ 	}
++	if (sa_family == AF_INET)
++		udp_add_offload(&vxlan_offload, port);
+ 	rcu_read_unlock();
+ }
+ 
+@@ -585,6 +680,8 @@ static void vxlan_notify_del_rx_port(struct sock *sk)
+ 			dev->netdev_ops->ndo_del_vxlan_port(dev, sa_family,
+ 							    port);
+ 	}
++	if (sa_family == AF_INET)
++		udp_del_offload(&vxlan_offload, port);
+ 	rcu_read_unlock();
+ }
+ 
+@@ -1125,8 +1222,8 @@ static void vxlan_rcv(struct vxlan_sock *vs,
+ 	 * leave the CHECKSUM_UNNECESSARY, the device checksummed it
+ 	 * for us. Otherwise force the upper layers to verify it.
+ 	 */
+-	if (skb->ip_summed != CHECKSUM_UNNECESSARY || !skb->encapsulation ||
+-	    !(vxlan->dev->features & NETIF_F_RXCSUM))
++	if ((skb->ip_summed != CHECKSUM_UNNECESSARY && skb->ip_summed != CHECKSUM_PARTIAL) ||
++	    !skb->encapsulation || !(vxlan->dev->features & NETIF_F_RXCSUM))
+ 		skb->ip_summed = CHECKSUM_NONE;
+ 
+ 	skb->encapsulation = 0;
+-- 
+1.7.1
