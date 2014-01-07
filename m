@@ -1,84 +1,114 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] netfilter: nf_conntrack: fix RCU race in
- nf_conntrack_find_get
-Date: Tue, 7 Jan 2014 16:25:20 +0100
-Message-ID: <20140107152520.GF9894@breakpoint.cc>
-References: <1389090711-15843-1-git-send-email-avagin@openvz.org>
- <1389107305.26646.20.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: single process receives own frames due to PACKET_MMAP
+Date: Tue, 07 Jan 2014 16:26:12 +0100
+Message-ID: <52CC1C94.2060808@redhat.com>
+References: <52B4465E.2090904@aimvalley.nl> <52CB34F9.6020906@aimvalley.nl> <52CBC991.8030701@redhat.com> <20140107110609.74f71979@redhat.com> <52CBFE13.8@aimvalley.nl> <20140107150938.1058b358@redhat.com> <52CC1A61.5080205@aimvalley.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrey Vagin <avagin@openvz.org>, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	vvs@openvz.org, Florian Westphal <fw@strlen.de>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cyrill Gorcunov <gorcunov@openvz.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1389107305.26646.20.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, uaca@alumni.uv.es
+To: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:27768 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751057AbaAGP1Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jan 2014 10:27:25 -0500
+In-Reply-To: <52CC1A61.5080205@aimvalley.nl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-> > index 43549eb..7a34bb2 100644
-> > --- a/net/netfilter/nf_conntrack_core.c
-> > +++ b/net/netfilter/nf_conntrack_core.c
-> > @@ -387,8 +387,12 @@ begin:
-> >  			     !atomic_inc_not_zero(&ct->ct_general.use)))
-> >  			h = NULL;
-> >  		else {
-> > +			/* A conntrack can be recreated with the equal tuple,
-> > +			 * so we need to check that the conntrack is initialized
-> > +			 */
-> >  			if (unlikely(!nf_ct_tuple_equal(tuple, &h->tuple) ||
-> > -				     nf_ct_zone(ct) != zone)) {
-> > +				     nf_ct_zone(ct) != zone) ||
-> > +				     !nf_ct_is_confirmed(ct)) {
-> >  				nf_ct_put(ct);
-> >  				goto begin;
-> >  			}
-> 
-> I do not think this is the right way to fix this problem (if said
-> problem is confirmed)
-> 
-> Remember the rule about SLAB_DESTROY_BY_RCU :
-> 
-> When a struct is freed, then reused, its important to set the its refcnt
-> (from 0 to 1) only when the structure is fully ready for use.
-> 
-> If a lookup finds a structure which is not yet setup, the
-> atomic_inc_not_zero() will fail.
+On 01/07/2014 04:16 PM, Norbert van Bolhuis wrote:
+> On 01/07/14 15:09, Jesper Dangaard Brouer wrote:
+>> On Tue, 07 Jan 2014 14:16:03 +0100
+>> Norbert van Bolhuis<nvbolhuis@aimvalley.nl>  wrote:
+>>> On 01/07/14 11:06, Jesper Dangaard Brouer wrote:
+>>>> On Tue, 07 Jan 2014 10:32:01 +0100
+>>>> Daniel Borkmann<dborkman@redhat.com>   wrote:
+>>>>
+>>>>> On 01/06/2014 11:58 PM, Norbert van Bolhuis wrote:
+>>>>>>
+>> [...]
+>>>>>
+>>>>>> I'd say it makes no sense to make the same process receive its
+>>>>>> own transmitted frames on that same interface (unless its lo).
+>>>>
+>>>> Have you setup:
+>>>>    ring->s_ll.sll_protocol = 0
+>>>>
+>>>> This is what I did in trafgen to avoid this problem.
+>>>>
+>>>> See line 55 in netsniff-ng/ring.c:
+>>>>    https://github.com/borkmann/netsniff-ng/blob/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1/ring.c#L55
+>>>>
+>>>> Commit:
+>>>>    https://github.com/borkmann/netsniff-ng/commit/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1
+>>>>
+>>>
+>>>
+>>> No I did not do that, I was checking my code against netsniff-ng-0.5.8-rc4.
+>>>
+>>> But I just tried it, I believe I do the same as netsniff-ng-0.5.8-rc5, but it doesn't
+>>> work for me. Maybe because I have an old FC14 system (kernel 2.6.35.14-106.fc14.x86_64).
+>>>
+>>> So I tried to see whether netsniff-ng-0.5.8-rc5/trafgen still makes the
+>>> kernel call packet_rcv() on my FC14 system. So I build and run it, but I'm not sure
+>>> how to (easily) check that.
+>>
+>> The easiest way is to:
+>>    cat /proc/net/ptype
+>> And look if someone registered a proto handler/function: packet_rcv (or tpacket_rcv).
+>>
+>> The more exact method is, to run "perf record -a -g" and then look (at
+>> the result with "perf report") for a lock contention, and "expand" the
+>> spin_lock and see if packet_rcv() is calling this spin lock.
+>>
+>
+>
+> I checked the easy way.
+> Even on my old FC14 system the "protocol=0 patch" seems to make a difference
+> for trafgen.
+> Without the patch I see for each CPU in use by trafgen a "packet_rcv entry" in
+> /proc/net/ptype.
+> With the patch I see no additional "packet_rcv entry".
 
-Indeed.  But, the structure itself might be ready (or rather,
-can be ready since the allocation side will set the refcount to one
-after doing the initial work, such as zapping old ->status flags and
-setting tuple information).
+Yes, that is expected behaviour. ;-) See more below.
 
-The problem is with nat extension area stored in the ct->ext area.
-This extension area is preallocated but the snat/dnat action
-information is only set up after the ct (or rather, the skb that grabbed
-a reference to the nf_conn entry) traverses nat pre/postrouting.
+> It could be my Appl is wrong or maybe the "protocol=0 patch" does not help.
+> I think the latter, afterall my Appl has, unlike trafgen, another RX
+> (AF_PACKET) socket.
+>
+>
+>>
+>>> In anyway, Wireshark does capture the trafgen generated
+>>> frames, does that say anything ?
+>>
+>> Be careful not to start a wireshark/tcpdump, at the sametime, as this
+>> will slow you down.
+>>
+>>> In the future, I can at least use PACKET_QDISC_BYPASS as a "workaround".
+>>
+>> And in the future with PACKET_QDISC_BYPASS, your wireshark will not
+>> catch these packets, remember that.
+>>
+>
+>
+> Yes, this is why I would love to see the "protocol=0 patch" work for my Appl.
+>
+> So I will try my Appl with the latest net-next kernel to see if that makes
+> it work. Hopefully I can find some time in the next coming days, I will keep
+> you informed.
 
-This will also set up a null-binding when no matching SNAT/DNAT/MASQERUADE
-rule existed.
+As long as there's at least one single PF_PACKET receive socket open and you
+do not make use of PACKET_QDISC_BYPASS on your tx socket, then those packets go
+back the dev_queue_xmit_nit() path, even if your tx socket uses protocol=0.
 
-The manipulations of the skb->nfct->ext nat area are performed without
-a lock.  Concurrent access is supposedly impossible as the conntrack
-should not (yet) be in the hash table.
+If you make use of PACKET_QDISC_BYPASS [1] for your particular tx socket, then
+packets generated by that socket will not hit the dev_queue_xmit_nit() path
+back to other possible rx listeners that are present on your system (w/ the
+side-effects for tx as described in [1]).
 
-The confirmed bit is set right before we insert the conntrack into
-the hash table (after we traversed rules, ct is ready to be
-'published').
+   [1] Documentation/networking/packet_mmap.txt +960
 
-i.e. when the confirmed bit is NOT set we should not be 'seeing' the nf_conn
-struct when we perform the lookup, as it should still be sitting on the
-'unconfirmed' list, being invisible to readers.
-
-Does that explanation make sense to you?
-
-Thanks for looking into this.
+> ---
+> Norbert
