@@ -1,104 +1,136 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/15] i40e: whitespace paren and comment tweaks
-Date: Tue,  7 Jan 2014 01:32:26 -0800
-Message-ID: <1389087149-27962-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/15] i40e: Enable/Disable PF switch LB on SR-IOV configure changes
+Date: Tue,  7 Jan 2014 01:32:27 -0800
+Message-ID: <1389087149-27962-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389087149-27962-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Mitch Williams <mitch.a.williams@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:6804 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:6793 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753999AbaAGJcl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754137AbaAGJcl (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 7 Jan 2014 04:32:41 -0500
 In-Reply-To: <1389087149-27962-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-Addresses a few code format issues that have crept in over time.
+The PF VSI was never updated to enable or disable internal switch loopback
+when VFs were created or destroyed via the sysfs interface.  Add some
+helper functions to take care of that.
 
-Change-Id: I1a62cbd16b29a218a933b0f7176abe748f9615e8
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq.c | 4 ++--
- drivers/net/ethernet/intel/i40e/i40e_common.c | 1 +
- drivers/net/ethernet/intel/i40e/i40e_type.h   | 8 ++++----
- 3 files changed, 7 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 76 +++++++++++++++++++++-
+ 1 file changed, 74 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index 3ee5323..18a768f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -672,7 +672,7 @@ static bool i40e_asq_done(struct i40e_hw *hw)
- 	/* AQ designers suggest use of head for better
- 	 * timing reliability than DD bit
- 	 */
--	return (rd32(hw, hw->aq.asq.head) == hw->aq.asq.next_to_use);
-+	return rd32(hw, hw->aq.asq.head) == hw->aq.asq.next_to_use;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 5c99164..efb9a24 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -716,6 +716,76 @@ static bool i40e_vfs_are_assigned(struct i40e_pf *pf)
  
+ 	return false;
  }
- 
-@@ -682,7 +682,7 @@ static bool i40e_asq_done(struct i40e_hw *hw)
-  *  @desc: prefilled descriptor describing the command (non DMA mem)
-  *  @buff: buffer to use for indirect commands
-  *  @buff_size: size of buffer for indirect commands
-- *  @opaque: pointer to info to be used in async cleanup
-+ *  @cmd_details: pointer to command details structure
-  *
-  *  This is the main send command driver routine for the Admin Queue send
-  *  queue.  It runs the queue, cleans the queue, etc
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 7e34de1..d564910 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -406,6 +406,7 @@ i40e_status i40e_pf_reset(struct i40e_hw *hw)
- 	}
- 
- 	i40e_clear_pxe_mode(hw);
++#ifdef CONFIG_PCI_IOV
 +
- 	return 0;
- }
++/**
++ * i40e_enable_pf_switch_lb
++ * @pf: pointer to the pf structure
++ *
++ * enable switch loop back or die - no point in a return value
++ **/
++static void i40e_enable_pf_switch_lb(struct i40e_pf *pf)
++{
++	struct i40e_vsi *vsi = pf->vsi[pf->lan_vsi];
++	struct i40e_vsi_context ctxt;
++	int aq_ret;
++
++	ctxt.seid = pf->main_vsi_seid;
++	ctxt.pf_num = pf->hw.pf_id;
++	ctxt.vf_num = 0;
++	aq_ret = i40e_aq_get_vsi_params(&pf->hw, &ctxt, NULL);
++	if (aq_ret) {
++		dev_info(&pf->pdev->dev,
++			 "%s couldn't get pf vsi config, err %d, aq_err %d\n",
++			 __func__, aq_ret, pf->hw.aq.asq_last_status);
++		return;
++	}
++	ctxt.flags = I40E_AQ_VSI_TYPE_PF;
++	ctxt.info.valid_sections = cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
++	ctxt.info.switch_id |= cpu_to_le16(I40E_AQ_VSI_SW_ID_FLAG_ALLOW_LB);
++
++	aq_ret = i40e_aq_update_vsi_params(&vsi->back->hw, &ctxt, NULL);
++	if (aq_ret) {
++		dev_info(&pf->pdev->dev,
++			 "%s: update vsi switch failed, aq_err=%d\n",
++			 __func__, vsi->back->hw.aq.asq_last_status);
++	}
++}
++#endif
++
++/**
++ * i40e_disable_pf_switch_lb
++ * @pf: pointer to the pf structure
++ *
++ * disable switch loop back or die - no point in a return value
++ **/
++static void i40e_disable_pf_switch_lb(struct i40e_pf *pf)
++{
++	struct i40e_vsi *vsi = pf->vsi[pf->lan_vsi];
++	struct i40e_vsi_context ctxt;
++	int aq_ret;
++
++	ctxt.seid = pf->main_vsi_seid;
++	ctxt.pf_num = pf->hw.pf_id;
++	ctxt.vf_num = 0;
++	aq_ret = i40e_aq_get_vsi_params(&pf->hw, &ctxt, NULL);
++	if (aq_ret) {
++		dev_info(&pf->pdev->dev,
++			 "%s couldn't get pf vsi config, err %d, aq_err %d\n",
++			 __func__, aq_ret, pf->hw.aq.asq_last_status);
++		return;
++	}
++	ctxt.flags = I40E_AQ_VSI_TYPE_PF;
++	ctxt.info.valid_sections = cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
++	ctxt.info.switch_id &= ~cpu_to_le16(I40E_AQ_VSI_SW_ID_FLAG_ALLOW_LB);
++
++	aq_ret = i40e_aq_update_vsi_params(&vsi->back->hw, &ctxt, NULL);
++	if (aq_ret) {
++		dev_info(&pf->pdev->dev,
++			 "%s: update vsi switch failed, aq_err=%d\n",
++			 __func__, vsi->back->hw.aq.asq_last_status);
++	}
++}
  
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 4ac712e..bcf0317 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -89,7 +89,7 @@ typedef void (*I40E_ADMINQ_CALLBACK)(struct i40e_hw *, struct i40e_aq_desc *);
- #define I40E_QTX_CTL_VF_QUEUE	0x0
- #define I40E_QTX_CTL_PF_QUEUE	0x2
+ /**
+  * i40e_free_vfs
+@@ -759,10 +829,11 @@ void i40e_free_vfs(struct i40e_pf *pf)
+ 			bit_idx = (hw->func_caps.vf_base_id + vf_id) % 32;
+ 			wr32(hw, I40E_GLGEN_VFLRSTAT(reg_idx), (1 << bit_idx));
+ 		}
+-	}
+-	else
++		i40e_disable_pf_switch_lb(pf);
++	} else {
+ 		dev_warn(&pf->pdev->dev,
+ 			 "unable to disable SR-IOV because VFs are assigned.\n");
++	}
  
--/* debug masks */
-+/* debug masks - set these bits in hw->debug_mask to control output */
- enum i40e_debug_mask {
- 	I40E_DEBUG_INIT			= 0x00000001,
- 	I40E_DEBUG_RELEASE		= 0x00000002,
-@@ -103,10 +103,10 @@ enum i40e_debug_mask {
- 	I40E_DEBUG_DCB			= 0x00000400,
- 	I40E_DEBUG_DIAG			= 0x00000800,
+ 	/* Re-enable interrupt 0. */
+ 	i40e_irq_dynamic_enable_icr0(pf);
+@@ -816,6 +887,7 @@ static int i40e_alloc_vfs(struct i40e_pf *pf, u16 num_alloc_vfs)
+ 	pf->vf = vfs;
+ 	pf->num_alloc_vfs = num_alloc_vfs;
  
--	I40E_DEBUG_AQ_MESSAGE		= 0x01000000, /* for i40e_debug() */
-+	I40E_DEBUG_AQ_MESSAGE		= 0x01000000,
- 	I40E_DEBUG_AQ_DESCRIPTOR	= 0x02000000,
- 	I40E_DEBUG_AQ_DESC_BUFFER	= 0x04000000,
--	I40E_DEBUG_AQ_COMMAND		= 0x06000000, /* for i40e_debug_aq() */
-+	I40E_DEBUG_AQ_COMMAND		= 0x06000000,
- 	I40E_DEBUG_AQ			= 0x0F000000,
- 
- 	I40E_DEBUG_USER			= 0xF0000000,
-@@ -520,7 +520,7 @@ enum i40e_rx_desc_status_bits {
- 
- #define I40E_RXD_QW1_STATUS_TSYNVALID_SHIFT  I40E_RX_DESC_STATUS_TSYNVALID_SHIFT
- #define I40E_RXD_QW1_STATUS_TSYNVALID_MASK	(0x1UL << \
--					     I40E_RXD_QW1_STATUS_TSYNVALID_SHIFT)
-+					 I40E_RXD_QW1_STATUS_TSYNVALID_SHIFT)
- 
- enum i40e_rx_desc_fltstat_values {
- 	I40E_RX_DESC_FLTSTAT_NO_DATA	= 0,
++	i40e_enable_pf_switch_lb(pf);
+ err_alloc:
+ 	if (ret)
+ 		i40e_free_vfs(pf);
 -- 
 1.8.3.1
