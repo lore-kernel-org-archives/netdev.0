@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 2/4] tipc: remove
-	'has_redundant_link' flag from STATE link protocol messages
-Date: Tue,  7 Jan 2014 17:02:42 -0500
-Message-ID: <1389132164-32451-3-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 4/4] tipc: make link start event
+	synchronous
+Date: Tue,  7 Jan 2014 17:02:44 -0500
+Message-ID: <1389132164-32451-5-git-send-email-jon.maloy@ericsson.com>
 References: <1389132164-32451-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,93 +22,106 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The flag 'has_redundant_link' is defined only in RESET and ACTIVATE
-protocol messages. Due to an ambiguity in the protocol specification it
-is currently also transferred in STATE messages. Its value is used to
-initialize a link state variable, 'permit_changeover', which is used
-to inhibit futile link failover attempts when it is known that the
-peer node has no working links at the moment, although the local node
-may still think it has one.
+When a link is created we delay the start event by launching it
+to be executed later in a tasklet. As we hold all the
+necessary locks at the moment of creation, and there is no risk
+of deadlock or contention, this delay serves no purpose in the
+current code.
 
-The fact that 'has_redundant_link' incorrectly is read from STATE
-messages has the effect that 'permit_changeover' sometimes gets a wrong
-value, and permanently blocks any links from being re-established. Such
-failures can only occur in in dual-link systems, and are extremely rare.
-This bug seems to have always been present in the code.
-
-Furthermore, since commit b4b5610223f17790419b03eaa962b0e3ecf930d7
-("tipc: Ensure both nodes recognize loss of contact between them"),
-the 'permit_changeover' field serves no purpose any more. The task of
-enforcing 'lost contact' cycles at both peer endpoints is now taken
-by a new mechanism, using the flags WAIT_NODE_DOWN and WAIT_PEER_DOWN
-in struct tipc_node to abort unnecessary failover attempts.
-
-We therefore remove the 'has_redundant_link' flag from STATE messages,
-as well as the now redundant 'permit_changeover' variable.
+We remove this obsolete indirection step, and the associated function
+link_start(). At the same time, we rename the function tipc_link_stop()
+to the more appropriate tipc_link_purge_queues().
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/link.c |   10 +---------
- net/tipc/node.h |    2 --
- 2 files changed, 1 insertion(+), 11 deletions(-)
+ net/tipc/bcast.c |    2 +-
+ net/tipc/link.c  |   16 +++++-----------
+ net/tipc/link.h  |    2 +-
+ 3 files changed, 7 insertions(+), 13 deletions(-)
 
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index 4c2a80b..bf860d9 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -794,7 +794,7 @@ void tipc_bclink_init(void)
+ void tipc_bclink_stop(void)
+ {
+ 	spin_lock_bh(&bc_lock);
+-	tipc_link_stop(bcl);
++	tipc_link_purge_queues(bcl);
+ 	spin_unlock_bh(&bc_lock);
+ 
+ 	memset(bclink, 0, sizeof(*bclink));
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index bb48b96..9fb0f6b 100644
+index 9fb0f6b..471973f 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -438,8 +438,7 @@ void tipc_link_reset(struct tipc_link *l_ptr)
- 	tipc_node_link_down(l_ptr->owner, l_ptr);
- 	tipc_bearer_remove_dest(l_ptr->b_ptr, l_ptr->addr);
+@@ -87,7 +87,6 @@ static int  link_send_sections_long(struct tipc_port *sender,
+ static void link_state_event(struct tipc_link *l_ptr, u32 event);
+ static void link_reset_statistics(struct tipc_link *l_ptr);
+ static void link_print(struct tipc_link *l_ptr, const char *str);
+-static void link_start(struct tipc_link *l_ptr);
+ static int link_send_long_buf(struct tipc_link *l_ptr, struct sk_buff *buf);
+ static void tipc_link_send_sync(struct tipc_link *l);
+ static void tipc_link_recv_sync(struct tipc_node *n, struct sk_buff *buf);
+@@ -281,7 +280,8 @@ struct tipc_link *tipc_link_create(struct tipc_node *n_ptr,
+ 	k_init_timer(&l_ptr->timer, (Handler)link_timeout,
+ 		     (unsigned long)l_ptr);
+ 	list_add_tail(&l_ptr->link_list, &b_ptr->links);
+-	tipc_k_signal((Handler)link_start, (unsigned long)l_ptr);
++
++	link_state_event(l_ptr, STARTING_EVT);
  
--	if (was_active_link && tipc_node_active_links(l_ptr->owner) &&
--	    l_ptr->owner->permit_changeover) {
-+	if (was_active_link && tipc_node_active_links(l_ptr->owner)) {
- 		l_ptr->reset_checkpoint = checkpoint;
- 		l_ptr->exp_msg_count = START_CHANGEOVER;
- 	}
-@@ -1838,8 +1837,6 @@ static void link_recv_proto_msg(struct tipc_link *l_ptr, struct sk_buff *buf)
- 		if (tipc_own_addr > msg_prevnode(msg))
- 			l_ptr->b_ptr->net_plane = msg_net_plane(msg);
+ 	return l_ptr;
+ }
+@@ -306,19 +306,13 @@ void tipc_link_delete(struct tipc_link *l_ptr)
+ 	tipc_node_lock(l_ptr->owner);
+ 	tipc_link_reset(l_ptr);
+ 	tipc_node_detach_link(l_ptr->owner, l_ptr);
+-	tipc_link_stop(l_ptr);
++	tipc_link_purge_queues(l_ptr);
+ 	list_del_init(&l_ptr->link_list);
+ 	tipc_node_unlock(l_ptr->owner);
+ 	k_term_timer(&l_ptr->timer);
+ 	kfree(l_ptr);
+ }
  
--	l_ptr->owner->permit_changeover = msg_redundant_link(msg);
--
- 	switch (msg_type(msg)) {
+-static void link_start(struct tipc_link *l_ptr)
+-{
+-	tipc_node_lock(l_ptr->owner);
+-	link_state_event(l_ptr, STARTING_EVT);
+-	tipc_node_unlock(l_ptr->owner);
+-}
  
- 	case RESET_MSG:
-@@ -2001,11 +1998,6 @@ void tipc_link_failover_send_queue(struct tipc_link *l_ptr)
- 	if (!tunnel)
- 		return;
+ /**
+  * link_schedule_port - schedule port for deferred sending
+@@ -404,10 +398,10 @@ void tipc_link_reset_fragments(struct tipc_link *l_ptr)
+ }
  
--	if (!l_ptr->owner->permit_changeover) {
--		pr_warn("%speer did not permit changeover\n", link_co_err);
--		return;
--	}
--
- 	tipc_msg_init(&tunnel_hdr, CHANGEOVER_PROTOCOL,
- 		 ORIGINAL_MSG, INT_H_SIZE, l_ptr->addr);
- 	msg_set_bearer_id(&tunnel_hdr, l_ptr->peer_bearer_id);
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index d4bb654..63e2e8e 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
-@@ -64,7 +64,6 @@
-  * @working_links: number of working links to node (both active and standby)
-  * @block_setup: bit mask of conditions preventing link establishment to node
-  * @link_cnt: number of links to node
-- * @permit_changeover: non-zero if node has redundant links to this system
-  * @signature: node instance identifier
-  * @bclink: broadcast-related info
-  *    @acked: sequence # of last outbound b'cast message acknowledged by node
-@@ -89,7 +88,6 @@ struct tipc_node {
- 	int link_cnt;
- 	int working_links;
- 	int block_setup;
--	int permit_changeover;
- 	u32 signature;
- 	struct {
- 		u32 acked;
+ /**
+- * tipc_link_stop - purge all inbound and outbound messages associated with link
++ * tipc_link_purge_queues - purge all pkt queues associated with link
+  * @l_ptr: pointer to link
+  */
+-void tipc_link_stop(struct tipc_link *l_ptr)
++void tipc_link_purge_queues(struct tipc_link *l_ptr)
+ {
+ 	kfree_skb_list(l_ptr->oldest_deferred_in);
+ 	kfree_skb_list(l_ptr->first_out);
+diff --git a/net/tipc/link.h b/net/tipc/link.h
+index 89ab89b..3b6aa65 100644
+--- a/net/tipc/link.h
++++ b/net/tipc/link.h
+@@ -222,7 +222,7 @@ void tipc_link_dup_send_queue(struct tipc_link *l_ptr,
+ void tipc_link_reset_fragments(struct tipc_link *l_ptr);
+ int tipc_link_is_up(struct tipc_link *l_ptr);
+ int tipc_link_is_active(struct tipc_link *l_ptr);
+-void tipc_link_stop(struct tipc_link *l_ptr);
++void tipc_link_purge_queues(struct tipc_link *l_ptr);
+ struct sk_buff *tipc_link_cmd_config(const void *req_tlv_area,
+ 				     int req_tlv_space,
+ 				     u16 cmd);
 -- 
 1.7.9.5
 
