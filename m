@@ -1,92 +1,142 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next 08/15] i40e: acknowledge VFLR when disabling SR-IOV
-Date: Wed, 08 Jan 2014 01:55:40 +0400
-Message-ID: <52CC77DC.5020801@cogentembedded.com>
-References: <1389011436-18424-1-git-send-email-jeffrey.t.kirsher@intel.com> <1389011436-18424-9-git-send-email-jeffrey.t.kirsher@intel.com> <52CADD2C.2090103@cogentembedded.com> <AAEA33E297BCAC4B9BB20A7C2DF0AB8D654EA3EF@FMSMSX113.amr.corp.intel.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next 3/4] tipc: introduce new spinlock
+	to protect struct link_req
+Date: Tue,  7 Jan 2014 17:02:43 -0500
+Message-ID: <1389132164-32451-4-git-send-email-jon.maloy@ericsson.com>
+References: <1389132164-32451-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: "Williams, Mitch A" <mitch.a.williams@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f170.google.com ([209.85.217.170]:52378 "EHLO
-	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752691AbaAGVzk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 16:55:40 -0500
-Received: by mail-lb0-f170.google.com with SMTP id c11so734110lbj.1
-        for <netdev@vger.kernel.org>; Tue, 07 Jan 2014 13:55:39 -0800 (PST)
-In-Reply-To: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D654EA3EF@FMSMSX113.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: davem@davemloft.net
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1389132164-32451-1-git-send-email-jon.maloy@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Hello.
+From: Ying Xue <ying.xue@windriver.com>
 
-On 06-01-2014 22:10, Williams, Mitch A wrote:
+Currently, only 'bearer_lock' is used to protect struct link_req in
+the function disc_timeout(). This is unsafe, since the member fields
+'num_nodes' and 'timer_intv' might be accessed by below three different
+threads simultaneously, none of them grabbing bearer_lock in the
+critical region:
 
->>> From: Mitch Williams <mitch.a.williams@intel.com>
+link_activate()
+  tipc_bearer_add_dest()
+    tipc_disc_add_dest()
+      req->num_nodes++;
 
->>> When SR-IOV is disabled, the (now nonexistent) virtual function
->>> devices undergo a VFLR event. We don't need to handle this event
->>> because the VFs are gone, but we do need to tell the HW that they are
->>> complete. This fixes an issue with a phantom VFLR and broken VFs when
->>> SR-IOV is re-enabled.
+tipc_link_reset()
+  tipc_bearer_remove_dest()
+    tipc_disc_remove_dest()
+      req->num_nodes--
+      disc_update()
+        read req->num_nodes
+	write req->timer_intv
 
->>> Change-Id: I7580b49ded0158172a85b14661ec212af77000c8
->>> Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
->>> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
->>> Tested-by: Sibai Li <sibai.li@intel.com>
->>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->>> ---
->>>    drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 15 +++++++++++++--
->>>    1 file changed, 13 insertions(+), 2 deletions(-)
+disc_timeout()
+  read req->num_nodes
+  read/write req->timer_intv
 
->>> diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
->> b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
->>> index f92404c..e91f9d7 100644
->>> --- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
->>> +++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
->> [...]
->>> @@ -748,8 +750,17 @@ void i40e_free_vfs(struct i40e_pf *pf)
->>>    	kfree(pf->vf);
->>>    	pf->vf = NULL;
->>>
->>> -	if (!i40e_vfs_are_assigned(pf))
->>> +	if (!i40e_vfs_are_assigned(pf)) {
->>>    		pci_disable_sriov(pf->pdev);
->>> +		/* Acknowledge VFLR for all VFS. Without this, VFs will fail to
->>> +		 * work correctly when SR-IOV gets re-enabled.
->>> +		 */
->>> +		for (vf_id = 0; vf_id < tmp; vf_id++) {
->>> +			reg_idx = (hw->func_caps.vf_base_id + vf_id) / 32;
->>> +			bit_idx = (hw->func_caps.vf_base_id + vf_id) % 32;
->>> +			wr32(hw, I40E_GLGEN_VFLRSTAT(reg_idx), (1 << bit_idx));
->>> +		}
->>> +	}
->>>    	else
+Without lock protection, the only symptom of a race is that discovery
+messages occasionally may not be sent out. This is not fatal, since such
+messages are best-effort anyway. On the other hand, since discovery
+messages are not time critical, adding a protecting lock brings no
+serious overhead either. So we add a new, dedicated spinlock in
+order to guarantee absolute data consistency in link_req objects.
+This also helps reduce the overall role of the bearer_lock, which
+we want to remove completely in a later commit series.
 
->>      } and *else* should be on the same line. And the *else* arm should also
->> have {} now.
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/discover.c |   11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
->>>    		dev_warn(&pf->pdev->dev,
->>>    			 "unable to disable SR-IOV because VFs are assigned.\n");
+diff --git a/net/tipc/discover.c b/net/tipc/discover.c
+index bc849f1..412ff41 100644
+--- a/net/tipc/discover.c
++++ b/net/tipc/discover.c
+@@ -50,6 +50,7 @@
+  * @dest: destination address for request messages
+  * @domain: network domain to which links can be established
+  * @num_nodes: number of nodes currently discovered (i.e. with an active link)
++ * @lock: spinlock for controlling access to requests
+  * @buf: request message to be (repeatedly) sent
+  * @timer: timer governing period between requests
+  * @timer_intv: current interval between requests (in ms)
+@@ -59,6 +60,7 @@ struct tipc_link_req {
+ 	struct tipc_media_addr dest;
+ 	u32 domain;
+ 	int num_nodes;
++	spinlock_t lock;
+ 	struct sk_buff *buf;
+ 	struct timer_list timer;
+ 	unsigned int timer_intv;
+@@ -274,7 +276,9 @@ static void disc_update(struct tipc_link_req *req)
+  */
+ void tipc_disc_add_dest(struct tipc_link_req *req)
+ {
++	spin_lock_bh(&req->lock);
+ 	req->num_nodes++;
++	spin_unlock_bh(&req->lock);
+ }
+ 
+ /**
+@@ -283,8 +287,10 @@ void tipc_disc_add_dest(struct tipc_link_req *req)
+  */
+ void tipc_disc_remove_dest(struct tipc_link_req *req)
+ {
++	spin_lock_bh(&req->lock);
+ 	req->num_nodes--;
+ 	disc_update(req);
++	spin_unlock_bh(&req->lock);
+ }
+ 
+ /**
+@@ -297,7 +303,7 @@ static void disc_timeout(struct tipc_link_req *req)
+ {
+ 	int max_delay;
+ 
+-	spin_lock_bh(&req->bearer->lock);
++	spin_lock_bh(&req->lock);
+ 
+ 	/* Stop searching if only desired node has been found */
+ 	if (tipc_node(req->domain) && req->num_nodes) {
+@@ -325,7 +331,7 @@ static void disc_timeout(struct tipc_link_req *req)
+ 
+ 	k_start_timer(&req->timer, req->timer_intv);
+ exit:
+-	spin_unlock_bh(&req->bearer->lock);
++	spin_unlock_bh(&req->lock);
+ }
+ 
+ /**
+@@ -356,6 +362,7 @@ int tipc_disc_create(struct tipc_bearer *b_ptr, struct tipc_media_addr *dest,
+ 	req->domain = dest_domain;
+ 	req->num_nodes = 0;
+ 	req->timer_intv = TIPC_LINK_REQ_INIT;
++	spin_lock_init(&req->lock);
+ 	k_init_timer(&req->timer, (Handler)disc_timeout, (unsigned long)req);
+ 	k_start_timer(&req->timer, req->timer_intv);
+ 	b_ptr->link_req = req;
+-- 
+1.7.9.5
 
->> WBR, Sergei
 
-> You are absolutely correct, Sergei, and I apologize for not seeing this before I submitted the patch.
-
-    I guess you haven't run scripts/checkpatch.pl, have you?
-
-> There will be a patch coming from Greg Rose in the next few weeks that will fix this problem in the process of adding a bug fix. Since this is just cosmetic, would it be all right with you if we just wait for Greg's patch to come through?
-
-    Looks like DaveM has decided for everybody and the patch with the fix has 
-been already posted too.
-
-> -Mitch
-
-WBR, Sergei
+------------------------------------------------------------------------------
+Rapidly troubleshoot problems before they affect your business. Most IT 
+organizations don't have a clear picture of how application performance 
+affects their revenue. With AppDynamics, you get 100% visibility into your 
+Java,.NET, & PHP application. Start your 15-day FREE TRIAL of AppDynamics Pro!
+http://pubads.g.doubleclick.net/gampad/clk?id=84349831&iu=/4140/ostg.clktrk
