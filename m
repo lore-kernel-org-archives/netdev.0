@@ -1,8 +1,8 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 13/17] openvswitch: Drop user features if
-	old user space attempted to create datapath
-Date: Mon,  6 Jan 2014 16:16:12 -0800
-Message-ID: <1389053776-62865-14-git-send-email-jesse@nicira.com>
+Subject: [PATCH net-next 14/17] openvswitch: Pass datapath into
+	userspace queue functions
+Date: Mon,  6 Jan 2014 16:16:13 -0800
+Message-ID: <1389053776-62865-15-git-send-email-jesse@nicira.com>
 References: <1389053776-62865-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,76 +24,114 @@ List-Id: netdev.vger.kernel.org
 
 From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
 
-Drop user features if an outdated user space instance that does not
-understand the concept of user_features attempted to create a new
-datapath.
+Allows removing the net and dp_ifindex argument and simplify the
+code.
 
 Signed-off-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
 Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- include/uapi/linux/openvswitch.h | 10 +++++++++-
- net/openvswitch/datapath.c       | 21 +++++++++++++++++++++
- 2 files changed, 30 insertions(+), 1 deletion(-)
+ net/openvswitch/datapath.c | 34 ++++++++++++++--------------------
+ 1 file changed, 14 insertions(+), 20 deletions(-)
 
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index 07ef2c3..970553c 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -40,7 +40,15 @@ struct ovs_header {
- 
- #define OVS_DATAPATH_FAMILY  "ovs_datapath"
- #define OVS_DATAPATH_MCGROUP "ovs_datapath"
--#define OVS_DATAPATH_VERSION 0x1
-+
-+/* V2:
-+ *   - API users are expected to provide OVS_DP_ATTR_USER_FEATURES
-+ *     when creating the datapath.
-+ */
-+#define OVS_DATAPATH_VERSION 2
-+
-+/* First OVS datapath version to support features */
-+#define OVS_DP_VER_FEATURES 2
- 
- enum ovs_datapath_cmd {
- 	OVS_DP_CMD_UNSPEC,
 diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 6a9b0cb..497b2fd 100644
+index 497b2fd..235acae 100644
 --- a/net/openvswitch/datapath.c
 +++ b/net/openvswitch/datapath.c
-@@ -1148,6 +1148,18 @@ static struct datapath *lookup_datapath(struct net *net,
- 	return dp ? dp : ERR_PTR(-ENODEV);
- }
+@@ -108,10 +108,9 @@ int lockdep_ovsl_is_held(void)
+ #endif
  
-+static void ovs_dp_reset_user_features(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct datapath *dp;
-+
-+	dp = lookup_datapath(sock_net(skb->sk), info->userhdr, info->attrs);
-+	if (!dp)
-+		return;
-+
-+	WARN(dp->user_features, "Dropping previously announced user features\n");
-+	dp->user_features = 0;
-+}
-+
- static void ovs_dp_change(struct datapath *dp, struct nlattr **a)
+ static struct vport *new_vport(const struct vport_parms *);
+-static int queue_gso_packets(struct net *, int dp_ifindex, struct sk_buff *,
++static int queue_gso_packets(struct datapath *dp, struct sk_buff *,
+ 			     const struct dp_upcall_info *);
+-static int queue_userspace_packet(struct net *, int dp_ifindex,
+-				  struct sk_buff *,
++static int queue_userspace_packet(struct datapath *dp, struct sk_buff *,
+ 				  const struct dp_upcall_info *);
+ 
+ /* Must be called with rcu_read_lock or ovs_mutex. */
+@@ -277,7 +276,6 @@ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
+ 		  const struct dp_upcall_info *upcall_info)
  {
- 	if (a[OVS_DP_ATTR_USER_FEATURES])
-@@ -1220,6 +1232,15 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
- 		if (err == -EBUSY)
- 			err = -EEXIST;
+ 	struct dp_stats_percpu *stats;
+-	int dp_ifindex;
+ 	int err;
  
-+		if (err == -EEXIST) {
-+			/* An outdated user space instance that does not understand
-+			 * the concept of user_features has attempted to create a new
-+			 * datapath and is likely to reuse it. Drop all user features.
-+			 */
-+			if (info->genlhdr->version < OVS_DP_VER_FEATURES)
-+				ovs_dp_reset_user_features(skb, info);
-+		}
-+
- 		goto err_destroy_ports_array;
+ 	if (upcall_info->portid == 0) {
+@@ -285,16 +283,10 @@ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
+ 		goto err;
  	}
  
+-	dp_ifindex = get_dpifindex(dp);
+-	if (!dp_ifindex) {
+-		err = -ENODEV;
+-		goto err;
+-	}
+-
+ 	if (!skb_is_gso(skb))
+-		err = queue_userspace_packet(ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
++		err = queue_userspace_packet(dp, skb, upcall_info);
+ 	else
+-		err = queue_gso_packets(ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
++		err = queue_gso_packets(dp, skb, upcall_info);
+ 	if (err)
+ 		goto err;
+ 
+@@ -310,8 +302,7 @@ err:
+ 	return err;
+ }
+ 
+-static int queue_gso_packets(struct net *net, int dp_ifindex,
+-			     struct sk_buff *skb,
++static int queue_gso_packets(struct datapath *dp, struct sk_buff *skb,
+ 			     const struct dp_upcall_info *upcall_info)
+ {
+ 	unsigned short gso_type = skb_shinfo(skb)->gso_type;
+@@ -327,7 +318,7 @@ static int queue_gso_packets(struct net *net, int dp_ifindex,
+ 	/* Queue all of the segments. */
+ 	skb = segs;
+ 	do {
+-		err = queue_userspace_packet(net, dp_ifindex, skb, upcall_info);
++		err = queue_userspace_packet(dp, skb, upcall_info);
+ 		if (err)
+ 			break;
+ 
+@@ -394,8 +385,7 @@ static size_t upcall_msg_size(const struct sk_buff *skb,
+ 	return size;
+ }
+ 
+-static int queue_userspace_packet(struct net *net, int dp_ifindex,
+-				  struct sk_buff *skb,
++static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+ 				  const struct dp_upcall_info *upcall_info)
+ {
+ 	struct ovs_header *upcall;
+@@ -403,11 +393,15 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
+ 	struct sk_buff *user_skb; /* to be queued to userspace */
+ 	struct nlattr *nla;
+ 	struct genl_info info = {
+-		.dst_sk = net->genl_sock,
++		.dst_sk = ovs_dp_get_net(dp)->genl_sock,
+ 		.snd_portid = upcall_info->portid,
+ 	};
+ 	size_t len;
+-	int err;
++	int err, dp_ifindex;
++
++	dp_ifindex = get_dpifindex(dp);
++	if (!dp_ifindex)
++		return -ENODEV;
+ 
+ 	if (vlan_tx_tag_present(skb)) {
+ 		nskb = skb_clone(skb, GFP_ATOMIC);
+@@ -452,7 +446,7 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
+ 	skb_copy_and_csum_dev(skb, nla_data(nla));
+ 
+ 	genlmsg_end(user_skb, upcall);
+-	err = genlmsg_unicast(net, user_skb, upcall_info->portid);
++	err = genlmsg_unicast(ovs_dp_get_net(dp), user_skb, upcall_info->portid);
+ 
+ out:
+ 	kfree_skb(nskb);
 -- 
 1.8.3.2
