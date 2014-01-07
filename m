@@ -1,47 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: Do not enable tx-nocache-copy by default
-Date: Tue, 07 Jan 2014 16:20:53 -0500 (EST)
-Message-ID: <20140107.162053.1127386147694253061.davem@davemloft.net>
-References: <20140106.200002.1747627391067832069.davem@davemloft.net>
-	<1389107470-18213-1-git-send-email-bpoirier@suse.de>
+Subject: Re: [PATCH net-next] net-gre-gro: Add GRE support to the GRO stack
+Date: Tue, 07 Jan 2014 16:22:51 -0500 (EST)
+Message-ID: <20140107.162251.778631453084913688.davem@davemloft.net>
+References: <1389118999-16359-1-git-send-email-hkchu@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: edumazet@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, therbert@google.com
-To: bpoirier@suse.de
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, herbert@gondor.apana.org.au,
+	ogerlitz@mellanox.com, netdev@vger.kernel.org
+To: hkchu@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44814 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44824 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751350AbaAGVUz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 16:20:55 -0500
-In-Reply-To: <1389107470-18213-1-git-send-email-bpoirier@suse.de>
+	with ESMTP id S1753165AbaAGVWw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 16:22:52 -0500
+In-Reply-To: <1389118999-16359-1-git-send-email-hkchu@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Benjamin Poirier <bpoirier@suse.de>
-Date: Tue,  7 Jan 2014 10:11:10 -0500
+From: "H.K. Jerry Chu" <hkchu@google.com>
+Date: Tue,  7 Jan 2014 10:23:19 -0800
 
-> There are many cases where this feature does not improve performance =
-or even
-> reduces it.
->=20
-> For example, here are the results from tests that I've run using 3.12=
-=2E6 on one
-> Intel Xeon W3565 and one i7 920 connected by ixgbe adapters. The resu=
-lts are
-> from the Xeon, but they're similar on the i7. All numbers report the
-> mean=B1stddev over 10 runs of 10s.
->=20
-> 1) latency tests similar to what is described in "c6e1a0d net: Allow =
-no-cache
-> copy from user on transmit"
-> There is no statistically significant difference between tx-nocache-c=
-opy
-> on/off.
-> nic irqs spread out (one queue per cpu)
+> From: Jerry Chu <hkchu@google.com>
+> 
+> This patch built on top of Commit 299603e8370a93dd5d8e8d800f0dff1ce2c53d36
+> ("net-gro: Prepare GRO stack for the upcoming tunneling support") to add
+> the support of the standard GRE (RFC1701/RFC2784/RFC2890) to the GRO
+> stack. It also serves as an example for supporting other encapsulation
+> protocols in the GRO stack in the future.
  ...
-> CC: Tom Herbert <therbert@google.com>
-> Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
+> Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
+> Reviewed-by: Eric Dumazet <edumazet@google.com>
 
-Looks good, applied, thanks.
+Applied, thanks.
+
+We really need to talk about what we want to happen with these GRO
+offloads when GRE is not configured into the kernel.
+
+Right now, the GRO offloads simply won't happen.
