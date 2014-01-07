@@ -1,113 +1,73 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/2] netfilter: nf_nat: fix access to uninitialized buffer in IRC NAT helper
-Date: Tue,  7 Jan 2014 23:13:38 +0100
-Message-ID: <1389132819-9697-2-git-send-email-pablo@netfilter.org>
-References: <1389132819-9697-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1389132819-9697-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
 From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: xfrm: xfrm_policy: fix inline not at beginning of declaration
+Date: Tue,  7 Jan 2014 23:20:27 +0100
+Message-ID: <1389133227-11086-1-git-send-email-dborkman@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:7071 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753914AbaAGWUb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jan 2014 17:20:31 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 5901b6be885e attempted to introduce IPv6 support into
-IRC NAT helper. By doing so, the following code seemed to be removed
-by accident:
+Fix three warnings related to:
 
-  ip = ntohl(exp->master->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u3.ip);
-  sprintf(buffer, "%u %u", ip, port);
-  pr_debug("nf_nat_irc: inserting '%s' == %pI4, port %u\n", buffer, &ip, port);
+  net/xfrm/xfrm_policy.c:1644:1: warning: 'inline' is not at beginning of declaration [-Wold-style-declaration]
+  net/xfrm/xfrm_policy.c:1656:1: warning: 'inline' is not at beginning of declaration [-Wold-style-declaration]
+  net/xfrm/xfrm_policy.c:1668:1: warning: 'inline' is not at beginning of declaration [-Wold-style-declaration]
 
-This leads to the fact that buffer[] was left uninitialized and
-contained some stack value. When we call nf_nat_mangle_tcp_packet(),
-we call strlen(buffer) on excatly this uninitialized buffer. If we
-are unlucky and the skb has enough tailroom, we overwrite resp. leak
-contents with values that sit on our stack into the packet and send
-that out to the receiver.
+Just removing the inline keyword is sufficient as the compiler will
+decide on its own about inlining or not.
 
-Since the rather informal DCC spec [1] does not seem to specify
-IPv6 support right now, we log such occurences so that admins can
-act accordingly, and drop the packet. I've looked into XChat source,
-and IPv6 is not supported there: addresses are in u32 and print
-via %u format string.
-
-Therefore, restore old behaviour as in IPv4, use snprintf(). The
-IRC helper does not support IPv6 by now. By this, we can safely use
-strlen(buffer) in nf_nat_mangle_tcp_packet() and prevent a buffer
-overflow. Also simplify some code as we now have ct variable anyway.
-
-  [1] http://www.irchelp.org/irchelp/rfc/ctcpspec.html
-
-Fixes: 5901b6be885e ("netfilter: nf_nat: support IPv6 in IRC NAT helper")
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Harald Welte <laforge@gnumonks.org>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_nat_irc.c |   32 +++++++++++++++++++++++++++-----
- 1 file changed, 27 insertions(+), 5 deletions(-)
+ net/xfrm/xfrm_policy.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/netfilter/nf_nat_irc.c b/net/netfilter/nf_nat_irc.c
-index f02b360..1fb2258 100644
---- a/net/netfilter/nf_nat_irc.c
-+++ b/net/netfilter/nf_nat_irc.c
-@@ -34,10 +34,14 @@ static unsigned int help(struct sk_buff *skb,
- 			 struct nf_conntrack_expect *exp)
- {
- 	char buffer[sizeof("4294967296 65635")];
-+	struct nf_conn *ct = exp->master;
-+	union nf_inet_addr newaddr;
- 	u_int16_t port;
- 	unsigned int ret;
- 
- 	/* Reply comes from server. */
-+	newaddr = ct->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u3;
-+
- 	exp->saved_proto.tcp.port = exp->tuple.dst.u.tcp.port;
- 	exp->dir = IP_CT_DIR_REPLY;
- 	exp->expectfn = nf_nat_follow_master;
-@@ -57,17 +61,35 @@ static unsigned int help(struct sk_buff *skb,
- 	}
- 
- 	if (port == 0) {
--		nf_ct_helper_log(skb, exp->master, "all ports in use");
-+		nf_ct_helper_log(skb, ct, "all ports in use");
- 		return NF_DROP;
- 	}
- 
--	ret = nf_nat_mangle_tcp_packet(skb, exp->master, ctinfo,
--				       protoff, matchoff, matchlen, buffer,
--				       strlen(buffer));
-+	/* strlen("\1DCC CHAT chat AAAAAAAA P\1\n")=27
-+	 * strlen("\1DCC SCHAT chat AAAAAAAA P\1\n")=28
-+	 * strlen("\1DCC SEND F AAAAAAAA P S\1\n")=26
-+	 * strlen("\1DCC MOVE F AAAAAAAA P S\1\n")=26
-+	 * strlen("\1DCC TSEND F AAAAAAAA P S\1\n")=27
-+	 *
-+	 * AAAAAAAAA: bound addr (1.0.0.0==16777216, min 8 digits,
-+	 *                        255.255.255.255==4294967296, 10 digits)
-+	 * P:         bound port (min 1 d, max 5d (65635))
-+	 * F:         filename   (min 1 d )
-+	 * S:         size       (min 1 d )
-+	 * 0x01, \n:  terminators
-+	 */
-+	/* AAA = "us", ie. where server normally talks to. */
-+	snprintf(buffer, sizeof(buffer), "%u %u", ntohl(newaddr.ip), port);
-+	pr_debug("nf_nat_irc: inserting '%s' == %pI4, port %u\n",
-+		 buffer, &newaddr.ip, port);
-+
-+	ret = nf_nat_mangle_tcp_packet(skb, ct, ctinfo, protoff, matchoff,
-+				       matchlen, buffer, strlen(buffer));
- 	if (ret != NF_ACCEPT) {
--		nf_ct_helper_log(skb, exp->master, "cannot mangle packet");
-+		nf_ct_helper_log(skb, ct, "cannot mangle packet");
- 		nf_ct_unexpect_related(exp);
- 	}
-+
- 	return ret;
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index a7487f3..b390446 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1641,20 +1641,20 @@ free_dst:
+ 	goto out;
  }
  
+-static int inline
+-xfrm_dst_alloc_copy(void **target, const void *src, int size)
++static int xfrm_dst_alloc_copy(void **target, const void *src, int size)
+ {
+ 	if (!*target) {
+ 		*target = kmalloc(size, GFP_ATOMIC);
+ 		if (!*target)
+ 			return -ENOMEM;
+ 	}
++
+ 	memcpy(*target, src, size);
+ 	return 0;
+ }
+ 
+-static int inline
+-xfrm_dst_update_parent(struct dst_entry *dst, const struct xfrm_selector *sel)
++static int xfrm_dst_update_parent(struct dst_entry *dst,
++				  const struct xfrm_selector *sel)
+ {
+ #ifdef CONFIG_XFRM_SUB_POLICY
+ 	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
+@@ -1665,8 +1665,8 @@ xfrm_dst_update_parent(struct dst_entry *dst, const struct xfrm_selector *sel)
+ #endif
+ }
+ 
+-static int inline
+-xfrm_dst_update_origin(struct dst_entry *dst, const struct flowi *fl)
++static int xfrm_dst_update_origin(struct dst_entry *dst,
++				  const struct flowi *fl)
+ {
+ #ifdef CONFIG_XFRM_SUB_POLICY
+ 	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
 -- 
-1.7.10.4
-
+1.7.11.7
