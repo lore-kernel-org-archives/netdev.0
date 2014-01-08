@@ -1,49 +1,100 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH net-next V2 1/3] net: Add GRO support for UDP encapsulating
- protocols
-Date: Wed, 8 Jan 2014 10:04:22 +0200
-Message-ID: <52CD0686.4090205@mellanox.com>
-References: <1389108594-665-1-git-send-email-ogerlitz@mellanox.com>	 <1389108594-665-2-git-send-email-ogerlitz@mellanox.com>	 <1389112433.26646.28.camel@edumazet-glaptop2.roam.corp.google.com>	 <CAJZOPZ+q=uc4Svia+dFHrQfYyfJfsSVmqH1avJ99f4O0ES3QoQ@mail.gmail.com>	 <1389126735.26646.65.camel@edumazet-glaptop2.roam.corp.google.com>	 <CAJZOPZ+b87xF8m7cgTfwH1OqA3k012YFVy0ySJasMuR6x38Czw@mail.gmail.com> <1389130693.26646.72.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: don't call addrconf_dst_alloc again when enable lo
+Date: Wed, 8 Jan 2014 09:05:28 +0100
+Message-ID: <20140108080528.GD9007@order.stressinduktion.org>
+References: <1371352470-3226-1-git-send-email-gaofeng@cn.fujitsu.com> <20130619.230532.1329281330568271336.davem@davemloft.net> <20131231035718.GB27636@order.stressinduktion.org> <52C4FDBE.5030607@huawei.com> <20140102065429.GB22494@order.stressinduktion.org> <52C51C1E.9040603@huawei.com> <20140102082325.GC22494@order.stressinduktion.org> <52C5325B.8020900@huawei.com> <20140103065349.GK22494@order.stressinduktion.org> <52CD0331.8040204@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jerry Chu <hkchu@google.com>, Eric Dumazet <edumazet@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Yan Burman <yanb@mellanox.com>,
-	Shlomo Pongratz <shlomop@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: chenweilong <chenweilong@huawei.com>,
+	David Miller <davem@davemloft.net>, kumaran.4353@gmail.com,
+	netdev@vger.kernel.org
+To: Gao feng <gaofeng@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:35859 "EHLO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753919AbaAHIEc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 03:04:32 -0500
-In-Reply-To: <1389130693.26646.72.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:47495 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755026AbaAHIF3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 03:05:29 -0500
+Content-Disposition: inline
+In-Reply-To: <52CD0331.8040204@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/01/2014 23:38, Eric Dumazet wrote:
-> On Tue, 2014-01-07 at 22:37 +0200, Or Gerlitz wrote:
->
->> So here's the thing, per my understanding we want to GRO only received
->> **encapsulated** packets whose checksum status is != CHECKSUM_NONE
->> which means the NIC has some support for doing RX checksum of
->> encapsulated packets. Per the current convension, in that case the NIC
->> RX code has to set skb->encapsulation see 6a674e9c75b17 "net: Add
->> support for hardware-offloaded encapsulation" this convension is
->> implemented in the current drivers that have HW offloads for
->> encapsulated packets (bnx2x, i40e and mlx4)
-> I do not think its true.
->
-> Some drivers set CHECKSUM_COMPLETE even for regular UDP frames...
->
-> git grep -n CHECKSUM_COMPLETE -- drivers/net
->
->
->
-Eric, the point I was trying to make is that as long as the driver set a 
-value which is different from CHECKSUM_NONE
-for an skb who carry encapsulated packet, we want skb->encapsulation to 
-be set, per the architecture dictated by the above commit.
+On Wed, Jan 08, 2014 at 03:50:09PM +0800, Gao feng wrote:
+> On 01/03/2014 02:53 PM, Hannes Frederic Sowa wrote:
+> > On Thu, Jan 02, 2014 at 05:33:15PM +0800, chenweilong wrote:
+> >> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> >> index 62d1799..d2f8c0a 100644
+> >> --- a/net/ipv6/addrconf.c
+> >> +++ b/net/ipv6/addrconf.c
+> >> @@ -2422,8 +2422,9 @@ static void init_loopback(struct net_device *dev)
+> >>  			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
+> >>  				continue;
+> >>
+> >> -			if (sp_ifa->rt)
+> >> -				continue;
+> >> +			if (sp_ifa->rt && sp_ifa->rt->dst.dev == dev) {
+> >> +				ip6_del_rt(sp_ifa->rt);
+> >> +			}
+> >>
+> >>  			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
+> >>
+> > 
+> > Maybe this change would not be that bad after all, as those ifa attached dsts
+> > are already dead and queued up for gc and should not get inserted back.
+> 
+> I like this idea, maybe the below patch is better. we only need to delete this
+> route when it has been added to garbage list.
+> 
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 1a341f7..4dca886 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -2610,8 +2610,16 @@ static void init_loopback(struct net_device *dev)
+>                         if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
+>                                 continue;
+> 
+> -                       if (sp_ifa->rt)
+> -                               continue;
+> +                       if (sp_ifa->rt) {
+> +                               /* This dst has been added to garbage list when
+> +                                * lo device down, delete this obsolete dst and
+> +                                * reallocate new router for ifa. */
+> +                               if (sp_ifa->rt->dst.obsolete > 0) {
+> +                                       ip6_del_rt(sp_ifa->rt);
+> +                                       sp_ifa->rt = NULL;
+> +                               } else
+> +                                       continue;
+> +                       }
+> 
+>                         sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, false);
+
+It looks like it can work but I don't know if we should just fix this the
+clean way (see below).
+
+> > I'll try to just disable routes without removing them at all when we set an
+> > interface to down at the weekend.
+> > 
+> 
+> How do you decide which route should be disabled?  use rt6_flags? I don't know
+> if your way will cause miscarriage.
+
+What I did so far is that I added a new function next to rt6_ifdown that
+only gets called if interface gets shutdown but not unregistered (from
+addrconf_ifdown).
+
+fib6_clean_all then iterates over the whole routing table with a new predicate
+function which checks in the same way like fib6_ifdown, if it is a matching route
+(the interfaces match up) and if so, toggles a new "DEAD" flag in rt6i_flags.
+
+When bringing up the interface I distinguish between up and register and just
+clear this death flag from the routes on bringing it up.
+
+fib lookup code then does not honour those routes.
+
+I had no time to test this thoroughly at the weekend and still have some code
+paths were I am unsure. Do you see any problems with this so far? We could
+then delete the special cases on loopback interface init.
+
+Thanks,
+
+  Hannes
