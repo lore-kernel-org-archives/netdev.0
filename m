@@ -1,25 +1,40 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v3 1/3] ipv4: introduce ip_dst_mtu_secure and protect forwarding path against pmtu spoofing
-Date: Wed, 8 Jan 2014 08:14:51 +0100
-Message-ID: <20140108071451.GC9007@order.stressinduktion.org>
-References: <20140106084827.GA5766@order.stressinduktion.org>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net 0/2] bonding: ensure that the TSO being set on bond master
+Date: Wed, 8 Jan 2014 15:28:21 +0800
+Message-ID: <52CCFE15.2020605@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	davem@davemloft.net, johnwheffner@gmail.com,
-	steffen.klassert@secunet.com, fweimer@redhat.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:47376 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755026AbaAHHOw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 02:14:52 -0500
-Content-Disposition: inline
-In-Reply-To: <20140106084827.GA5766@order.stressinduktion.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:47585 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750790AbaAHH2o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 02:28:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 06, 2014 at 09:48:27AM +0100, Hannes Frederic Sowa wrote:
-> v3)
-> * forward_use_pmtu default enabled again
+The commit b0ce3508(bonding: allow TSO being set on bonding master)
+has make the TSO being set for bond dev, but in some situation, if
+the slave did not have the NETIF_F_SG features, the bond master will
+miss the TSO features in netdev_fix_features because the TSO is
+depended on SG. So I have to add SG and TSO features on bond master
+together.
 
-Okay, I fucked it up. So sorry...
+The function netdev_add_tso_features() was only be used for bonding,
+so no need to export it in netdevice.h, remove it and add it to bonding.
+
+Ding Tianhong (2):
+  bonding: ensure that the TSO being set on bond master
+  net: remove the unused function netdev_add_tso_features()
+
+ drivers/net/bonding/bond_main.c | 16 +++++++++++++++-
+ include/linux/netdevice.h       | 10 ----------
+ 2 files changed, 15 insertions(+), 11 deletions(-)
+
+-- 
+1.8.0
