@@ -1,80 +1,67 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: RE: [net-next 3/8] i40evf: core ethtool functionality
-Date: Wed, 8 Jan 2014 16:49:53 +0000
-Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D654ECD76@FMSMSX113.amr.corp.intel.com>
-References: <1388537594-24601-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1388537594-24601-4-git-send-email-jeffrey.t.kirsher@intel.com>
- <1389190454.2728.56.camel@deadeye.wl.decadent.org.uk>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 2/3] virtio-net: use per-receive queue page frag
+	alloc for mergeable bufs
+Date: Wed, 8 Jan 2014 19:21:04 +0200
+Message-ID: <20140108172104.GD17404@redhat.com>
+References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
+	<1387239389-13216-2-git-send-email-mwdalton@google.com>
+	<52B7F065.3010707@redhat.com>
+	<1387819627.12212.4.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131223193704.GC1582@redhat.com>
+	<CANJ5vPLEV_Z-D-0tThwhWXbHVaRWOLv566Xk1eD4TNYqNvknHw@mail.gmail.com>
+	<20131226213727.GA10259@redhat.com>
+	<1388095258.12212.37.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:27475 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755928AbaAHQua (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jan 2014 11:50:30 -0500
-In-Reply-To: <1389190454.2728.56.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
+	lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1388095258.12212.37.camel@edumazet-glaptop2.roam.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+IFNlbnQ6IFdlZG5lc2RheSwgSmFu
-dWFyeSAwOCwgMjAxNCA2OjE0IEFNDQo+IFRvOiBLaXJzaGVyLCBKZWZmcmV5IFQNCj4gQ2M6IGRh
-dmVtQGRhdmVtbG9mdC5uZXQ7IFJvc2UsIEdyZWdvcnkgVjsgbmV0ZGV2QHZnZXIua2VybmVsLm9y
-ZzsNCj4gZ29zcG9AcmVkaGF0LmNvbTsgc2Fzc21hbm5AcmVkaGF0LmNvbTsgV2lsbGlhbXMsIE1p
-dGNoIEENCj4gU3ViamVjdDogUmU6IFtuZXQtbmV4dCAzLzhdIGk0MGV2ZjogY29yZSBldGh0b29s
-IGZ1bmN0aW9uYWxpdHkNCj4gDQo+IE9uIFR1ZSwgMjAxMy0xMi0zMSBhdCAxNjo1MyAtMDgwMCwg
-SmVmZiBLaXJzaGVyIHdyb3RlOg0KPiBbLi4uXQ0KPiA+IC0tLSAvZGV2L251bGwNCj4gPiArKysg
-Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBldmYvaTQwZXZmX2V0aHRvb2wuYw0KPiBb
-Li4uXQ0KPiA+ICsjZGVmaW5lIEk0MEVWRl9RVUVVRV9TVEFUU19MRU4gXA0KPiA+ICsJKCgoc3Ry
-dWN0IGk0MGV2Zl9hZGFwdGVyICopIFwNCj4gPiArCQluZXRkZXZfcHJpdihuZXRkZXYpKS0+dnNp
-X3Jlcy0+bnVtX3F1ZXVlX3BhaXJzICogNCkNCj4gDQo+IG5ldGRldiBzaG91bGQgYmUgYSBtYWNy
-byBwYXJhbWV0ZXIsIG5vdCBqdXN0IGFzc3VtZWQgYXMgYSBsb2NhbA0KPiB2YXJpYWJsZS4NCj4g
-DQo+IFsuLi5dDQo+ID4gK3N0YXRpYyBpbnQgaTQwZXZmX2dldF9zZXR0aW5ncyhzdHJ1Y3QgbmV0
-X2RldmljZSAqbmV0ZGV2LA0KPiA+ICsJCQkgICAgICAgc3RydWN0IGV0aHRvb2xfY21kICplY21k
-KQ0KPiA+ICt7DQo+ID4gKwkvKiBJbiB0aGUgZnV0dXJlIHRoZSBWRiB3aWxsIGJlIGFibGUgdG8g
-cXVlcnkgdGhlIFBGIGZvcg0KPiA+ICsJICogc29tZSBpbmZvcm1hdGlvbiAtIGZvciBub3cgdXNl
-IGEgZHVtbXkgdmFsdWUNCj4gPiArCSAqLw0KPiA+ICsJZWNtZC0+c3VwcG9ydGVkID0gU1VQUE9S
-VEVEXzEwMDAwYmFzZVRfRnVsbDsNCj4gPiArCWVjbWQtPmF1dG9uZWcgPSBBVVRPTkVHX0RJU0FC
-TEU7DQo+ID4gKwllY21kLT50cmFuc2NlaXZlciA9IFhDVlJfRFVNTVkxOw0KPiA+ICsJZWNtZC0+
-cG9ydCA9IFBPUlRfTk9ORTsNCj4gDQo+IFRoaXMgaXMgbm90IGV2ZW4gY29uc2lzdGVudCwgYXMg
-aXRzIGNsYWltcyB0aGF0IDEwMDBCQVNFLVQgaXMgc3VwcG9ydGVkDQo+IGJ1dCBzcGVlZC9kdXBs
-ZXggYXJlIGFsd2F5cyBzZXQgdG8gMC4gIFdoeSBub3Qgc2V0IHN1cHBvcnRlZCA9IDA/DQo+IA0K
-PiA+ICsJcmV0dXJuIDA7DQo+ID4gK30NCj4gWy4uLl0NCj4gPiArc3RhdGljIGludCBpNDBldmZf
-Z2V0X3NzZXRfY291bnQoc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiwgaW50IHNzZXQpDQo+ID4g
-K3sNCj4gPiArCWlmIChzc2V0ID09IEVUSF9TU19TVEFUUykNCj4gPiArCQlyZXR1cm4gSTQwRVZG
-X1NUQVRTX0xFTjsNCj4gPiArCWVsc2UNCj4gPiArCQlyZXR1cm4gLUVOT1RTVVBQOw0KPiANCj4g
-LUVJTlZBTA0KPiANCj4gPiArfQ0KPiBbLi4uXQ0KPiA+ICtzdGF0aWMgaW50IGk0MGV2Zl9zZXRf
-Y29hbGVzY2Uoc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiwNCj4gPiArCQkJICAgICBzdHJ1Y3Qg
-ZXRodG9vbF9jb2FsZXNjZSAqZWMpDQo+ID4gK3sNCj4gPiArCXN0cnVjdCBpNDBldmZfYWRhcHRl
-ciAqYWRhcHRlciA9IG5ldGRldl9wcml2KG5ldGRldik7DQo+ID4gKwlzdHJ1Y3QgaTQwZV9odyAq
-aHcgPSAmYWRhcHRlci0+aHc7DQo+ID4gKwlzdHJ1Y3QgaTQwZV92c2kgKnZzaSA9ICZhZGFwdGVy
-LT52c2k7DQo+ID4gKwlzdHJ1Y3QgaTQwZV9xX3ZlY3RvciAqcV92ZWN0b3I7DQo+ID4gKwlpbnQg
-aTsNCj4gPiArDQo+ID4gKwlpZiAoZWMtPnR4X21heF9jb2FsZXNjZWRfZnJhbWVzIHx8IGVjLT5y
-eF9tYXhfY29hbGVzY2VkX2ZyYW1lcykNCj4gPiArCQl2c2ktPndvcmtfbGltaXQgPSBlYy0+dHhf
-bWF4X2NvYWxlc2NlZF9mcmFtZXM7DQo+IA0KPiBXaHkgaXMgdGhlIGFjdHVhbCB2YWx1ZSBvZiBl
-Yy0+cnhfbWF4X2NvYWxlc2NlZF9mcmFtZXMgaWdub3JlZCBoZXJlPw0KPiBTaG91bGQgdGhpcyBi
-ZSBtaW4oKSBvciBtYXgoKSBvZiB0aGUgdHdvIGZpZWxkcz8NCj4gDQo+ID4gKwlzd2l0Y2ggKGVj
-LT5yeF9jb2FsZXNjZV91c2Vjcykgew0KPiA+ICsJY2FzZSAwOg0KPiA+ICsJCXZzaS0+cnhfaXRy
-X3NldHRpbmcgPSAwOw0KPiA+ICsJCWJyZWFrOw0KPiA+ICsJY2FzZSAxOg0KPiA+ICsJCXZzaS0+
-cnhfaXRyX3NldHRpbmcgPSAoSTQwRV9JVFJfRFlOQU1JQw0KPiA+ICsJCQkJICAgICAgIHwgSVRS
-X1JFR19UT19VU0VDKEk0MEVfSVRSX1JYX0RFRikpOw0KPiA+ICsJCWJyZWFrOw0KPiANCj4gVGhp
-cyBsb29rcyBhIGJpdCBtYWdpYzsgd2h5IGlzIDEgdXMgaW50ZXJwcmV0ZWQgYXMgJ2R5bmFtaWMn
-IChhZGFwdGl2ZT8pDQo+IHdoZW4gdGhlcmUgaXMgYSBzZXBhcmF0ZSBmbGFnIGZvciBlbmFibGlu
-ZyBhZGFwdGl2ZSBtb2RlcmF0aW9uPw0KPiANCj4gWy4uLl0NCj4gPiArc3RhdGljIHN0cnVjdCBl
-dGh0b29sX29wcyBpNDBldmZfZXRodG9vbF9vcHMgPSB7DQo+IFsuLi5dDQo+IA0KPiBTaG91bGQg
-YmUgY29uc3QuDQo+IA0KPiBCZW4uDQo+IA0KPiAtLQ0KPiBCZW4gSHV0Y2hpbmdzLCBTdGFmZiBF
-bmdpbmVlciwgU29sYXJmbGFyZQ0KPiBOb3Qgc3BlYWtpbmcgZm9yIG15IGVtcGxveWVyOyB0aGF0
-J3MgdGhlIG1hcmtldGluZyBkZXBhcnRtZW50J3Mgam9iLg0KPiBUaGV5IGFza2VkIHVzIHRvIG5v
-dGUgdGhhdCBTb2xhcmZsYXJlIHByb2R1Y3QgbmFtZXMgYXJlIHRyYWRlbWFya2VkLg0KDQpUaGFu
-a3MgZm9yIHRoZSByZXZpZXcsIEJlbi4gIEknbGwgZ2V0IHdvcmtpbmcgb24gYWxsIG9mIHRoZSBp
-c3N1ZXMgeW91IGJyb3VnaHQgdXAgYW5kIHdlJ2xsIGdldCBzb21lIHBhdGNoZXMgb3V0IHNvb24u
-DQoNCi1NaXRjaA0K
+On Thu, Dec 26, 2013 at 02:00:58PM -0800, Eric Dumazet wrote:
+> On Thu, 2013-12-26 at 23:37 +0200, Michael S. Tsirkin wrote:
+> 
+> > Interesting. But if we can't allocate a buffer how can we
+> > do network processing?
+> 
+> How typical NIC drivers handle this case ?
+> 
+> Answer : nothing special should happen, we drop incoming traffic,
+> and make sure the driver recovers properly. (like not NULL deref or
+> crazy things like that)
+> 
+> Why virtio_net should be different ?
+
+Basically yes, we could start dropping packets immediately
+once GFP_ATOMIC allocations fail and repost the buffer to host,
+and hope memory is available by the time we get the next interrupt.
+But we wanted host to have visibility into the fact that
+we are out of memory and packets are dropped, so we did not want to
+repost.
+If we don't repost how do we know memory is finally available?
+We went for a timer based workqueue thing.
+What do you suggest?
+
+
+
+> > 
+> > If we can reproduce the problem, we can maybe move
+> > allocation out of napi disabled section, but then
+> > we'll need to add more locking.
+> 
+> More exactly, use appropriate locking ;)
+> 
