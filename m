@@ -1,94 +1,58 @@
-From: <shh.xie@gmail.com>
-Subject: [PATCH 6/6] [v5] phylib: Add of_phy_attach
-Date: Wed, 8 Jan 2014 12:28:43 +0800
-Message-ID: <1389155323-16138-1-git-send-email-shh.xie@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: xfrm: xfrm_policy: fix inline not at
+ beginning of declaration
+Date: Wed, 08 Jan 2014 00:57:53 -0500 (EST)
+Message-ID: <20140108.005753.803063221953593992.davem@davemloft.net>
+References: <1389133227-11086-1-git-send-email-dborkman@redhat.com>
+	<20140107.183412.1584306758322996233.davem@davemloft.net>
+	<20140108055536.GX31491@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Shaohui.Xie@freescale.com>, Andy Fleming <afleming@gmail.com>
-To: <davem@davemloft.net>, <jg1.han@samsung.com>,
-	<mugunthanvnm@ti.com>, <f.fainelli@gmail.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dborkman@redhat.com, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe002.messaging.microsoft.com ([65.55.88.12]:54162 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755291AbaAHF4w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 00:56:52 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:47722 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751291AbaAHF5z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 00:57:55 -0500
+In-Reply-To: <20140108055536.GX31491@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Fleming <afleming@gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Wed, 8 Jan 2014 06:55:36 +0100
 
-10G PHYs don't currently support running the state machine, which
-is implicitly setup via of_phy_connect(). Therefore, it is necessary
-to implement an OF version of phy_attach(), which does everything
-except start the state machine.
+> On Tue, Jan 07, 2014 at 06:34:12PM -0500, David Miller wrote:
+>> From: Daniel Borkmann <dborkman@redhat.com>
+>> Date: Tue,  7 Jan 2014 23:20:27 +0100
+>> 
+>> > Fix three warnings related to:
+>> > 
+>> >   net/xfrm/xfrm_policy.c:1644:1: warning: 'inline' is not at beginning of declaration [-Wold-style-declaration]
+>> >   net/xfrm/xfrm_policy.c:1656:1: warning: 'inline' is not at beginning of declaration [-Wold-style-declaration]
+>> >   net/xfrm/xfrm_policy.c:1668:1: warning: 'inline' is not at beginning of declaration [-Wold-style-declaration]
+>> > 
+>> > Just removing the inline keyword is sufficient as the compiler will
+>> > decide on its own about inlining or not.
+>> > 
+>> > Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> 
+>> Applied.
+> 
+> I have a fix for this warnings in the ipsec-next tree too:
+> 
+> commit 2f3ea9a95c58fd0e4bed18a9c9dfe53739fee3b2
+> Author: Weilong Chen <chenweilong@huawei.com>
+> Date:   Tue Dec 24 09:43:50 2013 +0800
+> 
+>     xfrm: checkpatch erros with inline keyword position
+>     
+>     Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+>     Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> 
+> 
+> Should I revert it, or do you want to solve the conflict when
+> I send the ipsec-next pull request?
 
-Signed-off-by: Andy Fleming <afleming@gmail.com>
-Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
----
-changes for v5:
-revised for opening parenthesis.
-
- drivers/of/of_mdio.c    | 20 ++++++++++++++++++++
- include/linux/of_mdio.h | 10 ++++++++++
- 2 files changed, 30 insertions(+)
-
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index d5a57a9..7f4195b 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -247,3 +247,23 @@ struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
- 	return IS_ERR(phy) ? NULL : phy;
- }
- EXPORT_SYMBOL(of_phy_connect_fixed_link);
-+
-+/**
-+ * of_phy_attach - Attach to a PHY without starting the state machine
-+ * @dev: pointer to net_device claiming the phy
-+ * @phy_np: Node pointer for the PHY
-+ * @flags: flags to pass to the PHY
-+ * @iface: PHY data interface type
-+ */
-+struct phy_device *of_phy_attach(struct net_device *dev,
-+				 struct device_node *phy_np, u32 flags,
-+				 phy_interface_t iface)
-+{
-+	struct phy_device *phy = of_phy_find_device(phy_np);
-+
-+	if (!phy)
-+		return NULL;
-+
-+	return phy_attach_direct(dev, phy, flags, iface) ? NULL : phy;
-+}
-+EXPORT_SYMBOL(of_phy_attach);
-diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
-index 8163107..6fe8464 100644
---- a/include/linux/of_mdio.h
-+++ b/include/linux/of_mdio.h
-@@ -19,6 +19,9 @@ extern struct phy_device *of_phy_connect(struct net_device *dev,
- 					 struct device_node *phy_np,
- 					 void (*hndlr)(struct net_device *),
- 					 u32 flags, phy_interface_t iface);
-+struct phy_device *of_phy_attach(struct net_device *dev,
-+				 struct device_node *phy_np, u32 flags,
-+				 phy_interface_t iface);
- extern struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
- 					 void (*hndlr)(struct net_device *),
- 					 phy_interface_t iface);
-@@ -44,6 +47,13 @@ static inline struct phy_device *of_phy_connect(struct net_device *dev,
- 	return NULL;
- }
- 
-+static inline struct phy_device *of_phy_attach(struct net_device *dev,
-+					       struct device_node *phy_np,
-+					       u32 flags, phy_interface_t iface)
-+{
-+	return NULL;
-+}
-+
- static inline struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
- 							   void (*hndlr)(struct net_device *),
- 							   phy_interface_t iface)
--- 
-1.8.4.1
+Just leave it alone, I'll take care of it at the next merge.
