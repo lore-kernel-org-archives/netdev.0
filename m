@@ -1,42 +1,43 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: Re: [PATCH net-next v5] IPv6: add the option to use anycast addresses as source addresses in echo reply
-Date: Wed, 8 Jan 2014 01:56:50 -0800 (PST)
-Message-ID: <1389175010.88819.YahooMailBasic@web125502.mail.ne1.yahoo.com>
-References: <20140107231737.GM30393@order.stressinduktion.org>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] openvswitch: Use kmem_cache_free() instead of kfree()
+Date: Wed, 8 Jan 2014 18:13:14 +0800
+Message-ID: <CAPgLHd_jaxf4jsvUzBhE_RFioHgZzvmWhA=d_J5phUOhBGy49g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Bill Fink <billfink@mindspring.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, dev@openvswitch.org,
+	netdev@vger.kernel.org
+To: jesse@nicira.com, pshelar@nicira.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm35.bullet.mail.ne1.yahoo.com ([98.138.229.28]:35015 "HELO
-	nm35.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755054AbaAHJ7s convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jan 2014 04:59:48 -0500
-In-Reply-To: <20140107231737.GM30393@order.stressinduktion.org>
+Received: from mail-bk0-f54.google.com ([209.85.214.54]:33280 "EHLO
+	mail-bk0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752932AbaAHKNQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 05:13:16 -0500
+Received: by mail-bk0-f54.google.com with SMTP id v16so607770bkz.27
+        for <netdev@vger.kernel.org>; Wed, 08 Jan 2014 02:13:15 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 1/7/14, Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-> I forgot to mention, rest of kernel followes the old RFC
-> advise to never
-> use anycast addresses as source addresses.
- 
-> I guess this will be weakend with upcoming patches so in
-> future this
-> depends on socket settings and other tweaks. If that's the
-> case default will
-> be to also respond with anycast source if original
-> destination was anycast.
- 
-The next patch will address the datagrams case.
+memory allocated by kmem_cache_alloc() should be freed using
+kmem_cache_free(), not kfree().
 
-BR
-Francois-Xavier
+Fixes: e298e5057006 ('openvswitch: Per cpu flow stats.')
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ net/openvswitch/flow_table.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
+index b430d42..c58a0fe 100644
+--- a/net/openvswitch/flow_table.c
++++ b/net/openvswitch/flow_table.c
+@@ -104,7 +104,7 @@ struct sw_flow *ovs_flow_alloc(bool percpu_stats)
+ 	}
+ 	return flow;
+ err:
+-	kfree(flow);
++	kmem_cache_free(flow_cache, flow);
+ 	return ERR_PTR(-ENOMEM);
+ }
+ 
