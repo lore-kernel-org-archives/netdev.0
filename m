@@ -1,44 +1,31 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v3.6 03/19] net: atl1: slight optimization of addr compare
-Date: Wed, 8 Jan 2014 10:53:19 +0800
-Message-ID: <52CCBD9F.2080804@huawei.com>
+From: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH v3.6 17/19] mwifiex: slight optimization of addr compare
+Date: Tue, 7 Jan 2014 19:04:15 -0800
+Message-ID: <477F20668A386D41ADCC57781B1F70430F534B5550@SC-VEXCH1.marvell.com>
+References: <52CCBDDC.1050503@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <52CCBDDC.1050503-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Use the recently added and possibly more efficient
-ether_addr_equal_unaligned to instead of memcmp.
-
-Cc: Jay Cliburn <jcliburn@gmail.com>
-Cc: Chris Snook <chris.snook@gmail.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/ethernet/atheros/atlx/atl1.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
-index 538211d..55d86ec 100644
---- a/drivers/net/ethernet/atheros/atlx/atl1.c
-+++ b/drivers/net/ethernet/atheros/atlx/atl1.c
-@@ -3122,7 +3122,8 @@ static void atl1_remove(struct pci_dev *pdev)
- 	 * from the BIOS during POST.  If we've been messing with the MAC
- 	 * address, we need to save the permanent one.
- 	 */
--	if (memcmp(adapter->hw.mac_addr, adapter->hw.perm_mac_addr, ETH_ALEN)) {
-+	if (!ether_addr_equal_unaligned(adapter->hw.mac_addr,
-+					adapter->hw.perm_mac_addr)) {
- 		memcpy(adapter->hw.mac_addr, adapter->hw.perm_mac_addr,
- 			ETH_ALEN);
- 		atl1_set_mac_addr(&adapter->hw);
--- 
-1.8.0
+SGkgRGluZywNCg0KPiAtCWlmIChtZW1jbXAocHJpdi0+Y3Vycl9ic3NfcGFyYW1zLmJzc19kZXNj
+cmlwdG9yLm1hY19hZGRyZXNzLA0KPiAtCQkgICBpYnNzX2NvYWxfcmVzcC0+YnNzaWQsIEVUSF9B
+TEVOKSkgew0KPiArCWlmICghZXRoZXJfYWRkcl9lcXVhbChwcml2LT5jdXJyX2Jzc19wYXJhbXMu
+YnNzX2Rlc2NyaXB0b3IubWFjX2FkZHJlc3MsIGlic3NfY29hbF9yZXNwLT5ic3NpZCkpDQoNClN0
+aWxsIHdyb25nLi4uIDspDQoNCkhhdmUgeW91IGFjdHVhbGx5IHJ1biB0aGUgY2hlY2twYXRjaC5w
+bCBzY3JpcHQ/DQoNCkJ5IHRoZSB3YXksIHlvdXIgc3ViamVjdCBwcmVmaXggIlBBVENIIHYzLjYi
+IGlzIGNvbmZ1c2luZy4gSXQgb3VnaHQgdG8gYmUgIlBBVENIIHY2IiwgSSBndWVzcy4NCg0KVGhh
+bmtzLA0KQmluZw0KDQo=
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
