@@ -1,51 +1,73 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IPv6: Bug in net-next
-Date: Wed, 8 Jan 2014 15:04:00 +0100
-Message-ID: <20140108140400.GH9007@order.stressinduktion.org>
-References: <1389187126.20074.YahooMailBasic@web125504.mail.ne1.yahoo.com> <1389188139.44648.YahooMailBasic@web125506.mail.ne1.yahoo.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] netfilter: nf_conntrack: fix RCU race in
+ nf_conntrack_find_get
+Date: Wed, 8 Jan 2014 15:04:44 +0100
+Message-ID: <20140108140444.GH9894@breakpoint.cc>
+References: <1389090711-15843-1-git-send-email-avagin@openvz.org>
+ <1389107305.26646.20.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140107152520.GF9894@breakpoint.cc>
+ <1389188536.26646.84.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: =?utf-8?Q?Fran=C3=A7ois-Xavier?= Le Bail <fx.lebail@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:48311 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756221AbaAHOEB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 09:04:01 -0500
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, Andrey Vagin <avagin@openvz.org>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, vvs@openvz.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cyrill Gorcunov <gorcunov@openvz.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1389188139.44648.YahooMailBasic@web125506.mail.ne1.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1389188536.26646.84.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 08, 2014 at 05:35:39AM -0800, Fran=C3=A7ois-Xavier Le Bail =
-wrote:
-> On Wed, 1/8/14, Fran=C3=A7ois-Xavier Le Bail <fx.lebail@yahoo.com> wr=
-ote:
->=20
-> > > I think there is a bug in actual net-next.
->  =20
-> > > When I execute this code and press Crtl-C, all the IPv6
-> > > Link-Layer addresses are deleted.
->  =20
-> > > This happened between
-> > > c1ddf295f5183a5189196a8035546842caa2055a and HEAD.
->  =20
-> > > [...]
-> =20
-> > Sorry, it is not linked to this code.
-> > I'm looking for the reason ...
-> =20
-> It seems that the valid lifetime and preferred lft are set to 0 sec f=
-or autoconfigured LLA.
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > This will also set up a null-binding when no matching SNAT/DNAT/MASQERUADE
+> > rule existed.
+> > 
+> > The manipulations of the skb->nfct->ext nat area are performed without
+> > a lock.  Concurrent access is supposedly impossible as the conntrack
+> > should not (yet) be in the hash table.
+> > 
+> > The confirmed bit is set right before we insert the conntrack into
+> > the hash table (after we traversed rules, ct is ready to be
+> > 'published').
+> > 
+> > i.e. when the confirmed bit is NOT set we should not be 'seeing' the nf_conn
+> > struct when we perform the lookup, as it should still be sitting on the
+> > 'unconfirmed' list, being invisible to readers.
+> > 
+> > Does that explanation make sense to you?
+> > 
+> > Thanks for looking into this.
+> 
+> Still, this patch adds a loop. And maybe an infinite one if confirmed
+> bit is set from an context that was interrupted by this one.
 
-Grrr, I guess we should switch in addrconf_add_linklocal to call ipv6_a=
-dd_addr
-with INFINITY_LIFE_TIME preferred and valid lft. IFA_PERMANENT may now =
-expire,
-too since commit fad8da3e0 ("ipv6 addrconf: fix preferred lifetime
-state-changing behavior while valid_lft is infinity").
+Hmm.  There should be at most one retry.
 
-Greetings,
+The confirmed bit should always be set here.
+If it isn't then this conntrack shouldn't be in the hash table, i.e.
+when we re-try we should find the same conntrack again with the bit set.
 
-  Hannes
+Asuming the other cpu git interrupted after setting confirmed
+bit but before inserting it into the hash table, then our re-try
+should not be able find a matching entry.
+
+Maybe I am missing something, but I don't see how we could (upon
+retry) find the very same entry again with the bit still not set.
+
+> If you need to test the confirmed bit, then you also need to test it
+> before taking the refcount.
+
+I don't think that would make sense, because it should always be
+set (inserting conntrack into hash table without confirmed set is
+illegal, and it is never unset again).
+
+[ when allocating a new conntrack, ct->status is zeroed, which also
+  clears the flag.  This happens just before we set the new objects
+  refcount to 1 ]
