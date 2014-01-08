@@ -1,62 +1,40 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next 4/8] i40evf: virtual channel interface
-Date: Wed, 8 Jan 2014 14:16:30 +0000
-Message-ID: <1389190590.2728.58.camel@deadeye.wl.decadent.org.uk>
-References: <1388537594-24601-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1388537594-24601-5-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH -next] openvswitch: Use kmem_cache_free()
+	instead of kfree()
+Date: Wed, 8 Jan 2014 09:17:11 -0500
+Message-ID: <CAEP_g=9HVB0UkajKesyC8Dkj=0ts3kExbhhHKj2wrjx9RymEog@mail.gmail.com>
+References: <CAPgLHd_jaxf4jsvUzBhE_RFioHgZzvmWhA=d_J5phUOhBGy49g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, Greg Rose <gregory.v.rose@intel.com>,
-	<netdev@vger.kernel.org>, <gospo@redhat.com>,
-	<sassmann@redhat.com>,
-	"Mitch Williams" <mitch.a.williams@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:29512 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755928AbaAHOQe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 09:16:34 -0500
-In-Reply-To: <1388537594-24601-5-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
+To: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAPgLHd_jaxf4jsvUzBhE_RFioHgZzvmWhA=d_J5phUOhBGy49g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-12-31 at 16:53 -0800, Jeff Kirsher wrote:
-[...]
-> --- /dev/null
-> +++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-[...]
-> +void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
-> +				enum i40e_virtchnl_ops v_opcode,
-> +				i40e_status v_retval,
-> +				u8 *msg, u16 msglen)
-> +{
-> +	struct net_device *netdev = adapter->netdev;
-> +
-> +	if (v_opcode == I40E_VIRTCHNL_OP_EVENT) {
-> +		struct i40e_virtchnl_pf_event *vpe =
-> +			(struct i40e_virtchnl_pf_event *)msg;
-> +		switch (vpe->event) {
-> +		case I40E_VIRTCHNL_EVENT_LINK_CHANGE:
-> +			adapter->link_up =
-> +				vpe->event_data.link_event.link_status;
-> +			if (adapter->link_up && !netif_carrier_ok(netdev)) {
-> +				dev_info(&adapter->pdev->dev, "NIC Link is Up\n");
-> +				netif_carrier_on(netdev);
-> +				netif_tx_wake_all_queues(netdev);
-> +			} else if (!adapter->link_up) {
-> +				dev_info(&adapter->pdev->dev, "NIC Link is Down\n");
-> +				netif_carrier_off(netdev);
-> +				netif_tx_stop_all_queues(netdev);
-> +			}
-[...]
+On Wed, Jan 8, 2014 at 5:13 AM, Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
+>
+> memory allocated by kmem_cache_alloc() should be freed using
+> kmem_cache_free(), not kfree().
+>
+> Fixes: e298e5057006 ('openvswitch: Per cpu flow stats.')
+> Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
 
-The queue start/stop here should be redundant as linkwatch will do it
-automatically.
+Good catch, thanks.
 
-Ben.
+I'll let David pick this up directly since I just flushed my patch queue.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Acked-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
