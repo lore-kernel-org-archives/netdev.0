@@ -1,61 +1,59 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next 1/8] i40evf: main driver core
-Date: Wed, 8 Jan 2014 14:20:32 +0000
-Message-ID: <1389190832.2728.60.camel@deadeye.wl.decadent.org.uk>
-References: <1388537594-24601-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1388537594-24601-2-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
+Subject: [PATCH net-next] packet: doc: how to PACKET_MMAP with one packet
+ socket for rx and tx
+Date: Wed, 08 Jan 2014 15:23:00 +0100
+Message-ID: <52CD5F44.2090307@aimvalley.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, Greg Rose <gregory.v.rose@intel.com>,
-	<netdev@vger.kernel.org>, <gospo@redhat.com>,
-	<sassmann@redhat.com>,
-	"Mitch Williams" <mitch.a.williams@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:18508 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756013AbaAHOUf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 09:20:35 -0500
-In-Reply-To: <1388537594-24601-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mika.eatserver.nl ([195.20.9.75]:52164 "EHLO mika.eatserver.nl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755361AbaAHOXG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jan 2014 09:23:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-12-31 at 16:53 -0800, Jeff Kirsher wrote:
-[...]
-> +static int i40evf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
-> +{
-> +	struct net_device *netdev;
-> +	struct i40evf_adapter *adapter = NULL;
-> +	struct i40e_hw *hw = NULL;
-> +	int err, pci_using_dac;
-> +
-> +	err = pci_enable_device(pdev);
-> +	if (err)
-> +		return err;
-> +
-> +	if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(64))) {
-> +		pci_using_dac = true;
-> +		/* coherent mask for the same size will always succeed if
-> +		 * dma_set_mask does
-> +		 */
-> +		dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
-> +	} else if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(32))) {
-> +		pci_using_dac = false;
-> +		dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
-> +	} else {
-> +		dev_err(&pdev->dev, "%s: DMA configuration failed: %d\n",
-> +			 __func__, err);
-> +		err = -EIO;
-> +		goto err_dma;
-> +	}
-[...]
 
-Should use dma_set_mask_and_coherent().
+Describe how to use one AF_PACKET socket for rx and tx.
 
-Ben.
+Cc: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
+---
+  Documentation/networking/packet_mmap.txt |   14 ++++++++++++++
+  1 files changed, 14 insertions(+), 0 deletions(-)
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/Documentation/networking/packet_mmap.txt b/Documentation/networking/packet_mmap.txt
+index 723bf3d..2503a5a 100644
+--- a/Documentation/networking/packet_mmap.txt
++++ b/Documentation/networking/packet_mmap.txt
+@@ -98,6 +98,11 @@ by the kernel.
+  The destruction of the socket and all associated resources
+  is done by a simple call to close(fd).
+
++As without PACKET_MMAP, it is possible to use one socket for
++capture and transmission. This can be done by mapping the
++allocated RX and TX buffer ring with a single mmap() call. See
++"Mapping and use of the circular buffer (ring)".
++
+  Next I will describe PACKET_MMAP settings and its constraints,
+  also the mapping of the circular buffer in the user process and
+  the use of this buffer.
+@@ -414,6 +419,15 @@ tp_block_size/tp_frame_size frames there will be a gap between
+  the frames. This is because a frame cannot be spawn across two
+  blocks.
+
++To use one socket for capture and transmission, the mapping of both the RX
++and TX buffer ring has to be done with one call to mmap:
++
++    rx_ring = mmap(0, size * 2, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
++    tx_ring = rx_ring + size;
++
++RX must be the first as the kernel maps the TX ring memory right after
++the RX one.
++
+  At the beginning of each frame there is an status field (see
+  struct tpacket_hdr). If this field is 0 means that the frame is ready
+  to be used for the kernel, If not, there is a frame the user can read
