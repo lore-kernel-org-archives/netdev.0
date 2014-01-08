@@ -1,88 +1,78 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH ethtool] ethtool: Accept long feature names reported by -k
- option as input to -K option
-Date: Wed, 8 Jan 2014 21:52:11 +0000
-Message-ID: <1389217931.1644.44.camel@bwh-desktop.uk.level5networks.com>
+From: Debabrata Banerjee <dbavatar@gmail.com>
+Subject: Re: [PATCH net-next v2 1/4] net: allow > 0 order atomic page alloc in
+	skb_page_frag_refill
+Date: Wed, 8 Jan 2014 16:54:05 -0500
+Message-ID: <CAATkVEypFGfXuiBwFacOMjAWyYmLXHiihdpQfJp+CRFEZJagyg@mail.gmail.com>
+References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
+	<20140108180829.GB18162@redhat.com>
+	<1389205563.31367.1.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140108191803.GB18312@redhat.com>
+	<1389210371.31367.8.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Or Gerlitz <or.gerlitz@gmail.com>,
-	Bill Fink <billfink@mindspring.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:64643 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751668AbaAHVwQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 16:52:16 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Michael Dalton <mwdalton@google.com>, "Michael S. Tsirkin" <mst@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	jbaron@akamai.com, virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>, Joshua Hunt <johunt@akamai.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1389210371.31367.8.camel@edumazet-glaptop2.roam.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Before the generic features API was introduced, the ethtool -K option
-took short names for various features, e.g. 'gso' but the -k option
-reported their state using longer names,
-e.g. 'generic-segmentation-offload'.
+On Wed, Jan 8, 2014 at 2:46 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2014-01-08 at 21:18 +0200, Michael S. Tsirkin wrote:
+>> On Wed, Jan 08, 2014 at 10:26:03AM -0800, Eric Dumazet wrote:
+>> > On Wed, 2014-01-08 at 20:08 +0200, Michael S. Tsirkin wrote:
+>> >
+>> > > Eric said we also need a patch to add __GFP_NORETRY, right?
+>> > > Probably before this one in series.
+>> >
+>> > Nope, this __GFP_NORETRY has nothing to do with this.
+>> >
+>> > I am not yet convinced we want it.
+>> >
+>> > This needs mm guys advice, as its a tradeoff for mm layer more than
+>> > networking...
+>>
+>> Well maybe Cc linux-mm then?
+>
+> Well, I do not care of people mlocking the memory and complaining that
+> compaction does not work.
+>
+> If these people care, they should contact mm guys, eventually.
+>
+> Really this is an issue that has nothing to do with this patch set.
+>
 
-All newer features have a single kernel-provided name so input
-and output are consistent.  But the old features still aren't, and
-although their short names are documented it's not good to have
-these exceptions.
+Actually I have more data on this:
 
-Change the argument parsing code for -K so that the long names
-reported by -k are also accepted.
+1. __GFP_NORETRY really does help and should go into stable tree.
 
-Reported-by: Or Gerlitz <or.gerlitz@gmail.com>
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
-This turned out to be pretty easy to do as the argument processing is
-all table-driven already.  I'll push this if it works for you.
+2. You may want to consider GFP_NOKSWAPD, because even in the
+GFP_ATOMIC case you are waking up kswapd to do reclaims on a
+continuous basis even when you don't enter direct reclaim.
 
-Ben.
+3. mlocking memory had very little to do with it, that was a
+red-herring. I tested out the problem scenario with no mlocks. You
+simply need memory pressure from page_cache, and mm ends up constantly
+reclaiming and trying to keep another 1-2GB free on our systems (8GB
+phys ~4GB left for kernel, ~3GB optimally used for page_cache).
 
- ethtool.c | 16 +++++++++++-----
- 1 file changed, 11 insertions(+), 5 deletions(-)
+4. I think perhaps using a kmem_cache allocation for this buffer is
+the right way to make this work. I am experimenting with a patch to do
+this.
 
-diff --git a/ethtool.c b/ethtool.c
-index b06dfa3..4226d2e 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -2053,25 +2053,31 @@ static int do_sfeatures(struct cmd_context *ctx)
- 	/* Generate cmdline_info for legacy flags and kernel-named
- 	 * features, and parse our arguments.
- 	 */
--	cmdline_features = calloc(ARRAY_SIZE(off_flag_def) + defs->n_features,
-+	cmdline_features = calloc(2 * ARRAY_SIZE(off_flag_def) +
-+				  defs->n_features,
- 				  sizeof(cmdline_features[0]));
- 	if (!cmdline_features) {
- 		perror("Cannot parse arguments");
- 		return 1;
- 	}
--	for (i = 0; i < ARRAY_SIZE(off_flag_def); i++)
-+	for (i = 0; i < ARRAY_SIZE(off_flag_def); i++) {
- 		flag_to_cmdline_info(off_flag_def[i].short_name,
- 				     off_flag_def[i].value,
- 				     &off_flags_wanted, &off_flags_mask,
--				     &cmdline_features[i]);
-+				     &cmdline_features[2 * i]);
-+		flag_to_cmdline_info(off_flag_def[i].long_name,
-+				     off_flag_def[i].value,
-+				     &off_flags_wanted, &off_flags_mask,
-+				     &cmdline_features[2 * i] + 1);
-+	}
- 	for (i = 0; i < defs->n_features; i++)
- 		flag_to_cmdline_info(
- 			defs->def[i].name, FEATURE_FIELD_FLAG(i),
- 			&FEATURE_WORD(efeatures->features, i, requested),
- 			&FEATURE_WORD(efeatures->features, i, valid),
--			&cmdline_features[ARRAY_SIZE(off_flag_def) + i]);
-+			&cmdline_features[2 * ARRAY_SIZE(off_flag_def) + i]);
- 	parse_generic_cmdline(ctx, &any_changed, cmdline_features,
--			      ARRAY_SIZE(off_flag_def) + defs->n_features);
-+			      2 * ARRAY_SIZE(off_flag_def) + defs->n_features);
- 	free(cmdline_features);
- 
- 	if (!any_changed) {
+-Debabrata
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+-Debabrata
