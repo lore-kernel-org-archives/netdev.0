@@ -1,61 +1,58 @@
-From: Sam <miaousami@hotmail.com>
-Subject: Re: Bug: alx: Atheros AR8131/AR8151/AR8152/AR8161 Ethernet driver
-Date: Wed, 8 Jan 2014 22:53:58 +0000 (UTC)
-Message-ID: <loom.20140108T235222-960@post.gmane.org>
-References: <CACtZaFJZCWigdT6_vsP9BTRSORzumu33xUtyPtpiDuNn3DQi+w@mail.gmail.com> <20130805225752.14e843f7@nehalam.linuxnetplumber.net> <CACtZaF+nTHiZ03uebya92b=UVLBXAk9jnM-=Pp3GQ6oSNv8ndA@mail.gmail.com> <1375785799.4457.81.camel@edumazet-glaptop> <1375788758.8219.13.camel@jlt4.sipsolutions.net> <1375790821.4457.90.camel@edumazet-glaptop> <CACtZaF+aamW_0P2O1zSGLWHmichAZKb96pC4GCCVZZXJsh8Y7g@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2 2/5] tcp: metrics: Add source-address to
+ tcp-metrics
+Date: Wed, 08 Jan 2014 15:13:46 -0800
+Message-ID: <1389222826.31367.28.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1389193559-16756-1-git-send-email-christoph.paasch@uclouvain.be>
+	 <1389193559-16756-3-git-send-email-christoph.paasch@uclouvain.be>
+	 <1389203751.26646.100.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140108224344.GE4700@cpaasch-mac>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Yuchung Cheng <ycheng@google.com>, Julian Anastasov <ja@ssi.bg>
+To: Christoph Paasch <christoph.paasch@uclouvain.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:34978 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757758AbaAHXAL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jan 2014 18:00:11 -0500
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1W126W-0003Ji-By
-	for netdev@vger.kernel.org; Thu, 09 Jan 2014 00:00:04 +0100
-Received: from ras75-9-83-157-52-228.fbx.proxad.net ([83.157.52.228])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 00:00:04 +0100
-Received: from miaousami by ras75-9-83-157-52-228.fbx.proxad.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 00:00:04 +0100
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:56444 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757101AbaAHXNf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 18:13:35 -0500
+Received: by mail-pb0-f51.google.com with SMTP id up15so2205529pbc.38
+        for <netdev@vger.kernel.org>; Wed, 08 Jan 2014 15:13:35 -0800 (PST)
+In-Reply-To: <20140108224344.GE4700@cpaasch-mac>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kinley Dorji <kinleyd <at> gmail.com> writes:
+On Wed, 2014-01-08 at 23:43 +0100, Christoph Paasch wrote:
+> Hello Eric,
+> 
+> On 08/01/14 - 09:55:51, Eric Dumazet wrote:
+> > On Wed, 2014-01-08 at 16:05 +0100, Christoph Paasch wrote:
+> > > We add the source-address to the tcp-metrics, so that different metrics
+> > > will be used per source/destination-pair. We use the destination-hash to
+> > > store the metric inside the hash-table. That way, deleting and dumping
+> > > via "ip tcp_metrics" is easy.
+> > 
+> > Note that this has the following problem :
+> > 
+> > Some applications use a set of source IP addresses to overcome the 64K
+> > port limitation.
+> 
+> Ok, did not know about that.
+> 
+> > tcp_metrics uses a hard-coded TCP_METRICS_RECLAIM_DEPTH value of 5,
+> > meaning that cache wont be able to store more than 5 source IP addresses
+> > (reaching one particular remote IP).
+> 
+> Maybe we could do something like the below (yet untested). That way we allow
+> up to 32 entries with the same destination but different source and still
+> only 5 with different destinations.
+> 
+> I guess 32 * 64K connections is enough. :)
+> We could also make TCP_METRICS_RECLAIM_DEPTH(_DST) a tunable.
 
-> 
->  <at> Johannes Berg: > don't really care much for the
-> > stats in the system I'm using this device on - and based on the driver
-> > I'm not sure I'd use the chip for 'serious' work anyway :)
-> 
-> OTOH, conky users love having the stats up, even if they aren't precise. :)
-> 
-> There's one other point:
-> 
-> Before the mainlining of the alx drivers, the default settings for
-> Wake-on used to be d, whereas now it seems to be pg. This startled me
-> a couple of times with my computer turning on unexpectedly, having
-> been used to the previous defaults. Just FYI.
-> 
-> Other than that, I would like thank you all very much for your quick
-> responses and I look forward to having the stats code restored to the
-> alx drivers.
-> 
-> With best regards,
-> 
-> Kinley
-> 
-
-
-Hi guys,
-
-I am experiencing this bug on a 3.11 kernel.
-Can you tell me if the fix has been released upstream? in which kernel version?
-
-Thanks
-Regards
+Well, not sure if this is a problem anyway, and if we want extra
+complexity for this rare use case, considering tcp metrics for
+high number of flows sharing a common path is unlikely to be useful
+(with exception of Fast Open, but again it must be rare)
