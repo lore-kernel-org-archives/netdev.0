@@ -1,56 +1,42 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] xen-netback: stop vif thread spinning if
- frontend is unresponsive
-Date: Wed, 8 Jan 2014 09:55:13 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D45508D@AcuExch.aculab.com>
-References: <1389111929-37231-1-git-send-email-paul.durrant@citrix.com>
- <20140107.162956.1062166230525232035.davem@davemloft.net>
+From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+Subject: Re: [PATCH net-next v5] IPv6: add the option to use anycast addresses as source addresses in echo reply
+Date: Wed, 8 Jan 2014 01:56:50 -0800 (PST)
+Message-ID: <1389175010.88819.YahooMailBasic@web125502.mail.ne1.yahoo.com>
+References: <20140107231737.GM30393@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"wei.liu2@citrix.com" <wei.liu2@citrix.com>,
-	"ian.campbell@citrix.com" <ian.campbell@citrix.com>,
-	"david.vrabel@citrix.com" <david.vrabel@citrix.com>
-To: 'David Miller' <davem@davemloft.net>,
-	"paul.durrant@citrix.com" <paul.durrant@citrix.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Bill Fink <billfink@mindspring.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:55905 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754477AbaAHJ5A convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 04:57:00 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 24201-09 for <netdev@vger.kernel.org>;
- Wed,  8 Jan 2014 09:56:55 +0000 (GMT)
-In-Reply-To: <20140107.162956.1062166230525232035.davem@davemloft.net>
-Content-Language: en-US
+Received: from nm35.bullet.mail.ne1.yahoo.com ([98.138.229.28]:35015 "HELO
+	nm35.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755054AbaAHJ7s convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jan 2014 04:59:48 -0500
+In-Reply-To: <20140107231737.GM30393@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: David Miller
-...
-> > -	if (!npo.copy_prod)
-> > +	if (!npo.copy_prod) {
-> > +		if (ring_full)
-> > +			vif->rx_queue_stopped = true;
-> >  		goto done;
-> > +	}
-> > +
-> > +	vif->rx_queue_stopped = false;
-> 
-> And then you can code this as:
-> 
-> 	vif->rx_queue_stopped = (!npo.copy_prod && ring_full);
-> 	if (!npo.copy_prod)
-> 		goto done;
+On Tue, 1/7/14, Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
 
-Which isn't quite the same...
-1) It always writes vif->rx_queue_stopped, the old code could
-   leave it unchanged.
-2) If 'npo' is global then the compiler can't assume that 'vif'
-   doesn't alias it so may have to re-read it following the
-   write to 'vif->rx_queue_stopped'.
+> I forgot to mention, rest of kernel followes the old RFC
+> advise to never
+> use anycast addresses as source addresses.
+ 
+> I guess this will be weakend with upcoming patches so in
+> future this
+> depends on socket settings and other tweaks. If that's the
+> case default will
+> be to also respond with anycast source if original
+> destination was anycast.
+ 
+The next patch will address the datagrams case.
 
-	David
+BR
+Francois-Xavier
