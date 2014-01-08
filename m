@@ -1,49 +1,54 @@
 From: Masatake YAMATO <yamato@redhat.com>
-Subject: [PATCH 2/3] ss: enable query by type in unix domain related socket
-Date: Wed,  8 Jan 2014 20:13:47 +0900
-Message-ID: <1389179628-22147-2-git-send-email-yamato@redhat.com>
+Subject: [PATCH 3/3] ss: add unix_seqpacket to the help message and the man page
+Date: Wed,  8 Jan 2014 20:13:48 +0900
+Message-ID: <1389179628-22147-3-git-send-email-yamato@redhat.com>
 References: <1389179628-22147-1-git-send-email-yamato@redhat.com>
 Cc: yamato@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52192 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:62065 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755903AbaAHLOL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jan 2014 06:14:11 -0500
+	id S1755351AbaAHLON (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jan 2014 06:14:13 -0500
 Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s08BEApo008436
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s08BEDIn008444
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 8 Jan 2014 06:14:11 -0500
+	for <netdev@vger.kernel.org>; Wed, 8 Jan 2014 06:14:13 -0500
 In-Reply-To: <1389179628-22147-1-git-send-email-yamato@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables -A unix_stream, -A unix_dgram and
--A unix_seqpacket option even if ss gets socket information
-via netlink.
-
 Signed-off-by: Masatake YAMATO <yamato@redhat.com>
 ---
- misc/ss.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ man/man8/ss.8 | 2 +-
+ misc/ss.c     | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
+diff --git a/man/man8/ss.8 b/man/man8/ss.8
+index e55dd0c..807d9dc 100644
+--- a/man/man8/ss.8
++++ b/man/man8/ss.8
+@@ -87,7 +87,7 @@ Currently the following families are supported: unix, inet, inet6, link, netlink
+ .B \-A QUERY, \-\-query=QUERY, \-\-socket=QUERY
+ List of socket tables to dump, separated by commas. The following identifiers
+ are understood: all, inet, tcp, udp, raw, unix, packet, netlink, unix_dgram,
+-unix_stream, packet_raw, packet_dgram.
++unix_stream, unix_seqpacket, packet_raw, packet_dgram.
+ .TP
+ .B \-D FILE, \-\-diag=FILE
+ Do not display anything, just dump raw information about TCP sockets to FILE after applying filters. If FILE is - stdout is used.
 diff --git a/misc/ss.c b/misc/ss.c
-index bac1f9e..cea3f2e 100644
+index cea3f2e..675f7c5 100644
 --- a/misc/ss.c
 +++ b/misc/ss.c
-@@ -2205,6 +2205,13 @@ static int unix_show_sock(struct nlmsghdr *nlh, struct filter *f)
- 	parse_rtattr(tb, UNIX_DIAG_MAX, (struct rtattr*)(r+1),
- 		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
- 
-+	if (r->udiag_type == SOCK_STREAM && !(f->dbs&(1<<UNIX_ST_DB)))
-+		return 0;
-+	if (r->udiag_type == SOCK_DGRAM && !(f->dbs&(1<<UNIX_DG_DB)))
-+		return 0;
-+	if (r->udiag_type == SOCK_SEQPACKET && !(f->dbs&(1<<UNIX_SQ_DB)))
-+		return 0;
-+
- 	if (netid_width)
- 		printf("%-*s ", netid_width,
- 		       		unix_netid_name(r->udiag_type));
+@@ -3072,7 +3072,7 @@ static void _usage(FILE *dest)
+ "   -f, --family=FAMILY display sockets of type FAMILY\n"
+ "\n"
+ "   -A, --query=QUERY, --socket=QUERY\n"
+-"       QUERY := {all|inet|tcp|udp|raw|unix|packet|netlink}[,QUERY]\n"
++"       QUERY := {all|inet|tcp|udp|raw|unix|unix_dgram|unix_stream|unix_seqpacket|packet|netlink}[,QUERY]\n"
+ "\n"
+ "   -D, --diag=FILE     Dump raw information about TCP sockets to FILE\n"
+ "   -F, --filter=FILE   read filter information from FILE\n"
 -- 
 1.8.4.2
