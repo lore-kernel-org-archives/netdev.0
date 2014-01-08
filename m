@@ -1,71 +1,35 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next] packet: doc: how to PACKET_MMAP with one packet
- socket for rx and tx
-Date: Wed, 08 Jan 2014 15:29:38 +0100
-Message-ID: <52CD60D2.5040608@redhat.com>
-References: <52CD5F44.2090307@aimvalley.nl>
+From: "Simon Schneider" <simon-schneider@gmx.net>
+Subject: DSCP of ICMPv6 Echo Reply not copied from Echo Request
+Date: Wed, 8 Jan 2014 15:34:42 +0100 (CET)
+Message-ID: <trinity-4fd0752d-8ed9-432f-aa23-28055f886c4a-1389191682248@3capp-gmx-bs32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38960 "EHLO mx1.redhat.com"
+Received: from mout.gmx.net ([212.227.17.21]:57999 "EHLO mout.gmx.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755121AbaAHO3n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jan 2014 09:29:43 -0500
-In-Reply-To: <52CD5F44.2090307@aimvalley.nl>
+	id S1751069AbaAHOen convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 09:34:43 -0500
+Received: from 3capp-gmx-bs32.server.lan ([172.19.170.84]) by
+ mrigmx.server.lan (mrigmx002) with ESMTP (Nemesis) id
+ 0MCeiK-1WADce290E-009U3i for <netdev@vger.kernel.org>; Wed, 08 Jan 2014
+ 15:34:42 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/08/2014 03:23 PM, Norbert van Bolhuis wrote:
->
-> Describe how to use one AF_PACKET socket for rx and tx.
->
-> Cc: Daniel Borkmann <dborkman@redhat.com>
-> Signed-off-by: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
-> ---
->   Documentation/networking/packet_mmap.txt |   14 ++++++++++++++
->   1 files changed, 14 insertions(+), 0 deletions(-)
->
-> diff --git a/Documentation/networking/packet_mmap.txt b/Documentation/networking/packet_mmap.txt
-> index 723bf3d..2503a5a 100644
-> --- a/Documentation/networking/packet_mmap.txt
-> +++ b/Documentation/networking/packet_mmap.txt
-> @@ -98,6 +98,11 @@ by the kernel.
->   The destruction of the socket and all associated resources
->   is done by a simple call to close(fd).
->
-> +As without PACKET_MMAP, it is possible to use one socket for
-> +capture and transmission. This can be done by mapping the
-> +allocated RX and TX buffer ring with a single mmap() call. See
-> +"Mapping and use of the circular buffer (ring)".
-> +
->   Next I will describe PACKET_MMAP settings and its constraints,
->   also the mapping of the circular buffer in the user process and
->   the use of this buffer.
-> @@ -414,6 +419,15 @@ tp_block_size/tp_frame_size frames there will be a gap between
->   the frames. This is because a frame cannot be spawn across two
->   blocks.
->
-> +To use one socket for capture and transmission, the mapping of both the RX
-> +and TX buffer ring has to be done with one call to mmap:
 
-As this caused some confusion in the past for some people, it would be
-great to mention here in this example also:
-
-        ...
-        setsockopt(fd, SOL_PACKET, PACKET_RX_RING, &foo, sizeof(foo));
-        setsockopt(fd, SOL_PACKET, PACKET_TX_RING, &bar, sizeof(bar));
-        ...
-> +    rx_ring = mmap(0, size * 2, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-> +    tx_ring = rx_ring + size;
-> +
-> +RX must be the first as the kernel maps the TX ring memory right after
-> +the RX one.
-
-Otherwise looks perfect!
-
->   At the beginning of each frame there is an status field (see
->   struct tpacket_hdr). If this field is 0 means that the frame is ready
->   to be used for the kernel, If not, there is a frame the user can read
+Hi,
+with kernel version 2.6.33.32, I noticed for ping6 that the DSCP value =
+of an Echo Request is not used for the corresponding Echo Reply.
+=C2=A0
+With ICMPv4, this is the case and I think it makes sense.
+=C2=A0
+This is not mandated by ICMP RFCs, but there are good reasons to use th=
+e same DSCP in both directions.
+=C2=A0
+Is there a specific reason for this difference between v4 and v6?
+=C2=A0
+Or was it even fixed in some newer kernel version?
+=C2=A0
+best regards, Simon
