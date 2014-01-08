@@ -1,73 +1,33 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] netfilter: nf_conntrack: fix RCU race in
- nf_conntrack_find_get
-Date: Wed, 8 Jan 2014 15:04:44 +0100
-Message-ID: <20140108140444.GH9894@breakpoint.cc>
-References: <1389090711-15843-1-git-send-email-avagin@openvz.org>
- <1389107305.26646.20.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140107152520.GF9894@breakpoint.cc>
- <1389188536.26646.84.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v3 1/9] xen-netback: Introduce TX grant map definitions
+Date: Wed, 8 Jan 2014 14:08:02 +0000
+Message-ID: <52CD5BC2.5020803@citrix.com>
+References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com>	<1389139818-24458-2-git-send-email-zoltan.kiss@citrix.com> <20140107.202951.729942261773265015.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, Andrey Vagin <avagin@openvz.org>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vvs@openvz.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cyrill Gorcunov <gorcunov@openvz.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1389188536.26646.84.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <20140107.202951.729942261773265015.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > This will also set up a null-binding when no matching SNAT/DNAT/MASQERUADE
-> > rule existed.
-> > 
-> > The manipulations of the skb->nfct->ext nat area are performed without
-> > a lock.  Concurrent access is supposedly impossible as the conntrack
-> > should not (yet) be in the hash table.
-> > 
-> > The confirmed bit is set right before we insert the conntrack into
-> > the hash table (after we traversed rules, ct is ready to be
-> > 'published').
-> > 
-> > i.e. when the confirmed bit is NOT set we should not be 'seeing' the nf_conn
-> > struct when we perform the lookup, as it should still be sitting on the
-> > 'unconfirmed' list, being invisible to readers.
-> > 
-> > Does that explanation make sense to you?
-> > 
-> > Thanks for looking into this.
-> 
-> Still, this patch adds a loop. And maybe an infinite one if confirmed
-> bit is set from an context that was interrupted by this one.
+On 08/01/14 01:29, David Miller wrote:
+>> +static inline int tx_dealloc_work_todo(struct xenvif *vif)
+>
+> Make this return bool.
+Done, also in the last patch.
 
-Hmm.  There should be at most one retry.
+>> +		wait_event_interruptible(vif->dealloc_wq,
+>> +					tx_dealloc_work_todo(vif) ||
+>> +					 kthread_should_stop());
+>
+> Inconsistent indentation.  You should make the arguments line up at
+> exactly the first column after the openning parenthesis of the function
+> call.
+Done, thanks.
 
-The confirmed bit should always be set here.
-If it isn't then this conntrack shouldn't be in the hash table, i.e.
-when we re-try we should find the same conntrack again with the bit set.
-
-Asuming the other cpu git interrupted after setting confirmed
-bit but before inserting it into the hash table, then our re-try
-should not be able find a matching entry.
-
-Maybe I am missing something, but I don't see how we could (upon
-retry) find the very same entry again with the bit still not set.
-
-> If you need to test the confirmed bit, then you also need to test it
-> before taking the refcount.
-
-I don't think that would make sense, because it should always be
-set (inserting conntrack into hash table without confirmed set is
-illegal, and it is never unset again).
-
-[ when allocating a new conntrack, ct->status is zeroed, which also
-  clears the flag.  This happens just before we set the new objects
-  refcount to 1 ]
+Zoli
