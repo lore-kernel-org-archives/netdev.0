@@ -1,72 +1,125 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [PATCH] ixgbevf: delete unneeded call to pci_set_power_state
-Date: Wed, 8 Jan 2014 00:16:14 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B73125CEC@ORSMSX101.amr.corp.intel.com>
-References: <1389114026-27854-1-git-send-email-Julia.Lawall@lip6.fr>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: [PATCH net-next v3 4/9] xen-netback: Change RX path for
+	mapped SKB fragments
+Date: Wed, 8 Jan 2014 00:10:13 +0000
+Message-ID: <1389139818-24458-5-git-send-email-zoltan.kiss@citrix.com>
+References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: Julia Lawall <Julia.Lawall@lip6.fr>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:38581 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755070AbaAHAQ3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 19:16:29 -0500
-In-Reply-To: <1389114026-27854-1-git-send-email-Julia.Lawall@lip6.fr>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
+To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
+List-Id: netdev.vger.kernel.org
 
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Julia Lawall
-> Sent: Tuesday, January 07, 2014 9:00 AM
-> To: Kirsher, Jeffrey T
-> Cc: kernel-janitors@vger.kernel.org; Brandeburg, Jesse; Allan, Bruce W;
-> Wyborny, Carolyn; Skidmore, Donald C; Rose, Gregory V; Duyck, Alexander H;
-> Ronciak, John; e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org;
-> linux-kernel@vger.kernel.org
-> Subject: [PATCH] ixgbevf: delete unneeded call to pci_set_power_state
-> 
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
-> 
-> This driver does not need to adjust the power state on suspend, so the
-> call to pci_set_power_state in the resume function is a no-op.  Drop it,
-> to make the code more understandable.
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-> 
-> ---
->  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> index a5d3167..5709fb0 100644
-> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> @@ -3226,7 +3226,6 @@ static int ixgbevf_resume(struct pci_dev *pdev)
->  	struct net_device *netdev = adapter->netdev;
->  	u32 err;
-> 
-> -	pci_set_power_state(pdev, PCI_D0);
->  	pci_restore_state(pdev);
->  	/*
->  	 * pci_restore_state clears dev->state_saved so call
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in the
-> body of a message to majordomo@vger.kernel.org More majordomo info at
-> http://vger.kernel.org/majordomo-info.html
+RX path need to know if the SKB fragments are stored on pages from another
+domain.
 
-Thanks Julia, I have added this patch to our internal queue (covering for Jeff.)
+Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+---
+ drivers/net/xen-netback/netback.c |   46 +++++++++++++++++++++++++++++++++----
+ 1 file changed, 41 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 10d0cf0..e070475 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -322,7 +322,9 @@ static struct xenvif_rx_meta *get_next_rx_buffer(struct xenvif *vif,
+ static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
+ 				 struct netrx_pending_operations *npo,
+ 				 struct page *page, unsigned long size,
+-				 unsigned long offset, int *head)
++				 unsigned long offset, int *head,
++				 struct xenvif *foreign_vif,
++				 grant_ref_t foreign_gref)
+ {
+ 	struct gnttab_copy *copy_gop;
+ 	struct xenvif_rx_meta *meta;
+@@ -364,8 +366,15 @@ static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
+ 		copy_gop->flags = GNTCOPY_dest_gref;
+ 		copy_gop->len = bytes;
+ 
+-		copy_gop->source.domid = DOMID_SELF;
+-		copy_gop->source.u.gmfn = virt_to_mfn(page_address(page));
++		if (foreign_vif) {
++			copy_gop->source.domid = foreign_vif->domid;
++			copy_gop->source.u.ref = foreign_gref;
++			copy_gop->flags |= GNTCOPY_source_gref;
++		} else {
++			copy_gop->source.domid = DOMID_SELF;
++			copy_gop->source.u.gmfn =
++				virt_to_mfn(page_address(page));
++		}
+ 		copy_gop->source.offset = offset;
+ 
+ 		copy_gop->dest.domid = vif->domid;
+@@ -426,6 +435,9 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+ 	int old_meta_prod;
+ 	int gso_type;
+ 	int gso_size;
++	struct ubuf_info *ubuf = skb_shinfo(skb)->destructor_arg;
++	grant_ref_t foreign_grefs[MAX_SKB_FRAGS];
++	struct xenvif *foreign_vif = NULL;
+ 
+ 	old_meta_prod = npo->meta_prod;
+ 
+@@ -466,6 +478,26 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+ 	npo->copy_off = 0;
+ 	npo->copy_gref = req->gref;
+ 
++	if ((skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) &&
++		 (ubuf->callback == &xenvif_zerocopy_callback)) {
++		u16 pending_idx = ubuf->desc;
++		int i = 0;
++		struct pending_tx_info *temp =
++			container_of(ubuf,
++				struct pending_tx_info,
++				callback_struct);
++		foreign_vif =
++			container_of(temp - pending_idx,
++				struct xenvif,
++				pending_tx_info[0]);
++		do {
++			pending_idx = ubuf->desc;
++			foreign_grefs[i++] =
++				foreign_vif->pending_tx_info[pending_idx].req.gref;
++			ubuf = (struct ubuf_info *) ubuf->ctx;
++		} while (ubuf);
++	}
++
+ 	data = skb->data;
+ 	while (data < skb_tail_pointer(skb)) {
+ 		unsigned int offset = offset_in_page(data);
+@@ -475,7 +507,9 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+ 			len = skb_tail_pointer(skb) - data;
+ 
+ 		xenvif_gop_frag_copy(vif, skb, npo,
+-				     virt_to_page(data), len, offset, &head);
++				     virt_to_page(data), len, offset, &head,
++				     NULL,
++				     0);
+ 		data += len;
+ 	}
+ 
+@@ -484,7 +518,9 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+ 				     skb_frag_page(&skb_shinfo(skb)->frags[i]),
+ 				     skb_frag_size(&skb_shinfo(skb)->frags[i]),
+ 				     skb_shinfo(skb)->frags[i].page_offset,
+-				     &head);
++				     &head,
++				     foreign_vif,
++				     foreign_grefs[i]);
+ 	}
+ 
+ 	return npo->meta_prod - old_meta_prod;
