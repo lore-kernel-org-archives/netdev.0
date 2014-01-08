@@ -1,210 +1,319 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v4 net-next 2/4] sh_eth: Add support for r7s72100
-Date: Wed, 08 Jan 2014 23:58:09 +0300
-Message-ID: <52CDBBE1.1010301@cogentembedded.com>
-References: <1389168152-9434-1-git-send-email-horms+renesas@verge.net.au> <1389168152-9434-3-git-send-email-horms+renesas@verge.net.au>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v3 2/2] ipv6 addrconf: don't cleanup prefix route for IFA_F_NOPREFIXROUTE
+Date: Wed, 8 Jan 2014 21:00:19 +0100
+Message-ID: <20140108200019.GK9007@order.stressinduktion.org>
+References: <1389141688-25618-1-git-send-email-thaller@redhat.com> <1389141688-25618-3-git-send-email-thaller@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Simon Horman <horms+renesas@verge.net.au>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	stephen@networkplumber.org, dcbw@redhat.com
+To: Thomas Haller <thaller@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:38617 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753591AbaAHT6H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 14:58:07 -0500
-Received: by mail-lb0-f178.google.com with SMTP id c11so1626187lbj.23
-        for <netdev@vger.kernel.org>; Wed, 08 Jan 2014 11:58:06 -0800 (PST)
-In-Reply-To: <1389168152-9434-3-git-send-email-horms+renesas@verge.net.au>
+Received: from order.stressinduktion.org ([87.106.68.36]:49217 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757209AbaAHUAV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 15:00:21 -0500
+Content-Disposition: inline
+In-Reply-To: <1389141688-25618-3-git-send-email-thaller@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/08/2014 11:02 AM, Simon Horman wrote:
+On Wed, Jan 08, 2014 at 01:41:28AM +0100, Thomas Haller wrote:
+> Refactor the deletion/update of prefix routes when removing an
+> address. Now also consider IFA_F_NOPREFIXROUTE and if there is an address
+> present with this flag, to not cleanup the route. Instead, assume
+> that userspace is taking care of this route.
+> 
+> Also perform the same cleanup, when userspace changes an existing address
+> to add NOPREFIXROUTE (to an address that didn't have this flag). This is
+> done because when the address was added, a prefix route was created for it.
+> Since the user now wants to handle this route by himself, we cleanup this
+> route.
+> 
+> This cleanup of the route is not totally robust. There is no guarantee,
+> that the route we are about to delete was really the one added by the
+> kernel. This behavior does not change by the patch, and in practice it
+> should work just fine.
+> 
+> Signed-off-by: Thomas Haller <thaller@redhat.com>
+> ---
+>  net/ipv6/addrconf.c | 186 +++++++++++++++++++++++++++++++---------------------
+>  1 file changed, 110 insertions(+), 76 deletions(-)
+> 
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 1bc575f..b3fcf9f 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -900,15 +900,104 @@ out:
+>  	goto out2;
+>  }
+>  
+> +/*
+> + * Check, whether the prefix for ifp would still need a prefix route
+> + * after deleting ifp. The function returns:
+> + *    -1 route valid, only update lifetimes (outputs expires).
+> + *     0 route invalid, delete/purge
+> + *     1 route valid, don't update lifetimes.
 
-> This is a fast ethernet controller.
+IMHO an enum would be nice for those.
 
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> + *
+> + * 1) we don't purge prefix if address was not permanent.
+> + *    prefix is managed by its own lifetime.
+> + * 2) we also don't purge, if the address was IFA_F_NOPREFIXROUTE.
+> + * 3) if there're no addresses, delete prefix.
+> + * 4) if there're still other permanent address(es),
+> + *    corresponding prefix is still permanent.
+> + * 5) if there are still other addresses with IFA_F_NOPREFIXROUTE,
+> + *    don't purge the prefix, assume user space is managing it.
+> + * 6) otherwise, update prefix lifetime to the
+> + *    longest valid lifetime among the corresponding
+> + *    addresses on the device.
+> + *    Note: subsequent RA will update lifetime.
+> + **/
+> +static int
+> +check_cleanup_prefix_routes(struct inet6_ifaddr *ifp, u32 ifa_flags, unsigned long *expires)
 
-[...]
+This line is over clearly over 80 characters.
 
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index 4b38533..cc6d4af 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -190,6 +190,59 @@ static const u16 sh_eth_offset_fast_rcar[SH_ETH_MAX_REGISTER_OFFSET] = {
->   	[TRIMD]		= 0x027c,
->   };
->
-> +static const u16 sh_eth_offset_fast_rz[SH_ETH_MAX_REGISTER_OFFSET] = {
-[...]
-> +	[ECMR]		= 0x0500,
-> +	[ECSR]		= 0x0510,
-> +	[ECSIPR]	= 0x0518,
-> +	[PIR]		= 0x0520,
-> +	[APR]		= 0x0554,
-> +	[MPR]		= 0x0558,
-> +	[PFTCR]		= 0x055c,
-> +	[PFRCR]		= 0x0560,
-> +	[TPAUSER]	= 0x0564,
-> +	[MAHR]		= 0x05c0,
-> +	[MALR]		= 0x05c8,
-> +	[CEFCR]		= 0x0740,
-> +	[FRECR]		= 0x0748,
-> +	[TSFRCR]	= 0x0750,
-> +	[TLFRCR]	= 0x0758,
-> +	[RFCR]		= 0x0760,
-> +	[MAFCR]		= 0x0778,
+> +{
+> +	struct inet6_ifaddr *ifa;
+> +	struct inet6_dev *idev = ifp->idev;
+> +	unsigned long lifetime;
+> +	int onlink = 0;
+> +
+> +	*expires = jiffies;
+> +
+> +
+> +	if (!(ifa_flags & IFA_F_PERMANENT))
+> +		return 1;
+> +	if (ifa_flags & IFA_F_NOPREFIXROUTE)
+> +		return 1;
 
-    You've missed RFLR @ 0x0508. It's a vital register which the driver 
-requires to be always mapped.
+Maybe if we factor out these tests to the caller we can give this function a
+better name and don't need to pass ifa_flags?
+
+For me it is easier to folow code like
+
+	if ((foo & blah) || !(foo & blah2))
+		do_something();
+
+as when we return special value and pass it into another function.
 
 > +
-> +	[ARSTR]		= 0x0000,
-> +	[TSU_CTRST]	= 0x0004,
-> +	[TSU_VTAG0]	= 0x0058,
-> +	[TSU_ADSBSY]	= 0x0060,
-> +	[TSU_TEN]	= 0x0064,
-> +	[TSU_ADRH0]	= 0x0100,
-> +	[TSU_ADRL0]	= 0x0104,
-> +	[TSU_ADRH31]	= 0x01f8,
-> +	[TSU_ADRL31]	= 0x01fc,
-
-    Looking at the manual, you've missed [TR]X[NA]LCR regs starting at offset 
-0x0080 from TSU block.
-
-    I see that both E-MAC and TSU blocks turned out to be different from the 
-Gigabit version upon further scrutiny...
-
-> +};
+> +	list_for_each_entry(ifa, &idev->addr_list, if_list) {
+> +		if (ifa == ifp)
+> +			continue;
+> +		if (!ipv6_prefix_equal(&ifa->addr, &ifp->addr,
+> +				       ifp->prefix_len))
+> +			continue;
+> +		if (ifa->flags & IFA_F_PERMANENT)
+> +			return 1;
+> +		if (ifa->flags & IFA_F_NOPREFIXROUTE)
+> +			return 1;
 > +
->   static const u16 sh_eth_offset_fast_sh4[SH_ETH_MAX_REGISTER_OFFSET] = {
->   	[ECMR]		= 0x0100,
->   	[RFLR]		= 0x0108,
-[...]
-> @@ -701,6 +762,35 @@ static struct sh_eth_cpu_data r8a7740_data = {
->   	.shift_rd0	= 1,
->   };
->
-> +/* R7S72100 */
-> +static struct sh_eth_cpu_data r7s72100_data = {
-> +	.chip_reset	= sh_eth_chip_reset,
-> +	.set_duplex	= sh_eth_set_duplex,
+> +		onlink = -1;
 > +
-> +	.register_type	= SH_ETH_REG_FAST_RZ,
+> +		spin_lock(&ifa->lock);
 > +
-> +	.ecsr_value	= ECSR_ICD,
-> +	.ecsipr_value	= ECSIPR_ICDIP,
-> +	.eesipr_value	= 0xff7f009f,
+> +		lifetime = addrconf_timeout_fixup(ifa->valid_lft, HZ);
+> +		/*
+> +		 * Note: Because this address is
+> +		 * not permanent, lifetime <
+> +		 * LONG_MAX / HZ here.
+> +		 */
+> +		if (time_before(*expires, ifa->tstamp + lifetime * HZ))
+> +			*expires = ifa->tstamp + lifetime * HZ;
+> +		spin_unlock(&ifa->lock);
+> +	}
 > +
-> +	.tx_check	= EESR_TC1 | EESR_FTC,
-> +	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
-> +			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
-> +			  EESR_TDE | EESR_ECI,
-> +	.fdr_value	= 0x0000070f,
-> +	.rmcr_value	= RMCR_RNC,
+> +	return onlink;
+> +}
 > +
-> +	.apr		= 1,
-> +	.mpr		= 1,
-> +	.tpauser	= 1,
-> +	.hw_swap	= 1,
-> +	.rpadir		= 1,
-> +	.rpadir_value   = 2 << 16,
-> +	.no_trimd	= 1,
-> +	.tsu		= 1,
-> +	.shift_rd0	= 1,
+> +static void
+> +cleanup_prefix_route(struct inet6_ifaddr *ifp, unsigned long expires, int onlink)
+> +{
+> +	struct rt6_info *rt;
+> +
+> +	if (onlink >= 1)
+> +		return;
 
-    Perhaps this field should be renamed to something talking about check 
-summing support (since bits 0..15 of RD0 contain a frame check sum for those 
-SoCs). Or maybe it should be just merged with the 'hw_crc' field...
+Same here.
 
-    Well, now the comments about your initializer: you've missed to set the 
-'no_psr' field -- this SoC doesn't have PSR (which usually holds the LINK 
-signal status). It's not fatal since you're setting 'no_ether_link' in the 
-platform data but should be fixed anyway. You've also missed to set 'no_ade' 
-field, though 'eesipr_value' correctly has EESIPR.ADEIP cleared. And it looks 
-like you've also missed to set 'hw_crc' field since this SoC has CSMR...
+> +
+> +	rt = addrconf_get_prefix_route(&ifp->addr,
+> +				       ifp->prefix_len,
+> +				       ifp->idev->dev,
+> +				       0, RTF_GATEWAY | RTF_DEFAULT);
+> +	if (!rt)
+> +		return;
+> +
+> +	if (onlink == 0) {
+> +		ip6_del_rt(rt);
+> +		return;
+> +	}
 
-[...]
-> @@ -880,6 +970,8 @@ static unsigned long sh_eth_get_edtrr_trns(struct sh_eth_private *mdp)
->   {
->   	if (sh_eth_is_gether(mdp))
->   		return EDTRR_TRNS_GETHER;
-> +	else if (sh_eth_is_rz_fast_ether(mdp))
-> +		return EDTRR_TRNS_RZ_ETHER;
+Maybe the onlink == 0 could be a bool then with a proper name (or an enum).
 
-    I'd just merge this with the GEther case.
+> +
+> +	if (!(rt->rt6i_flags & RTF_EXPIRES))
+> +		rt6_set_expires(rt, expires);
+> +	ip6_rt_put(rt);
+> +}
+> +
+> +
+>  /* This function wants to get referenced ifp and releases it before return */
+>  
+>  static void ipv6_del_addr(struct inet6_ifaddr *ifp)
+>  {
+> -	struct inet6_ifaddr *ifa, *ifn;
+> -	struct inet6_dev *idev = ifp->idev;
+>  	int state;
+> -	int deleted = 0, onlink = 0;
+> -	unsigned long expires = jiffies;
+> +	int onlink;
+> +	unsigned long expires;
+>  
+>  	spin_lock_bh(&ifp->state_lock);
+>  	state = ifp->state;
+> @@ -922,7 +1011,7 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
+>  	hlist_del_init_rcu(&ifp->addr_lst);
+>  	spin_unlock_bh(&addrconf_hash_lock);
+>  
+> -	write_lock_bh(&idev->lock);
+> +	write_lock_bh(&ifp->idev->lock);
+>  
+>  	if (ifp->flags&IFA_F_TEMPORARY) {
+>  		list_del(&ifp->tmp_list);
+> @@ -933,45 +1022,11 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
+>  		__in6_ifa_put(ifp);
+>  	}
+>  
+> -	list_for_each_entry_safe(ifa, ifn, &idev->addr_list, if_list) {
+> -		if (ifa == ifp) {
+> -			list_del_init(&ifp->if_list);
+> -			__in6_ifa_put(ifp);
+> +	onlink = check_cleanup_prefix_routes(ifp, ifp->flags, &expires);
+> +	list_del_init(&ifp->if_list);
+> +	__in6_ifa_put(ifp);
+>  
+> -			if (!(ifp->flags & IFA_F_PERMANENT) || onlink > 0)
+> -				break;
+> -			deleted = 1;
+> -			continue;
+> -		} else if (ifp->flags & IFA_F_PERMANENT) {
+> -			if (ipv6_prefix_equal(&ifa->addr, &ifp->addr,
+> -					      ifp->prefix_len)) {
+> -				if (ifa->flags & IFA_F_PERMANENT) {
+> -					onlink = 1;
+> -					if (deleted)
+> -						break;
+> -				} else {
+> -					unsigned long lifetime;
+> -
+> -					if (!onlink)
+> -						onlink = -1;
+> -
+> -					spin_lock(&ifa->lock);
+> -
+> -					lifetime = addrconf_timeout_fixup(ifa->valid_lft, HZ);
+> -					/*
+> -					 * Note: Because this address is
+> -					 * not permanent, lifetime <
+> -					 * LONG_MAX / HZ here.
+> -					 */
+> -					if (time_before(expires,
+> -							ifa->tstamp + lifetime * HZ))
+> -						expires = ifa->tstamp + lifetime * HZ;
+> -					spin_unlock(&ifa->lock);
+> -				}
+> -			}
+> -		}
+> -	}
+> -	write_unlock_bh(&idev->lock);
+> +	write_unlock_bh(&ifp->idev->lock);
+>  
+>  	addrconf_del_dad_timer(ifp);
+>  
+> @@ -979,39 +1034,7 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
+>  
+>  	inet6addr_notifier_call_chain(NETDEV_DOWN, ifp);
+>  
+> -	/*
+> -	 * Purge or update corresponding prefix
+> -	 *
+> -	 * 1) we don't purge prefix here if address was not permanent.
+> -	 *    prefix is managed by its own lifetime.
+> -	 * 2) if there're no addresses, delete prefix.
+> -	 * 3) if there're still other permanent address(es),
+> -	 *    corresponding prefix is still permanent.
+> -	 * 4) otherwise, update prefix lifetime to the
+> -	 *    longest valid lifetime among the corresponding
+> -	 *    addresses on the device.
+> -	 *    Note: subsequent RA will update lifetime.
+> -	 *
+> -	 * --yoshfuji
+> -	 */
+> -	if ((ifp->flags & IFA_F_PERMANENT) && onlink < 1) {
+> -		struct rt6_info *rt;
+> -
+> -		rt = addrconf_get_prefix_route(&ifp->addr,
+> -					       ifp->prefix_len,
+> -					       ifp->idev->dev,
+> -					       0, RTF_GATEWAY | RTF_DEFAULT);
+> -
+> -		if (rt) {
+> -			if (onlink == 0) {
+> -				ip6_del_rt(rt);
+> -				rt = NULL;
+> -			} else if (!(rt->rt6i_flags & RTF_EXPIRES)) {
+> -				rt6_set_expires(rt, expires);
+> -			}
+> -		}
+> -		ip6_rt_put(rt);
+> -	}
+> +	cleanup_prefix_route(ifp, expires, onlink);
+>  
+>  	/* clean up prefsrc entries */
+>  	rt6_remove_prefsrc(ifp);
+> @@ -3632,6 +3655,7 @@ static int inet6_addr_modify(struct inet6_ifaddr *ifp, u32 ifa_flags,
+>  	clock_t expires;
+>  	unsigned long timeout;
+>  	bool was_managetempaddr;
+> +	bool was_noprefixroute;
+>  
+>  	if (!valid_lft || (prefered_lft > valid_lft))
+>  		return -EINVAL;
+> @@ -3660,6 +3684,7 @@ static int inet6_addr_modify(struct inet6_ifaddr *ifp, u32 ifa_flags,
+>  
+>  	spin_lock_bh(&ifp->lock);
+>  	was_managetempaddr = ifp->flags & IFA_F_MANAGETEMPADDR;
+> +	was_noprefixroute = ifp->flags & IFA_F_NOPREFIXROUTE;
+>  	ifp->flags &= ~(IFA_F_DEPRECATED | IFA_F_PERMANENT | IFA_F_NODAD |
+>  			IFA_F_HOMEADDRESS | IFA_F_MANAGETEMPADDR | IFA_F_NOPREFIXROUTE);
+>  	ifp->flags |= ifa_flags;
+> @@ -3674,6 +3699,15 @@ static int inet6_addr_modify(struct inet6_ifaddr *ifp, u32 ifa_flags,
+>  	if (!(ifa_flags & IFA_F_NOPREFIXROUTE)) {
+>  		addrconf_prefix_route(&ifp->addr, ifp->prefix_len, ifp->idev->dev,
+>  				      expires, flags);
+> +	} else if (was_noprefixroute) {
+> +		int onlink;
+> +		unsigned long rt_expires;
+> +
+> +		write_lock_bh(&ifp->idev->lock);
+> +		onlink = check_cleanup_prefix_routes(ifp, ifp->flags & ~IFA_F_NOPREFIXROUTE, &rt_expires);
+> +		write_unlock_bh(&ifp->idev->lock);
+> +
+> +		cleanup_prefix_route(ifp, rt_expires, onlink);
+>  	}
+>  
+>  	if (was_managetempaddr || ifp->flags & IFA_F_MANAGETEMPADDR) {
 
->   	else
->   		return EDTRR_TRNS_ETHER;
->   }
-[...]
-> @@ -1062,7 +1155,8 @@ static void sh_eth_ring_format(struct net_device *ndev)
->   		if (i == 0) {
->   			/* Tx descriptor address set */
->   			sh_eth_write(ndev, mdp->tx_desc_dma, TDLAR);
-> -			if (sh_eth_is_gether(mdp))
-> +			if (sh_eth_is_gether(mdp) ||
-> +			    sh_eth_is_rz_fast_ether(mdp))
->   				sh_eth_write(ndev, mdp->tx_desc_dma, TDFAR);
+I somehow find this patch a bit hard to follow. Having the tests more
+closely at the actions would make it much easier, IMHO.
 
-    Hmm, TDFAR exists also on SH4 Ethers...
+Haven't seen any logic problems though.
 
-[...]
-> @@ -2564,6 +2666,9 @@ static const u16 *sh_eth_get_register_offset(int register_type)
->   	case SH_ETH_REG_FAST_RCAR:
->   		reg_offset = sh_eth_offset_fast_rcar;
->   		break;
-> +	case SH_ETH_REG_FAST_RZ:
-> +		reg_offset = sh_eth_offset_fast_rz;
-> +		break;
+Thanks,
 
-    I think it should precede the R-Car case as this chip is newer than R-Car 
-and the SoC families appear here in the reverse order.
-
->   	case SH_ETH_REG_FAST_SH4:
->   		reg_offset = sh_eth_offset_fast_sh4;
->   		break;
-[...]
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-> index 0fe35b7..0bcde90 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.h
-> +++ b/drivers/net/ethernet/renesas/sh_eth.h
-> @@ -156,6 +156,7 @@ enum {
->   enum {
->   	SH_ETH_REG_GIGABIT,
->   	SH_ETH_REG_FAST_RCAR,
-> +	SH_ETH_REG_FAST_RZ,
-
-    I think it should precede the R-Car value.
-
->   	SH_ETH_REG_FAST_SH4,
->   	SH_ETH_REG_FAST_SH3_SH2
->   };
-> @@ -169,7 +170,7 @@ enum {
->
->   /* Register's bits
->    */
-> -/* EDSR : sh7734, sh7757, sh7763, and r8a7740 only */
-> +/* EDSR : sh7734, sh7757, sh7763, r8a7740 and r7s72100 only */
-
-    Need comma before "and". Sorry for the grammar nitpicking. :-)
-
->   enum EDSR_BIT {
->   	EDSR_ENT = 0x01, EDSR_ENR = 0x02,
->   };
-> @@ -191,6 +192,7 @@ enum DMAC_M_BIT {
->   /* EDTRR */
->   enum DMAC_T_BIT {
->   	EDTRR_TRNS_GETHER = 0x03,
-> +	EDTRR_TRNS_RZ_ETHER = 0x03,
-
-    I doubt we need a special case here. You didn't introduce one for the 
-software reset bits.
-
->   	EDTRR_TRNS_ETHER = 0x01,
->   };
-
-WBR, Sergei
+  Hannes
