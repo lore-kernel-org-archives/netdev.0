@@ -1,158 +1,83 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [net-next 5/7] ixgbe: Check register reads for adapter removal
-Date: Wed, 8 Jan 2014 00:35:14 -0800
-Message-ID: <9C2C4C7C-CF22-4C6B-89B5-583C4C411B21@gmail.com>
-References: <1389166847-3780-1-git-send-email-aaron.f.brown@intel.com> <1389166847-3780-6-git-send-email-aaron.f.brown@intel.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.1 \(1827\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	Mark Rustad <mark.d.rustad@intel.com>,
-	Netdev <netdev@vger.kernel.org>, gospo@redhat.com,
-	sassmann@redhat.com
-To: Aaron Brown <aaron.f.brown@intel.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net 1/2] bonding: ensure that the TSO being set on bond
+ master
+Date: Wed, 8 Jan 2014 09:33:03 +0100
+Message-ID: <20140108083303.GA28509@redhat.com>
+References: <52CCFE18.7040606@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:64004 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751456AbaAHIfT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 03:35:19 -0500
-Received: by mail-ig0-f173.google.com with SMTP id ut6so12557238igb.0
-        for <netdev@vger.kernel.org>; Wed, 08 Jan 2014 00:35:19 -0800 (PST)
-In-Reply-To: <1389166847-3780-6-git-send-email-aaron.f.brown@intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:57054 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755170AbaAHIgI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jan 2014 03:36:08 -0500
+Content-Disposition: inline
+In-Reply-To: <52CCFE18.7040606@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Jan 7, 2014, at 11:40 PM, Aaron Brown <aaron.f.brown@intel.com> wrote:
+On Wed, Jan 08, 2014 at 03:28:24PM +0800, Ding Tianhong wrote:
+>The commit b0ce3508(bonding: allow TSO being set on bonding master)
+>has make the TSO being set for bond dev, but in some situation, if
+>the slave did not have the NETIF_F_SG features, the bond master will
+>miss the TSO features in netdev_fix_features because the TSO is
+>depended on SG. So I have to add SG and TSO features on bond master
+>together.
 
-> From: Mark Rustad <mark.d.rustad@intel.com>
-> 
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-> index 5e157ac..480c5c1 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-> @@ -124,6 +124,11 @@ s32 ixgbe_reset_pipeline_82599(struct ixgbe_hw *hw);
-> s32 ixgbe_get_thermal_sensor_data_generic(struct ixgbe_hw *hw);
-> s32 ixgbe_init_thermal_sensor_thresh_generic(struct ixgbe_hw *hw);
-> 
-> +#define IXGBE_FAILED_READ_REG 0xffffffffU
-> +
-> +void ixgbe_check_remove(struct ixgbe_hw *hw, u32 reg);
-> +#define IXGBE_REMOVED(a) unlikely(!(a))
+Do you know why TSO depends on SG? And what will happen if bonding supports
+SG, but one of its slaves doesn't?
 
-IXGBE_REMOVED seems pretty closely tied to hw->hw_addr, but the macro turns any input into !input.  Maybe an inline that takes a *hw?
-
-> +
-> static inline void IXGBE_WRITE_REG(struct ixgbe_hw *hw, u32 reg, u32 value)
+>
+>The netdev_add_tso_features() was only used for bonding, so I think no
+>need to export it to netdevice.h.
+>
+>Cc: Eric Dumazet <edumazet@google.com>
+>Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>---
+> drivers/net/bonding/bond_main.c | 16 +++++++++++++++-
+> 1 file changed, 15 insertions(+), 1 deletion(-)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index e06c445..8ce67ed 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -1045,6 +1045,20 @@ static void bond_netpoll_cleanup(struct net_device *bond_dev)
+>
+> /*---------------------------------- IOCTL ----------------------------------*/
+>
+>+/* Allow TSO being used on stacked device:
+>+ * Performing the GSO segmentation before last device
+>+ * is a performance improvement.
+>+ * The TSO is depended on SG, so add SG and TSO together,
+>+ * otherwise the netdev_fix_features() may clean the TSO.
+>+ */
+>+static netdev_features_t bond_add_tso_features(netdev_features_t features,
+>+					       netdev_features_t mask)
+>+{
+>+	return netdev_increment_features(features,
+>+					 NETIF_F_ALL_TSO | NETIF_F_SG,
+>+					 mask);
+>+}
+>+
+> static netdev_features_t bond_fix_features(struct net_device *dev,
+> 					   netdev_features_t features)
 > {
-> 	writel(value, hw->hw_addr + reg);
-> @@ -144,7 +149,15 @@ static inline void IXGBE_WRITE_REG64(struct ixgbe_hw *hw, u32 reg, u64 value)
-> 
-> static inline u32 IXGBE_READ_REG(struct ixgbe_hw *hw, u32 reg)
-> {
-> -	return readl(hw->hw_addr + reg);
-> +	u8 __iomem *reg_addr = ACCESS_ONCE(hw->hw_addr);
-> +	u32 value;
-> +
-> +	if (IXGBE_REMOVED(reg_addr))
-> +		return IXGBE_FAILED_READ_REG;
-> +	value = readl(reg_addr + reg);
-> +	if (unlikely(value == IXGBE_FAILED_READ_REG))
-> +		ixgbe_check_remove(hw, reg);
-> +	return value;
+>@@ -1068,7 +1082,7 @@ static netdev_features_t bond_fix_features(struct net_device *dev,
+> 						     slave->dev->features,
+> 						     mask);
+> 	}
+>-	features = netdev_add_tso_features(features, mask);
+>+	features = bond_add_tso_features(features, mask);
+>
+> 	return features;
 > }
-> 
-> #define IXGBE_WRITE_REG_ARRAY(a, reg, offset, value) \
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index 4d71277..896a8b0 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -283,6 +283,35 @@ static void ixgbe_service_event_schedule(struct ixgbe_adapter *adapter)
-> 		schedule_work(&adapter->service_task);
-> }
-> 
-> +static void ixgbe_remove_adapter(struct ixgbe_hw *hw)
-> +{
-> +	struct ixgbe_adapter *adapter = hw->back;
-> +
-> +	if (!hw->hw_addr)
-> +		return;
-> +	hw->hw_addr = NULL;
-> +	e_dev_err("Adapter removed\n");
-> +}
-> +
-> +void ixgbe_check_remove(struct ixgbe_hw *hw, u32 reg)
-> +{
-> +	u32 value;
-> +
-> +	/* The following check not only optimizes a bit by not
-> +	 * performing a read on the status register when the
-> +	 * register just read was a status register read that
-> +	 * returned IXGBE_FAILED_READ_REG. It also blocks any
-> +	 * potential recursion.
-> +	 */
-> +	if (reg == IXGBE_STATUS) {
-> +		ixgbe_remove_adapter(hw);
-> +		return;
-> +	}
-> +	value = IXGBE_READ_REG(hw, IXGBE_STATUS);
-> +	if (value == IXGBE_FAILED_READ_REG)
-> +		ixgbe_remove_adapter(hw);
-> +}
-> +
-> static void ixgbe_service_event_complete(struct ixgbe_adapter *adapter)
-> {
-> 	BUG_ON(!test_bit(__IXGBE_SERVICE_SCHED, &adapter->state));
-> @@ -2970,7 +2999,7 @@ void ixgbe_configure_tx_ring(struct ixgbe_adapter *adapter,
-> 			ring->count * sizeof(union ixgbe_adv_tx_desc));
-> 	IXGBE_WRITE_REG(hw, IXGBE_TDH(reg_idx), 0);
-> 	IXGBE_WRITE_REG(hw, IXGBE_TDT(reg_idx), 0);
-> -	ring->tail = hw->hw_addr + IXGBE_TDT(reg_idx);
-> +	ring->tail = adapter->io_addr + IXGBE_TDT(reg_idx);
-
-How is this related to the commit msg about register reads?  Seems like two patches.
-
-> 
-> 	/*
-> 	 * set WTHRESH to encourage burst writeback, it should not be set
-> @@ -3373,7 +3402,7 @@ void ixgbe_configure_rx_ring(struct ixgbe_adapter *adapter,
-> 			ring->count * sizeof(union ixgbe_adv_rx_desc));
-> 	IXGBE_WRITE_REG(hw, IXGBE_RDH(reg_idx), 0);
-> 	IXGBE_WRITE_REG(hw, IXGBE_RDT(reg_idx), 0);
-> -	ring->tail = hw->hw_addr + IXGBE_RDT(reg_idx);
-> +	ring->tail = adapter->io_addr + IXGBE_RDT(reg_idx);
-> 
-> 	ixgbe_configure_srrctl(adapter, ring);
-> 	ixgbe_configure_rscctl(adapter, ring);
-> @@ -7887,6 +7916,7 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
-> 
-> 	hw->hw_addr = ioremap(pci_resource_start(pdev, 0),
-> 			      pci_resource_len(pdev, 0));
-> +	adapter->io_addr = hw->hw_addr;
-> 	if (!hw->hw_addr) {
-> 		err = -EIO;
-> 		goto err_ioremap;
-> @@ -8195,7 +8225,7 @@ err_register:
-> err_sw_init:
-> 	ixgbe_disable_sriov(adapter);
-> 	adapter->flags2 &= ~IXGBE_FLAG2_SEARCH_FOR_SFP;
-> -	iounmap(hw->hw_addr);
-> +	iounmap(adapter->io_addr);
-> err_ioremap:
-> 	free_netdev(netdev);
-> err_alloc_etherdev:
-> @@ -8262,7 +8292,7 @@ static void ixgbe_remove(struct pci_dev *pdev)
-> 	kfree(adapter->ixgbe_ieee_ets);
-> 
-> #endif
-> -	iounmap(adapter->hw.hw_addr);
-> +	iounmap(adapter->io_addr);
-> 	pci_release_selected_regions(pdev, pci_select_bars(pdev,
-> 				     IORESOURCE_MEM));
-> 
-> -- 
-> 1.8.5.GIT
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>-- 
+>1.8.0
+>
+>
+>
