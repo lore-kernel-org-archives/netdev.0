@@ -1,42 +1,91 @@
-From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: RE: [PATCH net] bnx2x: prevent WARN during driver unload
-Date: Wed, 8 Jan 2014 05:41:48 +0000
-Message-ID: <979A8436335E3744ADCD3A9F2A2B68A52AF23FBC@SJEXCHMB10.corp.ad.broadcom.com>
-References: <1389089261-25714-1-git-send-email-yuvalmin@broadcom.com>
- <20140107.154546.297973917685156649.davem@davemloft.net>
+From: <shh.xie@gmail.com>
+Subject: [PATCH] [v5] phylib: Add Clause 45 read/write functions
+Date: Wed, 8 Jan 2014 12:25:24 +0800
+Message-ID: <1389155124-15898-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	Ariel Elior <ariele@broadcom.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <Shaohui.Xie@freescale.com>, Andy Fleming <afleming@gmail.com>
+To: <davem@davemloft.net>, <jg1.han@samsung.com>,
+	<mugunthanvnm@ti.com>, <f.fainelli@gmail.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:14925 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750790AbaAHFlu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 00:41:50 -0500
-In-Reply-To: <20140107.154546.297973917685156649.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-db9lp0251.outbound.messaging.microsoft.com ([213.199.154.251]:24429
+	"EHLO db9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750790AbaAHFyO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 00:54:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> 
-> > +	fp->state &= BNX2X_FP_STATE_DISABLED;
->  ...
-> > +	fp->state &= BNX2X_FP_STATE_DISABLED;
-> 
-> Surely you mean "&= ~BNX2X_FP_STATE_DISABLED" here?
+From: Andy Fleming <afleming@gmail.com>
 
-Thought the comment above the code was sufficient to show 
-this is intentional.
+Need an extra parameter to read or write Clause 45 PHYs, so
+need a different API with the extra parameter.
 
-The BNX2X_FP_STATE_DISABLED will cause BNX@X_FP_LOCKED to
-Be true. The bnx2x_fp_ll_disable() works by setting this bit even
-when BNX2X_FP_OWNED is set; while other flows release the lock
-the will clear the bit indications except for the disabled indication,
-so that no other flow could take the lock after it was disabled,
-and the loop of bnx2x_fp_ll_disable() calls will eventually return true.
+Signed-off-by: Andy Fleming <afleming@gmail.com>
+Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+---
+changes for v5:
+revised for opening parenthesis.
 
-Thanks,
-Yuval
+ include/linux/phy.h | 39 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 39 insertions(+)
+
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 48a4dc3..e5eed18 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -498,6 +498,24 @@ static inline int phy_read(struct phy_device *phydev, u32 regnum)
+ }
+ 
+ /**
++ * phy_read_mmd - Convenience function for reading a register
++ * from an MMD on a given PHY.
++ * @phydev: The phy_device struct
++ * @devad: The MMD to read from
++ * @regnum: The register on the MMD to read
++ *
++ * Same rules as for phy_read();
++ */
++static inline int phy_read_mmd(struct phy_device *phydev, int devad, u32 regnum)
++{
++	if (!phydev->is_c45)
++		return -EOPNOTSUPP;
++
++	return mdiobus_read(phydev->bus, phydev->addr,
++			    MII_ADDR_C45 | (devad << 16) | (regnum & 0xffff));
++}
++
++/**
+  * phy_write - Convenience function for writing a given PHY register
+  * @phydev: the phy_device struct
+  * @regnum: register number to write
+@@ -533,6 +551,27 @@ static inline bool phy_is_internal(struct phy_device *phydev)
+ 	return phydev->is_internal;
+ }
+ 
++/**
++ * phy_write_mmd - Convenience function for writing a register
++ * on an MMD on a given PHY.
++ * @phydev: The phy_device struct
++ * @devad: The MMD to read from
++ * @regnum: The register on the MMD to read
++ * @val: value to write to @regnum
++ *
++ * Same rules as for phy_write();
++ */
++static inline int phy_write_mmd(struct phy_device *phydev, int devad,
++				u32 regnum, u16 val)
++{
++	if (!phydev->is_c45)
++		return -EOPNOTSUPP;
++
++	regnum = MII_ADDR_C45 | ((devad & 0x1f) << 16) | (regnum & 0xffff);
++
++	return mdiobus_write(phydev->bus, phydev->addr, regnum, val);
++}
++
+ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
+ 		bool is_c45, struct phy_c45_device_ids *c45_ids);
+ struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45);
+-- 
+1.8.4.1
