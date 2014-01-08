@@ -1,171 +1,98 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 01/15] i40e: Expose AQ debugfs hooks
-Date: Tue,  7 Jan 2014 22:07:22 -0800
-Message-ID: <1389161256-24599-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1389161256-24599-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 00/15][pull request] Intel Wired LAN Driver Updates
+Date: Tue,  7 Jan 2014 22:07:21 -0800
+Message-ID: <1389161256-24599-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:62026 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753753AbaAHGId (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754603AbaAHGId (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 8 Jan 2014 01:08:33 -0500
-In-Reply-To: <1389161256-24599-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+This series contains updates to i40e only.
 
-Add more functionality to debugfs to assist development
-and testing of AQ commands.
+Anjali adds more functionality to debugfs to assist development and
+testing of admin queue commands.
 
-adds:
-send aq_cmd
-send indirect aq_cmd
+Greg makes sure broadcast promiscuous is disabled by default, otherwise
+VLAN tagged packets out of the assigned VLAN domain are received.  Also
+provides a fix when the 8021q driver is loaded, so that VLAN 0 tagged
+packets are accepted so that upper layers can interpret the priority
+bits. Then provides a fix to let the VF to request the PF to set its
+already assigned MAC address without generating an error.  Greg also
+adds helper functions to enable or disable internal switch loopback
+when VFs are created or destroyed via the sysfs interface.
 
-Change-Id: I01710cddd33110a6c1e1aabf84cb6e93cda4c42a
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 114 +++++++++++++++++++++++++
- 1 file changed, 114 insertions(+)
+Shannon provides most of the changes, where he adds code to ensure
+that the hardware waits to make sure that the firmware is ready as well
+after reset.  Also updates the code to use the new features in the
+firmware.  Provides a fix while in MFP mode where resources are
+reduced, so use a smaller range of test registers than when in SFP mode.
+Moves the PF ID initialization code to earlier in the driver
+initialization function since a few operations need the information
+before the first PF reset is called.  Shannon adds a check for MAC
+type before reading anything from the registers to ensure we dealing
+with the correct MAC type.  Then reworks Shadow RAM read word/buffer
+functions as to not block whole NVM resources for SR read operations.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index 45bdcca..125f758 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -1523,6 +1523,118 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 		} else {
- 			dev_info(&pf->pdev->dev, "clear_stats vsi [seid] or clear_stats pf\n");
- 		}
-+	} else if (strncmp(cmd_buf, "send aq_cmd", 11) == 0) {
-+		struct i40e_aq_desc *desc;
-+		i40e_status ret;
-+
-+		desc = kzalloc(sizeof(struct i40e_aq_desc), GFP_KERNEL);
-+		if (!desc)
-+			goto command_write_done;
-+		cnt = sscanf(&cmd_buf[11],
-+			     "%hx %hx %hx %hx %x %x %x %x %x %x",
-+			     &desc->flags,
-+			     &desc->opcode, &desc->datalen, &desc->retval,
-+			     &desc->cookie_high, &desc->cookie_low,
-+			     &desc->params.internal.param0,
-+			     &desc->params.internal.param1,
-+			     &desc->params.internal.param2,
-+			     &desc->params.internal.param3);
-+		if (cnt != 10) {
-+			dev_info(&pf->pdev->dev,
-+				 "send aq_cmd: bad command string, cnt=%d\n",
-+				 cnt);
-+			kfree(desc);
-+			desc = NULL;
-+			goto command_write_done;
-+		}
-+		ret = i40e_asq_send_command(&pf->hw, desc, NULL, 0, NULL);
-+		if (!ret) {
-+			dev_info(&pf->pdev->dev, "AQ command sent Status : Success\n");
-+		} else if (ret == I40E_ERR_ADMIN_QUEUE_ERROR) {
-+			dev_info(&pf->pdev->dev,
-+				 "AQ command send failed Opcode %x AQ Error: %d\n",
-+				 desc->opcode, pf->hw.aq.asq_last_status);
-+		} else {
-+			dev_info(&pf->pdev->dev,
-+				 "AQ command send failed Opcode %x Status: %d\n",
-+				 desc->opcode, ret);
-+		}
-+		dev_info(&pf->pdev->dev,
-+			 "AQ desc WB 0x%04x 0x%04x 0x%04x 0x%04x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
-+			 desc->flags, desc->opcode, desc->datalen, desc->retval,
-+			 desc->cookie_high, desc->cookie_low,
-+			 desc->params.internal.param0,
-+			 desc->params.internal.param1,
-+			 desc->params.internal.param2,
-+			 desc->params.internal.param3);
-+		kfree(desc);
-+		desc = NULL;
-+	} else if (strncmp(cmd_buf, "send indirect aq_cmd", 20) == 0) {
-+		struct i40e_aq_desc *desc;
-+		i40e_status ret;
-+		u16 buffer_len;
-+		u8 *buff;
-+
-+		desc = kzalloc(sizeof(struct i40e_aq_desc), GFP_KERNEL);
-+		if (!desc)
-+			goto command_write_done;
-+		cnt = sscanf(&cmd_buf[20],
-+			     "%hx %hx %hx %hx %x %x %x %x %x %x %hd",
-+			     &desc->flags,
-+			     &desc->opcode, &desc->datalen, &desc->retval,
-+			     &desc->cookie_high, &desc->cookie_low,
-+			     &desc->params.internal.param0,
-+			     &desc->params.internal.param1,
-+			     &desc->params.internal.param2,
-+			     &desc->params.internal.param3,
-+			     &buffer_len);
-+		if (cnt != 11) {
-+			dev_info(&pf->pdev->dev,
-+				 "send indirect aq_cmd: bad command string, cnt=%d\n",
-+				 cnt);
-+			kfree(desc);
-+			desc = NULL;
-+			goto command_write_done;
-+		}
-+		/* Just stub a buffer big enough in case user messed up */
-+		if (buffer_len == 0)
-+			buffer_len = 1280;
-+
-+		buff = kzalloc(buffer_len, GFP_KERNEL);
-+		if (!buff) {
-+			kfree(desc);
-+			desc = NULL;
-+			goto command_write_done;
-+		}
-+		desc->flags |= cpu_to_le16((u16)I40E_AQ_FLAG_BUF);
-+		ret = i40e_asq_send_command(&pf->hw, desc, buff,
-+					    buffer_len, NULL);
-+		if (!ret) {
-+			dev_info(&pf->pdev->dev, "AQ command sent Status : Success\n");
-+		} else if (ret == I40E_ERR_ADMIN_QUEUE_ERROR) {
-+			dev_info(&pf->pdev->dev,
-+				 "AQ command send failed Opcode %x AQ Error: %d\n",
-+				 desc->opcode, pf->hw.aq.asq_last_status);
-+		} else {
-+			dev_info(&pf->pdev->dev,
-+				 "AQ command send failed Opcode %x Status: %d\n",
-+				 desc->opcode, ret);
-+		}
-+		dev_info(&pf->pdev->dev,
-+			 "AQ desc WB 0x%04x 0x%04x 0x%04x 0x%04x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
-+			 desc->flags, desc->opcode, desc->datalen, desc->retval,
-+			 desc->cookie_high, desc->cookie_low,
-+			 desc->params.internal.param0,
-+			 desc->params.internal.param1,
-+			 desc->params.internal.param2,
-+			 desc->params.internal.param3);
-+		print_hex_dump(KERN_INFO, "AQ buffer WB: ",
-+			       DUMP_PREFIX_OFFSET, 16, 1,
-+			       buff, buffer_len, true);
-+		kfree(buff);
-+		buff = NULL;
-+		kfree(desc);
-+		desc = NULL;
- 	} else if ((strncmp(cmd_buf, "add fd_filter", 13) == 0) ||
- 		   (strncmp(cmd_buf, "rem fd_filter", 13) == 0)) {
- 		struct i40e_fdir_data fd_data;
-@@ -1774,6 +1886,8 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 		dev_info(&pf->pdev->dev, "  pfr\n");
- 		dev_info(&pf->pdev->dev, "  corer\n");
- 		dev_info(&pf->pdev->dev, "  globr\n");
-+		dev_info(&pf->pdev->dev, "  send aq_cmd <flags> <opcode> <datalen> <retval> <cookie_h> <cookie_l> <param0> <param1> <param2> <param3>\n");
-+		dev_info(&pf->pdev->dev, "  send indirect aq_cmd <flags> <opcode> <datalen> <retval> <cookie_h> <cookie_l> <param0> <param1> <param2> <param3> <buffer_len>\n");
- 		dev_info(&pf->pdev->dev, "  add fd_filter <dest q_index> <flex_off> <pctype> <dest_vsi> <dest_ctl> <fd_status> <cnt_index> <fd_id> <packet_len> <packet>\n");
- 		dev_info(&pf->pdev->dev, "  rem fd_filter <dest q_index> <flex_off> <pctype> <dest_vsi> <dest_ctl> <fd_status> <cnt_index> <fd_id> <packet_len> <packet>\n");
- 		dev_info(&pf->pdev->dev, "  lldp start\n");
+Mitch lastly provides a fix to correctly setup ARQ descriptors in
+the cleanup code.
+
+Catherine bumps the driver version due to all the recent changes.
+
+v2:
+ - Added blank lines after local variable declarations to patch 01
+   as suggested by David Miller
+ - Used the suggested memset() line in patch 15 as suggested by David
+   Miller
+
+The following are changes since commit da7c224b1baaeb7543dc7663ae78716f9a6864c1:
+  net: xfrm: xfrm_policy: silence compiler warning
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Anjali Singhai Jain (1):
+  i40e: Expose AQ debugfs hooks
+
+Catherine Sullivan (1):
+  i40e: Bump version
+
+Greg Rose (4):
+  i40e: Do not enable broadcast promiscuous by default
+  i40e: Stop accepting any VLAN tag on VLAN 0 filter set
+  i40e: Allow VF to set already assigned MAC address
+  i40e: Enable/Disable PF switch LB on SR-IOV configure changes
+
+Kamil Krawczyk (1):
+  i40e: remove redundant AQ enable
+
+Mitch Williams (1):
+  i40e: correctly setup ARQ descriptors
+
+Shannon Nelson (7):
+  i40e: Add code to wait for FW to complete in reset path
+  i40e: update firmware api to 1.1
+  i40e: Reduce range of interrupt reg in reg test
+  i40e: move PF ID init from PF reset to SC init
+  i40e: check MAC type before any REG access
+  i40e: rework shadow ram read functions
+  i40e: whitespace paren and comment tweaks
+
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c      |  27 ++---
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  | 126 +++++++++++++++------
+ drivers/net/ethernet/intel/i40e/i40e_common.c      |  51 ++++++---
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c     | 114 +++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_diag.c        |   6 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |  29 ++---
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c         |  67 +++--------
+ drivers/net/ethernet/intel/i40e/i40e_register.h    |  22 ++++
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |  11 +-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 100 +++++++++++++---
+ 10 files changed, 397 insertions(+), 156 deletions(-)
+
 -- 
 1.8.3.1
