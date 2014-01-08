@@ -1,66 +1,35 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: [PATCH net-next v2 3/5] tcp: metrics: New netlink attribute for src IP and dumped in netlink reply
-Date: Wed,  8 Jan 2014 16:05:57 +0100
-Message-ID: <1389193559-16756-4-git-send-email-christoph.paasch@uclouvain.be>
-References: <1389193559-16756-1-git-send-email-christoph.paasch@uclouvain.be>
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Yuchung Cheng <ycheng@google.com>, Julian Anastasov <ja@ssi.bg>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:59503 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755664AbaAHPGT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 10:06:19 -0500
-Received: by mail-we0-f174.google.com with SMTP id q58so1545835wes.19
-        for <netdev@vger.kernel.org>; Wed, 08 Jan 2014 07:06:17 -0800 (PST)
-In-Reply-To: <1389193559-16756-1-git-send-email-christoph.paasch@uclouvain.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [GIT net-next] Open vSwitch
+Date: Wed, 8 Jan 2014 10:10:59 -0500
+Message-ID: <CAEP_g=_pQpH--V+7GSrjGP2z=0TBD_37yXjzTdeKG+2OF3aRaw@mail.gmail.com>
+References: <1389053776-62865-1-git-send-email-jesse@nicira.com>
+	<52CD657F.7080806@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <52CD657F.7080806-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds a new netlink attribute for the source-IP and appends it
-to the netlink reply. Now, iproute2 can have access to the source-IP.
+On Wed, Jan 8, 2014 at 9:49 AM, Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org> wrote:
+> Hi,
+>
+> I've tried the latest net-next on a Xenserver install with 1.9.3 userspace,
+> and it seems this patch series broke it (at least after reverting that
+> locally it works now). I haven't went too far yet checking what's the
+> problem, but it seems the xenbrX device doesn't really receive too much of
+> the traffic coming through the NIC. Is it expected?
 
-Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
----
- include/uapi/linux/tcp_metrics.h | 2 ++
- net/ipv4/tcp_metrics.c           | 6 ++++++
- 2 files changed, 8 insertions(+)
-
-diff --git a/include/uapi/linux/tcp_metrics.h b/include/uapi/linux/tcp_metrics.h
-index cb5157b55f32..54a37b13f2c4 100644
---- a/include/uapi/linux/tcp_metrics.h
-+++ b/include/uapi/linux/tcp_metrics.h
-@@ -35,6 +35,8 @@ enum {
- 	TCP_METRICS_ATTR_FOPEN_SYN_DROPS,	/* u16, count of drops */
- 	TCP_METRICS_ATTR_FOPEN_SYN_DROP_TS,	/* msecs age */
- 	TCP_METRICS_ATTR_FOPEN_COOKIE,		/* binary */
-+	TCP_METRICS_ATTR_SADDR_IPV4,		/* u32 */
-+	TCP_METRICS_ATTR_SADDR_IPV6,		/* binary */
- 
- 	__TCP_METRICS_ATTR_MAX,
- };
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index de32aa41a846..199659f7a871 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -745,11 +745,17 @@ static int tcp_metrics_fill_info(struct sk_buff *msg,
- 		if (nla_put_be32(msg, TCP_METRICS_ATTR_ADDR_IPV4,
- 				tm->tcpm_daddr.addr.a4) < 0)
- 			goto nla_put_failure;
-+		if (nla_put_be32(msg, TCP_METRICS_ATTR_SADDR_IPV4,
-+				tm->tcpm_saddr.addr.a4) < 0)
-+			goto nla_put_failure;
- 		break;
- 	case AF_INET6:
- 		if (nla_put(msg, TCP_METRICS_ATTR_ADDR_IPV6, 16,
- 			    tm->tcpm_daddr.addr.a6) < 0)
- 			goto nla_put_failure;
-+		if (nla_put(msg, TCP_METRICS_ATTR_SADDR_IPV6, 16,
-+			    tm->tcpm_saddr.addr.a6) < 0)
-+			goto nla_put_failure;
- 		break;
- 	default:
- 		return -EAFNOSUPPORT;
--- 
-1.8.3.2
+What do you mean by doesn't receive too much traffic? What does it get?
