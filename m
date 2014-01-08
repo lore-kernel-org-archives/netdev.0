@@ -1,52 +1,120 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net-next] net: xfrm: xfrm_policy: fix inline not at
- beginning of declaration
-Date: Wed, 8 Jan 2014 06:55:36 +0100
-Message-ID: <20140108055536.GX31491@secunet.com>
-References: <1389133227-11086-1-git-send-email-dborkman@redhat.com>
- <20140107.183412.1584306758322996233.davem@davemloft.net>
+From: <shh.xie@gmail.com>
+Subject: [PATCH 3/6] [v5] phylib: turn genphy_driver to an array
+Date: Wed, 8 Jan 2014 12:27:20 +0800
+Message-ID: <1389155240-15996-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dborkman@redhat.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <Shaohui.Xie@freescale.com>
+To: <davem@davemloft.net>, <jg1.han@samsung.com>,
+	<mugunthanvnm@ti.com>, <f.fainelli@gmail.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:47598 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754775AbaAHFzj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jan 2014 00:55:39 -0500
-Content-Disposition: inline
-In-Reply-To: <20140107.183412.1584306758322996233.davem@davemloft.net>
+Received: from co1ehsobe005.messaging.microsoft.com ([216.32.180.188]:36487
+	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755078AbaAHFzp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 00:55:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 07, 2014 at 06:34:12PM -0500, David Miller wrote:
-> From: Daniel Borkmann <dborkman@redhat.com>
-> Date: Tue,  7 Jan 2014 23:20:27 +0100
-> 
-> > Fix three warnings related to:
-> > 
-> >   net/xfrm/xfrm_policy.c:1644:1: warning: 'inline' is not at beginning of declaration [-Wold-style-declaration]
-> >   net/xfrm/xfrm_policy.c:1656:1: warning: 'inline' is not at beginning of declaration [-Wold-style-declaration]
-> >   net/xfrm/xfrm_policy.c:1668:1: warning: 'inline' is not at beginning of declaration [-Wold-style-declaration]
-> > 
-> > Just removing the inline keyword is sufficient as the compiler will
-> > decide on its own about inlining or not.
-> > 
-> > Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> 
-> Applied.
+From: Shaohui Xie <Shaohui.Xie@freescale.com>
 
-I have a fix for this warnings in the ipsec-next tree too:
+Then other generic phy driver such as generic 10g phy driver can join it.
 
-commit 2f3ea9a95c58fd0e4bed18a9c9dfe53739fee3b2
-Author: Weilong Chen <chenweilong@huawei.com>
-Date:   Tue Dec 24 09:43:50 2013 +0800
+Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+---
+resend for v5.
 
-    xfrm: checkpatch erros with inline keyword position
-    
-    Signed-off-by: Weilong Chen <chenweilong@huawei.com>
-    Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+ drivers/net/phy/phy_device.c | 29 +++++++++++++++++++++--------
+ 1 file changed, 21 insertions(+), 8 deletions(-)
 
-
-Should I revert it, or do you want to solve the conflict when
-I send the ipsec-next pull request?
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index d6447b3..748bf07 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -53,7 +53,12 @@ static void phy_device_release(struct device *dev)
+ 	kfree(to_phy_device(dev));
+ }
+ 
+-static struct phy_driver genphy_driver;
++enum genphy_driver {
++	GENPHY_DRV_1G,
++	GENPHY_DRV_MAX
++};
++
++static struct phy_driver genphy_driver[GENPHY_DRV_MAX];
+ extern int mdio_bus_init(void);
+ extern void mdio_bus_exit(void);
+ 
+@@ -539,7 +544,7 @@ static int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 			return -ENODEV;
+ 		}
+ 
+-		d->driver = &genphy_driver.driver;
++		d->driver = &genphy_driver[GENPHY_DRV_1G].driver;
+ 
+ 		err = d->driver->probe(d);
+ 		if (err >= 0)
+@@ -613,6 +618,7 @@ EXPORT_SYMBOL(phy_attach);
+  */
+ void phy_detach(struct phy_device *phydev)
+ {
++	int i;
+ 	phydev->attached_dev->phydev = NULL;
+ 	phydev->attached_dev = NULL;
+ 
+@@ -620,8 +626,12 @@ void phy_detach(struct phy_device *phydev)
+ 	 * was using the generic driver), we unbind the device
+ 	 * from the generic driver so that there's a chance a
+ 	 * real driver could be loaded */
+-	if (phydev->dev.driver == &genphy_driver.driver)
+-		device_release_driver(&phydev->dev);
++	for (i = 0; i < ARRAY_SIZE(genphy_driver); i++) {
++		if (phydev->dev.driver == &genphy_driver[i].driver) {
++			device_release_driver(&phydev->dev);
++			break;
++		}
++	}
+ }
+ EXPORT_SYMBOL(phy_detach);
+ 
+@@ -1116,7 +1126,8 @@ void phy_drivers_unregister(struct phy_driver *drv, int n)
+ }
+ EXPORT_SYMBOL(phy_drivers_unregister);
+ 
+-static struct phy_driver genphy_driver = {
++static struct phy_driver genphy_driver[] = {
++{
+ 	.phy_id		= 0xffffffff,
+ 	.phy_id_mask	= 0xffffffff,
+ 	.name		= "Generic PHY",
+@@ -1127,7 +1138,7 @@ static struct phy_driver genphy_driver = {
+ 	.suspend	= genphy_suspend,
+ 	.resume		= genphy_resume,
+ 	.driver		= {.owner= THIS_MODULE, },
+-};
++} };
+ 
+ static int __init phy_init(void)
+ {
+@@ -1137,7 +1148,8 @@ static int __init phy_init(void)
+ 	if (rc)
+ 		return rc;
+ 
+-	rc = phy_driver_register(&genphy_driver);
++	rc = phy_drivers_register(genphy_driver,
++				  ARRAY_SIZE(genphy_driver));
+ 	if (rc)
+ 		mdio_bus_exit();
+ 
+@@ -1146,7 +1158,8 @@ static int __init phy_init(void)
+ 
+ static void __exit phy_exit(void)
+ {
+-	phy_driver_unregister(&genphy_driver);
++	phy_drivers_unregister(genphy_driver,
++			       ARRAY_SIZE(genphy_driver));
+ 	mdio_bus_exit();
+ }
+ 
+-- 
+1.8.4.1
