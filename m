@@ -1,36 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] tipc: link setup and failover improvements
-Date: Tue, 07 Jan 2014 18:45:08 -0500 (EST)
-Message-ID: <20140107.184508.1028018727000763031.davem@davemloft.net>
-References: <1389132164-32451-1-git-send-email-jon.maloy@ericsson.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v3 net-next 1/3] sh_eth: Add support for r7s72100
+Date: Wed, 8 Jan 2014 09:06:39 +0900
+Message-ID: <20140108000638.GB5136@verge.net.au>
+References: <1389061635-4083-1-git-send-email-horms+renesas@verge.net.au>
+ <1389061635-4083-2-git-send-email-horms+renesas@verge.net.au>
+ <20140107.140755.1722284527902829385.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46001 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754375AbaAGXpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 18:45:15 -0500
-In-Reply-To: <1389132164-32451-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, magnus.damm@gmail.com,
+	sergei.shtylyov@cogentembedded.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140107.140755.1722284527902829385.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Tue,  7 Jan 2014 17:02:40 -0500
-
-> This series consists of four unrelated commits with different purposes.
+On Tue, Jan 07, 2014 at 02:07:55PM -0500, David Miller wrote:
+> From: Simon Horman <horms+renesas@verge.net.au>
+> Date: Tue,  7 Jan 2014 11:27:13 +0900
 > 
-> - Commit #1 is purely cosmetic and pedagogic, hopefully making the
->   failover/tunneling logics slightly easier to understand. 
-> - Commit #2 fixes a bug that has always been in the code, but was not
->   discovered until very recently.
-> - Commit #3 fixes a non-fatal race issue in the neighbour discovery
->   code.
-> - Commit #4 removes an unnecessary indirection step during link 
->   startup.
+> > @@ -318,6 +371,14 @@ static int sh_eth_is_gether(struct sh_eth_private *mdp)
+> >  		return 0;
+> >  }
+> >  
+> > +static int sh_eth_is_rz_fast_ether(struct sh_eth_private *mdp)
+> > +{
+> > +	if (mdp->reg_offset == sh_eth_offset_fast_rz)
+> > +		return 1;
+> > +	else
+> > +		return 0;
+> > +}
+> 
+> Please make this return a boolean and use true/false.
 
-Series applied, thank you.
+Thanks. I will also refactor the giga_ether version of this
+function accordingly.
+
+> 
+> > @@ -2061,6 +2155,10 @@ static struct net_device_stats *sh_eth_get_stats(struct net_device *ndev)
+> >  {
+> >  	struct sh_eth_private *mdp = netdev_priv(ndev);
+> >  
+> > +	if (sh_eth_is_rz_fast_ether(mdp)) {
+> > +		return &ndev->stats;
+> > +	}
+> 
+> Single statement basic blocks do not need curly braces, therefore
+> please remove them here.
+
+Will do.
