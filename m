@@ -1,92 +1,78 @@
-From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 6/7] ixgbe: Check for adapter removal on register writes
-Date: Tue,  7 Jan 2014 23:40:46 -0800
-Message-ID: <1389166847-3780-7-git-send-email-aaron.f.brown@intel.com>
-References: <1389166847-3780-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Aaron Brown <aaron.f.brown@intel.com>
-To: davem@davemloft.net
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] ipv6: don't call addrconf_dst_alloc again when enable
+ lo
+Date: Wed, 08 Jan 2014 15:50:09 +0800
+Message-ID: <52CD0331.8040204@cn.fujitsu.com>
+References: <1371352470-3226-1-git-send-email-gaofeng@cn.fujitsu.com> <20130619.230532.1329281330568271336.davem@davemloft.net> <20131231035718.GB27636@order.stressinduktion.org> <52C4FDBE.5030607@huawei.com> <20140102065429.GB22494@order.stressinduktion.org> <52C51C1E.9040603@huawei.com> <20140102082325.GC22494@order.stressinduktion.org> <52C5325B.8020900@huawei.com> <20140103065349.GK22494@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: chenweilong <chenweilong@huawei.com>,
+	David Miller <davem@davemloft.net>, kumaran.4353@gmail.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:8243 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755193AbaAHHkR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jan 2014 02:40:17 -0500
-In-Reply-To: <1389166847-3780-1-git-send-email-aaron.f.brown@intel.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:5468 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754987AbaAHHtP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jan 2014 02:49:15 -0500
+In-Reply-To: <20140103065349.GK22494@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+On 01/03/2014 02:53 PM, Hannes Frederic Sowa wrote:
+> On Thu, Jan 02, 2014 at 05:33:15PM +0800, chenweilong wrote:
+>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>> index 62d1799..d2f8c0a 100644
+>> --- a/net/ipv6/addrconf.c
+>> +++ b/net/ipv6/addrconf.c
+>> @@ -2422,8 +2422,9 @@ static void init_loopback(struct net_device *dev)
+>>  			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
+>>  				continue;
+>>
+>> -			if (sp_ifa->rt)
+>> -				continue;
+>> +			if (sp_ifa->rt && sp_ifa->rt->dst.dev == dev) {
+>> +				ip6_del_rt(sp_ifa->rt);
+>> +			}
+>>
+>>  			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
+>>
+> 
+> Maybe this change would not be that bad after all, as those ifa attached dsts
+> are already dead and queued up for gc and should not get inserted back.
 
-Prevent writes to an adapter that has been detected as removed
-by a previous failing read. This also fixes some include file
-ordering confusion that this patch revealed.
+I like this idea, maybe the below patch is better. we only need to delete this
+route when it has been added to garbage list.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h | 12 ++++++++++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c    |  3 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c    |  2 +-
- 3 files changed, 12 insertions(+), 5 deletions(-)
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 1a341f7..4dca886 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2610,8 +2610,16 @@ static void init_loopback(struct net_device *dev)
+                        if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
+                                continue;
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index 480c5c1..5320586 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -131,7 +131,11 @@ void ixgbe_check_remove(struct ixgbe_hw *hw, u32 reg);
- 
- static inline void IXGBE_WRITE_REG(struct ixgbe_hw *hw, u32 reg, u32 value)
- {
--	writel(value, hw->hw_addr + reg);
-+	u8 __iomem *reg_addr = ACCESS_ONCE(hw->hw_addr);
-+
-+	if (IXGBE_REMOVED(reg_addr))
-+		return;
-+	writel(value, reg_addr + reg);
- }
- 
- #ifndef writeq
-@@ -144,7 +148,11 @@ static inline void writeq(u64 val, void __iomem *addr)
- 
- static inline void IXGBE_WRITE_REG64(struct ixgbe_hw *hw, u32 reg, u64 value)
- {
--	writeq(value, hw->hw_addr + reg);
-+	u8 __iomem *reg_addr = ACCESS_ONCE(hw->hw_addr);
-+
-+	if (IXGBE_REMOVED(reg_addr))
-+		return;
-+	writeq(value, reg_addr + reg);
- }
- 
- static inline u32 IXGBE_READ_REG(struct ixgbe_hw *hw, u32 reg)
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
-index d4a64e6..cc3101a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
-@@ -27,8 +27,7 @@
- 
- #include <linux/pci.h>
- #include <linux/delay.h>
--#include "ixgbe_type.h"
--#include "ixgbe_common.h"
-+#include "ixgbe.h"
- #include "ixgbe_mbx.h"
- 
- /**
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-index 39217e5..132557c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -29,7 +29,7 @@
- #include <linux/delay.h>
- #include <linux/sched.h>
- 
--#include "ixgbe_common.h"
-+#include "ixgbe.h"
- #include "ixgbe_phy.h"
- 
- static void ixgbe_i2c_start(struct ixgbe_hw *hw);
--- 
-1.8.5.GIT
+-                       if (sp_ifa->rt)
+-                               continue;
++                       if (sp_ifa->rt) {
++                               /* This dst has been added to garbage list when
++                                * lo device down, delete this obsolete dst and
++                                * reallocate new router for ifa. */
++                               if (sp_ifa->rt->dst.obsolete > 0) {
++                                       ip6_del_rt(sp_ifa->rt);
++                                       sp_ifa->rt = NULL;
++                               } else
++                                       continue;
++                       }
+
+                        sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, false);
+
+
+
+> 
+> I'll try to just disable routes without removing them at all when we set an
+> interface to down at the weekend.
+> 
+
+How do you decide which route should be disabled?  use rt6_flags? I don't know
+if your way will cause miscarriage.
