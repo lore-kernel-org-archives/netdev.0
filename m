@@ -1,35 +1,63 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next v2 0/9] xen-netback: TX grant mapping with SKBTX_DEV_ZEROCOPY
- instead of copy
-Date: Wed, 8 Jan 2014 14:44:43 +0000
-Message-ID: <52CD645B.6060700@citrix.com>
-References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com> <20140108144324.GA6984@zion.uk.xensource.com>
+From: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
+Subject: [PATCH net-next v2] packet: doc: how to PACKET_MMAP with one packet
+ socket for rx and tx
+Date: Wed, 08 Jan 2014 15:46:44 +0100
+Message-ID: <52CD64D4.5020005@aimvalley.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<jonathan.davies@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:2285 "EHLO SMTP02.CITRIX.COM"
+Received: from mika.eatserver.nl ([195.20.9.75]:52801 "EHLO mika.eatserver.nl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756294AbaAHOpC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jan 2014 09:45:02 -0500
-In-Reply-To: <20140108144324.GA6984@zion.uk.xensource.com>
+	id S1756510AbaAHOqt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jan 2014 09:46:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/01/14 14:43, Wei Liu wrote:
-> You once mentioned that you have a trick to avoid touching TLB, is it in
-> this series?
->
-> (Haven't really looked at this series as I'm in today. Will have a
-> closer look tonight. I'm just curious now.)
->
-> Wei.
->
-No, I'm currently working on that, it will be a separate series, as it 
-also needs some Xen modifications which haven't reached upstream yet AFAIK.
 
-Zoli
+Describe how to use one AF_PACKET socket for rx and tx.
+
+Cc: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
+---
+  Documentation/networking/packet_mmap.txt |   18 ++++++++++++++++++
+  1 files changed, 18 insertions(+), 0 deletions(-)
+
+diff --git a/Documentation/networking/packet_mmap.txt b/Documentation/networking/packet_mmap.txt
+index 723bf3d..5566c20 100644
+--- a/Documentation/networking/packet_mmap.txt
++++ b/Documentation/networking/packet_mmap.txt
+@@ -98,6 +98,11 @@ by the kernel.
+  The destruction of the socket and all associated resources
+  is done by a simple call to close(fd).
+
++As without PACKET_MMAP, it is possible to use one socket for
++capture and transmission. This can be done by mapping the
++allocated RX and TX buffer ring with a single mmap() call. See
++"Mapping and use of the circular buffer (ring)".
++
+  Next I will describe PACKET_MMAP settings and its constraints,
+  also the mapping of the circular buffer in the user process and
+  the use of this buffer.
+@@ -414,6 +419,19 @@ tp_block_size/tp_frame_size frames there will be a gap between
+  the frames. This is because a frame cannot be spawn across two
+  blocks.
+
++To use one socket for capture and transmission, the mapping of both the RX
++and TX buffer ring has to be done with one call to mmap:
++
++    ...
++    setsockopt(fd, SOL_PACKET, PACKET_RX_RING, &foo, sizeof(foo));
++    setsockopt(fd, SOL_PACKET, PACKET_TX_RING, &bar, sizeof(bar));
++    ...
++    rx_ring = mmap(0, size * 2, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
++    tx_ring = rx_ring + size;
++
++RX must be the first as the kernel maps the TX ring memory right after
++the RX one.
++
+  At the beginning of each frame there is an status field (see
+  struct tpacket_hdr). If this field is 0 means that the frame is ready
+  to be used for the kernel, If not, there is a frame the user can read
