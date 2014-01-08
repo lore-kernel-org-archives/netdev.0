@@ -1,73 +1,52 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next v3 8/9] xen-netback: Timeout packets in RX path
-Date: Wed, 8 Jan 2014 21:34:21 +0000
-Message-ID: <52CDC45D.3050509@citrix.com>
-References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com> <1389139818-24458-9-git-send-email-zoltan.kiss@citrix.com>
+From: "Dr. Musa Hamed" <drmusahamed01@gmail.com>
+Subject: I have a very lucrative Business
+Date: Wed, 8 Jan 2014 22:09:26 +0100
+Message-ID: <CALS90i_uRjZ62tmjAJxJQQAo9UGHzUYnuRV1mCELr6JVeJb-dw__7467.56022931567$1389217119$gmane$org@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Paul Durrant <Paul.Durrant@citrix.com>
-To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:42400 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757378AbaAHVeZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 16:34:25 -0500
-In-Reply-To: <1389139818-24458-9-git-send-email-zoltan.kiss@citrix.com>
+Received: from mail-we0-f194.google.com ([74.125.82.194]:45480 "EHLO
+	mail-we0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757843AbaAHViV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 16:38:21 -0500
+Received: by mail-we0-f194.google.com with SMTP id t60so85875wes.9
+        for <netdev@vger.kernel.org>; Wed, 08 Jan 2014 13:38:20 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I just realized when answering Ma's mail that this doesn't cause the 
-desired effect after Paul's flow control improvement: starting the queue 
-doesn't drop the packets which cannot fit the ring. Which in fact might 
-be not good. We are adding the skb to vif->rx_queue even when 
-xenvif_rx_ring_slots_available(vif, min_slots_needed) said there is no 
-space for that. Or am I missing something? Paul?
+ATTN: Dear,
 
-Zoli
+I am Dr. Musa Hamed Executive Director of the Bank of Africa
+Plc B.O.A,Cotonou Benin Rep. I have a very lucrative Business proposal
+worth of 21,500,000.00 USD.
 
-On 08/01/14 00:10, Zoltan Kiss wrote:
-> A malicious or buggy guest can leave its queue filled indefinitely, in which
-> case qdisc start to queue packets for that VIF. If those packets came from an
-> another guest, it can block its slots and prevent shutdown. To avoid that, we
-> make sure the queue is drained in every 10 seconds.
-...
-> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-> index 95fcd63..ce032f9 100644
-> --- a/drivers/net/xen-netback/interface.c
-> +++ b/drivers/net/xen-netback/interface.c
-> @@ -114,6 +114,16 @@ static irqreturn_t xenvif_interrupt(int irq, void *dev_id)
->   	return IRQ_HANDLED;
->   }
->
-> +static void xenvif_wake_queue(unsigned long data)
-> +{
-> +	struct xenvif *vif = (struct xenvif *)data;
-> +
-> +	if (netif_queue_stopped(vif->dev)) {
-> +		netdev_err(vif->dev, "draining TX queue\n");
-> +		netif_wake_queue(vif->dev);
-> +	}
-> +}
-> +
->   static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
->   {
->   	struct xenvif *vif = netdev_priv(dev);
-> @@ -143,8 +153,13 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
->   	 * then turn off the queue to give the ring a chance to
->   	 * drain.
->   	 */
-> -	if (!xenvif_rx_ring_slots_available(vif, min_slots_needed))
-> +	if (!xenvif_rx_ring_slots_available(vif, min_slots_needed)) {
-> +		vif->wake_queue.function = xenvif_wake_queue;
-> +		vif->wake_queue.data = (unsigned long)vif;
->   		xenvif_stop_queue(vif);
-> +		mod_timer(&vif->wake_queue,
-> +			jiffies + rx_drain_timeout_jiffies);
-> +	}
->
->   	skb_queue_tail(&vif->rx_queue, skb);
->   	xenvif_kick_thread(vif);
+An Iraqi named Hamadi Hashem a business man made a fixed deposit of
+21,500,000.00 USD . Upon maturity several notices was sent to him,
+even during the war,eleven years ago (2003) up till this date. Again
+after the war another notification was sent and still no response came
+from him. it has been found out that Hamadi Hashem and his family had
+been killed during the war in bomb blast that hit their home at
+Mukaradeeb where his personal oil well was. I am prepared to split the
+funds with you 50%:50%.By placing you as the NEXT OF KIN to his
+deposit.
+
+Should you be interested in doing this deal with me, please send me
+the following information:
+
+(1) Your Name
+(2) Resident Address
+(3) Your Occupation
+(4) Your Phone Number
+(5) Date of Birth
+(6) Resident Country
+
+And I will prefer you to reach me privately and securely on my personal
+email address: dr.musahamed30@yahoo.fr
+Tel: +229-988-400-97
+
+I will provide you with further information as soon as I hear
+positively from you.
+
+Regards,
+Dr. Musa Hamed
