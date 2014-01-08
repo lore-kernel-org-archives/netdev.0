@@ -1,31 +1,42 @@
-From: Scott Feldman <sfeldma@cumulusnetworks.com>
-Subject: Re: [net-next 3/7] ixgbe: Use static inlines instead of macros
-Date: Wed, 8 Jan 2014 00:47:46 -0800
-Message-ID: <CE14B815-C10B-4091-A608-6742117FBEF6@cumulusnetworks.com>
-References: <1389166847-3780-1-git-send-email-aaron.f.brown@intel.com> <1389166847-3780-4-git-send-email-aaron.f.brown@intel.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.1 \(1827\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	Mark Rustad <mark.d.rustad@intel.com>,
-	Netdev <netdev@vger.kernel.org>, gospo@redhat.com,
-	sassmann@redhat.com
-To: Aaron Brown <aaron.f.brown@intel.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCH net-next 3/3] xfrm: Don't prohibit AH from using ESN feature
+Date: Wed, 8 Jan 2014 16:53:12 +0800
+Message-ID: <1389171192-28091-4-git-send-email-fan.du@windriver.com>
+References: <1389171192-28091-1-git-send-email-fan.du@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:55021 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756046AbaAHIrx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 03:47:53 -0500
-In-Reply-To: <1389166847-3780-4-git-send-email-aaron.f.brown@intel.com>
+Received: from mail.windriver.com ([147.11.1.11]:42451 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755595AbaAHIxU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 03:53:20 -0500
+In-Reply-To: <1389171192-28091-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Clear checking when user try to use ESN through netlink keymgr for AH.
 
-On Jan 7, 2014, at 11:40 PM, Aaron Brown <aaron.f.brown@intel.com> wrote:
+Signed-off-by: Fan Du <fan.du@windriver.com>
+---
+ net/xfrm/xfrm_user.c |    4 ----
+ 1 file changed, 4 deletions(-)
 
-> From: Mark Rustad <mark.d.rustad@intel.com>
-> 
-> -#define IXGBE_WRITE_REG(a, reg, value) writel((value), ((a)->hw_addr + (reg)))
-> +static inline void IXGBE_WRITE_REG(struct ixgbe_hw *hw, u32 reg, u32 value)
-
-Bummer, now you have a all-caps func name.
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 97681a3..f362a78 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -141,10 +141,6 @@ static inline int verify_replay(struct xfrm_usersa_info *p,
+ 
+ 	if (!rt)
+ 		return 0;
+-
+-	if (p->id.proto != IPPROTO_ESP)
+-		return -EINVAL;
+-
+ 	if (p->replay_window != 0)
+ 		return -EINVAL;
+ 
+-- 
+1.7.9.5
