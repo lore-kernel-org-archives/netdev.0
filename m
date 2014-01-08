@@ -1,46 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] unix: show socket peer if no addr is given in
- /proc/net/unix
-Date: Wed, 08 Jan 2014 01:00:43 -0500 (EST)
-Message-ID: <20140108.010043.2192738470649350132.davem@davemloft.net>
-References: <1389158288-2855-1-git-send-email-yamato@redhat.com>
+Subject: Re: [PATCH net] bnx2x: prevent WARN during driver unload
+Date: Wed, 08 Jan 2014 01:01:40 -0500 (EST)
+Message-ID: <20140108.010140.283557207092663086.davem@davemloft.net>
+References: <1389089261-25714-1-git-send-email-yuvalmin@broadcom.com>
+	<20140107.154546.297973917685156649.davem@davemloft.net>
+	<979A8436335E3744ADCD3A9F2A2B68A52AF23FBC@SJEXCHMB10.corp.ad.broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yamato@redhat.com
+Cc: netdev@vger.kernel.org, dmitry@broadcom.com, ariele@broadcom.com
+To: yuvalmin@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47740 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47746 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750790AbaAHGAo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 01:00:44 -0500
-In-Reply-To: <1389158288-2855-1-git-send-email-yamato@redhat.com>
+	with ESMTP id S1750790AbaAHGBl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 01:01:41 -0500
+In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A52AF23FBC@SJEXCHMB10.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Masatake YAMATO <yamato@redhat.com>
-Date: Wed,  8 Jan 2014 14:18:08 +0900
+From: Yuval Mintz <yuvalmin@broadcom.com>
+Date: Wed, 8 Jan 2014 05:41:48 +0000
 
-> Path field of /proc/net/unix is empty if an address is not given
-> to a socket. Typical way to create such socket is calling
-> socketpair. The empty fields make it difficult to understand the
-> communication between processes. e.g. lsof cannot resolve the role of
-> file descriptors well.
+>> 
+>> > +	fp->state &= BNX2X_FP_STATE_DISABLED;
+>>  ...
+>> > +	fp->state &= BNX2X_FP_STATE_DISABLED;
+>> 
+>> Surely you mean "&= ~BNX2X_FP_STATE_DISABLED" here?
 > 
-> This patch fills the empty fields with unix_peer.
+> Thought the comment above the code was sufficient to show 
+> this is intentional.
 > 
-> Signed-off-by: Masatake YAMATO <yamato@redhat.com>
+> The BNX2X_FP_STATE_DISABLED will cause BNX@X_FP_LOCKED to
+> Be true. The bnx2x_fp_ll_disable() works by setting this bit even
+> when BNX2X_FP_OWNED is set; while other flows release the lock
+> the will clear the bit indications except for the disabled indication,
+> so that no other flow could take the lock after it was disabled,
+> and the loop of bnx2x_fp_ll_disable() calls will eventually return true.
 
-You cannot change the format of a procfs file without potentially
-breaking some application which might interpret the output.
+This bit handling is completely unintuitive.
 
-In this case an application might be looking for an empty field
-as meaning the sockhad has no given address.
-
-I cannot apply this patch.  People have repeatedly tried making
-changes to these networking socket procfs files, and I really wish
-people would stop trying to do so.
-
-If you want specific pieces of new information, extend the socket
-dumping facility that is actually extensible in a way which will not
-break existing applications, and that's netlink.
+The way a boolean state works is you manage it by setting it when
+a condition arises, and clear it when a condition goes away.
