@@ -1,136 +1,62 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 13/15] i40e: Enable/Disable PF switch LB on SR-IOV configure changes
-Date: Tue,  7 Jan 2014 22:07:34 -0800
-Message-ID: <1389161256-24599-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 14/15] i40e: remove redundant AQ enable
+Date: Tue,  7 Jan 2014 22:07:35 -0800
+Message-ID: <1389161256-24599-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389161256-24599-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+Cc: Kamil Krawczyk <kamil.krawczyk@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:9942 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:23587 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755193AbaAHGIu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755202AbaAHGIu (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 8 Jan 2014 01:08:50 -0500
 In-Reply-To: <1389161256-24599-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Kamil Krawczyk <kamil.krawczyk@intel.com>
 
-The PF VSI was never updated to enable or disable internal switch loopback
-when VFs were created or destroyed via the sysfs interface.  Add some
-helper functions to take care of that.
+The admin queue length register is updated in
+config_a<sq|rq>_regs functions.  We should not update it again,
+as we will trigger firmware to init the AQ again. In this case
+firmware will lose the information about the AQ Rx tail position
+and will see Rx queue as full (no free desc for FW to use).
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 76 +++++++++++++++++++++-
- 1 file changed, 74 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c | 6 ------
+ 1 file changed, 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 5c99164..efb9a24 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -716,6 +716,76 @@ static bool i40e_vfs_are_assigned(struct i40e_pf *pf)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+index 18a768f..c87dc15 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+@@ -957,20 +957,14 @@ clean_arq_element_out:
  
- 	return false;
+ static void i40e_resume_aq(struct i40e_hw *hw)
+ {
+-	u32 reg = 0;
+-
+ 	/* Registers are reset after PF reset */
+ 	hw->aq.asq.next_to_use = 0;
+ 	hw->aq.asq.next_to_clean = 0;
+ 
+ 	i40e_config_asq_regs(hw);
+-	reg = hw->aq.num_asq_entries | I40E_PF_ATQLEN_ATQENABLE_MASK;
+-	wr32(hw, hw->aq.asq.len, reg);
+ 
+ 	hw->aq.arq.next_to_use = 0;
+ 	hw->aq.arq.next_to_clean = 0;
+ 
+ 	i40e_config_arq_regs(hw);
+-	reg = hw->aq.num_arq_entries | I40E_PF_ATQLEN_ATQENABLE_MASK;
+-	wr32(hw, hw->aq.arq.len, reg);
  }
-+#ifdef CONFIG_PCI_IOV
-+
-+/**
-+ * i40e_enable_pf_switch_lb
-+ * @pf: pointer to the pf structure
-+ *
-+ * enable switch loop back or die - no point in a return value
-+ **/
-+static void i40e_enable_pf_switch_lb(struct i40e_pf *pf)
-+{
-+	struct i40e_vsi *vsi = pf->vsi[pf->lan_vsi];
-+	struct i40e_vsi_context ctxt;
-+	int aq_ret;
-+
-+	ctxt.seid = pf->main_vsi_seid;
-+	ctxt.pf_num = pf->hw.pf_id;
-+	ctxt.vf_num = 0;
-+	aq_ret = i40e_aq_get_vsi_params(&pf->hw, &ctxt, NULL);
-+	if (aq_ret) {
-+		dev_info(&pf->pdev->dev,
-+			 "%s couldn't get pf vsi config, err %d, aq_err %d\n",
-+			 __func__, aq_ret, pf->hw.aq.asq_last_status);
-+		return;
-+	}
-+	ctxt.flags = I40E_AQ_VSI_TYPE_PF;
-+	ctxt.info.valid_sections = cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
-+	ctxt.info.switch_id |= cpu_to_le16(I40E_AQ_VSI_SW_ID_FLAG_ALLOW_LB);
-+
-+	aq_ret = i40e_aq_update_vsi_params(&vsi->back->hw, &ctxt, NULL);
-+	if (aq_ret) {
-+		dev_info(&pf->pdev->dev,
-+			 "%s: update vsi switch failed, aq_err=%d\n",
-+			 __func__, vsi->back->hw.aq.asq_last_status);
-+	}
-+}
-+#endif
-+
-+/**
-+ * i40e_disable_pf_switch_lb
-+ * @pf: pointer to the pf structure
-+ *
-+ * disable switch loop back or die - no point in a return value
-+ **/
-+static void i40e_disable_pf_switch_lb(struct i40e_pf *pf)
-+{
-+	struct i40e_vsi *vsi = pf->vsi[pf->lan_vsi];
-+	struct i40e_vsi_context ctxt;
-+	int aq_ret;
-+
-+	ctxt.seid = pf->main_vsi_seid;
-+	ctxt.pf_num = pf->hw.pf_id;
-+	ctxt.vf_num = 0;
-+	aq_ret = i40e_aq_get_vsi_params(&pf->hw, &ctxt, NULL);
-+	if (aq_ret) {
-+		dev_info(&pf->pdev->dev,
-+			 "%s couldn't get pf vsi config, err %d, aq_err %d\n",
-+			 __func__, aq_ret, pf->hw.aq.asq_last_status);
-+		return;
-+	}
-+	ctxt.flags = I40E_AQ_VSI_TYPE_PF;
-+	ctxt.info.valid_sections = cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
-+	ctxt.info.switch_id &= ~cpu_to_le16(I40E_AQ_VSI_SW_ID_FLAG_ALLOW_LB);
-+
-+	aq_ret = i40e_aq_update_vsi_params(&vsi->back->hw, &ctxt, NULL);
-+	if (aq_ret) {
-+		dev_info(&pf->pdev->dev,
-+			 "%s: update vsi switch failed, aq_err=%d\n",
-+			 __func__, vsi->back->hw.aq.asq_last_status);
-+	}
-+}
- 
- /**
-  * i40e_free_vfs
-@@ -759,10 +829,11 @@ void i40e_free_vfs(struct i40e_pf *pf)
- 			bit_idx = (hw->func_caps.vf_base_id + vf_id) % 32;
- 			wr32(hw, I40E_GLGEN_VFLRSTAT(reg_idx), (1 << bit_idx));
- 		}
--	}
--	else
-+		i40e_disable_pf_switch_lb(pf);
-+	} else {
- 		dev_warn(&pf->pdev->dev,
- 			 "unable to disable SR-IOV because VFs are assigned.\n");
-+	}
- 
- 	/* Re-enable interrupt 0. */
- 	i40e_irq_dynamic_enable_icr0(pf);
-@@ -816,6 +887,7 @@ static int i40e_alloc_vfs(struct i40e_pf *pf, u16 num_alloc_vfs)
- 	pf->vf = vfs;
- 	pf->num_alloc_vfs = num_alloc_vfs;
- 
-+	i40e_enable_pf_switch_lb(pf);
- err_alloc:
- 	if (ret)
- 		i40e_free_vfs(pf);
 -- 
 1.8.3.1
