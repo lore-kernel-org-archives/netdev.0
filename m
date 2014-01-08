@@ -1,107 +1,145 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: mlx4 w/ IOMMU broken, kernel 3.12.6
-Date: Wed, 8 Jan 2014 14:49:17 +0100
-Message-ID: <20140108134917.GC351037@jupiter.n2.diac24.net>
+From: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
+Subject: Re: single process receives own frames due to PACKET_MMAP
+Date: Wed, 08 Jan 2014 15:18:31 +0100
+Message-ID: <52CD5E37.5070104@aimvalley.nl>
+References: <52B4465E.2090904@aimvalley.nl> <52CB34F9.6020906@aimvalley.nl> <52CBC991.8030701@redhat.com> <20140107110609.74f71979@redhat.com> <52CBFE13.8@aimvalley.nl> <20140107150938.1058b358@redhat.com> <52CC1A61.5080205@aimvalley.nl> <52CC1C94.2060808@redhat.com> <52CC2168.9060401@aimvalley.nl> <52CC23F6.1070801@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Amir Vadai <amirv@mellanox.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, uaca@alumni.uv.es
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:40604 "EHLO spaceboyz.net"
+Received: from mika.eatserver.nl ([195.20.9.75]:52098 "EHLO mika.eatserver.nl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756524AbaAHORy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jan 2014 09:17:54 -0500
-Content-Disposition: inline
+	id S1755610AbaAHOTt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jan 2014 09:19:49 -0500
+In-Reply-To: <52CC23F6.1070801@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 01/07/14 16:57, Daniel Borkmann wrote:
+> On 01/07/2014 04:46 PM, Norbert van Bolhuis wrote:
+>> On 01/07/14 16:26, Daniel Borkmann wrote:
+>>> On 01/07/2014 04:16 PM, Norbert van Bolhuis wrote:
+>>>> On 01/07/14 15:09, Jesper Dangaard Brouer wrote:
+>>>>> On Tue, 07 Jan 2014 14:16:03 +0100
+>>>>> Norbert van Bolhuis<nvbolhuis@aimvalley.nl> wrote:
+>>>>>> On 01/07/14 11:06, Jesper Dangaard Brouer wrote:
+>>>>>>> On Tue, 07 Jan 2014 10:32:01 +0100
+>>>>>>> Daniel Borkmann<dborkman@redhat.com> wrote:
+>>>>>>>
+>>>>>>>> On 01/06/2014 11:58 PM, Norbert van Bolhuis wrote:
+>>>>>>>>>
+>>>>> [...]
+>>>>>>>>
+>>>>>>>>> I'd say it makes no sense to make the same process receive its
+>>>>>>>>> own transmitted frames on that same interface (unless its lo).
+>>>>>>>
+>>>>>>> Have you setup:
+>>>>>>> ring->s_ll.sll_protocol = 0
+>>>>>>>
+>>>>>>> This is what I did in trafgen to avoid this problem.
+>>>>>>>
+>>>>>>> See line 55 in netsniff-ng/ring.c:
+>>>>>>> https://github.com/borkmann/netsniff-ng/blob/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1/ring.c#L55
+>>>>>>>
+>>>>>>> Commit:
+>>>>>>> https://github.com/borkmann/netsniff-ng/commit/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1
+>>>>>>>
+>>>>>>
+>>>>>>
+>>>>>> No I did not do that, I was checking my code against netsniff-ng-0.5.8-rc4.
+>>>>>>
+>>>>>> But I just tried it, I believe I do the same as netsniff-ng-0.5.8-rc5, but it doesn't
+>>>>>> work for me. Maybe because I have an old FC14 system (kernel 2.6.35.14-106.fc14.x86_64).
+>>>>>>
+>>>>>> So I tried to see whether netsniff-ng-0.5.8-rc5/trafgen still makes the
+>>>>>> kernel call packet_rcv() on my FC14 system. So I build and run it, but I'm not sure
+>>>>>> how to (easily) check that.
+>>>>>
+>>>>> The easiest way is to:
+>>>>> cat /proc/net/ptype
+>>>>> And look if someone registered a proto handler/function: packet_rcv (or tpacket_rcv).
+>>>>>
+>>>>> The more exact method is, to run "perf record -a -g" and then look (at
+>>>>> the result with "perf report") for a lock contention, and "expand" the
+>>>>> spin_lock and see if packet_rcv() is calling this spin lock.
+>>>>>
+>>>>
+>>>>
+>>>> I checked the easy way.
+>>>> Even on my old FC14 system the "protocol=0 patch" seems to make a difference
+>>>> for trafgen.
+>>>> Without the patch I see for each CPU in use by trafgen a "packet_rcv entry" in
+>>>> /proc/net/ptype.
+>>>> With the patch I see no additional "packet_rcv entry".
+>>>
+>>> Yes, that is expected behaviour. ;-) See more below.
+>>>
+>>>> It could be my Appl is wrong or maybe the "protocol=0 patch" does not help.
+>>>> I think the latter, afterall my Appl has, unlike trafgen, another RX
+>>>> (AF_PACKET) socket.
+>>>>
+>>>>
+>>>>>
+>>>>>> In anyway, Wireshark does capture the trafgen generated
+>>>>>> frames, does that say anything ?
+>>>>>
+>>>>> Be careful not to start a wireshark/tcpdump, at the sametime, as this
+>>>>> will slow you down.
+>>>>>
+>>>>>> In the future, I can at least use PACKET_QDISC_BYPASS as a "workaround".
+>>>>>
+>>>>> And in the future with PACKET_QDISC_BYPASS, your wireshark will not
+>>>>> catch these packets, remember that.
+>>>>>
+>>>>
+>>>>
+>>>> Yes, this is why I would love to see the "protocol=0 patch" work for my Appl.
+>>>>
+>>>> So I will try my Appl with the latest net-next kernel to see if that makes
+>>>> it work. Hopefully I can find some time in the next coming days, I will keep
+>>>> you informed.
+>>>
+>>> As long as there's at least one single PF_PACKET receive socket open and you
+>>> do not make use of PACKET_QDISC_BYPASS on your tx socket, then those packets go
+>>> back the dev_queue_xmit_nit() path, even if your tx socket uses protocol=0.
+>>>
+>>> If you make use of PACKET_QDISC_BYPASS [1] for your particular tx socket, then
+>>> packets generated by that socket will not hit the dev_queue_xmit_nit() path
+>>> back to other possible rx listeners that are present on your system (w/ the
+>>> side-effects for tx as described in [1]).
+>>>
+>>> [1] Documentation/networking/packet_mmap.txt +960
+>>>
+>>
+>>
+>> Ok, that's clear.
+>>
+>> But this means my PF_PACKET socket application performs worse because of
+>> using PACKET_MMAP. I expected the opposit.
+>>
+>> Afterall my old PF_PACKET socket application (which does not use PACKET_MMAP)
+>> uses only one PF_PACKET socket (for TX and RX). Because packets are never sent
+>> back to the socket they originated from, my old PF_PACKET socket application
+>> performs better.
+>>
+>> Is there a way to use one PF_PACKET socket for both TX and RX and use PACKET_MMAP ?
+>
+> Yep:
+>
+> http://thread.gmane.org/gmane.linux.network/269129/focus=269188
+>
+> Feel free to make a patch and add this to Documentation/networking/packet_mmap.txt
+> I think could be useful for others as well.
 
 
-mlx4 is currently broken when an IOMMU is enabled, the driver does not
-seem to set up regions correctly (and also, the card seems to access things
-before its driver is loaded):
+Good, it all works fine now, though performance is still not as good as I'd hoped.
 
-(This is the in-kernel driver.  The separately distributed 1.5.10
-Mellanox driver does not seem to build against kernel 3.12.6.)
+I will sent a doc patch soon.
 
-[    1.897271] IOMMU 0 0xfbffc000: using Queued invalidation
-[    1.897569] IOMMU: Setting RMRR:
-[    1.897872] IOMMU: Setting identity map for device 0000:00:1d.0 [0x7dea2000 - 0x7deaefff]
-[    1.898415] IOMMU: Setting identity map for device 0000:00:1a.0 [0x7dea2000 - 0x7deaefff]
-[    1.898930] IOMMU: Prepare 0-16MiB unity mapping for LPC
-[    1.899217] IOMMU: Setting identity map for device 0000:00:1f.0 [0x0 - 0xffffff]
-[    1.899726] PCI-DMA: Intel(R) Virtualization Technology for Directed I/O
-[    1.902086] dmar: DRHD: handling fault status reg 2
-[    1.902362] dmar: DMAR:[DMA Read] Request device [06:00.0] fault addr 72469000 
-DMAR:[fault reason 01] Present bit in root entry is clear
-(...)
-[    3.299985] mlx4_core: Mellanox ConnectX core driver v1.1 (Dec, 2011)
-[    3.300247] mlx4_core: Initializing 0000:06:00.0
-[    4.306091] dmar: DRHD: handling fault status reg 102
-[    4.306359] dmar: DMAR:[DMA Read] Request device [06:00.0] fault addr 7236f000 
-DMAR:[fault reason 06] PTE Read access is not set
-[   14.309294] mlx4_core 0000:06:00.0: command 0x4 timed out (go bit not cleared)
-[   14.309759] mlx4_core 0000:06:00.0: QUERY_FW command failed, aborting.
-[   15.313896] mlx4_core: probe of 0000:06:00.0 failed with error -110
+thanks for all help!
 
-(PCI/IOMMU Host is an Intel Xeon E5-2630v2)
-
-Since the driver hasn't been touched in net-next, I assume this issue
-hasn't been fixed in the time since 3.12 was released;  my apologies if
-this is incorrect.
-
-Card information:
-# lspci -vvnns 06:00.0
-06:00.0 Ethernet controller [0200]: Mellanox Technologies MT27500 Family [ConnectX-3] [15b3:1003]
-	Subsystem: Mellanox Technologies Device [15b3:0077]
-	Control: I/O- Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
-	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort+ >SERR- <PERR- INTx-
-	Interrupt: pin A routed to IRQ 42
-	Region 0: Memory at fba00000 (64-bit, non-prefetchable) [size=1M]
-	Region 2: Memory at 380fff000000 (64-bit, prefetchable) [size=8M]
-	Expansion ROM at fb900000 [disabled] [size=1M]
-	Capabilities: [40] Power Management version 3
-		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
-		Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
-	Capabilities: [48] Vital Product Data
-pcilib: sysfs_read_vpd: read failed: Connection timed out
-		Not readable
-	Capabilities: [9c] MSI-X: Enable- Count=128 Masked-
-		Vector table: BAR=0 offset=0007c000
-		PBA: BAR=0 offset=0007d000
-	Capabilities: [60] Express (v2) Endpoint, MSI 00
-		DevCap:	MaxPayload 256 bytes, PhantFunc 0, Latency L0s <64ns, L1 unlimited
-			ExtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset+
-		DevCtl:	Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
-			RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop- FLReset-
-			MaxPayload 256 bytes, MaxReadReq 512 bytes
-		DevSta:	CorrErr- UncorrErr- FatalErr- UnsuppReq- AuxPwr- TransPend-
-		LnkCap:	Port #8, Speed 8GT/s, Width x8, ASPM L0s, Exit Latency L0s unlimited, L1 unlimited
-			ClockPM- Surprise- LLActRep- BwNot-
-		LnkCtl:	ASPM Disabled; RCB 64 bytes Disabled- CommClk+
-			ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
-		LnkSta:	Speed 8GT/s, Width x8, TrErr- Train- SlotClk+ DLActive- BWMgmt- ABWMgmt-
-		DevCap2: Completion Timeout: Range ABCD, TimeoutDis+, LTR-, OBFF Not Supported
-		DevCtl2: Completion Timeout: 50us to 50ms, TimeoutDis-, LTR-, OBFF Disabled
-		LnkCtl2: Target Link Speed: 8GT/s, EnterCompliance- SpeedDis-
-			 Transmit Margin: Normal Operating Range, EnterModifiedCompliance- ComplianceSOS-
-			 Compliance De-emphasis: -6dB
-		LnkSta2: Current De-emphasis Level: -6dB, EqualizationComplete-, EqualizationPhase1-
-			 EqualizationPhase2-, EqualizationPhase3-, LinkEqualizationRequest-
-	Capabilities: [100 v1] Alternative Routing-ID Interpretation (ARI)
-		ARICap:	MFVC- ACS-, Next Function: 0
-		ARICtl:	MFVC- ACS-, Function Group: 0
-	Capabilities: [148 v1] Device Serial Number 00-02-c9-03-00-ea-72-e0
-	Capabilities: [154 v2] Advanced Error Reporting
-		UESta:	DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
-		UEMsk:	DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
-		UESvrt:	DLP+ SDES- TLP- FCP+ CmpltTO- CmpltAbrt- UnxCmplt- RxOF+ MalfTLP+ ECRC- UnsupReq- ACSViol-
-		CESta:	RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr+
-		CEMsk:	RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr+
-		AERCap:	First Error Pointer: 00, GenCap- CGenEn- ChkCap- ChkEn-
-	Capabilities: [18c v1] #19
-
-Cheers,
-
-David
+---
+Norbert.
