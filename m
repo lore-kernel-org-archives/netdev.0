@@ -1,48 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v3 6/9] xen-netback: Handle guests with too
- many frags
-Date: Tue, 07 Jan 2014 18:12:21 -0800
-Message-ID: <1389147141.26646.74.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com>
-	 <1389139818-24458-7-git-send-email-zoltan.kiss@citrix.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next] net: xfrm: xfrm_policy: silence compiler warning
+Date: Wed, 8 Jan 2014 10:26:39 +0800
+Message-ID: <1389147999-15944-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: ian.campbell@citrix.com, wei.liu2@citrix.com,
-	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jonathan.davies@citrix.com
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389139818-24458-7-git-send-email-zoltan.kiss@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <dborkman@redhat.com>, <netdev@vger.kernel.org>
+To: <steffen.klassert@secunet.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:54927 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753994AbaAHC0s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 21:26:48 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-01-08 at 00:10 +0000, Zoltan Kiss wrote:
+=46ix below compiler warning:
 
->  
-> +		if (skb_shinfo(skb)->frag_list) {
-> +			nskb = skb_shinfo(skb)->frag_list;
-> +			xenvif_fill_frags(vif, nskb, INVALID_PENDING_IDX);
-> +			skb->len += nskb->len;
-> +			skb->data_len += nskb->len;
-> +			skb->truesize += nskb->truesize;
-> +			skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-> +			skb_shinfo(nskb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-> +			vif->tx_zerocopy_sent += 2;
-> +			nskb = skb;
-> +
-> +			skb = skb_copy_expand(skb,
-> +					0,
-> +					0,
-> +					GFP_ATOMIC | __GFP_NOWARN);
+net/xfrm/xfrm_policy.c:1644:12: warning: =E2=80=98xfrm_dst_alloc_copy=E2=
+=80=99 defined but not used [-Wunused-function]
 
-skb can be NULL here
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+---
+ net/xfrm/xfrm_policy.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-> +			skb_shinfo(skb)->destructor_arg = NULL;
-> +		}
->  		if (skb_is_nonlinear(skb) && skb_headlen(skb) < PKT_PROT_LEN) {
->  			int target = min_t(int, skb->len, PKT_PROT_LEN);
->  			__pskb_pull_tail(skb, target - skb_headlen(skb));
-> @@ -1568,6 +1660,9 @@ static int xenvif_tx_submit(struct xenvif *vif)
->  		}
->  
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index b390446..e205c4b 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1641,6 +1641,7 @@ free_dst:
+ 	goto out;
+ }
+=20
++#ifdef CONFIG_XFRM_SUB_POLICY
+ static int xfrm_dst_alloc_copy(void **target, const void *src, int siz=
+e)
+ {
+ 	if (!*target) {
+@@ -1652,6 +1653,7 @@ static int xfrm_dst_alloc_copy(void **target, con=
+st void *src, int size)
+ 	memcpy(*target, src, size);
+ 	return 0;
+ }
++#endif
+=20
+ static int xfrm_dst_update_parent(struct dst_entry *dst,
+ 				  const struct xfrm_selector *sel)
+--=20
+1.7.9.5
