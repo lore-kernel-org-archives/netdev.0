@@ -1,21 +1,19 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2 1/4] net: allow > 0 order atomic page alloc
-	in skb_page_frag_refill
-Date: Wed, 08 Jan 2014 11:46:11 -0800
-Message-ID: <1389210371.31367.8.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
-	<20140108180829.GB18162@redhat.com>
-	<1389205563.31367.1.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140108191803.GB18312@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/3] virtio-net: use per-receive queue page
+	frag alloc for mergeable bufs
+Date: Wed, 08 Jan 2014 14:54:20 -0500 (EST)
+Message-ID: <20140108.145420.609452787528603984.davem@davemloft.net>
+References: <1388095258.12212.37.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140108172104.GD17404@redhat.com>
+	<1389204587.26646.111.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: mwdalton@google.com, mst@redhat.com, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, edumazet@google.com
+To: eric.dumazet@gmail.com
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140108191803.GB18312@redhat.com>
+In-Reply-To: <1389204587.26646.111.camel@edumazet-glaptop2.roam.corp.google.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -27,25 +25,18 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-01-08 at 21:18 +0200, Michael S. Tsirkin wrote:
-> On Wed, Jan 08, 2014 at 10:26:03AM -0800, Eric Dumazet wrote:
-> > On Wed, 2014-01-08 at 20:08 +0200, Michael S. Tsirkin wrote:
-> > 
-> > > Eric said we also need a patch to add __GFP_NORETRY, right?
-> > > Probably before this one in series.
-> > 
-> > Nope, this __GFP_NORETRY has nothing to do with this.
-> > 
-> > I am not yet convinced we want it.
-> > 
-> > This needs mm guys advice, as its a tradeoff for mm layer more than
-> > networking...
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 08 Jan 2014 10:09:47 -0800
+
+> A physical NIC do not use a workqueue to refill its RX queue but uses
+> the following strategy :
 > 
-> Well maybe Cc linux-mm then?
+> 0) Pre filling of RX ring buffer with N frames. This can use GFP_KERNEL
+>    allocations with all needed (sleep/retry/shout) logic...
+> 1) IRQ is handled.
+> 2) Can we allocate a new buffer (GFP_ATOMIC) ?
+>    If yes, we accept the frame,
+>       and post the new buffer for the 'next frame'
+>    If no, we drop the frame and recycle the memory for next round.
 
-Well, I do not care of people mlocking the memory and complaining that
-compaction does not work.
-
-If these people care, they should contact mm guys, eventually.
-
-Really this is an issue that has nothing to do with this patch set.
++1
