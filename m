@@ -1,83 +1,54 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net 1/2] bonding: ensure that the TSO being set on bond
- master
-Date: Wed, 8 Jan 2014 09:33:03 +0100
-Message-ID: <20140108083303.GA28509@redhat.com>
-References: <52CCFE18.7040606@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [net-next 2/7] ixgbe: Indicate removal state explicitly
+Date: Wed, 8 Jan 2014 00:37:21 -0800
+Message-ID: <79DAF37B-9AA5-407B-81D2-3EDFD8589254@gmail.com>
+References: <1389166847-3780-1-git-send-email-aaron.f.brown@intel.com> <1389166847-3780-3-git-send-email-aaron.f.brown@intel.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.1 \(1827\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	Mark Rustad <mark.d.rustad@intel.com>,
+	Netdev <netdev@vger.kernel.org>, gospo@redhat.com,
+	sassmann@redhat.com
+To: Aaron Brown <aaron.f.brown@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57054 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755170AbaAHIgI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jan 2014 03:36:08 -0500
-Content-Disposition: inline
-In-Reply-To: <52CCFE18.7040606@huawei.com>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:38226 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755050AbaAHIhZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 03:37:25 -0500
+Received: by mail-ig0-f178.google.com with SMTP id ut6so4018867igb.5
+        for <netdev@vger.kernel.org>; Wed, 08 Jan 2014 00:37:24 -0800 (PST)
+In-Reply-To: <1389166847-3780-3-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 08, 2014 at 03:28:24PM +0800, Ding Tianhong wrote:
->The commit b0ce3508(bonding: allow TSO being set on bonding master)
->has make the TSO being set for bond dev, but in some situation, if
->the slave did not have the NETIF_F_SG features, the bond master will
->miss the TSO features in netdev_fix_features because the TSO is
->depended on SG. So I have to add SG and TSO features on bond master
->together.
 
-Do you know why TSO depends on SG? And what will happen if bonding supports
-SG, but one of its slaves doesn't?
+On Jan 7, 2014, at 11:40 PM, Aaron Brown <aaron.f.brown@intel.com> wrote:
 
->
->The netdev_add_tso_features() was only used for bonding, so I think no
->need to export it to netdevice.h.
->
->Cc: Eric Dumazet <edumazet@google.com>
->Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->---
-> drivers/net/bonding/bond_main.c | 16 +++++++++++++++-
-> 1 file changed, 15 insertions(+), 1 deletion(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index e06c445..8ce67ed 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -1045,6 +1045,20 @@ static void bond_netpoll_cleanup(struct net_device *bond_dev)
->
-> /*---------------------------------- IOCTL ----------------------------------*/
->
->+/* Allow TSO being used on stacked device:
->+ * Performing the GSO segmentation before last device
->+ * is a performance improvement.
->+ * The TSO is depended on SG, so add SG and TSO together,
->+ * otherwise the netdev_fix_features() may clean the TSO.
->+ */
->+static netdev_features_t bond_add_tso_features(netdev_features_t features,
->+					       netdev_features_t mask)
->+{
->+	return netdev_increment_features(features,
->+					 NETIF_F_ALL_TSO | NETIF_F_SG,
->+					 mask);
->+}
->+
-> static netdev_features_t bond_fix_features(struct net_device *dev,
-> 					   netdev_features_t features)
-> {
->@@ -1068,7 +1082,7 @@ static netdev_features_t bond_fix_features(struct net_device *dev,
-> 						     slave->dev->features,
-> 						     mask);
-> 	}
->-	features = netdev_add_tso_features(features, mask);
->+	features = bond_add_tso_features(features, mask);
->
-> 	return features;
-> }
->-- 
->1.8.0
->
->
->
+> From: Mark Rustad <mark.d.rustad@intel.com>
+> 
+> Add a bit, __IXGBE_REMOVE, to indicate that the module is being
+> removed. The __IXGBE_DOWN bit had been overloaded for this purpose,
+> but that leads to trouble. A few places now check both __IXGBE_DOWN
+> and __IXGBE_REMOVE. Notably, setting either bit will prevent service
+> task execution.
+> 
+> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+> Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
+> ---
+> drivers/net/ethernet/intel/ixgbe/ixgbe.h      |  1 +
+> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 12 ++++++++----
+> 2 files changed, 9 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+> index 49531cd..8da263a 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+> @@ -798,6 +798,7 @@ enum ixgbe_state_t {
+> 	__IXGBE_TESTING,
+> 	__IXGBE_RESETTING,
+> 	__IXGBE_DOWN,
+> +	__IXGBE_REMOVE,
+
+__IXGBE_REMOVING?  More consistent with _TESTING, _RESETTING, etc.
