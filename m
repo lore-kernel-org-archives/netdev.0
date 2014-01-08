@@ -1,91 +1,149 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] netfilter: nf_conntrack: fix RCU race in
- nf_conntrack_find_get
-Date: Wed, 08 Jan 2014 05:42:16 -0800
-Message-ID: <1389188536.26646.84.camel@edumazet-glaptop2.roam.corp.google.com>
+ nf_conntrack_find_get (v2)
+Date: Wed, 08 Jan 2014 05:47:21 -0800
+Message-ID: <1389188841.26646.87.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1389090711-15843-1-git-send-email-avagin@openvz.org>
-	 <1389107305.26646.20.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140107152520.GF9894@breakpoint.cc>
+	 <1389187051-7794-1-git-send-email-avagin@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Andrey Vagin <avagin@openvz.org>, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	vvs@openvz.org, Pablo Neira Ayuso <pablo@netfilter.org>,
+Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, vvs@openvz.org,
+	Florian Westphal <fw@strlen.de>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
 	Patrick McHardy <kaber@trash.net>,
 	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
 	"David S. Miller" <davem@davemloft.net>,
 	Cyrill Gorcunov <gorcunov@openvz.org>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140107152520.GF9894@breakpoint.cc>
-Sender: linux-kernel-owner@vger.kernel.org
+To: Andrey Vagin <avagin@openvz.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1389187051-7794-1-git-send-email-avagin@openvz.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-01-07 at 16:25 +0100, Florian Westphal wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > > diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-> > > index 43549eb..7a34bb2 100644
-> > > --- a/net/netfilter/nf_conntrack_core.c
-> > > +++ b/net/netfilter/nf_conntrack_core.c
-> > > @@ -387,8 +387,12 @@ begin:
-> > >  			     !atomic_inc_not_zero(&ct->ct_general.use)))
-> > >  			h = NULL;
-> > >  		else {
-> > > +			/* A conntrack can be recreated with the equal tuple,
-> > > +			 * so we need to check that the conntrack is initialized
-> > > +			 */
-> > >  			if (unlikely(!nf_ct_tuple_equal(tuple, &h->tuple) ||
-> > > -				     nf_ct_zone(ct) != zone)) {
-> > > +				     nf_ct_zone(ct) != zone) ||
-> > > +				     !nf_ct_is_confirmed(ct)) {
-> > >  				nf_ct_put(ct);
-> > >  				goto begin;
-> > >  			}
-> > 
-> > I do not think this is the right way to fix this problem (if said
-> > problem is confirmed)
-> > 
-> > Remember the rule about SLAB_DESTROY_BY_RCU :
-> > 
-> > When a struct is freed, then reused, its important to set the its refcnt
-> > (from 0 to 1) only when the structure is fully ready for use.
-> > 
-> > If a lookup finds a structure which is not yet setup, the
-> > atomic_inc_not_zero() will fail.
+On Wed, 2014-01-08 at 17:17 +0400, Andrey Vagin wrote:
+> Lets look at destroy_conntrack:
 > 
-> Indeed.  But, the structure itself might be ready (or rather,
-> can be ready since the allocation side will set the refcount to one
-> after doing the initial work, such as zapping old ->status flags and
-> setting tuple information).
+> hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
+> ...
+> nf_conntrack_free(ct)
+> 	kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
 > 
-> The problem is with nat extension area stored in the ct->ext area.
-> This extension area is preallocated but the snat/dnat action
-> information is only set up after the ct (or rather, the skb that grabbed
-> a reference to the nf_conn entry) traverses nat pre/postrouting.
+> net->ct.nf_conntrack_cachep is created with SLAB_DESTROY_BY_RCU.
 > 
-> This will also set up a null-binding when no matching SNAT/DNAT/MASQERUADE
-> rule existed.
+> The hash is protected by rcu, so readers look up conntracks without
+> locks.
+> A conntrack is removed from the hash, but in this moment a few readers
+> still can use the conntrack. Then this conntrack is released and another
+> thread creates conntrack with the same address and the equal tuple.
+> After this a reader starts to validate the conntrack:
+> * It's not dying, because a new conntrack was created
+> * nf_ct_tuple_equal() returns true.
 > 
-> The manipulations of the skb->nfct->ext nat area are performed without
-> a lock.  Concurrent access is supposedly impossible as the conntrack
-> should not (yet) be in the hash table.
+> But this conntrack is not initialized yet, so it can not be used by two
+> threads concurrently. In this case BUG_ON may be triggered from
+> nf_nat_setup_info().
 > 
-> The confirmed bit is set right before we insert the conntrack into
-> the hash table (after we traversed rules, ct is ready to be
-> 'published').
+> Florian Westphal suggested to check the confirm bit too. I think it's
+> right.
 > 
-> i.e. when the confirmed bit is NOT set we should not be 'seeing' the nf_conn
-> struct when we perform the lookup, as it should still be sitting on the
-> 'unconfirmed' list, being invisible to readers.
+> task 1			task 2			task 3
+> 			nf_conntrack_find_get
+> 			 ____nf_conntrack_find
+> destroy_conntrack
+>  hlist_nulls_del_rcu
+>  nf_conntrack_free
+>  kmem_cache_free
+> 						__nf_conntrack_alloc
+> 						 kmem_cache_alloc
+> 						 memset(&ct->tuplehash[IP_CT_DIR_MAX],
+> 			 if (nf_ct_is_dying(ct))
+> 			 if (!nf_ct_tuple_equal()
 > 
-> Does that explanation make sense to you?
+> I'm not sure, that I have ever seen this race condition in a real life.
+> Currently we are investigating a bug, which is reproduced on a few node.
+> In our case one conntrack is initialized from a few tasks concurrently,
+> we don't have any other explanation for this.
 > 
-> Thanks for looking into this.
+> <2>[46267.083061] kernel BUG at net/ipv4/netfilter/nf_nat_core.c:322!
+> ...
+> <4>[46267.083951] RIP: 0010:[<ffffffffa01e00a4>]  [<ffffffffa01e00a4>] nf_nat_setup_info+0x564/0x590 [nf_nat]
+> ...
+> <4>[46267.085549] Call Trace:
+> <4>[46267.085622]  [<ffffffffa023421b>] alloc_null_binding+0x5b/0xa0 [iptable_nat]
+> <4>[46267.085697]  [<ffffffffa02342bc>] nf_nat_rule_find+0x5c/0x80 [iptable_nat]
+> <4>[46267.085770]  [<ffffffffa0234521>] nf_nat_fn+0x111/0x260 [iptable_nat]
+> <4>[46267.085843]  [<ffffffffa0234798>] nf_nat_out+0x48/0xd0 [iptable_nat]
+> <4>[46267.085919]  [<ffffffff814841b9>] nf_iterate+0x69/0xb0
+> <4>[46267.085991]  [<ffffffff81494e70>] ? ip_finish_output+0x0/0x2f0
+> <4>[46267.086063]  [<ffffffff81484374>] nf_hook_slow+0x74/0x110
+> <4>[46267.086133]  [<ffffffff81494e70>] ? ip_finish_output+0x0/0x2f0
+> <4>[46267.086207]  [<ffffffff814b5890>] ? dst_output+0x0/0x20
+> <4>[46267.086277]  [<ffffffff81495204>] ip_output+0xa4/0xc0
+> <4>[46267.086346]  [<ffffffff814b65a4>] raw_sendmsg+0x8b4/0x910
+> <4>[46267.086419]  [<ffffffff814c10fa>] inet_sendmsg+0x4a/0xb0
+> <4>[46267.086491]  [<ffffffff814459aa>] ? sock_update_classid+0x3a/0x50
+> <4>[46267.086562]  [<ffffffff81444d67>] sock_sendmsg+0x117/0x140
+> <4>[46267.086638]  [<ffffffff8151997b>] ? _spin_unlock_bh+0x1b/0x20
+> <4>[46267.086712]  [<ffffffff8109d370>] ? autoremove_wake_function+0x0/0x40
+> <4>[46267.086785]  [<ffffffff81495e80>] ? do_ip_setsockopt+0x90/0xd80
+> <4>[46267.086858]  [<ffffffff8100be0e>] ? call_function_interrupt+0xe/0x20
+> <4>[46267.086936]  [<ffffffff8118cb10>] ? ub_slab_ptr+0x20/0x90
+> <4>[46267.087006]  [<ffffffff8118cb10>] ? ub_slab_ptr+0x20/0x90
+> <4>[46267.087081]  [<ffffffff8118f2e8>] ? kmem_cache_alloc+0xd8/0x1e0
+> <4>[46267.087151]  [<ffffffff81445599>] sys_sendto+0x139/0x190
+> <4>[46267.087229]  [<ffffffff81448c0d>] ? sock_setsockopt+0x16d/0x6f0
+> <4>[46267.087303]  [<ffffffff810efa47>] ? audit_syscall_entry+0x1d7/0x200
+> <4>[46267.087378]  [<ffffffff810ef795>] ? __audit_syscall_exit+0x265/0x290
+> <4>[46267.087454]  [<ffffffff81474885>] ? compat_sys_setsockopt+0x75/0x210
+> <4>[46267.087531]  [<ffffffff81474b5f>] compat_sys_socketcall+0x13f/0x210
+> <4>[46267.087607]  [<ffffffff8104dea3>] ia32_sysret+0x0/0x5
+> <4>[46267.087676] Code: 91 20 e2 01 75 29 48 89 de 4c 89 f7 e8 56 fa ff ff 85 c0 0f 84 68 fc ff ff 0f b6 4d c6 41 8b 45 00 e9 4d fb ff ff e8 7c 19 e9 e0 <0f> 0b eb fe f6 05 17 91 20 e2 80 74 ce 80 3d 5f 2e 00 00 00 74
+> <1>[46267.088023] RIP  [<ffffffffa01e00a4>] nf_nat_setup_info+0x564/0x590
+> 
+> v2: move nf_ct_is_confirmed into the unlikely() annotation
+> 
+> Cc: Florian Westphal <fw@strlen.de>
+> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Cyrill Gorcunov <gorcunov@openvz.org>
+> Signed-off-by: Andrey Vagin <avagin@openvz.org>
+> ---
+>  net/netfilter/nf_conntrack_core.c | 6 +++++-
+>  1 file changed, 5 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> index 43549eb..403f634 100644
+> --- a/net/netfilter/nf_conntrack_core.c
+> +++ b/net/netfilter/nf_conntrack_core.c
+> @@ -387,8 +387,12 @@ begin:
+>  			     !atomic_inc_not_zero(&ct->ct_general.use)))
+>  			h = NULL;
+>  		else {
+> +			/* A conntrack can be recreated with the equal tuple,
+> +			 * so we need to check that the conntrack is initialized
+> +			 */
+>  			if (unlikely(!nf_ct_tuple_equal(tuple, &h->tuple) ||
+> -				     nf_ct_zone(ct) != zone)) {
+> +				     nf_ct_zone(ct) != zone ||
+> +				     !nf_ct_is_confirmed(ct))) {
+>  				nf_ct_put(ct);
+>  				goto begin;
+>  			}
 
-Still, this patch adds a loop. And maybe an infinite one if confirmed
-bit is set from an context that was interrupted by this one.
 
-If you need to test the confirmed bit, then you also need to test it
-before taking the refcount.
+I am still not convinced of this being the right fix.
+
+
+The key we test after taking the refcount should be the same key that we
+test before taking the refcount, otherwise we might add a loop here.
+
+Your patch did not change ____nf_conntrack_find(), so I find it
+confusing.
+
+
+
