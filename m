@@ -1,92 +1,88 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 2/3] virtio-net: use per-receive queue page frag
-	alloc for mergeable bufs
-Date: Wed, 8 Jan 2014 20:57:25 +0200
-Message-ID: <20140108185725.GA18276@redhat.com>
-References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
-	<1387239389-13216-2-git-send-email-mwdalton@google.com>
-	<52B7F065.3010707@redhat.com>
-	<1387819627.12212.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20131223193704.GC1582@redhat.com>
-	<CANJ5vPLEV_Z-D-0tThwhWXbHVaRWOLv566Xk1eD4TNYqNvknHw@mail.gmail.com>
-	<20131226213727.GA10259@redhat.com>
-	<1388095258.12212.37.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140108172104.GD17404@redhat.com>
-	<1389204587.26646.111.camel@edumazet-glaptop2.roam.corp.google.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net 1/2] macvlan: forbid L2 fowarding offload for macvtap
+Date: Wed, 08 Jan 2014 11:05:42 -0800
+Message-ID: <52CDA186.1080601@gmail.com>
+References: <1388978467-2075-1-git-send-email-jasowang@redhat.com> <52CA5CDA.1020503@gmail.com> <52CA612D.2000902@redhat.com> <20140106122628.GA24280@hmsreliant.think-freely.org> <52CB7009.2030903@redhat.com> <52CB8D54.9090506@gmail.com> <52CB9D1A.1050101@redhat.com> <52CBAC2A.90005@intel.com> <52CBC22D.3050002@redhat.com> <20140108125528.GC14741@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
-	lf-virt <virtualization@lists.linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1389204587.26646.111.camel@edumazet-glaptop2.roam.corp.google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+	Jason Wang <jasowang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:52734 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751273AbaAHTGK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 14:06:10 -0500
+In-Reply-To: <20140108125528.GC14741@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 08, 2014 at 10:09:47AM -0800, Eric Dumazet wrote:
-> On Wed, 2014-01-08 at 19:21 +0200, Michael S. Tsirkin wrote:
-> 
-> > Basically yes, we could start dropping packets immediately
-> > once GFP_ATOMIC allocations fail and repost the buffer to host,
-> > and hope memory is available by the time we get the next interrupt.
-> 
-> > But we wanted host to have visibility into the fact that
-> > we are out of memory and packets are dropped, so we did not want to
-> > repost.
-> 
-> bufferbloat alert :)
+[...]
+
+>>> OK I think I'm finally putting all the pieces together thanks.
+>>>
+>>> Do you know why macvtap is setting dev->tx_queue_len by default? If you
+>>> zero this then the noqueue_qdisc is used and the q->enqueue check in
+>>> dev_queue_xmit will fail.
+>>
+>> It was introduced in commit 8a35747a5d13b99e076b0222729e0caa48cb69b6
+>> ("macvtap: Limit packet queue length") to limit the length of socket
+>> receive queue of macvtap. But I'm not sure whether the qdisc is a
+>> byproduct of this commit, maybe we can switch to use another name
+>> instead of just reuse dev->tx_queue_length.
 >
+> You mean tx_queue_len really, right?
+>
+> Problem is tx_queue_len can be accessed using netlink sysfs or ioctl,
+> so if someone uses these to control or check the # of packets that
+> can be queued by device, this will break.
+>
+> How about adding ndo_set_tx_queue_len then?
+>
+> At some point we wanted to decouple queue length from tx_queue_length
+> for tun as well, so that would be benefitial there as well.
 
-I guess you are saying we never need to signal host/device
-that we are out of memory, it's enough that packets are dropped?
-It seemed like a useful thing for hypervisor to know about on general
-principles, even though I don't think kvm uses this info at this point.
+On the receive side we need to limit the receive queue and the
+dev->tx_queue_len value was used to do this.
 
-> > If we don't repost how do we know memory is finally available?
-> > We went for a timer based workqueue thing.
-> > What do you suggest?
-> 
-> 
-> In normal networking land, when a host A sends frames to host B,
-> nothing prevents A to pause the traffic to B if B is dropping packets
-> under stress.
-> 
-> A physical NIC do not use a workqueue to refill its RX queue but uses
-> the following strategy :
-> 
-> 0) Pre filling of RX ring buffer with N frames. This can use GFP_KERNEL
->    allocations with all needed (sleep/retry/shout) logic...
-> 1) IRQ is handled.
-> 2) Can we allocate a new buffer (GFP_ATOMIC) ?
->    If yes, we accept the frame,
->       and post the new buffer for the 'next frame'
->    If no, we drop the frame and recycle the memory for next round.
-> 
+However on the tx side when dev->tx_queue_len is set the default
+qdisc pfifo_fast or mq is used depending on if there is multiqueue
+or not. Unless the user specifies some numtxqueues when creating
+the macvtap device then it will be a single queue device and use
+the pfifo_fast qdisc.
 
-Exactly, this is what I tried to describe in the part that
-you have snipped out - but this means queue is always full.
+This is the default behaviour users could zero txqueuelen when
+they create the device because it is a stacked device with
+NETIF_F_LLTX using the lower devices qdisc makes sense but this
+would appear (from code inspection) to break macvtap_forward()?
 
-Also, I wonder whether allocating before passing
-frame to the stack might slow us down a tiny bit e.g. if an application
-is polling this socket on another CPU.
+         if (skb_queue_len(&q->sk.sk_receive_queue) >= dev->tx_queue_len)
+                 goto drop;
 
-Maybe a slightly better strategy is to do the above when queue depth
-is running low. E.g. when queue is 3/4 empty, try
-allocating before giving frames to net core,
-and recycle buffers on error.
+I'm not sure any of this is a problem other than its a bit
+confusing to overload tx_queue_len for the rx_queue_len but the
+precedent has been there for sometime. It is a change in behaviour
+though in net-next. Previously dev_queue_xmit() was not used so
+the qdisc layer was never hit on the macvtap device. Now with
+dev_queue_xmit() if the user attaches multiple macvlan queues to a
+single qdisc queue this should still work but wont be optimal. Ideally
+the user should create as many qdisc queues at creation time via
+numtxqueues as macvtap queues will be used during runtime so that there
+is a 1:1 mapping or use some heuristic to avoid cases where there
+is a many to 1 mapping.
 
-Not sure how much of a win this is.
+ From my perspective it would be OK to push this configuration/policy
+to the management layer. After all it is the entity that knows how
+to distribute system resources amongst the objects running over the
+macvtap devices. The relevance for me is I defaulted the l2 offloaded
+macvlans to single queue devices and wanted to note in net-next this
+is the same policy used in the non-offloaded case.
 
--- 
-MST
+Bit long-winded there.
+
+Thanks,
+John
