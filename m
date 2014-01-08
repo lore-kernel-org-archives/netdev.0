@@ -1,53 +1,38 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v3 net-next 1/3] sh_eth: Add support for r7s72100
-Date: Wed, 8 Jan 2014 09:06:39 +0900
-Message-ID: <20140108000638.GB5136@verge.net.au>
+Subject: Re: [PATCH v3 3/3] ARM: shmobile: genmai: Enable r7s72100-ether
+Date: Wed, 8 Jan 2014 09:07:09 +0900
+Message-ID: <20140108000709.GC5136@verge.net.au>
 References: <1389061635-4083-1-git-send-email-horms+renesas@verge.net.au>
- <1389061635-4083-2-git-send-email-horms+renesas@verge.net.au>
- <20140107.140755.1722284527902829385.davem@davemloft.net>
+ <1389061635-4083-4-git-send-email-horms+renesas@verge.net.au>
+ <52CC7C1B.20807@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, magnus.damm@gmail.com,
-	sergei.shtylyov@cogentembedded.com
-To: David Miller <davem@davemloft.net>
+	linux-arm-kernel@lists.infradead.org,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <linux-sh-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20140107.140755.1722284527902829385.davem@davemloft.net>
+In-Reply-To: <52CC7C1B.20807@cogentembedded.com>
 Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 07, 2014 at 02:07:55PM -0500, David Miller wrote:
-> From: Simon Horman <horms+renesas@verge.net.au>
-> Date: Tue,  7 Jan 2014 11:27:13 +0900
+On Wed, Jan 08, 2014 at 02:13:47AM +0400, Sergei Shtylyov wrote:
+> Hello.
 > 
-> > @@ -318,6 +371,14 @@ static int sh_eth_is_gether(struct sh_eth_private *mdp)
-> >  		return 0;
-> >  }
-> >  
-> > +static int sh_eth_is_rz_fast_ether(struct sh_eth_private *mdp)
-> > +{
-> > +	if (mdp->reg_offset == sh_eth_offset_fast_rz)
-> > +		return 1;
-> > +	else
-> > +		return 0;
-> > +}
+> On 07-01-2014 6:27, Simon Horman wrote:
 > 
-> Please make this return a boolean and use true/false.
+>    You've removed RFC but still haven't signed off. :-)
+> 
+> >---
+> >v2
+> >* As suggested by Magnus Damm and Sergei Shtylyov
+> >   - r7s72100 ethernet is not gigabit so do not refer to it as such
+> 
+> >* As suggested by Sergei Shtylyov
+> >   - set no_ether_link as there is no LINK signal documented
+> >     in the manual
+> 
+>    I'm OK with the patch, you can add my Acked-by.
 
-Thanks. I will also refactor the giga_ether version of this
-function accordingly.
-
-> 
-> > @@ -2061,6 +2155,10 @@ static struct net_device_stats *sh_eth_get_stats(struct net_device *ndev)
-> >  {
-> >  	struct sh_eth_private *mdp = netdev_priv(ndev);
-> >  
-> > +	if (sh_eth_is_rz_fast_ether(mdp)) {
-> > +		return &ndev->stats;
-> > +	}
-> 
-> Single statement basic blocks do not need curly braces, therefore
-> please remove them here.
-
-Will do.
+Thanks, will do.
