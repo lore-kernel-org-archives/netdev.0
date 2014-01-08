@@ -1,52 +1,46 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v3.6 01/19] net: freescale: remove unused compare_addr()
-Date: Wed, 8 Jan 2014 10:53:13 +0800
-Message-ID: <52CCBD99.4020106@huawei.com>
+Subject: [PATCH v3.6 05/19] ppp: slight optimization of addr compare
+Date: Wed, 8 Jan 2014 10:53:26 +0800
+Message-ID: <52CCBDA6.3020901@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Li Yang <leoli@freescale.com>, Netdev <netdev@vger.kernel.org>,
- <linuxppc-dev@lists.ozlabs.org>, "linux-kernel@vger.kernel.org"
- <linux-kernel@vger.kernel.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+To: Michal Ostrowski <mostrows@earthlink.net>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The function did not be used any more, so remove it.
+Use possibly more efficient ether_addr_equal
+to instead of memcmp.
 
-Cc: Li Yang <leoli@freescale.com>
+Cc: Michal Ostrowski <mostrows@earthlink.net>
 Cc: netdev@vger.kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
 Cc: linux-kernel@vger.kernel.org
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/ethernet/freescale/ucc_geth.c | 5 -----
- 1 file changed, 5 deletions(-)
+ drivers/net/ppp/pppoe.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
-index 5548b6d..72291a8 100644
---- a/drivers/net/ethernet/freescale/ucc_geth.c
-+++ b/drivers/net/ethernet/freescale/ucc_geth.c
-@@ -435,11 +435,6 @@ static void hw_add_addr_in_hash(struct ucc_geth_private *ugeth,
- 		     QE_CR_PROTOCOL_ETHERNET, 0);
+diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
+index 82ee6ed..2ea7efd 100644
+--- a/drivers/net/ppp/pppoe.c
++++ b/drivers/net/ppp/pppoe.c
+@@ -131,12 +131,12 @@ static inline struct pppoe_net *pppoe_pernet(struct net *net)
+ 
+ static inline int cmp_2_addr(struct pppoe_addr *a, struct pppoe_addr *b)
+ {
+-	return a->sid == b->sid && !memcmp(a->remote, b->remote, ETH_ALEN);
++	return a->sid == b->sid && ether_addr_equal(a->remote, b->remote);
  }
  
--static inline int compare_addr(u8 **addr1, u8 **addr2)
--{
--	return memcmp(addr1, addr2, ETH_ALEN);
--}
--
- #ifdef DEBUG
- static void get_statistics(struct ucc_geth_private *ugeth,
- 			   struct ucc_geth_tx_firmware_statistics *
+ static inline int cmp_addr(struct pppoe_addr *a, __be16 sid, char *addr)
+ {
+-	return a->sid == sid && !memcmp(a->remote, addr, ETH_ALEN);
++	return a->sid == sid && ether_addr_equal(a->remote, addr);
+ }
+ 
+ #if 8 % PPPOE_HASH_BITS
 -- 
 1.8.0
