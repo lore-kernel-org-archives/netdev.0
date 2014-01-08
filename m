@@ -1,68 +1,66 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 09/15] i40e: move PF ID init from PF reset to SC init
-Date: Tue,  7 Jan 2014 22:07:30 -0800
-Message-ID: <1389161256-24599-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 03/15] i40e: Stop accepting any VLAN tag on VLAN 0 filter set
+Date: Tue,  7 Jan 2014 22:07:24 -0800
+Message-ID: <1389161256-24599-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389161256-24599-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Kamil Krawczyk <kamil.krawczyk@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:23587 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:9942 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755146AbaAHGIj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jan 2014 01:08:39 -0500
+	id S1755097AbaAHGIg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jan 2014 01:08:36 -0500
 In-Reply-To: <1389161256-24599-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-Move PF ID initialization code from PF reset routine to earlier driver
-initialization function.  There are a few operations which need the
-PF ID before the first PF reset is called.
+When the 8021q driver is loaded it sets VLAN 0 filters on all devices.
+This does not mean that any VLAN tagged packet should be accepted.
+Instead accept only VLAN 0 tagged packets so that upper layers can
+interpret the priority bits.
 
-Change-Id: I7e971f7556b46a837149850ec05ce115c35db575
-Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Change-Id: I17274a540b613749612ffe23a3aef2b8ee6ff6a4
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 11 -----------
+ 1 file changed, 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 96c8f15..02ad529 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -198,6 +198,13 @@ i40e_status i40e_init_shared_code(struct i40e_hw *hw)
- 		break;
- 	}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 5ddbd54..2a42470 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -1509,11 +1509,6 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 				cpu_to_le16((u16)(f->vlan ==
+ 					    I40E_VLAN_ANY ? 0 : f->vlan));
  
-+	/* Determine the PF number based on the PCI fn */
-+	reg = rd32(hw, I40E_GLPCI_CAPSUP);
-+	if (reg & I40E_GLPCI_CAPSUP_ARI_EN_MASK)
-+		hw->pf_id = (u8)((hw->bus.device << 3) | hw->bus.func);
-+	else
-+		hw->pf_id = (u8)hw->bus.func;
-+
- 	status = i40e_init_nvm(hw);
- 	return status;
- }
-@@ -375,13 +382,6 @@ i40e_status i40e_pf_reset(struct i40e_hw *hw)
- 		return I40E_ERR_RESET_FAILED;
- 	}
+-			/* vlan0 as wild card to allow packets from all vlans */
+-			if (f->vlan == I40E_VLAN_ANY ||
+-			    (vsi->netdev && !(vsi->netdev->features &
+-					      NETIF_F_HW_VLAN_CTAG_FILTER)))
+-				cmd_flags |= I40E_AQC_MACVLAN_DEL_IGNORE_VLAN;
+ 			cmd_flags |= I40E_AQC_MACVLAN_DEL_PERFECT_MATCH;
+ 			del_list[num_del].flags = cmd_flags;
+ 			num_del++;
+@@ -1579,12 +1574,6 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 			add_list[num_add].queue_number = 0;
  
--	/* Determine the PF number based on the PCI fn */
--	reg = rd32(hw, I40E_GLPCI_CAPSUP);
--	if (reg & I40E_GLPCI_CAPSUP_ARI_EN_MASK)
--		hw->pf_id = (u8)((hw->bus.device << 3) | hw->bus.func);
--	else
--		hw->pf_id = (u8)hw->bus.func;
+ 			cmd_flags |= I40E_AQC_MACVLAN_ADD_PERFECT_MATCH;
 -
- 	/* If there was a Global Reset in progress when we got here,
- 	 * we don't need to do the PF Reset
- 	 */
+-			/* vlan0 as wild card to allow packets from all vlans */
+-			if (f->vlan == I40E_VLAN_ANY || (vsi->netdev &&
+-			    !(vsi->netdev->features &
+-						 NETIF_F_HW_VLAN_CTAG_FILTER)))
+-				cmd_flags |= I40E_AQC_MACVLAN_ADD_IGNORE_VLAN;
+ 			add_list[num_add].flags = cpu_to_le16(cmd_flags);
+ 			num_add++;
+ 
 -- 
 1.8.3.1
