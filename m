@@ -1,107 +1,68 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 06/15] i40e: Add code to wait for FW to complete in reset path
-Date: Tue,  7 Jan 2014 22:07:27 -0800
-Message-ID: <1389161256-24599-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 09/15] i40e: move PF ID init from PF reset to SC init
+Date: Tue,  7 Jan 2014 22:07:30 -0800
+Message-ID: <1389161256-24599-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389161256-24599-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Anjali Singhai Jain <anjali.singhai@intel.com>,
+	Kamil Krawczyk <kamil.krawczyk@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:62026 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:23587 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755148AbaAHGIk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jan 2014 01:08:40 -0500
+	id S1755146AbaAHGIj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jan 2014 01:08:39 -0500
 In-Reply-To: <1389161256-24599-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-The RSTAT comes back with DEVICE READY to indicate that the HW is ready,
-but we still have to wait for the FW to indicate that the Core and Global
-modules are back up again.  This needs a read of the NVM_ULD register.
+Move PF ID initialization code from PF reset routine to earlier driver
+initialization function.  There are a few operations which need the
+PF ID before the first PF reset is called.
 
-Change-Id: I88276165f9cd446d2f166fb4b8cff00521af4bec
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-Id: I7e971f7556b46a837149850ec05ce115c35db575
+Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c   | 20 ++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_register.h | 22 ++++++++++++++++++++++
- 2 files changed, 42 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_common.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 7cd59ce..337e913 100644
+index 96c8f15..02ad529 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_common.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -335,6 +335,7 @@ static enum i40e_media_type i40e_get_media_type(struct i40e_hw *hw)
- i40e_status i40e_pf_reset(struct i40e_hw *hw)
- {
- 	u32 cnt = 0;
-+	u32 cnt1 = 0;
- 	u32 reg = 0;
- 	u32 grst_del;
+@@ -198,6 +198,13 @@ i40e_status i40e_init_shared_code(struct i40e_hw *hw)
+ 		break;
+ 	}
  
-@@ -355,6 +356,25 @@ i40e_status i40e_pf_reset(struct i40e_hw *hw)
++	/* Determine the PF number based on the PCI fn */
++	reg = rd32(hw, I40E_GLPCI_CAPSUP);
++	if (reg & I40E_GLPCI_CAPSUP_ARI_EN_MASK)
++		hw->pf_id = (u8)((hw->bus.device << 3) | hw->bus.func);
++	else
++		hw->pf_id = (u8)hw->bus.func;
++
+ 	status = i40e_init_nvm(hw);
+ 	return status;
+ }
+@@ -375,13 +382,6 @@ i40e_status i40e_pf_reset(struct i40e_hw *hw)
  		return I40E_ERR_RESET_FAILED;
  	}
  
-+	/* Now Wait for the FW to be ready */
-+	for (cnt1 = 0; cnt1 < I40E_PF_RESET_WAIT_COUNT; cnt1++) {
-+		reg = rd32(hw, I40E_GLNVM_ULD);
-+		reg &= (I40E_GLNVM_ULD_CONF_CORE_DONE_MASK |
-+			I40E_GLNVM_ULD_CONF_GLOBAL_DONE_MASK);
-+		if (reg == (I40E_GLNVM_ULD_CONF_CORE_DONE_MASK |
-+			    I40E_GLNVM_ULD_CONF_GLOBAL_DONE_MASK)) {
-+			hw_dbg(hw, "Core and Global modules ready %d\n", cnt1);
-+			break;
-+		}
-+		usleep_range(10000, 20000);
-+	}
-+	if (!(reg & (I40E_GLNVM_ULD_CONF_CORE_DONE_MASK |
-+		     I40E_GLNVM_ULD_CONF_GLOBAL_DONE_MASK))) {
-+		hw_dbg(hw, "wait for FW Reset complete timedout\n");
-+		hw_dbg(hw, "I40E_GLNVM_ULD = 0x%x\n", reg);
-+		return I40E_ERR_RESET_FAILED;
-+	}
-+
- 	/* Determine the PF number based on the PCI fn */
- 	reg = rd32(hw, I40E_GLPCI_CAPSUP);
- 	if (reg & I40E_GLPCI_CAPSUP_ARI_EN_MASK)
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_register.h b/drivers/net/ethernet/intel/i40e/i40e_register.h
-index 2394c66..d188ec0 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_register.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_register.h
-@@ -2053,6 +2053,28 @@
- #define I40E_GLNVM_SRDATA_WRDATA_MASK (0xFFFF << I40E_GLNVM_SRDATA_WRDATA_SHIFT)
- #define I40E_GLNVM_SRDATA_RDDATA_SHIFT 16
- #define I40E_GLNVM_SRDATA_RDDATA_MASK (0xFFFF << I40E_GLNVM_SRDATA_RDDATA_SHIFT)
-+#define I40E_GLNVM_ULD 0x000B6008
-+#define I40E_GLNVM_ULD_CONF_PCIR_DONE_SHIFT 0
-+#define I40E_GLNVM_ULD_CONF_PCIR_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_PCIR_DONE_SHIFT)
-+#define I40E_GLNVM_ULD_CONF_PCIRTL_DONE_SHIFT 1
-+#define I40E_GLNVM_ULD_CONF_PCIRTL_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_PCIRTL_DONE_SHIFT)
-+#define I40E_GLNVM_ULD_CONF_LCB_DONE_SHIFT 2
-+#define I40E_GLNVM_ULD_CONF_LCB_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_LCB_DONE_SHIFT)
-+#define I40E_GLNVM_ULD_CONF_CORE_DONE_SHIFT 3
-+#define I40E_GLNVM_ULD_CONF_CORE_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_CORE_DONE_SHIFT)
-+#define I40E_GLNVM_ULD_CONF_GLOBAL_DONE_SHIFT 4
-+#define I40E_GLNVM_ULD_CONF_GLOBAL_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_GLOBAL_DONE_SHIFT)
-+#define I40E_GLNVM_ULD_CONF_POR_DONE_SHIFT 5
-+#define I40E_GLNVM_ULD_CONF_POR_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_POR_DONE_SHIFT)
-+#define I40E_GLNVM_ULD_CONF_PCIE_ANA_DONE_SHIFT 6
-+#define I40E_GLNVM_ULD_CONF_PCIE_ANA_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_PCIE_ANA_DONE_SHIFT)
-+#define I40E_GLNVM_ULD_CONF_PHY_ANA_DONE_SHIFT 7
-+#define I40E_GLNVM_ULD_CONF_PHY_ANA_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_PHY_ANA_DONE_SHIFT)
-+#define I40E_GLNVM_ULD_CONF_EMP_DONE_SHIFT 8
-+#define I40E_GLNVM_ULD_CONF_EMP_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_EMP_DONE_SHIFT)
-+#define I40E_GLNVM_ULD_CONF_PCIALT_DONE_SHIFT 9
-+#define I40E_GLNVM_ULD_CONF_PCIALT_DONE_MASK (0x1 << I40E_GLNVM_ULD_CONF_PCIALT_DONE_SHIFT)
-+
- #define I40E_GLPCI_BYTCTH 0x0009C484
- #define I40E_GLPCI_BYTCTH_PCI_COUNT_BW_BCT_SHIFT 0
- #define I40E_GLPCI_BYTCTH_PCI_COUNT_BW_BCT_MASK (0xFFFFFFFF << I40E_GLPCI_BYTCTH_PCI_COUNT_BW_BCT_SHIFT)
+-	/* Determine the PF number based on the PCI fn */
+-	reg = rd32(hw, I40E_GLPCI_CAPSUP);
+-	if (reg & I40E_GLPCI_CAPSUP_ARI_EN_MASK)
+-		hw->pf_id = (u8)((hw->bus.device << 3) | hw->bus.func);
+-	else
+-		hw->pf_id = (u8)hw->bus.func;
+-
+ 	/* If there was a Global Reset in progress when we got here,
+ 	 * we don't need to do the PF Reset
+ 	 */
 -- 
 1.8.3.1
