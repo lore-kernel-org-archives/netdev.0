@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 11/15] i40e: rework shadow ram read functions
-Date: Tue,  7 Jan 2014 22:07:32 -0800
-Message-ID: <1389161256-24599-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 10/15] i40e: check MAC type before any REG access
+Date: Tue,  7 Jan 2014 22:07:31 -0800
+Message-ID: <1389161256-24599-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389161256-24599-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -9,158 +9,61 @@ Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:62026 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:9942 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754603AbaAHGIn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jan 2014 01:08:43 -0500
+	id S1755185AbaAHGIr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jan 2014 01:08:47 -0500
 In-Reply-To: <1389161256-24599-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-Rework Shadow RAM read word/buffer functions to not use AQ Request
-Resource commands.  Requesting resource is not needed for SR read
-operations which are done through SRCTL register.  Access to SR through
-register is controlled through DONE bit within SRCTL.  With this change
-we do not block whole NVM resource for SR read operations.
+We need to check if we are dealing with the correct MAC type before we
+try to read anything from the registers.
 
-Change-Id: I73e96cdea39a45ee7b5bdf038e527308de2d9efe
+Change-Id: I3989516999d06c3009e87d6a2eafc20af305c5c2
 Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_nvm.c | 67 +++++++-----------------------
- 1 file changed, 16 insertions(+), 51 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-index 97e1bb3..e2da0a2 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-@@ -166,15 +166,15 @@ static i40e_status i40e_poll_sr_srctl_done_bit(struct i40e_hw *hw)
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 02ad529..7e34de1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -180,14 +180,6 @@ i40e_status i40e_init_shared_code(struct i40e_hw *hw)
+ 	i40e_status status = 0;
+ 	u32 reg;
  
- /**
-- *  i40e_read_nvm_srctl - Reads Shadow RAM.
-+ *  i40e_read_nvm_word - Reads Shadow RAM
-  *  @hw: pointer to the HW structure.
-  *  @offset: offset of the Shadow RAM word to read (0x000000 - 0x001FFF).
-  *  @data: word read from the Shadow RAM.
-  *
-  *  Reads 16 bit word from the Shadow RAM using the GLNVM_SRCTL register.
-  **/
--static i40e_status i40e_read_nvm_srctl(struct i40e_hw *hw, u16 offset,
--						 u16 *data)
-+i40e_status i40e_read_nvm_word(struct i40e_hw *hw, u16 offset,
-+					 u16 *data)
- {
- 	i40e_status ret_code = I40E_ERR_TIMEOUT;
- 	u32 sr_reg;
-@@ -211,29 +211,6 @@ read_nvm_exit:
- }
+-	hw->phy.get_link_info = true;
+-
+-	/* Determine port number */
+-	reg = rd32(hw, I40E_PFGEN_PORTNUM);
+-	reg = ((reg & I40E_PFGEN_PORTNUM_PORT_NUM_MASK) >>
+-	       I40E_PFGEN_PORTNUM_PORT_NUM_SHIFT);
+-	hw->port = (u8)reg;
+-
+ 	i40e_set_mac_type(hw);
  
- /**
-- *  i40e_read_nvm_word - Reads Shadow RAM word.
-- *  @hw: pointer to the HW structure.
-- *  @offset: offset of the Shadow RAM word to read (0x000000 - 0x001FFF).
-- *  @data: word read from the Shadow RAM.
-- *
-- *  Reads 16 bit word from the Shadow RAM. Each read is preceded
-- *  with the NVM ownership taking and followed by the release.
-- **/
--i40e_status i40e_read_nvm_word(struct i40e_hw *hw, u16 offset,
--					 u16 *data)
--{
--	i40e_status ret_code = 0;
--
--	ret_code = i40e_acquire_nvm(hw, I40E_RESOURCE_READ);
--	if (!ret_code) {
--		ret_code = i40e_read_nvm_srctl(hw, offset, data);
--		i40e_release_nvm(hw);
--	}
--
--	return ret_code;
--}
--
--/**
-  *  i40e_read_nvm_buffer - Reads Shadow RAM buffer.
-  *  @hw: pointer to the HW structure.
-  *  @offset: offset of the Shadow RAM word to read (0x000000 - 0x001FFF).
-@@ -250,30 +227,18 @@ i40e_status i40e_read_nvm_buffer(struct i40e_hw *hw, u16 offset,
- {
- 	i40e_status ret_code = 0;
- 	u16 index, word;
--	u32 time;
- 
--	ret_code = i40e_acquire_nvm(hw, I40E_RESOURCE_READ);
--	if (!ret_code) {
--		/* Loop thru the selected region. */
--		for (word = 0; word < *words; word++) {
--			index = offset + word;
--			ret_code = i40e_read_nvm_srctl(hw, index, &data[word]);
--			if (ret_code)
--				break;
--			/* Check if we didn't exceeded the semaphore timeout. */
--			time = rd32(hw, I40E_GLVFGEN_TIMER);
--			if (time >= hw->nvm.hw_semaphore_timeout) {
--				ret_code = I40E_ERR_TIMEOUT;
--				hw_dbg(hw, "NVM read error: timeout.\n");
--				break;
--			}
--		}
--		/* Update the number of words read from the Shadow RAM. */
--		*words = word;
--		/* Release the NVM ownership. */
--		i40e_release_nvm(hw);
-+	/* Loop thru the selected region. */
-+	for (word = 0; word < *words; word++) {
-+		index = offset + word;
-+		ret_code = i40e_read_nvm_word(hw, index, &data[word]);
-+		if (ret_code)
-+			break;
+ 	switch (hw->mac.type) {
+@@ -198,6 +190,14 @@ i40e_status i40e_init_shared_code(struct i40e_hw *hw)
+ 		break;
  	}
  
-+	/* Update the number of words read from the Shadow RAM. */
-+	*words = word;
++	hw->phy.get_link_info = true;
 +
- 	return ret_code;
- }
- 
-@@ -297,14 +262,14 @@ static i40e_status i40e_calc_nvm_checksum(struct i40e_hw *hw,
- 	u32 i = 0;
- 
- 	/* read pointer to VPD area */
--	ret_code = i40e_read_nvm_srctl(hw, I40E_SR_VPD_PTR, &vpd_module);
-+	ret_code = i40e_read_nvm_word(hw, I40E_SR_VPD_PTR, &vpd_module);
- 	if (ret_code) {
- 		ret_code = I40E_ERR_NVM_CHECKSUM;
- 		goto i40e_calc_nvm_checksum_exit;
- 	}
- 
- 	/* read pointer to PCIe Alt Auto-load module */
--	ret_code = i40e_read_nvm_srctl(hw, I40E_SR_PCIE_ALT_AUTO_LOAD_PTR,
-+	ret_code = i40e_read_nvm_word(hw, I40E_SR_PCIE_ALT_AUTO_LOAD_PTR,
- 				       &pcie_alt_module);
- 	if (ret_code) {
- 		ret_code = I40E_ERR_NVM_CHECKSUM;
-@@ -331,7 +296,7 @@ static i40e_status i40e_calc_nvm_checksum(struct i40e_hw *hw,
- 				break;
- 		}
- 
--		ret_code = i40e_read_nvm_srctl(hw, (u16)i, &word);
-+		ret_code = i40e_read_nvm_word(hw, (u16)i, &word);
- 		if (ret_code) {
- 			ret_code = I40E_ERR_NVM_CHECKSUM;
- 			goto i40e_calc_nvm_checksum_exit;
-@@ -371,7 +336,7 @@ i40e_status i40e_validate_nvm_checksum(struct i40e_hw *hw,
- 	/* Do not use i40e_read_nvm_word() because we do not want to take
- 	 * the synchronization semaphores twice here.
- 	 */
--	i40e_read_nvm_srctl(hw, I40E_SR_SW_CHECKSUM_WORD, &checksum_sr);
-+	i40e_read_nvm_word(hw, I40E_SR_SW_CHECKSUM_WORD, &checksum_sr);
- 
- 	/* Verify read checksum from EEPROM is the same as
- 	 * calculated checksum
++	/* Determine port number */
++	reg = rd32(hw, I40E_PFGEN_PORTNUM);
++	reg = ((reg & I40E_PFGEN_PORTNUM_PORT_NUM_MASK) >>
++	       I40E_PFGEN_PORTNUM_PORT_NUM_SHIFT);
++	hw->port = (u8)reg;
++
+ 	/* Determine the PF number based on the PCI fn */
+ 	reg = rd32(hw, I40E_GLPCI_CAPSUP);
+ 	if (reg & I40E_GLPCI_CAPSUP_ARI_EN_MASK)
 -- 
 1.8.3.1
