@@ -1,53 +1,94 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/3] netfilter: nf_conntrack_dccp: use %s format string for buffer
-Date: Wed,  8 Jan 2014 20:13:23 +0100
-Message-ID: <1389208404-3956-3-git-send-email-pablo@netfilter.org>
-References: <1389208404-3956-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:54767 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756008AbaAHTNm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jan 2014 14:13:42 -0500
-In-Reply-To: <1389208404-3956-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next v2 3/4] virtio-net: auto-tune mergeable rx
+	buffer size for improved performance
+Date: Wed, 8 Jan 2014 21:16:23 +0200
+Message-ID: <20140108191623.GA18312@redhat.com>
+References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
+	<1389072355-20666-3-git-send-email-mwdalton@google.com>
+	<52CCEEF3.5070904@redhat.com>
+	<CANJ5vP+btxgZg5kDq30KZTEXO7YBCL5TWoiRzjMqxnaA3Edkxw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: Michael Dalton <mwdalton@google.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <CANJ5vP+btxgZg5kDq30KZTEXO7YBCL5TWoiRzjMqxnaA3Edkxw@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
+On Wed, Jan 08, 2014 at 10:28:09AM -0800, Michael Dalton wrote:
+> Hi Jason,
+> 
+> On Tue, Jan 7, 2014 at 10:23 PM, Jason Wang <jasowang@redhat.com> wrote:
+> > What's the reason that this extra space is not accounted for truesize?
+> The initial rationale was that this extra space is due to
+> internal fragmentation in the page frag allocator, but I agree with
+> you -- this code should be changed and the extra space accounted for.
+> Any internal fragmentation leading to a larger last packet allocated from
+> the page should be reflected in the SKB truesize of the last packet.
 
-Some invocations of nf_log_packet() use arg buffer directly instead of
-"%s" format string with follow-up buffer pointer. Currently, these two
-usages are not really critical, but we should fix this up nevertheless
-so that we don't run into trouble if that changes one day.
+I think this is what the original patchset did, but I don't really get
+why this is a good idea.
+Why should we select a frame at random and make it's truesize bigger?
+All frames are to blame for the extra space.
+Just ignoring it seems more symmetrical.
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_conntrack_proto_dccp.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
-index a99b6c3..3841268 100644
---- a/net/netfilter/nf_conntrack_proto_dccp.c
-+++ b/net/netfilter/nf_conntrack_proto_dccp.c
-@@ -457,7 +457,7 @@ static bool dccp_new(struct nf_conn *ct, const struct sk_buff *skb,
- out_invalid:
- 	if (LOG_INVALID(net, IPPROTO_DCCP))
- 		nf_log_packet(net, nf_ct_l3num(ct), 0, skb, NULL, NULL,
--			      NULL, msg);
-+			      NULL, "%s", msg);
- 	return false;
- }
- 
-@@ -614,7 +614,7 @@ static int dccp_error(struct net *net, struct nf_conn *tmpl,
- 
- out_invalid:
- 	if (LOG_INVALID(net, IPPROTO_DCCP))
--		nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL, msg);
-+		nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL, "%s", msg);
- 	return -NF_ACCEPT;
- }
- 
+> I will do a followup patchset that accounts correctly for the extra
+> space, which will also me to remove the two max statements you
+> indicated. Thanks for finding this issue.
+> 
+> >> +     if (err < 0) {
+> >> +             put_page(virt_to_head_page(ctx->buf));
+> >> +             return err;
+> > Should we also roll back the frag offset added above to avoid leaking frags?
+> I believe the put_page here is sufficient for correctness. When we
+> allocate a buffer using skb_page_frag_refill, we use get_page/put_page
+> to allocate/free respectively. For example, if the virtqueue_add_inbuf
+> succeeded, we would eventually call put_page either in virtio-net
+> (e.g., page_to_skb for packets <= GOOD_COPY_LEN bytes) or later in
+> __skb_frag_unref and other functions called during dev_kfree_skb.
+> 
+> However, an offset rollback does allow the space to be reused by the next
+> allocation, which could be a good optimization. I can do the offset
+> rollback (with a put_page) in the next patchset. What do you think?
+
+If you intend to repost anyway (for the below wrinkle) then
+you can do it right here just as well I guess. Seems a bit prettier.
+
+> >> +     /* Do not attempt to add a buffer if the RX ring is full. */
+> >> +     if (unlikely(!rq->vq->num_free))
+> >> +             return true;
+> > I haven't figured out why this is needed. It seems safe for
+> > virtqueue_add_inbuf() just fail in add_recv_xx()?
+> I think this is safe with one caveat -- we can't modify
+> rq->mrg_buf_ctx until we know the ring isn't full (otherwise, we
+> clobber an in-use entry). It is safe to modify rq->mrg_buf_ctx
+> after we know that virtqueue_add_inbuf has succeeded.
+> 
+> I can remove the rq_num_free check from try_fill_recv, and then
+> modify virtqueue_add_inbuf to use a local mergeable_receive_buf_ctx.
+> Once virtqueue_add_inbuf succeeds, the contents of the local variable
+> can be copied to rq->mrg_buf_ctx[rq->mrg_buf_ctx_head].
+> 
+> Best,
+> 
+> Mike
+
+
+You don't have to fill in ctx before calling add_inbuf, do you?
+Just fill it afterwards.
+
 -- 
-1.7.10.4
+MST
