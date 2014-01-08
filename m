@@ -1,63 +1,112 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: Possible to add netfilter hooks to IFB driver?
-Date: Wed, 08 Jan 2014 07:28:44 -0500
-Message-ID: <52CD447C.4080708@mojatatu.com>
-References: <522653F1.6090902@ecessa.com>	<20140106135123.3c7e6645@nehalam.linuxnetplumber.net>	<CAKTPYJTDj82YM8peU-bbS5OtuXnq1ty4+f-Wyk_bE2LBf4vGmw@mail.gmail.com> <20140107111807.38624f74@rainbow.cbg.collabora.co.uk>
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net-next v2] xen-netback: stop vif thread spinning if frontend is unresponsive
+Date: Wed, 8 Jan 2014 12:41:58 +0000
+Message-ID: <1389184918-42790-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Brad Johnson <bjohnson@ecessa.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alban Crequy <alban.crequy@collabora.co.uk>,
-	Andrew Collins <bsderandrew@gmail.com>
+Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:51095 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755773AbaAHM2q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 07:28:46 -0500
-Received: by mail-ig0-f172.google.com with SMTP id hl1so12967248igb.5
-        for <netdev@vger.kernel.org>; Wed, 08 Jan 2014 04:28:46 -0800 (PST)
-In-Reply-To: <20140107111807.38624f74@rainbow.cbg.collabora.co.uk>
+Received: from smtp.citrix.com ([66.165.176.89]:12486 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755200AbaAHMmB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jan 2014 07:42:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/07/14 06:18, Alban Crequy wrote:
-> On Mon, 6 Jan 2014 15:51:37 -0700
-> Andrew Collins <bsderandrew@gmail.com> wrote:
->
->> On Mon, Jan 6, 2014 at 2:51 PM, Stephen Hemminger
->> <stephen@networkplumber.org> wrote:
->>>
->>> The risk is creating the same races that made IMQ unacceptable.
->>> --
->>
->> I believe openwrt nowadays uses a TC action which runs the packet
->> through prerouting then pulls in the mark off the ct entry into the
->> skb, so ingress+IFB can take action on it.
->
-> Thanks for the info. I guess the implementation is this one:
->
-> https://dev.openwrt.org/browser/trunk/target/linux/generic/patches-3.12/621-sched_act_connmark.patch
-> https://dev.openwrt.org/browser/trunk/package/network/utils/iproute2/patches/210-add-act_connmark.patch
-> https://dev.openwrt.org/browser/trunk/package/network/config/qos-scripts/files/usr/lib/qos/generate.sh#L343
->
->> Perhaps a cleaned up version of this would be suitable for upstream?
->
-> I don't know but this seems a useful feature to me.
->
+The recent patch to improve guest receive side flow control (ca2f09f2) had a
+slight flaw in the wait condition for the vif thread in that any remaining
+skbs in the guest receive side netback internal queue would prevent the
+thread from sleeping. An unresponsive frontend can lead to a permanently
+non-empty internal queue and thus the thread will spin. In this case the
+thread should really sleep until the frontend becomes responsive again.
 
-I like that approach - discussion was had here on netdev
-about a year ago refer to:
-http://marc.info/?t=135591832200007&r=1&w=2
-since it is a long thread, jump to here:
-http://marc.info/?l=linux-netdev&m=135634890120552&w=2
+This patch adds an extra flag to the vif which is set if the shared ring
+is full and cleared when skbs are drained into the shared ring. Thus,
+if the thread runs, finds the shared ring full and can make no progress the
+flag remains set. If the flag remains set then the thread will sleep,
+regardless of a non-empty queue, until the next event from the frontend.
 
-I believe Pablo brought it up at the last netfilter meeting
-and there was no disagreement to get it going.
-I dont know if kids still use these expressions - but send him
-some virtual beer and he may return the love.
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: David Vrabel <david.vrabel@citrix.com>
+---
+v2:
+- Use bool for ring_full
+- Convert need_to_notify to bool for consistency
 
+ drivers/net/xen-netback/common.h  |    1 +
+ drivers/net/xen-netback/netback.c |   14 +++++++++-----
+ 2 files changed, 10 insertions(+), 5 deletions(-)
 
-cheers,
-jamal
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index c955fc3..4c76bcb 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -143,6 +143,7 @@ struct xenvif {
+ 	char rx_irq_name[IFNAMSIZ+4]; /* DEVNAME-rx */
+ 	struct xen_netif_rx_back_ring rx;
+ 	struct sk_buff_head rx_queue;
++	bool rx_queue_stopped;
+ 	/* Set when the RX interrupt is triggered by the frontend.
+ 	 * The worker thread may need to wake the queue.
+ 	 */
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 4f81ac0..2738563 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -476,7 +476,8 @@ static void xenvif_rx_action(struct xenvif *vif)
+ 	int ret;
+ 	unsigned long offset;
+ 	struct skb_cb_overlay *sco;
+-	int need_to_notify = 0;
++	bool need_to_notify = false;
++	bool ring_full = false;
+ 
+ 	struct netrx_pending_operations npo = {
+ 		.copy  = vif->grant_copy_op,
+@@ -508,7 +509,8 @@ static void xenvif_rx_action(struct xenvif *vif)
+ 		/* If the skb may not fit then bail out now */
+ 		if (!xenvif_rx_ring_slots_available(vif, max_slots_needed)) {
+ 			skb_queue_head(&vif->rx_queue, skb);
+-			need_to_notify = 1;
++			need_to_notify = true;
++			ring_full = true;
+ 			break;
+ 		}
+ 
+@@ -521,6 +523,8 @@ static void xenvif_rx_action(struct xenvif *vif)
+ 
+ 	BUG_ON(npo.meta_prod > ARRAY_SIZE(vif->meta));
+ 
++	vif->rx_queue_stopped = !npo.copy_prod && ring_full;
++
+ 	if (!npo.copy_prod)
+ 		goto done;
+ 
+@@ -592,8 +596,7 @@ static void xenvif_rx_action(struct xenvif *vif)
+ 
+ 		RING_PUSH_RESPONSES_AND_CHECK_NOTIFY(&vif->rx, ret);
+ 
+-		if (ret)
+-			need_to_notify = 1;
++		need_to_notify |= !!ret;
+ 
+ 		npo.meta_cons += sco->meta_slots_used;
+ 		dev_kfree_skb(skb);
+@@ -1724,7 +1727,8 @@ static struct xen_netif_rx_response *make_rx_response(struct xenvif *vif,
+ 
+ static inline int rx_work_todo(struct xenvif *vif)
+ {
+-	return !skb_queue_empty(&vif->rx_queue) || vif->rx_event;
++	return (!skb_queue_empty(&vif->rx_queue) && !vif->rx_queue_stopped) ||
++		vif->rx_event;
+ }
+ 
+ static inline int tx_work_todo(struct xenvif *vif)
+-- 
+1.7.10.4
