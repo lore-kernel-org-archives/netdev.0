@@ -1,57 +1,63 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH net-next V2 1/3] net: Add GRO support for UDP encapsulating
- protocols
-Date: Wed, 8 Jan 2014 14:15:13 +0200
-Message-ID: <52CD4151.9050100@mellanox.com>
-References: <1389108594-665-1-git-send-email-ogerlitz@mellanox.com>		 <1389108594-665-2-git-send-email-ogerlitz@mellanox.com>		 <1389112433.26646.28.camel@edumazet-glaptop2.roam.corp.google.com>		 <CAJZOPZ+q=uc4Svia+dFHrQfYyfJfsSVmqH1avJ99f4O0ES3QoQ@mail.gmail.com>		 <1389126735.26646.65.camel@edumazet-glaptop2.roam.corp.google.com>		 <CAJZOPZ+b87xF8m7cgTfwH1OqA3k012YFVy0ySJasMuR6x38Czw@mail.gmail.com>	 <1389130693.26646.72.camel@edumazet-glaptop2.roam.corp.google.com>	 <52CD0686.4090205@mellanox.com> <1389182291.26646.79.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: Possible to add netfilter hooks to IFB driver?
+Date: Wed, 08 Jan 2014 07:28:44 -0500
+Message-ID: <52CD447C.4080708@mojatatu.com>
+References: <522653F1.6090902@ecessa.com>	<20140106135123.3c7e6645@nehalam.linuxnetplumber.net>	<CAKTPYJTDj82YM8peU-bbS5OtuXnq1ty4+f-Wyk_bE2LBf4vGmw@mail.gmail.com> <20140107111807.38624f74@rainbow.cbg.collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <or.gerlitz@gmail.com>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Brad Johnson <bjohnson@ecessa.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alban Crequy <alban.crequy@collabora.co.uk>,
+	Andrew Collins <bsderandrew@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:60007 "EHLO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755160AbaAHMP2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 07:15:28 -0500
-In-Reply-To: <1389182291.26646.79.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:51095 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755773AbaAHM2q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 07:28:46 -0500
+Received: by mail-ig0-f172.google.com with SMTP id hl1so12967248igb.5
+        for <netdev@vger.kernel.org>; Wed, 08 Jan 2014 04:28:46 -0800 (PST)
+In-Reply-To: <20140107111807.38624f74@rainbow.cbg.collabora.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/01/2014 13:58, Eric Dumazet wrote:
-> On Wed, 2014-01-08 at 10:04 +0200, Or Gerlitz wrote:
->> On 07/01/2014 23:38, Eric Dumazet wrote:
->>> On Tue, 2014-01-07 at 22:37 +0200, Or Gerlitz wrote:
->>>
->>>> So here's the thing, per my understanding we want to GRO only received
->>>> **encapsulated** packets whose checksum status is != CHECKSUM_NONE
->>>> which means the NIC has some support for doing RX checksum of
->>>> encapsulated packets. Per the current convension, in that case the NIC
->>>> RX code has to set skb->encapsulation see 6a674e9c75b17 "net: Add
->>>> support for hardware-offloaded encapsulation" this convension is
->>>> implemented in the current drivers that have HW offloads for
->>>> encapsulated packets (bnx2x, i40e and mlx4)
->>> I do not think its true.
->>>
->>> Some drivers set CHECKSUM_COMPLETE even for regular UDP frames...
->>>
->>> git grep -n CHECKSUM_COMPLETE -- drivers/net
->>>
->>>
->>>
->> Eric, the point I was trying to make is that as long as the driver set a
->> value which is different from CHECKSUM_NONE
->> for an skb who carry encapsulated packet, we want skb->encapsulation to
->> be set, per the architecture dictated by the above commit.
-> Then this point is obviously wrong. Your interpretation is wrong, I am very sorry.
-> skb->encapsulation _might_ be set, only if the NIC is performing header
-> analysis. CHECKSUM_COMPLETE support doesn't require header analysis.
+On 01/07/14 06:18, Alban Crequy wrote:
+> On Mon, 6 Jan 2014 15:51:37 -0700
+> Andrew Collins <bsderandrew@gmail.com> wrote:
 >
+>> On Mon, Jan 6, 2014 at 2:51 PM, Stephen Hemminger
+>> <stephen@networkplumber.org> wrote:
+>>>
+>>> The risk is creating the same races that made IMQ unacceptable.
+>>> --
+>>
+>> I believe openwrt nowadays uses a TC action which runs the packet
+>> through prerouting then pulls in the mark off the ct entry into the
+>> skb, so ingress+IFB can take action on it.
 >
+> Thanks for the info. I guess the implementation is this one:
 >
+> https://dev.openwrt.org/browser/trunk/target/linux/generic/patches-3.12/621-sched_act_connmark.patch
+> https://dev.openwrt.org/browser/trunk/package/network/utils/iproute2/patches/210-add-act_connmark.patch
+> https://dev.openwrt.org/browser/trunk/package/network/config/qos-scripts/files/usr/lib/qos/generate.sh#L343
 >
-fair enough && thanks for shedding more light on this - so in that 
-respect, the gro handler for udp encapsulated packets will not flush skb 
-who is either marked with CHECKSUM_COMPLETE or has skb->encapsulation set.
+>> Perhaps a cleaned up version of this would be suitable for upstream?
+>
+> I don't know but this seems a useful feature to me.
+>
 
-Or.
+I like that approach - discussion was had here on netdev
+about a year ago refer to:
+http://marc.info/?t=135591832200007&r=1&w=2
+since it is a long thread, jump to here:
+http://marc.info/?l=linux-netdev&m=135634890120552&w=2
+
+I believe Pablo brought it up at the last netfilter meeting
+and there was no disagreement to get it going.
+I dont know if kids still use these expressions - but send him
+some virtual beer and he may return the love.
+
+
+cheers,
+jamal
