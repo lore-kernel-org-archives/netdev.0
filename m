@@ -1,49 +1,73 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next v2 4/4] virtio-net: initial debugfs support,
-	export mergeable rx buffer size
-Date: Wed, 8 Jan 2014 21:21:09 +0200
-Message-ID: <20140108192109.GC18312@redhat.com>
-References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
-	<1389072355-20666-4-git-send-email-mwdalton@google.com>
-	<52CCF177.7020500@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <52CCF177.7020500@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Ma JieYue <majieyue@gmail.com>
+Subject: [PATCH net] xen-netback: fix vif tx queue race in xenvif_rx_interrupt
+Date: Thu,  9 Jan 2014 03:24:21 +0800
+Message-ID: <1389209061-29494-1-git-send-email-jieyue.majy@alibaba-inc.com>
+Cc: Ma JieYue <jieyue.majy@alibaba-inc.com>,
+	Wang Yingbin <yingbin.wangyb@alibaba-inc.com>,
+	Fu Tienan <tienan.ftn@alibaba-inc.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: netdev@vger.kernel.org, xen-devel@lists.xen.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:41721 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750839AbaAHTZC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 14:25:02 -0500
+Received: by mail-pb0-f50.google.com with SMTP id rr13so1973598pbb.23
+        for <netdev@vger.kernel.org>; Wed, 08 Jan 2014 11:25:01 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 08, 2014 at 02:34:31PM +0800, Jason Wang wrote:
-> On 01/07/2014 01:25 PM, Michael Dalton wrote:
-> > Add initial support for debugfs to virtio-net. Each virtio-net network
-> > device will have a directory under /virtio-net in debugfs. The
-> > per-network device directory will contain one sub-directory per active,
-> > enabled receive queue. If mergeable receive buffers are enabled, each
-> > receive queue directory will contain a read-only file that returns the
-> > current packet buffer size for the receive queue.
-> >
-> > Signed-off-by: Michael Dalton <mwdalton@google.com>
-> 
-> This looks more complicated than expected. How about just adding an
-> entry in sysfs onto the existed network class device which looks more
-> simpler?
+From: Ma JieYue <jieyue.majy@alibaba-inc.com>
 
-sysfs is part of userspace ABI, I think that's the main issue: can we
-commit to this attribute being there in the future?
-If yes we can use sysfs but maybe it seems reasonable to use debugfs for
-a while until we are more sure of this.
-I don't mind either way.
+There is a race when waking up or stopping xenvif tx queue, and it leads to 
+unnecessary packet drop. The problem is that the rx ring still full when entering 
+into xenvif_start_xmit. In fact, in xenvif_rx_interrupt, the netif_wake_queue 
+may be called not just after the ring is not full any more, so the operation 
+is not atomic. Here is part of the debug log when the race scenario happened:
+
+wake_queue: req_cons_peek 2679757 req_cons 2679586 req_prod 2679841
+stop_queue: req_cons_peek 2679837 req_cons 2679757 req_prod 2679841
+[tx_queue_stopped true]
+wake_queue: req_cons_peek 2679837 req_cons 2679757 req_prod 2679841
+[tx_queue_stopped false]
+drop packet: req_cons_peek 2679837 req_cons 2679757 req_prod 2679841
+
+The debug log was written, every time right after netif_wake_queue been called 
+in xenvif_rx_interrupt, every time after netif_stop_queue been called in 
+xenvif_start_xmit and every time packet drop happened in xenvif_start_xmit. 
+As we can see, the second wake_queue appeared in the place it should not be, and 
+we believed the ring had been checked before the stop_queue, but the actual 
+wake_queue action didn't follow, and took place after the stop_queue, so that when 
+entering into xenvif_start_xmit the ring was full but the queue was not stopped.
+
+The patch fixes the race by checking if tx queue stopped, before trying to 
+wake it up in xenvif_rx_interrupt. It only wakes the queue when it is stopped, 
+as well as it is not full and schedulable.
+
+Signed-off-by: Ma JieYue <jieyue.majy@alibaba-inc.com>
+Signed-off-by: Wang Yingbin <yingbin.wangyb@alibaba-inc.com>
+Signed-off-by: Fu Tienan <tienan.ftn@alibaba-inc.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: David Vrabel <david.vrabel@citrix.com>
+---
+ drivers/net/xen-netback/interface.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index fff8cdd..e099f62 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -105,7 +105,7 @@ static irqreturn_t xenvif_rx_interrupt(int irq, void *dev_id)
+ {
+ 	struct xenvif *vif = dev_id;
+ 
+-	if (xenvif_rx_schedulable(vif))
++	if (netif_queue_stopped(vif->dev) && xenvif_rx_schedulable(vif))
+ 		netif_wake_queue(vif->dev);
+ 
+ 	return IRQ_HANDLED;
+-- 
+1.8.4
