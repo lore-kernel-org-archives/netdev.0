@@ -1,145 +1,61 @@
-From: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
-Subject: Re: single process receives own frames due to PACKET_MMAP
-Date: Wed, 08 Jan 2014 15:18:31 +0100
-Message-ID: <52CD5E37.5070104@aimvalley.nl>
-References: <52B4465E.2090904@aimvalley.nl> <52CB34F9.6020906@aimvalley.nl> <52CBC991.8030701@redhat.com> <20140107110609.74f71979@redhat.com> <52CBFE13.8@aimvalley.nl> <20140107150938.1058b358@redhat.com> <52CC1A61.5080205@aimvalley.nl> <52CC1C94.2060808@redhat.com> <52CC2168.9060401@aimvalley.nl> <52CC23F6.1070801@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next 1/8] i40evf: main driver core
+Date: Wed, 8 Jan 2014 14:20:32 +0000
+Message-ID: <1389190832.2728.60.camel@deadeye.wl.decadent.org.uk>
+References: <1388537594-24601-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1388537594-24601-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>, uaca@alumni.uv.es
-To: Daniel Borkmann <dborkman@redhat.com>
+Cc: <davem@davemloft.net>, Greg Rose <gregory.v.rose@intel.com>,
+	<netdev@vger.kernel.org>, <gospo@redhat.com>,
+	<sassmann@redhat.com>,
+	"Mitch Williams" <mitch.a.williams@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mika.eatserver.nl ([195.20.9.75]:52098 "EHLO mika.eatserver.nl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755610AbaAHOTt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jan 2014 09:19:49 -0500
-In-Reply-To: <52CC23F6.1070801@redhat.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:18508 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756013AbaAHOUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 09:20:35 -0500
+In-Reply-To: <1388537594-24601-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/07/14 16:57, Daniel Borkmann wrote:
-> On 01/07/2014 04:46 PM, Norbert van Bolhuis wrote:
->> On 01/07/14 16:26, Daniel Borkmann wrote:
->>> On 01/07/2014 04:16 PM, Norbert van Bolhuis wrote:
->>>> On 01/07/14 15:09, Jesper Dangaard Brouer wrote:
->>>>> On Tue, 07 Jan 2014 14:16:03 +0100
->>>>> Norbert van Bolhuis<nvbolhuis@aimvalley.nl> wrote:
->>>>>> On 01/07/14 11:06, Jesper Dangaard Brouer wrote:
->>>>>>> On Tue, 07 Jan 2014 10:32:01 +0100
->>>>>>> Daniel Borkmann<dborkman@redhat.com> wrote:
->>>>>>>
->>>>>>>> On 01/06/2014 11:58 PM, Norbert van Bolhuis wrote:
->>>>>>>>>
->>>>> [...]
->>>>>>>>
->>>>>>>>> I'd say it makes no sense to make the same process receive its
->>>>>>>>> own transmitted frames on that same interface (unless its lo).
->>>>>>>
->>>>>>> Have you setup:
->>>>>>> ring->s_ll.sll_protocol = 0
->>>>>>>
->>>>>>> This is what I did in trafgen to avoid this problem.
->>>>>>>
->>>>>>> See line 55 in netsniff-ng/ring.c:
->>>>>>> https://github.com/borkmann/netsniff-ng/blob/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1/ring.c#L55
->>>>>>>
->>>>>>> Commit:
->>>>>>> https://github.com/borkmann/netsniff-ng/commit/c3602a995b21e8133c7f4fd1fb1e7e21b6a844f1
->>>>>>>
->>>>>>
->>>>>>
->>>>>> No I did not do that, I was checking my code against netsniff-ng-0.5.8-rc4.
->>>>>>
->>>>>> But I just tried it, I believe I do the same as netsniff-ng-0.5.8-rc5, but it doesn't
->>>>>> work for me. Maybe because I have an old FC14 system (kernel 2.6.35.14-106.fc14.x86_64).
->>>>>>
->>>>>> So I tried to see whether netsniff-ng-0.5.8-rc5/trafgen still makes the
->>>>>> kernel call packet_rcv() on my FC14 system. So I build and run it, but I'm not sure
->>>>>> how to (easily) check that.
->>>>>
->>>>> The easiest way is to:
->>>>> cat /proc/net/ptype
->>>>> And look if someone registered a proto handler/function: packet_rcv (or tpacket_rcv).
->>>>>
->>>>> The more exact method is, to run "perf record -a -g" and then look (at
->>>>> the result with "perf report") for a lock contention, and "expand" the
->>>>> spin_lock and see if packet_rcv() is calling this spin lock.
->>>>>
->>>>
->>>>
->>>> I checked the easy way.
->>>> Even on my old FC14 system the "protocol=0 patch" seems to make a difference
->>>> for trafgen.
->>>> Without the patch I see for each CPU in use by trafgen a "packet_rcv entry" in
->>>> /proc/net/ptype.
->>>> With the patch I see no additional "packet_rcv entry".
->>>
->>> Yes, that is expected behaviour. ;-) See more below.
->>>
->>>> It could be my Appl is wrong or maybe the "protocol=0 patch" does not help.
->>>> I think the latter, afterall my Appl has, unlike trafgen, another RX
->>>> (AF_PACKET) socket.
->>>>
->>>>
->>>>>
->>>>>> In anyway, Wireshark does capture the trafgen generated
->>>>>> frames, does that say anything ?
->>>>>
->>>>> Be careful not to start a wireshark/tcpdump, at the sametime, as this
->>>>> will slow you down.
->>>>>
->>>>>> In the future, I can at least use PACKET_QDISC_BYPASS as a "workaround".
->>>>>
->>>>> And in the future with PACKET_QDISC_BYPASS, your wireshark will not
->>>>> catch these packets, remember that.
->>>>>
->>>>
->>>>
->>>> Yes, this is why I would love to see the "protocol=0 patch" work for my Appl.
->>>>
->>>> So I will try my Appl with the latest net-next kernel to see if that makes
->>>> it work. Hopefully I can find some time in the next coming days, I will keep
->>>> you informed.
->>>
->>> As long as there's at least one single PF_PACKET receive socket open and you
->>> do not make use of PACKET_QDISC_BYPASS on your tx socket, then those packets go
->>> back the dev_queue_xmit_nit() path, even if your tx socket uses protocol=0.
->>>
->>> If you make use of PACKET_QDISC_BYPASS [1] for your particular tx socket, then
->>> packets generated by that socket will not hit the dev_queue_xmit_nit() path
->>> back to other possible rx listeners that are present on your system (w/ the
->>> side-effects for tx as described in [1]).
->>>
->>> [1] Documentation/networking/packet_mmap.txt +960
->>>
->>
->>
->> Ok, that's clear.
->>
->> But this means my PF_PACKET socket application performs worse because of
->> using PACKET_MMAP. I expected the opposit.
->>
->> Afterall my old PF_PACKET socket application (which does not use PACKET_MMAP)
->> uses only one PF_PACKET socket (for TX and RX). Because packets are never sent
->> back to the socket they originated from, my old PF_PACKET socket application
->> performs better.
->>
->> Is there a way to use one PF_PACKET socket for both TX and RX and use PACKET_MMAP ?
->
-> Yep:
->
-> http://thread.gmane.org/gmane.linux.network/269129/focus=269188
->
-> Feel free to make a patch and add this to Documentation/networking/packet_mmap.txt
-> I think could be useful for others as well.
+On Tue, 2013-12-31 at 16:53 -0800, Jeff Kirsher wrote:
+[...]
+> +static int i40evf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+> +{
+> +	struct net_device *netdev;
+> +	struct i40evf_adapter *adapter = NULL;
+> +	struct i40e_hw *hw = NULL;
+> +	int err, pci_using_dac;
+> +
+> +	err = pci_enable_device(pdev);
+> +	if (err)
+> +		return err;
+> +
+> +	if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(64))) {
+> +		pci_using_dac = true;
+> +		/* coherent mask for the same size will always succeed if
+> +		 * dma_set_mask does
+> +		 */
+> +		dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
+> +	} else if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(32))) {
+> +		pci_using_dac = false;
+> +		dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+> +	} else {
+> +		dev_err(&pdev->dev, "%s: DMA configuration failed: %d\n",
+> +			 __func__, err);
+> +		err = -EIO;
+> +		goto err_dma;
+> +	}
+[...]
 
+Should use dma_set_mask_and_coherent().
 
-Good, it all works fine now, though performance is still not as good as I'd hoped.
+Ben.
 
-I will sent a doc patch soon.
-
-thanks for all help!
-
----
-Norbert.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
