@@ -1,56 +1,57 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v3 1/3] ipv4: introduce ip_dst_mtu_secure and protect forwarding path against pmtu spoofing
-Date: Wed, 8 Jan 2014 06:02:25 +0100
-Message-ID: <20140108050225.GO30393@order.stressinduktion.org>
-References: <20140106084827.GA5766@order.stressinduktion.org> <20140107.191314.881648861654097224.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	johnwheffner@gmail.com, steffen.klassert@secunet.com,
-	fweimer@redhat.com
-To: David Miller <davem@davemloft.net>
+From: Masatake YAMATO <yamato@redhat.com>
+Subject: [PATCH] unix: show socket peer if no addr is given in /proc/net/unix
+Date: Wed,  8 Jan 2014 14:18:08 +0900
+Message-ID: <1389158288-2855-1-git-send-email-yamato@redhat.com>
+Cc: yamato@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:47154 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751821AbaAHFC1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 00:02:27 -0500
-Content-Disposition: inline
-In-Reply-To: <20140107.191314.881648861654097224.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:8458 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750898AbaAHFSY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jan 2014 00:18:24 -0500
+Received: from int-mx10.intmail.prod.int.phx2.redhat.com (int-mx10.intmail.prod.int.phx2.redhat.com [10.5.11.23])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s085IOZQ007482
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 8 Jan 2014 00:18:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David!
+Path field of /proc/net/unix is empty if an address is not given
+to a socket. Typical way to create such socket is calling
+socketpair. The empty fields make it difficult to understand the
+communication between processes. e.g. lsof cannot resolve the role of
+file descriptors well.
 
-On Tue, Jan 07, 2014 at 07:13:14PM -0500, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Mon, 6 Jan 2014 09:48:27 +0100
-> 
-> > +ip_forward_use_pmtu - BOOLEAN
-> > +	By default we don't trust protocol path MTUs while forwarding
-> > +	because they could be easily forged and can lead to unwanted
-> > +	fragmentation by the router.
-> > +	You only need to enable this if you have user-space software
-> > +	which tries to discover path mtus by itself and depends on the
-> > +	kernel honoring this information. This is normally not the
-> > +	case.
-> > +	Default: 0 (disabled)
-> > +	Possible values:
-> > +	0 - disabled
-> > +	1 - enabled
-> 
-> You made this default to off, great, but the description text still says
-> that we don't trust PMTU information by default :-)
+This patch fills the empty fields with unix_peer.
 
-Hm, sorry, but I don't see the contradiction.
+Signed-off-by: Masatake YAMATO <yamato@redhat.com>
+---
+ net/unix/af_unix.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-> > +static inline unsigned int ip_dst_mtu_secure(const struct dst_entry *dst,
-> 
-> Please do me a favor and remove the "_secure" bit from this helper function
-> name.  This function doesn't implicitly do anything "secure", rather it
-> simply calculates the dst's mtu based upon various conditions.
-
-I'll follow the IPv6 one and will switch to _forward postfix.
-
-Thanks,
-
-  Hannes
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 800ca61..1700133 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2340,7 +2340,9 @@ static int unix_seq_show(struct seq_file *seq, void *v)
+ 	else {
+ 		struct sock *s = v;
+ 		struct unix_sock *u = unix_sk(s);
++		struct sock *s_peer;
+ 		unix_state_lock(s);
++		s_peer = unix_peer(s);
+ 
+ 		seq_printf(seq, "%pK: %08X %08X %08X %04X %02X %5lu",
+ 			s,
+@@ -2367,7 +2369,8 @@ static int unix_seq_show(struct seq_file *seq, void *v)
+ 			}
+ 			for ( ; i < len; i++)
+ 				seq_putc(seq, u->addr->name->sun_path[i]);
+-		}
++		} else if (s_peer)
++			seq_printf(seq, " #%pK", s_peer);
+ 		unix_state_unlock(s);
+ 		seq_putc(seq, '\n');
+ 	}
+-- 
+1.8.4.2
