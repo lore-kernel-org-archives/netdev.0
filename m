@@ -1,67 +1,52 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH net-next] net: xfrm6: silence sparse warning
-Date: Wed, 8 Jan 2014 13:55:09 +0800
-Message-ID: <52CCE83D.5080909@windriver.com>
-References: <1389149801-29011-1-git-send-email-ying.xue@windriver.com> <20140107.224357.1577838150943921013.davem@davemloft.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net-next] net: xfrm: xfrm_policy: fix inline not at
+ beginning of declaration
+Date: Wed, 8 Jan 2014 06:55:36 +0100
+Message-ID: <20140108055536.GX31491@secunet.com>
+References: <1389133227-11086-1-git-send-email-dborkman@redhat.com>
+ <20140107.183412.1584306758322996233.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <steffen.klassert@secunet.com>, <dborkman@redhat.com>,
-	<netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: dborkman@redhat.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:59548 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755031AbaAHFzV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 00:55:21 -0500
-In-Reply-To: <20140107.224357.1577838150943921013.davem@davemloft.net>
+Received: from a.mx.secunet.com ([195.81.216.161]:47598 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754775AbaAHFzj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jan 2014 00:55:39 -0500
+Content-Disposition: inline
+In-Reply-To: <20140107.183412.1584306758322996233.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/08/2014 11:43 AM, David Miller wrote:
-> From: Ying Xue <ying.xue@windriver.com>
-> Date: Wed, 8 Jan 2014 10:56:40 +0800
+On Tue, Jan 07, 2014 at 06:34:12PM -0500, David Miller wrote:
+> From: Daniel Borkmann <dborkman@redhat.com>
+> Date: Tue,  7 Jan 2014 23:20:27 +0100
 > 
->> Fix below sparse warning:
->>
->> net/ipv6/xfrm6_state.c:66:26: error: cannot size expression
->  ...
->> -	memset(count, 0, sizeof(count));
->> +	memset(count, 0, sizeof(int) * maxclass);
+> > Fix three warnings related to:
+> > 
+> >   net/xfrm/xfrm_policy.c:1644:1: warning: 'inline' is not at beginning of declaration [-Wold-style-declaration]
+> >   net/xfrm/xfrm_policy.c:1656:1: warning: 'inline' is not at beginning of declaration [-Wold-style-declaration]
+> >   net/xfrm/xfrm_policy.c:1668:1: warning: 'inline' is not at beginning of declaration [-Wold-style-declaration]
+> > 
+> > Just removing the inline keyword is sufficient as the compiler will
+> > decide on its own about inlining or not.
+> > 
+> > Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 > 
-> I think the fix belongs in sparse, making it respect these two expressions
-> as equivalent.
-> 
-> 
+> Applied.
 
-Yes, you are right. Actually the fix just eliminates one 'error' warning
-complained from sparse, instead its complete sparse warnings like:
+I have a fix for this warnings in the ipsec-next tree too:
 
-  CHECK   net/ipv6/xfrm6_state.c
-net/ipv6/xfrm6_state.c:64:19: warning: Variable length array is used.
-net/ipv6/xfrm6_state.c:66:26: error: cannot size expression
+commit 2f3ea9a95c58fd0e4bed18a9c9dfe53739fee3b2
+Author: Weilong Chen <chenweilong@huawei.com>
+Date:   Tue Dec 24 09:43:50 2013 +0800
 
-But the first warning(ie, warning: Variable length array is used) to be
-fixed needs a big change made, so I think it seems unnecessary.
-Therefore, I just fix the latter in the patch.
+    xfrm: checkpatch erros with inline keyword position
+    
+    Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+    Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 
-Which action below should I take in next step?
 
-1. I just update the fix commit description as below:
-
------
-Fix below sparse error:
-
-  CHECK   net/ipv6/xfrm6_state.c
-net/ipv6/xfrm6_state.c:66:26: error: cannot size expression
------
-
-2. Fix the former warning as well in the patch by changing the
-allocation of count[] array from static mode to dynamical.
-
-3. Just drop the patch
-
-Please tell me.
-
-Thanks,
-Ying
+Should I revert it, or do you want to solve the conflict when
+I send the ipsec-next pull request?
