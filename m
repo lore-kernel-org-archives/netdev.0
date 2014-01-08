@@ -1,265 +1,84 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V3 3/3] net: Add GRO support for vxlan traffic
-Date: Wed,  8 Jan 2014 22:34:38 +0200
-Message-ID: <1389213278-2200-4-git-send-email-ogerlitz@mellanox.com>
-References: <1389213278-2200-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V3 0/3] net: Add GRO support for UDP encapsulating protocols
+Date: Wed,  8 Jan 2014 22:34:35 +0200
+Message-ID: <1389213278-2200-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, davem@davemloft.net, yanb@mellanox.com,
 	shlomop@mellanox.com, Or Gerlitz <ogerlitz@mellanox.com>
 To: hkchu@google.com, edumazet@google.com, herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:52827 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:43102 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757034AbaAHUep (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757000AbaAHUep (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 8 Jan 2014 15:34:45 -0500
-In-Reply-To: <1389213278-2200-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add gro handlers for vxlan using the udp gro infrastructure
+This series adds GRO handlers for protocols that do UDP encapsulation, with the
+intent of being able to coalesce packets which encapsulate packets belonging to
+the same TCP session.
+
+For GRO purposes, the destination UDP port takes the role of the ether type
+field in the ethernet header or the next protocol in the IP header.
+
+The UDP GRO handler will only attempt to coalesce packets whose destination
+port is registered to have gro handler.
 
 On my setup, which is net-next (now with the mlx4 vxlan offloads patches) --
 for single TCP session that goes through vxlan tunneling I got nice improvement
 from 6.8Gbs to 11.5Gbs
 
---> UDP/VXLAN GRO disabled
-$ netperf  -H 192.168.52.147 -c -C
+patches done against net-next 80077935cad "Merge branch 'master' of
+git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next"
 
-$ netperf -t TCP_STREAM -H 192.168.52.147 -c -C
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.52.147 () port 0 AF_INET
-Recv   Send    Send                          Utilization       Service Demand
-Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-Size   Size    Size     Time     Throughput  local    remote   local   remote
-bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+v2 --> v3 changes:
 
- 87380  65536  65536    10.00      6799.75   12.54    24.79    0.604   1.195
+ - moved to use linked list to store the udp gro handlers, this solves the
+   problem of consuming 512KB of memory for the handlers.
 
---> UDP/VXLAN GRO enabled
+ - use a mark on the skb GRO CB data to disallow running the udp gro_receive twice
+   on a packet, this solves the problem of udp encapsulated packets whose inner VM
+   packet is udp and happen to carry a port which has registered offloads - and flush it.
 
-$ netperf -t TCP_STREAM -H 192.168.52.147 -c -C
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.52.147 () port 0 AF_INET
-Recv   Send    Send                          Utilization       Service Demand
-Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-Size   Size    Size     Time     Throughput  local    remote   local   remote
-bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+ - invoke the udp offload protocol registration and de-registration from the vxlan driver
+   in a sleepable context 
 
- 87380  65536  65536    10.00      11562.72   24.90    20.34    0.706   0.577
+For unclear some reason I got this warning when the vxlan driver deletes the
+udp offload structure 
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/vxlan.c |  129 ++++++++++++++++++++++++++++++++++++++++++++++++---
- include/net/vxlan.h |    1 +
- 2 files changed, 123 insertions(+), 7 deletions(-)
+-----------[ cut here ]------------
+WARNING: CPU: 2 PID: 19 at kernel/rcu/tree.c:2127 rcu_do_batch+0x359/0x370()
+Modules linked in: veth vxlan ip_tunnel bridge stp llc rdma_ucm rdma_cm ib_cm iw_cm ib_addr ib_uverbs ib_umad mlx4_en ptp pps_core mlx4_ib ib_sa ib_mad ib_core mlx4_core nfsv3 nfs_acl auth_rpcgss oid_registry nfsv4 nfs lockd autofs4 sunrpc ipv6 dm_mirror dm_region_hash dm_log dm_mod joydev microcode pcspkr virtio_balloon virtio_net i2c_piix4 button ext3 jbd virtio_pci virtio_ring virtio uhci_hcd [last unloaded: ib_core]
+CPU: 2 PID: 19 Comm: rcuc/2 Not tainted 3.13.0-rc6+ #278
+Hardware name: Red Hat KVM, BIOS 0.5.1 01/01/2007
+ 000000000000084f ffff88021651dd68 ffffffff81498b52 000000000000084f
+ 0000000000000000 ffff88021651dda8 ffffffff81059f2c ffff88021651dd98
+ ffff88022010d6a0 ffff88022010d6c8 0000000000000246 ffffffff81844200
+Call Trace:
+ [<ffffffff81498b52>] dump_stack+0x51/0x77
+ [<ffffffff81059f2c>] warn_slowpath_common+0x8c/0xc0
+ [<ffffffff81059f7a>] warn_slowpath_null+0x1a/0x20
+ [<ffffffff810a49c9>] rcu_do_batch+0x359/0x370
+ [<ffffffff810a4ade>] rcu_cpu_kthread+0xfe/0x2b0
+ [<ffffffff81083697>] smpboot_thread_fn+0x167/0x260
+ [<ffffffff81083530>] ? smpboot_create_threads+0x80/0x80
+ [<ffffffff8107c36e>] kthread+0xce/0xf0
+ [<ffffffff8107c2a0>] ? kthread_freezable_should_stop+0x70/0x70
+ [<ffffffff8149de7c>] ret_from_fork+0x7c/0xb0
+ [<ffffffff8107c2a0>] ? kthread_freezable_should_stop+0x70/0x70
+---[ end trace f98588ea45ef3f4c ]---
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 481f85d..e132f19 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -40,6 +40,7 @@
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
- #include <net/vxlan.h>
-+#include <net/protocol.h>
- #if IS_ENABLED(CONFIG_IPV6)
- #include <net/ipv6.h>
- #include <net/addrconf.h>
-@@ -554,10 +555,111 @@ static int vxlan_fdb_append(struct vxlan_fdb *f,
- 	return 1;
- }
- 
-+static struct sk_buff **vxlan_gro_receive(struct sk_buff **head, struct sk_buff *skb)
-+{
-+	struct sk_buff *p, **pp = NULL;
-+	struct vxlanhdr *vh, *vh2;
-+	struct ethhdr *eh, *eh2;
-+	unsigned int hlen, off_vx, off_eth;
-+	const struct packet_offload *ptype;
-+	__be16 type;
-+	int flush = 1;
-+
-+	off_vx = skb_gro_offset(skb);
-+	hlen = off_vx + sizeof(*vh);
-+	vh   = skb_gro_header_fast(skb, off_vx);
-+	if (skb_gro_header_hard(skb, hlen)) {
-+		vh = skb_gro_header_slow(skb, hlen, off_vx);
-+		if (unlikely(!vh))
-+			goto out;
-+	}
-+	skb_gro_pull(skb, sizeof(struct vxlanhdr)); /* pull vxlan header */
-+
-+	off_eth = skb_gro_offset(skb);
-+	hlen = off_eth + sizeof(*eh);
-+	eh   = skb_gro_header_fast(skb, off_eth);
-+	if (skb_gro_header_hard(skb, hlen)) {
-+		eh = skb_gro_header_slow(skb, hlen, off_eth);
-+		if (unlikely(!eh))
-+			goto out;
-+	}
-+
-+	flush = 0;
-+
-+	for (p = *head; p; p = p->next) {
-+		if (!NAPI_GRO_CB(p)->same_flow)
-+			continue;
-+
-+		vh2 = (struct vxlanhdr *)(p->data + off_vx);
-+		eh2 = (struct ethhdr   *)(p->data + off_eth);
-+		if (vh->vx_vni != vh2->vx_vni || compare_ether_header(eh, eh2)) {
-+			NAPI_GRO_CB(p)->same_flow = 0;
-+			continue;
-+		}
-+		goto found;
-+	}
-+
-+found:
-+	type = eh->h_proto;
-+
-+	rcu_read_lock();
-+	ptype = gro_find_receive_by_type(type);
-+	if (ptype == NULL) {
-+		flush = 1;
-+		goto out_unlock;
-+	}
-+
-+	skb_gro_pull(skb, sizeof(*eh)); /* pull inner eth header */
-+	pp = ptype->callbacks.gro_receive(head, skb);
-+
-+out_unlock:
-+	rcu_read_unlock();
-+out:
-+	NAPI_GRO_CB(skb)->flush |= flush;
-+
-+	return pp;
-+}
-+
-+static int vxlan_gro_complete(struct sk_buff *skb, int nhoff)
-+{
-+	struct ethhdr *eh;
-+	struct packet_offload *ptype;
-+	__be16 type;
-+	/* 22 = 8 bytes for the vlxan header + 14 bytes for the inner eth header */
-+	int vxlan_len  = 22;
-+	int err = -ENOSYS;
-+
-+	eh = (struct ethhdr *)(skb->data + nhoff + sizeof (struct vxlanhdr));
-+	type = eh->h_proto;
-+
-+	rcu_read_lock();
-+	ptype = gro_find_complete_by_type(type);
-+	if (ptype != NULL)
-+		err = ptype->callbacks.gro_complete(skb, nhoff + vxlan_len);
-+
-+	rcu_read_unlock();
-+	return err;
-+}
-+
-+static void vxlan_add_udp_offload(struct rcu_head *head)
-+{
-+	struct vxlan_sock *vs = container_of(head, struct vxlan_sock, rcu);
-+
-+	udp_add_offload(&vs->udp_offloads);
-+}
-+
-+static void vxlan_del_udp_offload(struct rcu_head *head)
-+{
-+	struct vxlan_sock *vs = container_of(head, struct vxlan_sock, rcu);
-+
-+	udp_del_offload(&vs->udp_offloads);
-+}
-+
- /* Notify netdevs that UDP port started listening */
--static void vxlan_notify_add_rx_port(struct sock *sk)
-+static void vxlan_notify_add_rx_port(struct vxlan_sock *vs)
- {
- 	struct net_device *dev;
-+	struct sock *sk = vs->sock->sk;
- 	struct net *net = sock_net(sk);
- 	sa_family_t sa_family = sk->sk_family;
- 	__be16 port = inet_sk(sk)->inet_sport;
-@@ -569,12 +671,16 @@ static void vxlan_notify_add_rx_port(struct sock *sk)
- 							    port);
- 	}
- 	rcu_read_unlock();
-+
-+	if (sa_family == AF_INET)
-+		call_rcu(&vs->rcu, vxlan_add_udp_offload);
- }
- 
- /* Notify netdevs that UDP port is no more listening */
--static void vxlan_notify_del_rx_port(struct sock *sk)
-+static void vxlan_notify_del_rx_port(struct vxlan_sock *vs)
- {
- 	struct net_device *dev;
-+	struct sock *sk = vs->sock->sk;
- 	struct net *net = sock_net(sk);
- 	sa_family_t sa_family = sk->sk_family;
- 	__be16 port = inet_sk(sk)->inet_sport;
-@@ -586,6 +692,9 @@ static void vxlan_notify_del_rx_port(struct sock *sk)
- 							    port);
- 	}
- 	rcu_read_unlock();
-+
-+	if (sa_family == AF_INET)
-+		call_rcu(&vs->rcu, vxlan_del_udp_offload);
- }
- 
- /* Add new entry to forwarding table -- assumes lock held */
-@@ -964,7 +1073,7 @@ void vxlan_sock_release(struct vxlan_sock *vs)
- 	spin_lock(&vn->sock_lock);
- 	hlist_del_rcu(&vs->hlist);
- 	rcu_assign_sk_user_data(vs->sock->sk, NULL);
--	vxlan_notify_del_rx_port(sk);
-+	vxlan_notify_del_rx_port(vs);
- 	spin_unlock(&vn->sock_lock);
- 
- 	queue_work(vxlan_wq, &vs->del_work);
-@@ -1125,8 +1234,8 @@ static void vxlan_rcv(struct vxlan_sock *vs,
- 	 * leave the CHECKSUM_UNNECESSARY, the device checksummed it
- 	 * for us. Otherwise force the upper layers to verify it.
- 	 */
--	if (skb->ip_summed != CHECKSUM_UNNECESSARY || !skb->encapsulation ||
--	    !(vxlan->dev->features & NETIF_F_RXCSUM))
-+	if ((skb->ip_summed != CHECKSUM_UNNECESSARY && skb->ip_summed != CHECKSUM_PARTIAL) ||
-+	    !skb->encapsulation || !(vxlan->dev->features & NETIF_F_RXCSUM))
- 		skb->ip_summed = CHECKSUM_NONE;
- 
- 	skb->encapsulation = 0;
-@@ -2304,7 +2413,7 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
- 	struct sock *sk;
- 	unsigned int h;
- 
--	vs = kmalloc(sizeof(*vs), GFP_KERNEL);
-+	vs = kzalloc(sizeof(*vs), GFP_KERNEL);
- 	if (!vs)
- 		return ERR_PTR(-ENOMEM);
- 
-@@ -2329,9 +2438,15 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
- 	vs->data = data;
- 	rcu_assign_sk_user_data(vs->sock->sk, vs);
- 
-+	/* Initialize the vxlan udp offloads structure */
-+	vs->udp_offloads.port = port;
-+	vs->udp_offloads.callbacks.gro_receive  = vxlan_gro_receive;
-+	vs->udp_offloads.callbacks.gro_complete = vxlan_gro_complete;
-+	INIT_LIST_HEAD(&vs->udp_offloads.list);
-+
- 	spin_lock(&vn->sock_lock);
- 	hlist_add_head_rcu(&vs->hlist, vs_head(net, port));
--	vxlan_notify_add_rx_port(sk);
-+	vxlan_notify_add_rx_port(vs);
- 	spin_unlock(&vn->sock_lock);
- 
- 	/* Mark socket as an encapsulation socket. */
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index 6b6d180..5deef1a 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -21,6 +21,7 @@ struct vxlan_sock {
- 	struct rcu_head	  rcu;
- 	struct hlist_head vni_list[VNI_HASH_SIZE];
- 	atomic_t	  refcnt;
-+	struct udp_offload udp_offloads;
- };
- 
- struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
--- 
-1.7.1
+Or
+
+
+Or Gerlitz (3):
+  net: Add GRO support for UDP encapsulating protocols
+  net: Export gro_find_by_type helpers
+  net: Add GRO support for vxlan traffic
+
+ drivers/net/vxlan.c       |  129 ++++++++++++++++++++++++++++++++++++++++++---
+ include/linux/netdevice.h |   10 +++-
+ include/net/protocol.h    |    3 +
+ include/net/vxlan.h       |    1 +
+ net/core/dev.c            |    3 +
+ net/ipv4/udp_offload.c    |  129 +++++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 267 insertions(+), 8 deletions(-)
