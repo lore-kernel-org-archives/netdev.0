@@ -1,55 +1,40 @@
-From: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v3.6 09/19] infiniband: slight optimization of addr compare
-Date: Wed, 8 Jan 2014 10:53:39 +0800
-Message-ID: <52CCBDB3.30009@huawei.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next] net: xfrm6: silence sparse warning
+Date: Wed, 8 Jan 2014 10:56:40 +0800
+Message-ID: <1389149801-29011-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <dborkman@redhat.com>, <netdev@vger.kernel.org>
+To: <steffen.klassert@secunet.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:55706 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755627AbaAHC4u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jan 2014 21:56:50 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use the possibly more efficient ether_addr_equal
-to instead of memcmp.
+Fix below sparse warning:
 
-Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Cc: Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Cc: Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Signed-off-by: Wang Weidong <wangweidong1-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+net/ipv6/xfrm6_state.c:66:26: error: cannot size expression
+
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
 ---
- drivers/infiniband/hw/nes/nes_cm.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ net/ipv6/xfrm6_state.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/infiniband/hw/nes/nes_cm.c b/drivers/infiniband/hw/nes/nes_cm.c
-index 6b29249..9c9f2f5 100644
---- a/drivers/infiniband/hw/nes/nes_cm.c
-+++ b/drivers/infiniband/hw/nes/nes_cm.c
-@@ -1354,8 +1354,7 @@ static int nes_addr_resolve_neigh(struct nes_vnic *nesvnic, u32 dst_ip, int arpi
- 				  neigh->ha, ntohl(rt->rt_gateway));
+diff --git a/net/ipv6/xfrm6_state.c b/net/ipv6/xfrm6_state.c
+index 3fc9701..0c10dff 100644
+--- a/net/ipv6/xfrm6_state.c
++++ b/net/ipv6/xfrm6_state.c
+@@ -63,7 +63,7 @@ __xfrm6_sort(void **dst, void **src, int n, int (*cmp)(void *p), int maxclass)
+ 	int class[XFRM_MAX_DEPTH];
+ 	int count[maxclass];
  
- 			if (arpindex >= 0) {
--				if (!memcmp(nesadapter->arp_table[arpindex].mac_addr,
--					    neigh->ha, ETH_ALEN)) {
-+				if (ether_addr_equal(nesadapter->arp_table[arpindex].mac_addr, neigh->ha)) {
- 					/* Mac address same as in nes_arp_table */
- 					goto out;
- 				}
+-	memset(count, 0, sizeof(count));
++	memset(count, 0, sizeof(int) * maxclass);
+ 
+ 	for (i = 0; i < n; i++) {
+ 		int c;
 -- 
-1.8.0
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.9.5
