@@ -1,8 +1,8 @@
 From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next v3 4/9] xen-netback: Change RX path for
-	mapped SKB fragments
-Date: Wed, 8 Jan 2014 00:10:13 +0000
-Message-ID: <1389139818-24458-5-git-send-email-zoltan.kiss@citrix.com>
+Subject: [PATCH net-next v3 5/9] xen-netback: Add stat counters
+	for zerocopy
+Date: Wed, 8 Jan 2014 00:10:14 +0000
+Message-ID: <1389139818-24458-6-git-send-email-zoltan.kiss@citrix.com>
 References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,103 +23,82 @@ Sender: xen-devel-bounces@lists.xen.org
 Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
-RX path need to know if the SKB fragments are stored on pages from another
-domain.
+These counters help determine how often the buffers had to be copied. Also
+they help find out if packets are leaked, as if "sent != success + fail",
+there are probably packets never freed up properly.
 
 Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 ---
- drivers/net/xen-netback/netback.c |   46 +++++++++++++++++++++++++++++++++----
- 1 file changed, 41 insertions(+), 5 deletions(-)
+ drivers/net/xen-netback/common.h    |    3 +++
+ drivers/net/xen-netback/interface.c |   15 +++++++++++++++
+ drivers/net/xen-netback/netback.c   |    9 ++++++++-
+ 3 files changed, 26 insertions(+), 1 deletion(-)
 
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index 419e63c..e3c28ff 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -155,6 +155,9 @@ struct xenvif {
+ 
+ 	/* Statistics */
+ 	unsigned long rx_gso_checksum_fixup;
++	unsigned long tx_zerocopy_sent;
++	unsigned long tx_zerocopy_success;
++	unsigned long tx_zerocopy_fail;
+ 
+ 	/* Miscellaneous private stuff. */
+ 	struct net_device *dev;
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index af5216f..75fe683 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -239,6 +239,21 @@ static const struct xenvif_stat {
+ 		"rx_gso_checksum_fixup",
+ 		offsetof(struct xenvif, rx_gso_checksum_fixup)
+ 	},
++	/* If (sent != success + fail), there are probably packets never
++	 * freed up properly!
++	 */
++	{
++		"tx_zerocopy_sent",
++		offsetof(struct xenvif, tx_zerocopy_sent),
++	},
++	{
++		"tx_zerocopy_success",
++		offsetof(struct xenvif, tx_zerocopy_success),
++	},
++	{
++		"tx_zerocopy_fail",
++		offsetof(struct xenvif, tx_zerocopy_fail)
++	},
+ };
+ 
+ static int xenvif_get_sset_count(struct net_device *dev, int string_set)
 diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 10d0cf0..e070475 100644
+index a1b03e4..e2dd565 100644
 --- a/drivers/net/xen-netback/netback.c
 +++ b/drivers/net/xen-netback/netback.c
-@@ -322,7 +322,9 @@ static struct xenvif_rx_meta *get_next_rx_buffer(struct xenvif *vif,
- static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
- 				 struct netrx_pending_operations *npo,
- 				 struct page *page, unsigned long size,
--				 unsigned long offset, int *head)
-+				 unsigned long offset, int *head,
-+				 struct xenvif *foreign_vif,
-+				 grant_ref_t foreign_gref)
- {
- 	struct gnttab_copy *copy_gop;
- 	struct xenvif_rx_meta *meta;
-@@ -364,8 +366,15 @@ static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
- 		copy_gop->flags = GNTCOPY_dest_gref;
- 		copy_gop->len = bytes;
- 
--		copy_gop->source.domid = DOMID_SELF;
--		copy_gop->source.u.gmfn = virt_to_mfn(page_address(page));
-+		if (foreign_vif) {
-+			copy_gop->source.domid = foreign_vif->domid;
-+			copy_gop->source.u.ref = foreign_gref;
-+			copy_gop->flags |= GNTCOPY_source_gref;
-+		} else {
-+			copy_gop->source.domid = DOMID_SELF;
-+			copy_gop->source.u.gmfn =
-+				virt_to_mfn(page_address(page));
+@@ -1611,8 +1611,10 @@ static int xenvif_tx_submit(struct xenvif *vif, int budget)
+ 		 * skb_copy_ubufs while we are still in control of the skb. E.g.
+ 		 * the __pskb_pull_tail earlier can do such thing.
+ 		 */
+-		if (skb_shinfo(skb)->destructor_arg)
++		if (skb_shinfo(skb)->destructor_arg) {
+ 			skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
++			vif->tx_zerocopy_sent++;
 +		}
- 		copy_gop->source.offset = offset;
  
- 		copy_gop->dest.domid = vif->domid;
-@@ -426,6 +435,9 @@ static int xenvif_gop_skb(struct sk_buff *skb,
- 	int old_meta_prod;
- 	int gso_type;
- 	int gso_size;
-+	struct ubuf_info *ubuf = skb_shinfo(skb)->destructor_arg;
-+	grant_ref_t foreign_grefs[MAX_SKB_FRAGS];
-+	struct xenvif *foreign_vif = NULL;
- 
- 	old_meta_prod = npo->meta_prod;
- 
-@@ -466,6 +478,26 @@ static int xenvif_gop_skb(struct sk_buff *skb,
- 	npo->copy_off = 0;
- 	npo->copy_gref = req->gref;
- 
-+	if ((skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) &&
-+		 (ubuf->callback == &xenvif_zerocopy_callback)) {
-+		u16 pending_idx = ubuf->desc;
-+		int i = 0;
-+		struct pending_tx_info *temp =
-+			container_of(ubuf,
-+				struct pending_tx_info,
-+				callback_struct);
-+		foreign_vif =
-+			container_of(temp - pending_idx,
-+				struct xenvif,
-+				pending_tx_info[0]);
-+		do {
-+			pending_idx = ubuf->desc;
-+			foreign_grefs[i++] =
-+				foreign_vif->pending_tx_info[pending_idx].req.gref;
-+			ubuf = (struct ubuf_info *) ubuf->ctx;
-+		} while (ubuf);
-+	}
+ 		netif_receive_skb(skb);
+ 	}
+@@ -1645,6 +1647,11 @@ void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success)
+ 		napi_schedule(&vif->napi);
+ 	} while (ubuf);
+ 	spin_unlock_irqrestore(&vif->dealloc_lock, flags);
 +
- 	data = skb->data;
- 	while (data < skb_tail_pointer(skb)) {
- 		unsigned int offset = offset_in_page(data);
-@@ -475,7 +507,9 @@ static int xenvif_gop_skb(struct sk_buff *skb,
- 			len = skb_tail_pointer(skb) - data;
++	if (likely(zerocopy_success))
++		vif->tx_zerocopy_success++;
++	else
++		vif->tx_zerocopy_fail++;
+ }
  
- 		xenvif_gop_frag_copy(vif, skb, npo,
--				     virt_to_page(data), len, offset, &head);
-+				     virt_to_page(data), len, offset, &head,
-+				     NULL,
-+				     0);
- 		data += len;
- 	}
- 
-@@ -484,7 +518,9 @@ static int xenvif_gop_skb(struct sk_buff *skb,
- 				     skb_frag_page(&skb_shinfo(skb)->frags[i]),
- 				     skb_frag_size(&skb_shinfo(skb)->frags[i]),
- 				     skb_shinfo(skb)->frags[i].page_offset,
--				     &head);
-+				     &head,
-+				     foreign_vif,
-+				     foreign_grefs[i]);
- 	}
- 
- 	return npo->meta_prod - old_meta_prod;
+ static inline void xenvif_tx_action_dealloc(struct xenvif *vif)
