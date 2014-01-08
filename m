@@ -1,65 +1,65 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next v2 1/4] net: allow > 0 order atomic page alloc
- in skb_page_frag_refill
-Date: Wed, 8 Jan 2014 20:08:29 +0200
-Message-ID: <20140108180829.GB18162@redhat.com>
-References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/3] virtio-net: use per-receive queue page
+	frag alloc for mergeable bufs
+Date: Wed, 08 Jan 2014 10:09:47 -0800
+Message-ID: <1389204587.26646.111.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
+	<1387239389-13216-2-git-send-email-mwdalton@google.com>
+	<52B7F065.3010707@redhat.com>
+	<1387819627.12212.4.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131223193704.GC1582@redhat.com>
+	<CANJ5vPLEV_Z-D-0tThwhWXbHVaRWOLv566Xk1eD4TNYqNvknHw@mail.gmail.com>
+	<20131226213727.GA10259@redhat.com>
+	<1388095258.12212.37.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140108172104.GD17404@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Jason Wang <jasowang@redhat.com>,
-	virtualization@lists.linux-foundation.org
-To: Michael Dalton <mwdalton@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33405 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751052AbaAHSIl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jan 2014 13:08:41 -0500
-Content-Disposition: inline
-In-Reply-To: <1389072355-20666-1-git-send-email-mwdalton@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
+	lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140108172104.GD17404@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 06, 2014 at 09:25:52PM -0800, Michael Dalton wrote:
-> skb_page_frag_refill currently permits only order-0 page allocs
-> unless GFP_WAIT is used. Change skb_page_frag_refill to attempt
-> higher-order page allocations whether or not GFP_WAIT is used. If
-> memory cannot be allocated, the allocator will fall back to
-> successively smaller page allocs (down to order-0 page allocs).
-> 
-> This change brings skb_page_frag_refill in line with the existing
-> page allocation strategy employed by netdev_alloc_frag, which attempts
-> higher-order page allocations whether or not GFP_WAIT is set, falling
-> back to successively lower-order page allocations on failure. Part
-> of migration of virtio-net to per-receive queue page frag allocators.
-> 
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
-> Acked-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Michael Dalton <mwdalton@google.com>
-> ---
->  net/core/sock.c | 4 +---
->  1 file changed, 1 insertion(+), 3 deletions(-)
-> 
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index 5393b4b..a0d522a 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -1865,9 +1865,7 @@ bool skb_page_frag_refill(unsigned int sz, struct page_frag *pfrag, gfp_t prio)
->  		put_page(pfrag->page);
->  	}
->  
-> -	/* We restrict high order allocations to users that can afford to wait */
-> -	order = (prio & __GFP_WAIT) ? SKB_FRAG_PAGE_ORDER : 0;
-> -
-> +	order = SKB_FRAG_PAGE_ORDER;
->  	do {
->  		gfp_t gfp = prio;
+On Wed, 2014-01-08 at 19:21 +0200, Michael S. Tsirkin wrote:
+
+> Basically yes, we could start dropping packets immediately
+> once GFP_ATOMIC allocations fail and repost the buffer to host,
+> and hope memory is available by the time we get the next interrupt.
+
+> But we wanted host to have visibility into the fact that
+> we are out of memory and packets are dropped, so we did not want to
+> repost.
+
+bufferbloat alert :)
+
+> If we don't repost how do we know memory is finally available?
+> We went for a timer based workqueue thing.
+> What do you suggest?
 
 
-Eric said we also need a patch to add __GFP_NORETRY, right?
-Probably before this one in series.
+In normal networking land, when a host A sends frames to host B,
+nothing prevents A to pause the traffic to B if B is dropping packets
+under stress.
 
-> -- 
-> 1.8.5.1
+A physical NIC do not use a workqueue to refill its RX queue but uses
+the following strategy :
+
+0) Pre filling of RX ring buffer with N frames. This can use GFP_KERNEL
+   allocations with all needed (sleep/retry/shout) logic...
+1) IRQ is handled.
+2) Can we allocate a new buffer (GFP_ATOMIC) ?
+   If yes, we accept the frame,
+      and post the new buffer for the 'next frame'
+   If no, we drop the frame and recycle the memory for next round.
