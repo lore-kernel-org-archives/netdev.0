@@ -1,41 +1,31 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next v2 4/4] virtio-net: initial debugfs support,
-	export mergeable rx buffer size
-Date: Wed, 08 Jan 2014 14:34:31 +0800
-Message-ID: <52CCF177.7020500@redhat.com>
-References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
-	<1389072355-20666-4-git-send-email-mwdalton@google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 1/3] ipv4: introduce ip_dst_mtu_secure and
+ protect forwarding path against pmtu spoofing
+Date: Wed, 08 Jan 2014 01:49:40 -0500 (EST)
+Message-ID: <20140108.014940.1139765295618203197.davem@davemloft.net>
+References: <20140108050225.GO30393@order.stressinduktion.org>
+	<20140108.010213.884915830982848289.davem@davemloft.net>
+	<20140108061320.GA9007@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	virtualization@lists.linux-foundation.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Michael Dalton <mwdalton@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1389072355-20666-4-git-send-email-mwdalton@google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	johnwheffner@gmail.com, steffen.klassert@secunet.com,
+	fweimer@redhat.com
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47999 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753753AbaAHGto (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 01:49:44 -0500
+In-Reply-To: <20140108061320.GA9007@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/07/2014 01:25 PM, Michael Dalton wrote:
-> Add initial support for debugfs to virtio-net. Each virtio-net network
-> device will have a directory under /virtio-net in debugfs. The
-> per-network device directory will contain one sub-directory per active,
-> enabled receive queue. If mergeable receive buffers are enabled, each
-> receive queue directory will contain a read-only file that returns the
-> current packet buffer size for the receive queue.
->
-> Signed-off-by: Michael Dalton <mwdalton@google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Wed, 8 Jan 2014 07:13:20 +0100
 
-This looks more complicated than expected. How about just adding an
-entry in sysfs onto the existed network class device which looks more
-simpler?
+> I am sorry..  maybe I am just stupid?
+
+I thought I was clear about wanting the new behavior to _NOT_ be the
+default.  I thought we agreed on this.
