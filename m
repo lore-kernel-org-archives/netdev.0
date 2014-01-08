@@ -1,68 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2 1/4] net: allow > 0 order atomic page alloc
-	in skb_page_frag_refill
-Date: Wed, 08 Jan 2014 14:01:00 -0800
-Message-ID: <1389218460.31367.16.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
-	<20140108180829.GB18162@redhat.com>
-	<1389205563.31367.1.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140108191803.GB18312@redhat.com>
-	<1389210371.31367.8.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAATkVEypFGfXuiBwFacOMjAWyYmLXHiihdpQfJp+CRFEZJagyg@mail.gmail.com>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: [PATCH ethtool] ethtool: Accept long feature names reported by
+ -k option as input to -K option
+Date: Wed, 8 Jan 2014 22:00:19 +0000
+Message-ID: <804857E1F29AAC47BF68C404FC60A18465428D1D@ORSMSX105.amr.corp.intel.com>
+References: <1389217931.1644.44.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>, "Michael S. Tsirkin" <mst@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	jbaron@akamai.com, virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>, Joshua Hunt <johunt@akamai.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Debabrata Banerjee <dbavatar@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAATkVEypFGfXuiBwFacOMjAWyYmLXHiihdpQfJp+CRFEZJagyg@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Bill Fink <billfink@mindspring.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:37406 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753532AbaAHWAs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jan 2014 17:00:48 -0500
+In-Reply-To: <1389217931.1644.44.camel@bwh-desktop.uk.level5networks.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-01-08 at 16:54 -0500, Debabrata Banerjee wrote:
-
-> Actually I have more data on this:
-> 
-
-Could you please stop polluting this thread ?
-
-> 1. __GFP_NORETRY really does help and should go into stable tree.
-> 
-
-Not at all. You are free to patch your kernel if you want.
-
-It helps you workload, and breaks all others.
-
-If compaction is never triggered, we'll never be able to get high order
-pages, and performance goes back to what we had 2 years ago.
-
-That discussion does not belong to this thread, again.
-
-> 2. You may want to consider GFP_NOKSWAPD, because even in the
-> GFP_ATOMIC case you are waking up kswapd to do reclaims on a
-> continuous basis even when you don't enter direct reclaim.
-> 
-> 3. mlocking memory had very little to do with it, that was a
-> red-herring. I tested out the problem scenario with no mlocks. You
-> simply need memory pressure from page_cache, and mm ends up constantly
-> reclaiming and trying to keep another 1-2GB free on our systems (8GB
-> phys ~4GB left for kernel, ~3GB optimally used for page_cache).
-> 
-> 4. I think perhaps using a kmem_cache allocation for this buffer is
-> the right way to make this work. I am experimenting with a patch to do
-> this.
-
-Seriously... I think you missed whole point of having frag allocation on
-pages, not kmem_cache.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
+aGFsZiBPZiBCZW4gSHV0Y2hpbmdzDQo+IFNlbnQ6IFdlZG5lc2RheSwgSmFudWFyeSAwOCwgMjAx
+NCAxOjUyIFBNDQo+IFRvOiBPciBHZXJsaXR6OyBCaWxsIEZpbms7IG5ldGRldkB2Z2VyLmtlcm5l
+bC5vcmcNCj4gU3ViamVjdDogW1BBVENIIGV0aHRvb2xdIGV0aHRvb2w6IEFjY2VwdCBsb25nIGZl
+YXR1cmUgbmFtZXMgcmVwb3J0ZWQgYnkgLWsNCj4gb3B0aW9uIGFzIGlucHV0IHRvIC1LIG9wdGlv
+bg0KPiANCj4gQmVmb3JlIHRoZSBnZW5lcmljIGZlYXR1cmVzIEFQSSB3YXMgaW50cm9kdWNlZCwg
+dGhlIGV0aHRvb2wgLUsgb3B0aW9uDQo+IHRvb2sgc2hvcnQgbmFtZXMgZm9yIHZhcmlvdXMgZmVh
+dHVyZXMsIGUuZy4gJ2dzbycgYnV0IHRoZSAtayBvcHRpb24NCj4gcmVwb3J0ZWQgdGhlaXIgc3Rh
+dGUgdXNpbmcgbG9uZ2VyIG5hbWVzLA0KPiBlLmcuICdnZW5lcmljLXNlZ21lbnRhdGlvbi1vZmZs
+b2FkJy4NCj4gDQo+IEFsbCBuZXdlciBmZWF0dXJlcyBoYXZlIGEgc2luZ2xlIGtlcm5lbC1wcm92
+aWRlZCBuYW1lIHNvIGlucHV0DQo+IGFuZCBvdXRwdXQgYXJlIGNvbnNpc3RlbnQuICBCdXQgdGhl
+IG9sZCBmZWF0dXJlcyBzdGlsbCBhcmVuJ3QsIGFuZA0KPiBhbHRob3VnaCB0aGVpciBzaG9ydCBu
+YW1lcyBhcmUgZG9jdW1lbnRlZCBpdCdzIG5vdCBnb29kIHRvIGhhdmUNCj4gdGhlc2UgZXhjZXB0
+aW9ucy4NCj4gDQo+IENoYW5nZSB0aGUgYXJndW1lbnQgcGFyc2luZyBjb2RlIGZvciAtSyBzbyB0
+aGF0IHRoZSBsb25nIG5hbWVzDQo+IHJlcG9ydGVkIGJ5IC1rIGFyZSBhbHNvIGFjY2VwdGVkLg0K
+PiANCj4gUmVwb3J0ZWQtYnk6IE9yIEdlcmxpdHogPG9yLmdlcmxpdHpAZ21haWwuY29tPg0KPiBT
+aWduZWQtb2ZmLWJ5OiBCZW4gSHV0Y2hpbmdzIDxiaHV0Y2hpbmdzQHNvbGFyZmxhcmUuY29tPg0K
+PiAtLS0NCj4gVGhpcyB0dXJuZWQgb3V0IHRvIGJlIHByZXR0eSBlYXN5IHRvIGRvIGFzIHRoZSBh
+cmd1bWVudCBwcm9jZXNzaW5nIGlzDQo+IGFsbCB0YWJsZS1kcml2ZW4gYWxyZWFkeS4gIEknbGwg
+cHVzaCB0aGlzIGlmIGl0IHdvcmtzIGZvciB5b3UuDQo+IA0KPiBCZW4uDQo+IA0KPiAgZXRodG9v
+bC5jIHwgMTYgKysrKysrKysrKystLS0tLQ0KPiAgMSBmaWxlIGNoYW5nZWQsIDExIGluc2VydGlv
+bnMoKyksIDUgZGVsZXRpb25zKC0pDQoNCldpbGwgdGhlcmUgYmUgYW4gdXBkYXRlIHRvIHRoZSBt
+YW4gcGFnZSwgdG9vPw0KDQo=
