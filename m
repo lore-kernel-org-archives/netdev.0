@@ -1,31 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [v5] phylib: Add Clause 45 read/write functions
-Date: Wed, 08 Jan 2014 00:58:19 -0500 (EST)
-Message-ID: <20140108.005819.1603472468795701771.davem@davemloft.net>
-References: <1389155124-15898-1-git-send-email-shh.xie@gmail.com>
-	<20140108.005614.2278375410603487230.davem@davemloft.net>
+Subject: Re: [PATCH] unix: show socket peer if no addr is given in
+ /proc/net/unix
+Date: Wed, 08 Jan 2014 01:00:43 -0500 (EST)
+Message-ID: <20140108.010043.2192738470649350132.davem@davemloft.net>
+References: <1389158288-2855-1-git-send-email-yamato@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jg1.han@samsung.com, mugunthanvnm@ti.com, f.fainelli@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Shaohui.Xie@freescale.com, afleming@gmail.com
-To: shh.xie@gmail.com
+Cc: netdev@vger.kernel.org
+To: yamato@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47727 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47740 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754849AbaAHF6U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 00:58:20 -0500
-In-Reply-To: <20140108.005614.2278375410603487230.davem@davemloft.net>
+	with ESMTP id S1750790AbaAHGAo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 01:00:44 -0500
+In-Reply-To: <1389158288-2855-1-git-send-email-yamato@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 08 Jan 2014 00:56:14 -0500 (EST)
+From: Masatake YAMATO <yamato@redhat.com>
+Date: Wed,  8 Jan 2014 14:18:08 +0900
 
+> Path field of /proc/net/unix is empty if an address is not given
+> to a socket. Typical way to create such socket is calling
+> socketpair. The empty fields make it difficult to understand the
+> communication between processes. e.g. lsof cannot resolve the role of
+> file descriptors well.
 > 
-> When you are asked to make changes to a patch in a series, you must
-> repost the entire series, not just the patch which has changed.
+> This patch fills the empty fields with unix_peer.
+> 
+> Signed-off-by: Masatake YAMATO <yamato@redhat.com>
 
-Nevermind I see that you did this, you just messed up the Subject
-line for this patch by not providing the patch number there.
+You cannot change the format of a procfs file without potentially
+breaking some application which might interpret the output.
+
+In this case an application might be looking for an empty field
+as meaning the sockhad has no given address.
+
+I cannot apply this patch.  People have repeatedly tried making
+changes to these networking socket procfs files, and I really wish
+people would stop trying to do so.
+
+If you want specific pieces of new information, extend the socket
+dumping facility that is actually extensible in a way which will not
+break existing applications, and that's netlink.
