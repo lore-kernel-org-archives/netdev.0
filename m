@@ -1,65 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/3] virtio-net: use per-receive queue page
-	frag alloc for mergeable bufs
-Date: Wed, 08 Jan 2014 10:09:47 -0800
-Message-ID: <1389204587.26646.111.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1387239389-13216-1-git-send-email-mwdalton@google.com>
-	<1387239389-13216-2-git-send-email-mwdalton@google.com>
-	<52B7F065.3010707@redhat.com>
-	<1387819627.12212.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20131223193704.GC1582@redhat.com>
-	<CANJ5vPLEV_Z-D-0tThwhWXbHVaRWOLv566Xk1eD4TNYqNvknHw@mail.gmail.com>
-	<20131226213727.GA10259@redhat.com>
-	<1388095258.12212.37.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140108172104.GD17404@redhat.com>
+From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Subject: Re: [PATCH net-next v2 6/6] r8152: support RTL8153
+Date: Wed, 8 Jan 2014 18:24:17 +0000
+Message-ID: <1389205457.1644.13.camel@bwh-desktop.uk.level5networks.com>
+References: <1388632963-1341-1-git-send-email-hayeswang@realtek.com>
+	<1388633110-1435-1-git-send-email-hayeswang@realtek.com>
+	<877gai8nqu.fsf@nemi.mork.no>
+	<605671F106F540BA9665A195CACB78A0@realtek.com.tw>
+	<8738l58pyd.fsf@nemi.mork.no>
+	<AA7EB9EA13B74B14BBE08C4278F7948C@realtek.com.tw>
+	 <87eh4l31or.fsf@nemi.mork.no>
+	 <749DBDC9792E47BBA5884BEC7CF2D639@realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
-	lf-virt <virtualization@lists.linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140108172104.GD17404@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?=27Bj=F8rn?= Mork' <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	<oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	'nic_swsd' <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: hayeswang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <749DBDC9792E47BBA5884BEC7CF2D639-Rasf1IRRPZGoECsaD+WFmw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-01-08 at 19:21 +0200, Michael S. Tsirkin wrote:
+On Tue, 2014-01-07 at 20:35 +0800, hayeswang wrote:
+>  Bj=C3=B8rn Mork [mailto:bjorn-yOkvZcmFvRU@public.gmane.org]=20
+> > Sent: Monday, January 06, 2014 5:22 PM
+> > To: Hayeswang
+> > Cc: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; nic_swsd;=20
+> > linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> > Subject: Re: [PATCH net-next v2 6/6] r8152: support RTL8153
+> [...]
+> > Exactly the same device, but now cfg #1 is active and a=20
+> > different set of
+> > drivers have bound to the interfaces.  This is possible=20
+> > because none of
+> > the involved drivers disable the support for this device at=20
+> > build-time.
+> > Instead they use the available interface descriptors for matching a=
+nd
+> > probing supported functions.
+> >=20
+> > End users will of course normally not go around writing stuff to sy=
+sfs
+> > attributes like this.  Creating an udev rule to select a specific
+> > counfiguration when the device is plugged is more useful for normal
+> > usage.
+>=20
+> Thanks for your answer. I would study udev rule first.
+> Does the udev alwayes exist for all Linux system, such as
+> Android, embedded system, and so on?
 
-> Basically yes, we could start dropping packets immediately
-> once GFP_ATOMIC allocations fail and repost the buffer to host,
-> and hope memory is available by the time we get the next interrupt.
+They may not have udev, but if not they will normally have an alternate
+such as mdev.
 
-> But we wanted host to have visibility into the fact that
-> we are out of memory and packets are dropped, so we did not want to
-> repost.
+Ben.
 
-bufferbloat alert :)
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-> If we don't repost how do we know memory is finally available?
-> We went for a timer based workqueue thing.
-> What do you suggest?
-
-
-In normal networking land, when a host A sends frames to host B,
-nothing prevents A to pause the traffic to B if B is dropping packets
-under stress.
-
-A physical NIC do not use a workqueue to refill its RX queue but uses
-the following strategy :
-
-0) Pre filling of RX ring buffer with N frames. This can use GFP_KERNEL
-   allocations with all needed (sleep/retry/shout) logic...
-1) IRQ is handled.
-2) Can we allocate a new buffer (GFP_ATOMIC) ?
-   If yes, we accept the frame,
-      and post the new buffer for the 'next frame'
-   If no, we drop the frame and recycle the memory for next round.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
