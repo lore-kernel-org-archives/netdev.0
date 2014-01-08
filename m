@@ -1,59 +1,41 @@
-From: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
-Subject: [PATCH net-next] packet: doc: how to PACKET_MMAP with one packet
- socket for rx and tx
-Date: Wed, 08 Jan 2014 15:23:00 +0100
-Message-ID: <52CD5F44.2090307@aimvalley.nl>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: single process receives own frames due to PACKET_MMAP
+Date: Wed, 08 Jan 2014 15:24:43 +0100
+Message-ID: <52CD5FAB.60801@redhat.com>
+References: <52B4465E.2090904@aimvalley.nl> <52CB34F9.6020906@aimvalley.nl> <52CBC991.8030701@redhat.com> <20140107110609.74f71979@redhat.com> <52CBFE13.8@aimvalley.nl> <20140107150938.1058b358@redhat.com> <52CC1A61.5080205@aimvalley.nl> <52CC1C94.2060808@redhat.com> <52CC2168.9060401@aimvalley.nl> <52CC23F6.1070801@redhat.com> <52CD5E37.5070104@aimvalley.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>
-To: netdev@vger.kernel.org
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, uaca@alumni.uv.es
+To: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mika.eatserver.nl ([195.20.9.75]:52164 "EHLO mika.eatserver.nl"
+Received: from mx1.redhat.com ([209.132.183.28]:4181 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755361AbaAHOXG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jan 2014 09:23:06 -0500
+	id S1755903AbaAHOZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jan 2014 09:25:58 -0500
+In-Reply-To: <52CD5E37.5070104@aimvalley.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 01/08/2014 03:18 PM, Norbert van Bolhuis wrote:
 
-Describe how to use one AF_PACKET socket for rx and tx.
+>>> Is there a way to use one PF_PACKET socket for both TX and RX and use PACKET_MMAP ?
+>>
+>> Yep:
+>>
+>> http://thread.gmane.org/gmane.linux.network/269129/focus=269188
+>>
+>> Feel free to make a patch and add this to Documentation/networking/packet_mmap.txt
+>> I think could be useful for others as well.
+>
+>
+> Good, it all works fine now, though performance is still not as good as I'd hoped.
 
-Cc: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Norbert van Bolhuis <nvbolhuis@aimvalley.nl>
----
-  Documentation/networking/packet_mmap.txt |   14 ++++++++++++++
-  1 files changed, 14 insertions(+), 0 deletions(-)
+Does your use case allow for TPACKET_V3 or for using fanout ?
 
-diff --git a/Documentation/networking/packet_mmap.txt b/Documentation/networking/packet_mmap.txt
-index 723bf3d..2503a5a 100644
---- a/Documentation/networking/packet_mmap.txt
-+++ b/Documentation/networking/packet_mmap.txt
-@@ -98,6 +98,11 @@ by the kernel.
-  The destruction of the socket and all associated resources
-  is done by a simple call to close(fd).
+> I will sent a doc patch soon.
 
-+As without PACKET_MMAP, it is possible to use one socket for
-+capture and transmission. This can be done by mapping the
-+allocated RX and TX buffer ring with a single mmap() call. See
-+"Mapping and use of the circular buffer (ring)".
-+
-  Next I will describe PACKET_MMAP settings and its constraints,
-  also the mapping of the circular buffer in the user process and
-  the use of this buffer.
-@@ -414,6 +419,15 @@ tp_block_size/tp_frame_size frames there will be a gap between
-  the frames. This is because a frame cannot be spawn across two
-  blocks.
+Sounds great, thanks!
 
-+To use one socket for capture and transmission, the mapping of both the RX
-+and TX buffer ring has to be done with one call to mmap:
-+
-+    rx_ring = mmap(0, size * 2, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-+    tx_ring = rx_ring + size;
-+
-+RX must be the first as the kernel maps the TX ring memory right after
-+the RX one.
-+
-  At the beginning of each frame there is an status field (see
-  struct tpacket_hdr). If this field is 0 means that the frame is ready
-  to be used for the kernel, If not, there is a frame the user can read
+> thanks for all help!
