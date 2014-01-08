@@ -1,42 +1,47 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH net-next 3/3] xfrm: Don't prohibit AH from using ESN feature
-Date: Wed, 8 Jan 2014 16:53:12 +0800
-Message-ID: <1389171192-28091-4-git-send-email-fan.du@windriver.com>
-References: <1389171192-28091-1-git-send-email-fan.du@windriver.com>
+Subject: [PATCH net-next 0/3] {IPv4,xfrm} Add ESN support for AH
+Date: Wed, 8 Jan 2014 16:53:09 +0800
+Message-ID: <1389171192-28091-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
 To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:42451 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755595AbaAHIxU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 03:53:20 -0500
-In-Reply-To: <1389171192-28091-1-git-send-email-fan.du@windriver.com>
+Received: from mail1.windriver.com ([147.11.146.13]:63719 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755613AbaAHIxQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 03:53:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Clear checking when user try to use ESN through netlink keymgr for AH.
+Hi,
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
+This is initial Extended Sequence Number support for AH based on IPv4.
+The rationale is totally by the RFC 4302, which states:
+
+3.3.3.2.2.  Implicit Packet Padding and ESN
+
+   If the ESN option is elected for an SA, then the high-order 32 bits
+   of the ESN must be included in the ICV computation.  For purposes of
+   ICV computation, these bits are appended (implicitly) immediately
+   after the end of the payload, and before any implicit packet padding.
+
+So we attach the high-order 32bits as a scatterlist right after the packet
+payload to compute ICV value. 
+
+Test:
+I add a knob in iproute2/ip/xfrm_state.c to enable esn when setting SA,
+which make it possible to test with-esn and without-esn scenarios, both
+cases works ok with ping using packetsize(-s) from default to 32768.  
+
+Fan Du (3):
+  {IPv4,xfrm} Add Extended Sequence Number support for AH egress part
+  {IPv4,xfrm} Add Extended Sequence Number support for AH ingress part
+  xfrm: Don't prohibit AH from using ESN feature
+
+ net/ipv4/ah4.c       |   49 ++++++++++++++++++++++++++++++++++++++++++-------
  net/xfrm/xfrm_user.c |    4 ----
- 1 file changed, 4 deletions(-)
+ 2 files changed, 42 insertions(+), 11 deletions(-)
 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 97681a3..f362a78 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -141,10 +141,6 @@ static inline int verify_replay(struct xfrm_usersa_info *p,
- 
- 	if (!rt)
- 		return 0;
--
--	if (p->id.proto != IPPROTO_ESP)
--		return -EINVAL;
--
- 	if (p->replay_window != 0)
- 		return -EINVAL;
- 
 -- 
 1.7.9.5
