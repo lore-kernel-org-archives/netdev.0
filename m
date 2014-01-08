@@ -1,59 +1,71 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH net-next V2 3/3] net: Add GRO support for vxlan traffic
-Date: Wed, 8 Jan 2014 11:45:34 +0200
-Message-ID: <52CD1E3E.3090806@mellanox.com>
-References: <1389108594-665-1-git-send-email-ogerlitz@mellanox.com>	<1389108594-665-4-git-send-email-ogerlitz@mellanox.com>	<CA+mtBx-fUe_VbUUnjEVXeJO=87yypoDuMfoctO0Q3nMx+6UZFA@mail.gmail.com>	<CAJZOPZKHC1t6tGjZ9ZyTD912-5Bw_Vtin8N2MnqkOi4W2wPrzA@mail.gmail.com>	<1389124947.26646.54.camel@edumazet-glaptop2.roam.corp.google.com>	<CAJZOPZ+_1z+Qq0U0XnEAMygXMXTivN7giZ5P-QH-L_dkz2_hFw@mail.gmail.com> <CA+mtBx_Zctape7mAA=d-bvrFJbzn8f6tW5jBnPUcL5Cfhfai-g@mail.gmail.com>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net-next] xen-netback: stop vif thread spinning if
+ frontend is unresponsive
+Date: Wed, 8 Jan 2014 09:49:53 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD01E6DF8@AMSPEX01CL01.citrite.net>
+References: <1389111929-37231-1-git-send-email-paul.durrant@citrix.com>
+ <20140107.162956.1062166230525232035.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jerry Chu <hkchu@google.com>,
-	"Eric Dumazet" <edumazet@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Yan Burman <yanb@mellanox.com>,
-	Shlomo Pongratz <shlomop@mellanox.com>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:52520 "EHLO
-	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755152AbaAHJq7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 04:46:59 -0500
-In-Reply-To: <CA+mtBx_Zctape7mAA=d-bvrFJbzn8f6tW5jBnPUcL5Cfhfai-g@mail.gmail.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:14219 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751456AbaAHJtz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 04:49:55 -0500
+In-Reply-To: <20140107.162956.1062166230525232035.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/01/2014 23:09, Tom Herbert wrote:
-> On Tue, Jan 7, 2014 at 12:12 PM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
->> On Tue, Jan 7, 2014 at 10:02 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->>> On Tue, 2014-01-07 at 21:43 +0200, Or Gerlitz wrote:
->>>> On Tue, Jan 7, 2014 at 8:08 PM, Tom Herbert <therbert@google.com> wrote:
->>>>> Why ^ instead of != ?
->>>> The XOR approach is very popular in the GRO stack, e.g see the IPv4 chain
->>>> of inet_gro_receive() && tcp_gro_receive(), I guess this might relates
->>>> to more efficient assembly code for ^ vs. != and/or the fast/elegant
->>>> transitive nature of that operator
->>> This trick is only needed/used when many compares are folded into a
->>> single conditional :
->>>
->>> if (a->f1 != b->f1 || a->f2 != b->f2)
->>>
->>> ->
->>>
->>> if (((a->f1 ^ b->f1) | (a->f2 ^ b->f2)) != 0)
->>>
->>> Please do not use XOR for a single compare.
->> OK, but just out of curiosity -- what's the reasoning? clarity or
->> efficiency or both?
-> Both. Compiling a simple program and comparing alternatives: gcc
-> produced the identical code for the single conditional (^ vs !=)
-> using the cmp instruction. Testing the two conditional case like Eric
-> provided; the second method (using ^) resulted in 4 more instructions,
-> but only one branch as opposed to two in the first method (!=). Method
-> #1 has the advantage of short circuiting when the first condition is
-> true, so organizing the conditionals to maximize the probability of
-> short circuit could be beneficial.
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of David Miller
+> Sent: 07 January 2014 21:30
+> To: Paul Durrant
+> Cc: netdev@vger.kernel.org; xen-devel@lists.xen.org; Wei Liu; Ian Campbell;
+> David Vrabel
+> Subject: Re: [PATCH net-next] xen-netback: stop vif thread spinning if
+> frontend is unresponsive
+> 
+> From: Paul Durrant <paul.durrant@citrix.com>
+> Date: Tue, 7 Jan 2014 16:25:29 +0000
+> 
+> > @@ -477,6 +477,7 @@ static void xenvif_rx_action(struct xenvif *vif)
+> >  	unsigned long offset;
+> >  	struct skb_cb_overlay *sco;
+> >  	int need_to_notify = 0;
+> > +	int ring_full = 0;
+> 
+> Please use bool, false, and true.
+> 
+> >
+> > -	if (!npo.copy_prod)
+> > +	if (!npo.copy_prod) {
+> > +		if (ring_full)
+> > +			vif->rx_queue_stopped = true;
+> >  		goto done;
+> > +	}
+> > +
+> > +	vif->rx_queue_stopped = false;
+> 
+> And then you can code this as:
+> 
+> 	vif->rx_queue_stopped = (!npo.copy_prod && ring_full);
+> 	if (!npo.copy_prod)
+> 		goto done;
 
-OK, I will follow that.
+Sure. I was just following style (of need_to_notify). If you prefer bool then I'll use that and also convert need_to_notify.
 
-Or.
+  Paul
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
