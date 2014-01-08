@@ -1,44 +1,38 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] ip_tunnel: fix sparse non static symbol warning
-Date: Wed, 8 Jan 2014 21:59:30 +0800
-Message-ID: <CAPgLHd__qSufRW4YE63SocWV1gcgzBCBX1bdy+WcJ7v8zhE8qw@mail.gmail.com>
+From: Damien Wyart <damien.wyart@gmail.com>
+Subject: Re: IPv6: Bug in net-next
+Date: Wed, 8 Jan 2014 14:54:15 +0100
+Message-ID: <20140108135415.GA5561@brouette>
+References: <1389187126.20074.YahooMailBasic@web125504.mail.ne1.yahoo.com>
+ <1389188139.44648.YahooMailBasic@web125506.mail.ne1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, therbert@google.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: =?iso-8859-1?Q?Fran=E7ois-Xavier?= Le Bail <fx.lebail@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f49.google.com ([209.85.214.49]:41534 "EHLO
-	mail-bk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932120AbaAHN7b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 08:59:31 -0500
-Received: by mail-bk0-f49.google.com with SMTP id my13so673689bkb.8
-        for <netdev@vger.kernel.org>; Wed, 08 Jan 2014 05:59:30 -0800 (PST)
+Received: from mailhost-v2-m3.nerim-networks.com ([78.40.49.217]:15031 "EHLO
+	smtp-delay2.nerim.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932326AbaAHOAH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 09:00:07 -0500
+Received: from maiev.nerim.net (smtp-153-wednesday.nerim.net [194.79.134.153])
+	by smtp-delay2.nerim.net (Postfix) with ESMTP id BB87219CF007
+	for <netdev@vger.kernel.org>; Wed,  8 Jan 2014 14:54:39 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <1389188139.44648.YahooMailBasic@web125506.mail.ne1.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> > > When I execute this code and press Crtl-C, all the IPv6 Link-Layer
+> > > addresses are deleted.
 
-Fixes the following sparse warning:
+> It seems that the valid lifetime and preferred lft are set to 0 sec
+> for autoconfigured LLA.
 
-net/ipv4/ip_tunnel.c:116:18: warning:
- symbol 'tunnel_dst_check' was not declared. Should it be static?
+I am also seeing the problem with Linus' up-to-date tree (3.13-rc7+).
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- net/ipv4/ip_tunnel.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On eth0, LLA is not present after boot, as well as ::1 (Host scope) on
+the loopback (which causes some daemons to not start properly as they
+try to listen on ::1). Manually setting these adresses with ip addr
+works, they do not disappear afterwards.
 
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 07a5ed3..d3929a6 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -113,7 +113,7 @@ static inline struct dst_entry *tunnel_dst_get(struct ip_tunnel *t)
- 	return dst;
- }
- 
--struct dst_entry *tunnel_dst_check(struct ip_tunnel *t, u32 cookie)
-+static struct dst_entry *tunnel_dst_check(struct ip_tunnel *t, u32 cookie)
- {
- 	struct dst_entry *dst = tunnel_dst_get(t);
- 
+-- 
+Damien
