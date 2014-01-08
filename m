@@ -1,46 +1,51 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next v2] xen-netback: stop vif thread spinning if
- frontend is unresponsive
-Date: Wed, 8 Jan 2014 19:37:16 +0000
-Message-ID: <20140108193716.GA16009@zion.uk.xensource.com>
-References: <1389184918-42790-1-git-send-email-paul.durrant@citrix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2 1/4] net: allow > 0 order atomic page alloc
+	in skb_page_frag_refill
+Date: Wed, 08 Jan 2014 11:46:11 -0800
+Message-ID: <1389210371.31367.8.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
+	<20140108180829.GB18162@redhat.com>
+	<1389205563.31367.1.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140108191803.GB18312@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Paul Durrant <paul.durrant@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:27844 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750861AbaAHThS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 14:37:18 -0500
-Content-Disposition: inline
-In-Reply-To: <1389184918-42790-1-git-send-email-paul.durrant@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140108191803.GB18312@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 08, 2014 at 12:41:58PM +0000, Paul Durrant wrote:
-> The recent patch to improve guest receive side flow control (ca2f09f2) had a
-> slight flaw in the wait condition for the vif thread in that any remaining
-> skbs in the guest receive side netback internal queue would prevent the
-> thread from sleeping. An unresponsive frontend can lead to a permanently
-> non-empty internal queue and thus the thread will spin. In this case the
-> thread should really sleep until the frontend becomes responsive again.
+On Wed, 2014-01-08 at 21:18 +0200, Michael S. Tsirkin wrote:
+> On Wed, Jan 08, 2014 at 10:26:03AM -0800, Eric Dumazet wrote:
+> > On Wed, 2014-01-08 at 20:08 +0200, Michael S. Tsirkin wrote:
+> > 
+> > > Eric said we also need a patch to add __GFP_NORETRY, right?
+> > > Probably before this one in series.
+> > 
+> > Nope, this __GFP_NORETRY has nothing to do with this.
+> > 
+> > I am not yet convinced we want it.
+> > 
+> > This needs mm guys advice, as its a tradeoff for mm layer more than
+> > networking...
 > 
-> This patch adds an extra flag to the vif which is set if the shared ring
-> is full and cleared when skbs are drained into the shared ring. Thus,
-> if the thread runs, finds the shared ring full and can make no progress the
-> flag remains set. If the flag remains set then the thread will sleep,
-> regardless of a non-empty queue, until the next event from the frontend.
-> 
-> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-> Cc: Wei Liu <wei.liu2@citrix.com>
-> Cc: Ian Campbell <ian.campbell@citrix.com>
-> Cc: David Vrabel <david.vrabel@citrix.com>
+> Well maybe Cc linux-mm then?
 
-Acked-by: Wei Liu <wei.liu2@citrix.com>
+Well, I do not care of people mlocking the memory and complaining that
+compaction does not work.
 
-Thanks
-Wei.
+If these people care, they should contact mm guys, eventually.
+
+Really this is an issue that has nothing to do with this patch set.
