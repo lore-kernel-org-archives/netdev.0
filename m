@@ -1,56 +1,75 @@
 From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH v4 0/4] Add ethernet support for r7s72100
-Date: Wed,  8 Jan 2014 17:02:28 +0900
-Message-ID: <1389168152-9434-1-git-send-email-horms+renesas@verge.net.au>
+Subject: [PATCH v4 3/4] ARM: shmobile: r7s72100: Add clock for r7s72100-ether
+Date: Wed,  8 Jan 2014 17:02:31 +0900
+Message-ID: <1389168152-9434-4-git-send-email-horms+renesas@verge.net.au>
+References: <1389168152-9434-1-git-send-email-horms+renesas@verge.net.au>
 Cc: linux-arm-kernel@lists.infradead.org,
 	Magnus Damm <magnus.damm@gmail.com>,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	Simon Horman <horms+renesas@verge.net.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-sh@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:56527 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755698AbaAHICk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 03:02:40 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1389168152-9434-1-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
 
-this series adds ethernet support to sh-pfc for the r7s72100 SoC.
+---
 
-This series is based on a merge of:
-* The topic/r7s72100-v3.13-rc7-20140107 tag in my renesas tree
-* net-next
-  - Head revision: 80077935cad223b29
-    ("Merge branch 'master' of
-      git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next")
+Dave,
 
-The first two patches, targeted at net-next, also applies cleanly there.
+I plan to take this change through my tree.
 
-Changes since v3
-* Use bool as return type of sh_eth_is_gether()
-  and sh_eth_is_rz_fast_ether()
-* Correct coding style in sh_eth_get_stats()
+v3 - v4
+* No change
 
-Changes since v2
-* Trivial rebase
-* Dropped "RFC" from subject
+v2
+* As suggested by Sergei Shtylyov
+  - Add MSTP74 to beginning of enum on a line by itself
+* As suggested by Magnus Damm
+  - r7s72100 ethernet is not gigabit so do not refer to it as such
+---
+ arch/arm/mach-shmobile/clock-r7s72100.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-Changes since v1 are noted in the changelog of each patch.
-
-Simon Horman (4):
-  sh_eth: Use bool as return type of sh_eth_is_gether()
-  sh_eth: Add support for r7s72100
-  ARM: shmobile: r7s72100: Add clock for r7s72100-ether
-  ARM: shmobile: genmai: Enable r7s72100-ether
-
- arch/arm/mach-shmobile/board-genmai.c   |  21 ++++++
- arch/arm/mach-shmobile/clock-r7s72100.c |   4 ++
- drivers/net/ethernet/renesas/sh_eth.c   | 124 +++++++++++++++++++++++++++++---
- drivers/net/ethernet/renesas/sh_eth.h   |   4 +-
- 4 files changed, 143 insertions(+), 10 deletions(-)
-
+diff --git a/arch/arm/mach-shmobile/clock-r7s72100.c b/arch/arm/mach-shmobile/clock-r7s72100.c
+index e6ab0cd..c4ba651 100644
+--- a/arch/arm/mach-shmobile/clock-r7s72100.c
++++ b/arch/arm/mach-shmobile/clock-r7s72100.c
+@@ -27,6 +27,7 @@
+ #define FRQCR2		0xfcfe0014
+ #define STBCR3		0xfcfe0420
+ #define STBCR4		0xfcfe0424
++#define STBCR7		0xfcfe0430
+ #define STBCR9		0xfcfe0438
+ 
+ #define PLL_RATE 30
+@@ -146,6 +147,7 @@ struct clk div4_clks[DIV4_NR] = {
+ };
+ 
+ enum {	MSTP97, MSTP96, MSTP95, MSTP94,
++	MSTP74,
+ 	MSTP47, MSTP46, MSTP45, MSTP44, MSTP43, MSTP42, MSTP41, MSTP40,
+ 	MSTP33,	MSTP_NR };
+ 
+@@ -154,6 +156,7 @@ static struct clk mstp_clks[MSTP_NR] = {
+ 	[MSTP96] = SH_CLK_MSTP8(&peripheral0_clk, STBCR9, 6, 0), /* RIIC1 */
+ 	[MSTP95] = SH_CLK_MSTP8(&peripheral0_clk, STBCR9, 5, 0), /* RIIC2 */
+ 	[MSTP94] = SH_CLK_MSTP8(&peripheral0_clk, STBCR9, 4, 0), /* RIIC3 */
++	[MSTP74] = SH_CLK_MSTP8(&peripheral1_clk, STBCR7, 4, 0), /* Ether */
+ 	[MSTP47] = SH_CLK_MSTP8(&peripheral1_clk, STBCR4, 7, 0), /* SCIF0 */
+ 	[MSTP46] = SH_CLK_MSTP8(&peripheral1_clk, STBCR4, 6, 0), /* SCIF1 */
+ 	[MSTP45] = SH_CLK_MSTP8(&peripheral1_clk, STBCR4, 5, 0), /* SCIF2 */
+@@ -176,6 +179,7 @@ static struct clk_lookup lookups[] = {
+ 	CLKDEV_CON_ID("cpu_clk", &div4_clks[DIV4_I]),
+ 
+ 	/* MSTP clocks */
++	CLKDEV_DEV_ID("r7s72100-ether", &mstp_clks[MSTP74]),
+ 	CLKDEV_CON_ID("mtu2_fck", &mstp_clks[MSTP33]),
+ 
+ 	/* ICK */
 -- 
 1.8.4
+
