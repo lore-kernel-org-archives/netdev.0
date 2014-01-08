@@ -1,16 +1,17 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 07/15] i40e: update firmware api to 1.1
-Date: Tue,  7 Jan 2014 22:07:28 -0800
-Message-ID: <1389161256-24599-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 11/15] i40e: rework shadow ram read functions
+Date: Tue,  7 Jan 2014 22:07:32 -0800
+Message-ID: <1389161256-24599-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389161256-24599-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
+	Kamil Krawczyk <kamil.krawczyk@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:23587 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:62026 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755160AbaAHGIn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754603AbaAHGIn (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 8 Jan 2014 01:08:43 -0500
 In-Reply-To: <1389161256-24599-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,333 +19,148 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-The firmware's AdminQ interface has matured a little, so update the
-code to use the new fields and values.
+Rework Shadow RAM read word/buffer functions to not use AQ Request
+Resource commands.  Requesting resource is not needed for SR read
+operations which are done through SRCTL register.  Access to SR through
+register is controlled through DONE bit within SRCTL.  With this change
+we do not block whole NVM resource for SR read operations.
 
-Change-Id: I8fcd7b443f268dcf9346bd6a9e940fe9c2958891
+Change-Id: I73e96cdea39a45ee7b5bdf038e527308de2d9efe
+Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq.c     |  12 ++-
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h | 126 ++++++++++++++++------
- drivers/net/ethernet/intel/i40e/i40e_common.c     |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_type.h       |   3 -
- 4 files changed, 99 insertions(+), 44 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c | 67 +++++++-----------------------
+ 1 file changed, 16 insertions(+), 51 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index f75b573..3ee5323 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -572,16 +572,18 @@ i40e_status i40e_init_adminq(struct i40e_hw *hw)
- 	if (ret_code != I40E_SUCCESS)
- 		goto init_adminq_free_arq;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+index 97e1bb3..e2da0a2 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+@@ -166,15 +166,15 @@ static i40e_status i40e_poll_sr_srctl_done_bit(struct i40e_hw *hw)
+ }
  
--	if (hw->aq.api_maj_ver != I40E_FW_API_VERSION_MAJOR ||
--	    hw->aq.api_min_ver != I40E_FW_API_VERSION_MINOR) {
--		ret_code = I40E_ERR_FIRMWARE_API_VERSION;
--		goto init_adminq_free_arq;
--	}
-+	/* get the NVM version info */
- 	i40e_read_nvm_word(hw, I40E_SR_NVM_IMAGE_VERSION, &hw->nvm.version);
- 	i40e_read_nvm_word(hw, I40E_SR_NVM_EETRACK_LO, &eetrack_lo);
- 	i40e_read_nvm_word(hw, I40E_SR_NVM_EETRACK_HI, &eetrack_hi);
- 	hw->nvm.eetrack = (eetrack_hi << 16) | eetrack_lo;
- 
-+	if (hw->aq.api_maj_ver != I40E_FW_API_VERSION_MAJOR ||
-+	    hw->aq.api_min_ver > I40E_FW_API_VERSION_MINOR) {
-+		ret_code = I40E_ERR_FIRMWARE_API_VERSION;
-+		goto init_adminq_free_arq;
-+	}
-+
- 	ret_code = i40e_aq_set_hmc_resource_profile(hw,
- 						    I40E_HMC_PROFILE_DEFAULT,
- 						    0,
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-index 2859377..0075087 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-@@ -35,7 +35,7 @@
-  */
- 
- #define I40E_FW_API_VERSION_MAJOR  0x0001
--#define I40E_FW_API_VERSION_MINOR  0x0000
-+#define I40E_FW_API_VERSION_MINOR  0x0001
- 
- struct i40e_aq_desc {
- 	__le16 flags;
-@@ -137,10 +137,13 @@ enum i40e_admin_queue_opc {
- 	i40e_aqc_opc_set_ns_proxy_entry     = 0x0105,
- 
- 	/* LAA */
--	i40e_aqc_opc_mng_laa                = 0x0106,
-+	i40e_aqc_opc_mng_laa                = 0x0106,   /* AQ obsolete */
- 	i40e_aqc_opc_mac_address_read       = 0x0107,
- 	i40e_aqc_opc_mac_address_write      = 0x0108,
- 
-+	/* PXE */
-+	i40e_aqc_opc_clear_pxe_mode         = 0x0110,
-+
- 	/* internal switch commands */
- 	i40e_aqc_opc_get_switch_config         = 0x0200,
- 	i40e_aqc_opc_add_statistics            = 0x0201,
-@@ -317,13 +320,15 @@ struct i40e_aqc_get_version {
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_get_version);
- 
--/* Send driver version (direct 0x0002) */
-+/* Send driver version (indirect 0x0002) */
- struct i40e_aqc_driver_version {
- 	u8     driver_major_ver;
- 	u8     driver_minor_ver;
- 	u8     driver_build_ver;
- 	u8     driver_subbuild_ver;
--	u8     reserved[12];
-+	u8     reserved[4];
-+	__le32 address_high;
-+	__le32 address_low;
- };
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_driver_version);
-@@ -479,7 +484,7 @@ struct i40e_aqc_mng_laa {
- 	u8     reserved2[6];
- };
- 
--/* Manage MAC Address Read Command (0x0107) */
-+/* Manage MAC Address Read Command (indirect 0x0107) */
- struct i40e_aqc_mac_address_read {
- 	__le16	command_flags;
- #define I40E_AQC_LAN_ADDR_VALID   0x10
-@@ -517,6 +522,16 @@ struct i40e_aqc_mac_address_write {
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_mac_address_write);
- 
-+/* PXE commands (0x011x) */
-+
-+/* Clear PXE Command and response  (direct 0x0110) */
-+struct i40e_aqc_clear_pxe {
-+	u8	rx_cnt;
-+	u8	reserved[15];
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_clear_pxe);
-+
- /* Switch configuration commands (0x02xx) */
- 
- /* Used by many indirect commands that only pass an seid and a buffer in the
-@@ -639,13 +654,15 @@ struct i40e_aqc_switch_resource_alloc_element_resp {
- 	u8     reserved2[6];
- };
- 
--/* Add VSI (indirect 0x210)
-+/* Add VSI (indirect 0x0210)
-  *    this indirect command uses struct i40e_aqc_vsi_properties_data
-  *    as the indirect buffer (128 bytes)
+ /**
+- *  i40e_read_nvm_srctl - Reads Shadow RAM.
++ *  i40e_read_nvm_word - Reads Shadow RAM
+  *  @hw: pointer to the HW structure.
+  *  @offset: offset of the Shadow RAM word to read (0x000000 - 0x001FFF).
+  *  @data: word read from the Shadow RAM.
   *
-- * Update VSI (indirect 0x211) Get VSI (indirect 0x0212)
-- *    use the generic i40e_aqc_switch_seid descriptor format
-- *    use the same completion and data structure as Add VSI
-+ * Update VSI (indirect 0x211)
-+ *     uses the same data structure as Add VSI
-+ *
-+ * Get VSI (indirect 0x0212)
-+ *     uses the same completion and data structure as Add VSI
-  */
- struct i40e_aqc_add_get_update_vsi {
- 	__le16 uplink_seid;
-@@ -1185,27 +1202,40 @@ struct i40e_aqc_add_remove_cloud_filters_element_data {
- #define I40E_AQC_ADD_CLOUD_FILTER_SHIFT                 0
- #define I40E_AQC_ADD_CLOUD_FILTER_MASK                  (0x3F << \
- 					I40E_AQC_ADD_CLOUD_FILTER_SHIFT)
-+/* 0x0000 reserved */
- #define I40E_AQC_ADD_CLOUD_FILTER_OIP                   0x0001
--#define I40E_AQC_ADD_CLOUD_FILTER_OIP_GRE               0x0002
-+/* 0x0002 reserved */
- #define I40E_AQC_ADD_CLOUD_FILTER_IMAC_IVLAN            0x0003
--#define I40E_AQC_ADD_CLOUD_FILTER_IMAC_IVLAN_GRE        0x0004
-+#define I40E_AQC_ADD_CLOUD_FILTER_IMAC_IVLAN_TEN_ID     0x0004
-+/* 0x0005 reserved */
- #define I40E_AQC_ADD_CLOUD_FILTER_IMAC_TEN_ID           0x0006
--#define I40E_AQC_ADD_CLOUD_FILTER_IMAC_IVLAN_VNL        0x0007
-+/* 0x0007 reserved */
- /* 0x0008 reserved */
- #define I40E_AQC_ADD_CLOUD_FILTER_OMAC                  0x0009
- #define I40E_AQC_ADD_CLOUD_FILTER_IMAC                  0x000A
-+#define I40E_AQC_ADD_CLOUD_FILTER_OMAC_TEN_ID_IMAC      0x000B
-+#define I40E_AQC_ADD_CLOUD_FILTER_IIP                   0x000C
-+
- #define I40E_AQC_ADD_CLOUD_FLAGS_TO_QUEUE               0x0080
- #define I40E_AQC_ADD_CLOUD_VNK_SHIFT                    6
- #define I40E_AQC_ADD_CLOUD_VNK_MASK                     0x00C0
- #define I40E_AQC_ADD_CLOUD_FLAGS_IPV4                   0
- #define I40E_AQC_ADD_CLOUD_FLAGS_IPV6                   0x0100
--	__le32 key_low;
--	__le32 key_high;
-+
-+#define I40E_AQC_ADD_CLOUD_TNL_TYPE_SHIFT               9
-+#define I40E_AQC_ADD_CLOUD_TNL_TYPE_MASK                0x1E00
-+#define I40E_AQC_ADD_CLOUD_TNL_TYPE_XVLAN               0
-+#define I40E_AQC_ADD_CLOUD_TNL_TYPE_NVGRE_OMAC          1
-+#define I40E_AQC_ADD_CLOUD_TNL_TYPE_NGE                 2
-+#define I40E_AQC_ADD_CLOUD_TNL_TYPE_IP                  3
-+
-+	__le32 tenant_id;
-+	u8     reserved[4];
- 	__le16 queue_number;
- #define I40E_AQC_ADD_CLOUD_QUEUE_SHIFT                  0
- #define I40E_AQC_ADD_CLOUD_QUEUE_MASK                   (0x3F << \
- 					I40E_AQC_ADD_CLOUD_QUEUE_SHIFT)
--	u8     reserved[14];
-+	u8     reserved2[14];
- 	/* response section */
- 	u8     allocation_result;
- #define I40E_AQC_ADD_CLOUD_FILTER_SUCCESS         0x0
-@@ -1548,7 +1578,7 @@ struct i40e_aqc_module_desc {
+  *  Reads 16 bit word from the Shadow RAM using the GLNVM_SRCTL register.
+  **/
+-static i40e_status i40e_read_nvm_srctl(struct i40e_hw *hw, u16 offset,
+-						 u16 *data)
++i40e_status i40e_read_nvm_word(struct i40e_hw *hw, u16 offset,
++					 u16 *data)
+ {
+ 	i40e_status ret_code = I40E_ERR_TIMEOUT;
+ 	u32 sr_reg;
+@@ -211,29 +211,6 @@ read_nvm_exit:
+ }
  
- struct i40e_aq_get_phy_abilities_resp {
- 	__le32 phy_type;       /* bitmap using the above enum for offsets */
--	u8     link_speed;     /* bitmap using the above enum */
-+	u8     link_speed;     /* bitmap using the above enum bit patterns */
- 	u8     abilities;
- #define I40E_AQ_PHY_FLAG_PAUSE_TX         0x01
- #define I40E_AQ_PHY_FLAG_PAUSE_RX         0x02
-@@ -1582,6 +1612,10 @@ struct i40e_aq_set_phy_config { /* same bits as above in all */
- 	__le32 phy_type;
- 	u8     link_speed;
- 	u8     abilities;
-+/* bits 0-2 use the values from get_phy_abilities_resp */
-+#define I40E_AQ_PHY_ENABLE_LINK		0x08
-+#define I40E_AQ_PHY_ENABLE_AN		0x10
-+#define I40E_AQ_PHY_ENABLE_ATOMIC_LINK	0x20
- 	__le16 eee_capability;
- 	__le32 eeer;
- 	u8     low_power_ctrl;
-@@ -1915,22 +1949,39 @@ I40E_CHECK_CMD_LENGTH(i40e_aqc_lldp_start);
- struct i40e_aqc_add_udp_tunnel {
- 	__le16 udp_port;
- 	u8     header_len; /* in DWords, 1 to 15 */
--	u8     protocol_index;
--#define I40E_AQC_TUNNEL_TYPE_MAC    0x0
--#define I40E_AQC_TUNNEL_TYPE_UDP    0x1
--#define I40E_AQC_TUNNEL_TYPE_VXLAN  0x2
--	u8     reserved[12];
-+	u8     protocol_type;
-+#define I40E_AQC_TUNNEL_TYPE_TEREDO	0x0
-+#define I40E_AQC_TUNNEL_TYPE_VXLAN	0x2
-+#define I40E_AQC_TUNNEL_TYPE_NGE	0x3
-+	u8     variable_udp_length;
-+#define I40E_AQC_TUNNEL_FIXED_UDP_LENGTH	0x0
-+#define I40E_AQC_TUNNEL_VARIABLE_UDP_LENGTH	0x1
-+	u8     udp_key_index;
-+#define I40E_AQC_TUNNEL_KEY_INDEX_VXLAN			0x0
-+#define I40E_AQC_TUNNEL_KEY_INDEX_NGE			0x1
-+#define I40E_AQC_TUNNEL_KEY_INDEX_PROPRIETARY_UDP	0x2
-+	u8     reserved[10];
- };
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_add_udp_tunnel);
- 
-+struct i40e_aqc_add_udp_tunnel_completion {
-+	__le16 udp_port;
-+	u8     filter_entry_index;
-+	u8     multiple_pfs;
-+#define I40E_AQC_SINGLE_PF	0x0
-+#define I40E_AQC_MULTIPLE_PFS	0x1
-+	u8     total_filters;
-+	u8     reserved[11];
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_add_udp_tunnel_completion);
-+
- /* remove UDP Tunnel command (0x0B01) */
- struct i40e_aqc_remove_udp_tunnel {
- 	u8     reserved[2];
- 	u8     index; /* 0 to 15 */
--	u8     pf_filters;
--	u8     total_filters;
--	u8     reserved2[11];
-+	u8     reserved2[13];
- };
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_remove_udp_tunnel);
-@@ -1938,28 +1989,32 @@ I40E_CHECK_CMD_LENGTH(i40e_aqc_remove_udp_tunnel);
- struct i40e_aqc_del_udp_tunnel_completion {
- 	__le16 udp_port;
- 	u8     index; /* 0 to 15 */
--	u8     multiple_entries;
--	u8     tunnels_used;
--	u8     reserved;
--	u8     tunnels_free;
--	u8     reserved1[9];
-+	u8     multiple_pfs;
-+	u8     total_filters_used;
-+	u8     reserved1[11];
- };
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_del_udp_tunnel_completion);
- 
- /* tunnel key structure 0x0B10 */
-+
- struct i40e_aqc_tunnel_key_structure {
--	__le16     key1_off;
--	__le16     key1_len;
--	__le16     key2_off;
--	__le16     key2_len;
--	__le16     flags;
-+	u8	key1_off;
-+	u8	key2_off;
-+	u8	key1_len;  /* 0 to 15 */
-+	u8	key2_len;  /* 0 to 15 */
-+	u8	flags;
- #define I40E_AQC_TUNNEL_KEY_STRUCT_OVERRIDE 0x01
- /* response flags */
- #define I40E_AQC_TUNNEL_KEY_STRUCT_SUCCESS    0x01
- #define I40E_AQC_TUNNEL_KEY_STRUCT_MODIFIED   0x02
- #define I40E_AQC_TUNNEL_KEY_STRUCT_OVERRIDDEN 0x03
--	u8         resreved[6];
-+	u8	network_key_index;
-+#define I40E_AQC_NETWORK_KEY_INDEX_VXLAN		0x0
-+#define I40E_AQC_NETWORK_KEY_INDEX_NGE			0x1
-+#define I40E_AQC_NETWORK_KEY_INDEX_FLEX_MAC_IN_UDP	0x2
-+#define I40E_AQC_NETWORK_KEY_INDEX_GRE			0x3
-+	u8	reserved[10];
- };
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_tunnel_key_structure);
-@@ -2053,6 +2108,7 @@ I40E_CHECK_CMD_LENGTH(i40e_aqc_debug_modify_reg);
- #define I40E_AQ_CLUSTER_ID_DCB		8
- #define I40E_AQ_CLUSTER_ID_EMP_MEM	9
- #define I40E_AQ_CLUSTER_ID_PKT_BUF	10
-+#define I40E_AQ_CLUSTER_ID_ALTRAM	11
- 
- struct i40e_aqc_debug_dump_internals {
- 	u8     cluster_id;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 337e913..96c8f15 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -1738,7 +1738,7 @@ i40e_status i40e_aq_add_udp_tunnel(struct i40e_hw *hw,
- 
- 	cmd->udp_port = cpu_to_le16(udp_port);
- 	cmd->header_len = header_len;
--	cmd->protocol_index = protocol_index;
-+	cmd->protocol_type = protocol_index;
- 
- 	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 7bbcc71..4ac712e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -53,9 +53,6 @@
- 					 (d) == I40E_QSFP_B_DEVICE_ID  || \
- 					 (d) == I40E_QSFP_C_DEVICE_ID)
- 
--#define I40E_FW_API_VERSION_MAJOR  0x0001
--#define I40E_FW_API_VERSION_MINOR  0x0000
+ /**
+- *  i40e_read_nvm_word - Reads Shadow RAM word.
+- *  @hw: pointer to the HW structure.
+- *  @offset: offset of the Shadow RAM word to read (0x000000 - 0x001FFF).
+- *  @data: word read from the Shadow RAM.
+- *
+- *  Reads 16 bit word from the Shadow RAM. Each read is preceded
+- *  with the NVM ownership taking and followed by the release.
+- **/
+-i40e_status i40e_read_nvm_word(struct i40e_hw *hw, u16 offset,
+-					 u16 *data)
+-{
+-	i40e_status ret_code = 0;
 -
- #define I40E_MAX_VSI_QP			16
- #define I40E_MAX_VF_VSI			3
- #define I40E_MAX_CHAINED_RX_BUFFERS	5
+-	ret_code = i40e_acquire_nvm(hw, I40E_RESOURCE_READ);
+-	if (!ret_code) {
+-		ret_code = i40e_read_nvm_srctl(hw, offset, data);
+-		i40e_release_nvm(hw);
+-	}
+-
+-	return ret_code;
+-}
+-
+-/**
+  *  i40e_read_nvm_buffer - Reads Shadow RAM buffer.
+  *  @hw: pointer to the HW structure.
+  *  @offset: offset of the Shadow RAM word to read (0x000000 - 0x001FFF).
+@@ -250,30 +227,18 @@ i40e_status i40e_read_nvm_buffer(struct i40e_hw *hw, u16 offset,
+ {
+ 	i40e_status ret_code = 0;
+ 	u16 index, word;
+-	u32 time;
+ 
+-	ret_code = i40e_acquire_nvm(hw, I40E_RESOURCE_READ);
+-	if (!ret_code) {
+-		/* Loop thru the selected region. */
+-		for (word = 0; word < *words; word++) {
+-			index = offset + word;
+-			ret_code = i40e_read_nvm_srctl(hw, index, &data[word]);
+-			if (ret_code)
+-				break;
+-			/* Check if we didn't exceeded the semaphore timeout. */
+-			time = rd32(hw, I40E_GLVFGEN_TIMER);
+-			if (time >= hw->nvm.hw_semaphore_timeout) {
+-				ret_code = I40E_ERR_TIMEOUT;
+-				hw_dbg(hw, "NVM read error: timeout.\n");
+-				break;
+-			}
+-		}
+-		/* Update the number of words read from the Shadow RAM. */
+-		*words = word;
+-		/* Release the NVM ownership. */
+-		i40e_release_nvm(hw);
++	/* Loop thru the selected region. */
++	for (word = 0; word < *words; word++) {
++		index = offset + word;
++		ret_code = i40e_read_nvm_word(hw, index, &data[word]);
++		if (ret_code)
++			break;
+ 	}
+ 
++	/* Update the number of words read from the Shadow RAM. */
++	*words = word;
++
+ 	return ret_code;
+ }
+ 
+@@ -297,14 +262,14 @@ static i40e_status i40e_calc_nvm_checksum(struct i40e_hw *hw,
+ 	u32 i = 0;
+ 
+ 	/* read pointer to VPD area */
+-	ret_code = i40e_read_nvm_srctl(hw, I40E_SR_VPD_PTR, &vpd_module);
++	ret_code = i40e_read_nvm_word(hw, I40E_SR_VPD_PTR, &vpd_module);
+ 	if (ret_code) {
+ 		ret_code = I40E_ERR_NVM_CHECKSUM;
+ 		goto i40e_calc_nvm_checksum_exit;
+ 	}
+ 
+ 	/* read pointer to PCIe Alt Auto-load module */
+-	ret_code = i40e_read_nvm_srctl(hw, I40E_SR_PCIE_ALT_AUTO_LOAD_PTR,
++	ret_code = i40e_read_nvm_word(hw, I40E_SR_PCIE_ALT_AUTO_LOAD_PTR,
+ 				       &pcie_alt_module);
+ 	if (ret_code) {
+ 		ret_code = I40E_ERR_NVM_CHECKSUM;
+@@ -331,7 +296,7 @@ static i40e_status i40e_calc_nvm_checksum(struct i40e_hw *hw,
+ 				break;
+ 		}
+ 
+-		ret_code = i40e_read_nvm_srctl(hw, (u16)i, &word);
++		ret_code = i40e_read_nvm_word(hw, (u16)i, &word);
+ 		if (ret_code) {
+ 			ret_code = I40E_ERR_NVM_CHECKSUM;
+ 			goto i40e_calc_nvm_checksum_exit;
+@@ -371,7 +336,7 @@ i40e_status i40e_validate_nvm_checksum(struct i40e_hw *hw,
+ 	/* Do not use i40e_read_nvm_word() because we do not want to take
+ 	 * the synchronization semaphores twice here.
+ 	 */
+-	i40e_read_nvm_srctl(hw, I40E_SR_SW_CHECKSUM_WORD, &checksum_sr);
++	i40e_read_nvm_word(hw, I40E_SR_SW_CHECKSUM_WORD, &checksum_sr);
+ 
+ 	/* Verify read checksum from EEPROM is the same as
+ 	 * calculated checksum
 -- 
 1.8.3.1
