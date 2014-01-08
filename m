@@ -1,64 +1,265 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 2/2] include/uapi/linux/xfrm.h: Pack struct
- xfrm_usersa_info
-Date: Wed, 8 Jan 2014 20:33:03 +0000
-Message-ID: <1389213183.1644.31.camel@bwh-desktop.uk.level5networks.com>
-References: <1389077339-12814-1-git-send-email-fan.du@windriver.com>
-	 <1389077339-12814-3-git-send-email-fan.du@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <steffen.klassert@secunet.com>, <davem@davemloft.net>,
-	<stephen@networkplumber.org>, <dev@lists.strongswan.org>,
-	<netdev@vger.kernel.org>
-To: Fan Du <fan.du@windriver.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next V3 3/3] net: Add GRO support for vxlan traffic
+Date: Wed,  8 Jan 2014 22:34:38 +0200
+Message-ID: <1389213278-2200-4-git-send-email-ogerlitz@mellanox.com>
+References: <1389213278-2200-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, yanb@mellanox.com,
+	shlomop@mellanox.com, Or Gerlitz <ogerlitz@mellanox.com>
+To: hkchu@google.com, edumazet@google.com, herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17093 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757382AbaAHUdI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 15:33:08 -0500
-In-Reply-To: <1389077339-12814-3-git-send-email-fan.du@windriver.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:52827 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757034AbaAHUep (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jan 2014 15:34:45 -0500
+In-Reply-To: <1389213278-2200-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-01-07 at 14:48 +0800, Fan Du wrote:
-> Otherwise 64bits kernel has sizeof(struct xfrm_usersa_info) 224 bytes,
-> while 32bits compiled iproute2 see the same structure as 220 bytes, which
-> leading deficit xfrm sa, in turn broken IPsec connectivity.
->
-> Fix this by packing the structure.
-> 
-> Signed-off-by: Fan Du <fan.du@windriver.com>
-> ---
->  include/uapi/linux/xfrm.h |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/include/uapi/linux/xfrm.h b/include/uapi/linux/xfrm.h
-> index 470bfae..61460c4 100644
-> --- a/include/uapi/linux/xfrm.h
-> +++ b/include/uapi/linux/xfrm.h
-> @@ -366,7 +366,7 @@ struct xfrm_usersa_info {
->  #define XFRM_STATE_AF_UNSPEC	32
->  #define XFRM_STATE_ALIGN4	64
->  #define XFRM_STATE_ESN		128
-> -};
-> +} __attribute__((packed));
->  
->  #define XFRM_SA_XFLAG_DONT_ENCAP_DSCP	1
->  
+Add gro handlers for vxlan using the udp gro infrastructure
 
-That change will make access to the structure very slow on some
-architectures, and I suspect it will cause other compatibility problems.
+On my setup, which is net-next (now with the mlx4 vxlan offloads patches) --
+for single TCP session that goes through vxlan tunneling I got nice improvement
+from 6.8Gbs to 11.5Gbs
 
-I think the right thing to do is to reduce the minimum length of the
-structure in the netlink policy so that padding at the end is not
-required.  (It looks like all field offsets will be the same on all
-32/64-bit architecture pairs and there is only a differing amount of
-padding at the end of the structure for 32/64-bit alignment.)
+--> UDP/VXLAN GRO disabled
+$ netperf  -H 192.168.52.147 -c -C
 
-Ben.
+$ netperf -t TCP_STREAM -H 192.168.52.147 -c -C
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.52.147 () port 0 AF_INET
+Recv   Send    Send                          Utilization       Service Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local   remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
 
+ 87380  65536  65536    10.00      6799.75   12.54    24.79    0.604   1.195
+
+--> UDP/VXLAN GRO enabled
+
+$ netperf -t TCP_STREAM -H 192.168.52.147 -c -C
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.52.147 () port 0 AF_INET
+Recv   Send    Send                          Utilization       Service Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local   remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+
+ 87380  65536  65536    10.00      11562.72   24.90    20.34    0.706   0.577
+
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/vxlan.c |  129 ++++++++++++++++++++++++++++++++++++++++++++++++---
+ include/net/vxlan.h |    1 +
+ 2 files changed, 123 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 481f85d..e132f19 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -40,6 +40,7 @@
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
+ #include <net/vxlan.h>
++#include <net/protocol.h>
+ #if IS_ENABLED(CONFIG_IPV6)
+ #include <net/ipv6.h>
+ #include <net/addrconf.h>
+@@ -554,10 +555,111 @@ static int vxlan_fdb_append(struct vxlan_fdb *f,
+ 	return 1;
+ }
+ 
++static struct sk_buff **vxlan_gro_receive(struct sk_buff **head, struct sk_buff *skb)
++{
++	struct sk_buff *p, **pp = NULL;
++	struct vxlanhdr *vh, *vh2;
++	struct ethhdr *eh, *eh2;
++	unsigned int hlen, off_vx, off_eth;
++	const struct packet_offload *ptype;
++	__be16 type;
++	int flush = 1;
++
++	off_vx = skb_gro_offset(skb);
++	hlen = off_vx + sizeof(*vh);
++	vh   = skb_gro_header_fast(skb, off_vx);
++	if (skb_gro_header_hard(skb, hlen)) {
++		vh = skb_gro_header_slow(skb, hlen, off_vx);
++		if (unlikely(!vh))
++			goto out;
++	}
++	skb_gro_pull(skb, sizeof(struct vxlanhdr)); /* pull vxlan header */
++
++	off_eth = skb_gro_offset(skb);
++	hlen = off_eth + sizeof(*eh);
++	eh   = skb_gro_header_fast(skb, off_eth);
++	if (skb_gro_header_hard(skb, hlen)) {
++		eh = skb_gro_header_slow(skb, hlen, off_eth);
++		if (unlikely(!eh))
++			goto out;
++	}
++
++	flush = 0;
++
++	for (p = *head; p; p = p->next) {
++		if (!NAPI_GRO_CB(p)->same_flow)
++			continue;
++
++		vh2 = (struct vxlanhdr *)(p->data + off_vx);
++		eh2 = (struct ethhdr   *)(p->data + off_eth);
++		if (vh->vx_vni != vh2->vx_vni || compare_ether_header(eh, eh2)) {
++			NAPI_GRO_CB(p)->same_flow = 0;
++			continue;
++		}
++		goto found;
++	}
++
++found:
++	type = eh->h_proto;
++
++	rcu_read_lock();
++	ptype = gro_find_receive_by_type(type);
++	if (ptype == NULL) {
++		flush = 1;
++		goto out_unlock;
++	}
++
++	skb_gro_pull(skb, sizeof(*eh)); /* pull inner eth header */
++	pp = ptype->callbacks.gro_receive(head, skb);
++
++out_unlock:
++	rcu_read_unlock();
++out:
++	NAPI_GRO_CB(skb)->flush |= flush;
++
++	return pp;
++}
++
++static int vxlan_gro_complete(struct sk_buff *skb, int nhoff)
++{
++	struct ethhdr *eh;
++	struct packet_offload *ptype;
++	__be16 type;
++	/* 22 = 8 bytes for the vlxan header + 14 bytes for the inner eth header */
++	int vxlan_len  = 22;
++	int err = -ENOSYS;
++
++	eh = (struct ethhdr *)(skb->data + nhoff + sizeof (struct vxlanhdr));
++	type = eh->h_proto;
++
++	rcu_read_lock();
++	ptype = gro_find_complete_by_type(type);
++	if (ptype != NULL)
++		err = ptype->callbacks.gro_complete(skb, nhoff + vxlan_len);
++
++	rcu_read_unlock();
++	return err;
++}
++
++static void vxlan_add_udp_offload(struct rcu_head *head)
++{
++	struct vxlan_sock *vs = container_of(head, struct vxlan_sock, rcu);
++
++	udp_add_offload(&vs->udp_offloads);
++}
++
++static void vxlan_del_udp_offload(struct rcu_head *head)
++{
++	struct vxlan_sock *vs = container_of(head, struct vxlan_sock, rcu);
++
++	udp_del_offload(&vs->udp_offloads);
++}
++
+ /* Notify netdevs that UDP port started listening */
+-static void vxlan_notify_add_rx_port(struct sock *sk)
++static void vxlan_notify_add_rx_port(struct vxlan_sock *vs)
+ {
+ 	struct net_device *dev;
++	struct sock *sk = vs->sock->sk;
+ 	struct net *net = sock_net(sk);
+ 	sa_family_t sa_family = sk->sk_family;
+ 	__be16 port = inet_sk(sk)->inet_sport;
+@@ -569,12 +671,16 @@ static void vxlan_notify_add_rx_port(struct sock *sk)
+ 							    port);
+ 	}
+ 	rcu_read_unlock();
++
++	if (sa_family == AF_INET)
++		call_rcu(&vs->rcu, vxlan_add_udp_offload);
+ }
+ 
+ /* Notify netdevs that UDP port is no more listening */
+-static void vxlan_notify_del_rx_port(struct sock *sk)
++static void vxlan_notify_del_rx_port(struct vxlan_sock *vs)
+ {
+ 	struct net_device *dev;
++	struct sock *sk = vs->sock->sk;
+ 	struct net *net = sock_net(sk);
+ 	sa_family_t sa_family = sk->sk_family;
+ 	__be16 port = inet_sk(sk)->inet_sport;
+@@ -586,6 +692,9 @@ static void vxlan_notify_del_rx_port(struct sock *sk)
+ 							    port);
+ 	}
+ 	rcu_read_unlock();
++
++	if (sa_family == AF_INET)
++		call_rcu(&vs->rcu, vxlan_del_udp_offload);
+ }
+ 
+ /* Add new entry to forwarding table -- assumes lock held */
+@@ -964,7 +1073,7 @@ void vxlan_sock_release(struct vxlan_sock *vs)
+ 	spin_lock(&vn->sock_lock);
+ 	hlist_del_rcu(&vs->hlist);
+ 	rcu_assign_sk_user_data(vs->sock->sk, NULL);
+-	vxlan_notify_del_rx_port(sk);
++	vxlan_notify_del_rx_port(vs);
+ 	spin_unlock(&vn->sock_lock);
+ 
+ 	queue_work(vxlan_wq, &vs->del_work);
+@@ -1125,8 +1234,8 @@ static void vxlan_rcv(struct vxlan_sock *vs,
+ 	 * leave the CHECKSUM_UNNECESSARY, the device checksummed it
+ 	 * for us. Otherwise force the upper layers to verify it.
+ 	 */
+-	if (skb->ip_summed != CHECKSUM_UNNECESSARY || !skb->encapsulation ||
+-	    !(vxlan->dev->features & NETIF_F_RXCSUM))
++	if ((skb->ip_summed != CHECKSUM_UNNECESSARY && skb->ip_summed != CHECKSUM_PARTIAL) ||
++	    !skb->encapsulation || !(vxlan->dev->features & NETIF_F_RXCSUM))
+ 		skb->ip_summed = CHECKSUM_NONE;
+ 
+ 	skb->encapsulation = 0;
+@@ -2304,7 +2413,7 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
+ 	struct sock *sk;
+ 	unsigned int h;
+ 
+-	vs = kmalloc(sizeof(*vs), GFP_KERNEL);
++	vs = kzalloc(sizeof(*vs), GFP_KERNEL);
+ 	if (!vs)
+ 		return ERR_PTR(-ENOMEM);
+ 
+@@ -2329,9 +2438,15 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
+ 	vs->data = data;
+ 	rcu_assign_sk_user_data(vs->sock->sk, vs);
+ 
++	/* Initialize the vxlan udp offloads structure */
++	vs->udp_offloads.port = port;
++	vs->udp_offloads.callbacks.gro_receive  = vxlan_gro_receive;
++	vs->udp_offloads.callbacks.gro_complete = vxlan_gro_complete;
++	INIT_LIST_HEAD(&vs->udp_offloads.list);
++
+ 	spin_lock(&vn->sock_lock);
+ 	hlist_add_head_rcu(&vs->hlist, vs_head(net, port));
+-	vxlan_notify_add_rx_port(sk);
++	vxlan_notify_add_rx_port(vs);
+ 	spin_unlock(&vn->sock_lock);
+ 
+ 	/* Mark socket as an encapsulation socket. */
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index 6b6d180..5deef1a 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -21,6 +21,7 @@ struct vxlan_sock {
+ 	struct rcu_head	  rcu;
+ 	struct hlist_head vni_list[VNI_HASH_SIZE];
+ 	atomic_t	  refcnt;
++	struct udp_offload udp_offloads;
+ };
+ 
+ struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.1
