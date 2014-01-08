@@ -1,78 +1,55 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IPv6: Bug in net-next
-Date: Wed, 8 Jan 2014 15:13:13 +0100
-Message-ID: <20140108141313.GI9007@order.stressinduktion.org>
-References: <1389187126.20074.YahooMailBasic@web125504.mail.ne1.yahoo.com> <1389188139.44648.YahooMailBasic@web125506.mail.ne1.yahoo.com> <20140108140400.GH9007@order.stressinduktion.org>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v3 6/9] xen-netback: Handle guests with too many
+ frags
+Date: Wed, 8 Jan 2014 14:13:12 +0000
+Message-ID: <52CD5CF8.4000004@citrix.com>
+References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com>		 <1389139818-24458-7-git-send-email-zoltan.kiss@citrix.com>	 <1389147141.26646.74.camel@edumazet-glaptop2.roam.corp.google.com>	 <52CD5785.4050402@citrix.com> <1389189272.26646.89.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: =?utf-8?Q?Fran=C3=A7ois-Xavier?= Le Bail <fx.lebail@yahoo.com>,
-	netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:48341 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756223AbaAHONP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 09:13:15 -0500
-Content-Disposition: inline
-In-Reply-To: <20140108140400.GH9007@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1389189272.26646.89.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 08, 2014 at 03:04:00PM +0100, Hannes Frederic Sowa wrote:
-> On Wed, Jan 08, 2014 at 05:35:39AM -0800, Fran=C3=A7ois-Xavier Le Bai=
-l wrote:
-> > On Wed, 1/8/14, Fran=C3=A7ois-Xavier Le Bail <fx.lebail@yahoo.com> =
-wrote:
-> >=20
-> > > > I think there is a bug in actual net-next.
-> >  =20
-> > > > When I execute this code and press Crtl-C, all the IPv6
-> > > > Link-Layer addresses are deleted.
-> >  =20
-> > > > This happened between
-> > > > c1ddf295f5183a5189196a8035546842caa2055a and HEAD.
-> >  =20
-> > > > [...]
-> > =20
-> > > Sorry, it is not linked to this code.
-> > > I'm looking for the reason ...
-> > =20
-> > It seems that the valid lifetime and preferred lft are set to 0 sec=
- for autoconfigured LLA.
->=20
-> Grrr, I guess we should switch in addrconf_add_linklocal to call ipv6=
-_add_addr
-> with INFINITY_LIFE_TIME preferred and valid lft. IFA_PERMANENT may no=
-w expire,
-> too since commit fad8da3e0 ("ipv6 addrconf: fix preferred lifetime
-> state-changing behavior while valid_lft is infinity").
+On 08/01/14 13:54, Eric Dumazet wrote:
+> On Wed, 2014-01-08 at 13:49 +0000, Zoltan Kiss wrote:
+>> On 08/01/14 02:12, Eric Dumazet wrote:
+>>> On Wed, 2014-01-08 at 00:10 +0000, Zoltan Kiss wrote:
+>>>
+>>>>
+>>>> +		if (skb_shinfo(skb)->frag_list) {
+>>>> +			nskb = skb_shinfo(skb)->frag_list;
+>>>> +			xenvif_fill_frags(vif, nskb, INVALID_PENDING_IDX);
+>>>> +			skb->len += nskb->len;
+>>>> +			skb->data_len += nskb->len;
+>>>> +			skb->truesize += nskb->truesize;
+>>>> +			skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
+>>>> +			skb_shinfo(nskb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
+>>>> +			vif->tx_zerocopy_sent += 2;
+>>>> +			nskb = skb;
+>>>> +
+>>>> +			skb = skb_copy_expand(skb,
+>>>> +					0,
+>>>> +					0,
+>>>> +					GFP_ATOMIC | __GFP_NOWARN);
+>>>
+>>> skb can be NULL here
+>>
+>> Thanks, fixed that.
+>
+> BTW, I am not sure why you copy the skb.
+>
+> Is it to get rid of frag_list, and why ?
 
-I am testing this patch:
+Yes, it is to get rid of the frag_list, just to be on the safe side. I'm 
+not sure if it is normal to send a big skb with MAX_SKB_FRAGS frags plus 
+an empty skb on the frag_list with one frag, so I just consolidate them 
+here. This scenario shouldn't happen very often anyway, even guests 
+which can send more than MAX_SKB_FRAGS slots tends to do it rarely.
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 31f75ea..f7e86e3 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2528,7 +2528,8 @@ static void add_addr(struct inet6_dev *idev, cons=
-t struct in6_addr *addr,
- 	struct inet6_ifaddr *ifp;
-=20
- 	ifp =3D ipv6_add_addr(idev, addr, NULL, plen,
--			    scope, IFA_F_PERMANENT, 0, 0);
-+			scope, IFA_F_PERMANENT,
-+			INFINITY_LIFE_TIME, INFINITY_LIFE_TIME);
- 	if (!IS_ERR(ifp)) {
- 		spin_lock_bh(&ifp->lock);
- 		ifp->flags &=3D ~IFA_F_TENTATIVE;
-@@ -2656,7 +2657,8 @@ static void addrconf_add_linklocal(struct inet6_d=
-ev *idev, const struct in6_addr
- #endif
-=20
-=20
--	ifp =3D ipv6_add_addr(idev, addr, NULL, 64, IFA_LINK, addr_flags, 0, =
-0);
-+	ifp =3D ipv6_add_addr(idev, addr, NULL, 64, IFA_LINK, addr_flags,
-+			    INFINITY_LIFE_TIME, INFINITY_LIFE_TIME);
- 	if (!IS_ERR(ifp)) {
- 		addrconf_prefix_route(&ifp->addr, ifp->prefix_len, idev->dev, 0, 0);
- 		addrconf_dad_start(ifp);
+Zoli
