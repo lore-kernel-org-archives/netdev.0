@@ -1,28 +1,42 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v4 3/4] ARM: shmobile: r7s72100: Add clock for r7s72100-ether
-Date: Thu, 09 Jan 2014 00:03:54 +0300
-Message-ID: <52CDBD3A.2080800@cogentembedded.com>
-References: <1389168152-9434-1-git-send-email-horms+renesas@verge.net.au> <1389168152-9434-4-git-send-email-horms+renesas@verge.net.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] Netfilter updates for net-next
+Date: Wed, 08 Jan 2014 15:05:20 -0500 (EST)
+Message-ID: <20140108.150520.477424270812121491.davem@davemloft.net>
+References: <1389208404-3956-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Simon Horman <horms+renesas@verge.net.au>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1389168152-9434-4-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52929 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752116AbaAHUFX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 15:05:23 -0500
+In-Reply-To: <1389208404-3956-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Wed,  8 Jan 2014 20:13:21 +0100
 
-On 01/08/2014 11:02 AM, Simon Horman wrote:
+> The following patchset contains three Netfilter updates, they are:
+> 
+> * Fix wrong usage of skb_header_pointer in the DCCP protocol helper that
+>   has been there for quite some time. It was resulting in copying the dccp
+>   header to a pointer allocated in the stack. Fortunately, this pointer
+>   provides room for the dccp header is 4 bytes long, so no crashes have been
+>   reported so far. From Daniel Borkmann.
+> 
+> * Use format string to print in the invocation of nf_log_packet(), again
+>   in the DCCP helper. Also from Daniel Borkmann.
+> 
+> * Revert "netfilter: avoid get_random_bytes call" as prandom32 does not
+>   guarantee enough entropy when being calling this at boot time, that may
+>   happen when reloading the rule.
+> 
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
 
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
-WBR, Sergei
-
+Pulled, thanks Pablo.
