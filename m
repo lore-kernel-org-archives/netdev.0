@@ -1,38 +1,51 @@
-From: Damien Wyart <damien.wyart@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Subject: Re: IPv6: Bug in net-next
-Date: Wed, 8 Jan 2014 14:54:15 +0100
-Message-ID: <20140108135415.GA5561@brouette>
-References: <1389187126.20074.YahooMailBasic@web125504.mail.ne1.yahoo.com>
- <1389188139.44648.YahooMailBasic@web125506.mail.ne1.yahoo.com>
+Date: Wed, 8 Jan 2014 15:04:00 +0100
+Message-ID: <20140108140400.GH9007@order.stressinduktion.org>
+References: <1389187126.20074.YahooMailBasic@web125504.mail.ne1.yahoo.com> <1389188139.44648.YahooMailBasic@web125506.mail.ne1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: =?iso-8859-1?Q?Fran=E7ois-Xavier?= Le Bail <fx.lebail@yahoo.com>
+To: =?utf-8?Q?Fran=C3=A7ois-Xavier?= Le Bail <fx.lebail@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhost-v2-m3.nerim-networks.com ([78.40.49.217]:15031 "EHLO
-	smtp-delay2.nerim.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932326AbaAHOAH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 09:00:07 -0500
-Received: from maiev.nerim.net (smtp-153-wednesday.nerim.net [194.79.134.153])
-	by smtp-delay2.nerim.net (Postfix) with ESMTP id BB87219CF007
-	for <netdev@vger.kernel.org>; Wed,  8 Jan 2014 14:54:39 +0100 (CET)
+Received: from order.stressinduktion.org ([87.106.68.36]:48311 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756221AbaAHOEB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jan 2014 09:04:01 -0500
 Content-Disposition: inline
 In-Reply-To: <1389188139.44648.YahooMailBasic@web125506.mail.ne1.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > > When I execute this code and press Crtl-C, all the IPv6 Link-Layer
-> > > addresses are deleted.
+On Wed, Jan 08, 2014 at 05:35:39AM -0800, Fran=C3=A7ois-Xavier Le Bail =
+wrote:
+> On Wed, 1/8/14, Fran=C3=A7ois-Xavier Le Bail <fx.lebail@yahoo.com> wr=
+ote:
+>=20
+> > > I think there is a bug in actual net-next.
+>  =20
+> > > When I execute this code and press Crtl-C, all the IPv6
+> > > Link-Layer addresses are deleted.
+>  =20
+> > > This happened between
+> > > c1ddf295f5183a5189196a8035546842caa2055a and HEAD.
+>  =20
+> > > [...]
+> =20
+> > Sorry, it is not linked to this code.
+> > I'm looking for the reason ...
+> =20
+> It seems that the valid lifetime and preferred lft are set to 0 sec f=
+or autoconfigured LLA.
 
-> It seems that the valid lifetime and preferred lft are set to 0 sec
-> for autoconfigured LLA.
+Grrr, I guess we should switch in addrconf_add_linklocal to call ipv6_a=
+dd_addr
+with INFINITY_LIFE_TIME preferred and valid lft. IFA_PERMANENT may now =
+expire,
+too since commit fad8da3e0 ("ipv6 addrconf: fix preferred lifetime
+state-changing behavior while valid_lft is infinity").
 
-I am also seeing the problem with Linus' up-to-date tree (3.13-rc7+).
+Greetings,
 
-On eth0, LLA is not present after boot, as well as ::1 (Host scope) on
-the loopback (which causes some daemons to not start properly as they
-try to listen on ::1). Manually setting these adresses with ip addr
-works, they do not disappear afterwards.
-
--- 
-Damien
+  Hannes
