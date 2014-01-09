@@ -1,48 +1,44 @@
-From: Dan Williams <dan.j.williams@intel.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH v2 3/4] net: make tcp_cleanup_rbuf private
-Date: Thu, 9 Jan 2014 12:33:29 -0800
-Message-ID: <CAPcyv4hPnCud=MWpsCMNZmK_BwVV8WZHOs7=GQMhymgkv-gNkw@mail.gmail.com>
-References: <20140109201157.28381.94057.stgit@viggo.jf.intel.com>
-	<20140109201642.28381.82141.stgit@viggo.jf.intel.com>
+Date: Thu, 09 Jan 2014 15:42:32 -0500 (EST)
+Message-ID: <20140109.154232.65818281679170677.davem@davemloft.net>
+References: <20140109201642.28381.82141.stgit@viggo.jf.intel.com>
 	<CADVnQy=Tk68y217cbw7O5apCJV+eOmKMqLNbgAZRa_cxUArdKg@mail.gmail.com>
+	<CAPcyv4hPnCud=MWpsCMNZmK_BwVV8WZHOs7=GQMhymgkv-gNkw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "dmaengine@vger.kernel.org" <dmaengine@vger.kernel.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Netdev <netdev@vger.kernel.org>,
-	James Morris <jmorris@namei.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Patrick McHardy <kaber@trash.net>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Neal Cardwell <ncardwell@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ncardwell@google.com, dmaengine@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org, jmorris@namei.org,
+	kuznet@ms2.inr.ac.ru, kaber@trash.net, linux-kernel@vger.kernel.org
+To: dan.j.williams@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f174.google.com ([209.85.128.174]:50403 "EHLO
-	mail-ve0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753729AbaAIUdc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 15:33:32 -0500
-Received: by mail-ve0-f174.google.com with SMTP id pa12so2853415veb.33
-        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 12:33:31 -0800 (PST)
-In-Reply-To: <CADVnQy=Tk68y217cbw7O5apCJV+eOmKMqLNbgAZRa_cxUArdKg@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33701 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753095AbaAIUmf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 15:42:35 -0500
+In-Reply-To: <CAPcyv4hPnCud=MWpsCMNZmK_BwVV8WZHOs7=GQMhymgkv-gNkw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 9, 2014 at 12:26 PM, Neal Cardwell <ncardwell@google.com> wrote:
-> On Thu, Jan 9, 2014 at 3:16 PM, Dan Williams <dan.j.williams@intel.com> wrote:
->> net_dma was the only external user so this can become local to tcp.c
->> again.
-> ...
->> -void tcp_cleanup_rbuf(struct sock *sk, int copied)
->> +static void cleanup_rbuf(struct sock *sk, int copied)
->
-> I would vote to keep the tcp_ prefix. In the TCP code base that is the
-> more common idiom, even for internal/static TCP functions, and
-> personally I find it easier to read and work with in stack traces,
-> etc. My 2 cents.
->
+From: Dan Williams <dan.j.williams@intel.com>
+Date: Thu, 9 Jan 2014 12:33:29 -0800
 
-Ok.  It was cleanup_rbuf() in a former life, but one vote for leaving
-the name as is is enough for me.
+> On Thu, Jan 9, 2014 at 12:26 PM, Neal Cardwell <ncardwell@google.com> wrote:
+>> On Thu, Jan 9, 2014 at 3:16 PM, Dan Williams <dan.j.williams@intel.com> wrote:
+>>> net_dma was the only external user so this can become local to tcp.c
+>>> again.
+>> ...
+>>> -void tcp_cleanup_rbuf(struct sock *sk, int copied)
+>>> +static void cleanup_rbuf(struct sock *sk, int copied)
+>>
+>> I would vote to keep the tcp_ prefix. In the TCP code base that is the
+>> more common idiom, even for internal/static TCP functions, and
+>> personally I find it easier to read and work with in stack traces,
+>> etc. My 2 cents.
+>>
+> 
+> Ok.  It was cleanup_rbuf() in a former life, but one vote for leaving
+> the name as is is enough for me.
 
---
-Dan
+You can make that two votes :)
