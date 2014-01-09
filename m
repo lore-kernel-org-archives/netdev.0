@@ -1,8 +1,8 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 1/4] bonding: update the primary when slave name
- changed
-Date: Thu, 9 Jan 2014 19:20:36 +0800
-Message-ID: <52CE8604.3010804@huawei.com>
+Subject: [PATCH net-next 2/4] bonding: do not save non-existent device to
+ bond primary in check params
+Date: Thu, 9 Jan 2014 19:20:39 +0800
+Message-ID: <52CE8607.1050103@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -11,47 +11,52 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:27310 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:27323 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751086AbaAILVN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 06:21:13 -0500
+	with ESMTP id S1752446AbaAILVP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 06:21:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the primary_slave's name changed, but the bond->prams.primay was
-still using the old name, it is conflict with the meaning of the
-primary, so update the primary when the slave change its name.
+When install the bonding, the primay will be use to distinguish
+the primary slave for ab, alb and tlb mode, but it is meanless
+to save a no existed device, so add check for it.
 
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/bonding/bond_main.c | 14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
+ drivers/net/bonding/bond_main.c | 20 +++++++++++++-------
+ 1 file changed, 13 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index e06c445..de646e2 100644
+index de646e2..651c5fd 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -2860,9 +2860,19 @@ static int bond_slave_netdev_event(unsigned long event,
- 		 */
- 		break;
- 	case NETDEV_CHANGENAME:
--		/*
--		 * TODO: handle changing the primary's name
-+		/* if the primary's name changed,
-+		 * save the new name for primary.
- 		 */
-+		if (USES_PRIMARY(bond->params.mode) &&
-+		    bond->params.primary[0]) {
-+			if (bond->primary_slave &&
-+			    strcmp(bond->params.primary,
-+				   bond->primary_slave->dev->name)) {
-+				strncpy(bond->params.primary,
-+					bond->primary_slave->dev->name,
-+					IFNAMSIZ);
-+			}
+@@ -4246,13 +4246,19 @@ static int bond_check_params(struct bond_params *params)
+ 		pr_debug("Warning: either miimon or arp_interval and arp_ip_target module parameters must be specified, otherwise bonding will not detect link failures! see bonding.txt for details.\n");
+ 	}
+ 
+-	if (primary && !USES_PRIMARY(bond_mode)) {
+-		/* currently, using a primary only makes sense
+-		 * in active backup, TLB or ALB modes
+-		 */
+-		pr_warning("Warning: %s primary device specified but has no effect in %s mode\n",
+-			   primary, bond_mode_name(bond_mode));
+-		primary = NULL;
++	if (primary) {
++		if (!__dev_get_by_name(&init_net, primary)) {
++			pr_warn("Warning: %s primary device is not exist\n",
++				primary);
++			primary = NULL;
++		} else if (!USES_PRIMARY(bond_mode)) {
++			/* currently, using a primary only makes sense
++			 * in active backup, TLB or ALB modes
++			 */
++			pr_warn("Warning: %s primary device specified but has no effect in %s mode\n",
++				primary, bond_mode_name(bond_mode));
++			primary = NULL;
 +		}
- 		break;
- 	case NETDEV_FEAT_CHANGE:
- 		bond_compute_features(bond);
+ 	}
+ 
+ 	if (primary && primary_reselect) {
 -- 
 1.8.0
