@@ -1,7 +1,7 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [RFC Patch net-next 3/4] net_sched: use RCU for tc actions traverse
-Date: Thu,  9 Jan 2014 10:19:52 -0800
-Message-ID: <1389291593-2494-4-git-send-email-xiyou.wangcong@gmail.com>
+Subject: [RFC Patch net-next 4/4] net_sched: make ingress qdisc lockless
+Date: Thu,  9 Jan 2014 10:19:53 -0800
+Message-ID: <1389291593-2494-5-git-send-email-xiyou.wangcong@gmail.com>
 References: <1389291593-2494-1-git-send-email-xiyou.wangcong@gmail.com>
 Cc: Cong Wang <xiyou.wangcong@gmail.com>,
 	John Fastabend <john.fastabend@gmail.com>,
@@ -10,12 +10,12 @@ Cc: Cong Wang <xiyou.wangcong@gmail.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:56198 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754878AbaAISUN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 13:20:13 -0500
-Received: by mail-pa0-f44.google.com with SMTP id fa1so3638797pad.31
-        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 10:20:13 -0800 (PST)
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:37659 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754925AbaAISUP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 13:20:15 -0500
+Received: by mail-pd0-f169.google.com with SMTP id v10so3484352pde.14
+        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 10:20:14 -0800 (PST)
 In-Reply-To: <1389291593-2494-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -26,55 +26,23 @@ Cc: David S. Miller <davem@davemloft.net>
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- net/sched/act_api.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+ net/core/dev.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index f63e146..e3c655e 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -351,7 +351,7 @@ int tcf_action_exec(struct sk_buff *skb, const struct list_head *actions,
- 		ret = TC_ACT_OK;
- 		goto exec_done;
- 	}
--	list_for_each_entry(a, actions, list) {
-+	list_for_each_entry_rcu(a, actions, list) {
- repeat:
- 		ret = a->ops->act(skb, a, res);
- 		if (TC_MUNGED & skb->tc_verd) {
-@@ -372,11 +372,13 @@ EXPORT_SYMBOL(tcf_action_exec);
- void tcf_action_destroy(struct list_head *actions, int bind)
- {
- 	struct tc_action *a, *tmp;
-+	LIST_HEAD(list);
-+	list_splice_init_rcu(actions, &list, synchronize_rcu);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ce01847..e357d05 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3376,10 +3376,8 @@ static int ing_filter(struct sk_buff *skb, struct netdev_queue *rxq)
  
--	list_for_each_entry_safe(a, tmp, actions, list) {
-+	list_for_each_entry_safe(a, tmp, &list, list) {
- 		if (a->ops->cleanup(a, bind) == ACT_P_DELETED)
- 			module_put(a->ops->owner);
--		list_del(&a->list);
-+		list_del_rcu(&a->list);
- 		kfree(a);
+ 	q = rxq->qdisc;
+ 	if (q != &noop_qdisc) {
+-		spin_lock(qdisc_lock(q));
+ 		if (likely(!test_bit(__QDISC_STATE_DEACTIVATED, &q->state)))
+ 			result = qdisc_enqueue_root(skb, q);
+-		spin_unlock(qdisc_lock(q));
  	}
- }
-@@ -420,7 +422,7 @@ tcf_action_dump(struct sk_buff *skb, struct list_head *actions, int bind, int re
- 	int err = -EINVAL;
- 	struct nlattr *nest;
  
--	list_for_each_entry(a, actions, list) {
-+	list_for_each_entry_rcu(a, actions, list) {
- 		nest = nla_nest_start(skb, a->order);
- 		if (nest == NULL)
- 			goto nla_put_failure;
-@@ -542,7 +544,7 @@ int tcf_action_init(struct net *net, struct nlattr *nla,
- 			goto err;
- 		}
- 		act->order = i;
--		list_add_tail(&act->list, actions);
-+		list_add_tail_rcu(&act->list, actions);
- 	}
- 	return 0;
- 
+ 	return result;
 -- 
 1.8.3.1
