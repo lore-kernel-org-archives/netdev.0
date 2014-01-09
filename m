@@ -1,102 +1,50 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] qlcnic: Convert vmalloc/memset to kcalloc
-Date: Wed, 08 Jan 2014 22:42:25 -0800
-Message-ID: <1389249745.24222.20.camel@joe-AO722>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next v2 3/4] virtio-net: auto-tune mergeable rx
+	buffer size for improved performance
+Date: Thu, 9 Jan 2014 08:48:07 +0200
+Message-ID: <20140109064807.GC19559@redhat.com>
+References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
+	<1389072355-20666-3-git-send-email-mwdalton@google.com>
+	<20140109014255.GA19321@redhat.com>
+	<CANJ5vP+_aK0PMc6-hwbu6PduVNDe8jbWR19cN5C+k4mWQzdTGg@mail.gmail.com>
+	<CANJ5vPLvDff5PMYNGvtt-dd=md8b46ZXAYLv-KnerNcfzDNHpw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-driver <linux-driver@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: Michael Dalton <mwdalton@google.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <CANJ5vPLvDff5PMYNGvtt-dd=md8b46ZXAYLv-KnerNcfzDNHpw@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-vmalloc is a limited resource.  Don't use it unnecessarily.
+On Wed, Jan 08, 2014 at 07:41:58PM -0800, Michael Dalton wrote:
+> Sorry, forgot to mention - if we want to explore combining the buffer
+> address and truesize into a single void *, we could also exploit the
+> fact that our size ranges from aligned GOOD_PACKET_LEN to PAGE_SIZE, and
+> potentially encode fewer values for truesize (and require a smaller
+> alignment than 256). The prior e-mails discussion of 256 byte alignment
+> with 256 values is just one potential design point.
+> 
+> Best,
+> 
+> Mike
 
-It seems this allocation should work with kcalloc.
+Good point. I think we should keep the option to
+make buffers bigger than 4K, so I think we should start with 256
+alignment, then see if there are workloads that are improved by smaller
+alignment.
 
-Remove unnecessary memset(,0,) of buf as it's completely
-overwritten as the previously only unset field in
-struct qlcnic_pci_func_cfg is now set to 0.
-
-Use kfree instead of vfree.
-Use ETH_ALEN instead of 6.
-
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h       |  2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c | 16 ++++++----------
- 2 files changed, 7 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 35d4876..8d7aa4c 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -1267,7 +1267,7 @@ struct qlcnic_pci_func_cfg {
- 	u16	port_num;
- 	u8	pci_func;
- 	u8	func_state;
--	u8	def_mac_addr[6];
-+	u8	def_mac_addr[ETH_ALEN];
- };
- 
- struct qlcnic_npar_func_cfg {
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-index b529667..c9b704d 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-@@ -6,7 +6,6 @@
-  */
- 
- #include <linux/slab.h>
--#include <linux/vmalloc.h>
- #include <linux/interrupt.h>
- 
- #include "qlcnic.h"
-@@ -927,38 +926,35 @@ static ssize_t qlcnic_sysfs_read_pci_config(struct file *file,
- 	u32 pci_func_count = qlcnic_get_pci_func_count(adapter);
- 	struct qlcnic_pci_func_cfg *pci_cfg;
- 	struct qlcnic_pci_info *pci_info;
--	size_t pci_info_sz, pci_cfg_sz;
-+	size_t pci_cfg_sz;
- 	int i, ret;
- 
- 	pci_cfg_sz = pci_func_count * sizeof(*pci_cfg);
- 	if (size != pci_cfg_sz)
- 		return QL_STATUS_INVALID_PARAM;
- 
--	pci_info_sz = pci_func_count * sizeof(*pci_info);
--	pci_info = vmalloc(pci_info_sz);
-+	pci_info = kcalloc(pci_func_count, sizeof(*pci_info), GFP_KERNEL);
- 	if (!pci_info)
- 		return -ENOMEM;
- 
--	memset(pci_info, 0, pci_info_sz);
--	memset(buf, 0, pci_cfg_sz);
--	pci_cfg = (struct qlcnic_pci_func_cfg *)buf;
--
- 	ret = qlcnic_get_pci_info(adapter, pci_info);
- 	if (ret) {
--		vfree(pci_info);
-+		kfree(pci_info);
- 		return ret;
- 	}
- 
-+	pci_cfg = (struct qlcnic_pci_func_cfg *)buf;
- 	for (i = 0; i < pci_func_count; i++) {
- 		pci_cfg[i].pci_func = pci_info[i].id;
- 		pci_cfg[i].func_type = pci_info[i].type;
-+		pci_cfg[i].func_state = 0;
- 		pci_cfg[i].port_num = pci_info[i].default_port;
- 		pci_cfg[i].min_bw = pci_info[i].tx_min_bw;
- 		pci_cfg[i].max_bw = pci_info[i].tx_max_bw;
- 		memcpy(&pci_cfg[i].def_mac_addr, &pci_info[i].mac, ETH_ALEN);
- 	}
- 
--	vfree(pci_info);
-+	kfree(pci_info);
- 	return size;
- }
- 
+Can you add wrapper inline functions to pack/unpack size and
+buffer pointer to/from void *?
+This way it will be easy to experiment with different alignments.
