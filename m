@@ -1,688 +1,199 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 03/13] batman-adv: remove FSF address from GPL disclaimer
-Date: Thu,  9 Jan 2014 15:52:52 +0100
-Message-ID: <1389279182-3256-4-git-send-email-antonio@meshcoding.com>
+Subject: [PATCH 05/13] batman-adv: rename gw_deselect() to gw_reselect()
+Date: Thu,  9 Jan 2014 15:52:54 +0100
+Message-ID: <1389279182-3256-6-git-send-email-antonio@meshcoding.com>
 References: <1389279182-3256-1-git-send-email-antonio@meshcoding.com>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <antonio@meshcoding.com>,
+	Antonio Quartulli <antonio@open-mesh.com>,
 	Marek Lindner <mareklindner@neomailbox.ch>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:2629 "EHLO
+Received: from s3.neomailbox.net ([178.209.62.157]:24429 "EHLO
 	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752540AbaAIOyd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 09:54:33 -0500
+	with ESMTP id S1752581AbaAIOyg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 09:54:36 -0500
 In-Reply-To: <1389279182-3256-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As suggested by checkpatch, remove all the references to the
-FSF address since the kernel already has one reference in
-its documentation.
+From: Antonio Quartulli <antonio@open-mesh.com>
 
-In this way it is easier to update it in case of future
-changes.
+The function batadv_gw_deselect() is actually not deselecting
+anything. It is just informing the GW code to perform a
+re-election procedure when possible.
+The current gateway is not being touched at all and therefore
+the name of this function is rather misleading.
 
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
+Rename it to batadv_gw_reselect() to batadv_gw_reselect()
+to make its behaviour easier to grasp.
+
+Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 ---
- net/batman-adv/Makefile                | 4 +---
- net/batman-adv/bat_algo.h              | 4 +---
- net/batman-adv/bat_iv_ogm.c            | 4 +---
- net/batman-adv/bitarray.c              | 4 +---
- net/batman-adv/bitarray.h              | 4 +---
- net/batman-adv/bridge_loop_avoidance.c | 4 +---
- net/batman-adv/bridge_loop_avoidance.h | 4 +---
- net/batman-adv/debugfs.c               | 4 +---
- net/batman-adv/debugfs.h               | 4 +---
- net/batman-adv/distributed-arp-table.c | 4 +---
- net/batman-adv/distributed-arp-table.h | 4 +---
- net/batman-adv/fragmentation.c         | 4 +---
- net/batman-adv/fragmentation.h         | 4 +---
- net/batman-adv/gateway_client.c        | 4 +---
- net/batman-adv/gateway_client.h        | 4 +---
- net/batman-adv/gateway_common.c        | 4 +---
- net/batman-adv/gateway_common.h        | 4 +---
- net/batman-adv/hard-interface.c        | 4 +---
- net/batman-adv/hard-interface.h        | 4 +---
- net/batman-adv/hash.c                  | 4 +---
- net/batman-adv/hash.h                  | 4 +---
- net/batman-adv/icmp_socket.c           | 4 +---
- net/batman-adv/icmp_socket.h           | 4 +---
- net/batman-adv/main.c                  | 4 +---
- net/batman-adv/main.h                  | 4 +---
- net/batman-adv/network-coding.c        | 4 +---
- net/batman-adv/network-coding.h        | 4 +---
- net/batman-adv/originator.c            | 4 +---
- net/batman-adv/originator.h            | 4 +---
- net/batman-adv/packet.h                | 4 +---
- net/batman-adv/routing.c               | 4 +---
- net/batman-adv/routing.h               | 4 +---
- net/batman-adv/send.c                  | 4 +---
- net/batman-adv/send.h                  | 4 +---
- net/batman-adv/soft-interface.c        | 4 +---
- net/batman-adv/soft-interface.h        | 4 +---
- net/batman-adv/sysfs.c                 | 4 +---
- net/batman-adv/sysfs.h                 | 4 +---
- net/batman-adv/translation-table.c     | 4 +---
- net/batman-adv/translation-table.h     | 4 +---
- net/batman-adv/types.h                 | 4 +---
- 41 files changed, 41 insertions(+), 123 deletions(-)
+ net/batman-adv/gateway_client.c | 35 +++++++++++++++++++++++------------
+ net/batman-adv/gateway_client.h |  2 +-
+ net/batman-adv/gateway_common.c |  2 +-
+ net/batman-adv/sysfs.c          |  8 ++++----
+ 4 files changed, 29 insertions(+), 18 deletions(-)
 
-diff --git a/net/batman-adv/Makefile b/net/batman-adv/Makefile
-index 4f4aabb..e595415 100644
---- a/net/batman-adv/Makefile
-+++ b/net/batman-adv/Makefile
-@@ -13,9 +13,7 @@
- # General Public License for more details.
- #
- # You should have received a copy of the GNU General Public License
--# along with this program; if not, write to the Free Software
--# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
--# 02110-1301, USA
-+# along with this program; if not, see <http://www.gnu.org/licenses/>.
- #
- 
- obj-$(CONFIG_BATMAN_ADV) += batman-adv.o
-diff --git a/net/batman-adv/bat_algo.h b/net/batman-adv/bat_algo.h
-index a4808c2..92435bf 100644
---- a/net/batman-adv/bat_algo.h
-+++ b/net/batman-adv/bat_algo.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #ifndef _NET_BATMAN_ADV_BAT_ALGO_H_
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index b9c8a6e..278d78b 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #include "main.h"
-diff --git a/net/batman-adv/bitarray.c b/net/batman-adv/bitarray.c
-index 9739824..89d3a5b 100644
---- a/net/batman-adv/bitarray.c
-+++ b/net/batman-adv/bitarray.c
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #include "main.h"
-diff --git a/net/batman-adv/bitarray.h b/net/batman-adv/bitarray.h
-index a81b932..685e0af 100644
---- a/net/batman-adv/bitarray.h
-+++ b/net/batman-adv/bitarray.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #ifndef _NET_BATMAN_ADV_BITARRAY_H_
-diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
-index 28eb5e6..b164a07 100644
---- a/net/batman-adv/bridge_loop_avoidance.c
-+++ b/net/batman-adv/bridge_loop_avoidance.c
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #include "main.h"
-diff --git a/net/batman-adv/bridge_loop_avoidance.h b/net/batman-adv/bridge_loop_avoidance.h
-index da173e7..377dae0 100644
---- a/net/batman-adv/bridge_loop_avoidance.h
-+++ b/net/batman-adv/bridge_loop_avoidance.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #ifndef _NET_BATMAN_ADV_BLA_H_
-diff --git a/net/batman-adv/debugfs.c b/net/batman-adv/debugfs.c
-index 049a7a2..0adbcee 100644
---- a/net/batman-adv/debugfs.c
-+++ b/net/batman-adv/debugfs.c
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #include "main.h"
-diff --git a/net/batman-adv/debugfs.h b/net/batman-adv/debugfs.h
-index f8c3849..0861b62 100644
---- a/net/batman-adv/debugfs.h
-+++ b/net/batman-adv/debugfs.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #ifndef _NET_BATMAN_ADV_DEBUGFS_H_
-diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
-index b316a4c..01ec607 100644
---- a/net/batman-adv/distributed-arp-table.c
-+++ b/net/batman-adv/distributed-arp-table.c
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #include <linux/if_ether.h>
-diff --git a/net/batman-adv/distributed-arp-table.h b/net/batman-adv/distributed-arp-table.h
-index 79a078b..afa13ca 100644
---- a/net/batman-adv/distributed-arp-table.h
-+++ b/net/batman-adv/distributed-arp-table.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #ifndef _NET_BATMAN_ADV_DISTRIBUTED_ARP_TABLE_H_
-diff --git a/net/batman-adv/fragmentation.c b/net/batman-adv/fragmentation.c
-index 6ddb614..43185ca 100644
---- a/net/batman-adv/fragmentation.c
-+++ b/net/batman-adv/fragmentation.c
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #include "main.h"
-diff --git a/net/batman-adv/fragmentation.h b/net/batman-adv/fragmentation.h
-index ca029e2..0347f0c 100644
---- a/net/batman-adv/fragmentation.h
-+++ b/net/batman-adv/fragmentation.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #ifndef _NET_BATMAN_ADV_FRAGMENTATION_H_
 diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
-index 2449afa..3564173 100644
+index 53a9009..a5602ef 100644
 --- a/net/batman-adv/gateway_client.c
 +++ b/net/batman-adv/gateway_client.c
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
+@@ -103,7 +103,18 @@ static void batadv_gw_select(struct batadv_priv *bat_priv,
+ 	spin_unlock_bh(&bat_priv->gw.list_lock);
+ }
  
- #include "main.h"
+-void batadv_gw_deselect(struct batadv_priv *bat_priv)
++/**
++ * batadv_gw_reselect - force a gateway reselection
++ * @bat_priv: the bat priv with all the soft interface information
++ *
++ * Set a flag to remind the GW component to perform a new gateway reselection.
++ * However this function does not ensure that the current gateway is going to be
++ * deselected. The reselection mechanism may elect the same gateway once again.
++ *
++ * This means that invoking batadv_gw_reselect() does not guarantee a gateway
++ * change and therefore a uevent is not necessarily expected.
++ */
++void batadv_gw_reselect(struct batadv_priv *bat_priv)
+ {
+ 	atomic_set(&bat_priv->gw.reselect, 1);
+ }
+@@ -242,7 +253,7 @@ void batadv_gw_election(struct batadv_priv *bat_priv)
+ 
+ 		router = batadv_orig_node_get_router(next_gw->orig_node);
+ 		if (!router) {
+-			batadv_gw_deselect(bat_priv);
++			batadv_gw_reselect(bat_priv);
+ 			goto out;
+ 		}
+ 	}
+@@ -294,11 +305,11 @@ void batadv_gw_check_election(struct batadv_priv *bat_priv,
+ 
+ 	curr_gw_orig = batadv_gw_get_selected_orig(bat_priv);
+ 	if (!curr_gw_orig)
+-		goto deselect;
++		goto reselect;
+ 
+ 	router_gw = batadv_orig_node_get_router(curr_gw_orig);
+ 	if (!router_gw)
+-		goto deselect;
++		goto reselect;
+ 
+ 	/* this node already is the gateway */
+ 	if (curr_gw_orig == orig_node)
+@@ -326,8 +337,8 @@ void batadv_gw_check_election(struct batadv_priv *bat_priv,
+ 		   "Restarting gateway selection: better gateway found (tq curr: %i, tq new: %i)\n",
+ 		   gw_tq_avg, orig_tq_avg);
+ 
+-deselect:
+-	batadv_gw_deselect(bat_priv);
++reselect:
++	batadv_gw_reselect(bat_priv);
+ out:
+ 	if (curr_gw_orig)
+ 		batadv_orig_node_free_ref(curr_gw_orig);
+@@ -457,7 +468,7 @@ void batadv_gw_node_update(struct batadv_priv *bat_priv,
+ 		 */
+ 		curr_gw = batadv_gw_get_selected_gw_node(bat_priv);
+ 		if (gw_node == curr_gw)
+-			batadv_gw_deselect(bat_priv);
++			batadv_gw_reselect(bat_priv);
+ 	}
+ 
+ out:
+@@ -483,7 +494,7 @@ void batadv_gw_node_purge(struct batadv_priv *bat_priv)
+ 	struct batadv_gw_node *gw_node, *curr_gw;
+ 	struct hlist_node *node_tmp;
+ 	unsigned long timeout = msecs_to_jiffies(2 * BATADV_PURGE_TIMEOUT);
+-	int do_deselect = 0;
++	int do_reselect = 0;
+ 
+ 	curr_gw = batadv_gw_get_selected_gw_node(bat_priv);
+ 
+@@ -497,7 +508,7 @@ void batadv_gw_node_purge(struct batadv_priv *bat_priv)
+ 			continue;
+ 
+ 		if (curr_gw == gw_node)
+-			do_deselect = 1;
++			do_reselect = 1;
+ 
+ 		hlist_del_rcu(&gw_node->list);
+ 		batadv_gw_node_free_ref(gw_node);
+@@ -505,9 +516,9 @@ void batadv_gw_node_purge(struct batadv_priv *bat_priv)
+ 
+ 	spin_unlock_bh(&bat_priv->gw.list_lock);
+ 
+-	/* gw_deselect() needs to acquire the gw_list_lock */
+-	if (do_deselect)
+-		batadv_gw_deselect(bat_priv);
++	/* gw_reselect() needs to acquire the gw_list_lock */
++	if (do_reselect)
++		batadv_gw_reselect(bat_priv);
+ 
+ 	if (curr_gw)
+ 		batadv_gw_node_free_ref(curr_gw);
 diff --git a/net/batman-adv/gateway_client.h b/net/batman-adv/gateway_client.h
-index d95c2d2..43c8833 100644
+index 43c8833..514cff6 100644
 --- a/net/batman-adv/gateway_client.h
 +++ b/net/batman-adv/gateway_client.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
+@@ -19,7 +19,7 @@
+ #define _NET_BATMAN_ADV_GATEWAY_CLIENT_H_
  
- #ifndef _NET_BATMAN_ADV_GATEWAY_CLIENT_H_
+ void batadv_gw_check_client_stop(struct batadv_priv *bat_priv);
+-void batadv_gw_deselect(struct batadv_priv *bat_priv);
++void batadv_gw_reselect(struct batadv_priv *bat_priv);
+ void batadv_gw_election(struct batadv_priv *bat_priv);
+ struct batadv_orig_node *
+ batadv_gw_get_selected_orig(struct batadv_priv *bat_priv);
 diff --git a/net/batman-adv/gateway_common.c b/net/batman-adv/gateway_common.c
-index b211b0f..5e63b81 100644
+index 5e63b81..f76816c 100644
 --- a/net/batman-adv/gateway_common.c
 +++ b/net/batman-adv/gateway_common.c
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
+@@ -162,7 +162,7 @@ ssize_t batadv_gw_bandwidth_set(struct net_device *net_dev, char *buff,
+ 	if ((down_curr == down_new) && (up_curr == up_new))
+ 		return count;
  
- #include "main.h"
-diff --git a/net/batman-adv/gateway_common.h b/net/batman-adv/gateway_common.h
-index 56384a4..c47b17a 100644
---- a/net/batman-adv/gateway_common.h
-+++ b/net/batman-adv/gateway_common.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #ifndef _NET_BATMAN_ADV_GATEWAY_COMMON_H_
-diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index 57c2a19..bebd46ce 100644
---- a/net/batman-adv/hard-interface.c
-+++ b/net/batman-adv/hard-interface.c
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #include "main.h"
-diff --git a/net/batman-adv/hard-interface.h b/net/batman-adv/hard-interface.h
-index df4c8bd..d8ca8ac 100644
---- a/net/batman-adv/hard-interface.h
-+++ b/net/batman-adv/hard-interface.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #ifndef _NET_BATMAN_ADV_HARD_INTERFACE_H_
-diff --git a/net/batman-adv/hash.c b/net/batman-adv/hash.c
-index 7198daf..d9cfa03 100644
---- a/net/batman-adv/hash.c
-+++ b/net/batman-adv/hash.c
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #include "main.h"
-diff --git a/net/batman-adv/hash.h b/net/batman-adv/hash.h
-index 1b4da72..df5ece9 100644
---- a/net/batman-adv/hash.h
-+++ b/net/batman-adv/hash.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #ifndef _NET_BATMAN_ADV_HASH_H_
-diff --git a/net/batman-adv/icmp_socket.c b/net/batman-adv/icmp_socket.c
-index 130cc32..3c08eee 100644
---- a/net/batman-adv/icmp_socket.c
-+++ b/net/batman-adv/icmp_socket.c
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #include "main.h"
-diff --git a/net/batman-adv/icmp_socket.h b/net/batman-adv/icmp_socket.h
-index 6665080..559e54a 100644
---- a/net/batman-adv/icmp_socket.h
-+++ b/net/batman-adv/icmp_socket.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #ifndef _NET_BATMAN_ADV_ICMP_SOCKET_H_
-diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
-index 1511f64..8abda42 100644
---- a/net/batman-adv/main.c
-+++ b/net/batman-adv/main.c
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #include <linux/crc32c.h>
-diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
-index 322dd73..9e76b6c 100644
---- a/net/batman-adv/main.h
-+++ b/net/batman-adv/main.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #ifndef _NET_BATMAN_ADV_MAIN_H_
-diff --git a/net/batman-adv/network-coding.c b/net/batman-adv/network-coding.c
-index 511d7e1..d6f0be3 100644
---- a/net/batman-adv/network-coding.c
-+++ b/net/batman-adv/network-coding.c
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #include <linux/debugfs.h>
-diff --git a/net/batman-adv/network-coding.h b/net/batman-adv/network-coding.h
-index d4fd315..ab59b3d 100644
---- a/net/batman-adv/network-coding.h
-+++ b/net/batman-adv/network-coding.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #ifndef _NET_BATMAN_ADV_NETWORK_CODING_H_
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 803ab4b..04a6d51 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #include "main.h"
-diff --git a/net/batman-adv/originator.h b/net/batman-adv/originator.h
-index 6f77d80..99ed3c6 100644
---- a/net/batman-adv/originator.h
-+++ b/net/batman-adv/originator.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #ifndef _NET_BATMAN_ADV_ORIGINATOR_H_
-diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
-index 2dd8f24..5e73294 100644
---- a/net/batman-adv/packet.h
-+++ b/net/batman-adv/packet.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #ifndef _NET_BATMAN_ADV_PACKET_H_
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index a89e812..7e8aa17 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #include "main.h"
-diff --git a/net/batman-adv/routing.h b/net/batman-adv/routing.h
-index 19544dd..c1eadfa 100644
---- a/net/batman-adv/routing.h
-+++ b/net/batman-adv/routing.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #ifndef _NET_BATMAN_ADV_ROUTING_H_
-diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
-index fba4dcf..cea6578 100644
---- a/net/batman-adv/send.c
-+++ b/net/batman-adv/send.c
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #include "main.h"
-diff --git a/net/batman-adv/send.h b/net/batman-adv/send.h
-index aa2e253..f6d125e 100644
---- a/net/batman-adv/send.h
-+++ b/net/batman-adv/send.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #ifndef _NET_BATMAN_ADV_SEND_H_
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index a8f99d1..3686be7 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #include "main.h"
-diff --git a/net/batman-adv/soft-interface.h b/net/batman-adv/soft-interface.h
-index 06fc91f..4ab0167 100644
---- a/net/batman-adv/soft-interface.h
-+++ b/net/batman-adv/soft-interface.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #ifndef _NET_BATMAN_ADV_SOFT_INTERFACE_H_
+-	batadv_gw_deselect(bat_priv);
++	batadv_gw_reselect(bat_priv);
+ 	batadv_info(net_dev,
+ 		    "Changing gateway bandwidth from: '%u.%u/%u.%u MBit' to: '%u.%u/%u.%u MBit'\n",
+ 		    down_curr / 10, down_curr % 10, up_curr / 10, up_curr % 10,
 diff --git a/net/batman-adv/sysfs.c b/net/batman-adv/sysfs.c
-index 6335433..e28f951 100644
+index b652a56..511e011 100644
 --- a/net/batman-adv/sysfs.c
 +++ b/net/batman-adv/sysfs.c
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
+@@ -327,10 +327,10 @@ static ssize_t batadv_show_bat_algo(struct kobject *kobj,
+ 	return sprintf(buff, "%s\n", bat_priv->bat_algo_ops->name);
+ }
  
- #include "main.h"
-diff --git a/net/batman-adv/sysfs.h b/net/batman-adv/sysfs.h
-index c7d725d..ed80b72 100644
---- a/net/batman-adv/sysfs.h
-+++ b/net/batman-adv/sysfs.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
+-static void batadv_post_gw_deselect(struct net_device *net_dev)
++static void batadv_post_gw_reselect(struct net_device *net_dev)
+ {
+ 	struct batadv_priv *bat_priv = netdev_priv(net_dev);
+-	batadv_gw_deselect(bat_priv);
++	batadv_gw_reselect(bat_priv);
+ }
  
- #ifndef _NET_BATMAN_ADV_SYSFS_H_
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 19bc42f..2eaa1e9 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #include "main.h"
-diff --git a/net/batman-adv/translation-table.h b/net/batman-adv/translation-table.h
-index 026b1ff..08d9bbe 100644
---- a/net/batman-adv/translation-table.h
-+++ b/net/batman-adv/translation-table.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #ifndef _NET_BATMAN_ADV_TRANSLATION_TABLE_H_
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 91dd369..e545ac97 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -12,9 +12,7 @@
-  * General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
-  */
- 
- #ifndef _NET_BATMAN_ADV_TYPES_H_
+ static ssize_t batadv_show_gw_mode(struct kobject *kobj, struct attribute *attr,
+@@ -415,7 +415,7 @@ static ssize_t batadv_store_gw_mode(struct kobject *kobj,
+ 	 * client mode re-activation. This is operation is performed in
+ 	 * batadv_gw_check_client_stop().
+ 	 */
+-	batadv_gw_deselect(bat_priv);
++	batadv_gw_reselect(bat_priv);
+ 	/* always call batadv_gw_check_client_stop() before changing the gateway
+ 	 * state
+ 	 */
+@@ -468,7 +468,7 @@ BATADV_ATTR_SIF_UINT(orig_interval, S_IRUGO | S_IWUSR, 2 * BATADV_JITTER,
+ BATADV_ATTR_SIF_UINT(hop_penalty, S_IRUGO | S_IWUSR, 0, BATADV_TQ_MAX_VALUE,
+ 		     NULL);
+ BATADV_ATTR_SIF_UINT(gw_sel_class, S_IRUGO | S_IWUSR, 1, BATADV_TQ_MAX_VALUE,
+-		     batadv_post_gw_deselect);
++		     batadv_post_gw_reselect);
+ static BATADV_ATTR(gw_bandwidth, S_IRUGO | S_IWUSR, batadv_show_gw_bwidth,
+ 		   batadv_store_gw_bwidth);
+ #ifdef CONFIG_BATMAN_ADV_DEBUG
 -- 
 1.8.5.2
