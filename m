@@ -1,115 +1,78 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net 2/2] net: core: explicitly select a
- txq before doing l2 forwarding
-Date: Thu, 09 Jan 2014 16:28:49 +0800
-Message-ID: <52CE5DC1.8070807@redhat.com>
-References: <1388978467-2075-1-git-send-email-jasowang@redhat.com>
-	<1388978467-2075-2-git-send-email-jasowang@redhat.com>
-	<20140106124248.GB24280@hmsreliant.think-freely.org>
-	<52CB77A0.3030106@redhat.com>
-	<20140107131730.GA12366@hmsreliant.think-freely.org>
-	<52CCC431.3060403@redhat.com>
-	<20140108144025.GA17802@neilslaptop.think-freely.org>
+From: Fan Du <fan.du@windriver.com>
+Subject: Re: [PATCH net-next 0/2] Pack struct
+ xfrm_usersa_info and struct xfrm_userpolicy_info
+Date: Thu, 9 Jan 2014 16:34:41 +0800
+Message-ID: <52CE5F21.1070800@windriver.com>
+References: <1389077339-12814-1-git-send-email-fan.du@windriver.com>
+	<20140107074724.GV31491@secunet.com>
+	<52CBB3FC.9050207@windriver.com>
+	<063D6719AE5E284EB5DD2968C1650D6D453AEE@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	John Fastabend <john.r.fastabend@intel.com>, davem@davemloft.net
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20140108144025.GA17802@neilslaptop.think-freely.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"dev@lists.strongswan.org" <dev@lists.strongswan.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <dev-bounces+gnvsd-dev=m.gmane.org@lists.strongswan.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D453AEE@AcuExch.aculab.com>
+List-Unsubscribe: <https://lists.strongswan.org/mailman/listinfo/dev>,
+	<mailto:dev-request@lists.strongswan.org?subject=unsubscribe>
+List-Archive: <http://lists.strongswan.org/pipermail/dev>
+List-Post: <mailto:dev@lists.strongswan.org>
+List-Help: <mailto:dev-request@lists.strongswan.org?subject=help>
+List-Subscribe: <https://lists.strongswan.org/mailman/listinfo/dev>,
+	<mailto:dev-request@lists.strongswan.org?subject=subscribe>
+Sender: dev-bounces+gnvsd-dev=m.gmane.org@lists.strongswan.org
+Errors-To: dev-bounces+gnvsd-dev=m.gmane.org@lists.strongswan.org
 List-Id: netdev.vger.kernel.org
 
-On 01/08/2014 10:40 PM, Neil Horman wrote:
-> On Wed, Jan 08, 2014 at 11:21:21AM +0800, Jason Wang wrote:
->> On 01/07/2014 09:17 PM, Neil Horman wrote:
->>> On Tue, Jan 07, 2014 at 11:42:24AM +0800, Jason Wang wrote:
->>>> On 01/06/2014 08:42 PM, Neil Horman wrote:
->>>>> On Mon, Jan 06, 2014 at 11:21:07AM +0800, Jason Wang wrote:
->>>>>> Currently, the tx queue were selected implicitly in ndo_dfwd_start_xmit(). The
->>>>>> will cause several issues:
->>>>>>
->>>>>> - NETIF_F_LLTX was forced for macvlan device in this case which lead extra lock
->>>>>>   contention.
->>>>>> - dev_hard_start_xmit() was called with NULL txq which bypasses the net device
->>>>>>   watchdog
->>>>>> - dev_hard_start_xmit() does not check txq everywhere which will lead a crash
->>>>>>   when tso is disabled for lower device.
->>>>>>
->>>>>> Fix this by explicitly introducing a select queue method just for l2 forwarding
->>>>>> offload (ndo_dfwd_select_queue), and introducing dfwd_direct_xmit() to do the
->>>>>> queue selecting and transmitting for l2 forwarding.
->>>>>>
->>>>>> With this fixes, NETIF_F_LLTX could be preserved for macvlan and there's no need
->>>>>> to check txq against NULL in dev_hard_start_xmit().
->>>>>>
->>>>>> In the future, it was also required for macvtap l2 forwarding support since it
->>>>>> provides a necessary synchronization method.
->>>>>>
->>>>>> Cc: John Fastabend <john.r.fastabend@intel.com>
->>>>>> Cc: Neil Horman <nhorman@tuxdriver.com>
->>>>>> Cc: e1000-devel@lists.sourceforge.net
->>>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
->>>>> Instead of creating another operation here to do special queue selection, why
->>>>> not just have ndo_dfwd_start_xmit include a pointer to a pointer in its argument
->>>>> list, so it can pass the txq it used back to the caller (dev_hard_start_xmit)?
->>>>> ndo_dfwd_start_xmit already knows which queue set to pick from (since their
->>>>> reserved for the device doing the transmitting).  It seems more clear to me than
->>>>> creating a new netdevice operation.  
->>>> See commit 8ffab51b3dfc54876f145f15b351c41f3f703195 ("macvlan: lockless
->>>> tx path"). The point is keep the tx path lockless to be efficient and
->>>> simplicity for management. And macvtap multiqueue was also implemented
->>>> with this assumption. The real contention should be done in the txq of
->>>> lower device instead of macvlan itself. This is also needed for
->>>> multiqueue macvtap.
->>> Ok, I see how you're preserving LLTX here, and thats great, but it doesn't
->>> really buy us anything that I can see.  If a macvlan is using hardware
->>> acceleration, it needs to arbitrate access to that hardware.  Weather thats done
->>> by locking the lowerdev's tx queue lock or by enforcing locking on the macvlan
->>> itself is equivalent.  The decision to use dfwd hardware acceleration is made on
->>> open, so its not like theres any traffic that can avoid the lock, as it all goes
->>> through the hardware.  All I see that this has bought us is an extra net_device
->>> method (which isn't a big deal, but not necessecary as I see it).
->> As I replied to patch 1/2, looking at the code itself again. The locking
->> on the lowerdev's tx queue is really need since we need synchronize with
->> other control path. Two examples are dev watchdog and ixgbe_down() both
->> of which will try to hold tx lock to synchronize the with transmission.
->> Without holding the lowerdev tx lock, we may have more serious issues.
->> Also, it's a little strange for a net device has two modes. Future
->> developers need to care about two different tx lock paths which is sub
->> optimal.
->>
-> Ok, having looked at this for a few hours, I agree, locking in the lowerdev has
-> some definiate advantages in plugging the holes you've pointed out.
->
->> For the issue of an extra net_device method,  if you don't like we can
->> reuse the ndo_select_queue by also passing the accel_priv to that method.
-> I do, that actually simplifies things, since it lets us use the entire
-> dev_hard_start_xmit path unmodified, which gives us the locking your looking for
-> without having to create a new slimmed down variant of dev_hard_start_xmit.
->
-> Regards
-> Neil
-
-Right, will post V2.
-
-------------------------------------------------------------------------------
-CenturyLink Cloud: The Leader in Enterprise Cloud Services.
-Learn Why More Businesses Are Choosing CenturyLink Cloud For
-Critical Workloads, Development Environments & Everything In Between.
-Get a Quote or Start a Free Trial Today. 
-http://pubads.g.doubleclick.net/gampad/clk?id=119420431&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+CgpPbiAyMDE05bm0MDHmnIgwN+aXpSAxODowMCwgRGF2aWQgTGFpZ2h0IHdyb3RlOgo+PiBGcm9t
+OiBGYW4gRHUKPj4gPiAgU2VudDogMDcgSmFudWFyeSAyMDE0IDA4OjAwCj4+ID4gIE9uIDIwMTQ/
+MDE/MDc/IDE1OjQ3LCBTdGVmZmVuIEtsYXNzZXJ0IHdyb3RlOgo+Pj4gPiAgPiAgT24gVHVlLCBK
+YW4gMDcsIDIwMTQgYXQgMDI6NDg6NTdQTSArMDgwMCwgRmFuIER1IHdyb3RlOgo+Pj4+ID4gID4+
+ICBXaGVuIHRyeWluZyB0byBzZXR1cCBJUHNlYyBjb25maWd1cmF0aW9uIG9uIGEgNjRiaXRzIGhv
+c3Qgd2l0aAo+Pj4+ID4gID4+ICBpcHJvdXRlMigzMmJpdHMgY29tcGlsZWQpLCB0aGUgaW50ZW5l
+ZCB4ZnJtIHBvbGljeSBhbmQgc2EgaXMKPj4+PiA+ICA+PiAgZWl0aGVyIGRlZmljaXQgb3Igd3Jv
+bmcgd2hlbiBrZXJuZWwgdHJ5aW5nIHRvIHBhcnNlIHVzZXIgbGFuZAo+Pj4+ID4gID4+ICBpbmZv
+cm1hdGlvbi4KPj4+PiA+ICA+Pgo+Pj4+ID4gID4+ICBGdXJ0aGVyIGludmVzdGlnYXRpbm8gc2hv
+d3MgdGhhdDoKPj4+PiA+ICA+PiAgTDoga2VybmVsCj4+Pj4gPiAgPj4gIFI6IGlwcm91dGUyCj4+
+Pj4gPiAgPj4KPj4+PiA+ICA+PiAgICAgICAgICAgICAgc2l6ZW9mICAgICAgIHVzZXJwb2xpY3kg
+ICAgICB1c2Vyc2EKPj4+PiA+ICA+PiAgNjRiaXRzKHVucGFja2VkKSAgICAgICAgMTY4LzE2OCAg
+ICAgICAgMjI0LzIyNAo+Pj4+ID4gID4+ICAzMmJpdHModW5wYWNrZWQpICAgICAgICAxNjQvMTY0
+ICAgICAgICAyMjAvMjIwCj4+Pj4gPiAgPj4gICAgICAgICAgICAgICAgICAgICAgICAgICAgIF4g
+ICBeCj4+Pj4gPiAgPj4gICAgICAgICAgICAgICAgICAgICAgICAgICAgIEwgICBSCj4+Pj4gPiAg
+Pj4KPj4+PiA+ICA+PiAgVG8ga2VlcCBrZXJuZWwgYW5kIHVzZXIgbGFuZCBzZWUgYSBjb25zaXN0
+ZW50IHN0cnVjdHVyZSwgYWZ0ZXIKPj4+PiA+ICA+PiAgYWRkIHBhY2tpbmcgYXR0cmlidXRlLCBu
+b3cgaXQgbG9va3MgbGlrZSB0aGlzOgo+Pj4+ID4gID4+Cj4+Pj4gPiAgPj4gIDY0Yml0cyggIHBh
+Y2tlZCkgICAgICAgIDE2NC8xNjQgICAgICAgIDIxNy8yMTcKPj4+PiA+ICA+PiAgMzJiaXRzKCAg
+cGFja2VkKSAgICAgICAgMTY0LzE2NCAgICAgICAgMjE3LzIxNwo+Pj4+ID4gID4+ICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICBeICAgXgo+Pj4+ID4gID4+ICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICBMICAgUgo+Pj4+ID4gID4+Cj4+PiA+ICA+Cj4+PiA+ICA+ICBXZSBkb24ndCBjaGFu
+Z2UgdXNlcnNwYWNlIGV4cG9ydGVkIHN0cnVjdHVyZXMuIFRoaXMgYnJlYWtzCj4+PiA+ICA+ICBl
+eGlzdGluZyB1c2Vyc3BhY2UgdG9vbHMuCj4+PiA+ICA+Cj4+ID4KPj4gPiAgVGhlbiB1c2VyIHdp
+dGggMzJiaXRzIGlwcm91dGUyIG9yIFN0cm9uZ1N3YW4gaGFzIHRvIHJlYnVpbGQgYXMgNjRiaXRz
+Pwo+IFRoZSBrZXJuZWwgaGFzIHN1cHBvcnQgKGluIHZhcmlvdXMgcGxhY2VzKSBmb3IgZGlmZmVy
+ZW50IHN0cnVjdHVyZQo+IGxheW91dHMgZm9yIDMyYml0IGFuZCA2NGJpdCBwcm9jZXNzZXMuCj4g
+TG9va3MgbGlrZSBpdCBuZWVkcyBvbmUgaGVyZSBhcyB3ZWxsIChJJ20gbm90IHZvbHVudGVlcmlu
+ZyB0aG91Z2gpLgo+Cj4gQXQgYSBndWVzcyB0aGUgc3RydWN0dXJlcyBjb250YWluIGEgNjRiaXQg
+ZmllbGQgdGhhdCBpcyBvbiBhbiA4bis0Cj4gYnl0ZSBib3VuZGFyeS4gT24gaTM4NiA2NGJpdCBm
+aWVsZHMgYXJlIG9ubHkgNCBieXRlIGFsaWduZWQsIG9uCj4gYW1kNjQgdGhleSBhcmUgOCBieXRl
+IGFsaWduZWQuCj4KPiBQYWNraW5nIHRoZSBzdHJ1Y3R1cmVzIGlzIGRlZmluaXRlbHkgd3Jvbmcu
+IFNvbWUgMzJiaXQgc3lzdGVtcyAoSUlSQyBzcGFyYykKPiBhbGlnbiA2NGJpdCBpdGVtcyBvbiA4
+IGJ5dGUgYm91bmRhcmllcy4gTm90IHRvIG1lbnRpb24gdGhlIGV4cGVuc2l2ZSBieXRlCj4gYnkg
+Ynl0ZSBhY2Nlc3NlcyB0aGlzIGZvcmNlcyBvbiBzb21lIHN5c3RlbXMuCkkgZG9uJ3Qga25vdyBt
+dWNoIGFib3V0IHNwYXJjLCBpZiBJIHJlYWQgeW91ciBtZXNzYWdlIHJpZ2h0LCB5b3UgbWVhbiAz
+MmJpdCBzcGFyYwpzeXN0ZW0gYWxzbyBoYXMgcGFkZGluZyBldmVuIGlmIHBhY2sgYXR0cmlidXRl
+IGlzIHN1cHBsaWVkLgoKQW5kIGluIHRoaXMgc2NlbmFyaW8sIHRoZSBjb2RlIHBhdGggaGVyZSBp
+cyBvbmx5IGZvciBjb25maWd1cmF0aW9uLCBpLmUuLCBub3QgaG90CnBhdGgsIHNvIHBlcmZvcm1h
+bmNlIGlzc3VlIGlzIG5vdCBzbyBjcnVjaWFsIGhlcmUuCgo+Cj4gVGhlIHN0cnVjdHVyZSBjb3Vs
+ZCBoYXZlIGJlZW4gZGVmaW5lZCB3aXRoIHRoZSA2NGJpdCBmaWVsZCBtYXJrZWQKPiBfX2F0dHJp
+YnV0ZV9fKChhbGlnbmVkKDQpKSkgLSBzbyB1c2luZyB0aGUgc2FtZSBsYXlvdXQgb24gMzJiaXQK
+PiBhbmQgNjQgYml0IHN5c3RlbXMgLCBidXQgaXQgaXMgdG9vIGxhdGUgdG8gZG8gdGhhdCBub3cu
+CgpUaGFua3MgZm9yIHRoaXMgdXNlZnVsIGluZm9ybWF0aW9uLgoKLS0gCua1ruayiemaj+a1quWP
+quiusOS7iuacneeskQoKLS1mYW4KCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fCkRldiBtYWlsaW5nIGxpc3QKRGV2QGxpc3RzLnN0cm9uZ3N3YW4ub3JnCmh0
+dHBzOi8vbGlzdHMuc3Ryb25nc3dhbi5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXY=
