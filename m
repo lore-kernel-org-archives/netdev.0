@@ -1,123 +1,45 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next] hyperv: Add support for physically discontinuous receive buffer
-Date: Thu,  9 Jan 2014 14:24:47 -0800
-Message-ID: <1389306287-20057-1-git-send-email-haiyangz@microsoft.com>
-Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
-	jasowang@redhat.com, linux-kernel@vger.kernel.org,
-	driverdev-devel@linuxdriverproject.org
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net 1/2] macvlan: forbid L2 fowarding offload for
+ macvtap
+Date: Thu, 9 Jan 2014 13:39:08 -0800
+Message-ID: <20140109133908.354a4d73@nehalam.linuxnetplumber.net>
+References: <52CA5CDA.1020503@gmail.com>
+	<52CA612D.2000902@redhat.com>
+	<20140106122628.GA24280@hmsreliant.think-freely.org>
+	<52CB7009.2030903@redhat.com>
+	<52CB8D54.9090506@gmail.com>
+	<52CB9D1A.1050101@redhat.com>
+	<52CBAC2A.90005@intel.com>
+	<52CBC22D.3050002@redhat.com>
+	<20140108125528.GC14741@redhat.com>
+	<52CDA186.1080601@gmail.com>
+	<20140109071721.GD19559@redhat.com>
+	<52CE63EB.5000109@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52CE63EB.5000109@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This will allow us to use bigger receive buffer, and prevent allocation failure
-due to fragmented memory.
+On Thu, 09 Jan 2014 16:55:07 +0800
+Jason Wang <jasowang@redhat.com> wrote:
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/hv/channel.c            |   14 ++++++++------
- drivers/net/hyperv/hyperv_net.h |    2 +-
- drivers/net/hyperv/netvsc.c     |    7 ++-----
- 3 files changed, 11 insertions(+), 12 deletions(-)
+> What if use do want a qdisc and want to change the its queue length for
+> tun/macvlan? And the the name tx_queue_length is misleading. For tun it
+> may make sense since it was used in transmission path. For macvtap it
+> was not. So maybe what we need is just a new ioctl for both tun/macvtap
+> and a new feature flag. If user create the device with new feature flag,
+> the socket receive queue length could be changed by ioctl instead of
+> dev->tx_queue_length. If not, the old behaviour could be kept.
 
-diff --git a/drivers/hv/channel.c b/drivers/hv/channel.c
-index cea623c..69ea36f 100644
---- a/drivers/hv/channel.c
-+++ b/drivers/hv/channel.c
-@@ -209,7 +209,6 @@ static int create_gpadl_header(void *kbuffer, u32 size,
- {
- 	int i;
- 	int pagecount;
--	unsigned long long pfn;
- 	struct vmbus_channel_gpadl_header *gpadl_header;
- 	struct vmbus_channel_gpadl_body *gpadl_body;
- 	struct vmbus_channel_msginfo *msgheader;
-@@ -219,7 +218,6 @@ static int create_gpadl_header(void *kbuffer, u32 size,
- 	int pfnsum, pfncount, pfnleft, pfncurr, pfnsize;
- 
- 	pagecount = size >> PAGE_SHIFT;
--	pfn = virt_to_phys(kbuffer) >> PAGE_SHIFT;
- 
- 	/* do we need a gpadl body msg */
- 	pfnsize = MAX_SIZE_CHANNEL_MESSAGE -
-@@ -248,7 +246,8 @@ static int create_gpadl_header(void *kbuffer, u32 size,
- 		gpadl_header->range[0].byte_offset = 0;
- 		gpadl_header->range[0].byte_count = size;
- 		for (i = 0; i < pfncount; i++)
--			gpadl_header->range[0].pfn_array[i] = pfn+i;
-+			gpadl_header->range[0].pfn_array[i] = slow_virt_to_phys(
-+				kbuffer + PAGE_SIZE * i) >> PAGE_SHIFT;
- 		*msginfo = msgheader;
- 		*messagecount = 1;
- 
-@@ -301,7 +300,9 @@ static int create_gpadl_header(void *kbuffer, u32 size,
- 			 * so the hypervisor gurantees that this is ok.
- 			 */
- 			for (i = 0; i < pfncurr; i++)
--				gpadl_body->pfn[i] = pfn + pfnsum + i;
-+				gpadl_body->pfn[i] = slow_virt_to_phys(
-+					kbuffer + PAGE_SIZE * (pfnsum + i)) >>
-+					PAGE_SHIFT;
- 
- 			/* add to msg header */
- 			list_add_tail(&msgbody->msglistentry,
-@@ -327,7 +328,8 @@ static int create_gpadl_header(void *kbuffer, u32 size,
- 		gpadl_header->range[0].byte_offset = 0;
- 		gpadl_header->range[0].byte_count = size;
- 		for (i = 0; i < pagecount; i++)
--			gpadl_header->range[0].pfn_array[i] = pfn+i;
-+			gpadl_header->range[0].pfn_array[i] = slow_virt_to_phys(
-+				kbuffer + PAGE_SIZE * i) >> PAGE_SHIFT;
- 
- 		*msginfo = msgheader;
- 		*messagecount = 1;
-@@ -344,7 +346,7 @@ nomem:
-  * vmbus_establish_gpadl - Estabish a GPADL for the specified buffer
-  *
-  * @channel: a channel
-- * @kbuffer: from kmalloc
-+ * @kbuffer: from kmalloc or vmalloc
-  * @size: page-size multiple
-  * @gpadl_handle: some funky thing
-  */
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index a26eecb..7b594ce 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -462,7 +462,7 @@ struct nvsp_message {
- 
- #define NETVSC_MTU 65536
- 
--#define NETVSC_RECEIVE_BUFFER_SIZE		(1024*1024*2)	/* 2MB */
-+#define NETVSC_RECEIVE_BUFFER_SIZE		(1024*1024*16)	/* 16MB */
- 
- #define NETVSC_RECEIVE_BUFFER_ID		0xcafe
- 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 93b485b..03a2c6e 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -136,8 +136,7 @@ static int netvsc_destroy_recv_buf(struct netvsc_device *net_device)
- 
- 	if (net_device->recv_buf) {
- 		/* Free up the receive buffer */
--		free_pages((unsigned long)net_device->recv_buf,
--			get_order(net_device->recv_buf_size));
-+		vfree(net_device->recv_buf);
- 		net_device->recv_buf = NULL;
- 	}
- 
-@@ -163,9 +162,7 @@ static int netvsc_init_recv_buf(struct hv_device *device)
- 		return -ENODEV;
- 	ndev = net_device->ndev;
- 
--	net_device->recv_buf =
--		(void *)__get_free_pages(GFP_KERNEL|__GFP_ZERO,
--				get_order(net_device->recv_buf_size));
-+	net_device->recv_buf = vzalloc(net_device->recv_buf_size);
- 	if (!net_device->recv_buf) {
- 		netdev_err(ndev, "unable to allocate receive "
- 			"buffer of size %d\n", net_device->recv_buf_size);
--- 
-1.7.4.1
+The overloading of tx_queue_len in macvtap was the original design mistake.
+Can't this just be undone and expose rx_queue_len as sysfs attribute?
