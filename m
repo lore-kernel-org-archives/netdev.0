@@ -1,148 +1,36 @@
-From: Andrew Vagin <avagin@gmail.com>
-Subject: Re: [PATCH] netfilter: nf_conntrack: fix RCU race in
- nf_conntrack_find_get
-Date: Thu, 9 Jan 2014 09:24:54 +0400
-Message-ID: <20140109052454.GA16743@gmail.com>
-References: <1389090711-15843-1-git-send-email-avagin@openvz.org>
- <1389107305.26646.20.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] cxgb4: silence shift wrapping static checker warning
+Date: Thu, 9 Jan 2014 08:34:00 +0300
+Message-ID: <20140109053400.GF1265@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Andrey Vagin <avagin@openvz.org>, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	vvs@openvz.org, Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cyrill Gorcunov <gorcunov@openvz.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dimitris Michailidis <dm@chelsio.com>,
+	Kumar Sanghvi <kumaras@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:57875 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750702AbaAIF3C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 00:29:02 -0500
+Received: from userp1040.oracle.com ([156.151.31.81]:50684 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751160AbaAIFdy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 00:33:54 -0500
 Content-Disposition: inline
-In-Reply-To: <1389107305.26646.20.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 07, 2014 at 07:08:25AM -0800, Eric Dumazet wrote:
-> On Tue, 2014-01-07 at 14:31 +0400, Andrey Vagin wrote:
-> > Lets look at destroy_conntrack:
-> > 
-> > hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
-> > ...
-> > nf_conntrack_free(ct)
-> > 	kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
-> > 
-> > net->ct.nf_conntrack_cachep is created with SLAB_DESTROY_BY_RCU.
-> > 
-> > The hash is protected by rcu, so readers look up conntracks without
-> > locks.
-> > A conntrack is removed from the hash, but in this moment a few readers
-> > still can use the conntrack. Then this conntrack is released and another
-> > thread creates conntrack with the same address and the equal tuple.
-> > After this a reader starts to validate the conntrack:
-> > * It's not dying, because a new conntrack was created
-> > * nf_ct_tuple_equal() returns true.
-> > 
-> > But this conntrack is not initialized yet, so it can not be used by two
-> > threads concurrently. In this case BUG_ON may be triggered from
-> > nf_nat_setup_info().
-> > 
-> > Florian Westphal suggested to check the confirm bit too. I think it's
-> > right.
-> > 
-> > task 1			task 2			task 3
-> > 			nf_conntrack_find_get
-> > 			 ____nf_conntrack_find
-> > destroy_conntrack
-> >  hlist_nulls_del_rcu
-> >  nf_conntrack_free
-> >  kmem_cache_free
-> > 						__nf_conntrack_alloc
-> > 						 kmem_cache_alloc
-> > 						 memset(&ct->tuplehash[IP_CT_DIR_MAX],
-> > 			 if (nf_ct_is_dying(ct))
-> > 			 if (!nf_ct_tuple_equal()
-> > 
-> > I'm not sure, that I have ever seen this race condition in a real life.
-> > Currently we are investigating a bug, which is reproduced on a few node.
-> > In our case one conntrack is initialized from a few tasks concurrently,
-> > we don't have any other explanation for this.
-> 
-> > 
-> > Cc: Florian Westphal <fw@strlen.de>
-> > Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-> > Cc: Patrick McHardy <kaber@trash.net>
-> > Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-> > Cc: "David S. Miller" <davem@davemloft.net>
-> > Cc: Cyrill Gorcunov <gorcunov@openvz.org>
-> > Signed-off-by: Andrey Vagin <avagin@openvz.org>
-> > ---
-> >  net/netfilter/nf_conntrack_core.c | 6 +++++-
-> >  1 file changed, 5 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-> > index 43549eb..7a34bb2 100644
-> > --- a/net/netfilter/nf_conntrack_core.c
-> > +++ b/net/netfilter/nf_conntrack_core.c
-> > @@ -387,8 +387,12 @@ begin:
-> >  			     !atomic_inc_not_zero(&ct->ct_general.use)))
-> >  			h = NULL;
-> >  		else {
-> > +			/* A conntrack can be recreated with the equal tuple,
-> > +			 * so we need to check that the conntrack is initialized
-> > +			 */
-> >  			if (unlikely(!nf_ct_tuple_equal(tuple, &h->tuple) ||
-> > -				     nf_ct_zone(ct) != zone)) {
-> > +				     nf_ct_zone(ct) != zone) ||
-> > +				     !nf_ct_is_confirmed(ct)) {
-> >  				nf_ct_put(ct);
-> >  				goto begin;
-> >  			}
-> 
-> I do not think this is the right way to fix this problem (if said
-> problem is confirmed)
-> 
-> Remember the rule about SLAB_DESTROY_BY_RCU :
-> 
-> When a struct is freed, then reused, its important to set the its refcnt
-> (from 0 to 1) only when the structure is fully ready for use.
-> 
-> If a lookup finds a structure which is not yet setup, the
-> atomic_inc_not_zero() will fail.
-> 
-> Take a look at sk_clone_lock() and Documentation/RCU/rculist_nulls.txt
-> 
+I don't know how large "tp->vlan_shift" is but static checkers worry
+about shift wrapping bugs here.
 
-I have one more question. Looks like I found another problem.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-init_conntrack:
-        hlist_nulls_add_head_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
-                      &net->ct.unconfirmed);
-
-__nf_conntrack_hash_insert:
-	hlist_nulls_add_head_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
-		   &net->ct.hash[hash]);
-
-We use one hlist_nulls_node to add a conntrack into two different lists.
-As far as I understand, it's unacceptable in case of
-SLAB_DESTROY_BY_RCU.
-
-Lets imagine that we have two threads. The first one enumerates objects
-from a first list, the second one recreates an object and insert it in a
-second list.  If a first thread in this moment stays on the object, it
-can read "next", when it's in the second list, so it will continue
-to enumerate objects from the second list. It is not what we want, isn't
-it?
-
-cpu1				cpu2
-				hlist_nulls_for_each_entry_rcu(ct)
-destroy_conntrack
- kmem_cache_free
-
-init_conntrack
- hlist_nulls_add_head_rcu
-				ct = ct->next
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/l2t.c b/drivers/net/ethernet/chelsio/cxgb4/l2t.c
+index cb05be905def..81e8402a74b4 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/l2t.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/l2t.c
+@@ -423,7 +423,7 @@ u64 cxgb4_select_ntuple(struct net_device *dev,
+ 	 * in the Compressed Filter Tuple.
+ 	 */
+ 	if (tp->vlan_shift >= 0 && l2t->vlan != VLAN_NONE)
+-		ntuple |= (F_FT_VLAN_VLD | l2t->vlan) << tp->vlan_shift;
++		ntuple |= (u64)(F_FT_VLAN_VLD | l2t->vlan) << tp->vlan_shift;
+ 
+ 	if (tp->port_shift >= 0)
+ 		ntuple |= (u64)l2t->lport << tp->port_shift;
