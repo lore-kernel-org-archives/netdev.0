@@ -1,347 +1,66 @@
-From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH net-next v2 1/3] net: add skb_checksum_setup
-Date: Thu, 9 Jan 2014 10:02:46 +0000
-Message-ID: <1389261768-30606-2-git-send-email-paul.durrant@citrix.com>
-References: <1389261768-30606-1-git-send-email-paul.durrant@citrix.com>
+From: RongQing Li <roy.qing.li@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: move IPV6_TCLASS_SHIFT into ipv6.h
+Date: Thu, 9 Jan 2014 18:18:48 +0800
+Message-ID: <CAJFZqHwLap==WKDAwtPeL+oUOtvJ+j7S8VJBUDXV-Q7_21Jx2Q@mail.gmail.com>
+References: <1389173868-14387-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Paul Durrant <paul.durrant@citrix.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	"Nicolas Dichtel" <nicolas.dichtel@6wind.com>
-To: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:42978 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751377AbaAIKCy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jan 2014 05:02:54 -0500
-In-Reply-To: <1389261768-30606-1-git-send-email-paul.durrant@citrix.com>
+Received: from mail-ve0-f173.google.com ([209.85.128.173]:53890 "EHLO
+	mail-ve0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750843AbaAIKSt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 05:18:49 -0500
+Received: by mail-ve0-f173.google.com with SMTP id oz11so2232278veb.32
+        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 02:18:49 -0800 (PST)
+In-Reply-To: <1389173868-14387-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a function to set up the partial checksum offset for IP
-packets (and optionally re-calculate the pseudo-header checksum) into the
-core network code.
-The implementation was previously private and duplicated between xen-netback
-and xen-netfront, however it is not xen-specific and is potentially useful
-to any network driver.
+On Wed, Jan 8, 2014 at 5:37 PM,  <roy.qing.li@gmail.com> wrote:
+> From: Li RongQing <roy.qing.li@gmail.com>
+>
+> Two places defined IPV6_TCLASS_SHIFT, so we should move it into ipv6.h,
+> and use this macro as possible.
+>
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> ---
+>  include/net/ipv6.h       |    1 +
+>  net/ipv6/fib6_rules.c    |    4 +++-
+>  net/ipv6/ip6_gre.c       |    2 --
+>  net/ipv6/ip6_tunnel.c    |    2 --
+>  net/ipv6/ipv6_sockglue.c |    4 +++-
+>  5 files changed, 7 insertions(+), 6 deletions(-)
+>
+> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+> index 12079c6..d819f7a 100644
+> --- a/include/net/ipv6.h
+> +++ b/include/net/ipv6.h
+> @@ -239,6 +239,7 @@ struct ip6_flowlabel {
+>  #define IPV6_FLOWINFO_MASK     cpu_to_be32(0x0FFFFFFF)
+>  #define IPV6_FLOWLABEL_MASK    cpu_to_be32(0x000FFFFF)
+>  #define IPV6_TCLASS_MASK (IPV6_FLOWINFO_MASK & ~IPV6_FLOWLABEL_MASK)
+> +#define IPV6_TCLASS_SHIFT      20
+>
+>  struct ipv6_fl_socklist {
+>         struct ipv6_fl_socklist __rcu   *next;
+> diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+> index 3fd0a57..d50c5ca 100644
+> --- a/net/ipv6/fib6_rules.c
+> +++ b/net/ipv6/fib6_rules.c
+> @@ -150,6 +150,8 @@ static int fib6_rule_match(struct fib_rule *rule, struct flowi *fl, int flags)
+>  {
+>         struct fib6_rule *r = (struct fib6_rule *) rule;
+>         struct flowi6 *fl6 = &fl->u.ip6;
+> +       u8 tclass = (ntohl(fl6->flowlabel) & IPV6_TCLASS_MASK) >>
+> +                   IPV6_TCLASS_SHIFT;
 
-Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-Cc: David Miller <davem@davemloft.net>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- include/linux/skbuff.h |    2 +
- net/core/skbuff.c      |  273 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 275 insertions(+)
+Please drop this patch, it has bug.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index d97f2d0..48b7605 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2893,6 +2893,8 @@ static inline void skb_checksum_none_assert(const struct sk_buff *skb)
- 
- bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off);
- 
-+int skb_checksum_setup(struct sk_buff *skb, bool recalculate);
-+
- u32 __skb_get_poff(const struct sk_buff *skb);
- 
- /**
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 1d641e7..15057d2 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -65,6 +65,7 @@
- #include <net/dst.h>
- #include <net/sock.h>
- #include <net/checksum.h>
-+#include <net/ip6_checksum.h>
- #include <net/xfrm.h>
- 
- #include <asm/uaccess.h>
-@@ -3549,6 +3550,278 @@ bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off)
- }
- EXPORT_SYMBOL_GPL(skb_partial_csum_set);
- 
-+static int skb_maybe_pull_tail(struct sk_buff *skb, unsigned int len,
-+			       unsigned int max)
-+{
-+	if (skb_headlen(skb) >= len)
-+		return 0;
-+
-+	/* If we need to pullup then pullup to the max, so we
-+	 * won't need to do it again.
-+	 */
-+	if (max > skb->len)
-+		max = skb->len;
-+
-+	if (__pskb_pull_tail(skb, max - skb_headlen(skb)) == NULL)
-+		return -ENOMEM;
-+
-+	if (skb_headlen(skb) < len)
-+		return -EPROTO;
-+
-+	return 0;
-+}
-+
-+/* This value should be large enough to cover a tagged ethernet header plus
-+ * maximally sized IP and TCP or UDP headers.
-+ */
-+#define MAX_IP_HDR_LEN 128
-+
-+static int skb_checksum_setup_ip(struct sk_buff *skb, bool recalculate)
-+{
-+	unsigned int off;
-+	bool fragment;
-+	int err;
-+
-+	fragment = false;
-+
-+	err = skb_maybe_pull_tail(skb,
-+				  sizeof(struct iphdr),
-+				  MAX_IP_HDR_LEN);
-+	if (err < 0)
-+		goto out;
-+
-+	if (ip_hdr(skb)->frag_off & htons(IP_OFFSET | IP_MF))
-+		fragment = true;
-+
-+	off = ip_hdrlen(skb);
-+
-+	err = -EPROTO;
-+
-+	if (fragment)
-+		goto out;
-+
-+	switch (ip_hdr(skb)->protocol) {
-+	case IPPROTO_TCP:
-+		err = skb_maybe_pull_tail(skb,
-+					  off + sizeof(struct tcphdr),
-+					  MAX_IP_HDR_LEN);
-+		if (err < 0)
-+			goto out;
-+
-+		if (!skb_partial_csum_set(skb, off,
-+					  offsetof(struct tcphdr, check))) {
-+			err = -EPROTO;
-+			goto out;
-+		}
-+
-+		if (recalculate)
-+			tcp_hdr(skb)->check =
-+				~csum_tcpudp_magic(ip_hdr(skb)->saddr,
-+						   ip_hdr(skb)->daddr,
-+						   skb->len - off,
-+						   IPPROTO_TCP, 0);
-+		break;
-+	case IPPROTO_UDP:
-+		err = skb_maybe_pull_tail(skb,
-+					  off + sizeof(struct udphdr),
-+					  MAX_IP_HDR_LEN);
-+		if (err < 0)
-+			goto out;
-+
-+		if (!skb_partial_csum_set(skb, off,
-+					  offsetof(struct udphdr, check))) {
-+			err = -EPROTO;
-+			goto out;
-+		}
-+
-+		if (recalculate)
-+			udp_hdr(skb)->check =
-+				~csum_tcpudp_magic(ip_hdr(skb)->saddr,
-+						   ip_hdr(skb)->daddr,
-+						   skb->len - off,
-+						   IPPROTO_UDP, 0);
-+		break;
-+	default:
-+		goto out;
-+	}
-+
-+	err = 0;
-+
-+out:
-+	return err;
-+}
-+
-+/* This value should be large enough to cover a tagged ethernet header plus
-+ * an IPv6 header, all options, and a maximal TCP or UDP header.
-+ */
-+#define MAX_IPV6_HDR_LEN 256
-+
-+#define OPT_HDR(type, skb, off) \
-+	(type *)(skb_network_header(skb) + (off))
-+
-+static int skb_checksum_setup_ipv6(struct sk_buff *skb, bool recalculate)
-+{
-+	int err;
-+	u8 nexthdr;
-+	unsigned int off;
-+	unsigned int len;
-+	bool fragment;
-+	bool done;
-+
-+	fragment = false;
-+	done = false;
-+
-+	off = sizeof(struct ipv6hdr);
-+
-+	err = skb_maybe_pull_tail(skb, off, MAX_IPV6_HDR_LEN);
-+	if (err < 0)
-+		goto out;
-+
-+	nexthdr = ipv6_hdr(skb)->nexthdr;
-+
-+	len = sizeof(struct ipv6hdr) + ntohs(ipv6_hdr(skb)->payload_len);
-+	while (off <= len && !done) {
-+		switch (nexthdr) {
-+		case IPPROTO_DSTOPTS:
-+		case IPPROTO_HOPOPTS:
-+		case IPPROTO_ROUTING: {
-+			struct ipv6_opt_hdr *hp;
-+
-+			err = skb_maybe_pull_tail(skb,
-+						  off +
-+						  sizeof(struct ipv6_opt_hdr),
-+						  MAX_IPV6_HDR_LEN);
-+			if (err < 0)
-+				goto out;
-+
-+			hp = OPT_HDR(struct ipv6_opt_hdr, skb, off);
-+			nexthdr = hp->nexthdr;
-+			off += ipv6_optlen(hp);
-+			break;
-+		}
-+		case IPPROTO_AH: {
-+			struct ip_auth_hdr *hp;
-+
-+			err = skb_maybe_pull_tail(skb,
-+						  off +
-+						  sizeof(struct ip_auth_hdr),
-+						  MAX_IPV6_HDR_LEN);
-+			if (err < 0)
-+				goto out;
-+
-+			hp = OPT_HDR(struct ip_auth_hdr, skb, off);
-+			nexthdr = hp->nexthdr;
-+			off += ipv6_authlen(hp);
-+			break;
-+		}
-+		case IPPROTO_FRAGMENT: {
-+			struct frag_hdr *hp;
-+
-+			err = skb_maybe_pull_tail(skb,
-+						  off +
-+						  sizeof(struct frag_hdr),
-+						  MAX_IPV6_HDR_LEN);
-+			if (err < 0)
-+				goto out;
-+
-+			hp = OPT_HDR(struct frag_hdr, skb, off);
-+
-+			if (hp->frag_off & htons(IP6_OFFSET | IP6_MF))
-+				fragment = true;
-+
-+			nexthdr = hp->nexthdr;
-+			off += sizeof(struct frag_hdr);
-+			break;
-+		}
-+		default:
-+			done = true;
-+			break;
-+		}
-+	}
-+
-+	err = -EPROTO;
-+
-+	if (!done || fragment)
-+		goto out;
-+
-+	switch (nexthdr) {
-+	case IPPROTO_TCP:
-+		err = skb_maybe_pull_tail(skb,
-+					  off + sizeof(struct tcphdr),
-+					  MAX_IPV6_HDR_LEN);
-+		if (err < 0)
-+			goto out;
-+
-+		if (!skb_partial_csum_set(skb, off,
-+					  offsetof(struct tcphdr, check))) {
-+			err = -EPROTO;
-+			goto out;
-+		}
-+
-+		if (recalculate)
-+			tcp_hdr(skb)->check =
-+				~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
-+						 &ipv6_hdr(skb)->daddr,
-+						 skb->len - off,
-+						 IPPROTO_TCP, 0);
-+		break;
-+	case IPPROTO_UDP:
-+		err = skb_maybe_pull_tail(skb,
-+					  off + sizeof(struct udphdr),
-+					  MAX_IPV6_HDR_LEN);
-+		if (err < 0)
-+			goto out;
-+
-+		if (!skb_partial_csum_set(skb, off,
-+					  offsetof(struct udphdr, check))) {
-+			err = -EPROTO;
-+			goto out;
-+		}
-+
-+		if (recalculate)
-+			udp_hdr(skb)->check =
-+				~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
-+						 &ipv6_hdr(skb)->daddr,
-+						 skb->len - off,
-+						 IPPROTO_UDP, 0);
-+		break;
-+	default:
-+		goto out;
-+	}
-+
-+	err = 0;
-+
-+out:
-+	return err;
-+}
-+
-+/**
-+ * skb_checksum_setup - set up partial checksum offset
-+ * @skb: the skb to set up
-+ * @recalculate: if true the pseudo-header checksum will be recalculated
-+ */
-+int skb_checksum_setup(struct sk_buff *skb, bool recalculate)
-+{
-+	int err;
-+
-+	switch (skb->protocol) {
-+	case htons(ETH_P_IP):
-+		err = skb_checksum_setup_ip(skb, recalculate);
-+		break;
-+
-+	case htons(ETH_P_IPV6):
-+		err = skb_checksum_setup_ipv6(skb, recalculate);
-+		break;
-+
-+	default:
-+		err = -EPROTO;
-+		break;
-+	}
-+
-+	return err;
-+}
-+EXPORT_SYMBOL(skb_checksum_setup);
-+
- void __skb_warn_lro_forwarding(const struct sk_buff *skb)
- {
- 	net_warn_ratelimited("%s: received packets cannot be forwarded while LRO is enabled\n",
--- 
-1.7.10.4
+The correct should be:
+
+u8 tclass =ntohl(fl6->flowlabe & IPV6_TCLASS_MASK) >> IPV6_TCLASS_SHIFT
+
+Thanks
+
+-Roy
