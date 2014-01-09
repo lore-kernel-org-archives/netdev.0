@@ -1,51 +1,29 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net V2 1/2] macvlan: forbid L2 fowarding offload for macvtap
-Date: Thu,  9 Jan 2014 17:37:31 +0800
-Message-ID: <1389260252-48591-1-git-send-email-jasowang@redhat.com>
-Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net-next v2 0/3] make skb_checksum_setup generally available
+Date: Thu, 9 Jan 2014 10:02:45 +0000
+Message-ID: <1389261768-30606-1-git-send-email-paul.durrant@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:17892 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751321AbaAIKCw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jan 2014 05:02:52 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-L2 fowarding offload will bypass the rx handler of real device. This will make
-the packet could not be forwarded to macvtap device. Another problem is the
-dev_hard_start_xmit() called for macvtap does not have any synchronization.
+Both xen-netfront and xen-netback need to be able to set up the partial
+checksum offset of an skb and may also need to recalculate the pseudo-
+header checksum in the process. This functionality is currently private
+and duplicated between the two drivers.
 
-Fix this by forbidding L2 forwarding for macvtap.
+Patch #1 of this series moves the implementation into the core network code
+as there is nothing xen-specific about it and it is potentially useful to
+any network driver.
+Patch #2 removes the private implementation from netback.
+Patch #3 removes the private implementation from netfront.
 
-Cc: John Fastabend <john.r.fastabend@intel.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/macvlan.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 60406b0..5360f73 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -338,6 +338,8 @@ static const struct header_ops macvlan_hard_header_ops = {
- 	.cache_update	= eth_header_cache_update,
- };
- 
-+static struct rtnl_link_ops macvlan_link_ops;
-+
- static int macvlan_open(struct net_device *dev)
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
-@@ -353,7 +355,8 @@ static int macvlan_open(struct net_device *dev)
- 		goto hash_add;
- 	}
- 
--	if (lowerdev->features & NETIF_F_HW_L2FW_DOFFLOAD) {
-+	if (lowerdev->features & NETIF_F_HW_L2FW_DOFFLOAD &&
-+	    dev->rtnl_link_ops == &macvlan_link_ops) {
- 		vlan->fwd_priv =
- 		      lowerdev->netdev_ops->ndo_dfwd_add_station(lowerdev, dev);
- 
--- 
-1.7.1
+v2:
+- Put skb_checksum_setup in skbuff.c rather than dev.c
+- remove inline
