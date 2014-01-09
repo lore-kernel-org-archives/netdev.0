@@ -1,117 +1,66 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
-Date: Thu,  9 Jan 2014 04:52:09 -0800
-Message-ID: <1389271944-26227-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: davem@davemloft.net
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] neigh: use NEIGH_VAR_INIT in ndo_neigh_setup functions.
+Date: Thu,  9 Jan 2014 14:13:47 +0100
+Message-ID: <1389273227-17532-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, jes@trained-monkey.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:55960 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754835AbaAIMw0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jan 2014 07:52:26 -0500
+Received: from mail-ea0-f178.google.com ([209.85.215.178]:65276 "EHLO
+	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751060AbaAINNz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 08:13:55 -0500
+Received: by mail-ea0-f178.google.com with SMTP id d10so1445477eaj.37
+        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 05:13:54 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e only.
+When ndo_neigh_setup is called, the bitfield used by NEIGH_VAR_SET is
+not initialized yet. This might cause confusion for the people who use
+NEIGH_VAR_SET in ndo_neigh_setup. So rather introduce NEIGH_VAR_INIT for
+usage in ndo_neigh_setup.
 
-Anjali provides a fix where interrupts were not being re-enabled on ICR0
-even though they were auto masked by hardware.  Then provides a fix to
-cleanup RSS initialization because it was doing some extra work, so
-remove the extra work and any bugs it created when managing number of
-queues.  Since hardware requires a full packet template to be pointed to
-when adding hardware flow filters, add the template and use it for
-programming filters.
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ include/net/neighbour.h | 5 +++++
+ net/802/hippi.c         | 4 ++--
+ 2 files changed, 7 insertions(+), 2 deletions(-)
 
-Jesse provides a fix to replace the use of driver specific defines with
-kernel ETH_ALEN defines.  Then disables packet split because with the
-use of GRO, we do not need the extra bus overhead.  Fixes spelling
-error in code comment.
-
-Kamil provides a fix for the driver where the hardware expects the MAC
-address in a very specific format and the driver was filing the data
-incorrectly.
-
-Mitch provides a fix to resolve a panic on reset by adding checks to
-VSI->rx_rings.  Then shortens alloc_rx_buff_failed and
-alloc_rx_page_failed variables since both part of an RX specific
-structure so just remove the _rx part of the name.  Then fixes
-badly formatted lines, long lines and mis-formatted lines.
-
-Shannon provides a fix to call AQ to release any reservation held by this
-PF on the NVM resource lock on startup, in order to clear anything that
-might have been left over from a previous run.  Then removes interrupt on
-AQ error since nearly everything we do is synchronous, using the
-interrupt-on-error bit is unnecessary and causing unneeded interrupts.
-Adds code to handle the ability to send messages among the physical
-function interfaces by the admin queue.
-
-Catherine sets the MFP flag earlier in software init and uses that flag
-to decide if other hardware work-arounds are required which turns
-off flow director in MFP mode.
-
-The following are changes since commit 54b553e2c16001d13e0186cad2531764065f9a1b:
-  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Anjali Singhai Jain (2):
-  i40e: Re-enable interrupt on ICR0
-  i40e: Cleanup reconfig rss path
-
-Catherine Sullivan (1):
-  i40e: Turn flow director off in MFP mode
-
-Greg Rose (2):
-  i40e: Fix GPL header
-  i40e: add a comment on barrier and fix panic on reset
-
-Jesse Brandeburg (4):
-  i40e: use kernel specific defines
-  i40e: disable packet split
-  i40e: fix spelling errors
-  i40e: Add a dummy packet template
-
-Kamil Krawczyk (1):
-  i40e: Fix MAC format in Write MAC address AQ cmd
-
-Mitch Williams (2):
-  i40e: shorten wordy fields
-  i40e: trivial: formatting and checkpatch fixes
-
-Shannon Nelson (3):
-  i40e: release NVM resource reservation on startup
-  i40e: remove interrupt on AQ error
-  i40e: accept pf to pf adminq messages
-
- drivers/net/ethernet/intel/i40e/Makefile           |  7 +--
- drivers/net/ethernet/intel/i40e/i40e.h             |  7 +--
- drivers/net/ethernet/intel/i40e/i40e_adminq.c      | 12 ++--
- drivers/net/ethernet/intel/i40e/i40e_adminq.h      |  7 +--
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |  7 +--
- drivers/net/ethernet/intel/i40e/i40e_alloc.h       |  7 +--
- drivers/net/ethernet/intel/i40e/i40e_common.c      | 14 +++--
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     | 13 ++---
- drivers/net/ethernet/intel/i40e/i40e_diag.c        |  7 +--
- drivers/net/ethernet/intel/i40e/i40e_diag.h        |  7 +--
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 33 ++++++++---
- drivers/net/ethernet/intel/i40e/i40e_hmc.c         |  7 +--
- drivers/net/ethernet/intel/i40e/i40e_hmc.h         |  7 +--
- drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c     |  7 +--
- drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h     |  7 +--
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 68 +++++++++++-----------
- drivers/net/ethernet/intel/i40e/i40e_nvm.c         |  7 +--
- drivers/net/ethernet/intel/i40e/i40e_osdep.h       |  7 +--
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |  7 +--
- drivers/net/ethernet/intel/i40e/i40e_register.h    |  7 +--
- drivers/net/ethernet/intel/i40e/i40e_status.h      |  7 +--
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 44 +++++++-------
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        | 11 ++--
- drivers/net/ethernet/intel/i40e/i40e_type.h        | 15 ++---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl.h    | 11 ++--
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 10 ++--
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  7 +--
- 27 files changed, 176 insertions(+), 174 deletions(-)
-
+diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+index 4c09bd2..7277caf 100644
+--- a/include/net/neighbour.h
++++ b/include/net/neighbour.h
+@@ -92,6 +92,11 @@ static inline void neigh_var_set(struct neigh_parms *p, int index, int val)
+ }
+ 
+ #define NEIGH_VAR(p, attr) ((p)->data[NEIGH_VAR_ ## attr])
++
++/* In ndo_neigh_setup, NEIGH_VAR_INIT should be used.
++ * In other cases, NEIGH_VAR_SET should be used.
++ */
++#define NEIGH_VAR_INIT(p, attr, val) (NEIGH_VAR(p, attr) = val)
+ #define NEIGH_VAR_SET(p, attr, val) neigh_var_set(p, NEIGH_VAR_ ## attr, val)
+ 
+ static inline void neigh_parms_data_state_setall(struct neigh_parms *p)
+diff --git a/net/802/hippi.c b/net/802/hippi.c
+index a97a3bd..5ff2a71 100644
+--- a/net/802/hippi.c
++++ b/net/802/hippi.c
+@@ -172,14 +172,14 @@ EXPORT_SYMBOL(hippi_mac_addr);
+ int hippi_neigh_setup_dev(struct net_device *dev, struct neigh_parms *p)
+ {
+ 	/* Never send broadcast/multicast ARP messages */
+-	NEIGH_VAR_SET(p, MCAST_PROBES, 0);
++	NEIGH_VAR_INIT(p, MCAST_PROBES, 0);
+ 
+ 	/* In IPv6 unicast probes are valid even on NBMA,
+ 	* because they are encapsulated in normal IPv6 protocol.
+ 	* Should be a generic flag.
+ 	*/
+ 	if (p->tbl->family != AF_INET6)
+-		NEIGH_VAR_SET(p, UCAST_PROBES, 0);
++		NEIGH_VAR_INIT(p, UCAST_PROBES, 0);
+ 	return 0;
+ }
+ EXPORT_SYMBOL(hippi_neigh_setup_dev);
 -- 
 1.8.3.1
