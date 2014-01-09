@@ -1,63 +1,101 @@
 From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH v4 0/5] alx: add statistics
-Date: Thu,  9 Jan 2014 10:09:26 +0100
-Message-ID: <1389258571-10083-1-git-send-email-sd@queasysnail.net>
+Subject: [PATCH v4 1/5] alx: add a hardware stats structure
+Date: Thu,  9 Jan 2014 10:09:27 +0100
+Message-ID: <1389258571-10083-2-git-send-email-sd@queasysnail.net>
+References: <1389258571-10083-1-git-send-email-sd@queasysnail.net>
 Cc: bhutchings@solarflare.com, johannes@sipsolutions.net,
 	stephen@networkplumber.org, netdev@vger.kernel.org,
 	Sabrina Dubroca <sd@queasysnail.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpfb1-g21.free.fr ([212.27.42.9]:34130 "EHLO
-	smtpfb1-g21.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754746AbaAIJKj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 04:10:39 -0500
+Received: from smtpfb2-g21.free.fr ([212.27.42.10]:47449 "EHLO
+	smtpfb2-g21.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754772AbaAIJKr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 04:10:47 -0500
 Received: from smtp5-g21.free.fr (smtp5-g21.free.fr [212.27.42.5])
-	by smtpfb1-g21.free.fr (Postfix) with ESMTP id E962077CBCB
-	for <netdev@vger.kernel.org>; Thu,  9 Jan 2014 10:10:31 +0100 (CET)
+	by smtpfb2-g21.free.fr (Postfix) with ESMTP id 94F4FCDBDE0
+	for <netdev@vger.kernel.org>; Thu,  9 Jan 2014 10:10:43 +0100 (CET)
+In-Reply-To: <1389258571-10083-1-git-send-email-sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, the alx driver doesn't support statistics [1,2]. The
-original alx driver [3] that Johannes Berg modified provided
-statistics. This patch is an adaptation of the statistics code from
-the original driver to the alx driver included in the kernel.
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+---
+ drivers/net/ethernet/atheros/alx/hw.h | 62 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 62 insertions(+)
 
-v4:
- - modified the assignements of hw stats to netstats (Ben Hutchings)
- - added comments to describe the stats fields (copied from atlx)
-
-v3:
- - renamed __alx_update_hw_stats to alx_update_hw_stats (Stephen Hemminger)
-
-v2:
- - use u64 instead of unsigned long  (Ben Hutchings)
- - implement ndo_get_stats64 instead of ndo_get_stats (Ben Hutchings)
- - use EINVAL instead of ENOTSUPP  (Ben Hutchings)
- - add BUILD_BUG_ON to check the size of the stats (Johannes Berg, Ben
-   Hutchings)
- - add a comment regarding persistence of the stats (Stephen Hemminger)
- - align assignments in __alx_update_hw_stats
-
-
-[1] https://bugzilla.kernel.org/show_bug.cgi?id=63401
-[2] http://www.spinics.net/lists/netdev/msg245544.html
-[3] https://github.com/mcgrof/alx
-
-
-Sabrina Dubroca (5):
-  alx: add a hardware stats structure
-  alx: add constants for the stats fields
-  alx: add stats update function
-  alx: add alx_get_stats64 operation
-  alx: add stats to ethtool
-
- drivers/net/ethernet/atheros/alx/alx.h     |   3 +
- drivers/net/ethernet/atheros/alx/ethtool.c | 101 +++++++++++++++++++++++++++++
- drivers/net/ethernet/atheros/alx/hw.c      |  58 +++++++++++++++++
- drivers/net/ethernet/atheros/alx/hw.h      |  71 ++++++++++++++++++++
- drivers/net/ethernet/atheros/alx/main.c    |  50 ++++++++++++++
- drivers/net/ethernet/atheros/alx/reg.h     |  52 +++++++++++++--
- 6 files changed, 331 insertions(+), 4 deletions(-)
-
+diff --git a/drivers/net/ethernet/atheros/alx/hw.h b/drivers/net/ethernet/atheros/alx/hw.h
+index 96f3b43..872b362 100644
+--- a/drivers/net/ethernet/atheros/alx/hw.h
++++ b/drivers/net/ethernet/atheros/alx/hw.h
+@@ -381,6 +381,68 @@ struct alx_rrd {
+ 				 ALX_ISR_RX_Q6 | \
+ 				 ALX_ISR_RX_Q7)
+ 
++/* Statistics counters collected by the MAC */
++struct alx_hw_stats {
++	/* rx */
++	u64 rx_ok;		/* good RX packets */
++	u64 rx_bcast;		/* good RX broadcast packets */
++	u64 rx_mcast;		/* good RX multicast packets */
++	u64 rx_pause;		/* RX pause frames */
++	u64 rx_ctrl;		/* RX control packets other than pause frames */
++	u64 rx_fcs_err;		/* RX packets with bad FCS */
++	u64 rx_len_err;		/* RX packets with length != actual size */
++	u64 rx_byte_cnt;	/* good bytes received. FCS is NOT included */
++	u64 rx_runt;		/* RX packets < 64 bytes with good FCS */
++	u64 rx_frag;		/* RX packets < 64 bytes with bad FCS */
++	u64 rx_sz_64B;		/* 64 byte RX packets */
++	u64 rx_sz_127B;		/* 65-127 byte RX packets */
++	u64 rx_sz_255B;		/* 128-255 byte RX packets */
++	u64 rx_sz_511B;		/* 256-511 byte RX packets */
++	u64 rx_sz_1023B;	/* 512-1023 byte RX packets */
++	u64 rx_sz_1518B;	/* 1024-1518 byte RX packets */
++	u64 rx_sz_max;		/* 1519 byte to MTU RX packets */
++	u64 rx_ov_sz;		/* truncated RX packets, size > MTU */
++	u64 rx_ov_rxf;		/* frames dropped due to RX FIFO overflow */
++	u64 rx_ov_rrd;		/* frames dropped due to RRD overflow */
++	u64 rx_align_err;	/* alignment errors */
++	u64 rx_bc_byte_cnt;	/* RX broadcast bytes, excluding FCS */
++	u64 rx_mc_byte_cnt;	/* RX multicast bytes, excluding FCS */
++	u64 rx_err_addr;	/* packets dropped due to address filtering */
++
++	/* tx */
++	u64 tx_ok;		/* good TX packets */
++	u64 tx_bcast;		/* good TX broadcast packets */
++	u64 tx_mcast;		/* good TX multicast packets */
++	u64 tx_pause;		/* TX pause frames */
++	u64 tx_exc_defer;	/* TX packets deferred excessively */
++	u64 tx_ctrl;		/* TX control frames, excluding pause frames */
++	u64 tx_defer;		/* TX packets deferred */
++	u64 tx_byte_cnt;	/* bytes transmitted, FCS is NOT included */
++	u64 tx_sz_64B;		/* 64 byte TX packets */
++	u64 tx_sz_127B;		/* 65-127 byte TX packets */
++	u64 tx_sz_255B;		/* 128-255 byte TX packets */
++	u64 tx_sz_511B;		/* 256-511 byte TX packets */
++	u64 tx_sz_1023B;	/* 512-1023 byte TX packets */
++	u64 tx_sz_1518B;	/* 1024-1518 byte TX packets */
++	u64 tx_sz_max;		/* 1519 byte to MTU TX packets */
++	u64 tx_single_col;	/* packets TX after a single collision */
++	u64 tx_multi_col;	/* packets TX after multiple collisions */
++	u64 tx_late_col;	/* TX packets with late collisions */
++	u64 tx_abort_col;	/* TX packets aborted w/excessive collisions */
++	u64 tx_underrun;	/* TX packets aborted due to TX FIFO underrun
++				 * or TRD FIFO underrun
++				 */
++	u64 tx_trd_eop;		/* reads beyond the EOP into the next frame
++				 * when TRD was not written timely
++				 */
++	u64 tx_len_err;		/* TX packets where length != actual size */
++	u64 tx_trunc;		/* TX packets truncated due to size > MTU */
++	u64 tx_bc_byte_cnt;	/* broadcast bytes transmitted, excluding FCS */
++	u64 tx_mc_byte_cnt;	/* multicast bytes transmitted, excluding FCS */
++	u64 update;
++};
++
++
+ /* maximum interrupt vectors for msix */
+ #define ALX_MAX_MSIX_INTRS	16
+ 
 -- 
 1.8.5.2
