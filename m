@@ -1,59 +1,115 @@
-From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
-Subject: [PATCH 11/13] batman-adv: extend the ap_isolation
-	mechanism
-Date: Thu,  9 Jan 2014 15:53:00 +0100
-Message-ID: <1389279182-3256-12-git-send-email-antonio@meshcoding.com>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: [PATCH 13/13] batman-adv: set the isolation mark in the skb if needed
+Date: Thu,  9 Jan 2014 15:53:02 +0100
+Message-ID: <1389279182-3256-14-git-send-email-antonio@meshcoding.com>
 References: <1389279182-3256-1-git-send-email-antonio@meshcoding.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
- Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>,
- Antonio Quartulli <antonio-2BnEqQcu77q1Z/+hSey0Gg@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1389279182-3256-1-git-send-email-antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Antonio Quartulli <antonio@open-mesh.com>,
+	Marek Lindner <mareklindner@neomailbox.ch>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.neomailbox.net ([178.209.62.157]:43945 "EHLO
+	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752580AbaAIO5D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 09:57:03 -0500
+In-Reply-To: <1389279182-3256-1-git-send-email-antonio@meshcoding.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio-2BnEqQcu77q1Z/+hSey0Gg@public.gmane.org>
+From: Antonio Quartulli <antonio@open-mesh.com>
 
-Change the AP isolation mechanism to not only "isolate" WIFI
-clients but also all those marked with the more generic
-"isolation flag" (BATADV_TT_CLIENT_ISOLA).
+If a broadcast packet is coming from a client marked as
+isolated, then mark the skb using the isolation mark so
+that netfilter (or any other application) can recognise
+them.
 
-The result is that when AP isolation is on any unicast
-packet originated by an "isolated" client and directed to
-another "isolated" client is dropped at the source node.
+The mark is written in the skb based on the mask value:
+only bits set in the mask are substitued by those in the
+mark value
 
-Signed-off-by: Antonio Quartulli <antonio-2BnEqQcu77q1Z/+hSey0Gg@public.gmane.org>
-Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
+Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 ---
- net/batman-adv/translation-table.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ net/batman-adv/soft-interface.c    | 18 ++++++++++++++++--
+ net/batman-adv/translation-table.c | 26 ++++++++++++++++++++++++++
+ net/batman-adv/translation-table.h |  2 ++
+ 3 files changed, 44 insertions(+), 2 deletions(-)
 
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index e126d74..c50f643 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -399,9 +399,23 @@ void batadv_interface_rx(struct net_device *soft_iface,
+ 		batadv_tt_add_temporary_global_entry(bat_priv, orig_node,
+ 						     ethhdr->h_source, vid);
+ 
+-	if (batadv_is_ap_isolated(bat_priv, ethhdr->h_source, ethhdr->h_dest,
+-				  vid))
++	if (is_multicast_ether_addr(ethhdr->h_dest)) {
++		/* set the mark on broadcast packets if AP isolation is ON and
++		 * the packet is coming from an "isolated" client
++		 */
++		if (batadv_vlan_ap_isola_get(bat_priv, vid) &&
++		    batadv_tt_global_is_isolated(bat_priv, ethhdr->h_source,
++						 vid)) {
++			/* save bits in skb->mark not covered by the mask and
++			 * apply the mark on the rest
++			 */
++			skb->mark &= ~bat_priv->isolation_mark_mask;
++			skb->mark |= bat_priv->isolation_mark;
++		}
++	} else if (batadv_is_ap_isolated(bat_priv, ethhdr->h_source,
++					 ethhdr->h_dest, vid)) {
+ 		goto dropped;
++	}
+ 
+ 	netif_rx(skb);
+ 	goto out;
 diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index eeceb13..a874d08 100644
+index 1337b69..63d2570 100644
 --- a/net/batman-adv/translation-table.c
 +++ b/net/batman-adv/translation-table.c
-@@ -1869,6 +1869,11 @@ _batadv_is_ap_isolated(struct batadv_tt_local_entry *tt_local_entry,
- 	    tt_global_entry->common.flags & BATADV_TT_CLIENT_WIFI)
- 		ret = true;
+@@ -3577,3 +3577,29 @@ int batadv_tt_init(struct batadv_priv *bat_priv)
  
-+	/* check if the two clients are marked as isolated */
-+	if (tt_local_entry->common.flags & BATADV_TT_CLIENT_ISOLA &&
-+	    tt_global_entry->common.flags & BATADV_TT_CLIENT_ISOLA)
-+		ret = true;
-+
- 	return ret;
+ 	return 1;
  }
++
++/**
++ * batadv_tt_global_is_isolated - check if a client is marked as isolated
++ * @bat_priv: the bat priv with all the soft interface information
++ * @addr: the mac address of the client
++ * @vid: the identifier of the VLAN where this client is connected
++ *
++ * Returns true if the client is marked with the TT_CLIENT_ISOLA flag, false
++ * otherwise
++ */
++bool batadv_tt_global_is_isolated(struct batadv_priv *bat_priv,
++				  const uint8_t *addr, unsigned short vid)
++{
++	struct batadv_tt_global_entry *tt;
++	bool ret;
++
++	tt = batadv_tt_global_hash_find(bat_priv, addr, vid);
++	if (!tt)
++		return false;
++
++	ret = tt->common.flags & BATADV_TT_CLIENT_ISOLA;
++
++	batadv_tt_global_entry_free_ref(tt);
++
++	return ret;
++}
+diff --git a/net/batman-adv/translation-table.h b/net/batman-adv/translation-table.h
+index 0e7023e..daa8ab7 100644
+--- a/net/batman-adv/translation-table.h
++++ b/net/batman-adv/translation-table.h
+@@ -48,5 +48,7 @@ bool batadv_tt_add_temporary_global_entry(struct batadv_priv *bat_priv,
+ 					  struct batadv_orig_node *orig_node,
+ 					  const unsigned char *addr,
+ 					  unsigned short vid);
++bool batadv_tt_global_is_isolated(struct batadv_priv *bat_priv,
++				  const uint8_t *addr, unsigned short vid);
  
+ #endif /* _NET_BATMAN_ADV_TRANSLATION_TABLE_H_ */
 -- 
 1.8.5.2
