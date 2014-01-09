@@ -1,135 +1,46 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 2/2] include/uapi/linux/xfrm.h: Pack struct
- xfrm_usersa_info
-Date: Thu, 9 Jan 2014 18:58:58 +0000
-Message-ID: <1389293938.2025.17.camel@bwh-desktop.uk.level5networks.com>
-References: <1389077339-12814-1-git-send-email-fan.du@windriver.com>
-		 <1389077339-12814-3-git-send-email-fan.du@windriver.com>
-	 <1389213183.1644.31.camel@bwh-desktop.uk.level5networks.com>
-	 <52CE5CBA.9000200@windriver.com>
+From: Dmitry Kravkov <dmitry@broadcom.com>
+Subject: RE: [PATCH net] bnx2x: fix DMA unmapping of TSO split BDs
+Date: Thu, 9 Jan 2014 19:23:26 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F20E4C2B4@SJEXCHMB06.corp.ad.broadcom.com>
+References: <1389274587-6097-1-git-send-email-mschmidt@redhat.com>
+ <1389289923.31367.39.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <steffen.klassert@secunet.com>, <davem@davemloft.net>,
-	<stephen@networkplumber.org>, <dev@lists.strongswan.org>,
-	<netdev@vger.kernel.org>
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ariel Elior <ariele@broadcom.com>,
+	Yuval Mintz <yuvalmin@broadcom.com>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Michal Schmidt <mschmidt@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:57920 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754979AbaAIS7D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 13:59:03 -0500
-In-Reply-To: <52CE5CBA.9000200@windriver.com>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:15491 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754878AbaAITX1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 14:23:27 -0500
+In-Reply-To: <1389289923.31367.39.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-01-09 at 16:24 +0800, Fan Du wrote:
->=20
-> On 2014=E5=B9=B401=E6=9C=8809=E6=97=A5 04:33, Ben Hutchings wrote:
-> > On Tue, 2014-01-07 at 14:48 +0800, Fan Du wrote:
-> >> Otherwise 64bits kernel has sizeof(struct xfrm_usersa_info) 224 by=
-tes,
-> >> while 32bits compiled iproute2 see the same structure as 220 bytes=
-, which
-> >> leading deficit xfrm sa, in turn broken IPsec connectivity.
-> >>
-> >> Fix this by packing the structure.
-> >>
-> >> Signed-off-by: Fan Du<fan.du@windriver.com>
-> >> ---
-> >>   include/uapi/linux/xfrm.h |    2 +-
-> >>   1 file changed, 1 insertion(+), 1 deletion(-)
-> >>
-> >> diff --git a/include/uapi/linux/xfrm.h b/include/uapi/linux/xfrm.h
-> >> index 470bfae..61460c4 100644
-> >> --- a/include/uapi/linux/xfrm.h
-> >> +++ b/include/uapi/linux/xfrm.h
-> >> @@ -366,7 +366,7 @@ struct xfrm_usersa_info {
-> >>   #define XFRM_STATE_AF_UNSPEC	32
-> >>   #define XFRM_STATE_ALIGN4	64
-> >>   #define XFRM_STATE_ESN		128
-> >> -};
-> >> +} __attribute__((packed));
-> >>
-> >>   #define XFRM_SA_XFLAG_DONT_ENCAP_DSCP	1
-> >>
-> >
-> > That change will make access to the structure very slow on some
-> > architectures, and I suspect it will cause other compatibility prob=
-lems.
-> >
-> > I think the right thing to do is to reduce the minimum length of th=
-e
-> > structure in the netlink policy so that padding at the end is not
-> > required.
->=20
-> Could you please be more specific about this? Thanks.
-[...]
-
-Each netlink message and attribute has a specified minimum size, and
-messages are rejected if the size provided by the sender is too small.
-The minimum size is normally the same as the structure size, but doesn'=
-t
-have to be.
-
-Something like this might work:
-
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -2266,8 +2266,15 @@ static int xfrm_send_migrate(const struct xfrm_s=
-elector *sel, u8 dir, u8 type,
-=20
- #define XMSGSIZE(type) sizeof(struct type)
-=20
-+/* Padding at the end of struct xfrm_usersa_info differs between
-+ * architectures so for 32/64-bit compat we don't require padding
-+ */
-+#define XMSGSIZE_XFRM_USERSA_INFO				\
-+	(offsetof(struct xfrm_usersa_info, flags) +		\
-+	 sizeof(((struct xfrm_usersa_info *)NULL)->flags))
-+
- static const int xfrm_msg_min[XFRM_NR_MSGTYPES] =3D {
--	[XFRM_MSG_NEWSA       - XFRM_MSG_BASE] =3D XMSGSIZE(xfrm_usersa_info)=
-,
-+	[XFRM_MSG_NEWSA       - XFRM_MSG_BASE] =3D XMSGSIZE_XFRM_USERSA_INFO,
- 	[XFRM_MSG_DELSA       - XFRM_MSG_BASE] =3D XMSGSIZE(xfrm_usersa_id),
- 	[XFRM_MSG_GETSA       - XFRM_MSG_BASE] =3D XMSGSIZE(xfrm_usersa_id),
- 	[XFRM_MSG_NEWPOLICY   - XFRM_MSG_BASE] =3D XMSGSIZE(xfrm_userpolicy_i=
-nfo),
-@@ -2277,7 +2284,7 @@ static const int xfrm_msg_min[XFRM_NR_MSGTYPES] =3D=
- {
- 	[XFRM_MSG_ACQUIRE     - XFRM_MSG_BASE] =3D XMSGSIZE(xfrm_user_acquire=
-),
- 	[XFRM_MSG_EXPIRE      - XFRM_MSG_BASE] =3D XMSGSIZE(xfrm_user_expire)=
-,
- 	[XFRM_MSG_UPDPOLICY   - XFRM_MSG_BASE] =3D XMSGSIZE(xfrm_userpolicy_i=
-nfo),
--	[XFRM_MSG_UPDSA       - XFRM_MSG_BASE] =3D XMSGSIZE(xfrm_usersa_info)=
-,
-+	[XFRM_MSG_UPDSA       - XFRM_MSG_BASE] =3D XMSGSIZE_XFRM_USERSA_INFO,
- 	[XFRM_MSG_POLEXPIRE   - XFRM_MSG_BASE] =3D XMSGSIZE(xfrm_user_polexpi=
-re),
- 	[XFRM_MSG_FLUSHSA     - XFRM_MSG_BASE] =3D XMSGSIZE(xfrm_usersa_flush=
-),
- 	[XFRM_MSG_FLUSHPOLICY - XFRM_MSG_BASE] =3D 0,
-@@ -2292,7 +2299,7 @@ static const int xfrm_msg_min[XFRM_NR_MSGTYPES] =3D=
- {
- #undef XMSGSIZE
-=20
- static const struct nla_policy xfrma_policy[XFRMA_MAX+1] =3D {
--	[XFRMA_SA]		=3D { .len =3D sizeof(struct xfrm_usersa_info)},
-+	[XFRMA_SA]		=3D { .len =3D XMSGSIZE_XFRM_USERSA_INFO },
- 	[XFRMA_POLICY]		=3D { .len =3D sizeof(struct xfrm_userpolicy_info)},
- 	[XFRMA_LASTUSED]	=3D { .type =3D NLA_U64},
- 	[XFRMA_ALG_AUTH_TRUNC]	=3D { .len =3D sizeof(struct xfrm_algo_auth)},
----
-
-But beware that if the structure is copied in and then copied back out
-to userland then the padding will need to be explicitly cleared.
-
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBUaHVyc2RheSwgSmFudWFyeSAwOSwg
+MjAxNCA3OjUyIFBNDQo+IFRvOiBNaWNoYWwgU2NobWlkdA0KPiBDYzogbmV0ZGV2QHZnZXIua2Vy
+bmVsLm9yZzsgQXJpZWwgRWxpb3I7IFl1dmFsIE1pbnR6OyBEbWl0cnkgS3JhdmtvdjsgRGF2aWQN
+Cj4gTWlsbGVyDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0XSBibngyeDogZml4IERNQSB1bm1h
+cHBpbmcgb2YgVFNPIHNwbGl0IEJEcw0KPiANCj4gT24gVGh1LCAyMDE0LTAxLTA5IGF0IDE0OjM2
+ICswMTAwLCBNaWNoYWwgU2NobWlkdCB3cm90ZToNCj4gPiBibngyeCB0cmlnZ2VycyB3YXJuaW5n
+cyB3aXRoIENPTkZJR19ETUFfQVBJX0RFQlVHPXk6DQo+ID4NCj4gPiAgIFdBUk5JTkc6IENQVTog
+MCBQSUQ6IDIyNTMgYXQgbGliL2RtYS1kZWJ1Zy5jOjg4Nw0KPiBjaGVja191bm1hcCsweGY4LzB4
+OTIwKCkNCj4gPiAgIGJueDJ4IDAwMDA6Mjg6MDAuMDogRE1BLUFQSTogZGV2aWNlIGRyaXZlciBm
+cmVlcyBETUEgbWVtb3J5IHdpdGgNCj4gPiAgIGRpZmZlcmVudCBzaXplIFtkZXZpY2UgYWRkcmVz
+cz0weDAwMDAwMDAwZGEyYjM4OWVdIFttYXAgc2l6ZT0xNDkwDQo+IGJ5dGVzXQ0KPiA+ICAgW3Vu
+bWFwIHNpemU9NjYgYnl0ZXNdDQo+ID4NCj4gPiBUaGUgcmVhc29uIGlzIHRoYXQgYm54Mnggc3Bs
+aXRzIGEgVFNPIEJEIGludG8gdHdvIEJEcyAoaGVhZGVycyArIGRhdGEpDQo+ID4gdXNpbmcgb25l
+IERNQSBtYXBwaW5nIGZvciBib3RoLCBidXQgaXQgdXNlcyBvbmx5IHRoZSBsZW5ndGggb2YgdGhl
+DQo+ID4gZmlyc3QgQkQgd2hlbiB1bm1hcHBpbmcuDQo+ID4NCj4gPiBUaGlzIHBhdGNoIGZpeGVz
+IHRoZSBidWcgYnkgdW5tYXBwaW5nIHRoZSB3aG9sZSBsZW5ndGggb2YgdGhlIHR3byBCRHMuDQo+
+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBNaWNoYWwgU2NobWlkdCA8bXNjaG1pZHRAcmVkaGF0LmNv
+bT4NCj4gPiAtLS0NCj4gDQo+IFJldmlld2VkLWJ5OiBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdv
+b2dsZS5jb20+DQo+IA0KDQpUaGFua3MgeW91LCBHdXlzLg0KDQpBY2tlZC1ieTogRG1pdHJ5IEty
+YXZrb3YgPGRtaXRyeUBicm9hZGNvbS5jb20+DQoNCg==
