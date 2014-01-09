@@ -1,245 +1,153 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net 1/2] macvlan: forbid L2 fowarding offload for macvtap
-Date: Thu, 09 Jan 2014 16:55:07 +0800
-Message-ID: <52CE63EB.5000109@redhat.com>
-References: <52CA5CDA.1020503@gmail.com> <52CA612D.2000902@redhat.com> <20140106122628.GA24280@hmsreliant.think-freely.org> <52CB7009.2030903@redhat.com> <52CB8D54.9090506@gmail.com> <52CB9D1A.1050101@redhat.com> <52CBAC2A.90005@intel.com> <52CBC22D.3050002@redhat.com> <20140108125528.GC14741@redhat.com> <52CDA186.1080601@gmail.com> <20140109071721.GD19559@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-	John Fastabend <john.fastabend@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140109071721.GD19559@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: hannes@stressinduktion.org
+Subject: [PATCH net-next v4 0/3] path mtu hardening patches
+Date: Thu,  9 Jan 2014 10:01:14 +0100
+Message-ID: <1389258077-23282-1-git-send-email-hannes@stressinduktion.org>
+Cc: eric.dumazet@gmail.com, davem@davemloft.net,
+	johnwheffner@gmail.com, steffen.klassert@secunet.com,
+	fweimer@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:50538 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753033AbaAIJB3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 04:01:29 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/09/2014 03:17 PM, Michael S. Tsirkin wrote:
-> On Wed, Jan 08, 2014 at 11:05:42AM -0800, John Fastabend wrote:
->> [...]
->>
->>>>> OK I think I'm finally putting all the pieces together thanks.
->>>>>
->>>>> Do you know why macvtap is setting dev->tx_queue_len by default? If you
->>>>> zero this then the noqueue_qdisc is used and the q->enqueue check in
->>>>> dev_queue_xmit will fail.
->>>> It was introduced in commit 8a35747a5d13b99e076b0222729e0caa48cb69b6
->>>> ("macvtap: Limit packet queue length") to limit the length of socket
->>>> receive queue of macvtap. But I'm not sure whether the qdisc is a
->>>> byproduct of this commit, maybe we can switch to use another name
->>>> instead of just reuse dev->tx_queue_length.
->>> You mean tx_queue_len really, right?
->>>
->>> Problem is tx_queue_len can be accessed using netlink sysfs or ioctl,
->>> so if someone uses these to control or check the # of packets that
->>> can be queued by device, this will break.
->>>
->>> How about adding ndo_set_tx_queue_len then?
->>>
->>> At some point we wanted to decouple queue length from tx_queue_length
->>> for tun as well, so that would be benefitial there as well.
->> On the receive side we need to limit the receive queue and the
->> dev->tx_queue_len value was used to do this.
->>
->> However on the tx side when dev->tx_queue_len is set the default
->> qdisc pfifo_fast or mq is used depending on if there is multiqueue
->> or not. Unless the user specifies some numtxqueues when creating
->> the macvtap device then it will be a single queue device and use
->> the pfifo_fast qdisc.
->>
->> This is the default behaviour users could zero txqueuelen when
->> they create the device because it is a stacked device with
->> NETIF_F_LLTX using the lower devices qdisc makes sense but this
->> would appear (from code inspection) to break macvtap_forward()?
->>
->>         if (skb_queue_len(&q->sk.sk_receive_queue) >= dev->tx_queue_len)
->>                 goto drop;
->>
->> I'm not sure any of this is a problem other than its a bit
->> confusing to overload tx_queue_len for the rx_queue_len but the
->> precedent has been there for sometime.
-> So how about ndo ops to access tx_queue_len then?
-> This way we can set tx_queue_len to 0 and use some
-> other field to store the rx_queue_len without users noticing.
-> Along the lines of the below (it's a partial patch just
-> to give you the idea):
->
-> diff --git a/net/core/dev_ioctl.c b/net/core/dev_ioctl.c
-> index 5b7d0e1..e526b46 100644
-> --- a/net/core/dev_ioctl.c
-> +++ b/net/core/dev_ioctl.c
-> @@ -167,7 +167,10 @@ static int dev_ifsioc_locked(struct net *net, struct ifreq *ifr, unsigned int cm
->  		return 0;
->  
->  	case SIOCGIFTXQLEN:
-> -		ifr->ifr_qlen = dev->tx_queue_len;
-> +		if (dev->netdev_ops->ndo_get_tx_queue_len)
-> +			ifr->ifr_qlen = dev->netdev_ops->ndo_get_tx_queue_len(dev);
-> +		else
-> +			ifr->ifr_qlen = dev->tx_queue_len;
->  		return 0;
->  
->  	default:
-> @@ -296,7 +299,10 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
->  	case SIOCSIFTXQLEN:
->  		if (ifr->ifr_qlen < 0)
->  			return -EINVAL;
-> -		dev->tx_queue_len = ifr->ifr_qlen;
-> +		if (dev->netdev_ops->ndo_set_tx_queue_len)
-> +			dev->netdev_ops->ndo_set_tx_queue_len(dev, ifr->ifr_qlen);
-> +		else
-> +			dev->tx_queue_len = ifr->ifr_qlen;
->  		return 0;
->  
->  	case SIOCSIFNAME:
-> diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-> index d954b56..f2fd9d5 100644
-> --- a/net/core/net-sysfs.c
-> +++ b/net/core/net-sysfs.c
-> @@ -280,10 +280,31 @@ NETDEVICE_SHOW_RW(flags, fmt_hex);
->  
->  static int change_tx_queue_len(struct net_device *net, unsigned long new_len)
->  {
-> -	net->tx_queue_len = new_len;
-> +	if (dev->netdev_ops->ndo_set_tx_queue_len)
-> +		dev->netdev_ops->ndo_set_tx_queue_len(dev, new_len);
-> +	else
-> +		dev->tx_queue_len = new_len;
->  	return 0;
->  }
->  
-> +static ssize_t format_tx_queue_len(const struct net_device *net, char *buf)
-> +{
-> +	unsigned long tx_queue_len;
-> +
-> +	if (dev->netdev_ops->ndo_get_tx_queue_len)
-> +		tx_queue_len = dev->netdev_ops->ndo_get_tx_queue_len(dev);
-> +	else
-> +		tx_queue_len = dev->tx_queue_len;
-> +
-> +	return sprintf(buf, fmt_ulong, tx_queue_len);
-> +}
-> +
-> +static ssize_t tx_queue_len_show(struct device *dev,
-> +				 struct device_attribute *attr, char *buf)
-> +{
-> +	return netdev_show(dev, attr, buf, format_tx_queue_len);
-> +}
-> +
->  static ssize_t tx_queue_len_store(struct device *dev,
->  				  struct device_attribute *attr,
->  				  const char *buf, size_t len)
-> @@ -293,7 +314,7 @@ static ssize_t tx_queue_len_store(struct device *dev,
->  
->  	return netdev_store(dev, attr, buf, len, change_tx_queue_len);
->  }
-> -NETDEVICE_SHOW_RW(tx_queue_len, fmt_ulong);
-> +DEVICE_ATTR_RW(tx_queue_len);
->  
->  static ssize_t ifalias_store(struct device *dev, struct device_attribute *attr,
->  			     const char *buf, size_t len)
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index 2a0e21d..9276e17 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -876,6 +876,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
->  	struct nlattr *attr, *af_spec;
->  	struct rtnl_af_ops *af_ops;
->  	struct net_device *upper_dev = netdev_master_upper_dev_get(dev);
-> +	unsigned long tx_queue_len;
->  
->  	ASSERT_RTNL();
->  	nlh = nlmsg_put(skb, pid, seq, type, sizeof(*ifm), flags);
-> @@ -890,8 +891,13 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
->  	ifm->ifi_flags = dev_get_flags(dev);
->  	ifm->ifi_change = change;
->  
-> +	if (dev->netdev_ops->ndo_get_tx_queue_len)
-> +		tx_queue_len = dev->netdev_ops->ndo_get_tx_queue_len(dev);
-> +	else
-> +		tx_queue_len = dev->tx_queue_len;
-> +
->  	if (nla_put_string(skb, IFLA_IFNAME, dev->name) ||
-> -	    nla_put_u32(skb, IFLA_TXQLEN, dev->tx_queue_len) ||
-> +	    nla_put_u32(skb, IFLA_TXQLEN, tx_queue_len) ||
->  	    nla_put_u8(skb, IFLA_OPERSTATE,
->  		       netif_running(dev) ? dev->operstate : IF_OPER_DOWN) ||
->  	    nla_put_u8(skb, IFLA_LINKMODE, dev->link_mode) ||
-> @@ -1453,8 +1459,14 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
->  		modified = 1;
->  	}
->  
-> -	if (tb[IFLA_TXQLEN])
-> -		dev->tx_queue_len = nla_get_u32(tb[IFLA_TXQLEN]);
-> +	if (tb[IFLA_TXQLEN]) {
-> +		u32 new_len = nla_get_u32(tb[IFLA_TXQLEN]);
-> +
-> +		if (dev->netdev_ops->ndo_set_tx_queue_len)
-> +			dev->netdev_ops->ndo_set_tx_queue_len(dev, new_len);
-> +		else
-> +			dev->tx_queue_len = new_len;
-> +	}
->  
->  	if (tb[IFLA_OPERSTATE])
->  		set_operstate(dev, nla_get_u8(tb[IFLA_OPERSTATE]));
-> @@ -1692,8 +1704,14 @@ struct net_device *rtnl_create_link(struct net *net,
->  	if (tb[IFLA_BROADCAST])
->  		memcpy(dev->broadcast, nla_data(tb[IFLA_BROADCAST]),
->  				nla_len(tb[IFLA_BROADCAST]));
-> -	if (tb[IFLA_TXQLEN])
-> -		dev->tx_queue_len = nla_get_u32(tb[IFLA_TXQLEN]);
-> +	if (tb[IFLA_TXQLEN]) {
-> +		u32 new_len = nla_get_u32(tb[IFLA_TXQLEN]);
-> +
-> +		if (dev->netdev_ops->ndo_set_tx_queue_len)
-> +			dev->netdev_ops->ndo_set_tx_queue_len(dev, new_len);
-> +		else
-> +			dev->tx_queue_len = new_len;
-> +	}
->  	if (tb[IFLA_OPERSTATE])
->  		set_operstate(dev, nla_get_u8(tb[IFLA_OPERSTATE]));
->  	if (tb[IFLA_LINKMODE])
->
-> Anyone objects?
+Hi all!
 
-What if use do want a qdisc and want to change the its queue length for
-tun/macvlan? And the the name tx_queue_length is misleading. For tun it
-may make sense since it was used in transmission path. For macvtap it
-was not. So maybe what we need is just a new ioctl for both tun/macvtap
-and a new feature flag. If user create the device with new feature flag,
-the socket receive queue length could be changed by ioctl instead of
-dev->tx_queue_length. If not, the old behaviour could be kept.
->> It is a change in behaviour
->> though in net-next. Previously dev_queue_xmit() was not used so
->> the qdisc layer was never hit on the macvtap device. Now with
->> dev_queue_xmit() if the user attaches multiple macvlan queues to a
->> single qdisc queue this should still work but wont be optimal. Ideally
->> the user should create as many qdisc queues at creation time via
->> numtxqueues as macvtap queues will be used during runtime so that there
->> is a 1:1 mapping or use some heuristic to avoid cases where there
->> is a many to 1 mapping.
->>
->> From my perspective it would be OK to push this configuration/policy
->> to the management layer. After all it is the entity that knows how
->> to distribute system resources amongst the objects running over the
->> macvtap devices. The relevance for me is I defaulted the l2 offloaded
->> macvlans to single queue devices and wanted to note in net-next this
->> is the same policy used in the non-offloaded case.
->>
->> Bit long-winded there.
->>
->> Thanks,
->> John
-> I think it's a real problem you are pointing out - a performance
-> regression for multiqueue devices.
-> If we really think no qdisc is typically the right thing to do, 
-> we should just make it the default I think, but I agree
-> just making tx_queue_len 0 doesn't work without other changes.
->
-> What do others think about extra ndo ops so devices can decouple
-> the internal tx_queue_len from the userspace-visible value?
->
->
+After a lot of back and forth I want to propose these changes regarding
+path mtu hardening and give an outline why I think this is the best way
+how to proceed:
+
+This set contains the following patches:
+* ipv4: introduce ip_dst_mtu_maybe_forward and protect forwarding path against pmtu spoofing
+* ipv6: introduce ip6_dst_mtu_forward and protect forwarding path with it
+* ipv4: introduce hardened ip_no_pmtu_disc mode
+
+The first one switches the forwarding path of IPv4 to use the interface
+mtu by default and ignore a possible discovered path mtu. It provides
+a sysctl to switch back to the original behavior (see discussion below).
+
+The second patch does the same thing unconditionally for IPv6. I don't
+provide a knob for IPv6 to switch to original behavior (please see
+below).
+
+The third patch introduces a hardened pmtu mode, where only pmtu
+information are accepted where the protocol is able to do more stringent
+checks on the icmp piggyback payload (please see the patch commit msg
+for further details).
+
+Why is this change necessary?
+
+First of all, RFC 1191 4. Router specification says:
+"When a router is unable to forward a datagram because it exceeds the
+ MTU of the next-hop network and its Don't Fragment bit is set, the
+ router is required to return an ICMP Destination Unreachable message
+ to the source of the datagram, with the Code indicating
+ "fragmentation needed and DF set". ..."
+
+For some time now fragmentation has been considered problematic, e.g.:
+* http://www.hpl.hp.com/techreports/Compaq-DEC/WRL-87-3.pdf
+* http://tools.ietf.org/search/rfc4963
+
+Most of them seem to agree that fragmentation should be avoided because
+of efficiency, data corruption or security concerns.
+
+Recently it was shown possible that correctly guessing IP ids could lead
+to data injection on DNS packets:
+<https://sites.google.com/site/hayashulman/files/fragmentation-poisoning.pdf>
+
+While we can try to completly stop fragmentation on the end host
+(this is e.g. implemented via IP_PMTUDISC_INTERFACE), we cannot stop
+fragmentation completly on the forwarding path. On the end host the
+application has to deal with MTUs and has to choose fallback methods
+if fragmentation could be an attack vector. This is already the case for
+most DNS software, where a maximum UDP packet size can be configured. But
+until recently they had no control over local fragmentation and could
+thus emit fragmented packets.
+
+On the forwarding path we can just try to delay the fragmentation to
+the last hop where this is really necessary. Current kernel already does
+that but only because routers don't receive feedback of path mtus, these are
+only send back to the end host system. But it is possible to maliciously
+insert path mtu inforamtion via ICMP packets which have an icmp echo_reply
+payload, because we cannot validate those notifications against local
+sockets. DHCP clients which establish an any-bound RAW-socket could also
+start processing unwanted fragmentation-needed packets.
+
+Why does IPv4 has a knob to revert to old behavior while IPv6 doesn't?
+
+IPv4 does fragmentation on the path while IPv6 does always respond with
+packet-too-big errors. The interface MTU will always be greater than
+the path MTU information. So we would discard packets we could actually
+forward because of malicious information. After this change we would
+let the hop, which really could not forward the packet, notify the host
+of this problem.
+
+IPv4 allowes fragmentation mid-path. In case someone does use a software
+which tries to discover such paths and assumes that the kernel is handling
+the discovered pmtu information automatically. This should be an extremly
+rare case, but because I could not exclude the possibility this knob is
+provided. Also this software could insert non-locked mtu information
+into the kernel. We cannot distinguish that from path mtu information
+currently. Premature fragmentation could solve some problems in wrongly
+configured networks, thus this switch is provided.
+
+One frag-needed packet could reduce the path mtu down to 522 bytes
+(route/min_pmtu).
+
+Misc:
+
+IPv6 neighbor discovery could advertise mtu information for an
+interface. These information update the ipv6-specific interface mtu and
+thus get used by the forwarding path.
+
+Tunnel and xfrm output path will still honour path mtu and also respond
+with Packet-too-Big or fragmentation-needed errors if needed.
+
+Changelog for all patches:
+# ipv4: introduce ip_dst_mtu_maybe_forward and protect forwarding path against pmtu spoofing
+v2)
+* enabled ip_forward_use_pmtu by default
+* reworded
+v3)
+* disabled ip_forward_use_pmtu by default
+* reworded
+v4)
+* renamed ip_dst_mtu_secure to ip_dst_mtu_maybe_forward
+* updated changelog accordingly
+* removed unneeded !!(... & ...) double negations
+
+# ipv6: introduce ip6_dst_mtu_forward and protect forwarding path with it
+v2)
+* by default we honour pmtu information
+3)
+* only honor interface mtu
+* rewritten and simplified
+* no knob to fall back to old mode any more
+
+# ipv4: introduce hardened ip_no_pmtu_disc mode
+v2)
+* reworded Documentation
+
+Diffstat:
+ Documentation/networking/ip-sysctl.txt | 26 +++++++++++++++++++++++++-
+ include/net/ip.h                       | 33 +++++++++++++++++++++++++++++++++
+ include/net/netns/ipv4.h               |  1 +
+ include/net/protocol.h                 |  7 ++++++-
+ include/net/route.h                    | 19 +++----------------
+ net/dccp/ipv4.c                        |  1 +
+ net/ipv4/af_inet.c                     |  1 +
+ net/ipv4/icmp.c                        | 28 ++++++++++++++++++++++++----
+ net/ipv4/ip_forward.c                  |  7 +++++--
+ net/ipv4/ip_output.c                   |  8 +++++---
+ net/ipv4/route.c                       |  3 ---
+ net/ipv4/sysctl_net_ipv4.c             |  7 +++++++
+ net/ipv6/ip6_output.c                  | 23 ++++++++++++++++++++++-
+ net/sctp/protocol.c                    |  1 +
+ 14 files changed, 134 insertions(+), 31 deletions(-)
+
+Thanks,
+
+  Hannes
