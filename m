@@ -1,44 +1,63 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 0/2] Pack struct xfrm_usersa_info and struct
- xfrm_userpolicy_info
-Date: Thu, 9 Jan 2014 09:07:39 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D455E6C@AcuExch.aculab.com>
-References: <1389077339-12814-1-git-send-email-fan.du@windriver.com>
- <20140107074724.GV31491@secunet.com> <52CBB3FC.9050207@windriver.com>
- <063D6719AE5E284EB5DD2968C1650D6D453AEE@AcuExch.aculab.com>
- <52CE5F21.1070800@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"dev@lists.strongswan.org" <dev@lists.strongswan.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Fan Du' <fan.du@windriver.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH v4 0/5] alx: add statistics
+Date: Thu,  9 Jan 2014 10:09:26 +0100
+Message-ID: <1389258571-10083-1-git-send-email-sd@queasysnail.net>
+Cc: bhutchings@solarflare.com, johannes@sipsolutions.net,
+	stephen@networkplumber.org, netdev@vger.kernel.org,
+	Sabrina Dubroca <sd@queasysnail.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:45405 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752129AbaAIJJ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jan 2014 04:09:27 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 29851-07 for <netdev@vger.kernel.org>;
- Thu,  9 Jan 2014 09:09:23 +0000 (GMT)
-In-Reply-To: <52CE5F21.1070800@windriver.com>
-Content-Language: en-US
+Received: from smtpfb1-g21.free.fr ([212.27.42.9]:34130 "EHLO
+	smtpfb1-g21.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754746AbaAIJKj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 04:10:39 -0500
+Received: from smtp5-g21.free.fr (smtp5-g21.free.fr [212.27.42.5])
+	by smtpfb1-g21.free.fr (Postfix) with ESMTP id E962077CBCB
+	for <netdev@vger.kernel.org>; Thu,  9 Jan 2014 10:10:31 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBGYW4gRHUgDQo+ID4gUGFja2luZyB0aGUgc3RydWN0dXJlcyBpcyBkZWZpbml0ZWx5
-IHdyb25nLiBTb21lIDMyYml0IHN5c3RlbXMgKElJUkMgc3BhcmMpDQo+ID4gYWxpZ24gNjRiaXQg
-aXRlbXMgb24gOCBieXRlIGJvdW5kYXJpZXMuIE5vdCB0byBtZW50aW9uIHRoZSBleHBlbnNpdmUg
-Ynl0ZQ0KPiA+IGJ5IGJ5dGUgYWNjZXNzZXMgdGhpcyBmb3JjZXMgb24gc29tZSBzeXN0ZW1zLg0K
-Pg0KPiBJIGRvbid0IGtub3cgbXVjaCBhYm91dCBzcGFyYywgaWYgSSByZWFkIHlvdXIgbWVzc2Fn
-ZSByaWdodCwgeW91IG1lYW4gMzJiaXQgc3BhcmMNCj4gc3lzdGVtIGFsc28gaGFzIHBhZGRpbmcg
-ZXZlbiBpZiBwYWNrIGF0dHJpYnV0ZSBpcyBzdXBwbGllZC4NCg0KV2l0aG91dCBwYWNraW5nOg0K
-T24gMzJiaXQgeDg2IDY0Yml0IGludGVnZXJzIGFyZSBhbGlnbmVkIG9uIDRieXRlIGJvdW5kYXJp
-ZXMuDQpPbiAzMmJpdCBzcGFyYyA2NGJpdCBpbnRlZ2VycyBhcmUgYWxpZ25lZCBvbiA4Ynl0ZSBi
-b3VuZGFyaWVzLg0KDQpJZiB0aGUgc3RydWN0dXJlIGlzIHBhY2tlZCB0aGVuLCBmb3Igc3BhcmMg
-KGV0YyksIHRoZSBjb21waWxlciBoYXMNCnRvIGdlbmVyYXRlIGNvZGUgdG8gcmVhZCBldmVyeXRo
-aW5nIHVzaW5nIGJ5dGUgYWNjZXNzZXMuDQoNCglEYXZpZA0KDQo=
+Currently, the alx driver doesn't support statistics [1,2]. The
+original alx driver [3] that Johannes Berg modified provided
+statistics. This patch is an adaptation of the statistics code from
+the original driver to the alx driver included in the kernel.
+
+v4:
+ - modified the assignements of hw stats to netstats (Ben Hutchings)
+ - added comments to describe the stats fields (copied from atlx)
+
+v3:
+ - renamed __alx_update_hw_stats to alx_update_hw_stats (Stephen Hemminger)
+
+v2:
+ - use u64 instead of unsigned long  (Ben Hutchings)
+ - implement ndo_get_stats64 instead of ndo_get_stats (Ben Hutchings)
+ - use EINVAL instead of ENOTSUPP  (Ben Hutchings)
+ - add BUILD_BUG_ON to check the size of the stats (Johannes Berg, Ben
+   Hutchings)
+ - add a comment regarding persistence of the stats (Stephen Hemminger)
+ - align assignments in __alx_update_hw_stats
+
+
+[1] https://bugzilla.kernel.org/show_bug.cgi?id=63401
+[2] http://www.spinics.net/lists/netdev/msg245544.html
+[3] https://github.com/mcgrof/alx
+
+
+Sabrina Dubroca (5):
+  alx: add a hardware stats structure
+  alx: add constants for the stats fields
+  alx: add stats update function
+  alx: add alx_get_stats64 operation
+  alx: add stats to ethtool
+
+ drivers/net/ethernet/atheros/alx/alx.h     |   3 +
+ drivers/net/ethernet/atheros/alx/ethtool.c | 101 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/atheros/alx/hw.c      |  58 +++++++++++++++++
+ drivers/net/ethernet/atheros/alx/hw.h      |  71 ++++++++++++++++++++
+ drivers/net/ethernet/atheros/alx/main.c    |  50 ++++++++++++++
+ drivers/net/ethernet/atheros/alx/reg.h     |  52 +++++++++++++--
+ 6 files changed, 331 insertions(+), 4 deletions(-)
+
+-- 
+1.8.5.2
