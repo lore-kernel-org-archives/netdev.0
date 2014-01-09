@@ -1,111 +1,81 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH iproute2] vxlan: add missing dst port setup option
-Date: Thu,  9 Jan 2014 12:56:26 +0100
-Message-ID: <1389268586-3205-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org
-To: stephen@networkplumber.org
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH v2 net-next 2/3] bonding: fix __get_first_agg RCU usage
+Date: Thu, 9 Jan 2014 19:58:17 +0800
+Message-ID: <52CE8ED9.60609@huawei.com>
+References: <1389266425-28365-1-git-send-email-vfalico@redhat.com> <1389266425-28365-3-git-send-email-vfalico@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@redhat.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24642 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750806AbaAIL4e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jan 2014 06:56:34 -0500
+Received: from szxga01-in.huawei.com ([119.145.14.64]:17051 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750990AbaAIL6n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 06:58:43 -0500
+In-Reply-To: <1389266425-28365-3-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kernel commit 823aa873bc ("vxlan: allow choosing destination port
-per vxlan") and 553675fb5e ("vxlan: listen on multiple ports")
-make it "now possible to define the same virtual network id but
-with different UDP port values which can be useful for migration."
+On 2014/1/9 19:20, Veaceslav Falico wrote:
+> Currently, the RCU read lock usage is just wrong - it gets the slave struct
+> under RCU and continues to use it when RCU lock is released.
+> 
+> However, it's still safe to do this cause we didn't need the
+> rcu_read_lock() initially - all of the __get_first_agg() callers are either
+> holding RCU read lock or the RTNL lock, so that we can't sync while in it.
+> 
+> So, remove the useless rcu locking and add a comment.
+> 
+> Fixes: be79bd048 ("bonding: add RCU for bond_3ad_state_machine_handler()")
+> CC: dingtianhong@huawei.com
+> CC: Jay Vosburgh <fubar@us.ibm.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> ---
+> 
+> Notes:
+>     v1 -> v2:
+>     Don't use RCU primitives as we can hold RTNL.
+> 
+>  drivers/net/bonding/bond_3ad.c | 5 ++---
+>  1 file changed, 2 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+> index cf5fab8..d2782c8 100644
+> --- a/drivers/net/bonding/bond_3ad.c
+> +++ b/drivers/net/bonding/bond_3ad.c
+> @@ -143,6 +143,7 @@ static inline struct bonding *__get_bond_by_port(struct port *port)
+>   *
+>   * Return the aggregator of the first slave in @bond, or %NULL if it can't be
+>   * found.
+> + * The caller must either hold RCU or RTNL lock.
+>   */
+>  static inline struct aggregator *__get_first_agg(struct port *port)
+>  {
+> @@ -153,9 +154,7 @@ static inline struct aggregator *__get_first_agg(struct port *port)
+>  	if (bond == NULL)
+>  		return NULL;
+>  
+> -	rcu_read_lock();
+> -	first_slave = bond_first_slave_rcu(bond);
+> -	rcu_read_unlock();
+> +	first_slave = bond_first_slave(bond);
+>  
+>  	return first_slave ? &(SLAVE_AD_INFO(first_slave).aggregator) : NULL;
+>  }
+> 
 
-However, IFLA_VXLAN_PORT netlink attribute was available in the
-kernel but hasn't been pushed to iproute2 in order to make use
-of it, hence, add this option so that people can use it.
+Hi, Veaceslav:
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- ip/iplink_vxlan.c     | 17 ++++++++++++++++-
- man/man8/ip-link.8.in |  6 ++++++
- 2 files changed, 22 insertions(+), 1 deletion(-)
+Do you mean the bond_first_slave is safe in rcu_read_xxlock()?
 
-diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
-index aa551d8..a9aedcf 100644
---- a/ip/iplink_vxlan.c
-+++ b/ip/iplink_vxlan.c
-@@ -25,7 +25,7 @@ static void explain(void)
- {
- 	fprintf(stderr, "Usage: ... vxlan id VNI [ { group | remote } ADDR ] [ local ADDR ]\n");
- 	fprintf(stderr, "                 [ ttl TTL ] [ tos TOS ] [ dev PHYS_DEV ]\n");
--	fprintf(stderr, "                 [ port MIN MAX ] [ [no]learning ]\n");
-+	fprintf(stderr, "                 [ port MIN MAX ] [ dst_port PORT ] [ [no]learning ]\n");
- 	fprintf(stderr, "                 [ [no]proxy ] [ [no]rsc ]\n");
- 	fprintf(stderr, "                 [ [no]l2miss ] [ [no]l3miss ]\n");
- 	fprintf(stderr, "\n");
-@@ -43,6 +43,7 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 	__u32 saddr = 0;
- 	__u32 gaddr = 0;
- 	__u32 daddr = 0;
-+	__be16 dport = 0;
- 	struct in6_addr saddr6 = IN6ADDR_ANY_INIT;
- 	struct in6_addr gaddr6 = IN6ADDR_ANY_INIT;
- 	struct in6_addr daddr6 = IN6ADDR_ANY_INIT;
-@@ -144,6 +145,12 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 				invarg("max port", *argv);
- 			range.low = htons(minport);
- 			range.high = htons(maxport);
-+		} else if (!matches(*argv, "dst_port")) {
-+			__u16 port;
-+			NEXT_ARG();
-+			if (get_u16(&port, *argv, 0))
-+				invarg("dst_port", *argv);
-+			dport = htons(port);
- 		} else if (!matches(*argv, "nolearning")) {
- 			learning = 0;
- 		} else if (!matches(*argv, "learning")) {
-@@ -218,6 +225,8 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 	if (range.low || range.high)
- 		addattr_l(n, 1024, IFLA_VXLAN_PORT_RANGE,
- 			  &range, sizeof(range));
-+	if (dport)
-+		addattr16(n, 1024, IFLA_VXLAN_PORT, dport);
- 
- 	return 0;
- }
-@@ -293,6 +302,12 @@ static void vxlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 		fprintf(f, "port %u %u ", ntohs(r->low), ntohs(r->high));
- 	}
- 
-+	if (tb[IFLA_VXLAN_PORT]) {
-+		__be16 dport = rta_getattr_u16(tb[IFLA_VXLAN_PORT]);
-+		if (dport)
-+			fprintf(f, "dst_port %u ", ntohs(dport));
-+	}
-+
- 	if (tb[IFLA_VXLAN_LEARNING] &&
- 	    !rta_getattr_u8(tb[IFLA_VXLAN_LEARNING]))
- 		fputs("nolearning ", f);
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 3986a5a..b74461c 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -238,6 +238,8 @@ the following additional arguments are supported:
- .R " ] [ "
- .BI port " MIN MAX "
- .R " ] [ "
-+.BI dst_port " PORT "
-+.R " ] [ "
- .I "[no]learning "
- .R " ] [ "
- .I "[no]proxy "
-@@ -291,6 +293,10 @@ parameter.
- source ports to communicate to the remote VXLAN tunnel endpoint.
- 
- .sp
-+.BI dst_port " PORT"
-+- specifies the port to use as UDP destination port.
-+
-+.sp
- .I [no]learning
- - specifies if unknown source link layer addresses and IP addresses
- are entered into the VXLAN device forwarding database.
--- 
-1.8.3.1
+#define bond_first_slave(bond) \
+	(bond_has_slaves(bond) ? \
+		netdev_adjacent_get_private(bond_slave_list(bond)->next) : \
+		NULL)
+
+
+Regards
+Ding
