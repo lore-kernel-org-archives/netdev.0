@@ -1,61 +1,111 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: mlx4 w/ IOMMU broken, kernel 3.12.6 -- resolved
-Date: Thu, 9 Jan 2014 15:24:08 +0200
-Message-ID: <20140109132406.GB27750@mtl-eit-vdi-22.mtl.labs.mlnx>
-References: <20140108134917.GC351037@jupiter.n2.diac24.net>
- <20140109075411.GA27750@mtl-eit-vdi-22.mtl.labs.mlnx>
- <20140109124619.GD351037@jupiter.n2.diac24.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next v2 3/4] virtio-net: auto-tune mergeable rx
+	buffer size for improved performance
+Date: Thu, 9 Jan 2014 15:25:29 +0200
+Message-ID: <20140109132529.GB2712@redhat.com>
+References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
+	<1389072355-20666-3-git-send-email-mwdalton@google.com>
+	<20140109014255.GA19321@redhat.com>
+	<CANJ5vP+_aK0PMc6-hwbu6PduVNDe8jbWR19cN5C+k4mWQzdTGg@mail.gmail.com>
+	<CANJ5vPLvDff5PMYNGvtt-dd=md8b46ZXAYLv-KnerNcfzDNHpw@mail.gmail.com>
+	<20140109064807.GC19559@redhat.com>
+	<CANJ5vPJp-AwvFDtY1R7SJg6L2dkEU6xPivgKcg4f0+05JCMEfw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Lamparter <equinox@diac24.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f41.google.com ([74.125.83.41]:57456 "EHLO
-	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754592AbaAINYM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 08:24:12 -0500
-Received: by mail-ee0-f41.google.com with SMTP id e53so258188eek.0
-        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 05:24:11 -0800 (PST)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: Michael Dalton <mwdalton@google.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20140109124619.GD351037@jupiter.n2.diac24.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CANJ5vPJp-AwvFDtY1R7SJg6L2dkEU6xPivgKcg4f0+05JCMEfw@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 09/01/14 13:46 +0100, David Lamparter wrote:
-> On Thu, Jan 09, 2014 at 09:54:15AM +0200, Amir Vadai wrote:
-> > What is the firmware version?
-> > You can get it by issuing 'ethtool -i <interface>'
-> > 
-> > Please make sure you're using the latest FW from mellanox.com.
+On Thu, Jan 09, 2014 at 12:28:50AM -0800, Michael Dalton wrote:
+> Hi Michael,
 > 
-> Ah, indeed updating from 2.11.500 to 2.30.8000 has fixed the issue.
-Good to hear :)
+> Here's a quick sketch of some code that enforces a minimum buffer
+> alignment of only 64, and has a maximum theoretical buffer size of
+> aligned GOOD_PACKET_LEN + (BUF_ALIGN - 1) * BUF_ALIGN, which is at least
+> 1536 + 63 * 64 = 5568. On x86, we already use a 64 byte alignment, and
+> this code supports all current buffer sizes, from 1536 to PAGE_SIZE.
 
-> (The driver could print a warning for this?)
-It is just an old firmware, users are suggested to use the latest one.
-
-> 
-> (Note: updating the firmware has been rather annoying due to the complex
-> and complicated way the OEM branding [this is an IBM card] is designed.
-> If you have some way of passing up user experience feedback, please put
-> a note down on this.)
-> 
-> > We still don't have MLNX_OFED package that supports this kernel.
-> 
-> I noticed, the kernel driver from the external package is referencing
-> things that have disappeared from the kernel around version 3.8.  Though
-> I don't see why there is both an in-kernel driver and a separate
-> package...
-I will pass it.
+I really think it's best to start with 256 alignment.
+A bit simpler, better than what we had, and will let us go
+above PAGE_SIZE long term.  The optimization shrinking
+alignment to 64 can be done on top if we see a
+work-load that's improved by it, which I doubt.
 
 > 
-> Thanks for the firmware pointer,
-> 
-> 
-> David
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> #if L1_CACHE_BYTES < 64
+> #define MERGEABLE_BUFFER_ALIGN 64
+> #define MERGEABLE_BUFFER_SHIFT 6
+> #else
+> #define MERGEABLE_BUFFER_ALIGN L1_CACHE_BYTES
+> #define MERGEABLE_BUFFER_SHIFT L1_CACHE_SHIFT
+> #endif
+> #define MERGEABLE_BUFFER_MIN ALIGN(GOOD_PACKET_LEN +
+>                                    sizeof(virtio_net_hdr_mrg_rbuf),
+>                                    MERGEABLE_BUFFER_ALIGN)
+> #define MERGEABLE_BUFFER_MAX min(MERGEABLE_BUFFER_MIN +
+>                                  (MERGEABLE_BUFFER_ALIGN - 1) *
+>                                  MERGEABLE_BUFFER_ALIGN, PAGE_SIZE)
+> /* Extract buffer length from a mergeable buffer context. */
+> static u16 get_mergeable_buf_ctx_len(void *ctx) {
+>         u16 len = (uintptr_t)ctx & (MERGEABLE_BUFFER_ALIGN - 1);
+>         return MERGEABLE_BUFFER_MIN + (len << MERGEABLE_BUFFER_SHIFT);
 
-Amir.
+You can just do len * MERGEABLE_BUFFER_ALIGN too - my compiler seems
+to be smart enough to see it's same.
+This way there's no need for MERGEABLE_BUFFER_SHIFT
+
+> }
+> /* Extract buffer base address from a mergeable buffer context. */
+> static void *get_mergeable_buf_ctx_base(void *ctx) {
+>         return (void *) ((uintptr)ctx & -MERGEABLE_BUFFER_ALIGN);
+
+uintptr_t? or just unsigned long ...
+
+> }
+> /* Convert a base address and length to a mergeable buffer context. */
+> static void *to_mergeable_buf_ctx(void *base, u16 len) {
+>         len -= MERGEABLE_BUFFER_MIN;
+>         return (void *) ((uintptr)base | (len >> MERGEABLE_BUFFER_SHIFT));
+> }
+
+The APIs are a bit inconsistent in naming.
+Also it's unfortunate that we use void * for both virtio buffer
+and frame memory.
+
+How about
+	mergeable_buf_to_len
+	mergeable_buf_to_page
+	mergeable_buf_to_offset
+	mergeable_page_to_buf
+
+this way we don't use void * for frame memory.
+
+alternatively, cast virtio buffer to unsigned long
+immediately and pass that around everywhere.
+
+
+> /* Compute the packet buffer length for a receive queue. */
+> static u16 get_mergeable_buffer_len(struct receive_queue *rq) {
+>         u16 len = clamp_t(u16, MERGEABLE_BUFFER_MIN,
+>                           ewma_read(&rq->avg_pkt_len),
+>                           MERGEABLE_BUFFER_MAX);
+>         return ALIGN(len, MERGEABLE_BUFFER_ALIGN);
+> }
+> 
+> Best,
+> 
+> Mike
