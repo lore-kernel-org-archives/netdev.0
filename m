@@ -1,35 +1,62 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next 0/3] bonding: fix bond_3ad RCU usage
-Date: Thu, 9 Jan 2014 11:56:53 +0100
-Message-ID: <20140109105653.GE5786@redhat.com>
-References: <1389264510-22141-1-git-send-email-vfalico@redhat.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: Re: [PATCH net-next 3/3] xfrm: Don't prohibit AH from using ESN feature
+Date: Thu, 9 Jan 2014 19:09:11 +0800
+Message-ID: <52CE8357.7030800@windriver.com>
+References: <1389171192-28091-1-git-send-email-fan.du@windriver.com> <1389171192-28091-4-git-send-email-fan.du@windriver.com> <20140109105021.GY31491@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8824 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750882AbaAILAw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jan 2014 06:00:52 -0500
-Content-Disposition: inline
-In-Reply-To: <1389264510-22141-1-git-send-email-vfalico@redhat.com>
+Received: from mail1.windriver.com ([147.11.146.13]:42175 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754446AbaAILJe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 06:09:34 -0500
+In-Reply-To: <20140109105021.GY31491@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 09, 2014 at 11:48:27AM +0100, Veaceslav Falico wrote:
->While digging through bond_3ad.c I've found that the RCU usage there is
->just wrong - it's used as a kind of mutex/spinlock instead of RCU.
->
->This patchset is on top of bond_3ad.c cleanup:
->http://www.spinics.net/lists/netdev/msg265447.html
 
-Self-NAK, seems like I've missed some locks. Sorry for the noise/early
-posting, will post v2 soon.
 
+On 2014=E5=B9=B401=E6=9C=8809=E6=97=A5 18:50, Steffen Klassert wrote:
+> On Wed, Jan 08, 2014 at 04:53:12PM +0800, Fan Du wrote:
+>> Clear checking when user try to use ESN through netlink keymgr for A=
+H.
+>>
+>> Signed-off-by: Fan Du<fan.du@windriver.com>
+>> ---
+>>   net/xfrm/xfrm_user.c |    4 ----
+>>   1 file changed, 4 deletions(-)
+>>
+>> diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+>> index 97681a3..f362a78 100644
+>> --- a/net/xfrm/xfrm_user.c
+>> +++ b/net/xfrm/xfrm_user.c
+>> @@ -141,10 +141,6 @@ static inline int verify_replay(struct xfrm_use=
+rsa_info *p,
+>>
+>>   	if (!rt)
+>>   		return 0;
+>> -
+>> -	if (p->id.proto !=3D IPPROTO_ESP)
+>> -		return -EINVAL;
+>> -
 >
->CC: Jay Vosburgh <fubar@us.ibm.com>
->CC: Andy Gospodarek <andy@greyhouse.net>
->CC: netdev@vger.kernel.org
->Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> You can not change this as long as AH for ipv6 does not
+> support ESN. Please provide the ipv6 side too.
+>
+> Also, simply removing this check is wrong in any case.
+> You have to make sure that we catch if someone tries
+> to insert an ESN state for other unsupported protocols,
+> like ipcomp.
+>
+
+Sure, will add IPv6 support soon :)
+
+--=20
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
+
+--fan
