@@ -1,47 +1,73 @@
-From: Andrew Vagin <avagin@parallels.com>
-Subject: Re: [PATCH] netfilter: nf_conntrack: fix RCU race in
- nf_conntrack_find_get
-Date: Fri, 10 Jan 2014 01:07:49 +0400
-Message-ID: <20140109210749.GA29440@paralelels.com>
-References: <1389090711-15843-1-git-send-email-avagin@openvz.org>
- <1389107305.26646.20.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140107152520.GF9894@breakpoint.cc>
- <20140109203206.GA26348@paralelels.com>
- <20140109205622.GA29458@breakpoint.cc>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Use of 'SIOCDEVPRIVATE' in ethernet drivers.
+Date: Thu, 9 Jan 2014 21:07:58 +0000
+Message-ID: <1389301678.2025.41.camel@bwh-desktop.uk.level5networks.com>
+References: <124064C45E1FC84193A69A61ED3A1F46E22D07@AVMB1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="koi8-r"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrey Vagin <avagin@openvz.org>,
-	<netfilter-devel@vger.kernel.org>, <netfilter@vger.kernel.org>,
-	<coreteam@netfilter.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <vvs@openvz.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Cyrill Gorcunov" <gorcunov@openvz.org>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140109205622.GA29458@breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Giri Reddy <giri.reddy@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:26596 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757442AbaAIVIC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 16:08:02 -0500
+In-Reply-To: <124064C45E1FC84193A69A61ED3A1F46E22D07@AVMB1.qlogic.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 09, 2014 at 09:56:22PM +0100, Florian Westphal wrote:
-> Andrew Vagin <avagin@parallels.com> wrote:
-> > Can we allocate conntrack with zero ct_general.use and increment it at
-> > the first time before inserting the conntrack into the hash table?
-> > When conntrack is allocated it is attached exclusively to one skb.
-> > It must be destroyed with skb, if it has not been confirmed, so we
-> > don't need refcnt on this stage.
-> > 
-> > I found only one place, where a reference counter of unconfirmed
-> > conntract can incremented. It's ctnetlink_dump_table().
+On Tue, 2014-01-07 at 18:21 +0000, Giri Reddy wrote:
+> I'm implementing a new interface for upgrading the firmware for our next
+> generation of Qlogic drivers. We need to transfer control information
+> between userspace and driver, in addition to the firmware payload. I'm
+> considering using 'SIOCDEVPRIVATE' ioctl interface to pass control
+> information between userland and driver.
 > 
-> What about skb_clone, etc?  They will also increment the refcnt
-> if a conntrack entry is attached to the skb.
+> I also see comments in the source (include/linux/sockios.h) that
+> 'SIOCDEVPRIVATE' will be deprecated 2.5.x. What is the current status of
+> deprecation in the latest versions of the kernel?
 
-We can not attach an unconfirmed conntrack to a few skb, because
-nf_nat_setup_info can be executed concurrently for the same conntrack.
+It is still supported and unlikely to be removed, but no in-tree driver
+will be allowed to expose new operations this way.
 
-How do we avoid this race condition for cloned skb-s?
+> Are we still allowed to use 'SIOCDEVPRIVATE' in drivers if there the
+> deprecation efforts are on hold.
+> 
+> Any input will be appreciated.
+
+The existing interfaces used for firmware update are:
+
+1. ethtool ETHTOOL_FLASHDEV command.  Userland program installs a
+firmware blob under /lib/firmware and then issues this command using
+ioctl().  It can specify which flash partition is to be written.  Driver
+loads and writes the entire blob and (presumably) resets the chip if
+necessary.  There is no way to read the old firmware.
+
+Example drivers: bna, cxgb4, be2net, vxge
+
+2. MTD driver plus ethtool ETHTOOL_RESET command.  The flash
+partition(s) containing firmware are exposed as separate devices with
+names that indicate what they all are.  Userland can read and write the
+firmware through /dev/mtd* or /dev/mtdblock*.  It can reset the chip
+after writing firmware, using ioctl().  This is flexible but relatively
+complicated for userland to use.
+
+Example driver: sfc
+
+3. ethtool ETHTOOL_{G,S}EEPROM commands.  Userland program sends these
+commands using ioctl().  There is no clean way to expose more than one
+flash partition, e.g. for controller, PHY, and net-boot firmware.
+
+Example driver: bnx2
+
+Please choose one of the above and don't invent another one.  (There are
+already several other interfaces in use that are too horrible to mention
+here.)
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
