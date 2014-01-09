@@ -1,85 +1,64 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: [net-next 3/7] ixgbe: Use static inlines instead of macros
-Date: Thu, 9 Jan 2014 17:34:18 +0000
-Message-ID: <2C8FA848-3185-43BA-BDD7-955B0C7DD835@intel.com>
-References: <1389166847-3780-1-git-send-email-aaron.f.brown@intel.com>
- <1389166847-3780-4-git-send-email-aaron.f.brown@intel.com>
- <CE14B815-C10B-4091-A608-6742117FBEF6@cumulusnetworks.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next v3 1/9] xen-netback: Introduce TX
+ grant map definitions
+Date: Thu, 9 Jan 2014 17:46:44 +0000
+Message-ID: <52CEE084.5000409@citrix.com>
+References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com> <1389139818-24458-2-git-send-email-zoltan.kiss@citrix.com> <20140109153010.GE12164@zion.uk.xensource.com> <52CEC370.10503@citrix.com> <alpine.DEB.2.02.1401091722150.21510@kaball.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-	boundary="Apple-Mail=_D4C75B04-E46F-44DD-9101-D96951B10622";
-	protocol="application/pgp-signature"; micalg=pgp-sha1
-Cc: "Brown, Aaron F" <aaron.f.brown@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Scott Feldman <sfeldma@cumulusnetworks.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>, <jonathan.davies@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	<xen-devel@lists.xenproject.org>,
+	=?ISO-8859-1?Q?Roger_Pau_Monn=E9?= <roger.pau@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+To: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:19598 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751142AbaAIReU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jan 2014 12:34:20 -0500
-In-Reply-To: <CE14B815-C10B-4091-A608-6742117FBEF6@cumulusnetworks.com>
-Content-Language: en-US
+Received: from smtp02.citrix.com ([66.165.176.63]:17770 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751705AbaAIRqr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 12:46:47 -0500
+In-Reply-To: <alpine.DEB.2.02.1401091722150.21510@kaball.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Apple-Mail=_D4C75B04-E46F-44DD-9101-D96951B10622
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=us-ascii
+On 09/01/14 17:28, Stefano Stabellini wrote:
+> On Thu, 9 Jan 2014, David Vrabel wrote:
+>> On 09/01/14 15:30, Wei Liu wrote:
+>>> On Wed, Jan 08, 2014 at 12:10:10AM +0000, Zoltan Kiss wrote:
+>>>> This patch contains the new definitions necessary for grant mapping.
+>>>>
+>>>> v2:
+>>>> - move unmapping to separate thread. The NAPI instance has to be scheduled
+>>>>   even from thread context, which can cause huge delays
+>>>> - that causes unfortunately bigger struct xenvif
+>>>> - store grant handle after checking validity
+>>>>
+>>>> v3:
+>>>> - fix comment in xenvif_tx_dealloc_action()
+>>>> - call unmap hypercall directly instead of gnttab_unmap_refs(), which does
+>>>>   unnecessary m2p_override. Also remove pages_to_[un]map members
+>>>
+>>> Is it worthy to have another function call
+>>> gnttab_unmap_refs_no_m2p_override in Xen core driver, or just add a
+>>> parameter to control wether we need to touch m2p_override? I *think* it
+>>> will benefit block driver as well?
+>>
+>> add_m2p_override and remove_m2p_override calls should be moved into the
+>> gntdev device as that should be the only user.
+> 
+> First of all the gntdev device is common code, while the m2p_override is
+> an x86 concept.
 
-On Jan 8, 2014, at 12:47 AM, Scott Feldman <sfeldma@cumulusnetworks.com> =
-wrote:
+m2p_add_override() and m2p_remove_override() are already called from
+common code and ARM already provides inline stubs.
 
->=20
-> On Jan 7, 2014, at 11:40 PM, Aaron Brown <aaron.f.brown@intel.com> =
-wrote:
->=20
->> From: Mark Rustad <mark.d.rustad@intel.com>
->>=20
->> -#define IXGBE_WRITE_REG(a, reg, value) writel((value), ((a)->hw_addr =
-+ (reg)))
->> +static inline void IXGBE_WRITE_REG(struct ixgbe_hw *hw, u32 reg, u32 =
-value)
->=20
-> Bummer, now you have a all-caps func name.
+The m2p override mechanism is also broken by design (local PFN to
+foreign MFN may be many-to-one, but the m2p override only works if local
+PFN to foreign MFN is one-to-one). So I want the m2p override to be only
+used where it is /currently/ necessary.  I think there should be no new
+users of it nor should it be considered a fix for any other use case.
 
-Agreed, but this is actually a fairly common condition among drivers =
-that used to use macros. It isn't perfect, but at least it is moving in =
-the right direction. I'd rather leave the case change for a later patch =
-series that does only that or has some reason to touch all of the =
-register access sites.
-
-At least the new accessor I introduced is lower case. :-)
-
---=20
-Mark Rustad, Networking Division, Intel Corporation
-
-
---Apple-Mail=_D4C75B04-E46F-44DD-9101-D96951B10622
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="signature.asc"
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Message signed with OpenPGP using GPGMail
-
------BEGIN PGP SIGNATURE-----
-Comment: GPGTools - http://gpgtools.org
-
-iQIcBAEBAgAGBQJSzt2ZAAoJEDwO/+eO4+5ux44QAMEbM1u/wkAIjys7wL6whC3M
-MVu6DoHwqbpmgFrD19CXmGssCbAnM4LHt0fYCr6HGl20mSvDFdz5u5QqgNgozBwc
-DKwDu1ke5KcMsnYJLnY5/EKr8QJo0o5rpzFt/yaIayXeWD5+vhLQhS4UV5VjATOd
-ajJs7eNHD6+puekMQ32PgcaVmx+MLhfDsIGRbRnLsSMzZeh4yjppnz09ppSqhq9L
-4L/+d8lkDXBKlXy0P6w7wW/RXIcrTs3S7uGR5HUqf1CZkm4+b2sGACivgNiOuTDN
-wWNXvpKi8zIWnttLBj+TILGoaXNmrMIkb86VvVKcCCUkaAeTLQxXsvNxXbZ2jtbT
-9KM18Xqm2PSFEsDUCiclwUOph1qCfAFeaha1mvBE7l1qycYpCwkcZ652Xi5C/gJ9
-OHH7v5ua6sf7KAMF5cWHGoYA1uWWhnhPEI3D3ht1tahzd2hdc8Axp9dUK3z8w0Yh
-452lp4zjxdOzEvMoJ0vC7eH5EJmzB/ICQIYnAT659xHmBmFGChLrzBsDgdWFHxix
-b9sNGBfuRR15n0Ne8P8Ct4iGWvj2xJpIO0xU8qjLpqr5zcM7jwk6CDjpuKfMw5A5
-KNNejLzHM2iGxH+yWT8Qm7xiMs0wnYML1FjP7tKFsmElPINoJO+cBpampbHmyxxy
-RcVMVoox0R+sNpZRI0ki
-=bQww
------END PGP SIGNATURE-----
-
---Apple-Mail=_D4C75B04-E46F-44DD-9101-D96951B10622--
+David
