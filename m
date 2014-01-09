@@ -1,48 +1,39 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [RFC Patch net-next 4/4] net_sched: make ingress qdisc lockless
-Date: Thu,  9 Jan 2014 10:19:53 -0800
-Message-ID: <1389291593-2494-5-git-send-email-xiyou.wangcong@gmail.com>
-References: <1389291593-2494-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: netdev@vger.kernel.org
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next v3 1/9] xen-netback: Introduce TX
+ grant map definitions
+Date: Thu, 9 Jan 2014 18:23:25 +0000
+Message-ID: <52CEE91D.50105@citrix.com>
+References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com> <1389139818-24458-2-git-send-email-zoltan.kiss@citrix.com> <20140109153010.GE12164@zion.uk.xensource.com> <52CEC370.10503@citrix.com> <alpine.DEB.2.02.1401091722150.21510@kaball.uk.xensource.com> <52CEE084.5000409@citrix.com> <alpine.DEB.2.02.1401091759100.21510@kaball.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>, <jonathan.davies@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	<xen-devel@lists.xenproject.org>,
+	=?ISO-8859-1?Q?Roger_Pau_Monn=E9?= <roger.pau@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+To: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:37659 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754925AbaAISUP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 13:20:15 -0500
-Received: by mail-pd0-f169.google.com with SMTP id v10so3484352pde.14
-        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 10:20:14 -0800 (PST)
-In-Reply-To: <1389291593-2494-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:56231 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756126AbaAISXz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 13:23:55 -0500
+In-Reply-To: <alpine.DEB.2.02.1401091759100.21510@kaball.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc: John Fastabend <john.fastabend@gmail.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/core/dev.c | 2 --
- 1 file changed, 2 deletions(-)
+On 09/01/14 18:09, Stefano Stabellini wrote:
+> 
+> I agree, but I think that we have different views on the use case.
+> To me the m2p_override use case is "everywhere an mfn_to_pfn translation
+> is required", that unfortunately is potentially everywhere at this time.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index ce01847..e357d05 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3376,10 +3376,8 @@ static int ing_filter(struct sk_buff *skb, struct netdev_queue *rxq)
- 
- 	q = rxq->qdisc;
- 	if (q != &noop_qdisc) {
--		spin_lock(qdisc_lock(q));
- 		if (likely(!test_bit(__QDISC_STATE_DEACTIVATED, &q->state)))
- 			result = qdisc_enqueue_root(skb, q);
--		spin_unlock(qdisc_lock(q));
- 	}
- 
- 	return result;
--- 
-1.8.3.1
+mfn_to_pfn() cannot be made to work correctly with foreign MFNs.  It's a
+fundamentally unsolvable problem.
+
+IMO, the only sensible use of the m2p_override is to cause mfn_to_pfn()
+to BUG() if a foreign MFN is used.
+
+David
