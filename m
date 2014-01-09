@@ -1,33 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 3/7] ixgbe: Use static inlines instead of macros
-Date: Thu, 09 Jan 2014 15:59:27 -0500 (EST)
-Message-ID: <20140109.155927.205358101116161587.davem@davemloft.net>
-References: <25B12960-1709-4E96-A278-9DBF9009C0F5@intel.com>
-	<20140109.151957.1618381015670153898.davem@davemloft.net>
-	<8566589F-17E2-47D4-AD38-1D42C6851642@intel.com>
+From: Andrew Vagin <avagin@parallels.com>
+Subject: Re: [PATCH] netfilter: nf_conntrack: fix RCU race in
+ nf_conntrack_find_get
+Date: Fri, 10 Jan 2014 01:07:49 +0400
+Message-ID: <20140109210749.GA29440@paralelels.com>
+References: <1389090711-15843-1-git-send-email-avagin@openvz.org>
+ <1389107305.26646.20.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140107152520.GF9894@breakpoint.cc>
+ <20140109203206.GA26348@paralelels.com>
+ <20140109205622.GA29458@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfeldma@cumulusnetworks.com, aaron.f.brown@intel.com,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: mark.d.rustad@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33886 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932146AbaAIU7a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 15:59:30 -0500
-In-Reply-To: <8566589F-17E2-47D4-AD38-1D42C6851642@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="koi8-r"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Andrey Vagin <avagin@openvz.org>,
+	<netfilter-devel@vger.kernel.org>, <netfilter@vger.kernel.org>,
+	<coreteam@netfilter.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <vvs@openvz.org>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Cyrill Gorcunov" <gorcunov@openvz.org>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140109205622.GA29458@breakpoint.cc>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Date: Thu, 9 Jan 2014 20:46:33 +0000
-
-> I think I have found a way to address the barrier issue. I will add
-> upper case macros that call the lower case inlines, so for a time
-> both forms may exist, and then have a patch that will update the
-> call sites, and then a patch to remove the macros.
+On Thu, Jan 09, 2014 at 09:56:22PM +0100, Florian Westphal wrote:
+> Andrew Vagin <avagin@parallels.com> wrote:
+> > Can we allocate conntrack with zero ct_general.use and increment it at
+> > the first time before inserting the conntrack into the hash table?
+> > When conntrack is allocated it is attached exclusively to one skb.
+> > It must be destroyed with skb, if it has not been confirmed, so we
+> > don't need refcnt on this stage.
+> > 
+> > I found only one place, where a reference counter of unconfirmed
+> > conntract can incremented. It's ctnetlink_dump_table().
 > 
-> Is that acceptable?
+> What about skb_clone, etc?  They will also increment the refcnt
+> if a conntrack entry is attached to the skb.
 
-Yes.
+We can not attach an unconfirmed conntrack to a few skb, because
+nf_nat_setup_info can be executed concurrently for the same conntrack.
+
+How do we avoid this race condition for cloned skb-s?
