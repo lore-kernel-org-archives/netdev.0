@@ -1,75 +1,163 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] netfilter: nf_conntrack: fix RCU race in
- nf_conntrack_find_get
-Date: Thu, 09 Jan 2014 07:23:45 -0800
-Message-ID: <1389281025.31367.35.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1389090711-15843-1-git-send-email-avagin@openvz.org>
-	 <1389107305.26646.20.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140109052454.GA16743@gmail.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next v3 1/9] xen-netback: Introduce TX grant map
+ definitions
+Date: Thu, 9 Jan 2014 15:30:10 +0000
+Message-ID: <20140109153010.GE12164@zion.uk.xensource.com>
+References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com>
+ <1389139818-24458-2-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>, Andrey Vagin <avagin@openvz.org>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vvs@openvz.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cyrill Gorcunov <gorcunov@openvz.org>
-To: Andrew Vagin <avagin@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>,
+	Roger Pau =?iso-8859-1?Q?Monn=E9?= <roger.pau@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:61851 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750702AbaAIPXr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 10:23:47 -0500
-In-Reply-To: <20140109052454.GA16743@gmail.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:19525 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750912AbaAIPaN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 10:30:13 -0500
+Content-Disposition: inline
+In-Reply-To: <1389139818-24458-2-git-send-email-zoltan.kiss@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-01-09 at 09:24 +0400, Andrew Vagin wrote:
-
-> I have one more question. Looks like I found another problem.
+On Wed, Jan 08, 2014 at 12:10:10AM +0000, Zoltan Kiss wrote:
+> This patch contains the new definitions necessary for grant mapping.
 > 
-> init_conntrack:
->         hlist_nulls_add_head_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
->                       &net->ct.unconfirmed);
+> v2:
+> - move unmapping to separate thread. The NAPI instance has to be scheduled
+>   even from thread context, which can cause huge delays
+> - that causes unfortunately bigger struct xenvif
+> - store grant handle after checking validity
 > 
-> __nf_conntrack_hash_insert:
-> 	hlist_nulls_add_head_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
-> 		   &net->ct.hash[hash]);
+> v3:
+> - fix comment in xenvif_tx_dealloc_action()
+> - call unmap hypercall directly instead of gnttab_unmap_refs(), which does
+>   unnecessary m2p_override. Also remove pages_to_[un]map members
+
+Is it worthy to have another function call
+gnttab_unmap_refs_no_m2p_override in Xen core driver, or just add a
+parameter to control wether we need to touch m2p_override? I *think* it
+will benefit block driver as well?
+
+(CC Roger and David for input)
+
+> - BUG() if grant_tx_handle corrupted
 > 
-> We use one hlist_nulls_node to add a conntrack into two different lists.
-> As far as I understand, it's unacceptable in case of
-> SLAB_DESTROY_BY_RCU.
-
-I guess you missed :
-
-net/netfilter/nf_conntrack_core.c:1598: INIT_HLIST_NULLS_HEAD(&net->ct.unconfirmed, UNCONFIRMED_NULLS_VAL);
-
-
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 > 
-> Lets imagine that we have two threads. The first one enumerates objects
-> from a first list, the second one recreates an object and insert it in a
-> second list.  If a first thread in this moment stays on the object, it
-> can read "next", when it's in the second list, so it will continue
-> to enumerate objects from the second list. It is not what we want, isn't
-> it?
-> 
-> cpu1				cpu2
-> 				hlist_nulls_for_each_entry_rcu(ct)
-> destroy_conntrack
->  kmem_cache_free
-> 
-> init_conntrack
->  hlist_nulls_add_head_rcu
-> 				ct = ct->next
-> 
+> ---
+[...]
+>  
+>  #define XENVIF_QUEUE_LENGTH 32
+>  #define XENVIF_NAPI_WEIGHT  64
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index addfe1d1..7c241f9 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -771,6 +771,19 @@ static struct page *xenvif_alloc_page(struct xenvif *vif,
+>  	return page;
+>  }
+>  
+> +static inline void xenvif_tx_create_gop(struct xenvif *vif, u16 pending_idx,
+> +	       struct xen_netif_tx_request *txp,
+> +	       struct gnttab_map_grant_ref *gop)
 
-This will be fine.
+Indentation.
 
-I think we even have a counter to count number of occurrence of this
-rare event. (I personally never read a non null search_restart value)
+> +{
+> +	gnttab_set_map_op(gop, idx_to_kaddr(vif, pending_idx),
+> +			  GNTMAP_host_map | GNTMAP_readonly,
+> +			  txp->gref, vif->domid);
+> +
+> +	memcpy(&vif->pending_tx_info[pending_idx].req, txp,
+> +	       sizeof(*txp));
+> +
+> +}
+> +
+[...]
+> +void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success)
+> +{
+> +	unsigned long flags;
+> +	pending_ring_idx_t index;
+> +	u16 pending_idx = ubuf->desc;
+> +	struct pending_tx_info *temp =
+> +		container_of(ubuf, struct pending_tx_info, callback_struct);
+> +	struct xenvif *vif =
+> +		container_of(temp - pending_idx, struct xenvif,
+> +			pending_tx_info[0]);
 
- NF_CT_STAT_INC(net, search_restart); 
+Indentation.
+
+> +
+> +	spin_lock_irqsave(&vif->dealloc_lock, flags);
+> +	do {
+> +		pending_idx = ubuf->desc;
+> +		ubuf = (struct ubuf_info *) ubuf->ctx;
+> +		index = pending_index(vif->dealloc_prod);
+> +		vif->dealloc_ring[index] = pending_idx;
+> +		/* Sync with xenvif_tx_action_dealloc:
+
+xenvif_tx_dealloc_action I suppose.
+
+> +		 * insert idx then incr producer.
+> +		 */
+> +		smp_wmb();
+> +		vif->dealloc_prod++;
+> +	} while (ubuf);
+> +	wake_up(&vif->dealloc_wq);
+> +	spin_unlock_irqrestore(&vif->dealloc_lock, flags);
+> +}
+> +
+> +static inline void xenvif_tx_dealloc_action(struct xenvif *vif)
+> +{
+> +	struct gnttab_unmap_grant_ref *gop;
+> +	pending_ring_idx_t dc, dp;
+> +	u16 pending_idx, pending_idx_release[MAX_PENDING_REQS];
+> +	unsigned int i = 0;
+> +
+> +	dc = vif->dealloc_cons;
+> +	gop = vif->tx_unmap_ops;
+> +
+> +	/* Free up any grants we have finished using */
+> +	do {
+> +		dp = vif->dealloc_prod;
+> +
+> +		/* Ensure we see all indices enqueued by all
+> +		 * xenvif_zerocopy_callback().
+> +		 */
+> +		smp_rmb();
+> +
+> +		while (dc != dp) {
+> +			pending_idx =
+> +				vif->dealloc_ring[pending_index(dc++)];
+> +
+> +			/* Already unmapped? */
+> +			if (vif->grant_tx_handle[pending_idx] ==
+> +				NETBACK_INVALID_HANDLE) {
+> +				netdev_err(vif->dev,
+> +					"Trying to unmap invalid handle! "
+> +					"pending_idx: %x\n", pending_idx);
+> +				continue;
+
+You seemed to miss the BUG_ON we discussed?
+
+See thread starting <52AF1A84.3090304@citrix.com>.
+
+Wei.
+
+> +			}
+> +
+> +			pending_idx_release[gop-vif->tx_unmap_ops] =
+> +				pending_idx;
+> +			gnttab_set_unmap_op(gop,
+> +					idx_to_kaddr(vif, pending_idx),
+> +					GNTMAP_host_map,
+> +					vif->grant_tx_handle[pending_idx]);
+> +			vif->grant_tx_handle[pending_idx] =
+> +				NETBACK_INVALID_HANDLE;
+> +			++gop;
+> +		}
+> +
