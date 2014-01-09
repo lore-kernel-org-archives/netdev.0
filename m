@@ -1,44 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 3/7] ixgbe: Use static inlines instead of macros
-Date: Thu, 09 Jan 2014 15:19:57 -0500 (EST)
-Message-ID: <20140109.151957.1618381015670153898.davem@davemloft.net>
-References: <2C8FA848-3185-43BA-BDD7-955B0C7DD835@intel.com>
-	<20140109.143923.437905458430188006.davem@davemloft.net>
-	<25B12960-1709-4E96-A278-9DBF9009C0F5@intel.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH v2 3/4] net: make tcp_cleanup_rbuf private
+Date: Thu, 9 Jan 2014 15:26:17 -0500
+Message-ID: <CADVnQy=Tk68y217cbw7O5apCJV+eOmKMqLNbgAZRa_cxUArdKg@mail.gmail.com>
+References: <20140109201157.28381.94057.stgit@viggo.jf.intel.com>
+	<20140109201642.28381.82141.stgit@viggo.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfeldma@cumulusnetworks.com, aaron.f.brown@intel.com,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: mark.d.rustad@intel.com
+Content-Type: text/plain; charset=UTF-8
+Cc: dmaengine@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Netdev <netdev@vger.kernel.org>,
+	James Morris <jmorris@namei.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Patrick McHardy <kaber@trash.net>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Dan Williams <dan.j.williams@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33571 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751751AbaAIUUA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 15:20:00 -0500
-In-Reply-To: <25B12960-1709-4E96-A278-9DBF9009C0F5@intel.com>
+Received: from mail-ea0-f178.google.com ([209.85.215.178]:36965 "EHLO
+	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756695AbaAIU0S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 15:26:18 -0500
+Received: by mail-ea0-f178.google.com with SMTP id d10so1739745eaj.9
+        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 12:26:17 -0800 (PST)
+In-Reply-To: <20140109201642.28381.82141.stgit@viggo.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Date: Thu, 9 Jan 2014 20:14:51 +0000
+On Thu, Jan 9, 2014 at 3:16 PM, Dan Williams <dan.j.williams@intel.com> wrote:
+> net_dma was the only external user so this can become local to tcp.c
+> again.
+...
+> -void tcp_cleanup_rbuf(struct sock *sk, int copied)
+> +static void cleanup_rbuf(struct sock *sk, int copied)
 
-> Obviously I could do it here, but I *really* think it is
-> procedurally a really bad idea to change the case as part of a
-> functional change. I thought I was doing a favor my at least making
-> them inlines, but prehaps not.
+I would vote to keep the tcp_ prefix. In the TCP code base that is the
+more common idiom, even for internal/static TCP functions, and
+personally I find it easier to read and work with in stack traces,
+etc. My 2 cents.
 
-It is never a good idea to allow functions to have all caps
-names and vice versa.  Please don't use "difficulty" as a reason
-to violate this.
-
-Doing things right is sometimes hard, I'm sorry to inform you :)
-
-> Anyone want to take on changing the upper case static inlines in
-> mcf8390, 7990, benet, ns83820, s2io, vxge, iwlwifi, ath9k, wil6210,
-> mwifiex, and rtlwifi? And those are just under drivers/net.
-
-Sorry the "crap exists elsewhere, therefore I can make crap too"
-argument never holds any water.
-
-Just because crap exists elsewhere, doesn't mean you should duplicate it.
+neal
