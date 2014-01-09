@@ -1,97 +1,59 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 10/13] batman-adv: print the new BATADV_TT_CLIENT_ISOLA flag
-Date: Thu,  9 Jan 2014 15:52:59 +0100
-Message-ID: <1389279182-3256-11-git-send-email-antonio@meshcoding.com>
+From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+Subject: [PATCH 11/13] batman-adv: extend the ap_isolation
+	mechanism
+Date: Thu,  9 Jan 2014 15:53:00 +0100
+Message-ID: <1389279182-3256-12-git-send-email-antonio@meshcoding.com>
 References: <1389279182-3256-1-git-send-email-antonio@meshcoding.com>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <antonio@open-mesh.com>,
-	Marek Lindner <mareklindner@neomailbox.ch>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:39029 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752580AbaAIO4u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 09:56:50 -0500
-In-Reply-To: <1389279182-3256-1-git-send-email-antonio@meshcoding.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>,
+ Antonio Quartulli <antonio-2BnEqQcu77q1Z/+hSey0Gg@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1389279182-3256-1-git-send-email-antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Antonio Quartulli <antonio@open-mesh.com>
+From: Antonio Quartulli <antonio-2BnEqQcu77q1Z/+hSey0Gg@public.gmane.org>
 
-Print the new BATADV_TT_CLIENT_ISOLA flag properly in the
-Local and Global Translation Table output.
+Change the AP isolation mechanism to not only "isolate" WIFI
+clients but also all those marked with the more generic
+"isolation flag" (BATADV_TT_CLIENT_ISOLA).
 
-The character 'I' is used in the flags column to indicate
-that the entry is marked as isolated.
+The result is that when AP isolation is on any unicast
+packet originated by an "isolated" client and directed to
+another "isolated" client is dropped at the source node.
 
-Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+Signed-off-by: Antonio Quartulli <antonio-2BnEqQcu77q1Z/+hSey0Gg@public.gmane.org>
+Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
 ---
- net/batman-adv/translation-table.c | 12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
+ net/batman-adv/translation-table.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
 diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 669b8b6..eeceb13 100644
+index eeceb13..a874d08 100644
 --- a/net/batman-adv/translation-table.c
 +++ b/net/batman-adv/translation-table.c
-@@ -887,7 +887,7 @@ int batadv_tt_local_seq_print_text(struct seq_file *seq, void *offset)
- 	seq_printf(seq,
- 		   "Locally retrieved addresses (from %s) announced via TT (TTVN: %u):\n",
- 		   net_dev->name, (uint8_t)atomic_read(&bat_priv->tt.vn));
--	seq_printf(seq, "       %-13s  %s %-7s %-9s (%-10s)\n", "Client", "VID",
-+	seq_printf(seq, "       %-13s  %s %-8s %-9s (%-10s)\n", "Client", "VID",
- 		   "Flags", "Last seen", "CRC");
+@@ -1869,6 +1869,11 @@ _batadv_is_ap_isolated(struct batadv_tt_local_entry *tt_local_entry,
+ 	    tt_global_entry->common.flags & BATADV_TT_CLIENT_WIFI)
+ 		ret = true;
  
- 	for (i = 0; i < hash->size; i++) {
-@@ -915,7 +915,7 @@ int batadv_tt_local_seq_print_text(struct seq_file *seq, void *offset)
- 			}
++	/* check if the two clients are marked as isolated */
++	if (tt_local_entry->common.flags & BATADV_TT_CLIENT_ISOLA &&
++	    tt_global_entry->common.flags & BATADV_TT_CLIENT_ISOLA)
++		ret = true;
++
+ 	return ret;
+ }
  
- 			seq_printf(seq,
--				   " * %pM %4i [%c%c%c%c%c] %3u.%03u   (%#.8x)\n",
-+				   " * %pM %4i [%c%c%c%c%c%c] %3u.%03u   (%#.8x)\n",
- 				   tt_common_entry->addr,
- 				   BATADV_PRINT_VID(tt_common_entry->vid),
- 				   (tt_common_entry->flags &
-@@ -927,6 +927,8 @@ int batadv_tt_local_seq_print_text(struct seq_file *seq, void *offset)
- 				    BATADV_TT_CLIENT_PENDING ? 'X' : '.'),
- 				   (tt_common_entry->flags &
- 				    BATADV_TT_CLIENT_WIFI ? 'W' : '.'),
-+				   (tt_common_entry->flags &
-+				    BATADV_TT_CLIENT_ISOLA ? 'I' : '.'),
- 				   no_purge ? 0 : last_seen_secs,
- 				   no_purge ? 0 : last_seen_msecs,
- 				   vlan->tt.crc);
-@@ -1459,13 +1461,14 @@ batadv_tt_global_print_entry(struct batadv_priv *bat_priv,
- 
- 		last_ttvn = atomic_read(&best_entry->orig_node->last_ttvn);
- 		seq_printf(seq,
--			   " %c %pM %4i   (%3u) via %pM     (%3u)   (%#.8x) [%c%c%c]\n",
-+			   " %c %pM %4i   (%3u) via %pM     (%3u)   (%#.8x) [%c%c%c%c]\n",
- 			   '*', tt_global_entry->common.addr,
- 			   BATADV_PRINT_VID(tt_global_entry->common.vid),
- 			   best_entry->ttvn, best_entry->orig_node->orig,
- 			   last_ttvn, vlan->tt.crc,
- 			   (flags & BATADV_TT_CLIENT_ROAM ? 'R' : '.'),
- 			   (flags & BATADV_TT_CLIENT_WIFI ? 'W' : '.'),
-+			   (flags & BATADV_TT_CLIENT_ISOLA ? 'I' : '.'),
- 			   (flags & BATADV_TT_CLIENT_TEMP ? 'T' : '.'));
- 
- 		batadv_orig_node_vlan_free_ref(vlan);
-@@ -1490,13 +1493,14 @@ print_list:
- 
- 		last_ttvn = atomic_read(&orig_entry->orig_node->last_ttvn);
- 		seq_printf(seq,
--			   " %c %pM %4d   (%3u) via %pM     (%3u)   (%#.8x) [%c%c%c]\n",
-+			   " %c %pM %4d   (%3u) via %pM     (%3u)   (%#.8x) [%c%c%c%c]\n",
- 			   '+', tt_global_entry->common.addr,
- 			   BATADV_PRINT_VID(tt_global_entry->common.vid),
- 			   orig_entry->ttvn, orig_entry->orig_node->orig,
- 			   last_ttvn, vlan->tt.crc,
- 			   (flags & BATADV_TT_CLIENT_ROAM ? 'R' : '.'),
- 			   (flags & BATADV_TT_CLIENT_WIFI ? 'W' : '.'),
-+			   (flags & BATADV_TT_CLIENT_ISOLA ? 'I' : '.'),
- 			   (flags & BATADV_TT_CLIENT_TEMP ? 'T' : '.'));
- 
- 		batadv_orig_node_vlan_free_ref(vlan);
 -- 
 1.8.5.2
