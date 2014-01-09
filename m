@@ -1,36 +1,37 @@
 From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: [net-next 2/7] ixgbe: Indicate removal state explicitly
-Date: Thu, 9 Jan 2014 17:29:29 +0000
-Message-ID: <7F0D3A98-29B4-4153-B720-0CDAD7EC8C0B@intel.com>
+Subject: Re: [net-next 3/7] ixgbe: Use static inlines instead of macros
+Date: Thu, 9 Jan 2014 17:34:18 +0000
+Message-ID: <2C8FA848-3185-43BA-BDD7-955B0C7DD835@intel.com>
 References: <1389166847-3780-1-git-send-email-aaron.f.brown@intel.com>
- <1389166847-3780-3-git-send-email-aaron.f.brown@intel.com>
- <79DAF37B-9AA5-407B-81D2-3EDFD8589254@gmail.com>
+ <1389166847-3780-4-git-send-email-aaron.f.brown@intel.com>
+ <CE14B815-C10B-4091-A608-6742117FBEF6@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed;
-	boundary="Apple-Mail=_823E2992-C9F6-4C36-893B-E68DCDE4AFA2";
+	boundary="Apple-Mail=_D4C75B04-E46F-44DD-9101-D96951B10622";
 	protocol="application/pgp-signature"; micalg=pgp-sha1
 Cc: "Brown, Aaron F" <aaron.f.brown@intel.com>,
 	David Miller <davem@davemloft.net>,
 	Netdev <netdev@vger.kernel.org>,
 	"gospo@redhat.com" <gospo@redhat.com>,
 	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Scott Feldman <sfeldma@gmail.com>
+To: Scott Feldman <sfeldma@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:55571 "EHLO mga01.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:19598 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751137AbaAIR3b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jan 2014 12:29:31 -0500
-In-Reply-To: <79DAF37B-9AA5-407B-81D2-3EDFD8589254@gmail.com>
+	id S1751142AbaAIReU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jan 2014 12:34:20 -0500
+In-Reply-To: <CE14B815-C10B-4091-A608-6742117FBEF6@cumulusnetworks.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Apple-Mail=_823E2992-C9F6-4C36-893B-E68DCDE4AFA2
+--Apple-Mail=_D4C75B04-E46F-44DD-9101-D96951B10622
 Content-Transfer-Encoding: quoted-printable
 Content-Type: text/plain;
 	charset=us-ascii
 
-On Jan 8, 2014, at 12:37 AM, Scott Feldman <sfeldma@gmail.com> wrote:
+On Jan 8, 2014, at 12:47 AM, Scott Feldman <sfeldma@cumulusnetworks.com> =
+wrote:
 
 >=20
 > On Jan 7, 2014, at 11:40 PM, Aaron Brown <aaron.f.brown@intel.com> =
@@ -38,40 +39,26 @@ wrote:
 >=20
 >> From: Mark Rustad <mark.d.rustad@intel.com>
 >>=20
->> Add a bit, __IXGBE_REMOVE, to indicate that the module is being
->> removed. The __IXGBE_DOWN bit had been overloaded for this purpose,
->> but that leads to trouble. A few places now check both __IXGBE_DOWN
->> and __IXGBE_REMOVE. Notably, setting either bit will prevent service
->> task execution.
->>=20
->> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
->> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
->> Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
->> ---
->> drivers/net/ethernet/intel/ixgbe/ixgbe.h      |  1 +
->> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 12 ++++++++----
->> 2 files changed, 9 insertions(+), 4 deletions(-)
->>=20
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h =
-b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
->> index 49531cd..8da263a 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
->> @@ -798,6 +798,7 @@ enum ixgbe_state_t {
->> 	__IXGBE_TESTING,
->> 	__IXGBE_RESETTING,
->> 	__IXGBE_DOWN,
->> +	__IXGBE_REMOVE,
+>> -#define IXGBE_WRITE_REG(a, reg, value) writel((value), ((a)->hw_addr =
++ (reg)))
+>> +static inline void IXGBE_WRITE_REG(struct ixgbe_hw *hw, u32 reg, u32 =
+value)
 >=20
-> __IXGBE_REMOVING?  More consistent with _TESTING, _RESETTING, etc.
+> Bummer, now you have a all-caps func name.
 
-And more correct in actual meaning as well. Another good suggestion.
+Agreed, but this is actually a fairly common condition among drivers =
+that used to use macros. It isn't perfect, but at least it is moving in =
+the right direction. I'd rather leave the case change for a later patch =
+series that does only that or has some reason to touch all of the =
+register access sites.
+
+At least the new accessor I introduced is lower case. :-)
 
 --=20
 Mark Rustad, Networking Division, Intel Corporation
 
 
---Apple-Mail=_823E2992-C9F6-4C36-893B-E68DCDE4AFA2
+--Apple-Mail=_D4C75B04-E46F-44DD-9101-D96951B10622
 Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment; filename="signature.asc"
 Content-Type: application/pgp-signature; name="signature.asc"
@@ -80,19 +67,19 @@ Content-Description: Message signed with OpenPGP using GPGMail
 -----BEGIN PGP SIGNATURE-----
 Comment: GPGTools - http://gpgtools.org
 
-iQIcBAEBAgAGBQJSztx5AAoJEDwO/+eO4+5uzjgP/2/QjqviQ0GhKltkaRBdEQN/
-uljQ13fb/nU+hgiOP35KUM9L+tBpil7FPLjJhKvpx8AX+QUWEsKWGLmy8Wz/TqCc
-Mg+eONnm042ZEh3P++zXVVZJoMaw+d9IXxOhZTCbqkEz5qqdQuUvSqatTHy0eRAb
-quy8fqmdAvrwK5xb4qwk8YTi2pD3x3oTTn0CCgn+uCbVsOsL7zju1YNHvzWFFd8x
-q+Bp1l7zStYYltLDMMzSpfoFvGSHuxrX6MBuTtAcL/95ZZzpL7AsA2Fn5pBcqUPf
-Ak5mikvrsznRUJj33TfaHh3hdC1kdVAkh2UsP+uXQoIOL9FlvXmF3UKdoBdL/DBS
-SwPS+a9gZ6ZZFKfiZMq5TMqOP3vpHwDdN5pmKIPdbKGe7KCew93W2UqevdLRA1Vb
-KyGCjD0KUUlVAkllfJJXXukgQ08cGSdp2awm+bVEiLrGyxW4/I61nFYhcAuRl8un
-uqZi+IJyYcpUuBrUlCFxC2xasMtOAIUI7MGIWMat0Xa1Nwl7rF+rFtdBojxM1tGh
-20wFkEff4fL6lAU0UcrDtj/GZCo71E+SxM+SeI0QzgQ0vJIKvarHpsTf/Vq7H4U3
-O2cHz+OCRuh+w3p7Fyd5iJcWQRsVekRvjW+3x49rOLW5AVn/XgWJn2zXOND8whan
-V1TkSVM9LIgjOjnrYqtf
-=Elfu
+iQIcBAEBAgAGBQJSzt2ZAAoJEDwO/+eO4+5ux44QAMEbM1u/wkAIjys7wL6whC3M
+MVu6DoHwqbpmgFrD19CXmGssCbAnM4LHt0fYCr6HGl20mSvDFdz5u5QqgNgozBwc
+DKwDu1ke5KcMsnYJLnY5/EKr8QJo0o5rpzFt/yaIayXeWD5+vhLQhS4UV5VjATOd
+ajJs7eNHD6+puekMQ32PgcaVmx+MLhfDsIGRbRnLsSMzZeh4yjppnz09ppSqhq9L
+4L/+d8lkDXBKlXy0P6w7wW/RXIcrTs3S7uGR5HUqf1CZkm4+b2sGACivgNiOuTDN
+wWNXvpKi8zIWnttLBj+TILGoaXNmrMIkb86VvVKcCCUkaAeTLQxXsvNxXbZ2jtbT
+9KM18Xqm2PSFEsDUCiclwUOph1qCfAFeaha1mvBE7l1qycYpCwkcZ652Xi5C/gJ9
+OHH7v5ua6sf7KAMF5cWHGoYA1uWWhnhPEI3D3ht1tahzd2hdc8Axp9dUK3z8w0Yh
+452lp4zjxdOzEvMoJ0vC7eH5EJmzB/ICQIYnAT659xHmBmFGChLrzBsDgdWFHxix
+b9sNGBfuRR15n0Ne8P8Ct4iGWvj2xJpIO0xU8qjLpqr5zcM7jwk6CDjpuKfMw5A5
+KNNejLzHM2iGxH+yWT8Qm7xiMs0wnYML1FjP7tKFsmElPINoJO+cBpampbHmyxxy
+RcVMVoox0R+sNpZRI0ki
+=bQww
 -----END PGP SIGNATURE-----
 
---Apple-Mail=_823E2992-C9F6-4C36-893B-E68DCDE4AFA2--
+--Apple-Mail=_D4C75B04-E46F-44DD-9101-D96951B10622--
