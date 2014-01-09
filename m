@@ -1,97 +1,57 @@
 From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next v3 8/9] xen-netback: Timeout packets in RX path
-Date: Thu, 9 Jan 2014 09:20:32 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0200C2A@AMSPEX01CL01.citrite.net>
-References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com>
- <1389139818-24458-9-git-send-email-zoltan.kiss@citrix.com>
- <52CDC45D.3050509@citrix.com>
+Subject: RE: [PATCH net-next 1/3] net: add skb_checksum_setup
+Date: Thu, 9 Jan 2014 09:22:17 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0200C83@AMSPEX01CL01.citrite.net>
+References: <1389189511-14568-1-git-send-email-paul.durrant@citrix.com>
+	 <1389189511-14568-2-git-send-email-paul.durrant@citrix.com>
+ <1389220984.31367.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Jonathan Davies" <Jonathan.Davies@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52CDC45D.3050509@citrix.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:10784 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756738AbaAIJWh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 04:22:37 -0500
+In-Reply-To: <1389220984.31367.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Zoltan Kiss
-> Sent: 08 January 2014 21:34
-> To: Ian Campbell; Wei Liu; xen-devel@lists.xenproject.org;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Jonathan Davies
-> Cc: Zoltan Kiss; Paul Durrant
-> Subject: Re: [PATCH net-next v3 8/9] xen-netback: Timeout packets in RX
-> path
-> 
-> I just realized when answering Ma's mail that this doesn't cause the
-> desired effect after Paul's flow control improvement: starting the queue
-> doesn't drop the packets which cannot fit the ring. Which in fact might
-> be not good.
-
-No, that would not be good.
-
-> We are adding the skb to vif->rx_queue even when
-> xenvif_rx_ring_slots_available(vif, min_slots_needed) said there is no
-> space for that. Or am I missing something? Paul?
-> 
-
-That's correct. Part of the flow control improvement was to get rid of needless packet drops. For your purposes, you basically need to avoid using the queuing discipline and take packets into netback's vif->rx_queue regardless of the state of the shared ring so that you can drop them if they get beyond a certain age. So, perhaps you should never stop the netif queue, place an upper limit on vif->rx_queue (either packet or byte count) and drop when that is exceeded (i.e. mimicking pfifo or bfifo internally).
-
-  Paul
-
-> Zoli
-> 
-> On 08/01/14 00:10, Zoltan Kiss wrote:
-> > A malicious or buggy guest can leave its queue filled indefinitely, in which
-> > case qdisc start to queue packets for that VIF. If those packets came from
-> an
-> > another guest, it can block its slots and prevent shutdown. To avoid that,
-> we
-> > make sure the queue is drained in every 10 seconds.
-> ...
-> > diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-
-> netback/interface.c
-> > index 95fcd63..ce032f9 100644
-> > --- a/drivers/net/xen-netback/interface.c
-> > +++ b/drivers/net/xen-netback/interface.c
-> > @@ -114,6 +114,16 @@ static irqreturn_t xenvif_interrupt(int irq, void
-> *dev_id)
-> >   	return IRQ_HANDLED;
-> >   }
-> >
-> > +static void xenvif_wake_queue(unsigned long data)
-> > +{
-> > +	struct xenvif *vif = (struct xenvif *)data;
-> > +
-> > +	if (netif_queue_stopped(vif->dev)) {
-> > +		netdev_err(vif->dev, "draining TX queue\n");
-> > +		netif_wake_queue(vif->dev);
-> > +	}
-> > +}
-> > +
-> >   static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> >   {
-> >   	struct xenvif *vif = netdev_priv(dev);
-> > @@ -143,8 +153,13 @@ static int xenvif_start_xmit(struct sk_buff *skb,
-> struct net_device *dev)
-> >   	 * then turn off the queue to give the ring a chance to
-> >   	 * drain.
-> >   	 */
-> > -	if (!xenvif_rx_ring_slots_available(vif, min_slots_needed))
-> > +	if (!xenvif_rx_ring_slots_available(vif, min_slots_needed)) {
-> > +		vif->wake_queue.function = xenvif_wake_queue;
-> > +		vif->wake_queue.data = (unsigned long)vif;
-> >   		xenvif_stop_queue(vif);
-> > +		mod_timer(&vif->wake_queue,
-> > +			jiffies + rx_drain_timeout_jiffies);
-> > +	}
-> >
-> >   	skb_queue_tail(&vif->rx_queue, skb);
-> >   	xenvif_kick_thread(vif);
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiAwOCBKYW51YXJ5IDIwMTQgMjI6NDMN
+Cj4gVG86IFBhdWwgRHVycmFudA0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgeGVuLWRl
+dmVsQGxpc3RzLnhlbi5vcmc7IERhdmlkIE1pbGxlcjsgRXJpYw0KPiBEdW1hemV0OyBWZWFjZXNs
+YXYgRmFsaWNvOyBBbGV4YW5kZXIgRHV5Y2s7IE5pY29sYXMgRGljaHRlbA0KPiBTdWJqZWN0OiBS
+ZTogW1BBVENIIG5ldC1uZXh0IDEvM10gbmV0OiBhZGQgc2tiX2NoZWNrc3VtX3NldHVwDQo+IA0K
+PiBPbiBXZWQsIDIwMTQtMDEtMDggYXQgMTM6NTggKzAwMDAsIFBhdWwgRHVycmFudCB3cm90ZToN
+Cj4gPiBUaGlzIHBhdGNoIGFkZHMgYSBmdW5jdGlvbiB0byBzZXQgdXAgdGhlIHBhcnRpYWwgY2hl
+Y2tzdW0gb2Zmc2V0IGZvciBJUA0KPiA+IHBhY2tldHMgKGFuZCBvcHRpb25hbGx5IHJlLWNhbGN1
+bGF0ZSB0aGUgcHNldWRvLWhlYWRlciBjaGVja3N1bSkgaW50byB0aGUNCj4gPiBjb3JlIG5ldHdv
+cmsgY29kZS4NCj4gPiBUaGUgaW1wbGVtZW50YXRpb24gd2FzIHByZXZpb3VzbHkgcHJpdmF0ZSBh
+bmQgZHVwbGljYXRlZCBiZXR3ZWVuIHhlbi0NCj4gbmV0YmFjaw0KPiA+IGFuZCB4ZW4tbmV0ZnJv
+bnQsIGhvd2V2ZXIgaXQgaXMgbm90IHhlbi1zcGVjaWZpYyBhbmQgaXMgcG90ZW50aWFsbHkgdXNl
+ZnVsDQo+ID4gdG8gYW55IG5ldHdvcmsgZHJpdmVyLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTog
+UGF1bCBEdXJyYW50IDxwYXVsLmR1cnJhbnRAY2l0cml4LmNvbT4NCj4gPiBDYzogRGF2aWQgTWls
+bGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KPiA+IENjOiBFcmljIER1bWF6ZXQgPGVkdW1hemV0
+QGdvb2dsZS5jb20+DQo+ID4gQ2M6IFZlYWNlc2xhdiBGYWxpY28gPHZmYWxpY29AcmVkaGF0LmNv
+bT4NCj4gPiBDYzogQWxleGFuZGVyIER1eWNrIDxhbGV4YW5kZXIuaC5kdXlja0BpbnRlbC5jb20+
+DQo+ID4gQ2M6IE5pY29sYXMgRGljaHRlbCA8bmljb2xhcy5kaWNodGVsQDZ3aW5kLmNvbT4NCj4g
+PiAtLS0NCj4gPiAgaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaCB8ICAgIDEgKw0KPiA+ICBuZXQv
+Y29yZS9kZXYuYyAgICAgICAgICAgIHwgIDI3MQ0KPiArKysrKysrKysrKysrKysrKysrKysrKysr
+KysrKysrKysrKysrKysrKysrKysNCj4gPiAgMiBmaWxlcyBjaGFuZ2VkLCAyNzIgaW5zZXJ0aW9u
+cygrKQ0KPiANCj4gSXMgdGhlcmUgYW55IHJlYXNvbiB0byBwdXQgdGhpcyBpbiBuZXQvY29yZS9k
+ZXYuYyBpbnN0ZWFkIG9mDQo+IG5ldC9jb3JlL3NrYnVmZi5jID8NCj4gDQoNCk5vLCBubyByZWFz
+b24uIEkganVzdCB3YXNuJ3Qgc3VyZSB3aGljaCB3YXMgdGhlIGJldHRlciBwbGFjZS4gSSdsbCBw
+dXQgaXQgaW4gc2tidWZmLmMgaWYgdGhhdCBpcyBtb3JlIGFwcHJvcHJpYXRlLg0KDQo+IA0KPiBB
+bHNvLCBubyBpbmxpbmUgc2hvdWxkIGJlIHVzZWQgaW4gYSAuYyBmaWxlDQo+IA0KPiAoIHNrYl9t
+YXliZV9wdWxsX3RhaWwgKQ0KPiANCg0KT2suIEknbGwgZml4IHRoYXQuDQoNClRoYW5rcywNCg0K
+ICBQYXVsDQo=
