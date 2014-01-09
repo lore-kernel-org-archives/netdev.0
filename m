@@ -1,52 +1,72 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next 05/15] i40e: add a comment on barrier and fix panic
- on reset
-Date: Thu, 9 Jan 2014 21:23:10 +0000
-Message-ID: <1389302590.2025.55.camel@bwh-desktop.uk.level5networks.com>
-References: <1389271944-26227-6-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <52CEB538.50505@cogentembedded.com> <20140109091735.00002cf0@unknown>
-	 <20140109.151224.1539252523028219271.davem@davemloft.net>
-	 <1389302517.2025.54.camel@bwh-desktop.uk.level5networks.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] netfilter: nf_conntrack: fix RCU race in
+ nf_conntrack_find_get
+Date: Thu, 9 Jan 2014 22:26:47 +0100
+Message-ID: <20140109212647.GB29458@breakpoint.cc>
+References: <1389090711-15843-1-git-send-email-avagin@openvz.org>
+ <1389107305.26646.20.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140107152520.GF9894@breakpoint.cc>
+ <20140109203206.GA26348@paralelels.com>
+ <20140109205622.GA29458@breakpoint.cc>
+ <20140109210749.GA29440@paralelels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <gregory.v.rose@intel.com>, <sergei.shtylyov@cogentembedded.com>,
-	<jeffrey.t.kirsher@intel.com>, <netdev@vger.kernel.org>,
-	<gospo@redhat.com>, <sassmann@redhat.com>,
-	<mitch.a.williams@intel.com>, <jesse.brandeburg@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Andrey Vagin <avagin@openvz.org>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, vvs@openvz.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cyrill Gorcunov <gorcunov@openvz.org>
+To: Andrew Vagin <avagin@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:21469 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756516AbaAIVXO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 16:23:14 -0500
-In-Reply-To: <1389302517.2025.54.camel@bwh-desktop.uk.level5networks.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:37131 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754979AbaAIV0x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 16:26:53 -0500
+Content-Disposition: inline
+In-Reply-To: <20140109210749.GA29440@paralelels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-01-09 at 21:21 +0000, Ben Hutchings wrote:
-> On Thu, 2014-01-09 at 15:12 -0500, David Miller wrote:
-> > From: Greg Rose <gregory.v.rose@intel.com>
-> > Date: Thu, 9 Jan 2014 09:17:35 -0800
+Andrew Vagin <avagin@parallels.com> wrote:
+> On Thu, Jan 09, 2014 at 09:56:22PM +0100, Florian Westphal wrote:
+> > Andrew Vagin <avagin@parallels.com> wrote:
+> > > Can we allocate conntrack with zero ct_general.use and increment it at
+> > > the first time before inserting the conntrack into the hash table?
+> > > When conntrack is allocated it is attached exclusively to one skb.
+> > > It must be destroyed with skb, if it has not been confirmed, so we
+> > > don't need refcnt on this stage.
+> > > 
+> > > I found only one place, where a reference counter of unconfirmed
+> > > conntract can incremented. It's ctnetlink_dump_table().
 > > 
-> > > Yes, it's apparent that two different internal patches were compressed
-> > > together.  If its unacceptable to do this then I'll speak to Jeff about
-> > > splitting them.
-> > 
-> > I won't reject the entire pull request on account of this, but please
-> > don't do this in the future.
+> > What about skb_clone, etc?  They will also increment the refcnt
+> > if a conntrack entry is attached to the skb.
 > 
-> I don't understand this.  You don't want to see patches that are known
-> to introduce regressions, and you expect people to squash together known
-> buggy patches with their subsequent fix-ups before submitting.
-[...]
+> We can not attach an unconfirmed conntrack to a few skb, because
 
-Hmm, looking at this again, I suppose it is just this particular
-combination of two unrelated changes you're objecting to?
+s/few/new/?
 
-Ben.
+> nf_nat_setup_info can be executed concurrently for the same conntrack.
+> 
+> How do we avoid this race condition for cloned skb-s?
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Simple, the assumption is that only one cpu owns the nfct, so it does
+not matter if the skb is cloned in between, as there are no parallel
+users.
+
+The only possibility (that I know of) to violate this is to create
+a bridge, enable call-iptables sysctl, add -j NFQUEUE rules and then
+wait for packets that need to be forwarded to several recipients,
+e.g. multicast traffic.
+
+see
+http://marc.info/?l=netfilter-devel&m=131471083501656&w=2
+
+or search 'netfilter: nat: work around shared nfct struct in bridge
+case'
