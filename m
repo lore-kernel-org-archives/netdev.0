@@ -1,49 +1,56 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/15] i40e: remove interrupt on AQ error
-Date: Thu,  9 Jan 2014 04:52:18 -0800
-Message-ID: <1389271944-26227-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/15] i40e: Cleanup reconfig rss path
+Date: Thu,  9 Jan 2014 04:52:16 -0800
+Message-ID: <1389271944-26227-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389271944-26227-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:55960 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:44616 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754426AbaAIMwh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jan 2014 07:52:37 -0500
+	id S1755074AbaAIMwd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jan 2014 07:52:33 -0500
 In-Reply-To: <1389271944-26227-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Since nearly everything we do is synchronous, using the interrupt-on-error bit
-is unnecessary and causing unneeded interrupts.  If anyone wants to use the bit
-they can turn it on in individual AQ requests using the cmd_details parameter.
+RSS initialization was doing some extra work, remove the extra
+work and any bugs it created when managing number of queues.
 
-Change-ID: I4690a9c561d3e0836aeadb4f88f8a8702b1d1366
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: Iea75b04a70d73ce76947b6a177ce89ab4899d4c6
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 8 --------
+ 1 file changed, 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index 2b76aba..c75aa2d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -864,7 +864,7 @@ void i40e_fill_default_direct_cmd_desc(struct i40e_aq_desc *desc,
- 	/* zero out the desc */
- 	memset((void *)desc, 0, sizeof(struct i40e_aq_desc));
- 	desc->opcode = cpu_to_le16(opcode);
--	desc->flags = cpu_to_le16(I40E_AQ_FLAG_EI | I40E_AQ_FLAG_SI);
-+	desc->flags = cpu_to_le16(I40E_AQ_FLAG_SI);
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index beb90e9..e782db9 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5771,16 +5771,8 @@ int i40e_reconfig_rss_queues(struct i40e_pf *pf, int queue_count)
+ 	queue_count = rounddown_pow_of_two(queue_count);
  
- /**
+ 	if (queue_count != pf->rss_size) {
+-		if (pf->queues_left < (queue_count - pf->rss_size)) {
+-			dev_info(&pf->pdev->dev,
+-				"Not enough queues to do RSS on %d queues: remaining queues %d\n",
+-				queue_count, pf->queues_left);
+-			return pf->rss_size;
+-		}
+ 		i40e_prep_for_reset(pf);
+ 
+-		pf->num_lan_qps += (queue_count - pf->rss_size);
+-		pf->queues_left -= (queue_count - pf->rss_size);
+ 		pf->rss_size = queue_count;
+ 
+ 		i40e_reset_and_rebuild(pf, true);
 -- 
 1.8.3.1
