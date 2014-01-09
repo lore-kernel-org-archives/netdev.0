@@ -1,172 +1,97 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH v4 5/5] alx: add stats to ethtool
-Date: Thu,  9 Jan 2014 10:09:31 +0100
-Message-ID: <1389258571-10083-6-git-send-email-sd@queasysnail.net>
-References: <1389258571-10083-1-git-send-email-sd@queasysnail.net>
-Cc: bhutchings@solarflare.com, johannes@sipsolutions.net,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	Sabrina Dubroca <sd@queasysnail.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpfb2-g21.free.fr ([212.27.42.10]:47509 "EHLO
-	smtpfb2-g21.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756252AbaAIJLg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 04:11:36 -0500
-Received: from smtp5-g21.free.fr (smtp5-g21.free.fr [212.27.42.5])
-	by smtpfb2-g21.free.fr (Postfix) with ESMTP id D0FB5CDBDEC
-	for <netdev@vger.kernel.org>; Thu,  9 Jan 2014 10:11:32 +0100 (CET)
-In-Reply-To: <1389258571-10083-1-git-send-email-sd@queasysnail.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net-next v3 8/9] xen-netback: Timeout packets in RX path
+Date: Thu, 9 Jan 2014 09:20:32 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0200C2A@AMSPEX01CL01.citrite.net>
+References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com>
+ <1389139818-24458-9-git-send-email-zoltan.kiss@citrix.com>
+ <52CDC45D.3050509@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Zoltan Kiss <zoltan.kiss@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Jonathan Davies" <Jonathan.Davies@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52CDC45D.3050509@citrix.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/atheros/alx/ethtool.c | 101 +++++++++++++++++++++++++++++
- drivers/net/ethernet/atheros/alx/hw.h      |   7 +-
- 2 files changed, 107 insertions(+), 1 deletion(-)
+> -----Original Message-----
+> From: Zoltan Kiss
+> Sent: 08 January 2014 21:34
+> To: Ian Campbell; Wei Liu; xen-devel@lists.xenproject.org;
+> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Jonathan Davies
+> Cc: Zoltan Kiss; Paul Durrant
+> Subject: Re: [PATCH net-next v3 8/9] xen-netback: Timeout packets in RX
+> path
+> 
+> I just realized when answering Ma's mail that this doesn't cause the
+> desired effect after Paul's flow control improvement: starting the queue
+> doesn't drop the packets which cannot fit the ring. Which in fact might
+> be not good.
 
-diff --git a/drivers/net/ethernet/atheros/alx/ethtool.c b/drivers/net/ethernet/atheros/alx/ethtool.c
-index 45b3650..08e22df 100644
---- a/drivers/net/ethernet/atheros/alx/ethtool.c
-+++ b/drivers/net/ethernet/atheros/alx/ethtool.c
-@@ -46,6 +46,66 @@
- #include "reg.h"
- #include "hw.h"
- 
-+/* The order of these strings must match the order of the fields in
-+ * struct alx_hw_stats
-+ * See hw.h
-+ */
-+static const char alx_gstrings_stats[][ETH_GSTRING_LEN] = {
-+	"rx_packets",
-+	"rx_bcast_packets",
-+	"rx_mcast_packets",
-+	"rx_pause_packets",
-+	"rx_ctrl_packets",
-+	"rx_fcs_errors",
-+	"rx_length_errors",
-+	"rx_bytes",
-+	"rx_runt_packets",
-+	"rx_fragments",
-+	"rx_64B_or_less_packets",
-+	"rx_65B_to_127B_packets",
-+	"rx_128B_to_255B_packets",
-+	"rx_256B_to_511B_packets",
-+	"rx_512B_to_1023B_packets",
-+	"rx_1024B_to_1518B_packets",
-+	"rx_1519B_to_mtu_packets",
-+	"rx_oversize_packets",
-+	"rx_rxf_ov_drop_packets",
-+	"rx_rrd_ov_drop_packets",
-+	"rx_align_errors",
-+	"rx_bcast_bytes",
-+	"rx_mcast_bytes",
-+	"rx_address_errors",
-+	"tx_packets",
-+	"tx_bcast_packets",
-+	"tx_mcast_packets",
-+	"tx_pause_packets",
-+	"tx_exc_defer_packets",
-+	"tx_ctrl_packets",
-+	"tx_defer_packets",
-+	"tx_bytes",
-+	"tx_64B_or_less_packets",
-+	"tx_65B_to_127B_packets",
-+	"tx_128B_to_255B_packets",
-+	"tx_256B_to_511B_packets",
-+	"tx_512B_to_1023B_packets",
-+	"tx_1024B_to_1518B_packets",
-+	"tx_1519B_to_mtu_packets",
-+	"tx_single_collision",
-+	"tx_multiple_collisions",
-+	"tx_late_collision",
-+	"tx_abort_collision",
-+	"tx_underrun",
-+	"tx_trd_eop",
-+	"tx_length_errors",
-+	"tx_trunc_packets",
-+	"tx_bcast_bytes",
-+	"tx_mcast_bytes",
-+	"tx_update",
-+};
-+
-+#define ALX_NUM_STATS ARRAY_SIZE(alx_gstrings_stats)
-+
-+
- static u32 alx_get_supported_speeds(struct alx_hw *hw)
- {
- 	u32 supported = SUPPORTED_10baseT_Half |
-@@ -201,6 +261,44 @@ static void alx_set_msglevel(struct net_device *netdev, u32 data)
- 	alx->msg_enable = data;
- }
- 
-+static void alx_get_ethtool_stats(struct net_device *netdev,
-+				  struct ethtool_stats *estats, u64 *data)
-+{
-+	struct alx_priv *alx = netdev_priv(netdev);
-+	struct alx_hw *hw = &alx->hw;
-+
-+	spin_lock(&alx->stats_lock);
-+
-+	alx_update_hw_stats(hw);
-+	BUILD_BUG_ON(sizeof(hw->stats) - offsetof(struct alx_hw_stats, rx_ok) <
-+		     ALX_NUM_STATS * sizeof(u64));
-+	memcpy(data, &hw->stats.rx_ok, ALX_NUM_STATS * sizeof(u64));
-+
-+	spin_unlock(&alx->stats_lock);
-+}
-+
-+static void alx_get_strings(struct net_device *netdev, u32 stringset, u8 *buf)
-+{
-+	switch (stringset) {
-+	case ETH_SS_STATS:
-+		memcpy(buf, &alx_gstrings_stats, sizeof(alx_gstrings_stats));
-+		break;
-+	default:
-+		WARN_ON(1);
-+		break;
-+	}
-+}
-+
-+static int alx_get_sset_count(struct net_device *netdev, int sset)
-+{
-+	switch (sset) {
-+	case ETH_SS_STATS:
-+		return ALX_NUM_STATS;
-+	default:
-+		return -EINVAL;
-+	}
-+}
-+
- const struct ethtool_ops alx_ethtool_ops = {
- 	.get_settings	= alx_get_settings,
- 	.set_settings	= alx_set_settings,
-@@ -209,4 +307,7 @@ const struct ethtool_ops alx_ethtool_ops = {
- 	.get_msglevel	= alx_get_msglevel,
- 	.set_msglevel	= alx_set_msglevel,
- 	.get_link	= ethtool_op_get_link,
-+	.get_strings	= alx_get_strings,
-+	.get_sset_count	= alx_get_sset_count,
-+	.get_ethtool_stats	= alx_get_ethtool_stats,
- };
-diff --git a/drivers/net/ethernet/atheros/alx/hw.h b/drivers/net/ethernet/atheros/alx/hw.h
-index 854d807..1554880 100644
---- a/drivers/net/ethernet/atheros/alx/hw.h
-+++ b/drivers/net/ethernet/atheros/alx/hw.h
-@@ -381,7 +381,12 @@ struct alx_rrd {
- 				 ALX_ISR_RX_Q6 | \
- 				 ALX_ISR_RX_Q7)
- 
--/* Statistics counters collected by the MAC */
-+/* Statistics counters collected by the MAC
-+ *
-+ * The order of the fields must match the strings in alx_gstrings_stats
-+ * All stats fields should be u64
-+ * See ethtool.c
-+ */
- struct alx_hw_stats {
- 	/* rx */
- 	u64 rx_ok;		/* good RX packets */
--- 
-1.8.5.2
+No, that would not be good.
+
+> We are adding the skb to vif->rx_queue even when
+> xenvif_rx_ring_slots_available(vif, min_slots_needed) said there is no
+> space for that. Or am I missing something? Paul?
+> 
+
+That's correct. Part of the flow control improvement was to get rid of needless packet drops. For your purposes, you basically need to avoid using the queuing discipline and take packets into netback's vif->rx_queue regardless of the state of the shared ring so that you can drop them if they get beyond a certain age. So, perhaps you should never stop the netif queue, place an upper limit on vif->rx_queue (either packet or byte count) and drop when that is exceeded (i.e. mimicking pfifo or bfifo internally).
+
+  Paul
+
+> Zoli
+> 
+> On 08/01/14 00:10, Zoltan Kiss wrote:
+> > A malicious or buggy guest can leave its queue filled indefinitely, in which
+> > case qdisc start to queue packets for that VIF. If those packets came from
+> an
+> > another guest, it can block its slots and prevent shutdown. To avoid that,
+> we
+> > make sure the queue is drained in every 10 seconds.
+> ...
+> > diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-
+> netback/interface.c
+> > index 95fcd63..ce032f9 100644
+> > --- a/drivers/net/xen-netback/interface.c
+> > +++ b/drivers/net/xen-netback/interface.c
+> > @@ -114,6 +114,16 @@ static irqreturn_t xenvif_interrupt(int irq, void
+> *dev_id)
+> >   	return IRQ_HANDLED;
+> >   }
+> >
+> > +static void xenvif_wake_queue(unsigned long data)
+> > +{
+> > +	struct xenvif *vif = (struct xenvif *)data;
+> > +
+> > +	if (netif_queue_stopped(vif->dev)) {
+> > +		netdev_err(vif->dev, "draining TX queue\n");
+> > +		netif_wake_queue(vif->dev);
+> > +	}
+> > +}
+> > +
+> >   static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+> >   {
+> >   	struct xenvif *vif = netdev_priv(dev);
+> > @@ -143,8 +153,13 @@ static int xenvif_start_xmit(struct sk_buff *skb,
+> struct net_device *dev)
+> >   	 * then turn off the queue to give the ring a chance to
+> >   	 * drain.
+> >   	 */
+> > -	if (!xenvif_rx_ring_slots_available(vif, min_slots_needed))
+> > +	if (!xenvif_rx_ring_slots_available(vif, min_slots_needed)) {
+> > +		vif->wake_queue.function = xenvif_wake_queue;
+> > +		vif->wake_queue.data = (unsigned long)vif;
+> >   		xenvif_stop_queue(vif);
+> > +		mod_timer(&vif->wake_queue,
+> > +			jiffies + rx_drain_timeout_jiffies);
+> > +	}
+> >
+> >   	skb_queue_tail(&vif->rx_queue, skb);
+> >   	xenvif_kick_thread(vif);
