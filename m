@@ -1,53 +1,62 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net 1/2] macvlan: forbid L2 fowarding offload for macvtap
-Date: Fri, 10 Jan 2014 00:03:23 +0200
-Message-ID: <20140109220323.GC9385@redhat.com>
-References: <52CB7009.2030903@redhat.com>
- <52CB8D54.9090506@gmail.com>
- <52CB9D1A.1050101@redhat.com>
- <52CBAC2A.90005@intel.com>
- <52CBC22D.3050002@redhat.com>
- <20140108125528.GC14741@redhat.com>
- <52CDA186.1080601@gmail.com>
- <20140109071721.GD19559@redhat.com>
- <52CE63EB.5000109@redhat.com>
- <20140109133908.354a4d73@nehalam.linuxnetplumber.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 1/2] include/uapi/linux/xfrm.h: Pack struct xfrm_userpolicy_info
+Date: Fri, 10 Jan 2014 02:07:19 +0300
+Message-ID: <52CF2BA7.9080408@cogentembedded.com>
+References: <1389077339-12814-1-git-send-email-fan.du@windriver.com> <1389077339-12814-2-git-send-email-fan.du@windriver.com> <52CC851B.2060401@cogentembedded.com> <52CE6052.5030905@windriver.com> <52CF29B1.1000905@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: steffen.klassert@secunet.com, davem@davemloft.net,
+	stephen@networkplumber.org, dev@lists.strongswan.org,
+	netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35941 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755514AbaAIWDi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jan 2014 17:03:38 -0500
-Content-Disposition: inline
-In-Reply-To: <20140109133908.354a4d73@nehalam.linuxnetplumber.net>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:40140 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752139AbaAIWHU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 17:07:20 -0500
+Received: by mail-lb0-f177.google.com with SMTP id z5so446231lbh.36
+        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 14:07:16 -0800 (PST)
+In-Reply-To: <52CF29B1.1000905@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 09, 2014 at 01:39:08PM -0800, Stephen Hemminger wrote:
-> On Thu, 09 Jan 2014 16:55:07 +0800
-> Jason Wang <jasowang@redhat.com> wrote:
-> 
-> > What if use do want a qdisc and want to change the its queue length for
-> > tun/macvlan? And the the name tx_queue_length is misleading. For tun it
-> > may make sense since it was used in transmission path. For macvtap it
-> > was not. So maybe what we need is just a new ioctl for both tun/macvtap
-> > and a new feature flag. If user create the device with new feature flag,
-> > the socket receive queue length could be changed by ioctl instead of
-> > dev->tx_queue_length. If not, the old behaviour could be kept.
-> 
-> The overloading of tx_queue_len in macvtap was the original design mistake.
-> Can't this just be undone and expose rx_queue_len as sysfs attribute?
+On 01/10/2014 01:58 AM, Sergei Shtylyov wrote:
 
-Yes but we need to avoid breaking user-visible ABI.
-So I think we'll need to catch any access attempts and redirect them to
-the new rx_queue_len.  I posted a patch like this using new
-ndo_set_tx_queue_len/ndo_get_tx_queue_len.  Have you seen it? What do
-you think?
+>>>> Otherwise 64bits kernel has sizeof(struct xfrm_userpolicy_info) 168 bytes,
+>>>> while 32bits compiled iproute2 see the same structure as 164 bytes, which
+>>>> leading deficit xfrm policy, in turn broken IPsec connectivity.
+
+>>>> Fix this by packing the structure.
+
+>>>     This will force byte-by-byte access to all members on some arches like
+>>> ARM...
+
+>>>> Signed-off-by: Fan Du <fan.du@windriver.com>
+>>>> ---
+>>>>   include/uapi/linux/xfrm.h |    2 +-
+>>>>   1 file changed, 1 insertion(+), 1 deletion(-)
+
+>>>> diff --git a/include/uapi/linux/xfrm.h b/include/uapi/linux/xfrm.h
+>>>> index a8cd6a4..470bfae 100644
+>>>> --- a/include/uapi/linux/xfrm.h
+>>>> +++ b/include/uapi/linux/xfrm.h
+>>>> @@ -405,7 +405,7 @@ struct xfrm_userpolicy_info {
+>>>>       /* Automatically expand selector to include matching ICMP payloads. */
+>>>>   #define XFRM_POLICY_ICMP    2
+>>>>       __u8                share;
+>>>> -};
+>>>> +} __attribute__((packed));
+
+>>>     Please use the __packed macro instead. I guess you haven't run
+>>> checkpatch.pl?
+
+>> Lucky me, I run checkpatch every time before sending patch out.
+
+>     Ah, this time it didn't have the *struct* start in the context, so that's
+> why there was no complaint (probably). Usually, it suggests using __packed...
+
+    Ah, no. Looking at the script, it just doesn't WARN about this in the 
+files under include/uapi/. Probably the macro is undefined in this context.
+
+WBR, Sergei
