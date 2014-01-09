@@ -1,74 +1,736 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 15/15] i40e: Turn flow director off in MFP mode
-Date: Thu,  9 Jan 2014 04:52:24 -0800
-Message-ID: <1389271944-26227-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/15] i40e: Fix GPL header
+Date: Thu,  9 Jan 2014 04:52:12 -0800
+Message-ID: <1389271944-26227-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389271944-26227-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:55960 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754886AbaAIMwn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jan 2014 07:52:43 -0500
+	id S1755011AbaAIMwa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jan 2014 07:52:30 -0500
 In-Reply-To: <1389271944-26227-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-The driver needs to set the MFP flag earlier in i40e_sw_init
-and then can use that flag to decide if other hardware
-work-arouds are required.
+The GPL header included in each file in the i40e driver doesn't
+need to include the "this program" text since this driver
+is already part of the larger kernel.
 
-Change-ID: Ib17ad1e3485f57b28845ab4722294a99f203bd48
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/i40e/Makefile           | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e.h             | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c      | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_adminq.h      | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_alloc.h       | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_common.c      | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c     | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_diag.c        | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_diag.h        | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_hmc.c         | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_hmc.h         | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c     | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h     | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c         | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_osdep.h       | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h   | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_register.h    | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_status.h      | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h        | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_type.h        | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl.h    | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 7 +++----
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h | 7 +++----
+ 27 files changed, 81 insertions(+), 108 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/Makefile b/drivers/net/ethernet/intel/i40e/Makefile
+index 479b2c4..6ec1a79 100644
+--- a/drivers/net/ethernet/intel/i40e/Makefile
++++ b/drivers/net/ethernet/intel/i40e/Makefile
+@@ -1,7 +1,7 @@
+ ################################################################################
+ #
+ # Intel Ethernet Controller XL710 Family Linux Driver
+-# Copyright(c) 2013 Intel Corporation.
++# Copyright(c) 2013 - 2014 Intel Corporation.
+ #
+ # This program is free software; you can redistribute it and/or modify it
+ # under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+ # FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ # more details.
+ #
+-# You should have received a copy of the GNU General Public License along with
+-# this program; if not, write to the Free Software Foundation, Inc.,
+-# 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++# You should have received a copy of the GNU General Public License along
++# with this program.  If not, see <http://www.gnu.org/licenses/>.
+ #
+ # The full GNU General Public License is included in this distribution in
+ # the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 09d92d0..4d4cdbf 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+index 2b32084..eb014bb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.h b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
+index 21801c3..993f768 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+index 0075087..c009eb4 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_alloc.h b/drivers/net/ethernet/intel/i40e/i40e_alloc.h
+index 3b1cc21..926811a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_alloc.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_alloc.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index d564910..8f28aee 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index 125f758..e227d7cb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_diag.c b/drivers/net/ethernet/intel/i40e/i40e_diag.c
+index 6a1657e..b2380da 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_diag.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_diag.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_diag.h b/drivers/net/ethernet/intel/i40e/i40e_diag.h
+index d1fc68c..0b59116 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_diag.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_diag.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 42c36d1..2016ca0 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_hmc.c b/drivers/net/ethernet/intel/i40e/i40e_hmc.c
+index bcedf3f..76dfef3 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_hmc.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_hmc.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_hmc.h b/drivers/net/ethernet/intel/i40e/i40e_hmc.h
+index aacd42a..72bf30a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_hmc.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_hmc.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
+index a695b91..101ed41 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h
+index f8afbcb0..341de92 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 63ea703..1b792ee 100644
+index 38ec66f..ea76134 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -4658,7 +4658,7 @@ static int i40e_get_capabilities(struct i40e_pf *pf)
- 		}
- 	} while (err);
- 
--	if (pf->hw.revision_id == 0 && pf->hw.func_caps.npar_enable) {
-+	if (pf->hw.revision_id == 0 && (pf->flags & I40E_FLAG_MFP_ENABLED)) {
- 		pf->hw.func_caps.num_msix_vectors += 1;
- 		pf->hw.func_caps.num_tx_qp =
- 			min_t(int, pf->hw.func_caps.num_tx_qp,
-@@ -5827,6 +5827,12 @@ static int i40e_sw_init(struct i40e_pf *pf)
- 		pf->rss_size = 1;
- 	}
- 
-+	/* MFP mode enabled */
-+	if (pf->hw.func_caps.npar_enable || pf->hw.func_caps.mfp_mode_1) {
-+		pf->flags |= I40E_FLAG_MFP_ENABLED;
-+		dev_info(&pf->pdev->dev, "MFP mode Enabled\n");
-+	}
-+
- 	if (pf->hw.func_caps.dcb)
- 		pf->num_tc_qps = I40E_DEFAULT_QUEUES_PER_TC;
- 	else
-@@ -5855,12 +5861,6 @@ static int i40e_sw_init(struct i40e_pf *pf)
- 		pf->num_vmdq_qps = I40E_DEFAULT_QUEUES_PER_VMDQ;
- 	}
- 
--	/* MFP mode enabled */
--	if (pf->hw.func_caps.npar_enable || pf->hw.func_caps.mfp_mode_1) {
--		pf->flags |= I40E_FLAG_MFP_ENABLED;
--		dev_info(&pf->pdev->dev, "MFP mode Enabled\n");
--	}
--
- #ifdef CONFIG_PCI_IOV
- 	if (pf->hw.func_caps.num_vfs) {
- 		pf->num_vf_qps = I40E_DEFAULT_QUEUES_PER_VF;
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+index e2da0a2..37d66c8 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_osdep.h b/drivers/net/ethernet/intel/i40e/i40e_osdep.h
+index 702c81b..ecd0f0b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_osdep.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_osdep.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+index e05d303..c7c3d82 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_register.h b/drivers/net/ethernet/intel/i40e/i40e_register.h
+index d188ec0..1d40f42 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_register.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_register.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_status.h b/drivers/net/ethernet/intel/i40e/i40e_status.h
+index 5e5bcdd..5f9cac5 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_status.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_status.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index fac4fb3..e81e5bf 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index 92f5cf5..7ec744b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 53c40cb..12473ad 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
+index 6bcfcef..22a1b69 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index efb9a24..66fffbd 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
+index 8d0f4dd..cc1feee 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 Intel Corporation.
++ * Copyright(c) 2013 - 2014 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -12,9 +12,8 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
+  *
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
 -- 
 1.8.3.1
