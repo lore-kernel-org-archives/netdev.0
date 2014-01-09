@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: Re: [PATCH ethtool] ethtool: Accept long feature names reported by
  -k option as input to -K option
-Date: Thu, 9 Jan 2014 21:11:32 +0000
-Message-ID: <1389301892.2025.45.camel@bwh-desktop.uk.level5networks.com>
+Date: Thu, 9 Jan 2014 21:11:45 +0000
+Message-ID: <1389301905.2025.46.camel@bwh-desktop.uk.level5networks.com>
 References: <1389217931.1644.44.camel@bwh-desktop.uk.level5networks.com>
 	 <804857E1F29AAC47BF68C404FC60A18465428D1D@ORSMSX105.amr.corp.intel.com>
 Mime-Version: 1.0
@@ -13,10 +13,10 @@ Cc: Or Gerlitz <or.gerlitz@gmail.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: "Allan, Bruce W" <bruce.w.allan@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:26671 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:26684 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754343AbaAIVLg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 16:11:36 -0500
+	with ESMTP id S1757442AbaAIVLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 16:11:48 -0500
 In-Reply-To: <804857E1F29AAC47BF68C404FC60A18465428D1D@ORSMSX105.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -58,7 +58,7 @@ On Wed, 2014-01-08 at 22:00 +0000, Allan, Bruce W wrote:
 
 I wasn't intending to do so.  The set of feature names is not known at
 compile time so I think it should only list the names that *aren't*
-reported by ethtool -K (the short names).
+reported by ethtool -k (i.e. the short names).
 
 Ben.
 
