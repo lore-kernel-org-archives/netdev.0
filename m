@@ -1,7 +1,7 @@
 From: hannes@stressinduktion.org
-Subject: [PATCH net-next v4 1/3] ipv4: introduce ip_dst_mtu_maybe_forward and protect forwarding path against pmtu spoofing
-Date: Thu,  9 Jan 2014 10:01:15 +0100
-Message-ID: <1389258077-23282-2-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net-next v3 2/3] ipv6: introduce ip6_dst_mtu_forward and protect forwarding path with it
+Date: Thu,  9 Jan 2014 10:01:16 +0100
+Message-ID: <1389258077-23282-3-git-send-email-hannes@stressinduktion.org>
 References: <1389258077-23282-1-git-send-email-hannes@stressinduktion.org>
 Cc: eric.dumazet@gmail.com, davem@davemloft.net,
 	johnwheffner@gmail.com, steffen.klassert@secunet.com,
@@ -9,43 +9,27 @@ Cc: eric.dumazet@gmail.com, davem@davemloft.net,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:50545 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:50551 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755033AbaAIJBc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 04:01:32 -0500
+	with ESMTP id S1753033AbaAIJBd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 04:01:33 -0500
 In-Reply-To: <1389258077-23282-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-While forwarding we should not use the protocol path mtu to calculate
-the mtu for a forwarded packet but instead use the interface mtu.
+In the IPv6 forwarding path we are only concerend about the outgoing
+interface MTU, but also respect locked MTUs on routes. Tunnel provider
+or IPSEC already have to recheck and if needed send PtB notifications
+to the sending host in case the data does not fit into the packet with
+added headers (we only know the final header sizes there, while also
+using path MTU information).
 
-We mark forwarded skbs in ip_forward with IPSKB_FORWARDED, which was
-introduced for multicast forwarding. But as it does not conflict with
-our usage in unicast code path it is perfect for reuse.
-
-I moved the functions ip_sk_accept_pmtu, ip_sk_use_pmtu and ip_skb_dst_mtu
-along with the new ip_dst_mtu_maybe_forward to net/ip.h to fix circular
-dependencies because of IPSKB_FORWARDED.
-
-Because someone might have written a software which does probe
-destinations manually and expects the kernel to honour those path mtus
-I introduced a new per-namespace "ip_forward_use_pmtu" knob so someone
-can disable this new behaviour. We also still use mtus which are locked on a
-route for forwarding.
-
-The reason for this change is, that path mtus information can be injected
+The reason for this change is, that path MTU information can be injected
 into the kernel via e.g. icmp_err protocol handler without verification
-of local sockets. As such, this could cause the IPv4 forwarding path to
-wrongfully emit fragmentation needed notifications or start to fragment
-packets along a path.
-
-Tunnel and ipsec output paths clear IPCB again, thus IPSKB_FORWARDED
-won't be set and further fragmentation logic will use the path mtu to
-determine the fragmentation size. They also recheck packet size with
-help of path mtu discovery and report appropriate errors.
+of local sockets. As such, this could cause the IPv6 forwarding path to
+wrongfully emit Packet-too-Big errors and drop IPv6 packets.
 
 Cc: Eric Dumazet <eric.dumazet@gmail.com>
 Cc: David Miller <davem@davemloft.net>
@@ -53,227 +37,49 @@ Cc: John Heffner <johnwheffner@gmail.com>
 Cc: Steffen Klassert <steffen.klassert@secunet.com>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- Documentation/networking/ip-sysctl.txt | 13 +++++++++++++
- include/net/ip.h                       | 33 +++++++++++++++++++++++++++++++++
- include/net/netns/ipv4.h               |  1 +
- include/net/route.h                    | 19 +++----------------
- net/ipv4/ip_forward.c                  |  7 +++++--
- net/ipv4/ip_output.c                   |  8 +++++---
- net/ipv4/route.c                       |  3 ---
- net/ipv4/sysctl_net_ipv4.c             |  7 +++++++
- 8 files changed, 67 insertions(+), 24 deletions(-)
+ net/ipv6/ip6_output.c | 23 ++++++++++++++++++++++-
+ 1 file changed, 22 insertions(+), 1 deletion(-)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 7373115..0d71fa9 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -32,6 +32,19 @@ ip_no_pmtu_disc - INTEGER
- min_pmtu - INTEGER
- 	default 552 - minimum discovered Path MTU
- 
-+ip_forward_use_pmtu - BOOLEAN
-+	By default we don't trust protocol path MTUs while forwarding
-+	because they could be easily forged and can lead to unwanted
-+	fragmentation by the router.
-+	You only need to enable this if you have user-space software
-+	which tries to discover path mtus by itself and depends on the
-+	kernel honoring this information. This is normally not the
-+	case.
-+	Default: 0 (disabled)
-+	Possible values:
-+	0 - disabled
-+	1 - enabled
-+
- route/max_size - INTEGER
- 	Maximum number of routes allowed in the kernel.  Increase
- 	this when using large numbers of interfaces and/or routes.
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 5356644..0dab95c 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -263,6 +263,39 @@ int ip_dont_fragment(struct sock *sk, struct dst_entry *dst)
- 		 !(dst_metric_locked(dst, RTAX_MTU)));
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index d1de956..ef02b26 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -321,6 +321,27 @@ static inline int ip6_forward_finish(struct sk_buff *skb)
+ 	return dst_output(skb);
  }
  
-+static inline bool ip_sk_accept_pmtu(const struct sock *sk)
++static unsigned int ip6_dst_mtu_forward(const struct dst_entry *dst)
 +{
-+	return inet_sk(sk)->pmtudisc != IP_PMTUDISC_INTERFACE;
-+}
++	unsigned int mtu;
++	struct inet6_dev *idev;
 +
-+static inline bool ip_sk_use_pmtu(const struct sock *sk)
-+{
-+	return inet_sk(sk)->pmtudisc < IP_PMTUDISC_PROBE;
-+}
-+
-+static inline unsigned int ip_dst_mtu_maybe_forward(const struct dst_entry *dst,
-+						    bool forwarding)
-+{
-+	struct net *net = dev_net(dst->dev);
-+
-+	if (net->ipv4.sysctl_ip_fwd_use_pmtu ||
-+	    dst_metric_locked(dst, RTAX_MTU) ||
-+	    !forwarding)
-+		return dst_mtu(dst);
-+
-+	return min(dst->dev->mtu, IP_MAX_MTU);
-+}
-+
-+static inline unsigned int ip_skb_dst_mtu(const struct sk_buff *skb)
-+{
-+	if (!skb->sk || ip_sk_use_pmtu(skb->sk)) {
-+		bool forwarding = IPCB(skb)->flags & IPSKB_FORWARDED;
-+		return ip_dst_mtu_maybe_forward(skb_dst(skb), forwarding);
-+	} else {
-+		return min(skb_dst(skb)->dev->mtu, IP_MAX_MTU);
++	if (dst_metric_locked(dst, RTAX_MTU)) {
++		mtu = dst_metric_raw(dst, RTAX_MTU);
++		if (mtu)
++			return mtu;
 +	}
++
++	mtu = IPV6_MIN_MTU;
++	rcu_read_lock();
++	idev = __in6_dev_get(dst->dev);
++	if (idev)
++		mtu = idev->cnf.mtu6;
++	rcu_read_unlock();
++
++	return mtu;
 +}
 +
- void __ip_select_ident(struct iphdr *iph, struct dst_entry *dst, int more);
- 
- static inline void ip_select_ident(struct sk_buff *skb, struct dst_entry *dst, struct sock *sk)
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 929a668..80f500a 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -70,6 +70,7 @@ struct netns_ipv4 {
- 
- 	int sysctl_tcp_ecn;
- 	int sysctl_ip_no_pmtu_disc;
-+	int sysctl_ip_fwd_use_pmtu;
- 
- 	kgid_t sysctl_ping_group_range[2];
- 
-diff --git a/include/net/route.h b/include/net/route.h
-index 638e3eb..9d1f423 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -36,6 +36,9 @@
- #include <linux/cache.h>
- #include <linux/security.h>
- 
-+/* IPv4 datagram length is stored into 16bit field (tot_len) */
-+#define IP_MAX_MTU	0xFFFFU
-+
- #define RTO_ONLINK	0x01
- 
- #define RT_CONN_FLAGS(sk)   (RT_TOS(inet_sk(sk)->tos) | sock_flag(sk, SOCK_LOCALROUTE))
-@@ -311,20 +314,4 @@ static inline int ip4_dst_hoplimit(const struct dst_entry *dst)
- 	return hoplimit;
- }
- 
--static inline bool ip_sk_accept_pmtu(const struct sock *sk)
--{
--	return inet_sk(sk)->pmtudisc != IP_PMTUDISC_INTERFACE;
--}
--
--static inline bool ip_sk_use_pmtu(const struct sock *sk)
--{
--	return inet_sk(sk)->pmtudisc < IP_PMTUDISC_PROBE;
--}
--
--static inline int ip_skb_dst_mtu(const struct sk_buff *skb)
--{
--	return (!skb->sk || ip_sk_use_pmtu(skb->sk)) ?
--	       dst_mtu(skb_dst(skb)) : skb_dst(skb)->dev->mtu;
--}
--
- #endif	/* _ROUTE_H */
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 694de3b..e9f1217 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -54,6 +54,7 @@ static int ip_forward_finish(struct sk_buff *skb)
- 
- int ip_forward(struct sk_buff *skb)
+ int ip6_forward(struct sk_buff *skb)
  {
-+	u32 mtu;
- 	struct iphdr *iph;	/* Our header */
- 	struct rtable *rt;	/* Route we use */
- 	struct ip_options *opt	= &(IPCB(skb)->opt);
-@@ -88,11 +89,13 @@ int ip_forward(struct sk_buff *skb)
- 	if (opt->is_strictroute && rt->rt_uses_gateway)
- 		goto sr_failed;
- 
--	if (unlikely(skb->len > dst_mtu(&rt->dst) && !skb_is_gso(skb) &&
-+	IPCB(skb)->flags |= IPSKB_FORWARDED;
-+	mtu = ip_dst_mtu_maybe_forward(&rt->dst, true);
-+	if (unlikely(skb->len > mtu && !skb_is_gso(skb) &&
- 		     (ip_hdr(skb)->frag_off & htons(IP_DF))) && !skb->local_df) {
- 		IP_INC_STATS(dev_net(rt->dst.dev), IPSTATS_MIB_FRAGFAILS);
- 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
--			  htonl(dst_mtu(&rt->dst)));
-+			  htonl(mtu));
- 		goto drop;
+ 	struct dst_entry *dst = skb_dst(skb);
+@@ -441,7 +462,7 @@ int ip6_forward(struct sk_buff *skb)
+ 		}
  	}
  
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index df18461..9a78804 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -449,6 +449,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- 	__be16 not_last_frag;
- 	struct rtable *rt = skb_rtable(skb);
- 	int err = 0;
-+	bool forwarding = IPCB(skb)->flags & IPSKB_FORWARDED;
- 
- 	dev = rt->dst.dev;
- 
-@@ -458,12 +459,13 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- 
- 	iph = ip_hdr(skb);
- 
-+	mtu = ip_dst_mtu_maybe_forward(&rt->dst, forwarding);
- 	if (unlikely(((iph->frag_off & htons(IP_DF)) && !skb->local_df) ||
- 		     (IPCB(skb)->frag_max_size &&
--		      IPCB(skb)->frag_max_size > dst_mtu(&rt->dst)))) {
-+		      IPCB(skb)->frag_max_size > mtu))) {
- 		IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
- 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
--			  htonl(ip_skb_dst_mtu(skb)));
-+			  htonl(mtu));
- 		kfree_skb(skb);
- 		return -EMSGSIZE;
- 	}
-@@ -473,7 +475,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- 	 */
- 
- 	hlen = iph->ihl * 4;
--	mtu = dst_mtu(&rt->dst) - hlen;	/* Size of data space */
-+	mtu = mtu - hlen;	/* Size of data space */
- #ifdef CONFIG_BRIDGE_NETFILTER
- 	if (skb->nf_bridge)
- 		mtu -= nf_bridge_mtu_reduction(skb);
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index f8da282..25071b4 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -112,9 +112,6 @@
- #define RT_FL_TOS(oldflp4) \
- 	((oldflp4)->flowi4_tos & (IPTOS_RT_MASK | RTO_ONLINK))
- 
--/* IPv4 datagram length is stored into 16bit field (tot_len) */
--#define IP_MAX_MTU	0xFFFF
--
- #define RT_GC_TIMEOUT (300*HZ)
- 
- static int ip_rt_max_size;
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 1d2480a..44eba05 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -831,6 +831,13 @@ static struct ctl_table ipv4_net_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
-+	{
-+		.procname	= "ip_forward_use_pmtu",
-+		.data		= &init_net.ipv4.sysctl_ip_fwd_use_pmtu,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
- 	{ }
- };
+-	mtu = dst_mtu(dst);
++	mtu = ip6_dst_mtu_forward(dst);
+ 	if (mtu < IPV6_MIN_MTU)
+ 		mtu = IPV6_MIN_MTU;
  
 -- 
 1.8.4.2
