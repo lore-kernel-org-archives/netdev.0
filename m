@@ -1,62 +1,85 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 1/2] include/uapi/linux/xfrm.h: Pack struct xfrm_userpolicy_info
-Date: Fri, 10 Jan 2014 02:07:19 +0300
-Message-ID: <52CF2BA7.9080408@cogentembedded.com>
-References: <1389077339-12814-1-git-send-email-fan.du@windriver.com> <1389077339-12814-2-git-send-email-fan.du@windriver.com> <52CC851B.2060401@cogentembedded.com> <52CE6052.5030905@windriver.com> <52CF29B1.1000905@cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: gro: change GRO overflow strategy
+Date: Thu, 09 Jan 2014 14:12:19 -0800
+Message-ID: <1389305539.31367.65.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, davem@davemloft.net,
-	stephen@networkplumber.org, dev@lists.strongswan.org,
-	netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Jerry Chu <hkchu@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:40140 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752139AbaAIWHU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 17:07:20 -0500
-Received: by mail-lb0-f177.google.com with SMTP id z5so446231lbh.36
-        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 14:07:16 -0800 (PST)
-In-Reply-To: <52CF29B1.1000905@cogentembedded.com>
+Received: from mail-gg0-f170.google.com ([209.85.161.170]:35188 "EHLO
+	mail-gg0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753005AbaAIWMW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 17:12:22 -0500
+Received: by mail-gg0-f170.google.com with SMTP id i1so943299ggn.29
+        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 14:12:22 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/10/2014 01:58 AM, Sergei Shtylyov wrote:
+From: Eric Dumazet <edumazet@google.com>
 
->>>> Otherwise 64bits kernel has sizeof(struct xfrm_userpolicy_info) 168 bytes,
->>>> while 32bits compiled iproute2 see the same structure as 164 bytes, which
->>>> leading deficit xfrm policy, in turn broken IPsec connectivity.
+GRO layer has a limit of 8 flows being held in GRO list,
+for performance reason.
 
->>>> Fix this by packing the structure.
+When a packet comes for a flow not yet in the list,
+and list is full, we immediately give it to upper
+stacks, lowering aggregation performance.
 
->>>     This will force byte-by-byte access to all members on some arches like
->>> ARM...
+With TSO auto sizing and FQ packet scheduler, this situation
+happens more often.
 
->>>> Signed-off-by: Fan Du <fan.du@windriver.com>
->>>> ---
->>>>   include/uapi/linux/xfrm.h |    2 +-
->>>>   1 file changed, 1 insertion(+), 1 deletion(-)
+This patch changes strategy to simply evict the oldest flow of
+the list. This works better because of the nature of packet
+trains for which GRO is efficient. This also has the effect
+of lowering the GRO latency if many flows are competing.
 
->>>> diff --git a/include/uapi/linux/xfrm.h b/include/uapi/linux/xfrm.h
->>>> index a8cd6a4..470bfae 100644
->>>> --- a/include/uapi/linux/xfrm.h
->>>> +++ b/include/uapi/linux/xfrm.h
->>>> @@ -405,7 +405,7 @@ struct xfrm_userpolicy_info {
->>>>       /* Automatically expand selector to include matching ICMP payloads. */
->>>>   #define XFRM_POLICY_ICMP    2
->>>>       __u8                share;
->>>> -};
->>>> +} __attribute__((packed));
+Tested :
 
->>>     Please use the __packed macro instead. I guess you haven't run
->>> checkpatch.pl?
+Used a 40Gbps NIC, with 4 RX queues, and 200 concurrent TCP_STREAM
+netperf.
 
->> Lucky me, I run checkpatch every time before sending patch out.
+Before patch, aggregate rate is 11Gbps (while a single flow can reach
+30Gbps)
 
->     Ah, this time it didn't have the *struct* start in the context, so that's
-> why there was no complaint (probably). Usually, it suggests using __packed...
+After patch, line rate is reached.
 
-    Ah, no. Looking at the script, it just doesn't WARN about this in the 
-files under include/uapi/. Probably the macro is undefined in this context.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Jerry Chu <hkchu@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+---
+ net/core/dev.c |   17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
 
-WBR, Sergei
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ce01847793c0..a8280154c42a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3882,10 +3882,23 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
+ 	if (same_flow)
+ 		goto ok;
+ 
+-	if (NAPI_GRO_CB(skb)->flush || napi->gro_count >= MAX_GRO_SKBS)
++	if (NAPI_GRO_CB(skb)->flush)
+ 		goto normal;
+ 
+-	napi->gro_count++;
++	if (unlikely(napi->gro_count >= MAX_GRO_SKBS)) {
++		struct sk_buff *nskb = napi->gro_list;
++
++		/* locate the end of the list to select the 'oldest' flow */
++		while (nskb->next) {
++			pp = &nskb->next;
++			nskb = *pp;
++		}
++		*pp = NULL;
++		nskb->next = NULL;
++		napi_gro_complete(nskb);
++	} else {
++		napi->gro_count++;
++	}
+ 	NAPI_GRO_CB(skb)->count = 1;
+ 	NAPI_GRO_CB(skb)->age = jiffies;
+ 	skb_shinfo(skb)->gso_size = skb_gro_len(skb);
