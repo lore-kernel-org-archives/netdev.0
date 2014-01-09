@@ -1,85 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: gro: change GRO overflow strategy
-Date: Thu, 09 Jan 2014 14:12:19 -0800
-Message-ID: <1389305539.31367.65.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Jerry Chu <hkchu@google.com>
-To: David Miller <davem@davemloft.net>
+From: Scott Feldman <sfeldma@cumulusnetworks.com>
+Subject: Re: [net-next 05/15] i40e: add a comment on barrier and fix panic on reset
+Date: Thu, 9 Jan 2014 14:16:57 -0800
+Message-ID: <5B8599B2-AE3C-4E03-8EDF-8F35894E9CC3@cumulusnetworks.com>
+References: <1389271944-26227-1-git-send-email-jeffrey.t.kirsher@intel.com> <1389271944-26227-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.1 \(1827\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Netdev <netdev@vger.kernel.org>, gospo@redhat.com,
+	sassmann@redhat.com, Mitch Williams <mitch.a.williams@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f170.google.com ([209.85.161.170]:35188 "EHLO
-	mail-gg0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753005AbaAIWMW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 17:12:22 -0500
-Received: by mail-gg0-f170.google.com with SMTP id i1so943299ggn.29
-        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 14:12:22 -0800 (PST)
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:36320 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752072AbaAIWRP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 17:17:15 -0500
+In-Reply-To: <1389271944-26227-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
 
-GRO layer has a limit of 8 flows being held in GRO list,
-for performance reason.
+On Jan 9, 2014, at 4:52 AM, Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
 
-When a packet comes for a flow not yet in the list,
-and list is full, we immediately give it to upper
-stacks, lowering aggregation performance.
+> From: Greg Rose <gregory.v.rose@intel.com>
+> 
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> index ea76134..5cdc67c 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> @@ -422,7 +422,7 @@ void i40e_vsi_reset_stats(struct i40e_vsi *vsi)
+> 	memset(&vsi->net_stats_offsets, 0, sizeof(vsi->net_stats_offsets));
+> 	memset(&vsi->eth_stats, 0, sizeof(vsi->eth_stats));
+> 	memset(&vsi->eth_stats_offsets, 0, sizeof(vsi->eth_stats_offsets));
+> -	if (vsi->rx_rings)
+> +	if (vsi->rx_rings && vsi->rx_rings[0]) {
 
-With TSO auto sizing and FQ packet scheduler, this situation
-happens more often.
+Any reason why just [0] is checked for !NULL here...
 
-This patch changes strategy to simply evict the oldest flow of
-the list. This works better because of the nature of packet
-trains for which GRO is efficient. This also has the effect
-of lowering the GRO latency if many flows are competing.
+> 		for (i = 0; i < vsi->num_queue_pairs; i++) {
+> 			memset(&vsi->rx_rings[i]->stats, 0 ,
+> 			       sizeof(vsi->rx_rings[i]->stats));
+> @@ -433,6 +433,7 @@ void i40e_vsi_reset_stats(struct i40e_vsi *vsi)
+> 			memset(&vsi->tx_rings[i]->tx_stats, 0,
+> 			       sizeof(vsi->tx_rings[i]->tx_stats));
+> 		}
+> +	}
+> 	vsi->stat_offsets_loaded = false;
+> }
+> 
+> @@ -2101,8 +2105,11 @@ static void i40e_vsi_free_rx_resources(struct i40e_vsi *vsi)
+> {
+> 	int i;
+> 
+> +	if (!vsi->rx_rings)
+> +		return;
+> +
+> 	for (i = 0; i < vsi->num_queue_pairs; i++)
+> -		if (vsi->rx_rings[i]->desc)
+> +		if (vsi->rx_rings[i] && vsi->rx_rings[i]->desc)
 
-Tested :
+but here every [i] is checked for !NULL here?
 
-Used a 40Gbps NIC, with 4 RX queues, and 200 concurrent TCP_STREAM
-netperf.
+> 			i40e_free_rx_resources(vsi->rx_rings[i]);
+> }
+> 
 
-Before patch, aggregate rate is 11Gbps (while a single flow can reach
-30Gbps)
+If [0] check is sufficient to know if array members are allocated, maybe an wrapper func would help document intent:
 
-After patch, line rate is reached.
+static bool i40e_vsi_rings_allocated(struct i40e_ring *ring)
+{
+	return (ring && ring[0]);
+}
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Jerry Chu <hkchu@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
----
- net/core/dev.c |   17 +++++++++++++++--
- 1 file changed, 15 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index ce01847793c0..a8280154c42a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3882,10 +3882,23 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
- 	if (same_flow)
- 		goto ok;
- 
--	if (NAPI_GRO_CB(skb)->flush || napi->gro_count >= MAX_GRO_SKBS)
-+	if (NAPI_GRO_CB(skb)->flush)
- 		goto normal;
- 
--	napi->gro_count++;
-+	if (unlikely(napi->gro_count >= MAX_GRO_SKBS)) {
-+		struct sk_buff *nskb = napi->gro_list;
-+
-+		/* locate the end of the list to select the 'oldest' flow */
-+		while (nskb->next) {
-+			pp = &nskb->next;
-+			nskb = *pp;
-+		}
-+		*pp = NULL;
-+		nskb->next = NULL;
-+		napi_gro_complete(nskb);
-+	} else {
-+		napi->gro_count++;
-+	}
- 	NAPI_GRO_CB(skb)->count = 1;
- 	NAPI_GRO_CB(skb)->age = jiffies;
- 	skb_shinfo(skb)->gso_size = skb_gro_len(skb);
+-scott
