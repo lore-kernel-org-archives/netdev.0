@@ -1,72 +1,123 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] netfilter: nf_conntrack: fix RCU race in
- nf_conntrack_find_get
-Date: Thu, 9 Jan 2014 22:26:47 +0100
-Message-ID: <20140109212647.GB29458@breakpoint.cc>
-References: <1389090711-15843-1-git-send-email-avagin@openvz.org>
- <1389107305.26646.20.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140107152520.GF9894@breakpoint.cc>
- <20140109203206.GA26348@paralelels.com>
- <20140109205622.GA29458@breakpoint.cc>
- <20140109210749.GA29440@paralelels.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrey Vagin <avagin@openvz.org>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vvs@openvz.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cyrill Gorcunov <gorcunov@openvz.org>
-To: Andrew Vagin <avagin@parallels.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:37131 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754979AbaAIV0x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 16:26:53 -0500
-Content-Disposition: inline
-In-Reply-To: <20140109210749.GA29440@paralelels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next] hyperv: Add support for physically discontinuous receive buffer
+Date: Thu,  9 Jan 2014 14:24:47 -0800
+Message-ID: <1389306287-20057-1-git-send-email-haiyangz@microsoft.com>
+Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
+	jasowang@redhat.com, linux-kernel@vger.kernel.org,
+	driverdev-devel@linuxdriverproject.org
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andrew Vagin <avagin@parallels.com> wrote:
-> On Thu, Jan 09, 2014 at 09:56:22PM +0100, Florian Westphal wrote:
-> > Andrew Vagin <avagin@parallels.com> wrote:
-> > > Can we allocate conntrack with zero ct_general.use and increment it at
-> > > the first time before inserting the conntrack into the hash table?
-> > > When conntrack is allocated it is attached exclusively to one skb.
-> > > It must be destroyed with skb, if it has not been confirmed, so we
-> > > don't need refcnt on this stage.
-> > > 
-> > > I found only one place, where a reference counter of unconfirmed
-> > > conntract can incremented. It's ctnetlink_dump_table().
-> > 
-> > What about skb_clone, etc?  They will also increment the refcnt
-> > if a conntrack entry is attached to the skb.
-> 
-> We can not attach an unconfirmed conntrack to a few skb, because
+This will allow us to use bigger receive buffer, and prevent allocation failure
+due to fragmented memory.
 
-s/few/new/?
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/hv/channel.c            |   14 ++++++++------
+ drivers/net/hyperv/hyperv_net.h |    2 +-
+ drivers/net/hyperv/netvsc.c     |    7 ++-----
+ 3 files changed, 11 insertions(+), 12 deletions(-)
 
-> nf_nat_setup_info can be executed concurrently for the same conntrack.
-> 
-> How do we avoid this race condition for cloned skb-s?
-
-Simple, the assumption is that only one cpu owns the nfct, so it does
-not matter if the skb is cloned in between, as there are no parallel
-users.
-
-The only possibility (that I know of) to violate this is to create
-a bridge, enable call-iptables sysctl, add -j NFQUEUE rules and then
-wait for packets that need to be forwarded to several recipients,
-e.g. multicast traffic.
-
-see
-http://marc.info/?l=netfilter-devel&m=131471083501656&w=2
-
-or search 'netfilter: nat: work around shared nfct struct in bridge
-case'
+diff --git a/drivers/hv/channel.c b/drivers/hv/channel.c
+index cea623c..69ea36f 100644
+--- a/drivers/hv/channel.c
++++ b/drivers/hv/channel.c
+@@ -209,7 +209,6 @@ static int create_gpadl_header(void *kbuffer, u32 size,
+ {
+ 	int i;
+ 	int pagecount;
+-	unsigned long long pfn;
+ 	struct vmbus_channel_gpadl_header *gpadl_header;
+ 	struct vmbus_channel_gpadl_body *gpadl_body;
+ 	struct vmbus_channel_msginfo *msgheader;
+@@ -219,7 +218,6 @@ static int create_gpadl_header(void *kbuffer, u32 size,
+ 	int pfnsum, pfncount, pfnleft, pfncurr, pfnsize;
+ 
+ 	pagecount = size >> PAGE_SHIFT;
+-	pfn = virt_to_phys(kbuffer) >> PAGE_SHIFT;
+ 
+ 	/* do we need a gpadl body msg */
+ 	pfnsize = MAX_SIZE_CHANNEL_MESSAGE -
+@@ -248,7 +246,8 @@ static int create_gpadl_header(void *kbuffer, u32 size,
+ 		gpadl_header->range[0].byte_offset = 0;
+ 		gpadl_header->range[0].byte_count = size;
+ 		for (i = 0; i < pfncount; i++)
+-			gpadl_header->range[0].pfn_array[i] = pfn+i;
++			gpadl_header->range[0].pfn_array[i] = slow_virt_to_phys(
++				kbuffer + PAGE_SIZE * i) >> PAGE_SHIFT;
+ 		*msginfo = msgheader;
+ 		*messagecount = 1;
+ 
+@@ -301,7 +300,9 @@ static int create_gpadl_header(void *kbuffer, u32 size,
+ 			 * so the hypervisor gurantees that this is ok.
+ 			 */
+ 			for (i = 0; i < pfncurr; i++)
+-				gpadl_body->pfn[i] = pfn + pfnsum + i;
++				gpadl_body->pfn[i] = slow_virt_to_phys(
++					kbuffer + PAGE_SIZE * (pfnsum + i)) >>
++					PAGE_SHIFT;
+ 
+ 			/* add to msg header */
+ 			list_add_tail(&msgbody->msglistentry,
+@@ -327,7 +328,8 @@ static int create_gpadl_header(void *kbuffer, u32 size,
+ 		gpadl_header->range[0].byte_offset = 0;
+ 		gpadl_header->range[0].byte_count = size;
+ 		for (i = 0; i < pagecount; i++)
+-			gpadl_header->range[0].pfn_array[i] = pfn+i;
++			gpadl_header->range[0].pfn_array[i] = slow_virt_to_phys(
++				kbuffer + PAGE_SIZE * i) >> PAGE_SHIFT;
+ 
+ 		*msginfo = msgheader;
+ 		*messagecount = 1;
+@@ -344,7 +346,7 @@ nomem:
+  * vmbus_establish_gpadl - Estabish a GPADL for the specified buffer
+  *
+  * @channel: a channel
+- * @kbuffer: from kmalloc
++ * @kbuffer: from kmalloc or vmalloc
+  * @size: page-size multiple
+  * @gpadl_handle: some funky thing
+  */
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index a26eecb..7b594ce 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -462,7 +462,7 @@ struct nvsp_message {
+ 
+ #define NETVSC_MTU 65536
+ 
+-#define NETVSC_RECEIVE_BUFFER_SIZE		(1024*1024*2)	/* 2MB */
++#define NETVSC_RECEIVE_BUFFER_SIZE		(1024*1024*16)	/* 16MB */
+ 
+ #define NETVSC_RECEIVE_BUFFER_ID		0xcafe
+ 
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 93b485b..03a2c6e 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -136,8 +136,7 @@ static int netvsc_destroy_recv_buf(struct netvsc_device *net_device)
+ 
+ 	if (net_device->recv_buf) {
+ 		/* Free up the receive buffer */
+-		free_pages((unsigned long)net_device->recv_buf,
+-			get_order(net_device->recv_buf_size));
++		vfree(net_device->recv_buf);
+ 		net_device->recv_buf = NULL;
+ 	}
+ 
+@@ -163,9 +162,7 @@ static int netvsc_init_recv_buf(struct hv_device *device)
+ 		return -ENODEV;
+ 	ndev = net_device->ndev;
+ 
+-	net_device->recv_buf =
+-		(void *)__get_free_pages(GFP_KERNEL|__GFP_ZERO,
+-				get_order(net_device->recv_buf_size));
++	net_device->recv_buf = vzalloc(net_device->recv_buf_size);
+ 	if (!net_device->recv_buf) {
+ 		netdev_err(ndev, "unable to allocate receive "
+ 			"buffer of size %d\n", net_device->recv_buf_size);
+-- 
+1.7.4.1
