@@ -1,57 +1,37 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net V2 1/2] macvlan: forbid L2 fowarding offload for
- macvtap
-Date: Thu, 9 Jan 2014 07:20:04 -0500
-Message-ID: <20140109122004.GB16701@hmsreliant.think-freely.org>
-References: <1389260252-48591-1-git-send-email-jasowang@redhat.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next v2 2/3] xen-netback: use new skb_checksum_setup
+ function
+Date: Thu, 9 Jan 2014 12:26:48 +0000
+Message-ID: <20140109122648.GB12164@zion.uk.xensource.com>
+References: <1389261768-30606-1-git-send-email-paul.durrant@citrix.com>
+ <1389261768-30606-3-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: Paul Durrant <paul.durrant@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:6518 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751060AbaAIM0u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jan 2014 07:26:50 -0500
 Content-Disposition: inline
-In-Reply-To: <1389260252-48591-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1389261768-30606-3-git-send-email-paul.durrant@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 09, 2014 at 05:37:31PM +0800, Jason Wang wrote:
-> L2 fowarding offload will bypass the rx handler of real device. This will make
-> the packet could not be forwarded to macvtap device. Another problem is the
-> dev_hard_start_xmit() called for macvtap does not have any synchronization.
+On Thu, Jan 09, 2014 at 10:02:47AM +0000, Paul Durrant wrote:
+> Use skb_checksum_setup to set up partial checksum offsets rather
+> then a private implementation.
 > 
-> Fix this by forbidding L2 forwarding for macvtap.
-> 
-> Cc: John Fastabend <john.r.fastabend@intel.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/net/macvlan.c |    5 ++++-
->  1 files changed, 4 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-> index 60406b0..5360f73 100644
-> --- a/drivers/net/macvlan.c
-> +++ b/drivers/net/macvlan.c
-> @@ -338,6 +338,8 @@ static const struct header_ops macvlan_hard_header_ops = {
->  	.cache_update	= eth_header_cache_update,
->  };
->  
-> +static struct rtnl_link_ops macvlan_link_ops;
-> +
->  static int macvlan_open(struct net_device *dev)
->  {
->  	struct macvlan_dev *vlan = netdev_priv(dev);
-> @@ -353,7 +355,8 @@ static int macvlan_open(struct net_device *dev)
->  		goto hash_add;
->  	}
->  
-> -	if (lowerdev->features & NETIF_F_HW_L2FW_DOFFLOAD) {
-> +	if (lowerdev->features & NETIF_F_HW_L2FW_DOFFLOAD &&
-> +	    dev->rtnl_link_ops == &macvlan_link_ops) {
->  		vlan->fwd_priv =
->  		      lowerdev->netdev_ops->ndo_dfwd_add_station(lowerdev, dev);
->  
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> Cc: Ian Campbell <ian.campbell@citrix.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+If your change to core driver goes in then:
+
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+
+Thanks
+Wei.
