@@ -1,57 +1,61 @@
 From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next 1/3] net: add skb_checksum_setup
-Date: Thu, 9 Jan 2014 09:22:17 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0200C83@AMSPEX01CL01.citrite.net>
-References: <1389189511-14568-1-git-send-email-paul.durrant@citrix.com>
-	 <1389189511-14568-2-git-send-email-paul.durrant@citrix.com>
- <1389220984.31367.22.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: RE: [PATCH net] xen-netback: fix vif tx queue race in
+ xenvif_rx_interrupt
+Date: Thu, 9 Jan 2014 09:35:49 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0200D0D@AMSPEX01CL01.citrite.net>
+References: <1389209061-29494-1-git-send-email-jieyue.majy@alibaba-inc.com>
+ <20140108.151139.4522881609697040.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	"jieyue.majy@alibaba-inc.com" <jieyue.majy@alibaba-inc.com>,
+	"yingbin.wangyb@alibaba-inc.com" <yingbin.wangyb@alibaba-inc.com>,
+	"tienan.ftn@alibaba-inc.com" <tienan.ftn@alibaba-inc.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: David Miller <davem@davemloft.net>,
+	"majieyue@gmail.com" <majieyue@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:10784 "EHLO
+Received: from smtp02.citrix.com ([66.165.176.63]:40131 "EHLO
 	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756738AbaAIJWh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 04:22:37 -0500
-In-Reply-To: <1389220984.31367.22.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1752319AbaAIJhe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 04:37:34 -0500
+In-Reply-To: <20140108.151139.4522881609697040.davem@davemloft.net>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiAwOCBKYW51YXJ5IDIwMTQgMjI6NDMN
-Cj4gVG86IFBhdWwgRHVycmFudA0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgeGVuLWRl
-dmVsQGxpc3RzLnhlbi5vcmc7IERhdmlkIE1pbGxlcjsgRXJpYw0KPiBEdW1hemV0OyBWZWFjZXNs
-YXYgRmFsaWNvOyBBbGV4YW5kZXIgRHV5Y2s7IE5pY29sYXMgRGljaHRlbA0KPiBTdWJqZWN0OiBS
-ZTogW1BBVENIIG5ldC1uZXh0IDEvM10gbmV0OiBhZGQgc2tiX2NoZWNrc3VtX3NldHVwDQo+IA0K
-PiBPbiBXZWQsIDIwMTQtMDEtMDggYXQgMTM6NTggKzAwMDAsIFBhdWwgRHVycmFudCB3cm90ZToN
-Cj4gPiBUaGlzIHBhdGNoIGFkZHMgYSBmdW5jdGlvbiB0byBzZXQgdXAgdGhlIHBhcnRpYWwgY2hl
-Y2tzdW0gb2Zmc2V0IGZvciBJUA0KPiA+IHBhY2tldHMgKGFuZCBvcHRpb25hbGx5IHJlLWNhbGN1
-bGF0ZSB0aGUgcHNldWRvLWhlYWRlciBjaGVja3N1bSkgaW50byB0aGUNCj4gPiBjb3JlIG5ldHdv
-cmsgY29kZS4NCj4gPiBUaGUgaW1wbGVtZW50YXRpb24gd2FzIHByZXZpb3VzbHkgcHJpdmF0ZSBh
-bmQgZHVwbGljYXRlZCBiZXR3ZWVuIHhlbi0NCj4gbmV0YmFjaw0KPiA+IGFuZCB4ZW4tbmV0ZnJv
-bnQsIGhvd2V2ZXIgaXQgaXMgbm90IHhlbi1zcGVjaWZpYyBhbmQgaXMgcG90ZW50aWFsbHkgdXNl
-ZnVsDQo+ID4gdG8gYW55IG5ldHdvcmsgZHJpdmVyLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTog
-UGF1bCBEdXJyYW50IDxwYXVsLmR1cnJhbnRAY2l0cml4LmNvbT4NCj4gPiBDYzogRGF2aWQgTWls
-bGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KPiA+IENjOiBFcmljIER1bWF6ZXQgPGVkdW1hemV0
-QGdvb2dsZS5jb20+DQo+ID4gQ2M6IFZlYWNlc2xhdiBGYWxpY28gPHZmYWxpY29AcmVkaGF0LmNv
-bT4NCj4gPiBDYzogQWxleGFuZGVyIER1eWNrIDxhbGV4YW5kZXIuaC5kdXlja0BpbnRlbC5jb20+
-DQo+ID4gQ2M6IE5pY29sYXMgRGljaHRlbCA8bmljb2xhcy5kaWNodGVsQDZ3aW5kLmNvbT4NCj4g
-PiAtLS0NCj4gPiAgaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaCB8ICAgIDEgKw0KPiA+ICBuZXQv
-Y29yZS9kZXYuYyAgICAgICAgICAgIHwgIDI3MQ0KPiArKysrKysrKysrKysrKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKysrKysNCj4gPiAgMiBmaWxlcyBjaGFuZ2VkLCAyNzIgaW5zZXJ0aW9u
-cygrKQ0KPiANCj4gSXMgdGhlcmUgYW55IHJlYXNvbiB0byBwdXQgdGhpcyBpbiBuZXQvY29yZS9k
-ZXYuYyBpbnN0ZWFkIG9mDQo+IG5ldC9jb3JlL3NrYnVmZi5jID8NCj4gDQoNCk5vLCBubyByZWFz
-b24uIEkganVzdCB3YXNuJ3Qgc3VyZSB3aGljaCB3YXMgdGhlIGJldHRlciBwbGFjZS4gSSdsbCBw
-dXQgaXQgaW4gc2tidWZmLmMgaWYgdGhhdCBpcyBtb3JlIGFwcHJvcHJpYXRlLg0KDQo+IA0KPiBB
-bHNvLCBubyBpbmxpbmUgc2hvdWxkIGJlIHVzZWQgaW4gYSAuYyBmaWxlDQo+IA0KPiAoIHNrYl9t
-YXliZV9wdWxsX3RhaWwgKQ0KPiANCg0KT2suIEknbGwgZml4IHRoYXQuDQoNClRoYW5rcywNCg0K
-ICBQYXVsDQo=
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of David Miller
+> Sent: 08 January 2014 20:12
+> To: majieyue@gmail.com
+> Cc: netdev@vger.kernel.org; xen-devel@lists.xen.org; jieyue.majy@alibaba-
+> inc.com; yingbin.wangyb@alibaba-inc.com; tienan.ftn@alibaba-inc.com; Wei
+> Liu; Ian Campbell; David Vrabel
+> Subject: Re: [PATCH net] xen-netback: fix vif tx queue race in
+> xenvif_rx_interrupt
+> 
+> From: Ma JieYue <majieyue@gmail.com>
+> Date: Thu,  9 Jan 2014 03:24:21 +0800
+> 
+> > -	if (xenvif_rx_schedulable(vif))
+> > +	if (netif_queue_stopped(vif->dev) && xenvif_rx_schedulable(vif))
+> 
+> I do not see anything which prevents a netif_stop_queue() call from
+> happening
+> between these two tests in another thread of control.
+> 
+> This therefore looks like a bandaid and not a real fix.
+
+My fix "xen-netback: improve guest-receive-side flow control" in net-next will make this change irrelevant as it completely removes all this somewhat fragile code.
+
+  Paul
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
