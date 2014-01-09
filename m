@@ -1,51 +1,68 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCH net-next 1/2]
-	include/uapi/linux/xfrm.h: Pack struct xfrm_userpolicy_info
-Date: Thu, 9 Jan 2014 16:39:46 +0800
-Message-ID: <52CE6052.5030905@windriver.com>
-References: <1389077339-12814-1-git-send-email-fan.du@windriver.com>
-	<1389077339-12814-2-git-send-email-fan.du@windriver.com>
-	<52CC851B.2060401@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: steffen.klassert@secunet.com, stephen@networkplumber.org,
-	davem@davemloft.net, dev@lists.strongswan.org, netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <dev-bounces+gnvsd-dev=m.gmane.org@lists.strongswan.org>
-In-Reply-To: <52CC851B.2060401@cogentembedded.com>
-List-Unsubscribe: <https://lists.strongswan.org/mailman/listinfo/dev>,
-	<mailto:dev-request@lists.strongswan.org?subject=unsubscribe>
-List-Archive: <http://lists.strongswan.org/pipermail/dev>
-List-Post: <mailto:dev@lists.strongswan.org>
-List-Help: <mailto:dev-request@lists.strongswan.org?subject=help>
-List-Subscribe: <https://lists.strongswan.org/mailman/listinfo/dev>,
-	<mailto:dev-request@lists.strongswan.org?subject=subscribe>
-Sender: dev-bounces+gnvsd-dev=m.gmane.org@lists.strongswan.org
-Errors-To: dev-bounces+gnvsd-dev=m.gmane.org@lists.strongswan.org
-List-Id: netdev.vger.kernel.org
+From: Terry Lam <vtlam@google.com>
+Subject: [PATCH] HHF qdisc: fix jiffies-time conversion.
+Date: Thu,  9 Jan 2014 00:40:00 -0800
+Message-ID: <1389256800-18809-1-git-send-email-vtlam@google.com>
+Cc: netdev@vger.kernel.org, Nandita Dukkipati <nanditad@google.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Terry Lam <vtlam@google.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f201.google.com ([209.85.223.201]:56404 "EHLO
+	mail-ie0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752214AbaAIIp5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 03:45:57 -0500
+Received: by mail-ie0-f201.google.com with SMTP id at1so681771iec.4
+        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 00:45:57 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE05bm0MDHmnIgwOOaXpSAwNjo1MiwgU2VyZ2VpIFNodHlseW92IHdyb3RlOgo+IEhl
-bGxvLgo+Cj4gT24gMDctMDEtMjAxNCAxMDo0OCwgRmFuIER1IHdyb3RlOgo+Cj4+IE90aGVyd2lz
-ZSA2NGJpdHMga2VybmVsIGhhcyBzaXplb2Yoc3RydWN0IHhmcm1fdXNlcnBvbGljeV9pbmZvKSAx
-NjggYnl0ZXMsCj4+IHdoaWxlIDMyYml0cyBjb21waWxlZCBpcHJvdXRlMiBzZWUgdGhlIHNhbWUg
-c3RydWN0dXJlIGFzIDE2NCBieXRlcywgd2hpY2gKPj4gbGVhZGluZyBkZWZpY2l0IHhmcm0gcG9s
-aWN5LCBpbiB0dXJuIGJyb2tlbiBJUHNlYyBjb25uZWN0aXZpdHkuCj4KPj4gRml4IHRoaXMgYnkg
-cGFja2luZyB0aGUgc3RydWN0dXJlLgo+Cj4gICAgIFRoaXMgd2lsbCBmb3JjZSBieXRlLWJ5LWJ5
-dGUgYWNjZXNzIHRvIGFsbCBtZW1iZXJzIG9uIHNvbWUgYXJjaGVzIGxpa2UgQVJNLi4uCj4KPj4g
-U2lnbmVkLW9mZi1ieTogRmFuIER1IDxmYW4uZHVAd2luZHJpdmVyLmNvbT4KPj4gLS0tCj4+ICAg
-aW5jbHVkZS91YXBpL2xpbnV4L3hmcm0uaCB8ICAgIDIgKy0KPj4gICAxIGZpbGUgY2hhbmdlZCwg
-MSBpbnNlcnRpb24oKyksIDEgZGVsZXRpb24oLSkKPgo+PiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS91
-YXBpL2xpbnV4L3hmcm0uaCBiL2luY2x1ZGUvdWFwaS9saW51eC94ZnJtLmgKPj4gaW5kZXggYThj
-ZDZhNC4uNDcwYmZhZSAxMDA2NDQKPj4gLS0tIGEvaW5jbHVkZS91YXBpL2xpbnV4L3hmcm0uaAo+
-PiArKysgYi9pbmNsdWRlL3VhcGkvbGludXgveGZybS5oCj4+IEBAIC00MDUsNyArNDA1LDcgQEAg
-c3RydWN0IHhmcm1fdXNlcnBvbGljeV9pbmZvIHsKPj4gICAgICAgLyogQXV0b21hdGljYWxseSBl
-eHBhbmQgc2VsZWN0b3IgdG8gaW5jbHVkZSBtYXRjaGluZyBJQ01QIHBheWxvYWRzLiAqLwo+PiAg
-ICNkZWZpbmUgWEZSTV9QT0xJQ1lfSUNNUCAgICAyCj4+ICAgICAgIF9fdTggICAgICAgICAgICAg
-ICAgc2hhcmU7Cj4+IC19Owo+PiArfSBfX2F0dHJpYnV0ZV9fKChwYWNrZWQpKTsKPgo+ICAgICBQ
-bGVhc2UgdXNlIHRoZSBfX3BhY2tlZCBtYWNybyBpbnN0ZWFkLiBJIGd1ZXNzIHlvdSBoYXZlbid0
-IHJ1biBjaGVja3BhdGNoLnBsPwoKTHVja3kgbWUsIEkgcnVuIGNoZWNrcGF0Y2ggZXZlcnkgdGlt
-ZSBiZWZvcmUgc2VuZGluZyBwYXRjaCBvdXQuCgotLSAK5rWu5rKJ6ZqP5rWq5Y+q6K6w5LuK5pyd
-56yRCgotLWZhbgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X18KRGV2IG1haWxpbmcgbGlzdApEZXZAbGlzdHMuc3Ryb25nc3dhbi5vcmcKaHR0cHM6Ly9saXN0
-cy5zdHJvbmdzd2FuLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldg==
+This is to be compatible with the use of "get_time" (i.e. default
+time unit in us) in iproute2 patch for HHF as requested by Stephen.
+
+Signed-off-by: Terry Lam <vtlam@google.com>
+---
+ net/sched/sch_hhf.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/net/sched/sch_hhf.c b/net/sched/sch_hhf.c
+index cf7f614..1cf84a9 100644
+--- a/net/sched/sch_hhf.c
++++ b/net/sched/sch_hhf.c
+@@ -574,18 +574,18 @@ static int hhf_change(struct Qdisc *sch, struct nlattr *opt)
+ 		q->hh_flows_limit = nla_get_u32(tb[TCA_HHF_HH_FLOWS_LIMIT]);
+ 
+ 	if (tb[TCA_HHF_RESET_TIMEOUT]) {
+-		u32 ms = nla_get_u32(tb[TCA_HHF_RESET_TIMEOUT]);
++		u32 us = nla_get_u32(tb[TCA_HHF_RESET_TIMEOUT]);
+ 
+-		q->hhf_reset_timeout = msecs_to_jiffies(ms);
++		q->hhf_reset_timeout = usecs_to_jiffies(us);
+ 	}
+ 
+ 	if (tb[TCA_HHF_ADMIT_BYTES])
+ 		q->hhf_admit_bytes = nla_get_u32(tb[TCA_HHF_ADMIT_BYTES]);
+ 
+ 	if (tb[TCA_HHF_EVICT_TIMEOUT]) {
+-		u32 ms = nla_get_u32(tb[TCA_HHF_EVICT_TIMEOUT]);
++		u32 us = nla_get_u32(tb[TCA_HHF_EVICT_TIMEOUT]);
+ 
+-		q->hhf_evict_timeout = msecs_to_jiffies(ms);
++		q->hhf_evict_timeout = usecs_to_jiffies(us);
+ 	}
+ 
+ 	qlen = sch->q.qlen;
+@@ -684,10 +684,10 @@ static int hhf_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	    nla_put_u32(skb, TCA_HHF_QUANTUM, q->quantum) ||
+ 	    nla_put_u32(skb, TCA_HHF_HH_FLOWS_LIMIT, q->hh_flows_limit) ||
+ 	    nla_put_u32(skb, TCA_HHF_RESET_TIMEOUT,
+-			jiffies_to_msecs(q->hhf_reset_timeout)) ||
++			jiffies_to_usecs(q->hhf_reset_timeout)) ||
+ 	    nla_put_u32(skb, TCA_HHF_ADMIT_BYTES, q->hhf_admit_bytes) ||
+ 	    nla_put_u32(skb, TCA_HHF_EVICT_TIMEOUT,
+-			jiffies_to_msecs(q->hhf_evict_timeout)) ||
++			jiffies_to_usecs(q->hhf_evict_timeout)) ||
+ 	    nla_put_u32(skb, TCA_HHF_NON_HH_WEIGHT, q->hhf_non_hh_weight))
+ 		goto nla_put_failure;
+ 
+-- 
+1.8.5.1
