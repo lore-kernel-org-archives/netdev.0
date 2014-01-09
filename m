@@ -1,9 +1,9 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next 2/4] bonding: do not save non-existent device to
- bond primary in check params
-Date: Thu, 9 Jan 2014 12:48:52 +0100
-Message-ID: <20140109114852.GH5786@redhat.com>
-References: <52CE8607.1050103@huawei.com>
+Subject: Re: [PATCH net-next 4/4] bonding: update bonding.txt for primary
+ description
+Date: Thu, 9 Jan 2014 12:49:43 +0100
+Message-ID: <20140109114943.GI5786@redhat.com>
+References: <52CE8619.7080602@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Cc: Jay Vosburgh <fubar@us.ibm.com>,
@@ -11,60 +11,40 @@ Cc: Jay Vosburgh <fubar@us.ibm.com>,
 	Netdev <netdev@vger.kernel.org>
 To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21601 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35922 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750905AbaAILv4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jan 2014 06:51:56 -0500
+	id S1750905AbaAILws (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jan 2014 06:52:48 -0500
 Content-Disposition: inline
-In-Reply-To: <52CE8607.1050103@huawei.com>
+In-Reply-To: <52CE8619.7080602@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 09, 2014 at 07:20:39PM +0800, Ding Tianhong wrote:
->When install the bonding, the primay will be use to distinguish
->the primary slave for ab, alb and tlb mode, but it is meanless
->to save a no existed device, so add check for it.
-
-Same remark as for the sysfs patch - we can have arbitrary name of the
-interface in the paramter.
-
->
+On Thu, Jan 09, 2014 at 07:20:57PM +0800, Ding Tianhong wrote:
 >Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+
+This one's good.
+
+Acked-by: Veaceslav Falico <vfalico@redhat.com>
+
 >---
-> drivers/net/bonding/bond_main.c | 20 +++++++++++++-------
-> 1 file changed, 13 insertions(+), 7 deletions(-)
+> Documentation/networking/bonding.txt | 3 ++-
+> 1 file changed, 2 insertions(+), 1 deletion(-)
 >
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index de646e2..651c5fd 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -4246,13 +4246,19 @@ static int bond_check_params(struct bond_params *params)
-> 		pr_debug("Warning: either miimon or arp_interval and arp_ip_target module parameters must be specified, otherwise bonding will not detect link failures! see bonding.txt for details.\n");
-> 	}
+>diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+>index a4d925e..5cdb229 100644
+>--- a/Documentation/networking/bonding.txt
+>+++ b/Documentation/networking/bonding.txt
+>@@ -657,7 +657,8 @@ primary
+> 	one slave is preferred over another, e.g., when one slave has
+> 	higher throughput than another.
 >
->-	if (primary && !USES_PRIMARY(bond_mode)) {
->-		/* currently, using a primary only makes sense
->-		 * in active backup, TLB or ALB modes
->-		 */
->-		pr_warning("Warning: %s primary device specified but has no effect in %s mode\n",
->-			   primary, bond_mode_name(bond_mode));
->-		primary = NULL;
->+	if (primary) {
->+		if (!__dev_get_by_name(&init_net, primary)) {
->+			pr_warn("Warning: %s primary device is not exist\n",
->+				primary);
->+			primary = NULL;
->+		} else if (!USES_PRIMARY(bond_mode)) {
->+			/* currently, using a primary only makes sense
->+			 * in active backup, TLB or ALB modes
->+			 */
->+			pr_warn("Warning: %s primary device specified but has no effect in %s mode\n",
->+				primary, bond_mode_name(bond_mode));
->+			primary = NULL;
->+		}
-> 	}
+>-	The primary option is only valid for active-backup mode.
+>+	The primary option is only valid for active-backup(1),
+>+	balance-tlb (5) and balance-alb (6) mode.
 >
-> 	if (primary && primary_reselect) {
+> primary_reselect
+>
 >-- 
 >1.8.0
 >
