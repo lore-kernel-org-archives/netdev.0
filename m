@@ -1,29 +1,26 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v2 net-next 2/3] bonding: fix __get_first_agg RCU usage
-Date: Thu,  9 Jan 2014 12:20:24 +0100
-Message-ID: <1389266425-28365-3-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v2 net-next 3/3] bonding: fix __get_active_agg() RCU logic
+Date: Thu,  9 Jan 2014 12:20:25 +0100
+Message-ID: <1389266425-28365-4-git-send-email-vfalico@redhat.com>
 References: <1389266425-28365-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>, dingtianhong@huawei.com,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46352 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:36645 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753166AbaAILYs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753152AbaAILYs (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 9 Jan 2014 06:24:48 -0500
 In-Reply-To: <1389266425-28365-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, the RCU read lock usage is just wrong - it gets the slave struct
-under RCU and continues to use it when RCU lock is released.
+Currently, the implementation is meaningless - once again, we take the
+slave structure and use it after we've exited RCU critical section.
 
-However, it's still safe to do this cause we didn't need the
-rcu_read_lock() initially - all of the __get_first_agg() callers are either
-holding RCU read lock or the RTNL lock, so that we can't sync while in it.
-
-So, remove the useless rcu locking and add a comment.
+Fix this by removing the rcu_read_lock() from __get_active_agg(), and
+ensuring that all its callers are holding either RCU or RTNL lock.
 
 Fixes: be79bd048 ("bonding: add RCU for bond_3ad_state_machine_handler()")
 CC: dingtianhong@huawei.com
@@ -36,31 +33,50 @@ Notes:
     v1 -> v2:
     Don't use RCU primitives as we can hold RTNL.
 
- drivers/net/bonding/bond_3ad.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/bonding/bond_3ad.c | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index cf5fab8..d2782c8 100644
+index d2782c8..845545b 100644
 --- a/drivers/net/bonding/bond_3ad.c
 +++ b/drivers/net/bonding/bond_3ad.c
-@@ -143,6 +143,7 @@ static inline struct bonding *__get_bond_by_port(struct port *port)
-  *
-  * Return the aggregator of the first slave in @bond, or %NULL if it can't be
-  * found.
-+ * The caller must either hold RCU or RTNL lock.
+@@ -674,6 +674,8 @@ static u32 __get_agg_bandwidth(struct aggregator *aggregator)
+ /**
+  * __get_active_agg - get the current active aggregator
+  * @aggregator: the aggregator we're looking at
++ *
++ * Caller must hold either RCU or RTNL lock.
   */
- static inline struct aggregator *__get_first_agg(struct port *port)
+ static struct aggregator *__get_active_agg(struct aggregator *aggregator)
  {
-@@ -153,9 +154,7 @@ static inline struct aggregator *__get_first_agg(struct port *port)
- 	if (bond == NULL)
- 		return NULL;
+@@ -681,13 +683,9 @@ static struct aggregator *__get_active_agg(struct aggregator *aggregator)
+ 	struct list_head *iter;
+ 	struct slave *slave;
  
 -	rcu_read_lock();
--	first_slave = bond_first_slave_rcu(bond);
+-	bond_for_each_slave_rcu(bond, slave, iter)
+-		if (SLAVE_AD_INFO(slave).aggregator.is_active) {
+-			rcu_read_unlock();
++	bond_for_each_slave(bond, slave, iter)
++		if (SLAVE_AD_INFO(slave).aggregator.is_active)
+ 			return &(SLAVE_AD_INFO(slave).aggregator);
+-		}
 -	rcu_read_unlock();
-+	first_slave = bond_first_slave(bond);
  
- 	return first_slave ? &(SLAVE_AD_INFO(first_slave).aggregator) : NULL;
+ 	return NULL;
  }
+@@ -1495,11 +1493,11 @@ static void ad_agg_selection_logic(struct aggregator *agg)
+ 	struct slave *slave;
+ 	struct port *port;
+ 
++	rcu_read_lock();
+ 	origin = agg;
+ 	active = __get_active_agg(agg);
+ 	best = (active && agg_device_up(active)) ? active : NULL;
+ 
+-	rcu_read_lock();
+ 	bond_for_each_slave_rcu(bond, slave, iter) {
+ 		agg = &(SLAVE_AD_INFO(slave).aggregator);
+ 
 -- 
 1.8.4
