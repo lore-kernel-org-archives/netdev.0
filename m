@@ -1,112 +1,63 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: [net-next 2/7] ixgbe: Indicate removal state explicitly
-Date: Thu, 9 Jan 2014 17:27:44 +0000
-Message-ID: <2537C4E1-5434-4C6B-95A1-2360BA0803FB@intel.com>
-References: <1389166847-3780-1-git-send-email-aaron.f.brown@intel.com>
- <1389166847-3780-3-git-send-email-aaron.f.brown@intel.com>
- <79DAF37B-9AA5-407B-81D2-3EDFD8589254@gmail.com>
+From: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next v3 1/9] xen-netback: Introduce TX
+ grant map definitions
+Date: Thu, 9 Jan 2014 17:28:21 +0000
+Message-ID: <alpine.DEB.2.02.1401091722150.21510@kaball.uk.xensource.com>
+References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com> <1389139818-24458-2-git-send-email-zoltan.kiss@citrix.com> <20140109153010.GE12164@zion.uk.xensource.com> <52CEC370.10503@citrix.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-	boundary="Apple-Mail=_D42A5925-20F1-4056-95B1-892C0C47B53D";
-	protocol="application/pgp-signature"; micalg=pgp-sha1
-Cc: "Brown, Aaron F" <aaron.f.brown@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Wei Liu <wei.liu2@citrix.com>, <jonathan.davies@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	<xen-devel@lists.xenproject.org>,
+	=?UTF-8?Q?Roger_Pau_Monn=C3=A9?= <roger.pau@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:21555 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752354AbaAIR1r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jan 2014 12:27:47 -0500
-In-Reply-To: <79DAF37B-9AA5-407B-81D2-3EDFD8589254@gmail.com>
-Content-Language: en-US
+Received: from smtp02.citrix.com ([66.165.176.63]:12612 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751137AbaAIR3Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 12:29:16 -0500
+In-Reply-To: <52CEC370.10503@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Apple-Mail=_D42A5925-20F1-4056-95B1-892C0C47B53D
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=us-ascii
+On Thu, 9 Jan 2014, David Vrabel wrote:
+> On 09/01/14 15:30, Wei Liu wrote:
+> > On Wed, Jan 08, 2014 at 12:10:10AM +0000, Zoltan Kiss wrote:
+> >> This patch contains the new definitions necessary for grant mapping.
+> >>
+> >> v2:
+> >> - move unmapping to separate thread. The NAPI instance has to be scheduled
+> >>   even from thread context, which can cause huge delays
+> >> - that causes unfortunately bigger struct xenvif
+> >> - store grant handle after checking validity
+> >>
+> >> v3:
+> >> - fix comment in xenvif_tx_dealloc_action()
+> >> - call unmap hypercall directly instead of gnttab_unmap_refs(), which does
+> >>   unnecessary m2p_override. Also remove pages_to_[un]map members
+> > 
+> > Is it worthy to have another function call
+> > gnttab_unmap_refs_no_m2p_override in Xen core driver, or just add a
+> > parameter to control wether we need to touch m2p_override? I *think* it
+> > will benefit block driver as well?
+> 
+> add_m2p_override and remove_m2p_override calls should be moved into the
+> gntdev device as that should be the only user.
 
-On Jan 8, 2014, at 12:35 AM, Scott Feldman <sfeldma@gmail.com> wrote:
+First of all the gntdev device is common code, while the m2p_override is
+an x86 concept.
 
-> On Jan 7, 2014, at 11:40 PM, Aaron Brown <aaron.f.brown@intel.com> =
-wrote:
->=20
->> From: Mark Rustad <mark.d.rustad@intel.com>
->>=20
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h =
-b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
->> index 5e157ac..480c5c1 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
->> @@ -124,6 +124,11 @@ s32 ixgbe_reset_pipeline_82599(struct ixgbe_hw =
-*hw);
->> s32 ixgbe_get_thermal_sensor_data_generic(struct ixgbe_hw *hw);
->> s32 ixgbe_init_thermal_sensor_thresh_generic(struct ixgbe_hw *hw);
->>=20
->> +#define IXGBE_FAILED_READ_REG 0xffffffffU
->> +
->> +void ixgbe_check_remove(struct ixgbe_hw *hw, u32 reg);
->> +#define IXGBE_REMOVED(a) unlikely(!(a))
->=20
-> IXGBE_REMOVED seems pretty closely tied to hw->hw_addr, but the macro =
-turns any input into !input.  Maybe an inline that takes a *hw?
+Then I would like to point out that there are no guarantees that a
+network driver, or any other kernel subsystems, don't come to rely on
+mfn_to_pfn translations for any reasons at any time.
+It just happens that today the only known user is gupf, but tomorrow,
+who knows?
+If we move the m2p_override calls to the gntdev device somehow (avoif
+ifdefs please), we should be very well aware of the risks involved.
 
-An earlier version had two different inputs, but not any more. I will =
-change it to take a hw parameter. Good suggestion.
-
-<snip>
-
->> @@ -2970,7 +2999,7 @@ void ixgbe_configure_tx_ring(struct =
-ixgbe_adapter *adapter,
->> 			ring->count * sizeof(union ixgbe_adv_tx_desc));
->> 	IXGBE_WRITE_REG(hw, IXGBE_TDH(reg_idx), 0);
->> 	IXGBE_WRITE_REG(hw, IXGBE_TDT(reg_idx), 0);
->> -	ring->tail =3D hw->hw_addr + IXGBE_TDT(reg_idx);
->> +	ring->tail =3D adapter->io_addr + IXGBE_TDT(reg_idx);
->=20
-> How is this related to the commit msg about register reads?  Seems =
-like two patches.
-
-No, it is theoretically possible for hw_addr to be NULL now if a removal =
-was somehow detected, so using the new io_addr that will never be NULL =
-is safer. The possibility of hw_addr being NULL is introduced by these =
-patches, so this change should be a part of these patches.
-
-<snip>
-
-Sorry for the duplicate Scott. You may have noticed that I failed to =
-copy everyone else as I should have.
-
---=20
-Mark Rustad, Networking Division, Intel Corporation
-
-
---Apple-Mail=_D42A5925-20F1-4056-95B1-892C0C47B53D
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="signature.asc"
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Message signed with OpenPGP using GPGMail
-
------BEGIN PGP SIGNATURE-----
-Comment: GPGTools - http://gpgtools.org
-
-iQIcBAEBAgAGBQJSztwPAAoJEDwO/+eO4+5uanIQALXBV65AvRE9gH5pTPt7mNLK
-Gg6yFNah5LE0UbMX6xBI6Ok48dFluR/usnWVxcCMNMs4K6+lhegs6bqGaempv8KH
-6yaeU+rxl9Y82uAtSxZIHQ25gbeLNTNes6NcsrkhKh/rhX9GICtGbzKaBHDqaANQ
-nsYPc5NYXBiD8RD/5EIyKO+DpVKse1eEwSG8KSUtRj/QTu/y80fvuDMEHeKmIWPW
-LPqUxCw2zp888+9WjleChHoYQGKU0zp0ionhrGeE7tz03R68bH9p8lp9hv+3GB0X
-R/v1BnjFb/PQqVLHn+dQeSmJcnTOgbVs+bBC+0F/Hup79amCdOndsiNZe9L/nQzz
-dh9YANhCWyXG8KrYtCOa439d6vWT7xxmLvDEJpxqz1jPbvuvN+Dl+I/YlWd37sT9
-57FHTCZktR9tuAkcFJF01r0ASp5U+TNrwjCKO8myZep/3OgSjK8geV42yKVQwUik
-KDxgTgUjwrMMG393GveLBKoqoebopkOOF4yCLFXEub+ug7PSyQTCO7RGCddgM3ts
-tvGNRaTkxwPGw3Hnx3V06s1LFXsVnrNXliefPNxlceYQGNWgXNLDl1G7EDvu60/A
-sE+bqmXJp40JjfKmpdLRG7+cB98JTojMLPY7ZXTEqaCPyi602Or1/JLD7oD7YVqQ
-oe//FMXiV55hO/nOIcbq
-=tCP2
------END PGP SIGNATURE-----
-
---Apple-Mail=_D42A5925-20F1-4056-95B1-892C0C47B53D--
+Of course my practical self realizes that we don't want a performance
+regression and this is the quickest way to fix it, so I am not
+completely oppose to it.
