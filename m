@@ -1,59 +1,76 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCH net-next 2/2]
-	include/uapi/linux/xfrm.h: Pack struct xfrm_usersa_info
-Date: Thu, 9 Jan 2014 16:24:26 +0800
-Message-ID: <52CE5CBA.9000200@windriver.com>
-References: <1389077339-12814-1-git-send-email-fan.du@windriver.com>	
-	<1389077339-12814-3-git-send-email-fan.du@windriver.com>
-	<1389213183.1644.31.camel@bwh-desktop.uk.level5networks.com>
+From: Michael Dalton <mwdalton@google.com>
+Subject: Re: [PATCH net-next v2 3/4] virtio-net: auto-tune mergeable rx buffer
+	size for improved performance
+Date: Thu, 9 Jan 2014 00:28:50 -0800
+Message-ID: <CANJ5vPJp-AwvFDtY1R7SJg6L2dkEU6xPivgKcg4f0+05JCMEfw@mail.gmail.com>
+References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
+	<1389072355-20666-3-git-send-email-mwdalton@google.com>
+	<20140109014255.GA19321@redhat.com>
+	<CANJ5vP+_aK0PMc6-hwbu6PduVNDe8jbWR19cN5C+k4mWQzdTGg@mail.gmail.com>
+	<CANJ5vPLvDff5PMYNGvtt-dd=md8b46ZXAYLv-KnerNcfzDNHpw@mail.gmail.com>
+	<20140109064807.GC19559@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: steffen.klassert@secunet.com, stephen@networkplumber.org,
-	davem@davemloft.net, dev@lists.strongswan.org, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <dev-bounces+gnvsd-dev=m.gmane.org@lists.strongswan.org>
-In-Reply-To: <1389213183.1644.31.camel@bwh-desktop.uk.level5networks.com>
-List-Unsubscribe: <https://lists.strongswan.org/mailman/listinfo/dev>,
-	<mailto:dev-request@lists.strongswan.org?subject=unsubscribe>
-List-Archive: <http://lists.strongswan.org/pipermail/dev>
-List-Post: <mailto:dev@lists.strongswan.org>
-List-Help: <mailto:dev-request@lists.strongswan.org?subject=help>
-List-Subscribe: <https://lists.strongswan.org/mailman/listinfo/dev>,
-	<mailto:dev-request@lists.strongswan.org?subject=subscribe>
-Sender: dev-bounces+gnvsd-dev=m.gmane.org@lists.strongswan.org
-Errors-To: dev-bounces+gnvsd-dev=m.gmane.org@lists.strongswan.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140109064807.GC19559@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-CgpPbiAyMDE05bm0MDHmnIgwOeaXpSAwNDozMywgQmVuIEh1dGNoaW5ncyB3cm90ZToKPiBPbiBU
-dWUsIDIwMTQtMDEtMDcgYXQgMTQ6NDggKzA4MDAsIEZhbiBEdSB3cm90ZToKPj4gT3RoZXJ3aXNl
-IDY0Yml0cyBrZXJuZWwgaGFzIHNpemVvZihzdHJ1Y3QgeGZybV91c2Vyc2FfaW5mbykgMjI0IGJ5
-dGVzLAo+PiB3aGlsZSAzMmJpdHMgY29tcGlsZWQgaXByb3V0ZTIgc2VlIHRoZSBzYW1lIHN0cnVj
-dHVyZSBhcyAyMjAgYnl0ZXMsIHdoaWNoCj4+IGxlYWRpbmcgZGVmaWNpdCB4ZnJtIHNhLCBpbiB0
-dXJuIGJyb2tlbiBJUHNlYyBjb25uZWN0aXZpdHkuCj4+Cj4+IEZpeCB0aGlzIGJ5IHBhY2tpbmcg
-dGhlIHN0cnVjdHVyZS4KPj4KPj4gU2lnbmVkLW9mZi1ieTogRmFuIER1PGZhbi5kdUB3aW5kcml2
-ZXIuY29tPgo+PiAtLS0KPj4gICBpbmNsdWRlL3VhcGkvbGludXgveGZybS5oIHwgICAgMiArLQo+
-PiAgIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlvbigtKQo+Pgo+PiBk
-aWZmIC0tZ2l0IGEvaW5jbHVkZS91YXBpL2xpbnV4L3hmcm0uaCBiL2luY2x1ZGUvdWFwaS9saW51
-eC94ZnJtLmgKPj4gaW5kZXggNDcwYmZhZS4uNjE0NjBjNCAxMDA2NDQKPj4gLS0tIGEvaW5jbHVk
-ZS91YXBpL2xpbnV4L3hmcm0uaAo+PiArKysgYi9pbmNsdWRlL3VhcGkvbGludXgveGZybS5oCj4+
-IEBAIC0zNjYsNyArMzY2LDcgQEAgc3RydWN0IHhmcm1fdXNlcnNhX2luZm8gewo+PiAgICNkZWZp
-bmUgWEZSTV9TVEFURV9BRl9VTlNQRUMJMzIKPj4gICAjZGVmaW5lIFhGUk1fU1RBVEVfQUxJR040
-CTY0Cj4+ICAgI2RlZmluZSBYRlJNX1NUQVRFX0VTTgkJMTI4Cj4+IC19Owo+PiArfSBfX2F0dHJp
-YnV0ZV9fKChwYWNrZWQpKTsKPj4KPj4gICAjZGVmaW5lIFhGUk1fU0FfWEZMQUdfRE9OVF9FTkNB
-UF9EU0NQCTEKPj4KPgo+IFRoYXQgY2hhbmdlIHdpbGwgbWFrZSBhY2Nlc3MgdG8gdGhlIHN0cnVj
-dHVyZSB2ZXJ5IHNsb3cgb24gc29tZQo+IGFyY2hpdGVjdHVyZXMsIGFuZCBJIHN1c3BlY3QgaXQg
-d2lsbCBjYXVzZSBvdGhlciBjb21wYXRpYmlsaXR5IHByb2JsZW1zLgo+Cj4gSSB0aGluayB0aGUg
-cmlnaHQgdGhpbmcgdG8gZG8gaXMgdG8gcmVkdWNlIHRoZSBtaW5pbXVtIGxlbmd0aCBvZiB0aGUK
-PiBzdHJ1Y3R1cmUgaW4gdGhlIG5ldGxpbmsgcG9saWN5IHNvIHRoYXQgcGFkZGluZyBhdCB0aGUg
-ZW5kIGlzIG5vdAo+IHJlcXVpcmVkLgoKQ291bGQgeW91IHBsZWFzZSBiZSBtb3JlIHNwZWNpZmlj
-IGFib3V0IHRoaXM/IFRoYW5rcy4KCkknbSBhZnJhaWQgd2UgY2FuIG9ubHkgcmVhcnJhbmdlIHN0
-cnVjdHVyZSBtZW1iZXIgb3JkZXIgdG8gcmVkdWNlIHNpemUKb24gNjRiaXRzLCBhbGFzIHRoYXQn
-cyBub3QgZmVhc2libGUgaGVyZSA6KAoKICAoSXQgbG9va3MgbGlrZSBhbGwgZmllbGQgb2Zmc2V0
-cyB3aWxsIGJlIHRoZSBzYW1lIG9uIGFsbAo+IDMyLzY0LWJpdCBhcmNoaXRlY3R1cmUgcGFpcnMg
-YW5kIHRoZXJlIGlzIG9ubHkgYSBkaWZmZXJpbmcgYW1vdW50IG9mCj4gcGFkZGluZyBhdCB0aGUg
-ZW5kIG9mIHRoZSBzdHJ1Y3R1cmUgZm9yIDMyLzY0LWJpdCBhbGlnbm1lbnQuKQo+Cj4gQmVuLgo+
-CgotLSAK5rWu5rKJ6ZqP5rWq5Y+q6K6w5LuK5pyd56yRCgotLWZhbgoKX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KRGV2IG1haWxpbmcgbGlzdApEZXZAbGlz
-dHMuc3Ryb25nc3dhbi5vcmcKaHR0cHM6Ly9saXN0cy5zdHJvbmdzd2FuLm9yZy9tYWlsbWFuL2xp
-c3RpbmZvL2Rldg==
+Hi Michael,
+
+Here's a quick sketch of some code that enforces a minimum buffer
+alignment of only 64, and has a maximum theoretical buffer size of
+aligned GOOD_PACKET_LEN + (BUF_ALIGN - 1) * BUF_ALIGN, which is at least
+1536 + 63 * 64 = 5568. On x86, we already use a 64 byte alignment, and
+this code supports all current buffer sizes, from 1536 to PAGE_SIZE.
+
+#if L1_CACHE_BYTES < 64
+#define MERGEABLE_BUFFER_ALIGN 64
+#define MERGEABLE_BUFFER_SHIFT 6
+#else
+#define MERGEABLE_BUFFER_ALIGN L1_CACHE_BYTES
+#define MERGEABLE_BUFFER_SHIFT L1_CACHE_SHIFT
+#endif
+#define MERGEABLE_BUFFER_MIN ALIGN(GOOD_PACKET_LEN +
+                                   sizeof(virtio_net_hdr_mrg_rbuf),
+                                   MERGEABLE_BUFFER_ALIGN)
+#define MERGEABLE_BUFFER_MAX min(MERGEABLE_BUFFER_MIN +
+                                 (MERGEABLE_BUFFER_ALIGN - 1) *
+                                 MERGEABLE_BUFFER_ALIGN, PAGE_SIZE)
+/* Extract buffer length from a mergeable buffer context. */
+static u16 get_mergeable_buf_ctx_len(void *ctx) {
+        u16 len = (uintptr_t)ctx & (MERGEABLE_BUFFER_ALIGN - 1);
+        return MERGEABLE_BUFFER_MIN + (len << MERGEABLE_BUFFER_SHIFT);
+}
+/* Extract buffer base address from a mergeable buffer context. */
+static void *get_mergeable_buf_ctx_base(void *ctx) {
+        return (void *) ((uintptr)ctx & -MERGEABLE_BUFFER_ALIGN);
+}
+/* Convert a base address and length to a mergeable buffer context. */
+static void *to_mergeable_buf_ctx(void *base, u16 len) {
+        len -= MERGEABLE_BUFFER_MIN;
+        return (void *) ((uintptr)base | (len >> MERGEABLE_BUFFER_SHIFT));
+}
+/* Compute the packet buffer length for a receive queue. */
+static u16 get_mergeable_buffer_len(struct receive_queue *rq) {
+        u16 len = clamp_t(u16, MERGEABLE_BUFFER_MIN,
+                          ewma_read(&rq->avg_pkt_len),
+                          MERGEABLE_BUFFER_MAX);
+        return ALIGN(len, MERGEABLE_BUFFER_ALIGN);
+}
+
+Best,
+
+Mike
