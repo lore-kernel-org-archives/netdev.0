@@ -1,173 +1,64 @@
-From: hannes@stressinduktion.org
-Subject: [PATCH net-next v2 3/3] ipv4: introduce hardened ip_no_pmtu_disc mode
-Date: Thu,  9 Jan 2014 10:01:17 +0100
-Message-ID: <1389258077-23282-4-git-send-email-hannes@stressinduktion.org>
-References: <1389258077-23282-1-git-send-email-hannes@stressinduktion.org>
-Cc: eric.dumazet@gmail.com, davem@davemloft.net,
-	johnwheffner@gmail.com, steffen.klassert@secunet.com,
-	fweimer@redhat.com,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:50557 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753868AbaAIJBe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 04:01:34 -0500
-In-Reply-To: <1389258077-23282-1-git-send-email-hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael Dalton <mwdalton@google.com>
+Subject: Re: [PATCH net-next v2 3/4] virtio-net: auto-tune mergeable rx buffer
+	size for improved performance
+Date: Thu, 9 Jan 2014 01:02:41 -0800
+Message-ID: <CANJ5vPJrE8gpUdxVjUXwCaTGcixt7xtp=qNBfcm4T4gm9-1APw@mail.gmail.com>
+References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
+	<1389072355-20666-3-git-send-email-mwdalton@google.com>
+	<20140109014255.GA19321@redhat.com>
+	<CANJ5vP+_aK0PMc6-hwbu6PduVNDe8jbWR19cN5C+k4mWQzdTGg@mail.gmail.com>
+	<CANJ5vPLvDff5PMYNGvtt-dd=md8b46ZXAYLv-KnerNcfzDNHpw@mail.gmail.com>
+	<20140109064807.GC19559@redhat.com>
+	<CANJ5vPJp-AwvFDtY1R7SJg6L2dkEU6xPivgKcg4f0+05JCMEfw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CANJ5vPJp-AwvFDtY1R7SJg6L2dkEU6xPivgKcg4f0+05JCMEfw@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+If the prior code snippet looks good to you, I'll use something like
+that as a baseline for a v3 patchset. I don't think we need a stricter
+alignment than 64 to express values in the range (1536 ... 4096), as
+the code snippet shows, which is great for x86 4KB pages.
 
-This new ip_no_pmtu_disc mode only allowes fragmentation-needed errors
-to be honored by protocols which do more stringent validation on the
-ICMP's packet payload. This knob is useful for people who e.g. want to
-run an unmodified DNS server in a namespace where they need to use pmtu
-for TCP connections (as they are used for zone transfers or fallback
-for requests) but don't want to use possibly spoofed UDP pmtu information.
+On other architectures that have larger page sizes > 4KB with <= 64b
+cachelines, we may want to increase the alignment so that the max buffer
+size will be >= PAGE_SIZE (max size allowed by skb_page_frag_refill).
 
-Currently the whitelisted protocols are TCP, SCTP and DCCP as they check
-if the returned packet is in the window or if the association is valid.
+If we use a minimum alignment of 128, our maximum theoretical
+packet buffer length is 1536 + 127 * 128 = 17792. With 256 byte
+alignment, we can express a maximum packet buffer size > 65536.
 
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: David Miller <davem@davemloft.net>
-Cc: John Heffner <johnwheffner@gmail.com>
-Suggested-by: Florian Weimer <fweimer@redhat.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- Documentation/networking/ip-sysctl.txt | 13 ++++++++++++-
- include/net/protocol.h                 |  7 ++++++-
- net/dccp/ipv4.c                        |  1 +
- net/ipv4/af_inet.c                     |  1 +
- net/ipv4/icmp.c                        | 28 ++++++++++++++++++++++++----
- net/sctp/protocol.c                    |  1 +
- 6 files changed, 45 insertions(+), 6 deletions(-)
+Given the above, I think we want to select the min buffer alignment
+based on the PAGE_SIZE:
+        <= 4KB PAGE_SIZE: 64b min alignment
+        <= 16KB PAGE_SIZE: 128b min alignment
+        > 16KB PAGE_SIZE: 256b min alignment
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 0d71fa9..c97932c 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -26,7 +26,18 @@ ip_no_pmtu_disc - INTEGER
- 	discarded. Outgoing frames are handled the same as in mode 1,
- 	implicitly setting IP_PMTUDISC_DONT on every created socket.
- 
--	Possible values: 0-2
-+	Mode 3 is a hardend pmtu discover mode. The kernel will only
-+	accept fragmentation-needed errors if the underlying protocol
-+	can verify them besides a plain socket lookup. Current
-+	protocols for which pmtu events will be honored are TCP, SCTP
-+	and DCCP as they verify e.g. the sequence number or the
-+	association. This mode should not be enabled globally but is
-+	only intended to secure e.g. name servers in namespaces where
-+	TCP path mtu must still work but path MTU information of other
-+	protocols should be discarded. If enabled globally this mode
-+	could break other protocols.
-+
-+	Possible values: 0-3
- 	Default: FALSE
- 
- min_pmtu - INTEGER
-diff --git a/include/net/protocol.h b/include/net/protocol.h
-index fbf7676..0e5f866 100644
---- a/include/net/protocol.h
-+++ b/include/net/protocol.h
-@@ -43,7 +43,12 @@ struct net_protocol {
- 	int			(*handler)(struct sk_buff *skb);
- 	void			(*err_handler)(struct sk_buff *skb, u32 info);
- 	unsigned int		no_policy:1,
--				netns_ok:1;
-+				netns_ok:1,
-+				/* does the protocol do more stringent
-+				 * icmp tag validation than simple
-+				 * socket lookup?
-+				 */
-+				icmp_strict_tag_validation:1;
- };
- 
- #if IS_ENABLED(CONFIG_IPV6)
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index 88299c2..22b5d81 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -989,6 +989,7 @@ static const struct net_protocol dccp_v4_protocol = {
- 	.err_handler	= dccp_v4_err,
- 	.no_policy	= 1,
- 	.netns_ok	= 1,
-+	.icmp_strict_tag_validation = 1,
- };
- 
- static const struct proto_ops inet_dccp_ops = {
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 6268a47..ecd2c3f 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1545,6 +1545,7 @@ static const struct net_protocol tcp_protocol = {
- 	.err_handler	=	tcp_v4_err,
- 	.no_policy	=	1,
- 	.netns_ok	=	1,
-+	.icmp_strict_tag_validation = 1,
- };
- 
- static const struct net_protocol udp_protocol = {
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index fb3c563..0134663 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -668,6 +668,16 @@ static void icmp_socket_deliver(struct sk_buff *skb, u32 info)
- 	rcu_read_unlock();
- }
- 
-+static bool icmp_tag_validation(int proto)
-+{
-+	bool ok;
-+
-+	rcu_read_lock();
-+	ok = rcu_dereference(inet_protos[proto])->icmp_strict_tag_validation;
-+	rcu_read_unlock();
-+	return ok;
-+}
-+
- /*
-  *	Handle ICMP_DEST_UNREACH, ICMP_TIME_EXCEED, ICMP_QUENCH, and
-  *	ICMP_PARAMETERPROB.
-@@ -705,12 +715,22 @@ static void icmp_unreach(struct sk_buff *skb)
- 		case ICMP_PORT_UNREACH:
- 			break;
- 		case ICMP_FRAG_NEEDED:
--			if (net->ipv4.sysctl_ip_no_pmtu_disc == 2) {
--				goto out;
--			} else if (net->ipv4.sysctl_ip_no_pmtu_disc) {
-+			/* for documentation of the ip_no_pmtu_disc
-+			 * values please see
-+			 * Documentation/networking/ip-sysctl.txt
-+			 */
-+			switch (net->ipv4.sysctl_ip_no_pmtu_disc) {
-+			default:
- 				LIMIT_NETDEBUG(KERN_INFO pr_fmt("%pI4: fragmentation needed and DF set\n"),
- 					       &iph->daddr);
--			} else {
-+				break;
-+			case 2:
-+				goto out;
-+			case 3:
-+				if (!icmp_tag_validation(iph->protocol))
-+					goto out;
-+				/* fall through */
-+			case 0:
- 				info = ntohs(icmph->un.frag.mtu);
- 				if (!info)
- 					goto out;
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 34b7726..7c16108 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -1030,6 +1030,7 @@ static const struct net_protocol sctp_protocol = {
- 	.err_handler = sctp_v4_err,
- 	.no_policy   = 1,
- 	.netns_ok    = 1,
-+	.icmp_strict_tag_validation = 1,
- };
- 
- /* IPv4 address related functions.  */
--- 
-1.8.4.2
+So the prior code snippet would be relatively unchanged, except that
+references to the previous minimum alignment of 64 would be replaced by
+a #define'd constant derived from PAGE_SIZE as shown above.
+
+This would guarantee that we use the minimum alignment necessary to
+ensure that virtio-net can post a max size (PAGE_SIZE) buffer, and for
+x86 this means we won't increase the alignment beyond the x86's current
+L1_CACHE_BYTES value (64). Also, sorry I haven't had a chance to respond
+yet to the debugfs feedback, I will get to that soon (just wanted to do
+a further deep dive on some of the sysfs/debugfs tradeoffs).
+
+Best,
+
+Mike
