@@ -1,77 +1,60 @@
-From: Scott Feldman <sfeldma@cumulusnetworks.com>
-Subject: Re: [net-next 05/15] i40e: add a comment on barrier and fix panic on reset
-Date: Thu, 9 Jan 2014 14:16:57 -0800
-Message-ID: <5B8599B2-AE3C-4E03-8EDF-8F35894E9CC3@cumulusnetworks.com>
-References: <1389271944-26227-1-git-send-email-jeffrey.t.kirsher@intel.com> <1389271944-26227-6-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.1 \(1827\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Netdev <netdev@vger.kernel.org>, gospo@redhat.com,
-	sassmann@redhat.com, Mitch Williams <mitch.a.williams@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:36320 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752072AbaAIWRP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 17:17:15 -0500
-In-Reply-To: <1389271944-26227-6-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net 1/2] macvlan: forbid L2 fowarding offload for
+ macvtap
+Date: Thu, 9 Jan 2014 14:20:15 -0800
+Message-ID: <20140109142015.1cd462ed@nehalam.linuxnetplumber.net>
+References: <52CB7009.2030903@redhat.com>
+	<52CB8D54.9090506@gmail.com>
+	<52CB9D1A.1050101@redhat.com>
+	<52CBAC2A.90005@intel.com>
+	<52CBC22D.3050002@redhat.com>
+	<20140108125528.GC14741@redhat.com>
+	<52CDA186.1080601@gmail.com>
+	<20140109071721.GD19559@redhat.com>
+	<52CE63EB.5000109@redhat.com>
+	<20140109133908.354a4d73@nehalam.linuxnetplumber.net>
+	<20140109220323.GC9385@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jason Wang <jasowang@redhat.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140109220323.GC9385@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, 10 Jan 2014 00:03:23 +0200
+"Michael S. Tsirkin" <mst@redhat.com> wrote:
 
-On Jan 9, 2014, at 4:52 AM, Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
-
-> From: Greg Rose <gregory.v.rose@intel.com>
+> On Thu, Jan 09, 2014 at 01:39:08PM -0800, Stephen Hemminger wrote:
+> > On Thu, 09 Jan 2014 16:55:07 +0800
+> > Jason Wang <jasowang@redhat.com> wrote:
+> > 
+> > > What if use do want a qdisc and want to change the its queue length for
+> > > tun/macvlan? And the the name tx_queue_length is misleading. For tun it
+> > > may make sense since it was used in transmission path. For macvtap it
+> > > was not. So maybe what we need is just a new ioctl for both tun/macvtap
+> > > and a new feature flag. If user create the device with new feature flag,
+> > > the socket receive queue length could be changed by ioctl instead of
+> > > dev->tx_queue_length. If not, the old behaviour could be kept.
+> > 
+> > The overloading of tx_queue_len in macvtap was the original design mistake.
+> > Can't this just be undone and expose rx_queue_len as sysfs attribute?
 > 
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> index ea76134..5cdc67c 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> @@ -422,7 +422,7 @@ void i40e_vsi_reset_stats(struct i40e_vsi *vsi)
-> 	memset(&vsi->net_stats_offsets, 0, sizeof(vsi->net_stats_offsets));
-> 	memset(&vsi->eth_stats, 0, sizeof(vsi->eth_stats));
-> 	memset(&vsi->eth_stats_offsets, 0, sizeof(vsi->eth_stats_offsets));
-> -	if (vsi->rx_rings)
-> +	if (vsi->rx_rings && vsi->rx_rings[0]) {
+> Yes but we need to avoid breaking user-visible ABI.
 
-Any reason why just [0] is checked for !NULL here...
+I think in this case, it was a mistake and hasn't been around long enough
+to cause serious damage.
 
-> 		for (i = 0; i < vsi->num_queue_pairs; i++) {
-> 			memset(&vsi->rx_rings[i]->stats, 0 ,
-> 			       sizeof(vsi->rx_rings[i]->stats));
-> @@ -433,6 +433,7 @@ void i40e_vsi_reset_stats(struct i40e_vsi *vsi)
-> 			memset(&vsi->tx_rings[i]->tx_stats, 0,
-> 			       sizeof(vsi->tx_rings[i]->tx_stats));
-> 		}
-> +	}
-> 	vsi->stat_offsets_loaded = false;
-> }
-> 
-> @@ -2101,8 +2105,11 @@ static void i40e_vsi_free_rx_resources(struct i40e_vsi *vsi)
-> {
-> 	int i;
-> 
-> +	if (!vsi->rx_rings)
-> +		return;
-> +
-> 	for (i = 0; i < vsi->num_queue_pairs; i++)
-> -		if (vsi->rx_rings[i]->desc)
-> +		if (vsi->rx_rings[i] && vsi->rx_rings[i]->desc)
+> So I think we'll need to catch any access attempts and redirect them to
+> the new rx_queue_len.  I posted a patch like this using new
+> ndo_set_tx_queue_len/ndo_get_tx_queue_len.  Have you seen it? What do
+> you think?
 
-but here every [i] is checked for !NULL here?
-
-> 			i40e_free_rx_resources(vsi->rx_rings[i]);
-> }
-> 
-
-If [0] check is sufficient to know if array members are allocated, maybe an wrapper func would help document intent:
-
-static bool i40e_vsi_rings_allocated(struct i40e_ring *ring)
-{
-	return (ring && ring[0]);
-}
-
--scott
+It encourages others to do/make the same mistake so I don't like it.
