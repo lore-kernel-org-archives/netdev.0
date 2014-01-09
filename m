@@ -1,91 +1,126 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net/mlx4_en: call gro handler for encapsulated
- frames
-Date: Thu, 09 Jan 2014 10:30:13 -0800
-Message-ID: <1389292213.31367.49.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v4 4/5] alx: add alx_get_stats64 operation
+Date: Thu, 9 Jan 2014 18:47:05 +0000
+Message-ID: <1389293225.2025.11.camel@bwh-desktop.uk.level5networks.com>
+References: <1389258571-10083-1-git-send-email-sd@queasysnail.net>
+	 <1389258571-10083-5-git-send-email-sd@queasysnail.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jerry Chu <hkchu@google.com>
-To: David Miller <davem@davemloft.net>
+Cc: <davem@davemloft.net>, <johannes@sipsolutions.net>,
+	<stephen@networkplumber.org>, <netdev@vger.kernel.org>
+To: Sabrina Dubroca <sd@queasysnail.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f174.google.com ([209.85.161.174]:63203 "EHLO
-	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751137AbaAISaT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 13:30:19 -0500
-Received: by mail-gg0-f174.google.com with SMTP id g10so162769gga.33
-        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 10:30:16 -0800 (PST)
+Received: from webmail.solarflare.com ([12.187.104.25]:52416 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756046AbaAISrL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 13:47:11 -0500
+In-Reply-To: <1389258571-10083-5-git-send-email-sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Thu, 2014-01-09 at 10:09 +0100, Sabrina Dubroca wrote:
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 
-In order to use the native GRO handling of encapsulated protocols on
-mlx4, we need to call napi_gro_receive() instead of netif_receive_skb()
-unless busy polling is in action.
+Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
 
-While we are at it, rename mlx4_en_cq_ll_polling() to
-mlx4_en_cq_busy_polling()
+> ---
+> 
+> I've modified the assignements of hw stats to netstats here as Ben asked in v3.
+> 
+> The other atheros drivers use the same code as v3. Should I modify
+> them as well in another patch?
 
-Tested with GRE tunnel : GRO aggregation is now performed on the
-ethernet device instead of being done later on gre device.
+That seems like a good thing to do.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Amir Vadai <amirv@mellanox.com>
-Cc: Jerry Chu <hkchu@google.com>
-Cc: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_rx.c   |    8 +++++---
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |    4 ++--
- 2 files changed, 7 insertions(+), 5 deletions(-)
+Ben.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 3b66f26ba049..890922c1c8ee 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -724,7 +724,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 				 * - not an IP fragment
- 				 * - no LLS polling in progress
- 				 */
--				if (!mlx4_en_cq_ll_polling(cq) &&
-+				if (!mlx4_en_cq_busy_polling(cq) &&
- 				    (dev->features & NETIF_F_GRO)) {
- 					struct sk_buff *gro_skb = napi_get_frags(&cq->napi);
- 					if (!gro_skb)
-@@ -816,8 +816,10 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 
- 		skb_mark_napi_id(skb, &cq->napi);
- 
--		/* Push it up the stack */
--		netif_receive_skb(skb);
-+		if (!mlx4_en_cq_busy_polling(cq))
-+			napi_gro_receive(&cq->napi, skb);
-+		else
-+			netif_receive_skb(skb);
- 
- next:
- 		for (nr = 0; nr < priv->num_frags; nr++)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 2f1e200f2e4c..fe7bdfebf353 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -661,7 +661,7 @@ static inline bool mlx4_en_cq_unlock_poll(struct mlx4_en_cq *cq)
- }
- 
- /* true if a socket is polling, even if it did not get the lock */
--static inline bool mlx4_en_cq_ll_polling(struct mlx4_en_cq *cq)
-+static inline bool mlx4_en_cq_busy_polling(struct mlx4_en_cq *cq)
- {
- 	WARN_ON(!(cq->state & MLX4_CQ_LOCKED));
- 	return cq->state & CQ_USER_PEND;
-@@ -691,7 +691,7 @@ static inline bool mlx4_en_cq_unlock_poll(struct mlx4_en_cq *cq)
- 	return false;
- }
- 
--static inline bool mlx4_en_cq_ll_polling(struct mlx4_en_cq *cq)
-+static inline bool mlx4_en_cq_busy_polling(struct mlx4_en_cq *cq)
- {
- 	return false;
- }
+> 
+>  drivers/net/ethernet/atheros/alx/alx.h  |  3 ++
+>  drivers/net/ethernet/atheros/alx/main.c | 50 +++++++++++++++++++++++++++++++++
+>  2 files changed, 53 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/atheros/alx/alx.h b/drivers/net/ethernet/atheros/alx/alx.h
+> index d71103d..8fc93c5 100644
+> --- a/drivers/net/ethernet/atheros/alx/alx.h
+> +++ b/drivers/net/ethernet/atheros/alx/alx.h
+> @@ -106,6 +106,9 @@ struct alx_priv {
+>  	u16 msg_enable;
+>  
+>  	bool msi;
+> +
+> +	/* protects hw.stats */
+> +	spinlock_t stats_lock;
+>  };
+>  
+>  extern const struct ethtool_ops alx_ethtool_ops;
+> diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
+> index c3c4c26..e92ffd6 100644
+> --- a/drivers/net/ethernet/atheros/alx/main.c
+> +++ b/drivers/net/ethernet/atheros/alx/main.c
+> @@ -1166,10 +1166,60 @@ static void alx_poll_controller(struct net_device *netdev)
+>  }
+>  #endif
+>  
+> +static struct rtnl_link_stats64 *alx_get_stats64(struct net_device *dev,
+> +					struct rtnl_link_stats64 *net_stats)
+> +{
+> +	struct alx_priv *alx = netdev_priv(dev);
+> +	struct alx_hw_stats *hw_stats = &alx->hw.stats;
+> +
+> +	spin_lock(&alx->stats_lock);
+> +
+> +	alx_update_hw_stats(&alx->hw);
+> +
+> +	net_stats->tx_bytes   = hw_stats->tx_byte_cnt;
+> +	net_stats->rx_bytes   = hw_stats->rx_byte_cnt;
+> +	net_stats->multicast  = hw_stats->rx_mcast;
+> +	net_stats->collisions = hw_stats->tx_single_col +
+> +				hw_stats->tx_multi_col +
+> +				hw_stats->tx_late_col +
+> +				hw_stats->tx_abort_col;
+> +
+> +	net_stats->rx_errors  = hw_stats->rx_frag +
+> +				hw_stats->rx_fcs_err +
+> +				hw_stats->rx_len_err +
+> +				hw_stats->rx_ov_sz +
+> +				hw_stats->rx_ov_rrd +
+> +				hw_stats->rx_align_err +
+> +				hw_stats->rx_ov_rxf;
+> +
+> +	net_stats->rx_fifo_errors   = hw_stats->rx_ov_rxf;
+> +	net_stats->rx_length_errors = hw_stats->rx_len_err;
+> +	net_stats->rx_crc_errors    = hw_stats->rx_fcs_err;
+> +	net_stats->rx_frame_errors  = hw_stats->rx_align_err;
+> +	net_stats->rx_dropped       = hw_stats->rx_ov_rrd;
+> +
+> +	net_stats->tx_errors = hw_stats->tx_late_col +
+> +			       hw_stats->tx_abort_col +
+> +			       hw_stats->tx_underrun +
+> +			       hw_stats->tx_trunc;
+> +
+> +	net_stats->tx_aborted_errors = hw_stats->tx_abort_col;
+> +	net_stats->tx_fifo_errors    = hw_stats->tx_underrun;
+> +	net_stats->tx_window_errors  = hw_stats->tx_late_col;
+> +
+> +	net_stats->tx_packets = hw_stats->tx_ok + net_stats->tx_errors;
+> +	net_stats->rx_packets = hw_stats->rx_ok + net_stats->rx_errors;
+> +
+> +	spin_unlock(&alx->stats_lock);
+> +
+> +	return net_stats;
+> +}
+> +
+>  static const struct net_device_ops alx_netdev_ops = {
+>  	.ndo_open               = alx_open,
+>  	.ndo_stop               = alx_stop,
+>  	.ndo_start_xmit         = alx_start_xmit,
+> +	.ndo_get_stats64        = alx_get_stats64,
+>  	.ndo_set_rx_mode        = alx_set_rx_mode,
+>  	.ndo_validate_addr      = eth_validate_addr,
+>  	.ndo_set_mac_address    = alx_set_mac_address,
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
