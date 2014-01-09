@@ -1,90 +1,65 @@
-From: Tama <pkm_munot@yahoo.co.in>
-Subject: Device tree binding for Managed Switch
-Date: Thu, 9 Jan 2014 14:12:24 +0800 (SGT)
-Message-ID: <1389247944.40578.YahooMailNeo@web193105.mail.sg3.yahoo.com>
-Reply-To: Tama <pkm_munot@yahoo.co.in>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next V3 1/3] net: Add GRO support for UDP encapsulating
+ protocols
+Date: Thu, 9 Jan 2014 08:25:38 +0200
+Message-ID: <52CE40E2.7040408@mellanox.com>
+References: <1389213278-2200-1-git-send-email-ogerlitz@mellanox.com>	<1389213278-2200-2-git-send-email-ogerlitz@mellanox.com> <CA+mtBx9yKSW5GFz-zrFSDdkshAmGmdVhds5wgwQKJd0SDEdBCw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jerry Chu <hkchu@google.com>, Eric Dumazet <edumazet@google.com>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Yan Burman <yanb@mellanox.com>,
+	"Shlomo Pongratz" <shlomop@mellanox.com>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm4-vm3.bullet.mail.sg3.yahoo.com ([106.10.148.130]:35723 "EHLO
-	nm4-vm3.bullet.mail.sg3.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751431AbaAIGTY convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jan 2014 01:19:24 -0500
+Received: from eu1sys200aog123.obsmtp.com ([207.126.144.155]:58076 "EHLO
+	eu1sys200aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751135AbaAIGZt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 01:25:49 -0500
+In-Reply-To: <CA+mtBx9yKSW5GFz-zrFSDdkshAmGmdVhds5wgwQKJd0SDEdBCw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 08/01/2014 23:58, Tom Herbert wrote:
+>> +static struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+>> >+{
+>> >+       struct list_head *ohead = &udp_offload_base;
+>> >+       struct udp_offload *poffload;
+>> >+       struct sk_buff *p, **pp = NULL;
+>> >+       struct udphdr *uh, *uh2;
+>> >+       unsigned int hlen, off;
+>> >+       int flush = 1;
+>> >+
+>> >+       if (NAPI_GRO_CB(skb)->udp_mark ||
+>> >+           (!skb->encapsulation && skb->ip_summed != CHECKSUM_COMPLETE))
+>> >+               goto out;
+>> >+
+>> >+       /* mark that this skb passed once through the udp gro layer */
+>> >+       NAPI_GRO_CB(skb)->udp_mark = 1;
+>> >+
+>> >+       off  = skb_gro_offset(skb);
+>> >+       hlen = off + sizeof(*uh);
+>> >+       uh   = skb_gro_header_fast(skb, off);
+>> >+       if (skb_gro_header_hard(skb, hlen)) {
+>> >+               uh = skb_gro_header_slow(skb, hlen, off);
+>> >+               if (unlikely(!uh))
+>> >+                       goto out;
+>> >+       }
+>> >+
+>> >+       rcu_read_lock();
+>> >+       list_for_each_entry_rcu(poffload, ohead, list) {
+>> >+               if (poffload->port != uh->dest || !poffload->callbacks.gro_receive)
+> Is gro_receive == NULL ever valid? Maybe we can assert on registration instead of checking on every packet.
+
+I see your point, however, the offload structure contains entries for 
+both gro and  gso, asserting on registration could somehow limit the use 
+cases, isn't that?
 
 
-Hi All,
+> Maybe make this poffload->port == uh->dest and goto "flush = 0". Check below that list end was reached becomes unnecessary.
 
-I am new to this mailing this. I am using IMX28 based custom designed b=
-oard, based on TQ Components TQMA28 module. In our board we are using K=
-SZ8863 and KSZ8895 managed switches instead of standard phy device. How=
- to add support for managed switch in device tree.
-
-I am new to device tree configuration. At present I have got
-=A0=A0=A0=A0=A0=A0=A0 mac0: ethernet@800f0000 {
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 compatible =3D "fsl,imx28-fec";
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 reg =3D <0x800f0000 0x4000>;
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 interrupts =3D <101>;
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 status =3D "disabled";
-=A0=A0=A0=A0=A0=A0=A0 };
-
-=A0=A0=A0=A0=A0=A0=A0 mac1: ethernet@800f4000 {
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 compatible =3D "fsl,imx28-fec";
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 reg =3D <0x800f4000 0x4000>;
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 interrupts =3D <102>;
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 status =3D "disabled";
-=A0=A0=A0=A0=A0=A0=A0 };
-
-In my device tree imx28.dtsi and in imx28-mba28.dts I have got=20
-
-=A0=A0=A0=A0=A0=A0=A0 /* FCC1 management to switch */
-=A0=A0=A0=A0=A0=A0=A0 eth0: ethernet@800f0000 {
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 device_type =3D "network";
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 compatible =3D "micrel,ksz8895";
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 reg =3D <0x800f0000 0x4000>;
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 local-mac-address =3D [ 00 01 02 03 0=
-4 07 ];
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 interrupts =3D <101>;
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 fixed-link =3D <1 1 1000 0 0>;
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 phy-handle =3D <&phy0>;=A0=A0=A0=A0=A0=
-=A0=A0=A0=A0=A0=20
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 phy0: phy@0 {
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 fixed-link;
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 full-duplex;
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 speed =3D <1000>;
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 };
-=A0=A0=A0=A0=A0=A0=A0 };=A0=A0=A0=A0=A0=A0=20
-
-=A0=A0=A0=A0=A0=A0=A0 /* FCC1 management to switch */
-=A0=A0=A0=A0=A0=A0=A0 eth1: ethernet@800f4000 {
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 device_type =3D "network";
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 compatible =3D "micrel, ksz8895";
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 reg =3D <0x800f0000 0x4000>;
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 local-mac-address =3D [ 00 01 02 03 0=
-4 08 ];
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 interrupts =3D <102>;
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 fixed-link =3D <1 1 1000 0 0>;
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 phy-handle =3D <&phy1>;
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 phy1: phy@1 {
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 fixed-link;
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 full-duplex;
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 speed =3D <1000>;
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 };=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=20
-=A0=A0=A0=A0=A0=A0=A0 };
-
-
-I read threads on this mailing list and modified the device tree for ma=
-naged switch. I am not 100% sure if my configuration is correct. When t=
-he kernel is booting it is scanning for phy devices and as it doesnt ge=
-t a phy device id it doesnt register any device.
-
-Can some one please share information on how to configure the device tr=
-ee for device and not a phy.
-
-Thanks
-Pritam
+Sure, will use goto "flush = 0" and if we didn't  go there we'll go to 
+out_unlock
