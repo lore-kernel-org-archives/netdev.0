@@ -1,111 +1,81 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next v2 3/4] virtio-net: auto-tune mergeable rx
-	buffer size for improved performance
-Date: Thu, 9 Jan 2014 15:25:29 +0200
-Message-ID: <20140109132529.GB2712@redhat.com>
-References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
-	<1389072355-20666-3-git-send-email-mwdalton@google.com>
-	<20140109014255.GA19321@redhat.com>
-	<CANJ5vP+_aK0PMc6-hwbu6PduVNDe8jbWR19cN5C+k4mWQzdTGg@mail.gmail.com>
-	<CANJ5vPLvDff5PMYNGvtt-dd=md8b46ZXAYLv-KnerNcfzDNHpw@mail.gmail.com>
-	<20140109064807.GC19559@redhat.com>
-	<CANJ5vPJp-AwvFDtY1R7SJg6L2dkEU6xPivgKcg4f0+05JCMEfw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lf-virt <virtualization@lists.linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: Michael Dalton <mwdalton@google.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <CANJ5vPJp-AwvFDtY1R7SJg6L2dkEU6xPivgKcg4f0+05JCMEfw@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: [PATCH net] bnx2x: fix DMA unmapping of TSO split BDs
+Date: Thu,  9 Jan 2014 14:36:27 +0100
+Message-ID: <1389274587-6097-1-git-send-email-mschmidt@redhat.com>
+Cc: Ariel Elior <ariele@broadcom.com>,
+	Yuval Mintz <yuvalmin@broadcom.com>,
+	Dmitry Kravkov <dmitry@broadcom.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:10694 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751321AbaAINgc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jan 2014 08:36:32 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 09, 2014 at 12:28:50AM -0800, Michael Dalton wrote:
-> Hi Michael,
-> 
-> Here's a quick sketch of some code that enforces a minimum buffer
-> alignment of only 64, and has a maximum theoretical buffer size of
-> aligned GOOD_PACKET_LEN + (BUF_ALIGN - 1) * BUF_ALIGN, which is at least
-> 1536 + 63 * 64 = 5568. On x86, we already use a 64 byte alignment, and
-> this code supports all current buffer sizes, from 1536 to PAGE_SIZE.
+bnx2x triggers warnings with CONFIG_DMA_API_DEBUG=y:
 
-I really think it's best to start with 256 alignment.
-A bit simpler, better than what we had, and will let us go
-above PAGE_SIZE long term.  The optimization shrinking
-alignment to 64 can be done on top if we see a
-work-load that's improved by it, which I doubt.
+  WARNING: CPU: 0 PID: 2253 at lib/dma-debug.c:887 check_unmap+0xf8/0x920()
+  bnx2x 0000:28:00.0: DMA-API: device driver frees DMA memory with
+  different size [device address=0x00000000da2b389e] [map size=1490 bytes]
+  [unmap size=66 bytes]
 
-> 
-> #if L1_CACHE_BYTES < 64
-> #define MERGEABLE_BUFFER_ALIGN 64
-> #define MERGEABLE_BUFFER_SHIFT 6
-> #else
-> #define MERGEABLE_BUFFER_ALIGN L1_CACHE_BYTES
-> #define MERGEABLE_BUFFER_SHIFT L1_CACHE_SHIFT
-> #endif
-> #define MERGEABLE_BUFFER_MIN ALIGN(GOOD_PACKET_LEN +
->                                    sizeof(virtio_net_hdr_mrg_rbuf),
->                                    MERGEABLE_BUFFER_ALIGN)
-> #define MERGEABLE_BUFFER_MAX min(MERGEABLE_BUFFER_MIN +
->                                  (MERGEABLE_BUFFER_ALIGN - 1) *
->                                  MERGEABLE_BUFFER_ALIGN, PAGE_SIZE)
-> /* Extract buffer length from a mergeable buffer context. */
-> static u16 get_mergeable_buf_ctx_len(void *ctx) {
->         u16 len = (uintptr_t)ctx & (MERGEABLE_BUFFER_ALIGN - 1);
->         return MERGEABLE_BUFFER_MIN + (len << MERGEABLE_BUFFER_SHIFT);
+The reason is that bnx2x splits a TSO BD into two BDs (headers + data)
+using one DMA mapping for both, but it uses only the length of the first
+BD when unmapping.
 
-You can just do len * MERGEABLE_BUFFER_ALIGN too - my compiler seems
-to be smart enough to see it's same.
-This way there's no need for MERGEABLE_BUFFER_SHIFT
+This patch fixes the bug by unmapping the whole length of the two BDs.
 
-> }
-> /* Extract buffer base address from a mergeable buffer context. */
-> static void *get_mergeable_buf_ctx_base(void *ctx) {
->         return (void *) ((uintptr)ctx & -MERGEABLE_BUFFER_ALIGN);
+Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
 
-uintptr_t? or just unsigned long ...
-
-> }
-> /* Convert a base address and length to a mergeable buffer context. */
-> static void *to_mergeable_buf_ctx(void *base, u16 len) {
->         len -= MERGEABLE_BUFFER_MIN;
->         return (void *) ((uintptr)base | (len >> MERGEABLE_BUFFER_SHIFT));
-> }
-
-The APIs are a bit inconsistent in naming.
-Also it's unfortunate that we use void * for both virtio buffer
-and frame memory.
-
-How about
-	mergeable_buf_to_len
-	mergeable_buf_to_page
-	mergeable_buf_to_offset
-	mergeable_page_to_buf
-
-this way we don't use void * for frame memory.
-
-alternatively, cast virtio buffer to unsigned long
-immediately and pass that around everywhere.
-
-
-> /* Compute the packet buffer length for a receive queue. */
-> static u16 get_mergeable_buffer_len(struct receive_queue *rq) {
->         u16 len = clamp_t(u16, MERGEABLE_BUFFER_MIN,
->                           ewma_read(&rq->avg_pkt_len),
->                           MERGEABLE_BUFFER_MAX);
->         return ALIGN(len, MERGEABLE_BUFFER_ALIGN);
-> }
-> 
-> Best,
-> 
-> Mike
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index ec96130..6b2704f 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -160,6 +160,7 @@ static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata,
+ 	struct sk_buff *skb = tx_buf->skb;
+ 	u16 bd_idx = TX_BD(tx_buf->first_bd), new_cons;
+ 	int nbd;
++	u16 split_bd_len = 0;
+ 
+ 	/* prefetch skb end pointer to speedup dev_kfree_skb() */
+ 	prefetch(&skb->end);
+@@ -167,10 +168,7 @@ static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata,
+ 	DP(NETIF_MSG_TX_DONE, "fp[%d]: pkt_idx %d  buff @(%p)->skb %p\n",
+ 	   txdata->txq_index, idx, tx_buf, skb);
+ 
+-	/* unmap first bd */
+ 	tx_start_bd = &txdata->tx_desc_ring[bd_idx].start_bd;
+-	dma_unmap_single(&bp->pdev->dev, BD_UNMAP_ADDR(tx_start_bd),
+-			 BD_UNMAP_LEN(tx_start_bd), DMA_TO_DEVICE);
+ 
+ 	nbd = le16_to_cpu(tx_start_bd->nbd) - 1;
+ #ifdef BNX2X_STOP_ON_ERROR
+@@ -188,12 +186,19 @@ static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata,
+ 	--nbd;
+ 	bd_idx = TX_BD(NEXT_TX_IDX(bd_idx));
+ 
+-	/* ...and the TSO split header bd since they have no mapping */
++	/* TSO headers+data bds share a common mapping. See bnx2x_tx_split() */
+ 	if (tx_buf->flags & BNX2X_TSO_SPLIT_BD) {
++		tx_data_bd = &txdata->tx_desc_ring[bd_idx].reg_bd;
++		split_bd_len = BD_UNMAP_LEN(tx_data_bd);
+ 		--nbd;
+ 		bd_idx = TX_BD(NEXT_TX_IDX(bd_idx));
+ 	}
+ 
++	/* unmap first bd */
++	dma_unmap_single(&bp->pdev->dev, BD_UNMAP_ADDR(tx_start_bd),
++			 BD_UNMAP_LEN(tx_start_bd) + split_bd_len,
++			 DMA_TO_DEVICE);
++
+ 	/* now free frags */
+ 	while (nbd > 0) {
+ 
+-- 
+1.8.4.2
