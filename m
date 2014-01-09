@@ -1,241 +1,148 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v4 net-next 2/4] sh_eth: Add support for r7s72100
-Date: Thu, 9 Jan 2014 14:03:51 +0900
-Message-ID: <20140109050351.GE2132@verge.net.au>
-References: <1389168152-9434-1-git-send-email-horms+renesas@verge.net.au>
- <1389168152-9434-3-git-send-email-horms+renesas@verge.net.au>
- <52CDBBE1.1010301@cogentembedded.com>
+From: Andrew Vagin <avagin@gmail.com>
+Subject: Re: [PATCH] netfilter: nf_conntrack: fix RCU race in
+ nf_conntrack_find_get
+Date: Thu, 9 Jan 2014 09:24:54 +0400
+Message-ID: <20140109052454.GA16743@gmail.com>
+References: <1389090711-15843-1-git-send-email-avagin@openvz.org>
+ <1389107305.26646.20.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Type: text/plain; charset=koi8-r
+Cc: Andrey Vagin <avagin@openvz.org>, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	vvs@openvz.org, Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cyrill Gorcunov <gorcunov@openvz.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:57875 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750702AbaAIF3C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 00:29:02 -0500
 Content-Disposition: inline
-In-Reply-To: <52CDBBE1.1010301@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1389107305.26646.20.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 08, 2014 at 11:58:09PM +0300, Sergei Shtylyov wrote:
-> On 01/08/2014 11:02 AM, Simon Horman wrote:
+On Tue, Jan 07, 2014 at 07:08:25AM -0800, Eric Dumazet wrote:
+> On Tue, 2014-01-07 at 14:31 +0400, Andrey Vagin wrote:
+> > Lets look at destroy_conntrack:
+> > 
+> > hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
+> > ...
+> > nf_conntrack_free(ct)
+> > 	kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
+> > 
+> > net->ct.nf_conntrack_cachep is created with SLAB_DESTROY_BY_RCU.
+> > 
+> > The hash is protected by rcu, so readers look up conntracks without
+> > locks.
+> > A conntrack is removed from the hash, but in this moment a few readers
+> > still can use the conntrack. Then this conntrack is released and another
+> > thread creates conntrack with the same address and the equal tuple.
+> > After this a reader starts to validate the conntrack:
+> > * It's not dying, because a new conntrack was created
+> > * nf_ct_tuple_equal() returns true.
+> > 
+> > But this conntrack is not initialized yet, so it can not be used by two
+> > threads concurrently. In this case BUG_ON may be triggered from
+> > nf_nat_setup_info().
+> > 
+> > Florian Westphal suggested to check the confirm bit too. I think it's
+> > right.
+> > 
+> > task 1			task 2			task 3
+> > 			nf_conntrack_find_get
+> > 			 ____nf_conntrack_find
+> > destroy_conntrack
+> >  hlist_nulls_del_rcu
+> >  nf_conntrack_free
+> >  kmem_cache_free
+> > 						__nf_conntrack_alloc
+> > 						 kmem_cache_alloc
+> > 						 memset(&ct->tuplehash[IP_CT_DIR_MAX],
+> > 			 if (nf_ct_is_dying(ct))
+> > 			 if (!nf_ct_tuple_equal()
+> > 
+> > I'm not sure, that I have ever seen this race condition in a real life.
+> > Currently we are investigating a bug, which is reproduced on a few node.
+> > In our case one conntrack is initialized from a few tasks concurrently,
+> > we don't have any other explanation for this.
 > 
-> >This is a fast ethernet controller.
+> > 
+> > Cc: Florian Westphal <fw@strlen.de>
+> > Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+> > Cc: Patrick McHardy <kaber@trash.net>
+> > Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+> > Cc: "David S. Miller" <davem@davemloft.net>
+> > Cc: Cyrill Gorcunov <gorcunov@openvz.org>
+> > Signed-off-by: Andrey Vagin <avagin@openvz.org>
+> > ---
+> >  net/netfilter/nf_conntrack_core.c | 6 +++++-
+> >  1 file changed, 5 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> > index 43549eb..7a34bb2 100644
+> > --- a/net/netfilter/nf_conntrack_core.c
+> > +++ b/net/netfilter/nf_conntrack_core.c
+> > @@ -387,8 +387,12 @@ begin:
+> >  			     !atomic_inc_not_zero(&ct->ct_general.use)))
+> >  			h = NULL;
+> >  		else {
+> > +			/* A conntrack can be recreated with the equal tuple,
+> > +			 * so we need to check that the conntrack is initialized
+> > +			 */
+> >  			if (unlikely(!nf_ct_tuple_equal(tuple, &h->tuple) ||
+> > -				     nf_ct_zone(ct) != zone)) {
+> > +				     nf_ct_zone(ct) != zone) ||
+> > +				     !nf_ct_is_confirmed(ct)) {
+> >  				nf_ct_put(ct);
+> >  				goto begin;
+> >  			}
 > 
-> >Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> I do not think this is the right way to fix this problem (if said
+> problem is confirmed)
 > 
-> [...]
+> Remember the rule about SLAB_DESTROY_BY_RCU :
 > 
-> >diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> >index 4b38533..cc6d4af 100644
-> >--- a/drivers/net/ethernet/renesas/sh_eth.c
-> >+++ b/drivers/net/ethernet/renesas/sh_eth.c
-> >@@ -190,6 +190,59 @@ static const u16 sh_eth_offset_fast_rcar[SH_ETH_MAX_REGISTER_OFFSET] = {
-> >  	[TRIMD]		= 0x027c,
-> >  };
-> >
-> >+static const u16 sh_eth_offset_fast_rz[SH_ETH_MAX_REGISTER_OFFSET] = {
-> [...]
-> >+	[ECMR]		= 0x0500,
-> >+	[ECSR]		= 0x0510,
-> >+	[ECSIPR]	= 0x0518,
-> >+	[PIR]		= 0x0520,
-> >+	[APR]		= 0x0554,
-> >+	[MPR]		= 0x0558,
-> >+	[PFTCR]		= 0x055c,
-> >+	[PFRCR]		= 0x0560,
-> >+	[TPAUSER]	= 0x0564,
-> >+	[MAHR]		= 0x05c0,
-> >+	[MALR]		= 0x05c8,
-> >+	[CEFCR]		= 0x0740,
-> >+	[FRECR]		= 0x0748,
-> >+	[TSFRCR]	= 0x0750,
-> >+	[TLFRCR]	= 0x0758,
-> >+	[RFCR]		= 0x0760,
-> >+	[MAFCR]		= 0x0778,
+> When a struct is freed, then reused, its important to set the its refcnt
+> (from 0 to 1) only when the structure is fully ready for use.
 > 
->    You've missed RFLR @ 0x0508. It's a vital register which the
-> driver requires to be always mapped.
-
-Thanks, I will fix that.
-
-> >+
-> >+	[ARSTR]		= 0x0000,
-> >+	[TSU_CTRST]	= 0x0004,
-> >+	[TSU_VTAG0]	= 0x0058,
-> >+	[TSU_ADSBSY]	= 0x0060,
-> >+	[TSU_TEN]	= 0x0064,
-> >+	[TSU_ADRH0]	= 0x0100,
-> >+	[TSU_ADRL0]	= 0x0104,
-> >+	[TSU_ADRH31]	= 0x01f8,
-> >+	[TSU_ADRL31]	= 0x01fc,
+> If a lookup finds a structure which is not yet setup, the
+> atomic_inc_not_zero() will fail.
 > 
->    Looking at the manual, you've missed [TR]X[NA]LCR regs starting
-> at offset 0x0080 from TSU block.
-
-Thanks, I will add them.
-
->    I see that both E-MAC and TSU blocks turned out to be different
-> from the Gigabit version upon further scrutiny...
+> Take a look at sk_clone_lock() and Documentation/RCU/rculist_nulls.txt
 > 
-> >+};
-> >+
-> >  static const u16 sh_eth_offset_fast_sh4[SH_ETH_MAX_REGISTER_OFFSET] = {
-> >  	[ECMR]		= 0x0100,
-> >  	[RFLR]		= 0x0108,
-> [...]
-> >@@ -701,6 +762,35 @@ static struct sh_eth_cpu_data r8a7740_data = {
-> >  	.shift_rd0	= 1,
-> >  };
-> >
-> >+/* R7S72100 */
-> >+static struct sh_eth_cpu_data r7s72100_data = {
-> >+	.chip_reset	= sh_eth_chip_reset,
-> >+	.set_duplex	= sh_eth_set_duplex,
-> >+
-> >+	.register_type	= SH_ETH_REG_FAST_RZ,
-> >+
-> >+	.ecsr_value	= ECSR_ICD,
-> >+	.ecsipr_value	= ECSIPR_ICDIP,
-> >+	.eesipr_value	= 0xff7f009f,
-> >+
-> >+	.tx_check	= EESR_TC1 | EESR_FTC,
-> >+	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
-> >+			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
-> >+			  EESR_TDE | EESR_ECI,
-> >+	.fdr_value	= 0x0000070f,
-> >+	.rmcr_value	= RMCR_RNC,
-> >+
-> >+	.apr		= 1,
-> >+	.mpr		= 1,
-> >+	.tpauser	= 1,
-> >+	.hw_swap	= 1,
-> >+	.rpadir		= 1,
-> >+	.rpadir_value   = 2 << 16,
-> >+	.no_trimd	= 1,
-> >+	.tsu		= 1,
-> >+	.shift_rd0	= 1,
-> 
->    Perhaps this field should be renamed to something talking about
-> check summing support (since bits 0..15 of RD0 contain a frame check
-> sum for those SoCs). Or maybe it should be just merged with the
-> 'hw_crc' field...
 
-I have no feelings about that one way or another.
-But it seems to be orthogonal to this patch.
+I have one more question. Looks like I found another problem.
 
->    Well, now the comments about your initializer: you've missed to
-> set the 'no_psr' field -- this SoC doesn't have PSR (which usually
-> holds the LINK signal status). It's not fatal since you're setting
-> 'no_ether_link' in the platform data but should be fixed anyway.
-> You've also missed to set 'no_ade' field, though 'eesipr_value'
-> correctly has EESIPR.ADEIP cleared. And it looks like you've also
-> missed to set 'hw_crc' field since this SoC has CSMR...
+init_conntrack:
+        hlist_nulls_add_head_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
+                      &net->ct.unconfirmed);
 
-Thanks, I will add those fields.
+__nf_conntrack_hash_insert:
+	hlist_nulls_add_head_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
+		   &net->ct.hash[hash]);
 
-> [...]
-> >@@ -880,6 +970,8 @@ static unsigned long sh_eth_get_edtrr_trns(struct sh_eth_private *mdp)
-> >  {
-> >  	if (sh_eth_is_gether(mdp))
-> >  		return EDTRR_TRNS_GETHER;
-> >+	else if (sh_eth_is_rz_fast_ether(mdp))
-> >+		return EDTRR_TRNS_RZ_ETHER;
-> 
->    I'd just merge this with the GEther case.
+We use one hlist_nulls_node to add a conntrack into two different lists.
+As far as I understand, it's unacceptable in case of
+SLAB_DESTROY_BY_RCU.
 
-Sure, but in that case should we change the name.
-As both you and Magnus pointed out to me, the rz is not gigabit.
+Lets imagine that we have two threads. The first one enumerates objects
+from a first list, the second one recreates an object and insert it in a
+second list.  If a first thread in this moment stays on the object, it
+can read "next", when it's in the second list, so it will continue
+to enumerate objects from the second list. It is not what we want, isn't
+it?
 
-> 
-> >  	else
-> >  		return EDTRR_TRNS_ETHER;
-> >  }
-> [...]
-> >@@ -1062,7 +1155,8 @@ static void sh_eth_ring_format(struct net_device *ndev)
-> >  		if (i == 0) {
-> >  			/* Tx descriptor address set */
-> >  			sh_eth_write(ndev, mdp->tx_desc_dma, TDLAR);
-> >-			if (sh_eth_is_gether(mdp))
-> >+			if (sh_eth_is_gether(mdp) ||
-> >+			    sh_eth_is_rz_fast_ether(mdp))
-> >  				sh_eth_write(ndev, mdp->tx_desc_dma, TDFAR);
-> 
->    Hmm, TDFAR exists also on SH4 Ethers...
+cpu1				cpu2
+				hlist_nulls_for_each_entry_rcu(ct)
+destroy_conntrack
+ kmem_cache_free
 
-Lets fix that separately.
-
-> 
-> [...]
-> >@@ -2564,6 +2666,9 @@ static const u16 *sh_eth_get_register_offset(int register_type)
-> >  	case SH_ETH_REG_FAST_RCAR:
-> >  		reg_offset = sh_eth_offset_fast_rcar;
-> >  		break;
-> >+	case SH_ETH_REG_FAST_RZ:
-> >+		reg_offset = sh_eth_offset_fast_rz;
-> >+		break;
-> 
->    I think it should precede the R-Car case as this chip is newer
-> than R-Car and the SoC families appear here in the reverse order.
-
-Sure, will do.
-
-> >  	case SH_ETH_REG_FAST_SH4:
-> >  		reg_offset = sh_eth_offset_fast_sh4;
-> >  		break;
-> [...]
-> >diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-> >index 0fe35b7..0bcde90 100644
-> >--- a/drivers/net/ethernet/renesas/sh_eth.h
-> >+++ b/drivers/net/ethernet/renesas/sh_eth.h
-> >@@ -156,6 +156,7 @@ enum {
-> >  enum {
-> >  	SH_ETH_REG_GIGABIT,
-> >  	SH_ETH_REG_FAST_RCAR,
-> >+	SH_ETH_REG_FAST_RZ,
-> 
->    I think it should precede the R-Car value.
-
-Sure, will do.
-
-> >  	SH_ETH_REG_FAST_SH4,
-> >  	SH_ETH_REG_FAST_SH3_SH2
-> >  };
-> >@@ -169,7 +170,7 @@ enum {
-> >
-> >  /* Register's bits
-> >   */
-> >-/* EDSR : sh7734, sh7757, sh7763, and r8a7740 only */
-> >+/* EDSR : sh7734, sh7757, sh7763, r8a7740 and r7s72100 only */
-> 
->    Need comma before "and". Sorry for the grammar nitpicking. :-)
-
-Will do.
-
-> >  enum EDSR_BIT {
-> >  	EDSR_ENT = 0x01, EDSR_ENR = 0x02,
-> >  };
-> >@@ -191,6 +192,7 @@ enum DMAC_M_BIT {
-> >  /* EDTRR */
-> >  enum DMAC_T_BIT {
-> >  	EDTRR_TRNS_GETHER = 0x03,
-> >+	EDTRR_TRNS_RZ_ETHER = 0x03,
-> 
->    I doubt we need a special case here. You didn't introduce one for
-> the software reset bits.
-
-True, but RZ is not Gigabit. So I think we either need two names
-or to choose a more generic name.
-
-
-> 
-> >  	EDTRR_TRNS_ETHER = 0x01,
-> >  };
-> 
-> WBR, Sergei
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sh" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+init_conntrack
+ hlist_nulls_add_head_rcu
+				ct = ct->next
