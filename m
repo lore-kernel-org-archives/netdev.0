@@ -1,65 +1,82 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: Layer 2 acceleration vs GSO
-Date: Fri, 10 Jan 2014 15:32:22 -0500
-Message-ID: <20140110203222.GB2645@hmsreliant.think-freely.org>
-References: <1389384339.2025.88.camel@bwh-desktop.uk.level5networks.com>
-Mime-Version: 1.0
+From: Scott Feldman <sfeldma@cumulusnetworks.com>
+Subject: Re: [RFC net-next 0/3] bonding: new option API
+Date: Fri, 10 Jan 2014 12:32:15 -0800
+Message-ID: <AAA51DDF-74AF-4A70-8072-62F2593F8619@cumulusnetworks.com>
+References: <1389359495-9700-1-git-send-email-nikolay@redhat.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.1 \(1827\))
 Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
+Content-Transfer-Encoding: 8BIT
+Cc: Netdev <netdev@vger.kernel.org>,
 	Andy Gospodarek <andy@greyhouse.net>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:57647 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758344AbaAJUcj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 15:32:39 -0500
-Content-Disposition: inline
-In-Reply-To: <1389384339.2025.88.camel@bwh-desktop.uk.level5networks.com>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:48860 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758343AbaAJUci convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 15:32:38 -0500
+In-Reply-To: <1389359495-9700-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 10, 2014 at 08:05:39PM +0000, Ben Hutchings wrote:
-> What happens when an skb to be sent through ndo_dfwd_start_xmit()
-> requires software GSO?
-> 
-> dev_hard_start_xmit() will segment it and then submit each segment, and
-> then:
-> 
-> > gso:
-> > 	do {
-> [...]
-> > 		if (accel_priv)
-> > 			rc = ops->ndo_dfwd_start_xmit(nskb, dev, accel_priv);
-> > 		else
-> > 			rc = ops->ndo_start_xmit(nskb, dev);
-> > 		trace_net_dev_xmit(nskb, rc, dev, skb_len);
-> [...]
-> > 		txq_trans_update(txq);
-> 
-> Oops, txq is NULL.  And once we add the obvious condition to that,
-> 
-> > 		if (unlikely(netif_xmit_stopped(txq) && skb->next))
-> > 			return NETDEV_TX_BUSY;
-> 
-> How can we tell if the hardware transmit queue filled up?
-> 
-> It seems like this feature currently relies on the driver returning
-> NETDEV_TX_BUSY when the TX queue is already full, like ixgbe does.  But
-> that is exactly what drivers are *not* supposed to do.
-> 
-> Ben.
-> 
-> > 	} while (skb->next);
-> 
-Dave just to a fix to deal with this (among some other issues) here today:
-http://marc.info/?l=linux-kernel&m=138934276507518&w=2
-Neil
 
-> -- 
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
+On Jan 10, 2014, at 5:11 AM, Nikolay Aleksandrov <nikolay@redhat.com> wrote:
+
+> Hi,
+> This patchset aims to introduce a new option API that can be easily
+> extended if necessary and which attempts to remove some common problems
+> and code. In the beginning there was support for inter-option dependencies,
+> but that turned out to be unnecessary as the only 2 options that _enforce_
+> another option to be set prior to setting are up/down delay and they can be
+> easily re-worked to not require miimon to be set, so we can spare ourselves
+> 100+ lines of checks, dealing with complex dependency errors and such.
+> In case this becomes necessary I've kept the old version of this patch-set
+> which has it, and can easily re-work it at any time.
+> There're still a lot of things to fix/clean but I've done some limited testing
+> with the options that are converted and it seems to work.
+> The main exported functions (as can be seen) are:
+> __bond_opt_set() - to be used when a string is passed which needs to be
+>                   converted in the case of BOND_OPTVAL_INTEGER. (sysfs)
+> __bond_opt_intset() - to be used when a value is passed to
+>                      BOND_OPTVAL_INTEGER (netlink), this function can't
+>                      be used for BOND_OPTVAL_STRING options
+> These two can be used from inside other options to stop them (e.g., arp_interval
+> stopping miimon and vice versa).
+> I've also added bond_opt_tryset_rtnl() mostly for sysfs use.
+> See the description of patch 01 and the comments inside for more information.
 > 
+> Value tables of converted options are no longer exported, and can be accessed
+> through the API (bond_opt_get_val() & bond_opt_get_flags).
+> Another good side-effect is that the error codes are standard for all options
+> for the common errors at least.
+
+Nice!
+
+> When/if this patchset is posted for inclusion, I'll have all options converted.
+> I actually had them before but while on vacation during December a lot of code
+> went in changing the bonding options and have to re-work most of the patches.
+
+Oops, sorry about that ;)
+
+> Some of the future plans for this are:
+> Verbose outputting of dependencies (done, just have to polish it)
+> Automatic sysfs generation from the bond_opts[].
+
+I had a patch in my queue to do something similar, but yours is so much nicer.  
+
+For sysfs nodes, there is a file permission. I wonder if bond_opts should have a sense of RO, RW, or WO?  Then automatic sysfs generation is even easier.  Hmmm, actually I think the answer is no.  Nevermind.
+
+> Use of the API in bond_check_params() and thus cleaning it up
+> Structure for accessor fn parameter passing so we can implement get/set
+> in a more general manner
 > 
+> Sending it with 2 options converted which illustrate the use of different
+> features of the API. I've tested them via sysfs.
+> 
+> Any thoughts, comments and suggestions are very welcome.
+
+Nice job Nik, well done.
+
+-scott
