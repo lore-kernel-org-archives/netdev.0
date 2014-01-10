@@ -1,7 +1,7 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [RFC PATCH 07/12] net: sched: RCU cls_route
-Date: Fri, 10 Jan 2014 01:41:37 -0800
-Message-ID: <20140110094135.7193.48419.stgit@nitbit.x32>
+Subject: [RFC PATCH 08/12] net: sched: RCU cls_tcindex
+Date: Fri, 10 Jan 2014 01:42:13 -0800
+Message-ID: <20140110094211.7193.16540.stgit@nitbit.x32>
 References: <20140110092041.7193.5952.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,486 +9,559 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, davem@davemloft.net
 To: xiyou.wangcong@gmail.com, jhs@mojatatu.com, eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:53477 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752475AbaAJJmF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 04:42:05 -0500
-Received: by mail-ob0-f181.google.com with SMTP id uy5so4559003obc.40
-        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 01:42:04 -0800 (PST)
+Received: from mail-ob0-f182.google.com ([209.85.214.182]:55150 "EHLO
+	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751148AbaAJJmf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 04:42:35 -0500
+Received: by mail-ob0-f182.google.com with SMTP id wn1so2582658obc.27
+        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 01:42:35 -0800 (PST)
 In-Reply-To: <20140110092041.7193.5952.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RCUify the route classifier. For now however spinlock's are used to
-protect fastmap cache.
+Make cls_tcindex RCU safe.
 
-The issue here is the fastmap may be read by one CPU while the
-cache is being updated by another. An array of pointers could be
-one possible solution.
+This patch addds a new RCU routine rcu_dereference_bh_rtnl() to check
+caller either holds the rcu read lock or RTNL. This is needed to
+handle the case where tcindex_lookup() is being called in both cases.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- net/sched/cls_route.c |  218 ++++++++++++++++++++++++++++---------------------
- 1 file changed, 125 insertions(+), 93 deletions(-)
+ include/linux/rtnetlink.h |   10 +
+ net/sched/cls_tcindex.c   |  327 ++++++++++++++++++++++++++-------------------
+ 2 files changed, 202 insertions(+), 135 deletions(-)
 
-diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
-index 2473953..6ba8f43 100644
---- a/net/sched/cls_route.c
-+++ b/net/sched/cls_route.c
-@@ -29,25 +29,26 @@
-  *    are mutually  exclusive.
-  * 3. "to TAG from ANY" has higher priority, than "to ANY from XXX"
-  */
--
- struct route4_fastmap {
--	struct route4_filter	*filter;
--	u32			id;
--	int			iif;
-+	struct route4_filter		*filter;
-+	u32				id;
-+	int				iif;
- };
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 939428a..6008b22 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -37,6 +37,16 @@ extern int lockdep_rtnl_is_held(void);
+ 	rcu_dereference_check(p, lockdep_rtnl_is_held())
  
- struct route4_head {
--	struct route4_fastmap	fastmap[16];
--	struct route4_bucket	*table[256 + 1];
-+	struct route4_fastmap		fastmap[16];
-+	struct route4_bucket __rcu	*table[256 + 1];
-+	struct rcu_head			rcu;
- };
- 
- struct route4_bucket {
- 	/* 16 FROM buckets + 16 IIF buckets + 1 wildcard bucket */
--	struct route4_filter	*ht[16 + 16 + 1];
-+	struct route4_filter __rcu	*ht[16 + 16 + 1];
-+	struct rcu_head			rcu;
- };
- 
- struct route4_filter {
--	struct route4_filter	*next;
-+	struct route4_filter __rcu	*next;
- 	u32			id;
- 	int			iif;
- 
-@@ -55,6 +56,8 @@ struct route4_filter {
- 	struct tcf_exts		exts;
- 	u32			handle;
- 	struct route4_bucket	*bkt;
-+	struct tcf_proto	*tp;
-+	struct rcu_head		rcu;
- };
- 
- #define ROUTE4_FAILURE ((struct route4_filter *)(-1L))
-@@ -64,14 +67,13 @@ static inline int route4_fastmap_hash(u32 id, int iif)
- 	return id & 0xF;
- }
- 
-+static DEFINE_SPINLOCK(fastmap_lock);
- static void
--route4_reset_fastmap(struct Qdisc *q, struct route4_head *head, u32 id)
-+route4_reset_fastmap(struct route4_head *head)
- {
--	spinlock_t *root_lock = qdisc_root_sleeping_lock(q);
--
--	spin_lock_bh(root_lock);
-+	spin_lock(&fastmap_lock);
- 	memset(head->fastmap, 0, sizeof(head->fastmap));
--	spin_unlock_bh(root_lock);
-+	spin_unlock(&fastmap_lock);
- }
- 
- static void
-@@ -80,9 +82,12 @@ route4_set_fastmap(struct route4_head *head, u32 id, int iif,
- {
- 	int h = route4_fastmap_hash(id, iif);
- 
-+	/* fastmap updates must look atomic to aling id, iff, filter */
-+	spin_lock(&fastmap_lock);
- 	head->fastmap[h].id = id;
- 	head->fastmap[h].iif = iif;
- 	head->fastmap[h].filter = f;
-+	spin_unlock(&fastmap_lock);
- }
- 
- static inline int route4_hash_to(u32 id)
-@@ -123,7 +128,7 @@ static inline int route4_hash_wild(void)
- static int route4_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 			   struct tcf_result *res)
- {
--	struct route4_head *head = (struct route4_head *)tp->root;
-+	struct route4_head *head = (struct route4_head *)rcu_dereference_bh(tp->root);
- 	struct dst_entry *dst;
- 	struct route4_bucket *b;
- 	struct route4_filter *f;
-@@ -141,32 +146,43 @@ static int route4_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 	iif = inet_iif(skb);
- 
- 	h = route4_fastmap_hash(id, iif);
+ /**
++ * rcu_dereference_bh_rtnl - rcu_dereference_bh with debug checking
++ * @p: The pointer to read, prior to dereference
++ *
++ * Do an rcu_dereference_bh(p), but check caller either holds rcu_read_lock_bh()
++ * or RTNL. Note : Please prefer rtnl_dereference() or rcu_dereference_bh()
++ */
++#define rcu_dereference_bh_rtnl(p)				\
++	rcu_dereference_bh_check(p, lockdep_rtnl_is_held())
 +
-+	spin_lock(&fastmap_lock);
- 	if (id == head->fastmap[h].id &&
- 	    iif == head->fastmap[h].iif &&
- 	    (f = head->fastmap[h].filter) != NULL) {
--		if (f == ROUTE4_FAILURE)
-+		if (f == ROUTE4_FAILURE) {
-+			spin_unlock(&fastmap_lock);
- 			goto failure;
-+		}
++/**
+  * rtnl_dereference - fetch RCU pointer when updates are prevented by RTNL
+  * @p: The pointer to read, prior to dereferencing
+  *
+diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
+index ffad187..19eb24e 100644
+--- a/net/sched/cls_tcindex.c
++++ b/net/sched/cls_tcindex.c
+@@ -24,7 +24,7 @@
+ #define DEFAULT_HASH_SIZE	64	/* optimized for diffserv */
  
- 		*res = f->res;
-+		spin_unlock(&fastmap_lock);
- 		return 0;
- 	}
-+	spin_unlock(&fastmap_lock);
  
- 	h = route4_hash_to(id);
+-#define	PRIV(tp)	((struct tcindex_data *) (tp)->root)
++#define	PRIV(tp)	((struct tcindex_data *) rtnl_dereference((tp)->root))
  
- restart:
--	b = head->table[h];
-+	b = rcu_dereference_bh(head->table[h]);
- 	if (b) {
--		for (f = b->ht[route4_hash_from(id)]; f; f = f->next)
-+		for (f = rcu_dereference_bh(b->ht[route4_hash_from(id)]);
-+		     f;
-+		     f = rcu_dereference_bh(f->next))
- 			if (f->id == id)
- 				ROUTE4_APPLY_RESULT();
  
--		for (f = b->ht[route4_hash_iif(iif)]; f; f = f->next)
-+		for (f = rcu_dereference_bh(b->ht[route4_hash_iif(iif)]);
-+		     f;
-+		     f = rcu_dereference_bh(f->next))
- 			if (f->iif == iif)
- 				ROUTE4_APPLY_RESULT();
+ struct tcindex_filter_result {
+@@ -35,19 +35,22 @@ struct tcindex_filter_result {
+ struct tcindex_filter {
+ 	u16 key;
+ 	struct tcindex_filter_result result;
+-	struct tcindex_filter *next;
++	struct tcindex_filter __rcu *next;
++	struct rcu_head rcu;
+ };
  
--		for (f = b->ht[route4_hash_wild()]; f; f = f->next)
-+		for (f = rcu_dereference_bh(b->ht[route4_hash_wild()]);
-+		     f;
-+		     f = rcu_dereference_bh(f->next))
- 			ROUTE4_APPLY_RESULT();
--
- 	}
- 	if (h < 256) {
- 		h = 256;
-@@ -213,7 +229,7 @@ static inline u32 from_hash(u32 id)
  
- static unsigned long route4_get(struct tcf_proto *tp, u32 handle)
+ struct tcindex_data {
+ 	struct tcindex_filter_result *perfect; /* perfect hash; NULL if none */
+-	struct tcindex_filter **h; /* imperfect hash; only used if !perfect;
+-				      NULL if unused */
++	struct tcindex_filter __rcu **h; /* imperfect hash; only used if
++					    !perfect NULL if unused */
++	struct rcu_head rcu;
++	struct tcf_proto *tp;
+ 	u16 mask;		/* AND key with mask */
+-	int shift;		/* shift ANDed key to the right */
+-	int hash;		/* hash table size; 0 if undefined */
+-	int alloc_hash;		/* allocated size */
+-	int fall_through;	/* 0: only classify if explicit match */
++	u32 shift;		/* shift ANDed key to the right */
++	u32 hash;		/* hash table size; 0 if undefined */
++	u32 alloc_hash;		/* allocated size */
++	u32 fall_through;	/* 0: only classify if explicit match */
+ };
+ 
+ static inline int
+@@ -59,13 +62,18 @@ tcindex_filter_is_set(struct tcindex_filter_result *r)
+ static struct tcindex_filter_result *
+ tcindex_lookup(struct tcindex_data *p, u16 key)
  {
--	struct route4_head *head = (struct route4_head *)tp->root;
-+	struct route4_head *head = (struct route4_head *)rtnl_dereference(tp->root);
- 	struct route4_bucket *b;
- 	struct route4_filter *f;
- 	unsigned int h1, h2;
-@@ -229,9 +245,11 @@ static unsigned long route4_get(struct tcf_proto *tp, u32 handle)
- 	if (h2 > 32)
- 		return 0;
+-	struct tcindex_filter *f;
++	if (p->perfect) {
++		struct tcindex_filter_result *f = p->perfect + key;
++
++		return tcindex_filter_is_set(f) ? f : NULL;
++	} else if (p->h) {
++		struct tcindex_filter __rcu **fp;
++		struct tcindex_filter *f;
  
--	b = head->table[h1];
-+	b = rtnl_dereference(head->table[h1]);
- 	if (b) {
--		for (f = b->ht[h2]; f; f = f->next)
-+		for (f = rtnl_dereference(b->ht[h2]);
+-	if (p->perfect)
+-		return tcindex_filter_is_set(p->perfect + key) ?
+-			p->perfect + key : NULL;
+-	else if (p->h) {
+-		for (f = p->h[key % p->hash]; f; f = f->next)
++		fp = &p->h[key % p->hash];
++		for (f = rcu_dereference_bh_rtnl(*fp);
 +		     f;
-+		     f = rtnl_dereference(f->next))
- 			if (f->handle == handle)
- 				return (unsigned long)f;
++		     fp = &f->next, f = rcu_dereference_bh_rtnl(*fp))
+ 			if (f->key == key)
+ 				return &f->result;
  	}
-@@ -248,8 +266,11 @@ static int route4_init(struct tcf_proto *tp)
+@@ -77,7 +85,7 @@ tcindex_lookup(struct tcindex_data *p, u16 key)
+ static int tcindex_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 			    struct tcf_result *res)
+ {
+-	struct tcindex_data *p = PRIV(tp);
++	struct tcindex_data *p = rcu_dereference(tp->root);
+ 	struct tcindex_filter_result *f;
+ 	int key = (skb->tc_index & p->mask) >> p->shift;
+ 
+@@ -132,49 +140,113 @@ static int tcindex_init(struct tcf_proto *tp)
+ 	p->hash = DEFAULT_HASH_SIZE;
+ 	p->fall_through = 1;
+ 
+-	tp->root = p;
++	rcu_assign_pointer(tp->root, p);
+ 	return 0;
  }
  
- static void
--route4_delete_filter(struct tcf_proto *tp, struct route4_filter *f)
-+route4_delete_filter(struct rcu_head *head)
- {
-+	struct route4_filter *f = container_of(head, struct route4_filter, rcu);
-+	struct tcf_proto *tp = f->tp;
++static void tcindex_walk(struct tcf_proto *tp, struct tcf_walker *walker)
++{
++	struct tcindex_data *p = PRIV(tp);
++	struct tcindex_filter *f, *next;
++	int i;
 +
- 	tcf_unbind_filter(tp, &f->res);
- 	tcf_exts_destroy(tp, &f->exts);
- 	kfree(f);
-@@ -257,7 +278,7 @@ route4_delete_filter(struct tcf_proto *tp, struct route4_filter *f)
- 
- static void route4_destroy(struct tcf_proto *tp)
- {
--	struct route4_head *head = tp->root;
-+	struct route4_head *head = rtnl_dereference(tp->root);
- 	int h1, h2;
- 
- 	if (head == NULL)
-@@ -266,26 +287,29 @@ static void route4_destroy(struct tcf_proto *tp)
- 	for (h1 = 0; h1 <= 256; h1++) {
- 		struct route4_bucket *b;
- 
--		b = head->table[h1];
-+		b = rtnl_dereference(head->table[h1]);
- 		if (b) {
- 			for (h2 = 0; h2 <= 32; h2++) {
- 				struct route4_filter *f;
- 
--				while ((f = b->ht[h2]) != NULL) {
--					b->ht[h2] = f->next;
--					route4_delete_filter(tp, f);
-+				while ((f = rtnl_dereference(b->ht[h2])) != NULL) {
-+					rcu_assign_pointer(b->ht[h2], rtnl_dereference(f->next));
-+					call_rcu(&f->rcu, route4_delete_filter);
- 				}
- 			}
--			kfree(b);
-+			rcu_assign_pointer(head->table[h1], NULL);
-+			kfree_rcu(b, rcu);
- 		}
- 	}
--	kfree(head);
-+	rcu_assign_pointer(tp->root, NULL);
-+	kfree_rcu(head, rcu);
- }
- 
- static int route4_delete(struct tcf_proto *tp, unsigned long arg)
- {
--	struct route4_head *head = (struct route4_head *)tp->root;
--	struct route4_filter **fp, *f = (struct route4_filter *)arg;
-+	struct route4_head *head = (struct route4_head *)rtnl_dereference(tp->root);
-+	struct route4_filter __rcu **fp;
-+	struct route4_filter *nf, *f = (struct route4_filter *)arg;
- 	unsigned int h = 0;
- 	struct route4_bucket *b;
- 	int i;
-@@ -296,27 +320,34 @@ static int route4_delete(struct tcf_proto *tp, unsigned long arg)
- 	h = f->handle;
- 	b = f->bkt;
- 
--	for (fp = &b->ht[from_hash(h >> 16)]; *fp; fp = &(*fp)->next) {
--		if (*fp == f) {
--			tcf_tree_lock(tp);
-+	fp = &b->ht[from_hash(h >> 16)];
-+	for (nf = rtnl_dereference(*fp); nf;
-+	     fp = &nf->next, nf = rtnl_dereference(*fp)) {
-+		if (nf == f) {
-+			/* unlink it */
- 			*fp = f->next;
--			tcf_tree_unlock(tp);
- 
--			route4_reset_fastmap(tp->q, head, f->id);
--			route4_delete_filter(tp, f);
-+			/* Remove any fastmap lookups that might ref filter
-+			 * notice we unlink'd the filter so we can't get it
-+			 * back in the fastmap.
-+			 */
-+			route4_reset_fastmap(head);
- 
--			/* Strip tree */
-+			/* Delete it */
-+			call_rcu(&f->rcu, route4_delete_filter);
- 
--			for (i = 0; i <= 32; i++)
--				if (b->ht[i])
-+			/* Strip RTNL protected tree */
-+			for (i = 0; i <= 32; i++) {
-+				struct route4_filter *rt = rtnl_dereference(b->ht[i]);
-+
-+				if (rt)
- 					return 0;
++	pr_debug("tcindex_walk(tp %p,walker %p),p %p\n", tp, walker, p);
++	if (p->perfect) {
++		for (i = 0; i < p->hash; i++) {
++			if (!p->perfect[i].res.class)
++				continue;
++			if (walker->count >= walker->skip) {
++				if (walker->fn(tp,
++				    (unsigned long) (p->perfect+i), walker)
++				     < 0) {
++					walker->stop = 1;
++					return;
++				}
 +			}
++			walker->count++;
++		}
++	}
++	if (!p->h)
++		return;
++	for (i = 0; i < p->hash; i++) {
++		for (f = rtnl_dereference(p->h[i]); f; f = next) {
++			next = rtnl_dereference(f->next);
++			if (walker->count >= walker->skip) {
++				if (walker->fn(tp, (unsigned long) &f->result,
++				    walker) < 0) {
++					walker->stop = 1;
++					return;
++				}
++			}
++			walker->count++;
++		}
++	}
++}
  
- 			/* OK, session has no flows */
--			tcf_tree_lock(tp);
--			head->table[to_hash(h)] = NULL;
--			tcf_tree_unlock(tp);
-+			rcu_assign_pointer(head->table[to_hash(h)], NULL);
-+			kfree_rcu(b, rcu);
- 
--			kfree(b);
- 			return 0;
- 		}
- 	}
-@@ -379,26 +410,25 @@ static int route4_set_parms(struct net *net, struct tcf_proto *tp,
- 	}
- 
- 	h1 = to_hash(nhandle);
--	b = head->table[h1];
-+	b = rtnl_dereference(head->table[h1]);
- 	if (!b) {
- 		err = -ENOBUFS;
- 		b = kzalloc(sizeof(struct route4_bucket), GFP_KERNEL);
- 		if (b == NULL)
- 			goto errout;
- 
--		tcf_tree_lock(tp);
--		head->table[h1] = b;
--		tcf_tree_unlock(tp);
-+		rcu_assign_pointer(head->table[h1], b);
- 	} else {
- 		unsigned int h2 = from_hash(nhandle >> 16);
- 
- 		err = -EEXIST;
--		for (fp = b->ht[h2]; fp; fp = fp->next)
-+		for (fp = rtnl_dereference(b->ht[h2]);
-+		     fp;
-+		     fp = rtnl_dereference(fp->next))
- 			if (fp->handle == f->handle)
- 				goto errout;
- 	}
- 
--	tcf_tree_lock(tp);
- 	if (tb[TCA_ROUTE4_TO])
- 		f->id = to;
- 
-@@ -409,7 +439,7 @@ static int route4_set_parms(struct net *net, struct tcf_proto *tp,
- 
- 	f->handle = nhandle;
- 	f->bkt = b;
--	tcf_tree_unlock(tp);
-+	f->tp = tp;
- 
- 	if (tb[TCA_ROUTE4_CLASSID]) {
- 		f->res.classid = nla_get_u32(tb[TCA_ROUTE4_CLASSID]);
-@@ -430,14 +460,15 @@ static int route4_change(struct net *net, struct sk_buff *in_skb,
- 		       struct nlattr **tca,
- 		       unsigned long *arg)
+ static int
+-__tcindex_delete(struct tcf_proto *tp, unsigned long arg, int lock)
++tcindex_delete(struct tcf_proto *tp, unsigned long arg)
  {
--	struct route4_head *head = tp->root;
--	struct route4_filter *f, *f1, **fp;
-+	struct route4_head *head = rtnl_dereference(tp->root);
-+	struct route4_filter __rcu **fp;
-+	struct route4_filter *fold, *f1, *pfp, *f = NULL;
- 	struct route4_bucket *b;
- 	struct nlattr *opt = tca[TCA_OPTIONS];
- 	struct nlattr *tb[TCA_ROUTE4_MAX + 1];
- 	unsigned int h, th;
--	u32 old_handle = 0;
- 	int err;
-+	bool new = true;
+ 	struct tcindex_data *p = PRIV(tp);
+ 	struct tcindex_filter_result *r = (struct tcindex_filter_result *) arg;
++	struct tcindex_filter __rcu **walk;
+ 	struct tcindex_filter *f = NULL;
  
- 	if (opt == NULL)
- 		return handle ? -EINVAL : 0;
-@@ -446,70 +477,69 @@ static int route4_change(struct net *net, struct sk_buff *in_skb,
+-	pr_debug("tcindex_delete(tp %p,arg 0x%lx),p %p,f %p\n", tp, arg, p, f);
++	pr_debug("tcindex_delete(tp %p,arg 0x%lx),p %p\n", tp, arg, p);
+ 	if (p->perfect) {
+ 		if (!r->res.class)
+ 			return -ENOENT;
+ 	} else {
+ 		int i;
+-		struct tcindex_filter **walk = NULL;
+ 
+-		for (i = 0; i < p->hash; i++)
+-			for (walk = p->h+i; *walk; walk = &(*walk)->next)
+-				if (&(*walk)->result == r)
++		for (i = 0; i < p->hash; i++) {
++			walk = p->h + i;
++			for (f = rtnl_dereference(*walk); f;
++			     walk = &f->next, f = rtnl_dereference(*walk)) {
++				if (&f->result == r)
+ 					goto found;
++			}
++		}
+ 		return -ENOENT;
+ 
+ found:
+-		f = *walk;
+-		if (lock)
+-			tcf_tree_lock(tp);
+-		*walk = f->next;
+-		if (lock)
+-			tcf_tree_unlock(tp);
++		rcu_assign_pointer(*walk, rtnl_dereference(f->next));
+ 	}
+ 	tcf_unbind_filter(tp, &r->res);
+ 	tcf_exts_destroy(tp, &r->exts);
+-	kfree(f);
++	if (f)
++		kfree_rcu(f, rcu);
+ 	return 0;
+ }
+ 
+-static int tcindex_delete(struct tcf_proto *tp, unsigned long arg)
++static int tcindex_destroy_element(struct tcf_proto *tp,
++				   unsigned long arg,
++				   struct tcf_walker *walker)
++{
++	return tcindex_delete(tp, arg);
++}
++
++static void __tcindex_destroy(struct rcu_head *head)
+ {
+-	return __tcindex_delete(tp, arg, 1);
++	struct tcindex_data *p = container_of(head, struct tcindex_data, rcu);
++
++	kfree(p->perfect);
++	kfree(p->h);
++	kfree(p);
++}
++
++static void tcindex_destroy(struct tcf_proto *tp)
++{
++	struct tcindex_data *p = PRIV(tp);
++	struct tcf_walker walker;
++
++	pr_debug("%s(tp %p),p %p\n", __func__, tp, p);
++	walker.count = 0;
++	walker.skip = 0;
++	walker.fn = &tcindex_destroy_element;
++	tcindex_walk(tp, &walker);
++
++	rcu_assign_pointer(tp->root, NULL);
++	call_rcu(&p->rcu, __tcindex_destroy);
+ }
+ 
+ static inline int
+@@ -191,6 +263,14 @@ static const struct nla_policy tcindex_policy[TCA_TCINDEX_MAX + 1] = {
+ 	[TCA_TCINDEX_CLASSID]		= { .type = NLA_U32 },
+ };
+ 
++static void __tcindex_partial_destroy(struct rcu_head *head)
++{
++	struct tcindex_data *p = container_of(head, struct tcindex_data, rcu);
++
++	kfree(p->perfect);
++	kfree(p);
++}
++
+ static int
+ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
+ 		  u32 handle, struct tcindex_data *p,
+@@ -200,7 +280,7 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
+ 	int err, balloc = 0;
+ 	struct tcindex_filter_result new_filter_result, *old_r = r;
+ 	struct tcindex_filter_result cr;
+-	struct tcindex_data cp;
++	struct tcindex_data *cp, *oldp;
+ 	struct tcindex_filter *f = NULL; /* make gcc behave */
+ 	struct tcf_exts e;
+ 
+@@ -209,7 +289,27 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
  	if (err < 0)
  		return err;
  
--	f = (struct route4_filter *)*arg;
--	if (f) {
--		if (f->handle != handle && handle)
-+	fold = (struct route4_filter *)*arg;
-+	if (fold && handle && fold->handle != handle)
- 			return -EINVAL;
--
--		if (f->bkt)
--			old_handle = f->handle;
--
--		err = route4_set_parms(net, tp, base, f, handle, head, tb,
--			tca[TCA_RATE], 0);
--		if (err < 0)
--			return err;
--
--		goto reinsert;
--	}
--
- 	err = -ENOBUFS;
- 	if (head == NULL) {
- 		head = kzalloc(sizeof(struct route4_head), GFP_KERNEL);
- 		if (head == NULL)
- 			goto errout;
--
--		tcf_tree_lock(tp);
--		tp->root = head;
--		tcf_tree_unlock(tp);
-+		rcu_assign_pointer(tp->root, head);
+-	memcpy(&cp, p, sizeof(cp));
++	/* tcindex_data attributes must look atomic to classifier/lookup so
++	 * allocate new tcindex data and RCU assign it onto root. Keeping
++	 * perfect hash and hash pointers from old data.
++	 */
++	cp = kzalloc(sizeof(cp), GFP_KERNEL);
++	if (!cp)
++		return -ENOMEM;
++
++	cp->mask = p->mask;
++	cp->shift = p->shift;
++	cp->hash = p->hash;
++	cp->alloc_hash = p->alloc_hash;
++	cp->fall_through = p->fall_through;
++	cp->tp = tp;
++
++	if (p->perfect) {
++		cp->perfect = kcalloc(cp->hash, sizeof(*r), GFP_KERNEL);
++		memcpy(cp->perfect, p->perfect, sizeof(*r) * cp->hash);
++	}
++	cp->h = p->h;
++
+ 	memset(&new_filter_result, 0, sizeof(new_filter_result));
+ 	tcf_exts_init(&new_filter_result.exts, TCA_TCINDEX_ACT, TCA_TCINDEX_POLICE);
+ 
+@@ -221,71 +321,82 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
  	}
  
- 	f = kzalloc(sizeof(struct route4_filter), GFP_KERNEL);
--	if (f == NULL)
-+	if (!f)
+ 	if (tb[TCA_TCINDEX_HASH])
+-		cp.hash = nla_get_u32(tb[TCA_TCINDEX_HASH]);
++		cp->hash = nla_get_u32(tb[TCA_TCINDEX_HASH]);
+ 
+ 	if (tb[TCA_TCINDEX_MASK])
+-		cp.mask = nla_get_u16(tb[TCA_TCINDEX_MASK]);
++		cp->mask = nla_get_u16(tb[TCA_TCINDEX_MASK]);
+ 
+ 	if (tb[TCA_TCINDEX_SHIFT])
+-		cp.shift = nla_get_u32(tb[TCA_TCINDEX_SHIFT]);
++		cp->shift = nla_get_u32(tb[TCA_TCINDEX_SHIFT]);
+ 
+ 	err = -EBUSY;
++
+ 	/* Hash already allocated, make sure that we still meet the
+ 	 * requirements for the allocated hash.
+ 	 */
+-	if (cp.perfect) {
+-		if (!valid_perfect_hash(&cp) ||
+-		    cp.hash > cp.alloc_hash)
++	if (cp->perfect) {
++		if (!valid_perfect_hash(cp) ||
++		    cp->hash > cp->alloc_hash)
+ 			goto errout;
+-	} else if (cp.h && cp.hash != cp.alloc_hash)
++	} else if (cp->h && cp->hash != cp->alloc_hash)
  		goto errout;
  
- 	tcf_exts_init(&f->exts, TCA_ROUTE4_ACT, TCA_ROUTE4_POLICE);
-+	if (fold) {
-+		f->id = fold->id;
-+		f->iif = fold->iif;
-+		f->res = fold->res;
-+		f->handle = fold->handle;
+ 	err = -EINVAL;
+ 	if (tb[TCA_TCINDEX_FALL_THROUGH])
+-		cp.fall_through = nla_get_u32(tb[TCA_TCINDEX_FALL_THROUGH]);
++		cp->fall_through = nla_get_u32(tb[TCA_TCINDEX_FALL_THROUGH]);
+ 
+-	if (!cp.hash) {
++	if (!cp->hash) {
+ 		/* Hash not specified, use perfect hash if the upper limit
+ 		 * of the hashing index is below the threshold.
+ 		 */
+-		if ((cp.mask >> cp.shift) < PERFECT_HASH_THRESHOLD)
+-			cp.hash = (cp.mask >> cp.shift) + 1;
++		if ((cp->mask >> cp->shift) < PERFECT_HASH_THRESHOLD)
++			cp->hash = (cp->mask >> cp->shift) + 1;
+ 		else
+-			cp.hash = DEFAULT_HASH_SIZE;
++			cp->hash = DEFAULT_HASH_SIZE;
+ 	}
+ 
+-	if (!cp.perfect && !cp.h)
+-		cp.alloc_hash = cp.hash;
++	if (!cp->perfect && cp->h)
++		cp->alloc_hash = cp->hash;
+ 
+ 	/* Note: this could be as restrictive as if (handle & ~(mask >> shift))
+ 	 * but then, we'd fail handles that may become valid after some future
+ 	 * mask change. While this is extremely unlikely to ever matter,
+ 	 * the check below is safer (and also more backwards-compatible).
+ 	 */
+-	if (cp.perfect || valid_perfect_hash(&cp))
+-		if (handle >= cp.alloc_hash)
++	if (cp->perfect || valid_perfect_hash(cp))
++		if (handle >= cp->alloc_hash)
+ 			goto errout;
+ 
+ 
+ 	err = -ENOMEM;
+-	if (!cp.perfect && !cp.h) {
+-		if (valid_perfect_hash(&cp)) {
+-			cp.perfect = kcalloc(cp.hash, sizeof(*r), GFP_KERNEL);
+-			if (!cp.perfect)
++	if (!cp->perfect && !cp->h) {
++		if (valid_perfect_hash(cp)) {
++			struct tcindex_filter_result *perfect;
 +
-+		f->tp = fold->tp;
-+		f->bkt = fold->bkt;
-+		new = false;
-+	}
++			perfect = kcalloc(cp->hash, sizeof(*r), GFP_KERNEL);
++			if (!perfect)
+ 				goto errout;
++			cp->perfect = perfect;
+ 			balloc = 1;
+ 		} else {
+-			cp.h = kcalloc(cp.hash, sizeof(f), GFP_KERNEL);
+-			if (!cp.h)
++			struct tcindex_filter __rcu **hash;
 +
- 	err = route4_set_parms(net, tp, base, f, handle, head, tb,
--		tca[TCA_RATE], 1);
-+			       tca[TCA_RATE], new);
- 	if (err < 0)
- 		goto errout;
- 
--reinsert:
- 	h = from_hash(f->handle >> 16);
--	for (fp = &f->bkt->ht[h]; (f1 = *fp) != NULL; fp = &f1->next)
-+	fp = &f->bkt->ht[h];
-+	for (pfp = rtnl_dereference(*fp);
-+	     (f1 = rtnl_dereference(*fp)) != NULL;
-+	     fp = &f1->next)
- 		if (f->handle < f1->handle)
- 			break;
- 
--	f->next = f1;
--	tcf_tree_lock(tp);
--	*fp = f;
-+	rcu_assign_pointer(f->next, f1);
-+	rcu_assign_pointer(*fp, f);
- 
--	if (old_handle && f->handle != old_handle) {
--		th = to_hash(old_handle);
--		h = from_hash(old_handle >> 16);
--		b = head->table[th];
-+	if (fold->handle && f->handle != fold->handle) {
-+		th = to_hash(fold->handle);
-+		h = from_hash(fold->handle >> 16);
-+		b = rtnl_dereference(head->table[th]);
- 		if (b) {
--			for (fp = &b->ht[h]; *fp; fp = &(*fp)->next) {
--				if (*fp == f) {
-+			fp = &b->ht[h];
-+			for (pfp = rtnl_dereference(*fp); pfp;
-+			     fp = &pfp->next, pfp = rtnl_dereference(*fp)) {
-+				if (pfp == f) {
- 					*fp = f->next;
- 					break;
- 				}
- 			}
++			hash = kcalloc(cp->hash,
++				       sizeof(struct tcindex_filter *),
++				       GFP_KERNEL);
++
++			if (!hash)
+ 				goto errout;
++
++			cp->h = hash;
+ 			balloc = 2;
  		}
+ 	}
+ 
+-	if (cp.perfect)
+-		r = cp.perfect + handle;
++	if (cp->perfect)
++		r = cp->perfect + handle;
+ 	else
+-		r = tcindex_lookup(&cp, handle) ? : &new_filter_result;
++		r = tcindex_lookup(cp, handle) ? : &new_filter_result;
+ 
+ 	if (r == &new_filter_result) {
+ 		f = kzalloc(sizeof(*f), GFP_KERNEL);
+@@ -300,33 +411,41 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
+ 
+ 	tcf_exts_change(tp, &cr.exts, &e);
+ 
+-	tcf_tree_lock(tp);
+ 	if (old_r && old_r != r)
+ 		memset(old_r, 0, sizeof(*old_r));
+ 
+-	memcpy(p, &cp, sizeof(cp));
++	oldp = p;
+ 	memcpy(r, &cr, sizeof(cr));
++	rcu_assign_pointer(tp->root, cp);
+ 
+ 	if (r == &new_filter_result) {
+-		struct tcindex_filter **fp;
++		struct tcindex_filter *nfp;
++		struct tcindex_filter __rcu **fp;
+ 
+ 		f->key = handle;
+ 		f->result = new_filter_result;
+ 		f->next = NULL;
+-		for (fp = p->h+(handle % p->hash); *fp; fp = &(*fp)->next)
+-			/* nothing */;
+-		*fp = f;
++
++		fp = p->h + (handle % p->hash);
++		for (nfp = rtnl_dereference(*fp);
++		     nfp;
++		     fp = &nfp->next, nfp = rtnl_dereference(*fp))
++				/* nothing */;
++
++		rcu_assign_pointer(*fp, f);
  	}
 -	tcf_tree_unlock(tp);
  
--	route4_reset_fastmap(tp->q, head, f->id);
-+	route4_reset_fastmap(head);
- 	*arg = (unsigned long)f;
-+	if (fold)
-+		call_rcu(&fold->rcu, route4_delete_filter);
++	if (oldp)
++		call_rcu(&oldp->rcu, __tcindex_partial_destroy);
  	return 0;
  
+ errout_alloc:
+ 	if (balloc == 1)
+-		kfree(cp.perfect);
++		kfree(cp->perfect);
+ 	else if (balloc == 2)
+-		kfree(cp.h);
++		kfree(cp->h);
  errout:
-@@ -519,7 +549,7 @@ errout:
++	kfree(cp);
+ 	tcf_exts_destroy(tp, &e);
+ 	return err;
+ }
+@@ -357,71 +476,6 @@ tcindex_change(struct net *net, struct sk_buff *in_skb,
+ 				 tca[TCA_RATE]);
+ }
  
- static void route4_walk(struct tcf_proto *tp, struct tcf_walker *arg)
+-
+-static void tcindex_walk(struct tcf_proto *tp, struct tcf_walker *walker)
+-{
+-	struct tcindex_data *p = PRIV(tp);
+-	struct tcindex_filter *f, *next;
+-	int i;
+-
+-	pr_debug("tcindex_walk(tp %p,walker %p),p %p\n", tp, walker, p);
+-	if (p->perfect) {
+-		for (i = 0; i < p->hash; i++) {
+-			if (!p->perfect[i].res.class)
+-				continue;
+-			if (walker->count >= walker->skip) {
+-				if (walker->fn(tp,
+-				    (unsigned long) (p->perfect+i), walker)
+-				     < 0) {
+-					walker->stop = 1;
+-					return;
+-				}
+-			}
+-			walker->count++;
+-		}
+-	}
+-	if (!p->h)
+-		return;
+-	for (i = 0; i < p->hash; i++) {
+-		for (f = p->h[i]; f; f = next) {
+-			next = f->next;
+-			if (walker->count >= walker->skip) {
+-				if (walker->fn(tp, (unsigned long) &f->result,
+-				    walker) < 0) {
+-					walker->stop = 1;
+-					return;
+-				}
+-			}
+-			walker->count++;
+-		}
+-	}
+-}
+-
+-
+-static int tcindex_destroy_element(struct tcf_proto *tp,
+-    unsigned long arg, struct tcf_walker *walker)
+-{
+-	return __tcindex_delete(tp, arg, 0);
+-}
+-
+-
+-static void tcindex_destroy(struct tcf_proto *tp)
+-{
+-	struct tcindex_data *p = PRIV(tp);
+-	struct tcf_walker walker;
+-
+-	pr_debug("tcindex_destroy(tp %p),p %p\n", tp, p);
+-	walker.count = 0;
+-	walker.skip = 0;
+-	walker.fn = &tcindex_destroy_element;
+-	tcindex_walk(tp, &walker);
+-	kfree(p->perfect);
+-	kfree(p->h);
+-	kfree(p);
+-	tp->root = NULL;
+-}
+-
+-
+ static int tcindex_dump(struct tcf_proto *tp, unsigned long fh,
+     struct sk_buff *skb, struct tcmsg *t)
  {
--	struct route4_head *head = tp->root;
-+	struct route4_head *head = rtnl_dereference(tp->root);
- 	unsigned int h, h1;
+@@ -448,15 +502,18 @@ static int tcindex_dump(struct tcf_proto *tp, unsigned long fh,
+ 		nla_nest_end(skb, nest);
+ 	} else {
+ 		if (p->perfect) {
+-			t->tcm_handle = r-p->perfect;
++			t->tcm_handle = r - p->perfect;
+ 		} else {
+ 			struct tcindex_filter *f;
++			struct tcindex_filter __rcu **fp;
+ 			int i;
  
- 	if (head == NULL)
-@@ -529,13 +559,15 @@ static void route4_walk(struct tcf_proto *tp, struct tcf_walker *arg)
- 		return;
- 
- 	for (h = 0; h <= 256; h++) {
--		struct route4_bucket *b = head->table[h];
-+		struct route4_bucket *b = rtnl_dereference(head->table[h]);
- 
- 		if (b) {
- 			for (h1 = 0; h1 <= 32; h1++) {
- 				struct route4_filter *f;
- 
--				for (f = b->ht[h1]; f; f = f->next) {
-+				for (f = rtnl_dereference(b->ht[h1]);
-+				     f;
-+				     f = rtnl_dereference(f->next)) {
- 					if (arg->count < arg->skip) {
- 						arg->count++;
- 						continue;
+ 			t->tcm_handle = 0;
+ 			for (i = 0; !t->tcm_handle && i < p->hash; i++) {
+-				for (f = p->h[i]; !t->tcm_handle && f;
+-				     f = f->next) {
++				fp = &p->h[i];
++				for (f = rtnl_dereference(*fp);
++				     !t->tcm_handle && f;
++				     fp = &f->next, f = rtnl_dereference(*fp)) {
+ 					if (&f->result == r)
+ 						t->tcm_handle = f->key;
+ 				}
