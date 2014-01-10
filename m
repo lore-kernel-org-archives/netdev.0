@@ -1,44 +1,57 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: DSCP of ICMPv6 Echo Reply not copied from Echo Request
-Date: Fri, 10 Jan 2014 05:40:49 +0100
-Message-ID: <20140110044049.GC1012@order.stressinduktion.org>
-References: <trinity-4fd0752d-8ed9-432f-aa23-28055f886c4a-1389191682248@3capp-gmx-bs32>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH] net: Check skb->rxhash in gro_receive
+Date: Thu, 9 Jan 2014 20:54:09 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1401092051020.25554@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org
-To: Simon Schneider <simon-schneider@gmx.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:53091 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750702AbaAJEku (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 23:40:50 -0500
-Content-Disposition: inline
-In-Reply-To: <trinity-4fd0752d-8ed9-432f-aa23-28055f886c4a-1389191682248@3capp-gmx-bs32>
+Received: from mail-pa0-f74.google.com ([209.85.220.74]:38622 "EHLO
+	mail-pa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750702AbaAJE7M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 23:59:12 -0500
+Received: by mail-pa0-f74.google.com with SMTP id fa1so579807pad.3
+        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 20:59:12 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+When initializing a gro_list for a packet, first check the rxhash of
+the incoming skb against that of the skb's in the list. This should be
+a very strong inidicator of whether the flow is going to be matched,
+and potentially allows a lot of other checks to be short circuited.
 
-On Wed, Jan 08, 2014 at 03:34:42PM +0100, Simon Schneider wrote:
-> with kernel version 2.6.33.32, I noticed for ping6 that the DSCP valu=
-e of an Echo Request is not used for the corresponding Echo Reply.
-> =C2=A0
-> With ICMPv4, this is the case and I think it makes sense.
-> =C2=A0
-> This is not mandated by ICMP RFCs, but there are good reasons to use =
-the same DSCP in both directions.
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ net/core/dev.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-Yes, IMHO we should do that, especially because DSCP is sometimes used =
-for
-policy routing.
-
-> Is there a specific reason for this difference between v4 and v6?
-> =C2=A0
-> Or was it even fixed in some newer kernel version?
-
-Quick test showed no, I'll follow-up on this soon.
-
-Greetings,
-
-  Hannes
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ce01847..88bf426 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3794,10 +3794,14 @@ static void gro_list_prepare(struct napi_struct *napi, struct sk_buff *skb)
+ {
+ 	struct sk_buff *p;
+ 	unsigned int maclen = skb->dev->hard_header_len;
++	u32 hash = skb_get_hash(skb);
+ 
+ 	for (p = napi->gro_list; p; p = p->next) {
+ 		unsigned long diffs;
+ 
++		if ((diffs = (hash != p->rxhash)))
++			goto skip;
++
+ 		diffs = (unsigned long)p->dev ^ (unsigned long)skb->dev;
+ 		diffs |= p->vlan_tci ^ skb->vlan_tci;
+ 		if (maclen == ETH_HLEN)
+@@ -3807,6 +3811,7 @@ static void gro_list_prepare(struct napi_struct *napi, struct sk_buff *skb)
+ 			diffs = memcmp(skb_mac_header(p),
+ 				       skb_gro_mac_header(skb),
+ 				       maclen);
++skip:
+ 		NAPI_GRO_CB(p)->same_flow = !diffs;
+ 		NAPI_GRO_CB(p)->flush = 0;
+ 	}
+-- 
+1.8.5.1
