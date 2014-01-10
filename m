@@ -1,79 +1,91 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Multicast routing stops functioning after 4G multicast packets recived.
-Date: Fri, 10 Jan 2014 08:50:05 +0100
-Message-ID: <20140110075005.GD17866@order.stressinduktion.org>
-References: <20140109201411.317040@gmx.com> <20140110063638.GA17866@order.stressinduktion.org> <1389337306.31367.94.camel@edumazet-glaptop2.roam.corp.google.com> <20140110071049.GB17866@order.stressinduktion.org> <1389339179.31367.98.camel@edumazet-glaptop2.roam.corp.google.com> <20140110074325.GC17866@order.stressinduktion.org>
+From: <shh.xie@gmail.com>
+Subject: [PATCH 1/6] [v6] phylib: Add Clause 45 read/write functions
+Date: Fri, 10 Jan 2014 14:25:09 +0800
+Message-ID: <1389335109-28179-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Bob Falken <NetFestivalHaveFun@gmx.com>,
-	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
-	kaber@trash.net, tgraf@suug.ch
+Content-Type: text/plain
+Cc: <Shaohui.Xie@freescale.com>, Andy Fleming <afleming@gmail.com>
+To: <davem@davemloft.net>, <jg1.han@samsung.com>,
+	<mugunthanvnm@ti.com>, <f.fainelli@gmail.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:53422 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750931AbaAJHuH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 02:50:07 -0500
-Content-Disposition: inline
-In-Reply-To: <20140110074325.GC17866@order.stressinduktion.org>
+Received: from va3ehsobe004.messaging.microsoft.com ([216.32.180.14]:1127 "EHLO
+	va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750877AbaAJHxs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 02:53:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 10, 2014 at 08:43:25AM +0100, Hannes Frederic Sowa wrote:
-> On Thu, Jan 09, 2014 at 11:32:59PM -0800, Eric Dumazet wrote:
-> > On Fri, 2014-01-10 at 08:10 +0100, Hannes Frederic Sowa wrote:
-> > > On Thu, Jan 09, 2014 at 11:01:46PM -0800, Eric Dumazet wrote:
-> > > > Its not clear to me why you expand ipmr_fib_lookup()
-> > > > 
-> > > > Is there something wrong with existing code ?
-> > > 
-> > > There are three users of ipmr_fib_lookup, two of them are in rcu_read_lock
-> > > section, one is not.
-> > > 
-> > > ipmr_fib_lookup does not pass down arg.rule reference, so I don't have a
-> > > chance to call fib_rule_put(arg.rule) on it. Thus I left ipmr_fib_lookup,
-> > > just adding FIB_LOOKUP_NOREF and expanding ipmr_fib_lookup into the
-> > > other function so I still have access to arg.rule to decrement the
-> > > reference counter.
-> > > 
-> > > Do you agree?
-> > 
-> > Hmm, I see the problem now.
-> > 
-> > What about adding a parameter to ipmr_fib_lookup(),
-> > to keep its spirit ?
-> > 
-> > ipmr_fib_lookup(net, &fl4, &mrt);
-> > ->
-> > ipmr_fib_lookup(net, &fl4, &mrt, &rule);
-> > 
-> > Since ipmr_rt_fib_lookup() has the same rule leak, no ?
-> 
-> No, ipmr_rt_fib_lookup is fine. This function gets called only from
-> rcu read locked section and we don't take table reference because of
-> FIB_LOOKUP_NOREF, so we don't need to put reference counter on arg.table.
+From: Andy Fleming <afleming@gmail.com>
 
-arg.rule not table, actually.
+Need an extra parameter to read or write Clause 45 PHYs, so
+need a different API with the extra parameter.
 
-> We could add the additional argument, just ignoring it in ipmr_rt_fib_lookup.
-> 
-> > 
-> > Its a bit late here, so maybe following is just stupid :
-> > Cant we do the fib_rule_put() inside ipmr_fib_lookup() ?
-> 
-> We could add bool noref to ipmr_fib_lookup indicating we want to drop
-> reference to rule just after lookup.
-> 
-> I'll check if freeing a rule has additional side-effects on dependencies
-> in reg_vif_xmit. That would be a nice solution actually, thanks!
+Signed-off-by: Andy Fleming <afleming@gmail.com>
+Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+---
+changes for v6:
+rebased on top of 'net-next' tree. commit id 11b57f90257c1.
 
-Hmm, rule holds a reference to the net namespace in use. I don't know
-if we want to add this special case. I guess net-namespace reference
-cannot be removed while processing ndo_start_xmit callback but I don't
-like this special case somehow. But I guess it is possible.
+ include/linux/phy.h | 39 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 39 insertions(+)
 
-Your opinion on that?
-
-Thanks,
-
-  Hannes
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 7c81dd8..3eda43c 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -488,6 +488,24 @@ struct phy_fixup {
+ };
+ 
+ /**
++ * phy_read_mmd - Convenience function for reading a register
++ * from an MMD on a given PHY.
++ * @phydev: The phy_device struct
++ * @devad: The MMD to read from
++ * @regnum: The register on the MMD to read
++ *
++ * Same rules as for phy_read();
++ */
++static inline int phy_read_mmd(struct phy_device *phydev, int devad, u32 regnum)
++{
++	if (!phydev->is_c45)
++		return -EOPNOTSUPP;
++
++	return mdiobus_read(phydev->bus, phydev->addr,
++			    MII_ADDR_C45 | (devad << 16) | (regnum & 0xffff));
++}
++
++/**
+  * phy_read - Convenience function for reading a given PHY register
+  * @phydev: the phy_device struct
+  * @regnum: register number to read
+@@ -537,6 +555,27 @@ static inline bool phy_is_internal(struct phy_device *phydev)
+ 	return phydev->is_internal;
+ }
+ 
++/**
++ * phy_write_mmd - Convenience function for writing a register
++ * on an MMD on a given PHY.
++ * @phydev: The phy_device struct
++ * @devad: The MMD to read from
++ * @regnum: The register on the MMD to read
++ * @val: value to write to @regnum
++ *
++ * Same rules as for phy_write();
++ */
++static inline int phy_write_mmd(struct phy_device *phydev, int devad,
++				u32 regnum, u16 val)
++{
++	if (!phydev->is_c45)
++		return -EOPNOTSUPP;
++
++	regnum = MII_ADDR_C45 | ((devad & 0x1f) << 16) | (regnum & 0xffff);
++
++	return mdiobus_write(phydev->bus, phydev->addr, regnum, val);
++}
++
+ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
+ 				     bool is_c45,
+ 				     struct phy_c45_device_ids *c45_ids);
+-- 
+1.8.4.1
