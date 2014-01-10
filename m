@@ -1,46 +1,84 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH] net: Check skb->rxhash in gro_receive
-Date: Fri, 10 Jan 2014 08:47:58 -0800
-Message-ID: <CA+mtBx-321n=sHNOmw5ncoZN5dDn5K+QwnTY6oyPLSwKO_bZCg@mail.gmail.com>
-References: <alpine.DEB.2.02.1401092051020.25554@tomh.mtv.corp.google.com>
-	<1389332287.31367.88.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1389332635.31367.91.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [net-next 14/16] i40e: enable PTP
+Date: Fri, 10 Jan 2014 16:48:47 +0000
+Message-ID: <1389372527.8039.5.camel@jekeller-desk1.amr.corp.intel.com>
+References: <1389344336-1558-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1389344336-1558-15-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1389369305.2025.64.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:52739 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751213AbaAJQsA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 11:48:00 -0500
-Received: by mail-ie0-f170.google.com with SMTP id tq11so4710124ieb.29
-        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 08:47:58 -0800 (PST)
-In-Reply-To: <1389332635.31367.91.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mga02.intel.com ([134.134.136.20]:8615 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756933AbaAJQtB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 11:49:01 -0500
+In-Reply-To: <1389369305.2025.64.camel@bwh-desktop.uk.level5networks.com>
+Content-Language: en-US
+Content-ID: <274D7C1B9A25E54CAC4A2E17E24DCDFC@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 9, 2014 at 9:43 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2014-01-09 at 21:38 -0800, Eric Dumazet wrote:
->
->> Hmm... this idea was discussed in the past. I used it when attempting to
->> use a hash table instead of a gro_list last year.
->>
->> Unfortunately this added lot of cycles when rxhash is not provided by
->> hardware, and my tests found it was not a win.
->>
->> Remember : in most cases, gro_list contains one flow, so this test does
->> nothing special but adds overhead.
->
-> Additional point : For napi_gro_frag() users, skb->head do not contains
-> headers, so flow dissector enters slow path to fetch the headers from
-> the fragment, one by one.
->
-skb_get_hash is only called for the new skb, we compare against
-skb->rxhash for packets on the gro_list. Also, I still intend to
-change skb_get_hash to not repeatedly compute the hash when there's no
-L4 hash to be found.
-
->
->
+T24gRnJpLCAyMDE0LTAxLTEwIGF0IDE1OjU1ICswMDAwLCBCZW4gSHV0Y2hpbmdzIHdyb3RlOg0K
+PiBPbiBGcmksIDIwMTQtMDEtMTAgYXQgMDA6NTggLTA4MDAsIEplZmYgS2lyc2hlciB3cm90ZToN
+Cj4gPiBGcm9tOiBKYWNvYiBLZWxsZXIgPGphY29iLmUua2VsbGVyQGludGVsLmNvbT4NCj4gPiAN
+Cj4gPiBOZXcgZmVhdHVyZTogRW5hYmxlIFBUUCBzdXBwb3J0IGluIHRoZSBpNDBlIGRyaXZlci4N
+Cj4gPiANCj4gPiBDaGFuZ2UtSUQ6IEk2YThlNzk5ZjU4MjcwNTE5MWY5NTgzYWZiMWI5MjMxYThk
+Yjk2Y2M4DQo+ID4gQ2M6IFJpY2hhcmQgQ29jaHJhbiA8cmljaGFyZGNvY2hyYW5AZ21haWwuY29t
+Pg0KPiA+IFNpZ25lZC1vZmYtYnk6IEphY29iIEtlbGxlciA8amFjb2IuZS5rZWxsZXJAaW50ZWwu
+Y29tPg0KPiA+IFNpZ25lZC1vZmYtYnk6IEplc3NlIEJyYW5kZWJ1cmcgPGplc3NlLmJyYW5kZWJ1
+cmdAaW50ZWwuY29tPg0KPiA+IFRlc3RlZC1ieTogS2F2aW5keWEgRGVlZ2FsYSA8a2F2aW5keWEu
+cy5kZWVnYWxhQGludGVsLmNvbT4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBKZWZmIEtpcnNoZXIgPGpl
+ZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvaW50ZWwvaTQwZS9NYWtlZmlsZSAgICAgICB8ICAgMiArDQo+ID4gIGRyaXZlcnMvbmV0
+L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZS5oICAgICAgICAgfCAgMjQgKw0KPiA+ICBkcml2ZXJz
+L25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfZXRodG9vbC5jIHwgIDMzICstDQo+ID4gIGRy
+aXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV9tYWluLmMgICAgfCAgNDUgKy0NCj4g
+PiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX3B0cC5jICAgICB8IDY0MCAr
+KysrKysrKysrKysrKysrKysrKysrKysrDQo+ID4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
+L2k0MGUvaTQwZV90eHJ4LmMgICAgfCAgNTMgKysNCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQv
+aW50ZWwvaTQwZS9pNDBlX3R4cnguaCAgICB8ICAgMyArDQo+ID4gIDcgZmlsZXMgY2hhbmdlZCwg
+Nzk4IGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pDQo+ID4gIGNyZWF0ZSBtb2RlIDEwMDY0
+NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfcHRwLmMNCj4gDQo+IFRoaXMg
+aXMgbWlzc2luZyBhIEtjb25maWcgdXBkYXRlIHRvIHNlbGVjdCBQVFBfMTU4OF9DTE9DSy4NCj4g
+DQo+IFsuLi5dDQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBl
+X21haW4uYw0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV9t
+YWluLmMNCj4gPiBAQCAtMTY5OCw2ICsxNjk4LDI1IEBAIHN0YXRpYyBpbnQgaTQwZV9jaGFuZ2Vf
+bXR1KHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYsIGludCBuZXdfbXR1KQ0KPiA+ICB9DQo+ID4g
+IA0KPiA+ICAvKioNCj4gPiArICogaTQwZV9pb2N0bCAtIEFjY2VzcyB0aGUgaHd0c3RhbXAgaW50
+ZXJmYWNlDQo+ID4gKyAqIEBuZXRkZXY6IG5ldHdvcmsgaW50ZXJmYWNlIGRldmljZSBzdHJ1Y3R1
+cmUNCj4gPiArICogQGlmcjogaW50ZXJmYWNlIHJlcXVlc3QgZGF0YQ0KPiA+ICsgKiBAY21kOiBp
+b2N0bCBjb21tYW5kDQo+ID4gKyAqKi8NCj4gPiAraW50IGk0MGVfaW9jdGwoc3RydWN0IG5ldF9k
+ZXZpY2UgKm5ldGRldiwgc3RydWN0IGlmcmVxICppZnIsIGludCBjbWQpDQo+ID4gK3sNCj4gPiAr
+CXN0cnVjdCBpNDBlX25ldGRldl9wcml2ICpucCA9IG5ldGRldl9wcml2KG5ldGRldik7DQo+ID4g
+KwlzdHJ1Y3QgaTQwZV9wZiAqcGYgPSBucC0+dnNpLT5iYWNrOw0KPiA+ICsNCj4gPiArCXN3aXRj
+aCAoY21kKSB7DQo+ID4gKwljYXNlIFNJT0NTSFdUU1RBTVA6DQo+ID4gKwkJcmV0dXJuIGk0MGVf
+cHRwX2h3dHN0YW1wX2lvY3RsKHBmLCBpZnIsIGNtZCk7DQo+ID4gKwlkZWZhdWx0Og0KPiA+ICsJ
+CXJldHVybiAtRU9QTk9UU1VQUDsNCj4gPiArCX0NCj4gPiArfQ0KPiANCj4gUGxlYXNlIGltcGxl
+bWVudCBTSU9DR0hXVFNUQU1QIGFzIHdlbGwuDQoNClllcC4gSSBzdGlsbCBuZWVkIHRvIGltcGxl
+bWVudCB0aGlzIGZvciBvdGhlciBJbnRlbCBkcml2ZXJzIGFzIHdlbGwuDQoNCj4gDQo+IFsuLi5d
+DQo+ID4gLS0tIC9kZXYvbnVsbA0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
+L2k0MGUvaTQwZV9wdHAuYw0KPiBbLi4uXQ0KPiA+ICt2b2lkIGk0MGVfcHRwX2luaXQoc3RydWN0
+IGk0MGVfcGYgKnBmKQ0KPiA+ICt7DQo+ID4gKwlzdHJ1Y3QgaTQwZV9odyAqaHcgPSAmcGYtPmh3
+Ow0KPiA+ICsJc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiA9IHBmLT52c2lbcGYtPmxhbl92c2ld
+LT5uZXRkZXY7DQo+ID4gKw0KPiA+ICsJc25wcmludGYocGYtPnB0cF9jYXBzLm5hbWUsIDE2LCAi
+JXBtIiwgbmV0ZGV2LT5kZXZfYWRkcik7DQo+IFsuLi5dDQo+IA0KPiBVc2Ugc2l6ZW9mKCksIG5v
+dCBhIG1hZ2ljIG51bWJlci4gIEFsc28gdGhlIGNsb2NrIG5hbWUgc2hvdWxkIHBlcmhhcHMgYmUN
+Cj4gdGhlIGRyaXZlciBuYW1lLCBub3QgdGhlIE1BQyBhZGRyZXNzLg0KDQpTb21lIG90aGVyIGRy
+aXZlcnMgcHJvYmFibHkgbmVlZCB0byBiZSB1cGRhdGVkIHRvIG5vdCB1c2UgbWFnaWMgbnVtYmVy
+DQphcyB3ZWxsLi4NCg0KPiANCj4gSXMgdGhlIGNsb2NrIHNoYXJlZCBiZXR3ZWVuIG11bHRpcGxl
+IFBGcyBvciBhcmUgdGhlcmUgaW5kZXBlbmRlbnQgY2xvY2tzDQo+IGZvciBlYWNoIFBGPw0KDQpF
+YWNoIFBGIGdldHMgaXRzIG93biByZWdpc3RlciBzZXQsIGFuZCB3aGlsZSB0aGUgY2xvY2sgaXMg
+cGh5c2ljYWxseQ0KZHJpdmVuIGJ5IHRoZSBzYW1lIHNvdXJjZSwgdGhlcmUgaXMgbm8gbWVjaGFu
+aXNtIHRvIGVuc3VyZSByZWdpc3RlcnMgYXJlDQppbiBzeW5jLCBzbyBlZmZlY3RpdmVseSBlYWNo
+IFBGIGhhcyBpdHMgb3duIGluZGVwZW5kZW50IGNsb2NrLiAoaWU6DQpjYW4ndCBzdXBwb3J0IGJv
+dW5kYXJ5IGNsb2NrIHByb3Blcmx5KQ0KDQpUaGFua3MsDQpKYWtlDQoNCj4gDQo+IEJlbi4NCj4g
+DQoNCg0K
