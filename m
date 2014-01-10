@@ -1,69 +1,81 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v2 2/5] tcp: metrics: Add source-address to tcp-metrics
-Date: Sat, 11 Jan 2014 00:10:59 +0100
-Message-ID: <20140110231059.GA30388@order.stressinduktion.org>
-References: <1389203751.26646.100.camel@edumazet-glaptop2.roam.corp.google.com> <20140108224344.GE4700@cpaasch-mac> <1389222826.31367.28.camel@edumazet-glaptop2.roam.corp.google.com> <20140110.173711.1541969326146414340.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 68501] New: llc_fixup_skb considers PDU len including
+ ETH_HLEN
+Date: Fri, 10 Jan 2014 15:11:56 -0800
+Message-ID: <20140110151156.37ae2618@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: eric.dumazet@gmail.com, christoph.paasch@uclouvain.be,
-	netdev@vger.kernel.org, ycheng@google.com, ja@ssi.bg
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:55440 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751698AbaAJXLC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 18:11:02 -0500
-Content-Disposition: inline
-In-Reply-To: <20140110.173711.1541969326146414340.davem@davemloft.net>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:59328 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751263AbaAJXL7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 18:11:59 -0500
+Received: by mail-pa0-f45.google.com with SMTP id ld10so843826pab.32
+        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 15:11:59 -0800 (PST)
+Received: from nehalam.linuxnetplumber.net (static-50-53-83-51.bvtn.or.frontiernet.net. [50.53.83.51])
+        by mx.google.com with ESMTPSA id ns7sm9734520pbc.32.2014.01.10.15.11.58
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Fri, 10 Jan 2014 15:11:59 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 10, 2014 at 05:37:11PM -0500, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 08 Jan 2014 15:13:46 -0800
-> 
-> > On Wed, 2014-01-08 at 23:43 +0100, Christoph Paasch wrote:
-> >> Hello Eric,
-> >> 
-> >> On 08/01/14 - 09:55:51, Eric Dumazet wrote:
-> >> > On Wed, 2014-01-08 at 16:05 +0100, Christoph Paasch wrote:
-> >> > > We add the source-address to the tcp-metrics, so that different metrics
-> >> > > will be used per source/destination-pair. We use the destination-hash to
-> >> > > store the metric inside the hash-table. That way, deleting and dumping
-> >> > > via "ip tcp_metrics" is easy.
-> >> > 
-> >> > Note that this has the following problem :
-> >> > 
-> >> > Some applications use a set of source IP addresses to overcome the 64K
-> >> > port limitation.
-> >> 
-> >> Ok, did not know about that.
-> >> 
-> >> > tcp_metrics uses a hard-coded TCP_METRICS_RECLAIM_DEPTH value of 5,
-> >> > meaning that cache wont be able to store more than 5 source IP addresses
-> >> > (reaching one particular remote IP).
-> >> 
-> >> Maybe we could do something like the below (yet untested). That way we allow
-> >> up to 32 entries with the same destination but different source and still
-> >> only 5 with different destinations.
-> >> 
-> >> I guess 32 * 64K connections is enough. :)
-> >> We could also make TCP_METRICS_RECLAIM_DEPTH(_DST) a tunable.
-> > 
-> > Well, not sure if this is a problem anyway, and if we want extra
-> > complexity for this rare use case, considering tcp metrics for
-> > high number of flows sharing a common path is unlikely to be useful
-> > (with exception of Fast Open, but again it must be rare)
-> 
-> I think we are overthinking this, even for the aforementioned case.
-> 
-> If people report that this is a real problem they are hitting, and
-> not just with constructed test cases, we can work on a solution.
 
-I was thinking if this would be a problem then one could switch to not
-use the source address but something like the interface group index as
-the additional match. Seems to fit into the weak end host model.
 
-Greetings,
+Begin forwarded message:
 
-  Hannes
+Date: Fri, 10 Jan 2014 03:24:59 -0800
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 68501] New: llc_fixup_skb considers PDU len including ETH_HLEN
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=68501
+
+            Bug ID: 68501
+           Summary: llc_fixup_skb considers PDU len including ETH_HLEN
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.0.75
+          Hardware: All
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: high
+          Priority: P1
+         Component: IPV4
+          Assignee: shemminger@linux-foundation.org
+          Reporter: vkatabat@gmail.com
+        Regression: No
+
+In below snip of code in llc_fixup_skb we calculate pdulen from
+eth_hdr(skb)->h_proto which contains total length of packet include ETH_HLEN.
+
+<snip>
+119         if (skb->protocol == htons(ETH_P_802_2)) {
+120                 __be16 pdulen = eth_hdr(skb)->h_proto;
+121                 s32 data_size = ntohs(pdulen) - llc_len;
+122 
+123                 if (data_size < 0 ||
+124                     !pskb_may_pull(skb, data_size))
+125                         return 0;
+
+</snip>
+
+
+Line 121 should be changed to 
+
+121                 s32 data_size = ntohs(pdulen) - llc_len - ETH_HLEN;
+
+
+
+Log
+---
+kernel: pdu len 18432(72), data_size 69
+kernel: skb len 55, skb data_len 0
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
