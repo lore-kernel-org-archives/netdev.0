@@ -1,8 +1,8 @@
 From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: [PATCH v2 04/16] net: stmmac: Allocate and pass
- soc/board specific data to callbacks
-Date: Fri, 10 Jan 2014 15:00:05 +0800
-Message-ID: <1389337217-29032-5-git-send-email-wens@csie.org>
+Subject: [PATCH v2 07/16] net: stmmac: Use driver data and
+ callbacks tied with compatible strings
+Date: Fri, 10 Jan 2014 15:00:08 +0800
+Message-ID: <1389337217-29032-8-git-send-email-wens@csie.org>
 References: <1389337217-29032-1-git-send-email-wens@csie.org>
 Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
@@ -28,119 +28,130 @@ List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:
 List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-The current .init and .exit callbacks requires access to driver
-private data structures. This is not a good seperation and abstraction.
+The stmmac driver core allows passing feature flags and callbacks via
+platform data. Add a similar stmmac_of_data to pass flags and callbacks
+tied to compatible strings. This allows us to extend stmmac with glue
+layers for different SoCs.
 
-Instead, we add a new .setup callback for allocating private data, and
-pass the returned pointer to the other callbacks.
+Also deprecate device tree "snps,phy-addr" property, and default to PHY
+address auto-detection.
 
 Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
 ---
- Documentation/networking/stmmac.txt                   | 12 ++++++++----
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 18 ++++++++++++++----
- include/linux/stmmac.h                                |  6 ++++--
- 3 files changed, 26 insertions(+), 10 deletions(-)
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 46 +++++++++++++++++-----
+ include/linux/stmmac.h                             | 18 +++++++++
+ 2 files changed, 54 insertions(+), 10 deletions(-)
 
-diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
-index cdd916d..2090895 100644
---- a/Documentation/networking/stmmac.txt
-+++ b/Documentation/networking/stmmac.txt
-@@ -127,8 +127,9 @@ struct plat_stmmacenet_data {
- 	int riwt_off;
- 	void (*fix_mac_speed)(void *priv, unsigned int speed);
- 	void (*bus_setup)(void __iomem *ioaddr);
--	int (*init)(struct platform_device *pdev);
--	void (*exit)(struct platform_device *pdev);
-+	void *(*setup)(struct platform_device *pdev);
-+	int (*init)(struct platform_device *pdev, void *priv);
-+	void (*exit)(struct platform_device *pdev, void *priv);
- 	void *custom_cfg;
- 	void *custom_data;
- 	void *bsp_priv;
-@@ -169,10 +170,13 @@ Where:
-  o bus_setup: perform HW setup of the bus. For example, on some ST platforms
- 	     this field is used to configure the AMBA  bridge to generate more
- 	     efficient STBus traffic.
-- o init/exit: callbacks used for calling a custom initialization;
-+ o setup/init/exit: callbacks used for calling a custom initialization;
- 	     this is sometime necessary on some platforms (e.g. ST boxes)
- 	     where the HW needs to have set some PIO lines or system cfg
--	     registers.
-+	     registers. setup should return a pointer to private data,
-+	     which will be stored in bsp_priv, and then passed to init and
-+	     exit callbacks. init/exit callbacks should not use or modify
-+	     platform data.
-  o custom_cfg/custom_data: this is a custom configuration that can be passed
- 			   while initializing the resources.
-  o bsp_priv: another private pointer.
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 3974586..86ee903 100644
+index 92627e0..2e554e3 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -140,9 +140,16 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
- 		}
- 	}
+@@ -26,8 +26,20 @@
+ #include <linux/io.h>
+ #include <linux/of.h>
+ #include <linux/of_net.h>
++#include <linux/of_device.h>
+ #include "stmmac.h"
  
-+	/* Custom setup (if needed) */
-+	if (plat_dat->setup) {
-+		plat_dat->bsp_priv = plat_dat->setup(pdev);
-+		if (IS_ERR(plat_dat->bsp_priv))
-+			return PTR_ERR(plat_dat->bsp_priv);
++static const struct of_device_id stmmac_dt_ids[] = {
++	/* SoC specific glue layers should come before generic bindings */
++	{ .compatible = "st,spear600-gmac"},
++	{ .compatible = "snps,dwmac-3.610"},
++	{ .compatible = "snps,dwmac-3.70a"},
++	{ .compatible = "snps,dwmac-3.710"},
++	{ .compatible = "snps,dwmac"},
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, stmmac_dt_ids);
++
+ #ifdef CONFIG_OF
+ static int stmmac_probe_config_dt(struct platform_device *pdev,
+ 				  struct plat_stmmacenet_data *plat,
+@@ -35,10 +47,32 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
+ {
+ 	struct device_node *np = pdev->dev.of_node;
+ 	struct stmmac_dma_cfg *dma_cfg;
++	const struct of_device_id *device;
+ 
+ 	if (!np)
+ 		return -ENODEV;
+ 
++	device = of_match_device(stmmac_dt_ids, &pdev->dev);
++	if (!device)
++		return -ENODEV;
++
++	if (device->data) {
++		const struct stmmac_of_data *data = device->data;
++		plat->has_gmac = data->has_gmac;
++		plat->enh_desc = data->enh_desc;
++		plat->tx_coe = data->tx_coe;
++		plat->rx_coe = data->rx_coe;
++		plat->bugged_jumbo = data->bugged_jumbo;
++		plat->pmt = data->pmt;
++		plat->riwt_off = data->riwt_off;
++		plat->fix_mac_speed = data->fix_mac_speed;
++		plat->bus_setup = data->bus_setup;
++		plat->setup = data->setup;
++		plat->free = data->free;
++		plat->init = data->init;
++		plat->exit = data->exit;
 +	}
 +
- 	/* Custom initialisation (if needed)*/
- 	if (plat_dat->init) {
--		ret = plat_dat->init(pdev);
-+		ret = plat_dat->init(pdev, plat_dat->bsp_priv);
- 		if (unlikely(ret))
- 			return ret;
- 	}
-@@ -199,7 +206,10 @@ static int stmmac_pltfr_remove(struct platform_device *pdev)
- 	int ret = stmmac_dvr_remove(ndev);
+ 	*mac = of_get_mac_address(np);
+ 	plat->interface = of_get_phy_mode(np);
  
- 	if (priv->plat->exit)
--		priv->plat->exit(pdev);
-+		priv->plat->exit(pdev, priv->plat->bsp_priv);
-+
-+	if (priv->plat->free)
-+		priv->plat->free(pdev, priv->plat->bsp_priv);
+@@ -46,6 +80,8 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
+ 	if (plat->bus_id < 0)
+ 		plat->bus_id = 0;
  
- 	return ret;
- }
-@@ -228,7 +238,7 @@ int stmmac_pltfr_freeze(struct device *dev)
++	/* Default to phy auto-detection */
++	plat->phy_addr = -1;
+ 	of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr);
  
- 	ret = stmmac_freeze(ndev);
- 	if (plat_dat->exit)
--		plat_dat->exit(pdev);
-+		plat_dat->exit(pdev, plat_dat->bsp_priv);
+ 	plat->mdio_bus_data = devm_kzalloc(&pdev->dev,
+@@ -268,16 +304,6 @@ static const struct dev_pm_ops stmmac_pltfr_pm_ops = {
+ static const struct dev_pm_ops stmmac_pltfr_pm_ops;
+ #endif /* CONFIG_PM */
  
- 	return ret;
- }
-@@ -240,7 +250,7 @@ int stmmac_pltfr_restore(struct device *dev)
- 	struct platform_device *pdev = to_platform_device(dev);
- 
- 	if (plat_dat->init)
--		plat_dat->init(pdev);
-+		plat_dat->init(pdev, plat_dat->bsp_priv);
- 
- 	return stmmac_restore(ndev);
- }
+-static const struct of_device_id stmmac_dt_ids[] = {
+-	{ .compatible = "st,spear600-gmac"},
+-	{ .compatible = "snps,dwmac-3.610"},
+-	{ .compatible = "snps,dwmac-3.70a"},
+-	{ .compatible = "snps,dwmac-3.710"},
+-	{ .compatible = "snps,dwmac"},
+-	{ /* sentinel */ }
+-};
+-MODULE_DEVICE_TABLE(of, stmmac_dt_ids);
+-
+ struct platform_driver stmmac_pltfr_driver = {
+ 	.probe = stmmac_pltfr_probe,
+ 	.remove = stmmac_pltfr_remove,
 diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index bb5deb0..c407791 100644
+index c407791..10a9e2a 100644
 --- a/include/linux/stmmac.h
 +++ b/include/linux/stmmac.h
-@@ -112,8 +112,10 @@ struct plat_stmmacenet_data {
- 	int riwt_off;
- 	void (*fix_mac_speed)(void *priv, unsigned int speed);
- 	void (*bus_setup)(void __iomem *ioaddr);
--	int (*init)(struct platform_device *pdev);
--	void (*exit)(struct platform_device *pdev);
+@@ -120,4 +120,22 @@ struct plat_stmmacenet_data {
+ 	void *custom_data;
+ 	void *bsp_priv;
+ };
++
++/* of_data for SoC glue layer device tree bindings */
++
++struct stmmac_of_data {
++	int has_gmac;
++	int enh_desc;
++	int tx_coe;
++	int rx_coe;
++	int bugged_jumbo;
++	int pmt;
++	int riwt_off;
++	void (*fix_mac_speed)(void *priv, unsigned int speed);
++	void (*bus_setup)(void __iomem *ioaddr);
 +	void *(*setup)(struct platform_device *pdev);
 +	void (*free)(struct platform_device *pdev, void *priv);
 +	int (*init)(struct platform_device *pdev, void *priv);
 +	void (*exit)(struct platform_device *pdev, void *priv);
- 	void *custom_cfg;
- 	void *custom_data;
- 	void *bsp_priv;
++};
+ #endif
 -- 
 1.8.5.2
