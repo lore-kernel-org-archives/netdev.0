@@ -1,9 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/16] i40e: Bump version
-Date: Fri, 10 Jan 2014 00:58:44 -0800
-Message-ID: <1389344336-1558-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/16] i40e: do not bail when disabling if Tx queue disable fails
+Date: Fri, 10 Jan 2014 00:58:48 -0800
+Message-ID: <1389344336-1558-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389344336-1558-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
@@ -11,36 +11,54 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:1468 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751557AbaAJI7E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 03:59:04 -0500
+	id S1751916AbaAJI7F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 03:59:05 -0500
 In-Reply-To: <1389344336-1558-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Update driver version to 0.3.27-k
+Fix a bug where the driver was erroneously exiting the driver unload
+path if one part of the unload failed.  Instead of the original way
+the driver should always continue when disabling and be sure to disable
+all queues.
 
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Change-ID: Ib8c81c596bc87c31d8e9ca97ebf871168475279d
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 1b792ee..80c83eb 100644
+index 80c83eb..65c27cb 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -38,7 +38,7 @@ static const char i40e_driver_string[] =
+@@ -3113,7 +3113,7 @@ static int i40e_vsi_control_rx(struct i40e_vsi *vsi, bool enable)
+  **/
+ int i40e_vsi_control_rings(struct i40e_vsi *vsi, bool request)
+ {
+-	int ret;
++	int ret = 0;
  
- #define DRV_VERSION_MAJOR 0
- #define DRV_VERSION_MINOR 3
--#define DRV_VERSION_BUILD 25
-+#define DRV_VERSION_BUILD 27
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+ 	/* do rx first for enable and last for disable */
+ 	if (request) {
+@@ -3122,10 +3122,9 @@ int i40e_vsi_control_rings(struct i40e_vsi *vsi, bool request)
+ 			return ret;
+ 		ret = i40e_vsi_control_tx(vsi, request);
+ 	} else {
+-		ret = i40e_vsi_control_tx(vsi, request);
+-		if (ret)
+-			return ret;
+-		ret = i40e_vsi_control_rx(vsi, request);
++		/* Ignore return value, we need to shutdown whatever we can */
++		i40e_vsi_control_tx(vsi, request);
++		i40e_vsi_control_rx(vsi, request);
+ 	}
+ 
+ 	return ret;
 -- 
 1.8.3.1
