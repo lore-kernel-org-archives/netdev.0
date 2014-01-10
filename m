@@ -1,179 +1,59 @@
-From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] netdevice.7: document SIOCGIFCONF case ifc_req==NULL
-Date: Sat, 11 Jan 2014 06:52:17 +1300
-Message-ID: <52D03351.20501@gmail.com>
-References: <20140109233018.886FA140064@xenon.ts.pxnet.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 00/16][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 10 Jan 2014 09:56:56 -0800
+Message-ID: <1389376616.2844.0.camel@jtkirshe-mobl>
+References: <1389344336-1558-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20140110.124852.946925725687619117.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-W7c4uz7y4kpw42K+YQiX"
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:24824 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750816AbaAJR5G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 12:57:06 -0500
+In-Reply-To: <20140110.124852.946925725687619117.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-W7c4uz7y4kpw42K+YQiX
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, 2014-01-10 at 12:48 -0500, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Fri, 10 Jan 2014 00:58:40 -0800
+>=20
+> > This series contains updates to i40e only.
+>=20
+> Please address the feedback given and resubmit, thank you.
+
+Will do.
+
+--=-W7c4uz7y4kpw42K+YQiX
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140109233018.886FA140064-MSQiN3VOO+MkAF8ESQKhnNBPR1lH4CV8@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
 
-On 01/10/2014 12:30 PM, Tilman Schmidt wrote:
-> Add the missing description of the possibility to call SIOCGIFCONF
-> with ifc_req==NULL to determine the needed buffer size, as described
-> in http://lkml.indiana.edu/hypermail/linux/kernel/0110.1/0506.html
-> and verified against source files net/core/dev_ioctl.c and
-> net/ipv4/devinet.c in the current kernel git tree.
-> This functionality has been present since the beginning of the 2.6
-> series. It's about time it gets documented.
-> While I'm at it, also generally clarify the section on SIOCGIFCONF.
-> 
-> Patch prepared against man-pages version 3.55.
-> 
-> Signed-off-by: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-Hello Tilman,
+iQIcBAABCgAGBQJS0DRoAAoJEOVv75VaS+3O4j4P/Rsl5Rb8wN26CczpHjcelKV9
+FSjlGK426JFzYKmQxwL5OE74fIF/jZzBLEAX/9w/M18I+aCxs42jMuovkeRLvPxx
+l/PbhbXVQ8gJWqtGQnsi554V1uzbh7WwVYLt3QhvGy3+bILZMuM3bkBbicvBT1TT
+zhwQ32cq+hhm8BPRM/9WldJYX7BInbcXcGgO1L3U7JB+qrCRik1qE5zKYSzvhaXp
+Oljj2RlL8xjgrg8iuCqTFeQx+c4ZmCfDP0/o866hTjC+Xk5HuwvhX5dGTGdJRMxh
+6DcZ4t6HFW6KwjoDdKXKkC5nJzSS335eUz3vodykRCSDwhNsYNcqh+jTKroM1Vse
+l4f7ltJ5WkOK5057c2+vXj6Z4OCaBa4UqZr3krUByAs74WL7jLuU4M3yqMm0w1Mp
+6+KK2JLWSRUNEGkNPjTbBukFKeGDKTeEFrYKYKqqqlnci2Qs87n6BO7iJy856r61
+T8fpOGAyMjCLRGH8yy2p0uk9h8yyWB9tgH64GTTJ4G/4thMt9xfcJCbXktGRZn7V
+4tngGuwmdc8vgAcKtPS5pm3eXTLrNdLSiMc21gV2MyaPeXuggnzNDm11dWMXT7Nr
+K72aqPXa+KmAXn+OAGu5IYbgNNERuONAmETHe80egCr42lm7M3jnadmHo4Wk2kDB
+8Nhuml/kE++6VmDCR4pH
+=/i40
+-----END PGP SIGNATURE-----
 
-Thanks for the patch. I'm trying to verify this from the code, but 
-am having some trouble finding the relevant pieces. Could you point
-me more specifically at the points in the kernel source where this
-case is handled?
-
-Thanks,
-
-Michael
-
-
-
-> ---
->  man7/netdevice.7 |   83 +++++++++++++++++++++++++++++++++++++------------------
->  1 file changed, 57 insertions(+), 26 deletions(-)
-> 
-> --- a/man7/netdevice.7	2013-12-12 08:42:55.000000000 +0100
-> +++ b/man7/netdevice.7	2014-01-09 23:43:23.000000000 +0100
-> @@ -15,7 +15,7 @@
->  .\" Modified, 2011-11-02, <bidulock-B8ReZeU34LJAfugRpC6u6w@public.gmane.org>, added many basic
->  .\"  but missing ioctls, such as SIOCGIFADDR.
->  .\"
-> -.TH NETDEVICE  7 2012-04-26 "Linux" "Linux Programmer's Manual"
-> +.TH NETDEVICE  7 2014-01-09 "Linux" "Linux Programmer's Manual"
->  .SH NAME
->  netdevice \- low-level access to Linux network devices
->  .SH SYNOPSIS
-> @@ -29,7 +29,7 @@
->  Linux supports some standard ioctls to configure network devices.
->  They can be used on any socket's file descriptor regardless of the
->  family or type.
-> -They pass an
-> +Most of them pass an
->  .I ifreq
->  structure:
->  
-> @@ -53,14 +53,6 @@
->          char           *ifr_data;
->      };
->  };
-> -
-> -struct ifconf {
-> -    int                 ifc_len; /* size of buffer */
-> -    union {
-> -        char           *ifc_buf; /* buffer address */
-> -        struct ifreq   *ifc_req; /* array of structures */
-> -    };
-> -};
->  .fi
->  .in
->  
-> @@ -265,30 +257,69 @@
->  means only addresses of the
->  .B AF_INET
->  (IPv4) family for compatibility.
-> -The user passes a
-> +Unlike the others, this ioctl passes an
->  .I ifconf
-> -structure as argument to the ioctl.
-> -It contains a pointer to an array of
-> -.I ifreq
-> -structures in
-> +structure:
-> +
-> +.in +4n
-> +.nf
-> +struct ifconf {
-> +    int                 ifc_len; /* size of buffer */
-> +    union {
-> +        char           *ifc_buf; /* buffer address */
-> +        struct ifreq   *ifc_req; /* array of structures */
-> +    };
-> +};
-> +.fi
-> +.in
-> +
-> +If
->  .I ifc_req
-> -and its length in bytes in
-> +is NULL,
-> +.B SIOCGIFCONF
-> +returns the necessary buffer size in bytes
-> +for receiving all available addresses in
->  .IR ifc_len .
-> -The kernel fills the ifreqs with all current L3 interface addresses that
-> -are running:
-> +Otherwise
-> +.I ifc_req
-> +contains a pointer to an array of
-> +.I ifreq
-> +structures to be filled with all currently active L3 interface addresses.
-> +.I ifc_len
-> +contains the size of the array in bytes.
-> +Within each
-> +.I ifreq
-> +structure,
->  .I ifr_name
-> -contains the interface name (eth0:1 etc.),
-> +will receive the interface name, and
->  .I ifr_addr
->  the address.
-> -The kernel returns with the actual length in
-> +The actual number of bytes transferred is returned in
->  .IR ifc_len .
-> -If
-> +
-> +If the size specified by
-> +.I ifc_len
-> +is insufficient to store all the addresses,
-> +the kernel will skip the exceeding ones and return success.
-> +There is no reliable way of detecting this condition once it has occurred.
-> +It is therefore recommended to either determine the necessary buffer size
-> +beforehand by calling
-> +.B SIOCGIFCONF
-> +with
-> +.I ifc_req
-> +set to NULL, or to retry the call with a bigger buffer whenever
->  .I ifc_len
-> -is equal to the original length the buffer probably has overflowed
-> -and you should retry with a bigger buffer to get all addresses.
-> -When no error occurs the ioctl returns 0;
-> -otherwise \-1.
-> -Overflow is not an error.
-> +upon return differs by less than sizeof(struct
-> +.IR ifreq )
-> +from its original value.
-> +
-> +If an error occurs accessing the
-> +.I ifconf
-> +or
-> +.I ifreq
-> +structures,
-> +.B EFAULT
-> +will be returned.
->  .\" Slaving isn't supported in 2.2
->  .\" .
->  .\" .TP
-> 
-
-
--- 
-Michael Kerrisk
-Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-Linux/UNIX System Programming Training: http://man7.org/training/
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=-W7c4uz7y4kpw42K+YQiX--
