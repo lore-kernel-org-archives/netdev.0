@@ -1,151 +1,143 @@
-From: Philipp Zabel <p.zabel@pengutronix.de>
-Subject: Re: [PATCH v2 01/16] reset: add non CONFIG_RESET_CONTROLLER routines
-Date: Fri, 10 Jan 2014 14:30:37 +0100
-Message-ID: <1389360637.5854.53.camel@pizza.hi.pengutronix.de>
-References: <1389337217-29032-1-git-send-email-wens@csie.org>
-	 <1389337217-29032-2-git-send-email-wens@csie.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net V2 2/2] net: core: explicitly select a txq before
+ doing l2 forwarding
+Date: Fri, 10 Jan 2014 09:27:00 -0500
+Message-ID: <20140110142700.GA10111@neilslaptop.think-freely.org>
+References: <1389260252-48591-1-git-send-email-jasowang@redhat.com>
+ <1389260252-48591-2-git-send-email-jasowang@redhat.com>
+ <20140109123144.GC16701@hmsreliant.think-freely.org>
+ <52CF9B25.7020909@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Srinivas Kandagatla <srinivas.kandagatla@st.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-sunxi@googlegroups.com, linux-kernel@vger.kernel.org,
-	Rob Herring <rob.herring@calxeda.com>,
-	Emilio Lopez <emilio@elopez.com.ar>,
-	Mike Turquette <mturquette@linaro.org>,
-	"Ivan T. Ivanov" <iivanov@mm-sol.com>,
-	Barry Song <Baohua.Song@csr.com>,
-	Stephen Warren <swarren@wwwdotorg.org>
-To: Chen-Yu Tsai <wens@csie.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:45051 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752245AbaAJNav (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 08:30:51 -0500
-In-Reply-To: <1389337217-29032-2-git-send-email-wens@csie.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com,
+	John Fastabend <john.r.fastabend@intel.com>,
+	e1000-devel@lists.sourceforge.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <52CF9B25.7020909@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-
-[Added Ivan, Stephen and Barry to Cc:]
-
-Am Freitag, den 10.01.2014, 15:00 +0800 schrieb Chen-Yu Tsai:
-> Some drivers are shared between platforms that may or may not
-> have RESET_CONTROLLER selected for them.
-
-I expected that drivers compiled for platforms without reset controllers
-but use the reset API should select or depend on RESET_CONTROLLER.
-Stubbing out device_reset and reset_control_get will turn a compile time
-error into a runtime error for everyone forgetting to do this when
-writing a new driver that needs the reset.
-
->  Add dummy functions
-> when RESET_CONTROLLER is not selected, thereby eliminating the
-> need for drivers to enclose reset_control_*() calls within
-> #ifdef CONFIG_RESET_CONTROLLER, #endif
+On Fri, Jan 10, 2014 at 03:03:01PM +0800, Jason Wang wrote:
+> On 01/09/2014 08:31 PM, Neil Horman wrote:
+> > On Thu, Jan 09, 2014 at 05:37:32PM +0800, Jason Wang wrote:
+> >> Currently, the tx queue were selected implicitly in ndo_dfwd_start_xmit(). The
+> >> will cause several issues:
+> >>
+> >> - NETIF_F_LLTX were removed for macvlan, so txq lock were done for macvlan
+> >>   instead of lower device which misses the necessary txq synchronization for
+> >>   lower device such as txq stopping or frozen required by dev watchdog or
+> >>   control path.
+> >> - dev_hard_start_xmit() was called with NULL txq which bypasses the net device
+> >>   watchdog.
+> >> - dev_hard_start_xmit() does not check txq everywhere which will lead a crash
+> >>   when tso is disabled for lower device.
+> >>
+> >> Fix this by explicitly introducing a new param for .ndo_select_queue() for just
+> >> selecting queues in the case of l2 forwarding offload. And also introducing
+> >> dfwd_direct_xmit() to do the queue selecting, txq holding and transmitting for
+> >> l2 forwarding.
+> >>
+> >> With this fixes, NETIF_F_LLTX could be preserved for macvlan and there's no need
+> >> to check txq against NULL in dev_hard_start_xmit(). Also there's no need to keep
+> >> a dedicated ndo_dfwd_start_xmit().
+> >>
+> >> In the future, it was also required for macvtap l2 forwarding support since it
+> >> provides a necessary synchronization method.
+> >>
+> >> Cc: John Fastabend <john.r.fastabend@intel.com>
+> >> Cc: Neil Horman <nhorman@tuxdriver.com>
+> >> Cc: e1000-devel@lists.sourceforge.net
+> >> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> >>
+> >> ---
+> >> Changes from V1:
+> >> - Adding a new parameter to ndo_select_queue instead of a new method to select
+> >>   queue for l2 forwarding.
+> >> - Remove the unnecessary ndo_dfwd_start_xmit() since txq was selected
+> >>   explicitly.
+> >> - Keep NETIF_F_LLTX when netdev feature is changed.
+> >> - Shape the commit log
+> > A few minor nits inline.
+> >> <snip>
+> >>  }
+> >> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> >> index 5360f73..7eb4c82 100644
+> >> --- a/drivers/net/macvlan.c
+> >> +++ b/drivers/net/macvlan.c
+> >> @@ -299,7 +299,7 @@ netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
+> >>  
+> >>  	if (vlan->fwd_priv) {
+> >>  		skb->dev = vlan->lowerdev;
+> >> -		ret = dev_hard_start_xmit(skb, skb->dev, NULL, vlan->fwd_priv);
+> >> +		ret = dfwd_direct_xmit(skb, skb->dev, vlan->fwd_priv);
+> >>  	} else {
+> >>  		ret = macvlan_queue_xmit(skb, dev);
+> >>  	}
+> >> @@ -366,7 +366,6 @@ static int macvlan_open(struct net_device *dev)
+> >>  		if (IS_ERR_OR_NULL(vlan->fwd_priv)) {
+> >>  			vlan->fwd_priv = NULL;
+> >>  		} else {
+> >> -			dev->features &= ~NETIF_F_LLTX;
+> >>  			return 0;
+> >>  		}
+> > After removing the features flag operation here, you don't need the braces
+> > around the else statement either.
 > 
-> Signed-off-by: Chen-Yu Tsai <wens@csie.org>
-
-This was already proposed by Ivan and Barry earlier, and so far we
-didn't get to a proper conclusion:
-
-https://lkml.org/lkml/2013/10/10/179
-http://lists.infradead.org/pipermail/linux-arm-kernel/2013-June/174758.html
-
-If included, the stubs should at least return an error to indicate a
-reset couldn't be performed, but then I lose the compile time error for
-drivers which should select RESET_CONTROLLER but don't.
-
-Also this alone won't help you if you build multi-arch kernels where one
-platform enables RESET_CONTROLLER and the other expects it to be
-disabled.
-
-regards
-Philipp
-
-> ---
->  include/linux/reset.h | 39 +++++++++++++++++++++++++++++++++++++++
->  1 file changed, 39 insertions(+)
+> Ok.
+> >> <snip>
+> >> +int dfwd_direct_xmit(struct sk_buff *skb, struct net_device *dev,
+> >> +		     void *accel_priv)
+> >> +{
+> >> +	struct netdev_queue *txq;
+> >> +	int ret = NETDEV_TX_BUSY;
+> >> +	int index;
+> >> +
+> >> +	BUG_ON(!dev->netdev_ops->ndo_select_queue);
+> >> +	index =	dev->netdev_ops->ndo_select_queue(dev, skb, accel_priv);
+> >> +
+> >> +	local_bh_disable();
+> >> +
+> >> +	skb_set_queue_mapping(skb, index);
+> >> +	txq = netdev_get_tx_queue(dev, index);
+> >> +
+> >> +	HARD_TX_LOCK(dev, txq, smp_processor_id());
+> >> +	if (!netif_xmit_frozen_or_stopped(txq))
+> >> +		ret = dev_hard_start_xmit(skb, dev, txq);
+> >> +	HARD_TX_UNLOCK(dev, txq);
+> >> +
+> >> +	local_bh_enable();
+> >> +	return ret;
+> >> +}
+> >> +EXPORT_SYMBOL_GPL(dfwd_direct_xmit);
+> >> +
+> > Now that we're using the common path to select a queue, can we just use
+> > dev_queue_xmit here instead of creating our own transmit function?  The txq we
+> > select from the ixgbe card will just have a pfifo_fast queue on it (if not a
+> > noop queue), so dev_queue_xmit should just fall into the dev_hard_start_xmit
+> > path, and save us this extra coding.
+> >
+> > Neil
 > 
-> diff --git a/include/linux/reset.h b/include/linux/reset.h
-> index 6082247..38aa616 100644
-> --- a/include/linux/reset.h
-> +++ b/include/linux/reset.h
-> @@ -4,6 +4,8 @@
->  struct device;
->  struct reset_control;
->  
-> +#ifdef CONFIG_RESET_CONTROLLER
-> +
->  int reset_control_reset(struct reset_control *rstc);
->  int reset_control_assert(struct reset_control *rstc);
->  int reset_control_deassert(struct reset_control *rstc);
-> @@ -14,4 +16,41 @@ struct reset_control *devm_reset_control_get(struct device *dev, const char *id)
->  
->  int device_reset(struct device *dev);
->  
-> +#else /* !CONFIG_RESET_CONTROLLER */
-> +
-> +static inline int reset_control_reset(struct reset_control *rstc)
-> +{
-> +	return 0;
-> +}
-> +
-> +static inline int reset_control_assert(struct reset_control *rstc)
-> +{
-> +	return 0;
-> +}
-> +
-> +static inline int reset_control_deassert(struct reset_control *rstc)
-> +{
-> +	return 0;
-> +}
+> Ture, and this will make no difference with the case without l2
+> forwarding. To not trouble other parts too much, I will keep the current
+> dev_queue_xmit() API and rename the current dev_queue_xmit() to
+> __dev_queue_xmit() can make it can accept a accel_priv parameter. So
+> dev_queue_xmit() will call this will NULL accel_priv and introduce a
+> dev_queue_xmit_accel() that can accept a accel_priv parameter.
+> 
 
-Those should probably have a WARN_ON(1) like the GPIO API stubs.
+Sounds perfect, thanks!
+Neil
 
-> +
-> +static inline struct reset_control *reset_control_get(struct device *dev,
-> +		const char *id)
-> +{
-> +	return NULL;
-> +}
-[...]
-> +static inline struct reset_control *devm_reset_control_get(struct device *dev,
-> +		const char *id)
-> +{
-> +	return NULL;
-> +}
-
-These should return ERR_PTR(-ENOSYS).
-
-> +
-> +static inline int device_reset(struct device *dev)
-> +{
-> +	return 0;
-> +}
-
-And this should return -ENOSYS.
-
-Drivers that also need to run on platforms with CONFIG_RESET_CONTROLLER
-disabled (and that don't need the reset) should ignore -ENOSYS and
--ENOENT return values from device_reset/(devm_)reset_control_get.
-
-I wonder if it might be a good idea to add a RESET_CONTROLLER_OPTIONAL
-that drivers need to select to enable the API stubs? That way we could
-keep the compile time error for new drivers that need resets but forget
-to select RESET_CONTROLLER.
-Or add a
-#warning If this driver can work without reset, please select CONFIG_RESET_CONTROLLER_OPTIONAL
-
-Another possibility would be to add device_reset_optional and
-(devm_)reset_control_get_optional variants and only provide stubs for
-those, but not for device_reset/(devm_)reset_control_get. Then drivers
-that need to work on platforms without the reset controller API enabled
-could explicitly use the _optional variants, and all other drivers would
-still be checked at compile time.
-
-regards
-Philipp
+> Thanks
+> >
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > Please read the FAQ at  http://www.tux.org/lkml/
+> 
+> 
