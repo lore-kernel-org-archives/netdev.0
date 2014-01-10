@@ -1,51 +1,57 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] iproute2 support for Heavy Hitter Filter (HHF) qdisc.
-Date: Thu, 9 Jan 2014 22:55:19 -0800
-Message-ID: <20140109225519.1a33604a@nehalam.linuxnetplumber.net>
-References: <1389255791-16964-1-git-send-email-vtlam@google.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: RE: [PATCH -next] qlcnic: fix compiler warning
+Date: Fri, 10 Jan 2014 07:19:19 +0000
+Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A46F52B8E@avmb2.qlogic.org>
+References: <20140109155908.GA4351@reykholt.kaiser.cx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Nandita Dukkipati <nanditad@google.com>
-To: Terry Lam <vtlam@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:51466 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751590AbaAJHMG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 02:12:06 -0500
-Received: by mail-pd0-f169.google.com with SMTP id v10so4213892pde.28
-        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 23:12:05 -0800 (PST)
-In-Reply-To: <1389255791-16964-1-git-send-email-vtlam@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	"trivial@kernel.org" <trivial@kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Martin Kaiser <martin@kaiser.cx>,
+	Himanshu Madhani <himanshu.madhani@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140109155908.GA4351@reykholt.kaiser.cx>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu,  9 Jan 2014 00:23:11 -0800
-Terry Lam <vtlam@google.com> wrote:
-
-> $tc qdisc add dev eth0 hhf help
-> Usage: ... hhf [ limit PACKETS ] [ quantum BYTES]
->                [ hh_limit NUMBER ]
->                [ reset_timeout TIME ]
->                [ admit_bytes BYTES ]
->                [ evict_timeout TIME ]
->                [ non_hh_weight NUMBER ]
-> 
-> $tc -s -d qdisc show dev eth0
-> qdisc hhf 8005: root refcnt 32 limit 1000p quantum 1514 hh_limit 2048
-> reset_timeout 40.0ms admit_bytes 131072 evict_timeout 1.0s non_hh_weight 2
->  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->   backlog 0b 0p requeues 0
->     drop_overlimit 0 hh_overlimit 0 tot_hh 0 cur_hh 0
-> 
-> HHF qdisc parameters:
-> - limit: max number of packets in qdisc (default 1000)
-> - quantum: max deficit per RR round (default 1 MTU)
-> - hh_limit: max number of HHs to keep states (default 2048)
-> - reset_timeout: time to reset HHF counters (default 40ms)
-> - admit_bytes: counter thresh to classify as HH (default 128KB)
-> - evict_timeout: threshold to evict idle HHs (default 1s)
-> - non_hh_weight:  DRR weight for mice (default 2)
-> 
-> Signed-
-
-Applied to net-next-for-3.13 branch
+DQpBZGRpbmcgbmV0ZGV2Lg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206
+IE1hcnRpbiBLYWlzZXIsLCwgW21haWx0bzptYXJ0aW5AcmV5a2hvbHQua2Fpc2VyLmN4XSBPbiBC
+ZWhhbGYgT2YNCj4gTWFydGluIEthaXNlcg0KPiBTZW50OiBUaHVyc2RheSwgSmFudWFyeSAwOSwg
+MjAxNCA5OjI5IFBNDQo+IFRvOiBIaW1hbnNodSBNYWRoYW5pOyBSYWplc2ggQm9ydW5kaWENCj4g
+Q2M6IGxpbnV4LWtlcm5lbDsgdHJpdmlhbEBrZXJuZWwub3JnDQo+IFN1YmplY3Q6IFtQQVRDSCAt
+bmV4dF0gcWxjbmljOiBmaXggY29tcGlsZXIgd2FybmluZw0KPiANCj4gQWRkIGFuIGV4cGxpY2l0
+IGNhc3QgdG8gZml4IHRoZSBmb2xsb3dpbmcgd2FybmluZyAoc2VlbiBvbiBEZWJpYW4gV2hlZXp5
+LCBnY2MNCj4gNC43LjIpDQo+IA0KPiBDQyBbTV0gIGRyaXZlcnMvbmV0L3dpcmVsZXNzL3J0bHdp
+ZmkvcnRsODE5MmNlL3RyeC5vDQo+ICAgICBkcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxj
+bmljL3FsY25pY19pby5jOiBJbiBmdW5jdGlvbg0KPiDigJhxbGNuaWNfc2VuZF9maWx0ZXLigJk6
+DQo+ICAgICBkcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3FsY25pY19pby5jOjM0
+OTozOiB3YXJuaW5nOg0KPiAgICAgcGFzc2luZyBhcmd1bWVudCAyIG9mIOKAmGV0aGVyX2FkZHJf
+ZXF1YWzigJkgZnJvbSBpbmNvbXBhdGlibGUgcG9pbnRlciB0eXBlDQo+IFtlbmFibGVkIGJ5IGRl
+ZmF1bHRdDQo+ICAgICBJbiBmaWxlIGluY2x1ZGVkIGZyb20gaW5jbHVkZS9saW51eC9pZl92bGFu
+Lmg6MTY6MCwNCj4gICAgIGZyb20gZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9x
+bGNuaWNfaW8uYzo5Og0KPiAgICAgaW5jbHVkZS9saW51eC9ldGhlcmRldmljZS5oOjI0NDoyMDog
+bm90ZTogZXhwZWN0ZWQg4oCYY29uc3QgdTggKuKAmSBidXQNCj4gYXJndW1lbnQgaXMgb2YgdHlw
+ZSDigJh1NjQgKuKAmQ0KPg0KDQpJZiBJIGFtIG5vdCB3cm9uZywgdGhpcyBwYXRjaCBzaG91bGQg
+Z28gdG8gRGF2aWQncyBuZXQtbmV4dCB0cmVlLg0KIA0KPiBTaWduZWQtb2ZmLWJ5OiBNYXJ0aW4g
+S2Fpc2VyIDxtYXJ0aW5Aa2Fpc2VyLmN4Pg0KDQpBY2tlZC1ieTogU2hhaGVkIFNoYWlraCA8c2hh
+aGVkLnNoYWlraEBxbG9naWMuY29tPg0KDQpUaGFua3MsDQpTaGFoZWQNCj4gLS0tDQo+ICBkcml2
+ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3FsY25pY19pby5jIHwgICAgMiArLQ0KPiAg
+MSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9uKC0pDQo+IA0KPiBkaWZm
+IC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNuaWNfaW8uYw0K
+PiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmljX2lvLmMNCj4gaW5k
+ZXggNjM3M2Y2MC4uMzU1NzE1NCAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQv
+cWxvZ2ljL3FsY25pYy9xbGNuaWNfaW8uYw0KPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9x
+bG9naWMvcWxjbmljL3FsY25pY19pby5jDQo+IEBAIC0zNDYsNyArMzQ2LDcgQEAgc3RhdGljIHZv
+aWQgcWxjbmljX3NlbmRfZmlsdGVyKHN0cnVjdCBxbGNuaWNfYWRhcHRlcg0KPiAqYWRhcHRlciwN
+Cj4gIAloZWFkID0gJihhZGFwdGVyLT5maGFzaC5maGVhZFtoaW5kZXhdKTsNCj4gDQo+ICAJaGxp
+c3RfZm9yX2VhY2hfZW50cnlfc2FmZSh0bXBfZmlsLCBuLCBoZWFkLCBmbm9kZSkgew0KPiAtCQlp
+ZiAoZXRoZXJfYWRkcl9lcXVhbCh0bXBfZmlsLT5mYWRkciwgJnNyY19hZGRyKSAmJg0KPiArCQlp
+ZiAoZXRoZXJfYWRkcl9lcXVhbCh0bXBfZmlsLT5mYWRkciwgKGNvbnN0IHU4ICopJnNyY19hZGRy
+KQ0KPiAmJg0KPiAgCQkgICAgdG1wX2ZpbC0+dmxhbl9pZCA9PSB2bGFuX2lkKSB7DQo+ICAJCQlp
+ZiAoamlmZmllcyA+IChRTENOSUNfUkVBRERfQUdFICogSFogKyB0bXBfZmlsLQ0KPiA+ZnRpbWUp
+KQ0KPiAgCQkJCXFsY25pY19jaGFuZ2VfZmlsdGVyKGFkYXB0ZXIsICZzcmNfYWRkciwNCj4gLS0N
+Cj4gMS43LjEwLjQNCg0KDQo=
