@@ -1,56 +1,88 @@
 From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH 0/3] atheros: modify statistics code
-Date: Fri, 10 Jan 2014 17:08:20 +0100
-Message-ID: <1389370103-3009-1-git-send-email-sd@queasysnail.net>
+Subject: [PATCH 1/3] atl1c: update statistics code
+Date: Fri, 10 Jan 2014 17:08:21 +0100
+Message-ID: <1389370103-3009-2-git-send-email-sd@queasysnail.net>
+References: <1389370103-3009-1-git-send-email-sd@queasysnail.net>
 Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
 	jcliburn@gmail.com, chris.snook@gmail.com,
 	Sabrina Dubroca <sd@queasysnail.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1-g21.free.fr ([212.27.42.1]:51124 "EHLO smtp1-g21.free.fr"
+Received: from smtp1-g21.free.fr ([212.27.42.1]:35621 "EHLO smtp1-g21.free.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752456AbaAJQJH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 11:09:07 -0500
+	id S1757809AbaAJQJQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 11:09:16 -0500
+In-Reply-To: <1389370103-3009-1-git-send-email-sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Following Ben Hutchings's advice on how to fill net_stats in alx [1],
-this patch modifies the other atheros ethernet drivers
-similarly. Minor whitespace/empty line changes in atl1c and atl1e to
-make the code completely consistent between atl1c, atl1e, and alx
-(after this [2]).
+As Ben Hutchings pointed out for the stats in alx, some
+hardware-specific stats aren't matched to the right net_device_stats
+field. Also fix the collision field and include errors in the total
+number of RX/TX packets.
 
-I don't have this hardware, so these patches have only been
-compile-tested.
+Minor whitespace fixes to match the style in alx.
 
-
-Detail of the changes:
-* atl1/atl1c/atl1e
-  - fix collisions computation
-  - rx_dropped = rx_rrd_ov
-  - rx_over_errors = 0
-  - rx_missed_errors = 0
-  - X_packets = X_ok + X_errors
-
-* only atl1c/atl1e
-  - add rx_rxf_ov to rx_errors
-
-Note: These patches don't depend on the alx patchset [2], but the
-commit-log messages reference it.
-
-
-[1] http://www.spinics.net/lists/netdev/msg264930.html
-[2] http://www.spinics.net/lists/netdev/msg265564.html
-
-Sabrina Dubroca (3):
-  atl1c: update statistics code
-  atl1e: update statistics code
-  atl1: update statistics code
-
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+---
  drivers/net/ethernet/atheros/atl1c/atl1c_main.c | 31 ++++++++++++++++---------
- drivers/net/ethernet/atheros/atl1e/atl1e_main.c | 30 +++++++++++++++---------
- drivers/net/ethernet/atheros/atlx/atl1.c        | 16 ++++++-------
- 3 files changed, 47 insertions(+), 30 deletions(-)
+ 1 file changed, 20 insertions(+), 11 deletions(-)
 
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index 2980175..4d3258d 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -1500,31 +1500,40 @@ static struct net_device_stats *atl1c_get_stats(struct net_device *netdev)
+ 	struct net_device_stats *net_stats = &netdev->stats;
+ 
+ 	atl1c_update_hw_stats(adapter);
+-	net_stats->rx_packets = hw_stats->rx_ok;
+-	net_stats->tx_packets = hw_stats->tx_ok;
+ 	net_stats->rx_bytes   = hw_stats->rx_byte_cnt;
+ 	net_stats->tx_bytes   = hw_stats->tx_byte_cnt;
+ 	net_stats->multicast  = hw_stats->rx_mcast;
+ 	net_stats->collisions = hw_stats->tx_1_col +
+-				hw_stats->tx_2_col * 2 +
+-				hw_stats->tx_late_col + hw_stats->tx_abort_col;
+-	net_stats->rx_errors  = hw_stats->rx_frag + hw_stats->rx_fcs_err +
+-				hw_stats->rx_len_err + hw_stats->rx_sz_ov +
+-				hw_stats->rx_rrd_ov + hw_stats->rx_align_err;
++				hw_stats->tx_2_col +
++				hw_stats->tx_late_col +
++				hw_stats->tx_abort_col;
++
++	net_stats->rx_errors  = hw_stats->rx_frag +
++				hw_stats->rx_fcs_err +
++				hw_stats->rx_len_err +
++				hw_stats->rx_sz_ov +
++				hw_stats->rx_rrd_ov +
++				hw_stats->rx_align_err +
++				hw_stats->rx_rxf_ov;
++
+ 	net_stats->rx_fifo_errors   = hw_stats->rx_rxf_ov;
+ 	net_stats->rx_length_errors = hw_stats->rx_len_err;
+ 	net_stats->rx_crc_errors    = hw_stats->rx_fcs_err;
+ 	net_stats->rx_frame_errors  = hw_stats->rx_align_err;
+-	net_stats->rx_over_errors   = hw_stats->rx_rrd_ov + hw_stats->rx_rxf_ov;
++	net_stats->rx_dropped       = hw_stats->rx_rrd_ov;
+ 
+-	net_stats->rx_missed_errors = hw_stats->rx_rrd_ov + hw_stats->rx_rxf_ov;
++	net_stats->tx_errors = hw_stats->tx_late_col +
++			       hw_stats->tx_abort_col +
++			       hw_stats->tx_underrun +
++			       hw_stats->tx_trunc;
+ 
+-	net_stats->tx_errors = hw_stats->tx_late_col + hw_stats->tx_abort_col +
+-				hw_stats->tx_underrun + hw_stats->tx_trunc;
+ 	net_stats->tx_fifo_errors    = hw_stats->tx_underrun;
+ 	net_stats->tx_aborted_errors = hw_stats->tx_abort_col;
+ 	net_stats->tx_window_errors  = hw_stats->tx_late_col;
+ 
++	net_stats->rx_packets = hw_stats->rx_ok + net_stats->rx_errors;
++	net_stats->tx_packets = hw_stats->tx_ok + net_stats->tx_errors;
++
+ 	return net_stats;
+ }
+ 
 -- 
 1.8.5.2
