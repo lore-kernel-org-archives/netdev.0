@@ -1,126 +1,58 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net] bonding: reset the slave's mtu when its be changed
-Date: Fri, 10 Jan 2014 13:19:32 +0100
-Message-ID: <20140110121932.GC4132@redhat.com>
-References: <52CFDA63.8070601@huawei.com>
+From: franklinbuthelezi1@yahoo.com
+Subject: =?UTF-8?Q?DiePresse.com_Mein_Freund,_der_Fahrradh=C3=A4ndler?=
+Date: Fri, 10 Jan 2014 13:33:08 +0100 (CET)
+Message-ID: <1630616644.1389357188898.JavaMail.root@dpoportal4.diepresse.apa.net>
+Reply-To: franklinbuthelezi1@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jay Vosburgh <fubar@us.ibm.com>, Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50685 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751618AbaAJMWf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 07:22:35 -0500
-Content-Disposition: inline
-In-Reply-To: <52CFDA63.8070601@huawei.com>
+Received: from dpocron.diepresse.apa.net ([194.232.102.6]:41753 "EHLO
+	dpocron.diepresse.apa.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752897AbaAJMjw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 07:39:52 -0500
+Received: from dpoportal4.diepresse.apa.net (dpoportal4.diepresse.local [192.168.0.20])
+	by dpocron.diepresse.apa.net (Postfix) with ESMTP id DE6C3445DB
+	for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 13:33:08 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 10, 2014 at 07:32:51PM +0800, Ding Tianhong wrote:
->All slave should have the same mtu with mastet's, and the bond do it when
->enslave the slave, but the user could change the slave's mtu, it will cause
->the master and slave have different mtu, althrough in AB mode, it does not
->matter if the slave is not the current slave, but in other mode, it is incorrect,
->so reset the slave's mtu like the master set.
+=46olgender Artikel auf http://diepresse.com wird Ihnen von Franklin Bu=
+thelezi empfohlen:
 
-Why "net"? It's not a bugfix, it's a feature, and really discussable.
+Mein Freund, der Fahrradh=C3=A4ndler
+Manche Dinge ver=C3=A4ndern sich =C3=BCber die langen Wintermonate hinw=
+eg.=20
 
-Also, wrt the actual change - why do you think it's incorrect for slaves in
-bonding mode other than AB to have different MTU values? I don't see any
-reason for it, from the top of the head.
+http://diepresse.com/home/leben/mode/kolumnezumtag/548717/index.do
 
->
->Cc: Jay Vosburgh <fubar@us.ibm.com>
->Cc: Veaceslav Falico <vfalico@redhat.com>
->Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->---
-> drivers/net/bonding/bond_main.c | 21 ++++++++++-----------
-> 1 file changed, 10 insertions(+), 11 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 398e299..e7b5bcf 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -2882,18 +2882,17 @@ static int bond_slave_netdev_event(unsigned long event,
-> 		 */
-> 		break;
-> 	case NETDEV_CHANGEMTU:
->-		/*
->-		 * TODO: Should slaves be allowed to
->-		 * independently alter their MTU?  For
->-		 * an active-backup bond, slaves need
->-		 * not be the same type of device, so
->-		 * MTUs may vary.  For other modes,
->-		 * slaves arguably should have the
->-		 * same MTUs. To do this, we'd need to
->-		 * take over the slave's change_mtu
->-		 * function for the duration of their
->-		 * servitude.
->+		/* All slave should have the same mtu
->+		 * as master.
-> 		 */
->+		if (slave->dev->mtu != bond->dev->mtu) {
+Notiz:
+Dear friend,
+=20
+I am the international operations manager of ABSA bank South Africa. My=
+ name is Franklin Buthelezi. I have a sensitive and private offer from =
+the top executive to seek your partnership in re-profiling some offshor=
+e investment funds worth 11.5M U.S.D (Eleven Million five hundred thous=
+and United States Dollars) I am constrained however to withhold most of=
+ the details for now. This is a legitimate transaction.=20
+=20
+If we agree on the terms you will be given 15% of the total funds, if y=
+ou are interested please write back via email providing me your persona=
+l details and phone number for further directives.
+=20
+If you are interested and willing to render your assistance please resp=
+ond via my private email address stated below.
+=20
+I look forward to your response.
+=20
+Best regards
+=46ranklin Buthelezi
+Email: franklinbuthelezi1@yahoo.com
 
-If we've got the event then it means it was changed to something different.
-No need to verify.
 
->+			int res;
->+			slave->original_mtu = slave->dev->mtu;
+------------------------------------
+DiePresse.com =C3=BCbernimmt keine Haftung f=C3=BCr den Inhalt der pers=
+=C3=B6nlichen Nachricht.
 
-If we're refusing to apply the *new* mtu, then why should we save it as the
-original? The original_mtu is the mtu that the slave had before it was
-enslaved.
-
->+			res = dev_set_mtu(slave->dev, bond->dev->mtu);
->+			if (res)
->+				pr_debug("Error %d calling dev_set_mtu for slave %s\n",
->+					 res, slave->dev->name);
->+		}
-
-Also, bonding should be vocal about changing forcibly the mtu - otherwise
-we'd end up with silently dropping the changes:
-
-ifconfig eth0 mtu 9000
-echo $?
--> 0
-ifconfig eth0
-MTU: 1500
-
-or something like that, it will pass it up, refusing changes:
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index e06c445..0b36045 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2846,19 +2846,8 @@ static int bond_slave_netdev_event(unsigned long event,
-  		 */
-  		break;
-  	case NETDEV_CHANGEMTU:
--		/*
--		 * TODO: Should slaves be allowed to
--		 * independently alter their MTU?  For
--		 * an active-backup bond, slaves need
--		 * not be the same type of device, so
--		 * MTUs may vary.  For other modes,
--		 * slaves arguably should have the
--		 * same MTUs. To do this, we'd need to
--		 * take over the slave's change_mtu
--		 * function for the duration of their
--		 * servitude.
--		 */
--		break;
-+		/* don't permit slaves to change their MTU */
-+		return NOTIFY_BAD;
-  	case NETDEV_CHANGENAME:
-  		/*
-  		 * TODO: handle changing the primary's name
-
-> 		break;
-> 	case NETDEV_CHANGENAME:
-> 		/*
->--
->1.8.0
->
->
+=C2=A9 DiePresse.com - http://diepresse.com
