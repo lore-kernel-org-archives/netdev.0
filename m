@@ -1,53 +1,56 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 11/17] i40e: adjust ITR max and min values
-Date: Fri, 10 Jan 2014 12:30:33 -0800
-Message-ID: <1389385839-11996-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 17/17] i40evf: fix s390 build failure due to implicit prefetch.h
+Date: Fri, 10 Jan 2014 12:30:39 -0800
+Message-ID: <1389385839-11996-18-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389385839-11996-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:56384 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:20038 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758217AbaAJUaq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 15:30:46 -0500
+	id S1758229AbaAJUas (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 15:30:48 -0500
 In-Reply-To: <1389385839-11996-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-Set the ITR max and min values to match the hardware max value
-and the recommended min value.  These values are shifted right
-one bit because the register counts in 2 usec units, so leave
-a comment to explain.
+As of commit 7f12ad741a4870b8b6e3aafbcd868d0191770802 ("i40evf: transmit
+and receive functionality") the s390 builds (allyesconfig) fail with:
 
-Change-ID: I289c27955cf6c566a6d21b95c3110b88cbb15dad
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+drivers/net/ethernet/intel/i40evf/i40e_txrx.c: In function 'i40e_clean_rx_irq':
+drivers/net/ethernet/intel/i40evf/i40e_txrx.c:818:3: error: implicit declaration of function 'prefetch'
+make[5]: *** [drivers/net/ethernet/intel/i40evf/i40e_txrx.o] Error 1
+
+due to an implicit assumption that the prototype from linux/prefetch.h
+will be present.
+
+Cc: Mitch Williams <mitch.a.williams@intel.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+Acked-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.h | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index 6f8506c..93b8642 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -29,9 +29,8 @@
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 8f2b3b2..ffdb01d 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -21,6 +21,8 @@
+  *
+  ******************************************************************************/
  
- /* Interrupt Throttling and Rate Limiting (storm control) Goodies */
++#include <linux/prefetch.h>
++
+ #include "i40evf.h"
  
--#define I40E_MAX_ITR               0x07FF
--#define I40E_MIN_ITR               0x0001
--#define I40E_ITR_USEC_RESOLUTION   2
-+#define I40E_MAX_ITR               0x0FF0  /* reg uses 2 usec resolution */
-+#define I40E_MIN_ITR               0x0004  /* reg uses 2 usec resolution */
- #define I40E_MAX_IRATE             0x03F
- #define I40E_MIN_IRATE             0x001
- #define I40E_IRATE_USEC_RESOLUTION 4
+ static inline __le64 build_ctob(u32 td_cmd, u32 td_offset, unsigned int size,
 -- 
 1.8.3.1
