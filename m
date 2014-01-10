@@ -1,49 +1,111 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: Re: [PATCH net-next] IPv6: enable bind() to assign an anycast address
-Date: Fri, 10 Jan 2014 14:01:22 -0800 (PST)
-Message-ID: <1389391282.61382.YahooMailBasic@web125501.mail.ne1.yahoo.com>
-References: <20140110205100.GB23647@order.stressinduktion.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next v2 14/17] i40e: enable PTP
+Date: Fri, 10 Jan 2014 22:08:46 +0000
+Message-ID: <1389391726.2025.119.camel@bwh-desktop.uk.level5networks.com>
+References: <1389385839-11996-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1389385839-11996-15-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1389386245.2025.98.camel@bwh-desktop.uk.level5networks.com>
+	 <1389390171.8039.21.camel@jekeller-desk1.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm46.bullet.mail.ne1.yahoo.com ([98.138.120.53]:30769 "EHLO
-	nm46.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751343AbaAJWEF convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 17:04:05 -0500
-In-Reply-To: <20140110205100.GB23647@order.stressinduktion.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:23153 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758295AbaAJWIv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 17:08:51 -0500
+In-Reply-To: <1389390171.8039.21.camel@jekeller-desk1.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 1/10/14, Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+On Fri, 2014-01-10 at 21:42 +0000, Keller, Jacob E wrote:
+> On Fri, 2014-01-10 at 20:37 +0000, Ben Hutchings wrote:
+> > On Fri, 2014-01-10 at 12:30 -0800, Jeff Kirsher wrote:
+> > > From: Jacob Keller <jacob.e.keller@intel.com>
+> > > 
+> > > New feature: Enable PTP support in the i40e driver.
+> > > 
+> > > Change-ID: I6a8e799f582705191f9583afb1b9231a8db96cc8
+> > > Cc: Richard Cochran <richardcochran@gmail.com>
+> > > Cc: Ben Hutchings <bhutchings@solarflare.com>
+> > > Signed-off-by: Matthew Vick <matthew.vick@intel.com>
+> > > Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+> > > Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > > ---
+> > >  drivers/net/ethernet/intel/Kconfig             |   1 +
+> > >  drivers/net/ethernet/intel/i40e/Makefile       |   1 +
+> > >  drivers/net/ethernet/intel/i40e/i40e.h         |  26 +
+> > >  drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  33 +-
+> > >  drivers/net/ethernet/intel/i40e/i40e_main.c    |  47 +-
+> > >  drivers/net/ethernet/intel/i40e/i40e_ptp.c     | 662 +++++++++++++++++++++++++
+> > >  drivers/net/ethernet/intel/i40e/i40e_txrx.c    |  53 ++
+> > >  drivers/net/ethernet/intel/i40e/i40e_txrx.h    |   3 +
+> > >  8 files changed, 824 insertions(+), 2 deletions(-)
+> > >  create mode 100644 drivers/net/ethernet/intel/i40e/i40e_ptp.c
+> > > 
+> > > diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+> > > index 9fb2eb8..333bb54 100644
+> > > --- a/drivers/net/ethernet/intel/Kconfig
+> > > +++ b/drivers/net/ethernet/intel/Kconfig
+> > [...]
+> > > +void i40e_ptp_init(struct i40e_pf *pf)
+> > > +{
+> > > +	struct i40e_hw *hw = &pf->hw;
+> > > +	struct net_device *netdev = pf->vsi[pf->lan_vsi]->netdev;
+> > > +
+> > > +	strncpy(pf->ptp_caps.name, netdev->name, sizeof(pf->ptp_caps.name));
+> > [...]
+> > 
+> > I recommended using the *driver* name as the clock name.  The net device
+> > doesn't even have a proper name at this point.
 
->On Fri, Jan 10, 2014 at 07:12:24PM +0100, Francois-Xavier Le Bail wrote:
->> - Add ipv6_chk_acast_addr_src() to check if an anycast address is link-local
->>   on given interface or is global (on any interface).
->> - Use it in inet6_bind().
->> 
->> Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
->> ---
->> Tested with link-local and global anycast addresses.
->> Tested with SOCK_DGRAM socket, bind and UDP traffic OK.
->>
->> Tested with SOCK_STREAM socket, bind OK, traffic need another change.
+Actually, on closer inspection it looks like the net device gets
+registered before this is called, so the name will be valid.  However
+the net device can (and probably will) be renamed after registration so
+this name may become stale.
 
-> What do you mean with that?
+If the net device is registered first, this raises a different problem:
+i40e_get_ts_info() can then race with PTP init and cleanup; it can see a
+non-null but invalid value of pf->ptp_clock if it races with this in
+i40e_ptp_init():
 
-In actual TCP code, if the destination address is not unicast, the request is dropped:
+> +	/* Attempt to register the clock before enabling the hardware. */
+> +	pf->ptp_clock = ptp_clock_register(&pf->ptp_caps, &pf->pdev->dev);
+> +	if (IS_ERR(pf->ptp_clock)) {
 
-	if (!ipv6_unicast_destination(skb))
-		goto drop;
+or it can see a non-null value of ptp_clock just before the clock is
+freed, then use-after-free.
 
-I will send another patch to allow anycat addresses destinations fot TCP. 
+You could use rtnl_lock() to serialise the registration/unregistration
+with i40e_get_ts_info(), or reorder init and cleanup so the clock is
+registered before the net device and unregistered after.
 
-bye,
-Francois-Xavier
+> > Ben.
+> > 
+> 
+> We use netdev->name a few lines farther down.. should that be changed as
+> well?
+
+I think that's fine if it's done after the net device is registered.
+However you would normally use netdev_info() to include the name at the
+beginning of the log line.
+
+Ben.
+
+> Sorry about this one. The ixgbe driver initializes clock at open
+> instead of at init, so it has a valid clock name already.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
