@@ -1,78 +1,104 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH -next] qlcnic: fix compiler warning
-Date: Fri, 10 Jan 2014 10:15:54 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D45796C@AcuExch.aculab.com>
-References: <20140109155908.GA4351@reykholt.kaiser.cx>
- <262CB373A6D1F14F9B81E82F74F77D5A46F52B8E@avmb2.qlogic.org>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH v3 net-next 1/3] bonding: fix bond_3ad_set_carrier() RCU
+ usage
+Date: Fri, 10 Jan 2014 18:34:11 +0800
+Message-ID: <52CFCCA3.5020606@huawei.com>
+References: <1389345523-5497-1-git-send-email-vfalico@redhat.com> <1389345523-5497-2-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	"trivial@kernel.org" <trivial@kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: 'Shahed Shaikh' <shahed.shaikh@qlogic.com>,
-	Martin Kaiser <martin@kaiser.cx>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>,
-	"Rajesh Borundia" <rajesh.borundia@qlogic.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@redhat.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:38134 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753128AbaAJKRr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 05:17:47 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 03447-03 for <netdev@vger.kernel.org>;
- Fri, 10 Jan 2014 10:17:42 +0000 (GMT)
-In-Reply-To: <262CB373A6D1F14F9B81E82F74F77D5A46F52B8E@avmb2.qlogic.org>
-Content-Language: en-US
+Received: from szxga02-in.huawei.com ([119.145.14.65]:62840 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751985AbaAJKel (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 05:34:41 -0500
+In-Reply-To: <1389345523-5497-2-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogU2hhaGVkIFNoYWlraA0KPiBBZGRpbmcgbmV0ZGV2Lg0KPiANCj4gPiAtLS0tLU9yaWdp
-bmFsIE1lc3NhZ2UtLS0tLQ0KPiA+IEZyb206IE1hcnRpbiBLYWlzZXIsLCwgW21haWx0bzptYXJ0
-aW5AcmV5a2hvbHQua2Fpc2VyLmN4XSBPbiBCZWhhbGYgT2YNCj4gPiBNYXJ0aW4gS2Fpc2VyDQo+
-ID4gU2VudDogVGh1cnNkYXksIEphbnVhcnkgMDksIDIwMTQgOToyOSBQTQ0KPiA+IFRvOiBIaW1h
-bnNodSBNYWRoYW5pOyBSYWplc2ggQm9ydW5kaWENCj4gPiBDYzogbGludXgta2VybmVsOyB0cml2
-aWFsQGtlcm5lbC5vcmcNCj4gPiBTdWJqZWN0OiBbUEFUQ0ggLW5leHRdIHFsY25pYzogZml4IGNv
-bXBpbGVyIHdhcm5pbmcNCj4gPg0KPiA+IEFkZCBhbiBleHBsaWNpdCBjYXN0IHRvIGZpeCB0aGUg
-Zm9sbG93aW5nIHdhcm5pbmcgKHNlZW4gb24gRGViaWFuIFdoZWV6eSwgZ2NjDQo+ID4gNC43LjIp
-DQo+ID4NCj4gPiBDQyBbTV0gIGRyaXZlcnMvbmV0L3dpcmVsZXNzL3J0bHdpZmkvcnRsODE5MmNl
-L3RyeC5vDQo+ID4gICAgIGRyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmlj
-X2lvLmM6IEluIGZ1bmN0aW9uDQo+ID4gcWxjbmljX3NlbmRfZmlsdGVyOg0KPiA+ICAgICBkcml2
-ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3FsY25pY19pby5jOjM0OTozOiB3YXJuaW5n
-Og0KPiA+ICAgICBwYXNzaW5nIGFyZ3VtZW50IDIgb2YgZXRoZXJfYWRkcl9lcXVhbCBmcm9tIGlu
-Y29tcGF0aWJsZSBwb2ludGVyIHR5cGUNCj4gPiBbZW5hYmxlZCBieSBkZWZhdWx0XQ0KPiA+ICAg
-ICBJbiBmaWxlIGluY2x1ZGVkIGZyb20gaW5jbHVkZS9saW51eC9pZl92bGFuLmg6MTY6MCwNCj4g
-PiAgICAgZnJvbSBkcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3FsY25pY19pby5j
-Ojk6DQo+ID4gICAgIGluY2x1ZGUvbGludXgvZXRoZXJkZXZpY2UuaDoyNDQ6MjA6IG5vdGU6IGV4
-cGVjdGVkIGNvbnN0IHU4ICogYnV0DQo+ID4gYXJndW1lbnQgaXMgb2YgdHlwZSB1NjQgKg0KPiA+
-DQo+IA0KPiBJZiBJIGFtIG5vdCB3cm9uZywgdGhpcyBwYXRjaCBzaG91bGQgZ28gdG8gRGF2aWQn
-cyBuZXQtbmV4dCB0cmVlLg0KPiANCj4gPiBTaWduZWQtb2ZmLWJ5OiBNYXJ0aW4gS2Fpc2VyIDxt
-YXJ0aW5Aa2Fpc2VyLmN4Pg0KPiANCj4gQWNrZWQtYnk6IFNoYWhlZCBTaGFpa2ggPHNoYWhlZC5z
-aGFpa2hAcWxvZ2ljLmNvbT4NCj4gDQo+IFRoYW5rcywNCj4gU2hhaGVkDQo+ID4gLS0tDQo+ID4g
-IGRyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmljX2lvLmMgfCAgICAyICst
-DQo+ID4gIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlvbigtKQ0KPiA+
-DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxj
-bmljX2lvLmMNCj4gPiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmlj
-X2lvLmMNCj4gPiBpbmRleCA2MzczZjYwLi4zNTU3MTU0IDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmljX2lvLmMNCj4gPiArKysgYi9kcml2
-ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3FsY25pY19pby5jDQo+ID4gQEAgLTM0Niw3
-ICszNDYsNyBAQCBzdGF0aWMgdm9pZCBxbGNuaWNfc2VuZF9maWx0ZXIoc3RydWN0IHFsY25pY19h
-ZGFwdGVyDQo+ID4gKmFkYXB0ZXIsDQo+ID4gIAloZWFkID0gJihhZGFwdGVyLT5maGFzaC5maGVh
-ZFtoaW5kZXhdKTsNCj4gPg0KPiA+ICAJaGxpc3RfZm9yX2VhY2hfZW50cnlfc2FmZSh0bXBfZmls
-LCBuLCBoZWFkLCBmbm9kZSkgew0KPiA+IC0JCWlmIChldGhlcl9hZGRyX2VxdWFsKHRtcF9maWwt
-PmZhZGRyLCAmc3JjX2FkZHIpICYmDQo+ID4gKwkJaWYgKGV0aGVyX2FkZHJfZXF1YWwodG1wX2Zp
-bC0+ZmFkZHIsIChjb25zdCB1OCAqKSZzcmNfYWRkcikNCj4gPiAmJg0KPiA+ICAJCSAgICB0bXBf
-ZmlsLT52bGFuX2lkID09IHZsYW5faWQpIHsNCj4gPiAgCQkJaWYgKGppZmZpZXMgPiAoUUxDTklD
-X1JFQUREX0FHRSAqIEhaICsgdG1wX2ZpbC0NCj4gPiA+ZnRpbWUpKQ0KPiA+ICAJCQkJcWxjbmlj
-X2NoYW5nZV9maWx0ZXIoYWRhcHRlciwgJnNyY19hZGRyLA0KPiA+IC0tDQo+ID4gMS43LjEwLjQN
-Cg0KQSBxdWljayBsb29rIGF0IHRoZSBjb2RlIHNlZW1zIHRvIGltcGx5IHRoYXQgdGhpcyBjb2Rl
-IGlzIHNvbWV3aGF0IGJ1Z2d5Lg0KJ3NyY19hZGRyJyBpcyBkZWZpbmVkIGEgdTY0IGV2ZW4gdGhv
-dWdoIGl0IGlzIGEgNiBieXRlIG1hYyBhZGRyZXNzLg0KT24gYmlnLWVuZGlhbiBzeXN0ZW1zIHRo
-ZSB3cm9uZyBieXRlcyBnZXQgYWNjZXNzZWQgYWxsIG92ZXIgdGhlIHBsYWNlLg0KDQpBbHNvIHdo
-ZW4gZXRoZXJfYWRkcl9lcXVhbCgpIGluIGlubGluZWQgdGhlIGNvZGUgZW5kcyB1cCBhY2Nlc3Np
-bmcgc3JjX2FkZHINCmFzIDMyYml0IGFuZCAxNmJpdCBkYXRhIC0gd2hpY2ggZG9uJ3QgaGF2ZSB0
-byBiZSBzeW5jaHJvbmlzZWQgYWdhaW5zdA0KYW5kIHdyaXRlcyB0byB0aGUgNjRiaXQgaXRlbS4N
-Cg0KSWYgbWlnaHQgYmUgdGhhdCBldGhlcl9hZGRyX2VxdWFsKCkgKGV0Yykgc2hvdWxkIGhhdmUg
-YSBnY2MgYXNtDQpzdGF0ZW1lbnQgd2l0aCBhICJtZW1vcnkiIGNvbnN0cmFpbnQgYWdhaW5zdCB0
-aGUgbWFjIGFkZHJlc3MgYnVmZmVycy4NCg0KCURhdmlkDQoNCg==
+On 2014/1/10 17:18, Veaceslav Falico wrote:
+> Currently, its usage is just plainly wrong. It first gets a slave under
+> RCU, and, after releasing the RCU lock, continues to use it - whilst it can
+> be freed.
+> 
+> Fix this by ensuring that bond_3ad_set_carrier() holds RCU till it uses its
+> slave (or its agg).
+> 
+> Fixes: be79bd048ab ("bonding: add RCU for bond_3ad_state_machine_handler()")
+> CC: dingtianhong@huawei.com
+> CC: Jay Vosburgh <fubar@us.ibm.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> ---
+> 
+> Notes:
+>     v2 -> v3:
+>     Just wrap RCU for the whole usage of our slave.
+>     
+>     v1 -> v2:
+>     Don't use _rcu primitives as we can be called under RTNL too.
+>     
+>     v1 -> v2:
+>     Don't use _rcu primitives as we can be called under RTNL too.
+> 
+>  drivers/net/bonding/bond_3ad.c | 23 ++++++++++++-----------
+>  1 file changed, 12 insertions(+), 11 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+> index 29db1ca..9ff55eb 100644
+> --- a/drivers/net/bonding/bond_3ad.c
+> +++ b/drivers/net/bonding/bond_3ad.c
+> @@ -2327,32 +2327,33 @@ int bond_3ad_set_carrier(struct bonding *bond)
+>  {
+>  	struct aggregator *active;
+>  	struct slave *first_slave;
+> +	int ret = 1;
+>  
+>  	rcu_read_lock();
+>  	first_slave = bond_first_slave_rcu(bond);
+> -	rcu_read_unlock();
+> -	if (!first_slave)
+> -		return 0;
+> +	if (!first_slave) {
+> +		ret = 0;
+> +		goto out;
+> +	}
+>  	active = __get_active_agg(&(SLAVE_AD_INFO(first_slave).aggregator));
+>  	if (active) {
+>  		/* are enough slaves available to consider link up? */
+>  		if (active->num_of_ports < bond->params.min_links) {
+>  			if (netif_carrier_ok(bond->dev)) {
+>  				netif_carrier_off(bond->dev);
+> -				return 1;
+> +				goto out;
+>  			}
+>  		} else if (!netif_carrier_ok(bond->dev)) {
+>  			netif_carrier_on(bond->dev);
+> -			return 1;
+> +			goto out;
+>  		}
+> -		return 0;
+> -	}
+> -
+> -	if (netif_carrier_ok(bond->dev)) {
+> +	} else if (netif_carrier_ok(bond->dev)) {
+>  		netif_carrier_off(bond->dev);
+> -		return 1;
+> +		goto out;
+no need for this line, but it is not a big issue.
+
+Regards
+Ding
+
+>  	}
+> -	return 0;
+> +out:
+> +	rcu_read_unlock();
+> +	return ret;
+>  }
+>  
+>  /**
+> 
