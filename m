@@ -1,75 +1,123 @@
-From: Nandita Dukkipati <nanditad@google.com>
-Subject: Re: [PATCH] HHF qdisc: fix jiffies-time conversion.
-Date: Fri, 10 Jan 2014 11:02:45 -0800
-Message-ID: <CAB_+Fg7HNc3r8D31WB=U7ZuRuGZdoNbZfsh6Sds-Xq4cRVLY_Q@mail.gmail.com>
-References: <1389256800-18809-1-git-send-email-vtlam@google.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next] net: vxlan: when lower dev unregisters remove
+ vxlan dev as well
+Date: Fri, 10 Jan 2014 20:07:12 +0100
+Message-ID: <52D044E0.1090206@redhat.com>
+References: <1389358907-19885-1-git-send-email-dborkman@redhat.com> <CAHA+R7NPyEmSpmojrM6pOsAVq3B6NjVWWCw0oQMPZFdCaDW9sA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Terry Lam <vtlam@google.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f43.google.com ([209.85.219.43]:52289 "EHLO
-	mail-oa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751172AbaAJTCp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 14:02:45 -0500
-Received: by mail-oa0-f43.google.com with SMTP id m1so5495923oag.2
-        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 11:02:45 -0800 (PST)
-In-Reply-To: <1389256800-18809-1-git-send-email-vtlam@google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:17371 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751258AbaAJTHU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 14:07:20 -0500
+In-Reply-To: <CAHA+R7NPyEmSpmojrM6pOsAVq3B6NjVWWCw0oQMPZFdCaDW9sA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 9, 2014 at 12:40 AM, Terry Lam <vtlam@google.com> wrote:
-> This is to be compatible with the use of "get_time" (i.e. default
-> time unit in us) in iproute2 patch for HHF as requested by Stephen.
+On 01/10/2014 07:51 PM, Cong Wang wrote:
+> On Fri, Jan 10, 2014 at 5:01 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+>> We can create a vxlan device with an explicit underlying carrier.
+>> In that case, when the carrier link is being deleted from the
+>> system (e.g. due to module unload) we should also clean up all
+>> created vxlan devices on top of it since otherwise we're in an
+>> inconsistent state in vxlan device. In that case, the user needs
+>> to remove all such devices, while in case of other virtual devs
+>> that sit on top of physical ones, it is usually the case that
+>> these devices do unregister automatically as well and do not
+>> leave the burden on the user.
+>>
+>> This work is not necessary when vxlan device was not created with
+>> a real underlying device, as connections can resume in that case
+>> when driver is plugged again. But at least for the other cases,
+>> we should go ahead and do the cleanup on removal.
 >
-> Signed-off-by: Terry Lam <vtlam@google.com>
-> ---
->  net/sched/sch_hhf.c | 12 ++++++------
->  1 file changed, 6 insertions(+), 6 deletions(-)
+> So it makes sense to move the notifier register to vxlan_newlink()
+> from vxlan_init_module()?
+
+That is probably a design descision ... I didn't want to bloat the
+struct vxlan_dev, and by this approach, we can simply batch removals
+through unregister_netdevice_many(), that's all.
+
+> ...
+>>
+>> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+>> index 481f85d..39035ba 100644
+>> --- a/drivers/net/vxlan.c
+>> +++ b/drivers/net/vxlan.c
+>> @@ -2656,6 +2656,54 @@ static struct rtnl_link_ops vxlan_link_ops __read_mostly = {
+>>          .fill_info      = vxlan_fill_info,
+>>   };
+>>
+>> +static void vxlan_handle_lowerdev_unregister(struct vxlan_net *vn,
+>> +                                            struct net_device *dev)
+>> +{
+>> +       struct vxlan_dev *vxlan, *next;
+>> +       LIST_HEAD(list_kill);
+>> +
+>> +       BUG_ON(!rtnl_is_locked());
 >
-> diff --git a/net/sched/sch_hhf.c b/net/sched/sch_hhf.c
-> index cf7f614..1cf84a9 100644
-> --- a/net/sched/sch_hhf.c
-> +++ b/net/sched/sch_hhf.c
-> @@ -574,18 +574,18 @@ static int hhf_change(struct Qdisc *sch, struct nlattr *opt)
->                 q->hh_flows_limit = nla_get_u32(tb[TCA_HHF_HH_FLOWS_LIMIT]);
 >
->         if (tb[TCA_HHF_RESET_TIMEOUT]) {
-> -               u32 ms = nla_get_u32(tb[TCA_HHF_RESET_TIMEOUT]);
-> +               u32 us = nla_get_u32(tb[TCA_HHF_RESET_TIMEOUT]);
+> This is not necessary at all, it is known that netdev notication
+> holds rtnl lock.
+
+We're not in fast-path, and if someone would call that function outside
+of the notifier chain, it might be good to check if the lock was taken,
+but if there's a strong opinion to not have that, I'll just remove it.
+
+>> +
+>> +       list_for_each_entry_safe(vxlan, next, &vn->vxlan_list, next) {
+>> +               struct vxlan_rdst *dst = &vxlan->default_dst;
+>> +
+>> +               /* In case we created vxlan device with carrier
+>> +                * and we loose the carrier due to module unload
+>> +                * we also need to remove vxlan device. In other
+>> +                * cases, it's not necessary and remote_ifindex
+>> +                * is 0 here, so no matches.
+>> +                */
+>> +               if (dst->remote_ifindex == dev->ifindex)
+>> +                       vxlan_dellink(vxlan->dev, &list_kill);
+>> +       }
+>> +
+>> +       unregister_netdevice_many(&list_kill);
+>> +       list_del(&list_kill);
 >
-> -               q->hhf_reset_timeout = msecs_to_jiffies(ms);
-> +               q->hhf_reset_timeout = usecs_to_jiffies(us);
->         }
 >
->         if (tb[TCA_HHF_ADMIT_BYTES])
->                 q->hhf_admit_bytes = nla_get_u32(tb[TCA_HHF_ADMIT_BYTES]);
+> I think you need to flush fdb as well?
+
+Seems this is not done through normal rtnl_ops->dellink(); vxlan_dellink()
+is what we call there as well ...
+
+>>   static __net_init int vxlan_init_net(struct net *net)
+>>   {
+>>          struct vxlan_net *vn = net_generic(net, vxlan_net_id);
+>> @@ -2673,14 +2721,16 @@ static __net_init int vxlan_init_net(struct net *net)
+>>   static __net_exit void vxlan_exit_net(struct net *net)
+>>   {
+>>          struct vxlan_net *vn = net_generic(net, vxlan_net_id);
+>> -       struct vxlan_dev *vxlan;
+>> -       LIST_HEAD(list);
+>> +       struct vxlan_dev *vxlan, *next;
+>> +       LIST_HEAD(list_kill);
+>>
+>>          rtnl_lock();
+>> -       list_for_each_entry(vxlan, &vn->vxlan_list, next)
+>> -               unregister_netdevice_queue(vxlan->dev, &list);
+>> -       unregister_netdevice_many(&list);
+>> +       list_for_each_entry_safe(vxlan, next, &vn->vxlan_list, next)
+>> +               vxlan_dellink(vxlan->dev, &list_kill);
+>> +       unregister_netdevice_many(&list_kill);
+>>          rtnl_unlock();
+>> +
+>> +       list_del(&list_kill);
 >
->         if (tb[TCA_HHF_EVICT_TIMEOUT]) {
-> -               u32 ms = nla_get_u32(tb[TCA_HHF_EVICT_TIMEOUT]);
-> +               u32 us = nla_get_u32(tb[TCA_HHF_EVICT_TIMEOUT]);
 >
-> -               q->hhf_evict_timeout = msecs_to_jiffies(ms);
-> +               q->hhf_evict_timeout = usecs_to_jiffies(us);
->         }
->
->         qlen = sch->q.qlen;
-> @@ -684,10 +684,10 @@ static int hhf_dump(struct Qdisc *sch, struct sk_buff *skb)
->             nla_put_u32(skb, TCA_HHF_QUANTUM, q->quantum) ||
->             nla_put_u32(skb, TCA_HHF_HH_FLOWS_LIMIT, q->hh_flows_limit) ||
->             nla_put_u32(skb, TCA_HHF_RESET_TIMEOUT,
-> -                       jiffies_to_msecs(q->hhf_reset_timeout)) ||
-> +                       jiffies_to_usecs(q->hhf_reset_timeout)) ||
->             nla_put_u32(skb, TCA_HHF_ADMIT_BYTES, q->hhf_admit_bytes) ||
->             nla_put_u32(skb, TCA_HHF_EVICT_TIMEOUT,
-> -                       jiffies_to_msecs(q->hhf_evict_timeout)) ||
-> +                       jiffies_to_usecs(q->hhf_evict_timeout)) ||
->             nla_put_u32(skb, TCA_HHF_NON_HH_WEIGHT, q->hhf_non_hh_weight))
->                 goto nla_put_failure;
->
-> --
-> 1.8.5.1
->
-Acked-by: Nandita Dukkipati <nanditad@google.com>
+> Why these changes in vxlan_exit_net()?
+
+I think this is way cleaner; instead of only doing half the work, we
+should remove it in the same way as we remove devices through normal
+rtnl ops. In case we would do allocations in future that are being
+freed during vxlan_dellink(), we would simply leak them here otherwise.
