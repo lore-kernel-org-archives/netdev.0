@@ -1,30 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netfilter updates for net-next
-Date: Fri, 10 Jan 2014 14:51:02 -0500 (EST)
-Message-ID: <20140110.145102.1699172064425047580.davem@davemloft.net>
-References: <1389380158-8754-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH-next] intel ethernet: fix s390 build failure due to
+ implicit prefetch.h
+Date: Fri, 10 Jan 2014 14:52:29 -0500 (EST)
+Message-ID: <20140110.145229.334617909103085999.davem@davemloft.net>
+References: <1389382096-17122-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, mitch.a.williams@intel.com,
+	gregory.v.rose@intel.com, sibai.li@intel.com,
+	jeffrey.t.kirsher@intel.com
+To: paul.gortmaker@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42110 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42118 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751258AbaAJTvG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 14:51:06 -0500
-In-Reply-To: <1389380158-8754-1-git-send-email-pablo@netfilter.org>
+	with ESMTP id S1752235AbaAJTwb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 14:52:31 -0500
+In-Reply-To: <1389382096-17122-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Fri, 10 Jan 2014 19:55:57 +0100
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Fri, 10 Jan 2014 14:28:16 -0500
 
-> This batch contains one single patch with the l2tp match
-> for xtables, from James Chapman.
+> As of commit 7f12ad741a4870b8b6e3aafbcd868d0191770802 ("i40evf: transmit
+> and receive functionality") the s390 builds (allyesconfig) fail with:
 > 
-> You can pull these changes from:
+> drivers/net/ethernet/intel/i40evf/i40e_txrx.c: In function 'i40e_clean_rx_irq':
+> drivers/net/ethernet/intel/i40evf/i40e_txrx.c:818:3: error: implicit declaration of function 'prefetch'
+> make[5]: *** [drivers/net/ethernet/intel/i40evf/i40e_txrx.o] Error 1
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
+> due to an implicit assumption that the prototype from linux/prefetch.h
+> will be present.
+> 
+> Cc: Mitch Williams <mitch.a.williams@intel.com>
+> Cc: Greg Rose <gregory.v.rose@intel.com>
+> Cc: Sibai Li <sibai.li@intel.com>
+> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-Pulled, thanks Pablo.
+I hope the Intel folks will pick this up quickly and push it to me.
