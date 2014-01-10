@@ -1,184 +1,109 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 14/23] netfilter: nf_tables: fix chain type module reference handling
-Date: Fri, 10 Jan 2014 01:35:33 +0100
-Message-ID: <1389314142-17969-15-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 12/23] netfilter: nf_tables: restore chain change atomicity
+Date: Fri, 10 Jan 2014 01:35:31 +0100
+Message-ID: <1389314142-17969-13-git-send-email-pablo@netfilter.org>
 References: <1389314142-17969-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:51548 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757176AbaAJAgK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jan 2014 19:36:10 -0500
 In-Reply-To: <1389314142-17969-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Patrick McHardy <kaber@trash.net>
 
-The chain type module reference handling makes no sense at all: we take
-a reference immediately when the module is registered, preventing the
-module from ever being unloaded.
+Chain counter validation is performed after the chain policy has
+potentially been changed. Move counter validation/setting before
+changing of the chain policy to fix this.
 
-Fix by taking a reference when we're actually creating a chain of the
-chain type and release the reference when destroying the chain.
+Additionally fix a memory leak if chain counter allocation fails
+for new chains, remove an unnecessary free_percpu() and move
+counter allocation for new chains
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_tables.h |    2 +-
- net/netfilter/nf_tables_api.c     |   45 ++++++++++++++++++++-----------------
- 2 files changed, 25 insertions(+), 22 deletions(-)
+ net/netfilter/nf_tables_api.c |   43 ++++++++++++++++++++---------------------
+ 1 file changed, 21 insertions(+), 22 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index 5d2b703..e9b9786 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -436,7 +436,7 @@ struct nft_stats {
-  */
- struct nft_base_chain {
- 	struct nf_hook_ops		ops[NFT_HOOK_OPS_MAX];
--	enum nft_chain_type		type;
-+	struct nf_chain_type		*type;
- 	u8				policy;
- 	struct nft_stats __percpu	*stats;
- 	struct nft_chain		chain;
 diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 290472c..d913fb0 100644
+index 30fad4f..d275d38 100644
 --- a/net/netfilter/nf_tables_api.c
 +++ b/net/netfilter/nf_tables_api.c
-@@ -126,27 +126,29 @@ static inline u64 nf_tables_alloc_handle(struct nft_table *table)
+@@ -880,9 +880,6 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
+ 		    !IS_ERR(nf_tables_chain_lookup(table, nla[NFTA_CHAIN_NAME])))
+ 			return -EEXIST;
  
- static struct nf_chain_type *chain_type[AF_MAX][NFT_CHAIN_T_MAX];
- 
--static int __nf_tables_chain_type_lookup(int family, const struct nlattr *nla)
-+static struct nf_chain_type *
-+__nf_tables_chain_type_lookup(int family, const struct nlattr *nla)
- {
- 	int i;
- 
--	for (i=0; i<NFT_CHAIN_T_MAX; i++) {
-+	for (i = 0; i < NFT_CHAIN_T_MAX; i++) {
- 		if (chain_type[family][i] != NULL &&
- 		    !nla_strcmp(nla, chain_type[family][i]->name))
--			return i;
-+			return chain_type[family][i];
- 	}
--	return -1;
-+	return NULL;
- }
- 
--static int nf_tables_chain_type_lookup(const struct nft_af_info *afi,
--				       const struct nlattr *nla,
--				       bool autoload)
-+static struct nf_chain_type *
-+nf_tables_chain_type_lookup(const struct nft_af_info *afi,
-+			    const struct nlattr *nla,
-+			    bool autoload)
- {
--	int type;
-+	struct nf_chain_type *type;
- 
- 	type = __nf_tables_chain_type_lookup(afi->family, nla);
- #ifdef CONFIG_MODULES
--	if (type < 0 && autoload) {
-+	if (type == NULL && autoload) {
- 		nfnl_unlock(NFNL_SUBSYS_NFTABLES);
- 		request_module("nft-chain-%u-%*.s", afi->family,
- 			       nla_len(nla)-1, (const char *)nla_data(nla));
-@@ -478,10 +480,6 @@ int nft_register_chain_type(struct nf_chain_type *ctype)
- 		err = -EBUSY;
- 		goto out;
- 	}
+-		if (nla[NFTA_CHAIN_POLICY])
+-			nft_base_chain(chain)->policy = policy;
 -
--	if (!try_module_get(ctype->me))
--		goto out;
--
- 	chain_type[ctype->family][ctype->type] = ctype;
- out:
- 	nfnl_unlock(NFNL_SUBSYS_NFTABLES);
-@@ -493,7 +491,6 @@ void nft_unregister_chain_type(struct nf_chain_type *ctype)
- {
- 	nfnl_lock(NFNL_SUBSYS_NFTABLES);
- 	chain_type[ctype->family][ctype->type] = NULL;
--	module_put(ctype->me);
- 	nfnl_unlock(NFNL_SUBSYS_NFTABLES);
- }
- EXPORT_SYMBOL_GPL(nft_unregister_chain_type);
-@@ -617,9 +614,8 @@ static int nf_tables_fill_chain_info(struct sk_buff *skb, u32 portid, u32 seq,
- 				 htonl(basechain->policy)))
- 			goto nla_put_failure;
- 
--		if (nla_put_string(skb, NFTA_CHAIN_TYPE,
--			chain_type[ops->pf][nft_base_chain(chain)->type]->name))
--				goto nla_put_failure;
-+		if (nla_put_string(skb, NFTA_CHAIN_TYPE, basechain->type->name))
-+			goto nla_put_failure;
- 
- 		if (nft_dump_stats(skb, nft_base_chain(chain)->stats))
- 			goto nla_put_failure;
-@@ -900,16 +896,17 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 		return -EOVERFLOW;
- 
- 	if (nla[NFTA_CHAIN_HOOK]) {
-+		struct nf_chain_type *type;
- 		struct nf_hook_ops *ops;
- 		nf_hookfn *hookfn;
- 		u32 hooknum, priority;
--		int type = NFT_CHAIN_T_DEFAULT;
- 
-+		type = chain_type[family][NFT_CHAIN_T_DEFAULT];
- 		if (nla[NFTA_CHAIN_TYPE]) {
- 			type = nf_tables_chain_type_lookup(afi,
- 							   nla[NFTA_CHAIN_TYPE],
- 							   create);
--			if (type < 0)
-+			if (type == NULL)
- 				return -ENOENT;
+ 		if (nla[NFTA_CHAIN_COUNTERS]) {
+ 			if (!(chain->flags & NFT_BASE_CHAIN))
+ 				return -EOPNOTSUPP;
+@@ -893,6 +890,9 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
+ 				return err;
  		}
  
-@@ -926,9 +923,11 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 			return -EINVAL;
- 		priority = ntohl(nla_get_be32(ha[NFTA_HOOK_PRIORITY]));
++		if (nla[NFTA_CHAIN_POLICY])
++			nft_base_chain(chain)->policy = policy;
++
+ 		if (nla[NFTA_CHAIN_HANDLE] && name)
+ 			nla_strlcpy(chain->name, name, NFT_CHAIN_MAXNAMELEN);
  
--		if (!(chain_type[family][type]->hook_mask & (1 << hooknum)))
-+		if (!(type->hook_mask & (1 << hooknum)))
- 			return -EOPNOTSUPP;
--		hookfn = chain_type[family][type]->fn[hooknum];
-+		if (!try_module_get(type->me))
-+			return -ENOENT;
-+		hookfn = type->fn[hooknum];
- 
- 		basechain = kzalloc(sizeof(*basechain), GFP_KERNEL);
+@@ -934,6 +934,24 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
  		if (basechain == NULL)
-@@ -938,6 +937,7 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 			err = nf_tables_counters(basechain,
- 						 nla[NFTA_CHAIN_COUNTERS]);
- 			if (err < 0) {
-+				module_put(type->me);
- 				kfree(basechain);
- 				return err;
- 			}
-@@ -946,6 +946,7 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
+ 			return -ENOMEM;
  
- 			newstats = alloc_percpu(struct nft_stats);
- 			if (newstats == NULL) {
-+				module_put(type->me);
- 				kfree(basechain);
- 				return -ENOMEM;
- 			}
-@@ -987,6 +988,7 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 	    chain->flags & NFT_BASE_CHAIN) {
- 		err = nf_register_hooks(nft_base_chain(chain)->ops, afi->nops);
- 		if (err < 0) {
-+			module_put(basechain->type->me);
- 			free_percpu(basechain->stats);
- 			kfree(basechain);
- 			return err;
-@@ -1007,6 +1009,7 @@ static void nf_tables_rcu_chain_destroy(struct rcu_head *head)
- 	BUG_ON(chain->use > 0);
++		if (nla[NFTA_CHAIN_COUNTERS]) {
++			err = nf_tables_counters(basechain,
++						 nla[NFTA_CHAIN_COUNTERS]);
++			if (err < 0) {
++				kfree(basechain);
++				return err;
++			}
++		} else {
++			struct nft_stats __percpu *newstats;
++
++			newstats = alloc_percpu(struct nft_stats);
++			if (newstats == NULL) {
++				kfree(basechain);
++				return -ENOMEM;
++			}
++			rcu_assign_pointer(basechain->stats, newstats);
++		}
++
+ 		basechain->type = type;
+ 		chain = &basechain->chain;
  
- 	if (chain->flags & NFT_BASE_CHAIN) {
-+		module_put(nft_base_chain(chain)->type->me);
- 		free_percpu(nft_base_chain(chain)->stats);
- 		kfree(nft_base_chain(chain));
- 	} else
+@@ -953,25 +971,6 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
+ 
+ 		chain->flags |= NFT_BASE_CHAIN;
+ 		basechain->policy = policy;
+-
+-		if (nla[NFTA_CHAIN_COUNTERS]) {
+-			err = nf_tables_counters(basechain,
+-						 nla[NFTA_CHAIN_COUNTERS]);
+-			if (err < 0) {
+-				free_percpu(basechain->stats);
+-				kfree(basechain);
+-				return err;
+-			}
+-		} else {
+-			struct nft_stats __percpu *newstats;
+-
+-			newstats = alloc_percpu(struct nft_stats);
+-			if (newstats == NULL)
+-				return -ENOMEM;
+-
+-			rcu_assign_pointer(nft_base_chain(chain)->stats,
+-					   newstats);
+-		}
+ 	} else {
+ 		chain = kzalloc(sizeof(*chain), GFP_KERNEL);
+ 		if (chain == NULL)
 -- 
 1.7.10.4
-
