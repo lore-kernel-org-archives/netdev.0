@@ -1,68 +1,97 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [net-next v2 14/17] i40e: enable PTP
-Date: Fri, 10 Jan 2014 21:42:51 +0000
-Message-ID: <1389390171.8039.21.camel@jekeller-desk1.amr.corp.intel.com>
-References: <1389385839-11996-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1389385839-11996-15-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1389386245.2025.98.camel@bwh-desktop.uk.level5networks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] bridge: move br_net_exit() to br.c
+Date: Fri, 10 Jan 2014 13:58:47 -0800
+Message-ID: <1389391127-3881-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:63027 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751986AbaAJVmw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 16:42:52 -0500
-In-Reply-To: <1389386245.2025.98.camel@bwh-desktop.uk.level5networks.com>
-Content-Language: en-US
-Content-ID: <F2B51740FEB5D14E8A5C5A934D3BA049@intel.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:37156 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751986AbaAJV67 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 16:58:59 -0500
+Received: by mail-pa0-f47.google.com with SMTP id kq14so5281117pab.34
+        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 13:58:58 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCAyMDE0LTAxLTEwIGF0IDIwOjM3ICswMDAwLCBCZW4gSHV0Y2hpbmdzIHdyb3RlOg0K
-PiBPbiBGcmksIDIwMTQtMDEtMTAgYXQgMTI6MzAgLTA4MDAsIEplZmYgS2lyc2hlciB3cm90ZToN
-Cj4gPiBGcm9tOiBKYWNvYiBLZWxsZXIgPGphY29iLmUua2VsbGVyQGludGVsLmNvbT4NCj4gPiAN
-Cj4gPiBOZXcgZmVhdHVyZTogRW5hYmxlIFBUUCBzdXBwb3J0IGluIHRoZSBpNDBlIGRyaXZlci4N
-Cj4gPiANCj4gPiBDaGFuZ2UtSUQ6IEk2YThlNzk5ZjU4MjcwNTE5MWY5NTgzYWZiMWI5MjMxYThk
-Yjk2Y2M4DQo+ID4gQ2M6IFJpY2hhcmQgQ29jaHJhbiA8cmljaGFyZGNvY2hyYW5AZ21haWwuY29t
-Pg0KPiA+IENjOiBCZW4gSHV0Y2hpbmdzIDxiaHV0Y2hpbmdzQHNvbGFyZmxhcmUuY29tPg0KPiA+
-IFNpZ25lZC1vZmYtYnk6IE1hdHRoZXcgVmljayA8bWF0dGhldy52aWNrQGludGVsLmNvbT4NCj4g
-PiBTaWduZWQtb2ZmLWJ5OiBKYWNvYiBLZWxsZXIgPGphY29iLmUua2VsbGVyQGludGVsLmNvbT4N
-Cj4gPiBTaWduZWQtb2ZmLWJ5OiBKZXNzZSBCcmFuZGVidXJnIDxqZXNzZS5icmFuZGVidXJnQGlu
-dGVsLmNvbT4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJz
-aGVyQGludGVsLmNvbT4NCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
-S2NvbmZpZyAgICAgICAgICAgICB8ICAgMSArDQo+ID4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2lu
-dGVsL2k0MGUvTWFrZWZpbGUgICAgICAgfCAgIDEgKw0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5l
-dC9pbnRlbC9pNDBlL2k0MGUuaCAgICAgICAgIHwgIDI2ICsNCj4gPiAgZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvaW50ZWwvaTQwZS9pNDBlX2V0aHRvb2wuYyB8ICAzMyArLQ0KPiA+ICBkcml2ZXJzL25l
-dC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfbWFpbi5jICAgIHwgIDQ3ICstDQo+ID4gIGRyaXZl
-cnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV9wdHAuYyAgICAgfCA2NjIgKysrKysrKysr
-KysrKysrKysrKysrKysrKw0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0
-MGVfdHhyeC5jICAgIHwgIDUzICsrDQo+ID4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0
-MGUvaTQwZV90eHJ4LmggICAgfCAgIDMgKw0KPiA+ICA4IGZpbGVzIGNoYW5nZWQsIDgyNCBpbnNl
-cnRpb25zKCspLCAyIGRlbGV0aW9ucygtKQ0KPiA+ICBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX3B0cC5jDQo+ID4gDQo+ID4gZGlmZiAtLWdp
-dCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL0tjb25maWcgYi9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9pbnRlbC9LY29uZmlnDQo+ID4gaW5kZXggOWZiMmViOC4uMzMzYmI1NCAxMDA2NDQNCj4g
-PiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9LY29uZmlnDQo+ID4gKysrIGIvZHJp
-dmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvS2NvbmZpZw0KPiBbLi4uXQ0KPiA+ICt2b2lkIGk0MGVf
-cHRwX2luaXQoc3RydWN0IGk0MGVfcGYgKnBmKQ0KPiA+ICt7DQo+ID4gKwlzdHJ1Y3QgaTQwZV9o
-dyAqaHcgPSAmcGYtPmh3Ow0KPiA+ICsJc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiA9IHBmLT52
-c2lbcGYtPmxhbl92c2ldLT5uZXRkZXY7DQo+ID4gKw0KPiA+ICsJc3RybmNweShwZi0+cHRwX2Nh
-cHMubmFtZSwgbmV0ZGV2LT5uYW1lLCBzaXplb2YocGYtPnB0cF9jYXBzLm5hbWUpKTsNCj4gWy4u
-Ll0NCj4gDQo+IEkgcmVjb21tZW5kZWQgdXNpbmcgdGhlICpkcml2ZXIqIG5hbWUgYXMgdGhlIGNs
-b2NrIG5hbWUuICBUaGUgbmV0IGRldmljZQ0KPiBkb2Vzbid0IGV2ZW4gaGF2ZSBhIHByb3BlciBu
-YW1lIGF0IHRoaXMgcG9pbnQuDQo+IA0KPiBCZW4uDQo+IA0KDQpXZSB1c2UgbmV0ZGV2LT5uYW1l
-IGEgZmV3IGxpbmVzIGZhcnRoZXIgZG93bi4uIHNob3VsZCB0aGF0IGJlIGNoYW5nZWQgYXMNCndl
-bGw/IFNvcnJ5IGFib3V0IHRoaXMgb25lLiBUaGUgaXhnYmUgZHJpdmVyIGluaXRpYWxpemVzIGNs
-b2NrIGF0IG9wZW4NCmluc3RlYWQgb2YgYXQgaW5pdCwgc28gaXQgaGFzIGEgdmFsaWQgY2xvY2sg
-bmFtZSBhbHJlYWR5Lg0KDQpSZWdhcmRzLA0KSmFrZQ0K
+And it can become static.
+
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+
+---
+diff --git a/net/bridge/br.c b/net/bridge/br.c
+index ba780cc..19311aa 100644
+--- a/net/bridge/br.c
++++ b/net/bridge/br.c
+@@ -22,14 +22,29 @@
+ 
+ #include "br_private.h"
+ 
+-static const struct stp_proto br_stp_proto = {
+-	.rcv	= br_stp_rcv,
+-};
++static void __net_exit br_net_exit(struct net *net)
++{
++	struct net_device *dev;
++	LIST_HEAD(list);
++
++	rtnl_lock();
++	for_each_netdev(net, dev)
++		if (dev->priv_flags & IFF_EBRIDGE)
++			br_dev_delete(dev, &list);
++
++	unregister_netdevice_many(&list);
++	rtnl_unlock();
++
++}
+ 
+ static struct pernet_operations br_net_ops = {
+ 	.exit	= br_net_exit,
+ };
+ 
++static const struct stp_proto br_stp_proto = {
++	.rcv	= br_stp_rcv,
++};
++
+ static int __init br_init(void)
+ {
+ 	int err;
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index 1f6bd1e..cffe1d6 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -455,18 +455,3 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
+ 
+ 	return 0;
+ }
+-
+-void __net_exit br_net_exit(struct net *net)
+-{
+-	struct net_device *dev;
+-	LIST_HEAD(list);
+-
+-	rtnl_lock();
+-	for_each_netdev(net, dev)
+-		if (dev->priv_flags & IFF_EBRIDGE)
+-			br_dev_delete(dev, &list);
+-
+-	unregister_netdevice_many(&list);
+-	rtnl_unlock();
+-
+-}
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 3733f15..fcd1233 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -407,7 +407,6 @@ void br_flood_forward(struct net_bridge *br, struct sk_buff *skb,
+ void br_port_carrier_check(struct net_bridge_port *p);
+ int br_add_bridge(struct net *net, const char *name);
+ int br_del_bridge(struct net *net, const char *name);
+-void br_net_exit(struct net *net);
+ int br_add_if(struct net_bridge *br, struct net_device *dev);
+ int br_del_if(struct net_bridge *br, struct net_device *dev);
+ int br_min_mtu(const struct net_bridge *br);
