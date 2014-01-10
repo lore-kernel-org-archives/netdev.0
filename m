@@ -1,48 +1,79 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 08/23] netfilter: nft_ct: load both IPv4 and IPv6
- conntrack modules for NFPROTO_INET
-Date: Fri, 10 Jan 2014 19:59:40 +0000
-Message-ID: <20140110195940.GA24838@macbook.localnet>
-References: <1389314142-17969-9-git-send-email-pablo@netfilter.org>
- <52D05AC6.20000@cogentembedded.com>
- <20140110194235.GA9253@macbook.localnet>
- <20140110.144813.659408334812475090.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sergei.shtylyov@cogentembedded.com, pablo@netfilter.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Scott Feldman <sfeldma@cumulusnetworks.com>
+Subject: Re: [RFC net-next 3/3] bonding: convert packets_per_slave to use the new option API
+Date: Fri, 10 Jan 2014 12:04:37 -0800
+Message-ID: <3DA1EFBB-2DA3-4DFF-ABB2-91824873A92B@cumulusnetworks.com>
+References: <1389359495-9700-1-git-send-email-nikolay@redhat.com> <1389359495-9700-4-git-send-email-nikolay@redhat.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.1 \(1827\))
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61913 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751258AbaAJT7q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 14:59:46 -0500
-Content-Disposition: inline
-In-Reply-To: <20140110.144813.659408334812475090.davem@davemloft.net>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:46459 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757857AbaAJUE7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 15:04:59 -0500
+In-Reply-To: <1389359495-9700-4-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 10, 2014 at 02:48:13PM -0500, David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Fri, 10 Jan 2014 19:42:36 +0000
-> 
-> > I can see you're looking out for the important stuff. I consistently
-> > used this style in nftables so I'm not going to change it here.
-> 
-> Patrick, please follow the coding style conventions of the kernel,
-> these issues are important for long term sanity of the kernel tree.
-> 
-> It helps people who are looking at the netfilter code who perhaps
-> do not do so usually.  Do you really want to use a different style
-> and therefore make your code harder to read for them?  Really?
-> 
-> Your code being consistent with your code only is less important than
-> all of the networking looking the same.
-> 
-> Thank you.
 
-I agree to this, in fact style divergences really bother me since they
-divert my attention :) I considered consistency more important for minor
-stuff like this, but I really don't mind to add extra braces.
-But I guess we both agree that its not worth sending patches just to
-change this but just fix this up next time that line is touched.
+On Jan 10, 2014, at 5:11 AM, Nikolay Aleksandrov <nikolay@redhat.com> w=
+rote:
+
+> This patch adds the necessary changes so packets_per_slave would use =
+the
+> new bonding option API.
+>=20
+> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> ---
+> +	[BOND_OPT_PACKETS_PER_SLAVE] =3D {
+> +		.id =3D BOND_OPT_PACKETS_PER_SLAVE,
+> +		.name =3D "packets_per_slave",
+> +		.desc =3D "Packets to send per slave in RR mode",
+> +		.valtype =3D BOND_OPTVAL_INTEGER,
+> +		.unsuppmodes =3D BOND_MODE_ALL_EX(BIT(BOND_MODE_ROUNDROBIN)),
+
+This .unsuppmodes would be hard to generalize as-is since it=92s bond-s=
+pecific.
+
+(*set)() could have done the check also.  Maybe there is a (*check)() f=
+unc to do pre-screening of value before (*set) is called, but after gen=
+eral checks are made?
+
+> +		.values =3D bond_pps_tbl,
+> +		.set =3D bond_option_pps_set
+> +	},
+> 	{ }
+> };
+>=20
+> @@ -982,28 +997,6 @@ int bond_option_lp_interval_set(struct bonding *=
+bond, int lp_interval)
+> 	return 0;
+> }
+>=20
+> -int bond_option_packets_per_slave_set(struct bonding *bond,
+> -				      int packets_per_slave)
+> -{
+> -	if (packets_per_slave < 0 || packets_per_slave > USHRT_MAX) {
+> -		pr_err("%s: packets_per_slave must be between 0 and %u\n",
+> -		       bond->dev->name, USHRT_MAX);
+> -		return -EINVAL;
+> -	}
+> -
+> -	if (bond->params.mode !=3D BOND_MODE_ROUNDROBIN)
+> -		pr_warn("%s: Warning: packets_per_slave has effect only in balance=
+-rr mode\n",
+> -			bond->dev->name);
+> -
+> -	if (packets_per_slave > 1)
+> -		bond->params.packets_per_slave =3D
+> -			reciprocal_value(packets_per_slave);
+> -	else
+> -		bond->params.packets_per_slave =3D packets_per_slave;
+> -
+> -	return 0;
+> -}
+> -
+
+Nice!  Good bye rambling code.
