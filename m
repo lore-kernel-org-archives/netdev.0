@@ -1,90 +1,52 @@
-From: <shh.xie@gmail.com>
-Subject: [PATCH 6/6] [v6] phylib: Add of_phy_attach
-Date: Fri, 10 Jan 2014 14:28:11 +0800
-Message-ID: <1389335291-384-1-git-send-email-shh.xie@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Shaohui.Xie@freescale.com>, Andy Fleming <afleming@gmail.com>
-To: <davem@davemloft.net>, <jg1.han@samsung.com>,
-	<mugunthanvnm@ti.com>, <f.fainelli@gmail.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net V3 1/2] macvlan: forbid L2 fowarding offload for macvtap
+Date: Fri, 10 Jan 2014 16:18:25 +0800
+Message-ID: <1389341906-2367-1-git-send-email-jasowang@redhat.com>
+Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andy Fleming <afleming@gmail.com>
+L2 fowarding offload will bypass the rx handler of real device. This will make
+the packet could not be forwarded to macvtap device. Another problem is the
+dev_hard_start_xmit() called for macvtap does not have any synchronization.
 
-10G PHYs don't currently support running the state machine, which
-is implicitly setup via of_phy_connect(). Therefore, it is necessary
-to implement an OF version of phy_attach(), which does everything
-except start the state machine.
+Fix this by forbidding L2 forwarding for macvtap.
 
-Signed-off-by: Andy Fleming <afleming@gmail.com>
-Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+Cc: John Fastabend <john.r.fastabend@intel.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
-changes for v6:
-rebased on top of 'net-next' tree. commit id 11b57f90257c1.
+ drivers/net/macvlan.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
- drivers/of/of_mdio.c    | 20 ++++++++++++++++++++
- include/linux/of_mdio.h | 10 ++++++++++
- 2 files changed, 30 insertions(+)
-
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index a43b852..875b7b6 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -254,3 +254,23 @@ struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
- 	return IS_ERR(phy) ? NULL : phy;
- }
- EXPORT_SYMBOL(of_phy_connect_fixed_link);
-+
-+/**
-+ * of_phy_attach - Attach to a PHY without starting the state machine
-+ * @dev: pointer to net_device claiming the phy
-+ * @phy_np: Node pointer for the PHY
-+ * @flags: flags to pass to the PHY
-+ * @iface: PHY data interface type
-+ */
-+struct phy_device *of_phy_attach(struct net_device *dev,
-+				 struct device_node *phy_np, u32 flags,
-+				 phy_interface_t iface)
-+{
-+	struct phy_device *phy = of_phy_find_device(phy_np);
-+
-+	if (!phy)
-+		return NULL;
-+
-+	return phy_attach_direct(dev, phy, flags, iface) ? NULL : phy;
-+}
-+EXPORT_SYMBOL(of_phy_attach);
-diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
-index 8163107..6fe8464 100644
---- a/include/linux/of_mdio.h
-+++ b/include/linux/of_mdio.h
-@@ -19,6 +19,9 @@ extern struct phy_device *of_phy_connect(struct net_device *dev,
- 					 struct device_node *phy_np,
- 					 void (*hndlr)(struct net_device *),
- 					 u32 flags, phy_interface_t iface);
-+struct phy_device *of_phy_attach(struct net_device *dev,
-+				 struct device_node *phy_np, u32 flags,
-+				 phy_interface_t iface);
- extern struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
- 					 void (*hndlr)(struct net_device *),
- 					 phy_interface_t iface);
-@@ -44,6 +47,13 @@ static inline struct phy_device *of_phy_connect(struct net_device *dev,
- 	return NULL;
- }
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 60406b0..5360f73 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -338,6 +338,8 @@ static const struct header_ops macvlan_hard_header_ops = {
+ 	.cache_update	= eth_header_cache_update,
+ };
  
-+static inline struct phy_device *of_phy_attach(struct net_device *dev,
-+					       struct device_node *phy_np,
-+					       u32 flags, phy_interface_t iface)
-+{
-+	return NULL;
-+}
++static struct rtnl_link_ops macvlan_link_ops;
 +
- static inline struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
- 							   void (*hndlr)(struct net_device *),
- 							   phy_interface_t iface)
+ static int macvlan_open(struct net_device *dev)
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+@@ -353,7 +355,8 @@ static int macvlan_open(struct net_device *dev)
+ 		goto hash_add;
+ 	}
+ 
+-	if (lowerdev->features & NETIF_F_HW_L2FW_DOFFLOAD) {
++	if (lowerdev->features & NETIF_F_HW_L2FW_DOFFLOAD &&
++	    dev->rtnl_link_ops == &macvlan_link_ops) {
+ 		vlan->fwd_priv =
+ 		      lowerdev->netdev_ops->ndo_dfwd_add_station(lowerdev, dev);
+ 
 -- 
-1.8.4.1
+1.7.1
