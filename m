@@ -1,54 +1,77 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 3/4] net: make tcp_cleanup_rbuf private
-Date: Fri, 10 Jan 2014 10:38:40 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D4579D9@AcuExch.aculab.com>
-References: <20140109201642.28381.82141.stgit@viggo.jf.intel.com>
-	<CADVnQy=Tk68y217cbw7O5apCJV+eOmKMqLNbgAZRa_cxUArdKg@mail.gmail.com>
-	<CAPcyv4hPnCud=MWpsCMNZmK_BwVV8WZHOs7=GQMhymgkv-gNkw@mail.gmail.com>
- <20140109.154232.65818281679170677.davem@davemloft.net>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH v3 net-next 2/3] bonding: fix __get_first_agg RCU usage
+Date: Fri, 10 Jan 2014 18:43:41 +0800
+Message-ID: <52CFCEDD.6030202@huawei.com>
+References: <1389345523-5497-1-git-send-email-vfalico@redhat.com> <1389345523-5497-3-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "ncardwell@google.com" <ncardwell@google.com>,
-	"dmaengine@vger.kernel.org" <dmaengine@vger.kernel.org>,
-	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'David Miller' <davem@davemloft.net>,
-	"dan.j.williams@intel.com" <dan.j.williams@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140109.154232.65818281679170677.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@redhat.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:30694 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751148AbaAJKnx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 05:43:53 -0500
+In-Reply-To: <1389345523-5497-3-git-send-email-vfalico@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller
-...
-> > On Thu, Jan 9, 2014 at 12:26 PM, Neal Cardwell <ncardwell@google.com> wrote:
-> >> On Thu, Jan 9, 2014 at 3:16 PM, Dan Williams <dan.j.williams@intel.com> wrote:
-> >>> net_dma was the only external user so this can become local to tcp.c
-> >>> again.
-> >> ...
-> >>> -void tcp_cleanup_rbuf(struct sock *sk, int copied)
-> >>> +static void cleanup_rbuf(struct sock *sk, int copied)
-> >>
-> >> I would vote to keep the tcp_ prefix. In the TCP code base that is the
-> >> more common idiom, even for internal/static TCP functions, and
-> >> personally I find it easier to read and work with in stack traces,
-> >> etc. My 2 cents.
-> >>
-> >
-> > Ok.  It was cleanup_rbuf() in a former life, but one vote for leaving
-> > the name as is is enough for me.
+On 2014/1/10 17:18, Veaceslav Falico wrote:
+> Currently, the RCU read lock usage is just wrong - it gets the slave struct
+> under RCU and continues to use it when RCU lock is released.
 > 
-> You can make that two votes :)
+> However, it's still safe to do this cause we didn't need the
+> rcu_read_lock() initially - all of the __get_first_agg() callers are either
+> holding RCU read lock or the RTNL lock, so that we can't sync while in it.
+> 
+> So, remove the useless rcu locking and add a comment.
+> 
+> Fixes: be79bd048 ("bonding: add RCU for bond_3ad_state_machine_handler()")
+> CC: dingtianhong@huawei.com
+> CC: Jay Vosburgh <fubar@us.ibm.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> ---
+> 
+> Notes:
+>     v2 -> v3:
+>     Use the rcu primitives.
+>     
+>     v1 -> v2:
+>     Don't use RCU primitives as we can hold RTNL.
+> 
+>  drivers/net/bonding/bond_3ad.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+> index 9ff55eb..27dac0e 100644
+> --- a/drivers/net/bonding/bond_3ad.c
+> +++ b/drivers/net/bonding/bond_3ad.c
+> @@ -143,6 +143,7 @@ static inline struct bonding *__get_bond_by_port(struct port *port)
+>   *
+>   * Return the aggregator of the first slave in @bond, or %NULL if it can't be
+>   * found.
+> + * The caller must hold RCU lock.
+>   */
+>  static inline struct aggregator *__get_first_agg(struct port *port)
+>  {
+> @@ -153,9 +154,7 @@ static inline struct aggregator *__get_first_agg(struct port *port)
+>  	if (bond == NULL)
+>  		return NULL;
+>  
+> -	rcu_read_lock();
+>  	first_slave = bond_first_slave_rcu(bond);
+> -	rcu_read_unlock();
+>  
+I am afraid the lockdep check will calling some warming:
+bond_3ad_unbind_slave -> __get_first_agg -> bond_first_slave_rcu -> netdev_lower_get_first_private_rcu -> list_first_or_null_rcu
 
-I suspect DM adds 2000 votes :-)
+but the bond_3ad_unbind_slave is not in RCU.
 
-Keeping the prefix makes it easier to grep for, and makes it more
-obvious that it isn't a generic function (when being called).
-
-	David
+Regards
+Ding
+>  	return first_slave ? &(SLAVE_AD_INFO(first_slave).aggregator) : NULL;
+>  }
+> 
