@@ -1,54 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/23] netfilter: nft_reject: fix compilation warning
- if NF_TABLES_IPV6 is disabled
-Date: Fri, 10 Jan 2014 14:39:27 -0500 (EST)
-Message-ID: <20140110.143927.1487756638081906180.davem@davemloft.net>
-References: <1389314142-17969-1-git-send-email-pablo@netfilter.org>
-	<1389314142-17969-2-git-send-email-pablo@netfilter.org>
-	<52D05912.1030606@cogentembedded.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 08/23] netfilter: nft_ct: load both IPv4 and IPv6 conntrack
+ modules for NFPROTO_INET
+Date: Fri, 10 Jan 2014 23:40:38 +0300
+Message-ID: <52D05AC6.20000@cogentembedded.com>
+References: <1389314142-17969-1-git-send-email-pablo@netfilter.org> <1389314142-17969-9-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <52D05912.1030606@cogentembedded.com>
+In-Reply-To: <1389314142-17969-9-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Fri, 10 Jan 2014 23:33:22 +0300
+On 01/10/2014 03:35 AM, Pablo Neira Ayuso wrote:
 
-> Hello.
-> 
-> On 01/10/2014 03:35 AM, Pablo Neira Ayuso wrote:
-> 
->> net/netfilter/nft_reject.c: In function 'nft_reject_eval':
->> net/netfilter/nft_reject.c:37:14: warning: unused variable 'net'
->> [-Wunused-variable]
-> 
->> Reported-by: kbuild test robot <fengguang.wu@intel.com>
->> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
->> ---
->>   net/netfilter/nft_reject.c |    3 ++-
->>   1 file changed, 2 insertions(+), 1 deletion(-)
-> 
->> diff --git a/net/netfilter/nft_reject.c b/net/netfilter/nft_reject.c
->> index 0d690d4..7ae63cd 100644
->> --- a/net/netfilter/nft_reject.c
->> +++ b/net/netfilter/nft_reject.c
->> @@ -34,8 +34,9 @@ static void nft_reject_eval(const struct nft_expr
->> *expr,
->>   			      const struct nft_pktinfo *pkt)
->>   {
->>   	struct nft_reject *priv = nft_expr_priv(expr);
->> +#if IS_ENABLED(CONFIG_NF_TABLES_IPV6)
->>   	struct net *net = dev_net((pkt->in != NULL) ? pkt->in : pkt->out);
->> -
-> 
->    Why remove empty line after the declaration block?
+> From: Patrick McHardy <kaber@trash.net>
 
-Because "#endif" sort of serves the same purpose.
+> The ct expression can currently not be used in the inet family since
+> we don't have a conntrack module for NFPROTO_INET, so
+> nf_ct_l3proto_try_module_get() fails. Add some manual handling to
+> load the modules for both NFPROTO_IPV4 and NFPROTO_IPV6 if the
+> ct expression is used in the inet family.
 
-This is what I do too in this situation.
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
+> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> ---
+>   net/netfilter/nft_ct.c |   39 ++++++++++++++++++++++++++++++++++++---
+>   1 file changed, 36 insertions(+), 3 deletions(-)
+
+> diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
+> index 955f4e6..3727a32 100644
+> --- a/net/netfilter/nft_ct.c
+> +++ b/net/netfilter/nft_ct.c
+[...]
+> +static void nft_ct_l3proto_module_put(uint8_t family)
+> +{
+> +	if (family == NFPROTO_INET) {
+> +		nf_ct_l3proto_module_put(NFPROTO_IPV4);
+> +		nf_ct_l3proto_module_put(NFPROTO_IPV6);
+> +	} else
+> +		nf_ct_l3proto_module_put(family);
+
+    According to Documentation/CodingStyle, there should be {} in the *else* 
+arm, as the other arm of *if* statement has it.
+
+> +}
+> +
+
+WBR, Sergei
+
