@@ -1,63 +1,72 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next] sctp: make sctp_addto_chunk_fixed local
-Date: Fri, 10 Jan 2014 09:29:19 -0500
-Message-ID: <20140110142919.GB10111@neilslaptop.think-freely.org>
-References: <20140109223111.71e55286@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH net V3 2/2] net: core: explicitly select a
+ txq before doing l2 forwarding
+Date: Fri, 10 Jan 2014 09:30:38 -0500
+Message-ID: <20140110143038.GC10111@neilslaptop.think-freely.org>
+References: <1389341906-2367-1-git-send-email-jasowang@redhat.com>
+	<1389341906-2367-2-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53197 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751526AbaAJO3n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 09:29:43 -0500
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	John Fastabend <john.r.fastabend@intel.com>, davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-In-Reply-To: <20140109223111.71e55286@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1389341906-2367-2-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 09, 2014 at 10:31:11PM -0800, Stephen Hemminger wrote:
+On Fri, Jan 10, 2014 at 04:18:26PM +0800, Jason Wang wrote:
+> Currently, the tx queue were selected implicitly in ndo_dfwd_start_xmit(). The
+> will cause several issues:
 > 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> - NETIF_F_LLTX were removed for macvlan, so txq lock were done for macvlan
+>   instead of lower device which misses the necessary txq synchronization for
+>   lower device such as txq stopping or frozen required by dev watchdog or
+>   control path.
+> - dev_hard_start_xmit() was called with NULL txq which bypasses the net device
+>   watchdog.
+> - dev_hard_start_xmit() does not check txq everywhere which will lead a crash
+>   when tso is disabled for lower device.
 > 
-> ---
->  include/net/sctp/structs.h |    1 -
->  net/sctp/sm_make_chunk.c   |    6 ++++--
->  2 files changed, 4 insertions(+), 3 deletions(-)
+> Fix this by explicitly introducing a new param for .ndo_select_queue() for just
+> selecting queues in the case of l2 forwarding offload. netdev_pick_tx() was also
+> extended to accept this parameter and dev_queue_xmit_accel() was used to do l2
+> forwarding transmission.
 > 
-> --- a/include/net/sctp/structs.h	2014-01-09 22:29:51.871663405 -0800
-> +++ b/include/net/sctp/structs.h	2014-01-09 22:29:58.323581984 -0800
-> @@ -649,7 +649,6 @@ int sctp_user_addto_chunk(struct sctp_ch
->  			  struct iovec *data);
->  void sctp_chunk_free(struct sctp_chunk *);
->  void  *sctp_addto_chunk(struct sctp_chunk *, int len, const void *data);
-> -void  *sctp_addto_chunk_fixed(struct sctp_chunk *, int len, const void *data);
->  struct sctp_chunk *sctp_chunkify(struct sk_buff *,
->  				 const struct sctp_association *,
->  				 struct sock *);
-> --- a/net/sctp/sm_make_chunk.c	2014-01-09 22:29:51.871663405 -0800
-> +++ b/net/sctp/sm_make_chunk.c	2014-01-09 22:29:58.323581984 -0800
-> @@ -78,6 +78,8 @@ static int sctp_process_param(struct sct
->  			      gfp_t gfp);
->  static void *sctp_addto_param(struct sctp_chunk *chunk, int len,
->  			      const void *data);
-> +static void  *sctp_addto_chunk_fixed(struct sctp_chunk *, int len,
-> +				     const void *data);
->  
->  /* Control chunk destructor */
->  static void sctp_control_release_owner(struct sk_buff *skb)
-> @@ -1475,8 +1477,8 @@ void *sctp_addto_chunk(struct sctp_chunk
->  /* Append bytes to the end of a chunk. Returns NULL if there isn't sufficient
->   * space in the chunk
->   */
-> -void *sctp_addto_chunk_fixed(struct sctp_chunk *chunk,
-> -			     int len, const void *data)
-> +static void *sctp_addto_chunk_fixed(struct sctp_chunk *chunk,
-> +				    int len, const void *data)
->  {
->  	if (skb_tailroom(chunk->skb) >= len)
->  		return sctp_addto_chunk(chunk, len, data);
+> With this fixes, NETIF_F_LLTX could be preserved for macvlan and there's no need
+> to check txq against NULL in dev_hard_start_xmit(). Also there's no need to keep
+> a dedicated ndo_dfwd_start_xmit() and we can just reuse the code of
+> dev_queue_xmit() to do the transmission.
+> 
+> In the future, it was also required for macvtap l2 forwarding support since it
+> provides a necessary synchronization method.
+> 
+> Cc: John Fastabend <john.r.fastabend@intel.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Cc: e1000-devel@lists.sourceforge.net
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 > 
 Acked-by: Neil Horman <nhorman@tuxdriver.com>
+
+
+------------------------------------------------------------------------------
+CenturyLink Cloud: The Leader in Enterprise Cloud Services.
+Learn Why More Businesses Are Choosing CenturyLink Cloud For
+Critical Workloads, Development Environments & Everything In Between.
+Get a Quote or Start a Free Trial Today. 
+http://pubads.g.doubleclick.net/gampad/clk?id=119420431&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
