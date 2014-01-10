@@ -1,129 +1,164 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Check skb->rxhash in gro_receive
-Date: Fri, 10 Jan 2014 12:43:49 -0800
-Message-ID: <1389386629.31367.142.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.DEB.2.02.1401092051020.25554@tomh.mtv.corp.google.com>
-	 <1389332287.31367.88.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+mtBx_c=we-13b0Vyrim0=kArhx0OYY1P99HwUeuR2w87hRFw@mail.gmail.com>
-	 <1389375935.31367.102.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+mtBx-8=tiYw=-_TydO0bC_tJXK6MqxjnZQaCXqUtxLSF7xhQ@mail.gmail.com>
-	 <1389380077.31367.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+mtBx-OHxHCTQO50F9_aw=T8VSg93E2eCkzdLL3PZapcR-CFQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH v2 net-next] net: vxlan: when lower dev unregisters remove vxlan dev as well
+Date: Fri, 10 Jan 2014 21:46:20 +0100
+Message-ID: <1389386780-24827-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f43.google.com ([209.85.213.43]:39050 "EHLO
-	mail-yh0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754213AbaAJUnw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 15:43:52 -0500
-Received: by mail-yh0-f43.google.com with SMTP id a41so1506420yho.30
-        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 12:43:51 -0800 (PST)
-In-Reply-To: <CA+mtBx-OHxHCTQO50F9_aw=T8VSg93E2eCkzdLL3PZapcR-CFQ@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:16781 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751209AbaAJUqX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 15:46:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-01-10 at 11:42 -0800, Tom Herbert wrote:
-> > Really, 99% of the time gro_list contains zero or one single slot, I
-> > have hard data saying so.
-> >
-> Please provide the data.
+We can create a vxlan device with an explicit underlying carrier.
+In that case, when the carrier link is being deleted from the
+system (e.g. due to module unload) we should also clean up all
+created vxlan devices on top of it since otherwise we're in an
+inconsistent state in vxlan device. In that case, the user needs
+to remove all such devices, while in case of other virtual devs
+that sit on top of physical ones, it is usually the case that
+these devices do unregister automatically as well and do not
+leave the burden on the user.
 
-Based on a Google patch you can run on your lab host. 
+This work is not necessary when vxlan device was not created with
+a real underlying device, as connections can resume in that case
+when driver is plugged again. But at least for the other cases,
+we should go ahead and do the cleanup on removal.
 
-lpaa5:~# ethtool -S eth1|egrep "rx_packets|gro"
-     rx_packets: 235709959
-     gro_complete[0]: 5895809
-     gro_overflows[0]: 1495
-     gro_nogro[0]: 63584
-     gro_msgs[0]: 9791617
-     gro_segs[0]: 52290544
-     gro_flush[0]: 25
-     gro_complete[1]: 6464583
-     gro_overflows[1]: 5920
-     gro_nogro[1]: 74680
-     gro_msgs[1]: 11797481
-     gro_segs[1]: 62081299
-     gro_flush[1]: 35
-     gro_complete[2]: 6289929
-     gro_overflows[2]: 4016
-     gro_nogro[2]: 71479
-     gro_msgs[2]: 11111473
-     gro_segs[2]: 58518690
-     gro_flush[2]: 42
-     gro_complete[3]: 6448928
-     gro_overflows[3]: 6781
-     gro_nogro[3]: 76417
-     gro_msgs[3]: 11845717
-     gro_segs[3]: 62730931
-     gro_flush[3]: 42
-     gro_complete: 25099249
-     gro_overflows: 18212
-     gro_nogro: 286160
-     gro_msgs: 44546288
-     gro_segs: 235621464
-     gro_flush: 144
+We don't register the notifier during vxlan_newlink() here since
+I consider this event rather rare, and therefore we should not
+bloat vxlan's core structure unecessary. Also, we can simply make
+use of unregister_netdevice_many() to batch that.
 
-The key is the gro_complete thing, meaning that most NAPI poll are
-completed and GRO list flushed.
+E.g. `ip -d link show vxlan13` after carrier removal before
+this patch:
 
-Here the results are from a synthetic bench (400 concurrent TCP_STREAM),
-very small number of RX queues (trying to force stress load you want),
-increase coalescing parameters on the NIC (to really try to increase
-batches load), plenty of ECN marking to force GRO flushes, and even so,
-you can see :
+5: vxlan13: <BROADCAST,MULTICAST> mtu 1450 qdisc noop state DOWN mode DEFAULT group default
+    link/ether 1e:47:da:6d:4d:99 brd ff:ff:ff:ff:ff:ff promiscuity 0
+    vxlan id 13 group 239.0.0.10 dev 2 port 32768 61000 ageing 300
+                                 ^^^^^
+While at it, we should also use vxlan_dellink() handler in
+vxlan_exit_net(), since i) we're not in hurry and we should better
+be consistent, ii) in case future code will kfree() things in
+vxlan_dellink(), we would leak it right here unnoticed. Therfore,
+do not only half of the cleanup work, but make it properly.
 
-Average aggregation is : (235621464-286160)/44546288 = 5.28 frames per
-GRO packet.
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ v1->v2:
+  - Removed BUG_ON as it's not needed.
 
-average NAPI run handles 235709959/25099249 = 9.39 packets
+ drivers/net/vxlan.c | 68 +++++++++++++++++++++++++++++++++++++++++++++++------
+ 1 file changed, 61 insertions(+), 7 deletions(-)
 
-Very few overflows of the gro_list : 18212
-
-
-> > If you want to optimize the case where list is fully populated (because
-> > of yet another synthetic benchmark you use), you really need to build a
-> > temporary list so that all layers do not even have to check
-> > NAPI_GRO_CB(p)->same_flow
-> >
-> Well if you prefer, you can think of the "synthetic benchmark" as
-> emulating an obvious DOS attack by pumping MSS sized TCP segments with
-> random ports to a server. The stack needs to be resilient to such
-> things, an O(n*m) algorithm in the data path is a red flag.
-
-SYN floods are way more effective, or sending small packets with
-MSS=10 : Even with one flow your host wont be resilient at all.
-
-n is what , and m is what ?
-
-GRO is O(8), or O(1). This is the least of your concerns under attack.
-
-I played last year adding a hash table (based on rxhash), and
-my performance tests were not good enough.
-
-profile exactly showed flow dissection being a problem. This is what
-your patch is trying to do.
-
-Optimizing GRO stack to better react to attacks, but lowering
-performance in normal cases was not a win.
-
-So if you believe your patch is really useful in its current form,
-please provide your data.
-
-My opinion is that this one liner is much better.
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index ce01847793c0..be3135d6c12a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3800,6 +3800,7 @@ static void gro_list_prepare(struct napi_struct *napi, struct sk_buff *skb)
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 481f85d..479fe97 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2656,6 +2656,52 @@ static struct rtnl_link_ops vxlan_link_ops __read_mostly = {
+ 	.fill_info	= vxlan_fill_info,
+ };
  
- 		diffs = (unsigned long)p->dev ^ (unsigned long)skb->dev;
- 		diffs |= p->vlan_tci ^ skb->vlan_tci;
-+		diffs |= p->rxhash ^ skb->rxhash;
- 		if (maclen == ETH_HLEN)
- 			diffs |= compare_ether_header(skb_mac_header(p),
- 						      skb_gro_mac_header(skb));
++static void vxlan_handle_lowerdev_unregister(struct vxlan_net *vn,
++					     struct net_device *dev)
++{
++	struct vxlan_dev *vxlan, *next;
++	LIST_HEAD(list_kill);
++
++	list_for_each_entry_safe(vxlan, next, &vn->vxlan_list, next) {
++		struct vxlan_rdst *dst = &vxlan->default_dst;
++
++		/* In case we created vxlan device with carrier
++		 * and we loose the carrier due to module unload
++		 * we also need to remove vxlan device. In other
++		 * cases, it's not necessary and remote_ifindex
++		 * is 0 here, so no matches.
++		 */
++		if (dst->remote_ifindex == dev->ifindex)
++			vxlan_dellink(vxlan->dev, &list_kill);
++	}
++
++	unregister_netdevice_many(&list_kill);
++	list_del(&list_kill);
++}
++
++static int vxlan_lowerdev_event(struct notifier_block *unused,
++				unsigned long event, void *ptr)
++{
++	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++	struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
++
++	switch (event) {
++	case NETDEV_UNREGISTER:
++		/* Twiddle thumbs on netns device moves. */
++		if (dev->reg_state != NETREG_UNREGISTERING)
++			break;
++
++		vxlan_handle_lowerdev_unregister(vn, dev);
++		break;
++	}
++
++	return NOTIFY_DONE;
++}
++
++static struct notifier_block vxlan_notifier_block __read_mostly = {
++	.notifier_call = vxlan_lowerdev_event,
++};
++
+ static __net_init int vxlan_init_net(struct net *net)
+ {
+ 	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
+@@ -2673,14 +2719,16 @@ static __net_init int vxlan_init_net(struct net *net)
+ static __net_exit void vxlan_exit_net(struct net *net)
+ {
+ 	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
+-	struct vxlan_dev *vxlan;
+-	LIST_HEAD(list);
++	struct vxlan_dev *vxlan, *next;
++	LIST_HEAD(list_kill);
+ 
+ 	rtnl_lock();
+-	list_for_each_entry(vxlan, &vn->vxlan_list, next)
+-		unregister_netdevice_queue(vxlan->dev, &list);
+-	unregister_netdevice_many(&list);
++	list_for_each_entry_safe(vxlan, next, &vn->vxlan_list, next)
++		vxlan_dellink(vxlan->dev, &list_kill);
++	unregister_netdevice_many(&list_kill);
+ 	rtnl_unlock();
++
++	list_del(&list_kill);
+ }
+ 
+ static struct pernet_operations vxlan_net_ops = {
+@@ -2704,12 +2752,17 @@ static int __init vxlan_init_module(void)
+ 	if (rc)
+ 		goto out1;
+ 
+-	rc = rtnl_link_register(&vxlan_link_ops);
++	rc = register_netdevice_notifier(&vxlan_notifier_block);
+ 	if (rc)
+ 		goto out2;
+ 
+-	return 0;
++	rc = rtnl_link_register(&vxlan_link_ops);
++	if (rc)
++		goto out3;
+ 
++	return 0;
++out3:
++	unregister_netdevice_notifier(&vxlan_notifier_block);
+ out2:
+ 	unregister_pernet_device(&vxlan_net_ops);
+ out1:
+@@ -2721,6 +2774,7 @@ late_initcall(vxlan_init_module);
+ static void __exit vxlan_cleanup_module(void)
+ {
+ 	rtnl_link_unregister(&vxlan_link_ops);
++	unregister_netdevice_notifier(&vxlan_notifier_block);
+ 	destroy_workqueue(vxlan_wq);
+ 	unregister_pernet_device(&vxlan_net_ops);
+ 	rcu_barrier();
+-- 
+1.7.11.7
