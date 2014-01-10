@@ -1,67 +1,58 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: PROBLEM: usbnet / ax88179_178a: Panic in usb_hcd_map_urb_for_dma
-Date: Fri, 10 Jan 2014 23:09:08 +0100
-Message-ID: <87ob3j1ocb.fsf@nemi.mork.no>
-References: <CAHNSM4Kv5gcJn=H4k8QjPggWzjF0zRm_t_icAYXjCTqXx4xL2w@mail.gmail.com>
-	<1389385824.2025.95.camel@bwh-desktop.uk.level5networks.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH net,stable] net: usbnet: fix SG initialisation
+Date: Fri, 10 Jan 2014 23:10:17 +0100
+Message-ID: <1389391817-27204-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Kear <thomas-hrxM1pTBpuF02iOg2JU2CQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1389385824.2025.95.camel-/LGg1Z1CJKQ+9kgCwbf1HqK4ta4zdZpAajtMo4Cw6ucAvxtiuMwx3w@public.gmane.org> (Ben
-	Hutchings's message of "Fri, 10 Jan 2014 20:30:24 +0000")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-usb@vger.kernel.org, Thomas Kear <thomas@kear.co.nz>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
+	Ming Lei <ming.lei@canonical.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:46649 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758343AbaAJWKo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 17:10:44 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org> writes:
-> On Sat, 2014-01-11 at 08:56 +1300, Thomas Kear wrote:
->> USB3 gigabit ethernet adapters with the ASIX AX88179 chipset (LevelO=
-ne
->> USB0401-V3, Plugable USB3-E1000, SIIG JU-NE0211-S1 and others) are
->> experiencing kernel panics in usb_hcd_map_urb_for_dma since 3.12.
-> [...]
->> So far as I can tell, the driver is unaffected as late as 3.11.6, bu=
-t
->> problematic as of 3.12 (and still affected in 3.13-rc5).  The histor=
-y
->> of drivers/net/usb/ax88179_178a.c for this time period yields this
->> patch, which at least in my somewhat limited understanding appeared =
-a
->> likely candidate.  I've reverted this on my system - against several
->> linux-next builds from the last 3-4 weeks - and have had no issues
->> with this network controller since.
->>=20
->> commit 3804fad45411b48233b48003e33a78f290d227c8
->> Author: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
->> Date:   Thu Aug 8 21:48:25 2013 +0800
->>=20
->>     USBNET: ax88179_178a: enable tso if usb host supports sg dma
->
-> Enabling SG DMA here has unfortunately caused a number of regressions=
- as
-> the XHCI (USB 3 controller) hardware is a bit inflexible and the driv=
-er
-> wasn't quite ready to handle the SG lists generated for net devices.
->
-> I don't think I've seen this particular symptom though, and it might
-> indicate a bug in usbnet.
+Commit 60e453a940ac ("USBNET: fix handling padding packet")
+added an extra SG entry in case padding is necessary, but
+failed to update the initialisation of the list. This can
+cause list traversal to fall off the end of the list,
+resulting in an oops.
 
-Yes, I believe this code in usbnet is still somewhat unmature and not
-much tested.  Unfortunately I don't have any PC with xhci, so I can't d=
-o
-much about that.
+=46ixes: 60e453a940ac ("USBNET: fix handling padding packet")
+Reported-by: Thomas Kear <thomas@kear.co.nz>
+Cc: Ming Lei <ming.lei@canonical.com>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+---
+I don't have the hardware to verify this fix.  It would be good if
+someone could test it before it goes to stable...
 
-But looking at the code I think I found and obvious miss in the SG list
-initialisation.  I'll post a proposed fix for that.  Would be good if
-someone was able to test it.
-
+But in case this works, it should go into v3.12 stable.
 
 
 Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+ drivers/net/usb/usbnet.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 8494bb53ebdc..aba04f561760 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1245,7 +1245,7 @@ static int build_dma_sg(const struct sk_buff *skb=
+, struct urb *urb)
+ 		return -ENOMEM;
+=20
+ 	urb->num_sgs =3D num_sgs;
+-	sg_init_table(urb->sg, urb->num_sgs);
++	sg_init_table(urb->sg, urb->num_sgs + 1);
+=20
+ 	sg_set_buf(&urb->sg[s++], skb->data, skb_headlen(skb));
+ 	total_len +=3D skb_headlen(skb);
+--=20
+1.8.5.2
