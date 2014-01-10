@@ -1,28 +1,29 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v4 net-next 3/3] bonding: fix __get_active_agg() RCU logic
-Date: Fri, 10 Jan 2014 11:59:45 +0100
-Message-ID: <1389351585-19615-4-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v4 net-next 1/3] bonding: fix bond_3ad_set_carrier() RCU usage
+Date: Fri, 10 Jan 2014 11:59:43 +0100
+Message-ID: <1389351585-19615-2-git-send-email-vfalico@redhat.com>
 References: <1389351585-19615-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>, dingtianhong@huawei.com,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4966 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:54633 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756670AbaAJLEG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 06:04:06 -0500
+	id S1756670AbaAJLEC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 06:04:02 -0500
 In-Reply-To: <1389351585-19615-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, the implementation is meaningless - once again, we take the
-slave structure and use it after we've exited RCU critical section.
+Currently, its usage is just plainly wrong. It first gets a slave under
+RCU, and, after releasing the RCU lock, continues to use it - whilst it can
+be freed.
 
-Fix this by removing the rcu_read_lock() from __get_active_agg(), and
-ensuring that all its callers are holding RCU.
+Fix this by ensuring that bond_3ad_set_carrier() holds RCU till it uses its
+slave (or its agg).
 
-Fixes: be79bd048 ("bonding: add RCU for bond_3ad_state_machine_handler()")
+Fixes: be79bd048ab ("bonding: add RCU for bond_3ad_state_machine_handler()")
 CC: dingtianhong@huawei.com
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
@@ -30,55 +31,74 @@ Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
 
 Notes:
+    v3 -> v4:
+    Remove the useless goto out.
+    
     v2 -> v3:
-    Use the RCU primitives.
+    Just wrap RCU for the whole usage of our slave.
     
     v1 -> v2:
-    Don't use RCU primitives as we can hold RTNL.
+    Don't use _rcu primitives as we can be called under RTNL too.
+    
+    v2 -> v3:
+    Just wrap RCU for the whole usage of our slave.
+    
+    v1 -> v2:
+    Don't use _rcu primitives as we can be called under RTNL too.
+    
+    v1 -> v2:
+    Don't use _rcu primitives as we can be called under RTNL too.
 
- drivers/net/bonding/bond_3ad.c | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+ drivers/net/bonding/bond_3ad.c | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index b49f421..cce1f1b 100644
+index 29db1ca..da0d7c5 100644
 --- a/drivers/net/bonding/bond_3ad.c
 +++ b/drivers/net/bonding/bond_3ad.c
-@@ -678,6 +678,8 @@ static u32 __get_agg_bandwidth(struct aggregator *aggregator)
- /**
-  * __get_active_agg - get the current active aggregator
-  * @aggregator: the aggregator we're looking at
-+ *
-+ * Caller must hold RCU lock.
-  */
- static struct aggregator *__get_active_agg(struct aggregator *aggregator)
+@@ -2327,32 +2327,32 @@ int bond_3ad_set_carrier(struct bonding *bond)
  {
-@@ -685,13 +687,9 @@ static struct aggregator *__get_active_agg(struct aggregator *aggregator)
- 	struct list_head *iter;
- 	struct slave *slave;
+ 	struct aggregator *active;
+ 	struct slave *first_slave;
++	int ret = 1;
  
--	rcu_read_lock();
- 	bond_for_each_slave_rcu(bond, slave, iter)
--		if (SLAVE_AD_INFO(slave).aggregator.is_active) {
--			rcu_read_unlock();
-+		if (SLAVE_AD_INFO(slave).aggregator.is_active)
- 			return &(SLAVE_AD_INFO(slave).aggregator);
--		}
+ 	rcu_read_lock();
+ 	first_slave = bond_first_slave_rcu(bond);
 -	rcu_read_unlock();
- 
- 	return NULL;
+-	if (!first_slave)
+-		return 0;
++	if (!first_slave) {
++		ret = 0;
++		goto out;
++	}
+ 	active = __get_active_agg(&(SLAVE_AD_INFO(first_slave).aggregator));
+ 	if (active) {
+ 		/* are enough slaves available to consider link up? */
+ 		if (active->num_of_ports < bond->params.min_links) {
+ 			if (netif_carrier_ok(bond->dev)) {
+ 				netif_carrier_off(bond->dev);
+-				return 1;
++				goto out;
+ 			}
+ 		} else if (!netif_carrier_ok(bond->dev)) {
+ 			netif_carrier_on(bond->dev);
+-			return 1;
++			goto out;
+ 		}
+-		return 0;
+-	}
+-
+-	if (netif_carrier_ok(bond->dev)) {
++	} else if (netif_carrier_ok(bond->dev)) {
+ 		netif_carrier_off(bond->dev);
+-		return 1;
+ 	}
+-	return 0;
++out:
++	rcu_read_unlock();
++	return ret;
  }
-@@ -1499,11 +1497,11 @@ static void ad_agg_selection_logic(struct aggregator *agg)
- 	struct slave *slave;
- 	struct port *port;
  
-+	rcu_read_lock();
- 	origin = agg;
- 	active = __get_active_agg(agg);
- 	best = (active && agg_device_up(active)) ? active : NULL;
- 
--	rcu_read_lock();
- 	bond_for_each_slave_rcu(bond, slave, iter) {
- 		agg = &(SLAVE_AD_INFO(slave).aggregator);
- 
+ /**
 -- 
 1.8.4
