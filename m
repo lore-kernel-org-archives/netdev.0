@@ -1,8 +1,8 @@
 From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: [PATCH v2 14/16] ARM: dts: sun7i: cubieboard2: Enable
- GMAC instead of EMAC
-Date: Fri, 10 Jan 2014 15:00:15 +0800
-Message-ID: <1389337217-29032-15-git-send-email-wens@csie.org>
+Subject: [PATCH v2 15/16] ARM: dts: sun7i: olinuxino-micro:
+ Enable GMAC instead of EMAC
+Date: Fri, 10 Jan 2014 15:00:16 +0800
+Message-ID: <1389337217-29032-16-git-send-email-wens@csie.org>
 References: <1389337217-29032-1-git-send-email-wens@csie.org>
 Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
@@ -33,15 +33,15 @@ Use the GMAC in MII mode for ethernet instead of the EMAC.
 
 Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
 ---
- arch/arm/boot/dts/sun7i-a20-cubieboard2.dts | 27 ++++++++++++---------------
+ arch/arm/boot/dts/sun7i-a20-olinuxino-micro.dts | 27 +++++++++++--------------
  1 file changed, 12 insertions(+), 15 deletions(-)
 
-diff --git a/arch/arm/boot/dts/sun7i-a20-cubieboard2.dts b/arch/arm/boot/dts/sun7i-a20-cubieboard2.dts
-index 5c51cb8..7bf4935 100644
---- a/arch/arm/boot/dts/sun7i-a20-cubieboard2.dts
-+++ b/arch/arm/boot/dts/sun7i-a20-cubieboard2.dts
+diff --git a/arch/arm/boot/dts/sun7i-a20-olinuxino-micro.dts b/arch/arm/boot/dts/sun7i-a20-olinuxino-micro.dts
+index ead3013..b02a796 100644
+--- a/arch/arm/boot/dts/sun7i-a20-olinuxino-micro.dts
++++ b/arch/arm/boot/dts/sun7i-a20-olinuxino-micro.dts
 @@ -19,21 +19,6 @@
- 	compatible = "cubietech,cubieboard2", "allwinner,sun7i-a20";
+ 	compatible = "olimex,a20-olinuxino-micro", "allwinner,sun7i-a20";
  
  	soc@01c00000 {
 -		emac: ethernet@01c0b000 {
@@ -60,10 +60,10 @@ index 5c51cb8..7bf4935 100644
 -		};
 -
  		pinctrl@01c20800 {
- 			led_pins_cubieboard2: led_pins@0 {
- 				allwinner,pins = "PH20", "PH21";
-@@ -60,6 +45,18 @@
- 			pinctrl-0 = <&i2c1_pins_a>;
+ 			led_pins_olinuxino: led_pins@0 {
+ 				allwinner,pins = "PH2";
+@@ -78,6 +63,18 @@
+ 			pinctrl-0 = <&i2c2_pins_a>;
  			status = "okay";
  		};
 +
