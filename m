@@ -1,62 +1,129 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net] inet_diag: fix inet_diag_dump_icsk() to use correct state for timewait sockets
-Date: Fri, 10 Jan 2014 15:34:45 -0500
-Message-ID: <1389386085-22659-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: David Miller <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Check skb->rxhash in gro_receive
+Date: Fri, 10 Jan 2014 12:43:49 -0800
+Message-ID: <1389386629.31367.142.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.DEB.2.02.1401092051020.25554@tomh.mtv.corp.google.com>
+	 <1389332287.31367.88.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+mtBx_c=we-13b0Vyrim0=kArhx0OYY1P99HwUeuR2w87hRFw@mail.gmail.com>
+	 <1389375935.31367.102.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+mtBx-8=tiYw=-_TydO0bC_tJXK6MqxjnZQaCXqUtxLSF7xhQ@mail.gmail.com>
+	 <1389380077.31367.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+mtBx-OHxHCTQO50F9_aw=T8VSg93E2eCkzdLL3PZapcR-CFQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f202.google.com ([209.85.216.202]:48551 "EHLO
-	mail-qc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758094AbaAJUmF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 15:42:05 -0500
-Received: by mail-qc0-f202.google.com with SMTP id i17so490134qcy.5
-        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 12:42:04 -0800 (PST)
+Received: from mail-yh0-f43.google.com ([209.85.213.43]:39050 "EHLO
+	mail-yh0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754213AbaAJUnw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 15:43:52 -0500
+Received: by mail-yh0-f43.google.com with SMTP id a41so1506420yho.30
+        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 12:43:51 -0800 (PST)
+In-Reply-To: <CA+mtBx-OHxHCTQO50F9_aw=T8VSg93E2eCkzdLL3PZapcR-CFQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix inet_diag_dump_icsk() to reflect the fact that both TCP_TIME_WAIT
-and TCP_FIN_WAIT2 connections are represented by inet_timewait_sock
-(not just TIME_WAIT), and for such sockets the tw_substate field holds
-the real state, which can be either TCP_TIME_WAIT or TCP_FIN_WAIT2.
+On Fri, 2014-01-10 at 11:42 -0800, Tom Herbert wrote:
+> > Really, 99% of the time gro_list contains zero or one single slot, I
+> > have hard data saying so.
+> >
+> Please provide the data.
 
-This brings the inet_diag state-matching code in line with the field
-it uses to populate idiag_state. This is also analogous to the info
-exported in /proc/net/tcp, where get_tcp4_sock() exports sk->sk_state
-and get_timewait4_sock() exports tw->tw_substate.
+Based on a Google patch you can run on your lab host. 
 
-Before fixing this, (a) neither "ss -nemoi" nor "ss -nemoi state
-fin-wait-2" would return a socket in TCP_FIN_WAIT2; and (b) "ss -nemoi
-state time-wait" would also return sockets in state TCP_FIN_WAIT2.
+lpaa5:~# ethtool -S eth1|egrep "rx_packets|gro"
+     rx_packets: 235709959
+     gro_complete[0]: 5895809
+     gro_overflows[0]: 1495
+     gro_nogro[0]: 63584
+     gro_msgs[0]: 9791617
+     gro_segs[0]: 52290544
+     gro_flush[0]: 25
+     gro_complete[1]: 6464583
+     gro_overflows[1]: 5920
+     gro_nogro[1]: 74680
+     gro_msgs[1]: 11797481
+     gro_segs[1]: 62081299
+     gro_flush[1]: 35
+     gro_complete[2]: 6289929
+     gro_overflows[2]: 4016
+     gro_nogro[2]: 71479
+     gro_msgs[2]: 11111473
+     gro_segs[2]: 58518690
+     gro_flush[2]: 42
+     gro_complete[3]: 6448928
+     gro_overflows[3]: 6781
+     gro_nogro[3]: 76417
+     gro_msgs[3]: 11845717
+     gro_segs[3]: 62730931
+     gro_flush[3]: 42
+     gro_complete: 25099249
+     gro_overflows: 18212
+     gro_nogro: 286160
+     gro_msgs: 44546288
+     gro_segs: 235621464
+     gro_flush: 144
 
-This is an old bug that predates 05dbc7b ("tcp/dccp: remove twchain").
+The key is the gro_complete thing, meaning that most NAPI poll are
+completed and GRO list flushed.
 
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Cc: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/inet_diag.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+Here the results are from a synthetic bench (400 concurrent TCP_STREAM),
+very small number of RX queues (trying to force stress load you want),
+increase coalescing parameters on the NIC (to really try to increase
+batches load), plenty of ECN marking to force GRO flushes, and even so,
+you can see :
 
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index a0f52da..e34dccb 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -930,12 +930,15 @@ skip_listen_ht:
- 		spin_lock_bh(lock);
- 		sk_nulls_for_each(sk, node, &head->chain) {
- 			int res;
-+			int state;
+Average aggregation is : (235621464-286160)/44546288 = 5.28 frames per
+GRO packet.
+
+average NAPI run handles 235709959/25099249 = 9.39 packets
+
+Very few overflows of the gro_list : 18212
+
+
+> > If you want to optimize the case where list is fully populated (because
+> > of yet another synthetic benchmark you use), you really need to build a
+> > temporary list so that all layers do not even have to check
+> > NAPI_GRO_CB(p)->same_flow
+> >
+> Well if you prefer, you can think of the "synthetic benchmark" as
+> emulating an obvious DOS attack by pumping MSS sized TCP segments with
+> random ports to a server. The stack needs to be resilient to such
+> things, an O(n*m) algorithm in the data path is a red flag.
+
+SYN floods are way more effective, or sending small packets with
+MSS=10 : Even with one flow your host wont be resilient at all.
+
+n is what , and m is what ?
+
+GRO is O(8), or O(1). This is the least of your concerns under attack.
+
+I played last year adding a hash table (based on rxhash), and
+my performance tests were not good enough.
+
+profile exactly showed flow dissection being a problem. This is what
+your patch is trying to do.
+
+Optimizing GRO stack to better react to attacks, but lowering
+performance in normal cases was not a win.
+
+So if you believe your patch is really useful in its current form,
+please provide your data.
+
+My opinion is that this one liner is much better.
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ce01847793c0..be3135d6c12a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3800,6 +3800,7 @@ static void gro_list_prepare(struct napi_struct *napi, struct sk_buff *skb)
  
- 			if (!net_eq(sock_net(sk), net))
- 				continue;
- 			if (num < s_num)
- 				goto next_normal;
--			if (!(r->idiag_states & (1 << sk->sk_state)))
-+			state = (sk->sk_state == TCP_TIME_WAIT) ?
-+				inet_twsk(sk)->tw_substate : sk->sk_state;
-+			if (!(r->idiag_states & (1 << state)))
- 				goto next_normal;
- 			if (r->sdiag_family != AF_UNSPEC &&
- 			    sk->sk_family != r->sdiag_family)
--- 
-1.8.5.1
+ 		diffs = (unsigned long)p->dev ^ (unsigned long)skb->dev;
+ 		diffs |= p->vlan_tci ^ skb->vlan_tci;
++		diffs |= p->rxhash ^ skb->rxhash;
+ 		if (maclen == ETH_HLEN)
+ 			diffs |= compare_ether_header(skb_mac_header(p),
+ 						      skb_gro_mac_header(skb));
