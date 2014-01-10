@@ -1,88 +1,48 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC Patch net-next 3/4] net_sched: use RCU for tc actions traverse
-Date: Thu, 09 Jan 2014 20:03:19 -0800
-Message-ID: <52CF7107.4020806@gmail.com>
-References: <1389291593-2494-1-git-send-email-xiyou.wangcong@gmail.com> <1389291593-2494-4-git-send-email-xiyou.wangcong@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] xen-netback: stop vif thread spinning if
+ frontend is unresponsive
+Date: Thu, 09 Jan 2014 23:06:29 -0500 (EST)
+Message-ID: <20140109.230629.123446421132170371.davem@davemloft.net>
+References: <1389184918-42790-1-git-send-email-paul.durrant@citrix.com>
+	<20140108193716.GA16009@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: paul.durrant@citrix.com, netdev@vger.kernel.org,
+	xen-devel@lists.xen.org, ian.campbell@citrix.com,
+	david.vrabel@citrix.com
+To: wei.liu2@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f54.google.com ([209.85.219.54]:62656 "EHLO
-	mail-oa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750793AbaAJEDk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 23:03:40 -0500
-Received: by mail-oa0-f54.google.com with SMTP id o6so4451316oag.41
-        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 20:03:39 -0800 (PST)
-In-Reply-To: <1389291593-2494-4-git-send-email-xiyou.wangcong@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36237 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750800AbaAJEGb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 23:06:31 -0500
+In-Reply-To: <20140108193716.GA16009@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/09/2014 10:19 AM, Cong Wang wrote:
-> Cc: John Fastabend <john.fastabend@gmail.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
->   net/sched/act_api.c | 12 +++++++-----
->   1 file changed, 7 insertions(+), 5 deletions(-)
->
-> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-> index f63e146..e3c655e 100644
-> --- a/net/sched/act_api.c
-> +++ b/net/sched/act_api.c
-> @@ -351,7 +351,7 @@ int tcf_action_exec(struct sk_buff *skb, const struct list_head *actions,
->   		ret = TC_ACT_OK;
->   		goto exec_done;
->   	}
-> -	list_for_each_entry(a, actions, list) {
-> +	list_for_each_entry_rcu(a, actions, list) {
->   repeat:
->   		ret = a->ops->act(skb, a, res);
->   		if (TC_MUNGED & skb->tc_verd) {
-> @@ -372,11 +372,13 @@ EXPORT_SYMBOL(tcf_action_exec);
->   void tcf_action_destroy(struct list_head *actions, int bind)
->   {
->   	struct tc_action *a, *tmp;
-> +	LIST_HEAD(list);
-> +	list_splice_init_rcu(actions, &list, synchronize_rcu);
->
-> -	list_for_each_entry_safe(a, tmp, actions, list) {
-> +	list_for_each_entry_safe(a, tmp, &list, list) {
->   		if (a->ops->cleanup(a, bind) == ACT_P_DELETED)
->   			module_put(a->ops->owner);
-> -		list_del(&a->list);
-> +		list_del_rcu(&a->list);
->   		kfree(a);
+From: Wei Liu <wei.liu2@citrix.com>
+Date: Wed, 8 Jan 2014 19:37:16 +0000
 
-no this wont work you need kfree_rcu or call_rcu or rcu sync.
+> On Wed, Jan 08, 2014 at 12:41:58PM +0000, Paul Durrant wrote:
+>> The recent patch to improve guest receive side flow control (ca2f09f2) had a
+>> slight flaw in the wait condition for the vif thread in that any remaining
+>> skbs in the guest receive side netback internal queue would prevent the
+>> thread from sleeping. An unresponsive frontend can lead to a permanently
+>> non-empty internal queue and thus the thread will spin. In this case the
+>> thread should really sleep until the frontend becomes responsive again.
+>> 
+>> This patch adds an extra flag to the vif which is set if the shared ring
+>> is full and cleared when skbs are drained into the shared ring. Thus,
+>> if the thread runs, finds the shared ring full and can make no progress the
+>> flag remains set. If the flag remains set then the thread will sleep,
+>> regardless of a non-empty queue, until the next event from the frontend.
+>> 
+>> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+>> Cc: Wei Liu <wei.liu2@citrix.com>
+>> Cc: Ian Campbell <ian.campbell@citrix.com>
+>> Cc: David Vrabel <david.vrabel@citrix.com>
+> 
+> Acked-by: Wei Liu <wei.liu2@citrix.com>
 
->   	}
->   }
-> @@ -420,7 +422,7 @@ tcf_action_dump(struct sk_buff *skb, struct list_head *actions, int bind, int re
->   	int err = -EINVAL;
->   	struct nlattr *nest;
->
-> -	list_for_each_entry(a, actions, list) {
-> +	list_for_each_entry_rcu(a, actions, list) {
->   		nest = nla_nest_start(skb, a->order);
->   		if (nest == NULL)
->   			goto nla_put_failure;
-> @@ -542,7 +544,7 @@ int tcf_action_init(struct net *net, struct nlattr *nla,
->   			goto err;
->   		}
->   		act->order = i;
-> -		list_add_tail(&act->list, actions);
-> +		list_add_tail_rcu(&act->list, actions);
->   	}
->   	return 0;
->
->
-
-
--- 
-John Fastabend         Intel Corporation
+Applied.
