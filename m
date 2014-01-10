@@ -1,29 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnx2x: prevent WARN during driver unload
-Date: Thu, 09 Jan 2014 21:46:26 -0500 (EST)
-Message-ID: <20140109.214626.1908262516407859818.davem@davemloft.net>
-References: <979A8436335E3744ADCD3A9F2A2B68A52AF23FBC@SJEXCHMB10.corp.ad.broadcom.com>
-	<20140108.010140.283557207092663086.davem@davemloft.net>
-	<979A8436335E3744ADCD3A9F2A2B68A52AF240A3@SJEXCHMB10.corp.ad.broadcom.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dmitry@broadcom.com, ariele@broadcom.com
-To: yuvalmin@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35909 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750702AbaAJCqb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 21:46:31 -0500
-In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A52AF240A3@SJEXCHMB10.corp.ad.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pankaj Dubey <pankaj.dubey@samsung.com>
+Subject: [PATCH 1/1] drivers: net: silence compiler warning in smc91x.c
+Date: Fri, 10 Jan 2014 12:04:06 +0900
+Message-ID: <1389323046-4521-1-git-send-email-pankaj.dubey@samsung.com>
+Cc: Pankaj Dubey <pankaj.dubey@samsung.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jingoo Han <jg1.han@samsung.com>, netdev@vger.kernel.org
+To: linux-samsung-soc@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+Sender: linux-samsung-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuval Mintz <yuvalmin@broadcom.com>
-Date: Wed, 8 Jan 2014 07:05:36 +0000
+If used 64 bit compiler GCC warns that:
 
-> True; but we didn't reach this bit of intuitive code on our own -
-> this is practically a porting of 27d9ce3f "ixgbe: fix qv_lock_napi
-> call in ixgbe_napi_disable_all" into the bnx2x driver.
+drivers/net/ethernet/smsc/smc91x.c:1897:7:
+warning: cast from pointer to integer of different
+size [-Wpointer-to-int-cast]
 
-Fair enough, patch applied, thanks.
+This patch fixes this by changing typecase from "unsigned int" to "unsigned long"
+
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Jingoo Han <jg1.han@samsung.com> 
+CC: netdev@vger.kernel.org
+Signed-off-by: Pankaj Dubey <pankaj.dubey@samsung.com>
+---
+ drivers/net/ethernet/smsc/smc91x.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
+index 0c9b5d9..42e79b4 100644
+--- a/drivers/net/ethernet/smsc/smc91x.c
++++ b/drivers/net/ethernet/smsc/smc91x.c
+@@ -1894,7 +1894,7 @@ static int smc_probe(struct net_device *dev, void __iomem *ioaddr,
+ 	SMC_SELECT_BANK(lp, 1);
+ 	val = SMC_GET_BASE(lp);
+ 	val = ((val & 0x1F00) >> 3) << SMC_IO_SHIFT;
+-	if (((unsigned int)ioaddr & (0x3e0 << SMC_IO_SHIFT)) != val) {
++	if (((unsigned long)ioaddr & (0x3e0 << SMC_IO_SHIFT)) != val) {
+ 		netdev_warn(dev, "%s: IOADDR %p doesn't match configuration (%x).\n",
+ 			    CARDNAME, ioaddr, val);
+ 	}
+-- 
+1.7.10.4
