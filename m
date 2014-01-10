@@ -1,69 +1,65 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/16] i40e: check for possible incorrect ipv6 checksum
-Date: Fri, 10 Jan 2014 00:58:50 -0800
-Message-ID: <1389344336-1558-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/16] i40e: fix long lines
+Date: Fri, 10 Jan 2014 00:58:45 -0800
+Message-ID: <1389344336-1558-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389344336-1558-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:61393 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:1468 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750793AbaAJI7G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 03:59:06 -0500
+	id S1751349AbaAJI7E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 03:59:04 -0500
 In-Reply-To: <1389344336-1558-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-If the IPV6EXADD bit is set in the Rx descriptor status, there
-was an optional extension header with an alternate IP address
-detected.  The HW checksum offload doesn't handle the alternate
-IP address correctly so likely comes up with the wrong answer.
-Thus, if the bit is set we ignore the checksum offload value.
+Avoid over-length lines in order to appease checkpatch.
 
-Change-ID: I70ff8d38cdcddccf44107691cae13d0c07c284c8
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: I63820a710acf798f49d2f85c610228711af84f72
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 4 ++++
- drivers/net/ethernet/intel/i40e/i40e_type.h | 4 +++-
- 2 files changed, 7 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c    | 3 ++-
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h | 4 ++--
+ 2 files changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 43d88dd..946d8b1 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -892,6 +892,10 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
- 	      rx_status & (1 << I40E_RX_DESC_STATUS_L3L4P_SHIFT)))
- 		return;
- 
-+	/* likely incorrect csum if alternate IP extention headers found */
-+	if (rx_status & (1 << I40E_RX_DESC_STATUS_IPV6EXADD_SHIFT))
-+		return;
-+
- 	/* IP or L4 or outmost IP checksum error */
- 	if (rx_error & ((1 << I40E_RX_DESC_ERROR_IPE_SHIFT) |
- 			(1 << I40E_RX_DESC_ERROR_L4E_SHIFT) |
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 072c850..80cf240 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -499,7 +499,9 @@ enum i40e_rx_desc_status_bits {
- 	I40E_RX_DESC_STATUS_FLM_SHIFT		= 11,
- 	I40E_RX_DESC_STATUS_FLTSTAT_SHIFT	= 12, /* 2 BITS */
- 	I40E_RX_DESC_STATUS_LPBK_SHIFT		= 14,
--	I40E_RX_DESC_STATUS_UDP_0_SHIFT		= 16
-+	I40E_RX_DESC_STATUS_IPV6EXADD_SHIFT	= 15,
-+	I40E_RX_DESC_STATUS_RESERVED_SHIFT	= 16, /* 2 BITS */
-+	I40E_RX_DESC_STATUS_UDP_0_SHIFT		= 18
- };
- 
- #define I40E_RXD_QW1_STATUS_TSYNINDX_SHIFT   I40E_RX_DESC_STATUS_TSYNINDX_SHIFT
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 6bfbeec..1bf0ec1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -681,7 +681,8 @@ aq_add_vsi_exit:
+  * @cmd_details: pointer to command details structure or NULL
+  **/
+ i40e_status i40e_aq_set_vsi_unicast_promiscuous(struct i40e_hw *hw,
+-				u16 seid, bool set, struct i40e_asq_cmd_details *cmd_details)
++				u16 seid, bool set,
++				struct i40e_asq_cmd_details *cmd_details)
+ {
+ 	struct i40e_aq_desc desc;
+ 	struct i40e_aqc_set_vsi_promiscuous_modes *cmd =
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+index c7c3d82..f8c53a6 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+@@ -93,9 +93,9 @@ i40e_status i40e_aq_set_vsi_broadcast(struct i40e_hw *hw,
+ 				u16 vsi_id, bool set_filter,
+ 				struct i40e_asq_cmd_details *cmd_details);
+ i40e_status i40e_aq_set_vsi_unicast_promiscuous(struct i40e_hw *hw,
+-				u16 vsi_id, bool set, struct i40e_asq_cmd_details *cmd_details);
++		u16 vsi_id, bool set, struct i40e_asq_cmd_details *cmd_details);
+ i40e_status i40e_aq_set_vsi_multicast_promiscuous(struct i40e_hw *hw,
+-				u16 vsi_id, bool set, struct i40e_asq_cmd_details *cmd_details);
++		u16 vsi_id, bool set, struct i40e_asq_cmd_details *cmd_details);
+ i40e_status i40e_aq_get_vsi_params(struct i40e_hw *hw,
+ 				struct i40e_vsi_context *vsi_ctx,
+ 				struct i40e_asq_cmd_details *cmd_details);
 -- 
 1.8.3.1
