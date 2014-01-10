@@ -1,38 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net: delete non-required instances of include
- <linux/init.h>
-Date: Fri, 10 Jan 2014 18:07:22 -0500 (EST)
-Message-ID: <20140110.180722.323796634041783146.davem@davemloft.net>
-References: <1389213167-720-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: Re: [PATCH v4 0/2] ipv6 addrconf: add IFA_F_NOPREFIXROUTE flag to
+ suppress creation of IP6 routes
+Date: Fri, 10 Jan 2014 18:10:30 -0500 (EST)
+Message-ID: <20140110.181030.2081631538801450145.davem@davemloft.net>
+References: <20140108200019.GK9007@order.stressinduktion.org>
+	<1389227404-12586-1-git-send-email-thaller@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: paul.gortmaker@windriver.com
+Cc: hannes@stressinduktion.org, jiri@resnulli.us,
+	netdev@vger.kernel.org, stephen@networkplumber.org, dcbw@redhat.com
+To: thaller@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43484 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43536 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751698AbaAJXHX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 18:07:23 -0500
-In-Reply-To: <1389213167-720-1-git-send-email-paul.gortmaker@windriver.com>
+	with ESMTP id S1758202AbaAJXKc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 18:10:32 -0500
+In-Reply-To: <1389227404-12586-1-git-send-email-thaller@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Wed, 8 Jan 2014 15:32:47 -0500
+From: Thomas Haller <thaller@redhat.com>
+Date: Thu,  9 Jan 2014 01:30:02 +0100
 
-> None of these files are actually using any __init type directives
-> and hence don't need to include <linux/init.h>.   Most are just a
-> left over from __devinit and __cpuinit removal, or simply due to
-> code getting copied from one driver to the next.
+> v1 -> v2: add a second commit, handling NOPREFIXROUTE in ip6_del_addr.
+> v2 -> v3: reword commit messages, code comments and some refactoring.
+> v3 -> v4: refactor, rename variables, add enum
 > 
-> This covers everything under drivers/net except for wireless, which
-> has been submitted separately.
-> 
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-> ---
-> 
-> [build tested drivers/net allyes/modconfig for x86-64, x86, ARM,
->  ppc, sparc on todays net-next - v3.13-rc6-1503-g80077935cad2]
+> Thomas Haller (2):
+>   ipv6 addrconf: add IFA_F_NOPREFIXROUTE flag to suppress creation of
+>     IP6 routes
+>   ipv6 addrconf: don't cleanup prefix route for IFA_F_NOPREFIXROUTE
 
-Applied, thanks Paul.
+Series applied, thanks Thomas.
