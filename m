@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 08/23] netfilter: nft_ct: load both IPv4 and IPv6
- conntrack modules for NFPROTO_INET
-Date: Fri, 10 Jan 2014 14:48:13 -0500 (EST)
-Message-ID: <20140110.144813.659408334812475090.davem@davemloft.net>
-References: <1389314142-17969-9-git-send-email-pablo@netfilter.org>
-	<52D05AC6.20000@cogentembedded.com>
-	<20140110194235.GA9253@macbook.localnet>
+Subject: Re: [PATCH] netfilter updates for net-next
+Date: Fri, 10 Jan 2014 14:51:02 -0500 (EST)
+Message-ID: <20140110.145102.1699172064425047580.davem@davemloft.net>
+References: <1389380158-8754-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, pablo@netfilter.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20140110194235.GA9253@macbook.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42110 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751258AbaAJTvG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 14:51:06 -0500
+In-Reply-To: <1389380158-8754-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Fri, 10 Jan 2014 19:42:36 +0000
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Fri, 10 Jan 2014 19:55:57 +0100
 
-> I can see you're looking out for the important stuff. I consistently
-> used this style in nftables so I'm not going to change it here.
+> This batch contains one single patch with the l2tp match
+> for xtables, from James Chapman.
+> 
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
 
-Patrick, please follow the coding style conventions of the kernel,
-these issues are important for long term sanity of the kernel tree.
-
-It helps people who are looking at the netfilter code who perhaps
-do not do so usually.  Do you really want to use a different style
-and therefore make your code harder to read for them?  Really?
-
-Your code being consistent with your code only is less important than
-all of the networking looking the same.
-
-Thank you.
+Pulled, thanks Pablo.
