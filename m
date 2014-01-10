@@ -1,90 +1,57 @@
-From: Scott Feldman <sfeldma@cumulusnetworks.com>
-Subject: Re: [RFC net-next 1/3] bonding: add infrastructure for an option API
-Date: Fri, 10 Jan 2014 12:21:22 -0800
-Message-ID: <7F4A3DF6-7DD5-4E11-986A-C090F02506A5@cumulusnetworks.com>
-References: <1389359495-9700-1-git-send-email-nikolay@redhat.com> <1389359495-9700-2-git-send-email-nikolay@redhat.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.1 \(1827\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:47961 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751258AbaAJUVo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 15:21:44 -0500
-In-Reply-To: <1389359495-9700-2-git-send-email-nikolay@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Subject: Re: PROBLEM: usbnet / ax88179_178a: Panic in usb_hcd_map_urb_for_dma
+Date: Fri, 10 Jan 2014 20:30:24 +0000
+Message-ID: <1389385824.2025.95.camel@bwh-desktop.uk.level5networks.com>
+References: <CAHNSM4Kv5gcJn=H4k8QjPggWzjF0zRm_t_icAYXjCTqXx4xL2w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Thomas Kear <thomas-hrxM1pTBpuF02iOg2JU2CQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAHNSM4Kv5gcJn=H4k8QjPggWzjF0zRm_t_icAYXjCTqXx4xL2w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Sat, 2014-01-11 at 08:56 +1300, Thomas Kear wrote:
+> USB3 gigabit ethernet adapters with the ASIX AX88179 chipset (LevelOne
+> USB0401-V3, Plugable USB3-E1000, SIIG JU-NE0211-S1 and others) are
+> experiencing kernel panics in usb_hcd_map_urb_for_dma since 3.12.
+[...]
+> So far as I can tell, the driver is unaffected as late as 3.11.6, but
+> problematic as of 3.12 (and still affected in 3.13-rc5).  The history
+> of drivers/net/usb/ax88179_178a.c for this time period yields this
+> patch, which at least in my somewhat limited understanding appeared a
+> likely candidate.  I've reverted this on my system - against several
+> linux-next builds from the last 3-4 weeks - and have had no issues
+> with this network controller since.
+> 
+> commit 3804fad45411b48233b48003e33a78f290d227c8
+> Author: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> Date:   Thu Aug 8 21:48:25 2013 +0800
+> 
+>     USBNET: ax88179_178a: enable tso if usb host supports sg dma
 
-On Jan 10, 2014, at 5:11 AM, Nikolay Aleksandrov <nikolay@redhat.com> w=
-rote:
+Enabling SG DMA here has unfortunately caused a number of regressions as
+the XHCI (USB 3 controller) hardware is a bit inflexible and the driver
+wasn't quite ready to handle the SG lists generated for net devices.
 
-> This patch adds the necessary basic infrastructure to support
-> centralized and unified option manipulation API for the bonding. The =
-new
-> structure bond_option will be used to describe each option with its
-> dependencies on modes which will be checked automatically thus removi=
-ng a
-> lot of duplicated code. Also automatic range checking is added for
-> non-string options. Currently the option setting function requires RT=
-NL to
-> be acquired prior to calling it, since many options already rely on R=
-TNL
-> it seemed like the best choice to protect all against common race
-> conditions.
->=20
+I don't think I've seen this particular symptom though, and it might
+indicate a bug in usbnet.
 
+[...]
+> [2] http://i.imgur.com/NCanPUY.jpg
 
-> +/**
-> + * bond_opt_parse - parse option value
-> + * @tbl: an option's values[] table to parse against
-> + * @bufarg: value to parse
-> + * @retval: pointer where to store the parsed value
-> + * @string: how to treat bufarg (as string or integer)
-> + *
-> + * This functions tries to extract the value from bufarg and check i=
-f it's
-> + * a possible match for the option. It shouldn't be possible to have=
- a non-NULL
-> + * return with @retval being < 0.
-> + */
-> +struct bond_value_tbl *bond_opt_parse(const struct bond_option *opt,
-> +				      void *bufarg, int *retval, bool string)
-> +{
-> +	char *buf, *p, valstr[BOND_MAX_MODENAME_LEN + 1] =3D { 0, };
+For those joining us on linux-usb, this is a photo of the panic.
 
-Did you mean to use BOND_MAX_MODENAME_LEN here?  bond_options.h should =
-have it=92s own define max value string len, I think.
+Ben.
 
-> +	struct bond_value_tbl *tbl, *maxval =3D NULL, *ret =3D NULL;
-> +	int valint =3D -1, i, rv;
-> +
-> +	tbl =3D opt->values;
-> +	if (!tbl)
-> +		goto out;
-> +
-> +	if (string) {
-> +		buf =3D bufarg;
-> +		for (p =3D (char *)buf; *p; p++)
-> +			if (!(isdigit(*p) || isspace(*p)))
-> +				break;
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-I think we lost a comment here from old code explaining eating whitespa=
-ce and trailing newline.
-
->=20
-> +struct bond_value_tbl {
-> +	char *name;
-> +	int value;
-
-What if want a u64 value?
-
-> +	u32 flags;
-> +};
-
-struct bond_value_tbl_entry ?  Or just struct bond_value?  tbl is a col=
-lection of these, so it=92s weird to have tbl in name of item.
-
--scott
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
