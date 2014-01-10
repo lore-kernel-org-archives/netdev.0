@@ -1,54 +1,52 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 08/23] netfilter: nft_ct: load both IPv4 and IPv6 conntrack
- modules for NFPROTO_INET
-Date: Fri, 10 Jan 2014 23:40:38 +0300
-Message-ID: <52D05AC6.20000@cogentembedded.com>
-References: <1389314142-17969-1-git-send-email-pablo@netfilter.org> <1389314142-17969-9-git-send-email-pablo@netfilter.org>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH] net: Check skb->rxhash in gro_receive
+Date: Fri, 10 Jan 2014 11:42:12 -0800
+Message-ID: <CA+mtBx-OHxHCTQO50F9_aw=T8VSg93E2eCkzdLL3PZapcR-CFQ@mail.gmail.com>
+References: <alpine.DEB.2.02.1401092051020.25554@tomh.mtv.corp.google.com>
+	<1389332287.31367.88.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+mtBx_c=we-13b0Vyrim0=kArhx0OYY1P99HwUeuR2w87hRFw@mail.gmail.com>
+	<1389375935.31367.102.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+mtBx-8=tiYw=-_TydO0bC_tJXK6MqxjnZQaCXqUtxLSF7xhQ@mail.gmail.com>
+	<1389380077.31367.114.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1389314142-17969-9-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f181.google.com ([209.85.223.181]:51448 "EHLO
+	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752235AbaAJTmM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 14:42:12 -0500
+Received: by mail-ie0-f181.google.com with SMTP id e14so5693828iej.40
+        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 11:42:12 -0800 (PST)
+In-Reply-To: <1389380077.31367.114.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/10/2014 03:35 AM, Pablo Neira Ayuso wrote:
+> Really, 99% of the time gro_list contains zero or one single slot, I
+> have hard data saying so.
+>
+Please provide the data.
 
-> From: Patrick McHardy <kaber@trash.net>
+> If you want to optimize the case where list is fully populated (because
+> of yet another synthetic benchmark you use), you really need to build a
+> temporary list so that all layers do not even have to check
+> NAPI_GRO_CB(p)->same_flow
+>
+Well if you prefer, you can think of the "synthetic benchmark" as
+emulating an obvious DOS attack by pumping MSS sized TCP segments with
+random ports to a server. The stack needs to be resilient to such
+things, an O(n*m) algorithm in the data path is a red flag.
 
-> The ct expression can currently not be used in the inet family since
-> we don't have a conntrack module for NFPROTO_INET, so
-> nf_ct_l3proto_try_module_get() fails. Add some manual handling to
-> load the modules for both NFPROTO_IPV4 and NFPROTO_IPV6 if the
-> ct expression is used in the inet family.
-
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> ---
->   net/netfilter/nft_ct.c |   39 ++++++++++++++++++++++++++++++++++++---
->   1 file changed, 36 insertions(+), 3 deletions(-)
-
-> diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
-> index 955f4e6..3727a32 100644
-> --- a/net/netfilter/nft_ct.c
-> +++ b/net/netfilter/nft_ct.c
-[...]
-> +static void nft_ct_l3proto_module_put(uint8_t family)
-> +{
-> +	if (family == NFPROTO_INET) {
-> +		nf_ct_l3proto_module_put(NFPROTO_IPV4);
-> +		nf_ct_l3proto_module_put(NFPROTO_IPV6);
-> +	} else
-> +		nf_ct_l3proto_module_put(family);
-
-    According to Documentation/CodingStyle, there should be {} in the *else* 
-arm, as the other arm of *if* statement has it.
-
-> +}
-> +
-
-WBR, Sergei
-
+> Each gro handler would remove non matching flow from this temp list.
+>
+> -> when we finally reach tcp_gro_receive(), list would contain a single
+> element.
+>
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
