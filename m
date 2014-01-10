@@ -1,57 +1,52 @@
-From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Subject: Re: PROBLEM: usbnet / ax88179_178a: Panic in usb_hcd_map_urb_for_dma
-Date: Fri, 10 Jan 2014 20:30:24 +0000
-Message-ID: <1389385824.2025.95.camel@bwh-desktop.uk.level5networks.com>
-References: <CAHNSM4Kv5gcJn=H4k8QjPggWzjF0zRm_t_icAYXjCTqXx4xL2w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Thomas Kear <thomas-hrxM1pTBpuF02iOg2JU2CQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAHNSM4Kv5gcJn=H4k8QjPggWzjF0zRm_t_icAYXjCTqXx4xL2w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 02/17] i40e: drop unused macros
+Date: Fri, 10 Jan 2014 12:30:24 -0800
+Message-ID: <1389385839-11996-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1389385839-11996-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:26548 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758196AbaAJUam (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 15:30:42 -0500
+In-Reply-To: <1389385839-11996-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-01-11 at 08:56 +1300, Thomas Kear wrote:
-> USB3 gigabit ethernet adapters with the ASIX AX88179 chipset (LevelOne
-> USB0401-V3, Plugable USB3-E1000, SIIG JU-NE0211-S1 and others) are
-> experiencing kernel panics in usb_hcd_map_urb_for_dma since 3.12.
-[...]
-> So far as I can tell, the driver is unaffected as late as 3.11.6, but
-> problematic as of 3.12 (and still affected in 3.13-rc5).  The history
-> of drivers/net/usb/ax88179_178a.c for this time period yields this
-> patch, which at least in my somewhat limited understanding appeared a
-> likely candidate.  I've reverted this on my system - against several
-> linux-next builds from the last 3-4 weeks - and have had no issues
-> with this network controller since.
-> 
-> commit 3804fad45411b48233b48003e33a78f290d227c8
-> Author: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> Date:   Thu Aug 8 21:48:25 2013 +0800
-> 
->     USBNET: ax88179_178a: enable tso if usb host supports sg dma
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Enabling SG DMA here has unfortunately caused a number of regressions as
-the XHCI (USB 3 controller) hardware is a bit inflexible and the driver
-wasn't quite ready to handle the SG lists generated for net devices.
+A previous commit removed any need for these macros, so remove
+them too.
 
-I don't think I've seen this particular symptom though, and it might
-indicate a bug in usbnet.
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_type.h | 9 ---------
+ 1 file changed, 9 deletions(-)
 
-[...]
-> [2] http://i.imgur.com/NCanPUY.jpg
-
-For those joining us on linux-usb, this is a photo of the panic.
-
-Ben.
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 12473ad..072c850 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -60,15 +60,6 @@
+ /* Max default timeout in ms, */
+ #define I40E_MAX_NVM_TIMEOUT		18000
+ 
+-/* Check whether address is multicast.  This is little-endian specific check.*/
+-#define I40E_IS_MULTICAST(address)	\
+-	(bool)(((u8 *)(address))[0] & ((u8)0x01))
+-
+-/* Check whether an address is broadcast. */
+-#define I40E_IS_BROADCAST(address)	\
+-	((((u8 *)(address))[0] == ((u8)0xff)) && \
+-	(((u8 *)(address))[1] == ((u8)0xff)))
+-
+ /* Switch from mc to the 2usec global time (this is the GTIME resolution) */
+ #define I40E_MS_TO_GTIME(time)		(((time) * 1000) / 2)
+ 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.8.3.1
