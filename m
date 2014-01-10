@@ -1,98 +1,105 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next 14/16] i40e: enable PTP
-Date: Fri, 10 Jan 2014 15:55:05 +0000
-Message-ID: <1389369305.2025.64.camel@bwh-desktop.uk.level5networks.com>
-References: <1389344336-1558-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1389344336-1558-15-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, Jacob Keller <jacob.e.keller@intel.com>,
-	<netdev@vger.kernel.org>, <gospo@redhat.com>,
-	<sassmann@redhat.com>, Richard Cochran <richardcochran@gmail.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH v2 net-next] net: make dev_set_mtu() honor notification return code
+Date: Fri, 10 Jan 2014 16:56:25 +0100
+Message-ID: <1389369385-17439-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:8583 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750877AbaAJPzL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 10:55:11 -0500
-In-Reply-To: <1389344336-1558-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:45203 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751620AbaAJQAv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 11:00:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-01-10 at 00:58 -0800, Jeff Kirsher wrote:
-> From: Jacob Keller <jacob.e.keller@intel.com>
-> 
-> New feature: Enable PTP support in the i40e driver.
-> 
-> Change-ID: I6a8e799f582705191f9583afb1b9231a8db96cc8
-> Cc: Richard Cochran <richardcochran@gmail.com>
-> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/i40e/Makefile       |   2 +
->  drivers/net/ethernet/intel/i40e/i40e.h         |  24 +
->  drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  33 +-
->  drivers/net/ethernet/intel/i40e/i40e_main.c    |  45 +-
->  drivers/net/ethernet/intel/i40e/i40e_ptp.c     | 640 +++++++++++++++++++++++++
->  drivers/net/ethernet/intel/i40e/i40e_txrx.c    |  53 ++
->  drivers/net/ethernet/intel/i40e/i40e_txrx.h    |   3 +
->  7 files changed, 798 insertions(+), 2 deletions(-)
->  create mode 100644 drivers/net/ethernet/intel/i40e/i40e_ptp.c
+Currently, after changing the MTU for a device, dev_set_mtu() calls
+NETDEV_CHANGEMTU notification, however doesn't verify it's return code -
+which can be NOTIFY_BAD - i.e. some of the net notifier blocks refused this
+change, and continues nevertheless.
 
-This is missing a Kconfig update to select PTP_1588_CLOCK.
+To fix this, verify the return code, and if it's an error - then revert the
+MTU to the original one, notify again and pass the error code.
 
-[...]
-> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> @@ -1698,6 +1698,25 @@ static int i40e_change_mtu(struct net_device *netdev, int new_mtu)
->  }
->  
->  /**
-> + * i40e_ioctl - Access the hwtstamp interface
-> + * @netdev: network interface device structure
-> + * @ifr: interface request data
-> + * @cmd: ioctl command
-> + **/
-> +int i40e_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
-> +{
-> +	struct i40e_netdev_priv *np = netdev_priv(netdev);
-> +	struct i40e_pf *pf = np->vsi->back;
-> +
-> +	switch (cmd) {
-> +	case SIOCSHWTSTAMP:
-> +		return i40e_ptp_hwtstamp_ioctl(pf, ifr, cmd);
-> +	default:
-> +		return -EOPNOTSUPP;
-> +	}
-> +}
+CC: Jiri Pirko <jiri@resnulli.us>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
+CC: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+---
 
-Please implement SIOCGHWTSTAMP as well.
+Notes:
+    v1 -> v2:
+    Notify again after we've reverted the MTU back to the original, so that
+    everyone has a chance to change its MTU back.
 
-[...]
-> --- /dev/null
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-[...]
-> +void i40e_ptp_init(struct i40e_pf *pf)
-> +{
-> +	struct i40e_hw *hw = &pf->hw;
-> +	struct net_device *netdev = pf->vsi[pf->lan_vsi]->netdev;
-> +
-> +	snprintf(pf->ptp_caps.name, 16, "%pm", netdev->dev_addr);
-[...]
+ net/core/dev.c | 34 +++++++++++++++++++++++++---------
+ 1 file changed, 25 insertions(+), 9 deletions(-)
 
-Use sizeof(), not a magic number.  Also the clock name should perhaps be
-the driver name, not the MAC address.
-
-Is the clock shared between multiple PFs or are there independent clocks
-for each PF?
-
-Ben.
-
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ce01847..0991d94 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5287,6 +5287,17 @@ int dev_change_flags(struct net_device *dev, unsigned int flags)
+ }
+ EXPORT_SYMBOL(dev_change_flags);
+ 
++static int __dev_set_mtu(struct net_device *dev, int new_mtu)
++{
++	const struct net_device_ops *ops = dev->netdev_ops;
++
++	if (ops->ndo_change_mtu)
++		return ops->ndo_change_mtu(dev, new_mtu);
++
++	dev->mtu = new_mtu;
++	return 0;
++}
++
+ /**
+  *	dev_set_mtu - Change maximum transfer unit
+  *	@dev: device
+@@ -5296,8 +5307,7 @@ EXPORT_SYMBOL(dev_change_flags);
+  */
+ int dev_set_mtu(struct net_device *dev, int new_mtu)
+ {
+-	const struct net_device_ops *ops = dev->netdev_ops;
+-	int err;
++	int err, orig_mtu;
+ 
+ 	if (new_mtu == dev->mtu)
+ 		return 0;
+@@ -5309,14 +5319,20 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
+ 	if (!netif_device_present(dev))
+ 		return -ENODEV;
+ 
+-	err = 0;
+-	if (ops->ndo_change_mtu)
+-		err = ops->ndo_change_mtu(dev, new_mtu);
+-	else
+-		dev->mtu = new_mtu;
++	orig_mtu = dev->mtu;
++	err = __dev_set_mtu(dev, new_mtu);
+ 
+-	if (!err)
+-		call_netdevice_notifiers(NETDEV_CHANGEMTU, dev);
++	if (!err) {
++		err = call_netdevice_notifiers(NETDEV_CHANGEMTU, dev);
++		err = notifier_to_errno(err);
++		if (err) {
++			/* setting mtu back and notifying everyone again,
++			 * so that they have a chance to revert changes.
++			 */
++			__dev_set_mtu(dev, orig_mtu);
++			call_netdevice_notifiers(NETDEV_CHANGEMTU, dev);
++		}
++	}
+ 	return err;
+ }
+ EXPORT_SYMBOL(dev_set_mtu);
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.4
