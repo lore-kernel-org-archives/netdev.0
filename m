@@ -1,90 +1,78 @@
 From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [net-next 05/16] i40e: fix long lines
-Date: Fri, 10 Jan 2014 10:02:27 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D457950@AcuExch.aculab.com>
-References: <1389344336-1558-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1389344336-1558-6-git-send-email-jeffrey.t.kirsher@intel.com>
- <1389344869.24222.31.camel@joe-AO722>
+Subject: RE: [PATCH -next] qlcnic: fix compiler warning
+Date: Fri, 10 Jan 2014 10:15:54 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D45796C@AcuExch.aculab.com>
+References: <20140109155908.GA4351@reykholt.kaiser.cx>
+ <262CB373A6D1F14F9B81E82F74F77D5A46F52B8E@avmb2.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: 'Joe Perches' <joe@perches.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	"trivial@kernel.org" <trivial@kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: 'Shahed Shaikh' <shahed.shaikh@qlogic.com>,
+	Martin Kaiser <martin@kaiser.cx>,
+	Himanshu Madhani <himanshu.madhani@qlogic.com>,
+	"Rajesh Borundia" <rajesh.borundia@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:37913 "HELO mx0.aculab.com"
+Received: from mx0.aculab.com ([213.249.233.131]:38134 "HELO mx0.aculab.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752964AbaAJKES convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 05:04:18 -0500
+	id S1753128AbaAJKRr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 05:17:47 -0500
 Received: from mx0.aculab.com ([127.0.0.1])
  by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 02141-01 for <netdev@vger.kernel.org>;
- Fri, 10 Jan 2014 10:04:16 +0000 (GMT)
-In-Reply-To: <1389344869.24222.31.camel@joe-AO722>
+ id 03447-03 for <netdev@vger.kernel.org>;
+ Fri, 10 Jan 2014 10:17:42 +0000 (GMT)
+In-Reply-To: <262CB373A6D1F14F9B81E82F74F77D5A46F52B8E@avmb2.qlogic.org>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c
-> b/drivers/net/ethernet/intel/i40e/i40e_common.c
-> []
-> > @@ -681,7 +681,8 @@ aq_add_vsi_exit:
-> >   * @cmd_details: pointer to command details structure or NULL
-> >   **/
-> >  i40e_status i40e_aq_set_vsi_unicast_promiscuous(struct i40e_hw *hw,
-> > -				u16 seid, bool set, struct i40e_asq_cmd_details *cmd_details)
-> > +				u16 seid, bool set,
-> > +				struct i40e_asq_cmd_details *cmd_details)
-> 
-> Another way this could be changed is to put the
-> return value on a separate line like:
-> 
-> i40e_status
-> i40e_aq_set_vsi_unicast_promiscuous(struct i40e_hw *hw, u16 seid, bool set,
-> 				    struct i40e_asq_cmd_details *cmd_details)
-
-Personally I prefer that so I can find the definition by grepping
-for '^function_name' - but it doesn't seem to be done in any linux
-source files.
-
-> > diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-> b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-> []
-> > @@ -93,9 +93,9 @@ i40e_status i40e_aq_set_vsi_broadcast(struct i40e_hw *hw,
-> >  				u16 vsi_id, bool set_filter,
-> >  				struct i40e_asq_cmd_details *cmd_details);
-> >  i40e_status i40e_aq_set_vsi_unicast_promiscuous(struct i40e_hw *hw,
-> > -				u16 vsi_id, bool set, struct i40e_asq_cmd_details *cmd_details);
-> > +		u16 vsi_id, bool set, struct i40e_asq_cmd_details *cmd_details);
-> 
-> i40e_status
-> i40e_aq_set_vsi_unicast_promiscuous(struct i40e_hw *hw, u16 vsi_id, bool set,
-> 				    struct i40e_asq_cmd_details *cmd_details);
-> 
-> etc...
-> 
-> but once you use extremely long 35+ characters
-> function names, 80 columns gets a bit silly too.
-
-Again this only a real problem when the coding stand requires that
-continuation lines have the parameters lined up under the '('.
-If they are indented by 4 spaces (as many of the BSDs do) then you
-do stand a chance of laying out a call in a reasonable number of
-vertical lines.
-
-My Actual preferred layout is to exclude tabs, indent by 4 spaces
-and double-indent continuation lines.
-I'll also start continuation lines (of expressions) with an operator
-to make it even clearer they are continuation lines.
-When I'm scan-reading code I tend to concentrate on the LHS of each line.
-- so that is where the information need to be.
-
-Not that I expect Linux to change!
-(Other code bases have much worse layout rules.)
-
-	David
+RnJvbTogU2hhaGVkIFNoYWlraA0KPiBBZGRpbmcgbmV0ZGV2Lg0KPiANCj4gPiAtLS0tLU9yaWdp
+bmFsIE1lc3NhZ2UtLS0tLQ0KPiA+IEZyb206IE1hcnRpbiBLYWlzZXIsLCwgW21haWx0bzptYXJ0
+aW5AcmV5a2hvbHQua2Fpc2VyLmN4XSBPbiBCZWhhbGYgT2YNCj4gPiBNYXJ0aW4gS2Fpc2VyDQo+
+ID4gU2VudDogVGh1cnNkYXksIEphbnVhcnkgMDksIDIwMTQgOToyOSBQTQ0KPiA+IFRvOiBIaW1h
+bnNodSBNYWRoYW5pOyBSYWplc2ggQm9ydW5kaWENCj4gPiBDYzogbGludXgta2VybmVsOyB0cml2
+aWFsQGtlcm5lbC5vcmcNCj4gPiBTdWJqZWN0OiBbUEFUQ0ggLW5leHRdIHFsY25pYzogZml4IGNv
+bXBpbGVyIHdhcm5pbmcNCj4gPg0KPiA+IEFkZCBhbiBleHBsaWNpdCBjYXN0IHRvIGZpeCB0aGUg
+Zm9sbG93aW5nIHdhcm5pbmcgKHNlZW4gb24gRGViaWFuIFdoZWV6eSwgZ2NjDQo+ID4gNC43LjIp
+DQo+ID4NCj4gPiBDQyBbTV0gIGRyaXZlcnMvbmV0L3dpcmVsZXNzL3J0bHdpZmkvcnRsODE5MmNl
+L3RyeC5vDQo+ID4gICAgIGRyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmlj
+X2lvLmM6IEluIGZ1bmN0aW9uDQo+ID4gcWxjbmljX3NlbmRfZmlsdGVyOg0KPiA+ICAgICBkcml2
+ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3FsY25pY19pby5jOjM0OTozOiB3YXJuaW5n
+Og0KPiA+ICAgICBwYXNzaW5nIGFyZ3VtZW50IDIgb2YgZXRoZXJfYWRkcl9lcXVhbCBmcm9tIGlu
+Y29tcGF0aWJsZSBwb2ludGVyIHR5cGUNCj4gPiBbZW5hYmxlZCBieSBkZWZhdWx0XQ0KPiA+ICAg
+ICBJbiBmaWxlIGluY2x1ZGVkIGZyb20gaW5jbHVkZS9saW51eC9pZl92bGFuLmg6MTY6MCwNCj4g
+PiAgICAgZnJvbSBkcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3FsY25pY19pby5j
+Ojk6DQo+ID4gICAgIGluY2x1ZGUvbGludXgvZXRoZXJkZXZpY2UuaDoyNDQ6MjA6IG5vdGU6IGV4
+cGVjdGVkIGNvbnN0IHU4ICogYnV0DQo+ID4gYXJndW1lbnQgaXMgb2YgdHlwZSB1NjQgKg0KPiA+
+DQo+IA0KPiBJZiBJIGFtIG5vdCB3cm9uZywgdGhpcyBwYXRjaCBzaG91bGQgZ28gdG8gRGF2aWQn
+cyBuZXQtbmV4dCB0cmVlLg0KPiANCj4gPiBTaWduZWQtb2ZmLWJ5OiBNYXJ0aW4gS2Fpc2VyIDxt
+YXJ0aW5Aa2Fpc2VyLmN4Pg0KPiANCj4gQWNrZWQtYnk6IFNoYWhlZCBTaGFpa2ggPHNoYWhlZC5z
+aGFpa2hAcWxvZ2ljLmNvbT4NCj4gDQo+IFRoYW5rcywNCj4gU2hhaGVkDQo+ID4gLS0tDQo+ID4g
+IGRyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmljX2lvLmMgfCAgICAyICst
+DQo+ID4gIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlvbigtKQ0KPiA+
+DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxj
+bmljX2lvLmMNCj4gPiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmlj
+X2lvLmMNCj4gPiBpbmRleCA2MzczZjYwLi4zNTU3MTU0IDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmljX2lvLmMNCj4gPiArKysgYi9kcml2
+ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3FsY25pY19pby5jDQo+ID4gQEAgLTM0Niw3
+ICszNDYsNyBAQCBzdGF0aWMgdm9pZCBxbGNuaWNfc2VuZF9maWx0ZXIoc3RydWN0IHFsY25pY19h
+ZGFwdGVyDQo+ID4gKmFkYXB0ZXIsDQo+ID4gIAloZWFkID0gJihhZGFwdGVyLT5maGFzaC5maGVh
+ZFtoaW5kZXhdKTsNCj4gPg0KPiA+ICAJaGxpc3RfZm9yX2VhY2hfZW50cnlfc2FmZSh0bXBfZmls
+LCBuLCBoZWFkLCBmbm9kZSkgew0KPiA+IC0JCWlmIChldGhlcl9hZGRyX2VxdWFsKHRtcF9maWwt
+PmZhZGRyLCAmc3JjX2FkZHIpICYmDQo+ID4gKwkJaWYgKGV0aGVyX2FkZHJfZXF1YWwodG1wX2Zp
+bC0+ZmFkZHIsIChjb25zdCB1OCAqKSZzcmNfYWRkcikNCj4gPiAmJg0KPiA+ICAJCSAgICB0bXBf
+ZmlsLT52bGFuX2lkID09IHZsYW5faWQpIHsNCj4gPiAgCQkJaWYgKGppZmZpZXMgPiAoUUxDTklD
+X1JFQUREX0FHRSAqIEhaICsgdG1wX2ZpbC0NCj4gPiA+ZnRpbWUpKQ0KPiA+ICAJCQkJcWxjbmlj
+X2NoYW5nZV9maWx0ZXIoYWRhcHRlciwgJnNyY19hZGRyLA0KPiA+IC0tDQo+ID4gMS43LjEwLjQN
+Cg0KQSBxdWljayBsb29rIGF0IHRoZSBjb2RlIHNlZW1zIHRvIGltcGx5IHRoYXQgdGhpcyBjb2Rl
+IGlzIHNvbWV3aGF0IGJ1Z2d5Lg0KJ3NyY19hZGRyJyBpcyBkZWZpbmVkIGEgdTY0IGV2ZW4gdGhv
+dWdoIGl0IGlzIGEgNiBieXRlIG1hYyBhZGRyZXNzLg0KT24gYmlnLWVuZGlhbiBzeXN0ZW1zIHRo
+ZSB3cm9uZyBieXRlcyBnZXQgYWNjZXNzZWQgYWxsIG92ZXIgdGhlIHBsYWNlLg0KDQpBbHNvIHdo
+ZW4gZXRoZXJfYWRkcl9lcXVhbCgpIGluIGlubGluZWQgdGhlIGNvZGUgZW5kcyB1cCBhY2Nlc3Np
+bmcgc3JjX2FkZHINCmFzIDMyYml0IGFuZCAxNmJpdCBkYXRhIC0gd2hpY2ggZG9uJ3QgaGF2ZSB0
+byBiZSBzeW5jaHJvbmlzZWQgYWdhaW5zdA0KYW5kIHdyaXRlcyB0byB0aGUgNjRiaXQgaXRlbS4N
+Cg0KSWYgbWlnaHQgYmUgdGhhdCBldGhlcl9hZGRyX2VxdWFsKCkgKGV0Yykgc2hvdWxkIGhhdmUg
+YSBnY2MgYXNtDQpzdGF0ZW1lbnQgd2l0aCBhICJtZW1vcnkiIGNvbnN0cmFpbnQgYWdhaW5zdCB0
+aGUgbWFjIGFkZHJlc3MgYnVmZmVycy4NCg0KCURhdmlkDQoNCg==
