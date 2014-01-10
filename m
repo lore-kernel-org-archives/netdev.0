@@ -1,154 +1,36 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net V2 2/2] net: core: explicitly select a
- txq before doing l2 forwarding
-Date: Fri, 10 Jan 2014 15:03:01 +0800
-Message-ID: <52CF9B25.7020909@redhat.com>
-References: <1389260252-48591-1-git-send-email-jasowang@redhat.com>
-	<1389260252-48591-2-git-send-email-jasowang@redhat.com>
-	<20140109123144.GC16701@hmsreliant.think-freely.org>
+Subject: Re: [PATCH net 1/2] macvlan: forbid L2 fowarding offload for macvtap
+Date: Fri, 10 Jan 2014 15:06:52 +0800
+Message-ID: <52CF9C0C.2020808@redhat.com>
+References: <52CA5CDA.1020503@gmail.com>	<52CA612D.2000902@redhat.com>	<20140106122628.GA24280@hmsreliant.think-freely.org>	<52CB7009.2030903@redhat.com>	<52CB8D54.9090506@gmail.com>	<52CB9D1A.1050101@redhat.com>	<52CBAC2A.90005@intel.com>	<52CBC22D.3050002@redhat.com>	<20140108125528.GC14741@redhat.com>	<52CDA186.1080601@gmail.com>	<20140109071721.GD19559@redhat.com>	<52CE63EB.5000109@redhat.com> <20140109133908.354a4d73@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	John Fastabend <john.r.fastabend@intel.com>, davem@davemloft.net
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20140109123144.GC16701@hmsreliant.think-freely.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140109133908.354a4d73@nehalam.linuxnetplumber.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/09/2014 08:31 PM, Neil Horman wrote:
-> On Thu, Jan 09, 2014 at 05:37:32PM +0800, Jason Wang wrote:
->> Currently, the tx queue were selected implicitly in ndo_dfwd_start_xmit(). The
->> will cause several issues:
->>
->> - NETIF_F_LLTX were removed for macvlan, so txq lock were done for macvlan
->>   instead of lower device which misses the necessary txq synchronization for
->>   lower device such as txq stopping or frozen required by dev watchdog or
->>   control path.
->> - dev_hard_start_xmit() was called with NULL txq which bypasses the net device
->>   watchdog.
->> - dev_hard_start_xmit() does not check txq everywhere which will lead a crash
->>   when tso is disabled for lower device.
->>
->> Fix this by explicitly introducing a new param for .ndo_select_queue() for just
->> selecting queues in the case of l2 forwarding offload. And also introducing
->> dfwd_direct_xmit() to do the queue selecting, txq holding and transmitting for
->> l2 forwarding.
->>
->> With this fixes, NETIF_F_LLTX could be preserved for macvlan and there's no need
->> to check txq against NULL in dev_hard_start_xmit(). Also there's no need to keep
->> a dedicated ndo_dfwd_start_xmit().
->>
->> In the future, it was also required for macvtap l2 forwarding support since it
->> provides a necessary synchronization method.
->>
->> Cc: John Fastabend <john.r.fastabend@intel.com>
->> Cc: Neil Horman <nhorman@tuxdriver.com>
->> Cc: e1000-devel@lists.sourceforge.net
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
->>
->> ---
->> Changes from V1:
->> - Adding a new parameter to ndo_select_queue instead of a new method to select
->>   queue for l2 forwarding.
->> - Remove the unnecessary ndo_dfwd_start_xmit() since txq was selected
->>   explicitly.
->> - Keep NETIF_F_LLTX when netdev feature is changed.
->> - Shape the commit log
-> A few minor nits inline.
->> <snip>
->>  }
->> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
->> index 5360f73..7eb4c82 100644
->> --- a/drivers/net/macvlan.c
->> +++ b/drivers/net/macvlan.c
->> @@ -299,7 +299,7 @@ netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
->>  
->>  	if (vlan->fwd_priv) {
->>  		skb->dev = vlan->lowerdev;
->> -		ret = dev_hard_start_xmit(skb, skb->dev, NULL, vlan->fwd_priv);
->> +		ret = dfwd_direct_xmit(skb, skb->dev, vlan->fwd_priv);
->>  	} else {
->>  		ret = macvlan_queue_xmit(skb, dev);
->>  	}
->> @@ -366,7 +366,6 @@ static int macvlan_open(struct net_device *dev)
->>  		if (IS_ERR_OR_NULL(vlan->fwd_priv)) {
->>  			vlan->fwd_priv = NULL;
->>  		} else {
->> -			dev->features &= ~NETIF_F_LLTX;
->>  			return 0;
->>  		}
-> After removing the features flag operation here, you don't need the braces
-> around the else statement either.
-
-Ok.
->> <snip>
->> +int dfwd_direct_xmit(struct sk_buff *skb, struct net_device *dev,
->> +		     void *accel_priv)
->> +{
->> +	struct netdev_queue *txq;
->> +	int ret = NETDEV_TX_BUSY;
->> +	int index;
->> +
->> +	BUG_ON(!dev->netdev_ops->ndo_select_queue);
->> +	index =	dev->netdev_ops->ndo_select_queue(dev, skb, accel_priv);
->> +
->> +	local_bh_disable();
->> +
->> +	skb_set_queue_mapping(skb, index);
->> +	txq = netdev_get_tx_queue(dev, index);
->> +
->> +	HARD_TX_LOCK(dev, txq, smp_processor_id());
->> +	if (!netif_xmit_frozen_or_stopped(txq))
->> +		ret = dev_hard_start_xmit(skb, dev, txq);
->> +	HARD_TX_UNLOCK(dev, txq);
->> +
->> +	local_bh_enable();
->> +	return ret;
->> +}
->> +EXPORT_SYMBOL_GPL(dfwd_direct_xmit);
->> +
-> Now that we're using the common path to select a queue, can we just use
-> dev_queue_xmit here instead of creating our own transmit function?  The txq we
-> select from the ixgbe card will just have a pfifo_fast queue on it (if not a
-> noop queue), so dev_queue_xmit should just fall into the dev_hard_start_xmit
-> path, and save us this extra coding.
+On 01/10/2014 05:39 AM, Stephen Hemminger wrote:
+> On Thu, 09 Jan 2014 16:55:07 +0800
+> Jason Wang <jasowang@redhat.com> wrote:
 >
-> Neil
+>> What if use do want a qdisc and want to change the its queue length for
+>> tun/macvlan? And the the name tx_queue_length is misleading. For tun it
+>> may make sense since it was used in transmission path. For macvtap it
+>> was not. So maybe what we need is just a new ioctl for both tun/macvtap
+>> and a new feature flag. If user create the device with new feature flag,
+>> the socket receive queue length could be changed by ioctl instead of
+>> dev->tx_queue_length. If not, the old behaviour could be kept.
+> The overloading of tx_queue_len in macvtap was the original design mistake.
+> Can't this just be undone and expose rx_queue_len as sysfs attribute?
 
-Ture, and this will make no difference with the case without l2
-forwarding. To not trouble other parts too much, I will keep the current
-dev_queue_xmit() API and rename the current dev_queue_xmit() to
-__dev_queue_xmit() can make it can accept a accel_priv parameter. So
-dev_queue_xmit() will call this will NULL accel_priv and introduce a
-dev_queue_xmit_accel() that can accept a accel_priv parameter.
-
-Thanks
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-
-
-------------------------------------------------------------------------------
-CenturyLink Cloud: The Leader in Enterprise Cloud Services.
-Learn Why More Businesses Are Choosing CenturyLink Cloud For
-Critical Workloads, Development Environments & Everything In Between.
-Get a Quote or Start a Free Trial Today. 
-http://pubads.g.doubleclick.net/gampad/clk?id=119420431&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+That works. But we current allow user to change the socket sndbuf
+through TUNSNDBUF. Maybe we need a similar one for receive.
