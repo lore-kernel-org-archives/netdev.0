@@ -1,42 +1,36 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v2 05/16] blackfin: Update stmmac callback signatures
-Date: Fri, 10 Jan 2014 23:47:24 +0300
-Message-ID: <52D05C5C.3030207@cogentembedded.com>
-References: <1389337217-29032-1-git-send-email-wens@csie.org> <1389337217-29032-6-git-send-email-wens@csie.org>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 08/23] netfilter: nft_ct: load both IPv4 and IPv6
+ conntrack modules for NFPROTO_INET
+Date: Fri, 10 Jan 2014 14:48:13 -0500 (EST)
+Message-ID: <20140110.144813.659408334812475090.davem@davemloft.net>
+References: <1389314142-17969-9-git-send-email-pablo@netfilter.org>
+	<52D05AC6.20000@cogentembedded.com>
+	<20140110194235.GA9253@macbook.localnet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Cc: Mike Turquette <mturquette-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
- Emilio Lopez <emilio-0Z03zUJReD5OxF6Tv1QG9Q@public.gmane.org>,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
- Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
- Srinivas Kandagatla <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>,
- Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
- Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
- Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-sunxi+bncBC6MFNV32EFRBSM4YGLAKGQEDMM5IHA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <1389337217-29032-6-git-send-email-wens-jdAy2FN1RRM@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sergei.shtylyov@cogentembedded.com, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20140110194235.GA9253@macbook.localnet>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+From: Patrick McHardy <kaber@trash.net>
+Date: Fri, 10 Jan 2014 19:42:36 +0000
 
-On 01/10/2014 10:00 AM, Chen-Yu Tsai wrote:
+> I can see you're looking out for the important stuff. I consistently
+> used this style in nftables so I'm not going to change it here.
 
-> stmmac callbacks have been extended for better seperation.
+Patrick, please follow the coding style conventions of the kernel,
+these issues are important for long term sanity of the kernel tree.
 
-    Only "separation".
+It helps people who are looking at the netfilter code who perhaps
+do not do so usually.  Do you really want to use a different style
+and therefore make your code harder to read for them?  Really?
 
-> Update them to avoid breakage.
+Your code being consistent with your code only is less important than
+all of the networking looking the same.
 
-> Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-
-WBR, Sergei
+Thank you.
