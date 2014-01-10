@@ -1,63 +1,195 @@
-From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: [PATCH v2 11/16] ARM: dts: sun7i: Add GMAC controller
- node to sun7i DTSI
-Date: Fri, 10 Jan 2014 15:00:12 +0800
-Message-ID: <1389337217-29032-12-git-send-email-wens@csie.org>
-References: <1389337217-29032-1-git-send-email-wens@csie.org>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Multicast routing stops functioning after 4G multicast packets
+ recived.
+Date: Thu, 09 Jan 2014 23:01:46 -0800
+Message-ID: <1389337306.31367.94.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140109201411.317040@gmx.com>
+	 <20140110063638.GA17866@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
-	Emilio Lopez <emilio-0Z03zUJReD5OxF6Tv1QG9Q@public.gmane.org>,
-	Mike Turquette <mturquette-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-To: Srinivas Kandagatla <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>,
-	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <linux-sunxi+bncBCMILY6JWQBBBBVVX2LAKGQENFQBXRQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <1389337217-29032-1-git-send-email-wens-jdAy2FN1RRM@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Bob Falken <NetFestivalHaveFun@gmx.com>,
+	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
+	kaber@trash.net, tgraf@suug.ch
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:46244 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751363AbaAJHBs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 02:01:48 -0500
+Received: by mail-pb0-f41.google.com with SMTP id jt11so4074424pbb.14
+        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 23:01:48 -0800 (PST)
+In-Reply-To: <20140110063638.GA17866@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
----
- arch/arm/boot/dts/sun7i-a20.dtsi | 15 +++++++++++++++
- 1 file changed, 15 insertions(+)
+On Fri, 2014-01-10 at 07:36 +0100, Hannes Frederic Sowa wrote:
 
-diff --git a/arch/arm/boot/dts/sun7i-a20.dtsi b/arch/arm/boot/dts/sun7i-a20.dtsi
-index 4019c55..18d211e 100644
---- a/arch/arm/boot/dts/sun7i-a20.dtsi
-+++ b/arch/arm/boot/dts/sun7i-a20.dtsi
-@@ -618,6 +618,21 @@
- 			status = "disabled";
- 		};
- 
-+		gmac: ethernet@01c50000 {
-+			compatible = "allwinner,sun7i-a20-gmac";
-+			reg = <0x01c50000 0x10000>;
-+			interrupts = <0 85 4>;
-+			interrupt-names = "macirq";
-+			clocks = <&ahb_gates 49>, <&gmac_tx_clk>;
-+			clock-names = "stmmaceth", "allwinner_gmac_tx";
-+			snps,pbl = <2>;
-+			snps,fixed-burst;
-+			snps,force_sf_dma_mode;
-+			status = "disabled";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+		};
-+
- 		hstimer@01c60000 {
- 			compatible = "allwinner,sun7i-a20-hstimer";
- 			reg = <0x01c60000 0x1000>;
--- 
-1.8.5.2
+> Ok, so I am proposing this patch. Only difference from the RFC is that
+> I removed the superfluous arg.rule NULL-pointer checks (I hate if they
+> are superfluous and they always seem to spread ;) ).
+> 
+> Maybe you could test this one instead and David could pick it up as soon
+> as your results are in.
+> 
+> I'll also look for the stable kernels where FIB_LOOKUP_NOREF is not
+> yet available.
+> 
+> Thank you,
+> 
+>   Hannes
+> 
+> [PATCH net] net: avoid reference counter overflows on fib_rules in multicast forwarding
+> 
+> When introducing multiple table support for multicast forwarding in
+> IPv4 and IPv6, necessary fib_rules_put reference count decrements were
+> forgotten.
+> 
+> Bob Falken reported that after 4G packets, multicast forwarding stopped
+> working. This was because of a rule reference counter overflow which
+> freed the rule as soon as the overflow happend.
+> 
+> So, use FIB_LOOKUP_NOREF if we are already in a RCU protected section and
+> correctly deal with reference counter if not (called from ndo_start_xmit).
+> 
+> Fixes: f0ad0860d01e47 ("ipv4: ipmr: support multiple tables")
+> Fixes: d1db275dd3f6e4 ("ipv6: ip6mr: support multiple tables")
+> Reported-by: Bob Falken <NetFestivalHaveFun@gmx.com>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: Thomas Graf <tgraf@suug.ch>
+> Cc: Julian Anastasov <ja@ssi.bg>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>  net/ipv4/ipmr.c  | 23 +++++++++++++++++------
+>  net/ipv6/ip6mr.c | 21 +++++++++++++++------
+>  2 files changed, 32 insertions(+), 12 deletions(-)
+> 
+> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+> index 421a249..c8d0857 100644
+> --- a/net/ipv4/ipmr.c
+> +++ b/net/ipv4/ipmr.c
+> @@ -157,9 +157,12 @@ static struct mr_table *ipmr_get_table(struct net *net, u32 id)
+>  static int ipmr_fib_lookup(struct net *net, struct flowi4 *flp4,
+>  			   struct mr_table **mrt)
+>  {
+> -	struct ipmr_result res;
+> -	struct fib_lookup_arg arg = { .result = &res, };
+>  	int err;
+> +	struct ipmr_result res;
+> +	struct fib_lookup_arg arg = {
+> +		.result = &res,
+> +		.flags = FIB_LOOKUP_NOREF,
+> +	};
+>  
+>  	err = fib_rules_lookup(net->ipv4.mr_rules_ops,
+>  			       flowi4_to_flowi(flp4), 0, &arg);
+> @@ -448,16 +451,22 @@ failure:
+>  
+>  static netdev_tx_t reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
+>  {
+> +	int err;
+> +	struct ipmr_result res;
+>  	struct net *net = dev_net(dev);
+> -	struct mr_table *mrt;
+> +
+> +	struct fib_lookup_arg arg = {
+> +		.result = &res,
+> +	};
+> +
+>  	struct flowi4 fl4 = {
+>  		.flowi4_oif	= dev->ifindex,
+>  		.flowi4_iif	= skb->skb_iif,
+>  		.flowi4_mark	= skb->mark,
+>  	};
+> -	int err;
+>  
+> -	err = ipmr_fib_lookup(net, &fl4, &mrt);
+> +	err = fib_rules_lookup(net->ipv4.mr_rules_ops,
+> +			       flowi4_to_flowi(&fl4), 0, &arg);
+
+Its not clear to me why you expand ipmr_fib_lookup()
+
+Is there something wrong with existing code ?
+
+Its not mentioned in changelog
+
+>  	if (err < 0) {
+>  		kfree_skb(skb);
+>  		return err;
+> @@ -466,9 +475,11 @@ static netdev_tx_t reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	read_lock(&mrt_lock);
+>  	dev->stats.tx_bytes += skb->len;
+>  	dev->stats.tx_packets++;
+> -	ipmr_cache_report(mrt, skb, mrt->mroute_reg_vif_num, IGMPMSG_WHOLEPKT);
+> +	ipmr_cache_report(res.mrt, skb, res.mrt->mroute_reg_vif_num,
+> +			  IGMPMSG_WHOLEPKT);
+>  	read_unlock(&mrt_lock);
+>  	kfree_skb(skb);
+> +	fib_rule_put(arg.rule);
+
+This is the one line that is really missing, patch could be smaller.
+
+>  	return NETDEV_TX_OK;
+>  }
+>  
+> diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+> index f365310..38347a3 100644
+> --- a/net/ipv6/ip6mr.c
+> +++ b/net/ipv6/ip6mr.c
+> @@ -141,9 +141,12 @@ static struct mr6_table *ip6mr_get_table(struct net *net, u32 id)
+>  static int ip6mr_fib_lookup(struct net *net, struct flowi6 *flp6,
+>  			    struct mr6_table **mrt)
+>  {
+> -	struct ip6mr_result res;
+> -	struct fib_lookup_arg arg = { .result = &res, };
+>  	int err;
+> +	struct ip6mr_result res;
+> +	struct fib_lookup_arg arg = {
+> +		.result = &res,
+> +		.flags = FIB_LOOKUP_NOREF,
+> +	};
+>  
+>  	err = fib_rules_lookup(net->ipv6.mr6_rules_ops,
+>  			       flowi6_to_flowi(flp6), 0, &arg);
+> @@ -693,16 +696,20 @@ static const struct inet6_protocol pim6_protocol = {
+>  static netdev_tx_t reg_vif_xmit(struct sk_buff *skb,
+>  				      struct net_device *dev)
+>  {
+> +	int err;
+> +	struct ip6mr_result res;
+>  	struct net *net = dev_net(dev);
+> -	struct mr6_table *mrt;
+>  	struct flowi6 fl6 = {
+>  		.flowi6_oif	= dev->ifindex,
+>  		.flowi6_iif	= skb->skb_iif,
+>  		.flowi6_mark	= skb->mark,
+>  	};
+> -	int err;
+> +	struct fib_lookup_arg arg = {
+> +		.result = &res,
+> +	};
+>  
+> -	err = ip6mr_fib_lookup(net, &fl6, &mrt);
+> +	err = fib_rules_lookup(net->ipv6.mr6_rules_ops,
+> +			flowi6_to_flowi(&fl6), 0, &arg);
+
+
+same remark here.
+
+>  	if (err < 0) {
+>  		kfree_skb(skb);
+>  		return err;
+> @@ -711,9 +718,11 @@ static netdev_tx_t reg_vif_xmit(struct sk_buff *skb,
+>  	read_lock(&mrt_lock);
+>  	dev->stats.tx_bytes += skb->len;
+>  	dev->stats.tx_packets++;
+> -	ip6mr_cache_report(mrt, skb, mrt->mroute_reg_vif_num, MRT6MSG_WHOLEPKT);
+> +	ip6mr_cache_report(res.mrt, skb, res.mrt->mroute_reg_vif_num,
+> +			   MRT6MSG_WHOLEPKT);
+>  	read_unlock(&mrt_lock);
+>  	kfree_skb(skb);
+> +	fib_rule_put(arg.rule);
+>  	return NETDEV_TX_OK;
+>  }
+>  
