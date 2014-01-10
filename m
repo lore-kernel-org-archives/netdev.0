@@ -1,32 +1,28 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v4 1/2] ipv6 addrconf: add IFA_F_NOPREFIXROUTE flag to suppress creation of IP6 routes
-Date: Fri, 10 Jan 2014 04:56:03 +0100
-Message-ID: <20140110035603.GA1012@order.stressinduktion.org>
-References: <20140108200019.GK9007@order.stressinduktion.org> <1389227404-12586-1-git-send-email-thaller@redhat.com> <1389227404-12586-2-git-send-email-thaller@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] irda: fixup sh_sir/irda
+Date: Thu, 09 Jan 2014 22:57:35 -0500 (EST)
+Message-ID: <20140109.225735.424290305551015663.davem@davemloft.net>
+References: <8761pvxedn.wl%kuninori.morimoto.gx@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	stephen@networkplumber.org, dcbw@redhat.com
-To: Thomas Haller <thaller@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kuninori.morimoto.gx@renesas.com,
+	huqiuliu@gmail.com
+To: kuninori.morimoto.gx@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:53040 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750793AbaAJD4F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 22:56:05 -0500
-Content-Disposition: inline
-In-Reply-To: <1389227404-12586-2-git-send-email-thaller@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36208 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751024AbaAJD5k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 22:57:40 -0500
+In-Reply-To: <8761pvxedn.wl%kuninori.morimoto.gx@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 09, 2014 at 01:30:03AM +0100, Thomas Haller wrote:
-> When adding/modifying an IPv6 address, the userspace application needs
-> a way to suppress adding a prefix route. This is for example relevant
-> together with IFA_F_MANAGERTEMPADDR, where userspace creates autoconf
-> generated addresses, but depending on on-link, no route for the
-> prefix should be added.
-> 
-> Signed-off-by: Thomas Haller <thaller@redhat.com>
+From: Kuninori Morimoto <kuninori.morimoto.gx@gmail.com>
+Date: Tue, 07 Jan 2014 20:54:16 -0800 (PST)
 
-Looks good!
+> These are fixup patches for sh_sir/irda driver.
+> #1 fixup Kconfig for sh_sir.
+> #2, #3 fixup IRQ issue.
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+All applied to net-next, thanks.
