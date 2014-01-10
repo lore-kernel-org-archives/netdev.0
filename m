@@ -1,59 +1,49 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 08/23] netfilter: nft_ct: load both IPv4 and IPv6
- conntrack modules for NFPROTO_INET
-Date: Fri, 10 Jan 2014 19:42:36 +0000
-Message-ID: <20140110194235.GA9253@macbook.localnet>
-References: <1389314142-17969-1-git-send-email-pablo@netfilter.org>
- <1389314142-17969-9-git-send-email-pablo@netfilter.org>
- <52D05AC6.20000@cogentembedded.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] sctp: make sctp_addto_chunk_fixed local
+Date: Fri, 10 Jan 2014 23:45:27 +0300
+Message-ID: <52D05BE7.9020203@cogentembedded.com>
+References: <20140109223111.71e55286@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61813 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758009AbaAJTmk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 14:42:40 -0500
-Content-Disposition: inline
-In-Reply-To: <52D05AC6.20000@cogentembedded.com>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:52704 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756176AbaAJTpY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 14:45:24 -0500
+Received: by mail-lb0-f177.google.com with SMTP id z5so1364497lbh.36
+        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 11:45:23 -0800 (PST)
+In-Reply-To: <20140109223111.71e55286@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 10, 2014 at 11:40:38PM +0300, Sergei Shtylyov wrote:
-> On 01/10/2014 03:35 AM, Pablo Neira Ayuso wrote:
-> 
-> >From: Patrick McHardy <kaber@trash.net>
-> 
-> >The ct expression can currently not be used in the inet family since
-> >we don't have a conntrack module for NFPROTO_INET, so
-> >nf_ct_l3proto_try_module_get() fails. Add some manual handling to
-> >load the modules for both NFPROTO_IPV4 and NFPROTO_IPV6 if the
-> >ct expression is used in the inet family.
-> 
-> >Signed-off-by: Patrick McHardy <kaber@trash.net>
-> >Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> >---
-> >  net/netfilter/nft_ct.c |   39 ++++++++++++++++++++++++++++++++++++---
-> >  1 file changed, 36 insertions(+), 3 deletions(-)
-> 
-> >diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
-> >index 955f4e6..3727a32 100644
-> >--- a/net/netfilter/nft_ct.c
-> >+++ b/net/netfilter/nft_ct.c
-> [...]
-> >+static void nft_ct_l3proto_module_put(uint8_t family)
-> >+{
-> >+	if (family == NFPROTO_INET) {
-> >+		nf_ct_l3proto_module_put(NFPROTO_IPV4);
-> >+		nf_ct_l3proto_module_put(NFPROTO_IPV6);
-> >+	} else
-> >+		nf_ct_l3proto_module_put(family);
-> 
->    According to Documentation/CodingStyle, there should be {} in the
-> *else* arm, as the other arm of *if* statement has it.
+Hello.
 
-I can see you're looking out for the important stuff. I consistently
-used this style in nftables so I'm not going to change it here.
+On 01/10/2014 09:31 AM, Stephen Hemminger wrote:
+
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+
+[...]
+
+> --- a/net/sctp/sm_make_chunk.c	2014-01-09 22:29:51.871663405 -0800
+> +++ b/net/sctp/sm_make_chunk.c	2014-01-09 22:29:58.323581984 -0800
+> @@ -78,6 +78,8 @@ static int sctp_process_param(struct sct
+>   			      gfp_t gfp);
+>   static void *sctp_addto_param(struct sctp_chunk *chunk, int len,
+>   			      const void *data);
+> +static void  *sctp_addto_chunk_fixed(struct sctp_chunk *, int len,
+
+    Sorry for nitpicking but two spaces after 'void' don't align well with the 
+previous declaration. Probably can be fixed while applying...
+
+> +				     const void *data);
+>
+>   /* Control chunk destructor */
+>   static void sctp_control_release_owner(struct sk_buff *skb)
+
+WBR, Sergei
