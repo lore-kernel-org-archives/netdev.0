@@ -1,68 +1,53 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 06/23] netfilter: nf_tables: add nfproto support to meta expression
-Date: Fri, 10 Jan 2014 01:35:25 +0100
-Message-ID: <1389314142-17969-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 13/23] netfilter: nf_tables: fix check for table overflow
+Date: Fri, 10 Jan 2014 01:35:32 +0100
+Message-ID: <1389314142-17969-14-git-send-email-pablo@netfilter.org>
 References: <1389314142-17969-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:51554 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757202AbaAJAgL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jan 2014 19:36:11 -0500
 In-Reply-To: <1389314142-17969-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Patrick McHardy <kaber@trash.net>
 
-Needed by multi-family tables to distinguish IPv4 and IPv6 packets.
+The table use counter is only increased for new chains, so move the check
+to the correct position.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/nf_tables.h |    2 ++
- net/netfilter/nft_meta.c                 |    4 ++++
- 2 files changed, 6 insertions(+)
+ net/netfilter/nf_tables_api.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-index aa86a152..10afbfc 100644
---- a/include/uapi/linux/netfilter/nf_tables.h
-+++ b/include/uapi/linux/netfilter/nf_tables.h
-@@ -531,6 +531,7 @@ enum nft_exthdr_attributes {
-  * @NFT_META_NFTRACE: packet nftrace bit
-  * @NFT_META_RTCLASSID: realm value of packet's route (skb->dst->tclassid)
-  * @NFT_META_SECMARK: packet secmark (skb->secmark)
-+ * @NFT_META_NFPROTO: netfilter protocol
-  */
- enum nft_meta_keys {
- 	NFT_META_LEN,
-@@ -548,6 +549,7 @@ enum nft_meta_keys {
- 	NFT_META_NFTRACE,
- 	NFT_META_RTCLASSID,
- 	NFT_META_SECMARK,
-+	NFT_META_NFPROTO,
- };
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index d275d38..290472c 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -834,9 +834,6 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
+ 	if (IS_ERR(table))
+ 		return PTR_ERR(table);
  
- /**
-diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
-index 1ceaaa6..999d046 100644
---- a/net/netfilter/nft_meta.c
-+++ b/net/netfilter/nft_meta.c
-@@ -43,6 +43,9 @@ static void nft_meta_get_eval(const struct nft_expr *expr,
- 	case NFT_META_PROTOCOL:
- 		*(__be16 *)dest->data = skb->protocol;
- 		break;
-+	case NFT_META_NFPROTO:
-+		dest->data[0] = pkt->ops->pf;
-+		break;
- 	case NFT_META_PRIORITY:
- 		dest->data[0] = skb->priority;
- 		break;
-@@ -181,6 +184,7 @@ static int nft_meta_init_validate_get(uint32_t key)
- 	switch (key) {
- 	case NFT_META_LEN:
- 	case NFT_META_PROTOCOL:
-+	case NFT_META_NFPROTO:
- 	case NFT_META_PRIORITY:
- 	case NFT_META_MARK:
- 	case NFT_META_IIF:
+-	if (table->use == UINT_MAX)
+-		return -EOVERFLOW;
+-
+ 	chain = NULL;
+ 	name = nla[NFTA_CHAIN_NAME];
+ 
+@@ -899,6 +896,9 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
+ 		goto notify;
+ 	}
+ 
++	if (table->use == UINT_MAX)
++		return -EOVERFLOW;
++
+ 	if (nla[NFTA_CHAIN_HOOK]) {
+ 		struct nf_hook_ops *ops;
+ 		nf_hookfn *hookfn;
 -- 
 1.7.10.4
-
