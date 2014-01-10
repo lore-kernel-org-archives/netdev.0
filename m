@@ -1,47 +1,65 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 03/17] i40e: Update the Current NVM version Low value
-Date: Fri, 10 Jan 2014 12:30:25 -0800
-Message-ID: <1389385839-11996-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1389385839-11996-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: Layer 2 acceleration vs GSO
+Date: Fri, 10 Jan 2014 15:32:22 -0500
+Message-ID: <20140110203222.GB2645@hmsreliant.think-freely.org>
+References: <1389384339.2025.88.camel@bwh-desktop.uk.level5networks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:10748 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758200AbaAJUam (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 15:30:42 -0500
-In-Reply-To: <1389385839-11996-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:57647 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758344AbaAJUcj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 15:32:39 -0500
+Content-Disposition: inline
+In-Reply-To: <1389384339.2025.88.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+On Fri, Jan 10, 2014 at 08:05:39PM +0000, Ben Hutchings wrote:
+> What happens when an skb to be sent through ndo_dfwd_start_xmit()
+> requires software GSO?
+> 
+> dev_hard_start_xmit() will segment it and then submit each segment, and
+> then:
+> 
+> > gso:
+> > 	do {
+> [...]
+> > 		if (accel_priv)
+> > 			rc = ops->ndo_dfwd_start_xmit(nskb, dev, accel_priv);
+> > 		else
+> > 			rc = ops->ndo_start_xmit(nskb, dev);
+> > 		trace_net_dev_xmit(nskb, rc, dev, skb_len);
+> [...]
+> > 		txq_trans_update(txq);
+> 
+> Oops, txq is NULL.  And once we add the obvious condition to that,
+> 
+> > 		if (unlikely(netif_xmit_stopped(txq) && skb->next))
+> > 			return NETDEV_TX_BUSY;
+> 
+> How can we tell if the hardware transmit queue filled up?
+> 
+> It seems like this feature currently relies on the driver returning
+> NETDEV_TX_BUSY when the TX queue is already full, like ixgbe does.  But
+> that is exactly what drivers are *not* supposed to do.
+> 
+> Ben.
+> 
+> > 	} while (skb->next);
+> 
+Dave just to a fix to deal with this (among some other issues) here today:
+http://marc.info/?l=linux-kernel&m=138934276507518&w=2
+Neil
 
-The current driver will warn the user if the NVM version
-is out of date, this raises the bar to a newer version.
-
-Change-ID: I5ec21d8efa4e7c3fdacb56f85d310bb2229b1483
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 4d4cdbf..7dab660 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -88,7 +88,7 @@
- 
- /* The values in here are decimal coded as hex as is the case in the NVM map*/
- #define I40E_CURRENT_NVM_VERSION_HI 0x2
--#define I40E_CURRENT_NVM_VERSION_LO 0x1
-+#define I40E_CURRENT_NVM_VERSION_LO 0x30
- 
- 
- /* magic for getting defines into strings */
--- 
-1.8.3.1
+> -- 
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+> 
+> 
