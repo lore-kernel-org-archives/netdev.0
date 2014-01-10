@@ -1,59 +1,62 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 ] PIE: Proportional Integral controller
- Enhanced
-Date: Thu, 9 Jan 2014 22:52:17 -0800
-Message-ID: <20140109225217.3269b74a@nehalam.linuxnetplumber.net>
-References: <1389160839-31060-1-git-send-email-subramanian.vijay@gmail.com>
+From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Subject: [PATCH v2 13/16] ARM: dts: sun7i: cubietruck: Enable
+ the GMAC
+Date: Fri, 10 Jan 2014 15:00:14 +0800
+Message-ID: <1389337217-29032-14-git-send-email-wens@csie.org>
+References: <1389337217-29032-1-git-send-email-wens@csie.org>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
-	Mythili Prabhu <mysuryan@cisco.com>,
-	Dave Taht <dave.taht@bufferbloat.net>
-To: Vijay Subramanian <subramanian.vijay@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:45465 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750808AbaAJGwU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 01:52:20 -0500
-Received: by mail-pb0-f42.google.com with SMTP id uo5so4060026pbc.15
-        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 22:52:20 -0800 (PST)
-In-Reply-To: <1389160839-31060-1-git-send-email-subramanian.vijay@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
+	Emilio Lopez <emilio-0Z03zUJReD5OxF6Tv1QG9Q@public.gmane.org>,
+	Mike Turquette <mturquette-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+To: Srinivas Kandagatla <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>,
+	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-sunxi+bncBCMILY6JWQBBBBNVX2LAKGQEJDFSV7Q-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <1389337217-29032-1-git-send-email-wens-jdAy2FN1RRM@public.gmane.org>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue,  7 Jan 2014 22:00:39 -0800
-Vijay Subramanian <subramanian.vijay@gmail.com> wrote:
+The CubieTruck uses the GMAC with an RGMII phy.
 
-> From: Vijay Subramanian <vijaynsu@cisco.com>
-> 
-> Proportional Integral controller Enhanced (PIE) is a scheduler to address the
-> bufferbloat problem.
-> 
-> We present here a lightweight design, PIE(Proportional Integral controller
-> Enhanced) that can effectively control the average queueing latency to a target
-> value. Simulation results, theoretical analysis and Linux testbed results have
-> shown that PIE can ensure low latency and achieve high link utilization under
-> various congestion situations. The design does not require per-packet
-> timestamp, so it incurs very small overhead and is simple enough to implement
-> in both hardware and software.  "
-> 
-> For more information, please see technical paper about PIE in the IEEE
-> Conference on High Performance Switching and Routing 2013. A copy of the paper
-> can be found at ftp://ftpeng.cisco.com/pie/.
-> 
-> Please also refer to the IETF draft submission at
-> http://tools.ietf.org/html/draft-pan-tsvwg-pie-00
-> 
-> All relevant code, documents and test scripts and results can be found at
-> ftp://ftpeng.cisco.com/pie/.
-> 
-> For problems with the iproute2/tc or Linux kernel code, please contact Vijay
-> Subramanian (vijaynsu@cisco.com or subramanian.vijay@gmail.com) Mythili Prabhu
-> (mysuryan@cisco.com)
-> 
-> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
-> Signed-off-by: Mythili Prabhu <mysuryan@cisco.com>
-> CC: Dave Taht <dave.taht@bufferbloat.net>
+Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+---
+ arch/arm/boot/dts/sun7i-a20-cubietruck.dts | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-On the net-next-3.13 branch to be held until next merge window
+diff --git a/arch/arm/boot/dts/sun7i-a20-cubietruck.dts b/arch/arm/boot/dts/sun7i-a20-cubietruck.dts
+index f9dcb61..025ce52 100644
+--- a/arch/arm/boot/dts/sun7i-a20-cubietruck.dts
++++ b/arch/arm/boot/dts/sun7i-a20-cubietruck.dts
+@@ -51,6 +51,18 @@
+ 			pinctrl-0 = <&i2c2_pins_a>;
+ 			status = "okay";
+ 		};
++
++		gmac: ethernet@01c50000 {
++			pinctrl-names = "default";
++			pinctrl-0 = <&gmac_pins_rgmii_a>;
++			phy = <&phy1>;
++			phy-mode = "rgmii";
++			status = "okay";
++
++			phy1: ethernet-phy@1 {
++				reg = <1>;
++			};
++		};
+ 	};
+ 
+ 	leds {
+-- 
+1.8.5.2
