@@ -1,33 +1,36 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] iproute2: finish support for bonding
- attributes
-Date: Thu, 9 Jan 2014 23:10:19 -0800
-Message-ID: <20140109231019.22078419@nehalam.linuxnetplumber.net>
-References: <20140104024538.3123.21977.stgit@debian>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Multicast routing stops functioning after 4G multicast packets recived.
+Date: Fri, 10 Jan 2014 08:10:49 +0100
+Message-ID: <20140110071049.GB17866@order.stressinduktion.org>
+References: <20140109201411.317040@gmx.com> <20140110063638.GA17866@order.stressinduktion.org> <1389337306.31367.94.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	shm@cumulusnetworks.com, jiri@resnulli.us
-To: Scott Feldman <sfeldma@cumulusnetworks.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Bob Falken <NetFestivalHaveFun@gmx.com>,
+	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
+	kaber@trash.net, tgraf@suug.ch
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:51122 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751328AbaAJHKV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 02:10:21 -0500
-Received: by mail-pa0-f48.google.com with SMTP id lf10so2063393pab.7
-        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 23:10:21 -0800 (PST)
-In-Reply-To: <20140104024538.3123.21977.stgit@debian>
+Received: from order.stressinduktion.org ([87.106.68.36]:53350 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750808AbaAJHKu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 02:10:50 -0500
+Content-Disposition: inline
+In-Reply-To: <1389337306.31367.94.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 03 Jan 2014 18:45:38 -0800
-Scott Feldman <sfeldma@cumulusnetworks.com> wrote:
-
-> Add support for bonding attributes just added to net-next.
-> On set, allow string or number value for enumerated attributes.
-> On show, use always use string value for attribute.
+On Thu, Jan 09, 2014 at 11:01:46PM -0800, Eric Dumazet wrote:
+> Its not clear to me why you expand ipmr_fib_lookup()
 > 
-> Signed-off-by: Scott Feldman <sfeldma@cumulusnetworks.com>
+> Is there something wrong with existing code ?
 
-Applied to net-next-for-3.13 branch
+There are three users of ipmr_fib_lookup, two of them are in rcu_read_lock
+section, one is not.
+
+ipmr_fib_lookup does not pass down arg.rule reference, so I don't have a
+chance to call fib_rule_put(arg.rule) on it. Thus I left ipmr_fib_lookup,
+just adding FIB_LOOKUP_NOREF and expanding ipmr_fib_lookup into the
+other function so I still have access to arg.rule to decrement the
+reference counter.
+
+Do you agree?
