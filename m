@@ -1,53 +1,41 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 13/23] netfilter: nf_tables: fix check for table overflow
-Date: Fri, 10 Jan 2014 01:35:32 +0100
-Message-ID: <1389314142-17969-14-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/23] netfilter: nft_meta: fix lack of validation of the input register
+Date: Fri, 10 Jan 2014 01:35:29 +0100
+Message-ID: <1389314142-17969-11-git-send-email-pablo@netfilter.org>
 References: <1389314142-17969-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:51554 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:51533 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757202AbaAJAgL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jan 2014 19:36:11 -0500
+	id S1757142AbaAJAgJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jan 2014 19:36:09 -0500
 In-Reply-To: <1389314142-17969-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+We have to validate that the input register is in the range of
+allowed registers, otherwise we can take a incorrect register
+value as input that may lead us to a crash.
 
-The table use counter is only increased for new chains, so move the check
-to the correct position.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_tables_api.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/netfilter/nft_meta.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index d275d38..290472c 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -834,9 +834,6 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 	if (IS_ERR(table))
- 		return PTR_ERR(table);
+diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
+index b43975a..e8254ad 100644
+--- a/net/netfilter/nft_meta.c
++++ b/net/netfilter/nft_meta.c
+@@ -239,6 +239,9 @@ static int nft_meta_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
+ 		return err;
  
--	if (table->use == UINT_MAX)
--		return -EOVERFLOW;
--
- 	chain = NULL;
- 	name = nla[NFTA_CHAIN_NAME];
+ 	priv->sreg = ntohl(nla_get_be32(tb[NFTA_META_SREG]));
++	err = nft_validate_input_register(priv->sreg);
++	if (err < 0)
++		return err;
  
-@@ -899,6 +896,9 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 		goto notify;
- 	}
- 
-+	if (table->use == UINT_MAX)
-+		return -EOVERFLOW;
-+
- 	if (nla[NFTA_CHAIN_HOOK]) {
- 		struct nf_hook_ops *ops;
- 		nf_hookfn *hookfn;
+ 	return 0;
+ }
 -- 
 1.7.10.4
