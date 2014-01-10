@@ -1,48 +1,44 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [RFC Patch net-next 1/4] net_sched: switch filter list to list_head
-Date: Thu, 9 Jan 2014 20:10:32 -0800
-Message-ID: <CAM_iQpVtGPWeSi83ct3SM0jdH_BY8Fursm7T7ixRD24haHz6cg@mail.gmail.com>
-References: <1389291593-2494-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1389291593-2494-2-git-send-email-xiyou.wangcong@gmail.com>
-	<52CF6D8F.60508@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v4 2/2] ipv6 addrconf: don't cleanup prefix route for IFA_F_NOPREFIXROUTE
+Date: Fri, 10 Jan 2014 05:12:27 +0100
+Message-ID: <20140110041227.GB1012@order.stressinduktion.org>
+References: <20140108200019.GK9007@order.stressinduktion.org> <1389227404-12586-1-git-send-email-thaller@redhat.com> <1389227404-12586-3-git-send-email-thaller@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	stephen@networkplumber.org, dcbw@redhat.com
+To: Thomas Haller <thaller@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f49.google.com ([209.85.219.49]:46928 "EHLO
-	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750947AbaAJEKc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 23:10:32 -0500
-Received: by mail-oa0-f49.google.com with SMTP id n16so4412476oag.36
-        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 20:10:32 -0800 (PST)
-In-Reply-To: <52CF6D8F.60508@gmail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:53072 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750893AbaAJEM2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 23:12:28 -0500
+Content-Disposition: inline
+In-Reply-To: <1389227404-12586-3-git-send-email-thaller@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 9, 2014 at 7:48 PM, John Fastabend <john.fastabend@gmail.com> wrote:
-<...>
->
-> OK now I'm just repeating myself. You see the trend.
->
-> Additionally I don't see how any of the cls_*c change routines work in
-> your series. For example look at basic_change. Even with the rtnl lock
-> you need to do a read, copy, update (RCU namesake) you can't just modify
-> it in place like you have done.
->
-> I'll send a fixed up series out in a few minutes it should illustrate
-> my point.
->
+On Thu, Jan 09, 2014 at 01:30:04AM +0100, Thomas Haller wrote:
+> Refactor the deletion/update of prefix routes when removing an
+> address. Now also consider IFA_F_NOPREFIXROUTE and if there is an address
+> present with this flag, to not cleanup the route. Instead, assume
+> that userspace is taking care of this route.
+> 
+> Also perform the same cleanup, when userspace changes an existing address
+> to add NOPREFIXROUTE (to an address that didn't have this flag). This is
+> done because when the address was added, a prefix route was created for it.
+> Since the user now wants to handle this route by himself, we cleanup this
+> route.
+> 
+> This cleanup of the route is not totally robust. There is no guarantee,
+> that the route we are about to delete was really the one added by the
+> kernel. This behavior does not change by the patch, and in practice it
+> should work just fine.
+> 
+> Signed-off-by: Thomas Haller <thaller@redhat.com>
 
-Thanks for the detailed review, since it is RFC, I myself even
-don't expect it is complete, see my two open questions in
-cover letter.
+I think, this is now simpler than the original version.
 
-It is already late for this merge window, so I target this for
-the _next_ net-next.
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Therefore, I prefer to get early reviews rather than detailed one
-at this stage.
+Thanks!
