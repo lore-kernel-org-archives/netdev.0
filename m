@@ -1,51 +1,39 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next 1/4] bonding: update the primary when slave name
- changed
-Date: Fri, 10 Jan 2014 12:11:43 +0100
-Message-ID: <20140110111143.GB4132@redhat.com>
-References: <52CE8604.3010804@huawei.com>
- <20140109114636.GF5786@redhat.com>
- <52CE94DE.5030305@huawei.com>
- <20140109123019.GM5786@redhat.com>
- <52CF751D.1020200@huawei.com>
- <20140110074433.GA26273@redhat.com>
- <52CFD3FE.9000805@huawei.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [net-next 14/16] i40e: enable PTP
+Date: Fri, 10 Jan 2014 12:26:18 +0100
+Message-ID: <20140110112618.GA32563@localhost.localdomain>
+References: <1389344336-1558-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1389344336-1558-15-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, Jacob Keller <jacob.e.keller@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37768 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752092AbaAJLOs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 06:14:48 -0500
+Received: from mail-ee0-f52.google.com ([74.125.83.52]:53983 "EHLO
+	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750956AbaAJL0t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 06:26:49 -0500
+Received: by mail-ee0-f52.google.com with SMTP id d17so1854564eek.25
+        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 03:26:48 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <52CFD3FE.9000805@huawei.com>
+In-Reply-To: <1389344336-1558-15-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 10, 2014 at 07:05:34PM +0800, Ding Tianhong wrote:
->On 2014/1/10 15:44, Veaceslav Falico wrote:
->> If it's not the primray
->> slave, and we don't have one - select it as a new primary and, again, see
->> if we need to select a new active slave.
->
->I don't think so , I think if it is not the primary slave and we don't have one,
->no need to do anything, just a normal slave change its name.
+On Fri, Jan 10, 2014 at 12:58:54AM -0800, Jeff Kirsher wrote:
 
-If primary == "my_eth0", you have 2 slaves - "eth0" and "eth1", thus null
-primary_slave, and rename eth0 to my_eth0 - then you need to set
-primary_slave to my_eth0.
+> +/**
+> + * i40e_ptp_enable - Enable/disable ancillary features of the PHC subsystem
+> + * @ptp: The PTP clock structure
+> + * @rq: The requested feature to change
+> + * @on: Enable/disable flag
+> + *
+> + * The XL710 does not support any of the ancillary features of the PHY
+> + * subsystem, so this function may just return.
+> + **/
 
-If primary == "my_eth0", you have 2 slaves - "my_eth0" and "eth1", thus
-primary_slave == dev with name "my_eth0", and rename "my_eth0" to "eth0" -
-then you must set primary_slave to NULL.
+Typo, PHC subsystem? Otherwise, the driver looks good to me.
 
-And after either of these you must see if you need to re-select the active
-slave, as it might have been forced by the primary_slave, which has been
-modified.
-
-You might also want to add some pr_info() about adding/removing
-primary_slave, as the user to be aware.
+Acked-by: Richard Cochran <richardcochran@gmail.com>
