@@ -1,52 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/16] i40e: drop unused macros
-Date: Fri, 10 Jan 2014 00:58:42 -0800
-Message-ID: <1389344336-1558-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/16] i40e: Bump version
+Date: Fri, 10 Jan 2014 00:58:44 -0800
+Message-ID: <1389344336-1558-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389344336-1558-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:61393 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:1468 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751388AbaAJI7E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751557AbaAJI7E (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 10 Jan 2014 03:59:04 -0500
 In-Reply-To: <1389344336-1558-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-A previous commit removed any need for these macros, so remove
-them too.
+Update driver version to 0.3.27-k
 
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_type.h | 9 ---------
- 1 file changed, 9 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 12473ad..072c850 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -60,15 +60,6 @@
- /* Max default timeout in ms, */
- #define I40E_MAX_NVM_TIMEOUT		18000
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 1b792ee..80c83eb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -38,7 +38,7 @@ static const char i40e_driver_string[] =
  
--/* Check whether address is multicast.  This is little-endian specific check.*/
--#define I40E_IS_MULTICAST(address)	\
--	(bool)(((u8 *)(address))[0] & ((u8)0x01))
--
--/* Check whether an address is broadcast. */
--#define I40E_IS_BROADCAST(address)	\
--	((((u8 *)(address))[0] == ((u8)0xff)) && \
--	(((u8 *)(address))[1] == ((u8)0xff)))
--
- /* Switch from mc to the 2usec global time (this is the GTIME resolution) */
- #define I40E_MS_TO_GTIME(time)		(((time) * 1000) / 2)
- 
+ #define DRV_VERSION_MAJOR 0
+ #define DRV_VERSION_MINOR 3
+-#define DRV_VERSION_BUILD 25
++#define DRV_VERSION_BUILD 27
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
 -- 
 1.8.3.1
