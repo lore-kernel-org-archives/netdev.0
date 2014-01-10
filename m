@@ -1,31 +1,29 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v3 net-next 2/3] bonding: fix __get_first_agg RCU usage
-Date: Fri, 10 Jan 2014 10:18:42 +0100
-Message-ID: <1389345523-5497-3-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v3 net-next 1/3] bonding: fix bond_3ad_set_carrier() RCU usage
+Date: Fri, 10 Jan 2014 10:18:41 +0100
+Message-ID: <1389345523-5497-2-git-send-email-vfalico@redhat.com>
 References: <1389345523-5497-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>, dingtianhong@huawei.com,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7202 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44601 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751216AbaAJJXC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 04:23:02 -0500
+	id S1751738AbaAJJYB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 04:24:01 -0500
 In-Reply-To: <1389345523-5497-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, the RCU read lock usage is just wrong - it gets the slave struct
-under RCU and continues to use it when RCU lock is released.
+Currently, its usage is just plainly wrong. It first gets a slave under
+RCU, and, after releasing the RCU lock, continues to use it - whilst it can
+be freed.
 
-However, it's still safe to do this cause we didn't need the
-rcu_read_lock() initially - all of the __get_first_agg() callers are either
-holding RCU read lock or the RTNL lock, so that we can't sync while in it.
+Fix this by ensuring that bond_3ad_set_carrier() holds RCU till it uses its
+slave (or its agg).
 
-So, remove the useless rcu locking and add a comment.
-
-Fixes: be79bd048 ("bonding: add RCU for bond_3ad_state_machine_handler()")
+Fixes: be79bd048ab ("bonding: add RCU for bond_3ad_state_machine_handler()")
 CC: dingtianhong@huawei.com
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
@@ -34,35 +32,65 @@ Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 
 Notes:
     v2 -> v3:
-    Use the rcu primitives.
+    Just wrap RCU for the whole usage of our slave.
     
     v1 -> v2:
-    Don't use RCU primitives as we can hold RTNL.
+    Don't use _rcu primitives as we can be called under RTNL too.
+    
+    v1 -> v2:
+    Don't use _rcu primitives as we can be called under RTNL too.
 
- drivers/net/bonding/bond_3ad.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/bonding/bond_3ad.c | 23 ++++++++++++-----------
+ 1 file changed, 12 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 9ff55eb..27dac0e 100644
+index 29db1ca..9ff55eb 100644
 --- a/drivers/net/bonding/bond_3ad.c
 +++ b/drivers/net/bonding/bond_3ad.c
-@@ -143,6 +143,7 @@ static inline struct bonding *__get_bond_by_port(struct port *port)
-  *
-  * Return the aggregator of the first slave in @bond, or %NULL if it can't be
-  * found.
-+ * The caller must hold RCU lock.
-  */
- static inline struct aggregator *__get_first_agg(struct port *port)
+@@ -2327,32 +2327,33 @@ int bond_3ad_set_carrier(struct bonding *bond)
  {
-@@ -153,9 +154,7 @@ static inline struct aggregator *__get_first_agg(struct port *port)
- 	if (bond == NULL)
- 		return NULL;
+ 	struct aggregator *active;
+ 	struct slave *first_slave;
++	int ret = 1;
  
--	rcu_read_lock();
+ 	rcu_read_lock();
  	first_slave = bond_first_slave_rcu(bond);
 -	rcu_read_unlock();
- 
- 	return first_slave ? &(SLAVE_AD_INFO(first_slave).aggregator) : NULL;
+-	if (!first_slave)
+-		return 0;
++	if (!first_slave) {
++		ret = 0;
++		goto out;
++	}
+ 	active = __get_active_agg(&(SLAVE_AD_INFO(first_slave).aggregator));
+ 	if (active) {
+ 		/* are enough slaves available to consider link up? */
+ 		if (active->num_of_ports < bond->params.min_links) {
+ 			if (netif_carrier_ok(bond->dev)) {
+ 				netif_carrier_off(bond->dev);
+-				return 1;
++				goto out;
+ 			}
+ 		} else if (!netif_carrier_ok(bond->dev)) {
+ 			netif_carrier_on(bond->dev);
+-			return 1;
++			goto out;
+ 		}
+-		return 0;
+-	}
+-
+-	if (netif_carrier_ok(bond->dev)) {
++	} else if (netif_carrier_ok(bond->dev)) {
+ 		netif_carrier_off(bond->dev);
+-		return 1;
++		goto out;
+ 	}
+-	return 0;
++out:
++	rcu_read_unlock();
++	return ret;
  }
+ 
+ /**
 -- 
 1.8.4
