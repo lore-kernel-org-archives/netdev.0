@@ -1,43 +1,60 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: Re: [PATCH net-next] IPv6: add option to use anycast addresses as source addresses for datagrams
-Date: Fri, 10 Jan 2014 07:20:14 -0800 (PST)
-Message-ID: <1389367214.89865.YahooMailBasic@web125503.mail.ne1.yahoo.com>
-References: <1389275123-3305-1-git-send-email-fx.lebail@yahoo.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v3 2/9] xen-netback: Change TX path from grant
+ copy to mapping
+Date: Fri, 10 Jan 2014 15:24:04 +0000
+Message-ID: <52D01094.5060102@citrix.com>
+References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com> <1389139818-24458-3-git-send-email-zoltan.kiss@citrix.com> <20140109153015.GF12164@zion.uk.xensource.com> <52CFDAEC.5080708@citrix.com> <20140110114534.GE29180@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Francois-Xavier Le Bail <fx.lebail@yahoo.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm49.bullet.mail.ne1.yahoo.com ([98.138.120.56]:36060 "HELO
-	nm49.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753661AbaAJPXE convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 10:23:04 -0500
-In-Reply-To: <1389275123-3305-1-git-send-email-fx.lebail@yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140110114534.GE29180@zion.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 1/9/14, Francois-Xavier Le Bail <fx.lebail@yahoo.com> wrote:
+On 10/01/14 11:45, Wei Liu wrote:
+> On Fri, Jan 10, 2014 at 11:35:08AM +0000, Zoltan Kiss wrote:
+> [...]
+>>
+>>>> @@ -920,6 +852,18 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
+>>>>   	err = gop->status;
+>>>>   	if (unlikely(err))
+>>>>   		xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_ERROR);
+>>>> +	else {
+>>>> +		if (vif->grant_tx_handle[pending_idx] !=
+>>>> +			NETBACK_INVALID_HANDLE) {
+>>>> +			netdev_err(vif->dev,
+>>>> +				"Stale mapped handle! pending_idx %x handle %x\n",
+>>>> +				pending_idx, vif->grant_tx_handle[pending_idx]);
+>>>> +			BUG();
+>>>> +		}
+>>>> +		set_phys_to_machine(idx_to_pfn(vif, pending_idx),
+>>>> +			FOREIGN_FRAME(gop->dev_bus_addr >> PAGE_SHIFT));
+>>>
+>>> What happens when you don't have this?
+>> Your frags will be filled with garbage. I don't understand exactly
+>> what this function does, someone might want to enlighten us? I've
+>> took it's usage from classic kernel.
+>> Also, it might be worthwhile to check the return value and BUG if
+>> it's false, but I don't know what exactly that return value means.
+>>
+>
+> This is actually part of gnttab_map_refs. As you're using hypercall
+> directly this becomes very fragile.
+>
+> So the right thing to do is to fix gnttab_map_refs.
+I agree, as I mentioned in other email in this thread, I think that 
+should be the topic of an another patchseries. In the meantime, I will 
+use gnttab_batch_map instead of the direct hypercall, it handles the 
+GNTST_eagain scenario, and I will use set_phys_to_machine the same way 
+as m2p_override does:
 
-> This change allows to follow a recommandation of RFC4942.
-> 
-> - Add IPV6_ANYCAST_SRC_DGRAM socket option to control the use of anycast
->   addresses as source addresses for datagrams, with Advanced Sockets API
->   (RFC3542).
-> - Add anycast_src_dgram sockopt flag.
-> - Add ipv6_chk_acast_addr_src() to check if address is link-local on
->   given interface or is global on any interface.
-> - Use them in ip6_datagram_send_ctl(), do_ipv6_setsockopt() and
->   do_ipv6_getsockopt()
-> 
-> Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
----
+if (unlikely(!set_phys_to_machine(idx_to_pfn(vif, pending_idx), 
+FOREIGN_FRAME(gop->dev_bus_addr >> PAGE_SHIFT))
+			BUG();
 
-A v2 will be send soon.
+Zoli
