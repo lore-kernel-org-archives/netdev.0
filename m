@@ -1,52 +1,57 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 01/23] netfilter: nft_reject: fix compilation warning
- if NF_TABLES_IPV6 is disabled
-Date: Fri, 10 Jan 2014 23:33:22 +0300
-Message-ID: <52D05912.1030606@cogentembedded.com>
-References: <1389314142-17969-1-git-send-email-pablo@netfilter.org> <1389314142-17969-2-git-send-email-pablo@netfilter.org>
+From: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
+Subject: Re: [PATCH] netdevice.7: document SIOCGIFCONF case ifc_req==NULL
+Date: Fri, 10 Jan 2014 20:35:39 +0100
+Message-ID: <52D04B8B.3040306@imap.cc>
+References: <20140109233018.886FA140064@xenon.ts.pxnet.com> <52D03351.20501@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1389314142-17969-2-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <52D03351.20501-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Hello Michael,
 
-On 01/10/2014 03:35 AM, Pablo Neira Ayuso wrote:
+Am 10.01.2014 18:52, schrieb Michael Kerrisk (man-pages):
+> On 01/10/2014 12:30 PM, Tilman Schmidt wrote:
+>> Add the missing description of the possibility to call SIOCGIFCONF
+>> with ifc_req=3D=3DNULL to determine the needed buffer size, as descr=
+ibed
+>> in http://lkml.indiana.edu/hypermail/linux/kernel/0110.1/0506.html
+>> and verified against source files net/core/dev_ioctl.c and
+>> net/ipv4/devinet.c in the current kernel git tree.
+[...]>
+> Thanks for the patch. I'm trying to verify this from the code, but=20
+> am having some trouble finding the relevant pieces. Could you point
+> me more specifically at the points in the kernel source where this
+> case is handled?
 
-> net/netfilter/nft_reject.c: In function 'nft_reject_eval':
-> net/netfilter/nft_reject.c:37:14: warning: unused variable 'net' [-Wunused-variable]
+Gladly.
 
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> ---
->   net/netfilter/nft_reject.c |    3 ++-
->   1 file changed, 2 insertions(+), 1 deletion(-)
+=46unction dev_ifconf() [net/core/dev_ioctl.c line 67ff.] is the main
+handler for SIOCGIFCONF. It calls the registered protocol specific
+handlers via the table gifconf_list[]. The current kernel has only
+one such handler, inet_gifconf() [net/ipv4/devinet.c line 1115ff.]
 
-> diff --git a/net/netfilter/nft_reject.c b/net/netfilter/nft_reject.c
-> index 0d690d4..7ae63cd 100644
-> --- a/net/netfilter/nft_reject.c
-> +++ b/net/netfilter/nft_reject.c
-> @@ -34,8 +34,9 @@ static void nft_reject_eval(const struct nft_expr *expr,
->   			      const struct nft_pktinfo *pkt)
->   {
->   	struct nft_reject *priv = nft_expr_priv(expr);
-> +#if IS_ENABLED(CONFIG_NF_TABLES_IPV6)
->   	struct net *net = dev_net((pkt->in != NULL) ? pkt->in : pkt->out);
-> -
+If ifc.ifc_buf is NULL, dev_ifconf() calls the protocol specific
+handlers with NULL as second argument. [net/core/dev_ioctl.c line 96]
 
-    Why remove empty line after the declaration block?
+If inet_gifconf() is called with NULL as second argument it just
+adds up the data sizes, skipping the size check and data transfer.
+[net/ipv4/devinet.c line 1127f.]
 
-> +#endif
->   	switch (priv->type) {
->   	case NFT_REJECT_ICMP_UNREACH:
->   		if (priv->family == NFPROTO_IPV4)
+Best regards,
+Tilman
 
-WBR, Sergei
-
-
+--=20
+Tilman Schmidt                              E-Mail: tilman-ZTO5kqT2PaM@public.gmane.org
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
