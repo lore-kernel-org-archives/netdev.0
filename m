@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 15/17] i40e: fix log message wording
-Date: Fri, 10 Jan 2014 12:30:37 -0800
-Message-ID: <1389385839-11996-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 13/17] i40e: call clear_pxe after adminq is initialized
+Date: Fri, 10 Jan 2014 12:30:35 -0800
+Message-ID: <1389385839-11996-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389385839-11996-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -9,9 +9,9 @@ Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:20038 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:56384 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758224AbaAJUar (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1758204AbaAJUar (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 10 Jan 2014 15:30:47 -0500
 In-Reply-To: <1389385839-11996-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,29 +19,30 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-Change the redundant "vsi VSI" to VSI.
+In the latest firmware the clear_pxe_mode function will use the
+AdminQ request, so call this after AdminQ is set up rather than
+relying on i40e_pf_reset() to clear the PXE mode.
 
-Change-ID: Ic16ea5820a99abc7831713cde39e7d032a7ba4d3
+Change-ID: Ice8cba2e9cbc3c7bde0a0bcf8eaf5009abef040b
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index 0220b18..36a5cc8 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -1083,7 +1083,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 		vsi = i40e_dbg_find_vsi(pf, vsi_seid);
- 		if (!vsi) {
- 			dev_info(&pf->pdev->dev,
--				 "add relay: vsi VSI %d not found\n", vsi_seid);
-+				 "add relay: VSI %d not found\n", vsi_seid);
- 			goto command_write_done;
- 		}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index bc14a85..182ed18 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -7612,6 +7612,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto err_pf_reset;
+ 	}
  
++	i40e_clear_pxe_mode(hw);
+ 	err = i40e_get_capabilities(pf);
+ 	if (err)
+ 		goto err_adminq_setup;
 -- 
 1.8.3.1
