@@ -1,48 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] xen-netback: stop vif thread spinning if
- frontend is unresponsive
-Date: Thu, 09 Jan 2014 23:06:29 -0500 (EST)
-Message-ID: <20140109.230629.123446421132170371.davem@davemloft.net>
-References: <1389184918-42790-1-git-send-email-paul.durrant@citrix.com>
-	<20140108193716.GA16009@zion.uk.xensource.com>
+Subject: Re: [PATCH net] ipv6: add link-local, sit and loopback address
+ with INFINITY_LIFE_TIME
+Date: Thu, 09 Jan 2014 23:09:01 -0500 (EST)
+Message-ID: <20140109.230901.1342080649327666957.davem@davemloft.net>
+References: <1389186135.88856.YahooMailBasic@web125506.mail.ne1.yahoo.com>
+	<20140108144322.GJ9007@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: paul.durrant@citrix.com, netdev@vger.kernel.org,
-	xen-devel@lists.xen.org, ian.campbell@citrix.com,
-	david.vrabel@citrix.com
-To: wei.liu2@citrix.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: fx.lebail@yahoo.com, netdev@vger.kernel.org,
+	damien.wyart@gmail.com, yasushi.asano@jp.fujitsu.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36237 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36253 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750800AbaAJEGb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 23:06:31 -0500
-In-Reply-To: <20140108193716.GA16009@zion.uk.xensource.com>
+	with ESMTP id S1754361AbaAJEJC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jan 2014 23:09:02 -0500
+In-Reply-To: <20140108144322.GJ9007@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Liu <wei.liu2@citrix.com>
-Date: Wed, 8 Jan 2014 19:37:16 +0000
+=46rom: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Wed, 8 Jan 2014 15:43:22 +0100
 
-> On Wed, Jan 08, 2014 at 12:41:58PM +0000, Paul Durrant wrote:
->> The recent patch to improve guest receive side flow control (ca2f09f2) had a
->> slight flaw in the wait condition for the vif thread in that any remaining
->> skbs in the guest receive side netback internal queue would prevent the
->> thread from sleeping. An unresponsive frontend can lead to a permanently
->> non-empty internal queue and thus the thread will spin. In this case the
->> thread should really sleep until the frontend becomes responsive again.
->> 
->> This patch adds an extra flag to the vif which is set if the shared ring
->> is full and cleared when skbs are drained into the shared ring. Thus,
->> if the thread runs, finds the shared ring full and can make no progress the
->> flag remains set. If the flag remains set then the thread will sleep,
->> regardless of a non-empty queue, until the next event from the frontend.
->> 
->> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
->> Cc: Wei Liu <wei.liu2@citrix.com>
->> Cc: Ian Campbell <ian.campbell@citrix.com>
->> Cc: David Vrabel <david.vrabel@citrix.com>
-> 
-> Acked-by: Wei Liu <wei.liu2@citrix.com>
+> In the past the IFA_PERMANENT flag indicated, that the valid and pref=
+erred
+> lifetime where ignored. Since change fad8da3e085ddf ("ipv6 addrconf: =
+fix
+> preferred lifetime state-changing behavior while valid_lft is infinit=
+y")
+> we honour at least the preferred lifetime on those addresses. As such
+> the valid lifetime gets recalculated and updated to 0.
+>=20
+> If loopback address is added manually this problem does not occur.
+> Also if NetworkManager manages IPv6, those addresses will get added v=
+ia
+> inet6_rtm_newaddr and thus will have a correct lifetime, too.
+>=20
+> Reported-by: Fran=E7ois-Xavier Le Bail <fx.lebail@yahoo.com>
+> Reported-by: Damien Wyart <damien.wyart@gmail.com>
+> Fixes: fad8da3e085ddf ("ipv6 addrconf: fix preferred lifetime state-c=
+hanging behavior while valid_lft is infinity")
+> Cc: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Applied.
+Applied, thanks Hannes.
+
+> I hope there will be another pull request to Linus before 3.13 (I thi=
+nk
+> there will be an upcoming -rc8 this Sunday?).
+
+I think I will be able to sneak one more pull request in.
