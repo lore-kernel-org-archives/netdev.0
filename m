@@ -1,106 +1,349 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [RFC PATCH 00/12] RCU'ify the net:sched classifier chains
-Date: Fri, 10 Jan 2014 01:36:39 -0800
-Message-ID: <20140110092041.7193.5952.stgit@nitbit.x32>
+Subject: [RFC PATCH 01/12] net: qdisc: use rcu prefix and silence sparse
+ warnings
+Date: Fri, 10 Jan 2014 01:37:09 -0800
+Message-ID: <20140110093707.7193.69803.stgit@nitbit.x32>
+References: <20140110092041.7193.5952.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, davem@davemloft.net
 To: xiyou.wangcong@gmail.com, jhs@mojatatu.com, eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:55374 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752773AbaAJJhB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 04:37:01 -0500
-Received: by mail-ob0-f181.google.com with SMTP id uy5so4586566obc.12
-        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 01:37:00 -0800 (PST)
+Received: from mail-oa0-f42.google.com ([209.85.219.42]:46910 "EHLO
+	mail-oa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750793AbaAJJh1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 04:37:27 -0500
+Received: by mail-oa0-f42.google.com with SMTP id n16so4746048oag.1
+        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 01:37:26 -0800 (PST)
+In-Reply-To: <20140110092041.7193.5952.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There appears to be some interest in a few topics around the qdisc
-layer which could benefit from having the ability to run the
-filters and actions without holding the qdisc lock.
+Add __rcu notation to qdisc handling by doing this we can make
+smatch output more legible. And anyways some of the cases should
+be using rcu_dereference() see qdisc_all_tx_empty(),
+qdisc_tx_chainging(), and so on.
 
-Recently Cong Wang proposed a patch series to drop the ingress
-qdisc and asked for comments. This series I think gets closer to
-that goal.
-
-The ingress qdisc is a simple qdisc which doesn't maintain any
-actual list of skb's and is primarily a hook to attach filters.
-Further the only qdisc that can be attached to the ingress qdisc
-is sch_ingress. The qdisc lock is currently serializing two
-operations (1) tc_classify which is addressed here and (2)
-statistics accounting. The second point is not solved here but
-it could be a matter of making the bstats and qstats per cpu
-stats.
-
-This is an RFC for now and needs some more work. Some items
-I know about are (a) an audit of the ematch code paths, (b) resolving
-the checpatch errors mostly due to moving code around that
-generates those errors, (c) run smatch, (d) audit u32 code
-for correctness, (e) do a lot more testing so far only very
-basic testing has been done. I tried to put some reasonable
-comments in the commit logs but yes they need more work.
-
-Cong, if its not too much to ask can we use this as a base
-set of patches for this work? I think its reasonably close to
-correct as is.
-
-Thanks! John.
-
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
+ include/linux/netdevice.h |   41 ++++------------------------------
+ include/net/sch_generic.h |   29 +++++++++++++++++++-----
+ net/core/dev.c            |   54 +++++++++++++++++++++++++++++++++++++++++++--
+ net/sched/sch_generic.c   |    4 ++-
+ net/sched/sch_mqprio.c    |    4 ++-
+ net/sched/sch_teql.c      |    9 ++++----
+ 6 files changed, 89 insertions(+), 52 deletions(-)
 
-John Fastabend (12):
-      net: qdisc: use rcu prefix and silence sparse warnings
-      net: rcu-ify tcf_proto
-      net: sched: cls_basic use RCU
-      net: sched: cls_cgroup use RCU
-      net: sched: cls_flow use RCU
-      net: sched: fw use RCU
-      net: sched: RCU cls_route
-      net: sched: RCU cls_tcindex
-      net: sched: make cls_u32 lockless
-      net: sched: rcu'ify cls_rsvp
-      net: make cls_bpf rcu safe
-      net: sched: make tc_action safe to walk under RCU
-
-
- include/linux/netdevice.h |   41 +-----
- include/linux/rtnetlink.h |   10 +
- include/net/act_api.h     |    1 
- include/net/pkt_cls.h     |   12 +-
- include/net/sch_generic.h |   34 ++++-
- net/core/dev.c            |   54 +++++++
- net/sched/act_api.c       |   18 +-
- net/sched/cls_api.c       |   44 +++---
- net/sched/cls_basic.c     |   82 ++++++-----
- net/sched/cls_bpf.c       |   79 ++++++-----
- net/sched/cls_cgroup.c    |   65 ++++++---
- net/sched/cls_flow.c      |  145 ++++++++++++--------
- net/sched/cls_fw.c        |  112 +++++++++++----
- net/sched/cls_route.c     |  218 +++++++++++++++++-------------
- net/sched/cls_rsvp.h      |  152 ++++++++++++---------
- net/sched/cls_tcindex.c   |  327 ++++++++++++++++++++++++++-------------------
- net/sched/cls_u32.c       |  258 +++++++++++++++++++++++-------------
- net/sched/sch_api.c       |    6 -
- net/sched/sch_atm.c       |   30 +++-
- net/sched/sch_cbq.c       |   21 ++-
- net/sched/sch_choke.c     |   18 ++
- net/sched/sch_drr.c       |   10 +
- net/sched/sch_dsmark.c    |    8 +
- net/sched/sch_fq_codel.c  |   11 +-
- net/sched/sch_generic.c   |    4 -
- net/sched/sch_hfsc.c      |   17 ++
- net/sched/sch_htb.c       |   23 ++-
- net/sched/sch_ingress.c   |    8 +
- net/sched/sch_mqprio.c    |    4 -
- net/sched/sch_multiq.c    |    8 +
- net/sched/sch_prio.c      |   11 +-
- net/sched/sch_qfq.c       |    9 +
- net/sched/sch_sfb.c       |   15 +-
- net/sched/sch_sfq.c       |   11 +-
- net/sched/sch_teql.c      |    9 +
- 35 files changed, 1139 insertions(+), 736 deletions(-)
-
--- 
-Signature
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 88afa80..797e473 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -546,7 +546,7 @@ struct netdev_queue {
+  * read mostly part
+  */
+ 	struct net_device	*dev;
+-	struct Qdisc		*qdisc;
++	struct Qdisc __rcu	*qdisc;
+ 	struct Qdisc		*qdisc_sleeping;
+ #ifdef CONFIG_SYSFS
+ 	struct kobject		kobj;
+@@ -1987,13 +1987,8 @@ static inline void input_queue_tail_incr_save(struct softnet_data *sd,
+ 
+ DECLARE_PER_CPU_ALIGNED(struct softnet_data, softnet_data);
+ 
+-void __netif_schedule(struct Qdisc *q);
+-
+-static inline void netif_schedule_queue(struct netdev_queue *txq)
+-{
+-	if (!(txq->state & QUEUE_STATE_ANY_XOFF))
+-		__netif_schedule(txq->qdisc);
+-}
++extern void __netif_schedule(struct Qdisc *q);
++extern void netif_schedule_queue(struct netdev_queue *txq);
+ 
+ static inline void netif_tx_schedule_all(struct net_device *dev)
+ {
+@@ -2029,17 +2024,7 @@ static inline void netif_tx_start_all_queues(struct net_device *dev)
+ 	}
+ }
+ 
+-static inline void netif_tx_wake_queue(struct netdev_queue *dev_queue)
+-{
+-#ifdef CONFIG_NETPOLL_TRAP
+-	if (netpoll_trap()) {
+-		netif_tx_start_queue(dev_queue);
+-		return;
+-	}
+-#endif
+-	if (test_and_clear_bit(__QUEUE_STATE_DRV_XOFF, &dev_queue->state))
+-		__netif_schedule(dev_queue->qdisc);
+-}
++extern void netif_tx_wake_queue(struct netdev_queue *dev_queue);
+ 
+ /**
+  *	netif_wake_queue - restart transmit
+@@ -2288,23 +2273,7 @@ static inline bool netif_subqueue_stopped(const struct net_device *dev,
+ 	return __netif_subqueue_stopped(dev, skb_get_queue_mapping(skb));
+ }
+ 
+-/**
+- *	netif_wake_subqueue - allow sending packets on subqueue
+- *	@dev: network device
+- *	@queue_index: sub queue index
+- *
+- * Resume individual transmit queue of a device with multiple transmit queues.
+- */
+-static inline void netif_wake_subqueue(struct net_device *dev, u16 queue_index)
+-{
+-	struct netdev_queue *txq = netdev_get_tx_queue(dev, queue_index);
+-#ifdef CONFIG_NETPOLL_TRAP
+-	if (netpoll_trap())
+-		return;
+-#endif
+-	if (test_and_clear_bit(__QUEUE_STATE_DRV_XOFF, &txq->state))
+-		__netif_schedule(txq->qdisc);
+-}
++extern void netif_wake_subqueue(struct net_device *dev, u16 queue_index);
+ 
+ #ifdef CONFIG_XPS
+ int netif_set_xps_queue(struct net_device *dev, const struct cpumask *mask,
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 013d96d..3e10a2a 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -259,7 +259,9 @@ static inline spinlock_t *qdisc_lock(struct Qdisc *qdisc)
+ 
+ static inline struct Qdisc *qdisc_root(const struct Qdisc *qdisc)
+ {
+-	return qdisc->dev_queue->qdisc;
++	struct Qdisc *q = rcu_dereference(qdisc->dev_queue->qdisc);
++
++	return q;
+ }
+ 
+ static inline struct Qdisc *qdisc_root_sleeping(const struct Qdisc *qdisc)
+@@ -384,7 +386,7 @@ static inline void qdisc_reset_all_tx_gt(struct net_device *dev, unsigned int i)
+ 	struct Qdisc *qdisc;
+ 
+ 	for (; i < dev->num_tx_queues; i++) {
+-		qdisc = netdev_get_tx_queue(dev, i)->qdisc;
++		qdisc = rtnl_dereference(netdev_get_tx_queue(dev, i)->qdisc);
+ 		if (qdisc) {
+ 			spin_lock_bh(qdisc_lock(qdisc));
+ 			qdisc_reset(qdisc);
+@@ -402,13 +404,18 @@ static inline void qdisc_reset_all_tx(struct net_device *dev)
+ static inline bool qdisc_all_tx_empty(const struct net_device *dev)
+ {
+ 	unsigned int i;
++
++	rcu_read_lock();
+ 	for (i = 0; i < dev->num_tx_queues; i++) {
+ 		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
+-		const struct Qdisc *q = txq->qdisc;
++		const struct Qdisc *q = rcu_dereference(txq->qdisc);
+ 
+-		if (q->q.qlen)
++		if (q->q.qlen) {
++			rcu_read_unlock();
+ 			return false;
++		}
+ 	}
++	rcu_read_unlock();
+ 	return true;
+ }
+ 
+@@ -416,11 +423,16 @@ static inline bool qdisc_all_tx_empty(const struct net_device *dev)
+ static inline bool qdisc_tx_changing(const struct net_device *dev)
+ {
+ 	unsigned int i;
++
++	rcu_read_lock();
+ 	for (i = 0; i < dev->num_tx_queues; i++) {
+ 		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
+-		if (txq->qdisc != txq->qdisc_sleeping)
++		if (rcu_dereference(txq->qdisc) != txq->qdisc_sleeping) {
++			rcu_read_unlock();
+ 			return true;
++		}
+ 	}
++	rcu_read_unlock();
+ 	return false;
+ }
+ 
+@@ -428,11 +440,16 @@ static inline bool qdisc_tx_changing(const struct net_device *dev)
+ static inline bool qdisc_tx_is_noop(const struct net_device *dev)
+ {
+ 	unsigned int i;
++
++	rcu_read_lock();
+ 	for (i = 0; i < dev->num_tx_queues; i++) {
+ 		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
+-		if (txq->qdisc != &noop_qdisc)
++		if (rcu_dereference(txq->qdisc) != &noop_qdisc) {
++			rcu_read_unlock();
+ 			return false;
++		}
+ 	}
++	rcu_read_unlock();
+ 	return true;
+ }
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index cc9ab80..9f761e7 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2154,6 +2154,56 @@ static struct dev_kfree_skb_cb *get_kfree_skb_cb(const struct sk_buff *skb)
+ 	return (struct dev_kfree_skb_cb *)skb->cb;
+ }
+ 
++void netif_schedule_queue(struct netdev_queue *txq)
++{
++	rcu_read_lock();
++	if (!(txq->state & QUEUE_STATE_ANY_XOFF)) {
++		struct Qdisc *q = rcu_dereference(txq->qdisc);
++
++		__netif_schedule(q);
++	}
++	rcu_read_unlock();
++}
++EXPORT_SYMBOL(netif_schedule_queue);
++
++/**
++ *	netif_wake_subqueue - allow sending packets on subqueue
++ *	@dev: network device
++ *	@queue_index: sub queue index
++ *
++ * Resume individual transmit queue of a device with multiple transmit queues.
++ */
++void netif_wake_subqueue(struct net_device *dev, u16 queue_index)
++{
++	struct netdev_queue *txq = netdev_get_tx_queue(dev, queue_index);
++#ifdef CONFIG_NETPOLL_TRAP
++	if (netpoll_trap())
++		return;
++#endif
++	if (test_and_clear_bit(__QUEUE_STATE_DRV_XOFF, &txq->state)) {
++		struct Qdisc *q = rcu_dereference(txq->qdisc);
++
++		__netif_schedule(q);
++	}
++}
++EXPORT_SYMBOL(netif_wake_subqueue);
++
++void netif_tx_wake_queue(struct netdev_queue *dev_queue)
++{
++#ifdef CONFIG_NETPOLL_TRAP
++	if (netpoll_trap()) {
++		netif_tx_start_queue(dev_queue);
++		return;
++	}
++#endif
++	if (test_and_clear_bit(__QUEUE_STATE_DRV_XOFF, &dev_queue->state)) {
++		struct Qdisc *q = rcu_dereference(dev_queue->qdisc);
++
++		__netif_schedule(q);
++	}
++}
++EXPORT_SYMBOL(netif_tx_wake_queue);
++
+ void __dev_kfree_skb_irq(struct sk_buff *skb, enum skb_free_reason reason)
+ {
+ 	unsigned long flags;
+@@ -3375,7 +3425,7 @@ static int ing_filter(struct sk_buff *skb, struct netdev_queue *rxq)
+ 	skb->tc_verd = SET_TC_RTTL(skb->tc_verd, ttl);
+ 	skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_INGRESS);
+ 
+-	q = rxq->qdisc;
++	q = rcu_dereference(rxq->qdisc);
+ 	if (q != &noop_qdisc) {
+ 		spin_lock(qdisc_lock(q));
+ 		if (likely(!test_bit(__QDISC_STATE_DEACTIVATED, &q->state)))
+@@ -3392,7 +3442,7 @@ static inline struct sk_buff *handle_ing(struct sk_buff *skb,
+ {
+ 	struct netdev_queue *rxq = rcu_dereference(skb->dev->ingress_queue);
+ 
+-	if (!rxq || rxq->qdisc == &noop_qdisc)
++	if (!rxq || rcu_dereference_bh(rxq->qdisc) == &noop_qdisc)
+ 		goto out;
+ 
+ 	if (*pt_prev) {
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 32bb942..71d7cd9 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -776,7 +776,7 @@ static void dev_deactivate_queue(struct net_device *dev,
+ 	struct Qdisc *qdisc_default = _qdisc_default;
+ 	struct Qdisc *qdisc;
+ 
+-	qdisc = dev_queue->qdisc;
++	qdisc = rtnl_dereference(dev_queue->qdisc);
+ 	if (qdisc) {
+ 		spin_lock_bh(qdisc_lock(qdisc));
+ 
+@@ -869,7 +869,7 @@ static void dev_init_scheduler_queue(struct net_device *dev,
+ {
+ 	struct Qdisc *qdisc = _qdisc;
+ 
+-	dev_queue->qdisc = qdisc;
++	rcu_assign_pointer(dev_queue->qdisc, qdisc);
+ 	dev_queue->qdisc_sleeping = qdisc;
+ }
+ 
+diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
+index 6749e2f..e1b112f 100644
+--- a/net/sched/sch_mqprio.c
++++ b/net/sched/sch_mqprio.c
+@@ -231,7 +231,7 @@ static int mqprio_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	memset(&sch->qstats, 0, sizeof(sch->qstats));
+ 
+ 	for (i = 0; i < dev->num_tx_queues; i++) {
+-		qdisc = netdev_get_tx_queue(dev, i)->qdisc;
++		qdisc = rtnl_dereference(netdev_get_tx_queue(dev, i)->qdisc);
+ 		spin_lock_bh(qdisc_lock(qdisc));
+ 		sch->q.qlen		+= qdisc->q.qlen;
+ 		sch->bstats.bytes	+= qdisc->bstats.bytes;
+@@ -340,7 +340,7 @@ static int mqprio_dump_class_stats(struct Qdisc *sch, unsigned long cl,
+ 		spin_unlock_bh(d->lock);
+ 
+ 		for (i = tc.offset; i < tc.offset + tc.count; i++) {
+-			qdisc = netdev_get_tx_queue(dev, i)->qdisc;
++			qdisc = rtnl_dereference(netdev_get_tx_queue(dev, i)->qdisc);
+ 			spin_lock_bh(qdisc_lock(qdisc));
+ 			bstats.bytes      += qdisc->bstats.bytes;
+ 			bstats.packets    += qdisc->bstats.packets;
+diff --git a/net/sched/sch_teql.c b/net/sched/sch_teql.c
+index 4741671..b35ba70 100644
+--- a/net/sched/sch_teql.c
++++ b/net/sched/sch_teql.c
+@@ -100,7 +100,8 @@ teql_dequeue(struct Qdisc *sch)
+ 	skb = __skb_dequeue(&dat->q);
+ 	dat_queue = netdev_get_tx_queue(dat->m->dev, 0);
+ 	if (skb == NULL) {
+-		struct net_device *m = qdisc_dev(dat_queue->qdisc);
++		struct Qdisc *q = rcu_dereference_bh(dat_queue->qdisc);
++		struct net_device *m = qdisc_dev(q);
+ 		if (m) {
+ 			dat->m->slaves = sch;
+ 			netif_wake_queue(m);
+@@ -157,9 +158,9 @@ teql_destroy(struct Qdisc *sch)
+ 						txq = netdev_get_tx_queue(master->dev, 0);
+ 						master->slaves = NULL;
+ 
+-						root_lock = qdisc_root_sleeping_lock(txq->qdisc);
++						root_lock = qdisc_root_sleeping_lock(rtnl_dereference(txq->qdisc));
+ 						spin_lock_bh(root_lock);
+-						qdisc_reset(txq->qdisc);
++						qdisc_reset(rtnl_dereference(txq->qdisc));
+ 						spin_unlock_bh(root_lock);
+ 					}
+ 				}
+@@ -266,7 +267,7 @@ static inline int teql_resolve(struct sk_buff *skb,
+ 	struct dst_entry *dst = skb_dst(skb);
+ 	int res;
+ 
+-	if (txq->qdisc == &noop_qdisc)
++	if (rcu_dereference_bh(txq->qdisc) == &noop_qdisc)
+ 		return -ENODEV;
+ 
+ 	if (!dev->header_ops || !dst)
