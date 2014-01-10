@@ -1,8 +1,8 @@
 From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: [PATCH v2 06/16] net: stmmac: Honor DT parameter to
- force DMA store and forward mode
-Date: Fri, 10 Jan 2014 15:00:07 +0800
-Message-ID: <1389337217-29032-7-git-send-email-wens@csie.org>
+Subject: [PATCH v2 11/16] ARM: dts: sun7i: Add GMAC controller
+ node to sun7i DTSI
+Date: Fri, 10 Jan 2014 15:00:12 +0800
+Message-ID: <1389337217-29032-12-git-send-email-wens@csie.org>
 References: <1389337217-29032-1-git-send-email-wens@csie.org>
 Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
@@ -18,7 +18,7 @@ Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
 To: Srinivas Kandagatla <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>,
 	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
 	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <linux-sunxi+bncBCMILY6JWQBBBBNVX2LAKGQEJDFSV7Q-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBCMILY6JWQBBBBVVX2LAKGQENFQBXRQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 In-Reply-To: <1389337217-29032-1-git-send-email-wens-jdAy2FN1RRM@public.gmane.org>
 List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -28,26 +28,36 @@ List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:
 List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-"snps,force_sf_dma_mode" is documented in stmmac device tree bindings,
-but is never handled by the driver.
-
 Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 2 ++
- 1 file changed, 2 insertions(+)
+ arch/arm/boot/dts/sun7i-a20.dtsi | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 86ee903..92627e0 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -52,6 +52,8 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
- 					   sizeof(struct stmmac_mdio_bus_data),
- 					   GFP_KERNEL);
+diff --git a/arch/arm/boot/dts/sun7i-a20.dtsi b/arch/arm/boot/dts/sun7i-a20.dtsi
+index 4019c55..18d211e 100644
+--- a/arch/arm/boot/dts/sun7i-a20.dtsi
++++ b/arch/arm/boot/dts/sun7i-a20.dtsi
+@@ -618,6 +618,21 @@
+ 			status = "disabled";
+ 		};
  
-+	plat->force_sf_dma_mode = of_property_read_bool(np, "snps,force_sf_dma_mode");
++		gmac: ethernet@01c50000 {
++			compatible = "allwinner,sun7i-a20-gmac";
++			reg = <0x01c50000 0x10000>;
++			interrupts = <0 85 4>;
++			interrupt-names = "macirq";
++			clocks = <&ahb_gates 49>, <&gmac_tx_clk>;
++			clock-names = "stmmaceth", "allwinner_gmac_tx";
++			snps,pbl = <2>;
++			snps,fixed-burst;
++			snps,force_sf_dma_mode;
++			status = "disabled";
++			#address-cells = <1>;
++			#size-cells = <0>;
++		};
 +
- 	/*
- 	 * Currently only the properties needed on SPEAr600
- 	 * are provided. All other properties should be added
+ 		hstimer@01c60000 {
+ 			compatible = "allwinner,sun7i-a20-hstimer";
+ 			reg = <0x01c60000 0x1000>;
 -- 
 1.8.5.2
