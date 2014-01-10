@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 13/17] i40e: call clear_pxe after adminq is initialized
-Date: Fri, 10 Jan 2014 12:30:35 -0800
-Message-ID: <1389385839-11996-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 12/17] i40e: clear qtx_head before enabling Tx queue
+Date: Fri, 10 Jan 2014 12:30:34 -0800
+Message-ID: <1389385839-11996-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389385839-11996-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -9,40 +9,47 @@ Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:56384 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:11524 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758204AbaAJUar (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 15:30:47 -0500
+	id S1758223AbaAJUaq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 15:30:46 -0500
 In-Reply-To: <1389385839-11996-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-In the latest firmware the clear_pxe_mode function will use the
-AdminQ request, so call this after AdminQ is set up rather than
-relying on i40e_pf_reset() to clear the PXE mode.
+Make sure the "new" qtx_head[q] register is cleared before
+enabling the Tx queue.
 
-Change-ID: Ice8cba2e9cbc3c7bde0a0bcf8eaf5009abef040b
+Change-ID: I0c7a12815e343a5ae68807af172a35d6c6857935
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index bc14a85..182ed18 100644
+index 65c27cb..bc14a85 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7612,6 +7612,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_pf_reset;
- 	}
+@@ -3008,11 +3008,13 @@ static int i40e_vsi_control_tx(struct i40e_vsi *vsi, bool enable)
+ 			continue;
  
-+	i40e_clear_pxe_mode(hw);
- 	err = i40e_get_capabilities(pf);
- 	if (err)
- 		goto err_adminq_setup;
+ 		/* turn on/off the queue */
+-		if (enable)
++		if (enable) {
++			wr32(hw, I40E_QTX_HEAD(pf_q), 0);
+ 			tx_reg |= I40E_QTX_ENA_QENA_REQ_MASK |
+ 				  I40E_QTX_ENA_QENA_STAT_MASK;
+-		else
++		} else {
+ 			tx_reg &= ~I40E_QTX_ENA_QENA_REQ_MASK;
++		}
+ 
+ 		wr32(hw, I40E_QTX_ENA(pf_q), tx_reg);
+ 
 -- 
 1.8.3.1
