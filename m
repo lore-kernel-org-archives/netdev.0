@@ -1,102 +1,88 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 3/3] atl1: update statistics code
-Date: Fri, 10 Jan 2014 18:29:26 +0000
-Message-ID: <1389378566.2025.78.camel@bwh-desktop.uk.level5networks.com>
-References: <1389370103-3009-1-git-send-email-sd@queasysnail.net>
-	 <1389370103-3009-4-git-send-email-sd@queasysnail.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<jcliburn@gmail.com>, <chris.snook@gmail.com>
-To: Sabrina Dubroca <sd@queasysnail.net>
+From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+Subject: [PATCH net-next] IPv6: enable bind() to assign an anycast address
+Date: Fri, 10 Jan 2014 19:12:24 +0100
+Message-ID: <1389377544-3119-1-git-send-email-fx.lebail@yahoo.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:60687 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751484AbaAJS3a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 13:29:30 -0500
-In-Reply-To: <1389370103-3009-4-git-send-email-sd@queasysnail.net>
+Received: from smtp11.smtpout.orange.fr ([80.12.242.133]:34419 "EHLO
+	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751449AbaAJSay (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 13:30:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-01-10 at 17:08 +0100, Sabrina Dubroca wrote:
-> As Ben Hutchings pointed out for the stats in alx, some
-> hardware-specific stats aren't matched to the right net_device_stats
-> field. Also fix the collision field and include errors in the total
-> number of RX/TX packets.
-> 
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> ---
->  drivers/net/ethernet/atheros/atlx/atl1.c | 16 ++++++++--------
->  1 file changed, 8 insertions(+), 8 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
-> index 538211d..31d460a 100644
-> --- a/drivers/net/ethernet/atheros/atlx/atl1.c
-> +++ b/drivers/net/ethernet/atheros/atlx/atl1.c
-[...]
-> @@ -1718,23 +1718,18 @@ static void atl1_inc_smb(struct atl1_adapter *adapter)
->  	adapter->soft_stats.tx_trunc += smb->tx_trunc;
->  	adapter->soft_stats.tx_pause += smb->tx_pause;
->  
-> -	netdev->stats.rx_packets = adapter->soft_stats.rx_packets;
-> -	netdev->stats.tx_packets = adapter->soft_stats.tx_packets;
->  	netdev->stats.rx_bytes = adapter->soft_stats.rx_bytes;
->  	netdev->stats.tx_bytes = adapter->soft_stats.tx_bytes;
->  	netdev->stats.multicast = adapter->soft_stats.multicast;
->  	netdev->stats.collisions = adapter->soft_stats.collisions;
->  	netdev->stats.rx_errors = adapter->soft_stats.rx_errors;
-> -	netdev->stats.rx_over_errors =
-> -		adapter->soft_stats.rx_missed_errors;
->  	netdev->stats.rx_length_errors =
->  		adapter->soft_stats.rx_length_errors;
->  	netdev->stats.rx_crc_errors = adapter->soft_stats.rx_crc_errors;
->  	netdev->stats.rx_frame_errors =
->  		adapter->soft_stats.rx_frame_errors;
->  	netdev->stats.rx_fifo_errors = adapter->soft_stats.rx_fifo_errors;
-> -	netdev->stats.rx_missed_errors =
-> -		adapter->soft_stats.rx_missed_errors;
+- Add ipv6_chk_acast_addr_src() to check if an anycast address is link-local
+  on given interface or is global (on any interface).
+- Use it in inet6_bind().
 
-So adapter->soft_stats.rx_missed_errors is set (to something silly) and
-then ignored...
+Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+---
+Tested with link-local and global anycast addresses.
+Tested with SOCK_DGRAM socket, bind and UDP traffic OK.
+Tested with SOCK_STREAM socket, bind OK, traffic need another change.
 
-> +	netdev->stats.rx_dropped = adapter->soft_stats.rx_rrd_ov;
->  	netdev->stats.tx_errors = adapter->soft_stats.tx_errors;
->  	netdev->stats.tx_fifo_errors = adapter->soft_stats.tx_fifo_errors;
->  	netdev->stats.tx_aborted_errors =
-> @@ -1743,6 +1738,11 @@ static void atl1_inc_smb(struct atl1_adapter *adapter)
->  		adapter->soft_stats.tx_window_errors;
->  	netdev->stats.tx_carrier_errors =
->  		adapter->soft_stats.tx_carrier_errors;
-> +
-> +	netdev->stats.rx_packets = adapter->soft_stats.rx_packets +
-> +				   netdev->stats.rx_errors;
-> +	netdev->stats.tx_packets = adapter->soft_stats.tx_packets +
-> +				   netdev->stats.tx_errors;
+ include/net/addrconf.h |    5 +++--
+ net/ipv6/af_inet6.c    |    4 +++-
+ net/ipv6/anycast.c     |   11 +++++++++++
+ 3 files changed, 17 insertions(+), 3 deletions(-)
 
-Given that adapter->soft_stats largely mirrors struct net_device_stats,
-would it not make sense to do these additions there so that
-adapter->soft_stats.{rx,tx}_packets include all packets?
-
-I.e. you could do something like:
-
-	delta_rx_errors = (smb->rx_frag + smb->rx_fcs_err +
-			   smb->rx_len_err + smb->rx_sz_ov + smb->rx_rxf_ov +
-			   smb->rx_rrd_ov + smb->rx_align_err);
-	adapter->soft_stats.rx_errors += delta_rx_errors;
-	adapter->soft_stats.rx_packets += delta_rx_errors;
-
-(and similarly for TX).
-
-Basically I think these changes belong further up the function.
-
-Ben.
-
->  }
->  
->  static void atl1_update_mailbox(struct atl1_adapter *adapter)
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index 66c4a44..50e39a8 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -205,8 +205,9 @@ void ipv6_sock_ac_close(struct sock *sk);
+ int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr);
+ int __ipv6_dev_ac_dec(struct inet6_dev *idev, const struct in6_addr *addr);
+ bool ipv6_chk_acast_addr(struct net *net, struct net_device *dev,
+-				const struct in6_addr *addr);
+-
++			 const struct in6_addr *addr);
++bool ipv6_chk_acast_addr_src(struct net *net, struct net_device *dev,
++			     const struct in6_addr *addr);
+ 
+ /* Device notifier */
+ int register_inet6addr_notifier(struct notifier_block *nb);
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index c921d5d..68b81e9 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -347,7 +347,9 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 			if (!(addr_type & IPV6_ADDR_MULTICAST))	{
+ 				if (!(inet->freebind || inet->transparent) &&
+ 				    !ipv6_chk_addr(net, &addr->sin6_addr,
+-						   dev, 0)) {
++						   dev, 0) &&
++				    !ipv6_chk_acast_addr_src(net, dev,
++							     &addr->sin6_addr)) {
+ 					err = -EADDRNOTAVAIL;
+ 					goto out_unlock;
+ 				}
+diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
+index 5a80f15..9f25dda 100644
+--- a/net/ipv6/anycast.c
++++ b/net/ipv6/anycast.c
+@@ -383,6 +383,17 @@ bool ipv6_chk_acast_addr(struct net *net, struct net_device *dev,
+ 	return found;
+ }
+ 
++/*	check if address is link-local on given interface
++ *	or is global on any interface
++ */
++bool ipv6_chk_acast_addr_src(struct net *net, struct net_device *dev,
++			     const struct in6_addr *addr)
++{
++	if (ipv6_addr_type(addr) & IPV6_ADDR_LINKLOCAL)
++		return ipv6_chk_acast_dev(dev, addr);
++	else
++		return ipv6_chk_acast_addr(net, NULL, addr);
++}
+ 
+ #ifdef CONFIG_PROC_FS
+ struct ac6_iter_state {
