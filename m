@@ -1,81 +1,56 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net-next v3 2/9] xen-netback: Change TX path
- from grant copy to mapping
-Date: Fri, 10 Jan 2014 16:08:31 +0000
-Message-ID: <20140110160830.GG30581@zion.uk.xensource.com>
-References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com>
- <1389139818-24458-3-git-send-email-zoltan.kiss@citrix.com>
- <20140109153015.GF12164@zion.uk.xensource.com>
- <52CFDAEC.5080708@citrix.com>
- <20140110114534.GE29180@zion.uk.xensource.com>
- <52D01094.5060102@citrix.com>
- <52D0198C.6000600@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <jonathan.davies@citrix.com>,
-	<ian.campbell@citrix.com>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: David Vrabel <david.vrabel@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <52D0198C.6000600@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH 0/3] atheros: modify statistics code
+Date: Fri, 10 Jan 2014 17:08:20 +0100
+Message-ID: <1389370103-3009-1-git-send-email-sd@queasysnail.net>
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
+	jcliburn@gmail.com, chris.snook@gmail.com,
+	Sabrina Dubroca <sd@queasysnail.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1-g21.free.fr ([212.27.42.1]:51124 "EHLO smtp1-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752456AbaAJQJH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 11:09:07 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 10, 2014 at 04:02:20PM +0000, David Vrabel wrote:
-> On 10/01/14 15:24, Zoltan Kiss wrote:
-> > On 10/01/14 11:45, Wei Liu wrote:
-> >> On Fri, Jan 10, 2014 at 11:35:08AM +0000, Zoltan Kiss wrote:
-> >> [...]
-> >>>
-> >>>>> @@ -920,6 +852,18 @@ static int xenvif_tx_check_gop(struct xenvif
-> >>>>> *vif,
-> >>>>>       err = gop->status;
-> >>>>>       if (unlikely(err))
-> >>>>>           xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_ERROR);
-> >>>>> +    else {
-> >>>>> +        if (vif->grant_tx_handle[pending_idx] !=
-> >>>>> +            NETBACK_INVALID_HANDLE) {
-> >>>>> +            netdev_err(vif->dev,
-> >>>>> +                "Stale mapped handle! pending_idx %x handle %x\n",
-> >>>>> +                pending_idx, vif->grant_tx_handle[pending_idx]);
-> >>>>> +            BUG();
-> >>>>> +        }
-> >>>>> +        set_phys_to_machine(idx_to_pfn(vif, pending_idx),
-> >>>>> +            FOREIGN_FRAME(gop->dev_bus_addr >> PAGE_SHIFT));
-> >>>>
-> >>>> What happens when you don't have this?
-> >>> Your frags will be filled with garbage. I don't understand exactly
-> >>> what this function does, someone might want to enlighten us? I've
-> >>> took it's usage from classic kernel.
-> >>> Also, it might be worthwhile to check the return value and BUG if
-> >>> it's false, but I don't know what exactly that return value means.
-> >>>
-> >>
-> >> This is actually part of gnttab_map_refs. As you're using hypercall
-> >> directly this becomes very fragile.
-> >>
-> >> So the right thing to do is to fix gnttab_map_refs.
-> > I agree, as I mentioned in other email in this thread, I think that
-> > should be the topic of an another patchseries. In the meantime, I will
-> > use gnttab_batch_map instead of the direct hypercall, it handles the
-> > GNTST_eagain scenario, and I will use set_phys_to_machine the same way
-> > as m2p_override does:
-> 
-> If the grant table code doesn't provide the API calls you need you can
-> either:
-> 
-> a) add the new API as a prerequisite patch.
-> b) use the existing API calls and live with the performance problem,
-> until you can refactor the API later on.
-> 
-> Adding a netback-specific hack isn't a valid option.
-> 
+Following Ben Hutchings's advice on how to fill net_stats in alx [1],
+this patch modifies the other atheros ethernet drivers
+similarly. Minor whitespace/empty line changes in atl1c and atl1e to
+make the code completely consistent between atl1c, atl1e, and alx
+(after this [2]).
 
-Agreed.
+I don't have this hardware, so these patches have only been
+compile-tested.
 
-Wei.
 
-> David
+Detail of the changes:
+* atl1/atl1c/atl1e
+  - fix collisions computation
+  - rx_dropped = rx_rrd_ov
+  - rx_over_errors = 0
+  - rx_missed_errors = 0
+  - X_packets = X_ok + X_errors
+
+* only atl1c/atl1e
+  - add rx_rxf_ov to rx_errors
+
+Note: These patches don't depend on the alx patchset [2], but the
+commit-log messages reference it.
+
+
+[1] http://www.spinics.net/lists/netdev/msg264930.html
+[2] http://www.spinics.net/lists/netdev/msg265564.html
+
+Sabrina Dubroca (3):
+  atl1c: update statistics code
+  atl1e: update statistics code
+  atl1: update statistics code
+
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c | 31 ++++++++++++++++---------
+ drivers/net/ethernet/atheros/atl1e/atl1e_main.c | 30 +++++++++++++++---------
+ drivers/net/ethernet/atheros/atlx/atl1.c        | 16 ++++++-------
+ 3 files changed, 47 insertions(+), 30 deletions(-)
+
+-- 
+1.8.5.2
