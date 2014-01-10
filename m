@@ -1,39 +1,83 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH net V3 1/2] macvlan: forbid L2 fowarding offload for macvtap
-Date: Fri, 10 Jan 2014 09:39:41 -0800
-Message-ID: <52D0305D.2000801@intel.com>
-References: <1389341906-2367-1-git-send-email-jasowang@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Check skb->rxhash in gro_receive
+Date: Fri, 10 Jan 2014 09:45:35 -0800
+Message-ID: <1389375935.31367.102.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.DEB.2.02.1401092051020.25554@tomh.mtv.corp.google.com>
+	 <1389332287.31367.88.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+mtBx_c=we-13b0Vyrim0=kArhx0OYY1P99HwUeuR2w87hRFw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Jason Wang <jasowang@redhat.com>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:54474 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751208AbaAJRj4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 12:39:56 -0500
-In-Reply-To: <1389341906-2367-1-git-send-email-jasowang@redhat.com>
+Received: from mail-yh0-f43.google.com ([209.85.213.43]:48216 "EHLO
+	mail-yh0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750911AbaAJRpi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 12:45:38 -0500
+Received: by mail-yh0-f43.google.com with SMTP id a41so1440437yho.30
+        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 09:45:38 -0800 (PST)
+In-Reply-To: <CA+mtBx_c=we-13b0Vyrim0=kArhx0OYY1P99HwUeuR2w87hRFw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/10/2014 12:18 AM, Jason Wang wrote:
-> L2 fowarding offload will bypass the rx handler of real device. This will make
-> the packet could not be forwarded to macvtap device. Another problem is the
-> dev_hard_start_xmit() called for macvtap does not have any synchronization.
->
-> Fix this by forbidding L2 forwarding for macvtap.
->
-> Cc: John Fastabend <john.r.fastabend@intel.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Acked-by: Neil Horman <nhorman@tuxdriver.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
+On Fri, 2014-01-10 at 08:27 -0800, Tom Herbert wrote:
+> On Thu, Jan 9, 2014 at 9:38 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Thu, 2014-01-09 at 20:54 -0800, Tom Herbert wrote:
+> >> When initializing a gro_list for a packet, first check the rxhash of
+> >> the incoming skb against that of the skb's in the list. This should be
+> >> a very strong inidicator of whether the flow is going to be matched,
+> >> and potentially allows a lot of other checks to be short circuited.
+> >>
+> >
+> > Hmm... this idea was discussed in the past. I used it when attempting to
+> > use a hash table instead of a gro_list last year.
+> >
+> > Unfortunately this added lot of cycles when rxhash is not provided by
+> > hardware, and my tests found it was not a win.
+> >
+> > Remember : in most cases, gro_list contains one flow, so this test does
+> > nothing special but adds overhead.
+> 
+> I don't understand what your basis is that gro_list in most cases
+> contains one flow, but assuming that were true, maybe we should make
+> the it only contain one flow eliminating the complexity of multiple
+> flows (same_flow logic is convoluted and layers of encapsulation is
+> not going to simplify things).
+> 
 
-Same thing here tested my l2 forwarding offload use cases
-and they still work. Thanks! For net-next we can look at
-getting macvtap to work correctly.
+The complexity of GRO is the aggregation itself. You wont avoid it.
 
-Acked-by: John Fastabend <john.r.fastabend@intel.com.com>
+> If we are doing RPS or RFS, rxhash will be computed anyway, so the
+> case your optimizing is pretty narrow: no RPS, no RFS, no hardware
+> hash, and a single flow in gro_list. Nevertheless, if this is really
+> an important concern, we can make the check directly against
+> skb->rxhash so to be opportunistic and avoid the possibility of
+> computation.
+
+
+We'll compute rxhash once per GRO packet, containing up to 40 MSS
+packets.
+
+Thats a big difference.
+
+If your patch was doing this, I would have no complain.
+
+(No new conditional branch, and skb->rxhash, if provided by the NIC,
+can give a hint.)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ce01847793c0..c9f7a26d7ce7 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3798,7 +3798,8 @@ static void gro_list_prepare(struct napi_struct *napi, struct sk_buff *skb)
+        for (p = napi->gro_list; p; p = p->next) {
+                unsigned long diffs;
+ 
+-               diffs = (unsigned long)p->dev ^ (unsigned long)skb->dev;
++               diffs = p->rxhash ^ skb->rxhash;
++               diffs |= (unsigned long)p->dev ^ (unsigned long)skb->dev;
+                diffs |= p->vlan_tci ^ skb->vlan_tci;
+                if (maclen == ETH_HLEN)
+                        diffs |= compare_ether_header(skb_mac_header(p),
