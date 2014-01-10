@@ -1,155 +1,56 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] net: vxlan: when lower dev unregisters remove vxlan dev as well
-Date: Fri, 10 Jan 2014 14:01:47 +0100
-Message-ID: <1389358907-19885-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60633 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751779AbaAJNLq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 08:11:46 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next v3 2/9] xen-netback: Change TX path from grant
+ copy to mapping
+Date: Fri, 10 Jan 2014 13:16:25 +0000
+Message-ID: <20140110131625.GJ29180@zion.uk.xensource.com>
+References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com>
+ <1389139818-24458-3-git-send-email-zoltan.kiss@citrix.com>
+ <20140109153015.GF12164@zion.uk.xensource.com>
+ <52CFDAEC.5080708@citrix.com>
+ <20140110114534.GE29180@zion.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140110114534.GE29180@zion.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We can create a vxlan device with an explicit underlying carrier.
-In that case, when the carrier link is being deleted from the
-system (e.g. due to module unload) we should also clean up all
-created vxlan devices on top of it since otherwise we're in an
-inconsistent state in vxlan device. In that case, the user needs
-to remove all such devices, while in case of other virtual devs
-that sit on top of physical ones, it is usually the case that
-these devices do unregister automatically as well and do not
-leave the burden on the user.
+On Fri, Jan 10, 2014 at 11:45:34AM +0000, Wei Liu wrote:
+> On Fri, Jan 10, 2014 at 11:35:08AM +0000, Zoltan Kiss wrote:
+> [...]
+> > 
+> > >>@@ -920,6 +852,18 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
+> > >>  	err = gop->status;
+> > >>  	if (unlikely(err))
+> > >>  		xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_ERROR);
+> > >>+	else {
+> > >>+		if (vif->grant_tx_handle[pending_idx] !=
+> > >>+			NETBACK_INVALID_HANDLE) {
+> > >>+			netdev_err(vif->dev,
+> > >>+				"Stale mapped handle! pending_idx %x handle %x\n",
+> > >>+				pending_idx, vif->grant_tx_handle[pending_idx]);
+> > >>+			BUG();
+> > >>+		}
+> > >>+		set_phys_to_machine(idx_to_pfn(vif, pending_idx),
+> > >>+			FOREIGN_FRAME(gop->dev_bus_addr >> PAGE_SHIFT));
+> > >
+> > >What happens when you don't have this?
+> > Your frags will be filled with garbage. I don't understand exactly
+> > what this function does, someone might want to enlighten us? I've
+> > took it's usage from classic kernel.
+> > Also, it might be worthwhile to check the return value and BUG if
+> > it's false, but I don't know what exactly that return value means.
+> > 
+> 
+> This is actually part of gnttab_map_refs. As you're using hypercall
+> directly this becomes very fragile.
+> 
 
-This work is not necessary when vxlan device was not created with
-a real underlying device, as connections can resume in that case
-when driver is plugged again. But at least for the other cases,
-we should go ahead and do the cleanup on removal.
+To make it clear, set_phys_to_machine is done within m2p_add_override.
 
-`ip -d link show vxlan13` after carrier removal before this patch:
-
-5: vxlan13: <BROADCAST,MULTICAST> mtu 1450 qdisc noop state DOWN mode DEFAULT group default
-    link/ether 1e:47:da:6d:4d:99 brd ff:ff:ff:ff:ff:ff promiscuity 0
-    vxlan id 13 group 239.0.0.10 dev 2 port 32768 61000 ageing 300
-                                 ^^^^^
-While at it, we should also use vxlan_dellink() handler in
-vxlan_exit_net() as otherwise we seem to leak memory on module
-unload since only half of the cleanup is being done.
-
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- drivers/net/vxlan.c | 70 +++++++++++++++++++++++++++++++++++++++++++++++------
- 1 file changed, 63 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 481f85d..39035ba 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2656,6 +2656,54 @@ static struct rtnl_link_ops vxlan_link_ops __read_mostly = {
- 	.fill_info	= vxlan_fill_info,
- };
- 
-+static void vxlan_handle_lowerdev_unregister(struct vxlan_net *vn,
-+					     struct net_device *dev)
-+{
-+	struct vxlan_dev *vxlan, *next;
-+	LIST_HEAD(list_kill);
-+
-+	BUG_ON(!rtnl_is_locked());
-+
-+	list_for_each_entry_safe(vxlan, next, &vn->vxlan_list, next) {
-+		struct vxlan_rdst *dst = &vxlan->default_dst;
-+
-+		/* In case we created vxlan device with carrier
-+		 * and we loose the carrier due to module unload
-+		 * we also need to remove vxlan device. In other
-+		 * cases, it's not necessary and remote_ifindex
-+		 * is 0 here, so no matches.
-+		 */
-+		if (dst->remote_ifindex == dev->ifindex)
-+			vxlan_dellink(vxlan->dev, &list_kill);
-+	}
-+
-+	unregister_netdevice_many(&list_kill);
-+	list_del(&list_kill);
-+}
-+
-+static int vxlan_lowerdev_event(struct notifier_block *unused,
-+				unsigned long event, void *ptr)
-+{
-+	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
-+	struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
-+
-+	switch (event) {
-+	case NETDEV_UNREGISTER:
-+		/* Twiddle thumbs on netns device moves. */
-+		if (dev->reg_state != NETREG_UNREGISTERING)
-+			break;
-+
-+		vxlan_handle_lowerdev_unregister(vn, dev);
-+		break;
-+	}
-+
-+	return NOTIFY_DONE;
-+}
-+
-+static struct notifier_block vxlan_notifier_block __read_mostly = {
-+	.notifier_call = vxlan_lowerdev_event,
-+};
-+
- static __net_init int vxlan_init_net(struct net *net)
- {
- 	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
-@@ -2673,14 +2721,16 @@ static __net_init int vxlan_init_net(struct net *net)
- static __net_exit void vxlan_exit_net(struct net *net)
- {
- 	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
--	struct vxlan_dev *vxlan;
--	LIST_HEAD(list);
-+	struct vxlan_dev *vxlan, *next;
-+	LIST_HEAD(list_kill);
- 
- 	rtnl_lock();
--	list_for_each_entry(vxlan, &vn->vxlan_list, next)
--		unregister_netdevice_queue(vxlan->dev, &list);
--	unregister_netdevice_many(&list);
-+	list_for_each_entry_safe(vxlan, next, &vn->vxlan_list, next)
-+		vxlan_dellink(vxlan->dev, &list_kill);
-+	unregister_netdevice_many(&list_kill);
- 	rtnl_unlock();
-+
-+	list_del(&list_kill);
- }
- 
- static struct pernet_operations vxlan_net_ops = {
-@@ -2704,12 +2754,17 @@ static int __init vxlan_init_module(void)
- 	if (rc)
- 		goto out1;
- 
--	rc = rtnl_link_register(&vxlan_link_ops);
-+	rc = register_netdevice_notifier(&vxlan_notifier_block);
- 	if (rc)
- 		goto out2;
- 
--	return 0;
-+	rc = rtnl_link_register(&vxlan_link_ops);
-+	if (rc)
-+		goto out3;
- 
-+	return 0;
-+out3:
-+	unregister_netdevice_notifier(&vxlan_notifier_block);
- out2:
- 	unregister_pernet_device(&vxlan_net_ops);
- out1:
-@@ -2721,6 +2776,7 @@ late_initcall(vxlan_init_module);
- static void __exit vxlan_cleanup_module(void)
- {
- 	rtnl_link_unregister(&vxlan_link_ops);
-+	unregister_netdevice_notifier(&vxlan_notifier_block);
- 	destroy_workqueue(vxlan_wq);
- 	unregister_pernet_device(&vxlan_net_ops);
- 	rcu_barrier();
--- 
-1.8.3.1
+Wei.
