@@ -1,84 +1,118 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [net-next 14/16] i40e: enable PTP
-Date: Fri, 10 Jan 2014 16:48:47 +0000
-Message-ID: <1389372527.8039.5.camel@jekeller-desk1.amr.corp.intel.com>
-References: <1389344336-1558-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1389344336-1558-15-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1389369305.2025.64.camel@bwh-desktop.uk.level5networks.com>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: Re: [PATCH net-next] qlcnic: Convert vmalloc/memset to kcalloc
+Date: Fri, 10 Jan 2014 16:58:45 +0000
+Message-ID: <BECD8E8A1B550B48A1BF97C13991F60E46CF4795@avmb2.qlogic.org>
+References: <1389249745.24222.20.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:8615 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756933AbaAJQtB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 11:49:01 -0500
-In-Reply-To: <1389369305.2025.64.camel@bwh-desktop.uk.level5networks.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1389249745.24222.20.camel@joe-AO722>
 Content-Language: en-US
-Content-ID: <274D7C1B9A25E54CAC4A2E17E24DCDFC@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-ID: <ECFD097A845AE543A4A0CA0836D51133@qlogic.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gRnJpLCAyMDE0LTAxLTEwIGF0IDE1OjU1ICswMDAwLCBCZW4gSHV0Y2hpbmdzIHdyb3RlOg0K
-PiBPbiBGcmksIDIwMTQtMDEtMTAgYXQgMDA6NTggLTA4MDAsIEplZmYgS2lyc2hlciB3cm90ZToN
-Cj4gPiBGcm9tOiBKYWNvYiBLZWxsZXIgPGphY29iLmUua2VsbGVyQGludGVsLmNvbT4NCj4gPiAN
-Cj4gPiBOZXcgZmVhdHVyZTogRW5hYmxlIFBUUCBzdXBwb3J0IGluIHRoZSBpNDBlIGRyaXZlci4N
-Cj4gPiANCj4gPiBDaGFuZ2UtSUQ6IEk2YThlNzk5ZjU4MjcwNTE5MWY5NTgzYWZiMWI5MjMxYThk
-Yjk2Y2M4DQo+ID4gQ2M6IFJpY2hhcmQgQ29jaHJhbiA8cmljaGFyZGNvY2hyYW5AZ21haWwuY29t
-Pg0KPiA+IFNpZ25lZC1vZmYtYnk6IEphY29iIEtlbGxlciA8amFjb2IuZS5rZWxsZXJAaW50ZWwu
-Y29tPg0KPiA+IFNpZ25lZC1vZmYtYnk6IEplc3NlIEJyYW5kZWJ1cmcgPGplc3NlLmJyYW5kZWJ1
-cmdAaW50ZWwuY29tPg0KPiA+IFRlc3RlZC1ieTogS2F2aW5keWEgRGVlZ2FsYSA8a2F2aW5keWEu
-cy5kZWVnYWxhQGludGVsLmNvbT4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBKZWZmIEtpcnNoZXIgPGpl
-ZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvaW50ZWwvaTQwZS9NYWtlZmlsZSAgICAgICB8ICAgMiArDQo+ID4gIGRyaXZlcnMvbmV0
-L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZS5oICAgICAgICAgfCAgMjQgKw0KPiA+ICBkcml2ZXJz
-L25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfZXRodG9vbC5jIHwgIDMzICstDQo+ID4gIGRy
-aXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV9tYWluLmMgICAgfCAgNDUgKy0NCj4g
-PiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX3B0cC5jICAgICB8IDY0MCAr
-KysrKysrKysrKysrKysrKysrKysrKysrDQo+ID4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
-L2k0MGUvaTQwZV90eHJ4LmMgICAgfCAgNTMgKysNCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQv
-aW50ZWwvaTQwZS9pNDBlX3R4cnguaCAgICB8ICAgMyArDQo+ID4gIDcgZmlsZXMgY2hhbmdlZCwg
-Nzk4IGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pDQo+ID4gIGNyZWF0ZSBtb2RlIDEwMDY0
-NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfcHRwLmMNCj4gDQo+IFRoaXMg
-aXMgbWlzc2luZyBhIEtjb25maWcgdXBkYXRlIHRvIHNlbGVjdCBQVFBfMTU4OF9DTE9DSy4NCj4g
-DQo+IFsuLi5dDQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBl
-X21haW4uYw0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV9t
-YWluLmMNCj4gPiBAQCAtMTY5OCw2ICsxNjk4LDI1IEBAIHN0YXRpYyBpbnQgaTQwZV9jaGFuZ2Vf
-bXR1KHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYsIGludCBuZXdfbXR1KQ0KPiA+ICB9DQo+ID4g
-IA0KPiA+ICAvKioNCj4gPiArICogaTQwZV9pb2N0bCAtIEFjY2VzcyB0aGUgaHd0c3RhbXAgaW50
-ZXJmYWNlDQo+ID4gKyAqIEBuZXRkZXY6IG5ldHdvcmsgaW50ZXJmYWNlIGRldmljZSBzdHJ1Y3R1
-cmUNCj4gPiArICogQGlmcjogaW50ZXJmYWNlIHJlcXVlc3QgZGF0YQ0KPiA+ICsgKiBAY21kOiBp
-b2N0bCBjb21tYW5kDQo+ID4gKyAqKi8NCj4gPiAraW50IGk0MGVfaW9jdGwoc3RydWN0IG5ldF9k
-ZXZpY2UgKm5ldGRldiwgc3RydWN0IGlmcmVxICppZnIsIGludCBjbWQpDQo+ID4gK3sNCj4gPiAr
-CXN0cnVjdCBpNDBlX25ldGRldl9wcml2ICpucCA9IG5ldGRldl9wcml2KG5ldGRldik7DQo+ID4g
-KwlzdHJ1Y3QgaTQwZV9wZiAqcGYgPSBucC0+dnNpLT5iYWNrOw0KPiA+ICsNCj4gPiArCXN3aXRj
-aCAoY21kKSB7DQo+ID4gKwljYXNlIFNJT0NTSFdUU1RBTVA6DQo+ID4gKwkJcmV0dXJuIGk0MGVf
-cHRwX2h3dHN0YW1wX2lvY3RsKHBmLCBpZnIsIGNtZCk7DQo+ID4gKwlkZWZhdWx0Og0KPiA+ICsJ
-CXJldHVybiAtRU9QTk9UU1VQUDsNCj4gPiArCX0NCj4gPiArfQ0KPiANCj4gUGxlYXNlIGltcGxl
-bWVudCBTSU9DR0hXVFNUQU1QIGFzIHdlbGwuDQoNClllcC4gSSBzdGlsbCBuZWVkIHRvIGltcGxl
-bWVudCB0aGlzIGZvciBvdGhlciBJbnRlbCBkcml2ZXJzIGFzIHdlbGwuDQoNCj4gDQo+IFsuLi5d
-DQo+ID4gLS0tIC9kZXYvbnVsbA0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
-L2k0MGUvaTQwZV9wdHAuYw0KPiBbLi4uXQ0KPiA+ICt2b2lkIGk0MGVfcHRwX2luaXQoc3RydWN0
-IGk0MGVfcGYgKnBmKQ0KPiA+ICt7DQo+ID4gKwlzdHJ1Y3QgaTQwZV9odyAqaHcgPSAmcGYtPmh3
-Ow0KPiA+ICsJc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiA9IHBmLT52c2lbcGYtPmxhbl92c2ld
-LT5uZXRkZXY7DQo+ID4gKw0KPiA+ICsJc25wcmludGYocGYtPnB0cF9jYXBzLm5hbWUsIDE2LCAi
-JXBtIiwgbmV0ZGV2LT5kZXZfYWRkcik7DQo+IFsuLi5dDQo+IA0KPiBVc2Ugc2l6ZW9mKCksIG5v
-dCBhIG1hZ2ljIG51bWJlci4gIEFsc28gdGhlIGNsb2NrIG5hbWUgc2hvdWxkIHBlcmhhcHMgYmUN
-Cj4gdGhlIGRyaXZlciBuYW1lLCBub3QgdGhlIE1BQyBhZGRyZXNzLg0KDQpTb21lIG90aGVyIGRy
-aXZlcnMgcHJvYmFibHkgbmVlZCB0byBiZSB1cGRhdGVkIHRvIG5vdCB1c2UgbWFnaWMgbnVtYmVy
-DQphcyB3ZWxsLi4NCg0KPiANCj4gSXMgdGhlIGNsb2NrIHNoYXJlZCBiZXR3ZWVuIG11bHRpcGxl
-IFBGcyBvciBhcmUgdGhlcmUgaW5kZXBlbmRlbnQgY2xvY2tzDQo+IGZvciBlYWNoIFBGPw0KDQpF
-YWNoIFBGIGdldHMgaXRzIG93biByZWdpc3RlciBzZXQsIGFuZCB3aGlsZSB0aGUgY2xvY2sgaXMg
-cGh5c2ljYWxseQ0KZHJpdmVuIGJ5IHRoZSBzYW1lIHNvdXJjZSwgdGhlcmUgaXMgbm8gbWVjaGFu
-aXNtIHRvIGVuc3VyZSByZWdpc3RlcnMgYXJlDQppbiBzeW5jLCBzbyBlZmZlY3RpdmVseSBlYWNo
-IFBGIGhhcyBpdHMgb3duIGluZGVwZW5kZW50IGNsb2NrLiAoaWU6DQpjYW4ndCBzdXBwb3J0IGJv
-dW5kYXJ5IGNsb2NrIHByb3Blcmx5KQ0KDQpUaGFua3MsDQpKYWtlDQoNCj4gDQo+IEJlbi4NCj4g
-DQoNCg0K
+
+
+On 1/8/14 10:42 PM, "Joe Perches" <joe@perches.com> wrote:
+
+>vmalloc is a limited resource.  Don't use it unnecessarily.
+>
+>It seems this allocation should work with kcalloc.
+>
+>Remove unnecessary memset(,0,) of buf as it's completely
+>overwritten as the previously only unset field in
+>struct qlcnic_pci_func_cfg is now set to 0.
+>
+>Use kfree instead of vfree.
+>Use ETH_ALEN instead of 6.
+>
+>Signed-off-by: Joe Perches <joe@perches.com>
+>---
+> drivers/net/ethernet/qlogic/qlcnic/qlcnic.h       |  2 +-
+> drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c | 16 ++++++----------
+> 2 files changed, 7 insertions(+), 11 deletions(-)
+
+Acked-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+
+>
+>diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+>b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+>index 35d4876..8d7aa4c 100644
+>--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+>+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+>@@ -1267,7 +1267,7 @@ struct qlcnic_pci_func_cfg {
+> 	u16	port_num;
+> 	u8	pci_func;
+> 	u8	func_state;
+>-	u8	def_mac_addr[6];
+>+	u8	def_mac_addr[ETH_ALEN];
+> };
+> 
+> struct qlcnic_npar_func_cfg {
+>diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+>b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+>index b529667..c9b704d 100644
+>--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+>+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+>@@ -6,7 +6,6 @@
+>  */
+> 
+> #include <linux/slab.h>
+>-#include <linux/vmalloc.h>
+> #include <linux/interrupt.h>
+> 
+> #include "qlcnic.h"
+>@@ -927,38 +926,35 @@ static ssize_t qlcnic_sysfs_read_pci_config(struct
+>file *file,
+> 	u32 pci_func_count = qlcnic_get_pci_func_count(adapter);
+> 	struct qlcnic_pci_func_cfg *pci_cfg;
+> 	struct qlcnic_pci_info *pci_info;
+>-	size_t pci_info_sz, pci_cfg_sz;
+>+	size_t pci_cfg_sz;
+> 	int i, ret;
+> 
+> 	pci_cfg_sz = pci_func_count * sizeof(*pci_cfg);
+> 	if (size != pci_cfg_sz)
+> 		return QL_STATUS_INVALID_PARAM;
+> 
+>-	pci_info_sz = pci_func_count * sizeof(*pci_info);
+>-	pci_info = vmalloc(pci_info_sz);
+>+	pci_info = kcalloc(pci_func_count, sizeof(*pci_info), GFP_KERNEL);
+> 	if (!pci_info)
+> 		return -ENOMEM;
+> 
+>-	memset(pci_info, 0, pci_info_sz);
+>-	memset(buf, 0, pci_cfg_sz);
+>-	pci_cfg = (struct qlcnic_pci_func_cfg *)buf;
+>-
+> 	ret = qlcnic_get_pci_info(adapter, pci_info);
+> 	if (ret) {
+>-		vfree(pci_info);
+>+		kfree(pci_info);
+> 		return ret;
+> 	}
+> 
+>+	pci_cfg = (struct qlcnic_pci_func_cfg *)buf;
+> 	for (i = 0; i < pci_func_count; i++) {
+> 		pci_cfg[i].pci_func = pci_info[i].id;
+> 		pci_cfg[i].func_type = pci_info[i].type;
+>+		pci_cfg[i].func_state = 0;
+> 		pci_cfg[i].port_num = pci_info[i].default_port;
+> 		pci_cfg[i].min_bw = pci_info[i].tx_min_bw;
+> 		pci_cfg[i].max_bw = pci_info[i].tx_max_bw;
+> 		memcpy(&pci_cfg[i].def_mac_addr, &pci_info[i].mac, ETH_ALEN);
+> 	}
+> 
+>-	vfree(pci_info);
+>+	kfree(pci_info);
+> 	return size;
+> }
+
+Thanks,
+Jiten
