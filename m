@@ -1,104 +1,42 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH v3 net-next 1/3] bonding: fix bond_3ad_set_carrier() RCU
- usage
-Date: Fri, 10 Jan 2014 18:34:11 +0800
-Message-ID: <52CFCCA3.5020606@huawei.com>
-References: <1389345523-5497-1-git-send-email-vfalico@redhat.com> <1389345523-5497-2-git-send-email-vfalico@redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next 05/16] i40e: fix long lines
+Date: Fri, 10 Jan 2014 02:35:38 -0800
+Message-ID: <1389350138.2537.3.camel@joe-AO722>
+References: <1389344336-1558-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1389344336-1558-6-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1389344869.24222.31.camel@joe-AO722>
+	 <063D6719AE5E284EB5DD2968C1650D6D457950@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Veaceslav Falico <vfalico@redhat.com>, <netdev@vger.kernel.org>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:62840 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751985AbaAJKel (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 05:34:41 -0500
-In-Reply-To: <1389345523-5497-2-git-send-email-vfalico@redhat.com>
+Received: from smtprelay0005.hostedemail.com ([216.40.44.5]:48499 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751013AbaAJKfm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 05:35:42 -0500
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D457950@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/1/10 17:18, Veaceslav Falico wrote:
-> Currently, its usage is just plainly wrong. It first gets a slave under
-> RCU, and, after releasing the RCU lock, continues to use it - whilst it can
-> be freed.
+On Fri, 2014-01-10 at 10:02 +0000, David Laight wrote:
+> > Another way this could be changed is to put the
+> > return value on a separate line like:
+> > 
+> > i40e_status
+> > i40e_aq_set_vsi_unicast_promiscuous(struct i40e_hw *hw, u16 seid, bool set,
+> > 				    struct i40e_asq_cmd_details *cmd_details)
 > 
-> Fix this by ensuring that bond_3ad_set_carrier() holds RCU till it uses its
-> slave (or its agg).
-> 
-> Fixes: be79bd048ab ("bonding: add RCU for bond_3ad_state_machine_handler()")
-> CC: dingtianhong@huawei.com
-> CC: Jay Vosburgh <fubar@us.ibm.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-> ---
-> 
-> Notes:
->     v2 -> v3:
->     Just wrap RCU for the whole usage of our slave.
->     
->     v1 -> v2:
->     Don't use _rcu primitives as we can be called under RTNL too.
->     
->     v1 -> v2:
->     Don't use _rcu primitives as we can be called under RTNL too.
-> 
->  drivers/net/bonding/bond_3ad.c | 23 ++++++++++++-----------
->  1 file changed, 12 insertions(+), 11 deletions(-)
-> 
-> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-> index 29db1ca..9ff55eb 100644
-> --- a/drivers/net/bonding/bond_3ad.c
-> +++ b/drivers/net/bonding/bond_3ad.c
-> @@ -2327,32 +2327,33 @@ int bond_3ad_set_carrier(struct bonding *bond)
->  {
->  	struct aggregator *active;
->  	struct slave *first_slave;
-> +	int ret = 1;
->  
->  	rcu_read_lock();
->  	first_slave = bond_first_slave_rcu(bond);
-> -	rcu_read_unlock();
-> -	if (!first_slave)
-> -		return 0;
-> +	if (!first_slave) {
-> +		ret = 0;
-> +		goto out;
-> +	}
->  	active = __get_active_agg(&(SLAVE_AD_INFO(first_slave).aggregator));
->  	if (active) {
->  		/* are enough slaves available to consider link up? */
->  		if (active->num_of_ports < bond->params.min_links) {
->  			if (netif_carrier_ok(bond->dev)) {
->  				netif_carrier_off(bond->dev);
-> -				return 1;
-> +				goto out;
->  			}
->  		} else if (!netif_carrier_ok(bond->dev)) {
->  			netif_carrier_on(bond->dev);
-> -			return 1;
-> +			goto out;
->  		}
-> -		return 0;
-> -	}
-> -
-> -	if (netif_carrier_ok(bond->dev)) {
-> +	} else if (netif_carrier_ok(bond->dev)) {
->  		netif_carrier_off(bond->dev);
-> -		return 1;
-> +		goto out;
-no need for this line, but it is not a big issue.
+> Personally I prefer that so I can find the definition by grepping
+> for '^function_name' - but it doesn't seem to be done in any linux
+> source files.
 
-Regards
-Ding
-
->  	}
-> -	return 0;
-> +out:
-> +	rcu_read_unlock();
-> +	return ret;
->  }
->  
->  /**
-> 
+That form is used in a lot of files.
+$ git grep -E "^[a-z_]+\("
