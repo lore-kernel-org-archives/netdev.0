@@ -1,195 +1,154 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Multicast routing stops functioning after 4G multicast packets
- recived.
-Date: Thu, 09 Jan 2014 23:01:46 -0800
-Message-ID: <1389337306.31367.94.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140109201411.317040@gmx.com>
-	 <20140110063638.GA17866@order.stressinduktion.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net V2 2/2] net: core: explicitly select a
+ txq before doing l2 forwarding
+Date: Fri, 10 Jan 2014 15:03:01 +0800
+Message-ID: <52CF9B25.7020909@redhat.com>
+References: <1389260252-48591-1-git-send-email-jasowang@redhat.com>
+	<1389260252-48591-2-git-send-email-jasowang@redhat.com>
+	<20140109123144.GC16701@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Bob Falken <NetFestivalHaveFun@gmx.com>,
-	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
-	kaber@trash.net, tgraf@suug.ch
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f41.google.com ([209.85.160.41]:46244 "EHLO
-	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751363AbaAJHBs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 02:01:48 -0500
-Received: by mail-pb0-f41.google.com with SMTP id jt11so4074424pbb.14
-        for <netdev@vger.kernel.org>; Thu, 09 Jan 2014 23:01:48 -0800 (PST)
-In-Reply-To: <20140110063638.GA17866@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mst@redhat.com, e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	John Fastabend <john.r.fastabend@intel.com>, davem@davemloft.net
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20140109123144.GC16701@hmsreliant.think-freely.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-01-10 at 07:36 +0100, Hannes Frederic Sowa wrote:
+On 01/09/2014 08:31 PM, Neil Horman wrote:
+> On Thu, Jan 09, 2014 at 05:37:32PM +0800, Jason Wang wrote:
+>> Currently, the tx queue were selected implicitly in ndo_dfwd_start_xmit(). The
+>> will cause several issues:
+>>
+>> - NETIF_F_LLTX were removed for macvlan, so txq lock were done for macvlan
+>>   instead of lower device which misses the necessary txq synchronization for
+>>   lower device such as txq stopping or frozen required by dev watchdog or
+>>   control path.
+>> - dev_hard_start_xmit() was called with NULL txq which bypasses the net device
+>>   watchdog.
+>> - dev_hard_start_xmit() does not check txq everywhere which will lead a crash
+>>   when tso is disabled for lower device.
+>>
+>> Fix this by explicitly introducing a new param for .ndo_select_queue() for just
+>> selecting queues in the case of l2 forwarding offload. And also introducing
+>> dfwd_direct_xmit() to do the queue selecting, txq holding and transmitting for
+>> l2 forwarding.
+>>
+>> With this fixes, NETIF_F_LLTX could be preserved for macvlan and there's no need
+>> to check txq against NULL in dev_hard_start_xmit(). Also there's no need to keep
+>> a dedicated ndo_dfwd_start_xmit().
+>>
+>> In the future, it was also required for macvtap l2 forwarding support since it
+>> provides a necessary synchronization method.
+>>
+>> Cc: John Fastabend <john.r.fastabend@intel.com>
+>> Cc: Neil Horman <nhorman@tuxdriver.com>
+>> Cc: e1000-devel@lists.sourceforge.net
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>>
+>> ---
+>> Changes from V1:
+>> - Adding a new parameter to ndo_select_queue instead of a new method to select
+>>   queue for l2 forwarding.
+>> - Remove the unnecessary ndo_dfwd_start_xmit() since txq was selected
+>>   explicitly.
+>> - Keep NETIF_F_LLTX when netdev feature is changed.
+>> - Shape the commit log
+> A few minor nits inline.
+>> <snip>
+>>  }
+>> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+>> index 5360f73..7eb4c82 100644
+>> --- a/drivers/net/macvlan.c
+>> +++ b/drivers/net/macvlan.c
+>> @@ -299,7 +299,7 @@ netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
+>>  
+>>  	if (vlan->fwd_priv) {
+>>  		skb->dev = vlan->lowerdev;
+>> -		ret = dev_hard_start_xmit(skb, skb->dev, NULL, vlan->fwd_priv);
+>> +		ret = dfwd_direct_xmit(skb, skb->dev, vlan->fwd_priv);
+>>  	} else {
+>>  		ret = macvlan_queue_xmit(skb, dev);
+>>  	}
+>> @@ -366,7 +366,6 @@ static int macvlan_open(struct net_device *dev)
+>>  		if (IS_ERR_OR_NULL(vlan->fwd_priv)) {
+>>  			vlan->fwd_priv = NULL;
+>>  		} else {
+>> -			dev->features &= ~NETIF_F_LLTX;
+>>  			return 0;
+>>  		}
+> After removing the features flag operation here, you don't need the braces
+> around the else statement either.
 
-> Ok, so I am proposing this patch. Only difference from the RFC is that
-> I removed the superfluous arg.rule NULL-pointer checks (I hate if they
-> are superfluous and they always seem to spread ;) ).
-> 
-> Maybe you could test this one instead and David could pick it up as soon
-> as your results are in.
-> 
-> I'll also look for the stable kernels where FIB_LOOKUP_NOREF is not
-> yet available.
-> 
-> Thank you,
-> 
->   Hannes
-> 
-> [PATCH net] net: avoid reference counter overflows on fib_rules in multicast forwarding
-> 
-> When introducing multiple table support for multicast forwarding in
-> IPv4 and IPv6, necessary fib_rules_put reference count decrements were
-> forgotten.
-> 
-> Bob Falken reported that after 4G packets, multicast forwarding stopped
-> working. This was because of a rule reference counter overflow which
-> freed the rule as soon as the overflow happend.
-> 
-> So, use FIB_LOOKUP_NOREF if we are already in a RCU protected section and
-> correctly deal with reference counter if not (called from ndo_start_xmit).
-> 
-> Fixes: f0ad0860d01e47 ("ipv4: ipmr: support multiple tables")
-> Fixes: d1db275dd3f6e4 ("ipv6: ip6mr: support multiple tables")
-> Reported-by: Bob Falken <NetFestivalHaveFun@gmx.com>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: Thomas Graf <tgraf@suug.ch>
-> Cc: Julian Anastasov <ja@ssi.bg>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
->  net/ipv4/ipmr.c  | 23 +++++++++++++++++------
->  net/ipv6/ip6mr.c | 21 +++++++++++++++------
->  2 files changed, 32 insertions(+), 12 deletions(-)
-> 
-> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-> index 421a249..c8d0857 100644
-> --- a/net/ipv4/ipmr.c
-> +++ b/net/ipv4/ipmr.c
-> @@ -157,9 +157,12 @@ static struct mr_table *ipmr_get_table(struct net *net, u32 id)
->  static int ipmr_fib_lookup(struct net *net, struct flowi4 *flp4,
->  			   struct mr_table **mrt)
->  {
-> -	struct ipmr_result res;
-> -	struct fib_lookup_arg arg = { .result = &res, };
->  	int err;
-> +	struct ipmr_result res;
-> +	struct fib_lookup_arg arg = {
-> +		.result = &res,
-> +		.flags = FIB_LOOKUP_NOREF,
-> +	};
->  
->  	err = fib_rules_lookup(net->ipv4.mr_rules_ops,
->  			       flowi4_to_flowi(flp4), 0, &arg);
-> @@ -448,16 +451,22 @@ failure:
->  
->  static netdev_tx_t reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
->  {
-> +	int err;
-> +	struct ipmr_result res;
->  	struct net *net = dev_net(dev);
-> -	struct mr_table *mrt;
-> +
-> +	struct fib_lookup_arg arg = {
-> +		.result = &res,
-> +	};
-> +
->  	struct flowi4 fl4 = {
->  		.flowi4_oif	= dev->ifindex,
->  		.flowi4_iif	= skb->skb_iif,
->  		.flowi4_mark	= skb->mark,
->  	};
-> -	int err;
->  
-> -	err = ipmr_fib_lookup(net, &fl4, &mrt);
-> +	err = fib_rules_lookup(net->ipv4.mr_rules_ops,
-> +			       flowi4_to_flowi(&fl4), 0, &arg);
+Ok.
+>> <snip>
+>> +int dfwd_direct_xmit(struct sk_buff *skb, struct net_device *dev,
+>> +		     void *accel_priv)
+>> +{
+>> +	struct netdev_queue *txq;
+>> +	int ret = NETDEV_TX_BUSY;
+>> +	int index;
+>> +
+>> +	BUG_ON(!dev->netdev_ops->ndo_select_queue);
+>> +	index =	dev->netdev_ops->ndo_select_queue(dev, skb, accel_priv);
+>> +
+>> +	local_bh_disable();
+>> +
+>> +	skb_set_queue_mapping(skb, index);
+>> +	txq = netdev_get_tx_queue(dev, index);
+>> +
+>> +	HARD_TX_LOCK(dev, txq, smp_processor_id());
+>> +	if (!netif_xmit_frozen_or_stopped(txq))
+>> +		ret = dev_hard_start_xmit(skb, dev, txq);
+>> +	HARD_TX_UNLOCK(dev, txq);
+>> +
+>> +	local_bh_enable();
+>> +	return ret;
+>> +}
+>> +EXPORT_SYMBOL_GPL(dfwd_direct_xmit);
+>> +
+> Now that we're using the common path to select a queue, can we just use
+> dev_queue_xmit here instead of creating our own transmit function?  The txq we
+> select from the ixgbe card will just have a pfifo_fast queue on it (if not a
+> noop queue), so dev_queue_xmit should just fall into the dev_hard_start_xmit
+> path, and save us this extra coding.
+>
+> Neil
 
-Its not clear to me why you expand ipmr_fib_lookup()
+Ture, and this will make no difference with the case without l2
+forwarding. To not trouble other parts too much, I will keep the current
+dev_queue_xmit() API and rename the current dev_queue_xmit() to
+__dev_queue_xmit() can make it can accept a accel_priv parameter. So
+dev_queue_xmit() will call this will NULL accel_priv and introduce a
+dev_queue_xmit_accel() that can accept a accel_priv parameter.
 
-Is there something wrong with existing code ?
-
-Its not mentioned in changelog
-
->  	if (err < 0) {
->  		kfree_skb(skb);
->  		return err;
-> @@ -466,9 +475,11 @@ static netdev_tx_t reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
->  	read_lock(&mrt_lock);
->  	dev->stats.tx_bytes += skb->len;
->  	dev->stats.tx_packets++;
-> -	ipmr_cache_report(mrt, skb, mrt->mroute_reg_vif_num, IGMPMSG_WHOLEPKT);
-> +	ipmr_cache_report(res.mrt, skb, res.mrt->mroute_reg_vif_num,
-> +			  IGMPMSG_WHOLEPKT);
->  	read_unlock(&mrt_lock);
->  	kfree_skb(skb);
-> +	fib_rule_put(arg.rule);
-
-This is the one line that is really missing, patch could be smaller.
-
->  	return NETDEV_TX_OK;
->  }
->  
-> diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-> index f365310..38347a3 100644
-> --- a/net/ipv6/ip6mr.c
-> +++ b/net/ipv6/ip6mr.c
-> @@ -141,9 +141,12 @@ static struct mr6_table *ip6mr_get_table(struct net *net, u32 id)
->  static int ip6mr_fib_lookup(struct net *net, struct flowi6 *flp6,
->  			    struct mr6_table **mrt)
->  {
-> -	struct ip6mr_result res;
-> -	struct fib_lookup_arg arg = { .result = &res, };
->  	int err;
-> +	struct ip6mr_result res;
-> +	struct fib_lookup_arg arg = {
-> +		.result = &res,
-> +		.flags = FIB_LOOKUP_NOREF,
-> +	};
->  
->  	err = fib_rules_lookup(net->ipv6.mr6_rules_ops,
->  			       flowi6_to_flowi(flp6), 0, &arg);
-> @@ -693,16 +696,20 @@ static const struct inet6_protocol pim6_protocol = {
->  static netdev_tx_t reg_vif_xmit(struct sk_buff *skb,
->  				      struct net_device *dev)
->  {
-> +	int err;
-> +	struct ip6mr_result res;
->  	struct net *net = dev_net(dev);
-> -	struct mr6_table *mrt;
->  	struct flowi6 fl6 = {
->  		.flowi6_oif	= dev->ifindex,
->  		.flowi6_iif	= skb->skb_iif,
->  		.flowi6_mark	= skb->mark,
->  	};
-> -	int err;
-> +	struct fib_lookup_arg arg = {
-> +		.result = &res,
-> +	};
->  
-> -	err = ip6mr_fib_lookup(net, &fl6, &mrt);
-> +	err = fib_rules_lookup(net->ipv6.mr6_rules_ops,
-> +			flowi6_to_flowi(&fl6), 0, &arg);
+Thanks
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
 
 
-same remark here.
-
->  	if (err < 0) {
->  		kfree_skb(skb);
->  		return err;
-> @@ -711,9 +718,11 @@ static netdev_tx_t reg_vif_xmit(struct sk_buff *skb,
->  	read_lock(&mrt_lock);
->  	dev->stats.tx_bytes += skb->len;
->  	dev->stats.tx_packets++;
-> -	ip6mr_cache_report(mrt, skb, mrt->mroute_reg_vif_num, MRT6MSG_WHOLEPKT);
-> +	ip6mr_cache_report(res.mrt, skb, res.mrt->mroute_reg_vif_num,
-> +			   MRT6MSG_WHOLEPKT);
->  	read_unlock(&mrt_lock);
->  	kfree_skb(skb);
-> +	fib_rule_put(arg.rule);
->  	return NETDEV_TX_OK;
->  }
->  
+------------------------------------------------------------------------------
+CenturyLink Cloud: The Leader in Enterprise Cloud Services.
+Learn Why More Businesses Are Choosing CenturyLink Cloud For
+Critical Workloads, Development Environments & Everything In Between.
+Get a Quote or Start a Free Trial Today. 
+http://pubads.g.doubleclick.net/gampad/clk?id=119420431&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
