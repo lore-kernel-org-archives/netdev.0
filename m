@@ -1,56 +1,61 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net-next 1/2] dts: Add a binding for Synopsys emac max-mtu
-Date: Fri, 10 Jan 2014 17:47:48 -0600
-Message-ID: <1389397669-10929-3-git-send-email-vbridgers2013@gmail.com>
-References: <1389397669-10929-1-git-send-email-vbridgers2013@gmail.com>
-Cc: peppe.cavallaro@st.com, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, dinguyen@altera.com,
-	rayagond@vayavyalabs.com, vbridgers2013@gmail.com
-To: devicetree@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:43159 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758205AbaAJXxB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 18:53:01 -0500
-In-Reply-To: <1389397669-10929-1-git-send-email-vbridgers2013@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vince Bridgers <vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next 0/2] stmmac: Fix kernel crashes for jumbo frames
+Date: Fri, 10 Jan 2014 17:47:46 -0600
+Message-ID: <1389397669-10929-1-git-send-email-vbridgers2013@gmail.com>
+Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org,
+	mark.rutland-5wv7dgnIgG8@public.gmane.org, ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org,
+	galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, dinguyen-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org,
+	rayagond-AmucfkJibqKGw+nKnLezzg@public.gmane.org, vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This change adds a parameter for the Synopsys 10/100/1000
-stmmac Ethernet driver to configure the maximum MTU supported
-by the EMAC instance. Synopsys allows the FIFO sizes to
-be configured when the cores are built for a particular
-device, but do not provide a way for the driver to read
-information from the device about the maximum MTU size
-supported as limited by the device's FIFO size.
+These patches address two kernel crashes seen when using jumbo frames on 
+the Synopsys stmmac driver, and adds device tree configurability for the 
+maximum mtu. The Synopsys emac fifo sizes can be configured when a logic
+design is synthesized, but does not provide a way for a driver to query the
+exact fifo size. 
 
-Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
----
- Documentation/devicetree/bindings/net/stmmac.txt |    5 +++++
- 1 file changed, 5 insertions(+)
+The crashes seen were due to two issues. 
 
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index eba0e5e..7db314e 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -30,6 +30,10 @@ Required properties:
- 
- Optional properties:
- - mac-address: 6 bytes, mac address
-+- snps,max-mtu:		Maximum MTU permitted. This parameter is useful since
-+			different implementations of the Synopsys MAC may have
-+			different FIFO sizes depending on the selections
-+			made in Synopsys Core Consultant.
- 
- Examples:
- 
-@@ -40,5 +44,6 @@ Examples:
- 		interrupts = <24 23>;
- 		interrupt-names = "macirq", "eth_wake_irq";
- 		mac-address = [000000000000]; /* Filled in by U-Boot */
-+		snps,max-mtu = <3800>;
- 		phy-mode = "gmii";
- 	};
+1) The dma buffer size was being set after the dma buffers were allocated.
+This caused a crash when changing the mtu since it was possible the buffers
+would subsequently be freed using an incorrect dma buffer size. This could
+also cause kernel panics due to memory corruption since a large mtu size could
+have been configured, but the dma buffers were not sized accordingly. 
+
+2) Jumbo frames were being enabled by default, but the dma buffers were not
+sized accordingly. This caused memory corruption in the context of certain
+types of network traffic, leading to kernel panics. 
+
+I've tested these changes using automated, reproducible testware. I can
+demonstrate the panics described before the fixes and show that the fixes
+address the problems described. 
+
+Testing and improvements continue through the use of the mentioned automated
+and reproducible testware. 
+
+Vince Bridgers
+
+Vince Bridgers (2):
+  dts: Add a binding for Synopsys emac max-mtu
+  stmmac: Fix kernel crashes for jumbo frames
+
+ Documentation/devicetree/bindings/net/stmmac.txt   |    5 +++++
+ drivers/net/ethernet/stmicro/stmmac/common.h       |    4 +++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |    7 ++-----
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |    7 ++++++-
+ .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |    2 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   11 +++++++----
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    5 +++++
+ include/linux/stmmac.h                             |    1 +
+ 8 files changed, 30 insertions(+), 12 deletions(-)
+
 -- 
 1.7.9.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
