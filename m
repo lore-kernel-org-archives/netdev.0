@@ -1,42 +1,54 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next 05/16] i40e: fix long lines
-Date: Fri, 10 Jan 2014 02:35:38 -0800
-Message-ID: <1389350138.2537.3.camel@joe-AO722>
-References: <1389344336-1558-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1389344336-1558-6-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1389344869.24222.31.camel@joe-AO722>
-	 <063D6719AE5E284EB5DD2968C1650D6D457950@AcuExch.aculab.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2 3/4] net: make tcp_cleanup_rbuf private
+Date: Fri, 10 Jan 2014 10:38:40 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D4579D9@AcuExch.aculab.com>
+References: <20140109201642.28381.82141.stgit@viggo.jf.intel.com>
+	<CADVnQy=Tk68y217cbw7O5apCJV+eOmKMqLNbgAZRa_cxUArdKg@mail.gmail.com>
+	<CAPcyv4hPnCud=MWpsCMNZmK_BwVV8WZHOs7=GQMhymgkv-gNkw@mail.gmail.com>
+ <20140109.154232.65818281679170677.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Mitch Williams <mitch.a.williams@intel.com>,
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "ncardwell@google.com" <ncardwell@google.com>,
+	"dmaengine@vger.kernel.org" <dmaengine@vger.kernel.org>,
+	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0005.hostedemail.com ([216.40.44.5]:48499 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751013AbaAJKfm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 05:35:42 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D457950@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"jmorris@namei.org" <jmorris@namei.org>,
+	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'David Miller' <davem@davemloft.net>,
+	"dan.j.williams@intel.com" <dan.j.williams@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140109.154232.65818281679170677.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-01-10 at 10:02 +0000, David Laight wrote:
-> > Another way this could be changed is to put the
-> > return value on a separate line like:
-> > 
-> > i40e_status
-> > i40e_aq_set_vsi_unicast_promiscuous(struct i40e_hw *hw, u16 seid, bool set,
-> > 				    struct i40e_asq_cmd_details *cmd_details)
+From: David Miller
+...
+> > On Thu, Jan 9, 2014 at 12:26 PM, Neal Cardwell <ncardwell@google.com> wrote:
+> >> On Thu, Jan 9, 2014 at 3:16 PM, Dan Williams <dan.j.williams@intel.com> wrote:
+> >>> net_dma was the only external user so this can become local to tcp.c
+> >>> again.
+> >> ...
+> >>> -void tcp_cleanup_rbuf(struct sock *sk, int copied)
+> >>> +static void cleanup_rbuf(struct sock *sk, int copied)
+> >>
+> >> I would vote to keep the tcp_ prefix. In the TCP code base that is the
+> >> more common idiom, even for internal/static TCP functions, and
+> >> personally I find it easier to read and work with in stack traces,
+> >> etc. My 2 cents.
+> >>
+> >
+> > Ok.  It was cleanup_rbuf() in a former life, but one vote for leaving
+> > the name as is is enough for me.
 > 
-> Personally I prefer that so I can find the definition by grepping
-> for '^function_name' - but it doesn't seem to be done in any linux
-> source files.
+> You can make that two votes :)
 
-That form is used in a lot of files.
-$ git grep -E "^[a-z_]+\("
+I suspect DM adds 2000 votes :-)
+
+Keeping the prefix makes it easier to grep for, and makes it more
+obvious that it isn't a generic function (when being called).
+
+	David
