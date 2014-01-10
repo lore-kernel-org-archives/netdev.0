@@ -1,105 +1,67 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v2 net-next] net: make dev_set_mtu() honor notification return code
-Date: Fri, 10 Jan 2014 16:56:25 +0100
-Message-ID: <1389369385-17439-1-git-send-email-vfalico@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45203 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751620AbaAJQAv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 11:00:51 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next v3 2/9] xen-netback: Change TX path
+ from grant copy to mapping
+Date: Fri, 10 Jan 2014 16:02:20 +0000
+Message-ID: <52D0198C.6000600@citrix.com>
+References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com>	<1389139818-24458-3-git-send-email-zoltan.kiss@citrix.com>	<20140109153015.GF12164@zion.uk.xensource.com>	<52CFDAEC.5080708@citrix.com>	<20140110114534.GE29180@zion.uk.xensource.com> <52D01094.5060102@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<jonathan.davies@citrix.com>, <ian.campbell@citrix.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52D01094.5060102@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently, after changing the MTU for a device, dev_set_mtu() calls
-NETDEV_CHANGEMTU notification, however doesn't verify it's return code -
-which can be NOTIFY_BAD - i.e. some of the net notifier blocks refused this
-change, and continues nevertheless.
+On 10/01/14 15:24, Zoltan Kiss wrote:
+> On 10/01/14 11:45, Wei Liu wrote:
+>> On Fri, Jan 10, 2014 at 11:35:08AM +0000, Zoltan Kiss wrote:
+>> [...]
+>>>
+>>>>> @@ -920,6 +852,18 @@ static int xenvif_tx_check_gop(struct xenvif
+>>>>> *vif,
+>>>>>       err = gop->status;
+>>>>>       if (unlikely(err))
+>>>>>           xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_ERROR);
+>>>>> +    else {
+>>>>> +        if (vif->grant_tx_handle[pending_idx] !=
+>>>>> +            NETBACK_INVALID_HANDLE) {
+>>>>> +            netdev_err(vif->dev,
+>>>>> +                "Stale mapped handle! pending_idx %x handle %x\n",
+>>>>> +                pending_idx, vif->grant_tx_handle[pending_idx]);
+>>>>> +            BUG();
+>>>>> +        }
+>>>>> +        set_phys_to_machine(idx_to_pfn(vif, pending_idx),
+>>>>> +            FOREIGN_FRAME(gop->dev_bus_addr >> PAGE_SHIFT));
+>>>>
+>>>> What happens when you don't have this?
+>>> Your frags will be filled with garbage. I don't understand exactly
+>>> what this function does, someone might want to enlighten us? I've
+>>> took it's usage from classic kernel.
+>>> Also, it might be worthwhile to check the return value and BUG if
+>>> it's false, but I don't know what exactly that return value means.
+>>>
+>>
+>> This is actually part of gnttab_map_refs. As you're using hypercall
+>> directly this becomes very fragile.
+>>
+>> So the right thing to do is to fix gnttab_map_refs.
+> I agree, as I mentioned in other email in this thread, I think that
+> should be the topic of an another patchseries. In the meantime, I will
+> use gnttab_batch_map instead of the direct hypercall, it handles the
+> GNTST_eagain scenario, and I will use set_phys_to_machine the same way
+> as m2p_override does:
 
-To fix this, verify the return code, and if it's an error - then revert the
-MTU to the original one, notify again and pass the error code.
+If the grant table code doesn't provide the API calls you need you can
+either:
 
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
-CC: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
+a) add the new API as a prerequisite patch.
+b) use the existing API calls and live with the performance problem,
+until you can refactor the API later on.
 
-Notes:
-    v1 -> v2:
-    Notify again after we've reverted the MTU back to the original, so that
-    everyone has a chance to change its MTU back.
+Adding a netback-specific hack isn't a valid option.
 
- net/core/dev.c | 34 +++++++++++++++++++++++++---------
- 1 file changed, 25 insertions(+), 9 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index ce01847..0991d94 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5287,6 +5287,17 @@ int dev_change_flags(struct net_device *dev, unsigned int flags)
- }
- EXPORT_SYMBOL(dev_change_flags);
- 
-+static int __dev_set_mtu(struct net_device *dev, int new_mtu)
-+{
-+	const struct net_device_ops *ops = dev->netdev_ops;
-+
-+	if (ops->ndo_change_mtu)
-+		return ops->ndo_change_mtu(dev, new_mtu);
-+
-+	dev->mtu = new_mtu;
-+	return 0;
-+}
-+
- /**
-  *	dev_set_mtu - Change maximum transfer unit
-  *	@dev: device
-@@ -5296,8 +5307,7 @@ EXPORT_SYMBOL(dev_change_flags);
-  */
- int dev_set_mtu(struct net_device *dev, int new_mtu)
- {
--	const struct net_device_ops *ops = dev->netdev_ops;
--	int err;
-+	int err, orig_mtu;
- 
- 	if (new_mtu == dev->mtu)
- 		return 0;
-@@ -5309,14 +5319,20 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
- 	if (!netif_device_present(dev))
- 		return -ENODEV;
- 
--	err = 0;
--	if (ops->ndo_change_mtu)
--		err = ops->ndo_change_mtu(dev, new_mtu);
--	else
--		dev->mtu = new_mtu;
-+	orig_mtu = dev->mtu;
-+	err = __dev_set_mtu(dev, new_mtu);
- 
--	if (!err)
--		call_netdevice_notifiers(NETDEV_CHANGEMTU, dev);
-+	if (!err) {
-+		err = call_netdevice_notifiers(NETDEV_CHANGEMTU, dev);
-+		err = notifier_to_errno(err);
-+		if (err) {
-+			/* setting mtu back and notifying everyone again,
-+			 * so that they have a chance to revert changes.
-+			 */
-+			__dev_set_mtu(dev, orig_mtu);
-+			call_netdevice_notifiers(NETDEV_CHANGEMTU, dev);
-+		}
-+	}
- 	return err;
- }
- EXPORT_SYMBOL(dev_set_mtu);
--- 
-1.8.4
+David
