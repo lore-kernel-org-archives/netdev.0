@@ -1,60 +1,87 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] net: replace macros net_random and net_srandom
- with direct calls to prandom
-Date: Sat, 11 Jan 2014 10:43:09 -0800
-Message-ID: <1389465789.2537.66.camel@joe-AO722>
-References: <1389442559-13097-1-git-send-email-aruna.hewapathirane@gmail.com>
-	 <1389462757.2537.61.camel@joe-AO722>
-	 <20140111180025.GB6586@order.stressinduktion.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2014-01-11
+Date: Sat, 11 Jan 2014 19:48:02 +0100
+Message-ID: <52D191E2.8040703@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Aruna-Hewapathirane <aruna.hewapathirane@gmail.com>,
-	netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0041.hostedemail.com ([216.40.44.41]:52496 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751274AbaAKSnN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jan 2014 13:43:13 -0500
-In-Reply-To: <20140111180025.GB6586@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="VOruEJQKlALjjkOtPD1HGNabRNQuLMnTg"
+Cc: David Miller <davem@davemloft.net>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2014-01-11 at 19:00 +0100, Hannes Frederic Sowa wrote:
-> On Sat, Jan 11, 2014 at 09:52:37AM -0800, Joe Perches wrote:
-> > On Sat, 2014-01-11 at 07:15 -0500, Aruna-Hewapathirane wrote:
-> > > This patch removes the net_random and net_srandom macros and replaces
-> > > them with direct calls to the prandom ones. As new commits only seem to
-> > > use prandom_u32 there is no use to keep them around.
-> > > This change makes it easier to grep for users of prandom_u32.
-> > 
-> > Seems sensible.
-> > 
-> > Also, there may be some value in a future patch
-> > to use reciprocal_divide in a few places
-> > 
-> > > diff --git a/net/802/garp.c b/net/802/garp.c
-> > > @@ -397,7 +397,7 @@ static void garp_join_timer_arm(struct garp_applicant *app)
-> > >  {
-> > >  	unsigned long delay;
-> > >  
-> > > -	delay = (u64)msecs_to_jiffies(garp_join_time) * net_random() >> 32;
-> > > +	delay = (u64)msecs_to_jiffies(garp_join_time) * prandom_u32() >> 32;
-> > 
-> > reciprocal_divide()
-> 
-> Does reciprocal_divide() make sense without reciprocal_value() from a
-> stylish point of view?
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--VOruEJQKlALjjkOtPD1HGNabRNQuLMnTg
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Hi again.
+Hello David,
 
-Dunno.
+this is a pull request of three patches for net-next/master.
 
-I think there's some value in the name triggering
-reader recognition of what the code is doing.
+Oleg Moroz added support for a new PCI card to the generic SJA1000 PCI
+driver, Guenter Roeck's patch limits the flexcan driver to little
+endian arm (and powerpc) and I fixed a sparse warning found by the
+kbuild robot in the ti_hecc driver.
 
-> I wouldn't do that just because it expands into the same code.
+regards,
+Marc
+---
 
-There are a few places where reciprocal_device is
-used today without using reciprocal_value()
+The following changes since commit 45593c2bd2d1e257d03d795f9c80e22e18f188=
+f0:
+
+  Merge tag 'batman-adv-for-davem' of git://git.open-mesh.org/linux-merge=
+ (2014-01-10 17:59:34 -0500)
+
+are available in the git repository at:
+
+
+  git://gitorious.org/linux-can/linux-can-next.git for-davem
+
+for you to fetch changes up to ea79c1c18520c3a60a2fc8193e2fb58710812d4e:
+
+  can: ti_hecc: fix endianness related sparse warning (2014-01-11 19:43:2=
+6 +0100)
+
+----------------------------------------------------------------
+Guenter Roeck (1):
+      can: Disable flexcan driver build for big endian CPU on ARM
+
+Marc Kleine-Budde (1):
+      can: ti_hecc: fix endianness related sparse warning
+
+Oleg Moroz (1):
+      can: sja1000: add support for Elcus CAN200PCI
+
+ drivers/net/can/Kconfig           |  2 +-
+ drivers/net/can/sja1000/plx_pci.c | 23 ++++++++++++++++++++++-
+ drivers/net/can/ti_hecc.c         | 10 ++++------
+ 3 files changed, 27 insertions(+), 8 deletions(-)
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--VOruEJQKlALjjkOtPD1HGNabRNQuLMnTg
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlLRkeIACgkQjTAFq1RaXHOs3wCggURqLHAU/9172Nwe+Y8D+ZYA
+WvgAnj/tQaPwY0itp33Hv85dcshzkSBn
+=N+hg
+-----END PGP SIGNATURE-----
+
+--VOruEJQKlALjjkOtPD1HGNabRNQuLMnTg--
