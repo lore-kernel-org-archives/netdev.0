@@ -1,17 +1,17 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 1/3 RESUBMIT] b43: Fix lockdep splat
-Date: Sat, 11 Jan 2014 13:54:52 -0600
-Message-ID: <1389470092-13098-1-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 1/3 RESUBMIT 2nd time] b43: Fix lockdep splat
+Date: Sat, 11 Jan 2014 13:57:46 -0600
+Message-ID: <1389470266-13150-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: linux-wireless@vger.kernel.org,
-	Stanislaw Gruszka <gruszka@redhat.com>, netdev@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
+	Stanislaw Gruszka <sgruszka@redhat.com>,
+	netdev@vger.kernel.org, Larry Finger <Larry.Finger@lwfinger.net>,
 	Stable <stable@vger.kernel.org>
 To: linville@tuxdriver.com
 Return-path: <stable-owner@vger.kernel.org>
 Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stanislaw Gruszka <gruszka@redhat.com>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
 
 In https://bugzilla.kernel.org/show_bug.cgi?id=67561, a locking dependency is reported
 when b43 is used with hostapd, and rfkill is used to kill the radio output.
