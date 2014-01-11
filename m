@@ -1,69 +1,90 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: Re: [PATCH net-next 1/2] ARM: dts: socfpga: DTS updates for stmmac driver
-Date: Fri, 10 Jan 2014 17:58:06 -0600
-Message-ID: <CAOwfj2P7GEz8RKMRrD619EthXR_kK6N9QqKaRZXG5N6pESCv9g@mail.gmail.com>
-References: <1389397669-10929-1-git-send-email-vbridgers2013@gmail.com>
-	<1389397669-10929-2-git-send-email-vbridgers2013@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>, robh+dt@kernel.org,
-	pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	dinguyen@altera.com, Rayagond Kokatanur <rayagond@vayavyalabs.com>,
-	Vince Bridgers <vbridgers2013@gmail.com>
-To: devicetree@vger.kernel.org, netdev@vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] ipv4: register igmp_notifier even when !CONFIG_PROC_FS
+Date: Fri, 10 Jan 2014 16:09:45 -0800
+Message-ID: <1389398985-16198-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f52.google.com ([74.125.82.52]:54770 "EHLO
-	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751737AbaAJX6I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 18:58:08 -0500
-In-Reply-To: <1389397669-10929-2-git-send-email-vbridgers2013@gmail.com>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:52696 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751291AbaAKAJt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 19:09:49 -0500
+Received: by mail-pd0-f180.google.com with SMTP id q10so5227616pdj.11
+        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 16:09:48 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please disregard, sorry for the noise.
+We still need this notifier even when we don't config
+PROC_FS.
 
+It should be rare to have a kernel without PROC_FS,
+so just for completeness.
 
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-On Fri, Jan 10, 2014 at 5:47 PM, Vince Bridgers <vbridgers2013@gmail.com> wrote:
-> This change adds a parameter for the Synopsys 10/100/1000
-> stmmac Ethernet driver to configure the maximum MTU supported
-> by the EMAC instance. Synopsys allows the FIFO sizes to
-> be configured when the cores are built for a particular
-> device, but do not provide a way for the driver to read
-> information from the device about the maximum MTU size
-> supported as limited by the device's FIFO size.
->
-> This patch has been tested with changes being submitted
-> seperately for the Synopsys 10/100/1000 stmmac driver.
->
-> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
-> ---
->  Documentation/devicetree/bindings/net/stmmac.txt |    5 +++++
->  1 file changed, 5 insertions(+)
->
-> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-> index eba0e5e..7db314e 100644
-> --- a/Documentation/devicetree/bindings/net/stmmac.txt
-> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
-> @@ -30,6 +30,10 @@ Required properties:
->
->  Optional properties:
->  - mac-address: 6 bytes, mac address
-> +- snps,max-mtu:                Maximum MTU permitted. This parameter is useful since
-> +                       different implementations of the Synopsys MAC may have
-> +                       different FIFO sizes depending on the selections
-> +                       made in Synopsys Core Consultant.
->
->  Examples:
->
-> @@ -40,5 +44,6 @@ Examples:
->                 interrupts = <24 23>;
->                 interrupt-names = "macirq", "eth_wake_irq";
->                 mac-address = [000000000000]; /* Filled in by U-Boot */
-> +               snps,max-mtu = <3800>;
->                 phy-mode = "gmii";
->         };
-> --
-> 1.7.9.5
->
+---
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 5356644..4fcc6dc 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -90,7 +90,7 @@ struct packet_type;
+ struct rtable;
+ struct sockaddr;
+ 
+-int igmp_mc_proc_init(void);
++int igmp_mc_init(void);
+ 
+ /*
+  *	Functions provided by ip.c
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 84c4329..bcbf33e 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -2762,6 +2762,7 @@ static struct pernet_operations igmp_net_ops = {
+ 	.init = igmp_net_init,
+ 	.exit = igmp_net_exit,
+ };
++#endif
+ 
+ static int igmp_netdev_event(struct notifier_block *this,
+ 			     unsigned long event, void *ptr)
+@@ -2785,8 +2786,9 @@ static struct notifier_block igmp_notifier = {
+ 	.notifier_call = igmp_netdev_event,
+ };
+ 
+-int __init igmp_mc_proc_init(void)
++int __init igmp_mc_init(void)
+ {
++#if defined(CONFIG_PROC_FS)
+ 	int err;
+ 
+ 	err = register_pernet_subsys(&igmp_net_ops);
+@@ -2800,5 +2802,7 @@ int __init igmp_mc_proc_init(void)
+ reg_notif_fail:
+ 	unregister_pernet_subsys(&igmp_net_ops);
+ 	return err;
+-}
++#else
++	return register_netdevice_notifier(&igmp_notifier);
+ #endif
++}
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index df18461..535a515 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -1551,7 +1551,7 @@ void __init ip_init(void)
+ 	ip_rt_init();
+ 	inet_initpeers();
+ 
+-#if defined(CONFIG_IP_MULTICAST) && defined(CONFIG_PROC_FS)
+-	igmp_mc_proc_init();
++#if defined(CONFIG_IP_MULTICAST)
++	igmp_mc_init();
+ #endif
+ }
