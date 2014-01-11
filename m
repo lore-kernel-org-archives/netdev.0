@@ -1,45 +1,68 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH v3 net-next] net: vxlan: when lower dev unregisters remove
- vxlan dev as well
-Date: Fri, 10 Jan 2014 16:49:11 -0800
-Message-ID: <CAHA+R7NB8sz1-W=QEmGxQkRyUmcMM6BzE7pZNU0W2_jzDfJjNw@mail.gmail.com>
-References: <1389393317-26563-1-git-send-email-dborkman@redhat.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: PROBLEM: usbnet / ax88179_178a: Panic in usb_hcd_map_urb_for_dma
+Date: Sat, 11 Jan 2014 01:53:26 +0100
+Message-ID: <87zjn3z6d5.fsf@nemi.mork.no>
+References: <CAHNSM4Kv5gcJn=H4k8QjPggWzjF0zRm_t_icAYXjCTqXx4xL2w@mail.gmail.com>
+	<1389385824.2025.95.camel@bwh-desktop.uk.level5networks.com>
+	<87ob3j1ocb.fsf@nemi.mork.no>
+	<CAHNSM4KU8QEybpHgAcCjQoWuRjU8=wd1O7KUVMnrRJKQ-xr=Gg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:65489 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757186AbaAKAtN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 19:49:13 -0500
-Received: by mail-lb0-f171.google.com with SMTP id w7so3881790lbi.16
-        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 16:49:11 -0800 (PST)
-In-Reply-To: <1389393317-26563-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Thomas Kear <thomas-hrxM1pTBpuF02iOg2JU2CQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAHNSM4KU8QEybpHgAcCjQoWuRjU8=wd1O7KUVMnrRJKQ-xr=Gg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+	(Thomas Kear's message of "Sat, 11 Jan 2014 12:41:06 +1300")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 10, 2014 at 2:35 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> @@ -2673,13 +2712,14 @@ static __net_init int vxlan_init_net(struct net *net)
->  static __net_exit void vxlan_exit_net(struct net *net)
->  {
->         struct vxlan_net *vn = net_generic(net, vxlan_net_id);
-> -       struct vxlan_dev *vxlan;
-> -       LIST_HEAD(list);
-> +       struct vxlan_dev *vxlan, *next;
-> +       LIST_HEAD(list_kill);
+Thomas Kear <thomas-hrxM1pTBpuF02iOg2JU2CQ@public.gmane.org> writes:
+
+> On Sat, Jan 11, 2014 at 11:09 AM, Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wro=
+te:
+>> But looking at the code I think I found and obvious miss in the SG l=
+ist
+>> initialisation.  I'll post a proposed fix for that.  Would be good i=
+f
+>> someone was able to test it.
 >
->         rtnl_lock();
-> -       list_for_each_entry(vxlan, &vn->vxlan_list, next)
-> -               unregister_netdevice_queue(vxlan->dev, &list);
-> -       unregister_netdevice_many(&list);
-> +       list_for_each_entry_safe(vxlan, next, &vn->vxlan_list, next)
-> +               vxlan_dellink(vxlan->dev, &list_kill);
-> +       unregister_netdevice_many(&list_kill);
-> +       list_del(&list_kill);
+> I've built 3.13.0-rc7-next-20140110 with your patch applied.
+> Unfortunately since this bug has taken anywhere from minutes to days
+> to manifest previously I'm not sure how quickly I'll be able to repor=
+t
+> on its efficacy.
 
-The last list_del() looks suspicous... Since list_kill is a local list head,
-why do we need to delete the head at the end??
+Thanks for testing it.=20
 
-Also, I still fail to see why you change vxlan_exit_net() here,
-it looks a different bug irrelevant to netdev notifier.
+If I'm correct, then your problem is caused by usbnet incrementing
+urb->num_sgs above the value sg_init_table was called with. This happen=
+s
+if usbnet adds padding to a fragmented skb.  Unfortunately I have no
+idea how you can create fragmented skbs with a certain length.  But I'm
+sure others here know?
+
+This bug in usbnet makes usb_hcd_map_urb_for_dma() call dma_map_sg()
+with nents set past an entry with the SG chain termination bit set. Thi=
+s
+bit makes the call to sg_next return NULL, even if there is another non
+NULL entry in the list.  So when dma_map_sg does
+
+        for_each_sg(sg, s, nents, i)
+                kmemcheck_mark_initialized(sg_virt(s), s->length);
+
+it ends up dereferencing NULL.
+
+> I currently have the adapter plugged in through a 4-port USB3 hub
+> (2109:0811, which appears to be a VIA chip) but I will test it
+> directly attached to the laptop too.
+
+I don't think that should matter.
+
+
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
