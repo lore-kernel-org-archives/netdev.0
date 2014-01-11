@@ -1,58 +1,20 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [PATCH net-next v2 06/20] net: igbvf: slight optimization of
- addr compare
-Date: Sat, 11 Jan 2014 03:30:25 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B7312966C@ORSMSX101.amr.corp.intel.com>
-References: <52BE6CF8.5030806@huawei.com>
+From: "Mr. Jerry Natai" <mrjerrynatai2014@bpjs-kesehatan.go.id>
+Subject: Re:
+Date: Fri, 10 Jan 2014 18:11:52 -0800
+Message-ID: <20140111021231.04F0A671F85__38563.7957988822$1389411312$gmane$org@mtasvr1.telkomsigma.com>
+Reply-To: mrjerrynatai2014@manager.in.th
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: Ding Tianhong <dingtianhong@huawei.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <mrjerrynatai2014@bpjs-kesehatan.go.id>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:7286 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751343AbaAKDa1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 22:30:27 -0500
-In-Reply-To: <52BE6CF8.5030806@huawei.com>
-Content-Language: en-US
+Received: from mtarelay-askes.telkomsigma.com ([118.97.213.150]:35295 "EHLO
+	mtarelay-askes.telkomsigma.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751303AbaAKDeo convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 22:34:44 -0500
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVy
-QHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVoYWxmIE9mIERpbmcgVGlhbmhvbmcNCj4gU2VudDog
-RnJpZGF5LCBEZWNlbWJlciAyNywgMjAxMyAxMDoxNyBQTQ0KPiBUbzogS2lyc2hlciwgSmVmZnJl
-eSBUOyBCcmFuZGVidXJnLCBKZXNzZTsgV3lib3JueSwgQ2Fyb2x5bjsgU2tpZG1vcmUsDQo+IERv
-bmFsZCBDOyBEYXZpZCBTLiBNaWxsZXI7IE5ldGRldjsgbGludXgta2VybmVsQHZnZXIua2VybmVs
-Lm9yZw0KPiBTdWJqZWN0OiBbUEFUQ0ggbmV0LW5leHQgdjIgMDYvMjBdIG5ldDogaWdidmY6IHNs
-aWdodCBvcHRpbWl6YXRpb24gb2YgYWRkcg0KPiBjb21wYXJlDQo+IA0KPiBVc2UgcG9zc2libHkg
-bW9yZSBlZmZpY2llbnQgZXRoZXJfYWRkcl9lcXVhbCB0byBpbnN0ZWFkIG9mIG1lbWNtcC4NCj4g
-DQo+IENjOiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4gQ2M6
-IEplc3NlIEJyYW5kZWJ1cmcgPGplc3NlLmJyYW5kZWJ1cmdAaW50ZWwuY29tPg0KPiBDYzogQ2Fy
-b2x5biBXeWJvcm55IDxjYXJvbHluLnd5Ym9ybnlAaW50ZWwuY29tPg0KPiBDYzogRG9uIFNraWRt
-b3JlIDxkb25hbGQuYy5za2lkbW9yZUBpbnRlbC5jb20+DQo+IFNpZ25lZC1vZmYtYnk6IERpbmcg
-VGlhbmhvbmcgPGRpbmd0aWFuaG9uZ0BodWF3ZWkuY29tPg0KDQpTaWduZWQtb2ZmLWJ5OiBBYXJv
-biBCcm93biA8YWFyb24uZi5icm93bkBpbnRlbC5jb20+IA0KVGVzdGVkIGJ5OiBBYXJvbiBCcm93
-biA8YWFyb24uZi5icm93bkBpbnRlbC5jb20+DQoNCj4gLS0tDQo+ICBkcml2ZXJzL25ldC9ldGhl
-cm5ldC9pbnRlbC9pZ2J2Zi9uZXRkZXYuYyB8IDIgKy0NCj4gIDEgZmlsZSBjaGFuZ2VkLCAxIGlu
-c2VydGlvbigrKSwgMSBkZWxldGlvbigtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
-L2V0aGVybmV0L2ludGVsL2lnYnZmL25ldGRldi5jDQo+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQv
-aW50ZWwvaWdidmYvbmV0ZGV2LmMNCj4gaW5kZXggMDRiZjIyZS4uNjc1NDM1ZiAxMDA2NDQNCj4g
-LS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdidmYvbmV0ZGV2LmMNCj4gKysrIGIv
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdidmYvbmV0ZGV2LmMNCj4gQEAgLTE3NDUsNyAr
-MTc0NSw3IEBAIHN0YXRpYyBpbnQgaWdidmZfc2V0X21hYyhzdHJ1Y3QgbmV0X2RldmljZSAqbmV0
-ZGV2LA0KPiB2b2lkICpwKQ0KPiANCj4gIAlody0+bWFjLm9wcy5yYXJfc2V0KGh3LCBody0+bWFj
-LmFkZHIsIDApOw0KPiANCj4gLQlpZiAobWVtY21wKGFkZHItPnNhX2RhdGEsIGh3LT5tYWMuYWRk
-ciwgNikpDQo+ICsJaWYgKCFldGhlcl9hZGRyX2VxdWFsKGFkZHItPnNhX2RhdGEsIGh3LT5tYWMu
-YWRkcikpDQo+ICAJCXJldHVybiAtRUFERFJOT1RBVkFJTDsNCj4gDQo+ICAJbWVtY3B5KG5ldGRl
-di0+ZGV2X2FkZHIsIGFkZHItPnNhX2RhdGEsIG5ldGRldi0+YWRkcl9sZW4pOw0KPiAtLQ0KPiAx
-LjguMA0KPiANCj4gDQo+IC0tDQo+IFRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5k
-IHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluDQo+IHRoZSBib2R5IG9mIGEgbWVzc2Fn
-ZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnDQo+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQg
-IGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0K
+I have a business Proposal for you.You can contact me on my private email: (mrjerrynatai2014@manager.in.th)
