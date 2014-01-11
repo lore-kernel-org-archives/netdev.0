@@ -1,124 +1,168 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: suspicious RCU usage in net/ipv4/ip_tunnel.c:80
-Date: Fri, 10 Jan 2014 17:21:21 -0800
-Message-ID: <1389403281.31367.171.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAHA+R7PAyR_cJ9_9nfUBc0U9o-U=gCV+sN_VYbHwgq-QdoEVzQ@mail.gmail.com>
+From: Dan Williams <dan.j.williams@intel.com>
+Subject: Re: [PATCH v2 4/4] dma debug: introduce debug_dma_assert_idle()
+Date: Fri, 10 Jan 2014 18:35:13 -0800
+Message-ID: <CAPcyv4h8nsa9OW1bEokmShf_5CnA+0seeCtOTg_jYuBER28MgQ@mail.gmail.com>
+References: <20140109201157.28381.94057.stgit@viggo.jf.intel.com>
+	<20140109201657.28381.9305.stgit@viggo.jf.intel.com>
+	<20140109163820.ddbaaab9fdb2222c92ec3d78@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>, netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f177.google.com ([209.85.161.177]:36935 "EHLO
-	mail-gg0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751149AbaAKBV0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 20:21:26 -0500
-Received: by mail-gg0-f177.google.com with SMTP id 4so1446635ggm.22
-        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 17:21:25 -0800 (PST)
-In-Reply-To: <CAHA+R7PAyR_cJ9_9nfUBc0U9o-U=gCV+sN_VYbHwgq-QdoEVzQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "dmaengine@vger.kernel.org" <dmaengine@vger.kernel.org>,
+	Vinod Koul <vinod.koul@intel.com>,
+	Netdev <netdev@vger.kernel.org>, Joerg Roedel <joro@8bytes.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	James Bottomley <JBottomley@parallels.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140109163820.ddbaaab9fdb2222c92ec3d78@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-01-10 at 16:37 -0800, Cong Wang wrote:
-> Hi, Tom
-> 
-> I saw:
-> 
-> [   65.609535] [ INFO: suspicious RCU usage. ]
-> [   65.609537] 3.13.0-rc6+ #139 Not tainted
-> [   65.609538] -------------------------------
-> [   65.609539] net/ipv4/ip_tunnel.c:80 suspicious rcu_dereference_check() usage!
-> [   65.609540]
-> [   65.609540] other info that might help us debug this:
-> [   65.609540]
-> [   65.609541]
-> [   65.609541] rcu_scheduler_active = 1, debug_locks = 0
-> [   65.609542] 5 locks held by kworker/u8:0/6:
-> [   65.609553]  #0:  (%s#4){.+.+.+}, at: [<ffffffff8106d56b>]
-> process_one_work+0x173/0x41e
-> [   65.609557]  #1:  (net_cleanup_work){+.+.+.}, at:
-> [<ffffffff8106d56b>] process_one_work+0x173/0x41e
-> [   65.609563]  #2:  (net_mutex){+.+.+.}, at: [<ffffffff817816c9>]
-> cleanup_net+0x85/0x18a
-> [   65.609569]  #3:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81796058>]
-> rtnl_lock+0x17/0x19
-> [   65.609575]  #4:  (&(&idst->lock)->rlock){+.....}, at:
-> [<ffffffff818820fe>] __tunnel_dst_set+0x30/0x8b
-> [   65.609575]
-> [   65.609575] stack backtrace:
-> [   65.609577] CPU: 1 PID: 6 Comm: kworker/u8:0 Not tainted 3.13.0-rc6+ #139
-> [   65.609579] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-> [   65.609582] Workqueue: netns cleanup_net
-> [   65.609585]  0000000000000000 ffff880118205bb0 ffffffff819894b6
-> ffff8801181ea550
-> [   65.609587]  ffff880118205be0 ffffffff81095f34 0000000000000000
-> ffffe8ffff606df0
-> [   65.609589]  ffffe8ffff606df8 0000000000000000 ffff880118205c10
-> ffffffff8188213c
-> [   65.609590] Call Trace:
-> [   65.609595]  [<ffffffff819894b6>] dump_stack+0x4d/0x66
-> [   65.609598]  [<ffffffff81095f34>] lockdep_rcu_suspicious+0x107/0x110
-> [   65.609600]  [<ffffffff8188213c>] __tunnel_dst_set+0x6e/0x8b
-> [   65.609602]  [<ffffffff81882203>] tunnel_dst_reset_all.isra.25+0x40/0x47
-> [   65.609605]  [<ffffffff81883e28>] ip_tunnel_uninit+0x61/0x64
-> [   65.609608]  [<ffffffff8178aeb2>] rollback_registered_many+0x188/0x21f
-> [   65.609610]  [<ffffffff8178b02f>] unregister_netdevice_many+0x19/0x63
-> [   65.609612]  [<ffffffff81883a17>] ip_tunnel_delete_net+0xd1/0xe5
-> [   65.609615]  [<ffffffff8188bc68>] vti_exit_net+0x2a/0x2c
-> [   65.609617]  [<ffffffff81780f21>] ops_exit_list+0x44/0x55
-> [   65.609619]  [<ffffffff8178173a>] cleanup_net+0xf6/0x18a
-> [   65.609621]  [<ffffffff8106d612>] process_one_work+0x21a/0x41e
-> [   65.609623]  [<ffffffff8106d56b>] ? process_one_work+0x173/0x41e
-> [   65.609625]  [<ffffffff8106dc1b>] worker_thread+0x149/0x1f5
-> [   65.609628]  [<ffffffff8106dad2>] ? rescuer_thread+0x28d/0x28d
-> [   65.609630]  [<ffffffff81073f6f>] kthread+0xd2/0xda
-> [   65.609634]  [<ffffffff8107d0ed>] ? finish_task_switch+0x3a/0xbe
-> [   65.609636]  [<ffffffff81073e9d>] ? __kthread_parkme+0x61/0x61
-> [   65.609640]  [<ffffffff819961ac>] ret_from_fork+0x7c/0xb0
-> [   65.609642]  [<ffffffff81073e9d>] ? __kthread_parkme+0x61/0x61
-> 
-> 
-> I think the patch below could fix it but not sure if we really need
-> synchronize_rcu() here...
-> 
-> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-> index d3929a6..eb50b9a 100644
-> --- a/net/ipv4/ip_tunnel.c
-> +++ b/net/ipv4/ip_tunnel.c
-> @@ -77,10 +77,11 @@ static inline void __tunnel_dst_set(struct
-> ip_tunnel_dst *idst,
->                 dst = NULL;
-> 
->         spin_lock_bh(&idst->lock);
-> -       old_dst = rcu_dereference(idst->dst);
-> +       old_dst = idst->dst;
->         rcu_assign_pointer(idst->dst, dst);
-> -       dst_release(old_dst);
->         spin_unlock_bh(&idst->lock);
-> +       synchronize_rcu();
-> +       dst_release(old_dst);
->  }
+On Thu, Jan 9, 2014 at 4:38 PM, Andrew Morton <akpm@linux-foundation.org> wrote:
+> On Thu, 09 Jan 2014 12:17:26 -0800 Dan Williams <dan.j.williams@intel.com> wrote:
+>
+>> Record actively mapped pages and provide an api for asserting a given
+>> page is dma inactive before execution proceeds.  Placing
+>> debug_dma_assert_idle() in cow_user_page() flagged the violation of the
+>> dma-api in the NET_DMA implementation (see commit 77873803363c "net_dma:
+>> mark broken").
+>>
+>> --- a/include/linux/dma-debug.h
+>> +++ b/include/linux/dma-debug.h
+>> @@ -185,4 +185,10 @@ static inline void debug_dma_dump_mappings(struct device *dev)
+>>
+>>  #endif /* CONFIG_DMA_API_DEBUG */
+>>
+>> +#ifdef CONFIG_DMA_VS_CPU_DEBUG
+>> +extern void debug_dma_assert_idle(struct page *page);
+>> +#else
+>> +static inline void debug_dma_assert_idle(struct page *page) { }
+>
+> Surely this breaks the build when CONFIG_DMA_VS_CPU_DEBUG=n?
+> lib/dma-debug.c is missing the necessary "#ifdef
+> CONFIG_DMA_VS_CPU_DEBUG"s.
+
+facepalm
+
+> Do we really need this config setting anyway?  What goes bad if we
+> permanently enable this subfeature when dma debugging is enabled?
+
+I did want to provide notification/description of this extra check,
+but I'll go ahead and fold it into the DMA_API_DEBUG description.
+
+The only thing that potentially goes bad is no longer having hard
+expectation of memory consumption.  Before the patch it's a simple
+sizeof(struct dma_debug_entry) * PREALLOC_DMA_DEBUG_ENTRIES, after the
+patch it's variable size of the radix tree based on sparseness and
+variable based on the number of pages included in each dma_map_sg
+call.  The testing with NET_DMA did not involve dma_map_sg calls
+
+>> ...
+>>
+>> index d87a17a819d0..f67ae111cd2f 100644
+>> --- a/lib/dma-debug.c
+>> +++ b/lib/dma-debug.c
+>> @@ -57,7 +57,8 @@ struct dma_debug_entry {
+>>       struct list_head list;
+>>       struct device    *dev;
+>>       int              type;
+>> -     phys_addr_t      paddr;
+>> +     unsigned long    pfn;
+>> +     size_t           offset;
+>
+> Some documentation for the fields would be nice.  offset of what
+> relative to what, in what units?
+
+This is the same 'offset' passed to dma_map_page(), will document.
+
+>
+>>       u64              dev_addr;
+>>       u64              size;
+>>       int              direction;
+>> @@ -372,6 +373,11 @@ static void hash_bucket_del(struct dma_debug_entry *entry)
+>>       list_del(&entry->list);
+>>  }
+>>
+>>
+>> ...
+>>
+>>
+>> +/* memory usage is constrained by the maximum number of available
+>> + * dma-debug entries
+>> + */
+>
+> A brief design overview would be useful.  What goes in tree, how is it
+> indexed, when and why do we add/remove/test items, etc.
+>
+
+...added this documentation to dma_active_pfn for the next revision.
+
+/*
+ * For each page mapped (initial page in the case of
+ * dma_alloc_coherent/dma_map_{single|page}, or each page in a
+ * scatterlist) insert into this tree using the pfn as the key. At
+ * dma_unmap_{single|sg|page} or dma_free_coherent delete the entry.  If
+ * the pfn already exists at insertion time add a tag as a reference
+ * count for the overlapping mappings.  For now the overlap tracking
+ * just ensures that 'unmaps' balance 'maps' before marking the pfn
+ * idle, but we should also be flagging overlaps as an API violation.
+ *
+ * Memory usage is mostly constrained by the maximum number of available
+ * dma-debug entries.  In the case of dma_map_{single|page} and
+ * dma_alloc_coherent there is only one dma_debug_entry and one pfn to
+ * track per each of these calls.  dma_map_sg(), on the other hand,
+ * consumes a single dma_debug_entry, but inserts 'nents' entries into
+ * the tree.
+ *
+ * At any time debug_dma_assert_idle() can be called to trigger a
+ * warning if the given page is in the active set.
+ */
 
 
-Nope, the synchronize_rcu() is not needed here.
+>> +static RADIX_TREE(dma_active_pfn, GFP_NOWAIT);
+>> +static DEFINE_SPINLOCK(radix_lock);
+>> +
+>> +static void __active_pfn_inc_overlap(struct dma_debug_entry *entry)
+>> +{
+>> +     unsigned long pfn = entry->pfn;
+>> +     int i;
+>> +
+>> +     for (i = 0; i < RADIX_TREE_MAX_TAGS; i++)
+>> +             if (radix_tree_tag_get(&dma_active_pfn, pfn, i) == 0) {
+>> +                     radix_tree_tag_set(&dma_active_pfn, pfn, i);
+>> +                     return;
+>> +             }
+>> +     pr_debug("DMA-API: max overlap count (%d) reached for pfn 0x%lx\n",
+>> +              RADIX_TREE_MAX_TAGS, pfn);
+>> +}
+>> +
+>>
+>> ...
+>>
+>> +void debug_dma_assert_idle(struct page *page)
+>> +{
+>> +     unsigned long flags;
+>> +     struct dma_debug_entry *entry;
+>> +
+>> +     if (!page)
+>> +             return;
+>> +
+>> +     spin_lock_irqsave(&radix_lock, flags);
+>> +     entry = radix_tree_lookup(&dma_active_pfn, page_to_pfn(page));
+>> +     spin_unlock_irqrestore(&radix_lock, flags);
+>> +
+>> +     if (!entry)
+>> +             return;
+>> +
+>> +     err_printk(entry->dev, entry,
+>> +                "DMA-API: cpu touching an active dma mapped page "
+>> +                "[pfn=0x%lx]\n", entry->pfn);
+>> +}
+>> +EXPORT_SYMBOL_GPL(debug_dma_assert_idle);
+>
+> The export isn't needed for mm/memory.c
 
-Please use following sparse ready patch, thanks :
+True, it can wait until other call sites arise.
 
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index d3929a69f008..6eda759b5c4b 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -77,10 +77,11 @@ static inline void __tunnel_dst_set(struct ip_tunnel_dst *idst,
- 		dst = NULL;
- 
- 	spin_lock_bh(&idst->lock);
--	old_dst = rcu_dereference(idst->dst);
-+	old_dst = rcu_dereference_protected(idst->dst,
-+					    lockdep_is_held(&idst->lock));
- 	rcu_assign_pointer(idst->dst, dst);
--	dst_release(old_dst);
- 	spin_unlock_bh(&idst->lock);
-+	dst_release(old_dst);
- }
- 
- static inline void tunnel_dst_set(struct ip_tunnel *t, struct dst_entry *dst)
+Thanks Andrew.
