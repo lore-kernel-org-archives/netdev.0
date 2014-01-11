@@ -1,77 +1,74 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: Re: [PATCH] e1000: avoid potential deadlock in
- e1000_do_[read|write]_eeprom()
-Date: Sat, 11 Jan 2014 03:35:25 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B73129684@ORSMSX101.amr.corp.intel.com>
-References: <1387578320-26525-1-git-send-email-khoroshilov@ispras.ru>
+From: Michael Dalton <mwdalton@google.com>
+Subject: Re: [PATCH net-next v2 4/4] virtio-net: initial debugfs support,
+	export mergeable rx buffer size
+Date: Fri, 10 Jan 2014 21:19:37 -0800
+Message-ID: <CANJ5vP+Qxa5j_Cp1FBK-qdO+U+dy2kiY5N2bmWdMKbCoY9EwDQ@mail.gmail.com>
+References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
+	<1389072355-20666-4-git-send-email-mwdalton@google.com>
+	<52CCF177.7020500@redhat.com> <20140108192109.GC18312@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "ldv-project@linuxtesting.org" <ldv-project@linuxtesting.org>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>, "Brandeburg,
-	Jesse" <jesse.brandeburg@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexey Khoroshilov <khoroshilov@ispras.ru>, "Kirsher, Jeffrey T"
-	<jeffrey.t.kirsher@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1387578320-26525-1-git-send-email-khoroshilov@ispras.ru>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: netdev@vger.kernel.org, lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140108192109.GC18312@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Alexey Khoroshilov
-> Sent: Friday, December 20, 2013 2:25 PM
-> To: Kirsher, Jeffrey T
-> Cc: Alexey Khoroshilov; Brandeburg, Jesse; Allan, Bruce W; Wyborny,
-> Carolyn; Skidmore, Donald C; Rose, Gregory V; Duyck, Alexander H; Ronciak,
-> John; e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; ldv-project@linuxtesting.org
-> Subject: [PATCH] e1000: avoid potential deadlock in
-> e1000_do_[read|write]_eeprom()
-> 
-> If eeprom->word_size is zero, e1000_do_[read|write]_eeprom() invoke
-> e1000_init_eeprom_params() to reinit eeprom params.
-> That is not a good idea since e1000_init_eeprom_params() calls
-> e1000_read_eeprom() if eeprom->type is e1000_eeprom_spi.
-> That means a deadlock on e1000_eeprom_lock.
-> 
-> At the same time it is unclear if the reinit is needed at all.
-> e1000_init_eeprom_params() is called from probe, so it should succeed
-> before any activities of the module start.
-> 
-> The patch suggests to remove the try to reinit eeprom params.
-> 
-> Found by Linux Driver Verification project (linuxtesting.org).
-> 
-> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Hi Jason, Michael
 
-Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
-Tested by: Aaron Brown <aaron.f.brown@intel.com>
+Sorry for the delay in response. Jason, I agree this patch ended up
+being larger than expected. The major implementation parts are:
+(1) Setup directory structure (driver/per-netdev/rx-queue directories)
+(2) Network device renames (optional, so debugfs dir has the right name)
+(3) Support resizing the # of RX queues (optional - we could just export
+    max_queue_pairs files and not delete files if an RX queue is disabled)
+(4) Reference counting - used in case someone opens a debugfs
+    file and then removes the virtio-net device.
+(5) The actual mergeable rx buffer file implementation itself. For now
+    I have added a seqcount for memory safety, but if a read-only race
+    condition is acceptable we could elide the seqcount. FWIW, the
+    seqcount write in receive_mergeable() should, on modern x86,
+    translate to two non-atomic adds and two compiler barriers, so
+    overhead is not expected to be meaningful.
 
-> ---
->  drivers/net/ethernet/intel/e1000/e1000_hw.c | 8 --------
->  1 file changed, 8 deletions(-)
+We can move to sysfs and this would simplify or eliminate much of the
+above, including most of (1) - (4). I believe our choices for what to
+do for the next patchset include:
+(a) Use debugfs as is currently done, removing any optional features
+listed above that are deemed unnecessary.
 
+(b) Add a per-netdev sysfs attribute group to net_device->sysfs_groups.
+Each attribute would display the mergeable packet buffer size for a given
+RX queue, and there would be max_queue_pairs attributes in total. This
+is already supported by net/core/net-sysfs.c:netdev_register_kobject(),
+but means that we would have a static set of per-RX queue files for
+all RX queues supported by the netdev, rather than dynamically displaying
+only the files corresponding to enabled RX queues (e.g., when # of RX
+queues is changed by  ethtool -L <device>).  For an example of this
+approach, see drivers/net/bonding/bond_sysfs.c.
 
-------------------------------------------------------------------------------
-CenturyLink Cloud: The Leader in Enterprise Cloud Services.
-Learn Why More Businesses Are Choosing CenturyLink Cloud For
-Critical Workloads, Development Environments & Everything In Between.
-Get a Quote or Start a Free Trial Today. 
-http://pubads.g.doubleclick.net/gampad/clk?id=119420431&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+(c) Modify struct netdev_rx_queue to add virtio-net EWMA fields directly,
+and modify net-sysfs.c to manage the new fields. Unlike (b), this approach
+supports the RX queue resizing in (3) but means putting virtio-net info
+in netdev_rx_queue, which currently has only device-independent fields.
+
+My preference would be (b): try using sysfs and adding a device-specific
+attribute group to the virtio-net netdevice (stored in the existing
+'sysfs_groups' field and supported by net-sysfs).  This would avoid
+adding virtio-net specific information to net-sysfs. What would you
+prefer (or is there a better way than the approaches above)? Thanks!
+
+Best,
+
+Mike
