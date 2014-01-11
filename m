@@ -1,168 +1,58 @@
-From: Dan Williams <dan.j.williams@intel.com>
-Subject: Re: [PATCH v2 4/4] dma debug: introduce debug_dma_assert_idle()
-Date: Fri, 10 Jan 2014 18:35:13 -0800
-Message-ID: <CAPcyv4h8nsa9OW1bEokmShf_5CnA+0seeCtOTg_jYuBER28MgQ@mail.gmail.com>
-References: <20140109201157.28381.94057.stgit@viggo.jf.intel.com>
-	<20140109201657.28381.9305.stgit@viggo.jf.intel.com>
-	<20140109163820.ddbaaab9fdb2222c92ec3d78@linux-foundation.org>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [PATCH net-next v2 06/20] net: igbvf: slight optimization of
+ addr compare
+Date: Sat, 11 Jan 2014 03:30:25 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B7312966C@ORSMSX101.amr.corp.intel.com>
+References: <52BE6CF8.5030806@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "dmaengine@vger.kernel.org" <dmaengine@vger.kernel.org>,
-	Vinod Koul <vinod.koul@intel.com>,
-	Netdev <netdev@vger.kernel.org>, Joerg Roedel <joro@8bytes.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	James Bottomley <JBottomley@parallels.com>,
-	Russell King <rmk+kernel@arm.linux.org.uk>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140109163820.ddbaaab9fdb2222c92ec3d78@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Ding Tianhong <dingtianhong@huawei.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:7286 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751343AbaAKDa1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 22:30:27 -0500
+In-Reply-To: <52BE6CF8.5030806@huawei.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 9, 2014 at 4:38 PM, Andrew Morton <akpm@linux-foundation.org> wrote:
-> On Thu, 09 Jan 2014 12:17:26 -0800 Dan Williams <dan.j.williams@intel.com> wrote:
->
->> Record actively mapped pages and provide an api for asserting a given
->> page is dma inactive before execution proceeds.  Placing
->> debug_dma_assert_idle() in cow_user_page() flagged the violation of the
->> dma-api in the NET_DMA implementation (see commit 77873803363c "net_dma:
->> mark broken").
->>
->> --- a/include/linux/dma-debug.h
->> +++ b/include/linux/dma-debug.h
->> @@ -185,4 +185,10 @@ static inline void debug_dma_dump_mappings(struct device *dev)
->>
->>  #endif /* CONFIG_DMA_API_DEBUG */
->>
->> +#ifdef CONFIG_DMA_VS_CPU_DEBUG
->> +extern void debug_dma_assert_idle(struct page *page);
->> +#else
->> +static inline void debug_dma_assert_idle(struct page *page) { }
->
-> Surely this breaks the build when CONFIG_DMA_VS_CPU_DEBUG=n?
-> lib/dma-debug.c is missing the necessary "#ifdef
-> CONFIG_DMA_VS_CPU_DEBUG"s.
-
-facepalm
-
-> Do we really need this config setting anyway?  What goes bad if we
-> permanently enable this subfeature when dma debugging is enabled?
-
-I did want to provide notification/description of this extra check,
-but I'll go ahead and fold it into the DMA_API_DEBUG description.
-
-The only thing that potentially goes bad is no longer having hard
-expectation of memory consumption.  Before the patch it's a simple
-sizeof(struct dma_debug_entry) * PREALLOC_DMA_DEBUG_ENTRIES, after the
-patch it's variable size of the radix tree based on sparseness and
-variable based on the number of pages included in each dma_map_sg
-call.  The testing with NET_DMA did not involve dma_map_sg calls
-
->> ...
->>
->> index d87a17a819d0..f67ae111cd2f 100644
->> --- a/lib/dma-debug.c
->> +++ b/lib/dma-debug.c
->> @@ -57,7 +57,8 @@ struct dma_debug_entry {
->>       struct list_head list;
->>       struct device    *dev;
->>       int              type;
->> -     phys_addr_t      paddr;
->> +     unsigned long    pfn;
->> +     size_t           offset;
->
-> Some documentation for the fields would be nice.  offset of what
-> relative to what, in what units?
-
-This is the same 'offset' passed to dma_map_page(), will document.
-
->
->>       u64              dev_addr;
->>       u64              size;
->>       int              direction;
->> @@ -372,6 +373,11 @@ static void hash_bucket_del(struct dma_debug_entry *entry)
->>       list_del(&entry->list);
->>  }
->>
->>
->> ...
->>
->>
->> +/* memory usage is constrained by the maximum number of available
->> + * dma-debug entries
->> + */
->
-> A brief design overview would be useful.  What goes in tree, how is it
-> indexed, when and why do we add/remove/test items, etc.
->
-
-...added this documentation to dma_active_pfn for the next revision.
-
-/*
- * For each page mapped (initial page in the case of
- * dma_alloc_coherent/dma_map_{single|page}, or each page in a
- * scatterlist) insert into this tree using the pfn as the key. At
- * dma_unmap_{single|sg|page} or dma_free_coherent delete the entry.  If
- * the pfn already exists at insertion time add a tag as a reference
- * count for the overlapping mappings.  For now the overlap tracking
- * just ensures that 'unmaps' balance 'maps' before marking the pfn
- * idle, but we should also be flagging overlaps as an API violation.
- *
- * Memory usage is mostly constrained by the maximum number of available
- * dma-debug entries.  In the case of dma_map_{single|page} and
- * dma_alloc_coherent there is only one dma_debug_entry and one pfn to
- * track per each of these calls.  dma_map_sg(), on the other hand,
- * consumes a single dma_debug_entry, but inserts 'nents' entries into
- * the tree.
- *
- * At any time debug_dma_assert_idle() can be called to trigger a
- * warning if the given page is in the active set.
- */
-
-
->> +static RADIX_TREE(dma_active_pfn, GFP_NOWAIT);
->> +static DEFINE_SPINLOCK(radix_lock);
->> +
->> +static void __active_pfn_inc_overlap(struct dma_debug_entry *entry)
->> +{
->> +     unsigned long pfn = entry->pfn;
->> +     int i;
->> +
->> +     for (i = 0; i < RADIX_TREE_MAX_TAGS; i++)
->> +             if (radix_tree_tag_get(&dma_active_pfn, pfn, i) == 0) {
->> +                     radix_tree_tag_set(&dma_active_pfn, pfn, i);
->> +                     return;
->> +             }
->> +     pr_debug("DMA-API: max overlap count (%d) reached for pfn 0x%lx\n",
->> +              RADIX_TREE_MAX_TAGS, pfn);
->> +}
->> +
->>
->> ...
->>
->> +void debug_dma_assert_idle(struct page *page)
->> +{
->> +     unsigned long flags;
->> +     struct dma_debug_entry *entry;
->> +
->> +     if (!page)
->> +             return;
->> +
->> +     spin_lock_irqsave(&radix_lock, flags);
->> +     entry = radix_tree_lookup(&dma_active_pfn, page_to_pfn(page));
->> +     spin_unlock_irqrestore(&radix_lock, flags);
->> +
->> +     if (!entry)
->> +             return;
->> +
->> +     err_printk(entry->dev, entry,
->> +                "DMA-API: cpu touching an active dma mapped page "
->> +                "[pfn=0x%lx]\n", entry->pfn);
->> +}
->> +EXPORT_SYMBOL_GPL(debug_dma_assert_idle);
->
-> The export isn't needed for mm/memory.c
-
-True, it can wait until other call sites arise.
-
-Thanks Andrew.
+PiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVy
+QHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVoYWxmIE9mIERpbmcgVGlhbmhvbmcNCj4gU2VudDog
+RnJpZGF5LCBEZWNlbWJlciAyNywgMjAxMyAxMDoxNyBQTQ0KPiBUbzogS2lyc2hlciwgSmVmZnJl
+eSBUOyBCcmFuZGVidXJnLCBKZXNzZTsgV3lib3JueSwgQ2Fyb2x5bjsgU2tpZG1vcmUsDQo+IERv
+bmFsZCBDOyBEYXZpZCBTLiBNaWxsZXI7IE5ldGRldjsgbGludXgta2VybmVsQHZnZXIua2VybmVs
+Lm9yZw0KPiBTdWJqZWN0OiBbUEFUQ0ggbmV0LW5leHQgdjIgMDYvMjBdIG5ldDogaWdidmY6IHNs
+aWdodCBvcHRpbWl6YXRpb24gb2YgYWRkcg0KPiBjb21wYXJlDQo+IA0KPiBVc2UgcG9zc2libHkg
+bW9yZSBlZmZpY2llbnQgZXRoZXJfYWRkcl9lcXVhbCB0byBpbnN0ZWFkIG9mIG1lbWNtcC4NCj4g
+DQo+IENjOiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4gQ2M6
+IEplc3NlIEJyYW5kZWJ1cmcgPGplc3NlLmJyYW5kZWJ1cmdAaW50ZWwuY29tPg0KPiBDYzogQ2Fy
+b2x5biBXeWJvcm55IDxjYXJvbHluLnd5Ym9ybnlAaW50ZWwuY29tPg0KPiBDYzogRG9uIFNraWRt
+b3JlIDxkb25hbGQuYy5za2lkbW9yZUBpbnRlbC5jb20+DQo+IFNpZ25lZC1vZmYtYnk6IERpbmcg
+VGlhbmhvbmcgPGRpbmd0aWFuaG9uZ0BodWF3ZWkuY29tPg0KDQpTaWduZWQtb2ZmLWJ5OiBBYXJv
+biBCcm93biA8YWFyb24uZi5icm93bkBpbnRlbC5jb20+IA0KVGVzdGVkIGJ5OiBBYXJvbiBCcm93
+biA8YWFyb24uZi5icm93bkBpbnRlbC5jb20+DQoNCj4gLS0tDQo+ICBkcml2ZXJzL25ldC9ldGhl
+cm5ldC9pbnRlbC9pZ2J2Zi9uZXRkZXYuYyB8IDIgKy0NCj4gIDEgZmlsZSBjaGFuZ2VkLCAxIGlu
+c2VydGlvbigrKSwgMSBkZWxldGlvbigtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
+L2V0aGVybmV0L2ludGVsL2lnYnZmL25ldGRldi5jDQo+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQv
+aW50ZWwvaWdidmYvbmV0ZGV2LmMNCj4gaW5kZXggMDRiZjIyZS4uNjc1NDM1ZiAxMDA2NDQNCj4g
+LS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdidmYvbmV0ZGV2LmMNCj4gKysrIGIv
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdidmYvbmV0ZGV2LmMNCj4gQEAgLTE3NDUsNyAr
+MTc0NSw3IEBAIHN0YXRpYyBpbnQgaWdidmZfc2V0X21hYyhzdHJ1Y3QgbmV0X2RldmljZSAqbmV0
+ZGV2LA0KPiB2b2lkICpwKQ0KPiANCj4gIAlody0+bWFjLm9wcy5yYXJfc2V0KGh3LCBody0+bWFj
+LmFkZHIsIDApOw0KPiANCj4gLQlpZiAobWVtY21wKGFkZHItPnNhX2RhdGEsIGh3LT5tYWMuYWRk
+ciwgNikpDQo+ICsJaWYgKCFldGhlcl9hZGRyX2VxdWFsKGFkZHItPnNhX2RhdGEsIGh3LT5tYWMu
+YWRkcikpDQo+ICAJCXJldHVybiAtRUFERFJOT1RBVkFJTDsNCj4gDQo+ICAJbWVtY3B5KG5ldGRl
+di0+ZGV2X2FkZHIsIGFkZHItPnNhX2RhdGEsIG5ldGRldi0+YWRkcl9sZW4pOw0KPiAtLQ0KPiAx
+LjguMA0KPiANCj4gDQo+IC0tDQo+IFRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5k
+IHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluDQo+IHRoZSBib2R5IG9mIGEgbWVzc2Fn
+ZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnDQo+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQg
+IGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0K
