@@ -1,98 +1,113 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: suspicious RCU usage in net/ipv4/ip_tunnel.c:80
-Date: Fri, 10 Jan 2014 16:37:33 -0800
-Message-ID: <CAHA+R7PAyR_cJ9_9nfUBc0U9o-U=gCV+sN_VYbHwgq-QdoEVzQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 00/17][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 10 Jan 2014 16:47:13 -0800
+Message-ID: <1389401250-11509-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:35568 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751263AbaAKAhk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 19:37:40 -0500
-Received: by mail-lb0-f175.google.com with SMTP id w6so3817152lbh.6
-        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 16:37:38 -0800 (PST)
+Received: from mga11.intel.com ([192.55.52.93]:25626 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750983AbaAKArh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 19:47:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Tom
+This series contains updates to i40e and now i40evf.
 
-I saw:
+Most notable is Jacob's patch to add PTP support to i40e.
+  
+Mitch cleans up additional memcpy's and use struct assignment instead.
+Then fixes long lines to appease checkpatch.pl.  Mitch then provides
+a fix to keep us from spamming the log with confusing errors.  If you
+use ip to change the MAC address of a VF while the VF driver is loaded,
+closing the VF interface or unloading the VF driver will cause the VF
+driver to remove the MAC filter for its original (now invalid) MAC
+address.
 
-[   65.609535] [ INFO: suspicious RCU usage. ]
-[   65.609537] 3.13.0-rc6+ #139 Not tainted
-[   65.609538] -------------------------------
-[   65.609539] net/ipv4/ip_tunnel.c:80 suspicious rcu_dereference_check() usage!
-[   65.609540]
-[   65.609540] other info that might help us debug this:
-[   65.609540]
-[   65.609541]
-[   65.609541] rcu_scheduler_active = 1, debug_locks = 0
-[   65.609542] 5 locks held by kworker/u8:0/6:
-[   65.609553]  #0:  (%s#4){.+.+.+}, at: [<ffffffff8106d56b>]
-process_one_work+0x173/0x41e
-[   65.609557]  #1:  (net_cleanup_work){+.+.+.}, at:
-[<ffffffff8106d56b>] process_one_work+0x173/0x41e
-[   65.609563]  #2:  (net_mutex){+.+.+.}, at: [<ffffffff817816c9>]
-cleanup_net+0x85/0x18a
-[   65.609569]  #3:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81796058>]
-rtnl_lock+0x17/0x19
-[   65.609575]  #4:  (&(&idst->lock)->rlock){+.....}, at:
-[<ffffffff818820fe>] __tunnel_dst_set+0x30/0x8b
-[   65.609575]
-[   65.609575] stack backtrace:
-[   65.609577] CPU: 1 PID: 6 Comm: kworker/u8:0 Not tainted 3.13.0-rc6+ #139
-[   65.609579] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-[   65.609582] Workqueue: netns cleanup_net
-[   65.609585]  0000000000000000 ffff880118205bb0 ffffffff819894b6
-ffff8801181ea550
-[   65.609587]  ffff880118205be0 ffffffff81095f34 0000000000000000
-ffffe8ffff606df0
-[   65.609589]  ffffe8ffff606df8 0000000000000000 ffff880118205c10
-ffffffff8188213c
-[   65.609590] Call Trace:
-[   65.609595]  [<ffffffff819894b6>] dump_stack+0x4d/0x66
-[   65.609598]  [<ffffffff81095f34>] lockdep_rcu_suspicious+0x107/0x110
-[   65.609600]  [<ffffffff8188213c>] __tunnel_dst_set+0x6e/0x8b
-[   65.609602]  [<ffffffff81882203>] tunnel_dst_reset_all.isra.25+0x40/0x47
-[   65.609605]  [<ffffffff81883e28>] ip_tunnel_uninit+0x61/0x64
-[   65.609608]  [<ffffffff8178aeb2>] rollback_registered_many+0x188/0x21f
-[   65.609610]  [<ffffffff8178b02f>] unregister_netdevice_many+0x19/0x63
-[   65.609612]  [<ffffffff81883a17>] ip_tunnel_delete_net+0xd1/0xe5
-[   65.609615]  [<ffffffff8188bc68>] vti_exit_net+0x2a/0x2c
-[   65.609617]  [<ffffffff81780f21>] ops_exit_list+0x44/0x55
-[   65.609619]  [<ffffffff8178173a>] cleanup_net+0xf6/0x18a
-[   65.609621]  [<ffffffff8106d612>] process_one_work+0x21a/0x41e
-[   65.609623]  [<ffffffff8106d56b>] ? process_one_work+0x173/0x41e
-[   65.609625]  [<ffffffff8106dc1b>] worker_thread+0x149/0x1f5
-[   65.609628]  [<ffffffff8106dad2>] ? rescuer_thread+0x28d/0x28d
-[   65.609630]  [<ffffffff81073f6f>] kthread+0xd2/0xda
-[   65.609634]  [<ffffffff8107d0ed>] ? finish_task_switch+0x3a/0xbe
-[   65.609636]  [<ffffffff81073e9d>] ? __kthread_parkme+0x61/0x61
-[   65.609640]  [<ffffffff819961ac>] ret_from_fork+0x7c/0xb0
-[   65.609642]  [<ffffffff81073e9d>] ? __kthread_parkme+0x61/0x61
+Jesse cleans up macros which are no longer needed or used.
 
+I (Jeff) cleanup function header comments to ensure Doxygen/kdoc works
+correctly to generate documentation without warnings.
 
-I think the patch below could fix it but not sure if we really need
-synchronize_rcu() here...
+Anjali fixes a bug where ethtool set-channels would return failure when
+configuring only one Rx queue.  Then fixes a bug where the driver was
+erroneously exiting the driver unload path if one part of the unload
+failed.
 
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index d3929a6..eb50b9a 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -77,10 +77,11 @@ static inline void __tunnel_dst_set(struct
-ip_tunnel_dst *idst,
-                dst = NULL;
+Shannon fixes if the IPV6EXADD but is set in the Rx descriptor status,
+there was an optional extension header with an alternate IP address
+detected and the hardware checksum was not handling the alternate IP
+address correctly.  Then adjusts the ITR max and min values to match
+the hardware max value and recommended min value.  Shannon makes sure
+to clear the PXE mode after the adminq is initialized.
 
-        spin_lock_bh(&idst->lock);
--       old_dst = rcu_dereference(idst->dst);
-+       old_dst = idst->dst;
-        rcu_assign_pointer(idst->dst, dst);
--       dst_release(old_dst);
-        spin_unlock_bh(&idst->lock);
-+       synchronize_rcu();
-+       dst_release(old_dst);
- }
+v2:
+ - fix patch 14 "i40e: enable PTP" to address Richard Cochran's spelling
+   catch and Ben Hutchings Kconfig, SIOCGHWTSTAMP and sizeof() suggestions
+ - added Paul Gortmaker's i40evf fix patch
+v3:
+ - fix patch 14 "i40e: enable PTP" to address Ben Hutchings concerns about
+   a race with PTP init and cleanup and i40e_get_ts_info().
 
- static inline void tunnel_dst_set(struct ip_tunnel *t, struct dst_entry *dst)
+The following are changes since commit 11b57f90257c1d6a91cee720151b69e0c2020cf6:
+  xen-netback: stop vif thread spinning if frontend is unresponsive
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Anjali Singhai Jain (3):
+  i40e: Update the Current NVM version Low value
+  i40e: Setting queue count to 1 using ethtool is valid
+  i40e: do not bail when disabling if Tx queue disable fails
+
+Catherine Sullivan (2):
+  i40e: Bump version
+  i40e: Bump version
+
+Jacob Keller (1):
+  i40e: enable PTP
+
+Jeff Kirsher (1):
+  i40e: Cleanup Doxygen warnings
+
+Jesse Brandeburg (1):
+  i40e: drop unused macros
+
+Mitch Williams (3):
+  i40e: use assignment instead of memcpy
+  i40e: fix long lines
+  i40e: allow VF to remove any MAC filter
+
+Paul Gortmaker (1):
+  i40evf: fix s390 build failure due to implicit prefetch.h
+
+Shannon Nelson (5):
+  i40e: check for possible incorrect ipv6 checksum
+  i40e: adjust ITR max and min values
+  i40e: clear qtx_head before enabling Tx queue
+  i40e: call clear_pxe after adminq is initialized
+  i40e: fix log message wording
+
+ drivers/net/ethernet/intel/Kconfig                 |   1 +
+ drivers/net/ethernet/intel/i40e/Makefile           |   1 +
+ drivers/net/ethernet/intel/i40e/i40e.h             |  28 +-
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c      |  28 +-
+ drivers/net/ethernet/intel/i40e/i40e_common.c      |  23 +-
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  35 +-
+ drivers/net/ethernet/intel/i40e/i40e_hmc.c         |   8 +-
+ drivers/net/ethernet/intel/i40e/i40e_hmc.h         |   3 -
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |  65 +-
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c         |   1 +
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   4 +-
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c         | 662 +++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  57 ++
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h        |   8 +-
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |  13 +-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   8 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |   2 +
+ 18 files changed, 887 insertions(+), 62 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_ptp.c
+
+-- 
+1.8.3.1
