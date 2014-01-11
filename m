@@ -1,47 +1,48 @@
-From: Pankaj Dubey <pankaj.dubey@samsung.com>
-Subject: [PATCH v2] drivers: net: silence compiler warning.
-Date: Sat, 11 Jan 2014 18:00:59 +0900
-Message-ID: <1389430859-4726-1-git-send-email-pankaj.dubey@samsung.com>
-Cc: davem@davemloft.net, jg1.han@samsung.com, netdev@vger.kernel.org,
-	Pankaj Dubey <pankaj.dubey@samsung.com>
-To: linux-samsung-soc@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v3 net-next] net: vxlan: when lower dev unregisters remove
+ vxlan dev as well
+Date: Sat, 11 Jan 2014 09:46:58 +0100
+Message-ID: <52D10502.1000308@redhat.com>
+References: <1389393317-26563-1-git-send-email-dborkman@redhat.com> <CAHA+R7NB8sz1-W=QEmGxQkRyUmcMM6BzE7pZNU0W2_jzDfJjNw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout4.samsung.com ([203.254.224.34]:9239 "EHLO
-	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751033AbaAKIqJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jan 2014 03:46:09 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:38338 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751033AbaAKIrH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 11 Jan 2014 03:47:07 -0500
+In-Reply-To: <CAHA+R7NB8sz1-W=QEmGxQkRyUmcMM6BzE7pZNU0W2_jzDfJjNw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If used 64 bit compiler GCC warns that:
+On 01/11/2014 01:49 AM, Cong Wang wrote:
+> On Fri, Jan 10, 2014 at 2:35 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
+>> @@ -2673,13 +2712,14 @@ static __net_init int vxlan_init_net(struct net *net)
+>>   static __net_exit void vxlan_exit_net(struct net *net)
+>>   {
+>>          struct vxlan_net *vn = net_generic(net, vxlan_net_id);
+>> -       struct vxlan_dev *vxlan;
+>> -       LIST_HEAD(list);
+>> +       struct vxlan_dev *vxlan, *next;
+>> +       LIST_HEAD(list_kill);
+>>
+>>          rtnl_lock();
+>> -       list_for_each_entry(vxlan, &vn->vxlan_list, next)
+>> -               unregister_netdevice_queue(vxlan->dev, &list);
+>> -       unregister_netdevice_many(&list);
+>> +       list_for_each_entry_safe(vxlan, next, &vn->vxlan_list, next)
+>> +               vxlan_dellink(vxlan->dev, &list_kill);
+>> +       unregister_netdevice_many(&list_kill);
+>> +       list_del(&list_kill);
+>
+> The last list_del() looks suspicous... Since list_kill is a local list head,
+> why do we need to delete the head at the end??
 
-drivers/net/ethernet/smsc/smc91x.c:1897:7:
-warning: cast from pointer to integer of different
-size [-Wpointer-to-int-cast]
-
-This patch fixes this by changing typecast from "unsigned int" to "unsigned long"
-
-Signed-off-by: Pankaj Dubey <pankaj.dubey@samsung.com>
----
-Changes since v2:
-Fix typo in commit message
-
- drivers/net/ethernet/smsc/smc91x.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
-index 0c9b5d9..42e79b4 100644
---- a/drivers/net/ethernet/smsc/smc91x.c
-+++ b/drivers/net/ethernet/smsc/smc91x.c
-@@ -1894,7 +1894,7 @@ static int smc_probe(struct net_device *dev, void __iomem *ioaddr,
- 	SMC_SELECT_BANK(lp, 1);
- 	val = SMC_GET_BASE(lp);
- 	val = ((val & 0x1F00) >> 3) << SMC_IO_SHIFT;
--	if (((unsigned int)ioaddr & (0x3e0 << SMC_IO_SHIFT)) != val) {
-+	if (((unsigned long)ioaddr & (0x3e0 << SMC_IO_SHIFT)) != val) {
- 		netdev_warn(dev, "%s: IOADDR %p doesn't match configuration (%x).\n",
- 			    CARDNAME, ioaddr, val);
- 	}
--- 
-1.7.10.4
+Cong, maybe I'm missing something, but we're doing this rtnl_dellink()
+and elsewehere, e.g. commit 226bd341147 ("net: use batched device unregister
+in veth and macvlan").
