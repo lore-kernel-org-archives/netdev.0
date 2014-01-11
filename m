@@ -1,31 +1,55 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] net: replace macros net_random and net_srandom with direct calls to prandom
-Date: Sat, 11 Jan 2014 13:21:38 +0100
-Message-ID: <20140111122138.GC30388@order.stressinduktion.org>
-References: <1389442559-13097-1-git-send-email-aruna.hewapathirane@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Aruna-Hewapathirane <aruna.hewapathirane@gmail.com>
+From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+Subject: [PATCH net-next] IPv6: enable TCP to use an anycast address
+Date: Sat, 11 Jan 2014 13:07:39 +0100
+Message-ID: <1389442059-3047-1-git-send-email-fx.lebail@yahoo.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:56253 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752370AbaAKMVj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jan 2014 07:21:39 -0500
-Content-Disposition: inline
-In-Reply-To: <1389442559-13097-1-git-send-email-aruna.hewapathirane@gmail.com>
+Received: from smtp03.smtpout.orange.fr ([80.12.242.125]:17373 "EHLO
+	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752292AbaAKM0P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jan 2014 07:26:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 11, 2014 at 07:15:59AM -0500, Aruna-Hewapathirane wrote:
-> This patch removes the net_random and net_srandom macros and replaces
-> them with direct calls to the prandom ones. As new commits only seem to
-> use prandom_u32 there is no use to keep them around.
-> This change makes it easier to grep for users of prandom_u32.
-> 
-> Signed-off-by: Aruna-Hewapathirane <aruna.hewapathirane@gmail.com>
-> Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+- Use ipv6_anycast_destination() in tcp_v6_send_reset() and
+  tcp_v6_conn_request().
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+---
+Tested with link-local and global anycast addresses.
+Tested with SOCK_STREAM socket, bind and TCP traffic OK.
 
-Thanks!
+ net/ipv6/tcp_ipv6.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index ffd5fa8..85297b8 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -832,7 +832,8 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
+ 	if (th->rst)
+ 		return;
+ 
+-	if (!ipv6_unicast_destination(skb))
++	if (!ipv6_unicast_destination(skb) &&
++	    !ipv6_anycast_destination(skb))
+ 		return;
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+@@ -963,7 +964,8 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	if (skb->protocol == htons(ETH_P_IP))
+ 		return tcp_v4_conn_request(sk, skb);
+ 
+-	if (!ipv6_unicast_destination(skb))
++	if (!ipv6_unicast_destination(skb) &&
++	    !ipv6_anycast_destination(skb))
+ 		goto drop;
+ 
+ 	if ((sysctl_tcp_syncookies == 2 ||
