@@ -1,53 +1,63 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH net,stable] net: usbnet: fix SG initialisation
-Date: Sun, 12 Jan 2014 00:22:09 +0800
-Message-ID: <CACVXFVOxZVhLJMUZt9Bwsq=QwcFuDxKpJki5F2JH59iyZ=3uFw@mail.gmail.com>
-References: <1389391817-27204-1-git-send-email-bjorn@mork.no>
-	<CACVXFVPbi47ZLWm-AMeX1NLp3_BQWRSuWz7YjTXz-z3JmVoyRA@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] net: replace macros net_random and net_srandom
+ with direct calls to prandom
+Date: Sat, 11 Jan 2014 09:52:37 -0800
+Message-ID: <1389462757.2537.61.camel@joe-AO722>
+References: <1389442559-13097-1-git-send-email-aruna.hewapathirane@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Thomas Kear <thomas-hrxM1pTBpuF02iOg2JU2CQ@public.gmane.org>,
-	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CACVXFVPbi47ZLWm-AMeX1NLp3_BQWRSuWz7YjTXz-z3JmVoyRA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: Aruna-Hewapathirane <aruna.hewapathirane@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0054.hostedemail.com ([216.40.44.54]:48021 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751073AbaAKRwm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jan 2014 12:52:42 -0500
+In-Reply-To: <1389442559-13097-1-git-send-email-aruna.hewapathirane@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 11, 2014 at 5:16 PM, Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrot=
-e:
-> On Sat, Jan 11, 2014 at 6:10 AM, Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote:
->> Commit 60e453a940ac ("USBNET: fix handling padding packet")
->> added an extra SG entry in case padding is necessary, but
->> failed to update the initialisation of the list. This can
->> cause list traversal to fall off the end of the list,
->> resulting in an oops.
->>
->> Fixes: 60e453a940ac ("USBNET: fix handling padding packet")
->> Reported-by: Thomas Kear <thomas-hrxM1pTBpuF02iOg2JU2CQ@public.gmane.org>
->> Cc: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
->> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+On Sat, 2014-01-11 at 07:15 -0500, Aruna-Hewapathirane wrote:
+> This patch removes the net_random and net_srandom macros and replaces
+> them with direct calls to the prandom ones. As new commits only seem to
+> use prandom_u32 there is no use to keep them around.
+> This change makes it easier to grep for users of prandom_u32.
 
-Tested-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Seems sensible.
 
-On one of my arm box, I can reproduce the problem with below
-command every time:
+Also, there may be some value in a future patch
+to use reciprocal_divide in a few places
 
-                   $iperf -c $SRV -l 2398 -n 1 #the 2nd tcp packet
-length is 1016
+> diff --git a/net/802/garp.c b/net/802/garp.c
+> @@ -397,7 +397,7 @@ static void garp_join_timer_arm(struct garp_applicant *app)
+>  {
+>  	unsigned long delay;
+>  
+> -	delay = (u64)msecs_to_jiffies(garp_join_time) * net_random() >> 32;
+> +	delay = (u64)msecs_to_jiffies(garp_join_time) * prandom_u32() >> 32;
 
-and the oops is same with Thomas's. After applying Oliver's patch,
-I still can see zlp padding packet is appended, but no oops any more.
+reciprocal_divide()
 
-Thanks Oliver for fixing the problem.
+> diff --git a/net/802/mrp.c b/net/802/mrp.c
+[]
+> @@ -583,7 +583,7 @@ static void mrp_join_timer_arm(struct mrp_applicant *app)
+>  {
+>  	unsigned long delay;
+>  
+> -	delay = (u64)msecs_to_jiffies(mrp_join_time) * net_random() >> 32;
+> +	delay = (u64)msecs_to_jiffies(mrp_join_time) * prandom_u32() >> 32;
 
-Thanks,
---
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+here too
+
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+[]
+> @@ -223,7 +223,7 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
+>  		inet_get_local_port_range(net, &low, &high);
+>  		remaining = (high - low) + 1;
+>  
+> -		rand = net_random();
+> +		rand = prandom_u32();
+>  		first = (((u64)rand * remaining) >> 32) + low;
+
+another
