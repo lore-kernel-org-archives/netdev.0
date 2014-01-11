@@ -1,55 +1,30 @@
-From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
-Subject: [PATCH net-next] IPv6: enable TCP to use an anycast address
-Date: Sat, 11 Jan 2014 13:07:39 +0100
-Message-ID: <1389442059-3047-1-git-send-email-fx.lebail@yahoo.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH net-next] IPv6: enable TCP to use an anycast address
+Date: Sat, 11 Jan 2014 16:46:49 +0400
+Message-ID: <CAMrnHh6pBYMLn+zsR2P_oo8KufJq7Dkjm-cSq2N2Hi638yrUog@mail.gmail.com>
+References: <1389442059-3047-1-git-send-email-fx.lebail@yahoo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
 	James Morris <jmorris@namei.org>,
 	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Francois-Xavier Le Bail <fx.lebail@yahoo.com>
-To: netdev@vger.kernel.org
+	Patrick McHardy <kaber@trash.net>
+To: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp03.smtpout.orange.fr ([80.12.242.125]:17373 "EHLO
-	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752292AbaAKM0P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jan 2014 07:26:15 -0500
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:50646 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751345AbaAKMqu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jan 2014 07:46:50 -0500
+Received: by mail-ig0-f173.google.com with SMTP id ut6so1603755igb.0
+        for <netdev@vger.kernel.org>; Sat, 11 Jan 2014 04:46:49 -0800 (PST)
+In-Reply-To: <1389442059-3047-1-git-send-email-fx.lebail@yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- Use ipv6_anycast_destination() in tcp_v6_send_reset() and
-  tcp_v6_conn_request().
+Hello!
 
-Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
----
-Tested with link-local and global anycast addresses.
-Tested with SOCK_STREAM socket, bind and TCP traffic OK.
+I am just curious: since when is TCP allowed to use anycast addresses?
 
- net/ipv6/tcp_ipv6.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index ffd5fa8..85297b8 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -832,7 +832,8 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
- 	if (th->rst)
- 		return;
- 
--	if (!ipv6_unicast_destination(skb))
-+	if (!ipv6_unicast_destination(skb) &&
-+	    !ipv6_anycast_destination(skb))
- 		return;
- 
- #ifdef CONFIG_TCP_MD5SIG
-@@ -963,7 +964,8 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 	if (skb->protocol == htons(ETH_P_IP))
- 		return tcp_v4_conn_request(sk, skb);
- 
--	if (!ipv6_unicast_destination(skb))
-+	if (!ipv6_unicast_destination(skb) &&
-+	    !ipv6_anycast_destination(skb))
- 		goto drop;
- 
- 	if ((sysctl_tcp_syncookies == 2 ||
+Alexey Kuznetsov
