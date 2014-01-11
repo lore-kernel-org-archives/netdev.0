@@ -1,75 +1,70 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v3 net-next] net: vxlan: when lower dev unregisters remove
- vxlan dev as well
-Date: Sat, 11 Jan 2014 20:47:02 +0100
-Message-ID: <52D19FB6.50906@redhat.com>
-References: <1389393317-26563-1-git-send-email-dborkman@redhat.com> <CAHA+R7NB8sz1-W=QEmGxQkRyUmcMM6BzE7pZNU0W2_jzDfJjNw@mail.gmail.com> <52D10502.1000308@redhat.com> <CAHA+R7N0oSVD8ius-YHjKxMV76wAHAXbvz9S89Eq4R5c6UoViA@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [RFC PATCH 00/12] RCU'ify the net:sched classifier chains
+Date: Sat, 11 Jan 2014 11:43:13 -0800
+Message-ID: <CAM_iQpU6WWB72zBdU4mh-sB+8B8Vz2gPvH7Hxhjhkr+vMjwdpw@mail.gmail.com>
+References: <20140110092041.7193.5952.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Cong Wang <cwang@twopensource.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40805 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751618AbaAKTrJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 11 Jan 2014 14:47:09 -0500
-In-Reply-To: <CAHA+R7N0oSVD8ius-YHjKxMV76wAHAXbvz9S89Eq4R5c6UoViA@mail.gmail.com>
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:51398 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753646AbaAKTnO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jan 2014 14:43:14 -0500
+Received: by mail-ob0-f175.google.com with SMTP id uz6so6172213obc.34
+        for <netdev@vger.kernel.org>; Sat, 11 Jan 2014 11:43:13 -0800 (PST)
+In-Reply-To: <20140110092041.7193.5952.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/11/2014 08:03 PM, Cong Wang wrote:
-> On Sat, Jan 11, 2014 at 12:46 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
->> On 01/11/2014 01:49 AM, Cong Wang wrote:
->>>
->>> On Fri, Jan 10, 2014 at 2:35 PM, Daniel Borkmann <dborkman@redhat.com>
->>> wrote:
->>>>
->>>> @@ -2673,13 +2712,14 @@ static __net_init int vxlan_init_net(struct net
->>>> *net)
->>>>    static __net_exit void vxlan_exit_net(struct net *net)
->>>>    {
->>>>           struct vxlan_net *vn = net_generic(net, vxlan_net_id);
->>>> -       struct vxlan_dev *vxlan;
->>>> -       LIST_HEAD(list);
->>>> +       struct vxlan_dev *vxlan, *next;
->>>> +       LIST_HEAD(list_kill);
->>>>
->>>>           rtnl_lock();
->>>> -       list_for_each_entry(vxlan, &vn->vxlan_list, next)
->>>> -               unregister_netdevice_queue(vxlan->dev, &list);
->>>> -       unregister_netdevice_many(&list);
->>>> +       list_for_each_entry_safe(vxlan, next, &vn->vxlan_list, next)
->>>> +               vxlan_dellink(vxlan->dev, &list_kill);
->>>> +       unregister_netdevice_many(&list_kill);
->>>> +       list_del(&list_kill);
->>>
->>>
->>> The last list_del() looks suspicous... Since list_kill is a local list
->>> head,
->>> why do we need to delete the head at the end??
->>
->>
->> Cong, maybe I'm missing something, but we're doing this rtnl_dellink()
->> and elsewehere, e.g. commit 226bd341147 ("net: use batched device unregister
->> in veth and macvlan").
+On Fri, Jan 10, 2014 at 1:36 AM, John Fastabend
+<john.fastabend@gmail.com> wrote:
+> There appears to be some interest in a few topics around the qdisc
+> layer which could benefit from having the ability to run the
+> filters and actions without holding the qdisc lock.
 >
-> list_kill is a list *head* (not a node) on stack. unregister_netdevice_many()
-> should remove all the nodes in this list after it finishes. So, list_kill is
-> supposed to be empty after that.
+> Recently Cong Wang proposed a patch series to drop the ingress
+> qdisc and asked for comments. This series I think gets closer to
+> that goal.
 >
-> Either unregister_netdevice_many() is mis-designed, i.e. it is not like what I
-> said above, or list_del() is completely unnecessary.
+> The ingress qdisc is a simple qdisc which doesn't maintain any
+> actual list of skb's and is primarily a hook to attach filters.
+> Further the only qdisc that can be attached to the ingress qdisc
+> is sch_ingress. The qdisc lock is currently serializing two
+> operations (1) tc_classify which is addressed here and (2)
+> statistics accounting. The second point is not solved here but
+> it could be a matter of making the bstats and qstats per cpu
+> stats.
+
+
+Yeah, actually I tried to make bstats percpu, but I still doubt
+if it is necessary, since increasing a 32bit counter doesn't
+sound dangerous on SMP?
+
 >
-> BTW, there are many places calling unregister_netdevice_many() without
-> a following list_del(). For example, bond_net_exit().
+> This is an RFC for now and needs some more work. Some items
+> I know about are (a) an audit of the ematch code paths, (b) resolving
+> the checpatch errors mostly due to moving code around that
+> generates those errors, (c) run smatch, (d) audit u32 code
+> for correctness, (e) do a lot more testing so far only very
+> basic testing has been done. I tried to put some reasonable
+> comments in the commit logs but yes they need more work.
+>
+> Cong, if its not too much to ask can we use this as a base
+> set of patches for this work? I think its reasonably close to
+> correct as is.
+>
 
-Basically I agree with you; I'll wait if there are more comments coming up
-that address this question, if not I'll respin, remove that and split the patch
-into two parts by the beginning of next week.
+Sure, just that:
 
-Cheers,
+1) I myself don't like playing RCU list without using list_head API
+it is still hard for me to read.
 
-Daniel
+2) The first patch in your series seems completely irrelevant to
+$subject. :)
+
+Thanks.
