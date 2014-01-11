@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 03/17] i40e: Update the Current NVM version Low value
-Date: Fri, 10 Jan 2014 16:47:16 -0800
-Message-ID: <1389401250-11509-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 08/17] i40e: do not bail when disabling if Tx queue disable fails
+Date: Fri, 10 Jan 2014 16:47:21 -0800
+Message-ID: <1389401250-11509-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1389401250-11509-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -9,39 +9,56 @@ Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:47344 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:23274 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751303AbaAKAri (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jan 2014 19:47:38 -0500
+	id S1752109AbaAKArm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jan 2014 19:47:42 -0500
 In-Reply-To: <1389401250-11509-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-The current driver will warn the user if the NVM version
-is out of date, this raises the bar to a newer version.
+Fix a bug where the driver was erroneously exiting the driver unload
+path if one part of the unload failed.  Instead of the original way
+the driver should always continue when disabling and be sure to disable
+all queues.
 
-Change-ID: I5ec21d8efa4e7c3fdacb56f85d310bb2229b1483
+Change-ID: Ib8c81c596bc87c31d8e9ca97ebf871168475279d
 Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 4d4cdbf..7dab660 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -88,7 +88,7 @@
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 80c83eb..65c27cb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -3113,7 +3113,7 @@ static int i40e_vsi_control_rx(struct i40e_vsi *vsi, bool enable)
+  **/
+ int i40e_vsi_control_rings(struct i40e_vsi *vsi, bool request)
+ {
+-	int ret;
++	int ret = 0;
  
- /* The values in here are decimal coded as hex as is the case in the NVM map*/
- #define I40E_CURRENT_NVM_VERSION_HI 0x2
--#define I40E_CURRENT_NVM_VERSION_LO 0x1
-+#define I40E_CURRENT_NVM_VERSION_LO 0x30
+ 	/* do rx first for enable and last for disable */
+ 	if (request) {
+@@ -3122,10 +3122,9 @@ int i40e_vsi_control_rings(struct i40e_vsi *vsi, bool request)
+ 			return ret;
+ 		ret = i40e_vsi_control_tx(vsi, request);
+ 	} else {
+-		ret = i40e_vsi_control_tx(vsi, request);
+-		if (ret)
+-			return ret;
+-		ret = i40e_vsi_control_rx(vsi, request);
++		/* Ignore return value, we need to shutdown whatever we can */
++		i40e_vsi_control_tx(vsi, request);
++		i40e_vsi_control_rx(vsi, request);
+ 	}
  
- 
- /* magic for getting defines into strings */
+ 	return ret;
 -- 
 1.8.3.1
