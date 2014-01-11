@@ -1,48 +1,71 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: suspicious RCU usage in net/ipv4/ip_tunnel.c:80
-Date: Sat, 11 Jan 2014 11:15:11 -0800
-Message-ID: <CAHA+R7OMM9ndy4hXF4rJBsA_Rb0KZ-MonuvE++wgzO_oMbo+eQ@mail.gmail.com>
-References: <CAHA+R7PAyR_cJ9_9nfUBc0U9o-U=gCV+sN_VYbHwgq-QdoEVzQ@mail.gmail.com>
-	<1389403281.31367.171.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] net: replace macros net_random and net_srandom
+ with direct calls to prandom
+Date: Sat, 11 Jan 2014 11:20:06 -0800
+Message-ID: <1389468006.2537.72.camel@joe-AO722>
+References: <1389442559-13097-1-git-send-email-aruna.hewapathirane@gmail.com>
+	 <1389462757.2537.61.camel@joe-AO722>
+	 <20140111180025.GB6586@order.stressinduktion.org>
+	 <52D192FD.90606@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Tom Herbert <therbert@google.com>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Aruna-Hewapathirane <aruna.hewapathirane@gmail.com>,
+	netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:34108 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751274AbaAKTPN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jan 2014 14:15:13 -0500
-Received: by mail-lb0-f169.google.com with SMTP id q8so1332706lbi.14
-        for <netdev@vger.kernel.org>; Sat, 11 Jan 2014 11:15:12 -0800 (PST)
-In-Reply-To: <1389403281.31367.171.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from smtprelay0217.hostedemail.com ([216.40.44.217]:53726 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751661AbaAKTUL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jan 2014 14:20:11 -0500
+In-Reply-To: <52D192FD.90606@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 10, 2014 at 5:21 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> Nope, the synchronize_rcu() is not needed here.
+On Sat, 2014-01-11 at 19:52 +0100, Daniel Borkmann wrote:
+> On 01/11/2014 07:00 PM, Hannes Frederic Sowa wrote:
+> > On Sat, Jan 11, 2014 at 09:52:37AM -0800, Joe Perches wrote:
+> >> On Sat, 2014-01-11 at 07:15 -0500, Aruna-Hewapathirane wrote:
+> >>> This patch removes the net_random and net_srandom macros and replaces
+> >>> them with direct calls to the prandom ones. As new commits only seem to
+> >>> use prandom_u32 there is no use to keep them around.
+> >>> This change makes it easier to grep for users of prandom_u32.
+> >>
+> >> Seems sensible.
+> >>
+> >> Also, there may be some value in a future patch
+> >> to use reciprocal_divide in a few places
+> >>
+> >>> diff --git a/net/802/garp.c b/net/802/garp.c
+> >>> @@ -397,7 +397,7 @@ static void garp_join_timer_arm(struct garp_applicant *app)
+> >>>   {
+> >>>   	unsigned long delay;
+> >>>
+> >>> -	delay = (u64)msecs_to_jiffies(garp_join_time) * net_random() >> 32;
+> >>> +	delay = (u64)msecs_to_jiffies(garp_join_time) * prandom_u32() >> 32;
+> >>
+> >> reciprocal_divide()
+> >
+> > Does reciprocal_divide() make sense without reciprocal_value() from a
+> > stylish point of view?
+> 
+> No. ;-)
+> 
+> There was already some work, but I didn't have time to finish it:
+> 
+> http://www.spinics.net/lists/netdev/msg249395.html
 
-OK.
+I had forgotten about this.
 
->
-> Please use following sparse ready patch, thanks :
->
-> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-> index d3929a69f008..6eda759b5c4b 100644
-> --- a/net/ipv4/ip_tunnel.c
-> +++ b/net/ipv4/ip_tunnel.c
-> @@ -77,10 +77,11 @@ static inline void __tunnel_dst_set(struct ip_tunnel_dst *idst,
->                 dst = NULL;
->
->         spin_lock_bh(&idst->lock);
-> -       old_dst = rcu_dereference(idst->dst);
-> +       old_dst = rcu_dereference_protected(idst->dst,
-> +                                           lockdep_is_held(&idst->lock));
->         rcu_assign_pointer(idst->dst, dst);
-> -       dst_release(old_dst);
->         spin_unlock_bh(&idst->lock);
-> +       dst_release(old_dst);
+> Maybe it's time that we should revisit that.
 
-Do you really need a rcu_dereference*() here? We don't dereference
-it inside spin_lock protection.
+It'd be nice if you found some time to finish it.
+
+	delay = (u64)msecs_to_jiffies(garp_join_time) * prandom_u32() >> 32;
+vs
+	delay = prandom_u32_max(msecs_to_jiffies(garp_join_time));
+or
+	delay = msecs_to_jiffies(prandom_u32_max(garp_join_time));
+
+I think the first is harder to read.
