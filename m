@@ -1,77 +1,98 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 1/2] dts: Add a binding for Synopsys emac max-mtu
-Date: Fri, 10 Jan 2014 16:31:27 -0800
-Message-ID: <CAGVrzcZcnKyP1HVZMWDTAC-+Z7oWiLHqx6SSHAWGO2WVcXGjrA@mail.gmail.com>
-References: <1389397669-10929-1-git-send-email-vbridgers2013@gmail.com> <1389397669-10929-3-git-send-email-vbridgers2013@gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: suspicious RCU usage in net/ipv4/ip_tunnel.c:80
+Date: Fri, 10 Jan 2014 16:37:33 -0800
+Message-ID: <CAHA+R7PAyR_cJ9_9nfUBc0U9o-U=gCV+sN_VYbHwgq-QdoEVzQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	robh+dt@kernel.org, Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	dinguyen@altera.com, Rayagond Kokatanur <rayagond@vayavyalabs.com>
-To: Vince Bridgers <vbridgers2013@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:62555 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752291AbaAKAcL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 19:32:11 -0500
-In-Reply-To: <1389397669-10929-3-git-send-email-vbridgers2013@gmail.com>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:35568 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751263AbaAKAhk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jan 2014 19:37:40 -0500
+Received: by mail-lb0-f175.google.com with SMTP id w6so3817152lbh.6
+        for <netdev@vger.kernel.org>; Fri, 10 Jan 2014 16:37:38 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014/1/10 Vince Bridgers <vbridgers2013@gmail.com>:
-> This change adds a parameter for the Synopsys 10/100/1000
-> stmmac Ethernet driver to configure the maximum MTU supported
-> by the EMAC instance. Synopsys allows the FIFO sizes to
-> be configured when the cores are built for a particular
-> device, but do not provide a way for the driver to read
-> information from the device about the maximum MTU size
-> supported as limited by the device's FIFO size.
->
-> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
-> ---
->  Documentation/devicetree/bindings/net/stmmac.txt |    5 +++++
->  1 file changed, 5 insertions(+)
->
-> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-> index eba0e5e..7db314e 100644
-> --- a/Documentation/devicetree/bindings/net/stmmac.txt
-> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
-> @@ -30,6 +30,10 @@ Required properties:
->
->  Optional properties:
->  - mac-address: 6 bytes, mac address
-> +- snps,max-mtu:                Maximum MTU permitted. This parameter is useful since
-> +                       different implementations of the Synopsys MAC may have
-> +                       different FIFO sizes depending on the selections
-> +                       made in Synopsys Core Consultant.
+Hi, Tom
 
-ePAPR v1.1 defines "max-frame-size" as being "Specifies maximum packet
-length in bytes that the physical interface can send and receive.", I
-would recommend you use that instead of this custom property.
+I saw:
 
->
->  Examples:
->
-> @@ -40,5 +44,6 @@ Examples:
->                 interrupts = <24 23>;
->                 interrupt-names = "macirq", "eth_wake_irq";
->                 mac-address = [000000000000]; /* Filled in by U-Boot */
-> +               snps,max-mtu = <3800>;
->                 phy-mode = "gmii";
->         };
-> --
-> 1.7.9.5
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe devicetree" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+[   65.609535] [ INFO: suspicious RCU usage. ]
+[   65.609537] 3.13.0-rc6+ #139 Not tainted
+[   65.609538] -------------------------------
+[   65.609539] net/ipv4/ip_tunnel.c:80 suspicious rcu_dereference_check() usage!
+[   65.609540]
+[   65.609540] other info that might help us debug this:
+[   65.609540]
+[   65.609541]
+[   65.609541] rcu_scheduler_active = 1, debug_locks = 0
+[   65.609542] 5 locks held by kworker/u8:0/6:
+[   65.609553]  #0:  (%s#4){.+.+.+}, at: [<ffffffff8106d56b>]
+process_one_work+0x173/0x41e
+[   65.609557]  #1:  (net_cleanup_work){+.+.+.}, at:
+[<ffffffff8106d56b>] process_one_work+0x173/0x41e
+[   65.609563]  #2:  (net_mutex){+.+.+.}, at: [<ffffffff817816c9>]
+cleanup_net+0x85/0x18a
+[   65.609569]  #3:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81796058>]
+rtnl_lock+0x17/0x19
+[   65.609575]  #4:  (&(&idst->lock)->rlock){+.....}, at:
+[<ffffffff818820fe>] __tunnel_dst_set+0x30/0x8b
+[   65.609575]
+[   65.609575] stack backtrace:
+[   65.609577] CPU: 1 PID: 6 Comm: kworker/u8:0 Not tainted 3.13.0-rc6+ #139
+[   65.609579] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[   65.609582] Workqueue: netns cleanup_net
+[   65.609585]  0000000000000000 ffff880118205bb0 ffffffff819894b6
+ffff8801181ea550
+[   65.609587]  ffff880118205be0 ffffffff81095f34 0000000000000000
+ffffe8ffff606df0
+[   65.609589]  ffffe8ffff606df8 0000000000000000 ffff880118205c10
+ffffffff8188213c
+[   65.609590] Call Trace:
+[   65.609595]  [<ffffffff819894b6>] dump_stack+0x4d/0x66
+[   65.609598]  [<ffffffff81095f34>] lockdep_rcu_suspicious+0x107/0x110
+[   65.609600]  [<ffffffff8188213c>] __tunnel_dst_set+0x6e/0x8b
+[   65.609602]  [<ffffffff81882203>] tunnel_dst_reset_all.isra.25+0x40/0x47
+[   65.609605]  [<ffffffff81883e28>] ip_tunnel_uninit+0x61/0x64
+[   65.609608]  [<ffffffff8178aeb2>] rollback_registered_many+0x188/0x21f
+[   65.609610]  [<ffffffff8178b02f>] unregister_netdevice_many+0x19/0x63
+[   65.609612]  [<ffffffff81883a17>] ip_tunnel_delete_net+0xd1/0xe5
+[   65.609615]  [<ffffffff8188bc68>] vti_exit_net+0x2a/0x2c
+[   65.609617]  [<ffffffff81780f21>] ops_exit_list+0x44/0x55
+[   65.609619]  [<ffffffff8178173a>] cleanup_net+0xf6/0x18a
+[   65.609621]  [<ffffffff8106d612>] process_one_work+0x21a/0x41e
+[   65.609623]  [<ffffffff8106d56b>] ? process_one_work+0x173/0x41e
+[   65.609625]  [<ffffffff8106dc1b>] worker_thread+0x149/0x1f5
+[   65.609628]  [<ffffffff8106dad2>] ? rescuer_thread+0x28d/0x28d
+[   65.609630]  [<ffffffff81073f6f>] kthread+0xd2/0xda
+[   65.609634]  [<ffffffff8107d0ed>] ? finish_task_switch+0x3a/0xbe
+[   65.609636]  [<ffffffff81073e9d>] ? __kthread_parkme+0x61/0x61
+[   65.609640]  [<ffffffff819961ac>] ret_from_fork+0x7c/0xb0
+[   65.609642]  [<ffffffff81073e9d>] ? __kthread_parkme+0x61/0x61
 
 
+I think the patch below could fix it but not sure if we really need
+synchronize_rcu() here...
 
--- 
-Florian
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index d3929a6..eb50b9a 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -77,10 +77,11 @@ static inline void __tunnel_dst_set(struct
+ip_tunnel_dst *idst,
+                dst = NULL;
+
+        spin_lock_bh(&idst->lock);
+-       old_dst = rcu_dereference(idst->dst);
++       old_dst = idst->dst;
+        rcu_assign_pointer(idst->dst, dst);
+-       dst_release(old_dst);
+        spin_unlock_bh(&idst->lock);
++       synchronize_rcu();
++       dst_release(old_dst);
+ }
+
+ static inline void tunnel_dst_set(struct ip_tunnel *t, struct dst_entry *dst)
