@@ -1,113 +1,92 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 00/17][pull request] Intel Wired LAN Driver Updates
-Date: Fri, 10 Jan 2014 16:47:13 -0800
-Message-ID: <1389401250-11509-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next v3 01/17] i40e: use assignment instead of memcpy
+Date: Fri, 10 Jan 2014 16:47:14 -0800
+Message-ID: <1389401250-11509-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1389401250-11509-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:25626 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:47344 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750983AbaAKArh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751035AbaAKArh (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 10 Jan 2014 19:47:37 -0500
+In-Reply-To: <1389401250-11509-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and now i40evf.
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Most notable is Jacob's patch to add PTP support to i40e.
-  
-Mitch cleans up additional memcpy's and use struct assignment instead.
-Then fixes long lines to appease checkpatch.pl.  Mitch then provides
-a fix to keep us from spamming the log with confusing errors.  If you
-use ip to change the MAC address of a VF while the VF driver is loaded,
-closing the VF interface or unloading the VF driver will cause the VF
-driver to remove the MAC filter for its original (now invalid) MAC
-address.
+These instances were found by coccinelle/spatch, and can
+use struct assignment instead of memcpy.
 
-Jesse cleans up macros which are no longer needed or used.
+Change-ID: Idc23c3599241bf8a658bda18c80417af3fbfee66
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c | 2 +-
+ drivers/net/ethernet/intel/i40e/i40e_common.c | 3 +--
+ drivers/net/ethernet/intel/i40e/i40e_hmc.c    | 8 +++-----
+ 3 files changed, 5 insertions(+), 8 deletions(-)
 
-I (Jeff) cleanup function header comments to ensure Doxygen/kdoc works
-correctly to generate documentation without warnings.
-
-Anjali fixes a bug where ethtool set-channels would return failure when
-configuring only one Rx queue.  Then fixes a bug where the driver was
-erroneously exiting the driver unload path if one part of the unload
-failed.
-
-Shannon fixes if the IPV6EXADD but is set in the Rx descriptor status,
-there was an optional extension header with an alternate IP address
-detected and the hardware checksum was not handling the alternate IP
-address correctly.  Then adjusts the ITR max and min values to match
-the hardware max value and recommended min value.  Shannon makes sure
-to clear the PXE mode after the adminq is initialized.
-
-v2:
- - fix patch 14 "i40e: enable PTP" to address Richard Cochran's spelling
-   catch and Ben Hutchings Kconfig, SIOCGHWTSTAMP and sizeof() suggestions
- - added Paul Gortmaker's i40evf fix patch
-v3:
- - fix patch 14 "i40e: enable PTP" to address Ben Hutchings concerns about
-   a race with PTP init and cleanup and i40e_get_ts_info().
-
-The following are changes since commit 11b57f90257c1d6a91cee720151b69e0c2020cf6:
-  xen-netback: stop vif thread spinning if frontend is unresponsive
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Anjali Singhai Jain (3):
-  i40e: Update the Current NVM version Low value
-  i40e: Setting queue count to 1 using ethtool is valid
-  i40e: do not bail when disabling if Tx queue disable fails
-
-Catherine Sullivan (2):
-  i40e: Bump version
-  i40e: Bump version
-
-Jacob Keller (1):
-  i40e: enable PTP
-
-Jeff Kirsher (1):
-  i40e: Cleanup Doxygen warnings
-
-Jesse Brandeburg (1):
-  i40e: drop unused macros
-
-Mitch Williams (3):
-  i40e: use assignment instead of memcpy
-  i40e: fix long lines
-  i40e: allow VF to remove any MAC filter
-
-Paul Gortmaker (1):
-  i40evf: fix s390 build failure due to implicit prefetch.h
-
-Shannon Nelson (5):
-  i40e: check for possible incorrect ipv6 checksum
-  i40e: adjust ITR max and min values
-  i40e: clear qtx_head before enabling Tx queue
-  i40e: call clear_pxe after adminq is initialized
-  i40e: fix log message wording
-
- drivers/net/ethernet/intel/Kconfig                 |   1 +
- drivers/net/ethernet/intel/i40e/Makefile           |   1 +
- drivers/net/ethernet/intel/i40e/i40e.h             |  28 +-
- drivers/net/ethernet/intel/i40e/i40e_adminq.c      |  28 +-
- drivers/net/ethernet/intel/i40e/i40e_common.c      |  23 +-
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  35 +-
- drivers/net/ethernet/intel/i40e/i40e_hmc.c         |   8 +-
- drivers/net/ethernet/intel/i40e/i40e_hmc.h         |   3 -
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  65 +-
- drivers/net/ethernet/intel/i40e/i40e_nvm.c         |   1 +
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   4 +-
- drivers/net/ethernet/intel/i40e/i40e_ptp.c         | 662 +++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  57 ++
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        |   8 +-
- drivers/net/ethernet/intel/i40e/i40e_type.h        |  13 +-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   8 +-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |   2 +
- 18 files changed, 887 insertions(+), 62 deletions(-)
- create mode 100644 drivers/net/ethernet/intel/i40e/i40e_ptp.c
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+index c75aa2d..4e5a02c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+@@ -922,7 +922,7 @@ i40e_status i40e_clean_arq_element(struct i40e_hw *hw,
+ 			   "AQRX: Event received with error 0x%X.\n",
+ 			   hw->aq.arq_last_status);
+ 	} else {
+-		memcpy(&e->desc, desc, sizeof(struct i40e_aq_desc));
++		e->desc = *desc;
+ 		datalen = le16_to_cpu(desc->datalen);
+ 		e->msg_size = min(datalen, e->msg_size);
+ 		if (e->msg_buf != NULL && (e->msg_size != 0))
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 807312b..6bfbeec 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -599,8 +599,7 @@ i40e_status i40e_aq_get_link_info(struct i40e_hw *hw,
+ 		goto aq_get_link_info_exit;
+ 
+ 	/* save off old link status information */
+-	memcpy(&hw->phy.link_info_old, hw_link_info,
+-	       sizeof(struct i40e_link_status));
++	hw->phy.link_info_old = *hw_link_info;
+ 
+ 	/* update link status */
+ 	hw_link_info->phy_type = (enum i40e_aq_phy_type)resp->phy_type;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_hmc.c b/drivers/net/ethernet/intel/i40e/i40e_hmc.c
+index 76dfef3..bf2d4cc 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_hmc.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_hmc.c
+@@ -89,11 +89,9 @@ i40e_status i40e_add_sd_table_entry(struct i40e_hw *hw,
+ 			sd_entry->u.pd_table.pd_entry =
+ 				(struct i40e_hmc_pd_entry *)
+ 				sd_entry->u.pd_table.pd_entry_virt_mem.va;
+-			memcpy(&sd_entry->u.pd_table.pd_page_addr, &mem,
+-			       sizeof(struct i40e_dma_mem));
++			sd_entry->u.pd_table.pd_page_addr = mem;
+ 		} else {
+-			memcpy(&sd_entry->u.bp.addr, &mem,
+-			       sizeof(struct i40e_dma_mem));
++			sd_entry->u.bp.addr = mem;
+ 			sd_entry->u.bp.sd_pd_index = sd_index;
+ 		}
+ 		/* initialize the sd entry */
+@@ -164,7 +162,7 @@ i40e_status i40e_add_pd_table_entry(struct i40e_hw *hw,
+ 		if (ret_code)
+ 			goto exit;
+ 
+-		memcpy(&pd_entry->bp.addr, &mem, sizeof(struct i40e_dma_mem));
++		pd_entry->bp.addr = mem;
+ 		pd_entry->bp.sd_pd_index = pd_index;
+ 		pd_entry->bp.entry_type = I40E_SD_TYPE_PAGED;
+ 		/* Set page address and valid bit */
 -- 
 1.8.3.1
