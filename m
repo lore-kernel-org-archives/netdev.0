@@ -1,10 +1,11 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Subject: Re: [PATCH net-next] IPv6: enable TCP to use an anycast address
-Date: Sat, 11 Jan 2014 05:06:10 -0800 (PST)
-Message-ID: <1389445570.24657.YahooMailBasic@web125502.mail.ne1.yahoo.com>
+Date: Sat, 11 Jan 2014 17:38:27 +0400
+Message-ID: <CAMrnHh76D1d_JrXhtz+nvJP+Aiux2iPW+5uVZqQpbmWbQG0=OQ@mail.gmail.com>
 References: <CAMrnHh6pBYMLn+zsR2P_oo8KufJq7Dkjm-cSq2N2Hi638yrUog@mail.gmail.com>
+	<1389445570.24657.YahooMailBasic@web125502.mail.ne1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>,
@@ -12,45 +13,44 @@ Cc: netdev@vger.kernel.org,
 	James Morris <jmorris@namei.org>,
 	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: =?ISO-8859-1?Q?Fran=E7ois=2DXavier_Le_Bail?= <fx.lebail@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm44.bullet.mail.ne1.yahoo.com ([98.138.120.51]:26475 "HELO
-	nm44.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752343AbaAKNGX convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 11 Jan 2014 08:06:23 -0500
-In-Reply-To: <CAMrnHh6pBYMLn+zsR2P_oo8KufJq7Dkjm-cSq2N2Hi638yrUog@mail.gmail.com>
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:44138 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751011AbaAKNi2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jan 2014 08:38:28 -0500
+Received: by mail-ie0-f172.google.com with SMTP id u16so5707757iet.31
+        for <netdev@vger.kernel.org>; Sat, 11 Jan 2014 05:38:28 -0800 (PST)
+In-Reply-To: <1389445570.24657.YahooMailBasic@web125502.mail.ne1.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 1/11/14, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
+Hello!
 
-> Hello!
+On Sat, Jan 11, 2014 at 5:06 PM, Fran=E7ois-Xavier Le Bail
+<fx.lebail@yahoo.com> wrote:
+> Many DNS root-servers use TCP with anycast (IPv4 and IPV6).
+>
+> see : http://tools.ietf.org/html/draft-jabley-dnsop-anycast-mapping-0=
+4#section-4
+>
+> "   L-Root service is provided using a single IPv4 address (199.7.83.=
+42)
+>    and a single IPv6 address (2001:500:3::42).  It should be noted th=
+at
+>    it is preferable to refer to the service using its DNS name (L.ROO=
+T-
+>    SERVERS.NET) rather than literal addresses, since addresses can
+>    change from time to time."
 
-> I am just curious: since when is TCP allowed to use anycast addresses=
-?
+Is this all? It looks like this implies routing by deep packet inspecti=
+on,
+fetching some creepy node identification options from inside DNS payloa=
+d
+(not written directly, but  implied). This smells funky.
 
-As said in http://tools.ietf.org/html/draft-iab-anycast-arch-implicatio=
-ns-12.html#section-2.1
-(this informational draft is in RCF queue)
+Actually, I was alerted by reset processing in your patch, it cannot be=
+ right.
 
-"  No firm conclusion was reached regarding
-   use of TCP with anycasted services, but it was observed that
-   anycasting was useful for DNS, although it did introduce some new
-   complexities."
-
-=46or this works, there is need for appropriate routing (BGP, ...).
-
-Many DNS root-servers use TCP with anycast (IPv4 and IPV6).
-
-see : http://tools.ietf.org/html/draft-jabley-dnsop-anycast-mapping-04#=
-section-4
-
-"   L-Root service is provided using a single IPv4 address (199.7.83.42=
-)
-   and a single IPv6 address (2001:500:3::42).  It should be noted that
-   it is preferable to refer to the service using its DNS name (L.ROOT-
-   SERVERS.NET) rather than literal addresses, since addresses can
-   change from time to time."
-
-=46ran=E7ois-Xavier Le Bail
+Do not you think this must not be enabled for common use? At least
+some separate sysctl disabled by default.
