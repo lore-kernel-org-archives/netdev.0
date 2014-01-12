@@ -1,70 +1,83 @@
 From: Willy Tarreau <w@1wt.eu>
-Subject: [PATCH 0/5] Assorted mvneta fixes
-Date: Sun, 12 Jan 2014 10:31:04 +0100
-Message-ID: <1389519069-1619-1-git-send-email-w@1wt.eu>
+Subject: [PATCH 3/5] net: mvneta: do not schedule in mvneta_tx_timeout
+Date: Sun, 12 Jan 2014 10:31:07 +0100
+Message-ID: <1389519069-1619-4-git-send-email-w@1wt.eu>
+References: <1389519069-1619-1-git-send-email-w@1wt.eu>
 Cc: netdev@vger.kernel.org, Willy Tarreau <w@1wt.eu>,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+	Gregory CLEMENT <gregory.clement@free-electrons.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:55215 "EHLO 1wt.eu"
+Received: from 1wt.eu ([62.212.114.60]:55216 "EHLO 1wt.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751103AbaALJcA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751114AbaALJcA (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 12 Jan 2014 04:32:00 -0500
+In-Reply-To: <1389519069-1619-1-git-send-email-w@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+If a queue timeout is reported, we can oops because of some
+schedules while the caller is atomic, as shown below :
 
-this series provides some fixes for a number of issues met with the
-mvneta driver :
+  mvneta d0070000.ethernet eth0: tx timeout
+  BUG: scheduling while atomic: bash/1528/0x00000100
+  Modules linked in: slhttp_ethdiv(C) [last unloaded: slhttp_ethdiv]
+  CPU: 2 PID: 1528 Comm: bash Tainted: G        WC   3.13.0-rc4-mvebu-nf #180
+  [<c0011bd9>] (unwind_backtrace+0x1/0x98) from [<c000f1ab>] (show_stack+0xb/0xc)
+  [<c000f1ab>] (show_stack+0xb/0xc) from [<c02ad323>] (dump_stack+0x4f/0x64)
+  [<c02ad323>] (dump_stack+0x4f/0x64) from [<c02abe67>] (__schedule_bug+0x37/0x4c)
+  [<c02abe67>] (__schedule_bug+0x37/0x4c) from [<c02ae261>] (__schedule+0x325/0x3ec)
+  [<c02ae261>] (__schedule+0x325/0x3ec) from [<c02adb97>] (schedule_timeout+0xb7/0x118)
+  [<c02adb97>] (schedule_timeout+0xb7/0x118) from [<c0020a67>] (msleep+0xf/0x14)
+  [<c0020a67>] (msleep+0xf/0x14) from [<c01dcbe5>] (mvneta_stop_dev+0x21/0x194)
+  [<c01dcbe5>] (mvneta_stop_dev+0x21/0x194) from [<c01dcfe9>] (mvneta_tx_timeout+0x19/0x24)
+  [<c01dcfe9>] (mvneta_tx_timeout+0x19/0x24) from [<c024afc7>] (dev_watchdog+0x18b/0x1c4)
+  [<c024afc7>] (dev_watchdog+0x18b/0x1c4) from [<c0020b53>] (call_timer_fn.isra.27+0x17/0x5c)
+  [<c0020b53>] (call_timer_fn.isra.27+0x17/0x5c) from [<c0020cad>] (run_timer_softirq+0x115/0x170)
+  [<c0020cad>] (run_timer_softirq+0x115/0x170) from [<c001ccb9>] (__do_softirq+0xbd/0x1a8)
+  [<c001ccb9>] (__do_softirq+0xbd/0x1a8) from [<c001cfad>] (irq_exit+0x61/0x98)
+  [<c001cfad>] (irq_exit+0x61/0x98) from [<c000d4bf>] (handle_IRQ+0x27/0x60)
+  [<c000d4bf>] (handle_IRQ+0x27/0x60) from [<c000843b>] (armada_370_xp_handle_irq+0x33/0xc8)
+  [<c000843b>] (armada_370_xp_handle_irq+0x33/0xc8) from [<c000fba9>] (__irq_usr+0x49/0x60)
 
-  - driver lockup when reading stats while sending traffic from multiple
-    CPUs : this obviously only happens on SMP and is the result of missing
-    locking on the driver. The problem was present since the introduction
-    of the driver in 3.8. The first patch performs some changes that are
-    needed for the second one which actually fixes the issue by using
-    per-cpu counters. It could make sense to backport this to the relevant
-    stable versions.
+So for now, let's simply ignore these timeouts generally caused by bugs
+only.
 
-  - mvneta_tx_timeout calls various functions to reset the NIC, and these
-    functions sleep, which is not allowed here, resulting in a panic.
-    Better completely disable this Tx timeout handler for now since it is
-    never called. The problem was encountered while developing some new
-    features, it's uncertain whether it's possible to reproduce it with
-    regular usage, so maybe a backport to stable is not needed.
-
-  - replace the Tx timer with a real Tx IRQ. As first reported by Arnaud
-    Ebalard and explained by Eric Dumazet, there is no way this driver
-    can work correctly if it uses a driver to recycle the Tx descriptors.
-    If too many packets are sent at once, the driver quickly ends up with
-    no descriptors (which happens twice as easily in GSO) and has to wait
-    10ms for recycling its descriptors and being able to send again. Eric
-    has worked around this in the core GSO code. But still when routing
-    traffic or sending UDP packets, the limitation is very visible. Using
-    Tx IRQs allows Tx descriptors to be recycled when sent. The coalesce
-    value is still configurable using ethtool. This fix turns the UDP
-    send bitrate from 134 Mbps to 987 Mbps (ie: line rate). It's made of
-    two patches, one to add the relevant bits from the original Marvell's
-    driver, and another one to implement the change. I don't know if it
-    should be backported to stable, as the bug only causes poor performance.
-
-Thanks,
-Willy
-
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Signed-off-by: Willy Tarreau <w@1wt.eu>
 ---
+ drivers/net/ethernet/marvell/mvneta.c | 11 -----------
+ 1 file changed, 11 deletions(-)
 
-Willy Tarreau (5):
-  net: mvneta: increase the 64-bit rx/tx stats out of the hot path
-  net: mvneta: use per_cpu stats to fix an SMP lock up
-  net: mvneta: do not schedule in mvneta_tx_timeout
-  net: mvneta: add missing bit descriptions for interrupt masks and causes
-  net: mvneta: replace Tx timer with a real interrupt
-
- drivers/net/ethernet/marvell/mvneta.c | 217 ++++++++++++++++++----------------
- 1 file changed, 116 insertions(+), 101 deletions(-)
-
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 40d3e8b..84220c1 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -2244,16 +2244,6 @@ static void mvneta_stop_dev(struct mvneta_port *pp)
+ 	mvneta_rx_reset(pp);
+ }
+ 
+-/* tx timeout callback - display a message and stop/start the network device */
+-static void mvneta_tx_timeout(struct net_device *dev)
+-{
+-	struct mvneta_port *pp = netdev_priv(dev);
+-
+-	netdev_info(dev, "tx timeout\n");
+-	mvneta_stop_dev(pp);
+-	mvneta_start_dev(pp);
+-}
+-
+ /* Return positive if MTU is valid */
+ static int mvneta_check_mtu_valid(struct net_device *dev, int mtu)
+ {
+@@ -2634,7 +2624,6 @@ static const struct net_device_ops mvneta_netdev_ops = {
+ 	.ndo_set_rx_mode     = mvneta_set_rx_mode,
+ 	.ndo_set_mac_address = mvneta_set_mac_addr,
+ 	.ndo_change_mtu      = mvneta_change_mtu,
+-	.ndo_tx_timeout      = mvneta_tx_timeout,
+ 	.ndo_get_stats64     = mvneta_get_stats64,
+ 	.ndo_do_ioctl        = mvneta_ioctl,
+ };
 -- 
 1.7.12.2.21.g234cd45.dirty
