@@ -1,146 +1,166 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH v2 3/3] atl1: update statistics code
-Date: Sun, 12 Jan 2014 18:50:40 +0100
-Message-ID: <1389549040-8785-4-git-send-email-sd@queasysnail.net>
-References: <1389549040-8785-1-git-send-email-sd@queasysnail.net>
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
-	jcliburn@gmail.com, chris.snook@gmail.com,
-	Sabrina Dubroca <sd@queasysnail.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3-g21.free.fr ([212.27.42.3]:46416 "EHLO smtp3-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751101AbaALRve (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Jan 2014 12:51:34 -0500
-In-Reply-To: <1389549040-8785-1-git-send-email-sd@queasysnail.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrey Vagin <avagin@openvz.org>
+Subject: [PATCH] netfilter: nf_conntrack: fix RCU race in nf_conntrack_find_get (v3)
+Date: Sun, 12 Jan 2014 21:50:33 +0400
+Message-ID: <1389549033-23523-1-git-send-email-avagin@openvz.org>
+References: <1389188841.26646.87.camel@edumazet-glaptop2.roam.corp.google.com>
+Cc: netfilter@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	vvs@openvz.org, Andrey Vagin <avagin@openvz.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Florian Westphal <fw@strlen.de>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cyrill Gorcunov <gorcunov@openvz.org>
+To: netfilter-devel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1389188841.26646.87.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-As Ben Hutchings pointed out for the stats in alx, some
-hardware-specific stats aren't matched to the right net_device_stats
-field. Also fix the collision field and include errors in the total
-number of RX/TX packets. Add a rx_dropped field and use it where
-netdev->stats was modified directly out of the stats update function.
+Lets look at destroy_conntrack:
 
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
+...
+nf_conntrack_free(ct)
+	kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
+
+net->ct.nf_conntrack_cachep is created with SLAB_DESTROY_BY_RCU.
+
+The hash is protected by rcu, so readers look up conntracks without
+locks.
+A conntrack is removed from the hash, but in this moment a few readers
+still can use the conntrack. Then this conntrack is released and another
+thread creates conntrack with the same address and the equal tuple.
+After this a reader starts to validate the conntrack:
+* It's not dying, because a new conntrack was created
+* nf_ct_tuple_equal() returns true.
+
+But this conntrack is not initialized yet, so it can not be used by two
+threads concurrently. In this case BUG_ON may be triggered from
+nf_nat_setup_info().
+
+Florian Westphal suggested to check the confirm bit too. I think it's
+right.
+
+task 1			task 2			task 3
+			nf_conntrack_find_get
+			 ____nf_conntrack_find
+destroy_conntrack
+ hlist_nulls_del_rcu
+ nf_conntrack_free
+ kmem_cache_free
+						__nf_conntrack_alloc
+						 kmem_cache_alloc
+						 memset(&ct->tuplehash[IP_CT_DIR_MAX],
+			 if (nf_ct_is_dying(ct))
+			 if (!nf_ct_tuple_equal()
+
+I'm not sure, that I have ever seen this race condition in a real life.
+Currently we are investigating a bug, which is reproduced on a few nodes.
+In our case one conntrack is initialized from a few tasks concurrently,
+we don't have any other explanation for this.
+
+<2>[46267.083061] kernel BUG at net/ipv4/netfilter/nf_nat_core.c:322!
+...
+<4>[46267.083951] RIP: 0010:[<ffffffffa01e00a4>]  [<ffffffffa01e00a4>] nf_nat_setup_info+0x564/0x590 [nf_nat]
+...
+<4>[46267.085549] Call Trace:
+<4>[46267.085622]  [<ffffffffa023421b>] alloc_null_binding+0x5b/0xa0 [iptable_nat]
+<4>[46267.085697]  [<ffffffffa02342bc>] nf_nat_rule_find+0x5c/0x80 [iptable_nat]
+<4>[46267.085770]  [<ffffffffa0234521>] nf_nat_fn+0x111/0x260 [iptable_nat]
+<4>[46267.085843]  [<ffffffffa0234798>] nf_nat_out+0x48/0xd0 [iptable_nat]
+<4>[46267.085919]  [<ffffffff814841b9>] nf_iterate+0x69/0xb0
+<4>[46267.085991]  [<ffffffff81494e70>] ? ip_finish_output+0x0/0x2f0
+<4>[46267.086063]  [<ffffffff81484374>] nf_hook_slow+0x74/0x110
+<4>[46267.086133]  [<ffffffff81494e70>] ? ip_finish_output+0x0/0x2f0
+<4>[46267.086207]  [<ffffffff814b5890>] ? dst_output+0x0/0x20
+<4>[46267.086277]  [<ffffffff81495204>] ip_output+0xa4/0xc0
+<4>[46267.086346]  [<ffffffff814b65a4>] raw_sendmsg+0x8b4/0x910
+<4>[46267.086419]  [<ffffffff814c10fa>] inet_sendmsg+0x4a/0xb0
+<4>[46267.086491]  [<ffffffff814459aa>] ? sock_update_classid+0x3a/0x50
+<4>[46267.086562]  [<ffffffff81444d67>] sock_sendmsg+0x117/0x140
+<4>[46267.086638]  [<ffffffff8151997b>] ? _spin_unlock_bh+0x1b/0x20
+<4>[46267.086712]  [<ffffffff8109d370>] ? autoremove_wake_function+0x0/0x40
+<4>[46267.086785]  [<ffffffff81495e80>] ? do_ip_setsockopt+0x90/0xd80
+<4>[46267.086858]  [<ffffffff8100be0e>] ? call_function_interrupt+0xe/0x20
+<4>[46267.086936]  [<ffffffff8118cb10>] ? ub_slab_ptr+0x20/0x90
+<4>[46267.087006]  [<ffffffff8118cb10>] ? ub_slab_ptr+0x20/0x90
+<4>[46267.087081]  [<ffffffff8118f2e8>] ? kmem_cache_alloc+0xd8/0x1e0
+<4>[46267.087151]  [<ffffffff81445599>] sys_sendto+0x139/0x190
+<4>[46267.087229]  [<ffffffff81448c0d>] ? sock_setsockopt+0x16d/0x6f0
+<4>[46267.087303]  [<ffffffff810efa47>] ? audit_syscall_entry+0x1d7/0x200
+<4>[46267.087378]  [<ffffffff810ef795>] ? __audit_syscall_exit+0x265/0x290
+<4>[46267.087454]  [<ffffffff81474885>] ? compat_sys_setsockopt+0x75/0x210
+<4>[46267.087531]  [<ffffffff81474b5f>] compat_sys_socketcall+0x13f/0x210
+<4>[46267.087607]  [<ffffffff8104dea3>] ia32_sysret+0x0/0x5
+<4>[46267.087676] Code: 91 20 e2 01 75 29 48 89 de 4c 89 f7 e8 56 fa ff ff 85 c0 0f 84 68 fc ff ff 0f b6 4d c6 41 8b 45 00 e9 4d fb ff ff e8 7c 19 e9 e0 <0f> 0b eb fe f6 05 17 91 20 e2 80 74 ce 80 3d 5f 2e 00 00 00 74
+<1>[46267.088023] RIP  [<ffffffffa01e00a4>] nf_nat_setup_info+0x564/0x590
+
+v2: move nf_ct_is_confirmed into the unlikely() annotation
+v3: Eric suggested to fix refcnt, so that it becomes zero before adding
+    in a hash, but we can't find a way how to do that. Another way is to
+    interpret the confirm bit as part of a search key and check it in
+    ____nf_conntrack_find() too.
+
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Florian Westphal <fw@strlen.de>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Cyrill Gorcunov <gorcunov@openvz.org>
+Signed-off-by: Andrey Vagin <avagin@openvz.org>
 ---
- drivers/net/ethernet/atheros/atlx/atl1.c | 43 +++++++++++++++++++-------------
- drivers/net/ethernet/atheros/atlx/atl1.h |  1 +
- 2 files changed, 26 insertions(+), 18 deletions(-)
+ net/netfilter/nf_conntrack_core.c | 21 +++++++++++++++++----
+ 1 file changed, 17 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
-index 538211d..9162a28 100644
---- a/drivers/net/ethernet/atheros/atlx/atl1.c
-+++ b/drivers/net/ethernet/atheros/atlx/atl1.c
-@@ -1678,33 +1678,42 @@ static void atl1_inc_smb(struct atl1_adapter *adapter)
- 	struct net_device *netdev = adapter->netdev;
- 	struct stats_msg_block *smb = adapter->smb.smb;
- 
-+	u64 new_rx_errors = smb->rx_frag +
-+			    smb->rx_fcs_err +
-+			    smb->rx_len_err +
-+			    smb->rx_sz_ov +
-+			    smb->rx_rxf_ov +
-+			    smb->rx_rrd_ov +
-+			    smb->rx_align_err;
-+	u64 new_tx_errors = smb->tx_late_col +
-+			    smb->tx_abort_col +
-+			    smb->tx_underrun +
-+			    smb->tx_trunc;
-+
- 	/* Fill out the OS statistics structure */
--	adapter->soft_stats.rx_packets += smb->rx_ok;
--	adapter->soft_stats.tx_packets += smb->tx_ok;
-+	adapter->soft_stats.rx_packets += smb->rx_ok + new_rx_errors;
-+	adapter->soft_stats.tx_packets += smb->tx_ok + new_tx_errors;
- 	adapter->soft_stats.rx_bytes += smb->rx_byte_cnt;
- 	adapter->soft_stats.tx_bytes += smb->tx_byte_cnt;
- 	adapter->soft_stats.multicast += smb->rx_mcast;
--	adapter->soft_stats.collisions += (smb->tx_1_col + smb->tx_2_col * 2 +
--		smb->tx_late_col + smb->tx_abort_col * adapter->hw.max_retry);
-+	adapter->soft_stats.collisions += smb->tx_1_col +
-+					  smb->tx_2_col +
-+					  smb->tx_late_col +
-+					  smb->tx_abort_col;
- 
- 	/* Rx Errors */
--	adapter->soft_stats.rx_errors += (smb->rx_frag + smb->rx_fcs_err +
--		smb->rx_len_err + smb->rx_sz_ov + smb->rx_rxf_ov +
--		smb->rx_rrd_ov + smb->rx_align_err);
-+	adapter->soft_stats.rx_errors += new_rx_errors;
- 	adapter->soft_stats.rx_fifo_errors += smb->rx_rxf_ov;
- 	adapter->soft_stats.rx_length_errors += smb->rx_len_err;
- 	adapter->soft_stats.rx_crc_errors += smb->rx_fcs_err;
- 	adapter->soft_stats.rx_frame_errors += smb->rx_align_err;
--	adapter->soft_stats.rx_missed_errors += (smb->rx_rrd_ov +
--		smb->rx_rxf_ov);
- 
- 	adapter->soft_stats.rx_pause += smb->rx_pause;
- 	adapter->soft_stats.rx_rrd_ov += smb->rx_rrd_ov;
- 	adapter->soft_stats.rx_trunc += smb->rx_sz_ov;
- 
- 	/* Tx Errors */
--	adapter->soft_stats.tx_errors += (smb->tx_late_col +
--		smb->tx_abort_col + smb->tx_underrun + smb->tx_trunc);
-+	adapter->soft_stats.tx_errors += new_tx_errors;
- 	adapter->soft_stats.tx_fifo_errors += smb->tx_underrun;
- 	adapter->soft_stats.tx_aborted_errors += smb->tx_abort_col;
- 	adapter->soft_stats.tx_window_errors += smb->tx_late_col;
-@@ -1718,23 +1727,18 @@ static void atl1_inc_smb(struct atl1_adapter *adapter)
- 	adapter->soft_stats.tx_trunc += smb->tx_trunc;
- 	adapter->soft_stats.tx_pause += smb->tx_pause;
- 
--	netdev->stats.rx_packets = adapter->soft_stats.rx_packets;
--	netdev->stats.tx_packets = adapter->soft_stats.tx_packets;
- 	netdev->stats.rx_bytes = adapter->soft_stats.rx_bytes;
- 	netdev->stats.tx_bytes = adapter->soft_stats.tx_bytes;
- 	netdev->stats.multicast = adapter->soft_stats.multicast;
- 	netdev->stats.collisions = adapter->soft_stats.collisions;
- 	netdev->stats.rx_errors = adapter->soft_stats.rx_errors;
--	netdev->stats.rx_over_errors =
--		adapter->soft_stats.rx_missed_errors;
- 	netdev->stats.rx_length_errors =
- 		adapter->soft_stats.rx_length_errors;
- 	netdev->stats.rx_crc_errors = adapter->soft_stats.rx_crc_errors;
- 	netdev->stats.rx_frame_errors =
- 		adapter->soft_stats.rx_frame_errors;
- 	netdev->stats.rx_fifo_errors = adapter->soft_stats.rx_fifo_errors;
--	netdev->stats.rx_missed_errors =
--		adapter->soft_stats.rx_missed_errors;
-+	netdev->stats.rx_dropped = adapter->soft_stats.rx_rrd_ov;
- 	netdev->stats.tx_errors = adapter->soft_stats.tx_errors;
- 	netdev->stats.tx_fifo_errors = adapter->soft_stats.tx_fifo_errors;
- 	netdev->stats.tx_aborted_errors =
-@@ -1743,6 +1747,9 @@ static void atl1_inc_smb(struct atl1_adapter *adapter)
- 		adapter->soft_stats.tx_window_errors;
- 	netdev->stats.tx_carrier_errors =
- 		adapter->soft_stats.tx_carrier_errors;
-+
-+	netdev->stats.rx_packets = adapter->soft_stats.rx_packets;
-+	netdev->stats.tx_packets = adapter->soft_stats.tx_packets;
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 43549eb..af6ad2e 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -318,6 +318,21 @@ static void death_by_timeout(unsigned long ul_conntrack)
+ 	nf_ct_delete((struct nf_conn *)ul_conntrack, 0, 0);
  }
  
- static void atl1_update_mailbox(struct atl1_adapter *adapter)
-@@ -1872,7 +1879,7 @@ static u16 atl1_alloc_rx_buffers(struct atl1_adapter *adapter)
- 						adapter->rx_buffer_len);
- 		if (unlikely(!skb)) {
- 			/* Better luck next round */
--			adapter->netdev->stats.rx_dropped++;
-+			adapter->soft_stats.rx_dropped++;
- 			break;
- 		}
- 
-diff --git a/drivers/net/ethernet/atheros/atlx/atl1.h b/drivers/net/ethernet/atheros/atlx/atl1.h
-index 3bf79a5..34a58cd 100644
---- a/drivers/net/ethernet/atheros/atlx/atl1.h
-+++ b/drivers/net/ethernet/atheros/atlx/atl1.h
-@@ -666,6 +666,7 @@ struct atl1_sft_stats {
- 	u64 rx_errors;
- 	u64 rx_length_errors;
- 	u64 rx_crc_errors;
-+	u64 rx_dropped;
- 	u64 rx_frame_errors;
- 	u64 rx_fifo_errors;
- 	u64 rx_missed_errors;
++static inline bool
++nf_ct_key_equal(struct nf_conntrack_tuple_hash *h,
++			const struct nf_conntrack_tuple *tuple,
++			u16 zone)
++{
++	struct nf_conn *ct = nf_ct_tuplehash_to_ctrack(h);
++
++	/* A conntrack can be recreated with the equal tuple,
++	 * so we need to check that the conntrack is confirmed
++	 */
++	return nf_ct_tuple_equal(tuple, &h->tuple) &&
++		nf_ct_zone(ct) == zone &&
++		nf_ct_is_confirmed(ct);
++}
++
+ /*
+  * Warning :
+  * - Caller must take a reference on returned object
+@@ -339,8 +354,7 @@ ____nf_conntrack_find(struct net *net, u16 zone,
+ 	local_bh_disable();
+ begin:
+ 	hlist_nulls_for_each_entry_rcu(h, n, &net->ct.hash[bucket], hnnode) {
+-		if (nf_ct_tuple_equal(tuple, &h->tuple) &&
+-		    nf_ct_zone(nf_ct_tuplehash_to_ctrack(h)) == zone) {
++		if (nf_ct_key_equal(h, tuple, zone)) {
+ 			NF_CT_STAT_INC(net, found);
+ 			local_bh_enable();
+ 			return h;
+@@ -387,8 +401,7 @@ begin:
+ 			     !atomic_inc_not_zero(&ct->ct_general.use)))
+ 			h = NULL;
+ 		else {
+-			if (unlikely(!nf_ct_tuple_equal(tuple, &h->tuple) ||
+-				     nf_ct_zone(ct) != zone)) {
++			if (unlikely(!nf_ct_key_equal(h, tuple, zone))) {
+ 				nf_ct_put(ct);
+ 				goto begin;
+ 			}
 -- 
-1.8.5.2
+1.8.4.2
