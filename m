@@ -1,153 +1,60 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: [ipv6_vti.c] INFO: trying to register non-static key.
-Date: Sun, 12 Jan 2014 18:18:04 +0800
-Message-ID: <20140112101804.GA13797@localhost>
-References: <20140111231023.GA9864@localhost>
- <20140111.194502.2043728861122940485.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: roy.qing.li@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140111.194502.2043728861122940485.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Willy Tarreau <w@1wt.eu>
+Subject: [PATCH net-next 0/6] mvneta driver performance improvements
+Date: Sun, 12 Jan 2014 12:24:02 +0100
+Message-ID: <1389525848-1814-1-git-send-email-w@1wt.eu>
+Cc: netdev@vger.kernel.org, Willy Tarreau <w@1wt.eu>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 1wt.eu ([62.212.114.60]:55230 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751175AbaALLYQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Jan 2014 06:24:16 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 11, 2014 at 07:45:02PM -0800, David Miller wrote:
-> From: Fengguang Wu <fengguang.wu@intel.com>
-> Date: Sun, 12 Jan 2014 07:10:23 +0800
-> 
-> > Here is a warning introduced by commit 469bdcefd ("ipv6: fix the use
-> > of pcpu_tstats in ip6_vti.c"):
-> 
-> It isn't fixed by the following, which is also in Linus's tree?
+Hi,
 
-Yes.. Sorry it's a duplicate report. I searched the full commit sha1
-in my outbox before this report but the previous report email only
-mentioned the abbreviated commit id..
+this patch series implements several performance improvements on the
+mvneta driver.
 
-Cheers,
-Fengguang
+  - The first 3 patches are essentially cleanups, code deduplication
+    and minor optimizations for not re-fetching a value we already have
+    (status).
 
-> >From 657e5d19657542631461e72fdc375b1e83e72070 Mon Sep 17 00:00:00 2001
-> From: Li RongQing <roy.qing.li@gmail.com>
-> Date: Tue, 7 Jan 2014 15:39:43 +0800
-> Subject: [PATCH] ipv6: pcpu_tstats.syncp should be initialised in ip6_vti.c
-> 
-> initialise pcpu_tstats.syncp to kill the calltrace
-> [   11.973950] Call Trace:
-> [   11.973950]  [<819bbaff>] dump_stack+0x48/0x60
-> [   11.973950]  [<819bbaff>] dump_stack+0x48/0x60
-> [   11.973950]  [<81078dcf>] __lock_acquire.isra.22+0x1bf/0xc10
-> [   11.973950]  [<81078dcf>] __lock_acquire.isra.22+0x1bf/0xc10
-> [   11.973950]  [<81079fa7>] lock_acquire+0x77/0xa0
-> [   11.973950]  [<81079fa7>] lock_acquire+0x77/0xa0
-> [   11.973950]  [<817ca7ab>] ? dev_get_stats+0xcb/0x130
-> [   11.973950]  [<817ca7ab>] ? dev_get_stats+0xcb/0x130
-> [   11.973950]  [<8183862d>] ip_tunnel_get_stats64+0x6d/0x230
-> [   11.973950]  [<8183862d>] ip_tunnel_get_stats64+0x6d/0x230
-> [   11.973950]  [<817ca7ab>] ? dev_get_stats+0xcb/0x130
-> [   11.973950]  [<817ca7ab>] ? dev_get_stats+0xcb/0x130
-> [   11.973950]  [<811cf8c1>] ? __nla_reserve+0x21/0xd0
-> [   11.973950]  [<811cf8c1>] ? __nla_reserve+0x21/0xd0
-> [   11.973950]  [<817ca7ab>] dev_get_stats+0xcb/0x130
-> [   11.973950]  [<817ca7ab>] dev_get_stats+0xcb/0x130
-> [   11.973950]  [<817d5409>] rtnl_fill_ifinfo+0x569/0xe20
-> [   11.973950]  [<817d5409>] rtnl_fill_ifinfo+0x569/0xe20
-> [   11.973950]  [<810352e0>] ? kvm_clock_read+0x20/0x30
-> [   11.973950]  [<810352e0>] ? kvm_clock_read+0x20/0x30
-> [   11.973950]  [<81008e38>] ? sched_clock+0x8/0x10
-> [   11.973950]  [<81008e38>] ? sched_clock+0x8/0x10
-> [   11.973950]  [<8106ba45>] ? sched_clock_local+0x25/0x170
-> [   11.973950]  [<8106ba45>] ? sched_clock_local+0x25/0x170
-> [   11.973950]  [<810da6bd>] ? __kmalloc+0x3d/0x90
-> [   11.973950]  [<810da6bd>] ? __kmalloc+0x3d/0x90
-> [   11.973950]  [<817b8c10>] ? __kmalloc_reserve.isra.41+0x20/0x70
-> [   11.973950]  [<817b8c10>] ? __kmalloc_reserve.isra.41+0x20/0x70
-> [   11.973950]  [<810da81a>] ? slob_alloc_node+0x2a/0x60
-> [   11.973950]  [<810da81a>] ? slob_alloc_node+0x2a/0x60
-> [   11.973950]  [<817b919a>] ? __alloc_skb+0x6a/0x2b0
-> [   11.973950]  [<817b919a>] ? __alloc_skb+0x6a/0x2b0
-> [   11.973950]  [<817d8795>] rtmsg_ifinfo+0x65/0xe0
-> [   11.973950]  [<817d8795>] rtmsg_ifinfo+0x65/0xe0
-> [   11.973950]  [<817cbd31>] register_netdevice+0x531/0x5a0
-> [   11.973950]  [<817cbd31>] register_netdevice+0x531/0x5a0
-> [   11.973950]  [<81892b87>] ? ip6_tnl_get_cap+0x27/0x90
-> [   11.973950]  [<81892b87>] ? ip6_tnl_get_cap+0x27/0x90
-> [   11.973950]  [<817cbdb6>] register_netdev+0x16/0x30
-> [   11.973950]  [<817cbdb6>] register_netdev+0x16/0x30
-> [   11.973950]  [<81f574a6>] vti6_init_net+0x1c4/0x1d4
-> [   11.973950]  [<81f574a6>] vti6_init_net+0x1c4/0x1d4
-> [   11.973950]  [<81f573af>] ? vti6_init_net+0xcd/0x1d4
-> [   11.973950]  [<81f573af>] ? vti6_init_net+0xcd/0x1d4
-> [   11.973950]  [<817c16df>] ops_init.constprop.11+0x17f/0x1c0
-> [   11.973950]  [<817c16df>] ops_init.constprop.11+0x17f/0x1c0
-> [   11.973950]  [<817c1779>] register_pernet_operations.isra.9+0x59/0x90
-> [   11.973950]  [<817c1779>] register_pernet_operations.isra.9+0x59/0x90
-> [   11.973950]  [<817c18d1>] register_pernet_device+0x21/0x60
-> [   11.973950]  [<817c18d1>] register_pernet_device+0x21/0x60
-> [   11.973950]  [<81f574b6>] ? vti6_init_net+0x1d4/0x1d4
-> [   11.973950]  [<81f574b6>] ? vti6_init_net+0x1d4/0x1d4
-> [   11.973950]  [<81f574c7>] vti6_tunnel_init+0x11/0x68
-> [   11.973950]  [<81f574c7>] vti6_tunnel_init+0x11/0x68
-> [   11.973950]  [<81f572a1>] ? mip6_init+0x73/0xb4
-> [   11.973950]  [<81f572a1>] ? mip6_init+0x73/0xb4
-> [   11.973950]  [<81f0cba4>] do_one_initcall+0xbb/0x15b
-> [   11.973950]  [<81f0cba4>] do_one_initcall+0xbb/0x15b
-> [   11.973950]  [<811a00d8>] ? sha_transform+0x528/0x1150
-> [   11.973950]  [<811a00d8>] ? sha_transform+0x528/0x1150
-> [   11.973950]  [<81f0c544>] ? repair_env_string+0x12/0x51
-> [   11.973950]  [<81f0c544>] ? repair_env_string+0x12/0x51
-> [   11.973950]  [<8105c30d>] ? parse_args+0x2ad/0x440
-> [   11.973950]  [<8105c30d>] ? parse_args+0x2ad/0x440
-> [   11.973950]  [<810546be>] ? __usermodehelper_set_disable_depth+0x3e/0x50
-> [   11.973950]  [<810546be>] ? __usermodehelper_set_disable_depth+0x3e/0x50
-> [   11.973950]  [<81f0cd27>] kernel_init_freeable+0xe3/0x182
-> [   11.973950]  [<81f0cd27>] kernel_init_freeable+0xe3/0x182
-> [   11.973950]  [<81f0c532>] ? do_early_param+0x7a/0x7a
-> [   11.973950]  [<81f0c532>] ? do_early_param+0x7a/0x7a
-> [   11.973950]  [<819b5b1b>] kernel_init+0xb/0x100
-> [   11.973950]  [<819b5b1b>] kernel_init+0xb/0x100
-> [   11.973950]  [<819cebf7>] ret_from_kernel_thread+0x1b/0x28
-> [   11.973950]  [<819cebf7>] ret_from_kernel_thread+0x1b/0x28
-> [   11.973950]  [<819b5b10>] ? rest_init+0xc0/0xc0
-> [   11.973950]  [<819b5b10>] ? rest_init+0xc0/0xc0
-> 
-> Before 469bdcefdc ("ipv6: fix the use of pcpu_tstats in ip6_vti.c"),
-> the pcpu_tstats.syncp is not used to pretect the 64bit elements of
-> pcpu_tstats, so not appear this calltrace.
-> 
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  net/ipv6/ip6_vti.c | 6 ++++++
->  1 file changed, 6 insertions(+)
-> 
-> diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-> index a4564b0..7b42d5e 100644
-> --- a/net/ipv6/ip6_vti.c
-> +++ b/net/ipv6/ip6_vti.c
-> @@ -732,12 +732,18 @@ static void vti6_dev_setup(struct net_device *dev)
->  static inline int vti6_dev_init_gen(struct net_device *dev)
->  {
->  	struct ip6_tnl *t = netdev_priv(dev);
-> +	int i;
->  
->  	t->dev = dev;
->  	t->net = dev_net(dev);
->  	dev->tstats = alloc_percpu(struct pcpu_tstats);
->  	if (!dev->tstats)
->  		return -ENOMEM;
-> +	for_each_possible_cpu(i) {
-> +		struct pcpu_tstats *stats;
-> +		stats = per_cpu_ptr(dev->tstats, i);
-> +		u64_stats_init(&stats->syncp);
-> +	}
->  	return 0;
->  }
->  
-> -- 
-> 1.7.11.7
+  - patch 4 changes the prefetch of Rx descriptor from current one to
+    next one. In benchmarks, it results in about 1% general performance
+    increase on HTTP traffic, probably because prefetching the current
+    descriptor does not leave enough time between the start of prefetch
+    and its usage.
+
+  - patch 5 implements support for build_skb() on Rx path. The driver
+    now preallocates frags instead of skbs and builds an skb just before
+    delivering it. This results in a 2% performance increase on HTTP
+    traffic, and up to 5% on small packet Rx rate.
+
+  - patch 6 implements rx_copybreak for small packets (256 bytes). It
+    avoids a dma_map_single()/dma_unmap_single() and increases the Rx
+    rate by 16.4%, from 486kpps to 573kpps. Further improvements up to
+    711kpps are possible depending how the DMA is used.
+
+This patch series depends on the previous series of fixes and is only
+for the net-next tree.
+
+Thanks!
+Willy
+
+---
+
+Willy Tarreau (6):
+  net: mvneta: remove tests for impossible cases in the tx_done path
+  net: mvneta: factor rx refilling code
+  net: mvneta: simplify access to the rx descriptor status
+  net: mvneta: prefetch next rx descriptor instead of current one
+  net: mvneta: convert to build_skb()
+  net: mvneta: implement rx_copybreak
+
+ drivers/net/ethernet/marvell/mvneta.c | 152 +++++++++++++++++++++-------------
+ 1 file changed, 95 insertions(+), 57 deletions(-)
+
+-- 
+1.7.12.2.21.g234cd45.dirty
