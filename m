@@ -1,224 +1,100 @@
 From: Willy Tarreau <w@1wt.eu>
-Subject: [PATCH 2/5] net: mvneta: use per_cpu stats to fix an SMP lock up
-Date: Sun, 12 Jan 2014 10:31:06 +0100
-Message-ID: <1389519069-1619-3-git-send-email-w@1wt.eu>
+Subject: [PATCH 4/5] net: mvneta: add missing bit descriptions for interrupt masks and causes
+Date: Sun, 12 Jan 2014 10:31:08 +0100
+Message-ID: <1389519069-1619-5-git-send-email-w@1wt.eu>
 References: <1389519069-1619-1-git-send-email-w@1wt.eu>
 Cc: netdev@vger.kernel.org, Willy Tarreau <w@1wt.eu>,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
 	Gregory CLEMENT <gregory.clement@free-electrons.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:55224 "EHLO 1wt.eu"
+Received: from 1wt.eu ([62.212.114.60]:55226 "EHLO 1wt.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751154AbaALJcI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751180AbaALJcI (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 12 Jan 2014 04:32:08 -0500
 In-Reply-To: <1389519069-1619-1-git-send-email-w@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stats writers are mvneta_rx() and mvneta_tx(). They don't lock anything
-when they update the stats, and as a result, it randomly happens that
-the stats freeze on SMP if two updates happen during stats retrieval.
-This is very easily reproducible by starting two HTTP servers and binding
-each of them to a different CPU, then consulting /proc/net/dev in loops
-during transfers, the interface should immediately lock up. This issue
-also randomly happens upon link state changes during transfers, because
-the stats are collected in this situation, but it takes more attempts to
-reproduce it.
+Marvell has not published the chip's datasheet yet, so it's very hard
+to find the relevant bits to manipulate to change the IRQ behaviour.
+Fortunately, these bits are described in the proprietary LSP patch set
+which is publicly available here :
 
-The comments in netdevice.h suggest using per_cpu stats instead to get
-rid of this issue.
+    http://www.plugcomputer.org/downloads/mirabox/
 
-This patch implements this. It merges both rx_stats and tx_stats into
-a single "stats" member with a single syncp. Both mvneta_rx() and
-mvneta_rx() now only update the a single CPU's counters.
-
-In turn, mvneta_get_stats64() does the summing by iterating over all CPUs
-to get their respective stats.
-
-With this change, stats are still correct and no more lockup is encountered.
-
-Note that this bug was present since the first import of the mvneta
-driver.  It might make sense to backport it to some stable trees. If
-so, it depends on "d33dc73 net: mvneta: increase the 64-bit rx/tx stats
-out of the hot path".
+So let's put them back in the driver in order to reduce the burden of
+current and future maintenance.
 
 Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>
 Signed-off-by: Willy Tarreau <w@1wt.eu>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 84 +++++++++++++++++++++++------------
- 1 file changed, 55 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 44 +++++++++++++++++++++++++++++++++--
+ 1 file changed, 42 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index baa85af..40d3e8b 100644
+index 84220c1..defda6f 100644
 --- a/drivers/net/ethernet/marvell/mvneta.c
 +++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -221,10 +221,12 @@
- 
- #define MVNETA_RX_BUF_SIZE(pkt_size)   ((pkt_size) + NET_SKB_PAD)
- 
--struct mvneta_stats {
-+struct mvneta_pcpu_stats {
- 	struct	u64_stats_sync syncp;
--	u64	packets;
--	u64	bytes;
-+	u64	rx_packets;
-+	u64	rx_bytes;
-+	u64	tx_packets;
-+	u64	tx_bytes;
- };
- 
- struct mvneta_port {
-@@ -250,8 +252,7 @@ struct mvneta_port {
- 	u8 mcast_count[256];
- 	u16 tx_ring_size;
- 	u16 rx_ring_size;
--	struct mvneta_stats tx_stats;
--	struct mvneta_stats rx_stats;
-+	struct mvneta_pcpu_stats *stats;
- 
- 	struct mii_bus *mii_bus;
- 	struct phy_device *phy_dev;
-@@ -461,21 +462,29 @@ struct rtnl_link_stats64 *mvneta_get_stats64(struct net_device *dev,
- {
- 	struct mvneta_port *pp = netdev_priv(dev);
- 	unsigned int start;
-+	int cpu;
- 
--	memset(stats, 0, sizeof(struct rtnl_link_stats64));
--
--	do {
--		start = u64_stats_fetch_begin_bh(&pp->rx_stats.syncp);
--		stats->rx_packets = pp->rx_stats.packets;
--		stats->rx_bytes	= pp->rx_stats.bytes;
--	} while (u64_stats_fetch_retry_bh(&pp->rx_stats.syncp, start));
-+	for_each_possible_cpu(cpu) {
-+		struct mvneta_pcpu_stats *cpu_stats;
-+		u64 rx_packets;
-+		u64 rx_bytes;
-+		u64 tx_packets;
-+		u64 tx_bytes;
- 
-+		cpu_stats = per_cpu_ptr(pp->stats, cpu);
-+		do {
-+			start = u64_stats_fetch_begin_bh(&cpu_stats->syncp);
-+			rx_packets = cpu_stats->rx_packets;
-+			rx_bytes   = cpu_stats->rx_bytes;
-+			tx_packets = cpu_stats->tx_packets;
-+			tx_bytes   = cpu_stats->tx_bytes;
-+		} while (u64_stats_fetch_retry_bh(&cpu_stats->syncp, start));
- 
--	do {
--		start = u64_stats_fetch_begin_bh(&pp->tx_stats.syncp);
--		stats->tx_packets = pp->tx_stats.packets;
--		stats->tx_bytes	= pp->tx_stats.bytes;
--	} while (u64_stats_fetch_retry_bh(&pp->tx_stats.syncp, start));
-+		stats->rx_packets += rx_packets;
-+		stats->rx_bytes   += rx_bytes;
-+		stats->tx_packets += tx_packets;
-+		stats->tx_bytes   += tx_bytes;
-+	}
- 
- 	stats->rx_errors	= dev->stats.rx_errors;
- 	stats->rx_dropped	= dev->stats.rx_dropped;
-@@ -1453,10 +1462,12 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
- 	}
- 
- 	if (rcvd_pkts) {
--		u64_stats_update_begin(&pp->rx_stats.syncp);
--		pp->rx_stats.packets += rcvd_pkts;
--		pp->rx_stats.bytes   += rcvd_bytes;
--		u64_stats_update_end(&pp->rx_stats.syncp);
-+		struct mvneta_pcpu_stats *stats = this_cpu_ptr(pp->stats);
+@@ -101,16 +101,56 @@
+ #define      MVNETA_CPU_RXQ_ACCESS_ALL_MASK      0x000000ff
+ #define      MVNETA_CPU_TXQ_ACCESS_ALL_MASK      0x0000ff00
+ #define MVNETA_RXQ_TIME_COAL_REG(q)              (0x2580 + ((q) << 2))
 +
-+		u64_stats_update_begin(&stats->syncp);
-+		stats->rx_packets += rcvd_pkts;
-+		stats->rx_bytes   += rcvd_bytes;
-+		u64_stats_update_end(&stats->syncp);
- 	}
- 
- 	/* Update rxq management counters */
-@@ -1589,11 +1600,12 @@ static int mvneta_tx(struct sk_buff *skb, struct net_device *dev)
- 
- out:
- 	if (frags > 0) {
--		u64_stats_update_begin(&pp->tx_stats.syncp);
--		pp->tx_stats.packets++;
--		pp->tx_stats.bytes += skb->len;
--		u64_stats_update_end(&pp->tx_stats.syncp);
-+		struct mvneta_pcpu_stats *stats = this_cpu_ptr(pp->stats);
- 
-+		u64_stats_update_begin(&stats->syncp);
-+		stats->tx_packets++;
-+		stats->tx_bytes  += skb->len;
-+		u64_stats_update_end(&stats->syncp);
- 	} else {
- 		dev->stats.tx_dropped++;
- 		dev_kfree_skb_any(skb);
-@@ -2758,6 +2770,7 @@ static int mvneta_probe(struct platform_device *pdev)
- 	const char *mac_from;
- 	int phy_mode;
- 	int err;
-+	int cpu;
- 
- 	/* Our multiqueue support is not complete, so for now, only
- 	 * allow the usage of the first RX queue
-@@ -2799,9 +2812,6 @@ static int mvneta_probe(struct platform_device *pdev)
- 
- 	pp = netdev_priv(dev);
- 
--	u64_stats_init(&pp->tx_stats.syncp);
--	u64_stats_init(&pp->rx_stats.syncp);
--
- 	pp->weight = MVNETA_RX_POLL_WEIGHT;
- 	pp->phy_node = phy_node;
- 	pp->phy_interface = phy_mode;
-@@ -2820,6 +2830,19 @@ static int mvneta_probe(struct platform_device *pdev)
- 		goto err_clk;
- 	}
- 
-+	/* Alloc per-cpu stats */
-+	pp->stats = alloc_percpu(struct mvneta_pcpu_stats);
-+	if (!pp->stats) {
-+		err = -ENOMEM;
-+		goto err_unmap;
-+	}
++/* Exception Interrupt Port/Queue Cause register */
 +
-+	for_each_possible_cpu(cpu) {
-+		struct mvneta_pcpu_stats *stats;
-+		stats = per_cpu_ptr(pp->stats, cpu);
-+		u64_stats_init(&stats->syncp);
-+	}
+ #define MVNETA_INTR_NEW_CAUSE                    0x25a0
+-#define      MVNETA_RX_INTR_MASK(nr_rxqs)        (((1 << nr_rxqs) - 1) << 8)
+ #define MVNETA_INTR_NEW_MASK                     0x25a4
 +
- 	dt_mac_addr = of_get_mac_address(dn);
- 	if (dt_mac_addr) {
- 		mac_from = "device tree";
-@@ -2849,7 +2872,7 @@ static int mvneta_probe(struct platform_device *pdev)
- 	err = mvneta_init(pp, phy_addr);
- 	if (err < 0) {
- 		dev_err(&pdev->dev, "can't init eth hal\n");
--		goto err_unmap;
-+		goto err_free_stats;
- 	}
- 	mvneta_port_power_up(pp, phy_mode);
- 
-@@ -2879,6 +2902,8 @@ static int mvneta_probe(struct platform_device *pdev)
- 
- err_deinit:
- 	mvneta_deinit(pp);
-+err_free_stats:
-+	free_percpu(pp->stats);
- err_unmap:
- 	iounmap(pp->base);
- err_clk:
-@@ -2899,6 +2924,7 @@ static int mvneta_remove(struct platform_device *pdev)
- 	unregister_netdev(dev);
- 	mvneta_deinit(pp);
- 	clk_disable_unprepare(pp->clk);
-+	free_percpu(pp->stats);
- 	iounmap(pp->base);
- 	irq_dispose_mapping(dev->irq);
- 	free_netdev(dev);
++/* bits  0..7  = TXQ SENT, one bit per queue.
++ * bits  8..15 = RXQ OCCUP, one bit per queue.
++ * bits 16..23 = RXQ FREE, one bit per queue.
++ * bit  29 = OLD_REG_SUM, see old reg ?
++ * bit  30 = TX_ERR_SUM, one bit for 4 ports
++ * bit  31 = MISC_SUM,   one bit for 4 ports
++ */
++#define      MVNETA_TX_INTR_MASK(nr_txqs)        (((1 << nr_txqs) - 1) << 0)
++#define      MVNETA_TX_INTR_MASK_ALL             (0xff << 0)
++#define      MVNETA_RX_INTR_MASK(nr_rxqs)        (((1 << nr_rxqs) - 1) << 8)
++#define      MVNETA_RX_INTR_MASK_ALL             (0xff << 8)
++
+ #define MVNETA_INTR_OLD_CAUSE                    0x25a8
+ #define MVNETA_INTR_OLD_MASK                     0x25ac
++
++/* Data Path Port/Queue Cause Register */
+ #define MVNETA_INTR_MISC_CAUSE                   0x25b0
+ #define MVNETA_INTR_MISC_MASK                    0x25b4
++
++#define      MVNETA_CAUSE_PHY_STATUS_CHANGE      BIT(0)
++#define      MVNETA_CAUSE_LINK_CHANGE            BIT(1)
++#define      MVNETA_CAUSE_PTP                    BIT(4)
++
++#define      MVNETA_CAUSE_INTERNAL_ADDR_ERR      BIT(7)
++#define      MVNETA_CAUSE_RX_OVERRUN             BIT(8)
++#define      MVNETA_CAUSE_RX_CRC_ERROR           BIT(9)
++#define      MVNETA_CAUSE_RX_LARGE_PKT           BIT(10)
++#define      MVNETA_CAUSE_TX_UNDERUN             BIT(11)
++#define      MVNETA_CAUSE_PRBS_ERR               BIT(12)
++#define      MVNETA_CAUSE_PSC_SYNC_CHANGE        BIT(13)
++#define      MVNETA_CAUSE_SERDES_SYNC_ERR        BIT(14)
++
++#define      MVNETA_CAUSE_BMU_ALLOC_ERR_SHIFT    16
++#define      MVNETA_CAUSE_BMU_ALLOC_ERR_ALL_MASK   (0xF << MVNETA_CAUSE_BMU_ALLOC_ERR_SHIFT)
++#define      MVNETA_CAUSE_BMU_ALLOC_ERR_MASK(pool) (1 << (MVNETA_CAUSE_BMU_ALLOC_ERR_SHIFT + (pool)))
++
++#define      MVNETA_CAUSE_TXQ_ERROR_SHIFT        24
++#define      MVNETA_CAUSE_TXQ_ERROR_ALL_MASK     (0xFF << MVNETA_CAUSE_TXQ_ERROR_SHIFT)
++#define      MVNETA_CAUSE_TXQ_ERROR_MASK(q)      (1 << (MVNETA_CAUSE_TXQ_ERROR_SHIFT + (q)))
++
+ #define MVNETA_INTR_ENABLE                       0x25b8
+ #define      MVNETA_TXQ_INTR_ENABLE_ALL_MASK     0x0000ff00
+-#define      MVNETA_RXQ_INTR_ENABLE_ALL_MASK     0xff000000
++#define      MVNETA_RXQ_INTR_ENABLE_ALL_MASK     0xff000000  // note: neta says it's 0x000000FF
++
+ #define MVNETA_RXQ_CMD                           0x2680
+ #define      MVNETA_RXQ_DISABLE_SHIFT            8
+ #define      MVNETA_RXQ_ENABLE_MASK              0x000000ff
 -- 
 1.7.12.2.21.g234cd45.dirty
