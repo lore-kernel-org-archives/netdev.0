@@ -1,45 +1,41 @@
-From: Weiping Pan <panweiping3@gmail.com>
-Subject: [PATCH net 2/2] tcp: delete redundant call of tcp_initialize_rcv_mss()
-Date: Sun, 12 Jan 2014 15:54:31 +0800
-Message-ID: <562fd95c0cf9a70789fca00e97e06035b94a7fb4.1389513042.git.panweiping3@gmail.com>
-References: <cover.1389513042.git.panweiping3@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16602 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751017AbaALH5G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Jan 2014 02:57:06 -0500
-Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s0C7v6Ft002110
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Sun, 12 Jan 2014 02:57:06 -0500
-Received: from localhost.localdomain.com (dhcp-17-97.nay.redhat.com [10.66.17.97])
-	by int-mx01.intmail.prod.int.phx2.redhat.com (8.13.8/8.13.8) with ESMTP id s0C7v2Vq005105
-	for <netdev@vger.kernel.org>; Sun, 12 Jan 2014 02:57:05 -0500
-In-Reply-To: <cover.1389513042.git.panweiping3@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH 2/3] b43: Fix oops if firmware is not available
+Date: Sun, 12 Jan 2014 09:40:39 +0100
+Message-ID: <1389516039.5242.1.camel@jlt4.sipsolutions.net>
+References: <1389469714-13040-1-git-send-email-Larry.Finger@lwfinger.net>
+	 <1389469714-13040-3-git-send-email-Larry.Finger@lwfinger.net>
+	 <1389497251.3720.40.camel@deadeye.wl.decadent.org.uk>
+	 <52D21226.4070306@lwfinger.net>
+	 <1389500647.3720.51.camel@deadeye.wl.decadent.org.uk>
+	 (sfid-20140112_052455_040829_49454E3C)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1389500647.3720.51.camel-nDn/Rdv9kqW9Jme8/bJn5UCKIB8iOfG2tUK59QYPAWc@public.gmane.org> (sfid-20140112_052455_040829_49454E3C)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-As both tcp_v4_syn_recv_sock() and tcp_v6_syn_recv_sock() already call
-tcp_initialize_rcv_mss() for new sock, the call of it in tcp_rcv_state_process()
-is redundant.
+On Sun, 2014-01-12 at 04:24 +0000, Ben Hutchings wrote:
 
-Signed-off-by: Weiping Pan <panweiping3@gmail.com>
----
- net/ipv4/tcp_input.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+> You could switch back to synchronous firmware loading soon, as it's not
+> going to support a usermode helper any more.
+> 
+> But until then, the proper fix for this is going to be to cancel the
+> waiter earlier in teardown.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 8add6bc..8a2b5c7 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5771,7 +5771,6 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
- 		/* Prevent spurious tcp_cwnd_restart() on first data packet */
- 		tp->lsndtime = tcp_time_stamp;
- 
--		tcp_initialize_rcv_mss(sk);
- 		tcp_fast_path_on(tp);
- 		break;
- 
--- 
-1.7.4
+I don't think we found a way when we looked at this, and instead made
+the module unload wait for the request_firmware callback to come back
+(see all users of the request_firmware_complete struct member in
+iwlwifi/iwl-drv.c)
+
+johannes
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
