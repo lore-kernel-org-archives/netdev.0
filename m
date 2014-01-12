@@ -1,90 +1,56 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Use of ENOTSUPP in drivers?
-Date: Sun, 12 Jan 2014 21:39:21 +0000
-Message-ID: <1389562761.3720.124.camel@deadeye.wl.decadent.org.uk>
-References: <20140112185715.GB5405@kria>
-	 <1389559622.3720.115.camel@deadeye.wl.decadent.org.uk>
-	 <1408352.Qio0cxKTUV@lenovo>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH 2/5] net: mvneta: use per_cpu stats to fix an SMP lock up
+Date: Sun, 12 Jan 2014 23:09:21 +0100
+Message-ID: <20140112220921.GE16576@1wt.eu>
+References: <1389519069-1619-1-git-send-email-w@1wt.eu> <1389519069-1619-3-git-send-email-w@1wt.eu> <1389550056.31367.186.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sabrina Dubroca <sd@queasysnail.net>, <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:50959 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751032AbaALVjZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jan 2014 16:39:25 -0500
-In-Reply-To: <1408352.Qio0cxKTUV@lenovo>
+Received: from 1wt.eu ([62.212.114.60]:55262 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750999AbaALWJ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Jan 2014 17:09:27 -0500
+Content-Disposition: inline
+In-Reply-To: <1389550056.31367.186.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-01-12 at 13:19 -0800, Florian Fainelli wrote:
-> Le dimanche 12 janvier 2014, 20:47:02 Ben Hutchings a =C3=A9crit :
-> > On Sun, 2014-01-12 at 19:57 +0100, Sabrina Dubroca wrote:
-> > > Thu, 2 Jan 2014 12:01:31 +0000, Ben Hutchings wrote:
-> > > > Never return error code ENOTSUPP; it's *not* the same thing as =
-ENOTSUP
-> > > > in userland and is not part of the userland ABI.  I would use E=
-INVAL
-> > > > here.
-> > >=20
-> > > I've found a few ethernet drivers that return -ENOTSUPP in variou=
-s
-> > > functions. In particular, some ethtool functions or ioctl's.
-> > > Ben's message makes me think that the ethtool functions and ioctl=
-'s
-> > > should be modified.
-> > >=20
-> > > There are other occurences, mostly in functions related to device
-> > > initialization. I didn't manage to track down exactly from where =
-some
-> > > of them are called, and I don't know if ENOTSUPP is okay in these=
-=2E
-> > >=20
-> > > I've included the complete list of occurences (based on net-next)=
- from
-> > > drivers/net/ethernet in patch form at the end, if that's more
-> > > convenient than the file/function list. This is not meant to be
-> > > applied.
-> > >=20
-> > >=20
-> > > Do these (or part of them) need to be patched? Or is there someth=
-ing
-> > > I'm missing?
-> >=20
-> > [...]
-> >=20
-> > I believe they should all be patched.  According to
-> > include/linux/errno.h, ENOTSUPP is meant for use in the NFSv3 code =
-only.
-> > (But it's apparently erroneously used *all over* the tree, not just=
- in
-> > net drivers!)
->=20
-> Most other drivers use -EOPNOTSUPP, which is arguably as bad as -ENOT=
-SUPP,=20
-> since the comment about it says:
->=20
-> * Operation not supported on transport endpoint *
->=20
-> But at least changing -ENOTSUPP to -EOPNOTSUPP until something better=
- which is=20
-> not protocol/endpoint specific is agreed on might be better for consi=
-stency?
+Hi Eric!
 
-It is not as bad, because EOPNOTSUPP is actually named in userland (in
-fact it has two names, the other being ENOTSUP spelt with *one* P).
+On Sun, Jan 12, 2014 at 10:07:36AM -0800, Eric Dumazet wrote:
+> On Sun, 2014-01-12 at 10:31 +0100, Willy Tarreau wrote:
+> > Stats writers are mvneta_rx() and mvneta_tx(). They don't lock anything
+> > when they update the stats, and as a result, it randomly happens that
+> > the stats freeze on SMP if two updates happen during stats retrieval.
+> 
+> Your patch is OK, but I dont understand how this freeze can happen.
+> 
+> TX and RX uses a separate syncp, and TX is protected by a lock, RX
+> is protected by NAPI bit.
 
-glibc's strerror() returns these strings for ENOTSUPP and EOPNOTSUPP
-respectively:
+But we can have multiple tx in parallel, one per queue. And it's only
+when I explicitly bind two servers to two distinct CPU cores that I
+can trigger the issue, which seems to confirm that this is the cause
+of the issue.
 
-"Unknown error 524"
-"Operation not supported"
+> Stats retrieval uses the appropriate BH disable before the fetches...
 
-Ben.
+>From the numerous printks I have added inside the syncp blocks, it
+appears that the stats themselves are not responsible for the issue,
+but the concurrent Tx are. I ended up several times stuck if I had
+two Tx on different CPUs right before a stats retrieval. From the
+info I found on the syncp docs, the caller is responsible for locking
+and I don't see where there's any lock here since the syncp are global
+and not even per tx queue.
 
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+But this stuff is very new to me, I can have missed something. That
+said, I'm quite certain that the lock happened within the syncp blocks
+and only in this case! At least my reading of the relevant includes
+seemed to confirm to me that this hypothesis was valid :-/
+
+Thanks,
+Willy
