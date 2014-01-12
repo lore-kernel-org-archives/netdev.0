@@ -1,52 +1,61 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
+From: sowmini varadhan <sowmini05@gmail.com>
 Subject: Re: a vxlan question.
-Date: Sun, 12 Jan 2014 10:25:03 -0800
-Message-ID: <20140112102503.398a0047@nehalam.linuxnetplumber.net>
+Date: Sun, 12 Jan 2014 13:38:16 -0500
+Message-ID: <CACP96tR3uBQ_kizgB-WhnwA_SQ17BPc5SF9_3SPbnfWwhW0KqA@mail.gmail.com>
 References: <CACP96tSOA70sAE_b-Ff6=gOySg0sHQQMRwpuNaA1n5HvgFAzSA@mail.gmail.com>
+	<20140112102503.398a0047@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
 Cc: netdev@vger.kernel.org, sowmini.varadhan@hp.com
-To: sowmini varadhan <sowmini05@gmail.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:53527 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750954AbaALSZG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jan 2014 13:25:06 -0500
-Received: by mail-pa0-f49.google.com with SMTP id bj1so2940888pad.36
-        for <netdev@vger.kernel.org>; Sun, 12 Jan 2014 10:25:05 -0800 (PST)
-In-Reply-To: <CACP96tSOA70sAE_b-Ff6=gOySg0sHQQMRwpuNaA1n5HvgFAzSA@mail.gmail.com>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:38619 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751570AbaALSiS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jan 2014 13:38:18 -0500
+Received: by mail-lb0-f175.google.com with SMTP id w6so4696421lbh.20
+        for <netdev@vger.kernel.org>; Sun, 12 Jan 2014 10:38:17 -0800 (PST)
+In-Reply-To: <20140112102503.398a0047@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 12 Jan 2014 12:25:51 -0500
-sowmini varadhan <sowmini05@gmail.com> wrote:
+On Sun, Jan 12, 2014 at 1:25 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
 
-> A question about the vxlan implementation in linux:
-> 
-> if the inner packet (the frame that is vxlan encapsulated) is an IP
-> packet that has the DF bit set, i.e., it is a PMTU discovery packet, and
-> the subsequent vxlan encapsulation results in a ICMP packet-too-big
-> error,then does the VTEP relay that error back to the originator of
-> the
-> PMTU packet?
-> 
-> AFAICT, the current linux code in drivers/net/vxlan.c
-> does not address any icmp errors (though it sets the DF of the outer
-> header based on the inner header). From my reading of the code,
-> we'd end up in __udp4_lib_err for the vxlan-encaps packet, but
-> there's nothing in there that recognizes that the udp payload is
-> itself an ethernet+IP frame and relays pmtu back to the (inner) ip src?
-> Did I miss something?
-> 
-> --Sowmini
-> --
 
-The VXLAN like all layer 2 tunnels is not allowed to respond IP packets
-in the inner header. One of the principles of network virtualization
-is that the inner network IP space may overlap or be invalid in the
-outer IP domain. Therefore an intermediate system (like VXLAN) does
-not have a valid IP in the inner domain to send a response.
+> The VXLAN like all layer 2 tunnels is not allowed to respond IP packets
+> in the inner header.
 
-Another way to look at is that VXLAN is more of L2 bridge rather
-than a L3 router.
+Ok, so I see that the other tunnels don't relay packets, but
+I noticed that they do take note of  FRAG_NEEDED and
+update the soft state (e.g., ipip_err)
+
+> One of the principles of network virtualization
+> is that the inner network IP space may overlap or be invalid in the
+> outer IP domain. Therefore an intermediate system (like VXLAN) does
+> not have a valid IP in the inner domain to send a response.
+
+Understood. And I recognize that the other tunnel drivers
+don't relay pmtu today.
+
+ But if you have  the rfc1812 conformant 576 bytes of the offending IP
+in your error, you should have enough information (vmi, mac addrs,
+vlans, IP addrs) to figure out who generated this packet?
+
+>
+> Another way to look at is that VXLAN is more of L2 bridge rather
+> than a L3 router.
+
+Well I guess the difference is that this flavor of L2 bridge
+does in fact reduce the mtu by adding the udp/ip header.
+Thus if I was a VM talking to another VM on my own pod
+(i.e, no vxlan encaps in the way), I'd have a different mtu than if
+I migrated to to another ToR/pod, and ended up with a reduced
+mtu (I'd need to either bump up to 1600 byte mtus so that the
+VM could continue to send 1500 byte pre-encaps frames, or
+figure out the reduced mtu via pmtu, no?)
+
+At the very least, shouldn't the VTEP track the reduced mtu
+(in the same way that other tunnel drivers do)?
+
+--Sowmini
