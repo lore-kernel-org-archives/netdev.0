@@ -1,31 +1,32 @@
-From: "Bob Falken" <NetFestivalHaveFun@gmx.com>
-Subject: Re: Multicast routing stops functioning after 4G multicast packets
- recived.
-Date: Sun, 12 Jan 2014 01:25:54 +0100
-Message-ID: <20140112002554.18070@gmx.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: "Julian Anastasov" <ja@ssi.bg>, netdev@vger.kernel.org,
-	kaber@trash.net, tgraf@suug.ch, eric.dumazet@gmail.com
-To: "Hannes Frederic Sowa" <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.22]:55065 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750857AbaALAZz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 11 Jan 2014 19:25:55 -0500
-Received: from mailout-eu.gmx.com ([10.1.101.210]) by mrigmx.server.lan
- (mrigmx002) with ESMTP (Nemesis) id 0MJqWY-1W3FKw3JO0-001CRB for
- <netdev@vger.kernel.org>; Sun, 12 Jan 2014 01:25:54 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: damuzi000 <damuzi000@gmail.com>
+Subject: [PATCH 1/1] When timestamping is enabled, stmmac_tx_clean will call stmmac_get_tx_hwtstamp to get tx TS. It's possible that skb is NULL because there are other network frames that use several descriptors. So we must return immediately in stmmac_get_tx_hwtstamp if skb is NULL to avoid system crash.
+Date: Sun, 12 Jan 2014 10:01:35 +0800
+Message-ID: <1389492095-6589-1-git-send-email-damuzi000@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	damuzi000 <damuzi000@gmail.com>
+To: peppe.cavallaro@st.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hey Hannes, The updated patch you posted on the 7th worked as expected (as far as i know, did not have any obvious issues.) :-)
 
-I'll run a full test starting on Monday/Thursday, and report back after I have reached 2^32 RX packets. 
+Signed-off-by: damuzi000 <damuzi000@gmail.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I will then run a longer test (3-4 weeks), and also check that TX is ok after reaching 2^32 packets. 
-
-Thanks again for all the help.
-
-Best Regards.
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 797b56a..47f2287 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -332,7 +332,7 @@ static void stmmac_get_tx_hwtstamp(struct stmmac_priv *priv,
+ 		return;
+ 
+ 	/* exit if skb doesn't support hw tstamp */
+-	if (likely(!(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS)))
++	if (likely(!skb || !(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS)))
+ 		return;
+ 
+ 	if (priv->adv_ts)
+-- 
+1.7.9.5
