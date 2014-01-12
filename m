@@ -1,52 +1,28 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 2/3] b43: Fix oops if firmware is not available
-Date: Sat, 11 Jan 2014 21:55:18 -0600
-Message-ID: <52D21226.4070306@lwfinger.net>
-References: <1389469714-13040-1-git-send-email-Larry.Finger@lwfinger.net>	 <1389469714-13040-3-git-send-email-Larry.Finger@lwfinger.net> <1389497251.3720.40.camel@deadeye.wl.decadent.org.uk>
+From: "GREG MOORE LOANS." <scarfaceloco@cox.net>
+Subject: I'm Greg Moore, a legitimate & accredited Loan lender. We give out
+ good loans    of all kind in a very quick and easy way, Personal Loan, Car
+ Loan, Home Loan,  Business Loan, Mortgage Loan, Student Loan, Inventor
+ loan, Debt Consolidation.    Your loan application can also be granted same
+ week...      Get back to me asap if intrested with the info below:
+        MR GREG MOORE
+                                                                       gregmooreloans05@qatar.io
+        Regards,  Mr Greg Moore.
+Date: Sat, 11 Jan 2014 19:32:45 -0800
+Message-ID: <20140111223245.AS5XP.791162.imail@fed1rmwml207>
+Reply-To: gregmooreloans05@qatar.io
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f53.google.com ([209.85.219.53]:51474 "EHLO
-	mail-oa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750958AbaALDzU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jan 2014 22:55:20 -0500
-In-Reply-To: <1389497251.3720.40.camel@deadeye.wl.decadent.org.uk>
+Received: from fed1rmfepi201.cox.net ([68.230.241.140]:38775 "EHLO
+	fed1rmfepi201.cox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750958AbaALD5x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jan 2014 22:57:53 -0500
+Received: from fed1rmimpo109 ([68.230.241.158]) by fed1rmfepo102.cox.net
+          (InterMail vM.8.01.05.09 201-2260-151-124-20120717) with ESMTP
+          id <20140112033246.INLD26500.fed1rmfepo102.cox.net@fed1rmimpo109>
+          for <netdev@vger.kernel.org>; Sat, 11 Jan 2014 22:32:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/11/2014 09:27 PM, Ben Hutchings wrote:
-> On Sat, 2014-01-11 at 13:48 -0600, Larry Finger wrote:
->> On openSUSE systems, the script that installs the firmware for b43 also
->> unloads and reloads the driver. When the firmware was not previously
->> available, the driver has stalled at a wait_for_completion(). When the
->> unload routine releases that hold, the driver encounters structures
->> that have already been deleted and generates a fatal condition. When
->> the user does a manual restart, the file system cleanup frequently
->> results in the firmware files being deleted and the user is never able
->> to install the firmware. The fix is to change the wait_for_completion()
->> with a wait_for_completion_timeout() with a 60 second wait period.
->>
->> There is a potential race condition; however, the chances that less
->> than a minute has elapsed between the initial driver load and a
->> subsequent unload is very unlikely.
->
-> A minute-long race is 'unlikely' to be hit?  Seriously?!
-
-Ben,
-
-If you force a reboot before the minute expires, nothing weird happens. The only 
-race condition happens when the user has to log in, open a terminal, run a 
-script that downloads 13.5 MiB of files from the Internet, and then executes the 
-firmware extraction program. On my 10 Mbps external line and a 2 GHz CPU, that 
-takes 32 s, plus any time to enter the password for a sudo operation. That was 
-the basis for my conclusion that a race is unlikely.
-
-What is the minimum time that should be allowed for a request_firmware_nowait() 
-to respond? I know we had to go to asynchronous fw loading because the 
-synchronous  version would timeout at 30 s.
-
-Larry
