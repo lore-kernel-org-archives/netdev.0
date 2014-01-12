@@ -1,41 +1,72 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 3/3 V2] b43legacy: Fix unload oops if firmware is not available
-Date: Sun, 12 Jan 2014 15:11:39 -0600
-Message-ID: <1389561099-17181-4-git-send-email-Larry.Finger@lwfinger.net>
-References: <1389561099-17181-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
-To: linville@tuxdriver.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1389561099-17181-1-git-send-email-Larry.Finger@lwfinger.net>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Use of ENOTSUPP in drivers?
+Date: Sun, 12 Jan 2014 13:19:36 -0800
+Message-ID: <1408352.Qio0cxKTUV@lenovo>
+References: <20140112185715.GB5405@kria> <1389559622.3720.115.camel@deadeye.wl.decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sabrina Dubroca <sd@queasysnail.net>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f182.google.com ([209.85.214.182]:36015 "EHLO
+	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750962AbaALVTk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jan 2014 16:19:40 -0500
+Received: by mail-ob0-f182.google.com with SMTP id wn1so4929896obc.41
+        for <netdev@vger.kernel.org>; Sun, 12 Jan 2014 13:19:39 -0800 (PST)
+In-Reply-To: <1389559622.3720.115.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The asyncronous firmware load uses a completion struct to hold firmware
-processing until the user-space routines are up and running. There is.
-however, a problem in that the waiter is nevered canceled during teardown.
-As a result, unloading the driver when firmware is not available causes an oops.
+Le dimanche 12 janvier 2014, 20:47:02 Ben Hutchings a =E9crit :
+> On Sun, 2014-01-12 at 19:57 +0100, Sabrina Dubroca wrote:
+> > Thu, 2 Jan 2014 12:01:31 +0000, Ben Hutchings wrote:
+> > > Never return error code ENOTSUPP; it's *not* the same thing as EN=
+OTSUP
+> > > in userland and is not part of the userland ABI.  I would use EIN=
+VAL
+> > > here.
+> >=20
+> > I've found a few ethernet drivers that return -ENOTSUPP in various
+> > functions. In particular, some ethtool functions or ioctl's.
+> > Ben's message makes me think that the ethtool functions and ioctl's
+> > should be modified.
+> >=20
+> > There are other occurences, mostly in functions related to device
+> > initialization. I didn't manage to track down exactly from where so=
+me
+> > of them are called, and I don't know if ENOTSUPP is okay in these.
+> >=20
+> > I've included the complete list of occurences (based on net-next) f=
+rom
+> > drivers/net/ethernet in patch form at the end, if that's more
+> > convenient than the file/function list. This is not meant to be
+> > applied.
+> >=20
+> >=20
+> > Do these (or part of them) need to be patched? Or is there somethin=
+g
+> > I'm missing?
+>=20
+> [...]
+>=20
+> I believe they should all be patched.  According to
+> include/linux/errno.h, ENOTSUPP is meant for use in the NFSv3 code on=
+ly.
+> (But it's apparently erroneously used *all over* the tree, not just i=
+n
+> net drivers!)
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Stable <stable@vger.kernel.org>
----
-V2 - Addresses the comments of Ben Hutchings and removes the race condition.
+Most other drivers use -EOPNOTSUPP, which is arguably as bad as -ENOTSU=
+PP,=20
+since the comment about it says:
 
- drivers/net/wireless/b43legacy/main.c | 1 +
- 1 file changed, 1 insertion(+)
+* Operation not supported on transport endpoint *
 
-diff --git a/drivers/net/wireless/b43legacy/main.c b/drivers/net/wireless/b43legacy/main.c
-index 5726688..349c776 100644
---- a/drivers/net/wireless/b43legacy/main.c
-+++ b/drivers/net/wireless/b43legacy/main.c
-@@ -3919,6 +3919,7 @@ static void b43legacy_remove(struct ssb_device *dev)
- 	 * as the ieee80211 unreg will destroy the workqueue. */
- 	cancel_work_sync(&wldev->restart_work);
- 	cancel_work_sync(&wl->firmware_load);
-+	complete(&wldev->fw_load_complete);
- 
- 	B43legacy_WARN_ON(!wl);
- 	if (!wldev->fw.ucode)
--- 
-1.8.4
+But at least changing -ENOTSUPP to -EOPNOTSUPP until something better w=
+hich is=20
+not protocol/endpoint specific is agreed on might be better for consist=
+ency?
+--=20
+=46lorian
