@@ -1,61 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: suspicious RCU usage in net/ipv4/ip_tunnel.c:80
-Date: Sun, 12 Jan 2014 09:44:57 -0800
-Message-ID: <1389548697.31367.184.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAHA+R7PAyR_cJ9_9nfUBc0U9o-U=gCV+sN_VYbHwgq-QdoEVzQ@mail.gmail.com>
-	 <1389403281.31367.171.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAHA+R7OMM9ndy4hXF4rJBsA_Rb0KZ-MonuvE++wgzO_oMbo+eQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>, netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH v2 0/3] atheros: modify statistics code
+Date: Sun, 12 Jan 2014 18:50:37 +0100
+Message-ID: <1389549040-8785-1-git-send-email-sd@queasysnail.net>
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
+	jcliburn@gmail.com, chris.snook@gmail.com,
+	Sabrina Dubroca <sd@queasysnail.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f41.google.com ([209.85.160.41]:60695 "EHLO
-	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750954AbaALRo7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jan 2014 12:44:59 -0500
-Received: by mail-pb0-f41.google.com with SMTP id jt11so6400056pbb.28
-        for <netdev@vger.kernel.org>; Sun, 12 Jan 2014 09:44:58 -0800 (PST)
-In-Reply-To: <CAHA+R7OMM9ndy4hXF4rJBsA_Rb0KZ-MonuvE++wgzO_oMbo+eQ@mail.gmail.com>
+Received: from smtp3-g21.free.fr ([212.27.42.3]:44671 "EHLO smtp3-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751101AbaALRvF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Jan 2014 12:51:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-01-11 at 11:15 -0800, Cong Wang wrote:
-> On Fri, Jan 10, 2014 at 5:21 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >
-> > Nope, the synchronize_rcu() is not needed here.
-> 
-> OK.
-> 
-> >
-> > Please use following sparse ready patch, thanks :
-> >
-> > diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-> > index d3929a69f008..6eda759b5c4b 100644
-> > --- a/net/ipv4/ip_tunnel.c
-> > +++ b/net/ipv4/ip_tunnel.c
-> > @@ -77,10 +77,11 @@ static inline void __tunnel_dst_set(struct ip_tunnel_dst *idst,
-> >                 dst = NULL;
-> >
-> >         spin_lock_bh(&idst->lock);
-> > -       old_dst = rcu_dereference(idst->dst);
-> > +       old_dst = rcu_dereference_protected(idst->dst,
-> > +                                           lockdep_is_held(&idst->lock));
-> >         rcu_assign_pointer(idst->dst, dst);
-> > -       dst_release(old_dst);
-> >         spin_unlock_bh(&idst->lock);
-> > +       dst_release(old_dst);
-> 
-> Do you really need a rcu_dereference*() here? We don't dereference
-> it inside spin_lock protection.
+Following Ben Hutchings's advice on how to fill net_stats in alx [1],
+this patch modifies the other atheros ethernet drivers
+similarly. Minor whitespace/empty line changes in atl1c and atl1e to
+make the code completely consistent between atl1c, atl1e, and alx.
 
-Please read rcu_dereference_protected() documentation in
-include/linux/rcupdate.h
+I don't have this hardware, so these patches have only been
+compile-tested.
 
-Also you can run sparse, with CONFIG_SPARSE_RCU_POINTER=y in
-your .config
 
-make C=2 net/ipv4/ip_tunnel.o
+v2 (changes only in atl1):
+ - don't set soft_stats.rx_missed_errors (Ben)
+ - add errors to soft_stats.{rx,tx}_packets (Ben)
+ - add soft_stats.rx_dropped field and update soft_stats.rx_dropped
+   instead of netdev->stats (overwritten) outside of the stats
+   update function
 
-And then you'll know the answer to this question.
+Detail of the changes (v1):
+* atl1/atl1c/atl1e
+  - fix collisions computation
+  - rx_dropped = rx_rrd_ov
+  - rx_over_errors = 0
+  - rx_missed_errors = 0
+  - X_packets = X_ok + X_errors
+
+* only atl1c/atl1e
+  - add rx_rxf_ov to rx_errors
+
+
+[1] http://www.spinics.net/lists/netdev/msg264930.html
+
+
+Sabrina Dubroca (3):
+  atl1c: update statistics code
+  atl1e: update statistics code
+  atl1:  update statistics code
+
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c | 31 +++++++++++-------
+ drivers/net/ethernet/atheros/atl1e/atl1e_main.c | 30 ++++++++++-------
+ drivers/net/ethernet/atheros/atlx/atl1.c        | 43 ++++++++++++++-----------
+ drivers/net/ethernet/atheros/atlx/atl1.h        |  1 +
+ 4 files changed, 65 insertions(+), 40 deletions(-)
+
+-- 
+1.8.5.2
