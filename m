@@ -1,41 +1,72 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH 2/3] b43: Fix oops if firmware is not available
-Date: Sun, 12 Jan 2014 09:40:39 +0100
-Message-ID: <1389516039.5242.1.camel@jlt4.sipsolutions.net>
-References: <1389469714-13040-1-git-send-email-Larry.Finger@lwfinger.net>
-	 <1389469714-13040-3-git-send-email-Larry.Finger@lwfinger.net>
-	 <1389497251.3720.40.camel@deadeye.wl.decadent.org.uk>
-	 <52D21226.4070306@lwfinger.net>
-	 <1389500647.3720.51.camel@deadeye.wl.decadent.org.uk>
-	 (sfid-20140112_052455_040829_49454E3C)
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1389500647.3720.51.camel-nDn/Rdv9kqW9Jme8/bJn5UCKIB8iOfG2tUK59QYPAWc@public.gmane.org> (sfid-20140112_052455_040829_49454E3C)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Willy Tarreau <w@1wt.eu>
+Subject: [PATCH 1/5] net: mvneta: increase the 64-bit rx/tx stats out of the hot path
+Date: Sun, 12 Jan 2014 10:31:05 +0100
+Message-ID: <1389519069-1619-2-git-send-email-w@1wt.eu>
+References: <1389519069-1619-1-git-send-email-w@1wt.eu>
+Cc: netdev@vger.kernel.org, Willy Tarreau <w@1wt.eu>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 1wt.eu ([62.212.114.60]:55212 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751060AbaALJb7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Jan 2014 04:31:59 -0500
+In-Reply-To: <1389519069-1619-1-git-send-email-w@1wt.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-01-12 at 04:24 +0000, Ben Hutchings wrote:
+Better count packets and bytes in the stack and on 32 bit then
+accumulate them at the end for once. This saves two memory writes
+and two memory barriers per packet. The incoming packet rate was
+increased by 4.7% on the Openblocks AX3 thanks to this.
 
-> You could switch back to synchronous firmware loading soon, as it's not
-> going to support a usermode helper any more.
-> 
-> But until then, the proper fix for this is going to be to cancel the
-> waiter earlier in teardown.
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Signed-off-by: Willy Tarreau <w@1wt.eu>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
 
-I don't think we found a way when we looked at this, and instead made
-the module unload wait for the request_firmware callback to come back
-(see all users of the request_firmware_complete struct member in
-iwlwifi/iwl-drv.c)
-
-johannes
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index d5f0d72..baa85af 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -1391,6 +1391,8 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+ {
+ 	struct net_device *dev = pp->dev;
+ 	int rx_done, rx_filled;
++	u32 rcvd_pkts = 0;
++	u32 rcvd_bytes = 0;
+ 
+ 	/* Get number of received packets */
+ 	rx_done = mvneta_rxq_busy_desc_num_get(pp, rxq);
+@@ -1428,10 +1430,8 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+ 
+ 		rx_bytes = rx_desc->data_size -
+ 			(ETH_FCS_LEN + MVNETA_MH_SIZE);
+-		u64_stats_update_begin(&pp->rx_stats.syncp);
+-		pp->rx_stats.packets++;
+-		pp->rx_stats.bytes += rx_bytes;
+-		u64_stats_update_end(&pp->rx_stats.syncp);
++		rcvd_pkts++;
++		rcvd_bytes += rx_bytes;
+ 
+ 		/* Linux processing */
+ 		skb_reserve(skb, MVNETA_MH_SIZE);
+@@ -1452,6 +1452,13 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+ 		}
+ 	}
+ 
++	if (rcvd_pkts) {
++		u64_stats_update_begin(&pp->rx_stats.syncp);
++		pp->rx_stats.packets += rcvd_pkts;
++		pp->rx_stats.bytes   += rcvd_bytes;
++		u64_stats_update_end(&pp->rx_stats.syncp);
++	}
++
+ 	/* Update rxq management counters */
+ 	mvneta_rxq_desc_num_update(pp, rxq, rx_done, rx_filled);
+ 
+-- 
+1.7.12.2.21.g234cd45.dirty
