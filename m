@@ -1,66 +1,58 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] MAINTAINERS: add virtio-dev ML for virtio
-Date: Sun, 12 Jan 2014 13:37:56 +0200
-Message-ID: <20140112113756.GA9127@redhat.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH 1/1] When timestamping is enabled, stmmac_tx_clean will
+ call stmmac_get_tx_hwtstamp to get tx TS. It's possible that skb is NULL
+ because there are other network frames that use several descriptors. So we
+ must return immediately in stmmac_get_tx_hwtstamp if skb is NULL to avoid
+ system crash.
+Date: Sun, 12 Jan 2014 12:38:28 +0100
+Message-ID: <52D27EB4.9050909@redhat.com>
+References: <1389492095-6589-1-git-send-email-damuzi000@gmail.com> <20140112093951.GA3743@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Joe Perches <joe@perches.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Mauro Carvalho Chehab <m.chehab@samsung.com>,
-        "David S. Miller" <davem@davemloft.net>, amit.shah@redhat.com,
-        Jason Wang <jasowang@redhat.com>,
-        Wanlong Gao <gaowanlong@cn.fujitsu.com>,
-        virtio-dev@lists.oasis-open.org, netdev@vger.kernel.org,
-        virtualization@lists.linux-foundation.org
-To: linux-kernel@vger.kernel.org
-Return-path: <virtio-dev-return-228-gcvd-virtio-dev=m.gmane.org@lists.oasis-open.org>
-Sender: <virtio-dev@lists.oasis-open.org>
-List-Post: <mailto:virtio-dev@lists.oasis-open.org>
-List-Help: <mailto:virtio-dev-help@lists.oasis-open.org>
-List-Unsubscribe: <mailto:virtio-dev-unsubscribe@lists.oasis-open.org>
-List-Subscribe: <mailto:virtio-dev-subscribe@lists.oasis-open.org>
-Content-Disposition: inline
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Bruce Liu <damuzi000@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140112093951.GA3743@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since virtio is an OASIS standard draft now, virtio implementation
-discussions are taking place on the virtio-dev OASIS mailing list.
-Update MAINTAINERS.
+On 01/12/2014 10:39 AM, Bruce Liu wrote:
+>   When timestamping is enabled, stmmac_tx_clean will call stmmac_get_tx_hwtstamp to get tx TS.
+>   It's possible that skb is NULL because there are other network frames that use several descriptors.
+>   So we must return immediately in stmmac_get_tx_hwtstamp if skb is NULL to avoid system crash.
+>
+>
+> Signed-off-by: Bruce Liu <damuzi000@gmail.com>
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- MAINTAINERS              |   3 +
- drivers/net/virtio_net.c | 355 +++++++++++++++++++++++++----------------------
- 2 files changed, 191 insertions(+), 167 deletions(-)
+Please see Documentation/SubmittingPatches +489
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index ffcaf97..75202af 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -9088,6 +9088,7 @@ F:	include/media/videobuf2-*
- 
- VIRTIO CONSOLE DRIVER
- M:	Amit Shah <amit.shah@redhat.com>
-+L:	virtio-dev@lists.oasis-open.org
- L:	virtualization@lists.linux-foundation.org
- S:	Maintained
- F:	drivers/char/virtio_console.c
-@@ -9097,6 +9098,7 @@ F:	include/uapi/linux/virtio_console.h
- VIRTIO CORE, NET AND BLOCK DRIVERS
- M:	Rusty Russell <rusty@rustcorp.com.au>
- M:	"Michael S. Tsirkin" <mst@redhat.com>
-+L:	virtio-dev@lists.oasis-open.org
- L:	virtualization@lists.linux-foundation.org
- S:	Maintained
- F:	drivers/virtio/
-@@ -9109,6 +9111,7 @@ F:	include/uapi/linux/virtio_*.h
- VIRTIO HOST (VHOST)
- M:	"Michael S. Tsirkin" <mst@redhat.com>
- L:	kvm@vger.kernel.org
-+L:	virtio-dev@lists.oasis-open.org
- L:	virtualization@lists.linux-foundation.org
- L:	netdev@vger.kernel.org
- S:	Maintained
--- 
-MST
+You subject line is way too long and should just be something like:
+
+[PATCH net-next] net: stmmac: fix NULL pointer dereference in stmmac_get_tx_hwtstamp
+
+Don't indent your actual commit message with whitespaces as prefix,
+and do a line break after around 70 chars.
+
+Btw, I mentioned net-next in the subject since merge window will
+open soon anyway.
+
+> ---
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 797b56a..47f2287 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -332,7 +332,7 @@ static void stmmac_get_tx_hwtstamp(struct stmmac_priv *priv,
+>   		return;
+>
+>   	/* exit if skb doesn't support hw tstamp */
+> -	if (likely(!(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS)))
+> +	if (likely(!skb || !(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS)))
+>   		return;
+>
+>   	if (priv->adv_ts)
+>
