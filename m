@@ -1,38 +1,74 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net-next v3 2/9] xen-netback: Change TX path
- from grant copy to mapping
-Date: Sun, 12 Jan 2014 23:19:38 +0000
-Message-ID: <52D3230A.3020203@citrix.com>
-References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com>	<1389139818-24458-3-git-send-email-zoltan.kiss@citrix.com>	<20140109153015.GF12164@zion.uk.xensource.com>	<52CFDAEC.5080708@citrix.com>	<20140110114534.GE29180@zion.uk.xensource.com> <52D01094.5060102@citrix.com> <52D0198C.6000600@citrix.com>
+From: Michael Dalton <mwdalton@google.com>
+Subject: Re: [PATCH net-next v2 4/4] virtio-net: initial debugfs support,
+	export mergeable rx buffer size
+Date: Sun, 12 Jan 2014 15:32:28 -0800
+Message-ID: <CANJ5vP+Vu8=haCetZkcefPgR8pGe0iDZ03EZhJHLSgunCaHJsQ@mail.gmail.com>
+References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
+	<1389072355-20666-4-git-send-email-mwdalton@google.com>
+	<52CCF177.7020500@redhat.com> <20140108192109.GC18312@redhat.com>
+	<CANJ5vP+Qxa5j_Cp1FBK-qdO+U+dy2kiY5N2bmWdMKbCoY9EwDQ@mail.gmail.com>
+	<20140112170939.GA17202@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<jonathan.davies@citrix.com>, <ian.campbell@citrix.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: David Vrabel <david.vrabel@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:47024 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750899AbaALXUB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Jan 2014 18:20:01 -0500
-In-Reply-To: <52D0198C.6000600@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140112170939.GA17202@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 10/01/14 16:02, David Vrabel wrote:
-> On 10/01/14 15:24, Zoltan Kiss wrote:
-> If the grant table code doesn't provide the API calls you need you can
-> either:
->
-> a) add the new API as a prerequisite patch.
-> b) use the existing API calls and live with the performance problem,
-> until you can refactor the API later on.
->
-> Adding a netback-specific hack isn't a valid option.
->
-> David
+Hi Michael,
 
-Ok, I've sent in the patch which does a)
+On Sun, Jan 12, 2014 at 9:09 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> Can't we add struct attribute * to netdevice, and pass that in when
+> creating the kobj?
 
-Zoli
+I like that idea, I think that will work and should be better than
+the alternatives. The actual kobjs for RX queues (struct netdev_rx_queue)
+are allocated and deallocated by calls to net_rx_queue_update_kobjects,
+which resizes RX queue kobjects when the netdev RX queues are resized.
+
+Is this what you had in mind:
+(1) Add a pointer to an attribute group to struct net_device, used for
+    per-netdev rx queue attributes and initialized before the call to
+    register_netdevice().
+(2) Declare an attribute group containing the mergeable_rx_buffer_size
+    attribute in virtio-net, and initialize the per-netdevice group pointer
+    to the address of this group in virtnet_probe before register_netdevice
+(3) In net-sysfs, modify net_rx_queue_update_kobjects
+    (or rx_queue_add_kobject) to call sysfs_create_group on the
+    per-netdev attribute group (if non-NULL), adding the attributes in
+    the group to the RX queue kobject.
+
+That should allow us to have per-RX queue attributes that are
+device-specific. I'm not a sysfs expert, but it seems that rx_queue_ktype
+and rx_queue_sysfs_ops presume that all rx queue sysfs operations are
+performed on attributes of type rx_queue_attribute. That type will need
+to be moved from net-sysfs.c to a header file like netdevice.h so that
+the type can be used in virtio-net when we declare the
+mergeable_rx_buffer_size attribute.
+
+The last issue is how the rx_queue_attribute 'show' function
+implementation for mergeable_rx_buffer_size will access the appropriate
+per-receive queue EWMA data. The arguments to the show function will be
+the netdev_rx_queue and the attribute itself. We can get to the
+struct net_device from the netdev_rx_queue.  If we extended
+netdev_rx_queue to indicate the queue_index or to store a void *priv_data
+pointer, that would be sufficient to allow us to resolve this issue.
+
+Please let me know if the above sounds good or if you see a better way
+to accomplish this goal. Thanks!
+
+Best,
+
+Mike
