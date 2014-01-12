@@ -1,67 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] netfilter: nf_conntrack: fix RCU race in
- nf_conntrack_find_get (v3)
-Date: Sun, 12 Jan 2014 12:21:14 -0800
-Message-ID: <1389558074.31367.187.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1389188841.26646.87.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1389549033-23523-1-git-send-email-avagin@openvz.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Use of ENOTSUPP in drivers?
+Date: Sun, 12 Jan 2014 20:47:02 +0000
+Message-ID: <1389559622.3720.115.camel@deadeye.wl.decadent.org.uk>
+References: <20140112185715.GB5405@kria>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vvs@openvz.org,
-	Florian Westphal <fw@strlen.de>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cyrill Gorcunov <gorcunov@openvz.org>
-To: Andrey Vagin <avagin@openvz.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1389549033-23523-1-git-send-email-avagin@openvz.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: Sabrina Dubroca <sd@queasysnail.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:31309 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750999AbaALUrG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jan 2014 15:47:06 -0500
+In-Reply-To: <20140112185715.GB5405@kria>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-01-12 at 21:50 +0400, Andrey Vagin wrote:
-> Lets look at destroy_conntrack:
+On Sun, 2014-01-12 at 19:57 +0100, Sabrina Dubroca wrote:
+> Thu, 2 Jan 2014 12:01:31 +0000, Ben Hutchings wrote:
+> > Never return error code ENOTSUPP; it's *not* the same thing as ENOTSUP
+> > in userland and is not part of the userland ABI.  I would use EINVAL
+> > here.
 > 
-> hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
-> ...
-> nf_conntrack_free(ct)
-> 	kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
 > 
-> net->ct.nf_conntrack_cachep is created with SLAB_DESTROY_BY_RCU.
+> I've found a few ethernet drivers that return -ENOTSUPP in various
+> functions. In particular, some ethtool functions or ioctl's.
+> Ben's message makes me think that the ethtool functions and ioctl's
+> should be modified.
 > 
-> The hash is protected by rcu, so readers look up conntracks without
-> locks.
-> A conntrack is removed from the hash, but in this moment a few readers
-> still can use the conntrack. Then this conntrack is released and another
-> thread creates conntrack with the same address and the equal tuple.
-> After this a reader starts to validate the conntrack:
-> * It's not dying, because a new conntrack was created
-> * nf_ct_tuple_equal() returns true.
-...
-
-
-> v2: move nf_ct_is_confirmed into the unlikely() annotation
-> v3: Eric suggested to fix refcnt, so that it becomes zero before adding
->     in a hash, but we can't find a way how to do that. Another way is to
->     interpret the confirm bit as part of a search key and check it in
->     ____nf_conntrack_find() too.
+> There are other occurences, mostly in functions related to device
+> initialization. I didn't manage to track down exactly from where some
+> of them are called, and I don't know if ENOTSUPP is okay in these.
 > 
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Florian Westphal <fw@strlen.de>
-> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Cyrill Gorcunov <gorcunov@openvz.org>
-> Signed-off-by: Andrey Vagin <avagin@openvz.org>
-> ---
+> I've included the complete list of occurences (based on net-next) from
+> drivers/net/ethernet in patch form at the end, if that's more
+> convenient than the file/function list. This is not meant to be
+> applied.
+> 
+> 
+> Do these (or part of them) need to be patched? Or is there something
+> I'm missing?
+[...]
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+I believe they should all be patched.  According to
+include/linux/errno.h, ENOTSUPP is meant for use in the NFSv3 code only.
+(But it's apparently erroneously used *all over* the tree, not just in
+net drivers!)
 
-Thanks Andrey !
+Ben.
 
-
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
