@@ -1,126 +1,37 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [RFC PATCH 00/12] RCU'ify the net:sched classifier chains
-Date: Sun, 12 Jan 2014 08:28:29 -0500
-Message-ID: <52D2987D.5060807@mojatatu.com>
-References: <20140110092041.7193.5952.stgit@nitbit.x32>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next 0/3] bonding: cleanup bond_3ad.c
+Date: Sun, 12 Jan 2014 14:27:19 +0100
+Message-ID: <20140112132719.GA26242@redhat.com>
+References: <1389196008-28578-1-git-send-email-vfalico@redhat.com>
+ <20140110.180614.405638448761352206.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: John Fastabend <john.fastabend@gmail.com>,
-	xiyou.wangcong@gmail.com, eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:44959 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750921AbaALN2c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jan 2014 08:28:32 -0500
-Received: by mail-ie0-f182.google.com with SMTP id as1so7025756iec.41
-        for <netdev@vger.kernel.org>; Sun, 12 Jan 2014 05:28:32 -0800 (PST)
-In-Reply-To: <20140110092041.7193.5952.stgit@nitbit.x32>
+Received: from mx1.redhat.com ([209.132.183.28]:3168 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751005AbaALNaV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Jan 2014 08:30:21 -0500
+Content-Disposition: inline
+In-Reply-To: <20140110.180614.405638448761352206.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/10/14 04:36, John Fastabend wrote:
-
+On Fri, Jan 10, 2014 at 06:06:14PM -0500, David Miller wrote:
+>From: Veaceslav Falico <vfalico@redhat.com>
+>Date: Wed,  8 Jan 2014 16:46:45 +0100
 >
-> The ingress qdisc is a simple qdisc which doesn't maintain any
-> actual list of skb's and is primarily a hook to attach filters.
-> Further the only qdisc that can be attached to the ingress qdisc
-> is sch_ingress. The qdisc lock is currently serializing two
-> operations (1) tc_classify which is addressed here and (2)
-> statistics accounting. The second point is not solved here but
-> it could be a matter of making the bstats and qstats per cpu
-> stats.
-
-I think as you observed in your other email:
-There is a little more than just the stats (on qdiscs as well);
-internal to specific filters etc.
-
-> This is an RFC for now and needs some more work. Some items
-> I know about are (a) an audit of the ematch code paths, (b) resolving
-> the checpatch errors mostly due to moving code around that
-> generates those errors, (c) run smatch, (d) audit u32 code
-> for correctness,
-
-Ok, my feel-good dial went up reading #d above;->
-
->(e) do a lot more testing so far only very
-> basic testing has been done. I tried to put some reasonable
-> comments in the commit logs but yes they need more work.
+>> It's a huge mess there currently - and, thus, really hard to read and
+>> debug.
+>>
+>> This is the first series, and doesn't change the logic at all, only makes
+>> it a bit more readable.
+>>
+>> CC: Jay Vosburgh <fubar@us.ibm.com>
+>> CC: Andy Gospodarek <andy@greyhouse.net>
+>> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 >
+>Series applied, thanks.
 
-Things like MSI based devices, massive single tun device
-tests, ifb with redirect etc would help cleanse things up.
-
-> Cong, if its not too much to ask can we use this as a base
-> set of patches for this work? I think its reasonably close to
-> correct as is.
->
-
-I believe these are based on your original patches John, no?
-So I would agree we use these as a base.
-
-I will scan through the patches...
-
-This is fun stuff - I will try to participate whenever i can
-(unfortunately not much time at the moment).
-
-cheers,
-jamal
-
-> Thanks! John.
->
-> ---
->
-> John Fastabend (12):
->        net: qdisc: use rcu prefix and silence sparse warnings
->        net: rcu-ify tcf_proto
->        net: sched: cls_basic use RCU
->        net: sched: cls_cgroup use RCU
->        net: sched: cls_flow use RCU
->        net: sched: fw use RCU
->        net: sched: RCU cls_route
->        net: sched: RCU cls_tcindex
->        net: sched: make cls_u32 lockless
->        net: sched: rcu'ify cls_rsvp
->        net: make cls_bpf rcu safe
->        net: sched: make tc_action safe to walk under RCU
->
->
->   include/linux/netdevice.h |   41 +-----
->   include/linux/rtnetlink.h |   10 +
->   include/net/act_api.h     |    1
->   include/net/pkt_cls.h     |   12 +-
->   include/net/sch_generic.h |   34 ++++-
->   net/core/dev.c            |   54 +++++++
->   net/sched/act_api.c       |   18 +-
->   net/sched/cls_api.c       |   44 +++---
->   net/sched/cls_basic.c     |   82 ++++++-----
->   net/sched/cls_bpf.c       |   79 ++++++-----
->   net/sched/cls_cgroup.c    |   65 ++++++---
->   net/sched/cls_flow.c      |  145 ++++++++++++--------
->   net/sched/cls_fw.c        |  112 +++++++++++----
->   net/sched/cls_route.c     |  218 +++++++++++++++++-------------
->   net/sched/cls_rsvp.h      |  152 ++++++++++++---------
->   net/sched/cls_tcindex.c   |  327 ++++++++++++++++++++++++++-------------------
->   net/sched/cls_u32.c       |  258 +++++++++++++++++++++++-------------
->   net/sched/sch_api.c       |    6 -
->   net/sched/sch_atm.c       |   30 +++-
->   net/sched/sch_cbq.c       |   21 ++-
->   net/sched/sch_choke.c     |   18 ++
->   net/sched/sch_drr.c       |   10 +
->   net/sched/sch_dsmark.c    |    8 +
->   net/sched/sch_fq_codel.c  |   11 +-
->   net/sched/sch_generic.c   |    4 -
->   net/sched/sch_hfsc.c      |   17 ++
->   net/sched/sch_htb.c       |   23 ++-
->   net/sched/sch_ingress.c   |    8 +
->   net/sched/sch_mqprio.c    |    4 -
->   net/sched/sch_multiq.c    |    8 +
->   net/sched/sch_prio.c      |   11 +-
->   net/sched/sch_qfq.c       |    9 +
->   net/sched/sch_sfb.c       |   15 +-
->   net/sched/sch_sfq.c       |   11 +-
->   net/sched/sch_teql.c      |    9 +
->   35 files changed, 1139 insertions(+), 736 deletions(-)
->
+Hrm, still can't see them. Did I miss something?..
