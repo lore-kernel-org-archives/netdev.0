@@ -1,233 +1,96 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 3/3] packet: use percpu mmap tx frame pending refcount
-Date: Sun, 12 Jan 2014 17:22:48 +0100
-Message-ID: <1389543768-20234-4-git-send-email-dborkman@redhat.com>
-References: <1389543768-20234-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 3/5] net: mvneta: do not schedule in mvneta_tx_timeout
+Date: Sun, 12 Jan 2014 16:49:51 +0000
+Message-ID: <1389545391.3720.56.camel@deadeye.wl.decadent.org.uk>
+References: <1389519069-1619-1-git-send-email-w@1wt.eu>
+	 <1389519069-1619-4-git-send-email-w@1wt.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8436 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751054AbaALQW5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Jan 2014 11:22:57 -0500
-In-Reply-To: <1389543768-20234-1-git-send-email-dborkman@redhat.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:40992 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750956AbaALQtz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jan 2014 11:49:55 -0500
+In-Reply-To: <1389519069-1619-4-git-send-email-w@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In PF_PACKET's packet mmap(), we can avoid using one atomic_inc()
-and one atomic_dec() call in skb destructor and use a percpu
-reference count instead in order to determine if packets are
-still pending to be sent out. Micro-benchmark with [1] that has
-been slightly modified (that is, protcol = 0 in socket(2) and
-bind(2)), example on an i7-3520M machine:
+On Sun, 2014-01-12 at 10:31 +0100, Willy Tarreau wrote:
+> If a queue timeout is reported, we can oops because of some
+> schedules while the caller is atomic, as shown below :
+> 
+>   mvneta d0070000.ethernet eth0: tx timeout
+>   BUG: scheduling while atomic: bash/1528/0x00000100
+>   Modules linked in: slhttp_ethdiv(C) [last unloaded: slhttp_ethdiv]
+>   CPU: 2 PID: 1528 Comm: bash Tainted: G        WC   3.13.0-rc4-mvebu-nf #180
+>   [<c0011bd9>] (unwind_backtrace+0x1/0x98) from [<c000f1ab>] (show_stack+0xb/0xc)
+>   [<c000f1ab>] (show_stack+0xb/0xc) from [<c02ad323>] (dump_stack+0x4f/0x64)
+>   [<c02ad323>] (dump_stack+0x4f/0x64) from [<c02abe67>] (__schedule_bug+0x37/0x4c)
+>   [<c02abe67>] (__schedule_bug+0x37/0x4c) from [<c02ae261>] (__schedule+0x325/0x3ec)
+>   [<c02ae261>] (__schedule+0x325/0x3ec) from [<c02adb97>] (schedule_timeout+0xb7/0x118)
+>   [<c02adb97>] (schedule_timeout+0xb7/0x118) from [<c0020a67>] (msleep+0xf/0x14)
+>   [<c0020a67>] (msleep+0xf/0x14) from [<c01dcbe5>] (mvneta_stop_dev+0x21/0x194)
+>   [<c01dcbe5>] (mvneta_stop_dev+0x21/0x194) from [<c01dcfe9>] (mvneta_tx_timeout+0x19/0x24)
+>   [<c01dcfe9>] (mvneta_tx_timeout+0x19/0x24) from [<c024afc7>] (dev_watchdog+0x18b/0x1c4)
+>   [<c024afc7>] (dev_watchdog+0x18b/0x1c4) from [<c0020b53>] (call_timer_fn.isra.27+0x17/0x5c)
+>   [<c0020b53>] (call_timer_fn.isra.27+0x17/0x5c) from [<c0020cad>] (run_timer_softirq+0x115/0x170)
+>   [<c0020cad>] (run_timer_softirq+0x115/0x170) from [<c001ccb9>] (__do_softirq+0xbd/0x1a8)
+>   [<c001ccb9>] (__do_softirq+0xbd/0x1a8) from [<c001cfad>] (irq_exit+0x61/0x98)
+>   [<c001cfad>] (irq_exit+0x61/0x98) from [<c000d4bf>] (handle_IRQ+0x27/0x60)
+>   [<c000d4bf>] (handle_IRQ+0x27/0x60) from [<c000843b>] (armada_370_xp_handle_irq+0x33/0xc8)
+>   [<c000843b>] (armada_370_xp_handle_irq+0x33/0xc8) from [<c000fba9>] (__irq_usr+0x49/0x60)
+> 
+> So for now, let's simply ignore these timeouts generally caused by bugs
+> only.
 
-./packet_mm_tx -s7000 -m7200 -z700000 em1, avg over 2500 runs:
+No, don't ignore them.  Schedule a work item to reset the device.  (And
+remember to cancel it when stopping the device.)
 
-With patch:    4,022,015 cyc
-Without patch: 4,812,994 cyc
+Ben.
 
-time ./packet_mm_tx -s64 -c10000000 em1 > /dev/null, stable:
+> Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>
+> Signed-off-by: Willy Tarreau <w@1wt.eu>
+> ---
+>  drivers/net/ethernet/marvell/mvneta.c | 11 -----------
+>  1 file changed, 11 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+> index 40d3e8b..84220c1 100644
+> --- a/drivers/net/ethernet/marvell/mvneta.c
+> +++ b/drivers/net/ethernet/marvell/mvneta.c
+> @@ -2244,16 +2244,6 @@ static void mvneta_stop_dev(struct mvneta_port *pp)
+>  	mvneta_rx_reset(pp);
+>  }
+>  
+> -/* tx timeout callback - display a message and stop/start the network device */
+> -static void mvneta_tx_timeout(struct net_device *dev)
+> -{
+> -	struct mvneta_port *pp = netdev_priv(dev);
+> -
+> -	netdev_info(dev, "tx timeout\n");
+> -	mvneta_stop_dev(pp);
+> -	mvneta_start_dev(pp);
+> -}
+> -
+>  /* Return positive if MTU is valid */
+>  static int mvneta_check_mtu_valid(struct net_device *dev, int mtu)
+>  {
+> @@ -2634,7 +2624,6 @@ static const struct net_device_ops mvneta_netdev_ops = {
+>  	.ndo_set_rx_mode     = mvneta_set_rx_mode,
+>  	.ndo_set_mac_address = mvneta_set_mac_addr,
+>  	.ndo_change_mtu      = mvneta_change_mtu,
+> -	.ndo_tx_timeout      = mvneta_tx_timeout,
+>  	.ndo_get_stats64     = mvneta_get_stats64,
+>  	.ndo_do_ioctl        = mvneta_ioctl,
+>  };
 
-With patch:
-  real         1m32.241s
-  user         0m0.287s
-  sys          1m29.316s
-
-Without patch:
-  real         1m38.386s
-  user         0m0.265s
-  sys          1m35.572s
-
-In function tpacket_snd(), it is okay to use packet_read_pending()
-since in fast-path we short-circuit the condition already with
-ph != NULL, since we have next frames to process.
-
-In case we have MSG_DONTWAIT, we also do not execute this path as
-need_wait is false here anyway, and in case of _no_ MSG_DONTWAIT
-flag, it is okay to call a packet_read_pending(), because when
-we ever reach that path, we're done processing frames anyway and
-only look if there are skbs still outstanding to be orphaned.
-
-The BUG_ON() in tpacket_destruct_skb() we can remove as well. It
-can _only_ be set from inside tpacket_snd() path and we made
-sure to increase tx_ring.pending in any case before we called
-po->xmit(skb). So testing for tx_ring.pending == 0 is not too
-useful. Instead, it would rather have been useful to test if
-lower layers didn't orphan the skb so that we're missing ring
-slots being put back to TP_STATUS_AVAILABLE. But such a bug will
-be caught in user space already as we end up realizing that we do
-not have any TP_STATUS_AVAILABLE slots left anymore. Therefore,
-we're all set.
-
-Btw, in case of RX_RING path, we do not make use of the pending
-member, therefore we also don't need to use up any percpu memory
-here.
-
-  [1] http://wiki.ipxwarzone.com/index.php5?title=Linux_packet_mmap
-
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/packet/af_packet.c | 65 +++++++++++++++++++++++++++++++++++++++++++++-----
- net/packet/diag.c      |  1 +
- net/packet/internal.h  |  2 +-
- 3 files changed, 61 insertions(+), 7 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index d5495d8..6803be98 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -89,6 +89,7 @@
- #include <linux/errqueue.h>
- #include <linux/net_tstamp.h>
- #include <linux/reciprocal_div.h>
-+#include <linux/percpu.h>
- #ifdef CONFIG_INET
- #include <net/inet_common.h>
- #endif
-@@ -1168,6 +1169,46 @@ static void packet_increment_head(struct packet_ring_buffer *buff)
- 	buff->head = buff->head != buff->frame_max ? buff->head+1 : 0;
- }
- 
-+static void packet_inc_pending(struct packet_ring_buffer *rb)
-+{
-+	this_cpu_inc(*rb->pending_refcnt);
-+}
-+
-+static void packet_dec_pending(struct packet_ring_buffer *rb)
-+{
-+	this_cpu_dec(*rb->pending_refcnt);
-+}
-+
-+static int packet_read_pending(const struct packet_ring_buffer *rb)
-+{
-+	int i, refcnt = 0;
-+
-+	/* We don't use pending refcount in rx_ring. */
-+	if (rb->pending_refcnt == NULL)
-+		return 0;
-+
-+	for_each_possible_cpu(i)
-+		refcnt += *per_cpu_ptr(rb->pending_refcnt, i);
-+
-+	return refcnt;
-+}
-+
-+static int packet_alloc_pending(struct packet_sock *po)
-+{
-+	po->rx_ring.pending_refcnt = NULL;
-+
-+	po->tx_ring.pending_refcnt = alloc_percpu(int);
-+	if (unlikely(po->tx_ring.pending_refcnt == NULL))
-+		return -ENOBUFS;
-+
-+	return 0;
-+}
-+
-+static void packet_free_pending(struct packet_sock *po)
-+{
-+	free_percpu(po->tx_ring.pending_refcnt);
-+}
-+
- static bool packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
- {
- 	struct sock *sk = &po->sk;
-@@ -2014,8 +2055,7 @@ static void tpacket_destruct_skb(struct sk_buff *skb)
- 		__u32 ts;
- 
- 		ph = skb_shinfo(skb)->destructor_arg;
--		BUG_ON(atomic_read(&po->tx_ring.pending) == 0);
--		atomic_dec(&po->tx_ring.pending);
-+		packet_dec_pending(&po->tx_ring);
- 
- 		ts = __packet_set_timestamp(po, ph, skb);
- 		__packet_set_status(po, ph, TP_STATUS_AVAILABLE | ts);
-@@ -2236,7 +2276,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 		skb_set_queue_mapping(skb, packet_pick_tx_queue(dev));
- 		skb->destructor = tpacket_destruct_skb;
- 		__packet_set_status(po, ph, TP_STATUS_SENDING);
--		atomic_inc(&po->tx_ring.pending);
-+		packet_inc_pending(&po->tx_ring);
- 
- 		status = TP_STATUS_SEND_REQUEST;
- 		err = po->xmit(skb);
-@@ -2256,8 +2296,14 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 		}
- 		packet_increment_head(&po->tx_ring);
- 		len_sum += tp_len;
--	} while (likely((ph != NULL) || (need_wait &&
--					 atomic_read(&po->tx_ring.pending))));
-+	} while (likely((ph != NULL) ||
-+		/* Note: packet_read_pending() might be slow if we have
-+		 * to call it as it's per_cpu variable, but in fast-path
-+		 * we already short-circuit the loop with the first
-+		 * condition, and luckily don't have to go that path
-+		 * anyway.
-+		 */
-+		 (need_wait && packet_read_pending(&po->tx_ring))));
- 
- 	err = len_sum;
- 	goto out_put;
-@@ -2556,6 +2602,7 @@ static int packet_release(struct socket *sock)
- 	/* Purge queues */
- 
- 	skb_queue_purge(&sk->sk_receive_queue);
-+	packet_free_pending(po);
- 	sk_refcnt_debug_release(sk);
- 
- 	sock_put(sk);
-@@ -2717,6 +2764,10 @@ static int packet_create(struct net *net, struct socket *sock, int protocol,
- 	po->num = proto;
- 	po->xmit = dev_queue_xmit;
- 
-+	err = packet_alloc_pending(po);
-+	if (err)
-+		goto out2;
-+
- 	packet_cached_dev_reset(po);
- 
- 	sk->sk_destruct = packet_sock_destruct;
-@@ -2749,6 +2800,8 @@ static int packet_create(struct net *net, struct socket *sock, int protocol,
- 	preempt_enable();
- 
- 	return 0;
-+out2:
-+	sk_free(sk);
- out:
- 	return err;
- }
-@@ -3676,7 +3729,7 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
- 	if (!closing) {
- 		if (atomic_read(&po->mapped))
- 			goto out;
--		if (atomic_read(&rb->pending))
-+		if (packet_read_pending(rb))
- 			goto out;
- 	}
- 
-diff --git a/net/packet/diag.c b/net/packet/diag.c
-index a9584a2..533ce4f 100644
---- a/net/packet/diag.c
-+++ b/net/packet/diag.c
-@@ -3,6 +3,7 @@
- #include <linux/net.h>
- #include <linux/netdevice.h>
- #include <linux/packet_diag.h>
-+#include <linux/percpu.h>
- #include <net/net_namespace.h>
- #include <net/sock.h>
- 
-diff --git a/net/packet/internal.h b/net/packet/internal.h
-index 0a87d7b..a47d5b5 100644
---- a/net/packet/internal.h
-+++ b/net/packet/internal.h
-@@ -64,7 +64,7 @@ struct packet_ring_buffer {
- 	unsigned int		pg_vec_pages;
- 	unsigned int		pg_vec_len;
- 
--	atomic_t		pending;
-+	int __percpu		*pending_refcnt;
- 
- 	struct tpacket_kbdq_core	prb_bdqc;
- };
 -- 
-1.7.11.7
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
