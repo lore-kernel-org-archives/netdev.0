@@ -1,192 +1,39 @@
-From: Yuval Mintz <yuvalmin@broadcom.com>
-Subject: [PATCH net-next] bnx2x: Correct default Tx switching behaviour
-Date: Sun, 12 Jan 2014 14:37:59 +0200
-Message-ID: <1389530279-14963-1-git-send-email-yuvalmin@broadcom.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch net-next 4/7] net_sched: optimize tcf_match_indev()
+Date: Sun, 12 Jan 2014 07:50:01 -0500
+Message-ID: <52D28F79.2040600@mojatatu.com>
+References: <1389312845-10304-1-git-send-email-xiyou.wangcong@gmail.com> <1389312845-10304-5-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yuval Mintz <yuvalmin@broadcom.com>,
-	Ariel Elior <ariele@broadcom.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:28174 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751224AbaALMsp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jan 2014 07:48:45 -0500
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:35120 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751234AbaALMuF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jan 2014 07:50:05 -0500
+Received: by mail-ig0-f172.google.com with SMTP id k19so1383446igc.5
+        for <netdev@vger.kernel.org>; Sun, 12 Jan 2014 04:50:04 -0800 (PST)
+In-Reply-To: <1389312845-10304-5-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With this patch bnx2x will configure the PF to perform Tx switching on
-out-going traffic as soon as SR-IOV is dynamically enabled and de-activate
-it when it is disabled.
-This will allow VFs to communicate with their parent PFs.
+On 01/09/14 19:14, Cong Wang wrote:
+> tcf_match_indev() is called in fast path, it is not wise to
+> search for a netdev by ifindex and then compare by its name,
+> just compare the ifindex.
+>
+> Also, dev->name could be changed by user-space, therefore
+> the match would be always fail, but dev->ifindex could
+> be consistent.
+>
+> BTW, this will also save some bytes from the core struct of u32.
+>
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
----
-Hi Dave,
+excellent.
 
-Please consider applying this to `net-next'.
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Thanks,
-Yuval
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |  1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |  3 ++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c    |  7 +++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h    |  4 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 61 +++++++++++++++++++++++
- 5 files changed, 75 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index eb105ab..e800b01 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1542,6 +1542,7 @@ struct bnx2x {
- #define NO_ISCSI_FLAG			(1 << 14)
- #define NO_FCOE_FLAG			(1 << 15)
- #define BC_SUPPORTS_PFC_STATS		(1 << 17)
-+#define TX_SWITCHING			(1 << 18)
- #define BC_SUPPORTS_FCOE_FEATURES	(1 << 19)
- #define USING_SINGLE_MSIX_FLAG		(1 << 20)
- #define BC_SUPPORTS_DCBX_MSG_NON_PMF	(1 << 21)
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 18498fe..1fdc8a3 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -3001,6 +3001,9 @@ static unsigned long bnx2x_get_common_flags(struct bnx2x *bp,
- 	if (zero_stats)
- 		__set_bit(BNX2X_Q_FLG_ZERO_STATS, &flags);
- 
-+	if (bp->flags & TX_SWITCHING)
-+		__set_bit(BNX2X_Q_FLG_TX_SWITCH, &flags);
-+
- 	__set_bit(BNX2X_Q_FLG_PCSUM_ON_PKT, &flags);
- 	__set_bit(BNX2X_Q_FLG_TUN_INC_INNER_IP_ID, &flags);
- 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-index 98cccd4..6036405 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-@@ -4988,6 +4988,13 @@ static void bnx2x_q_fill_update_data(struct bnx2x *bp,
- 		test_bit(BNX2X_Q_UPDATE_SILENT_VLAN_REM, &params->update_flags);
- 	data->silent_vlan_value = cpu_to_le16(params->silent_removal_value);
- 	data->silent_vlan_mask = cpu_to_le16(params->silent_removal_mask);
-+
-+	/* tx switching */
-+	data->tx_switching_flg =
-+		test_bit(BNX2X_Q_UPDATE_TX_SWITCHING, &params->update_flags);
-+	data->tx_switching_change_flg =
-+		test_bit(BNX2X_Q_UPDATE_TX_SWITCHING_CHNG,
-+			 &params->update_flags);
- }
- 
- static inline int bnx2x_q_send_update(struct bnx2x *bp,
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
-index 6a53c15..d34664f 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
-@@ -770,7 +770,9 @@ enum {
- 	BNX2X_Q_UPDATE_DEF_VLAN_EN,
- 	BNX2X_Q_UPDATE_DEF_VLAN_EN_CHNG,
- 	BNX2X_Q_UPDATE_SILENT_VLAN_REM_CHNG,
--	BNX2X_Q_UPDATE_SILENT_VLAN_REM
-+	BNX2X_Q_UPDATE_SILENT_VLAN_REM,
-+	BNX2X_Q_UPDATE_TX_SWITCHING_CHNG,
-+	BNX2X_Q_UPDATE_TX_SWITCHING
- };
- 
- /* Allowed Queue states */
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index 31ab924..049edd1 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -3130,6 +3130,60 @@ void bnx2x_unlock_vf_pf_channel(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 	   vf->abs_vfid, vf->op_current);
- }
- 
-+static int bnx2x_set_pf_tx_switching(struct bnx2x *bp, bool enable)
-+{
-+	struct bnx2x_queue_state_params q_params;
-+	u32 prev_flags;
-+	int i, rc;
-+
-+	/* Verify changes are needed and record current Tx switching state */
-+	prev_flags = bp->flags;
-+	if (enable)
-+		bp->flags |= TX_SWITCHING;
-+	else
-+		bp->flags &= ~TX_SWITCHING;
-+	if (prev_flags == bp->flags)
-+		return 0;
-+
-+	/* Verify state enables the sending of queue ramrods */
-+	if ((bp->state != BNX2X_STATE_OPEN) ||
-+	    (bnx2x_get_q_logical_state(bp,
-+				      &bnx2x_sp_obj(bp, &bp->fp[0]).q_obj) !=
-+	     BNX2X_Q_LOGICAL_STATE_ACTIVE))
-+		return 0;
-+
-+	/* send q. update ramrod to configure Tx switching */
-+	memset(&q_params, 0, sizeof(q_params));
-+	__set_bit(RAMROD_COMP_WAIT, &q_params.ramrod_flags);
-+	q_params.cmd = BNX2X_Q_CMD_UPDATE;
-+	__set_bit(BNX2X_Q_UPDATE_TX_SWITCHING_CHNG,
-+		  &q_params.params.update.update_flags);
-+	if (enable)
-+		__set_bit(BNX2X_Q_UPDATE_TX_SWITCHING,
-+			  &q_params.params.update.update_flags);
-+	else
-+		__clear_bit(BNX2X_Q_UPDATE_TX_SWITCHING,
-+			    &q_params.params.update.update_flags);
-+
-+	/* send the ramrod on all the queues of the PF */
-+	for_each_eth_queue(bp, i) {
-+		struct bnx2x_fastpath *fp = &bp->fp[i];
-+
-+		/* Set the appropriate Queue object */
-+		q_params.q_obj = &bnx2x_sp_obj(bp, fp).q_obj;
-+
-+		/* Update the Queue state */
-+		rc = bnx2x_queue_state_change(bp, &q_params);
-+		if (rc) {
-+			BNX2X_ERR("Failed to configure Tx switching\n");
-+			return rc;
-+		}
-+	}
-+
-+	DP(BNX2X_MSG_IOV, "%s Tx Switching\n", enable ? "Enabled" : "Disabled");
-+	return 0;
-+}
-+
- int bnx2x_sriov_configure(struct pci_dev *dev, int num_vfs_param)
- {
- 	struct bnx2x *bp = netdev_priv(pci_get_drvdata(dev));
-@@ -3157,12 +3211,14 @@ int bnx2x_sriov_configure(struct pci_dev *dev, int num_vfs_param)
- 
- 	bp->requested_nr_virtfn = num_vfs_param;
- 	if (num_vfs_param == 0) {
-+		bnx2x_set_pf_tx_switching(bp, false);
- 		pci_disable_sriov(dev);
- 		return 0;
- 	} else {
- 		return bnx2x_enable_sriov(bp);
- 	}
- }
-+
- #define IGU_ENTRY_SIZE 4
- 
- int bnx2x_enable_sriov(struct bnx2x *bp)
-@@ -3240,6 +3296,11 @@ int bnx2x_enable_sriov(struct bnx2x *bp)
- 	 */
- 	DP(BNX2X_MSG_IOV, "about to call enable sriov\n");
- 	bnx2x_disable_sriov(bp);
-+
-+	rc = bnx2x_set_pf_tx_switching(bp, true);
-+	if (rc)
-+		return rc;
-+
- 	rc = pci_enable_sriov(bp->pdev, req_vfs);
- 	if (rc) {
- 		BNX2X_ERR("pci_enable_sriov failed with %d\n", rc);
--- 
-1.8.1.227.g44fe835
+cheers,
+jamal
