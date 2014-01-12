@@ -1,100 +1,219 @@
 From: Willy Tarreau <w@1wt.eu>
-Subject: [PATCH 4/5] net: mvneta: add missing bit descriptions for interrupt masks and causes
-Date: Sun, 12 Jan 2014 10:31:08 +0100
-Message-ID: <1389519069-1619-5-git-send-email-w@1wt.eu>
+Subject: [PATCH 5/5] net: mvneta: replace Tx timer with a real interrupt
+Date: Sun, 12 Jan 2014 10:31:09 +0100
+Message-ID: <1389519069-1619-6-git-send-email-w@1wt.eu>
 References: <1389519069-1619-1-git-send-email-w@1wt.eu>
 Cc: netdev@vger.kernel.org, Willy Tarreau <w@1wt.eu>,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>
+	Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	Arnaud Ebalard <arno@natisbad.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:55226 "EHLO 1wt.eu"
+Received: from 1wt.eu ([62.212.114.60]:55220 "EHLO 1wt.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751180AbaALJcI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Jan 2014 04:32:08 -0500
+	id S1751060AbaALJcE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Jan 2014 04:32:04 -0500
 In-Reply-To: <1389519069-1619-1-git-send-email-w@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marvell has not published the chip's datasheet yet, so it's very hard
-to find the relevant bits to manipulate to change the IRQ behaviour.
-Fortunately, these bits are described in the proprietary LSP patch set
-which is publicly available here :
+Right now the mvneta driver doesn't handle Tx IRQ, and relies on two
+mechanisms to flush Tx descriptors : a flush at the end of mvneta_tx()
+and a timer. If a burst of packets is emitted faster than the device
+can send them, then the queue is stopped until next wake-up of the
+timer 10ms later. This causes jerky output traffic with bursts and
+pauses, making it difficult to reach line rate with very few streams.
 
-    http://www.plugcomputer.org/downloads/mirabox/
+A test on UDP traffic shows that it's not possible to go beyond 134
+Mbps / 12 kpps of outgoing traffic with 1500-bytes IP packets. Routed
+traffic tends to observe pauses as well if the traffic is bursty,
+making it even burstier after the wake-up.
 
-So let's put them back in the driver in order to reduce the burden of
-current and future maintenance.
+It seems that this feature was inherited from the original driver but
+nothing there mentions any reason for not using the interrupt instead,
+which the chip supports.
+
+Thus, this patch enables Tx interrupts and removes the timer. It does
+the two at once because it's not really possible to make the two
+mechanisms coexist, so a split patch doesn't make sense.
+
+First tests performed on a Mirabox (Armada 370) show that less CPU
+seems to be used when sending traffic. One reason might be that we now
+call the mvneta_tx_done_gbe() with a mask indicating which queues have
+been done instead of looping over all of them.
+
+The same UDP test above now happily reaches 987 Mbps / 87.7 kpps.
+Single-stream TCP traffic can now more easily reach line rate. HTTP
+transfers of 1 MB objects over a single connection went from 730 to
+840 Mbps. It is even possible to go significantly higher (>900 Mbps)
+by tweaking tcp_tso_win_divisor.
 
 Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Cc: Arnaud Ebalard <arno@natisbad.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Willy Tarreau <w@1wt.eu>
+
 ---
- drivers/net/ethernet/marvell/mvneta.c | 44 +++++++++++++++++++++++++++++++++--
- 1 file changed, 42 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 71 ++++++-----------------------------
+ 1 file changed, 12 insertions(+), 59 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 84220c1..defda6f 100644
+index defda6f..df75a23 100644
 --- a/drivers/net/ethernet/marvell/mvneta.c
 +++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -101,16 +101,56 @@
- #define      MVNETA_CPU_RXQ_ACCESS_ALL_MASK      0x000000ff
- #define      MVNETA_CPU_TXQ_ACCESS_ALL_MASK      0x0000ff00
- #define MVNETA_RXQ_TIME_COAL_REG(q)              (0x2580 + ((q) << 2))
+@@ -216,9 +216,6 @@
+ #define MVNETA_RX_COAL_PKTS		32
+ #define MVNETA_RX_COAL_USEC		100
+ 
+-/* Timer */
+-#define MVNETA_TX_DONE_TIMER_PERIOD	10
+-
+ /* Napi polling weight */
+ #define MVNETA_RX_POLL_WEIGHT		64
+ 
+@@ -274,16 +271,11 @@ struct mvneta_port {
+ 	void __iomem *base;
+ 	struct mvneta_rx_queue *rxqs;
+ 	struct mvneta_tx_queue *txqs;
+-	struct timer_list tx_done_timer;
+ 	struct net_device *dev;
+ 
+ 	u32 cause_rx_tx;
+ 	struct napi_struct napi;
+ 
+-	/* Flags */
+-	unsigned long flags;
+-#define MVNETA_F_TX_DONE_TIMER_BIT  0
+-
+ 	/* Napi weight */
+ 	int weight;
+ 
+@@ -1149,17 +1141,6 @@ static void mvneta_tx_done_pkts_coal_set(struct mvneta_port *pp,
+ 	txq->done_pkts_coal = value;
+ }
+ 
+-/* Trigger tx done timer in MVNETA_TX_DONE_TIMER_PERIOD msecs */
+-static void mvneta_add_tx_done_timer(struct mvneta_port *pp)
+-{
+-	if (test_and_set_bit(MVNETA_F_TX_DONE_TIMER_BIT, &pp->flags) == 0) {
+-		pp->tx_done_timer.expires = jiffies +
+-			msecs_to_jiffies(MVNETA_TX_DONE_TIMER_PERIOD);
+-		add_timer(&pp->tx_done_timer);
+-	}
+-}
+-
+-
+ /* Handle rx descriptor fill by setting buf_cookie and buf_phys_addr */
+ static void mvneta_rx_desc_fill(struct mvneta_rx_desc *rx_desc,
+ 				u32 phys_addr, u32 cookie)
+@@ -1651,15 +1632,6 @@ out:
+ 		dev_kfree_skb_any(skb);
+ 	}
+ 
+-	if (txq->count >= MVNETA_TXDONE_COAL_PKTS)
+-		mvneta_txq_done(pp, txq);
+-
+-	/* If after calling mvneta_txq_done, count equals
+-	 * frags, we need to set the timer
+-	 */
+-	if (txq->count == frags && frags > 0)
+-		mvneta_add_tx_done_timer(pp);
+-
+ 	return NETDEV_TX_OK;
+ }
+ 
+@@ -1935,14 +1907,22 @@ static int mvneta_poll(struct napi_struct *napi, int budget)
+ 
+ 	/* Read cause register */
+ 	cause_rx_tx = mvreg_read(pp, MVNETA_INTR_NEW_CAUSE) &
+-		MVNETA_RX_INTR_MASK(rxq_number);
++		(MVNETA_RX_INTR_MASK(rxq_number) | MVNETA_TX_INTR_MASK(txq_number));
 +
-+/* Exception Interrupt Port/Queue Cause register */
++	/* Release Tx descriptors */
++	if (cause_rx_tx & MVNETA_TX_INTR_MASK_ALL) {
++		int tx_todo = 0;
 +
- #define MVNETA_INTR_NEW_CAUSE                    0x25a0
--#define      MVNETA_RX_INTR_MASK(nr_rxqs)        (((1 << nr_rxqs) - 1) << 8)
- #define MVNETA_INTR_NEW_MASK                     0x25a4
-+
-+/* bits  0..7  = TXQ SENT, one bit per queue.
-+ * bits  8..15 = RXQ OCCUP, one bit per queue.
-+ * bits 16..23 = RXQ FREE, one bit per queue.
-+ * bit  29 = OLD_REG_SUM, see old reg ?
-+ * bit  30 = TX_ERR_SUM, one bit for 4 ports
-+ * bit  31 = MISC_SUM,   one bit for 4 ports
-+ */
-+#define      MVNETA_TX_INTR_MASK(nr_txqs)        (((1 << nr_txqs) - 1) << 0)
-+#define      MVNETA_TX_INTR_MASK_ALL             (0xff << 0)
-+#define      MVNETA_RX_INTR_MASK(nr_rxqs)        (((1 << nr_rxqs) - 1) << 8)
-+#define      MVNETA_RX_INTR_MASK_ALL             (0xff << 8)
-+
- #define MVNETA_INTR_OLD_CAUSE                    0x25a8
- #define MVNETA_INTR_OLD_MASK                     0x25ac
-+
-+/* Data Path Port/Queue Cause Register */
- #define MVNETA_INTR_MISC_CAUSE                   0x25b0
- #define MVNETA_INTR_MISC_MASK                    0x25b4
-+
-+#define      MVNETA_CAUSE_PHY_STATUS_CHANGE      BIT(0)
-+#define      MVNETA_CAUSE_LINK_CHANGE            BIT(1)
-+#define      MVNETA_CAUSE_PTP                    BIT(4)
-+
-+#define      MVNETA_CAUSE_INTERNAL_ADDR_ERR      BIT(7)
-+#define      MVNETA_CAUSE_RX_OVERRUN             BIT(8)
-+#define      MVNETA_CAUSE_RX_CRC_ERROR           BIT(9)
-+#define      MVNETA_CAUSE_RX_LARGE_PKT           BIT(10)
-+#define      MVNETA_CAUSE_TX_UNDERUN             BIT(11)
-+#define      MVNETA_CAUSE_PRBS_ERR               BIT(12)
-+#define      MVNETA_CAUSE_PSC_SYNC_CHANGE        BIT(13)
-+#define      MVNETA_CAUSE_SERDES_SYNC_ERR        BIT(14)
-+
-+#define      MVNETA_CAUSE_BMU_ALLOC_ERR_SHIFT    16
-+#define      MVNETA_CAUSE_BMU_ALLOC_ERR_ALL_MASK   (0xF << MVNETA_CAUSE_BMU_ALLOC_ERR_SHIFT)
-+#define      MVNETA_CAUSE_BMU_ALLOC_ERR_MASK(pool) (1 << (MVNETA_CAUSE_BMU_ALLOC_ERR_SHIFT + (pool)))
-+
-+#define      MVNETA_CAUSE_TXQ_ERROR_SHIFT        24
-+#define      MVNETA_CAUSE_TXQ_ERROR_ALL_MASK     (0xFF << MVNETA_CAUSE_TXQ_ERROR_SHIFT)
-+#define      MVNETA_CAUSE_TXQ_ERROR_MASK(q)      (1 << (MVNETA_CAUSE_TXQ_ERROR_SHIFT + (q)))
-+
- #define MVNETA_INTR_ENABLE                       0x25b8
- #define      MVNETA_TXQ_INTR_ENABLE_ALL_MASK     0x0000ff00
--#define      MVNETA_RXQ_INTR_ENABLE_ALL_MASK     0xff000000
-+#define      MVNETA_RXQ_INTR_ENABLE_ALL_MASK     0xff000000  // note: neta says it's 0x000000FF
-+
- #define MVNETA_RXQ_CMD                           0x2680
- #define      MVNETA_RXQ_DISABLE_SHIFT            8
- #define      MVNETA_RXQ_ENABLE_MASK              0x000000ff
++		mvneta_tx_done_gbe(pp, (cause_rx_tx & MVNETA_TX_INTR_MASK_ALL), &tx_todo);
++		cause_rx_tx &= ~MVNETA_TX_INTR_MASK_ALL;
++	}
+ 
+ 	/* For the case where the last mvneta_poll did not process all
+ 	 * RX packets
+ 	 */
+ 	cause_rx_tx |= pp->cause_rx_tx;
+ 	if (rxq_number > 1) {
+-		while ((cause_rx_tx != 0) && (budget > 0)) {
++		while ((cause_rx_tx & MVNETA_RX_INTR_MASK_ALL) && (budget > 0)) {
+ 			int count;
+ 			struct mvneta_rx_queue *rxq;
+ 			/* get rx queue number from cause_rx_tx */
+@@ -1974,7 +1954,7 @@ static int mvneta_poll(struct napi_struct *napi, int budget)
+ 		napi_complete(napi);
+ 		local_irq_save(flags);
+ 		mvreg_write(pp, MVNETA_INTR_NEW_MASK,
+-			    MVNETA_RX_INTR_MASK(rxq_number));
++			    MVNETA_RX_INTR_MASK(rxq_number) | MVNETA_TX_INTR_MASK(txq_number));
+ 		local_irq_restore(flags);
+ 	}
+ 
+@@ -1982,26 +1962,6 @@ static int mvneta_poll(struct napi_struct *napi, int budget)
+ 	return rx_done;
+ }
+ 
+-/* tx done timer callback */
+-static void mvneta_tx_done_timer_callback(unsigned long data)
+-{
+-	struct net_device *dev = (struct net_device *)data;
+-	struct mvneta_port *pp = netdev_priv(dev);
+-	int tx_done = 0, tx_todo = 0;
+-
+-	if (!netif_running(dev))
+-		return ;
+-
+-	clear_bit(MVNETA_F_TX_DONE_TIMER_BIT, &pp->flags);
+-
+-	tx_done = mvneta_tx_done_gbe(pp,
+-				     (((1 << txq_number) - 1) &
+-				      MVNETA_CAUSE_TXQ_SENT_DESC_ALL_MASK),
+-				     &tx_todo);
+-	if (tx_todo > 0)
+-		mvneta_add_tx_done_timer(pp);
+-}
+-
+ /* Handle rxq fill: allocates rxq skbs; called when initializing a port */
+ static int mvneta_rxq_fill(struct mvneta_port *pp, struct mvneta_rx_queue *rxq,
+ 			   int num)
+@@ -2251,7 +2211,7 @@ static void mvneta_start_dev(struct mvneta_port *pp)
+ 
+ 	/* Unmask interrupts */
+ 	mvreg_write(pp, MVNETA_INTR_NEW_MASK,
+-		    MVNETA_RX_INTR_MASK(rxq_number));
++		    MVNETA_RX_INTR_MASK(rxq_number) | MVNETA_TX_INTR_MASK(txq_number));
+ 
+ 	phy_start(pp->phy_dev);
+ 	netif_tx_start_all_queues(pp->dev);
+@@ -2527,8 +2487,6 @@ static int mvneta_stop(struct net_device *dev)
+ 	free_irq(dev->irq, pp);
+ 	mvneta_cleanup_rxqs(pp);
+ 	mvneta_cleanup_txqs(pp);
+-	del_timer(&pp->tx_done_timer);
+-	clear_bit(MVNETA_F_TX_DONE_TIMER_BIT, &pp->flags);
+ 
+ 	return 0;
+ }
+@@ -2887,11 +2845,6 @@ static int mvneta_probe(struct platform_device *pdev)
+ 		}
+ 	}
+ 
+-	pp->tx_done_timer.data = (unsigned long)dev;
+-	pp->tx_done_timer.function = mvneta_tx_done_timer_callback;
+-	init_timer(&pp->tx_done_timer);
+-	clear_bit(MVNETA_F_TX_DONE_TIMER_BIT, &pp->flags);
+-
+ 	pp->tx_ring_size = MVNETA_MAX_TXD;
+ 	pp->rx_ring_size = MVNETA_MAX_RXD;
+ 
 -- 
 1.7.12.2.21.g234cd45.dirty
