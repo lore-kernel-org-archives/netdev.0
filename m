@@ -1,104 +1,165 @@
 From: Willy Tarreau <w@1wt.eu>
-Subject: [PATCH net-next 3/6] net: mvneta: simplify access to the rx descriptor status
-Date: Sun, 12 Jan 2014 12:24:05 +0100
-Message-ID: <1389525848-1814-4-git-send-email-w@1wt.eu>
+Subject: [PATCH net-next 5/6] net: mvneta: convert to build_skb()
+Date: Sun, 12 Jan 2014 12:24:07 +0100
+Message-ID: <1389525848-1814-6-git-send-email-w@1wt.eu>
 References: <1389525848-1814-1-git-send-email-w@1wt.eu>
 Cc: netdev@vger.kernel.org, Willy Tarreau <w@1wt.eu>,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
 	Gregory CLEMENT <gregory.clement@free-electrons.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:55237 "EHLO 1wt.eu"
+Received: from 1wt.eu ([62.212.114.60]:55239 "EHLO 1wt.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751270AbaALLYU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Jan 2014 06:24:20 -0500
+	id S1751276AbaALLYW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Jan 2014 06:24:22 -0500
 In-Reply-To: <1389525848-1814-1-git-send-email-w@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-At several places, we already know the value of the rx status but
-we call functions which dereference the pointer again to get it
-and don't need the descriptor for anything else. Simplify this
-task by replacing the rx desc pointer by the status word itself.
+Make use of build_skb() to allocate frags on the RX path. When frag size
+is lower than a page size, we can use netdev_alloc_frag(), and we fall back
+to kmalloc() for larger sizes. The frag size is stored into the mvneta_port
+struct. The alloc/free functions check the frag size to decide what alloc/
+free method to use. MTU changes are safe because the MTU change function
+stops the device and clears the queues before applying the change.
+
+With this patch, I observed a reproducible 2% performance improvement on
+HTTP-based benchmarks, and 5% on small packet RX rate.
 
 Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>
 Signed-off-by: Willy Tarreau <w@1wt.eu>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 25 ++++++++++++-------------
- 1 file changed, 12 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 49 +++++++++++++++++++++++++----------
+ 1 file changed, 35 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index eccafd1..aa3a4f7 100644
+index c7b37e0..726a8d2 100644
 --- a/drivers/net/ethernet/marvell/mvneta.c
 +++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -528,14 +528,14 @@ struct rtnl_link_stats64 *mvneta_get_stats64(struct net_device *dev,
+@@ -268,6 +268,7 @@ struct mvneta_pcpu_stats {
  
- /* Rx descriptors helper methods */
- 
--/* Checks whether the given RX descriptor is both the first and the
-- * last descriptor for the RX packet. Each RX packet is currently
-+/* Checks whether the RX descriptor having this status is both the first
-+ * and the last descriptor for the RX packet. Each RX packet is currently
-  * received through a single RX descriptor, so not having each RX
-  * descriptor with its first and last bits set is an error
-  */
--static int mvneta_rxq_desc_is_first_last(struct mvneta_rx_desc *desc)
-+static int mvneta_rxq_desc_is_first_last(u32 status)
- {
--	return (desc->status & MVNETA_RXD_FIRST_LAST_DESC) ==
-+	return (status & MVNETA_RXD_FIRST_LAST_DESC) ==
- 		MVNETA_RXD_FIRST_LAST_DESC;
+ struct mvneta_port {
+ 	int pkt_size;
++	unsigned int frag_size;
+ 	void __iomem *base;
+ 	struct mvneta_rx_queue *rxqs;
+ 	struct mvneta_tx_queue *txqs;
+@@ -1332,28 +1333,43 @@ static int mvneta_txq_done(struct mvneta_port *pp,
+ 	return tx_done;
  }
  
-@@ -1234,10 +1234,10 @@ static void mvneta_rx_error(struct mvneta_port *pp,
++static void *mvneta_frag_alloc(const struct mvneta_port *pp)
++{
++	if (likely(pp->frag_size <= PAGE_SIZE))
++		return netdev_alloc_frag(pp->frag_size);
++	else
++		return kmalloc(pp->frag_size, GFP_ATOMIC);
++}
++
++static void mvneta_frag_free(const struct mvneta_port *pp, void *data)
++{
++	if (likely(pp->frag_size <= PAGE_SIZE))
++		put_page(virt_to_head_page(data));
++	else
++		kfree(data);
++}
++
+ /* Refill processing */
+ static int mvneta_rx_refill(struct mvneta_port *pp,
+ 			    struct mvneta_rx_desc *rx_desc)
+ 
  {
- 	u32 status = rx_desc->status;
+ 	dma_addr_t phys_addr;
+-	struct sk_buff *skb;
++	void *data;
  
--	if (!mvneta_rxq_desc_is_first_last(rx_desc)) {
-+	if (!mvneta_rxq_desc_is_first_last(status)) {
- 		netdev_err(pp->dev,
- 			   "bad rx status %08x (buffer oversize), size=%d\n",
--			   rx_desc->status, rx_desc->data_size);
-+			   status, rx_desc->data_size);
- 		return;
+-	skb = netdev_alloc_skb(pp->dev, pp->pkt_size);
+-	if (!skb)
++	data = mvneta_frag_alloc(pp);
++	if (!data)
+ 		return -ENOMEM;
+ 
+-	phys_addr = dma_map_single(pp->dev->dev.parent, skb->head,
++	phys_addr = dma_map_single(pp->dev->dev.parent, data,
+ 				   MVNETA_RX_BUF_SIZE(pp->pkt_size),
+ 				   DMA_FROM_DEVICE);
+ 	if (unlikely(dma_mapping_error(pp->dev->dev.parent, phys_addr))) {
+-		dev_kfree_skb(skb);
++		mvneta_frag_free(pp, data);
+ 		return -ENOMEM;
  	}
  
-@@ -1261,13 +1261,12 @@ static void mvneta_rx_error(struct mvneta_port *pp,
- 	}
+-	mvneta_rx_desc_fill(rx_desc, phys_addr, (u32)skb);
+-
++	mvneta_rx_desc_fill(rx_desc, phys_addr, (u32)data);
+ 	return 0;
  }
  
--/* Handle RX checksum offload */
--static void mvneta_rx_csum(struct mvneta_port *pp,
--			   struct mvneta_rx_desc *rx_desc,
-+/* Handle RX checksum offload based on the descriptor's status */
-+static void mvneta_rx_csum(struct mvneta_port *pp, u32 status,
- 			   struct sk_buff *skb)
- {
--	if ((rx_desc->status & MVNETA_RXD_L3_IP4) &&
--	    (rx_desc->status & MVNETA_RXD_L4_CSUM_OK)) {
-+	if ((status & MVNETA_RXD_L3_IP4) &&
-+	    (status & MVNETA_RXD_L4_CSUM_OK)) {
- 		skb->csum = 0;
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
- 		return;
-@@ -1449,7 +1448,7 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+@@ -1407,9 +1423,9 @@ static void mvneta_rxq_drop_pkts(struct mvneta_port *pp,
+ 	rx_done = mvneta_rxq_busy_desc_num_get(pp, rxq);
+ 	for (i = 0; i < rxq->size; i++) {
+ 		struct mvneta_rx_desc *rx_desc = rxq->descs + i;
+-		struct sk_buff *skb = (struct sk_buff *)rx_desc->buf_cookie;
++		void *data = (void *)rx_desc->buf_cookie;
+ 
+-		dev_kfree_skb_any(skb);
++		mvneta_frag_free(pp, data);
+ 		dma_unmap_single(pp->dev->dev.parent, rx_desc->buf_phys_addr,
+ 				 MVNETA_RX_BUF_SIZE(pp->pkt_size), DMA_FROM_DEVICE);
+ 	}
+@@ -1440,20 +1456,21 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+ 	while (rx_done < rx_todo) {
+ 		struct mvneta_rx_desc *rx_desc = mvneta_rxq_next_desc_get(rxq);
+ 		struct sk_buff *skb;
++		unsigned char *data;
+ 		u32 rx_status;
+ 		int rx_bytes, err;
+ 
+ 		rx_done++;
+ 		rx_filled++;
  		rx_status = rx_desc->status;
- 		skb = (struct sk_buff *)rx_desc->buf_cookie;
+-		skb = (struct sk_buff *)rx_desc->buf_cookie;
++		data = (unsigned char *)rx_desc->buf_cookie;
  
--		if (!mvneta_rxq_desc_is_first_last(rx_desc) ||
-+		if (!mvneta_rxq_desc_is_first_last(rx_status) ||
- 		    (rx_status & MVNETA_RXD_ERR_SUMMARY)) {
+ 		if (!mvneta_rxq_desc_is_first_last(rx_status) ||
+-		    (rx_status & MVNETA_RXD_ERR_SUMMARY)) {
++		    (rx_status & MVNETA_RXD_ERR_SUMMARY) ||
++		    !(skb = build_skb(data, pp->frag_size > PAGE_SIZE ? 0 : pp->frag_size))) {
  			dev->stats.rx_errors++;
  			mvneta_rx_error(pp, rx_desc);
-@@ -1472,7 +1471,7 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+-			mvneta_rx_desc_fill(rx_desc, rx_desc->buf_phys_addr,
+-					    (u32)skb);
++			/* leave the descriptor untouched */
+ 			continue;
+ 		}
+ 
+@@ -1466,7 +1483,7 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+ 		rcvd_bytes += rx_bytes;
+ 
+ 		/* Linux processing */
+-		skb_reserve(skb, MVNETA_MH_SIZE);
++		skb_reserve(skb, MVNETA_MH_SIZE + NET_SKB_PAD);
+ 		skb_put(skb, rx_bytes);
  
  		skb->protocol = eth_type_trans(skb, dev);
+@@ -2276,6 +2293,8 @@ static int mvneta_change_mtu(struct net_device *dev, int mtu)
+ 	mvneta_cleanup_rxqs(pp);
  
--		mvneta_rx_csum(pp, rx_desc, skb);
-+		mvneta_rx_csum(pp, rx_status, skb);
+ 	pp->pkt_size = MVNETA_RX_PKT_SIZE(pp->dev->mtu);
++	pp->frag_size = SKB_DATA_ALIGN(MVNETA_RX_BUF_SIZE(pp->pkt_size)) +
++	                SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
  
- 		napi_gro_receive(&pp->napi, skb);
+ 	ret = mvneta_setup_rxqs(pp);
+ 	if (ret) {
+@@ -2423,6 +2442,8 @@ static int mvneta_open(struct net_device *dev)
+ 	mvneta_mac_addr_set(pp, dev->dev_addr, rxq_def);
  
+ 	pp->pkt_size = MVNETA_RX_PKT_SIZE(pp->dev->mtu);
++	pp->frag_size = SKB_DATA_ALIGN(MVNETA_RX_BUF_SIZE(pp->pkt_size)) +
++	                SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+ 
+ 	ret = mvneta_setup_rxqs(pp);
+ 	if (ret)
 -- 
 1.7.12.2.21.g234cd45.dirty
