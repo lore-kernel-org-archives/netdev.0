@@ -1,62 +1,67 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] ipv6: addrconf spelling fixes
-Date: Sun, 12 Jan 2014 11:26:32 -0800
-Message-ID: <20140112112632.363ef751@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] netfilter: nf_conntrack: fix RCU race in
+ nf_conntrack_find_get (v3)
+Date: Sun, 12 Jan 2014 12:21:14 -0800
+Message-ID: <1389558074.31367.187.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1389188841.26646.87.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1389549033-23523-1-git-send-email-avagin@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:62175 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750999AbaALT0f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jan 2014 14:26:35 -0500
-Received: by mail-pd0-f170.google.com with SMTP id z10so1246214pdj.1
-        for <netdev@vger.kernel.org>; Sun, 12 Jan 2014 11:26:34 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, vvs@openvz.org,
+	Florian Westphal <fw@strlen.de>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cyrill Gorcunov <gorcunov@openvz.org>
+To: Andrey Vagin <avagin@openvz.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1389549033-23523-1-git-send-email-avagin@openvz.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Sun, 2014-01-12 at 21:50 +0400, Andrey Vagin wrote:
+> Lets look at destroy_conntrack:
+> 
+> hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
+> ...
+> nf_conntrack_free(ct)
+> 	kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
+> 
+> net->ct.nf_conntrack_cachep is created with SLAB_DESTROY_BY_RCU.
+> 
+> The hash is protected by rcu, so readers look up conntracks without
+> locks.
+> A conntrack is removed from the hash, but in this moment a few readers
+> still can use the conntrack. Then this conntrack is released and another
+> thread creates conntrack with the same address and the equal tuple.
+> After this a reader starts to validate the conntrack:
+> * It's not dying, because a new conntrack was created
+> * nf_ct_tuple_equal() returns true.
+...
 
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> v2: move nf_ct_is_confirmed into the unlikely() annotation
+> v3: Eric suggested to fix refcnt, so that it becomes zero before adding
+>     in a hash, but we can't find a way how to do that. Another way is to
+>     interpret the confirm bit as part of a search key and check it in
+>     ____nf_conntrack_find() too.
+> 
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Florian Westphal <fw@strlen.de>
+> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Cyrill Gorcunov <gorcunov@openvz.org>
+> Signed-off-by: Andrey Vagin <avagin@openvz.org>
+> ---
 
---- a/net/ipv6/addrconf.c	2014-01-12 10:30:22.367628654 -0800
-+++ b/net/ipv6/addrconf.c	2014-01-12 10:53:06.100102563 -0800
-@@ -984,8 +984,8 @@ static void ipv6_del_addr(struct inet6_i
- 	 *
- 	 * 1) we don't purge prefix here if address was not permanent.
- 	 *    prefix is managed by its own lifetime.
--	 * 2) if there're no addresses, delete prefix.
--	 * 3) if there're still other permanent address(es),
-+	 * 2) if there are no addresses, delete prefix.
-+	 * 3) if there are still other permanent address(es),
- 	 *    corresponding prefix is still permanent.
- 	 * 4) otherwise, update prefix lifetime to the
- 	 *    longest valid lifetime among the corresponding
-@@ -1206,7 +1206,7 @@ static int ipv6_get_saddr_eval(struct ne
- 		 *       |             d is scope of the destination.
- 		 *  B-d  |  \
- 		 *       |   \      <- smaller scope is better if
--		 *  B-15 |    \        if scope is enough for destinaion.
-+		 *  B-15 |    \        if scope is enough for destination.
- 		 *       |             ret = B - scope (-1 <= scope >= d <= 15).
- 		 * d-C-1 | /
- 		 *       |/         <- greater is better
-@@ -2876,7 +2876,7 @@ static int addrconf_notify(struct notifi
- 		}
- 
- 		/*
--		 * MTU falled under IPV6_MIN_MTU.
-+		 * if MTU under IPV6_MIN_MTU.
- 		 * Stop IPv6 on this interface.
- 		 */
- 
-@@ -3731,7 +3731,7 @@ inet6_rtm_newaddr(struct sk_buff *skb, s
- 	if (ifa == NULL) {
- 		/*
- 		 * It would be best to check for !NLM_F_CREATE here but
--		 * userspace alreay relies on not having to provide this.
-+		 * userspace already relies on not having to provide this.
- 		 */
- 		return inet6_addr_add(net, ifm->ifa_index, pfx, peer_pfx,
- 				      ifm->ifa_prefixlen, ifa_flags,
+Acked-by: Eric Dumazet <edumazet@google.com>
+
+Thanks Andrey !
+
+
