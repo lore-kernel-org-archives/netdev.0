@@ -1,37 +1,42 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next 0/3] bonding: cleanup bond_3ad.c
-Date: Sun, 12 Jan 2014 14:27:19 +0100
-Message-ID: <20140112132719.GA26242@redhat.com>
-References: <1389196008-28578-1-git-send-email-vfalico@redhat.com>
- <20140110.180614.405638448761352206.davem@davemloft.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [RFC PATCH 00/12] RCU'ify the net:sched classifier chains
+Date: Sun, 12 Jan 2014 08:57:32 -0500
+Message-ID: <52D29F4C.90808@mojatatu.com>
+References: <20140110092041.7193.5952.stgit@nitbit.x32> <52D2987D.5060807@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: John Fastabend <john.fastabend@gmail.com>,
+	xiyou.wangcong@gmail.com, eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3168 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751005AbaALNaV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Jan 2014 08:30:21 -0500
-Content-Disposition: inline
-In-Reply-To: <20140110.180614.405638448761352206.davem@davemloft.net>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:60354 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750955AbaALN5f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jan 2014 08:57:35 -0500
+Received: by mail-ie0-f179.google.com with SMTP id tp5so1092528ieb.24
+        for <netdev@vger.kernel.org>; Sun, 12 Jan 2014 05:57:34 -0800 (PST)
+In-Reply-To: <52D2987D.5060807@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 10, 2014 at 06:06:14PM -0500, David Miller wrote:
->From: Veaceslav Falico <vfalico@redhat.com>
->Date: Wed,  8 Jan 2014 16:46:45 +0100
->
->> It's a huge mess there currently - and, thus, really hard to read and
->> debug.
->>
->> This is the first series, and doesn't change the logic at all, only makes
->> it a bit more readable.
->>
->> CC: Jay Vosburgh <fubar@us.ibm.com>
->> CC: Andy Gospodarek <andy@greyhouse.net>
->> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
->
->Series applied, thanks.
+On 01/12/14 08:28, Jamal Hadi Salim wrote:
 
-Hrm, still can't see them. Did I miss something?..
+> I will scan through the patches...
+>
+
+I looked and here's a general question:
+Does even using RCU make any sense here? What we have
+is a lot of updates and very very little reads (reads essentially
+are done from the control side; the data path is is all about updates).
+
+I am not sure if RCU is a win in such a case - it could make things
+worse. At least that used to be the Truth(tm) many moons back.
+Is that not the case anymore?
+
+cheers,
+jamal
+
+> This is fun stuff - I will try to participate whenever i can
+> (unfortunately not much time at the moment).
+>
