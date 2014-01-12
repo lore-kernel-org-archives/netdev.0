@@ -1,80 +1,66 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: [PATCH net-next 1/6] net: mvneta: remove tests for impossible cases in the tx_done path
-Date: Sun, 12 Jan 2014 12:24:03 +0100
-Message-ID: <1389525848-1814-2-git-send-email-w@1wt.eu>
-References: <1389525848-1814-1-git-send-email-w@1wt.eu>
-Cc: netdev@vger.kernel.org, Willy Tarreau <w@1wt.eu>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:55234 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751175AbaALLYT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Jan 2014 06:24:19 -0500
-In-Reply-To: <1389525848-1814-1-git-send-email-w@1wt.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH] MAINTAINERS: add virtio-dev ML for virtio
+Date: Sun, 12 Jan 2014 13:37:56 +0200
+Message-ID: <20140112113756.GA9127@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Joe Perches <joe@perches.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Mauro Carvalho Chehab <m.chehab@samsung.com>,
+        "David S. Miller" <davem@davemloft.net>, amit.shah@redhat.com,
+        Jason Wang <jasowang@redhat.com>,
+        Wanlong Gao <gaowanlong@cn.fujitsu.com>,
+        virtio-dev@lists.oasis-open.org, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <virtio-dev-return-228-gcvd-virtio-dev=m.gmane.org@lists.oasis-open.org>
+Sender: <virtio-dev@lists.oasis-open.org>
+List-Post: <mailto:virtio-dev@lists.oasis-open.org>
+List-Help: <mailto:virtio-dev-help@lists.oasis-open.org>
+List-Unsubscribe: <mailto:virtio-dev-unsubscribe@lists.oasis-open.org>
+List-Subscribe: <mailto:virtio-dev-subscribe@lists.oasis-open.org>
+Content-Disposition: inline
+List-Id: netdev.vger.kernel.org
 
-Currently, mvneta_txq_bufs_free() calls mvneta_tx_done_policy() with
-a non-null cause to retrieve the pointer to the next queue to process.
-There are useless tests on the return queue number and on the pointer,
-all of which are well defined within a known limited set. This code
-path is fast, although not critical. Removing 3 tests here that the
-compiler could not optimize (verified) is always desirable.
+Since virtio is an OASIS standard draft now, virtio implementation
+discussions are taking place on the virtio-dev OASIS mailing list.
+Update MAINTAINERS.
 
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Signed-off-by: Willy Tarreau <w@1wt.eu>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 15 +++++++++------
- 1 file changed, 9 insertions(+), 6 deletions(-)
+ MAINTAINERS              |   3 +
+ drivers/net/virtio_net.c | 355 +++++++++++++++++++++++++----------------------
+ 2 files changed, 191 insertions(+), 167 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index df75a23..2fb9559 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -1276,13 +1276,16 @@ static void mvneta_rx_csum(struct mvneta_port *pp,
- 	skb->ip_summed = CHECKSUM_NONE;
- }
+diff --git a/MAINTAINERS b/MAINTAINERS
+index ffcaf97..75202af 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -9088,6 +9088,7 @@ F:	include/media/videobuf2-*
  
--/* Return tx queue pointer (find last set bit) according to causeTxDone reg */
-+/* Return tx queue pointer (find last set bit) according to <cause> returned
-+ * form tx_done reg. <cause> must not be null. The return value is always a
-+ * valid queue for matching the first one found in <cause>.
-+ */
- static struct mvneta_tx_queue *mvneta_tx_done_policy(struct mvneta_port *pp,
- 						     u32 cause)
- {
- 	int queue = fls(cause) - 1;
- 
--	return (queue < 0 || queue >= txq_number) ? NULL : &pp->txqs[queue];
-+	return &pp->txqs[queue];
- }
- 
- /* Free tx queue skbuffs */
-@@ -1651,7 +1654,9 @@ static void mvneta_txq_done_force(struct mvneta_port *pp,
- 	txq->txq_get_index = 0;
- }
- 
--/* handle tx done - called from tx done timer callback */
-+/* Handle tx done - called in softirq context. The <cause_tx_done> argument
-+ * must be a valid cause according to MVNETA_TXQ_INTR_MASK_ALL.
-+ */
- static u32 mvneta_tx_done_gbe(struct mvneta_port *pp, u32 cause_tx_done,
- 			      int *tx_todo)
- {
-@@ -1660,10 +1665,8 @@ static u32 mvneta_tx_done_gbe(struct mvneta_port *pp, u32 cause_tx_done,
- 	struct netdev_queue *nq;
- 
- 	*tx_todo = 0;
--	while (cause_tx_done != 0) {
-+	while (cause_tx_done) {
- 		txq = mvneta_tx_done_policy(pp, cause_tx_done);
--		if (!txq)
--			break;
- 
- 		nq = netdev_get_tx_queue(pp->dev, txq->id);
- 		__netif_tx_lock(nq, smp_processor_id());
+ VIRTIO CONSOLE DRIVER
+ M:	Amit Shah <amit.shah@redhat.com>
++L:	virtio-dev@lists.oasis-open.org
+ L:	virtualization@lists.linux-foundation.org
+ S:	Maintained
+ F:	drivers/char/virtio_console.c
+@@ -9097,6 +9098,7 @@ F:	include/uapi/linux/virtio_console.h
+ VIRTIO CORE, NET AND BLOCK DRIVERS
+ M:	Rusty Russell <rusty@rustcorp.com.au>
+ M:	"Michael S. Tsirkin" <mst@redhat.com>
++L:	virtio-dev@lists.oasis-open.org
+ L:	virtualization@lists.linux-foundation.org
+ S:	Maintained
+ F:	drivers/virtio/
+@@ -9109,6 +9111,7 @@ F:	include/uapi/linux/virtio_*.h
+ VIRTIO HOST (VHOST)
+ M:	"Michael S. Tsirkin" <mst@redhat.com>
+ L:	kvm@vger.kernel.org
++L:	virtio-dev@lists.oasis-open.org
+ L:	virtualization@lists.linux-foundation.org
+ L:	netdev@vger.kernel.org
+ S:	Maintained
 -- 
-1.7.12.2.21.g234cd45.dirty
+MST
