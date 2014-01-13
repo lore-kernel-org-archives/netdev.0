@@ -1,42 +1,43 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv2 net-next 5/5] xfrm: Don't prohibit AH from using ESN feature
-Date: Mon, 13 Jan 2014 15:48:44 +0800
-Message-ID: <1389599324-5174-6-git-send-email-fan.du@windriver.com>
-References: <1389599324-5174-1-git-send-email-fan.du@windriver.com>
+Subject: [PATCH net-next 0/4] Make flow cache name space aware
+Date: Mon, 13 Jan 2014 15:49:04 +0800
+Message-ID: <1389599348-5214-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
 To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:40813 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:40825 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751383AbaAMHst (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 02:48:49 -0500
-In-Reply-To: <1389599324-5174-1-git-send-email-fan.du@windriver.com>
+	with ESMTP id S1751322AbaAMHtD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 02:49:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Clear checking when user try to use ESN through netlink keymgr for AH.
-As only ESP and AH support ESN feature according to RFC.
+Hi,
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
- net/xfrm/xfrm_user.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+This patch set aims to make flow cache operating in a per net style
+when inserting flow cache entry or flush flow cache. The reason to
+do so is not much compelling but reasonable, which is flushing flow
+cache in original implementation has global effective, the collateral
+damage is netns with only a few flow cache entries has gone.
 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 97681a3..dbd287d 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -142,7 +142,8 @@ static inline int verify_replay(struct xfrm_usersa_info *p,
- 	if (!rt)
- 		return 0;
- 
--	if (p->id.proto != IPPROTO_ESP)
-+	/* As only ESP and AH support ESN feature. */
-+	if ((p->id.proto != IPPROTO_ESP) && (p->id.proto != IPPROTO_AH))
- 		return -EINVAL;
- 
- 	if (p->replay_window != 0)
+So this patch make flow cache running in a per net scope. Operation
+from different netns won't interfere with each other. And the flushing
+operation is worthwhile for the netns which supposed to be.
+
+Fan Du (4):
+  flowcache: Namespacify flowcache global parameters with xfrm
+  flowcache: Make flowcache entry inserting/flushing in per-net style
+  flowcache: fixup flow cache part in xfrm policy
+  flowcache: Bring net/core/flow.c under IPsec maintain scope
+
+ MAINTAINERS              |    1 +
+ include/net/flow.h       |    5 +-
+ include/net/netns/xfrm.h |   11 ++++
+ net/core/flow.c          |  127 +++++++++++++++++++++-------------------------
+ net/xfrm/xfrm_policy.c   |    7 +--
+ 5 files changed, 76 insertions(+), 75 deletions(-)
+
 -- 
 1.7.9.5
