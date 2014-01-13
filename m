@@ -1,40 +1,69 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH net-next] bgmac: propagate error codes in bgmac_probe()
-Date: Mon, 13 Jan 2014 06:58:46 +0100
-Message-ID: <CACna6rw+vH+aPpf3_Rsd=QYHS3s=9Oq+MZV_CnKq1xpXyKzEtQ@mail.gmail.com>
-References: <1389582355-27514-1-git-send-email-f.fainelli@gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: suspicious RCU usage in net/ipv4/ip_tunnel.c:80
+Date: Sun, 12 Jan 2014 22:36:41 -0800
+Message-ID: <CAHA+R7Pe_pGFw5cA3v_RnGvOurAykJNVH5=DeeEVHG84faWi2Q@mail.gmail.com>
+References: <CAHA+R7PAyR_cJ9_9nfUBc0U9o-U=gCV+sN_VYbHwgq-QdoEVzQ@mail.gmail.com>
+	<1389403281.31367.171.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAHA+R7OMM9ndy4hXF4rJBsA_Rb0KZ-MonuvE++wgzO_oMbo+eQ@mail.gmail.com>
+	<1389548697.31367.184.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	Nathan Hintz <nlhintz@hotmail.com>, sd@queasysnail.net,
-	bhutchings@solarflare.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Tom Herbert <therbert@google.com>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:65098 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751219AbaAMF6r convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 00:58:47 -0500
-Received: by mail-ob0-f175.google.com with SMTP id uz6so7196293obc.34
-        for <netdev@vger.kernel.org>; Sun, 12 Jan 2014 21:58:46 -0800 (PST)
-In-Reply-To: <1389582355-27514-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:38832 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751288AbaAMGgo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 01:36:44 -0500
+Received: by mail-lb0-f180.google.com with SMTP id n15so758332lbi.39
+        for <netdev@vger.kernel.org>; Sun, 12 Jan 2014 22:36:43 -0800 (PST)
+In-Reply-To: <1389548697.31367.184.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014/1/13 Florian Fainelli <f.fainelli@gmail.com>:
-> bgmac_mii_register() and register_netdev() both return appropriate er=
-ror
-> codes for the failures they would encounter, propagate this error cod=
-e
-> instead of overriding the value with -ENOTSUPP which is not the corre=
-ct
-> error code to return.
+On Sun, Jan 12, 2014 at 9:44 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Sat, 2014-01-11 at 11:15 -0800, Cong Wang wrote:
+>> On Fri, Jan 10, 2014 at 5:21 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> >
+>> > Nope, the synchronize_rcu() is not needed here.
+>>
+>> OK.
+>>
+>> >
+>> > Please use following sparse ready patch, thanks :
+>> >
+>> > diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+>> > index d3929a69f008..6eda759b5c4b 100644
+>> > --- a/net/ipv4/ip_tunnel.c
+>> > +++ b/net/ipv4/ip_tunnel.c
+>> > @@ -77,10 +77,11 @@ static inline void __tunnel_dst_set(struct ip_tunnel_dst *idst,
+>> >                 dst = NULL;
+>> >
+>> >         spin_lock_bh(&idst->lock);
+>> > -       old_dst = rcu_dereference(idst->dst);
+>> > +       old_dst = rcu_dereference_protected(idst->dst,
+>> > +                                           lockdep_is_held(&idst->lock));
+>> >         rcu_assign_pointer(idst->dst, dst);
+>> > -       dst_release(old_dst);
+>> >         spin_unlock_bh(&idst->lock);
+>> > +       dst_release(old_dst);
+>>
+>> Do you really need a rcu_dereference*() here? We don't dereference
+>> it inside spin_lock protection.
 >
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> Please read rcu_dereference_protected() documentation in
+> include/linux/rcupdate.h
 
-Acked-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+I did before I replied.
 
---=20
-Rafa=C5=82
+>
+> Also you can run sparse, with CONFIG_SPARSE_RCU_POINTER=y in
+> your .config
+>
+> make C=2 net/ipv4/ip_tunnel.o
+>
+> And then you'll know the answer to this question.
+>
+
+Sounds like it is only to shut up a sparse warning, then its name
+is misleading, we clearly don't dereference it here.
