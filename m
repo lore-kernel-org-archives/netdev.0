@@ -1,52 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: suspicious RCU usage in net/ipv4/ip_tunnel.c:80
-Date: Mon, 13 Jan 2014 00:20:33 -0800
-Message-ID: <1389601233.31367.213.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAHA+R7PAyR_cJ9_9nfUBc0U9o-U=gCV+sN_VYbHwgq-QdoEVzQ@mail.gmail.com>
-	 <1389403281.31367.171.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAHA+R7OMM9ndy4hXF4rJBsA_Rb0KZ-MonuvE++wgzO_oMbo+eQ@mail.gmail.com>
-	 <1389548697.31367.184.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAHA+R7Pe_pGFw5cA3v_RnGvOurAykJNVH5=DeeEVHG84faWi2Q@mail.gmail.com>
+From: sohny thomas <sohny.kernel@gmail.com>
+Subject: Re: ipv6: default route for link local address is not added while
+ assigning a address
+Date: Mon, 13 Jan 2014 14:19:09 +0530
+Message-ID: <52D3A885.2080107@gmail.com>
+References: <52D2F201.1090903@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>, netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:41216 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751291AbaAMIUf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 03:20:35 -0500
-Received: by mail-pd0-f174.google.com with SMTP id w10so2434353pde.19
-        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 00:20:35 -0800 (PST)
-In-Reply-To: <CAHA+R7Pe_pGFw5cA3v_RnGvOurAykJNVH5=DeeEVHG84faWi2Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, davem@davemloft.net,
+	kumuda <kumuda@linux.vnet.ibm.com>, hannes@stressinduktion.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52D2F201.1090903@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2014-01-12 at 22:36 -0800, Cong Wang wrote:
-> > Please read rcu_dereference_protected() documentation in
-> > include/linux/rcupdate.h
-> 
-> I did before I replied.
+On Friday 10 January 2014 10:46 PM, Hannes Frederic Sowa wrote:
+> On Fri, Jan 10, 2014 at 05:33:08PM +0100, Nicolas Dichtel wrote:
+>> CC: netdev
+>>
+>> Le 10/01/2014 13:20, sohny thomas a =C3=A9crit :
+>>> Default route for link local address is configured automatically if
+>>> NETWORKING_IPV6=3Dyes is in ifcfg-eth*.
+>>> When the route table for the interface is flushed and a new address=
+ is
+>>> added to
+>>> the same device with out removing linklocal addr, default route for=
+ link
+>>> local
+>>> address has to added by default.
+>> I would say that removing the link local route but not the link loca=
+l
+>> address
+>> is a configuration problem.
+>> If you remove a connected route but not the associated address, you =
+will
+>> have
+>> the same problem.
+> We have some user accessible routes that are essential for IPv6 stack
+> to work at all. So I don't know if I can agree with that.
+>
+> Maybe flush is a bit too aggressive?
+>
+Hi ,
+
+Thank you for the inputs.
+
+In the test for ipv6 default address selection , we are testing the rul=
+e
+2 as specified in RFC 6724
+
+   If Scope(SA) < Scope(SB): If Scope(SA) < Scope(D), then prefer SB
+     and otherwise prefer SA.
+     Similarly, if Scope(SB) < Scope(SA): If Scope(SB) < Scope(D), then
+     prefer SA and otherwise prefer SB.
+
+Test:
+
+   Check 04:
+      Destination: ff08::2(OS)
+      Candidate Source Addresses: fec0::1(SS) or LLA(LS)
+      Result: fec0::1(SS)
+
+      Scope(LLA) < Scope(fec0::1): If Scope(LLA) < Scope(ff08::2),  yes=
+,=20
+prefer fec0::1
 
 
+Now in the test its flushing all the routes and adding an address ,
+which in causes to add route into the routing table including the link
+local routes.
+Earlier in 2.6.32 it used to work fine now due to the above mentioned
+check-in this is not happening
 
-> 
-> >
-> > Also you can run sparse, with CONFIG_SPARSE_RCU_POINTER=y in
-> > your .config
-> >
-> > make C=2 net/ipv4/ip_tunnel.o
-> >
-> > And then you'll know the answer to this question.
-> >
-> 
-> Sounds like it is only to shut up a sparse warning, then its name
-> is misleading, we clearly don't dereference it here.
+Of course we can still just delete a route and add , but even if we
+delete the link local route, IMHO i think it should update the LLA rout=
+e
+when the interface is next added an address or bought up which ever is
+the case.
 
-Historical reasons, you should have been there when Paul invented the
-name and lazy people like us let him do so !
-
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=b62730baea32f86fe91a7930e4b7ee8d82778b79
-
-You are lucky, there is plenty of documentation, maybe too much..
+Regards,
+Sohny
