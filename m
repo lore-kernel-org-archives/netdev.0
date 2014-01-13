@@ -1,44 +1,84 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: PROBLEM: usbnet / ax88179_178a: Panic in usb_hcd_map_urb_for_dma
-Date: Mon, 13 Jan 2014 12:28:52 +0100
-Message-ID: <87zjn086iz.fsf@nemi.mork.no>
-References: <CAHNSM4Kv5gcJn=H4k8QjPggWzjF0zRm_t_icAYXjCTqXx4xL2w@mail.gmail.com>
-	<1389385824.2025.95.camel@bwh-desktop.uk.level5networks.com>
-	<87ob3j1ocb.fsf@nemi.mork.no>
-	<CAHNSM4KU8QEybpHgAcCjQoWuRjU8=wd1O7KUVMnrRJKQ-xr=Gg@mail.gmail.com>
-	<87zjn3z6d5.fsf@nemi.mork.no>
-	<063D6719AE5E284EB5DD2968C1650D6D458FEE@AcuExch.aculab.com>
+From: Jonas Jensen <jonas.jensen@gmail.com>
+Subject: build_skb() and data corruption
+Date: Mon, 13 Jan 2014 12:47:42 +0100
+Message-ID: <CACmBeS35RAEQ+t2vtYtFTKNT-VdQw20hURjTi193Jk8HG7UECA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Kear <thomas@kear.co.nz>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:40934 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751367AbaAML3K convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 06:29:10 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D458FEE@AcuExch.aculab.com>
-	(David Laight's message of "Mon, 13 Jan 2014 11:08:06 +0000")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	bhutchings@solarflare.com, alexander.h.duyck@intel.com,
+	Arnd Bergmann <arnd@arndb.de>,
+	Florian Fainelli <florian@openwrt.org>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Laight <David.Laight@ACULAB.COM> writes:
+Please help,
 
-> The patch you submitted is wrong.
-> Whoever wrote the sg interface was on crack.
-> The 'last' marker needs moving as well.
+I think I see memory corruption with a driver recently added to linux-next.
 
-I'm afraid I don't understand what you meant by this.
+The following error occur downloading a large file with wget (or
+ncftp): "read error: Bad address"
+wget exits and leaves the file unfinished.
 
-sg_init_table() set the 'last' marker.  AFAICS, you don't need to chang=
-e
-it unless you want to chain lists.
+The error goes away when build_skb() is patched out, in this case by
+allocating pages directly in RX loop.
 
-Care to explain with some code?
+I currently have two branches with code placed under ifdef USE_BUILD_SKB:
+https://bitbucket.org/Kasreyn/linux-next/src/faa7c408a655fdfd7c383f79259031da5a05d61e/drivers/net/ethernet/moxa/moxart_ether.c#cl-472
+
+If build_skb() is the cause, is there something the driver can do about it?
+
+A quick search on "build_skb memory corruption" reveals the following
+commit, "igb: Revert support for build_skb in igb"
+f9d40f6a9921cc7d9385f64362314054e22152bd:
+
+"The reason for reverting this patch is that it can lead to data corruption.
+The following flow was pointed out by Ben Hutchings:
+1. skb is forwarded to another device
+2. Packet headers are modified and it's put into a queue
+3. Second packet is received into the other half of this page
+4. Page cannot be reused, so is DMA-unmapped
+5. The DMA mapping was non-coherent, so unmap copies or invalidates
+cache
+The headers added in step 2 get trashed in step 5."
 
 
-Bj=C3=B8rn
+This is extra interesting, errors only happen on a locally mounted
+ext3 filesystem, never on tmpfs e.g.:
+
+# mount
+/dev/mmcblk0p1 on / type ext3
+(rw,relatime,errors=continue,barrier=1,data=ordered)
+tmpfs on /dev/shm type tmpfs (rw,relatime,mode=777)
+tmpfs on /tmp type tmpfs (rw,relatime)
+
+#cd /tmp
+# wget -c ftp://149.20.4.69/pub/linux/kernel/v2.6/linux-2.6.11.11.tar.gz
+Connecting to 149.20.4.69 (149.20.4.69:21)
+linux-2.6.11.11.tar.  25% |*******                        | 11374k
+0:01:36 ETAwget: short write
+[  153.560000] wget (383) used greatest stack depth: 4776 bytes left
+# rm linux-2.6.11.11.tar.gz
+# wget -c ftp://149.20.4.69/pub/linux/kernel/v2.6/linux-2.6.11.11.tar.gz
+Connecting to 149.20.4.69 (149.20.4.69:21)
+linux-2.6.11.11.tar.  25% |*******                        | 11315k
+0:01:34 ETAwget: short write
+# rm linux-2.6.11.11.tar.gz
+# wget -c ftp://149.20.4.69/pub/linux/kernel/v2.6/linux-2.6.11.11.tar.gz
+Connecting to 149.20.4.69 (149.20.4.69:21)
+linux-2.6.11.11.tar.  25% |*******                        | 11473k
+0:01:38 ETAwget: short write
+[  237.300000] wget (387) used greatest stack depth: 4752 bytes left
+
+# cd /root/
+# wget -c ftp://149.20.4.69/pub/linux/kernel/v2.6/linux-2.6.11.11.tar.gz
+Connecting to 149.20.4.69 (149.20.4.69:21)
+linux-2.6.11.11.tar.   3% |*                              |  1647k  0:03:02 ETA
+wget: read error: Bad address
+
+
+Regards,
+Jonas
