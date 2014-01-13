@@ -1,34 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] net/mlx4_core: clean up two functions
-Date: Mon, 13 Jan 2014 11:13:12 -0800 (PST)
-Message-ID: <20140113.111312.1323236808342705421.davem@davemloft.net>
-References: <1389099622.15032.18.camel@x41>
+Subject: Re: [PATCH net 0/2] bonding: ensure that the TSO being set on bond
+ master
+Date: Mon, 13 Jan 2014 11:15:11 -0800 (PST)
+Message-ID: <20140113.111511.1204304092822372663.davem@davemloft.net>
+References: <52CCFE15.2020605@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ogerlitz@mellanox.com, jackm@dev.mellanox.co.il,
-	ronye@mellanox.com, hadarh@mellanox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: pebolle@tiscali.nl
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389099622.15032.18.camel@x41>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: fubar@us.ibm.com, vfalico@redhat.com, edumazet@google.com,
+	netdev@vger.kernel.org
+To: dingtianhong@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37965 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751555AbaAMTPM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 14:15:12 -0500
+In-Reply-To: <52CCFE15.2020605@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paul Bolle <pebolle@tiscali.nl>
-Date: Tue, 07 Jan 2014 14:00:22 +0100
+From: Ding Tianhong <dingtianhong@huawei.com>
+Date: Wed, 8 Jan 2014 15:28:21 +0800
 
-> 0) These two patches are very similar. They both clean up a function to
-> help GCC understand the codeflow. Both help silence a warning.
+> The commit b0ce3508(bonding: allow TSO being set on bonding master)
+> has make the TSO being set for bond dev, but in some situation, if
+> the slave did not have the NETIF_F_SG features, the bond master will
+> miss the TSO features in netdev_fix_features because the TSO is
+> depended on SG. So I have to add SG and TSO features on bond master
+> together.
 > 
-> 1) Compile tested only (on 32 bits x86). I do not have this hardware.
-> 
-> 2) Please note that there's no MAINTAINERS entry for mlx4_core. (Neither
-> is there an entry for the MLX4 IB driver.) Shouldn't it be added? 
+> The function netdev_add_tso_features() was only be used for bonding,
+> so no need to export it in netdevice.h, remove it and add it to bonding.
 
-These patches have been rotting for a week.  I know the mlx4 folks
-said the SRIOV guy inside Mellanox will look at it, but this is taking
-way too long.
+As far as I can tell from the discussion, there is some issue wrt. TSO
+about what happens if SG is not supported by some of the slaves.
 
-This is absolutely unreasonable from Paul's perspective to have to wait
-this long for a review of these relatively simple patches.
+>From my perspective it appears that some changes to these patches are
+necessary to handle that correctly.
+
+So I am going to mark them as "Changes Requested" in patchwork.
+
+If this is not the case, please resubmit these changes with appropriate
+explanations added to the commit message(s).
+
+Thanks.
