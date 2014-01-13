@@ -1,48 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next 6/7] net_sched: cls: move allocation in ->init
- to generic layer
-Date: Mon, 13 Jan 2014 11:49:23 -0800 (PST)
-Message-ID: <20140113.114923.2164522715863402981.davem@davemloft.net>
-References: <1389312845-10304-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1389312845-10304-7-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] gre_offload: simplify GRE header length
+ calculation in gre_gso_segment()
+Date: Mon, 13 Jan 2014 11:54:08 -0800 (PST)
+Message-ID: <20140113.115408.687861949295975907.davem@davemloft.net>
+References: <1389318437-17744-1-git-send-email-ncardwell@google.com>
+	<1389319758.31367.81.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch, jhs@mojatatu.com
-To: xiyou.wangcong@gmail.com
+Cc: ncardwell@google.com, netdev@vger.kernel.org, edumazet@google.com,
+	hkchu@google.com, pshelar@nicira.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38182 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38248 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750899AbaAMTtY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 14:49:24 -0500
-In-Reply-To: <1389312845-10304-7-git-send-email-xiyou.wangcong@gmail.com>
+	with ESMTP id S1751458AbaAMTyJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 14:54:09 -0500
+In-Reply-To: <1389319758.31367.81.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Thu,  9 Jan 2014 16:14:04 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 09 Jan 2014 18:09:18 -0800
 
-> +	if (!head->init) {
->  		head->handle = handle;
-> -
-> -		tcf_tree_lock(tp);
-> -		tp->root = head;
-> -		tcf_tree_unlock(tp);
-> +		head->init = true;
- ...
->  		head->mask = mask;
-> -
-> -		tcf_tree_lock(tp);
-> -		tp->root = head;
-> -		tcf_tree_unlock(tp);
-> +		head->init = true;
+> On Thu, 2014-01-09 at 20:47 -0500, Neal Cardwell wrote:
+>> Simplify the GRE header length calculation in gre_gso_segment().
+>> Switch to an approach that is simpler, faster, and more general. The
+>> new approach will continue to be correct even if we add support for
+>> the optional variable-length routing info that may be present in a GRE
+>> header.
+>> 
+>> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+>> Cc: Eric Dumazet <edumazet@google.com>
+>> Cc: H.K. Jerry Chu <hkchu@google.com>
+>> Cc: Pravin B Shelar <pshelar@nicira.com>
+>> ---
+> 
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-Like Jamal, I don't think these transformations are valid.
-
-You can't make the root visible in the hierarchy until the
-->handle and ->mask (respectively) members are initialized
-in these two classifiers.
-
-What I'm going to do for now is apply patches 1-5 and 7.
-
-Thanks.
+Applied, thank you.
