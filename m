@@ -1,35 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 3/3] xen-netfront: use new
- skb_checksum_setup function
-Date: Mon, 13 Jan 2014 11:27:20 -0800 (PST)
-Message-ID: <20140113.112720.2236966361404094251.davem@davemloft.net>
-References: <1389261768-30606-1-git-send-email-paul.durrant@citrix.com>
-	<1389261768-30606-4-git-send-email-paul.durrant@citrix.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: net/mlx4_core: clean up two functions
+Date: Mon, 13 Jan 2014 21:34:17 +0200
+Message-ID: <20140113193415.GA22955@mtl-eit-vdi-22.mtl.labs.mlnx>
+References: <1389099622.15032.18.camel@x41>
+ <20140113.111312.1323236808342705421.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org,
-	konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
-	david.vrabel@citrix.com
-To: paul.durrant@citrix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38034 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751924AbaAMT1V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 14:27:21 -0500
-In-Reply-To: <1389261768-30606-4-git-send-email-paul.durrant@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: pebolle@tiscali.nl, ogerlitz@mellanox.com,
+	jackm@dev.mellanox.co.il, ronye@mellanox.com, hadarh@mellanox.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	amirv@mellanox.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140113.111312.1323236808342705421.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Paul Durrant <paul.durrant@citrix.com>
-Date: Thu, 9 Jan 2014 10:02:48 +0000
-
-> Use skb_checksum_setup to set up partial checksum offsets rather
-> then a private implementation.
+On 13/01/14 11:13 -0800, David Miller wrote:
+> From: Paul Bolle <pebolle@tiscali.nl>
+> Date: Tue, 07 Jan 2014 14:00:22 +0100
 > 
-> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> > 0) These two patches are very similar. They both clean up a function to
+> > help GCC understand the codeflow. Both help silence a warning.
+> > 
+> > 1) Compile tested only (on 32 bits x86). I do not have this hardware.
+> > 
+> > 2) Please note that there's no MAINTAINERS entry for mlx4_core. (Neither
+> > is there an entry for the MLX4 IB driver.) Shouldn't it be added? 
+> 
+> These patches have been rotting for a week.  I know the mlx4 folks
+> said the SRIOV guy inside Mellanox will look at it, but this is taking
+> way too long.
+> 
+> This is absolutely unreasonable from Paul's perspective to have to wait
+> this long for a review of these relatively simple patches.
 
-This patch really needs review by a netfront expert before I can apply
-this series.
+You're absolutely right.
+And yes, jack is very busy.
+We will have a reply ready tomorrow morning.
 
-Thanks.
+Amir
+
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
