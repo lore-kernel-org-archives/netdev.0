@@ -1,7 +1,7 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: PROBLEM: usbnet / ax88179_178a: Panic in usb_hcd_map_urb_for_dma
-Date: Mon, 13 Jan 2014 13:25:26 +0100
-Message-ID: <87vbxo83wp.fsf@nemi.mork.no>
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: PROBLEM: usbnet / ax88179_178a: Panic in usb_hcd_map_urb_for_dma
+Date: Mon, 13 Jan 2014 13:26:17 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D4590AF@AcuExch.aculab.com>
 References: <CAHNSM4Kv5gcJn=H4k8QjPggWzjF0zRm_t_icAYXjCTqXx4xL2w@mail.gmail.com>
 	<1389385824.2025.95.camel@bwh-desktop.uk.level5networks.com>
 	<87ob3j1ocb.fsf@nemi.mork.no>
@@ -10,51 +10,47 @@ References: <CAHNSM4Kv5gcJn=H4k8QjPggWzjF0zRm_t_icAYXjCTqXx4xL2w@mail.gmail.com>
 	<063D6719AE5E284EB5DD2968C1650D6D458FEE@AcuExch.aculab.com>
 	<87zjn086iz.fsf@nemi.mork.no>
 	<063D6719AE5E284EB5DD2968C1650D6D45904D@AcuExch.aculab.com>
+ <87vbxo83wp.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Thomas Kear <thomas-hrxM1pTBpuF02iOg2JU2CQ@public.gmane.org>,
 	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
 	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb\@vger.kernel.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: =?utf-8?B?J0Jqw7hybiBNb3JrJw==?= <bjorn-yOkvZcmFvRU@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D45904D-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
-	(David Laight's message of "Mon, 13 Jan 2014 11:52:04 +0000")
+In-Reply-To: <87vbxo83wp.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
+Content-Language: en-US
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org> writes:
-> From: Bj=C3=B8rn Mork
->> David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org> writes:
->>=20
->> > The patch you submitted is wrong.
->> > Whoever wrote the sg interface was on crack.
->> > The 'last' marker needs moving as well.
->>=20
->> I'm afraid I don't understand what you meant by this.
->>=20
->> sg_init_table() set the 'last' marker.  AFAICS, you don't need to ch=
-ange
->> it unless you want to chain lists.
->>=20
->> Care to explain with some code?
->
-> Just assuming that there will be some code, somewhere, that will try
-> to process the entire sg list - so won't like the entry with a
-> NULL pointer and zero length at the end.
->
-> If all the places that process the list are given an explicit
-> number of entries, or don't care about the NULL it doesn't matter.
-
-I believe all processing use the urb->num_sgs field to limit the number
-of entries.  Common interfaces like dma_map_sg() and for_each_sg() limi=
-t
-their processing to "nents" entries, and the USB code use the value of
-urb->num_sgs for this parameter.
-
-
-Bj=C3=B8rn
+RnJvbTogQmrDuHJuIE1vcmsgW21haWx0bzpiam9ybkBtb3JrLm5vXQ0KPiBEYXZpZCBMYWlnaHQg
+PERhdmlkLkxhaWdodEBBQ1VMQUIuQ09NPiB3cml0ZXM6DQo+ID4gRnJvbTogQmrDuHJuIE1vcmsN
+Cj4gPj4gRGF2aWQgTGFpZ2h0IDxEYXZpZC5MYWlnaHRAQUNVTEFCLkNPTT4gd3JpdGVzOg0KPiA+
+Pg0KPiA+PiA+IFRoZSBwYXRjaCB5b3Ugc3VibWl0dGVkIGlzIHdyb25nLg0KPiA+PiA+IFdob2V2
+ZXIgd3JvdGUgdGhlIHNnIGludGVyZmFjZSB3YXMgb24gY3JhY2suDQo+ID4+ID4gVGhlICdsYXN0
+JyBtYXJrZXIgbmVlZHMgbW92aW5nIGFzIHdlbGwuDQo+ID4+DQo+ID4+IEknbSBhZnJhaWQgSSBk
+b24ndCB1bmRlcnN0YW5kIHdoYXQgeW91IG1lYW50IGJ5IHRoaXMuDQo+ID4+DQo+ID4+IHNnX2lu
+aXRfdGFibGUoKSBzZXQgdGhlICdsYXN0JyBtYXJrZXIuICBBRkFJQ1MsIHlvdSBkb24ndCBuZWVk
+IHRvIGNoYW5nZQ0KPiA+PiBpdCB1bmxlc3MgeW91IHdhbnQgdG8gY2hhaW4gbGlzdHMuDQo+ID4+
+DQo+ID4+IENhcmUgdG8gZXhwbGFpbiB3aXRoIHNvbWUgY29kZT8NCj4gPg0KPiA+IEp1c3QgYXNz
+dW1pbmcgdGhhdCB0aGVyZSB3aWxsIGJlIHNvbWUgY29kZSwgc29tZXdoZXJlLCB0aGF0IHdpbGwg
+dHJ5DQo+ID4gdG8gcHJvY2VzcyB0aGUgZW50aXJlIHNnIGxpc3QgLSBzbyB3b24ndCBsaWtlIHRo
+ZSBlbnRyeSB3aXRoIGENCj4gPiBOVUxMIHBvaW50ZXIgYW5kIHplcm8gbGVuZ3RoIGF0IHRoZSBl
+bmQuDQo+ID4NCj4gPiBJZiBhbGwgdGhlIHBsYWNlcyB0aGF0IHByb2Nlc3MgdGhlIGxpc3QgYXJl
+IGdpdmVuIGFuIGV4cGxpY2l0DQo+ID4gbnVtYmVyIG9mIGVudHJpZXMsIG9yIGRvbid0IGNhcmUg
+YWJvdXQgdGhlIE5VTEwgaXQgZG9lc24ndCBtYXR0ZXIuDQo+IA0KPiBJIGJlbGlldmUgYWxsIHBy
+b2Nlc3NpbmcgdXNlIHRoZSB1cmItPm51bV9zZ3MgZmllbGQgdG8gbGltaXQgdGhlIG51bWJlcg0K
+PiBvZiBlbnRyaWVzLiAgQ29tbW9uIGludGVyZmFjZXMgbGlrZSBkbWFfbWFwX3NnKCkgYW5kIGZv
+cl9lYWNoX3NnKCkgbGltaXQNCj4gdGhlaXIgcHJvY2Vzc2luZyB0byAibmVudHMiIGVudHJpZXMs
+IGFuZCB0aGUgVVNCIGNvZGUgdXNlIHRoZSB2YWx1ZSBvZg0KPiB1cmItPm51bV9zZ3MgZm9yIHRo
+aXMgcGFyYW1ldGVyLg0KDQpXaGljaCBtb3N0bHkgbWVhbnMgdGhhdCB0aGUgc2dfeHh4IGZ1bmN0
+aW9ucyBhcmUgZG9pbmcgYSB3aG9sZSBsb2FkDQpvZiB1bm5lY2Vzc2FyeSBpbnN0cnVjdGlvbnMg
+YW5kIG1lbW9yeSBhY2Nlc3Nlcy4uLg0KDQpUaGlzIHByb2JhYmx5IGhhcyBhIGxvdCB0byBkbyB3
+aXRoIHRoZSBzaWduaWZpY2FudCBkaWZmZXJlbmNlIGluIHRoZQ0KY3B1IHVzZSBmb3IgdGhlIHVz
+YjMgYW5kICdub3JtYWwnIGV0aGVybmV0IGludGVyZmFjZXMuDQoNCldoaWxlIGVhY2ggYml0IGRv
+ZXNuJ3Qgc2VlbSBzaWduaWZpY2FudCwgdGhleSBzb29uIGFkZCB1cC4NCg0KCURhdmlkDQoNCg==
 --
 To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
