@@ -1,73 +1,39 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v4 0/3] path mtu hardening patches
-Date: Mon, 13 Jan 2014 22:28:08 +0100
-Message-ID: <20140113212808.GJ6586@order.stressinduktion.org>
-References: <1389258077-23282-1-git-send-email-hannes@stressinduktion.org> <20140113.112504.922587457597727366.davem@davemloft.net> <CABrhC0n2AgHNQg-2nQk-sx1=k2=TvmGa+2seqoNT=XyDdz59yg@mail.gmail.com> <20140113204253.GI6586@order.stressinduktion.org> <CABrhC0=9ff8aLG4y4gxiGrGBBHvdcWD2pCC3wyLTveKHRySg4A@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Check skb->rxhash in gro_receive
+Date: Mon, 13 Jan 2014 13:36:52 -0800
+Message-ID: <1389649012.31367.235.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.DEB.2.02.1401092051020.25554@tomh.mtv.corp.google.com>
+	 <1389332287.31367.88.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+mtBx_c=we-13b0Vyrim0=kArhx0OYY1P99HwUeuR2w87hRFw@mail.gmail.com>
+	 <20140113.115913.1269834557058575064.davem@davemloft.net>
+	 <1389644256.31367.223.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+mtBx_a0cnqXHFk3zRuQQnRNUqMet=N3h10HPgTGghyGoh=xA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	steffen.klassert@secunet.com, fweimer@redhat.com
-To: John Heffner <johnwheffner@gmail.com>
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:33571 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751236AbaAMV2K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 16:28:10 -0500
-Content-Disposition: inline
-In-Reply-To: <CABrhC0=9ff8aLG4y4gxiGrGBBHvdcWD2pCC3wyLTveKHRySg4A@mail.gmail.com>
+Received: from mail-yh0-f51.google.com ([209.85.213.51]:43811 "EHLO
+	mail-yh0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752266AbaAMVgz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 16:36:55 -0500
+Received: by mail-yh0-f51.google.com with SMTP id l109so1663266yhq.10
+        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 13:36:55 -0800 (PST)
+In-Reply-To: <CA+mtBx_a0cnqXHFk3zRuQQnRNUqMet=N3h10HPgTGghyGoh=xA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 13, 2014 at 04:08:22PM -0500, John Heffner wrote:
-> On Mon, Jan 13, 2014 at 3:42 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > On Mon, Jan 13, 2014 at 02:35:31PM -0500, John Heffner wrote:
-> >> My only comment would be not to look to me as the only source of
-> >> reason not to include this change.  I've been largely disconnected
-> >> from Linux development for several years and don't have time to get
-> >> into a protracted discussion on this topic.
-> >>
-> >> FWIW, I still have doubts as to whether this is the best approach to
-> >> solving the underlying problem.  I still haven't heard any reason why
-> >> firewall rules and other administrative best practices, such as using
-> >
-> > Because we currently cannot easily filter icmp payloads and check whether
-> > it is in a response for a local socket or a malicious one.
-> >
-> >> separate management and forwarding interfaces on a router, don't
-> >> practically solve this problem.
-> >
-> > I don't think this is practiable, especially in times of small devices
-> > doing routing (e.g. smartphones).
-> >
-> >> I'd also be curious to hear what
-> >> dedicated routing operating systems do, and why I haven't heard about
-> >> widespread fragmentation DoS attacks.
-> >
-> > My old Cisco didn't honour those pmtu packets (at least in default
-> > configuration) and FreeBSD only accepts pmtu information for TCP sockets
-> > where it also verifies the sequence number. It does not react to pmtu
-> > notifications in response to icmp or udp payloads.
-> >
-> > Routing path does use the pmtu values on FreeBSD, though. But it is much
-> > harder to inject path mtu packets there because, as said, they are only
-> > accepted for tcp.
+On Mon, 2014-01-13 at 13:24 -0800, Tom Herbert wrote:
+
 > 
-> Would it be sufficient to allow Linux to be configured in a way that
-> matches FreeBSD's behavior?  (I believe you can do this easily with
-> stateful firewall rules now, or possibly in the ICMP processing code
-> with a sysctl switch.)  I feel this would be a much cleaner approach.
+> Or maybe nobody uses IPIP. ;-)
 
-Actually, this is part of this series. The hardened path mtu mode provides
-exactly that (Patch 3).
+The bug happened even without IPIP being used on the node.
 
-But because we cannot switch this on by default, I also protected the
-forwarding path. UDP path mtu discovery has been too long available on
-Linux and, I guess, a lot of applications, especially running on routers,
-depend on that.
+Changing one byte from 0x45 to 0x40 was enough to trigger it.
 
-Greetings,
-
-  Hannes
+Since we do not perform header checksum in flow dissector, normal
+corrupted traffic on the Internet would have a chance to trigger the
+infinite loop.
