@@ -1,47 +1,35 @@
-From: Bruce Liu <damuzi000@gmail.com>
-Subject: Re: [PATCH 1/1] When timestamping is enabled, stmmac_tx_clean will
- call stmmac_get_tx_hwtstamp to get tx TS. It's possible that skb is NULL
- because there are other network frames that use several descriptors. So we
- must return immediately in stmmac_get_tx_hwtstamp if skb is NULL to avoid
- system crash.
-Date: Mon, 13 Jan 2014 21:54:33 +0800
-Message-ID: <20140113135431.GA1956@gmail.com>
-References: <1389492095-6589-1-git-send-email-damuzi000@gmail.com>
- <20140112093951.GA3743@gmail.com>
- <52D27EB4.9050909@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] ipv4: remove the  useless argument from ip_tunnel_hash()
+Date: Mon, 13 Jan 2014 17:55:15 +0400
+Message-ID: <52D3F043.9090200@cogentembedded.com>
+References: <52D2689A.4040800@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <52D27EB4.9050909@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:42773 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751434AbaAMNzR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 08:55:17 -0500
+Received: by mail-lb0-f178.google.com with SMTP id u14so1353390lbd.37
+        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 05:55:15 -0800 (PST)
+In-Reply-To: <52D2689A.4040800@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 12, 2014 at 12:38:28PM +0100, Daniel Borkmann wrote:
-> On 01/12/2014 10:39 AM, Bruce Liu wrote:
-> >  When timestamping is enabled, stmmac_tx_clean will call stmmac_get_tx_hwtstamp to get tx TS.
-> >  It's possible that skb is NULL because there are other network frames that use several descriptors.
-> >  So we must return immediately in stmmac_get_tx_hwtstamp if skb is NULL to avoid system crash.
-> >
-> >
-> >Signed-off-by: Bruce Liu <damuzi000@gmail.com>
-> 
-> Please see Documentation/SubmittingPatches +489
-> 
-> You subject line is way too long and should just be something like:
-> 
-> [PATCH net-next] net: stmmac: fix NULL pointer dereference in stmmac_get_tx_hwtstamp
-> 
-> Don't indent your actual commit message with whitespaces as prefix,
-> and do a line break after around 70 chars.
-> 
-> Btw, I mentioned net-next in the subject since merge window will
-> open soon anyway.
-> 
+Hello.
 
-Thanks, and I'll resend the patch.
+On 12-01-2014 14:04, Duan Jiong wrote:
 
-Bruce.
+> Since commit c544193214 introduced function ip_tunnel_hash(), the argument
+
+   Please also specify that commit's summary line in parens.
+
+> itn is no longer in use, so remove it.
+
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+
+WBR, Sergei
