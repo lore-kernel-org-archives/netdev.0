@@ -1,58 +1,72 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next v2 4/4] virtio-net: initial debugfs support,
- export mergeable rx buffer size
-Date: Mon, 13 Jan 2014 15:38:08 +0000
-Message-ID: <1389627488.2025.134.camel@bwh-desktop.uk.level5networks.com>
-References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
-	 <1389072355-20666-4-git-send-email-mwdalton@google.com>
-	 <52CCF177.7020500@redhat.com> <20140108192109.GC18312@redhat.com>
-	 <CANJ5vP+Qxa5j_Cp1FBK-qdO+U+dy2kiY5N2bmWdMKbCoY9EwDQ@mail.gmail.com>
-	 <20140112170939.GA17202@redhat.com>
-	 <CANJ5vP+Vu8=haCetZkcefPgR8pGe0iDZ03EZhJHLSgunCaHJsQ@mail.gmail.com>
-	 <20140113094018.GA22726@redhat.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: [PATCH] xprtrdma: silence frame size warning
+Date: Mon, 13 Jan 2014 16:45:55 +0100
+Message-ID: <1389627955.20467.9.camel@x41>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>,
-	Jason Wang <jasowang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	"Eric Dumazet" <edumazet@google.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	lf-virt <virtualization@lists.linux-foundation.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:49709 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751574AbaAMPiN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 10:38:13 -0500
-In-Reply-To: <20140113094018.GA22726@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Trond Myklebust <trond.myklebust@primarydata.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-01-13 at 11:40 +0200, Michael S. Tsirkin wrote:
-> On Sun, Jan 12, 2014 at 03:32:28PM -0800, Michael Dalton wrote:
-[...]
-> > The last issue is how the rx_queue_attribute 'show' function
-> > implementation for mergeable_rx_buffer_size will access the appropriate
-> > per-receive queue EWMA data. The arguments to the show function will be
-> > the netdev_rx_queue and the attribute itself. We can get to the
-> > struct net_device from the netdev_rx_queue.  If we extended
-> > netdev_rx_queue to indicate the queue_index or to store a void *priv_data
-> > pointer, that would be sufficient to allow us to resolve this issue.
-> 
-> Hmm netdev_rx_queue is not defined unless CONFIG_RPS is set.
-> Maybe we should use a different structure.
-[...]
+Building verbs.o on 32 bits x86, with CONFIG_FRAME_WARN set to 1024, it=
+s
+default value, triggers this GCC warning:
+    net/sunrpc/xprtrdma/verbs.c: In function =E2=80=98rpcrdma_register_=
+default_external=E2=80=99:
+    net/sunrpc/xprtrdma/verbs.c:1774:1: warning: the frame size of 1040=
+ bytes is larger than 1024 bytes [-Wframe-larger-than=3D]
 
-I don't think RPS should own this structure.  It's just that there are
-currently no per-RX-queue attributes other than those defined by RPS.
+Silence this warning by allocating "ipb" dynamically.
 
-By the way, CONFIG_RPS is equivalent to CONFIG_SMP so will likely be
-enabled already in most places where virtio_net is used.
+Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+---
+0) Compile tested only (on 32 bits x86). I don't have access to
+Infiniband hardware.
 
-Ben.
+1) Please note that this is not a new warning. The oldest build log I
+have still available on this machine is for a v3.8 rc, and it already
+showed this warning.=20
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+2) I do hope my choice for the GFP_KERNEL flag is correct here.
+
+ net/sunrpc/xprtrdma/verbs.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/net/sunrpc/xprtrdma/verbs.c b/net/sunrpc/xprtrdma/verbs.c
+index 93726560..939ccc8 100644
+--- a/net/sunrpc/xprtrdma/verbs.c
++++ b/net/sunrpc/xprtrdma/verbs.c
+@@ -1736,11 +1736,14 @@ rpcrdma_register_default_external(struct rpcrdm=
+a_mr_seg *seg,
+ 	int mem_priv =3D (writing ? IB_ACCESS_REMOTE_WRITE :
+ 				  IB_ACCESS_REMOTE_READ);
+ 	struct rpcrdma_mr_seg *seg1 =3D seg;
+-	struct ib_phys_buf ipb[RPCRDMA_MAX_DATA_SEGS];
++	struct ib_phys_buf *ipb;
+ 	int len, i, rc =3D 0;
+=20
+ 	if (*nsegs > RPCRDMA_MAX_DATA_SEGS)
+ 		*nsegs =3D RPCRDMA_MAX_DATA_SEGS;
++	ipb =3D kmalloc(sizeof(*ipb) * *nsegs, GFP_KERNEL);
++	if (ipb =3D=3D NULL)
++		return -ENOMEM;
+ 	for (len =3D 0, i =3D 0; i < *nsegs;) {
+ 		rpcrdma_map_one(ia, seg, writing);
+ 		ipb[i].addr =3D seg->mr_dma;
+@@ -1770,6 +1773,7 @@ rpcrdma_register_default_external(struct rpcrdma_=
+mr_seg *seg,
+ 		seg1->mr_len =3D len;
+ 	}
+ 	*nsegs =3D i;
++	kfree(ipb);
+ 	return rc;
+ }
+=20
+--=20
+1.8.4.2
