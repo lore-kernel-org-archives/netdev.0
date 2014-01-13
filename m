@@ -1,34 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] gre_offload: fix sparse non static symbol warning
-Date: Mon, 13 Jan 2014 11:38:27 -0800 (PST)
-Message-ID: <20140113.113827.642732697933956155.davem@davemloft.net>
-References: <CAPgLHd_s+M1XkL+Bf-Zd8CtOyt0aaOaNLRevO2JK=oX8zunR4Q@mail.gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net-next 3/4] flowcache: Fixup flow cache part in xfrm policy
+Date: Mon, 13 Jan 2014 11:42:47 -0800
+Message-ID: <CAHA+R7NpPN0pGu-S568CdtvkDRYmNei40Qus5SAK935d6vuTDw@mail.gmail.com>
+References: <1389599348-5214-1-git-send-email-fan.du@windriver.com>
+	<1389599348-5214-4-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xeb@mail.ru, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net,
-	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: steffen.klassert@secunet.com, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38112 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751679AbaAMTi2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 14:38:28 -0500
-In-Reply-To: <CAPgLHd_s+M1XkL+Bf-Zd8CtOyt0aaOaNLRevO2JK=oX8zunR4Q@mail.gmail.com>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:59782 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752527AbaAMTms (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 14:42:48 -0500
+Received: by mail-la0-f42.google.com with SMTP id n7so732788lam.15
+        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 11:42:47 -0800 (PST)
+In-Reply-To: <1389599348-5214-4-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Thu, 9 Jan 2014 22:22:05 +0800
+On Sun, Jan 12, 2014 at 11:49 PM, Fan Du <fan.du@windriver.com> wrote:
+>  void xfrm_garbage_collect(struct net *net)
+>  {
+> -       flow_cache_flush();
+> +       flow_cache_flush(net);
+>         __xfrm_garbage_collect(net);
+>  }
+>  EXPORT_SYMBOL(xfrm_garbage_collect);
+>
+>  static void xfrm_garbage_collect_deferred(struct net *net)
+>  {
+> -       flow_cache_flush_deferred();
+> +       flow_cache_flush_deferred(net);
+>         __xfrm_garbage_collect(net);
+>  }
+>
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> 
-> Fixes the following sparse warning:
-> 
-> net/ipv4/gre_offload.c:253:5: warning:
->  symbol 'gre_gro_complete' was not declared. Should it be static?
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-
-Applied, thank you.
+You changed the prototypes of flow_cache_flush*() in the previous
+patch, so, here you break bisect. They have to be in one commit.
