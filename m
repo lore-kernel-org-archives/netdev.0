@@ -1,37 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] qlcnic: Convert vmalloc/memset to kcalloc
-Date: Mon, 13 Jan 2014 11:17:50 -0800 (PST)
-Message-ID: <20140113.111750.1356628971361206390.davem@davemloft.net>
-References: <1389249745.24222.20.camel@joe-AO722>
+From: Michael Dalton <mwdalton@google.com>
+Subject: Re: [PATCH net-next v2 4/4] virtio-net: initial debugfs support,
+	export mergeable rx buffer size
+Date: Mon, 13 Jan 2014 11:19:12 -0800
+Message-ID: <CANJ5vPLYJJ1=PVp9LD-4pY2Y9gzk5HROEn_c85pbO4mZkeKA_g@mail.gmail.com>
+References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
+	<1389072355-20666-4-git-send-email-mwdalton@google.com>
+	<52CCF177.7020500@redhat.com> <20140108192109.GC18312@redhat.com>
+	<CANJ5vP+Qxa5j_Cp1FBK-qdO+U+dy2kiY5N2bmWdMKbCoY9EwDQ@mail.gmail.com>
+	<20140112170939.GA17202@redhat.com>
+	<CANJ5vP+Vu8=haCetZkcefPgR8pGe0iDZ03EZhJHLSgunCaHJsQ@mail.gmail.com>
+	<20140113094018.GA22726@redhat.com>
+	<1389627488.2025.134.camel@bwh-desktop.uk.level5networks.com>
+	<CANJ5vPLamPonELhzEEs_e+BQUDrY0w=KpwpzSwGpG551rnbfbQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jitendra.kalsaria@qlogic.com, linux-driver@qlogic.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37988 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751577AbaAMTRv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 14:17:51 -0500
-In-Reply-To: <1389249745.24222.20.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CANJ5vPLamPonELhzEEs_e+BQUDrY0w=KpwpzSwGpG551rnbfbQ@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Wed, 08 Jan 2014 22:42:25 -0800
+Sorry I missed this important piece of information, it appears that
+netdev_queue (the TX equivalent of netdev_rx_queue) already has
+decoupled itself from CONFIG_XPS due to an attribute,
+queue_trans_timeout, that does not depend on XPS functionality. So it
+seems that something somewhat equivalent has already happened on the
+TX side.
 
-> vmalloc is a limited resource.  Don't use it unnecessarily.
-> 
-> It seems this allocation should work with kcalloc.
-> 
-> Remove unnecessary memset(,0,) of buf as it's completely
-> overwritten as the previously only unset field in
-> struct qlcnic_pci_func_cfg is now set to 0.
-> 
-> Use kfree instead of vfree.
-> Use ETH_ALEN instead of 6.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+Best,
 
-Applied, thanks Joe.
+Mike
