@@ -1,37 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] drivers: net: silence compiler warning in smc91x.c
-Date: Mon, 13 Jan 2014 11:54:59 -0800 (PST)
-Message-ID: <20140113.115459.326248442934302460.davem@davemloft.net>
-References: <1389323046-4521-1-git-send-email-pankaj.dubey@samsung.com>
-	<52D05B41.7000601@cogentembedded.com>
+Subject: Re: [PATCH] net: Check skb->rxhash in gro_receive
+Date: Mon, 13 Jan 2014 11:59:13 -0800 (PST)
+Message-ID: <20140113.115913.1269834557058575064.davem@davemloft.net>
+References: <alpine.DEB.2.02.1401092051020.25554@tomh.mtv.corp.google.com>
+	<1389332287.31367.88.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+mtBx_c=we-13b0Vyrim0=kArhx0OYY1P99HwUeuR2w87hRFw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pankaj.dubey@samsung.com, linux-samsung-soc@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, jg1.han@samsung.com,
-	netdev@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
-In-Reply-To: <52D05B41.7000601@cogentembedded.com>
-Sender: linux-samsung-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38277 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750899AbaAMT7O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 14:59:14 -0500
+In-Reply-To: <CA+mtBx_c=we-13b0Vyrim0=kArhx0OYY1P99HwUeuR2w87hRFw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Fri, 10 Jan 2014 23:42:41 +0300
+From: Tom Herbert <therbert@google.com>
+Date: Fri, 10 Jan 2014 08:27:20 -0800
 
-> Hello.
+> On Thu, Jan 9, 2014 at 9:38 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Thu, 2014-01-09 at 20:54 -0800, Tom Herbert wrote:
+>>> When initializing a gro_list for a packet, first check the rxhash of
+>>> the incoming skb against that of the skb's in the list. This should be
+>>> a very strong inidicator of whether the flow is going to be matched,
+>>> and potentially allows a lot of other checks to be short circuited.
+>>>
+>>
+>> Hmm... this idea was discussed in the past. I used it when attempting to
+>> use a hash table instead of a gro_list last year.
+>>
+>> Unfortunately this added lot of cycles when rxhash is not provided by
+>> hardware, and my tests found it was not a win.
+>>
+>> Remember : in most cases, gro_list contains one flow, so this test does
+>> nothing special but adds overhead.
 > 
-> On 01/10/2014 06:04 AM, Pankaj Dubey wrote:
-> 
->> If used 64 bit compiler GCC warns that:
-> 
->> drivers/net/ethernet/smsc/smc91x.c:1897:7:
->> warning: cast from pointer to integer of different
->> size [-Wpointer-to-int-cast]
-> 
->> This patch fixes this by changing typecase from "unsigned int" to
->> "unsigned long"
-> 
->    Only "typecast".
+> I don't understand what your basis is that gro_list in most cases
+> contains one flow
 
-Applied with this typo fixed, thanks.
+It also doesn't jive well with Eric's recent patch to adjust the GRO
+overflow strategy (600adc18eba823f9fd8ed5fec8b04f11dddf3884 ("net:
+gro: change GRO overflow strategy"))
+
+:-)
+
+I sort of like Tom's idea to optimistically compare the hash, if we
+do in fact have one already.
+
+Eric would the change be OK if Tom did it that way?
