@@ -1,7 +1,7 @@
 From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
-Subject: [PATCH net-next] IPv6: add a function to check for a valid anycast source address
-Date: Mon, 13 Jan 2014 17:44:22 +0100
-Message-ID: <1389631462-4289-1-git-send-email-fx.lebail@yahoo.com>
+Subject: [PATCH net-next v2] IPv6: enable bind() to assign an anycast address
+Date: Mon, 13 Jan 2014 17:59:37 +0100
+Message-ID: <1389632378-4996-1-git-send-email-fx.lebail@yahoo.com>
 Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
@@ -11,57 +11,35 @@ Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Francois-Xavier Le Bail <fx.lebail@yahoo.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp06.smtpout.orange.fr ([80.12.242.128]:55673 "EHLO
+Received: from smtp06.smtpout.orange.fr ([80.12.242.128]:35280 "EHLO
 	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754861AbaAMRD1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 12:03:27 -0500
+	with ESMTP id S1753024AbaAMRSm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 12:18:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- Add ipv6_chk_acast_addr_src() to check if an anycast address is link-local
-  on given interface or is global (on any interface).
+- Use ipv6_chk_acast_addr_src() in inet6_bind().
 
 Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
 ---
- include/net/addrconf.h |    5 +++--
- net/ipv6/anycast.c     |   11 +++++++++++
- 2 files changed, 14 insertions(+), 2 deletions(-)
+Tested with SOCK_DGRAM and SOCK_STREAM sockets.
+Tested with link-local and global anycast addresses.
 
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index 66c4a44..50e39a8 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -205,8 +205,9 @@ void ipv6_sock_ac_close(struct sock *sk);
- int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr);
- int __ipv6_dev_ac_dec(struct inet6_dev *idev, const struct in6_addr *addr);
- bool ipv6_chk_acast_addr(struct net *net, struct net_device *dev,
--				const struct in6_addr *addr);
--
-+			 const struct in6_addr *addr);
-+bool ipv6_chk_acast_addr_src(struct net *net, struct net_device *dev,
-+			     const struct in6_addr *addr);
- 
- /* Device notifier */
- int register_inet6addr_notifier(struct notifier_block *nb);
-diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
-index 5a80f15..4f2c62a 100644
---- a/net/ipv6/anycast.c
-+++ b/net/ipv6/anycast.c
-@@ -383,6 +383,17 @@ bool ipv6_chk_acast_addr(struct net *net, struct net_device *dev,
- 	return found;
- }
- 
-+/*	check if address is link-local on given interface
-+ *	or is global (on any interface)
-+ */
-+bool ipv6_chk_acast_addr_src(struct net *net, struct net_device *dev,
-+			     const struct in6_addr *addr)
-+{
-+	if (ipv6_addr_type(addr) & IPV6_ADDR_LINKLOCAL)
-+		return ipv6_chk_acast_dev(dev, addr);
-+	else
-+		return ipv6_chk_acast_addr(net, NULL, addr);
-+}
- 
- #ifdef CONFIG_PROC_FS
- struct ac6_iter_state {
+ net/ipv6/af_inet6.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index c921d5d..68b81e9 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -347,7 +347,9 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 			if (!(addr_type & IPV6_ADDR_MULTICAST))	{
+ 				if (!(inet->freebind || inet->transparent) &&
+ 				    !ipv6_chk_addr(net, &addr->sin6_addr,
+-						   dev, 0)) {
++						   dev, 0) &&
++				    !ipv6_chk_acast_addr_src(net, dev,
++							     &addr->sin6_addr)) {
+ 					err = -EADDRNOTAVAIL;
+ 					goto out_unlock;
+ 				}
