@@ -1,43 +1,57 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: Use of ENOTSUPP in drivers?
-Date: Mon, 13 Jan 2014 09:41:57 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D458F3E@AcuExch.aculab.com>
-References: <20140112185715.GB5405@kria>
- <1389559622.3720.115.camel@deadeye.wl.decadent.org.uk>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net-next v3 8/9] xen-netback: Timeout packets in RX path
+Date: Mon, 13 Jan 2014 09:53:00 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0204455@AMSPEX01CL01.citrite.net>
+References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com>
+ <1389139818-24458-9-git-send-email-zoltan.kiss@citrix.com>
+ <52CDC45D.3050509@citrix.com>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD0200C2A@AMSPEX01CL01.citrite.net>
+ <52D33138.4090903@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Ben Hutchings' <bhutchings@solarflare.com>,
-	Sabrina Dubroca <sd@queasysnail.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:50858 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751430AbaAMJn6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Jan 2014 04:43:58 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 11267-04 for <netdev@vger.kernel.org>;
- Mon, 13 Jan 2014 09:43:54 +0000 (GMT)
-In-Reply-To: <1389559622.3720.115.camel@deadeye.wl.decadent.org.uk>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Zoltan Kiss <zoltan.kiss@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Jonathan Davies" <Jonathan.Davies@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52D33138.4090903@citrix.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogQmVuIEh1dGNoaW5ncw0KPiBJIGJlbGlldmUgdGhleSBzaG91bGQgYWxsIGJlIHBhdGNo
-ZWQuICBBY2NvcmRpbmcgdG8NCj4gaW5jbHVkZS9saW51eC9lcnJuby5oLCBFTk9UU1VQUCBpcyBt
-ZWFudCBmb3IgdXNlIGluIHRoZSBORlN2MyBjb2RlIG9ubHkuDQo+IChCdXQgaXQncyBhcHBhcmVu
-dGx5IGVycm9uZW91c2x5IHVzZWQgKmFsbCBvdmVyKiB0aGUgdHJlZSwgbm90IGp1c3QgaW4NCj4g
-bmV0IGRyaXZlcnMhKQ0KDQpUaGUgJ3JlYWwnIHByb2JsZW0gaXMgdGhhdCB0aGVyZSBhcmUgcXVp
-dGUgYSBmZXcgdmVyeSBzcGVjaWZpYyBlcnJubw0KdmFsdWVzLCBidXQgdmVyeSBmZXcgZ2VuZXJh
-bCBvbmVzLg0KSSBzdXNwZWN0IHRoYXQgb25jZSAod2F5IGJhY2sgaW4gdGhlIDE5ODBzIC0gdGhl
-IGRlZmluaXRpb25zIHByZWRhdGUgbGludXgpDQphZGRpbmcgbmV3IGVycm5vIHZhbHVlcyB3YXMg
-ZWFzeSwgYW5kIHNvbWUgdGhhdCBtaWdodCBoYXZlIGJlZW4gZ2VuZXJhbA0KZ290IGRvY3VtZW50
-ZWQgZm9yIHRoZWlyIHNpbmdsZSB1c2UgLSB0aGUgdGV4dCBmb3IgRUFHQUlOIHVzZWQgdG8gYmUN
-CiJObyBtb3JlIHByb2Nlc3NlcyIuDQpOZXcgZXJybm8gdmFsdWVzIHdlcmUgYWRkZWQgZm9yIHNv
-bWUgc3Vic3lzdGVtcyAobGlrZSBORlMpIGJ1dCBkb2N1bWVudGVkDQp3aXRoIHN1YnN5c3RlbS1z
-cGVjaWZpYyB0ZXh0cy4NClNvIHRoZXJlIGFyZSBmZXcgZ2VuZXJpYyBlcnJubyBjb2RlcyBleGNl
-cHQgRUlOVkFMIGFuZCBFTlhJTyAtIG5laXRoZXINCm9mIHdoaWNoIGlzIGhlbHBmdWwuDQpOb3Ro
-aW5nIGZvciB0aGlua3MgbGlrZToNCi0gSSBkb24ndCB1bmRlcnN0YW5kIHRoZSByZXF1ZXN0Lg0K
-LSBJIGRvbid0IHN1cHBvcnQgdGhlIHJlcXVlc3QuDQotIFNvbWUgaW50ZXJuYWwgbGltaXQgcmVh
-Y2hlZC4NCmV0Yy4NCg0KCURhdmlkDQoNCg==
+> -----Original Message-----
+> From: Zoltan Kiss
+> Sent: 13 January 2014 00:20
+> To: Paul Durrant; Ian Campbell; Wei Liu; xen-devel@lists.xenproject.org;
+> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Jonathan Davies
+> Subject: Re: [PATCH net-next v3 8/9] xen-netback: Timeout packets in RX
+> path
+> 
+> On 09/01/14 09:20, Paul Durrant wrote:
+> >> We are adding the skb to vif->rx_queue even when
+> >> xenvif_rx_ring_slots_available(vif, min_slots_needed) said there is no
+> >> space for that. Or am I missing something? Paul?
+> >>
+> > That's correct. Part of the flow control improvement was to get rid of
+> needless packet drops. For your purposes, you basically need to avoid using
+> the queuing discipline and take packets into netback's vif->rx_queue
+> regardless of the state of the shared ring so that you can drop them if they
+> get beyond a certain age. So, perhaps you should never stop the netif
+> queue, place an upper limit on vif->rx_queue (either packet or byte count)
+> and drop when that is exceeded (i.e. mimicking pfifo or bfifo internally).
+> >
+> How about this:
+> - when the timer fires first we wake up the thread an tell it to drop
+> all the packets in rx_queue
+> - start_xmit then can drain the qdisc queue into the device queue
+> - additionally, the RX thread should stop that timer when it was able to
+> do some work
+> 
+
+Yes, you could do it that way.
+
+  Paul
