@@ -1,33 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] neigh: use NEIGH_VAR_INIT in ndo_neigh_setup
- functions.
-Date: Mon, 13 Jan 2014 11:35:38 -0800 (PST)
-Message-ID: <20140113.113538.1561843824076418241.davem@davemloft.net>
-References: <1389273227-17532-1-git-send-email-jiri@resnulli.us>
+From: Paul Bolle <pebolle-IWqWACnzNjzz+pZb47iToQ@public.gmane.org>
+Subject: Re: [PATCH] xprtrdma: silence frame size warning
+Date: Mon, 13 Jan 2014 20:35:50 +0100
+Message-ID: <1389641750.19054.9.camel@x220>
+References: <1389627955.20467.9.camel@x41>
+	 <CDD9CEF2-F91A-4ABA-8DA7-53AF8A749194@primarydata.com>
+	 <D3560A1A-59B3-4480-8627-9114A4B9895C@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jes@trained-monkey.org
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38088 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752588AbaAMTfi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 14:35:38 -0500
-In-Reply-To: <1389273227-17532-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"Miller David S." <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, LKML Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <D3560A1A-59B3-4480-8627-9114A4B9895C-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu,  9 Jan 2014 14:13:47 +0100
+On Mon, 2014-01-13 at 11:17 -0500, Chuck Lever wrote:
+> I=E2=80=99m building a queue of NFS/RDMA work on bugzilla.kernel.org.=
+  Let=E2=80=99s
+> create a defect report there to document this, and it will get
+> prioritized with the rest.  Paul, can you do that to start us off?
+> Product =E2=80=9CFile system=E2=80=9D, Component =E2=80=9CNFS=E2=80=9D=
+=2E
 
-> When ndo_neigh_setup is called, the bitfield used by NEIGH_VAR_SET is
-> not initialized yet. This might cause confusion for the people who use
-> NEIGH_VAR_SET in ndo_neigh_setup. So rather introduce NEIGH_VAR_INIT for
-> usage in ndo_neigh_setup.
-> 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Sure, see https://bugzilla.kernel.org/show_bug.cgi?id=3D68661 . Please
+feel free to edit the bug's title, etc, as you see fit.
 
-Wouldn't it be better to move the neigh_parms_data_state_cleanall() call
-before we invoke ->ndo_neigh_setup()?  It seems that this code intended
-to work that way, no?
+> I can=E2=80=99t say that a warning on 32-bit x86 is going to be an es=
+pecially
+> high priority.
+
+I see. 32-bit x86 seems to be dropping in relevance quite fast.
+
+On the other hand, this is one of the last warnings I see when currentl=
+y
+building x86 (32-bit, that is) and it would be rather nice to see this
+warning gone. Since my .config is basically a Fedora 20 .config, that
+would help make Fedora's 32-bit x86 build (almost) warning free too.=20
+
+> However, the underlying issue of allocating arrays of data segments o=
+n
+> the stack is something that needs extended attention, and is already
+> in plan.
+
+Thanks,
+
+
+Paul Bolle
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
