@@ -1,74 +1,41 @@
-From: Michael Dalton <mwdalton@google.com>
-Subject: Re: [PATCH net-next v2 4/4] virtio-net: initial debugfs support,
-	export mergeable rx buffer size
-Date: Sun, 12 Jan 2014 15:32:28 -0800
-Message-ID: <CANJ5vP+Vu8=haCetZkcefPgR8pGe0iDZ03EZhJHLSgunCaHJsQ@mail.gmail.com>
-References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
-	<1389072355-20666-4-git-send-email-mwdalton@google.com>
-	<52CCF177.7020500@redhat.com> <20140108192109.GC18312@redhat.com>
-	<CANJ5vP+Qxa5j_Cp1FBK-qdO+U+dy2kiY5N2bmWdMKbCoY9EwDQ@mail.gmail.com>
-	<20140112170939.GA17202@redhat.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v3 8/9] xen-netback: Timeout packets in RX path
+Date: Mon, 13 Jan 2014 00:20:08 +0000
+Message-ID: <52D33138.4090903@citrix.com>
+References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com> <1389139818-24458-9-git-send-email-zoltan.kiss@citrix.com> <52CDC45D.3050509@citrix.com> <9AAE0902D5BC7E449B7C8E4E778ABCD0200C2A@AMSPEX01CL01.citrite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lf-virt <virtualization@lists.linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140112170939.GA17202@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+To: Paul Durrant <Paul.Durrant@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Jonathan Davies <Jonathan.Davies@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:28510 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751019AbaAMAUO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Jan 2014 19:20:14 -0500
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD0200C2A@AMSPEX01CL01.citrite.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Michael,
+On 09/01/14 09:20, Paul Durrant wrote:
+>> We are adding the skb to vif->rx_queue even when
+>> xenvif_rx_ring_slots_available(vif, min_slots_needed) said there is no
+>> space for that. Or am I missing something? Paul?
+>>
+> That's correct. Part of the flow control improvement was to get rid of needless packet drops. For your purposes, you basically need to avoid using the queuing discipline and take packets into netback's vif->rx_queue regardless of the state of the shared ring so that you can drop them if they get beyond a certain age. So, perhaps you should never stop the netif queue, place an upper limit on vif->rx_queue (either packet or byte count) and drop when that is exceeded (i.e. mimicking pfifo or bfifo internally).
+>
+How about this:
+- when the timer fires first we wake up the thread an tell it to drop 
+all the packets in rx_queue
+- start_xmit then can drain the qdisc queue into the device queue
+- additionally, the RX thread should stop that timer when it was able to 
+do some work
 
-On Sun, Jan 12, 2014 at 9:09 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> Can't we add struct attribute * to netdevice, and pass that in when
-> creating the kobj?
+Regards,
 
-I like that idea, I think that will work and should be better than
-the alternatives. The actual kobjs for RX queues (struct netdev_rx_queue)
-are allocated and deallocated by calls to net_rx_queue_update_kobjects,
-which resizes RX queue kobjects when the netdev RX queues are resized.
-
-Is this what you had in mind:
-(1) Add a pointer to an attribute group to struct net_device, used for
-    per-netdev rx queue attributes and initialized before the call to
-    register_netdevice().
-(2) Declare an attribute group containing the mergeable_rx_buffer_size
-    attribute in virtio-net, and initialize the per-netdevice group pointer
-    to the address of this group in virtnet_probe before register_netdevice
-(3) In net-sysfs, modify net_rx_queue_update_kobjects
-    (or rx_queue_add_kobject) to call sysfs_create_group on the
-    per-netdev attribute group (if non-NULL), adding the attributes in
-    the group to the RX queue kobject.
-
-That should allow us to have per-RX queue attributes that are
-device-specific. I'm not a sysfs expert, but it seems that rx_queue_ktype
-and rx_queue_sysfs_ops presume that all rx queue sysfs operations are
-performed on attributes of type rx_queue_attribute. That type will need
-to be moved from net-sysfs.c to a header file like netdevice.h so that
-the type can be used in virtio-net when we declare the
-mergeable_rx_buffer_size attribute.
-
-The last issue is how the rx_queue_attribute 'show' function
-implementation for mergeable_rx_buffer_size will access the appropriate
-per-receive queue EWMA data. The arguments to the show function will be
-the netdev_rx_queue and the attribute itself. We can get to the
-struct net_device from the netdev_rx_queue.  If we extended
-netdev_rx_queue to indicate the queue_index or to store a void *priv_data
-pointer, that would be sufficient to allow us to resolve this issue.
-
-Please let me know if the above sounds good or if you see a better way
-to accomplish this goal. Thanks!
-
-Best,
-
-Mike
+Zoli
