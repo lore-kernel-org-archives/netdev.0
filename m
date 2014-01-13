@@ -1,39 +1,68 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net-next 0/2] vxlan updates
-Date: Mon, 13 Jan 2014 13:59:04 -0800
-Message-ID: <CAHA+R7MO3mxR4CGF+zK9r4DigcG9aHQyBDLrY5rjdx6qCbxSnQ@mail.gmail.com>
-References: <1389634880-4138-1-git-send-email-dborkman@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v4 0/3] path mtu hardening patches
+Date: Mon, 13 Jan 2014 23:03:56 +0100
+Message-ID: <20140113220356.GL6586@order.stressinduktion.org>
+References: <1389258077-23282-1-git-send-email-hannes@stressinduktion.org> <20140113.112504.922587457597727366.davem@davemloft.net> <CABrhC0n2AgHNQg-2nQk-sx1=k2=TvmGa+2seqoNT=XyDdz59yg@mail.gmail.com> <20140113204253.GI6586@order.stressinduktion.org> <CABrhC0=9ff8aLG4y4gxiGrGBBHvdcWD2pCC3wyLTveKHRySg4A@mail.gmail.com> <20140113212808.GJ6586@order.stressinduktion.org> <CABrhC0=CfPxB7rNrA0ukfZyNLuTNSBB2srohr-Yt2b4k6oHWxg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	steffen.klassert@secunet.com, fweimer@redhat.com
+To: John Heffner <johnwheffner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:57023 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751236AbaAMV7G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 16:59:06 -0500
-Received: by mail-la0-f51.google.com with SMTP id c6so857624lan.10
-        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 13:59:04 -0800 (PST)
-In-Reply-To: <1389634880-4138-1-git-send-email-dborkman@redhat.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:33661 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751289AbaAMWD6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 17:03:58 -0500
+Content-Disposition: inline
+In-Reply-To: <CABrhC0=CfPxB7rNrA0ukfZyNLuTNSBB2srohr-Yt2b4k6oHWxg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 13, 2014 at 9:41 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> Did the split into two patches upon request from Cong Wang.
->
-> Changelog:
->
->  v1->v2:
->   - Removed BUG_ON as it's not needed.
->  v2->v3:
->   - Removed dev->reg_state check for netns.
->  v3->v4:
->   - Removed list_del(), we seem to do it in some places and
->     in some others not; we agreed it's not really necessary.
->   - Split patch into 2 patches, notifier part and module
->     unload cleanup part.
+On Mon, Jan 13, 2014 at 04:50:38PM -0500, John Heffner wrote:
+> On Mon, Jan 13, 2014 at 4:28 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> > On Mon, Jan 13, 2014 at 04:08:22PM -0500, John Heffner wrote:
+> >> Would it be sufficient to allow Linux to be configured in a way that
+> >> matches FreeBSD's behavior?  (I believe you can do this easily with
+> >> stateful firewall rules now, or possibly in the ICMP processing code
+> >> with a sysctl switch.)  I feel this would be a much cleaner approach.
+> >
+> > Actually, this is part of this series. The hardened path mtu mode provides
+> > exactly that (Patch 3).
+> >
+> > But because we cannot switch this on by default, I also protected the
+> > forwarding path. UDP path mtu discovery has been too long available on
+> > Linux and, I guess, a lot of applications, especially running on routers,
+> > depend on that.
+> 
+> Perhaps I misunderstood your description of FreeBSD then.  It seems
+> hard for me to believe that MTU discovery for UDP is broken by default
+> in FreeBSD.  It was not as of a couple years ago...
 
+I have to admit, I have not tested that. But I could not find an icmp handler
+dealing with pmtu updates in the UDP protocol path. Neither did the icmp
+layer.
 
-Looks good to my eyes, so
+TCP and sctp do handle the PRC_MSGSIZE callbacks and update the path
+mtu on the route.
 
-Reviewed-by: Cong Wang <cwang@twopensource.com>
+Maybe I overlooked something and I also did not check the history just
+their current subversion checkout.
+
+> The nice thing about stateful firewall rules is that they give you
+> fine-grained policies over which ICMP messages you want to trust, and
+> can filter out messages that don't match "connections" with existing
+> state across a wide variety of protocols (including TCP, UDP and
+> ICMP).
+
+I really don't like to depend on firewalling to do that. Especially on
+big routers one can use the routing table to protect interfaces for
+management and thus don't need to introduce stateful firewalling to
+realize a secure router setup which could cause performance degradation,
+especially with lots of small and shortlived flows (e.g. UDP/DNS).
+
+Greetings,
+
+  Hannes
