@@ -1,53 +1,57 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] sh_eth: fix garbled TX error message
-Date: Mon, 13 Jan 2014 08:51:58 -0800
-Message-ID: <1389631918.24849.20.camel@joe-AO722>
-References: <201401110241.49471.sergei.shtylyov@cogentembedded.com>
-	 <20140113004532.GJ15296@verge.net.au> <1389576241.24849.10.camel@joe-AO722>
-	 <52D41117.3040809@cogentembedded.com>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v4 3/3] Send cgroup_path in SCM_CGROUP
+Date: Mon, 13 Jan 2014 11:52:53 -0500
+Message-ID: <20140113165253.GC29053@htj.dyndns.org>
+References: <1377614400-27122-1-git-send-email-jkaluza@redhat.com>
+	<1389600109-30739-1-git-send-email-jkaluza@redhat.com>
+	<1389600109-30739-4-git-send-email-jkaluza@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0018.hostedemail.com ([216.40.44.18]:59664 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754980AbaAMQwD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 11:52:03 -0500
-In-Reply-To: <52D41117.3040809@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1389600109-30739-4-git-send-email-jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-01-13 at 20:15 +0400, Sergei Shtylyov wrote:
-> On 13-012014 5:24, Joe Perches wrote:
-> >>> sh_eth_error() in case of a TX error tries to print a message using 2 dev_err()
-> >>> calls with the first string not finished by '\n', so that the resulting message
-> >>> would inevitably come out garbled, with something like "3net eth0: " inserted
-> >>> in the middle.  Avoid that by merging 2 calls into one.
+On Mon, Jan 13, 2014 at 09:01:49AM +0100, Jan Kaluza wrote:
+> Server-like processes in many cases need credentials and other
+> metadata of the peer, to decide if the calling process is allowed to
+> request a specific action, or the server just wants to log away this
+> type of information for auditing tasks.
 > 
-> > I believe this interleaving should not happen since
-> > commit e28d713704117bca0820c732210df6075b09f13b
-> > (2.6.31 days)
+> The current practice to retrieve such process metadata is to look that
+> information up in procfs with the $PID received over SCM_CREDENTIALS.
+> This is sufficient for long-running tasks, but introduces a race which
+> cannot be worked around for short-living processes; the calling
+> process and all the information in /proc/$PID/ is gone before the
+> receiver of the socket message can look it up.
 > 
->     I believe you have given me the wrong commit, which has nothing to do the 
-> the newline problem per se. It just adds KERN_DEFAULT. I was able to find the 
-> correct commit though: it's the parent of the commit you cited, 
+> This introduces a new SCM type called SCM_CGROUP to allow the direct
+> attaching of "cgroup_path" to SCM, which is significantly more
+> efficient and will reliably avoid the race with the round-trip over
+> procfs.
+> 
+> Signed-off-by: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-Yeah, I was just scanning the printk commit logs
-and looked for the first one that said something
-like force newline.
+For cgroup related part:
 
-> I should have tested my assumption beforehand... 
+ Acked-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 
-Always a good thing.
+Thanks.
 
-> (I'd like to merge these 
-> dev_err() calls still though).
-
-Yes, the dev_err calls should be merged.
-
-About the other stuff, what/when ever...
-
-cheers, Joe
+-- 
+tejun
