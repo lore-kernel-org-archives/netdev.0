@@ -1,68 +1,104 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 3/4] brcmsmac: delete useless variable
-Date: Mon, 13 Jan 2014 17:17:26 +0100
-Message-ID: <1389629847-5330-4-git-send-email-Julia.Lawall@lip6.fr>
-References: <1389629847-5330-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-	Arend van Spriel <arend@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Brett Rudley <brudley@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389629847-5330-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: [RFC net] tcp: metrics: Avoid duplicate entries with the same destination-IP
+Date: Mon, 13 Jan 2014 16:25:36 +0100
+Message-ID: <1389626736-3143-1-git-send-email-christoph.paasch@uclouvain.be>
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f179.google.com ([74.125.82.179]:62290 "EHLO
+	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751655AbaAMPZp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 10:25:45 -0500
+Received: by mail-we0-f179.google.com with SMTP id w62so1471939wes.24
+        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 07:25:43 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+Note: This patch is based on "net" and so the source-IP is not yet part
+of the tcp-metrics.
 
-Delete a variable that is at most only assigned to a constant, but never
-used otherwise.
+Because the tcp-metrics is an RCU-list, it may be that two
+soft-interrupts are inside __tcp_get_metrics() for the same
+destination-IP at the same time. If this destination-IP is not yet part of
+the tcp-metrics, both soft-interrupts will end up in tcpm_new and create
+a new entry for this IP.
+So, we will have two tcp-metrics with the same destination-IP in the list.
 
-A simplified version of the semantic patch that fixes this problem is as
-follows: (http://coccinelle.lip6.fr/)
+This patch now takes the tcp_metrics_lock before calling
+__tcp_get_metrics().
 
-// <smpl>
-@@
-type T;
-identifier i;
-constant c;
-@@
+I post this as an RFC, because this patch will make the TCP-stack take
+the tcp_metrics_lock even if the metric is already in the cache.
 
--T i;
-<... when != i
--i = c;
-...>
-// </smpl>
+I tested it with apache-benchmark on a short file with
+ab -c 100 -n 100000 server/1KB
+IMO this should stress the code most, but there was no significant
+performance regression.
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+Another solution might be to leave tcp_get_metrics() as it is, and in
+tcpm_new do another call to __tcp_get_metrics() while holding the
+spin-lock. We would then check __tcp_get_metrics twice for new entries
+but we won't hold the spin-lock needlessly anymore.
 
+So, it's a tradeoff between taking the tcp_metrics_lock more often vs.
+calling __tcp_get_metrics twice for new entries.
+
+Suggestions are very welcome.
+
+Fixes: 51c5d0c4b169b (tcp: Maintain dynamic metrics in local cache.)
+Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
 ---
-I don't know whether the comment before the removed assignment should also
-be adjusted.
+ net/ipv4/tcp_metrics.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
- drivers/net/wireless/brcm80211/brcmsmac/main.c |    2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/drivers/net/wireless/brcm80211/brcmsmac/main.c b/drivers/net/wireless/brcm80211/brcmsmac/main.c
-index 8138f1c..9417cb5 100644
---- a/drivers/net/wireless/brcm80211/brcmsmac/main.c
-+++ b/drivers/net/wireless/brcm80211/brcmsmac/main.c
-@@ -7108,7 +7108,6 @@ prep_mac80211_status(struct brcms_c_info *wlc, struct d11rxhdr *rxh,
- 		     struct sk_buff *p,
- 		     struct ieee80211_rx_status *rx_status)
- {
--	int preamble;
- 	int channel;
- 	u32 rspec;
- 	unsigned char *plcp;
-@@ -7191,7 +7190,6 @@ prep_mac80211_status(struct brcms_c_info *wlc, struct d11rxhdr *rxh,
- 			rx_status->rate_idx -= BRCMS_LEGACY_5G_RATE_OFFSET;
+diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+index 06493736fbc8..7748a5d9f37a 100644
+--- a/net/ipv4/tcp_metrics.c
++++ b/net/ipv4/tcp_metrics.c
+@@ -138,7 +138,6 @@ static struct tcp_metrics_block *tcpm_new(struct dst_entry *dst,
+ 	struct tcp_metrics_block *tm;
+ 	struct net *net;
  
- 		/* Determine short preamble and rate_idx */
--		preamble = 0;
- 		if (is_cck_rate(rspec)) {
- 			if (rxh->PhyRxStatus_0 & PRXS0_SHORTH)
- 				rx_status->flag |= RX_FLAG_SHORTPRE;
+-	spin_lock_bh(&tcp_metrics_lock);
+ 	net = dev_net(dst->dev);
+ 	if (unlikely(reclaim)) {
+ 		struct tcp_metrics_block *oldest;
+@@ -153,7 +152,7 @@ static struct tcp_metrics_block *tcpm_new(struct dst_entry *dst,
+ 	} else {
+ 		tm = kmalloc(sizeof(*tm), GFP_ATOMIC);
+ 		if (!tm)
+-			goto out_unlock;
++			return NULL;
+ 	}
+ 	tm->tcpm_addr = *addr;
+ 
+@@ -164,8 +163,6 @@ static struct tcp_metrics_block *tcpm_new(struct dst_entry *dst,
+ 		rcu_assign_pointer(net->ipv4.tcp_metrics_hash[hash].chain, tm);
+ 	}
+ 
+-out_unlock:
+-	spin_unlock_bh(&tcp_metrics_lock);
+ 	return tm;
+ }
+ 
+@@ -303,6 +300,8 @@ static struct tcp_metrics_block *tcp_get_metrics(struct sock *sk,
+ 	net = dev_net(dst->dev);
+ 	hash = hash_32(hash, net->ipv4.tcp_metrics_hash_log);
+ 
++	spin_lock_bh(&tcp_metrics_lock);
++
+ 	tm = __tcp_get_metrics(&addr, net, hash);
+ 	reclaim = false;
+ 	if (tm == TCP_METRICS_RECLAIM_PTR) {
+@@ -314,6 +313,8 @@ static struct tcp_metrics_block *tcp_get_metrics(struct sock *sk,
+ 	else
+ 		tcpm_check_stamp(tm, dst);
+ 
++	spin_unlock_bh(&tcp_metrics_lock);
++
+ 	return tm;
+ }
+ 
+-- 
+1.8.3.2
