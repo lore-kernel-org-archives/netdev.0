@@ -1,43 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] qlcnic: fix compiler warning
-Date: Mon, 13 Jan 2014 14:46:31 -0800 (PST)
-Message-ID: <20140113.144631.230680335708739346.davem@davemloft.net>
-References: <20140109155908.GA4351@reykholt.kaiser.cx>
-	<262CB373A6D1F14F9B81E82F74F77D5A46F52B8E@avmb2.qlogic.org>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net-next v4 0/3] path mtu hardening patches
+Date: Mon, 13 Jan 2014 23:48:35 +0100
+Message-ID: <20140113224835.GA28205@breakpoint.cc>
+References: <1389258077-23282-1-git-send-email-hannes@stressinduktion.org>
+ <20140113.112504.922587457597727366.davem@davemloft.net>
+ <CABrhC0n2AgHNQg-2nQk-sx1=k2=TvmGa+2seqoNT=XyDdz59yg@mail.gmail.com>
+ <20140113204253.GI6586@order.stressinduktion.org>
+ <CABrhC0=9ff8aLG4y4gxiGrGBBHvdcWD2pCC3wyLTveKHRySg4A@mail.gmail.com>
+ <20140113212808.GJ6586@order.stressinduktion.org>
+ <CABrhC0=CfPxB7rNrA0ukfZyNLuTNSBB2srohr-Yt2b4k6oHWxg@mail.gmail.com>
+ <20140113220356.GL6586@order.stressinduktion.org>
+ <20140113221504.GM6586@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: martin@kaiser.cx, himanshu.madhani@qlogic.com,
-	rajesh.borundia@qlogic.com, linux-kernel@vger.kernel.org,
-	trivial@kernel.org, netdev@vger.kernel.org
-To: shahed.shaikh@qlogic.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <262CB373A6D1F14F9B81E82F74F77D5A46F52B8E@avmb2.qlogic.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: John Heffner <johnwheffner@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	steffen.klassert@secunet.com, fweimer@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:50126 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751832AbaAMWsk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 17:48:40 -0500
+Content-Disposition: inline
+In-Reply-To: <20140113221504.GM6586@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogU2hhaGVkIFNoYWlraCA8c2hhaGVkLnNoYWlraEBxbG9naWMuY29tPg0KRGF0ZTogRnJp
-LCAxMCBKYW4gMjAxNCAwNzoxOToxOSArMDAwMA0KDQo+IA0KPiBBZGRpbmcgbmV0ZGV2Lg0KPiAN
-Cj4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+PiBGcm9tOiBNYXJ0aW4gS2Fpc2VyLCws
-IFttYWlsdG86bWFydGluQHJleWtob2x0LmthaXNlci5jeF0gT24gQmVoYWxmIE9mDQo+PiBNYXJ0
-aW4gS2Fpc2VyDQo+PiBTZW50OiBUaHVyc2RheSwgSmFudWFyeSAwOSwgMjAxNCA5OjI5IFBNDQo+
-PiBUbzogSGltYW5zaHUgTWFkaGFuaTsgUmFqZXNoIEJvcnVuZGlhDQo+PiBDYzogbGludXgta2Vy
-bmVsOyB0cml2aWFsQGtlcm5lbC5vcmcNCj4+IFN1YmplY3Q6IFtQQVRDSCAtbmV4dF0gcWxjbmlj
-OiBmaXggY29tcGlsZXIgd2FybmluZw0KPj4gDQo+PiBBZGQgYW4gZXhwbGljaXQgY2FzdCB0byBm
-aXggdGhlIGZvbGxvd2luZyB3YXJuaW5nIChzZWVuIG9uIERlYmlhbiBXaGVlenksIGdjYw0KPj4g
-NC43LjIpDQo+PiANCj4+IENDIFtNXSAgZHJpdmVycy9uZXQvd2lyZWxlc3MvcnRsd2lmaS9ydGw4
-MTkyY2UvdHJ4Lm8NCj4+ICAgICBkcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3Fs
-Y25pY19pby5jOiBJbiBmdW5jdGlvbg0KPj4goXFsY25pY19zZW5kX2ZpbHRlcqI6DQo+PiAgICAg
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNuaWNfaW8uYzozNDk6Mzogd2Fy
-bmluZzoNCj4+ICAgICBwYXNzaW5nIGFyZ3VtZW50IDIgb2YgoWV0aGVyX2FkZHJfZXF1YWyiIGZy
-b20gaW5jb21wYXRpYmxlIHBvaW50ZXIgdHlwZQ0KPj4gW2VuYWJsZWQgYnkgZGVmYXVsdF0NCj4+
-ICAgICBJbiBmaWxlIGluY2x1ZGVkIGZyb20gaW5jbHVkZS9saW51eC9pZl92bGFuLmg6MTY6MCwN
-Cj4+ICAgICBmcm9tIGRyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmljX2lv
-LmM6OToNCj4+ICAgICBpbmNsdWRlL2xpbnV4L2V0aGVyZGV2aWNlLmg6MjQ0OjIwOiBub3RlOiBl
-eHBlY3RlZCChY29uc3QgdTggKqIgYnV0DQo+PiBhcmd1bWVudCBpcyBvZiB0eXBlIKF1NjQgKqIN
-Cj4+DQo+IA0KPiBJZiBJIGFtIG5vdCB3cm9uZywgdGhpcyBwYXRjaCBzaG91bGQgZ28gdG8gRGF2
-aWQncyBuZXQtbmV4dCB0cmVlLg0KPiAgDQo+PiBTaWduZWQtb2ZmLWJ5OiBNYXJ0aW4gS2Fpc2Vy
-IDxtYXJ0aW5Aa2Fpc2VyLmN4Pg0KPiANCj4gQWNrZWQtYnk6IFNoYWhlZCBTaGFpa2ggPHNoYWhl
-ZC5zaGFpa2hAcWxvZ2ljLmNvbT4NCg0KUGxlYXNlIHBvc3QgdGhlIG9yaWdpbmFsIHBhdGNoIHRv
-IG5ldGRldiBzbyB0aGF0IGl0IHByb3Blcmx5IGdldHMNCnF1ZXVlZCB1cCBpbiBwYXRjaHdvcmss
-IHRoYW5rIHlvdSB2ZXJ5IG11Y2guDQo=
+Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> On Mon, Jan 13, 2014 at 11:03:56PM +0100, Hannes Frederic Sowa wrote:
+> > I really don't like to depend on firewalling to do that. Especially on
+> > big routers one can use the routing table to protect interfaces for
+> > management and thus don't need to introduce stateful firewalling to
+> > realize a secure router setup which could cause performance degradation,
+> > especially with lots of small and shortlived flows (e.g. UDP/DNS).
+> 
+> This may get better if maybe some work is put into bringing this patch
+> forward: http://comments.gmane.org/gmane.linux.network/268758
+
+Jesper Brouer is working on this.
+
+But, why do you even need stateful firewalling for filtering?
+Isn't -m socket enough?
+
+[ sorry if you already explained, might have missed it when search
+archive ]
