@@ -1,51 +1,63 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: build_skb() and data corruption
-Date: Mon, 13 Jan 2014 14:29:37 +0100
-Message-ID: <201401131429.38218.arnd@arndb.de>
-References: <CACmBeS35RAEQ+t2vtYtFTKNT-VdQw20hURjTi193Jk8HG7UECA@mail.gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v2 1/3] net: add skb_checksum_setup
+Date: Mon, 13 Jan 2014 14:40:13 +0100
+Message-ID: <52D3ECBD.7050203@6wind.com>
+References: <1389261768-30606-1-git-send-email-paul.durrant@citrix.com> <1389261768-30606-2-git-send-email-paul.durrant@citrix.com> <9AAE0902D5BC7E449B7C8E4E778ABCD0204A79@AMSPEX01CL01.citrite.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	bhutchings@solarflare.com, alexander.h.duyck@intel.com,
-	Florian Fainelli <florian@openwrt.org>
-To: Jonas Jensen <jonas.jensen@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACmBeS35RAEQ+t2vtYtFTKNT-VdQw20hURjTi193Jk8HG7UECA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: Paul Durrant <Paul.Durrant@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f43.google.com ([74.125.82.43]:56563 "EHLO
+	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751029AbaAMNkR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 08:40:17 -0500
+Received: by mail-wg0-f43.google.com with SMTP id k14so6632876wgh.10
+        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 05:40:15 -0800 (PST)
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD0204A79@AMSPEX01CL01.citrite.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 13 January 2014, Jonas Jensen wrote:
-> Please help,
-> 
-> I think I see memory corruption with a driver recently added to linux-next.
-> 
-> The following error occur downloading a large file with wget (or
-> ncftp): "read error: Bad address"
-> wget exits and leaves the file unfinished.
-> 
-> The error goes away when build_skb() is patched out, in this case by
-> allocating pages directly in RX loop.
-> 
-> I currently have two branches with code placed under ifdef USE_BUILD_SKB:
-> https://bitbucket.org/Kasreyn/linux-next/src/faa7c408a655fdfd7c383f79259031da5a05d61e/drivers/net/ethernet/moxa/moxart_ether.c#cl-472
-> 
+Le 13/01/2014 12:26, Paul Durrant a =E9crit :
+>> -----Original Message-----
+>> From: Paul Durrant [mailto:paul.durrant@citrix.com]
+>> Sent: 09 January 2014 10:03
+>> To: netdev@vger.kernel.org; xen-devel@lists.xen.org
+>> Cc: Paul Durrant; David Miller; Eric Dumazet; Veaceslav Falico; Alex=
+ander
+>> Duyck; Nicolas Dichtel
+>> Subject: [PATCH net-next v2 1/3] net: add skb_checksum_setup
+>>
+>> This patch adds a function to set up the partial checksum offset for=
+ IP
+>> packets (and optionally re-calculate the pseudo-header checksum) int=
+o the
+>> core network code.
+>> The implementation was previously private and duplicated between xen=
+-
+>> netback
+>> and xen-netfront, however it is not xen-specific and is potentially =
+useful
+>> to any network driver.
+>>
+>> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+>> Cc: David Miller <davem@davemloft.net>
+>> Cc: Eric Dumazet <edumazet@google.com>
+>> Cc: Veaceslav Falico <vfalico@redhat.com>
+>> Cc: Alexander Duyck <alexander.h.duyck@intel.com>
+>> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>
+> Ping?
+Your patch is under review by David (see
+http://patchwork.ozlabs.org/patch/308539/), please be patient ;-)
 
-The problem appears to be incorrect coherency management of the
-dma buffers. You are using the streaming DMA mapping API on a
-platform that is not cache coherent, and you are reusing buffers.
 
-The solution to this problem is to add the appropriate
-dma_sync_single_for_device() and dma_sync_single_for_cpu()
-calls at the point where buffer ownership changes between the
-dma master and the CPU. This will flush the caches after the
-filling them on the tx path and invalidate caches when the
-dma master fills them on rx.
-
-See Documentation/DMA-API-HOWTO.txt for details.
-
-	Arnd
+Nicolas
