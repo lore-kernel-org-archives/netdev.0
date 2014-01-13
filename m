@@ -1,76 +1,55 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net 2/2] bonding: rename the dev upper link if the master's,
- name changed
-Date: Mon, 13 Jan 2014 21:54:10 +0400
-Message-ID: <52D42842.5010709@cogentembedded.com>
-References: <52D3E55B.8080401@huawei.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH] netfilter: Add dependency on IPV6 for NF_TABLES_INET
+Date: Mon, 13 Jan 2014 13:01:10 -0500
+Message-ID: <1389636070-26312-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Ding Tianhong <dingtianhong@huawei.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: <netfilter@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:44694 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752172AbaAMRyM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 12:54:12 -0500
-Received: by mail-la0-f52.google.com with SMTP id c6so1652785lan.11
-        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 09:54:11 -0800 (PST)
-In-Reply-To: <52D3E55B.8080401@huawei.com>
+Received: from mail.windriver.com ([147.11.1.11]:36146 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751814AbaAMSBn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 13:01:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13-01-2014 17:08, Ding Tianhong wrote:
+Commit 1d49144c0aaa61be4e3ccbef9cc5c40b0ec5f2fe ("netfilter: nf_tables:
+add "inet" table for IPv4/IPv6") allows creation of non-IPV6 enabled
+.config files that will fail to configure/link as follows:
 
-> The bond_maste_rename() will rename the links for slave dev's upper dev link,
+warning: (NF_TABLES_INET) selects NF_TABLES_IPV6 which has unmet direct dependencies (NET && INET && IPV6 && NETFILTER && NF_TABLES)
+warning: (NF_TABLES_INET) selects NF_TABLES_IPV6 which has unmet direct dependencies (NET && INET && IPV6 && NETFILTER && NF_TABLES)
+warning: (NF_TABLES_INET) selects NF_TABLES_IPV6 which has unmet direct dependencies (NET && INET && IPV6 && NETFILTER && NF_TABLES)
+net/built-in.o: In function `nft_reject_eval':
+nft_reject.c:(.text+0x651e8): undefined reference to `nf_ip6_checksum'
+nft_reject.c:(.text+0x65270): undefined reference to `ip6_route_output'
+nft_reject.c:(.text+0x656c4): undefined reference to `ip6_dst_hoplimit'
+make: *** [vmlinux] Error 1
 
-    s/maste/master/.
+Since the feature is to allow for a mixed IPV4 and IPV6 table, it
+seems sensible to make it depend on IPV6.
 
-> if faild, it will rollback and rename the new name to old name for slave dev.
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-    s/faild/failed/.
-
-> Add a new parameter called name to save the old bonding name in struct bonding.
-
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> ---
->   drivers/net/bonding/bond_main.c | 35 +++++++++++++++++++++++++++++++++++
->   drivers/net/bonding/bonding.h   |  1 +
->   2 files changed, 36 insertions(+)
-
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 4b8c58b..8c044c0 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -2799,11 +2799,41 @@ re_arm:
->
->   /*-------------------------- netdev event handling --------------------------*/
->
-> +static int bond_master_rename(struct bonding *bond)
-> +{
-> +	struct slave *slave;
-> +	struct list_head *iter;
-> +	char ori_linkname[IFNAMSIZ + 7], new_linkname[IFNAMSIZ + 7];
-
-    Perhaps s/ori/old/ is better?
-
-> +	int err = 0;
-> +
-> +	sprintf(ori_linkname, "upper_%s", bond->name);
-> +	sprintf(new_linkname, "upper_%s", bond->dev->name);
-> +
-> +	bond_for_each_slave(bond, slave, iter) {
-> +
-
-    No need for this empty line, I think.
-
-> +		err = netdev_upper_dev_rename(slave->dev, bond->dev, ori_linkname,
-> +					new_linkname);
-
-    The continuation line should start right under 'slave' on the broken up line.
-
-WBR, Sergei
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index afe50c0f526f..c37467562fd0 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -429,7 +429,7 @@ config NF_TABLES
+ 	  To compile it as a module, choose M here.
+ 
+ config NF_TABLES_INET
+-	depends on NF_TABLES
++	depends on NF_TABLES && IPV6
+ 	select NF_TABLES_IPV4
+ 	select NF_TABLES_IPV6
+ 	tristate "Netfilter nf_tables mixed IPv4/IPv6 tables support"
+-- 
+1.8.5.2
