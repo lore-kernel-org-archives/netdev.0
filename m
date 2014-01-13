@@ -1,67 +1,55 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: [PATCH v4 0/3] Send audit/procinfo/cgroup data in socket-level
- control message
-Date: Mon, 13 Jan 2014 11:44:06 -0800
-Message-ID: <52D44206.2000906@schaufler-ca.com>
-References: <1377614400-27122-1-git-send-email-jkaluza@redhat.com> <1389600109-30739-1-git-send-email-jkaluza@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: gro: change GRO overflow strategy
+Date: Mon, 13 Jan 2014 11:46:27 -0800 (PST)
+Message-ID: <20140113.114627.1398138098446476409.davem@davemloft.net>
+References: <1389305539.31367.65.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	eparis@redhat.com, rgb@redhat.com, tj@kernel.org,
-	lizefan@huawei.com, containers@lists.linux-foundation.org,
-	cgroups@vger.kernel.org, viro@zeniv.linux.org.uk
-To: Jan Kaluza <jkaluza@redhat.com>, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389600109-30739-1-git-send-email-jkaluza@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ncardwell@google.com, hkchu@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38165 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751659AbaAMTq2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 14:46:28 -0500
+In-Reply-To: <1389305539.31367.65.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 1/13/2014 12:01 AM, Jan Kaluza wrote:
-> Hi,
->
-> this patchset against net-next (applies also to linux-next) adds 3 new types
-> of "Socket"-level control message (SCM_AUDIT, SCM_PROCINFO and SCM_CGROUP).
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 09 Jan 2014 14:12:19 -0800
 
-How about the group list, while you're at it?
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> GRO layer has a limit of 8 flows being held in GRO list,
+> for performance reason.
+> 
+> When a packet comes for a flow not yet in the list,
+> and list is full, we immediately give it to upper
+> stacks, lowering aggregation performance.
+> 
+> With TSO auto sizing and FQ packet scheduler, this situation
+> happens more often.
+> 
+> This patch changes strategy to simply evict the oldest flow of
+> the list. This works better because of the nature of packet
+> trains for which GRO is efficient. This also has the effect
+> of lowering the GRO latency if many flows are competing.
+> 
+> Tested :
+> 
+> Used a 40Gbps NIC, with 4 RX queues, and 200 concurrent TCP_STREAM
+> netperf.
+> 
+> Before patch, aggregate rate is 11Gbps (while a single flow can reach
+> 30Gbps)
+> 
+> After patch, line rate is reached.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
->
-> Server-like processes in many cases need credentials and other
-> metadata of the peer, to decide if the calling process is allowed to
-> request a specific action, or the server just wants to log away this
-> type of information for auditing tasks.
->
-> The current practice to retrieve such process metadata is to look that
-> information up in procfs with the $PID received over SCM_CREDENTIALS.
-> This is sufficient for long-running tasks, but introduces a race which
-> cannot be worked around for short-living processes; the calling
-> process and all the information in /proc/$PID/ is gone before the
-> receiver of the socket message can look it up.
->
-> Changes introduced in this patchset can also increase performance
-> of such server-like processes, because current way of opening and
-> parsing /proc/$PID/* files is much more expensive than receiving these
-> metadata using SCM.
->
-> Changes in v4:
-> - Rebased to work with the latest net-next tree
->
-> Changes in v3:
-> - Better description of patches (Thanks to Kay Sievers)
->
-> Changes in v2:
-> - use PATH_MAX instead of PAGE_SIZE in SCM_CGROUP patch
-> - describe each patch individually
->
-> Jan Kaluza (3):
->   Send loginuid and sessionid in SCM_AUDIT
->   Send comm and cmdline in SCM_PROCINFO
->   Send cgroup_path in SCM_CGROUP
->
->  include/linux/socket.h |  9 ++++++
->  include/net/af_unix.h  | 10 ++++++
->  include/net/scm.h      | 67 ++++++++++++++++++++++++++++++++++++++--
->  net/core/scm.c         | 83 ++++++++++++++++++++++++++++++++++++++++++++++++++
->  net/unix/af_unix.c     | 70 ++++++++++++++++++++++++++++++++++++++++++
->  5 files changed, 237 insertions(+), 2 deletions(-)
->
+Applied, looks great.
+
+If someone is really concerned about improving the list traversal,
+we can maintain a tail pointer.
