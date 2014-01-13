@@ -1,68 +1,56 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v4 0/3] path mtu hardening patches
-Date: Tue, 14 Jan 2014 00:18:43 +0100
-Message-ID: <20140113231843.GN6586@order.stressinduktion.org>
-References: <1389258077-23282-1-git-send-email-hannes@stressinduktion.org> <20140113.112504.922587457597727366.davem@davemloft.net> <CABrhC0n2AgHNQg-2nQk-sx1=k2=TvmGa+2seqoNT=XyDdz59yg@mail.gmail.com> <20140113204253.GI6586@order.stressinduktion.org> <CABrhC0=9ff8aLG4y4gxiGrGBBHvdcWD2pCC3wyLTveKHRySg4A@mail.gmail.com> <20140113212808.GJ6586@order.stressinduktion.org> <CABrhC0=CfPxB7rNrA0ukfZyNLuTNSBB2srohr-Yt2b4k6oHWxg@mail.gmail.com> <20140113220356.GL6586@order.stressinduktion.org> <20140113221504.GM6586@order.stressinduktion.org> <20140113224835.GA28205@breakpoint.cc>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: make dev_set_mtu() honor notification
+ return code
+Date: Mon, 13 Jan 2014 15:18:55 -0800 (PST)
+Message-ID: <20140113.151855.1046745397621207165.davem@davemloft.net>
+References: <1389358097-5396-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: John Heffner <johnwheffner@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	steffen.klassert@secunet.com, fweimer@redhat.com
-To: Florian Westphal <fw@strlen.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, edumazet@google.com,
+	alexander.h.duyck@intel.com, nicolas.dichtel@6wind.com
+To: vfalico@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:33817 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751753AbaAMXSp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 18:18:45 -0500
-Content-Disposition: inline
-In-Reply-To: <20140113224835.GA28205@breakpoint.cc>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39281 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752290AbaAMXS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 18:18:58 -0500
+In-Reply-To: <1389358097-5396-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 13, 2014 at 11:48:35PM +0100, Florian Westphal wrote:
-> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> > On Mon, Jan 13, 2014 at 11:03:56PM +0100, Hannes Frederic Sowa wrote:
-> > > I really don't like to depend on firewalling to do that. Especially on
-> > > big routers one can use the routing table to protect interfaces for
-> > > management and thus don't need to introduce stateful firewalling to
-> > > realize a secure router setup which could cause performance degradation,
-> > > especially with lots of small and shortlived flows (e.g. UDP/DNS).
-> > 
-> > This may get better if maybe some work is put into bringing this patch
-> > forward: http://comments.gmane.org/gmane.linux.network/268758
+From: Veaceslav Falico <vfalico@redhat.com>
+Date: Fri, 10 Jan 2014 13:48:17 +0100
+
+> Currently, after changing the MTU for a device, dev_set_mtu() calls
+> NETDEV_CHANGEMTU notification, however doesn't verify it's return code -
+> which can be NOTIFY_BAD - i.e. some of the net notifier blocks refused this
+> change, and continues nevertheless.
 > 
-> Jesper Brouer is working on this.
+> To fix this, verify the return code, and if it's an error - then revert the
+> MTU to the original one, and pass the error code.
+> 
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 
-Cool!
+This is really a precariously designed code path.
 
-> But, why do you even need stateful firewalling for filtering?
-> Isn't -m socket enough?
->
-> [ sorry if you already explained, might have missed it when search
-> archive ]
+If one of the notifiers says NOTIFY_BAD, well we've already changed
+dev->mtu, therefore what if a packet got sent during this time?
 
-That would solve the tests I actually did, because the module doesn't let
-ICMP packets with ICMP packet payload through (maybe this could
-be bad for people using ping to debug pmtu problems on routers. this is
-a bit far fetched, but I actually did ;) )
+Whoever the NOTIFY_BAD signaller is, obviously cannot handle an MTU
+setting which we've already set in the netdev.  So allowing it's a
+terribly idea to allow visibility of the new MTU value until we can be
+sure everyone can handle it.
 
-Myself, I don't trust socket lookup on unconnected UDP sockets any more as
-you only need to spray such pMTU packets in a limited port range against
-a box. Given that many routers currently also provide DNS services on
-a random but outgoing port or are equipped with a whole bunch of services.
+The problem is that we really need a transaction of some sort to fix
+this properly.  First, we'd need to ask all the notifiers if they
+can handle the new MTU, then we somehow atomically set netdev->mtu
+and have the notifiers commit their own state changes.
 
-As soon as you have tunnels on a router, this wouldn't work either,
-because you have to accept pmtu information on a non-socket in this case,
-also ipsec.
+Then we'll have the stick issue of what to do if a notifier is
+unregistered between the check and the commit. :-)
 
-I guess there are more special cases.
+Your patch is an improvement so I will apply it, this stuff really
+is full of holes still.
 
-I think it is possible to come up with an iptables setup which is suitable
-to protect a system in a special constellation. But, IMHO, it is better
-to strictly follow the RFC and don't use path mtu in forwarding.
-
-Greetings,
-
-  Hannes
+Thanks.
