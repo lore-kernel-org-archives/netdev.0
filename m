@@ -1,86 +1,43 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next v2 4/4] virtio-net: initial debugfs support,
-	export mergeable rx buffer size
-Date: Mon, 13 Jan 2014 11:40:18 +0200
-Message-ID: <20140113094018.GA22726@redhat.com>
-References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
-	<1389072355-20666-4-git-send-email-mwdalton@google.com>
-	<52CCF177.7020500@redhat.com> <20140108192109.GC18312@redhat.com>
-	<CANJ5vP+Qxa5j_Cp1FBK-qdO+U+dy2kiY5N2bmWdMKbCoY9EwDQ@mail.gmail.com>
-	<20140112170939.GA17202@redhat.com>
-	<CANJ5vP+Vu8=haCetZkcefPgR8pGe0iDZ03EZhJHLSgunCaHJsQ@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: Use of ENOTSUPP in drivers?
+Date: Mon, 13 Jan 2014 09:41:57 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D458F3E@AcuExch.aculab.com>
+References: <20140112185715.GB5405@kria>
+ <1389559622.3720.115.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lf-virt <virtualization@lists.linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: Michael Dalton <mwdalton@google.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <CANJ5vP+Vu8=haCetZkcefPgR8pGe0iDZ03EZhJHLSgunCaHJsQ@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Ben Hutchings' <bhutchings@solarflare.com>,
+	Sabrina Dubroca <sd@queasysnail.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:50858 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751430AbaAMJn6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jan 2014 04:43:58 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 11267-04 for <netdev@vger.kernel.org>;
+ Mon, 13 Jan 2014 09:43:54 +0000 (GMT)
+In-Reply-To: <1389559622.3720.115.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 12, 2014 at 03:32:28PM -0800, Michael Dalton wrote:
-> Hi Michael,
-> 
-> On Sun, Jan 12, 2014 at 9:09 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> > Can't we add struct attribute * to netdevice, and pass that in when
-> > creating the kobj?
-> 
-> I like that idea, I think that will work and should be better than
-> the alternatives. The actual kobjs for RX queues (struct netdev_rx_queue)
-> are allocated and deallocated by calls to net_rx_queue_update_kobjects,
-> which resizes RX queue kobjects when the netdev RX queues are resized.
-> 
-> Is this what you had in mind:
-> (1) Add a pointer to an attribute group to struct net_device, used for
->     per-netdev rx queue attributes and initialized before the call to
->     register_netdevice().
-> (2) Declare an attribute group containing the mergeable_rx_buffer_size
->     attribute in virtio-net, and initialize the per-netdevice group pointer
->     to the address of this group in virtnet_probe before register_netdevice
-> (3) In net-sysfs, modify net_rx_queue_update_kobjects
->     (or rx_queue_add_kobject) to call sysfs_create_group on the
->     per-netdev attribute group (if non-NULL), adding the attributes in
->     the group to the RX queue kobject.
-
-
-Exactly.
-
-> That should allow us to have per-RX queue attributes that are
-> device-specific. I'm not a sysfs expert, but it seems that rx_queue_ktype
-> and rx_queue_sysfs_ops presume that all rx queue sysfs operations are
-> performed on attributes of type rx_queue_attribute. That type will need
-> to be moved from net-sysfs.c to a header file like netdevice.h so that
-> the type can be used in virtio-net when we declare the
-> mergeable_rx_buffer_size attribute.
-> 
-> The last issue is how the rx_queue_attribute 'show' function
-> implementation for mergeable_rx_buffer_size will access the appropriate
-> per-receive queue EWMA data. The arguments to the show function will be
-> the netdev_rx_queue and the attribute itself. We can get to the
-> struct net_device from the netdev_rx_queue.  If we extended
-> netdev_rx_queue to indicate the queue_index or to store a void *priv_data
-> pointer, that would be sufficient to allow us to resolve this issue.
-
-Hmm netdev_rx_queue is not defined unless CONFIG_RPS is set.
-Maybe we should use a different structure.
-
-
-> Please let me know if the above sounds good or if you see a better way
-> to accomplish this goal. Thanks!
-> 
-> Best,
-> 
-> Mike
-
-Sounds good to me.
+RnJvbTogQmVuIEh1dGNoaW5ncw0KPiBJIGJlbGlldmUgdGhleSBzaG91bGQgYWxsIGJlIHBhdGNo
+ZWQuICBBY2NvcmRpbmcgdG8NCj4gaW5jbHVkZS9saW51eC9lcnJuby5oLCBFTk9UU1VQUCBpcyBt
+ZWFudCBmb3IgdXNlIGluIHRoZSBORlN2MyBjb2RlIG9ubHkuDQo+IChCdXQgaXQncyBhcHBhcmVu
+dGx5IGVycm9uZW91c2x5IHVzZWQgKmFsbCBvdmVyKiB0aGUgdHJlZSwgbm90IGp1c3QgaW4NCj4g
+bmV0IGRyaXZlcnMhKQ0KDQpUaGUgJ3JlYWwnIHByb2JsZW0gaXMgdGhhdCB0aGVyZSBhcmUgcXVp
+dGUgYSBmZXcgdmVyeSBzcGVjaWZpYyBlcnJubw0KdmFsdWVzLCBidXQgdmVyeSBmZXcgZ2VuZXJh
+bCBvbmVzLg0KSSBzdXNwZWN0IHRoYXQgb25jZSAod2F5IGJhY2sgaW4gdGhlIDE5ODBzIC0gdGhl
+IGRlZmluaXRpb25zIHByZWRhdGUgbGludXgpDQphZGRpbmcgbmV3IGVycm5vIHZhbHVlcyB3YXMg
+ZWFzeSwgYW5kIHNvbWUgdGhhdCBtaWdodCBoYXZlIGJlZW4gZ2VuZXJhbA0KZ290IGRvY3VtZW50
+ZWQgZm9yIHRoZWlyIHNpbmdsZSB1c2UgLSB0aGUgdGV4dCBmb3IgRUFHQUlOIHVzZWQgdG8gYmUN
+CiJObyBtb3JlIHByb2Nlc3NlcyIuDQpOZXcgZXJybm8gdmFsdWVzIHdlcmUgYWRkZWQgZm9yIHNv
+bWUgc3Vic3lzdGVtcyAobGlrZSBORlMpIGJ1dCBkb2N1bWVudGVkDQp3aXRoIHN1YnN5c3RlbS1z
+cGVjaWZpYyB0ZXh0cy4NClNvIHRoZXJlIGFyZSBmZXcgZ2VuZXJpYyBlcnJubyBjb2RlcyBleGNl
+cHQgRUlOVkFMIGFuZCBFTlhJTyAtIG5laXRoZXINCm9mIHdoaWNoIGlzIGhlbHBmdWwuDQpOb3Ro
+aW5nIGZvciB0aGlua3MgbGlrZToNCi0gSSBkb24ndCB1bmRlcnN0YW5kIHRoZSByZXF1ZXN0Lg0K
+LSBJIGRvbid0IHN1cHBvcnQgdGhlIHJlcXVlc3QuDQotIFNvbWUgaW50ZXJuYWwgbGltaXQgcmVh
+Y2hlZC4NCmV0Yy4NCg0KCURhdmlkDQoNCg==
