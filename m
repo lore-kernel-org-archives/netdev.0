@@ -1,41 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] gre_offload: simplify GRE header length
- calculation in gre_gso_segment()
-Date: Mon, 13 Jan 2014 11:54:08 -0800 (PST)
-Message-ID: <20140113.115408.687861949295975907.davem@davemloft.net>
-References: <1389318437-17744-1-git-send-email-ncardwell@google.com>
-	<1389319758.31367.81.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH 1/1] drivers: net: silence compiler warning in smc91x.c
+Date: Mon, 13 Jan 2014 11:54:59 -0800 (PST)
+Message-ID: <20140113.115459.326248442934302460.davem@davemloft.net>
+References: <1389323046-4521-1-git-send-email-pankaj.dubey@samsung.com>
+	<52D05B41.7000601@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ncardwell@google.com, netdev@vger.kernel.org, edumazet@google.com,
-	hkchu@google.com, pshelar@nicira.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38248 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751458AbaAMTyJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 14:54:09 -0500
-In-Reply-To: <1389319758.31367.81.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pankaj.dubey@samsung.com, linux-samsung-soc@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, jg1.han@samsung.com,
+	netdev@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+In-Reply-To: <52D05B41.7000601@cogentembedded.com>
+Sender: linux-samsung-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 09 Jan 2014 18:09:18 -0800
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Fri, 10 Jan 2014 23:42:41 +0300
 
-> On Thu, 2014-01-09 at 20:47 -0500, Neal Cardwell wrote:
->> Simplify the GRE header length calculation in gre_gso_segment().
->> Switch to an approach that is simpler, faster, and more general. The
->> new approach will continue to be correct even if we add support for
->> the optional variable-length routing info that may be present in a GRE
->> header.
->> 
->> Signed-off-by: Neal Cardwell <ncardwell@google.com>
->> Cc: Eric Dumazet <edumazet@google.com>
->> Cc: H.K. Jerry Chu <hkchu@google.com>
->> Cc: Pravin B Shelar <pshelar@nicira.com>
->> ---
+> Hello.
 > 
-> Acked-by: Eric Dumazet <edumazet@google.com>
+> On 01/10/2014 06:04 AM, Pankaj Dubey wrote:
+> 
+>> If used 64 bit compiler GCC warns that:
+> 
+>> drivers/net/ethernet/smsc/smc91x.c:1897:7:
+>> warning: cast from pointer to integer of different
+>> size [-Wpointer-to-int-cast]
+> 
+>> This patch fixes this by changing typecase from "unsigned int" to
+>> "unsigned long"
+> 
+>    Only "typecast".
 
-Applied, thank you.
+Applied with this typo fixed, thanks.
