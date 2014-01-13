@@ -1,114 +1,55 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH RFC] reciprocal_divide: correction/update of the algorithm
-Date: Mon, 13 Jan 2014 22:42:49 +0100
-Message-ID: <20140113214249.GK6586@order.stressinduktion.org>
+From: John Heffner <johnwheffner@gmail.com>
+Subject: Re: [PATCH net-next v4 0/3] path mtu hardening patches
+Date: Mon, 13 Jan 2014 16:50:38 -0500
+Message-ID: <CABrhC0=CfPxB7rNrA0ukfZyNLuTNSBB2srohr-Yt2b4k6oHWxg@mail.gmail.com>
+References: <1389258077-23282-1-git-send-email-hannes@stressinduktion.org>
+	<20140113.112504.922587457597727366.davem@davemloft.net>
+	<CABrhC0n2AgHNQg-2nQk-sx1=k2=TvmGa+2seqoNT=XyDdz59yg@mail.gmail.com>
+	<20140113204253.GI6586@order.stressinduktion.org>
+	<CABrhC0=9ff8aLG4y4gxiGrGBBHvdcWD2pCC3wyLTveKHRySg4A@mail.gmail.com>
+	<20140113212808.GJ6586@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: dborkman@redhat.com, eric.dumazet@gmail.com,
-	linux-kernel@vger.kernel.org, darkjames-ws@darkjames.pl
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: John Heffner <johnwheffner@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	steffen.klassert@secunet.com, fweimer@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:60754 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751762AbaAMVuj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 16:50:39 -0500
+Received: by mail-wg0-f47.google.com with SMTP id m15so4227136wgh.2
+        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 13:50:38 -0800 (PST)
+In-Reply-To: <20140113212808.GJ6586@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch is a RFC and part of a series Daniel Borkmann and me want to
-do when introducing prandom_u32_range{,_ro} and prandom_u32_max{,_ro}
-helpers later this week.
+On Mon, Jan 13, 2014 at 4:28 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On Mon, Jan 13, 2014 at 04:08:22PM -0500, John Heffner wrote:
+>> Would it be sufficient to allow Linux to be configured in a way that
+>> matches FreeBSD's behavior?  (I believe you can do this easily with
+>> stateful firewall rules now, or possibly in the ICMP processing code
+>> with a sysctl switch.)  I feel this would be a much cleaner approach.
+>
+> Actually, this is part of this series. The hardened path mtu mode provides
+> exactly that (Patch 3).
+>
+> But because we cannot switch this on by default, I also protected the
+> forwarding path. UDP path mtu discovery has been too long available on
+> Linux and, I guess, a lot of applications, especially running on routers,
+> depend on that.
 
-At first Jakub Zawadzki noticed that some divisions by reciprocal_divide
-were not correct:
-http://www.wireshark.org/~darkjames/reciprocal-buggy.c
+Perhaps I misunderstood your description of FreeBSD then.  It seems
+hard for me to believe that MTU discovery for UDP is broken by default
+in FreeBSD.  It was not as of a couple years ago...
 
-He could also show this with BPF:
-http://www.wireshark.org/~darkjames/set-and-dump-filter-k-bug.c
+The nice thing about stateful firewall rules is that they give you
+fine-grained policies over which ICMP messages you want to trust, and
+can filter out messages that don't match "connections" with existing
+state across a wide variety of protocols (including TCP, UDP and
+ICMP).
 
-Also: reciprocal_value and reciprocal_divide always return 0 for
-divisions by 1.  This is a bit worrisome as those functions also get
-used in mm/slab.c and lib/flex_array.c. Bonding already seems to check
-for the 1-divisor case and handles that correctly. We don't know about
-other problems, yet.
-
-I propose an correction/update of the algorithm
-based on the paper "T. Granlund and P. L. Montgomery:
-Division by Invariant Integers Using Multiplication"
-<http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.1.2556>
-
-The assembler implementation from Agner Fog, found here
-<http://www.agner.org/optimize/asmlib.zip>, helped a lot while
-implementing.
-
-I would like to have feedback if people see problems with this patch or
-have concerns about performance. I did some testing on x86-64 and found
-no problems so far but did no performance evaluation, yet.
-
-The current code does break the call-sides of reciprocal_divide. The necessary
-changes will be part of the full series, then.
-
-Thanks!
----
- include/linux/reciprocal_div.h | 12 +++++++++---
- lib/reciprocal_div.c           | 22 ++++++++++++++++++----
- 2 files changed, 27 insertions(+), 7 deletions(-)
-
-diff --git a/include/linux/reciprocal_div.h b/include/linux/reciprocal_div.h
-index f9c90b3..6f17a87 100644
---- a/include/linux/reciprocal_div.h
-+++ b/include/linux/reciprocal_div.h
-@@ -22,11 +22,17 @@
-  * Should not be called before each reciprocal_divide(),
-  * or else the performance is slower than a normal divide.
-  */
--extern u32 reciprocal_value(u32 B);
- 
-+struct reciprocal_value {
-+	u32 m;
-+	u8 sh1, sh2;
-+};
- 
--static inline u32 reciprocal_divide(u32 A, u32 R)
-+struct reciprocal_value reciprocal_value(u32 d);
-+
-+static inline u32 reciprocal_divide(u32 a, struct reciprocal_value R)
- {
--	return (u32)(((u64)A * R) >> 32);
-+	u32 t = (u32)(((u64)a * R.m) >> 32);
-+	return (t + ((a - t) >> R.sh1)) >> R.sh2;
- }
- #endif
-diff --git a/lib/reciprocal_div.c b/lib/reciprocal_div.c
-index 75510e9..b741b30 100644
---- a/lib/reciprocal_div.c
-+++ b/lib/reciprocal_div.c
-@@ -1,11 +1,25 @@
-+#include <linux/kernel.h>
- #include <asm/div64.h>
- #include <linux/reciprocal_div.h>
- #include <linux/export.h>
- 
--u32 reciprocal_value(u32 k)
-+/* For a description of the algorithmus please look at
-+ * linux/reciprocal_div.h
-+ */
-+
-+struct reciprocal_value reciprocal_value(u32 d)
- {
--	u64 val = (1LL << 32) + (k - 1);
--	do_div(val, k);
--	return (u32)val;
-+	struct reciprocal_value R;
-+	u64 m;
-+	int l;
-+
-+	l = fls(d - 1);
-+	m = ((1ULL << 32) * ((1ULL << l) - d));
-+	do_div(m, d);
-+	++m;
-+	R.m = (u32)m;
-+	R.sh1 = min(l, 1);
-+	R.sh2 = max(l-1, 0);
-+	return R;
- }
- EXPORT_SYMBOL(reciprocal_value);
--- 
-1.8.4.2
+  -John
