@@ -1,40 +1,39 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [PATCH 07/15] net: i40e calls skb_set_hash
-Date: Mon, 13 Jan 2014 21:53:32 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B7312BADC@ORSMSX101.amr.corp.intel.com>
-References: <alpine.DEB.2.02.1312172325550.24389@tomh.mtv.corp.google.com>
- <CAL3LdT4M0gHP5bW3A1GDJGy2zrt4+YQpK3i8WhAp31N2yHsQkg@mail.gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net-next 0/2] vxlan updates
+Date: Mon, 13 Jan 2014 13:59:04 -0800
+Message-ID: <CAHA+R7MO3mxR4CGF+zK9r4DigcG9aHQyBDLrY5rjdx6qCbxSnQ@mail.gmail.com>
+References: <1389634880-4138-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=ISO-8859-1
 Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Tom Herbert <therbert@google.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:54527 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752193AbaAMVxe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Jan 2014 16:53:34 -0500
-In-Reply-To: <CAL3LdT4M0gHP5bW3A1GDJGy2zrt4+YQpK3i8WhAp31N2yHsQkg@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-la0-f51.google.com ([209.85.215.51]:57023 "EHLO
+	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751236AbaAMV7G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 16:59:06 -0500
+Received: by mail-la0-f51.google.com with SMTP id c6so857624lan.10
+        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 13:59:04 -0800 (PST)
+In-Reply-To: <1389634880-4138-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVy
-QHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVoYWxmIE9mIEplZmYgS2lyc2hlcg0KPiBTZW50OiBX
-ZWRuZXNkYXksIERlY2VtYmVyIDE4LCAyMDEzIDEyOjQwIEFNDQo+IFRvOiBUb20gSGVyYmVydA0K
-PiBDYzogRGF2aWQgTWlsbGVyOyBuZXRkZXYNCj4gU3ViamVjdDogUmU6IFtQQVRDSCAwNy8xNV0g
-bmV0OiBpNDBlIGNhbGxzIHNrYl9zZXRfaGFzaA0KPiANCj4gT24gVHVlLCBEZWMgMTcsIDIwMTMg
-YXQgMTE6MjcgUE0sIFRvbSBIZXJiZXJ0IDx0aGVyYmVydEBnb29nbGUuY29tPiB3cm90ZToNCj4g
-PiBEcml2ZXJzIHNob3VsZCBjYWxsIHNrYl9zZXRfaGFzaCB0byBzZXQgdGhlIGhhc2ggYW5kIGl0
-cyB0eXBlIGluIGFuDQo+ID4gc2tidWZmLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogVG9tIEhl
-cmJlcnQgPHRoZXJiZXJ0QGdvb2dsZS5jb20+DQo+ID4gLS0tDQo+ID4gIGRyaXZlcnMvbmV0L2V0
-aGVybmV0L2ludGVsL2k0MGUvaTQwZV90eHJ4LmMgfCAzICsrLQ0KPiA+ICAxIGZpbGUgY2hhbmdl
-ZCwgMiBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0pDQo+ID4NCj4gDQo+IEkgaGF2ZSBhZGRl
-ZCB0aGlzIHBhdGNoIHRvIG15IHF1ZXVlLCB0aGFua3MgVG9tLg0KDQpBbmQgdW5mb3J0dW5hdGVs
-eSBpdCBmYWlscyB0byBjb21waWxlIGdpdmluZyB0aGUgZm9sbG93aW5nIGVycm9yOg0KLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfdHhyeC5jOiBJ
-biBmdW5jdGlvbiAnaTQwZV9jbGVhbl9yeF9pcnEnOg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50
-ZWwvaTQwZS9pNDBlX3R4cnguYzoxMDg4OiBlcnJvcjogdG9vIGZldyBhcmd1bWVudHMgdG8gZnVu
-Y3Rpb24gJ2k0MGVfcnhfY2hlY2tzdW0nDQo=
+On Mon, Jan 13, 2014 at 9:41 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> Did the split into two patches upon request from Cong Wang.
+>
+> Changelog:
+>
+>  v1->v2:
+>   - Removed BUG_ON as it's not needed.
+>  v2->v3:
+>   - Removed dev->reg_state check for netns.
+>  v3->v4:
+>   - Removed list_del(), we seem to do it in some places and
+>     in some others not; we agreed it's not really necessary.
+>   - Split patch into 2 patches, notifier part and module
+>     unload cleanup part.
+
+
+Looks good to my eyes, so
+
+Reviewed-by: Cong Wang <cwang@twopensource.com>
