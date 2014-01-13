@@ -1,39 +1,66 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH net-next 4/4] flowcache: Bring net/core/flow.c under IPsec maintain scope
-Date: Mon, 13 Jan 2014 15:49:08 +0800
-Message-ID: <1389599348-5214-5-git-send-email-fan.du@windriver.com>
+Subject: [PATCH net-next 3/4] flowcache: Fixup flow cache part in xfrm policy
+Date: Mon, 13 Jan 2014 15:49:07 +0800
+Message-ID: <1389599348-5214-4-git-send-email-fan.du@windriver.com>
 References: <1389599348-5214-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
 To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:40862 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751414AbaAMHtK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 02:49:10 -0500
+Received: from mail1.windriver.com ([147.11.146.13]:63733 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751404AbaAMHtJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 02:49:09 -0500
 In-Reply-To: <1389599348-5214-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As flow cache is mainly manipulated from IPsec.
+Bump flow cache genid, and flush flow cache should also be made
+in per net style.
 
 Signed-off-by: Fan Du <fan.du@windriver.com>
 ---
- MAINTAINERS |    1 +
- 1 file changed, 1 insertion(+)
+ net/xfrm/xfrm_policy.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index e11d495..14ad385 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -5916,6 +5916,7 @@ L:	netdev@vger.kernel.org
- T:	git git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec.git
- T:	git git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git
- S:	Maintained
-+F:	net/core/flow.c
- F:	net/xfrm/
- F:	net/key/
- F:	net/ipv4/xfrm*
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index e205c4b..d39c90f 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -661,7 +661,7 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
+ 		hlist_add_head(&policy->bydst, chain);
+ 	xfrm_pol_hold(policy);
+ 	net->xfrm.policy_count[dir]++;
+-	atomic_inc(&flow_cache_genid);
++	atomic_inc(&net->xfrm.flow_cache_genid);
+ 
+ 	/* After previous checking, family can either be AF_INET or AF_INET6 */
+ 	if (policy->family == AF_INET)
+@@ -2567,14 +2567,14 @@ static void __xfrm_garbage_collect(struct net *net)
+ 
+ void xfrm_garbage_collect(struct net *net)
+ {
+-	flow_cache_flush();
++	flow_cache_flush(net);
+ 	__xfrm_garbage_collect(net);
+ }
+ EXPORT_SYMBOL(xfrm_garbage_collect);
+ 
+ static void xfrm_garbage_collect_deferred(struct net *net)
+ {
+-	flow_cache_flush_deferred();
++	flow_cache_flush_deferred(net);
+ 	__xfrm_garbage_collect(net);
+ }
+ 
+@@ -2947,6 +2947,7 @@ static int __net_init xfrm_net_init(struct net *net)
+ 	spin_lock_init(&net->xfrm.xfrm_policy_sk_bundle_lock);
+ 	mutex_init(&net->xfrm.xfrm_cfg_mutex);
+ 
++	flow_cache_init(net);
+ 	return 0;
+ 
+ out_sysctl:
 -- 
 1.7.9.5
