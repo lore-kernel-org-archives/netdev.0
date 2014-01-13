@@ -1,50 +1,47 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: net/mlx4_core: clean up two functions
-Date: Mon, 13 Jan 2014 21:34:17 +0200
-Message-ID: <20140113193415.GA22955@mtl-eit-vdi-22.mtl.labs.mlnx>
-References: <1389099622.15032.18.camel@x41>
- <20140113.111312.1323236808342705421.davem@davemloft.net>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: suspicious RCU usage in net/ipv4/ip_tunnel.c:80
+Date: Mon, 13 Jan 2014 11:35:23 -0800
+Message-ID: <CAHA+R7MC4gDzKagAJ2y_2Jyb=Jx-Xkb9ns3-kqYGxH4MH8945g@mail.gmail.com>
+References: <CAHA+R7PAyR_cJ9_9nfUBc0U9o-U=gCV+sN_VYbHwgq-QdoEVzQ@mail.gmail.com>
+	<1389403281.31367.171.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pebolle@tiscali.nl, ogerlitz@mellanox.com,
-	jackm@dev.mellanox.co.il, ronye@mellanox.com, hadarh@mellanox.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	amirv@mellanox.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140113.111312.1323236808342705421.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Tom Herbert <therbert@google.com>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f49.google.com ([209.85.215.49]:63180 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752050AbaAMTfZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 14:35:25 -0500
+Received: by mail-la0-f49.google.com with SMTP id y1so1472115lam.22
+        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 11:35:23 -0800 (PST)
+In-Reply-To: <1389403281.31367.171.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13/01/14 11:13 -0800, David Miller wrote:
-> From: Paul Bolle <pebolle@tiscali.nl>
-> Date: Tue, 07 Jan 2014 14:00:22 +0100
-> 
-> > 0) These two patches are very similar. They both clean up a function to
-> > help GCC understand the codeflow. Both help silence a warning.
-> > 
-> > 1) Compile tested only (on 32 bits x86). I do not have this hardware.
-> > 
-> > 2) Please note that there's no MAINTAINERS entry for mlx4_core. (Neither
-> > is there an entry for the MLX4 IB driver.) Shouldn't it be added? 
-> 
-> These patches have been rotting for a week.  I know the mlx4 folks
-> said the SRIOV guy inside Mellanox will look at it, but this is taking
-> way too long.
-> 
-> This is absolutely unreasonable from Paul's perspective to have to wait
-> this long for a review of these relatively simple patches.
+On Fri, Jan 10, 2014 at 5:21 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> Please use following sparse ready patch, thanks :
+>
+> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+> index d3929a69f008..6eda759b5c4b 100644
+> --- a/net/ipv4/ip_tunnel.c
+> +++ b/net/ipv4/ip_tunnel.c
+> @@ -77,10 +77,11 @@ static inline void __tunnel_dst_set(struct ip_tunnel_dst *idst,
+>                 dst = NULL;
+>
+>         spin_lock_bh(&idst->lock);
+> -       old_dst = rcu_dereference(idst->dst);
+> +       old_dst = rcu_dereference_protected(idst->dst,
+> +                                           lockdep_is_held(&idst->lock));
+>         rcu_assign_pointer(idst->dst, dst);
+> -       dst_release(old_dst);
+>         spin_unlock_bh(&idst->lock);
+> +       dst_release(old_dst);
+>  }
+>
+>  static inline void tunnel_dst_set(struct ip_tunnel *t, struct dst_entry *dst)
+>
+>
 
-You're absolutely right.
-And yes, jack is very busy.
-We will have a reply ready tomorrow morning.
-
-Amir
-
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Tested-by: Cong Wang <cwang@twopensource.com>
