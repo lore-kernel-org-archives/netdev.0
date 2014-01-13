@@ -1,35 +1,44 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] ipv4: remove the  useless argument from ip_tunnel_hash()
-Date: Mon, 13 Jan 2014 17:55:15 +0400
-Message-ID: <52D3F043.9090200@cogentembedded.com>
-References: <52D2689A.4040800@cn.fujitsu.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] sctp: remove a redundant NULL check
+Date: Mon, 13 Jan 2014 09:02:58 -0500
+Message-ID: <20140113140258.GA4614@hmsreliant.think-freely.org>
+References: <20140113134608.GA5232@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:42773 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751434AbaAMNzR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 08:55:17 -0500
-Received: by mail-lb0-f178.google.com with SMTP id u14so1353390lbd.37
-        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 05:55:15 -0800 (PST)
-In-Reply-To: <52D2689A.4040800@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140113134608.GA5232@elgon.mountain>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Mon, Jan 13, 2014 at 04:46:08PM +0300, Dan Carpenter wrote:
+> It confuses Smatch when we check "sinit" for NULL and then non-NULL and
+> that causes a false positive warning later.
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index d32dae78a486..27f1717170c2 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -1743,7 +1743,7 @@ static int sctp_sendmsg(struct kiocb *iocb, struct sock *sk,
+>  		 * either the default or the user specified stream counts.
+>  		 */
+>  		if (sinfo) {
+> -			if (!sinit || (sinit && !sinit->sinit_num_ostreams)) {
+> +			if (!sinit || !sinit->sinit_num_ostreams) {
+>  				/* Check against the defaults. */
+>  				if (sinfo->sinfo_stream >=
+>  				    sp->initmsg.sinit_num_ostreams) {
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
-On 12-01-2014 14:04, Duan Jiong wrote:
-
-> Since commit c544193214 introduced function ip_tunnel_hash(), the argument
-
-   Please also specify that commit's summary line in parens.
-
-> itn is no longer in use, so remove it.
-
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-
-WBR, Sergei
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
