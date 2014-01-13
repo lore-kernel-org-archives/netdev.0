@@ -1,55 +1,48 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH] netfilter: Add dependency on IPV6 for NF_TABLES_INET
-Date: Mon, 13 Jan 2014 13:01:10 -0500
-Message-ID: <1389636070-26312-1-git-send-email-paul.gortmaker@windriver.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [ovs-dev] [GIT net-next] Open vSwitch
+Date: Mon, 13 Jan 2014 18:04:14 +0000
+Message-ID: <52D42A9E.1030805@citrix.com>
+References: <1389053776-62865-1-git-send-email-jesse@nicira.com> <52CD657F.7080806@citrix.com> <CAEP_g=_pQpH--V+7GSrjGP2z=0TBD_37yXjzTdeKG+2OF3aRaw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netfilter@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:36146 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751814AbaAMSBn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 13:01:43 -0500
+Received: from smtp02.citrix.com ([66.165.176.63]:58899 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751568AbaAMSEQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 13:04:16 -0500
+In-Reply-To: <CAEP_g=_pQpH--V+7GSrjGP2z=0TBD_37yXjzTdeKG+2OF3aRaw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 1d49144c0aaa61be4e3ccbef9cc5c40b0ec5f2fe ("netfilter: nf_tables:
-add "inet" table for IPv4/IPv6") allows creation of non-IPV6 enabled
-.config files that will fail to configure/link as follows:
+On 08/01/14 15:10, Jesse Gross wrote:
+> On Wed, Jan 8, 2014 at 9:49 AM, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
+>> Hi,
+>>
+>> I've tried the latest net-next on a Xenserver install with 1.9.3 userspace,
+>> and it seems this patch series broke it (at least after reverting that
+>> locally it works now). I haven't went too far yet checking what's the
+>> problem, but it seems the xenbrX device doesn't really receive too much of
+>> the traffic coming through the NIC. Is it expected?
+>
+> What do you mean by doesn't receive too much traffic? What does it get?
+>
 
-warning: (NF_TABLES_INET) selects NF_TABLES_IPV6 which has unmet direct dependencies (NET && INET && IPV6 && NETFILTER && NF_TABLES)
-warning: (NF_TABLES_INET) selects NF_TABLES_IPV6 which has unmet direct dependencies (NET && INET && IPV6 && NETFILTER && NF_TABLES)
-warning: (NF_TABLES_INET) selects NF_TABLES_IPV6 which has unmet direct dependencies (NET && INET && IPV6 && NETFILTER && NF_TABLES)
-net/built-in.o: In function `nft_reject_eval':
-nft_reject.c:(.text+0x651e8): undefined reference to `nf_ip6_checksum'
-nft_reject.c:(.text+0x65270): undefined reference to `ip6_route_output'
-nft_reject.c:(.text+0x656c4): undefined reference to `ip6_dst_hoplimit'
-make: *** [vmlinux] Error 1
+Sorry for the vague error description, now I had more time to look into 
+this. I think the problem boils down to this:
 
-Since the feature is to allow for a mixed IPV4 and IPV6 table, it
-seems sensible to make it depend on IPV6.
+Jan 13 17:55:07 localhost ovs-vswitchd: 
+07890|netlink_socket|DBG|nl_sock_recv__ (Success): nl(len:274, 
+type=29(ovs_packet), flags=0, seq=0, pid=0,genl(cmd=1,version=1)
+Jan 13 17:55:07 localhost ovs-vswitchd: 07891|netlink|DBG|attributes 
+followed by garbage
+Jan 13 17:55:07 localhost ovs-vswitchd: 07892|dpif|WARN|system@xenbr0: 
+recv failed (Invalid argument)
 
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+That's just keep repeating. I'm keep looking.
 
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index afe50c0f526f..c37467562fd0 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -429,7 +429,7 @@ config NF_TABLES
- 	  To compile it as a module, choose M here.
- 
- config NF_TABLES_INET
--	depends on NF_TABLES
-+	depends on NF_TABLES && IPV6
- 	select NF_TABLES_IPV4
- 	select NF_TABLES_IPV6
- 	tristate "Netfilter nf_tables mixed IPv4/IPv6 tables support"
--- 
-1.8.5.2
+Zoli
