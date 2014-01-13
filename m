@@ -1,41 +1,53 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH 2/5] net: mvneta: use per_cpu stats to fix an SMP lock up
-Date: Mon, 13 Jan 2014 04:02:27 +0100
-Message-ID: <20140113030227.GA18330@1wt.eu>
-References: <1389519069-1619-1-git-send-email-w@1wt.eu> <1389519069-1619-3-git-send-email-w@1wt.eu> <1389550056.31367.186.camel@edumazet-glaptop2.roam.corp.google.com> <20140112220921.GE16576@1wt.eu> <1389573903.31367.190.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] bgmac: propagate error codes in bgmac_probe()
+Date: Sun, 12 Jan 2014 19:05:55 -0800
+Message-ID: <1389582355-27514-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, zajec5@gmail.com, hauke@hauke-m.de,
+	nlhintz@hotmail.com, sd@queasysnail.net, bhutchings@solarflare.com,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:55276 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751110AbaAMDCd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Jan 2014 22:02:33 -0500
-Content-Disposition: inline
-In-Reply-To: <1389573903.31367.190.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-oa0-f47.google.com ([209.85.219.47]:61337 "EHLO
+	mail-oa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751110AbaAMDGG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jan 2014 22:06:06 -0500
+Received: by mail-oa0-f47.google.com with SMTP id i7so7404579oag.6
+        for <netdev@vger.kernel.org>; Sun, 12 Jan 2014 19:06:05 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 12, 2014 at 04:45:03PM -0800, Eric Dumazet wrote:
-> On Sun, 2014-01-12 at 23:09 +0100, Willy Tarreau wrote:
-> 
-> > But we can have multiple tx in parallel, one per queue. And it's only
-> > when I explicitly bind two servers to two distinct CPU cores that I
-> > can trigger the issue, which seems to confirm that this is the cause
-> > of the issue.
-> 
-> So this driver has multiqueue ?
+bgmac_mii_register() and register_netdev() both return appropriate error
+codes for the failures they would encounter, propagate this error code
+instead of overriding the value with -ENOTSUPP which is not the correct
+error code to return.
 
-Yes, it defaults to 8 queues in each direction.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+Sabrina, Ben, this relates to the thread on -ENOTSUPP, other places in
+the driver need fixing too, but this has to be done as a separate patch
+anyway.
 
-> Definitely it should have one syncp per queue.
-> 
-> Or per cpu stats, as your patch did.
+ drivers/net/ethernet/broadcom/bgmac.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-OK thank you for your review and explanation then, I'm reassured :-)
-
-Thanks,
-Willy
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index 7f968a9..0297a79 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -1518,14 +1518,12 @@ static int bgmac_probe(struct bcma_device *core)
+ 	err = bgmac_mii_register(bgmac);
+ 	if (err) {
+ 		bgmac_err(bgmac, "Cannot register MDIO\n");
+-		err = -ENOTSUPP;
+ 		goto err_dma_free;
+ 	}
+ 
+ 	err = register_netdev(bgmac->net_dev);
+ 	if (err) {
+ 		bgmac_err(bgmac, "Cannot register net device\n");
+-		err = -ENOTSUPP;
+ 		goto err_mii_unregister;
+ 	}
+ 
+-- 
+1.8.3.2
