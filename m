@@ -1,66 +1,53 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH-next] netfilter: don't use module_init/exit in core IPV4 code
-Date: Mon, 13 Jan 2014 13:35:47 -0500
-Message-ID: <1389638147-30399-1-git-send-email-paul.gortmaker@windriver.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCHv2 net-next 1/5] {IPv4,xfrm} Add ESN support for AH egress
+ part
+Date: Mon, 13 Jan 2014 22:37:16 +0400
+Message-ID: <52D4325C.9050508@cogentembedded.com>
+References: <1389599324-5174-1-git-send-email-fan.du@windriver.com> <1389599324-5174-2-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netfilter@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>, steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:50826 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751029AbaAMSgg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 13:36:36 -0500
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:50296 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751029AbaAMShS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 13:37:18 -0500
+Received: by mail-lb0-f180.google.com with SMTP id n15so1412856lbi.11
+        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 10:37:16 -0800 (PST)
+In-Reply-To: <1389599324-5174-2-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The file net/ipv4/netfilter.o is created based on whether
-CONFIG_NETFILTER is set.  However that is defined as a bool, and
-hence this file with the core netfilter hooks will never be
-modular.  So using module_init as an alias for __initcall can be
-somewhat misleading.
+Hello.
 
-Fix this up now, so that we can relocate module_init from
-init.h into module.h in the future.  If we don't do this, we'd
-have to add module.h to obviously non-modular code, and that
-would be a worse thing.  Also add an inclusion of init.h, as
-that was previously implicit here in the netfilter.c file.
+On 13-01-2014 11:48, Fan Du wrote:
 
-Note that direct use of __initcall is discouraged, vs. one
-of the priority categorized subgroups.  As __initcall gets
-mapped onto device_initcall, our use of subsys_initcall (which
-seems to make sense for netfilter code) will thus change this
-registration from level 6-device to level 4-subsys (i.e. slightly
-earlier).  However no observable impact of that small difference
-has been observed during testing, or is expected. (i.e. the
-location of the netfilter messages in dmesg remains unchanged
-with respect to all the other surrounding messages.)
+> This patch add esn support for AH output stage by attaching upper 32bits
+> sequence number right after packet payload as specified by RFC 4302.
 
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> Then the ICV value will guard upper 32bits sequence number as well when
+> packet going out.
 
-diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
-index c3e0adea9c27..e1237a64b14e 100644
---- a/net/ipv4/netfilter.c
-+++ b/net/ipv4/netfilter.c
-@@ -7,6 +7,7 @@
- #include <linux/kernel.h>
- #include <linux/netfilter.h>
- #include <linux/netfilter_ipv4.h>
-+#include <linux/init.h>
- #include <linux/ip.h>
- #include <linux/skbuff.h>
- #include <linux/gfp.h>
-@@ -203,5 +204,5 @@ static void __exit ipv4_netfilter_fini(void)
- 	nf_unregister_afinfo(&nf_ip_afinfo);
- }
- 
--module_init(ipv4_netfilter_init);
--module_exit(ipv4_netfilter_fini);
-+subsys_initcall(ipv4_netfilter_init);
-+__exitcall(ipv4_netfilter_fini);
--- 
-1.8.5.2
+> Signed-off-by: Fan Du <fan.du@windriver.com>
+> ---
+>   net/ipv4/ah4.c |   25 +++++++++++++++++++++----
+>   1 file changed, 21 insertions(+), 4 deletions(-)
+
+> diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
+> index 7179026..a7fac03 100644
+> --- a/net/ipv4/ah4.c
+> +++ b/net/ipv4/ah4.c
+[...]
+> @@ -213,7 +223,14 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
+>   	sg_init_table(sg, nfrags);
+>   	skb_to_sgvec(skb, sg, 0, skb->len);
+>
+> -	ahash_request_set_crypt(req, sg, icv, skb->len);
+> +	if ((x->props.flags & XFRM_STATE_ESN)) {
+
+    What's the point in double parens here? The same question about the other 
+patches....
+
+WBR, Sergei
