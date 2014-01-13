@@ -1,57 +1,56 @@
-From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Subject: RE: PROBLEM: usbnet / ax88179_178a: Panic in usb_hcd_map_urb_for_dma
-Date: Mon, 13 Jan 2014 13:26:17 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D4590AF@AcuExch.aculab.com>
-References: <CAHNSM4Kv5gcJn=H4k8QjPggWzjF0zRm_t_icAYXjCTqXx4xL2w@mail.gmail.com>
-	<1389385824.2025.95.camel@bwh-desktop.uk.level5networks.com>
-	<87ob3j1ocb.fsf@nemi.mork.no>
-	<CAHNSM4KU8QEybpHgAcCjQoWuRjU8=wd1O7KUVMnrRJKQ-xr=Gg@mail.gmail.com>
-	<87zjn3z6d5.fsf@nemi.mork.no>
-	<063D6719AE5E284EB5DD2968C1650D6D458FEE@AcuExch.aculab.com>
-	<87zjn086iz.fsf@nemi.mork.no>
-	<063D6719AE5E284EB5DD2968C1650D6D45904D@AcuExch.aculab.com>
- <87vbxo83wp.fsf@nemi.mork.no>
+From: Zhi Yong Wu <zwu.kernel@gmail.com>
+Subject: Re: [PATCH 0/2] tun: add the RFS support
+Date: Mon, 13 Jan 2014 21:29:45 +0800
+Message-ID: <CAEH94LjdMyZ_SVf5YvzqEhPzYanFQUwLsm+e8Hp_Y5XU4_hkeA@mail.gmail.com>
+References: <1387709672-21917-1-git-send-email-zwu.kernel@gmail.com>
+	<20131231.133200.1111966466957616549.davem@davemloft.net>
+	<CA+mtBx8b_D+JQaphS4LCbAVKRWE5Tz1-P_eVxJJdG-FbMdWPdw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Thomas Kear <thomas-hrxM1pTBpuF02iOg2JU2CQ@public.gmane.org>,
-	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: =?utf-8?B?J0Jqw7hybiBNb3JrJw==?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87vbxo83wp.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Content-Language: en-US
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:59111 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751812AbaAMN3p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 08:29:45 -0500
+Received: by mail-ob0-f170.google.com with SMTP id uy5so5751306obc.29
+        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 05:29:45 -0800 (PST)
+In-Reply-To: <CA+mtBx8b_D+JQaphS4LCbAVKRWE5Tz1-P_eVxJJdG-FbMdWPdw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQmrDuHJuIE1vcmsgW21haWx0bzpiam9ybkBtb3JrLm5vXQ0KPiBEYXZpZCBMYWlnaHQg
-PERhdmlkLkxhaWdodEBBQ1VMQUIuQ09NPiB3cml0ZXM6DQo+ID4gRnJvbTogQmrDuHJuIE1vcmsN
-Cj4gPj4gRGF2aWQgTGFpZ2h0IDxEYXZpZC5MYWlnaHRAQUNVTEFCLkNPTT4gd3JpdGVzOg0KPiA+
-Pg0KPiA+PiA+IFRoZSBwYXRjaCB5b3Ugc3VibWl0dGVkIGlzIHdyb25nLg0KPiA+PiA+IFdob2V2
-ZXIgd3JvdGUgdGhlIHNnIGludGVyZmFjZSB3YXMgb24gY3JhY2suDQo+ID4+ID4gVGhlICdsYXN0
-JyBtYXJrZXIgbmVlZHMgbW92aW5nIGFzIHdlbGwuDQo+ID4+DQo+ID4+IEknbSBhZnJhaWQgSSBk
-b24ndCB1bmRlcnN0YW5kIHdoYXQgeW91IG1lYW50IGJ5IHRoaXMuDQo+ID4+DQo+ID4+IHNnX2lu
-aXRfdGFibGUoKSBzZXQgdGhlICdsYXN0JyBtYXJrZXIuICBBRkFJQ1MsIHlvdSBkb24ndCBuZWVk
-IHRvIGNoYW5nZQ0KPiA+PiBpdCB1bmxlc3MgeW91IHdhbnQgdG8gY2hhaW4gbGlzdHMuDQo+ID4+
-DQo+ID4+IENhcmUgdG8gZXhwbGFpbiB3aXRoIHNvbWUgY29kZT8NCj4gPg0KPiA+IEp1c3QgYXNz
-dW1pbmcgdGhhdCB0aGVyZSB3aWxsIGJlIHNvbWUgY29kZSwgc29tZXdoZXJlLCB0aGF0IHdpbGwg
-dHJ5DQo+ID4gdG8gcHJvY2VzcyB0aGUgZW50aXJlIHNnIGxpc3QgLSBzbyB3b24ndCBsaWtlIHRo
-ZSBlbnRyeSB3aXRoIGENCj4gPiBOVUxMIHBvaW50ZXIgYW5kIHplcm8gbGVuZ3RoIGF0IHRoZSBl
-bmQuDQo+ID4NCj4gPiBJZiBhbGwgdGhlIHBsYWNlcyB0aGF0IHByb2Nlc3MgdGhlIGxpc3QgYXJl
-IGdpdmVuIGFuIGV4cGxpY2l0DQo+ID4gbnVtYmVyIG9mIGVudHJpZXMsIG9yIGRvbid0IGNhcmUg
-YWJvdXQgdGhlIE5VTEwgaXQgZG9lc24ndCBtYXR0ZXIuDQo+IA0KPiBJIGJlbGlldmUgYWxsIHBy
-b2Nlc3NpbmcgdXNlIHRoZSB1cmItPm51bV9zZ3MgZmllbGQgdG8gbGltaXQgdGhlIG51bWJlcg0K
-PiBvZiBlbnRyaWVzLiAgQ29tbW9uIGludGVyZmFjZXMgbGlrZSBkbWFfbWFwX3NnKCkgYW5kIGZv
-cl9lYWNoX3NnKCkgbGltaXQNCj4gdGhlaXIgcHJvY2Vzc2luZyB0byAibmVudHMiIGVudHJpZXMs
-IGFuZCB0aGUgVVNCIGNvZGUgdXNlIHRoZSB2YWx1ZSBvZg0KPiB1cmItPm51bV9zZ3MgZm9yIHRo
-aXMgcGFyYW1ldGVyLg0KDQpXaGljaCBtb3N0bHkgbWVhbnMgdGhhdCB0aGUgc2dfeHh4IGZ1bmN0
-aW9ucyBhcmUgZG9pbmcgYSB3aG9sZSBsb2FkDQpvZiB1bm5lY2Vzc2FyeSBpbnN0cnVjdGlvbnMg
-YW5kIG1lbW9yeSBhY2Nlc3Nlcy4uLg0KDQpUaGlzIHByb2JhYmx5IGhhcyBhIGxvdCB0byBkbyB3
-aXRoIHRoZSBzaWduaWZpY2FudCBkaWZmZXJlbmNlIGluIHRoZQ0KY3B1IHVzZSBmb3IgdGhlIHVz
-YjMgYW5kICdub3JtYWwnIGV0aGVybmV0IGludGVyZmFjZXMuDQoNCldoaWxlIGVhY2ggYml0IGRv
-ZXNuJ3Qgc2VlbSBzaWduaWZpY2FudCwgdGhleSBzb29uIGFkZCB1cC4NCg0KCURhdmlkDQoNCg==
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Wed, Jan 1, 2014 at 6:33 AM, Tom Herbert <therbert@google.com> wrote:
+> Zhi,
+HI, Tom
+>
+> Thanks for following up on these patches. It would still be nice to
+> have performance numbers to show the impact. These will be helpful for
+> the next task of integrating RFS into virtio-net.
+I don't get why RFS need to be integrated into virtio-net since
+virtio-net has supported mq. Can you give some clue? thanks.
+
+>
+> Tom
+>
+> On Tue, Dec 31, 2013 at 10:32 AM, David Miller <davem@davemloft.net> wrote:
+>> From: Zhi Yong Wu <zwu.kernel@gmail.com>
+>> Date: Sun, 22 Dec 2013 18:54:30 +0800
+>>
+>>> Since Tom Herbert's hash related patchset was modified and got merged,
+>>> his pachset about adding support for RFS on tun flows also need to get
+>>> adjusted accordingly. I tried to update them, and before i will start
+>>> to do some perf tests, i hope to get one correct code base, so it's time
+>>> to post them out now. Any constructive comments are welcome, thanks.
+>>
+>> Series applied to net-next, thanks.
+
+
+
+-- 
+Regards,
+
+Zhi Yong Wu
