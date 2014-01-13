@@ -1,41 +1,39 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net-next 3/4] flowcache: Fixup flow cache part in xfrm policy
-Date: Mon, 13 Jan 2014 11:42:47 -0800
-Message-ID: <CAHA+R7NpPN0pGu-S568CdtvkDRYmNei40Qus5SAK935d6vuTDw@mail.gmail.com>
-References: <1389599348-5214-1-git-send-email-fan.du@windriver.com>
-	<1389599348-5214-4-git-send-email-fan.du@windriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net/mlx4_en: call gro handler for
+ encapsulated frames
+Date: Mon, 13 Jan 2014 11:44:07 -0800 (PST)
+Message-ID: <20140113.114407.333625675538885311.davem@davemloft.net>
+References: <1389292213.31367.49.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: steffen.klassert@secunet.com, David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Fan Du <fan.du@windriver.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, amirv@mellanox.com, ogerlitz@mellanox.com,
+	hkchu@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:59782 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752527AbaAMTms (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 14:42:48 -0500
-Received: by mail-la0-f42.google.com with SMTP id n7so732788lam.15
-        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 11:42:47 -0800 (PST)
-In-Reply-To: <1389599348-5214-4-git-send-email-fan.du@windriver.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38156 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751997AbaAMToI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 14:44:08 -0500
+In-Reply-To: <1389292213.31367.49.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 12, 2014 at 11:49 PM, Fan Du <fan.du@windriver.com> wrote:
->  void xfrm_garbage_collect(struct net *net)
->  {
-> -       flow_cache_flush();
-> +       flow_cache_flush(net);
->         __xfrm_garbage_collect(net);
->  }
->  EXPORT_SYMBOL(xfrm_garbage_collect);
->
->  static void xfrm_garbage_collect_deferred(struct net *net)
->  {
-> -       flow_cache_flush_deferred();
-> +       flow_cache_flush_deferred(net);
->         __xfrm_garbage_collect(net);
->  }
->
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 09 Jan 2014 10:30:13 -0800
 
-You changed the prototypes of flow_cache_flush*() in the previous
-patch, so, here you break bisect. They have to be in one commit.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> In order to use the native GRO handling of encapsulated protocols on
+> mlx4, we need to call napi_gro_receive() instead of netif_receive_skb()
+> unless busy polling is in action.
+> 
+> While we are at it, rename mlx4_en_cq_ll_polling() to
+> mlx4_en_cq_busy_polling()
+> 
+> Tested with GRE tunnel : GRO aggregation is now performed on the
+> ethernet device instead of being done later on gre device.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+
+Applied.
