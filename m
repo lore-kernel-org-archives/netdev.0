@@ -1,97 +1,71 @@
-From: Trond Myklebust <trond.myklebust@primarydata.com>
-Subject: Re: [PATCH] xprtrdma: silence frame size warning
-Date: Mon, 13 Jan 2014 10:59:40 -0500
-Message-ID: <CDD9CEF2-F91A-4ABA-8DA7-53AF8A749194@primarydata.com>
-References: <1389627955.20467.9.camel@x41>
-Mime-Version: 1.0 (Mac OS X Mail 7.1 \(1827\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dr Fields James Bruce <bfields@fieldses.org>,
-	"Miller David S." <davem@davemloft.net>,
-	Linux NFS Mailing List <linux-nfs@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Paul Bolle <pebolle@tiscali.nl>,
-	Lever Charles Edward <chuck.lever@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389627955.20467.9.camel@x41>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sh_eth: fix garbled TX error message
+Date: Mon, 13 Jan 2014 20:15:19 +0400
+Message-ID: <52D41117.3040809@cogentembedded.com>
+References: <201401110241.49471.sergei.shtylyov@cogentembedded.com>	 <20140113004532.GJ15296@verge.net.au> <1389576241.24849.10.camel@joe-AO722>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: Joe Perches <joe@perches.com>, Simon Horman <horms@verge.net.au>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1389576241.24849.10.camel@joe-AO722>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello.
 
-On Jan 13, 2014, at 10:45, Paul Bolle <pebolle@tiscali.nl> wrote:
+On 13-012014 5:24, Joe Perches wrote:
 
-> Building verbs.o on 32 bits x86, with CONFIG_FRAME_WARN set to 1024, =
-its
-> default value, triggers this GCC warning:
->    net/sunrpc/xprtrdma/verbs.c: In function =91rpcrdma_register_defau=
-lt_external=92:
->    net/sunrpc/xprtrdma/verbs.c:1774:1: warning: the frame size of 104=
-0 bytes is larger than 1024 bytes [-Wframe-larger-than=3D]
->=20
-> Silence this warning by allocating "ipb" dynamically.
->=20
-> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+>>> sh_eth_error() in case of a TX error tries to print a message using 2 dev_err()
+>>> calls with the first string not finished by '\n', so that the resulting message
+>>> would inevitably come out garbled, with something like "3net eth0: " inserted
+>>> in the middle.  Avoid that by merging 2 calls into one.
+
+> I believe this interleaving should not happen since
+> commit e28d713704117bca0820c732210df6075b09f13b
+> (2.6.31 days)
+
+    I believe you have given me the wrong commit, which has nothing to do the 
+the newline problem per se. It just adds KERN_DEFAULT. I was able to find the 
+correct commit though: it's the parent of the commit you cited, 
+5fd29d6ccbc98884569d6f3105aeca70858b3e0f -- so you're probably right, and I 
+should have tested my assumption beforehand... (I'd like to merge these 
+dev_err() calls still though).
+
+> Perhaps it'd be better to use netdev_<level> and
+> netif_<level> instead of dev_<level> and pr_<level>.
+
+    Thank you, I got it the first time you suggested it, I just haven't had 
+time to implement it yet.
+
+> uncompiled/untested...
+
+    Thanks for the patch. I don't agree with all of it though...
+
 > ---
-> 0) Compile tested only (on 32 bits x86). I don't have access to
-> Infiniband hardware.
->=20
-> 1) Please note that this is not a new warning. The oldest build log I
-> have still available on this machine is for a v3.8 rc, and it already
-> showed this warning.=20
->=20
-> 2) I do hope my choice for the GFP_KERNEL flag is correct here.
->=20
-> net/sunrpc/xprtrdma/verbs.c | 6 +++++-
-> 1 file changed, 5 insertions(+), 1 deletion(-)
->=20
-> diff --git a/net/sunrpc/xprtrdma/verbs.c b/net/sunrpc/xprtrdma/verbs.=
-c
-> index 93726560..939ccc8 100644
-> --- a/net/sunrpc/xprtrdma/verbs.c
-> +++ b/net/sunrpc/xprtrdma/verbs.c
-> @@ -1736,11 +1736,14 @@ rpcrdma_register_default_external(struct rpcr=
-dma_mr_seg *seg,
-> 	int mem_priv =3D (writing ? IB_ACCESS_REMOTE_WRITE :
-> 				  IB_ACCESS_REMOTE_READ);
-> 	struct rpcrdma_mr_seg *seg1 =3D seg;
-> -	struct ib_phys_buf ipb[RPCRDMA_MAX_DATA_SEGS];
-> +	struct ib_phys_buf *ipb;
-> 	int len, i, rc =3D 0;
->=20
-> 	if (*nsegs > RPCRDMA_MAX_DATA_SEGS)
-> 		*nsegs =3D RPCRDMA_MAX_DATA_SEGS;
-> +	ipb =3D kmalloc(sizeof(*ipb) * *nsegs, GFP_KERNEL);
-> +	if (ipb =3D=3D NULL)
-> +		return -ENOMEM;
-> 	for (len =3D 0, i =3D 0; i < *nsegs;) {
-> 		rpcrdma_map_one(ia, seg, writing);
-> 		ipb[i].addr =3D seg->mr_dma;
-> @@ -1770,6 +1773,7 @@ rpcrdma_register_default_external(struct rpcrdm=
-a_mr_seg *seg,
-> 		seg1->mr_len =3D len;
-> 	}
-> 	*nsegs =3D i;
-> +	kfree(ipb);
-> 	return rc;
-> }
+>
+>   drivers/net/ethernet/renesas/sh_eth.c | 63 ++++++++++++++++-------------------
+>   1 file changed, 28 insertions(+), 35 deletions(-)
 
-Hi Paul,
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> index 8884107..6baad48 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+[...]
+> @@ -2691,9 +2683,10 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+>   	/* read and set MAC address */
+>   	read_mac_address(ndev, pd->mac_addr);
+>   	if (!is_valid_ether_addr(ndev->dev_addr)) {
+> -		dev_warn(&pdev->dev,
+> -			 "no valid MAC address supplied, using a random one.\n");
+>   		eth_hw_addr_random(ndev);
+> +		dev_warn(&pdev->dev,
+> +			 "no valid MAC address supplied, using random %pM\n",
+> +			 ndev->dev_addr);
 
-Unfortunately, the above could be called from a file write back context=
-, so we cannot use GFP_KERNEL allocations. In fact, I suspect we should=
- only use GFP_ATOMIC, and then have the rpc_task delay and retry if the=
- allocation fails.
+    There's no need to print random MAC address twice. It's already printed 
+right below.
 
-The problem is that it looks to me as if xprt_rdma_send_request will cu=
-rrently fail, if we return an error from rpcrdma_register_default_exter=
-nal.
+WBR, Sergei
 
-Chuck, will you be able to look into the above issue as part of your RD=
-MA work?
-
-Cheers
-  Trond
-
---
-Trond Myklebust
-Linux NFS client maintainer
