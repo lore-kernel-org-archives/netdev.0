@@ -1,51 +1,72 @@
-From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Subject: RE: PROBLEM: usbnet / ax88179_178a: Panic in usb_hcd_map_urb_for_dma
-Date: Mon, 13 Jan 2014 11:08:06 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D458FEE@AcuExch.aculab.com>
-References: <CAHNSM4Kv5gcJn=H4k8QjPggWzjF0zRm_t_icAYXjCTqXx4xL2w@mail.gmail.com>
-	<1389385824.2025.95.camel@bwh-desktop.uk.level5networks.com>
-	<87ob3j1ocb.fsf@nemi.mork.no>
-	<CAHNSM4KU8QEybpHgAcCjQoWuRjU8=wd1O7KUVMnrRJKQ-xr=Gg@mail.gmail.com>
- <87zjn3z6d5.fsf@nemi.mork.no>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 3/3] packet: use percpu mmap tx frame pending
+ refcount
+Date: Mon, 13 Jan 2014 12:19:01 +0100
+Message-ID: <52D3CBA5.4080301@redhat.com>
+References: <1389543768-20234-1-git-send-email-dborkman@redhat.com> <1389543768-20234-4-git-send-email-dborkman@redhat.com> <CAHA+R7NnaxXgOGW=jTEGkeMByO7wXVr9bGR-J9rLzwL4ne52bA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: =?utf-8?B?J0Jqw7hybiBNb3JrJw==?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	Thomas Kear <thomas-hrxM1pTBpuF02iOg2JU2CQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87zjn3z6d5.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Content-Language: en-US
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:5414 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751476AbaAMLTM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jan 2014 06:19:12 -0500
+In-Reply-To: <CAHA+R7NnaxXgOGW=jTEGkeMByO7wXVr9bGR-J9rLzwL4ne52bA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQmrDuHJuIE1vcmsNCj4gVGhvbWFzIEtlYXIgPHRob21hc0BrZWFyLmNvLm56PiB3cml0
-ZXM6DQo+IA0KPiA+IE9uIFNhdCwgSmFuIDExLCAyMDE0IGF0IDExOjA5IEFNLCBCanJuIE1vcmsg
-PGJqb3JuQG1vcmsubm8+IHdyb3RlOg0KPiA+PiBCdXQgbG9va2luZyBhdCB0aGUgY29kZSBJIHRo
-aW5rIEkgZm91bmQgYW5kIG9idmlvdXMgbWlzcyBpbiB0aGUgU0cgbGlzdA0KPiA+PiBpbml0aWFs
-aXNhdGlvbi4gIEknbGwgcG9zdCBhIHByb3Bvc2VkIGZpeCBmb3IgdGhhdC4gIFdvdWxkIGJlIGdv
-b2QgaWYNCj4gPj4gc29tZW9uZSB3YXMgYWJsZSB0byB0ZXN0IGl0Lg0KPiA+DQo+ID4gSSd2ZSBi
-dWlsdCAzLjEzLjAtcmM3LW5leHQtMjAxNDAxMTAgd2l0aCB5b3VyIHBhdGNoIGFwcGxpZWQuDQo+
-ID4gVW5mb3J0dW5hdGVseSBzaW5jZSB0aGlzIGJ1ZyBoYXMgdGFrZW4gYW55d2hlcmUgZnJvbSBt
-aW51dGVzIHRvIGRheXMNCj4gPiB0byBtYW5pZmVzdCBwcmV2aW91c2x5IEknbSBub3Qgc3VyZSBo
-b3cgcXVpY2tseSBJJ2xsIGJlIGFibGUgdG8gcmVwb3J0DQo+ID4gb24gaXRzIGVmZmljYWN5Lg0K
-PiANCj4gVGhhbmtzIGZvciB0ZXN0aW5nIGl0Lg0KPiANCj4gSWYgSSdtIGNvcnJlY3QsIHRoZW4g
-eW91ciBwcm9ibGVtIGlzIGNhdXNlZCBieSB1c2JuZXQgaW5jcmVtZW50aW5nDQo+IHVyYi0+bnVt
-X3NncyBhYm92ZSB0aGUgdmFsdWUgc2dfaW5pdF90YWJsZSB3YXMgY2FsbGVkIHdpdGguIFRoaXMg
-aGFwcGVucw0KPiBpZiB1c2JuZXQgYWRkcyBwYWRkaW5nIHRvIGEgZnJhZ21lbnRlZCBza2IuICBV
-bmZvcnR1bmF0ZWx5IEkgaGF2ZSBubw0KPiBpZGVhIGhvdyB5b3UgY2FuIGNyZWF0ZSBmcmFnbWVu
-dGVkIHNrYnMgd2l0aCBhIGNlcnRhaW4gbGVuZ3RoLiAgQnV0IEknbQ0KPiBzdXJlIG90aGVycyBo
-ZXJlIGtub3c/DQoNCkkndmUgbWFuYWdlZCB0byBzZW5kIGZyYWdtZW50ZWQgc2tiLCBidXQgbm90
-IG9mIHNwZWNpZmljIGxlbmd0aHMuDQpNYXliZSBOYWdsZSBjYW4gYmUgdXNlZCBvbiBhIFRDUCB0
-byBnZXQgdGhlIHJlcXVpcmVkIG1lcmdpbmcuDQpTZW5kIGFuIGluaXRpYWwgZnJhZ21lbnQgdG8g
-J3ByaW1lJyBOYWdsZSwgdGhlbiBzZW5kIGEgZmV3IGZyYWdtZW50cw0KdGhhdCBnZXQgc2VudCB0
-b2dldGhlciB3aGVuIHRoZSB0aW1lciBleHBpcmVzIChvciBzZW5kIGRhdGEgdGhlIG90aGVyDQp3
-YXkgdG8gZm9yY2UgdGhlIHNlbmQpLg0KDQpUaGUgcGF0Y2ggeW91IHN1Ym1pdHRlZCBpcyB3cm9u
-Zy4NCldob2V2ZXIgd3JvdGUgdGhlIHNnIGludGVyZmFjZSB3YXMgb24gY3JhY2suDQpUaGUgJ2xh
-c3QnIG1hcmtlciBuZWVkcyBtb3ZpbmcgYXMgd2VsbC4NCg0KCURhdmlkDQoNCg==
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 01/13/2014 06:51 AM, Cong Wang wrote:
+> On Sun, Jan 12, 2014 at 8:22 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+>> +static void packet_inc_pending(struct packet_ring_buffer *rb)
+>> +{
+>> +       this_cpu_inc(*rb->pending_refcnt);
+>> +}
+>> +
+>> +static void packet_dec_pending(struct packet_ring_buffer *rb)
+>> +{
+>> +       this_cpu_dec(*rb->pending_refcnt);
+>> +}
+>> +
+>> +static int packet_read_pending(const struct packet_ring_buffer *rb)
+>> +{
+>> +       int i, refcnt = 0;
+>> +
+>> +       /* We don't use pending refcount in rx_ring. */
+>> +       if (rb->pending_refcnt == NULL)
+>> +               return 0;
+>> +
+>> +       for_each_possible_cpu(i)
+>> +               refcnt += *per_cpu_ptr(rb->pending_refcnt, i);
+>> +
+>> +       return refcnt;
+>> +}
+>
+> How is this supposed to work? Since there is no lock,
+> you can't read accurate refcnt. Take a look at lib/percpu_counter.c.
+>
+> I guess for some reason you don't care the accuracy?
+
+Yep, not per se. Look at how we do net device reference counting.
+The reason is that we call packet_read_pending() *only* after we
+finished processing all frames in TX_RING and we wait for
+completion in case MSG_DONTWAIT is *not set*, when that happens
+we're back to 0.
+
+But I think I found a different problem with this idea. It could
+happen with net devices as well, but probably less likely as there
+might be a better distribution of hold/puts among CPUs. However,
+for TX_RING, if we pin the process to a particular CPU, and since
+the destructor is invoked through ksoftirqd, we could end up with
+a misbalance and if the process runs long enough eventually
+overflow for one particular CPU. We could work around that, but I
+think it's not worth the effort.
+
+Dave, please drop the 3rd patch of the series, thanks.
+
+> Then at least you need to comment in the code.
+>
+> Thanks.
+>
