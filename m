@@ -1,41 +1,61 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next v3 8/9] xen-netback: Timeout packets in RX path
-Date: Mon, 13 Jan 2014 00:20:08 +0000
-Message-ID: <52D33138.4090903@citrix.com>
-References: <1389139818-24458-1-git-send-email-zoltan.kiss@citrix.com> <1389139818-24458-9-git-send-email-zoltan.kiss@citrix.com> <52CDC45D.3050509@citrix.com> <9AAE0902D5BC7E449B7C8E4E778ABCD0200C2A@AMSPEX01CL01.citrite.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] sh_eth: fix garbled TX error message
+Date: Mon, 13 Jan 2014 09:45:32 +0900
+Message-ID: <20140113004532.GJ15296@verge.net.au>
+References: <201401110241.49471.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Paul Durrant <Paul.Durrant@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Jonathan Davies <Jonathan.Davies@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:28510 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751019AbaAMAUO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Jan 2014 19:20:14 -0500
-In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD0200C2A@AMSPEX01CL01.citrite.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201401110241.49471.sergei.shtylyov@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/01/14 09:20, Paul Durrant wrote:
->> We are adding the skb to vif->rx_queue even when
->> xenvif_rx_ring_slots_available(vif, min_slots_needed) said there is no
->> space for that. Or am I missing something? Paul?
->>
-> That's correct. Part of the flow control improvement was to get rid of needless packet drops. For your purposes, you basically need to avoid using the queuing discipline and take packets into netback's vif->rx_queue regardless of the state of the shared ring so that you can drop them if they get beyond a certain age. So, perhaps you should never stop the netif queue, place an upper limit on vif->rx_queue (either packet or byte count) and drop when that is exceeded (i.e. mimicking pfifo or bfifo internally).
->
-How about this:
-- when the timer fires first we wake up the thread an tell it to drop 
-all the packets in rx_queue
-- start_xmit then can drain the qdisc queue into the device queue
-- additionally, the RX thread should stop that timer when it was able to 
-do some work
+On Sat, Jan 11, 2014 at 02:41:49AM +0300, Sergei Shtylyov wrote:
+> sh_eth_error() in case of a TX error tries to print a message using 2 dev_err()
+> calls with the first string not finished by '\n', so that the resulting message
+> would inevitably come out garbled, with something like "3net eth0: " inserted
+> in the middle.  Avoid that by merging 2 calls into one.
+> 
+> While at it, insert an empty line after the nearby declaration.
+> 
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Regards,
+Reviewed-by: Simon Horman <horms+renesas@verge.net.au>
 
-Zoli
+> 
+> ---
+> Although being a fix, this patch is against the 'net-next.git' repo as it's does
+> not seem important enough at this time in the release cycle. Please consider it
+> for the stable kernel though...
+> 
+>  drivers/net/ethernet/renesas/sh_eth.c |    8 ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
+> 
+> Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+> ===================================================================
+> --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
+> +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -1513,11 +1513,11 @@ ignore_link:
+>  	if (intr_status & mask) {
+>  		/* Tx error */
+>  		u32 edtrr = sh_eth_read(ndev, EDTRR);
+> +
+>  		/* dmesg */
+> -		dev_err(&ndev->dev, "TX error. status=%8.8x cur_tx=%8.8x ",
+> -			intr_status, mdp->cur_tx);
+> -		dev_err(&ndev->dev, "dirty_tx=%8.8x state=%8.8x EDTRR=%8.8x.\n",
+> -			mdp->dirty_tx, (u32) ndev->state, edtrr);
+> +		dev_err(&ndev->dev, "TX error. status=%8.8x cur_tx=%8.8x dirty_tx=%8.8x state=%8.8x EDTRR=%8.8x.\n",
+> +			intr_status, mdp->cur_tx, mdp->dirty_tx,
+> +			(u32)ndev->state, edtrr);
+>  		/* dirty buffer free */
+>  		sh_eth_txfree(ndev);
+>  
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sh" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
