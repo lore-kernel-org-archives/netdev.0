@@ -1,104 +1,44 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: [RFC net] tcp: metrics: Avoid duplicate entries with the same destination-IP
-Date: Mon, 13 Jan 2014 16:25:36 +0100
-Message-ID: <1389626736-3143-1-git-send-email-christoph.paasch@uclouvain.be>
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH v4 0/2] ipv6 addrconf: add IFA_F_NOPREFIXROUTE flag to
+ suppress creation of IP6 routes
+Date: Mon, 13 Jan 2014 16:31:10 +0100
+Message-ID: <20140113153110.GA2499@minipsycho.orion>
+References: <20140108200019.GK9007@order.stressinduktion.org>
+ <1389227404-12586-1-git-send-email-thaller@redhat.com>
+ <20140110.181030.2081631538801450145.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: thaller@redhat.com, hannes@stressinduktion.org,
+	netdev@vger.kernel.org, stephen@networkplumber.org, dcbw@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:62290 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751655AbaAMPZp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 10:25:45 -0500
-Received: by mail-we0-f179.google.com with SMTP id w62so1471939wes.24
-        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 07:25:43 -0800 (PST)
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:57897 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751520AbaAMPbO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 10:31:14 -0500
+Received: by mail-ea0-f174.google.com with SMTP id b10so3400841eae.19
+        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 07:31:13 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20140110.181030.2081631538801450145.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Note: This patch is based on "net" and so the source-IP is not yet part
-of the tcp-metrics.
+Sat, Jan 11, 2014 at 12:10:30AM CET, davem@davemloft.net wrote:
+>From: Thomas Haller <thaller@redhat.com>
+>Date: Thu,  9 Jan 2014 01:30:02 +0100
+>
+>> v1 -> v2: add a second commit, handling NOPREFIXROUTE in ip6_del_addr.
+>> v2 -> v3: reword commit messages, code comments and some refactoring.
+>> v3 -> v4: refactor, rename variables, add enum
+>> 
+>> Thomas Haller (2):
+>>   ipv6 addrconf: add IFA_F_NOPREFIXROUTE flag to suppress creation of
+>>     IP6 routes
+>>   ipv6 addrconf: don't cleanup prefix route for IFA_F_NOPREFIXROUTE
+>
+>Series applied, thanks Thomas.
 
-Because the tcp-metrics is an RCU-list, it may be that two
-soft-interrupts are inside __tcp_get_metrics() for the same
-destination-IP at the same time. If this destination-IP is not yet part of
-the tcp-metrics, both soft-interrupts will end up in tcpm_new and create
-a new entry for this IP.
-So, we will have two tcp-metrics with the same destination-IP in the list.
+Hi Dave. Have you pushed this already? I can't see these patches in
+net-next.
 
-This patch now takes the tcp_metrics_lock before calling
-__tcp_get_metrics().
-
-I post this as an RFC, because this patch will make the TCP-stack take
-the tcp_metrics_lock even if the metric is already in the cache.
-
-I tested it with apache-benchmark on a short file with
-ab -c 100 -n 100000 server/1KB
-IMO this should stress the code most, but there was no significant
-performance regression.
-
-Another solution might be to leave tcp_get_metrics() as it is, and in
-tcpm_new do another call to __tcp_get_metrics() while holding the
-spin-lock. We would then check __tcp_get_metrics twice for new entries
-but we won't hold the spin-lock needlessly anymore.
-
-So, it's a tradeoff between taking the tcp_metrics_lock more often vs.
-calling __tcp_get_metrics twice for new entries.
-
-Suggestions are very welcome.
-
-Fixes: 51c5d0c4b169b (tcp: Maintain dynamic metrics in local cache.)
-Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
----
- net/ipv4/tcp_metrics.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 06493736fbc8..7748a5d9f37a 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -138,7 +138,6 @@ static struct tcp_metrics_block *tcpm_new(struct dst_entry *dst,
- 	struct tcp_metrics_block *tm;
- 	struct net *net;
- 
--	spin_lock_bh(&tcp_metrics_lock);
- 	net = dev_net(dst->dev);
- 	if (unlikely(reclaim)) {
- 		struct tcp_metrics_block *oldest;
-@@ -153,7 +152,7 @@ static struct tcp_metrics_block *tcpm_new(struct dst_entry *dst,
- 	} else {
- 		tm = kmalloc(sizeof(*tm), GFP_ATOMIC);
- 		if (!tm)
--			goto out_unlock;
-+			return NULL;
- 	}
- 	tm->tcpm_addr = *addr;
- 
-@@ -164,8 +163,6 @@ static struct tcp_metrics_block *tcpm_new(struct dst_entry *dst,
- 		rcu_assign_pointer(net->ipv4.tcp_metrics_hash[hash].chain, tm);
- 	}
- 
--out_unlock:
--	spin_unlock_bh(&tcp_metrics_lock);
- 	return tm;
- }
- 
-@@ -303,6 +300,8 @@ static struct tcp_metrics_block *tcp_get_metrics(struct sock *sk,
- 	net = dev_net(dst->dev);
- 	hash = hash_32(hash, net->ipv4.tcp_metrics_hash_log);
- 
-+	spin_lock_bh(&tcp_metrics_lock);
-+
- 	tm = __tcp_get_metrics(&addr, net, hash);
- 	reclaim = false;
- 	if (tm == TCP_METRICS_RECLAIM_PTR) {
-@@ -314,6 +313,8 @@ static struct tcp_metrics_block *tcp_get_metrics(struct sock *sk,
- 	else
- 		tcpm_check_stamp(tm, dst);
- 
-+	spin_unlock_bh(&tcp_metrics_lock);
-+
- 	return tm;
- }
- 
--- 
-1.8.3.2
+Thanks
