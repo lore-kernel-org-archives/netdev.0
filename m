@@ -1,43 +1,58 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH net-next 0/4] Make flow cache name space aware
-Date: Mon, 13 Jan 2014 15:49:04 +0800
-Message-ID: <1389599348-5214-1-git-send-email-fan.du@windriver.com>
+Subject: [PATCH net-next 1/4] flowcache: Namespacify flowcache global parameters with xfrm
+Date: Mon, 13 Jan 2014 15:49:05 +0800
+Message-ID: <1389599348-5214-2-git-send-email-fan.du@windriver.com>
+References: <1389599348-5214-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
 To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:40825 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751322AbaAMHtD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 02:49:03 -0500
+Received: from mail1.windriver.com ([147.11.146.13]:63727 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751396AbaAMHtF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 02:49:05 -0500
+In-Reply-To: <1389599348-5214-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Since flowcache is tightly coupled with IPsec, so it would be
+easier to put flow cache global parameters here into xfrm
+namespace part.
 
-This patch set aims to make flow cache operating in a per net style
-when inserting flow cache entry or flush flow cache. The reason to
-do so is not much compelling but reasonable, which is flushing flow
-cache in original implementation has global effective, the collateral
-damage is netns with only a few flow cache entries has gone.
+Signed-off-by: Fan Du <fan.du@windriver.com>
+---
+ include/net/netns/xfrm.h |   11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-So this patch make flow cache running in a per net scope. Operation
-from different netns won't interfere with each other. And the flushing
-operation is worthwhile for the netns which supposed to be.
-
-Fan Du (4):
-  flowcache: Namespacify flowcache global parameters with xfrm
-  flowcache: Make flowcache entry inserting/flushing in per-net style
-  flowcache: fixup flow cache part in xfrm policy
-  flowcache: Bring net/core/flow.c under IPsec maintain scope
-
- MAINTAINERS              |    1 +
- include/net/flow.h       |    5 +-
- include/net/netns/xfrm.h |   11 ++++
- net/core/flow.c          |  127 +++++++++++++++++++++-------------------------
- net/xfrm/xfrm_policy.c   |    7 +--
- 5 files changed, 76 insertions(+), 75 deletions(-)
-
+diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
+index 1006a26..52d0086 100644
+--- a/include/net/netns/xfrm.h
++++ b/include/net/netns/xfrm.h
+@@ -6,6 +6,7 @@
+ #include <linux/workqueue.h>
+ #include <linux/xfrm.h>
+ #include <net/dst_ops.h>
++#include <net/flowcache.h>
+ 
+ struct ctl_table_header;
+ 
+@@ -61,6 +62,16 @@ struct netns_xfrm {
+ 	spinlock_t xfrm_policy_sk_bundle_lock;
+ 	rwlock_t xfrm_policy_lock;
+ 	struct mutex xfrm_cfg_mutex;
++
++	/* flow cache part */
++	struct flow_cache	flow_cache_global;
++	struct kmem_cache	*flow_cachep;
++	atomic_t		flow_cache_genid;
++	struct list_head	flow_cache_gc_list;
++	spinlock_t		flow_cache_gc_lock;
++	struct work_struct	flow_cache_gc_work;
++	struct work_struct	flow_cache_flush_work;
++	struct mutex		flow_flush_sem;
+ };
+ 
+ #endif
 -- 
 1.7.9.5
