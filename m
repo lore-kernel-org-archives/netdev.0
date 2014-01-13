@@ -1,53 +1,53 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCHv2 net-next 1/5] {IPv4,xfrm} Add ESN support for AH egress
- part
-Date: Mon, 13 Jan 2014 22:37:16 +0400
-Message-ID: <52D4325C.9050508@cogentembedded.com>
-References: <1389599324-5174-1-git-send-email-fan.du@windriver.com> <1389599324-5174-2-git-send-email-fan.du@windriver.com>
+From: Michael Dalton <mwdalton@google.com>
+Subject: Re: [PATCH net-next v2 4/4] virtio-net: initial debugfs support,
+	export mergeable rx buffer size
+Date: Mon, 13 Jan 2014 11:07:29 -0800
+Message-ID: <CANJ5vPLamPonELhzEEs_e+BQUDrY0w=KpwpzSwGpG551rnbfbQ@mail.gmail.com>
+References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
+	<1389072355-20666-4-git-send-email-mwdalton@google.com>
+	<52CCF177.7020500@redhat.com> <20140108192109.GC18312@redhat.com>
+	<CANJ5vP+Qxa5j_Cp1FBK-qdO+U+dy2kiY5N2bmWdMKbCoY9EwDQ@mail.gmail.com>
+	<20140112170939.GA17202@redhat.com>
+	<CANJ5vP+Vu8=haCetZkcefPgR8pGe0iDZ03EZhJHLSgunCaHJsQ@mail.gmail.com>
+	<20140113094018.GA22726@redhat.com>
+	<1389627488.2025.134.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>, steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f180.google.com ([209.85.217.180]:50296 "EHLO
-	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751029AbaAMShS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 13:37:18 -0500
-Received: by mail-lb0-f180.google.com with SMTP id n15so1412856lbi.11
-        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 10:37:16 -0800 (PST)
-In-Reply-To: <1389599324-5174-2-git-send-email-fan.du@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1389627488.2025.134.camel@bwh-desktop.uk.level5networks.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Mon, Jan 13, 2014 at 7:38 AM, Ben Hutchings <bhutchings@solarflare.com>
+wrote:
+> I don't think RPS should own this structure.  It's just that there are
+> currently no per-RX-queue attributes other than those defined by RPS.
 
-On 13-01-2014 11:48, Fan Du wrote:
+Agreed, there is useful attribute-independent functionality already
+built around netdev_rx_queue - e.g., dynamically resizing the rx queue
+kobjs as the number of RX queues enabled for the netdev is changed. While
+the current attributes happen to be used only by RPS, AFAICT it seems
+RPS should not own netdev_rx_queue but rather should own the RPS-specific
+fields themselves within netdev_rx_queue.
 
-> This patch add esn support for AH output stage by attaching upper 32bits
-> sequence number right after packet payload as specified by RFC 4302.
+If there are no objections, it seems like I could modify
+netdev_rx_queue and related functionality so that their existence does
+not depend on CONFIG_RPS, and instead just have CONFIG_RPS control
+whether or not the RPS-specific attributes/fields are present.
 
-> Then the ICV value will guard upper 32bits sequence number as well when
-> packet going out.
+Best,
 
-> Signed-off-by: Fan Du <fan.du@windriver.com>
-> ---
->   net/ipv4/ah4.c |   25 +++++++++++++++++++++----
->   1 file changed, 21 insertions(+), 4 deletions(-)
-
-> diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
-> index 7179026..a7fac03 100644
-> --- a/net/ipv4/ah4.c
-> +++ b/net/ipv4/ah4.c
-[...]
-> @@ -213,7 +223,14 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
->   	sg_init_table(sg, nfrags);
->   	skb_to_sgvec(skb, sg, 0, skb->len);
->
-> -	ahash_request_set_crypt(req, sg, icv, skb->len);
-> +	if ((x->props.flags & XFRM_STATE_ESN)) {
-
-    What's the point in double parens here? The same question about the other 
-patches....
-
-WBR, Sergei
+Mike
