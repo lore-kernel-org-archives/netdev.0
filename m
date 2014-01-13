@@ -1,43 +1,45 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/5] net: mvneta: increase the 64-bit rx/tx stats out of
- the hot path
-Date: Sun, 12 Jan 2014 16:49:52 -0800
-Message-ID: <1389574192.31367.194.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1389519069-1619-1-git-send-email-w@1wt.eu>
-	 <1389519069-1619-2-git-send-email-w@1wt.eu>
+Subject: Re: Multicast routing stops functioning after 4G multicast packets
+ recived.
+Date: Sun, 12 Jan 2014 16:56:00 -0800
+Message-ID: <1389574560.31367.197.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140109201411.317040@gmx.com>
+	 <20140110063638.GA17866@order.stressinduktion.org>
+	 <1389337306.31367.94.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140110071049.GB17866@order.stressinduktion.org>
+	 <1389339179.31367.98.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140110074325.GC17866@order.stressinduktion.org>
+	 <20140110075005.GD17866@order.stressinduktion.org>
+	 <20140112074245.GF6586@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>
-To: Willy Tarreau <w@1wt.eu>
+Cc: Bob Falken <NetFestivalHaveFun@gmx.com>,
+	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
+	kaber@trash.net, tgraf@suug.ch
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:39771 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751165AbaAMAtx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jan 2014 19:49:53 -0500
-Received: by mail-pd0-f178.google.com with SMTP id v10so249946pde.23
-        for <netdev@vger.kernel.org>; Sun, 12 Jan 2014 16:49:53 -0800 (PST)
-In-Reply-To: <1389519069-1619-2-git-send-email-w@1wt.eu>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:37300 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750899AbaAMA4C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jan 2014 19:56:02 -0500
+Received: by mail-pb0-f44.google.com with SMTP id rq2so6680773pbb.3
+        for <netdev@vger.kernel.org>; Sun, 12 Jan 2014 16:56:01 -0800 (PST)
+In-Reply-To: <20140112074245.GF6586@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-01-12 at 10:31 +0100, Willy Tarreau wrote:
-> Better count packets and bytes in the stack and on 32 bit then
-> accumulate them at the end for once. This saves two memory writes
-> and two memory barriers per packet. The incoming packet rate was
-> increased by 4.7% on the Openblocks AX3 thanks to this.
+On Sun, 2014-01-12 at 08:42 +0100, Hannes Frederic Sowa wrote:
+
+> Hm, Eric. If we do that we can just specifiy FIB_LOOKUP_NOREF
+> unconditionally. FIB_LOOKUP_NOREF has no other side effects on a ipmr
+> lookup as taking the reference on the rule, which we would drop after
+> that.
 > 
-> Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-> Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>
-> Signed-off-by: Willy Tarreau <w@1wt.eu>
-> ---
->  drivers/net/ethernet/marvell/mvneta.c | 15 +++++++++++----
->  1 file changed, 11 insertions(+), 4 deletions(-)
+> So we would actually be going back to the first patch in this thread. I
+> guess it is just a matter of style?
 
+Hi Hannes, please submit a formal patch, so that we can have a proper
+ground for discussion (I guess I'll only add my Acked-by)
 
-Reviewed-by: Eric Dumazet <edumazet@google.com>
-
-Note that with such a cost, one has to wonder why we keep 64bit stats
-for this NIC on 32bit hosts...
+Thanks !
