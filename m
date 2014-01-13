@@ -1,69 +1,75 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: suspicious RCU usage in net/ipv4/ip_tunnel.c:80
-Date: Sun, 12 Jan 2014 22:36:41 -0800
-Message-ID: <CAHA+R7Pe_pGFw5cA3v_RnGvOurAykJNVH5=DeeEVHG84faWi2Q@mail.gmail.com>
-References: <CAHA+R7PAyR_cJ9_9nfUBc0U9o-U=gCV+sN_VYbHwgq-QdoEVzQ@mail.gmail.com>
-	<1389403281.31367.171.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7OMM9ndy4hXF4rJBsA_Rb0KZ-MonuvE++wgzO_oMbo+eQ@mail.gmail.com>
-	<1389548697.31367.184.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: RE: Use of ENOTSUPP in drivers?
+Date: Mon, 13 Jan 2014 06:45:41 +0000
+Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A46F54D17@avmb2.qlogic.org>
+References: <20140112185715.GB5405@kria>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Tom Herbert <therbert@google.com>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Ben Hutchings <bhutchings@solarflare.com>
+To: Sabrina Dubroca <sd@queasysnail.net>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f180.google.com ([209.85.217.180]:38832 "EHLO
-	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751288AbaAMGgo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 01:36:44 -0500
-Received: by mail-lb0-f180.google.com with SMTP id n15so758332lbi.39
-        for <netdev@vger.kernel.org>; Sun, 12 Jan 2014 22:36:43 -0800 (PST)
-In-Reply-To: <1389548697.31367.184.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:35232 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751251AbaAMGpt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 01:45:49 -0500
+In-Reply-To: <20140112185715.GB5405@kria>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 12, 2014 at 9:44 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sat, 2014-01-11 at 11:15 -0800, Cong Wang wrote:
->> On Fri, Jan 10, 2014 at 5:21 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> >
->> > Nope, the synchronize_rcu() is not needed here.
->>
->> OK.
->>
->> >
->> > Please use following sparse ready patch, thanks :
->> >
->> > diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
->> > index d3929a69f008..6eda759b5c4b 100644
->> > --- a/net/ipv4/ip_tunnel.c
->> > +++ b/net/ipv4/ip_tunnel.c
->> > @@ -77,10 +77,11 @@ static inline void __tunnel_dst_set(struct ip_tunnel_dst *idst,
->> >                 dst = NULL;
->> >
->> >         spin_lock_bh(&idst->lock);
->> > -       old_dst = rcu_dereference(idst->dst);
->> > +       old_dst = rcu_dereference_protected(idst->dst,
->> > +                                           lockdep_is_held(&idst->lock));
->> >         rcu_assign_pointer(idst->dst, dst);
->> > -       dst_release(old_dst);
->> >         spin_unlock_bh(&idst->lock);
->> > +       dst_release(old_dst);
->>
->> Do you really need a rcu_dereference*() here? We don't dereference
->> it inside spin_lock protection.
->
-> Please read rcu_dereference_protected() documentation in
-> include/linux/rcupdate.h
-
-I did before I replied.
-
->
-> Also you can run sparse, with CONFIG_SPARSE_RCU_POINTER=y in
-> your .config
->
-> make C=2 net/ipv4/ip_tunnel.o
->
-> And then you'll know the answer to this question.
->
-
-Sounds like it is only to shut up a sparse warning, then its name
-is misleading, we clearly don't dereference it here.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
+aGFsZiBPZiBTYWJyaW5hIER1YnJvY2ENCj4gU2VudDogTW9uZGF5LCBKYW51YXJ5IDEzLCAyMDE0
+IDEyOjI3IEFNDQo+IFRvOiBuZXRkZXYNCj4gQ2M6IEJlbiBIdXRjaGluZ3MNCj4gU3ViamVjdDog
+VXNlIG9mIEVOT1RTVVBQIGluIGRyaXZlcnM/DQo+IA0KPiANCj4gVGh1LCAyIEphbiAyMDE0IDEy
+OjAxOjMxICswMDAwLCBCZW4gSHV0Y2hpbmdzIHdyb3RlOg0KPiA+IE5ldmVyIHJldHVybiBlcnJv
+ciBjb2RlIEVOT1RTVVBQOyBpdCdzICpub3QqIHRoZSBzYW1lIHRoaW5nIGFzIEVOT1RTVVANCj4g
+PiBpbiB1c2VybGFuZCBhbmQgaXMgbm90IHBhcnQgb2YgdGhlIHVzZXJsYW5kIEFCSS4gIEkgd291
+bGQgdXNlIEVJTlZBTA0KPiA+IGhlcmUuDQo+IA0KPiANCj4gSSd2ZSBmb3VuZCBhIGZldyBldGhl
+cm5ldCBkcml2ZXJzIHRoYXQgcmV0dXJuIC1FTk9UU1VQUCBpbiB2YXJpb3VzDQo+IGZ1bmN0aW9u
+cy4gSW4gcGFydGljdWxhciwgc29tZSBldGh0b29sIGZ1bmN0aW9ucyBvciBpb2N0bCdzLg0KPiBC
+ZW4ncyBtZXNzYWdlIG1ha2VzIG1lIHRoaW5rIHRoYXQgdGhlIGV0aHRvb2wgZnVuY3Rpb25zIGFu
+ZCBpb2N0bCdzIHNob3VsZA0KPiBiZSBtb2RpZmllZC4NCj4gDQo+IFRoZXJlIGFyZSBvdGhlciBv
+Y2N1cmVuY2VzLCBtb3N0bHkgaW4gZnVuY3Rpb25zIHJlbGF0ZWQgdG8gZGV2aWNlDQo+IGluaXRp
+YWxpemF0aW9uLiBJIGRpZG4ndCBtYW5hZ2UgdG8gdHJhY2sgZG93biBleGFjdGx5IGZyb20gd2hl
+cmUgc29tZSBvZg0KPiB0aGVtIGFyZSBjYWxsZWQsIGFuZCBJIGRvbid0IGtub3cgaWYgRU5PVFNV
+UFAgaXMgb2theSBpbiB0aGVzZS4NCj4gDQo+IEkndmUgaW5jbHVkZWQgdGhlIGNvbXBsZXRlIGxp
+c3Qgb2Ygb2NjdXJlbmNlcyAoYmFzZWQgb24gbmV0LW5leHQpIGZyb20NCj4gZHJpdmVycy9uZXQv
+ZXRoZXJuZXQgaW4gcGF0Y2ggZm9ybSBhdCB0aGUgZW5kLCBpZiB0aGF0J3MgbW9yZSBjb252ZW5p
+ZW50DQo+IHRoYW4gdGhlIGZpbGUvZnVuY3Rpb24gbGlzdC4gVGhpcyBpcyBub3QgbWVhbnQgdG8g
+YmUgYXBwbGllZC4NCj4gDQo+IA0KPiBEbyB0aGVzZSAob3IgcGFydCBvZiB0aGVtKSBuZWVkIHRv
+IGJlIHBhdGNoZWQ/IE9yIGlzIHRoZXJlIHNvbWV0aGluZyBJJ20NCj4gbWlzc2luZz8NCj4gDQo+
+IA0KPiBUaGFua3MsDQo+IFNhYnJpbmENCj4gDQo+IA0KPiAtLS0NCj4gDQoNCkhpIFNhYnJpbmEs
+DQoNClVzaW5nIC1FT1BOT1RTVVBQIGluc3RlYWQgb2YgLUVOT1RTVVBQLCAgZXRodG9vbCBpcyBn
+aXZpbmcgdGhlIGV4cGVjdGVkIGVycm9yIG1lc3NhZ2UuDQoNCiMgZXRodG9vbCAtdyBwNnAxDQpD
+YW4gbm90IGdldCBkdW1wIGxldmVsDQo6IE9wZXJhdGlvbiBub3Qgc3VwcG9ydGVkDQoNCj4gDQo+
+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3FsY25pY184
+M3h4X2h3LmMNCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3FsY25pY184
+M3h4X2h3LmMNCj4gaW5kZXggMDNlYjJhZC4uYmI5ZjRlYyAxMDA2NDQNCj4gLS0tIGEvZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNuaWNfODN4eF9ody5jDQo+ICsrKyBiL2Ry
+aXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmljXzgzeHhfaHcuYw0KPiBAQCAt
+MTY0MSw3ICsxNjQxLDcgQEAgaW50IHFsY25pY184M3h4X2xvb3BiYWNrX3Rlc3Qoc3RydWN0IG5l
+dF9kZXZpY2UNCj4gKm5ldGRldiwgdTggbW9kZSkNCj4gIAlpZiAoYWh3LT5vcF9tb2RlID09IFFM
+Q05JQ19OT05fUFJJVl9GVU5DKSB7DQo+ICAJCW5ldGRldl93YXJuKG5ldGRldiwNCj4gIAkJCSAg
+ICAiTG9vcGJhY2sgdGVzdCBub3Qgc3VwcG9ydGVkIGluIG5vbiBwcml2aWxlZ2VkDQo+IG1vZGVc
+biIpOw0KPiAtCQlyZXR1cm4gLUVOT1RTVVBQOw0KPiArCQlyZXR1cm4gLUVJTlZBTDsNCg0KUGxl
+YXNlIHVzZSAtRU9QTk9UU1VQUA0KDQo+ICAJfQ0KPiANCj4gIAlpZiAodGVzdF9iaXQoX19RTENO
+SUNfUkVTRVRUSU5HLCAmYWRhcHRlci0+c3RhdGUpKSB7IGRpZmYgLS1naXQNCj4gYS9kcml2ZXJz
+L25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3FsY25pY19ldGh0b29sLmMNCj4gYi9kcml2ZXJz
+L25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3FsY25pY19ldGh0b29sLmMNCj4gaW5kZXggNDVm
+YTZlZi4uNzI3YmU0ZSAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2lj
+L3FsY25pYy9xbGNuaWNfZXRodG9vbC5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Fs
+b2dpYy9xbGNuaWMvcWxjbmljX2V0aHRvb2wuYw0KPiBAQCAtMTY4MSw3ICsxNjgxLDcgQEAgcWxj
+bmljX2dldF9kdW1wX2ZsYWcoc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiwNCj4gc3RydWN0IGV0
+aHRvb2xfZHVtcCAqZHVtcCkNCj4gDQo+ICAJaWYgKCFmd19kdW1wLT50bXBsX2hkcikgew0KPiAg
+CQluZXRkZXZfZXJyKGFkYXB0ZXItPm5ldGRldiwgIkZXIER1bXAgbm90IHN1cHBvcnRlZFxuIik7
+DQo+IC0JCXJldHVybiAtRU5PVFNVUFA7DQo+ICsJCXJldHVybiAtRUlOVkFMOw0KDQpQbGVhc2Ug
+dXNlIC1FT1BOT1RTVVBQDQoNCj4gIAl9DQo+IA0KPiAgCWlmIChmd19kdW1wLT5jbHIpDQo+IEBA
+IC0xNzEwLDcgKzE3MTAsNyBAQCBxbGNuaWNfZ2V0X2R1bXBfZGF0YShzdHJ1Y3QgbmV0X2Rldmlj
+ZSAqbmV0ZGV2LA0KPiBzdHJ1Y3QgZXRodG9vbF9kdW1wICpkdW1wLA0KPiANCj4gIAlpZiAoIWZ3
+X2R1bXAtPnRtcGxfaGRyKSB7DQo+ICAJCW5ldGRldl9lcnIobmV0ZGV2LCAiRlcgRHVtcCBub3Qg
+c3VwcG9ydGVkXG4iKTsNCj4gLQkJcmV0dXJuIC1FTk9UU1VQUDsNCj4gKwkJcmV0dXJuIC1FSU5W
+QUw7DQoNClBsZWFzZSB1c2UgLUVPUE5PVFNVUFANCg0KPiAgCX0NCj4gDQo+ICAJaWYgKCFmd19k
+dW1wLT5jbHIpIHsNCj4gDQoNClRoYW5rcywNClNoYWhlZA0KICANCg==
