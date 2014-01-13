@@ -1,56 +1,51 @@
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: Re: [PATCH 0/2] tun: add the RFS support
-Date: Mon, 13 Jan 2014 21:29:45 +0800
-Message-ID: <CAEH94LjdMyZ_SVf5YvzqEhPzYanFQUwLsm+e8Hp_Y5XU4_hkeA@mail.gmail.com>
-References: <1387709672-21917-1-git-send-email-zwu.kernel@gmail.com>
-	<20131231.133200.1111966466957616549.davem@davemloft.net>
-	<CA+mtBx8b_D+JQaphS4LCbAVKRWE5Tz1-P_eVxJJdG-FbMdWPdw@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: build_skb() and data corruption
+Date: Mon, 13 Jan 2014 14:29:37 +0100
+Message-ID: <201401131429.38218.arnd@arndb.de>
+References: <CACmBeS35RAEQ+t2vtYtFTKNT-VdQw20hURjTi193Jk8HG7UECA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f170.google.com ([209.85.214.170]:59111 "EHLO
-	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751812AbaAMN3p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 08:29:45 -0500
-Received: by mail-ob0-f170.google.com with SMTP id uy5so5751306obc.29
-        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 05:29:45 -0800 (PST)
-In-Reply-To: <CA+mtBx8b_D+JQaphS4LCbAVKRWE5Tz1-P_eVxJJdG-FbMdWPdw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	bhutchings@solarflare.com, alexander.h.duyck@intel.com,
+	Florian Fainelli <florian@openwrt.org>
+To: Jonas Jensen <jonas.jensen@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACmBeS35RAEQ+t2vtYtFTKNT-VdQw20hURjTi193Jk8HG7UECA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 1, 2014 at 6:33 AM, Tom Herbert <therbert@google.com> wrote:
-> Zhi,
-HI, Tom
->
-> Thanks for following up on these patches. It would still be nice to
-> have performance numbers to show the impact. These will be helpful for
-> the next task of integrating RFS into virtio-net.
-I don't get why RFS need to be integrated into virtio-net since
-virtio-net has supported mq. Can you give some clue? thanks.
+On Monday 13 January 2014, Jonas Jensen wrote:
+> Please help,
+> 
+> I think I see memory corruption with a driver recently added to linux-next.
+> 
+> The following error occur downloading a large file with wget (or
+> ncftp): "read error: Bad address"
+> wget exits and leaves the file unfinished.
+> 
+> The error goes away when build_skb() is patched out, in this case by
+> allocating pages directly in RX loop.
+> 
+> I currently have two branches with code placed under ifdef USE_BUILD_SKB:
+> https://bitbucket.org/Kasreyn/linux-next/src/faa7c408a655fdfd7c383f79259031da5a05d61e/drivers/net/ethernet/moxa/moxart_ether.c#cl-472
+> 
 
->
-> Tom
->
-> On Tue, Dec 31, 2013 at 10:32 AM, David Miller <davem@davemloft.net> wrote:
->> From: Zhi Yong Wu <zwu.kernel@gmail.com>
->> Date: Sun, 22 Dec 2013 18:54:30 +0800
->>
->>> Since Tom Herbert's hash related patchset was modified and got merged,
->>> his pachset about adding support for RFS on tun flows also need to get
->>> adjusted accordingly. I tried to update them, and before i will start
->>> to do some perf tests, i hope to get one correct code base, so it's time
->>> to post them out now. Any constructive comments are welcome, thanks.
->>
->> Series applied to net-next, thanks.
+The problem appears to be incorrect coherency management of the
+dma buffers. You are using the streaming DMA mapping API on a
+platform that is not cache coherent, and you are reusing buffers.
 
+The solution to this problem is to add the appropriate
+dma_sync_single_for_device() and dma_sync_single_for_cpu()
+calls at the point where buffer ownership changes between the
+dma master and the CPU. This will flush the caches after the
+filling them on the tx path and invalidate caches when the
+dma master fills them on rx.
 
+See Documentation/DMA-API-HOWTO.txt for details.
 
--- 
-Regards,
-
-Zhi Yong Wu
+	Arnd
