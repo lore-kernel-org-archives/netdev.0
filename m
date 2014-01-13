@@ -1,66 +1,32 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH net-next 3/4] flowcache: Fixup flow cache part in xfrm policy
-Date: Mon, 13 Jan 2014 15:49:07 +0800
-Message-ID: <1389599348-5214-4-git-send-email-fan.du@windriver.com>
-References: <1389599348-5214-1-git-send-email-fan.du@windriver.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next 0/3] bonding: cleanup bond_3ad.c
+Date: Mon, 13 Jan 2014 08:57:41 +0100
+Message-ID: <20140113075741.GA26486@redhat.com>
+References: <20140110.180614.405638448761352206.davem@davemloft.net>
+ <20140112132719.GA26242@redhat.com>
+ <20140112.143621.1551326776001236706.davem@davemloft.net>
+ <20140112.144454.2121293412351121018.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:63733 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751404AbaAMHtJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 02:49:09 -0500
-In-Reply-To: <1389599348-5214-1-git-send-email-fan.du@windriver.com>
+Received: from mx1.redhat.com ([209.132.183.28]:25784 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751229AbaAMIAo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jan 2014 03:00:44 -0500
+Content-Disposition: inline
+In-Reply-To: <20140112.144454.2121293412351121018.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bump flow cache genid, and flush flow cache should also be made
-in per net style.
+On Sun, Jan 12, 2014 at 02:44:54PM -0800, David Miller wrote:
+>From: David Miller <davem@davemloft.net>
+>Date: Sun, 12 Jan 2014 14:36:21 -0800 (PST)
+>
+>> I'll apply them again, thanks for noticing.
+>
+>They should really be there now, let me know if there are any
+>problems.
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
- net/xfrm/xfrm_policy.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index e205c4b..d39c90f 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -661,7 +661,7 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
- 		hlist_add_head(&policy->bydst, chain);
- 	xfrm_pol_hold(policy);
- 	net->xfrm.policy_count[dir]++;
--	atomic_inc(&flow_cache_genid);
-+	atomic_inc(&net->xfrm.flow_cache_genid);
- 
- 	/* After previous checking, family can either be AF_INET or AF_INET6 */
- 	if (policy->family == AF_INET)
-@@ -2567,14 +2567,14 @@ static void __xfrm_garbage_collect(struct net *net)
- 
- void xfrm_garbage_collect(struct net *net)
- {
--	flow_cache_flush();
-+	flow_cache_flush(net);
- 	__xfrm_garbage_collect(net);
- }
- EXPORT_SYMBOL(xfrm_garbage_collect);
- 
- static void xfrm_garbage_collect_deferred(struct net *net)
- {
--	flow_cache_flush_deferred();
-+	flow_cache_flush_deferred(net);
- 	__xfrm_garbage_collect(net);
- }
- 
-@@ -2947,6 +2947,7 @@ static int __net_init xfrm_net_init(struct net *net)
- 	spin_lock_init(&net->xfrm.xfrm_policy_sk_bundle_lock);
- 	mutex_init(&net->xfrm.xfrm_cfg_mutex);
- 
-+	flow_cache_init(net);
- 	return 0;
- 
- out_sysctl:
--- 
-1.7.9.5
+Yep, they're there already, thank you, and sorry for bugging :).
