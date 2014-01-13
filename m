@@ -1,55 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: gro: change GRO overflow strategy
-Date: Mon, 13 Jan 2014 11:46:27 -0800 (PST)
-Message-ID: <20140113.114627.1398138098446476409.davem@davemloft.net>
-References: <1389305539.31367.65.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [Patch net-next 6/7] net_sched: cls: move allocation in ->init
+ to generic layer
+Date: Mon, 13 Jan 2014 11:49:23 -0800 (PST)
+Message-ID: <20140113.114923.2164522715863402981.davem@davemloft.net>
+References: <1389312845-10304-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1389312845-10304-7-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com, hkchu@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, tgraf@suug.ch, jhs@mojatatu.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38165 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38182 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751659AbaAMTq2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 14:46:28 -0500
-In-Reply-To: <1389305539.31367.65.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1750899AbaAMTtY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 14:49:24 -0500
+In-Reply-To: <1389312845-10304-7-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 09 Jan 2014 14:12:19 -0800
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Thu,  9 Jan 2014 16:14:04 -0800
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> GRO layer has a limit of 8 flows being held in GRO list,
-> for performance reason.
-> 
-> When a packet comes for a flow not yet in the list,
-> and list is full, we immediately give it to upper
-> stacks, lowering aggregation performance.
-> 
-> With TSO auto sizing and FQ packet scheduler, this situation
-> happens more often.
-> 
-> This patch changes strategy to simply evict the oldest flow of
-> the list. This works better because of the nature of packet
-> trains for which GRO is efficient. This also has the effect
-> of lowering the GRO latency if many flows are competing.
-> 
-> Tested :
-> 
-> Used a 40Gbps NIC, with 4 RX queues, and 200 concurrent TCP_STREAM
-> netperf.
-> 
-> Before patch, aggregate rate is 11Gbps (while a single flow can reach
-> 30Gbps)
-> 
-> After patch, line rate is reached.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> +	if (!head->init) {
+>  		head->handle = handle;
+> -
+> -		tcf_tree_lock(tp);
+> -		tp->root = head;
+> -		tcf_tree_unlock(tp);
+> +		head->init = true;
+ ...
+>  		head->mask = mask;
+> -
+> -		tcf_tree_lock(tp);
+> -		tp->root = head;
+> -		tcf_tree_unlock(tp);
+> +		head->init = true;
 
-Applied, looks great.
+Like Jamal, I don't think these transformations are valid.
 
-If someone is really concerned about improving the list traversal,
-we can maintain a tail pointer.
+You can't make the root visible in the hierarchy until the
+->handle and ->mask (respectively) members are initialized
+in these two classifiers.
+
+What I'm going to do for now is apply patches 1-5 and 7.
+
+Thanks.
