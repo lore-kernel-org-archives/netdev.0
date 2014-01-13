@@ -1,86 +1,83 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 09/14] batman-adv: remove returns at the end of void functions
-Date: Mon, 13 Jan 2014 23:31:33 +0100
-Message-ID: <1389652298-472-10-git-send-email-antonio@meshcoding.com>
-References: <1389652298-472-1-git-send-email-antonio@meshcoding.com>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <antonio@meshcoding.com>,
-	Marek Lindner <mareklindner@neomailbox.ch>
-To: davem@davemloft.net
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: [PATCH 0/5] Assorted mvneta fixes
+Date: Mon, 13 Jan 2014 23:36:05 +0100
+Message-ID: <87d2jvfr1m.fsf@natisbad.org>
+References: <1389519069-1619-1-git-send-email-w@1wt.eu>
+	<87ob3hovkf.fsf@natisbad.org> <20140112222233.GG16576@1wt.eu>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:42243 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751499AbaAMWeF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 17:34:05 -0500
-In-Reply-To: <1389652298-472-1-git-send-email-antonio@meshcoding.com>
+Received: from smtp1-g21.free.fr ([212.27.42.1]:59964 "EHLO smtp1-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751499AbaAMWg2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jan 2014 17:36:28 -0500
+Received: from smtp.natisbad.org (unknown [IPv6:2a01:e35:139b:9f90:221:70ff:fe55:8f78])
+	by smtp1-g21.free.fr (Postfix) with ESMTP id 6D2C59400B5
+	for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 23:36:18 +0100 (CET)
+In-Reply-To: <20140112222233.GG16576@1wt.eu> (Willy Tarreau's message of "Sun,
+	12 Jan 2014 23:22:33 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Return at the end of void functions is not needed.
+Hi,
 
-Since most of the void functions in the code do not do so,
-make all the others consistent by removing the useless
-returns. Actually all the functions to be "fixed" are in
-network-coding.h only.
+Willy Tarreau <w@1wt.eu> writes:
 
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
----
- net/batman-adv/network-coding.h | 7 -------
- 1 file changed, 7 deletions(-)
+>> Funny enough, I spent some time this week-end trying to find the root
+>> cause of some kernel freezes and panics appearing randomly after some GB
+>> read on a ReadyNAS 102 configured as a NFS server. 
+>> 
+>> I tested your fixes and performance series together on top of current
+>> 3.13.0-rc7 and I am now unable to reproduce the freeze and panics after
+>> having read more than the 300GB of traffic from the NAS: following
+>> bandwith with a bwm-ng shows the rate is also far more stable than w/
+>> previous driver logic (55MB/sec). So, FWIW:
+>> 
+>> Tested-by: Arnaud Ebalard <arno@natisbad.org>
+>
+> Thanks for this.
+>
+> BTW, the "performance" series is not supposed to fix anything, 
 
-diff --git a/net/batman-adv/network-coding.h b/net/batman-adv/network-coding.h
-index ab59b3d..136db6d 100644
---- a/net/batman-adv/network-coding.h
-+++ b/net/batman-adv/network-coding.h
-@@ -62,7 +62,6 @@ static inline int batadv_nc_mesh_init(struct batadv_priv *bat_priv)
- 
- static inline void batadv_nc_mesh_free(struct batadv_priv *bat_priv)
- {
--	return;
- }
- 
- static inline void
-@@ -72,7 +71,6 @@ batadv_nc_update_nc_node(struct batadv_priv *bat_priv,
- 			 struct batadv_ogm_packet *ogm_packet,
- 			 int is_single_hop_neigh)
- {
--	return;
- }
- 
- static inline void
-@@ -81,17 +79,14 @@ batadv_nc_purge_orig(struct batadv_priv *bat_priv,
- 		     bool (*to_purge)(struct batadv_priv *,
- 				      struct batadv_nc_node *))
- {
--	return;
- }
- 
- static inline void batadv_nc_init_bat_priv(struct batadv_priv *bat_priv)
- {
--	return;
- }
- 
- static inline void batadv_nc_init_orig(struct batadv_orig_node *orig_node)
- {
--	return;
- }
- 
- static inline bool batadv_nc_skb_forward(struct sk_buff *skb,
-@@ -104,14 +99,12 @@ static inline void
- batadv_nc_skb_store_for_decoding(struct batadv_priv *bat_priv,
- 				 struct sk_buff *skb)
- {
--	return;
- }
- 
- static inline void
- batadv_nc_skb_store_sniffed_unicast(struct batadv_priv *bat_priv,
- 				    struct sk_buff *skb)
- {
--	return;
- }
- 
- static inline int batadv_nc_nodes_seq_print_text(struct seq_file *seq,
--- 
-1.8.5.2
+I was lazy and wanted to give the whole set a try in a single pass.
+
+
+> and still it seems difficult to me to find what patch might have fixed
+> your problem. Maybe the timer used in place of an IRQ has an even
+> worse effect than what we could imagine ?
+
+I guess so.
+
+
+>> Willy, I can extend the test to RN2120 if you think it is useful to also
+>> do additional tests on a dual-core armada XP.
+>
+> It's up to you. These patches have run extensively on my Mirabox (Armada370),
+> OpenBlocks AX3 (ArmadaXP dual core) and the XP-GP board (ArmadaXP quad core),
+> and fixed the stability issues and performance issues I was facing there. But
+> you may be interested in testing them with your workloads (none of my boxes
+> is used as an NFS server, NAS or whatever, they mainly see HTTP and very small
+> packets used in stress tests).
+
+Well, I spent the evening on my RN104 (Aramda370 w/ 2 GbE ifaces) and my
+RN2120 (Dual core ArmadaXP w/ 2GbE ifaces) using one as a router and
+serving NFS traffic from the other (and then changing roles). I passed
+hundreds of GB of TCP/NFS traffic and did not see any issue.
+
+Additionally, FWIW, testing both using netperf show they easily support
+routing traffic w/ line rate perf.
+
+Regarding the patches, the problem they solve impacts all Armada boards
+(370 and XP) which are used for network tasks. I think it would be nice
+to have those backported to stable. I can commit to do the tests of the
+backports both on XP and 370 hardware down to 3.12 or 3.11 kernel if it
+can help. 
+
+Cheers,
+
+a+
