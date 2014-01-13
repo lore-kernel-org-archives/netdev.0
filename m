@@ -1,36 +1,35 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: Re: [PATCH net-next] IPv6: enable bind() to assign an anycast address
-Date: Mon, 13 Jan 2014 08:43:14 -0800 (PST)
-Message-ID: <1389631394.99071.YahooMailBasic@web125501.mail.ne1.yahoo.com>
-References: <1389377544-3119-1-git-send-email-fx.lebail@yahoo.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC net] tcp: metrics: Avoid duplicate entries with the same
+ destination-IP
+Date: Mon, 13 Jan 2014 08:47:49 -0800
+Message-ID: <1389631669.31367.221.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1389626736-3143-1-git-send-email-christoph.paasch@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Francois-Xavier Le Bail <fx.lebail@yahoo.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Christoph Paasch <christoph.paasch@uclouvain.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm31.bullet.mail.ne1.yahoo.com ([98.138.229.24]:33099 "EHLO
-	nm31.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753146AbaAMQqE convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Jan 2014 11:46:04 -0500
-In-Reply-To: <1389377544-3119-1-git-send-email-fx.lebail@yahoo.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:61602 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754283AbaAMQrv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 11:47:51 -0500
+Received: by mail-pa0-f44.google.com with SMTP id kq14so1307286pab.31
+        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 08:47:51 -0800 (PST)
+In-Reply-To: <1389626736-3143-1-git-send-email-christoph.paasch@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 1/10/14, Francois-Xavier Le Bail <fx.lebail@yahoo.com> wrote:
+On Mon, 2014-01-13 at 16:25 +0100, Christoph Paasch wrote:
 
-> - Add ipv6_chk_acast_addr_src() to check if an anycast address is link-local
->   on given interface or is global (on any interface).
-> - Use it in inet6_bind().
-> 
-> Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
-> ---
+> Another solution might be to leave tcp_get_metrics() as it is, and in
+> tcpm_new do another call to __tcp_get_metrics() while holding the
+> spin-lock. We would then check __tcp_get_metrics twice for new entries
+> but we won't hold the spin-lock needlessly anymore.
 
-I will divide this patch in 2 patches : one for adding ipv6_chk_acast_addr_src(), one (v2) for updating bind().
+This is the only solution if you want to fix this.
+Cost of lookup are the cache line misses.
+Avoiding the spinlock is a must.
+
+The second 'lookup' is basically free, as the first one have populated
+cpu caches.
