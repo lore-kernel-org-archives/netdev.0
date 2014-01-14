@@ -1,75 +1,52 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next 1/2] net: vxlan: when lower dev unregisters remove
- vxlan dev as well
-Date: Tue, 14 Jan 2014 15:02:08 +0100
-Message-ID: <52D54360.7070004@redhat.com>
-References: <1389634880-4138-1-git-send-email-dborkman@redhat.com> <1389634880-4138-2-git-send-email-dborkman@redhat.com> <20140113182232.355f9d20@nehalam.linuxnetplumber.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next 5/6] i40e: trivial cleanup
+Date: Tue, 14 Jan 2014 18:22:14 +0400
+Message-ID: <52D54816.7010403@cogentembedded.com>
+References: <1389689394-22369-1-git-send-email-aaron.f.brown@intel.com> <1389689394-22369-6-git-send-email-aaron.f.brown@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Aaron Brown <aaron.f.brown@intel.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28587 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751318AbaANOCO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jan 2014 09:02:14 -0500
-In-Reply-To: <20140113182232.355f9d20@nehalam.linuxnetplumber.net>
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:45079 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751416AbaANOWO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 09:22:14 -0500
+Received: by mail-lb0-f169.google.com with SMTP id q8so3543754lbi.28
+        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 06:22:13 -0800 (PST)
+In-Reply-To: <1389689394-22369-6-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/14/2014 03:22 AM, Stephen Hemminger wrote:
-> On Mon, 13 Jan 2014 18:41:19 +0100
-> Daniel Borkmann <dborkman@redhat.com> wrote:
->
->> We can create a vxlan device with an explicit underlying carrier.
->> In that case, when the carrier link is being deleted from the
->> system (e.g. due to module unload) we should also clean up all
->> created vxlan devices on top of it since otherwise we're in an
->> inconsistent state in vxlan device. In that case, the user needs
->> to remove all such devices, while in case of other virtual devs
->> that sit on top of physical ones, it is usually the case that
->> these devices do unregister automatically as well and do not
->> leave the burden on the user.
->>
->> This work is not necessary when vxlan device was not created with
->> a real underlying device, as connections can resume in that case
->> when driver is plugged again. But at least for the other cases,
->> we should go ahead and do the cleanup on removal.
->>
->> We don't register the notifier during vxlan_newlink() here since
->> I consider this event rather rare, and therefore we should not
->> bloat vxlan's core structure unecessary. Also, we can simply make
->> use of unregister_netdevice_many() to batch that. fdb is flushed
->> upon ndo_stop().
->>
->> E.g. `ip -d link show vxlan13` after carrier removal before
->> this patch:
->>
->> 5: vxlan13: <BROADCAST,MULTICAST> mtu 1450 qdisc noop state DOWN mode DEFAULT group default
->>      link/ether 1e:47:da:6d:4d:99 brd ff:ff:ff:ff:ff:ff promiscuity 0
->>      vxlan id 13 group 239.0.0.10 dev 2 port 32768 61000 ageing 300
->>                                   ^^^^^
->> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
->
-> Since vxlan is running over UDP socket. I wonder if this could be
-> done better by implementing something equivalent to SO_BINDTODEVICE.
->
-> What happens to a user land application which has a UDP socket
-> and has done SO_BINDTODEVICE and device is removed? Is there an asynchronous
-> error, can the application recover? Why can't vxlan use the same mechanism?
+Hello.
 
-Interesting point. What seems to happen with UDP sockets and SO_BINDTODEVICE
-in case the device was present during the setsockopt(2), and module was
-unloaded at time of sendto(2)/recvfrom(2), that at least senders give an
-error of ENODEV in such cases while receivers seem not to notice as far as
-I can tell. When we reload the module and device appears again with the
-same name, then sendto(2), still fails with ENODEV, since we, of course,
-work with indexes, that is, sk->sk_bound_dev_if. The only chance user space
-would have is to try to redo the setsockopt(2) with SO_BINDTODEVICE on the
-same device _name_, but different new index now, in the hope that this would
-be the same underlying NIC. It seems, however not recommended to do so [1].
-Anyway, so I'm not sure how useful this would be, I guess just doing what
-this patch here does should be appropriate to do.
+On 14-01-2014 12:49, Aaron Brown wrote:
 
-   [1] http://ftp.riken.go.jp/Linux/kernel/v2.0/patch-html/patch-2.0.31/linux_Documentation_networking_so_bindtodevice.txt.html
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+
+> Remove some un-necessary parenthesis.
+
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+> Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
+> ---
+>   drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c | 3 +--
+>   1 file changed, 1 insertion(+), 2 deletions(-)
+
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
+> index 101ed41..d5d98fe 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
+> @@ -485,8 +485,7 @@ i40e_status i40e_configure_lan_hmc(struct i40e_hw *hw,
+>   		/* Make one big object, a single SD */
+>   		info.count = 1;
+>   		ret_code = i40e_create_lan_hmc_object(hw, &info);
+> -		if ((ret_code) &&
+> -		    (model == I40E_HMC_MODEL_DIRECT_PREFERRED))
+> +		if (ret_code && (model == I40E_HMC_MODEL_DIRECT_PREFERRED))
+
+    Parens around == are also unnecessary, if you're at it.
+
+WBR, Sergei
