@@ -1,56 +1,93 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv3 net-next 0/5] xfrm: Add ESN support for AH
-Date: Tue, 14 Jan 2014 09:39:07 +0800
-Message-ID: <1389663552-29638-1-git-send-email-fan.du@windriver.com>
+Subject: [PATCHv3 net-next 1/5] {IPv4,xfrm} Add ESN support for AH egress part
+Date: Tue, 14 Jan 2014 09:39:08 +0800
+Message-ID: <1389663552-29638-2-git-send-email-fan.du@windriver.com>
+References: <1389663552-29638-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
 To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:64638 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750962AbaANBjI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 20:39:08 -0500
+Received: from mail.windriver.com ([147.11.1.11]:44120 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751688AbaANBjJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 20:39:09 -0500
+In-Reply-To: <1389663552-29638-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This patch add esn support for AH output stage by attaching upper 32bits
+sequence number right after packet payload as specified by RFC 4302.
 
-This is initial Extended Sequence Number support for AH based on IPv4/6.
-The rationale is totally by the RFC 4302, which states:
+Then the ICV value will guard upper 32bits sequence number as well when
+packet going out.
 
-3.3.3.2.2.  Implicit Packet Padding and ESN
+Signed-off-by: Fan Du <fan.du@windriver.com>
+---
+ net/ipv4/ah4.c |   25 +++++++++++++++++++++----
+ 1 file changed, 21 insertions(+), 4 deletions(-)
 
-   If the ESN option is elected for an SA, then the high-order 32 bits
-   of the ESN must be included in the ICV computation.  For purposes of
-   ICV computation, these bits are appended (implicitly) immediately
-   after the end of the payload, and before any implicit packet padding.
-
-So we attach the high-order 32bits as a scatterlist right after the packet
-payload to compute ICV value. 
-
-Test:
-I add a knob in iproute2/ip/xfrm_state.c to enable esn when setting SA,
-which make it possible to test with-esn and without-esn scenarios, both
-cases works ok with ping using packetsize(-s) from default to 32768. 
-
-v2:
-  - Patch3/5 and Patch4/5 add IPv6 part as requested by Steffen.
-  - Patch5/5 restrict ESN feature only to ESP and AH.
-v3:
-  - Fix double parens spotted by Sergei, and thanks for reporting.
-
-Fan Du (5):
-  {IPv4,xfrm} Add ESN support for AH egress part
-  {IPv4,xfrm} Add ESN support for AH ingress part
-  {IPv6,xfrm} Add ESN support for AH egress part
-  {IPv6,xfrm} Add ESN support for AH ingress part
-  xfrm: Don't prohibit AH from using ESN feature
-
- net/ipv4/ah4.c       |   50 +++++++++++++++++++++++++++++++++++++++++-------
- net/ipv6/ah6.c       |   52 +++++++++++++++++++++++++++++++++++++++++++-------
- net/xfrm/xfrm_user.c |    3 ++-
- 3 files changed, 90 insertions(+), 15 deletions(-)
-
+diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
+index 7179026..759e489 100644
+--- a/net/ipv4/ah4.c
++++ b/net/ipv4/ah4.c
+@@ -12,6 +12,7 @@
+ #include <linux/scatterlist.h>
+ #include <net/icmp.h>
+ #include <net/protocol.h>
++#include <crypto/scatterwalk.h>
+ 
+ struct ah_skb_cb {
+ 	struct xfrm_skb_cb xfrm;
+@@ -155,6 +156,10 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	struct iphdr *iph, *top_iph;
+ 	struct ip_auth_hdr *ah;
+ 	struct ah_data *ahp;
++	int seqhi_len = 0;
++	__be32 *seqhi;
++	int sglists = 0;
++	struct scatterlist *seqhisg;
+ 
+ 	ahp = x->data;
+ 	ahash = ahp->ahash;
+@@ -167,14 +172,19 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	ah = ip_auth_hdr(skb);
+ 	ihl = ip_hdrlen(skb);
+ 
++	if (x->props.flags & XFRM_STATE_ESN) {
++		sglists = 1;
++		seqhi_len = sizeof(*seqhi);
++	}
+ 	err = -ENOMEM;
+-	iph = ah_alloc_tmp(ahash, nfrags, ihl);
++	iph = ah_alloc_tmp(ahash, nfrags + sglists, ihl + seqhi_len);
+ 	if (!iph)
+ 		goto out;
+-
+-	icv = ah_tmp_icv(ahash, iph, ihl);
++	seqhi = (__be32 *)((char *)iph + ihl);
++	icv = ah_tmp_icv(ahash, seqhi, seqhi_len);
+ 	req = ah_tmp_req(ahash, icv);
+ 	sg = ah_req_sg(ahash, req);
++	seqhisg = sg + nfrags;
+ 
+ 	memset(ah->auth_data, 0, ahp->icv_trunc_len);
+ 
+@@ -213,7 +223,14 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	sg_init_table(sg, nfrags);
+ 	skb_to_sgvec(skb, sg, 0, skb->len);
+ 
+-	ahash_request_set_crypt(req, sg, icv, skb->len);
++	if (x->props.flags & XFRM_STATE_ESN) {
++		sg_unmark_end(&sg[nfrags - 1]);
++		/* Attach seqhi sg right after packet payload */
++		*seqhi = htonl(XFRM_SKB_CB(skb)->seq.output.hi);
++		sg_init_table(seqhisg, sglists);
++		sg_set_buf(seqhisg, seqhi, seqhi_len);
++	}
++	ahash_request_set_crypt(req, sg, icv, skb->len + seqhi_len);
+ 	ahash_request_set_callback(req, 0, ah_output_done, skb);
+ 
+ 	AH_SKB_CB(skb)->tmp = iph;
 -- 
 1.7.9.5
