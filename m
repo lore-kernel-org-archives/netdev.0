@@ -1,51 +1,62 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net] bonding: reset the slave's mtu when its be changed
-Date: Tue, 14 Jan 2014 10:11:45 +0800
-Message-ID: <52D49CE1.6040900@huawei.com>
-References: <52CFDA63.8070601@huawei.com> <20140110121932.GC4132@redhat.com> <52D225A2.3070208@huawei.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next 1/2] net: vxlan: when lower dev unregisters
+ remove vxlan dev as well
+Date: Mon, 13 Jan 2014 18:22:32 -0800
+Message-ID: <20140113182232.355f9d20@nehalam.linuxnetplumber.net>
+References: <1389634880-4138-1-git-send-email-dborkman@redhat.com>
+	<1389634880-4138-2-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>, Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Veaceslav Falico <vfalico@redhat.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:14796 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751172AbaANCMD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 21:12:03 -0500
-In-Reply-To: <52D225A2.3070208@huawei.com>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:49610 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751315AbaANCWg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 21:22:36 -0500
+Received: by mail-pd0-f173.google.com with SMTP id p10so8201215pdj.4
+        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 18:22:36 -0800 (PST)
+In-Reply-To: <1389634880-4138-2-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/1/12 13:18, Ding Tianhong wrote:
-> On 2014/1/10 20:19, Veaceslav Falico wrote:
->> On Fri, Jan 10, 2014 at 07:32:51PM +0800, Ding Tianhong wrote:
->>> All slave should have the same mtu with mastet's, and the bond do it when
->>> enslave the slave, but the user could change the slave's mtu, it will cause
->>> the master and slave have different mtu, althrough in AB mode, it does not
->>> matter if the slave is not the current slave, but in other mode, it is incorrect,
->>> so reset the slave's mtu like the master set.
->>
->> Why "net"? It's not a bugfix, it's a feature, and really discussable.
->>
->> Also, wrt the actual change - why do you think it's incorrect for slaves in
->> bonding mode other than AB to have different MTU values? I don't see any
->> reason for it, from the top of the head.
->>
+On Mon, 13 Jan 2014 18:41:19 +0100
+Daniel Borkmann <dborkman@redhat.com> wrote:
+
+> We can create a vxlan device with an explicit underlying carrier.
+> In that case, when the carrier link is being deleted from the
+> system (e.g. due to module unload) we should also clean up all
+> created vxlan devices on top of it since otherwise we're in an
+> inconsistent state in vxlan device. In that case, the user needs
+> to remove all such devices, while in case of other virtual devs
+> that sit on top of physical ones, it is usually the case that
+> these devices do unregister automatically as well and do not
+> leave the burden on the user.
 > 
-> Ok, I will test more situation for every mode when slave's mtu changed, I am not sure
-> what will happened yet, if some links was interrupt, I thinks it is a bug. 
+> This work is not necessary when vxlan device was not created with
+> a real underlying device, as connections can resume in that case
+> when driver is plugged again. But at least for the other cases,
+> we should go ahead and do the cleanup on removal.
 > 
->>>
+> We don't register the notifier during vxlan_newlink() here since
+> I consider this event rather rare, and therefore we should not
+> bloat vxlan's core structure unecessary. Also, we can simply make
+> use of unregister_netdevice_many() to batch that. fdb is flushed
+> upon ndo_stop().
+> 
+> E.g. `ip -d link show vxlan13` after carrier removal before
+> this patch:
+> 
+> 5: vxlan13: <BROADCAST,MULTICAST> mtu 1450 qdisc noop state DOWN mode DEFAULT group default
+>     link/ether 1e:47:da:6d:4d:99 brd ff:ff:ff:ff:ff:ff promiscuity 0
+>     vxlan id 13 group 239.0.0.10 dev 2 port 32768 61000 ageing 300
+>                                  ^^^^^
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-I have test several mode for bonding when the slave mtu changed:
+Since vxlan is running over UDP socket. I wonder if this could be
+done better by implementing something equivalent to SO_BINDTODEVICE.
 
-RR(0)	0<mtu<1500 		ok
-AB(1)	0<mtu<1500		loss packets
-XOR(2)	0<mtu<1500		ok
-Broadcast(3)	0<mtu<1500	ok
-LACP		0<mtu<1500	loss packets
-
-
-so I think we should not let the mtu set for slave.
+What happens to a user land application which has a UDP socket
+and has done SO_BINDTODEVICE and device is removed? Is there an asynchronous
+error, can the application recover? Why can't vxlan use the same mechanism?
