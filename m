@@ -1,8 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 2/3] bonding: clean the primary slave if there is
- no slave matching new primary
-Date: Tue, 14 Jan 2014 10:37:00 +0800
-Message-ID: <52D4A2CC.6010907@huawei.com>
+Subject: [PATCH net-next 3/3] bonding: update bonding.txt for primary description
+Date: Tue, 14 Jan 2014 10:37:16 +0800
+Message-ID: <52D4A2DC.2030201@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -11,37 +10,31 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:31070 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751978AbaANChQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 21:37:16 -0500
+Received: from szxga03-in.huawei.com ([119.145.14.66]:6289 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751843AbaANChc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 21:37:32 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the new primay is not matching any slave in the bond, the bond should
-record it to params, clean the primary slave and select a new active slave.
-
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/bonding/bond_options.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ Documentation/networking/bonding.txt | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 945a666..0ee0bfe 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -512,6 +512,12 @@ int bond_option_primary_set(struct bonding *bond, const char *primary)
- 		}
- 	}
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index a4d925e..5cdb229 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -657,7 +657,8 @@ primary
+ 	one slave is preferred over another, e.g., when one slave has
+ 	higher throughput than another.
  
-+	if (bond->primary_slave) {
-+		pr_info("%s: Setting primary slave to None.\n",
-+			bond->dev->name);
-+		bond->primary_slave = NULL;
-+		bond_select_active_slave(bond);
-+	}
- 	strncpy(bond->params.primary, primary, IFNAMSIZ);
- 	bond->params.primary[IFNAMSIZ - 1] = 0;
+-	The primary option is only valid for active-backup mode.
++	The primary option is only valid for active-backup(1),
++	balance-tlb (5) and balance-alb (6) mode.
+ 
+ primary_reselect
  
 -- 
 1.8.0
