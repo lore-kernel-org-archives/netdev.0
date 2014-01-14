@@ -1,52 +1,48 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next 5/6] i40e: trivial cleanup
-Date: Tue, 14 Jan 2014 18:22:14 +0400
-Message-ID: <52D54816.7010403@cogentembedded.com>
-References: <1389689394-22369-1-git-send-email-aaron.f.brown@intel.com> <1389689394-22369-6-git-send-email-aaron.f.brown@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] netfilter: nf_conntrack: fix RCU race in
+ nf_conntrack_find_get (v3)
+Date: Tue, 14 Jan 2014 06:36:41 -0800
+Message-ID: <1389710201.31367.255.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1389188841.26646.87.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1389549033-23523-1-git-send-email-avagin@openvz.org>
+	 <1389558074.31367.187.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140114105147.GA14538@paralelels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Aaron Brown <aaron.f.brown@intel.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:45079 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751416AbaANOWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 09:22:14 -0500
-Received: by mail-lb0-f169.google.com with SMTP id q8so3543754lbi.28
-        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 06:22:13 -0800 (PST)
-In-Reply-To: <1389689394-22369-6-git-send-email-aaron.f.brown@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Florian Westphal <fw@strlen.de>, Andrey Vagin <avagin@openvz.org>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, vvs@openvz.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cyrill Gorcunov <gorcunov@openvz.org>
+To: Andrew Vagin <avagin@parallels.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20140114105147.GA14538@paralelels.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Tue, 2014-01-14 at 14:51 +0400, Andrew Vagin wrote:
 
-On 14-01-2014 12:49, Aaron Brown wrote:
+> I think __nf_conntrack_alloc must use atomic_inc instead of
+> atomic_set. And we must be sure, that the first object from a new page is
+> zeroized.
 
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+No you can not do that, and we do not need.
 
-> Remove some un-necessary parenthesis.
+If a new page is allocated, then you have the guarantee nobody can ever
+uses it, its content can be totally random.
 
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-> Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
-> ---
->   drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c | 3 +--
->   1 file changed, 1 insertion(+), 2 deletions(-)
+Only 'living' objects, the ones that were previously inserted in the
+hash table, can be found, and their refcnt must be accurate.
 
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
-> index 101ed41..d5d98fe 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
-> @@ -485,8 +485,7 @@ i40e_status i40e_configure_lan_hmc(struct i40e_hw *hw,
->   		/* Make one big object, a single SD */
->   		info.count = 1;
->   		ret_code = i40e_create_lan_hmc_object(hw, &info);
-> -		if ((ret_code) &&
-> -		    (model == I40E_HMC_MODEL_DIRECT_PREFERRED))
-> +		if (ret_code && (model == I40E_HMC_MODEL_DIRECT_PREFERRED))
+A freed object has refcnt == 0, thats the golden rule.
 
-    Parens around == are also unnecessary, if you're at it.
+When the page is freed (after RCU grace period), nobody cares of refcnt
+anymore.
 
-WBR, Sergei
+
+
