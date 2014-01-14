@@ -1,130 +1,73 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next] xen-netback: Rework rx_work_todo
-Date: Tue, 14 Jan 2014 19:28:39 +0000
-Message-ID: <1389727719-21439-1-git-send-email-zoltan.kiss@citrix.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [RFC] sysfs_rename_link() and its usage
+Date: Tue, 14 Jan 2014 11:31:39 -0800
+Message-ID: <20140114193139.GA3636@kroah.com>
+References: <20140114171740.GB1867@redhat.com>
+ <20140114182135.GA29296@kroah.com>
+ <20140114191208.GA9942@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
-To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:44471 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751367AbaANT2t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 14:28:49 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	ebiederm@xmission.com
+To: Veaceslav Falico <vfalico@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140114191208.GA9942@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The recent patch to fix receive side flow control (11b57f) solved the spinning
-thread problem, however caused an another one. The receive side can stall, if:
-- xenvif_rx_action sets rx_queue_stopped to false
-- interrupt happens, and sets rx_event to true
-- then xenvif_kthread sets rx_event to false
+On Tue, Jan 14, 2014 at 08:12:08PM +0100, Veaceslav Falico wrote:
+> On Tue, Jan 14, 2014 at 10:21:35AM -0800, Greg KH wrote:
+> >On Tue, Jan 14, 2014 at 06:17:40PM +0100, Veaceslav Falico wrote:
+> >>Hi,
+> >>
+> >>I'm hitting a strange issue and/or I'm completely lost in sysfs internals.
+> >>
+> >>Consider having two net_device *a, *b; which are registered normally.
+> >>Now, to create a link from /sys/class/net/a->name/linkname to b, one should
+> >>use:
+> >>
+> >>sysfs_create_link(&(a->dev.kobj), &(b->dev.kobj), linkname);
+> >>
+> >>To remove it, even simpler:
+> >>
+> >>sysfs_remove_link(&(a->dev.kobj), linkname);
+> >>
+> >>This works like a charm. However, if I want to use (obviously, with the
+> >>symlink present):
+> >>
+> >>sysfs_rename_link(&(a->dev.kobj), &(b->dev.kobj), oldname, newname);
+> >
+> >You forgot the namespace option to this call, what kernel version are
+> >you using here?
+> 
+> It's git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next ,
+> 3.13-rc6 with some networking patches on top of it.
+> 
+> And wrt namespace - there are two functions, one is sysfs_rename_link(),
+> which calls the second one - sysfs_rename_link_ns() with NULL namespace.
+> 
+> >
+> >>this fails with:
+> >>
+> >>"sysfs: ns invalid in 'a->name' for 'oldname'"
+> >
+> >Looks like the namespace for this link isn't valid.
+> 
+> Yep, though dunno why.
 
-Also, through rx_event a malicious guest can force the RX thread to spin. This
-patch ditch that two variable, and rework rx_work_todo. If the thread finds it
-can't fit more skb's into the ring, it saves the last slot estimation into
-rx_last_skb_slots, otherwise it's kept as 0. Then rx_work_todo will check if:
-- there is something to send to the ring
-- there is space for the topmost packet in the queue
+Are you testing this with network namespaces enabled?  Perhaps that is
+why, you need to specify the namespace of the link that you are
+changing.
 
-Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
----
- drivers/net/xen-netback/common.h    |    6 +-----
- drivers/net/xen-netback/interface.c |    1 -
- drivers/net/xen-netback/netback.c   |   16 ++++++----------
- 3 files changed, 7 insertions(+), 16 deletions(-)
+The fact that the bridge link works is odd to me, I would think that it
+too needs to specify the network namespace involved, but perhaps bridge
+objects aren't part of any specific network namespace?  I don't know the
+bridging code at all, sorry.
 
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 4c76bcb..ae413a2 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -143,11 +143,7 @@ struct xenvif {
- 	char rx_irq_name[IFNAMSIZ+4]; /* DEVNAME-rx */
- 	struct xen_netif_rx_back_ring rx;
- 	struct sk_buff_head rx_queue;
--	bool rx_queue_stopped;
--	/* Set when the RX interrupt is triggered by the frontend.
--	 * The worker thread may need to wake the queue.
--	 */
--	bool rx_event;
-+	RING_IDX rx_last_skb_slots;
- 
- 	/* This array is allocated seperately as it is large */
- 	struct gnttab_copy *grant_copy_op;
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index b9de31e..7669d49 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -100,7 +100,6 @@ static irqreturn_t xenvif_rx_interrupt(int irq, void *dev_id)
- {
- 	struct xenvif *vif = dev_id;
- 
--	vif->rx_event = true;
- 	xenvif_kick_thread(vif);
- 
- 	return IRQ_HANDLED;
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 2738563..bb241d0 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -477,7 +477,6 @@ static void xenvif_rx_action(struct xenvif *vif)
- 	unsigned long offset;
- 	struct skb_cb_overlay *sco;
- 	bool need_to_notify = false;
--	bool ring_full = false;
- 
- 	struct netrx_pending_operations npo = {
- 		.copy  = vif->grant_copy_op,
-@@ -487,7 +486,7 @@ static void xenvif_rx_action(struct xenvif *vif)
- 	skb_queue_head_init(&rxq);
- 
- 	while ((skb = skb_dequeue(&vif->rx_queue)) != NULL) {
--		int max_slots_needed;
-+		RING_IDX max_slots_needed;
- 		int i;
- 
- 		/* We need a cheap worse case estimate for the number of
-@@ -510,9 +509,10 @@ static void xenvif_rx_action(struct xenvif *vif)
- 		if (!xenvif_rx_ring_slots_available(vif, max_slots_needed)) {
- 			skb_queue_head(&vif->rx_queue, skb);
- 			need_to_notify = true;
--			ring_full = true;
-+			vif->rx_last_skb_slots = max_slots_needed;
- 			break;
--		}
-+		} else
-+			vif->rx_last_skb_slots = 0;
- 
- 		sco = (struct skb_cb_overlay *)skb->cb;
- 		sco->meta_slots_used = xenvif_gop_skb(skb, &npo);
-@@ -523,8 +523,6 @@ static void xenvif_rx_action(struct xenvif *vif)
- 
- 	BUG_ON(npo.meta_prod > ARRAY_SIZE(vif->meta));
- 
--	vif->rx_queue_stopped = !npo.copy_prod && ring_full;
--
- 	if (!npo.copy_prod)
- 		goto done;
- 
-@@ -1727,8 +1725,8 @@ static struct xen_netif_rx_response *make_rx_response(struct xenvif *vif,
- 
- static inline int rx_work_todo(struct xenvif *vif)
- {
--	return (!skb_queue_empty(&vif->rx_queue) && !vif->rx_queue_stopped) ||
--		vif->rx_event;
-+	return !skb_queue_empty(&vif->rx_queue) &&
-+	       xenvif_rx_ring_slots_available(vif, vif->rx_last_skb_slots);
- }
- 
- static inline int tx_work_todo(struct xenvif *vif)
-@@ -1814,8 +1812,6 @@ int xenvif_kthread(void *data)
- 		if (!skb_queue_empty(&vif->rx_queue))
- 			xenvif_rx_action(vif);
- 
--		vif->rx_event = false;
--
- 		if (skb_queue_empty(&vif->rx_queue) &&
- 		    netif_queue_stopped(vif->dev))
- 			xenvif_start_queue(vif);
+So try calling sysfs_rename_link_ns() and specify the namespace of the
+kobject you are changing, and see if that works or not.
+
+thanks,
+
+greg k-h
