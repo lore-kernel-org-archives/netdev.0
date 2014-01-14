@@ -1,68 +1,47 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] [RFC] netfilter: nf_conntrack: don't relase a conntrack
- with non-zero refcnt
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCHv2 net-next 1/4] flowcache: Namespacify flowcache global
+ parameters with xfrm
 Date: Tue, 14 Jan 2014 19:53:29 +0100
-Message-ID: <20140114185329.GB28205@breakpoint.cc>
-References: <1389710201.31367.255.camel@edumazet-glaptop2.roam.corp.google.com>
- <1389720948-7883-1-git-send-email-avagin@openvz.org>
+Message-ID: <20140114185329.GA1971@kria>
+References: <1389663588-29678-1-git-send-email-fan.du@windriver.com>
+ <1389663588-29678-2-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netfilter@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vvs@openvz.org,
-	Florian Westphal <fw@strlen.de>,
-	Cyrill Gorcunov <gorcunov@openvz.org>,
-	Vasiliy Averin <vvs@parallels.com>
-To: Andrey Vagin <avagin@openvz.org>
-Return-path: <netfilter-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: steffen.klassert@secunet.com, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1-g21.free.fr ([212.27.42.1]:43041 "EHLO smtp1-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751868AbaANSxu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jan 2014 13:53:50 -0500
 Content-Disposition: inline
-In-Reply-To: <1389720948-7883-1-git-send-email-avagin@openvz.org>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1389663588-29678-2-git-send-email-fan.du@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrey Vagin <avagin@openvz.org> wrote:
-> ----
-> Eric and Florian, could you look at this patch. When you say,
-> that it looks good, I will ask the user to validate it.
-> I can't reorder these actions, because it's reproduced on a real host
-> with real users. Thanks.
-> ----
+2014-01-14, 09:39:44 +0800, Fan Du wrote:
+> Since flowcache is tightly coupled with IPsec, so it would be
+> easier to put flow cache global parameters here into xfrm
+> namespace part.
 > 
-> nf_conntrack_free can't be called for a conntract with non-zero ref-counter,
-> because it can race with nf_conntrack_find_get().
-
-Indeed.
-
-> A conntrack slab is created with SLAB_DESTROY_BY_RCU. Non-zero
-> ref-conunter says that this conntrack is used now. So when we release a
-> conntrack with non-zero counter, we break this assumption.
+> Signed-off-by: Fan Du <fan.du@windriver.com>
+> ---
+>  include/net/netns/xfrm.h |   11 +++++++++++
+>  1 file changed, 11 insertions(+)
 > 
-> CPU1                                    CPU2
-> ____nf_conntrack_find()
->                                         nf_ct_put()
->                                          destroy_conntrack()
->                                         ...
->                                         init_conntrack
->                                          __nf_conntrack_alloc (set use = 1)
-> atomic_inc_not_zero(&ct->use) (use = 2)
->                                          if (!l4proto->new(ct, skb, dataoff, timeouts))
->                                           nf_conntrack_free(ct); (use = 2 !!!)
->                                         ...
+> diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
+> index 1006a26..52d0086 100644
+> --- a/include/net/netns/xfrm.h
+> +++ b/include/net/netns/xfrm.h
+> @@ -6,6 +6,7 @@
+>  #include <linux/workqueue.h>
+>  #include <linux/xfrm.h>
+>  #include <net/dst_ops.h>
+> +#include <net/flowcache.h>
 
-Yes, I think this sequence is possible; we must not use nf_conntrack_free here.
+You are including a file that doesn't exist yet. You create it later,
+with patch 2. This breaks bisection.
 
-> -	/* We overload first tuple to link into unconfirmed or dying list.*/
-> -	BUG_ON(hlist_nulls_unhashed(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode));
-> -	hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
-> +	if (!hlist_nulls_unhashed(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode))
-> +		hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
-
-This is the only thing that I don't like about this patch.  Currently
-all the conntracks in the system are always put on a list before they're
-supposed to be visible/handled via refcnt system (unconfirmed, hash, or
-dying list).
-
-I think it would be nice if we could keep it that way.
-If everything fails we could proably intoduce a 'larval' dummy list
-similar to the one used by template conntracks?
+-- 
+Sabrina
