@@ -1,70 +1,32 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next v2] openvswitch: Pad OVS_PACKET_ATTR_PACKET if
- linear copy was performed
-Date: Tue, 14 Jan 2014 18:56:52 +0000
-Message-ID: <52D58874.4090506@citrix.com>
-References: <1389053776-62865-1-git-send-email-jesse@nicira.com> <52CD657F.7080806@citrix.com> <CAEP_g=_pQpH--V+7GSrjGP2z=0TBD_37yXjzTdeKG+2OF3aRaw@mail.gmail.com> <52D42A9E.1030805@citrix.com> <52D4857C.7020902@citrix.com> <CAEP_g=8nG6AHV9Y+5=48nPhkf5Oe=mG8EiyaKSqN4omnmGhv4A@mail.gmail.com> <52D50767.6050906@redhat.com> <52D52E0A.4050700@citrix.com> <20140114161640.GA24121@casper.infradead.org> <20140114161911.GB24121@casper.infradead.org> <20140114162749.GC24121@casper.infradead.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net-next 6/7] net_sched: cls: move allocation in ->init to
+ generic layer
+Date: Tue, 14 Jan 2014 10:57:16 -0800
+Message-ID: <CAM_iQpWrF5HHttDr5g7k0d9eJibZEFOAc60gOM7bHX4+jwQjuA@mail.gmail.com>
+References: <1389312845-10304-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1389312845-10304-7-git-send-email-xiyou.wangcong@gmail.com>
+	<20140113.114923.2164522715863402981.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@redhat.com>, Jesse Gross <jesse@nicira.com>,
-	David Miller <davem@davemloft.net>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:62120 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751458AbaANS4z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jan 2014 13:56:55 -0500
-In-Reply-To: <20140114162749.GC24121@casper.infradead.org>
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:49511 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751587AbaANS5R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 13:57:17 -0500
+Received: by mail-ob0-f169.google.com with SMTP id wp4so22946obc.14
+        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 10:57:17 -0800 (PST)
+In-Reply-To: <20140113.114923.2164522715863402981.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It works for me, thanks!
+On Mon, Jan 13, 2014 at 11:49 AM, David Miller <davem@davemloft.net> wrote:
+>
+> What I'm going to do for now is apply patches 1-5 and 7.
+>
 
-Acked-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-
-On 14/01/14 16:27, Thomas Graf wrote:
-> While the zerocopy method is correctly omitted if user space
-> does not support unaligned Netlink messages. The attribute is
-> still not padded correctly as skb_zerocopy() will not ensure
-> padding and the attribute size is no longer pre calculated
-> though nla_reserve() which ensured padding previously.
->
-> This patch applies appropriate padding if a linear data copy
-> was performed in skb_zerocopy().
->
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> ---
-> v2: initialize padding to 0's
->
->   net/openvswitch/datapath.c | 7 ++++++-
->   1 file changed, 6 insertions(+), 1 deletion(-)
->
-> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-> index df46928..3ca9121 100644
-> --- a/net/openvswitch/datapath.c
-> +++ b/net/openvswitch/datapath.c
-> @@ -396,7 +396,7 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
->   		.dst_sk = ovs_dp_get_net(dp)->genl_sock,
->   		.snd_portid = upcall_info->portid,
->   	};
-> -	size_t len;
-> +	size_t len, plen;
->   	unsigned int hlen;
->   	int err, dp_ifindex;
->
-> @@ -466,6 +466,11 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
->
->   	skb_zerocopy(user_skb, skb, skb->len, hlen);
->
-> +	/* Pad OVS_PACKET_ATTR_PACKET if linear copy was performed */
-> +	if (!(dp->user_features & OVS_DP_F_UNALIGNED) &&
-> +	    (plen = (ALIGN(user_skb->len, NLA_ALIGNTO) - user_skb->len)) > 0)
-> +		memset(skb_put(user_skb, plen), 0, plen);
-> +
->   	((struct nlmsghdr *) user_skb->data)->nlmsg_len = user_skb->len;
->
->   	err = genlmsg_unicast(ovs_dp_get_net(dp), user_skb, upcall_info->portid);
->
+Sounds good to me. I will re-work on it.
+Thanks!
