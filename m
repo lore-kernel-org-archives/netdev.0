@@ -1,56 +1,50 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 0/6] Intel Wired LAN Driver Updates
-Date: Tue, 14 Jan 2014 00:49:48 -0800
-Message-ID: <1389689394-22369-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Aaron Brown <aaron.f.brown@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 3/6] i40e: make message meaningful
+Date: Tue, 14 Jan 2014 00:49:51 -0800
+Message-ID: <1389689394-22369-4-git-send-email-aaron.f.brown@intel.com>
+References: <1389689394-22369-1-git-send-email-aaron.f.brown@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:37134 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750959AbaANIto (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jan 2014 03:49:44 -0500
+	id S1750959AbaANItr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jan 2014 03:49:47 -0500
+In-Reply-To: <1389689394-22369-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e that are primarily minor fixes or 
-general cleanup.
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Shannon fixes a bug where the VMDq queue is not associated with the
-right setup within the hardware.
+Make this message mean something, rather than just spitting out a VSI id
+without any context whatsoever.
 
-Mitch provides a patch adjusting where the VF is reset and another
-one adding meaningful context to a message.
+Change-ID: Iafb906c6db46d4b5dcbe84adc9ed44730d08bd42
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Jesse cleans up white space comments and parenthesis.  
-
-Catherine bumps the version.
-
-Mitch Williams (2):
-  1/6 i40e: remove extra register write
-  3/6 i40e: make message meaningful
-
-Shannon Nelson (1):
-  2/6 i40e: associate VMDq queue with VM type
-
-Jesse Brandeburg (2):
-  4/6 i40e: whitespace fixes
-  5/6 i40e: trivial cleanup
-
-Catherine Sullivan (1):
-  6/6 i40e: Bump version number
-
- drivers/net/ethernet/intel/i40e/Module.symvers     |  0
- drivers/net/ethernet/intel/i40e/i40e.h             |  1 -
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |  4 ++--
- drivers/net/ethernet/intel/i40e/i40e_common.c      |  1 -
- drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c     |  3 +--
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 10 ++++++----
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  4 ++--
- drivers/net/ethernet/intel/i40e/i40e_type.h        |  1 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  6 +++---
- 9 files changed, 15 insertions(+), 15 deletions(-)
- create mode 100644 drivers/net/ethernet/intel/i40e/Module.symvers
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 3868c11..53069c0 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -386,8 +386,8 @@ static int i40e_alloc_vsi_res(struct i40e_vf *vf, enum i40e_vsi_type type)
+ 		vf->lan_vsi_index = vsi->idx;
+ 		vf->lan_vsi_id = vsi->id;
+ 		dev_info(&pf->pdev->dev,
+-			 "LAN VSI index %d, VSI id %d\n",
+-			 vsi->idx, vsi->id);
++			 "VF %d assigned LAN VSI index %d, VSI id %d\n",
++			 vf->vf_id, vsi->idx, vsi->id);
+ 		/* If the port VLAN has been configured and then the
+ 		 * VF driver was removed then the VSI port VLAN
+ 		 * configuration was destroyed.  Check if there is
 -- 
 1.8.5.GIT
