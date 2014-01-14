@@ -1,7 +1,7 @@
 From: Richard Weinberger <richard@nod.at>
-Subject: [PATCH 6/7] power,goldfish: Add dependency on HAS_IOMEM
-Date: Tue, 14 Jan 2014 16:45:44 +0100
-Message-ID: <1389714345-20165-6-git-send-email-richard@nod.at>
+Subject: [PATCH 7/7] staging,lpc32xx_adc: Add dependency on HAS_IOMEM
+Date: Tue, 14 Jan 2014 16:45:45 +0100
+Message-ID: <1389714345-20165-7-git-send-email-richard@nod.at>
 References: <1389714345-20165-1-git-send-email-richard@nod.at>
 Cc: sebastian.hesselbarth@gmail.com, florian@openwrt.org,
 	thomas.petazzoni@free-electrons.com, lars@metafoo.de,
@@ -20,25 +20,25 @@ List-Id: netdev.vger.kernel.org
 On archs like S390 or um this driver cannot build nor work.
 Make it depend on HAS_IOMEM to bypass build failures.
 
-drivers/built-in.o: In function `goldfish_battery_probe':
-drivers/power/goldfish_battery.c:181: undefined reference to `devm_ioremap'
+drivers/built-in.o: In function `lpc32xx_adc_probe':
+drivers/staging/iio/adc/lpc32xx_adc.c:149: undefined reference to `devm_ioremap'
 
 Signed-off-by: Richard Weinberger <richard@nod.at>
 ---
- drivers/power/Kconfig | 1 +
+ drivers/staging/iio/adc/Kconfig | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/drivers/power/Kconfig b/drivers/power/Kconfig
-index 85ad58c..32c6294 100644
---- a/drivers/power/Kconfig
-+++ b/drivers/power/Kconfig
-@@ -377,6 +377,7 @@ config AB8500_BM
- config BATTERY_GOLDFISH
- 	tristate "Goldfish battery driver"
- 	depends on GOLDFISH || COMPILE_TEST
+diff --git a/drivers/staging/iio/adc/Kconfig b/drivers/staging/iio/adc/Kconfig
+index 7d5d675..3633298 100644
+--- a/drivers/staging/iio/adc/Kconfig
++++ b/drivers/staging/iio/adc/Kconfig
+@@ -103,6 +103,7 @@ config AD7280
+ config LPC32XX_ADC
+ 	tristate "NXP LPC32XX ADC"
+ 	depends on ARCH_LPC32XX || COMPILE_TEST
 +	depends on HAS_IOMEM
  	help
- 	  Say Y to enable support for the battery and AC power in the
- 	  Goldfish emulator.
+ 	  Say yes here to build support for the integrated ADC inside the
+ 	  LPC32XX SoC. Note that this feature uses the same hardware as the
 -- 
 1.8.1.4
