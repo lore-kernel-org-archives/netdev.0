@@ -1,10 +1,9 @@
 From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next V4 1/3] net: Add GRO support for UDP
- encapsulating protocols
-Date: Tue, 14 Jan 2014 09:51:34 -0800
-Message-ID: <CA+mtBx_R+J3UMtdOkfQQjdBN+JMLzrbY6q3r+VaHxJEDrSzt1g@mail.gmail.com>
+Subject: Re: [PATCH net-next V4 3/3] net: Add GRO support for vxlan traffic
+Date: Tue, 14 Jan 2014 09:59:52 -0800
+Message-ID: <CA+mtBx_HSwucbA-8v9rENBATSpk+o4gUnNuyortkKRzGffjN7w@mail.gmail.com>
 References: <1389715212-14504-1-git-send-email-ogerlitz@mellanox.com>
-	<1389715212-14504-2-git-send-email-ogerlitz@mellanox.com>
+	<1389715212-14504-4-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: David Miller <davem@davemloft.net>,
@@ -16,277 +15,254 @@ Cc: David Miller <davem@davemloft.net>,
 	Shlomo Pongratz <shlomop@mellanox.com>
 To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:42304 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751566AbaANRvf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 12:51:35 -0500
-Received: by mail-ie0-f179.google.com with SMTP id tp5so803268ieb.38
-        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 09:51:34 -0800 (PST)
-In-Reply-To: <1389715212-14504-2-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:64350 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751342AbaANR7x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 12:59:53 -0500
+Received: by mail-ie0-f178.google.com with SMTP id x13so819737ief.37
+        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 09:59:53 -0800 (PST)
+In-Reply-To: <1389715212-14504-4-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Tue, Jan 14, 2014 at 8:00 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
-> Add GRO handlers for protocols that do UDP encapsulation, with the intent of
-> being able to coalesce packets which encapsulate packets belonging to
-> the same TCP session.
+> Add GRO handlers for vxlann, by using the UDP GRO infrastructure.
 >
-> For GRO purposes, the destination UDP port takes the role of the ether type
-> field in the ethernet header or the next protocol in the IP header.
+> For single TCP session that goes through vxlan tunneling I got nice
+> improvement from 6.8Gbs to 11.5Gbs
 >
-> The UDP GRO handler will only attempt to coalesce packets whose destination
-> port is registered to have gro handler.
+> --> UDP/VXLAN GRO disabled
+> $ netperf  -H 192.168.52.147 -c -C
 >
-> Use a mark on the skb GRO CB data to disallow (flush) running the udp gro receive
-> code twice on a packet. This solves the problem of udp encapsulated packets whose
-> inner VM packet is udp and happen to carry a port which has registered offloads.
+> $ netperf -t TCP_STREAM -H 192.168.52.147 -c -C
+> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.52.147 () port 0 AF_INET
+> Recv   Send    Send                          Utilization       Service Demand
+> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+> Size   Size    Size     Time     Throughput  local    remote   local   remote
+> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+>
+>  87380  65536  65536    10.00      6799.75   12.54    24.79    0.604   1.195
+>
+> --> UDP/VXLAN GRO enabled
+>
+> $ netperf -t TCP_STREAM -H 192.168.52.147 -c -C
+> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.52.147 () port 0 AF_INET
+> Recv   Send    Send                          Utilization       Service Demand
+> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+> Size   Size    Size     Time     Throughput  local    remote   local   remote
+> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+>
+>  87380  65536  65536    10.00      11562.72   24.90    20.34    0.706   0.577
 >
 > Signed-off-by: Shlomo Pongratz <shlomop@mellanox.com>
 > Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 > ---
->  include/linux/netdevice.h |   10 +++-
->  include/net/protocol.h    |    3 +
->  net/core/dev.c            |    1 +
->  net/ipv4/udp_offload.c    |  157 +++++++++++++++++++++++++++++++++++++++++++++
->  4 files changed, 170 insertions(+), 1 deletions(-)
+>  drivers/net/vxlan.c |  117 +++++++++++++++++++++++++++++++++++++++++++++++---
+>  include/net/vxlan.h |    1 +
+>  2 files changed, 111 insertions(+), 7 deletions(-)
 >
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index a2a70cc..efb942f 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1652,7 +1652,10 @@ struct napi_gro_cb {
->         unsigned long age;
->
->         /* Used in ipv6_gro_receive() */
-> -       int     proto;
-> +       u16     proto;
-> +
-> +       /* Used in udp_gro_receive */
-> +       u16     udp_mark;
->
->         /* used to support CHECKSUM_COMPLETE for tunneling protocols */
->         __wsum  csum;
-> @@ -1691,6 +1694,11 @@ struct packet_offload {
->         struct list_head         list;
->  };
->
-> +struct udp_offload {
-> +       __be16                   port;
-> +       struct offload_callbacks callbacks;
-> +};
-> +
->  /* often modified stats are per cpu, other are shared (netdev->stats) */
->  struct pcpu_sw_netstats {
->         u64     rx_packets;
-> diff --git a/include/net/protocol.h b/include/net/protocol.h
-> index 0e5f866..a7e986b 100644
-> --- a/include/net/protocol.h
-> +++ b/include/net/protocol.h
-> @@ -108,6 +108,9 @@ int inet_del_offload(const struct net_offload *prot, unsigned char num);
->  void inet_register_protosw(struct inet_protosw *p);
->  void inet_unregister_protosw(struct inet_protosw *p);
->
-> +int  udp_add_offload(struct udp_offload *prot);
-> +void udp_del_offload(struct udp_offload *prot);
-> +
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index 481f85d..27a25ce 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -40,6 +40,7 @@
+>  #include <net/net_namespace.h>
+>  #include <net/netns/generic.h>
+>  #include <net/vxlan.h>
+> +#include <net/protocol.h>
 >  #if IS_ENABLED(CONFIG_IPV6)
->  int inet6_add_protocol(const struct inet6_protocol *prot, unsigned char num);
->  int inet6_del_protocol(const struct inet6_protocol *prot, unsigned char num);
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 87312dc..aafc07a 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -3858,6 +3858,7 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
->                 NAPI_GRO_CB(skb)->same_flow = 0;
->                 NAPI_GRO_CB(skb)->flush = 0;
->                 NAPI_GRO_CB(skb)->free = 0;
-> +               NAPI_GRO_CB(skb)->udp_mark = 0;
->
->                 pp = ptype->callbacks.gro_receive(&napi->gro_list, skb);
->                 break;
-> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-> index 79c62bd..11785ac 100644
-> --- a/net/ipv4/udp_offload.c
-> +++ b/net/ipv4/udp_offload.c
-> @@ -14,6 +14,16 @@
->  #include <net/udp.h>
->  #include <net/protocol.h>
->
-> +static DEFINE_SPINLOCK(udp_offload_lock);
-> +static struct udp_offload_priv *udp_offload_base __read_mostly;
-> +
-> +struct udp_offload_priv {
-> +       struct udp_offload      *offload;
-> +       struct rcu_head         rcu;
-> +       atomic_t                refcount;
-> +       struct udp_offload_priv __rcu *next;
-> +};
-> +
->  static int udp4_ufo_send_check(struct sk_buff *skb)
->  {
->         if (!pskb_may_pull(skb, sizeof(struct udphdr)))
-> @@ -89,10 +99,157 @@ out:
->         return segs;
+>  #include <net/ipv6.h>
+>  #include <net/addrconf.h>
+> @@ -554,13 +555,106 @@ static int vxlan_fdb_append(struct vxlan_fdb *f,
+>         return 1;
 >  }
 >
-> +int udp_add_offload(struct udp_offload *uo)
+> +static struct sk_buff **vxlan_gro_receive(struct sk_buff **head, struct sk_buff *skb)
 > +{
-> +       struct udp_offload_priv **head = &udp_offload_base;
-> +       struct udp_offload_priv *new_offload = kzalloc(sizeof(*new_offload), GFP_KERNEL);
-> +
-> +       if (!new_offload)
-> +               return -ENOMEM;
-> +
-> +       new_offload->offload = uo;
-> +       atomic_set(&new_offload->refcount, 1);
-> +
-> +       spin_lock(&udp_offload_lock);
-> +       rcu_assign_pointer(new_offload->next, rcu_dereference(*head));
-> +       rcu_assign_pointer(*head, rcu_dereference(new_offload));
-> +       spin_unlock(&udp_offload_lock);
-> +
-> +       return 0;
-> +}
-> +EXPORT_SYMBOL(udp_add_offload);
-> +
-> +static void udp_offload_free_routine(struct rcu_head *head)
-> +{
-> +       struct udp_offload_priv *ou_priv = container_of(head, struct udp_offload_priv, rcu);
-> +       kfree(ou_priv);
-> +}
-> +
-> +static void udp_offload_put(struct udp_offload_priv *uo_priv)
-> +{
-> +       if (atomic_dec_and_test(&uo_priv->refcount))
-> +               call_rcu(&uo_priv->rcu, udp_offload_free_routine);
-> +}
-> +
-> +void udp_del_offload(struct udp_offload *uo)
-> +{
-> +       struct udp_offload_priv __rcu **head = &udp_offload_base;
-> +       struct udp_offload_priv *uo_priv;
-> +
-> +       spin_lock(&udp_offload_lock);
-> +
-> +       uo_priv = rcu_dereference(*head);
-> +       for (; uo_priv != NULL;
-> +               uo_priv = rcu_dereference(*head)) {
-> +
-> +               if (uo_priv->offload == uo) {
-> +                       rcu_assign_pointer(*head, rcu_dereference(uo_priv->next));
-> +                       udp_offload_put(uo_priv);
-> +                       goto unlock;
-> +               }
-> +               head = &uo_priv->next;
-> +       }
-> +       pr_warn("udp_del_offload: didn't find offload for port %d\n", htons(uo->port));
-> +unlock:
-> +       spin_unlock(&udp_offload_lock);
-> +}
-> +EXPORT_SYMBOL(udp_del_offload);
-> +
-> +static struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb)
-> +{
-> +       struct udp_offload_priv *uo_priv;
 > +       struct sk_buff *p, **pp = NULL;
-> +       struct udphdr *uh, *uh2;
-> +       unsigned int hlen, off;
+> +       struct vxlanhdr *vh, *vh2;
+> +       struct ethhdr *eh, *eh2;
+> +       unsigned int hlen, off_vx, off_eth;
+> +       const struct packet_offload *ptype;
+> +       __be16 type;
 > +       int flush = 1;
 > +
-> +       if (NAPI_GRO_CB(skb)->udp_mark ||
-> +           (!skb->encapsulation && skb->ip_summed != CHECKSUM_COMPLETE))
-> +               goto out;
-> +
-> +       /* mark that this skb passed once through the udp gro layer */
-> +       NAPI_GRO_CB(skb)->udp_mark = 1;
-> +
-> +       off  = skb_gro_offset(skb);
-> +       hlen = off + sizeof(*uh);
-> +       uh   = skb_gro_header_fast(skb, off);
+> +       off_vx = skb_gro_offset(skb);
+> +       hlen = off_vx + sizeof(*vh);
+> +       vh   = skb_gro_header_fast(skb, off_vx);
 > +       if (skb_gro_header_hard(skb, hlen)) {
-> +               uh = skb_gro_header_slow(skb, hlen, off);
-> +               if (unlikely(!uh))
+> +               vh = skb_gro_header_slow(skb, hlen, off_vx);
+> +               if (unlikely(!vh))
+> +                       goto out;
+> +       }
+> +       skb_gro_pull(skb, sizeof(struct vxlanhdr)); /* pull vxlan header */
+> +
+> +       off_eth = skb_gro_offset(skb);
+> +       hlen = off_eth + sizeof(*eh);
+> +       eh   = skb_gro_header_fast(skb, off_eth);
+> +       if (skb_gro_header_hard(skb, hlen)) {
+> +               eh = skb_gro_header_slow(skb, hlen, off_eth);
+> +               if (unlikely(!eh))
 > +                       goto out;
 > +       }
 > +
-> +       rcu_read_lock();
-> +       uo_priv = rcu_dereference(udp_offload_base);
-> +       for (; uo_priv != NULL; uo_priv = rcu_dereference(uo_priv->next)) {
-> +               if (uo_priv->offload->port == uh->dest &&
-> +                   uo_priv->offload->callbacks.gro_receive) {
-> +                       atomic_inc(&uo_priv->refcount);
-> +                       goto unflush;
-> +               }
-> +       }
-> +       rcu_read_unlock();
-> +       goto out;
-> +
-> +unflush:
-> +       rcu_read_unlock();
-> +       flush = cd
+> +       flush = 0;
 > +
 > +       for (p = *head; p; p = p->next) {
 > +               if (!NAPI_GRO_CB(p)->same_flow)
 > +                       continue;
 > +
-> +               uh2 = (struct udphdr   *)(p->data + off);
-> +               if ((*(u32 *)&uh->source != *(u32 *)&uh2->source)) {
+> +               vh2 = (struct vxlanhdr *)(p->data + off_vx);
+> +               eh2 = (struct ethhdr   *)(p->data + off_eth);
+> +               if (vh->vx_vni != vh2->vx_vni || compare_ether_header(eh, eh2)) {
 > +                       NAPI_GRO_CB(p)->same_flow = 0;
 > +                       continue;
 > +               }
+> +               goto found;
 > +       }
 > +
-> +       skb_gro_pull(skb, sizeof(struct udphdr)); /* pull encapsulating udp header */
-> +       pp = uo_priv->offload->callbacks.gro_receive(head, skb);
-> +       udp_offload_put(uo_priv);
+> +found:
+> +       type = eh->h_proto;
 > +
+> +       rcu_read_lock();
+> +       ptype = gro_find_receive_by_type(type);
+> +       if (ptype == NULL) {
+> +               flush = 1;
+> +               goto out_unlock;
+> +       }
+> +
+> +       skb_gro_pull(skb, sizeof(*eh)); /* pull inner eth header */
+> +       pp = ptype->callbacks.gro_receive(head, skb);
+> +
+> +out_unlock:
+> +       rcu_read_unlock();
 > +out:
 > +       NAPI_GRO_CB(skb)->flush |= flush;
+> +
 > +       return pp;
 > +}
 > +
-> +static int udp_gro_complete(struct sk_buff *skb, int nhoff)
+> +static int vxlan_gro_complete(struct sk_buff *skb, int nhoff)
 > +{
-> +       struct udp_offload_priv *uo_priv;
-> +       __be16 newlen = htons(skb->len - nhoff);
-> +       struct udphdr *uh = (struct udphdr *)(skb->data + nhoff);
+> +       struct ethhdr *eh;
+> +       struct packet_offload *ptype;
+> +       __be16 type;
+> +       int vxlan_len  = sizeof(struct vxlanhdr) + sizeof(struct ethhdr);
 > +       int err = -ENOSYS;
 > +
-> +       uh->len = newlen;
+> +       eh = (struct ethhdr *)(skb->data + nhoff + sizeof(struct vxlanhdr));
+> +       type = eh->h_proto;
 > +
 > +       rcu_read_lock();
-> +
-> +       uo_priv = rcu_dereference(udp_offload_base);
-> +       for (; uo_priv != NULL; uo_priv = rcu_dereference(uo_priv->next)) {
-> +               if (uo_priv->offload->port == uh->dest &&
-> +                   uo_priv->offload->callbacks.gro_complete)
-> +                       goto found;
-> +       }
+> +       ptype = gro_find_complete_by_type(type);
+> +       if (ptype != NULL)
+> +               err = ptype->callbacks.gro_complete(skb, nhoff + vxlan_len);
 > +
 > +       rcu_read_unlock();
-> +       return err;
-> +
-> +found:
-> +       atomic_inc(&uo_priv->refcount);
-
-This is an expensive operation in the critical path. Can uo_priv be
-protected by rcu also?
-
-> +       rcu_read_unlock();
-> +       err = uo_priv->offload->callbacks.gro_complete(skb, nhoff + sizeof(struct udphdr));
-> +       udp_offload_put(uo_priv);
 > +       return err;
 > +}
 > +
->  static const struct net_offload udpv4_offload = {
->         .callbacks = {
->                 .gso_send_check = udp4_ufo_send_check,
->                 .gso_segment = udp4_ufo_fragment,
-> +               .gro_receive  = udp_gro_receive,
-> +               .gro_complete = udp_gro_complete,
->         },
+>  /* Notify netdevs that UDP port started listening */
+> -static void vxlan_notify_add_rx_port(struct sock *sk)
+> +static void vxlan_notify_add_rx_port(struct vxlan_sock *vs)
+>  {
+>         struct net_device *dev;
+> +       struct sock *sk = vs->sock->sk;
+>         struct net *net = sock_net(sk);
+>         sa_family_t sa_family = sk->sk_family;
+>         __be16 port = inet_sk(sk)->inet_sport;
+> +       int err;
+> +
+> +       if (sa_family == AF_INET) {
+
+Is this necessary? What about support for AF_INET6?
+
+> +               err = udp_add_offload(&vs->udp_offloads);
+> +               if (err)
+> +                       pr_warn("vxlan: udp_add_offload failed with status %d\n", err);
+> +       }
+>
+>         rcu_read_lock();
+>         for_each_netdev_rcu(net, dev) {
+> @@ -572,9 +666,10 @@ static void vxlan_notify_add_rx_port(struct sock *sk)
+>  }
+>
+>  /* Notify netdevs that UDP port is no more listening */
+> -static void vxlan_notify_del_rx_port(struct sock *sk)
+> +static void vxlan_notify_del_rx_port(struct vxlan_sock *vs)
+>  {
+>         struct net_device *dev;
+> +       struct sock *sk = vs->sock->sk;
+>         struct net *net = sock_net(sk);
+>         sa_family_t sa_family = sk->sk_family;
+>         __be16 port = inet_sk(sk)->inet_sport;
+> @@ -586,6 +681,9 @@ static void vxlan_notify_del_rx_port(struct sock *sk)
+>                                                             port);
+>         }
+>         rcu_read_unlock();
+> +
+> +       if (sa_family == AF_INET)
+> +               udp_del_offload(&vs->udp_offloads);
+>  }
+>
+>  /* Add new entry to forwarding table -- assumes lock held */
+> @@ -964,7 +1062,7 @@ void vxlan_sock_release(struct vxlan_sock *vs)
+>         spin_lock(&vn->sock_lock);
+>         hlist_del_rcu(&vs->hlist);
+>         rcu_assign_sk_user_data(vs->sock->sk, NULL);
+> -       vxlan_notify_del_rx_port(sk);
+> +       vxlan_notify_del_rx_port(vs);
+>         spin_unlock(&vn->sock_lock);
+>
+>         queue_work(vxlan_wq, &vs->del_work);
+> @@ -1125,8 +1223,8 @@ static void vxlan_rcv(struct vxlan_sock *vs,
+>          * leave the CHECKSUM_UNNECESSARY, the device checksummed it
+>          * for us. Otherwise force the upper layers to verify it.
+>          */
+> -       if (skb->ip_summed != CHECKSUM_UNNECESSARY || !skb->encapsulation ||
+> -           !(vxlan->dev->features & NETIF_F_RXCSUM))
+> +       if ((skb->ip_summed != CHECKSUM_UNNECESSARY && skb->ip_summed != CHECKSUM_PARTIAL) ||
+> +           !skb->encapsulation || !(vxlan->dev->features & NETIF_F_RXCSUM))
+>                 skb->ip_summed = CHECKSUM_NONE;
+>
+>         skb->encapsulation = 0;
+> @@ -2304,7 +2402,7 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
+>         struct sock *sk;
+>         unsigned int h;
+>
+> -       vs = kmalloc(sizeof(*vs), GFP_KERNEL);
+> +       vs = kzalloc(sizeof(*vs), GFP_KERNEL);
+>         if (!vs)
+>                 return ERR_PTR(-ENOMEM);
+>
+> @@ -2329,9 +2427,14 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
+>         vs->data = data;
+>         rcu_assign_sk_user_data(vs->sock->sk, vs);
+>
+> +       /* Initialize the vxlan udp offloads structure */
+> +       vs->udp_offloads.port = port;
+> +       vs->udp_offloads.callbacks.gro_receive  = vxlan_gro_receive;
+> +       vs->udp_offloads.callbacks.gro_complete = vxlan_gro_complete;
+> +
+>         spin_lock(&vn->sock_lock);
+>         hlist_add_head_rcu(&vs->hlist, vs_head(net, port));
+> -       vxlan_notify_add_rx_port(sk);
+> +       vxlan_notify_add_rx_port(vs);
+>         spin_unlock(&vn->sock_lock);
+>
+>         /* Mark socket as an encapsulation socket. */
+> diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+> index 6b6d180..5deef1a 100644
+> --- a/include/net/vxlan.h
+> +++ b/include/net/vxlan.h
+> @@ -21,6 +21,7 @@ struct vxlan_sock {
+>         struct rcu_head   rcu;
+>         struct hlist_head vni_list[VNI_HASH_SIZE];
+>         atomic_t          refcnt;
+> +       struct udp_offload udp_offloads;
 >  };
 >
+>  struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
 > --
 > 1.7.1
 >
