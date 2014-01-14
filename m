@@ -1,44 +1,34 @@
-From: Borislav Petkov <bp@alien8.de>
-Subject: Re: [PATCH RFC] reciprocal_divide: correction/update of the algorithm
-Date: Wed, 15 Jan 2014 00:25:38 +0100
-Message-ID: <20140114232538.GD29887@pd.tnic>
-References: <20140113214249.GK6586@order.stressinduktion.org>
- <1389722825.31367.260.camel@edumazet-glaptop2.roam.corp.google.com>
- <52D58E6F.4050000@gmail.com>
- <1389729032.31367.262.camel@edumazet-glaptop2.roam.corp.google.com>
- <52D5A3DC.9030107@gmail.com>
- <1389739537.31367.273.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Xen-devel][PATCH net-next] xen-netfront: clean up code in
+ xennet_release_rx_bufs
+Date: Tue, 14 Jan 2014 15:28:25 -0800 (PST)
+Message-ID: <20140114.152825.2110618560908841742.davem@davemloft.net>
+References: <1389307718-2845-1-git-send-email-Annie.li@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Austin S Hemmelgarn <ahferroin7@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org, dborkman@redhat.com,
-	linux-kernel@vger.kernel.org, darkjames-ws@darkjames.pl
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1389739537.31367.273.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	konrad.wilk@oracle.com, ian.campbell@citrix.com,
+	wei.liu2@citrix.com
+To: Annie.li@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53383 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751499AbaANX21 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 18:28:27 -0500
+In-Reply-To: <1389307718-2845-1-git-send-email-Annie.li@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 14, 2014 at 02:45:37PM -0800, Eric Dumazet wrote:
-> Even on a Jaguar, the proposed alternative
+From: Annie Li <Annie.li@oracle.com>
+Date: Fri, 10 Jan 2014 06:48:38 +0800
 
-I don't know what Jaguar you guys are talking about but the Jaguar
-I know - Fam16h - has an int hardware divider:
+> Current netfront only grants pages for grant copy, not for grant transfer, so
+> remove corresponding transfer code and add receiving copy code in
+> xennet_release_rx_bufs.
+> 
+> Signed-off-by: Annie Li <Annie.li@oracle.com>
 
-http://developer.amd.com/wordpress/media/2012/10/SOG_16h_52128_PUB_Rev1_1.pdf
+If a Xen networking driver would review this I'd appreciate it.
 
-So all that talk about microcode is plain wrong. The hardware divider
-comes from Llano (F12h) so it must be some other Jaguar, maybe Bobcat.
-
-:-)
-
-If it is Bobcat, then it has a 1-bit per cycle ucode int divider.
-
--- 
-Regards/Gruss,
-    Boris.
-
-Sent from a fat crate under my desk. Formatting is fine.
---
+Thanks.
