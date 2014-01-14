@@ -1,46 +1,83 @@
-From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 6/6] i40e: Bump version number
-Date: Tue, 14 Jan 2014 00:49:54 -0800
-Message-ID: <1389689394-22369-7-git-send-email-aaron.f.brown@intel.com>
-References: <1389689394-22369-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Aaron Brown <aaron.f.brown@intel.com>
-To: davem@davemloft.net
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next v2 1/2] bonding: move the netdev_add_tso_features()
+ to bonding module
+Date: Tue, 14 Jan 2014 17:00:16 +0800
+Message-ID: <52D4FCA0.7090909@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:37134 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751601AbaANItv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jan 2014 03:49:51 -0500
-In-Reply-To: <1389689394-22369-1-git-send-email-aaron.f.brown@intel.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:4378 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750731AbaANJBG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 04:01:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
+The function netdev_add_tso_features() was only be used for bonding,
+so no need to export it in netdevice.h, move it to bonding module.
 
-Update the driver version to 0.3.30-k.
-
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/bonding/bond_main.c | 12 +++++++++++-
+ include/linux/netdevice.h       | 10 ----------
+ 2 files changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 6a5d4ca..62418ee 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -38,7 +38,7 @@ static const char i40e_driver_string[] =
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index e06c445..4cfe14e 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1045,6 +1045,16 @@ static void bond_netpoll_cleanup(struct net_device *bond_dev)
  
- #define DRV_VERSION_MAJOR 0
- #define DRV_VERSION_MINOR 3
--#define DRV_VERSION_BUILD 28
-+#define DRV_VERSION_BUILD 30
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+ /*---------------------------------- IOCTL ----------------------------------*/
+ 
++/* Allow TSO being used on stacked device:
++ * Performing the GSO segmentation before last device
++ * is a performance improvement.
++ */
++static netdev_features_t bond_add_tso_features(netdev_features_t features,
++					       netdev_features_t mask)
++{
++	return netdev_increment_features(features, NETIF_F_ALL_TSO, mask);
++}
++
+ static netdev_features_t bond_fix_features(struct net_device *dev,
+ 					   netdev_features_t features)
+ {
+@@ -1068,7 +1078,7 @@ static netdev_features_t bond_fix_features(struct net_device *dev,
+ 						     slave->dev->features,
+ 						     mask);
+ 	}
+-	features = netdev_add_tso_features(features, mask);
++	features = bond_add_tso_features(features, mask);
+ 
+ 	return features;
+ }
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index a2a70cc..1be74ea 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3010,16 +3010,6 @@ static inline netdev_features_t netdev_get_wanted_features(
+ netdev_features_t netdev_increment_features(netdev_features_t all,
+ 	netdev_features_t one, netdev_features_t mask);
+ 
+-/* Allow TSO being used on stacked device :
+- * Performing the GSO segmentation before last device
+- * is a performance improvement.
+- */
+-static inline netdev_features_t netdev_add_tso_features(netdev_features_t features,
+-							netdev_features_t mask)
+-{
+-	return netdev_increment_features(features, NETIF_F_ALL_TSO, mask);
+-}
+-
+ int __netdev_update_features(struct net_device *dev);
+ void netdev_update_features(struct net_device *dev);
+ void netdev_change_features(struct net_device *dev);
 -- 
-1.8.5.GIT
+1.8.0
