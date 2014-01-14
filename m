@@ -1,54 +1,35 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] usbnet: Fix dma setup for fragmented packets that need
- a pad byte appended.
-Date: Tue, 14 Jan 2014 14:48:23 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D45B492@AcuExch.aculab.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D45B28F@AcuExch.aculab.com>
- <1389710518.31367.259.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>
+From: frank.blaschka@de.ibm.com
+Subject: [patch 0/3] s390: network patches for net-next
+Date: Tue, 14 Jan 2014 15:54:10 +0100
+Message-ID: <20140114145410.453840919@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:45013 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751531AbaANOua (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jan 2014 09:50:30 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 20982-08 for <netdev@vger.kernel.org>;
- Tue, 14 Jan 2014 14:50:27 +0000 (GMT)
-In-Reply-To: <1389710518.31367.259.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from e06smtp10.uk.ibm.com ([195.75.94.106]:37978 "EHLO
+	e06smtp10.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751435AbaANOzN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 09:55:13 -0500
+Received: from /spool/local
+	by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
+	Tue, 14 Jan 2014 14:55:11 -0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0IA0KPiBPbiBUdWUsIDIwMTQtMDEtMTQgYXQgMTE6MTYgKzAwMDAs
-IERhdmlkIExhaWdodCB3cm90ZToNCj4gPiBJZiB0aGUgdXNibmV0IGNvZGUgYXBwZW5kcyBhIGJ5
-dGUgdG8gYSBmcmFnbWVudGVkIHBhY2tldCAoaW4gb3JkZXIgdG8gYXZvaWQNCj4gPiBzZW5kaW5n
-IGEgYnVsayBkYXRhIG1lc3NhZ2UgdGhhdCBpcyBhIG11bHRpcGxlIG9mIHRoZSBVU0IgbWVzc2Fn
-ZSBzaXplKSB0aGVuDQo+ID4gdGhlIHNjYXR0ZXItZ2F0aGVyIGxpc3QgaXNuJ3QgaW5pdGlhbGlz
-ZWQgY29ycmVjdGx5Lg0KPiA+IFRoaXMgY2F1c2VzIGEgbGF0ZXIgcGFuaWMgaW4gdXNiX2hjZF9t
-YXBfdXJiX2Zvcl9kbWEoKS4NCj4gPiBCYXNpY2FsbHkgd2hlbiB0aGUgY29kZSB0cmllcyB0byBh
-Y2Nlc3MgdGhlIGZpbmFsIHNnIGZyYWdtZW50IHRoZSBzZyBmdW5jdGlvbg0KPiA+IHJldHVybnMg
-TlVMTCBiZWNhdXNlIHRoZSAnZW5kIG9mIHNnIGxpc3QnIG1hcmtldCBpcyBzZXQgaW4gdGhlIHBy
-ZXZpb3VzIG9uZS4NCj4gPg0KPiA+IEJ1ZyBpbnRyb2R1Y2VkIGluIGNvbW1pdCA2MGU0NTNhOTQw
-YWM2Nzg1NjViNjY0MWQ2NWY4YzE4NTQxYmI5ZjI4DQo+ID4gKFVTQk5FVDogZml4IGhhbmRsaW5n
-IHBhZGRpbmcgcGFja2V0KSBhbmQgbmVlZHMgYXBwbHlpbmcgdG8gYWxsDQo+ID4ga2VybmVscyB0
-aGF0IGNvbnRhaW4gdGhpcyBjaGFuZ2UgKGluY2x1ZGluZyAzLjEyKS4NCj4gPg0KPiA+IEZpeCBm
-cm9tIEJqb3JuIE1vcmsuDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBEYXZpZCBMYWlnaHQgPGRh
-dmlkLmxhaWdodEBhY3VsYWIuY29tPg0KPiA+IC0tLQ0KPiA+DQo+ID4gSSB0aGluayBpdCBpcyBv
-ayB0aGF0IHRoZSBzZyB0YWJsZSdzIGxhc3QgZWxlbWVudCBpcyBuZXZlciBhc3NpZ25lZCB0byB3
-aGVuDQo+ID4gdGhlIHBhY2tldCBpc24ndCBwYWRkZWQuDQo+IA0KPiBPcmlnaW5hbCBwYXRjaCBj
-b250YWluZWQgOg0KPiANCj4gRml4ZXM6IDYwZTQ1M2E5NDBhYyAoIlVTQk5FVDogZml4IGhhbmRs
-aW5nIHBhZGRpbmcgcGFja2V0IikNCj4gUmVwb3J0ZWQtYnk6IFRob21hcyBLZWFyIDx0aG9tYXNA
-a2Vhci5jby5uej4NCj4gQ2M6IE1pbmcgTGVpIDxtaW5nLmxlaUBjYW5vbmljYWwuY29tPg0KPiBT
-aWduZWQtb2ZmLWJ5OiBCasO4cm4gTW9yayA8Ympvcm5AbW9yay5ubz4NCj4gDQo+IFdoeSBkaWQg
-eW91IHJlbW92ZSB0aGlzIGFuZCB0b29rIG93bmVyc2hpcCBvZiB0aGlzIHBhdGNoID8NCg0KSSBj
-b3VsZG4ndCBmaW5kIHRoZSBvcmlnaW5hbCBwYXRjaCBhbnl3aGVyZSENCkkgZGlkIGRvIHF1aXRl
-IGEgbG90IG9mIGxvb2tpbmcgYXMgd2VsbCAtIGlmIEknZCBmb3VuZCBpdCBJJ3ZlDQpoYXZlIGRv
-bmUgc29tZXRoaW5nIGVsc2UuDQoNCkluIGFueSBjYXNlIHRoZSBpbnRlbnQgd2FzIGp1c3QgdG8g
-Z2V0IHRoZSBwYXRjaCBpbnRvIDYuMTMgYW5kIHN0YWJsZQ0KKGZvciA2LjEyKS4NCkkgZG9uJ3Qg
-Y2FyZSB3aGljaCB2ZXJzaW9uIHlvdSBhcHBseS4NCg0KQWRkIGEgJ1Jldmlld2VkIGJ5JyBmb3Ig
-bWUgaWYgeW91IHdhbnQuDQoNCglEYXZpZA0KDQo=
+Hi Dave,
+
+here are some s390 related patches for net-next
+
+shortlog:
+
+Eugene Crosser (3)
+qeth: bridgeport support - basic control
+
+390/qdio: bridgeport support - CHSC part
+  Since this patch touches CIO and qdio it will come in again with
+  the s390 tree from Martin Schwidefsky.
+
+qeth: bridgeport support - address notifications
+
+Thanks,
+        Frank
