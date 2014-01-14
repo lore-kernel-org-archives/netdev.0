@@ -1,39 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] Improve tracing at the driver/core
- boundary
-Date: Tue, 14 Jan 2014 14:47:23 -0800 (PST)
-Message-ID: <20140114.144723.957109797286173047.davem@davemloft.net>
-References: <1389392139.2025.123.camel@bwh-desktop.uk.level5networks.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] net_sched: act: fix a bug in tcf_register_action()
+Date: Tue, 14 Jan 2014 14:48:14 -0800
+Message-ID: <1389739694-9251-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52903 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751065AbaANWrY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 17:47:24 -0500
-In-Reply-To: <1389392139.2025.123.camel@bwh-desktop.uk.level5networks.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:62857 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751722AbaANWsV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 17:48:21 -0500
+Received: by mail-pa0-f43.google.com with SMTP id rd3so277229pab.2
+        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 14:48:21 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 10 Jan 2014 22:15:39 +0000
+In tcf_register_action() we check ->type and ->kind to see if there
+is an existing action registered, but ipt action registers two
+actions with same type but different kinds. This should be a valid
+case, otherwise only xt can be registered.
 
-> These patches add static tracpeoints at the driver/core boundary which
-> record various skb fields likely to be useful for datapath debugging.
-> On the TX side the boundary is where the core calls ndo_start_xmit, and
-> on the RX side it is where any of the various exported receive functions
-> is called.
-> 
-> The set of skb fields is mostly based on what I thought would be
-> interesting for sfc.
-> 
-> These patches are basically the same as what I sent as an RFC in
-> November, but rebased.  They now depend on 'net: core: explicitly select
-> a txq before doing l2 forwarding', so please merge net into net-next
-> before trying to apply them.  The first patch fixes a code formatting
-> error left behind after that fix.
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-This looks great, series applied, thanks Ben.
+---
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 35f89e9..2070ee3 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -273,7 +273,7 @@ int tcf_register_action(struct tc_action_ops *act)
+ 
+ 	write_lock(&act_mod_lock);
+ 	list_for_each_entry(a, &act_base, head) {
+-		if (act->type == a->type || (strcmp(act->kind, a->kind) == 0)) {
++		if (act->type == a->type && (strcmp(act->kind, a->kind) == 0)) {
+ 			write_unlock(&act_mod_lock);
+ 			return -EEXIST;
+ 		}
