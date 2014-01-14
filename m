@@ -1,84 +1,300 @@
-From: =?windows-1252?Q?Jan_Kalu=9Ea?= <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v4 0/3] Send audit/procinfo/cgroup data in socket-level
-	control message
-Date: Tue, 14 Jan 2014 09:25:21 +0100
-Message-ID: <52D4F471.7020600@redhat.com>
-References: <1377614400-27122-1-git-send-email-jkaluza@redhat.com>
-	<1389600109-30739-1-git-send-email-jkaluza@redhat.com>
-	<52D44206.2000906@schaufler-ca.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next] tun/macvtap: limit the packets queued through
+ rcvbuf
+Date: Tue, 14 Jan 2014 10:25:16 +0200
+Message-ID: <20140114082516.GB1101@redhat.com>
+References: <1389682387-28601-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <52D44206.2000906-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Vlad Yasevich <vyasevic@redhat.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:62597 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750880AbaANIZ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jan 2014 03:25:29 -0500
+Content-Disposition: inline
+In-Reply-To: <1389682387-28601-1-git-send-email-jasowang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/13/2014 08:44 PM, Casey Schaufler wrote:
-> On 1/13/2014 12:01 AM, Jan Kaluza wrote:
->> Hi,
->>
->> this patchset against net-next (applies also to linux-next) adds 3 new types
->> of "Socket"-level control message (SCM_AUDIT, SCM_PROCINFO and SCM_CGROUP).
->
-> How about the group list, while you're at it?
+On Tue, Jan 14, 2014 at 02:53:07PM +0800, Jason Wang wrote:
+> We used to limit the number of packets queued through tx_queue_length. This
+> has several issues:
+> 
+> - tx_queue_length is the control of qdisc queue length, simply reusing it
+>   to control the packets queued by device may cause confusion.
+> - After commit 6acf54f1cf0a6747bac9fea26f34cfc5a9029523 ("macvtap: Add
+>   support of packet capture on macvtap device."), an unexpected qdisc
+>   caused by non-zero tx_queue_length will lead qdisc lock contention for
+>   multiqueue deivce.
+> - What we really want is to limit the total amount of memory occupied not
+>   the number of packets.
+> 
+> So this patch tries to solve the above issues by using socket rcvbuf to
+> limit the packets could be queued for tun/macvtap. This was done by using
+> sock_queue_rcv_skb() instead of a direct call to skb_queue_tail(). Also two
+> new ioctl() were introduced for userspace to change the rcvbuf like what we
+> have done for sndbuf.
+> 
+> With this fix, we can safely change the tx_queue_len of macvtap to
+> zero. This will make multiqueue works without extra lock contention.
+> 
+> Cc: Vlad Yasevich <vyasevic@redhat.com>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: John Fastabend <john.r.fastabend@intel.com>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-That would be of course possible, but I would rather start with these 
-three patches at the beginning before adding more features, because I'm 
-not sure if there is consensus on accepting them. But I have no problem 
-with introducing group list later.
+No, I don't think we can change userspace-visible behaviour like that.
 
->>
->> Server-like processes in many cases need credentials and other
->> metadata of the peer, to decide if the calling process is allowed to
->> request a specific action, or the server just wants to log away this
->> type of information for auditing tasks.
->>
->> The current practice to retrieve such process metadata is to look that
->> information up in procfs with the $PID received over SCM_CREDENTIALS.
->> This is sufficient for long-running tasks, but introduces a race which
->> cannot be worked around for short-living processes; the calling
->> process and all the information in /proc/$PID/ is gone before the
->> receiver of the socket message can look it up.
->>
->> Changes introduced in this patchset can also increase performance
->> of such server-like processes, because current way of opening and
->> parsing /proc/$PID/* files is much more expensive than receiving these
->> metadata using SCM.
->>
->> Changes in v4:
->> - Rebased to work with the latest net-next tree
->>
->> Changes in v3:
->> - Better description of patches (Thanks to Kay Sievers)
->>
->> Changes in v2:
->> - use PATH_MAX instead of PAGE_SIZE in SCM_CGROUP patch
->> - describe each patch individually
->>
->> Jan Kaluza (3):
->>    Send loginuid and sessionid in SCM_AUDIT
->>    Send comm and cmdline in SCM_PROCINFO
->>    Send cgroup_path in SCM_CGROUP
->>
->>   include/linux/socket.h |  9 ++++++
->>   include/net/af_unix.h  | 10 ++++++
->>   include/net/scm.h      | 67 ++++++++++++++++++++++++++++++++++++++--
->>   net/core/scm.c         | 83 ++++++++++++++++++++++++++++++++++++++++++++++++++
->>   net/unix/af_unix.c     | 70 ++++++++++++++++++++++++++++++++++++++++++
->>   5 files changed, 237 insertions(+), 2 deletions(-)
->>
->
+This will break any existing user that tries to control
+queue length through sysfs,netlink or device ioctl.
+
+Take a look at my patch in msg ID 20140109071721.GD19559@redhat.com
+which gives one way to set tx_queue_len to zero without
+breaking userspace.
+
+
+
+> ---
+>  drivers/net/macvtap.c       | 31 ++++++++++++++++++++---------
+>  drivers/net/tun.c           | 48 +++++++++++++++++++++++++++++++++------------
+>  include/uapi/linux/if_tun.h |  3 +++
+>  3 files changed, 60 insertions(+), 22 deletions(-)
+> 
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index a2c3a89..c429c56 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -292,9 +292,6 @@ static rx_handler_result_t macvtap_handle_frame(struct sk_buff **pskb)
+>  	if (!q)
+>  		return RX_HANDLER_PASS;
+>  
+> -	if (skb_queue_len(&q->sk.sk_receive_queue) >= dev->tx_queue_len)
+> -		goto drop;
+> -
+>  	skb_push(skb, ETH_HLEN);
+>  
+>  	/* Apply the forward feature mask so that we perform segmentation
+> @@ -310,8 +307,10 @@ static rx_handler_result_t macvtap_handle_frame(struct sk_buff **pskb)
+>  			goto drop;
+>  
+>  		if (!segs) {
+> -			skb_queue_tail(&q->sk.sk_receive_queue, skb);
+> -			goto wake_up;
+> +			if (sock_queue_rcv_skb(&q->sk, skb))
+> +				goto drop;
+> +			else
+> +				goto wake_up;
+>  		}
+>  
+>  		kfree_skb(skb);
+> @@ -319,11 +318,17 @@ static rx_handler_result_t macvtap_handle_frame(struct sk_buff **pskb)
+>  			struct sk_buff *nskb = segs->next;
+>  
+>  			segs->next = NULL;
+> -			skb_queue_tail(&q->sk.sk_receive_queue, segs);
+> +			if (sock_queue_rcv_skb(&q->sk, segs)) {
+> +				skb = segs;
+> +				skb->next = nskb;
+> +				goto drop;
+> +			}
+> +
+>  			segs = nskb;
+>  		}
+>  	} else {
+> -		skb_queue_tail(&q->sk.sk_receive_queue, skb);
+> +		if (sock_queue_rcv_skb(&q->sk, skb))
+> +			goto drop;
+>  	}
+>  
+>  wake_up:
+> @@ -333,7 +338,7 @@ wake_up:
+>  drop:
+>  	/* Count errors/drops only here, thus don't care about args. */
+>  	macvlan_count_rx(vlan, 0, 0, 0);
+> -	kfree_skb(skb);
+> +	kfree_skb_list(skb);
+>  	return RX_HANDLER_CONSUMED;
+>  }
+>  
+> @@ -414,7 +419,7 @@ static void macvtap_dellink(struct net_device *dev,
+>  static void macvtap_setup(struct net_device *dev)
+>  {
+>  	macvlan_common_setup(dev);
+> -	dev->tx_queue_len = TUN_READQ_SIZE;
+> +	dev->tx_queue_len = 0;
+>  }
+>  
+>  static struct rtnl_link_ops macvtap_link_ops __read_mostly = {
+> @@ -469,6 +474,7 @@ static int macvtap_open(struct inode *inode, struct file *file)
+>  	sock_init_data(&q->sock, &q->sk);
+>  	q->sk.sk_write_space = macvtap_sock_write_space;
+>  	q->sk.sk_destruct = macvtap_sock_destruct;
+> +	q->sk.sk_rcvbuf = TUN_RCVBUF;
+>  	q->flags = IFF_VNET_HDR | IFF_NO_PI | IFF_TAP;
+>  	q->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
+>  
+> @@ -1040,6 +1046,13 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+>  		q->sk.sk_sndbuf = u;
+>  		return 0;
+>  
+> +	case TUNSETRCVBUF:
+> +		if (get_user(u, up))
+> +			return -EFAULT;
+> +
+> +		q->sk.sk_rcvbuf = u;
+> +		return 0;
+> +
+>  	case TUNGETVNETHDRSZ:
+>  		s = q->vnet_hdr_sz;
+>  		if (put_user(s, sp))
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 09f6662..7a08fa3 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -177,6 +177,7 @@ struct tun_struct {
+>  
+>  	int			vnet_hdr_sz;
+>  	int			sndbuf;
+> +	int			rcvbuf;
+>  	struct tap_filter	txflt;
+>  	struct sock_fprog	fprog;
+>  	/* protected by rtnl lock */
+> @@ -771,17 +772,6 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	if (!check_filter(&tun->txflt, skb))
+>  		goto drop;
+>  
+> -	if (tfile->socket.sk->sk_filter &&
+> -	    sk_filter(tfile->socket.sk, skb))
+> -		goto drop;
+> -
+> -	/* Limit the number of packets queued by dividing txq length with the
+> -	 * number of queues.
+> -	 */
+> -	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue)
+> -			  >= dev->tx_queue_len / tun->numqueues)
+> -		goto drop;
+> -
+>  	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
+>  		goto drop;
+>  
+> @@ -798,7 +788,8 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	nf_reset(skb);
+>  
+>  	/* Enqueue packet */
+> -	skb_queue_tail(&tfile->socket.sk->sk_receive_queue, skb);
+> +	if (sock_queue_rcv_skb(tfile->socket.sk, skb))
+> +		goto drop;
+>  
+>  	/* Notify and wake up reader process */
+>  	if (tfile->flags & TUN_FASYNC)
+> @@ -1668,6 +1659,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>  
+>  		tun->filter_attached = false;
+>  		tun->sndbuf = tfile->socket.sk->sk_sndbuf;
+> +		tun->rcvbuf = tfile->socket.sk->sk_rcvbuf;
+>  
+>  		spin_lock_init(&tun->lock);
+>  
+> @@ -1837,6 +1829,17 @@ static void tun_set_sndbuf(struct tun_struct *tun)
+>  	}
+>  }
+>  
+> +static void tun_set_rcvbuf(struct tun_struct *tun)
+> +{
+> +	struct tun_file *tfile;
+> +	int i;
+> +
+> +	for (i = 0; i < tun->numqueues; i++) {
+> +		tfile = rtnl_dereference(tun->tfiles[i]);
+> +		tfile->socket.sk->sk_sndbuf = tun->sndbuf;
+> +	}
+> +}
+> +
+>  static int tun_set_queue(struct file *file, struct ifreq *ifr)
+>  {
+>  	struct tun_file *tfile = file->private_data;
+> @@ -1878,7 +1881,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+>  	struct ifreq ifr;
+>  	kuid_t owner;
+>  	kgid_t group;
+> -	int sndbuf;
+> +	int sndbuf, rcvbuf;
+>  	int vnet_hdr_sz;
+>  	unsigned int ifindex;
+>  	int ret;
+> @@ -2061,6 +2064,22 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+>  		tun_set_sndbuf(tun);
+>  		break;
+>  
+> +	case TUNGETRCVBUF:
+> +		rcvbuf = tfile->socket.sk->sk_rcvbuf;
+> +		if (copy_to_user(argp, &rcvbuf, sizeof(rcvbuf)))
+> +			ret = -EFAULT;
+> +		break;
+> +
+> +	case TUNSETRCVBUF:
+> +		if (copy_from_user(&rcvbuf, argp, sizeof(rcvbuf))) {
+> +			ret = -EFAULT;
+> +			break;
+> +		}
+> +
+> +		tun->rcvbuf = rcvbuf;
+> +		tun_set_rcvbuf(tun);
+> +		break;
+> +
+>  	case TUNGETVNETHDRSZ:
+>  		vnet_hdr_sz = tun->vnet_hdr_sz;
+>  		if (copy_to_user(argp, &vnet_hdr_sz, sizeof(vnet_hdr_sz)))
+> @@ -2139,6 +2158,8 @@ static long tun_chr_compat_ioctl(struct file *file,
+>  	case TUNSETTXFILTER:
+>  	case TUNGETSNDBUF:
+>  	case TUNSETSNDBUF:
+> +	case TUNGETRCVBUF:
+> +	case TUNSETRCVBUF:
+>  	case SIOCGIFHWADDR:
+>  	case SIOCSIFHWADDR:
+>  		arg = (unsigned long)compat_ptr(arg);
+> @@ -2204,6 +2225,7 @@ static int tun_chr_open(struct inode *inode, struct file * file)
+>  
+>  	tfile->sk.sk_write_space = tun_sock_write_space;
+>  	tfile->sk.sk_sndbuf = INT_MAX;
+> +	tfile->sk.sk_rcvbuf = TUN_RCVBUF;
+>  
+>  	file->private_data = tfile;
+>  	set_bit(SOCK_EXTERNALLY_ALLOCATED, &tfile->socket.flags);
+> diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
+> index e9502dd..8e04657 100644
+> --- a/include/uapi/linux/if_tun.h
+> +++ b/include/uapi/linux/if_tun.h
+> @@ -22,6 +22,7 @@
+>  
+>  /* Read queue size */
+>  #define TUN_READQ_SIZE	500
+> +#define TUN_RCVBUF	(512 * PAGE_SIZE)
+>  
+>  /* TUN device flags */
+>  #define TUN_TUN_DEV 	0x0001	
+
+That's about 16x less than we were able to queue previously
+by default.
+How can you be sure this won't break any applications?
+
+> @@ -58,6 +59,8 @@
+>  #define TUNSETQUEUE  _IOW('T', 217, int)
+>  #define TUNSETIFINDEX	_IOW('T', 218, unsigned int)
+>  #define TUNGETFILTER _IOR('T', 219, struct sock_fprog)
+> +#define TUNGETRCVBUF   _IOR('T', 220, int)
+> +#define TUNSETRCVBUF   _IOW('T', 221, int)
+>  
+>  /* TUNSETIFF ifr flags */
+>  #define IFF_TUN		0x0001
+> -- 
+> 1.8.3.2
