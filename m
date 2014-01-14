@@ -1,69 +1,111 @@
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Subject: Re: [PATCH 2/2] net/mlx4_core: clean up srq_res_start_move_to()
-Date: Tue, 14 Jan 2014 08:40:50 +0200
-Message-ID: <20140114084050.70a612af@jpm-OptiPlex-GX620>
-References: <1389099734.15032.20.camel@x41>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next 1/3] bonding: update the primary slave when
+ slave's name changed
+Date: Tue, 14 Jan 2014 07:38:47 +0100
+Message-ID: <20140114063847.GB7798@redhat.com>
+References: <52D4A2C8.3000908@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Paul Bolle <pebolle@tiscali.nl>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f182.google.com ([209.85.215.182]:39789 "EHLO
-	mail-ea0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751310AbaANGk6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 01:40:58 -0500
-Received: by mail-ea0-f182.google.com with SMTP id a15so3710450eae.41
-        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 22:40:57 -0800 (PST)
-In-Reply-To: <1389099734.15032.20.camel@x41>
+Received: from mx1.redhat.com ([209.132.183.28]:1229 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750777AbaANGlw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jan 2014 01:41:52 -0500
+Content-Disposition: inline
+In-Reply-To: <52D4A2C8.3000908@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 07 Jan 2014 14:02:14 +0100
-Paul Bolle <pebolle@tiscali.nl> wrote:
+On Tue, Jan 14, 2014 at 10:36:56AM +0800, Ding Tianhong wrote:
+>If the slave's name changed, and the bond params primary is exist,
+>the bond should deal with the situation in two ways:
+>
+>1) If the slave is the primary slave yet, clean the primary slave
+>   and reselect active slave.
+>2) If the slave's new name is as same as bond primary, set the slave
+>   as primary slave and reselect active slave.
+>
+>Thanks for Veaceslav's suggestion.
+>
+>Suggested-by: Veaceslav Falico <vfalico@redhat.com>
 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-> b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c index
-> a41f01e..8ace450 100644 ---
-> a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c +++
-> b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c @@ -1372,7
-> +1372,7 @@ static int cq_res_start_move_to(struct mlx4_dev *dev, int
-> slave, int cqn, } 
->  static int srq_res_start_move_to(struct mlx4_dev *dev, int slave,
-> int index,
-> -				 enum res_cq_states state, struct res_srq **srq)
-> +				 enum res_srq_states state, struct res_srq **srq) {
+As in my previous email - please, don't use my name until I say so.
 
-ACK
+I'll add my signed-off-by to any patch that I've worked enough on.
 
+>Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>---
+> drivers/net/bonding/bond_main.c | 30 ++++++++++++++++++++++++++++--
+> 1 file changed, 28 insertions(+), 2 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index e06c445..63d6533 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -2860,9 +2860,35 @@ static int bond_slave_netdev_event(unsigned long event,
+> 		 */
+> 		break;
+> 	case NETDEV_CHANGENAME:
+>-		/*
+>-		 * TODO: handle changing the primary's name
+>+		/* Handle changing the slave's name:
+>+		 * 1) If the slave is primary save yet,
+>+		 * clean the primary slave and reselect
+>+		 * active slave.
 
-> +		/* state == RES_SRQ_HW */
-> +		if (r->com.state != RES_SRQ_ALLOCATED)
+I usually don't mind bad english (as I myself am speaking quite horrible
+one), but I can't really understand what you've meant here. And given that
+it's a comment in code - please, proof-read it first.
 
-if (state != RES_SRQ_HW || r->com.state != RES_SRQ_ALLOCATED)
+>+		 * 2) If the slave's new name is bond
+>+		 * primary, set the slave as primary
+>+		 * slave and reselect active slave.
+> 		 */
+>+		if (USES_PRIMARY(bond->params.mode) &&
+>+		    bond->params.primary[0]) {
 
->  			err = -EINVAL;
-> -		}
-> +	}
->  
-> -		if (!err) {
-> -			r->com.from_state = r->com.state;
-> -			r->com.to_state = state;
-> -			r->com.state = RES_SRQ_BUSY;
-> -			if (srq)
-> -				*srq = r;
-> -		}
-> +	if (!err) {
-> +		r->com.from_state = r->com.state;
-> +		r->com.to_state = state;
-> +		r->com.state = RES_SRQ_BUSY;
-	please leave in the if (srq). Not currently needed, but if this
-	changes in the future, we will get an Oops.
-> +		*srq = r;
->  	}
->  
->  	spin_unlock_irq(mlx4_tlock(dev));
+Too many indentions. Verify if we're not using primary or primary string
+name is null and break, otherwise go further.
+
+>+			if (bond->primary_slave &&
+>+			    slave == bond->primary_slave) {
+
+Useless verification, slave can't be NULL.
+
+>+				pr_info("%s: Setting primary slave to None.\n",
+>+					bond->dev->name);
+>+				bond->primary_slave = NULL;
+>+				write_lock_bh(&bond->curr_slave_lock);
+>+				bond_select_active_slave(bond);
+
+Get bond_select_active_slave() out of if()s, you use it twice here.
+
+>+				write_unlock_bh(&bond->curr_slave_lock);
+>+			} else if (!bond->primary_slave &&
+
+Useless verification, if the name of a slave changed to our params.primary
+- then it means that bond->primary_slave was NULL, as it can only be
+not-null when we have a matching interface, and that would mean that we
+have two interfaces with the same name.
+
+>+				   !strcmp(bond->params.primary,
+>+					  slave_dev->name)) {
+>+				pr_info("%s: Setting %s as primary slave.\n",
+>+					bond->dev->name, slave_dev->name);
+>+				bond->primary_slave = slave;
+>+				write_lock_bh(&bond->curr_slave_lock);
+>+				bond_select_active_slave(bond);
+>+				write_unlock_bh(&bond->curr_slave_lock);
+>+			}
+>+		}
+> 		break;
+> 	case NETDEV_FEAT_CHANGE:
+> 		bond_compute_features(bond);
+>-- 
+>1.8.0
+>
+>
