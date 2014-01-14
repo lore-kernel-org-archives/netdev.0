@@ -1,73 +1,70 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next v2] openvswitch: Pad OVS_PACKET_ATTR_PACKET if
- linear copy was performed
-Date: Tue, 14 Jan 2014 16:27:49 +0000
-Message-ID: <20140114162749.GC24121@casper.infradead.org>
-References: <1389053776-62865-1-git-send-email-jesse@nicira.com>
- <52CD657F.7080806@citrix.com>
- <CAEP_g=_pQpH--V+7GSrjGP2z=0TBD_37yXjzTdeKG+2OF3aRaw@mail.gmail.com>
- <52D42A9E.1030805@citrix.com>
- <52D4857C.7020902@citrix.com>
- <CAEP_g=8nG6AHV9Y+5=48nPhkf5Oe=mG8EiyaKSqN4omnmGhv4A@mail.gmail.com>
- <52D50767.6050906@redhat.com>
- <52D52E0A.4050700@citrix.com>
- <20140114161640.GA24121@casper.infradead.org>
- <20140114161911.GB24121@casper.infradead.org>
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Subject: Re: [PATCH net-next v2 1/2] dts: Add a binding for Synopsys emac max-frame-size
+Date: Tue, 14 Jan 2014 10:30:59 -0600
+Message-ID: <CAOwfj2NFCVU7+Gas-9cFf-18oaD=4DjDoYc83Dte=1QAo=GKug@mail.gmail.com>
+References: <1389710409-14106-1-git-send-email-vbridgers2013@gmail.com>
+	<1389710409-14106-2-git-send-email-vbridgers2013@gmail.com>
+	<1389715056.10673.9.camel@linux-builds1>
+	<1890114.hPeOerbe4b@lenovo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@redhat.com>, Jesse Gross <jesse@nicira.com>,
-	David Miller <davem@davemloft.net>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dinh Nguyen <dinguyen@altera.com>, devicetree@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, Kumar Gala <galak@codeaurora.org>,
+	Rayagond Kokatanur <rayagond@vayavyalabs.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:58934 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751832AbaANQ1u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 11:27:50 -0500
-Content-Disposition: inline
-In-Reply-To: <20140114161911.GB24121@casper.infradead.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:46543 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751594AbaANQbA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 11:31:00 -0500
+In-Reply-To: <1890114.hPeOerbe4b@lenovo>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While the zerocopy method is correctly omitted if user space
-does not support unaligned Netlink messages. The attribute is
-still not padded correctly as skb_zerocopy() will not ensure
-padding and the attribute size is no longer pre calculated
-though nla_reserve() which ensured padding previously.
+I'll address comments and resubmit.
 
-This patch applies appropriate padding if a linear data copy
-was performed in skb_zerocopy().
+Vince
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
-v2: initialize padding to 0's
-
- net/openvswitch/datapath.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index df46928..3ca9121 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -396,7 +396,7 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
- 		.dst_sk = ovs_dp_get_net(dp)->genl_sock,
- 		.snd_portid = upcall_info->portid,
- 	};
--	size_t len;
-+	size_t len, plen;
- 	unsigned int hlen;
- 	int err, dp_ifindex;
- 
-@@ -466,6 +466,11 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
- 
- 	skb_zerocopy(user_skb, skb, skb->len, hlen);
- 
-+	/* Pad OVS_PACKET_ATTR_PACKET if linear copy was performed */
-+	if (!(dp->user_features & OVS_DP_F_UNALIGNED) &&
-+	    (plen = (ALIGN(user_skb->len, NLA_ALIGNTO) - user_skb->len)) > 0)
-+		memset(skb_put(user_skb, plen), 0, plen);
-+
- 	((struct nlmsghdr *) user_skb->data)->nlmsg_len = user_skb->len;
- 
- 	err = genlmsg_unicast(ovs_dp_get_net(dp), user_skb, upcall_info->portid);
+On Tue, Jan 14, 2014 at 10:07 AM, Florian Fainelli <f.fainelli@gmail.co=
+m> wrote:
+> Le mardi 14 janvier 2014, 09:57:36 Dinh Nguyen a =E9crit :
+>> On Tue, 2014-01-14 at 08:40 -0600, Vince Bridgers wrote:
+>> > This change adds a parameter for the Synopsys 10/100/1000
+>> > stmmac Ethernet driver to configure the maximum frame
+>> > size supported by the EMAC driver. Synopsys allows the FIFO
+>> > sizes to be configured when the cores are built for a particular
+>> > device, but do not provide a way for the driver to read
+>> > information from the device about the maximum MTU size
+>> > supported as limited by the device's FIFO size.
+>> >
+>> > Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
+>> > ---
+>> >
+>> >  Documentation/devicetree/bindings/net/stmmac.txt |    5 +++++
+>> >  1 file changed, 5 insertions(+)
+>> >
+>> > diff --git a/Documentation/devicetree/bindings/net/stmmac.txt
+>> > b/Documentation/devicetree/bindings/net/stmmac.txt index eba0e5e..=
+26a0ba9
+>> > 100644
+>> > --- a/Documentation/devicetree/bindings/net/stmmac.txt
+>> > +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+>> >
+>> > @@ -30,6 +30,10 @@ Required properties:
+>> >  Optional properties:
+>> >  - mac-address: 6 bytes, mac address
+>> >
+>> > +- snps,max-frame-size:     Maximum frame size permitted. This par=
+ameter is
+>> > useful
+>> I don't think max-frame-size should be a snps-only binding.
+>
+> Right, and I already made that comment to Vince. Maybe this is just a=
+n
+> oversight and mistakenly resubmitted v2 instead of v3?
+> --
+> Florian
