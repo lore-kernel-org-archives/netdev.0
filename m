@@ -1,42 +1,61 @@
-From: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [GIT net-next] Open vSwitch
-Date: Tue, 14 Jan 2014 10:46:15 +0100
-Message-ID: <52D50767.6050906@redhat.com>
-References: <1389053776-62865-1-git-send-email-jesse@nicira.com>
-	<52CD657F.7080806@citrix.com>
-	<CAEP_g=_pQpH--V+7GSrjGP2z=0TBD_37yXjzTdeKG+2OF3aRaw@mail.gmail.com>
-	<52D42A9E.1030805@citrix.com> <52D4857C.7020902@citrix.com>
-	<CAEP_g=8nG6AHV9Y+5=48nPhkf5Oe=mG8EiyaKSqN4omnmGhv4A@mail.gmail.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next v2 0/2] bonding: ensure that the TSO being set
+ on bond master
+Date: Tue, 14 Jan 2014 10:47:41 +0100
+Message-ID: <20140114094741.GB20066@redhat.com>
+References: <52D4FC97.8020301@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CAEP_g=8nG6AHV9Y+5=48nPhkf5Oe=mG8EiyaKSqN4omnmGhv4A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53746 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750999AbaANJuq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jan 2014 04:50:46 -0500
+Content-Disposition: inline
+In-Reply-To: <52D4FC97.8020301@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/14/2014 02:30 AM, Jesse Gross wrote:
->> And it works. I guess the last one causing the problem. Might be an
->> important factor, I'm using 32 bit Dom0.
+On Tue, Jan 14, 2014 at 05:00:07PM +0800, Ding Tianhong wrote:
+>The commit b0ce3508(bonding: allow TSO being set on bonding master)
+>has make the TSO being set for bond dev, but in some situation, if
+>the slave did not have the NETIF_F_SG features, the bond master will
+>miss the TSO features in netdev_fix_features because the TSO is
+>depended on SG. So I have to add SG and TSO features on bond master
+>together.
 >
-> I think you're probably right. Thomas - can you take a look?
+>The function netdev_add_tso_features() was only be used for bonding,
+>so no need to export it in netdevice.h, remove it and add it to bonding.
 >
-> We shouldn't be doing any zerocopy in this situation but it looks to
-> me like we don't do any padding at all, even in situations where we
-> are copying the data.
+>v2: If the slave hw did not support SG features, the SG should not
+>    be forced open on master, otherwise error will occur, so modify it.
+>    Some slave may support SG but not open it yet, so the bond master
+>    could try to open it when adding the salve and make sure the TSO
+>    could be open on master.
 
-I'm looking into this now. The zerocopy method should only be attempted
-if user space has announced the ability to received unaligned messages.
+So you're forcibly enabling SG on a slave? Usually SG is always enabled,
+unless there's a very specific reason for that - like a bug in hw/sw/fw,
+like performance improvement on specific use-cases etc. etc.
 
-@Zoltan: I assume you are using an unmodified OVS 1.9.3?
+So that's a wrong thing to do - to try to enable it, if it was disabled.
+
+Nacked-by: Veaceslav Falico <vfalico@redhat.com>
+
+>
+>Ding Tianhong (2):
+>  bonding: move the netdev_add_tso_features() to bonding
+>  bonding: try to enable SG features when adding a new slave
+>
+> drivers/net/bonding/bond_main.c | 27 ++++++++++++++++++++++++++-
+> include/linux/netdevice.h       | 10 ----------
+> 2 files changed, 26 insertions(+), 11 deletions(-)
+>
+>-- 
+>1.8.0
+>
+>
