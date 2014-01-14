@@ -1,162 +1,142 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 01/15] xfrm: checkpatch errors with space
-Date: Tue, 14 Jan 2014 07:49:05 +0100
-Message-ID: <1389682159-3260-2-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 06/15] {pktgen, xfrm} Correct xfrm state lock usage when transforming
+Date: Tue, 14 Jan 2014 07:49:10 +0100
+Message-ID: <1389682159-3260-7-git-send-email-steffen.klassert@secunet.com>
 References: <1389682159-3260-1-git-send-email-steffen.klassert@secunet.com>
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:60070 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:60076 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750777AbaANGtg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jan 2014 01:49:36 -0500
+	id S1752061AbaANGth (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jan 2014 01:49:37 -0500
 In-Reply-To: <1389682159-3260-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Weilong Chen <chenweilong@huawei.com>
+From: Fan Du <fan.du@windriver.com>
 
-This patch cleanup some space errors.
+xfrm_state lock protects its state, i.e., VALID/DEAD and statistics,
+not the transforming procedure, as both mode/type output functions
+are reentrant.
 
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+Another issue is state lock can be used in BH context when state timer
+alarmed, after transformation in pktgen, update state statistics acquiring
+state lock should disabled BH context for a moment. Otherwise LOCKDEP
+critisize this:
+
+[   62.354339] pktgen: Packet Generator for packet performance testing. Version: 2.74
+[   62.655444]
+[   62.655448] =================================
+[   62.655451] [ INFO: inconsistent lock state ]
+[   62.655455] 3.13.0-rc2+ #70 Not tainted
+[   62.655457] ---------------------------------
+[   62.655459] inconsistent {IN-SOFTIRQ-W} -> {SOFTIRQ-ON-W} usage.
+[   62.655463] kpktgend_0/2764 [HC0[0]:SC0[0]:HE1:SE1] takes:
+[   62.655466]  (&(&x->lock)->rlock){+.?...}, at: [<ffffffffa00886f6>] pktgen_thread_worker+0x1796/0x1860 [pktgen]
+[   62.655479] {IN-SOFTIRQ-W} state was registered at:
+[   62.655484]   [<ffffffff8109a61d>] __lock_acquire+0x62d/0x1d70
+[   62.655492]   [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
+[   62.655498]   [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
+[   62.655505]   [<ffffffff816dc3a3>] xfrm_timer_handler+0x43/0x290
+[   62.655511]   [<ffffffff81059437>] __tasklet_hrtimer_trampoline+0x17/0x40
+[   62.655519]   [<ffffffff8105a1b7>] tasklet_hi_action+0xd7/0xf0
+[   62.655523]   [<ffffffff81059ac6>] __do_softirq+0xe6/0x2d0
+[   62.655526]   [<ffffffff8105a026>] irq_exit+0x96/0xc0
+[   62.655530]   [<ffffffff8177fd0a>] smp_apic_timer_interrupt+0x4a/0x60
+[   62.655537]   [<ffffffff8177e96f>] apic_timer_interrupt+0x6f/0x80
+[   62.655541]   [<ffffffff8100b7c6>] arch_cpu_idle+0x26/0x30
+[   62.655547]   [<ffffffff810ace28>] cpu_startup_entry+0x88/0x2b0
+[   62.655552]   [<ffffffff81761c3c>] rest_init+0xbc/0xd0
+[   62.655557]   [<ffffffff81ea5e5e>] start_kernel+0x3c4/0x3d1
+[   62.655583]   [<ffffffff81ea55a8>] x86_64_start_reservations+0x2a/0x2c
+[   62.655588]   [<ffffffff81ea569f>] x86_64_start_kernel+0xf5/0xfc
+[   62.655592] irq event stamp: 77
+[   62.655594] hardirqs last  enabled at (77): [<ffffffff810ab7f2>] vprintk_emit+0x1b2/0x520
+[   62.655597] hardirqs last disabled at (76): [<ffffffff810ab684>] vprintk_emit+0x44/0x520
+[   62.655601] softirqs last  enabled at (22): [<ffffffff81059b57>] __do_softirq+0x177/0x2d0
+[   62.655605] softirqs last disabled at (15): [<ffffffff8105a026>] irq_exit+0x96/0xc0
+[   62.655609]
+[   62.655609] other info that might help us debug this:
+[   62.655613]  Possible unsafe locking scenario:
+[   62.655613]
+[   62.655616]        CPU0
+[   62.655617]        ----
+[   62.655618]   lock(&(&x->lock)->rlock);
+[   62.655622]   <Interrupt>
+[   62.655623]     lock(&(&x->lock)->rlock);
+[   62.655626]
+[   62.655626]  *** DEADLOCK ***
+[   62.655626]
+[   62.655629] no locks held by kpktgend_0/2764.
+[   62.655631]
+[   62.655631] stack backtrace:
+[   62.655636] CPU: 0 PID: 2764 Comm: kpktgend_0 Not tainted 3.13.0-rc2+ #70
+[   62.655638] Hardware name: innotek GmbH VirtualBox, BIOS VirtualBox 12/01/2006
+[   62.655642]  ffffffff8216b7b0 ffff88001be43ab8 ffffffff8176af37 0000000000000007
+[   62.655652]  ffff88001c8d4fc0 ffff88001be43b18 ffffffff81766d78 0000000000000000
+[   62.655663]  ffff880000000001 ffff880000000001 ffffffff8101025f ffff88001be43b18
+[   62.655671] Call Trace:
+[   62.655680]  [<ffffffff8176af37>] dump_stack+0x46/0x58
+[   62.655685]  [<ffffffff81766d78>] print_usage_bug+0x1f1/0x202
+[   62.655691]  [<ffffffff8101025f>] ? save_stack_trace+0x2f/0x50
+[   62.655696]  [<ffffffff81099f8c>] mark_lock+0x28c/0x2f0
+[   62.655700]  [<ffffffff810994b0>] ? check_usage_forwards+0x150/0x150
+[   62.655704]  [<ffffffff8109a67a>] __lock_acquire+0x68a/0x1d70
+[   62.655712]  [<ffffffff81115b09>] ? irq_work_queue+0x69/0xb0
+[   62.655717]  [<ffffffff810ab7f2>] ? vprintk_emit+0x1b2/0x520
+[   62.655722]  [<ffffffff8109cec5>] ? trace_hardirqs_on_caller+0x105/0x1d0
+[   62.655730]  [<ffffffffa00886f6>] ? pktgen_thread_worker+0x1796/0x1860 [pktgen]
+[   62.655734]  [<ffffffff8109c3c7>] lock_acquire+0x97/0x130
+[   62.655741]  [<ffffffffa00886f6>] ? pktgen_thread_worker+0x1796/0x1860 [pktgen]
+[   62.655745]  [<ffffffff81774af6>] _raw_spin_lock+0x36/0x70
+[   62.655752]  [<ffffffffa00886f6>] ? pktgen_thread_worker+0x1796/0x1860 [pktgen]
+[   62.655758]  [<ffffffffa00886f6>] pktgen_thread_worker+0x1796/0x1860 [pktgen]
+[   62.655766]  [<ffffffffa0087a79>] ? pktgen_thread_worker+0xb19/0x1860 [pktgen]
+[   62.655771]  [<ffffffff8109cf9d>] ? trace_hardirqs_on+0xd/0x10
+[   62.655777]  [<ffffffff81775410>] ? _raw_spin_unlock_irq+0x30/0x40
+[   62.655785]  [<ffffffff8151faa0>] ? e1000_clean+0x9d0/0x9d0
+[   62.655791]  [<ffffffff81094310>] ? __init_waitqueue_head+0x60/0x60
+[   62.655795]  [<ffffffff81094310>] ? __init_waitqueue_head+0x60/0x60
+[   62.655800]  [<ffffffffa0086f60>] ? mod_cur_headers+0x7f0/0x7f0 [pktgen]
+[   62.655806]  [<ffffffff81078f84>] kthread+0xe4/0x100
+[   62.655813]  [<ffffffff81078ea0>] ? flush_kthread_worker+0x170/0x170
+[   62.655819]  [<ffffffff8177dc6c>] ret_from_fork+0x7c/0xb0
+[   62.655824]  [<ffffffff81078ea0>] ? flush_kthread_worker+0x170/0x170
+
+Signed-off-by: Fan Du <fan.du@windriver.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/xfrm/xfrm_policy.c |   10 +++++-----
- net/xfrm/xfrm_proc.c   |    2 +-
- net/xfrm/xfrm_state.c  |   10 +++++-----
- net/xfrm/xfrm_user.c   |    4 ++--
- 4 files changed, 13 insertions(+), 13 deletions(-)
+ net/core/pktgen.c |    5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index a7487f3..8a2b9d8 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1286,7 +1286,7 @@ xfrm_tmpl_resolve_one(struct xfrm_policy *policy, const struct flowi *fl,
- 	xfrm_address_t *saddr = xfrm_flowi_saddr(fl, family);
- 	xfrm_address_t tmp;
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index a797fff..b007586 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -2487,8 +2487,6 @@ static int pktgen_output_ipsec(struct sk_buff *skb, struct pktgen_dev *pkt_dev)
+ 	if (x->props.mode != XFRM_MODE_TRANSPORT)
+ 		return 0;
  
--	for (nx=0, i = 0; i < policy->xfrm_nr; i++) {
-+	for (nx = 0, i = 0; i < policy->xfrm_nr; i++) {
- 		struct xfrm_state *x;
- 		xfrm_address_t *remote = daddr;
- 		xfrm_address_t *local  = saddr;
-@@ -1326,7 +1326,7 @@ xfrm_tmpl_resolve_one(struct xfrm_policy *policy, const struct flowi *fl,
- 	return nx;
+-	spin_lock(&x->lock);
+-
+ 	err = x->outer_mode->output(x, skb);
+ 	if (err)
+ 		goto error;
+@@ -2496,10 +2494,11 @@ static int pktgen_output_ipsec(struct sk_buff *skb, struct pktgen_dev *pkt_dev)
+ 	if (err)
+ 		goto error;
  
- fail:
--	for (nx--; nx>=0; nx--)
-+	for (nx--; nx >= 0; nx--)
- 		xfrm_state_put(xfrm[nx]);
- 	return error;
++	spin_lock_bh(&x->lock);
+ 	x->curlft.bytes += skb->len;
+ 	x->curlft.packets++;
++	spin_unlock_bh(&x->lock);
+ error:
+-	spin_unlock(&x->lock);
+ 	return err;
  }
-@@ -1363,7 +1363,7 @@ xfrm_tmpl_resolve(struct xfrm_policy **pols, int npols, const struct flowi *fl,
- 	return cnx;
- 
-  fail:
--	for (cnx--; cnx>=0; cnx--)
-+	for (cnx--; cnx >= 0; cnx--)
- 		xfrm_state_put(tpp[cnx]);
- 	return error;
- 
-@@ -2332,7 +2332,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
- 	if (skb->sp) {
- 		int i;
- 
--		for (i=skb->sp->len-1; i>=0; i--) {
-+		for (i = skb->sp->len-1; i >= 0; i--) {
- 			struct xfrm_state *x = skb->sp->xvec[i];
- 			if (!xfrm_selector_match(&x->sel, &fl, family)) {
- 				XFRM_INC_STATS(net, LINUX_MIB_XFRMINSTATEMISMATCH);
-@@ -2987,7 +2987,7 @@ static void xfrm_audit_common_policyinfo(struct xfrm_policy *xp,
- 		audit_log_format(audit_buf, " sec_alg=%u sec_doi=%u sec_obj=%s",
- 				 ctx->ctx_alg, ctx->ctx_doi, ctx->ctx_str);
- 
--	switch(sel->family) {
-+	switch (sel->family) {
- 	case AF_INET:
- 		audit_log_format(audit_buf, " src=%pI4", &sel->saddr.a4);
- 		if (sel->prefixlen_s != 32)
-diff --git a/net/xfrm/xfrm_proc.c b/net/xfrm/xfrm_proc.c
-index 80cd1e5..fc5abd0 100644
---- a/net/xfrm/xfrm_proc.c
-+++ b/net/xfrm/xfrm_proc.c
-@@ -52,7 +52,7 @@ static int xfrm_statistics_seq_show(struct seq_file *seq, void *v)
- {
- 	struct net *net = seq->private;
- 	int i;
--	for (i=0; xfrm_mib_list[i].name; i++)
-+	for (i = 0; xfrm_mib_list[i].name; i++)
- 		seq_printf(seq, "%-24s\t%lu\n", xfrm_mib_list[i].name,
- 			   snmp_fold_field((void __percpu **)
- 					   net->mib.xfrm_statistics,
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index a62c25e..5fe79b4 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -448,7 +448,7 @@ static enum hrtimer_restart xfrm_timer_handler(struct hrtimer * me)
- 	if (warn)
- 		km_state_expired(x, 0, 0);
- resched:
--	if (next != LONG_MAX){
-+	if (next != LONG_MAX) {
- 		tasklet_hrtimer_start(&x->mtimer, ktime_set(next, 0), HRTIMER_MODE_REL);
- 	}
- 
-@@ -1348,7 +1348,7 @@ int xfrm_state_check_expire(struct xfrm_state *x)
- 	if (x->curlft.bytes >= x->lft.hard_byte_limit ||
- 	    x->curlft.packets >= x->lft.hard_packet_limit) {
- 		x->km.state = XFRM_STATE_EXPIRED;
--		tasklet_hrtimer_start(&x->mtimer, ktime_set(0,0), HRTIMER_MODE_REL);
-+		tasklet_hrtimer_start(&x->mtimer, ktime_set(0, 0), HRTIMER_MODE_REL);
- 		return -EINVAL;
- 	}
- 
-@@ -1542,7 +1542,7 @@ int xfrm_alloc_spi(struct xfrm_state *x, u32 low, u32 high)
- 		x->id.spi = minspi;
- 	} else {
- 		u32 spi = 0;
--		for (h=0; h<high-low+1; h++) {
-+		for (h = 0; h < high-low+1; h++) {
- 			spi = low + net_random()%(high-low+1);
- 			x0 = xfrm_state_lookup(net, mark, &x->id.daddr, htonl(spi), x->id.proto, x->props.family);
- 			if (x0 == NULL) {
-@@ -2079,7 +2079,7 @@ static void xfrm_audit_helper_sainfo(struct xfrm_state *x,
- 		audit_log_format(audit_buf, " sec_alg=%u sec_doi=%u sec_obj=%s",
- 				 ctx->ctx_alg, ctx->ctx_doi, ctx->ctx_str);
- 
--	switch(x->props.family) {
-+	switch (x->props.family) {
- 	case AF_INET:
- 		audit_log_format(audit_buf, " src=%pI4 dst=%pI4",
- 				 &x->props.saddr.a4, &x->id.daddr.a4);
-@@ -2109,7 +2109,7 @@ static void xfrm_audit_helper_pktinfo(struct sk_buff *skb, u16 family,
- 		iph6 = ipv6_hdr(skb);
- 		audit_log_format(audit_buf,
- 				 " src=%pI6 dst=%pI6 flowlbl=0x%x%02x%02x",
--				 &iph6->saddr,&iph6->daddr,
-+				 &iph6->saddr, &iph6->daddr,
- 				 iph6->flow_lbl[0] & 0x0f,
- 				 iph6->flow_lbl[1],
- 				 iph6->flow_lbl[2]);
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 97681a3..e50be42 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -1731,11 +1731,11 @@ static int build_aevent(struct sk_buff *skb, struct xfrm_state *x, const struct
- 		return -EMSGSIZE;
- 
- 	id = nlmsg_data(nlh);
--	memcpy(&id->sa_id.daddr, &x->id.daddr,sizeof(x->id.daddr));
-+	memcpy(&id->sa_id.daddr, &x->id.daddr, sizeof(x->id.daddr));
- 	id->sa_id.spi = x->id.spi;
- 	id->sa_id.family = x->props.family;
- 	id->sa_id.proto = x->id.proto;
--	memcpy(&id->saddr, &x->props.saddr,sizeof(x->props.saddr));
-+	memcpy(&id->saddr, &x->props.saddr, sizeof(x->props.saddr));
- 	id->reqid = x->props.reqid;
- 	id->flags = c->data.aevent;
  
 -- 
 1.7.9.5
