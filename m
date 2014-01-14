@@ -1,105 +1,78 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH v3 4/4] dma debug: introduce debug_dma_assert_idle()
-Date: Mon, 13 Jan 2014 17:14:12 -0800
-Message-ID: <20140113171412.dd90c020b103f4a686f8dc34@linux-foundation.org>
-References: <20140114004509.27138.50345.stgit@viggo.jf.intel.com>
-	<20140114004804.27138.18469.stgit@viggo.jf.intel.com>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [GIT net-next] Open vSwitch
+Date: Mon, 13 Jan 2014 17:30:48 -0800
+Message-ID: <CAEP_g=8nG6AHV9Y+5=48nPhkf5Oe=mG8EiyaKSqN4omnmGhv4A@mail.gmail.com>
+References: <1389053776-62865-1-git-send-email-jesse@nicira.com>
+	<52CD657F.7080806@citrix.com>
+	<CAEP_g=_pQpH--V+7GSrjGP2z=0TBD_37yXjzTdeKG+2OF3aRaw@mail.gmail.com>
+	<52D42A9E.1030805@citrix.com> <52D4857C.7020902@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dmaengine@vger.kernel.org, Vinod Koul <vinod.koul@intel.com>,
-	netdev@vger.kernel.org, Joerg Roedel <joro@8bytes.org>,
-	linux-kernel@vger.kernel.org,
-	James Bottomley <JBottomley@Parallels.com>,
-	Russell King <rmk+kernel@arm.linux.org.uk>
-To: Dan Williams <dan.j.williams@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140114004804.27138.18469.stgit@viggo.jf.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <52D4857C.7020902-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 13 Jan 2014 16:48:47 -0800 Dan Williams <dan.j.williams@intel.com> wrote:
-
-> Record actively mapped pages and provide an api for asserting a given
-> page is dma inactive before execution proceeds.  Placing
-> debug_dma_assert_idle() in cow_user_page() flagged the violation of the
-> dma-api in the NET_DMA implementation (see commit 77873803363c "net_dma:
-> mark broken").
-
-Some discussion of the overlap counter thing would be useful.
-
-> --- a/include/linux/dma-debug.h
-> +++ b/include/linux/dma-debug.h
+On Mon, Jan 13, 2014 at 4:31 PM, Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org> wrote:
+> On 13/01/14 18:04, Zoltan Kiss wrote:
+>>
+>> On 08/01/14 15:10, Jesse Gross wrote:
+>>>
+>>> On Wed, Jan 8, 2014 at 9:49 AM, Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+>>> wrote:
+>>>>
+>>>> Hi,
+>>>>
+>>>> I've tried the latest net-next on a Xenserver install with 1.9.3
+>>>> userspace,
+>>>> and it seems this patch series broke it (at least after reverting that
+>>>> locally it works now). I haven't went too far yet checking what's the
+>>>> problem, but it seems the xenbrX device doesn't really receive too much
+>>>> of
+>>>> the traffic coming through the NIC. Is it expected?
+>>>
+>>>
+>>> What do you mean by doesn't receive too much traffic? What does it get?
+>>>
+>>
+>> Sorry for the vague error description, now I had more time to look into
+>> this. I think the problem boils down to this:
+>>
+>> Jan 13 17:55:07 localhost ovs-vswitchd:
+>> 07890|netlink_socket|DBG|nl_sock_recv__ (Success): nl(len:274,
+>> type=29(ovs_packet), flags=0, seq=0, pid=0,genl(cmd=1,version=1)
+>> Jan 13 17:55:07 localhost ovs-vswitchd: 07891|netlink|DBG|attributes
+>> followed by garbage
+>> Jan 13 17:55:07 localhost ovs-vswitchd: 07892|dpif|WARN|system@xenbr0:
+>> recv failed (Invalid argument)
+>>
+>> That's just keep repeating. I'm keep looking.
 >
-> ...
 >
-> +static void __active_pfn_inc_overlap(struct dma_debug_entry *entry)
-> +{
-> +	unsigned long pfn = entry->pfn;
-> +	int i;
-> +
-> +	for (i = 0; i < RADIX_TREE_MAX_TAGS; i++)
-> +		if (radix_tree_tag_get(&dma_active_pfn, pfn, i) == 0) {
-> +			radix_tree_tag_set(&dma_active_pfn, pfn, i);
-> +			return;
-> +		}
-> +	pr_debug("DMA-API: max overlap count (%d) reached for pfn 0x%lx\n",
-> +		 RADIX_TREE_MAX_TAGS, pfn);
-> +}
-> +
-> +static void __active_pfn_dec_overlap(struct dma_debug_entry *entry)
-> +{
-> +	unsigned long pfn = entry->pfn;
-> +	int i;
-> +
-> +	for (i = RADIX_TREE_MAX_TAGS - 1; i >= 0; i--)
-> +		if (radix_tree_tag_get(&dma_active_pfn, pfn, i)) {
-> +			radix_tree_tag_clear(&dma_active_pfn, pfn, i);
-> +			return;
-> +		}
-> +	radix_tree_delete(&dma_active_pfn, pfn);
-> +}
-> +
-> +static int active_pfn_insert(struct dma_debug_entry *entry)
-> +{
-> +	unsigned long flags;
-> +	int rc;
-> +
-> +	spin_lock_irqsave(&radix_lock, flags);
-> +	rc = radix_tree_insert(&dma_active_pfn, entry->pfn, entry);
-> +	if (rc == -EEXIST)
-> +		__active_pfn_inc_overlap(entry);
-> +	spin_unlock_irqrestore(&radix_lock, flags);
-> +
-> +	return rc;
-> +}
-> +
-> +static void active_pfn_remove(struct dma_debug_entry *entry)
-> +{
-> +	unsigned long flags;
-> +
-> +	spin_lock_irqsave(&radix_lock, flags);
-> +	__active_pfn_dec_overlap(entry);
-> +	spin_unlock_irqrestore(&radix_lock, flags);
-> +}
+> Now I reverted these top 3 commits:
+>
+> ovs: make functions local
+>
+> openvswitch: Compute checksum in skb_gso_segment() if needed
+> openvswitch: Use skb_zerocopy() for upcall
+>
+> And it works. I guess the last one causing the problem. Might be an
+> important factor, I'm using 32 bit Dom0.
 
-OK, I think I see what's happening.  The tags thing acts as a crude
-counter and if the map/unmap count ends up imbalanced, we deliberately
-leak an entry in the radix-tree so it can later be reported via undescribed
-means.  Thoughts:
+I think you're probably right. Thomas - can you take a look?
 
-- RADIX_TREE_MAX_TAGS=3 so the code could count to 7, with a bit of
-  futzing around.
-
-- from a style/readability point of view it is unexpected that
-  __active_pfn_dec_overlap() actually removes radix-tree items.  It
-  would be better to do:
-
-	spin_lock_irqsave(&radix_lock, flags);
-	if (__active_pfn_dec_overlap(entry) == something) {
-		/*
-		 * Nice comment goes here
-		 */
-		radix_tree_delete(...);
-	}
-	spin_unlock_irqrestore(&radix_lock, flags);
+We shouldn't be doing any zerocopy in this situation but it looks to
+me like we don't do any padding at all, even in situations where we
+are copying the data.
