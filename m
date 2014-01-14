@@ -1,7 +1,8 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 00/10] use appropriate APIs to get interfaces
-Date: Tue, 14 Jan 2014 15:40:59 +0800
-Message-ID: <1389685269-18600-1-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next 02/10] bonding: use __dev_get_by_name instead of dev_get_by_name to find interface
+Date: Tue, 14 Jan 2014 15:41:01 +0800
+Message-ID: <1389685269-18600-3-git-send-email-ying.xue@windriver.com>
+References: <1389685269-18600-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <vfalico@redhat.com>, <john.r.fastabend@intel.com>,
@@ -11,47 +12,95 @@ Cc: <vfalico@redhat.com>, <john.r.fastabend@intel.com>,
 	<linux-kernel@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1389685269-18600-1-git-send-email-ying.xue@windriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Under rtnl_lock protection, we should use __dev_get_name/index()
-rather than dev_get_name()/index() to find interface handlers
-because the former interfaces can help us avoid to change interface
-reference counter.
+The following call chain indicates that bond_do_ioctl() is protected
+under rtnl_lock. If we use __dev_get_by_name() instead of
+dev_get_by_name() to find interface handler in it, this would
+help us avoid to change reference counter of interface once.
 
-Ying Xue (10):
-  Drivers: Staging: cxt1e1: use __dev_get_name instead of dev_get_name
-    to find interfaces
-  bonding: use __dev_get_by_name instead of dev_get_by_name to find
-    interface
-  eql: use __dev_get_by_name instead of dev_get_by_name to find
-    interface
-  dcb: use __dev_get_by_name instead of dev_get_by_name to find
-    interface
-  decnet: use __dev_get_by_index instead of dev_get_by_index to find
-    interface
-  vxlan: use __dev_get_by_index instead of dev_get_by_index to find
-    interface
-  batman-adv: use __dev_get_by_index instead of dev_get_by_index to
-    find interface
-  caif: __dev_get_by_index instead of dev_get_by_index to find
-    interface
-  can: use __dev_get_by_index instead of dev_get_by_index to find
-    interface
-  net: nl80211: __dev_get_by_index instead of dev_get_by_index to find
-    interface
+dev_ioctl()
+  rtnl_lock()
+  dev_ifsioc()
+    bond_do_ioctl()
+  rtnl_unlock()
 
- drivers/net/bonding/bond_main.c |   49 +++++++++----------
- drivers/net/eql.c               |   95 ++++++++++++++++---------------------
- drivers/net/vxlan.c             |    3 +-
- drivers/staging/cxt1e1/linux.c  |   15 +++---
- net/batman-adv/hard-interface.c |    4 +-
- net/caif/chnl_net.c             |    3 +-
- net/can/gw.c                    |   15 ++----
- net/dcb/dcbnl.c                 |   15 ++----
- net/decnet/dn_route.c           |    6 +--
- net/wireless/nl80211.c          |  100 ++++++++++++++-------------------------
- 10 files changed, 123 insertions(+), 182 deletions(-)
+Additionally we also change the coding style in bond_do_ioctl(),
+letting it more readable for us.
 
+Cc: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+---
+ drivers/net/bonding/bond_main.c |   49 ++++++++++++++++++---------------------
+ 1 file changed, 23 insertions(+), 26 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index e06c445..a69afbf 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3213,37 +3213,34 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
+ 	if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+-	slave_dev = dev_get_by_name(net, ifr->ifr_slave);
++	slave_dev = __dev_get_by_name(net, ifr->ifr_slave);
+ 
+ 	pr_debug("slave_dev=%p:\n", slave_dev);
+ 
+ 	if (!slave_dev)
+-		res = -ENODEV;
+-	else {
+-		pr_debug("slave_dev->name=%s:\n", slave_dev->name);
+-		switch (cmd) {
+-		case BOND_ENSLAVE_OLD:
+-		case SIOCBONDENSLAVE:
+-			res = bond_enslave(bond_dev, slave_dev);
+-			break;
+-		case BOND_RELEASE_OLD:
+-		case SIOCBONDRELEASE:
+-			res = bond_release(bond_dev, slave_dev);
+-			break;
+-		case BOND_SETHWADDR_OLD:
+-		case SIOCBONDSETHWADDR:
+-			bond_set_dev_addr(bond_dev, slave_dev);
+-			res = 0;
+-			break;
+-		case BOND_CHANGE_ACTIVE_OLD:
+-		case SIOCBONDCHANGEACTIVE:
+-			res = bond_option_active_slave_set(bond, slave_dev);
+-			break;
+-		default:
+-			res = -EOPNOTSUPP;
+-		}
++		return -ENODEV;
+ 
+-		dev_put(slave_dev);
++	pr_debug("slave_dev->name=%s:\n", slave_dev->name);
++	switch (cmd) {
++	case BOND_ENSLAVE_OLD:
++	case SIOCBONDENSLAVE:
++		res = bond_enslave(bond_dev, slave_dev);
++		break;
++	case BOND_RELEASE_OLD:
++	case SIOCBONDRELEASE:
++		res = bond_release(bond_dev, slave_dev);
++		break;
++	case BOND_SETHWADDR_OLD:
++	case SIOCBONDSETHWADDR:
++		bond_set_dev_addr(bond_dev, slave_dev);
++		res = 0;
++		break;
++	case BOND_CHANGE_ACTIVE_OLD:
++	case SIOCBONDCHANGEACTIVE:
++		res = bond_option_active_slave_set(bond, slave_dev);
++		break;
++	default:
++		res = -EOPNOTSUPP;
+ 	}
+ 
+ 	return res;
 -- 
 1.7.9.5
