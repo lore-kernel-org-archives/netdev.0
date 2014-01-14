@@ -1,7 +1,7 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 05/10] decnet: use __dev_get_by_index instead of dev_get_by_index to find interface
-Date: Tue, 14 Jan 2014 15:41:04 +0800
-Message-ID: <1389685269-18600-6-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next 07/10] batman-adv: use __dev_get_by_index instead of dev_get_by_index to find interface
+Date: Tue, 14 Jan 2014 15:41:06 +0800
+Message-ID: <1389685269-18600-8-git-send-email-ying.xue@windriver.com>
 References: <1389685269-18600-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,49 +16,44 @@ In-Reply-To: <1389685269-18600-1-git-send-email-ying.xue@windriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following call chain we can identify that dn_cache_getroute() is
-protected under rtnl_lock. So if we use __dev_get_by_index() instead
-of dev_get_by_index() to find interface handlers in it, this would help
-us avoid to change interface reference counter.
+The following call chains indicate that batadv_is_on_batman_iface()
+is always under rtnl_lock protection as call_netdevice_notifier()
+is protected by rtnl_lock. So if __dev_get_by_index() rather than
+dev_get_by_index() is used to find interface handler in it, this
+would help us avoid to change interface reference counter.
 
-rtnetlink_rcv()
-  rtnl_lock()
-    netlink_rcv_skb()
-      dn_cache_getroute()
-  rtnl_unlock()
+call_netdevice_notifier()
+  batadv_hard_if_event()
+    batadv_hardif_add_interface()
+      batadv_is_valid_iface()
+        batadv_is_on_batman_iface()
 
+Cc: Antonio Quartulli <antonio@meshcoding.com>
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/decnet/dn_route.c |    6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ net/batman-adv/hard-interface.c |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index ad2efa5..22390e4 100644
---- a/net/decnet/dn_route.c
-+++ b/net/decnet/dn_route.c
-@@ -1666,12 +1666,12 @@ static int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index bebd46c..115d14e 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -86,15 +86,13 @@ static bool batadv_is_on_batman_iface(const struct net_device *net_dev)
+ 		return false;
  
- 	if (fld.flowidn_iif) {
- 		struct net_device *dev;
--		if ((dev = dev_get_by_index(&init_net, fld.flowidn_iif)) == NULL) {
-+		dev = __dev_get_by_index(&init_net, fld.flowidn_iif);
-+		if (!dev) {
- 			kfree_skb(skb);
- 			return -ENODEV;
- 		}
- 		if (!dev->dn_ptr) {
--			dev_put(dev);
- 			kfree_skb(skb);
- 			return -ENODEV;
- 		}
-@@ -1693,8 +1693,6 @@ static int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
- 		err = dn_route_output_key((struct dst_entry **)&rt, &fld, 0);
- 	}
+ 	/* recurse over the parent device */
+-	parent_dev = dev_get_by_index(&init_net, net_dev->iflink);
++	parent_dev = __dev_get_by_index(&init_net, net_dev->iflink);
+ 	/* if we got a NULL parent_dev there is something broken.. */
+ 	if (WARN(!parent_dev, "Cannot find parent device"))
+ 		return false;
  
--	if (skb->dev)
--		dev_put(skb->dev);
- 	skb->dev = NULL;
- 	if (err)
- 		goto out_free;
+ 	ret = batadv_is_on_batman_iface(parent_dev);
+ 
+-	if (parent_dev)
+-		dev_put(parent_dev);
+ 	return ret;
+ }
+ 
 -- 
 1.7.9.5
