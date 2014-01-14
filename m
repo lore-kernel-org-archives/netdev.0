@@ -1,51 +1,54 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] neigh: split lines for NEIGH_VAR_SET so they are not too long
-Date: Tue, 14 Jan 2014 15:46:07 +0100
-Message-ID: <1389710767-2727-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] usbnet: Fix dma setup for fragmented packets that need
+ a pad byte appended.
+Date: Tue, 14 Jan 2014 14:48:23 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D45B492@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D45B28F@AcuExch.aculab.com>
+ <1389710518.31367.259.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f52.google.com ([74.125.83.52]:45029 "EHLO
-	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751479AbaANOqN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 09:46:13 -0500
-Received: by mail-ee0-f52.google.com with SMTP id e53so260612eek.39
-        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 06:46:10 -0800 (PST)
+Received: from mx0.aculab.com ([213.249.233.131]:45013 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751531AbaANOua (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jan 2014 09:50:30 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 20982-08 for <netdev@vger.kernel.org>;
+ Tue, 14 Jan 2014 14:50:27 +0000 (GMT)
+In-Reply-To: <1389710518.31367.259.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-introduced by:
-commit 1f9248e5606afc6485255e38ad57bdac08fa7711
-"neigh: convert parms to an array"
-
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- net/core/neighbour.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index ea97361..45c5cde 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -2086,13 +2086,16 @@ static int neightbl_set(struct sk_buff *skb, struct nlmsghdr *nlh)
- 					      nla_get_msecs(tbp[i]));
- 				break;
- 			case NDTPA_ANYCAST_DELAY:
--				NEIGH_VAR_SET(p, ANYCAST_DELAY, nla_get_msecs(tbp[i]));
-+				NEIGH_VAR_SET(p, ANYCAST_DELAY,
-+					      nla_get_msecs(tbp[i]));
- 				break;
- 			case NDTPA_PROXY_DELAY:
--				NEIGH_VAR_SET(p, PROXY_DELAY, nla_get_msecs(tbp[i]));
-+				NEIGH_VAR_SET(p, PROXY_DELAY,
-+					      nla_get_msecs(tbp[i]));
- 				break;
- 			case NDTPA_LOCKTIME:
--				NEIGH_VAR_SET(p, LOCKTIME, nla_get_msecs(tbp[i]));
-+				NEIGH_VAR_SET(p, LOCKTIME,
-+					      nla_get_msecs(tbp[i]));
- 				break;
- 			}
- 		}
--- 
-1.8.3.1
+RnJvbTogRXJpYyBEdW1hemV0IA0KPiBPbiBUdWUsIDIwMTQtMDEtMTQgYXQgMTE6MTYgKzAwMDAs
+IERhdmlkIExhaWdodCB3cm90ZToNCj4gPiBJZiB0aGUgdXNibmV0IGNvZGUgYXBwZW5kcyBhIGJ5
+dGUgdG8gYSBmcmFnbWVudGVkIHBhY2tldCAoaW4gb3JkZXIgdG8gYXZvaWQNCj4gPiBzZW5kaW5n
+IGEgYnVsayBkYXRhIG1lc3NhZ2UgdGhhdCBpcyBhIG11bHRpcGxlIG9mIHRoZSBVU0IgbWVzc2Fn
+ZSBzaXplKSB0aGVuDQo+ID4gdGhlIHNjYXR0ZXItZ2F0aGVyIGxpc3QgaXNuJ3QgaW5pdGlhbGlz
+ZWQgY29ycmVjdGx5Lg0KPiA+IFRoaXMgY2F1c2VzIGEgbGF0ZXIgcGFuaWMgaW4gdXNiX2hjZF9t
+YXBfdXJiX2Zvcl9kbWEoKS4NCj4gPiBCYXNpY2FsbHkgd2hlbiB0aGUgY29kZSB0cmllcyB0byBh
+Y2Nlc3MgdGhlIGZpbmFsIHNnIGZyYWdtZW50IHRoZSBzZyBmdW5jdGlvbg0KPiA+IHJldHVybnMg
+TlVMTCBiZWNhdXNlIHRoZSAnZW5kIG9mIHNnIGxpc3QnIG1hcmtldCBpcyBzZXQgaW4gdGhlIHBy
+ZXZpb3VzIG9uZS4NCj4gPg0KPiA+IEJ1ZyBpbnRyb2R1Y2VkIGluIGNvbW1pdCA2MGU0NTNhOTQw
+YWM2Nzg1NjViNjY0MWQ2NWY4YzE4NTQxYmI5ZjI4DQo+ID4gKFVTQk5FVDogZml4IGhhbmRsaW5n
+IHBhZGRpbmcgcGFja2V0KSBhbmQgbmVlZHMgYXBwbHlpbmcgdG8gYWxsDQo+ID4ga2VybmVscyB0
+aGF0IGNvbnRhaW4gdGhpcyBjaGFuZ2UgKGluY2x1ZGluZyAzLjEyKS4NCj4gPg0KPiA+IEZpeCBm
+cm9tIEJqb3JuIE1vcmsuDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBEYXZpZCBMYWlnaHQgPGRh
+dmlkLmxhaWdodEBhY3VsYWIuY29tPg0KPiA+IC0tLQ0KPiA+DQo+ID4gSSB0aGluayBpdCBpcyBv
+ayB0aGF0IHRoZSBzZyB0YWJsZSdzIGxhc3QgZWxlbWVudCBpcyBuZXZlciBhc3NpZ25lZCB0byB3
+aGVuDQo+ID4gdGhlIHBhY2tldCBpc24ndCBwYWRkZWQuDQo+IA0KPiBPcmlnaW5hbCBwYXRjaCBj
+b250YWluZWQgOg0KPiANCj4gRml4ZXM6IDYwZTQ1M2E5NDBhYyAoIlVTQk5FVDogZml4IGhhbmRs
+aW5nIHBhZGRpbmcgcGFja2V0IikNCj4gUmVwb3J0ZWQtYnk6IFRob21hcyBLZWFyIDx0aG9tYXNA
+a2Vhci5jby5uej4NCj4gQ2M6IE1pbmcgTGVpIDxtaW5nLmxlaUBjYW5vbmljYWwuY29tPg0KPiBT
+aWduZWQtb2ZmLWJ5OiBCasO4cm4gTW9yayA8Ympvcm5AbW9yay5ubz4NCj4gDQo+IFdoeSBkaWQg
+eW91IHJlbW92ZSB0aGlzIGFuZCB0b29rIG93bmVyc2hpcCBvZiB0aGlzIHBhdGNoID8NCg0KSSBj
+b3VsZG4ndCBmaW5kIHRoZSBvcmlnaW5hbCBwYXRjaCBhbnl3aGVyZSENCkkgZGlkIGRvIHF1aXRl
+IGEgbG90IG9mIGxvb2tpbmcgYXMgd2VsbCAtIGlmIEknZCBmb3VuZCBpdCBJJ3ZlDQpoYXZlIGRv
+bmUgc29tZXRoaW5nIGVsc2UuDQoNCkluIGFueSBjYXNlIHRoZSBpbnRlbnQgd2FzIGp1c3QgdG8g
+Z2V0IHRoZSBwYXRjaCBpbnRvIDYuMTMgYW5kIHN0YWJsZQ0KKGZvciA2LjEyKS4NCkkgZG9uJ3Qg
+Y2FyZSB3aGljaCB2ZXJzaW9uIHlvdSBhcHBseS4NCg0KQWRkIGEgJ1Jldmlld2VkIGJ5JyBmb3Ig
+bWUgaWYgeW91IHdhbnQuDQoNCglEYXZpZA0KDQo=
