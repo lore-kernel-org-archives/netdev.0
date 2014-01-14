@@ -1,33 +1,45 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: Re: [PATCH 09/15] net: ixgbe calls skb_set_hash
-Date: Tue, 14 Jan 2014 02:26:50 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B7312BE63@ORSMSX101.amr.corp.intel.com>
-References: <alpine.DEB.2.02.1312172324380.24772@tomh.mtv.corp.google.com>
- <CAL3LdT7HC0EcYdbTxYe6OEy_cy6EbL1udafhwJA1VWCFv5gG1w@mail.gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next 0/3] bonding: fix primary problem for bonding
+Date: Tue, 14 Jan 2014 10:36:43 +0800
+Message-ID: <52D4A2BB.5030509@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"therbert@google.com" <therbert@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:50809 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751974AbaANC0w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Jan 2014 21:26:52 -0500
-In-Reply-To: <CAL3LdT7HC0EcYdbTxYe6OEy_cy6EbL1udafhwJA1VWCFv5gG1w@mail.gmail.com>
-Content-Language: en-US
+Received: from szxga03-in.huawei.com ([119.145.14.66]:6098 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752060AbaANCg7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 21:36:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCAyMDEzLTEyLTE4IGF0IDAwOjQxIC0wODAwLCBKZWZmIEtpcnNoZXIgd3JvdGU6Cj4g
-T24gVHVlLCBEZWMgMTcsIDIwMTMgYXQgMTE6MjggUE0sIFRvbSBIZXJiZXJ0IDx0aGVyYmVydEBn
-b29nbGUuY29tPiB3cm90ZToKPiA+IERyaXZlcnMgc2hvdWxkIGNhbGwgc2tiX3NldF9oYXNoIHRv
-IHNldCB0aGUgaGFzaCBhbmQgaXRzIHR5cGUKPiA+IGluIGFuIHNrYnVmZi4KPiA+Cj4gPiBTaWdu
-ZWQtb2ZmLWJ5OiBUb20gSGVyYmVydCA8dGhlcmJlcnRAZ29vZ2xlLmNvbT4KPiA+IC0tLQo+ID4g
-IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYyB8IDQgKysrLQo+
-ID4gIDEgZmlsZSBjaGFuZ2VkLCAzIGluc2VydGlvbnMoKyksIDEgZGVsZXRpb24oLSkKPiA+Cj4g
-Cj4gSSBoYXZlIGFkZGVkIHRoaXMgcGF0Y2ggdG8gbXkgcXVldWUsIHRoYW5rcyBUb20uCgpTaWdu
-ZWQtb2ZmIGJ5OiBBYXJvbiBCcm93biA8YWFyb24uZi5icm93bkBpbnRlbC5jb20+ClRlc3RlZC1i
-eTogUGhpbCBTY2htaXR0IDxwaGlsbGlwLmouc2NobWl0dEBpbnRlbC5jb20+Cg==
+If the slave's name changed, and the bond params primary is exist,
+the bond should deal with the situation in two ways:
+
+1) If the slave is the primary slave yet, clean the primary slave
+   and reselect active slave.
+2) If the slave's new name is as same as bond primary, set the slave
+   as primary slave and reselect active slave.
+
+If the new primay is not matching any slave in the bond, the bond should
+record it to params, clean the primary slave and select a new active slave.
+
+Update bonding.txt for primary description.
+
+Ding Tianhong (3):
+  bonding: update the primary slave when slave's name changed
+  bonding: clean the primary slave if there is no slave matching new
+    primary
+  bonding: update bonding.txt for primary description.
+
+ Documentation/networking/bonding.txt |  3 ++-
+ drivers/net/bonding/bond_main.c      | 30 ++++++++++++++++++++++++++++--
+ drivers/net/bonding/bond_options.c   |  6 ++++++
+ 3 files changed, 36 insertions(+), 3 deletions(-)
+
+-- 
+1.8.0
