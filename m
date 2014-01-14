@@ -1,7 +1,7 @@
 From: Richard Weinberger <richard@nod.at>
-Subject: [PATCH 3/7] staging,spear_adc: Add dependency on HAS_IOMEM
-Date: Tue, 14 Jan 2014 16:45:41 +0100
-Message-ID: <1389714345-20165-3-git-send-email-richard@nod.at>
+Subject: [PATCH 2/7] staging,dgap: Add dependency on HAS_IOMEM
+Date: Tue, 14 Jan 2014 16:45:40 +0100
+Message-ID: <1389714345-20165-2-git-send-email-richard@nod.at>
 References: <1389714345-20165-1-git-send-email-richard@nod.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -15,41 +15,42 @@ Cc: sebastian.hesselbarth@gmail.com, florian@openwrt.org,
 To: kishon@ti.com, anton@enomsg.org, dwmw2@infradead.org,
 	richardcochran@gmail.com, lidza.louina@gmail.com,
 	gregkh@linuxfoundation.org, jic23@kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from b.ns.miles-group.at ([95.130.255.144]:1666 "EHLO radon.swed.at"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751805AbaANPqP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jan 2014 10:46:15 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1389714345-20165-1-git-send-email-richard@nod.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 On archs like S390 or um this driver cannot build nor work.
 Make it depend on HAS_IOMEM to bypass build failures.
 
-drivers/staging/iio/adc/spear_adc.c: In function =E2=80=98spear_adc_pro=
-be=E2=80=99:
-drivers/staging/iio/adc/spear_adc.c:393:2: error: implicit declaration =
-of function =E2=80=98iounmap=E2=80=99 [-Werror=3Dimplicit-function-decl=
-aration
+drivers/staging/dgap/dgap_driver.c: In function =E2=80=98dgap_cleanup_b=
+oard=E2=80=99:
+drivers/staging/dgap/dgap_driver.c:457:3: error: implicit declaration o=
+f function =E2=80=98iounmap=E2=80=99 [-Werror=3Dimplicit-function-decla=
+ration]
+drivers/staging/dgap/dgap_driver.c: In function =E2=80=98dgap_do_remap=E2=
+=80=99:
+drivers/staging/dgap/dgap_driver.c:694:2: error: implicit declaration o=
+f function =E2=80=98ioremap=E2=80=99 [-Werror=3Dimplicit-function-decla=
+ration]
 
 Signed-off-by: Richard Weinberger <richard@nod.at>
 ---
- drivers/staging/iio/adc/Kconfig | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/staging/dgap/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/staging/iio/adc/Kconfig b/drivers/staging/iio/adc/=
-Kconfig
-index e3d6430..7d5d675 100644
---- a/drivers/staging/iio/adc/Kconfig
-+++ b/drivers/staging/iio/adc/Kconfig
-@@ -128,6 +128,7 @@ config MXS_LRADC
- config SPEAR_ADC
- 	tristate "ST SPEAr ADC"
- 	depends on PLAT_SPEAR || COMPILE_TEST
-+	depends on HAS_IOMEM
- 	help
- 	  Say yes here to build support for the integrated ADC inside the
- 	  ST SPEAr SoC. Provides direct access via sysfs.
+diff --git a/drivers/staging/dgap/Kconfig b/drivers/staging/dgap/Kconfi=
+g
+index 31f1d75..3bbe9e1 100644
+--- a/drivers/staging/dgap/Kconfig
++++ b/drivers/staging/dgap/Kconfig
+@@ -1,6 +1,6 @@
+ config DGAP
+        tristate "Digi EPCA PCI products"
+        default n
+-       depends on TTY
++       depends on TTY && HAS_IOMEM
+        ---help---
+        Driver for the Digi International EPCA PCI based product line
 --=20
 1.8.1.4
