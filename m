@@ -1,47 +1,98 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] usbnet: Fix dma setup for fragmented packets that need
- a pad byte appended.
-Date: Tue, 14 Jan 2014 17:28:27 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D45B744@AcuExch.aculab.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D45B28F@AcuExch.aculab.com>
-	<1389710518.31367.259.camel@edumazet-glaptop2.roam.corp.google.com>
-	<063D6719AE5E284EB5DD2968C1650D6D45B492@AcuExch.aculab.com>
- <87vbxm7eey.fsf@nemi.mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: 'Eric Dumazet' <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: =?utf-8?B?J0Jqw7hybiBNb3JrJw==?= <bjorn@mork.no>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH v2 net-next] bonding: handle slave's name change with primary_slave logic
+Date: Tue, 14 Jan 2014 09:32:59 -0800
+Message-ID: <4299.1389720779@death.nxdomain>
+References: <1389700179-12723-1-git-send-email-vfalico@redhat.com>
+Cc: netdev@vger.kernel.org, Ding Tianhong <dingtianhong@huawei.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:48170 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751329AbaANRag (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jan 2014 12:30:36 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 22649-01 for <netdev@vger.kernel.org>;
- Tue, 14 Jan 2014 17:30:32 +0000 (GMT)
-In-Reply-To: <87vbxm7eey.fsf@nemi.mork.no>
-Content-Language: en-US
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:33508 "EHLO e9.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751375AbaANRdJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jan 2014 12:33:09 -0500
+Received: from /spool/local
+	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Tue, 14 Jan 2014 12:33:08 -0500
+Received: from b01cxnp23033.gho.pok.ibm.com (b01cxnp23033.gho.pok.ibm.com [9.57.198.28])
+	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id 774ACC90067
+	for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 12:33:01 -0500 (EST)
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by b01cxnp23033.gho.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s0EHX3l45439958
+	for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 17:33:03 GMT
+Received: from d01av04.pok.ibm.com (localhost [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s0EHX24a032031
+	for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 12:33:03 -0500
+In-reply-to: <1389700179-12723-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQmrDuHJuIE1vcmsgW21haWx0bzpiam9ybkBtb3JrLm5vXQ0KPiBEYXZpZCBMYWlnaHQg
-PERhdmlkLkxhaWdodEBBQ1VMQUIuQ09NPiB3cml0ZXM6DQo+IA0KPiA+IEkgY291bGRuJ3QgZmlu
-ZCB0aGUgb3JpZ2luYWwgcGF0Y2ggYW55d2hlcmUhDQo+ID4gSSBkaWQgZG8gcXVpdGUgYSBsb3Qg
-b2YgbG9va2luZyBhcyB3ZWxsIC0gaWYgSSdkIGZvdW5kIGl0IEkndmUNCj4gPiBoYXZlIGRvbmUg
-c29tZXRoaW5nIGVsc2UuDQo+IA0KPiBZb3Ugb2J2aW91c2x5IGhhdmVuJ3QgbG9va2VkIHRoZSBv
-bmUgcGxhY2UgeW91IGFyZSBzdXBwb3NlZCB0byBhbHdheXMNCj4gbG9vayBiZWZvcmUgc3VibWl0
-dGluZyAqYW55dGhpbmcqOg0KPiBodHRwczovL2dpdC5rZXJuZWwub3JnL2NnaXQvbGludXgva2Vy
-bmVsL2dpdC9kYXZlbS9uZXQuZ2l0L2NvbW1pdC8/aWQ9ZmRjMzQ1MmNkMmM3YjJiZmUwZjM3OGY5
-MjEyM2Y0ZjkNCj4gYTk4ZmEyYmQNCj4gDQo+IEkgYW0gbm90IGltcHJlc3NlZC4uLg0KDQpXaXRo
-b3V0IHRoZSBjb21taXQgaWQgdGhhdCBpcyByYXRoZXIgaGFyZC4NCkRvZXMgYW55dGhpbmcgZXZl
-biBnZXQgdGhlcmUgd2l0aG91dCBtYW51YWwgYWN0aW9ucy4NCnVzYiBwYXRjaGVzIHNpdCBpbiBh
-IGhpZGRlbiBsaW1ibyBmb3IgYWdlcy4NCg0KSSBsb29rZWQgdGhyb3VnaCBteSBtYWlsYm94ZXMg
-YW5kIHNlYXJjaGVkIGZvciB0aGUgdGhyZWFkIC0gYnV0IG9ubHkNCmZvdW5kIHRoZSBtZXNzYWdl
-cyB0aGF0IGluY2x1ZGVkIHRoZSBvbmUgdGhhdCBzYWlkIHlvdSdkIHNlbmQgYSBwYXRjaA0Kc29v
-bi4NCg0KV2hhdCBJIHN0aWxsIGRvbid0IHVuZGVyc3RhbmQgaXMgaG93IEkgZm91bmQgdGhlIHBh
-dGNoIGJlZm9yZSENCg0KVGhlIGZhY3QgdGhhdCB3b3JrIG1ha2UgbWUgdXNlIG91dGx1Y2sgbWFr
-ZXMgc2VhcmNoaW5nIG1haWwgbG9jYWxseQ0KYWxtb3N0IGltcG9zc2libGUuDQpJIG1pZ2h0IGhh
-dmUgdG8gc3Vic2NyaWJlIGF0IGhvbWUgYXMgd2VsbC4NCg0KCURhdmlkDQoNCg==
+Veaceslav Falico <vfalico@redhat.com> wrote:
+
+>Currently, if a slave's name change, we just pass it by. However, if the
+>slave is a current primary_slave, then we end up with using a slave, whose
+>name != params.primary, for primary_slave. And vice-versa, if we don't have
+>a primary_slave but have params.primary set - we will not detected a new
+>primary_slave.
+>
+>Fix this by catching the NETDEV_CHANGENAME event and setting primary_slave
+>accordingly. Also, if the primary_slave was changed, issue a reselection of
+>the active slave, cause the priorities have changed.
+>
+>Reported-by: Ding Tianhong <dingtianhong@huawei.com>
+>CC: Ding Tianhong <dingtianhong@huawei.com>
+>CC: Jay Vosburgh <fubar@us.ibm.com>
+>CC: Andy Gospodarek <andy@greyhouse.net>
+>Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+>---
+> drivers/net/bonding/bond_main.c | 23 ++++++++++++++++++++---
+> 1 file changed, 20 insertions(+), 3 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index e06c445..8077199 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -2860,9 +2860,26 @@ static int bond_slave_netdev_event(unsigned long event,
+> 		 */
+> 		break;
+> 	case NETDEV_CHANGENAME:
+>-		/*
+>-		 * TODO: handle changing the primary's name
+>-		 */
+>+		/* we don't care if we don't have primary set */
+>+		if (!USES_PRIMARY(bond->params.mode) ||
+>+		    !bond->params.primary[0])
+>+			break;
+>+
+>+		if (slave == bond->primary_slave) {
+>+			/* slave's name changed - he's no longer primary */
+>+			bond->primary_slave = NULL;
+>+		} else if (!strcmp(slave_dev->name, bond->params.primary)) {
+>+			/* we have a new primary slave */
+>+			bond->primary_slave = slave;
+>+		} else  /* we didn't change primary - exit */
+>+			break;
+>+
+>+		pr_info("%s: Primary slave changed to %s, re-electing.\n",
+
+	I suspect you mean "reselecting" here, not "re-electing."  I'd
+add a couple more words, e.g., "reselecting active slave" to make it
+clearer.
+
+	-J
+
+>+			bond->dev->name, bond->primary_slave ? slave_dev->name :
+>+							       "none");
+>+		write_lock_bh(&bond->curr_slave_lock);
+>+		bond_select_active_slave(bond);
+>+		write_unlock_bh(&bond->curr_slave_lock);
+> 		break;
+> 	case NETDEV_FEAT_CHANGE:
+> 		bond_compute_features(bond);
+>-- 
+>1.8.4
+>
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
