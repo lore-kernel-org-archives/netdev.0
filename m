@@ -1,137 +1,55 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next 1/2] net: add sysfs helpers for netdev_adjacent logic
-Date: Tue, 14 Jan 2014 17:35:59 +0100
-Message-ID: <1389717360-13920-2-git-send-email-vfalico@redhat.com>
-References: <1389717360-13920-1-git-send-email-vfalico@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Ding Tianhong <dingtianhong@huawei.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next 06/10] vxlan: use __dev_get_by_index instead of
+ dev_get_by_index to find interface
+Date: Tue, 14 Jan 2014 08:51:05 -0800
+Message-ID: <20140114085105.706779c1@nehalam.linuxnetplumber.net>
+References: <1389685269-18600-1-git-send-email-ying.xue@windriver.com>
+	<1389685269-18600-7-git-send-email-ying.xue@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <vfalico@redhat.com>,
+	<john.r.fastabend@intel.com>, <antonio@meshcoding.com>,
+	<dmitry.tarnyagin@lockless.no>, <socketcan@hartkopp.net>,
+	<johannes@sipsolutions.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Ying Xue <ying.xue@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16320 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752430AbaANQkV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jan 2014 11:40:21 -0500
-In-Reply-To: <1389717360-13920-1-git-send-email-vfalico@redhat.com>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:44037 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751543AbaANQvI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 11:51:08 -0500
+Received: by mail-pb0-f49.google.com with SMTP id jt11so8836663pbb.8
+        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 08:51:08 -0800 (PST)
+In-Reply-To: <1389685269-18600-7-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-They clean up the code a bit and can be used further.
+On Tue, 14 Jan 2014 15:41:05 +0800
+Ying Xue <ying.xue@windriver.com> wrote:
 
-CC: Ding Tianhong <dingtianhong@huawei.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-CC: Cong Wang <amwang@redhat.com>
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
- net/core/dev.c | 57 ++++++++++++++++++++++++++++++---------------------------
- 1 file changed, 30 insertions(+), 27 deletions(-)
+> The following call chains indicate that vxlan_fdb_parse() is
+> under rtnl_lock protection. So if we use __dev_get_by_index()
+> instead of dev_get_by_index() to find interface handler in it,
+> this would help us avoid to change interface reference counter.
+> 
+> rtnetlink_rcv()
+>   rtnl_lock()
+>   netlink_rcv_skb()
+>     rtnl_fdb_add()
+>       vxlan_fdb_add()
+>         vxlan_fdb_parse()
+>   rtnl_unlock()
+> 
+> rtnetlink_rcv()
+>   rtnl_lock()
+>   netlink_rcv_skb()
+>     rtnl_fdb_del()
+>       vxlan_fdb_del()
+>         vxlan_fdb_parse()
+>   rtnl_unlock()
+> 
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 87312dc..c578d4e 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4595,13 +4595,36 @@ struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev)
- }
- EXPORT_SYMBOL(netdev_master_upper_dev_get_rcu);
- 
-+int netdev_adjacent_sysfs_add(struct net_device *dev,
-+			      struct net_device *adj_dev,
-+			      struct list_head *dev_list)
-+{
-+	char linkname[IFNAMSIZ+7];
-+	sprintf(linkname, dev_list == &dev->adj_list.upper ?
-+		"upper_%s" : "lower_%s", adj_dev->name);
-+	return sysfs_create_link(&(dev->dev.kobj), &(adj_dev->dev.kobj),
-+				 linkname);
-+}
-+void netdev_adjacent_sysfs_del(struct net_device *dev,
-+			       char *name,
-+			       struct list_head *dev_list)
-+{
-+	char linkname[IFNAMSIZ+7];
-+	sprintf(linkname, dev_list == &dev->adj_list.upper ?
-+		"upper_%s" : "lower_%s", name);
-+	sysfs_remove_link(&(dev->dev.kobj), linkname);
-+}
-+
-+#define netdev_adjacent_is_neigh_list(dev, dev_list) \
-+		(dev_list == &dev->adj_list.upper || \
-+		 dev_list == &dev->adj_list.lower)
-+
- static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 					struct net_device *adj_dev,
- 					struct list_head *dev_list,
- 					void *private, bool master)
- {
- 	struct netdev_adjacent *adj;
--	char linkname[IFNAMSIZ+7];
- 	int ret;
- 
- 	adj = __netdev_find_adj(dev, adj_dev, dev_list);
-@@ -4624,16 +4647,8 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 	pr_debug("dev_hold for %s, because of link added from %s to %s\n",
- 		 adj_dev->name, dev->name, adj_dev->name);
- 
--	if (dev_list == &dev->adj_list.lower) {
--		sprintf(linkname, "lower_%s", adj_dev->name);
--		ret = sysfs_create_link(&(dev->dev.kobj),
--					&(adj_dev->dev.kobj), linkname);
--		if (ret)
--			goto free_adj;
--	} else if (dev_list == &dev->adj_list.upper) {
--		sprintf(linkname, "upper_%s", adj_dev->name);
--		ret = sysfs_create_link(&(dev->dev.kobj),
--					&(adj_dev->dev.kobj), linkname);
-+	if (netdev_adjacent_is_neigh_list(dev, dev_list)) {
-+		ret = netdev_adjacent_sysfs_add(dev, adj_dev, dev_list);
- 		if (ret)
- 			goto free_adj;
- 	}
-@@ -4653,14 +4668,8 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 	return 0;
- 
- remove_symlinks:
--	if (dev_list == &dev->adj_list.lower) {
--		sprintf(linkname, "lower_%s", adj_dev->name);
--		sysfs_remove_link(&(dev->dev.kobj), linkname);
--	} else if (dev_list == &dev->adj_list.upper) {
--		sprintf(linkname, "upper_%s", adj_dev->name);
--		sysfs_remove_link(&(dev->dev.kobj), linkname);
--	}
--
-+	if (netdev_adjacent_is_neigh_list(dev, dev_list))
-+		netdev_adjacent_sysfs_del(dev, adj_dev->name, dev_list);
- free_adj:
- 	kfree(adj);
- 	dev_put(adj_dev);
-@@ -4673,7 +4682,6 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
- 					 struct list_head *dev_list)
- {
- 	struct netdev_adjacent *adj;
--	char linkname[IFNAMSIZ+7];
- 
- 	adj = __netdev_find_adj(dev, adj_dev, dev_list);
- 
-@@ -4693,13 +4701,8 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
- 	if (adj->master)
- 		sysfs_remove_link(&(dev->dev.kobj), "master");
- 
--	if (dev_list == &dev->adj_list.lower) {
--		sprintf(linkname, "lower_%s", adj_dev->name);
--		sysfs_remove_link(&(dev->dev.kobj), linkname);
--	} else if (dev_list == &dev->adj_list.upper) {
--		sprintf(linkname, "upper_%s", adj_dev->name);
--		sysfs_remove_link(&(dev->dev.kobj), linkname);
--	}
-+	if (netdev_adjacent_is_neigh_list(dev, dev_list))
-+		netdev_adjacent_sysfs_del(dev, adj_dev->name, dev_list);
- 
- 	list_del_rcu(&adj->list);
- 	pr_debug("dev_put for %s, because link removed from %s to %s\n",
--- 
-1.8.4
+Acked-by: Stephen Hemminger <stephen@networkplumber.org>
