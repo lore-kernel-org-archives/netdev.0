@@ -1,82 +1,69 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [RFC] sysfs_rename_link() and its usage
-Date: Tue, 14 Jan 2014 13:12:10 -0800
-Message-ID: <20140114211210.GA28453@kroah.com>
-References: <20140114171740.GB1867@redhat.com>
- <20140114182135.GA29296@kroah.com>
- <20140114191208.GA9942@redhat.com>
- <20140114193139.GA3636@kroah.com>
- <20140114210610.GC9942@redhat.com>
+From: Michael Dalton <mwdalton@google.com>
+Subject: Re: [PATCH net-next v2 4/4] virtio-net: initial debugfs support,
+	export mergeable rx buffer size
+Date: Tue, 14 Jan 2014 13:45:42 -0800
+Message-ID: <CANJ5vP+sqZ442ZD7TJ86EMVyfGa1SAuUj0AJnjmE7haNALhFNw@mail.gmail.com>
+References: <1389072355-20666-1-git-send-email-mwdalton@google.com>
+	<1389072355-20666-4-git-send-email-mwdalton@google.com>
+	<52CCF177.7020500@redhat.com> <20140108192109.GC18312@redhat.com>
+	<CANJ5vP+Qxa5j_Cp1FBK-qdO+U+dy2kiY5N2bmWdMKbCoY9EwDQ@mail.gmail.com>
+	<20140112170939.GA17202@redhat.com>
+	<CANJ5vP+Vu8=haCetZkcefPgR8pGe0iDZ03EZhJHLSgunCaHJsQ@mail.gmail.com>
+	<20140113094018.GA22726@redhat.com>
+	<1389627488.2025.134.camel@bwh-desktop.uk.level5networks.com>
+	<CANJ5vPLamPonELhzEEs_e+BQUDrY0w=KpwpzSwGpG551rnbfbQ@mail.gmail.com>
+	<CANJ5vPLYJJ1=PVp9LD-4pY2Y9gzk5HROEn_c85pbO4mZkeKA_g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	ebiederm@xmission.com
-To: Veaceslav Falico <vfalico@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140114210610.GC9942@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CANJ5vPLYJJ1=PVp9LD-4pY2Y9gzk5HROEn_c85pbO4mZkeKA_g@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 14, 2014 at 10:06:10PM +0100, Veaceslav Falico wrote:
-> On Tue, Jan 14, 2014 at 11:31:39AM -0800, Greg KH wrote:
-> >On Tue, Jan 14, 2014 at 08:12:08PM +0100, Veaceslav Falico wrote:
-> >>On Tue, Jan 14, 2014 at 10:21:35AM -0800, Greg KH wrote:
-> >>>On Tue, Jan 14, 2014 at 06:17:40PM +0100, Veaceslav Falico wrote:
-> >>>>Hi,
-> >>>>
-> >>>>I'm hitting a strange issue and/or I'm completely lost in sysfs internals.
-> >>>>
-> >>>>Consider having two net_device *a, *b; which are registered normally.
-> >>>>Now, to create a link from /sys/class/net/a->name/linkname to b, one should
-> >>>>use:
-> >>>>
-> >>>>sysfs_create_link(&(a->dev.kobj), &(b->dev.kobj), linkname);
-> >>>>
-> >>>>To remove it, even simpler:
-> >>>>
-> >>>>sysfs_remove_link(&(a->dev.kobj), linkname);
-> >>>>
-> >>>>This works like a charm. However, if I want to use (obviously, with the
-> >>>>symlink present):
-> >>>>
-> >>>>sysfs_rename_link(&(a->dev.kobj), &(b->dev.kobj), oldname, newname);
-> >>>
-> >>>You forgot the namespace option to this call, what kernel version are
-> >>>you using here?
-> >>
-> >>It's git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next ,
-> >>3.13-rc6 with some networking patches on top of it.
-> >>
-> >>And wrt namespace - there are two functions, one is sysfs_rename_link(),
-> >>which calls the second one - sysfs_rename_link_ns() with NULL namespace.
-> >>
-> >>>
-> >>>>this fails with:
-> >>>>
-> >>>>"sysfs: ns invalid in 'a->name' for 'oldname'"
-> >>>
-> >>>Looks like the namespace for this link isn't valid.
-> >>
-> >>Yep, though dunno why.
-> >
-> >Are you testing this with network namespaces enabled?  Perhaps that is
-> >why, you need to specify the namespace of the link that you are
-> >changing.
-> >
-> >The fact that the bridge link works is odd to me, I would think that it
-> >too needs to specify the network namespace involved, but perhaps bridge
-> >objects aren't part of any specific network namespace?  I don't know the
-> >bridging code at all, sorry.
-> 
-> Yep, might be it, will test soon and come back with the results.
-> 
-> What still bugs me, though, is the logic - why is it possible to remove/add
-> without specifying namespace, while it fails to rename it? Maybe the rename
-> function should do a better job at detecting the namespace?
+I'd like to confirm the preferred sysfs path structure for mergeable
+receive buffers. Is 'mergeable_rx_buffer_size' the right attribute name
+to use or is there a strong preference for a different name?
 
-Yes, maybe it should, patches are always gladly welcome :)
+I believe the current approach proposed for the next patchset is to use a
+per-netdev attribute group which we will add to the receive
+queue kobj (struct netdev_rx_queue). That leaves us with at
+least two options:
+  (1) Name the attribute group something, e.g., 'virtio-net', in which
+      case all virtio-net attributes for eth0 queue N will be of
+      the form:
+      /sys/class/net/eth0/queues/rx-N/virtio-net/<attribute name>
 
-thanks,
+  (2) Do not name the attribute group (leave the name NULL), in which
+      case AFAICT virtio-net and device-independent attributes would be
+      mixed without any indication. For example, all virtio-net
+      attributes for netdev eth0 queue N would be of the form:
+      /sys/class/net/eth0/queues/rx-N/<attribute name>
 
-greg k-h
+FWIW, the bonding netdev has a similar sysfs issue and uses a per-netdev
+attribute group (stored in the 'sysfs_groups' field of struct netdevice)
+In the case of bonding, the attribute group is named, so
+device-independent netdev attributes are found in
+/sys/class/net/eth0/<attribute name> while bonding attributes are placed
+in /sys/class/net/eth0/bonding/<attribute name>.
+
+So it seems like there is some precedent for using an attribute group
+name corresponding to the driver name. Does using an attribute group
+name of 'virtio-net' sound good or would an empty or different attribute
+group name be preferred?
+
+Best,
+
+Mike
