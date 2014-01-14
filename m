@@ -1,61 +1,83 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net 0/2] bonding: fix the sysfs warning when change the
- master's name
-Date: Tue, 14 Jan 2014 09:49:03 +0800
-Message-ID: <52D4978F.4090104@huawei.com>
-References: <52D3E536.8080404@huawei.com> <20140113172446.GA2081@redhat.com>
+Subject: Re: [PATCH net 2/2] bonding: rename the dev upper link if the master's,
+ name changed
+Date: Tue, 14 Jan 2014 09:49:25 +0800
+Message-ID: <52D497A5.1080304@huawei.com>
+References: <52D3E55B.8080401@huawei.com> <52D42842.5010709@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Veaceslav Falico <vfalico@redhat.com>
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:49002 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752708AbaANBtY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 20:49:24 -0500
-In-Reply-To: <20140113172446.GA2081@redhat.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:44290 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752666AbaANBtw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 20:49:52 -0500
+In-Reply-To: <52D42842.5010709@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/1/14 1:24, Veaceslav Falico wrote:
-> On Mon, Jan 13, 2014 at 09:08:06PM +0800, Ding Tianhong wrote:
->> When I change the master's name, and then rebuild the master and ensalve a nic again,
->> than I got the calltrace:
+On 2014/1/14 1:54, Sergei Shtylyov wrote:
+> On 13-01-2014 17:08, Ding Tianhong wrote:
+> 
+>> The bond_maste_rename() will rename the links for slave dev's upper dev link,
+> 
+>    s/maste/master/.
+> 
+>> if faild, it will rollback and rename the new name to old name for slave dev.
+> 
+>    s/faild/failed/.
+> 
+>> Add a new parameter called name to save the old bonding name in struct bonding.
+> 
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>> ---
+>>   drivers/net/bonding/bond_main.c | 35 +++++++++++++++++++++++++++++++++++
+>>   drivers/net/bonding/bonding.h   |  1 +
+>>   2 files changed, 36 insertions(+)
+> 
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index 4b8c58b..8c044c0 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -2799,11 +2799,41 @@ re_arm:
 >>
->> [329215.749344] WARNING: CPU: 0 PID: 4778 at fs/sysfs/dir.c:486 sysfs_warn_dup+0x87/0xa0()
->> [329215.749347] sysfs: cannot create duplicate filename '/devices/pci0000:00/0000:00:03.0/0000:02:00.0/net/eth100/upper_bond0'
-> ...snip...
->> [329215.749494]  [<ffffffff81205b27>] sysfs_warn_dup+0x87/0xa0
->> [329215.749500]  [<ffffffff81205eed>] sysfs_add_one+0x4d/0x50
->> [329215.749505]  [<ffffffff81206f9e>] sysfs_do_create_link_sd+0xbe/0x210
->> [329215.749511]  [<ffffffff812951a0>] ? sprintf+0x40/0x50
->> [329215.749516]  [<ffffffff8120714b>] sysfs_create_link+0x2b/0x30
->> [329215.749523]  [<ffffffff8140a708>] __netdev_adjacent_dev_insert+0x1b8/0x270
->> [329215.749528]  [<ffffffff8140a7f8>] __netdev_adjacent_dev_link_lists+0x38/0x90
->> [329215.749533]  [<ffffffff8140a98b>] __netdev_upper_dev_link+0x13b/0x470
->> [329215.749538]  [<ffffffff8141319c>] ? __ethtool_get_settings+0x5c/0x90
->> [329215.749547]  [<ffffffffa0722179>] ? bond_update_speed_duplex+0x29/0x70 [bonding]
->> [329215.749552]  [<ffffffff8140acd1>] netdev_master_upper_dev_link_private+0x11/0x20
->> [329215.749561]  [<ffffffffa0729246>] bond_enslave+0x806/0xe40 [bonding]
->> [329215.749570]  [<ffffffffa073241f>] bonding_store_slaves+0x18f/0x1c0 [bonding]
->> [329215.749576]  [<ffffffff813757ab>] dev_attr_store+0x1b/0x20
->> [329215.749581]  [<ffffffff812049cc>] sysfs_write_file+0x15c/0x1f0
->> [329215.749587]  [<ffffffff81188897>] vfs_write+0xc7/0x1e0
+>>   /*-------------------------- netdev event handling --------------------------*/
+>>
+>> +static int bond_master_rename(struct bonding *bond)
+>> +{
+>> +    struct slave *slave;
+>> +    struct list_head *iter;
+>> +    char ori_linkname[IFNAMSIZ + 7], new_linkname[IFNAMSIZ + 7];
 > 
-> It's unrelated to bonding, as it touches any device that uses netdev_adjacent
-> logic.
-
-Yes, it is a problem for every device that uses netdev_adjacent.
+>    Perhaps s/ori/old/ is better?
 > 
-> This case (renaming stale sysfs links) should be properly handled in
-> dev_change_name().
+>> +    int err = 0;
+>> +
+>> +    sprintf(ori_linkname, "upper_%s", bond->name);
+>> +    sprintf(new_linkname, "upper_%s", bond->dev->name);
+>> +
+>> +    bond_for_each_slave(bond, slave, iter) {
+>> +
 > 
+>    No need for this empty line, I think.
+> 
+>> +        err = netdev_upper_dev_rename(slave->dev, bond->dev, ori_linkname,
+>> +                    new_linkname);
+> 
+>    The continuation line should start right under 'slave' on the broken up line.
+> 
+> WBR, Sergei
+> 
+> 
+Yes, thanks.
 
-Ok, I will try and fix it in dev_change_name().
+Regards
+Ding
 
-> .
 > 
