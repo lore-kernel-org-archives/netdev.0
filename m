@@ -1,79 +1,73 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv3 net-next 1/5] {IPv4,xfrm} Add ESN support for AH egress part
-Date: Tue, 14 Jan 2014 09:39:08 +0800
-Message-ID: <1389663552-29638-2-git-send-email-fan.du@windriver.com>
+Subject: [PATCHv3 net-next 2/5] {IPv4,xfrm} Add ESN support for AH ingress part
+Date: Tue, 14 Jan 2014 09:39:09 +0800
+Message-ID: <1389663552-29638-3-git-send-email-fan.du@windriver.com>
 References: <1389663552-29638-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
 To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:44120 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751688AbaANBjJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 20:39:09 -0500
+Received: from mail1.windriver.com ([147.11.146.13]:64651 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751256AbaANBjL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 20:39:11 -0500
 In-Reply-To: <1389663552-29638-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch add esn support for AH output stage by attaching upper 32bits
+This patch add esn support for AH input stage by attaching upper 32bits
 sequence number right after packet payload as specified by RFC 4302.
 
 Then the ICV value will guard upper 32bits sequence number as well when
-packet going out.
+packet getting in.
 
 Signed-off-by: Fan Du <fan.du@windriver.com>
 ---
- net/ipv4/ah4.c |   25 +++++++++++++++++++++----
- 1 file changed, 21 insertions(+), 4 deletions(-)
+ net/ipv4/ah4.c |   25 ++++++++++++++++++++++---
+ 1 file changed, 22 insertions(+), 3 deletions(-)
 
 diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
-index 7179026..759e489 100644
+index 759e489..7ca2fe7 100644
 --- a/net/ipv4/ah4.c
 +++ b/net/ipv4/ah4.c
-@@ -12,6 +12,7 @@
- #include <linux/scatterlist.h>
- #include <net/icmp.h>
- #include <net/protocol.h>
-+#include <crypto/scatterwalk.h>
- 
- struct ah_skb_cb {
- 	struct xfrm_skb_cb xfrm;
-@@ -155,6 +156,10 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
- 	struct iphdr *iph, *top_iph;
+@@ -312,6 +312,10 @@ static int ah_input(struct xfrm_state *x, struct sk_buff *skb)
  	struct ip_auth_hdr *ah;
  	struct ah_data *ahp;
+ 	int err = -ENOMEM;
 +	int seqhi_len = 0;
 +	__be32 *seqhi;
 +	int sglists = 0;
 +	struct scatterlist *seqhisg;
  
- 	ahp = x->data;
- 	ahash = ahp->ahash;
-@@ -167,14 +172,19 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
- 	ah = ip_auth_hdr(skb);
+ 	if (!pskb_may_pull(skb, sizeof(*ah)))
+ 		goto out;
+@@ -352,14 +356,22 @@ static int ah_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	iph = ip_hdr(skb);
  	ihl = ip_hdrlen(skb);
  
+-	work_iph = ah_alloc_tmp(ahash, nfrags, ihl + ahp->icv_trunc_len);
 +	if (x->props.flags & XFRM_STATE_ESN) {
 +		sglists = 1;
 +		seqhi_len = sizeof(*seqhi);
 +	}
- 	err = -ENOMEM;
--	iph = ah_alloc_tmp(ahash, nfrags, ihl);
-+	iph = ah_alloc_tmp(ahash, nfrags + sglists, ihl + seqhi_len);
- 	if (!iph)
++
++	work_iph = ah_alloc_tmp(ahash, nfrags + sglists, ihl +
++				ahp->icv_trunc_len + seqhi_len);
+ 	if (!work_iph)
  		goto out;
--
--	icv = ah_tmp_icv(ahash, iph, ihl);
-+	seqhi = (__be32 *)((char *)iph + ihl);
-+	icv = ah_tmp_icv(ahash, seqhi, seqhi_len);
+ 
+-	auth_data = ah_tmp_auth(work_iph, ihl);
++	seqhi = (__be32 *)((char *)work_iph + ihl);
++	auth_data = ah_tmp_auth(seqhi, seqhi_len);
+ 	icv = ah_tmp_icv(ahash, auth_data, ahp->icv_trunc_len);
  	req = ah_tmp_req(ahash, icv);
  	sg = ah_req_sg(ahash, req);
 +	seqhisg = sg + nfrags;
  
- 	memset(ah->auth_data, 0, ahp->icv_trunc_len);
- 
-@@ -213,7 +223,14 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	memcpy(work_iph, iph, ihl);
+ 	memcpy(auth_data, ah->auth_data, ahp->icv_trunc_len);
+@@ -381,7 +393,14 @@ static int ah_input(struct xfrm_state *x, struct sk_buff *skb)
  	sg_init_table(sg, nfrags);
  	skb_to_sgvec(skb, sg, 0, skb->len);
  
@@ -86,8 +80,8 @@ index 7179026..759e489 100644
 +		sg_set_buf(seqhisg, seqhi, seqhi_len);
 +	}
 +	ahash_request_set_crypt(req, sg, icv, skb->len + seqhi_len);
- 	ahash_request_set_callback(req, 0, ah_output_done, skb);
+ 	ahash_request_set_callback(req, 0, ah_input_done, skb);
  
- 	AH_SKB_CB(skb)->tmp = iph;
+ 	AH_SKB_CB(skb)->tmp = work_iph;
 -- 
 1.7.9.5
