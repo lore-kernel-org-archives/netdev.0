@@ -1,83 +1,54 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net 2/2] bonding: rename the dev upper link if the master's,
- name changed
-Date: Tue, 14 Jan 2014 09:49:25 +0800
-Message-ID: <52D497A5.1080304@huawei.com>
-References: <52D3E55B.8080401@huawei.com> <52D42842.5010709@cogentembedded.com>
+Subject: Re: [PATCH net 0/2] bonding: ensure that the TSO being set on bond
+ master
+Date: Tue, 14 Jan 2014 10:06:28 +0800
+Message-ID: <52D49BA4.7040706@huawei.com>
+References: <52CCFE15.2020605@huawei.com> <20140113.111511.1204304092822372663.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
+Cc: <fubar@us.ibm.com>, <vfalico@redhat.com>, <edumazet@google.com>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:44290 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752666AbaANBtw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 20:49:52 -0500
-In-Reply-To: <52D42842.5010709@cogentembedded.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:12066 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751172AbaANCGv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 21:06:51 -0500
+In-Reply-To: <20140113.111511.1204304092822372663.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/1/14 1:54, Sergei Shtylyov wrote:
-> On 13-01-2014 17:08, Ding Tianhong wrote:
+On 2014/1/14 3:15, David Miller wrote:
+> From: Ding Tianhong <dingtianhong@huawei.com>
+> Date: Wed, 8 Jan 2014 15:28:21 +0800
 > 
->> The bond_maste_rename() will rename the links for slave dev's upper dev link,
-> 
->    s/maste/master/.
-> 
->> if faild, it will rollback and rename the new name to old name for slave dev.
-> 
->    s/faild/failed/.
-> 
->> Add a new parameter called name to save the old bonding name in struct bonding.
-> 
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> ---
->>   drivers/net/bonding/bond_main.c | 35 +++++++++++++++++++++++++++++++++++
->>   drivers/net/bonding/bonding.h   |  1 +
->>   2 files changed, 36 insertions(+)
-> 
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->> index 4b8c58b..8c044c0 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -2799,11 +2799,41 @@ re_arm:
+>> The commit b0ce3508(bonding: allow TSO being set on bonding master)
+>> has make the TSO being set for bond dev, but in some situation, if
+>> the slave did not have the NETIF_F_SG features, the bond master will
+>> miss the TSO features in netdev_fix_features because the TSO is
+>> depended on SG. So I have to add SG and TSO features on bond master
+>> together.
 >>
->>   /*-------------------------- netdev event handling --------------------------*/
->>
->> +static int bond_master_rename(struct bonding *bond)
->> +{
->> +    struct slave *slave;
->> +    struct list_head *iter;
->> +    char ori_linkname[IFNAMSIZ + 7], new_linkname[IFNAMSIZ + 7];
+>> The function netdev_add_tso_features() was only be used for bonding,
+>> so no need to export it in netdevice.h, remove it and add it to bonding.
 > 
->    Perhaps s/ori/old/ is better?
+> As far as I can tell from the discussion, there is some issue wrt. TSO
+> about what happens if SG is not supported by some of the slaves.
 > 
->> +    int err = 0;
->> +
->> +    sprintf(ori_linkname, "upper_%s", bond->name);
->> +    sprintf(new_linkname, "upper_%s", bond->dev->name);
->> +
->> +    bond_for_each_slave(bond, slave, iter) {
->> +
+>>From my perspective it appears that some changes to these patches are
+> necessary to handle that correctly.
 > 
->    No need for this empty line, I think.
+> So I am going to mark them as "Changes Requested" in patchwork.
 > 
->> +        err = netdev_upper_dev_rename(slave->dev, bond->dev, ori_linkname,
->> +                    new_linkname);
+> If this is not the case, please resubmit these changes with appropriate
+> explanations added to the commit message(s).
 > 
->    The continuation line should start right under 'slave' on the broken up line.
-> 
-> WBR, Sergei
+> Thanks.
 > 
 > 
-Yes, thanks.
+
+Ok, thanks.
 
 Regards
 Ding
-
-> 
