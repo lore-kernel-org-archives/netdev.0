@@ -1,70 +1,117 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC] reciprocal_divide: correction/update of the
- algorithm
-Date: Tue, 14 Jan 2014 14:45:37 -0800
-Message-ID: <1389739537.31367.273.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140113214249.GK6586@order.stressinduktion.org>
-		 <1389722825.31367.260.camel@edumazet-glaptop2.roam.corp.google.com>
-		 <52D58E6F.4050000@gmail.com>
-	 <1389729032.31367.262.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <52D5A3DC.9030107@gmail.com>
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Subject: Re: linux-next: Tree for Jan 14 (lowpan, 802.15.4)
+Date: Wed, 15 Jan 2014 02:54:56 +0400
+Message-ID: <CALT56yPzfkz7=WdT0p6EYXdsQJUT+Ld9gdd72z6_czn0YaKUWA@mail.gmail.com>
+References: <20140114165128.0dd51f362e0f34a2ef4dc92f@canb.auug.org.au>
+	<52D578A7.8020000@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org, dborkman@redhat.com,
-	linux-kernel@vger.kernel.org, darkjames-ws@darkjames.pl
-To: Austin S Hemmelgarn <ahferroin7@gmail.com>
+Content-Type: multipart/mixed; boundary=001a11c1d7f4cf6a6704eff6147f
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org,
+	kernel list <linux-kernel@vger.kernel.org>,
+	linux-zigbee-devel <linux-zigbee-devel@lists.sourceforge.net>,
+	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jukka Rissanen <jukka.rissanen@linux.intel.com>
+To: Randy Dunlap <rdunlap@infradead.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f175.google.com ([209.85.161.175]:50834 "EHLO
-	mail-gg0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751181AbaANWum (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 17:50:42 -0500
-In-Reply-To: <52D5A3DC.9030107@gmail.com>
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:53473 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751038AbaANWy5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 17:54:57 -0500
+In-Reply-To: <52D578A7.8020000@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-01-14 at 15:53 -0500, Austin S Hemmelgarn wrote:
-> On 2014-01-14 14:50, Eric Dumazet wrote:
-> > On Tue, 2014-01-14 at 14:22 -0500, Austin S Hemmelgarn wrote:
-> > 
-> >> I disagree with the statement that current CPU's have reasonably fast
-> >> dividers.  A lot of embedded processors and many low-end x86 CPU's do
-> >> not in-fact have any hardware divider, and usually provide it using
-> >> microcode based emulation if they provide it at all.  The AMD Jaguar
-> >> micro-architecture in particular comes to mind, it uses an iterative
-> >> division algorithm provided by the microcode that only produces 2 bits
-> >> of quotient per cycle, even in the best case (2 8-bit integers and an
-> >> integral 8-bit quotient) this still takes 4 cycles, which is twice as
-> >> slow as any other math operation on the same processor.
-> > 
-> > I doubt you run any BPF filter with a divide instruction in it on these
-> > platform.
-> > 
-> > Get real, do not over optimize things where it does not matter.
-> > 
-> Actually, I have three Jaguar based routers, and use BPF regularly as
-> part of their iptables rules to log certain packet types.
+--001a11c1d7f4cf6a6704eff6147f
+Content-Type: text/plain; charset=ISO-8859-1
+
+Hello,
 
 
+On Tue, Jan 14, 2014 at 9:49 PM, Randy Dunlap <rdunlap@infradead.org> wrote:
+>
+> On 01/13/2014 09:51 PM, Stephen Rothwell wrote:
+> > Hi all,
+> >
+> > This tree fails (more than usual) the powerpc allyesconfig build.
+> >
+> > Changes since 20140113:
+> >
+>
+>
+> on i386:
+>
+> net/built-in.o: In function `header_create':
+> 6lowpan.c:(.text+0x166149): undefined reference to `lowpan_header_compress'
+> net/built-in.o: In function `bt_6lowpan_recv':
+> (.text+0x166b3c): undefined reference to `lowpan_process_data'
 
-1) Have you enabled BPF JIT
+Ah, nice Makefile hack there.
+David, Marcel, could you please consider the attached patch.
 
-2) Do you have divide instructions in a BPF filter, 
-   if yes, I would like to have an example.
-   (current code works well for small divisors anyway)
 
-3) How much time is spent in BPF compared to the rest of the stack,
-   especially if you run iptables...
+-- 
+With best wishes
+Dmitry
 
-Spending 2 or 3 days of work to save ~7 cycles for a divide that
-probably can be replaced by a shift anyway, while spending 5000 cycles
-per packet is what I call not a wise optimization, especially
-if dealing with old hardware.
+--001a11c1d7f4cf6a6704eff6147f
+Content-Type: text/x-patch; charset=US-ASCII;
+	name="0001-net-move-6lowpan-compression-code-to-separate-module.patch"
+Content-Disposition: attachment;
+	filename="0001-net-move-6lowpan-compression-code-to-separate-module.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hqfrd7t71
 
-Even on a Jaguar, the proposed alternative 
-
-+       u32 t = (u32)(((u64)a * R.m) >> 32);
-+       return (t + ((a - t) >> R.sh1)) >> R.sh2;
-
-will have a similar cost.
+RnJvbSA0YzNkYjZkM2MyNDRkZWNmNDM0NjY1YzMwYzFiZjc1YWFkMWY5NGIyIE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBEbWl0cnkgRXJlbWluLVNvbGVuaWtvdiA8ZG1pdHJ5X2VyZW1p
+bkBtZW50b3IuY29tPgpEYXRlOiBXZWQsIDE1IEphbiAyMDE0IDAyOjUwOjQwICswNDAwClN1Ympl
+Y3Q6IFtQQVRDSF0gbmV0OiBtb3ZlIDZsb3dwYW4gY29tcHJlc3Npb24gY29kZSB0byBzZXBhcmF0
+ZSBtb2R1bGUKCklFRUUgODAyLjE1LjQgYW5kIEJsdWV0b290aCBuZXR3b3JraW5nIHN0YWNrcyBz
+aGFyZSA2bG93cGFuIGNvbXByZXNzaW9uCmNvZGUuIEluc3RlYWQgb2YgaW50cm9kdWNpbmcgTWFr
+ZWZpbGUvS2NvbmZpZyBoYWNrcywgYnVpbGQgdGhpcyBjb2RlIGFzCmEgc2VwYXJhdGUgbW9kdWxl
+IHJlZmVyZW5jZWQgZnJvbSBib3RoIGllZWU4MDIxNTQgYW5kIGJsdWV0b290aCBtb2R1bGVzLgoK
+VGhpcyBmaXhlcyB0aGUgZm9sbG93aW5nIGJ1aWxkIGVycm9yIG9ic2VydmVkIGluIHNvbWUga2Vy
+bmVsCmNvbmZpZ3VyYXRpb25zOgoKbmV0L2J1aWx0LWluLm86IEluIGZ1bmN0aW9uIGBoZWFkZXJf
+Y3JlYXRlJzogNmxvd3Bhbi5jOigudGV4dCsweDE2NjE0OSk6IHVuZGVmaW5lZCByZWZlcmVuY2Ug
+dG8gYGxvd3Bhbl9oZWFkZXJfY29tcHJlc3MnCm5ldC9idWlsdC1pbi5vOiBJbiBmdW5jdGlvbiBg
+YnRfNmxvd3Bhbl9yZWN2JzogKC50ZXh0KzB4MTY2YjNjKTogdW5kZWZpbmVkIHJlZmVyZW5jZSB0
+byBgbG93cGFuX3Byb2Nlc3NfZGF0YScKClNpZ25lZC1vZmYtYnk6IERtaXRyeSBFcmVtaW4tU29s
+ZW5pa292IDxkbWl0cnlfZXJlbWluQG1lbnRvci5jb20+Ci0tLQogbmV0L01ha2VmaWxlICAgICAg
+ICAgICAgfCAyICstCiBuZXQvYmx1ZXRvb3RoL0tjb25maWcgICB8IDEgKwogbmV0L2llZWU4MDIx
+NTQvS2NvbmZpZyAgfCA3ICsrKysrKysKIG5ldC9pZWVlODAyMTU0L01ha2VmaWxlIHwgMyArKy0K
+IDQgZmlsZXMgY2hhbmdlZCwgMTEgaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlvbnMoLSkKCmRpZmYg
+LS1naXQgYS9uZXQvTWFrZWZpbGUgYi9uZXQvTWFrZWZpbGUKaW5kZXggOGZhMmY5MS4uY2JiYmU2
+ZCAxMDA2NDQKLS0tIGEvbmV0L01ha2VmaWxlCisrKyBiL25ldC9NYWtlZmlsZQpAQCAtNTcsNyAr
+NTcsNyBAQCBvYmotJChDT05GSUdfQ0FJRikJCSs9IGNhaWYvCiBpZm5lcSAoJChDT05GSUdfRENC
+KSwpCiBvYmoteQkJCQkrPSBkY2IvCiBlbmRpZgotb2JqLSQoQ09ORklHX0lFRUU4MDIxNTQpCSs9
+IGllZWU4MDIxNTQvCitvYmoteQkJCQkrPSBpZWVlODAyMTU0Lwogb2JqLSQoQ09ORklHX01BQzgw
+MjE1NCkJCSs9IG1hYzgwMjE1NC8KIAogaWZlcSAoJChDT05GSUdfTkVUKSx5KQpkaWZmIC0tZ2l0
+IGEvbmV0L2JsdWV0b290aC9LY29uZmlnIGIvbmV0L2JsdWV0b290aC9LY29uZmlnCmluZGV4IGQz
+ZjNmN2IuLjk4NWI1NjAgMTAwNjQ0Ci0tLSBhL25ldC9ibHVldG9vdGgvS2NvbmZpZworKysgYi9u
+ZXQvYmx1ZXRvb3RoL0tjb25maWcKQEAgLTEyLDYgKzEyLDcgQEAgbWVudWNvbmZpZyBCVAogCXNl
+bGVjdCBDUllQVE9fQUVTCiAJc2VsZWN0IENSWVBUT19FQ0IKIAlzZWxlY3QgQ1JZUFRPX1NIQTI1
+NgorCXNlbGVjdCA2TE9XUEFOX0lQSEMKIAloZWxwCiAJICBCbHVldG9vdGggaXMgbG93LWNvc3Qs
+IGxvdy1wb3dlciwgc2hvcnQtcmFuZ2Ugd2lyZWxlc3MgdGVjaG5vbG9neS4KIAkgIEl0IHdhcyBk
+ZXNpZ25lZCBhcyBhIHJlcGxhY2VtZW50IGZvciBjYWJsZXMgYW5kIG90aGVyIHNob3J0LXJhbmdl
+CmRpZmYgLS1naXQgYS9uZXQvaWVlZTgwMjE1NC9LY29uZmlnIGIvbmV0L2llZWU4MDIxNTQvS2Nv
+bmZpZwppbmRleCBiMmUwNmRmLi45Yzk4NzlkIDEwMDY0NAotLS0gYS9uZXQvaWVlZTgwMjE1NC9L
+Y29uZmlnCisrKyBiL25ldC9pZWVlODAyMTU0L0tjb25maWcKQEAgLTEzLDUgKzEzLDEyIEBAIGNv
+bmZpZyBJRUVFODAyMTU0CiBjb25maWcgSUVFRTgwMjE1NF82TE9XUEFOCiAJdHJpc3RhdGUgIjZs
+b3dwYW4gc3VwcG9ydCBvdmVyIElFRUUgODAyLjE1LjQiCiAJZGVwZW5kcyBvbiBJRUVFODAyMTU0
+ICYmIElQVjYKKwlzZWxlY3QgNkxPV1BBTl9JUEhDCiAJLS0taGVscC0tLQogCUlQdjYgY29tcHJl
+c3Npb24gb3ZlciBJRUVFIDgwMi4xNS40LgorCitjb25maWcgNkxPV1BBTl9JUEhDCisJdHJpc3Rh
+dGUKKwktLS1oZWxwLS0tCisJICA2bG93cGFuIGNvbXByZXNzaW9uIGNvZGUgd2hpY2ggaXMgc2hh
+cmVkIGJldHdlZW4gSUVFRSA4MDIuMTUuNCBhbmQgQmx1ZXRvb3RoCisJICBzdGFja3MuCmRpZmYg
+LS1naXQgYS9uZXQvaWVlZTgwMjE1NC9NYWtlZmlsZSBiL25ldC9pZWVlODAyMTU0L01ha2VmaWxl
+CmluZGV4IDk1MWE4M2UuLmU4ZjA1ODggMTAwNjQ0Ci0tLSBhL25ldC9pZWVlODAyMTU0L01ha2Vm
+aWxlCisrKyBiL25ldC9pZWVlODAyMTU0L01ha2VmaWxlCkBAIC0xLDUgKzEsNiBAQAogb2JqLSQo
+Q09ORklHX0lFRUU4MDIxNTQpICs9IGllZWU4MDIxNTQubyBhZl84MDIxNTQubwotb2JqLSQoQ09O
+RklHX0lFRUU4MDIxNTRfNkxPV1BBTikgKz0gNmxvd3Bhbi5vIDZsb3dwYW5faXBoYy5vCitvYmot
+JChDT05GSUdfSUVFRTgwMjE1NF82TE9XUEFOKSArPSA2bG93cGFuLm8KK29iai0kKENPTkZJR182
+TE9XUEFOX0lQSEMpICs9IDZsb3dwYW5faXBoYy5vCiAKIGllZWU4MDIxNTQteSA6PSBuZXRsaW5r
+Lm8gbmwtbWFjLm8gbmwtcGh5Lm8gbmxfcG9saWN5Lm8gd3Bhbi1jbGFzcy5vCiBhZl84MDIxNTQt
+eSA6PSBhZl9pZWVlODAyMTU0Lm8gcmF3Lm8gZGdyYW0ubwotLSAKMS44LjUuMgoK
+--001a11c1d7f4cf6a6704eff6147f--
