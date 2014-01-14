@@ -1,66 +1,67 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [RFC] sysfs_rename_link() and its usage
-Date: Tue, 14 Jan 2014 18:17:40 +0100
-Message-ID: <20140114171740.GB1867@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, gregkh@linuxfoundation.org,
-	ebiederm@xmission.com
-To: linux-kernel@vger.kernel.org
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Subject: [PATCH net-next v3 0/2] stmmac: fix kernel crashes for jumbo frames
+Date: Tue, 14 Jan 2014 11:17:37 -0600
+Message-ID: <1389719859-29071-1-git-send-email-vbridgers2013@gmail.com>
+Cc: peppe.cavallaro@st.com, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, dinguyen@altera.com,
+	rayagond@vayavyalabs.com, vbridgers2013@gmail.com
+To: devicetree@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12900 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751367AbaANRUk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jan 2014 12:20:40 -0500
-Content-Disposition: inline
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:45921 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751481AbaANRWo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 12:22:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+v3: 
+* change snps,max-frame-size to max-frame-size
 
-I'm hitting a strange issue and/or I'm completely lost in sysfs internals.
+v2: 
+* change snps,max-mtu to snps,max-frame-size
 
-Consider having two net_device *a, *b; which are registered normally.
-Now, to create a link from /sys/class/net/a->name/linkname to b, one should
-use:
 
-sysfs_create_link(&(a->dev.kobj), &(b->dev.kobj), linkname);
+These patches address two kernel crashes seen when using jumbo frames on 
+the Synopsys stmmac driver, and adds device tree configurability for the 
+maximum mtu. The Synopsys emac fifo sizes can be configured when a logic
+design is synthesized, but does not provide a way for a driver to query the
+exact fifo size. 
 
-To remove it, even simpler:
+The crashes seen were due to two issues. 
 
-sysfs_remove_link(&(a->dev.kobj), linkname);
+1) The dma buffer size was being set after the dma buffers were allocated.
+This caused a crash when changing the mtu since it was possible the buffers
+would subsequently be freed using an incorrect dma buffer size. This could
+also cause kernel panics due to memory corruption since a large mtu size could
+have been configured, but the dma buffers were not sized accordingly. 
 
-This works like a charm. However, if I want to use (obviously, with the
-symlink present):
+2) Jumbo frames were being enabled by default, but the dma buffers were not
+sized accordingly. This caused memory corruption in the context of certain
+types of network traffic, leading to kernel panics. 
 
-sysfs_rename_link(&(a->dev.kobj), &(b->dev.kobj), oldname, newname);
+I've tested these changes using automated, reproducible testware. I can
+demonstrate the panics described before the fixes and show that the fixes
+address the problems described. 
 
-this fails with:
+Testing and improvements continue through the use of the mentioned automated
+and reproducible testware. 
 
-"sysfs: ns invalid in 'a->name' for 'oldname'"
+Vince Bridgers
 
-in
+Vince Bridgers (2):
+  dts: Add a binding for Synopsys emac max-frame-size
+  stmmac: Fix kernel crashes for jumbo frames
 
-  608 struct sysfs_dirent *sysfs_find_dirent(struct sysfs_dirent *parent_sd,
-...
-  615         if (!!sysfs_ns_type(parent_sd) != !!ns) {
-  616                 WARN(1, KERN_WARNING "sysfs: ns %s in '%s' for '%s'\n",
-  617                         sysfs_ns_type(parent_sd) ? "required" : "invalid",
-  618                         parent_sd->s_name, name);
-  619                 return NULL;
-  620         }
+ Documentation/devicetree/bindings/net/stmmac.txt   |    5 +++++
+ drivers/net/ethernet/stmicro/stmmac/common.h       |    4 +++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |    7 ++-----
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |    7 ++++++-
+ .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |    2 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   11 +++++++----
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    5 +++++
+ include/linux/stmmac.h                             |    1 +
+ 8 files changed, 30 insertions(+), 12 deletions(-)
 
-Code path:
-warn_slowpath_fmt+0x46/0x50
-sysfs_get_dirent_ns+0x30/0x80
-sysfs_find_dirent+0x84/0x110
-sysfs_get_dirent_ns+0x3e/0x80
-sysfs_rename_link_ns+0x54/0xd0
-
-I have no idea what this code means. Is there any reason for it to
-fail (i.e. am I doing something wrong?) or I've hit a bug?
-
-I've tested the only user of it (bridge) - and it works fine, however it's
-not using its own net_device's kobject but rather its own dir.
-
-Thank you!
+-- 
+1.7.9.5
