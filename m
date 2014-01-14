@@ -1,56 +1,42 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH RESEND net-next v2 0/3] bonding: fix primary problem for
- bonding
-Date: Tue, 14 Jan 2014 10:37:21 +0100
-Message-ID: <20140114093720.GA20066@redhat.com>
-References: <52D4FE82.8020507@huawei.com>
+From: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [GIT net-next] Open vSwitch
+Date: Tue, 14 Jan 2014 10:46:15 +0100
+Message-ID: <52D50767.6050906@redhat.com>
+References: <1389053776-62865-1-git-send-email-jesse@nicira.com>
+	<52CD657F.7080806@citrix.com>
+	<CAEP_g=_pQpH--V+7GSrjGP2z=0TBD_37yXjzTdeKG+2OF3aRaw@mail.gmail.com>
+	<52D42A9E.1030805@citrix.com> <52D4857C.7020902@citrix.com>
+	<CAEP_g=8nG6AHV9Y+5=48nPhkf5Oe=mG8EiyaKSqN4omnmGhv4A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jay Vosburgh <fubar@us.ibm.com>, Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58163 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750777AbaANJk0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jan 2014 04:40:26 -0500
-Content-Disposition: inline
-In-Reply-To: <52D4FE82.8020507@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAEP_g=8nG6AHV9Y+5=48nPhkf5Oe=mG8EiyaKSqN4omnmGhv4A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 14, 2014 at 05:08:18PM +0800, Ding Tianhong wrote:
->If the slave's name changed, and the bond params primary is exist,
->the bond should deal with the situation in two ways:
+On 01/14/2014 02:30 AM, Jesse Gross wrote:
+>> And it works. I guess the last one causing the problem. Might be an
+>> important factor, I'm using 32 bit Dom0.
 >
->1) If the slave was the primary slave yet, clean the primary slave
->   and reselect active slave.
->2) If the slave's new name is as same as bond primary, set the slave
->   as primary slave and reselect active slave.
+> I think you're probably right. Thomas - can you take a look?
 >
->If the new primary is not matching any slave in the bond, the bond should
->record it to params, clean the primary slave and select a new active slave.
->
->Update bonding.txt for primary description.
+> We shouldn't be doing any zerocopy in this situation but it looks to
+> me like we don't do any padding at all, even in situations where we
+> are copying the data.
 
-You didn't even take into accoung my previous messages.
+I'm looking into this now. The zerocopy method should only be attempted
+if user space has announced the ability to received unaligned messages.
 
-Nacked-by: Veaceslav Falico <vfalico@redhat.com>
-
->
->Ding Tianhong (3):
->  bonding: update the primary slave when changing slave's name
->  bonding: clean the primary slave if there is no slave matching new
->    primary
->  bonding: update bonding.txt for primary description.
->
-> Documentation/networking/bonding.txt |  3 ++-
-> drivers/net/bonding/bond_main.c      | 24 ++++++++++++++++++++++--
-> drivers/net/bonding/bond_options.c   |  6 ++++++
-> 3 files changed, 30 insertions(+), 3 deletions(-)
->
->-- 
->1.8.0
->
->
->
+@Zoltan: I assume you are using an unmodified OVS 1.9.3?
