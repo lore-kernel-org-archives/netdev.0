@@ -1,62 +1,33 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 1/2] net: vxlan: when lower dev unregisters
- remove vxlan dev as well
-Date: Mon, 13 Jan 2014 18:22:32 -0800
-Message-ID: <20140113182232.355f9d20@nehalam.linuxnetplumber.net>
-References: <1389634880-4138-1-git-send-email-dborkman@redhat.com>
-	<1389634880-4138-2-git-send-email-dborkman@redhat.com>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: Re: [PATCH 09/15] net: ixgbe calls skb_set_hash
+Date: Tue, 14 Jan 2014 02:26:50 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B7312BE63@ORSMSX101.amr.corp.intel.com>
+References: <alpine.DEB.2.02.1312172324380.24772@tomh.mtv.corp.google.com>
+ <CAL3LdT7HC0EcYdbTxYe6OEy_cy6EbL1udafhwJA1VWCFv5gG1w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"therbert@google.com" <therbert@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:49610 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751315AbaANCWg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 21:22:36 -0500
-Received: by mail-pd0-f173.google.com with SMTP id p10so8201215pdj.4
-        for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 18:22:36 -0800 (PST)
-In-Reply-To: <1389634880-4138-2-git-send-email-dborkman@redhat.com>
+Received: from mga01.intel.com ([192.55.52.88]:50809 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751974AbaANC0w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jan 2014 21:26:52 -0500
+In-Reply-To: <CAL3LdT7HC0EcYdbTxYe6OEy_cy6EbL1udafhwJA1VWCFv5gG1w@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 13 Jan 2014 18:41:19 +0100
-Daniel Borkmann <dborkman@redhat.com> wrote:
-
-> We can create a vxlan device with an explicit underlying carrier.
-> In that case, when the carrier link is being deleted from the
-> system (e.g. due to module unload) we should also clean up all
-> created vxlan devices on top of it since otherwise we're in an
-> inconsistent state in vxlan device. In that case, the user needs
-> to remove all such devices, while in case of other virtual devs
-> that sit on top of physical ones, it is usually the case that
-> these devices do unregister automatically as well and do not
-> leave the burden on the user.
-> 
-> This work is not necessary when vxlan device was not created with
-> a real underlying device, as connections can resume in that case
-> when driver is plugged again. But at least for the other cases,
-> we should go ahead and do the cleanup on removal.
-> 
-> We don't register the notifier during vxlan_newlink() here since
-> I consider this event rather rare, and therefore we should not
-> bloat vxlan's core structure unecessary. Also, we can simply make
-> use of unregister_netdevice_many() to batch that. fdb is flushed
-> upon ndo_stop().
-> 
-> E.g. `ip -d link show vxlan13` after carrier removal before
-> this patch:
-> 
-> 5: vxlan13: <BROADCAST,MULTICAST> mtu 1450 qdisc noop state DOWN mode DEFAULT group default
->     link/ether 1e:47:da:6d:4d:99 brd ff:ff:ff:ff:ff:ff promiscuity 0
->     vxlan id 13 group 239.0.0.10 dev 2 port 32768 61000 ageing 300
->                                  ^^^^^
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-
-Since vxlan is running over UDP socket. I wonder if this could be
-done better by implementing something equivalent to SO_BINDTODEVICE.
-
-What happens to a user land application which has a UDP socket
-and has done SO_BINDTODEVICE and device is removed? Is there an asynchronous
-error, can the application recover? Why can't vxlan use the same mechanism?
+T24gV2VkLCAyMDEzLTEyLTE4IGF0IDAwOjQxIC0wODAwLCBKZWZmIEtpcnNoZXIgd3JvdGU6Cj4g
+T24gVHVlLCBEZWMgMTcsIDIwMTMgYXQgMTE6MjggUE0sIFRvbSBIZXJiZXJ0IDx0aGVyYmVydEBn
+b29nbGUuY29tPiB3cm90ZToKPiA+IERyaXZlcnMgc2hvdWxkIGNhbGwgc2tiX3NldF9oYXNoIHRv
+IHNldCB0aGUgaGFzaCBhbmQgaXRzIHR5cGUKPiA+IGluIGFuIHNrYnVmZi4KPiA+Cj4gPiBTaWdu
+ZWQtb2ZmLWJ5OiBUb20gSGVyYmVydCA8dGhlcmJlcnRAZ29vZ2xlLmNvbT4KPiA+IC0tLQo+ID4g
+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYyB8IDQgKysrLQo+
+ID4gIDEgZmlsZSBjaGFuZ2VkLCAzIGluc2VydGlvbnMoKyksIDEgZGVsZXRpb24oLSkKPiA+Cj4g
+Cj4gSSBoYXZlIGFkZGVkIHRoaXMgcGF0Y2ggdG8gbXkgcXVldWUsIHRoYW5rcyBUb20uCgpTaWdu
+ZWQtb2ZmIGJ5OiBBYXJvbiBCcm93biA8YWFyb24uZi5icm93bkBpbnRlbC5jb20+ClRlc3RlZC1i
+eTogUGhpbCBTY2htaXR0IDxwaGlsbGlwLmouc2NobWl0dEBpbnRlbC5jb20+Cg==
