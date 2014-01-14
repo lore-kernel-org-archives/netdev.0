@@ -1,67 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] usbnet: Fix dma setup for fragmented packets that need
- a pad byte appended.
-Date: Tue, 14 Jan 2014 06:41:58 -0800
-Message-ID: <1389710518.31367.259.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D45B28F@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Subject: [PATCH net-next v2 0/2] stmmac: fix kernel crashes for jumbo frames
+Date: Tue, 14 Jan 2014 08:40:07 -0600
+Message-ID: <1389710409-14106-1-git-send-email-vbridgers2013@gmail.com>
+Cc: peppe.cavallaro@st.com, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, dinguyen@altera.com,
+	rayagond@vayavyalabs.com, vbridgers2013@gmail.com
+To: devicetree@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:56455 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751342AbaANOl5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 09:41:57 -0500
-Received: by mail-pd0-f170.google.com with SMTP id z10so3538259pdj.1
-        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 06:41:57 -0800 (PST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D45B28F@AcuExch.aculab.com>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:48725 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751375AbaANOpN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 09:45:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-01-14 at 11:16 +0000, David Laight wrote:
-> If the usbnet code appends a byte to a fragmented packet (in order to=
- avoid
-> sending a bulk data message that is a multiple of the USB message siz=
-e) then
-> the scatter-gather list isn't initialised correctly.
-> This causes a later panic in usb_hcd_map_urb_for_dma().
-> Basically when the code tries to access the final sg fragment the sg =
-function
-> returns NULL because the 'end of sg list' market is set in the previo=
-us one.
->=20
-> Bug introduced in commit 60e453a940ac678565b6641d65f8c18541bb9f28
-> (USBNET: fix handling padding packet) and needs applying to all
-> kernels that contain this change (including 3.12).
->=20
-> Fix from Bjorn Mork.
->=20
-> Signed-off-by: David Laight <david.laight@aculab.com>
-> ---
->=20
-> I think it is ok that the sg table's last element is never assigned t=
-o when
-> the packet isn't padded.
+These patches address two kernel crashes seen when using jumbo frames on 
+the Synopsys stmmac driver, and adds device tree configurability for the 
+maximum mtu. The Synopsys emac fifo sizes can be configured when a logic
+design is synthesized, but does not provide a way for a driver to query the
+exact fifo size. 
 
-Original patch contained :
+The crashes seen were due to two issues. 
 
-=46ixes: 60e453a940ac ("USBNET: fix handling padding packet")
-Reported-by: Thomas Kear <thomas@kear.co.nz>
-Cc: Ming Lei <ming.lei@canonical.com>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+1) The dma buffer size was being set after the dma buffers were allocated.
+This caused a crash when changing the mtu since it was possible the buffers
+would subsequently be freed using an incorrect dma buffer size. This could
+also cause kernel panics due to memory corruption since a large mtu size could
+have been configured, but the dma buffers were not sized accordingly. 
 
-Why did you remove this and took ownership of this patch ?
+2) Jumbo frames were being enabled by default, but the dma buffers were not
+sized accordingly. This caused memory corruption in the context of certain
+types of network traffic, leading to kernel panics. 
 
-It seems you would only need to either add :
+I've tested these changes using automated, reproducible testware. I can
+demonstrate the panics described before the fixes and show that the fixes
+address the problems described. 
 
-Acked-by: ...
+Testing and improvements continue through the use of the mentioned automated
+and reproducible testware. 
 
-or=20
+Vince Bridgers
 
-Tested-by: ...
+Vince Bridgers (2):
+  dts: Add a binding for Synopsys emac max-frame-size
+  stmmac: Fix kernel crashes for jumbo frames
 
-or
+ Documentation/devicetree/bindings/net/stmmac.txt   |    5 +++++
+ drivers/net/ethernet/stmicro/stmmac/common.h       |    4 +++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |    7 ++-----
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |    7 ++++++-
+ .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |    2 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   11 +++++++----
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    5 +++++
+ include/linux/stmmac.h                             |    1 +
+ 8 files changed, 30 insertions(+), 12 deletions(-)
 
-Reviewed-by: ...
+-- 
+1.7.9.5
