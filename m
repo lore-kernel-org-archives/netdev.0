@@ -1,73 +1,44 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next v3 2/2] stmmac: Fix kernel crashes for jumbo
- frames
-Date: Tue, 14 Jan 2014 23:20:46 +0000
-Message-ID: <1389741646.2025.218.camel@bwh-desktop.uk.level5networks.com>
-References: <1389719859-29071-1-git-send-email-vbridgers2013@gmail.com>
-	 <1389719859-29071-3-git-send-email-vbridgers2013@gmail.com>
-	 <1389729216.2025.197.camel@bwh-desktop.uk.level5networks.com>
-	 <CAOwfj2Ne1oRU1z6BaH4g2_EJJFtJOWbgs2oMzSq5nNpz9G6LsA@mail.gmail.com>
+From: Borislav Petkov <bp@alien8.de>
+Subject: Re: [PATCH RFC] reciprocal_divide: correction/update of the algorithm
+Date: Wed, 15 Jan 2014 00:25:38 +0100
+Message-ID: <20140114232538.GD29887@pd.tnic>
+References: <20140113214249.GK6586@order.stressinduktion.org>
+ <1389722825.31367.260.camel@edumazet-glaptop2.roam.corp.google.com>
+ <52D58E6F.4050000@gmail.com>
+ <1389729032.31367.262.camel@edumazet-glaptop2.roam.corp.google.com>
+ <52D5A3DC.9030107@gmail.com>
+ <1389739537.31367.273.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <devicetree@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-	<robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, Kumar Gala <galak@codeaurora.org>,
-	Dinh Nguyen <dinguyen@altera.com>,
-	"Rayagond Kokatanur" <rayagond@vayavyalabs.com>
-To: Vince Bridgers <vbridgers2013@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:49132 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751904AbaANXUv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 18:20:51 -0500
-In-Reply-To: <CAOwfj2Ne1oRU1z6BaH4g2_EJJFtJOWbgs2oMzSq5nNpz9G6LsA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Austin S Hemmelgarn <ahferroin7@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, dborkman@redhat.com,
+	linux-kernel@vger.kernel.org, darkjames-ws@darkjames.pl
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1389739537.31367.273.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-01-14 at 14:44 -0600, Vince Bridgers wrote:
-> On Tue, Jan 14, 2014 at 1:53 PM, Ben Hutchings
-[...]
-> >>
-> >>       /*
-> >>        * Currently only the properties needed on SPEAr600
-> >> @@ -60,6 +64,7 @@ static int stmmac_probe_config_dt(struct platfor=
-m_device *pdev,
-> >>       if (of_device_is_compatible(np, "st,spear600-gmac") ||
-> >>               of_device_is_compatible(np, "snps,dwmac-3.70a") ||
-> >>               of_device_is_compatible(np, "snps,dwmac")) {
-> >> +             of_property_read_u32(np, "max-frame-size", &plat->ma=
-xmtu);
-> > [...]
-> >
-> > Is it the maximum frame size, including Ethernet header?  (And then=
-, is
-> > the CRC or any VLAN header included in the frame size?)
-> > Or is it the MTU, excluding all of those?
-> > You really need to be very clear about what this number represents.
->=20
-> max-frame-size as read from the device tree is defined in the ePAPR
-> v1.1 specification. I originally used a name of "max-mtu", but was
-> asked to change that since this attribute was already defined in the
-> ePAPR v1.1 specification.
-[...]
+On Tue, Jan 14, 2014 at 02:45:37PM -0800, Eric Dumazet wrote:
+> Even on a Jaguar, the proposed alternative
 
-Oh dear, this specification is just as confused as I am.  The example
-value in =C2=A76.3.1.4 is 1518, implying that it is really the frame si=
-ze,
-including the Ethernet header, any VLAN tag, and maybe the CRC.  Howeve=
-r
-the full example in Appendix B1 has 0x5dc (=3D=3D 1500) implying that i=
-t is
-the MTU.
+I don't know what Jaguar you guys are talking about but the Jaguar
+I know - Fam16h - has an int hardware divider:
 
-I suppose you should follow whatever interpretation is already used by
-other drivers. :-/
+http://developer.amd.com/wordpress/media/2012/10/SOG_16h_52128_PUB_Rev1_1.pdf
 
-Ben.
+So all that talk about microcode is plain wrong. The hardware divider
+comes from Llano (F12h) so it must be some other Jaguar, maybe Bobcat.
 
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+:-)
+
+If it is Bobcat, then it has a 1-bit per cycle ucode int divider.
+
+-- 
+Regards/Gruss,
+    Boris.
+
+Sent from a fat crate under my desk. Formatting is fine.
+--
