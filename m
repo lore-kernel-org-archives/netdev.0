@@ -1,100 +1,73 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH RESEND net-next v2 1/3] bonding: update the primary slave
- when changing slave's name
-Date: Tue, 14 Jan 2014 11:51:12 +0100
-Message-ID: <20140114105112.GC20066@redhat.com>
-References: <52D4FE85.6050101@huawei.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next v2.1 1/3] bonding: update the primary slave when
+ changing slave's name
+Date: Tue, 14 Jan 2014 18:54:08 +0800
+Message-ID: <52D51750.6080008@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Netdev <netdev@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9665 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751295AbaANKyT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jan 2014 05:54:19 -0500
-Content-Disposition: inline
-In-Reply-To: <52D4FE85.6050101@huawei.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:56639 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751523AbaANKy3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 05:54:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 14, 2014 at 05:08:21PM +0800, Ding Tianhong wrote:
->If the slave's name changed, and the bond params primary is exist,
->the bond should deal with the situation in two ways:
->
->1) If the slave was the primary slave yet, clean the primary slave
->   and reselect active slave.
->2) If the slave's new name is as same as bond primary, set the slave
->   as primary slave and reselect active slave.
->
->Thanks for Veaceslav's suggestion.
->
->Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->---
-> drivers/net/bonding/bond_main.c | 24 ++++++++++++++++++++++--
-> 1 file changed, 22 insertions(+), 2 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index e06c445..64e25d5 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -2860,9 +2860,29 @@ static int bond_slave_netdev_event(unsigned long event,
-> 		 */
-> 		break;
-> 	case NETDEV_CHANGENAME:
->-		/*
->-		 * TODO: handle changing the primary's name
->+		/* Handle changing the slave's name:
->+		 * 1) If the slave was primary slave,
->+		 * clean the primary slave and reselect
->+		 * active slave.
->+		 * 2) If the slave's new name is same as
->+		 * bond primary, set the slave as primary
->+		 * slave and reselect active slave.
-> 		 */
->+		if (slave == bond->primary_slave ||
->+		    !strcmp(bond->params.primary, slave_dev->name)) {
+If the slave's name changed, and the bond params primary is exist,
+the bond should deal with the situation in two ways:
 
-And if we're in a mode that doesn't use primary, but have the
-params.primary set? Then we'll issue a bond_select_active_slave() in, say,
-802.3ad mode.
+1) If the slave was the primary slave yet, clean the primary slave
+   and reselect active slave.
+2) If the slave's new name is as same as bond primary, set the slave
+   as primary slave and reselect active slave.
 
-In the past 24h I've nacked about 5 of your patchsets, with you keeping
-'quickfixing' them, without getting your time to understand the issues, and
-re-sending them for review.
+Thanks for Veaceslav's suggestion.
 
-I'm not willing to waste my time that uselessly, reviewing patchsets that
-you randomly generate in the hope of getting it right. And given your
-'good' history - with patchsets that cause regressions and bugs, with
-reverts because of that, with those horrible, meaningless RCU transition
-that is just plainly wrong and *really* hard to fix - I'm going to react as
-Greg KH said in one of his presentations - NAK your patches and make them
-by myself. It will take *a lot* lesser time from my side, and will
-eventually make the code better.
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/bonding/bond_main.c | 24 ++++++++++++++++++++++--
+ 1 file changed, 22 insertions(+), 2 deletions(-)
 
-Thanks for the report, I'll send a patch that fixes it soon.
-
-Nacked-by: Veaceslav Falico <vfalico@redhat.com>
-
->+			if (bond->primary_slave) {
->+				pr_info("%s: Setting primary slave to None.\n",
->+					bond->dev->name);
->+				bond->primary_slave = NULL;
->+			} else {
->+				pr_info("%s: Setting %s as primary slave.\n",
->+					bond->dev->name, slave_dev->name);
->+				bond->primary_slave = slave;
->+			}
->+			write_lock_bh(&bond->curr_slave_lock);
->+			bond_select_active_slave(bond);
->+			write_unlock_bh(&bond->curr_slave_lock);
->+		}
-> 		break;
-> 	case NETDEV_FEAT_CHANGE:
-> 		bond_compute_features(bond);
->-- 
->1.8.0
->
->
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index e06c445..64e25d5 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2860,9 +2860,29 @@ static int bond_slave_netdev_event(unsigned long event,
+ 		 */
+ 		break;
+ 	case NETDEV_CHANGENAME:
+-		/*
+-		 * TODO: handle changing the primary's name
++		/* Handle changing the slave's name:
++		 * 1) If the slave was primary slave,
++		 * clean the primary slave and reselect
++		 * active slave.
++		 * 2) If the slave's new name is same as
++		 * bond primary, set the slave as primary
++		 * slave and reselect active slave.
+ 		 */
++		if (slave == bond->primary_slave ||
++		    !strcmp(bond->params.primary, slave_dev->name)) {
++			if (bond->primary_slave) {
++				pr_info("%s: Setting primary slave to None.\n",
++					bond->dev->name);
++				bond->primary_slave = NULL;
++			} else {
++				pr_info("%s: Setting %s as primary slave.\n",
++					bond->dev->name, slave_dev->name);
++				bond->primary_slave = slave;
++			}
++			write_lock_bh(&bond->curr_slave_lock);
++			bond_select_active_slave(bond);
++			write_unlock_bh(&bond->curr_slave_lock);
++		}
+ 		break;
+ 	case NETDEV_FEAT_CHANGE:
+ 		bond_compute_features(bond);
+-- 
+1.8.0
