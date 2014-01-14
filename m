@@ -1,7 +1,7 @@
 From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next v4 4/9] xen-netback: Change RX path for mapped SKB fragments
-Date: Tue, 14 Jan 2014 20:39:50 +0000
-Message-ID: <1389731995-9887-5-git-send-email-zoltan.kiss@citrix.com>
+Subject: [PATCH net-next v4 7/9] xen-netback: Add stat counters for frag_list skbs
+Date: Tue, 14 Jan 2014 20:39:53 +0000
+Message-ID: <1389731995-9887-8-git-send-email-zoltan.kiss@citrix.com>
 References: <1389731995-9887-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,114 +10,63 @@ To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
 	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:27967 "EHLO
+Received: from smtp02.citrix.com ([66.165.176.63]:59183 "EHLO
 	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751503AbaANUkP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 15:40:15 -0500
+	with ESMTP id S1751621AbaANUkX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 15:40:23 -0500
 In-Reply-To: <1389731995-9887-1-git-send-email-zoltan.kiss@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RX path need to know if the SKB fragments are stored on pages from another
-domain.
-
-v4:
-- indentation fixes
+These counters help determine how often the guest sends a packet with more
+than MAX_SKB_FRAGS frags.
 
 Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 ---
- drivers/net/xen-netback/netback.c |   46 +++++++++++++++++++++++++++++++++----
- 1 file changed, 41 insertions(+), 5 deletions(-)
+ drivers/net/xen-netback/common.h    |    1 +
+ drivers/net/xen-netback/interface.c |    7 +++++++
+ drivers/net/xen-netback/netback.c   |    1 +
+ 3 files changed, 9 insertions(+)
 
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index e3c28ff..c037efb 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -158,6 +158,7 @@ struct xenvif {
+ 	unsigned long tx_zerocopy_sent;
+ 	unsigned long tx_zerocopy_success;
+ 	unsigned long tx_zerocopy_fail;
++	unsigned long tx_frag_overflow;
+ 
+ 	/* Miscellaneous private stuff. */
+ 	struct net_device *dev;
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index ac27af3..b7daf8d 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -254,6 +254,13 @@ static const struct xenvif_stat {
+ 		"tx_zerocopy_fail",
+ 		offsetof(struct xenvif, tx_zerocopy_fail)
+ 	},
++	/* Number of packets exceeding MAX_SKB_FRAG slots. You should use
++	 * a guest with the same MAX_SKB_FRAG
++	 */
++	{
++		"tx_frag_overflow",
++		offsetof(struct xenvif, tx_frag_overflow)
++	},
+ };
+ 
+ static int xenvif_get_sset_count(struct net_device *dev, int string_set)
 diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index f74fa92..d43444d 100644
+index 9841429..4305965 100644
 --- a/drivers/net/xen-netback/netback.c
 +++ b/drivers/net/xen-netback/netback.c
-@@ -226,7 +226,9 @@ static struct xenvif_rx_meta *get_next_rx_buffer(struct xenvif *vif,
- static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
- 				 struct netrx_pending_operations *npo,
- 				 struct page *page, unsigned long size,
--				 unsigned long offset, int *head)
-+				 unsigned long offset, int *head,
-+				 struct xenvif *foreign_vif,
-+				 grant_ref_t foreign_gref)
- {
- 	struct gnttab_copy *copy_gop;
- 	struct xenvif_rx_meta *meta;
-@@ -268,8 +270,15 @@ static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
- 		copy_gop->flags = GNTCOPY_dest_gref;
- 		copy_gop->len = bytes;
+@@ -1656,6 +1656,7 @@ static int xenvif_tx_submit(struct xenvif *vif, int budget)
+ 			skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
+ 			skb_shinfo(nskb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
+ 			vif->tx_zerocopy_sent += 2;
++			vif->tx_frag_overflow++;
+ 			nskb = skb;
  
--		copy_gop->source.domid = DOMID_SELF;
--		copy_gop->source.u.gmfn = virt_to_mfn(page_address(page));
-+		if (foreign_vif) {
-+			copy_gop->source.domid = foreign_vif->domid;
-+			copy_gop->source.u.ref = foreign_gref;
-+			copy_gop->flags |= GNTCOPY_source_gref;
-+		} else {
-+			copy_gop->source.domid = DOMID_SELF;
-+			copy_gop->source.u.gmfn =
-+				virt_to_mfn(page_address(page));
-+		}
- 		copy_gop->source.offset = offset;
- 
- 		copy_gop->dest.domid = vif->domid;
-@@ -330,6 +339,9 @@ static int xenvif_gop_skb(struct sk_buff *skb,
- 	int old_meta_prod;
- 	int gso_type;
- 	int gso_size;
-+	struct ubuf_info *ubuf = skb_shinfo(skb)->destructor_arg;
-+	grant_ref_t foreign_grefs[MAX_SKB_FRAGS];
-+	struct xenvif *foreign_vif = NULL;
- 
- 	old_meta_prod = npo->meta_prod;
- 
-@@ -370,6 +382,26 @@ static int xenvif_gop_skb(struct sk_buff *skb,
- 	npo->copy_off = 0;
- 	npo->copy_gref = req->gref;
- 
-+	if ((skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) &&
-+		 (ubuf->callback == &xenvif_zerocopy_callback)) {
-+		u16 pending_idx = ubuf->desc;
-+		int i = 0;
-+		struct pending_tx_info *temp =
-+			container_of(ubuf,
-+				     struct pending_tx_info,
-+				     callback_struct);
-+		foreign_vif =
-+			container_of(temp - pending_idx,
-+				     struct xenvif,
-+				     pending_tx_info[0]);
-+		do {
-+			pending_idx = ubuf->desc;
-+			foreign_grefs[i++] =
-+				foreign_vif->pending_tx_info[pending_idx].req.gref;
-+			ubuf = (struct ubuf_info *) ubuf->ctx;
-+		} while (ubuf);
-+	}
-+
- 	data = skb->data;
- 	while (data < skb_tail_pointer(skb)) {
- 		unsigned int offset = offset_in_page(data);
-@@ -379,7 +411,9 @@ static int xenvif_gop_skb(struct sk_buff *skb,
- 			len = skb_tail_pointer(skb) - data;
- 
- 		xenvif_gop_frag_copy(vif, skb, npo,
--				     virt_to_page(data), len, offset, &head);
-+				     virt_to_page(data), len, offset, &head,
-+				     NULL,
-+				     0);
- 		data += len;
- 	}
- 
-@@ -388,7 +422,9 @@ static int xenvif_gop_skb(struct sk_buff *skb,
- 				     skb_frag_page(&skb_shinfo(skb)->frags[i]),
- 				     skb_frag_size(&skb_shinfo(skb)->frags[i]),
- 				     skb_shinfo(skb)->frags[i].page_offset,
--				     &head);
-+				     &head,
-+				     foreign_vif,
-+				     foreign_grefs[i]);
- 	}
- 
- 	return npo->meta_prod - old_meta_prod;
+ 			skb = skb_copy_expand(skb, 0, 0, GFP_ATOMIC | __GFP_NOWARN);
