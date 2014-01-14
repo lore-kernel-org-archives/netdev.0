@@ -1,137 +1,82 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v2 net-next 1/2] net: add sysfs helpers for netdev_adjacent logic
-Date: Tue, 14 Jan 2014 21:58:50 +0100
-Message-ID: <1389733131-15390-2-git-send-email-vfalico@redhat.com>
-References: <1389733131-15390-1-git-send-email-vfalico@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Ding Tianhong <dingtianhong@huawei.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22438 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751615AbaANVDT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jan 2014 16:03:19 -0500
-In-Reply-To: <1389733131-15390-1-git-send-email-vfalico@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: [RFC] sysfs_rename_link() and its usage
+Date: Tue, 14 Jan 2014 22:06:10 +0100
+Message-ID: <20140114210610.GC9942@redhat.com>
+References: <20140114171740.GB1867@redhat.com>
+ <20140114182135.GA29296@kroah.com>
+ <20140114191208.GA9942@redhat.com>
+ <20140114193139.GA3636@kroah.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	ebiederm@xmission.com
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140114193139.GA3636@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-They clean up the code a bit and can be used further.
+On Tue, Jan 14, 2014 at 11:31:39AM -0800, Greg KH wrote:
+>On Tue, Jan 14, 2014 at 08:12:08PM +0100, Veaceslav Falico wrote:
+>> On Tue, Jan 14, 2014 at 10:21:35AM -0800, Greg KH wrote:
+>> >On Tue, Jan 14, 2014 at 06:17:40PM +0100, Veaceslav Falico wrote:
+>> >>Hi,
+>> >>
+>> >>I'm hitting a strange issue and/or I'm completely lost in sysfs internals.
+>> >>
+>> >>Consider having two net_device *a, *b; which are registered normally.
+>> >>Now, to create a link from /sys/class/net/a->name/linkname to b, one should
+>> >>use:
+>> >>
+>> >>sysfs_create_link(&(a->dev.kobj), &(b->dev.kobj), linkname);
+>> >>
+>> >>To remove it, even simpler:
+>> >>
+>> >>sysfs_remove_link(&(a->dev.kobj), linkname);
+>> >>
+>> >>This works like a charm. However, if I want to use (obviously, with the
+>> >>symlink present):
+>> >>
+>> >>sysfs_rename_link(&(a->dev.kobj), &(b->dev.kobj), oldname, newname);
+>> >
+>> >You forgot the namespace option to this call, what kernel version are
+>> >you using here?
+>>
+>> It's git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next ,
+>> 3.13-rc6 with some networking patches on top of it.
+>>
+>> And wrt namespace - there are two functions, one is sysfs_rename_link(),
+>> which calls the second one - sysfs_rename_link_ns() with NULL namespace.
+>>
+>> >
+>> >>this fails with:
+>> >>
+>> >>"sysfs: ns invalid in 'a->name' for 'oldname'"
+>> >
+>> >Looks like the namespace for this link isn't valid.
+>>
+>> Yep, though dunno why.
+>
+>Are you testing this with network namespaces enabled?  Perhaps that is
+>why, you need to specify the namespace of the link that you are
+>changing.
+>
+>The fact that the bridge link works is odd to me, I would think that it
+>too needs to specify the network namespace involved, but perhaps bridge
+>objects aren't part of any specific network namespace?  I don't know the
+>bridging code at all, sorry.
 
-CC: Ding Tianhong <dingtianhong@huawei.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-CC: Cong Wang <amwang@redhat.com>
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
- net/core/dev.c | 57 ++++++++++++++++++++++++++++++---------------------------
- 1 file changed, 30 insertions(+), 27 deletions(-)
+Yep, might be it, will test soon and come back with the results.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 87312dc..c578d4e 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4595,13 +4595,36 @@ struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev)
- }
- EXPORT_SYMBOL(netdev_master_upper_dev_get_rcu);
- 
-+int netdev_adjacent_sysfs_add(struct net_device *dev,
-+			      struct net_device *adj_dev,
-+			      struct list_head *dev_list)
-+{
-+	char linkname[IFNAMSIZ+7];
-+	sprintf(linkname, dev_list == &dev->adj_list.upper ?
-+		"upper_%s" : "lower_%s", adj_dev->name);
-+	return sysfs_create_link(&(dev->dev.kobj), &(adj_dev->dev.kobj),
-+				 linkname);
-+}
-+void netdev_adjacent_sysfs_del(struct net_device *dev,
-+			       char *name,
-+			       struct list_head *dev_list)
-+{
-+	char linkname[IFNAMSIZ+7];
-+	sprintf(linkname, dev_list == &dev->adj_list.upper ?
-+		"upper_%s" : "lower_%s", name);
-+	sysfs_remove_link(&(dev->dev.kobj), linkname);
-+}
-+
-+#define netdev_adjacent_is_neigh_list(dev, dev_list) \
-+		(dev_list == &dev->adj_list.upper || \
-+		 dev_list == &dev->adj_list.lower)
-+
- static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 					struct net_device *adj_dev,
- 					struct list_head *dev_list,
- 					void *private, bool master)
- {
- 	struct netdev_adjacent *adj;
--	char linkname[IFNAMSIZ+7];
- 	int ret;
- 
- 	adj = __netdev_find_adj(dev, adj_dev, dev_list);
-@@ -4624,16 +4647,8 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 	pr_debug("dev_hold for %s, because of link added from %s to %s\n",
- 		 adj_dev->name, dev->name, adj_dev->name);
- 
--	if (dev_list == &dev->adj_list.lower) {
--		sprintf(linkname, "lower_%s", adj_dev->name);
--		ret = sysfs_create_link(&(dev->dev.kobj),
--					&(adj_dev->dev.kobj), linkname);
--		if (ret)
--			goto free_adj;
--	} else if (dev_list == &dev->adj_list.upper) {
--		sprintf(linkname, "upper_%s", adj_dev->name);
--		ret = sysfs_create_link(&(dev->dev.kobj),
--					&(adj_dev->dev.kobj), linkname);
-+	if (netdev_adjacent_is_neigh_list(dev, dev_list)) {
-+		ret = netdev_adjacent_sysfs_add(dev, adj_dev, dev_list);
- 		if (ret)
- 			goto free_adj;
- 	}
-@@ -4653,14 +4668,8 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 	return 0;
- 
- remove_symlinks:
--	if (dev_list == &dev->adj_list.lower) {
--		sprintf(linkname, "lower_%s", adj_dev->name);
--		sysfs_remove_link(&(dev->dev.kobj), linkname);
--	} else if (dev_list == &dev->adj_list.upper) {
--		sprintf(linkname, "upper_%s", adj_dev->name);
--		sysfs_remove_link(&(dev->dev.kobj), linkname);
--	}
--
-+	if (netdev_adjacent_is_neigh_list(dev, dev_list))
-+		netdev_adjacent_sysfs_del(dev, adj_dev->name, dev_list);
- free_adj:
- 	kfree(adj);
- 	dev_put(adj_dev);
-@@ -4673,7 +4682,6 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
- 					 struct list_head *dev_list)
- {
- 	struct netdev_adjacent *adj;
--	char linkname[IFNAMSIZ+7];
- 
- 	adj = __netdev_find_adj(dev, adj_dev, dev_list);
- 
-@@ -4693,13 +4701,8 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
- 	if (adj->master)
- 		sysfs_remove_link(&(dev->dev.kobj), "master");
- 
--	if (dev_list == &dev->adj_list.lower) {
--		sprintf(linkname, "lower_%s", adj_dev->name);
--		sysfs_remove_link(&(dev->dev.kobj), linkname);
--	} else if (dev_list == &dev->adj_list.upper) {
--		sprintf(linkname, "upper_%s", adj_dev->name);
--		sysfs_remove_link(&(dev->dev.kobj), linkname);
--	}
-+	if (netdev_adjacent_is_neigh_list(dev, dev_list))
-+		netdev_adjacent_sysfs_del(dev, adj_dev->name, dev_list);
- 
- 	list_del_rcu(&adj->list);
- 	pr_debug("dev_put for %s, because link removed from %s to %s\n",
--- 
-1.8.4
+What still bugs me, though, is the logic - why is it possible to remove/add
+without specifying namespace, while it fails to rename it? Maybe the rename
+function should do a better job at detecting the namespace?
+
+>
+>So try calling sysfs_rename_link_ns() and specify the namespace of the
+>kobject you are changing, and see if that works or not.
+>
+>thanks,
+>
+>greg k-h
