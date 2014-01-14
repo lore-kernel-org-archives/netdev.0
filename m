@@ -1,59 +1,83 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 1/2] dts: Add a binding for Synopsys emac max-frame-size
-Date: Tue, 14 Jan 2014 08:07:38 -0800
-Message-ID: <1890114.hPeOerbe4b@lenovo>
-References: <1389710409-14106-1-git-send-email-vbridgers2013@gmail.com> <1389710409-14106-2-git-send-email-vbridgers2013@gmail.com> <1389715056.10673.9.camel@linux-builds1>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next V3 0/3] net: Add GRO support for UDP encapsulating
+ protocols
+Date: Tue, 14 Jan 2014 18:06:55 +0200
+Message-ID: <52D5609F.8010301@mellanox.com>
+References: <1389715212-14504-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vince Bridgers <vbridgers2013@gmail.com>,
-	devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	peppe.cavallaro@st.com, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, rayagond@vayavyalabs.com
-To: Dinh Nguyen <dinguyen@altera.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:55901 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751619AbaANQHt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 11:07:49 -0500
-In-Reply-To: <1389715056.10673.9.camel@linux-builds1>
+Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:35704 "EHLO
+	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751413AbaANQKL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 11:10:11 -0500
+In-Reply-To: <1389715212-14504-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 14 janvier 2014, 09:57:36 Dinh Nguyen a =E9crit :
-> On Tue, 2014-01-14 at 08:40 -0600, Vince Bridgers wrote:
-> > This change adds a parameter for the Synopsys 10/100/1000
-> > stmmac Ethernet driver to configure the maximum frame
-> > size supported by the EMAC driver. Synopsys allows the FIFO
-> > sizes to be configured when the cores are built for a particular
-> > device, but do not provide a way for the driver to read
-> > information from the device about the maximum MTU size
-> > supported as limited by the device's FIFO size.
-> >=20
-> > Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
-> > ---
-> >=20
-> >  Documentation/devicetree/bindings/net/stmmac.txt |    5 +++++
-> >  1 file changed, 5 insertions(+)
-> >=20
-> > diff --git a/Documentation/devicetree/bindings/net/stmmac.txt
-> > b/Documentation/devicetree/bindings/net/stmmac.txt index eba0e5e..2=
-6a0ba9
-> > 100644
-> > --- a/Documentation/devicetree/bindings/net/stmmac.txt
-> > +++ b/Documentation/devicetree/bindings/net/stmmac.txt
-> >=20
-> > @@ -30,6 +30,10 @@ Required properties:
-> >  Optional properties:
-> >  - mac-address: 6 bytes, mac address
-> >=20
-> > +- snps,max-frame-size:	Maximum frame size permitted. This paramete=
-r is
-> > useful
-> I don't think max-frame-size should be a snps-only binding.
+On 14/01/2014 18:00, Or Gerlitz wrote:
+> This series adds GRO handlers for protocols that do UDP encapsulation, with the
+> intent of being able to coalesce packets which encapsulate packets belonging to
+> the same TCP session.
+>
+> For GRO purposes, the destination UDP port takes the role of the ether type
+> field in the ethernet header or the next protocol in the IP header.
+>
+> The UDP GRO handler will only attempt to coalesce packets whose destination
+> port is registered to have gro handler.
+>
+> The patches done against net-next ae237b3ede64 "net: 3com: fix
+> warning for incorrect type in argument"
+>
+> Or.
+>
+>
+> v3 --> v4 changes:
+>
+>    - applied feedback from Tom on some micro-optimizations that save
+>      branches and goto directives in the udp gro logic
+>
+>   - applied feedback from Eric on correct RCU programming for the
+>     add/remove flow of the upper protocols udp gro handlers
+>
+>
+> v2 --> v3 changes:
+>
+>   - moved to use linked list to store the udp gro handlers, this solves the
+>     problem of consuming 512KB of memory for the handlers.
+>
+>   - use a mark on the skb GRO CB data to disallow running the udp gro_receive twice
+>     on a packet, this solves the problem of udp encapsulated packets whose inner VM
+>     packet is udp and happen to carry a port which has registered offloads - and flush it.
+>
+>   - invoke the udp offload protocol registration and de-registration from the vxlan driver
+>     in a sleepable context
+>
+> For unclear some reason I got this warning when the vxlan driver deletes the
+> udp offload structure
+> *** BLURB HERE ***
 
-Right, and I already made that comment to Vince. Maybe this is just an=20
-oversight and mistakenly resubmitted v2 instead of v3?
---=20
-=46lorian
+Sorry for the spam, the above three lines are leftovers from the V3 
+cover letter, same for the subject line of this
+cover-letter which carries "V3" this *is* V4, will make sure to avoid 
+such flushes (....) in the future.
+
+Or.
+
+>
+> Or Gerlitz (3):
+>    net: Add GRO support for UDP encapsulating protocols
+>    net: Export gro_find_by_type helpers
+>    net: Add GRO support for vxlan traffic
+>
+>   drivers/net/vxlan.c       |  117 +++++++++++++++++++++++++++++++--
+>   include/linux/netdevice.h |   10 +++-
+>   include/net/protocol.h    |    3 +
+>   include/net/vxlan.h       |    1 +
+>   net/core/dev.c            |    3 +
+>   net/ipv4/udp_offload.c    |  157 +++++++++++++++++++++++++++++++++++++++++++++
+>   6 files changed, 283 insertions(+), 8 deletions(-)
+>
