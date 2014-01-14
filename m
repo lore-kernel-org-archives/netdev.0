@@ -1,7 +1,7 @@
 From: Richard Weinberger <richard@nod.at>
-Subject: [PATCH 7/7] staging,lpc32xx_adc: Add dependency on HAS_IOMEM
-Date: Tue, 14 Jan 2014 16:45:45 +0100
-Message-ID: <1389714345-20165-7-git-send-email-richard@nod.at>
+Subject: [PATCH 5/7] net,marvell: Add dependency on HAS_IOMEM
+Date: Tue, 14 Jan 2014 16:45:43 +0100
+Message-ID: <1389714345-20165-5-git-send-email-richard@nod.at>
 References: <1389714345-20165-1-git-send-email-richard@nod.at>
 Cc: sebastian.hesselbarth@gmail.com, florian@openwrt.org,
 	thomas.petazzoni@free-electrons.com, lars@metafoo.de,
@@ -12,33 +12,37 @@ Cc: sebastian.hesselbarth@gmail.com, florian@openwrt.org,
 To: kishon@ti.com, anton@enomsg.org, dwmw2@infradead.org,
 	richardcochran@gmail.com, lidza.louina@gmail.com,
 	gregkh@linuxfoundation.org, jic23@kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from b.ns.miles-group.at ([95.130.255.144]:1672 "EHLO radon.swed.at"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751933AbaANPqS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jan 2014 10:46:18 -0500
 In-Reply-To: <1389714345-20165-1-git-send-email-richard@nod.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On archs like S390 or um this driver cannot build nor work.
 Make it depend on HAS_IOMEM to bypass build failures.
 
-drivers/built-in.o: In function `lpc32xx_adc_probe':
-drivers/staging/iio/adc/lpc32xx_adc.c:149: undefined reference to `devm_ioremap'
+drivers/built-in.o: In function `orion_mdio_probe':
+drivers/net/ethernet/marvell/mvmdio.c:228: undefined reference to `devm_ioremap'
 
 Signed-off-by: Richard Weinberger <richard@nod.at>
 ---
- drivers/staging/iio/adc/Kconfig | 1 +
+ drivers/net/ethernet/marvell/Kconfig | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/drivers/staging/iio/adc/Kconfig b/drivers/staging/iio/adc/Kconfig
-index 7d5d675..3633298 100644
---- a/drivers/staging/iio/adc/Kconfig
-+++ b/drivers/staging/iio/adc/Kconfig
-@@ -103,6 +103,7 @@ config AD7280
- config LPC32XX_ADC
- 	tristate "NXP LPC32XX ADC"
- 	depends on ARCH_LPC32XX || COMPILE_TEST
+diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
+index a49e81b..6300fd2 100644
+--- a/drivers/net/ethernet/marvell/Kconfig
++++ b/drivers/net/ethernet/marvell/Kconfig
+@@ -33,6 +33,7 @@ config MV643XX_ETH
+ 
+ config MVMDIO
+ 	tristate "Marvell MDIO interface support"
 +	depends on HAS_IOMEM
- 	help
- 	  Say yes here to build support for the integrated ADC inside the
- 	  LPC32XX SoC. Note that this feature uses the same hardware as the
+ 	select PHYLIB
+ 	---help---
+ 	  This driver supports the MDIO interface found in the network
 -- 
 1.8.1.4
