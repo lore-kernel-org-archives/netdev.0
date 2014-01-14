@@ -1,84 +1,72 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next] bonding: handle slave's name change with
- primary_slave logic
-Date: Tue, 14 Jan 2014 12:50:43 +0100
-Message-ID: <20140114115043.GF4132@redhat.com>
-References: <1389696645-9101-1-git-send-email-vfalico@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
+Subject: [PATCH v2 net-next] bonding: handle slave's name change with primary_slave logic
+Date: Tue, 14 Jan 2014 12:49:39 +0100
+Message-ID: <1389700179-12723-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Ding Tianhong <dingtianhong@huawei.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3016 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:12270 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751416AbaANLxr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jan 2014 06:53:47 -0500
-Content-Disposition: inline
-In-Reply-To: <1389696645-9101-1-git-send-email-vfalico@redhat.com>
+	id S1751375AbaANLy6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jan 2014 06:54:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 14, 2014 at 11:50:45AM +0100, Veaceslav Falico wrote:
->Currently, if a slave's name change, we just pass it by. However, if the
->slave is a current primary_slave, then we end up with using a slave, whose
->name != params.primary, for primary_slave. And vice-versa, if we don't have
->a primary_slave but have params.primary set - we will not detected a new
->primary_slave.
->
->Fix this by catching the NETDEV_CHANGENAME event and setting primary_slave
->accordingly. Also, if the primary_slave was changed, issue a reselection of
->the active slave, cause the priorities have changed.
->
->Reported-by: Ding Tianhong <dingtianhong@huawei.com>
->CC: Ding Tianhong <dingtianhong@huawei.com>
->CC: Jay Vosburgh <fubar@us.ibm.com>
->CC: Andy Gospodarek <andy@greyhouse.net>
->Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+Currently, if a slave's name change, we just pass it by. However, if the
+slave is a current primary_slave, then we end up with using a slave, whose
+name != params.primary, for primary_slave. And vice-versa, if we don't have
+a primary_slave but have params.primary set - we will not detected a new
+primary_slave.
 
-Self-NAK, too busy reviewing other patches.
+Fix this by catching the NETDEV_CHANGENAME event and setting primary_slave
+accordingly. Also, if the primary_slave was changed, issue a reselection of
+the active slave, cause the priorities have changed.
 
-Sent v2.
+Reported-by: Ding Tianhong <dingtianhong@huawei.com>
+CC: Ding Tianhong <dingtianhong@huawei.com>
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+---
+ drivers/net/bonding/bond_main.c | 23 ++++++++++++++++++++---
+ 1 file changed, 20 insertions(+), 3 deletions(-)
 
->---
-> drivers/net/bonding/bond_main.c | 23 ++++++++++++++++++++---
-> 1 file changed, 20 insertions(+), 3 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index e06c445..b16d7ec 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -2860,9 +2860,26 @@ static int bond_slave_netdev_event(unsigned long event,
-> 		 */
-> 		break;
-> 	case NETDEV_CHANGENAME:
->-		/*
->-		 * TODO: handle changing the primary's name
->-		 */
->+		/* we don't care if we don't have primary set */
->+		if (!USES_PRIMARY(bond->params.mode) ||
->+		    !bond->params.primary[0])
->+			break;
->+
->+		if (slave == bond->primary_slave) {
->+			/* slave's name changed - he's no longer primary */
->+			bond->primary_slave = NULL;
->+		} else if (!strcmp(slave_dev->name, bond->params.primary)( {
->+			/* we have a new primary slave */
->+			bond->primary_slave = slave;
->+		} else  /* we didn't change primary - exit */
->+			break;
->+
->+		pr_info("%s: Primary slave changed to %s, re-electing.\n",
->+			bond->dev->name, bond->primary_slave ? slave_dev->name :
->+							       "none");
->+		write_lock_bh(&bond->curr_slave_lock);
->+		bond_select_active_slave(bond);
->+		write_unlock_bh(&bond->curr_slave_lock);
-> 		break;
-> 	case NETDEV_FEAT_CHANGE:
-> 		bond_compute_features(bond);
->-- 
->1.8.4
->
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index e06c445..8077199 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2860,9 +2860,26 @@ static int bond_slave_netdev_event(unsigned long event,
+ 		 */
+ 		break;
+ 	case NETDEV_CHANGENAME:
+-		/*
+-		 * TODO: handle changing the primary's name
+-		 */
++		/* we don't care if we don't have primary set */
++		if (!USES_PRIMARY(bond->params.mode) ||
++		    !bond->params.primary[0])
++			break;
++
++		if (slave == bond->primary_slave) {
++			/* slave's name changed - he's no longer primary */
++			bond->primary_slave = NULL;
++		} else if (!strcmp(slave_dev->name, bond->params.primary)) {
++			/* we have a new primary slave */
++			bond->primary_slave = slave;
++		} else  /* we didn't change primary - exit */
++			break;
++
++		pr_info("%s: Primary slave changed to %s, re-electing.\n",
++			bond->dev->name, bond->primary_slave ? slave_dev->name :
++							       "none");
++		write_lock_bh(&bond->curr_slave_lock);
++		bond_select_active_slave(bond);
++		write_unlock_bh(&bond->curr_slave_lock);
+ 		break;
+ 	case NETDEV_FEAT_CHANGE:
+ 		bond_compute_features(bond);
+-- 
+1.8.4
