@@ -1,7 +1,7 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v2 net-next 2/2] net: rename sysfs symlinks on device name change
-Date: Tue, 14 Jan 2014 21:58:51 +0100
-Message-ID: <1389733131-15390-3-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v2 net-next 1/2] net: add sysfs helpers for netdev_adjacent logic
+Date: Tue, 14 Jan 2014 21:58:50 +0100
+Message-ID: <1389733131-15390-2-git-send-email-vfalico@redhat.com>
 References: <1389733131-15390-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Ding Tianhong <dingtianhong@huawei.com>,
@@ -11,25 +11,16 @@ Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14450 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:22438 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751693AbaANVDU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jan 2014 16:03:20 -0500
+	id S1751615AbaANVDT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jan 2014 16:03:19 -0500
 In-Reply-To: <1389733131-15390-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, we don't rename the upper/lower_ifc symlinks in
-/sys/class/net/*/ , which might result stale/duplicate links/names.
+They clean up the code a bit and can be used further.
 
-Fix this by adding netdev_adjacent_rename_links(dev, oldname) which renames
-all the upper/lower interface's links to dev from the upper/lower_oldname
-to the new name.
-
-We don't need a rollback because only we control these symlinks and if we
-fail to rename them - sysfs will anyway complain.
-
-Reported-by: Ding Tianhong <dingtianhong@huawei.com>
 CC: Ding Tianhong <dingtianhong@huawei.com>
 CC: "David S. Miller" <davem@davemloft.net>
 CC: Eric Dumazet <edumazet@google.com>
@@ -37,73 +28,110 @@ CC: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 CC: Cong Wang <amwang@redhat.com>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
+ net/core/dev.c | 57 ++++++++++++++++++++++++++++++---------------------------
+ 1 file changed, 30 insertions(+), 27 deletions(-)
 
-Notes:
-    v1->v2:
-    Don't export netdev_adjacent_rename_links() - it's only used in dev.c
-
- include/linux/netdevice.h |  1 +
- net/core/dev.c            | 22 ++++++++++++++++++++++
- 2 files changed, 23 insertions(+)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index a2a70cc..61f8338 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2937,6 +2937,7 @@ int netdev_master_upper_dev_link_private(struct net_device *dev,
- 					 void *private);
- void netdev_upper_dev_unlink(struct net_device *dev,
- 			     struct net_device *upper_dev);
-+void netdev_adjacent_rename_links(struct net_device *dev, char *oldname);
- void *netdev_lower_dev_get_private(struct net_device *dev,
- 				   struct net_device *lower_dev);
- int skb_checksum_help(struct sk_buff *skb);
 diff --git a/net/core/dev.c b/net/core/dev.c
-index c578d4e..d4f08c8 100644
+index 87312dc..c578d4e 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -1117,6 +1117,8 @@ rollback:
- 
- 	write_seqcount_end(&devnet_rename_seq);
- 
-+	netdev_adjacent_rename_links(dev, oldname);
-+
- 	write_lock_bh(&dev_base_lock);
- 	hlist_del_rcu(&dev->name_hlist);
- 	write_unlock_bh(&dev_base_lock);
-@@ -1136,6 +1138,7 @@ rollback:
- 			err = ret;
- 			write_seqcount_begin(&devnet_rename_seq);
- 			memcpy(dev->name, oldname, IFNAMSIZ);
-+			memcpy(oldname, newname, IFNAMSIZ);
- 			goto rollback;
- 		} else {
- 			pr_err("%s: name change rollback failed: %d\n",
-@@ -4971,6 +4974,25 @@ void netdev_upper_dev_unlink(struct net_device *dev,
+@@ -4595,13 +4595,36 @@ struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev)
  }
- EXPORT_SYMBOL(netdev_upper_dev_unlink);
+ EXPORT_SYMBOL(netdev_master_upper_dev_get_rcu);
  
-+void netdev_adjacent_rename_links(struct net_device *dev, char *oldname)
++int netdev_adjacent_sysfs_add(struct net_device *dev,
++			      struct net_device *adj_dev,
++			      struct list_head *dev_list)
 +{
-+	struct netdev_adjacent *iter;
-+
-+	list_for_each_entry(iter, &dev->adj_list.upper, list) {
-+		netdev_adjacent_sysfs_del(iter->dev, oldname,
-+					  &iter->dev->adj_list.lower);
-+		netdev_adjacent_sysfs_add(iter->dev, dev,
-+					  &iter->dev->adj_list.lower);
-+	}
-+
-+	list_for_each_entry(iter, &dev->adj_list.lower, list) {
-+		netdev_adjacent_sysfs_del(iter->dev, oldname,
-+					  &iter->dev->adj_list.upper);
-+		netdev_adjacent_sysfs_add(iter->dev, dev,
-+					  &iter->dev->adj_list.upper);
-+	}
++	char linkname[IFNAMSIZ+7];
++	sprintf(linkname, dev_list == &dev->adj_list.upper ?
++		"upper_%s" : "lower_%s", adj_dev->name);
++	return sysfs_create_link(&(dev->dev.kobj), &(adj_dev->dev.kobj),
++				 linkname);
++}
++void netdev_adjacent_sysfs_del(struct net_device *dev,
++			       char *name,
++			       struct list_head *dev_list)
++{
++	char linkname[IFNAMSIZ+7];
++	sprintf(linkname, dev_list == &dev->adj_list.upper ?
++		"upper_%s" : "lower_%s", name);
++	sysfs_remove_link(&(dev->dev.kobj), linkname);
 +}
 +
- void *netdev_lower_dev_get_private(struct net_device *dev,
- 				   struct net_device *lower_dev)
++#define netdev_adjacent_is_neigh_list(dev, dev_list) \
++		(dev_list == &dev->adj_list.upper || \
++		 dev_list == &dev->adj_list.lower)
++
+ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 					struct net_device *adj_dev,
+ 					struct list_head *dev_list,
+ 					void *private, bool master)
  {
+ 	struct netdev_adjacent *adj;
+-	char linkname[IFNAMSIZ+7];
+ 	int ret;
+ 
+ 	adj = __netdev_find_adj(dev, adj_dev, dev_list);
+@@ -4624,16 +4647,8 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 	pr_debug("dev_hold for %s, because of link added from %s to %s\n",
+ 		 adj_dev->name, dev->name, adj_dev->name);
+ 
+-	if (dev_list == &dev->adj_list.lower) {
+-		sprintf(linkname, "lower_%s", adj_dev->name);
+-		ret = sysfs_create_link(&(dev->dev.kobj),
+-					&(adj_dev->dev.kobj), linkname);
+-		if (ret)
+-			goto free_adj;
+-	} else if (dev_list == &dev->adj_list.upper) {
+-		sprintf(linkname, "upper_%s", adj_dev->name);
+-		ret = sysfs_create_link(&(dev->dev.kobj),
+-					&(adj_dev->dev.kobj), linkname);
++	if (netdev_adjacent_is_neigh_list(dev, dev_list)) {
++		ret = netdev_adjacent_sysfs_add(dev, adj_dev, dev_list);
+ 		if (ret)
+ 			goto free_adj;
+ 	}
+@@ -4653,14 +4668,8 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 	return 0;
+ 
+ remove_symlinks:
+-	if (dev_list == &dev->adj_list.lower) {
+-		sprintf(linkname, "lower_%s", adj_dev->name);
+-		sysfs_remove_link(&(dev->dev.kobj), linkname);
+-	} else if (dev_list == &dev->adj_list.upper) {
+-		sprintf(linkname, "upper_%s", adj_dev->name);
+-		sysfs_remove_link(&(dev->dev.kobj), linkname);
+-	}
+-
++	if (netdev_adjacent_is_neigh_list(dev, dev_list))
++		netdev_adjacent_sysfs_del(dev, adj_dev->name, dev_list);
+ free_adj:
+ 	kfree(adj);
+ 	dev_put(adj_dev);
+@@ -4673,7 +4682,6 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
+ 					 struct list_head *dev_list)
+ {
+ 	struct netdev_adjacent *adj;
+-	char linkname[IFNAMSIZ+7];
+ 
+ 	adj = __netdev_find_adj(dev, adj_dev, dev_list);
+ 
+@@ -4693,13 +4701,8 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
+ 	if (adj->master)
+ 		sysfs_remove_link(&(dev->dev.kobj), "master");
+ 
+-	if (dev_list == &dev->adj_list.lower) {
+-		sprintf(linkname, "lower_%s", adj_dev->name);
+-		sysfs_remove_link(&(dev->dev.kobj), linkname);
+-	} else if (dev_list == &dev->adj_list.upper) {
+-		sprintf(linkname, "upper_%s", adj_dev->name);
+-		sysfs_remove_link(&(dev->dev.kobj), linkname);
+-	}
++	if (netdev_adjacent_is_neigh_list(dev, dev_list))
++		netdev_adjacent_sysfs_del(dev, adj_dev->name, dev_list);
+ 
+ 	list_del_rcu(&adj->list);
+ 	pr_debug("dev_put for %s, because link removed from %s to %s\n",
 -- 
 1.8.4
