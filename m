@@ -1,64 +1,80 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net-next] stmmac: Add vlan rx for better GRO performance.
-Date: Tue, 14 Jan 2014 11:34:06 -0600
-Message-ID: <1389720846-6543-1-git-send-email-vbridgers2013@gmail.com>
-Cc: peppe.cavallaro@st.com, rayagond@vayavyalabs.com,
-	vbridgers2013@gmail.com
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH v3 net-next] bonding: handle slave's name change with primary_slave logic
+Date: Tue, 14 Jan 2014 18:35:01 +0100
+Message-ID: <1389720901-2298-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Ding Tianhong <dingtianhong@huawei.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:37244 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751437AbaANRjL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 12:39:11 -0500
-Received: by mail-pd0-f182.google.com with SMTP id v10so137884pde.41
-        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 09:39:10 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:36717 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751437AbaANRjd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jan 2014 12:39:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-GRO requires VLANs to be removed before aggregation can occur.
-The Synopsys EMAC does not strip VLAN tags so this must be
-done by the driver.
+Currently, if a slave's name change, we just pass it by. However, if the
+slave is a current primary_slave, then we end up with using a slave, whose
+name != params.primary, for primary_slave. And vice-versa, if we don't have
+a primary_slave but have params.primary set - we will not detected a new
+primary_slave.
 
-Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
+Fix this by catching the NETDEV_CHANGENAME event and setting primary_slave
+accordingly. Also, if the primary_slave was changed, issue a reselection of
+the active slave, cause the priorities have changed.
+
+Reported-by: Ding Tianhong <dingtianhong@huawei.com>
+CC: Ding Tianhong <dingtianhong@huawei.com>
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index b8e3a4c..e3ff84e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1951,6 +1951,22 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return NETDEV_TX_OK;
- }
- 
-+static inline void stmmac_rx_vlan(struct net_device *dev, struct sk_buff *skb)
-+{
-+	struct ethhdr *ehdr;
-+	u16 vlanid;
-+	if ((dev->features & NETIF_F_HW_VLAN_CTAG_RX) ==
-+		NETIF_F_HW_VLAN_CTAG_RX &&
-+		!__vlan_get_tag(skb, &vlanid)) {
-+		/* pop the vlan tag */
-+		ehdr = (struct ethhdr *)skb->data;
-+		memmove(skb->data + VLAN_HLEN, ehdr, ETH_ALEN * 2);
-+		skb_pull(skb, VLAN_HLEN);
-+		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlanid);
-+	}
-+}
+Notes:
+    v2->v3:
+    Reword the info message, per Jay's comment.
+    
+    v1->v2:
+    Proper patch
+
+ drivers/net/bonding/bond_main.c | 23 ++++++++++++++++++++---
+ 1 file changed, 20 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index e06c445..ea51661 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2860,9 +2860,26 @@ static int bond_slave_netdev_event(unsigned long event,
+ 		 */
+ 		break;
+ 	case NETDEV_CHANGENAME:
+-		/*
+-		 * TODO: handle changing the primary's name
+-		 */
++		/* we don't care if we don't have primary set */
++		if (!USES_PRIMARY(bond->params.mode) ||
++		    !bond->params.primary[0])
++			break;
 +
++		if (slave == bond->primary_slave) {
++			/* slave's name changed - he's no longer primary */
++			bond->primary_slave = NULL;
++		} else if (!strcmp(slave_dev->name, bond->params.primary)) {
++			/* we have a new primary slave */
++			bond->primary_slave = slave;
++		} else  /* we didn't change primary - exit */
++			break;
 +
- /**
-  * stmmac_rx_refill: refill used skb preallocated buffers
-  * @priv: driver private structure
-@@ -2102,6 +2118,8 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
- 				print_pkt(skb->data, frame_len);
- 			}
- 
-+			stmmac_rx_vlan(priv->dev, skb);
-+
- 			skb->protocol = eth_type_trans(skb, priv->dev);
- 
- 			if (unlikely(!coe))
++		pr_info("%s: Primary slave changed to %s, reselecting active slave.\n",
++			bond->dev->name, bond->primary_slave ? slave_dev->name :
++							       "none");
++		write_lock_bh(&bond->curr_slave_lock);
++		bond_select_active_slave(bond);
++		write_unlock_bh(&bond->curr_slave_lock);
+ 		break;
+ 	case NETDEV_FEAT_CHANGE:
+ 		bond_compute_features(bond);
 -- 
-1.7.9.5
+1.8.4
