@@ -1,34 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] net: 3com: fix warning for incorrect type
- in argument
-Date: Mon, 13 Jan 2014 23:31:10 -0800 (PST)
-Message-ID: <20140113.233110.1828368771962242601.davem@davemloft.net>
-References: <52D0FF89.2020206@huawei.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next 00/10] use appropriate APIs to get interfaces
+Date: Tue, 14 Jan 2014 15:40:59 +0800
+Message-ID: <1389685269-18600-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joe@perches.com, julia.lawall@lip6.fr
-To: dingtianhong@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41300 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751880AbaANHbL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 02:31:11 -0500
-In-Reply-To: <52D0FF89.2020206@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <vfalico@redhat.com>, <john.r.fastabend@intel.com>,
+	<stephen@networkplumber.org>, <antonio@meshcoding.com>,
+	<dmitry.tarnyagin@lockless.no>, <socketcan@hartkopp.net>,
+	<johannes@sipsolutions.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Sat, 11 Jan 2014 16:23:37 +0800
+Under rtnl_lock protection, we should use __dev_get_name/index()
+rather than dev_get_name()/index() to find interface handlers
+because the former interfaces can help us avoid to change interface
+reference counter.
 
-> The commit c466a9b2b329f7d9982c14eedc83a923d3bc711c
-> (net: 3com: slight optimization of addr compare)
-> cause a warning: "passing argument 1 of 'ether_addr_equal'
-> from incompatible pointer type", so fix it.
-> 
-> I think julia will convert ether_addr_equal to ether_addr_equal_64bits later.
-> 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Ying Xue (10):
+  Drivers: Staging: cxt1e1: use __dev_get_name instead of dev_get_name
+    to find interfaces
+  bonding: use __dev_get_by_name instead of dev_get_by_name to find
+    interface
+  eql: use __dev_get_by_name instead of dev_get_by_name to find
+    interface
+  dcb: use __dev_get_by_name instead of dev_get_by_name to find
+    interface
+  decnet: use __dev_get_by_index instead of dev_get_by_index to find
+    interface
+  vxlan: use __dev_get_by_index instead of dev_get_by_index to find
+    interface
+  batman-adv: use __dev_get_by_index instead of dev_get_by_index to
+    find interface
+  caif: __dev_get_by_index instead of dev_get_by_index to find
+    interface
+  can: use __dev_get_by_index instead of dev_get_by_index to find
+    interface
+  net: nl80211: __dev_get_by_index instead of dev_get_by_index to find
+    interface
 
-Applied.
+ drivers/net/bonding/bond_main.c |   49 +++++++++----------
+ drivers/net/eql.c               |   95 ++++++++++++++++---------------------
+ drivers/net/vxlan.c             |    3 +-
+ drivers/staging/cxt1e1/linux.c  |   15 +++---
+ net/batman-adv/hard-interface.c |    4 +-
+ net/caif/chnl_net.c             |    3 +-
+ net/can/gw.c                    |   15 ++----
+ net/dcb/dcbnl.c                 |   15 ++----
+ net/decnet/dn_route.c           |    6 +--
+ net/wireless/nl80211.c          |  100 ++++++++++++++-------------------------
+ 10 files changed, 123 insertions(+), 182 deletions(-)
+
+-- 
+1.7.9.5
