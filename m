@@ -1,81 +1,67 @@
-From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 2/2] i40e: Retain MAC filters on port VLAN deletion
-Date: Mon, 13 Jan 2014 16:13:04 -0800
-Message-ID: <1389658384-15825-3-git-send-email-aaron.f.brown@intel.com>
-References: <1389658384-15825-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Aaron Brown <aaron.f.brown@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:26269 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751289AbaANANP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Jan 2014 19:13:15 -0500
-In-Reply-To: <1389658384-15825-1-git-send-email-aaron.f.brown@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [GIT net-next] Open vSwitch
+Date: Tue, 14 Jan 2014 00:31:56 +0000
+Message-ID: <52D4857C.7020902@citrix.com>
+References: <1389053776-62865-1-git-send-email-jesse@nicira.com>
+	<52CD657F.7080806@citrix.com>
+	<CAEP_g=_pQpH--V+7GSrjGP2z=0TBD_37yXjzTdeKG+2OF3aRaw@mail.gmail.com>
+	<52D42A9E.1030805@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <52D42A9E.1030805-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Greg Rose <gregory.v.rose@intel.com>
+On 13/01/14 18:04, Zoltan Kiss wrote:
+> On 08/01/14 15:10, Jesse Gross wrote:
+>> On Wed, Jan 8, 2014 at 9:49 AM, Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org> 
+>> wrote:
+>>> Hi,
+>>>
+>>> I've tried the latest net-next on a Xenserver install with 1.9.3 
+>>> userspace,
+>>> and it seems this patch series broke it (at least after reverting that
+>>> locally it works now). I haven't went too far yet checking what's the
+>>> problem, but it seems the xenbrX device doesn't really receive too 
+>>> much of
+>>> the traffic coming through the NIC. Is it expected?
+>>
+>> What do you mean by doesn't receive too much traffic? What does it get?
+>>
+>
+> Sorry for the vague error description, now I had more time to look 
+> into this. I think the problem boils down to this:
+>
+> Jan 13 17:55:07 localhost ovs-vswitchd: 
+> 07890|netlink_socket|DBG|nl_sock_recv__ (Success): nl(len:274, 
+> type=29(ovs_packet), flags=0, seq=0, pid=0,genl(cmd=1,version=1)
+> Jan 13 17:55:07 localhost ovs-vswitchd: 07891|netlink|DBG|attributes 
+> followed by garbage
+> Jan 13 17:55:07 localhost ovs-vswitchd: 07892|dpif|WARN|system@xenbr0: 
+> recv failed (Invalid argument)
+>
+> That's just keep repeating. I'm keep looking.
 
-On port VLAN deletion the list of MAC filters for the virtual function (VF) 
-VSI were all deleted.  Let's keep them around, they come in handy for keeping 
-the VF functional.
+Now I reverted these top 3 commits:
 
-Change-Id: I335e760392f274dc8b8b40efcb708f65b49d7973
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
-Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  3 +++
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 13 +++++++++++++
- 2 files changed, 16 insertions(+)
+ovs: make functions local
+openvswitch: Compute checksum in skb_gso_segment() if needed
+openvswitch: Use skb_zerocopy() for upcall
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index ad04da2..e210f8f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1845,7 +1845,10 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
- 				return -ENOMEM;
- 			}
- 		}
-+	}
- 
-+	/* Do not assume that I40E_VLAN_ANY should be reset to VLAN 0 */
-+	if (vid > 0 && !vsi->info.pvid) {
- 		list_for_each_entry(f, &vsi->mac_filter_list, list) {
- 			if (i40e_find_filter(vsi, f->macaddr, I40E_VLAN_ANY,
- 					     is_vf, is_netdev)) {
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index ecb873c..437f9e9 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -2081,6 +2081,15 @@ int i40e_ndo_set_vf_port_vlan(struct net_device *netdev,
- 			"VF %d has already configured VLAN filters and the administrator is requesting a port VLAN override.\nPlease unload and reload the VF driver for this change to take effect.\n",
- 			vf_id);
- 
-+	/* Check for condition where there was already a port VLAN ID
-+	 * filter set and now it is being deleted by setting it to zero.
-+	 * Before deleting all the old VLAN filters we must add new ones
-+	 * with -1 (I40E_VLAN_ANY) or otherwise we're left with all our
-+	 * MAC addresses deleted.
-+	 */
-+	if (!(vlan_id || qos) && vsi->info.pvid)
-+		ret = i40e_vsi_add_vlan(vsi, I40E_VLAN_ANY);
-+
- 	if (vsi->info.pvid) {
- 		/* kill old VLAN */
- 		ret = i40e_vsi_kill_vlan(vsi, (le16_to_cpu(vsi->info.pvid) &
-@@ -2109,6 +2118,10 @@ int i40e_ndo_set_vf_port_vlan(struct net_device *netdev,
- 				 vsi->back->hw.aq.asq_last_status);
- 			goto error_pvid;
- 		}
-+		/* Kill non-vlan MAC filters - ignore error return since
-+		 * there might not be any non-vlan MAC filters.
-+		 */
-+		i40e_vsi_kill_vlan(vsi, I40E_VLAN_ANY);
- 	}
- 
- 	if (ret) {
--- 
-1.8.5.GIT
+And it works. I guess the last one causing the problem. Might be an 
+important factor, I'm using 32 bit Dom0.
+
+Zoli
