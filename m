@@ -1,44 +1,50 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: [PATCH 4/7] phy,exynos: Add dependency on HAS_IOMEM
-Date: Tue, 14 Jan 2014 16:45:42 +0100
-Message-ID: <1389714345-20165-4-git-send-email-richard@nod.at>
-References: <1389714345-20165-1-git-send-email-richard@nod.at>
-Cc: sebastian.hesselbarth@gmail.com, florian@openwrt.org,
-	thomas.petazzoni@free-electrons.com, lars@metafoo.de,
-	marex@denx.de, acourbot@nvidia.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	driverdev-devel@linuxdriverproject.org, devel@driverdev.osuosl.org,
-	linux-iio@vger.kernel.org, Richard Weinberger <richard@nod.at>
-To: kishon@ti.com, anton@enomsg.org, dwmw2@infradead.org,
-	richardcochran@gmail.com, lidza.louina@gmail.com,
-	gregkh@linuxfoundation.org, jic23@kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389714345-20165-1-git-send-email-richard@nod.at>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH] netfilter: Add dependency on IPV6 for NF_TABLES_INET
+Date: Tue, 14 Jan 2014 10:49:27 -0500
+Message-ID: <52D55C87.2030401@windriver.com>
+References: <1389636070-26312-1-git-send-email-paul.gortmaker@windriver.com> <85d5725b-16f8-464a-ad88-7def74571021@email.android.com> <20140114153454.GA9425@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	<netfilter@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<netfilter-devel@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <20140114153454.GA9425@localhost>
+Sender: netfilter-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On archs like S390 or um this driver cannot build nor work.
-Make it depend on HAS_IOMEM to bypass build failures.
+On 14-01-14 10:34 AM, Pablo Neira Ayuso wrote:
+> On Tue, Jan 14, 2014 at 11:35:42AM +0000, Patrick McHardy wrote:
+>> Paul Gortmaker <paul.gortmaker@windriver.com> schrieb:
+>>> Commit 1d49144c0aaa61be4e3ccbef9cc5c40b0ec5f2fe ("netfilter: nf_tables:
+>>> add "inet" table for IPv4/IPv6") allows creation of non-IPV6 enabled
+>>> .config files that will fail to configure/link as follows:
+>>>
+>>> warning: (NF_TABLES_INET) selects NF_TABLES_IPV6 which has unmet direct
+>>> dependencies (NET && INET && IPV6 && NETFILTER && NF_TABLES)
+>>> warning: (NF_TABLES_INET) selects NF_TABLES_IPV6 which has unmet direct
+>>> dependencies (NET && INET && IPV6 && NETFILTER && NF_TABLES)
+>>> warning: (NF_TABLES_INET) selects NF_TABLES_IPV6 which has unmet direct
+>>> dependencies (NET && INET && IPV6 && NETFILTER && NF_TABLES)
+>>> net/built-in.o: In function `nft_reject_eval':
+>>> nft_reject.c:(.text+0x651e8): undefined reference to `nf_ip6_checksum'
+>>> nft_reject.c:(.text+0x65270): undefined reference to `ip6_route_output'
+>>> nft_reject.c:(.text+0x656c4): undefined reference to `ip6_dst_hoplimit'
+>>> make: *** [vmlinux] Error 1
+>>>
+>>> Since the feature is to allow for a mixed IPV4 and IPV6 table, it
+>>> seems sensible to make it depend on IPV6.
+>>
+>> Acked-by: Patrick McHardy <kaber@trash.net>
+> 
+> Applied, thanks.
+> 
+> @Paul: Please, use netfilter-devel ML instead next time. The netfilter
+> ML is reserved for user questions only. Thanks.
 
-drivers/built-in.o: In function `exynos_mipi_video_phy_probe':
-drivers/phy/phy-exynos-mipi-video.c:130: undefined reference to `devm_ioremap_resource'
-
-Signed-off-by: Richard Weinberger <richard@nod.at>
----
- drivers/phy/Kconfig | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/phy/Kconfig b/drivers/phy/Kconfig
-index 330ef2d..a8b17ce 100644
---- a/drivers/phy/Kconfig
-+++ b/drivers/phy/Kconfig
-@@ -16,6 +16,7 @@ config GENERIC_PHY
- 	  framework should select this config.
- 
- config PHY_EXYNOS_MIPI_VIDEO
-+	depends on HAS_IOMEM
- 	tristate "S5P/EXYNOS SoC series MIPI CSI-2/DSI PHY driver"
- 	help
- 	  Support for MIPI CSI-2 and MIPI DSI DPHY found on Samsung S5P
--- 
-1.8.1.4
+Sure, I can do that.  But it would probably be better if
+get_maintainer.pl didn't emit that particular address then.
