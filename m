@@ -1,47 +1,39 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCHv2 net-next 1/4] flowcache: Namespacify flowcache global
- parameters with xfrm
-Date: Tue, 14 Jan 2014 19:53:29 +0100
-Message-ID: <20140114185329.GA1971@kria>
-References: <1389663588-29678-1-git-send-email-fan.du@windriver.com>
- <1389663588-29678-2-git-send-email-fan.du@windriver.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net-next 0/7] net_sched: some more cleanup and improvements
+Date: Tue, 14 Jan 2014 10:54:00 -0800
+Message-ID: <CAM_iQpVcpCFrAVS4FnHFmkAUvjRQDXvFwxrtUe+BSQ68Sknn-g@mail.gmail.com>
+References: <1389312845-10304-1-git-send-email-xiyou.wangcong@gmail.com>
+	<52D28B77.7030000@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: steffen.klassert@secunet.com, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1-g21.free.fr ([212.27.42.1]:43041 "EHLO smtp1-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751868AbaANSxu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jan 2014 13:53:50 -0500
-Content-Disposition: inline
-In-Reply-To: <1389663588-29678-2-git-send-email-fan.du@windriver.com>
+Received: from mail-oa0-f50.google.com ([209.85.219.50]:48003 "EHLO
+	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751868AbaANSyB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 13:54:01 -0500
+Received: by mail-oa0-f50.google.com with SMTP id l6so14622oag.23
+        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 10:54:00 -0800 (PST)
+In-Reply-To: <52D28B77.7030000@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-01-14, 09:39:44 +0800, Fan Du wrote:
-> Since flowcache is tightly coupled with IPsec, so it would be
-> easier to put flow cache global parameters here into xfrm
-> namespace part.
-> 
-> Signed-off-by: Fan Du <fan.du@windriver.com>
-> ---
->  include/net/netns/xfrm.h |   11 +++++++++++
->  1 file changed, 11 insertions(+)
-> 
-> diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
-> index 1006a26..52d0086 100644
-> --- a/include/net/netns/xfrm.h
-> +++ b/include/net/netns/xfrm.h
-> @@ -6,6 +6,7 @@
->  #include <linux/workqueue.h>
->  #include <linux/xfrm.h>
->  #include <net/dst_ops.h>
-> +#include <net/flowcache.h>
+On Sun, Jan 12, 2014 at 4:32 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 01/09/14 19:13, Cong Wang wrote:
+>>
+>> This patchset collects the previous patches I sent which Jamal doesn't
+>> object.
+>> They are still some cleanup and improvements for tc actions and filters.
+>>
+>>
+>
+> Cong - I dont have time to test at the moment and like you said
+> they dont look controversial; i will review them, please try to test
+> them to the best you can.
+>
 
-You are including a file that doesn't exist yet. You create it later,
-with patch 2. This breaks bisection.
+I did and I will continue to test them in net-next.
 
--- 
-Sabrina
+Thanks for reviews!
