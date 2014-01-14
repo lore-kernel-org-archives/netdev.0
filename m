@@ -1,56 +1,42 @@
-From: Somnath Kotur <Somnath.Kotur@Emulex.Com>
-Subject: RE: [PATCH net 2/2] be2net: Need a delay before processing CQE
- after 2nd mbox register write
-Date: Tue, 14 Jan 2014 06:33:56 +0000
-Message-ID: <4d812a88-90d8-4376-a0bb-7faa6d0491d4@CMEXHTCAS1.ad.emulex.com>
-References: <4b4fd4cb-9d23-4900-a20c-f2c2bef70849@CMEXHTCAS2.ad.emulex.com>
- <063D6719AE5E284EB5DD2968C1650D6D454FBA@AcuExch.aculab.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] inet_diag: fix inet_diag_dump_icsk() to use
+ correct state for timewait sockets
+Date: Mon, 13 Jan 2014 22:36:09 -0800 (PST)
+Message-ID: <20140113.223609.740104415435674658.davem@davemloft.net>
+References: <1389386085-22659-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	Kalesh Purayil <Kalesh.Purayil@Emulex.Com>
-To: David Laight <David.Laight@ACULAB.COM>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: ncardwell@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:59415 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751203AbaANGd6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 01:33:58 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D454FBA@AcuExch.aculab.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:41074 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750918AbaANGgK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 01:36:10 -0500
+In-Reply-To: <1389386085-22659-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Neal Cardwell <ncardwell@google.com>
+Date: Fri, 10 Jan 2014 15:34:45 -0500
 
-
-> -----Original Message-----
-> From: David Laight [mailto:David.Laight@ACULAB.COM]
-> Sent: Wednesday, January 08, 2014 3:02 PM
-> To: Somnath Kotur; netdev@vger.kernel.org
-> Cc: davem@davemloft.net; Kalesh Purayil
-> Subject: RE: [PATCH net 2/2] be2net: Need a delay before processing CQE
-> after 2nd mbox register write
+> Fix inet_diag_dump_icsk() to reflect the fact that both TCP_TIME_WAIT
+> and TCP_FIN_WAIT2 connections are represented by inet_timewait_sock
+> (not just TIME_WAIT), and for such sockets the tw_substate field holds
+> the real state, which can be either TCP_TIME_WAIT or TCP_FIN_WAIT2.
 > 
-> > From: Somnath Kotur
-> > Due to Host platform synchronization issues between the mbox RDY bit
-> > polled status and the completion of the DMA for the CQE, it is
-> > preferable that the Host always wait for the RDY bit to transition to
-> > 1 after the 2nd mbox register write and always follow that with a
-> > short wait for the valid bit in the CQE, before processing the CQE.
+> This brings the inet_diag state-matching code in line with the field
+> it uses to populate idiag_state. This is also analogous to the info
+> exported in /proc/net/tcp, where get_tcp4_sock() exports sk->sk_state
+> and get_timewait4_sock() exports tw->tw_substate.
 > 
-> While I don't doubt that a delay(1) fixes the problem it doesn't seem an ideal
-> solution.
-> I've not looked at what the code is doing (or how often it does it) but either
-> delay(1) is far, far longer than is necessary or it might not be long enough and
-> some kind of retry loop is required.
+> Before fixing this, (a) neither "ss -nemoi" nor "ss -nemoi state
+> fin-wait-2" would return a socket in TCP_FIN_WAIT2; and (b) "ss -nemoi
+> state time-wait" would also return sockets in state TCP_FIN_WAIT2.
 > 
-> It might even be that the driver is just missing a memory barrier.
+> This is an old bug that predates 05dbc7b ("tcp/dccp: remove twchain").
+> 
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
 
-David,
-	The memory barrier by itself did not work, however like you said polling on the valid 
-Bit to be set seems like the right solution as the time for the mbox-completion DMA to finish/reach the host
-may not be deterministic.
-
-Thanks
-Som
+Applied, thanks.
