@@ -1,115 +1,67 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: [PATCH v2 2/2] net/mlx4_core: clean up srq_res_start_move_to()
-Date: Tue, 14 Jan 2014 20:46:52 +0100
-Message-ID: <1389728812.28068.9.camel@x220>
-References: <1389099734.15032.20.camel@x41>
-	 <20140114084050.70a612af@jpm-OptiPlex-GX620>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Or Gerlitz <ogerlitz@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Rony Efraim <ronye@mellanox.com>,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Subject: [PATCH v2 net-next] stmmac: Add vlan rx for better GRO performance.
+Date: Tue, 14 Jan 2014 13:42:05 -0600
+Message-ID: <1389728525-6989-1-git-send-email-vbridgers2013@gmail.com>
+Cc: peppe.cavallaro@st.com, rayagond@vayavyalabs.com,
+	vbridgers2013@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpsmtpb-ews04.kpnxchange.com ([213.75.39.7]:60312 "EHLO
-	cpsmtpb-ews04.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751367AbaANTqz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 14:46:55 -0500
-In-Reply-To: <20140114084050.70a612af@jpm-OptiPlex-GX620>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:42558 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751367AbaANTrH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 14:47:07 -0500
+Received: by mail-pa0-f47.google.com with SMTP id kp14so82597pab.6
+        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 11:47:07 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Building resource_tracker.o triggers a GCC warning:
-    drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function 'mlx4_HW2SW_SRQ_wrapper':
-    drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:3202:17: warning: 'srq' may be used uninitialized in this function [-Wmaybe-uninitialized]
-      atomic_dec(&srq->mtt->ref_count);
-                     ^
+GRO requires VLANs to be removed before aggregation can occur.
+The Synopsys EMAC does not strip VLAN tags so this must be
+done by the driver.
 
-This is a false positive. But a cleanup of srq_res_start_move_to() can
-help GCC here. The code currently uses a switch statement where a plain
-if/else would do, since only two of the switch's four cases can ever
-occur. Dropping that switch makes the warning go away.
-
-While we're at it, add some missing braces, and convert state to the
-correct type.
-
-Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
 ---
-v2: adjust to Jack's review.
+V2: remove inline on added function, line up broken lines per review comments
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
 
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  | 46 ++++++++--------------
- 1 file changed, 16 insertions(+), 30 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 15cd659..4acd84c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -1371,7 +1371,7 @@ static int cq_res_start_move_to(struct mlx4_dev *dev, int slave, int cqn,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index b8e3a4c..ecdc8ab 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1951,6 +1951,23 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	return NETDEV_TX_OK;
  }
  
- static int srq_res_start_move_to(struct mlx4_dev *dev, int slave, int index,
--				 enum res_cq_states state, struct res_srq **srq)
-+				 enum res_srq_states state, struct res_srq **srq)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	struct mlx4_resource_tracker *tracker = &priv->mfunc.master.res_tracker;
-@@ -1380,39 +1380,25 @@ static int srq_res_start_move_to(struct mlx4_dev *dev, int slave, int index,
- 
- 	spin_lock_irq(mlx4_tlock(dev));
- 	r = res_tracker_lookup(&tracker->res_tree[RES_SRQ], index);
--	if (!r)
-+	if (!r) {
- 		err = -ENOENT;
--	else if (r->com.owner != slave)
-+	} else if (r->com.owner != slave) {
- 		err = -EPERM;
--	else {
--		switch (state) {
--		case RES_SRQ_BUSY:
--			err = -EINVAL;
--			break;
--
--		case RES_SRQ_ALLOCATED:
--			if (r->com.state != RES_SRQ_HW)
--				err = -EINVAL;
--			else if (atomic_read(&r->ref_count))
--				err = -EBUSY;
--			break;
--
--		case RES_SRQ_HW:
--			if (r->com.state != RES_SRQ_ALLOCATED)
--				err = -EINVAL;
--			break;
--
--		default:
-+	} else if (state == RES_SRQ_ALLOCATED) {
-+		if (r->com.state != RES_SRQ_HW)
- 			err = -EINVAL;
--		}
-+		else if (atomic_read(&r->ref_count))
-+			err = -EBUSY;
-+	} else if (state != RES_SRQ_HW || r->com.state != RES_SRQ_ALLOCATED) {
-+		err = -EINVAL;
++static void stmmac_rx_vlan(struct net_device *dev, struct sk_buff *skb)
++{
++	struct ethhdr *ehdr;
++	u16 vlanid;
++
++	if ((dev->features & NETIF_F_HW_VLAN_CTAG_RX) ==
++	    NETIF_F_HW_VLAN_CTAG_RX &&
++	    !__vlan_get_tag(skb, &vlanid)) {
++		/* pop the vlan tag */
++		ehdr = (struct ethhdr *)skb->data;
++		memmove(skb->data + VLAN_HLEN, ehdr, ETH_ALEN * 2);
++		skb_pull(skb, VLAN_HLEN);
++		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlanid);
 +	}
++}
++
++
+ /**
+  * stmmac_rx_refill: refill used skb preallocated buffers
+  * @priv: driver private structure
+@@ -2102,6 +2119,8 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
+ 				print_pkt(skb->data, frame_len);
+ 			}
  
--		if (!err) {
--			r->com.from_state = r->com.state;
--			r->com.to_state = state;
--			r->com.state = RES_SRQ_BUSY;
--			if (srq)
--				*srq = r;
--		}
-+	if (!err) {
-+		r->com.from_state = r->com.state;
-+		r->com.to_state = state;
-+		r->com.state = RES_SRQ_BUSY;
-+		if (srq)
-+			*srq = r;
- 	}
++			stmmac_rx_vlan(priv->dev, skb);
++
+ 			skb->protocol = eth_type_trans(skb, priv->dev);
  
- 	spin_unlock_irq(mlx4_tlock(dev));
+ 			if (unlikely(!coe))
 -- 
-1.8.4.2
+1.7.9.5
