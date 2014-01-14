@@ -1,40 +1,73 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH RFC] reciprocal_divide: correction/update of the algorithm
-Date: Tue, 14 Jan 2014 21:10:42 +0100
-Message-ID: <20140114201042.GA13804@order.stressinduktion.org>
-References: <20140113214249.GK6586@order.stressinduktion.org> <1389722825.31367.260.camel@edumazet-glaptop2.roam.corp.google.com> <52D58E6F.4050000@gmail.com> <1389729032.31367.262.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: pull-request: can-next 2014-01-11
+Date: Tue, 14 Jan 2014 21:31:19 +0100
+Message-ID: <52D59E97.9090109@pengutronix.de>
+References: <52D191E2.8040703@pengutronix.de> <52D597B4.7020607@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Austin S Hemmelgarn <ahferroin7@gmail.com>, netdev@vger.kernel.org,
-	dborkman@redhat.com, linux-kernel@vger.kernel.org,
-	darkjames-ws@darkjames.pl
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1389729032.31367.262.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="5JgF4CibRowrHJNXQ86h1gRlFovQaXb0f"
+Cc: David Miller <davem@davemloft.net>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <52D597B4.7020607@cogentembedded.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 14, 2014 at 11:50:32AM -0800, Eric Dumazet wrote:
-> On Tue, 2014-01-14 at 14:22 -0500, Austin S Hemmelgarn wrote:
-> 
-> > I disagree with the statement that current CPU's have reasonably fast
-> > dividers.  A lot of embedded processors and many low-end x86 CPU's do
-> > not in-fact have any hardware divider, and usually provide it using
-> > microcode based emulation if they provide it at all.  The AMD Jaguar
-> > micro-architecture in particular comes to mind, it uses an iterative
-> > division algorithm provided by the microcode that only produces 2 bits
-> > of quotient per cycle, even in the best case (2 8-bit integers and an
-> > integral 8-bit quotient) this still takes 4 cycles, which is twice as
-> > slow as any other math operation on the same processor.
-> 
-> I doubt you run any BPF filter with a divide instruction in it on these
-> platform.
-> 
-> Get real, do not over optimize things where it does not matter.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--5JgF4CibRowrHJNXQ86h1gRlFovQaXb0f
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-If I read the instruction tables correctly, we could half the latency with
-reciprocal divide even on haswell.
+On 01/14/2014 09:01 PM, Sergei Shtylyov wrote:
+> Hello.
+>=20
+> On 01/11/2014 09:48 PM, Marc Kleine-Budde wrote:
+>=20
+>> Hello David,
+>=20
+>> this is a pull request of three patches for net-next/master.
+>=20
+>> Oleg Moroz added support for a new PCI card to the generic SJA1000 PCI=
 
-What a pitty that the Intel Architecture Code Analyzer does not support imul
-nor div instruction. :(
+>> driver, Guenter Roeck's patch limits the flexcan driver to little
+>> endian arm (and powerpc) and I fixed a sparse warning found by the
+>> kbuild robot in the ti_hecc driver.
+>=20
+>    What about the rewritten Renesas R-Car CAN driver? Is there a chance=
+
+> to get it into 3.14-rc1 now that we've missed 3.13-rc1? I've sent it at=
+
+> the very end of December, and have got no feedback still...
+
+I was ill last week and as a customer today and tomorrow, I'll review
+your driver this week.
+
+regards,
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--5JgF4CibRowrHJNXQ86h1gRlFovQaXb0f
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlLVnpcACgkQjTAFq1RaXHN35ACfVNP/rhpojLy3KACTLvyiRl39
+65wAoJBKo2XBn45SIc+mz5V/TqO+yxnb
+=dCom
+-----END PGP SIGNATURE-----
+
+--5JgF4CibRowrHJNXQ86h1gRlFovQaXb0f--
