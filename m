@@ -1,78 +1,56 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [GIT net-next] Open vSwitch
-Date: Mon, 13 Jan 2014 17:30:48 -0800
-Message-ID: <CAEP_g=8nG6AHV9Y+5=48nPhkf5Oe=mG8EiyaKSqN4omnmGhv4A@mail.gmail.com>
-References: <1389053776-62865-1-git-send-email-jesse@nicira.com>
-	<52CD657F.7080806@citrix.com>
-	<CAEP_g=_pQpH--V+7GSrjGP2z=0TBD_37yXjzTdeKG+2OF3aRaw@mail.gmail.com>
-	<52D42A9E.1030805@citrix.com> <52D4857C.7020902@citrix.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCHv3 net-next 0/5] xfrm: Add ESN support for AH
+Date: Tue, 14 Jan 2014 09:39:07 +0800
+Message-ID: <1389663552-29638-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <52D4857C.7020902-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:64638 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750962AbaANBjI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 20:39:08 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 13, 2014 at 4:31 PM, Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org> wrote:
-> On 13/01/14 18:04, Zoltan Kiss wrote:
->>
->> On 08/01/14 15:10, Jesse Gross wrote:
->>>
->>> On Wed, Jan 8, 2014 at 9:49 AM, Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
->>> wrote:
->>>>
->>>> Hi,
->>>>
->>>> I've tried the latest net-next on a Xenserver install with 1.9.3
->>>> userspace,
->>>> and it seems this patch series broke it (at least after reverting that
->>>> locally it works now). I haven't went too far yet checking what's the
->>>> problem, but it seems the xenbrX device doesn't really receive too much
->>>> of
->>>> the traffic coming through the NIC. Is it expected?
->>>
->>>
->>> What do you mean by doesn't receive too much traffic? What does it get?
->>>
->>
->> Sorry for the vague error description, now I had more time to look into
->> this. I think the problem boils down to this:
->>
->> Jan 13 17:55:07 localhost ovs-vswitchd:
->> 07890|netlink_socket|DBG|nl_sock_recv__ (Success): nl(len:274,
->> type=29(ovs_packet), flags=0, seq=0, pid=0,genl(cmd=1,version=1)
->> Jan 13 17:55:07 localhost ovs-vswitchd: 07891|netlink|DBG|attributes
->> followed by garbage
->> Jan 13 17:55:07 localhost ovs-vswitchd: 07892|dpif|WARN|system@xenbr0:
->> recv failed (Invalid argument)
->>
->> That's just keep repeating. I'm keep looking.
->
->
-> Now I reverted these top 3 commits:
->
-> ovs: make functions local
->
-> openvswitch: Compute checksum in skb_gso_segment() if needed
-> openvswitch: Use skb_zerocopy() for upcall
->
-> And it works. I guess the last one causing the problem. Might be an
-> important factor, I'm using 32 bit Dom0.
+Hi,
 
-I think you're probably right. Thomas - can you take a look?
+This is initial Extended Sequence Number support for AH based on IPv4/6.
+The rationale is totally by the RFC 4302, which states:
 
-We shouldn't be doing any zerocopy in this situation but it looks to
-me like we don't do any padding at all, even in situations where we
-are copying the data.
+3.3.3.2.2.  Implicit Packet Padding and ESN
+
+   If the ESN option is elected for an SA, then the high-order 32 bits
+   of the ESN must be included in the ICV computation.  For purposes of
+   ICV computation, these bits are appended (implicitly) immediately
+   after the end of the payload, and before any implicit packet padding.
+
+So we attach the high-order 32bits as a scatterlist right after the packet
+payload to compute ICV value. 
+
+Test:
+I add a knob in iproute2/ip/xfrm_state.c to enable esn when setting SA,
+which make it possible to test with-esn and without-esn scenarios, both
+cases works ok with ping using packetsize(-s) from default to 32768. 
+
+v2:
+  - Patch3/5 and Patch4/5 add IPv6 part as requested by Steffen.
+  - Patch5/5 restrict ESN feature only to ESP and AH.
+v3:
+  - Fix double parens spotted by Sergei, and thanks for reporting.
+
+Fan Du (5):
+  {IPv4,xfrm} Add ESN support for AH egress part
+  {IPv4,xfrm} Add ESN support for AH ingress part
+  {IPv6,xfrm} Add ESN support for AH egress part
+  {IPv6,xfrm} Add ESN support for AH ingress part
+  xfrm: Don't prohibit AH from using ESN feature
+
+ net/ipv4/ah4.c       |   50 +++++++++++++++++++++++++++++++++++++++++-------
+ net/ipv6/ah6.c       |   52 +++++++++++++++++++++++++++++++++++++++++++-------
+ net/xfrm/xfrm_user.c |    3 ++-
+ 3 files changed, 90 insertions(+), 15 deletions(-)
+
+-- 
+1.7.9.5
