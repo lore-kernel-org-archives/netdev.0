@@ -1,61 +1,82 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next] bonding: don't permit slaves to change their mtu
-Date: Tue, 14 Jan 2014 11:01:59 +0800
-Message-ID: <52D4A8A7.60100@huawei.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the tip tree with the net-next tree
+Date: Tue, 14 Jan 2014 14:02:14 +1100
+Message-ID: <20140114140214.7279bcaf88d7a4514d889186@canb.auug.org.au>
+References: <20140113141824.4301cb76e8e5540d42d74015@canb.auug.org.au>
+	<20140113142059.f9f1c58c391b2c8bbd05699f@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:25191 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751384AbaANDCU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 22:02:20 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Tue__14_Jan_2014_14_02_14_+1100_acrA+AyAj4P=aEp5"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20140113142059.f9f1c58c391b2c8bbd05699f@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The commit 2315dc91a5059d7da9a8b9b9daf78d695c11383e
-(net: make dev_set_mtu() honor notification return code)
-will deal with the return value for NETDEV_CHANGEMTU notification,
-and the slaves should not change their mtu, so add return value
-to prevent doing it.
+--Signature=_Tue__14_Jan_2014_14_02_14_+1100_acrA+AyAj4P=aEp5
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Suggested-by: Veaceslav Falico <vfalico@redhat.com>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/bonding/bond_main.c | 16 ++++------------
- 1 file changed, 4 insertions(+), 12 deletions(-)
+Hi all,
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index e06c445..af4e678 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2846,19 +2846,11 @@ static int bond_slave_netdev_event(unsigned long event,
- 		 */
- 		break;
- 	case NETDEV_CHANGEMTU:
--		/*
--		 * TODO: Should slaves be allowed to
--		 * independently alter their MTU?  For
--		 * an active-backup bond, slaves need
--		 * not be the same type of device, so
--		 * MTUs may vary.  For other modes,
--		 * slaves arguably should have the
--		 * same MTUs. To do this, we'd need to
--		 * take over the slave's change_mtu
--		 * function for the duration of their
--		 * servitude.
-+		/* The master and slaves should have the
-+		 * the same mtu, so do't permit slaves
-+		 * to change their mtu independently.
- 		 */
--		break;
-+		return NOTIFY_BAD;
- 	case NETDEV_CHANGENAME:
- 		/*
- 		 * TODO: handle changing the primary's name
--- 
-1.8.0
+On Mon, 13 Jan 2014 14:20:59 +1100 Stephen Rothwell <sfr@canb.auug.org.au> =
+wrote:
+>
+> On Mon, 13 Jan 2014 14:18:24 +1100 Stephen Rothwell <sfr@canb.auug.org.au=
+> wrote:
+> >
+> > Today's linux-next merge of the tip tree got conflicts in
+> > arch/arc/include/asm/Kbuild, arch/cris/include/asm/Kbuild,
+> > arch/hexagon/include/asm/Kbuild, arch/microblaze/include/asm/Kbuild,
+> > arch/parisc/include/asm/Kbuild and arch/score/include/asm/Kbuild between
+> > commit e3fec2f74f7f ("lib: Add missing arch generic-y entries for
+> > asm-generic/hash.h") from the net-next tree and commit 93ea02bb8435
+> > ("arch: Clean up asm/barrier.h implementations using
+> > asm-generic/barrier.h") from the tip tree.
+> >=20
+> > I fixed it up (see below) and can carry the fix as necessary (no action
+> > is required).
+> >=20
+> > BTW: thanks for not keeping the Kbuild files sorted :-(
+>=20
+> I missed arch/mn10300/include/asm/Kbuild the first time round.
+
+And ... git rerere does not work well here.  It stores resolutions by a
+hash of the (sanitised) conflict and since most of these files have
+exactly the same conflict, I am going to have to edit 5 of them by hand
+every day.
+
+Not happy :-(
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Tue__14_Jan_2014_14_02_14_+1100_acrA+AyAj4P=aEp5
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJS1Ki6AAoJEMDTa8Ir7ZwVtqcP/1WOrHDiX/sqRICnivK6m2I5
+PaVt5Ng70rzsm8goudyBrX79dw1ObfuD+oE0yBTZFLVjb0NHPUzBt9hmLyGyQaU4
+owQ/73gSmNSuY5YypPIDtQCYd5vq0ri5fynNIrofePqW1zKXaPH0ICvYwHB5AAJF
+MWd8UTRuhPLAvGHysq+iY+yE8KuGMa9jKGOMunLmYxvYSzhGcsYQZ+kVKRxQblhQ
+CzjhIeQnokXwjLmsSf0hKaNewY19e/G1UQ/2cPJwYqMLqCNCWjdZT/5DTtbg3+gH
+yK29iqN5FGK+gQ2DH/QWYXIa/UrgBe9oGhSEevIj9UIV4HVUKG2jOZvhdI40a39l
+ia+Oss0oVdUgIV06JZiMqBg97ong+SjR6BB+kBy0OuNvHMsW5inw8NRlzVrszPMM
+Iz1pm00lBxE0nfoQgrVbNhos1C1zd9FAe3jHyAinhLFKTHR9R3cqatbeyvu5HKRA
+IlzB9yec5o3vdJMPmpnX0K3/iZ+Fy5DLzE6mvj4woQuAzMQ/rI5gAxYuesGuJl46
+9ohcLSM2+XbOHiHybTteXgbwgdK1wWNVMxonDkXf4nhBKjL+vwFvewyY2kQkh/Dd
+bKXy68RCt1WkSbmsvCWZM1zPRAql9BOb8G6e71gb0eaKoZK9ylnXMG468w05DGSa
+Dkt7jKlRglGMD+03PIDC
+=KQf7
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__14_Jan_2014_14_02_14_+1100_acrA+AyAj4P=aEp5--
