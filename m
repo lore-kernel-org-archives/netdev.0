@@ -1,49 +1,70 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next 6/7] net_sched: cls: move allocation in ->init to
- generic layer
-Date: Tue, 14 Jan 2014 10:56:02 -0800
-Message-ID: <CAM_iQpV5-xQwK8=7NhAQAjz+1bGfnS=DR+5RqOsC5JLAsyTMFw@mail.gmail.com>
-References: <1389312845-10304-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1389312845-10304-7-git-send-email-xiyou.wangcong@gmail.com>
-	<52D293A2.2070703@mojatatu.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v2] openvswitch: Pad OVS_PACKET_ATTR_PACKET if
+ linear copy was performed
+Date: Tue, 14 Jan 2014 18:56:52 +0000
+Message-ID: <52D58874.4090506@citrix.com>
+References: <1389053776-62865-1-git-send-email-jesse@nicira.com> <52CD657F.7080806@citrix.com> <CAEP_g=_pQpH--V+7GSrjGP2z=0TBD_37yXjzTdeKG+2OF3aRaw@mail.gmail.com> <52D42A9E.1030805@citrix.com> <52D4857C.7020902@citrix.com> <CAEP_g=8nG6AHV9Y+5=48nPhkf5Oe=mG8EiyaKSqN4omnmGhv4A@mail.gmail.com> <52D50767.6050906@redhat.com> <52D52E0A.4050700@citrix.com> <20140114161640.GA24121@casper.infradead.org> <20140114161911.GB24121@casper.infradead.org> <20140114162749.GC24121@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@redhat.com>, Jesse Gross <jesse@nicira.com>,
+	David Miller <davem@davemloft.net>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f44.google.com ([209.85.219.44]:36823 "EHLO
-	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751500AbaANS4D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 13:56:03 -0500
-Received: by mail-oa0-f44.google.com with SMTP id g12so23122oah.3
-        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 10:56:02 -0800 (PST)
-In-Reply-To: <52D293A2.2070703@mojatatu.com>
+Received: from smtp.citrix.com ([66.165.176.89]:62120 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751458AbaANS4z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jan 2014 13:56:55 -0500
+In-Reply-To: <20140114162749.GC24121@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 12, 2014 at 5:07 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 01/09/14 19:14, Cong Wang wrote:
->>
->> Most of the filters need allocation of tp->root in ->init()
->> and free it in ->destroy(), make this generic.
->>
->> Also we could reduce the use of tcf_tree_lock a bit.
->>
->> Cc: Thomas Graf <tgraf@suug.ch>
->> Cc: David S. Miller <davem@davemloft.net>
->> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->
->
->
-> Hrm. This one worries me a little.
-> I dont see how just pre-allocing the private head of the classifier
-> magically allows you to get rid of locks. Have you tested against those
-> classifiers you changed?
-> If those locks are useless - then that is a separate patch to kill
-> them (sorry, dont have time to test myself right now).
+It works for me, thanks!
 
+Acked-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 
-Yeah, I am not sure either. I will re-think about this locking stuff.
+On 14/01/14 16:27, Thomas Graf wrote:
+> While the zerocopy method is correctly omitted if user space
+> does not support unaligned Netlink messages. The attribute is
+> still not padded correctly as skb_zerocopy() will not ensure
+> padding and the attribute size is no longer pre calculated
+> though nla_reserve() which ensured padding previously.
+>
+> This patch applies appropriate padding if a linear data copy
+> was performed in skb_zerocopy().
+>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> ---
+> v2: initialize padding to 0's
+>
+>   net/openvswitch/datapath.c | 7 ++++++-
+>   1 file changed, 6 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+> index df46928..3ca9121 100644
+> --- a/net/openvswitch/datapath.c
+> +++ b/net/openvswitch/datapath.c
+> @@ -396,7 +396,7 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+>   		.dst_sk = ovs_dp_get_net(dp)->genl_sock,
+>   		.snd_portid = upcall_info->portid,
+>   	};
+> -	size_t len;
+> +	size_t len, plen;
+>   	unsigned int hlen;
+>   	int err, dp_ifindex;
+>
+> @@ -466,6 +466,11 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+>
+>   	skb_zerocopy(user_skb, skb, skb->len, hlen);
+>
+> +	/* Pad OVS_PACKET_ATTR_PACKET if linear copy was performed */
+> +	if (!(dp->user_features & OVS_DP_F_UNALIGNED) &&
+> +	    (plen = (ALIGN(user_skb->len, NLA_ALIGNTO) - user_skb->len)) > 0)
+> +		memset(skb_put(user_skb, plen), 0, plen);
+> +
+>   	((struct nlmsghdr *) user_skb->data)->nlmsg_len = user_skb->len;
+>
+>   	err = genlmsg_unicast(ovs_dp_get_net(dp), user_skb, upcall_info->portid);
+>
