@@ -1,60 +1,39 @@
-From: Martin Kaiser <martin@kaiser.cx>
-Subject: Re: [PATCH -next] qlcnic: fix compiler warning
-Date: Tue, 14 Jan 2014 16:21:28 +0100
-Message-ID: <20140114152127.GA13575@reykholt.kaiser.cx>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] usbnet: Fix dma setup for fragmented packets that need a pad byte appended.
+Date: Tue, 14 Jan 2014 16:48:21 +0100
+Message-ID: <87vbxm7eey.fsf@nemi.mork.no>
+References: <063D6719AE5E284EB5DD2968C1650D6D45B28F@AcuExch.aculab.com>
+	<1389710518.31367.259.camel@edumazet-glaptop2.roam.corp.google.com>
+	<063D6719AE5E284EB5DD2968C1650D6D45B492@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, shahed.shaikh@qlogic.com,
-	linux-kernel@vger.kernel.org, trivial@kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "'Eric Dumazet'" <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:54589 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751634AbaANPsa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 10:48:30 -0500
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D45B492@AcuExch.aculab.com>
+	(David Laight's message of "Tue, 14 Jan 2014 14:48:23 +0000")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-re-sent as requested by David M.
-(I understand the concerns about portability that were raised. At the m=
-oment, I don't have a possiblity to do
-further rework and testing)
+David Laight <David.Laight@ACULAB.COM> writes:
 
-Add an explicit cast to fix the following warning
-(seen on Debian Wheezy, gcc 4.7.2)
+> I couldn't find the original patch anywhere!
+> I did do quite a lot of looking as well - if I'd found it I've
+> have done something else.
 
-CC [M]  drivers/net/wireless/rtlwifi/rtl8192ce/trx.o
-    drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c: In function =E2=80=98=
-qlcnic_send_filter=E2=80=99:
-    drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c:349:3: warning:     =
-             =20
-    passing argument 2 of =E2=80=98ether_addr_equal=E2=80=99 from incom=
-patible pointer type [enabled by default]
-    In file included from include/linux/if_vlan.h:16:0,                =
-                        =20
-    from drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c:9:
-    include/linux/etherdevice.h:244:20: note: expected =E2=80=98const u=
-8 *=E2=80=99 but argument is of type =E2=80=98u64 *=E2=80=99
+You obviously haven't looked the one place you are supposed to always
+look before submitting *anything*:
+https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=3D=
+fdc3452cd2c7b2bfe0f378f92123f4f9a98fa2bd
 
-Signed-off-by: Martin Kaiser <martin@kaiser.cx>
-Acked-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I am not impressed...
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/n=
-et/ethernet/qlogic/qlcnic/qlcnic_io.c
-index 6373f60..3557154 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-@@ -346,7 +346,7 @@ static void qlcnic_send_filter(struct qlcnic_adapte=
-r *adapter,
-        head =3D &(adapter->fhash.fhead[hindex]);
 
-        hlist_for_each_entry_safe(tmp_fil, n, head, fnode) {
--               if (ether_addr_equal(tmp_fil->faddr, &src_addr) &&
-+               if (ether_addr_equal(tmp_fil->faddr, (const u8 *)&src_a=
-ddr) &&
-                    tmp_fil->vlan_id =3D=3D vlan_id) {
-                        if (jiffies > (QLCNIC_READD_AGE * HZ + tmp_fil-=
->ftime))
-                                qlcnic_change_filter(adapter, &src_addr=
-,
+
+Bj=C3=B8rn
