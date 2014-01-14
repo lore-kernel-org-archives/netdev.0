@@ -1,8 +1,8 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next] openvswitch: Pad OVS_PACKET_ATTR_PACKET if
+Subject: [PATCH net-next v2] openvswitch: Pad OVS_PACKET_ATTR_PACKET if
  linear copy was performed
-Date: Tue, 14 Jan 2014 16:19:11 +0000
-Message-ID: <20140114161911.GB24121@casper.infradead.org>
+Date: Tue, 14 Jan 2014 16:27:49 +0000
+Message-ID: <20140114162749.GC24121@casper.infradead.org>
 References: <1389053776-62865-1-git-send-email-jesse@nicira.com>
  <52CD657F.7080806@citrix.com>
  <CAEP_g=_pQpH--V+7GSrjGP2z=0TBD_37yXjzTdeKG+2OF3aRaw@mail.gmail.com>
@@ -12,6 +12,7 @@ References: <1389053776-62865-1-git-send-email-jesse@nicira.com>
  <52D50767.6050906@redhat.com>
  <52D52E0A.4050700@citrix.com>
  <20140114161640.GA24121@casper.infradead.org>
+ <20140114161911.GB24121@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Thomas Graf <tgraf@redhat.com>, Jesse Gross <jesse@nicira.com>,
@@ -20,51 +21,53 @@ Cc: Thomas Graf <tgraf@redhat.com>, Jesse Gross <jesse@nicira.com>,
 	netdev <netdev@vger.kernel.org>
 To: Zoltan Kiss <zoltan.kiss@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:46034 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:58934 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751342AbaANQTM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 11:19:12 -0500
+	with ESMTP id S1751832AbaANQ1u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 11:27:50 -0500
 Content-Disposition: inline
-In-Reply-To: <20140114161640.GA24121@casper.infradead.org>
+In-Reply-To: <20140114161911.GB24121@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/14/14 at 04:16pm, Thomas Graf wrote:
-> While the zerocopy method is correctly omitted if user space
-> does not support unaligned Netlink messages. The attribute is
-> still not padded correctly as skb_zerocopy() will not ensure
-> padding and the attribute size is no longer pre calculated
-> though nla_reserve() which ensured padding previously.
-> 
-> This patch applies appropriate padding if a linear data copy
-> was performed in skb_zerocopy().
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> ---
->  net/openvswitch/datapath.c | 7 ++++++-
->  1 file changed, 6 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-> index df46928..24e93f5 100644
-> --- a/net/openvswitch/datapath.c
-> +++ b/net/openvswitch/datapath.c
-> @@ -396,7 +396,7 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
->  		.dst_sk = ovs_dp_get_net(dp)->genl_sock,
->  		.snd_portid = upcall_info->portid,
->  	};
-> -	size_t len;
-> +	size_t len, plen;
->  	unsigned int hlen;
->  	int err, dp_ifindex;
->  
-> @@ -466,6 +466,11 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
->  
->  	skb_zerocopy(user_skb, skb, skb->len, hlen);
->  
-> +	/* Pad OVS_PACKET_ATTR_PACKET if linear copy was performed */
-> +	if (!(dp->user_features & OVS_DP_F_UNALIGNED) &&
-> +	    (plen = (ALIGN(user_skb->len, NLA_ALIGNTO) - user_skb->len)) > 0)
-> +		skb_put(user_skb, plen);
+While the zerocopy method is correctly omitted if user space
+does not support unaligned Netlink messages. The attribute is
+still not padded correctly as skb_zerocopy() will not ensure
+padding and the attribute size is no longer pre calculated
+though nla_reserve() which ensured padding previously.
 
-While this fixes the padding issue, it leaves the padding
-uninitialized, I will send v2 with an additional memset().
+This patch applies appropriate padding if a linear data copy
+was performed in skb_zerocopy().
+
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+v2: initialize padding to 0's
+
+ net/openvswitch/datapath.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index df46928..3ca9121 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -396,7 +396,7 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+ 		.dst_sk = ovs_dp_get_net(dp)->genl_sock,
+ 		.snd_portid = upcall_info->portid,
+ 	};
+-	size_t len;
++	size_t len, plen;
+ 	unsigned int hlen;
+ 	int err, dp_ifindex;
+ 
+@@ -466,6 +466,11 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+ 
+ 	skb_zerocopy(user_skb, skb, skb->len, hlen);
+ 
++	/* Pad OVS_PACKET_ATTR_PACKET if linear copy was performed */
++	if (!(dp->user_features & OVS_DP_F_UNALIGNED) &&
++	    (plen = (ALIGN(user_skb->len, NLA_ALIGNTO) - user_skb->len)) > 0)
++		memset(skb_put(user_skb, plen), 0, plen);
++
+ 	((struct nlmsghdr *) user_skb->data)->nlmsg_len = user_skb->len;
+ 
+ 	err = genlmsg_unicast(ovs_dp_get_net(dp), user_skb, upcall_info->portid);
