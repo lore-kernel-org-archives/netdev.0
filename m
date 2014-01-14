@@ -1,49 +1,55 @@
-From: Richard Weinberger <richard-/L3Ra7n9ekc@public.gmane.org>
-Subject: [PATCH 1/7] ptp_pch: Add dependency on HAS_IOMEM
-Date: Tue, 14 Jan 2014 16:45:39 +0100
-Message-ID: <1389714345-20165-1-git-send-email-richard@nod.at>
+From: Richard Weinberger <richard@nod.at>
+Subject: [PATCH 3/7] staging,spear_adc: Add dependency on HAS_IOMEM
+Date: Tue, 14 Jan 2014 16:45:41 +0100
+Message-ID: <1389714345-20165-3-git-send-email-richard@nod.at>
+References: <1389714345-20165-1-git-send-email-richard@nod.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, florian-p3rKhJxN3npAfugRpC6u6w@public.gmane.org,
-	thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, lars-Qo5EllUWu/uELgA04lAiVw@public.gmane.org,
-	marex-ynQEQJNshbs@public.gmane.org, acourbot-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	driverdev-devel-tBiZLqfeLfOHmIFyCCdPziST3g8Odh+X@public.gmane.org, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org,
-	linux-iio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Richard Weinberger <richard-/L3Ra7n9ekc@public.gmane.org>
-To: kishon-l0cyMroinI0@public.gmane.org, anton-9xeibp6oKSgdnm+yROfE0A@public.gmane.org, dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
-	richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, lidza.louina-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, jic23-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-iio-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-iio-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: sebastian.hesselbarth@gmail.com, florian@openwrt.org,
+	thomas.petazzoni@free-electrons.com, lars@metafoo.de,
+	marex@denx.de, acourbot@nvidia.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	driverdev-devel@linuxdriverproject.org, devel@driverdev.osuosl.org,
+	linux-iio@vger.kernel.org, Richard Weinberger <richard@nod.at>
+To: kishon@ti.com, anton@enomsg.org, dwmw2@infradead.org,
+	richardcochran@gmail.com, lidza.louina@gmail.com,
+	gregkh@linuxfoundation.org, jic23@kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from b.ns.miles-group.at ([95.130.255.144]:1666 "EHLO radon.swed.at"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751805AbaANPqP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jan 2014 10:46:15 -0500
+In-Reply-To: <1389714345-20165-1-git-send-email-richard@nod.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On archs like S390 or um this driver cannot build nor work.
 Make it depend on HAS_IOMEM to bypass build failures.
 
-drivers/ptp/ptp_pch.c: In function =E2=80=98pch_remove=E2=80=99:
-drivers/ptp/ptp_pch.c:571:3: error: implicit declaration of function =E2=
-=80=98iounmap=E2=80=99 [-Werror=3Dimplicit-function-declaration]
-drivers/ptp/ptp_pch.c: In function =E2=80=98pch_probe=E2=80=99:
-drivers/ptp/ptp_pch.c:621:2: error: implicit declaration of function =E2=
-=80=98ioremap=E2=80=99 [-Werror=3Dimplicit-function-declaration]
+drivers/staging/iio/adc/spear_adc.c: In function =E2=80=98spear_adc_pro=
+be=E2=80=99:
+drivers/staging/iio/adc/spear_adc.c:393:2: error: implicit declaration =
+of function =E2=80=98iounmap=E2=80=99 [-Werror=3Dimplicit-function-decl=
+aration
 
-Signed-off-by: Richard Weinberger <richard-/L3Ra7n9ekc@public.gmane.org>
+Signed-off-by: Richard Weinberger <richard@nod.at>
 ---
- drivers/ptp/Kconfig | 1 +
+ drivers/staging/iio/adc/Kconfig | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/drivers/ptp/Kconfig b/drivers/ptp/Kconfig
-index 5be73ba..5a7910e 100644
---- a/drivers/ptp/Kconfig
-+++ b/drivers/ptp/Kconfig
-@@ -73,6 +73,7 @@ config DP83640_PHY
- config PTP_1588_CLOCK_PCH
- 	tristate "Intel PCH EG20T as PTP clock"
- 	depends on X86 || COMPILE_TEST
+diff --git a/drivers/staging/iio/adc/Kconfig b/drivers/staging/iio/adc/=
+Kconfig
+index e3d6430..7d5d675 100644
+--- a/drivers/staging/iio/adc/Kconfig
++++ b/drivers/staging/iio/adc/Kconfig
+@@ -128,6 +128,7 @@ config MXS_LRADC
+ config SPEAR_ADC
+ 	tristate "ST SPEAr ADC"
+ 	depends on PLAT_SPEAR || COMPILE_TEST
 +	depends on HAS_IOMEM
- 	select PTP_1588_CLOCK
  	help
- 	  This driver adds support for using the PCH EG20T as a PTP
+ 	  Say yes here to build support for the integrated ADC inside the
+ 	  ST SPEAr SoC. Provides direct access via sysfs.
 --=20
 1.8.1.4
