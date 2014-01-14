@@ -1,43 +1,53 @@
-From: Jonas Jensen <jonas.jensen@gmail.com>
-Subject: Re: build_skb() and data corruption
-Date: Tue, 14 Jan 2014 16:24:06 +0100
-Message-ID: <CACmBeS1gTfdjwiCkHMViOnF6G2zjy3HSMm3NVq8Jiq5F22ynJA@mail.gmail.com>
-References: <CACmBeS35RAEQ+t2vtYtFTKNT-VdQw20hURjTi193Jk8HG7UECA@mail.gmail.com>
-	<1389620539.3720.157.camel@deadeye.wl.decadent.org.uk>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH 3/5] net: mvneta: do not schedule in mvneta_tx_timeout
+Date: Tue, 14 Jan 2014 16:33:42 +0100
+Message-ID: <20140114153342.GC32193@1wt.eu>
+References: <1389519069-1619-1-git-send-email-w@1wt.eu> <1389519069-1619-4-git-send-email-w@1wt.eu> <1389545391.3720.56.camel@deadeye.wl.decadent.org.uk> <20140112165548.GC16576@1wt.eu> <1389548333.3720.73.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	alexander.h.duyck@intel.com, Arnd Bergmann <arnd@arndb.de>,
-	Florian Fainelli <florian@openwrt.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389620539.3720.157.camel@deadeye.wl.decadent.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 1wt.eu ([62.212.114.60]:55371 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751318AbaANPdt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jan 2014 10:33:49 -0500
+Content-Disposition: inline
+In-Reply-To: <1389548333.3720.73.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks for the replies, you led me to a new solution,
+Hi Ben,
 
+On Sun, Jan 12, 2014 at 05:38:53PM +0000, Ben Hutchings wrote:
+> I think this will DTRT, but it's compile-tested only.  I have been given
+> an OpenBlocks AX3 but haven't set it up yet.
 
-I now think build_skb() is not the right choice, my motivation for
-using it in the first place, that I thought it meant getting away with
-not copying memory.
+OK I just managed to test your patch. I managed to force a Tx timeout by
+forcing the link to 100/half and transfering 1000 concurrent streams.
 
-build_skb() is replaced by netdev_alloc_skb_ip_align() and memcpy()
-(derived from drivers/net/ethernet/realtek/r8169.c).
+Unfortunately for now the patch doesn't manage to recover, and the system
+randomly panics one or two seconds after the link is brought up. Twice the
+system did not panic but I lost all communications until a down/up cycle,
+after which a panic happened during transfers.
 
-Read errors are gone, even without syncing DMA. Is it a good idea to
-do it anyway, i.e. leave calls to dma_sync_single_* in?
+However I could verify that the scheduled function is correctly called. I
+suspect that something else might be wrong in the driver's reset sequence
+(eg: unmapping pages still in use by the NIC or I don't know what), but
+your patch does exactly what it's supposed to do.
 
-Also, without build_skb(), kmalloc memory can be used (frag_size > 0),
-memory is used more efficiently, at least half of a page times 64
-previously wasted.
+At least, if the restart function does not do anything, everything works
+fine. I see that the function is called (I added printk there) and the
+transfer is not perturbated at all anymore.
 
-New code here:
-https://bitbucket.org/Kasreyn/linux-next/src/92f5aeb3b58f8d8dffd9178b6b5ff46217156caa/drivers/net/ethernet/moxa/moxart_ether.c#cl-424
+So now I'm wondering whether the right thing should not be to just keep
+your scheduled function and make it only log that a timeout was caught.
 
+Another point which bothers me is that I suspect we're triggering Tx
+timeouts too fast, because I regularly get these on 100 Mbps during
+regular traffic (which ended up in immediate panics with previous code).
 
 Thanks,
-Jonas
+Willy
