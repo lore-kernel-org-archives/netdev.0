@@ -1,82 +1,63 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH 1/2] net/mlx4_core: clean up cq_res_start_move_to()
-Date: Tue, 14 Jan 2014 12:23:50 +0100
-Message-ID: <1389698630.20290.48.camel@x220>
-References: <1389099678.15032.19.camel@x41>
-	 <20140114084752.1db64b21@jpm-OptiPlex-GX620>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netfilter: Add dependency on IPV6 for NF_TABLES_INET
+Date: Tue, 14 Jan 2014 11:35:42 +0000
+Message-ID: <85d5725b-16f8-464a-ad88-7def74571021@email.android.com>
+References: <1389636070-26312-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netfilter@vger.kernel.org, netdev@vger.kernel.org
+To: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpsmtpb-ews07.kpnxchange.com ([213.75.39.10]:52257 "EHLO
-	cpsmtpb-ews07.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751342AbaANLXx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 06:23:53 -0500
-In-Reply-To: <20140114084752.1db64b21@jpm-OptiPlex-GX620>
+Received: from stinky.trash.net ([213.144.137.162]:33594 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751468AbaANLfy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 06:35:54 -0500
+In-Reply-To: <1389636070-26312-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-01-14 at 08:47 +0200, Jack Morgenstein wrote:
-> On Tue, 07 Jan 2014 14:01:18 +0100
-> Paul Bolle <pebolle@tiscali.nl> wrote:
+Paul Gortmaker <paul.gortmaker@windriver.com> schrieb:
+>Commit 1d49144c0aaa61be4e3ccbef9cc5c40b0ec5f2fe ("netfilter: nf_tables:
+>add "inet" table for IPv4/IPv6") allows creation of non-IPV6 enabled
+>.config files that will fail to configure/link as follows:
+>
+>warning: (NF_TABLES_INET) selects NF_TABLES_IPV6 which has unmet direct
+>dependencies (NET && INET && IPV6 && NETFILTER && NF_TABLES)
+>warning: (NF_TABLES_INET) selects NF_TABLES_IPV6 which has unmet direct
+>dependencies (NET && INET && IPV6 && NETFILTER && NF_TABLES)
+>warning: (NF_TABLES_INET) selects NF_TABLES_IPV6 which has unmet direct
+>dependencies (NET && INET && IPV6 && NETFILTER && NF_TABLES)
+>net/built-in.o: In function `nft_reject_eval':
+>nft_reject.c:(.text+0x651e8): undefined reference to `nf_ip6_checksum'
+>nft_reject.c:(.text+0x65270): undefined reference to `ip6_route_output'
+>nft_reject.c:(.text+0x656c4): undefined reference to `ip6_dst_hoplimit'
+>make: *** [vmlinux] Error 1
+>
+>Since the feature is to allow for a mixed IPV4 and IPV6 table, it
+>seems sensible to make it depend on IPV6.
+
+Acked-by: Patrick McHardy <kaber@trash.net>
+
+>
+>Cc: Patrick McHardy <kaber@trash.net>
+>Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+>Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+>
+>diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+>index afe50c0f526f..c37467562fd0 100644
+>--- a/net/netfilter/Kconfig
+>+++ b/net/netfilter/Kconfig
+>@@ -429,7 +429,7 @@ config NF_TABLES
+> 	  To compile it as a module, choose M here.
 > 
-> > +	} else {
-> > +		/* state == RES_CQ_HW */
-> > +		if (r->com.state != RES_CQ_ALLOCATED)
-> 
-> if (state != RES_CQ_HW || r->com.state != RES_CQ_ALLOCATED)
-> to protect against any bad calls to this function
-> (although I know that currently there are none).
-
-So we end up with
-         } else if (state != RES_CQ_HW || r->com.state != RES_CQ_ALLOCATED) {
-                 err = -EINVAL;
-         } else {
-                 err = 0;
-         }
-
-don't we? Which is fine with me, as GCC still is then able to correctly
-analyze this function.
-
-> This also preserves the behavior of the switch statement.
-> 
-> >  			err = -EINVAL;
-> > -		}
-> > +		else
-> > +			err = 0;
-> > +	}
-> >  
-> > -		if (!err) {
-> > -			r->com.from_state = r->com.state;
-> > -			r->com.to_state = state;
-> > -			r->com.state = RES_CQ_BUSY;
-> > -			if (cq)
-> > -				*cq = r;
-> > -		}
-> > +	if (!err) {
-> > +		r->com.from_state = r->com.state;
-> > +		r->com.to_state = state;
-> > +		r->com.state = RES_CQ_BUSY;
-> 
-> Please keep the "if" here.  Protects against (future) bad calls.
-> 
-> > +		*cq = r;
-> >  	}
-
-There seems to be a school of thought that says it's better to trigger
-an Oops if a programming error is made (in this case by passing a NULL
-cq) then silently handle that (future) programming error and make
-debugging harder. But, even it that school of thought really exists,
-this is up to you. Besides, it's only a triviality I added to my
-patches.
-
-Thanks for the review! I hope to send in a v2 of my patches shortly.
-
-
-Paul Bolle
+> config NF_TABLES_INET
+>-	depends on NF_TABLES
+>+	depends on NF_TABLES && IPV6
+> 	select NF_TABLES_IPV4
+> 	select NF_TABLES_IPV6
+> 	tristate "Netfilter nf_tables mixed IPv4/IPv6 tables support"
