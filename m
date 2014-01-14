@@ -1,61 +1,39 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next v2.1 0/3] bonding: fix primary problem for
- bonding
-Date: Tue, 14 Jan 2014 11:55:37 +0100
-Message-ID: <20140114105537.GD20066@redhat.com>
-References: <52D5174D.4070807@huawei.com>
+From: Andrey Wagin <avagin@gmail.com>
+Subject: Re: [PATCH] netfilter: nf_conntrack: fix RCU race in
+ nf_conntrack_find_get (v3)
+Date: Tue, 14 Jan 2014 15:10:50 +0400
+Message-ID: <CANaxB-zSkmVy+TBCa0CyReiSgubBUmyz6iUp8bxByOr7Jb9oGw@mail.gmail.com>
+References: <1389188841.26646.87.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1389549033-23523-1-git-send-email-avagin@openvz.org>
+	<1389558074.31367.187.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140114105147.GA14538@paralelels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jay Vosburgh <fubar@us.ibm.com>, Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48259 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751825AbaANK6l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jan 2014 05:58:41 -0500
-Content-Disposition: inline
-In-Reply-To: <52D5174D.4070807@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Tue, Jan 14, 2014 at 06:54:05PM +0800, Ding Tianhong wrote:
->If the slave's name changed, and the bond params primary is exist,
->the bond should deal with the situation in two ways:
->
->1) If the slave was the primary slave yet, clean the primary slave
->   and reselect active slave.
->2) If the slave's new name is as same as bond primary, set the slave
->   as primary slave and reselect active slave.
->
->If the new primary is not matching any slave in the bond, the bond should
->record it to params, clean the primary slave and select a new active slave.
->
->Update bonding.txt for primary description.
->
->v2.1 Because there are too many indentions and useless verification, so rewrite
->     the logic for updating the primary slave.
->     Modify some comments for to clean the typos.
-
-LOL. That's exactly what I was talking about in my previous email. A quick
-fix that doesn't even address the issues.
-
-Nacked-by: Veaceslav Falico <vfalico@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Florian Westphal <fw@strlen.de>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>, vvs@openvz.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cyrill Gorcunov <gorcunov@openvz.org>
+To: Andrew Vagin <avagin@parallels.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140114105147.GA14538@paralelels.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 >
->Ding Tianhong (3):
->  bonding: update the primary slave when changing slave's name
->  bonding: clean the primary slave if there is no slave matching new
->    primary
->  bonding: update bonding.txt for primary description.
+> Eh, looks like this path is incomplete too:(
 >
-> Documentation/networking/bonding.txt |  3 ++-
-> drivers/net/bonding/bond_main.c      | 24 ++++++++++++++++++++++--
-> drivers/net/bonding/bond_options.c   |  6 ++++++
-> 3 files changed, 30 insertions(+), 3 deletions(-)
+> I think we can't set a reference counter for objects which is allocated
+> from a SLAB_DESTROY_BY_RCU cache. Look at the following backtrace.
 >
->-- 
->1.8.0
->
->
->
+> cpu1                                    cpu2
+> ct = ____nf_conntrack_find()
+>                                         destroy_conntrack
+> atomic_inc_not_zero(ct)
+
+ct->ct_general.use is zero after destroy_conntrack(). Sorry for the noise.
