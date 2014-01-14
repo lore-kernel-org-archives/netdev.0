@@ -1,353 +1,51 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net-next v2 2/2] stmmac: Fix kernel crashes for jumbo frames
-Date: Tue, 14 Jan 2014 08:40:09 -0600
-Message-ID: <1389710409-14106-3-git-send-email-vbridgers2013@gmail.com>
-References: <1389710409-14106-1-git-send-email-vbridgers2013@gmail.com>
-Cc: peppe.cavallaro@st.com, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, dinguyen@altera.com,
-	rayagond@vayavyalabs.com, vbridgers2013@gmail.com
-To: devicetree@vger.kernel.org, netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] neigh: split lines for NEIGH_VAR_SET so they are not too long
+Date: Tue, 14 Jan 2014 15:46:07 +0100
+Message-ID: <1389710767-2727-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:49609 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751908AbaANOpU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 09:45:20 -0500
-In-Reply-To: <1389710409-14106-1-git-send-email-vbridgers2013@gmail.com>
+Received: from mail-ee0-f52.google.com ([74.125.83.52]:45029 "EHLO
+	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751479AbaANOqN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 09:46:13 -0500
+Received: by mail-ee0-f52.google.com with SMTP id e53so260612eek.39
+        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 06:46:10 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These changes correct the following issues with jumbo frames on the
-stmmac driver:
+introduced by:
+commit 1f9248e5606afc6485255e38ad57bdac08fa7711
+"neigh: convert parms to an array"
 
-1) The Synopsys EMAC can be configured to support different FIFO
-sizes at core configuration time. There's no way to query the
-controller and know the FIFO size, so the driver needs to get this
-information from the device tree in order to know how to correctly
-handle MTU changes and setting up dma buffers. The default
-max-frame-size is as currently used, which is the size of a jumbo
-frame.
-
-2) The driver was enabling Jumbo frames by default, but was not allocating
-dma buffers of sufficient size to handle the maximum possible packet
-size that could be received. This led to memory corruption since DMAs were
-occurring beyond the extent of the allocated receive buffers for certain types
-of network traffic.
-
-kernel BUG at net/core/skbuff.c:126!
-Internal error: Oops - BUG: 0 [#1] SMP ARM
-Modules linked in:
-CPU: 0 PID: 563 Comm: sockperf Not tainted 3.13.0-rc6-01523-gf7111b9 #31
-task: ef35e580 ti: ef252000 task.ti: ef252000
-PC is at skb_panic+0x60/0x64
-LR is at skb_panic+0x60/0x64
-pc : [<c03c7c3c>]    lr : [<c03c7c3c>]    psr: 60000113
-sp : ef253c18  ip : 60000113  fp : 00000000
-r10: ef3a5400  r9 : 00000ebc  r8 : ef3a546c
-r7 : ee59f000  r6 : ee59f084  r5 : ee59ff40  r4 : ee59f140
-r3 : 000003e2  r2 : 00000007  r1 : c0b9c420  r0 : 0000007d
-Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
-Control: 10c5387d  Table: 2e8ac04a  DAC: 00000015
-Process sockperf (pid: 563, stack limit = 0xef252248)
-Stack: (0xef253c18 to 0xef254000)
-3c00:                                                       00000ebc ee59f000
-3c20: ee59f084 ee59ff40 ee59f140 c04a9cd8 ee8c50c0 00000ebc ee59ff40 00000000
-3c40: ee59f140 c02d0ef0 00000056 ef1eda80 ee8c50c0 00000ebc 22bbef29 c0318f8c
-3c60: 00000056 ef3a547c ffe2c716 c02c9c90 c0ba1298 ef3a5838 ef3a5838 ef3a5400
-3c80: 000020c0 ee573840 000055cb ef3f2050 c053f0e0 c0319214 22b9b085 22d92813
-3ca0: 00001c80 004b8e00 ef3a5400 ee573840 ef3f2064 22d92813 ef3f2064 000055cb
-3cc0: ef3f2050 c031a19c ef252000 00000000 00000000 c0561bc0 00000000 ff00ffff
-3ce0: c05621c0 ef3a5400 ef3f2064 ee573840 00000020 ef3f2064 000055cb ef3f2050
-3d00: c053f0e0 c031cad0 c053e740 00000e60 00000000 00000000 ee573840 ef3a5400
-3d20: ef0a6e00 00000000 ef3f2064 c032507c 00010000 00000020 c0561bc0 c0561bc0
-3d40: ee599850 c032799c 00000000 ee573840 c055a380 ef3a5400 00000000 ef3f2064
-3d60: ef3f2050 c032799c 0101c7c0 2b6755cb c059a280 c030e4d8 000055cb ffffffff
-3d80: ee574fc0 c055a380 ee574000 ee573840 00002b67 ee573840 c03fe9c4 c053fa68
-3da0: c055a380 00001f6f 00000000 ee573840 c053f0e0 c0304fdc ef0a6e01 ef3f2050
-3dc0: ee573858 ef031000 ee573840 c03055d8 c0ba0c40 ef000f40 00100100 c053f0dc
-3de0: c053ffdc c053f0f0 00000008 00000000 ef031000 c02da948 00001140 00000000
-3e00: c0563c78 ef253e5f 00000020 ee573840 00000020 c053f0f0 ef313400 ee573840
-3e20: c053f0e0 00000000 00000000 c05380c0 ef313400 00001000 00000015 c02df280
-3e40: ee574000 ef001e00 00000000 00001080 00000042 005cd980 ef031500 ef031500
-3e60: 00000000 c02df824 ef031500 c053e390 c0541084 f00b1e00 c05925e8 c02df864
-3e80: 00001f5c ef031440 c053e390 c0278524 00000002 00000000 c0b9eb48 c02df280
-3ea0: ee8c7180 00000100 c0542ca8 00000015 00000040 ef031500 ef031500 ef031500
-3ec0: c027803c ef252000 00000040 000000ec c05380c0 c0b9eb40 c0b9eb48 c02df940
-3ee0: ef060780 ffffa4dd c0564a9c c056343c 002e80a8 00000080 ef031500 00000001
-3f00: c053808c ef252000 fffec100 00000003 00000004 002e80a8 0000000c c00258f0
-3f20: 002e80a8 c005e704 00000005 00000100 c05634d0 c0538080 c05333e0 00000000
-3f40: 0000000a c0565580 c05380c0 ffffa4dc c05434f4 00400100 00000004 c0534cd4
-3f60: 00000098 00000000 fffec100 002e80a8 00000004 002e80a8 002a20e0 c0025da8
-3f80: c0534cd4 c000f020 fffec10c c053ea60 ef253fb0 c0008530 0000ffe2 b6ef67f4
-3fa0: 40000010 ffffffff 00000124 c0012f3c 0000ffe2 002e80f0 0000ffe2 00004000
-3fc0: becb6338 becb6334 00000004 00000124 002e80a8 00000004 002e80a8 002a20e0
-3fe0: becb6300 becb62f4 002773bb b6ef67f4 40000010 ffffffff 00000000 00000000
-[<c03c7c3c>] (skb_panic+0x60/0x64) from [<c02d0ef0>] (skb_put+0x4c/0x50)
-[<c02d0ef0>] (skb_put+0x4c/0x50) from [<c0318f8c>] (tcp_collapse+0x314/0x3ec)
-[<c0318f8c>] (tcp_collapse+0x314/0x3ec) from [<c0319214>]
-(tcp_try_rmem_schedule+0x1b0/0x3c4)
-[<c0319214>] (tcp_try_rmem_schedule+0x1b0/0x3c4) from [<c031a19c>]
-(tcp_data_queue+0x480/0xe6c)
-[<c031a19c>] (tcp_data_queue+0x480/0xe6c) from [<c031cad0>]
-(tcp_rcv_established+0x180/0x62c)
-[<c031cad0>] (tcp_rcv_established+0x180/0x62c) from [<c032507c>]
-(tcp_v4_do_rcv+0x13c/0x31c)
-[<c032507c>] (tcp_v4_do_rcv+0x13c/0x31c) from [<c032799c>]
-(tcp_v4_rcv+0x718/0x73c)
-[<c032799c>] (tcp_v4_rcv+0x718/0x73c) from [<c0304fdc>]
-(ip_local_deliver+0x98/0x274)
-[<c0304fdc>] (ip_local_deliver+0x98/0x274) from [<c03055d8>]
-(ip_rcv+0x420/0x758)
-[<c03055d8>] (ip_rcv+0x420/0x758) from [<c02da948>]
-(__netif_receive_skb_core+0x44c/0x5bc)
-[<c02da948>] (__netif_receive_skb_core+0x44c/0x5bc) from [<c02df280>]
-(netif_receive_skb+0x48/0xb4)
-[<c02df280>] (netif_receive_skb+0x48/0xb4) from [<c02df824>]
-(napi_gro_flush+0x70/0x94)
-[<c02df824>] (napi_gro_flush+0x70/0x94) from [<c02df864>]
-(napi_complete+0x1c/0x34)
-[<c02df864>] (napi_complete+0x1c/0x34) from [<c0278524>]
-(stmmac_poll+0x4e8/0x5c8)
-[<c0278524>] (stmmac_poll+0x4e8/0x5c8) from [<c02df940>]
-(net_rx_action+0xc4/0x1e4)
-[<c02df940>] (net_rx_action+0xc4/0x1e4) from [<c00258f0>]
-(__do_softirq+0x12c/0x2e8)
-[<c00258f0>] (__do_softirq+0x12c/0x2e8) from [<c0025da8>] (irq_exit+0x78/0xac)
-[<c0025da8>] (irq_exit+0x78/0xac) from [<c000f020>] (handle_IRQ+0x44/0x90)
-[<c000f020>] (handle_IRQ+0x44/0x90) from [<c0008530>]
-(gic_handle_irq+0x2c/0x5c)
-[<c0008530>] (gic_handle_irq+0x2c/0x5c) from [<c0012f3c>]
-(__irq_usr+0x3c/0x60)
-
-3) The driver was setting the dma buffer size after allocating dma buffers,
-which caused a system panic when changing the MTU.
-
-BUG: Bad page state in process ifconfig  pfn:2e850
-page:c0b72a00 count:0 mapcount:0 mapping:  (null) index:0x0
-page flags: 0x200(arch_1)
-Modules linked in:
-CPU: 0 PID: 566 Comm: ifconfig Not tainted 3.13.0-rc6-01523-gf7111b9 #29
-[<c001547c>] (unwind_backtrace+0x0/0xf8) from [<c00122dc>]
-(show_stack+0x10/0x14)
-[<c00122dc>] (show_stack+0x10/0x14) from [<c03c793c>] (dump_stack+0x70/0x88)
-[<c03c793c>] (dump_stack+0x70/0x88) from [<c00b2620>] (bad_page+0xc8/0x118)
-[<c00b2620>] (bad_page+0xc8/0x118) from [<c00b302c>]
-(get_page_from_freelist+0x744/0x870)
-[<c00b302c>] (get_page_from_freelist+0x744/0x870) from [<c00b40f4>]
-(__alloc_pages_nodemask+0x118/0x86c)
-[<c00b40f4>] (__alloc_pages_nodemask+0x118/0x86c) from [<c00b4858>]
-(__get_free_pages+0x10/0x54)
-[<c00b4858>] (__get_free_pages+0x10/0x54) from [<c00cba1c>]
-(kmalloc_order_trace+0x24/0xa0)
-[<c00cba1c>] (kmalloc_order_trace+0x24/0xa0) from [<c02d199c>]
-(__kmalloc_reserve.isra.21+0x24/0x70)
-[<c02d199c>] (__kmalloc_reserve.isra.21+0x24/0x70) from [<c02d240c>]
-(__alloc_skb+0x68/0x13c)
-[<c02d240c>] (__alloc_skb+0x68/0x13c) from [<c02d3930>]
-(__netdev_alloc_skb+0x3c/0xe8)
-[<c02d3930>] (__netdev_alloc_skb+0x3c/0xe8) from [<c0279378>]
-(stmmac_open+0x63c/0x1024)
-[<c0279378>] (stmmac_open+0x63c/0x1024) from [<c02e18cc>]
-(__dev_open+0xa0/0xfc)
-[<c02e18cc>] (__dev_open+0xa0/0xfc) from [<c02e1b40>]
-(__dev_change_flags+0x94/0x158)
-[<c02e1b40>] (__dev_change_flags+0x94/0x158) from [<c02e1c24>]
-(dev_change_flags+0x18/0x48)
-[<c02e1c24>] (dev_change_flags+0x18/0x48) from [<c0337bc0>]
-(devinet_ioctl+0x638/0x700)
-[<c0337bc0>] (devinet_ioctl+0x638/0x700) from [<c02c7aec>]
-(sock_ioctl+0x64/0x290)
-[<c02c7aec>] (sock_ioctl+0x64/0x290) from [<c0100890>]
-(do_vfs_ioctl+0x78/0x5b8)
-[<c0100890>] (do_vfs_ioctl+0x78/0x5b8) from [<c0100e0c>] (SyS_ioctl+0x3c/0x5c)
-[<c0100e0c>] (SyS_ioctl+0x3c/0x5c) from [<c000e760>]
-
-The fixes have been verified using reproducible, automated testing.
-
-Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/ethernet/stmicro/stmmac/common.h       |    4 +++-
- drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |    7 ++-----
- .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |    7 ++++++-
- .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |    2 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   11 +++++++----
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    5 +++++
- include/linux/stmmac.h                             |    1 +
- 7 files changed, 25 insertions(+), 12 deletions(-)
+ net/core/neighbour.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index fc94f20..97bfb6b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -293,6 +293,8 @@ struct dma_features {
- #define STMMAC_CHAIN_MODE	0x1
- #define STMMAC_RING_MODE	0x2
- 
-+#define JUMBO_LEN		9000
-+
- struct stmmac_desc_ops {
- 	/* DMA RX descriptor ring initialization */
- 	void (*init_rx_desc) (struct dma_desc *p, int disable_rx_ic, int mode,
-@@ -369,7 +371,7 @@ struct stmmac_dma_ops {
- 
- struct stmmac_ops {
- 	/* MAC core initialization */
--	void (*core_init) (void __iomem *ioaddr);
-+	void (*core_init) (void __iomem *ioaddr, int mtu);
- 	/* Enable and verify that the IPC module is supported */
- 	int (*rx_ipc) (void __iomem *ioaddr);
- 	/* Dump MAC registers */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-index c12aabb..f37d90f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-@@ -126,11 +126,8 @@ enum power_event {
- #define GMAC_ANE_PSE		(3 << 7)
- #define GMAC_ANE_PSE_SHIFT	7
- 
-- /* GMAC Configuration defines */
--#define GMAC_CONTROL_TC	0x01000000	/* Transmit Conf. in RGMII/SGMII */
--#define GMAC_CONTROL_WD	0x00800000	/* Disable Watchdog on receive */
--
- /* GMAC Configuration defines */
-+#define GMAC_CONTROL_2K 0x08000000	/* IEEE 802.3as 2K packets */
- #define GMAC_CONTROL_TC	0x01000000	/* Transmit Conf. in RGMII/SGMII */
- #define GMAC_CONTROL_WD	0x00800000	/* Disable Watchdog on receive */
- #define GMAC_CONTROL_JD	0x00400000	/* Jabber disable */
-@@ -156,7 +153,7 @@ enum inter_frame_gap {
- #define GMAC_CONTROL_RE		0x00000004	/* Receiver Enable */
- 
- #define GMAC_CORE_INIT (GMAC_CONTROL_JD | GMAC_CONTROL_PS | GMAC_CONTROL_ACS | \
--			GMAC_CONTROL_JE | GMAC_CONTROL_BE)
-+			GMAC_CONTROL_BE)
- 
- /* GMAC Frame Filter defines */
- #define GMAC_FRAME_FILTER_PR	0x00000001	/* Promiscuous Mode */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-index cdd9268..b3e148e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-@@ -32,10 +32,15 @@
- #include <asm/io.h>
- #include "dwmac1000.h"
- 
--static void dwmac1000_core_init(void __iomem *ioaddr)
-+static void dwmac1000_core_init(void __iomem *ioaddr, int mtu)
- {
- 	u32 value = readl(ioaddr + GMAC_CONTROL);
- 	value |= GMAC_CORE_INIT;
-+	if (mtu > 1500)
-+		value |= GMAC_CONTROL_2K;
-+	if (mtu > 2000)
-+		value |= GMAC_CONTROL_JE;
-+
- 	writel(value, ioaddr + GMAC_CONTROL);
- 
- 	/* Mask GMAC interrupts */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-index 5857d67..2ff767b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-@@ -32,7 +32,7 @@
- #include <asm/io.h>
- #include "dwmac100.h"
- 
--static void dwmac100_core_init(void __iomem *ioaddr)
-+static void dwmac100_core_init(void __iomem *ioaddr, int mtu)
- {
- 	u32 value = readl(ioaddr + MAC_CONTROL);
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index b8e3a4c..4f5dfd7 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -52,7 +52,6 @@
- #include "stmmac.h"
- 
- #define STMMAC_ALIGN(x)	L1_CACHE_ALIGN(x)
--#define JUMBO_LEN	9000
- 
- /* Module parameters */
- #define TX_TIMEO	5000
-@@ -91,7 +90,7 @@ static int tc = TC_DEFAULT;
- module_param(tc, int, S_IRUGO | S_IWUSR);
- MODULE_PARM_DESC(tc, "DMA threshold control value");
- 
--#define DMA_BUFFER_SIZE	BUF_SIZE_2KiB
-+#define DMA_BUFFER_SIZE	BUF_SIZE_4KiB
- static int buf_sz = DMA_BUFFER_SIZE;
- module_param(buf_sz, int, S_IRUGO | S_IWUSR);
- MODULE_PARM_DESC(buf_sz, "DMA buffer size");
-@@ -990,6 +989,8 @@ static int init_dma_desc_rings(struct net_device *dev)
- 	if (bfsize < BUF_SIZE_16KiB)
- 		bfsize = stmmac_set_bfsize(dev->mtu, priv->dma_buf_sz);
- 
-+	priv->dma_buf_sz = bfsize;
-+
- 	if (netif_msg_probe(priv))
- 		pr_debug("%s: txsize %d, rxsize %d, bfsize %d\n", __func__,
- 			 txsize, rxsize, bfsize);
-@@ -1079,7 +1080,6 @@ static int init_dma_desc_rings(struct net_device *dev)
- 	}
- 	priv->cur_rx = 0;
- 	priv->dirty_rx = (unsigned int)(i - rxsize);
--	priv->dma_buf_sz = bfsize;
- 	buf_sz = bfsize;
- 
- 	/* Setup the chained descriptor addresses */
-@@ -1642,7 +1642,7 @@ static int stmmac_open(struct net_device *dev)
- 		priv->plat->bus_setup(priv->ioaddr);
- 
- 	/* Initialize the MAC Core */
--	priv->hw->mac->core_init(priv->ioaddr);
-+	priv->hw->mac->core_init(priv->ioaddr, dev->mtu);
- 
- 	/* Request the IRQ lines */
- 	ret = request_irq(dev->irq, stmmac_interrupt,
-@@ -2229,6 +2229,9 @@ static int stmmac_change_mtu(struct net_device *dev, int new_mtu)
- 	else
- 		max_mtu = SKB_MAX_HEAD(NET_SKB_PAD + NET_IP_ALIGN);
- 
-+	if (priv->plat->maxmtu < max_mtu)
-+		max_mtu = priv->plat->maxmtu;
-+
- 	if ((new_mtu < 46) || (new_mtu > max_mtu)) {
- 		pr_err("%s: invalid MTU, max MTU is: %d\n", dev->name, max_mtu);
- 		return -EINVAL;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 38bd1f4..0eade36 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -51,6 +51,10 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
- 	plat->mdio_bus_data = devm_kzalloc(&pdev->dev,
- 					   sizeof(struct stmmac_mdio_bus_data),
- 					   GFP_KERNEL);
-+	/* Set the maxmtu to a default of 1500 in case the
-+	 * parameter is not present in the device tree
-+	 */
-+	plat->maxmtu = JUMBO_LEN;
- 
- 	/*
- 	 * Currently only the properties needed on SPEAr600
-@@ -60,6 +64,7 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
- 	if (of_device_is_compatible(np, "st,spear600-gmac") ||
- 		of_device_is_compatible(np, "snps,dwmac-3.70a") ||
- 		of_device_is_compatible(np, "snps,dwmac")) {
-+		of_property_read_u32(np, "snps,max-frame-size", &plat->maxmtu);
- 		plat->has_gmac = 1;
- 		plat->pmt = 1;
- 	}
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index bb5deb0..9689706 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -110,6 +110,7 @@ struct plat_stmmacenet_data {
- 	int force_sf_dma_mode;
- 	int force_thresh_dma_mode;
- 	int riwt_off;
-+	int maxmtu;
- 	void (*fix_mac_speed)(void *priv, unsigned int speed);
- 	void (*bus_setup)(void __iomem *ioaddr);
- 	int (*init)(struct platform_device *pdev);
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index ea97361..45c5cde 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -2086,13 +2086,16 @@ static int neightbl_set(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 					      nla_get_msecs(tbp[i]));
+ 				break;
+ 			case NDTPA_ANYCAST_DELAY:
+-				NEIGH_VAR_SET(p, ANYCAST_DELAY, nla_get_msecs(tbp[i]));
++				NEIGH_VAR_SET(p, ANYCAST_DELAY,
++					      nla_get_msecs(tbp[i]));
+ 				break;
+ 			case NDTPA_PROXY_DELAY:
+-				NEIGH_VAR_SET(p, PROXY_DELAY, nla_get_msecs(tbp[i]));
++				NEIGH_VAR_SET(p, PROXY_DELAY,
++					      nla_get_msecs(tbp[i]));
+ 				break;
+ 			case NDTPA_LOCKTIME:
+-				NEIGH_VAR_SET(p, LOCKTIME, nla_get_msecs(tbp[i]));
++				NEIGH_VAR_SET(p, LOCKTIME,
++					      nla_get_msecs(tbp[i]));
+ 				break;
+ 			}
+ 		}
 -- 
-1.7.9.5
+1.8.3.1
