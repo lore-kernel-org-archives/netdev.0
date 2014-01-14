@@ -1,67 +1,49 @@
-From: Dinh Nguyen <dinguyen@altera.com>
-Subject: Re: [PATCH net-next v2 1/2] dts: Add a binding for Synopsys emac
- max-frame-size
-Date: Tue, 14 Jan 2014 09:57:36 -0600
-Message-ID: <1389715056.10673.9.camel@linux-builds1>
-References: <1389710409-14106-1-git-send-email-vbridgers2013@gmail.com>
-	 <1389710409-14106-2-git-send-email-vbridgers2013@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <devicetree@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<peppe.cavallaro@st.com>, <robh+dt@kernel.org>,
-	<pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<rayagond@vayavyalabs.com>
-To: Vince Bridgers <vbridgers2013@gmail.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next V4 2/3] net: Export gro_find_by_type helpers
+Date: Tue, 14 Jan 2014 18:00:11 +0200
+Message-ID: <1389715212-14504-3-git-send-email-ogerlitz@mellanox.com>
+References: <1389715212-14504-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, hkchu@google.com, edumazet@google.com,
+	herbert@gondor.apana.org.au, yanb@mellanox.com,
+	shlomop@mellanox.com, therbert@google.com,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe001.messaging.microsoft.com ([216.32.181.181]:10550
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751458AbaANP7f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 10:59:35 -0500
-In-Reply-To: <1389710409-14106-2-git-send-email-vbridgers2013@gmail.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:53710 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751761AbaANQAa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jan 2014 11:00:30 -0500
+In-Reply-To: <1389715212-14504-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-01-14 at 08:40 -0600, Vince Bridgers wrote:
-> This change adds a parameter for the Synopsys 10/100/1000
-> stmmac Ethernet driver to configure the maximum frame
-> size supported by the EMAC driver. Synopsys allows the FIFO
-> sizes to be configured when the cores are built for a particular
-> device, but do not provide a way for the driver to read
-> information from the device about the maximum MTU size
-> supported as limited by the device's FIFO size.
-> 
-> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
-> ---
->  Documentation/devicetree/bindings/net/stmmac.txt |    5 +++++
->  1 file changed, 5 insertions(+)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-> index eba0e5e..26a0ba9 100644
-> --- a/Documentation/devicetree/bindings/net/stmmac.txt
-> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
-> @@ -30,6 +30,10 @@ Required properties:
->  
->  Optional properties:
->  - mac-address: 6 bytes, mac address
-> +- snps,max-frame-size:	Maximum frame size permitted. This parameter is useful 
+Export the gro_find_receive/complete_by_type helpers to they can be invoked
+by the gro callbacks of encapsulation protocols such as vxlan.
 
-I don't think max-frame-size should be a snps-only binding.
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ net/core/dev.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Dinh
-> +			since different implementations of the Synopsys MAC may 
-> +			have different FIFO sizes depending on the selections
-> +			made in Synopsys Core Consultant.
-
-
->  
->  Examples:
->  
-> @@ -40,5 +44,6 @@ Examples:
->  		interrupts = <24 23>;
->  		interrupt-names = "macirq", "eth_wake_irq";
->  		mac-address = [000000000000]; /* Filled in by U-Boot */
-> +		snps,max-frame-size = <3800>;
->  		phy-mode = "gmii";
->  	};
+diff --git a/net/core/dev.c b/net/core/dev.c
+index aafc07a..03cab5f 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3949,6 +3949,7 @@ struct packet_offload *gro_find_receive_by_type(__be16 type)
+ 	}
+ 	return NULL;
+ }
++EXPORT_SYMBOL(gro_find_receive_by_type);
+ 
+ struct packet_offload *gro_find_complete_by_type(__be16 type)
+ {
+@@ -3962,6 +3963,7 @@ struct packet_offload *gro_find_complete_by_type(__be16 type)
+ 	}
+ 	return NULL;
+ }
++EXPORT_SYMBOL(gro_find_complete_by_type);
+ 
+ static gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
+ {
+-- 
+1.7.1
