@@ -1,7 +1,7 @@
 From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next v4 6/9] xen-netback: Handle guests with too many frags
-Date: Tue, 14 Jan 2014 20:39:52 +0000
-Message-ID: <1389731995-9887-7-git-send-email-zoltan.kiss@citrix.com>
+Subject: [PATCH net-next v4 9/9] xen-netback: Aggregate TX unmap operations
+Date: Tue, 14 Jan 2014 20:39:55 +0000
+Message-ID: <1389731995-9887-10-git-send-email-zoltan.kiss@citrix.com>
 References: <1389731995-9887-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,244 +14,103 @@ In-Reply-To: <1389731995-9887-1-git-send-email-zoltan.kiss@citrix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Xen network protocol had implicit dependency on MAX_SKB_FRAGS. Netback has to
-handle guests sending up to XEN_NETBK_LEGACY_SLOTS_MAX slots. To achieve that:
-- create a new skb
-- map the leftover slots to its frags (no linear buffer here!)
-- chain it to the previous through skb_shinfo(skb)->frag_list
-- map them
-- copy the whole stuff into a brand new skb and send it to the stack
-- unmap the 2 old skb's pages
-
-v3:
-- adding extra check for frag number
-- consolidate alloc_skb's into xenvif_alloc_skb()
-- BUG_ON(frag_overflow > MAX_SKB_FRAGS)
+Unmapping causes TLB flushing, therefore we should make it in the largest
+possible batches. However we shouldn't starve the guest for too long. So if
+the guest has space for at least two big packets and we don't have at least a
+quarter ring to unmap, delay it for at most 1 milisec.
 
 v4:
-- handle error of skb_copy_expand()
+- use bool for tx_dealloc_work_todo
 
 Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-
 ---
- drivers/net/xen-netback/netback.c |  125 ++++++++++++++++++++++++++++++++++---
- 1 file changed, 115 insertions(+), 10 deletions(-)
+ drivers/net/xen-netback/common.h    |    2 ++
+ drivers/net/xen-netback/interface.c |    2 ++
+ drivers/net/xen-netback/netback.c   |   31 ++++++++++++++++++++++++++++++-
+ 3 files changed, 34 insertions(+), 1 deletion(-)
 
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index 1594109..ce6b5b5 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -115,6 +115,8 @@ struct xenvif {
+ 	u16 dealloc_ring[MAX_PENDING_REQS];
+ 	struct task_struct *dealloc_task;
+ 	wait_queue_head_t dealloc_wq;
++	struct timer_list dealloc_delay;
++	bool dealloc_delay_timed_out;
+ 
+ 	/* Use kthread for guest RX */
+ 	struct task_struct *task;
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 669bd55..1c34f56 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -406,6 +406,7 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+ 			  .desc = i };
+ 		vif->grant_tx_handle[i] = NETBACK_INVALID_HANDLE;
+ 	}
++	init_timer(&vif->dealloc_delay);
+ 
+ 	/*
+ 	 * Initialise a dummy MAC address. We choose the numerically
+@@ -553,6 +554,7 @@ void xenvif_disconnect(struct xenvif *vif)
+ 	}
+ 
+ 	if (vif->dealloc_task) {
++		del_timer_sync(&vif->dealloc_delay);
+ 		kthread_stop(vif->dealloc_task);
+ 		vif->dealloc_task = NULL;
+ 	}
 diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index c2b2597..345c6a2 100644
+index 9e7ba04..b1d1d4c 100644
 --- a/drivers/net/xen-netback/netback.c
 +++ b/drivers/net/xen-netback/netback.c
-@@ -802,6 +802,20 @@ static inline void xenvif_tx_create_gop(struct xenvif *vif,
- 
+@@ -135,6 +135,11 @@ static inline pending_ring_idx_t nr_pending_reqs(struct xenvif *vif)
+ 		vif->pending_prod + vif->pending_cons;
  }
  
-+static inline struct sk_buff *xenvif_alloc_skb(unsigned int size)
++static inline pending_ring_idx_t nr_free_slots(struct xen_netif_tx_back_ring *ring)
 +{
-+	struct sk_buff *skb =
-+		alloc_skb(size + NET_SKB_PAD + NET_IP_ALIGN,
-+			  GFP_ATOMIC | __GFP_NOWARN);
-+	if (unlikely(skb == NULL))
-+		return NULL;
-+
-+	/* Packets passed to netif_rx() must have some headroom. */
-+	skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN);
-+
-+	return skb;
++	return ring->nr_ents -	(ring->sring->req_prod - ring->rsp_prod_pvt);
 +}
 +
- static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
- 							struct sk_buff *skb,
- 							struct xen_netif_tx_request *txp,
-@@ -812,11 +826,16 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
- 	u16 pending_idx = *((u16 *)skb->data);
- 	int start;
- 	pending_ring_idx_t index;
--	unsigned int nr_slots;
-+	unsigned int nr_slots, frag_overflow = 0;
- 
- 	/* At this point shinfo->nr_frags is in fact the number of
- 	 * slots, which can be as large as XEN_NETBK_LEGACY_SLOTS_MAX.
- 	 */
-+	if (shinfo->nr_frags > MAX_SKB_FRAGS) {
-+		frag_overflow = shinfo->nr_frags - MAX_SKB_FRAGS;
-+		BUG_ON(frag_overflow > MAX_SKB_FRAGS);
-+		shinfo->nr_frags = MAX_SKB_FRAGS;
-+	}
- 	nr_slots = shinfo->nr_frags;
- 
- 	/* Skip first skb fragment if it is on same page as header fragment. */
-@@ -832,6 +851,29 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
- 
- 	BUG_ON(shinfo->nr_frags > MAX_SKB_FRAGS);
- 
-+	if (frag_overflow) {
-+		struct sk_buff *nskb = xenvif_alloc_skb(0);
-+		if (unlikely(nskb == NULL)) {
-+			netdev_err(vif->dev,
-+				   "Can't allocate the frag_list skb.\n");
-+			return NULL;
-+		}
-+
-+		shinfo = skb_shinfo(nskb);
-+		frags = shinfo->frags;
-+
-+		for (shinfo->nr_frags = 0; shinfo->nr_frags < frag_overflow;
-+		     shinfo->nr_frags++, txp++, gop++) {
-+			index = pending_index(vif->pending_cons++);
-+			pending_idx = vif->pending_ring[index];
-+			xenvif_tx_create_gop(vif, pending_idx, txp, gop);
-+			frag_set_pending_idx(&frags[shinfo->nr_frags],
-+					     pending_idx);
-+		}
-+
-+		skb_shinfo(skb)->frag_list = nskb;
-+	}
-+
- 	return gop;
+ bool xenvif_rx_ring_slots_available(struct xenvif *vif, int needed)
+ {
+ 	RING_IDX prod, cons;
+@@ -1936,10 +1941,34 @@ static inline int tx_work_todo(struct xenvif *vif)
+ 	return 0;
  }
  
-@@ -845,6 +887,7 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
- 	struct pending_tx_info *tx_info;
- 	int nr_frags = shinfo->nr_frags;
- 	int i, err, start;
-+	struct sk_buff *first_skb = NULL;
- 
- 	/* Check status of header. */
- 	err = gop->status;
-@@ -867,6 +910,7 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
- 	/* Skip first skb fragment if it is on same page as header fragment. */
- 	start = (frag_get_pending_idx(&shinfo->frags[0]) == pending_idx);
- 
-+check_frags:
- 	for (i = start; i < nr_frags; i++) {
- 		int j, newerr;
- 
-@@ -903,11 +947,20 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
- 		/* Not the first error? Preceding frags already invalidated. */
- 		if (err)
- 			continue;
--
- 		/* First error: invalidate header and preceding fragments. */
--		pending_idx = *((u16 *)skb->data);
--		xenvif_idx_unmap(vif, pending_idx);
--		xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_OKAY);
-+		if (!first_skb) {
-+			pending_idx = *((u16 *)skb->data);
-+			xenvif_idx_unmap(vif, pending_idx);
-+			xenvif_idx_release(vif,
-+					   pending_idx,
-+					   XEN_NETIF_RSP_OKAY);
-+		} else {
-+			pending_idx = *((u16 *)first_skb->data);
-+			xenvif_idx_unmap(vif, pending_idx);
-+			xenvif_idx_release(vif,
-+					   pending_idx,
-+					   XEN_NETIF_RSP_OKAY);
-+		}
- 		for (j = start; j < i; j++) {
- 			pending_idx = frag_get_pending_idx(&shinfo->frags[j]);
- 			xenvif_idx_unmap(vif, pending_idx);
-@@ -919,6 +972,32 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
- 		err = newerr;
- 	}
- 
-+	if (shinfo->frag_list) {
-+		first_skb = skb;
-+		skb = shinfo->frag_list;
-+		shinfo = skb_shinfo(skb);
-+		nr_frags = shinfo->nr_frags;
-+		start = 0;
++static void xenvif_dealloc_delay(unsigned long data)
++{
++	struct xenvif *vif = (struct xenvif *)data;
 +
-+		goto check_frags;
-+	}
++	vif->dealloc_delay_timed_out = true;
++	wake_up(&vif->dealloc_wq);
++}
 +
-+	/* There was a mapping error in the frag_list skb. We have to unmap
-+	 * the first skb's frags
-+	 */
-+	if (first_skb && err) {
-+		int j;
-+		shinfo = skb_shinfo(first_skb);
-+		pending_idx = *((u16 *)first_skb->data);
-+		start = (frag_get_pending_idx(&shinfo->frags[0]) == pending_idx);
-+		for (j = start; j < shinfo->nr_frags; j++) {
-+			pending_idx = frag_get_pending_idx(&shinfo->frags[j]);
-+			xenvif_idx_unmap(vif, pending_idx);
-+			xenvif_idx_release(vif, pending_idx,
-+					   XEN_NETIF_RSP_OKAY);
-+		}
-+	}
+ static inline bool tx_dealloc_work_todo(struct xenvif *vif)
+ {
+-	if (vif->dealloc_cons != vif->dealloc_prod)
++	if (vif->dealloc_cons != vif->dealloc_prod) {
++		if ((nr_free_slots(&vif->tx) > 2 * XEN_NETBK_LEGACY_SLOTS_MAX) &&
++		    (vif->dealloc_prod - vif->dealloc_cons < MAX_PENDING_REQS / 4) &&
++		    !vif->dealloc_delay_timed_out) {
++			if (!timer_pending(&vif->dealloc_delay)) {
++				vif->dealloc_delay.function =
++					xenvif_dealloc_delay;
++				vif->dealloc_delay.data = (unsigned long)vif;
++				mod_timer(&vif->dealloc_delay,
++					  jiffies + msecs_to_jiffies(1));
 +
- 	*gopp = gop + 1;
- 	return err;
- }
-@@ -1422,8 +1501,7 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif, int budget)
- 			    ret < XEN_NETBK_LEGACY_SLOTS_MAX) ?
- 			PKT_PROT_LEN : txreq.size;
- 
--		skb = alloc_skb(data_len + NET_SKB_PAD + NET_IP_ALIGN,
--				GFP_ATOMIC | __GFP_NOWARN);
-+		skb = xenvif_alloc_skb(data_len);
- 		if (unlikely(skb == NULL)) {
- 			netdev_dbg(vif->dev,
- 				   "Can't allocate a skb in start_xmit.\n");
-@@ -1431,9 +1509,6 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif, int budget)
- 			break;
- 		}
- 
--		/* Packets passed to netif_rx() must have some headroom. */
--		skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN);
--
- 		if (extras[XEN_NETIF_EXTRA_TYPE_GSO - 1].type) {
- 			struct xen_netif_extra_info *gso;
- 			gso = &extras[XEN_NETIF_EXTRA_TYPE_GSO - 1];
-@@ -1495,6 +1570,7 @@ static int xenvif_tx_submit(struct xenvif *vif)
- 		struct xen_netif_tx_request *txp;
- 		u16 pending_idx;
- 		unsigned data_len;
-+		struct sk_buff *nskb = NULL;
- 
- 		pending_idx = *((u16 *)skb->data);
- 		txp = &vif->pending_tx_info[pending_idx].req;
-@@ -1537,6 +1613,32 @@ static int xenvif_tx_submit(struct xenvif *vif)
- 				  pending_idx :
- 				  INVALID_PENDING_IDX);
- 
-+		if (skb_shinfo(skb)->frag_list) {
-+			nskb = skb_shinfo(skb)->frag_list;
-+			xenvif_fill_frags(vif, nskb, INVALID_PENDING_IDX);
-+			skb->len += nskb->len;
-+			skb->data_len += nskb->len;
-+			skb->truesize += nskb->truesize;
-+			skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-+			skb_shinfo(nskb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-+			vif->tx_zerocopy_sent += 2;
-+			nskb = skb;
-+
-+			skb = skb_copy_expand(skb,
-+					      0,
-+					      0,
-+					      GFP_ATOMIC | __GFP_NOWARN);
-+			if (!skb) {
-+				netdev_dbg(vif->dev,
-+					   "Can't consolidate skb with too many fragments\n");
-+				if (skb_shinfo(nskb)->destructor_arg)
-+					skb_shinfo(nskb)->tx_flags |=
-+						SKBTX_DEV_ZEROCOPY;
-+				kfree_skb(nskb);
-+				continue;
 +			}
-+			skb_shinfo(skb)->destructor_arg = NULL;
++			return false;
 +		}
- 		if (skb_is_nonlinear(skb) && skb_headlen(skb) < PKT_PROT_LEN) {
- 			int target = min_t(int, skb->len, PKT_PROT_LEN);
- 			__pskb_pull_tail(skb, target - skb_headlen(skb));
-@@ -1590,6 +1692,9 @@ static int xenvif_tx_submit(struct xenvif *vif)
- 		}
++		del_timer_sync(&vif->dealloc_delay);
++		vif->dealloc_delay_timed_out = false;
+ 		return true;
++	}
  
- 		netif_receive_skb(skb);
-+
-+		if (nskb)
-+			kfree_skb(nskb);
- 	}
- 
- 	return work_done;
+ 	return false;
+ }
