@@ -1,62 +1,110 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: linux-next: manual merge of the tip tree with the net-next tree
-Date: Mon, 13 Jan 2014 20:51:43 -0800
-Message-ID: <52D4C25F.8060804@zytor.com>
-References: <20140113141824.4301cb76e8e5540d42d74015@canb.auug.org.au>	<20140113142059.f9f1c58c391b2c8bbd05699f@canb.auug.org.au> <20140114140214.7279bcaf88d7a4514d889186@canb.auug.org.au>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: suspicious RCU usage in net/ipv4/ip_tunnel.c:80
+Date: Mon, 13 Jan 2014 20:53:16 -0800
+Message-ID: <20140114045316.GV10038@linux.vnet.ibm.com>
+References: <CAHA+R7PAyR_cJ9_9nfUBc0U9o-U=gCV+sN_VYbHwgq-QdoEVzQ@mail.gmail.com>
+ <1389403281.31367.171.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAHA+R7OMM9ndy4hXF4rJBsA_Rb0KZ-MonuvE++wgzO_oMbo+eQ@mail.gmail.com>
+ <1389548697.31367.184.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAHA+R7Pe_pGFw5cA3v_RnGvOurAykJNVH5=DeeEVHG84faWi2Q@mail.gmail.com>
+ <1389601233.31367.213.camel@edumazet-glaptop2.roam.corp.google.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@kernel.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <cwang@twopensource.com>,
+	Tom Herbert <therbert@google.com>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([198.137.202.10]:43389 "EHLO mail.zytor.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752309AbaANEwg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Jan 2014 23:52:36 -0500
-In-Reply-To: <20140114140214.7279bcaf88d7a4514d889186@canb.auug.org.au>
+Received: from e37.co.us.ibm.com ([32.97.110.158]:53888 "EHLO
+	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752320AbaANExV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jan 2014 23:53:21 -0500
+Received: from /spool/local
+	by e37.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
+	Mon, 13 Jan 2014 21:53:20 -0700
+Received: from b03cxnp08027.gho.boulder.ibm.com (b03cxnp08027.gho.boulder.ibm.com [9.17.130.19])
+	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 9548D19D8041
+	for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 21:53:09 -0700 (MST)
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by b03cxnp08027.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s0E4r7fP6685094
+	for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 05:53:07 +0100
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id s0E4uXC2012133
+	for <netdev@vger.kernel.org>; Mon, 13 Jan 2014 21:56:33 -0700
+Content-Disposition: inline
+In-Reply-To: <1389601233.31367.213.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/13/2014 07:02 PM, Stephen Rothwell wrote:
-> Hi all,
+On Mon, Jan 13, 2014 at 12:20:33AM -0800, Eric Dumazet wrote:
+> On Sun, 2014-01-12 at 22:36 -0800, Cong Wang wrote:
+> > > Please read rcu_dereference_protected() documentation in
+> > > include/linux/rcupdate.h
+> > 
+> > I did before I replied.
 > 
-> On Mon, 13 Jan 2014 14:20:59 +1100 Stephen Rothwell
-> <sfr@canb.auug.org.au> wrote:
->> 
->> On Mon, 13 Jan 2014 14:18:24 +1100 Stephen Rothwell
->> <sfr@canb.auug.org.au> wrote:
->>> 
->>> Today's linux-next merge of the tip tree got conflicts in 
->>> arch/arc/include/asm/Kbuild, arch/cris/include/asm/Kbuild, 
->>> arch/hexagon/include/asm/Kbuild,
->>> arch/microblaze/include/asm/Kbuild, 
->>> arch/parisc/include/asm/Kbuild and
->>> arch/score/include/asm/Kbuild between commit e3fec2f74f7f
->>> ("lib: Add missing arch generic-y entries for 
->>> asm-generic/hash.h") from the net-next tree and commit
->>> 93ea02bb8435 ("arch: Clean up asm/barrier.h implementations
->>> using asm-generic/barrier.h") from the tip tree.
->>> 
->>> I fixed it up (see below) and can carry the fix as necessary
->>> (no action is required).
->>> 
->>> BTW: thanks for not keeping the Kbuild files sorted :-(
->> 
->> I missed arch/mn10300/include/asm/Kbuild the first time round.
 > 
-> And ... git rerere does not work well here.  It stores resolutions
-> by a hash of the (sanitised) conflict and since most of these files
-> have exactly the same conflict, I am going to have to edit 5 of
-> them by hand every day.
 > 
+> > 
+> > >
+> > > Also you can run sparse, with CONFIG_SPARSE_RCU_POINTER=y in
+> > > your .config
+> > >
+> > > make C=2 net/ipv4/ip_tunnel.o
+> > >
+> > > And then you'll know the answer to this question.
+> > >
+> > 
+> > Sounds like it is only to shut up a sparse warning, then its name
+> > is misleading, we clearly don't dereference it here.
 
-Well, you probably can keep a diff from the conflict-merge tree to the
-fix, but still.
+OK, I'll bite...  This code invokes dst_release() which looks to me
+like it dereferences this pointer:
 
-Is there a sensible way we can fix this in either net-next or tip?
+void dst_release(struct dst_entry *dst)
+{
+	if (dst) {
+		int newrefcnt;
 
-	-hpa
+		newrefcnt = atomic_dec_return(&dst->__refcnt);
+		WARN_ON(newrefcnt < 0);
+		if (unlikely(dst->flags & DST_NOCACHE) && !newrefcnt) {
+			dst = dst_destroy(dst);
+			if (dst)
+				__dst_free(dst);
+		}
+	}
+}
+
+If you really were not dereferencing the pointer, for example, if you
+were only testing it against NULL or some such, then you can use
+rcu_access_pointer().  This is a bit cheaper on DEC Alpha, FWIW.
+
+You can think of rcu_dereference() as meaning "fetch this RCU-protected
+pointer with intent to dereference()" if that helps.
+
+Or am I missing your point?
+
+> Historical reasons, you should have been there when Paul invented the
+> name and lazy people like us let him do so !
+> 
+> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=b62730baea32f86fe91a7930e4b7ee8d82778b79
+
+Indeed!  ;-)
+
+And rcu_dereference() is at least an improvement over the earlier
+hand-placed smp_read_barrier_depends().
+
+							Thanx, Paul
+
+> You are lucky, there is plenty of documentation, maybe too much..
+> 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
