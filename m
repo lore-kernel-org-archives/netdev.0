@@ -1,83 +1,69 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [RFC] sysfs_rename_link() and its usage
-Date: Wed, 15 Jan 2014 11:46:47 +0800
-Message-ID: <52D604A7.9000204@huawei.com>
-References: <20140114171740.GB1867@redhat.com>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: Re: [PATCH 1/2 v2] ixgbe: define IXGBE_MAX_VFS_DRV_LIMIT macro and
+ cleanup const 63
+Date: Wed, 15 Jan 2014 03:46:32 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B7312CEE1@ORSMSX101.amr.corp.intel.com>
+References: <1387901568-1762-1-git-send-email-ethan.kernel@gmail.com>
+ <1388134966.2183.144.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <gregkh@linuxfoundation.org>,
-	<ebiederm@xmission.com>
-To: Veaceslav Falico <vfalico@redhat.com>,
-	<linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:36042 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751499AbaAODqz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 22:46:55 -0500
-In-Reply-To: <20140114171740.GB1867@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"ethan.kernel@gmail.com" <ethan.kernel@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1388134966.2183.144.camel@jtkirshe-mobl>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/1/15 1:17, Veaceslav Falico wrote:
-> Hi,
-> 
-> I'm hitting a strange issue and/or I'm completely lost in sysfs internals.
-> 
-> Consider having two net_device *a, *b; which are registered normally.
-> Now, to create a link from /sys/class/net/a->name/linkname to b, one should
-> use:
-> 
-> sysfs_create_link(&(a->dev.kobj), &(b->dev.kobj), linkname);
-> 
-> To remove it, even simpler:
-> 
-> sysfs_remove_link(&(a->dev.kobj), linkname);
-> 
-> This works like a charm. However, if I want to use (obviously, with the
-> symlink present):
-> 
-> sysfs_rename_link(&(a->dev.kobj), &(b->dev.kobj), oldname, newname);
-> 
-> this fails with:
-> 
-> "sysfs: ns invalid in 'a->name' for 'oldname'"
-> 
-> in
-> 
->  608 struct sysfs_dirent *sysfs_find_dirent(struct sysfs_dirent *parent_sd,
-> ...
->  615         if (!!sysfs_ns_type(parent_sd) != !!ns) {
->  616                 WARN(1, KERN_WARNING "sysfs: ns %s in '%s' for '%s'\n",
->  617                         sysfs_ns_type(parent_sd) ? "required" : "invalid",
->  618                         parent_sd->s_name, name);
->  619                 return NULL;
->  620         }
-> 
-> Code path:
-> warn_slowpath_fmt+0x46/0x50
-> sysfs_get_dirent_ns+0x30/0x80
-> sysfs_find_dirent+0x84/0x110
-> sysfs_get_dirent_ns+0x3e/0x80
-> sysfs_rename_link_ns+0x54/0xd0
-> 
-> I have no idea what this code means. Is there any reason for it to
-> fail (i.e. am I doing something wrong?) or I've hit a bug?
-> 
-> I've tested the only user of it (bridge) - and it works fine, however it's
-> not using its own net_device's kobject but rather its own dir.
-> 
-
-I use the sysfs_rename_link(x,x) and meet the same problem, I review the code for bridge,
-I found the br->ifobj was using kobject_create_and_add() to add a subdir for this, maybe it
-helps?
-
-Ding
-
-> Thank you!
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+T24gRnJpLCAyMDEzLTEyLTI3IGF0IDAxOjAyIC0wODAwLCBKZWZmIEtpcnNoZXIgd3JvdGU6Cj4g
+T24gV2VkLCAyMDEzLTEyLTI1IGF0IDAwOjEyICswODAwLCBFdGhhbiBaaGFvIHdyb3RlOgo+ID4g
+QmVjYXVzZSBpeGdiZSBkcml2ZXIgbGltaXQgdGhlIG1heCBudW1iZXIgb2YgVkYgZnVuY3Rpb25z
+IGNvdWxkIGJlCj4gPiBlbmFibGVkCj4gPiB0byA2Mywgc28gZGVmaW5lIG9uZSBtYWNybyBJWEdC
+RV9NQVhfVkZTX0RSVl9MSU1JVCBhbmQgY2xlYW51cCB0aGUKPiA+IGNvbnN0IDYzCj4gPiBpbiBj
+b2RlLgo+ID4gCj4gPiB2MjogZml4IGEgdHlwby4KPiA+IAo+ID4gU2lnbmVkLW9mZi1ieTogRXRo
+YW4gWmhhbyA8ZXRoYW4ua2VybmVsQGdtYWlsLmNvbT4KPiA+IC0tLQo+ID4gIGRyaXZlcnMvbmV0
+L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYyAgfCA0ICsrLS0KPiA+ICBkcml2ZXJz
+L25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5jIHwgNSArKystLQo+ID4gIGRy
+aXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX3NyaW92LmggfCA1ICsrKysrCj4g
+PiAgMyBmaWxlcyBjaGFuZ2VkLCAxMCBpbnNlcnRpb25zKCspLCA0IGRlbGV0aW9ucygtKQo+IAo+
+IEFkZGVkIHRvIG15IHF1ZXVlLCB0aGFua3MgRXRoYW4hCgpIaSBFdGhhbiwKCkRpZCBKZWZmIGNv
+bnRhY3QgeW91IGFib3V0IHRoaXMgZmFpbGluZyB0byBjb21waWxlPyAgSSdtIGN1cnJlbnRseQpw
+cm92aWRpbmcgdmFjYXRpb24gY292ZXJpbmcgZm9yIGhpbSBhbmQgd2UgZm91bmQgdGhpcyB3YXMg
+ZmFpbGluZyB0bwpjb21waWxlIGp1c3QgYmVmb3JlIGhlIGxlZnQuICBXZSBjYXB0dXJlZCB0aGUg
+ZmFpbHVyZSBpbiBvdXIgbm90ZXMgZm9yCnRoaXMgYnV0IHRoZXJlIGlzIG5vIGNvbW1lbnQgb24g
+aWYgeW91IHdlcmUgY29udGFjdGVkIG9yIG5vdC4KClJlZ2FyZGxlc3MsIHdoZW4gSSBhcHBseSB0
+aGlzIHBhdGNoICh3aXRoIG9yIHdpdGhvdXQgMi0yKSB3ZSBnZXQgdGhlCmZvbGxvd2luZyBlcnJv
+ciBvbiBhIGNvbXBpbGF0aW9uIGF0dGVtcHQ6IEhlcmUncyB0aGUgZXJyb3I6Ci0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkhlcmUncyB0aGUg
+ZXJyb3I6CmRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYzogSW4g
+ZnVuY3Rpb24KIml4Z2JlX3N3X2luaXQiOgpkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdi
+ZS9peGdiZV9tYWluLmM6NTAzMzogZXJyb3I6IHN0cmF5ICJcMzU3IgppbiBwcm9ncmFtCmRyaXZl
+cnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYzo1MDMzOiBlcnJvcjogc3Ry
+YXkgIlwyNzQiCmluIHByb2dyYW0KZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhn
+YmVfbWFpbi5jOjUwMzM6IGVycm9yOiBzdHJheSAiXDIxNSIKaW4gcHJvZ3JhbQpkcml2ZXJzL25l
+dC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9tYWluLmM6NTAzMzogZXJyb3I6IGV4cGVjdGVk
+ICIpIgpiZWZvcmUgbnVtZXJpYyBjb25zdGFudApkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9p
+eGdiZS9peGdiZV9tYWluLmM6IEluIGZ1bmN0aW9uCiJpeGdiZV9wcm9iZSI6CmRyaXZlcnMvbmV0
+L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYzo3OTc3OiBlcnJvcjogc3RyYXkgIlwz
+NTciCmluIHByb2dyYW0KZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFp
+bi5jOjc5Nzc6IGVycm9yOiBzdHJheSAiXDI3NCIKaW4gcHJvZ3JhbQpkcml2ZXJzL25ldC9ldGhl
+cm5ldC9pbnRlbC9peGdiZS9peGdiZV9tYWluLmM6Nzk3NzogZXJyb3I6IHN0cmF5ICJcMjE1Igpp
+biBwcm9ncmFtCmRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYzo3
+OTc3OiBlcnJvcjogZXhwZWN0ZWQgIikiCmJlZm9yZSBudW1lcmljIGNvbnN0YW50Cm1ha2VbNV06
+ICoqKiBbZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5vXSBFcnJv
+ciAxCm1ha2VbNV06ICoqKiBXYWl0aW5nIGZvciB1bmZpbmlzaGVkIGpvYnMuLi4uCm1ha2VbNF06
+ICoqKiBbZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmVdIEVycm9yIDIKbWFrZVs0XTog
+KioqIFdhaXRpbmcgZm9yIHVuZmluaXNoZWQgam9icy4uLi4KbWFrZVszXTogKioqIFtkcml2ZXJz
+L25ldC9ldGhlcm5ldC9pbnRlbF0gRXJyb3IgMgptYWtlWzJdOiAqKiogW2RyaXZlcnMvbmV0L2V0
+aGVybmV0XSBFcnJvciAyCm1ha2VbMV06ICoqKiBbZHJpdmVycy9uZXRdIEVycm9yIDIKbWFrZTog
+KioqIFtkcml2ZXJzXSBFcnJvciAyCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tCgpUaGFua3MsCkFhcm9uCgo=
