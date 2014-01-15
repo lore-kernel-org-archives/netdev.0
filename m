@@ -1,54 +1,40 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH] batman-adv: fix batman-adv header overhead calculation
-Date: Thu, 16 Jan 2014 00:10:44 +0100
-Message-ID: <1389827444-3911-2-git-send-email-antonio@meshcoding.com>
-References: <1389827444-3911-1-git-send-email-antonio@meshcoding.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 1/2] net/mlx4_core: clean up cq_res_start_move_to()
+Date: Wed, 15 Jan 2014 15:12:06 -0800 (PST)
+Message-ID: <20140115.151206.1969611706248707914.davem@davemloft.net>
+References: <1389099678.15032.19.camel@x41>
+	<20140114084752.1db64b21@jpm-OptiPlex-GX620>
+	<1389728736.28068.8.camel@x220>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Antonio Quartulli <antonio@meshcoding.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:18759 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753411AbaAOXL5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 18:11:57 -0500
-In-Reply-To: <1389827444-3911-1-git-send-email-antonio@meshcoding.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ogerlitz@mellanox.com, jackm@dev.mellanox.co.il,
+	ronye@mellanox.com, hadarh@mellanox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: pebolle@tiscali.nl
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1389728736.28068.8.camel@x220>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Marek Lindner <mareklindner@neomailbox.ch>
+From: Paul Bolle <pebolle@tiscali.nl>
+Date: Tue, 14 Jan 2014 20:45:36 +0100
 
-Batman-adv prepends a full ethernet header in addition to its own
-header. This has to be reflected in the MTU calculation, especially
-since the value is used to set dev->hard_header_len.
+> Building resource_tracker.o triggers a GCC warning:
+>     drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function 'mlx4_HW2SW_CQ_wrapper':
+>     drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:3019:16: warning: 'cq' may be used uninitialized in this function [-Wmaybe-uninitialized]
+>       atomic_dec(&cq->mtt->ref_count);
+>                     ^
+> 
+> This is a false positive. But a cleanup of cq_res_start_move_to() can
+> help GCC here. The code currently uses a switch statement where an
+> if/else construct would do too, since only two of the switch's four
+> cases can ever occur. Dropping that switch makes the warning go away.
+> 
+> While we're at it, add some missing braces.
+> 
+> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+> ---
+> v2: adjust to Jack's review.
 
-Introduced by 411d6ed93a5d0601980d3e5ce75de07c98e3a7de
-("batman-adv: consider network coding overhead when calculating require=
-d mtu")
-
-Reported-by: cmsv <cmsv@wirelesspt.net>
-Reported-by: Martin Hundeb=C3=B8ll <martin@hundeboll.net>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
----
- net/batman-adv/main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
-index 1511f64..faba0f6 100644
---- a/net/batman-adv/main.c
-+++ b/net/batman-adv/main.c
-@@ -277,7 +277,7 @@ int batadv_max_header_len(void)
- 			   sizeof(struct batadv_coded_packet));
- #endif
-=20
--	return header_len;
-+	return header_len + ETH_HLEN;
- }
-=20
- /**
---=20
-1.8.5.3
+Can I please get some review of these two patches, thank you.
