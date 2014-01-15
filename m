@@ -1,465 +1,178 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 2/2] reciprocal_divide: correction/update of the algorithm
-Date: Thu, 16 Jan 2014 00:23:48 +0100
-Message-ID: <1389828228-30312-3-git-send-email-dborkman@redhat.com>
-References: <1389828228-30312-1-git-send-email-dborkman@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Austin S Hemmelgarn <ahferroin7@gmail.com>,
-	Jesse Gross <jesse@nicira.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Matt Mackall <mpm@selenic.com>,
-	Pekka Enberg <penberg@kernel.org>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Jakub Zawadzki <darkjames-ws@darkjames.pl>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: [PATCH] batman-adv: use consistent kerneldoc style
+Date: Thu, 16 Jan 2014 00:24:23 +0100
+Message-ID: <1389828263-798-2-git-send-email-antonio@meshcoding.com>
+References: <1389828263-798-1-git-send-email-antonio@meshcoding.com>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Simon Wunderlich <sw@simonwunderlich.de>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Antonio Quartulli <antonio@meshcoding.com>
 To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389828228-30312-1-git-send-email-dborkman@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.neomailbox.net ([178.209.62.157]:27409 "EHLO
+	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753444AbaAOXZa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 18:25:30 -0500
+In-Reply-To: <1389828263-798-1-git-send-email-antonio@meshcoding.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Simon Wunderlich <sw@simonwunderlich.de>
 
-Jakub Zawadzki noticed that some divisions by reciprocal_divide()
-were not correct [1][2], which he could also show with BPF code
-after divisions are transformed into reciprocal_value() for runtime
-invariant which can be passed to reciprocal_divide() later on;
-reverse in BPF dump ended up with a different, off-by-one K.
-
-Also, reciprocal_value() and reciprocal_divide() always return 0
-for divisions by 1. This is a bit worrisome as those functions
-also get used in mm/slab.c and lib/flex_array.c, apparently for
-index calculation to access array slots. Bonding already seems to
-check for the 1-divisor case and handles that correctly. We don't
-know about other problems, besides possibly flex array, yet.
-
-In order to fix that, we propose an extension from the original
-implementation from commit 6a2d7a955d8d resp. [3][4], by using
-the algorithm proposed in "Division by Invariant Integers Using
-Multiplication" [5], Torbj=C3=B6rn Granlund and Peter L. Montgomery,
-that is, pseudocode for q =3D n/d where q,n,d is in u32 universe:
-
-1) Initialization:
-
-  int l =3D ceil(log_2 d)
-  uword m' =3D floor((1<<32)*((1<<l)-d)/d)+1
-  int sh_1 =3D min(l,1)
-  int sh_2 =3D max(l-1,0)
-
-2) For q =3D n/d, all uword:
-
-  uword t =3D (n*m')>>32
-  q =3D (t+((n-t)>>sh_1))>>sh_2
-
-The assembler implementation from Agner Fog [6] also helped a lot
-while implementing. We have tested the implementation on x86_64,
-ppc64, i686, s390x; on x86_64/haswell we're still half the latency
-compared to normal divide.
-
-Joint work with Daniel Borkmann.
-
-  [1] http://www.wireshark.org/~darkjames/reciprocal-buggy.c
-  [2] http://www.wireshark.org/~darkjames/set-and-dump-filter-k-bug.c
-  [3] https://gmplib.org/~tege/division-paper.pdf
-  [4] http://homepage.cs.uiowa.edu/~jones/bcd/divide.html
-  [5] http://citeseerx.ist.psu.edu/viewdoc/summary?doi=3D10.1.1.1.2556
-  [6] http://www.agner.org/optimize/asmlib.zip
-
-=46ixes: 6a2d7a955d8d ("SLAB: use a multiply instead of a divide in obj=
-_to_index()")
-=46ixes: 704f15ddb5fc2a ("flex_array: avoid divisions when accessing el=
-ements")
-Reported-by: Jakub Zawadzki <darkjames-ws@darkjames.pl>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Austin S Hemmelgarn <ahferroin7@gmail.com>
-Cc: linux-kernel@vger.kernel.org
-Cc: Jesse Gross <jesse@nicira.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: Matt Mackall <mpm@selenic.com>
-Cc: Pekka Enberg <penberg@kernel.org>
-Cc: Christoph Lameter <cl@linux-foundation.org>
-Cc: Andy Gospodarek <andy@greyhouse.net>
-Cc: Veaceslav Falico <vfalico@redhat.com>
-Cc: Jay Vosburgh <fubar@us.ibm.com>
-Cc: Jakub Zawadzki <darkjames-ws@darkjames.pl>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Reported-by: Antonio Quartulli <antonio@meshcoding.com>
+Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
 ---
- drivers/net/bonding/bond_main.c    | 16 ++++++++-------
- drivers/net/bonding/bond_netlink.c |  4 ----
- drivers/net/bonding/bond_options.c |  9 +++-----
- drivers/net/bonding/bond_sysfs.c   |  5 -----
- drivers/net/bonding/bonding.h      |  3 +++
- include/linux/flex_array.h         |  3 ++-
- include/linux/reciprocal_div.h     | 42 +++++++++++++++++++++++-------=
---------
- include/linux/slab_def.h           |  4 +++-
- include/net/red.h                  |  3 ++-
- lib/flex_array.c                   |  3 ++-
- lib/reciprocal_div.c               | 28 +++++++++++++++++++++----
- net/sched/sch_netem.c              |  4 +++-
- 12 files changed, 76 insertions(+), 48 deletions(-)
+ net/batman-adv/bat_iv_ogm.c            |  6 ++++--
+ net/batman-adv/bridge_loop_avoidance.c | 24 ++++++++++++++++++------
+ net/batman-adv/translation-table.c     |  8 +++++---
+ net/batman-adv/types.h                 |  6 ++++--
+ 4 files changed, 31 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
-_main.c
-index f2fe6cb..8cf03eb 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -79,7 +79,6 @@
- #include <net/pkt_sched.h>
- #include <linux/rculist.h>
- #include <net/flow_keys.h>
--#include <linux/reciprocal_div.h>
- #include "bonding.h"
- #include "bond_3ad.h"
- #include "bond_alb.h"
-@@ -3551,8 +3550,9 @@ static void bond_xmit_slave_id(struct bonding *bo=
-nd, struct sk_buff *skb, int sl
-  */
- static u32 bond_rr_gen_slave_id(struct bonding *bond)
- {
--	int packets_per_slave =3D bond->params.packets_per_slave;
- 	u32 slave_id;
-+	struct reciprocal_value reciprocal_packets_per_slave;
-+	int packets_per_slave =3D bond->params.packets_per_slave;
-=20
- 	switch (packets_per_slave) {
- 	case 0:
-@@ -3562,8 +3562,10 @@ static u32 bond_rr_gen_slave_id(struct bonding *=
-bond)
- 		slave_id =3D bond->rr_tx_counter;
- 		break;
- 	default:
-+		reciprocal_packets_per_slave =3D
-+			bond->params.reciprocal_packets_per_slave;
- 		slave_id =3D reciprocal_divide(bond->rr_tx_counter,
--					     packets_per_slave);
-+					     reciprocal_packets_per_slave);
- 		break;
+diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
+index 921ac20..512159b 100644
+--- a/net/batman-adv/bat_iv_ogm.c
++++ b/net/batman-adv/bat_iv_ogm.c
+@@ -598,7 +598,8 @@ out:
+ 	return res;
+ }
+ 
+-/* batadv_iv_ogm_aggregate_new - create a new aggregated packet and add this
++/**
++ * batadv_iv_ogm_aggregate_new - create a new aggregated packet and add this
+  *  packet to it.
+  * @packet_buff: pointer to the OGM
+  * @packet_len: (total) length of the OGM
+@@ -1745,7 +1746,8 @@ static int batadv_iv_ogm_receive(struct sk_buff *skb,
+ 	return NET_RX_SUCCESS;
+ }
+ 
+-/* batadv_iv_ogm_orig_print_neigh - print neighbors for the originator table
++/**
++ * batadv_iv_ogm_orig_print_neigh - print neighbors for the originator table
+  * @orig_node: the orig_node for which the neighbors are printed
+  * @if_outgoing: outgoing interface for these entries
+  * @seq: debugfs table seq_file struct
+diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
+index 5c0eda4..05f0712 100644
+--- a/net/batman-adv/bridge_loop_avoidance.c
++++ b/net/batman-adv/bridge_loop_avoidance.c
+@@ -130,7 +130,9 @@ static void batadv_claim_free_ref(struct batadv_bla_claim *claim)
+ 		call_rcu(&claim->rcu, batadv_claim_free_rcu);
+ }
+ 
+-/* @bat_priv: the bat priv with all the soft interface information
++/**
++ * batadv_claim_hash_find
++ * @bat_priv: the bat priv with all the soft interface information
+  * @data: search data (may be local/static data)
+  *
+  * looks for a claim in the hash, and returns it if found
+@@ -449,7 +451,9 @@ batadv_bla_update_own_backbone_gw(struct batadv_priv *bat_priv,
+ 	batadv_backbone_gw_free_ref(backbone_gw);
+ }
+ 
+-/* @bat_priv: the bat priv with all the soft interface information
++/**
++ * batadv_bla_answer_request - answer a bla request by sending own claims
++ * @bat_priv: the bat priv with all the soft interface information
+  * @vid: the vid where the request came on
+  *
+  * Repeat all of our own claims, and finally send an ANNOUNCE frame
+@@ -495,7 +499,9 @@ static void batadv_bla_answer_request(struct batadv_priv *bat_priv,
+ 	batadv_backbone_gw_free_ref(backbone_gw);
+ }
+ 
+-/* @backbone_gw: the backbone gateway from whom we are out of sync
++/**
++ * batadv_bla_send_request - send a request to repeat claims
++ * @backbone_gw: the backbone gateway from whom we are out of sync
+  *
+  * When the crc is wrong, ask the backbone gateway for a full table update.
+  * After the request, it will repeat all of his own claims and finally
+@@ -520,7 +526,9 @@ static void batadv_bla_send_request(struct batadv_bla_backbone_gw *backbone_gw)
  	}
- 	bond->rr_tx_counter++;
-@@ -4297,10 +4299,10 @@ static int bond_check_params(struct bond_params=
- *params)
- 	params->resend_igmp =3D resend_igmp;
- 	params->min_links =3D min_links;
- 	params->lp_interval =3D lp_interval;
--	if (packets_per_slave > 1)
--		params->packets_per_slave =3D reciprocal_value(packets_per_slave);
--	else
--		params->packets_per_slave =3D packets_per_slave;
-+	params->packets_per_slave =3D packets_per_slave;
-+	params->reciprocal_packets_per_slave =3D
-+		reciprocal_value(packets_per_slave);
-+
- 	if (primary) {
- 		strncpy(params->primary, primary, IFNAMSIZ);
- 		params->primary[IFNAMSIZ - 1] =3D 0;
-diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/b=
-ond_netlink.c
-index 555c783..9b13791 100644
---- a/drivers/net/bonding/bond_netlink.c
-+++ b/drivers/net/bonding/bond_netlink.c
-@@ -19,7 +19,6 @@
- #include <linux/if_ether.h>
- #include <net/netlink.h>
- #include <net/rtnetlink.h>
--#include <linux/reciprocal_div.h>
- #include "bonding.h"
-=20
- static const struct nla_policy bond_policy[IFLA_BOND_MAX + 1] =3D {
-@@ -416,9 +415,6 @@ static int bond_fill_info(struct sk_buff *skb,
- 		goto nla_put_failure;
-=20
- 	packets_per_slave =3D bond->params.packets_per_slave;
--	if (packets_per_slave > 1)
--		packets_per_slave =3D reciprocal_value(packets_per_slave);
--
- 	if (nla_put_u32(skb, IFLA_BOND_PACKETS_PER_SLAVE,
- 			packets_per_slave))
- 		goto nla_put_failure;
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/b=
-ond_options.c
-index 945a666..bacfd53 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -16,7 +16,6 @@
- #include <linux/netdevice.h>
- #include <linux/rwlock.h>
- #include <linux/rcupdate.h>
--#include <linux/reciprocal_div.h>
- #include "bonding.h"
-=20
- int bond_option_mode_set(struct bonding *bond, int mode)
-@@ -671,11 +670,9 @@ int bond_option_packets_per_slave_set(struct bondi=
-ng *bond,
- 		pr_warn("%s: Warning: packets_per_slave has effect only in balance-r=
-r mode\n",
- 			bond->dev->name);
-=20
--	if (packets_per_slave > 1)
--		bond->params.packets_per_slave =3D
--			reciprocal_value(packets_per_slave);
--	else
--		bond->params.packets_per_slave =3D packets_per_slave;
-+	bond->params.packets_per_slave =3D packets_per_slave;
-+	bond->params.reciprocal_packets_per_slave =3D
-+		reciprocal_value(packets_per_slave);
-=20
- 	return 0;
  }
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bon=
-d_sysfs.c
-index 011f163..c083e9a 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -39,7 +39,6 @@
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
- #include <linux/nsproxy.h>
--#include <linux/reciprocal_div.h>
-=20
- #include "bonding.h"
-=20
-@@ -1374,10 +1373,6 @@ static ssize_t bonding_show_packets_per_slave(st=
-ruct device *d,
- {
- 	struct bonding *bond =3D to_bond(d);
- 	unsigned int packets_per_slave =3D bond->params.packets_per_slave;
--
--	if (packets_per_slave > 1)
--		packets_per_slave =3D reciprocal_value(packets_per_slave);
--
- 	return sprintf(buf, "%u\n", packets_per_slave);
+ 
+-/* @bat_priv: the bat priv with all the soft interface information
++/**
++ * batadv_bla_send_announce
++ * @bat_priv: the bat priv with all the soft interface information
+  * @backbone_gw: our backbone gateway which should be announced
+  *
+  * This function sends an announcement. It is called from multiple
+@@ -844,7 +852,9 @@ static int batadv_check_claim_group(struct batadv_priv *bat_priv,
  }
-=20
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bondin=
-g.h
-index 955dc48..502dda8 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -23,6 +23,8 @@
- #include <linux/netpoll.h>
- #include <linux/inetdevice.h>
- #include <linux/etherdevice.h>
-+#include <linux/reciprocal_div.h>
-+
- #include "bond_3ad.h"
- #include "bond_alb.h"
-=20
-@@ -171,6 +173,7 @@ struct bond_params {
- 	int resend_igmp;
- 	int lp_interval;
- 	int packets_per_slave;
-+	struct reciprocal_value reciprocal_packets_per_slave;
+ 
+ 
+-/* @bat_priv: the bat priv with all the soft interface information
++/**
++ * batadv_bla_process_claim
++ * @bat_priv: the bat priv with all the soft interface information
+  * @skb: the frame to be checked
+  *
+  * Check if this is a claim frame, and process it accordingly.
+@@ -1311,7 +1321,9 @@ out:
+ 
+ 
+ 
+-/* @bat_priv: the bat priv with all the soft interface information
++/**
++ * batadv_bla_is_backbone_gw_orig
++ * @bat_priv: the bat priv with all the soft interface information
+  * @orig: originator mac address
+  * @vid: VLAN identifier
+  *
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index a6fb1ff..b6071f6 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -1382,7 +1382,8 @@ out:
+ 	return ret;
+ }
+ 
+-/* batadv_transtable_best_orig - Get best originator list entry from tt entry
++/**
++ * batadv_transtable_best_orig - Get best originator list entry from tt entry
+  * @bat_priv: the bat priv with all the soft interface information
+  * @tt_global_entry: global translation table entry to be analyzed
+  *
+@@ -1426,8 +1427,9 @@ batadv_transtable_best_orig(struct batadv_priv *bat_priv,
+ 	return best_entry;
+ }
+ 
+-/* batadv_tt_global_print_entry - print all orig nodes who announce the address
+- * for this global entry
++/**
++ * batadv_tt_global_print_entry - print all orig nodes who announce the address
++ *  for this global entry
+  * @bat_priv: the bat priv with all the soft interface information
+  * @tt_global_entry: global translation table entry to be printed
+  * @seq: debugfs table seq_file struct
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index b53f90d..78370ab 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -333,7 +333,8 @@ struct batadv_neigh_node {
+ 	struct rcu_head rcu;
  };
-=20
- struct bond_parm_tbl {
-diff --git a/include/linux/flex_array.h b/include/linux/flex_array.h
-index 6843cf1..b6efb0c 100644
---- a/include/linux/flex_array.h
-+++ b/include/linux/flex_array.h
-@@ -2,6 +2,7 @@
- #define _FLEX_ARRAY_H
-=20
- #include <linux/types.h>
-+#include <linux/reciprocal_div.h>
- #include <asm/page.h>
-=20
- #define FLEX_ARRAY_PART_SIZE PAGE_SIZE
-@@ -22,7 +23,7 @@ struct flex_array {
- 			int element_size;
- 			int total_nr_elements;
- 			int elems_per_part;
--			u32 reciprocal_elems;
-+			struct reciprocal_value reciprocal_elems;
- 			struct flex_array_part *parts[];
- 		};
- 		/*
-diff --git a/include/linux/reciprocal_div.h b/include/linux/reciprocal_=
-div.h
-index f9c90b3..be66c3a 100644
---- a/include/linux/reciprocal_div.h
-+++ b/include/linux/reciprocal_div.h
-@@ -4,29 +4,37 @@
- #include <linux/types.h>
-=20
- /*
-- * This file describes reciprocical division.
-+ * This algorithm is based on the paper "Division by Invariant
-+ * Integers Using Multiplication" by Torbj=C3=B6rn Granlund and Peter
-+ * L. Montgomery.
-  *
-- * This optimizes the (A/B) problem, when A and B are two u32
-- * and B is a known value (but not known at compile time)
-+ * The assembler implementation from Agner Fog, which this code is
-+ * based on, can be found here:
-+ * http://www.agner.org/optimize/asmlib.zip
-  *
-- * The math principle used is :
-- *   Let RECIPROCAL_VALUE(B) be (((1LL << 32) + (B - 1))/ B)
-- *   Then A / B =3D (u32)(((u64)(A) * (R)) >> 32)
-+ * This optimization for A/B is helpful if the divisor B is mostly
-+ * constant. The reciprocal of B is calculated in the slow-path with
-+ * reciprocal_value(). The fast-path can then just use a much faster
-+ * multiplication operation with a variable dividend A to calculate
-+ * the division A/B.
-  *
-- * This replaces a divide by a multiply (and a shift), and
-- * is generally less expensive in CPU cycles.
-+ * RECIPROCAL_VALUE_TO_ZERO can be used to express an element, which
-+ * used as the argument to reciprocal_divide always yields zero.
-  */
-=20
--/*
-- * Computes the reciprocal value (R) for the value B of the divisor.
-- * Should not be called before each reciprocal_divide(),
-- * or else the performance is slower than a normal divide.
-- */
--extern u32 reciprocal_value(u32 B);
-+struct reciprocal_value {
-+	u32 m;
-+	u8 sh1, sh2;
-+};
-=20
-+#define RECIPROCAL_VALUE_RESULT_TO_ZERO ((struct reciprocal_value){.sh=
-1 =3D 32})
-=20
--static inline u32 reciprocal_divide(u32 A, u32 R)
-+struct reciprocal_value reciprocal_value(u32 d);
-+
-+static inline u32 reciprocal_divide(u32 a, struct reciprocal_value R)
- {
--	return (u32)(((u64)A * R) >> 32);
-+	u32 t =3D (u32)(((u64)a * R.m) >> 32);
-+	return (t + ((a - t) >> R.sh1)) >> R.sh2;
- }
--#endif
-+
-+#endif /* _LINUX_RECIPROCAL_DIV_H */
-diff --git a/include/linux/slab_def.h b/include/linux/slab_def.h
-index 09bfffb..96e8aba 100644
---- a/include/linux/slab_def.h
-+++ b/include/linux/slab_def.h
-@@ -1,6 +1,8 @@
- #ifndef _LINUX_SLAB_DEF_H
- #define	_LINUX_SLAB_DEF_H
-=20
-+#include <linux/reciprocal_div.h>
-+
- /*
-  * Definitions unique to the original Linux SLAB allocator.
-  */
-@@ -12,7 +14,7 @@ struct kmem_cache {
- 	unsigned int shared;
-=20
- 	unsigned int size;
--	u32 reciprocal_buffer_size;
-+	struct reciprocal_value reciprocal_buffer_size;
- /* 2) touched by every alloc & free from the backend */
-=20
- 	unsigned int flags;		/* constant flags */
-diff --git a/include/net/red.h b/include/net/red.h
-index 168bb2f..76e0b5f 100644
---- a/include/net/red.h
-+++ b/include/net/red.h
-@@ -130,7 +130,8 @@ struct red_parms {
- 	u32		qth_max;	/* Max avg length threshold: Wlog scaled */
- 	u32		Scell_max;
- 	u32		max_P;		/* probability, [0 .. 1.0] 32 scaled */
--	u32		max_P_reciprocal; /* reciprocal_value(max_P / qth_delta) */
-+	/* reciprocal_value(max_P / qth_delta) */
-+	struct reciprocal_value	max_P_reciprocal;
- 	u32		qth_delta;	/* max_th - min_th */
- 	u32		target_min;	/* min_th + 0.4*(max_th - min_th) */
- 	u32		target_max;	/* min_th + 0.6*(max_th - min_th) */
-diff --git a/lib/flex_array.c b/lib/flex_array.c
-index 6948a66..704efa1 100644
---- a/lib/flex_array.c
-+++ b/lib/flex_array.c
-@@ -90,8 +90,9 @@ struct flex_array *flex_array_alloc(int element_size,=
- unsigned int total,
- {
- 	struct flex_array *ret;
- 	int elems_per_part =3D 0;
--	int reciprocal_elems =3D 0;
- 	int max_size =3D 0;
-+	struct reciprocal_value reciprocal_elems =3D
-+		RECIPROCAL_VALUE_RESULT_TO_ZERO;
-=20
- 	if (element_size) {
- 		elems_per_part =3D FLEX_ARRAY_ELEMENTS_PER_PART(element_size);
-diff --git a/lib/reciprocal_div.c b/lib/reciprocal_div.c
-index 75510e9..f49742d 100644
---- a/lib/reciprocal_div.c
-+++ b/lib/reciprocal_div.c
-@@ -1,11 +1,31 @@
-+#include <linux/kernel.h>
-+#include <linux/bug.h>
- #include <asm/div64.h>
- #include <linux/reciprocal_div.h>
- #include <linux/export.h>
-=20
--u32 reciprocal_value(u32 k)
-+/*
-+ * For a description of the algorithm please have a look at
-+ * include/linux/reciprocal_div.h
-+ */
-+
-+struct reciprocal_value reciprocal_value(u32 d)
- {
--	u64 val =3D (1LL << 32) + (k - 1);
--	do_div(val, k);
--	return (u32)val;
-+	struct reciprocal_value R;
-+	u64 m;
-+	int l;
-+
-+	BUILD_BUG_ON(reciprocal_divide(0U, RECIPROCAL_VALUE_RESULT_TO_ZERO));
-+	BUILD_BUG_ON(reciprocal_divide(1U, RECIPROCAL_VALUE_RESULT_TO_ZERO));
-+	BUILD_BUG_ON(reciprocal_divide(~(0U), RECIPROCAL_VALUE_RESULT_TO_ZERO=
-));
-+
-+	l =3D fls(d - 1);
-+	m =3D ((1ULL << 32) * ((1ULL << l) - d));
-+	do_div(m, d);
-+	++m;
-+	R.m =3D (u32)m;
-+	R.sh1 =3D min(l, 1);
-+	R.sh2 =3D max(l-1, 0);
-+	return R;
- }
- EXPORT_SYMBOL(reciprocal_value);
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index 3019c10..3bf6495 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -91,7 +91,7 @@ struct netem_sched_data {
- 	u64 rate;
- 	s32 packet_overhead;
- 	u32 cell_size;
--	u32 cell_size_reciprocal;
-+	struct reciprocal_value cell_size_reciprocal;
- 	s32 cell_overhead;
-=20
- 	struct crndstate {
-@@ -718,6 +718,8 @@ static void get_rate(struct Qdisc *sch, const struc=
-t nlattr *attr)
- 	q->cell_size =3D r->cell_size;
- 	if (q->cell_size)
- 		q->cell_size_reciprocal =3D reciprocal_value(q->cell_size);
-+	else
-+		q->cell_size_reciprocal =3D RECIPROCAL_VALUE_RESULT_TO_ZERO;
- 	q->cell_overhead =3D r->cell_overhead;
- }
-=20
---=20
-1.8.3.1
+ 
+-/* struct batadv_neigh_node_bat_iv - neighbor information per outgoing
++/**
++ * struct batadv_neigh_node_bat_iv - neighbor information per outgoing
+  *  interface for BATMAN IV
+  * @tq_recv: ring buffer of received TQ values from this neigh node
+  * @tq_index: ring buffer index
+@@ -350,7 +351,8 @@ struct batadv_neigh_ifinfo_bat_iv {
+ 	uint8_t real_packet_count;
+ };
+ 
+-/* struct batadv_neigh_ifinfo - neighbor information per outgoing interface
++/**
++ * struct batadv_neigh_ifinfo - neighbor information per outgoing interface
+  * @list: list node for batadv_neigh_node::ifinfo_list
+  * @if_outgoing: pointer to outgoing hard interface
+  * @bat_iv: B.A.T.M.A.N. IV private structure
+-- 
+1.8.5.3
