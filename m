@@ -1,46 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/3] packet: use percpu mmap tx frame pending
- refcount
-Date: Tue, 14 Jan 2014 17:16:34 -0800 (PST)
-Message-ID: <20140114.171634.1073334641652236373.davem@davemloft.net>
-References: <1389543768-20234-1-git-send-email-dborkman@redhat.com>
-	<1389543768-20234-4-git-send-email-dborkman@redhat.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [Patch net-next] net_sched: act: remove headers in include/net/tc_act/
+Date: Tue, 14 Jan 2014 17:17:40 -0800
+Message-ID: <CAHA+R7N1wpiYq9vcqEFLL=CNQDZ+4fEHbirpMazWVJg0=uBs9Q@mail.gmail.com>
+References: <1389747699-32508-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1389748310.31367.298.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dborkman@redhat.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54162 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750918AbaAOBQf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 20:16:35 -0500
-In-Reply-To: <1389543768-20234-4-git-send-email-dborkman@redhat.com>
+Received: from mail-la0-f54.google.com ([209.85.215.54]:56758 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750918AbaAOBRl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 20:17:41 -0500
+Received: by mail-la0-f54.google.com with SMTP id y1so933965lam.27
+        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 17:17:40 -0800 (PST)
+In-Reply-To: <1389748310.31367.298.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Sun, 12 Jan 2014 17:22:48 +0100
+On Tue, Jan 14, 2014 at 5:11 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2014-01-14 at 17:01 -0800, Cong Wang wrote:
+>> These headers are not necessary because those definitions in them
+>> are action specific and are not shared for others. Just move them
+>> into the C files.
+>>
+>> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+>> Cc: David S. Miller <davem@davemloft.net>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>> ---
+>
+> I find this change very dubious.
 
-> +static int packet_read_pending(const struct packet_ring_buffer *rb)
-> +{
-> +	int i, refcnt = 0;
-> +
-> +	/* We don't use pending refcount in rx_ring. */
-> +	if (rb->pending_refcnt == NULL)
-> +		return 0;
-> +
-> +	for_each_possible_cpu(i)
-> +		refcnt += *per_cpu_ptr(rb->pending_refcnt, i);
-> +
-> +	return refcnt;
-> +}
+grep told me it isn't:
 
-David Laight stated that this works properly only if all the arithmetic
-is unsigned.
+$ git grep 'include.*tc_act/'
+net/sched/act_csum.c:#include <linux/tc_act/tc_csum.h>
+net/sched/act_gact.c:#include <linux/tc_act/tc_gact.h>
+net/sched/act_ipt.c:#include <linux/tc_act/tc_ipt.h>
+net/sched/act_mirred.c:#include <linux/tc_act/tc_mirred.h>
+net/sched/act_nat.c:#include <linux/tc_act/tc_nat.h>
+net/sched/act_pedit.c:#include <linux/tc_act/tc_pedit.h>
+net/sched/act_simple.c:#include <linux/tc_act/tc_defact.h>
+net/sched/act_skbedit.c:#include <linux/tc_act/tc_skbedit.h>
 
-Therefore, maybe use "unsigned int" for refcnt here?
-
-Can you respin this series with that fixed?
-
-Thanks.
+(those are uapi headers, which I don't touch.)
