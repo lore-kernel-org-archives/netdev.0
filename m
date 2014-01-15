@@ -1,48 +1,63 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: [RFC net] tcp: metrics: Avoid duplicate entries with the same
- destination-IP
-Date: Thu, 16 Jan 2014 00:21:33 +0100
-Message-ID: <20140115232133.GA4957@cpaasch-mac>
-References: <1389626736-3143-1-git-send-email-christoph.paasch@uclouvain.be>
- <1389631669.31367.221.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140115.121856.712581760900022040.davem@davemloft.net>
+From: Eric Paris <eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v4 0/3] Send audit/procinfo/cgroup data in socket-level
+	control message
+Date: Wed, 15 Jan 2014 18:21:43 -0500
+Message-ID: <1389828103.681.34.camel@flatline.rdu.redhat.com>
+References: <1377614400-27122-1-git-send-email-jkaluza@redhat.com>
+	<1389600109-30739-1-git-send-email-jkaluza@redhat.com>
+	<20140115.121730.1984913330507219167.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:58858 "EHLO
-	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751915AbaAOXVl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 18:21:41 -0500
-Content-Disposition: inline
-In-Reply-To: <20140115.121856.712581760900022040.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org,
+	tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20140115.121730.1984913330507219167.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 15/01/14 - 12:18:56, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 13 Jan 2014 08:47:49 -0800
+On Wed, 2014-01-15 at 12:17 -0800, David Miller wrote:
+> From: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> Date: Mon, 13 Jan 2014 09:01:46 +0100
 > 
-> > On Mon, 2014-01-13 at 16:25 +0100, Christoph Paasch wrote:
-> > 
-> >> Another solution might be to leave tcp_get_metrics() as it is, and in
-> >> tcpm_new do another call to __tcp_get_metrics() while holding the
-> >> spin-lock. We would then check __tcp_get_metrics twice for new entries
-> >> but we won't hold the spin-lock needlessly anymore.
-> > 
-> > This is the only solution if you want to fix this.
-> > Cost of lookup are the cache line misses.
-> > Avoiding the spinlock is a must.
-> > 
-> > The second 'lookup' is basically free, as the first one have populated
-> > cpu caches.
+> > Changes introduced in this patchset can also increase performance
+> > of such server-like processes, because current way of opening and
+> > parsing /proc/$PID/* files is much more expensive than receiving these
+> > metadata using SCM.
 > 
-> Indeed, taking the lock in tcp_get_metrics() is to be avoided at all
-> costs.
+> The problem with this line of reasoning is that these changes will
+> hurt everyone else, because these new control messages are sent
+> unconditionally, whether the application is interested in them or not.
+> 
+> I really don't like this cost tradeoff, it's terrible, and therefore
+> I'm really not inclined to apply these patches, sorry.
 
-Yes, I will send the updated patch tomorrow. Didn't yet had the time to send
-it.
+Agreed.  Although you seem to be ignoring the part of the logic where is
+solves a problem that can not be solved today.
 
+> The current practice to retrieve such process metadata is to look that
+> information up in procfs with the $PID received over SCM_CREDENTIALS.
+> This is sufficient for long-running tasks, but introduces a race which
+> cannot be worked around for short-living processes; the calling
+> process and all the information in /proc/$PID/ is gone before the
+> receiver of the socket message can look it up.
 
-Christoph
+Reliably being able to audit what process requested an action is
+extremely useful.  And I like the audit patch, as it is a couple of ints
+we are storing.
+
+procinfo and cgroup can both be up to 4k of data.
+
+Is there an alternative he should consider?  Some way to grab a
+reference on task_struct and just attach that to the message?
