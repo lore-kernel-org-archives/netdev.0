@@ -1,25 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/3] r8152: remove limitation
-Date: Tue, 14 Jan 2014 18:49:29 -0800 (PST)
-Message-ID: <20140114.184929.310035945472596324.davem@davemloft.net>
-References: <1389250232-8663-1-git-send-email-hayeswang@realtek.com>
-	<1389753736-2218-1-git-send-email-hayeswang@realtek.com>
+From: "Austin S. Hemmelgarn" <ahferroin7@gmail.com>
+Subject: Re: [PATCH RFC] reciprocal_divide: correction/update of the algorithm
+Date: Tue, 14 Jan 2014 21:51:43 -0500
+Message-ID: <52D5F7BF.7090407@gmail.com>
+References: <20140113214249.GK6586@order.stressinduktion.org> <1389722825.31367.260.camel@edumazet-glaptop2.roam.corp.google.com> <52D58E6F.4050000@gmail.com> <1389729032.31367.262.camel@edumazet-glaptop2.roam.corp.google.com> <52D5A3DC.9030107@gmail.com> <1389739537.31367.273.camel@edumazet-glaptop2.roam.corp.google.com> <20140114232538.GD29887@pd.tnic>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: oliver@neukum.org, netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, dborkman@redhat.com,
+	linux-kernel@vger.kernel.org, darkjames-ws@darkjames.pl
+To: Borislav Petkov <bp@alien8.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389753736-2218-1-git-send-email-hayeswang@realtek.com>
+In-Reply-To: <20140114232538.GD29887@pd.tnic>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Wed, 15 Jan 2014 10:42:13 +0800
 
-> Remove the limitation between ecm mode and vendor mode.
-> 
-> v2: replace the patch #3 with "ecm and vendor modes coexist".
-
-This looks better, series, applied, thanks.
+On 01/14/2014 06:25 PM, Borislav Petkov wrote:
+> On Tue, Jan 14, 2014 at 02:45:37PM -0800, Eric Dumazet wrote:
+>> Even on a Jaguar, the proposed alternative
+> I don't know what Jaguar you guys are talking about but the Jaguar
+> I know - Fam16h - has an int hardware divider:
+>
+> http://developer.amd.com/wordpress/media/2012/10/SOG_16h_52128_PUB_Rev1_1.pdf
+>
+> So all that talk about microcode is plain wrong. The hardware divider
+> comes from Llano (F12h) so it must be some other Jaguar, maybe Bobcat.
+>
+> :-)
+>
+> If it is Bobcat, then it has a 1-bit per cycle ucode int divider.
+>
+Apologies, it does have a hardware divider, however it still only gets 2
+bits per cycle.
