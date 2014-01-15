@@ -1,93 +1,144 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: TI CPSW Ethernet Tx performance regression
-Date: Wed, 15 Jan 2014 13:21:42 -0800
-Message-ID: <CAGVrzca+jeetqMbQ8NvVgddrjEuay+GWZjZadekV2-AiE4OLyw@mail.gmail.com>
-References: <1389790129-5721-1-git-send-email-mugunthanvnm@ti.com> <1389808467.11912.9.camel@bwh-desktop.uk.level5networks.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v5 net-next 2/4] sh_eth: Add support for r7s72100
+Date: Thu, 16 Jan 2014 01:26:11 +0300
+Message-ID: <52D70B03.9040506@cogentembedded.com>
+References: <1389766341-14001-1-git-send-email-horms+renesas@verge.net.au> <1389766341-14001-3-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Mugunthan V N <mugunthanvnm@ti.com>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:51190 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751289AbaAOVWX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 16:22:23 -0500
-Received: by mail-pa0-f47.google.com with SMTP id kp14so1690832pab.6
-        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 13:22:22 -0800 (PST)
-In-Reply-To: <1389808467.11912.9.camel@bwh-desktop.uk.level5networks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-arm-kernel@lists.infradead.org,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Simon Horman <horms+renesas@verge.net.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1389766341-14001-3-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2014/1/15 Ben Hutchings <bhutchings@solarflare.com>:
-> On Wed, 2014-01-15 at 18:18 +0530, Mugunthan V N wrote:
->> Hi
->>
->> I am seeing a performance regression with CPSW driver on AM335x EVM. AM335x EVM
->> CPSW has 3.2 kernel support [1] and Mainline support from 3.7. When I am
->> comparing the performance between 3.2 and 3.13-rc4. TCP receive performance of
->> CPSW between 3.2 and 3.13-rc4 is same (~180Mbps) but TCP Transmit performance
->> is poor comparing to 3.2 kernel. In 3.2 kernel is it *256Mbps* and in 3.13-rc4
->> it is *70Mbps*
->>
->> Iperf version is *iperf version 2.0.5 (08 Jul 2010) pthreads* on both PC and EVM
->>
->> On UDP transmit also performance is down comparing to 3.2 kernel. In 3.2 it is
->> 196Mbps for 200Mbps band width and in 3.13-rc4 it is 92Mbps
->>
->> Can someone point me out where can I look for improving Tx performance. I also
->> checked whether there is Tx descriptor over flow and there is none. I have
->> tries 3.11 and some older kernel, all are giving ~75Mbps Transmit performance
->> only.
->>
->> [1] - http://arago-project.org/git/projects/?p=linux-am33x.git;a=summary
+Hello.
+
+On 01/15/2014 09:12 AM, Simon Horman wrote:
+
+> This is a fast ethernet controller.
+
+    I have to say it's not exact enough patch description: R7S72100 is not 
+Ethernet controller itself, it's a SoC containing the Ethernet controller.
+
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+
+> ---
+> v5
+> * As suggested by Sergei Shtylyov
+>    - Do not use sh_eth_chip_reset_r8a7740 as it accesses non-existent
+>      RMII registers. Instead use sh_eth_chip_reset.
+>    - Do not use sh_eth_set_rate_gether as it accesses non-existent registers.
+>    - Do not use reserved LCHNG bit of ECSR
+>    - Do not use reserved LCHNGIP bit of ECSIPR
+>    - Document that R8A779x also needs a 16 bit shift of the RFS bits
+>    - Do not document that the R7S72100 has GECMR, it does not
+
+   The above change list was moved from v2 section and doesn't match the real 
+changes done in v5. ;-)
+
+> v4
+> * As requested by David Miller
+>    - Use a boolean for the return value of sh_eth_is_rz_fast_ether()
+>    - Correct coding style in sh_eth_get_stats()
+
+> v3
+> * No change
+
+> v2
+> * As suggested by Magnus Damm and Sergei Shtylyov
+>    - r7s72100 ethernet is not gigabit so do not refer to it as such
+
+> * As suggested by Magnus Damm
+>    - As RZ specific register layout rather than using the gigabit layout
+>      which includes registers that do not exist on this chip.
+> ---
+>   drivers/net/ethernet/renesas/sh_eth.c | 126 ++++++++++++++++++++++++++++++++--
+>   drivers/net/ethernet/renesas/sh_eth.h |   3 +-
+>   2 files changed, 121 insertions(+), 8 deletions(-)
+
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> index 4f5cfad..a7a0555 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -190,6 +190,64 @@ static const u16 sh_eth_offset_fast_rcar[SH_ETH_MAX_REGISTER_OFFSET] = {
+>   	[TRIMD]		= 0x027c,
+>   };
 >
-> If you don't get any specific suggestions, you could try bisecting to
-> find out which specific commit(s) changed the performance.
+> +static const u16 sh_eth_offset_fast_rz[SH_ETH_MAX_REGISTER_OFFSET] = {
 
-Not necessarily related to that issue, but there are a few
-weird/unusual things done in the CPSW interrupt handler:
+    Shouldn't this map precede R-Car one since this SoC is newer the same way 
+you've reordered *enum* values, etc.? Sorry for not noticing in the previous 
+review...
 
-static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
-{
-        struct cpsw_priv *priv = dev_id;
+[...]
+> +	[ARSTR]		= 0x0000,
+> +	[TSU_CTRST]	= 0x0004,
+> +	[TSU_VTAG0]	= 0x0058,
+> +	[TSU_ADSBSY]	= 0x0060,
+> +	[TSU_TEN]	= 0x0064,
+> +	[TXNLCR0]	= 0x0080,
+> +	[TXALCR0]	= 0x0084,
+> +	[RXNLCR0]	= 0x0088,
+> +	[RXALCR0]	= 0x008C,
 
-        cpsw_intr_disable(priv);
-        if (priv->irq_enabled == true) {
-                cpsw_disable_irq(priv);
-                priv->irq_enabled = false;
-        }
+    Well, the above counter register subgroup stands out from the TSU_* 
+registers in the Gigabit mapping, not sure if we should follow that. These 
+registers are not currently used anyway...
 
-        if (netif_running(priv->ndev)) {
-                napi_schedule(&priv->napi);
-                return IRQ_HANDLED;
-        }
+> +	[TSU_ADRH0]	= 0x0100,
+> +	[TSU_ADRL0]	= 0x0104,
+> +	[TSU_ADRH31]	= 0x01f8,
+> +	[TSU_ADRL31]	= 0x01fc,
+> +};
+> +
+>   static const u16 sh_eth_offset_fast_sh4[SH_ETH_MAX_REGISTER_OFFSET] = {
+>   	[ECMR]		= 0x0100,
+>   	[RFLR]		= 0x0108,
+> @@ -318,6 +376,14 @@ static bool sh_eth_is_gether(struct sh_eth_private *mdp)
+>   		return false;
+>   }
+>
+> +static bool sh_eth_is_rz_fast_ether(struct sh_eth_private *mdp)
+> +{
+> +	if (mdp->reg_offset == sh_eth_offset_fast_rz)
+> +		return true;
+> +	else
+> +		return false;
 
-Checking for netif_running() should not be required, you should not
-get any TX/RX interrupts if your interface is not running.
+    Perhaps you should compress the above functions to one-liners as Joe has 
+suggested. Or I/you could do it in a separate patch...
 
+> +}
+> +
+>   static void sh_eth_select_mii(struct net_device *ndev)
+>   {
+>   	u32 value = 0x0;
+[...]
+> @@ -1309,9 +1409,9 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
+>
+>   		/* In case of almost all GETHER/ETHERs, the Receive Frame State
+>   		 * (RFS) bits in the Receive Descriptor 0 are from bit 9 to
+> -		 * bit 0. However, in case of the R8A7740's GETHER, the RFS
+> -		 * bits are from bit 25 to bit 16. So, the driver needs right
+> -		 * shifting by 16.
+> +		 * bit 0. However, in case of the R8A7740, R8A779x and
 
-        priv = cpsw_get_slave_priv(priv, 1);
-        if (!priv)
-                return IRQ_NONE;
+    Small nit: comma needed before "and" as far as I know English grammar.
 
-Should not this be moved up as the very first conditional check to do?
-is not there a risk to leave the interrupts disabled and not
-re-enabled due to the first 5 lines at the top?
+> +		 * R7S72100 the RFS bits are from bit 25 to bit 16. So, the
+> +		 * driver needs right shifting by 16.
+>   		 */
+>   		if (mdp->cd->shift_rd0)
+>   			desc_status >>= 16;
 
+    Other than that, this looks fine now, you can add my:
 
-        if (netif_running(priv->ndev)) {
-                napi_schedule(&priv->napi);
-                return IRQ_HANDLED;
-        }
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-This was done before, why doing it again?
+WBR, Sergei
 
-In drivers/net/ethernet/ti/davinci_cpdma.c::cpdma_chan_process()
-treats equally an error processing a packet (and will stop there) as
-well as successfully processing num_tx packets, is that also
-intentional? Should you attempt to keep processing "quota" packets?
-
-As Ben suggests, bisecting what is causing the regression is your best bet here.
--- 
-Florian
