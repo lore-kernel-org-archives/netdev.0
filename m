@@ -1,144 +1,56 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v5 net-next 2/4] sh_eth: Add support for r7s72100
-Date: Thu, 16 Jan 2014 01:26:11 +0300
-Message-ID: <52D70B03.9040506@cogentembedded.com>
-References: <1389766341-14001-1-git-send-email-horms+renesas@verge.net.au> <1389766341-14001-3-git-send-email-horms+renesas@verge.net.au>
+From: Dan Williams <dan.j.williams@intel.com>
+Subject: Re: [PATCH v3 1/4] net_dma: simple removal
+Date: Wed, 15 Jan 2014 13:31:52 -0800
+Message-ID: <CAPcyv4hzNT15R41zSOM98f-0aQ60HBZoD_DAvf6VED7iXoCZ8w@mail.gmail.com>
+References: <20140114004509.27138.50345.stgit@viggo.jf.intel.com>
+	<20140114004622.27138.54103.stgit@viggo.jf.intel.com>
+	<CAMAG_eduH4M2OPVh-R4Q6KG1DDcinEDzC-fQyXj1mLdZG=49hw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Simon Horman <horms+renesas@verge.net.au>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1389766341-14001-3-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "dmaengine@vger.kernel.org" <dmaengine@vger.kernel.org>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Dave Jiang <dave.jiang@intel.com>,
+	Vinod Koul <vinod.koul@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Whipple <whipple@securedatainnovations.ch>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: saeed bishara <saeed.bishara@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f174.google.com ([209.85.220.174]:57422 "EHLO
+	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750952AbaAOVbx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 16:31:53 -0500
+Received: by mail-vc0-f174.google.com with SMTP id im17so630992vcb.5
+        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 13:31:52 -0800 (PST)
+In-Reply-To: <CAMAG_eduH4M2OPVh-R4Q6KG1DDcinEDzC-fQyXj1mLdZG=49hw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 01/15/2014 09:12 AM, Simon Horman wrote:
-
-> This is a fast ethernet controller.
-
-    I have to say it's not exact enough patch description: R7S72100 is not 
-Ethernet controller itself, it's a SoC containing the Ethernet controller.
-
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-
-> ---
-> v5
-> * As suggested by Sergei Shtylyov
->    - Do not use sh_eth_chip_reset_r8a7740 as it accesses non-existent
->      RMII registers. Instead use sh_eth_chip_reset.
->    - Do not use sh_eth_set_rate_gether as it accesses non-existent registers.
->    - Do not use reserved LCHNG bit of ECSR
->    - Do not use reserved LCHNGIP bit of ECSIPR
->    - Document that R8A779x also needs a 16 bit shift of the RFS bits
->    - Do not document that the R7S72100 has GECMR, it does not
-
-   The above change list was moved from v2 section and doesn't match the real 
-changes done in v5. ;-)
-
-> v4
-> * As requested by David Miller
->    - Use a boolean for the return value of sh_eth_is_rz_fast_ether()
->    - Correct coding style in sh_eth_get_stats()
-
-> v3
-> * No change
-
-> v2
-> * As suggested by Magnus Damm and Sergei Shtylyov
->    - r7s72100 ethernet is not gigabit so do not refer to it as such
-
-> * As suggested by Magnus Damm
->    - As RZ specific register layout rather than using the gigabit layout
->      which includes registers that do not exist on this chip.
-> ---
->   drivers/net/ethernet/renesas/sh_eth.c | 126 ++++++++++++++++++++++++++++++++--
->   drivers/net/ethernet/renesas/sh_eth.h |   3 +-
->   2 files changed, 121 insertions(+), 8 deletions(-)
-
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index 4f5cfad..a7a0555 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -190,6 +190,64 @@ static const u16 sh_eth_offset_fast_rcar[SH_ETH_MAX_REGISTER_OFFSET] = {
->   	[TRIMD]		= 0x027c,
->   };
+On Wed, Jan 15, 2014 at 1:20 PM, saeed bishara <saeed.bishara@gmail.com> wrote:
+> Hi Dan,
 >
-> +static const u16 sh_eth_offset_fast_rz[SH_ETH_MAX_REGISTER_OFFSET] = {
-
-    Shouldn't this map precede R-Car one since this SoC is newer the same way 
-you've reordered *enum* values, etc.? Sorry for not noticing in the previous 
-review...
-
-[...]
-> +	[ARSTR]		= 0x0000,
-> +	[TSU_CTRST]	= 0x0004,
-> +	[TSU_VTAG0]	= 0x0058,
-> +	[TSU_ADSBSY]	= 0x0060,
-> +	[TSU_TEN]	= 0x0064,
-> +	[TXNLCR0]	= 0x0080,
-> +	[TXALCR0]	= 0x0084,
-> +	[RXNLCR0]	= 0x0088,
-> +	[RXALCR0]	= 0x008C,
-
-    Well, the above counter register subgroup stands out from the TSU_* 
-registers in the Gigabit mapping, not sure if we should follow that. These 
-registers are not currently used anyway...
-
-> +	[TSU_ADRH0]	= 0x0100,
-> +	[TSU_ADRL0]	= 0x0104,
-> +	[TSU_ADRH31]	= 0x01f8,
-> +	[TSU_ADRL31]	= 0x01fc,
-> +};
-> +
->   static const u16 sh_eth_offset_fast_sh4[SH_ETH_MAX_REGISTER_OFFSET] = {
->   	[ECMR]		= 0x0100,
->   	[RFLR]		= 0x0108,
-> @@ -318,6 +376,14 @@ static bool sh_eth_is_gether(struct sh_eth_private *mdp)
->   		return false;
->   }
+> I'm using net_dma on my system and I achieve meaningful performance
+> boost when running Iperf receive.
 >
-> +static bool sh_eth_is_rz_fast_ether(struct sh_eth_private *mdp)
-> +{
-> +	if (mdp->reg_offset == sh_eth_offset_fast_rz)
-> +		return true;
-> +	else
-> +		return false;
-
-    Perhaps you should compress the above functions to one-liners as Joe has 
-suggested. Or I/you could do it in a separate patch...
-
-> +}
-> +
->   static void sh_eth_select_mii(struct net_device *ndev)
->   {
->   	u32 value = 0x0;
-[...]
-> @@ -1309,9 +1409,9 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
+> As far as I know the net_dma is used by many embedded systems out
+> there and might effect their performance.
+> Can you please elaborate on the exact scenario that cause the memory corruption?
 >
->   		/* In case of almost all GETHER/ETHERs, the Receive Frame State
->   		 * (RFS) bits in the Receive Descriptor 0 are from bit 9 to
-> -		 * bit 0. However, in case of the R8A7740's GETHER, the RFS
-> -		 * bits are from bit 25 to bit 16. So, the driver needs right
-> -		 * shifting by 16.
-> +		 * bit 0. However, in case of the R8A7740, R8A779x and
+> Is the scenario mentioned here caused by "real life" application or
+> this is more of theoretical issue found through manual testing, I was
+> trying to find the thread describing the failing scenario and couldn't
+> find it, any pointer will be appreciated.
 
-    Small nit: comma needed before "and" as far as I know English grammar.
+Did you see the referenced commit?
 
-> +		 * R7S72100 the RFS bits are from bit 25 to bit 16. So, the
-> +		 * driver needs right shifting by 16.
->   		 */
->   		if (mdp->cd->shift_rd0)
->   			desc_status >>= 16;
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=77873803363c
 
-    Other than that, this looks fine now, you can add my:
+This is a real issue in that any app that forks() while receiving data
+can cause the dma data to be lost.  The problem is that the copy
+operation falls back to cpu at many locations.  Any one of those
+instance could touch a mapped page and trigger a copy-on-write event.
+The dma completes to the wrong location.
 
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
-WBR, Sergei
-
+--
+Dan
