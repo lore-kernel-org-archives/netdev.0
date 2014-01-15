@@ -1,71 +1,116 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH stable-only] virtio-net: fix build on m68k and sparc64
-Date: Wed, 15 Jan 2014 11:15:18 +0200
-Message-ID: <20140115091518.GE1719@redhat.com>
-References: <1389774152-1526-1-git-send-email-mst@redhat.com>
-	<CAMuHMdV=qzDApabSiQj9up_RUW=PoVJA8oWaiWY7d2iQ22AfeQ@mail.gmail.com>
-	<20140115084605.GF29177@redhat.com>
-	<CAMuHMdW4io2BcPvR-VwLMrCNReTEcUeNgO1ievVw+Eg=UdyeuA@mail.gmail.com>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: [PATCH net-next] sctp: create helper function to enable|disable sackdelay
+Date: Wed, 15 Jan 2014 17:24:01 +0800
+Message-ID: <52D653B1.4040708@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	virtualization@lists.linux-foundation.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>, Guenter Roeck <linux@roeck-us.net>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <CAMuHMdW4io2BcPvR-VwLMrCNReTEcUeNgO1ievVw+Eg=UdyeuA@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: <linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:52266 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751037AbaAOJZn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 04:25:43 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 15, 2014 at 10:01:49AM +0100, Geert Uytterhoeven wrote:
-> On Wed, Jan 15, 2014 at 9:46 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> > On Wed, Jan 15, 2014 at 09:36:13AM +0100, Geert Uytterhoeven wrote:
-> >> On Wed, Jan 15, 2014 at 9:26 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> >> > As a result of backporting a bugfix, virtio_net started passing void *
-> >> > to page_address, assuming that it will get silently converted to struct
-> >> > page *. But this does not happen on architectures where page_address is
-> >> > a macro, the result is build failure as the macro tries to dereference
-> >> > void*.
-> >> >
-> >> > Fix by reordering code slightly, so we always pass
-> >> > struct page * to page_address.
-> >>
-> >> Thanks for the clue! I was just investigating a similar failure in -next.
-> >>
-> >> Gr{oetje,eeting}s,
-> >>
-> >>                         Geert
-> >
-> > You don't mean linux-next? And not in virtio-net? I don't see page_address
-> > being used on void * anywhere there.
-> 
-> http://kisskb.ellerman.id.au/kisskb/buildresult/10469287/
+add sctp_spp_sackdelay_{enable|disable} helper function for
+avoiding code duplication. 
 
-Wew, so it's not my fault :)
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+---
+ net/sctp/socket.c | 37 +++++++++++++++++++------------------
+ 1 file changed, 19 insertions(+), 18 deletions(-)
 
-> I'm making {,set}page_address() static inline to fix this.
-
-Yes, I don't see why it has to be a macro.
-
-> Gr{oetje,eeting}s,
-> 
->                         Geert
-> 
-> --
-> Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-> 
-> In personal conversations with technical people, I call myself a hacker. But
-> when I'm talking to journalists I just say "programmer" or something like that.
->                                 -- Linus Torvalds
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 7cc62b9..20dd417 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -2527,6 +2527,16 @@ static int sctp_setsockopt_peer_addr_params(struct sock *sk,
+ 	return 0;
+ }
+ 
++static inline __u32 sctp_spp_sackdelay_enable(__u32 param_flags)
++{
++	return (param_flags & ~SPP_SACKDELAY) | SPP_SACKDELAY_ENABLE;
++}
++
++static inline __u32 sctp_spp_sackdelay_disable(__u32 param_flags)
++{
++	return (param_flags & ~SPP_SACKDELAY) | SPP_SACKDELAY_DISABLE;
++}
++
+ /*
+  * 7.1.23.  Get or set delayed ack timer (SCTP_DELAYED_SACK)
+  *
+@@ -2610,37 +2620,31 @@ static int sctp_setsockopt_delayed_ack(struct sock *sk,
+ 			asoc->sackdelay =
+ 				msecs_to_jiffies(params.sack_delay);
+ 			asoc->param_flags =
+-				(asoc->param_flags & ~SPP_SACKDELAY) |
+-				SPP_SACKDELAY_ENABLE;
++				sctp_spp_sackdelay_enable(asoc->param_flags);
+ 		} else {
+ 			sp->sackdelay = params.sack_delay;
+ 			sp->param_flags =
+-				(sp->param_flags & ~SPP_SACKDELAY) |
+-				SPP_SACKDELAY_ENABLE;
++				sctp_spp_sackdelay_enable(sp->param_flags);
+ 		}
+ 	}
+ 
+ 	if (params.sack_freq == 1) {
+ 		if (asoc) {
+ 			asoc->param_flags =
+-				(asoc->param_flags & ~SPP_SACKDELAY) |
+-				SPP_SACKDELAY_DISABLE;
++				sctp_spp_sackdelay_disable(asoc->param_flags);
+ 		} else {
+ 			sp->param_flags =
+-				(sp->param_flags & ~SPP_SACKDELAY) |
+-				SPP_SACKDELAY_DISABLE;
++				sctp_spp_sackdelay_disable(sp->param_flags);
+ 		}
+ 	} else if (params.sack_freq > 1) {
+ 		if (asoc) {
+ 			asoc->sackfreq = params.sack_freq;
+ 			asoc->param_flags =
+-				(asoc->param_flags & ~SPP_SACKDELAY) |
+-				SPP_SACKDELAY_ENABLE;
++				sctp_spp_sackdelay_enable(asoc->param_flags);
+ 		} else {
+ 			sp->sackfreq = params.sack_freq;
+ 			sp->param_flags =
+-				(sp->param_flags & ~SPP_SACKDELAY) |
+-				SPP_SACKDELAY_ENABLE;
++				sctp_spp_sackdelay_enable(sp->param_flags);
+ 		}
+ 	}
+ 
+@@ -2652,18 +2656,15 @@ static int sctp_setsockopt_delayed_ack(struct sock *sk,
+ 				trans->sackdelay =
+ 					msecs_to_jiffies(params.sack_delay);
+ 				trans->param_flags =
+-					(trans->param_flags & ~SPP_SACKDELAY) |
+-					SPP_SACKDELAY_ENABLE;
++					sctp_spp_sackdelay_enable(trans->param_flags);
+ 			}
+ 			if (params.sack_freq == 1) {
+ 				trans->param_flags =
+-					(trans->param_flags & ~SPP_SACKDELAY) |
+-					SPP_SACKDELAY_DISABLE;
++					sctp_spp_sackdelay_disable(trans->param_flags);
+ 			} else if (params.sack_freq > 1) {
+ 				trans->sackfreq = params.sack_freq;
+ 				trans->param_flags =
+-					(trans->param_flags & ~SPP_SACKDELAY) |
+-					SPP_SACKDELAY_ENABLE;
++					sctp_spp_sackdelay_enable(trans->param_flags);
+ 			}
+ 		}
+ 	}
+-- 
+1.7.12
