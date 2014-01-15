@@ -1,200 +1,187 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 10/11] be2net: cleanup wake-on-lan code
-Date: Wed, 15 Jan 2014 13:23:40 +0530
-Message-ID: <1389772421-24925-11-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next 08/11] be2net: do not use frag index in the RX-compl entry
+Date: Wed, 15 Jan 2014 13:23:38 +0530
+Message-ID: <1389772421-24925-9-git-send-email-sathya.perla@emulex.com>
 References: <1389772421-24925-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:17692 "EHLO
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:17691 "EHLO
 	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751832AbaAOHtX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 02:49:23 -0500
+	with ESMTP id S1751310AbaAOHtU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 02:49:20 -0500
 In-Reply-To: <1389772421-24925-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Suresh Reddy <suresh.reddy@emulex.com>
 
-This patch cleans-up wake-on-lan code in the following ways:
-1) Removes some driver hacks in be_cmd_get_acpi_wol_cap() that were based
-on incorrect assumptions.
-2) Uses the adapter->wol_en and wol_cap variables for checking if WoL
-is supported and enabled on an interface instead of referring to the
-exclusion list via the macro be_is_wol_supported()
+Instead, use the tail of the RXQ to pick the associated RXQ entry
+
+This fix is required in preparation for supporting RXQ lengths greater than 1K.
+For such queues, the frag index in the RX-compl entry is not valid as it is only a 10 bit entry not capable of addressing RXQs longer than 1K.
 
 Signed-off-by: Suresh Reddy <suresh.reddy@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h         |    2 +-
- drivers/net/ethernet/emulex/benet/be_cmds.c    |   16 +++++++---------
- drivers/net/ethernet/emulex/benet/be_ethtool.c |   13 +++++++------
- drivers/net/ethernet/emulex/benet/be_main.c    |   23 ++++-------------------
- 4 files changed, 19 insertions(+), 35 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h      |    1 -
+ drivers/net/ethernet/emulex/benet/be_main.c |   30 ++++++++------------------
+ 2 files changed, 9 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 7f00bae..93826ae 100644
+index b74d81d..7f00bae 100644
 --- a/drivers/net/ethernet/emulex/benet/be.h
 +++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -492,7 +492,7 @@ struct be_adapter {
- 	u16 pvid;
- 	struct phy_info phy;
- 	u8 wol_cap;
--	bool wol;
-+	bool wol_en;
- 	u32 uc_macs;		/* Count of secondary UC MAC programmed */
- 	u16 asic_rev;
- 	u16 qnq_vid;
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 5635f1e..48076a6 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -3040,14 +3040,16 @@ int be_cmd_get_acpi_wol_cap(struct be_adapter *adapter)
- {
- 	struct be_mcc_wrb *wrb;
- 	struct be_cmd_req_acpi_wol_magic_config_v1 *req;
--	int status;
--	int payload_len = sizeof(*req);
-+	int status = 0;
- 	struct be_dma_mem cmd;
- 
- 	if (!be_cmd_allowed(adapter, OPCODE_ETH_ACPI_WOL_MAGIC_CONFIG,
- 			    CMD_SUBSYSTEM_ETH))
- 		return -EPERM;
- 
-+	if (be_is_wol_excluded(adapter))
-+		return status;
-+
- 	if (mutex_lock_interruptible(&adapter->mbox_lock))
- 		return -1;
- 
-@@ -3072,7 +3074,7 @@ int be_cmd_get_acpi_wol_cap(struct be_adapter *adapter)
- 
- 	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_ETH,
- 			       OPCODE_ETH_ACPI_WOL_MAGIC_CONFIG,
--			       payload_len, wrb, &cmd);
-+			       sizeof(*req), wrb, &cmd);
- 
- 	req->hdr.version = 1;
- 	req->query_options = BE_GET_WOL_CAP;
-@@ -3082,13 +3084,9 @@ int be_cmd_get_acpi_wol_cap(struct be_adapter *adapter)
- 		struct be_cmd_resp_acpi_wol_magic_config_v1 *resp;
- 		resp = (struct be_cmd_resp_acpi_wol_magic_config_v1 *) cmd.va;
- 
--		/* the command could succeed misleadingly on old f/w
--		 * which is not aware of the V1 version. fake an error. */
--		if (resp->hdr.response_length < payload_len) {
--			status = -1;
--			goto err;
--		}
- 		adapter->wol_cap = resp->wol_settings;
-+		if (adapter->wol_cap & BE_WOL_CAP)
-+			adapter->wol_en = true;
- 	}
- err:
- 	mutex_unlock(&adapter->mbox_lock);
-diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index a7b5aa7..05be007 100644
---- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -713,12 +713,13 @@ be_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
- 
--	if (be_is_wol_supported(adapter)) {
-+	if (adapter->wol_cap & BE_WOL_CAP) {
- 		wol->supported |= WAKE_MAGIC;
--		if (adapter->wol)
-+		if (adapter->wol_en)
- 			wol->wolopts |= WAKE_MAGIC;
--	} else
-+	} else {
- 		wol->wolopts = 0;
-+	}
- 	memset(&wol->sopass, 0, sizeof(wol->sopass));
- }
- 
-@@ -730,15 +731,15 @@ be_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
- 	if (wol->wolopts & ~WAKE_MAGIC)
- 		return -EOPNOTSUPP;
- 
--	if (!be_is_wol_supported(adapter)) {
-+	if (!(adapter->wol_cap & BE_WOL_CAP)) {
- 		dev_warn(&adapter->pdev->dev, "WOL not supported\n");
- 		return -EOPNOTSUPP;
- 	}
- 
- 	if (wol->wolopts & WAKE_MAGIC)
--		adapter->wol = true;
-+		adapter->wol_en = true;
- 	else
--		adapter->wol = false;
-+		adapter->wol_en = false;
- 
- 	return 0;
- }
+@@ -283,7 +283,6 @@ struct be_rx_compl_info {
+ 	u32 rss_hash;
+ 	u16 vlan_tag;
+ 	u16 pkt_size;
+-	u16 rxq_idx;
+ 	u16 port;
+ 	u8 vlanf;
+ 	u8 num_rcvd;
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 43cb458..6d22d6f 100644
+index 9c90a87..9704a1b 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3408,6 +3408,8 @@ static int be_setup(struct be_adapter *adapter)
- 
- 	be_set_rx_mode(adapter->netdev);
- 
-+	be_cmd_get_acpi_wol_cap(adapter);
-+
- 	be_cmd_get_flow_control(adapter, &tx_fc, &rx_fc);
- 
- 	if (rx_fc != adapter->rx_fc || tx_fc != adapter->tx_fc)
-@@ -4277,12 +4279,6 @@ static void be_remove(struct pci_dev *pdev)
- 	free_netdev(adapter->netdev);
+@@ -1442,12 +1442,12 @@ static inline bool csum_passed(struct be_rx_compl_info *rxcp)
+ 				(rxcp->ip_csum || rxcp->ipv6);
  }
  
--bool be_is_wol_supported(struct be_adapter *adapter)
--{
--	return ((adapter->wol_cap & BE_WOL_CAP) &&
--		!be_is_wol_excluded(adapter)) ? true : false;
--}
--
- static int be_get_initial_config(struct be_adapter *adapter)
+-static struct be_rx_page_info *get_rx_page_info(struct be_rx_obj *rxo,
+-						u16 frag_idx)
++static struct be_rx_page_info *get_rx_page_info(struct be_rx_obj *rxo)
  {
- 	int status, level;
-@@ -4291,17 +4287,6 @@ static int be_get_initial_config(struct be_adapter *adapter)
- 	if (status)
- 		return status;
+ 	struct be_adapter *adapter = rxo->adapter;
+ 	struct be_rx_page_info *rx_page_info;
+ 	struct be_queue_info *rxq = &rxo->q;
++	u16 frag_idx = rxq->tail;
  
--	status = be_cmd_get_acpi_wol_cap(adapter);
--	if (status) {
--		/* in case of a failure to get wol capabillities
--		 * check the exclusion list to determine WOL capability */
--		if (!be_is_wol_excluded(adapter))
--			adapter->wol_cap |= BE_WOL_CAP;
--	}
--
--	if (be_is_wol_supported(adapter))
--		adapter->wol = true;
--
- 	/* Must be a power of 2 or else MODULO will BUG_ON */
- 	adapter->be_get_temp_freq = 64;
+ 	rx_page_info = &rxo->page_info_tbl[frag_idx];
+ 	BUG_ON(!rx_page_info->page);
+@@ -1459,6 +1459,7 @@ static struct be_rx_page_info *get_rx_page_info(struct be_rx_obj *rxo,
+ 		rx_page_info->last_page_user = false;
+ 	}
  
-@@ -4572,7 +4557,7 @@ static int be_suspend(struct pci_dev *pdev, pm_message_t state)
- 	struct be_adapter *adapter = pci_get_drvdata(pdev);
- 	struct net_device *netdev =  adapter->netdev;
++	queue_tail_inc(rxq);
+ 	atomic_dec(&rxq->used);
+ 	return rx_page_info;
+ }
+@@ -1467,15 +1468,13 @@ static struct be_rx_page_info *get_rx_page_info(struct be_rx_obj *rxo,
+ static void be_rx_compl_discard(struct be_rx_obj *rxo,
+ 				struct be_rx_compl_info *rxcp)
+ {
+-	struct be_queue_info *rxq = &rxo->q;
+ 	struct be_rx_page_info *page_info;
+ 	u16 i, num_rcvd = rxcp->num_rcvd;
  
--	if (adapter->wol)
-+	if (adapter->wol_en)
- 		be_setup_wol(adapter, true);
+ 	for (i = 0; i < num_rcvd; i++) {
+-		page_info = get_rx_page_info(rxo, rxcp->rxq_idx);
++		page_info = get_rx_page_info(rxo);
+ 		put_page(page_info->page);
+ 		memset(page_info, 0, sizeof(*page_info));
+-		index_inc(&rxcp->rxq_idx, rxq->len);
+ 	}
+ }
  
- 	be_intr_set(adapter, false);
-@@ -4628,7 +4613,7 @@ static int be_resume(struct pci_dev *pdev)
- 			      msecs_to_jiffies(1000));
- 	netif_device_attach(netdev);
+@@ -1486,13 +1485,12 @@ static void be_rx_compl_discard(struct be_rx_obj *rxo,
+ static void skb_fill_rx_data(struct be_rx_obj *rxo, struct sk_buff *skb,
+ 			     struct be_rx_compl_info *rxcp)
+ {
+-	struct be_queue_info *rxq = &rxo->q;
+ 	struct be_rx_page_info *page_info;
+ 	u16 i, j;
+ 	u16 hdr_len, curr_frag_len, remaining;
+ 	u8 *start;
  
--	if (adapter->wol)
-+	if (adapter->wol_en)
- 		be_setup_wol(adapter, false);
+-	page_info = get_rx_page_info(rxo, rxcp->rxq_idx);
++	page_info = get_rx_page_info(rxo);
+ 	start = page_address(page_info->page) + page_info->page_offset;
+ 	prefetch(start);
  
- 	return 0;
+@@ -1526,10 +1524,9 @@ static void skb_fill_rx_data(struct be_rx_obj *rxo, struct sk_buff *skb,
+ 	}
+ 
+ 	/* More frags present for this completion */
+-	index_inc(&rxcp->rxq_idx, rxq->len);
+ 	remaining = rxcp->pkt_size - curr_frag_len;
+ 	for (i = 1, j = 0; i < rxcp->num_rcvd; i++) {
+-		page_info = get_rx_page_info(rxo, rxcp->rxq_idx);
++		page_info = get_rx_page_info(rxo);
+ 		curr_frag_len = min(remaining, rx_frag_size);
+ 
+ 		/* Coalesce all frags from the same physical page in one slot */
+@@ -1550,7 +1547,6 @@ static void skb_fill_rx_data(struct be_rx_obj *rxo, struct sk_buff *skb,
+ 		skb->data_len += curr_frag_len;
+ 		skb->truesize += rx_frag_size;
+ 		remaining -= curr_frag_len;
+-		index_inc(&rxcp->rxq_idx, rxq->len);
+ 		page_info->page = NULL;
+ 	}
+ 	BUG_ON(j > MAX_SKB_FRAGS);
+@@ -1598,7 +1594,6 @@ static void be_rx_compl_process_gro(struct be_rx_obj *rxo,
+ 	struct be_adapter *adapter = rxo->adapter;
+ 	struct be_rx_page_info *page_info;
+ 	struct sk_buff *skb = NULL;
+-	struct be_queue_info *rxq = &rxo->q;
+ 	u16 remaining, curr_frag_len;
+ 	u16 i, j;
+ 
+@@ -1610,7 +1605,7 @@ static void be_rx_compl_process_gro(struct be_rx_obj *rxo,
+ 
+ 	remaining = rxcp->pkt_size;
+ 	for (i = 0, j = -1; i < rxcp->num_rcvd; i++) {
+-		page_info = get_rx_page_info(rxo, rxcp->rxq_idx);
++		page_info = get_rx_page_info(rxo);
+ 
+ 		curr_frag_len = min(remaining, rx_frag_size);
+ 
+@@ -1628,7 +1623,6 @@ static void be_rx_compl_process_gro(struct be_rx_obj *rxo,
+ 		skb_frag_size_add(&skb_shinfo(skb)->frags[j], curr_frag_len);
+ 		skb->truesize += rx_frag_size;
+ 		remaining -= curr_frag_len;
+-		index_inc(&rxcp->rxq_idx, rxq->len);
+ 		memset(page_info, 0, sizeof(*page_info));
+ 	}
+ 	BUG_ON(j > MAX_SKB_FRAGS);
+@@ -1663,8 +1657,6 @@ static void be_parse_rx_compl_v1(struct be_eth_rx_compl *compl,
+ 		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, l4_cksm, compl);
+ 	rxcp->ipv6 =
+ 		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, ip_version, compl);
+-	rxcp->rxq_idx =
+-		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, fragndx, compl);
+ 	rxcp->num_rcvd =
+ 		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, numfrags, compl);
+ 	rxcp->pkt_type =
+@@ -1695,8 +1687,6 @@ static void be_parse_rx_compl_v0(struct be_eth_rx_compl *compl,
+ 		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, l4_cksm, compl);
+ 	rxcp->ipv6 =
+ 		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, ip_version, compl);
+-	rxcp->rxq_idx =
+-		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, fragndx, compl);
+ 	rxcp->num_rcvd =
+ 		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, numfrags, compl);
+ 	rxcp->pkt_type =
+@@ -1914,7 +1904,6 @@ static void be_rx_cq_clean(struct be_rx_obj *rxo)
+ 	struct be_rx_compl_info *rxcp;
+ 	struct be_adapter *adapter = rxo->adapter;
+ 	int flush_wait = 0;
+-	u16 tail;
+ 
+ 	/* Consume pending rx completions.
+ 	 * Wait for the flush completion (identified by zero num_rcvd)
+@@ -1947,9 +1936,8 @@ static void be_rx_cq_clean(struct be_rx_obj *rxo)
+ 	be_cq_notify(adapter, rx_cq->id, false, 0);
+ 
+ 	/* Then free posted rx buffers that were not used */
+-	tail = (rxq->head + rxq->len - atomic_read(&rxq->used)) % rxq->len;
+-	for (; atomic_read(&rxq->used) > 0; index_inc(&tail, rxq->len)) {
+-		page_info = get_rx_page_info(rxo, tail);
++	while (atomic_read(&rxq->used) > 0) {
++		page_info = get_rx_page_info(rxo);
+ 		put_page(page_info->page);
+ 		memset(page_info, 0, sizeof(*page_info));
+ 	}
 -- 
 1.7.1
