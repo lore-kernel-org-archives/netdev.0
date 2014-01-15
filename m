@@ -1,23 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] qlcnic: fix compiler warning
-Date: Tue, 14 Jan 2014 18:06:05 -0800 (PST)
-Message-ID: <20140114.180605.172694809415274537.davem@davemloft.net>
-References: <20140114152127.GA13575@reykholt.kaiser.cx>
+Subject: Re: [Patch net-next] net_sched: act: remove headers in
+ include/net/tc_act/
+Date: Tue, 14 Jan 2014 18:12:13 -0800 (PST)
+Message-ID: <20140114.181213.695613248997119103.davem@davemloft.net>
+References: <1389747699-32508-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shahed.shaikh@qlogic.com,
-	linux-kernel@vger.kernel.org, trivial@kernel.org
-To: martin@kaiser.cx
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140114152127.GA13575@reykholt.kaiser.cx>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54374 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750928AbaAOCMO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 21:12:14 -0500
+In-Reply-To: <1389747699-32508-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Martin Kaiser <martin@kaiser.cx>
-Date: Tue, 14 Jan 2014 16:21:28 +0100
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Tue, 14 Jan 2014 17:01:39 -0800
 
-> re-sent as requested by David M.
+> These headers are not necessary because those definitions in them
+> are action specific and are not shared for others. Just move them
+> into the C files.
+> 
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Sorry, dianthong sent his version of the fix meanwhile and I applied
-his copy.
+Like Eric, I think this is a dubious change.
+
+There is nothing wrong with using these headers to define the
+core data structures used by each of these actions modules.
+
+I'm not applying this, sorry.
