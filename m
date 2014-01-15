@@ -1,40 +1,54 @@
-From: Bruce Liu <damuzi000@gmail.com>
-Subject: [PATCH net-next] net: stmmac: fix NULL pointer dereference in stmmac_get_tx_hwtstamp
-Date: Wed, 15 Jan 2014 22:26:07 +0800
-Message-ID: <1389795967-2452-1-git-send-email-damuzi000@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Bruce Liu <damuzi000@gmail.com>
-To: peppe.cavallaro@st.com
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next] xen-netfront: clean up code in
+ xennet_release_rx_bufs
+Date: Wed, 15 Jan 2014 14:32:53 +0000
+Message-ID: <20140115143253.GN5698@zion.uk.xensource.com>
+References: <1389307718-2845-1-git-send-email-Annie.li@oracle.com>
+ <52D66F11.204@citrix.com>
+ <20140115114208.GK5698@zion.uk.xensource.com>
+ <52D67677.4050407@citrix.com>
+ <52D69864.9030207@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: David Vrabel <david.vrabel@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>, <ian.campbell@citrix.com>
+To: annie li <annie.li@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:43541 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751664AbaAOO0h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 09:26:37 -0500
+Received: from smtp02.citrix.com ([66.165.176.63]:30991 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751651AbaAOOcz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 09:32:55 -0500
+Content-Disposition: inline
+In-Reply-To: <52D69864.9030207@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When timestamping is enabled, stmmac_tx_clean will call
-stmmac_get_tx_hwtstamp to get tx TS.
-But the skb can be NULL because the last of its tx_skbuff is NULL
-if this packet frame is filled in more than one descriptors.
+On Wed, Jan 15, 2014 at 10:17:08PM +0800, annie li wrote:
+[...]
+> >Having gnttab_end_foreign_access() do a free just looks odd to me, the
+> >free isn't paired with any alloc in the grant table code.
+> >
+> >It seems more logical to me that granting access takes an additional
+> >page ref, and then ending access releases that ref.
+> 
+> I am thinking of two ways, and they can be implemented in new patches.
+> 1. If gnttab_end_foreign_access_ref succeeds, then kfree_skb is
+> called to free skb. Otherwise, using gnttab_end_foreign_access to
+> release ref and pages.
 
-Signed-off-by: Bruce Liu <damuzi000@gmail.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+This is probably not a very good idea as skb_free does a lot more things
+than simply freeing pages. You're still leaking something (skb: state,
+head etc.) with this approach.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 797b56a..47f2287 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -332,7 +332,7 @@ static void stmmac_get_tx_hwtstamp(struct stmmac_priv *priv,
- 		return;
- 
- 	/* exit if skb doesn't support hw tstamp */
--	if (likely(!(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS)))
-+	if (likely(!skb || !(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS)))
- 		return;
- 
- 	if (priv->adv_ts)
--- 
-1.7.9.5
+> 2. Add a similar deferred way of gnttab_end_foreign_access in
+> gnttab_end_foreign_access_ref.
+> 
+> Thanks
+> Annie
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
