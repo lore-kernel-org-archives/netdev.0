@@ -1,44 +1,86 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Route exceptions for IPv6 routes?
-Date: Wed, 15 Jan 2014 12:51:15 +0100
-Message-ID: <20140115115115.GD19945@order.stressinduktion.org>
-References: <trinity-d0560a1c-2418-449e-b478-ebc707cea8e5-1389772882296@3capp-gmx-bs10>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next] xen-netfront: clean up code in xennet_release_rx_bufs
+Date: Wed, 15 Jan 2014 11:52:23 +0000
+Message-ID: <52D67677.4050407@citrix.com>
+References: <1389307718-2845-1-git-send-email-Annie.li@oracle.com> <52D66F11.204@citrix.com> <20140115114208.GK5698@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Simon Schneider <simon-schneider@gmx.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Annie Li <Annie.li@oracle.com>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>, <ian.campbell@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:38986 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751719AbaAOLvQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 06:51:16 -0500
-Content-Disposition: inline
-In-Reply-To: <trinity-d0560a1c-2418-449e-b478-ebc707cea8e5-1389772882296@3capp-gmx-bs10>
+Received: from smtp02.citrix.com ([66.165.176.63]:9772 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751317AbaAOLwZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jan 2014 06:52:25 -0500
+In-Reply-To: <20140115114208.GK5698@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
-
-On Wed, Jan 15, 2014 at 09:01:22AM +0100, Simon Schneider wrote:
-> I learned that the routing cache was removed from the kernel for several reasons.
+On 15/01/14 11:42, Wei Liu wrote:
+> On Wed, Jan 15, 2014 at 11:20:49AM +0000, David Vrabel wrote:
+>> On 09/01/14 22:48, Annie Li wrote:
+>>> Current netfront only grants pages for grant copy, not for grant transfer, so
+>>> remove corresponding transfer code and add receiving copy code in
+>>> xennet_release_rx_bufs.
+>>
+>> While netfront only supports a copying backend, I don't see anything
+>> preventing the backend from retaining mappings to netfront's Rx buffers...
+>>
 > 
-> Some functions have been replaced with the route exceptions, e.g. storing the path MTU.
+> Correct.
 > 
-> My question: is this valid for both IPv4 as well as IPv6 routing, i.e. do the route exceptions work in the same way for IPv6 routes as they work for IPv4 routes?
+>>> Signed-off-by: Annie Li <Annie.li@oracle.com>
+>>> ---
+>>>  drivers/net/xen-netfront.c |   60 ++-----------------------------------------
+>>>  1 files changed, 3 insertions(+), 57 deletions(-)
+>>>
+>>> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+>>> index e59acb1..692589e 100644
+>>> --- a/drivers/net/xen-netfront.c
+>>> +++ b/drivers/net/xen-netfront.c
+>>> @@ -1134,78 +1134,24 @@ static void xennet_release_tx_bufs(struct netfront_info *np)
+>>>  
+>>>  static void xennet_release_rx_bufs(struct netfront_info *np)
+>>>  {
+>> [...]
+>>> -		mfn = gnttab_end_foreign_transfer_ref(ref);
+>>> +		gnttab_end_foreign_access_ref(ref, 0);
+>>
+>> ... the gnttab_end_foreign_access_ref() may then fail and...
+>>
+> 
+> Oh, I see. Andrew was actually referencing this function. Yes, it can
+> fail. Since he omitted "_ref" I looked at the other function when I
+> replied to him...
+> 
+>>>  		gnttab_release_grant_reference(&np->gref_rx_head, ref);
+>>>  		np->grant_rx_ref[id] = GRANT_INVALID_REF;
+>> [...]
+>>> +		kfree_skb(skb);
+>>
+>> ... this could then potentially free pages that the backend still has
+>> mapped.  If the pages are then reused, this would leak information to
+>> the backend.
+>>
+>> Since only a buggy backend would result in this, leaking the skbs and
+>> grant refs would be acceptable here.  I would also print an error.
+>>
+> 
+> How about using gnttab_end_foreign_access. The deferred queue looks like
+> a right solution -- pending page won't get freed until gref is
+> quiescent.
 
-No, situation in IPv6 land is not so good.
+This is more like the correct approach but I don't think it still quite
+right.  The skb owns the pages so we don't want
+gnttab_end_foreign_access() to free them as freeing the skb will attempt
+to free them again.
 
-Currently as soon as a destination (or destination + source in case of
-subtrees are in use) is resolved the routing entry is cloned and stored back
-into the same trie with RTF_CACHE flag.
+Having gnttab_end_foreign_access() do a free just looks odd to me, the
+free isn't paired with any alloc in the grant table code.
 
-There are no nh-exceptions and there is no aggressive sharing taking place to
-try to reduce the number of exceptions. This is especially bad for forwarding
-setups, but seems to work fine for most people currently. ;)
+It seems more logical to me that granting access takes an additional
+page ref, and then ending access releases that ref.
 
-Actually, implementing this is part of the work I am currently doing
-but this needs still time until I can manage to propose this for upstream.
-
-Greetings,
-
-  Hannes
+David
