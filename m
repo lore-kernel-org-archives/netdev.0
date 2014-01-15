@@ -1,39 +1,74 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next] xen-netback: Rework rx_work_todo
-Date: Wed, 15 Jan 2014 10:37:07 +0000
-Message-ID: <20140115103707.GI5698@zion.uk.xensource.com>
-References: <1389727719-21439-1-git-send-email-zoltan.kiss@citrix.com>
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Subject: Re: [PATCH net] bpf: do not use reciprocal divide
+Date: Wed, 15 Jan 2014 11:51:14 +0100
+Message-ID: <20140115105114.GB6638@osiris>
+References: <20140113214249.GK6586@order.stressinduktion.org>
+ <1389769361.31367.325.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140115080007.GA6638@osiris>
+ <20140115091322.3a7740a7@mschwide>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, dborkman@redhat.com,
+	darkjames-ws@darkjames.pl, Mircea Gherzan <mgherzan@gmail.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	Matt Evans <matt@ozlabs.org>
+To: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e06smtp17.uk.ibm.com ([195.75.94.113]:55761 "EHLO
+	e06smtp17.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751553AbaAOKvV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 05:51:21 -0500
+Received: from /spool/local
+	by e06smtp17.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <heiko.carstens@de.ibm.com>;
+	Wed, 15 Jan 2014 10:51:19 -0000
+Received: from b06cxnps3075.portsmouth.uk.ibm.com (d06relay10.portsmouth.uk.ibm.com [9.149.109.195])
+	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id 620D8219005E
+	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 10:51:15 +0000 (GMT)
+Received: from d06av11.portsmouth.uk.ibm.com (d06av11.portsmouth.uk.ibm.com [9.149.37.252])
+	by b06cxnps3075.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s0FAp4k6590142
+	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 10:51:04 GMT
+Received: from d06av11.portsmouth.uk.ibm.com (localhost [127.0.0.1])
+	by d06av11.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s0FApFdo001965
+	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 03:51:16 -0700
 Content-Disposition: inline
-In-Reply-To: <1389727719-21439-1-git-send-email-zoltan.kiss@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20140115091322.3a7740a7@mschwide>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 14, 2014 at 07:28:39PM +0000, Zoltan Kiss wrote:
-> The recent patch to fix receive side flow control (11b57f) solved the spinning
-> thread problem, however caused an another one. The receive side can stall, if:
-> - xenvif_rx_action sets rx_queue_stopped to false
-> - interrupt happens, and sets rx_event to true
-> - then xenvif_kthread sets rx_event to false
+On Wed, Jan 15, 2014 at 09:13:22AM +0100, Martin Schwidefsky wrote:
+> On Wed, 15 Jan 2014 09:00:07 +0100
+> Heiko Carstens <heiko.carstens@de.ibm.com> wrote:
 > 
+> > On Tue, Jan 14, 2014 at 11:02:41PM -0800, Eric Dumazet wrote:
+> > > diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
+> > > index 16871da37371..e349dc7d0992 100644
+> > > --- a/arch/s390/net/bpf_jit_comp.c
+> > > +++ b/arch/s390/net/bpf_jit_comp.c
+> > > @@ -371,11 +371,11 @@ static int bpf_jit_insn(struct bpf_jit *jit, struct sock_filter *filter,
+> > >  		/* dr %r4,%r12 */
+> > >  		EMIT2(0x1d4c);
+> > >  		break;
+> > > -	case BPF_S_ALU_DIV_K: /* A = reciprocal_divide(A, K) */
+> > > -		/* m %r4,<d(K)>(%r13) */
+> > > -		EMIT4_DISP(0x5c40d000, EMIT_CONST(K));
+> > > -		/* lr %r5,%r4 */
+> > > -		EMIT2(0x1854);
+> > > +	case BPF_S_ALU_DIV_K: /* A /= K */
+> > > +		/* lhi %r4,0 */
+> > > +		EMIT4(0xa7480000);
+> > > +		/* d %r4,<d(K)>(%r13) */
+> > > +		EMIT4_DISP(0x5d40d000, EMIT_CONST(K));
+> > >  		break;
+> > 
+> > The s390 part looks good.
+> 
+> Does it? The divide instruction is signed, for the special
+> case of K==1 this can now cause an exception if the quotient
+> gets too large. We should add a check for K==1 and do nothing
+> in this case. With a divisor of at least 2 the result will
+> stay in the limit.
 
-If you mean "rx_work_todo" returns false.
-
-In this case
-
-(!skb_queue_empty(&vif->rx_queue) && !vif->rx_queue_stopped) || vif->rx_event;
-
-can still be true, can't it?
-
-> Also, through rx_event a malicious guest can force the RX thread to spin. This
-> patch ditch that two variable, and rework rx_work_todo. If the thread finds it
-
-This seems to be a bigger problem. Can you elaborate?
-
-Wei.
+Indeed. That's quite subtle.
