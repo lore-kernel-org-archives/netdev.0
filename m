@@ -1,124 +1,33 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] tun/macvtap: limit the packets queued through
- rcvbuf
-Date: Wed, 15 Jan 2014 09:21:04 +0200
-Message-ID: <20140115072104.GA32078@redhat.com>
-References: <1389682387-28601-1-git-send-email-jasowang@redhat.com>
- <20140114082516.GB1101@redhat.com>
- <52D4F924.2040502@redhat.com>
- <20140114095219.GB2846@redhat.com>
- <52D60221.1060701@redhat.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH net-next 0/6] mvneta driver performance improvements
+Date: Wed, 15 Jan 2014 08:25:44 +0100
+Message-ID: <20140115072543.GC4605@1wt.eu>
+References: <1389525848-1814-1-git-send-email-w@1wt.eu> <20140114.170026.713728312597031838.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Vlad Yasevich <vyasevic@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 1wt.eu ([62.212.114.60]:55397 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750784AbaAOHZr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jan 2014 02:25:47 -0500
 Content-Disposition: inline
-In-Reply-To: <52D60221.1060701@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20140114.170026.713728312597031838.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 15, 2014 at 11:36:01AM +0800, Jason Wang wrote:
-> On 01/14/2014 05:52 PM, Michael S. Tsirkin wrote:
-> > On Tue, Jan 14, 2014 at 04:45:24PM +0800, Jason Wang wrote:
-> >> > On 01/14/2014 04:25 PM, Michael S. Tsirkin wrote:
-> >>> > > On Tue, Jan 14, 2014 at 02:53:07PM +0800, Jason Wang wrote:
-> >>>> > >> We used to limit the number of packets queued through tx_queue_length. This
-> >>>> > >> has several issues:
-> >>>> > >>
-> >>>> > >> - tx_queue_length is the control of qdisc queue length, simply reusing it
-> >>>> > >>   to control the packets queued by device may cause confusion.
-> >>>> > >> - After commit 6acf54f1cf0a6747bac9fea26f34cfc5a9029523 ("macvtap: Add
-> >>>> > >>   support of packet capture on macvtap device."), an unexpected qdisc
-> >>>> > >>   caused by non-zero tx_queue_length will lead qdisc lock contention for
-> >>>> > >>   multiqueue deivce.
-> >>>> > >> - What we really want is to limit the total amount of memory occupied not
-> >>>> > >>   the number of packets.
-> >>>> > >>
-> >>>> > >> So this patch tries to solve the above issues by using socket rcvbuf to
-> >>>> > >> limit the packets could be queued for tun/macvtap. This was done by using
-> >>>> > >> sock_queue_rcv_skb() instead of a direct call to skb_queue_tail(). Also two
-> >>>> > >> new ioctl() were introduced for userspace to change the rcvbuf like what we
-> >>>> > >> have done for sndbuf.
-> >>>> > >>
-> >>>> > >> With this fix, we can safely change the tx_queue_len of macvtap to
-> >>>> > >> zero. This will make multiqueue works without extra lock contention.
-> >>>> > >>
-> >>>> > >> Cc: Vlad Yasevich <vyasevic@redhat.com>
-> >>>> > >> Cc: Michael S. Tsirkin <mst@redhat.com>
-> >>>> > >> Cc: John Fastabend <john.r.fastabend@intel.com>
-> >>>> > >> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> >>>> > >> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> >>>> > >> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> >>> > > No, I don't think we can change userspace-visible behaviour like that.
-> >>> > >
-> >>> > > This will break any existing user that tries to control
-> >>> > > queue length through sysfs,netlink or device ioctl.
-> >> > 
-> >> > But it looks like a buggy API, since tx_queue_len should be for qdisc
-> >> > queue length instead of device itself.
-> > Probably, but it's been like this since 2.6.x time.
-> > Also, qdisc queue is unused for tun so it seemed kind of
-> > reasonable to override tx_queue_len.
-> >
-> >> > If we really want to preserve the
-> >> > behaviour, how about using a new feature flag and change the behaviour
-> >> > only when the device is created (TUNSETIFF) with the new flag?
-> > OK this addresses the issue partially, but there's also an issue
-> > of permissions: tx_queue_len can only be changed if
-> > capable(CAP_NET_ADMIN). OTOH in your patch a regular user
-> > can change the amount of memory consumed per queue
-> > by calling TUNSETRCVBUF.
+On Tue, Jan 14, 2014 at 05:00:26PM -0800, David Miller wrote:
+> From: Willy Tarreau <w@1wt.eu>
+> Date: Sun, 12 Jan 2014 12:24:02 +0100
 > 
-> Yes, but we have the same issue for TUNSETSNDBUF.
-
-To an extent, but TUNSETSNDBUF is different. It limits how much device can queue
-*in the networking stack* but each queue in the stack is also
-limited, when we exceed that we star dropping packets.
-So while with infinite value (which is the default btw)
-you can keep host pretty busy, you will not be able to run
-it out of memory.
-
-The proposed TUNSETRCVBUF would keep configured amount
-of memory around indefinitely so you can run host out of memory.
-
-So assuming all this
-How about an ethtool or netlink command to configure this
-instead?
-
-> >
-> >>> > >
-> >>> > > Take a look at my patch in msg ID 20140109071721.GD19559@redhat.com
-> >>> > > which gives one way to set tx_queue_len to zero without
-> >>> > > breaking userspace.
-> >> > 
-> >> > If I read the patch correctly, it will make no way for the user who
-> >> > really want to change the qdisc queue length for tun.
-> > Why would this matter?  As far as I can see qdisc queue is currently unused.
-> >
+> > this patch series implements several performance improvements on the
+> > mvneta driver.
 > 
-> User may use qdisc to do port mirroring, bandwidth limitation, traffic
-> prioritization or more for a VM. So we do have users and maybe more
-> consider the case of vpn.
+> Ignore that last email, I meant to say that this series did not apply
+> cleanly to net-next, sorry for the confusion.
 
-Well it's not used by default at least.
-I remember that we discussed this previously actually.
+No problem, I'll redo it.
 
-If all we want to do actually is utilize no_qdisc by default,
-we can simply use Eric's patch:
-
-http://article.gmane.org/gmane.linux.kernel/1279597
-
-and a similar patch for macvtap.
-I tried it at the time and it didn't seem to help performance
-at all, but a lot has changed since, in particular I didn't
-test mq.
-
-If you now have results showing how it's beneficial, pls post them.
-
--- 
-MST
+thanks,
+Willy
