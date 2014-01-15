@@ -1,54 +1,63 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net-next] xen-netfront: clean up code in
- xennet_release_rx_bufs
-Date: Wed, 15 Jan 2014 11:14:22 +0000
-Message-ID: <20140115111422.GJ5698@zion.uk.xensource.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next] xen-netfront: clean up code in	xennet_release_rx_bufs
+Date: Wed, 15 Jan 2014 11:20:49 +0000
+Message-ID: <52D66F11.204@citrix.com>
 References: <1389307718-2845-1-git-send-email-Annie.li@oracle.com>
- <20140115100743.GG5698@zion.uk.xensource.com>
- <52D66ADF.9070401@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, Annie Li <Annie.li@oracle.com>,
-	<netdev@vger.kernel.org>, <ian.campbell@citrix.com>,
-	<xen-devel@lists.xen.org>
-To: Andrew Bennieston <andrew.bennieston@citrix.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	<wei.liu2@citrix.com>, <ian.campbell@citrix.com>
+To: Annie Li <Annie.li@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:22864 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751350AbaAOLOY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jan 2014 06:14:24 -0500
-Content-Disposition: inline
-In-Reply-To: <52D66ADF.9070401@citrix.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:50314 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750941AbaAOLUx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 06:20:53 -0500
+In-Reply-To: <1389307718-2845-1-git-send-email-Annie.li@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 15, 2014 at 11:02:55AM +0000, Andrew Bennieston wrote:
-> On 15/01/14 10:07, Wei Liu wrote:
-> >On Fri, Jan 10, 2014 at 06:48:38AM +0800, Annie Li wrote:
-> >>Current netfront only grants pages for grant copy, not for grant transfer, so
-> >>remove corresponding transfer code and add receiving copy code in
-> >>xennet_release_rx_bufs.
-> >>
-> >
-> >This path seldom gets call -- not that many people unload xen-netfront
-> >driver. If Annie has tested this patch and it works as expected I think
-> >it's fine.
-> >
-> In XenServer we have seen a number of cases where unplugging and
-> replugging VIFs results in leakage of grant references, eventually
-> leading to a case where you cannot plug a VIF (after ~ 400 such
-> cycles)...
+On 09/01/14 22:48, Annie Li wrote:
+> Current netfront only grants pages for grant copy, not for grant transfer, so
+> remove corresponding transfer code and add receiving copy code in
+> xennet_release_rx_bufs.
+
+While netfront only supports a copying backend, I don't see anything
+preventing the backend from retaining mappings to netfront's Rx buffers...
+
+> Signed-off-by: Annie Li <Annie.li@oracle.com>
+> ---
+>  drivers/net/xen-netfront.c |   60 ++-----------------------------------------
+>  1 files changed, 3 insertions(+), 57 deletions(-)
 > 
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index e59acb1..692589e 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -1134,78 +1134,24 @@ static void xennet_release_tx_bufs(struct netfront_info *np)
+>  
+>  static void xennet_release_rx_bufs(struct netfront_info *np)
+>  {
+[...]
+> -		mfn = gnttab_end_foreign_transfer_ref(ref);
+> +		gnttab_end_foreign_access_ref(ref, 0);
 
-OK, this makes sense.
+... the gnttab_end_foreign_access_ref() may then fail and...
 
-> It's worth pointing out, as far as this patch is concerned, that
-> gnttab_end_foreign_access() can fail, which is not taken into
-> account here.
-> 
+>  		gnttab_release_grant_reference(&np->gref_rx_head, ref);
+>  		np->grant_rx_ref[id] = GRANT_INVALID_REF;
+[...]
+> +		kfree_skb(skb);
 
-How? gnttab_end_foreign_access doesn't return any error. The gref which
-cannot be freed right away will be added to a deferred list and handle
-later.
+... this could then potentially free pages that the backend still has
+mapped.  If the pages are then reused, this would leak information to
+the backend.
 
-Wei.
+Since only a buggy backend would result in this, leaking the skbs and
+grant refs would be acceptable here.  I would also print an error.
+
+While checking blkfront for how it handles this, it also doesn't appear
+to do the right thing either.
+
+David
