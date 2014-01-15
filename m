@@ -1,42 +1,63 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv4 net-next 6/6] xfrm: Don't prohibit AH from using ESN feature
-Date: Wed, 15 Jan 2014 15:13:15 +0800
-Message-ID: <1389769995-350-7-git-send-email-fan.du@windriver.com>
-References: <1389769995-350-1-git-send-email-fan.du@windriver.com>
+Subject: [PATCHv4 net-next 0/6] xfrm: Add ESN support for AH
+Date: Wed, 15 Jan 2014 15:13:09 +0800
+Message-ID: <1389769995-350-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
 To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:50680 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751445AbaAOHNQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 02:13:16 -0500
-In-Reply-To: <1389769995-350-1-git-send-email-fan.du@windriver.com>
+Received: from mail.windriver.com ([147.11.1.11]:63746 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751388AbaAOHNH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 02:13:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Clear checking when user try to use ESN through netlink keymgr for AH.
-As only ESP and AH support ESN feature according to RFC.
+Hi,
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
- net/xfrm/xfrm_user.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+This is initial Extended Sequence Number support for AH based on IPv4/6.
+The rationale is totally by the RFC 4302, which states:
 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 3348566..9a80aa9 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -142,7 +142,8 @@ static inline int verify_replay(struct xfrm_usersa_info *p,
- 	if (!rt)
- 		return 0;
- 
--	if (p->id.proto != IPPROTO_ESP)
-+	/* As only ESP and AH support ESN feature. */
-+	if ((p->id.proto != IPPROTO_ESP) && (p->id.proto != IPPROTO_AH))
- 		return -EINVAL;
- 
- 	if (p->replay_window != 0)
+3.3.3.2.2.  Implicit Packet Padding and ESN
+
+   If the ESN option is elected for an SA, then the high-order 32 bits
+   of the ESN must be included in the ICV computation.  For purposes of
+   ICV computation, these bits are appended (implicitly) immediately
+   after the end of the payload, and before any implicit packet padding.
+
+So we attach the high-order 32bits as a scatterlist right after the packet
+payload to compute ICV value. 
+
+Test:
+I add a knob in iproute2/ip/xfrm_state.c to enable esn when setting SA,
+which make it possible to test with-esn and without-esn scenarios, both
+cases works ok with ping using packetsize(-s) from default to 32768. 
+
+v2:
+  - Patch3/5 and Patch4/5 add IPv6 part as requested by Steffen.
+  - Patch5/5 restrict ESN feature only to ESP and AH.
+v3:
+  - Fix double parens spotted by Sergei, and thanks for reporting.
+v4:
+  - Incorperate feedbacks from Steffen by simplify the code flow.
+  - Add Patch1/6 to introduce skb_to_sgvec_nomark
+  - Patch2/6 remove rebundant inclusion crypto/scatterwalk.h
+
+Fan Du (6):
+  skbuff: Introduce skb_to_sgvec_nomark to map skb without mark new end
+  {IPv4,xfrm} Add ESN support for AH egress part
+  {IPv4,xfrm} Add ESN support for AH ingress part
+  {IPv6,xfrm} Add ESN support for AH egress part
+  {IPv6,xfrm} Add ESN support for AH ingress part
+  xfrm: Don't prohibit AH from using ESN feature
+
+ include/linux/skbuff.h |    2 ++
+ net/core/skbuff.c      |   26 ++++++++++++++++++++++
+ net/ipv4/ah4.c         |   53 +++++++++++++++++++++++++++++++++++----------
+ net/ipv6/ah6.c         |   56 ++++++++++++++++++++++++++++++++++++++----------
+ net/xfrm/xfrm_user.c   |    3 ++-
+ 5 files changed, 117 insertions(+), 23 deletions(-)
+
 -- 
 1.7.9.5
