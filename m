@@ -1,7 +1,7 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next v2 03/10] eql: use __dev_get_by_name instead of dev_get_by_name to find interface
-Date: Wed, 15 Jan 2014 10:23:38 +0800
-Message-ID: <1389752625-23189-4-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next v2 02/10] bonding: use __dev_get_by_name instead of dev_get_by_name to find interface
+Date: Wed, 15 Jan 2014 10:23:37 +0800
+Message-ID: <1389752625-23189-3-git-send-email-ying.xue@windriver.com>
 References: <1389752625-23189-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,181 +16,92 @@ In-Reply-To: <1389752625-23189-1-git-send-email-ying.xue@windriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following call chain indicates that eql_ioctl(), eql_enslave(),
-eql_emancipate(), eql_g_slave_cfg() and eql_s_slave_cfg() are
-protected under rtnl_lock. So if we use __dev_get_by_name() instead
-of dev_get_by_name() to find interface handlers in them, this would
-help us avoid to change interface reference counters.
+The following call chain indicates that bond_do_ioctl() is protected
+under rtnl_lock. If we use __dev_get_by_name() instead of
+dev_get_by_name() to find interface handler in it, this would
+help us avoid to change reference counter of interface once.
 
 dev_ioctl()
   rtnl_lock()
-    dev_ifsioc()
-      eql_ioctl()
-        eql_enslave()
-	eql_emancipate()
-	eql_g_slave_cfg()
-	eql_s_slave_cfg()
+  dev_ifsioc()
+    bond_do_ioctl()
   rtnl_unlock()
 
-Additionally we also change their return values from -EINVAL to
--ENODEV in case that interfaces are no found.
+Additionally we also change the coding style in bond_do_ioctl(),
+letting it more readable for us.
 
+Cc: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Acked-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/eql.c |   95 +++++++++++++++++++++++------------------------------
- 1 file changed, 42 insertions(+), 53 deletions(-)
+ drivers/net/bonding/bond_main.c |   49 ++++++++++++++++++---------------------
+ 1 file changed, 23 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/eql.c b/drivers/net/eql.c
-index f219d38..7a79b60 100644
---- a/drivers/net/eql.c
-+++ b/drivers/net/eql.c
-@@ -395,6 +395,7 @@ static int __eql_insert_slave(slave_queue_t *queue, slave_t *slave)
- 		if (duplicate_slave)
- 			eql_kill_one_slave(queue, duplicate_slave);
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 7069b84..f2fe6cb 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3213,37 +3213,34 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
+ 	if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
  
-+		dev_hold(slave->dev);
- 		list_add(&slave->list, &queue->all_slaves);
- 		queue->num_slaves++;
- 		slave->dev->flags |= IFF_SLAVE;
-@@ -413,39 +414,35 @@ static int eql_enslave(struct net_device *master_dev, slaving_request_t __user *
- 	if (copy_from_user(&srq, srqp, sizeof (slaving_request_t)))
- 		return -EFAULT;
+-	slave_dev = dev_get_by_name(net, ifr->ifr_slave);
++	slave_dev = __dev_get_by_name(net, ifr->ifr_slave);
  
--	slave_dev  = dev_get_by_name(&init_net, srq.slave_name);
--	if (slave_dev) {
--		if ((master_dev->flags & IFF_UP) == IFF_UP) {
--			/* slave is not a master & not already a slave: */
--			if (!eql_is_master(slave_dev) &&
--			    !eql_is_slave(slave_dev)) {
--				slave_t *s = kmalloc(sizeof(*s), GFP_KERNEL);
--				equalizer_t *eql = netdev_priv(master_dev);
--				int ret;
--
--				if (!s) {
--					dev_put(slave_dev);
--					return -ENOMEM;
--				}
--
--				memset(s, 0, sizeof(*s));
--				s->dev = slave_dev;
--				s->priority = srq.priority;
--				s->priority_bps = srq.priority;
--				s->priority_Bps = srq.priority / 8;
--
--				spin_lock_bh(&eql->queue.lock);
--				ret = __eql_insert_slave(&eql->queue, s);
--				if (ret) {
--					dev_put(slave_dev);
--					kfree(s);
--				}
--				spin_unlock_bh(&eql->queue.lock);
--
--				return ret;
--			}
-+	slave_dev = __dev_get_by_name(&init_net, srq.slave_name);
-+	if (!slave_dev)
-+		return -ENODEV;
-+
-+	if ((master_dev->flags & IFF_UP) == IFF_UP) {
-+		/* slave is not a master & not already a slave: */
-+		if (!eql_is_master(slave_dev) && !eql_is_slave(slave_dev)) {
-+			slave_t *s = kmalloc(sizeof(*s), GFP_KERNEL);
-+			equalizer_t *eql = netdev_priv(master_dev);
-+			int ret;
-+
-+			if (!s)
-+				return -ENOMEM;
-+
-+			memset(s, 0, sizeof(*s));
-+			s->dev = slave_dev;
-+			s->priority = srq.priority;
-+			s->priority_bps = srq.priority;
-+			s->priority_Bps = srq.priority / 8;
-+
-+			spin_lock_bh(&eql->queue.lock);
-+			ret = __eql_insert_slave(&eql->queue, s);
-+			if (ret)
-+				kfree(s);
-+
-+			spin_unlock_bh(&eql->queue.lock);
-+
-+			return ret;
- 		}
--		dev_put(slave_dev);
- 	}
+ 	pr_debug("slave_dev=%p:\n", slave_dev);
  
- 	return -EINVAL;
-@@ -461,24 +458,20 @@ static int eql_emancipate(struct net_device *master_dev, slaving_request_t __use
- 	if (copy_from_user(&srq, srqp, sizeof (slaving_request_t)))
- 		return -EFAULT;
- 
--	slave_dev = dev_get_by_name(&init_net, srq.slave_name);
--	ret = -EINVAL;
--	if (slave_dev) {
--		spin_lock_bh(&eql->queue.lock);
--
--		if (eql_is_slave(slave_dev)) {
--			slave_t *slave = __eql_find_slave_dev(&eql->queue,
--							      slave_dev);
-+	slave_dev = __dev_get_by_name(&init_net, srq.slave_name);
-+	if (!slave_dev)
+ 	if (!slave_dev)
+-		res = -ENODEV;
+-	else {
+-		pr_debug("slave_dev->name=%s:\n", slave_dev->name);
+-		switch (cmd) {
+-		case BOND_ENSLAVE_OLD:
+-		case SIOCBONDENSLAVE:
+-			res = bond_enslave(bond_dev, slave_dev);
+-			break;
+-		case BOND_RELEASE_OLD:
+-		case SIOCBONDRELEASE:
+-			res = bond_release(bond_dev, slave_dev);
+-			break;
+-		case BOND_SETHWADDR_OLD:
+-		case SIOCBONDSETHWADDR:
+-			bond_set_dev_addr(bond_dev, slave_dev);
+-			res = 0;
+-			break;
+-		case BOND_CHANGE_ACTIVE_OLD:
+-		case SIOCBONDCHANGEACTIVE:
+-			res = bond_option_active_slave_set(bond, slave_dev);
+-			break;
+-		default:
+-			res = -EOPNOTSUPP;
+-		}
 +		return -ENODEV;
  
--			if (slave) {
--				eql_kill_one_slave(&eql->queue, slave);
--				ret = 0;
--			}
-+	ret = -EINVAL;
-+	spin_lock_bh(&eql->queue.lock);
-+	if (eql_is_slave(slave_dev)) {
-+		slave_t *slave = __eql_find_slave_dev(&eql->queue, slave_dev);
-+		if (slave) {
-+			eql_kill_one_slave(&eql->queue, slave);
-+			ret = 0;
- 		}
 -		dev_put(slave_dev);
--
--		spin_unlock_bh(&eql->queue.lock);
++	pr_debug("slave_dev->name=%s:\n", slave_dev->name);
++	switch (cmd) {
++	case BOND_ENSLAVE_OLD:
++	case SIOCBONDENSLAVE:
++		res = bond_enslave(bond_dev, slave_dev);
++		break;
++	case BOND_RELEASE_OLD:
++	case SIOCBONDRELEASE:
++		res = bond_release(bond_dev, slave_dev);
++		break;
++	case BOND_SETHWADDR_OLD:
++	case SIOCBONDSETHWADDR:
++		bond_set_dev_addr(bond_dev, slave_dev);
++		res = 0;
++		break;
++	case BOND_CHANGE_ACTIVE_OLD:
++	case SIOCBONDCHANGEACTIVE:
++		res = bond_option_active_slave_set(bond, slave_dev);
++		break;
++	default:
++		res = -EOPNOTSUPP;
  	}
-+	spin_unlock_bh(&eql->queue.lock);
  
- 	return ret;
- }
-@@ -494,7 +487,7 @@ static int eql_g_slave_cfg(struct net_device *dev, slave_config_t __user *scp)
- 	if (copy_from_user(&sc, scp, sizeof (slave_config_t)))
- 		return -EFAULT;
- 
--	slave_dev = dev_get_by_name(&init_net, sc.slave_name);
-+	slave_dev = __dev_get_by_name(&init_net, sc.slave_name);
- 	if (!slave_dev)
- 		return -ENODEV;
- 
-@@ -510,8 +503,6 @@ static int eql_g_slave_cfg(struct net_device *dev, slave_config_t __user *scp)
- 	}
- 	spin_unlock_bh(&eql->queue.lock);
- 
--	dev_put(slave_dev);
--
- 	if (!ret && copy_to_user(scp, &sc, sizeof (slave_config_t)))
- 		ret = -EFAULT;
- 
-@@ -529,7 +520,7 @@ static int eql_s_slave_cfg(struct net_device *dev, slave_config_t __user *scp)
- 	if (copy_from_user(&sc, scp, sizeof (slave_config_t)))
- 		return -EFAULT;
- 
--	slave_dev = dev_get_by_name(&init_net, sc.slave_name);
-+	slave_dev = __dev_get_by_name(&init_net, sc.slave_name);
- 	if (!slave_dev)
- 		return -ENODEV;
- 
-@@ -548,8 +539,6 @@ static int eql_s_slave_cfg(struct net_device *dev, slave_config_t __user *scp)
- 	}
- 	spin_unlock_bh(&eql->queue.lock);
- 
--	dev_put(slave_dev);
--
- 	return ret;
- }
- 
+ 	return res;
 -- 
 1.7.9.5
