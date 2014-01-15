@@ -1,82 +1,154 @@
-From: Dmitry Kasatkin <dmitry.kasatkin@gmail.com>
-Subject: Re: throughput problems with realtek
-Date: Wed, 15 Jan 2014 18:25:56 +0200
-Message-ID: <CACE9dm92Wu=XwCChXJjjsz=FEWAgJW-1iLRw5-d4c5ZTCYVe3w@mail.gmail.com>
-References: <CACE9dm_3jw08_dfXRJRMQ=r4X1NZ1kHF6TZopFSNy3k+DCKgTA@mail.gmail.com>
-	<52D6B5F4.1060201@hp.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next] vxge: make local functions static
+Date: Wed, 15 Jan 2014 08:28:54 -0800
+Message-ID: <20140115082854.34b56f21@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: nic_swsd@realtek.com, romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	l.moiseichuk@samsung.com
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jon Mason <jdmason@kudzu.us>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:33347 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752076AbaAOQZ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 11:25:58 -0500
-Received: by mail-wg0-f49.google.com with SMTP id a1so1964732wgh.4
-        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 08:25:57 -0800 (PST)
-In-Reply-To: <52D6B5F4.1060201@hp.com>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:46120 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752614AbaAOQ26 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 11:28:58 -0500
+Received: by mail-pb0-f52.google.com with SMTP id uo5so1343092pbc.39
+        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 08:28:57 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 15, 2014 at 6:23 PM, Rick Jones <rick.jones2@hp.com> wrote:
-> On 01/15/2014 03:56 AM, Dmitry Kasatkin wrote:
->>
->> Hi,
->>
->> We have several devices with such adapter..
->>
->> Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168/8411
->> PCI Express Gigabit Ethernet Controller (rev 06)
->> See output of the lspci -vvv bellow...
->>
->> And I suddenly investigated throughput issues..
->>
->> After couple minutes of running 'iperf -c server' transmission speed
->> drops substantially...
->>
->> [  4]  0.0-10.0 sec  1.10 GBytes   948 Mbits/sec
->> [  5] local 106.122.1.113 port 5001 connected with 106.122.1.121 port
->> 60508
->> [  5]  0.0-10.0 sec  1.10 GBytes   948 Mbits/sec
->> [  4] local 106.122.1.113 port 5001 connected with 106.122.1.121 port
->> 60509
->> [  4]  0.0-10.0 sec  1.10 GBytes   949 Mbits/sec
->> [  5] local 106.122.1.113 port 5001 connected with 106.122.1.121 port
->> 60510
->> [  5]  0.0-10.0 sec  1.10 GBytes   948 Mbits/sec
->> [  4] local 106.122.1.113 port 5001 connected with 106.122.1.121 port
->> 60511
->> [  4]  0.0-10.0 sec   626 MBytes   525 Mbits/sec
->> [  5] local 106.122.1.113 port 5001 connected with 106.122.1.121 port
->> 60512
->> [  5]  0.0-10.0 sec  84.4 MBytes  70.5 Mbits/sec
->> [  4] local 106.122.1.113 port 5001 connected with 106.122.1.121 port
->> 60513
->> [  4]  0.0-10.0 sec  87.4 MBytes  73.0 Mbits/sec
->> [  5] local 106.122.1.113 port 5001 connected with 106.122.1.121 port
->> 60514
->>
->>
->> But it seems after certain time of inactivity (low load) speed will be
->> up again...
->>
->> It happens almost the same way on desktop machines and also on Samsung
->> Series 7 laptop NP770Z5E...
->>
->> Does anyone have any ideas about it?
->>
->
-> The card flipping back and forth between 1000 and 100 Mbit/s operation
-> perhaps?
->
-> rick jones
+Remove unused function vxge_hw_vpath_vid_get
 
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-I do not see any link speed changes... it stays the same...
-The same problem is visible on absolutely different computers.
+---
+ drivers/net/ethernet/neterion/vxge/vxge-config.c  |    2 -
+ drivers/net/ethernet/neterion/vxge/vxge-main.c    |    1 
+ drivers/net/ethernet/neterion/vxge/vxge-main.h    |    1 
+ drivers/net/ethernet/neterion/vxge/vxge-traffic.c |   37 +---------------------
+ drivers/net/ethernet/neterion/vxge/vxge-traffic.h |    8 ----
+ 5 files changed, 4 insertions(+), 45 deletions(-)
 
--- 
-Thanks,
-Dmitry
+--- a/drivers/net/ethernet/neterion/vxge/vxge-config.c	2014-01-15 08:10:24.862145270 -0800
++++ b/drivers/net/ethernet/neterion/vxge/vxge-config.c	2014-01-15 08:17:28.164022998 -0800
+@@ -2148,7 +2148,7 @@ __vxge_hw_ring_mempool_item_alloc(struct
+  * __vxge_hw_ring_replenish - Initial replenish of RxDs
+  * This function replenishes the RxDs from reserve array to work array
+  */
+-enum vxge_hw_status
++static enum vxge_hw_status
+ vxge_hw_ring_replenish(struct __vxge_hw_ring *ring)
+ {
+ 	void *rxd;
+--- a/drivers/net/ethernet/neterion/vxge/vxge-main.c	2014-01-15 08:10:24.862145270 -0800
++++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c	2014-01-15 08:17:28.164022998 -0800
+@@ -87,6 +87,7 @@ static unsigned int bw_percentage[VXGE_H
+ module_param_array(bw_percentage, uint, NULL, 0);
+ 
+ static struct vxge_drv_config *driver_config;
++static enum vxge_hw_status vxge_reset_all_vpaths(struct vxgedev *vdev);
+ 
+ static inline int is_vxge_card_up(struct vxgedev *vdev)
+ {
+@@ -1971,7 +1972,7 @@ static enum vxge_hw_status vxge_rth_conf
+ }
+ 
+ /* reset vpaths */
+-enum vxge_hw_status vxge_reset_all_vpaths(struct vxgedev *vdev)
++static enum vxge_hw_status vxge_reset_all_vpaths(struct vxgedev *vdev)
+ {
+ 	enum vxge_hw_status status = VXGE_HW_OK;
+ 	struct vxge_vpath *vpath;
+--- a/drivers/net/ethernet/neterion/vxge/vxge-main.h	2014-01-15 08:10:24.862145270 -0800
++++ b/drivers/net/ethernet/neterion/vxge/vxge-main.h	2014-01-15 08:17:28.164022998 -0800
+@@ -427,7 +427,6 @@ void vxge_os_timer(struct timer_list *ti
+ }
+ 
+ void vxge_initialize_ethtool_ops(struct net_device *ndev);
+-enum vxge_hw_status vxge_reset_all_vpaths(struct vxgedev *vdev);
+ int vxge_fw_upgrade(struct vxgedev *vdev, char *fw_name, int override);
+ 
+ /* #define VXGE_DEBUG_INIT: debug for initialization functions
+--- a/drivers/net/ethernet/neterion/vxge/vxge-traffic.c	2014-01-15 08:10:24.862145270 -0800
++++ b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c	2014-01-15 08:17:28.168022940 -0800
+@@ -1956,8 +1956,7 @@ exit:
+  * @vid: vlan id to be added for this vpath into the list
+  *
+  * Adds the given vlan id into the list for this  vpath.
+- * see also: vxge_hw_vpath_vid_delete, vxge_hw_vpath_vid_get and
+- * vxge_hw_vpath_vid_get_next
++ * see also: vxge_hw_vpath_vid_delete
+  *
+  */
+ enum vxge_hw_status
+@@ -1979,45 +1978,13 @@ exit:
+ }
+ 
+ /**
+- * vxge_hw_vpath_vid_get - Get the first vid entry for this vpath
+- *               from vlan id table.
+- * @vp: Vpath handle.
+- * @vid: Buffer to return vlan id
+- *
+- * Returns the first vlan id in the list for this vpath.
+- * see also: vxge_hw_vpath_vid_get_next
+- *
+- */
+-enum vxge_hw_status
+-vxge_hw_vpath_vid_get(struct __vxge_hw_vpath_handle *vp, u64 *vid)
+-{
+-	u64 data;
+-	enum vxge_hw_status status = VXGE_HW_OK;
+-
+-	if (vp == NULL) {
+-		status = VXGE_HW_ERR_INVALID_HANDLE;
+-		goto exit;
+-	}
+-
+-	status = __vxge_hw_vpath_rts_table_get(vp,
+-			VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION_LIST_FIRST_ENTRY,
+-			VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_VID,
+-			0, vid, &data);
+-
+-	*vid = VXGE_HW_RTS_ACCESS_STEER_DATA0_GET_VLAN_ID(*vid);
+-exit:
+-	return status;
+-}
+-
+-/**
+  * vxge_hw_vpath_vid_delete - Delete the vlan id entry for this vpath
+  *               to vlan id table.
+  * @vp: Vpath handle.
+  * @vid: vlan id to be added for this vpath into the list
+  *
+  * Adds the given vlan id into the list for this  vpath.
+- * see also: vxge_hw_vpath_vid_add, vxge_hw_vpath_vid_get and
+- * vxge_hw_vpath_vid_get_next
++ * see also: vxge_hw_vpath_vid_add
+  *
+  */
+ enum vxge_hw_status
+--- a/drivers/net/ethernet/neterion/vxge/vxge-traffic.h	2014-01-15 08:10:24.862145270 -0800
++++ b/drivers/net/ethernet/neterion/vxge/vxge-traffic.h	2014-01-15 08:17:28.168022940 -0800
+@@ -1918,9 +1918,6 @@ vxge_hw_ring_rxd_post_post(
+ 	struct __vxge_hw_ring *ring_handle,
+ 	void *rxdh);
+ 
+-enum vxge_hw_status
+-vxge_hw_ring_replenish(struct __vxge_hw_ring *ring_handle);
+-
+ void
+ vxge_hw_ring_rxd_post_post_wmb(
+ 	struct __vxge_hw_ring *ring_handle,
+@@ -2186,11 +2183,6 @@ vxge_hw_vpath_vid_add(
+ 	u64			vid);
+ 
+ enum vxge_hw_status
+-vxge_hw_vpath_vid_get(
+-	struct __vxge_hw_vpath_handle *vpath_handle,
+-	u64			*vid);
+-
+-enum vxge_hw_status
+ vxge_hw_vpath_vid_delete(
+ 	struct __vxge_hw_vpath_handle *vpath_handle,
+ 	u64			vid);
