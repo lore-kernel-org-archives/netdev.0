@@ -1,92 +1,170 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next v4 6/7] ixgbe: Check for adapter removal on register writes
-Date: Tue, 14 Jan 2014 18:53:16 -0800
-Message-ID: <1389754397-2507-7-git-send-email-aaron.f.brown@intel.com>
+Subject: [net-next v4 5/7] ixgbe: Check register reads for adapter removal
+Date: Tue, 14 Jan 2014 18:53:15 -0800
+Message-ID: <1389754397-2507-6-git-send-email-aaron.f.brown@intel.com>
 References: <1389754397-2507-1-git-send-email-aaron.f.brown@intel.com>
 Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:21337 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:5382 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752184AbaAOCxd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jan 2014 21:53:33 -0500
+	id S1752176AbaAOCxc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jan 2014 21:53:32 -0500
 In-Reply-To: <1389754397-2507-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mark Rustad <mark.d.rustad@intel.com>
 
-Prevent writes to an adapter that has been detected as removed
-by a previous failing read. This also fixes some include file
-ordering confusion that this patch revealed.
+Check all register reads for adapter removal by checking the status
+register after any register read that returns 0xFFFFFFFF. Since the
+status register will never return 0xFFFFFFFF unless the adapter is
+removed, such a value from a status register read confirms the
+removal.
 
 Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h | 12 ++++++++++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c    |  3 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c    |  2 +-
- 3 files changed, 12 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h        |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h | 19 ++++++++++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   | 38 ++++++++++++++++++++++---
+ 3 files changed, 53 insertions(+), 5 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 06f4ab5..3a4373f 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -747,6 +747,7 @@ struct ixgbe_adapter {
+ #ifdef IXGBE_FCOE
+ 	struct ixgbe_fcoe fcoe;
+ #endif /* IXGBE_FCOE */
++	u8 __iomem *io_addr; /* Mainly for iounmap use */
+ 	u32 wol;
+ 
+ 	u16 bd_number;
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index b6faaac..f2e3919 100644
+index 449291d..b6faaac 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -135,7 +135,11 @@ void ixgbe_check_remove(struct ixgbe_hw *hw, u32 reg);
+@@ -124,6 +124,15 @@ s32 ixgbe_reset_pipeline_82599(struct ixgbe_hw *hw);
+ s32 ixgbe_get_thermal_sensor_data_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_init_thermal_sensor_thresh_generic(struct ixgbe_hw *hw);
  
++#define IXGBE_FAILED_READ_REG 0xffffffffU
++
++static inline bool ixgbe_removed(void __iomem *addr)
++{
++	return unlikely(!addr);
++}
++
++void ixgbe_check_remove(struct ixgbe_hw *hw, u32 reg);
++
  static inline void ixgbe_write_reg(struct ixgbe_hw *hw, u32 reg, u32 value)
  {
--	writel(value, hw->hw_addr + reg);
-+	u8 __iomem *reg_addr = ACCESS_ONCE(hw->hw_addr);
-+
-+	if (ixgbe_removed(reg_addr))
-+		return;
-+	writel(value, reg_addr + reg);
- }
- #define IXGBE_WRITE_REG(a, reg, value) ixgbe_write_reg((a), (reg), (value))
+ 	writel(value, hw->hw_addr + reg);
+@@ -147,7 +156,15 @@ static inline void ixgbe_write_reg64(struct ixgbe_hw *hw, u32 reg, u64 value)
  
-@@ -150,7 +154,11 @@ static inline void writeq(u64 val, void __iomem *addr)
- 
- static inline void ixgbe_write_reg64(struct ixgbe_hw *hw, u32 reg, u64 value)
+ static inline u32 ixgbe_read_reg(struct ixgbe_hw *hw, u32 reg)
  {
--	writeq(value, hw->hw_addr + reg);
+-	return readl(hw->hw_addr + reg);
 +	u8 __iomem *reg_addr = ACCESS_ONCE(hw->hw_addr);
++	u32 value;
 +
 +	if (ixgbe_removed(reg_addr))
-+		return;
-+	writeq(value, reg_addr + reg);
++		return IXGBE_FAILED_READ_REG;
++	value = readl(reg_addr + reg);
++	if (unlikely(value == IXGBE_FAILED_READ_REG))
++		ixgbe_check_remove(hw, reg);
++	return value;
  }
- #define IXGBE_WRITE_REG64(a, reg, value) ixgbe_write_reg64((a), (reg), (value))
+ #define IXGBE_READ_REG(a, reg) ixgbe_read_reg((a), (reg))
  
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
-index d4a64e6..cc3101a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
-@@ -27,8 +27,7 @@
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 01df376..9831a24 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -283,6 +283,35 @@ static void ixgbe_service_event_schedule(struct ixgbe_adapter *adapter)
+ 		schedule_work(&adapter->service_task);
+ }
  
- #include <linux/pci.h>
- #include <linux/delay.h>
--#include "ixgbe_type.h"
--#include "ixgbe_common.h"
-+#include "ixgbe.h"
- #include "ixgbe_mbx.h"
++static void ixgbe_remove_adapter(struct ixgbe_hw *hw)
++{
++	struct ixgbe_adapter *adapter = hw->back;
++
++	if (!hw->hw_addr)
++		return;
++	hw->hw_addr = NULL;
++	e_dev_err("Adapter removed\n");
++}
++
++void ixgbe_check_remove(struct ixgbe_hw *hw, u32 reg)
++{
++	u32 value;
++
++	/* The following check not only optimizes a bit by not
++	 * performing a read on the status register when the
++	 * register just read was a status register read that
++	 * returned IXGBE_FAILED_READ_REG. It also blocks any
++	 * potential recursion.
++	 */
++	if (reg == IXGBE_STATUS) {
++		ixgbe_remove_adapter(hw);
++		return;
++	}
++	value = ixgbe_read_reg(hw, IXGBE_STATUS);
++	if (value == IXGBE_FAILED_READ_REG)
++		ixgbe_remove_adapter(hw);
++}
++
+ static void ixgbe_service_event_complete(struct ixgbe_adapter *adapter)
+ {
+ 	BUG_ON(!test_bit(__IXGBE_SERVICE_SCHED, &adapter->state));
+@@ -2970,7 +2999,7 @@ void ixgbe_configure_tx_ring(struct ixgbe_adapter *adapter,
+ 			ring->count * sizeof(union ixgbe_adv_tx_desc));
+ 	IXGBE_WRITE_REG(hw, IXGBE_TDH(reg_idx), 0);
+ 	IXGBE_WRITE_REG(hw, IXGBE_TDT(reg_idx), 0);
+-	ring->tail = hw->hw_addr + IXGBE_TDT(reg_idx);
++	ring->tail = adapter->io_addr + IXGBE_TDT(reg_idx);
  
- /**
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-index 39217e5..132557c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -29,7 +29,7 @@
- #include <linux/delay.h>
- #include <linux/sched.h>
+ 	/*
+ 	 * set WTHRESH to encourage burst writeback, it should not be set
+@@ -3373,7 +3402,7 @@ void ixgbe_configure_rx_ring(struct ixgbe_adapter *adapter,
+ 			ring->count * sizeof(union ixgbe_adv_rx_desc));
+ 	IXGBE_WRITE_REG(hw, IXGBE_RDH(reg_idx), 0);
+ 	IXGBE_WRITE_REG(hw, IXGBE_RDT(reg_idx), 0);
+-	ring->tail = hw->hw_addr + IXGBE_RDT(reg_idx);
++	ring->tail = adapter->io_addr + IXGBE_RDT(reg_idx);
  
--#include "ixgbe_common.h"
-+#include "ixgbe.h"
- #include "ixgbe_phy.h"
+ 	ixgbe_configure_srrctl(adapter, ring);
+ 	ixgbe_configure_rscctl(adapter, ring);
+@@ -7880,6 +7909,7 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  
- static void ixgbe_i2c_start(struct ixgbe_hw *hw);
+ 	hw->hw_addr = ioremap(pci_resource_start(pdev, 0),
+ 			      pci_resource_len(pdev, 0));
++	adapter->io_addr = hw->hw_addr;
+ 	if (!hw->hw_addr) {
+ 		err = -EIO;
+ 		goto err_ioremap;
+@@ -8188,7 +8218,7 @@ err_register:
+ err_sw_init:
+ 	ixgbe_disable_sriov(adapter);
+ 	adapter->flags2 &= ~IXGBE_FLAG2_SEARCH_FOR_SFP;
+-	iounmap(hw->hw_addr);
++	iounmap(adapter->io_addr);
+ err_ioremap:
+ 	free_netdev(netdev);
+ err_alloc_etherdev:
+@@ -8255,7 +8285,7 @@ static void ixgbe_remove(struct pci_dev *pdev)
+ 	kfree(adapter->ixgbe_ieee_ets);
+ 
+ #endif
+-	iounmap(adapter->hw.hw_addr);
++	iounmap(adapter->io_addr);
+ 	pci_release_selected_regions(pdev, pci_select_bars(pdev,
+ 				     IORESOURCE_MEM));
+ 
 -- 
 1.8.5.GIT
