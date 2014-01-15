@@ -1,7 +1,7 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next v2 02/10] bonding: use __dev_get_by_name instead of dev_get_by_name to find interface
-Date: Wed, 15 Jan 2014 10:23:37 +0800
-Message-ID: <1389752625-23189-3-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next v2 04/10] dcb: use __dev_get_by_name instead of dev_get_by_name to find interface
+Date: Wed, 15 Jan 2014 10:23:39 +0800
+Message-ID: <1389752625-23189-5-git-send-email-ying.xue@windriver.com>
 References: <1389752625-23189-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,92 +16,61 @@ In-Reply-To: <1389752625-23189-1-git-send-email-ying.xue@windriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following call chain indicates that bond_do_ioctl() is protected
-under rtnl_lock. If we use __dev_get_by_name() instead of
-dev_get_by_name() to find interface handler in it, this would
-help us avoid to change reference counter of interface once.
+The following call chain indicates that dcb_doit() is protected
+under rtnl_lock. So if we use __dev_get_by_name() instead of
+dev_get_by_name() to find interface handlers in it, this would
+help us avoid to change interface reference counter.
 
-dev_ioctl()
+rtnetlink_rcv()
   rtnl_lock()
-  dev_ifsioc()
-    bond_do_ioctl()
+  netlink_rcv_skb()
+    dcb_doit()
   rtnl_unlock()
 
-Additionally we also change the coding style in bond_do_ioctl(),
-letting it more readable for us.
-
-Cc: Jay Vosburgh <fubar@us.ibm.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>
+Cc: John Fastabend <john.r.fastabend@intel.com>
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Acked-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_main.c |   49 ++++++++++++++++++---------------------
- 1 file changed, 23 insertions(+), 26 deletions(-)
+ net/dcb/dcbnl.c |   15 +++++----------
+ 1 file changed, 5 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 7069b84..f2fe6cb 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3213,37 +3213,34 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
- 	if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
- 		return -EPERM;
+diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
+index 66fbe19..5536444 100644
+--- a/net/dcb/dcbnl.c
++++ b/net/dcb/dcbnl.c
+@@ -1688,21 +1688,17 @@ static int dcb_doit(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	if (!tb[DCB_ATTR_IFNAME])
+ 		return -EINVAL;
  
--	slave_dev = dev_get_by_name(net, ifr->ifr_slave);
-+	slave_dev = __dev_get_by_name(net, ifr->ifr_slave);
+-	netdev = dev_get_by_name(net, nla_data(tb[DCB_ATTR_IFNAME]));
++	netdev = __dev_get_by_name(net, nla_data(tb[DCB_ATTR_IFNAME]));
+ 	if (!netdev)
+ 		return -ENODEV;
  
- 	pr_debug("slave_dev=%p:\n", slave_dev);
+-	if (!netdev->dcbnl_ops) {
+-		ret = -EOPNOTSUPP;
+-		goto out;
+-	}
++	if (!netdev->dcbnl_ops)
++		return -EOPNOTSUPP;
  
- 	if (!slave_dev)
--		res = -ENODEV;
--	else {
--		pr_debug("slave_dev->name=%s:\n", slave_dev->name);
--		switch (cmd) {
--		case BOND_ENSLAVE_OLD:
--		case SIOCBONDENSLAVE:
--			res = bond_enslave(bond_dev, slave_dev);
--			break;
--		case BOND_RELEASE_OLD:
--		case SIOCBONDRELEASE:
--			res = bond_release(bond_dev, slave_dev);
--			break;
--		case BOND_SETHWADDR_OLD:
--		case SIOCBONDSETHWADDR:
--			bond_set_dev_addr(bond_dev, slave_dev);
--			res = 0;
--			break;
--		case BOND_CHANGE_ACTIVE_OLD:
--		case SIOCBONDCHANGEACTIVE:
--			res = bond_option_active_slave_set(bond, slave_dev);
--			break;
--		default:
--			res = -EOPNOTSUPP;
--		}
-+		return -ENODEV;
+ 	reply_skb = dcbnl_newmsg(fn->type, dcb->cmd, portid, nlh->nlmsg_seq,
+ 				 nlh->nlmsg_flags, &reply_nlh);
+-	if (!reply_skb) {
+-		ret = -ENOBUFS;
+-		goto out;
+-	}
++	if (!reply_skb)
++		return -ENOBUFS;
  
--		dev_put(slave_dev);
-+	pr_debug("slave_dev->name=%s:\n", slave_dev->name);
-+	switch (cmd) {
-+	case BOND_ENSLAVE_OLD:
-+	case SIOCBONDENSLAVE:
-+		res = bond_enslave(bond_dev, slave_dev);
-+		break;
-+	case BOND_RELEASE_OLD:
-+	case SIOCBONDRELEASE:
-+		res = bond_release(bond_dev, slave_dev);
-+		break;
-+	case BOND_SETHWADDR_OLD:
-+	case SIOCBONDSETHWADDR:
-+		bond_set_dev_addr(bond_dev, slave_dev);
-+		res = 0;
-+		break;
-+	case BOND_CHANGE_ACTIVE_OLD:
-+	case SIOCBONDCHANGEACTIVE:
-+		res = bond_option_active_slave_set(bond, slave_dev);
-+		break;
-+	default:
-+		res = -EOPNOTSUPP;
- 	}
+ 	ret = fn->cb(netdev, nlh, nlh->nlmsg_seq, tb, reply_skb);
+ 	if (ret < 0) {
+@@ -1714,7 +1710,6 @@ static int dcb_doit(struct sk_buff *skb, struct nlmsghdr *nlh)
  
- 	return res;
+ 	ret = rtnl_unicast(reply_skb, net, portid);
+ out:
+-	dev_put(netdev);
+ 	return ret;
+ }
+ 
 -- 
 1.7.9.5
