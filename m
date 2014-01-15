@@ -1,57 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf: do not use reciprocal divide
-Date: Tue, 14 Jan 2014 23:28:46 -0800 (PST)
-Message-ID: <20140114.232846.647632973151148430.davem@davemloft.net>
-References: <20140113214249.GK6586@order.stressinduktion.org>
-	<1389769361.31367.325.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCHv3 net-next 0/2] Make flow cache name space aware
+Date: Wed, 15 Jan 2014 15:34:12 +0800
+Message-ID: <1389771254-8738-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
-	dborkman@redhat.com, darkjames-ws@darkjames.pl, mgherzan@gmail.com,
-	rmk+kernel@arm.linux.org.uk, matt@ozlabs.org,
-	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56553 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750751AbaAOH2t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 02:28:49 -0500
-In-Reply-To: <1389769361.31367.325.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail1.windriver.com ([147.11.146.13]:51124 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751308AbaAOHeG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 02:34:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 14 Jan 2014 23:02:41 -0800
+Hi,
 
-> diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
-> index 218b6b23c378..125045063b91 100644
-> --- a/arch/sparc/net/bpf_jit_comp.c
-> +++ b/arch/sparc/net/bpf_jit_comp.c
-> @@ -498,8 +498,7 @@ void bpf_jit_compile(struct sk_filter *fp)
->  				emit_alu_K(MUL, K);
->  				break;
->  			case BPF_S_ALU_DIV_K:	/* A /= K */
-> -				emit_alu_K(MUL, K);
-> -				emit_read_y(r_A);
-> +				emit_alu_K(DIV, K);
->  				break;
->  			case BPF_S_ALU_DIV_X:	/* A /= X; */
->  				emit_cmpi(r_X, 0);
+This patch set aims to make flow cache operating in a per net style
+when inserting flow cache entry or flush flow cache. The reason to
+do so is not much compelling but reasonable, which is flushing flow
+cache in original implementation has global effective, the collateral
+damage is netns with only a few flow cache entries has gone.
 
-You have to clear the Y register before a divide, as it provides
-the top 32-bits of the 64-bit numerator.
+So this patch make flow cache running in a per net scope. Operation
+from different netns won't interfere with each other. And the flushing
+operation is worthwhile for the netns which supposed to be.
 
-You can just cut and paste the sequence used for BPF_S_ALU_DIV_X:
+v2:
+  - Pick up newly created file include/net/flowcache.h missed in v1.
+v3:
+  - I made a mistake by spreading one unified patch into different
+    patches, which break bisect operation. So forge into one piece
+    patches advised by Cong and Sabrina.
 
-				emit_write_y(G0);
-#ifdef CONFIG_SPARC32
-				/* The Sparc v8 architecture requires
-				 * three instructions between a %y
-				 * register write and the first use.
-				 */
-				emit_nop();
-				emit_nop();
-				emit_nop();
-#endif
-				emit_alu_X(DIV);
+Fan Du (2):
+  flowcache: Make flow cache name space aware
+  flowcache: Bring net/core/flow.c under IPsec maintain scope
+
+ MAINTAINERS              |    1 +
+ include/net/flow.h       |    5 +-
+ include/net/flowcache.h  |   25 +++++++++
+ include/net/netns/xfrm.h |   11 ++++
+ net/core/flow.c          |  127 +++++++++++++++++++++-------------------------
+ net/xfrm/xfrm_policy.c   |    7 +--
+ 6 files changed, 101 insertions(+), 75 deletions(-)
+ create mode 100644 include/net/flowcache.h
+
+-- 
+1.7.9.5
