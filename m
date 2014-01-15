@@ -1,28 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next] etherdevice: Use ether_addr_copy to copy
- an Ethernet address
-Date: Wed, 15 Jan 2014 15:39:51 -0800 (PST)
-Message-ID: <20140115.153951.743060257410154565.davem@davemloft.net>
-References: <1389741527.24849.68.camel@joe-AO722>
+Subject: Re: [PATCH net-next 0/2] net: mvneta: simple cleanups
+Date: Wed, 15 Jan 2014 15:41:22 -0800 (PST)
+Message-ID: <20140115.154122.1485420525760591929.davem@davemloft.net>
+References: <cover.1389742334.git.arno@natisbad.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
-	linux-arch@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <1389741527.24849.68.camel@joe-AO722>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: w@1wt.eu, thomas.petazzoni@free-electrons.com,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: arno@natisbad.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42267 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752316AbaAOXlW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 18:41:22 -0500
+In-Reply-To: <cover.1389742334.git.arno@natisbad.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 14 Jan 2014 15:18:47 -0800
+From: Arnaud Ebalard <arno@natisbad.org>
+Date: Wed, 15 Jan 2014 00:45:31 +0100
 
-> Some systems can use the normally known u16 alignment of
-> Ethernet addresses to save some code/text bytes and cycles.
 > 
-> This does not change currently emitted code on x86 by gcc 4.8.
+> Those two patches are intended for net-next. They apply on top of
+> performance improvements patches from Willy for mvneta driver.
+> They provide some simple cleanups for unused variables, function
+> params or return values.
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Arnaud Ebalard (2):
+>   net: mvneta: mvneta_tx_done_gbe() cleanups
+>   net: mvneta: make mvneta_txq_done() return void
 
-This looks fine, in fact I'll apply it.
+These patches do not apply to net-next, please respin.
+
+Thanks.
