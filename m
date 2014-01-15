@@ -1,128 +1,125 @@
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Subject: Re: [PATCH v2 2/2] net/mlx4_core: clean up srq_res_start_move_to()
-Date: Thu, 16 Jan 2014 09:47:38 +0200
-Message-ID: <20140116094738.025833a6@jpm-OptiPlex-GX620>
-References: <1389099734.15032.20.camel@x41>
-	<20140114084050.70a612af@jpm-OptiPlex-GX620>
-	<1389728812.28068.9.camel@x220>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Paul Bolle <pebolle@tiscali.nl>
+From: Annie Li <Annie.li@oracle.com>
+Subject: [Xen-devel][PATCH net-next v2] xen-netfront: clean up code in xennet_release_rx_bufs
+Date: Thu, 16 Jan 2014 07:57:08 +0800
+Message-ID: <1389830228-2381-1-git-send-email-Annie.li@oracle.com>
+Cc: davem@davemloft.net, konrad.wilk@oracle.com,
+	ian.campbell@citrix.com, wei.liu2@citrix.com,
+	david.vrabel@citrix.com, andrew.bennieston@citrix.com,
+	annie.li@oracle.com, Annie Li <Annie.li@oracle.com>
+To: xen-devel@lists.xen.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f179.google.com ([209.85.215.179]:63544 "EHLO
-	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751767AbaAPHri (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 02:47:38 -0500
-Received: by mail-ea0-f179.google.com with SMTP id q10so282743ead.24
-        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 23:47:38 -0800 (PST)
-In-Reply-To: <1389728812.28068.9.camel@x220>
+Received: from aserp1040.oracle.com ([141.146.126.69]:22943 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751544AbaAPHwp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 02:52:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ACK.  OK.
+This patch implements two things:
 
--Jack
+* release grant reference and skb for rx path, this fixex resource leaking.
+* clean up grant transfer code kept from old netfront(2.6.18) which grants
+pages for access/map and transfer. But grant transfer is deprecated in current
+netfront, so remove corresponding release code for transfer.
 
-On Tue, 14 Jan 2014 20:46:52 +0100
-Paul Bolle <pebolle@tiscali.nl> wrote:
+gnttab_end_foreign_access_ref may fail when the grant entry is currently used
+for reading or writing. But this patch does not cover this and improvement for
+this failure may be implemented in a separate patch.
 
-> Building resource_tracker.o triggers a GCC warning:
->     drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In
-> function 'mlx4_HW2SW_SRQ_wrapper':
-> drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:3202:17:
-> warning: 'srq' may be used uninitialized in this function
-> [-Wmaybe-uninitialized] atomic_dec(&srq->mtt->ref_count); ^
-> 
-> This is a false positive. But a cleanup of srq_res_start_move_to() can
-> help GCC here. The code currently uses a switch statement where a
-> plain if/else would do, since only two of the switch's four cases can
-> ever occur. Dropping that switch makes the warning go away.
-> 
-> While we're at it, add some missing braces, and convert state to the
-> correct type.
-> 
-> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
-> ---
-> v2: adjust to Jack's review.
-> 
->  .../net/ethernet/mellanox/mlx4/resource_tracker.c  | 46
-> ++++++++-------------- 1 file changed, 16 insertions(+), 30
-> deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-> b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c index
-> 15cd659..4acd84c 100644 ---
-> a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c +++
-> b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c @@ -1371,7
-> +1371,7 @@ static int cq_res_start_move_to(struct mlx4_dev *dev, int
-> slave, int cqn, } 
->  static int srq_res_start_move_to(struct mlx4_dev *dev, int slave,
-> int index,
-> -				 enum res_cq_states state, struct
-> res_srq **srq)
-> +				 enum res_srq_states state, struct
-> res_srq **srq) {
->  	struct mlx4_priv *priv = mlx4_priv(dev);
->  	struct mlx4_resource_tracker *tracker =
-> &priv->mfunc.master.res_tracker; @@ -1380,39 +1380,25 @@ static int
-> srq_res_start_move_to(struct mlx4_dev *dev, int slave, int index, 
->  	spin_lock_irq(mlx4_tlock(dev));
->  	r = res_tracker_lookup(&tracker->res_tree[RES_SRQ], index);
-> -	if (!r)
-> +	if (!r) {
->  		err = -ENOENT;
-> -	else if (r->com.owner != slave)
-> +	} else if (r->com.owner != slave) {
->  		err = -EPERM;
-> -	else {
-> -		switch (state) {
-> -		case RES_SRQ_BUSY:
-> -			err = -EINVAL;
-> -			break;
-> -
-> -		case RES_SRQ_ALLOCATED:
-> -			if (r->com.state != RES_SRQ_HW)
-> -				err = -EINVAL;
-> -			else if (atomic_read(&r->ref_count))
-> -				err = -EBUSY;
-> -			break;
-> -
-> -		case RES_SRQ_HW:
-> -			if (r->com.state != RES_SRQ_ALLOCATED)
-> -				err = -EINVAL;
-> -			break;
-> -
-> -		default:
-> +	} else if (state == RES_SRQ_ALLOCATED) {
-> +		if (r->com.state != RES_SRQ_HW)
->  			err = -EINVAL;
-> -		}
-> +		else if (atomic_read(&r->ref_count))
-> +			err = -EBUSY;
-> +	} else if (state != RES_SRQ_HW || r->com.state !=
-> RES_SRQ_ALLOCATED) {
-> +		err = -EINVAL;
-> +	}
->  
-> -		if (!err) {
-> -			r->com.from_state = r->com.state;
-> -			r->com.to_state = state;
-> -			r->com.state = RES_SRQ_BUSY;
-> -			if (srq)
-> -				*srq = r;
-> -		}
-> +	if (!err) {
-> +		r->com.from_state = r->com.state;
-> +		r->com.to_state = state;
-> +		r->com.state = RES_SRQ_BUSY;
-> +		if (srq)
-> +			*srq = r;
->  	}
->  
->  	spin_unlock_irq(mlx4_tlock(dev));
+Test has been run with this patch.
+
+V2: improve patch comments.
+
+Signed-off-by: Annie Li <Annie.li@oracle.com>
+---
+ drivers/net/xen-netfront.c |   60 ++-----------------------------------------
+ 1 files changed, 3 insertions(+), 57 deletions(-)
+
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index e59acb1..692589e 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -1134,78 +1134,24 @@ static void xennet_release_tx_bufs(struct netfront_info *np)
+ 
+ static void xennet_release_rx_bufs(struct netfront_info *np)
+ {
+-	struct mmu_update      *mmu = np->rx_mmu;
+-	struct multicall_entry *mcl = np->rx_mcl;
+-	struct sk_buff_head free_list;
+ 	struct sk_buff *skb;
+-	unsigned long mfn;
+-	int xfer = 0, noxfer = 0, unused = 0;
+ 	int id, ref;
+ 
+-	dev_warn(&np->netdev->dev, "%s: fix me for copying receiver.\n",
+-			 __func__);
+-	return;
+-
+-	skb_queue_head_init(&free_list);
+-
+ 	spin_lock_bh(&np->rx_lock);
+ 
+ 	for (id = 0; id < NET_RX_RING_SIZE; id++) {
+ 		ref = np->grant_rx_ref[id];
+-		if (ref == GRANT_INVALID_REF) {
+-			unused++;
++		if (ref == GRANT_INVALID_REF)
+ 			continue;
+-		}
+ 
+ 		skb = np->rx_skbs[id];
+-		mfn = gnttab_end_foreign_transfer_ref(ref);
++		gnttab_end_foreign_access_ref(ref, 0);
+ 		gnttab_release_grant_reference(&np->gref_rx_head, ref);
+ 		np->grant_rx_ref[id] = GRANT_INVALID_REF;
+ 
+-		if (0 == mfn) {
+-			skb_shinfo(skb)->nr_frags = 0;
+-			dev_kfree_skb(skb);
+-			noxfer++;
+-			continue;
+-		}
+-
+-		if (!xen_feature(XENFEAT_auto_translated_physmap)) {
+-			/* Remap the page. */
+-			const struct page *page =
+-				skb_frag_page(&skb_shinfo(skb)->frags[0]);
+-			unsigned long pfn = page_to_pfn(page);
+-			void *vaddr = page_address(page);
+-
+-			MULTI_update_va_mapping(mcl, (unsigned long)vaddr,
+-						mfn_pte(mfn, PAGE_KERNEL),
+-						0);
+-			mcl++;
+-			mmu->ptr = ((u64)mfn << PAGE_SHIFT)
+-				| MMU_MACHPHYS_UPDATE;
+-			mmu->val = pfn;
+-			mmu++;
+-
+-			set_phys_to_machine(pfn, mfn);
+-		}
+-		__skb_queue_tail(&free_list, skb);
+-		xfer++;
+-	}
+-
+-	dev_info(&np->netdev->dev, "%s: %d xfer, %d noxfer, %d unused\n",
+-		 __func__, xfer, noxfer, unused);
+-
+-	if (xfer) {
+-		if (!xen_feature(XENFEAT_auto_translated_physmap)) {
+-			/* Do all the remapping work and M2P updates. */
+-			MULTI_mmu_update(mcl, np->rx_mmu, mmu - np->rx_mmu,
+-					 NULL, DOMID_SELF);
+-			mcl++;
+-			HYPERVISOR_multicall(np->rx_mcl, mcl - np->rx_mcl);
+-		}
++		kfree_skb(skb);
+ 	}
+ 
+-	__skb_queue_purge(&free_list);
+-
+ 	spin_unlock_bh(&np->rx_lock);
+ }
+ 
+-- 
+1.7.6.5
