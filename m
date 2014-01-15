@@ -1,131 +1,196 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the mips tree
-Date: Wed, 15 Jan 2014 13:24:36 +1100
-Message-ID: <20140115132436.8b89920c1ed4c0d293883b85@canb.auug.org.au>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next v2 03/10] eql: use __dev_get_by_name instead of dev_get_by_name to find interface
+Date: Wed, 15 Jan 2014 10:23:38 +0800
+Message-ID: <1389752625-23189-4-git-send-email-ying.xue@windriver.com>
+References: <1389752625-23189-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Wed__15_Jan_2014_13_24_36_+1100_R9OXwE5CiIP2G.9j"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	=?UTF-8?B?IlJhZmHFgiBNacWCZWNraSI=?= <zajec5@gmail.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Ralf Baechle <ralf@linux-mips.org>
+Content-Type: text/plain
+Cc: <vfalico@redhat.com>, <john.r.fastabend@intel.com>,
+	<stephen@networkplumber.org>, <antonio@meshcoding.com>,
+	<dmitry.tarnyagin@lockless.no>, <socketcan@hartkopp.net>,
+	<johannes@sipsolutions.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1389752625-23189-1-git-send-email-ying.xue@windriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Wed__15_Jan_2014_13_24_36_+1100_R9OXwE5CiIP2G.9j
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+The following call chain indicates that eql_ioctl(), eql_enslave(),
+eql_emancipate(), eql_g_slave_cfg() and eql_s_slave_cfg() are
+protected under rtnl_lock. So if we use __dev_get_by_name() instead
+of dev_get_by_name() to find interface handlers in them, this would
+help us avoid to change interface reference counters.
 
-Hi all,
+dev_ioctl()
+  rtnl_lock()
+    dev_ifsioc()
+      eql_ioctl()
+        eql_enslave()
+	eql_emancipate()
+	eql_g_slave_cfg()
+	eql_s_slave_cfg()
+  rtnl_unlock()
 
-Today's linux-next merge of the net-next tree got a conflict in arch/mips/b=
-cm47xx/setup.c between commits dc8db0fd9f9f ("MIPS: BCM47XX: Prepare suppor=
-t for LEDs"), db780310ed48 ("MIPS: BCM47XX: Prepare support for GPIO button=
-s") and 7fb942c59696 ("MIPS: BCM47XX: fix position of cpu_wait disabling") =
-from the mips tree and commit b04138b33520 ("b44: use fixed PHY device if w=
-e do not find any") from the net-next tree.
+Additionally we also change their return values from -EINVAL to
+-ENODEV in case that interfaces are no found.
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+---
+ drivers/net/eql.c |   95 +++++++++++++++++++++++------------------------------
+ 1 file changed, 42 insertions(+), 53 deletions(-)
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc arch/mips/bcm47xx/setup.c
-index 12d77e9c2cb4,9057728ac56b..000000000000
---- a/arch/mips/bcm47xx/setup.c
-+++ b/arch/mips/bcm47xx/setup.c
-@@@ -26,10 -26,11 +26,13 @@@
-   *  675 Mass Ave, Cambridge, MA 02139, USA.
-   */
- =20
- +#include "bcm47xx_private.h"
- +
-  #include <linux/export.h>
-  #include <linux/types.h>
-+ #include <linux/ethtool.h>
-+ #include <linux/phy.h>
-+ #include <linux/phy_fixed.h>
-  #include <linux/ssb/ssb.h>
-  #include <linux/ssb/ssb_embedded.h>
-  #include <linux/bcma/bcma_soc.h>
-@@@ -229,34 -226,14 +232,40 @@@ void __init plat_mem_setup(void
-  	_machine_halt =3D bcm47xx_machine_halt;
-  	pm_power_off =3D bcm47xx_machine_halt;
-  	bcm47xx_board_detect();
- +	mips_set_machine_name(bcm47xx_board_get_name());
-  }
- =20
- +static int __init bcm47xx_cpu_fixes(void)
- +{
- +	switch (bcm47xx_bus_type) {
- +#ifdef CONFIG_BCM47XX_SSB
- +	case BCM47XX_BUS_TYPE_SSB:
- +		/* Nothing to do */
- +		break;
- +#endif
- +#ifdef CONFIG_BCM47XX_BCMA
- +	case BCM47XX_BUS_TYPE_BCMA:
- +		/* The BCM4706 has a problem with the CPU wait instruction.
- +		 * When r4k_wait or r4k_wait_irqoff is used will just hang and
- +		 * not return from a msleep(). Removing the cpu_wait
- +		 * functionality is a workaround for this problem. The BCM4716
- +		 * does not have this problem.
- +		 */
- +		if (bcm47xx_bus.bcma.bus.chipinfo.id =3D=3D BCMA_CHIP_ID_BCM4706)
- +			cpu_wait =3D NULL;
- +		break;
- +#endif
- +	}
- +	return 0;
- +}
- +arch_initcall(bcm47xx_cpu_fixes);
- +
-+ static struct fixed_phy_status bcm47xx_fixed_phy_status __initdata =3D {
-+ 	.link	=3D 1,
-+ 	.speed	=3D SPEED_100,
-+ 	.duplex	=3D DUPLEX_FULL,
-+ };
-+=20
-  static int __init bcm47xx_register_bus_complete(void)
-  {
-  	switch (bcm47xx_bus_type) {
-@@@ -271,9 -248,7 +280,10 @@@
-  		break;
-  #endif
-  	}
- +	bcm47xx_buttons_register();
- +	bcm47xx_leds_register();
- +
-+ 	fixed_phy_add(PHY_POLL, 0, &bcm47xx_fixed_phy_status);
-  	return 0;
-  }
-  device_initcall(bcm47xx_register_bus_complete);
-
---Signature=_Wed__15_Jan_2014_13_24_36_+1100_R9OXwE5CiIP2G.9j
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBCAAGBQJS1fFsAAoJEMDTa8Ir7ZwVhNEP/ArxfSdJ0zT6uSqnFWgAYp5r
-wNpfB9W8i+f/4pKBE36nGeT+OlEUpT3C+6Wz9EBHegxaoGyYDXg10cGyhHE0fiCv
-9ssb1XIMG4sbD5V4j1O72hTwzDNsTyQM4D/EywsQAR+nP/IxtN/009yl8XxNc65h
-5z3xUhrvJhDGawUvcW9VKEEWLO4x+vncBk/KJCrX9DTroeuUFwCmMegR6TpfF9e0
-EYRu0viVrSBPr2FWTcDVcqrgvPE+d9/6m5aP65FpDHBhI01HPIg01kGJzeTvuqlK
-kcEqNF0SXH2GizzZGkaV+d13juQ3wzTFCDbMaPrcXrboDzVU9bkIhgQvx6qmJUhf
-YFYbuMAtsj+XCKqqbN5FYaqbizZyc6Q7ko4orooQEF/qA1OkLhXCOMrFVZEIBCFx
-tAcJZ8HZt1o4pFO4UJxIti5HkOqLMDpZja3q3M1gqXJHG0h6WWHB38V+rGsnRO8x
-2wpGmah38bUrh6QBQNVWWIUAPYSglGMThA64fZgQ0nU5siqzWEfzzR1auHWk/UBz
-+chAJhAX0LWeDEpFIap4vAKmKFj+Q8VJS1Nt0n4XMWBL2/Bbmo+9HtvM1DmEYLxt
-mFES2xSLB8Zy4b+4XfTbH9wzbn2bic3WTiVx0fJMZ6ErtB2DqpxEwHpd2jyNwvBx
-BTgeAdxmQ50Lu+/T8QK4
-=UWkI
------END PGP SIGNATURE-----
-
---Signature=_Wed__15_Jan_2014_13_24_36_+1100_R9OXwE5CiIP2G.9j--
+diff --git a/drivers/net/eql.c b/drivers/net/eql.c
+index f219d38..7a79b60 100644
+--- a/drivers/net/eql.c
++++ b/drivers/net/eql.c
+@@ -395,6 +395,7 @@ static int __eql_insert_slave(slave_queue_t *queue, slave_t *slave)
+ 		if (duplicate_slave)
+ 			eql_kill_one_slave(queue, duplicate_slave);
+ 
++		dev_hold(slave->dev);
+ 		list_add(&slave->list, &queue->all_slaves);
+ 		queue->num_slaves++;
+ 		slave->dev->flags |= IFF_SLAVE;
+@@ -413,39 +414,35 @@ static int eql_enslave(struct net_device *master_dev, slaving_request_t __user *
+ 	if (copy_from_user(&srq, srqp, sizeof (slaving_request_t)))
+ 		return -EFAULT;
+ 
+-	slave_dev  = dev_get_by_name(&init_net, srq.slave_name);
+-	if (slave_dev) {
+-		if ((master_dev->flags & IFF_UP) == IFF_UP) {
+-			/* slave is not a master & not already a slave: */
+-			if (!eql_is_master(slave_dev) &&
+-			    !eql_is_slave(slave_dev)) {
+-				slave_t *s = kmalloc(sizeof(*s), GFP_KERNEL);
+-				equalizer_t *eql = netdev_priv(master_dev);
+-				int ret;
+-
+-				if (!s) {
+-					dev_put(slave_dev);
+-					return -ENOMEM;
+-				}
+-
+-				memset(s, 0, sizeof(*s));
+-				s->dev = slave_dev;
+-				s->priority = srq.priority;
+-				s->priority_bps = srq.priority;
+-				s->priority_Bps = srq.priority / 8;
+-
+-				spin_lock_bh(&eql->queue.lock);
+-				ret = __eql_insert_slave(&eql->queue, s);
+-				if (ret) {
+-					dev_put(slave_dev);
+-					kfree(s);
+-				}
+-				spin_unlock_bh(&eql->queue.lock);
+-
+-				return ret;
+-			}
++	slave_dev = __dev_get_by_name(&init_net, srq.slave_name);
++	if (!slave_dev)
++		return -ENODEV;
++
++	if ((master_dev->flags & IFF_UP) == IFF_UP) {
++		/* slave is not a master & not already a slave: */
++		if (!eql_is_master(slave_dev) && !eql_is_slave(slave_dev)) {
++			slave_t *s = kmalloc(sizeof(*s), GFP_KERNEL);
++			equalizer_t *eql = netdev_priv(master_dev);
++			int ret;
++
++			if (!s)
++				return -ENOMEM;
++
++			memset(s, 0, sizeof(*s));
++			s->dev = slave_dev;
++			s->priority = srq.priority;
++			s->priority_bps = srq.priority;
++			s->priority_Bps = srq.priority / 8;
++
++			spin_lock_bh(&eql->queue.lock);
++			ret = __eql_insert_slave(&eql->queue, s);
++			if (ret)
++				kfree(s);
++
++			spin_unlock_bh(&eql->queue.lock);
++
++			return ret;
+ 		}
+-		dev_put(slave_dev);
+ 	}
+ 
+ 	return -EINVAL;
+@@ -461,24 +458,20 @@ static int eql_emancipate(struct net_device *master_dev, slaving_request_t __use
+ 	if (copy_from_user(&srq, srqp, sizeof (slaving_request_t)))
+ 		return -EFAULT;
+ 
+-	slave_dev = dev_get_by_name(&init_net, srq.slave_name);
+-	ret = -EINVAL;
+-	if (slave_dev) {
+-		spin_lock_bh(&eql->queue.lock);
+-
+-		if (eql_is_slave(slave_dev)) {
+-			slave_t *slave = __eql_find_slave_dev(&eql->queue,
+-							      slave_dev);
++	slave_dev = __dev_get_by_name(&init_net, srq.slave_name);
++	if (!slave_dev)
++		return -ENODEV;
+ 
+-			if (slave) {
+-				eql_kill_one_slave(&eql->queue, slave);
+-				ret = 0;
+-			}
++	ret = -EINVAL;
++	spin_lock_bh(&eql->queue.lock);
++	if (eql_is_slave(slave_dev)) {
++		slave_t *slave = __eql_find_slave_dev(&eql->queue, slave_dev);
++		if (slave) {
++			eql_kill_one_slave(&eql->queue, slave);
++			ret = 0;
+ 		}
+-		dev_put(slave_dev);
+-
+-		spin_unlock_bh(&eql->queue.lock);
+ 	}
++	spin_unlock_bh(&eql->queue.lock);
+ 
+ 	return ret;
+ }
+@@ -494,7 +487,7 @@ static int eql_g_slave_cfg(struct net_device *dev, slave_config_t __user *scp)
+ 	if (copy_from_user(&sc, scp, sizeof (slave_config_t)))
+ 		return -EFAULT;
+ 
+-	slave_dev = dev_get_by_name(&init_net, sc.slave_name);
++	slave_dev = __dev_get_by_name(&init_net, sc.slave_name);
+ 	if (!slave_dev)
+ 		return -ENODEV;
+ 
+@@ -510,8 +503,6 @@ static int eql_g_slave_cfg(struct net_device *dev, slave_config_t __user *scp)
+ 	}
+ 	spin_unlock_bh(&eql->queue.lock);
+ 
+-	dev_put(slave_dev);
+-
+ 	if (!ret && copy_to_user(scp, &sc, sizeof (slave_config_t)))
+ 		ret = -EFAULT;
+ 
+@@ -529,7 +520,7 @@ static int eql_s_slave_cfg(struct net_device *dev, slave_config_t __user *scp)
+ 	if (copy_from_user(&sc, scp, sizeof (slave_config_t)))
+ 		return -EFAULT;
+ 
+-	slave_dev = dev_get_by_name(&init_net, sc.slave_name);
++	slave_dev = __dev_get_by_name(&init_net, sc.slave_name);
+ 	if (!slave_dev)
+ 		return -ENODEV;
+ 
+@@ -548,8 +539,6 @@ static int eql_s_slave_cfg(struct net_device *dev, slave_config_t __user *scp)
+ 	}
+ 	spin_unlock_bh(&eql->queue.lock);
+ 
+-	dev_put(slave_dev);
+-
+ 	return ret;
+ }
+ 
+-- 
+1.7.9.5
