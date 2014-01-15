@@ -1,46 +1,32 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next] xen-netback: Rework rx_work_todo
-Date: Wed, 15 Jan 2014 11:47:02 +0000
-Message-ID: <52D67536.4030106@citrix.com>
-References: <1389727719-21439-1-git-send-email-zoltan.kiss@citrix.com> <20140115103707.GI5698@zion.uk.xensource.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: unable to send TCP SYNs from ports below 1024
+Date: Wed, 15 Jan 2014 12:47:15 +0100
+Message-ID: <20140115114715.GC19945@order.stressinduktion.org>
+References: <CAACXELm1Yfv+=oC-N+nnR7apHc+gtZSVpqSbX2Rtkiq6-Y1QtA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<jonathan.davies@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140115103707.GI5698@zion.uk.xensource.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Stuart Kendrick <stuart.kendrick.sea@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:38969 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751966AbaAOLrQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 06:47:16 -0500
+Content-Disposition: inline
+In-Reply-To: <CAACXELm1Yfv+=oC-N+nnR7apHc+gtZSVpqSbX2Rtkiq6-Y1QtA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 15/01/14 10:37, Wei Liu wrote:
-> On Tue, Jan 14, 2014 at 07:28:39PM +0000, Zoltan Kiss wrote:
->> The recent patch to fix receive side flow control (11b57f) solved the spinning
->> thread problem, however caused an another one. The receive side can stall, if:
->> - xenvif_rx_action sets rx_queue_stopped to false
->> - interrupt happens, and sets rx_event to true
->> - then xenvif_kthread sets rx_event to false
->>
->
-> If you mean "rx_work_todo" returns false.
->
-> In this case
->
-> (!skb_queue_empty(&vif->rx_queue) && !vif->rx_queue_stopped) || vif->rx_event;
->
-> can still be true, can't it?
-Sorry, I should wrote rx_queue_stopped to true
+On Tue, Jan 14, 2014 at 05:37:03PM -0800, Stuart Kendrick wrote:
+> VALIDATION
+> I verify the problem by using netcat plus two instances of tcpdump,
+> one running on the box itself, the other running on a second box
+> plugged into a SPAN port on the local Ethernet switch
 
->
->> Also, through rx_event a malicious guest can force the RX thread to spin. This
->> patch ditch that two variable, and rework rx_work_todo. If the thread finds it
->
-> This seems to be a bigger problem. Can you elaborate?
-My mistake too. I forgot that rx_action set it to false, so it's not 
-really a spinning. However the thread should still run xenvif_rx_action 
-to figure out there is no space in the ring before it sets rx_event to 
-false. In my patch we can quit earlier.
+This sounds strange. Could you try to skip the switch and plug the
+boxes together directly. Maybe a switch policy? They can filter such
+things nowaday.
 
-Zoli
+Greetings,
+
+  Hannes
