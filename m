@@ -1,89 +1,88 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: Re: [PATCH net-next] IPv6: add option to use anycast addresses as source addresses in icmp error messages
-Date: Wed, 15 Jan 2014 01:46:03 -0800 (PST)
-Message-ID: <1389779163.69122.YahooMailBasic@web125504.mail.ne1.yahoo.com>
+From: Yuval Mintz <yuvalmin@broadcom.com>
+Subject: [PATCH net] bnx2x: Don't release PCI bars on shutdown
+Date: Wed, 15 Jan 2014 12:05:30 +0200
+Message-ID: <1389780330-6927-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, Bill Fink <billfink@mindspring.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain
+Cc: Yuval Mintz <yuvalmin@broadcom.com>,
+	Ariel Elior <ariele@broadcom.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm49.bullet.mail.ne1.yahoo.com ([98.138.120.56]:41726 "HELO
-	nm49.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750754AbaAOJtG convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jan 2014 04:49:06 -0500
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:30438 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751535AbaAOKFd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 05:05:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 14, 2014 at 02:13:44PM +0100, Hannes Frederic Sowa wrote:
-> > On Mon, Jan 13, 2014 at 06:22:44PM +0100, Francois-Xavier Le Bail w=
-rote:
-> > > - Add "anycast_src_icmp_error" sysctl to control the use of anyca=
-st addresses
-> > >=A0=A0=A0as source addresses for ICMPv6 error messages. This sysct=
-l is false by
-> > >=A0=A0=A0default to preserve existing behavior.
-> > > - Use it in icmp6_send().
-> > >=20
-> > > Suggested-by: Bill Fink <billfink@mindspring.com>
-> > > Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
-> >=20
-> > Regarding the anycast patches, I contacted someone from IETF.
-> >=20
-> > The number of sysctls needed to get introduced to have all the flex=
-ibility
-> > regarding source address selection and don't break backward compati=
-bility
-> > concerns me a bit.
-> >=20
-> > Especially on end hosts, where those switches will be important, I =
-think we
-> > really have to think about sensible defaults without breaking curre=
-nt
-> > software.
-> >=20
-> > I currently consider a per-address flag, if those anycast addresses
-> > should be available in source address selection (also with an enhan=
-cement to
-> > current IPV6_JOIN_ANYCAST logic).
->=20
-> Francois, we should really think about this. Also if we should just
-> make the pre-defined subnet address just a normal anycast address in =
-the
-> long-term (which just happens to get automatically added to an interf=
-ace
-> if forwarding is enabled) and bundle all the source address selection
-> logic on the per-address state.
+The bnx2x driver in its pci shutdown() callback releases its pci bars (in the
+same manner it does during its pci remove() callback).
+During a system reboot while VFs are enabled, its possible for the VF's remove
+to be called (as a result of pci_disable_sriov()) after its shutdown callback
+has already finished running; This will cause a paging request fault as the VF
+tries to access the pci bar which it has previously released, crashing the
+system.
 
-Hi Hannes,
+This patch further differentiates the shutdown and remove callbacks, preventing the
+pci release procedures from being called during shutdown.
 
-Please submit patches with your solution, so that we can have a basis
-for discussion.
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+---
+Hi Dave,
 
-> If that would be the case, we could revert
-> 509aba3b0d366b7f16a9a2eebac1156b25f5f622 ("IPv6: add the option to us=
-e
-> anycast addresses as source addresses in echo reply") and thus would
-> eliminate one sysctl.
+Please accept this patch to `net'.
 
-If your solution achieve the same goal without this sysctl, I agree wit=
-h you.
+Thanks,
+Yuval
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 29 ++++++++++++------------
+ 1 file changed, 15 insertions(+), 14 deletions(-)
 
-> It would be fine if we can make this decision before David merges wit=
-h
-> Linus.=A0 I guess we can still do this decision while in -rc phase. B=
-ut
-> as soon as the knob is in a released version of linux we can never ta=
-ke
-> it back (I really don't like sysctls).
-
-Sure.
-
-Cheers,
-=46ran=E7ois-Xavier
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 8b3107b..7b3b5cc 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -12942,25 +12942,26 @@ static void __bnx2x_remove(struct pci_dev *pdev,
+ 		pci_set_power_state(pdev, PCI_D3hot);
+ 	}
+ 
+-	if (bp->regview)
+-		iounmap(bp->regview);
++	if (remove_netdev) {
++		if (bp->regview)
++			iounmap(bp->regview);
+ 
+-	/* for vf doorbells are part of the regview and were unmapped along with
+-	 * it. FW is only loaded by PF.
+-	 */
+-	if (IS_PF(bp)) {
+-		if (bp->doorbells)
+-			iounmap(bp->doorbells);
++		/* For vfs, doorbells are part of the regview and were unmapped
++		 * along with it. FW is only loaded by PF.
++		 */
++		if (IS_PF(bp)) {
++			if (bp->doorbells)
++				iounmap(bp->doorbells);
+ 
+-		bnx2x_release_firmware(bp);
+-	}
+-	bnx2x_free_mem_bp(bp);
++			bnx2x_release_firmware(bp);
++		}
++		bnx2x_free_mem_bp(bp);
+ 
+-	if (remove_netdev)
+ 		free_netdev(dev);
+ 
+-	if (atomic_read(&pdev->enable_cnt) == 1)
+-		pci_release_regions(pdev);
++		if (atomic_read(&pdev->enable_cnt) == 1)
++			pci_release_regions(pdev);
++	}
+ 
+ 	pci_disable_device(pdev);
+ }
+-- 
+1.8.1.227.g44fe835
