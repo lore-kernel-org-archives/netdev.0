@@ -1,116 +1,48 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH net-next] sctp: create helper function to enable|disable sackdelay
-Date: Wed, 15 Jan 2014 17:24:01 +0800
-Message-ID: <52D653B1.4040708@huawei.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v5 net-next 1/4] sh_eth: Use bool as return type of
+ sh_eth_is_gether()
+Date: Wed, 15 Jan 2014 01:35:20 -0800
+Message-ID: <1389778520.14001.16.camel@joe-AO722>
+References: <1389766341-14001-1-git-send-email-horms+renesas@verge.net.au>
+	 <1389766341-14001-2-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:52266 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751037AbaAOJZn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 04:25:43 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Simon Horman <horms+renesas@verge.net.au>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1389766341-14001-2-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-add sctp_spp_sackdelay_{enable|disable} helper function for
-avoiding code duplication. 
+On Wed, 2014-01-15 at 15:12 +0900, Simon Horman wrote:
+> Return a boolean and use true and false.
+[]
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+[]
+> @@ -310,12 +310,12 @@ static const u16 sh_eth_offset_fast_sh3_sh2[SH_ETH_MAX_REGISTER_OFFSET] = {
+>  	[TSU_ADRL31]	= 0x01fc,
+>  };
+>  
+> -static int sh_eth_is_gether(struct sh_eth_private *mdp)
+> +static bool sh_eth_is_gether(struct sh_eth_private *mdp)
+>  {
+>  	if (mdp->reg_offset == sh_eth_offset_gigabit)
+> -		return 1;
+> +		return true;
+>  	else
+> -		return 0;
+> +		return false;
+>  }
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
----
- net/sctp/socket.c | 37 +++++++++++++++++++------------------
- 1 file changed, 19 insertions(+), 18 deletions(-)
+Or maybe:
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 7cc62b9..20dd417 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -2527,6 +2527,16 @@ static int sctp_setsockopt_peer_addr_params(struct sock *sk,
- 	return 0;
- }
- 
-+static inline __u32 sctp_spp_sackdelay_enable(__u32 param_flags)
-+{
-+	return (param_flags & ~SPP_SACKDELAY) | SPP_SACKDELAY_ENABLE;
-+}
-+
-+static inline __u32 sctp_spp_sackdelay_disable(__u32 param_flags)
-+{
-+	return (param_flags & ~SPP_SACKDELAY) | SPP_SACKDELAY_DISABLE;
-+}
-+
- /*
-  * 7.1.23.  Get or set delayed ack timer (SCTP_DELAYED_SACK)
-  *
-@@ -2610,37 +2620,31 @@ static int sctp_setsockopt_delayed_ack(struct sock *sk,
- 			asoc->sackdelay =
- 				msecs_to_jiffies(params.sack_delay);
- 			asoc->param_flags =
--				(asoc->param_flags & ~SPP_SACKDELAY) |
--				SPP_SACKDELAY_ENABLE;
-+				sctp_spp_sackdelay_enable(asoc->param_flags);
- 		} else {
- 			sp->sackdelay = params.sack_delay;
- 			sp->param_flags =
--				(sp->param_flags & ~SPP_SACKDELAY) |
--				SPP_SACKDELAY_ENABLE;
-+				sctp_spp_sackdelay_enable(sp->param_flags);
- 		}
- 	}
- 
- 	if (params.sack_freq == 1) {
- 		if (asoc) {
- 			asoc->param_flags =
--				(asoc->param_flags & ~SPP_SACKDELAY) |
--				SPP_SACKDELAY_DISABLE;
-+				sctp_spp_sackdelay_disable(asoc->param_flags);
- 		} else {
- 			sp->param_flags =
--				(sp->param_flags & ~SPP_SACKDELAY) |
--				SPP_SACKDELAY_DISABLE;
-+				sctp_spp_sackdelay_disable(sp->param_flags);
- 		}
- 	} else if (params.sack_freq > 1) {
- 		if (asoc) {
- 			asoc->sackfreq = params.sack_freq;
- 			asoc->param_flags =
--				(asoc->param_flags & ~SPP_SACKDELAY) |
--				SPP_SACKDELAY_ENABLE;
-+				sctp_spp_sackdelay_enable(asoc->param_flags);
- 		} else {
- 			sp->sackfreq = params.sack_freq;
- 			sp->param_flags =
--				(sp->param_flags & ~SPP_SACKDELAY) |
--				SPP_SACKDELAY_ENABLE;
-+				sctp_spp_sackdelay_enable(sp->param_flags);
- 		}
- 	}
- 
-@@ -2652,18 +2656,15 @@ static int sctp_setsockopt_delayed_ack(struct sock *sk,
- 				trans->sackdelay =
- 					msecs_to_jiffies(params.sack_delay);
- 				trans->param_flags =
--					(trans->param_flags & ~SPP_SACKDELAY) |
--					SPP_SACKDELAY_ENABLE;
-+					sctp_spp_sackdelay_enable(trans->param_flags);
- 			}
- 			if (params.sack_freq == 1) {
- 				trans->param_flags =
--					(trans->param_flags & ~SPP_SACKDELAY) |
--					SPP_SACKDELAY_DISABLE;
-+					sctp_spp_sackdelay_disable(trans->param_flags);
- 			} else if (params.sack_freq > 1) {
- 				trans->sackfreq = params.sack_freq;
- 				trans->param_flags =
--					(trans->param_flags & ~SPP_SACKDELAY) |
--					SPP_SACKDELAY_ENABLE;
-+					sctp_spp_sackdelay_enable(trans->param_flags);
- 			}
- 		}
- 	}
--- 
-1.7.12
+static bool sh_eth_is_gether(struct sh_eth_private *mdp)
+{
+	return mdp->reg_offset == sh_eth_offset_gigabit;
+}
+
+
