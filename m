@@ -1,72 +1,59 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next] xen-netback: Rework rx_work_todo
-Date: Wed, 15 Jan 2014 15:08:12 +0000
-Message-ID: <52D6A45C.1060705@citrix.com>
-References: <1389727719-21439-1-git-send-email-zoltan.kiss@citrix.com> <20140115103707.GI5698@zion.uk.xensource.com> <52D67536.4030106@citrix.com> <20140115144519.GO5698@zion.uk.xensource.com> <52D6A0B9.2030204@citrix.com> <20140115145951.GP5698@zion.uk.xensource.com>
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Subject: Re: [PATCH net] bpf: do not use reciprocal divide
+Date: Wed, 15 Jan 2014 16:10:08 +0100
+Message-ID: <20140115151008.GD6638@osiris>
+References: <20140113214249.GK6586@order.stressinduktion.org>
+ <1389769361.31367.325.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140115080007.GA6638@osiris>
+ <1389795398.31367.329.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<jonathan.davies@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140115145951.GP5698@zion.uk.xensource.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, dborkman@redhat.com,
+	darkjames-ws@darkjames.pl, Mircea Gherzan <mgherzan@gmail.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	Matt Evans <matt@ozlabs.org>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:60586 "EHLO
+	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751612AbaAOPKQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 10:10:16 -0500
+Received: from /spool/local
+	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <heiko.carstens@de.ibm.com>;
+	Wed, 15 Jan 2014 15:10:14 -0000
+Received: from b06cxnps3074.portsmouth.uk.ibm.com (d06relay09.portsmouth.uk.ibm.com [9.149.109.194])
+	by d06dlp03.portsmouth.uk.ibm.com (Postfix) with ESMTP id DA20F1B0806E
+	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 15:09:35 +0000 (GMT)
+Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
+	by b06cxnps3074.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s0FFA1Jk51183784
+	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 15:10:01 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (localhost [127.0.0.1])
+	by d06av04.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s0FFAA06011481
+	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 08:10:12 -0700
+Content-Disposition: inline
+In-Reply-To: <1389795398.31367.329.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 15/01/14 14:59, Wei Liu wrote:
-> On Wed, Jan 15, 2014 at 02:52:41PM +0000, Zoltan Kiss wrote:
->> On 15/01/14 14:45, Wei Liu wrote:
->>>>>> The recent patch to fix receive side flow control (11b57f) solved the spinning
->>>>>>>>> thread problem, however caused an another one. The receive side can stall, if:
->>>>>>>>> - xenvif_rx_action sets rx_queue_stopped to false
->>>>>>>>> - interrupt happens, and sets rx_event to true
->>>>>>>>> - then xenvif_kthread sets rx_event to false
->>>>>>>>>
->>>>>>>
->>>>>>> If you mean "rx_work_todo" returns false.
->>>>>>>
->>>>>>> In this case
->>>>>>>
->>>>>>> (!skb_queue_empty(&vif->rx_queue) && !vif->rx_queue_stopped) || vif->rx_event;
->>>>>>>
->>>>>>> can still be true, can't it?
->>>>> Sorry, I should wrote rx_queue_stopped to true
->>>>>
->>> In this case, if rx_queue_stopped is true, then we're expecting frontend
->>> to notify us, right?
->>>
->>> rx_queue_stopped is set to true if we cannot make any progress to queue
->>> packet into the ring. In that situation we can expect frontend will send
->>> notification to backend after it goes through the backlog in the ring.
->>> That means rx_event is set to true, and rx_work_todo is true again. So
->>> the ring is actually not stalled in this case as well. Did I miss
->>> something?
->>>
->>
->> Yes, we expect the guest to notify us, and it does, and we set
->> rx_event to true (see second point), but then the thread set it to
->> false (see third point). Talking with Paul, another solution could
->> be to set rx_event false before calling xenvif_rx_action. But using
->> rx_last_skb_slots makes it quicker for the thread to see if it
->> doesn't have to do anything.
->>
->
-> OK, this is a better explaination. So actually there's no bug in the
-> original implementation and your patch is sort of an improvement.
->
-> Could you send a new version of this patch with relevant information in
-> commit message? Talking to people offline is faster, but I would like to
-> have public discussion and relevant information archived in a searchable
-> form. Thanks.
+On Wed, Jan 15, 2014 at 06:16:38AM -0800, Eric Dumazet wrote:
+> On Wed, 2014-01-15 at 09:00 +0100, Heiko Carstens wrote:
+> > Are you sure you want to remove the k == 0 check? Is there something
+> > else that would prevent a division by zero?
+> 
+> This is done by factoring the two cases, modulo and divide :
+> 
+>  vi +553 net/core/filter.c 
+> 
+>                 /* Some instructions need special checks */
+>                 switch (code) {
+>                 case BPF_S_ALU_DIV_K:
+>                 case BPF_S_ALU_MOD_K:
+>                         /* check for division by zero */
+>                         if (ftest->k == 0)
+>                                 return -EINVAL;
+>                         break;
 
-No, there is a bug in the original implementation:
-- [THREAD] xenvif_rx_action sets rx_queue_stopped to true
-- [INTERRUPT] interrupt happens, and sets rx_event to true
-- [THREAD] then xenvif_kthread sets rx_event to false
-- [THREAD] rx_work_todo never returns true anymore
-
-I will update the explanation and send in the patch again.
-
-Zoli
+Oh, sorry. I missed the fallthrough.
