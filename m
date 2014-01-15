@@ -1,134 +1,135 @@
-From: mark.doffman@codethink.co.uk
-Subject: [PATCH v2 2/2] Documentation: Document the cephroot functionality
-Date: Wed, 15 Jan 2014 11:26:29 -0600
-Message-ID: <29b3bd9700e23df2aee095df8c34a15a62f57d27.1389806186.git.mark.doffman@codethink.co.uk>
-References: <cover.1389806186.git.mark.doffman@codethink.co.uk>
-Cc: Rob Taylor <rob.taylor@codethink.co.uk>, sage@inktank.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-nfs@vger.kernel.org,
-	Mark Doffman <mark.doffman@codethink.co.uk>
-To: ceph-devel@vger.kernel.org
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net-next v2] xen-netfront: add support for IPv6 offloads
+Date: Wed, 15 Jan 2014 17:30:33 +0000
+Message-ID: <1389807033-11105-1-git-send-email-paul.durrant@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([37.128.190.40]:60931 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752706AbaAOR1R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 12:27:17 -0500
-In-Reply-To: <cover.1389806186.git.mark.doffman@codethink.co.uk>
-In-Reply-To: <cover.1389806186.git.mark.doffman@codethink.co.uk>
-References: <1385000024-23463-1-git-send-email-mark.doffman@codethink.co.uk> <cover.1389806186.git.mark.doffman@codethink.co.uk>
+Received: from smtp.citrix.com ([66.165.176.89]:33736 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751992AbaAORag (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jan 2014 12:30:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rob Taylor <rob.taylor@codethink.co.uk>
+This patch adds support for IPv6 checksum offload and GSO when those
+features are available in the backend.
 
-Document using the cephfs as a root device, its purpose,
-functionality and use.
-
-Signed-off-by: Mark Doffman <mark.doffman@codethink.co.uk>
-Signed-off-by: Rob Taylor <rob.taylor@codethink.co.uk>
-Reviewed-by: Ian Molton <ian.molton@codethink.co.uk>
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Cc: David Vrabel <david.vrabel@citrix.com>
 ---
- Documentation/filesystems/{ => ceph}/ceph.txt |  0
- Documentation/filesystems/ceph/cephroot.txt   | 86 +++++++++++++++++++++++++++
- 2 files changed, 86 insertions(+)
- rename Documentation/filesystems/{ => ceph}/ceph.txt (100%)
- create mode 100644 Documentation/filesystems/ceph/cephroot.txt
+v2:
+- Use xenbus_write rather than xenbus_printf
 
-diff --git a/Documentation/filesystems/ceph.txt b/Documentation/filesystems/ceph/ceph.txt
-similarity index 100%
-rename from Documentation/filesystems/ceph.txt
-rename to Documentation/filesystems/ceph/ceph.txt
-diff --git a/Documentation/filesystems/ceph/cephroot.txt b/Documentation/filesystems/ceph/cephroot.txt
-new file mode 100644
-index 0000000..deda4f0
---- /dev/null
-+++ b/Documentation/filesystems/ceph/cephroot.txt
-@@ -0,0 +1,86 @@
-+Mounting the root filesystem via Ceph (cephroot)
-+===============================================
+ drivers/net/xen-netfront.c |   48 +++++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 43 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index c41537b..d7bee8a 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -617,7 +617,9 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		tx->flags |= XEN_NETTXF_extra_info;
+ 
+ 		gso->u.gso.size = skb_shinfo(skb)->gso_size;
+-		gso->u.gso.type = XEN_NETIF_GSO_TYPE_TCPV4;
++		gso->u.gso.type = (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) ?
++			XEN_NETIF_GSO_TYPE_TCPV6 :
++			XEN_NETIF_GSO_TYPE_TCPV4;
+ 		gso->u.gso.pad = 0;
+ 		gso->u.gso.features = 0;
+ 
+@@ -809,15 +811,18 @@ static int xennet_set_skb_gso(struct sk_buff *skb,
+ 		return -EINVAL;
+ 	}
+ 
+-	/* Currently only TCPv4 S.O. is supported. */
+-	if (gso->u.gso.type != XEN_NETIF_GSO_TYPE_TCPV4) {
++	if (gso->u.gso.type != XEN_NETIF_GSO_TYPE_TCPV4 &&
++	    gso->u.gso.type != XEN_NETIF_GSO_TYPE_TCPV6) {
+ 		if (net_ratelimit())
+ 			pr_warn("Bad GSO type %d\n", gso->u.gso.type);
+ 		return -EINVAL;
+ 	}
+ 
+ 	skb_shinfo(skb)->gso_size = gso->u.gso.size;
+-	skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
++	skb_shinfo(skb)->gso_type =
++		(gso->u.gso.type == XEN_NETIF_GSO_TYPE_TCPV4) ?
++		SKB_GSO_TCPV4 :
++		SKB_GSO_TCPV6;
+ 
+ 	/* Header must be checked, and gso_segs computed. */
+ 	skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
+@@ -1191,6 +1196,15 @@ static netdev_features_t xennet_fix_features(struct net_device *dev,
+ 			features &= ~NETIF_F_SG;
+ 	}
+ 
++	if (features & NETIF_F_IPV6_CSUM) {
++		if (xenbus_scanf(XBT_NIL, np->xbdev->otherend,
++				 "feature-ipv6-csum-offload", "%d", &val) < 0)
++			val = 0;
 +
-+Written 2013 by Rob Taylor <rob.taylor@codethink.co.uk>
++		if (!val)
++			features &= ~NETIF_F_IPV6_CSUM;
++	}
 +
-+derived from nfsroot.txt:
+ 	if (features & NETIF_F_TSO) {
+ 		if (xenbus_scanf(XBT_NIL, np->xbdev->otherend,
+ 				 "feature-gso-tcpv4", "%d", &val) < 0)
+@@ -1200,6 +1214,15 @@ static netdev_features_t xennet_fix_features(struct net_device *dev,
+ 			features &= ~NETIF_F_TSO;
+ 	}
+ 
++	if (features & NETIF_F_TSO6) {
++		if (xenbus_scanf(XBT_NIL, np->xbdev->otherend,
++				 "feature-gso-tcpv6", "%d", &val) < 0)
++			val = 0;
 +
-+Written 1996 by Gero Kuhlmann <gero@gkminix.han.de>
-+Updated 1997 by Martin Mares <mj@atrey.karlin.mff.cuni.cz>
-+Updated 2006 by Nico Schottelius <nico-kernel-nfsroot@schottelius.org>
-+Updated 2006 by Horms <horms@verge.net.au>
++		if (!val)
++			features &= ~NETIF_F_TSO6;
++	}
 +
+ 	return features;
+ }
+ 
+@@ -1338,7 +1361,9 @@ static struct net_device *xennet_create_dev(struct xenbus_device *dev)
+ 	netif_napi_add(netdev, &np->napi, xennet_poll, 64);
+ 	netdev->features        = NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
+ 				  NETIF_F_GSO_ROBUST;
+-	netdev->hw_features	= NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_TSO;
++	netdev->hw_features	= NETIF_F_SG |
++				  NETIF_F_IPV6_CSUM |
++				  NETIF_F_TSO | NETIF_F_TSO6;
+ 
+ 	/*
+          * Assume that all hw features are available for now. This set
+@@ -1716,6 +1741,19 @@ again:
+ 		goto abort_transaction;
+ 	}
+ 
++	err = xenbus_write(xbt, dev->nodename, "feature-gso-tcpv6", "1");
++	if (err) {
++		message = "writing feature-gso-tcpv6";
++		goto abort_transaction;
++	}
 +
++	err = xenbus_write(xbt, dev->nodename, "feature-ipv6-csum-offload",
++			   "1");
++	if (err) {
++		message = "writing feature-ipv6-csum-offload";
++		goto abort_transaction;
++	}
 +
-+In order to use a diskless system, such as an X-terminal or printer server
-+for example, it is necessary for the root filesystem to be present on a
-+non-disk device. This may be an initramfs (see Documentation/filesystems/
-+ramfs-rootfs-initramfs.txt), a ramdisk (see Documentation/initrd.txt), a
-+filesystem mounted via NFS or a filesystem mounted via Ceph. The following
-+text describes on how to use Ceph for the root filesystem.
-+
-+For the rest of this text 'client' means the diskless system, and 'server'
-+means the Ceph server.
-+
-+
-+1.) Enabling cephroot capabilities
-+    -----------------------------
-+
-+In order to use cephroot, CEPH_FS needs to be selected as
-+built-in during configuration. Once this has been selected, the cephroot
-+option will become available, which should also be selected.
-+
-+In the networking options, kernel level autoconfiguration can be selected,
-+along with the types of autoconfiguration to support. Selecting all of
-+DHCP, BOOTP and RARP is safe.
-+
-+
-+2.) Kernel command line
-+    -------------------
-+
-+When the kernel has been loaded by a boot loader (see below) it needs to be
-+told what root fs device to use. And in the case of cephroot, where to find
-+both the server and the name of the directory on the server to mount as root.
-+This can be established using the following kernel command line parameters:
-+
-+root=/dev/ceph
-+
-+This is necessary to enable the pseudo-Ceph-device. Note that it's not a
-+real device but just a synonym to tell the kernel to use Ceph instead of
-+a real device.
-+
-+If cephroot is not specified, it is expected that that a valid mount will be
-+found via DHCP option 17, Root Path [1]
-+
-+cephroot=<monaddrs>:/[<subdir>],<ceph-opts>
-+
-+  <monaddrs>    Monitor addresses separated by commas. Each takes the form
-+		host[:port]. If the port is not specified, the Ceph default
-+		of 6789 is assumed.
-+
-+  <subdir>	A subdirectory subdir may be specified if a subset of the file
-+		system is to be mounted
-+
-+  <ceph-opts>	Standard Ceph options. All options are separated by commas.
-+		See Documentation/filesystems/ceph/ceph.txt for options and
-+		their defaults.
-+
-+4.) References
-+    ----------
-+
-+[1] http://tools.ietf.org/html/rfc2132
-+
-+5.) Credits
-+    -------
-+
-+  cephroot was derived from nfsroot by Rob Taylor <rob.taylor@codethink.co.uk>
-+  and Mark Doffman <mark.doffman@codethink.co.uk>
-+
-+  The nfsroot code in the kernel and the RARP support have been written
-+  by Gero Kuhlmann <gero@gkminix.han.de>.
-+
-+  The rest of the IP layer autoconfiguration code has been written
-+  by Martin Mares <mj@atrey.karlin.mff.cuni.cz>.
-+
-+  In order to write the initial version of nfsroot I would like to thank
-+  Jens-Uwe Mager <jum@anubis.han.de> for his help.
+ 	err = xenbus_transaction_end(xbt, 0);
+ 	if (err) {
+ 		if (err == -EAGAIN)
 -- 
-1.8.4
+1.7.10.4
