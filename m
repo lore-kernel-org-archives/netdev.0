@@ -1,101 +1,69 @@
-From: Martin Schwidefsky <schwidefsky@de.ibm.com>
-Subject: Re: [PATCH net] bpf: do not use reciprocal divide
-Date: Wed, 15 Jan 2014 16:35:04 +0100
-Message-ID: <20140115163504.23efebb7@mschwide>
-References: <20140113214249.GK6586@order.stressinduktion.org>
-	<1389769361.31367.325.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140115080007.GA6638@osiris>
-	<20140115091322.3a7740a7@mschwide>
-	<20140115105114.GB6638@osiris>
-	<1389795716.31367.333.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1389795926.31367.334.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Andrew Bennieston <andrew.bennieston@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next] xen-netfront: clean up code in xennet_release_rx_bufs
+Date: Wed, 15 Jan 2014 15:35:00 +0000
+Message-ID: <52D6AAA4.7090108@citrix.com>
+References: <1389307718-2845-1-git-send-email-Annie.li@oracle.com> <20140115100743.GG5698@zion.uk.xensource.com> <52D66ADF.9070401@citrix.com> <52D697FB.3000304@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org, dborkman@redhat.com,
-	darkjames-ws@darkjames.pl, Mircea Gherzan <mgherzan@gmail.com>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Matt Evans <matt@ozlabs.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>,
+	<ian.campbell@citrix.com>, <xen-devel@lists.xen.org>
+To: annie li <annie.li@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp17.uk.ibm.com ([195.75.94.113]:34391 "EHLO
-	e06smtp17.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752272AbaAOPfL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 10:35:11 -0500
-Received: from /spool/local
-	by e06smtp17.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <schwidefsky@de.ibm.com>;
-	Wed, 15 Jan 2014 15:35:10 -0000
-Received: from b06cxnps4076.portsmouth.uk.ibm.com (d06relay13.portsmouth.uk.ibm.com [9.149.109.198])
-	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id 2DF332190056
-	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 15:35:06 +0000 (GMT)
-Received: from d06av09.portsmouth.uk.ibm.com (d06av09.portsmouth.uk.ibm.com [9.149.37.250])
-	by b06cxnps4076.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s0FFYt3S49086586
-	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 15:34:55 GMT
-Received: from d06av09.portsmouth.uk.ibm.com (localhost [127.0.0.1])
-	by d06av09.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s0FFZ65N010312
-	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 08:35:07 -0700
-In-Reply-To: <1389795926.31367.334.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from smtp.citrix.com ([66.165.176.89]:11931 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752261AbaAOPfC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jan 2014 10:35:02 -0500
+In-Reply-To: <52D697FB.3000304@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 15 Jan 2014 06:25:26 -0800
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-
-> On Wed, 2014-01-15 at 06:21 -0800, Eric Dumazet wrote:
-> > On Wed, 2014-01-15 at 11:51 +0100, Heiko Carstens wrote:
-> > > On Wed, Jan 15, 2014 at 09:13:22AM +0100, Martin Schwidefsky wrote:
-> > > > On Wed, 15 Jan 2014 09:00:07 +0100
-> > > > Heiko Carstens <heiko.carstens@de.ibm.com> wrote:
-> > > > 
-> > > > > On Tue, Jan 14, 2014 at 11:02:41PM -0800, Eric Dumazet wrote:
-> > > > > > diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
-> > > > > > index 16871da37371..e349dc7d0992 100644
-> > > > > > --- a/arch/s390/net/bpf_jit_comp.c
-> > > > > > +++ b/arch/s390/net/bpf_jit_comp.c
-> > > > > > @@ -371,11 +371,11 @@ static int bpf_jit_insn(struct bpf_jit *jit, struct sock_filter *filter,
-> > > > > >  		/* dr %r4,%r12 */
-> > > > > >  		EMIT2(0x1d4c);
-> > > > > >  		break;
-> > > > > > -	case BPF_S_ALU_DIV_K: /* A = reciprocal_divide(A, K) */
-> > > > > > -		/* m %r4,<d(K)>(%r13) */
-> > > > > > -		EMIT4_DISP(0x5c40d000, EMIT_CONST(K));
-> > > > > > -		/* lr %r5,%r4 */
-> > > > > > -		EMIT2(0x1854);
-> > > > > > +	case BPF_S_ALU_DIV_K: /* A /= K */
-> > > > > > +		/* lhi %r4,0 */
-> > > > > > +		EMIT4(0xa7480000);
-> > > > > > +		/* d %r4,<d(K)>(%r13) */
-> > > > > > +		EMIT4_DISP(0x5d40d000, EMIT_CONST(K));
-> > > > > >  		break;
-> > > > > 
-> > > > > The s390 part looks good.
-> > > > 
-> > > > Does it? The divide instruction is signed, for the special
-> > > > case of K==1 this can now cause an exception if the quotient
-> > > > gets too large. We should add a check for K==1 and do nothing
-> > > > in this case. With a divisor of at least 2 the result will
-> > > > stay in the limit.
-> > > 
-> > > Indeed. That's quite subtle.
-> > 
-> > net/core/filter.c does :
-> > 
-> > A /= K;
-> > 
-> > Why is this working in generic code (if K == 1), not in s390 one ?
-> 
-> Note that I copied code found in BPF_S_ALU_MOD_K, so this one would need
-> a fix as well.
-
-Hmm, that is true BPF_S_ALU_DIV_X, BPF_S_ALU_MOD_K and BPF_S_ALU_MOD_X all
-suffer from the same problem. As the BPF jit is only used for 64-bit 
-kernel the simplest solution is to replace the "dr" instruction with "dlr".
-
--- 
-blue skies,
-   Martin.
-
-"Reality continues to ruin my life." - Calvin.
+On 15/01/14 14:15, annie li wrote:
+>
+> On 2014-1-15 19:02, Andrew Bennieston wrote:
+>> On 15/01/14 10:07, Wei Liu wrote:
+>>> On Fri, Jan 10, 2014 at 06:48:38AM +0800, Annie Li wrote:
+>>>> Current netfront only grants pages for grant copy, not for grant
+>>>> transfer, so
+>>>> remove corresponding transfer code and add receiving copy code in
+>>>> xennet_release_rx_bufs.
+>>>>
+>>>
+>>> This path seldom gets call -- not that many people unload xen-netfront
+>>> driver. If Annie has tested this patch and it works as expected I think
+>>> it's fine.
+>>>
+>> In XenServer we have seen a number of cases where unplugging and
+>> replugging VIFs results in leakage of grant references, eventually
+>> leading to a case where you cannot plug a VIF (after ~ 400 such
+>> cycles)...
+>>
+>> It's worth pointing out, as far as this patch is concerned, that
+>> gnttab_end_foreign_access() can fail,
+>
+> Just like what Wei mentioned, it is gnttab_end_foreign_access_ref here,
+> right?
+Yes, sorry - I forgot to type the _ref part!
+>
+>> which is not taken into account here.
+>
+> Good point, gnttab_end_foreign_access_ref fails for grant which is in use.
+>
+> Thanks
+> Annie
+>>
+>> Andrew.
+>>
+>>> I'm not netfront maintainer but I'm happy to add
+>>> Acked-by: Wei Liu <wei.liu2@citrix.com>
+>>> if Annie confirms she's tested this patch.
+>>>
+>>> Wei.
+>>>
+>>> _______________________________________________
+>>> Xen-devel mailing list
+>>> Xen-devel@lists.xen.org
+>>> http://lists.xen.org/xen-devel
+>>>
+>>
+>
