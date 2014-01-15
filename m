@@ -1,49 +1,103 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 05/11] be2net: ignore mac-addr set call for an already programmed mac-addr
-Date: Wed, 15 Jan 2014 13:23:35 +0530
-Message-ID: <1389772421-24925-6-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next 01/11] be2net: Use MCC_CREATE_EXT_V1 cmd for Skyhawk-R
+Date: Wed, 15 Jan 2014 13:23:31 +0530
+Message-ID: <1389772421-24925-2-git-send-email-sathya.perla@emulex.com>
 References: <1389772421-24925-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:20739 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751700AbaAOHtO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 02:49:14 -0500
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:17685 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751412AbaAOHtG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 02:49:06 -0500
 In-Reply-To: <1389772421-24925-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vasundhara Volam <vasundhara.volam@emulex.com>
 
-An ndo_set_mac_addr() call may be issued for a mac-addr that is already
-active on an interface. If so, silently ignore the request. Sending such
-a request to the FW, causes a "mac collision" error. The error is harmless
-but is avoidable noise in the kernel log.
+Currently this cmd is used only for Lancer.
+MCC_CREATE_EXT_V1 supports larger CQ-ids and additional event codes for the
+async_event_bitmap field.
 
 Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   27 +++++++++++++--------------
+ drivers/net/ethernet/emulex/benet/be_cmds.h |    4 ++--
+ 2 files changed, 15 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 0710f9a..ce589b4 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -258,6 +258,12 @@ static int be_mac_addr_set(struct net_device *netdev, void *p)
- 	if (!is_valid_ether_addr(addr->sa_data))
- 		return -EADDRNOTAVAIL;
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 94c35c8..95eeb24 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -1101,23 +1101,22 @@ static int be_cmd_mccq_ext_create(struct be_adapter *adapter,
+ 			OPCODE_COMMON_MCC_CREATE_EXT, sizeof(*req), wrb, NULL);
  
-+	/* Proceed further only if, User provided MAC is different
-+	 * from active MAC
-+	 */
-+	if (ether_addr_equal(addr->sa_data, netdev->dev_addr))
-+		return 0;
+ 	req->num_pages = cpu_to_le16(PAGES_4K_SPANNED(q_mem->va, q_mem->size));
+-	if (lancer_chip(adapter)) {
+-		req->hdr.version = 1;
+-		req->cq_id = cpu_to_le16(cq->id);
+-
+-		AMAP_SET_BITS(struct amap_mcc_context_lancer, ring_size, ctxt,
+-						be_encoded_q_len(mccq->len));
+-		AMAP_SET_BITS(struct amap_mcc_context_lancer, valid, ctxt, 1);
+-		AMAP_SET_BITS(struct amap_mcc_context_lancer, async_cq_id,
+-								ctxt, cq->id);
+-		AMAP_SET_BITS(struct amap_mcc_context_lancer, async_cq_valid,
+-								 ctxt, 1);
+-
+-	} else {
++	if (BEx_chip(adapter)) {
+ 		AMAP_SET_BITS(struct amap_mcc_context_be, valid, ctxt, 1);
+ 		AMAP_SET_BITS(struct amap_mcc_context_be, ring_size, ctxt,
+ 						be_encoded_q_len(mccq->len));
+ 		AMAP_SET_BITS(struct amap_mcc_context_be, cq_id, ctxt, cq->id);
++	} else {
++		req->hdr.version = 1;
++		req->cq_id = cpu_to_le16(cq->id);
 +
- 	/* The PMAC_ADD cmd may fail if the VF doesn't have FILTMGMT
- 	 * privilege or if PF did not provision the new MAC address.
- 	 * On BE3, this cmd will always fail if the VF doesn't have the
++		AMAP_SET_BITS(struct amap_mcc_context_v1, ring_size, ctxt,
++			      be_encoded_q_len(mccq->len));
++		AMAP_SET_BITS(struct amap_mcc_context_v1, valid, ctxt, 1);
++		AMAP_SET_BITS(struct amap_mcc_context_v1, async_cq_id,
++			      ctxt, cq->id);
++		AMAP_SET_BITS(struct amap_mcc_context_v1, async_cq_valid,
++			      ctxt, 1);
+ 	}
+ 
+ 	/* Subscribe to Link State and Group 5 Events(bits 1 and 5 set) */
+@@ -1187,7 +1186,7 @@ int be_cmd_mccq_create(struct be_adapter *adapter,
+ 	int status;
+ 
+ 	status = be_cmd_mccq_ext_create(adapter, mccq, cq);
+-	if (status && !lancer_chip(adapter)) {
++	if (status && BEx_chip(adapter)) {
+ 		dev_warn(&adapter->pdev->dev, "Upgrade to F/W ver 2.102.235.0 "
+ 			"or newer to avoid conflicting priorities between NIC "
+ 			"and FCoE traffic");
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index 0075686..ed1daed 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -452,7 +452,7 @@ struct amap_mcc_context_be {
+ 	u8 rsvd2[32];
+ } __packed;
+ 
+-struct amap_mcc_context_lancer {
++struct amap_mcc_context_v1 {
+ 	u8 async_cq_id[16];
+ 	u8 ring_size[4];
+ 	u8 rsvd0[12];
+@@ -476,7 +476,7 @@ struct be_cmd_req_mcc_ext_create {
+ 	u16 num_pages;
+ 	u16 cq_id;
+ 	u32 async_event_bitmap[1];
+-	u8 context[sizeof(struct amap_mcc_context_be) / 8];
++	u8 context[sizeof(struct amap_mcc_context_v1) / 8];
+ 	struct phys_addr pages[8];
+ } __packed;
+ 
 -- 
 1.7.1
