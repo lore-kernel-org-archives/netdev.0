@@ -1,125 +1,50 @@
-From: Stuart Kendrick <stuart.kendrick.sea@gmail.com>
-Subject: unable to send TCP SYNs from ports below 1024
-Date: Tue, 14 Jan 2014 17:37:03 -0800
-Message-ID: <CAACXELm1Yfv+=oC-N+nnR7apHc+gtZSVpqSbX2Rtkiq6-Y1QtA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: avoid reference counter overflows on
+ fib_rules in multicast forwarding
+Date: Tue, 14 Jan 2014 17:40:46 -0800 (PST)
+Message-ID: <20140114.174046.2032110531064031820.davem@davemloft.net>
+References: <20140112074245.GF6586@order.stressinduktion.org>
+	<1389574560.31367.197.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140113014522.GH6586@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, NetFestivalHaveFun@gmx.com, ja@ssi.bg,
+	netdev@vger.kernel.org, kaber@trash.net, tgraf@suug.ch
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:62988 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751503AbaAOBhG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 20:37:06 -0500
-Received: by mail-la0-f52.google.com with SMTP id c6so909269lan.25
-        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 17:37:04 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:54277 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751897AbaAOBkr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 20:40:47 -0500
+In-Reply-To: <20140113014522.GH6586@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm working on a box which refuses to send TCP SYNs from source ports below 1024
-[This breaks NFS-mounting, as the NFS client wants to use source ports
-below 1024]
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Mon, 13 Jan 2014 02:45:22 +0100
 
-Linux ubuntu 3.8.0-35-generic #50~precise1-Ubuntu SMP Wed Dec 4
-17:25:51 UTC 2013 x86_64 x86_64 x86_64 GNU/Linux
+> Bob Falken reported that after 4G packets, multicast forwarding stopped
+> working. This was because of a rule reference counter overflow which
+> freed the rule as soon as the overflow happend.
+> 
+> This patch solves this by adding the FIB_LOOKUP_NOREF flag to
+> fib_rules_lookup calls. This is safe even from non-rcu locked sections
+> as in this case the flag only implies not taking a reference to the rule,
+> which we don't need at all.
+> 
+> Rules only hold references to the namespace, which are guaranteed to be
+> available during the call of the non-rcu protected function reg_vif_xmit
+> because of the interface reference which itself holds a reference to
+> the net namespace.
+> 
+> Fixes: f0ad0860d01e47 ("ipv4: ipmr: support multiple tables")
+> Fixes: d1db275dd3f6e4 ("ipv6: ip6mr: support multiple tables")
+> Reported-by: Bob Falken <NetFestivalHaveFun@gmx.com>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: Thomas Graf <tgraf@suug.ch>
+> Cc: Julian Anastasov <ja@ssi.bg>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-In a fit of pique, I wiped and rebuilt from scratch a couple weeks ago
-... didn't help
-
-
-VALIDATION
-I verify the problem by using netcat plus two instances of tcpdump,
-one running on the box itself, the other running on a second box
-plugged into a SPAN port on the local Ethernet switch
-
-This invocation produces TCP SYNs in both traces
-ubuntu# nc -4 -p 1024 10.1.1.1 2049
-
-Whereas this invocation produces TCP SYNs only in the on-board pcap --
-the pcap taken from the switch's SPAN port contains nothing (well, it
-contains the ARP exchange for 10.1.1.1, but not TCP frames).
-ubuntu# nc -4 -p 1023 10.1.1.1 2049
-
-The NIC carries all sorts of other traffic just fine ... http, https,
-sftp, ftp, ssh ... but all those employ TCP source ports above 1024.
-
-
-RULED OUT
-(1) No iptables rules
-ubuntu# iptables -L
-Chain INPUT (policy ACCEPT)
-target     prot opt source               destination
-
-Chain FORWARD (policy ACCEPT)
-target     prot opt source               destination
-
-Chain OUTPUT (policy ACCEPT)
-target     prot opt source               destination
-ubuntu#
-
-
-(2) ufw disabled
-ubuntu# ufw status
-Status: inactive
-ubuntu#
-
-
-(3) I've tried two different NICs, one employing the e1000e driver,
-the other the e1000 driver:
-ubuntu# modinfo e1000e | more
-filename:
-/lib/modules/3.8.0-35-generic/kernel/drivers/net/ethernet/intel/e1000e/e1000e.ko
-version:        2.1.4-k
-license:        GPL
-description:    Intel(R) PRO/1000 Network Driver
-[...]
-
-ubuntu# modinfo e1000 | more
-filename:
-/lib/modules/3.8.0-35-generic/kernel/drivers/net/ethernet/intel/e1000/e1000.ko
-version:        7.3.21-k8-NAPI
-license:        GPL
-description:    Intel(R) PRO/1000 Network Driver
-[...]
-
-
-(4) I've tried upgrading the e1000e driver to 2.5.4; no change in behavior
-
-
-(5) Ports & Addresses
-I've tried various TCP source & destination ports, and from those
-results am claiming that the problem is limited to situations in which
-the source port is below 1024.  I've also tried using UDP ... but I
-don't see frames in either pcap when I use the '-u' option
-ubuntu# nc -4 -p 1023 10.1.1.1 2049
-
-ubuntu# nc -4 -p 1024 10.1.1.1 2049
-
-
-Suggestions?
-
-(A) I have modified the source of the e1000e-2.5.4 driver to add
-'printk' statements at key points ...
-(B) and I've enabled kernel tracing:
-mount -t debugfs nodev /sys/kernel/debug
-echo function > /sys/kernel/debug/tracing/current_tracer
-echo 1 > /sys/kernel/debug/tracing/events/net/enable
-echo 1 > /sys/kernel/debug/tracing/tracing_on
-(C) But the output is daunting ... and I haven't figured out how to
-distinguish, for example, the TCP SYN events from the ARP
-transmissions.  More work needed.
-
-(D) I have SystemTap installed ... but the particular example scripts
-(networking-oriented) which might offer insight are throwing semantic
-errors ... I'm not sure I'm smart enough to debug these
-http://sourceware-org.1504.n7.nabble.com/updated-example-scripts-td256998.html
-
-Before I crawl farther down either of these paths, I figured I'd ask
-for input/ideas.
-
-?
-
-tia,
-
---sk
-
-Stuart Kendrick
+Applied and queued up for -stable, th anks.
