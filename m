@@ -1,104 +1,124 @@
 From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-Subject: [PATCH V2 net-next 2/3] ipv6: add a flag to get the flow label used remotly
-Date: Wed, 15 Jan 2014 12:30:02 +0100
-Message-ID: <1389785403-6401-2-git-send-email-florent.fourcot@enst-bretagne.fr>
+Subject: [PATCH V2 net-next 3/3] ipv6: add ip6_flowlabel_consistency sysctl
+Date: Wed, 15 Jan 2014 12:30:03 +0100
+Message-ID: <1389785403-6401-3-git-send-email-florent.fourcot@enst-bretagne.fr>
 References: <1389785403-6401-1-git-send-email-florent.fourcot@enst-bretagne.fr>
 Cc: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fourcot.fr ([217.70.191.14]:49893 "EHLO olfflo.fourcot.fr"
+Received: from fourcot.fr ([217.70.191.14]:49895 "EHLO olfflo.fourcot.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751666AbaAOLaI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jan 2014 06:30:08 -0500
+	id S1751673AbaAOLaJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jan 2014 06:30:09 -0500
 In-Reply-To: <1389785403-6401-1-git-send-email-florent.fourcot@enst-bretagne.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This information is already available via IPV6_FLOWINFO
-of IPV6_2292PKTOPTIONS, and them a filtering to get the flow label
-information. But it is probably logical and easier for users to add this
-here, and to control both sent/received flow label values with the
-IPV6_FLOWLABEL_MGR option.
+With the introduction of IPV6_FL_F_REFLECT, there is no guarantee of
+flow label unicity. This patch introduces a new sysctl to protect the old
+behaviour, enable by default.
+
+Changelog of the V2:
+	* Remove useless hunk in sysctl_binary.c
+	* Rebase on net-next
 
 Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
 ---
- include/net/ipv6.h       | 2 +-
- include/uapi/linux/in6.h | 1 +
- net/ipv6/ip6_flowlabel.c | 7 ++++++-
- net/ipv6/ipv6_sockglue.c | 5 ++++-
- 4 files changed, 12 insertions(+), 3 deletions(-)
+ Documentation/networking/ip-sysctl.txt | 8 ++++++++
+ include/net/netns/ipv6.h               | 1 +
+ net/ipv6/af_inet6.c                    | 1 +
+ net/ipv6/ip6_flowlabel.c               | 7 +++++++
+ net/ipv6/sysctl_net_ipv6.c             | 8 ++++++++
+ 5 files changed, 25 insertions(+)
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 12079c6..54cb251 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -252,7 +252,7 @@ struct ipv6_txoptions *fl6_merge_options(struct ipv6_txoptions *opt_space,
- 					 struct ipv6_txoptions *fopt);
- void fl6_free_socklist(struct sock *sk);
- int ipv6_flowlabel_opt(struct sock *sk, char __user *optval, int optlen);
--int ipv6_flowlabel_opt_get(struct sock *sk, struct in6_flowlabel_req *freq);
-+int ipv6_flowlabel_opt_get(struct sock *sk, struct in6_flowlabel_req *freq, int flags);
- int ip6_flowlabel_init(void);
- void ip6_flowlabel_cleanup(void);
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index c97932c..7453640 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1118,6 +1118,14 @@ bindv6only - BOOLEAN
  
-diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
-index a4359b1..2428b80 100644
---- a/include/uapi/linux/in6.h
-+++ b/include/uapi/linux/in6.h
-@@ -86,6 +86,7 @@ struct in6_flowlabel_req {
- #define IPV6_FL_F_CREATE	1
- #define IPV6_FL_F_EXCL		2
- #define IPV6_FL_F_REFLECT 	4
-+#define IPV6_FL_F_REMOTE	8
+ 	Default: FALSE (as specified in RFC3493)
  
- #define IPV6_FL_S_NONE		0
- #define IPV6_FL_S_EXCL		1
++ip6_flowlabel_consistency - BOOLEAN
++	Protect the consistency (and unicity) of flow label.
++	You have to disable it to use IPV6_FL_F_REFLECT flag on the
++	flow label manager.
++	TRUE: enabled
++	FALSE: disabled
++	Default: TRUE
++
+ anycast_src_echo_reply - BOOLEAN
+ 	Controls the use of anycast addresses as source addresses for ICMPv6
+ 	echo reply
+diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
+index 76fc7d1..3cc291b 100644
+--- a/include/net/netns/ipv6.h
++++ b/include/net/netns/ipv6.h
+@@ -27,6 +27,7 @@ struct netns_sysctl_ipv6 {
+ 	int ip6_rt_gc_elasticity;
+ 	int ip6_rt_mtu_expires;
+ 	int ip6_rt_min_advmss;
++	int ip6_flowlabel_consistency;
+ 	int icmpv6_time;
+ };
+ 
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index c921d5d..943c796 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -775,6 +775,7 @@ static int __net_init inet6_net_init(struct net *net)
+ 
+ 	net->ipv6.sysctl.bindv6only = 0;
+ 	net->ipv6.sysctl.icmpv6_time = 1*HZ;
++	net->ipv6.sysctl.ip6_flowlabel_consistency = 1;
+ 	atomic_set(&net->ipv6.rt_genid, 0);
+ 
+ 	err = ipv6_init_mibs(net);
 diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
-index ba23643..2c0f9dc 100644
+index 2c0f9dc..85f0453 100644
 --- a/net/ipv6/ip6_flowlabel.c
 +++ b/net/ipv6/ip6_flowlabel.c
-@@ -481,11 +481,16 @@ static inline void fl_link(struct ipv6_pinfo *np, struct ipv6_fl_socklist *sfl,
- 	spin_unlock_bh(&ip6_sk_fl_lock);
- }
+@@ -587,8 +587,15 @@ int ipv6_flowlabel_opt(struct sock *sk, char __user *optval, int optlen)
  
--int ipv6_flowlabel_opt_get(struct sock *sk, struct in6_flowlabel_req *freq)
-+int ipv6_flowlabel_opt_get(struct sock *sk, struct in6_flowlabel_req *freq, int flags)
- {
- 	struct ipv6_pinfo *np = inet6_sk(sk);
- 	struct ipv6_fl_socklist *sfl;
- 
-+	if (flags & IPV6_FL_F_REMOTE) {
-+		freq->flr_label = np->rcv_flowinfo & IPV6_FLOWLABEL_MASK;
-+		return 0;
-+	}
+ 	case IPV6_FL_A_GET:
+ 		if (freq.flr_flags & IPV6_FL_F_REFLECT) {
++			struct net *net = sock_net(sk);
++			if (net->ipv6.sysctl.ip6_flowlabel_consistency) {
++				pr_info("Can not set IPV6_FL_F_REFLECT if ip6_flowlabel_consistency sysctl is enable \n");
++				return -EPERM;
++			}
 +
- 	if (np->repflow) {
- 		freq->flr_label = np->flow_label;
- 		return 0;
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index af0ecb9..a47653a 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -1220,6 +1220,7 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
- 	case IPV6_FLOWLABEL_MGR:
- 	{
- 		struct in6_flowlabel_req freq;
-+		int flags;
- 
- 		if (len < sizeof(freq))
- 			return -EINVAL;
-@@ -1231,9 +1232,11 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
- 			return -EINVAL;
- 
- 		len = sizeof(freq);
-+		flags = freq.flr_flags;
+ 			if (sk->sk_protocol != IPPROTO_TCP)
+ 				return -ENOPROTOOPT;
 +
- 		memset(&freq, 0, sizeof(freq));
+ 			np->repflow = 1;
+ 			return 0;
+ 		}
+diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
+index 6b6a2c8..8c99cf0 100644
+--- a/net/ipv6/sysctl_net_ipv6.c
++++ b/net/ipv6/sysctl_net_ipv6.c
+@@ -31,6 +31,13 @@ static struct ctl_table ipv6_table_template[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec
+ 	},
++	{
++		.procname	= "ip6_flowlabel_consistency",
++		.data		= &init_net.ipv6.sysctl.ip6_flowlabel_consistency,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
+ 	{ }
+ };
  
--		val = ipv6_flowlabel_opt_get(sk, &freq);
-+		val = ipv6_flowlabel_opt_get(sk, &freq, flags);
- 		if (val < 0)
- 			return val;
+@@ -59,6 +66,7 @@ static int __net_init ipv6_sysctl_net_init(struct net *net)
+ 		goto out;
+ 	ipv6_table[0].data = &net->ipv6.sysctl.bindv6only;
+ 	ipv6_table[1].data = &net->ipv6.anycast_src_echo_reply;
++	ipv6_table[2].data = &net->ipv6.sysctl.ip6_flowlabel_consistency;
  
+ 	ipv6_route_table = ipv6_route_sysctl_init(net);
+ 	if (!ipv6_route_table)
 -- 
 1.8.5.2
