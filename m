@@ -1,91 +1,81 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCHv3 net-next 2/5] {IPv4,xfrm} Add ESN support for AH ingress
- part
-Date: Wed, 15 Jan 2014 15:12:14 +0800
-Message-ID: <52D634CE.8020501@windriver.com>
-References: <1389663552-29638-1-git-send-email-fan.du@windriver.com> <1389663552-29638-3-git-send-email-fan.du@windriver.com> <20140114095425.GH31491@secunet.com> <52D50AFC.6030302@windriver.com> <20140114100900.GI31491@secunet.com> <52D50EB6.3010301@windriver.com> <20140114103426.GJ31491@secunet.com>
+Subject: [PATCHv4 net-next 1/6] skbuff: Introduce skb_to_sgvec_nomark to map skb without mark new end
+Date: Wed, 15 Jan 2014 15:13:10 +0800
+Message-ID: <1389769995-350-2-git-send-email-fan.du@windriver.com>
+References: <1389769995-350-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain
 Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:50649 "EHLO
+Received: from mail1.windriver.com ([147.11.146.13]:50661 "EHLO
 	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751314AbaAOHMW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 02:12:22 -0500
-In-Reply-To: <20140114103426.GJ31491@secunet.com>
+	with ESMTP id S1751396AbaAOHNI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 02:13:08 -0500
+In-Reply-To: <1389769995-350-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+As compared with skb_to_sgvec, skb_to_sgvec_nomark only map skb to given sglist
+without mark the sg which contain last skb data as the end. So the caller can
+mannipulate sg list as will when padding new data after the first call without
+calling sg_unmark_end to expend sg list.
 
+Signed-off-by: Fan Du <fan.du@windriver.com>
+---
+ include/linux/skbuff.h |    2 ++
+ net/core/skbuff.c      |   26 ++++++++++++++++++++++++++
+ 2 files changed, 28 insertions(+)
 
-On 2014=E5=B9=B401=E6=9C=8814=E6=97=A5 18:34, Steffen Klassert wrote:
-> On Tue, Jan 14, 2014 at 06:17:26PM +0800, Fan Du wrote:
->>
->>
->> On 2014=E5=B9=B401=E6=9C=8814=E6=97=A5 18:09, Steffen Klassert wrote=
-:
->>> On Tue, Jan 14, 2014 at 06:01:32PM +0800, Fan Du wrote:
->>>>
->>>>
->>>> On 2014=E5=B9=B401=E6=9C=8814=E6=97=A5 17:54, Steffen Klassert wro=
-te:
->>>>> On Tue, Jan 14, 2014 at 09:39:09AM +0800, Fan Du wrote:
->>>>>> @@ -381,7 +393,14 @@ static int ah_input(struct xfrm_state *x, s=
-truct sk_buff *skb)
->>>>>>   	sg_init_table(sg, nfrags);
->>>>>>   	skb_to_sgvec(skb, sg, 0, skb->len);
->>>>>>
->>>>>> -	ahash_request_set_crypt(req, sg, icv, skb->len);
->>>>>> +	if (x->props.flags&    XFRM_STATE_ESN) {
->>>>>> +		sg_unmark_end(&sg[nfrags - 1]);
->>>>>> +		/* Attach seqhi sg right after packet payload */
->>>>>> +		*seqhi =3D htonl(XFRM_SKB_CB(skb)->seq.output.hi);
->>>>>
->>>>> This is ah_input(), so you should use the high bits of the input
->>>>> sequence number here. The ipv6 patch has the same problem.
->>>>
->>>> ok, I will fix this.
->>>>
->>>>>
->>>>>> +		sg_init_table(seqhisg, sglists);
->>>>>
->>>>> Why do you add a separate SG table for this?
->>>>
->>>> It just initialize a single seqhisg, which is actually followed be=
-hind packet payload sg table.
->>>> initialized seqhisg actually mark itself as the end of sg list.
->>>>
->>>
->>> Why don't you just add this entry to the existing SG table?
->>>
->>
->> Do you mean scatterwalk_crypto_chain ?
->
-> No, I mean something like:
->
-> sg_init_table(sg, nfrags + sglists)
->
-> if (x->props.flags&  XFRM_STATE_ESN) {
-> 	*seqhi =3D XFRM_SKB_CB(skb)->seq.input.hi;
-> 	sg_set_buf(sg + nfrags, seqhi, seqhi_len);
-> }
->
-
-Calling skb_to_sgvec to map first part of payload into global sg list w=
-ill mark the sg
-which contains last data of payload as new end, that's side effect of s=
-kb_to_sgvec.
-This doesn't work well unless calling sg_unmark_end again to revert suc=
-h effect.
-
-Here we need another method to map payload to sg list without changing =
-the end sg.
-
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index d97f2d0..c2eb3c4 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -691,6 +691,8 @@ struct sk_buff *skb_realloc_headroom(struct sk_buff *skb,
+ 				     unsigned int headroom);
+ struct sk_buff *skb_copy_expand(const struct sk_buff *skb, int newheadroom,
+ 				int newtailroom, gfp_t priority);
++int skb_to_sgvec_nomark(struct sk_buff *skb, struct scatterlist *sg,
++			int offset, int len);
+ int skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset,
+ 		 int len);
+ int skb_cow_data(struct sk_buff *skb, int tailbits, struct sk_buff **trailer);
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 1d641e7..466c0ef 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3308,6 +3308,32 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+ 	return elt;
+ }
+ 
++/* As compared with skb_to_sgvec, skb_to_sgvec_nomark only map skb to given
++ * sglist without mark the sg which contain last skb data as the end.
++ * So the caller can mannipulate sg list as will when padding new data after
++ * the first call without calling sg_unmark_end to expend sg list.
++ *
++ * Scenario to use skb_to_sgvec_nomark:
++ * 1. sg_init_table
++ * 2. skb_to_sgvec_nomark(payload1)
++ * 3. skb_to_sgvec_nomark(payload2)
++ *
++ * This is equivalent to:
++ * 1. sg_init_table
++ * 2. skb_to_sgvec(payload1)
++ * 3. sg_unmark_end
++ * 4. skb_to_sgvec(payload2)
++ *
++ * When mapping mutilple payload conditionally, skb_to_sgvec_nomark
++ * is more preferable.
++ */
++int skb_to_sgvec_nomark(struct sk_buff *skb, struct scatterlist *sg,
++			int offset, int len)
++{
++	return __skb_to_sgvec(skb, sg, offset, len);
++}
++EXPORT_SYMBOL_GPL(skb_to_sgvec_nomark);
++
+ int skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+ {
+ 	int nsg = __skb_to_sgvec(skb, sg, offset, len);
+-- 
+1.7.9.5
