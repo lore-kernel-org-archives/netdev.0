@@ -1,39 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] tcp: delete redundant calls of tcp_mtup_init()
- and
-Date: Tue, 14 Jan 2014 16:41:05 -0800 (PST)
-Message-ID: <20140114.164105.524133214769947013.davem@davemloft.net>
-References: <cover.1389513042.git.panweiping3@gmail.com>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [RFC PATCH net-next 0/4] net_cls for sys container
+Date: Tue, 14 Jan 2014 16:50:11 -0800
+Message-ID: <87y52idq64.fsf@xmission.com>
+References: <52C62A44.4070304@huawei.com>
+	<CAM_iQpW0+Ftvk=QBE+0yMNW00VkBee1+yAEmbPkT+zjij9RX-Q@mail.gmail.com>
+	<52CA614D.6040702@huawei.com> <52CA6C80.9060002@cn.fujitsu.com>
+	<52CA8026.4010106@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: panweiping3@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53962 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751038AbaAOAlI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 19:41:08 -0500
-In-Reply-To: <cover.1389513042.git.panweiping3@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
+	Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
+	Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Serge Hallyn <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
+	pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <52CA8026.4010106-hv44wF8Li93QT0dZR+AlfA@public.gmane.org> (Libo Chen's message of "Mon, 6 Jan
+	2014 18:06:30 +0800")
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Weiping Pan <panweiping3@gmail.com>
-Date: Sun, 12 Jan 2014 15:54:29 +0800
+Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org> writes:
 
-> I find that both tcp_v4_syn_recv_sock() and tcp_v6_syn_recv_sock() call them
-> for new sock, so delete redundant calls of them. 
-> 
-> Weiping Pan (2):
->   tcp: delete redundant calls of tcp_mtup_init()
->   tcp: delete redundant call of tcp_initialize_rcv_mss()
+> yes
+> On 2014/1/6 16:42, Gao feng wrote:
+>> On 01/06/2014 03:54 PM, Libo Chen wrote:
+>>> On 2014/1/3 13:20, Cong Wang wrote:
+>>>> On Thu, Jan 2, 2014 at 7:11 PM, Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org> wrote:
+>>>>> Hi guys,
+>>>>>
+>>>>> Now, lxc created with veth can not be under control by
+>>>>> cls_cgroup.
+>>>>>
+>>>>> the former discussion:
+>>>>> http://lkml.indiana.edu/hypermail/linux/kernel/1312.1/00214.html
+>>>>>
+>>>>> In short, because cls_cgroup relys classid attached to sock
+>>>>> filter skb, but sock will be cleared inside dev_forward_skb()
+>>>>> in veth_xmit().
+>>>>
+>>>>
+>>>> So what are you trying to achieve here?
+>>>
+>>> sys container using veth can be controlled by cls_cgroup basing on physic network interface
+>>>
+>> 
+>> It's a problem about virtual nic, not container/net namespace.
+>
+> yes
+>
+>> 
+>> If veth device is running in host. the skb is transmitted firstly by veth device and then delivered
+>> by physical device. if you set both qdisc rule on veth and physical device. which qdisc rule will take
+>> effect?
+>
+> both, the end result depends on a smaller.
+>
+>> 
+>> In your patch, both qdisc rule are effective. it looks strange.
+>> 
+>
+> qdisc is based nic, does not distinguish virtual or physics. if you are all set,
+> it means that what you want.  so the logic is not the problemI and this appears to be normal.
 
-I do not agree with the approach of these two patches.
+My personal opinion on the matter is that the network class cgroup is
+brain dead and should not be used.  It is impossible to use for
+incomming packets, and it is part of the the problem plagued cgroup
+subsystem.
 
-It is better to have tcp_rcv_state_process() (one location) make these
-calls rather than each and every inet sock operations instance.
+You have real network interfaces to do your classification with you
+don't need to enhance the network class cgroup.
 
-Therefore you should remove the calls from tcp_v{4,6}_recv_sock() and
-keep the one in tcp_rcv_state_process().
+The more this is asked about the more I think the network class cgroup
+should be be taken out into the woods some dark night and left in a
+shallow grave, never to bother us again.
 
-Thanks.
+
+Eric
