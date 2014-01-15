@@ -1,45 +1,86 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 02/11] be2net: don't set "pport" field when querying "pvid"
-Date: Wed, 15 Jan 2014 13:23:32 +0530
-Message-ID: <1389772421-24925-3-git-send-email-sathya.perla@emulex.com>
-References: <1389772421-24925-1-git-send-email-sathya.perla@emulex.com>
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Subject: Re: [PATCH net] bpf: do not use reciprocal divide
+Date: Wed, 15 Jan 2014 09:00:07 +0100
+Message-ID: <20140115080007.GA6638@osiris>
+References: <20140113214249.GK6586@order.stressinduktion.org>
+ <1389769361.31367.325.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, dborkman@redhat.com,
+	darkjames-ws@darkjames.pl, Mircea Gherzan <mgherzan@gmail.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	Matt Evans <matt@ozlabs.org>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:20735 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751582AbaAOHtI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 02:49:08 -0500
-In-Reply-To: <1389772421-24925-1-git-send-email-sathya.perla@emulex.com>
+Received: from e06smtp13.uk.ibm.com ([195.75.94.109]:38713 "EHLO
+	e06smtp13.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750749AbaAOIAV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 03:00:21 -0500
+Received: from /spool/local
+	by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <heiko.carstens@de.ibm.com>;
+	Wed, 15 Jan 2014 08:00:19 -0000
+Received: from b06cxnps3075.portsmouth.uk.ibm.com (d06relay10.portsmouth.uk.ibm.com [9.149.109.195])
+	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id EEE38219005E
+	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 08:00:14 +0000 (GMT)
+Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
+	by b06cxnps3075.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s0F804KA34799700
+	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 08:00:04 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (localhost [127.0.0.1])
+	by d06av03.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s0F8080M005274
+	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 01:00:15 -0700
+Content-Disposition: inline
+In-Reply-To: <1389769361.31367.325.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasundhara Volam <vasundhara.volam@emulex.com>
+On Tue, Jan 14, 2014 at 11:02:41PM -0800, Eric Dumazet wrote:
+> diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
+> index 16871da37371..e349dc7d0992 100644
+> --- a/arch/s390/net/bpf_jit_comp.c
+> +++ b/arch/s390/net/bpf_jit_comp.c
+> @@ -371,11 +371,11 @@ static int bpf_jit_insn(struct bpf_jit *jit, struct sock_filter *filter,
+>  		/* dr %r4,%r12 */
+>  		EMIT2(0x1d4c);
+>  		break;
+> -	case BPF_S_ALU_DIV_K: /* A = reciprocal_divide(A, K) */
+> -		/* m %r4,<d(K)>(%r13) */
+> -		EMIT4_DISP(0x5c40d000, EMIT_CONST(K));
+> -		/* lr %r5,%r4 */
+> -		EMIT2(0x1854);
+> +	case BPF_S_ALU_DIV_K: /* A /= K */
+> +		/* lhi %r4,0 */
+> +		EMIT4(0xa7480000);
+> +		/* d %r4,<d(K)>(%r13) */
+> +		EMIT4_DISP(0x5d40d000, EMIT_CONST(K));
+>  		break;
 
-In the GET_HSW_CONFIG cmd, the "pport" field must be set only while
-querying the switch mode.  When the "pport" field is set, the
-"interface_id" field must be set to the port number, otherwise, it
-must be set to adapter->if_handle.
+The s390 part looks good.
 
-Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_cmds.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index 01b780856db2..ad30d626a5bd 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -166,7 +165,7 @@ unsigned int sk_run_filter(const struct sk_buff *skb,
+>  			A /= X;
+>  			continue;
+>  		case BPF_S_ALU_DIV_K:
+> -			A = reciprocal_divide(A, K);
+> +			A /= K;
+>  			continue;
+>  		case BPF_S_ALU_MOD_X:
+>  			if (X == 0)
+> @@ -553,11 +552,6 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
+>  		/* Some instructions need special checks */
+>  		switch (code) {
+>  		case BPF_S_ALU_DIV_K:
+> -			/* check for division by zero */
+> -			if (ftest->k == 0)
+> -				return -EINVAL;
+> -			ftest->k = reciprocal_value(ftest->k);
+> -			break;
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 95eeb24..d9bdeba 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -2996,7 +2996,7 @@ int be_cmd_get_hsw_config(struct be_adapter *adapter, u16 *pvid,
- 		      ctxt, intf_id);
- 	AMAP_SET_BITS(struct amap_get_hsw_req_context, pvid_valid, ctxt, 1);
- 
--	if (!BEx_chip(adapter)) {
-+	if (!BEx_chip(adapter) && mode) {
- 		AMAP_SET_BITS(struct amap_get_hsw_req_context, interface_id,
- 			      ctxt, adapter->hba_port_num);
- 		AMAP_SET_BITS(struct amap_get_hsw_req_context, pport, ctxt, 1);
--- 
-1.7.1
+Are you sure you want to remove the k == 0 check? Is there something
+else that would prevent a division by zero?
