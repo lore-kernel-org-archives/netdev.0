@@ -1,69 +1,88 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [RFC] sysfs_rename_link() and its usage
-Date: Wed, 15 Jan 2014 09:16:18 -0500
-Message-ID: <20140115141618.GD7950@htj.dyndns.org>
-References: <20140114171740.GB1867@redhat.com>
- <20140114182135.GA29296@kroah.com>
- <20140114191208.GA9942@redhat.com>
- <20140114193139.GA3636@kroah.com>
- <20140114210610.GC9942@redhat.com>
- <87iotmc9ic.fsf@xmission.com>
+From: annie li <annie.li@oracle.com>
+Subject: Re: [Xen-devel] [PATCH net-next] xen-netfront: clean up code in xennet_release_rx_bufs
+Date: Wed, 15 Jan 2014 22:16:23 +0800
+Message-ID: <52D69837.9090609@oracle.com>
+References: <1389307718-2845-1-git-send-email-Annie.li@oracle.com> <52D66F11.204@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	wei.liu2@citrix.com, ian.campbell@citrix.com
+To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f44.google.com ([209.85.128.44]:49850 "EHLO
-	mail-qe0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751940AbaAOOQZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 09:16:25 -0500
-Content-Disposition: inline
-In-Reply-To: <87iotmc9ic.fsf@xmission.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:35963 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752162AbaAOOQd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 09:16:33 -0500
+In-Reply-To: <52D66F11.204@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey, Veaceslav, Eric.
 
-On Tue, Jan 14, 2014 at 05:35:23PM -0800, Eric W. Biederman wrote:
-> >>> >>This works like a charm. However, if I want to use (obviously, with the
-> >>> >>symlink present):
-> >>> >>
-> >>> >>sysfs_rename_link(&(a->dev.kobj), &(b->dev.kobj), oldname, newname);
-> >>> >
-> >>> >You forgot the namespace option to this call, what kernel version are
-> >>> >you using here?
-> >>>
-> >>> It's git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next ,
-> >>> 3.13-rc6 with some networking patches on top of it.
+On 2014-1-15 19:20, David Vrabel wrote:
+> On 09/01/14 22:48, Annie Li wrote:
+>> Current netfront only grants pages for grant copy, not for grant transfer, so
+>> remove corresponding transfer code and add receiving copy code in
+>> xennet_release_rx_bufs.
+> While netfront only supports a copying backend, I don't see anything
+> preventing the backend from retaining mappings to netfront's Rx buffers...
 
-Does this work on 3.12?  How about Greg's driver-core-next?  Do you
-have a minimal test case that I can use to reproduce the issue?
+Right. This does not prevent backend from mappings.
+Maybe my description is not clear. What I mean here is based on old 
+2.6.18 netfront which uses "copying_receiver" to tell netback whether rx 
+requires grant copy. Probably changing "grant copy" above into "grant 
+access" vs "grant transfer" is more precise. And the 
+"gnttab_end_foreign_transfer_ref" is the unnecessary code kept from old 
+netfront.
 
-> sysfs_rename_link was originally written to infer figure everything out
-> based on the target device.  Because symlinks only make sense being in
-> the same namespace of their devices.  Tejun broke the inference and now
-> you are having hard time using the code.
+>
+>> Signed-off-by: Annie Li <Annie.li@oracle.com>
+>> ---
+>>   drivers/net/xen-netfront.c |   60 ++-----------------------------------------
+>>   1 files changed, 3 insertions(+), 57 deletions(-)
+>>
+>> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+>> index e59acb1..692589e 100644
+>> --- a/drivers/net/xen-netfront.c
+>> +++ b/drivers/net/xen-netfront.c
+>> @@ -1134,78 +1134,24 @@ static void xennet_release_tx_bufs(struct netfront_info *np)
+>>   
+>>   static void xennet_release_rx_bufs(struct netfront_info *np)
+>>   {
+> [...]
+>> -		mfn = gnttab_end_foreign_transfer_ref(ref);
+>> +		gnttab_end_foreign_access_ref(ref, 0);
+> ... the gnttab_end_foreign_access_ref() may then fail and...
+>
+>>   		gnttab_release_grant_reference(&np->gref_rx_head, ref);
+>>   		np->grant_rx_ref[id] = GRANT_INVALID_REF;
+> [...]
+>> +		kfree_skb(skb);
+> ... this could then potentially free pages that the backend still has
+> mapped.  If the pages are then reused, this would leak information to
+> the backend.
 
-I wouldn't be surprised if I broke it but
+Yes, it is possible. But doing kfree_skb is right thing from netfront 
+point of view.
 
-> The commit that broke things was:
-> 
-> commit 4b30ee58ee64c64f59fd876e4afa6ed82caef3a4
-> Author: Tejun Heo <tj@kernel.org>
-> Date:   Wed Sep 11 22:29:06 2013 -0400
-> 
->     sysfs: remove ktype->namespace() invocations in symlink code
+>
+> Since only a buggy backend would result in this, leaking the skbs and
+> grant refs would be acceptable here.
 
-I'm not so sure about the above commit.  The warning is from rename
-failing to locate the existing node while the above patch updates the
-target ns to rename to.  The old_ns part stays the same before and
-after the commit.
+This is the same thing for tx side which uses similar process.
 
-Veaceslav, please confirm whether the issue is reproducible w/ v3.12.
+>    I would also print an error.
 
-Thanks.
+You mean add some print log here? Is it necessary?
 
--- 
-tejun
+Thanks
+Annie
+>
+> While checking blkfront for how it handles this, it also doesn't appear
+> to do the right thing either.
+>
+> David
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
