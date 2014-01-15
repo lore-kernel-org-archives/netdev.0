@@ -1,42 +1,40 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v4 0/3] Send audit/procinfo/cgroup data in socket-level
-	control message
-Date: Wed, 15 Jan 2014 12:17:30 -0800 (PST)
-Message-ID: <20140115.121730.1984913330507219167.davem@davemloft.net>
-References: <1377614400-27122-1-git-send-email-jkaluza@redhat.com>
-	<1389600109-30739-1-git-send-email-jkaluza@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC net] tcp: metrics: Avoid duplicate entries with the same
+ destination-IP
+Date: Wed, 15 Jan 2014 12:18:56 -0800 (PST)
+Message-ID: <20140115.121856.712581760900022040.davem@davemloft.net>
+References: <1389626736-3143-1-git-send-email-christoph.paasch@uclouvain.be>
+	<1389631669.31367.221.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1389600109-30739-1-git-send-email-jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: christoph.paasch@uclouvain.be, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38595 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750933AbaAOUS5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 15:18:57 -0500
+In-Reply-To: <1389631669.31367.221.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date: Mon, 13 Jan 2014 09:01:46 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 13 Jan 2014 08:47:49 -0800
 
-> Changes introduced in this patchset can also increase performance
-> of such server-like processes, because current way of opening and
-> parsing /proc/$PID/* files is much more expensive than receiving these
-> metadata using SCM.
+> On Mon, 2014-01-13 at 16:25 +0100, Christoph Paasch wrote:
+> 
+>> Another solution might be to leave tcp_get_metrics() as it is, and in
+>> tcpm_new do another call to __tcp_get_metrics() while holding the
+>> spin-lock. We would then check __tcp_get_metrics twice for new entries
+>> but we won't hold the spin-lock needlessly anymore.
+> 
+> This is the only solution if you want to fix this.
+> Cost of lookup are the cache line misses.
+> Avoiding the spinlock is a must.
+> 
+> The second 'lookup' is basically free, as the first one have populated
+> cpu caches.
 
-The problem with this line of reasoning is that these changes will
-hurt everyone else, because these new control messages are sent
-unconditionally, whether the application is interested in them or not.
-
-I really don't like this cost tradeoff, it's terrible, and therefore
-I'm really not inclined to apply these patches, sorry.
+Indeed, taking the lock in tcp_get_metrics() is to be avoided at all
+costs.
