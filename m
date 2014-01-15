@@ -1,40 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/2] net/mlx4_core: clean up cq_res_start_move_to()
-Date: Wed, 15 Jan 2014 15:12:06 -0800 (PST)
-Message-ID: <20140115.151206.1969611706248707914.davem@davemloft.net>
-References: <1389099678.15032.19.camel@x41>
-	<20140114084752.1db64b21@jpm-OptiPlex-GX620>
-	<1389728736.28068.8.camel@x220>
+Subject: Re: [PATCH v2 net-next] stmmac: Add vlan rx for better GRO
+ performance.
+Date: Wed, 15 Jan 2014 15:13:31 -0800 (PST)
+Message-ID: <20140115.151331.947371618474336706.davem@davemloft.net>
+References: <1389728525-6989-1-git-send-email-vbridgers2013@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ogerlitz@mellanox.com, jackm@dev.mellanox.co.il,
-	ronye@mellanox.com, hadarh@mellanox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: pebolle@tiscali.nl
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389728736.28068.8.camel@x220>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com,
+	rayagond@vayavyalabs.com
+To: vbridgers2013@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41821 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752198AbaAOXNc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 18:13:32 -0500
+In-Reply-To: <1389728525-6989-1-git-send-email-vbridgers2013@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paul Bolle <pebolle@tiscali.nl>
-Date: Tue, 14 Jan 2014 20:45:36 +0100
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Date: Tue, 14 Jan 2014 13:42:05 -0600
 
-> Building resource_tracker.o triggers a GCC warning:
->     drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function 'mlx4_HW2SW_CQ_wrapper':
->     drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:3019:16: warning: 'cq' may be used uninitialized in this function [-Wmaybe-uninitialized]
->       atomic_dec(&cq->mtt->ref_count);
->                     ^
+> GRO requires VLANs to be removed before aggregation can occur.
+> The Synopsys EMAC does not strip VLAN tags so this must be
+> done by the driver.
 > 
-> This is a false positive. But a cleanup of cq_res_start_move_to() can
-> help GCC here. The code currently uses a switch statement where an
-> if/else construct would do too, since only two of the switch's four
-> cases can ever occur. Dropping that switch makes the warning go away.
-> 
-> While we're at it, add some missing braces.
-> 
-> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
 > ---
-> v2: adjust to Jack's review.
+> V2: remove inline on added function, line up broken lines per review comments
 
-Can I please get some review of these two patches, thank you.
+Applied, thanks.
