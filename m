@@ -1,37 +1,27 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: Re: [PATCH] [trivial] ixgbe: Fix format string in ixgbe_fcoe.c
-Date: Wed, 15 Jan 2014 23:34:29 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B7312DB97@ORSMSX101.amr.corp.intel.com>
-References: <1389716082-23395-1-git-send-email-standby24x7@gmail.com>
- <20140115.145547.1868806980328924895.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: Tree for Jan 14 (lowpan, 802.15.4)
+Date: Wed, 15 Jan 2014 15:36:58 -0800 (PST)
+Message-ID: <20140115.153658.1102159829315209730.davem@davemloft.net>
+References: <20140114165128.0dd51f362e0f34a2ef4dc92f@canb.auug.org.au>
+	<52D578A7.8020000@infradead.org>
+	<CALT56yPzfkz7=WdT0p6EYXdsQJUT+Ld9gdd72z6_czn0YaKUWA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"standby24x7@gmail.com" <standby24x7@gmail.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"trivial@kernel.org" <trivial@kernel.org>
-To: "davem@davemloft.net" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rdunlap@infradead.org, marcel@holtmann.org, sfr@canb.auug.org.au,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-zigbee-devel@lists.sourceforge.net,
+	alex.bluesman.smirnov@gmail.com, netdev@vger.kernel.org,
+	jukka.rissanen@linux.intel.com
+To: dbaryshkov@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140115.145547.1868806980328924895.davem@davemloft.net>
-Content-Language: en-US
+In-Reply-To: <CALT56yPzfkz7=WdT0p6EYXdsQJUT+Ld9gdd72z6_czn0YaKUWA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCAyMDE0LTAxLTE1IGF0IDE0OjU1IC0wODAwLCBEYXZpZCBNaWxsZXIgd3JvdGU6Cj4g
-RnJvbTogTWFzYW5hcmkgSWlkYSA8c3RhbmRieTI0eDdAZ21haWwuY29tPgo+IERhdGU6IFdlZCwg
-MTUgSmFuIDIwMTQgMDE6MTQ6NDIgKzA5MDAKPiAKPiA+IGNwcGNoZWNrIGRldGVjdGVkIGZvbGxv
-d2luZyB3YXJuaW5nIGluIGl4Z2JlX2Zjb2UuYwo+ID4gKHdhcm5pbmcpICVkIGluIGZvcm1hdCBz
-dHJpbmcgKG5vLiAxKSByZXF1aXJlcyAnaW50JyBidXQgdGhlCj4gPiBhcmd1bWVudCB0eXBlIGlz
-ICd1bnNpZ25lZCBpbnQnLgo+ID4gCj4gPiBTaWduZWQtb2ZmLWJ5OiBNYXNhbmFyaSBJaWRhIDxz
-dGFuZGJ5MjR4N0BnbWFpbC5jb20+Cj4gCj4gSW50ZWwgZm9sa3MsIHBsZWFzZSBiZSBzdXJlIHRv
-IHBpY2sgdGhpcyB1cC4KCll1cCwgYWxyZWFkeSBpbiBvdXIgcXVldWUuCgo+IC0tCj4gVG8gdW5z
-dWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRl
-diIgaW4KPiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9y
-Zwo+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jk
-b21vLWluZm8uaHRtbAoK
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Date: Wed, 15 Jan 2014 02:54:56 +0400
+
+> David, Marcel, could you please consider the attached patch.
+
+Applied, thanks Dmitry.
