@@ -1,187 +1,149 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 08/11] be2net: do not use frag index in the RX-compl entry
-Date: Wed, 15 Jan 2014 13:23:38 +0530
-Message-ID: <1389772421-24925-9-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next 09/11] be2net: use GET_MAC_LIST cmd to query mac-address from a pmac-id
+Date: Wed, 15 Jan 2014 13:23:39 +0530
+Message-ID: <1389772421-24925-10-git-send-email-sathya.perla@emulex.com>
 References: <1389772421-24925-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:17691 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751310AbaAOHtU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 02:49:20 -0500
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:20741 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751797AbaAOHtW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 02:49:22 -0500
 In-Reply-To: <1389772421-24925-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Suresh Reddy <suresh.reddy@emulex.com>
 
-Instead, use the tail of the RXQ to pick the associated RXQ entry
-
-This fix is required in preparation for supporting RXQ lengths greater than 1K.
-For such queues, the frag index in the RX-compl entry is not valid as it is only a 10 bit entry not capable of addressing RXQs longer than 1K.
+The use of NTKW_MAC_QUERY cmd has been deprecated for Skyhawk-R.
+Replace the last remaining usage in be_vfs_mac_query() routine.
 
 Signed-off-by: Suresh Reddy <suresh.reddy@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h      |    1 -
- drivers/net/ethernet/emulex/benet/be_main.c |   30 ++++++++------------------
- 2 files changed, 9 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   22 ++++++++++++++--------
+ drivers/net/ethernet/emulex/benet/be_cmds.h |    6 ++++--
+ drivers/net/ethernet/emulex/benet/be_main.c |   12 +++++-------
+ 3 files changed, 23 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index b74d81d..7f00bae 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -283,7 +283,6 @@ struct be_rx_compl_info {
- 	u32 rss_hash;
- 	u16 vlan_tag;
- 	u16 pkt_size;
--	u16 rxq_idx;
- 	u16 port;
- 	u8 vlanf;
- 	u8 num_rcvd;
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index cf5b8b0..5635f1e 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -2742,7 +2742,8 @@ err:
+  *		  If pmac_id is returned, pmac_id_valid is returned as true
+  */
+ int be_cmd_get_mac_from_list(struct be_adapter *adapter, u8 *mac,
+-			     bool *pmac_id_valid, u32 *pmac_id, u8 domain)
++			     bool *pmac_id_valid, u32 *pmac_id, u32 if_handle,
++			     u8 domain)
+ {
+ 	struct be_mcc_wrb *wrb;
+ 	struct be_cmd_req_get_mac_list *req;
+@@ -2780,7 +2781,7 @@ int be_cmd_get_mac_from_list(struct be_adapter *adapter, u8 *mac,
+ 	req->mac_type = MAC_ADDRESS_TYPE_NETWORK;
+ 	if (*pmac_id_valid) {
+ 		req->mac_id = cpu_to_le32(*pmac_id);
+-		req->iface_id = cpu_to_le16(adapter->if_handle);
++		req->iface_id = cpu_to_le16(if_handle);
+ 		req->perm_override = 0;
+ 	} else {
+ 		req->perm_override = 1;
+@@ -2833,17 +2834,21 @@ out:
+ 	return status;
+ }
+ 
+-int be_cmd_get_active_mac(struct be_adapter *adapter, u32 curr_pmac_id, u8 *mac)
++int be_cmd_get_active_mac(struct be_adapter *adapter, u32 curr_pmac_id, u8 *mac,
++			  u32 if_handle, bool active, u32 domain)
+ {
+-	bool active = true;
+ 
++	if (!active)
++		be_cmd_get_mac_from_list(adapter, mac, &active, &curr_pmac_id,
++					 if_handle, domain);
+ 	if (BEx_chip(adapter))
+ 		return be_cmd_mac_addr_query(adapter, mac, false,
+-					     adapter->if_handle, curr_pmac_id);
++					     if_handle, curr_pmac_id);
+ 	else
+ 		/* Fetch the MAC address using pmac_id */
+ 		return be_cmd_get_mac_from_list(adapter, mac, &active,
+-						&curr_pmac_id, 0);
++						&curr_pmac_id,
++						if_handle, domain);
+ }
+ 
+ int be_cmd_get_perm_mac(struct be_adapter *adapter, u8 *mac)
+@@ -2862,7 +2867,7 @@ int be_cmd_get_perm_mac(struct be_adapter *adapter, u8 *mac)
+ 						       adapter->if_handle, 0);
+ 	} else {
+ 		status = be_cmd_get_mac_from_list(adapter, mac, &pmac_valid,
+-						  NULL, 0);
++						  NULL, adapter->if_handle, 0);
+ 	}
+ 
+ 	return status;
+@@ -2923,7 +2928,8 @@ int be_cmd_set_mac(struct be_adapter *adapter, u8 *mac, int if_id, u32 dom)
+ 	int status;
+ 
+ 	status = be_cmd_get_mac_from_list(adapter, old_mac, &active_mac,
+-					  &pmac_id, dom);
++					  &pmac_id, if_id, dom);
++
+ 	if (!status && active_mac)
+ 		be_cmd_pmac_del(adapter, if_id, pmac_id, dom);
+ 
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index da182c0..fc4e076 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -2057,8 +2057,10 @@ int be_cmd_get_fn_privileges(struct be_adapter *adapter, u32 *privilege,
+ int be_cmd_set_fn_privileges(struct be_adapter *adapter, u32 privileges,
+ 			     u32 vf_num);
+ int be_cmd_get_mac_from_list(struct be_adapter *adapter, u8 *mac,
+-			     bool *pmac_id_active, u32 *pmac_id, u8 domain);
+-int be_cmd_get_active_mac(struct be_adapter *adapter, u32 pmac_id, u8 *mac);
++			     bool *pmac_id_active, u32 *pmac_id,
++			     u32 if_handle, u8 domain);
++int be_cmd_get_active_mac(struct be_adapter *adapter, u32 pmac_id, u8 *mac,
++			  u32 if_handle, bool active, u32 domain);
+ int be_cmd_get_perm_mac(struct be_adapter *adapter, u8 *mac);
+ int be_cmd_set_mac_list(struct be_adapter *adapter, u8 *mac_array, u8 mac_count,
+ 			u32 domain);
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 9c90a87..9704a1b 100644
+index 9704a1b..43cb458 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1442,12 +1442,12 @@ static inline bool csum_passed(struct be_rx_compl_info *rxcp)
- 				(rxcp->ip_csum || rxcp->ipv6);
- }
+@@ -280,7 +280,8 @@ static int be_mac_addr_set(struct net_device *netdev, void *p)
+ 	/* Decide if the new MAC is successfully activated only after
+ 	 * querying the FW
+ 	 */
+-	status = be_cmd_get_active_mac(adapter, curr_pmac_id, mac);
++	status = be_cmd_get_active_mac(adapter, curr_pmac_id, mac,
++				       adapter->if_handle, true, 0);
+ 	if (status)
+ 		goto err;
  
--static struct be_rx_page_info *get_rx_page_info(struct be_rx_obj *rxo,
--						u16 frag_idx)
-+static struct be_rx_page_info *get_rx_page_info(struct be_rx_obj *rxo)
- {
- 	struct be_adapter *adapter = rxo->adapter;
- 	struct be_rx_page_info *rx_page_info;
- 	struct be_queue_info *rxq = &rxo->q;
-+	u16 frag_idx = rxq->tail;
+@@ -2872,14 +2873,11 @@ static int be_vfs_mac_query(struct be_adapter *adapter)
+ 	int status, vf;
+ 	u8 mac[ETH_ALEN];
+ 	struct be_vf_cfg *vf_cfg;
+-	bool active = false;
  
- 	rx_page_info = &rxo->page_info_tbl[frag_idx];
- 	BUG_ON(!rx_page_info->page);
-@@ -1459,6 +1459,7 @@ static struct be_rx_page_info *get_rx_page_info(struct be_rx_obj *rxo,
- 		rx_page_info->last_page_user = false;
- 	}
- 
-+	queue_tail_inc(rxq);
- 	atomic_dec(&rxq->used);
- 	return rx_page_info;
- }
-@@ -1467,15 +1468,13 @@ static struct be_rx_page_info *get_rx_page_info(struct be_rx_obj *rxo,
- static void be_rx_compl_discard(struct be_rx_obj *rxo,
- 				struct be_rx_compl_info *rxcp)
- {
--	struct be_queue_info *rxq = &rxo->q;
- 	struct be_rx_page_info *page_info;
- 	u16 i, num_rcvd = rxcp->num_rcvd;
- 
- 	for (i = 0; i < num_rcvd; i++) {
--		page_info = get_rx_page_info(rxo, rxcp->rxq_idx);
-+		page_info = get_rx_page_info(rxo);
- 		put_page(page_info->page);
- 		memset(page_info, 0, sizeof(*page_info));
--		index_inc(&rxcp->rxq_idx, rxq->len);
- 	}
- }
- 
-@@ -1486,13 +1485,12 @@ static void be_rx_compl_discard(struct be_rx_obj *rxo,
- static void skb_fill_rx_data(struct be_rx_obj *rxo, struct sk_buff *skb,
- 			     struct be_rx_compl_info *rxcp)
- {
--	struct be_queue_info *rxq = &rxo->q;
- 	struct be_rx_page_info *page_info;
- 	u16 i, j;
- 	u16 hdr_len, curr_frag_len, remaining;
- 	u8 *start;
- 
--	page_info = get_rx_page_info(rxo, rxcp->rxq_idx);
-+	page_info = get_rx_page_info(rxo);
- 	start = page_address(page_info->page) + page_info->page_offset;
- 	prefetch(start);
- 
-@@ -1526,10 +1524,9 @@ static void skb_fill_rx_data(struct be_rx_obj *rxo, struct sk_buff *skb,
- 	}
- 
- 	/* More frags present for this completion */
--	index_inc(&rxcp->rxq_idx, rxq->len);
- 	remaining = rxcp->pkt_size - curr_frag_len;
- 	for (i = 1, j = 0; i < rxcp->num_rcvd; i++) {
--		page_info = get_rx_page_info(rxo, rxcp->rxq_idx);
-+		page_info = get_rx_page_info(rxo);
- 		curr_frag_len = min(remaining, rx_frag_size);
- 
- 		/* Coalesce all frags from the same physical page in one slot */
-@@ -1550,7 +1547,6 @@ static void skb_fill_rx_data(struct be_rx_obj *rxo, struct sk_buff *skb,
- 		skb->data_len += curr_frag_len;
- 		skb->truesize += rx_frag_size;
- 		remaining -= curr_frag_len;
--		index_inc(&rxcp->rxq_idx, rxq->len);
- 		page_info->page = NULL;
- 	}
- 	BUG_ON(j > MAX_SKB_FRAGS);
-@@ -1598,7 +1594,6 @@ static void be_rx_compl_process_gro(struct be_rx_obj *rxo,
- 	struct be_adapter *adapter = rxo->adapter;
- 	struct be_rx_page_info *page_info;
- 	struct sk_buff *skb = NULL;
--	struct be_queue_info *rxq = &rxo->q;
- 	u16 remaining, curr_frag_len;
- 	u16 i, j;
- 
-@@ -1610,7 +1605,7 @@ static void be_rx_compl_process_gro(struct be_rx_obj *rxo,
- 
- 	remaining = rxcp->pkt_size;
- 	for (i = 0, j = -1; i < rxcp->num_rcvd; i++) {
--		page_info = get_rx_page_info(rxo, rxcp->rxq_idx);
-+		page_info = get_rx_page_info(rxo);
- 
- 		curr_frag_len = min(remaining, rx_frag_size);
- 
-@@ -1628,7 +1623,6 @@ static void be_rx_compl_process_gro(struct be_rx_obj *rxo,
- 		skb_frag_size_add(&skb_shinfo(skb)->frags[j], curr_frag_len);
- 		skb->truesize += rx_frag_size;
- 		remaining -= curr_frag_len;
--		index_inc(&rxcp->rxq_idx, rxq->len);
- 		memset(page_info, 0, sizeof(*page_info));
- 	}
- 	BUG_ON(j > MAX_SKB_FRAGS);
-@@ -1663,8 +1657,6 @@ static void be_parse_rx_compl_v1(struct be_eth_rx_compl *compl,
- 		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, l4_cksm, compl);
- 	rxcp->ipv6 =
- 		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, ip_version, compl);
--	rxcp->rxq_idx =
--		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, fragndx, compl);
- 	rxcp->num_rcvd =
- 		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, numfrags, compl);
- 	rxcp->pkt_type =
-@@ -1695,8 +1687,6 @@ static void be_parse_rx_compl_v0(struct be_eth_rx_compl *compl,
- 		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, l4_cksm, compl);
- 	rxcp->ipv6 =
- 		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, ip_version, compl);
--	rxcp->rxq_idx =
--		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, fragndx, compl);
- 	rxcp->num_rcvd =
- 		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, numfrags, compl);
- 	rxcp->pkt_type =
-@@ -1914,7 +1904,6 @@ static void be_rx_cq_clean(struct be_rx_obj *rxo)
- 	struct be_rx_compl_info *rxcp;
- 	struct be_adapter *adapter = rxo->adapter;
- 	int flush_wait = 0;
--	u16 tail;
- 
- 	/* Consume pending rx completions.
- 	 * Wait for the flush completion (identified by zero num_rcvd)
-@@ -1947,9 +1936,8 @@ static void be_rx_cq_clean(struct be_rx_obj *rxo)
- 	be_cq_notify(adapter, rx_cq->id, false, 0);
- 
- 	/* Then free posted rx buffers that were not used */
--	tail = (rxq->head + rxq->len - atomic_read(&rxq->used)) % rxq->len;
--	for (; atomic_read(&rxq->used) > 0; index_inc(&tail, rxq->len)) {
--		page_info = get_rx_page_info(rxo, tail);
-+	while (atomic_read(&rxq->used) > 0) {
-+		page_info = get_rx_page_info(rxo);
- 		put_page(page_info->page);
- 		memset(page_info, 0, sizeof(*page_info));
- 	}
+ 	for_all_vfs(adapter, vf_cfg, vf) {
+-		be_cmd_get_mac_from_list(adapter, mac, &active,
+-					 &vf_cfg->pmac_id, 0);
+-
+-		status = be_cmd_mac_addr_query(adapter, mac, false,
+-					       vf_cfg->if_handle, 0);
++		status = be_cmd_get_active_mac(adapter, vf_cfg->pmac_id,
++					       mac, vf_cfg->if_handle,
++					       false, vf+1);
+ 		if (status)
+ 			return status;
+ 		memcpy(vf_cfg->mac_addr, mac, ETH_ALEN);
 -- 
 1.7.1
