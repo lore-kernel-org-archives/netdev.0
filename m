@@ -1,83 +1,37 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] net/mlx4_core: Warn if device doesn't have
- enough PCI bandwidth
-Date: Wed, 15 Jan 2014 23:33:53 +0000
-Message-ID: <1389828833.11912.37.camel@bwh-desktop.uk.level5networks.com>
-References: <1388863024-8718-1-git-send-email-amirv@mellanox.com>
-	 <1389042955.9947.110.camel@bwh-desktop.uk.level5networks.com>
-	 <1389827709.8362.14.camel@jekeller-desk1.amr.corp.intel.com>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: Re: [PATCH] [trivial] ixgbe: Fix format string in ixgbe_fcoe.c
+Date: Wed, 15 Jan 2014 23:34:29 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B7312DB97@ORSMSX101.amr.corp.intel.com>
+References: <1389716082-23395-1-git-send-email-standby24x7@gmail.com>
+ <20140115.145547.1868806980328924895.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Amir Vadai <amirv@mellanox.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"standby24x7@gmail.com" <standby24x7@gmail.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eyal Perry <eyalpe@mellanox.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>
-To: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:21750 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751258AbaAOXd6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 18:33:58 -0500
-In-Reply-To: <1389827709.8362.14.camel@jekeller-desk1.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"trivial@kernel.org" <trivial@kernel.org>
+To: "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140115.145547.1868806980328924895.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-01-15 at 23:15 +0000, Keller, Jacob E wrote:
-> On Mon, 2014-01-06 at 21:15 +0000, Ben Hutchings wrote:
-> > On Sat, 2014-01-04 at 21:17 +0200, Amir Vadai wrote:
-> > > From: Eyal Perry <eyalpe@mellanox.com>
-> > > 
-> > > Check if the device get enough bandwidth from the entire PCI chain to satisfy
-> > > its capabilities. This patch determines the PCIe device's bandwidth capabilities
-> > > by reading its PCIe Link Capabilities registers and then call the
-> > > pcie_get_minimum_link function to ensure that the adapter is hooked into a slot
-> > > which is capable of providing the necessary bandwidth capabilities.
-> > [...]
-> > 
-> > This is essentially another duplicate of what ixgbe and i40e are
-> > doing...  (And the out-of-tree version of sfc does it too, but I never
-> > felt that was ready for in-tree.)
-> > 
-> > We ought to have a generic PCI layer function that warns when a PCIe
-> > device is running below maximum link width/speed.  Maybe even run it as
-> > soon as the device is enumerated, so that a driver doesn't need to do
-> > anything.
-> > 
-> > Ben.
-> > 
-> 
-> Hi,
-> 
-> I was thinking about this again, was wondering a few things. Is this
-> something you were already investigating?
-
-No, I'm busy with other things.
-
-> On an implementation note, how would this function know how much
-> bandwidth a particular device (or function?) would require? I'm thinking
-> of something along the lines of a driver essentially saying how much the
-> devices it supports require?
-
-I was thinking you could generically compare the link status with link
-capabilities of the endpoint, i.e. actual versus maximum possible
-bandwidth.
-
-In some cases the link capabilities may be more than you really need.
-For example, given a 10/40G controller capable of PCIe gen3 x8, on a
-board that only has a single 10G port, you could put the board in a gen1
-x8 slot and still have enough PCIe bandwidth to saturate the Ethernet
-link.  However it will have higher latency compared to a gen3 x8 slot.
-So I think the generic comparison would be OK as long as the log message
-and severity is not too alarming.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+T24gV2VkLCAyMDE0LTAxLTE1IGF0IDE0OjU1IC0wODAwLCBEYXZpZCBNaWxsZXIgd3JvdGU6Cj4g
+RnJvbTogTWFzYW5hcmkgSWlkYSA8c3RhbmRieTI0eDdAZ21haWwuY29tPgo+IERhdGU6IFdlZCwg
+MTUgSmFuIDIwMTQgMDE6MTQ6NDIgKzA5MDAKPiAKPiA+IGNwcGNoZWNrIGRldGVjdGVkIGZvbGxv
+d2luZyB3YXJuaW5nIGluIGl4Z2JlX2Zjb2UuYwo+ID4gKHdhcm5pbmcpICVkIGluIGZvcm1hdCBz
+dHJpbmcgKG5vLiAxKSByZXF1aXJlcyAnaW50JyBidXQgdGhlCj4gPiBhcmd1bWVudCB0eXBlIGlz
+ICd1bnNpZ25lZCBpbnQnLgo+ID4gCj4gPiBTaWduZWQtb2ZmLWJ5OiBNYXNhbmFyaSBJaWRhIDxz
+dGFuZGJ5MjR4N0BnbWFpbC5jb20+Cj4gCj4gSW50ZWwgZm9sa3MsIHBsZWFzZSBiZSBzdXJlIHRv
+IHBpY2sgdGhpcyB1cC4KCll1cCwgYWxyZWFkeSBpbiBvdXIgcXVldWUuCgo+IC0tCj4gVG8gdW5z
+dWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRl
+diIgaW4KPiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9y
+Zwo+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jk
+b21vLWluZm8uaHRtbAoK
