@@ -1,276 +1,143 @@
-From: Matthew Garrett <matthew.garrett-05XSO3Yj/JvQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] net/dt: Add support for overriding phy configuration from device tree
-Date: Wed, 15 Jan 2014 16:38:58 -0500
-Message-ID: <1389821938-3126-1-git-send-email-matthew.garrett@nebula.com>
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kishon-l0cyMroinI0@public.gmane.org, Matthew Garrett <matthew.garrett-05XSO3Yj/JvQT0dZR+AlfA@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v4 net-next 2/4] sh_eth: Add support for r7s72100
+Date: Thu, 16 Jan 2014 01:43:30 +0300
+Message-ID: <52D70F12.9080800@cogentembedded.com>
+References: <1389168152-9434-1-git-send-email-horms+renesas@verge.net.au> <1389168152-9434-3-git-send-email-horms+renesas@verge.net.au> <52CDBBE1.1010301@cogentembedded.com> <20140109050351.GE2132@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20140109050351.GE2132@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some hardware may be broken in interesting and board-specific ways, such
-that various bits of functionality don't work. This patch provides a
-mechanism for overriding mii registers during init based on the contents of
-the device tree data, allowing board-specific fixups without having to
-pollute generic code.
+Hello.
 
-Signed-off-by: Matthew Garrett <matthew.garrett-05XSO3Yj/JvQT0dZR+AlfA@public.gmane.org>
----
- Documentation/devicetree/bindings/net/phy.txt |  13 +++
- drivers/net/phy/phy_device.c                  |  29 +++++-
- drivers/of/of_net.c                           | 124 ++++++++++++++++++++++++++
- include/linux/of_net.h                        |  12 +++
- 4 files changed, 177 insertions(+), 1 deletion(-)
+On 01/09/2014 08:03 AM, Simon Horman wrote:
 
-diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
-index 7cd18fb..552a5e0 100644
---- a/Documentation/devicetree/bindings/net/phy.txt
-+++ b/Documentation/devicetree/bindings/net/phy.txt
-@@ -23,6 +23,19 @@ Optional Properties:
-   assume clause 22. The compatible list may also contain other
-   elements.
- 
-+The following properties may be added to either the phy node or the parent
-+ethernet device:
-+
-+- phy-mii-advertise-10half: Whether to advertise half-duplex 10MBit
-+- phy-mii-advertise-10full: Whether to advertise full-duplex 10MBit
-+- phy-mii-advertise-100half: Whether to advertise half-duplex 100MBit
-+- phy-mii-advertise-100full: Whether to advertise full-duplex 100MBit
-+- phy-mii-advertise-100base4: Whether to advertise 100base4
-+- phy-mii-advertise-1000half: Whether to advertise half-duplex 1000MBit
-+- phy-mii-advertise-1000full: Whether to advertise full-duplex 1000MBit
-+- phy-mii-as-master: Configure phy to act as master/slave
-+- phy-mii-manual-master: Enable/disable manual master/slave configuration
-+
- Example:
- 
- ethernet-phy@0 {
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index d6447b3..91793bc 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -33,6 +33,7 @@
- #include <linux/mii.h>
- #include <linux/ethtool.h>
- #include <linux/phy.h>
-+#include <linux/of_net.h>
- 
- #include <asm/io.h>
- #include <asm/irq.h>
-@@ -497,6 +498,28 @@ void phy_disconnect(struct phy_device *phydev)
- }
- EXPORT_SYMBOL(phy_disconnect);
- 
-+int phy_override_from_of(struct phy_device *phydev)
-+{
-+	int reg, regval;
-+	u16 val, mask;
-+
-+	/* Check for phy register overrides from OF */
-+	for (reg = 0; reg < 16; reg++) {
-+		if (!of_get_mii_register(phydev, reg, &val, &mask)) {
-+			if (!mask)
-+				continue;
-+			regval = phy_read(phydev, reg);
-+			if (regval < 0)
-+				continue;
-+			regval &= ~mask;
-+			regval |= val;
-+			phy_write(phydev, reg, regval);
-+		}
-+	}
-+
-+	return 0;
-+}
-+
- int phy_init_hw(struct phy_device *phydev)
- {
- 	int ret;
-@@ -508,7 +531,11 @@ int phy_init_hw(struct phy_device *phydev)
- 	if (ret < 0)
- 		return ret;
- 
--	return phydev->drv->config_init(phydev);
-+	ret = phydev->drv->config_init(phydev);
-+	if (ret < 0)
-+		return ret;
-+
-+	return phy_override_from_of(phydev);
- }
- 
- /**
-diff --git a/drivers/of/of_net.c b/drivers/of/of_net.c
-index 8f9be2e..4545608 100644
---- a/drivers/of/of_net.c
-+++ b/drivers/of/of_net.c
-@@ -93,3 +93,127 @@ const void *of_get_mac_address(struct device_node *np)
- 	return NULL;
- }
- EXPORT_SYMBOL(of_get_mac_address);
-+
-+/**
-+ * Provide phy register overrides from the device tree. Some hardware may
-+ * be broken in interesting and board-specific ways, so we want a mechanism
-+ * for the board data to provide overrides for default values. This should be
-+ * called during phy init.
-+ */
-+int of_get_mii_register(struct phy_device *phydev, int reg, u16 *val,
-+			u16 *mask)
-+{
-+	u32 tmp;
-+	struct device *dev = &phydev->dev;
-+	struct device_node *np = dev->of_node;
-+
-+	*val = 0;
-+	*mask = 0;
-+
-+	if (!np && dev->parent->of_node)
-+		np = dev->parent->of_node;
-+
-+	if (!np)
-+		return 0;
-+
-+	switch (reg) {
-+	case MII_ADVERTISE:
-+		if (!of_property_read_u32(np, "phy-mii-advertise-10half",
-+					   &tmp)) {
-+			if (tmp) {
-+				*val |= ADVERTISE_10HALF;
-+				phydev->advertising |= SUPPORTED_10baseT_Half;
-+			} else {
-+				phydev->advertising &=
-+					~(SUPPORTED_10baseT_Half);
-+			}
-+
-+			*mask |= ADVERTISE_10HALF;
-+		}
-+		if (!of_property_read_u32(np, "phy-mii-advertise-10full",
-+					   &tmp)) {
-+			if (tmp) {
-+				*val |= ADVERTISE_10FULL;
-+				phydev->advertising |= SUPPORTED_10baseT_Full;
-+			} else {
-+				phydev->advertising &=
-+					~(SUPPORTED_10baseT_Full);
-+			}
-+
-+			*mask |= ADVERTISE_10FULL;
-+		}
-+		if (!of_property_read_u32(np, "phy-mii-advertise-100half",
-+					   &tmp)) {
-+			if (tmp) {
-+				*val |= ADVERTISE_100HALF;
-+				phydev->advertising |= SUPPORTED_100baseT_Half;
-+			} else {
-+				phydev->advertising &=
-+					~(SUPPORTED_100baseT_Half);
-+			}
-+
-+			*mask |= ADVERTISE_100HALF;
-+		}
-+		if (!of_property_read_u32(np, "phy-mii-advertise-100full",
-+					   &tmp)) {
-+			if (tmp) {
-+				*val |= ADVERTISE_100FULL;
-+				phydev->advertising |= SUPPORTED_100baseT_Full;
-+			} else {
-+				phydev->advertising &=
-+					~(SUPPORTED_100baseT_Full);
-+			}
-+
-+			*mask |= ADVERTISE_100FULL;
-+		}
-+		if (!of_property_read_u32(np, "phy-mii-advertise-100base4",
-+					   &tmp)) {
-+			if (tmp)
-+				*val |= ADVERTISE_100BASE4;
-+			*mask |= ADVERTISE_100BASE4;
-+		}
-+		break;
-+	case MII_CTRL1000:
-+		if (!of_property_read_u32(np, "phy-mii-advertise-1000full",
-+					   &tmp)) {
-+			if (tmp) {
-+				*val |= ADVERTISE_1000FULL;
-+				phydev->advertising |= SUPPORTED_1000baseT_Full;
-+			} else {
-+				phydev->advertising &=
-+					~(SUPPORTED_1000baseT_Full);
-+			}
-+
-+			*mask |= ADVERTISE_1000FULL;
-+		}
-+		if (!of_property_read_u32(np, "phy-mii-advertise-1000half",
-+					   &tmp)) {
-+			if (tmp) {
-+				*val |= ADVERTISE_1000HALF;
-+				phydev->advertising |= SUPPORTED_1000baseT_Half;
-+			} else {
-+				phydev->advertising &=
-+					~(SUPPORTED_1000baseT_Half);
-+			}
-+
-+			*mask |= ADVERTISE_1000HALF;
-+		}
-+		if (!of_property_read_u32(np, "phy-mii-as-master",
-+					   &tmp)) {
-+			if (tmp)
-+				*val |= CTL1000_AS_MASTER;
-+			*mask |= CTL1000_AS_MASTER;
-+		}
-+		if (!of_property_read_u32(np, "phy-mii-manual-master",
-+					   &tmp)) {
-+			if (tmp)
-+				*val |= CTL1000_ENABLE_MASTER;
-+			*mask |= CTL1000_ENABLE_MASTER;
-+		}
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+EXPORT_SYMBOL(of_get_mii_register);
-diff --git a/include/linux/of_net.h b/include/linux/of_net.h
-index 34597c8..2e478bc 100644
---- a/include/linux/of_net.h
-+++ b/include/linux/of_net.h
-@@ -7,10 +7,14 @@
- #ifndef __LINUX_OF_NET_H
- #define __LINUX_OF_NET_H
- 
-+#include <linux/phy.h>
-+
- #ifdef CONFIG_OF_NET
- #include <linux/of.h>
- extern int of_get_phy_mode(struct device_node *np);
- extern const void *of_get_mac_address(struct device_node *np);
-+extern int of_get_mii_register(struct phy_device *np, int reg, u16 *val,
-+			       u16 *mask);
- #else
- static inline int of_get_phy_mode(struct device_node *np)
- {
-@@ -21,6 +25,14 @@ static inline const void *of_get_mac_address(struct device_node *np)
- {
- 	return NULL;
- }
-+static inline int of_get_mii_register(struct phy_device *np, int reg, u16 *val,
-+				      u16 *mask)
-+{
-+	*val = 0;
-+	*mask = 0;
-+
-+	return -EINVAL;
-+}
- #endif
- 
- #endif /* __LINUX_OF_NET_H */
--- 
-1.8.4.2
+>>> This is a fast ethernet controller.
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+
+>> [...]
+
+>>> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+>>> index 4b38533..cc6d4af 100644
+>>> --- a/drivers/net/ethernet/renesas/sh_eth.c
+>>> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+>>> @@ -190,6 +190,59 @@ static const u16 sh_eth_offset_fast_rcar[SH_ETH_MAX_REGISTER_OFFSET] = {
+[...]
+>>> @@ -701,6 +762,35 @@ static struct sh_eth_cpu_data r8a7740_data = {
+>>>   	.shift_rd0	= 1,
+>>>   };
+>>>
+>>> +/* R7S72100 */
+>>> +static struct sh_eth_cpu_data r7s72100_data = {
+>>> +	.chip_reset	= sh_eth_chip_reset,
+>>> +	.set_duplex	= sh_eth_set_duplex,
+>>> +
+>>> +	.register_type	= SH_ETH_REG_FAST_RZ,
+>>> +
+>>> +	.ecsr_value	= ECSR_ICD,
+>>> +	.ecsipr_value	= ECSIPR_ICDIP,
+>>> +	.eesipr_value	= 0xff7f009f,
+>>> +
+>>> +	.tx_check	= EESR_TC1 | EESR_FTC,
+>>> +	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
+>>> +			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
+>>> +			  EESR_TDE | EESR_ECI,
+>>> +	.fdr_value	= 0x0000070f,
+>>> +	.rmcr_value	= RMCR_RNC,
+>>> +
+>>> +	.apr		= 1,
+>>> +	.mpr		= 1,
+>>> +	.tpauser	= 1,
+>>> +	.hw_swap	= 1,
+>>> +	.rpadir		= 1,
+>>> +	.rpadir_value   = 2 << 16,
+>>> +	.no_trimd	= 1,
+>>> +	.tsu		= 1,
+>>> +	.shift_rd0	= 1,
+
+>>     Perhaps this field should be renamed to something talking about
+>> check summing support (since bits 0..15 of RD0 contain a frame check
+>> sum for those SoCs). Or maybe it should be just merged with the
+>> 'hw_crc' field...
+
+> I have no feelings about that one way or another.
+
+    Do you happen to have R8A7740 manual by chance? If so, does it talk about 
+RX check summing support and using RD0 for that?
+
+> But it seems to be orthogonal to this patch.
+
+    Of course, was a note to self. :-)
+
+[...]
+>>> @@ -880,6 +970,8 @@ static unsigned long sh_eth_get_edtrr_trns(struct sh_eth_private *mdp)
+>>>   {
+>>>   	if (sh_eth_is_gether(mdp))
+>>>   		return EDTRR_TRNS_GETHER;
+>>> +	else if (sh_eth_is_rz_fast_ether(mdp))
+>>> +		return EDTRR_TRNS_RZ_ETHER;
+
+>>     I'd just merge this with the GEther case.
+
+> Sure, but in that case should we change the name.
+> As both you and Magnus pointed out to me, the rz is not gigabit.
+
+    See below.
+
+>>>   	else
+>>>   		return EDTRR_TRNS_ETHER;
+>>>   }
+>> [...]
+>>> @@ -1062,7 +1155,8 @@ static void sh_eth_ring_format(struct net_device *ndev)
+>>>   		if (i == 0) {
+>>>   			/* Tx descriptor address set */
+>>>   			sh_eth_write(ndev, mdp->tx_desc_dma, TDLAR);
+>>> -			if (sh_eth_is_gether(mdp))
+>>> +			if (sh_eth_is_gether(mdp) ||
+>>> +			    sh_eth_is_rz_fast_ether(mdp))
+>>>   				sh_eth_write(ndev, mdp->tx_desc_dma, TDFAR);
+
+>>     Hmm, TDFAR exists also on SH4 Ethers...
+
+> Lets fix that separately.
+
+    Of course, was just another not to self.
+
+[...]
+>>> diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
+>>> index 0fe35b7..0bcde90 100644
+>>> --- a/drivers/net/ethernet/renesas/sh_eth.h
+>>> +++ b/drivers/net/ethernet/renesas/sh_eth.h
+[...]
+>>> @@ -191,6 +192,7 @@ enum DMAC_M_BIT {
+>>>   /* EDTRR */
+>>>   enum DMAC_T_BIT {
+>>>   	EDTRR_TRNS_GETHER = 0x03,
+>>> +	EDTRR_TRNS_RZ_ETHER = 0x03,
+
+>>     I doubt we need a special case here. You didn't introduce one for
+>> the software reset bits.
+
+> True, but RZ is not Gigabit. So I think we either need two names
+> or to choose a more generic name.
+
+    Well, R7S72100 manual calls these bits just TR[1:0]. Don't know what SoCs 
+having Gigabit call it in the manuals...
+
+>>>   	EDTRR_TRNS_ETHER = 0x01,
+
+    R-Car manuals seem to call the bit TRNS (as well as the prehistoric SH 
+manuals probably). Perhaps we could use that difference, TRNS vs TR, don't know...
+
+>>>   };
+
+WBR, Sergei
+
