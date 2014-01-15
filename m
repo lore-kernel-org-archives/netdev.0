@@ -1,74 +1,73 @@
-From: Thomas Haller <thaller@redhat.com>
-Subject: Re: [PATCH v5 0/2] ipv6 addrconf: add IFA_F_NOPREFIXROUTE flag to
- suppress creation of IP6 routes
-Date: Wed, 15 Jan 2014 15:58:24 +0100
-Message-ID: <1389797904.2972.16.camel@dhcp-25-241.brq.redhat.com>
-References: <20140110.181030.2081631538801450145.davem@davemloft.net>
-	 <1389796619-13440-1-git-send-email-thaller@redhat.com>
-	 <20140115144331.GF19945@order.stressinduktion.org>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next] xen-netback: Rework rx_work_todo
+Date: Wed, 15 Jan 2014 14:59:51 +0000
+Message-ID: <20140115145951.GP5698@zion.uk.xensource.com>
+References: <1389727719-21439-1-git-send-email-zoltan.kiss@citrix.com>
+ <20140115103707.GI5698@zion.uk.xensource.com>
+ <52D67536.4030106@citrix.com>
+ <20140115144519.GO5698@zion.uk.xensource.com>
+ <52D6A0B9.2030204@citrix.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-n7lFP354hkgzfwlR9MOu"
-Cc: David Miller <davem@davemloft.net>, jiri@resnulli.us,
-	netdev@vger.kernel.org, stephen@networkplumber.org, dcbw@redhat.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4206 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751037AbaAOO6i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jan 2014 09:58:38 -0500
-In-Reply-To: <20140115144331.GF19945@order.stressinduktion.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:25828 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751037AbaAOO7x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 09:59:53 -0500
+Content-Disposition: inline
+In-Reply-To: <52D6A0B9.2030204@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Jan 15, 2014 at 02:52:41PM +0000, Zoltan Kiss wrote:
+> On 15/01/14 14:45, Wei Liu wrote:
+> >>>>The recent patch to fix receive side flow control (11b57f) solved the spinning
+> >>>>> >>thread problem, however caused an another one. The receive side can stall, if:
+> >>>>> >>- xenvif_rx_action sets rx_queue_stopped to false
+> >>>>> >>- interrupt happens, and sets rx_event to true
+> >>>>> >>- then xenvif_kthread sets rx_event to false
+> >>>>> >>
+> >>>> >
+> >>>> >If you mean "rx_work_todo" returns false.
+> >>>> >
+> >>>> >In this case
+> >>>> >
+> >>>> >(!skb_queue_empty(&vif->rx_queue) && !vif->rx_queue_stopped) || vif->rx_event;
+> >>>> >
+> >>>> >can still be true, can't it?
+> >>>Sorry, I should wrote rx_queue_stopped to true
+> >>>
+> >In this case, if rx_queue_stopped is true, then we're expecting frontend
+> >to notify us, right?
+> >
+> >rx_queue_stopped is set to true if we cannot make any progress to queue
+> >packet into the ring. In that situation we can expect frontend will send
+> >notification to backend after it goes through the backlog in the ring.
+> >That means rx_event is set to true, and rx_work_todo is true again. So
+> >the ring is actually not stalled in this case as well. Did I miss
+> >something?
+> >
+> 
+> Yes, we expect the guest to notify us, and it does, and we set
+> rx_event to true (see second point), but then the thread set it to
+> false (see third point). Talking with Paul, another solution could
+> be to set rx_event false before calling xenvif_rx_action. But using
+> rx_last_skb_slots makes it quicker for the thread to see if it
+> doesn't have to do anything.
+> 
 
---=-n7lFP354hkgzfwlR9MOu
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+OK, this is a better explaination. So actually there's no bug in the
+original implementation and your patch is sort of an improvement.
 
-On Wed, 2014-01-15 at 15:43 +0100, Hannes Frederic Sowa wrote:
-> On Wed, Jan 15, 2014 at 03:36:57PM +0100, Thomas Haller wrote:
-> > v1 -> v2: add a second commit, handling NOPREFIXROUTE in ip6_del_addr.
-> > v2 -> v3: reword commit messages, code comments and some refactoring.
-> > v3 -> v4: refactor, rename variables, add enum
-> > v4 -> v5: rebase, so that patch applies cleanly to current net-next/mas=
-ter
->=20
-> Huh? I thought those were already applied?
->=20
-> Hmm, they seem to be in no repository? I hope that no other patches are
-> affected, too.
->=20
-> Greetings,
->=20
->   Hannes
->=20
+Could you send a new version of this patch with relevant information in
+commit message? Talking to people offline is faster, but I would like to
+have public discussion and relevant information archived in a searchable
+form. Thanks.
 
-I thought so too, but I cannot find it, so I re-posted v5.
+Wei.
 
-Thomas
-
---=-n7lFP354hkgzfwlR9MOu
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAABAgAGBQJS1qIQAAoJECnCNm5N/FcoLYcP/3BIpKGC2RMnf6yTtRPeCC1s
-Dk8o8paPi71RJBFrEjiy1NMVFV+sVGypisndRHIFjsnEu3SRPu5OlbT/76xKWx/I
-g8VyzuxwUFhVuepFlMwTsrazRAaJ2/9qezVl83xSLVI0prvv9OO82jgcfthdLsVv
-Hm8BPYd04KepbdOhsM/95JHGX92KMUrEMlodf93ZptzMgBD+VfEehnpwGdusaEjC
-bVO3dq2kmOKjfRU4yjuCR4F8Gjc4wu+4NZVrUTbojtPFZm0w8R7doQAjXcXvX2iD
-jJ3XzhwDOKqbgC0VrYbyjQh+4b/fdzbAlyNIsHiiOC/3nju0yMMZBTI+1xKO7GLT
-KI990/mZFo+lzBD3lx5rjd/kITimhcAOGuaI157/VytZUEqgnM4/Uy8sq3GB7Y1n
-JoEjaJ3iopFU7sQtUUPP4mivnM3X60G0WRMOj8d2WGVx+DwHop7n6XQy3YQTnjjM
-YGBbD4w2m5POYv6AQPFyPGta1AclcfaeTr/cow6MpEf+fldRBZYb+fXrRNk6xpOx
-ku5AWh5FzhzW3Dr2o4CzlQUJTnEWNo9VGZv0FMYLEa7Xe0IJSl6dVi5025qOMku8
-EA5x7B8w+gaIl7y1og7pb7EqDqqZnqIbxu9rp3qcR2EJXSP7tcjKIry1gCroeSbd
-ZhkThER+RBiZS4dDqSkI
-=c5Ct
------END PGP SIGNATURE-----
-
---=-n7lFP354hkgzfwlR9MOu--
+> Zoli
