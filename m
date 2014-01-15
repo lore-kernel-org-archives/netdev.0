@@ -1,63 +1,117 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv4 net-next 0/6] xfrm: Add ESN support for AH
-Date: Wed, 15 Jan 2014 15:13:09 +0800
-Message-ID: <1389769995-350-1-git-send-email-fan.du@windriver.com>
+Subject: Re: [PATCHv2 net-next 3/4] flowcache: Fixup flow cache part in xfrm
+ policy
+Date: Wed, 15 Jan 2014 15:19:40 +0800
+Message-ID: <52D6368C.4060005@windriver.com>
+References: <1389663588-29678-1-git-send-email-fan.du@windriver.com> <1389663588-29678-4-git-send-email-fan.du@windriver.com> <20140114185907.GB1971@kria>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	<davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Sabrina Dubroca <sd@queasysnail.net>,
+	=?UTF-8?B?546L6IGq?= <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:63746 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:64604 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751388AbaAOHNH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 02:13:07 -0500
+	with ESMTP id S1750856AbaAOHTx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 02:19:53 -0500
+In-Reply-To: <20140114185907.GB1971@kria>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-This is initial Extended Sequence Number support for AH based on IPv4/6.
-The rationale is totally by the RFC 4302, which states:
 
-3.3.3.2.2.  Implicit Packet Padding and ESN
+On 2014=E5=B9=B401=E6=9C=8815=E6=97=A5 02:59, Sabrina Dubroca wrote:
+> 2014-01-14, 09:39:46 +0800, Fan Du wrote:
+>> Bump flow cache genid, and flush flow cache should also be made
+>> in per net style.
+>>
+>> Signed-off-by: Fan Du<fan.du@windriver.com>
+>> ---
+>>   net/xfrm/xfrm_policy.c |    7 ++++---
+>>   1 file changed, 4 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+>> index e205c4b..d39c90f 100644
+>> --- a/net/xfrm/xfrm_policy.c
+>> +++ b/net/xfrm/xfrm_policy.c
+>> @@ -661,7 +661,7 @@ int xfrm_policy_insert(int dir, struct xfrm_poli=
+cy *policy, int excl)
+>>   		hlist_add_head(&policy->bydst, chain);
+>>   	xfrm_pol_hold(policy);
+>>   	net->xfrm.policy_count[dir]++;
+>> -	atomic_inc(&flow_cache_genid);
+>> +	atomic_inc(&net->xfrm.flow_cache_genid);
+>>
+>>   	/* After previous checking, family can either be AF_INET or AF_IN=
+ET6 */
+>>   	if (policy->family =3D=3D AF_INET)
+>> @@ -2567,14 +2567,14 @@ static void __xfrm_garbage_collect(struct ne=
+t *net)
+>>
+>>   void xfrm_garbage_collect(struct net *net)
+>>   {
+>> -	flow_cache_flush();
+>> +	flow_cache_flush(net);
+>>   	__xfrm_garbage_collect(net);
+>>   }
+>>   EXPORT_SYMBOL(xfrm_garbage_collect);
+>>
+>>   static void xfrm_garbage_collect_deferred(struct net *net)
+>>   {
+>> -	flow_cache_flush_deferred();
+>> +	flow_cache_flush_deferred(net);
+>>   	__xfrm_garbage_collect(net);
+>>   }
+>>
+>> @@ -2947,6 +2947,7 @@ static int __net_init xfrm_net_init(struct net=
+ *net)
+>>   	spin_lock_init(&net->xfrm.xfrm_policy_sk_bundle_lock);
+>>   	mutex_init(&net->xfrm.xfrm_cfg_mutex);
+>>
+>> +	flow_cache_init(net);
+>>   	return 0;
+>>
+>>   out_sysctl:
+>
+>
+> You didn't address Cong Wang's comments for v1:
 
-   If the ESN option is elected for an SA, then the high-order 32 bits
-   of the ESN must be included in the ICV computation.  For purposes of
-   ICV computation, these bits are appended (implicitly) immediately
-   after the end of the payload, and before any implicit packet padding.
+Sorry, seems company email server didn't forward below message to me=E3=
+=80=82=E3=80=82=E3=80=82
+but I saw yours. I'm happy to forge the relevant patches into one singl=
+e
+patch in next next version :) if Steffen doesn't complain.
 
-So we attach the high-order 32bits as a scatterlist right after the packet
-payload to compute ICV value. 
+>
+> 2014-01-13, 11:42:47 -0800, Cong Wang wrote:
+>> On Sun, Jan 12, 2014 at 11:49 PM, Fan Du<fan.du@windriver.com>  wrot=
+e:
+>>>   void xfrm_garbage_collect(struct net *net)
+>>>   {
+>>> -       flow_cache_flush();
+>>> +       flow_cache_flush(net);
+>>>          __xfrm_garbage_collect(net);
+>>>   }
+>>>   EXPORT_SYMBOL(xfrm_garbage_collect);
+>>>
+>>>   static void xfrm_garbage_collect_deferred(struct net *net)
+>>>   {
+>>> -       flow_cache_flush_deferred();
+>>> +       flow_cache_flush_deferred(net);
+>>>          __xfrm_garbage_collect(net);
+>>>   }
+>>>
+>>
+>> You changed the prototypes of flow_cache_flush*() in the previous
+>> patch, so, here you break bisect. They have to be in one commit.
+>
+>
 
-Test:
-I add a knob in iproute2/ip/xfrm_state.c to enable esn when setting SA,
-which make it possible to test with-esn and without-esn scenarios, both
-cases works ok with ping using packetsize(-s) from default to 32768. 
+--=20
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
 
-v2:
-  - Patch3/5 and Patch4/5 add IPv6 part as requested by Steffen.
-  - Patch5/5 restrict ESN feature only to ESP and AH.
-v3:
-  - Fix double parens spotted by Sergei, and thanks for reporting.
-v4:
-  - Incorperate feedbacks from Steffen by simplify the code flow.
-  - Add Patch1/6 to introduce skb_to_sgvec_nomark
-  - Patch2/6 remove rebundant inclusion crypto/scatterwalk.h
-
-Fan Du (6):
-  skbuff: Introduce skb_to_sgvec_nomark to map skb without mark new end
-  {IPv4,xfrm} Add ESN support for AH egress part
-  {IPv4,xfrm} Add ESN support for AH ingress part
-  {IPv6,xfrm} Add ESN support for AH egress part
-  {IPv6,xfrm} Add ESN support for AH ingress part
-  xfrm: Don't prohibit AH from using ESN feature
-
- include/linux/skbuff.h |    2 ++
- net/core/skbuff.c      |   26 ++++++++++++++++++++++
- net/ipv4/ah4.c         |   53 +++++++++++++++++++++++++++++++++++----------
- net/ipv6/ah6.c         |   56 ++++++++++++++++++++++++++++++++++++++----------
- net/xfrm/xfrm_user.c   |    3 ++-
- 5 files changed, 117 insertions(+), 23 deletions(-)
-
--- 
-1.7.9.5
+--fan
