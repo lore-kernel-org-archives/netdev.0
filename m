@@ -1,49 +1,100 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Re: Route exceptions for IPv6 routes?
-Date: Wed, 15 Jan 2014 14:04:54 +0100
-Message-ID: <20140115130454.GE19945@order.stressinduktion.org>
-References: <20140115115115.GD19945@order.stressinduktion.org> <trinity-6d5496d3-c58c-4b56-a0a8-777473467042-1389788725698@3capp-gmx-bs13>
+From: Ethan Zhao <ethan.kernel@gmail.com>
+Subject: Re: [PATCH 1/2 v2] ixgbe: define IXGBE_MAX_VFS_DRV_LIMIT macro and
+ cleanup const 63
+Date: Wed, 15 Jan 2014 21:05:46 +0800
+Message-ID: <CABawtvPLZA+wLCvV5rPJ5wzQm5+M6UDaLMt-+pMUxwUjT+X4zg@mail.gmail.com>
+References: <1387901568-1762-1-git-send-email-ethan.kernel@gmail.com>
+	<1388134966.2183.144.camel@jtkirshe-mobl>
+	<309B89C4C689E141A5FF6A0C5FB2118B7312CEE1@ORSMSX101.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Simon Schneider <simon-schneider@gmx.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Brown, Aaron F" <aaron.f.brown@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:39167 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751344AbaAONEz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 08:04:55 -0500
-Content-Disposition: inline
-In-Reply-To: <trinity-6d5496d3-c58c-4b56-a0a8-777473467042-1389788725698@3capp-gmx-bs13>
+Received: from mail-ve0-f173.google.com ([209.85.128.173]:48583 "EHLO
+	mail-ve0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751747AbaAONFr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 08:05:47 -0500
+In-Reply-To: <309B89C4C689E141A5FF6A0C5FB2118B7312CEE1@ORSMSX101.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+Aaron,
+   I will check the patch and make it pass the building, seems encoding issue.
 
-On Wed, Jan 15, 2014 at 01:25:25PM +0100, Simon Schneider wrote:
-> thanks for the answer.
-> 
-> Sorry, I'm not so familiar with the implementation details.
-> 
-> What are nh-exceptions?
+Thanks,
+Ethan
 
-Nexthop exceptions, they store e.g. pmtu information in IPv4.
-
-> I understand the current IPv6 implementation has some performance drawbacks. Correct?
-> 
-> I'm especially interested in 
-> a) support for path MTUs
-
-They are stored in the RTF_CACHED leafs of the routing table.
-
-> b) IPv6 policy-based routing (can I expect the same results from "ip -6 rule" commands that I get from "ip rule" commands?)
-
-Yes, you can. And they have nearly the same implementation overhead.
-
-Additionally you can add routes which match a specific source and handle them
-directly, this is a feature only in IPv6:
-
-E.g. ip -6 route add .... from ... via ...
-
-Greetings,
-
-  Hannes
+On Wed, Jan 15, 2014 at 11:46 AM, Brown, Aaron F
+<aaron.f.brown@intel.com> wrote:
+> On Fri, 2013-12-27 at 01:02 -0800, Jeff Kirsher wrote:
+>> On Wed, 2013-12-25 at 00:12 +0800, Ethan Zhao wrote:
+>> > Because ixgbe driver limit the max number of VF functions could be
+>> > enabled
+>> > to 63, so define one macro IXGBE_MAX_VFS_DRV_LIMIT and cleanup the
+>> > const 63
+>> > in code.
+>> >
+>> > v2: fix a typo.
+>> >
+>> > Signed-off-by: Ethan Zhao <ethan.kernel@gmail.com>
+>> > ---
+>> >  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 4 ++--
+>> >  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 5 +++--
+>> >  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h | 5 +++++
+>> >  3 files changed, 10 insertions(+), 4 deletions(-)
+>>
+>> Added to my queue, thanks Ethan!
+>
+> Hi Ethan,
+>
+> Did Jeff contact you about this failing to compile?  I'm currently
+> providing vacation covering for him and we found this was failing to
+> compile just before he left.  We captured the failure in our notes for
+> this but there is no comment on if you were contacted or not.
+>
+> Regardless, when I apply this patch (with or without 2-2) we get the
+> following error on a compilation attempt: Here's the error:
+> --------------------------------------------------------
+> Here's the error:
+> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c: In function
+> "ixgbe_sw_init":
+> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c:5033: error: stray "\357"
+> in program
+> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c:5033: error: stray "\274"
+> in program
+> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c:5033: error: stray "\215"
+> in program
+> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c:5033: error: expected ")"
+> before numeric constant
+> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c: In function
+> "ixgbe_probe":
+> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c:7977: error: stray "\357"
+> in program
+> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c:7977: error: stray "\274"
+> in program
+> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c:7977: error: stray "\215"
+> in program
+> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c:7977: error: expected ")"
+> before numeric constant
+> make[5]: *** [drivers/net/ethernet/intel/ixgbe/ixgbe_main.o] Error 1
+> make[5]: *** Waiting for unfinished jobs....
+> make[4]: *** [drivers/net/ethernet/intel/ixgbe] Error 2
+> make[4]: *** Waiting for unfinished jobs....
+> make[3]: *** [drivers/net/ethernet/intel] Error 2
+> make[2]: *** [drivers/net/ethernet] Error 2
+> make[1]: *** [drivers/net] Error 2
+> make: *** [drivers] Error 2
+> --------------------------------------------------------
+>
+> Thanks,
+> Aaron
+>
