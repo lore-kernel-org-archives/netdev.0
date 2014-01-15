@@ -1,108 +1,70 @@
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: [RFC PATCH net-next 1/3] virtio_pci: Introduce one new config api vp_get_vq_irq()
-Date: Wed, 15 Jan 2014 22:20:52 +0800
-Message-ID: <1389795654-28381-2-git-send-email-zwu.kernel@gmail.com>
-References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
-Cc: therbert@google.com, edumazet@google.com, davem@davemloft.net,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] bpf: do not use reciprocal divide
+Date: Wed, 15 Jan 2014 06:21:56 -0800
+Message-ID: <1389795716.31367.333.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140113214249.GK6586@order.stressinduktion.org>
+	 <1389769361.31367.325.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140115080007.GA6638@osiris> <20140115091322.3a7740a7@mschwide>
+	 <20140115105114.GB6638@osiris>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, dborkman@redhat.com,
+	darkjames-ws@darkjames.pl, Mircea Gherzan <mgherzan@gmail.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	Matt Evans <matt@ozlabs.org>
+To: Heiko Carstens <heiko.carstens@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:49074 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752053AbaAOOVO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jan 2014 09:21:14 -0500
-Received: from /spool/local
-	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <zwu.kernel@gmail.com>;
-	Wed, 15 Jan 2014 09:21:13 -0500
-Received: from b01cxnp22035.gho.pok.ibm.com (b01cxnp22035.gho.pok.ibm.com [9.57.198.25])
-	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id B10EBC9004A
-	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 09:21:06 -0500 (EST)
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by b01cxnp22035.gho.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s0FEL8id8978694
-	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 14:21:08 GMT
-Received: from d01av03.pok.ibm.com (localhost [127.0.0.1])
-	by d01av03.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s0FEL7Wo004561
-	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 09:21:08 -0500
-In-Reply-To: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:34401 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751800AbaAOOV7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 09:21:59 -0500
+Received: by mail-pd0-f178.google.com with SMTP id y13so1174721pdi.9
+        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 06:21:58 -0800 (PST)
+In-Reply-To: <20140115105114.GB6638@osiris>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+On Wed, 2014-01-15 at 11:51 +0100, Heiko Carstens wrote:
+> On Wed, Jan 15, 2014 at 09:13:22AM +0100, Martin Schwidefsky wrote:
+> > On Wed, 15 Jan 2014 09:00:07 +0100
+> > Heiko Carstens <heiko.carstens@de.ibm.com> wrote:
+> > 
+> > > On Tue, Jan 14, 2014 at 11:02:41PM -0800, Eric Dumazet wrote:
+> > > > diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
+> > > > index 16871da37371..e349dc7d0992 100644
+> > > > --- a/arch/s390/net/bpf_jit_comp.c
+> > > > +++ b/arch/s390/net/bpf_jit_comp.c
+> > > > @@ -371,11 +371,11 @@ static int bpf_jit_insn(struct bpf_jit *jit, struct sock_filter *filter,
+> > > >  		/* dr %r4,%r12 */
+> > > >  		EMIT2(0x1d4c);
+> > > >  		break;
+> > > > -	case BPF_S_ALU_DIV_K: /* A = reciprocal_divide(A, K) */
+> > > > -		/* m %r4,<d(K)>(%r13) */
+> > > > -		EMIT4_DISP(0x5c40d000, EMIT_CONST(K));
+> > > > -		/* lr %r5,%r4 */
+> > > > -		EMIT2(0x1854);
+> > > > +	case BPF_S_ALU_DIV_K: /* A /= K */
+> > > > +		/* lhi %r4,0 */
+> > > > +		EMIT4(0xa7480000);
+> > > > +		/* d %r4,<d(K)>(%r13) */
+> > > > +		EMIT4_DISP(0x5d40d000, EMIT_CONST(K));
+> > > >  		break;
+> > > 
+> > > The s390 part looks good.
+> > 
+> > Does it? The divide instruction is signed, for the special
+> > case of K==1 this can now cause an exception if the quotient
+> > gets too large. We should add a check for K==1 and do nothing
+> > in this case. With a divisor of at least 2 the result will
+> > stay in the limit.
+> 
+> Indeed. That's quite subtle.
 
-This config api is used to get irq number of the given virtqueue.
+net/core/filter.c does :
 
-Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
----
- drivers/virtio/virtio_pci.c   |   11 +++++++++++
- include/linux/virtio_config.h |   12 ++++++++++++
- 2 files changed, 23 insertions(+), 0 deletions(-)
+A /= K;
 
-diff --git a/drivers/virtio/virtio_pci.c b/drivers/virtio/virtio_pci.c
-index a37c699..85f1aa6 100644
---- a/drivers/virtio/virtio_pci.c
-+++ b/drivers/virtio/virtio_pci.c
-@@ -654,6 +654,16 @@ static int vp_set_vq_affinity(struct virtqueue *vq, int cpu)
- 	return 0;
- }
- 
-+static int vp_get_vq_irq(struct virtio_device *vdev, struct virtqueue *vq)
-+{
-+	struct virtio_pci_device *vp_dev = to_vp_device(vdev);
-+	struct virtio_pci_vq_info *info = vq->priv;
-+
-+	if (vp_dev->msix_enabled)
-+		return vp_dev->msix_entries[info->msix_vector].vector;
-+	return -1;
-+}
-+
- static const struct virtio_config_ops virtio_pci_config_ops = {
- 	.get		= vp_get,
- 	.set		= vp_set,
-@@ -666,6 +676,7 @@ static const struct virtio_config_ops virtio_pci_config_ops = {
- 	.finalize_features = vp_finalize_features,
- 	.bus_name	= vp_bus_name,
- 	.set_vq_affinity = vp_set_vq_affinity,
-+	.get_vq_irq	= vp_get_vq_irq,
- };
- 
- static void virtio_pci_release_dev(struct device *_d)
-diff --git a/include/linux/virtio_config.h b/include/linux/virtio_config.h
-index e8f8f71..b70fc47 100644
---- a/include/linux/virtio_config.h
-+++ b/include/linux/virtio_config.h
-@@ -51,6 +51,9 @@
-  *      This returns a pointer to the bus name a la pci_name from which
-  *      the caller can then copy.
-  * @set_vq_affinity: set the affinity for a virtqueue.
-+ * @get_vq_irq: get irq of the given virtqueue
-+ *	vdev: the virtio_device
-+ *	vq: the virtqueue
-  */
- typedef void vq_callback_t(struct virtqueue *);
- struct virtio_config_ops {
-@@ -70,6 +73,7 @@ struct virtio_config_ops {
- 	void (*finalize_features)(struct virtio_device *vdev);
- 	const char *(*bus_name)(struct virtio_device *vdev);
- 	int (*set_vq_affinity)(struct virtqueue *vq, int cpu);
-+	int (*get_vq_irq)(struct virtio_device *vdev, struct virtqueue *vq);
- };
- 
- /* If driver didn't advertise the feature, it will never appear. */
-@@ -135,6 +139,14 @@ int virtqueue_set_affinity(struct virtqueue *vq, int cpu)
- 	return 0;
- }
- 
-+static inline
-+int virtqueue_get_vq_irq(struct virtio_device *vdev, struct virtqueue *vq)
-+{
-+	if (vdev->config->get_vq_irq)
-+		return vdev->config->get_vq_irq(vdev, vq);
-+	return -1;
-+}
-+
- /* Config space accessors. */
- #define virtio_cread(vdev, structname, member, ptr)			\
- 	do {								\
--- 
-1.7.6.5
+Why is this working in generic code (if K == 1), not in s390 one ?
