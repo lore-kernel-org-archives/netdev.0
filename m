@@ -1,69 +1,144 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [RFC PATCH net-next 2/3] virtio_net: Introduce one dummy function virtnet_filter_rfs()
-Date: Wed, 15 Jan 2014 09:54:36 -0800
-Message-ID: <CA+mtBx8Z80d5Y1ti0_68UA-x0hZPeqT4wa9knevWoPxX+eyaVA@mail.gmail.com>
-References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
-	<1389795654-28381-3-git-send-email-zwu.kernel@gmail.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: [PATCH v2 2/2] Documentation: Document the cephroot functionality
+Date: Wed, 15 Jan 2014 10:00:52 -0800
+Message-ID: <52D6CCD4.5080104@infradead.org>
+References: <cover.1389806186.git.mark.doffman@codethink.co.uk> <29b3bd9700e23df2aee095df8c34a15a62f57d27.1389806186.git.mark.doffman@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: Zhi Yong Wu <zwu.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:56222 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751984AbaAORyh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 12:54:37 -0500
-Received: by mail-ig0-f178.google.com with SMTP id uq10so5204243igb.5
-        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 09:54:36 -0800 (PST)
-In-Reply-To: <1389795654-28381-3-git-send-email-zwu.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ceph-devel@vger.kernel.org,
+	Rob Taylor <rob.taylor@codethink.co.uk>, sage@inktank.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-nfs@vger.kernel.org
+To: mark.doffman@codethink.co.uk
+Return-path: <ceph-devel-owner@vger.kernel.org>
+In-Reply-To: <29b3bd9700e23df2aee095df8c34a15a62f57d27.1389806186.git.mark.doffman@codethink.co.uk>
+Sender: ceph-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Zhi, this is promising work! I can't wait to see how this impacts
-network virtualization performance :-)
-
-On Wed, Jan 15, 2014 at 6:20 AM, Zhi Yong Wu <zwu.kernel@gmail.com> wrote:
-> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+On 01/15/2014 09:26 AM, mark.doffman@codethink.co.uk wrote:
+> From: Rob Taylor <rob.taylor@codethink.co.uk>
 >
-> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+> Document using the cephfs as a root device, its purpose,
+> functionality and use.
+>
+> Signed-off-by: Mark Doffman <mark.doffman@codethink.co.uk>
+> Signed-off-by: Rob Taylor <rob.taylor@codethink.co.uk>
+> Reviewed-by: Ian Molton <ian.molton@codethink.co.uk>
 > ---
->  drivers/net/virtio_net.c |   11 +++++++++++
->  1 files changed, 11 insertions(+), 0 deletions(-)
+>   Documentation/filesystems/{ => ceph}/ceph.txt |  0
+>   Documentation/filesystems/ceph/cephroot.txt   | 86 +++++++++++++++++++++++++++
+>   2 files changed, 86 insertions(+)
+>   rename Documentation/filesystems/{ => ceph}/ceph.txt (100%)
+>   create mode 100644 Documentation/filesystems/ceph/cephroot.txt
 >
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 7b17240..046421c 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1295,6 +1295,14 @@ static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
->         return 0;
->  }
->
-> +#ifdef CONFIG_RFS_ACCEL
-> +static int virtnet_filter_rfs(struct net_device *net_dev,
-> +               const struct sk_buff *skb, u16 rxq_index, u32 flow_id)
-> +{
-Does this need to be filled out with more stuff?
-
-> +       return 0;
-> +}
-> +#endif /* CONFIG_RFS_ACCEL */
+> diff --git a/Documentation/filesystems/ceph.txt b/Documentation/filesystems/ceph/ceph.txt
+> similarity index 100%
+> rename from Documentation/filesystems/ceph.txt
+> rename to Documentation/filesystems/ceph/ceph.txt
+> diff --git a/Documentation/filesystems/ceph/cephroot.txt b/Documentation/filesystems/ceph/cephroot.txt
+> new file mode 100644
+> index 0000000..deda4f0
+> --- /dev/null
+> +++ b/Documentation/filesystems/ceph/cephroot.txt
+> @@ -0,0 +1,86 @@
+> +Mounting the root filesystem via Ceph (cephroot)
+> +===============================================
 > +
->  static const struct net_device_ops virtnet_netdev = {
->         .ndo_open            = virtnet_open,
->         .ndo_stop            = virtnet_close,
-> @@ -1309,6 +1317,9 @@ static const struct net_device_ops virtnet_netdev = {
->  #ifdef CONFIG_NET_POLL_CONTROLLER
->         .ndo_poll_controller = virtnet_netpoll,
->  #endif
-> +#ifdef CONFIG_RFS_ACCEL
-> +       .ndo_rx_flow_steer   = virtnet_filter_rfs,
-> +#endif
->  };
+> +Written 2013 by Rob Taylor <rob.taylor@codethink.co.uk>
+> +
+> +derived from nfsroot.txt:
+> +
+> +Written 1996 by Gero Kuhlmann <gero@gkminix.han.de>
+> +Updated 1997 by Martin Mares <mj@atrey.karlin.mff.cuni.cz>
+> +Updated 2006 by Nico Schottelius <nico-kernel-nfsroot@schottelius.org>
+> +Updated 2006 by Horms <horms@verge.net.au>
+> +
+> +
+> +
+> +In order to use a diskless system, such as an X-terminal or printer server
+> +for example, it is necessary for the root filesystem to be present on a
+> +non-disk device. This may be an initramfs (see Documentation/filesystems/
+> +ramfs-rootfs-initramfs.txt), a ramdisk (see Documentation/initrd.txt), a
+> +filesystem mounted via NFS or a filesystem mounted via Ceph. The following
+> +text describes on how to use Ceph for the root filesystem.
+> +
+> +For the rest of this text 'client' means the diskless system, and 'server'
+> +means the Ceph server.
+> +
+> +
+> +1.) Enabling cephroot capabilities
+> +    -----------------------------
+> +
+> +In order to use cephroot, CEPH_FS needs to be selected as
+> +built-in during configuration. Once this has been selected, the cephroot
+> +option will become available, which should also be selected.
+> +
+> +In the networking options, kernel level autoconfiguration can be selected,
+> +along with the types of autoconfiguration to support. Selecting all of
+> +DHCP, BOOTP and RARP is safe.
+> +
+> +
+> +2.) Kernel command line
+> +    -------------------
+> +
+> +When the kernel has been loaded by a boot loader (see below) it needs to be
+> +told what root fs device to use. And in the case of cephroot, where to find
+
+                                use, and
+
+> +both the server and the name of the directory on the server to mount as root.
+> +This can be established using the following kernel command line parameters:
+> +
+> +root=/dev/ceph
+> +
+> +This is necessary to enable the pseudo-Ceph-device. Note that it's not a
+> +real device but just a synonym to tell the kernel to use Ceph instead of
+> +a real device.
+> +
+> +If cephroot is not specified, it is expected that that a valid mount will be
+
+drop duplicate:                                 that
+
+> +found via DHCP option 17, Root Path [1]
+> +
+> +cephroot=<monaddrs>:/[<subdir>],<ceph-opts>
+> +
+> +  <monaddrs>    Monitor addresses separated by commas. Each takes the form
+> +		host[:port]. If the port is not specified, the Ceph default
+> +		of 6789 is assumed.
+> +
+> +  <subdir>	A subdirectory subdir may be specified if a subset of the file
+> +		system is to be mounted
+
+		                mounted.
+		
+> +
+> +  <ceph-opts>	Standard Ceph options. All options are separated by commas.
+> +		See Documentation/filesystems/ceph/ceph.txt for options and
+> +		their defaults.
+> +
+> +4.) References
+> +    ----------
+> +
+> +[1] http://tools.ietf.org/html/rfc2132
+> +
+> +5.) Credits
+> +    -------
+> +
+> +  cephroot was derived from nfsroot by Rob Taylor <rob.taylor@codethink.co.uk>
+> +  and Mark Doffman <mark.doffman@codethink.co.uk>
+> +
+> +  The nfsroot code in the kernel and the RARP support have been written
+> +  by Gero Kuhlmann <gero@gkminix.han.de>.
+> +
+> +  The rest of the IP layer autoconfiguration code has been written
+> +  by Martin Mares <mj@atrey.karlin.mff.cuni.cz>.
+> +
+> +  In order to write the initial version of nfsroot I would like to thank
+> +  Jens-Uwe Mager <jum@anubis.han.de> for his help.
 >
->  static void virtnet_config_changed_work(struct work_struct *work)
-> --
-> 1.7.6.5
->
+
+
+-- 
+~Randy
