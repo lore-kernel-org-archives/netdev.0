@@ -1,79 +1,45 @@
-From: Andrew Vagin <avagin@parallels.com>
-Subject: Re: [PATCH] [RFC] netfilter: nf_conntrack: don't relase a conntrack
- with non-zero refcnt
-Date: Wed, 15 Jan 2014 22:08:44 +0400
-Message-ID: <20140115180844.GA3605@paralelels.com>
-References: <1389710201.31367.255.camel@edumazet-glaptop2.roam.corp.google.com>
- <1389720948-7883-1-git-send-email-avagin@openvz.org>
- <20140114185329.GB28205@breakpoint.cc>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [Patch net-next] net_sched: act: remove headers in include/net/tc_act/
+Date: Wed, 15 Jan 2014 10:57:10 -0800
+Message-ID: <CAHA+R7OEZjKMgbbtoAavi88C1HVYvTKTrDgGJC2uAjsznB1CwQ@mail.gmail.com>
+References: <1389747699-32508-1-git-send-email-xiyou.wangcong@gmail.com>
+	<20140114.181213.695613248997119103.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="koi8-r"
-Cc: Andrey Vagin <avagin@openvz.org>,
-	<netfilter-devel@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	<netfilter@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <vvs@openvz.org>,
-	Cyrill Gorcunov <gorcunov@openvz.org>,
-	Vasiliy Averin <vvs@parallels.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140114185329.GB28205@breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f181.google.com ([209.85.217.181]:55022 "EHLO
+	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751774AbaAOS5M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 13:57:12 -0500
+Received: by mail-lb0-f181.google.com with SMTP id z5so1147339lbh.12
+        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 10:57:10 -0800 (PST)
+In-Reply-To: <20140114.181213.695613248997119103.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 14, 2014 at 07:53:29PM +0100, Florian Westphal wrote:
-> Andrey Vagin <avagin@openvz.org> wrote:
-> > ----
-> > Eric and Florian, could you look at this patch. When you say,
-> > that it looks good, I will ask the user to validate it.
-> > I can't reorder these actions, because it's reproduced on a real host
-> > with real users. Thanks.
-> > ----
-> > 
-> > nf_conntrack_free can't be called for a conntract with non-zero ref-counter,
-> > because it can race with nf_conntrack_find_get().
-> 
-> Indeed.
-> 
-> > A conntrack slab is created with SLAB_DESTROY_BY_RCU. Non-zero
-> > ref-conunter says that this conntrack is used now. So when we release a
-> > conntrack with non-zero counter, we break this assumption.
-> > 
-> > CPU1                                    CPU2
-> > ____nf_conntrack_find()
-> >                                         nf_ct_put()
-> >                                          destroy_conntrack()
-> >                                         ...
-> >                                         init_conntrack
-> >                                          __nf_conntrack_alloc (set use = 1)
-> > atomic_inc_not_zero(&ct->use) (use = 2)
-> >                                          if (!l4proto->new(ct, skb, dataoff, timeouts))
-> >                                           nf_conntrack_free(ct); (use = 2 !!!)
-> >                                         ...
-> 
-> Yes, I think this sequence is possible; we must not use nf_conntrack_free here.
-> 
-> > -	/* We overload first tuple to link into unconfirmed or dying list.*/
-> > -	BUG_ON(hlist_nulls_unhashed(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode));
-> > -	hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
-> > +	if (!hlist_nulls_unhashed(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode))
-> > +		hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
-> 
-> This is the only thing that I don't like about this patch.  Currently
-> all the conntracks in the system are always put on a list before they're
-> supposed to be visible/handled via refcnt system (unconfirmed, hash, or
-> dying list).
-> 
-> I think it would be nice if we could keep it that way.
-> If everything fails we could proably intoduce a 'larval' dummy list
-> similar to the one used by template conntracks?
+On Tue, Jan 14, 2014 at 6:12 PM, David Miller <davem@davemloft.net> wrote:
+> From: Cong Wang <xiyou.wangcong@gmail.com>
+> Date: Tue, 14 Jan 2014 17:01:39 -0800
+>
+>> These headers are not necessary because those definitions in them
+>> are action specific and are not shared for others. Just move them
+>> into the C files.
+>>
+>> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+>> Cc: David S. Miller <davem@davemloft.net>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>
+> Like Eric, I think this is a dubious change.
+>
+> There is nothing wrong with using these headers to define the
+> core data structures used by each of these actions modules.
+>
 
-I'm not sure, that this is required. Could you elaborate when this can
-be useful?
+Nothing is wrong here, just that it is not necessary.
 
-Now I see only overhead, because we need to take the nf_conntrack_lock
-lock to add conntrack in a list.
-
-Thanks,
-Andrey
+act_police defines similar stuffs in its C file, not a header.
+I don't see any reason why others can't.
