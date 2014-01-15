@@ -1,44 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v4 0/7] Intel Wired LAN Driver Updates, ixgbe: Add
- LER support
-Date: Tue, 14 Jan 2014 18:59:53 -0800 (PST)
-Message-ID: <20140114.185953.1231061732271688717.davem@davemloft.net>
-References: <1389754397-2507-1-git-send-email-aaron.f.brown@intel.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH v2 net-next 2/2] net: rename sysfs symlinks on device
+ name change
+Date: Wed, 15 Jan 2014 03:59:00 +0100
+Message-ID: <20140115025900.GB1554@redhat.com>
+References: <1389733131-15390-1-git-send-email-vfalico@redhat.com>
+ <1389733131-15390-3-git-send-email-vfalico@redhat.com>
+ <52D5F776.4090101@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	mark.d.rustad@intel.com
-To: aaron.f.brown@intel.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Cong Wang <amwang@redhat.com>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54656 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750918AbaAOC7z convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 21:59:55 -0500
-In-Reply-To: <1389754397-2507-1-git-send-email-aaron.f.brown@intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:28836 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750880AbaAODCH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jan 2014 22:02:07 -0500
+Content-Disposition: inline
+In-Reply-To: <52D5F776.4090101@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Aaron Brown <aaron.f.brown@intel.com>
-Date: Tue, 14 Jan 2014 18:53:10 -0800
+On Wed, Jan 15, 2014 at 10:50:30AM +0800, Ding Tianhong wrote:
+>On 2014/1/15 4:58, Veaceslav Falico wrote:
+...snip...
+>> +void netdev_adjacent_rename_links(struct net_device *dev, char *oldname)
+>> +{
+>> +	struct netdev_adjacent *iter;
+>> +
+>> +	list_for_each_entry(iter, &dev->adj_list.upper, list) {
+>> +		netdev_adjacent_sysfs_del(iter->dev, oldname,
+>> +					  &iter->dev->adj_list.lower);
+>> +		netdev_adjacent_sysfs_add(iter->dev, dev,
+>> +					  &iter->dev->adj_list.lower);
+>> +	}
+>> +
+>> +	list_for_each_entry(iter, &dev->adj_list.lower, list) {
+>> +		netdev_adjacent_sysfs_del(iter->dev, oldname,
+>> +					  &iter->dev->adj_list.upper);
+>> +		netdev_adjacent_sysfs_add(iter->dev, dev,
+>> +					  &iter->dev->adj_list.upper);
+>> +	}
+>> +}
+>> +
+>
+>why no all_adj_list, only adj_list?
+>
+>I think you have add the dev to the upper_dev's upper_dev by all_adj_list, and lower_dev, so you have to check them.
 
-> The following patches add Live Error Recovery (LER) support to the
-> ixgbe driver. This support also improves behavior in Thunderbolt
-> environments. This involves checking all register reads for a
-> value of all ones and when that is seen, to read the status
-> register, which should never properly return all ones, to
-> confirm whether the received value was correct. When this detects
-> a removal, the hw_addr field is cleared to indicate the removal.
-> This then blocks subsequent access to the device registers.
->=20
-> All register access macros have been changed to static inline
-> functions and all register accesses now use them.=B7 Macro versions
-> are temporarily provided.
->=20
-> The __IXGBE_DOWN bit is no longer overloaded to also mean that
-> device removal has been initiated. Now the bit can be used to
-> protect ixgbe_down from multiple entry via test_and_set_bit. A
-> needed smp_mb__before_clear_bit was also added.
- ...
+symlinks are created only for neighbour adjacent devices, which are in
+adj_list.*, and are not created for all_adj_list.* devices, which contains
+a 'full view' list of all adjacent devices.
 
-Looks good, series applied, thanks Aaron.
+>
+>Regards
+>Ding
+>
+>>  void *netdev_lower_dev_get_private(struct net_device *dev,
+>>  				   struct net_device *lower_dev)
+>>  {
+>>
+>
+>
