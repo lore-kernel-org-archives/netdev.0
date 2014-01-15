@@ -1,68 +1,56 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next v2 05/10] decnet: use __dev_get_by_index instead of dev_get_by_index to find interface
-Date: Wed, 15 Jan 2014 10:23:40 +0800
-Message-ID: <1389752625-23189-6-git-send-email-ying.xue@windriver.com>
-References: <1389752625-23189-1-git-send-email-ying.xue@windriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Check skb->rxhash in gro_receive
+Date: Tue, 14 Jan 2014 18:27:07 -0800
+Message-ID: <1389752827.31367.314.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.DEB.2.02.1401092051020.25554@tomh.mtv.corp.google.com>
+	 <1389332287.31367.88.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+mtBx_c=we-13b0Vyrim0=kArhx0OYY1P99HwUeuR2w87hRFw@mail.gmail.com>
+	 <20140113.115913.1269834557058575064.davem@davemloft.net>
+	 <1389644256.31367.223.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1389646213.2025.159.camel@bwh-desktop.uk.level5networks.com>
+	 <1389649061.31367.236.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1389749477.3720.173.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <vfalico@redhat.com>, <john.r.fastabend@intel.com>,
-	<stephen@networkplumber.org>, <antonio@meshcoding.com>,
-	<dmitry.tarnyagin@lockless.no>, <socketcan@hartkopp.net>,
-	<johannes@sipsolutions.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, therbert@google.com,
+	netdev@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:36158 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752174AbaAOCYb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 21:24:31 -0500
-In-Reply-To: <1389752625-23189-1-git-send-email-ying.xue@windriver.com>
+Received: from mail-yh0-f43.google.com ([209.85.213.43]:53496 "EHLO
+	mail-yh0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752174AbaAOC1J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 21:27:09 -0500
+Received: by mail-yh0-f43.google.com with SMTP id a41so369980yho.2
+        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 18:27:09 -0800 (PST)
+In-Reply-To: <1389749477.3720.173.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following call chain we can identify that dn_cache_getroute() is
-protected under rtnl_lock. So if we use __dev_get_by_index() instead
-of dev_get_by_index() to find interface handlers in it, this would help
-us avoid to change interface reference counter.
+On Wed, 2014-01-15 at 01:31 +0000, Ben Hutchings wrote:
 
-rtnetlink_rcv()
-  rtnl_lock()
-    netlink_rcv_skb()
-      dn_cache_getroute()
-  rtnl_unlock()
+> When I investigated the scope of this for Debian, I tried sending a
+> 'packet of death' to a VM and actually triggered the lockup in the TX
+> path of the *host*, running Debian unstable with Linux 3.11.  I didn't
+> track down exactly why that was but I think that libvirt's default
+> networking configuration includes multiqueue devices that use flow
+> dissector.
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
----
- net/decnet/dn_route.c |   10 ++--------
- 1 file changed, 2 insertions(+), 8 deletions(-)
+OK, I take that majority of debian hosts are running some VM then,
+nice to know, time to update my hosts and usages I guess.
 
-diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index ad2efa5..ce0cbbf 100644
---- a/net/decnet/dn_route.c
-+++ b/net/decnet/dn_route.c
-@@ -1666,12 +1666,8 @@ static int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
- 
- 	if (fld.flowidn_iif) {
- 		struct net_device *dev;
--		if ((dev = dev_get_by_index(&init_net, fld.flowidn_iif)) == NULL) {
--			kfree_skb(skb);
--			return -ENODEV;
--		}
--		if (!dev->dn_ptr) {
--			dev_put(dev);
-+		dev = __dev_get_by_index(&init_net, fld.flowidn_iif);
-+		if (!dev || !dev->dn_ptr) {
- 			kfree_skb(skb);
- 			return -ENODEV;
- 		}
-@@ -1693,8 +1689,6 @@ static int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
- 		err = dn_route_output_key((struct dst_entry **)&rt, &fld, 0);
- 	}
- 
--	if (skb->dev)
--		dev_put(skb->dev);
- 	skb->dev = NULL;
- 	if (err)
- 		goto out_free;
--- 
-1.7.9.5
+Anyway, current flow dissector needs care if we really use it in
+unprotected areas.
+
+Hostile packets can force flow dissection of MTU bytes,
+bringing host to abysmal performance.
+
+Once we fix all the issues, we'll see how expensive it is and
+if it really can help.
+
+Last year, my experiments were exactly using it in GRO, to
+have a hash table instead of a single gro_list, unfortunately
+this added a latency regression that I found not acceptable at that
+time.
+
+With TSO auto sizing, I might need to revisit the idea anyway...
