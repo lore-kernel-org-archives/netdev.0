@@ -1,50 +1,46 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [Patch net-next] net_sched: act: remove headers in include/net/tc_act/
-Date: Tue, 14 Jan 2014 17:17:40 -0800
-Message-ID: <CAHA+R7N1wpiYq9vcqEFLL=CNQDZ+4fEHbirpMazWVJg0=uBs9Q@mail.gmail.com>
-References: <1389747699-32508-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1389748310.31367.298.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net-next 10/10] net: nl80211: __dev_get_by_index instead
+ of dev_get_by_index to find interface
+Date: Wed, 15 Jan 2014 09:18:05 +0800
+Message-ID: <52D5E1CD.2020405@windriver.com>
+References: <1389685269-18600-1-git-send-email-ying.xue@windriver.com>	 <1389685269-18600-11-git-send-email-ying.xue@windriver.com> <1389701498.23430.1.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:56758 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750918AbaAOBRl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 20:17:41 -0500
-Received: by mail-la0-f54.google.com with SMTP id y1so933965lam.27
-        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 17:17:40 -0800 (PST)
-In-Reply-To: <1389748310.31367.298.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <vfalico@redhat.com>,
+	<john.r.fastabend@intel.com>, <stephen@networkplumber.org>,
+	<antonio@meshcoding.com>, <dmitry.tarnyagin@lockless.no>,
+	<socketcan@hartkopp.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1389701498.23430.1.camel@jlt4.sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 14, 2014 at 5:11 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2014-01-14 at 17:01 -0800, Cong Wang wrote:
->> These headers are not necessary because those definitions in them
->> are action specific and are not shared for others. Just move them
->> into the C files.
->>
->> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
->> Cc: David S. Miller <davem@davemloft.net>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->> ---
->
-> I find this change very dubious.
+On 01/14/2014 08:11 PM, Johannes Berg wrote:
+> On Tue, 2014-01-14 at 15:41 +0800, Ying Xue wrote:
+> 
+>> @@ -2218,10 +2194,6 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
+>>  			rdev->wiphy.coverage_class = old_coverage_class;
+>>  		}
+>>  	}
+>> -
+>> - bad_res:
+>> -	if (netdev)
+>> -		dev_put(netdev);
+>>  	return result;
+> 
+> I believe that could be "return 0;" now, which would make the code
+> easier to read.
+> 
 
-grep told me it isn't:
+Yes, I will change it in next version.
 
-$ git grep 'include.*tc_act/'
-net/sched/act_csum.c:#include <linux/tc_act/tc_csum.h>
-net/sched/act_gact.c:#include <linux/tc_act/tc_gact.h>
-net/sched/act_ipt.c:#include <linux/tc_act/tc_ipt.h>
-net/sched/act_mirred.c:#include <linux/tc_act/tc_mirred.h>
-net/sched/act_nat.c:#include <linux/tc_act/tc_nat.h>
-net/sched/act_pedit.c:#include <linux/tc_act/tc_pedit.h>
-net/sched/act_simple.c:#include <linux/tc_act/tc_defact.h>
-net/sched/act_skbedit.c:#include <linux/tc_act/tc_skbedit.h>
+Thanks,
+Ying
 
-(those are uapi headers, which I don't touch.)
+> johannes
+> 
+> 
+> 
