@@ -1,7 +1,7 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next v2 07/10] batman-adv: use __dev_get_by_index instead of dev_get_by_index to find interface
-Date: Wed, 15 Jan 2014 10:23:42 +0800
-Message-ID: <1389752625-23189-8-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next v2 08/10] caif: __dev_get_by_index instead of dev_get_by_index to find interface
+Date: Wed, 15 Jan 2014 10:23:43 +0800
+Message-ID: <1389752625-23189-9-git-send-email-ying.xue@windriver.com>
 References: <1389752625-23189-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,45 +16,41 @@ In-Reply-To: <1389752625-23189-1-git-send-email-ying.xue@windriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following call chains indicate that batadv_is_on_batman_iface()
-is always under rtnl_lock protection as call_netdevice_notifier()
-is protected by rtnl_lock. So if __dev_get_by_index() rather than
-dev_get_by_index() is used to find interface handler in it, this
-would help us avoid to change interface reference counter.
+The following call chains indicate that chnl_net_open() is under
+rtnl_lock protection as __dev_open() is protected by rtnl_lock.
+So if __dev_get_by_index() instead of dev_get_by_index() is used
+to find interface handler in it, this would help us avoid to change
+interface reference counter.
 
-call_netdevice_notifier()
-  batadv_hard_if_event()
-    batadv_hardif_add_interface()
-      batadv_is_valid_iface()
-        batadv_is_on_batman_iface()
+__dev_open()
+  chnl_net_open()
 
-Cc: Antonio Quartulli <antonio@meshcoding.com>
+Cc: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Acked-by: Antonio Quartulli <antonio@meshcoding.com>
 ---
- net/batman-adv/hard-interface.c |    4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ net/caif/chnl_net.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index 1b12573..3d417d3 100644
---- a/net/batman-adv/hard-interface.c
-+++ b/net/batman-adv/hard-interface.c
-@@ -87,15 +87,13 @@ static bool batadv_is_on_batman_iface(const struct net_device *net_dev)
- 		return false;
+diff --git a/net/caif/chnl_net.c b/net/caif/chnl_net.c
+index 7344a8f..4589ff67 100644
+--- a/net/caif/chnl_net.c
++++ b/net/caif/chnl_net.c
+@@ -285,7 +285,7 @@ static int chnl_net_open(struct net_device *dev)
+ 				goto error;
+ 		}
  
- 	/* recurse over the parent device */
--	parent_dev = dev_get_by_index(&init_net, net_dev->iflink);
-+	parent_dev = __dev_get_by_index(&init_net, net_dev->iflink);
- 	/* if we got a NULL parent_dev there is something broken.. */
- 	if (WARN(!parent_dev, "Cannot find parent device"))
- 		return false;
+-		lldev = dev_get_by_index(dev_net(dev), llifindex);
++		lldev = __dev_get_by_index(dev_net(dev), llifindex);
  
- 	ret = batadv_is_on_batman_iface(parent_dev);
+ 		if (lldev == NULL) {
+ 			pr_debug("no interface?\n");
+@@ -307,7 +307,6 @@ static int chnl_net_open(struct net_device *dev)
+ 		mtu = min_t(int, dev->mtu, lldev->mtu - (headroom + tailroom));
+ 		mtu = min_t(int, GPRS_PDP_MTU, mtu);
+ 		dev_set_mtu(dev, mtu);
+-		dev_put(lldev);
  
--	if (parent_dev)
--		dev_put(parent_dev);
- 	return ret;
- }
- 
+ 		if (mtu < 100) {
+ 			pr_warn("CAIF Interface MTU too small (%d)\n", mtu);
 -- 
 1.7.9.5
