@@ -1,89 +1,89 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] net: Check skb->rxhash in gro_receive
-Date: Wed, 15 Jan 2014 02:43:36 +0000
-Message-ID: <1389753816.3720.184.camel@deadeye.wl.decadent.org.uk>
-References: <alpine.DEB.2.02.1401092051020.25554@tomh.mtv.corp.google.com>
-	 <1389332287.31367.88.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+mtBx_c=we-13b0Vyrim0=kArhx0OYY1P99HwUeuR2w87hRFw@mail.gmail.com>
-	 <20140113.115913.1269834557058575064.davem@davemloft.net>
-	 <1389644256.31367.223.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1389646213.2025.159.camel@bwh-desktop.uk.level5networks.com>
-	 <1389649061.31367.236.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1389749477.3720.173.camel@deadeye.wl.decadent.org.uk>
-	 <1389752827.31367.314.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the infiniband tree with the net-next
+ tree
+Date: Wed, 15 Jan 2014 13:46:51 +1100
+Message-ID: <20140115134651.5da1a0da6a77891739562279@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-5bx/bWnsEEhdP3If3zor"
-Cc: David Miller <davem@davemloft.net>, therbert@google.com,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:45624 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752317AbaAOCnr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 21:43:47 -0500
-In-Reply-To: <1389752827.31367.314.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__15_Jan_2014_13_46_51_+1100_8WTi_GZ9Q6haM.y6"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>
+To: Roland Dreier <roland@kernel.org>, linux-rdma@vger.kernel.org,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
---=-5bx/bWnsEEhdP3If3zor
-Content-Type: text/plain; charset="UTF-8"
+--Signature=_Wed__15_Jan_2014_13_46_51_+1100_8WTi_GZ9Q6haM.y6
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, 2014-01-14 at 18:27 -0800, Eric Dumazet wrote:
-> On Wed, 2014-01-15 at 01:31 +0000, Ben Hutchings wrote:
->=20
-> > When I investigated the scope of this for Debian, I tried sending a
-> > 'packet of death' to a VM and actually triggered the lockup in the TX
-> > path of the *host*, running Debian unstable with Linux 3.11.  I didn't
-> > track down exactly why that was but I think that libvirt's default
-> > networking configuration includes multiqueue devices that use flow
-> > dissector.
->=20
-> OK, I take that majority of debian hosts are running some VM then,
-> nice to know, time to update my hosts and usages I guess.
+Hi all,
 
-I said that common configurations use flow dissector - not the majority.
+Today's linux-next merge of the infiniband tree got a conflict in
+include/linux/mlx4/device.h between commit 7ffdf726cfe0 ("net/mlx4_core:
+Add basic support for TCP/IP offloads under tunneling") from the net-next
+tree and commits 4de658036086 ("mlx4_core: Add support for steerable IB
+UD QPs") and dd5f03beb4f7 ("IB/core: Ethernet L2 attributes in verbs/cm
+structures") from the infiniband tree.
 
-> Anyway, current flow dissector needs care if we really use it in
-> unprotected areas.
->=20
-> Hostile packets can force flow dissection of MTU bytes,
-> bringing host to abysmal performance.
-[...]
-
-Yes.  I think the number of times it can loop should be limited to some
-small number.
-
-Ben.
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
 --=20
-Ben Hutchings
-Life is what happens to you while you're busy making other plans.
-                                                               - John Lenno=
-n
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
---=-5bx/bWnsEEhdP3If3zor
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+diff --cc include/linux/mlx4/device.h
+index c99ecf6d2c67,ac5cb1d92487..000000000000
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@@ -166,7 -161,7 +166,8 @@@ enum=20
+  	MLX4_DEV_CAP_FLAG2_VLAN_CONTROL		=3D 1LL <<  6,
+  	MLX4_DEV_CAP_FLAG2_FSM			=3D 1LL <<  7,
+  	MLX4_DEV_CAP_FLAG2_UPDATE_QP		=3D 1LL <<  8,
+- 	MLX4_DEV_CAP_FLAG2_VXLAN_OFFLOADS	=3D 1LL <<  9
+ -	MLX4_DEV_CAP_FLAG2_DMFS_IPOIB		=3D 1LL <<  9
+++	MLX4_DEV_CAP_FLAG2_VXLAN_OFFLOADS	=3D 1LL <<  9,
+++	MLX4_DEV_CAP_FLAG2_DMFS_IPOIB		=3D 1LL <<  10
+  };
+ =20
+  enum {
+@@@ -1130,7 -1096,7 +1131,8 @@@ int mlx4_SET_PORT_qpn_calc(struct mlx4_
+  int mlx4_SET_PORT_PRIO2TC(struct mlx4_dev *dev, u8 port, u8 *prio2tc);
+  int mlx4_SET_PORT_SCHEDULER(struct mlx4_dev *dev, u8 port, u8 *tc_tx_bw,
+  		u8 *pg, u16 *ratelimit);
+ +int mlx4_SET_PORT_VXLAN(struct mlx4_dev *dev, u8 port, u8 steering);
++ int mlx4_find_cached_mac(struct mlx4_dev *dev, u8 port, u64 mac, int *idx=
+);
+  int mlx4_find_cached_vlan(struct mlx4_dev *dev, u8 port, u16 vid, int *id=
+x);
+  int mlx4_register_vlan(struct mlx4_dev *dev, u8 port, u16 vlan, int *inde=
+x);
+  void mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, u16 vlan);
+
+--Signature=_Wed__15_Jan_2014_13_46_51_+1100_8WTi_GZ9Q6haM.y6
+Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
+Version: GnuPG v2.0.22 (GNU/Linux)
 
-iQIVAwUAUtX12Oe/yOyVhhEJAQoLeQ/+NBq7CR9OJYU44+QG2fhLFCViLe2A+BY7
-aEO4znlr4ZpwOE70BoJHf5pgFymbq64lGIVUk9fCnt0nXVJtz/8t7cpBtHRH6/hR
-q1xTrFT1QXEF5gTya2wspOEeEhwHEmEPQ0baLN/wEtloXn5+YoJwZwC7jvi749Jd
-P8sGb1GcJBTFKVG5AaJrW6IzrF2s2++6hBkSJym2Xn6yNYMfXn2JkFF3psEvtYWZ
-QyTM3ufHS8dBaGpA3CxoBarVXUR1phS/BAWRqmiK4RAioglYpwVqtgGnZvkSATAT
-m3xTzENHRKl2DPk2W/SdSUx+4QueD9O2Nbo8m4X9pKy4eVWZUYlzCgG1BrIUwEyc
-jm+c5Wq9uFrdesOTy5uMu2if6tSHZWxTRf21kx6lmL+vrIXAFboY0/35bO4kCdCY
-I1X/uooR34Ozhn07up1F8zjnbi16Pq0niDG+RdCotlPC5VWsExy/hKS45HWhL+xW
-GzzO3eR+rUPPv7/UcVDtuCJVw3AODgC6is32cHaqxiU/11QjqtTqHbjOzVPal2EV
-S4w1ch+Nn42RteIMTRZNNgHwFq67y3QACuqcY7CbF3nj2JuR3/cYWYZF0lib9flk
-WBFHvbXmDIN0Rc2Pnm2FAAoxgclE0BuymiPClk0MEDPjrxwplGB7rHkUPLo2Hj8M
-FZBasFZHK9g=
-=tLu6
+iQIcBAEBCAAGBQJS1fafAAoJEMDTa8Ir7ZwVRUwP/0Nz7/5ftIorq7G9FZVDns+G
+bOy5k3MJxNMSjJbNSN4DDC4PzFDWSjMXLSLUaJwzNjQ50c7QDIQbK7N4w6PZT8Mx
+6RRTZJyJTYPdc7U7LHJBAN04L8WhFxUnDBxgWaYC69ktkPaK2voXfB68R6bZpsdL
+qTDjCUIaSJKuyMwuneMIsrxe5/l7dNPvr5xcWqhhryYPeIPtJUSLadPAq37lcVkD
+tfis0YxDqy4QmmALZmpXFz+frooyWEBLNi1JLi7nAANnHGt4zilVNIRc8Lzu3P7x
+jDRknrF2xhqMNC/zCHpV1auDKrkkEQXbAfIzpD6JH4LPRqvAB4Bs555uwd3q0PIx
+eGpbTGIKdfWeUhIa4/zllPYMZD0Fv/YDJhkpS+HGLAH0ulj95GCKYElzasWcHBlO
+cHeiO/ulEHKYXjDiP7qJa9W3yepIcj1nSviLHWzMzzXtjTqljCStixbxP1F+FYz7
+DlTAimJwEc/GYfAU3fXbbd2P+sf5XHiYdy3c9OZJOTiQcbrvqndqotN6XSZeVyXX
+j3Hq6Z8Y0KQX70J8bL943WOLDPkivB9rhPpQMrAYQ2aGZ8LMPcrFllM8rcngdvV4
+Lp2FpSGtFr0CKU4rMelNhgM/KgMc093uSu1eEH20u5v4dvvNeIIu/2o+MwLYvNX2
+Z6B861cMMY1QBataNRXq
+=sqOl
 -----END PGP SIGNATURE-----
 
---=-5bx/bWnsEEhdP3If3zor--
+--Signature=_Wed__15_Jan_2014_13_46_51_+1100_8WTi_GZ9Q6haM.y6--
