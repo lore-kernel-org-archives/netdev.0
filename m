@@ -1,49 +1,50 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next] net_sched: act: fix a bug in tcf_register_action()
-Date: Wed, 15 Jan 2014 09:40:32 -0800
-Message-ID: <CAM_iQpV_n-ptUJpU7gVcKSHFhXdS9caTQOJ4n6SKr7HGQv3S=Q@mail.gmail.com>
-References: <1389739694-9251-1-git-send-email-xiyou.wangcong@gmail.com>
-	<52D68069.1090804@mojatatu.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: TI CPSW Ethernet Tx performance regression
+Date: Wed, 15 Jan 2014 17:54:27 +0000
+Message-ID: <1389808467.11912.9.camel@bwh-desktop.uk.level5networks.com>
+References: <1389790129-5721-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f54.google.com ([209.85.219.54]:51532 "EHLO
-	mail-oa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751984AbaAORkc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 12:40:32 -0500
-Received: by mail-oa0-f54.google.com with SMTP id o6so1586788oag.13
-        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 09:40:32 -0800 (PST)
-In-Reply-To: <52D68069.1090804@mojatatu.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:40996 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751984AbaAORyc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 12:54:32 -0500
+In-Reply-To: <1389790129-5721-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 15, 2014 at 4:34 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 01/14/14 17:48, Cong Wang wrote:
->>
->> In tcf_register_action() we check ->type and ->kind to see if there
->> is an existing action registered, but ipt action registers two
->> actions with same type but different kinds. This should be a valid
->> case, otherwise only xt can be registered.
->>
->
->
-> We cant allow for conflicts by name or id - we want to catch them.
-> So just introduce TCA_ACT_XT instead (ID 7)
+On Wed, 2014-01-15 at 18:18 +0530, Mugunthan V N wrote:
+> Hi
+> 
+> I am seeing a performance regression with CPSW driver on AM335x EVM. AM335x EVM
+> CPSW has 3.2 kernel support [1] and Mainline support from 3.7. When I am
+> comparing the performance between 3.2 and 3.13-rc4. TCP receive performance of
+> CPSW between 3.2 and 3.13-rc4 is same (~180Mbps) but TCP Transmit performance
+> is poor comparing to 3.2 kernel. In 3.2 kernel is it *256Mbps* and in 3.13-rc4
+> it is *70Mbps*
+> 
+> Iperf version is *iperf version 2.0.5 (08 Jul 2010) pthreads* on both PC and EVM
+> 
+> On UDP transmit also performance is down comparing to 3.2 kernel. In 3.2 it is
+> 196Mbps for 200Mbps band width and in 3.13-rc4 it is 92Mbps
+> 
+> Can someone point me out where can I look for improving Tx performance. I also
+> checked whether there is Tx descriptor over flow and there is none. I have
+> tries 3.11 and some older kernel, all are giving ~75Mbps Transmit performance
+> only.
+> 
+> [1] - http://arago-project.org/git/projects/?p=linux-am33x.git;a=summary
 
-Oh, I thought it is intentional to use the same type for xt and ipt.
+If you don't get any specific suggestions, you could try bisecting to
+find out which specific commit(s) changed the performance.
 
->
-> [
-> Note: iptables used to be a constant moving API target
-> and this is supposed to be the latest "backward compat mode".
-> New kernel/iproute ==> We want to love "xt" more than "ipt".
-> We infact want to eventually kill "ipt".
-> but this preference is hard to achieve as you may have run into.
-> I would be curious how you tested and run into this..
-> ].
->
+Ben.
 
-Just load the module, and you would see an error message. :)
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
