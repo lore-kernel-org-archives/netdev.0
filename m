@@ -1,204 +1,465 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 1/2] random32: add prandom_u32_lt_N and convert "misuses" of reciprocal_divide
-Date: Thu, 16 Jan 2014 00:23:47 +0100
-Message-ID: <1389828228-30312-2-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next 2/2] reciprocal_divide: correction/update of the algorithm
+Date: Thu, 16 Jan 2014 00:23:48 +0100
+Message-ID: <1389828228-30312-3-git-send-email-dborkman@redhat.com>
 References: <1389828228-30312-1-git-send-email-dborkman@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jakub Zawadzki <darkjames-ws@darkjames.pl>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
+	Austin S Hemmelgarn <ahferroin7@gmail.com>,
+	Jesse Gross <jesse@nicira.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Matt Mackall <mpm@selenic.com>,
+	Pekka Enberg <penberg@kernel.org>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Jakub Zawadzki <darkjames-ws@darkjames.pl>
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5970 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752859AbaAOXX7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jan 2014 18:23:59 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1389828228-30312-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Many functions have open coded a function that return a random
-number in range [0,N-1]. Also, only because we have a function
-that is named reciprocal_divide(), it has not much to do with
-the pupose where it is being used when a previous reciprocal_value()
-has not been obtained.
+=46rom: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Under the assumption that we have a PRNG such as taus113 with
-being well distributed in [0, ~0U] space, we can implement such
-a function as uword t = (n*m')>>32, where m' is a random number
-obtained from PRNG, n the right open interval border and t our
-resulting random number, with n,m',t in u32 universe.
+Jakub Zawadzki noticed that some divisions by reciprocal_divide()
+were not correct [1][2], which he could also show with BPF code
+after divisions are transformed into reciprocal_value() for runtime
+invariant which can be passed to reciprocal_divide() later on;
+reverse in BPF dump ended up with a different, off-by-one K.
 
-Other users can further be migrated to the new prandom_u32_lt_N()
-function later on; for now, we need to make sure to migrate
-"misuses" of reciprocal_divide() for the reciprocal_divide()
-follow-up fixup.
+Also, reciprocal_value() and reciprocal_divide() always return 0
+for divisions by 1. This is a bit worrisome as those functions
+also get used in mm/slab.c and lib/flex_array.c, apparently for
+index calculation to access array slots. Bonding already seems to
+check for the 1-divisor case and handles that correctly. We don't
+know about other problems, besides possibly flex array, yet.
 
-Joint work with Hannes Frederic Sowa.
+In order to fix that, we propose an extension from the original
+implementation from commit 6a2d7a955d8d resp. [3][4], by using
+the algorithm proposed in "Division by Invariant Integers Using
+Multiplication" [5], Torbj=C3=B6rn Granlund and Peter L. Montgomery,
+that is, pseudocode for q =3D n/d where q,n,d is in u32 universe:
 
-Cc: Jakub Zawadzki <darkjames-ws@darkjames.pl>
+1) Initialization:
+
+  int l =3D ceil(log_2 d)
+  uword m' =3D floor((1<<32)*((1<<l)-d)/d)+1
+  int sh_1 =3D min(l,1)
+  int sh_2 =3D max(l-1,0)
+
+2) For q =3D n/d, all uword:
+
+  uword t =3D (n*m')>>32
+  q =3D (t+((n-t)>>sh_1))>>sh_2
+
+The assembler implementation from Agner Fog [6] also helped a lot
+while implementing. We have tested the implementation on x86_64,
+ppc64, i686, s390x; on x86_64/haswell we're still half the latency
+compared to normal divide.
+
+Joint work with Daniel Borkmann.
+
+  [1] http://www.wireshark.org/~darkjames/reciprocal-buggy.c
+  [2] http://www.wireshark.org/~darkjames/set-and-dump-filter-k-bug.c
+  [3] https://gmplib.org/~tege/division-paper.pdf
+  [4] http://homepage.cs.uiowa.edu/~jones/bcd/divide.html
+  [5] http://citeseerx.ist.psu.edu/viewdoc/summary?doi=3D10.1.1.1.2556
+  [6] http://www.agner.org/optimize/asmlib.zip
+
+=46ixes: 6a2d7a955d8d ("SLAB: use a multiply instead of a divide in obj=
+_to_index()")
+=46ixes: 704f15ddb5fc2a ("flex_array: avoid divisions when accessing el=
+ements")
+Reported-by: Jakub Zawadzki <darkjames-ws@darkjames.pl>
 Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Austin S Hemmelgarn <ahferroin7@gmail.com>
 Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: Jesse Gross <jesse@nicira.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Matt Mackall <mpm@selenic.com>
+Cc: Pekka Enberg <penberg@kernel.org>
+Cc: Christoph Lameter <cl@linux-foundation.org>
+Cc: Andy Gospodarek <andy@greyhouse.net>
+Cc: Veaceslav Falico <vfalico@redhat.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Jakub Zawadzki <darkjames-ws@darkjames.pl>
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- drivers/net/team/team_mode_random.c |  8 +-------
- include/linux/random.h              | 19 ++++++++++++++++++-
- include/net/codel.h                 |  4 +---
- net/packet/af_packet.c              |  5 ++---
- net/sched/sch_choke.c               |  9 +--------
- 5 files changed, 23 insertions(+), 22 deletions(-)
+ drivers/net/bonding/bond_main.c    | 16 ++++++++-------
+ drivers/net/bonding/bond_netlink.c |  4 ----
+ drivers/net/bonding/bond_options.c |  9 +++-----
+ drivers/net/bonding/bond_sysfs.c   |  5 -----
+ drivers/net/bonding/bonding.h      |  3 +++
+ include/linux/flex_array.h         |  3 ++-
+ include/linux/reciprocal_div.h     | 42 +++++++++++++++++++++++-------=
+--------
+ include/linux/slab_def.h           |  4 +++-
+ include/net/red.h                  |  3 ++-
+ lib/flex_array.c                   |  3 ++-
+ lib/reciprocal_div.c               | 28 +++++++++++++++++++++----
+ net/sched/sch_netem.c              |  4 +++-
+ 12 files changed, 76 insertions(+), 48 deletions(-)
 
-diff --git a/drivers/net/team/team_mode_random.c b/drivers/net/team/team_mode_random.c
-index 7f032e2..f2d22a5 100644
---- a/drivers/net/team/team_mode_random.c
-+++ b/drivers/net/team/team_mode_random.c
-@@ -13,20 +13,14 @@
- #include <linux/module.h>
- #include <linux/init.h>
- #include <linux/skbuff.h>
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
+_main.c
+index f2fe6cb..8cf03eb 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -79,7 +79,6 @@
+ #include <net/pkt_sched.h>
+ #include <linux/rculist.h>
+ #include <net/flow_keys.h>
 -#include <linux/reciprocal_div.h>
- #include <linux/if_team.h>
- 
--static u32 random_N(unsigned int N)
--{
--	return reciprocal_divide(prandom_u32(), N);
--}
--
- static bool rnd_transmit(struct team *team, struct sk_buff *skb)
+ #include "bonding.h"
+ #include "bond_3ad.h"
+ #include "bond_alb.h"
+@@ -3551,8 +3550,9 @@ static void bond_xmit_slave_id(struct bonding *bo=
+nd, struct sk_buff *skb, int sl
+  */
+ static u32 bond_rr_gen_slave_id(struct bonding *bond)
  {
- 	struct team_port *port;
- 	int port_index;
- 
--	port_index = random_N(team->en_port_count);
-+	port_index = prandom_u32_lt_N(team->en_port_count);
- 	port = team_get_port_by_index_rcu(team, port_index);
- 	if (unlikely(!port))
- 		goto drop;
-diff --git a/include/linux/random.h b/include/linux/random.h
-index 4002b3d..cc3f006 100644
---- a/include/linux/random.h
-+++ b/include/linux/random.h
-@@ -8,7 +8,6 @@
- 
- #include <uapi/linux/random.h>
- 
+-	int packets_per_slave =3D bond->params.packets_per_slave;
+ 	u32 slave_id;
++	struct reciprocal_value reciprocal_packets_per_slave;
++	int packets_per_slave =3D bond->params.packets_per_slave;
+=20
+ 	switch (packets_per_slave) {
+ 	case 0:
+@@ -3562,8 +3562,10 @@ static u32 bond_rr_gen_slave_id(struct bonding *=
+bond)
+ 		slave_id =3D bond->rr_tx_counter;
+ 		break;
+ 	default:
++		reciprocal_packets_per_slave =3D
++			bond->params.reciprocal_packets_per_slave;
+ 		slave_id =3D reciprocal_divide(bond->rr_tx_counter,
+-					     packets_per_slave);
++					     reciprocal_packets_per_slave);
+ 		break;
+ 	}
+ 	bond->rr_tx_counter++;
+@@ -4297,10 +4299,10 @@ static int bond_check_params(struct bond_params=
+ *params)
+ 	params->resend_igmp =3D resend_igmp;
+ 	params->min_links =3D min_links;
+ 	params->lp_interval =3D lp_interval;
+-	if (packets_per_slave > 1)
+-		params->packets_per_slave =3D reciprocal_value(packets_per_slave);
+-	else
+-		params->packets_per_slave =3D packets_per_slave;
++	params->packets_per_slave =3D packets_per_slave;
++	params->reciprocal_packets_per_slave =3D
++		reciprocal_value(packets_per_slave);
++
+ 	if (primary) {
+ 		strncpy(params->primary, primary, IFNAMSIZ);
+ 		params->primary[IFNAMSIZ - 1] =3D 0;
+diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/b=
+ond_netlink.c
+index 555c783..9b13791 100644
+--- a/drivers/net/bonding/bond_netlink.c
++++ b/drivers/net/bonding/bond_netlink.c
+@@ -19,7 +19,6 @@
+ #include <linux/if_ether.h>
+ #include <net/netlink.h>
+ #include <net/rtnetlink.h>
+-#include <linux/reciprocal_div.h>
+ #include "bonding.h"
+=20
+ static const struct nla_policy bond_policy[IFLA_BOND_MAX + 1] =3D {
+@@ -416,9 +415,6 @@ static int bond_fill_info(struct sk_buff *skb,
+ 		goto nla_put_failure;
+=20
+ 	packets_per_slave =3D bond->params.packets_per_slave;
+-	if (packets_per_slave > 1)
+-		packets_per_slave =3D reciprocal_value(packets_per_slave);
 -
- extern void add_device_randomness(const void *, unsigned int);
- extern void add_input_randomness(unsigned int type, unsigned int code,
- 				 unsigned int value);
-@@ -38,6 +37,24 @@ struct rnd_state {
- u32 prandom_u32_state(struct rnd_state *state);
- void prandom_bytes_state(struct rnd_state *state, void *buf, int nbytes);
- 
-+/**
-+ * prandom_u32_lt_N - returns a random number in interval [0, N), the
-+ *                    interval is right-open. This is useful when an
-+ *                    requesting random index of an array containing
-+ *                    N elements, for example.
-+ *
-+ * @N: higher interval endpoint
-+ *
-+ * Returns a pseduo-random number that is in interval [0, N). Note
-+ * that the result depends on PRNG being well distributed in [0, ~0U]
-+ * space. Here, we use maximally equidistributed combined Tausworthe
-+ * generator, that is, prandom_u32().
-+ */
-+static inline u32 prandom_u32_lt_N(u32 N)
-+{
-+	return (u32)(((u64) prandom_u32() * N) >> 32);
-+}
+ 	if (nla_put_u32(skb, IFLA_BOND_PACKETS_PER_SLAVE,
+ 			packets_per_slave))
+ 		goto nla_put_failure;
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/b=
+ond_options.c
+index 945a666..bacfd53 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -16,7 +16,6 @@
+ #include <linux/netdevice.h>
+ #include <linux/rwlock.h>
+ #include <linux/rcupdate.h>
+-#include <linux/reciprocal_div.h>
+ #include "bonding.h"
+=20
+ int bond_option_mode_set(struct bonding *bond, int mode)
+@@ -671,11 +670,9 @@ int bond_option_packets_per_slave_set(struct bondi=
+ng *bond,
+ 		pr_warn("%s: Warning: packets_per_slave has effect only in balance-r=
+r mode\n",
+ 			bond->dev->name);
+=20
+-	if (packets_per_slave > 1)
+-		bond->params.packets_per_slave =3D
+-			reciprocal_value(packets_per_slave);
+-	else
+-		bond->params.packets_per_slave =3D packets_per_slave;
++	bond->params.packets_per_slave =3D packets_per_slave;
++	bond->params.reciprocal_packets_per_slave =3D
++		reciprocal_value(packets_per_slave);
+=20
+ 	return 0;
+ }
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bon=
+d_sysfs.c
+index 011f163..c083e9a 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -39,7 +39,6 @@
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
+ #include <linux/nsproxy.h>
+-#include <linux/reciprocal_div.h>
+=20
+ #include "bonding.h"
+=20
+@@ -1374,10 +1373,6 @@ static ssize_t bonding_show_packets_per_slave(st=
+ruct device *d,
+ {
+ 	struct bonding *bond =3D to_bond(d);
+ 	unsigned int packets_per_slave =3D bond->params.packets_per_slave;
+-
+-	if (packets_per_slave > 1)
+-		packets_per_slave =3D reciprocal_value(packets_per_slave);
+-
+ 	return sprintf(buf, "%u\n", packets_per_slave);
+ }
+=20
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bondin=
+g.h
+index 955dc48..502dda8 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -23,6 +23,8 @@
+ #include <linux/netpoll.h>
+ #include <linux/inetdevice.h>
+ #include <linux/etherdevice.h>
++#include <linux/reciprocal_div.h>
++
+ #include "bond_3ad.h"
+ #include "bond_alb.h"
+=20
+@@ -171,6 +173,7 @@ struct bond_params {
+ 	int resend_igmp;
+ 	int lp_interval;
+ 	int packets_per_slave;
++	struct reciprocal_value reciprocal_packets_per_slave;
+ };
+=20
+ struct bond_parm_tbl {
+diff --git a/include/linux/flex_array.h b/include/linux/flex_array.h
+index 6843cf1..b6efb0c 100644
+--- a/include/linux/flex_array.h
++++ b/include/linux/flex_array.h
+@@ -2,6 +2,7 @@
+ #define _FLEX_ARRAY_H
+=20
+ #include <linux/types.h>
++#include <linux/reciprocal_div.h>
+ #include <asm/page.h>
+=20
+ #define FLEX_ARRAY_PART_SIZE PAGE_SIZE
+@@ -22,7 +23,7 @@ struct flex_array {
+ 			int element_size;
+ 			int total_nr_elements;
+ 			int elems_per_part;
+-			u32 reciprocal_elems;
++			struct reciprocal_value reciprocal_elems;
+ 			struct flex_array_part *parts[];
+ 		};
+ 		/*
+diff --git a/include/linux/reciprocal_div.h b/include/linux/reciprocal_=
+div.h
+index f9c90b3..be66c3a 100644
+--- a/include/linux/reciprocal_div.h
++++ b/include/linux/reciprocal_div.h
+@@ -4,29 +4,37 @@
+ #include <linux/types.h>
+=20
+ /*
+- * This file describes reciprocical division.
++ * This algorithm is based on the paper "Division by Invariant
++ * Integers Using Multiplication" by Torbj=C3=B6rn Granlund and Peter
++ * L. Montgomery.
+  *
+- * This optimizes the (A/B) problem, when A and B are two u32
+- * and B is a known value (but not known at compile time)
++ * The assembler implementation from Agner Fog, which this code is
++ * based on, can be found here:
++ * http://www.agner.org/optimize/asmlib.zip
+  *
+- * The math principle used is :
+- *   Let RECIPROCAL_VALUE(B) be (((1LL << 32) + (B - 1))/ B)
+- *   Then A / B =3D (u32)(((u64)(A) * (R)) >> 32)
++ * This optimization for A/B is helpful if the divisor B is mostly
++ * constant. The reciprocal of B is calculated in the slow-path with
++ * reciprocal_value(). The fast-path can then just use a much faster
++ * multiplication operation with a variable dividend A to calculate
++ * the division A/B.
+  *
+- * This replaces a divide by a multiply (and a shift), and
+- * is generally less expensive in CPU cycles.
++ * RECIPROCAL_VALUE_TO_ZERO can be used to express an element, which
++ * used as the argument to reciprocal_divide always yields zero.
+  */
+=20
+-/*
+- * Computes the reciprocal value (R) for the value B of the divisor.
+- * Should not be called before each reciprocal_divide(),
+- * or else the performance is slower than a normal divide.
+- */
+-extern u32 reciprocal_value(u32 B);
++struct reciprocal_value {
++	u32 m;
++	u8 sh1, sh2;
++};
+=20
++#define RECIPROCAL_VALUE_RESULT_TO_ZERO ((struct reciprocal_value){.sh=
+1 =3D 32})
+=20
+-static inline u32 reciprocal_divide(u32 A, u32 R)
++struct reciprocal_value reciprocal_value(u32 d);
++
++static inline u32 reciprocal_divide(u32 a, struct reciprocal_value R)
+ {
+-	return (u32)(((u64)A * R) >> 32);
++	u32 t =3D (u32)(((u64)a * R.m) >> 32);
++	return (t + ((a - t) >> R.sh1)) >> R.sh2;
+ }
+-#endif
++
++#endif /* _LINUX_RECIPROCAL_DIV_H */
+diff --git a/include/linux/slab_def.h b/include/linux/slab_def.h
+index 09bfffb..96e8aba 100644
+--- a/include/linux/slab_def.h
++++ b/include/linux/slab_def.h
+@@ -1,6 +1,8 @@
+ #ifndef _LINUX_SLAB_DEF_H
+ #define	_LINUX_SLAB_DEF_H
+=20
++#include <linux/reciprocal_div.h>
 +
  /*
-  * Handle minimum values for seeds
+  * Definitions unique to the original Linux SLAB allocator.
   */
-diff --git a/include/net/codel.h b/include/net/codel.h
-index 3b04ff5..7705a72 100644
---- a/include/net/codel.h
-+++ b/include/net/codel.h
-@@ -46,7 +46,6 @@
- #include <linux/skbuff.h>
- #include <net/pkt_sched.h>
- #include <net/inet_ecn.h>
--#include <linux/reciprocal_div.h>
- 
- /* Controlling Queue Delay (CoDel) algorithm
-  * =========================================
-@@ -211,10 +210,9 @@ static codel_time_t codel_control_law(codel_time_t t,
- 				      codel_time_t interval,
- 				      u32 rec_inv_sqrt)
+@@ -12,7 +14,7 @@ struct kmem_cache {
+ 	unsigned int shared;
+=20
+ 	unsigned int size;
+-	u32 reciprocal_buffer_size;
++	struct reciprocal_value reciprocal_buffer_size;
+ /* 2) touched by every alloc & free from the backend */
+=20
+ 	unsigned int flags;		/* constant flags */
+diff --git a/include/net/red.h b/include/net/red.h
+index 168bb2f..76e0b5f 100644
+--- a/include/net/red.h
++++ b/include/net/red.h
+@@ -130,7 +130,8 @@ struct red_parms {
+ 	u32		qth_max;	/* Max avg length threshold: Wlog scaled */
+ 	u32		Scell_max;
+ 	u32		max_P;		/* probability, [0 .. 1.0] 32 scaled */
+-	u32		max_P_reciprocal; /* reciprocal_value(max_P / qth_delta) */
++	/* reciprocal_value(max_P / qth_delta) */
++	struct reciprocal_value	max_P_reciprocal;
+ 	u32		qth_delta;	/* max_th - min_th */
+ 	u32		target_min;	/* min_th + 0.4*(max_th - min_th) */
+ 	u32		target_max;	/* min_th + 0.6*(max_th - min_th) */
+diff --git a/lib/flex_array.c b/lib/flex_array.c
+index 6948a66..704efa1 100644
+--- a/lib/flex_array.c
++++ b/lib/flex_array.c
+@@ -90,8 +90,9 @@ struct flex_array *flex_array_alloc(int element_size,=
+ unsigned int total,
  {
--	return t + reciprocal_divide(interval, rec_inv_sqrt << REC_INV_SQRT_SHIFT);
-+	return t + (u32)(((u64) interval * (rec_inv_sqrt << REC_INV_SQRT_SHIFT)) >> 32);
+ 	struct flex_array *ret;
+ 	int elems_per_part =3D 0;
+-	int reciprocal_elems =3D 0;
+ 	int max_size =3D 0;
++	struct reciprocal_value reciprocal_elems =3D
++		RECIPROCAL_VALUE_RESULT_TO_ZERO;
+=20
+ 	if (element_size) {
+ 		elems_per_part =3D FLEX_ARRAY_ELEMENTS_PER_PART(element_size);
+diff --git a/lib/reciprocal_div.c b/lib/reciprocal_div.c
+index 75510e9..f49742d 100644
+--- a/lib/reciprocal_div.c
++++ b/lib/reciprocal_div.c
+@@ -1,11 +1,31 @@
++#include <linux/kernel.h>
++#include <linux/bug.h>
+ #include <asm/div64.h>
+ #include <linux/reciprocal_div.h>
+ #include <linux/export.h>
+=20
+-u32 reciprocal_value(u32 k)
++/*
++ * For a description of the algorithm please have a look at
++ * include/linux/reciprocal_div.h
++ */
++
++struct reciprocal_value reciprocal_value(u32 d)
+ {
+-	u64 val =3D (1LL << 32) + (k - 1);
+-	do_div(val, k);
+-	return (u32)val;
++	struct reciprocal_value R;
++	u64 m;
++	int l;
++
++	BUILD_BUG_ON(reciprocal_divide(0U, RECIPROCAL_VALUE_RESULT_TO_ZERO));
++	BUILD_BUG_ON(reciprocal_divide(1U, RECIPROCAL_VALUE_RESULT_TO_ZERO));
++	BUILD_BUG_ON(reciprocal_divide(~(0U), RECIPROCAL_VALUE_RESULT_TO_ZERO=
+));
++
++	l =3D fls(d - 1);
++	m =3D ((1ULL << 32) * ((1ULL << l) - d));
++	do_div(m, d);
++	++m;
++	R.m =3D (u32)m;
++	R.sh1 =3D min(l, 1);
++	R.sh2 =3D max(l-1, 0);
++	return R;
  }
- 
--
- static bool codel_should_drop(const struct sk_buff *skb,
- 			      struct Qdisc *sch,
- 			      struct codel_vars *vars,
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 279467b..f976474 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -88,7 +88,6 @@
- #include <linux/virtio_net.h>
- #include <linux/errqueue.h>
- #include <linux/net_tstamp.h>
--#include <linux/reciprocal_div.h>
- #ifdef CONFIG_INET
- #include <net/inet_common.h>
- #endif
-@@ -1220,7 +1219,7 @@ static unsigned int fanout_demux_hash(struct packet_fanout *f,
- 				      struct sk_buff *skb,
- 				      unsigned int num)
- {
--	return reciprocal_divide(skb->rxhash, num);
-+	return (u32)(((u64) skb->rxhash * num) >> 32);
+ EXPORT_SYMBOL(reciprocal_value);
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 3019c10..3bf6495 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -91,7 +91,7 @@ struct netem_sched_data {
+ 	u64 rate;
+ 	s32 packet_overhead;
+ 	u32 cell_size;
+-	u32 cell_size_reciprocal;
++	struct reciprocal_value cell_size_reciprocal;
+ 	s32 cell_overhead;
+=20
+ 	struct crndstate {
+@@ -718,6 +718,8 @@ static void get_rate(struct Qdisc *sch, const struc=
+t nlattr *attr)
+ 	q->cell_size =3D r->cell_size;
+ 	if (q->cell_size)
+ 		q->cell_size_reciprocal =3D reciprocal_value(q->cell_size);
++	else
++		q->cell_size_reciprocal =3D RECIPROCAL_VALUE_RESULT_TO_ZERO;
+ 	q->cell_overhead =3D r->cell_overhead;
  }
- 
- static unsigned int fanout_demux_lb(struct packet_fanout *f,
-@@ -1247,7 +1246,7 @@ static unsigned int fanout_demux_rnd(struct packet_fanout *f,
- 				     struct sk_buff *skb,
- 				     unsigned int num)
- {
--	return reciprocal_divide(prandom_u32(), num);
-+	return prandom_u32_lt_N(num);
- }
- 
- static unsigned int fanout_demux_rollover(struct packet_fanout *f,
-diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
-index ddd73cb..556b6f6 100644
---- a/net/sched/sch_choke.c
-+++ b/net/sched/sch_choke.c
-@@ -14,7 +14,6 @@
- #include <linux/types.h>
- #include <linux/kernel.h>
- #include <linux/skbuff.h>
--#include <linux/reciprocal_div.h>
- #include <linux/vmalloc.h>
- #include <net/pkt_sched.h>
- #include <net/inet_ecn.h>
-@@ -77,12 +76,6 @@ struct choke_sched_data {
- 	struct sk_buff **tab;
- };
- 
--/* deliver a random number between 0 and N - 1 */
--static u32 random_N(unsigned int N)
--{
--	return reciprocal_divide(prandom_u32(), N);
--}
--
- /* number of elements in queue including holes */
- static unsigned int choke_len(const struct choke_sched_data *q)
- {
-@@ -233,7 +226,7 @@ static struct sk_buff *choke_peek_random(const struct choke_sched_data *q,
- 	int retrys = 3;
- 
- 	do {
--		*pidx = (q->head + random_N(choke_len(q))) & q->tab_mask;
-+		*pidx = (q->head + prandom_u32_lt_N(choke_len(q))) & q->tab_mask;
- 		skb = q->tab[*pidx];
- 		if (skb)
- 			return skb;
--- 
+=20
+--=20
 1.8.3.1
