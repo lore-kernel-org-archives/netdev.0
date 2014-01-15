@@ -1,48 +1,50 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v5 net-next 1/4] sh_eth: Use bool as return type of
- sh_eth_is_gether()
-Date: Wed, 15 Jan 2014 01:35:20 -0800
-Message-ID: <1389778520.14001.16.camel@joe-AO722>
-References: <1389766341-14001-1-git-send-email-horms+renesas@verge.net.au>
-	 <1389766341-14001-2-git-send-email-horms+renesas@verge.net.au>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH iproute2 1/2] tbf: support sending burst/mtu to kernel directly
+Date: Wed, 15 Jan 2014 17:42:11 +0800
+Message-ID: <1389778932-17404-2-git-send-email-yangyingliang@huawei.com>
+References: <1389778932-17404-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Simon Horman <horms+renesas@verge.net.au>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1389766341-14001-2-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:1966 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751821AbaAOJmn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 04:42:43 -0500
+In-Reply-To: <1389778932-17404-1-git-send-email-yangyingliang@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-01-15 at 15:12 +0900, Simon Horman wrote:
-> Return a boolean and use true and false.
-[]
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-[]
-> @@ -310,12 +310,12 @@ static const u16 sh_eth_offset_fast_sh3_sh2[SH_ETH_MAX_REGISTER_OFFSET] = {
->  	[TSU_ADRL31]	= 0x01fc,
->  };
->  
-> -static int sh_eth_is_gether(struct sh_eth_private *mdp)
-> +static bool sh_eth_is_gether(struct sh_eth_private *mdp)
->  {
->  	if (mdp->reg_offset == sh_eth_offset_gigabit)
-> -		return 1;
-> +		return true;
->  	else
-> -		return 0;
-> +		return false;
->  }
+To avoid loss when transforming burst to buffer in userspace, send
+burst/mtu to kernel directly.
 
-Or maybe:
+Kernel commit 2e04ad424b("sch_tbf: add TBF_BURST/TBF_PBURST attribute")
+make it can handle burst/mtu.
 
-static bool sh_eth_is_gether(struct sh_eth_private *mdp)
-{
-	return mdp->reg_offset == sh_eth_offset_gigabit;
-}
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+---
+ tc/q_tbf.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-
+diff --git a/tc/q_tbf.c b/tc/q_tbf.c
+index 2fbfd3b..f3022b6 100644
+--- a/tc/q_tbf.c
++++ b/tc/q_tbf.c
+@@ -232,12 +232,14 @@ static int tbf_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
+ 	tail = NLMSG_TAIL(n);
+ 	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
+ 	addattr_l(n, 2024, TCA_TBF_PARMS, &opt, sizeof(opt));
++	addattr_l(n, 2124, TCA_TBF_BURST, &buffer, sizeof(buffer));
+ 	if (rate64 >= (1ULL << 32))
+ 		addattr_l(n, 2124, TCA_TBF_RATE64, &rate64, sizeof(rate64));
+ 	addattr_l(n, 3024, TCA_TBF_RTAB, rtab, 1024);
+ 	if (opt.peakrate.rate) {
+ 		if (prate64 >= (1ULL << 32))
+ 			addattr_l(n, 3124, TCA_TBF_PRATE64, &prate64, sizeof(prate64));
++		addattr_l(n, 3224, TCA_TBF_PBURST, &mtu, sizeof(mtu));
+ 		addattr_l(n, 4096, TCA_TBF_PTAB, ptab, 1024);
+ 	}
+ 	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
+-- 
+1.8.0
