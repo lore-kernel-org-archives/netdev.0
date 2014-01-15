@@ -1,84 +1,67 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [RFC PATCH net-next 0/4] net_cls for sys container
-Date: Tue, 14 Jan 2014 16:50:11 -0800
-Message-ID: <87y52idq64.fsf@xmission.com>
-References: <52C62A44.4070304@huawei.com>
-	<CAM_iQpW0+Ftvk=QBE+0yMNW00VkBee1+yAEmbPkT+zjij9RX-Q@mail.gmail.com>
-	<52CA614D.6040702@huawei.com> <52CA6C80.9060002@cn.fujitsu.com>
-	<52CA8026.4010106@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next V4 1/3] net: Add GRO support for UDP
+ encapsulating protocols
+Date: Tue, 14 Jan 2014 16:50:29 -0800
+Message-ID: <1389747029.31367.297.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1389715212-14504-1-git-send-email-ogerlitz@mellanox.com>
+	 <1389715212-14504-2-git-send-email-ogerlitz@mellanox.com>
+	 <CA+mtBx_R+J3UMtdOkfQQjdBN+JMLzrbY6q3r+VaHxJEDrSzt1g@mail.gmail.com>
+	 <CAJZOPZ+1JrMiuh3csp8P56NJ5LphszneO_zwmShut3KxFuxaTQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
-	Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
-	Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Serge Hallyn <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
-	pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <52CA8026.4010106-hv44wF8Li93QT0dZR+AlfA@public.gmane.org> (Libo Chen's message of "Mon, 6 Jan
-	2014 18:06:30 +0800")
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <therbert@google.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jerry Chu <hkchu@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Yan Burman <yanb@mellanox.com>,
+	Shlomo Pongratz <shlomop@mellanox.com>
+To: Or Gerlitz <or.gerlitz@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f47.google.com ([209.85.213.47]:63148 "EHLO
+	mail-yh0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751892AbaAOAuc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 19:50:32 -0500
+Received: by mail-yh0-f47.google.com with SMTP id c41so347972yho.6
+        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 16:50:31 -0800 (PST)
+In-Reply-To: <CAJZOPZ+1JrMiuh3csp8P56NJ5LphszneO_zwmShut3KxFuxaTQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org> writes:
+On Tue, 2014-01-14 at 23:51 +0200, Or Gerlitz wrote:
 
-> yes
-> On 2014/1/6 16:42, Gao feng wrote:
->> On 01/06/2014 03:54 PM, Libo Chen wrote:
->>> On 2014/1/3 13:20, Cong Wang wrote:
->>>> On Thu, Jan 2, 2014 at 7:11 PM, Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org> wrote:
->>>>> Hi guys,
->>>>>
->>>>> Now, lxc created with veth can not be under control by
->>>>> cls_cgroup.
->>>>>
->>>>> the former discussion:
->>>>> http://lkml.indiana.edu/hypermail/linux/kernel/1312.1/00214.html
->>>>>
->>>>> In short, because cls_cgroup relys classid attached to sock
->>>>> filter skb, but sock will be cleared inside dev_forward_skb()
->>>>> in veth_xmit().
->>>>
->>>>
->>>> So what are you trying to achieve here?
->>>
->>> sys container using veth can be controlled by cls_cgroup basing on physic network interface
->>>
->> 
->> It's a problem about virtual nic, not container/net namespace.
->
-> yes
->
->> 
->> If veth device is running in host. the skb is transmitted firstly by veth device and then delivered
->> by physical device. if you set both qdisc rule on veth and physical device. which qdisc rule will take
->> effect?
->
-> both, the end result depends on a smaller.
->
->> 
->> In your patch, both qdisc rule are effective. it looks strange.
->> 
->
-> qdisc is based nic, does not distinguish virtual or physics. if you are all set,
-> it means that what you want.  so the logic is not the problemI and this appears to be normal.
+> >> +       rcu_read_lock();
+> >> +
+> >> +       uo_priv = rcu_dereference(udp_offload_base);
+> >> +       for (; uo_priv != NULL; uo_priv = rcu_dereference(uo_priv->next)) {
+> >> +               if (uo_priv->offload->port == uh->dest &&
+> >> +                   uo_priv->offload->callbacks.gro_complete)
+> >> +                       goto found;
+> >> +       }
+> >> +
+> >> +       rcu_read_unlock();
+> >> +       return err;
+> >> +
+> >> +found:
+> >> +       atomic_inc(&uo_priv->refcount);
+> >
+> > This is an expensive operation in the critical path.
+> 
+> I know, but I don't see how to get away without having the ref/unref
+> wrapping, ideas welcome
+> 
+> > Can uo_priv be protected by rcu also?
+> 
+> uo_priv is the actual element which is rcu protected, not sure to
+> follow on your question.
+> 
 
-My personal opinion on the matter is that the network class cgroup is
-brain dead and should not be used.  It is impossible to use for
-incomming packets, and it is part of the the problem plagued cgroup
-subsystem.
+Seems pretty easy : unlock rcu after calling gro_complete() as in :
 
-You have real network interfaces to do your classification with you
-don't need to enhance the network class cgroup.
-
-The more this is asked about the more I think the network class cgroup
-should be be taken out into the woods some dark night and left in a
-shallow grave, never to bother us again.
-
-
-Eric
+found:
+       err = uo_priv->offload->callbacks.gro_complete(skb, nhoff + sizeof(struct udphdr));
+       rcu_read_unlock();
+       return err;
