@@ -1,57 +1,133 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH v2 00/16] wl1251 patches from linux-n900 tree
-Date: Thu, 16 Jan 2014 01:21:21 +0100
-Message-ID: <20140116002121.GA3726@amd.pavel.ucw.cz>
-References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
- <1386494714-21070-1-git-send-email-pali.rohar@gmail.com>
- <201312311047.30147@pali>
- <20140106200050.GG10885@tuxdriver.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH net-next RFC] virtio-net: drop rq->max and rq->num
+Date: Thu, 16 Jan 2014 10:25:26 +1030
+Message-ID: <87zjmwvlzl.fsf@rustcorp.com.au>
+References: <1388134685-30691-1-git-send-email-jasowang@redhat.com> <87mwixx670.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>,
-	Luciano Coelho <luca@coelho.fi>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
-	aaro.koskinen@iki.fi, sre@ring0.de, joni.lapilainen@gmail.com,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Felipe Contreras <felipe.contreras@gmail.com>
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>
+To: Jason Wang <jasowang@redhat.com>, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:52202 "EHLO
-	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751783AbaAPAVW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 19:21:22 -0500
-Content-Disposition: inline
-In-Reply-To: <20140106200050.GG10885@tuxdriver.com>
+Received: from ozlabs.org ([203.10.76.45]:53110 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750900AbaAPAZg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jan 2014 19:25:36 -0500
+In-Reply-To: <87mwixx670.fsf@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon 2014-01-06 15:00:50, John W. Linville wrote:
-> On Tue, Dec 31, 2013 at 10:47:29AM +0100, Pali Roh=E1r wrote:
-> > On Sunday 08 December 2013 10:24:58 Pali Roh=E1r wrote:
-> > > Hello, I'm sending wl1251 patches from linux-n900 tree [1] for
-> > > comments. More patches come from David's monitor & packet
-> > > injection work. Patches are tested with 3.12 rc5 kernel on
-> > > Nokia N900.
-> > >=20
-> > > Second version contains new patch for fixing NULL pointer
-> > > dereference which sometimes cause kernel panic and fixes code
-> > > suggested by Pavel Machek.
-> =20
-> > So far, there are no new comments for patches 01, 03-13 and 16.=20
-> > Are there any other problems with that patches or can be accepted=20
-> > for upstream?
-> =20
-> They are probably fine to merge now.  Of course, I was still deleting
-> wl12xx patches when they were originally posted, so I'll need someone
-> to resend the patches to me...
+Rusty Russell <rusty@rustcorp.com.au> writes:
+> Jason Wang <jasowang@redhat.com> writes:
+>> It looks like there's no need for those two fields:
+>>
+>> - Unless there's a failure for the first refill try, rq->max should be always
+>>   equal to the vring size.
+>> - rq->num is only used to determine the condition that we need to do the refill,
+>>   we could check vq->num_free instead.
+>> - rq->num was required to be increased or decreased explicitly after each
+>>   get/put which results a bad API.
+>>
+>> So this patch removes them both to make the code simpler.
+>
+> Nice.  These fields date from when the vq struct was opaque.
+>
+> Applied,
+> Rusty.
 
-Ping? Did they get merged? Did you receive the patches?
+Oops, this doesn't require any core virtio changes, so it's for DaveM:
 
-Regards,
-								Pavel
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses=
-/blog.html
+Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+
+Thanks,
+Rusty.
+
+>> Cc: Rusty Russell <rusty@rustcorp.com.au>
+>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>>  drivers/net/virtio_net.c | 16 +++-------------
+>>  1 file changed, 3 insertions(+), 13 deletions(-)
+>>
+>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>> index c51a988..4e1bce3 100644
+>> --- a/drivers/net/virtio_net.c
+>> +++ b/drivers/net/virtio_net.c
+>> @@ -72,9 +72,6 @@ struct receive_queue {
+>>  
+>>  	struct napi_struct napi;
+>>  
+>> -	/* Number of input buffers, and max we've ever had. */
+>> -	unsigned int num, max;
+>> -
+>>  	/* Chain pages by the private ptr. */
+>>  	struct page *pages;
+>>  
+>> @@ -360,7 +357,6 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+>>  		}
+>>  
+>>  		page = virt_to_head_page(buf);
+>> -		--rq->num;
+>>  
+>>  		num_skb_frags = skb_shinfo(curr_skb)->nr_frags;
+>>  		if (unlikely(num_skb_frags == MAX_SKB_FRAGS)) {
+>> @@ -406,7 +402,6 @@ err_skb:
+>>  		}
+>>  		page = virt_to_head_page(buf);
+>>  		put_page(page);
+>> -		--rq->num;
+>>  	}
+>>  err_buf:
+>>  	dev->stats.rx_dropped++;
+>> @@ -628,10 +623,7 @@ static bool try_fill_recv(struct receive_queue *rq, gfp_t gfp)
+>>  		oom = err == -ENOMEM;
+>>  		if (err)
+>>  			break;
+>> -		++rq->num;
+>>  	} while (rq->vq->num_free);
+>> -	if (unlikely(rq->num > rq->max))
+>> -		rq->max = rq->num;
+>>  	if (unlikely(!virtqueue_kick(rq->vq)))
+>>  		return false;
+>>  	return !oom;
+>> @@ -699,11 +691,10 @@ again:
+>>  	while (received < budget &&
+>>  	       (buf = virtqueue_get_buf(rq->vq, &len)) != NULL) {
+>>  		receive_buf(rq, buf, len);
+>> -		--rq->num;
+>>  		received++;
+>>  	}
+>>  
+>> -	if (rq->num < rq->max / 2) {
+>> +	if (rq->vq->num_free > virtqueue_get_vring_size(rq->vq) / 2) {
+>>  		if (!try_fill_recv(rq, GFP_ATOMIC))
+>>  			schedule_delayed_work(&vi->refill, 0);
+>>  	}
+>> @@ -1398,9 +1389,7 @@ static void free_unused_bufs(struct virtnet_info *vi)
+>>  				give_pages(&vi->rq[i], buf);
+>>  			else
+>>  				dev_kfree_skb(buf);
+>> -			--vi->rq[i].num;
+>>  		}
+>> -		BUG_ON(vi->rq[i].num != 0);
+>>  	}
+>>  }
+>>  
+>> @@ -1671,7 +1660,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+>>  		try_fill_recv(&vi->rq[i], GFP_KERNEL);
+>>  
+>>  		/* If we didn't even get one input buffer, we're useless. */
+>> -		if (vi->rq[i].num == 0) {
+>> +		if (vi->rq[i].vq->num_free ==
+>> +		    virtqueue_get_vring_size(vi->rq[i].vq)) {
+>>  			free_unused_bufs(vi);
+>>  			err = -ENOMEM;
+>>  			goto free_recv_bufs;
+>> -- 
+>> 1.8.3.2
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
