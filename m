@@ -1,30 +1,64 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH net-next 2/2] net: mvneta: make mvneta_txq_done() return void
-Date: Wed, 15 Jan 2014 09:56:56 +0100
-Message-ID: <20140115085656.GH4605@1wt.eu>
-References: <cover.1389742334.git.arno@natisbad.org> <1e35971f3ee9f4d120bff5fe98179160998ea0fa.1389742334.git.arno@natisbad.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH stable-only] virtio-net: fix build on m68k and sparc64
+Date: Wed, 15 Jan 2014 10:01:49 +0100
+Message-ID: <CAMuHMdW4io2BcPvR-VwLMrCNReTEcUeNgO1ievVw+Eg=UdyeuA@mail.gmail.com>
+References: <1389774152-1526-1-git-send-email-mst@redhat.com>
+	<CAMuHMdV=qzDApabSiQj9up_RUW=PoVJA8oWaiWY7d2iQ22AfeQ@mail.gmail.com>
+	<20140115084605.GF29177@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Arnaud Ebalard <arno@natisbad.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:55419 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751037AbaAOI5W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jan 2014 03:57:22 -0500
-Content-Disposition: inline
-In-Reply-To: <1e35971f3ee9f4d120bff5fe98179160998ea0fa.1389742334.git.arno@natisbad.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	virtualization@lists.linux-foundation.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>, Guenter Roeck <linux@roeck-us.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140115084605.GF29177@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 15, 2014 at 12:46:52AM +0100, Arnaud Ebalard wrote:
-> 
-> The function return parameter is not used in mvneta_tx_done_gbe(),
-> where the function is called. This patch makes the function return
-> void.
-> 
-> Signed-off-by: Arnaud Ebalard <arno@natisbad.org>
+On Wed, Jan 15, 2014 at 9:46 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> On Wed, Jan 15, 2014 at 09:36:13AM +0100, Geert Uytterhoeven wrote:
+>> On Wed, Jan 15, 2014 at 9:26 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+>> > As a result of backporting a bugfix, virtio_net started passing void *
+>> > to page_address, assuming that it will get silently converted to struct
+>> > page *. But this does not happen on architectures where page_address is
+>> > a macro, the result is build failure as the macro tries to dereference
+>> > void*.
+>> >
+>> > Fix by reordering code slightly, so we always pass
+>> > struct page * to page_address.
+>>
+>> Thanks for the clue! I was just investigating a similar failure in -next.
+>>
+>> Gr{oetje,eeting}s,
+>>
+>>                         Geert
+>
+> You don't mean linux-next? And not in virtio-net? I don't see page_address
+> being used on void * anywhere there.
 
-Reviewed-by: Willy Tarreau <w@1wt.eu>
+http://kisskb.ellerman.id.au/kisskb/buildresult/10469287/
+
+I'm making {,set}page_address() static inline to fix this.
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
