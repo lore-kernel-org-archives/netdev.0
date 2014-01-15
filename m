@@ -1,149 +1,82 @@
-From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-Subject: [PATCH V2 net-next 1/3] ipv6: add the IPV6_FL_F_REFLECT flag to IPV6_FL_A_GET
-Date: Wed, 15 Jan 2014 12:30:01 +0100
-Message-ID: <1389785403-6401-1-git-send-email-florent.fourcot@enst-bretagne.fr>
-Cc: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-To: netdev@vger.kernel.org
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next] xen-netfront: clean up code in
+ xennet_release_rx_bufs
+Date: Wed, 15 Jan 2014 11:42:09 +0000
+Message-ID: <20140115114208.GK5698@zion.uk.xensource.com>
+References: <1389307718-2845-1-git-send-email-Annie.li@oracle.com>
+ <52D66F11.204@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Annie Li <Annie.li@oracle.com>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>, <wei.liu2@citrix.com>,
+	<ian.campbell@citrix.com>
+To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fourcot.fr ([217.70.191.14]:49891 "EHLO olfflo.fourcot.fr"
+Received: from smtp.citrix.com ([66.165.176.89]:51232 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751317AbaAOLaI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jan 2014 06:30:08 -0500
+	id S1751010AbaAOLmd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jan 2014 06:42:33 -0500
+Content-Disposition: inline
+In-Reply-To: <52D66F11.204@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With this option, the socket will reply with the flow label value read
-on received packets.
+On Wed, Jan 15, 2014 at 11:20:49AM +0000, David Vrabel wrote:
+> On 09/01/14 22:48, Annie Li wrote:
+> > Current netfront only grants pages for grant copy, not for grant transfer, so
+> > remove corresponding transfer code and add receiving copy code in
+> > xennet_release_rx_bufs.
+> 
+> While netfront only supports a copying backend, I don't see anything
+> preventing the backend from retaining mappings to netfront's Rx buffers...
+> 
 
-The goal is to have a connection with the same flow label in both
-direction of the communication.
+Correct.
 
-Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
----
- include/linux/ipv6.h     |  1 +
- include/uapi/linux/in6.h |  1 +
- net/ipv6/ip6_flowlabel.c | 21 +++++++++++++++++++++
- net/ipv6/tcp_ipv6.c      | 10 ++++++++++
- 4 files changed, 33 insertions(+)
+> > Signed-off-by: Annie Li <Annie.li@oracle.com>
+> > ---
+> >  drivers/net/xen-netfront.c |   60 ++-----------------------------------------
+> >  1 files changed, 3 insertions(+), 57 deletions(-)
+> > 
+> > diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> > index e59acb1..692589e 100644
+> > --- a/drivers/net/xen-netfront.c
+> > +++ b/drivers/net/xen-netfront.c
+> > @@ -1134,78 +1134,24 @@ static void xennet_release_tx_bufs(struct netfront_info *np)
+> >  
+> >  static void xennet_release_rx_bufs(struct netfront_info *np)
+> >  {
+> [...]
+> > -		mfn = gnttab_end_foreign_transfer_ref(ref);
+> > +		gnttab_end_foreign_access_ref(ref, 0);
+> 
+> ... the gnttab_end_foreign_access_ref() may then fail and...
+> 
 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 7e1ded0..1084304 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -191,6 +191,7 @@ struct ipv6_pinfo {
- 	/* sockopt flags */
- 	__u16			recverr:1,
- 	                        sndflow:1,
-+				repflow:1,
- 				pmtudisc:3,
- 				ipv6only:1,
- 				srcprefs:3,	/* 001: prefer temporary address
-diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
-index f94f1d0..a4359b1 100644
---- a/include/uapi/linux/in6.h
-+++ b/include/uapi/linux/in6.h
-@@ -85,6 +85,7 @@ struct in6_flowlabel_req {
- 
- #define IPV6_FL_F_CREATE	1
- #define IPV6_FL_F_EXCL		2
-+#define IPV6_FL_F_REFLECT 	4
- 
- #define IPV6_FL_S_NONE		0
- #define IPV6_FL_S_EXCL		1
-diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
-index e7fb710..ba23643 100644
---- a/net/ipv6/ip6_flowlabel.c
-+++ b/net/ipv6/ip6_flowlabel.c
-@@ -486,6 +486,11 @@ int ipv6_flowlabel_opt_get(struct sock *sk, struct in6_flowlabel_req *freq)
- 	struct ipv6_pinfo *np = inet6_sk(sk);
- 	struct ipv6_fl_socklist *sfl;
- 
-+	if (np->repflow) {
-+		freq->flr_label = np->flow_label;
-+		return 0;
-+	}
-+
- 	rcu_read_lock_bh();
- 
- 	for_each_sk_fl_rcu(np, sfl) {
-@@ -527,6 +532,15 @@ int ipv6_flowlabel_opt(struct sock *sk, char __user *optval, int optlen)
- 
- 	switch (freq.flr_action) {
- 	case IPV6_FL_A_PUT:
-+		if (freq.flr_flags & IPV6_FL_F_REFLECT) {
-+			if (sk->sk_protocol != IPPROTO_TCP)
-+				return -ENOPROTOOPT;
-+			if (!np->repflow)
-+				return -ESRCH;
-+			np->flow_label = 0;
-+			np->repflow = 0;
-+			return 0;
-+		}
- 		spin_lock_bh(&ip6_sk_fl_lock);
- 		for (sflp = &np->ipv6_fl_list;
- 		     (sfl = rcu_dereference(*sflp))!=NULL;
-@@ -567,6 +581,13 @@ int ipv6_flowlabel_opt(struct sock *sk, char __user *optval, int optlen)
- 		return -ESRCH;
- 
- 	case IPV6_FL_A_GET:
-+		if (freq.flr_flags & IPV6_FL_F_REFLECT) {
-+			if (sk->sk_protocol != IPPROTO_TCP)
-+				return -ENOPROTOOPT;
-+			np->repflow = 1;
-+			return 0;
-+		}
-+
- 		if (freq.flr_label & ~IPV6_FLOWLABEL_MASK)
- 			return -EINVAL;
- 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index ffd5fa8..f61bedc 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -483,6 +483,8 @@ static int tcp_v6_send_synack(struct sock *sk, struct dst_entry *dst,
- 				    &ireq->ir_v6_rmt_addr);
- 
- 		fl6->daddr = ireq->ir_v6_rmt_addr;
-+		if (np->repflow)
-+			fl6->flowlabel = np->flow_label;
- 		skb_set_queue_mapping(skb, queue_mapping);
- 		err = ip6_xmit(sk, skb, fl6, np->opt, np->tclass);
- 		err = net_xmit_eval(err);
-@@ -1000,6 +1002,8 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 	ireq = inet_rsk(req);
- 	ireq->ir_v6_rmt_addr = ipv6_hdr(skb)->saddr;
- 	ireq->ir_v6_loc_addr = ipv6_hdr(skb)->daddr;
-+	if (np->repflow)
-+		np->flow_label = ip6_flowlabel(ipv6_hdr(skb));
- 	if (!want_cookie || tmp_opt.tstamp_ok)
- 		TCP_ECN_create_request(req, skb, sock_net(sk));
- 
-@@ -1138,6 +1142,8 @@ static struct sock *tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 		newnp->mcast_oif   = inet6_iif(skb);
- 		newnp->mcast_hops  = ipv6_hdr(skb)->hop_limit;
- 		newnp->rcv_flowinfo = ip6_flowinfo(ipv6_hdr(skb));
-+		if (np->repflow)
-+			newnp->flow_label = ip6_flowlabel(ipv6_hdr(skb));
- 
- 		/*
- 		 * No need to charge this sock to the relevant IPv6 refcnt debug socks count
-@@ -1218,6 +1224,8 @@ static struct sock *tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 	newnp->mcast_oif  = inet6_iif(skb);
- 	newnp->mcast_hops = ipv6_hdr(skb)->hop_limit;
- 	newnp->rcv_flowinfo = ip6_flowinfo(ipv6_hdr(skb));
-+	if (np->repflow)
-+		newnp->flow_label = ip6_flowlabel(ipv6_hdr(skb));
- 
- 	/* Clone native IPv6 options from listening socket (if any)
- 
-@@ -1429,6 +1437,8 @@ ipv6_pktoptions:
- 			np->mcast_hops = ipv6_hdr(opt_skb)->hop_limit;
- 		if (np->rxopt.bits.rxflow || np->rxopt.bits.rxtclass)
- 			np->rcv_flowinfo = ip6_flowinfo(ipv6_hdr(opt_skb));
-+		if (np->repflow)
-+			np->flow_label = ip6_flowlabel(ipv6_hdr(opt_skb));
- 		if (ipv6_opt_accepted(sk, opt_skb)) {
- 			skb_set_owner_r(opt_skb, sk);
- 			opt_skb = xchg(&np->pktoptions, opt_skb);
--- 
-1.8.5.2
+Oh, I see. Andrew was actually referencing this function. Yes, it can
+fail. Since he omitted "_ref" I looked at the other function when I
+replied to him...
+
+> >  		gnttab_release_grant_reference(&np->gref_rx_head, ref);
+> >  		np->grant_rx_ref[id] = GRANT_INVALID_REF;
+> [...]
+> > +		kfree_skb(skb);
+> 
+> ... this could then potentially free pages that the backend still has
+> mapped.  If the pages are then reused, this would leak information to
+> the backend.
+> 
+> Since only a buggy backend would result in this, leaking the skbs and
+> grant refs would be acceptable here.  I would also print an error.
+> 
+
+How about using gnttab_end_foreign_access. The deferred queue looks like
+a right solution -- pending page won't get freed until gref is
+quiescent.
+
+Wei.
+
+> While checking blkfront for how it handles this, it also doesn't appear
+> to do the right thing either.
+> 
+> David
