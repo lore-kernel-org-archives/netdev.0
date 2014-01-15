@@ -1,68 +1,57 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH] net/ipv4: don't use module_init in non-modular gre_offload
-Date: Wed, 15 Jan 2014 09:52:14 -0500
-Message-ID: <1389797534-15657-1-git-send-email-paul.gortmaker@windriver.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next] xen-netback: Rework rx_work_todo
+Date: Wed, 15 Jan 2014 14:52:41 +0000
+Message-ID: <52D6A0B9.2030204@citrix.com>
+References: <1389727719-21439-1-git-send-email-zoltan.kiss@citrix.com> <20140115103707.GI5698@zion.uk.xensource.com> <52D67536.4030106@citrix.com> <20140115144519.GO5698@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Eric Dumazet <edumazet@google.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:45136 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752260AbaAOOwX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 09:52:23 -0500
+Received: from smtp02.citrix.com ([66.165.176.63]:26929 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751725AbaAOOwp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 09:52:45 -0500
+In-Reply-To: <20140115144519.GO5698@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recent commit 438e38fadca2f6e57eeecc08326c8a95758594d4
-("gre_offload: statically build GRE offloading support") added
-new module_init/module_exit calls to the gre_offload.c file.
+On 15/01/14 14:45, Wei Liu wrote:
+>>>> The recent patch to fix receive side flow control (11b57f) solved the spinning
+>>>> > >>thread problem, however caused an another one. The receive side can stall, if:
+>>>> > >>- xenvif_rx_action sets rx_queue_stopped to false
+>>>> > >>- interrupt happens, and sets rx_event to true
+>>>> > >>- then xenvif_kthread sets rx_event to false
+>>>> > >>
+>>> > >
+>>> > >If you mean "rx_work_todo" returns false.
+>>> > >
+>>> > >In this case
+>>> > >
+>>> > >(!skb_queue_empty(&vif->rx_queue) && !vif->rx_queue_stopped) || vif->rx_event;
+>>> > >
+>>> > >can still be true, can't it?
+>> >Sorry, I should wrote rx_queue_stopped to true
+>> >
+> In this case, if rx_queue_stopped is true, then we're expecting frontend
+> to notify us, right?
+>
+> rx_queue_stopped is set to true if we cannot make any progress to queue
+> packet into the ring. In that situation we can expect frontend will send
+> notification to backend after it goes through the backlog in the ring.
+> That means rx_event is set to true, and rx_work_todo is true again. So
+> the ring is actually not stalled in this case as well. Did I miss
+> something?
+>
 
-The file is obj-y and can't be anything other than built-in.
-Currently it can never be built modular, so using module_init
-as an alias for __initcall can be somewhat misleading.
+Yes, we expect the guest to notify us, and it does, and we set rx_event 
+to true (see second point), but then the thread set it to false (see 
+third point). Talking with Paul, another solution could be to set 
+rx_event false before calling xenvif_rx_action. But using 
+rx_last_skb_slots makes it quicker for the thread to see if it doesn't 
+have to do anything.
 
-Fix this up now, so that we can relocate module_init from
-init.h into module.h in the future.  If we don't do this, we'd
-have to add module.h to obviously non-modular code, and that
-would be a worse thing.  We also make the inclusion explicit.
-
-Note that direct use of __initcall is discouraged, vs. one
-of the priority categorized subgroups.  As __initcall gets
-mapped onto device_initcall, our use of device_initcall
-directly in this change means that the runtime impact is
-zero -- it will remain at level 6 in initcall ordering.
-
-Cc: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index 29512e3e7e7c..ed968daf2380 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -11,6 +11,7 @@
-  */
- 
- #include <linux/skbuff.h>
-+#include <linux/init.h>
- #include <net/protocol.h>
- #include <net/gre.h>
- 
-@@ -283,11 +284,10 @@ static int __init gre_offload_init(void)
- {
- 	return inet_add_offload(&gre_offload, IPPROTO_GRE);
- }
-+device_initcall(gre_offload_init);
- 
- static void __exit gre_offload_exit(void)
- {
- 	inet_del_offload(&gre_offload, IPPROTO_GRE);
- }
--
--module_init(gre_offload_init);
--module_exit(gre_offload_exit);
-+__exitcall(gre_offload_exit);
--- 
-1.8.5.2
+Zoli
