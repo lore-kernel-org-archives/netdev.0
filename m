@@ -1,50 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][net-next] gianfar: Fix portabilty issues for ethtool
- and ptp
-Date: Wed, 15 Jan 2014 14:39:54 -0800 (PST)
-Message-ID: <20140115.143954.1643141626782262450.davem@davemloft.net>
-References: <1389706500-1990-1-git-send-email-claudiu.manoil@freescale.com>
+Subject: Re: [patch net-next] neigh: split lines for NEIGH_VAR_SET so they
+ are not too long
+Date: Wed, 15 Jan 2014 14:46:19 -0800 (PST)
+Message-ID: <20140115.144619.800112241017281198.davem@davemloft.net>
+References: <1389710767-2727-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: claudiu.manoil@freescale.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41214 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41344 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753805AbaAOWj4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 17:39:56 -0500
-In-Reply-To: <1389706500-1990-1-git-send-email-claudiu.manoil@freescale.com>
+	with ESMTP id S1753526AbaAOWqU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 17:46:20 -0500
+In-Reply-To: <1389710767-2727-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Date: Tue, 14 Jan 2014 15:35:00 +0200
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Tue, 14 Jan 2014 15:46:07 +0100
 
-> Fixes unhandled register write in gianfar_ethtool.c.
-> Fixes following endianess related functional issues,
-> reported by sparse as well, i.e.:
+> introduced by:
+> commit 1f9248e5606afc6485255e38ad57bdac08fa7711
+> "neigh: convert parms to an array"
 > 
-> gianfar_ethtool.c:1058:33: warning:
->     incorrect type in argument 1 (different base types)
->     expected unsigned int [unsigned] [usertype] value
->     got restricted __be32 [usertype] ip4src
-> 
-> gianfar_ethtool.c:1164:33: warning:
->     restricted __be16 degrades to integer
-> 
-> gianfar_ethtool.c:1669:32: warning:
->     invalid assignment: ^=
->     left side has type restricted __be16
->     right side has type int
-> 
-> Solves all the sparse warnings for mixig normal pointers
-> with __iomem pointers for gianfar_ptp.c, i.e.:
-> gianfar_ptp.c:163:32: warning:
->     incorrect type in argument 1 (different address spaces)
->     expected unsigned int [noderef] <asn:2>*addr
->     got unsigned int *<noident>
-> 
-> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Applied, thank you.
+Applied, thanks a lot Jiri.
