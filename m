@@ -1,43 +1,51 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: i40e sym version file
-Date: Wed, 15 Jan 2014 08:16:45 -0800
-Message-ID: <20140115081645.484c124d@nehalam.linuxnetplumber.net>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [net-next v4 3/7] ixgbe: Use static inlines instead of macros
+Date: Wed, 15 Jan 2014 16:16:55 +0000
+Message-ID: <8B167AFF-755D-4389-BF31-69A6175B7B76@intel.com>
+References: <1389754397-2507-1-git-send-email-aaron.f.brown@intel.com>
+ <1389754397-2507-4-git-send-email-aaron.f.brown@intel.com>
+ <1389755839.14001.6.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Shannon Nelson <shannon.nelson@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: 7BIT
+Cc: "Brown, Aaron F" <aaron.f.brown@intel.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:48242 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751499AbaAOQQu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 11:16:50 -0500
-Received: by mail-pd0-f173.google.com with SMTP id p10so1317189pdj.4
-        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 08:16:50 -0800 (PST)
+Received: from mga09.intel.com ([134.134.136.24]:41392 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751499AbaAOQRR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 11:17:17 -0500
+In-Reply-To: <1389755839.14001.6.camel@joe-AO722>
+Content-Language: en-US
+Content-ID: <AB99E00952FACD499CAFFB6C58395D44@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The latest pull from Intel added a file to net-next git repo which is not
-supposed to be part of build, it is a derived file:
- create mode 100644 drivers/net/ethernet/intel/i40e/Module.symvers
+On Jan 14, 2014, at 7:17 PM, Joe Perches <joe@perches.com> wrote:
 
+> On Tue, 2014-01-14 at 18:53 -0800, Aaron Brown wrote:
+>> From: Mark Rustad <mark.d.rustad@intel.com>
+> 
+> trivia:
+> 
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+> []
+>> @@ -124,24 +124,40 @@ s32 ixgbe_reset_pipeline_82599(struct ixgbe_hw *hw);
+> []
+>> -#define IXGBE_WRITE_REG(a, reg, value) writel((value), ((a)->hw_addr + (reg)))
+>> +static inline void ixgbe_write_reg(struct ixgbe_hw *hw, u32 reg, u32 value)
+>> +{
+>> +	writel(value, hw->hw_addr + reg);
+>> +}
+>> +#define IXGBE_WRITE_REG(a, reg, value) ixgbe_write_reg((a), (reg), (value))
+> 
+> There's no real value in adding parentheses to these macros.
 
-bad commit was
-commit 9d8bf54723e9f21c502a410495840d8771f769ef
-Author: Shannon Nelson <shannon.nelson@intel.com>
-Date:   Tue Jan 14 00:49:50 2014 -0800
+I suppose that is true in this case. I have it so ingrained to always put parens around the macro parameter references, that I just automatically do it. Still, it makes it safer for any future changes, though the most likely next change here will be deletion anyway. :-)
 
-    i40e: associate VMDq queue with VM type
-    
-    Fix a bug where the queue was not associated with the right set-up
-    within the hardware.  The fix is to use the right QTX_CTL VSI type
-    when associating it to the VSI.
-    
-    Change-ID: I65ef6c5a8205601c640a6593e4b7e78d6ba45545
-    Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-    Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-    Tested-by: Sibai Li <sibai.li@intel.com>
-    Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+-- 
+Mark Rustad, Networking Division, Intel Corporation
