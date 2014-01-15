@@ -1,51 +1,50 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: Re: [PATCH 1/2 v3] ixgbe: define IXGBE_MAX_VFS_DRV_LIMIT macro and
- cleanup const 63
-Date: Wed, 15 Jan 2014 22:00:29 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B7312DA20@ORSMSX101.amr.corp.intel.com>
-References: <1389795148-341-1-git-send-email-ethan.kernel@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][net-next] gianfar: Fix portabilty issues for ethtool
+ and ptp
+Date: Wed, 15 Jan 2014 14:39:54 -0800 (PST)
+Message-ID: <20140115.143954.1643141626782262450.davem@davemloft.net>
+References: <1389706500-1990-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "ethan.kernel@gmail.com" <ethan.kernel@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389795148-341-1-git-send-email-ethan.kernel@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: claudiu.manoil@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41214 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753805AbaAOWj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 17:39:56 -0500
+In-Reply-To: <1389706500-1990-1-git-send-email-claudiu.manoil@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCAyMDE0LTAxLTE1IGF0IDIyOjEyICswODAwLCBFdGhhbiBaaGFvIHdyb3RlOgo+IEJl
-Y2F1c2UgaXhnYmUgZHJpdmVyIGxpbWl0IHRoZSBtYXggbnVtYmVyIG9mIFZGIGZ1bmN0aW9ucyBj
-b3VsZCBiZSBlbmFibGVkCj4gdG8gNjMsIHNvIGRlZmluZSBvbmUgbWFjcm8gSVhHQkVfTUFYX1ZG
-U19EUlZfTElNSVQgYW5kIGNsZWFudXAgdGhlIGNvbnN0IDYzCj4gaW4gY29kZS4KPiAKPiB2Mjog
-Zml4IGEgdHlwby4KPiB2MzogZml4IGEgZW5jb2RpbmcgaXNzdWUuCj4gCj4gU2lnbmVkLW9mZi1i
-eTogRXRoYW4gWmhhbyA8ZXRoYW4ua2VybmVsQGdtYWlsLmNvbT4KPiAtLS0KPiAgZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jICB8IDQgKystLQo+ICBkcml2ZXJz
-L25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5jIHwgNSArKystLQo+ICBkcml2
-ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5oIHwgNSArKysrKwo+ICAz
-IGZpbGVzIGNoYW5nZWQsIDEwIGluc2VydGlvbnMoKyksIDQgZGVsZXRpb25zKC0pCj4gCj4gZGlm
-ZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYyBi
-L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYwo+IGluZGV4IDBh
-ZGUwY2QuLjQ3ZTliNDQgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
-aXhnYmUvaXhnYmVfbWFpbi5jCj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhn
-YmUvaXhnYmVfbWFpbi5jCj4gQEAgLTQ4MTgsNyArNDgxOCw3IEBAIHN0YXRpYyBpbnQgaXhnYmVf
-c3dfaW5pdChzdHJ1Y3QgaXhnYmVfYWRhcHRlciAqYWRhcHRlcikKPiAgI2lmZGVmIENPTkZJR19Q
-Q0lfSU9WCj4gIAkvKiBhc3NpZ24gbnVtYmVyIG9mIFNSLUlPViBWRnMgKi8KPiAgCWlmIChody0+
-bWFjLnR5cGUgIT0gaXhnYmVfbWFjXzgyNTk4RUIpCj4gLQkJYWRhcHRlci0+bnVtX3ZmcyA9ICht
-YXhfdmZzID4gNjMpID8gMCA6IG1heF92ZnM7CgoKVW5mb3J0dW5hdGVseSB0aGUgaWYgc3RhdGVt
-ZW50IGdvdCBjaGFuZ2VkIGNvbnNpZGVyYWJseSB3aXRoIGEgcmVjZW50CmNvbW1pdDoKCmNvbW1p
-dCAxNzBlODU0MzBiY2JlNGQxOGU4MWI1YTcwYmIxNjNjNzQxMzgxMDkyCml4Z2JlOiBhZGQgd2Fy
-bmluZyB3aGVuIG1heF92ZnMgaXMgb3V0IG9mIHJhbmdlLgogICAgCkFuZCB0aGUgcGF0dGVybiBu
-byBsb25nZXIgZXhpc3RzIHRvIG1ha2UgYSBtYXRjaC4gIEluIG90aGVyIHdvcmRzLCB0aGlzCnBh
-dGNoIG5vIGxvbmdlciBhcHBsaWVzIHRvIG5ldC1uZXh0IGFuZCBJIGhhdmUgdG8gYXNrIHlvdSBm
-b3IgeWV0CmFub3RoZXIgc3BpbiBpZiB5b3Ugc3RpbGwgd2FudCB0byBzcXVhc2ggdGhlIG1hZ2lj
-IG51bWJlci4KClRoYW5rcywKQWFyb24K
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Date: Tue, 14 Jan 2014 15:35:00 +0200
+
+> Fixes unhandled register write in gianfar_ethtool.c.
+> Fixes following endianess related functional issues,
+> reported by sparse as well, i.e.:
+> 
+> gianfar_ethtool.c:1058:33: warning:
+>     incorrect type in argument 1 (different base types)
+>     expected unsigned int [unsigned] [usertype] value
+>     got restricted __be32 [usertype] ip4src
+> 
+> gianfar_ethtool.c:1164:33: warning:
+>     restricted __be16 degrades to integer
+> 
+> gianfar_ethtool.c:1669:32: warning:
+>     invalid assignment: ^=
+>     left side has type restricted __be16
+>     right side has type int
+> 
+> Solves all the sparse warnings for mixig normal pointers
+> with __iomem pointers for gianfar_ptp.c, i.e.:
+> gianfar_ptp.c:163:32: warning:
+>     incorrect type in argument 1 (different address spaces)
+>     expected unsigned int [noderef] <asn:2>*addr
+>     got unsigned int *<noident>
+> 
+> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+
+Applied, thank you.
