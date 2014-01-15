@@ -1,32 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] neigh: use NEIGH_VAR_INIT in ndo_neigh_setup
- functions.
-Date: Wed, 15 Jan 2014 12:09:52 -0800 (PST)
-Message-ID: <20140115.120952.2004059005193691793.davem@davemloft.net>
-References: <1389273227-17532-1-git-send-email-jiri@resnulli.us>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v4 0/3] Send audit/procinfo/cgroup data in socket-level
+	control message
+Date: Wed, 15 Jan 2014 12:17:30 -0800 (PST)
+Message-ID: <20140115.121730.1984913330507219167.davem@davemloft.net>
+References: <1377614400-27122-1-git-send-email-jkaluza@redhat.com>
+	<1389600109-30739-1-git-send-email-jkaluza@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jes@trained-monkey.org
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38417 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750973AbaAOUJx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 15:09:53 -0500
-In-Reply-To: <1389273227-17532-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1389600109-30739-1-git-send-email-jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu,  9 Jan 2014 14:13:47 +0100
+From: Jan Kaluza <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Date: Mon, 13 Jan 2014 09:01:46 +0100
 
-> When ndo_neigh_setup is called, the bitfield used by NEIGH_VAR_SET is
-> not initialized yet. This might cause confusion for the people who use
-> NEIGH_VAR_SET in ndo_neigh_setup. So rather introduce NEIGH_VAR_INIT for
-> usage in ndo_neigh_setup.
-> 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> Changes introduced in this patchset can also increase performance
+> of such server-like processes, because current way of opening and
+> parsing /proc/$PID/* files is much more expensive than receiving these
+> metadata using SCM.
 
-Jiri, please respond to my feedback, this patch has been rotting in
-patchwork for 6 days.
+The problem with this line of reasoning is that these changes will
+hurt everyone else, because these new control messages are sent
+unconditionally, whether the application is interested in them or not.
+
+I really don't like this cost tradeoff, it's terrible, and therefore
+I'm really not inclined to apply these patches, sorry.
