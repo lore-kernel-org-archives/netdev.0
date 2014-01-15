@@ -1,26 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: remove a redundant NULL check
-Date: Tue, 14 Jan 2014 18:19:45 -0800 (PST)
-Message-ID: <20140114.181945.615823290540787555.davem@davemloft.net>
-References: <20140113134608.GA5232@elgon.mountain>
+Subject: Re: [PATCH net-next] IPv6: move the anycast_src_echo_reply sysctl
+ to netns_sysctl_ipv6
+Date: Tue, 14 Jan 2014 18:19:53 -0800 (PST)
+Message-ID: <20140114.181953.624115111969798533.davem@davemloft.net>
+References: <1389625141-3076-1-git-send-email-fx.lebail@yahoo.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, nhorman@tuxdriver.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20140113134608.GA5232@elgon.mountain>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
+To: fx.lebail@yahoo.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54429 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752017AbaAOCTy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 21:19:54 -0500
+In-Reply-To: <1389625141-3076-1-git-send-email-fx.lebail@yahoo.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Mon, 13 Jan 2014 16:46:08 +0300
+From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+Date: Mon, 13 Jan 2014 15:59:01 +0100
 
-> It confuses Smatch when we check "sinit" for NULL and then non-NULL and
-> that causes a false positive warning later.
+> This change move anycast_src_echo_reply sysctl with other ipv6 sysctls.
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
 
 Applied.
