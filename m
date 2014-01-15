@@ -1,279 +1,131 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next v2 10/10] net: nl80211: __dev_get_by_index instead of dev_get_by_index to find interface
-Date: Wed, 15 Jan 2014 10:23:45 +0800
-Message-ID: <1389752625-23189-11-git-send-email-ying.xue@windriver.com>
-References: <1389752625-23189-1-git-send-email-ying.xue@windriver.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the mips tree
+Date: Wed, 15 Jan 2014 13:24:36 +1100
+Message-ID: <20140115132436.8b89920c1ed4c0d293883b85@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <vfalico@redhat.com>, <john.r.fastabend@intel.com>,
-	<stephen@networkplumber.org>, <antonio@meshcoding.com>,
-	<dmitry.tarnyagin@lockless.no>, <socketcan@hartkopp.net>,
-	<johannes@sipsolutions.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__15_Jan_2014_13_24_36_+1100_R9OXwE5CiIP2G.9j"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	=?UTF-8?B?IlJhZmHFgiBNacWCZWNraSI=?= <zajec5@gmail.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Ralf Baechle <ralf@linux-mips.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389752625-23189-1-git-send-email-ying.xue@windriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As __cfg80211_rdev_from_attrs(), nl80211_dump_wiphy_parse() and
-nl80211_set_wiphy() are all under rtnl_lock protection,
-__dev_get_by_index() instead of dev_get_by_index() should be used
-to find interface handler in them allowing us to avoid to change
-interface reference counter.
+--Signature=_Wed__15_Jan_2014_13_24_36_+1100_R9OXwE5CiIP2G.9j
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Cc: Johannes Berg <johannes@sipsolutions.net>
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
----
- net/wireless/nl80211.c |  102 ++++++++++++++++++------------------------------
- 1 file changed, 37 insertions(+), 65 deletions(-)
+Hi all,
 
-diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
-index b4f40fe..4fa555e 100644
---- a/net/wireless/nl80211.c
-+++ b/net/wireless/nl80211.c
-@@ -165,7 +165,7 @@ __cfg80211_rdev_from_attrs(struct net *netns, struct nlattr **attrs)
- 
- 	if (attrs[NL80211_ATTR_IFINDEX]) {
- 		int ifindex = nla_get_u32(attrs[NL80211_ATTR_IFINDEX]);
--		netdev = dev_get_by_index(netns, ifindex);
-+		netdev = __dev_get_by_index(netns, ifindex);
- 		if (netdev) {
- 			if (netdev->ieee80211_ptr)
- 				tmp = wiphy_to_dev(
-@@ -173,8 +173,6 @@ __cfg80211_rdev_from_attrs(struct net *netns, struct nlattr **attrs)
- 			else
- 				tmp = NULL;
- 
--			dev_put(netdev);
--
- 			/* not wireless device -- return error */
- 			if (!tmp)
- 				return ERR_PTR(-EINVAL);
-@@ -1656,7 +1654,7 @@ static int nl80211_dump_wiphy_parse(struct sk_buff *skb,
- 		struct cfg80211_registered_device *rdev;
- 		int ifidx = nla_get_u32(tb[NL80211_ATTR_IFINDEX]);
- 
--		netdev = dev_get_by_index(sock_net(skb->sk), ifidx);
-+		netdev = __dev_get_by_index(sock_net(skb->sk), ifidx);
- 		if (!netdev)
- 			return -ENODEV;
- 		if (netdev->ieee80211_ptr) {
-@@ -1664,7 +1662,6 @@ static int nl80211_dump_wiphy_parse(struct sk_buff *skb,
- 				netdev->ieee80211_ptr->wiphy);
- 			state->filter_wiphy = rdev->wiphy_idx;
- 		}
--		dev_put(netdev);
- 	}
- 
- 	return 0;
-@@ -1987,7 +1984,7 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
- 	if (info->attrs[NL80211_ATTR_IFINDEX]) {
- 		int ifindex = nla_get_u32(info->attrs[NL80211_ATTR_IFINDEX]);
- 
--		netdev = dev_get_by_index(genl_info_net(info), ifindex);
-+		netdev = __dev_get_by_index(genl_info_net(info), ifindex);
- 		if (netdev && netdev->ieee80211_ptr)
- 			rdev = wiphy_to_dev(netdev->ieee80211_ptr->wiphy);
- 		else
-@@ -2015,32 +2012,24 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
- 			rdev, nla_data(info->attrs[NL80211_ATTR_WIPHY_NAME]));
- 
- 	if (result)
--		goto bad_res;
-+		return result;
- 
- 	if (info->attrs[NL80211_ATTR_WIPHY_TXQ_PARAMS]) {
- 		struct ieee80211_txq_params txq_params;
- 		struct nlattr *tb[NL80211_TXQ_ATTR_MAX + 1];
- 
--		if (!rdev->ops->set_txq_params) {
--			result = -EOPNOTSUPP;
--			goto bad_res;
--		}
-+		if (!rdev->ops->set_txq_params)
-+			return -EOPNOTSUPP;
- 
--		if (!netdev) {
--			result = -EINVAL;
--			goto bad_res;
--		}
-+		if (!netdev)
-+			return -EINVAL;
- 
- 		if (netdev->ieee80211_ptr->iftype != NL80211_IFTYPE_AP &&
--		    netdev->ieee80211_ptr->iftype != NL80211_IFTYPE_P2P_GO) {
--			result = -EINVAL;
--			goto bad_res;
--		}
-+		    netdev->ieee80211_ptr->iftype != NL80211_IFTYPE_P2P_GO)
-+			return -EINVAL;
- 
--		if (!netif_running(netdev)) {
--			result = -ENETDOWN;
--			goto bad_res;
--		}
-+		if (!netif_running(netdev))
-+			return -ENETDOWN;
- 
- 		nla_for_each_nested(nl_txq_params,
- 				    info->attrs[NL80211_ATTR_WIPHY_TXQ_PARAMS],
-@@ -2051,12 +2040,12 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
- 				  txq_params_policy);
- 			result = parse_txq_params(tb, &txq_params);
- 			if (result)
--				goto bad_res;
-+				return result;
- 
- 			result = rdev_set_txq_params(rdev, netdev,
- 						     &txq_params);
- 			if (result)
--				goto bad_res;
-+				return result;
- 		}
- 	}
- 
-@@ -2065,7 +2054,7 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
- 				nl80211_can_set_dev_channel(wdev) ? wdev : NULL,
- 				info);
- 		if (result)
--			goto bad_res;
-+			return result;
- 	}
- 
- 	if (info->attrs[NL80211_ATTR_WIPHY_TX_POWER_SETTING]) {
-@@ -2076,19 +2065,15 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
- 		if (!(rdev->wiphy.features & NL80211_FEATURE_VIF_TXPOWER))
- 			txp_wdev = NULL;
- 
--		if (!rdev->ops->set_tx_power) {
--			result = -EOPNOTSUPP;
--			goto bad_res;
--		}
-+		if (!rdev->ops->set_tx_power)
-+			return -EOPNOTSUPP;
- 
- 		idx = NL80211_ATTR_WIPHY_TX_POWER_SETTING;
- 		type = nla_get_u32(info->attrs[idx]);
- 
- 		if (!info->attrs[NL80211_ATTR_WIPHY_TX_POWER_LEVEL] &&
--		    (type != NL80211_TX_POWER_AUTOMATIC)) {
--			result = -EINVAL;
--			goto bad_res;
--		}
-+		    (type != NL80211_TX_POWER_AUTOMATIC))
-+			return -EINVAL;
- 
- 		if (type != NL80211_TX_POWER_AUTOMATIC) {
- 			idx = NL80211_ATTR_WIPHY_TX_POWER_LEVEL;
-@@ -2097,7 +2082,7 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
- 
- 		result = rdev_set_tx_power(rdev, txp_wdev, type, mbm);
- 		if (result)
--			goto bad_res;
-+			return result;
- 	}
- 
- 	if (info->attrs[NL80211_ATTR_WIPHY_ANTENNA_TX] &&
-@@ -2105,10 +2090,8 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
- 		u32 tx_ant, rx_ant;
- 		if ((!rdev->wiphy.available_antennas_tx &&
- 		     !rdev->wiphy.available_antennas_rx) ||
--		    !rdev->ops->set_antenna) {
--			result = -EOPNOTSUPP;
--			goto bad_res;
--		}
-+		    !rdev->ops->set_antenna)
-+			return -EOPNOTSUPP;
- 
- 		tx_ant = nla_get_u32(info->attrs[NL80211_ATTR_WIPHY_ANTENNA_TX]);
- 		rx_ant = nla_get_u32(info->attrs[NL80211_ATTR_WIPHY_ANTENNA_RX]);
-@@ -2116,17 +2099,15 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
- 		/* reject antenna configurations which don't match the
- 		 * available antenna masks, except for the "all" mask */
- 		if ((~tx_ant && (tx_ant & ~rdev->wiphy.available_antennas_tx)) ||
--		    (~rx_ant && (rx_ant & ~rdev->wiphy.available_antennas_rx))) {
--			result = -EINVAL;
--			goto bad_res;
--		}
-+		    (~rx_ant && (rx_ant & ~rdev->wiphy.available_antennas_rx)))
-+			return -EINVAL;
- 
- 		tx_ant = tx_ant & rdev->wiphy.available_antennas_tx;
- 		rx_ant = rx_ant & rdev->wiphy.available_antennas_rx;
- 
- 		result = rdev_set_antenna(rdev, tx_ant, rx_ant);
- 		if (result)
--			goto bad_res;
-+			return result;
- 	}
- 
- 	changed = 0;
-@@ -2134,30 +2115,27 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
- 	if (info->attrs[NL80211_ATTR_WIPHY_RETRY_SHORT]) {
- 		retry_short = nla_get_u8(
- 			info->attrs[NL80211_ATTR_WIPHY_RETRY_SHORT]);
--		if (retry_short == 0) {
--			result = -EINVAL;
--			goto bad_res;
--		}
-+		if (retry_short == 0)
-+			return -EINVAL;
-+
- 		changed |= WIPHY_PARAM_RETRY_SHORT;
- 	}
- 
- 	if (info->attrs[NL80211_ATTR_WIPHY_RETRY_LONG]) {
- 		retry_long = nla_get_u8(
- 			info->attrs[NL80211_ATTR_WIPHY_RETRY_LONG]);
--		if (retry_long == 0) {
--			result = -EINVAL;
--			goto bad_res;
--		}
-+		if (retry_long == 0)
-+			return -EINVAL;
-+
- 		changed |= WIPHY_PARAM_RETRY_LONG;
- 	}
- 
- 	if (info->attrs[NL80211_ATTR_WIPHY_FRAG_THRESHOLD]) {
- 		frag_threshold = nla_get_u32(
- 			info->attrs[NL80211_ATTR_WIPHY_FRAG_THRESHOLD]);
--		if (frag_threshold < 256) {
--			result = -EINVAL;
--			goto bad_res;
--		}
-+		if (frag_threshold < 256)
-+			return -EINVAL;
-+
- 		if (frag_threshold != (u32) -1) {
- 			/*
- 			 * Fragments (apart from the last one) are required to
-@@ -2187,10 +2165,8 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
- 		u32 old_frag_threshold, old_rts_threshold;
- 		u8 old_coverage_class;
- 
--		if (!rdev->ops->set_wiphy_params) {
--			result = -EOPNOTSUPP;
--			goto bad_res;
--		}
-+		if (!rdev->ops->set_wiphy_params)
-+			return -EOPNOTSUPP;
- 
- 		old_retry_short = rdev->wiphy.retry_short;
- 		old_retry_long = rdev->wiphy.retry_long;
-@@ -2218,11 +2194,7 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
- 			rdev->wiphy.coverage_class = old_coverage_class;
- 		}
- 	}
--
-- bad_res:
--	if (netdev)
--		dev_put(netdev);
--	return result;
-+	return 0;
- }
- 
- static inline u64 wdev_id(struct wireless_dev *wdev)
--- 
-1.7.9.5
+Today's linux-next merge of the net-next tree got a conflict in arch/mips/b=
+cm47xx/setup.c between commits dc8db0fd9f9f ("MIPS: BCM47XX: Prepare suppor=
+t for LEDs"), db780310ed48 ("MIPS: BCM47XX: Prepare support for GPIO button=
+s") and 7fb942c59696 ("MIPS: BCM47XX: fix position of cpu_wait disabling") =
+from the mips tree and commit b04138b33520 ("b44: use fixed PHY device if w=
+e do not find any") from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc arch/mips/bcm47xx/setup.c
+index 12d77e9c2cb4,9057728ac56b..000000000000
+--- a/arch/mips/bcm47xx/setup.c
++++ b/arch/mips/bcm47xx/setup.c
+@@@ -26,10 -26,11 +26,13 @@@
+   *  675 Mass Ave, Cambridge, MA 02139, USA.
+   */
+ =20
+ +#include "bcm47xx_private.h"
+ +
+  #include <linux/export.h>
+  #include <linux/types.h>
++ #include <linux/ethtool.h>
++ #include <linux/phy.h>
++ #include <linux/phy_fixed.h>
+  #include <linux/ssb/ssb.h>
+  #include <linux/ssb/ssb_embedded.h>
+  #include <linux/bcma/bcma_soc.h>
+@@@ -229,34 -226,14 +232,40 @@@ void __init plat_mem_setup(void
+  	_machine_halt =3D bcm47xx_machine_halt;
+  	pm_power_off =3D bcm47xx_machine_halt;
+  	bcm47xx_board_detect();
+ +	mips_set_machine_name(bcm47xx_board_get_name());
+  }
+ =20
+ +static int __init bcm47xx_cpu_fixes(void)
+ +{
+ +	switch (bcm47xx_bus_type) {
+ +#ifdef CONFIG_BCM47XX_SSB
+ +	case BCM47XX_BUS_TYPE_SSB:
+ +		/* Nothing to do */
+ +		break;
+ +#endif
+ +#ifdef CONFIG_BCM47XX_BCMA
+ +	case BCM47XX_BUS_TYPE_BCMA:
+ +		/* The BCM4706 has a problem with the CPU wait instruction.
+ +		 * When r4k_wait or r4k_wait_irqoff is used will just hang and
+ +		 * not return from a msleep(). Removing the cpu_wait
+ +		 * functionality is a workaround for this problem. The BCM4716
+ +		 * does not have this problem.
+ +		 */
+ +		if (bcm47xx_bus.bcma.bus.chipinfo.id =3D=3D BCMA_CHIP_ID_BCM4706)
+ +			cpu_wait =3D NULL;
+ +		break;
+ +#endif
+ +	}
+ +	return 0;
+ +}
+ +arch_initcall(bcm47xx_cpu_fixes);
+ +
++ static struct fixed_phy_status bcm47xx_fixed_phy_status __initdata =3D {
++ 	.link	=3D 1,
++ 	.speed	=3D SPEED_100,
++ 	.duplex	=3D DUPLEX_FULL,
++ };
++=20
+  static int __init bcm47xx_register_bus_complete(void)
+  {
+  	switch (bcm47xx_bus_type) {
+@@@ -271,9 -248,7 +280,10 @@@
+  		break;
+  #endif
+  	}
+ +	bcm47xx_buttons_register();
+ +	bcm47xx_leds_register();
+ +
++ 	fixed_phy_add(PHY_POLL, 0, &bcm47xx_fixed_phy_status);
+  	return 0;
+  }
+  device_initcall(bcm47xx_register_bus_complete);
+
+--Signature=_Wed__15_Jan_2014_13_24_36_+1100_R9OXwE5CiIP2G.9j
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJS1fFsAAoJEMDTa8Ir7ZwVhNEP/ArxfSdJ0zT6uSqnFWgAYp5r
+wNpfB9W8i+f/4pKBE36nGeT+OlEUpT3C+6Wz9EBHegxaoGyYDXg10cGyhHE0fiCv
+9ssb1XIMG4sbD5V4j1O72hTwzDNsTyQM4D/EywsQAR+nP/IxtN/009yl8XxNc65h
+5z3xUhrvJhDGawUvcW9VKEEWLO4x+vncBk/KJCrX9DTroeuUFwCmMegR6TpfF9e0
+EYRu0viVrSBPr2FWTcDVcqrgvPE+d9/6m5aP65FpDHBhI01HPIg01kGJzeTvuqlK
+kcEqNF0SXH2GizzZGkaV+d13juQ3wzTFCDbMaPrcXrboDzVU9bkIhgQvx6qmJUhf
+YFYbuMAtsj+XCKqqbN5FYaqbizZyc6Q7ko4orooQEF/qA1OkLhXCOMrFVZEIBCFx
+tAcJZ8HZt1o4pFO4UJxIti5HkOqLMDpZja3q3M1gqXJHG0h6WWHB38V+rGsnRO8x
+2wpGmah38bUrh6QBQNVWWIUAPYSglGMThA64fZgQ0nU5siqzWEfzzR1auHWk/UBz
++chAJhAX0LWeDEpFIap4vAKmKFj+Q8VJS1Nt0n4XMWBL2/Bbmo+9HtvM1DmEYLxt
+mFES2xSLB8Zy4b+4XfTbH9wzbn2bic3WTiVx0fJMZ6ErtB2DqpxEwHpd2jyNwvBx
+BTgeAdxmQ50Lu+/T8QK4
+=UWkI
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__15_Jan_2014_13_24_36_+1100_R9OXwE5CiIP2G.9j--
