@@ -1,117 +1,124 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCHv2 net-next 3/4] flowcache: Fixup flow cache part in xfrm
- policy
-Date: Wed, 15 Jan 2014 15:19:40 +0800
-Message-ID: <52D6368C.4060005@windriver.com>
-References: <1389663588-29678-1-git-send-email-fan.du@windriver.com> <1389663588-29678-4-git-send-email-fan.du@windriver.com> <20140114185907.GB1971@kria>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next] tun/macvtap: limit the packets queued through
+ rcvbuf
+Date: Wed, 15 Jan 2014 09:21:04 +0200
+Message-ID: <20140115072104.GA32078@redhat.com>
+References: <1389682387-28601-1-git-send-email-jasowang@redhat.com>
+ <20140114082516.GB1101@redhat.com>
+ <52D4F924.2040502@redhat.com>
+ <20140114095219.GB2846@redhat.com>
+ <52D60221.1060701@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	<davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Sabrina Dubroca <sd@queasysnail.net>,
-	=?UTF-8?B?546L6IGq?= <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:64604 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750856AbaAOHTx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 02:19:53 -0500
-In-Reply-To: <20140114185907.GB1971@kria>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Vlad Yasevich <vyasevic@redhat.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <52D60221.1060701@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Jan 15, 2014 at 11:36:01AM +0800, Jason Wang wrote:
+> On 01/14/2014 05:52 PM, Michael S. Tsirkin wrote:
+> > On Tue, Jan 14, 2014 at 04:45:24PM +0800, Jason Wang wrote:
+> >> > On 01/14/2014 04:25 PM, Michael S. Tsirkin wrote:
+> >>> > > On Tue, Jan 14, 2014 at 02:53:07PM +0800, Jason Wang wrote:
+> >>>> > >> We used to limit the number of packets queued through tx_queue_length. This
+> >>>> > >> has several issues:
+> >>>> > >>
+> >>>> > >> - tx_queue_length is the control of qdisc queue length, simply reusing it
+> >>>> > >>   to control the packets queued by device may cause confusion.
+> >>>> > >> - After commit 6acf54f1cf0a6747bac9fea26f34cfc5a9029523 ("macvtap: Add
+> >>>> > >>   support of packet capture on macvtap device."), an unexpected qdisc
+> >>>> > >>   caused by non-zero tx_queue_length will lead qdisc lock contention for
+> >>>> > >>   multiqueue deivce.
+> >>>> > >> - What we really want is to limit the total amount of memory occupied not
+> >>>> > >>   the number of packets.
+> >>>> > >>
+> >>>> > >> So this patch tries to solve the above issues by using socket rcvbuf to
+> >>>> > >> limit the packets could be queued for tun/macvtap. This was done by using
+> >>>> > >> sock_queue_rcv_skb() instead of a direct call to skb_queue_tail(). Also two
+> >>>> > >> new ioctl() were introduced for userspace to change the rcvbuf like what we
+> >>>> > >> have done for sndbuf.
+> >>>> > >>
+> >>>> > >> With this fix, we can safely change the tx_queue_len of macvtap to
+> >>>> > >> zero. This will make multiqueue works without extra lock contention.
+> >>>> > >>
+> >>>> > >> Cc: Vlad Yasevich <vyasevic@redhat.com>
+> >>>> > >> Cc: Michael S. Tsirkin <mst@redhat.com>
+> >>>> > >> Cc: John Fastabend <john.r.fastabend@intel.com>
+> >>>> > >> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> >>>> > >> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> >>>> > >> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> >>> > > No, I don't think we can change userspace-visible behaviour like that.
+> >>> > >
+> >>> > > This will break any existing user that tries to control
+> >>> > > queue length through sysfs,netlink or device ioctl.
+> >> > 
+> >> > But it looks like a buggy API, since tx_queue_len should be for qdisc
+> >> > queue length instead of device itself.
+> > Probably, but it's been like this since 2.6.x time.
+> > Also, qdisc queue is unused for tun so it seemed kind of
+> > reasonable to override tx_queue_len.
+> >
+> >> > If we really want to preserve the
+> >> > behaviour, how about using a new feature flag and change the behaviour
+> >> > only when the device is created (TUNSETIFF) with the new flag?
+> > OK this addresses the issue partially, but there's also an issue
+> > of permissions: tx_queue_len can only be changed if
+> > capable(CAP_NET_ADMIN). OTOH in your patch a regular user
+> > can change the amount of memory consumed per queue
+> > by calling TUNSETRCVBUF.
+> 
+> Yes, but we have the same issue for TUNSETSNDBUF.
 
+To an extent, but TUNSETSNDBUF is different. It limits how much device can queue
+*in the networking stack* but each queue in the stack is also
+limited, when we exceed that we star dropping packets.
+So while with infinite value (which is the default btw)
+you can keep host pretty busy, you will not be able to run
+it out of memory.
 
-On 2014=E5=B9=B401=E6=9C=8815=E6=97=A5 02:59, Sabrina Dubroca wrote:
-> 2014-01-14, 09:39:46 +0800, Fan Du wrote:
->> Bump flow cache genid, and flush flow cache should also be made
->> in per net style.
->>
->> Signed-off-by: Fan Du<fan.du@windriver.com>
->> ---
->>   net/xfrm/xfrm_policy.c |    7 ++++---
->>   1 file changed, 4 insertions(+), 3 deletions(-)
->>
->> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
->> index e205c4b..d39c90f 100644
->> --- a/net/xfrm/xfrm_policy.c
->> +++ b/net/xfrm/xfrm_policy.c
->> @@ -661,7 +661,7 @@ int xfrm_policy_insert(int dir, struct xfrm_poli=
-cy *policy, int excl)
->>   		hlist_add_head(&policy->bydst, chain);
->>   	xfrm_pol_hold(policy);
->>   	net->xfrm.policy_count[dir]++;
->> -	atomic_inc(&flow_cache_genid);
->> +	atomic_inc(&net->xfrm.flow_cache_genid);
->>
->>   	/* After previous checking, family can either be AF_INET or AF_IN=
-ET6 */
->>   	if (policy->family =3D=3D AF_INET)
->> @@ -2567,14 +2567,14 @@ static void __xfrm_garbage_collect(struct ne=
-t *net)
->>
->>   void xfrm_garbage_collect(struct net *net)
->>   {
->> -	flow_cache_flush();
->> +	flow_cache_flush(net);
->>   	__xfrm_garbage_collect(net);
->>   }
->>   EXPORT_SYMBOL(xfrm_garbage_collect);
->>
->>   static void xfrm_garbage_collect_deferred(struct net *net)
->>   {
->> -	flow_cache_flush_deferred();
->> +	flow_cache_flush_deferred(net);
->>   	__xfrm_garbage_collect(net);
->>   }
->>
->> @@ -2947,6 +2947,7 @@ static int __net_init xfrm_net_init(struct net=
- *net)
->>   	spin_lock_init(&net->xfrm.xfrm_policy_sk_bundle_lock);
->>   	mutex_init(&net->xfrm.xfrm_cfg_mutex);
->>
->> +	flow_cache_init(net);
->>   	return 0;
->>
->>   out_sysctl:
->
->
-> You didn't address Cong Wang's comments for v1:
+The proposed TUNSETRCVBUF would keep configured amount
+of memory around indefinitely so you can run host out of memory.
 
-Sorry, seems company email server didn't forward below message to me=E3=
-=80=82=E3=80=82=E3=80=82
-but I saw yours. I'm happy to forge the relevant patches into one singl=
-e
-patch in next next version :) if Steffen doesn't complain.
+So assuming all this
+How about an ethtool or netlink command to configure this
+instead?
 
->
-> 2014-01-13, 11:42:47 -0800, Cong Wang wrote:
->> On Sun, Jan 12, 2014 at 11:49 PM, Fan Du<fan.du@windriver.com>  wrot=
-e:
->>>   void xfrm_garbage_collect(struct net *net)
->>>   {
->>> -       flow_cache_flush();
->>> +       flow_cache_flush(net);
->>>          __xfrm_garbage_collect(net);
->>>   }
->>>   EXPORT_SYMBOL(xfrm_garbage_collect);
->>>
->>>   static void xfrm_garbage_collect_deferred(struct net *net)
->>>   {
->>> -       flow_cache_flush_deferred();
->>> +       flow_cache_flush_deferred(net);
->>>          __xfrm_garbage_collect(net);
->>>   }
->>>
->>
->> You changed the prototypes of flow_cache_flush*() in the previous
->> patch, so, here you break bisect. They have to be in one commit.
->
->
+> >
+> >>> > >
+> >>> > > Take a look at my patch in msg ID 20140109071721.GD19559@redhat.com
+> >>> > > which gives one way to set tx_queue_len to zero without
+> >>> > > breaking userspace.
+> >> > 
+> >> > If I read the patch correctly, it will make no way for the user who
+> >> > really want to change the qdisc queue length for tun.
+> > Why would this matter?  As far as I can see qdisc queue is currently unused.
+> >
+> 
+> User may use qdisc to do port mirroring, bandwidth limitation, traffic
+> prioritization or more for a VM. So we do have users and maybe more
+> consider the case of vpn.
 
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
+Well it's not used by default at least.
+I remember that we discussed this previously actually.
 
---fan
+If all we want to do actually is utilize no_qdisc by default,
+we can simply use Eric's patch:
+
+http://article.gmane.org/gmane.linux.kernel/1279597
+
+and a similar patch for macvtap.
+I tried it at the time and it didn't seem to help performance
+at all, but a lot has changed since, in particular I didn't
+test mq.
+
+If you now have results showing how it's beneficial, pls post them.
+
+-- 
+MST
