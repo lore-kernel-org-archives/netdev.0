@@ -1,52 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: do not export tcp_gso_segment() and
- tcp_gro_receive()
-Date: Tue, 14 Jan 2014 16:31:46 -0800
-Message-ID: <1389745906.31367.294.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/2] tcp: delete redundant calls of tcp_mtup_init()
+ and
+Date: Tue, 14 Jan 2014 16:41:05 -0800 (PST)
+Message-ID: <20140114.164105.524133214769947013.davem@davemloft.net>
+References: <cover.1389513042.git.panweiping3@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: panweiping3@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f169.google.com ([209.85.161.169]:43301 "EHLO
-	mail-gg0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751707AbaAOAbu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 19:31:50 -0500
-Received: by mail-gg0-f169.google.com with SMTP id j5so314893ggn.14
-        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 16:31:48 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:53962 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751038AbaAOAlI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 19:41:08 -0500
+In-Reply-To: <cover.1389513042.git.panweiping3@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Weiping Pan <panweiping3@gmail.com>
+Date: Sun, 12 Jan 2014 15:54:29 +0800
 
-tcp_gso_segment() and tcp_gro_receive() no longer need to be
-exported. IPv4 and IPv6 offloads are statically linked.
+> I find that both tcp_v4_syn_recv_sock() and tcp_v6_syn_recv_sock() call them
+> for new sock, so delete redundant calls of them. 
+> 
+> Weiping Pan (2):
+>   tcp: delete redundant calls of tcp_mtup_init()
+>   tcp: delete redundant call of tcp_initialize_rcv_mss()
 
-Note that tcp_gro_complete() is still used by bnx2x, unfortunately.
+I do not agree with the approach of these two patches.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_offload.c |    2 --
- 1 file changed, 2 deletions(-)
+It is better to have tcp_rcv_state_process() (one location) make these
+calls rather than each and every inet sock operations instance.
 
-diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
-index 771a3950d87a..b92b81718ca4 100644
---- a/net/ipv4/tcp_offload.c
-+++ b/net/ipv4/tcp_offload.c
-@@ -138,7 +138,6 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
- out:
- 	return segs;
- }
--EXPORT_SYMBOL(tcp_gso_segment);
- 
- struct sk_buff **tcp_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- {
-@@ -235,7 +234,6 @@ out:
- 
- 	return pp;
- }
--EXPORT_SYMBOL(tcp_gro_receive);
- 
- int tcp_gro_complete(struct sk_buff *skb)
- {
+Therefore you should remove the calls from tcp_v{4,6}_recv_sock() and
+keep the one in tcp_rcv_state_process().
+
+Thanks.
