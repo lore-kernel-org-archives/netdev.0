@@ -1,140 +1,82 @@
-From: Dmitry Kasatkin <dmitry.kasatkin@gmail.com>
-Subject: Re: throughput problems with realtek
-Date: Wed, 15 Jan 2014 14:04:54 +0200
-Message-ID: <CACE9dm_xg68Py=Aigb=ZrPOWpDwKc_OBd2vgE-sdiEkKXLp_dA@mail.gmail.com>
-References: <CACE9dm_3jw08_dfXRJRMQ=r4X1NZ1kHF6TZopFSNy3k+DCKgTA@mail.gmail.com>
+From: Ido Shamai <idos@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 2/2] net/mlx4: Revert "mlx4: set maximal number
+ of default RSS queues"
+Date: Wed, 15 Jan 2014 14:15:59 +0200
+Message-ID: <52D67BFF.6070102@dev.mellanox.co.il>
+References: <1388581537-4810-1-git-send-email-amirv@mellanox.com>	<1388581537-4810-3-git-send-email-amirv@mellanox.com>	<979A8436335E3744ADCD3A9F2A2B68A52AF21A1A@SJEXCHMB10.corp.ad.broadcom.com> <CAJZOPZ++ETzuttO9_ZTy6Atx6=wKyhXUhxyQHj2Ed5nTUBNC0A@mail.gmail.com> <979A8436335E3744ADCD3A9F2A2B68A52AF21C13@SJEXCHMB10.corp.ad.broadcom.com> <52C532DB.9000200@mellanox.com> <979A8436335E3744ADCD3A9F2A2B68A52AF21E1F@SJEXCHMB10.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: l.moiseichuk@samsung.com
-To: nic_swsd@realtek.com, romieu@fr.zoreil.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Amir Vadai <amirv@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>
+To: Yuval Mintz <yuvalmin@broadcom.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:33094 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751047AbaAOME4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 07:04:56 -0500
-Received: by mail-wg0-f41.google.com with SMTP id n12so5040596wgh.4
-        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 04:04:55 -0800 (PST)
-In-Reply-To: <CACE9dm_3jw08_dfXRJRMQ=r4X1NZ1kHF6TZopFSNy3k+DCKgTA@mail.gmail.com>
+Received: from mail-ea0-f169.google.com ([209.85.215.169]:64167 "EHLO
+	mail-ea0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751913AbaAOMQZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 07:16:25 -0500
+Received: by mail-ea0-f169.google.com with SMTP id l9so366635eaj.28
+        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 04:16:24 -0800 (PST)
+In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A52AF21E1F@SJEXCHMB10.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Forgot to tell, I am running Ubuntu 13.10 with 3.11.0-15 kernel...
+On 1/2/2014 12:27 PM, Yuval Mintz wrote:
+>>>> Going back to your original commit 16917b87a "net-next: Add
+>>>> netif_get_num_default_rss_queues" I am still not clear why we want
+>>>>
+>>>> 1. why we want a common default to all MQ devices?
+>>> Although networking benefits from multiple Interrupt vectors
+>>> (enabling more rings, better performance, etc.), bounding this
+>>> number only to the number of cpus is unreasonable as it strains
+>>> system resources; e.g., consider a 40-cpu server - we might wish
+>>> to have 40 vectors per device, but that means that connecting
+>>> several devices to the same server might cause other functions
+>>> to fail probe as they will no longer be able to acquire interrupt
+>>> vectors of their own.
+>>
+>> Modern servers which have tens of CPUs typically have thousands of MSI-X
+>> vectors which means you should be easily able to plug four cards into a
+>> server with 64 cores which will consume 256 out of the 1-4K vectors out
+>> there. Anyway, let me continue your approach - how about raising the
+>> default hard limit to 16 or having it as the number of cores @ the numa
+>> node where the card is plugged?
+>
+> I think an additional issue was memory consumption -
+> additional interrupts --> additional allocated memory (for Rx rings).
+> And I do know the issues were real - we've had complains about devices
+> failing to load due to lack of resources (not all servers in the world are
+> top of the art).
+>
+> Anyway, I believe 8/16 are simply strict limitations without any true meaning;
+> To judge what's more important, default `slimness' or default performance
+> is beyond me.
+> Perhaps the numa approach will prove beneficial (and will make some sense).
 
+After reviewing all that was said, I feel there is no need to enforce 
+vendors with this strict limitation without any true meaning.
 
-On Wed, Jan 15, 2014 at 1:56 PM, Dmitry Kasatkin
-<dmitry.kasatkin@gmail.com> wrote:
-> Hi,
->
-> We have several devices with such adapter..
->
-> Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168/8411
-> PCI Express Gigabit Ethernet Controller (rev 06)
-> See output of the lspci -vvv bellow...
->
-> And I suddenly investigated throughput issues..
->
-> After couple minutes of running 'iperf -c server' transmission speed
-> drops substantially...
->
-> [  4]  0.0-10.0 sec  1.10 GBytes   948 Mbits/sec
-> [  5] local 106.122.1.113 port 5001 connected with 106.122.1.121 port 60508
-> [  5]  0.0-10.0 sec  1.10 GBytes   948 Mbits/sec
-> [  4] local 106.122.1.113 port 5001 connected with 106.122.1.121 port 60509
-> [  4]  0.0-10.0 sec  1.10 GBytes   949 Mbits/sec
-> [  5] local 106.122.1.113 port 5001 connected with 106.122.1.121 port 60510
-> [  5]  0.0-10.0 sec  1.10 GBytes   948 Mbits/sec
-> [  4] local 106.122.1.113 port 5001 connected with 106.122.1.121 port 60511
-> [  4]  0.0-10.0 sec   626 MBytes   525 Mbits/sec
-> [  5] local 106.122.1.113 port 5001 connected with 106.122.1.121 port 60512
-> [  5]  0.0-10.0 sec  84.4 MBytes  70.5 Mbits/sec
-> [  4] local 106.122.1.113 port 5001 connected with 106.122.1.121 port 60513
-> [  4]  0.0-10.0 sec  87.4 MBytes  73.0 Mbits/sec
-> [  5] local 106.122.1.113 port 5001 connected with 106.122.1.121 port 60514
->
->
-> But it seems after certain time of inactivity (low load) speed will be
-> up again...
->
-> It happens almost the same way on desktop machines and also on Samsung
-> Series 7 laptop NP770Z5E...
->
-> Does anyone have any ideas about it?
->
-> --
+The reverted commit you applied forces the driver to use 8 rings at max 
+at all time, without the possibility to change in flight using ethtool, 
+as it's enforced on the PCI driver at module init (restarting the en 
+driver with different of requested rings will not affect).
+So it's crucial for performance oriented applications using mlx4_en.
+
+Going through all Ethernet vendors I don't see this limitation enforced, 
+so this limitation has no true meaning (no fairness).
+I think this patch should go in as is.
+Ethernet vendors should use it this limitation when they desire.
+
+Ido
 > Thanks,
-> Dmitry
+> Yuval
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 >
-> ---------------------------
->
-> 03:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
-> RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 06)
-> Subsystem: Samsung Electronics Co Ltd Device c0e6
-> Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
-> Stepping- SERR- FastB2B- DisINTx+
-> Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
-> <TAbort- <MAbort- >SERR- <PERR- INTx-
-> Latency: 0, Cache Line Size: 64 bytes
-> Interrupt: pin A routed to IRQ 45
-> Region 0: I/O ports at d000 [size=256]
-> Region 2: Memory at f0004000 (64-bit, prefetchable) [size=4K]
-> Region 4: Memory at f0000000 (64-bit, prefetchable) [size=16K]
-> Capabilities: [40] Power Management version 3
-> Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
-> Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=0 PME-
-> Capabilities: [50] MSI: Enable+ Count=1/1 Maskable- 64bit+
-> Address: 00000000fee00338  Data: 0000
-> Capabilities: [70] Express (v2) Endpoint, MSI 01
-> DevCap: MaxPayload 128 bytes, PhantFunc 0, Latency L0s <512ns, L1 <64us
-> ExtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
-> DevCtl: Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
-> RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
-> MaxPayload 128 bytes, MaxReadReq 4096 bytes
-> DevSta: CorrErr- UncorrErr- FatalErr- UnsuppReq- AuxPwr+ TransPend-
-> LnkCap: Port #0, Speed 2.5GT/s, Width x1, ASPM L0s L1, Latency L0
-> unlimited, L1 <64us
-> ClockPM+ Surprise- LLActRep- BwNot-
-> LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain- CommClk+
-> ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
-> LnkSta: Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ DLActive-
-> BWMgmt- ABWMgmt-
-> DevCap2: Completion Timeout: Range ABCD, TimeoutDis+
-> DevCtl2: Completion Timeout: 50us to 50ms, TimeoutDis-
-> LnkCtl2: Target Link Speed: 2.5GT/s, EnterCompliance- SpeedDis-,
-> Selectable De-emphasis: -6dB
-> Transmit Margin: Normal Operating Range, EnterModifiedCompliance- ComplianceSOS-
-> Compliance De-emphasis: -6dB
-> LnkSta2: Current De-emphasis Level: -6dB, EqualizationComplete-,
-> EqualizationPhase1-
-> EqualizationPhase2-, EqualizationPhase3-, LinkEqualizationRequest-
-> Capabilities: [b0] MSI-X: Enable- Count=4 Masked-
-> Vector table: BAR=4 offset=00000000
-> PBA: BAR=4 offset=00000800
-> Capabilities: [d0] Vital Product Data
-> No end tag found
-> Capabilities: [100 v1] Advanced Error Reporting
-> UESta: DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF-
-> MalfTLP- ECRC- UnsupReq- ACSViol-
-> UEMsk: DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF-
-> MalfTLP- ECRC- UnsupReq- ACSViol-
-> UESvrt: DLP+ SDES+ TLP- FCP+ CmpltTO- CmpltAbrt- UnxCmplt- RxOF+
-> MalfTLP+ ECRC- UnsupReq- ACSViol-
-> CESta: RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr-
-> CEMsk: RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr+
-> AERCap: First Error Pointer: 00, GenCap+ CGenEn- ChkCap+ ChkEn-
-> Capabilities: [140 v1] Virtual Channel
-> Caps: LPEVC=0 RefClk=100ns PATEntryBits=1
-> Arb: Fixed- WRR32- WRR64- WRR128-
-> Ctrl: ArbSelect=Fixed
-> Status: InProgress-
-> VC0: Caps: PATOffset=00 MaxTimeSlots=1 RejSnoopTrans-
-> Arb: Fixed- WRR32- WRR64- WRR128- TWRR128- WRR256-
-> Ctrl: Enable+ ID=0 ArbSelect=Fixed TC/VC=ff
-> Status: NegoPending- InProgress-
-> Capabilities: [160 v1] Device Serial Number 01-00-00-00-68-4c-e0-00
-> Kernel driver in use: r8169
-
-
-
--- 
-Thanks,
-Dmitry
