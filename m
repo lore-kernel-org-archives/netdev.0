@@ -1,63 +1,104 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net-next] xen-netfront: clean up code in	xennet_release_rx_bufs
-Date: Wed, 15 Jan 2014 11:20:49 +0000
-Message-ID: <52D66F11.204@citrix.com>
-References: <1389307718-2845-1-git-send-email-Annie.li@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
-	<wei.liu2@citrix.com>, <ian.campbell@citrix.com>
-To: Annie Li <Annie.li@oracle.com>
+From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Subject: [PATCH V2 net-next 2/3] ipv6: add a flag to get the flow label used remotly
+Date: Wed, 15 Jan 2014 12:30:02 +0100
+Message-ID: <1389785403-6401-2-git-send-email-florent.fourcot@enst-bretagne.fr>
+References: <1389785403-6401-1-git-send-email-florent.fourcot@enst-bretagne.fr>
+Cc: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:50314 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750941AbaAOLUx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 06:20:53 -0500
-In-Reply-To: <1389307718-2845-1-git-send-email-Annie.li@oracle.com>
+Received: from fourcot.fr ([217.70.191.14]:49893 "EHLO olfflo.fourcot.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751666AbaAOLaI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jan 2014 06:30:08 -0500
+In-Reply-To: <1389785403-6401-1-git-send-email-florent.fourcot@enst-bretagne.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/01/14 22:48, Annie Li wrote:
-> Current netfront only grants pages for grant copy, not for grant transfer, so
-> remove corresponding transfer code and add receiving copy code in
-> xennet_release_rx_bufs.
+This information is already available via IPV6_FLOWINFO
+of IPV6_2292PKTOPTIONS, and them a filtering to get the flow label
+information. But it is probably logical and easier for users to add this
+here, and to control both sent/received flow label values with the
+IPV6_FLOWLABEL_MGR option.
 
-While netfront only supports a copying backend, I don't see anything
-preventing the backend from retaining mappings to netfront's Rx buffers...
+Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+---
+ include/net/ipv6.h       | 2 +-
+ include/uapi/linux/in6.h | 1 +
+ net/ipv6/ip6_flowlabel.c | 7 ++++++-
+ net/ipv6/ipv6_sockglue.c | 5 ++++-
+ 4 files changed, 12 insertions(+), 3 deletions(-)
 
-> Signed-off-by: Annie Li <Annie.li@oracle.com>
-> ---
->  drivers/net/xen-netfront.c |   60 ++-----------------------------------------
->  1 files changed, 3 insertions(+), 57 deletions(-)
-> 
-> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> index e59acb1..692589e 100644
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -1134,78 +1134,24 @@ static void xennet_release_tx_bufs(struct netfront_info *np)
->  
->  static void xennet_release_rx_bufs(struct netfront_info *np)
->  {
-[...]
-> -		mfn = gnttab_end_foreign_transfer_ref(ref);
-> +		gnttab_end_foreign_access_ref(ref, 0);
-
-... the gnttab_end_foreign_access_ref() may then fail and...
-
->  		gnttab_release_grant_reference(&np->gref_rx_head, ref);
->  		np->grant_rx_ref[id] = GRANT_INVALID_REF;
-[...]
-> +		kfree_skb(skb);
-
-... this could then potentially free pages that the backend still has
-mapped.  If the pages are then reused, this would leak information to
-the backend.
-
-Since only a buggy backend would result in this, leaking the skbs and
-grant refs would be acceptable here.  I would also print an error.
-
-While checking blkfront for how it handles this, it also doesn't appear
-to do the right thing either.
-
-David
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 12079c6..54cb251 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -252,7 +252,7 @@ struct ipv6_txoptions *fl6_merge_options(struct ipv6_txoptions *opt_space,
+ 					 struct ipv6_txoptions *fopt);
+ void fl6_free_socklist(struct sock *sk);
+ int ipv6_flowlabel_opt(struct sock *sk, char __user *optval, int optlen);
+-int ipv6_flowlabel_opt_get(struct sock *sk, struct in6_flowlabel_req *freq);
++int ipv6_flowlabel_opt_get(struct sock *sk, struct in6_flowlabel_req *freq, int flags);
+ int ip6_flowlabel_init(void);
+ void ip6_flowlabel_cleanup(void);
+ 
+diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
+index a4359b1..2428b80 100644
+--- a/include/uapi/linux/in6.h
++++ b/include/uapi/linux/in6.h
+@@ -86,6 +86,7 @@ struct in6_flowlabel_req {
+ #define IPV6_FL_F_CREATE	1
+ #define IPV6_FL_F_EXCL		2
+ #define IPV6_FL_F_REFLECT 	4
++#define IPV6_FL_F_REMOTE	8
+ 
+ #define IPV6_FL_S_NONE		0
+ #define IPV6_FL_S_EXCL		1
+diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
+index ba23643..2c0f9dc 100644
+--- a/net/ipv6/ip6_flowlabel.c
++++ b/net/ipv6/ip6_flowlabel.c
+@@ -481,11 +481,16 @@ static inline void fl_link(struct ipv6_pinfo *np, struct ipv6_fl_socklist *sfl,
+ 	spin_unlock_bh(&ip6_sk_fl_lock);
+ }
+ 
+-int ipv6_flowlabel_opt_get(struct sock *sk, struct in6_flowlabel_req *freq)
++int ipv6_flowlabel_opt_get(struct sock *sk, struct in6_flowlabel_req *freq, int flags)
+ {
+ 	struct ipv6_pinfo *np = inet6_sk(sk);
+ 	struct ipv6_fl_socklist *sfl;
+ 
++	if (flags & IPV6_FL_F_REMOTE) {
++		freq->flr_label = np->rcv_flowinfo & IPV6_FLOWLABEL_MASK;
++		return 0;
++	}
++
+ 	if (np->repflow) {
+ 		freq->flr_label = np->flow_label;
+ 		return 0;
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index af0ecb9..a47653a 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -1220,6 +1220,7 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 	case IPV6_FLOWLABEL_MGR:
+ 	{
+ 		struct in6_flowlabel_req freq;
++		int flags;
+ 
+ 		if (len < sizeof(freq))
+ 			return -EINVAL;
+@@ -1231,9 +1232,11 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 			return -EINVAL;
+ 
+ 		len = sizeof(freq);
++		flags = freq.flr_flags;
++
+ 		memset(&freq, 0, sizeof(freq));
+ 
+-		val = ipv6_flowlabel_opt_get(sk, &freq);
++		val = ipv6_flowlabel_opt_get(sk, &freq, flags);
+ 		if (val < 0)
+ 			return val;
+ 
+-- 
+1.8.5.2
