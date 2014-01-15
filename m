@@ -1,89 +1,53 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] [PATCH net-next] xen-netfront: clean up code in xennet_release_rx_bufs
-Date: Wed, 15 Jan 2014 22:17:08 +0800
-Message-ID: <52D69864.9030207@oracle.com>
-References: <1389307718-2845-1-git-send-email-Annie.li@oracle.com> <52D66F11.204@citrix.com> <20140115114208.GK5698@zion.uk.xensource.com> <52D67677.4050407@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>, xen-devel@lists.xen.org,
-	netdev@vger.kernel.org, ian.campbell@citrix.com
-To: David Vrabel <david.vrabel@citrix.com>
+From: Zhi Yong Wu <zwu.kernel@gmail.com>
+Subject: [RFC PATCH net-next 0/3] virtio_net: add aRFS support
+Date: Wed, 15 Jan 2014 22:20:51 +0800
+Message-ID: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
+Cc: therbert@google.com, edumazet@google.com, davem@davemloft.net,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:36517 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752306AbaAOORW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 09:17:22 -0500
-In-Reply-To: <52D67677.4050407@citrix.com>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:34637 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752009AbaAOOVH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 09:21:07 -0500
+Received: from /spool/local
+	by e36.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <zwu.kernel@gmail.com>;
+	Wed, 15 Jan 2014 07:21:06 -0700
+Received: from b03cxnp07029.gho.boulder.ibm.com (b03cxnp07029.gho.boulder.ibm.com [9.17.130.16])
+	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 0626E19D8046
+	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 07:20:55 -0700 (MST)
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by b03cxnp07029.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s0FCIfZr9961748
+	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 13:18:41 +0100
+Received: from d03av03.boulder.ibm.com (localhost [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s0FEL3JT007043
+	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 07:21:03 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
 
-On 2014-1-15 19:52, David Vrabel wrote:
-> On 15/01/14 11:42, Wei Liu wrote:
->> On Wed, Jan 15, 2014 at 11:20:49AM +0000, David Vrabel wrote:
->>> On 09/01/14 22:48, Annie Li wrote:
->>>> Current netfront only grants pages for grant copy, not for grant transfer, so
->>>> remove corresponding transfer code and add receiving copy code in
->>>> xennet_release_rx_bufs.
->>> While netfront only supports a copying backend, I don't see anything
->>> preventing the backend from retaining mappings to netfront's Rx buffers...
->>>
->> Correct.
->>
->>>> Signed-off-by: Annie Li <Annie.li@oracle.com>
->>>> ---
->>>>   drivers/net/xen-netfront.c |   60 ++-----------------------------------------
->>>>   1 files changed, 3 insertions(+), 57 deletions(-)
->>>>
->>>> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
->>>> index e59acb1..692589e 100644
->>>> --- a/drivers/net/xen-netfront.c
->>>> +++ b/drivers/net/xen-netfront.c
->>>> @@ -1134,78 +1134,24 @@ static void xennet_release_tx_bufs(struct netfront_info *np)
->>>>   
->>>>   static void xennet_release_rx_bufs(struct netfront_info *np)
->>>>   {
->>> [...]
->>>> -		mfn = gnttab_end_foreign_transfer_ref(ref);
->>>> +		gnttab_end_foreign_access_ref(ref, 0);
->>> ... the gnttab_end_foreign_access_ref() may then fail and...
->>>
->> Oh, I see. Andrew was actually referencing this function. Yes, it can
->> fail. Since he omitted "_ref" I looked at the other function when I
->> replied to him...
->>
->>>>   		gnttab_release_grant_reference(&np->gref_rx_head, ref);
->>>>   		np->grant_rx_ref[id] = GRANT_INVALID_REF;
->>> [...]
->>>> +		kfree_skb(skb);
->>> ... this could then potentially free pages that the backend still has
->>> mapped.  If the pages are then reused, this would leak information to
->>> the backend.
->>>
->>> Since only a buggy backend would result in this, leaking the skbs and
->>> grant refs would be acceptable here.  I would also print an error.
->>>
->> How about using gnttab_end_foreign_access. The deferred queue looks like
->> a right solution -- pending page won't get freed until gref is
->> quiescent.
-> This is more like the correct approach but I don't think it still quite
-> right.  The skb owns the pages so we don't want
-> gnttab_end_foreign_access() to free them as freeing the skb will attempt
-> to free them again.
->
-> Having gnttab_end_foreign_access() do a free just looks odd to me, the
-> free isn't paired with any alloc in the grant table code.
->
-> It seems more logical to me that granting access takes an additional
-> page ref, and then ending access releases that ref.
+HI, folks
 
-I am thinking of two ways, and they can be implemented in new patches.
-1. If gnttab_end_foreign_access_ref succeeds, then kfree_skb is called 
-to free skb. Otherwise, using gnttab_end_foreign_access to release ref 
-and pages.
-2. Add a similar deferred way of gnttab_end_foreign_access in 
-gnttab_end_foreign_access_ref.
+The patchset is trying to integrate aRFS support to virtio_net. In this case,
+aRFS will be used to select the RX queue. To make sure that it's going ahead
+in the correct direction, although it is still one RFC and isn't tested, it's
+post out ASAP. Any comment are appreciated, thanks.
 
-Thanks
-Annie
+If anyone is interested in playing with it, you can get this patchset from my
+dev git on github:
+  git://github.com/wuzhy/kernel.git virtnet_rfs
+
+Zhi Yong Wu (3):
+  virtio_pci: Introduce one new config api vp_get_vq_irq()
+  virtio_net: Introduce one dummy function virtnet_filter_rfs()
+  virtio-net: Add accelerated RFS support
+
+ drivers/net/virtio_net.c      |   67 ++++++++++++++++++++++++++++++++++++++++-
+ drivers/virtio/virtio_pci.c   |   11 +++++++
+ include/linux/virtio_config.h |   12 +++++++
+ 3 files changed, 89 insertions(+), 1 deletions(-)
+
+-- 
+1.7.6.5
