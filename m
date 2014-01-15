@@ -1,97 +1,127 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] net: Check skb->rxhash in gro_receive
-Date: Wed, 15 Jan 2014 01:31:17 +0000
-Message-ID: <1389749477.3720.173.camel@deadeye.wl.decadent.org.uk>
-References: <alpine.DEB.2.02.1401092051020.25554@tomh.mtv.corp.google.com>
-	 <1389332287.31367.88.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+mtBx_c=we-13b0Vyrim0=kArhx0OYY1P99HwUeuR2w87hRFw@mail.gmail.com>
-	 <20140113.115913.1269834557058575064.davem@davemloft.net>
-	 <1389644256.31367.223.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1389646213.2025.159.camel@bwh-desktop.uk.level5networks.com>
-	 <1389649061.31367.236.camel@edumazet-glaptop2.roam.corp.google.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC] sysfs_rename_link() and its usage
+Date: Tue, 14 Jan 2014 17:35:23 -0800
+Message-ID: <87iotmc9ic.fsf@xmission.com>
+References: <20140114171740.GB1867@redhat.com>
+	<20140114182135.GA29296@kroah.com> <20140114191208.GA9942@redhat.com>
+	<20140114193139.GA3636@kroah.com> <20140114210610.GC9942@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-EDcXPenmTMKS3QZyQS7C"
-Cc: David Miller <davem@davemloft.net>, therbert@google.com,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:45493 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751068AbaAOBbY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 20:31:24 -0500
-In-Reply-To: <1389649061.31367.236.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Greg KH <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Tejun Heo <tj@kernel.org>
+To: Veaceslav Falico <vfalico@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140114210610.GC9942@redhat.com> (Veaceslav Falico's message of
+	"Tue, 14 Jan 2014 22:06:10 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Veaceslav Falico <vfalico@redhat.com> writes:
 
---=-EDcXPenmTMKS3QZyQS7C
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> On Tue, Jan 14, 2014 at 11:31:39AM -0800, Greg KH wrote:
+>>On Tue, Jan 14, 2014 at 08:12:08PM +0100, Veaceslav Falico wrote:
+>>> On Tue, Jan 14, 2014 at 10:21:35AM -0800, Greg KH wrote:
+>>> >On Tue, Jan 14, 2014 at 06:17:40PM +0100, Veaceslav Falico wrote:
+>>> >>Hi,
+>>> >>
+>>> >>I'm hitting a strange issue and/or I'm completely lost in sysfs internals.
+>>> >>
+>>> >>Consider having two net_device *a, *b; which are registered normally.
+>>> >>Now, to create a link from /sys/class/net/a->name/linkname to b, one should
+>>> >>use:
+>>> >>
+>>> >>sysfs_create_link(&(a->dev.kobj), &(b->dev.kobj), linkname);
+>>> >>
+>>> >>To remove it, even simpler:
+>>> >>
+>>> >>sysfs_remove_link(&(a->dev.kobj), linkname);
+>>> >>
+>>> >>This works like a charm. However, if I want to use (obviously, with the
+>>> >>symlink present):
+>>> >>
+>>> >>sysfs_rename_link(&(a->dev.kobj), &(b->dev.kobj), oldname, newname);
+>>> >
+>>> >You forgot the namespace option to this call, what kernel version are
+>>> >you using here?
+>>>
+>>> It's git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next ,
+>>> 3.13-rc6 with some networking patches on top of it.
+>>>
+>>> And wrt namespace - there are two functions, one is sysfs_rename_link(),
+>>> which calls the second one - sysfs_rename_link_ns() with NULL namespace.
+>>>
+>>> >
+>>> >>this fails with:
+>>> >>
+>>> >>"sysfs: ns invalid in 'a->name' for 'oldname'"
+>>> >
+>>> >Looks like the namespace for this link isn't valid.
+>>>
+>>> Yep, though dunno why.
+>>
+>>Are you testing this with network namespaces enabled?  Perhaps that is
+>>why, you need to specify the namespace of the link that you are
+>>changing.
+>>
+>>The fact that the bridge link works is odd to me, I would think that it
+>>too needs to specify the network namespace involved, but perhaps bridge
+>>objects aren't part of any specific network namespace?  I don't know the
+>>bridging code at all, sorry.
+>
+> Yep, might be it, will test soon and come back with the results.
+>
+> What still bugs me, though, is the logic - why is it possible to remove/add
+> without specifying namespace, while it fails to rename it? Maybe the rename
+> function should do a better job at detecting the namespace?
 
-On Mon, 2014-01-13 at 13:37 -0800, Eric Dumazet wrote:
-> On Mon, 2014-01-13 at 20:50 +0000, Ben Hutchings wrote:
->=20
-> > According to the original report of that vulnerability:
-> >=20
-> > > skb_flow_dissect() were used by several places:                      =
-  =20
-> > > - packet scheduler that want classify flows                          =
-  =20
-> > > - skb_get_rxhash() that will be used by RPS, vxlan, multiqueue       =
-  =20
-> > > tap,macvtap packet fanout                                            =
-  =20
-> > > - skb_probe_transport_header() which was used for probing transport  =
-  =20
-> > > header for DODGY packets                                             =
-  =20
-> > > - __skb_get_poff() which will be used by socket filter            =
-=20
-> >=20
-> > So flow dissector is already part of the attack surface for both local
-> > and remote users in common configurations.
->=20
-> Take a debian or Android distro, and this bug is not hit on 'common
-> configurations'. Send them a 'packet of death', they will not hang,
-> unless some admin set up RPS/RFS on the incoming device.
-[...]
+The basic sysfs_rename primitive and device_rename support moving
+network devices across namespaces.  Since the new name can be in a new
+namespace the network namespace the new network namespace needs to be
+specified.
 
-When I investigated the scope of this for Debian, I tried sending a
-'packet of death' to a VM and actually triggered the lockup in the TX
-path of the *host*, running Debian unstable with Linux 3.11.  I didn't
-track down exactly why that was but I think that libvirt's default
-networking configuration includes multiqueue devices that use flow
-dissector.
+The reason the bridge code is different is that apparently Tejun broke
+the bridge code when he converted sysfs.  Apparently no one has tested
+the appropriate bridge path with network namespaces enabled and screamed
+yet.
 
-Ben.
+sysfs_rename_link was originally written to infer figure everything out
+based on the target device.  Because symlinks only make sense being in
+the same namespace of their devices.  Tejun broke the inference and now
+you are having hard time using the code.
 
---=20
-Ben Hutchings
-Life is what happens to you while you're busy making other plans.
-                                                               - John Lenno=
-n
+Tejun could you please take care of this breakage.
 
---=-EDcXPenmTMKS3QZyQS7C
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+The commit that broke things was:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
+commit 4b30ee58ee64c64f59fd876e4afa6ed82caef3a4
+Author: Tejun Heo <tj@kernel.org>
+Date:   Wed Sep 11 22:29:06 2013 -0400
 
-iQIVAwUAUtXk5ee/yOyVhhEJAQrcvRAAinV9ndcV5XIaI0BznRjbYbJzXXfxyl5+
-SCskObU2w2i2G+5pMowhx772Qs6P3MMGSXbfTUrXANC391nZxhf5q26bE522JYfp
-rL0De76ghu3d5LcmNm+lpXrF69SGvyEIq56VBaAogA3SVA1cYldp0YckUM3qDERD
-L4GGBLQzl+9cM5q4zPd5OQ+EpfQrrTrXiVFa0jGGe2CowlVOFyFq6spqvULqZTZ1
-4bSqAQy1IEzxNuFQzse+f1ynUxpGA7DRYMo3XMTumHwacJWBBO5Fwm54HZhCmQPo
-raTYuHPwPKJwKfeSJzLaQoEcCbOW0JEJHU0QwloULfvjY/4JY1m8Bh4C8cSxcMXX
-C+TQl5TPvok/5IXZHSmqAz7On5/qJt/XAPwXSFUT3tZCYAM0nTcsMFhPTcxGjxdV
-5OcvNJxzoBFBXFwqUrrkm7SCmVkZL2H6PXIk9ZXgffR8Rk56Iv7eabPHV39/hSOj
-X82t268poh+/xTQM+16SnzcjUYQByP8nNFYDs0HJMBDLJCpL1Cs8G017mkZPXMpn
-lJpGfAXr6UUCZGtgolA6TLEsI2PLBun0moxncuoRPB5xJa8ynHjDBaTkKiFXV2Eu
-49JV48zV1w8hh443zlpxSWLZmGYN/MnIzeaaMWTNGrM6UE2ZvzAsOQV31YTYgLAh
-BcGz1hBgJM0=
-=jtHs
------END PGP SIGNATURE-----
+    sysfs: remove ktype->namespace() invocations in symlink code
+    
+    There's no reason for sysfs to be calling ktype->namespace().  It is
+    backwards, obfuscates what's going on and unnecessarily tangles two
+    separate layers.
+    
+    There are two places where symlink code calls ktype->namespace().
+    
+    * sysfs_do_create_link_sd() calls it to find out the namespace tag of
+      the target directory.  Unless symlinking races with cross-namespace
+      renaming, this equals @target_sd->s_ns.
+    
+    * sysfs_rename_link() uses it to find out the new namespace to rename
+      to and the new namespace can be different from the existing one.
+      The function is renamed to sysfs_rename_link_ns() with an explicit
+      @ns argument and the ktype->namespace() invocation is shifted to the
+      device layer.
+    
+    While this patch replaces ktype->namespace() invocation with the
+    recorded result in @target_sd, this shouldn't result in any behvior
+    difference.
+    
+    Signed-off-by: Tejun Heo <tj@kernel.org>
+    Cc: Eric W. Biederman <ebiederm@xmission.com>
+    Cc: Kay Sievers <kay@vrfy.org>
+    Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 
---=-EDcXPenmTMKS3QZyQS7C--
+Eric
