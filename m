@@ -1,104 +1,49 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 06/11] be2net: fix incorrect setting of cmd_privileges for VFs
-Date: Wed, 15 Jan 2014 13:23:36 +0530
-Message-ID: <1389772421-24925-7-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next 05/11] be2net: ignore mac-addr set call for an already programmed mac-addr
+Date: Wed, 15 Jan 2014 13:23:35 +0530
+Message-ID: <1389772421-24925-6-git-send-email-sathya.perla@emulex.com>
 References: <1389772421-24925-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:17689 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751310AbaAOHtQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 02:49:16 -0500
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:20739 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751700AbaAOHtO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 02:49:14 -0500
 In-Reply-To: <1389772421-24925-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Suresh Reddy <suresh.reddy@emulex.com>
+From: Vasundhara Volam <vasundhara.volam@emulex.com>
 
-An earlier commit (f25b119c "Fix error messages while driver load for VFs")
-incorrectly set the adapter->cmd_privileges value for VFs (in a
-multi-channel config) to MAX_PRIVILEGES. This causes FW cmd failures
-and avoidable error logs when certian cmds are issued by a VF.
-Also, move the multi-channel hack to be_cmds.c inside
-be_cmd_get_fn_privileges() routine.
+An ndo_set_mac_addr() call may be issued for a mac-addr that is already
+active on an interface. If so, silently ignore the request. Sending such
+a request to the FW, causes a "mac collision" error. The error is harmless
+but is avoidable noise in the kernel log.
 
-Fixes: f25b119c "Fix error messages while driver load for VFs"
-
-Signed-off-by: Suresh Reddy <suresh.reddy@emulex.com>
+Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c |    7 +++++++
- drivers/net/ethernet/emulex/benet/be_cmds.h |    8 ++++++++
- drivers/net/ethernet/emulex/benet/be_main.c |   11 -----------
- 3 files changed, 15 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index b0a2fd6..cf5b8b0 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -2691,6 +2691,13 @@ int be_cmd_get_fn_privileges(struct be_adapter *adapter, u32 *privilege,
- 		struct be_cmd_resp_get_fn_privileges *resp =
- 						embedded_payload(wrb);
- 		*privilege = le32_to_cpu(resp->privilege_mask);
-+
-+		/* In UMC mode FW does not return right privileges.
-+		 * Override with correct privilege equivalent to PF.
-+		 */
-+		if (BEx_chip(adapter) && be_is_mc(adapter) &&
-+		    be_physfn(adapter))
-+			*privilege = MAX_PRIVILEGES;
- 	}
- 
- err:
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 39b99f2..da182c0 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1098,6 +1098,14 @@ struct be_cmd_resp_query_fw_cfg {
- 	u32 function_caps;
- };
- 
-+/* Is BE in a multi-channel mode */
-+static inline bool be_is_mc(struct be_adapter *adapter)
-+{
-+	return adapter->function_mode & FLEX10_MODE ||
-+		adapter->function_mode & VNIC_MODE ||
-+		adapter->function_mode & UMC_ENABLED;
-+}
-+
- /******************** RSS Config ****************************************/
- /* RSS type		Input parameters used to compute RX hash
-  * RSS_ENABLE_IPV4	SRC IPv4, DST IPv4
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index ce589b4..9c90a87 100644
+index 0710f9a..ce589b4 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -121,12 +121,6 @@ static const char * const ue_status_hi_desc[] = {
- 	"Unknown"
- };
+@@ -258,6 +258,12 @@ static int be_mac_addr_set(struct net_device *netdev, void *p)
+ 	if (!is_valid_ether_addr(addr->sa_data))
+ 		return -EADDRNOTAVAIL;
  
--/* Is BE in a multi-channel mode */
--static inline bool be_is_mc(struct be_adapter *adapter) {
--	return (adapter->function_mode & FLEX10_MODE ||
--		adapter->function_mode & VNIC_MODE ||
--		adapter->function_mode & UMC_ENABLED);
--}
- 
- static void be_queue_free(struct be_adapter *adapter, struct be_queue_info *q)
- {
-@@ -3410,11 +3404,6 @@ static int be_setup(struct be_adapter *adapter)
- 		goto err;
- 
- 	be_cmd_get_fn_privileges(adapter, &adapter->cmd_privileges, 0);
--	/* In UMC mode FW does not return right privileges.
--	 * Override with correct privilege equivalent to PF.
--	 */
--	if (be_is_mc(adapter))
--		adapter->cmd_privileges = MAX_PRIVILEGES;
- 
- 	status = be_mac_setup(adapter);
- 	if (status)
++	/* Proceed further only if, User provided MAC is different
++	 * from active MAC
++	 */
++	if (ether_addr_equal(addr->sa_data, netdev->dev_addr))
++		return 0;
++
+ 	/* The PMAC_ADD cmd may fail if the VF doesn't have FILTMGMT
+ 	 * privilege or if PF did not provision the new MAC address.
+ 	 * On BE3, this cmd will always fail if the VF doesn't have the
 -- 
 1.7.1
