@@ -1,50 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 0/2] ipv6 addrconf: add IFA_F_NOPREFIXROUTE flag to
- suppress creation of IP6 routes
-Date: Wed, 15 Jan 2014 13:53:28 -0800 (PST)
-Message-ID: <20140115.135328.514671277431781958.davem@davemloft.net>
-References: <1389227404-12586-1-git-send-email-thaller@redhat.com>
-	<20140110.181030.2081631538801450145.davem@davemloft.net>
-	<20140113153110.GA2499@minipsycho.orion>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: Re: [PATCH 1/2 v3] ixgbe: define IXGBE_MAX_VFS_DRV_LIMIT macro and
+ cleanup const 63
+Date: Wed, 15 Jan 2014 22:00:29 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B7312DA20@ORSMSX101.amr.corp.intel.com>
+References: <1389795148-341-1-git-send-email-ethan.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: thaller@redhat.com, hannes@stressinduktion.org,
-	netdev@vger.kernel.org, stephen@networkplumber.org, dcbw@redhat.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40190 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752887AbaAOVx3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 16:53:29 -0500
-In-Reply-To: <20140113153110.GA2499@minipsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "ethan.kernel@gmail.com" <ethan.kernel@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1389795148-341-1-git-send-email-ethan.kernel@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Mon, 13 Jan 2014 16:31:10 +0100
-
-> Sat, Jan 11, 2014 at 12:10:30AM CET, davem@davemloft.net wrote:
->>From: Thomas Haller <thaller@redhat.com>
->>Date: Thu,  9 Jan 2014 01:30:02 +0100
->>
->>> v1 -> v2: add a second commit, handling NOPREFIXROUTE in ip6_del_addr.
->>> v2 -> v3: reword commit messages, code comments and some refactoring.
->>> v3 -> v4: refactor, rename variables, add enum
->>> 
->>> Thomas Haller (2):
->>>   ipv6 addrconf: add IFA_F_NOPREFIXROUTE flag to suppress creation of
->>>     IP6 routes
->>>   ipv6 addrconf: don't cleanup prefix route for IFA_F_NOPREFIXROUTE
->>
->>Series applied, thanks Thomas.
-> 
-> Hi Dave. Have you pushed this already? I can't see these patches in
-> net-next.
-
-Sorry, I must have forgotten to push these changes out before I travelled
-on Saturday.
-
-Please respin and resubmit and I'll make sure they get integrated properly.
-
-Thanks.
+T24gV2VkLCAyMDE0LTAxLTE1IGF0IDIyOjEyICswODAwLCBFdGhhbiBaaGFvIHdyb3RlOgo+IEJl
+Y2F1c2UgaXhnYmUgZHJpdmVyIGxpbWl0IHRoZSBtYXggbnVtYmVyIG9mIFZGIGZ1bmN0aW9ucyBj
+b3VsZCBiZSBlbmFibGVkCj4gdG8gNjMsIHNvIGRlZmluZSBvbmUgbWFjcm8gSVhHQkVfTUFYX1ZG
+U19EUlZfTElNSVQgYW5kIGNsZWFudXAgdGhlIGNvbnN0IDYzCj4gaW4gY29kZS4KPiAKPiB2Mjog
+Zml4IGEgdHlwby4KPiB2MzogZml4IGEgZW5jb2RpbmcgaXNzdWUuCj4gCj4gU2lnbmVkLW9mZi1i
+eTogRXRoYW4gWmhhbyA8ZXRoYW4ua2VybmVsQGdtYWlsLmNvbT4KPiAtLS0KPiAgZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jICB8IDQgKystLQo+ICBkcml2ZXJz
+L25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5jIHwgNSArKystLQo+ICBkcml2
+ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5oIHwgNSArKysrKwo+ICAz
+IGZpbGVzIGNoYW5nZWQsIDEwIGluc2VydGlvbnMoKyksIDQgZGVsZXRpb25zKC0pCj4gCj4gZGlm
+ZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYyBi
+L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYwo+IGluZGV4IDBh
+ZGUwY2QuLjQ3ZTliNDQgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
+aXhnYmUvaXhnYmVfbWFpbi5jCj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhn
+YmUvaXhnYmVfbWFpbi5jCj4gQEAgLTQ4MTgsNyArNDgxOCw3IEBAIHN0YXRpYyBpbnQgaXhnYmVf
+c3dfaW5pdChzdHJ1Y3QgaXhnYmVfYWRhcHRlciAqYWRhcHRlcikKPiAgI2lmZGVmIENPTkZJR19Q
+Q0lfSU9WCj4gIAkvKiBhc3NpZ24gbnVtYmVyIG9mIFNSLUlPViBWRnMgKi8KPiAgCWlmIChody0+
+bWFjLnR5cGUgIT0gaXhnYmVfbWFjXzgyNTk4RUIpCj4gLQkJYWRhcHRlci0+bnVtX3ZmcyA9ICht
+YXhfdmZzID4gNjMpID8gMCA6IG1heF92ZnM7CgoKVW5mb3J0dW5hdGVseSB0aGUgaWYgc3RhdGVt
+ZW50IGdvdCBjaGFuZ2VkIGNvbnNpZGVyYWJseSB3aXRoIGEgcmVjZW50CmNvbW1pdDoKCmNvbW1p
+dCAxNzBlODU0MzBiY2JlNGQxOGU4MWI1YTcwYmIxNjNjNzQxMzgxMDkyCml4Z2JlOiBhZGQgd2Fy
+bmluZyB3aGVuIG1heF92ZnMgaXMgb3V0IG9mIHJhbmdlLgogICAgCkFuZCB0aGUgcGF0dGVybiBu
+byBsb25nZXIgZXhpc3RzIHRvIG1ha2UgYSBtYXRjaC4gIEluIG90aGVyIHdvcmRzLCB0aGlzCnBh
+dGNoIG5vIGxvbmdlciBhcHBsaWVzIHRvIG5ldC1uZXh0IGFuZCBJIGhhdmUgdG8gYXNrIHlvdSBm
+b3IgeWV0CmFub3RoZXIgc3BpbiBpZiB5b3Ugc3RpbGwgd2FudCB0byBzcXVhc2ggdGhlIG1hZ2lj
+IG51bWJlci4KClRoYW5rcywKQWFyb24K
