@@ -1,50 +1,69 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: TI CPSW Ethernet Tx performance regression
-Date: Wed, 15 Jan 2014 17:54:27 +0000
-Message-ID: <1389808467.11912.9.camel@bwh-desktop.uk.level5networks.com>
-References: <1389790129-5721-1-git-send-email-mugunthanvnm@ti.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [RFC PATCH net-next 2/3] virtio_net: Introduce one dummy function virtnet_filter_rfs()
+Date: Wed, 15 Jan 2014 09:54:36 -0800
+Message-ID: <CA+mtBx8Z80d5Y1ti0_68UA-x0hZPeqT4wa9knevWoPxX+eyaVA@mail.gmail.com>
+References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
+	<1389795654-28381-3-git-send-email-zwu.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Mugunthan V N <mugunthanvnm@ti.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: Zhi Yong Wu <zwu.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:40996 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751984AbaAORyc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 12:54:32 -0500
-In-Reply-To: <1389790129-5721-1-git-send-email-mugunthanvnm@ti.com>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:56222 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751984AbaAORyh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 12:54:37 -0500
+Received: by mail-ig0-f178.google.com with SMTP id uq10so5204243igb.5
+        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 09:54:36 -0800 (PST)
+In-Reply-To: <1389795654-28381-3-git-send-email-zwu.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-01-15 at 18:18 +0530, Mugunthan V N wrote:
-> Hi
-> 
-> I am seeing a performance regression with CPSW driver on AM335x EVM. AM335x EVM
-> CPSW has 3.2 kernel support [1] and Mainline support from 3.7. When I am
-> comparing the performance between 3.2 and 3.13-rc4. TCP receive performance of
-> CPSW between 3.2 and 3.13-rc4 is same (~180Mbps) but TCP Transmit performance
-> is poor comparing to 3.2 kernel. In 3.2 kernel is it *256Mbps* and in 3.13-rc4
-> it is *70Mbps*
-> 
-> Iperf version is *iperf version 2.0.5 (08 Jul 2010) pthreads* on both PC and EVM
-> 
-> On UDP transmit also performance is down comparing to 3.2 kernel. In 3.2 it is
-> 196Mbps for 200Mbps band width and in 3.13-rc4 it is 92Mbps
-> 
-> Can someone point me out where can I look for improving Tx performance. I also
-> checked whether there is Tx descriptor over flow and there is none. I have
-> tries 3.11 and some older kernel, all are giving ~75Mbps Transmit performance
-> only.
-> 
-> [1] - http://arago-project.org/git/projects/?p=linux-am33x.git;a=summary
+Zhi, this is promising work! I can't wait to see how this impacts
+network virtualization performance :-)
 
-If you don't get any specific suggestions, you could try bisecting to
-find out which specific commit(s) changed the performance.
+On Wed, Jan 15, 2014 at 6:20 AM, Zhi Yong Wu <zwu.kernel@gmail.com> wrote:
+> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+>
+> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+> ---
+>  drivers/net/virtio_net.c |   11 +++++++++++
+>  1 files changed, 11 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 7b17240..046421c 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1295,6 +1295,14 @@ static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
+>         return 0;
+>  }
+>
+> +#ifdef CONFIG_RFS_ACCEL
+> +static int virtnet_filter_rfs(struct net_device *net_dev,
+> +               const struct sk_buff *skb, u16 rxq_index, u32 flow_id)
+> +{
+Does this need to be filled out with more stuff?
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> +       return 0;
+> +}
+> +#endif /* CONFIG_RFS_ACCEL */
+> +
+>  static const struct net_device_ops virtnet_netdev = {
+>         .ndo_open            = virtnet_open,
+>         .ndo_stop            = virtnet_close,
+> @@ -1309,6 +1317,9 @@ static const struct net_device_ops virtnet_netdev = {
+>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>         .ndo_poll_controller = virtnet_netpoll,
+>  #endif
+> +#ifdef CONFIG_RFS_ACCEL
+> +       .ndo_rx_flow_steer   = virtnet_filter_rfs,
+> +#endif
+>  };
+>
+>  static void virtnet_config_changed_work(struct work_struct *work)
+> --
+> 1.7.6.5
+>
