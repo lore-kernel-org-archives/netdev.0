@@ -1,66 +1,69 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] [PATCH net-next] xen-netfront: clean up code in xennet_release_rx_bufs
-Date: Wed, 15 Jan 2014 22:15:23 +0800
-Message-ID: <52D697FB.3000304@oracle.com>
-References: <1389307718-2845-1-git-send-email-Annie.li@oracle.com> <20140115100743.GG5698@zion.uk.xensource.com> <52D66ADF.9070401@citrix.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [RFC] sysfs_rename_link() and its usage
+Date: Wed, 15 Jan 2014 09:16:18 -0500
+Message-ID: <20140115141618.GD7950@htj.dyndns.org>
+References: <20140114171740.GB1867@redhat.com>
+ <20140114182135.GA29296@kroah.com>
+ <20140114191208.GA9942@redhat.com>
+ <20140114193139.GA3636@kroah.com>
+ <20140114210610.GC9942@redhat.com>
+ <87iotmc9ic.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>, netdev@vger.kernel.org,
-	ian.campbell@citrix.com, xen-devel@lists.xen.org
-To: Andrew Bennieston <andrew.bennieston@citrix.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Greg KH <gregkh@linuxfoundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:36008 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752089AbaAOOPh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 09:15:37 -0500
-In-Reply-To: <52D66ADF.9070401@citrix.com>
+Received: from mail-qe0-f44.google.com ([209.85.128.44]:49850 "EHLO
+	mail-qe0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751940AbaAOOQZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 09:16:25 -0500
+Content-Disposition: inline
+In-Reply-To: <87iotmc9ic.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hey, Veaceslav, Eric.
 
-On 2014-1-15 19:02, Andrew Bennieston wrote:
-> On 15/01/14 10:07, Wei Liu wrote:
->> On Fri, Jan 10, 2014 at 06:48:38AM +0800, Annie Li wrote:
->>> Current netfront only grants pages for grant copy, not for grant 
->>> transfer, so
->>> remove corresponding transfer code and add receiving copy code in
->>> xennet_release_rx_bufs.
->>>
->>
->> This path seldom gets call -- not that many people unload xen-netfront
->> driver. If Annie has tested this patch and it works as expected I think
->> it's fine.
->>
-> In XenServer we have seen a number of cases where unplugging and 
-> replugging VIFs results in leakage of grant references, eventually 
-> leading to a case where you cannot plug a VIF (after ~ 400 such 
-> cycles)...
->
-> It's worth pointing out, as far as this patch is concerned, that 
-> gnttab_end_foreign_access() can fail, 
+On Tue, Jan 14, 2014 at 05:35:23PM -0800, Eric W. Biederman wrote:
+> >>> >>This works like a charm. However, if I want to use (obviously, with the
+> >>> >>symlink present):
+> >>> >>
+> >>> >>sysfs_rename_link(&(a->dev.kobj), &(b->dev.kobj), oldname, newname);
+> >>> >
+> >>> >You forgot the namespace option to this call, what kernel version are
+> >>> >you using here?
+> >>>
+> >>> It's git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next ,
+> >>> 3.13-rc6 with some networking patches on top of it.
 
-Just like what Wei mentioned, it is gnttab_end_foreign_access_ref here, 
-right?
+Does this work on 3.12?  How about Greg's driver-core-next?  Do you
+have a minimal test case that I can use to reproduce the issue?
 
-> which is not taken into account here.
+> sysfs_rename_link was originally written to infer figure everything out
+> based on the target device.  Because symlinks only make sense being in
+> the same namespace of their devices.  Tejun broke the inference and now
+> you are having hard time using the code.
 
-Good point, gnttab_end_foreign_access_ref fails for grant which is in use.
+I wouldn't be surprised if I broke it but
 
-Thanks
-Annie
->
-> Andrew.
->
->> I'm not netfront maintainer but I'm happy to add
->> Acked-by: Wei Liu <wei.liu2@citrix.com>
->> if Annie confirms she's tested this patch.
->>
->> Wei.
->>
->> _______________________________________________
->> Xen-devel mailing list
->> Xen-devel@lists.xen.org
->> http://lists.xen.org/xen-devel
->>
->
+> The commit that broke things was:
+> 
+> commit 4b30ee58ee64c64f59fd876e4afa6ed82caef3a4
+> Author: Tejun Heo <tj@kernel.org>
+> Date:   Wed Sep 11 22:29:06 2013 -0400
+> 
+>     sysfs: remove ktype->namespace() invocations in symlink code
+
+I'm not so sure about the above commit.  The warning is from rename
+failing to locate the existing node while the above patch updates the
+target ns to rename to.  The old_ns part stays the same before and
+after the commit.
+
+Veaceslav, please confirm whether the issue is reproducible w/ v3.12.
+
+Thanks.
+
+-- 
+tejun
