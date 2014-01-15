@@ -1,72 +1,93 @@
-From: Ido Shamai <idos@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next 2/2] net/mlx4: Revert "mlx4: set maximal number
- of default RSS queues"
-Date: Wed, 15 Jan 2014 15:15:40 +0200
-Message-ID: <52D689FC.8090408@dev.mellanox.co.il>
-References: <1388581537-4810-1-git-send-email-amirv@mellanox.com>	<1388581537-4810-3-git-send-email-amirv@mellanox.com>	<979A8436335E3744ADCD3A9F2A2B68A52AF21A1A@SJEXCHMB10.corp.ad.broadcom.com> <CAJZOPZ++ETzuttO9_ZTy6Atx6=wKyhXUhxyQHj2Ed5nTUBNC0A@mail.gmail.com> <979A8436335E3744ADCD3A9F2A2B68A52AF21C13@SJEXCHMB10.corp.ad.broadcom.com> <52C532DB.9000200@mellanox.com> <979A8436335E3744ADCD3A9F2A2B68A52AF21E1F@SJEXCHMB10.corp.ad.broadcom.com> <52D67BFF.6070102@dev.mellanox.co.il> <979A8436335E3744ADCD3A9F2A2B68A52AF2849F@SJEXCHMB10.corp.ad.broadcom.com>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: Re: [PATCH 14/14] batman-adv: drop dependency against CRC16
+Date: Wed, 15 Jan 2014 14:16:12 +0100
+Message-ID: <52D68A1C.3080302@meshcoding.com>
+References: <1389652298-472-1-git-send-email-antonio@meshcoding.com> <1389652298-472-15-git-send-email-antonio@meshcoding.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Amir Vadai <amirv@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>
-To: Yuval Mintz <yuvalmin@broadcom.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="UKs1J24qX4uPImdPKPuXeqx54CfTCrUqK"
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f49.google.com ([74.125.83.49]:49294 "EHLO
-	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751502AbaAONPt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 08:15:49 -0500
-Received: by mail-ee0-f49.google.com with SMTP id d17so864561eek.36
-        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 05:15:48 -0800 (PST)
-In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A52AF2849F@SJEXCHMB10.corp.ad.broadcom.com>
+Received: from s3.neomailbox.net ([178.209.62.157]:32303 "EHLO
+	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751673AbaAONR0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 08:17:26 -0500
+In-Reply-To: <1389652298-472-15-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/15/2014 2:54 PM, Yuval Mintz wrote:
->>> Anyway, I believe 8/16 are simply strict limitations without any true
->> meaning;
->>> To judge what's more important, default `slimness' or default performance
->>> is beyond me.
->>> Perhaps the numa approach will prove beneficial (and will make some
->> sense).
->>
->> After reviewing all that was said, I feel there is no need to enforce
->> vendors with this strict limitation without any true meaning.
->>
->> The reverted commit you applied forces the driver to use 8 rings at max
->> at all time, without the possibility to change in flight using ethtool,
->> as it's enforced on the PCI driver at module init (restarting the en
->> driver with different of requested rings will not affect).
->> So it's crucial for performance oriented applications using mlx4_en.
->
-> The rational is to prevent default misusage of resources, be them irq vectors
-> memories for rings.
-> Notice this is just the default - You can always re-request interrupts if the
-> user explicitly requests a large number of rings;
-> Although, if the driver is incapable of that (e.g., hw limitations), perhaps you
-> should allocate a larger number of irq vectors during init and use a limitation
-> on your default number of rings
-> (that's assuming that irq vectors are really inexpensive on all machines).
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--UKs1J24qX4uPImdPKPuXeqx54CfTCrUqK
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-I fully agree with you on that.
-We will send a new patch that will limit the default number of rings to 
-this limitation, and could be changed using set-channels ethtool 
-interface. Number of IRQ vectors will be (max) of number of CPUs.
-Yuval, thanks for clarifying.
+On 13/01/14 23:31, Antonio Quartulli wrote:
+> The crc16 functionality is not used anymore, therefore
+> we can safely remove the dependency in the Kbuild file.
+>=20
+> Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
 
->> Going through all Ethernet vendors I don't see this limitation enforced,
->> so this limitation has no true meaning (no fairness).
->> I think this patch should go in as is.
->> Ethernet vendors should use it this limitation when they desire.
->
-> Might be true, but two wrongs don't make a right.
-> I believe that either this limitation should be mandatory, or the functionality
-> Should Not be included in the kernel as communal code and each driver
-> should do as it pleases.
-I agree, but this is a different discussion that should be held.
-I agree, but this is a different discussion, which I hope to be held 
-sometimes in the near future.
+David,
+
+we just realized that this dependency is still needed by our module.
+(also thanks to Fengguang Wu build bot!)
+
+Could you please revert this patch only?
+Or do you want me to send the "revert" on the netdev ml as a patch (or
+pull request)?
+
+
+Thanks a lot!
+
+
+> ---
+>  net/batman-adv/Kconfig | 1 -
+>  1 file changed, 1 deletion(-)
+>=20
+> diff --git a/net/batman-adv/Kconfig b/net/batman-adv/Kconfig
+> index fa780b7..2b2dc47 100644
+> --- a/net/batman-adv/Kconfig
+> +++ b/net/batman-adv/Kconfig
+> @@ -5,7 +5,6 @@
+>  config BATMAN_ADV
+>  	tristate "B.A.T.M.A.N. Advanced Meshing Protocol"
+>  	depends on NET
+> -	select CRC16
+>  	select LIBCRC32C
+>          default n
+>  	help
+>=20
+
+
+--=20
+Antonio Quartulli
+
+
+
+
+--UKs1J24qX4uPImdPKPuXeqx54CfTCrUqK
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJS1oohAAoJEEKTMo6mOh1VUUoP/Rd2+AsWhMdan+Y4qJhq2MH8
+iqi1qQw2g31valJxlZ2I3tdzLgPDys1Eedm7zhoyex2Tpxqx6wbauBqs4XDvPAgC
+TZRjuB9P96lpqMxapD5BcnVjVwRN5KN/HdZmPQXwunv2x+B3Q1JHxMS7FJxeuaQE
+DMk83eqoCL03BNTYUno5Z+UOvoDIZz7AkwuK8aM5XhsdR8XYBY+LJyGQhcPoo3yl
+Ghfek+GmSUu85bOyjxF5iuHmPFt03+90vFPQGE6C75AbTnv5LS56gdCNSjTCIQN/
+fQqwQzrPcHuPcDKhHRnKybat72CvZPGy8WL26VqOm9FJokTM5KnFzaSjCRJZw3nx
+otPnfQRBNGtdwGqF0c91DS5FzB2WnuRKAvcyTDGxPEFUXk4prKPNGyDhbr0SPxoD
+PqnRFfw4EfrR6zRK229+XWDYj9AYKvVaL5xhWssmCnbWshevY7T+3P2IbvEykKpc
+pO3NAC3eLKwSrijWRFkR4s+/jOdg/LW4nZ+tUixlWI7CtX0p6g5cyTsqRb2IsiLx
+sX5YSqTa/DGLOyd39sH8jSUK8c2HfIGpLnP32pChGMY+gLmuSwNvTIFY9mJ32sbM
+hoOs71wuVENrKDK/KPC5RTKtK3j2TWuSLlXARPiZdujQLlRPkpUTQ4E8otfYdh4M
+KBf3xp2ntlQs0K2TzYlx
+=dXVB
+-----END PGP SIGNATURE-----
+
+--UKs1J24qX4uPImdPKPuXeqx54CfTCrUqK--
