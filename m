@@ -1,39 +1,42 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH net-next 0/6] mvneta driver performance improvements
-Date: Wed, 15 Jan 2014 08:48:31 +0100
-Message-ID: <20140115074831.GD4605@1wt.eu>
-References: <1389525848-1814-1-git-send-email-w@1wt.eu> <20140114.170026.713728312597031838.davem@davemloft.net>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH net-next 00/11] be2net: patch set
+Date: Wed, 15 Jan 2014 13:23:30 +0530
+Message-ID: <1389772421-24925-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:55399 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750799AbaAOHse (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jan 2014 02:48:34 -0500
-Content-Disposition: inline
-In-Reply-To: <20140114.170026.713728312597031838.davem@davemloft.net>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:20734 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750799AbaAOHtE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 02:49:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 14, 2014 at 05:00:26PM -0800, David Miller wrote:
-> From: Willy Tarreau <w@1wt.eu>
-> Date: Sun, 12 Jan 2014 12:24:02 +0100
-> 
-> > this patch series implements several performance improvements on the
-> > mvneta driver.
-> 
-> Ignore that last email, I meant to say that this series did not apply
-> cleanly to net-next, sorry for the confusion.
+The following patch set is best suited for net-next as it
+contains code-cleanup, support for newer versions of FW cmds and
+a few minor fixes. Please apply. Thanks!
 
-David, this is because the first series is not applied first. I can
-understand it was not very clear (just mentionned in the e-mail's body).
-Do you prefer me to send you the two series for net-next or is it better
-to wait for the first series to be merged first before applying the
-second one ?
+Sathya Perla (1):
+  be2net: updated driver version (10.0.x)
 
-Just tell me what you prefer and I'll adapt.
+Suresh Reddy (5):
+  be2net: fix incorrect setting of cmd_privileges for VFs
+  be2net: Remove "10Gbps" from driver description string
+  be2net: do not use frag index in the RX-compl entry
+  be2net: use GET_MAC_LIST cmd to query mac-address from a pmac-id
+  be2net: cleanup wake-on-lan code
 
-Thanks,
-Willy
+Vasundhara Volam (5):
+  be2net: Use MCC_CREATE_EXT_V1 cmd for Skyhawk-R
+  be2net: don't set "pport" field when querying "pvid"
+  be2net: Log the profile-id used by FW during driver initialization
+  be2net: do not call be_set/get_fw_log_level() on Skyhawk-R
+  be2net: ignore mac-addr set call for an already programmed mac-addr
+
+ drivers/net/ethernet/emulex/benet/be.h         |    7 +-
+ drivers/net/ethernet/emulex/benet/be_cmds.c    |  178 +++++++++++++++++++-----
+ drivers/net/ethernet/emulex/benet/be_cmds.h    |   33 ++++-
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |   73 ++--------
+ drivers/net/ethernet/emulex/benet/be_main.c    |  137 +++++-------------
+ 5 files changed, 227 insertions(+), 201 deletions(-)
