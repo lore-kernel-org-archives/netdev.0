@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] net: mvneta: simple cleanups
-Date: Wed, 15 Jan 2014 15:41:22 -0800 (PST)
-Message-ID: <20140115.154122.1485420525760591929.davem@davemloft.net>
-References: <cover.1389742334.git.arno@natisbad.org>
+Subject: Re: [BUG] eth_type_trans() can access stale data
+Date: Wed, 15 Jan 2014 15:48:05 -0800 (PST)
+Message-ID: <20140115.154805.1403628531019301276.davem@davemloft.net>
+References: <1389743541.31367.279.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: w@1wt.eu, thomas.petazzoni@free-electrons.com,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: arno@natisbad.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42267 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42335 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752316AbaAOXlW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 18:41:22 -0500
-In-Reply-To: <cover.1389742334.git.arno@natisbad.org>
+	with ESMTP id S1751248AbaAOXsH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 18:48:07 -0500
+In-Reply-To: <1389743541.31367.279.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnaud Ebalard <arno@natisbad.org>
-Date: Wed, 15 Jan 2014 00:45:31 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 14 Jan 2014 15:52:21 -0800
 
-> 
-> Those two patches are intended for net-next. They apply on top of
-> performance improvements patches from Willy for mvneta driver.
-> They provide some simple cleanups for unused variables, function
-> params or return values.
-> 
-> Arnaud Ebalard (2):
->   net: mvneta: mvneta_tx_done_gbe() cleanups
->   net: mvneta: make mvneta_txq_done() return void
+> @@ -194,7 +194,8 @@ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
+>  	 *      layer. We look for FFFF which isn't a used 802.2 SSAP/DSAP. This
+>  	 *      won't work for fault tolerant netware but does for the rest.
+>  	 */
+> -	if (unlikely(skb->len >= 2 && *(unsigned short *)(skb->data) == 0xFFFF))
+> +	if (unlikely(skb_headlen(skb) >= 2 &&
+> +		     *(unsigned short *)(skb->data) == 0xFFFF))
+>  		return htons(ETH_P_802_3);
 
-These patches do not apply to net-next, please respin.
+I think using skb_header_pointer() will essentially have the same cost,
+why not use it instead?
 
 Thanks.
