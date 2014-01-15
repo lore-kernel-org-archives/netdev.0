@@ -1,37 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] MAINTAINERS: add virtio-dev ML for virtio
-Date: Tue, 14 Jan 2014 17:10:06 -0800 (PST)
-Message-ID: <20140114.171006.1091369924506661049.davem@davemloft.net>
-References: <20140112113756.GA9127@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net-next] net_sched: act: remove headers in
+ include/net/tc_act/
+Date: Tue, 14 Jan 2014 17:11:50 -0800
+Message-ID: <1389748310.31367.298.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1389747699-32508-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: virtio-dev@lists.oasis-open.org, gregkh@linuxfoundation.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, amit.shah@redhat.com,
-	netdev@vger.kernel.org, joe@perches.com,
-	akpm@linux-foundation.org, m.chehab@samsung.com
-To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140112113756.GA9127@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gg0-f169.google.com ([209.85.161.169]:41516 "EHLO
+	mail-gg0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751933AbaAOBLy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 20:11:54 -0500
+Received: by mail-gg0-f169.google.com with SMTP id j5so329239ggn.0
+        for <netdev@vger.kernel.org>; Tue, 14 Jan 2014 17:11:53 -0800 (PST)
+In-Reply-To: <1389747699-32508-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Sun, 12 Jan 2014 13:37:56 +0200
-
-> Since virtio is an OASIS standard draft now, virtio implementation
-> discussions are taking place on the virtio-dev OASIS mailing list.
-> Update MAINTAINERS.
+On Tue, 2014-01-14 at 17:01 -0800, Cong Wang wrote:
+> These headers are not necessary because those definitions in them
+> are action specific and are not shared for others. Just move them
+> into the C files.
 > 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
 
-Applied, thanks.
+I find this change very dubious.
