@@ -1,46 +1,32 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH net-next 10/10] net: nl80211: __dev_get_by_index instead
- of dev_get_by_index to find interface
-Date: Wed, 15 Jan 2014 09:18:05 +0800
-Message-ID: <52D5E1CD.2020405@windriver.com>
-References: <1389685269-18600-1-git-send-email-ying.xue@windriver.com>	 <1389685269-18600-11-git-send-email-ying.xue@windriver.com> <1389701498.23430.1.camel@jlt4.sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 0/3] atheros: modify statistics code
+Date: Tue, 14 Jan 2014 17:18:51 -0800 (PST)
+Message-ID: <20140114.171851.500245804015775555.davem@davemloft.net>
+References: <1389549040-8785-1-git-send-email-sd@queasysnail.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <vfalico@redhat.com>,
-	<john.r.fastabend@intel.com>, <stephen@networkplumber.org>,
-	<antonio@meshcoding.com>, <dmitry.tarnyagin@lockless.no>,
-	<socketcan@hartkopp.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389701498.23430.1.camel@jlt4.sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
+	jcliburn@gmail.com, chris.snook@gmail.com
+To: sd@queasysnail.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54198 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751416AbaAOBSw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jan 2014 20:18:52 -0500
+In-Reply-To: <1389549040-8785-1-git-send-email-sd@queasysnail.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/14/2014 08:11 PM, Johannes Berg wrote:
-> On Tue, 2014-01-14 at 15:41 +0800, Ying Xue wrote:
-> 
->> @@ -2218,10 +2194,6 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
->>  			rdev->wiphy.coverage_class = old_coverage_class;
->>  		}
->>  	}
->> -
->> - bad_res:
->> -	if (netdev)
->> -		dev_put(netdev);
->>  	return result;
-> 
-> I believe that could be "return 0;" now, which would make the code
-> easier to read.
-> 
+From: Sabrina Dubroca <sd@queasysnail.net>
+Date: Sun, 12 Jan 2014 18:50:37 +0100
 
-Yes, I will change it in next version.
+> Following Ben Hutchings's advice on how to fill net_stats in alx [1],
+> this patch modifies the other atheros ethernet drivers
+> similarly. Minor whitespace/empty line changes in atl1c and atl1e to
+> make the code completely consistent between atl1c, atl1e, and alx.
+> 
+> I don't have this hardware, so these patches have only been
+> compile-tested.
 
-Thanks,
-Ying
-
-> johannes
-> 
-> 
-> 
+Series applied, thanks Sabrina.
