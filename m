@@ -1,90 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v3 2/2] net:  Check skb->rxhash in gro_receive
-Date: Wed, 15 Jan 2014 09:25:08 -0800
-Message-ID: <1389806708.31367.354.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.DEB.2.02.1401150853400.14933@tomh.mtv.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Jerry Chu <hkchu@google.com>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:53955 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751502AbaAORZM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 12:25:12 -0500
-Received: by mail-pb0-f53.google.com with SMTP id ma3so1415393pbc.12
-        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 09:25:12 -0800 (PST)
-In-Reply-To: <alpine.DEB.2.02.1401150853400.14933@tomh.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: mark.doffman-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org
+Subject: [PATCH v2 0/2] Add ceph root filesystem functionality and documentation.
+Date: Wed, 15 Jan 2014 11:26:27 -0600
+Message-ID: <cover.1389806186.git.mark.doffman@codethink.co.uk>
+References: <1385000024-23463-1-git-send-email-mark.doffman@codethink.co.uk>
+Cc: Mark Doffman <mark.doffman-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>, sage-4GqslpFJ+cxBDgjK7y7TUQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rob.taylor-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org
+To: ceph-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1385000024-23463-1-git-send-email-mark.doffman-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-01-15 at 08:58 -0800, Tom Herbert wrote:
-> When initializing a gro_list for a packet, first check the rxhash of
-> the incoming skb against that of the skb's in the list. This should be
-> a very strong inidicator of whether the flow is going to be matched,
-> and potentially allows a lot of other checks to be short circuited.
-> Use skb_hash_raw so that we don't force the hash to be calculated.
-> 
-> Tested by running netperf 200 TCP_STREAMs between two machines with
-> GRO, HW rxhash, and 1G. Saw no performance degration, slight reduction
-> of time in dev_gro_receive.
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
->  net/core/dev.c | 9 ++++++++-
->  1 file changed, 8 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 20c834e..c063c7c 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -3818,10 +3818,18 @@ static void gro_list_prepare(struct napi_struct *napi, struct sk_buff *skb)
->  {
->  	struct sk_buff *p;
->  	unsigned int maclen = skb->dev->hard_header_len;
-> +	u32 hash = skb_get_hash_raw(skb);
->  
->  	for (p = napi->gro_list; p; p = p->next) {
->  		unsigned long diffs;
->  
-> +		NAPI_GRO_CB(p)->flush = 0;
-> +
-> +		if (hash != skb_get_hash_raw(p)) {
-> +			NAPI_GRO_CB(p)->same_flow = 0;
-> +			continue;
-> +		}
-> +
->  		diffs = (unsigned long)p->dev ^ (unsigned long)skb->dev;
->  		diffs |= p->vlan_tci ^ skb->vlan_tci;
->  		if (maclen == ETH_HLEN)
-> @@ -3832,7 +3840,6 @@ static void gro_list_prepare(struct napi_struct *napi, struct sk_buff *skb)
->  				       skb_gro_mac_header(skb),
->  				       maclen);
->  		NAPI_GRO_CB(p)->same_flow = !diffs;
-> -		NAPI_GRO_CB(p)->flush = 0;
->  	}
->  }
->  
+From: Mark Doffman <mark.doffman-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Hi All,
 
-Hmm, this looks like we should clear flush_id in ipv6 handler,
-otherwise we might reuse a flush_id set from a prior gro invocation in
-ipv4 (skb can be reused in napi_reuse_skb())
+The following is a second version of a patch series that adds the ability to use
+a ceph distributed file system as the root device.
 
-Jerry, what do you think of following fix ?
+Changes from version 1
 
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index 1e8683b135bb..598acd76ca4a 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -256,6 +256,7 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
-                /* flush if Traffic Class fields are different */
-                NAPI_GRO_CB(p)->flush |= !!(first_word & htonl(0x0FF00000));
-                NAPI_GRO_CB(p)->flush |= flush;
-+               NAPI_GRO_CB(p)->flush_id = 0;
-        }
- 
-        NAPI_GRO_CB(skb)->flush |= flush;
+fs/ceph/root.c:
+
+The parsing code that takes the DHCP option 17 and kernel command line
+parameters has been extensively altered.
+
+The parsing now accepts multiple monitor addresses and ipv6 addresses.
+
+The monitors listed in DHCP option 17 are now concatenated with those
+listed on the kernel command line.
+
+The patch series applies to v3.13-rc8-7-g3539717
+
+Thanks
+
+Mark
+
+Mark Doffman (1):
+  init: Add a new root device option, the Ceph file system
+
+Rob Taylor (1):
+  Documentation: Document the cephroot functionality
+
+ Documentation/filesystems/{ => ceph}/ceph.txt |   0
+ Documentation/filesystems/ceph/cephroot.txt   |  86 +++++++++++++
+ fs/ceph/Kconfig                               |  10 ++
+ fs/ceph/Makefile                              |   1 +
+ fs/ceph/root.c                                | 176 ++++++++++++++++++++++++++
+ include/linux/ceph/ceph_root.h                |  10 ++
+ include/linux/root_dev.h                      |   1 +
+ init/do_mounts.c                              |  32 ++++-
+ net/ipv4/ipconfig.c                           |  10 +-
+ 9 files changed, 323 insertions(+), 3 deletions(-)
+ rename Documentation/filesystems/{ => ceph}/ceph.txt (100%)
+ create mode 100644 Documentation/filesystems/ceph/cephroot.txt
+ create mode 100644 fs/ceph/root.c
+ create mode 100644 include/linux/ceph/ceph_root.h
+
+-- 
+1.8.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
