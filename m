@@ -1,45 +1,28 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next v2] openvswitch: Pad OVS_PACKET_ATTR_PACKET if
- linear copy was performed
-Date: Wed, 15 Jan 2014 14:53:48 -0800
-Message-ID: <CAEP_g=_o1n5QO1P-yAo6wwJ45SOAyVtkQP2X_G0jq2ezpn34Aw@mail.gmail.com>
-References: <20140114161640.GA24121@casper.infradead.org> <20140114161911.GB24121@casper.infradead.org>
- <20140114162749.GC24121@casper.infradead.org> <20140114.190354.1862604735799307127.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [trivial] ixgbe: Fix format string in ixgbe_fcoe.c
+Date: Wed, 15 Jan 2014 14:55:47 -0800 (PST)
+Message-ID: <20140115.145547.1868806980328924895.davem@davemloft.net>
+References: <1389716082-23395-1-git-send-email-standby24x7@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Graf <tgraf@suug.ch>, Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Thomas Graf <tgraf@redhat.com>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog135.obsmtp.com ([74.125.149.84]:38003 "HELO
-	na3sys009aog135.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751434AbaAOWyJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 17:54:09 -0500
-Received: by mail-ie0-f171.google.com with SMTP id to1so2983049ieb.2
-        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 14:54:08 -0800 (PST)
-In-Reply-To: <20140114.190354.1862604735799307127.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	trivial@kernel.org
+To: standby24x7@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1389716082-23395-1-git-send-email-standby24x7@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 14, 2014 at 7:03 PM, David Miller <davem@davemloft.net> wrote:
-> From: Thomas Graf <tgraf@suug.ch>
-> Date: Tue, 14 Jan 2014 16:27:49 +0000
->
->> While the zerocopy method is correctly omitted if user space
->> does not support unaligned Netlink messages. The attribute is
->> still not padded correctly as skb_zerocopy() will not ensure
->> padding and the attribute size is no longer pre calculated
->> though nla_reserve() which ensured padding previously.
->>
->> This patch applies appropriate padding if a linear data copy
->> was performed in skb_zerocopy().
->>
->> Signed-off-by: Thomas Graf <tgraf@suug.ch>
->> ---
->> v2: initialize padding to 0's
->
-> Jesse do you want to queue this up or should I apply it directly?
+From: Masanari Iida <standby24x7@gmail.com>
+Date: Wed, 15 Jan 2014 01:14:42 +0900
 
-I queued it up, thanks.
+> cppcheck detected following warning in ixgbe_fcoe.c
+> (warning) %d in format string (no. 1) requires 'int' but the
+> argument type is 'unsigned int'.
+> 
+> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
+
+Intel folks, please be sure to pick this up.
