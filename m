@@ -1,59 +1,286 @@
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
-Subject: Re: [PATCH net] bpf: do not use reciprocal divide
-Date: Wed, 15 Jan 2014 16:10:08 +0100
-Message-ID: <20140115151008.GD6638@osiris>
+From: Matt Evans <matt@ozlabs.org>
+Subject: Re: [PATCH v2 net] bpf: do not use reciprocal divide
+Date: Wed, 15 Jan 2014 15:10:36 +0000
+Message-ID: <927a6073e8f73b53027480e7609b4c53@ozlabs.org>
 References: <20140113214249.GK6586@order.stressinduktion.org>
  <1389769361.31367.325.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140115080007.GA6638@osiris>
- <1389795398.31367.329.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140115080007.GA6638@osiris> <20140115091322.3a7740a7@mschwide>
+ <20140115105114.GB6638@osiris>
+ <1389795716.31367.333.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1389795926.31367.334.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1389797407.31367.340.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	netdev@vger.kernel.org, dborkman@redhat.com,
 	darkjames-ws@darkjames.pl, Mircea Gherzan <mgherzan@gmail.com>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Matt Evans <matt@ozlabs.org>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>
+	Russell King <rmk+kernel@arm.linux.org.uk>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:60586 "EHLO
-	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751612AbaAOPKQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 10:10:16 -0500
-Received: from /spool/local
-	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <heiko.carstens@de.ibm.com>;
-	Wed, 15 Jan 2014 15:10:14 -0000
-Received: from b06cxnps3074.portsmouth.uk.ibm.com (d06relay09.portsmouth.uk.ibm.com [9.149.109.194])
-	by d06dlp03.portsmouth.uk.ibm.com (Postfix) with ESMTP id DA20F1B0806E
-	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 15:09:35 +0000 (GMT)
-Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
-	by b06cxnps3074.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s0FFA1Jk51183784
-	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 15:10:01 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (localhost [127.0.0.1])
-	by d06av04.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s0FFAA06011481
-	for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 08:10:12 -0700
-Content-Disposition: inline
-In-Reply-To: <1389795398.31367.329.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from ozlabs.org ([203.10.76.45]:45181 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751986AbaAOPKi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jan 2014 10:10:38 -0500
+In-Reply-To: <1389797407.31367.340.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 15, 2014 at 06:16:38AM -0800, Eric Dumazet wrote:
-> On Wed, 2014-01-15 at 09:00 +0100, Heiko Carstens wrote:
-> > Are you sure you want to remove the k == 0 check? Is there something
-> > else that would prevent a division by zero?
-> 
-> This is done by factoring the two cases, modulo and divide :
-> 
->  vi +553 net/core/filter.c 
-> 
->                 /* Some instructions need special checks */
->                 switch (code) {
->                 case BPF_S_ALU_DIV_K:
->                 case BPF_S_ALU_MOD_K:
->                         /* check for division by zero */
->                         if (ftest->k == 0)
->                                 return -EINVAL;
->                         break;
+Hi Eric,
 
-Oh, sorry. I missed the fallthrough.
+On 2014-01-15 14:50, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> At first Jakub Zawadzki noticed that some divisions by 
+> reciprocal_divide
+> were not correct. (off by one in some cases)
+> http://www.wireshark.org/~darkjames/reciprocal-buggy.c
+> 
+> He could also show this with BPF:
+> http://www.wireshark.org/~darkjames/set-and-dump-filter-k-bug.c
+> 
+> The reciprocal divide in linux kernel is not generic enough,
+> lets remove its use in BPF, as it is not worth the pain with
+> current cpus.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Jakub Zawadzki <darkjames-ws@darkjames.pl>
+> Cc: Mircea Gherzan <mgherzan@gmail.com>
+> Cc: Daniel Borkmann <dxchgb@gmail.com>
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Cc: Matt Evans <matt@ozlabs.org>
+> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+> Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> ---
+> v2: Fixed sparc code as David kindly suggested
+>     Added tests on K being 1 (divide by 1 is a nop
+>                               modulo by 1 clears A),
+>     as Martin Schwidefsky seems concerned by this case.
+> 
+> Please review arch code to make sure I made no mistake, thanks !
+
+PPC looks fine; I had a look at the core/ARM parts which also look good.
+
+I'd forgotten where the DIV0 checking occurred, so I also benefited from 
+your hint to Heiko. :)
+
+
+Cheers,
+
+Matt
+
+> 
+>  arch/arm/net/bpf_jit_32.c       |    6 +++---
+>  arch/powerpc/net/bpf_jit_comp.c |    7 ++++---
+>  arch/s390/net/bpf_jit_comp.c    |   17 ++++++++++++-----
+>  arch/sparc/net/bpf_jit_comp.c   |   17 ++++++++++++++---
+>  arch/x86/net/bpf_jit_comp.c     |   14 ++++++++++----
+>  net/core/filter.c               |   30 ++----------------------------
+>  6 files changed, 45 insertions(+), 46 deletions(-)
+> 
+> diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
+> index 9ed155ad0f97..271b5e971568 100644
+> --- a/arch/arm/net/bpf_jit_32.c
+> +++ b/arch/arm/net/bpf_jit_32.c
+> @@ -641,10 +641,10 @@ load_ind:
+>  			emit(ARM_MUL(r_A, r_A, r_X), ctx);
+>  			break;
+>  		case BPF_S_ALU_DIV_K:
+> -			/* current k == reciprocal_value(userspace k) */
+> +			if (k == 1)
+> +				break;
+>  			emit_mov_i(r_scratch, k, ctx);
+> -			/* A = top 32 bits of the product */
+> -			emit(ARM_UMULL(r_scratch, r_A, r_A, r_scratch), ctx);
+> +			emit_udiv(r_A, r_A, r_scratch, ctx);
+>  			break;
+>  		case BPF_S_ALU_DIV_X:
+>  			update_on_xread(ctx);
+> diff --git a/arch/powerpc/net/bpf_jit_comp.c 
+> b/arch/powerpc/net/bpf_jit_comp.c
+> index ac3c2a10dafd..555034f8505e 100644
+> --- a/arch/powerpc/net/bpf_jit_comp.c
+> +++ b/arch/powerpc/net/bpf_jit_comp.c
+> @@ -223,10 +223,11 @@ static int bpf_jit_build_body(struct sk_filter
+> *fp, u32 *image,
+>  			}
+>  			PPC_DIVWU(r_A, r_A, r_X);
+>  			break;
+> -		case BPF_S_ALU_DIV_K: /* A = reciprocal_divide(A, K); */
+> +		case BPF_S_ALU_DIV_K: /* A /= K */
+> +			if (K == 1)
+> +				break;
+>  			PPC_LI32(r_scratch1, K);
+> -			/* Top 32 bits of 64bit result -> A */
+> -			PPC_MULHWU(r_A, r_A, r_scratch1);
+> +			PPC_DIVWU(r_A, r_A, r_scratch1);
+>  			break;
+>  		case BPF_S_ALU_AND_X:
+>  			ctx->seen |= SEEN_XREG;
+> diff --git a/arch/s390/net/bpf_jit_comp.c 
+> b/arch/s390/net/bpf_jit_comp.c
+> index 16871da37371..fc0fa77728e1 100644
+> --- a/arch/s390/net/bpf_jit_comp.c
+> +++ b/arch/s390/net/bpf_jit_comp.c
+> @@ -371,11 +371,13 @@ static int bpf_jit_insn(struct bpf_jit *jit,
+> struct sock_filter *filter,
+>  		/* dr %r4,%r12 */
+>  		EMIT2(0x1d4c);
+>  		break;
+> -	case BPF_S_ALU_DIV_K: /* A = reciprocal_divide(A, K) */
+> -		/* m %r4,<d(K)>(%r13) */
+> -		EMIT4_DISP(0x5c40d000, EMIT_CONST(K));
+> -		/* lr %r5,%r4 */
+> -		EMIT2(0x1854);
+> +	case BPF_S_ALU_DIV_K: /* A /= K */
+> +		if (K == 1)
+> +			break;
+> +		/* lhi %r4,0 */
+> +		EMIT4(0xa7480000);
+> +		/* d %r4,<d(K)>(%r13) */
+> +		EMIT4_DISP(0x5d40d000, EMIT_CONST(K));
+>  		break;
+>  	case BPF_S_ALU_MOD_X: /* A %= X */
+>  		jit->seen |= SEEN_XREG | SEEN_RET0;
+> @@ -391,6 +393,11 @@ static int bpf_jit_insn(struct bpf_jit *jit,
+> struct sock_filter *filter,
+>  		EMIT2(0x1854);
+>  		break;
+>  	case BPF_S_ALU_MOD_K: /* A %= K */
+> +		if (K == 1) {
+> +			/* lhi %r5,0 */
+> +			EMIT4(0xa7580000);
+> +			break;
+> +		}
+>  		/* lhi %r4,0 */
+>  		EMIT4(0xa7480000);
+>  		/* d %r4,<d(K)>(%r13) */
+> diff --git a/arch/sparc/net/bpf_jit_comp.c 
+> b/arch/sparc/net/bpf_jit_comp.c
+> index 218b6b23c378..01fe9946d388 100644
+> --- a/arch/sparc/net/bpf_jit_comp.c
+> +++ b/arch/sparc/net/bpf_jit_comp.c
+> @@ -497,9 +497,20 @@ void bpf_jit_compile(struct sk_filter *fp)
+>  			case BPF_S_ALU_MUL_K:	/* A *= K */
+>  				emit_alu_K(MUL, K);
+>  				break;
+> -			case BPF_S_ALU_DIV_K:	/* A /= K */
+> -				emit_alu_K(MUL, K);
+> -				emit_read_y(r_A);
+> +			case BPF_S_ALU_DIV_K:	/* A /= K with K != 0*/
+> +				if (K == 1)
+> +					break;
+> +				emit_write_y(G0);
+> +#ifdef CONFIG_SPARC32
+> +				/* The Sparc v8 architecture requires
+> +				 * three instructions between a %y
+> +				 * register write and the first use.
+> +				 */
+> +				emit_nop();
+> +				emit_nop();
+> +				emit_nop();
+> +#endif
+> +				emit_alu_K(DIV, K);
+>  				break;
+>  			case BPF_S_ALU_DIV_X:	/* A /= X; */
+>  				emit_cmpi(r_X, 0);
+> diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+> index 26328e800869..4ed75dd81d05 100644
+> --- a/arch/x86/net/bpf_jit_comp.c
+> +++ b/arch/x86/net/bpf_jit_comp.c
+> @@ -359,15 +359,21 @@ void bpf_jit_compile(struct sk_filter *fp)
+>  				EMIT2(0x89, 0xd0);	/* mov %edx,%eax */
+>  				break;
+>  			case BPF_S_ALU_MOD_K: /* A %= K; */
+> +				if (K == 1) {
+> +					CLEAR_A();
+> +					break;
+> +				}
+>  				EMIT2(0x31, 0xd2);	/* xor %edx,%edx */
+>  				EMIT1(0xb9);EMIT(K, 4);	/* mov imm32,%ecx */
+>  				EMIT2(0xf7, 0xf1);	/* div %ecx */
+>  				EMIT2(0x89, 0xd0);	/* mov %edx,%eax */
+>  				break;
+> -			case BPF_S_ALU_DIV_K: /* A = reciprocal_divide(A, K); */
+> -				EMIT3(0x48, 0x69, 0xc0); /* imul imm32,%rax,%rax */
+> -				EMIT(K, 4);
+> -				EMIT4(0x48, 0xc1, 0xe8, 0x20); /* shr $0x20,%rax */
+> +			case BPF_S_ALU_DIV_K: /* A /= K */
+> +				if (K == 1)
+> +					break;
+> +				EMIT2(0x31, 0xd2);	/* xor %edx,%edx */
+> +				EMIT1(0xb9);EMIT(K, 4);	/* mov imm32,%ecx */
+> +				EMIT2(0xf7, 0xf1);	/* div %ecx */
+>  				break;
+>  			case BPF_S_ALU_AND_X:
+>  				seen |= SEEN_XREG;
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index 01b780856db2..ad30d626a5bd 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -36,7 +36,6 @@
+>  #include <asm/uaccess.h>
+>  #include <asm/unaligned.h>
+>  #include <linux/filter.h>
+> -#include <linux/reciprocal_div.h>
+>  #include <linux/ratelimit.h>
+>  #include <linux/seccomp.h>
+>  #include <linux/if_vlan.h>
+> @@ -166,7 +165,7 @@ unsigned int sk_run_filter(const struct sk_buff 
+> *skb,
+>  			A /= X;
+>  			continue;
+>  		case BPF_S_ALU_DIV_K:
+> -			A = reciprocal_divide(A, K);
+> +			A /= K;
+>  			continue;
+>  		case BPF_S_ALU_MOD_X:
+>  			if (X == 0)
+> @@ -553,11 +552,6 @@ int sk_chk_filter(struct sock_filter *filter,
+> unsigned int flen)
+>  		/* Some instructions need special checks */
+>  		switch (code) {
+>  		case BPF_S_ALU_DIV_K:
+> -			/* check for division by zero */
+> -			if (ftest->k == 0)
+> -				return -EINVAL;
+> -			ftest->k = reciprocal_value(ftest->k);
+> -			break;
+>  		case BPF_S_ALU_MOD_K:
+>  			/* check for division by zero */
+>  			if (ftest->k == 0)
+> @@ -853,27 +847,7 @@ void sk_decode_filter(struct sock_filter *filt,
+> struct sock_filter *to)
+>  	to->code = decodes[code];
+>  	to->jt = filt->jt;
+>  	to->jf = filt->jf;
+> -
+> -	if (code == BPF_S_ALU_DIV_K) {
+> -		/*
+> -		 * When loaded this rule user gave us X, which was
+> -		 * translated into R = r(X). Now we calculate the
+> -		 * RR = r(R) and report it back. If next time this
+> -		 * value is loaded and RRR = r(RR) is calculated
+> -		 * then the R == RRR will be true.
+> -		 *
+> -		 * One exception. X == 1 translates into R == 0 and
+> -		 * we can't calculate RR out of it with r().
+> -		 */
+> -
+> -		if (filt->k == 0)
+> -			to->k = 1;
+> -		else
+> -			to->k = reciprocal_value(filt->k);
+> -
+> -		BUG_ON(reciprocal_value(to->k) != filt->k);
+> -	} else
+> -		to->k = filt->k;
+> +	to->k = filt->k;
+>  }
+> 
+>  int sk_get_filter(struct sock *sk, struct sock_filter __user *ubuf,
+> unsigned int len)
