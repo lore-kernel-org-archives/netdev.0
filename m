@@ -1,78 +1,219 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH-next v3] netfilter: don't use module_init/exit in core IPV4 code
-Date: Thu, 16 Jan 2014 15:24:03 -0500
-Message-ID: <1389903843-1633-1-git-send-email-paul.gortmaker@windriver.com>
-References: <20140116192613.GA23133@d2.synalogic.ca>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next v4 2/6] virtio-net: use per-receive queue page
+	frag alloc for mergeable bufs
+Date: Thu, 16 Jan 2014 22:24:37 +0200
+Message-ID: <20140116202437.GG29522@redhat.com>
+References: <1389901950-3854-1-git-send-email-mwdalton@google.com>
+	<1389901950-3854-2-git-send-email-mwdalton@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Benjamin Poirier <benjamin.poirier@gmail.com>,
-	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20140116192613.GA23133@d2.synalogic.ca>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Michael Dalton <mwdalton@google.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1389901950-3854-2-git-send-email-mwdalton@google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-The file net/ipv4/netfilter.o is created based on whether
-CONFIG_NETFILTER is set.  However that is defined as a bool, and
-hence this file with the core netfilter hooks will never be
-modular.  So using module_init as an alias for __initcall can be
-somewhat misleading.
+On Thu, Jan 16, 2014 at 11:52:26AM -0800, Michael Dalton wrote:
+> The virtio-net driver currently uses netdev_alloc_frag() for GFP_ATOMIC
+> mergeable rx buffer allocations. This commit migrates virtio-net to use
+> per-receive queue page frags for GFP_ATOMIC allocation. This change unifies
+> mergeable rx buffer memory allocation, which now will use skb_refill_frag()
+> for both atomic and GFP-WAIT buffer allocations.
+> 
+> To address fragmentation concerns, if after buffer allocation there
+> is too little space left in the page frag to allocate a subsequent
+> buffer, the remaining space is added to the current allocated buffer
+> so that the remaining space can be used to store packet data.
+> 
+> Signed-off-by: Michael Dalton <mwdalton@google.com>
 
-Fix this up now, so that we can relocate module_init from
-init.h into module.h in the future.  If we don't do this, we'd
-have to add module.h to obviously non-modular code, and that
-would be a worse thing.  Also add an inclusion of init.h, as
-that was previously implicit here in the netfilter.c file.
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-Note that direct use of __initcall is discouraged, vs. one
-of the priority categorized subgroups.  As __initcall gets
-mapped onto device_initcall, our use of subsys_initcall (which
-seems to make sense for netfilter code) will thus change this
-registration from level 6-device to level 4-subsys (i.e. slightly
-earlier).  However no observable impact of that small difference
-has been observed during testing, or is expected. (i.e. the
-location of the netfilter messages in dmesg remains unchanged
-with respect to all the other surrounding messages.)
-
-As for the module_exit, rather than replace it with __exitcall,
-we simply remove it, since it appears only UML does anything
-with those, and even for UML, there is no relevant cleanup
-to be done here.
-
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
-
-[v3: switch accidental device_initcall back to subsys_initcall
- as spotted by Benjamin Poirier; retest on ppc-sbc8548 net-next]
-
-[v2: Drop __exitcall stuff completely, as per Eric's suggestion
- given for patch at  http://patchwork.ozlabs.org/patch/311164/ ]
-
- net/ipv4/netfilter.c | 9 +--------
- 1 file changed, 1 insertion(+), 8 deletions(-)
-
-diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
-index c3e0adea9c27..31abf9636ba7 100644
---- a/net/ipv4/netfilter.c
-+++ b/net/ipv4/netfilter.c
-@@ -197,11 +197,4 @@ static int __init ipv4_netfilter_init(void)
- {
- 	return nf_register_afinfo(&nf_ip_afinfo);
- }
--
--static void __exit ipv4_netfilter_fini(void)
--{
--	nf_unregister_afinfo(&nf_ip_afinfo);
--}
--
--module_init(ipv4_netfilter_init);
--module_exit(ipv4_netfilter_fini);
-+subsys_initcall(ipv4_netfilter_init);
--- 
-1.8.5.2
-
+> ---
+> v1->v2: Use GFP_COLD for RX buffer allocations (as in netdev_alloc_frag()).
+>         Remove per-netdev GFP_KERNEL page_frag allocator.
+> 
+>  drivers/net/virtio_net.c | 69 ++++++++++++++++++++++++------------------------
+>  1 file changed, 35 insertions(+), 34 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 7b17240..36cbf06 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -78,6 +78,9 @@ struct receive_queue {
+>  	/* Chain pages by the private ptr. */
+>  	struct page *pages;
+>  
+> +	/* Page frag for packet buffer allocation. */
+> +	struct page_frag alloc_frag;
+> +
+>  	/* RX: fragments + linear part + virtio header */
+>  	struct scatterlist sg[MAX_SKB_FRAGS + 2];
+>  
+> @@ -126,11 +129,6 @@ struct virtnet_info {
+>  	/* Lock for config space updates */
+>  	struct mutex config_lock;
+>  
+> -	/* Page_frag for GFP_KERNEL packet buffer allocation when we run
+> -	 * low on memory.
+> -	 */
+> -	struct page_frag alloc_frag;
+> -
+>  	/* Does the affinity hint is set for virtqueues? */
+>  	bool affinity_hint_set;
+>  
+> @@ -336,8 +334,8 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+>  	int num_buf = hdr->mhdr.num_buffers;
+>  	struct page *page = virt_to_head_page(buf);
+>  	int offset = buf - page_address(page);
+> -	struct sk_buff *head_skb = page_to_skb(rq, page, offset, len,
+> -					       MERGE_BUFFER_LEN);
+> +	unsigned int truesize = max_t(unsigned int, len, MERGE_BUFFER_LEN);
+> +	struct sk_buff *head_skb = page_to_skb(rq, page, offset, len, truesize);
+>  	struct sk_buff *curr_skb = head_skb;
+>  
+>  	if (unlikely(!curr_skb))
+> @@ -353,11 +351,6 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+>  			dev->stats.rx_length_errors++;
+>  			goto err_buf;
+>  		}
+> -		if (unlikely(len > MERGE_BUFFER_LEN)) {
+> -			pr_debug("%s: rx error: merge buffer too long\n",
+> -				 dev->name);
+> -			len = MERGE_BUFFER_LEN;
+> -		}
+>  
+>  		page = virt_to_head_page(buf);
+>  		--rq->num;
+> @@ -376,19 +369,20 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+>  			head_skb->truesize += nskb->truesize;
+>  			num_skb_frags = 0;
+>  		}
+> +		truesize = max_t(unsigned int, len, MERGE_BUFFER_LEN);
+>  		if (curr_skb != head_skb) {
+>  			head_skb->data_len += len;
+>  			head_skb->len += len;
+> -			head_skb->truesize += MERGE_BUFFER_LEN;
+> +			head_skb->truesize += truesize;
+>  		}
+>  		offset = buf - page_address(page);
+>  		if (skb_can_coalesce(curr_skb, num_skb_frags, page, offset)) {
+>  			put_page(page);
+>  			skb_coalesce_rx_frag(curr_skb, num_skb_frags - 1,
+> -					     len, MERGE_BUFFER_LEN);
+> +					     len, truesize);
+>  		} else {
+>  			skb_add_rx_frag(curr_skb, num_skb_frags, page,
+> -					offset, len, MERGE_BUFFER_LEN);
+> +					offset, len, truesize);
+>  		}
+>  	}
+>  
+> @@ -578,25 +572,24 @@ static int add_recvbuf_big(struct receive_queue *rq, gfp_t gfp)
+>  
+>  static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
+>  {
+> -	struct virtnet_info *vi = rq->vq->vdev->priv;
+> -	char *buf = NULL;
+> +	struct page_frag *alloc_frag = &rq->alloc_frag;
+> +	char *buf;
+>  	int err;
+> +	unsigned int len, hole;
+>  
+> -	if (gfp & __GFP_WAIT) {
+> -		if (skb_page_frag_refill(MERGE_BUFFER_LEN, &vi->alloc_frag,
+> -					 gfp)) {
+> -			buf = (char *)page_address(vi->alloc_frag.page) +
+> -			      vi->alloc_frag.offset;
+> -			get_page(vi->alloc_frag.page);
+> -			vi->alloc_frag.offset += MERGE_BUFFER_LEN;
+> -		}
+> -	} else {
+> -		buf = netdev_alloc_frag(MERGE_BUFFER_LEN);
+> -	}
+> -	if (!buf)
+> +	if (unlikely(!skb_page_frag_refill(MERGE_BUFFER_LEN, alloc_frag, gfp)))
+>  		return -ENOMEM;
+> +	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
+> +	get_page(alloc_frag->page);
+> +	len = MERGE_BUFFER_LEN;
+> +	alloc_frag->offset += len;
+> +	hole = alloc_frag->size - alloc_frag->offset;
+> +	if (hole < MERGE_BUFFER_LEN) {
+> +		len += hole;
+> +		alloc_frag->offset += hole;
+> +	}
+>  
+> -	sg_init_one(rq->sg, buf, MERGE_BUFFER_LEN);
+> +	sg_init_one(rq->sg, buf, len);
+>  	err = virtqueue_add_inbuf(rq->vq, rq->sg, 1, buf, gfp);
+>  	if (err < 0)
+>  		put_page(virt_to_head_page(buf));
+> @@ -617,6 +610,7 @@ static bool try_fill_recv(struct receive_queue *rq, gfp_t gfp)
+>  	int err;
+>  	bool oom;
+>  
+> +	gfp |= __GFP_COLD;
+>  	do {
+>  		if (vi->mergeable_rx_bufs)
+>  			err = add_recvbuf_mergeable(rq, gfp);
+> @@ -1377,6 +1371,14 @@ static void free_receive_bufs(struct virtnet_info *vi)
+>  	}
+>  }
+>  
+> +static void free_receive_page_frags(struct virtnet_info *vi)
+> +{
+> +	int i;
+> +	for (i = 0; i < vi->max_queue_pairs; i++)
+> +		if (vi->rq[i].alloc_frag.page)
+> +			put_page(vi->rq[i].alloc_frag.page);
+> +}
+> +
+>  static void free_unused_bufs(struct virtnet_info *vi)
+>  {
+>  	void *buf;
+> @@ -1705,9 +1707,8 @@ free_recv_bufs:
+>  	unregister_netdev(dev);
+>  free_vqs:
+>  	cancel_delayed_work_sync(&vi->refill);
+> +	free_receive_page_frags(vi);
+>  	virtnet_del_vqs(vi);
+> -	if (vi->alloc_frag.page)
+> -		put_page(vi->alloc_frag.page);
+>  free_stats:
+>  	free_percpu(vi->stats);
+>  free:
+> @@ -1724,6 +1725,8 @@ static void remove_vq_common(struct virtnet_info *vi)
+>  
+>  	free_receive_bufs(vi);
+>  
+> +	free_receive_page_frags(vi);
+> +
+>  	virtnet_del_vqs(vi);
+>  }
+>  
+> @@ -1741,8 +1744,6 @@ static void virtnet_remove(struct virtio_device *vdev)
+>  	unregister_netdev(vi->dev);
+>  
+>  	remove_vq_common(vi);
+> -	if (vi->alloc_frag.page)
+> -		put_page(vi->alloc_frag.page);
+>  
+>  	flush_work(&vi->config_work);
+>  
+> -- 
+> 1.8.5.2
