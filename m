@@ -1,7 +1,7 @@
 From: <srinivas.kandagatla@st.com>
-Subject: [PATCH v2 4/9] net: stmmac: move hardware setup for stmmac_open to new function
-Date: Thu, 16 Jan 2014 10:52:14 +0000
-Message-ID: <1389869534-28176-1-git-send-email-srinivas.kandagatla@st.com>
+Subject: [PATCH v2 5/9] net: stmmac: make stmmac_mdio_reset non-static
+Date: Thu, 16 Jan 2014 10:52:27 +0000
+Message-ID: <1389869547-28218-1-git-send-email-srinivas.kandagatla@st.com>
 References: <1389869450-28003-1-git-send-email-srinivas.kandagatla@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,220 +9,48 @@ Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
 	David Miller <davem@davemloft.net>,
 	<linux-kernel@vger.kernel.org>, <srinivas.kandagatla@st.com>
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:60760 "EHLO
-	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752013AbaAPK56 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 05:57:58 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1389869450-28003-1-git-send-email-srinivas.kandagatla@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-This patch moves hardware setup part of the code in stmmac_open to a new
-function stmmac_hw_setup, the reason for doing this is to make hw
-initialization independent function so that PM functions can re-use it to
-re-initialize the IP after returning from low power state.
-This will also avoid code duplication across stmmac_resume/restore and
-stmmac_open.
+This patch promotes stmmac_mdio_reset function from static to
+non-static, so that power management functions can decide to reset if
+the IP comes out from lowe power state specially hibernation cases.
 
 Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |  155 ++++++++++++---------
- 1 files changed, 88 insertions(+), 67 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h      |    1 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |    2 +-
+ 2 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 532f2b4..341c8dc 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1586,6 +1586,86 @@ static void stmmac_init_tx_coalesce(struct stmmac_priv *priv)
- }
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index 92be6b3..5a568015 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -110,6 +110,7 @@ struct stmmac_priv {
  
- /**
-+ * stmmac_hw_setup: setup mac in a usable state.
-+ *  @dev : pointer to the device structure.
-+ *  Description:
-+ *  This function sets up the ip in a usable state.
-+ *  Return value:
-+ *  0 on success and an appropriate (-)ve integer as defined in errno.h
-+ *  file on failure.
-+ */
-+static int stmmac_hw_setup(struct net_device *dev)
-+{
-+	struct stmmac_priv *priv = netdev_priv(dev);
-+	int ret;
-+
-+	ret = init_dma_desc_rings(dev);
-+	if (ret < 0) {
-+		pr_err("%s: DMA descriptors initialization failed\n", __func__);
-+		return ret;
-+	}
-+	/* DMA initialization and SW reset */
-+	ret = stmmac_init_dma_engine(priv);
-+	if (ret < 0) {
-+		pr_err("%s: DMA engine initialization failed\n", __func__);
-+		return ret;
-+	}
-+
-+	/* Copy the MAC addr into the HW  */
-+	priv->hw->mac->set_umac_addr(priv->ioaddr, dev->dev_addr, 0);
-+
-+	/* If required, perform hw setup of the bus. */
-+	if (priv->plat->bus_setup)
-+		priv->plat->bus_setup(priv->ioaddr);
-+
-+	/* Initialize the MAC Core */
-+	priv->hw->mac->core_init(priv->ioaddr);
-+
-+	/* Enable the MAC Rx/Tx */
-+	stmmac_set_mac(priv->ioaddr, true);
-+
-+	/* Set the HW DMA mode and the COE */
-+	stmmac_dma_operation_mode(priv);
-+
-+	stmmac_mmc_setup(priv);
-+
-+	ret = stmmac_init_ptp(priv);
-+	if (ret)
-+		pr_warn("%s: failed PTP initialisation\n", __func__);
-+
-+#ifdef CONFIG_STMMAC_DEBUG_FS
-+	ret = stmmac_init_fs(dev);
-+	if (ret < 0)
-+		pr_warn("%s: failed debugFS registration\n", __func__);
-+#endif
-+	/* Start the ball rolling... */
-+	pr_debug("%s: DMA RX/TX processes started...\n", dev->name);
-+	priv->hw->dma->start_tx(priv->ioaddr);
-+	priv->hw->dma->start_rx(priv->ioaddr);
-+
-+	/* Dump DMA/MAC registers */
-+	if (netif_msg_hw(priv)) {
-+		priv->hw->mac->dump_regs(priv->ioaddr);
-+		priv->hw->dma->dump_regs(priv->ioaddr);
-+	}
-+	priv->tx_lpi_timer = STMMAC_DEFAULT_TWT_LS;
-+
-+	priv->eee_enabled = stmmac_eee_init(priv);
-+
-+	stmmac_init_tx_coalesce(priv);
-+
-+	if ((priv->use_riwt) && (priv->hw->dma->rx_watchdog)) {
-+		priv->rx_riwt = MAX_DMA_RIWT;
-+		priv->hw->dma->rx_watchdog(priv->ioaddr, MAX_DMA_RIWT);
-+	}
-+
-+	if (priv->pcs && priv->hw->mac->ctrl_ane)
-+		priv->hw->mac->ctrl_ane(priv->ioaddr, 0);
-+
-+	return 0;
-+}
-+
-+/**
-  *  stmmac_open - open entry point of the driver
-  *  @dev : pointer to the device structure.
-  *  Description:
-@@ -1613,6 +1693,10 @@ static int stmmac_open(struct net_device *dev)
- 		}
- 	}
- 
-+	/* Extra statistics */
-+	memset(&priv->xstats, 0, sizeof(struct stmmac_extra_stats));
-+	priv->xstats.threshold = tc;
-+
- 	/* Create and initialize the TX/RX descriptors chains. */
- 	priv->dma_tx_size = STMMAC_ALIGN(dma_txsize);
- 	priv->dma_rx_size = STMMAC_ALIGN(dma_rxsize);
-@@ -1624,28 +1708,14 @@ static int stmmac_open(struct net_device *dev)
- 		goto dma_desc_error;
- 	}
- 
--	ret = init_dma_desc_rings(dev);
-+	ret = stmmac_hw_setup(dev);
- 	if (ret < 0) {
--		pr_err("%s: DMA descriptors initialization failed\n", __func__);
--		goto dma_desc_error;
--	}
--
--	/* DMA initialization and SW reset */
--	ret = stmmac_init_dma_engine(priv);
--	if (ret < 0) {
--		pr_err("%s: DMA engine initialization failed\n", __func__);
-+		pr_err("%s: Hw setup failed\n", __func__);
- 		goto init_error;
- 	}
- 
--	/* Copy the MAC addr into the HW  */
--	priv->hw->mac->set_umac_addr(priv->ioaddr, dev->dev_addr, 0);
--
--	/* If required, perform hw setup of the bus. */
--	if (priv->plat->bus_setup)
--		priv->plat->bus_setup(priv->ioaddr);
--
--	/* Initialize the MAC Core */
--	priv->hw->mac->core_init(priv->ioaddr);
-+	if (priv->phydev)
-+		phy_start(priv->phydev);
- 
- 	/* Request the IRQ lines */
- 	ret = request_irq(dev->irq, stmmac_interrupt,
-@@ -1678,55 +1748,6 @@ static int stmmac_open(struct net_device *dev)
- 		}
- 	}
- 
--	/* Enable the MAC Rx/Tx */
--	stmmac_set_mac(priv->ioaddr, true);
--
--	/* Set the HW DMA mode and the COE */
--	stmmac_dma_operation_mode(priv);
--
--	/* Extra statistics */
--	memset(&priv->xstats, 0, sizeof(struct stmmac_extra_stats));
--	priv->xstats.threshold = tc;
--
--	stmmac_mmc_setup(priv);
--
--	ret = stmmac_init_ptp(priv);
--	if (ret)
--		pr_warn("%s: failed PTP initialisation\n", __func__);
--
--#ifdef CONFIG_STMMAC_DEBUG_FS
--	ret = stmmac_init_fs(dev);
--	if (ret < 0)
--		pr_warn("%s: failed debugFS registration\n", __func__);
--#endif
--	/* Start the ball rolling... */
--	pr_debug("%s: DMA RX/TX processes started...\n", dev->name);
--	priv->hw->dma->start_tx(priv->ioaddr);
--	priv->hw->dma->start_rx(priv->ioaddr);
--
--	/* Dump DMA/MAC registers */
--	if (netif_msg_hw(priv)) {
--		priv->hw->mac->dump_regs(priv->ioaddr);
--		priv->hw->dma->dump_regs(priv->ioaddr);
--	}
--
--	if (priv->phydev)
--		phy_start(priv->phydev);
--
--	priv->tx_lpi_timer = STMMAC_DEFAULT_TWT_LS;
--
--	priv->eee_enabled = stmmac_eee_init(priv);
--
--	stmmac_init_tx_coalesce(priv);
--
--	if ((priv->use_riwt) && (priv->hw->dma->rx_watchdog)) {
--		priv->rx_riwt = MAX_DMA_RIWT;
--		priv->hw->dma->rx_watchdog(priv->ioaddr, MAX_DMA_RIWT);
--	}
--
--	if (priv->pcs && priv->hw->mac->ctrl_ane)
--		priv->hw->mac->ctrl_ane(priv->ioaddr, 0);
--
- 	napi_enable(&priv->napi);
- 	netif_start_queue(dev);
- 
+ int stmmac_mdio_unregister(struct net_device *ndev);
+ int stmmac_mdio_register(struct net_device *ndev);
++int stmmac_mdio_reset(struct mii_bus *mii);
+ void stmmac_set_ethtool_ops(struct net_device *netdev);
+ extern const struct stmmac_desc_ops enh_desc_ops;
+ extern const struct stmmac_desc_ops ndesc_ops;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index aab12d2..a468eb1 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -128,7 +128,7 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
+  * @bus: points to the mii_bus structure
+  * Description: reset the MII bus
+  */
+-static int stmmac_mdio_reset(struct mii_bus *bus)
++int stmmac_mdio_reset(struct mii_bus *bus)
+ {
+ #if defined(CONFIG_STMMAC_PLATFORM)
+ 	struct net_device *ndev = bus->priv;
 -- 
 1.7.6.5
