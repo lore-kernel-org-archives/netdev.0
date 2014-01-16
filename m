@@ -1,358 +1,131 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next 1/2] bonding: add sysfs /slave dir for bond
- slave devices.
-Date: Thu, 16 Jan 2014 16:31:42 +0100
-Message-ID: <20140116153142.GD1896@redhat.com>
-References: <20140116055434.32220.89883.stgit@monster-03.cumulusnetworks.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v4 net-next 2/4] sh_eth: Add support for r7s72100
+Date: Thu, 16 Jan 2014 19:36:45 +0400
+Message-ID: <52D7FC8D.7000800@cogentembedded.com>
+References: <1389168152-9434-1-git-send-email-horms+renesas@verge.net.au> <1389168152-9434-3-git-send-email-horms+renesas@verge.net.au> <52CDBBE1.1010301@cogentembedded.com> <20140109050351.GE2132@verge.net.au> <52D70F12.9080800@cogentembedded.com> <20140116004943.GF12550@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: fubar@us.ibm.com, andy@greyhouse.net, netdev@vger.kernel.org,
-	roopa@cumulusnetworks.com, shm@cumulusnetworks.com
-To: Scott Feldman <sfeldma@cumulusnetworks.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8030 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752731AbaAPPeo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jan 2014 10:34:44 -0500
-Content-Disposition: inline
-In-Reply-To: <20140116055434.32220.89883.stgit@monster-03.cumulusnetworks.com>
+Received: from mail-la0-f43.google.com ([209.85.215.43]:53488 "EHLO
+	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752334AbaAPPgn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 10:36:43 -0500
+Received: by mail-la0-f43.google.com with SMTP id er20so2647234lab.16
+        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 07:36:41 -0800 (PST)
+In-Reply-To: <20140116004943.GF12550@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 15, 2014 at 09:54:34PM -0800, Scott Feldman wrote:
->Add sub-directory under /sys/class/net/<interface>/slave with
->read-only attributes for slave.  Directory only appears when
-><interface> is a slave.
->
->$ tree /sys/class/net/eth2/slave/
->/sys/class/net/eth2/slave/
->=E2=94=9C=E2=94=80=E2=94=80 ad_aggregator_id
->=E2=94=9C=E2=94=80=E2=94=80 link_failure_count
->=E2=94=9C=E2=94=80=E2=94=80 mii_status
->=E2=94=9C=E2=94=80=E2=94=80 perm_hwaddr
->=E2=94=9C=E2=94=80=E2=94=80 queue_id
->=E2=94=94=E2=94=80=E2=94=80 state
->
->$ cat /sys/class/net/eth2/slave/*
->2
->0
->up
->40:02:10:ef:06:01
->0
->active
->
->Signed-off-by: Scott Feldman <sfeldma@cumulusnetworks.com>
->---
-> drivers/net/bonding/Makefile           |    2
-> drivers/net/bonding/bond_main.c        |   27 ++++++
-> drivers/net/bonding/bond_procfs.c      |   12 ---
-> drivers/net/bonding/bond_sysfs_slave.c |  142 +++++++++++++++++++++++=
-+++++++++
-> drivers/net/bonding/bonding.h          |    4 +
-> 5 files changed, 174 insertions(+), 13 deletions(-)
-> create mode 100644 drivers/net/bonding/bond_sysfs_slave.c
->
->diff --git a/drivers/net/bonding/Makefile b/drivers/net/bonding/Makefi=
-le
->index 5a5d720..6f4e808 100644
->--- a/drivers/net/bonding/Makefile
->+++ b/drivers/net/bonding/Makefile
->@@ -4,7 +4,7 @@
->
-> obj-$(CONFIG_BONDING) +=3D bonding.o
->
->-bonding-objs :=3D bond_main.o bond_3ad.o bond_alb.o bond_sysfs.o bond=
-_debugfs.o bond_netlink.o bond_options.o
->+bonding-objs :=3D bond_main.o bond_3ad.o bond_alb.o bond_sysfs.o bond=
-_sysfs_slave.o bond_debugfs.o bond_netlink.o bond_options.o
->
-> proc-$(CONFIG_PROC_FS) +=3D bond_procfs.o
-> bonding-objs +=3D $(proc-y)
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bon=
-d_main.c
->index f2fe6cb..4f1adae 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -466,6 +466,22 @@ static void bond_update_speed_duplex(struct slave=
- *slave)
-> 	return;
-> }
->
->+const char *bond_slave_link_status(s8 link)
->+{
->+	switch (link) {
->+	case BOND_LINK_UP:
->+		return "up";
->+	case BOND_LINK_FAIL:
->+		return "going down";
->+	case BOND_LINK_DOWN:
->+		return "down";
->+	case BOND_LINK_BACK:
->+		return "going back";
->+	default:
->+		return "unknown";
->+	}
->+}
->+
-> /*
->  * if <dev> supports MII link status reporting, check its link status=
-=2E
->  *
->@@ -1576,6 +1592,12 @@ int bond_enslave(struct net_device *bond_dev, s=
-truct net_device *slave_dev)
-> 		goto err_unregister;
-> 	}
->
->+	res =3D bond_sysfs_slave_add(new_slave);
->+	if (res) {
->+		pr_debug("Error %d calling bond_sysfs_slave_add\n", res);
->+		goto err_upper_unlink;
->+	}
->+
-> 	bond->slave_cnt++;
-> 	bond_compute_features(bond);
-> 	bond_set_carrier(bond);
->@@ -1595,6 +1617,9 @@ int bond_enslave(struct net_device *bond_dev, st=
-ruct net_device *slave_dev)
-> 	return 0;
->
-> /* Undo stages on error */
->+err_upper_unlink:
->+	bond_upper_dev_unlink(bond_dev, slave_dev);
->+
-> err_unregister:
-> 	netdev_rx_handler_unregister(slave_dev);
->
->@@ -1687,6 +1712,8 @@ static int __bond_release_one(struct net_device =
-*bond_dev,
-> 	/* release the slave from its bond */
-> 	bond->slave_cnt--;
->
->+	bond_sysfs_slave_del(slave);
->+
-> 	bond_upper_dev_unlink(bond_dev, slave_dev);
-> 	/* unregister rx_handler early so bond_handle_frame wouldn't be call=
-ed
-> 	 * for this slave anymore.
->diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/b=
-ond_procfs.c
->index fb868d6..8515b344 100644
->--- a/drivers/net/bonding/bond_procfs.c
->+++ b/drivers/net/bonding/bond_procfs.c
->@@ -159,18 +159,6 @@ static void bond_info_show_master(struct seq_file=
- *seq)
-> 	}
-> }
->
->-static const char *bond_slave_link_status(s8 link)
->-{
->-	static const char * const status[] =3D {
->-		[BOND_LINK_UP] =3D "up",
->-		[BOND_LINK_FAIL] =3D "going down",
->-		[BOND_LINK_DOWN] =3D "down",
->-		[BOND_LINK_BACK] =3D "going back",
->-	};
->-
->-	return status[link];
->-}
->-
-> static void bond_info_show_slave(struct seq_file *seq,
-> 				 const struct slave *slave)
-> {
->diff --git a/drivers/net/bonding/bond_sysfs_slave.c b/drivers/net/bond=
-ing/bond_sysfs_slave.c
->new file mode 100644
->index 0000000..28390af
->--- /dev/null
->+++ b/drivers/net/bonding/bond_sysfs_slave.c
->@@ -0,0 +1,142 @@
->+/*	Sysfs attributes of bond slaves
->+ *
->+ *      Copyright (c) 2014 Scott Feldman <sfeldma@cumulusnetworks.com=
->
->+ *
->+ *	This program is free software; you can redistribute it and/or
->+ *	modify it under the terms of the GNU General Public License
->+ *	as published by the Free Software Foundation; either version
->+ *	2 of the License, or (at your option) any later version.
->+ */
->+
->+#include <linux/capability.h>
->+#include <linux/kernel.h>
->+#include <linux/netdevice.h>
->+
->+#include "bonding.h"
->+
->+struct slave_attribute {
->+	struct attribute attr;
->+	ssize_t (*show)(struct slave *, char *);
->+};
->+
->+#define SLAVE_ATTR(_name, _mode, _show)				\
->+const struct slave_attribute slave_attr_##_name =3D {		\
->+	.attr =3D {.name =3D __stringify(_name),			\
->+		 .mode =3D _mode },				\
->+	.show	=3D _show,					\
->+};
->+#define SLAVE_ATTR_RO(_name) \
->+	SLAVE_ATTR(_name, S_IRUGO, _name##_show)
->+
->+static ssize_t state_show(struct slave *slave, char *buf)
->+{
->+	switch (bond_slave_state(slave)) {
->+	case BOND_STATE_ACTIVE:
->+		return sprintf(buf, "active\n");
->+	case BOND_STATE_BACKUP:
->+		return sprintf(buf, "backup\n");
->+	default:
->+		return sprintf(buf, "UNKONWN\n");
->+	}
->+}
->+static SLAVE_ATTR_RO(state);
+Hello.
 
-Am I missing something or does it really completely lacks any locking?
+On 16-01-2014 4:49, Simon Horman wrote:
 
-What prevents the slave to be freed in between?
+>>>>> This is a fast ethernet controller.
 
->+
->+static ssize_t mii_status_show(struct slave *slave, char *buf)
->+{
->+	return sprintf(buf, "%s\n", bond_slave_link_status(slave->link));
->+}
->+static SLAVE_ATTR_RO(mii_status);
->+
->+static ssize_t link_failure_count_show(struct slave *slave, char *buf=
-)
->+{
->+	return sprintf(buf, "%d\n", slave->link_failure_count);
->+}
->+static SLAVE_ATTR_RO(link_failure_count);
->+
->+static ssize_t perm_hwaddr_show(struct slave *slave, char *buf)
->+{
->+	return sprintf(buf, "%pM\n", slave->perm_hwaddr);
->+}
->+static SLAVE_ATTR_RO(perm_hwaddr);
->+
->+static ssize_t queue_id_show(struct slave *slave, char *buf)
->+{
->+	return sprintf(buf, "%d\n", slave->queue_id);
->+}
->+static SLAVE_ATTR_RO(queue_id);
->+
->+static ssize_t ad_aggregator_id_show(struct slave *slave, char *buf)
->+{
->+	const struct aggregator *agg;
->+
->+	if (slave->bond->params.mode =3D=3D BOND_MODE_8023AD) {
->+		agg =3D SLAVE_AD_INFO(slave).port.aggregator;
->+		if (agg)
->+			return sprintf(buf, "%d\n",
->+				       agg->aggregator_identifier);
->+	}
->+
->+	return sprintf(buf, "N/A\n");
->+}
->+static SLAVE_ATTR_RO(ad_aggregator_id);
->+
->+static const struct slave_attribute *slave_attrs[] =3D {
->+	&slave_attr_state,
->+	&slave_attr_mii_status,
->+	&slave_attr_link_failure_count,
->+	&slave_attr_perm_hwaddr,
->+	&slave_attr_queue_id,
->+	&slave_attr_ad_aggregator_id,
->+	NULL
->+};
->+
->+#define to_slave_attr(_at) container_of(_at, struct slave_attribute, =
-attr)
->+#define to_slave(obj)	container_of(obj, struct slave, kobj)
->+
->+static ssize_t slave_show(struct kobject *kobj,
->+			  struct attribute *attr, char *buf)
->+{
->+	struct slave_attribute *slave_attr =3D to_slave_attr(attr);
->+	struct slave *slave =3D to_slave(kobj);
->+
->+	return slave_attr->show(slave, buf);
->+}
->+
->+const struct sysfs_ops slave_sysfs_ops =3D {
->+	.show =3D slave_show,
->+};
->+
->+static struct kobj_type slave_ktype =3D {
->+#ifdef CONFIG_SYSFS
->+	.sysfs_ops =3D &slave_sysfs_ops,
->+#endif
->+};
->+
->+int bond_sysfs_slave_add(struct slave *slave)
->+{
->+	const struct slave_attribute **a;
->+	int err;
->+
->+	err =3D kobject_init_and_add(&slave->kobj, &slave_ktype,
->+				   &(slave->dev->dev.kobj), "slave");
->+	if (err)
->+		return err;
->+
->+	for (a =3D slave_attrs; *a; ++a) {
->+		err =3D sysfs_create_file(&slave->kobj, &((*a)->attr));
->+		if (err)
->+			return err;
->+	}
->+
->+	return 0;
->+}
->+
->+void bond_sysfs_slave_del(struct slave *slave)
->+{
->+	const struct slave_attribute **a;
->+
->+	for (a =3D slave_attrs; *a; ++a)
->+		sysfs_remove_file(&slave->kobj, &((*a)->attr));
->+
->+	kobject_del(&slave->kobj);
->+}
->diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bondi=
-ng.h
->index 955dc48..309757d 100644
->--- a/drivers/net/bonding/bonding.h
->+++ b/drivers/net/bonding/bonding.h
->@@ -203,6 +203,7 @@ struct slave {
-> #ifdef CONFIG_NET_POLL_CONTROLLER
-> 	struct netpoll *np;
-> #endif
->+	struct kobject kobj;
-> };
->
-> /*
->@@ -421,6 +422,8 @@ int bond_create(struct net *net, const char *name)=
-;
-> int bond_create_sysfs(struct bond_net *net);
-> void bond_destroy_sysfs(struct bond_net *net);
-> void bond_prepare_sysfs_group(struct bonding *bond);
->+int bond_sysfs_slave_add(struct slave *slave);
->+void bond_sysfs_slave_del(struct slave *slave);
-> int bond_enslave(struct net_device *bond_dev, struct net_device *slav=
-e_dev);
-> int bond_release(struct net_device *bond_dev, struct net_device *slav=
-e_dev);
-> int bond_xmit_hash(struct bonding *bond, struct sk_buff *skb, int cou=
-nt);
->@@ -469,6 +472,7 @@ int bond_option_lacp_rate_set(struct bonding *bond=
-, int lacp_rate);
-> int bond_option_ad_select_set(struct bonding *bond, int ad_select);
-> struct net_device *bond_option_active_slave_get_rcu(struct bonding *b=
-ond);
-> struct net_device *bond_option_active_slave_get(struct bonding *bond)=
-;
->+const char *bond_slave_link_status(s8 link);
->
-> struct bond_net {
-> 	struct net *		net;	/* Associated network namespace */
->
+>>>>> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+
+>>>> [...]
+
+>>>>> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+>>>>> index 4b38533..cc6d4af 100644
+>>>>> --- a/drivers/net/ethernet/renesas/sh_eth.c
+>>>>> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+>>>>> @@ -190,6 +190,59 @@ static const u16 sh_eth_offset_fast_rcar[SH_ETH_MAX_REGISTER_OFFSET] = {
+>> [...]
+>>>>> @@ -701,6 +762,35 @@ static struct sh_eth_cpu_data r8a7740_data = {
+>>>>>   	.shift_rd0	= 1,
+>>>>>   };
+>>>>>
+>>>>> +/* R7S72100 */
+>>>>> +static struct sh_eth_cpu_data r7s72100_data = {
+>>>>> +	.chip_reset	= sh_eth_chip_reset,
+>>>>> +	.set_duplex	= sh_eth_set_duplex,
+>>>>> +
+>>>>> +	.register_type	= SH_ETH_REG_FAST_RZ,
+>>>>> +
+>>>>> +	.ecsr_value	= ECSR_ICD,
+>>>>> +	.ecsipr_value	= ECSIPR_ICDIP,
+>>>>> +	.eesipr_value	= 0xff7f009f,
+>>>>> +
+>>>>> +	.tx_check	= EESR_TC1 | EESR_FTC,
+>>>>> +	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
+>>>>> +			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
+>>>>> +			  EESR_TDE | EESR_ECI,
+>>>>> +	.fdr_value	= 0x0000070f,
+>>>>> +	.rmcr_value	= RMCR_RNC,
+>>>>> +
+>>>>> +	.apr		= 1,
+>>>>> +	.mpr		= 1,
+>>>>> +	.tpauser	= 1,
+>>>>> +	.hw_swap	= 1,
+>>>>> +	.rpadir		= 1,
+>>>>> +	.rpadir_value   = 2 << 16,
+>>>>> +	.no_trimd	= 1,
+>>>>> +	.tsu		= 1,
+>>>>> +	.shift_rd0	= 1,
+>>
+>>>>     Perhaps this field should be renamed to something talking about
+>>>> check summing support (since bits 0..15 of RD0 contain a frame check
+>>>> sum for those SoCs). Or maybe it should be just merged with the
+>>>> 'hw_crc' field...
+
+>>> I have no feelings about that one way or another.
+
+>>     Do you happen to have R8A7740 manual by chance? If so, does it
+>> talk about RX check summing support and using RD0 for that?
+
+> Yes and yes.
+
+> I have taken a quick look and the documentation for RX checksumming on the
+> R8A7740 appears to be very similar if not the same as that of the R7S72100.
+
+> In particular both refer to using the bottom 16 bits of RD0 as
+> containing the packet checksum.
+
+    OK, now if you had SH7734 manual to completely confirm that check sum is 
+stored in the same place there... most probably it is, of course, and we 
+should merge 'hw_crc' and 'shift_rd0' into a single field.
+
+[...]
+>>>>> diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
+>>>>> index 0fe35b7..0bcde90 100644
+>>>>> --- a/drivers/net/ethernet/renesas/sh_eth.h
+>>>>> +++ b/drivers/net/ethernet/renesas/sh_eth.h
+>> [...]
+>>>>> @@ -191,6 +192,7 @@ enum DMAC_M_BIT {
+>>>>>   /* EDTRR */
+>>>>>   enum DMAC_T_BIT {
+>>>>>   	EDTRR_TRNS_GETHER = 0x03,
+>>>>> +	EDTRR_TRNS_RZ_ETHER = 0x03,
+
+>>>>     I doubt we need a special case here. You didn't introduce one for
+>>>> the software reset bits.
+
+>>> True, but RZ is not Gigabit. So I think we either need two names
+>>> or to choose a more generic name.
+
+>>     Well, R7S72100 manual calls these bits just TR[1:0]. Don't know
+>> what SoCs having Gigabit call it in the manuals...
+
+>>>>>   	EDTRR_TRNS_ETHER = 0x01,
+
+>>     R-Car manuals seem to call the bit TRNS (as well as the
+>> prehistoric SH manuals probably). Perhaps we could use that
+>> difference, TRNS vs TR, don't know...
+
+> Perhaps we should just leave it as-is, using EDTRR_TRNS_GETHER and
+> EDTRR_TRNS_RZ_ETHER, after all.
+
+    No, I liked your last version more. At least it's more consistent, not 
+adding separate values for either TR[1:0] or soft reset bits.
+
+> At least until we can think of a better names :)
+
+    I doubt we can come up with something better.
+
+WBR, Sergei
