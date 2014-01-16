@@ -1,56 +1,74 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 2/2] team: block mtu change before it happens
- via NETDEV_PRECHANGEMTU
-Date: Thu, 16 Jan 2014 08:18:14 +0100
-Message-ID: <20140116071814.GC2815@minipsycho.orion>
-References: <1389826939-20691-1-git-send-email-vfalico@redhat.com>
- <1389826939-20691-2-git-send-email-vfalico@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Veaceslav Falico <vfalico@redhat.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: [PATCH 01/13] net: mvneta: increase the 64-bit rx/tx stats out of the hot path
+Date: Thu, 16 Jan 2014 08:20:07 +0100
+Message-ID: <1389856819-6503-2-git-send-email-w@1wt.eu>
+References: <1389856819-6503-1-git-send-email-w@1wt.eu>
+Cc: netdev@vger.kernel.org, Willy Tarreau <w@1wt.eu>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f48.google.com ([74.125.83.48]:42621 "EHLO
-	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751632AbaAPHSS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 02:18:18 -0500
-Received: by mail-ee0-f48.google.com with SMTP id t10so1295050eei.7
-        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 23:18:16 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1389826939-20691-2-git-send-email-vfalico@redhat.com>
+Received: from 1wt.eu ([62.212.114.60]:55453 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750910AbaAPHUg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jan 2014 02:20:36 -0500
+In-Reply-To: <1389856819-6503-1-git-send-email-w@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Jan 16, 2014 at 12:02:19AM CET, vfalico@redhat.com wrote:
->Now it catches the NETDEV_CHANGEMTU notification, which is signaled after
->the actual change happened on the device, and returns NOTIFY_BAD, so that
->the change on the device is reverted.
->
->This might be quite costly and messy, so use the new NETDEV_PRECHANGEMTU to
->catch the MTU change before the actual change happens and signal that it's
->forbidden to do it.
->
->CC: Jiri Pirko <jiri@resnulli.us>
->Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
->---
-> drivers/net/team/team.c | 2 +-
-> 1 file changed, 1 insertion(+), 1 deletion(-)
->
->diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
->index b75ae5b..dff24e3 100644
->--- a/drivers/net/team/team.c
->+++ b/drivers/net/team/team.c
->@@ -2851,7 +2851,7 @@ static int team_device_event(struct notifier_block *unused,
-> 	case NETDEV_FEAT_CHANGE:
-> 		team_compute_features(port->team);
-> 		break;
->-	case NETDEV_CHANGEMTU:
->+	case NETDEV_PRECHANGEMTU:
-> 		/* Forbid to change mtu of underlaying device */
-> 		return NOTIFY_BAD;
-> 	case NETDEV_PRE_TYPE_CHANGE:
->-- 
->1.8.4
->
+Better count packets and bytes in the stack and on 32 bit then
+accumulate them at the end for once. This saves two memory writes
+and two memory barriers per packet. The incoming packet rate was
+increased by 4.7% on the Openblocks AX3 thanks to this.
 
-Acked-by: Jiri Pirko <jiri@resnulli.us>
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Reviewed-by: Eric Dumazet <edumazet@google.com>
+Tested-by: Arnaud Ebalard <arno@natisbad.org>
+Signed-off-by: Willy Tarreau <w@1wt.eu>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index d5f0d72..baa85af 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -1391,6 +1391,8 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+ {
+ 	struct net_device *dev = pp->dev;
+ 	int rx_done, rx_filled;
++	u32 rcvd_pkts = 0;
++	u32 rcvd_bytes = 0;
+ 
+ 	/* Get number of received packets */
+ 	rx_done = mvneta_rxq_busy_desc_num_get(pp, rxq);
+@@ -1428,10 +1430,8 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+ 
+ 		rx_bytes = rx_desc->data_size -
+ 			(ETH_FCS_LEN + MVNETA_MH_SIZE);
+-		u64_stats_update_begin(&pp->rx_stats.syncp);
+-		pp->rx_stats.packets++;
+-		pp->rx_stats.bytes += rx_bytes;
+-		u64_stats_update_end(&pp->rx_stats.syncp);
++		rcvd_pkts++;
++		rcvd_bytes += rx_bytes;
+ 
+ 		/* Linux processing */
+ 		skb_reserve(skb, MVNETA_MH_SIZE);
+@@ -1452,6 +1452,13 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+ 		}
+ 	}
+ 
++	if (rcvd_pkts) {
++		u64_stats_update_begin(&pp->rx_stats.syncp);
++		pp->rx_stats.packets += rcvd_pkts;
++		pp->rx_stats.bytes   += rcvd_bytes;
++		u64_stats_update_end(&pp->rx_stats.syncp);
++	}
++
+ 	/* Update rxq management counters */
+ 	mvneta_rxq_desc_num_update(pp, rxq, rx_done, rx_filled);
+ 
+-- 
+1.7.12.2.21.g234cd45.dirty
