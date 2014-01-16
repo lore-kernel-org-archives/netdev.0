@@ -1,65 +1,107 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: Re: [PATCH 1/2 v3] ixgbe: define IXGBE_MAX_VFS_DRV_LIMIT macro and
- cleanup const 63
-Date: Thu, 16 Jan 2014 01:54:26 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B7312DE7D@ORSMSX101.amr.corp.intel.com>
+From: Ethan Zhao <ethan.kernel@gmail.com>
+Subject: Re: [PATCH 1/2 v3] ixgbe: define
+ IXGBE_MAX_VFS_DRV_LIMIT macro and cleanup const 63
+Date: Thu, 16 Jan 2014 09:58:37 +0800
+Message-ID: <CABawtvNSpDU+pjdJOpCB8kyQqA7B9N4g0S_yPgQaZnB3h0+nFg@mail.gmail.com>
 References: <1389795148-341-1-git-send-email-ethan.kernel@gmail.com>
- <309B89C4C689E141A5FF6A0C5FB2118B7312DA20@ORSMSX101.amr.corp.intel.com>
- <CABawtvNEDjTJAjJ9TeEvZd7+2kD=H6zA23T-aQo3uVm5SUEhCQ@mail.gmail.com>
+	<309B89C4C689E141A5FF6A0C5FB2118B7312DA20@ORSMSX101.amr.corp.intel.com>
+	<CABawtvNEDjTJAjJ9TeEvZd7+2kD=H6zA23T-aQo3uVm5SUEhCQ@mail.gmail.com>
+	<309B89C4C689E141A5FF6A0C5FB2118B7312DE7D@ORSMSX101.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "ethan.kernel@gmail.com" <ethan.kernel@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CABawtvNEDjTJAjJ9TeEvZd7+2kD=H6zA23T-aQo3uVm5SUEhCQ@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Allan,
+	Bruce W" <bruce.w.allan@intel.com>, "Brandeburg,
+	Jesse" <jesse.brandeburg@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <309B89C4C689E141A5FF6A0C5FB2118B7312DE7D@ORSMSX101.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-T24gVGh1LCAyMDE0LTAxLTE2IGF0IDA5OjI3ICswODAwLCBFdGhhbiBaaGFvIHdyb3RlOgo+IE9u
-IFRodSwgSmFuIDE2LCAyMDE0IGF0IDY6MDAgQU0sIEJyb3duLCBBYXJvbiBGIDxhYXJvbi5mLmJy
-b3duQGludGVsLmNvbT4gd3JvdGU6Cj4gPiBPbiBXZWQsIDIwMTQtMDEtMTUgYXQgMjI6MTIgKzA4
-MDAsIEV0aGFuIFpoYW8gd3JvdGU6Cj4gPj4gQmVjYXVzZSBpeGdiZSBkcml2ZXIgbGltaXQgdGhl
-IG1heCBudW1iZXIgb2YgVkYgZnVuY3Rpb25zIGNvdWxkIGJlIGVuYWJsZWQKPiA+PiB0byA2Mywg
-c28gZGVmaW5lIG9uZSBtYWNybyBJWEdCRV9NQVhfVkZTX0RSVl9MSU1JVCBhbmQgY2xlYW51cCB0
-aGUgY29uc3QgNjMKPiA+PiBpbiBjb2RlLgo+ID4+Cj4gPj4gdjI6IGZpeCBhIHR5cG8uCj4gPj4g
-djM6IGZpeCBhIGVuY29kaW5nIGlzc3VlLgo+ID4+Cj4gPj4gU2lnbmVkLW9mZi1ieTogRXRoYW4g
-WmhhbyA8ZXRoYW4ua2VybmVsQGdtYWlsLmNvbT4KPiA+PiAtLS0KPiA+PiAgZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jICB8IDQgKystLQo+ID4+ICBkcml2ZXJz
-L25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5jIHwgNSArKystLQo+ID4+ICBk
-cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5oIHwgNSArKysrKwo+
-ID4+ICAzIGZpbGVzIGNoYW5nZWQsIDEwIGluc2VydGlvbnMoKyksIDQgZGVsZXRpb25zKC0pCj4g
-Pj4KPiA+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhn
-YmVfbWFpbi5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5j
-Cj4gPj4gaW5kZXggMGFkZTBjZC4uNDdlOWI0NCAxMDA2NDQKPiA+PiAtLS0gYS9kcml2ZXJzL25l
-dC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9tYWluLmMKPiA+PiArKysgYi9kcml2ZXJzL25l
-dC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9tYWluLmMKPiA+PiBAQCAtNDgxOCw3ICs0ODE4
-LDcgQEAgc3RhdGljIGludCBpeGdiZV9zd19pbml0KHN0cnVjdCBpeGdiZV9hZGFwdGVyICphZGFw
-dGVyKQo+ID4+ICAjaWZkZWYgQ09ORklHX1BDSV9JT1YKPiA+PiAgICAgICAvKiBhc3NpZ24gbnVt
-YmVyIG9mIFNSLUlPViBWRnMgKi8KPiA+PiAgICAgICBpZiAoaHctPm1hYy50eXBlICE9IGl4Z2Jl
-X21hY184MjU5OEVCKQo+ID4+IC0gICAgICAgICAgICAgYWRhcHRlci0+bnVtX3ZmcyA9IChtYXhf
-dmZzID4gNjMpID8gMCA6IG1heF92ZnM7Cj4gPgo+ID4KPiA+IFVuZm9ydHVuYXRlbHkgdGhlIGlm
-IHN0YXRlbWVudCBnb3QgY2hhbmdlZCBjb25zaWRlcmFibHkgd2l0aCBhIHJlY2VudAo+ID4gY29t
-bWl0Ogo+ID4KPiA+IGNvbW1pdCAxNzBlODU0MzBiY2JlNGQxOGU4MWI1YTcwYmIxNjNjNzQxMzgx
-MDkyCj4gPiBpeGdiZTogYWRkIHdhcm5pbmcgd2hlbiBtYXhfdmZzIGlzIG91dCBvZiByYW5nZS4K
-PiA+Cj4gPiBBbmQgdGhlIHBhdHRlcm4gbm8gbG9uZ2VyIGV4aXN0cyB0byBtYWtlIGEgbWF0Y2gu
-ICBJbiBvdGhlciB3b3JkcywgdGhpcwo+ID4gcGF0Y2ggbm8gbG9uZ2VyIGFwcGxpZXMgdG8gbmV0
-LW5leHQgYW5kIEkgaGF2ZSB0byBhc2sgeW91IGZvciB5ZXQKPiA+IGFub3RoZXIgc3BpbiBpZiB5
-b3Ugc3RpbGwgd2FudCB0byBzcXVhc2ggdGhlIG1hZ2ljIG51bWJlci4KPiAKPiBJdCdzIG5vdCBh
-IGdvb2QgbmV3cy4gT3VyIGRpc3RybyBpcyB3YWl0aW5nIGZvciB0aGlzIHBhdGNoIHNob3dpbmcg
-dXAgaW4gc3RhYmxlLgo+IE9LLCBpbmZvIG1lIGlmIHRoZXJlIGlzIGEgd2luZG93cyBmb3IgbWUg
-dG8gcmV2aXNlIHRoZSBwYXRjaC4KCkkgZG9uJ3QgdGhpbmsgYW55IHBhcnRpY3VsYXIgd2luZG93
-IG9mIHRpbWUgaXMgYmV0dGVyIHRoYW4gYW5vdGhlci4gSQpkb24ndCBzZWUgdGhpcyBjaGFuZ2Ug
-YXMgbmVlZGluZyB2ZXJ5IHRob3JvdWdoIHRlc3Rpbmcgc28gaWYgeW91IHNlbmQgaW4KKHlldCkg
-YW5vdGhlciB2ZXJzaW9uIEknbGwgdHJ5IHRvIGdldCBpdCB0aHJvdWdoIG91ciBpbnRlcm5hbCBw
-cm9jZXNzIGFzCnJhcGlkbHkgYXMgSSBjYW4uCgo+IAo+IFRoYW5rcywKPiBFdGhhbgo+IAo+ID4K
-PiA+IFRoYW5rcywKPiA+IEFhcm9uCgo=
+Aaron,
+
+Is this your net-next repo ? if so, I rebuild the patch with this repo
+right now .
+git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
+
+Thanks,
+Ethan
+
+On Thu, Jan 16, 2014 at 9:54 AM, Brown, Aaron F <aaron.f.brown@intel.com> wrote:
+> On Thu, 2014-01-16 at 09:27 +0800, Ethan Zhao wrote:
+>> On Thu, Jan 16, 2014 at 6:00 AM, Brown, Aaron F <aaron.f.brown@intel.com> wrote:
+>> > On Wed, 2014-01-15 at 22:12 +0800, Ethan Zhao wrote:
+>> >> Because ixgbe driver limit the max number of VF functions could be enabled
+>> >> to 63, so define one macro IXGBE_MAX_VFS_DRV_LIMIT and cleanup the const 63
+>> >> in code.
+>> >>
+>> >> v2: fix a typo.
+>> >> v3: fix a encoding issue.
+>> >>
+>> >> Signed-off-by: Ethan Zhao <ethan.kernel@gmail.com>
+>> >> ---
+>> >>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 4 ++--
+>> >>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 5 +++--
+>> >>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h | 5 +++++
+>> >>  3 files changed, 10 insertions(+), 4 deletions(-)
+>> >>
+>> >> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> >> index 0ade0cd..47e9b44 100644
+>> >> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> >> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> >> @@ -4818,7 +4818,7 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
+>> >>  #ifdef CONFIG_PCI_IOV
+>> >>       /* assign number of SR-IOV VFs */
+>> >>       if (hw->mac.type != ixgbe_mac_82598EB)
+>> >> -             adapter->num_vfs = (max_vfs > 63) ? 0 : max_vfs;
+>> >
+>> >
+>> > Unfortunately the if statement got changed considerably with a recent
+>> > commit:
+>> >
+>> > commit 170e85430bcbe4d18e81b5a70bb163c741381092
+>> > ixgbe: add warning when max_vfs is out of range.
+>> >
+>> > And the pattern no longer exists to make a match.  In other words, this
+>> > patch no longer applies to net-next and I have to ask you for yet
+>> > another spin if you still want to squash the magic number.
+>>
+>> It's not a good news. Our distro is waiting for this patch showing up in stable.
+>> OK, info me if there is a windows for me to revise the patch.
+>
+> I don't think any particular window of time is better than another. I
+> don't see this change as needing very thorough testing so if you send in
+> (yet) another version I'll try to get it through our internal process as
+> rapidly as I can.
+>
+>>
+>> Thanks,
+>> Ethan
+>>
+>> >
+>> > Thanks,
+>> > Aaron
+>
+
+------------------------------------------------------------------------------
+CenturyLink Cloud: The Leader in Enterprise Cloud Services.
+Learn Why More Businesses Are Choosing CenturyLink Cloud For
+Critical Workloads, Development Environments & Everything In Between.
+Get a Quote or Start a Free Trial Today. 
+http://pubads.g.doubleclick.net/gampad/clk?id=119420431&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
