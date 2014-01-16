@@ -1,37 +1,43 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCHv3 net-next 1/2] flowcache: Make flow cache name space
- aware
-Date: Thu, 16 Jan 2014 11:19:46 +0100
-Message-ID: <20140116101946.GM31491@secunet.com>
-References: <1389771254-8738-1-git-send-email-fan.du@windriver.com>
- <1389771254-8738-2-git-send-email-fan.du@windriver.com>
+From: =?UTF-8?Q?Nie=C5=9Bcierowicz_Adam?= <adam.niescierowicz@justnet.pl>
+Subject: Kernel Crash
+Date: Thu, 16 Jan 2014 11:24:57 +0100
+Message-ID: <e1982a93a9e937b81871456ef945b9f7@justnet.pl>
+Reply-To: adam.niescierowicz@justnet.pl
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:52903 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751628AbaAPKTt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jan 2014 05:19:49 -0500
-Content-Disposition: inline
-In-Reply-To: <1389771254-8738-2-git-send-email-fan.du@windriver.com>
+Received: from host-91.230.163.37.ltv.pl ([91.230.163.37]:42067 "EHLO
+	mail.justnet.pl" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1751948AbaAPKZr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 05:25:47 -0500
+Received: from [91.230.163.37] (helo=mail.justnet.pl)
+	by service with esmtpa (Exim 4.72)
+	(envelope-from <adam.niescierowicz@justnet.pl>)
+	id 1W3k89-0008R9-BY
+	for netdev@vger.kernel.org; Thu, 16 Jan 2014 11:24:57 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 15, 2014 at 03:34:13PM +0800, Fan Du wrote:
-> Inserting a entry into flowcache, or flushing flowcache should be based
-> on per net scope. The reason to do so is flushing operation from fat
-> netns crammed with flow entries will also making the slim netns with only
-> a few flow cache entries go away in original implementation.
-> 
-> Since flowcache is tightly coupled with IPsec, so it would be easier to
-> put flow cache global parameters into xfrm namespace part.
+Hi,
 
-With this change the flow cache is not globally available any more,
-it becomes a part of IPsec. IPsec is the only user of the flow cache
-and I guess noone else want to use it (we removed the routing cache
-to avoid such caching recently).
+I do not know if I am writing in a good place.
 
-So I would not mind to move this into IPsec, but I want to see an ack
-from David before I take this into ipsec-next.
+With the launch of the new kernel 3.13.0-rc8 on on our router errors=20
+appear.
+
+http://wklej.org/id/1238075/ [1]
+
+Is this a kernel bug or wrong configuration?
+
+--=20
+
+Thanks,
+Adam Nie=C5=9Bcierowicz
+
+
+Links:
+------
+[1] http://wklej.org/id/1238075/
