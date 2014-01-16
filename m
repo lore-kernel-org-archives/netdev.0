@@ -1,62 +1,57 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 2/2] reciprocal_divide: correction/update of
- the algorithm
-Date: Thu, 16 Jan 2014 00:17:50 +0000
-Message-ID: <1389831470.11912.40.camel@bwh-desktop.uk.level5networks.com>
-References: <1389828228-30312-1-git-send-email-dborkman@redhat.com>
-	 <1389828228-30312-3-git-send-email-dborkman@redhat.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH v2 00/16] wl1251 patches from linux-n900 tree
+Date: Thu, 16 Jan 2014 01:21:21 +0100
+Message-ID: <20140116002121.GA3726@amd.pavel.ucw.cz>
+References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
+ <1386494714-21070-1-git-send-email-pali.rohar@gmail.com>
+ <201312311047.30147@pali>
+ <20140106200050.GG10885@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Austin S Hemmelgarn" <ahferroin7@gmail.com>,
-	Jesse Gross <jesse@nicira.com>,
-	"Jamal Hadi Salim" <jhs@mojatatu.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Matt Mackall <mpm@selenic.com>,
-	Pekka Enberg <penberg@kernel.org>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	"Andy Gospodarek" <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	"Jay Vosburgh" <fubar@us.ibm.com>,
-	Jakub Zawadzki <darkjames-ws@darkjames.pl>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>,
+	Luciano Coelho <luca@coelho.fi>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
+	aaro.koskinen@iki.fi, sre@ring0.de, joni.lapilainen@gmail.com,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Felipe Contreras <felipe.contreras@gmail.com>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:23817 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751965AbaAPAR5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 19:17:57 -0500
-In-Reply-To: <1389828228-30312-3-git-send-email-dborkman@redhat.com>
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:52202 "EHLO
+	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751783AbaAPAVW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 19:21:22 -0500
+Content-Disposition: inline
+In-Reply-To: <20140106200050.GG10885@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-01-16 at 00:23 +0100, Daniel Borkmann wrote:
-[...]
-> --- a/include/linux/reciprocal_div.h
-> +++ b/include/linux/reciprocal_div.h
-[...]
-> + * RECIPROCAL_VALUE_TO_ZERO can be used to express an element, which
-> + * used as the argument to reciprocal_divide always yields zero.
->   */
-[...]
-> +#define RECIPROCAL_VALUE_RESULT_TO_ZERO ((struct reciprocal_value){.sh1 = 32})
-[...]
-> +static inline u32 reciprocal_divide(u32 a, struct reciprocal_value R)
->  {
-> -	return (u32)(((u64)A * R) >> 32);
-> +	u32 t = (u32)(((u64)a * R.m) >> 32);
-> +	return (t + ((a - t) >> R.sh1)) >> R.sh2;
-[...]
+On Mon 2014-01-06 15:00:50, John W. Linville wrote:
+> On Tue, Dec 31, 2013 at 10:47:29AM +0100, Pali Roh=E1r wrote:
+> > On Sunday 08 December 2013 10:24:58 Pali Roh=E1r wrote:
+> > > Hello, I'm sending wl1251 patches from linux-n900 tree [1] for
+> > > comments. More patches come from David's monitor & packet
+> > > injection work. Patches are tested with 3.12 rc5 kernel on
+> > > Nokia N900.
+> > >=20
+> > > Second version contains new patch for fixing NULL pointer
+> > > dereference which sometimes cause kernel panic and fixes code
+> > > suggested by Pavel Machek.
+> =20
+> > So far, there are no new comments for patches 01, 03-13 and 16.=20
+> > Are there any other problems with that patches or can be accepted=20
+> > for upstream?
+> =20
+> They are probably fine to merge now.  Of course, I was still deleting
+> wl12xx patches when they were originally posted, so I'll need someone
+> to resend the patches to me...
 
-(a - t) has type u32.
-So (a - t) >> 32 has undefined behaviour.
+Ping? Did they get merged? Did you receive the patches?
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Regards,
+								Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses=
+/blog.html
