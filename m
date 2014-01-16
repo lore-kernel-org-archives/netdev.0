@@ -1,125 +1,53 @@
 From: Willy Tarreau <w@1wt.eu>
-Subject: [PATCH 11/13] net: mvneta: implement rx_copybreak
-Date: Thu, 16 Jan 2014 08:20:17 +0100
-Message-ID: <1389856819-6503-12-git-send-email-w@1wt.eu>
+Subject: [PATCH 09/13] net: mvneta: prefetch next rx descriptor instead of current one
+Date: Thu, 16 Jan 2014 08:20:15 +0100
+Message-ID: <1389856819-6503-10-git-send-email-w@1wt.eu>
 References: <1389856819-6503-1-git-send-email-w@1wt.eu>
 Cc: netdev@vger.kernel.org, Willy Tarreau <w@1wt.eu>,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
 	Gregory CLEMENT <gregory.clement@free-electrons.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:55494 "EHLO 1wt.eu"
+Received: from 1wt.eu ([62.212.114.60]:55469 "EHLO 1wt.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752066AbaAPHVN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jan 2014 02:21:13 -0500
+	id S1751354AbaAPHUk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jan 2014 02:20:40 -0500
 In-Reply-To: <1389856819-6503-1-git-send-email-w@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-calling dma_map_single()/dma_unmap_single() is quite expensive compared
-to copying a small packet. So let's copy short frames and keep the buffers
-mapped. We set the limit to 256 bytes which seems to give good results both
-on the XP-GP board and on the AX3/4.
-
-The Rx small packet rate increased by 16.4% doing this, from 486kpps to
-573kpps. It is worth noting that even the call to the function
-dma_sync_single_range_for_cpu() is expensive (300 ns) although less
-than dma_unmap_single(). Without it, the packet rate raises to 711kpps
-(+24% more). Thus on systems where coherency from device to CPU is
-guaranteed by a snoop control unit, this patch should provide even more
-gains, and probably rx_copybreak could be increased.
+Currently, the mvneta driver tries to prefetch the current Rx
+descriptor during read. Tests have shown that prefetching the
+next one instead increases general performance by about 1% on
+HTTP traffic.
 
 Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>
 Tested-by: Arnaud Ebalard <arno@natisbad.org>
 Signed-off-by: Willy Tarreau <w@1wt.eu>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 44 ++++++++++++++++++++++++++++++-----
- 1 file changed, 38 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 726a8d2..f5fc7a2 100644
+index aa3a4f7..c7b37e0 100644
 --- a/drivers/net/ethernet/marvell/mvneta.c
 +++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -444,6 +444,8 @@ static int txq_number = 8;
+@@ -611,6 +611,7 @@ mvneta_rxq_next_desc_get(struct mvneta_rx_queue *rxq)
+ 	int rx_desc = rxq->next_desc_to_proc;
  
- static int rxq_def;
+ 	rxq->next_desc_to_proc = MVNETA_QUEUE_NEXT_DESC(rxq, rx_desc);
++	prefetch(rxq->descs + rxq->next_desc_to_proc);
+ 	return rxq->descs + rx_desc;
+ }
  
-+static int rx_copybreak __read_mostly = 256;
-+
- #define MVNETA_DRIVER_NAME "mvneta"
- #define MVNETA_DRIVER_VERSION "1.0"
+@@ -1442,7 +1443,6 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+ 		u32 rx_status;
+ 		int rx_bytes, err;
  
-@@ -1463,22 +1465,51 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+-		prefetch(rx_desc);
  		rx_done++;
  		rx_filled++;
  		rx_status = rx_desc->status;
-+		rx_bytes = rx_desc->data_size - (ETH_FCS_LEN + MVNETA_MH_SIZE);
- 		data = (unsigned char *)rx_desc->buf_cookie;
- 
- 		if (!mvneta_rxq_desc_is_first_last(rx_status) ||
--		    (rx_status & MVNETA_RXD_ERR_SUMMARY) ||
--		    !(skb = build_skb(data, pp->frag_size > PAGE_SIZE ? 0 : pp->frag_size))) {
-+		    (rx_status & MVNETA_RXD_ERR_SUMMARY)) {
-+		err_drop_frame:
- 			dev->stats.rx_errors++;
- 			mvneta_rx_error(pp, rx_desc);
- 			/* leave the descriptor untouched */
- 			continue;
- 		}
- 
--		dma_unmap_single(pp->dev->dev.parent, rx_desc->buf_phys_addr,
-+		if (rx_bytes <= rx_copybreak) {
-+			/* better copy a small frame and not unmap the DMA region */
-+			skb = netdev_alloc_skb_ip_align(dev, rx_bytes);
-+			if (unlikely(!skb))
-+				goto err_drop_frame;
-+
-+			dma_sync_single_range_for_cpu(dev->dev.parent,
-+			                              rx_desc->buf_phys_addr,
-+			                              MVNETA_MH_SIZE + NET_SKB_PAD,
-+			                              rx_bytes,
-+			                              DMA_FROM_DEVICE);
-+			memcpy(skb_put(skb, rx_bytes),
-+			       data + MVNETA_MH_SIZE + NET_SKB_PAD,
-+			       rx_bytes);
-+
-+			skb->protocol = eth_type_trans(skb, dev);
-+			mvneta_rx_csum(pp, rx_status, skb);
-+			napi_gro_receive(&pp->napi, skb);
-+
-+			rcvd_pkts++;
-+			rcvd_bytes += rx_bytes;
-+
-+			/* leave the descriptor and buffer untouched */
-+			continue;
-+		}
-+
-+		skb = build_skb(data, pp->frag_size > PAGE_SIZE ? 0 : pp->frag_size);
-+		if (!skb)
-+			goto err_drop_frame;
-+
-+		dma_unmap_single(dev->dev.parent, rx_desc->buf_phys_addr,
- 				 MVNETA_RX_BUF_SIZE(pp->pkt_size), DMA_FROM_DEVICE);
- 
--		rx_bytes = rx_desc->data_size -
--			(ETH_FCS_LEN + MVNETA_MH_SIZE);
- 		rcvd_pkts++;
- 		rcvd_bytes += rx_bytes;
- 
-@@ -1495,7 +1526,7 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
- 		/* Refill processing */
- 		err = mvneta_rx_refill(pp, rx_desc);
- 		if (err) {
--			netdev_err(pp->dev, "Linux processing - Can't refill\n");
-+			netdev_err(dev, "Linux processing - Can't refill\n");
- 			rxq->missed++;
- 			rx_filled--;
- 		}
-@@ -2945,3 +2976,4 @@ module_param(rxq_number, int, S_IRUGO);
- module_param(txq_number, int, S_IRUGO);
- 
- module_param(rxq_def, int, S_IRUGO);
-+module_param(rx_copybreak, int, S_IRUGO | S_IWUSR);
 -- 
 1.7.12.2.21.g234cd45.dirty
