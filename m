@@ -1,72 +1,79 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 68821] New: splittcp with tproxy has issues when timestamp
- is enabled
-Date: Thu, 16 Jan 2014 09:34:54 -0800
-Message-ID: <20140116093454.3880cb4c@nehalam.linuxnetplumber.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next v4 1/2] dts: Add a binding for Synopsys emac
+ max-frame-size
+Date: Thu, 16 Jan 2014 17:50:01 +0000
+Message-ID: <1389894601.11912.54.camel@bwh-desktop.uk.level5networks.com>
+References: <1389881155-9758-1-git-send-email-vbridgers2013@gmail.com>
+	 <1389881155-9758-2-git-send-email-vbridgers2013@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: <devicetree@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<peppe.cavallaro@st.com>, <robh+dt@kernel.org>,
+	<pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<dinguyen@altera.com>, <rayagond@vayavyalabs.com>
+To: Vince Bridgers <vbridgers2013@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:46919 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750750AbaAPRe7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 12:34:59 -0500
-Received: by mail-pd0-f169.google.com with SMTP id v10so2865852pde.14
-        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 09:34:59 -0800 (PST)
-Received: from nehalam.linuxnetplumber.net (static-50-53-83-51.bvtn.or.frontiernet.net. [50.53.83.51])
-        by mx.google.com with ESMTPSA id sy10sm21701415pac.15.2014.01.16.09.34.58
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Thu, 16 Jan 2014 09:34:59 -0800 (PST)
+Received: from webmail.solarflare.com ([12.187.104.25]:55405 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751172AbaAPRuH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 12:50:07 -0500
+In-Reply-To: <1389881155-9758-2-git-send-email-vbridgers2013@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2014-01-16 at 08:05 -0600, Vince Bridgers wrote:
+> This change adds a parameter for the Synopsys 10/100/1000
+> stmmac Ethernet driver to configure the maximum frame
+> size supported by the EMAC driver. Synopsys allows the FIFO
+> sizes to be configured when the cores are built for a particular
+> device, but do not provide a way for the driver to read
+> information from the device about the maximum MTU size
+> supported as limited by the device's FIFO size.
+> 
+> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
+> ---
+> V4: add comments to explain use of max-frame-size with respect
+>     to inconsistent definition and use in the ePAPR v1.1 spec
 
+Well, ePAPR does not seem to be consistent with itself. :-)
 
-Begin forwarded message:
+> V3: change snps,max-frame-size to max-frame-size
+> V2: change snps,max-mtu to snps,max-frame-size
+> ---
+>  Documentation/devicetree/bindings/net/stmmac.txt |   13 ++++++++++++-
+>  1 file changed, 12 insertions(+), 1 deletion(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+> index eba0e5e..d553be2 100644
+> --- a/Documentation/devicetree/bindings/net/stmmac.txt
+> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+> @@ -29,7 +29,17 @@ Required properties:
+>  				ignored if force_thresh_dma_mode is set.
+>  
+>  Optional properties:
+> -- mac-address: 6 bytes, mac address
+> +- mac-address:		6 bytes, mac address
+> +- max-frame-size:	Maximum frame size permitted. This parameter is useful
+> +			since different implementations of the Synopsys MAC may
+> +			have different FIFO sizes depending on the selections
+> +			made in Synopsys Core Consultant. Note that the usage
+> +			is inconsistent with the definition in the ePAPR v1.1
+> +			specification, as it defines max-frame-size inclusive
+> +			of the MAC DA, SA, Ethertype and CRC while usage is
+> +			consistent with the IEEE definition of MAC Client
+> +			Data, which is sans the MAC DA, SA, Ethertype and
+> +			CRC.
+[...]
 
-Date: Thu, 16 Jan 2014 05:39:52 -0800
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-Subject: [Bug 68821] New: splittcp with tproxy has issues when timestamp is enabled
+While this is very precise, I fear that it is now so verbose that it
+actually becomes confusing.  Can this not be condensed to 'the maximum
+MTU and MRU, rather than the maximum Ethernet frame size'?
 
-
-https://bugzilla.kernel.org/show_bug.cgi?id=68821
-
-            Bug ID: 68821
-           Summary: splittcp with tproxy has issues when timestamp is
-                    enabled
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 3.2
-          Hardware: All
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: IPV4
-          Assignee: shemminger@linux-foundation.org
-          Reporter: shailendra7479@gmail.com
-        Regression: No
-
-Hi,
-
-I am having an application which does splittcp with transparency. I have a NAT
-box which reuses the 5-tuple frequently. Due to this there is a possibility
-that some connections with the same tuple go through our splittcp and some may
-go directly to the webserver.
-Due to this, the webserver is getting confused and not responding with
-SYN-ACKs.
-Is there a way to enable transparency in TIMESTAMPs when tproxy is involved for
-eg., preserve the incoming timestamp in the outgoing SYN.
-Shouldn't the kernel be using the client's timestamp in the outgoing SYNs when
-transparency is enabled?
-
-Thanks
-Shailendra
+Ben.
 
 -- 
-You are receiving this mail because:
-You are the assignee for the bug.
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
