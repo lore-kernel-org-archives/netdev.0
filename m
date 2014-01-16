@@ -1,44 +1,28 @@
-From: Ethan Zhao <ethan.kernel@gmail.com>
-Subject: Re: [PATCH 1/2 Net-next] ixgbe: define IXGBE_MAX_VFS_DRV_LIMIT macro
- and cleanup const 63
-Date: Thu, 16 Jan 2014 14:12:42 +0800
-Message-ID: <CABawtvM0syVF2E3f8kEad9hebh96BeE0YEQ6yJWQS7Nvy8NQvg@mail.gmail.com>
-References: <52D75F1D.9040405@oracle.com>
-	<20140115.215753.1619877365795484712.davem@davemloft.net>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH] net: davinci_mdio: Fix sparse warning
+Date: Thu, 16 Jan 2014 11:44:52 +0530
+Message-ID: <52D778DC.8020607@ti.com>
+References: <1389852341-15393-1-git-send-email-prabhakar.csengg@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: ethan zhao <ethan.zhao@oracle.com>,
-	"Brown, Aaron F" <aaron.f.brown@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>
+To: Prabhakar Lad <prabhakar.csengg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140115.215753.1619877365795484712.davem@davemloft.net>
+In-Reply-To: <1389852341-15393-1-git-send-email-prabhakar.csengg@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David,
-   Sorry about the signoffs, I am confused about how to sign the patch,
-If I sign it with off-work mail address, some of it is done within work-hours,
-maybe that why I sign if with both personal mail address and work one.
-If that bother you, just remove it.
+On Thursday 16 January 2014 11:35 AM, Prabhakar Lad wrote:
+> From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+>
+> This patch fixes following sparse warning
+> davinci_mdio.c:85:27: warning: symbol 'default_pdata' was not declared. Should it be static?
+> Also makes the default_pdata as a constant.
+>
+> Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-Thanks,
-Ethan
-
-On Thu, Jan 16, 2014 at 1:57 PM, David Miller <davem@davemloft.net> wrote:
-> From: ethan zhao <ethan.zhao@oracle.com>
-> Date: Thu, 16 Jan 2014 12:25:01 +0800
->
->> Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
->> Signed-off-by: Ethan Zhao <ethan.kernel@gmail.com>
->
-> Please don't give two signoffs for yourself, it is not appropriate at
-> all.
->
-> I am very genuinely curious where you got the idea to do that,
-> particularly as I've never seen anyone else do it before.  So it's
-> really not possible that you got the idea from someone else's actions.
+Regards
+Mugunthan V N
