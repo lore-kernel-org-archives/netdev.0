@@ -1,52 +1,139 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 2/2] reciprocal_divide: correction/update of the algorithm
-Date: Thu, 16 Jan 2014 18:24:06 +0100
-Message-ID: <20140116172406.GA17529@order.stressinduktion.org>
-References: <1389828228-30312-1-git-send-email-dborkman@redhat.com> <1389828228-30312-3-git-send-email-dborkman@redhat.com> <alpine.DEB.2.10.1401161036110.29778@nuc>
+From: Michal Sekletar <msekleta@redhat.com>
+Subject: Re: [PATCH] net: introduce SO_BPF_EXTENSIONS
+Date: Thu, 16 Jan 2014 18:26:31 +0100
+Message-ID: <20140116172631.GA5206@loki.brq.redhat.com>
+References: <1389888898-31744-1-git-send-email-msekleta@redhat.com>
+ <52D80BCA.7030400@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Austin S Hemmelgarn <ahferroin7@gmail.com>,
-	Jesse Gross <jesse@nicira.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Matt Mackall <mpm@selenic.com>,
-	Pekka Enberg <penberg@kernel.org>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Jakub Zawadzki <darkjames-ws@darkjames.pl>
-To: Christoph Lameter <cl@linux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Michael Kerrisk <mtk.manpages@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:10348 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751046AbaAPR0h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jan 2014 12:26:37 -0500
 Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.10.1401161036110.29778@nuc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <52D80BCA.7030400@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 16, 2014 at 10:37:37AM -0600, Christoph Lameter wrote:
-> On Thu, 16 Jan 2014, Daniel Borkmann wrote:
-> 
-> > - * or else the performance is slower than a normal divide.
-> > - */
-> > -extern u32 reciprocal_value(u32 B);
-> > +struct reciprocal_value {
-> > +	u32 m;
-> > +	u8 sh1, sh2;
-> > +};
+On Thu, Jan 16, 2014 at 05:41:46PM +0100, Daniel Borkmann wrote:
+> On 01/16/2014 05:14 PM, Michal Sekletar wrote:
+> >userspace packet capturing libraries (e.g. libpcap) don't have a way how to find
+> >out which BPF extensions are supported by the kernel, except compiling a filter
+> >which uses extensions and trying to apply filter to the socket. This is very
+> >inconvenient.
 > >
-> > +#define RECIPROCAL_VALUE_RESULT_TO_ZERO ((struct reciprocal_value){.sh1 = 32})
+> >Therefore this commit introduces new option which can be used as an argument for
+> >getsockopt() and allows one to obtain information about which BPF extensions are
+> >supported by the kernel.
 > >
-> > -static inline u32 reciprocal_divide(u32 A, u32 R)
-> > +struct reciprocal_value reciprocal_value(u32 d);
+> >On Tue, Dec 10, 2013 at 1:25 AM, David Miller <davem@davemloft.net> wrote:
+> >
+> >>And therefore, you do not need to define any actual bits yet. The
+> >>socket option will for now just return "0", and that will mean that
+> >>all the extensions Linux implements currently are presnet.
+> >
+> >Signed-off-by: Michal Sekletar <msekleta@redhat.com>
+> >Cc: Michael Kerrisk <mtk.manpages@gmail.com>
+> >Cc: Daniel Borkmann <dborkman@redhat.com>
+> >Cc: David Miller <davem@davemloft.net>
+> >---
+> >  arch/alpha/include/uapi/asm/socket.h   | 2 ++
+> >  arch/avr32/include/uapi/asm/socket.h   | 2 ++
+> >  arch/cris/include/uapi/asm/socket.h    | 2 ++
+> >  arch/frv/include/uapi/asm/socket.h     | 2 ++
+> >  arch/ia64/include/uapi/asm/socket.h    | 2 ++
+> >  arch/m32r/include/uapi/asm/socket.h    | 2 ++
+> >  arch/mips/include/uapi/asm/socket.h    | 2 ++
+> >  arch/mn10300/include/uapi/asm/socket.h | 2 ++
+> >  arch/parisc/include/uapi/asm/socket.h  | 2 ++
+> >  arch/powerpc/include/uapi/asm/socket.h | 2 ++
+> >  arch/s390/include/uapi/asm/socket.h    | 2 ++
+> >  arch/sparc/include/uapi/asm/socket.h   | 2 ++
+> >  arch/xtensa/include/uapi/asm/socket.h  | 2 ++
+> >  include/net/sock.h                     | 5 +++++
+> >  include/uapi/asm-generic/socket.h      | 2 ++
+> >  net/core/sock.c                        | 4 ++++
+> >  16 files changed, 37 insertions(+)
+> >
+> ...
+> >--- a/include/net/sock.h
+> >+++ b/include/net/sock.h
+> >@@ -2292,4 +2292,9 @@ extern int sysctl_optmem_max;
+> >  extern __u32 sysctl_wmem_default;
+> >  extern __u32 sysctl_rmem_default;
+> >
+> >+static inline int bpf_get_extensions(void)
+> >+{
+> >+	return 0;
+> >+}
+> >+
 > 
-> A function that returns a struct? That works? Which gcc versions support
-> it?
+> This should rather be in: include/linux/filter.h
 
-Sure, that works and I actually like it. This is supported by the c standard,
-but please don't ask me since which one. ;)
+Yes, having that function there makes more sense.
 
-Greetings,
+> 
+> And then, maybe be renamed into something like bpf_tell_extensions()
+> for example, but that's just nit.
 
-  Hannes
+Renamed.
+
+> 
+> Also, please add a comment, saying if people add new extensions, they
+> need to enumerate them within this function from now on so that user
+> space who enquires for that can be made aware of.
+
+Let me know if even more explanatory comment is desired.
+
+> 
+> Still, grepping through latest libpcap sources, tells me, so far over
+> the years they have included SKF_AD_PROTOCOL and SKF_AD_PKTTYPE, wow!
+> 
+> That's very disappointing, so I have high hopes with this getsockopt().
+> 
+> ;)
+> 
+> Thanks,
+
+Thank you for the review. Btw, what do you think about define for parisc? I am
+not sure I grok 0x4048 for SO_MAX_PACING_RATE and hence not sure about 0x4029
+for SO_BPF_EXTENSIONS.
+
+> 
+> Daniel
+
+Michal
+
+> 
+> >  #endif	/* _SOCK_H */
+> >diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
+> >index 38f14d0..ea0796b 100644
+> >--- a/include/uapi/asm-generic/socket.h
+> >+++ b/include/uapi/asm-generic/socket.h
+> >@@ -80,4 +80,6 @@
+> >
+> >  #define SO_MAX_PACING_RATE	47
+> >
+> >+#define SO_BPF_EXTENSIONS	48
+> >+
+> >  #endif /* __ASM_GENERIC_SOCKET_H */
+> >diff --git a/net/core/sock.c b/net/core/sock.c
+> >index 85ad6f0..70e5a6e 100644
+> >--- a/net/core/sock.c
+> >+++ b/net/core/sock.c
+> >@@ -1167,6 +1167,10 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+> >  		v.val = sock_flag(sk, SOCK_FILTER_LOCKED);
+> >  		break;
+> >
+> >+	case SO_BPF_EXTENSIONS:
+> >+		v.val = bpf_get_extensions();
+> >+		break;
+> >+
+> >  	case SO_SELECT_ERR_QUEUE:
+> >  		v.val = sock_flag(sk, SOCK_SELECT_ERR_QUEUE);
+> >  		break;
+> >
