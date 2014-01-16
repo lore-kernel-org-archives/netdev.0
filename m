@@ -1,17 +1,22 @@
 From: <srinivas.kandagatla@st.com>
 Subject: [PATCH v2 0/9] net: stmmac PM related fixes.
-Date: Thu, 16 Jan 2014 10:48:41 +0000
-Message-ID: <1389869321-27411-1-git-send-email-srinivas.kandagatla@st.com>
+Date: Thu, 16 Jan 2014 10:50:50 +0000
+Message-ID: <1389869450-28003-1-git-send-email-srinivas.kandagatla@st.com>
 References: <1384774256-10039-1-git-send-email-srinivas.kandagatla@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+	David Miller <davem@davemloft.net>,
 	<linux-kernel@vger.kernel.org>, <srinivas.kandagatla@st.com>
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:55373 "EHLO
+	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751271AbaAPK4o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 05:56:44 -0500
 In-Reply-To: <1384774256-10039-1-git-send-email-srinivas.kandagatla@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
