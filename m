@@ -1,7 +1,8 @@
 From: Debabrata Banerjee <dbanerje@akamai.com>
-Subject: [RFC PATCH 0/3] Use cached allocations in place of order-3 allocations for sk_page_frag_refill() and __netdev_alloc_frag()
-Date: Thu, 16 Jan 2014 18:17:01 -0500
-Message-ID: <1389914224-10453-1-git-send-email-dbanerje@akamai.com>
+Subject: [RFC PATCH 2/3] Use slab allocations for netdev page_frag receive buffers
+Date: Thu, 16 Jan 2014 18:17:03 -0500
+Message-ID: <1389914224-10453-3-git-send-email-dbanerje@akamai.com>
+References: <1389914224-10453-1-git-send-email-dbanerje@akamai.com>
 Cc: dbanerje@akamai.com,
 	johunt@akamai.com,
 	jbaron@akamai.com,
@@ -11,82 +12,75 @@ To: eric.dumazet@gmail.com,
 	fw@strlen.de,
 	netdev@vger.kernel.org
 Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1389914224-10453-1-git-send-email-dbanerje@akamai.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This is a hack against 3.10.y to see if using cached allocations works better here. The unintended consequence is in the reference benchmark case, it performs ~7% better than the existing code even with a hacked slower get_page()/put_page(). The intent was to avoid very slow order-3 allocations (and really pathological retries under failure) which can cause lots of problems from OOM killer invocation to direct reclaim/compaction cycles that take up nearly all cpu and end up reaping large amounts of page cache which would have been otherwise useful. This is a regression from the same code that used order-0 allocations since those are easy and fast as they are cached per-cpu, and this code is under very heavy alloc/free behavior. This patch eliminates a majority of that due to slab caching t
- he allocations, though could still be improved by slab holding onto free'd slabs longer; this seems like an unoptimized case when object size == slab size.
+---
+ net/core/skbuff.c | 33 ++++++++++++++++++++++-----------
+ 1 file changed, 22 insertions(+), 11 deletions(-)
 
-vmstat output of bad behavior: http://pastebin.ubuntu.com/6687527/
-
-This patchset could be fixed for submission by either making another pool of cached frag buffers specifically page_frag (not using slab), or by converting the whole stack to not use get_page/put_page() to reference count and free page allocations so that hacking swap.c is not necessary and slab use normal.
-
-Benchmark:
-ifconfig lo mtu 16436
-perf record ./netperf -t UDP_STREAM ; perf report
-
-With order-0 allocations:
-
-UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to localhost (127.0.0.1) port 0 AF_INET
-Socket  Message  Elapsed      Messages                
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
-
-262144   65507   10.00      820758      0    43012.26
-262144           10.00      820754           43012.05
-
-# Overhead  Command      Shared Object                                      Symbol
-# ........  .......  .................  ..........................................
-#
-    46.15%  netperf  [kernel.kallsyms]  [k] copy_user_generic_string              
-     7.89%  netperf  [kernel.kallsyms]  [k] skb_append_datato_frags               
-     6.06%  netperf  [kernel.kallsyms]  [k] get_page_from_freelist                
-     3.87%  netperf  [kernel.kallsyms]  [k] __rmqueue                             
-     1.36%  netperf  [kernel.kallsyms]  [k] __alloc_pages_nodemask                
-     1.11%  netperf  [kernel.kallsyms]  [k] alloc_pages_current                   
-
-linux-3.10.y stock order-3 allocations:
-
-UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to localhost (127.0.0.1) port 0 AF_INET
-Socket  Message  Elapsed      Messages                
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
-
-212992   65507   10.00     1054158      0    55243.69
-212992           10.00     1019505           53427.68
-
-# Overhead  Command      Shared Object                                      Symbol
-# ........  .......  .................  ..........................................
-#
-    59.80%  netperf  [kernel.kallsyms]  [k] copy_user_generic_string              
-     2.35%  netperf  [kernel.kallsyms]  [k] get_page_from_freelist                
-     1.95%  netperf  [kernel.kallsyms]  [k] skb_append_datato_frags               
-     1.27%  netperf  [ip_tables]        [k] ipt_do_table                          
-     1.26%  netperf  [kernel.kallsyms]  [k] udp_sendmsg                           
-     1.03%  netperf  [kernel.kallsyms]  [k] enqueue_task_fair                     
-     1.00%  netperf  [kernel.kallsyms]  [k] ip_finish_output                              
-
-With this patchset:
-
-UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to localhost (127.0.0.1) port 0 AF_INET
-Socket  Message  Elapsed      Messages                
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
-
-212992   65507   10.00     1127089      0    59065.70
-212992           10.00     1072997           56230.98
-
-
-# Overhead  Command      Shared Object                                      Symbol
-# ........  .......  .................  ..........................................
-#
-    69.16%  netperf  [kernel.kallsyms]  [k] copy_user_generic_string
-     2.56%  netperf  [kernel.kallsyms]  [k] skb_append_datato_frags
-     1.00%  netperf  [ip_tables]        [k] ipt_do_table
-     0.96%  netperf  [kernel.kallsyms]  [k] sock_alloc_send_pskb
-     0.93%  netperf  [kernel.kallsyms]  [k] _raw_spin_lock
-
-
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index d9e8736..7ecb7a8 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -368,6 +368,8 @@ struct netdev_alloc_cache {
+ };
+ static DEFINE_PER_CPU(struct netdev_alloc_cache, netdev_alloc_cache);
+ 
++struct kmem_cache *netdev_page_frag_cache;
++
+ static void *__netdev_alloc_frag(unsigned int fragsz, gfp_t gfp_mask)
+ {
+ 	struct netdev_alloc_cache *nc;
+@@ -379,18 +381,22 @@ static void *__netdev_alloc_frag(unsigned int fragsz, gfp_t gfp_mask)
+ 	nc = &__get_cpu_var(netdev_alloc_cache);
+ 	if (unlikely(!nc->frag.page)) {
+ refill:
+-		for (order = NETDEV_FRAG_PAGE_MAX_ORDER; ;) {
+-			gfp_t gfp = gfp_mask;
+-
+-			if (order)
+-				gfp |= __GFP_COMP | __GFP_NOWARN;
+-			nc->frag.page = alloc_pages(gfp, order);
+-			if (likely(nc->frag.page))
+-				break;
+-			if (--order < 0)
+-				goto end;
++		if (NETDEV_FRAG_PAGE_MAX_ORDER > 0) {
++			void *kmem = kmem_cache_alloc(netdev_page_frag_cache, gfp_mask | __GFP_NOWARN);
++			if (likely(kmem)) {
++				nc->frag.page = virt_to_page(kmem);
++				nc->frag.size = PAGE_SIZE << NETDEV_FRAG_PAGE_MAX_ORDER;
++				goto recycle;
++			}
+ 		}
+-		nc->frag.size = PAGE_SIZE << order;
++
++		nc->frag.page = alloc_page(gfp_mask);
++
++		if (likely(nc->frag.page))
++			nc->frag.size = PAGE_SIZE;
++		else
++			goto end;
++
+ recycle:
+ 		atomic_set(&nc->frag.page->_count, NETDEV_PAGECNT_MAX_BIAS);
+ 		nc->pagecnt_bias = NETDEV_PAGECNT_MAX_BIAS;
+@@ -3092,6 +3098,11 @@ void __init skb_init(void)
+ 						0,
+ 						SLAB_HWCACHE_ALIGN|SLAB_PANIC,
+ 						NULL);
++	netdev_page_frag_cache = kmem_cache_create("netdev_page_frag_cache",
++						PAGE_SIZE << NETDEV_FRAG_PAGE_MAX_ORDER,
++						PAGE_SIZE,
++						SLAB_HWCACHE_ALIGN,
++						NULL);
+ }
+ 
+ /**
+-- 
+1.8.3.4
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
