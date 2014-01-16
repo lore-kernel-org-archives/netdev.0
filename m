@@ -1,176 +1,125 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-next 2/2] r6040: use ETH_ZLEN instead of MISR for
- SKB length checking
-Date: Thu, 16 Jan 2014 07:23:21 +0000
-Message-ID: <1389857001.19462.33.camel@deadeye.wl.decadent.org.uk>
-References: <1389819866-32142-1-git-send-email-florian@openwrt.org>
-	 <1389819866-32142-3-git-send-email-florian@openwrt.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next] virtio-net: drop rq->max and rq->num
+Date: Thu, 16 Jan 2014 09:42:09 +0200
+Message-ID: <20140116074209.GB20993@redhat.com>
+References: <1389854724-48411-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-xeWU4H9su69eCg8unitY"
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:49752 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752159AbaAPHX1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 02:23:27 -0500
-In-Reply-To: <1389819866-32142-3-git-send-email-florian@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1389854724-48411-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
+
+On Thu, Jan 16, 2014 at 02:45:24PM +0800, Jason Wang wrote:
+> It looks like there's no need for those two fields:
+> 
+> - Unless there's a failure for the first refill try, rq->max should be always
+>   equal to the vring size.
+> - rq->num is only used to determine the condition that we need to do the refill,
+>   we could check vq->num_free instead.
+> - rq->num was required to be increased or decreased explicitly after each
+>   get/put which results a bad API.
+> 
+> So this patch removes them both to make the code simpler.
+> 
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Acked-by: Rusty Russell <rusty@rustcorp.com.au>
 
 
---=-xeWU4H9su69eCg8unitY
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-On Wed, 2014-01-15 at 13:04 -0800, Florian Fainelli wrote:
-> Ever since this driver was merged the following code was included:
->=20
-> if (skb->len < MISR)
-> 	skb->len =3D MISR;
-
-The second 'skb->len' is currently 'descptr->len'.
-
-> MISR is defined to 0x3C which is also equivalent to ETH_ZLEN, but use
-> ETH_ZLEN directly which is exactly what we want to be checking for.
->=20
-> Reported-by: Marc Volovic <marcv@ezchip.com>
-> Signed-off-by: Florian Fainelli <florian@openwrt.org>
 > ---
->  drivers/net/ethernet/rdc/r6040.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/=
-r6040.c
-> index ff4683a..eb15ebf 100644
-> --- a/drivers/net/ethernet/rdc/r6040.c
-> +++ b/drivers/net/ethernet/rdc/r6040.c
-> @@ -836,8 +836,8 @@ static netdev_tx_t r6040_start_xmit(struct sk_buff *s=
-kb,
->  	/* Set TX descriptor & Transmit it */
->  	lp->tx_free_desc--;
->  	descptr =3D lp->tx_insert_ptr;
-> -	if (skb->len < MISR)
-> -		descptr->len =3D MISR;
-> +	if (skb->len < ETH_ZLEN)
-> +		descptr->len =3D ETH_ZLEN;
-
-It looks like this is just increasing the TX descriptor length so the
-packet is tail-padded with whatever happens to come next in the skb.
-This is absolutely incorrect behaviour and may leak sensitive
-information.
-
-Presumably it is necessary to pad the frame because the MAC is too lame
-to do it, and the correct way to do that is using skb_padto(skb,
-ETH_ZLEN).  But this may fail as it might have to allocate memory
-
-Additionally, the driver DMA-maps a length of skb->len but needs to map
-a length of descptr->len.
-
-Finally, it doesn't check for failure of DMA mapping.
-
-Tidying up naming should be way down the list of priorities for
-fixing this code.
-
-I think this will fix those problems, though I need to split it up into
-multiple patches:
-
---- a/drivers/net/ethernet/rdc/r6040.c
-+++ b/drivers/net/ethernet/rdc/r6040.c
-@@ -816,6 +816,7 @@ static netdev_tx_t r6040_start_xmit(struct sk_buff *skb=
-,
- 	struct r6040_descriptor *descptr;
- 	void __iomem *ioaddr =3D lp->base;
- 	unsigned long flags;
-+	dma_addr_t dma_addr;
-=20
- 	/* Critical Section */
- 	spin_lock_irqsave(&lp->lock, flags);
-@@ -828,24 +829,35 @@ static netdev_tx_t r6040_start_xmit(struct sk_buff *s=
-kb,
- 		return NETDEV_TX_BUSY;
- 	}
-=20
--	/* Statistic Counter */
--	dev->stats.tx_packets++;
--	dev->stats.tx_bytes +=3D skb->len;
- 	/* Set TX descriptor & Transmit it */
--	lp->tx_free_desc--;
- 	descptr =3D lp->tx_insert_ptr;
--	if (skb->len < MISR)
--		descptr->len =3D MISR;
--	else
--		descptr->len =3D skb->len;
-+
-+	/* MAC doesn't pad frames so we have to */
-+	if (skb_padto(skb, ETH_ZLEN)) {
-+		kfree_skb(skb);
-+		goto out;
-+	}
-+	descptr->len =3D max_t(int, skb->len, ETH_ZLEN);
-+
-+	dma_addr =3D pci_map_single(lp->pdev, skb->data, descptr->len,
-+				  PCI_DMA_TODEVICE);
-+	if (pci_dma_mapping_error(lp->pdev, dma_addr)) {
-+		kfree_skb(skb);
-+		goto out;
-+	}
-+
-+	lp->tx_free_desc--;
-=20
- 	descptr->skb_ptr =3D skb;
--	descptr->buf =3D cpu_to_le32(pci_map_single(lp->pdev,
--		skb->data, skb->len, PCI_DMA_TODEVICE));
-+	descptr->buf =3D cpu_to_le32(dma_addr);
- 	descptr->status =3D DSC_OWNER_MAC;
-=20
- 	skb_tx_timestamp(skb);
-=20
-+	/* Statistic Counter */
-+	dev->stats.tx_packets++;
-+	dev->stats.tx_bytes +=3D skb->len;
-+
- 	/* Trigger the MAC to check the TX descriptor */
- 	iowrite16(TM2TX, ioaddr + MTPR);
- 	lp->tx_insert_ptr =3D descptr->vndescp;
-@@ -854,6 +866,7 @@ static netdev_tx_t r6040_start_xmit(struct sk_buff *skb=
-,
- 	if (!lp->tx_free_desc)
- 		netif_stop_queue(dev);
-=20
-+out:
- 	spin_unlock_irqrestore(&lp->lock, flags);
-=20
- 	return NETDEV_TX_OK;
----
-
-Ben.
-
---=20
-Ben Hutchings
-Quantity is no substitute for quality, but it's the only one we've got.
-
---=-xeWU4H9su69eCg8unitY
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-
-iQIVAwUAUteI6ee/yOyVhhEJAQpTCg//QIFvu/1ZfSAJoQBrdlzvkCpMHNuTaFJ1
-fR9/N6uwyvNl0AOGxzOOz7VxTEurMy8OFa4wQBG+Q2S990q5P4HB+mrIBHJunaea
-2oOJA0zOc+ptAXAzMTJxBrNJosrc96/6Bq+UyzFd+3vXSH9Jes13Vjj1/6cikABY
-BNwpb2skUZe4mnl4EPrTplpOgcASnobb8jPQ1zZ0Wo/GCASnsp2Q7JHcAvgBRr2L
-0+Wr2Av/7biCVN9CUPpNX3JSxq/gujpmGF68dygVZRnFud32WMHowboKy9K21/fI
-nd9wlOuqaPsgMBa7Bn0PxxVFUq/vl4dMehihHKpniGRgpk1hQ2Xzre+zjI7QDh8i
-AL3Ap7ZFnTIMi0T1F//8e1EvpUkIcBtuvq1GOzDVaxtDYJZTc7DuJGskeo5nvUHJ
-mpZqtQ8v0IbQ/b/+4sjm4z9ubsPC0yIGjvqAbTralZWkBtiUoK9uAgnK9CvA5S14
-yYE0Bt59EEY7x9Zs9nTmwzqpNFGKjb0uVt13gxw+4/OcjMsFXBaIqJ+T91px8KmT
-ga7L5OxI5+l0uyoZXkFDcGfCR/x6R+5odfTgzTzdt+eh4AXcxy5fcR8pSZkePiUi
-/ij3qWjeZUXXxpxvnMgbw6CQEq2Si/5UGerYZ/aOxqST1zj9VCs1xr5Rbsyhb506
-rTCUA3j4SOQ=
-=wxdz
------END PGP SIGNATURE-----
-
---=-xeWU4H9su69eCg8unitY--
+>  drivers/net/virtio_net.c |   16 +++-------------
+>  1 files changed, 3 insertions(+), 13 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 7b17240..9bd70aa 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -72,9 +72,6 @@ struct receive_queue {
+>  
+>  	struct napi_struct napi;
+>  
+> -	/* Number of input buffers, and max we've ever had. */
+> -	unsigned int num, max;
+> -
+>  	/* Chain pages by the private ptr. */
+>  	struct page *pages;
+>  
+> @@ -360,7 +357,6 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+>  		}
+>  
+>  		page = virt_to_head_page(buf);
+> -		--rq->num;
+>  
+>  		num_skb_frags = skb_shinfo(curr_skb)->nr_frags;
+>  		if (unlikely(num_skb_frags == MAX_SKB_FRAGS)) {
+> @@ -406,7 +402,6 @@ err_skb:
+>  		}
+>  		page = virt_to_head_page(buf);
+>  		put_page(page);
+> -		--rq->num;
+>  	}
+>  err_buf:
+>  	dev->stats.rx_dropped++;
+> @@ -628,10 +623,7 @@ static bool try_fill_recv(struct receive_queue *rq, gfp_t gfp)
+>  		oom = err == -ENOMEM;
+>  		if (err)
+>  			break;
+> -		++rq->num;
+>  	} while (rq->vq->num_free);
+> -	if (unlikely(rq->num > rq->max))
+> -		rq->max = rq->num;
+>  	if (unlikely(!virtqueue_kick(rq->vq)))
+>  		return false;
+>  	return !oom;
+> @@ -699,11 +691,10 @@ again:
+>  	while (received < budget &&
+>  	       (buf = virtqueue_get_buf(rq->vq, &len)) != NULL) {
+>  		receive_buf(rq, buf, len);
+> -		--rq->num;
+>  		received++;
+>  	}
+>  
+> -	if (rq->num < rq->max / 2) {
+> +	if (rq->vq->num_free > virtqueue_get_vring_size(rq->vq) / 2) {
+>  		if (!try_fill_recv(rq, GFP_ATOMIC))
+>  			schedule_delayed_work(&vi->refill, 0);
+>  	}
+> @@ -1398,9 +1389,7 @@ static void free_unused_bufs(struct virtnet_info *vi)
+>  				give_pages(&vi->rq[i], buf);
+>  			else
+>  				dev_kfree_skb(buf);
+> -			--vi->rq[i].num;
+>  		}
+> -		BUG_ON(vi->rq[i].num != 0);
+>  	}
+>  }
+>  
+> @@ -1671,7 +1660,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  		try_fill_recv(&vi->rq[i], GFP_KERNEL);
+>  
+>  		/* If we didn't even get one input buffer, we're useless. */
+> -		if (vi->rq[i].num == 0) {
+> +		if (vi->rq[i].vq->num_free ==
+> +		    virtqueue_get_vring_size(vi->rq[i].vq)) {
+>  			free_unused_bufs(vi);
+>  			err = -ENOMEM;
+>  			goto free_recv_bufs;
+> -- 
+> 1.7.1
