@@ -1,67 +1,46 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 2/2] reciprocal_divide: correction/update of the algorithm
-Date: Thu, 16 Jan 2014 11:26:18 +0100
-Message-ID: <20140116102618.GA7436@order.stressinduktion.org>
-References: <1389828228-30312-1-git-send-email-dborkman@redhat.com> <1389828228-30312-3-git-send-email-dborkman@redhat.com> <1389841646.31367.391.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Austin S Hemmelgarn <ahferroin7@gmail.com>,
-	Jesse Gross <jesse@nicira.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Matt Mackall <mpm@selenic.com>,
-	Pekka Enberg <penberg@kernel.org>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Jakub Zawadzki <darkjames-ws@darkjames.pl>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1389841646.31367.391.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Aaron Brown <aaron.f.brown@intel.com>
+Subject: [net-next 6/6] ixgbe: Fix incorrect logic for fixed fiber eeprom write
+Date: Thu, 16 Jan 2014 02:30:10 -0800
+Message-ID: <1389868210-24035-7-git-send-email-aaron.f.brown@intel.com>
+References: <1389868210-24035-1-git-send-email-aaron.f.brown@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Aaron Brown <aaron.f.brown@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:22915 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751123AbaAPKaZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jan 2014 05:30:25 -0500
+In-Reply-To: <1389868210-24035-1-git-send-email-aaron.f.brown@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Eric!
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-On Wed, Jan 15, 2014 at 07:07:26PM -0800, Eric Dumazet wrote:
-> On Thu, 2014-01-16 at 00:23 +0100, Daniel Borkmann wrote:
-> 
-> > Also, reciprocal_value() and reciprocal_divide() always return 0
-> > for divisions by 1. This is a bit worrisome as those functions
-> > also get used in mm/slab.c and lib/flex_array.c, apparently for
-> > index calculation to access array slots. 
-> 
-> Hi Daniel
-> 
-> This off-by-one limitation is a known one,
-> and mm/slab.c does not have an issue with it because :
-> 
-> - Minimal object size is not 1 byte, but 8 (or maybe 4)
-> - We always divide a multiple of the divisor,
->   so there is no off-by-one effect.
-> 
-> Little attached prog does a brute force check if needed.
-> 
-> So far, the only relevant issue was about BPF, and a better
-> documentation of reciprocal_divide() use cases.
-> 
-> (I let Jesse comment on the flex_array case)
-> 
-> I am unsure we want to 'fix' things, we tried hard in the past to avoid
-> divides, so the ones we use are usually because the divisor is not
-> constant, so the reciprocal doesn't help.
-> 
-> (BPF is fixed in David tree)
-> 
-> Thanks !
+In this code we wanted to set the bit in IXGBE_SFF_SOFT_RS_SELECT_MASK to
+the value in rs.  So we really needed a logical or rather than an and, this
+patch makes that change.
 
-You are right, we rewrite that part. The text is still from the first commit
-message where we did no full impact analysis. ;)
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks,
-
-  Hannes
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index 007a008..edda681 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -626,7 +626,7 @@ static void ixgbe_set_fiber_fixed_speed(struct ixgbe_hw *hw,
+ 		goto out;
+ 	}
+ 
+-	eeprom_data = (eeprom_data & ~IXGBE_SFF_SOFT_RS_SELECT_MASK) & rs;
++	eeprom_data = (eeprom_data & ~IXGBE_SFF_SOFT_RS_SELECT_MASK) | rs;
+ 
+ 	status = hw->phy.ops.write_i2c_byte(hw, IXGBE_SFF_SFF_8472_OSCB,
+ 					    IXGBE_I2C_EEPROM_DEV_ADDR2,
+-- 
+1.8.5.GIT
