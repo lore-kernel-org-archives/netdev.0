@@ -1,39 +1,44 @@
-From: Michael Dalton <mwdalton@google.com>
-Subject: Re: [PATCH net-next v3 5/5] virtio-net: initial rx sysfs support,
-	export mergeable rx buffer size
-Date: Thu, 16 Jan 2014 08:33:38 -0800
-Message-ID: <CANJ5vPJZACr=y3uRv0Rnq330jQCi4dLvhyQd88ascZjBg_jfUw@mail.gmail.com>
-References: <1389865126-26225-1-git-send-email-mwdalton@google.com>
-	<1389865126-26225-5-git-send-email-mwdalton@google.com>
-	<20140116115340.GC29061@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lf-virt <virtualization@lists.linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140116115340.GC29061@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [PATCH net-next 2/2] reciprocal_divide: correction/update of
+ the algorithm
+Date: Thu, 16 Jan 2014 10:37:37 -0600 (CST)
+Message-ID: <alpine.DEB.2.10.1401161036110.29778@nuc>
+References: <1389828228-30312-1-git-send-email-dborkman@redhat.com> <1389828228-30312-3-git-send-email-dborkman@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Austin S Hemmelgarn <ahferroin7@gmail.com>,
+	Jesse Gross <jesse@nicira.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Matt Mackall <mpm@selenic.com>,
+	Pekka Enberg <penberg@kernel.org>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Jakub Zawadzki <darkjames-ws@darkjames.pl>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1389828228-30312-3-git-send-email-dborkman@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Michael,
+On Thu, 16 Jan 2014, Daniel Borkmann wrote:
 
-On Thu, Jan 16, 2014 at 3:53 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> Hmm this adds overhead just to prevent sysfs from getting wrong value.
-> Can't sysfs simply disable softirq while it's reading the value?
-Yes I think this would work, we could call napi_disable(), read the
-average packet length from the receive_queue, and then call
-virtnet_napi_enable(). That would eliminate the need for the seqcount.
+> - * or else the performance is slower than a normal divide.
+> - */
+> -extern u32 reciprocal_value(u32 B);
+> +struct reciprocal_value {
+> +	u32 m;
+> +	u8 sh1, sh2;
+> +};
+>
+> +#define RECIPROCAL_VALUE_RESULT_TO_ZERO ((struct reciprocal_value){.sh1 = 32})
+>
+> -static inline u32 reciprocal_divide(u32 A, u32 R)
+> +struct reciprocal_value reciprocal_value(u32 d);
 
-Best,
-
-Mike
+A function that returns a struct? That works? Which gcc versions support
+it?
