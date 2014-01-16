@@ -1,36 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH iproute2 v2 2/2] netem: add 64bit rates support
-Date: Wed, 15 Jan 2014 19:17:12 -0800
-Message-ID: <1389842232.31367.397.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1389841754-22008-1-git-send-email-yangyingliang@huawei.com>
-	 <1389841754-22008-3-git-send-email-yangyingliang@huawei.com>
+From: Ethan Zhao <ethan.kernel@gmail.com>
+Subject: Re: [PATCH 1/2 v3] ixgbe: define
+ IXGBE_MAX_VFS_DRV_LIMIT macro and cleanup const 63
+Date: Thu, 16 Jan 2014 12:20:18 +0800
+Message-ID: <CABawtvPy=JThO0CKisdrtrWvE6E33+zupc3dX4fyuhiGHPhZzQ@mail.gmail.com>
+References: <1389795148-341-1-git-send-email-ethan.kernel@gmail.com>
+	<309B89C4C689E141A5FF6A0C5FB2118B7312DA20@ORSMSX101.amr.corp.intel.com>
+	<CABawtvNEDjTJAjJ9TeEvZd7+2kD=H6zA23T-aQo3uVm5SUEhCQ@mail.gmail.com>
+	<309B89C4C689E141A5FF6A0C5FB2118B7312DE7D@ORSMSX101.amr.corp.intel.com>
+	<CABawtvNSpDU+pjdJOpCB8kyQqA7B9N4g0S_yPgQaZnB3h0+nFg@mail.gmail.com>
+	<309B89C4C689E141A5FF6A0C5FB2118B7312DF41@ORSMSX101.amr.corp.intel.com>
+	<CABawtvPJ1ObkwbKjVtzajQnn_181CTo-jmLc0uGY2nqZw9_jtg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: Yang Yingliang <yangyingliang@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:56061 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751325AbaAPDRO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 22:17:14 -0500
-Received: by mail-pb0-f49.google.com with SMTP id up15so1516550pbc.36
-        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 19:17:13 -0800 (PST)
-In-Reply-To: <1389841754-22008-3-git-send-email-yangyingliang@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ethan zhao <ethan.zhao@oracle.com>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Allan,
+	Bruce W" <bruce.w.allan@intel.com>, "Brandeburg,
+	Jesse" <jesse.brandeburg@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <CABawtvPJ1ObkwbKjVtzajQnn_181CTo-jmLc0uGY2nqZw9_jtg@mail.gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-01-16 at 11:09 +0800, Yang Yingliang wrote:
-> netem support 64bit rates start from linux-3.13.
-> Add 64bit rates support in tc tools.
-> 
-> tc qdisc show dev eth0
-> qdisc netem 1: dev eth4 root refcnt 2 limit 1000 rate 35Gbit
-> 
-> Cc: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-> ---
->  tc/q_netem.c | 29 ++++++++++++++++++++++++-----
->  1 file changed, 24 insertions(+), 5 deletions(-)
+Aaron,
+    Revised those patches for Dave Miller's net-next OK, passed
+building. resent.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Thanks,
+Ethan
+
+On Thu, Jan 16, 2014 at 11:08 AM, Ethan Zhao <ethan.kernel@gmail.com> wrote:
+> Aaron,
+>     Ok, Dave Miler's net-next tree.
+>
+> Thanks,
+> Etan
+>
+> On Thu, Jan 16, 2014 at 10:51 AM, Brown, Aaron F
+> <aaron.f.brown@intel.com> wrote:
+>> On Thu, 2014-01-16 at 09:58 +0800, Ethan Zhao wrote:
+>>> Aaron,
+>>>
+>>> Is this your net-next repo ? if so, I rebuild the patch with this repo
+>>> right now .
+>>> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
+>>>
+>>> Thanks,
+>>> Ethan
+>>>
+>> Only sort of.  Jeff uses it to push patches up, but I don't have an
+>> account there so am simply sending them up the old fashioned way, via
+>> email, hence it is probably not getting updated while Jeff is out.
+>>
+>> As long as your patch can apply cleanly to Dave Miller's net-next tree I
+>> should be able to pull it into our internal ones.
+
+------------------------------------------------------------------------------
+CenturyLink Cloud: The Leader in Enterprise Cloud Services.
+Learn Why More Businesses Are Choosing CenturyLink Cloud For
+Critical Workloads, Development Environments & Everything In Between.
+Get a Quote or Start a Free Trial Today. 
+http://pubads.g.doubleclick.net/gampad/clk?id=119420431&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
