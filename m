@@ -1,57 +1,117 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next v4 8/9] xen-netback: Timeout packets in RX path
-Date: Thu, 16 Jan 2014 00:03:34 +0000
-Message-ID: <20140116000334.GE5331@zion.uk.xensource.com>
-References: <1389731995-9887-1-git-send-email-zoltan.kiss@citrix.com>
- <1389731995-9887-9-git-send-email-zoltan.kiss@citrix.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC PATCH net-next] etherdevice: Use ether_addr_copy to copy
+ an Ethernet address
+Date: Wed, 15 Jan 2014 16:07:58 -0800
+Message-ID: <1389830878.14001.39.camel@joe-AO722>
+References: <1389741527.24849.68.camel@joe-AO722>
+	 <20140115.153951.743060257410154565.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+	linux-arch@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:63303 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753085AbaAPADf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 19:03:35 -0500
-Content-Disposition: inline
-In-Reply-To: <1389731995-9887-9-git-send-email-zoltan.kiss@citrix.com>
+Received: from smtprelay0246.hostedemail.com ([216.40.44.246]:44131 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750952AbaAPAID (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 19:08:03 -0500
+In-Reply-To: <20140115.153951.743060257410154565.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 14, 2014 at 08:39:54PM +0000, Zoltan Kiss wrote:
-[...]
-> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-> index 109c29f..d1cd8ce 100644
-> --- a/drivers/net/xen-netback/common.h
-> +++ b/drivers/net/xen-netback/common.h
-> @@ -129,6 +129,9 @@ struct xenvif {
->  	struct xen_netif_rx_back_ring rx;
->  	struct sk_buff_head rx_queue;
->  	RING_IDX rx_last_skb_slots;
+On Wed, 2014-01-15 at 15:39 -0800, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Tue, 14 Jan 2014 15:18:47 -0800
+> 
+> > Some systems can use the normally known u16 alignment of
+> > Ethernet addresses to save some code/text bytes and cycles.
+> > 
+> > This does not change currently emitted code on x86 by gcc 4.8.
+> > 
+> > Signed-off-by: Joe Perches <joe@perches.com>
+> 
+> This looks fine, in fact I'll apply it.
 
-Hmm... You seemed to mix your other patch with this series. :-)
+OK, good.
 
-> +	bool rx_queue_purge;
-> +
-> +	struct timer_list wake_queue;
->  
->  	/* This array is allocated seperately as it is large */
->  	struct gnttab_copy *grant_copy_op;
-> @@ -225,4 +228,7 @@ void xenvif_idx_unmap(struct xenvif *vif, u16 pending_idx);
->  
->  extern bool separate_tx_rx_irq;
->  
-[...]
-> @@ -559,7 +579,7 @@ void xenvif_free(struct xenvif *vif)
->  		if (vif->grant_tx_handle[i] != NETBACK_INVALID_HANDLE) {
->  			unmap_timeout++;
->  			schedule_timeout(msecs_to_jiffies(1000));
-> -			if (unmap_timeout > 9 &&
-> +			if (unmap_timeout > ((rx_drain_timeout_msecs/1000) * DIV_ROUND_UP(XENVIF_QUEUE_LENGTH, (XEN_NETIF_RX_RING_SIZE / MAX_SKB_FRAGS))) &&
+There are a couple thousand memcpy(foo, bar, ETH_ALEN)
+in the kernel tree that could be converted.
 
-This line is really too long. And what's the rationale behind this long
-expression?
+Some will have a small performance improvement for
+arm and powerpc.
 
-Wei.
+If you want the ones for net-next net/ now (but not
+for batman-adv, that maybe could use a new function like
+ether_addr_copy_unaligned) here's a changestat.
+
+Otherwise, I'll wait for the next cycle.
+
+(done via coccinelle)
+
+ net/8021q/vlan.c                          |  2 +-
+ net/8021q/vlan_dev.c                      |  6 ++--
+ net/appletalk/aarp.c                      | 10 +++---
+ net/atm/lec.c                             |  9 ++---
+ net/atm/mpc.c                             |  2 +-
+ net/bluetooth/bnep/core.c                 | 19 +++++-----
+ net/bluetooth/bnep/netdev.c               | 14 ++++----
+ net/bridge/br_device.c                    |  4 +--
+ net/bridge/br_fdb.c                       |  4 +--
+ net/bridge/br_multicast.c                 |  4 +--
+ net/bridge/br_netfilter.c                 |  2 +-
+ net/bridge/br_stp_if.c                    | 10 +++---
+ net/bridge/netfilter/ebt_among.c          |  2 +-
+ net/bridge/netfilter/ebt_dnat.c           |  2 +-
+ net/bridge/netfilter/ebt_redirect.c       |  6 ++--
+ net/bridge/netfilter/ebt_snat.c           |  2 +-
+ net/caif/caif_usb.c                       |  4 +--
+ net/core/netpoll.c                        |  4 +--
+ net/core/pktgen.c                         |  8 ++---
+ net/decnet/dn_dev.c                       |  2 +-
+ net/decnet/dn_neigh.c                     |  6 ++--
+ net/decnet/dn_route.c                     |  6 ++--
+ net/dsa/slave.c                           |  2 +-
+ net/ethernet/eth.c                        | 18 +++++-----
+ net/hsr/hsr_device.c                      |  8 ++---
+ net/hsr/hsr_framereg.c                    | 21 +++++------
+ net/hsr/hsr_main.c                        |  4 +--
+ net/ipv4/netfilter/ipt_CLUSTERIP.c        |  2 +-
+ net/mac80211/agg-rx.c                     | 10 +++---
+ net/mac80211/agg-tx.c                     | 18 +++++-----
+ net/mac80211/cfg.c                        | 34 +++++++++---------
+ net/mac80211/debugfs_netdev.c             | 12 +++----
+ net/mac80211/ht.c                         | 16 ++++-----
+ net/mac80211/ibss.c                       | 14 ++++----
+ net/mac80211/iface.c                      | 27 +++++++-------
+ net/mac80211/mesh.c                       | 30 ++++++++--------
+ net/mac80211/mesh_hwmp.c                  | 32 ++++++++---------
+ net/mac80211/mesh_pathtbl.c               | 20 +++++------
+ net/mac80211/mesh_plink.c                 |  6 ++--
+ net/mac80211/mesh_ps.c                    |  2 +-
+ net/mac80211/mlme.c                       | 32 ++++++++---------
+ net/mac80211/rx.c                         | 14 ++++----
+ net/mac80211/spectmgmt.c                  |  6 ++--
+ net/mac80211/sta_info.c                   |  8 ++---
+ net/mac80211/tx.c                         | 60 +++++++++++++++----------------
+ net/mac80211/util.c                       | 22 ++++++------
+ net/mac80211/wpa.c                        |  4 +--
+ net/netfilter/ipset/ip_set_bitmap_ipmac.c |  6 ++--
+ net/openvswitch/actions.c                 |  4 +--
+ net/openvswitch/flow.c                    | 16 ++++-----
+ net/openvswitch/flow_netlink.c            | 14 ++++----
+ net/tipc/eth_media.c                      |  2 +-
+ net/wireless/core.c                       |  2 +-
+ net/wireless/ibss.c                       | 11 +++---
+ net/wireless/lib80211_crypt_ccmp.c        |  4 +--
+ net/wireless/lib80211_crypt_tkip.c        | 18 +++++-----
+ net/wireless/mlme.c                       |  2 +-
+ net/wireless/nl80211.c                    |  6 ++--
+ net/wireless/scan.c                       |  6 ++--
+ net/wireless/sme.c                        | 18 +++++-----
+ net/wireless/util.c                       | 42 +++++++++++-----------
+ net/wireless/wext-compat.c                |  8 ++---
+ net/wireless/wext-sme.c                   |  5 +--
+ net/wireless/wext-spy.c                   |  8 ++---
+ 64 files changed, 365 insertions(+), 357 deletions(-)
