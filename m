@@ -1,40 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/2] net/mlx4_core: clean up cq_res_start_move_to()
-Date: Thu, 16 Jan 2014 11:39:47 -0800 (PST)
-Message-ID: <20140116.113947.1353295150580987909.davem@davemloft.net>
-References: <20140114084752.1db64b21@jpm-OptiPlex-GX620>
-	<1389728736.28068.8.camel@x220>
-	<20140116094639.6fe72bcf@jpm-OptiPlex-GX620>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next v3 4/5] net-sysfs: add support for
+	device-specific rx queue sysfs attributes
+Date: Thu, 16 Jan 2014 19:42:32 +0000
+Message-ID: <1389901352.11912.73.camel@bwh-desktop.uk.level5networks.com>
+References: <1389865126-26225-1-git-send-email-mwdalton@google.com>
+	<1389865126-26225-4-git-send-email-mwdalton@google.com>
+	<1389898650.11912.65.camel@bwh-desktop.uk.level5networks.com>
+	<CANJ5vP+nDgi7vWOd=RSuZ=NS5Z_txEkEsoYYm_33sFPh6rr=gg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: pebolle@tiscali.nl, ogerlitz@mellanox.com, ronye@mellanox.com,
-	hadarh@mellanox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jackm@dev.mellanox.co.il
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140116094639.6fe72bcf@jpm-OptiPlex-GX620>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	lf-virt <virtualization@lists.linux-foundation.org>, Eric
+	Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: Michael Dalton <mwdalton@google.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CANJ5vP+nDgi7vWOd=RSuZ=NS5Z_txEkEsoYYm_33sFPh6rr=gg@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Date: Thu, 16 Jan 2014 09:46:39 +0200
+On Thu, 2014-01-16 at 11:07 -0800, Michael Dalton wrote:
+> On Jan 16, 2014 at 10:57 AM, Ben Hutchings <bhutchings@solarflare.com> wrote:
+> > Why write a loop when you can do:
+> >         i = queue - dev->_rx;
+> Good point, the loop approach was done in get_netdev_queue_index --
+> I agree your fix is faster and simpler. I'll fix in next patchset.
 
-> ACK.  OK.
+It's simpler but we don't know if it's faster (and I don't believe that
+matters for the current usage).
 
-This is not the correct way to ack a patch.
+If one of these functions starts to be used in the data path, at that
+point it could be worth optimising, e.g. by doing a test for queue 0 and
+only then doing the pointer arithmetic with its implicit division.
 
-First of all, you should not top post.  Instead you should quote
-the relevant parts of the email you are replying to, and then add
-your new content underneath.
+Ben.
 
-In this circumstance, the "relevant parts" are just the commit log
-message from the patch submitter.  There is no reason ever to quote
-the patch itself unless you are making comments on specific parts.
-
-And you specify your ACK using a properly formed "Acked-by: "
-line.
-
-Please look at how other reviewers ACK patches.
-
-Thank you.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
