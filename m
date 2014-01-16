@@ -1,37 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH-next v2] net/ipv4: don't use module_init in non-modular
- gre_offload
-Date: Thu, 16 Jan 2014 14:05:11 -0800
-Message-ID: <1389909911.31367.425.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1389802795-27442-1-git-send-email-paul.gortmaker@windriver.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH v2] ipv6: send Change Status Report after DAD is completed
+Date: Thu, 16 Jan 2014 20:13:37 -0200
+Message-ID: <20140116221337.GQ5359@plex.lan>
+References: <1389907679-15346-1-git-send-email-fbl@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f51.google.com ([209.85.213.51]:65291 "EHLO
-	mail-yh0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750750AbaAPWFQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 17:05:16 -0500
-Received: by mail-yh0-f51.google.com with SMTP id l109so1155006yhq.38
-        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 14:05:14 -0800 (PST)
-In-Reply-To: <1389802795-27442-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from mx1.redhat.com ([209.132.183.28]:2254 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751038AbaAPWMe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jan 2014 17:12:34 -0500
+Content-Disposition: inline
+In-Reply-To: <1389907679-15346-1-git-send-email-fbl@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-01-15 at 11:19 -0500, Paul Gortmaker wrote:
-> Recent commit 438e38fadca2f6e57eeecc08326c8a95758594d4
-> ("gre_offload: statically build GRE offloading support") added
-> new module_init/module_exit calls to the gre_offload.c file.
-...
-> Cc: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-> ---
-> 
-> v2: dump gre_offload_exit entirely as suggested by Eric.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+This is for net-next.
+fbl
 
-Thanks !
+On Thu, Jan 16, 2014 at 07:27:59PM -0200, Flavio Leitner wrote:
+> The RFC 3810 defines two type of messages for multicast
+> listeners. The "Current State Report" message, as the name
+> implies, refreshes the *current* state to the querier.
+> Since the querier sends Query messages periodically, there
+> is no need to retransmit the report.
+[...] 
