@@ -1,79 +1,83 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next v4 1/2] dts: Add a binding for Synopsys emac
- max-frame-size
-Date: Thu, 16 Jan 2014 17:50:01 +0000
-Message-ID: <1389894601.11912.54.camel@bwh-desktop.uk.level5networks.com>
-References: <1389881155-9758-1-git-send-email-vbridgers2013@gmail.com>
-	 <1389881155-9758-2-git-send-email-vbridgers2013@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v3 5/5] virtio-net: initial rx sysfs support,
+	export mergeable rx buffer size
+Date: Thu, 16 Jan 2014 10:04:41 -0800
+Message-ID: <1389895481.31367.411.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1389865126-26225-1-git-send-email-mwdalton@google.com>
+	<1389865126-26225-5-git-send-email-mwdalton@google.com>
+	<20140116115340.GC29061@redhat.com>
+	<CANJ5vPJZACr=y3uRv0Rnq330jQCi4dLvhyQd88ascZjBg_jfUw@mail.gmail.com>
+	<CANJ5vPJi=k1Wk43j+-XjSgnnAS5uO9wrYQuDnrdfA5A+DGxvQg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <devicetree@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<peppe.cavallaro@st.com>, <robh+dt@kernel.org>,
-	<pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<dinguyen@altera.com>, <rayagond@vayavyalabs.com>
-To: Vince Bridgers <vbridgers2013@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:55405 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751172AbaAPRuH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 12:50:07 -0500
-In-Reply-To: <1389881155-9758-2-git-send-email-vbridgers2013@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: Michael Dalton <mwdalton@google.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CANJ5vPJi=k1Wk43j+-XjSgnnAS5uO9wrYQuDnrdfA5A+DGxvQg@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-01-16 at 08:05 -0600, Vince Bridgers wrote:
-> This change adds a parameter for the Synopsys 10/100/1000
-> stmmac Ethernet driver to configure the maximum frame
-> size supported by the EMAC driver. Synopsys allows the FIFO
-> sizes to be configured when the cores are built for a particular
-> device, but do not provide a way for the driver to read
-> information from the device about the maximum MTU size
-> supported as limited by the device's FIFO size.
+On Thu, 2014-01-16 at 09:27 -0800, Michael Dalton wrote:
+> Sorry, just realized - I think disabling NAPI is necessary but not
+> sufficient. There is also the issue that refill_work() could be
+> scheduled. If refill_work() executes, it will re-enable NAPI. We'd need
+> to cancel the vi->refill delayed work to prevent this AFAICT, and also
+> ensure that no other function re-schedules vi->refill or re-enables NAPI
+> (virtnet_open/close, virtnet_set_queues, and virtnet_freeze/restore).
 > 
-> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
-> ---
-> V4: add comments to explain use of max-frame-size with respect
->     to inconsistent definition and use in the ePAPR v1.1 spec
-
-Well, ePAPR does not seem to be consistent with itself. :-)
-
-> V3: change snps,max-frame-size to max-frame-size
-> V2: change snps,max-mtu to snps,max-frame-size
-> ---
->  Documentation/devicetree/bindings/net/stmmac.txt |   13 ++++++++++++-
->  1 file changed, 12 insertions(+), 1 deletion(-)
+> How is the following sequence of operations:
+> rtnl_lock();
+> cancel_delayed_work_sync(&vi->refill);
+> napi_disable(&rq->napi);
+> read rq->mrg_avg_pkt_len
+> virtnet_enable_napi();
+> rtnl_unlock();
 > 
-> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-> index eba0e5e..d553be2 100644
-> --- a/Documentation/devicetree/bindings/net/stmmac.txt
-> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
-> @@ -29,7 +29,17 @@ Required properties:
->  				ignored if force_thresh_dma_mode is set.
->  
->  Optional properties:
-> -- mac-address: 6 bytes, mac address
-> +- mac-address:		6 bytes, mac address
-> +- max-frame-size:	Maximum frame size permitted. This parameter is useful
-> +			since different implementations of the Synopsys MAC may
-> +			have different FIFO sizes depending on the selections
-> +			made in Synopsys Core Consultant. Note that the usage
-> +			is inconsistent with the definition in the ePAPR v1.1
-> +			specification, as it defines max-frame-size inclusive
-> +			of the MAC DA, SA, Ethertype and CRC while usage is
-> +			consistent with the IEEE definition of MAC Client
-> +			Data, which is sans the MAC DA, SA, Ethertype and
-> +			CRC.
-[...]
+> Additionally, if we disable NAPI when reading this file, perhaps
+> the permissions should be changed to 400 so that an unprivileged
+> user cannot temporarily disable network RX processing by reading these
+> sysfs files. Does that sound reasonable?
 
-While this is very precise, I fear that it is now so verbose that it
-actually becomes confusing.  Can this not be condensed to 'the maximum
-MTU and MRU, rather than the maximum Ethernet frame size'?
+I think all this complexity makes no sense to me.
 
-Ben.
+Who cares of sysfs reading a value that might be updated ?
+This is purely a debugging utility.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+As soon as you read the value, it might already have changed anyway.
+
+Its a integer, just read it without special care.
+
+atomic_read() has also same 'problem', and we do not care.
+
+Make sure that a recompute (aka ewma_add()) does not store intermediate
+wrong values, by using ACCESS_ONCE(), and thats enough. No need for the
+seqcount overhead.
+
+diff --git a/lib/average.c b/lib/average.c
+index 99a67e662b3c..044e0b7f28a8 100644
+--- a/lib/average.c
++++ b/lib/average.c
+@@ -53,8 +53,10 @@ EXPORT_SYMBOL(ewma_init);
+  */
+ struct ewma *ewma_add(struct ewma *avg, unsigned long val)
+ {
+-	avg->internal = avg->internal  ?
+-		(((avg->internal << avg->weight) - avg->internal) +
++	unsigned long internal = ACCESS_ONCE(avg->internal);
++
++	ACCESS_ONCE(avg->internal) = internal  ?
++		(((internal << avg->weight) - internal) +
+ 			(val << avg->factor)) >> avg->weight :
+ 		(val << avg->factor);
+ 	return avg;
