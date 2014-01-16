@@ -1,82 +1,52 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next 2/6] bonding: always set recv_probe to bond_arp_rcv in arp monitor
-Date: Thu, 16 Jan 2014 03:05:12 +0100
-Message-ID: <1389837916-5377-3-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next 5/6] bonding: use last_arp_rx in bond_loadbalance_arp_mon()
+Date: Thu, 16 Jan 2014 03:05:15 +0100
+Message-ID: <1389837916-5377-6-git-send-email-vfalico@redhat.com>
 References: <1389837916-5377-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49941 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:14919 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751634AbaAPCJf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jan 2014 21:09:35 -0500
+	id S1752583AbaAPCJk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jan 2014 21:09:40 -0500
 In-Reply-To: <1389837916-5377-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we only set bond_arp_rcv() if we're using arp_validate, however
-this makes us skip updating last_arp_rx if we're not validating incoming
-ARPs - thus, if arp_validate is off, last_arp_rx will never be updated.
-
-Fix this by always setting up recv_probe = bond_arp_rcv, even if we're not
-using arp_validate.
+Now that last_arp_rx correctly show the last time we've received an ARP, we
+can use it safely instead of slave->dev->last_rx.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_main.c    |  3 +--
- drivers/net/bonding/bond_options.c | 12 ++----------
- 2 files changed, 3 insertions(+), 12 deletions(-)
+ drivers/net/bonding/bond_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index cfb37af..1e0f21a 100644
+index 399e691..f5ac7e0 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -3062,8 +3062,7 @@ static int bond_open(struct net_device *bond_dev)
+@@ -2406,7 +2406,7 @@ static void bond_loadbalance_arp_mon(struct work_struct *work)
  
- 	if (bond->params.arp_interval) {  /* arp interval, in milliseconds. */
- 		queue_delayed_work(bond->wq, &bond->arp_work, 0);
--		if (bond->params.arp_validate)
--			bond->recv_probe = bond_arp_rcv;
-+		bond->recv_probe = bond_arp_rcv;
- 	}
+ 		if (slave->link != BOND_LINK_UP) {
+ 			if (bond_time_in_interval(bond, trans_start, 1) &&
+-			    bond_time_in_interval(bond, slave->dev->last_rx, 1)) {
++			    bond_time_in_interval(bond, slave->last_arp_rx, 1)) {
  
- 	if (bond->params.mode == BOND_MODE_8023AD) {
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 945a666..1bab20e 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -283,13 +283,11 @@ int bond_option_arp_interval_set(struct bonding *bond, int arp_interval)
- 		 * is called.
- 		 */
- 		if (!arp_interval) {
--			if (bond->params.arp_validate)
--				bond->recv_probe = NULL;
-+			bond->recv_probe = NULL;
- 			cancel_delayed_work_sync(&bond->arp_work);
- 		} else {
- 			/* arp_validate can be set only in active-backup mode */
--			if (bond->params.arp_validate)
--				bond->recv_probe = bond_arp_rcv;
-+			bond->recv_probe = bond_arp_rcv;
- 			cancel_delayed_work_sync(&bond->mii_work);
- 			queue_delayed_work(bond->wq, &bond->arp_work, 0);
- 		}
-@@ -446,12 +444,6 @@ int bond_option_arp_validate_set(struct bonding *bond, int arp_validate)
- 		bond->dev->name, arp_validate_tbl[arp_validate].modename,
- 		arp_validate);
+ 				slave->link  = BOND_LINK_UP;
+ 				bond_set_active_slave(slave);
+@@ -2435,7 +2435,7 @@ static void bond_loadbalance_arp_mon(struct work_struct *work)
+ 			 * if we don't know our ip yet
+ 			 */
+ 			if (!bond_time_in_interval(bond, trans_start, 2) ||
+-			    !bond_time_in_interval(bond, slave->dev->last_rx, 2)) {
++			    !bond_time_in_interval(bond, slave->last_arp_rx, 2)) {
  
--	if (bond->dev->flags & IFF_UP) {
--		if (!arp_validate)
--			bond->recv_probe = NULL;
--		else if (bond->params.arp_interval)
--			bond->recv_probe = bond_arp_rcv;
--	}
- 	bond->params.arp_validate = arp_validate;
- 
- 	return 0;
+ 				slave->link  = BOND_LINK_DOWN;
+ 				bond_set_backup_slave(slave);
 -- 
 1.8.4
