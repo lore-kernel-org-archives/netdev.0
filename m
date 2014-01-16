@@ -1,40 +1,37 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] [PATCH net-next] xen-netfront: clean up code in xennet_release_rx_bufs
-Date: Thu, 16 Jan 2014 14:04:52 +0800
-Message-ID: <52D77684.20808@oracle.com>
-References: <1389307718-2845-1-git-send-email-Annie.li@oracle.com> <20140114.152825.2110618560908841742.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wei.liu2@citrix.com,
-	ian.campbell@citrix.com, xen-devel@lists.xen.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:23344 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750886AbaAPGFI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 01:05:08 -0500
-In-Reply-To: <20140114.152825.2110618560908841742.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Prabhakar Lad <prabhakar.csengg@gmail.com>
+Subject: [PATCH] net: davinci_mdio: Fix sparse warning
+Date: Thu, 16 Jan 2014 11:35:41 +0530
+Message-ID: <1389852341-15393-1-git-send-email-prabhakar.csengg@gmail.com>
+Cc: linux-kernel@vger.kernel.org, Mugunthan V N <mugunthanvnm@ti.com>,
+	"Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
 
-On 2014/1/15 7:28, David Miller wrote:
-> From: Annie Li <Annie.li@oracle.com>
-> Date: Fri, 10 Jan 2014 06:48:38 +0800
->
->> Current netfront only grants pages for grant copy, not for grant transfer, so
->> remove corresponding transfer code and add receiving copy code in
->> xennet_release_rx_bufs.
->>
->> Signed-off-by: Annie Li <Annie.li@oracle.com>
-> If a Xen networking driver would review this I'd appreciate it.
->
+This patch fixes following sparse warning
+davinci_mdio.c:85:27: warning: symbol 'default_pdata' was not declared. Should it be static?
+Also makes the default_pdata as a constant.
 
-I will re-post a new patch with improved comments. This patch mainly 
-fixes leaking grant issue in netfront, and improvement on 
-gnttab_end_foreign_access_ref and gnttab_end_foreign_access can be 
-implemented in a separate patch.
+Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+---
+ drivers/net/ethernet/ti/davinci_mdio.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks
-Annie
+diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+index 4ec9265..0cca9de 100644
+--- a/drivers/net/ethernet/ti/davinci_mdio.c
++++ b/drivers/net/ethernet/ti/davinci_mdio.c
+@@ -82,7 +82,7 @@ struct davinci_mdio_regs {
+ 	}	user[0];
+ };
+ 
+-struct mdio_platform_data default_pdata = {
++static const struct mdio_platform_data default_pdata = {
+ 	.bus_freq = DEF_OUT_FREQ,
+ };
+ 
+-- 
+1.7.9.5
