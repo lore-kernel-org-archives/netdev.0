@@ -1,132 +1,61 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next] bonding: trivial: rename slave->jiffies to ->last_link_up
-Date: Thu, 16 Jan 2014 03:20:37 +0100
-Message-ID: <1389838837-10283-1-git-send-email-vfalico@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: netdev@vger.kernel.org
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: Re: [PATCH iproute2 2/2] netem: add 64bit rates support
+Date: Thu, 16 Jan 2014 10:28:59 +0800
+Message-ID: <52D743EB.9010701@huawei.com>
+References: <1389778932-17404-1-git-send-email-yangyingliang@huawei.com>	 <1389778932-17404-3-git-send-email-yangyingliang@huawei.com> <1389801367.31367.345.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <stephen@networkplumber.org>, <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50412 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750941AbaAPCZN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jan 2014 21:25:13 -0500
+Received: from szxga02-in.huawei.com ([119.145.14.65]:64299 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751314AbaAPCaV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 21:30:21 -0500
+In-Reply-To: <1389801367.31367.345.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-slave->jiffies is updated every time the slave becomes active, which, for
-bonding, means that its link is 'up'.
+On 2014/1/15 23:56, Eric Dumazet wrote:
+> On Wed, 2014-01-15 at 17:42 +0800, Yang Yingliang wrote:
+>> netem support 64bit rates start from linux-3.13.
+>> Add 64bit rates support in tc tools.
+>>
+>> tc qdisc show dev eth0
+>> qdisc netem 1: dev eth4 root refcnt 2 limit 1000 rate 35Gbit
+>>
+>> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+>> ---
+>>  tc/q_netem.c | 29 ++++++++++++++++++++++++-----
+>>  1 file changed, 24 insertions(+), 5 deletions(-)
+>>
+[...]
+>>  
+>>  	if (dist_data) {
+>>  		if (addattr_l(n, MAX_DIST * sizeof(dist_data[0]),
+>> @@ -522,6 +532,7 @@ static int netem_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+>>  	struct tc_netem_qopt qopt;
+>>  	const struct tc_netem_rate *rate = NULL;
+>>  	int len = RTA_PAYLOAD(opt) - sizeof(qopt);
+>> +	__u64 *rate64 = NULL;
+> 
+> __u64 rate64 = 0;
+> 
+>>  	SPRINT_BUF(b1);
+>>  
+>>  	if (opt == NULL)
+>> @@ -572,6 +583,11 @@ static int netem_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+>>  				return -1;
+>>  			ecn = RTA_DATA(tb[TCA_NETEM_ECN]);
+>>  		}
+>> +		if (tb[TCA_NETEM_RATE64]) {
+>> +			if (RTA_PAYLOAD(tb[TCA_NETEM_RATE64]) < sizeof(*rate64))
+>> +				return -1;
+>> +			rate64 = RTA_DATA(tb[TCA_NETEM_RATE64]);
+> 
+> rate64 = rta_getattr_u64(tb[TCA_NETEM_RATE64]);
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
+It looks better, I'll send a v2.
 
-Notes:
-    On top of
-    
-    [PATCH net-next 0/6] bonding: only rely on arp packets if arp monitor is used
-    
-    Sorry for the trivial patch, but I'm always loosing some time
-    trying to remember what that actually means.
-
- drivers/net/bonding/bond_main.c | 20 ++++++++++----------
- drivers/net/bonding/bonding.h   |  3 ++-
- 2 files changed, 12 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index f9e5512..0f613ae 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -846,7 +846,7 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
- 		return;
- 
- 	if (new_active) {
--		new_active->jiffies = jiffies;
-+		new_active->last_link_up = jiffies;
- 
- 		if (new_active->link == BOND_LINK_BACK) {
- 			if (USES_PRIMARY(bond->params.mode)) {
-@@ -1488,7 +1488,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	}
- 
- 	if (new_slave->link != BOND_LINK_DOWN)
--		new_slave->jiffies = jiffies;
-+		new_slave->last_link_up = jiffies;
- 	pr_debug("Initial state of slave_dev is BOND_LINK_%s\n",
- 		new_slave->link == BOND_LINK_DOWN ? "DOWN" :
- 			(new_slave->link == BOND_LINK_UP ? "UP" : "BACK"));
-@@ -1923,7 +1923,7 @@ static int bond_miimon_inspect(struct bonding *bond)
- 				 * recovered before downdelay expired
- 				 */
- 				slave->link = BOND_LINK_UP;
--				slave->jiffies = jiffies;
-+				slave->last_link_up = jiffies;
- 				pr_info("%s: link status up again after %d ms for interface %s.\n",
- 					bond->dev->name,
- 					(bond->params.downdelay - slave->delay) *
-@@ -1998,7 +1998,7 @@ static void bond_miimon_commit(struct bonding *bond)
- 
- 		case BOND_LINK_UP:
- 			slave->link = BOND_LINK_UP;
--			slave->jiffies = jiffies;
-+			slave->last_link_up = jiffies;
- 
- 			if (bond->params.mode == BOND_MODE_8023AD) {
- 				/* prevent it from being the active one */
-@@ -2345,7 +2345,7 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
- 		bond_validate_arp(bond, slave, sip, tip);
- 	else if (bond->curr_active_slave &&
- 		 time_after(slave_last_arp_rx(bond, bond->curr_active_slave),
--			    bond->curr_active_slave->jiffies))
-+			    bond->curr_active_slave->last_link_up))
- 		bond_validate_arp(bond, slave, tip, sip);
- 
- out_unlock:
-@@ -2392,9 +2392,9 @@ static void bond_loadbalance_arp_mon(struct work_struct *work)
- 	oldcurrent = ACCESS_ONCE(bond->curr_active_slave);
- 	/* see if any of the previous devices are up now (i.e. they have
- 	 * xmt and rcv traffic). the curr_active_slave does not come into
--	 * the picture unless it is null. also, slave->jiffies is not needed
--	 * here because we send an arp on each slave and give a slave as
--	 * long as it needs to get the tx/rx within the delta.
-+	 * the picture unless it is null. also, slave->last_link_up is not
-+	 * needed here because we send an arp on each slave and give a slave
-+	 * as long as it needs to get the tx/rx within the delta.
- 	 * TODO: what about up/down delay in arp mode? it wasn't here before
- 	 *       so it can wait
- 	 */
-@@ -2516,7 +2516,7 @@ static int bond_ab_arp_inspect(struct bonding *bond)
- 		 * active.  This avoids bouncing, as the last receive
- 		 * times need a full ARP monitor cycle to be updated.
- 		 */
--		if (bond_time_in_interval(bond, slave->jiffies, 2))
-+		if (bond_time_in_interval(bond, slave->last_link_up, 2))
- 			continue;
- 
- 		/*
-@@ -2709,7 +2709,7 @@ static void bond_ab_arp_probe(struct bonding *bond)
- 	new_slave->link = BOND_LINK_BACK;
- 	bond_set_slave_active_flags(new_slave);
- 	bond_arp_send_all(bond, new_slave);
--	new_slave->jiffies = jiffies;
-+	new_slave->last_link_up = jiffies;
- 	rcu_assign_pointer(bond->current_arp_slave, new_slave);
- }
- 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 99126b2..9f07af1 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -184,7 +184,8 @@ struct slave {
- 	struct net_device *dev; /* first - useful for panic debug */
- 	struct bonding *bond; /* our master */
- 	int    delay;
--	unsigned long jiffies;
-+	/* all three in jiffies */
-+	unsigned long last_link_up;
- 	unsigned long last_arp_rx;
- 	unsigned long target_last_arp_rx[BOND_MAX_ARP_TARGETS];
- 	s8     link;    /* one of BOND_LINK_XXXX */
--- 
-1.8.4
+Thanks!
