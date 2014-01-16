@@ -1,41 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v4 5/6] lib: Ensure EWMA does not store wrong
-	intermediate values
-Date: Thu, 16 Jan 2014 12:08:47 -0800
-Message-ID: <1389902927.31367.423.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1389901950-3854-1-git-send-email-mwdalton@google.com>
-	<1389901950-3854-5-git-send-email-mwdalton@google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 11/13] net: mvneta: implement rx_copybreak
+Date: Thu, 16 Jan 2014 12:11:42 -0800 (PST)
+Message-ID: <20140116.121142.2227761738746127874.davem@davemloft.net>
+References: <20140116093640.GA16457@1wt.eu>
+	<20140116.114905.1582218754259744747.davem@davemloft.net>
+	<20140116200757.GA19969@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Michael Dalton <mwdalton@google.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1389901950-3854-5-git-send-email-mwdalton@google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: David.Laight@ACULAB.COM, netdev@vger.kernel.org,
+	thomas.petazzoni@free-electrons.com,
+	gregory.clement@free-electrons.com
+To: w@1wt.eu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53686 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751400AbaAPULn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 15:11:43 -0500
+In-Reply-To: <20140116200757.GA19969@1wt.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-01-16 at 11:52 -0800, Michael Dalton wrote:
-> To ensure ewma_read() without a lock returns a valid but possibly
-> out of date average, modify ewma_add() by using ACCESS_ONCE to prevent
-> intermediate wrong values from being written to avg->internal.
-> 
-> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Michael Dalton <mwdalton@google.com>
-> ---
->  lib/average.c | 6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
+From: Willy Tarreau <w@1wt.eu>
+Date: Thu, 16 Jan 2014 21:07:57 +0100
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> So such a change would probably require to add a number
+> of new calls to the DMA API. I really don't know what's the best solution
+> would be in fact :-/
+
+Right, thanks for explaining your situation.
