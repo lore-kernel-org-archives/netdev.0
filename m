@@ -1,49 +1,84 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH V2 net-next 1/3] ipv6: add the IPV6_FL_F_REFLECT flag to IPV6_FL_A_GET
-Date: Thu, 16 Jan 2014 14:07:53 +0100
-Message-ID: <20140116130753.GE7436@order.stressinduktion.org>
-References: <1389785403-6401-1-git-send-email-florent.fourcot@enst-bretagne.fr> <20140115224726.GH19945@order.stressinduktion.org> <20140116123515.GD7436@order.stressinduktion.org> <52D7D45E.6000908@enst-bretagne.fr>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch net-next] net_sched: act: use tcf_hash_release() in net/sched/act_police.c
+Date: Thu, 16 Jan 2014 08:25:57 -0500
+Message-ID: <52D7DDE5.4000305@mojatatu.com>
+References: <1389828206-9467-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:42441 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751369AbaAPNHy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 08:07:54 -0500
-Content-Disposition: inline
-In-Reply-To: <52D7D45E.6000908@enst-bretagne.fr>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:58543 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752142AbaAPN0G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 08:26:06 -0500
+Received: by mail-ig0-f178.google.com with SMTP id uq10so7541931igb.5
+        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 05:26:05 -0800 (PST)
+In-Reply-To: <1389828206-9467-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 16, 2014 at 01:45:18PM +0100, Florent Fourcot wrote:
-> 
-> >> Was there a specific reason you did not use np->flow_label here and just
-> >> mirroring the flowlabel from the first packet of the connection for the
-> >> whole connection?
-> >>
-> >> I don't know if it makes a difference, but maybe it was done on purpose?
-> > 
-> > I thought about it and am actually in favor of reusing the flowid from the syn
-> > packet so userspace does report correct outgoing flowlabel even in case of
-> > strange tcp peer changing it mid-stream.
-> > 
-> 
-> Actually, the idea was that the remote could changed the flow label
-> during the lifetime of a connection.
-> I do not have a strong opinion on that, but in a "reflect" mode, I
-> except that the last received value will be in used.
+On 01/15/14 18:23, Cong Wang wrote:
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Would it make sense to sync the flowlabel if it changes with the socket, so
-user space can query the label really used? Otherwise I wouldn't even report
-it.
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-> Second, in case of SYN cookie, is the SYN flow label stored somewhere?
+cheers,
+jamal
 
-Should then be synced as soon as the cookie is validated. You can test it by
-setting tcp_syncookies to 2. It uses syncookies unconditionally then.
-
-Greetings,
-
-  Hannes
+> ---
+>   net/sched/act_police.c | 30 +++---------------------------
+>   1 file changed, 3 insertions(+), 27 deletions(-)
+>
+> diff --git a/net/sched/act_police.c b/net/sched/act_police.c
+> index a719fdf..5ba467b 100644
+> --- a/net/sched/act_police.c
+> +++ b/net/sched/act_police.c
+> @@ -104,20 +104,6 @@ nla_put_failure:
+>   	goto done;
+>   }
+>
+> -static void tcf_police_destroy(struct tcf_police *p)
+> -{
+> -	spin_lock_bh(&police_hash_info.lock);
+> -	hlist_del(&p->tcf_head);
+> -	spin_unlock_bh(&police_hash_info.lock);
+> -	gen_kill_estimator(&p->tcf_bstats,
+> -			   &p->tcf_rate_est);
+> -	/*
+> -	 * gen_estimator est_timer() might access p->tcf_lock
+> -	 * or bstats, wait a RCU grace period before freeing p
+> -	 */
+> -	kfree_rcu(p, tcf_rcu);
+> -}
+> -
+>   static const struct nla_policy police_policy[TCA_POLICE_MAX + 1] = {
+>   	[TCA_POLICE_RATE]	= { .len = TC_RTAB_SIZE },
+>   	[TCA_POLICE_PEAKRATE]	= { .len = TC_RTAB_SIZE },
+> @@ -272,19 +258,9 @@ failure:
+>   static int tcf_act_police_cleanup(struct tc_action *a, int bind)
+>   {
+>   	struct tcf_police *p = a->priv;
+> -	int ret = 0;
+> -
+> -	if (p != NULL) {
+> -		if (bind)
+> -			p->tcf_bindcnt--;
+> -
+> -		p->tcf_refcnt--;
+> -		if (p->tcf_refcnt <= 0 && !p->tcf_bindcnt) {
+> -			tcf_police_destroy(p);
+> -			ret = 1;
+> -		}
+> -	}
+> -	return ret;
+> +	if (p)
+> +		return tcf_hash_release(&p->common, bind, &police_hash_info);
+> +	return 0;
+>   }
+>
+>   static int tcf_act_police(struct sk_buff *skb, const struct tc_action *a,
+>
