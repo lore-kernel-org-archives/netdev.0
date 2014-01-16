@@ -1,79 +1,68 @@
-From: Ethan Zhao <ethan.kernel@gmail.com>
-Subject: Re: [PATCH 1/2 v3] ixgbe: define
- IXGBE_MAX_VFS_DRV_LIMIT macro and cleanup const 63
-Date: Thu, 16 Jan 2014 12:20:18 +0800
-Message-ID: <CABawtvPy=JThO0CKisdrtrWvE6E33+zupc3dX4fyuhiGHPhZzQ@mail.gmail.com>
-References: <1389795148-341-1-git-send-email-ethan.kernel@gmail.com>
-	<309B89C4C689E141A5FF6A0C5FB2118B7312DA20@ORSMSX101.amr.corp.intel.com>
-	<CABawtvNEDjTJAjJ9TeEvZd7+2kD=H6zA23T-aQo3uVm5SUEhCQ@mail.gmail.com>
-	<309B89C4C689E141A5FF6A0C5FB2118B7312DE7D@ORSMSX101.amr.corp.intel.com>
-	<CABawtvNSpDU+pjdJOpCB8kyQqA7B9N4g0S_yPgQaZnB3h0+nFg@mail.gmail.com>
-	<309B89C4C689E141A5FF6A0C5FB2118B7312DF41@ORSMSX101.amr.corp.intel.com>
-	<CABawtvPJ1ObkwbKjVtzajQnn_181CTo-jmLc0uGY2nqZw9_jtg@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [RFC PATCH net-next 0/3] virtio_net: add aRFS support
+Date: Thu, 16 Jan 2014 12:23:01 +0800
+Message-ID: <52D75EA5.1050000@redhat.com>
+References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ethan zhao <ethan.zhao@oracle.com>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Allan,
-	Bruce W" <bruce.w.allan@intel.com>, "Brandeburg,
-	Jesse" <jesse.brandeburg@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <CABawtvPJ1ObkwbKjVtzajQnn_181CTo-jmLc0uGY2nqZw9_jtg@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, therbert@google.com, edumazet@google.com,
+	davem@davemloft.net, Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: Zhi Yong Wu <zwu.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56858 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751395AbaAPEXL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jan 2014 23:23:11 -0500
+In-Reply-To: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Aaron,
-    Revised those patches for Dave Miller's net-next OK, passed
-building. resent.
-
-Thanks,
-Ethan
-
-On Thu, Jan 16, 2014 at 11:08 AM, Ethan Zhao <ethan.kernel@gmail.com> wrote:
-> Aaron,
->     Ok, Dave Miler's net-next tree.
+On 01/15/2014 10:20 PM, Zhi Yong Wu wrote:
+> From: Zhi Yong Wu<wuzhy@linux.vnet.ibm.com>
 >
-> Thanks,
-> Etan
+> HI, folks
 >
-> On Thu, Jan 16, 2014 at 10:51 AM, Brown, Aaron F
-> <aaron.f.brown@intel.com> wrote:
->> On Thu, 2014-01-16 at 09:58 +0800, Ethan Zhao wrote:
->>> Aaron,
->>>
->>> Is this your net-next repo ? if so, I rebuild the patch with this repo
->>> right now .
->>> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
->>>
->>> Thanks,
->>> Ethan
->>>
->> Only sort of.  Jeff uses it to push patches up, but I don't have an
->> account there so am simply sending them up the old fashioned way, via
->> email, hence it is probably not getting updated while Jeff is out.
->>
->> As long as your patch can apply cleanly to Dave Miller's net-next tree I
->> should be able to pull it into our internal ones.
+> The patchset is trying to integrate aRFS support to virtio_net. In this case,
+> aRFS will be used to select the RX queue. To make sure that it's going ahead
+> in the correct direction, although it is still one RFC and isn't tested, it's
+> post out ASAP. Any comment are appreciated, thanks.
+>
+> If anyone is interested in playing with it, you can get this patchset from my
+> dev git on github:
+>    git://github.com/wuzhy/kernel.git virtnet_rfs
+>
+> Zhi Yong Wu (3):
+>    virtio_pci: Introduce one new config api vp_get_vq_irq()
+>    virtio_net: Introduce one dummy function virtnet_filter_rfs()
+>    virtio-net: Add accelerated RFS support
+>
+>   drivers/net/virtio_net.c      |   67 ++++++++++++++++++++++++++++++++++++++++-
+>   drivers/virtio/virtio_pci.c   |   11 +++++++
+>   include/linux/virtio_config.h |   12 +++++++
+>   3 files changed, 89 insertions(+), 1 deletions(-)
+>
 
-------------------------------------------------------------------------------
-CenturyLink Cloud: The Leader in Enterprise Cloud Services.
-Learn Why More Businesses Are Choosing CenturyLink Cloud For
-Critical Workloads, Development Environments & Everything In Between.
-Get a Quote or Start a Free Trial Today. 
-http://pubads.g.doubleclick.net/gampad/clk?id=119420431&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Please run get_maintainter.pl before sending the patch. You'd better at 
+least cc virtio maintainer/list for this.
+
+The core aRFS method is a noop in this RFC which make this series no 
+much sense to discuss. You should at least mention the big picture here 
+in the cover letter. I suggest you should post a RFC which can run and 
+has expected result or you can just raise a thread for the design 
+discussion.
+
+And this method has been discussed before, you can search "[net-next RFC 
+PATCH 5/5] virtio-net: flow director support" in netdev archive for a 
+very old prototype implemented by me. It can work and looks like most of 
+this RFC have already done there.
+
+A basic question is whether or not we need this, not all the mq cards 
+use aRFS (see ixgbe ATR). And whether or not it can bring extra 
+overheads? For virtio, we want to reduce the vmexits as much as possible 
+but this aRFS seems introduce a lot of more of this. Making a complex 
+interfaces just for an virtual device may not be good, simple method may 
+works for most of the cases.
+
+We really should consider to offload this to real nic. VMDq and L2 
+forwarding offload may help in this case.
