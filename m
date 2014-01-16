@@ -1,34 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 net-next 1/2] flowcache: Make flow cache name space
- aware
-Date: Thu, 16 Jan 2014 11:50:40 -0800 (PST)
-Message-ID: <20140116.115040.2172960718523933707.davem@davemloft.net>
-References: <1389771254-8738-1-git-send-email-fan.du@windriver.com>
-	<1389771254-8738-2-git-send-email-fan.du@windriver.com>
-	<20140116101946.GM31491@secunet.com>
+From: Michael Dalton <mwdalton@google.com>
+Subject: Re: [PATCH net-next v3 4/5] net-sysfs: add support for
+	device-specific rx queue sysfs attributes
+Date: Thu, 16 Jan 2014 11:51:07 -0800
+Message-ID: <CANJ5vPJgQbNPKvbExvpZixKk-xXAkvF0ix0ELW=DpiV0QP5YTA@mail.gmail.com>
+References: <1389865126-26225-1-git-send-email-mwdalton@google.com>
+	<1389865126-26225-4-git-send-email-mwdalton@google.com>
+	<1389898650.11912.65.camel@bwh-desktop.uk.level5networks.com>
+	<CANJ5vP+nDgi7vWOd=RSuZ=NS5Z_txEkEsoYYm_33sFPh6rr=gg@mail.gmail.com>
+	<1389901352.11912.73.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: fan.du@windriver.com, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53481 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751450AbaAPTul (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 14:50:41 -0500
-In-Reply-To: <20140116101946.GM31491@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1389901352.11912.73.camel@bwh-desktop.uk.level5networks.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Thu, 16 Jan 2014 11:19:46 +0100
+On Thu, Jan 16, 2014 Ben Hutchings <bhutchings@solarflare.com> wrote:
+> It's simpler but we don't know if it's faster (and I don't believe that
+> matters for the current usage).
+>
+> If one of these functions starts to be used in the data path, at that
+> point it could be worth optimising, e.g. by doing a test for queue 0 and
+> only then doing the pointer arithmetic with its implicit division.
+Good catch, my statement above is incorrect. We don't know if this change
+is a performance win, and it does introduce an implicit div. I agree this
+function is not currently performance critical and is used only by for
+reporting values to sysfs.
 
-> So I would not mind to move this into IPsec, but I want to see an ack
-> from David before I take this into ipsec-next.
+Best,
 
-No objections from me.
-
-And longer term I don't even think the flow cache makes sense as the
-most appropriate data structure for fast IPSEC lookups either.
-
-Anything that requires GC has fundamental issues.
+Mike
