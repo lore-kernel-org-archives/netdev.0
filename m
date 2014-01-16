@@ -1,85 +1,39 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: Re: [PATCH net-next v4 1/2] dts: Add a binding for Synopsys emac max-frame-size
-Date: Thu, 16 Jan 2014 12:48:53 -0600
-Message-ID: <CAOwfj2N2p_B-Wq0DTzt76RAbqCu5O088wxWiLEvHCc0qusDq-g@mail.gmail.com>
-References: <1389881155-9758-1-git-send-email-vbridgers2013@gmail.com>
-	<1389881155-9758-2-git-send-email-vbridgers2013@gmail.com>
-	<1389894601.11912.54.camel@bwh-desktop.uk.level5networks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: introduce SO_BPF_EXTENSIONS
+Date: Thu, 16 Jan 2014 10:49:06 -0800
+Message-ID: <1389898146.31367.413.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1389888898-31744-1-git-send-email-msekleta@redhat.com>
+	 <52D80BCA.7030400@redhat.com> <20140116172631.GA5206@loki.brq.redhat.com>
+	 <52D82626.5060701@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, Kumar Gala <galak@codeaurora.org>,
-	Dinh Nguyen <dinguyen@altera.com>,
-	Rayagond Kokatanur <rayagond@vayavyalabs.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Michal Sekletar <msekleta@redhat.com>, netdev@vger.kernel.org,
+	Michael Kerrisk <mtk.manpages@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:57035 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751416AbaAPSsy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 13:48:54 -0500
-In-Reply-To: <1389894601.11912.54.camel@bwh-desktop.uk.level5networks.com>
+Received: from mail-yh0-f46.google.com ([209.85.213.46]:49311 "EHLO
+	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751416AbaAPStK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 13:49:10 -0500
+Received: by mail-yh0-f46.google.com with SMTP id 29so1089537yhl.19
+        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 10:49:09 -0800 (PST)
+In-Reply-To: <52D82626.5060701@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 16, 2014 at 11:50 AM, Ben Hutchings
-<bhutchings@solarflare.com> wrote:
-> On Thu, 2014-01-16 at 08:05 -0600, Vince Bridgers wrote:
->> This change adds a parameter for the Synopsys 10/100/1000
->> stmmac Ethernet driver to configure the maximum frame
->> size supported by the EMAC driver. Synopsys allows the FIFO
->> sizes to be configured when the cores are built for a particular
->> device, but do not provide a way for the driver to read
->> information from the device about the maximum MTU size
->> supported as limited by the device's FIFO size.
->>
->> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
->> ---
->> V4: add comments to explain use of max-frame-size with respect
->>     to inconsistent definition and use in the ePAPR v1.1 spec
->
-> Well, ePAPR does not seem to be consistent with itself. :-)
->
->> V3: change snps,max-frame-size to max-frame-size
->> V2: change snps,max-mtu to snps,max-frame-size
->> ---
->>  Documentation/devicetree/bindings/net/stmmac.txt |   13 ++++++++++++-
->>  1 file changed, 12 insertions(+), 1 deletion(-)
->>
->> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
->> index eba0e5e..d553be2 100644
->> --- a/Documentation/devicetree/bindings/net/stmmac.txt
->> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
->> @@ -29,7 +29,17 @@ Required properties:
->>                               ignored if force_thresh_dma_mode is set.
->>
->>  Optional properties:
->> -- mac-address: 6 bytes, mac address
->> +- mac-address:               6 bytes, mac address
->> +- max-frame-size:    Maximum frame size permitted. This parameter is useful
->> +                     since different implementations of the Synopsys MAC may
->> +                     have different FIFO sizes depending on the selections
->> +                     made in Synopsys Core Consultant. Note that the usage
->> +                     is inconsistent with the definition in the ePAPR v1.1
->> +                     specification, as it defines max-frame-size inclusive
->> +                     of the MAC DA, SA, Ethertype and CRC while usage is
->> +                     consistent with the IEEE definition of MAC Client
->> +                     Data, which is sans the MAC DA, SA, Ethertype and
->> +                     CRC.
-> [...]
->
-> While this is very precise, I fear that it is now so verbose that it
-> actually becomes confusing.  Can this not be condensed to 'the maximum
-> MTU and MRU, rather than the maximum Ethernet frame size'?
->
-> Ben.
+On Thu, 2014-01-16 at 19:34 +0100, Daniel Borkmann wrote:
 
-Sure, I'll cut this down and resubmit as V5. How about
+> > Thank you for the review. Btw, what do you think about define for parisc? I am
+> 
+> Yes, saw that in the patch and had similar thoughts.
+> 
+> > not sure I grok 0x4048 for SO_MAX_PACING_RATE and hence not sure about 0x4029
+> > for SO_BPF_EXTENSIONS.
+> 
+> Hmm, maybe typo; SO_MAX_PACING_RATE should have been a 0x4028 ?
 
-"The Maximum Transfer Unit (IEEE defined MTU), rather than the maximum
-frame size."
+Indeed it was a typo.
 
-Cheers,
-
-Vince
+I think its time to change this, as this was added for linux-3.13
