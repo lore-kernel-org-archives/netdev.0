@@ -1,85 +1,61 @@
 From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH v6 4/4] ARM: shmobile: genmai: Enable r7s72100-ether
-Date: Thu, 16 Jan 2014 11:34:16 +0900
-Message-ID: <1389839656-10932-5-git-send-email-horms+renesas@verge.net.au>
+Subject: [PATCH v6 net-next 1/4] sh_eth: Use bool as return type of sh_eth_is_gether()
+Date: Thu, 16 Jan 2014 11:34:13 +0900
+Message-ID: <1389839656-10932-2-git-send-email-horms+renesas@verge.net.au>
 References: <1389839656-10932-1-git-send-email-horms+renesas@verge.net.au>
 Cc: linux-arm-kernel@lists.infradead.org,
 	Magnus Damm <magnus.damm@gmail.com>,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	Joe Perches <joe@perches.com>,
-	Simon Horman <horms+renesas@verge.net.au>,
-	Simon Horman <horms@verge.net.au>
+	Simon Horman <horms+renesas@verge.net.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-sh@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:57011 "EHLO
+Received: from kirsty.vergenet.net ([202.4.237.240]:56995 "EHLO
 	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753161AbaAPCeX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 21:34:23 -0500
+	with ESMTP id S1753043AbaAPCeU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 21:34:20 -0500
 In-Reply-To: <1389839656-10932-1-git-send-email-horms+renesas@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Simon Horman <horms@verge.net.au>
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return a boolean and use true and false.
+
+Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
 
 ---
-Dave, I intend to take this change through my tree
+Dave, please consider this for net-next.
 
-v3 - v6
+v6
+* Simplify logic as suggested by Joe Perches
+
+v5
 * No change
 
-v2
-* As suggested by Magnus Damm and Sergei Shtylyov
-  - r7s72100 ethernet is not gigabit so do not refer to it as such
-
-* As suggested by Sergei Shtylyov
-  - set no_ether_link as there is no LINK signal documented
-    in the manual
+v4
+* First post
 ---
- arch/arm/mach-shmobile/board-genmai.c | 21 +++++++++++++++++++++
- 1 file changed, 21 insertions(+)
+ drivers/net/ethernet/renesas/sh_eth.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/arch/arm/mach-shmobile/board-genmai.c b/arch/arm/mach-shmobile/board-genmai.c
-index 3e92e3c..a1f6fe1 100644
---- a/arch/arm/mach-shmobile/board-genmai.c
-+++ b/arch/arm/mach-shmobile/board-genmai.c
-@@ -20,15 +20,36 @@
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index ba1f6c9..f12a929 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -310,12 +310,9 @@ static const u16 sh_eth_offset_fast_sh3_sh2[SH_ETH_MAX_REGISTER_OFFSET] = {
+ 	[TSU_ADRL31]	= 0x01fc,
+ };
  
- #include <linux/kernel.h>
- #include <linux/platform_device.h>
-+#include <linux/sh_eth.h>
- #include <mach/common.h>
-+#include <mach/irqs.h>
- #include <mach/r7s72100.h>
- #include <asm/mach-types.h>
- #include <asm/mach/arch.h>
- 
-+/* Ether */
-+static const struct sh_eth_plat_data ether_pdata __initconst = {
-+	.phy			= 0x00, /* PD60610 */
-+	.edmac_endian		= EDMAC_LITTLE_ENDIAN,
-+	.phy_interface		= PHY_INTERFACE_MODE_MII,
-+	.no_ether_link		= 1
-+};
-+
-+static const struct resource ether_resources[] __initconst = {
-+	DEFINE_RES_MEM(0xe8203000, 0x800),
-+	DEFINE_RES_MEM(0xe8204800, 0x200),
-+	DEFINE_RES_IRQ(gic_iid(359)),
-+};
-+
- static void __init genmai_add_standard_devices(void)
+-static int sh_eth_is_gether(struct sh_eth_private *mdp)
++static bool sh_eth_is_gether(struct sh_eth_private *mdp)
  {
- 	r7s72100_clock_init();
- 	r7s72100_add_dt_devices();
-+
-+	platform_device_register_resndata(&platform_bus, "r7s72100-ether", -1,
-+					  ether_resources,
-+					  ARRAY_SIZE(ether_resources),
-+					  &ether_pdata, sizeof(ether_pdata));
+-	if (mdp->reg_offset == sh_eth_offset_gigabit)
+-		return 1;
+-	else
+-		return 0;
++	return mdp->reg_offset == sh_eth_offset_gigabit;
  }
  
- static const char * const genmai_boards_compat_dt[] __initconst = {
+ static void sh_eth_select_mii(struct net_device *ndev)
 -- 
 1.8.4
