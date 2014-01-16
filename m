@@ -1,58 +1,53 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/3] Netfilter updates for net-next
-Date: Thu, 16 Jan 2014 10:04:50 +0100
-Message-ID: <1389863093-4530-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/3] netfilter: Add dependency on IPV6 for NF_TABLES_INET
+Date: Thu, 16 Jan 2014 10:04:52 +0100
+Message-ID: <1389863093-4530-3-git-send-email-pablo@netfilter.org>
+References: <1389863093-4530-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1389863093-4530-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-This small batch contains several Netfilter fixes for your net-next
-tree, more specifically:
+Commit 1d49144c0aa ("netfilter: nf_tables: add "inet" table for
+IPv4/IPv6") allows creation of non-IPV6 enabled .config files that
+will fail to configure/link as follows:
 
-* Fix compilation warning in nft_ct in NF_CONNTRACK_MARK is not set,
-  from Kristian Evensen.
+warning: (NF_TABLES_INET) selects NF_TABLES_IPV6 which has unmet direct dependencies (NET && INET && IPV6 && NETFILTER && NF_TABLES)
+warning: (NF_TABLES_INET) selects NF_TABLES_IPV6 which has unmet direct dependencies (NET && INET && IPV6 && NETFILTER && NF_TABLES)
+warning: (NF_TABLES_INET) selects NF_TABLES_IPV6 which has unmet direct dependencies (NET && INET && IPV6 && NETFILTER && NF_TABLES)
+net/built-in.o: In function `nft_reject_eval':
+nft_reject.c:(.text+0x651e8): undefined reference to `nf_ip6_checksum'
+nft_reject.c:(.text+0x65270): undefined reference to `ip6_route_output'
+nft_reject.c:(.text+0x656c4): undefined reference to `ip6_dst_hoplimit'
+make: *** [vmlinux] Error 1
 
-* Add dependency to IPV6 for NF_TABLES_INET. This one has been reported
-  by the several robots that are testing .config combinations, from Paul
-  Gortmaker.
+Since the feature is to allow for a mixed IPV4 and IPV6 table, it
+seems sensible to make it depend on IPV6.
 
-* Fix default base chain policy setting in nf_tables, from myself.
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+Acked-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-You can pull these changes from:
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 37d2092..6941a4f 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -429,7 +429,7 @@ config NF_TABLES
+ 	  To compile it as a module, choose M here.
+ 
+ config NF_TABLES_INET
+-	depends on NF_TABLES
++	depends on NF_TABLES && IPV6
+ 	select NF_TABLES_IPV4
+ 	select NF_TABLES_IPV6
+ 	tristate "Netfilter nf_tables mixed IPv4/IPv6 tables support"
+-- 
+1.7.10.4
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit 11b57f90257c1d6a91cee720151b69e0c2020cf6:
-
-  xen-netback: stop vif thread spinning if frontend is unresponsive (2014-01-09 23:05:46 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git 
-
-for you to fetch changes up to 847c8e2959f7f8f1462e33c0a720c6267b984ed8:
-
-  netfilter: nft_ct: fix compilation warning if NF_CONNTRACK_MARK is not set (2014-01-15 11:00:14 +0100)
-
-----------------------------------------------------------------
-Kristian Evensen (1):
-      netfilter: nft_ct: fix compilation warning if NF_CONNTRACK_MARK is not set
-
-Pablo Neira Ayuso (1):
-      netfilter: nf_tables: fix missing byteorder conversion in policy
-
-Paul Gortmaker (1):
-      netfilter: Add dependency on IPV6 for NF_TABLES_INET
-
- net/netfilter/Kconfig         |    2 +-
- net/netfilter/nf_tables_api.c |    2 +-
- net/netfilter/nft_ct.c        |    2 ++
- 3 files changed, 4 insertions(+), 2 deletions(-)
