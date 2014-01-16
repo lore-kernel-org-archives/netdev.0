@@ -1,53 +1,73 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH V2] net/dt: Add support for overriding phy configuration from device tree
-Date: Thu, 16 Jan 2014 16:16:46 +0100
-Message-ID: <7510122.cayuQ6qt8r@wuerfel>
-References: <20140116135905.GV20094@book.gsilab.sittig.org> <1389883631-1480-1-git-send-email-matthew.garrett@nebula.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: ipv6 addrconfg warn_on hit: WARN_ON(ifp->idev->valid_ll_addr_cnt < 0);
+Date: Thu, 16 Jan 2014 16:18:12 +0100
+Message-ID: <20140116151812.GI7436@order.stressinduktion.org>
+References: <20140116135323.GA7961@minipsycho.orion> <20140116140701.GB7961@minipsycho.orion> <20140116143817.GH7436@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kishon-l0cyMroinI0@public.gmane.org
-To: Matthew Garrett <matthew.garrett-05XSO3Yj/JvQT0dZR+AlfA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1389883631-1480-1-git-send-email-matthew.garrett-05XSO3Yj/JvQT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:42756 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752913AbaAPPSN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 10:18:13 -0500
+Content-Disposition: inline
+In-Reply-To: <20140116143817.GH7436@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 16 January 2014 09:47:11 Matthew Garrett wrote:
-> +               if (!of_property_read_u32(np, "phy-mii-advertise-10half",
-> +                                          &tmp)) {
-> +                       if (tmp) {
-> +                               *val |= ADVERTISE_10HALF;
-> +                               phydev->advertising |= SUPPORTED_10baseT_Half;
-> +                       } else {
-> +                               phydev->advertising &=
-> +                                       ~(SUPPORTED_10baseT_Half);
-> +                       }
-> +
-> +                       *mask |= ADVERTISE_10HALF;
-> +               }
-> +               if (!of_property_read_u32(np, "phy-mii-advertise-10full",
-> +                                          &tmp)) {
-> +                       if (tmp) {
-> +                               *val |= ADVERTISE_10FULL;
-> +                               phydev->advertising |= SUPPORTED_10baseT_Full;
-> +                       } else {
-> +                               phydev->advertising &=
-> +                                       ~(SUPPORTED_10baseT_Full);
-> +                       }
-> +
-> +                       *mask |= ADVERTISE_10FULL;
-> +               }
+On Thu, Jan 16, 2014 at 03:38:17PM +0100, Hannes Frederic Sowa wrote:
+> On Thu, Jan 16, 2014 at 03:07:01PM +0100, Jiri Pirko wrote:
+> > Thu, Jan 16, 2014 at 02:53:23PM CET, jiri@resnulli.us wrote:
+> > >Hi Hannes.
+> > >
+> > >WARN_ON(ifp->idev->valid_ll_addr_cnt < 0);
+> > >
+> > >We did hit once this warning during the tests. The person who hit this
+> > >says that it was during the setup of many macvlan devices.
+> > >
+> > >I examined the code but I'm not sure how this could happen. Looks like a
+> > >race condition between addrconf_dad_completed() and addrconf_ifdown(). 
+> > >Not sure how to easily resolve that though.
 > 
+> That seems to be the case. Actually we don't need to count precisiely
+> here, we just must precisiely identify the situation where the first
+> LL address comes into operational state. Maybe we can implement this
+> somehow differently. I'll play with the code soon.
 
-Just a style suggestion: rather than almost duplicating the same 12 lines
-of code for each property, I think it can be split out into a helper
-function.
+Maybe something like this and then throw out the whole ll counting stuff:
 
-	Arnd
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 6913a82..105105a 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3233,6 +3233,19 @@ out:
+ 	in6_ifa_put(ifp);
+ }
+ 
++/* idev must be at least read locked */
++static bool ipv6_lonely_lladdr(struct inet6_dev *idev, struct inet6_ifaddr *ifp)
++{
++	bool ret = true;
++	struct inet6_ifaddr *ifpiter;
++
++	list_for_each_entry(ifpiter, &idev->addr_list, if_list) {
++		if (ifp != ifpiter && ifpiter->scope == IFA_LINK)
++			ret = false;
++	}
++	return ret;
++}
++
+ static void addrconf_dad_completed(struct inet6_ifaddr *ifp)
+ {
+ 	struct net_device *dev = ifp->idev->dev;
+@@ -3253,8 +3266,7 @@ static void addrconf_dad_completed(struct inet6_ifaddr *ifp)
+ 
+ 	read_lock_bh(&ifp->idev->lock);
+ 	spin_lock(&ifp->lock);
+-	send_mld = ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL &&
+-		   ifp->idev->valid_ll_addr_cnt == 1;
++	send_mld = ifp->scope == IFA_LINK && ipv6_lonely_lladdr(ifp->idev, ifp);
+ 	send_rs = send_mld &&
+ 		  ipv6_accept_ra(ifp->idev) &&
+ 		  ifp->idev->cnf.rtr_solicits > 0 &&
