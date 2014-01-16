@@ -1,69 +1,31 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net-next v4 1/2] dts: Add a binding for Synopsys emac max-frame-size
-Date: Thu, 16 Jan 2014 08:05:54 -0600
-Message-ID: <1389881155-9758-2-git-send-email-vbridgers2013@gmail.com>
-References: <1389881155-9758-1-git-send-email-vbridgers2013@gmail.com>
-Cc: peppe.cavallaro@st.com, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, dinguyen@altera.com,
-	rayagond@vayavyalabs.com, vbridgers2013@gmail.com
-To: devicetree@vger.kernel.org, netdev@vger.kernel.org
+From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Subject: Re: [PATCH V2 net-next 1/3] ipv6: add the IPV6_FL_F_REFLECT flag
+ to IPV6_FL_A_GET
+Date: Thu, 16 Jan 2014 15:34:56 +0100
+Message-ID: <52D7EE10.6010306@enst-bretagne.fr>
+References: <1389785403-6401-1-git-send-email-florent.fourcot@enst-bretagne.fr> <20140115224726.GH19945@order.stressinduktion.org> <20140116123515.GD7436@order.stressinduktion.org> <52D7D45E.6000908@enst-bretagne.fr> <20140116130753.GE7436@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:44303 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752725AbaAPOLB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 09:11:01 -0500
-In-Reply-To: <1389881155-9758-1-git-send-email-vbridgers2013@gmail.com>
+Received: from fourcot.fr ([217.70.191.14]:56851 "EHLO olfflo.fourcot.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751435AbaAPOe7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jan 2014 09:34:59 -0500
+In-Reply-To: <20140116130753.GE7436@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change adds a parameter for the Synopsys 10/100/1000
-stmmac Ethernet driver to configure the maximum frame
-size supported by the EMAC driver. Synopsys allows the FIFO
-sizes to be configured when the cores are built for a particular
-device, but do not provide a way for the driver to read
-information from the device about the maximum MTU size
-supported as limited by the device's FIFO size.
+Le 16/01/2014 14:07, Hannes Frederic Sowa a =C3=A9crit :
+> Would it make sense to sync the flowlabel if it changes with the sock=
+et, so
+> user space can query the label really used? Otherwise I wouldn't even=
+ report
+> it.
 
-Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
----
-V4: add comments to explain use of max-frame-size with respect
-    to inconsistent definition and use in the ePAPR v1.1 spec
-V3: change snps,max-frame-size to max-frame-size
-V2: change snps,max-mtu to snps,max-frame-size
----
- Documentation/devicetree/bindings/net/stmmac.txt |   13 ++++++++++++-
- 1 file changed, 12 insertions(+), 1 deletion(-)
-
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index eba0e5e..d553be2 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -29,7 +29,17 @@ Required properties:
- 				ignored if force_thresh_dma_mode is set.
- 
- Optional properties:
--- mac-address: 6 bytes, mac address
-+- mac-address:		6 bytes, mac address
-+- max-frame-size:	Maximum frame size permitted. This parameter is useful
-+			since different implementations of the Synopsys MAC may
-+			have different FIFO sizes depending on the selections
-+			made in Synopsys Core Consultant. Note that the usage
-+			is inconsistent with the definition in the ePAPR v1.1
-+			specification, as it defines max-frame-size inclusive
-+			of the MAC DA, SA, Ethertype and CRC while usage is
-+			consistent with the IEEE definition of MAC Client
-+			Data, which is sans the MAC DA, SA, Ethertype and
-+			CRC.
- 
- Examples:
- 
-@@ -40,5 +50,6 @@ Examples:
- 		interrupts = <24 23>;
- 		interrupt-names = "macirq", "eth_wake_irq";
- 		mac-address = [000000000000]; /* Filled in by U-Boot */
-+		max-frame-size = <3800>;
- 		phy-mode = "gmii";
- 	};
--- 
-1.7.9.5
+I see at least one use case. In the same way that openssh sets the
+tclass field after the SSH session initialization, a software could set
+the label after the beginning of the L7 session (and ignoring QoS
+priority for non-interactive packet at the beginning).
