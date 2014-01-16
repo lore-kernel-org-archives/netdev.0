@@ -1,63 +1,166 @@
 From: Willy Tarreau <w@1wt.eu>
-Subject: [PATCH 13/13] net: mvneta: make mvneta_txq_done() return void
-Date: Thu, 16 Jan 2014 08:20:19 +0100
-Message-ID: <1389856819-6503-14-git-send-email-w@1wt.eu>
+Subject: [PATCH 10/13] net: mvneta: convert to build_skb()
+Date: Thu, 16 Jan 2014 08:20:16 +0100
+Message-ID: <1389856819-6503-11-git-send-email-w@1wt.eu>
 References: <1389856819-6503-1-git-send-email-w@1wt.eu>
-Cc: netdev@vger.kernel.org, Arnaud Ebalard <arno@natisbad.org>
+Cc: netdev@vger.kernel.org, Willy Tarreau <w@1wt.eu>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:55474 "EHLO 1wt.eu"
+Received: from 1wt.eu ([62.212.114.60]:55489 "EHLO 1wt.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750960AbaAPHUn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jan 2014 02:20:43 -0500
+	id S1752000AbaAPHUt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jan 2014 02:20:49 -0500
 In-Reply-To: <1389856819-6503-1-git-send-email-w@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnaud Ebalard <arno@natisbad.org>
+Make use of build_skb() to allocate frags on the RX path. When frag size
+is lower than a page size, we can use netdev_alloc_frag(), and we fall back
+to kmalloc() for larger sizes. The frag size is stored into the mvneta_port
+struct. The alloc/free functions check the frag size to decide what alloc/
+free method to use. MTU changes are safe because the MTU change function
+stops the device and clears the queues before applying the change.
 
-The function return parameter is not used in mvneta_tx_done_gbe(),
-where the function is called. This patch makes the function return
-void.
+With this patch, I observed a reproducible 2% performance improvement on
+HTTP-based benchmarks, and 5% on small packet RX rate.
 
-Reviewed-by: Willy Tarreau <w@1wt.eu>
-Signed-off-by: Arnaud Ebalard <arno@natisbad.org>
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Tested-by: Arnaud Ebalard <arno@natisbad.org>
+Signed-off-by: Willy Tarreau <w@1wt.eu>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 49 +++++++++++++++++++++++++----------
+ 1 file changed, 35 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 8c51501..f418f4f 100644
+index c7b37e0..726a8d2 100644
 --- a/drivers/net/ethernet/marvell/mvneta.c
 +++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -1314,15 +1314,16 @@ static void mvneta_txq_bufs_free(struct mvneta_port *pp,
+@@ -268,6 +268,7 @@ struct mvneta_pcpu_stats {
+ 
+ struct mvneta_port {
+ 	int pkt_size;
++	unsigned int frag_size;
+ 	void __iomem *base;
+ 	struct mvneta_rx_queue *rxqs;
+ 	struct mvneta_tx_queue *txqs;
+@@ -1332,28 +1333,43 @@ static int mvneta_txq_done(struct mvneta_port *pp,
+ 	return tx_done;
  }
  
- /* Handle end of transmission */
--static int mvneta_txq_done(struct mvneta_port *pp,
-+static void mvneta_txq_done(struct mvneta_port *pp,
- 			   struct mvneta_tx_queue *txq)
- {
- 	struct netdev_queue *nq = netdev_get_tx_queue(pp->dev, txq->id);
- 	int tx_done;
- 
- 	tx_done = mvneta_txq_sent_desc_proc(pp, txq);
--	if (tx_done == 0)
--		return tx_done;
-+	if (!tx_done)
-+		return;
++static void *mvneta_frag_alloc(const struct mvneta_port *pp)
++{
++	if (likely(pp->frag_size <= PAGE_SIZE))
++		return netdev_alloc_frag(pp->frag_size);
++	else
++		return kmalloc(pp->frag_size, GFP_ATOMIC);
++}
 +
- 	mvneta_txq_bufs_free(pp, txq, tx_done);
++static void mvneta_frag_free(const struct mvneta_port *pp, void *data)
++{
++	if (likely(pp->frag_size <= PAGE_SIZE))
++		put_page(virt_to_head_page(data));
++	else
++		kfree(data);
++}
++
+ /* Refill processing */
+ static int mvneta_rx_refill(struct mvneta_port *pp,
+ 			    struct mvneta_rx_desc *rx_desc)
  
- 	txq->count -= tx_done;
-@@ -1331,8 +1332,6 @@ static int mvneta_txq_done(struct mvneta_port *pp,
- 		if (txq->size - txq->count >= MAX_SKB_FRAGS + 1)
- 			netif_tx_wake_queue(nq);
+ {
+ 	dma_addr_t phys_addr;
+-	struct sk_buff *skb;
++	void *data;
+ 
+-	skb = netdev_alloc_skb(pp->dev, pp->pkt_size);
+-	if (!skb)
++	data = mvneta_frag_alloc(pp);
++	if (!data)
+ 		return -ENOMEM;
+ 
+-	phys_addr = dma_map_single(pp->dev->dev.parent, skb->head,
++	phys_addr = dma_map_single(pp->dev->dev.parent, data,
+ 				   MVNETA_RX_BUF_SIZE(pp->pkt_size),
+ 				   DMA_FROM_DEVICE);
+ 	if (unlikely(dma_mapping_error(pp->dev->dev.parent, phys_addr))) {
+-		dev_kfree_skb(skb);
++		mvneta_frag_free(pp, data);
+ 		return -ENOMEM;
  	}
+ 
+-	mvneta_rx_desc_fill(rx_desc, phys_addr, (u32)skb);
 -
--	return tx_done;
++	mvneta_rx_desc_fill(rx_desc, phys_addr, (u32)data);
+ 	return 0;
  }
  
- static void *mvneta_frag_alloc(const struct mvneta_port *pp)
+@@ -1407,9 +1423,9 @@ static void mvneta_rxq_drop_pkts(struct mvneta_port *pp,
+ 	rx_done = mvneta_rxq_busy_desc_num_get(pp, rxq);
+ 	for (i = 0; i < rxq->size; i++) {
+ 		struct mvneta_rx_desc *rx_desc = rxq->descs + i;
+-		struct sk_buff *skb = (struct sk_buff *)rx_desc->buf_cookie;
++		void *data = (void *)rx_desc->buf_cookie;
+ 
+-		dev_kfree_skb_any(skb);
++		mvneta_frag_free(pp, data);
+ 		dma_unmap_single(pp->dev->dev.parent, rx_desc->buf_phys_addr,
+ 				 MVNETA_RX_BUF_SIZE(pp->pkt_size), DMA_FROM_DEVICE);
+ 	}
+@@ -1440,20 +1456,21 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+ 	while (rx_done < rx_todo) {
+ 		struct mvneta_rx_desc *rx_desc = mvneta_rxq_next_desc_get(rxq);
+ 		struct sk_buff *skb;
++		unsigned char *data;
+ 		u32 rx_status;
+ 		int rx_bytes, err;
+ 
+ 		rx_done++;
+ 		rx_filled++;
+ 		rx_status = rx_desc->status;
+-		skb = (struct sk_buff *)rx_desc->buf_cookie;
++		data = (unsigned char *)rx_desc->buf_cookie;
+ 
+ 		if (!mvneta_rxq_desc_is_first_last(rx_status) ||
+-		    (rx_status & MVNETA_RXD_ERR_SUMMARY)) {
++		    (rx_status & MVNETA_RXD_ERR_SUMMARY) ||
++		    !(skb = build_skb(data, pp->frag_size > PAGE_SIZE ? 0 : pp->frag_size))) {
+ 			dev->stats.rx_errors++;
+ 			mvneta_rx_error(pp, rx_desc);
+-			mvneta_rx_desc_fill(rx_desc, rx_desc->buf_phys_addr,
+-					    (u32)skb);
++			/* leave the descriptor untouched */
+ 			continue;
+ 		}
+ 
+@@ -1466,7 +1483,7 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+ 		rcvd_bytes += rx_bytes;
+ 
+ 		/* Linux processing */
+-		skb_reserve(skb, MVNETA_MH_SIZE);
++		skb_reserve(skb, MVNETA_MH_SIZE + NET_SKB_PAD);
+ 		skb_put(skb, rx_bytes);
+ 
+ 		skb->protocol = eth_type_trans(skb, dev);
+@@ -2276,6 +2293,8 @@ static int mvneta_change_mtu(struct net_device *dev, int mtu)
+ 	mvneta_cleanup_rxqs(pp);
+ 
+ 	pp->pkt_size = MVNETA_RX_PKT_SIZE(pp->dev->mtu);
++	pp->frag_size = SKB_DATA_ALIGN(MVNETA_RX_BUF_SIZE(pp->pkt_size)) +
++	                SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+ 
+ 	ret = mvneta_setup_rxqs(pp);
+ 	if (ret) {
+@@ -2423,6 +2442,8 @@ static int mvneta_open(struct net_device *dev)
+ 	mvneta_mac_addr_set(pp, dev->dev_addr, rxq_def);
+ 
+ 	pp->pkt_size = MVNETA_RX_PKT_SIZE(pp->dev->mtu);
++	pp->frag_size = SKB_DATA_ALIGN(MVNETA_RX_BUF_SIZE(pp->pkt_size)) +
++	                SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+ 
+ 	ret = mvneta_setup_rxqs(pp);
+ 	if (ret)
 -- 
 1.7.12.2.21.g234cd45.dirty
