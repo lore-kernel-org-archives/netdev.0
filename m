@@ -1,7 +1,7 @@
 From: <srinivas.kandagatla@st.com>
-Subject: [PATCH v2 7/9] net: stmmac: use suspend functions for hibernation
-Date: Thu, 16 Jan 2014 10:52:44 +0000
-Message-ID: <1389869564-28299-1-git-send-email-srinivas.kandagatla@st.com>
+Subject: [PATCH v2 8/9] net: stmmac: restore pinstate in pm resume.
+Date: Thu, 16 Jan 2014 10:52:52 +0000
+Message-ID: <1389869572-28340-1-git-send-email-srinivas.kandagatla@st.com>
 References: <1389869450-28003-1-git-send-email-srinivas.kandagatla@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,142 +16,46 @@ List-Id: netdev.vger.kernel.org
 
 From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-In hibernation freeze case the driver just releases the resources like
-dma buffers, irqs, unregisters the drivers and during restore it does
-register, request the resources. This is not really necessary, as part
-of power management all the data structures are intact, all the
-previously allocated resources can be used after coming out of low
-power.
+This patch adds code to restore default pinstate of the pins when it
+comes back from low power state. Without this patch the state of the
+pins would be unknown and the driver would not work.
 
-This patch uses the suspend and resume callbacks for freeze and
-restore which initializes the hardware correctly without unregistering
-or releasing the resources, this should also help in reducing the time
-to restore.
-
-Also this patch fixes a bug in stmmac_pltfr_restore and
-stmmac_pltfr_freeze where it tries to get hold of platform data via
-dev_get_platdata call, which would return NULL in device tree cases and
-the next if statement would crash as there is no NULL check.
+This patch also adds code to put the pins in to sleep state when the
+driver enters low power state.
 
 Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    2 -
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   16 -------
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   44 +++++--------------
- 3 files changed, 12 insertions(+), 50 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 5a568015..027f1dd 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -117,8 +117,6 @@ extern const struct stmmac_desc_ops ndesc_ops;
- extern const struct stmmac_hwtimestamp stmmac_ptp;
- int stmmac_ptp_register(struct stmmac_priv *priv);
- void stmmac_ptp_unregister(struct stmmac_priv *priv);
--int stmmac_freeze(struct net_device *ndev);
--int stmmac_restore(struct net_device *ndev);
- int stmmac_resume(struct net_device *ndev);
- int stmmac_suspend(struct net_device *ndev);
- int stmmac_dvr_remove(struct net_device *ndev);
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 742a83f..c1298a0 100644
+index c1298a0..df7d8d6 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2912,22 +2912,6 @@ int stmmac_resume(struct net_device *ndev)
- 
- 	return 0;
- }
--
--int stmmac_freeze(struct net_device *ndev)
--{
--	if (!ndev || !netif_running(ndev))
--		return 0;
--
--	return stmmac_release(ndev);
--}
--
--int stmmac_restore(struct net_device *ndev)
--{
--	if (!ndev || !netif_running(ndev))
--		return 0;
--
--	return stmmac_open(ndev);
--}
- #endif /* CONFIG_PM */
- 
- /* Driver can be configured w/ and w/ both PCI and Platf drivers
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 9377ee6..6d0bf22 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -211,55 +211,35 @@ static int stmmac_pltfr_remove(struct platform_device *pdev)
- #ifdef CONFIG_PM
- static int stmmac_pltfr_suspend(struct device *dev)
- {
--	struct net_device *ndev = dev_get_drvdata(dev);
--
--	return stmmac_suspend(ndev);
--}
--
--static int stmmac_pltfr_resume(struct device *dev)
--{
--	struct net_device *ndev = dev_get_drvdata(dev);
--
--	return stmmac_resume(ndev);
--}
--
--static int stmmac_pltfr_freeze(struct device *dev)
--{
- 	int ret;
--	struct plat_stmmacenet_data *plat_dat = dev_get_platdata(dev);
- 	struct net_device *ndev = dev_get_drvdata(dev);
-+	struct stmmac_priv *priv = netdev_priv(ndev);
- 	struct platform_device *pdev = to_platform_device(dev);
- 
--	ret = stmmac_freeze(ndev);
--	if (plat_dat->exit)
--		plat_dat->exit(pdev);
-+	ret = stmmac_suspend(ndev);
-+	if (priv->plat->exit)
-+		priv->plat->exit(pdev);
- 
- 	return ret;
- }
- 
--static int stmmac_pltfr_restore(struct device *dev)
-+static int stmmac_pltfr_resume(struct device *dev)
- {
--	struct plat_stmmacenet_data *plat_dat = dev_get_platdata(dev);
- 	struct net_device *ndev = dev_get_drvdata(dev);
-+	struct stmmac_priv *priv = netdev_priv(ndev);
- 	struct platform_device *pdev = to_platform_device(dev);
- 
--	if (plat_dat->init)
--		plat_dat->init(pdev);
-+	if (priv->plat->init)
-+		priv->plat->init(pdev);
- 
--	return stmmac_restore(ndev);
-+	return stmmac_resume(ndev);
- }
- 
--static const struct dev_pm_ops stmmac_pltfr_pm_ops = {
--	.suspend = stmmac_pltfr_suspend,
--	.resume = stmmac_pltfr_resume,
--	.freeze = stmmac_pltfr_freeze,
--	.thaw = stmmac_pltfr_restore,
--	.restore = stmmac_pltfr_restore,
--};
--#else
--static const struct dev_pm_ops stmmac_pltfr_pm_ops;
- #endif /* CONFIG_PM */
- 
-+static SIMPLE_DEV_PM_OPS(stmmac_pltfr_pm_ops,
-+			stmmac_pltfr_suspend, stmmac_pltfr_resume);
-+
- static const struct of_device_id stmmac_dt_ids[] = {
- 	{ .compatible = "st,spear600-gmac"},
- 	{ .compatible = "snps,dwmac-3.610"},
+@@ -43,6 +43,7 @@
+ #include <linux/dma-mapping.h>
+ #include <linux/slab.h>
+ #include <linux/prefetch.h>
++#include <linux/pinctrl/consumer.h>
+ #ifdef CONFIG_STMMAC_DEBUG_FS
+ #include <linux/debugfs.h>
+ #include <linux/seq_file.h>
+@@ -2864,6 +2865,7 @@ int stmmac_suspend(struct net_device *ndev)
+ 		priv->hw->mac->pmt(priv->ioaddr, priv->wolopts);
+ 	else {
+ 		stmmac_set_mac(priv->ioaddr, false);
++		pinctrl_pm_select_sleep_state(priv->device);
+ 		/* Disable clock in case of PWM is off */
+ 		clk_disable_unprepare(priv->stmmac_clk);
+ 	}
+@@ -2890,6 +2892,7 @@ int stmmac_resume(struct net_device *ndev)
+ 	if (device_may_wakeup(priv->device)) {
+ 		priv->hw->mac->pmt(priv->ioaddr, 0);
+ 	} else {
++		pinctrl_pm_select_default_state(priv->device);
+ 		/* enable the clk prevously disabled */
+ 		clk_prepare_enable(priv->stmmac_clk);
+ 		/* reset the phy so that it's ready */
 -- 
 1.7.6.5
