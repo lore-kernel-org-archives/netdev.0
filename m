@@ -1,139 +1,63 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v2 3/3] reciprocal_divide: correction/update of the algorithm
-Date: Fri, 17 Jan 2014 05:29:01 +0100
-Message-ID: <20140117042901.GB26022@order.stressinduktion.org>
-References: <1389918519-23779-1-git-send-email-hannes@stressinduktion.org> <1389918519-23779-4-git-send-email-hannes@stressinduktion.org> <1389926017.31367.464.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
+Subject: Re: [PATCH] netdevice.7: document SIOCGIFCONF case ifc_req==NULL
+Date: Thu, 16 Jan 2014 17:23:58 +1300
+Message-ID: <52D75EDE.4020404@gmail.com>
+References: <20140109233018.886FA140064@xenon.ts.pxnet.com> <52D03351.20501@gmail.com> <52D04B8B.3040306@imap.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Austin S Hemmelgarn <ahferroin7@gmail.com>,
-	linux-kernel@vger.kernel.org, Jesse Gross <jesse@nicira.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Matt Mackall <mpm@selenic.com>,
-	Pekka Enberg <penberg@kernel.org>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Jakub Zawadzki <darkjames-ws@darkjames.pl>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1389926017.31367.464.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: mtk.manpages@gmail.com, linux-man@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Tilman Schmidt <tilman@imap.cc>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f48.google.com ([209.85.214.48]:47130 "EHLO
+	mail-bk0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751215AbaAQEqM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 23:46:12 -0500
+In-Reply-To: <52D04B8B.3040306@imap.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 16, 2014 at 06:33:37PM -0800, Eric Dumazet wrote:
-> On Fri, 2014-01-17 at 01:28 +0100, Hannes Frederic Sowa wrote:
-> > Jakub Zawadzki noticed that some divisions by reciprocal_divide()
-> > were not correct [1][2], which he could also show with BPF code aft=
-er
-> > divisions are transformed into reciprocal_value() for runtime invar=
-iant
-> > which can be passed to reciprocal_divide() later on; reverse in BPF=
- dump
-> > ended up with a different, off-by-one K.
-> >=20
-> > This has been fixed by Eric Dumazet in commit aee636c4809fa5 ("bpf:=
- do not
-> > use reciprocal divide"). This follow-up patch improves reciprocal_v=
-alue()
-> > and reciprocal_divide() to work in all cases, so future use is safe=
-=2E
-> >=20
-> > Known problems with the old implementation were that division by 1 =
-always
-> > returned 0 and some off-by-ones when the dividend and divisor where
-> > very large.  This seemed to not be problematic with its current use=
-rs
-> > in networking, mm/slab.c and lib/flex_array.c, but future users wou=
-ld
-> > need to check for this specifically and it might not be obvious at =
-first.
-> >=20
-> > In order to fix that, we propose an extension from the original
-> > implementation from commit 6a2d7a955d8d resp. [3][4], by using
-> > the algorithm proposed in "Division by Invariant Integers Using
-> > Multiplication" [5], Torbj=C3=B6rn Granlund and Peter L. Montgomery=
-, that is,
-> > pseudocode for q =3D n/d where q,n,d is in u32 universe:
-> >=20
-> > 1) Initialization:
-> >=20
-> >   int l =3D ceil(log_2 d)
-> >   uword m' =3D floor((1<<32)*((1<<l)-d)/d)+1
-> >   int sh_1 =3D min(l,1)
-> >   int sh_2 =3D max(l-1,0)
-> >=20
-> > 2) For q =3D n/d, all uword:
-> >=20
-> >   uword t =3D (n*m')>>32
-> >   q =3D (t+((n-t)>>sh_1))>>sh_2
-> >=20
-> > The assembler implementation from Agner Fog [6] also helped a lot
-> > while implementing. We have tested the implementation on x86_64,
-> > ppc64, i686, s390x; on x86_64/haswell we're still half the latency
-> > compared to normal divide.
-> >=20
-> > Joint work with Daniel Borkmann.
-> >=20
-> >   [1] http://www.wireshark.org/~darkjames/reciprocal-buggy.c
-> >   [2] http://www.wireshark.org/~darkjames/set-and-dump-filter-k-bug=
-=2Ec
-> >   [3] https://gmplib.org/~tege/division-paper.pdf
-> >   [4] http://homepage.cs.uiowa.edu/~jones/bcd/divide.html
-> >   [5] http://citeseerx.ist.psu.edu/viewdoc/summary?doi=3D10.1.1.1.2=
-556
-> >   [6] http://www.agner.org/optimize/asmlib.zip
-> >=20
-> > Fixes: 6a2d7a955d8d ("SLAB: use a multiply instead of a divide in o=
-bj_to_index()")
->=20
->=20
-> I already demonstrated this slab patch was fine.
->=20
-> The current algo works well (no off-by-one error) when the dividend i=
-s
-> a multiple of the divisor.
+On 01/11/2014 08:35 AM, Tilman Schmidt wrote:
+> Hello Michael,
+> 
+> Am 10.01.2014 18:52, schrieb Michael Kerrisk (man-pages):
+>> On 01/10/2014 12:30 PM, Tilman Schmidt wrote:
+>>> Add the missing description of the possibility to call SIOCGIFCONF
+>>> with ifc_req==NULL to determine the needed buffer size, as described
+>>> in http://lkml.indiana.edu/hypermail/linux/kernel/0110.1/0506.html
+>>> and verified against source files net/core/dev_ioctl.c and
+>>> net/ipv4/devinet.c in the current kernel git tree.
+> [...]>
+>> Thanks for the patch. I'm trying to verify this from the code, but 
+>> am having some trouble finding the relevant pieces. Could you point
+>> me more specifically at the points in the kernel source where this
+>> case is handled?
+> 
+> Gladly.
+> 
+> Function dev_ifconf() [net/core/dev_ioctl.c line 67ff.] is the main
+> handler for SIOCGIFCONF. It calls the registered protocol specific
+> handlers via the table gifconf_list[]. The current kernel has only
+> one such handler, inet_gifconf() [net/ipv4/devinet.c line 1115ff.]
+> 
+> If ifc.ifc_buf is NULL, dev_ifconf() calls the protocol specific
+> handlers with NULL as second argument. [net/core/dev_ioctl.c line 96]
+> 
+> If inet_gifconf() is called with NULL as second argument it just
+> adds up the data sizes, skipping the size check and data transfer.
+> [net/ipv4/devinet.c line 1127f.]
 
-Sure, so did we state in the commit message.
+Thanks. Patch applied.
 
-> You are adding extra overhead, while we know its not necessary.
->=20
-> By using "Fixes: ... " you are asking a backport to stable branches,
-> which seems really silly in this case, especially with this monolithi=
-c
-> patch changing 12 files in different subsystems.
+Cheers,
 
-We can drop the the Fixes tags, no problem.
+Michael
 
-> If you believe flex_array has a problem, please fix flex_array only,
-> by a small patch (Maybe a revert ?)
 
-I really doubt it is helpful to have an implementation of reciprocal_di=
-vide
-which has some known (and maybe unkown) problems in the long term.
 
-This implementation still has an performance benefit compared to regula=
-r
-division while calculating correct results in any case.
 
-We clearly didn't intend stable inclusion, in fact this patch has been =
-posted
-for net-next inclusion as an improvment and not as a bugfix. The Fixes =
-tags
-where just lingering on this patch from my first attempt where the situ=
-ation
-was not that clear (at least for me).
-
-Also I doubt the performance drop for SLAB will be that massive. Also i=
-t was
-already replaced by SLUB as the default SLAB allocator, which doesn't u=
-se
-reciprocal_divide.
-
-Greetings,
-
-  Hannes
+-- 
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Linux/UNIX System Programming Training: http://man7.org/training/
