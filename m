@@ -1,253 +1,52 @@
-From: Michal Sekletar <msekleta@redhat.com>
-Subject: [PATCH] net: introduce SO_BPF_EXTENSIONS
-Date: Thu, 16 Jan 2014 18:13:39 +0100
-Message-ID: <1389892419-11877-1-git-send-email-msekleta@redhat.com>
-References: <52D80BCA.7030400@redhat.com>
-Cc: netdev@vger.kernel.org, Michal Sekletar <msekleta@redhat.com>,
-	Michael Kerrisk <mtk.manpages@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61265 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752754AbaAPROI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jan 2014 12:14:08 -0500
-In-Reply-To: <52D80BCA.7030400@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 2/2] reciprocal_divide: correction/update of the algorithm
+Date: Thu, 16 Jan 2014 18:24:06 +0100
+Message-ID: <20140116172406.GA17529@order.stressinduktion.org>
+References: <1389828228-30312-1-git-send-email-dborkman@redhat.com> <1389828228-30312-3-git-send-email-dborkman@redhat.com> <alpine.DEB.2.10.1401161036110.29778@nuc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Austin S Hemmelgarn <ahferroin7@gmail.com>,
+	Jesse Gross <jesse@nicira.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Matt Mackall <mpm@selenic.com>,
+	Pekka Enberg <penberg@kernel.org>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Jakub Zawadzki <darkjames-ws@darkjames.pl>
+To: Christoph Lameter <cl@linux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.10.1401161036110.29778@nuc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-userspace packet capturing libraries (e.g. libpcap) don't have a way how to find
-out which BPF extensions are supported by the kernel, except compiling a filter
-which uses extensions and trying to apply filter to the socket. This is very
-inconvenient.
+On Thu, Jan 16, 2014 at 10:37:37AM -0600, Christoph Lameter wrote:
+> On Thu, 16 Jan 2014, Daniel Borkmann wrote:
+> 
+> > - * or else the performance is slower than a normal divide.
+> > - */
+> > -extern u32 reciprocal_value(u32 B);
+> > +struct reciprocal_value {
+> > +	u32 m;
+> > +	u8 sh1, sh2;
+> > +};
+> >
+> > +#define RECIPROCAL_VALUE_RESULT_TO_ZERO ((struct reciprocal_value){.sh1 = 32})
+> >
+> > -static inline u32 reciprocal_divide(u32 A, u32 R)
+> > +struct reciprocal_value reciprocal_value(u32 d);
+> 
+> A function that returns a struct? That works? Which gcc versions support
+> it?
 
-Therefore this commit introduces new option which can be used as an argument for
-getsockopt() and allows one to obtain information about which BPF extensions are
-supported by the kernel.
+Sure, that works and I actually like it. This is supported by the c standard,
+but please don't ask me since which one. ;)
 
-On Tue, Dec 10, 2013 at 1:25 AM, David Miller <davem@davemloft.net> wrote:
+Greetings,
 
-> And therefore, you do not need to define any actual bits yet. The
-> socket option will for now just return "0", and that will mean that
-> all the extensions Linux implements currently are presnet.
-
-Signed-off-by: Michal Sekletar <msekleta@redhat.com>
-Cc: Michael Kerrisk <mtk.manpages@gmail.com>
-Cc: Daniel Borkmann <dborkman@redhat.com>
-Cc: David Miller <davem@davemloft.net>
----
- arch/alpha/include/uapi/asm/socket.h   |  2 ++
- arch/avr32/include/uapi/asm/socket.h   |  2 ++
- arch/cris/include/uapi/asm/socket.h    |  2 ++
- arch/frv/include/uapi/asm/socket.h     |  2 ++
- arch/ia64/include/uapi/asm/socket.h    |  2 ++
- arch/m32r/include/uapi/asm/socket.h    |  2 ++
- arch/mips/include/uapi/asm/socket.h    |  2 ++
- arch/mn10300/include/uapi/asm/socket.h |  2 ++
- arch/parisc/include/uapi/asm/socket.h  |  2 ++
- arch/powerpc/include/uapi/asm/socket.h |  2 ++
- arch/s390/include/uapi/asm/socket.h    |  2 ++
- arch/sparc/include/uapi/asm/socket.h   |  2 ++
- arch/xtensa/include/uapi/asm/socket.h  |  2 ++
- include/linux/filter.h                 | 10 ++++++++++
- include/uapi/asm-generic/socket.h      |  2 ++
- net/core/sock.c                        |  4 ++++
- 16 files changed, 42 insertions(+)
-
-diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
-index e3a1491..3de1394 100644
---- a/arch/alpha/include/uapi/asm/socket.h
-+++ b/arch/alpha/include/uapi/asm/socket.h
-@@ -85,4 +85,6 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/avr32/include/uapi/asm/socket.h b/arch/avr32/include/uapi/asm/socket.h
-index cbf902e..6e6cd15 100644
---- a/arch/avr32/include/uapi/asm/socket.h
-+++ b/arch/avr32/include/uapi/asm/socket.h
-@@ -78,4 +78,6 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* _UAPI__ASM_AVR32_SOCKET_H */
-diff --git a/arch/cris/include/uapi/asm/socket.h b/arch/cris/include/uapi/asm/socket.h
-index 13829aa..ed94e5e 100644
---- a/arch/cris/include/uapi/asm/socket.h
-+++ b/arch/cris/include/uapi/asm/socket.h
-@@ -80,6 +80,8 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* _ASM_SOCKET_H */
- 
- 
-diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
-index 5d42997..ca2c6e6 100644
---- a/arch/frv/include/uapi/asm/socket.h
-+++ b/arch/frv/include/uapi/asm/socket.h
-@@ -78,5 +78,7 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* _ASM_SOCKET_H */
- 
-diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
-index c25302f..a1b49ba 100644
---- a/arch/ia64/include/uapi/asm/socket.h
-+++ b/arch/ia64/include/uapi/asm/socket.h
-@@ -87,4 +87,6 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* _ASM_IA64_SOCKET_H */
-diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
-index 5296665..6c9a24b 100644
---- a/arch/m32r/include/uapi/asm/socket.h
-+++ b/arch/m32r/include/uapi/asm/socket.h
-@@ -78,4 +78,6 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* _ASM_M32R_SOCKET_H */
-diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
-index 0df9787..a14baa2 100644
---- a/arch/mips/include/uapi/asm/socket.h
-+++ b/arch/mips/include/uapi/asm/socket.h
-@@ -96,4 +96,6 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
-index 71dedca..6aa3ce1 100644
---- a/arch/mn10300/include/uapi/asm/socket.h
-+++ b/arch/mn10300/include/uapi/asm/socket.h
-@@ -78,4 +78,6 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
-index f33113a..a586f61 100644
---- a/arch/parisc/include/uapi/asm/socket.h
-+++ b/arch/parisc/include/uapi/asm/socket.h
-@@ -77,4 +77,6 @@
- 
- #define SO_MAX_PACING_RATE	0x4048
- 
-+#define SO_BPF_EXTENSIONS	0x4029
-+
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
-index fa69832..a9c3e2e 100644
---- a/arch/powerpc/include/uapi/asm/socket.h
-+++ b/arch/powerpc/include/uapi/asm/socket.h
-@@ -85,4 +85,6 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif	/* _ASM_POWERPC_SOCKET_H */
-diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
-index c286c2e..e031332 100644
---- a/arch/s390/include/uapi/asm/socket.h
-+++ b/arch/s390/include/uapi/asm/socket.h
-@@ -84,4 +84,6 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
-index 0f21e9a..54d9608 100644
---- a/arch/sparc/include/uapi/asm/socket.h
-+++ b/arch/sparc/include/uapi/asm/socket.h
-@@ -74,6 +74,8 @@
- 
- #define SO_MAX_PACING_RATE	0x0031
- 
-+#define SO_BPF_EXTENSIONS	0x0032
-+
- /* Security levels - as per NRL IPv6 - don't actually do anything */
- #define SO_SECURITY_AUTHENTICATION		0x5001
- #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
-diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
-index 7db5c22..39acec0 100644
---- a/arch/xtensa/include/uapi/asm/socket.h
-+++ b/arch/xtensa/include/uapi/asm/socket.h
-@@ -89,4 +89,6 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif	/* _XTENSA_SOCKET_H */
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index ff4e40c..3c9a7fc 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -83,6 +83,16 @@ static inline void bpf_jit_free(struct sk_filter *fp)
- #define SK_RUN_FILTER(FILTER, SKB) sk_run_filter(SKB, FILTER->insns)
- #endif
- 
-+static inline int bpf_tell_extensions(void)
-+{
-+        /* When adding new BPF extension it is necessary to enumerate it here, so
-+         * userspace software which wants to know what is supported can do so by inspecting
-+         * return value of this function
-+         */
-+
-+        return 0;
-+}
-+
- enum {
- 	BPF_S_RET_K = 1,
- 	BPF_S_RET_A,
-diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
-index 38f14d0..ea0796b 100644
---- a/include/uapi/asm-generic/socket.h
-+++ b/include/uapi/asm-generic/socket.h
-@@ -80,4 +80,6 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* __ASM_GENERIC_SOCKET_H */
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 85ad6f0..4a32e52 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1167,6 +1167,10 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
- 		v.val = sock_flag(sk, SOCK_FILTER_LOCKED);
- 		break;
- 
-+	case SO_BPF_EXTENSIONS:
-+		v.val = bpf_tell_extensions();
-+		break;
-+
- 	case SO_SELECT_ERR_QUEUE:
- 		v.val = sock_flag(sk, SOCK_SELECT_ERR_QUEUE);
- 		break;
--- 
-1.8.4.2
+  Hannes
