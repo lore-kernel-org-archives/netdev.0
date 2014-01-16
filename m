@@ -1,39 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: introduce SO_BPF_EXTENSIONS
-Date: Thu, 16 Jan 2014 10:49:06 -0800
-Message-ID: <1389898146.31367.413.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1389888898-31744-1-git-send-email-msekleta@redhat.com>
-	 <52D80BCA.7030400@redhat.com> <20140116172631.GA5206@loki.brq.redhat.com>
-	 <52D82626.5060701@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 2/2] reciprocal_divide: correction/update of
+ the algorithm
+Date: Thu, 16 Jan 2014 18:50:39 +0000
+Message-ID: <1389898239.11912.61.camel@bwh-desktop.uk.level5networks.com>
+References: <1389828228-30312-1-git-send-email-dborkman@redhat.com>
+	 <1389828228-30312-3-git-send-email-dborkman@redhat.com>
+	 <alpine.DEB.2.10.1401161036110.29778@nuc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Michal Sekletar <msekleta@redhat.com>, netdev@vger.kernel.org,
-	Michael Kerrisk <mtk.manpages@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f46.google.com ([209.85.213.46]:49311 "EHLO
-	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751416AbaAPStK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 13:49:10 -0500
-Received: by mail-yh0-f46.google.com with SMTP id 29so1089537yhl.19
-        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 10:49:09 -0800 (PST)
-In-Reply-To: <52D82626.5060701@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Daniel Borkmann <dborkman@redhat.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	"Hannes Frederic Sowa" <hannes@stressinduktion.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Austin S Hemmelgarn <ahferroin7@gmail.com>,
+	Jesse Gross <jesse@nicira.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Matt Mackall <mpm@selenic.com>,
+	Pekka Enberg <penberg@kernel.org>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"Veaceslav Falico" <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	"Jakub Zawadzki" <darkjames-ws@darkjames.pl>
+To: Christoph Lameter <cl@linux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.10.1401161036110.29778@nuc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-01-16 at 19:34 +0100, Daniel Borkmann wrote:
-
-> > Thank you for the review. Btw, what do you think about define for parisc? I am
+On Thu, 2014-01-16 at 10:37 -0600, Christoph Lameter wrote:
+> On Thu, 16 Jan 2014, Daniel Borkmann wrote:
 > 
-> Yes, saw that in the patch and had similar thoughts.
+> > - * or else the performance is slower than a normal divide.
+> > - */
+> > -extern u32 reciprocal_value(u32 B);
+> > +struct reciprocal_value {
+> > +	u32 m;
+> > +	u8 sh1, sh2;
+> > +};
+> >
+> > +#define RECIPROCAL_VALUE_RESULT_TO_ZERO ((struct reciprocal_value){.sh1 = 32})
+> >
+> > -static inline u32 reciprocal_divide(u32 A, u32 R)
+> > +struct reciprocal_value reciprocal_value(u32 d);
 > 
-> > not sure I grok 0x4048 for SO_MAX_PACING_RATE and hence not sure about 0x4029
-> > for SO_BPF_EXTENSIONS.
-> 
-> Hmm, maybe typo; SO_MAX_PACING_RATE should have been a 0x4028 ?
+> A function that returns a struct? That works? Which gcc versions support
+> it?
 
-Indeed it was a typo.
+At least since gcc 1.29, given:
 
-I think its time to change this, as this was added for linux-3.13
+Thu Sep 22 15:57:41 1988  Richard Stallman  (rms at sugar-bombs.ai.mit.edu)
+[...]
+	* stmt.c (expand_function_start): Set current_function_needs_context
+	and current_function_returns_struct.
+
+Hope that's not a problem...
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
