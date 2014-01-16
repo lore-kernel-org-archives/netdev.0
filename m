@@ -1,119 +1,102 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] tun/macvtap: limit the packets queued through
- rcvbuf
-Date: Thu, 16 Jan 2014 12:29:35 +0800
-Message-ID: <52D7602F.8090800@redhat.com>
-References: <1389682387-28601-1-git-send-email-jasowang@redhat.com> <20140114082516.GB1101@redhat.com> <52D4F924.2040502@redhat.com> <20140114095219.GB2846@redhat.com> <52D60221.1060701@redhat.com> <20140115072104.GA32078@redhat.com>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH net-next v3 2/2] net: Check skb->rxhash in gro_receive
+Date: Wed, 15 Jan 2014 21:01:36 -0800
+Message-ID: <CAPshTCgy=+p0ZNd+dzb76OVCQAwUK2UfOdo=haQ=QCcLEM-pgA@mail.gmail.com>
+References: <alpine.DEB.2.02.1401150853400.14933@tomh.mtv.corp.google.com>
+	<1389806708.31367.354.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Vlad Yasevich <vyasevic@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140115072104.GA32078@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <therbert@google.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f181.google.com ([209.85.216.181]:47432 "EHLO
+	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750713AbaAPFBh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 00:01:37 -0500
+Received: by mail-qc0-f181.google.com with SMTP id e9so1889525qcy.26
+        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 21:01:36 -0800 (PST)
+In-Reply-To: <1389806708.31367.354.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/15/2014 03:21 PM, Michael S. Tsirkin wrote:
-> On Wed, Jan 15, 2014 at 11:36:01AM +0800, Jason Wang wrote:
->> On 01/14/2014 05:52 PM, Michael S. Tsirkin wrote:
->>> On Tue, Jan 14, 2014 at 04:45:24PM +0800, Jason Wang wrote:
->>>>> On 01/14/2014 04:25 PM, Michael S. Tsirkin wrote:
->>>>>>> On Tue, Jan 14, 2014 at 02:53:07PM +0800, Jason Wang wrote:
->>>>>>>>> We used to limit the number of packets queued through tx_queue_length. This
->>>>>>>>> has several issues:
->>>>>>>>>
->>>>>>>>> - tx_queue_length is the control of qdisc queue length, simply reusing it
->>>>>>>>>    to control the packets queued by device may cause confusion.
->>>>>>>>> - After commit 6acf54f1cf0a6747bac9fea26f34cfc5a9029523 ("macvtap: Add
->>>>>>>>>    support of packet capture on macvtap device."), an unexpected qdisc
->>>>>>>>>    caused by non-zero tx_queue_length will lead qdisc lock contention for
->>>>>>>>>    multiqueue deivce.
->>>>>>>>> - What we really want is to limit the total amount of memory occupied not
->>>>>>>>>    the number of packets.
->>>>>>>>>
->>>>>>>>> So this patch tries to solve the above issues by using socket rcvbuf to
->>>>>>>>> limit the packets could be queued for tun/macvtap. This was done by using
->>>>>>>>> sock_queue_rcv_skb() instead of a direct call to skb_queue_tail(). Also two
->>>>>>>>> new ioctl() were introduced for userspace to change the rcvbuf like what we
->>>>>>>>> have done for sndbuf.
->>>>>>>>>
->>>>>>>>> With this fix, we can safely change the tx_queue_len of macvtap to
->>>>>>>>> zero. This will make multiqueue works without extra lock contention.
->>>>>>>>>
->>>>>>>>> Cc: Vlad Yasevich<vyasevic@redhat.com>
->>>>>>>>> Cc: Michael S. Tsirkin<mst@redhat.com>
->>>>>>>>> Cc: John Fastabend<john.r.fastabend@intel.com>
->>>>>>>>> Cc: Stephen Hemminger<stephen@networkplumber.org>
->>>>>>>>> Cc: Herbert Xu<herbert@gondor.apana.org.au>
->>>>>>>>> Signed-off-by: Jason Wang<jasowang@redhat.com>
->>>>>>> No, I don't think we can change userspace-visible behaviour like that.
->>>>>>>
->>>>>>> This will break any existing user that tries to control
->>>>>>> queue length through sysfs,netlink or device ioctl.
->>>>> But it looks like a buggy API, since tx_queue_len should be for qdisc
->>>>> queue length instead of device itself.
->>> Probably, but it's been like this since 2.6.x time.
->>> Also, qdisc queue is unused for tun so it seemed kind of
->>> reasonable to override tx_queue_len.
->>>
->>>>> If we really want to preserve the
->>>>> behaviour, how about using a new feature flag and change the behaviour
->>>>> only when the device is created (TUNSETIFF) with the new flag?
->>> OK this addresses the issue partially, but there's also an issue
->>> of permissions: tx_queue_len can only be changed if
->>> capable(CAP_NET_ADMIN). OTOH in your patch a regular user
->>> can change the amount of memory consumed per queue
->>> by calling TUNSETRCVBUF.
->> Yes, but we have the same issue for TUNSETSNDBUF.
-> To an extent, but TUNSETSNDBUF is different. It limits how much device can queue
-> *in the networking stack* but each queue in the stack is also
-> limited, when we exceed that we star dropping packets.
-> So while with infinite value (which is the default btw)
-> you can keep host pretty busy, you will not be able to run
-> it out of memory.
+On Wed, Jan 15, 2014 at 9:25 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2014-01-15 at 08:58 -0800, Tom Herbert wrote:
+>> When initializing a gro_list for a packet, first check the rxhash of
+>> the incoming skb against that of the skb's in the list. This should be
+>> a very strong inidicator of whether the flow is going to be matched,
+>> and potentially allows a lot of other checks to be short circuited.
+>> Use skb_hash_raw so that we don't force the hash to be calculated.
+>>
+>> Tested by running netperf 200 TCP_STREAMs between two machines with
+>> GRO, HW rxhash, and 1G. Saw no performance degration, slight reduction
+>> of time in dev_gro_receive.
+>>
+>> Signed-off-by: Tom Herbert <therbert@google.com>
+>> ---
+>>  net/core/dev.c | 9 ++++++++-
+>>  1 file changed, 8 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index 20c834e..c063c7c 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -3818,10 +3818,18 @@ static void gro_list_prepare(struct napi_struct *napi, struct sk_buff *skb)
+>>  {
+>>       struct sk_buff *p;
+>>       unsigned int maclen = skb->dev->hard_header_len;
+>> +     u32 hash = skb_get_hash_raw(skb);
+>>
+>>       for (p = napi->gro_list; p; p = p->next) {
+>>               unsigned long diffs;
+>>
+>> +             NAPI_GRO_CB(p)->flush = 0;
+>> +
+>> +             if (hash != skb_get_hash_raw(p)) {
+>> +                     NAPI_GRO_CB(p)->same_flow = 0;
+>> +                     continue;
+>> +             }
+>> +
+>>               diffs = (unsigned long)p->dev ^ (unsigned long)skb->dev;
+>>               diffs |= p->vlan_tci ^ skb->vlan_tci;
+>>               if (maclen == ETH_HLEN)
+>> @@ -3832,7 +3840,6 @@ static void gro_list_prepare(struct napi_struct *napi, struct sk_buff *skb)
+>>                                      skb_gro_mac_header(skb),
+>>                                      maclen);
+>>               NAPI_GRO_CB(p)->same_flow = !diffs;
+>> -             NAPI_GRO_CB(p)->flush = 0;
+>>       }
+>>  }
+>>
 >
-> The proposed TUNSETRCVBUF would keep configured amount
-> of memory around indefinitely so you can run host out of memory.
+> Acked-by: Eric Dumazet <edumazet@google.com>
 >
-> So assuming all this
-> How about an ethtool or netlink command to configure this
-> instead?
->
+> Hmm, this looks like we should clear flush_id in ipv6 handler,
+> otherwise we might reuse a flush_id set from a prior gro invocation in
+> ipv4 (skb can be reused in napi_reuse_skb())
 
-Ok, so we can add net admin check for before trying to set rcvbuf. I 
-think it's better to use ioctl since we've already use it for sndbuf. 
-Using ethool means you need a dedicated new ethtool method just for 
-tuntap which seems sub-optimal. Netlink looks better, but we should also 
-implement other ioctl also.
->>>>>>> Take a look at my patch in msg ID 20140109071721.GD19559@redhat.com
->>>>>>> which gives one way to set tx_queue_len to zero without
->>>>>>> breaking userspace.
->>>>> If I read the patch correctly, it will make no way for the user who
->>>>> really want to change the qdisc queue length for tun.
->>> Why would this matter?  As far as I can see qdisc queue is currently unused.
->>>
->> User may use qdisc to do port mirroring, bandwidth limitation, traffic
->> prioritization or more for a VM. So we do have users and maybe more
->> consider the case of vpn.
-> Well it's not used by default at least.
-> I remember that we discussed this previously actually.
->
-> If all we want to do actually is utilize no_qdisc by default,
-> we can simply use Eric's patch:
->
-> http://article.gmane.org/gmane.linux.kernel/1279597
->
-> and a similar patch for macvtap.
-> I tried it at the time and it didn't seem to help performance
-> at all, but a lot has changed since, in particular I didn't
-> test mq.
->
-> If you now have results showing how it's beneficial, pls post them.
->
+Good catch! It's also needed for the IPv6 encaped in IPv4 case (i forgot
+there is no frag/id hence no such check for IPv6).
 
-I will have a test to see the difference.
+>
+> Jerry, what do you think of following fix ?
+>
+> diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+> index 1e8683b135bb..598acd76ca4a 100644
+> --- a/net/ipv6/ip6_offload.c
+> +++ b/net/ipv6/ip6_offload.c
+> @@ -256,6 +256,7 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
+>                 /* flush if Traffic Class fields are different */
+>                 NAPI_GRO_CB(p)->flush |= !!(first_word & htonl(0x0FF00000));
+>                 NAPI_GRO_CB(p)->flush |= flush;
+> +               NAPI_GRO_CB(p)->flush_id = 0;
+>         }
+>
+>         NAPI_GRO_CB(skb)->flush |= flush;
+
+Acked-by: H.K. Jerry Chu <hkchu@google.com>
+
+>
+>
+>
