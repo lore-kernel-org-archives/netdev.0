@@ -1,52 +1,70 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH net-next 0/2] net: mvneta: simple cleanups
-Date: Thu, 16 Jan 2014 07:16:15 +0100
-Message-ID: <20140116061615.GB15597@1wt.eu>
-References: <cover.1389742334.git.arno@natisbad.org>
- <20140115.154122.1485420525760591929.davem@davemloft.net>
+From: ethan zhao <ethan.zhao@oracle.com>
+Subject: [PATCH 2/2 Net-next v4] ixgbe: set driver_max_VFs should be done
+ before enabling SRIOV
+Date: Thu, 16 Jan 2014 14:19:38 +0800
+Message-ID: <52D779FA.4090007@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
- arno@natisbad.org, linux-arm-kernel@lists.infradead.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20140115.154122.1485420525760591929.davem@davemloft.net>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ethan.kernel@gmail.com
+To: aaron.f.brown@intel.com, jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:32404 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751400AbaAPGT4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 01:19:56 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
 
-On Wed, Jan 15, 2014 at 03:41:22PM -0800, David Miller wrote:
-> From: Arnaud Ebalard <arno@natisbad.org>
-> Date: Wed, 15 Jan 2014 00:45:31 +0100
-> 
-> > 
-> > Those two patches are intended for net-next. They apply on top of
-> > performance improvements patches from Willy for mvneta driver.
-> > They provide some simple cleanups for unused variables, function
-> > params or return values.
-> > 
-> > Arnaud Ebalard (2):
-> >   net: mvneta: mvneta_tx_done_gbe() cleanups
-> >   net: mvneta: make mvneta_txq_done() return void
-> 
-> These patches do not apply to net-next, please respin.
+commit 43dc4e01 Limit number of reported VFs to device specific value
+It doesn't work and always returns -EBUSY because VFs ware already enabled.
 
-They depend on the two series I sent, I verified that they apply well
-once these two series are applied to net-next.
+ixgbe_enable_sriov()
+         pci_enable_sriov()
+                 sriov_enable()
+                 {
+                 ... ..
+                 iov->ctrl |= PCI_SRIOV_CTRL_VFE | PCI_SRIOV_CTRL_MSE;
+                 pci_cfg_access_lock(dev);
+                 ... ...
+                 }
 
-Would you prefer that we resend a complete series with all the patches
-at once ?
+pci_sriov_set_totalvfs()
+{
+... ...
+if (dev->sriov->ctrl & PCI_SRIOV_CTRL_VFE)
+                 return -EBUSY;
+...
+}
 
-Thanks,
-Willy
+So should set driver_max_VFs with pci_sriov_set_totalvfs() before
+enable VFs with ixgbe_enable_sriov().
+
+V2: revised for net-next tree.
+V4: remove one signoff of two.
+
+Signed-off-by: Ethan Zhao <ethan.kernel@gmail.com>
+---
+  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
+  1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c 
+b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index bea2cec..6e6af0d 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -7972,8 +7972,8 @@ static int ixgbe_probe(struct pci_dev *pdev, const 
+struct pci_device_id *ent)
+      /* Mailbox */
+      ixgbe_init_mbx_params_pf(hw);
+      memcpy(&hw->mbx.ops, ii->mbx_ops, sizeof(hw->mbx.ops));
+-    ixgbe_enable_sriov(adapter);
+      pci_sriov_set_totalvfs(pdev, IXGBE_MAX_VFS_DRV_LIMIT);
++    ixgbe_enable_sriov(adapter);
+  skip_sriov:
+
+  #endif
+-- 
+1.7.1
