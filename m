@@ -1,26 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/9] net: stmmac PM related fixes.
-Date: Thu, 16 Jan 2014 15:24:23 -0800 (PST)
-Message-ID: <20140116.152423.417924760541282210.davem@davemloft.net>
-References: <1384774256-10039-1-git-send-email-srinivas.kandagatla@st.com>
-	<1389869321-27411-1-git-send-email-srinivas.kandagatla@st.com>
+Subject: Re: [PATCH net-next v4 1/6] net: allow > 0 order atomic page alloc
+	in skb_page_frag_refill
+Date: Thu, 16 Jan 2014 15:28:00 -0800 (PST)
+Message-ID: <20140116.152800.901405996505782677.davem@davemloft.net>
+References: <1389901950-3854-1-git-send-email-mwdalton@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com,
-	linux-kernel@vger.kernel.org
-To: srinivas.kandagatla@st.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389869321-27411-1-git-send-email-srinivas.kandagatla@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: mst@redhat.com, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, edumazet@google.com,
+	bhutchings@solarflare.com
+To: mwdalton@google.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1389901950-3854-1-git-send-email-mwdalton@google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: <srinivas.kandagatla@st.com>
-Date: Thu, 16 Jan 2014 10:48:41 +0000
 
-> During PM_SUSPEND_FREEZE testing, I have noticed that PM support in STMMAC is
-> partly broken. I had to re-arrange the code to do PM correctly. There were lot
-> of things I did not like personally and some bits did not work in the first
-> place. I thought this is the nice opportunity to clean the mess up.
+All 6 patches applied.
 
-Series applied to net-next, thanks.
+Next time, PLEASE, give me a header email ala "[PATCH net-next v4 0/6]" giving
+a broad overview of the series.
+
+This serves several purposes.
+
+First, it gives me a single top-level email to reply to when I want to let
+you know that I've either applied or rejected this series.  Because you
+didn't provide a header posting, I have to pick an arbitrary one of
+the patches to use for this purpose as I have done here.
+
+Second, it gives a place for you to describe at a high level what the patch
+series is doing.  I create dummy merge commits and place that descriptive
+text into it, so that anyone else looking at the GIT history can see that
+these patches go together as a coherent unit and what that unit is trying
+to achieve.
+
+Thanks.
