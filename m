@@ -1,65 +1,135 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: eth_type_trans() should use
- skb_header_pointer()
-Date: Thu, 16 Jan 2014 15:03:31 -0800
-Message-ID: <1389913411.31367.430.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1389743541.31367.279.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1389745269.2025.228.camel@bwh-desktop.uk.level5networks.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC PATCH net-next 3/3] virtio-net: Add accelerated RFS support
+Date: Thu, 16 Jan 2014 23:16:28 +0000
+Message-ID: <1389914188.11912.146.camel@bwh-desktop.uk.level5networks.com>
+References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
+	 <1389795654-28381-4-git-send-email-zwu.kernel@gmail.com>
+	 <1389907887.11912.87.camel@bwh-desktop.uk.level5networks.com>
+	 <CAEH94LjHcxkXLvs6AMNop_yzKG0zaT2mAgsAb21i+RtMbkXbmQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: Zhi Yong Wu <zwu.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f181.google.com ([209.85.161.181]:54074 "EHLO
-	mail-gg0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750994AbaAPXDf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 18:03:35 -0500
-Received: by mail-gg0-f181.google.com with SMTP id 21so1078781ggh.40
-        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 15:03:34 -0800 (PST)
-In-Reply-To: <1389745269.2025.228.camel@bwh-desktop.uk.level5networks.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:24173 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750775AbaAPXQd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 18:16:33 -0500
+In-Reply-To: <CAEH94LjHcxkXLvs6AMNop_yzKG0zaT2mAgsAb21i+RtMbkXbmQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Fri, 2014-01-17 at 06:00 +0800, Zhi Yong Wu wrote:
+> On Fri, Jan 17, 2014 at 5:31 AM, Ben Hutchings
+> <bhutchings@solarflare.com> wrote:
+> > On Wed, 2014-01-15 at 22:20 +0800, Zhi Yong Wu wrote:
+> > [...]
+> >> +static int virtnet_init_rx_cpu_rmap(struct virtnet_info *vi)
+> >> +{
+> >> +     int rc = 0;
+> >> +
+> >> +#ifdef CONFIG_RFS_ACCEL
+> >> +     struct virtio_device *vdev = vi->vdev;
+> >> +     unsigned int irq;
+> >> +     int i;
+> >> +
+> >> +     if (!vi->affinity_hint_set)
+> >> +             goto out;
+> >> +
+> >> +     vi->dev->rx_cpu_rmap = alloc_irq_cpu_rmap(vi->max_queue_pairs);
+> >> +     if (!vi->dev->rx_cpu_rmap) {
+> >> +             rc = -ENOMEM;
+> >> +             goto out;
+> >> +     }
+> >> +
+> >> +     for (i = 0; i < vi->max_queue_pairs; i++) {
+> >> +             irq = virtqueue_get_vq_irq(vdev, vi->rq[i].vq);
+> >> +             if (irq == -1)
+> >> +                     goto failed;
+> >
+> > Jumping into an if-statement is confusing.  Also do you really want to
+> > return 0 in this case?
+> No, If it fail to get irq, i want it to exit as soon as possible,
+> otherwise it will cause irq_cpu_rmap_add() to be invoked with one
+> incorrect argument irq.
 
-eth_type_trans() can read uninitialized memory as drivers
-do not necessarily pull more than 14 bytes in skb->head before
-calling it.
+Well currently this goto does result in returning 0, as rc has not been
+changed after its initialisation to 0.
 
-As David suggested, we can use skb_header_pointer() to
-fix this without breaking some drivers that might not expect
-eth_type_trans() pulling 2 additional bytes.
+> By the way, do you have thought about if it makes sense to add aRFS
+> support to virtio_net? For [patch 2/3], what do you think of those
+> missing stuff listed by me?
+> For how indirect table is implemented in sfc NIC, do you have any doc
+> to share with  me? thanks.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Ben Hutchings <bhutchings@solarflare.com>
----
-Since this bug is very old, I cooked the patch on net-next
+Going through that list:
 
- net/ethernet/eth.c |    7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index 8f032bae60ad..5dc638cad2e1 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -156,7 +156,9 @@ EXPORT_SYMBOL(eth_rebuild_header);
-  */
- __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
- {
--	struct ethhdr *eth;
-+	unsigned short _service_access_point;
-+	const unsigned short *sap;
-+	const struct ethhdr *eth;
- 
- 	skb->dev = dev;
- 	skb_reset_mac_header(skb);
-@@ -194,7 +196,8 @@ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
- 	 *      layer. We look for FFFF which isn't a used 802.2 SSAP/DSAP. This
- 	 *      won't work for fault tolerant netware but does for the rest.
- 	 */
--	if (unlikely(skb->len >= 2 && *(unsigned short *)(skb->data) == 0xFFFF))
-+	sap = skb_header_pointer(skb, 0, sizeof(*sap), &_service_access_point);
-+	if (sap && *sap == 0xFFFF)
- 		return htons(ETH_P_802_3);
- 
- 	/*
+> 1.)  guest virtio_net driver should have one filter table and its
+> entries can be expired periodically;
+
+In sfc, we keep a count how many entries have been inserted in each NAPI
+context.  Whenever the NAPI poll function is about to call
+napi_complete() and the count for that context has reached a trigger
+level, it will scan some quota of filter entries for expiry.
+
+> 2.)  guest virtio_net driver should pass rx queue index and filter
+> info down to the emulated virtio_net NIC in QEMU.
+> 3.) the emulated virtio_net NIC should have its indirect table to
+> store the flow to rx queue mapping.
+> 4.) the emulated virtio_net NIC should classify the rx packet to
+> selected queue by applying the filter.
+
+I think the most efficient way to do this would be to put a hash table
+in some shared memory that both guest and host can read and write.  The
+virtio control path would only be used to set up and tear down the
+table.  I don't know whether virtio allows for that.
+
+However, to take advantage of ARFS on a physical net driver, it would be
+necessary to send a control request for part 2.
+
+> 5.) update virtio spec.
+> Do i miss anything? If yes, please correct me.
+> For 3.) and 4.), do you have any doc about how they are implemented in
+> physical NICs? e.g. mlx4_en or sfc, etc.
+
+The Programmer's Reference Manuals for Solarflare controllers are only
+available under NDA.  I can describe the hardware filtering briefly, but
+actually I don't think it's very relevant to virtio_net.
+
+There is a typical RSS hash indirection table (128 entries), but for
+ARFS we use a different RX filter table which has 8K entries
+(RX_FILTER_TBL0 on SFC4000/SFC9000 family).
+
+Solarflare controllers support user-level networking, which requires
+perfect filtering to deliver each application's flows into that
+application's dedicated RX queue(s).  Lookups in this larger filter
+table are still hash-based, but each entry specifies a TCP/IP or UDP/IP
+4-tuple or local 2-tuple to match.  ARFS uses the 4-tuple type only.
+
+To allow for hash collisions, a secondary hash function generates an
+increment to be added to the initial table index repeatedly for hash
+chaining.  There is a control register which tells the controller the
+maximum hash chain length to search for each IP filter type; after this
+it will fall back to checking MAC filters and then default filters.
+
+On the SFC9100 family, filter updates and lookups are implemented by
+firmware and the driver doesn't manage the filter table itself, but I
+know it is still a hash table of perfect filters.
+
+For ARFS, perfect filtering is not needed.  I think it would be
+preferable to use a fairly big hash table and make insertion fail in
+case of a collision.  Since the backend for virtio_net will do RX queue
+selection in software, the entire table of queue indices should fit into
+its L1 cache.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
