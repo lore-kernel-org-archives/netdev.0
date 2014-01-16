@@ -1,205 +1,166 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [RFC] sysfs_rename_link() and its usage
-Date: Thu, 16 Jan 2014 01:11:16 +0100
-Message-ID: <20140116001116.GA27182@redhat.com>
-References: <20140114171740.GB1867@redhat.com>
- <20140114182135.GA29296@kroah.com>
- <20140114191208.GA9942@redhat.com>
- <20140114193139.GA3636@kroah.com>
- <20140114210610.GC9942@redhat.com>
- <87iotmc9ic.fsf@xmission.com>
- <20140115141618.GD7950@htj.dyndns.org>
- <87fvoo25gj.fsf@xmission.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v5 net-next 2/4] sh_eth: Add support for r7s72100
+Date: Thu, 16 Jan 2014 09:14:51 +0900
+Message-ID: <20140116001451.GB12550@verge.net.au>
+References: <1389766341-14001-1-git-send-email-horms+renesas@verge.net.au>
+ <1389766341-14001-3-git-send-email-horms+renesas@verge.net.au>
+ <52D70B03.9040506@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Tejun Heo <tj@kernel.org>, Greg KH <gregkh@linuxfoundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <87fvoo25gj.fsf@xmission.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <52D70B03.9040506@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 15, 2014 at 03:25:16PM -0800, Eric W. Biederman wrote:
->Tejun Heo <tj@kernel.org> writes:
->
->> Hey, Veaceslav, Eric.
+On Thu, Jan 16, 2014 at 01:26:11AM +0300, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 01/15/2014 09:12 AM, Simon Horman wrote:
+> 
+> >This is a fast ethernet controller.
+> 
+>    I have to say it's not exact enough patch description: R7S72100
+> is not Ethernet controller itself, it's a SoC containing the
+> Ethernet controller.
 
-Hi Tejun, Eric,
+I will update the text to the following:
 
->>
->> On Tue, Jan 14, 2014 at 05:35:23PM -0800, Eric W. Biederman wrote:
->>> >>> >>This works like a charm. However, if I want to use (obviously, with the
->>> >>> >>symlink present):
->>> >>> >>
->>> >>> >>sysfs_rename_link(&(a->dev.kobj), &(b->dev.kobj), oldname, newname);
->>> >>> >
->>> >>> >You forgot the namespace option to this call, what kernel version are
->>> >>> >you using here?
->>> >>>
->>> >>> It's git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next ,
->>> >>> 3.13-rc6 with some networking patches on top of it.
->>
->> Does this work on 3.12?  How about Greg's driver-core-next?  Do you
->> have a minimal test case that I can use to reproduce the issue?
+The r7s72100 SoC includes a fast ethernet controller.
 
-Sorry for the latency in responses, I'll update once I'll manage to test it
-on those.
+> 
+> >Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> 
+> >---
+> >v5
+> >* As suggested by Sergei Shtylyov
+> >   - Do not use sh_eth_chip_reset_r8a7740 as it accesses non-existent
+> >     RMII registers. Instead use sh_eth_chip_reset.
+> >   - Do not use sh_eth_set_rate_gether as it accesses non-existent registers.
+> >   - Do not use reserved LCHNG bit of ECSR
+> >   - Do not use reserved LCHNGIP bit of ECSIPR
+> >   - Document that R8A779x also needs a 16 bit shift of the RFS bits
+> >   - Do not document that the R7S72100 has GECMR, it does not
+> 
+>   The above change list was moved from v2 section and doesn't match
+> the real changes done in v5. ;-)
 
-...snip...
->> Veaceslav, please confirm whether the issue is reproducible w/ v3.12.
->
->Anyway since a symlink living in a different namespace from it's target
->is just nonsense this (only compile tested) patch should fix the issue,
->and make sysfs_rename_link usable for people without a masters degree in
->sysfs again.
+I'll fix that up so that when its automatically discarded by git
+it can rest in peace in /dev/null.
 
-It's still there :-(. I've used your patch and added my small addition[1] to
-test the sysfs_rename_link() (on top of net-next, 3.13-rc7), however the
-issue is still there:
+> 
+> >v4
+> >* As requested by David Miller
+> >   - Use a boolean for the return value of sh_eth_is_rz_fast_ether()
+> >   - Correct coding style in sh_eth_get_stats()
+> 
+> >v3
+> >* No change
+> 
+> >v2
+> >* As suggested by Magnus Damm and Sergei Shtylyov
+> >   - r7s72100 ethernet is not gigabit so do not refer to it as such
+> 
+> >* As suggested by Magnus Damm
+> >   - As RZ specific register layout rather than using the gigabit layout
+> >     which includes registers that do not exist on this chip.
+> >---
+> >  drivers/net/ethernet/renesas/sh_eth.c | 126 ++++++++++++++++++++++++++++++++--
+> >  drivers/net/ethernet/renesas/sh_eth.h |   3 +-
+> >  2 files changed, 121 insertions(+), 8 deletions(-)
+> 
+> >diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> >index 4f5cfad..a7a0555 100644
+> >--- a/drivers/net/ethernet/renesas/sh_eth.c
+> >+++ b/drivers/net/ethernet/renesas/sh_eth.c
+> >@@ -190,6 +190,64 @@ static const u16 sh_eth_offset_fast_rcar[SH_ETH_MAX_REGISTER_OFFSET] = {
+> >  	[TRIMD]		= 0x027c,
+> >  };
+> >
+> >+static const u16 sh_eth_offset_fast_rz[SH_ETH_MAX_REGISTER_OFFSET] = {
+> 
+>    Shouldn't this map precede R-Car one since this SoC is newer the
+> same way you've reordered *enum* values, etc.? Sorry for not
+> noticing in the previous review...
 
-[   79.038340] net bond0: renaming to bondbla
-[   79.038380] ------------[ cut here ]------------
-[   79.038411] WARNING: CPU: 1 PID: 5318 at fs/sysfs/dir.c:618
-sysfs_find_dirent+0x84/0x110()
-[   79.038449] sysfs: ns invalid in 'bridge0' for 'lower_bond0'
-...snip...
-[   79.038877]  [<ffffffff810ae826>] warn_slowpath_fmt+0x46/0x50
-[   79.038903]  [<ffffffff812ba890>] ? sysfs_get_dirent_ns+0x30/0x80
-[   79.038930]  [<ffffffff812b97c4>] sysfs_find_dirent+0x84/0x110
-[   79.038957]  [<ffffffff812ba89e>] sysfs_get_dirent_ns+0x3e/0x80
-[   79.038983]  [<ffffffff812baf87>] sysfs_rename_link+0x57/0xe0
-[   79.039030]  [<ffffffff81689e72>] netdev_adjacent_rename_links+0xa2/0x160
+I will move it, thanks.
 
-The current scheme (sysfs_remove_link() + sysfs_add_link()) works perfectly
-well without any namespaces. I'll dig into it once I have some spare time,
-it's not at all critical.
+> [...]
+> >+	[ARSTR]		= 0x0000,
+> >+	[TSU_CTRST]	= 0x0004,
+> >+	[TSU_VTAG0]	= 0x0058,
+> >+	[TSU_ADSBSY]	= 0x0060,
+> >+	[TSU_TEN]	= 0x0064,
+> >+	[TXNLCR0]	= 0x0080,
+> >+	[TXALCR0]	= 0x0084,
+> >+	[RXNLCR0]	= 0x0088,
+> >+	[RXALCR0]	= 0x008C,
+> 
+>    Well, the above counter register subgroup stands out from the
+> TSU_* registers in the Gigabit mapping, not sure if we should follow
+> that. These registers are not currently used anyway...
 
-[1]: the patch (I've included your patch too, just in case):
+I will add a blank line.
 
-diff --git a/drivers/base/core.c b/drivers/base/core.c
-index 67b180d..0c9377a 100644
---- a/drivers/base/core.c
-+++ b/drivers/base/core.c
-@@ -1825,9 +1825,8 @@ int device_rename(struct device *dev, const char *new_name)
-  	}
-  
-  	if (dev->class) {
--		error = sysfs_rename_link_ns(&dev->class->p->subsys.kobj,
--					     kobj, old_device_name,
--					     new_name, kobject_namespace(kobj));
-+		error = sysfs_rename_link(&dev->class->p->subsys.kobj,
-+					  kobj, old_device_name, new_name);
-  		if (error)
-  			goto out;
-  	}
-diff --git a/fs/sysfs/symlink.c b/fs/sysfs/symlink.c
-index 3ae3f1b..651444a 100644
---- a/fs/sysfs/symlink.c
-+++ b/fs/sysfs/symlink.c
-@@ -194,12 +194,10 @@ EXPORT_SYMBOL_GPL(sysfs_remove_link);
-   *	@targ:	object we're pointing to.
-   *	@old:	previous name of the symlink.
-   *	@new:	new name of the symlink.
-- *	@new_ns: new namespace of the symlink.
-- *
-   *	A helper function for the common rename symlink idiom.
-   */
--int sysfs_rename_link_ns(struct kobject *kobj, struct kobject *targ,
--			 const char *old, const char *new, const void *new_ns)
-+int sysfs_rename_link(struct kobject *kobj, struct kobject *targ,
-+		      const char *old, const char *new)
-  {
-  	struct sysfs_dirent *parent_sd, *sd = NULL;
-  	const void *old_ns = NULL;
-@@ -224,13 +222,13 @@ int sysfs_rename_link_ns(struct kobject *kobj, struct kobject *targ,
-  	if (sd->s_symlink.target_sd->s_dir.kobj != targ)
-  		goto out;
-  
--	result = sysfs_rename(sd, parent_sd, new, new_ns);
-+	result = sysfs_rename(sd, parent_sd, new, kobject_namespace(targ));
-  
-  out:
-  	sysfs_put(sd);
-  	return result;
-  }
--EXPORT_SYMBOL_GPL(sysfs_rename_link_ns);
-+EXPORT_SYMBOL_GPL(sysfs_rename_link);
-  
-  static int sysfs_get_target_path(struct sysfs_dirent *parent_sd,
-  				 struct sysfs_dirent *target_sd, char *path)
-diff --git a/include/linux/sysfs.h b/include/linux/sysfs.h
-index 6695040..093d992 100644
---- a/include/linux/sysfs.h
-+++ b/include/linux/sysfs.h
-@@ -213,9 +213,8 @@ int __must_check sysfs_create_link_nowarn(struct kobject *kobj,
-  					  const char *name);
-  void sysfs_remove_link(struct kobject *kobj, const char *name);
-  
--int sysfs_rename_link_ns(struct kobject *kobj, struct kobject *target,
--			 const char *old_name, const char *new_name,
--			 const void *new_ns);
-+int sysfs_rename_link(struct kobject *kobj, struct kobject *target,
-+		      const char *old_name, const char *new_name);
-  
-  void sysfs_delete_link(struct kobject *dir, struct kobject *targ,
-  			const char *name);
-@@ -341,9 +340,8 @@ static inline void sysfs_remove_link(struct kobject *kobj, const char *name)
-  {
-  }
-  
--static inline int sysfs_rename_link_ns(struct kobject *k, struct kobject *t,
--				       const char *old_name,
--				       const char *new_name, const void *ns)
-+static inline int sysfs_rename_link(struct kobject *k, struct kobject *t,
-+				    const char *old_name, const char *new_name)
-  {
-  	return 0;
-  }
-@@ -455,12 +453,6 @@ static inline void sysfs_remove_file(struct kobject *kobj,
-  	return sysfs_remove_file_ns(kobj, attr, NULL);
-  }
-  
--static inline int sysfs_rename_link(struct kobject *kobj, struct kobject *target,
--				    const char *old_name, const char *new_name)
--{
--	return sysfs_rename_link_ns(kobj, target, old_name, new_name, NULL);
--}
--
-  static inline struct sysfs_dirent *
-  sysfs_get_dirent(struct sysfs_dirent *parent_sd, const unsigned char *name)
-  {
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 9957557..5d24d8e 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5005,19 +5005,20 @@ EXPORT_SYMBOL(netdev_upper_dev_unlink);
-  void netdev_adjacent_rename_links(struct net_device *dev, char *oldname)
-  {
-  	struct netdev_adjacent *iter;
-+	char old_linkname[IFNAMSIZ+7], new_linkname[IFNAMSIZ+7];
-  
-  	list_for_each_entry(iter, &dev->adj_list.upper, list) {
--		netdev_adjacent_sysfs_del(iter->dev, oldname,
--					  &iter->dev->adj_list.lower);
--		netdev_adjacent_sysfs_add(iter->dev, dev,
--					  &iter->dev->adj_list.lower);
-+		sprintf(old_linkname, "lower_%s", oldname);
-+		sprintf(new_linkname, "lower_%s", dev->name);
-+		sysfs_rename_link(&(iter->dev->dev.kobj), &(dev->dev.kobj),
-+				  old_linkname, new_linkname);
-  	}
-  
-  	list_for_each_entry(iter, &dev->adj_list.lower, list) {
--		netdev_adjacent_sysfs_del(iter->dev, oldname,
--					  &iter->dev->adj_list.upper);
--		netdev_adjacent_sysfs_add(iter->dev, dev,
--					  &iter->dev->adj_list.upper);
-+		sprintf(old_linkname, "upper_%s", oldname);
-+		sprintf(new_linkname, "upper_%s", dev->name);
-+		sysfs_rename_link(&(iter->dev->dev.kobj), &(dev->dev.kobj),
-+				  old_linkname, new_linkname);
-  	}
-  }
-  
+> 
+> >+	[TSU_ADRH0]	= 0x0100,
+> >+	[TSU_ADRL0]	= 0x0104,
+> >+	[TSU_ADRH31]	= 0x01f8,
+> >+	[TSU_ADRL31]	= 0x01fc,
+> >+};
+> >+
+> >  static const u16 sh_eth_offset_fast_sh4[SH_ETH_MAX_REGISTER_OFFSET] = {
+> >  	[ECMR]		= 0x0100,
+> >  	[RFLR]		= 0x0108,
+> >@@ -318,6 +376,14 @@ static bool sh_eth_is_gether(struct sh_eth_private *mdp)
+> >  		return false;
+> >  }
+> >
+> >+static bool sh_eth_is_rz_fast_ether(struct sh_eth_private *mdp)
+> >+{
+> >+	if (mdp->reg_offset == sh_eth_offset_fast_rz)
+> >+		return true;
+> >+	else
+> >+		return false;
+> 
+>    Perhaps you should compress the above functions to one-liners as
+> Joe has suggested. Or I/you could do it in a separate patch...
+
+Will do, Joe's suggestion is a good one.
+
+> 
+> >+}
+> >+
+> >  static void sh_eth_select_mii(struct net_device *ndev)
+> >  {
+> >  	u32 value = 0x0;
+> [...]
+> >@@ -1309,9 +1409,9 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
+> >
+> >  		/* In case of almost all GETHER/ETHERs, the Receive Frame State
+> >  		 * (RFS) bits in the Receive Descriptor 0 are from bit 9 to
+> >-		 * bit 0. However, in case of the R8A7740's GETHER, the RFS
+> >-		 * bits are from bit 25 to bit 16. So, the driver needs right
+> >-		 * shifting by 16.
+> >+		 * bit 0. However, in case of the R8A7740, R8A779x and
+> 
+>    Small nit: comma needed before "and" as far as I know English grammar.
+
+To be honest I don't think it is. But I'll add one for you.
+
+> 
+> >+		 * R7S72100 the RFS bits are from bit 25 to bit 16. So, the
+> >+		 * driver needs right shifting by 16.
+> >  		 */
+> >  		if (mdp->cd->shift_rd0)
+> >  			desc_status >>= 16;
+> 
+>    Other than that, this looks fine now, you can add my:
+> 
+> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+Thanks.
