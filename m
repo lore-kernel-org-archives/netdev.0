@@ -1,310 +1,299 @@
 From: Michael Dalton <mwdalton@google.com>
-Subject: [PATCH net-next v4 3/6] virtio-net: auto-tune mergeable rx buffer size for improved performance
-Date: Thu, 16 Jan 2014 11:52:27 -0800
-Message-ID: <1389901950-3854-3-git-send-email-mwdalton@google.com>
+Subject: [PATCH net-next v4 4/6] net-sysfs: add support for device-specific rx
+	queue sysfs attributes
+Date: Thu, 16 Jan 2014 11:52:28 -0800
+Message-ID: <1389901950-3854-4-git-send-email-mwdalton@google.com>
 References: <1389901950-3854-1-git-send-email-mwdalton@google.com>
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	virtualization@lists.linux-foundation.org,
-	Michael Dalton <mwdalton@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Michael Dalton <mwdalton@google.com>, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f201.google.com ([209.85.192.201]:48656 "EHLO
-	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751622AbaAPTwm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 14:52:42 -0500
-Received: by mail-pd0-f201.google.com with SMTP id q10so115245pdj.0
-        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 11:52:42 -0800 (PST)
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 In-Reply-To: <1389901950-3854-1-git-send-email-mwdalton@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Commit 2613af0ed18a ("virtio_net: migrate mergeable rx buffers to page frag
-allocators") changed the mergeable receive buffer size from PAGE_SIZE to
-MTU-size, introducing a single-stream regression for benchmarks with large
-average packet size. There is no single optimal buffer size for all
-workloads.  For workloads with packet size <= MTU bytes, MTU + virtio-net
-header-sized buffers are preferred as larger buffers reduce the TCP window
-due to SKB truesize. However, single-stream workloads with large average
-packet sizes have higher throughput if larger (e.g., PAGE_SIZE) buffers
-are used.
-
-This commit auto-tunes the mergeable receiver buffer packet size by
-choosing the packet buffer size based on an EWMA of the recent packet
-sizes for the receive queue. Packet buffer sizes range from MTU_SIZE +
-virtio-net header len to PAGE_SIZE. This improves throughput for
-large packet workloads, as any workload with average packet size >=
-PAGE_SIZE will use PAGE_SIZE buffers.
-
-These optimizations interact positively with recent commit
-ba275241030c ("virtio-net: coalesce rx frags when possible during rx"),
-which coalesces adjacent RX SKB fragments in virtio_net. The coalescing
-optimizations benefit buffers of any size.
-
-Benchmarks taken from an average of 5 netperf 30-second TCP_STREAM runs
-between two QEMU VMs on a single physical machine. Each VM has two VCPUs
-with all offloads & vhost enabled. All VMs and vhost threads run in a
-single 4 CPU cgroup cpuset, using cgroups to ensure that other processes
-in the system will not be scheduled on the benchmark CPUs. Trunk includes
-SKB rx frag coalescing.
-
-net-next w/ virtio_net before 2613af0ed18a (PAGE_SIZE bufs): 14642.85Gb/s
-net-next (MTU-size bufs):  13170.01Gb/s
-net-next + auto-tune: 14555.94Gb/s
-
-Jason Wang also reported a throughput increase on mlx4 from 22Gb/s
-using MTU-sized buffers to about 26Gb/s using auto-tuning.
+Extend existing support for netdevice receive queue sysfs attributes to
+permit a device-specific attribute group. Initial use case for this
+support will be to allow the virtio-net device to export per-receive
+queue mergeable receive buffer size.
 
 Signed-off-by: Michael Dalton <mwdalton@google.com>
 ---
-v2->v3: Remove per-receive queue metadata ring. Encode packet buffer
-        base address and truesize into an unsigned long by requiring a
-        minimum packet size alignment of 256. Permit attempts to fill
-        an already-full RX ring (reverting the change in v2).
-v1->v2: Add per-receive queue metadata ring to track precise truesize for
-        mergeable receive buffers. Remove all truesize approximation. Never
-        try to fill a full RX ring (required for metadata ring in v2).
+v3->v4: Simplify by removing loop in get_netdev_rx_queue_index.
 
- drivers/net/virtio_net.c | 99 ++++++++++++++++++++++++++++++++++++------------
- 1 file changed, 74 insertions(+), 25 deletions(-)
+ include/linux/netdevice.h | 35 +++++++++++++++++++++++++++++++----
+ net/core/dev.c            | 12 ++++++------
+ net/core/net-sysfs.c      | 33 ++++++++++++++++-----------------
+ 3 files changed, 53 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 36cbf06..3e82311 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -26,6 +26,7 @@
- #include <linux/if_vlan.h>
- #include <linux/slab.h>
- #include <linux/cpu.h>
-+#include <linux/average.h>
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 5c88ab1..38929bc 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -668,15 +668,28 @@ extern struct rps_sock_flow_table __rcu *rps_sock_flow_table;
+ bool rps_may_expire_flow(struct net_device *dev, u16 rxq_index, u32 flow_id,
+ 			 u16 filter_id);
+ #endif
++#endif /* CONFIG_RPS */
  
- static int napi_weight = NAPI_POLL_WEIGHT;
- module_param(napi_weight, int, 0444);
-@@ -36,11 +37,18 @@ module_param(gso, bool, 0444);
- 
- /* FIXME: MTU in config. */
- #define GOOD_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
--#define MERGE_BUFFER_LEN (ALIGN(GOOD_PACKET_LEN + \
--                                sizeof(struct virtio_net_hdr_mrg_rxbuf), \
--                                L1_CACHE_BYTES))
- #define GOOD_COPY_LEN	128
- 
-+/* Weight used for the RX packet size EWMA. The average packet size is used to
-+ * determine the packet buffer size when refilling RX rings. As the entire RX
-+ * ring may be refilled at once, the weight is chosen so that the EWMA will be
-+ * insensitive to short-term, transient changes in packet size.
+ /* This structure contains an instance of an RX queue. */
+ struct netdev_rx_queue {
++#ifdef CONFIG_RPS
+ 	struct rps_map __rcu		*rps_map;
+ 	struct rps_dev_flow_table __rcu	*rps_flow_table;
++#endif
+ 	struct kobject			kobj;
+ 	struct net_device		*dev;
+ } ____cacheline_aligned_in_smp;
+-#endif /* CONFIG_RPS */
++
++/*
++ * RX queue sysfs structures and functions.
 + */
-+#define RECEIVE_AVG_WEIGHT 64
-+
-+/* Minimum alignment for mergeable packet buffers. */
-+#define MERGEABLE_BUFFER_ALIGN max(L1_CACHE_BYTES, 256)
-+
- #define VIRTNET_DRIVER_VERSION "1.0.0"
++struct rx_queue_attribute {
++	struct attribute attr;
++	ssize_t (*show)(struct netdev_rx_queue *queue,
++	    struct rx_queue_attribute *attr, char *buf);
++	ssize_t (*store)(struct netdev_rx_queue *queue,
++	    struct rx_queue_attribute *attr, const char *buf, size_t len);
++};
  
- struct virtnet_stats {
-@@ -78,6 +86,9 @@ struct receive_queue {
- 	/* Chain pages by the private ptr. */
- 	struct page *pages;
+ #ifdef CONFIG_XPS
+ /*
+@@ -1313,7 +1326,7 @@ struct net_device {
+ 						   unicast) */
  
-+	/* Average packet length for mergeable receive buffers. */
-+	struct ewma mrg_avg_pkt_len;
-+
- 	/* Page frag for packet buffer allocation. */
- 	struct page_frag alloc_frag;
  
-@@ -219,6 +230,23 @@ static void skb_xmit_done(struct virtqueue *vq)
- 	netif_wake_subqueue(vi->dev, vq2txq(vq));
+-#ifdef CONFIG_RPS
++#ifdef CONFIG_SYSFS
+ 	struct netdev_rx_queue	*_rx;
+ 
+ 	/* Number of RX queues allocated at register_netdev() time */
+@@ -1424,6 +1437,8 @@ struct net_device {
+ 	struct device		dev;
+ 	/* space for optional device, statistics, and wireless sysfs groups */
+ 	const struct attribute_group *sysfs_groups[4];
++	/* space for optional per-rx queue attributes */
++	const struct attribute_group *sysfs_rx_queue_group;
+ 
+ 	/* rtnetlink link ops */
+ 	const struct rtnl_link_ops *rtnl_link_ops;
+@@ -2374,7 +2389,7 @@ static inline bool netif_is_multiqueue(const struct net_device *dev)
+ 
+ int netif_set_real_num_tx_queues(struct net_device *dev, unsigned int txq);
+ 
+-#ifdef CONFIG_RPS
++#ifdef CONFIG_SYSFS
+ int netif_set_real_num_rx_queues(struct net_device *dev, unsigned int rxq);
+ #else
+ static inline int netif_set_real_num_rx_queues(struct net_device *dev,
+@@ -2393,7 +2408,7 @@ static inline int netif_copy_real_num_queues(struct net_device *to_dev,
+ 					   from_dev->real_num_tx_queues);
+ 	if (err)
+ 		return err;
+-#ifdef CONFIG_RPS
++#ifdef CONFIG_SYSFS
+ 	return netif_set_real_num_rx_queues(to_dev,
+ 					    from_dev->real_num_rx_queues);
+ #else
+@@ -2401,6 +2416,18 @@ static inline int netif_copy_real_num_queues(struct net_device *to_dev,
+ #endif
  }
  
-+static unsigned int mergeable_ctx_to_buf_truesize(unsigned long mrg_ctx)
++#ifdef CONFIG_SYSFS
++static inline unsigned int get_netdev_rx_queue_index(
++		struct netdev_rx_queue *queue)
 +{
-+	unsigned int truesize = mrg_ctx & (MERGEABLE_BUFFER_ALIGN - 1);
-+	return truesize * MERGEABLE_BUFFER_ALIGN;
++	struct net_device *dev = queue->dev;
++	int index = queue - dev->_rx;
++
++	BUG_ON(index >= dev->num_rx_queues);
++	return index;
 +}
++#endif
 +
-+static void *mergeable_ctx_to_buf_address(unsigned long mrg_ctx)
-+{
-+	return (void *)(mrg_ctx & -MERGEABLE_BUFFER_ALIGN);
-+
-+}
-+
-+static unsigned long mergeable_buf_to_ctx(void *buf, unsigned int truesize)
-+{
-+	return (unsigned long)buf | (truesize / MERGEABLE_BUFFER_ALIGN);
-+}
-+
- /* Called from bottom half context */
- static struct sk_buff *page_to_skb(struct receive_queue *rq,
- 				   struct page *page, unsigned int offset,
-@@ -327,31 +355,33 @@ err:
+ #define DEFAULT_MAX_NUM_RSS_QUEUES	(8)
+ int netif_get_num_default_rss_queues(void);
  
- static struct sk_buff *receive_mergeable(struct net_device *dev,
- 					 struct receive_queue *rq,
--					 void *buf,
-+					 unsigned long ctx,
- 					 unsigned int len)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 20c834e..4be7931 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2080,7 +2080,7 @@ int netif_set_real_num_tx_queues(struct net_device *dev, unsigned int txq)
+ }
+ EXPORT_SYMBOL(netif_set_real_num_tx_queues);
+ 
+-#ifdef CONFIG_RPS
++#ifdef CONFIG_SYSFS
+ /**
+  *	netif_set_real_num_rx_queues - set actual number of RX queues used
+  *	@dev: Network device
+@@ -5727,7 +5727,7 @@ void netif_stacked_transfer_operstate(const struct net_device *rootdev,
+ }
+ EXPORT_SYMBOL(netif_stacked_transfer_operstate);
+ 
+-#ifdef CONFIG_RPS
++#ifdef CONFIG_SYSFS
+ static int netif_alloc_rx_queues(struct net_device *dev)
  {
-+	void *buf = mergeable_ctx_to_buf_address(ctx);
- 	struct skb_vnet_hdr *hdr = buf;
- 	int num_buf = hdr->mhdr.num_buffers;
- 	struct page *page = virt_to_head_page(buf);
- 	int offset = buf - page_address(page);
--	unsigned int truesize = max_t(unsigned int, len, MERGE_BUFFER_LEN);
-+	unsigned int truesize = max(len, mergeable_ctx_to_buf_truesize(ctx));
-+
- 	struct sk_buff *head_skb = page_to_skb(rq, page, offset, len, truesize);
- 	struct sk_buff *curr_skb = head_skb;
- 
- 	if (unlikely(!curr_skb))
- 		goto err_skb;
--
- 	while (--num_buf) {
- 		int num_skb_frags;
- 
--		buf = virtqueue_get_buf(rq->vq, &len);
--		if (unlikely(!buf)) {
-+		ctx = (unsigned long)virtqueue_get_buf(rq->vq, &len);
-+		if (unlikely(!ctx)) {
- 			pr_debug("%s: rx error: %d buffers out of %d missing\n",
- 				 dev->name, num_buf, hdr->mhdr.num_buffers);
- 			dev->stats.rx_length_errors++;
- 			goto err_buf;
- 		}
- 
-+		buf = mergeable_ctx_to_buf_address(ctx);
- 		page = virt_to_head_page(buf);
- 		--rq->num;
- 
-@@ -369,7 +399,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 			head_skb->truesize += nskb->truesize;
- 			num_skb_frags = 0;
- 		}
--		truesize = max_t(unsigned int, len, MERGE_BUFFER_LEN);
-+		truesize = max(len, mergeable_ctx_to_buf_truesize(ctx));
- 		if (curr_skb != head_skb) {
- 			head_skb->data_len += len;
- 			head_skb->len += len;
-@@ -386,19 +416,20 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 		}
+ 	unsigned int i, count = dev->num_rx_queues;
+@@ -6272,7 +6272,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+ 		return NULL;
  	}
  
-+	ewma_add(&rq->mrg_avg_pkt_len, head_skb->len);
- 	return head_skb;
+-#ifdef CONFIG_RPS
++#ifdef CONFIG_SYSFS
+ 	if (rxqs < 1) {
+ 		pr_err("alloc_netdev: Unable to allocate device with zero RX queues\n");
+ 		return NULL;
+@@ -6328,7 +6328,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+ 	if (netif_alloc_netdev_queues(dev))
+ 		goto free_all;
  
- err_skb:
- 	put_page(page);
- 	while (--num_buf) {
--		buf = virtqueue_get_buf(rq->vq, &len);
--		if (unlikely(!buf)) {
-+		ctx = (unsigned long)virtqueue_get_buf(rq->vq, &len);
-+		if (unlikely(!ctx)) {
- 			pr_debug("%s: rx error: %d buffers missing\n",
- 				 dev->name, num_buf);
- 			dev->stats.rx_length_errors++;
- 			break;
- 		}
--		page = virt_to_head_page(buf);
-+		page = virt_to_head_page(mergeable_ctx_to_buf_address(ctx));
- 		put_page(page);
- 		--rq->num;
- 	}
-@@ -419,17 +450,20 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
- 	if (unlikely(len < sizeof(struct virtio_net_hdr) + ETH_HLEN)) {
- 		pr_debug("%s: short packet %i\n", dev->name, len);
- 		dev->stats.rx_length_errors++;
--		if (vi->mergeable_rx_bufs)
--			put_page(virt_to_head_page(buf));
--		else if (vi->big_packets)
-+		if (vi->mergeable_rx_bufs) {
-+			unsigned long ctx = (unsigned long)buf;
-+			void *base = mergeable_ctx_to_buf_address(ctx);
-+			put_page(virt_to_head_page(base));
-+		} else if (vi->big_packets) {
- 			give_pages(rq, buf);
--		else
-+		} else {
- 			dev_kfree_skb(buf);
-+		}
- 		return;
- 	}
+-#ifdef CONFIG_RPS
++#ifdef CONFIG_SYSFS
+ 	dev->num_rx_queues = rxqs;
+ 	dev->real_num_rx_queues = rxqs;
+ 	if (netif_alloc_rx_queues(dev))
+@@ -6348,7 +6348,7 @@ free_all:
+ free_pcpu:
+ 	free_percpu(dev->pcpu_refcnt);
+ 	netif_free_tx_queues(dev);
+-#ifdef CONFIG_RPS
++#ifdef CONFIG_SYSFS
+ 	kfree(dev->_rx);
+ #endif
  
- 	if (vi->mergeable_rx_bufs)
--		skb = receive_mergeable(dev, rq, buf, len);
-+		skb = receive_mergeable(dev, rq, (unsigned long)buf, len);
- 	else if (vi->big_packets)
- 		skb = receive_big(dev, rq, buf, len);
- 	else
-@@ -572,25 +606,36 @@ static int add_recvbuf_big(struct receive_queue *rq, gfp_t gfp)
+@@ -6373,7 +6373,7 @@ void free_netdev(struct net_device *dev)
+ 	release_net(dev_net(dev));
  
- static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
+ 	netif_free_tx_queues(dev);
+-#ifdef CONFIG_RPS
++#ifdef CONFIG_SYSFS
+ 	kfree(dev->_rx);
+ #endif
+ 
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 49843bf..0193ff3 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -498,17 +498,7 @@ static struct attribute_group wireless_group = {
+ #define net_class_groups	NULL
+ #endif /* CONFIG_SYSFS */
+ 
+-#ifdef CONFIG_RPS
+-/*
+- * RX queue sysfs structures and functions.
+- */
+-struct rx_queue_attribute {
+-	struct attribute attr;
+-	ssize_t (*show)(struct netdev_rx_queue *queue,
+-	    struct rx_queue_attribute *attr, char *buf);
+-	ssize_t (*store)(struct netdev_rx_queue *queue,
+-	    struct rx_queue_attribute *attr, const char *buf, size_t len);
+-};
++#ifdef CONFIG_SYSFS
+ #define to_rx_queue_attr(_attr) container_of(_attr,		\
+     struct rx_queue_attribute, attr)
+ 
+@@ -543,6 +533,7 @@ static const struct sysfs_ops rx_queue_sysfs_ops = {
+ 	.store = rx_queue_attr_store,
+ };
+ 
++#ifdef CONFIG_RPS
+ static ssize_t show_rps_map(struct netdev_rx_queue *queue,
+ 			    struct rx_queue_attribute *attribute, char *buf)
  {
-+	const size_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
- 	struct page_frag *alloc_frag = &rq->alloc_frag;
- 	char *buf;
-+	unsigned long ctx;
- 	int err;
- 	unsigned int len, hole;
+@@ -718,16 +709,20 @@ static struct rx_queue_attribute rps_cpus_attribute =
+ static struct rx_queue_attribute rps_dev_flow_table_cnt_attribute =
+ 	__ATTR(rps_flow_cnt, S_IRUGO | S_IWUSR,
+ 	    show_rps_dev_flow_table_cnt, store_rps_dev_flow_table_cnt);
++#endif /* CONFIG_RPS */
  
--	if (unlikely(!skb_page_frag_refill(MERGE_BUFFER_LEN, alloc_frag, gfp)))
-+	len = hdr_len + clamp_t(unsigned int, ewma_read(&rq->mrg_avg_pkt_len),
-+				GOOD_PACKET_LEN, PAGE_SIZE - hdr_len);
-+	len = ALIGN(len, MERGEABLE_BUFFER_ALIGN);
-+	if (unlikely(!skb_page_frag_refill(len, alloc_frag, gfp)))
+ static struct attribute *rx_queue_default_attrs[] = {
++#ifdef CONFIG_RPS
+ 	&rps_cpus_attribute.attr,
+ 	&rps_dev_flow_table_cnt_attribute.attr,
++#endif
+ 	NULL
+ };
+ 
+ static void rx_queue_release(struct kobject *kobj)
+ {
+ 	struct netdev_rx_queue *queue = to_rx_queue(kobj);
++#ifdef CONFIG_RPS
+ 	struct rps_map *map;
+ 	struct rps_dev_flow_table *flow_table;
+ 
+@@ -743,6 +738,7 @@ static void rx_queue_release(struct kobject *kobj)
+ 		RCU_INIT_POINTER(queue->rps_flow_table, NULL);
+ 		call_rcu(&flow_table->rcu, rps_dev_flow_table_release);
+ 	}
++#endif
+ 
+ 	memset(kobj, 0, sizeof(*kobj));
+ 	dev_put(queue->dev);
+@@ -767,21 +763,27 @@ static int rx_queue_add_kobject(struct net_device *net, int index)
+ 		kobject_put(kobj);
+ 		return error;
+ 	}
++	if (net->sysfs_rx_queue_group)
++		sysfs_create_group(kobj, net->sysfs_rx_queue_group);
+ 
+ 	kobject_uevent(kobj, KOBJ_ADD);
+ 	dev_hold(queue->dev);
+ 
+ 	return error;
+ }
+-#endif /* CONFIG_RPS */
++#endif /* CONFIG_SYFS */
+ 
+ int
+ net_rx_queue_update_kobjects(struct net_device *net, int old_num, int new_num)
+ {
+-#ifdef CONFIG_RPS
++#ifdef CONFIG_SYSFS
+ 	int i;
+ 	int error = 0;
+ 
++#ifndef CONFIG_RPS
++	if (!net->sysfs_rx_queue_group)
++		return 0;
++#endif
+ 	for (i = old_num; i < new_num; i++) {
+ 		error = rx_queue_add_kobject(net, i);
+ 		if (error) {
+@@ -1155,9 +1157,6 @@ static int register_queue_kobjects(struct net_device *net)
+ 	    NULL, &net->dev.kobj);
+ 	if (!net->queues_kset)
  		return -ENOMEM;
-+
- 	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
-+	ctx = mergeable_buf_to_ctx(buf, len);
- 	get_page(alloc_frag->page);
--	len = MERGE_BUFFER_LEN;
- 	alloc_frag->offset += len;
- 	hole = alloc_frag->size - alloc_frag->offset;
--	if (hole < MERGE_BUFFER_LEN) {
-+	if (hole < len) {
-+		/* To avoid internal fragmentation, if there is very likely not
-+		 * enough space for another buffer, add the remaining space to
-+		 * the current buffer. This extra space is not included in
-+		 * the truesize stored in ctx.
-+		 */
- 		len += hole;
- 		alloc_frag->offset += hole;
- 	}
+-#endif
+-
+-#ifdef CONFIG_RPS
+ 	real_rx = net->real_num_rx_queues;
+ #endif
+ 	real_tx = net->real_num_tx_queues;
+@@ -1184,7 +1183,7 @@ static void remove_queue_kobjects(struct net_device *net)
+ {
+ 	int real_rx = 0, real_tx = 0;
  
- 	sg_init_one(rq->sg, buf, len);
--	err = virtqueue_add_inbuf(rq->vq, rq->sg, 1, buf, gfp);
-+	err = virtqueue_add_inbuf(rq->vq, rq->sg, 1, (void *)ctx, gfp);
- 	if (err < 0)
- 		put_page(virt_to_head_page(buf));
- 
-@@ -1394,12 +1439,15 @@ static void free_unused_bufs(struct virtnet_info *vi)
- 		struct virtqueue *vq = vi->rq[i].vq;
- 
- 		while ((buf = virtqueue_detach_unused_buf(vq)) != NULL) {
--			if (vi->mergeable_rx_bufs)
--				put_page(virt_to_head_page(buf));
--			else if (vi->big_packets)
-+			if (vi->mergeable_rx_bufs) {
-+				unsigned long ctx = (unsigned long)buf;
-+				void *base = mergeable_ctx_to_buf_address(ctx);
-+				put_page(virt_to_head_page(base));
-+			} else if (vi->big_packets) {
- 				give_pages(&vi->rq[i], buf);
--			else
-+			} else {
- 				dev_kfree_skb(buf);
-+			}
- 			--vi->rq[i].num;
- 		}
- 		BUG_ON(vi->rq[i].num != 0);
-@@ -1509,6 +1557,7 @@ static int virtnet_alloc_queues(struct virtnet_info *vi)
- 			       napi_weight);
- 
- 		sg_init_table(vi->rq[i].sg, ARRAY_SIZE(vi->rq[i].sg));
-+		ewma_init(&vi->rq[i].mrg_avg_pkt_len, 1, RECEIVE_AVG_WEIGHT);
- 		sg_init_table(vi->sq[i].sg, ARRAY_SIZE(vi->sq[i].sg));
- 	}
- 
+-#ifdef CONFIG_RPS
++#ifdef CONFIG_SYSFS
+ 	real_rx = net->real_num_rx_queues;
+ #endif
+ 	real_tx = net->real_num_tx_queues;
 -- 
 1.8.5.2
