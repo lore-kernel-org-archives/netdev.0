@@ -1,94 +1,59 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next v4 1/2] dts: Add a binding for Synopsys emac
- max-frame-size
-Date: Thu, 16 Jan 2014 19:00:45 +0000
-Message-ID: <1389898845.11912.66.camel@bwh-desktop.uk.level5networks.com>
-References: <1389881155-9758-1-git-send-email-vbridgers2013@gmail.com>
-	 <1389881155-9758-2-git-send-email-vbridgers2013@gmail.com>
-	 <1389894601.11912.54.camel@bwh-desktop.uk.level5networks.com>
-	 <CAOwfj2N2p_B-Wq0DTzt76RAbqCu5O088wxWiLEvHCc0qusDq-g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <devicetree@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-	<robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, Kumar Gala <galak@codeaurora.org>,
-	Dinh Nguyen <dinguyen@altera.com>,
-	"Rayagond Kokatanur" <rayagond@vayavyalabs.com>
-To: Vince Bridgers <vbridgers2013@gmail.com>
+From: Scott Feldman <sfeldma@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/2] bonding: add sysfs /slave dir for bond slave devices.
+Date: Thu, 16 Jan 2014 11:00:25 -0800
+Message-ID: <CF899207-69CB-4D44-B820-8C2422315CD1@cumulusnetworks.com>
+References: <20140116055434.32220.89883.stgit@monster-03.cumulusnetworks.com> <20140116184441.GB24396@redhat.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.1 \(1827\))
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:27901 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750764AbaAPTAu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 14:00:50 -0500
-In-Reply-To: <CAOwfj2N2p_B-Wq0DTzt76RAbqCu5O088wxWiLEvHCc0qusDq-g@mail.gmail.com>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:48096 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751291AbaAPTB0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 14:01:26 -0500
+In-Reply-To: <20140116184441.GB24396@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-01-16 at 12:48 -0600, Vince Bridgers wrote:
-> On Thu, Jan 16, 2014 at 11:50 AM, Ben Hutchings
-> <bhutchings@solarflare.com> wrote:
-> > On Thu, 2014-01-16 at 08:05 -0600, Vince Bridgers wrote:
-> >> This change adds a parameter for the Synopsys 10/100/1000
-> >> stmmac Ethernet driver to configure the maximum frame
-> >> size supported by the EMAC driver. Synopsys allows the FIFO
-> >> sizes to be configured when the cores are built for a particular
-> >> device, but do not provide a way for the driver to read
-> >> information from the device about the maximum MTU size
-> >> supported as limited by the device's FIFO size.
-> >>
-> >> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
-> >> ---
-> >> V4: add comments to explain use of max-frame-size with respect
-> >>     to inconsistent definition and use in the ePAPR v1.1 spec
-> >
-> > Well, ePAPR does not seem to be consistent with itself. :-)
-> >
-> >> V3: change snps,max-frame-size to max-frame-size
-> >> V2: change snps,max-mtu to snps,max-frame-size
-> >> ---
-> >>  Documentation/devicetree/bindings/net/stmmac.txt |   13 ++++++++++++-
-> >>  1 file changed, 12 insertions(+), 1 deletion(-)
-> >>
-> >> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-> >> index eba0e5e..d553be2 100644
-> >> --- a/Documentation/devicetree/bindings/net/stmmac.txt
-> >> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
-> >> @@ -29,7 +29,17 @@ Required properties:
-> >>                               ignored if force_thresh_dma_mode is set.
-> >>
-> >>  Optional properties:
-> >> -- mac-address: 6 bytes, mac address
-> >> +- mac-address:               6 bytes, mac address
-> >> +- max-frame-size:    Maximum frame size permitted. This parameter is useful
-> >> +                     since different implementations of the Synopsys MAC may
-> >> +                     have different FIFO sizes depending on the selections
-> >> +                     made in Synopsys Core Consultant. Note that the usage
-> >> +                     is inconsistent with the definition in the ePAPR v1.1
-> >> +                     specification, as it defines max-frame-size inclusive
-> >> +                     of the MAC DA, SA, Ethertype and CRC while usage is
-> >> +                     consistent with the IEEE definition of MAC Client
-> >> +                     Data, which is sans the MAC DA, SA, Ethertype and
-> >> +                     CRC.
-> > [...]
-> >
-> > While this is very precise, I fear that it is now so verbose that it
-> > actually becomes confusing.  Can this not be condensed to 'the maximum
-> > MTU and MRU, rather than the maximum Ethernet frame size'?
-> >
-> > Ben.
-> 
-> Sure, I'll cut this down and resubmit as V5. How about
-> 
-> "The Maximum Transfer Unit (IEEE defined MTU), rather than the maximum
-> frame size."
+On Jan 16, 2014, at 10:44 AM, Veaceslav Falico <vfalico@redhat.com> wro=
+te:
 
-Sounds good.
+> On Wed, Jan 15, 2014 at 09:54:34PM -0800, Scott Feldman wrote:
+> ...snip...
+>> +	res =3D bond_sysfs_slave_add(new_slave);
+>> +	if (res) {
+>> +		pr_debug("Error %d calling bond_sysfs_slave_add\n", res);
+>> +		goto err_upper_unlink;
+>> +	}
+>> +
+>> 	bond->slave_cnt++;
+>> 	bond_compute_features(bond);
+>> 	bond_set_carrier(bond);
+>> @@ -1595,6 +1617,9 @@ int bond_enslave(struct net_device *bond_dev, =
+struct net_device *slave_dev)
+>> 	return 0;
+>>=20
+>> /* Undo stages on error */
+>> +err_upper_unlink:
+>> +	bond_upper_dev_unlink(bond_dev, slave_dev);
+>> +
+>> err_unregister:
+>> 	netdev_rx_handler_unregister(slave_dev);
+>>=20
+>=20
+> In case bond_sysfs_slave_add() creates the kobject, but fails to crea=
+te the
+> attributes, we'll end up with a mem leak, as we don't do kobject_put(=
+) on
+> it.
 
-Ben.
+I=92ll fix this and the other one Ding found and send v2.  Thanks for r=
+eviewing!
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+-scott
