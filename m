@@ -1,62 +1,59 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH v2 00/16] wl1251 patches from linux-n900 tree
-Date: Thu, 16 Jan 2014 15:29:45 -0500
-Message-ID: <20140116202945.GD10165@tuxdriver.com>
-References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
- <1386494714-21070-1-git-send-email-pali.rohar@gmail.com>
- <201312311047.30147@pali>
- <20140106200050.GG10885@tuxdriver.com>
- <20140116002121.GA3726@amd.pavel.ucw.cz>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH-next v3] netfilter: don't use module_init/exit in core
+ IPV4 code
+Date: Thu, 16 Jan 2014 20:32:44 +0000
+Message-ID: <20140116203244.GA21389@macbook.localnet>
+References: <20140116192613.GA23133@d2.synalogic.ca>
+ <1389903843-1633-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Luciano Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, freemangordon-uiMcrn6V0Vs@public.gmane.org,
-	aaro.koskinen-X3B1VOXEql0@public.gmane.org, sre-GFxCN5SEZAc@public.gmane.org, joni.lapilainen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Felipe Contreras <felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Benjamin Poirier <benjamin.poirier@gmail.com>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20140116002121.GA3726-tWAi6jLit6GreWDznjuHag@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1389903843-1633-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 16, 2014 at 01:21:21AM +0100, Pavel Machek wrote:
-> On Mon 2014-01-06 15:00:50, John W. Linville wrote:
-> > On Tue, Dec 31, 2013 at 10:47:29AM +0100, Pali Roh=E1r wrote:
-> > > On Sunday 08 December 2013 10:24:58 Pali Roh=E1r wrote:
-> > > > Hello, I'm sending wl1251 patches from linux-n900 tree [1] for
-> > > > comments. More patches come from David's monitor & packet
-> > > > injection work. Patches are tested with 3.12 rc5 kernel on
-> > > > Nokia N900.
-> > > >=20
-> > > > Second version contains new patch for fixing NULL pointer
-> > > > dereference which sometimes cause kernel panic and fixes code
-> > > > suggested by Pavel Machek.
-> > =20
-> > > So far, there are no new comments for patches 01, 03-13 and 16.=20
-> > > Are there any other problems with that patches or can be accepted=
-=20
-> > > for upstream?
-> > =20
-> > They are probably fine to merge now.  Of course, I was still deleti=
-ng
-> > wl12xx patches when they were originally posted, so I'll need someo=
-ne
-> > to resend the patches to me...
->=20
-> Ping? Did they get merged? Did you receive the patches?
+On Thu, Jan 16, 2014 at 03:24:03PM -0500, Paul Gortmaker wrote:
+> The file net/ipv4/netfilter.o is created based on whether
+> CONFIG_NETFILTER is set.  However that is defined as a bool, and
+> hence this file with the core netfilter hooks will never be
+> modular.  So using module_init as an alias for __initcall can be
+> somewhat misleading.
+> 
+> Fix this up now, so that we can relocate module_init from
+> init.h into module.h in the future.  If we don't do this, we'd
+> have to add module.h to obviously non-modular code, and that
+> would be a worse thing.  Also add an inclusion of init.h, as
+> that was previously implicit here in the netfilter.c file.
+> 
+> Note that direct use of __initcall is discouraged, vs. one
+> of the priority categorized subgroups.  As __initcall gets
+> mapped onto device_initcall, our use of subsys_initcall (which
+> seems to make sense for netfilter code) will thus change this
+> registration from level 6-device to level 4-subsys (i.e. slightly
+> earlier).  However no observable impact of that small difference
+> has been observed during testing, or is expected. (i.e. the
+> location of the netfilter messages in dmesg remains unchanged
+> with respect to all the other surrounding messages.)
+> 
+> As for the module_exit, rather than replace it with __exitcall,
+> we simply remove it, since it appears only UML does anything
+> with those, and even for UML, there is no relevant cleanup
+> to be done here.
 
-They are already available in wireless-next.
+Just to bring up the idea: there's no reason why we couldn't make
+netfilter fully modular for individual AFs. I've seen quite a lot
+of embedded systems that include the IPv6 netfilter core without
+using it.
 
---=20
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Its rather complicated to get all the dependencies of xtables
+modules right though, so this is really just to bring up the
+idea.
+
+Your patch looks fine to me.
