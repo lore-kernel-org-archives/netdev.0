@@ -1,97 +1,71 @@
-From: Rob Herring <robherring2@gmail.com>
-Subject: Re: [PATCH net-next v4 1/2] dts: Add a binding for Synopsys emac max-frame-size
-Date: Thu, 16 Jan 2014 13:29:18 -0600
-Message-ID: <CAL_Jsq+81QtmC9dtKRU1b427Y0OjhyxZZ1gZbsvk9WWutM4TVQ@mail.gmail.com>
-References: <1389881155-9758-1-git-send-email-vbridgers2013@gmail.com>
-	<1389881155-9758-2-git-send-email-vbridgers2013@gmail.com>
-	<1389894601.11912.54.camel@bwh-desktop.uk.level5networks.com>
-	<CAOwfj2N2p_B-Wq0DTzt76RAbqCu5O088wxWiLEvHCc0qusDq-g@mail.gmail.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH net-next 2/2] r6040: use ETH_ZLEN instead of MISR for SKB
+ length checking
+Date: Thu, 16 Jan 2014 11:30:01 -0800
+Message-ID: <CAGVrzcbNVWqK1a766iSQfaGwSfH10a0ftdDZwDGogE17M2N++w@mail.gmail.com>
+References: <1389819866-32142-1-git-send-email-florian@openwrt.org>
+ <1389819866-32142-3-git-send-email-florian@openwrt.org> <1389857001.19462.33.camel@deadeye.wl.decadent.org.uk>
+ <063D6719AE5E284EB5DD2968C1650D6D45D812@AcuExch.aculab.com> <1389893604.11912.47.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Dinh Nguyen <dinguyen@altera.com>,
-	Rayagond Kokatanur <rayagond@vayavyalabs.com>
-To: Vince Bridgers <vbridgers2013@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Laight <David.Laight@aculab.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:51674 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751274AbaAPT3T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 14:29:19 -0500
-In-Reply-To: <CAOwfj2N2p_B-Wq0DTzt76RAbqCu5O088wxWiLEvHCc0qusDq-g@mail.gmail.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:47118 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751361AbaAPTan (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 14:30:43 -0500
+Received: by mail-pa0-f50.google.com with SMTP id kp14so3072076pab.23
+        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 11:30:41 -0800 (PST)
+In-Reply-To: <1389893604.11912.47.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 16, 2014 at 12:48 PM, Vince Bridgers
-<vbridgers2013@gmail.com> wrote:
-> On Thu, Jan 16, 2014 at 11:50 AM, Ben Hutchings
-> <bhutchings@solarflare.com> wrote:
->> On Thu, 2014-01-16 at 08:05 -0600, Vince Bridgers wrote:
->>> This change adds a parameter for the Synopsys 10/100/1000
->>> stmmac Ethernet driver to configure the maximum frame
->>> size supported by the EMAC driver. Synopsys allows the FIFO
->>> sizes to be configured when the cores are built for a particular
->>> device, but do not provide a way for the driver to read
->>> information from the device about the maximum MTU size
->>> supported as limited by the device's FIFO size.
->>>
->>> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
->>> ---
->>> V4: add comments to explain use of max-frame-size with respect
->>>     to inconsistent definition and use in the ePAPR v1.1 spec
+2014/1/16 Ben Hutchings <bhutchings@solarflare.com>:
+> On Thu, 2014-01-16 at 09:10 +0000, David Laight wrote:
+>> From: Ben Hutchings
+>> > On Wed, 2014-01-15 at 13:04 -0800, Florian Fainelli wrote:
+>> > > Ever since this driver was merged the following code was included:
+>> ...
+>> > > - if (skb->len < MISR)
+>> > > -         descptr->len = MISR;
+>> > > + if (skb->len < ETH_ZLEN)
+>> > > +         descptr->len = ETH_ZLEN;
+>> >
+>> > It looks like this is just increasing the TX descriptor length so the
+>> > packet is tail-padded with whatever happens to come next in the skb.
+>> > This is absolutely incorrect behaviour and may leak sensitive
+>> > information.
 >>
->> Well, ePAPR does not seem to be consistent with itself. :-)
->>
->>> V3: change snps,max-frame-size to max-frame-size
->>> V2: change snps,max-mtu to snps,max-frame-size
->>> ---
->>>  Documentation/devicetree/bindings/net/stmmac.txt |   13 ++++++++++++-
->>>  1 file changed, 12 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
->>> index eba0e5e..d553be2 100644
->>> --- a/Documentation/devicetree/bindings/net/stmmac.txt
->>> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
->>> @@ -29,7 +29,17 @@ Required properties:
->>>                               ignored if force_thresh_dma_mode is set.
->>>
->>>  Optional properties:
->>> -- mac-address: 6 bytes, mac address
->>> +- mac-address:               6 bytes, mac address
->>> +- max-frame-size:    Maximum frame size permitted. This parameter is useful
->>> +                     since different implementations of the Synopsys MAC may
->>> +                     have different FIFO sizes depending on the selections
->>> +                     made in Synopsys Core Consultant. Note that the usage
->>> +                     is inconsistent with the definition in the ePAPR v1.1
->>> +                     specification, as it defines max-frame-size inclusive
->>> +                     of the MAC DA, SA, Ethertype and CRC while usage is
->>> +                     consistent with the IEEE definition of MAC Client
->>> +                     Data, which is sans the MAC DA, SA, Ethertype and
->>> +                     CRC.
->> [...]
->>
->> While this is very precise, I fear that it is now so verbose that it
->> actually becomes confusing.  Can this not be condensed to 'the maximum
->> MTU and MRU, rather than the maximum Ethernet frame size'?
->>
->> Ben.
+>> And possibly page fault if the data is right at the end of a page.
 >
-> Sure, I'll cut this down and resubmit as V5. How about
+> If the CPU was accessing it, it would be fine as the skb linear area
+> ends with struct skb_shared_info.  (sfc actually takes advantage of that
+> in efx_enqueue_skb_pio() which can add padding (*not* transmitted) to
+> ensure that the CPU does write-combining.)
 >
-> "The Maximum Transfer Unit (IEEE defined MTU), rather than the maximum
-> frame size."
+> But the NIC, if it's connected through an IOMMU, might get a page fault
+> due to the incorrect length of the DMA mapping.
+>
+>> > Presumably it is necessary to pad the frame because the MAC is too lame
+>> > to do it, and the correct way to do that is using skb_padto(skb,
+>> > ETH_ZLEN).  But this may fail as it might have to allocate memory
+>>
+>> Alternatively use two ring entries with the 'more' bit set on
+>> the first one and transmit the padding from a permanently allocated
+>> and dma-mapped block of zeros.
+>> Assuming the hardware support SG transmit and doesn't have a
+>> constraint on the length of the first fragment.
+>
+> Do you see NETIF_F_SG in this driver?
 
-If you are not following the ePAPR definition, then call the property
-something else rather than relying on the documentation to explain the
-different meaning. Why can't the driver adjust the size from the ePAPR
-definition? Otherwise, I would go back to the v2 name of
-"snps,max-mtu".
+No this driver does not it, your fix padding the SKB to max(skb->len,
+ETH_ZLEN) looks good to me. Could you submit these as two separate
+patches?
 
-Rob
+Thanks!
+-- 
+Florian
