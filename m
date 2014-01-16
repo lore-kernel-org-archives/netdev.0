@@ -1,67 +1,94 @@
-From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH v6 0/4] Add ethernet support for r7s72100
-Date: Thu, 16 Jan 2014 11:34:12 +0900
-Message-ID: <1389839656-10932-1-git-send-email-horms+renesas@verge.net.au>
-Cc: linux-arm-kernel@lists.infradead.org,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Joe Perches <joe@perches.com>,
-	Simon Horman <horms+renesas@verge.net.au>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
+From: Zhi Yong Wu <zwu.kernel@gmail.com>
+Subject: Re: [RFC PATCH net-next 2/3] virtio_net: Introduce one dummy function virtnet_filter_rfs()
+Date: Thu, 16 Jan 2014 10:45:28 +0800
+Message-ID: <CAEH94Lj7VGamzKCKyxWviRO2P7Hmz=DZWgqaoQCUYzYUWy=9aw@mail.gmail.com>
+References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
+	<1389795654-28381-3-git-send-email-zwu.kernel@gmail.com>
+	<CA+mtBx8Z80d5Y1ti0_68UA-x0hZPeqT4wa9knevWoPxX+eyaVA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:56996 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752886AbaAPCeU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 21:34:20 -0500
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:44633 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751401AbaAPCp2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 21:45:28 -0500
+Received: by mail-ob0-f175.google.com with SMTP id uz6so2109361obc.20
+        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 18:45:28 -0800 (PST)
+In-Reply-To: <CA+mtBx8Z80d5Y1ti0_68UA-x0hZPeqT4wa9knevWoPxX+eyaVA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, Jan 16, 2014 at 1:54 AM, Tom Herbert <therbert@google.com> wrote:
+> Zhi, this is promising work! I can't wait to see how this impacts
+"Zhi" is part of my first name, you call me "Zhi Yong".
+> network virtualization performance :-)
+heh, too much work is missing.
+>
+> On Wed, Jan 15, 2014 at 6:20 AM, Zhi Yong Wu <zwu.kernel@gmail.com> wrote:
+>> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+>>
+>> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+>> ---
+>>  drivers/net/virtio_net.c |   11 +++++++++++
+>>  1 files changed, 11 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>> index 7b17240..046421c 100644
+>> --- a/drivers/net/virtio_net.c
+>> +++ b/drivers/net/virtio_net.c
+>> @@ -1295,6 +1295,14 @@ static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
+>>         return 0;
+>>  }
+>>
+>> +#ifdef CONFIG_RFS_ACCEL
+>> +static int virtnet_filter_rfs(struct net_device *net_dev,
+>> +               const struct sk_buff *skb, u16 rxq_index, u32 flow_id)
+>> +{
+> Does this need to be filled out with more stuff?
+Yes, the following stuff are missing:
+1.)  guest virtio_net driver should have one filter table and its
+entries can be expired periodically;
+2.)  guest virtio_net driver should pass rx queue index and filter
+info down to the emulated virtio_net NIC in QEMU.
+3.) the emulated virtio_net NIC should have its indirect table to
+store the flow to rx queue mapping.
+4.) the emulated virtio_net NIC should classify the rx packet to
+selected queue by applying the filter.
+5.) update virtio spec.
+Do i miss anything? If yes, please correct me.
+For 3.) and 4.), do you have any doc about how they are implemented in
+physical NICs? e.g. mlx4_en or sfc, etc.
 
-this series adds ethernet support to sh-pfc for the r7s72100 SoC.
+>
+>> +       return 0;
+>> +}
+>> +#endif /* CONFIG_RFS_ACCEL */
+>> +
+>>  static const struct net_device_ops virtnet_netdev = {
+>>         .ndo_open            = virtnet_open,
+>>         .ndo_stop            = virtnet_close,
+>> @@ -1309,6 +1317,9 @@ static const struct net_device_ops virtnet_netdev = {
+>>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>>         .ndo_poll_controller = virtnet_netpoll,
+>>  #endif
+>> +#ifdef CONFIG_RFS_ACCEL
+>> +       .ndo_rx_flow_steer   = virtnet_filter_rfs,
+>> +#endif
+>>  };
+>>
+>>  static void virtnet_config_changed_work(struct work_struct *work)
+>> --
+>> 1.7.6.5
+>>
 
-This series is based on a merge of:
-* The topic/r7s72100-v3.13-rc8-20140115 tag in my renesas tree
-* net-next
-  - Head revision: 08c93cd99b2f31ba9
-    ("Merge branch 'for-davem' of git://gitorious.org/linux-can/linux-can-next")
 
-The first two patches, targeted at net-next, also applies cleanly there.
-
-Changes since v5
-* Address feedback from Joe Perches and Sergei Shtylyov as detailed
-  in the changelogs of:
-  - sh_eth: Use bool as return type of sh_eth_is_gether()
-  - sh_eth: Add support for r7s72100
-
-Changes since v4
-* Addressed feedback from Sergei Shtylyov as detailed in the changelog
-  of "sh_eth: Add support for r7s72100"
-* Rebase
-
-Changes since v3
-* Use bool as return type of sh_eth_is_gether()
-  and sh_eth_is_rz_fast_ether()
-* Correct coding style in sh_eth_get_stats()
-
-Changes since v2
-* Trivial rebase
-* Dropped "RFC" from subject
-
-Changes since v1 are noted in the changelog of each patch.
-
-Simon Horman (4):
-  sh_eth: Use bool as return type of sh_eth_is_gether()
-  sh_eth: Add support for r7s72100
-  ARM: shmobile: r7s72100: Add clock for r7s72100-ether
-  ARM: shmobile: genmai: Enable r7s72100-ether
-
- arch/arm/mach-shmobile/board-genmai.c   |  21 +++++
- arch/arm/mach-shmobile/clock-r7s72100.c |   4 +
- drivers/net/ethernet/renesas/sh_eth.c   | 131 +++++++++++++++++++++++++++++---
- drivers/net/ethernet/renesas/sh_eth.h   |   3 +-
- 4 files changed, 146 insertions(+), 13 deletions(-)
 
 -- 
-1.8.4
+Regards,
+
+Zhi Yong Wu
