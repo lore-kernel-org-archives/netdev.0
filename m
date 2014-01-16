@@ -1,452 +1,88 @@
-From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 5/6] ixgbevf: create function for all of ring init
-Date: Thu, 16 Jan 2014 02:30:09 -0800
-Message-ID: <1389868210-24035-6-git-send-email-aaron.f.brown@intel.com>
-References: <1389868210-24035-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Aaron Brown <aaron.f.brown@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:34053 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752384AbaAPKag (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jan 2014 05:30:36 -0500
-In-Reply-To: <1389868210-24035-1-git-send-email-aaron.f.brown@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: <srinivas.kandagatla@st.com>
+Subject: [PATCH v2 0/9] net: stmmac PM related fixes.
+Date: Thu, 16 Jan 2014 10:48:41 +0000
+Message-ID: <1389869321-27411-1-git-send-email-srinivas.kandagatla@st.com>
+References: <1384774256-10039-1-git-send-email-srinivas.kandagatla@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+	<linux-kernel@vger.kernel.org>, <srinivas.kandagatla@st.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1384774256-10039-1-git-send-email-srinivas.kandagatla@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-This patch creates new functions for ring initialization,
-ixgbevf_configure_tx_ring() and ixgbevf_configure_rx_ring(). The work done
-in these function previously was spread between several other functions and
-this change should hopefully lead to greater readability and make the code
-more like ixgbe.  This patch also moves the placement of some older functions
-to avoid having to write prototypes.  It also promotes a couple of debug
-messages to errors.
+Hi Peppe/Dave,
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
----
- drivers/net/ethernet/intel/ixgbevf/defines.h      |  17 ++
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 303 ++++++++++++----------
- 2 files changed, 183 insertions(+), 137 deletions(-)
+During PM_SUSPEND_FREEZE testing, I have noticed that PM support in STMMAC is
+partly broken. I had to re-arrange the code to do PM correctly. There were lot
+of things I did not like personally and some bits did not work in the first
+place. I thought this is the nice opportunity to clean the mess up.
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/defines.h b/drivers/net/ethernet/intel/ixgbevf/defines.h
-index 3147795..5426b2d 100644
---- a/drivers/net/ethernet/intel/ixgbevf/defines.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/defines.h
-@@ -277,4 +277,21 @@ struct ixgbe_adv_tx_context_desc {
- #define IXGBE_ERR_RESET_FAILED                  -2
- #define IXGBE_ERR_INVALID_ARGUMENT              -3
- 
-+/* Transmit Config masks */
-+#define IXGBE_TXDCTL_ENABLE		0x02000000 /* Ena specific Tx Queue */
-+#define IXGBE_TXDCTL_SWFLSH		0x04000000 /* Tx Desc. wr-bk flushing */
-+#define IXGBE_TXDCTL_WTHRESH_SHIFT	16	   /* shift to WTHRESH bits */
-+
-+#define IXGBE_DCA_RXCTRL_DESC_DCA_EN	(1 << 5)  /* Rx Desc enable */
-+#define IXGBE_DCA_RXCTRL_HEAD_DCA_EN	(1 << 6)  /* Rx Desc header ena */
-+#define IXGBE_DCA_RXCTRL_DATA_DCA_EN	(1 << 7)  /* Rx Desc payload ena */
-+#define IXGBE_DCA_RXCTRL_DESC_RRO_EN	(1 << 9)  /* Rx rd Desc Relax Order */
-+#define IXGBE_DCA_RXCTRL_DATA_WRO_EN	(1 << 13) /* Rx wr data Relax Order */
-+#define IXGBE_DCA_RXCTRL_HEAD_WRO_EN	(1 << 15) /* Rx wr header RO */
-+
-+#define IXGBE_DCA_TXCTRL_DESC_DCA_EN	(1 << 5)  /* DCA Tx Desc enable */
-+#define IXGBE_DCA_TXCTRL_DESC_RRO_EN	(1 << 9)  /* Tx rd Desc Relax Order */
-+#define IXGBE_DCA_TXCTRL_DESC_WRO_EN	(1 << 11) /* Tx Desc writeback RO bit */
-+#define IXGBE_DCA_TXCTRL_DATA_RRO_EN	(1 << 13) /* Tx rd data Relax Order */
-+
- #endif /* _IXGBEVF_DEFINES_H_ */
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 202fc47..6cf4120 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -1087,6 +1087,70 @@ static inline void ixgbevf_irq_enable(struct ixgbevf_adapter *adapter)
- }
- 
- /**
-+ * ixgbevf_configure_tx_ring - Configure 82599 VF Tx ring after Reset
-+ * @adapter: board private structure
-+ * @ring: structure containing ring specific data
-+ *
-+ * Configure the Tx descriptor ring after a reset.
-+ **/
-+static void ixgbevf_configure_tx_ring(struct ixgbevf_adapter *adapter,
-+				      struct ixgbevf_ring *ring)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u64 tdba = ring->dma;
-+	int wait_loop = 10;
-+	u32 txdctl = IXGBE_TXDCTL_ENABLE;
-+	u8 reg_idx = ring->reg_idx;
-+
-+	/* disable queue to avoid issues while updating state */
-+	IXGBE_WRITE_REG(hw, IXGBE_VFTXDCTL(reg_idx), IXGBE_TXDCTL_SWFLSH);
-+	IXGBE_WRITE_FLUSH(hw);
-+
-+	IXGBE_WRITE_REG(hw, IXGBE_VFTDBAL(reg_idx), tdba & DMA_BIT_MASK(32));
-+	IXGBE_WRITE_REG(hw, IXGBE_VFTDBAH(reg_idx), tdba >> 32);
-+	IXGBE_WRITE_REG(hw, IXGBE_VFTDLEN(reg_idx),
-+			ring->count * sizeof(union ixgbe_adv_tx_desc));
-+
-+	/* disable head writeback */
-+	IXGBE_WRITE_REG(hw, IXGBE_VFTDWBAH(reg_idx), 0);
-+	IXGBE_WRITE_REG(hw, IXGBE_VFTDWBAL(reg_idx), 0);
-+
-+	/* enable relaxed ordering */
-+	IXGBE_WRITE_REG(hw, IXGBE_VFDCA_TXCTRL(reg_idx),
-+			(IXGBE_DCA_TXCTRL_DESC_RRO_EN |
-+			 IXGBE_DCA_TXCTRL_DATA_RRO_EN));
-+
-+	/* reset head and tail pointers */
-+	IXGBE_WRITE_REG(hw, IXGBE_VFTDH(reg_idx), 0);
-+	IXGBE_WRITE_REG(hw, IXGBE_VFTDT(reg_idx), 0);
-+	ring->tail = hw->hw_addr + IXGBE_VFTDT(reg_idx);
-+
-+	/* reset ntu and ntc to place SW in sync with hardwdare */
-+	ring->next_to_clean = 0;
-+	ring->next_to_use = 0;
-+
-+	/* In order to avoid issues WTHRESH + PTHRESH should always be equal
-+	 * to or less than the number of on chip descriptors, which is
-+	 * currently 40.
-+	 */
-+	txdctl |= (8 << 16);    /* WTHRESH = 8 */
-+
-+	/* Setting PTHRESH to 32 both improves performance */
-+	txdctl |= (1 << 8) |    /* HTHRESH = 1 */
-+		  32;          /* PTHRESH = 32 */
-+
-+	IXGBE_WRITE_REG(hw, IXGBE_VFTXDCTL(reg_idx), txdctl);
-+
-+	/* poll to verify queue is enabled */
-+	do {
-+		usleep_range(1000, 2000);
-+		txdctl = IXGBE_READ_REG(hw, IXGBE_VFTXDCTL(reg_idx));
-+	}  while (--wait_loop && !(txdctl & IXGBE_TXDCTL_ENABLE));
-+	if (!wait_loop)
-+		pr_err("Could not enable Tx Queue %d\n", reg_idx);
-+}
-+
-+/**
-  * ixgbevf_configure_tx - Configure 82599 VF Transmit Unit after Reset
-  * @adapter: board private structure
-  *
-@@ -1094,32 +1158,11 @@ static inline void ixgbevf_irq_enable(struct ixgbevf_adapter *adapter)
-  **/
- static void ixgbevf_configure_tx(struct ixgbevf_adapter *adapter)
- {
--	u64 tdba;
--	struct ixgbe_hw *hw = &adapter->hw;
--	u32 i, j, tdlen, txctrl;
-+	u32 i;
- 
- 	/* Setup the HW Tx Head and Tail descriptor pointers */
--	for (i = 0; i < adapter->num_tx_queues; i++) {
--		struct ixgbevf_ring *ring = adapter->tx_ring[i];
--		j = ring->reg_idx;
--		tdba = ring->dma;
--		tdlen = ring->count * sizeof(union ixgbe_adv_tx_desc);
--		IXGBE_WRITE_REG(hw, IXGBE_VFTDBAL(j),
--				(tdba & DMA_BIT_MASK(32)));
--		IXGBE_WRITE_REG(hw, IXGBE_VFTDBAH(j), (tdba >> 32));
--		IXGBE_WRITE_REG(hw, IXGBE_VFTDLEN(j), tdlen);
--		IXGBE_WRITE_REG(hw, IXGBE_VFTDH(j), 0);
--		IXGBE_WRITE_REG(hw, IXGBE_VFTDT(j), 0);
--		ring->tail = hw->hw_addr + IXGBE_VFTDT(j);
--		ring->next_to_clean = 0;
--		ring->next_to_use = 0;
--		/* Disable Tx Head Writeback RO bit, since this hoses
--		 * bookkeeping if things aren't delivered in order.
--		 */
--		txctrl = IXGBE_READ_REG(hw, IXGBE_VFDCA_TXCTRL(j));
--		txctrl &= ~IXGBE_DCA_TXCTRL_TX_WB_RO_EN;
--		IXGBE_WRITE_REG(hw, IXGBE_VFDCA_TXCTRL(j), txctrl);
--	}
-+	for (i = 0; i < adapter->num_tx_queues; i++)
-+		ixgbevf_configure_tx_ring(adapter, adapter->tx_ring[i]);
- }
- 
- #define IXGBE_SRRCTL_BSIZEHDRSIZE_SHIFT	2
-@@ -1191,6 +1234,92 @@ static void ixgbevf_set_rx_buffer_len(struct ixgbevf_adapter *adapter)
- 		adapter->rx_ring[i]->rx_buf_len = rx_buf_len;
- }
- 
-+#define IXGBEVF_MAX_RX_DESC_POLL 10
-+static void ixgbevf_disable_rx_queue(struct ixgbevf_adapter *adapter,
-+				     struct ixgbevf_ring *ring)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	int wait_loop = IXGBEVF_MAX_RX_DESC_POLL;
-+	u32 rxdctl;
-+	u8 reg_idx = ring->reg_idx;
-+
-+	rxdctl = IXGBE_READ_REG(hw, IXGBE_VFRXDCTL(reg_idx));
-+	rxdctl &= ~IXGBE_RXDCTL_ENABLE;
-+
-+	/* write value back with RXDCTL.ENABLE bit cleared */
-+	IXGBE_WRITE_REG(hw, IXGBE_VFRXDCTL(reg_idx), rxdctl);
-+
-+	/* the hardware may take up to 100us to really disable the rx queue */
-+	do {
-+		udelay(10);
-+		rxdctl = IXGBE_READ_REG(hw, IXGBE_VFRXDCTL(reg_idx));
-+	} while (--wait_loop && (rxdctl & IXGBE_RXDCTL_ENABLE));
-+
-+	if (!wait_loop)
-+		pr_err("RXDCTL.ENABLE queue %d not cleared while polling\n",
-+		       reg_idx);
-+}
-+
-+static void ixgbevf_rx_desc_queue_enable(struct ixgbevf_adapter *adapter,
-+					 struct ixgbevf_ring *ring)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	int wait_loop = IXGBEVF_MAX_RX_DESC_POLL;
-+	u32 rxdctl;
-+	u8 reg_idx = ring->reg_idx;
-+
-+	do {
-+		usleep_range(1000, 2000);
-+		rxdctl = IXGBE_READ_REG(hw, IXGBE_VFRXDCTL(reg_idx));
-+	} while (--wait_loop && !(rxdctl & IXGBE_RXDCTL_ENABLE));
-+
-+	if (!wait_loop)
-+		pr_err("RXDCTL.ENABLE queue %d not set while polling\n",
-+		       reg_idx);
-+}
-+
-+static void ixgbevf_configure_rx_ring(struct ixgbevf_adapter *adapter,
-+				      struct ixgbevf_ring *ring)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u64 rdba = ring->dma;
-+	u32 rxdctl;
-+	u8 reg_idx = ring->reg_idx;
-+
-+	/* disable queue to avoid issues while updating state */
-+	rxdctl = IXGBE_READ_REG(hw, IXGBE_VFRXDCTL(reg_idx));
-+	ixgbevf_disable_rx_queue(adapter, ring);
-+
-+	IXGBE_WRITE_REG(hw, IXGBE_VFRDBAL(reg_idx), rdba & DMA_BIT_MASK(32));
-+	IXGBE_WRITE_REG(hw, IXGBE_VFRDBAH(reg_idx), rdba >> 32);
-+	IXGBE_WRITE_REG(hw, IXGBE_VFRDLEN(reg_idx),
-+			ring->count * sizeof(union ixgbe_adv_rx_desc));
-+
-+	/* enable relaxed ordering */
-+	IXGBE_WRITE_REG(hw, IXGBE_VFDCA_RXCTRL(reg_idx),
-+			IXGBE_DCA_RXCTRL_DESC_RRO_EN);
-+
-+	/* reset head and tail pointers */
-+	IXGBE_WRITE_REG(hw, IXGBE_VFRDH(reg_idx), 0);
-+	IXGBE_WRITE_REG(hw, IXGBE_VFRDT(reg_idx), 0);
-+	ring->tail = hw->hw_addr + IXGBE_VFRDT(reg_idx);
-+
-+	/* reset ntu and ntc to place SW in sync with hardwdare */
-+	ring->next_to_clean = 0;
-+	ring->next_to_use = 0;
-+
-+	ixgbevf_configure_srrctl(adapter, reg_idx);
-+
-+	/* prevent DMA from exceeding buffer space available */
-+	rxdctl &= ~IXGBE_RXDCTL_RLPMLMASK;
-+	rxdctl |= ring->rx_buf_len | IXGBE_RXDCTL_RLPML_EN;
-+	rxdctl |= IXGBE_RXDCTL_ENABLE | IXGBE_RXDCTL_VME;
-+	IXGBE_WRITE_REG(hw, IXGBE_VFRXDCTL(reg_idx), rxdctl);
-+
-+	ixgbevf_rx_desc_queue_enable(adapter, ring);
-+	ixgbevf_alloc_rx_buffers(adapter, ring, ixgbevf_desc_unused(ring));
-+}
-+
- /**
-  * ixgbevf_configure_rx - Configure 82599 VF Receive Unit after Reset
-  * @adapter: board private structure
-@@ -1199,10 +1328,7 @@ static void ixgbevf_set_rx_buffer_len(struct ixgbevf_adapter *adapter)
-  **/
- static void ixgbevf_configure_rx(struct ixgbevf_adapter *adapter)
- {
--	u64 rdba;
--	struct ixgbe_hw *hw = &adapter->hw;
--	int i, j;
--	u32 rdlen;
-+	int i;
- 
- 	ixgbevf_setup_psrtype(adapter);
- 
-@@ -1211,23 +1337,8 @@ static void ixgbevf_configure_rx(struct ixgbevf_adapter *adapter)
- 
- 	/* Setup the HW Rx Head and Tail Descriptor Pointers and
- 	 * the Base and Length of the Rx Descriptor Ring */
--	for (i = 0; i < adapter->num_rx_queues; i++) {
--		struct ixgbevf_ring *ring = adapter->rx_ring[i];
--		rdba = ring->dma;
--		j = ring->reg_idx;
--		rdlen = ring->count * sizeof(union ixgbe_adv_rx_desc);
--		IXGBE_WRITE_REG(hw, IXGBE_VFRDBAL(j),
--				(rdba & DMA_BIT_MASK(32)));
--		IXGBE_WRITE_REG(hw, IXGBE_VFRDBAH(j), (rdba >> 32));
--		IXGBE_WRITE_REG(hw, IXGBE_VFRDLEN(j), rdlen);
--		IXGBE_WRITE_REG(hw, IXGBE_VFRDH(j), 0);
--		IXGBE_WRITE_REG(hw, IXGBE_VFRDT(j), 0);
--		ring->tail = hw->hw_addr + IXGBE_VFRDT(j);
--		ring->next_to_clean = 0;
--		ring->next_to_use = 0;
--
--		ixgbevf_configure_srrctl(adapter, j);
--	}
-+	for (i = 0; i < adapter->num_rx_queues; i++)
-+		ixgbevf_configure_rx_ring(adapter, adapter->rx_ring[i]);
- }
- 
- static int ixgbevf_vlan_rx_add_vid(struct net_device *netdev,
-@@ -1409,68 +1520,14 @@ static int ixgbevf_configure_dcb(struct ixgbevf_adapter *adapter)
- 
- static void ixgbevf_configure(struct ixgbevf_adapter *adapter)
- {
--	struct net_device *netdev = adapter->netdev;
--	int i;
--
- 	ixgbevf_configure_dcb(adapter);
- 
--	ixgbevf_set_rx_mode(netdev);
-+	ixgbevf_set_rx_mode(adapter->netdev);
- 
- 	ixgbevf_restore_vlan(adapter);
- 
- 	ixgbevf_configure_tx(adapter);
- 	ixgbevf_configure_rx(adapter);
--	for (i = 0; i < adapter->num_rx_queues; i++) {
--		struct ixgbevf_ring *ring = adapter->rx_ring[i];
--		ixgbevf_alloc_rx_buffers(adapter, ring,
--					 ixgbevf_desc_unused(ring));
--	}
--}
--
--#define IXGBEVF_MAX_RX_DESC_POLL 10
--static void ixgbevf_rx_desc_queue_enable(struct ixgbevf_adapter *adapter,
--					 struct ixgbevf_ring *ring)
--{
--	struct ixgbe_hw *hw = &adapter->hw;
--	int wait_loop = IXGBEVF_MAX_RX_DESC_POLL;
--	u32 rxdctl;
--	u8 reg_idx = ring->reg_idx;
--
--	do {
--		usleep_range(1000, 2000);
--		rxdctl = IXGBE_READ_REG(hw, IXGBE_VFRXDCTL(reg_idx));
--	} while (--wait_loop && !(rxdctl & IXGBE_RXDCTL_ENABLE));
--
--	if (!wait_loop)
--		hw_dbg(hw, "RXDCTL.ENABLE queue %d not set while polling\n",
--		       reg_idx);
--
--	ixgbevf_release_rx_desc(ring, ring->count - 1);
--}
--
--static void ixgbevf_disable_rx_queue(struct ixgbevf_adapter *adapter,
--				     struct ixgbevf_ring *ring)
--{
--	struct ixgbe_hw *hw = &adapter->hw;
--	int wait_loop = IXGBEVF_MAX_RX_DESC_POLL;
--	u32 rxdctl;
--	u8 reg_idx = ring->reg_idx;
--
--	rxdctl = IXGBE_READ_REG(hw, IXGBE_VFRXDCTL(reg_idx));
--	rxdctl &= ~IXGBE_RXDCTL_ENABLE;
--
--	/* write value back with RXDCTL.ENABLE bit cleared */
--	IXGBE_WRITE_REG(hw, IXGBE_VFRXDCTL(reg_idx), rxdctl);
--
--	/* the hardware may take up to 100us to really disable the rx queue */
--	do {
--		udelay(10);
--		rxdctl = IXGBE_READ_REG(hw, IXGBE_VFRXDCTL(reg_idx));
--	} while (--wait_loop && (rxdctl & IXGBE_RXDCTL_ENABLE));
--
--	if (!wait_loop)
--		hw_dbg(hw, "RXDCTL.ENABLE queue %d not cleared while polling\n",
--		       reg_idx);
- }
- 
- static void ixgbevf_save_reset_stats(struct ixgbevf_adapter *adapter)
-@@ -1535,37 +1592,6 @@ static void ixgbevf_up_complete(struct ixgbevf_adapter *adapter)
- {
- 	struct net_device *netdev = adapter->netdev;
- 	struct ixgbe_hw *hw = &adapter->hw;
--	int i, j = 0;
--	int num_rx_rings = adapter->num_rx_queues;
--	u32 txdctl, rxdctl;
--
--	for (i = 0; i < adapter->num_tx_queues; i++) {
--		j = adapter->tx_ring[i]->reg_idx;
--		txdctl = IXGBE_READ_REG(hw, IXGBE_VFTXDCTL(j));
--		/* enable WTHRESH=8 descriptors, to encourage burst writeback */
--		txdctl |= (8 << 16);
--		IXGBE_WRITE_REG(hw, IXGBE_VFTXDCTL(j), txdctl);
--	}
--
--	for (i = 0; i < adapter->num_tx_queues; i++) {
--		j = adapter->tx_ring[i]->reg_idx;
--		txdctl = IXGBE_READ_REG(hw, IXGBE_VFTXDCTL(j));
--		txdctl |= IXGBE_TXDCTL_ENABLE;
--		IXGBE_WRITE_REG(hw, IXGBE_VFTXDCTL(j), txdctl);
--	}
--
--	for (i = 0; i < num_rx_rings; i++) {
--		j = adapter->rx_ring[i]->reg_idx;
--		rxdctl = IXGBE_READ_REG(hw, IXGBE_VFRXDCTL(j));
--		rxdctl |= IXGBE_RXDCTL_ENABLE | IXGBE_RXDCTL_VME;
--		if (hw->mac.type == ixgbe_mac_X540_vf) {
--			rxdctl &= ~IXGBE_RXDCTL_RLPMLMASK;
--			rxdctl |= ((netdev->mtu + ETH_HLEN + ETH_FCS_LEN) |
--				   IXGBE_RXDCTL_RLPML_EN);
--		}
--		IXGBE_WRITE_REG(hw, IXGBE_VFRXDCTL(j), rxdctl);
--		ixgbevf_rx_desc_queue_enable(adapter, adapter->rx_ring[i]);
--	}
- 
- 	ixgbevf_configure_msix(adapter);
- 
-@@ -1704,8 +1730,7 @@ void ixgbevf_down(struct ixgbevf_adapter *adapter)
- {
- 	struct net_device *netdev = adapter->netdev;
- 	struct ixgbe_hw *hw = &adapter->hw;
--	u32 txdctl;
--	int i, j;
-+	int i;
- 
- 	/* signal that we are down to the interrupt handler */
- 	set_bit(__IXGBEVF_DOWN, &adapter->state);
-@@ -1733,10 +1758,10 @@ void ixgbevf_down(struct ixgbevf_adapter *adapter)
- 
- 	/* disable transmits in the hardware now that interrupts are off */
- 	for (i = 0; i < adapter->num_tx_queues; i++) {
--		j = adapter->tx_ring[i]->reg_idx;
--		txdctl = IXGBE_READ_REG(hw, IXGBE_VFTXDCTL(j));
--		IXGBE_WRITE_REG(hw, IXGBE_VFTXDCTL(j),
--				(txdctl & ~IXGBE_TXDCTL_ENABLE));
-+		u8 reg_idx = adapter->tx_ring[i]->reg_idx;
-+
-+		IXGBE_WRITE_REG(hw, IXGBE_VFTXDCTL(reg_idx),
-+				IXGBE_TXDCTL_SWFLSH);
- 	}
- 
- 	netif_carrier_off(netdev);
-@@ -2416,6 +2441,10 @@ void ixgbevf_free_tx_resources(struct ixgbevf_adapter *adapter,
- 	vfree(tx_ring->tx_buffer_info);
- 	tx_ring->tx_buffer_info = NULL;
- 
-+	/* if not set, then don't free */
-+	if (!tx_ring->desc)
-+		return;
-+
- 	dma_free_coherent(&pdev->dev, tx_ring->size, tx_ring->desc,
- 			  tx_ring->dma);
- 
+Here is what I did:
+ any
+1> Test PM suspend freeze via pm_test
+It did not work for following reasons.
+ - If the power to gmac is removed when it enters in low power state.
+stmmac_resume could not cope up with such behaviour, it was expecting the ip
+register contents to be still same as before entering low power, This
+assumption is wrong. So I started to add some code to do Hardware
+initialization, thats when I started to re-arrange the code. stmmac_open
+contains both resource and memory allocations and hardware initialization. I
+had to separate these two things in two different functions.
+
+These two patches do that
+  net: stmmac: move dma allocation to new function
+  net: stmmac: move hardware setup for stmmac_open to new function
+
+And rest of the other patches are fixing the loose ends, things like mdio
+reset, which might be necessary in cases likes hibernation(I did not test).
+
+In hibernation cases the driver was just unregistering with subsystems and
+releasing resources which I did not like and its not necessary to do this as
+part of PM. So using the same stmmac_suspend/resume made more sense for
+hibernation cases than using stmmac_open/release.
+Also fixed a NULL pointer dereference bug too.
+
+2> Test WOL via PM_SUSPEND_FREEZE
+Did get an wakeup interrupt, but could not wakeup a freeze system.
+So I had to add pm_wakeup_event to the driver.
+net: stmmac: notify the PM core of a wakeup event. patch.
+
+Also few patches like 
+  net: stmmac: make stmmac_mdio_reset non-static
+  net: stmmac: restore pinstate in pm resume.
+helps the resume function to reset the phy and put back the pins in default
+state.
+
+Changes since RFC:
+	- Rebased to net-next on Dave's suggestion.
+
+All these patches are Acked by Peppe.
+
+Thanks,
+srini
+
+Srinivas Kandagatla (9):
+  net: stmmac: support max-speed device tree property
+  net: stmmac: mdio: remove reset gpio free
+  net: stmmac: move dma allocation to new function
+  net: stmmac: move hardware setup for stmmac_open to new function
+  net: stmmac: make stmmac_mdio_reset non-static
+  net: stmmac: fix power management suspend-resume case
+  net: stmmac: use suspend functions for hibernation
+  net: stmmac: restore pinstate in pm resume.
+  net: stmmac: notify the PM core of a wakeup event.
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    4 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  361 ++++++++++----------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |    3 +-
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   48 +--
+ include/linux/stmmac.h                             |    1 +
+ 5 files changed, 209 insertions(+), 208 deletions(-)
+
 -- 
-1.8.5.GIT
+1.7.6.5
