@@ -1,55 +1,38 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] DT: net: davinci_emac: "phy-handle" property is actually optional
-Date: Fri, 17 Jan 2014 01:32:13 +0300
-Message-ID: <201401170132.14479.sergei.shtylyov@cogentembedded.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net] ipv6: simplify detection of first operational
+ link-local address on interface
+Date: Thu, 16 Jan 2014 22:47:31 +0100
+Message-ID: <20140116214731.GA28284@minipsycho.orion>
+References: <20140116135323.GA7961@minipsycho.orion>
+ <20140116191304.GC17529@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-doc@vger.kernel.org,
-	davinci-linux-open-source@linux.davincidsp.com
-To: netdev@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, rob@landley.net, devicetree@vger.kernel.org
-Return-path: <linux-doc-owner@vger.kernel.org>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, fbl@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f45.google.com ([74.125.83.45]:55259 "EHLO
+	mail-ee0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751038AbaAPVre (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 16:47:34 -0500
+Received: by mail-ee0-f45.google.com with SMTP id b15so1690586eek.32
+        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 13:47:33 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20140116191304.GC17529@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Though described as required, the "phy-handle" property for the DaVinci EMAC
-binding is actually optional, as the driver will happily function without it,
-assuming 100/FULL link; the property is not specified  either in the example
-device node,  or in the actual EMAC device nodes for DA850 and AM3517 device
-trees.
+Thu, Jan 16, 2014 at 08:13:04PM CET, hannes@stressinduktion.org wrote:
+>In commit 1ec047eb4751e3 ("ipv6: introduce per-interface counter for
+>dad-completed ipv6 addresses") I build the detection of the first
+>operational link-local address much to complex. Additionally this code
+>now has a race condition.
+>
+>Replace it with a much simpler variant, which just scans the address
+>list when duplicate address detection completes, to check if this is
+>the first valid link local address and send RS and MLD reports then.
+>
+>Fixes: 1ec047eb4751e3 ("ipv6: introduce per-interface counter for dad-completed ipv6 addresses")
+>Reported-by: Jiri Pirko <jiri@resnulli.us>
+>Cc: Flavio Leitner <fbl@redhat.com>
+>Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
----
-The patch is against DaveM's 'net-next.git' repo.  Though being a fix, it does
-not seem important enough for 'net.git' repo at this time. Not sure if it should
-be considered for the stable kernels...
-
- Documentation/devicetree/bindings/net/davinci_emac.txt |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-Index: renesas/Documentation/devicetree/bindings/net/davinci_emac.txt
-===================================================================
---- renesas.orig/Documentation/devicetree/bindings/net/davinci_emac.txt
-+++ renesas/Documentation/devicetree/bindings/net/davinci_emac.txt
-@@ -12,8 +12,6 @@ Required properties:
- - ti,davinci-ctrl-ram-size: size of control module ram
- - ti,davinci-rmii-en: use RMII
- - ti,davinci-no-bd-ram: has the emac controller BD RAM
--- phy-handle: Contains a phandle to an Ethernet PHY.
--              if not, davinci_emac driver defaults to 100/FULL
- - interrupts: interrupt mapping for the davinci emac interrupts sources:
-               4 sources: <Receive Threshold Interrupt
- 			  Receive Interrupt
-@@ -21,6 +19,8 @@ Required properties:
- 			  Miscellaneous Interrupt>
- 
- Optional properties:
-+- phy-handle: Contains a phandle to an Ethernet PHY.
-+              If absent, davinci_emac driver defaults to 100/FULL.
- - local-mac-address : 6 bytes, mac address
- 
- Example (enbw_cmc board):
+Acked-by: Jiri Pirko <jiri@resnulli.us>
