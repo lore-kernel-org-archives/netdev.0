@@ -1,71 +1,48 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH net-next 2/2] r6040: use ETH_ZLEN instead of MISR for SKB
- length checking
-Date: Thu, 16 Jan 2014 11:30:01 -0800
-Message-ID: <CAGVrzcbNVWqK1a766iSQfaGwSfH10a0ftdDZwDGogE17M2N++w@mail.gmail.com>
-References: <1389819866-32142-1-git-send-email-florian@openwrt.org>
- <1389819866-32142-3-git-send-email-florian@openwrt.org> <1389857001.19462.33.camel@deadeye.wl.decadent.org.uk>
- <063D6719AE5E284EB5DD2968C1650D6D45D812@AcuExch.aculab.com> <1389893604.11912.47.camel@bwh-desktop.uk.level5networks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next] neigh: use NEIGH_VAR_INIT in ndo_neigh_setup
+ functions.
+Date: Thu, 16 Jan 2014 11:37:57 -0800 (PST)
+Message-ID: <20140116.113757.135125089659188691.davem@davemloft.net>
+References: <1389273227-17532-1-git-send-email-jiri@resnulli.us>
+	<20140113.113538.1561843824076418241.davem@davemloft.net>
+	<20140116071519.GA2815@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Laight <David.Laight@aculab.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jes@trained-monkey.org
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:47118 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751361AbaAPTan (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 14:30:43 -0500
-Received: by mail-pa0-f50.google.com with SMTP id kp14so3072076pab.23
-        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 11:30:41 -0800 (PST)
-In-Reply-To: <1389893604.11912.47.camel@bwh-desktop.uk.level5networks.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53350 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750994AbaAPTiA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 14:38:00 -0500
+In-Reply-To: <20140116071519.GA2815@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014/1/16 Ben Hutchings <bhutchings@solarflare.com>:
-> On Thu, 2014-01-16 at 09:10 +0000, David Laight wrote:
->> From: Ben Hutchings
->> > On Wed, 2014-01-15 at 13:04 -0800, Florian Fainelli wrote:
->> > > Ever since this driver was merged the following code was included:
->> ...
->> > > - if (skb->len < MISR)
->> > > -         descptr->len = MISR;
->> > > + if (skb->len < ETH_ZLEN)
->> > > +         descptr->len = ETH_ZLEN;
->> >
->> > It looks like this is just increasing the TX descriptor length so the
->> > packet is tail-padded with whatever happens to come next in the skb.
->> > This is absolutely incorrect behaviour and may leak sensitive
->> > information.
->>
->> And possibly page fault if the data is right at the end of a page.
->
-> If the CPU was accessing it, it would be fine as the skb linear area
-> ends with struct skb_shared_info.  (sfc actually takes advantage of that
-> in efx_enqueue_skb_pio() which can add padding (*not* transmitted) to
-> ensure that the CPU does write-combining.)
->
-> But the NIC, if it's connected through an IOMMU, might get a page fault
-> due to the incorrect length of the DMA mapping.
->
->> > Presumably it is necessary to pad the frame because the MAC is too lame
->> > to do it, and the correct way to do that is using skb_padto(skb,
->> > ETH_ZLEN).  But this may fail as it might have to allocate memory
->>
->> Alternatively use two ring entries with the 'more' bit set on
->> the first one and transmit the padding from a permanently allocated
->> and dma-mapped block of zeros.
->> Assuming the hardware support SG transmit and doesn't have a
->> constraint on the length of the first fragment.
->
-> Do you see NETIF_F_SG in this driver?
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu, 16 Jan 2014 08:15:19 +0100
 
-No this driver does not it, your fix padding the SKB to max(skb->len,
-ETH_ZLEN) looks good to me. Could you submit these as two separate
-patches?
+> Mon, Jan 13, 2014 at 08:35:38PM CET, davem@davemloft.net wrote:
+>>From: Jiri Pirko <jiri@resnulli.us>
+>>Date: Thu,  9 Jan 2014 14:13:47 +0100
+>>
+>>> When ndo_neigh_setup is called, the bitfield used by NEIGH_VAR_SET is
+>>> not initialized yet. This might cause confusion for the people who use
+>>> NEIGH_VAR_SET in ndo_neigh_setup. So rather introduce NEIGH_VAR_INIT for
+>>> usage in ndo_neigh_setup.
+>>> 
+>>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>>
+>>Wouldn't it be better to move the neigh_parms_data_state_cleanall() call
+>>before we invoke ->ndo_neigh_setup()?  It seems that this code intended
+>>to work that way, no?
+> 
+> Even moving neigh_parms_data_state_cleanall before ndo_neigh_setup
+> would not solve this. In ndo_neigh_setup the original default value is
+> changed. If it is changed by NEIGH_VAR_SET, it touches data_state bit
+> and it looks as if it was changed by user. That is not desired because
+> default value change would be ignored for this device. Therefore there
+> is need for NEIGH_VAR_INIT which does not touch data_state bit.
 
-Thanks!
--- 
-Florian
+That makes sense, applied, thanks Jiri.
