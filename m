@@ -1,80 +1,85 @@
 From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH v6 3/4] ARM: shmobile: r7s72100: Add clock for r7s72100-ether
-Date: Thu, 16 Jan 2014 11:34:15 +0900
-Message-ID: <1389839656-10932-4-git-send-email-horms+renesas@verge.net.au>
+Subject: [PATCH v6 4/4] ARM: shmobile: genmai: Enable r7s72100-ether
+Date: Thu, 16 Jan 2014 11:34:16 +0900
+Message-ID: <1389839656-10932-5-git-send-email-horms+renesas@verge.net.au>
 References: <1389839656-10932-1-git-send-email-horms+renesas@verge.net.au>
 Cc: linux-arm-kernel@lists.infradead.org,
 	Magnus Damm <magnus.damm@gmail.com>,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	Joe Perches <joe@perches.com>,
-	Simon Horman <horms+renesas@verge.net.au>
+	Simon Horman <horms+renesas@verge.net.au>,
+	Simon Horman <horms@verge.net.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-sh@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:57011 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753161AbaAPCeX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 21:34:23 -0500
 In-Reply-To: <1389839656-10932-1-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
 ---
-Dave, I intend to take this change through my tree.
+Dave, I intend to take this change through my tree
 
-v6
-* No change
-
-v5
-* Rebase
-
-v3 - v4
+v3 - v6
 * No change
 
 v2
-* As suggested by Sergei Shtylyov
-  - Add MSTP74 to beginning of enum on a line by itself
-* As suggested by Magnus Damm
+* As suggested by Magnus Damm and Sergei Shtylyov
   - r7s72100 ethernet is not gigabit so do not refer to it as such
----
- arch/arm/mach-shmobile/clock-r7s72100.c | 4 ++++
- 1 file changed, 4 insertions(+)
 
-diff --git a/arch/arm/mach-shmobile/clock-r7s72100.c b/arch/arm/mach-shmobile/clock-r7s72100.c
-index dd8ce87..0242ca5 100644
---- a/arch/arm/mach-shmobile/clock-r7s72100.c
-+++ b/arch/arm/mach-shmobile/clock-r7s72100.c
-@@ -27,6 +27,7 @@
- #define FRQCR2		0xfcfe0014
- #define STBCR3		0xfcfe0420
- #define STBCR4		0xfcfe0424
-+#define STBCR7		0xfcfe0430
- #define STBCR9		0xfcfe0438
+* As suggested by Sergei Shtylyov
+  - set no_ether_link as there is no LINK signal documented
+    in the manual
+---
+ arch/arm/mach-shmobile/board-genmai.c | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/arch/arm/mach-shmobile/board-genmai.c b/arch/arm/mach-shmobile/board-genmai.c
+index 3e92e3c..a1f6fe1 100644
+--- a/arch/arm/mach-shmobile/board-genmai.c
++++ b/arch/arm/mach-shmobile/board-genmai.c
+@@ -20,15 +20,36 @@
  
- #define PLL_RATE 30
-@@ -146,6 +147,7 @@ struct clk div4_clks[DIV4_NR] = {
- };
+ #include <linux/kernel.h>
+ #include <linux/platform_device.h>
++#include <linux/sh_eth.h>
+ #include <mach/common.h>
++#include <mach/irqs.h>
+ #include <mach/r7s72100.h>
+ #include <asm/mach-types.h>
+ #include <asm/mach/arch.h>
  
- enum {	MSTP97, MSTP96, MSTP95, MSTP94,
-+	MSTP74,
- 	MSTP47, MSTP46, MSTP45, MSTP44, MSTP43, MSTP42, MSTP41, MSTP40,
- 	MSTP33,	MSTP_NR };
++/* Ether */
++static const struct sh_eth_plat_data ether_pdata __initconst = {
++	.phy			= 0x00, /* PD60610 */
++	.edmac_endian		= EDMAC_LITTLE_ENDIAN,
++	.phy_interface		= PHY_INTERFACE_MODE_MII,
++	.no_ether_link		= 1
++};
++
++static const struct resource ether_resources[] __initconst = {
++	DEFINE_RES_MEM(0xe8203000, 0x800),
++	DEFINE_RES_MEM(0xe8204800, 0x200),
++	DEFINE_RES_IRQ(gic_iid(359)),
++};
++
+ static void __init genmai_add_standard_devices(void)
+ {
+ 	r7s72100_clock_init();
+ 	r7s72100_add_dt_devices();
++
++	platform_device_register_resndata(&platform_bus, "r7s72100-ether", -1,
++					  ether_resources,
++					  ARRAY_SIZE(ether_resources),
++					  &ether_pdata, sizeof(ether_pdata));
+ }
  
-@@ -154,6 +156,7 @@ static struct clk mstp_clks[MSTP_NR] = {
- 	[MSTP96] = SH_CLK_MSTP8(&peripheral0_clk, STBCR9, 6, 0), /* RIIC1 */
- 	[MSTP95] = SH_CLK_MSTP8(&peripheral0_clk, STBCR9, 5, 0), /* RIIC2 */
- 	[MSTP94] = SH_CLK_MSTP8(&peripheral0_clk, STBCR9, 4, 0), /* RIIC3 */
-+	[MSTP74] = SH_CLK_MSTP8(&peripheral1_clk, STBCR7, 4, 0), /* Ether */
- 	[MSTP47] = SH_CLK_MSTP8(&peripheral1_clk, STBCR4, 7, 0), /* SCIF0 */
- 	[MSTP46] = SH_CLK_MSTP8(&peripheral1_clk, STBCR4, 6, 0), /* SCIF1 */
- 	[MSTP45] = SH_CLK_MSTP8(&peripheral1_clk, STBCR4, 5, 0), /* SCIF2 */
-@@ -180,6 +183,7 @@ static struct clk_lookup lookups[] = {
- 	CLKDEV_DEV_ID("fcfee400.i2c", &mstp_clks[MSTP96]),
- 	CLKDEV_DEV_ID("fcfee800.i2c", &mstp_clks[MSTP95]),
- 	CLKDEV_DEV_ID("fcfeec00.i2c", &mstp_clks[MSTP94]),
-+	CLKDEV_DEV_ID("r7s72100-ether", &mstp_clks[MSTP74]),
- 	CLKDEV_CON_ID("mtu2_fck", &mstp_clks[MSTP33]),
- 
- 	/* ICK */
+ static const char * const genmai_boards_compat_dt[] __initconst = {
 -- 
 1.8.4
-
