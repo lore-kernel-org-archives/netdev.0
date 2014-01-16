@@ -1,68 +1,120 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [RFC PATCH net-next 0/3] virtio_net: add aRFS support
-Date: Thu, 16 Jan 2014 12:23:01 +0800
-Message-ID: <52D75EA5.1050000@redhat.com>
-References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
+From: ethan zhao <ethan.zhao@oracle.com>
+Subject: [PATCH 1/2 Net-next] ixgbe: define
+ IXGBE_MAX_VFS_DRV_LIMIT macro and cleanup const 63
+Date: Thu, 16 Jan 2014 12:25:01 +0800
+Message-ID: <52D75F1D.9040405@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com, edumazet@google.com,
-	davem@davemloft.net, Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: Zhi Yong Wu <zwu.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56858 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751395AbaAPEXL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jan 2014 23:23:11 -0500
-In-Reply-To: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	ethan.kernel@gmail.com, linux-kernel@vger.kernel.org
+To: aaron.f.brown@intel.com, jeffrey.t.kirsher@intel.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On 01/15/2014 10:20 PM, Zhi Yong Wu wrote:
-> From: Zhi Yong Wu<wuzhy@linux.vnet.ibm.com>
->
-> HI, folks
->
-> The patchset is trying to integrate aRFS support to virtio_net. In this case,
-> aRFS will be used to select the RX queue. To make sure that it's going ahead
-> in the correct direction, although it is still one RFC and isn't tested, it's
-> post out ASAP. Any comment are appreciated, thanks.
->
-> If anyone is interested in playing with it, you can get this patchset from my
-> dev git on github:
->    git://github.com/wuzhy/kernel.git virtnet_rfs
->
-> Zhi Yong Wu (3):
->    virtio_pci: Introduce one new config api vp_get_vq_irq()
->    virtio_net: Introduce one dummy function virtnet_filter_rfs()
->    virtio-net: Add accelerated RFS support
->
->   drivers/net/virtio_net.c      |   67 ++++++++++++++++++++++++++++++++++++++++-
->   drivers/virtio/virtio_pci.c   |   11 +++++++
->   include/linux/virtio_config.h |   12 +++++++
->   3 files changed, 89 insertions(+), 1 deletions(-)
->
 
-Please run get_maintainter.pl before sending the patch. You'd better at 
-least cc virtio maintainer/list for this.
+Because ixgbe driver limit the max number of VF functions could be enalbed
+to 63, so define one macro IXGBE_MAX_VFS_DRV_LIMIT and cleanup the const 63
+in code.
 
-The core aRFS method is a noop in this RFC which make this series no 
-much sense to discuss. You should at least mention the big picture here 
-in the cover letter. I suggest you should post a RFC which can run and 
-has expected result or you can just raise a thread for the design 
-discussion.
+v3: revised for net-next tree.
 
-And this method has been discussed before, you can search "[net-next RFC 
-PATCH 5/5] virtio-net: flow director support" in netdev archive for a 
-very old prototype implemented by me. It can work and looks like most of 
-this RFC have already done there.
+Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
+Signed-off-by: Ethan Zhao <ethan.kernel@gmail.com>
+---
+  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |    4 ++--
+  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |    4 ++--
+  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h |    5 +++++
+  3 files changed, 9 insertions(+), 4 deletions(-)
 
-A basic question is whether or not we need this, not all the mq cards 
-use aRFS (see ixgbe ATR). And whether or not it can bring extra 
-overheads? For virtio, we want to reduce the vmexits as much as possible 
-but this aRFS seems introduce a lot of more of this. Making a complex 
-interfaces just for an virtual device may not be good, simple method may 
-works for most of the cases.
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c 
+b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index cc06854..bea2cec 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -5028,7 +5028,7 @@ static int ixgbe_sw_init(struct ixgbe_adapter 
+*adapter)
 
-We really should consider to offload this to real nic. VMDq and L2 
-forwarding offload may help in this case.
+      /* assign number of SR-IOV VFs */
+      if (hw->mac.type != ixgbe_mac_82598EB) {
+-        if (max_vfs > 63) {
++        if (max_vfs > IXGBE_MAX_VFS_DRV_LIMIT) {
+              adapter->num_vfs = 0;
+              e_dev_warn("max_vfs parameter out of range. Not assigning 
+any SR-IOV VFs\n");
+          } else {
+@@ -7973,7 +7973,7 @@ static int ixgbe_probe(struct pci_dev *pdev, const 
+struct pci_device_id *ent)
+      ixgbe_init_mbx_params_pf(hw);
+      memcpy(&hw->mbx.ops, ii->mbx_ops, sizeof(hw->mbx.ops));
+      ixgbe_enable_sriov(adapter);
+-    pci_sriov_set_totalvfs(pdev, 63);
++    pci_sriov_set_totalvfs(pdev, IXGBE_MAX_VFS_DRV_LIMIT);
+  skip_sriov:
+
+  #endif
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c 
+b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 359f6e6..b324260 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -148,7 +148,7 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
+           * physical function.  If the user requests greater thn
+           * 63 VFs then it is an error - reset to default of zero.
+           */
+-        adapter->num_vfs = min_t(unsigned int, adapter->num_vfs, 63);
++        adapter->num_vfs = min_t(unsigned int, adapter->num_vfs, 
+IXGBE_MAX_VFS_DRV_LIMIT);
+
+          err = pci_enable_sriov(adapter->pdev, adapter->num_vfs);
+          if (err) {
+@@ -257,7 +257,7 @@ static int ixgbe_pci_sriov_enable(struct pci_dev 
+*dev, int num_vfs)
+       * PF.  The PCI bus driver already checks for other values out of
+       * range.
+       */
+-    if (num_vfs > 63) {
++    if (num_vfs > IXGBE_MAX_VFS_DRV_LIMIT) {
+          err = -EPERM;
+          goto err_out;
+      }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h 
+b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+index 4713f9f..8bd2919 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+@@ -28,6 +28,11 @@
+  #ifndef _IXGBE_SRIOV_H_
+  #define _IXGBE_SRIOV_H_
+
++/*  ixgbe driver limit the max number of VFs could be enabled to
++ *  63 (IXGBE_MAX_VF_FUNCTIONS - 1)
++ */
++#define IXGBE_MAX_VFS_DRV_LIMIT  (IXGBE_MAX_VF_FUNCTIONS - 1)
++
+  void ixgbe_restore_vf_multicasts(struct ixgbe_adapter *adapter);
+  void ixgbe_msg_task(struct ixgbe_adapter *adapter);
+  int ixgbe_vf_configuration(struct pci_dev *pdev, unsigned int event_mask);
+-- 
+1.7.1
+
+
+------------------------------------------------------------------------------
+CenturyLink Cloud: The Leader in Enterprise Cloud Services.
+Learn Why More Businesses Are Choosing CenturyLink Cloud For
+Critical Workloads, Development Environments & Everything In Between.
+Get a Quote or Start a Free Trial Today. 
+http://pubads.g.doubleclick.net/gampad/clk?id=119420431&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
