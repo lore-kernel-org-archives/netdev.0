@@ -1,87 +1,54 @@
-From: Ethan Zhao <ethan.kernel@gmail.com>
-Subject: Re: [PATCH 1/2 v3] ixgbe: define
- IXGBE_MAX_VFS_DRV_LIMIT macro and cleanup const 63
-Date: Thu, 16 Jan 2014 09:27:46 +0800
-Message-ID: <CABawtvNEDjTJAjJ9TeEvZd7+2kD=H6zA23T-aQo3uVm5SUEhCQ@mail.gmail.com>
-References: <1389795148-341-1-git-send-email-ethan.kernel@gmail.com>
-	<309B89C4C689E141A5FF6A0C5FB2118B7312DA20@ORSMSX101.amr.corp.intel.com>
+From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: PROBLEM: usbnet / ax88179_178a: Panic in usb_hcd_map_urb_for_dma
+Date: Thu, 16 Jan 2014 09:28:49 +0800
+Message-ID: <CACVXFVOGxWe5+o0hLROiPN43OCDekV2Ovz1yXr95H1m+yHGn4w@mail.gmail.com>
+References: <CAHNSM4Kv5gcJn=H4k8QjPggWzjF0zRm_t_icAYXjCTqXx4xL2w@mail.gmail.com>
+	<1389385824.2025.95.camel@bwh-desktop.uk.level5networks.com>
+	<87ob3j1ocb.fsf@nemi.mork.no>
+	<CAHNSM4KU8QEybpHgAcCjQoWuRjU8=wd1O7KUVMnrRJKQ-xr=Gg@mail.gmail.com>
+	<87zjn3z6d5.fsf@nemi.mork.no>
+	<063D6719AE5E284EB5DD2968C1650D6D458FEE@AcuExch.aculab.com>
+	<87zjn086iz.fsf@nemi.mork.no>
+	<063D6719AE5E284EB5DD2968C1650D6D45904D@AcuExch.aculab.com>
+	<87vbxo83wp.fsf@nemi.mork.no>
+	<063D6719AE5E284EB5DD2968C1650D6D4590AF@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Allan,
-	Bruce W" <bruce.w.allan@intel.com>, "Brandeburg,
-	Jesse" <jesse.brandeburg@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <309B89C4C689E141A5FF6A0C5FB2118B7312DA20@ORSMSX101.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	Thomas Kear <thomas-hrxM1pTBpuF02iOg2JU2CQ@public.gmane.org>,
+	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Laight <David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D4590AF-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 16, 2014 at 6:00 AM, Brown, Aaron F <aaron.f.brown@intel.com> wrote:
-> On Wed, 2014-01-15 at 22:12 +0800, Ethan Zhao wrote:
->> Because ixgbe driver limit the max number of VF functions could be enabled
->> to 63, so define one macro IXGBE_MAX_VFS_DRV_LIMIT and cleanup the const 63
->> in code.
+On Mon, Jan 13, 2014 at 9:26 PM, David Laight <David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org> wrote:
 >>
->> v2: fix a typo.
->> v3: fix a encoding issue.
->>
->> Signed-off-by: Ethan Zhao <ethan.kernel@gmail.com>
->> ---
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 4 ++--
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 5 +++--
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h | 5 +++++
->>  3 files changed, 10 insertions(+), 4 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> index 0ade0cd..47e9b44 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> @@ -4818,7 +4818,7 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
->>  #ifdef CONFIG_PCI_IOV
->>       /* assign number of SR-IOV VFs */
->>       if (hw->mac.type != ixgbe_mac_82598EB)
->> -             adapter->num_vfs = (max_vfs > 63) ? 0 : max_vfs;
+>> I believe all processing use the urb->num_sgs field to limit the number
+>> of entries.  Common interfaces like dma_map_sg() and for_each_sg() limit
+>> their processing to "nents" entries, and the USB code use the value of
+>> urb->num_sgs for this parameter.
 >
+> Which mostly means that the sg_xxx functions are doing a whole load
+> of unnecessary instructions and memory accesses...
 >
-> Unfortunately the if statement got changed considerably with a recent
-> commit:
+> This probably has a lot to do with the significant difference in the
+> cpu use for the usb3 and 'normal' ethernet interfaces.
 >
-> commit 170e85430bcbe4d18e81b5a70bb163c741381092
-> ixgbe: add warning when max_vfs is out of range.
->
-> And the pattern no longer exists to make a match.  In other words, this
-> patch no longer applies to net-next and I have to ask you for yet
-> another spin if you still want to squash the magic number.
+> While each bit doesn't seem significant, they soon add up.
 
-It's not a good news. Our distro is waiting for this patch showing up in stable.
-OK, info me if there is a windows for me to revise the patch.
+If you plan to remove the 'nents' parameter, I am wondering if it is
+a good idea, because sg_nents() should be more heavy. Not mention
+sometimes the callers just want to map/unmap part of entries.
+
 
 Thanks,
-Ethan
-
->
-> Thanks,
-> Aaron
-
-------------------------------------------------------------------------------
-CenturyLink Cloud: The Leader in Enterprise Cloud Services.
-Learn Why More Businesses Are Choosing CenturyLink Cloud For
-Critical Workloads, Development Environments & Everything In Between.
-Get a Quote or Start a Free Trial Today. 
-http://pubads.g.doubleclick.net/gampad/clk?id=119420431&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+-- 
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
