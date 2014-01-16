@@ -1,40 +1,33 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: ipv6 addrconfg warn_on hit: WARN_ON(ifp->idev->valid_ll_addr_cnt < 0);
-Date: Thu, 16 Jan 2014 15:38:17 +0100
-Message-ID: <20140116143817.GH7436@order.stressinduktion.org>
-References: <20140116135323.GA7961@minipsycho.orion> <20140116140701.GB7961@minipsycho.orion>
+From: Matthew Garrett <matthew.garrett@nebula.com>
+Subject: Re: [PATCH] net/dt: Add support for overriding phy configuration
+ from device tree
+Date: Thu, 16 Jan 2014 14:40:04 +0000
+Message-ID: <1389883203.3720.7.camel@x230>
+References: <1389821938-3126-1-git-send-email-matthew.garrett@nebula.com>
+	 <20140116135905.GV20094@book.gsilab.sittig.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:42683 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752187AbaAPOiS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 09:38:18 -0500
-Content-Disposition: inline
-In-Reply-To: <20140116140701.GB7961@minipsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"kishon@ti.com" <kishon@ti.com>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: "gsi@denx.de" <gsi@denx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140116135905.GV20094@book.gsilab.sittig.org>
+Content-Language: en-US
+Content-ID: <A1D6848520A6B54591A734AE58731706@namprd05.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 16, 2014 at 03:07:01PM +0100, Jiri Pirko wrote:
-> Thu, Jan 16, 2014 at 02:53:23PM CET, jiri@resnulli.us wrote:
-> >Hi Hannes.
-> >
-> >WARN_ON(ifp->idev->valid_ll_addr_cnt < 0);
-> >
-> >We did hit once this warning during the tests. The person who hit this
-> >says that it was during the setup of many macvlan devices.
-> >
-> >I examined the code but I'm not sure how this could happen. Looks like a
-> >race condition between addrconf_dad_completed() and addrconf_ifdown(). 
-> >Not sure how to easily resolve that though.
-
-That seems to be the case. Actually we don't need to count precisiely
-here, we just must precisiely identify the situation where the first
-LL address comes into operational state. Maybe we can implement this
-somehow differently. I'll play with the code soon.
-
-Thanks,
-
-  Hannes
+T24gVGh1LCAyMDE0LTAxLTE2IGF0IDE0OjU5ICswMTAwLCBHZXJoYXJkIFNpdHRpZyB3cm90ZToN
+Cg0KPiBUaGVzZSBwcm9wZXJ0aWVzIGFyZSBib29sZWFucywgYW5kIG9wdGlvbmFsPyAgRG9lcyBp
+dCBtZWFuIHRoYXQNCj4geW91IGNhbm5vdCBfZGlzYWJsZV8gYnJva2VuIGZlYXR1cmVzPyAgT3Ig
+ZG9lcyBpdCBtZWFuIHRoYXQgeW91DQo+IF9tdXN0XyBzcGVjaWZ5IHRoZSBub24tYnJva2VuIGZl
+YXR1cmVzIGFuZCB0aHVzIGJyZWFrIGJhY2t3YXJkcw0KPiBjb21wYXRpYmlsaXR5PyAgT3IgYXJl
+IHRoZXNlIHByb3BlcnRpZXMgbm90IGJvb2xlYW4gKHRoZXkgYXJlIG5vdA0KPiB1c2VkIGluIHRo
+ZSBleGFtcGxlIGVpdGhlciwgdW5mb3J0dW5hdGVseSksIGFuZCB0aGUgYmluZGluZyB0ZXh0DQo+
+IHdvdWxkIG5lZWQgYW4gdXBkYXRlIGZvciBjbGFyaXR5PyAgV2hhdCBhbSBJIG1pc3Npbmc/DQoN
+ClRoZXkncmUgbm90IGJvb2xlYW5zLiBJJ2xsIHVwZGF0ZSB0aGUgdGV4dCB0byBtYWtlIHRoYXQg
+Y2xlYXIuDQoNCi0tIA0KTWF0dGhldyBHYXJyZXR0IDxtYXR0aGV3LmdhcnJldHRAbmVidWxhLmNv
+bT4NCg==
