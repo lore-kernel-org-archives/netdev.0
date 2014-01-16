@@ -1,59 +1,39 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH-next v3] netfilter: don't use module_init/exit in core
- IPV4 code
-Date: Thu, 16 Jan 2014 20:32:44 +0000
-Message-ID: <20140116203244.GA21389@macbook.localnet>
-References: <20140116192613.GA23133@d2.synalogic.ca>
- <1389903843-1633-1-git-send-email-paul.gortmaker@windriver.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH net] ipv6: simplify detection of first operational
+ link-local address on interface
+Date: Thu, 16 Jan 2014 19:20:32 -0200
+Message-ID: <20140116212032.GP5359@plex.lan>
+References: <20140116135323.GA7961@minipsycho.orion>
+ <20140116191304.GC17529@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Benjamin Poirier <benjamin.poirier@gmail.com>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44761 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750898AbaAPVTd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jan 2014 16:19:33 -0500
 Content-Disposition: inline
-In-Reply-To: <1389903843-1633-1-git-send-email-paul.gortmaker@windriver.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20140116191304.GC17529@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 16, 2014 at 03:24:03PM -0500, Paul Gortmaker wrote:
-> The file net/ipv4/netfilter.o is created based on whether
-> CONFIG_NETFILTER is set.  However that is defined as a bool, and
-> hence this file with the core netfilter hooks will never be
-> modular.  So using module_init as an alias for __initcall can be
-> somewhat misleading.
+On Thu, Jan 16, 2014 at 08:13:04PM +0100, Hannes Frederic Sowa wrote:
+> In commit 1ec047eb4751e3 ("ipv6: introduce per-interface counter for
+> dad-completed ipv6 addresses") I build the detection of the first
+> operational link-local address much to complex. Additionally this code
+> now has a race condition.
 > 
-> Fix this up now, so that we can relocate module_init from
-> init.h into module.h in the future.  If we don't do this, we'd
-> have to add module.h to obviously non-modular code, and that
-> would be a worse thing.  Also add an inclusion of init.h, as
-> that was previously implicit here in the netfilter.c file.
+> Replace it with a much simpler variant, which just scans the address
+> list when duplicate address detection completes, to check if this is
+> the first valid link local address and send RS and MLD reports then.
 > 
-> Note that direct use of __initcall is discouraged, vs. one
-> of the priority categorized subgroups.  As __initcall gets
-> mapped onto device_initcall, our use of subsys_initcall (which
-> seems to make sense for netfilter code) will thus change this
-> registration from level 6-device to level 4-subsys (i.e. slightly
-> earlier).  However no observable impact of that small difference
-> has been observed during testing, or is expected. (i.e. the
-> location of the netfilter messages in dmesg remains unchanged
-> with respect to all the other surrounding messages.)
-> 
-> As for the module_exit, rather than replace it with __exitcall,
-> we simply remove it, since it appears only UML does anything
-> with those, and even for UML, there is no relevant cleanup
-> to be done here.
+> Fixes: 1ec047eb4751e3 ("ipv6: introduce per-interface counter for dad-completed ipv6 addresses")
+> Reported-by: Jiri Pirko <jiri@resnulli.us>
+> Cc: Flavio Leitner <fbl@redhat.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
 
-Just to bring up the idea: there's no reason why we couldn't make
-netfilter fully modular for individual AFs. I've seen quite a lot
-of embedded systems that include the IPv6 netfilter core without
-using it.
-
-Its rather complicated to get all the dependencies of xtables
-modules right though, so this is really just to bring up the
-idea.
-
-Your patch looks fine to me.
+Nice
+Acked-by: Flavio Leitner <fbl@redhat.com>
