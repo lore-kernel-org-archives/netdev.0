@@ -1,102 +1,65 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH v4 net-next] bonding: handle slave's name change with
- primary_slave logic
-Date: Thu, 16 Jan 2014 02:40:23 +0100
-Message-ID: <20140116014023.GB27182@redhat.com>
-References: <1389834269-4740-1-git-send-email-vfalico@redhat.com>
- <52D7382A.1090607@huawei.com>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: Re: [PATCH 1/2 v3] ixgbe: define IXGBE_MAX_VFS_DRV_LIMIT macro and
+ cleanup const 63
+Date: Thu, 16 Jan 2014 01:54:26 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B7312DE7D@ORSMSX101.amr.corp.intel.com>
+References: <1389795148-341-1-git-send-email-ethan.kernel@gmail.com>
+ <309B89C4C689E141A5FF6A0C5FB2118B7312DA20@ORSMSX101.amr.corp.intel.com>
+ <CABawtvNEDjTJAjJ9TeEvZd7+2kD=H6zA23T-aQo3uVm5SUEhCQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24465 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751214AbaAPBnY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jan 2014 20:43:24 -0500
-Content-Disposition: inline
-In-Reply-To: <52D7382A.1090607@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "ethan.kernel@gmail.com" <ethan.kernel@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CABawtvNEDjTJAjJ9TeEvZd7+2kD=H6zA23T-aQo3uVm5SUEhCQ@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 16, 2014 at 09:38:50AM +0800, Ding Tianhong wrote:
->On 2014/1/16 9:04, Veaceslav Falico wrote:
->> Currently, if a slave's name change, we just pass it by. However, if the
->> slave is a current primary_slave, then we end up with using a slave, whose
->> name != params.primary, for primary_slave. And vice-versa, if we don't have
->> a primary_slave but have params.primary set - we will not detected a new
->> primary_slave.
->>
->> Fix this by catching the NETDEV_CHANGENAME event and setting primary_slave
->> accordingly. Also, if the primary_slave was changed, issue a reselection of
->> the active slave, cause the priorities have changed.
->>
->> Reported-by: Ding Tianhong <dingtianhong@huawei.com>
->> CC: Ding Tianhong <dingtianhong@huawei.com>
->> CC: Jay Vosburgh <fubar@us.ibm.com>
->> CC: Andy Gospodarek <andy@greyhouse.net>
->> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
->> ---
->>
->> Notes:
->>     v3->v4:
->>     Fix style issue.
->>
->>     v2->v3:
->>     Reword the info message, per Jay's comment.
->>
->>     v1->v2:
->>     Proper patch
->>
->>  drivers/net/bonding/bond_main.c | 24 +++++++++++++++++++++---
->>  1 file changed, 21 insertions(+), 3 deletions(-)
->>
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->> index f2fe6cb..f00dd45 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -2860,9 +2860,27 @@ static int bond_slave_netdev_event(unsigned long event,
->>  		 */
->>  		break;
->>  	case NETDEV_CHANGENAME:
->> -		/*
->> -		 * TODO: handle changing the primary's name
->> -		 */
->> +		/* we don't care if we don't have primary set */
->> +		if (!USES_PRIMARY(bond->params.mode) ||
->> +		    !bond->params.primary[0])
->> +			break;
->> +
->> +		if (slave == bond->primary_slave) {
->> +			/* slave's name changed - he's no longer primary */
->> +			bond->primary_slave = NULL;
->> +		} else if (!strcmp(slave_dev->name, bond->params.primary)) {
->> +			/* we have a new primary slave */
->> +			bond->primary_slave = slave;
->> +		} else { /* we didn't change primary - exit */
->> +			break;
->> +		}
->> +
->why not remove all the { } for the if else, there are only one line for each if.
-
-It's written so in CodingStyles, as spotted by Sergei -
-http://www.spinics.net/lists/netdev/msg266612.html .
-
->
->but seems good for logic.
->
->Acked-by: Ding Tianhong <dingtianhong@huawei.com>
->
->> +		pr_info("%s: Primary slave changed to %s, reselecting active slave.\n",
->> +			bond->dev->name, bond->primary_slave ? slave_dev->name :
->> +							       "none");
->> +		write_lock_bh(&bond->curr_slave_lock);
->> +		bond_select_active_slave(bond);
->> +		write_unlock_bh(&bond->curr_slave_lock);
->>  		break;
->>  	case NETDEV_FEAT_CHANGE:
->>  		bond_compute_features(bond);
->>
->
->
+T24gVGh1LCAyMDE0LTAxLTE2IGF0IDA5OjI3ICswODAwLCBFdGhhbiBaaGFvIHdyb3RlOgo+IE9u
+IFRodSwgSmFuIDE2LCAyMDE0IGF0IDY6MDAgQU0sIEJyb3duLCBBYXJvbiBGIDxhYXJvbi5mLmJy
+b3duQGludGVsLmNvbT4gd3JvdGU6Cj4gPiBPbiBXZWQsIDIwMTQtMDEtMTUgYXQgMjI6MTIgKzA4
+MDAsIEV0aGFuIFpoYW8gd3JvdGU6Cj4gPj4gQmVjYXVzZSBpeGdiZSBkcml2ZXIgbGltaXQgdGhl
+IG1heCBudW1iZXIgb2YgVkYgZnVuY3Rpb25zIGNvdWxkIGJlIGVuYWJsZWQKPiA+PiB0byA2Mywg
+c28gZGVmaW5lIG9uZSBtYWNybyBJWEdCRV9NQVhfVkZTX0RSVl9MSU1JVCBhbmQgY2xlYW51cCB0
+aGUgY29uc3QgNjMKPiA+PiBpbiBjb2RlLgo+ID4+Cj4gPj4gdjI6IGZpeCBhIHR5cG8uCj4gPj4g
+djM6IGZpeCBhIGVuY29kaW5nIGlzc3VlLgo+ID4+Cj4gPj4gU2lnbmVkLW9mZi1ieTogRXRoYW4g
+WmhhbyA8ZXRoYW4ua2VybmVsQGdtYWlsLmNvbT4KPiA+PiAtLS0KPiA+PiAgZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jICB8IDQgKystLQo+ID4+ICBkcml2ZXJz
+L25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5jIHwgNSArKystLQo+ID4+ICBk
+cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5oIHwgNSArKysrKwo+
+ID4+ICAzIGZpbGVzIGNoYW5nZWQsIDEwIGluc2VydGlvbnMoKyksIDQgZGVsZXRpb25zKC0pCj4g
+Pj4KPiA+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhn
+YmVfbWFpbi5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5j
+Cj4gPj4gaW5kZXggMGFkZTBjZC4uNDdlOWI0NCAxMDA2NDQKPiA+PiAtLS0gYS9kcml2ZXJzL25l
+dC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9tYWluLmMKPiA+PiArKysgYi9kcml2ZXJzL25l
+dC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9tYWluLmMKPiA+PiBAQCAtNDgxOCw3ICs0ODE4
+LDcgQEAgc3RhdGljIGludCBpeGdiZV9zd19pbml0KHN0cnVjdCBpeGdiZV9hZGFwdGVyICphZGFw
+dGVyKQo+ID4+ICAjaWZkZWYgQ09ORklHX1BDSV9JT1YKPiA+PiAgICAgICAvKiBhc3NpZ24gbnVt
+YmVyIG9mIFNSLUlPViBWRnMgKi8KPiA+PiAgICAgICBpZiAoaHctPm1hYy50eXBlICE9IGl4Z2Jl
+X21hY184MjU5OEVCKQo+ID4+IC0gICAgICAgICAgICAgYWRhcHRlci0+bnVtX3ZmcyA9IChtYXhf
+dmZzID4gNjMpID8gMCA6IG1heF92ZnM7Cj4gPgo+ID4KPiA+IFVuZm9ydHVuYXRlbHkgdGhlIGlm
+IHN0YXRlbWVudCBnb3QgY2hhbmdlZCBjb25zaWRlcmFibHkgd2l0aCBhIHJlY2VudAo+ID4gY29t
+bWl0Ogo+ID4KPiA+IGNvbW1pdCAxNzBlODU0MzBiY2JlNGQxOGU4MWI1YTcwYmIxNjNjNzQxMzgx
+MDkyCj4gPiBpeGdiZTogYWRkIHdhcm5pbmcgd2hlbiBtYXhfdmZzIGlzIG91dCBvZiByYW5nZS4K
+PiA+Cj4gPiBBbmQgdGhlIHBhdHRlcm4gbm8gbG9uZ2VyIGV4aXN0cyB0byBtYWtlIGEgbWF0Y2gu
+ICBJbiBvdGhlciB3b3JkcywgdGhpcwo+ID4gcGF0Y2ggbm8gbG9uZ2VyIGFwcGxpZXMgdG8gbmV0
+LW5leHQgYW5kIEkgaGF2ZSB0byBhc2sgeW91IGZvciB5ZXQKPiA+IGFub3RoZXIgc3BpbiBpZiB5
+b3Ugc3RpbGwgd2FudCB0byBzcXVhc2ggdGhlIG1hZ2ljIG51bWJlci4KPiAKPiBJdCdzIG5vdCBh
+IGdvb2QgbmV3cy4gT3VyIGRpc3RybyBpcyB3YWl0aW5nIGZvciB0aGlzIHBhdGNoIHNob3dpbmcg
+dXAgaW4gc3RhYmxlLgo+IE9LLCBpbmZvIG1lIGlmIHRoZXJlIGlzIGEgd2luZG93cyBmb3IgbWUg
+dG8gcmV2aXNlIHRoZSBwYXRjaC4KCkkgZG9uJ3QgdGhpbmsgYW55IHBhcnRpY3VsYXIgd2luZG93
+IG9mIHRpbWUgaXMgYmV0dGVyIHRoYW4gYW5vdGhlci4gSQpkb24ndCBzZWUgdGhpcyBjaGFuZ2Ug
+YXMgbmVlZGluZyB2ZXJ5IHRob3JvdWdoIHRlc3Rpbmcgc28gaWYgeW91IHNlbmQgaW4KKHlldCkg
+YW5vdGhlciB2ZXJzaW9uIEknbGwgdHJ5IHRvIGdldCBpdCB0aHJvdWdoIG91ciBpbnRlcm5hbCBw
+cm9jZXNzIGFzCnJhcGlkbHkgYXMgSSBjYW4uCgo+IAo+IFRoYW5rcywKPiBFdGhhbgo+IAo+ID4K
+PiA+IFRoYW5rcywKPiA+IEFhcm9uCgo=
