@@ -1,30 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 0/2] ipv6 addrconf: add IFA_F_NOPREFIXROUTE flag to
- suppress creation of IP6 routes
-Date: Thu, 16 Jan 2014 11:53:42 -0800 (PST)
-Message-ID: <20140116.115342.1333637137444880492.davem@davemloft.net>
-References: <20140113153110.GA2499@minipsycho.orion>
-	<20140115.135328.514671277431781958.davem@davemloft.net>
-	<20140116133818.GF7436@order.stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v3 4/5] net-sysfs: add support for
+	device-specific rx queue sysfs attributes
+Date: Thu, 16 Jan 2014 12:00:01 -0800
+Message-ID: <1389902401.31367.422.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1389865126-26225-1-git-send-email-mwdalton@google.com>
+	<1389865126-26225-4-git-send-email-mwdalton@google.com>
+	<1389898650.11912.65.camel@bwh-desktop.uk.level5networks.com>
+	<CANJ5vP+nDgi7vWOd=RSuZ=NS5Z_txEkEsoYYm_33sFPh6rr=gg@mail.gmail.com>
+	<1389901352.11912.73.camel@bwh-desktop.uk.level5networks.com>
+	<CANJ5vPJgQbNPKvbExvpZixKk-xXAkvF0ix0ELW=DpiV0QP5YTA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, thaller@redhat.com, netdev@vger.kernel.org,
-	stephen@networkplumber.org, dcbw@redhat.com
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53546 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750946AbaAPTxo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 14:53:44 -0500
-In-Reply-To: <20140116133818.GF7436@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Michael Dalton <mwdalton@google.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CANJ5vPJgQbNPKvbExvpZixKk-xXAkvF0ix0ELW=DpiV0QP5YTA@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Thu, 16 Jan 2014 14:38:18 +0100
+On Thu, 2014-01-16 at 11:51 -0800, Michael Dalton wrote:
+> On Thu, Jan 16, 2014 Ben Hutchings <bhutchings@solarflare.com> wrote:
+> > It's simpler but we don't know if it's faster (and I don't believe that
+> > matters for the current usage).
+> >
+> > If one of these functions starts to be used in the data path, at that
+> > point it could be worth optimising, e.g. by doing a test for queue 0 and
+> > only then doing the pointer arithmetic with its implicit division.
+> Good catch, my statement above is incorrect. We don't know if this change
+> is a performance win, and it does introduce an implicit div. I agree this
+> function is not currently performance critical and is used only by for
+> reporting values to sysfs.
 
-> Just fyi, I noticed at least one other patch missing from the repos:
-> http://patchwork.ozlabs.org/patch/308452/
+gcc usually do not emit a divide instruction to perform a divide by a
+constant, but uses a reciprocal operation (basically a multiply and a
+shift)
 
-Thanks for catching that, taking care of it now.
+So I am pretty sure this is faster than the loop.
