@@ -1,48 +1,85 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next] sctp: remove the unnecessary assignment
-Date: Thu, 16 Jan 2014 07:18:31 -0500
-Message-ID: <20140116121831.GB9984@hmsreliant.think-freely.org>
-References: <52D7976F.7070708@huawei.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH net-next] ipv6: send Change Status Report after DAD is
+ completed
+Date: Thu, 16 Jan 2014 10:21:54 -0200
+Message-ID: <20140116122154.GK5359@plex.lan>
+References: <1389813008-23851-1-git-send-email-fbl@redhat.com>
+ <52D7C0BA.7010908@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Wang Weidong <wangweidong1@huawei.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42474 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751768AbaAPMSl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 07:18:41 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:7874 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752430AbaAPMUr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jan 2014 07:20:47 -0500
 Content-Disposition: inline
-In-Reply-To: <52D7976F.7070708@huawei.com>
+In-Reply-To: <52D7C0BA.7010908@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 16, 2014 at 04:25:19PM +0800, Wang Weidong wrote:
-> When go the right path, the status is 0, no need to assign it again.
-> So just remove the assignment.
+On Thu, Jan 16, 2014 at 12:21:30PM +0100, Daniel Borkmann wrote:
+> On 01/15/2014 08:10 PM, Flavio Leitner wrote:
+> >The RFC 3810 defines two type of messages for multicast
+> >listeners. The "Current State Report" message, as the name
+> >implies, refreshes the *current* state to the querier.
+> >Since the querier sends Query messages periodically, there
+> >is no need to retransmit the report.
+> >
+> >On the other hand, any change should be reported immediately
+> >using "State Change Report" messages. Since it's an event
+> >triggered by a change and that it can be affected by packet
+> >loss, the rfc states it should be retransmitted [RobVar] times
+> >to make sure routers will receive timely.
+> >
+> >Currently, we are sending "Current State Reports" after
+> >DAD is completed.  Before that, we send messages using
+> >unspecified address (::) which should be silently discarded
+> >by routers.
+> >
+> >This patch changes to send "State Change Report" messages
+> >after DAD is completed fixing the behavior to be RFC compliant
+> >and also to pass TAHI IPv6 testsuite.
+> >
+> >Signed-off-by: Flavio Leitner <fbl@redhat.com>
+> >---
+> >  net/ipv6/mcast.c | 64 ++++++++++++++++++++++++++++++++++----------------------
+> >  1 file changed, 39 insertions(+), 25 deletions(-)
+> >
+> >diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+> >index 99cd65c..8ac17f5 100644
+> >--- a/net/ipv6/mcast.c
+> >+++ b/net/ipv6/mcast.c
+> >@@ -1493,7 +1493,7 @@ static struct sk_buff *add_grhead(struct sk_buff *skb, struct ifmcaddr6 *pmc,
+> >  	skb_tailroom(skb)) : 0)
+> >
+> >  static struct sk_buff *add_grec(struct sk_buff *skb, struct ifmcaddr6 *pmc,
+> >-	int type, int gdeleted, int sdeleted)
+> >+	int type, int gdeleted, int sdeleted, int crsend)
 > 
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
-> ---
->  net/sctp/protocol.c | 1 -
->  1 file changed, 1 deletion(-)
+> Maybe we should convert the last three to 'bool' at some point in time?
+
+I'd say so.
+
+> Nit: argument indent
+
+Ok, will fix in the v2
+[...]
+> >+	if (MLD_V1_SEEN(idev))
+> >+		return;
 > 
-> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-> index 7c16108..d6934dc 100644
-> --- a/net/sctp/protocol.c
-> +++ b/net/sctp/protocol.c
-> @@ -1461,7 +1461,6 @@ static __init int sctp_init(void)
->  	if (status)
->  		goto err_v6_add_protocol;
->  
-> -	status = 0;
->  out:
->  	return status;
->  err_v6_add_protocol:
-> -- 
-> 1.7.12
+> $ git grep -n MLD_V1_SEEN
+> $
 > 
+> I believe I have removed that macro some time ago. ;)
 > 
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> I presume you mean rather: mld_in_v1_mode(idev)
+
+Oops, branched from the wrong (old) point here.
+I will send a v2.
+
+Thanks,
+fbl
