@@ -1,67 +1,66 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next 4/6] bonding: rename slave_last_rx() to slave_last_arp_rx()
-Date: Thu, 16 Jan 2014 03:05:14 +0100
-Message-ID: <1389837916-5377-5-git-send-email-vfalico@redhat.com>
+Subject: [PATCH net-next 6/6] bonding: remove useless updating of slave->dev->last_rx
+Date: Thu, 16 Jan 2014 03:05:16 +0100
+Message-ID: <1389837916-5377-7-git-send-email-vfalico@redhat.com>
 References: <1389837916-5377-1-git-send-email-vfalico@redhat.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21525 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:16406 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752560AbaAPCJj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jan 2014 21:09:39 -0500
+	id S1751634AbaAPCJn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jan 2014 21:09:43 -0500
 In-Reply-To: <1389837916-5377-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To make the code more readable.
+Now that all the logic is handled via last_arp_rx, we don't need to use
+last_rx.
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
+CC: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_main.c | 4 ++--
- drivers/net/bonding/bonding.h   | 4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/bonding/bond_main.c | 3 ---
+ include/linux/netdevice.h       | 8 +-------
+ 2 files changed, 1 insertion(+), 10 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 1e0f21a..399e691 100644
+index f5ac7e0..f9e5512 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -2347,7 +2347,7 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
- 	if (bond_is_active_slave(slave))
- 		bond_validate_arp(bond, slave, sip, tip);
- 	else if (bond->curr_active_slave &&
--		 time_after(slave_last_rx(bond, bond->curr_active_slave),
-+		 time_after(slave_last_arp_rx(bond, bond->curr_active_slave),
- 			    bond->curr_active_slave->jiffies))
- 		bond_validate_arp(bond, slave, tip, sip);
+@@ -1163,9 +1163,6 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
+ 	slave = bond_slave_get_rcu(skb->dev);
+ 	bond = slave->bond;
  
-@@ -2504,7 +2504,7 @@ static int bond_ab_arp_inspect(struct bonding *bond)
+-	if (bond->params.arp_interval)
+-		slave->dev->last_rx = jiffies;
+-
+ 	recv_probe = ACCESS_ONCE(bond->recv_probe);
+ 	if (recv_probe) {
+ 		ret = recv_probe(skb, bond, slave);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 30f6513..2016f00 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1299,13 +1299,7 @@ struct net_device {
+ /*
+  * Cache lines mostly used on receive path (including eth_type_trans())
+  */
+-	unsigned long		last_rx;	/* Time of last Rx
+-						 * This should not be set in
+-						 * drivers, unless really needed,
+-						 * because network stack (bonding)
+-						 * use it if/when necessary, to
+-						 * avoid dirtying this cache line.
+-						 */
++	unsigned long		last_rx;	/* Time of last Rx */
  
- 	bond_for_each_slave_rcu(bond, slave, iter) {
- 		slave->new_link = BOND_LINK_NOCHANGE;
--		last_rx = slave_last_rx(bond, slave);
-+		last_rx = slave_last_arp_rx(bond, slave);
- 
- 		if (slave->link != BOND_LINK_UP) {
- 			if (bond_time_in_interval(bond, last_rx, 1)) {
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 1af8c1f..99126b2 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -341,8 +341,8 @@ static inline unsigned long slave_oldest_target_arp_rx(struct bonding *bond,
- 	return ret;
- }
- 
--static inline unsigned long slave_last_rx(struct bonding *bond,
--					struct slave *slave)
-+static inline unsigned long slave_last_arp_rx(struct bonding *bond,
-+					      struct slave *slave)
- {
- 	if (bond->params.arp_all_targets == BOND_ARP_TARGETS_ALL)
- 		return slave_oldest_target_arp_rx(bond, slave);
+ 	/* Interface address info used in eth_type_trans() */
+ 	unsigned char		*dev_addr;	/* hw address, (before bcast
 -- 
 1.8.4
