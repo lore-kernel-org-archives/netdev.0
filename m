@@ -1,110 +1,57 @@
-From: Chen Weilong <chenweilong@huawei.com>
-Subject: [PATCH] net: fix "queues" uevent between network namespaces
-Date: Thu, 16 Jan 2014 17:24:31 +0800
-Message-ID: <1389864271-24212-1-git-send-email-chenweilong@huawei.com>
+From: =?windows-1252?Q?Jan_Kalu=9Ea?= <jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v4 0/3] Send audit/procinfo/cgroup data in socket-level
+	control message
+Date: Thu, 16 Jan 2014 10:29:51 +0100
+Message-ID: <52D7A68F.5030700@redhat.com>
+References: <1377614400-27122-1-git-send-email-jkaluza@redhat.com>
+	<1389600109-30739-1-git-send-email-jkaluza@redhat.com>
+	<20140115.121730.1984913330507219167.davem@davemloft.net>
+	<1389828103.681.34.camel@flatline.rdu.redhat.com>
+	<20140115232345.GA22237@mtj.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>, <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:38263 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751325AbaAPJ0p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 04:26:45 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Eric Paris <eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20140115232345.GA22237-9pTldWuhBndy/B6EtB590w@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Weilong Chen <chenweilong@huawei.com>
+On 01/16/2014 12:23 AM, Tejun Heo wrote:
+> On Wed, Jan 15, 2014 at 06:21:43PM -0500, Eric Paris wrote:
+>> Reliably being able to audit what process requested an action is
+>> extremely useful.  And I like the audit patch, as it is a couple of ints
+>> we are storing.
+>>
+>> procinfo and cgroup can both be up to 4k of data.
+>>
+>> Is there an alternative he should consider?  Some way to grab a
+>> reference on task_struct and just attach that to the message?
+>
+> Or maybe it can be made separately optional instead of tagging along
+> on an existing option so that it doesn't tax use cases which don't
+> care about the new stuff?
 
-When I create a new namespace with 'ip netns add net0', or add/remove
-new links in a namespace with 'ip link add/delete type veth', rx/tx
-queues events can be got in all namespaces. That is because rx/tx queue
-ktypes do not have namespace support, and their kobj parents are setted to
-NULL. This patch is to fix it.
+Right, I could add new option next to SOCK_PASSCRED which could be used 
+to send newly added stuff. Would this be acceptable?
 
-Reported-by: Libo Chen <chenlibo@huawei.com>
-Signed-off-by: Libo Chen <chenlibo@huawei.com>
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
----
- lib/kobject_uevent.c | 10 ++++++++--
- net/core/net-sysfs.c | 26 ++++++++++++++++++++++++++
- 2 files changed, 34 insertions(+), 2 deletions(-)
+I would still vote for SCM_AUDIT to be part of SOCK_PASSCRED and move 
+SCM_CGROUP and SCM_PROCINFO into new option.
 
-diff --git a/lib/kobject_uevent.c b/lib/kobject_uevent.c
-index 52e5abb..5f72767 100644
---- a/lib/kobject_uevent.c
-+++ b/lib/kobject_uevent.c
-@@ -88,11 +88,17 @@ out:
- #ifdef CONFIG_NET
- static int kobj_bcast_filter(struct sock *dsk, struct sk_buff *skb, void *data)
- {
--	struct kobject *kobj = data;
-+	struct kobject *kobj = data, *ksobj;
- 	const struct kobj_ns_type_operations *ops;
- 
- 	ops = kobj_ns_ops(kobj);
--	if (ops) {
-+	if (!ops && kobj->kset) {
-+		ksobj = &kobj->kset->kobj;
-+		if (ksobj->parent != NULL)
-+			ops = kobj_ns_ops(ksobj->parent);
-+	}
-+
-+	if (ops && ops->netlink_ns && kobj->ktype->namespace) {
- 		const void *sock_ns, *ns;
- 		ns = kobj->ktype->namespace(kobj);
- 		sock_ns = ops->netlink_ns(dsk);
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 49843bf..0cabe7c 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -748,10 +748,23 @@ static void rx_queue_release(struct kobject *kobj)
- 	dev_put(queue->dev);
- }
- 
-+static const void *rx_queue_namespace(struct kobject *kobj)
-+{
-+	struct netdev_rx_queue *queue = to_rx_queue(kobj);
-+	struct device *dev = &queue->dev->dev;
-+	const void *ns = NULL;
-+
-+	if (dev->class && dev->class->ns_type)
-+		ns = dev->class->namespace(dev);
-+
-+	return ns;
-+}
-+
- static struct kobj_type rx_queue_ktype = {
- 	.sysfs_ops = &rx_queue_sysfs_ops,
- 	.release = rx_queue_release,
- 	.default_attrs = rx_queue_default_attrs,
-+	.namespace = rx_queue_namespace
- };
- 
- static int rx_queue_add_kobject(struct net_device *net, int index)
-@@ -1082,10 +1095,23 @@ static void netdev_queue_release(struct kobject *kobj)
- 	dev_put(queue->dev);
- }
- 
-+static const void *netdev_queue_namespace(struct kobject *kobj)
-+{
-+	struct netdev_queue *queue = to_netdev_queue(kobj);
-+	struct device *dev = &queue->dev->dev;
-+	const void *ns = NULL;
-+
-+	if (dev->class && dev->class->ns_type)
-+		ns = dev->class->namespace(dev);
-+
-+	return ns;
-+}
-+
- static struct kobj_type netdev_queue_ktype = {
- 	.sysfs_ops = &netdev_queue_sysfs_ops,
- 	.release = netdev_queue_release,
- 	.default_attrs = netdev_queue_default_attrs,
-+	.namespace = netdev_queue_namespace,
- };
- 
- static int netdev_queue_add_kobject(struct net_device *net, int index)
--- 
-1.7.12
+> Thanks.
+>
+
+Regards,
+Jan Kaluza
