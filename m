@@ -1,48 +1,97 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] neigh: use NEIGH_VAR_INIT in ndo_neigh_setup
- functions.
-Date: Thu, 16 Jan 2014 11:37:57 -0800 (PST)
-Message-ID: <20140116.113757.135125089659188691.davem@davemloft.net>
-References: <1389273227-17532-1-git-send-email-jiri@resnulli.us>
-	<20140113.113538.1561843824076418241.davem@davemloft.net>
-	<20140116071519.GA2815@minipsycho.orion>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH-next v2] netfilter: don't use module_init/exit in core
+ IPV4 code
+Date: Thu, 16 Jan 2014 14:38:10 -0500
+Message-ID: <52D83522.9070902@windriver.com>
+References: <1389638147-30399-1-git-send-email-paul.gortmaker@windriver.com> <1389819427-20199-1-git-send-email-paul.gortmaker@windriver.com> <20140116192613.GA23133@d2.synalogic.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jes@trained-monkey.org
-To: jiri@resnulli.us
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Benjamin Poirier <benjamin.poirier@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53350 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750994AbaAPTiA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 14:38:00 -0500
-In-Reply-To: <20140116071519.GA2815@minipsycho.orion>
+Received: from mail.windriver.com ([147.11.1.11]:41908 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751807AbaAPTiH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 14:38:07 -0500
+In-Reply-To: <20140116192613.GA23133@d2.synalogic.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu, 16 Jan 2014 08:15:19 +0100
-
-> Mon, Jan 13, 2014 at 08:35:38PM CET, davem@davemloft.net wrote:
->>From: Jiri Pirko <jiri@resnulli.us>
->>Date: Thu,  9 Jan 2014 14:13:47 +0100
+On 14-01-16 02:26 PM, Benjamin Poirier wrote:
+> On 2014/01/15 15:57, Paul Gortmaker wrote:
+>> The file net/ipv4/netfilter.o is created based on whether
+>> CONFIG_NETFILTER is set.  However that is defined as a bool, and
+>> hence this file with the core netfilter hooks will never be
+>> modular.  So using module_init as an alias for __initcall can be
+>> somewhat misleading.
 >>
->>> When ndo_neigh_setup is called, the bitfield used by NEIGH_VAR_SET is
->>> not initialized yet. This might cause confusion for the people who use
->>> NEIGH_VAR_SET in ndo_neigh_setup. So rather introduce NEIGH_VAR_INIT for
->>> usage in ndo_neigh_setup.
->>> 
->>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> Fix this up now, so that we can relocate module_init from
+>> init.h into module.h in the future.  If we don't do this, we'd
+>> have to add module.h to obviously non-modular code, and that
+>> would be a worse thing.  Also add an inclusion of init.h, as
+>> that was previously implicit here in the netfilter.c file.
 >>
->>Wouldn't it be better to move the neigh_parms_data_state_cleanall() call
->>before we invoke ->ndo_neigh_setup()?  It seems that this code intended
->>to work that way, no?
+>> Note that direct use of __initcall is discouraged, vs. one
+>> of the priority categorized subgroups.  As __initcall gets
+>> mapped onto device_initcall, our use of subsys_initcall (which
+>> seems to make sense for netfilter code) will thus change this
+>> registration from level 6-device to level 4-subsys (i.e. slightly
+>> earlier).  However no observable impact of that small difference
+>> has been observed during testing, or is expected. (i.e. the
+>> location of the netfilter messages in dmesg remains unchanged
+>> with respect to all the other surrounding messages.)
+>>
+>> As for the module_exit, rather than replace it with __exitcall,
+>> we simply remove it, since it appears only UML does anything
+>> with those, and even for UML, there is no relevant cleanup
+>> to be done here.
+>>
+>> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+>> ---
+>>
+>> [v2: Drop __exitcall stuff completely, as per Eric's suggestion
+>>  given for patch at  http://patchwork.ozlabs.org/patch/311164/ ]
+>>
+>>  net/ipv4/netfilter.c | 9 +--------
+>>  1 file changed, 1 insertion(+), 8 deletions(-)
+>>
+>> diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
+>> index c3e0adea9c27..31abf9636ba7 100644
+>> --- a/net/ipv4/netfilter.c
+>> +++ b/net/ipv4/netfilter.c
+>> @@ -197,11 +197,4 @@ static int __init ipv4_netfilter_init(void)
+>>  {
+>>  	return nf_register_afinfo(&nf_ip_afinfo);
+>>  }
+>> -
+>> -static void __exit ipv4_netfilter_fini(void)
+>> -{
+>> -	nf_unregister_afinfo(&nf_ip_afinfo);
+>> -}
+>> -
+>> -module_init(ipv4_netfilter_init);
+>> -module_exit(ipv4_netfilter_fini);
+>> +device_initcall(ipv4_netfilter_init);
 > 
-> Even moving neigh_parms_data_state_cleanall before ndo_neigh_setup
-> would not solve this. In ndo_neigh_setup the original default value is
-> changed. If it is changed by NEIGH_VAR_SET, it touches data_state bit
-> and it looks as if it was changed by user. That is not desired because
-> default value change would be ignored for this device. Therefore there
-> is need for NEIGH_VAR_INIT which does not touch data_state bit.
+> device_ vs. subsys_initcall changed from v1 of the patch and no longer
+> matches the description I think.
 
-That makes sense, applied, thanks Jiri.
+Thanks for spotting that ; not sure how I fat fingered that
+during the exitcall removal.  Trying to rush things I guess.
+
+P.
+--
+
+> 
+>> -- 
+>> 1.8.5.2
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
