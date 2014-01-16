@@ -1,139 +1,90 @@
-From: Michal Sekletar <msekleta@redhat.com>
-Subject: Re: [PATCH] net: introduce SO_BPF_EXTENSIONS
-Date: Thu, 16 Jan 2014 18:26:31 +0100
-Message-ID: <20140116172631.GA5206@loki.brq.redhat.com>
-References: <1389888898-31744-1-git-send-email-msekleta@redhat.com>
- <52D80BCA.7030400@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: ipv6 addrconfg warn_on hit: WARN_ON(ifp->idev->valid_ll_addr_cnt
+ < 0);
+Date: Thu, 16 Jan 2014 18:27:06 +0100
+Message-ID: <20140116172706.GC7961@minipsycho.orion>
+References: <20140116135323.GA7961@minipsycho.orion>
+ <20140116140701.GB7961@minipsycho.orion>
+ <20140116143817.GH7436@order.stressinduktion.org>
+ <20140116151812.GI7436@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Michael Kerrisk <mtk.manpages@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: Daniel Borkmann <dborkman@redhat.com>
+Cc: hannes@stressinduktion.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10348 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751046AbaAPR0h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jan 2014 12:26:37 -0500
+Received: from mail-ee0-f47.google.com ([74.125.83.47]:60035 "EHLO
+	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750910AbaAPR1K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 12:27:10 -0500
+Received: by mail-ee0-f47.google.com with SMTP id d49so893496eek.34
+        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 09:27:09 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <52D80BCA.7030400@redhat.com>
+In-Reply-To: <20140116151812.GI7436@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 16, 2014 at 05:41:46PM +0100, Daniel Borkmann wrote:
-> On 01/16/2014 05:14 PM, Michal Sekletar wrote:
-> >userspace packet capturing libraries (e.g. libpcap) don't have a way how to find
-> >out which BPF extensions are supported by the kernel, except compiling a filter
-> >which uses extensions and trying to apply filter to the socket. This is very
-> >inconvenient.
-> >
-> >Therefore this commit introduces new option which can be used as an argument for
-> >getsockopt() and allows one to obtain information about which BPF extensions are
-> >supported by the kernel.
-> >
-> >On Tue, Dec 10, 2013 at 1:25 AM, David Miller <davem@davemloft.net> wrote:
-> >
-> >>And therefore, you do not need to define any actual bits yet. The
-> >>socket option will for now just return "0", and that will mean that
-> >>all the extensions Linux implements currently are presnet.
-> >
-> >Signed-off-by: Michal Sekletar <msekleta@redhat.com>
-> >Cc: Michael Kerrisk <mtk.manpages@gmail.com>
-> >Cc: Daniel Borkmann <dborkman@redhat.com>
-> >Cc: David Miller <davem@davemloft.net>
-> >---
-> >  arch/alpha/include/uapi/asm/socket.h   | 2 ++
-> >  arch/avr32/include/uapi/asm/socket.h   | 2 ++
-> >  arch/cris/include/uapi/asm/socket.h    | 2 ++
-> >  arch/frv/include/uapi/asm/socket.h     | 2 ++
-> >  arch/ia64/include/uapi/asm/socket.h    | 2 ++
-> >  arch/m32r/include/uapi/asm/socket.h    | 2 ++
-> >  arch/mips/include/uapi/asm/socket.h    | 2 ++
-> >  arch/mn10300/include/uapi/asm/socket.h | 2 ++
-> >  arch/parisc/include/uapi/asm/socket.h  | 2 ++
-> >  arch/powerpc/include/uapi/asm/socket.h | 2 ++
-> >  arch/s390/include/uapi/asm/socket.h    | 2 ++
-> >  arch/sparc/include/uapi/asm/socket.h   | 2 ++
-> >  arch/xtensa/include/uapi/asm/socket.h  | 2 ++
-> >  include/net/sock.h                     | 5 +++++
-> >  include/uapi/asm-generic/socket.h      | 2 ++
-> >  net/core/sock.c                        | 4 ++++
-> >  16 files changed, 37 insertions(+)
-> >
-> ...
-> >--- a/include/net/sock.h
-> >+++ b/include/net/sock.h
-> >@@ -2292,4 +2292,9 @@ extern int sysctl_optmem_max;
-> >  extern __u32 sysctl_wmem_default;
-> >  extern __u32 sysctl_rmem_default;
-> >
-> >+static inline int bpf_get_extensions(void)
-> >+{
-> >+	return 0;
-> >+}
-> >+
+Thu, Jan 16, 2014 at 04:18:12PM CET, hannes@stressinduktion.org wrote:
+>On Thu, Jan 16, 2014 at 03:38:17PM +0100, Hannes Frederic Sowa wrote:
+>> On Thu, Jan 16, 2014 at 03:07:01PM +0100, Jiri Pirko wrote:
+>> > Thu, Jan 16, 2014 at 02:53:23PM CET, jiri@resnulli.us wrote:
+>> > >Hi Hannes.
+>> > >
+>> > >WARN_ON(ifp->idev->valid_ll_addr_cnt < 0);
+>> > >
+>> > >We did hit once this warning during the tests. The person who hit this
+>> > >says that it was during the setup of many macvlan devices.
+>> > >
+>> > >I examined the code but I'm not sure how this could happen. Looks like a
+>> > >race condition between addrconf_dad_completed() and addrconf_ifdown(). 
+>> > >Not sure how to easily resolve that though.
+>> 
+>> That seems to be the case. Actually we don't need to count precisiely
+>> here, we just must precisiely identify the situation where the first
+>> LL address comes into operational state. Maybe we can implement this
+>> somehow differently. I'll play with the code soon.
+>
+>Maybe something like this and then throw out the whole ll counting stuff:
+>
+>diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>index 6913a82..105105a 100644
+>--- a/net/ipv6/addrconf.c
+>+++ b/net/ipv6/addrconf.c
+>@@ -3233,6 +3233,19 @@ out:
+> 	in6_ifa_put(ifp);
+> }
 > 
-> This should rather be in: include/linux/filter.h
-
-Yes, having that function there makes more sense.
-
+>+/* idev must be at least read locked */
+>+static bool ipv6_lonely_lladdr(struct inet6_dev *idev, struct inet6_ifaddr *ifp)
+>+{
+>+	bool ret = true;
+>+	struct inet6_ifaddr *ifpiter;
+>+
+>+	list_for_each_entry(ifpiter, &idev->addr_list, if_list) {
+>+		if (ifp != ifpiter && ifpiter->scope == IFA_LINK)
+>+			ret = false;
+>+	}
+>+	return ret;
+>+}
+>+
+> static void addrconf_dad_completed(struct inet6_ifaddr *ifp)
+> {
+> 	struct net_device *dev = ifp->idev->dev;
+>@@ -3253,8 +3266,7 @@ static void addrconf_dad_completed(struct inet6_ifaddr *ifp)
 > 
-> And then, maybe be renamed into something like bpf_tell_extensions()
-> for example, but that's just nit.
+> 	read_lock_bh(&ifp->idev->lock);
+> 	spin_lock(&ifp->lock);
+>-	send_mld = ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL &&
+>-		   ifp->idev->valid_ll_addr_cnt == 1;
+>+	send_mld = ifp->scope == IFA_LINK && ipv6_lonely_lladdr(ifp->idev, ifp);
+> 	send_rs = send_mld &&
+> 		  ipv6_accept_ra(ifp->idev) &&
+> 		  ifp->idev->cnf.rtr_solicits > 0 &&
 
-Renamed.
+Sounds sane to me. Would you care to submit this please?
+Do not forget to remove all the valid_ll_addr_cnt stuff :)
 
-> 
-> Also, please add a comment, saying if people add new extensions, they
-> need to enumerate them within this function from now on so that user
-> space who enquires for that can be made aware of.
-
-Let me know if even more explanatory comment is desired.
-
-> 
-> Still, grepping through latest libpcap sources, tells me, so far over
-> the years they have included SKF_AD_PROTOCOL and SKF_AD_PKTTYPE, wow!
-> 
-> That's very disappointing, so I have high hopes with this getsockopt().
-> 
-> ;)
-> 
-> Thanks,
-
-Thank you for the review. Btw, what do you think about define for parisc? I am
-not sure I grok 0x4048 for SO_MAX_PACING_RATE and hence not sure about 0x4029
-for SO_BPF_EXTENSIONS.
-
-> 
-> Daniel
-
-Michal
-
-> 
-> >  #endif	/* _SOCK_H */
-> >diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
-> >index 38f14d0..ea0796b 100644
-> >--- a/include/uapi/asm-generic/socket.h
-> >+++ b/include/uapi/asm-generic/socket.h
-> >@@ -80,4 +80,6 @@
-> >
-> >  #define SO_MAX_PACING_RATE	47
-> >
-> >+#define SO_BPF_EXTENSIONS	48
-> >+
-> >  #endif /* __ASM_GENERIC_SOCKET_H */
-> >diff --git a/net/core/sock.c b/net/core/sock.c
-> >index 85ad6f0..70e5a6e 100644
-> >--- a/net/core/sock.c
-> >+++ b/net/core/sock.c
-> >@@ -1167,6 +1167,10 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
-> >  		v.val = sock_flag(sk, SOCK_FILTER_LOCKED);
-> >  		break;
-> >
-> >+	case SO_BPF_EXTENSIONS:
-> >+		v.val = bpf_get_extensions();
-> >+		break;
-> >+
-> >  	case SO_SELECT_ERR_QUEUE:
-> >  		v.val = sock_flag(sk, SOCK_SELECT_ERR_QUEUE);
-> >  		break;
-> >
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
