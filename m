@@ -1,43 +1,67 @@
-From: =?UTF-8?Q?Nie=C5=9Bcierowicz_Adam?= <adam.niescierowicz@justnet.pl>
-Subject: Kernel Crash
-Date: Thu, 16 Jan 2014 11:24:57 +0100
-Message-ID: <e1982a93a9e937b81871456ef945b9f7@justnet.pl>
-Reply-To: adam.niescierowicz@justnet.pl
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 2/2] reciprocal_divide: correction/update of the algorithm
+Date: Thu, 16 Jan 2014 11:26:18 +0100
+Message-ID: <20140116102618.GA7436@order.stressinduktion.org>
+References: <1389828228-30312-1-git-send-email-dborkman@redhat.com> <1389828228-30312-3-git-send-email-dborkman@redhat.com> <1389841646.31367.391.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host-91.230.163.37.ltv.pl ([91.230.163.37]:42067 "EHLO
-	mail.justnet.pl" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751948AbaAPKZr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 05:25:47 -0500
-Received: from [91.230.163.37] (helo=mail.justnet.pl)
-	by service with esmtpa (Exim 4.72)
-	(envelope-from <adam.niescierowicz@justnet.pl>)
-	id 1W3k89-0008R9-BY
-	for netdev@vger.kernel.org; Thu, 16 Jan 2014 11:24:57 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Austin S Hemmelgarn <ahferroin7@gmail.com>,
+	Jesse Gross <jesse@nicira.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Matt Mackall <mpm@selenic.com>,
+	Pekka Enberg <penberg@kernel.org>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Jakub Zawadzki <darkjames-ws@darkjames.pl>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1389841646.31367.391.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi Eric!
 
-I do not know if I am writing in a good place.
+On Wed, Jan 15, 2014 at 07:07:26PM -0800, Eric Dumazet wrote:
+> On Thu, 2014-01-16 at 00:23 +0100, Daniel Borkmann wrote:
+> 
+> > Also, reciprocal_value() and reciprocal_divide() always return 0
+> > for divisions by 1. This is a bit worrisome as those functions
+> > also get used in mm/slab.c and lib/flex_array.c, apparently for
+> > index calculation to access array slots. 
+> 
+> Hi Daniel
+> 
+> This off-by-one limitation is a known one,
+> and mm/slab.c does not have an issue with it because :
+> 
+> - Minimal object size is not 1 byte, but 8 (or maybe 4)
+> - We always divide a multiple of the divisor,
+>   so there is no off-by-one effect.
+> 
+> Little attached prog does a brute force check if needed.
+> 
+> So far, the only relevant issue was about BPF, and a better
+> documentation of reciprocal_divide() use cases.
+> 
+> (I let Jesse comment on the flex_array case)
+> 
+> I am unsure we want to 'fix' things, we tried hard in the past to avoid
+> divides, so the ones we use are usually because the divisor is not
+> constant, so the reciprocal doesn't help.
+> 
+> (BPF is fixed in David tree)
+> 
+> Thanks !
 
-With the launch of the new kernel 3.13.0-rc8 on on our router errors=20
-appear.
-
-http://wklej.org/id/1238075/ [1]
-
-Is this a kernel bug or wrong configuration?
-
---=20
+You are right, we rewrite that part. The text is still from the first commit
+message where we did no full impact analysis. ;)
 
 Thanks,
-Adam Nie=C5=9Bcierowicz
 
-
-Links:
-------
-[1] http://wklej.org/id/1238075/
+  Hannes
