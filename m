@@ -1,127 +1,64 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next v4 6/6] virtio-net: initial rx sysfs support,
-	export mergeable rx buffer size
-Date: Thu, 16 Jan 2014 22:25:38 +0200
-Message-ID: <20140116202538.GK29522@redhat.com>
-References: <1389901950-3854-1-git-send-email-mwdalton@google.com>
-	<1389901950-3854-6-git-send-email-mwdalton@google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] ipv6: simplify detection of first operational link-local address on interface
+Date: Thu, 16 Jan 2014 21:27:33 +0100
+Message-ID: <20140116202733.GD17529@order.stressinduktion.org>
+References: <20140116135323.GA7961@minipsycho.orion> <20140116191304.GC17529@order.stressinduktion.org> <52D83DE3.40806@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Michael Dalton <mwdalton@google.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	fbl@redhat.com
+To: Brian Haley <brian.haley@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:43652 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751384AbaAPU1e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 15:27:34 -0500
 Content-Disposition: inline
-In-Reply-To: <1389901950-3854-6-git-send-email-mwdalton@google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <52D83DE3.40806@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 16, 2014 at 11:52:30AM -0800, Michael Dalton wrote:
-> Add initial support for per-rx queue sysfs attributes to virtio-net. If
-> mergeable packet buffers are enabled, adds a read-only mergeable packet
-> buffer size sysfs attribute for each RX queue.
+On Thu, Jan 16, 2014 at 03:15:31PM -0500, Brian Haley wrote:
+> On 01/16/2014 02:13 PM, Hannes Frederic Sowa wrote:
+> > In commit 1ec047eb4751e3 ("ipv6: introduce per-interface counter for
+> > dad-completed ipv6 addresses") I build the detection of the first
+> > operational link-local address much to complex. Additionally this code
+> > now has a race condition.
+> > 
+> > Replace it with a much simpler variant, which just scans the address
+> > list when duplicate address detection completes, to check if this is
+> > the first valid link local address and send RS and MLD reports then.
+> > 
+> > Fixes: 1ec047eb4751e3 ("ipv6: introduce per-interface counter for dad-completed ipv6 addresses")
+> > Reported-by: Jiri Pirko <jiri@resnulli.us>
+> > Cc: Flavio Leitner <fbl@redhat.com>
+> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> > ---
 > 
-> Suggested-by: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Michael Dalton <mwdalton@google.com>
+> > +/* ifp->idev must be at least read locked */
+> > +static bool ipv6_lonely_lladdr(struct inet6_ifaddr *ifp)
+> > +{
+> > +	struct inet6_ifaddr *ifpiter;
+> > +	struct inet6_dev *idev = ifp->idev;
+> > +
+> > +	list_for_each_entry(ifpiter, &idev->addr_list, if_list) {
+> > +		if (ifp != ifpiter && ifpiter->scope == IFA_LINK &&
+> > +		    (ifpiter->flags & (IFA_F_PERMANENT|IFA_F_TENTATIVE|
+> > +				       IFA_F_OPTIMISTIC|IFA_F_DADFAILED)) ==
+> > +		    IFA_F_PERMANENT)
+> > +			return false;
+> > +	}
+> > +	return true;
+> > +}
+> 
+> Just a nit, but the idev->addr_list is sorted by scope, so you could use
+> list_for_each_entry_reverse(), and break out once the scope is > IFA_LINK to
+> reduce the number of compares.
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Very good idea, but I would leave this patch for net as-is. I'll send
+one for net-next which does this optimization for the other functions
+at the weekend (we can do the same optimization to ipv6_get_lladdr etc.).
 
-> ---
-> v3->v4: Remove seqcount due to EWMA changes in patch 5.
->         Add missing Suggested-By.
-> 
->  drivers/net/virtio_net.c | 46 ++++++++++++++++++++++++++++++++++++++++++----
->  1 file changed, 42 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 3e82311..968eacd 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -604,18 +604,25 @@ static int add_recvbuf_big(struct receive_queue *rq, gfp_t gfp)
->  	return err;
->  }
->  
-> -static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
-> +static unsigned int get_mergeable_buf_len(struct ewma *avg_pkt_len)
->  {
->  	const size_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-> +	unsigned int len;
-> +
-> +	len = hdr_len + clamp_t(unsigned int, ewma_read(avg_pkt_len),
-> +			GOOD_PACKET_LEN, PAGE_SIZE - hdr_len);
-> +	return ALIGN(len, MERGEABLE_BUFFER_ALIGN);
-> +}
-> +
-> +static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
-> +{
->  	struct page_frag *alloc_frag = &rq->alloc_frag;
->  	char *buf;
->  	unsigned long ctx;
->  	int err;
->  	unsigned int len, hole;
->  
-> -	len = hdr_len + clamp_t(unsigned int, ewma_read(&rq->mrg_avg_pkt_len),
-> -				GOOD_PACKET_LEN, PAGE_SIZE - hdr_len);
-> -	len = ALIGN(len, MERGEABLE_BUFFER_ALIGN);
-> +	len = get_mergeable_buf_len(&rq->mrg_avg_pkt_len);
->  	if (unlikely(!skb_page_frag_refill(len, alloc_frag, gfp)))
->  		return -ENOMEM;
->  
-> @@ -1594,6 +1601,33 @@ err:
->  	return ret;
->  }
->  
-> +#ifdef CONFIG_SYSFS
-> +static ssize_t mergeable_rx_buffer_size_show(struct netdev_rx_queue *queue,
-> +		struct rx_queue_attribute *attribute, char *buf)
-> +{
-> +	struct virtnet_info *vi = netdev_priv(queue->dev);
-> +	unsigned int queue_index = get_netdev_rx_queue_index(queue);
-> +	struct ewma *avg;
-> +
-> +	BUG_ON(queue_index >= vi->max_queue_pairs);
-> +	avg = &vi->rq[queue_index].mrg_avg_pkt_len;
-> +	return sprintf(buf, "%u\n", get_mergeable_buf_len(avg));
-> +}
-> +
-> +static struct rx_queue_attribute mergeable_rx_buffer_size_attribute =
-> +	__ATTR_RO(mergeable_rx_buffer_size);
-> +
-> +static struct attribute *virtio_net_mrg_rx_attrs[] = {
-> +	&mergeable_rx_buffer_size_attribute.attr,
-> +	NULL
-> +};
-> +
-> +static const struct attribute_group virtio_net_mrg_rx_group = {
-> +	.name = "virtio_net",
-> +	.attrs = virtio_net_mrg_rx_attrs
-> +};
-> +#endif
-> +
->  static int virtnet_probe(struct virtio_device *vdev)
->  {
->  	int i, err;
-> @@ -1708,6 +1742,10 @@ static int virtnet_probe(struct virtio_device *vdev)
->  	if (err)
->  		goto free_stats;
->  
-> +#ifdef CONFIG_SYSFS
-> +	if (vi->mergeable_rx_bufs)
-> +		dev->sysfs_rx_queue_group = &virtio_net_mrg_rx_group;
-> +#endif
->  	netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
->  	netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
->  
-> -- 
-> 1.8.5.2
+Thanks,
+
+  Hannes
