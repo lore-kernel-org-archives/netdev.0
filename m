@@ -1,51 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next RFC] virtio-net: drop rq->max and rq->num
-Date: Wed, 15 Jan 2014 16:46:49 -0800 (PST)
-Message-ID: <20140115.164649.533508366980529205.davem@davemloft.net>
-References: <1388134685-30691-1-git-send-email-jasowang@redhat.com>
-	<87mwixx670.fsf@rustcorp.com.au> <87zjmwvlzl.fsf@rustcorp.com.au>
+Subject: Re: [PATCH net-next] sctp: create helper function to
+ enable|disable sackdelay
+Date: Wed, 15 Jan 2014 16:48:54 -0800 (PST)
+Message-ID: <20140115.164854.408974533162424968.davem@davemloft.net>
+References: <52D653B1.4040708@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com
-To: rusty@rustcorp.com.au
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <87zjmwvlzl.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: vyasevich@gmail.com, nhorman@tuxdriver.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: wangweidong1@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43046 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752248AbaAPAsz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 19:48:55 -0500
+In-Reply-To: <52D653B1.4040708@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Thu, 16 Jan 2014 10:25:26 +1030
+From: Wang Weidong <wangweidong1@huawei.com>
+Date: Wed, 15 Jan 2014 17:24:01 +0800
 
-> Rusty Russell <rusty@rustcorp.com.au> writes:
->> Jason Wang <jasowang@redhat.com> writes:
->>> It looks like there's no need for those two fields:
->>>
->>> - Unless there's a failure for the first refill try, rq->max should be always
->>>   equal to the vring size.
->>> - rq->num is only used to determine the condition that we need to do the refill,
->>>   we could check vq->num_free instead.
->>> - rq->num was required to be increased or decreased explicitly after each
->>>   get/put which results a bad API.
->>>
->>> So this patch removes them both to make the code simpler.
->>
->> Nice.  These fields date from when the vq struct was opaque.
->>
->> Applied,
->> Rusty.
+> add sctp_spp_sackdelay_{enable|disable} helper function for
+> avoiding code duplication. 
 > 
-> Oops, this doesn't require any core virtio changes, so it's for DaveM:
-> 
-> Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 
-Jason please repost this with Rusty's ACK, thanks.
+Applied.
