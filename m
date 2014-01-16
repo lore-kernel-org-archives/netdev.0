@@ -1,101 +1,42 @@
-From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: [PATCH] e1000e: Fix compilation warning when !CONFIG_PM_SLEEP
-Date: Thu, 16 Jan 2014 14:39:39 +0200
-Message-ID: <1389875979-30340-1-git-send-email-mika.westerberg@linux.intel.com>
+From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Subject: Re: [PATCH V2 net-next 1/3] ipv6: add the IPV6_FL_F_REFLECT flag
+ to IPV6_FL_A_GET
+Date: Thu, 16 Jan 2014 13:45:18 +0100
+Message-ID: <52D7D45E.6000908@enst-bretagne.fr>
+References: <1389785403-6401-1-git-send-email-florent.fourcot@enst-bretagne.fr> <20140115224726.GH19945@order.stressinduktion.org> <20140116123515.GD7436@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Aaron Brown <aaron.f.brown@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Mika Westerberg <mika.westerberg@linux.intel.com>,
-	netdev@vger.kernel.org
-To: Dave Ertman <davidx.m.ertman@intel.com>
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:18838 "EHLO mga02.intel.com"
+Received: from fourcot.fr ([217.70.191.14]:56386 "EHLO olfflo.fourcot.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751592AbaAPMjm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jan 2014 07:39:42 -0500
+	id S1752563AbaAPMp2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jan 2014 07:45:28 -0500
+In-Reply-To: <20140116123515.GD7436@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 7509963c703b (e1000e: Fix a compile flag mis-match for
-suspend/resume) moved suspend and resume hooks to be available when
-CONFIG_PM is set. However, it can be set even if CONFIG_PM_SLEEP is not=
- set
-causing following warnings to be emitted:
 
-drivers/net/ethernet/intel/e1000e/netdev.c:6178:12: warning:
-  	=E2=80=98e1000_suspend=E2=80=99 defined but not used [-Wunused-funct=
-ion]
+>> Was there a specific reason you did not use np->flow_label here and just
+>> mirroring the flowlabel from the first packet of the connection for the
+>> whole connection?
+>>
+>> I don't know if it makes a difference, but maybe it was done on purpose?
+> 
+> I thought about it and am actually in favor of reusing the flowid from the syn
+> packet so userspace does report correct outgoing flowlabel even in case of
+> strange tcp peer changing it mid-stream.
+> 
 
-drivers/net/ethernet/intel/e1000e/netdev.c:6185:12: warning:
-	=E2=80=98e1000_resume=E2=80=99 defined but not used [-Wunused-function=
-]
+Actually, the idea was that the remote could changed the flow label
+during the lifetime of a connection.
+I do not have a strong opinion on that, but in a "reflect" mode, I
+except that the last received value will be in used.
 
-To fix this make the hooks to be available only when CONFIG_PM_SLEEP is=
- set
-and remove CONFIG_PM wrapping from driver ops because this is already
-handled by SET_SYSTEM_SLEEP_PM_OPS() and SET_RUNTIME_PM_OPS().
+Second, in case of SYN cookie, is the SYN flow label stored somewhere?
 
-Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
-Cc: Dave Ertman <davidx.m.ertman@intel.com>
-Cc: Aaron Brown <aaron.f.brown@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/netdev.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+Thanks,
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/e=
-thernet/intel/e1000e/netdev.c
-index c30d41d6e426..6d14eea17918 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -6174,7 +6174,7 @@ static int __e1000_resume(struct pci_dev *pdev)
- 	return 0;
- }
-=20
--#ifdef CONFIG_PM
-+#ifdef CONFIG_PM_SLEEP
- static int e1000_suspend(struct device *dev)
- {
- 	struct pci_dev *pdev =3D to_pci_dev(dev);
-@@ -6193,7 +6193,7 @@ static int e1000_resume(struct device *dev)
-=20
- 	return __e1000_resume(pdev);
- }
--#endif /* CONFIG_PM */
-+#endif /* CONFIG_PM_SLEEP */
-=20
- #ifdef CONFIG_PM_RUNTIME
- static int e1000_runtime_suspend(struct device *dev)
-@@ -7015,13 +7015,11 @@ static DEFINE_PCI_DEVICE_TABLE(e1000_pci_tbl) =3D=
- {
- };
- MODULE_DEVICE_TABLE(pci, e1000_pci_tbl);
-=20
--#ifdef CONFIG_PM
- static const struct dev_pm_ops e1000_pm_ops =3D {
- 	SET_SYSTEM_SLEEP_PM_OPS(e1000_suspend, e1000_resume)
- 	SET_RUNTIME_PM_OPS(e1000_runtime_suspend, e1000_runtime_resume,
- 			   e1000_idle)
- };
--#endif
-=20
- /* PCI Device API Driver */
- static struct pci_driver e1000_driver =3D {
-@@ -7029,11 +7027,9 @@ static struct pci_driver e1000_driver =3D {
- 	.id_table =3D e1000_pci_tbl,
- 	.probe    =3D e1000_probe,
- 	.remove   =3D e1000_remove,
--#ifdef CONFIG_PM
- 	.driver   =3D {
- 		.pm =3D &e1000_pm_ops,
- 	},
--#endif
- 	.shutdown =3D e1000_shutdown,
- 	.err_handler =3D &e1000_err_handler
- };
---=20
-1.8.5.2
+Florent.
