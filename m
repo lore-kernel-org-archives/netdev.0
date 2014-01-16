@@ -1,94 +1,60 @@
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: Re: [RFC PATCH net-next 2/3] virtio_net: Introduce one dummy function virtnet_filter_rfs()
-Date: Thu, 16 Jan 2014 10:45:28 +0800
-Message-ID: <CAEH94Lj7VGamzKCKyxWviRO2P7Hmz=DZWgqaoQCUYzYUWy=9aw@mail.gmail.com>
-References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
-	<1389795654-28381-3-git-send-email-zwu.kernel@gmail.com>
-	<CA+mtBx8Z80d5Y1ti0_68UA-x0hZPeqT4wa9knevWoPxX+eyaVA@mail.gmail.com>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: Re: [PATCH 1/2 v3] ixgbe: define
+ IXGBE_MAX_VFS_DRV_LIMIT macro and cleanup const 63
+Date: Thu, 16 Jan 2014 02:51:55 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B7312DF41@ORSMSX101.amr.corp.intel.com>
+References: <1389795148-341-1-git-send-email-ethan.kernel@gmail.com>
+	<309B89C4C689E141A5FF6A0C5FB2118B7312DA20@ORSMSX101.amr.corp.intel.com>
+	<CABawtvNEDjTJAjJ9TeEvZd7+2kD=H6zA23T-aQo3uVm5SUEhCQ@mail.gmail.com>
+	<309B89C4C689E141A5FF6A0C5FB2118B7312DE7D@ORSMSX101.amr.corp.intel.com>
+	<CABawtvNSpDU+pjdJOpCB8kyQqA7B9N4g0S_yPgQaZnB3h0+nFg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:44633 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751401AbaAPCp2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 21:45:28 -0500
-Received: by mail-ob0-f175.google.com with SMTP id uz6so2109361obc.20
-        for <netdev@vger.kernel.org>; Wed, 15 Jan 2014 18:45:28 -0800 (PST)
-In-Reply-To: <CA+mtBx8Z80d5Y1ti0_68UA-x0hZPeqT4wa9knevWoPxX+eyaVA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Allan,
+	Bruce W" <bruce.w.allan@intel.com>, "Brandeburg,
+	Jesse" <jesse.brandeburg@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "ethan.kernel@gmail.com" <ethan.kernel@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <CABawtvNSpDU+pjdJOpCB8kyQqA7B9N4g0S_yPgQaZnB3h0+nFg@mail.gmail.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 16, 2014 at 1:54 AM, Tom Herbert <therbert@google.com> wrote:
-> Zhi, this is promising work! I can't wait to see how this impacts
-"Zhi" is part of my first name, you call me "Zhi Yong".
-> network virtualization performance :-)
-heh, too much work is missing.
->
-> On Wed, Jan 15, 2014 at 6:20 AM, Zhi Yong Wu <zwu.kernel@gmail.com> wrote:
->> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
->>
->> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
->> ---
->>  drivers/net/virtio_net.c |   11 +++++++++++
->>  1 files changed, 11 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->> index 7b17240..046421c 100644
->> --- a/drivers/net/virtio_net.c
->> +++ b/drivers/net/virtio_net.c
->> @@ -1295,6 +1295,14 @@ static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
->>         return 0;
->>  }
->>
->> +#ifdef CONFIG_RFS_ACCEL
->> +static int virtnet_filter_rfs(struct net_device *net_dev,
->> +               const struct sk_buff *skb, u16 rxq_index, u32 flow_id)
->> +{
-> Does this need to be filled out with more stuff?
-Yes, the following stuff are missing:
-1.)  guest virtio_net driver should have one filter table and its
-entries can be expired periodically;
-2.)  guest virtio_net driver should pass rx queue index and filter
-info down to the emulated virtio_net NIC in QEMU.
-3.) the emulated virtio_net NIC should have its indirect table to
-store the flow to rx queue mapping.
-4.) the emulated virtio_net NIC should classify the rx packet to
-selected queue by applying the filter.
-5.) update virtio spec.
-Do i miss anything? If yes, please correct me.
-For 3.) and 4.), do you have any doc about how they are implemented in
-physical NICs? e.g. mlx4_en or sfc, etc.
+On Thu, 2014-01-16 at 09:58 +0800, Ethan Zhao wrote:
+> Aaron,
+> 
+> Is this your net-next repo ? if so, I rebuild the patch with this repo
+> right now .
+> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
+> 
+> Thanks,
+> Ethan
+> 
+Only sort of.  Jeff uses it to push patches up, but I don't have an
+account there so am simply sending them up the old fashioned way, via
+email, hence it is probably not getting updated while Jeff is out.
 
->
->> +       return 0;
->> +}
->> +#endif /* CONFIG_RFS_ACCEL */
->> +
->>  static const struct net_device_ops virtnet_netdev = {
->>         .ndo_open            = virtnet_open,
->>         .ndo_stop            = virtnet_close,
->> @@ -1309,6 +1317,9 @@ static const struct net_device_ops virtnet_netdev = {
->>  #ifdef CONFIG_NET_POLL_CONTROLLER
->>         .ndo_poll_controller = virtnet_netpoll,
->>  #endif
->> +#ifdef CONFIG_RFS_ACCEL
->> +       .ndo_rx_flow_steer   = virtnet_filter_rfs,
->> +#endif
->>  };
->>
->>  static void virtnet_config_changed_work(struct work_struct *work)
->> --
->> 1.7.6.5
->>
-
-
-
--- 
-Regards,
-
-Zhi Yong Wu
+As long as your patch can apply cleanly to Dave Miller's net-next tree I
+should be able to pull it into our internal ones.
+------------------------------------------------------------------------------
+CenturyLink Cloud: The Leader in Enterprise Cloud Services.
+Learn Why More Businesses Are Choosing CenturyLink Cloud For
+Critical Workloads, Development Environments & Everything In Between.
+Get a Quote or Start a Free Trial Today. 
+http://pubads.g.doubleclick.net/gampad/clk?id=119420431&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
