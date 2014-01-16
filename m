@@ -1,101 +1,63 @@
 From: Willy Tarreau <w@1wt.eu>
-Subject: [PATCH 04/13] net: mvneta: add missing bit descriptions for interrupt masks and causes
-Date: Thu, 16 Jan 2014 08:20:10 +0100
-Message-ID: <1389856819-6503-5-git-send-email-w@1wt.eu>
+Subject: [PATCH 13/13] net: mvneta: make mvneta_txq_done() return void
+Date: Thu, 16 Jan 2014 08:20:19 +0100
+Message-ID: <1389856819-6503-14-git-send-email-w@1wt.eu>
 References: <1389856819-6503-1-git-send-email-w@1wt.eu>
-Cc: netdev@vger.kernel.org, Willy Tarreau <w@1wt.eu>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>
+Cc: netdev@vger.kernel.org, Arnaud Ebalard <arno@natisbad.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:55483 "EHLO 1wt.eu"
+Received: from 1wt.eu ([62.212.114.60]:55474 "EHLO 1wt.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751952AbaAPHUq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jan 2014 02:20:46 -0500
+	id S1750960AbaAPHUn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jan 2014 02:20:43 -0500
 In-Reply-To: <1389856819-6503-1-git-send-email-w@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marvell has not published the chip's datasheet yet, so it's very hard
-to find the relevant bits to manipulate to change the IRQ behaviour.
-Fortunately, these bits are described in the proprietary LSP patch set
-which is publicly available here :
+From: Arnaud Ebalard <arno@natisbad.org>
 
-    http://www.plugcomputer.org/downloads/mirabox/
+The function return parameter is not used in mvneta_tx_done_gbe(),
+where the function is called. This patch makes the function return
+void.
 
-So let's put them back in the driver in order to reduce the burden of
-current and future maintenance.
-
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Tested-by: Arnaud Ebalard <arno@natisbad.org>
-Signed-off-by: Willy Tarreau <w@1wt.eu>
+Reviewed-by: Willy Tarreau <w@1wt.eu>
+Signed-off-by: Arnaud Ebalard <arno@natisbad.org>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 44 +++++++++++++++++++++++++++++++++--
- 1 file changed, 42 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 84220c1..defda6f 100644
+index 8c51501..f418f4f 100644
 --- a/drivers/net/ethernet/marvell/mvneta.c
 +++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -101,16 +101,56 @@
- #define      MVNETA_CPU_RXQ_ACCESS_ALL_MASK      0x000000ff
- #define      MVNETA_CPU_TXQ_ACCESS_ALL_MASK      0x0000ff00
- #define MVNETA_RXQ_TIME_COAL_REG(q)              (0x2580 + ((q) << 2))
+@@ -1314,15 +1314,16 @@ static void mvneta_txq_bufs_free(struct mvneta_port *pp,
+ }
+ 
+ /* Handle end of transmission */
+-static int mvneta_txq_done(struct mvneta_port *pp,
++static void mvneta_txq_done(struct mvneta_port *pp,
+ 			   struct mvneta_tx_queue *txq)
+ {
+ 	struct netdev_queue *nq = netdev_get_tx_queue(pp->dev, txq->id);
+ 	int tx_done;
+ 
+ 	tx_done = mvneta_txq_sent_desc_proc(pp, txq);
+-	if (tx_done == 0)
+-		return tx_done;
++	if (!tx_done)
++		return;
 +
-+/* Exception Interrupt Port/Queue Cause register */
-+
- #define MVNETA_INTR_NEW_CAUSE                    0x25a0
--#define      MVNETA_RX_INTR_MASK(nr_rxqs)        (((1 << nr_rxqs) - 1) << 8)
- #define MVNETA_INTR_NEW_MASK                     0x25a4
-+
-+/* bits  0..7  = TXQ SENT, one bit per queue.
-+ * bits  8..15 = RXQ OCCUP, one bit per queue.
-+ * bits 16..23 = RXQ FREE, one bit per queue.
-+ * bit  29 = OLD_REG_SUM, see old reg ?
-+ * bit  30 = TX_ERR_SUM, one bit for 4 ports
-+ * bit  31 = MISC_SUM,   one bit for 4 ports
-+ */
-+#define      MVNETA_TX_INTR_MASK(nr_txqs)        (((1 << nr_txqs) - 1) << 0)
-+#define      MVNETA_TX_INTR_MASK_ALL             (0xff << 0)
-+#define      MVNETA_RX_INTR_MASK(nr_rxqs)        (((1 << nr_rxqs) - 1) << 8)
-+#define      MVNETA_RX_INTR_MASK_ALL             (0xff << 8)
-+
- #define MVNETA_INTR_OLD_CAUSE                    0x25a8
- #define MVNETA_INTR_OLD_MASK                     0x25ac
-+
-+/* Data Path Port/Queue Cause Register */
- #define MVNETA_INTR_MISC_CAUSE                   0x25b0
- #define MVNETA_INTR_MISC_MASK                    0x25b4
-+
-+#define      MVNETA_CAUSE_PHY_STATUS_CHANGE      BIT(0)
-+#define      MVNETA_CAUSE_LINK_CHANGE            BIT(1)
-+#define      MVNETA_CAUSE_PTP                    BIT(4)
-+
-+#define      MVNETA_CAUSE_INTERNAL_ADDR_ERR      BIT(7)
-+#define      MVNETA_CAUSE_RX_OVERRUN             BIT(8)
-+#define      MVNETA_CAUSE_RX_CRC_ERROR           BIT(9)
-+#define      MVNETA_CAUSE_RX_LARGE_PKT           BIT(10)
-+#define      MVNETA_CAUSE_TX_UNDERUN             BIT(11)
-+#define      MVNETA_CAUSE_PRBS_ERR               BIT(12)
-+#define      MVNETA_CAUSE_PSC_SYNC_CHANGE        BIT(13)
-+#define      MVNETA_CAUSE_SERDES_SYNC_ERR        BIT(14)
-+
-+#define      MVNETA_CAUSE_BMU_ALLOC_ERR_SHIFT    16
-+#define      MVNETA_CAUSE_BMU_ALLOC_ERR_ALL_MASK   (0xF << MVNETA_CAUSE_BMU_ALLOC_ERR_SHIFT)
-+#define      MVNETA_CAUSE_BMU_ALLOC_ERR_MASK(pool) (1 << (MVNETA_CAUSE_BMU_ALLOC_ERR_SHIFT + (pool)))
-+
-+#define      MVNETA_CAUSE_TXQ_ERROR_SHIFT        24
-+#define      MVNETA_CAUSE_TXQ_ERROR_ALL_MASK     (0xFF << MVNETA_CAUSE_TXQ_ERROR_SHIFT)
-+#define      MVNETA_CAUSE_TXQ_ERROR_MASK(q)      (1 << (MVNETA_CAUSE_TXQ_ERROR_SHIFT + (q)))
-+
- #define MVNETA_INTR_ENABLE                       0x25b8
- #define      MVNETA_TXQ_INTR_ENABLE_ALL_MASK     0x0000ff00
--#define      MVNETA_RXQ_INTR_ENABLE_ALL_MASK     0xff000000
-+#define      MVNETA_RXQ_INTR_ENABLE_ALL_MASK     0xff000000  // note: neta says it's 0x000000FF
-+
- #define MVNETA_RXQ_CMD                           0x2680
- #define      MVNETA_RXQ_DISABLE_SHIFT            8
- #define      MVNETA_RXQ_ENABLE_MASK              0x000000ff
+ 	mvneta_txq_bufs_free(pp, txq, tx_done);
+ 
+ 	txq->count -= tx_done;
+@@ -1331,8 +1332,6 @@ static int mvneta_txq_done(struct mvneta_port *pp,
+ 		if (txq->size - txq->count >= MAX_SKB_FRAGS + 1)
+ 			netif_tx_wake_queue(nq);
+ 	}
+-
+-	return tx_done;
+ }
+ 
+ static void *mvneta_frag_alloc(const struct mvneta_port *pp)
 -- 
 1.7.12.2.21.g234cd45.dirty
