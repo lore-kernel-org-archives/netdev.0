@@ -1,85 +1,73 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: ipv6 addrconfg warn_on hit: WARN_ON(ifp->idev->valid_ll_addr_cnt < 0);
-Date: Thu, 16 Jan 2014 18:31:32 +0100
-Message-ID: <20140116173132.GB17529@order.stressinduktion.org>
-References: <20140116135323.GA7961@minipsycho.orion> <20140116140701.GB7961@minipsycho.orion> <20140116143817.GH7436@order.stressinduktion.org> <20140116151812.GI7436@order.stressinduktion.org> <20140116172706.GC7961@minipsycho.orion>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 2/2] r6040: use ETH_ZLEN instead of MISR for
+ SKB length checking
+Date: Thu, 16 Jan 2014 17:33:24 +0000
+Message-ID: <1389893604.11912.47.camel@bwh-desktop.uk.level5networks.com>
+References: <1389819866-32142-1-git-send-email-florian@openwrt.org>
+	 <1389819866-32142-3-git-send-email-florian@openwrt.org>
+	 <1389857001.19462.33.camel@deadeye.wl.decadent.org.uk>
+	 <063D6719AE5E284EB5DD2968C1650D6D45D812@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: 'Ben Hutchings' <ben@decadent.org.uk>,
+	Florian Fainelli <florian@openwrt.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:43176 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750749AbaAPRbd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 12:31:33 -0500
-Content-Disposition: inline
-In-Reply-To: <20140116172706.GC7961@minipsycho.orion>
+Received: from webmail.solarflare.com ([12.187.104.25]:32644 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750906AbaAPRd3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 12:33:29 -0500
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D45D812@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 16, 2014 at 06:27:06PM +0100, Jiri Pirko wrote:
-> Thu, Jan 16, 2014 at 04:18:12PM CET, hannes@stressinduktion.org wrote:
-> >On Thu, Jan 16, 2014 at 03:38:17PM +0100, Hannes Frederic Sowa wrote:
-> >> On Thu, Jan 16, 2014 at 03:07:01PM +0100, Jiri Pirko wrote:
-> >> > Thu, Jan 16, 2014 at 02:53:23PM CET, jiri@resnulli.us wrote:
-> >> > >Hi Hannes.
-> >> > >
-> >> > >WARN_ON(ifp->idev->valid_ll_addr_cnt < 0);
-> >> > >
-> >> > >We did hit once this warning during the tests. The person who hit this
-> >> > >says that it was during the setup of many macvlan devices.
-> >> > >
-> >> > >I examined the code but I'm not sure how this could happen. Looks like a
-> >> > >race condition between addrconf_dad_completed() and addrconf_ifdown(). 
-> >> > >Not sure how to easily resolve that though.
-> >> 
-> >> That seems to be the case. Actually we don't need to count precisiely
-> >> here, we just must precisiely identify the situation where the first
-> >> LL address comes into operational state. Maybe we can implement this
-> >> somehow differently. I'll play with the code soon.
-> >
-> >Maybe something like this and then throw out the whole ll counting stuff:
-> >
-> >diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> >index 6913a82..105105a 100644
-> >--- a/net/ipv6/addrconf.c
-> >+++ b/net/ipv6/addrconf.c
-> >@@ -3233,6 +3233,19 @@ out:
-> > 	in6_ifa_put(ifp);
-> > }
+On Thu, 2014-01-16 at 09:10 +0000, David Laight wrote:
+> From: Ben Hutchings
+> > On Wed, 2014-01-15 at 13:04 -0800, Florian Fainelli wrote:
+> > > Ever since this driver was merged the following code was included:
+> ...
+> > > -	if (skb->len < MISR)
+> > > -		descptr->len = MISR;
+> > > +	if (skb->len < ETH_ZLEN)
+> > > +		descptr->len = ETH_ZLEN;
 > > 
-> >+/* idev must be at least read locked */
-> >+static bool ipv6_lonely_lladdr(struct inet6_dev *idev, struct inet6_ifaddr *ifp)
-> >+{
-> >+	bool ret = true;
-> >+	struct inet6_ifaddr *ifpiter;
-> >+
-> >+	list_for_each_entry(ifpiter, &idev->addr_list, if_list) {
-> >+		if (ifp != ifpiter && ifpiter->scope == IFA_LINK)
-> >+			ret = false;
-> >+	}
-> >+	return ret;
-> >+}
-> >+
-> > static void addrconf_dad_completed(struct inet6_ifaddr *ifp)
-> > {
-> > 	struct net_device *dev = ifp->idev->dev;
-> >@@ -3253,8 +3266,7 @@ static void addrconf_dad_completed(struct inet6_ifaddr *ifp)
-> > 
-> > 	read_lock_bh(&ifp->idev->lock);
-> > 	spin_lock(&ifp->lock);
-> >-	send_mld = ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL &&
-> >-		   ifp->idev->valid_ll_addr_cnt == 1;
-> >+	send_mld = ifp->scope == IFA_LINK && ipv6_lonely_lladdr(ifp->idev, ifp);
-> > 	send_rs = send_mld &&
-> > 		  ipv6_accept_ra(ifp->idev) &&
-> > 		  ifp->idev->cnf.rtr_solicits > 0 &&
+> > It looks like this is just increasing the TX descriptor length so the
+> > packet is tail-padded with whatever happens to come next in the skb.
+> > This is absolutely incorrect behaviour and may leak sensitive
+> > information.
 > 
-> Sounds sane to me. Would you care to submit this please?
-> Do not forget to remove all the valid_ll_addr_cnt stuff :)
+> And possibly page fault if the data is right at the end of a page.
 
-I'll do. ;) Currently testing the changes.
+If the CPU was accessing it, it would be fine as the skb linear area
+ends with struct skb_shared_info.  (sfc actually takes advantage of that
+in efx_enqueue_skb_pio() which can add padding (*not* transmitted) to
+ensure that the CPU does write-combining.)
 
-Thanks,
+But the NIC, if it's connected through an IOMMU, might get a page fault
+due to the incorrect length of the DMA mapping.
 
-  Hannes
+> > Presumably it is necessary to pad the frame because the MAC is too lame
+> > to do it, and the correct way to do that is using skb_padto(skb,
+> > ETH_ZLEN).  But this may fail as it might have to allocate memory
+> 
+> Alternatively use two ring entries with the 'more' bit set on
+> the first one and transmit the padding from a permanently allocated
+> and dma-mapped block of zeros.
+> Assuming the hardware support SG transmit and doesn't have a
+> constraint on the length of the first fragment.
+
+Do you see NETIF_F_SG in this driver?
+
+Ben.
+
+> Or have a pre-allocated an dma-mapped array of short buffers (one
+> for each ring slot) and copy short packets into the array instead
+> of dma-mapping the skb data.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
