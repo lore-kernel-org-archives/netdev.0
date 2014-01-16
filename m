@@ -1,30 +1,95 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/13] Assorted mvneta fixes and improvements
-Date: Thu, 16 Jan 2014 15:21:09 -0800 (PST)
-Message-ID: <20140116.152109.1800379613587893951.davem@davemloft.net>
-References: <1389856819-6503-1-git-send-email-w@1wt.eu>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, thomas.petazzoni@free-electrons.com,
-	gregory.clement@free-electrons.com, arno@natisbad.org,
-	eric.dumazet@gmail.com, ben@decadent.org.uk
-To: w@1wt.eu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54790 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751592AbaAPXVN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 18:21:13 -0500
-In-Reply-To: <1389856819-6503-1-git-send-email-w@1wt.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Debabrata Banerjee <dbanerje@akamai.com>
+Subject: [RFC PATCH 0/3] Use cached allocations in place of order-3 allocations for sk_page_frag_refill() and __netdev_alloc_frag()
+Date: Thu, 16 Jan 2014 18:17:01 -0500
+Message-ID: <1389914224-10453-1-git-send-email-dbanerje@akamai.com>
+Cc: dbanerje@akamai.com,
+	johunt@akamai.com,
+	jbaron@akamai.com,
+	davem@davemloft.net,
+	linux-mm@kvack.org
+To: eric.dumazet@gmail.com,
+	fw@strlen.de,
+	netdev@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Willy Tarreau <w@1wt.eu>
-Date: Thu, 16 Jan 2014 08:20:06 +0100
+This is a hack against 3.10.y to see if using cached allocations works better here. The unintended consequence is in the reference benchmark case, it performs ~7% better than the existing code even with a hacked slower get_page()/put_page(). The intent was to avoid very slow order-3 allocations (and really pathological retries under failure) which can cause lots of problems from OOM killer invocation to direct reclaim/compaction cycles that take up nearly all cpu and end up reaping large amounts of page cache which would have been otherwise useful. This is a regression from the same code that used order-0 allocations since those are easy and fast as they are cached per-cpu, and this code is under very heavy alloc/free behavior. This patch eliminates a majority of that due to slab caching t
+ he allocations, though could still be improved by slab holding onto free'd slabs longer; this seems like an unoptimized case when object size == slab size.
 
-> this series provides some fixes for a number of issues met with the
-> mvneta driver, then adds some improvements. Patches 1-5 are fixes
-> and would be needed in 3.13 and likely -stable. The next ones are
-> performance improvements and cleanups :
+vmstat output of bad behavior: http://pastebin.ubuntu.com/6687527/
 
-Series applied, thanks.
+This patchset could be fixed for submission by either making another pool of cached frag buffers specifically page_frag (not using slab), or by converting the whole stack to not use get_page/put_page() to reference count and free page allocations so that hacking swap.c is not necessary and slab use normal.
+
+Benchmark:
+ifconfig lo mtu 16436
+perf record ./netperf -t UDP_STREAM ; perf report
+
+With order-0 allocations:
+
+UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to localhost (127.0.0.1) port 0 AF_INET
+Socket  Message  Elapsed      Messages                
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+262144   65507   10.00      820758      0    43012.26
+262144           10.00      820754           43012.05
+
+# Overhead  Command      Shared Object                                      Symbol
+# ........  .......  .................  ..........................................
+#
+    46.15%  netperf  [kernel.kallsyms]  [k] copy_user_generic_string              
+     7.89%  netperf  [kernel.kallsyms]  [k] skb_append_datato_frags               
+     6.06%  netperf  [kernel.kallsyms]  [k] get_page_from_freelist                
+     3.87%  netperf  [kernel.kallsyms]  [k] __rmqueue                             
+     1.36%  netperf  [kernel.kallsyms]  [k] __alloc_pages_nodemask                
+     1.11%  netperf  [kernel.kallsyms]  [k] alloc_pages_current                   
+
+linux-3.10.y stock order-3 allocations:
+
+UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to localhost (127.0.0.1) port 0 AF_INET
+Socket  Message  Elapsed      Messages                
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+212992   65507   10.00     1054158      0    55243.69
+212992           10.00     1019505           53427.68
+
+# Overhead  Command      Shared Object                                      Symbol
+# ........  .......  .................  ..........................................
+#
+    59.80%  netperf  [kernel.kallsyms]  [k] copy_user_generic_string              
+     2.35%  netperf  [kernel.kallsyms]  [k] get_page_from_freelist                
+     1.95%  netperf  [kernel.kallsyms]  [k] skb_append_datato_frags               
+     1.27%  netperf  [ip_tables]        [k] ipt_do_table                          
+     1.26%  netperf  [kernel.kallsyms]  [k] udp_sendmsg                           
+     1.03%  netperf  [kernel.kallsyms]  [k] enqueue_task_fair                     
+     1.00%  netperf  [kernel.kallsyms]  [k] ip_finish_output                              
+
+With this patchset:
+
+UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to localhost (127.0.0.1) port 0 AF_INET
+Socket  Message  Elapsed      Messages                
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+212992   65507   10.00     1127089      0    59065.70
+212992           10.00     1072997           56230.98
+
+
+# Overhead  Command      Shared Object                                      Symbol
+# ........  .......  .................  ..........................................
+#
+    69.16%  netperf  [kernel.kallsyms]  [k] copy_user_generic_string
+     2.56%  netperf  [kernel.kallsyms]  [k] skb_append_datato_frags
+     1.00%  netperf  [ip_tables]        [k] ipt_do_table
+     0.96%  netperf  [kernel.kallsyms]  [k] sock_alloc_send_pskb
+     0.93%  netperf  [kernel.kallsyms]  [k] _raw_spin_lock
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
