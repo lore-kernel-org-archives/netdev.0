@@ -1,141 +1,253 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: Fwd: [RFC PATCH net-next 0/3] virtio_net: add aRFS support
-Date: Thu, 16 Jan 2014 09:12:29 -0800
-Message-ID: <CA+mtBx9PBtYurdnhCKL0MLL8i+_+3yPNWFVj5h6SPJH+YDBCjw@mail.gmail.com>
-References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
-	<52D75EA5.1050000@redhat.com>
-	<CAEH94Lg7ygXgHqE8ubE+nuunicDqgmnCfO2AuDSS2nXgv5GikQ@mail.gmail.com>
-	<20140116085253.GA32073@stefanha-thinkpad.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Zhi Yong Wu <zwu.kernel@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Jason Wang <jasowang@redhat.com>
-To: Stefan Hajnoczi <stefanha@redhat.com>
+From: Michal Sekletar <msekleta@redhat.com>
+Subject: [PATCH] net: introduce SO_BPF_EXTENSIONS
+Date: Thu, 16 Jan 2014 18:13:39 +0100
+Message-ID: <1389892419-11877-1-git-send-email-msekleta@redhat.com>
+References: <52D80BCA.7030400@redhat.com>
+Cc: netdev@vger.kernel.org, Michal Sekletar <msekleta@redhat.com>,
+	Michael Kerrisk <mtk.manpages@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:35230 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752503AbaAPRMa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 12:12:30 -0500
-Received: by mail-ie0-f182.google.com with SMTP id as1so4170677iec.41
-        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 09:12:29 -0800 (PST)
-In-Reply-To: <20140116085253.GA32073@stefanha-thinkpad.redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:61265 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752754AbaAPROI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jan 2014 12:14:08 -0500
+In-Reply-To: <52D80BCA.7030400@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 16, 2014 at 12:52 AM, Stefan Hajnoczi <stefanha@redhat.com> wrote:
-> On Thu, Jan 16, 2014 at 04:34:10PM +0800, Zhi Yong Wu wrote:
->> CC: stefanha, MST, Rusty Russel
->>
->> ---------- Forwarded message ----------
->> From: Jason Wang <jasowang@redhat.com>
->> Date: Thu, Jan 16, 2014 at 12:23 PM
->> Subject: Re: [RFC PATCH net-next 0/3] virtio_net: add aRFS support
->> To: Zhi Yong Wu <zwu.kernel@gmail.com>
->> Cc: netdev@vger.kernel.org, therbert@google.com, edumazet@google.com,
->> davem@davemloft.net, Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
->>
->>
->> On 01/15/2014 10:20 PM, Zhi Yong Wu wrote:
->> >
->> > From: Zhi Yong Wu<wuzhy@linux.vnet.ibm.com>
->> >
->> > HI, folks
->> >
->> > The patchset is trying to integrate aRFS support to virtio_net. In this case,
->> > aRFS will be used to select the RX queue. To make sure that it's going ahead
->> > in the correct direction, although it is still one RFC and isn't tested, it's
->> > post out ASAP. Any comment are appreciated, thanks.
->> >
->> > If anyone is interested in playing with it, you can get this patchset from my
->> > dev git on github:
->> >    git://github.com/wuzhy/kernel.git virtnet_rfs
->> >
->> > Zhi Yong Wu (3):
->> >    virtio_pci: Introduce one new config api vp_get_vq_irq()
->> >    virtio_net: Introduce one dummy function virtnet_filter_rfs()
->> >    virtio-net: Add accelerated RFS support
->> >
->> >   drivers/net/virtio_net.c      |   67 ++++++++++++++++++++++++++++++++++++++++-
->> >   drivers/virtio/virtio_pci.c   |   11 +++++++
->> >   include/linux/virtio_config.h |   12 +++++++
->> >   3 files changed, 89 insertions(+), 1 deletions(-)
->> >
->>
->> Please run get_maintainter.pl before sending the patch. You'd better
->> at least cc virtio maintainer/list for this.
->>
->> The core aRFS method is a noop in this RFC which make this series no
->> much sense to discuss. You should at least mention the big picture
->> here in the cover letter. I suggest you should post a RFC which can
->> run and has expected result or you can just raise a thread for the
->> design discussion.
->>
->> And this method has been discussed before, you can search "[net-next
->> RFC PATCH 5/5] virtio-net: flow director support" in netdev archive
->> for a very old prototype implemented by me. It can work and looks like
->> most of this RFC have already done there.
->>
->> A basic question is whether or not we need this, not all the mq cards
->> use aRFS (see ixgbe ATR). And whether or not it can bring extra
->> overheads? For virtio, we want to reduce the vmexits as much as
->> possible but this aRFS seems introduce a lot of more of this. Making a
->> complex interfaces just for an virtual device may not be good, simple
->> method may works for most of the cases.
->>
->> We really should consider to offload this to real nic. VMDq and L2
->> forwarding offload may help in this case.
->
-Adding flow director support would be a good step, Zhi's patches for
-support in tun have been merged, so support in virtio-net would be a
-good follow on. But, flow-director does have some limitations and
-performance issues of it's own (forced pairing between TX and RX
-queues, lookup on every TX packet). In the case of virtualization,
-aRFS, RSS, ntuple filtering, LRO, etc. can be implemented as software
-emulations and so far seems to be wins in most cases. Extending these
-down into the stack so that they can leverage HW mechanisms is a good
-goal for best performance. It's probably generally true that most of
-the offloads commonly available for NICs we'll want in virtualization
-path. Of course, we need to deomonstrate that they provide real
-performance benefit in this use case.
+userspace packet capturing libraries (e.g. libpcap) don't have a way how to find
+out which BPF extensions are supported by the kernel, except compiling a filter
+which uses extensions and trying to apply filter to the socket. This is very
+inconvenient.
 
-I believe tying in aRFS (or flow director) into a real aRFS is just a
-matter of programming the RFS table properly. This is not the complex
-side of the interface, I believe this already works with the tun
-patches.
+Therefore this commit introduces new option which can be used as an argument for
+getsockopt() and allows one to obtain information about which BPF extensions are
+supported by the kernel.
 
-> Zhi Yong and I had an IRC chat.  I wanted to post my questions on the
-> list - it's still the same concern I had in the old email thread that
-> Jason mentioned.
->
-> In order for virtio-net aRFS to make sense there needs to be an overall
-> plan for pushing flow mapping information down to the physical NIC.
-> That's the only way to actually achieve the benefit of steering:
-> processing the packet on the CPU where the application is running.
->
-I don't think this is necessarily true. Per flow steering amongst
-virtual queues should be beneficial in itself. virtio-net can leverage
-RFS or aRFS where it's available.
+On Tue, Dec 10, 2013 at 1:25 AM, David Miller <davem@davemloft.net> wrote:
 
-> If it's not possible or too hard to implement aRFS down the entire
-> stack, we won't be able to process the packet on the right CPU.
-> Then we might as well not bother with aRFS and just distribute uniformly
-> across the rx virtqueues.
->
-> Please post an outline of how rx packets will be steered up the stack so
-> we can discuss whether aRFS can bring any benefit.
->
-1. The aRFS interface for the guest to specify which virtual queue to
-receive a packet on is fairly straight forward.
-2. To hook into RFS, we need to match the virtual queue to the real
-CPU it will processed on, and then program the RFS table for that flow
-and CPU.
-3. NIC aRFS keys off the RFS tables so it can program the HW with the
-correct queue for the CPU.
+> And therefore, you do not need to define any actual bits yet. The
+> socket option will for now just return "0", and that will mean that
+> all the extensions Linux implements currently are presnet.
 
-> Stefan
+Signed-off-by: Michal Sekletar <msekleta@redhat.com>
+Cc: Michael Kerrisk <mtk.manpages@gmail.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>
+Cc: David Miller <davem@davemloft.net>
+---
+ arch/alpha/include/uapi/asm/socket.h   |  2 ++
+ arch/avr32/include/uapi/asm/socket.h   |  2 ++
+ arch/cris/include/uapi/asm/socket.h    |  2 ++
+ arch/frv/include/uapi/asm/socket.h     |  2 ++
+ arch/ia64/include/uapi/asm/socket.h    |  2 ++
+ arch/m32r/include/uapi/asm/socket.h    |  2 ++
+ arch/mips/include/uapi/asm/socket.h    |  2 ++
+ arch/mn10300/include/uapi/asm/socket.h |  2 ++
+ arch/parisc/include/uapi/asm/socket.h  |  2 ++
+ arch/powerpc/include/uapi/asm/socket.h |  2 ++
+ arch/s390/include/uapi/asm/socket.h    |  2 ++
+ arch/sparc/include/uapi/asm/socket.h   |  2 ++
+ arch/xtensa/include/uapi/asm/socket.h  |  2 ++
+ include/linux/filter.h                 | 10 ++++++++++
+ include/uapi/asm-generic/socket.h      |  2 ++
+ net/core/sock.c                        |  4 ++++
+ 16 files changed, 42 insertions(+)
+
+diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
+index e3a1491..3de1394 100644
+--- a/arch/alpha/include/uapi/asm/socket.h
++++ b/arch/alpha/include/uapi/asm/socket.h
+@@ -85,4 +85,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/avr32/include/uapi/asm/socket.h b/arch/avr32/include/uapi/asm/socket.h
+index cbf902e..6e6cd15 100644
+--- a/arch/avr32/include/uapi/asm/socket.h
++++ b/arch/avr32/include/uapi/asm/socket.h
+@@ -78,4 +78,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* _UAPI__ASM_AVR32_SOCKET_H */
+diff --git a/arch/cris/include/uapi/asm/socket.h b/arch/cris/include/uapi/asm/socket.h
+index 13829aa..ed94e5e 100644
+--- a/arch/cris/include/uapi/asm/socket.h
++++ b/arch/cris/include/uapi/asm/socket.h
+@@ -80,6 +80,8 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* _ASM_SOCKET_H */
+ 
+ 
+diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
+index 5d42997..ca2c6e6 100644
+--- a/arch/frv/include/uapi/asm/socket.h
++++ b/arch/frv/include/uapi/asm/socket.h
+@@ -78,5 +78,7 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* _ASM_SOCKET_H */
+ 
+diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
+index c25302f..a1b49ba 100644
+--- a/arch/ia64/include/uapi/asm/socket.h
++++ b/arch/ia64/include/uapi/asm/socket.h
+@@ -87,4 +87,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* _ASM_IA64_SOCKET_H */
+diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
+index 5296665..6c9a24b 100644
+--- a/arch/m32r/include/uapi/asm/socket.h
++++ b/arch/m32r/include/uapi/asm/socket.h
+@@ -78,4 +78,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* _ASM_M32R_SOCKET_H */
+diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
+index 0df9787..a14baa2 100644
+--- a/arch/mips/include/uapi/asm/socket.h
++++ b/arch/mips/include/uapi/asm/socket.h
+@@ -96,4 +96,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
+index 71dedca..6aa3ce1 100644
+--- a/arch/mn10300/include/uapi/asm/socket.h
++++ b/arch/mn10300/include/uapi/asm/socket.h
+@@ -78,4 +78,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
+index f33113a..a586f61 100644
+--- a/arch/parisc/include/uapi/asm/socket.h
++++ b/arch/parisc/include/uapi/asm/socket.h
+@@ -77,4 +77,6 @@
+ 
+ #define SO_MAX_PACING_RATE	0x4048
+ 
++#define SO_BPF_EXTENSIONS	0x4029
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
+index fa69832..a9c3e2e 100644
+--- a/arch/powerpc/include/uapi/asm/socket.h
++++ b/arch/powerpc/include/uapi/asm/socket.h
+@@ -85,4 +85,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif	/* _ASM_POWERPC_SOCKET_H */
+diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
+index c286c2e..e031332 100644
+--- a/arch/s390/include/uapi/asm/socket.h
++++ b/arch/s390/include/uapi/asm/socket.h
+@@ -84,4 +84,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
+index 0f21e9a..54d9608 100644
+--- a/arch/sparc/include/uapi/asm/socket.h
++++ b/arch/sparc/include/uapi/asm/socket.h
+@@ -74,6 +74,8 @@
+ 
+ #define SO_MAX_PACING_RATE	0x0031
+ 
++#define SO_BPF_EXTENSIONS	0x0032
++
+ /* Security levels - as per NRL IPv6 - don't actually do anything */
+ #define SO_SECURITY_AUTHENTICATION		0x5001
+ #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
+diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
+index 7db5c22..39acec0 100644
+--- a/arch/xtensa/include/uapi/asm/socket.h
++++ b/arch/xtensa/include/uapi/asm/socket.h
+@@ -89,4 +89,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif	/* _XTENSA_SOCKET_H */
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index ff4e40c..3c9a7fc 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -83,6 +83,16 @@ static inline void bpf_jit_free(struct sk_filter *fp)
+ #define SK_RUN_FILTER(FILTER, SKB) sk_run_filter(SKB, FILTER->insns)
+ #endif
+ 
++static inline int bpf_tell_extensions(void)
++{
++        /* When adding new BPF extension it is necessary to enumerate it here, so
++         * userspace software which wants to know what is supported can do so by inspecting
++         * return value of this function
++         */
++
++        return 0;
++}
++
+ enum {
+ 	BPF_S_RET_K = 1,
+ 	BPF_S_RET_A,
+diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
+index 38f14d0..ea0796b 100644
+--- a/include/uapi/asm-generic/socket.h
++++ b/include/uapi/asm-generic/socket.h
+@@ -80,4 +80,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* __ASM_GENERIC_SOCKET_H */
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 85ad6f0..4a32e52 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1167,6 +1167,10 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 		v.val = sock_flag(sk, SOCK_FILTER_LOCKED);
+ 		break;
+ 
++	case SO_BPF_EXTENSIONS:
++		v.val = bpf_tell_extensions();
++		break;
++
+ 	case SO_SELECT_ERR_QUEUE:
+ 		v.val = sock_flag(sk, SOCK_SELECT_ERR_QUEUE);
+ 		break;
+-- 
+1.8.4.2
