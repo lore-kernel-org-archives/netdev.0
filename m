@@ -1,61 +1,80 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: Re: [PATCH iproute2 2/2] netem: add 64bit rates support
-Date: Thu, 16 Jan 2014 10:28:59 +0800
-Message-ID: <52D743EB.9010701@huawei.com>
-References: <1389778932-17404-1-git-send-email-yangyingliang@huawei.com>	 <1389778932-17404-3-git-send-email-yangyingliang@huawei.com> <1389801367.31367.345.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <stephen@networkplumber.org>, <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:64299 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751314AbaAPCaV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 21:30:21 -0500
-In-Reply-To: <1389801367.31367.345.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms+renesas@verge.net.au>
+Subject: [PATCH v6 3/4] ARM: shmobile: r7s72100: Add clock for r7s72100-ether
+Date: Thu, 16 Jan 2014 11:34:15 +0900
+Message-ID: <1389839656-10932-4-git-send-email-horms+renesas@verge.net.au>
+References: <1389839656-10932-1-git-send-email-horms+renesas@verge.net.au>
+Cc: linux-arm-kernel@lists.infradead.org,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Joe Perches <joe@perches.com>,
+	Simon Horman <horms+renesas@verge.net.au>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1389839656-10932-1-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/1/15 23:56, Eric Dumazet wrote:
-> On Wed, 2014-01-15 at 17:42 +0800, Yang Yingliang wrote:
->> netem support 64bit rates start from linux-3.13.
->> Add 64bit rates support in tc tools.
->>
->> tc qdisc show dev eth0
->> qdisc netem 1: dev eth4 root refcnt 2 limit 1000 rate 35Gbit
->>
->> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
->> ---
->>  tc/q_netem.c | 29 ++++++++++++++++++++++++-----
->>  1 file changed, 24 insertions(+), 5 deletions(-)
->>
-[...]
->>  
->>  	if (dist_data) {
->>  		if (addattr_l(n, MAX_DIST * sizeof(dist_data[0]),
->> @@ -522,6 +532,7 @@ static int netem_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
->>  	struct tc_netem_qopt qopt;
->>  	const struct tc_netem_rate *rate = NULL;
->>  	int len = RTA_PAYLOAD(opt) - sizeof(qopt);
->> +	__u64 *rate64 = NULL;
-> 
-> __u64 rate64 = 0;
-> 
->>  	SPRINT_BUF(b1);
->>  
->>  	if (opt == NULL)
->> @@ -572,6 +583,11 @@ static int netem_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
->>  				return -1;
->>  			ecn = RTA_DATA(tb[TCA_NETEM_ECN]);
->>  		}
->> +		if (tb[TCA_NETEM_RATE64]) {
->> +			if (RTA_PAYLOAD(tb[TCA_NETEM_RATE64]) < sizeof(*rate64))
->> +				return -1;
->> +			rate64 = RTA_DATA(tb[TCA_NETEM_RATE64]);
-> 
-> rate64 = rta_getattr_u64(tb[TCA_NETEM_RATE64]);
+Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-It looks better, I'll send a v2.
+---
+Dave, I intend to take this change through my tree.
 
-Thanks!
+v6
+* No change
+
+v5
+* Rebase
+
+v3 - v4
+* No change
+
+v2
+* As suggested by Sergei Shtylyov
+  - Add MSTP74 to beginning of enum on a line by itself
+* As suggested by Magnus Damm
+  - r7s72100 ethernet is not gigabit so do not refer to it as such
+---
+ arch/arm/mach-shmobile/clock-r7s72100.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm/mach-shmobile/clock-r7s72100.c b/arch/arm/mach-shmobile/clock-r7s72100.c
+index dd8ce87..0242ca5 100644
+--- a/arch/arm/mach-shmobile/clock-r7s72100.c
++++ b/arch/arm/mach-shmobile/clock-r7s72100.c
+@@ -27,6 +27,7 @@
+ #define FRQCR2		0xfcfe0014
+ #define STBCR3		0xfcfe0420
+ #define STBCR4		0xfcfe0424
++#define STBCR7		0xfcfe0430
+ #define STBCR9		0xfcfe0438
+ 
+ #define PLL_RATE 30
+@@ -146,6 +147,7 @@ struct clk div4_clks[DIV4_NR] = {
+ };
+ 
+ enum {	MSTP97, MSTP96, MSTP95, MSTP94,
++	MSTP74,
+ 	MSTP47, MSTP46, MSTP45, MSTP44, MSTP43, MSTP42, MSTP41, MSTP40,
+ 	MSTP33,	MSTP_NR };
+ 
+@@ -154,6 +156,7 @@ static struct clk mstp_clks[MSTP_NR] = {
+ 	[MSTP96] = SH_CLK_MSTP8(&peripheral0_clk, STBCR9, 6, 0), /* RIIC1 */
+ 	[MSTP95] = SH_CLK_MSTP8(&peripheral0_clk, STBCR9, 5, 0), /* RIIC2 */
+ 	[MSTP94] = SH_CLK_MSTP8(&peripheral0_clk, STBCR9, 4, 0), /* RIIC3 */
++	[MSTP74] = SH_CLK_MSTP8(&peripheral1_clk, STBCR7, 4, 0), /* Ether */
+ 	[MSTP47] = SH_CLK_MSTP8(&peripheral1_clk, STBCR4, 7, 0), /* SCIF0 */
+ 	[MSTP46] = SH_CLK_MSTP8(&peripheral1_clk, STBCR4, 6, 0), /* SCIF1 */
+ 	[MSTP45] = SH_CLK_MSTP8(&peripheral1_clk, STBCR4, 5, 0), /* SCIF2 */
+@@ -180,6 +183,7 @@ static struct clk_lookup lookups[] = {
+ 	CLKDEV_DEV_ID("fcfee400.i2c", &mstp_clks[MSTP96]),
+ 	CLKDEV_DEV_ID("fcfee800.i2c", &mstp_clks[MSTP95]),
+ 	CLKDEV_DEV_ID("fcfeec00.i2c", &mstp_clks[MSTP94]),
++	CLKDEV_DEV_ID("r7s72100-ether", &mstp_clks[MSTP74]),
+ 	CLKDEV_CON_ID("mtu2_fck", &mstp_clks[MSTP33]),
+ 
+ 	/* ICK */
+-- 
+1.8.4
+
