@@ -1,211 +1,100 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next 0/6] bonding: only rely on arp packets if arp
- monitor is used
-Date: Thu, 16 Jan 2014 09:41:02 +0100
-Message-ID: <20140116084102.GM1867@redhat.com>
-References: <1389837916-5377-1-git-send-email-vfalico@redhat.com>
- <15764.1389848997@death.nxdomain>
+From: Zhi Yong Wu <zwu.kernel@gmail.com>
+Subject: Re: [RFC PATCH net-next 0/3] virtio_net: add aRFS support
+Date: Thu, 16 Jan 2014 16:48:43 +0800
+Message-ID: <CAEH94Lg8aL2UcrdgSW6ahtiSYTE0=z1o8Q0hHf0t9RpPVvGiDQ@mail.gmail.com>
+References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
+	<52D75EA5.1050000@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
+	Stefan Hajnoczi <stefanha@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21816 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750960AbaAPIoB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jan 2014 03:44:01 -0500
-Content-Disposition: inline
-In-Reply-To: <15764.1389848997@death.nxdomain>
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:57632 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751037AbaAPIsp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 03:48:45 -0500
+Received: by mail-ob0-f181.google.com with SMTP id uy5so2373018obc.26
+        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 00:48:45 -0800 (PST)
+In-Reply-To: <52D75EA5.1050000@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 15, 2014 at 09:09:57PM -0800, Jay Vosburgh wrote:
->Veaceslav Falico <vfalico@redhat.com> wrote:
->
->>Currently, if arp_validate is off (0), slave_last_rx() returns the
->>slave->dev->last_rx, which is always updated on *any* packet received by
->>slave, and not only arps. This means that, if the validation of arps is
->>off, we're treating *any* incoming packet as a proof of slave being up, and
->>not only arps.
->
->	The "any incoming packet" part is intentional.
->
->>This might seem logical at the first glance, however it can cause a lot of
->>troubles and false-positives, one example would be:
+On Thu, Jan 16, 2014 at 12:23 PM, Jason Wang <jasowang@redhat.com> wrote:
+> On 01/15/2014 10:20 PM, Zhi Yong Wu wrote:
 >>
->>The arp_ip_target is NOT accessible, however someone in the broadcast domain
->>spams with any broadcast traffic. This way bonding will be tricked that the
->>slave is still up (as in - can access arp_ip_target), while it's not.
->
->	This type of situation is why arp_validate was added.
->
->	The specific situation was when multiple hosts using bonding
->with the ARP monitor were set up behind a common gateway (in the same
->Ethernet broadcast domain).  The arp_ip_target is unreachable for
->whatever reason.  In that case, the various bonding instances on the
->different hosts will each issue broadcast ARP requests, and (in the
->absence of arp_validate) those requests would trick the other bonds into
->believing that they are up.
->
->	I don't think this patch set will resolve that problem, since
->you explicitly permit any incoming ARP to count.
-
-I've said it was tricky at first glance :).
-
-For this situation the arp_validate is *indeed* the cure. I'm not disabling
-(or even working with) how arp_validate=1/2 works, I'm working with
-arp_validate == 0.
-
-Before the patchset (with arp_validate == 0 ):
-
-*Any* packet (arp and non-arp) will signal us that the slave is up -
-because we use slave->dev->last_rx (updated on *every* incoming packet in
-bond_handle_frame).
-
-After the patchset (with arp_validate == 0 ):
-
-*ONLY ARP* packets signal us that the slave is up - because we use
-slave->last_arp_rx that is updated every time we see an ARP packet.
-
-
-The way the modes work with arp_validate > 0 don't change :), as we're
-updating slave->last_arp_rx the old way in this case - after validation.
-
-So that the scenario you've described still works flawlessly, and now
-already we won't be tricked by some weird broadcast traffic even with
-arp_validate == 0.
-
->
->>The documentation for arp_validate also states that *ARPs* will (not) be
->>validated if it's on/off, and that the arp monitoring works on arps as
->>traffic generators.
->
->	I wrote most of that text in the documentation, and the intent
->was not to imply that only ARPs should count for "up-ness" even without
->arp_validate enabled.  The intent was to distinguish it from
->"non-validate," in which any incoming traffic counted for "up-ness."
->
->	The main reason for preserving the non-validate behavior (any
->traffic counts) is for the loadbalance (xor and rr) modes.  In those
->modes, the switch decides which slave receives the incoming traffic, and
->so it's to our advantage to permit any incoming traffic to count for
->"up-ness."  The arp_validate option is not allowed in these modes
->because it won't work.
->
->	With these changes, I suspect that the loadbalance ARP monitor
->will be less reliable with these changes (granted that it's already a
->bit dodgy in its dependence on the switch to hit all slaves with
->incoming packets regularly).  Particularly if the switch ports are
->configured into an Etherchannel ("static link aggregation") group, in
->which case only one slave will receive any given frame (broadcast /
->multicast traffic will not be duplicated across all slaves).
-
-The non-AB modes also gave me a headache, however after thinking a bit I've
-decided to change them also (mainly, it's the change of
-arp_loadbalance_mon function).
-
-The usual usage, however, is to generate traffic via arps. If we don't see
-arp replies - this means that arp_ip_target is down, and thus the slave is
-down.
-
->
->	I'm not sure that this change (the "only count ARPs even without
->arp_validate" bit) won't break existing configurations.  Did you test
->the -rr and -xor modes with ARP monitor after your changes (with and
->without configuring a channel group on the switch ports)?
-
-Sure, all works fine, afaics. Obviously, these were basic tests, and bugs
-might exist.
-
-The only possible scenario of breakage for someone, from my POV, is:
-
-1) arp monitor is used with loadbalance mode
-2) arp_ip_targets are set but _any_ arp replies are never received
-3) the user relies on that every slave will receive at least one packet per
-arp_interval
-
-This use case:
-
-1) contradicts with documentation
-2) contradicts with logic (arp monitor, arp ip targets etc. are used
-without, actually, meaning something)
-3) is really unstable
-
-In this case, indeed, it won't work. Two points, though:
-
-1) It shouldn't work in the first place, is unstable etc.
-2) Can be easily fixed by the following oneliner (though I *really* woudn't
-like to do it, as it's useless and dangerous). Basically, for non-ab mode
-we set last_arp_rx for every packet. Again, I wouldn't like to do it, but
-if you know any use case scenario for this usage (no working arps but
-continuous receive traffic) - I can send it as v2 or 7/6 patch (whatever
-suits David better, as he already applied it but didn't push).
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 0f613ae..87358e5 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2286,6 +2286,11 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
-  	__be32 sip, tip;
-  	int alen;
-  
-+	if (!USES_PRIMARY(bond->params.mode)) {
-+		slave->last_arp_rx = jiffies;
-+		return RX_HANDLER_ANOTHER;
-+	}
-+
-  	if (skb->protocol != __cpu_to_be16(ETH_P_ARP))
-  		return RX_HANDLER_ANOTHER;
-  
-
->
->>Also, the net_device->last_rx is already used in a lot of drivers (even
->>though the comment states to NOT do it :)), and it's also ugly to modify it
->>from bonding.
->
->	I didn't check, but I suspect those are mostly leftovers from
->the distant past, when the drivers were expected to update last_rx, or
->perhaps drivers using it for their own purposes.
-
-It's really a mix. Somebody just updates them, somebody uses it for their
-own purposes etc.
-
->
->	I don't really see an issue in decoupling bonding from the
->net_device->last_rx; it's pretty much the same thing that was done for
->trans_start some time ago.
-
-trans_start removal is also in queue :). Though still needs some
-polishing...
-
->
->	-J
->
->---
->	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
->
->
->>So, to fix this, remove the last_rx from bonding, *always* call
->>bond_arp_rcv() in slave's rx_handler (bond_handle_frame), and if we spot an
->>arp there - update the slave->last_arp_rx - and use it instead of
->>net_device->last_rx. Finally, rename slave_last_rx() to slave_last_arp_rx()
->>to reflect the changes.
+>> From: Zhi Yong Wu<wuzhy@linux.vnet.ibm.com>
 >>
->>As the changes touch really sensitive parts, I've tried to split them as
->>much as possible, for easier debugging/bisecting.
+>> HI, folks
 >>
->>CC: Jay Vosburgh <fubar@us.ibm.com>
->>CC: Andy Gospodarek <andy@greyhouse.net>
->>CC: "David S. Miller" <davem@davemloft.net>
->>CC: netdev@vger.kernel.org
->>Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+>> The patchset is trying to integrate aRFS support to virtio_net. In this
+>> case,
+>> aRFS will be used to select the RX queue. To make sure that it's going
+>> ahead
+>> in the correct direction, although it is still one RFC and isn't tested,
+>> it's
+>> post out ASAP. Any comment are appreciated, thanks.
 >>
->>---
->> drivers/net/bonding/bond_main.c    | 18 ++++++++----------
->> drivers/net/bonding/bond_options.c | 12 ++----------
->> drivers/net/bonding/bonding.h      | 16 ++++++----------
->> include/linux/netdevice.h          |  8 +-------
->> 4 files changed, 17 insertions(+), 37 deletions(-)
+>> If anyone is interested in playing with it, you can get this patchset from
+>> my
+>> dev git on github:
+>>    git://github.com/wuzhy/kernel.git virtnet_rfs
+>>
+>> Zhi Yong Wu (3):
+>>    virtio_pci: Introduce one new config api vp_get_vq_irq()
+>>    virtio_net: Introduce one dummy function virtnet_filter_rfs()
+>>    virtio-net: Add accelerated RFS support
+>>
+>>   drivers/net/virtio_net.c      |   67
+>> ++++++++++++++++++++++++++++++++++++++++-
+>>   drivers/virtio/virtio_pci.c   |   11 +++++++
+>>   include/linux/virtio_config.h |   12 +++++++
+>>   3 files changed, 89 insertions(+), 1 deletions(-)
 >>
 >
+> Please run get_maintainter.pl before sending the patch. You'd better at
+> least cc virtio maintainer/list for this.
+Is this one must for virtio stuff?
+
+>
+> The core aRFS method is a noop in this RFC which make this series no much
+> sense to discuss. You should at least mention the big picture here in the
+> cover letter. I suggest you should post a RFC which can run and has expected
+> result or you can just raise a thread for the design discussion.
+Yes, it currently miss some important stuff as i said in another mail
+of this series.
+
+>
+> And this method has been discussed before, you can search "[net-next RFC
+> PATCH 5/5] virtio-net: flow director support" in netdev archive for a very
+> old prototype implemented by me. It can work and looks like most of this RFC
+> have already done there.
+ah? Can you let me know the result of your discussion? Will checked
+it, thanks for your pointer.
+>
+> A basic question is whether or not we need this, not all the mq cards use
+> aRFS (see ixgbe ATR). And whether or not it can bring extra overheads? For
+> virtio, we want to reduce the vmexits as much as possible but this aRFS
+Good question, i also have concern about this, and don't know if Tom
+has good explanation.
+> seems introduce a lot of more of this. Making a complex interfaces just for
+> an virtual device may not be good, simple method may works for most of the
+> cases.
+>
+> We really should consider to offload this to real nic. VMDq and L2
+> forwarding offload may help in this case.
+
+By the way, Stefan, can you let us know your concerns here? as we
+talked in irc channel. :)
+
+
+-- 
+Regards,
+
+Zhi Yong Wu
