@@ -1,50 +1,53 @@
-From: Harry Mason <harry.mason@smoothwall.net>
-Subject: [PATCH] sch_htb: let skb->priority refer to non-leaf class
-Date: Thu, 16 Jan 2014 14:45:19 +0000
-Message-ID: <1389883519.4703.5.camel@azathoth.dev.smoothwall.net>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH V2] net/dt: Add support for overriding phy configuration from device tree
+Date: Thu, 16 Jan 2014 16:16:46 +0100
+Message-ID: <7510122.cayuQ6qt8r@wuerfel>
+References: <20140116135905.GV20094@book.gsilab.sittig.org> <1389883631-1480-1-git-send-email-matthew.garrett@nebula.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-netdev <netdev@vger.kernel.org>
-To: Jamal Hadi Salim <hadi@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og107.obsmtp.com ([64.18.2.167]:38878 "HELO
-	exprod7og107.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751389AbaAPOvS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 09:51:18 -0500
-Received: by mail-we0-f169.google.com with SMTP id u57so3322766wes.0
-        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 06:51:16 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kishon-l0cyMroinI0@public.gmane.org
+To: Matthew Garrett <matthew.garrett-05XSO3Yj/JvQT0dZR+AlfA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1389883631-1480-1-git-send-email-matthew.garrett-05XSO3Yj/JvQT0dZR+AlfA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-If the class in skb->priority is not a leaf, apply filters from the
-selected class, not the qdisc. This allows netfilter or user space
-to partially classify the packet and tc filters to finish it off.
+On Thursday 16 January 2014 09:47:11 Matthew Garrett wrote:
+> +               if (!of_property_read_u32(np, "phy-mii-advertise-10half",
+> +                                          &tmp)) {
+> +                       if (tmp) {
+> +                               *val |= ADVERTISE_10HALF;
+> +                               phydev->advertising |= SUPPORTED_10baseT_Half;
+> +                       } else {
+> +                               phydev->advertising &=
+> +                                       ~(SUPPORTED_10baseT_Half);
+> +                       }
+> +
+> +                       *mask |= ADVERTISE_10HALF;
+> +               }
+> +               if (!of_property_read_u32(np, "phy-mii-advertise-10full",
+> +                                          &tmp)) {
+> +                       if (tmp) {
+> +                               *val |= ADVERTISE_10FULL;
+> +                               phydev->advertising |= SUPPORTED_10baseT_Full;
+> +                       } else {
+> +                               phydev->advertising &=
+> +                                       ~(SUPPORTED_10baseT_Full);
+> +                       }
+> +
+> +                       *mask |= ADVERTISE_10FULL;
+> +               }
+> 
 
-Signed-off-by: Harry Mason <harry.mason@smoothwall.net>
----
- net/sched/sch_htb.c |    8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+Just a style suggestion: rather than almost duplicating the same 12 lines
+of code for each property, I think it can be split out into a helper
+function.
 
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 717b210..e50ab65 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -223,7 +223,13 @@ static struct htb_class *htb_classify(struct
-sk_buff *skb, struct Qdisc *sch,
-        return cl;
+	Arnd
 
-    *qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
--   tcf = q->filter_list;
-+
-+   /* Start with inner filter chain if a non-leaf class is selected */
-+   if (cl)
-+       tcf = cl->filter_list;
-+   else
-+       tcf = q->filter_list;
-+
-    while (tcf && (result = tc_classify(skb, tcf, &res)) >= 0) {
- #ifdef CONFIG_NET_CLS_ACT
-        switch (result) {
--- 
-1.7.10.4
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
