@@ -1,32 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next] etherdevice: Use ether_addr_copy to copy
- an Ethernet address
-Date: Wed, 15 Jan 2014 16:45:40 -0800 (PST)
-Message-ID: <20140115.164540.450877805879786067.davem@davemloft.net>
-References: <1389741527.24849.68.camel@joe-AO722>
-	<20140115.153951.743060257410154565.davem@davemloft.net>
-	<1389830878.14001.39.camel@joe-AO722>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 2/2] reciprocal_divide: correction/update of the algorithm
+Date: Thu, 16 Jan 2014 01:46:42 +0100
+Message-ID: <20140116004642.GJ19945@order.stressinduktion.org>
+References: <1389828228-30312-1-git-send-email-dborkman@redhat.com> <1389828228-30312-3-git-send-email-dborkman@redhat.com> <1389831470.11912.40.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-arch@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <1389830878.14001.39.camel@joe-AO722>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Austin S Hemmelgarn <ahferroin7@gmail.com>,
+	Jesse Gross <jesse@nicira.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Matt Mackall <mpm@selenic.com>,
+	Pekka Enberg <penberg@kernel.org>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Jakub Zawadzki <darkjames-ws@darkjames.pl>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:41120 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751696AbaAPAqo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 19:46:44 -0500
+Content-Disposition: inline
+In-Reply-To: <1389831470.11912.40.camel@bwh-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Wed, 15 Jan 2014 16:07:58 -0800
-
-> If you want the ones for net-next net/ now (but not
-> for batman-adv, that maybe could use a new function like
-> ether_addr_copy_unaligned) here's a changestat.
+On Thu, Jan 16, 2014 at 12:17:50AM +0000, Ben Hutchings wrote:
+> On Thu, 2014-01-16 at 00:23 +0100, Daniel Borkmann wrote:
+> [...]
+> > --- a/include/linux/reciprocal_div.h
+> > +++ b/include/linux/reciprocal_div.h
+> [...]
+> > + * RECIPROCAL_VALUE_TO_ZERO can be used to express an element, which
+> > + * used as the argument to reciprocal_divide always yields zero.
+> >   */
+> [...]
+> > +#define RECIPROCAL_VALUE_RESULT_TO_ZERO ((struct reciprocal_value){.sh1 = 32})
+> [...]
+> > +static inline u32 reciprocal_divide(u32 a, struct reciprocal_value R)
+> >  {
+> > -	return (u32)(((u64)A * R) >> 32);
+> > +	u32 t = (u32)(((u64)a * R.m) >> 32);
+> > +	return (t + ((a - t) >> R.sh1)) >> R.sh2;
+> [...]
 > 
-> Otherwise, I'll wait for the next cycle.
+> (a - t) has type u32.
+> So (a - t) >> 32 has undefined behaviour.
 
-This looks fine, why don't you toss it my way over the weekend as I
-still have some backlog to process at the moment?
+Good catch, totally overlooked that.
 
-Thanks.
+Thanks,
+
+  Hannes
