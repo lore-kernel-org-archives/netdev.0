@@ -1,65 +1,90 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 2/2] reciprocal_divide: correction/update of
- the algorithm
-Date: Thu, 16 Jan 2014 18:50:39 +0000
-Message-ID: <1389898239.11912.61.camel@bwh-desktop.uk.level5networks.com>
-References: <1389828228-30312-1-git-send-email-dborkman@redhat.com>
-	 <1389828228-30312-3-git-send-email-dborkman@redhat.com>
-	 <alpine.DEB.2.10.1401161036110.29778@nuc>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next v3 5/5] virtio-net: initial rx sysfs support,
+	export mergeable rx buffer size
+Date: Thu, 16 Jan 2014 20:50:51 +0200
+Message-ID: <20140116185051.GB29522@redhat.com>
+References: <1389865126-26225-1-git-send-email-mwdalton@google.com>
+	<1389865126-26225-5-git-send-email-mwdalton@google.com>
+	<20140116115340.GC29061@redhat.com>
+	<CANJ5vPJZACr=y3uRv0Rnq330jQCi4dLvhyQd88ascZjBg_jfUw@mail.gmail.com>
+	<CANJ5vPJi=k1Wk43j+-XjSgnnAS5uO9wrYQuDnrdfA5A+DGxvQg@mail.gmail.com>
+	<1389895481.31367.411.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	"Hannes Frederic Sowa" <hannes@stressinduktion.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Austin S Hemmelgarn <ahferroin7@gmail.com>,
-	Jesse Gross <jesse@nicira.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Matt Mackall <mpm@selenic.com>,
-	Pekka Enberg <penberg@kernel.org>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"Veaceslav Falico" <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	"Jakub Zawadzki" <darkjames-ws@darkjames.pl>
-To: Christoph Lameter <cl@linux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.10.1401161036110.29778@nuc>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
+	lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1389895481.31367.411.camel@edumazet-glaptop2.roam.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-01-16 at 10:37 -0600, Christoph Lameter wrote:
-> On Thu, 16 Jan 2014, Daniel Borkmann wrote:
+On Thu, Jan 16, 2014 at 10:04:41AM -0800, Eric Dumazet wrote:
+> On Thu, 2014-01-16 at 09:27 -0800, Michael Dalton wrote:
+> > Sorry, just realized - I think disabling NAPI is necessary but not
+> > sufficient. There is also the issue that refill_work() could be
+> > scheduled. If refill_work() executes, it will re-enable NAPI. We'd need
+> > to cancel the vi->refill delayed work to prevent this AFAICT, and also
+> > ensure that no other function re-schedules vi->refill or re-enables NAPI
+> > (virtnet_open/close, virtnet_set_queues, and virtnet_freeze/restore).
+> > 
+> > How is the following sequence of operations:
+> > rtnl_lock();
+> > cancel_delayed_work_sync(&vi->refill);
+> > napi_disable(&rq->napi);
+> > read rq->mrg_avg_pkt_len
+> > virtnet_enable_napi();
+> > rtnl_unlock();
+> > 
+> > Additionally, if we disable NAPI when reading this file, perhaps
+> > the permissions should be changed to 400 so that an unprivileged
+> > user cannot temporarily disable network RX processing by reading these
+> > sysfs files. Does that sound reasonable?
 > 
-> > - * or else the performance is slower than a normal divide.
-> > - */
-> > -extern u32 reciprocal_value(u32 B);
-> > +struct reciprocal_value {
-> > +	u32 m;
-> > +	u8 sh1, sh2;
-> > +};
-> >
-> > +#define RECIPROCAL_VALUE_RESULT_TO_ZERO ((struct reciprocal_value){.sh1 = 32})
-> >
-> > -static inline u32 reciprocal_divide(u32 A, u32 R)
-> > +struct reciprocal_value reciprocal_value(u32 d);
+> I think all this complexity makes no sense to me.
 > 
-> A function that returns a struct? That works? Which gcc versions support
-> it?
+> Who cares of sysfs reading a value that might be updated ?
+> This is purely a debugging utility.
+> 
+> As soon as you read the value, it might already have changed anyway.
+> 
+> Its a integer, just read it without special care.
 
-At least since gcc 1.29, given:
+That's fine too as far as I'm concerned.
 
-Thu Sep 22 15:57:41 1988  Richard Stallman  (rms at sugar-bombs.ai.mit.edu)
-[...]
-	* stmt.c (expand_function_start): Set current_function_needs_context
-	and current_function_returns_struct.
-
-Hope that's not a problem...
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> 
+> atomic_read() has also same 'problem', and we do not care.
+> 
+> Make sure that a recompute (aka ewma_add()) does not store intermediate
+> wrong values, by using ACCESS_ONCE(), and thats enough. No need for the
+> seqcount overhead.
+> 
+> diff --git a/lib/average.c b/lib/average.c
+> index 99a67e662b3c..044e0b7f28a8 100644
+> --- a/lib/average.c
+> +++ b/lib/average.c
+> @@ -53,8 +53,10 @@ EXPORT_SYMBOL(ewma_init);
+>   */
+>  struct ewma *ewma_add(struct ewma *avg, unsigned long val)
+>  {
+> -	avg->internal = avg->internal  ?
+> -		(((avg->internal << avg->weight) - avg->internal) +
+> +	unsigned long internal = ACCESS_ONCE(avg->internal);
+> +
+> +	ACCESS_ONCE(avg->internal) = internal  ?
+> +		(((internal << avg->weight) - internal) +
+>  			(val << avg->factor)) >> avg->weight :
+>  		(val << avg->factor);
+>  	return avg;
+> 
