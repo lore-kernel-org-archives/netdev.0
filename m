@@ -1,39 +1,57 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/3] netfilter: nf_tables: fix missing byteorder conversion in policy
-Date: Thu, 16 Jan 2014 10:04:51 +0100
-Message-ID: <1389863093-4530-2-git-send-email-pablo@netfilter.org>
-References: <1389863093-4530-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 0/3] Netfilter updates for net-next
+Date: Thu, 16 Jan 2014 10:10:00 +0100
+Message-ID: <1389863400-4863-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:49988 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751952AbaAPJHY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jan 2014 04:07:24 -0500
-In-Reply-To: <1389863093-4530-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When fetching the policy attribute, the byteorder conversion was
-missing, breaking the chain policy setting.
+[ Wrong tree, very sorry for that, previous was pointing to net-next
+  instead of nftables. Resending pull request ]
 
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_tables_api.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Hi David,
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 36add31..117bbaa 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -859,7 +859,7 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 		    nla[NFTA_CHAIN_HOOK] == NULL)
- 			return -EOPNOTSUPP;
- 
--		policy = nla_get_be32(nla[NFTA_CHAIN_POLICY]);
-+		policy = ntohl(nla_get_be32(nla[NFTA_CHAIN_POLICY]));
- 		switch (policy) {
- 		case NF_DROP:
- 		case NF_ACCEPT:
--- 
-1.7.10.4
+This small batch contains several Netfilter fixes for your net-next
+tree, more specifically:
+
+* Fix compilation warning in nft_ct in NF_CONNTRACK_MARK is not set,
+  from Kristian Evensen.
+
+* Add dependency to IPV6 for NF_TABLES_INET. This one has been reported
+  by the several robots that are testing .config combinations, from Paul
+  Gortmaker.
+
+* Fix default base chain policy setting in nf_tables, from myself.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nftables.git master
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 11b57f90257c1d6a91cee720151b69e0c2020cf6:
+
+  xen-netback: stop vif thread spinning if frontend is unresponsive (2014-01-09 23:05:46 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nftables.git master
+
+for you to fetch changes up to 847c8e2959f7f8f1462e33c0a720c6267b984ed8:
+
+  netfilter: nft_ct: fix compilation warning if NF_CONNTRACK_MARK is not set (2014-01-15 11:00:14 +0100)
+
+----------------------------------------------------------------
+Kristian Evensen (1):
+      netfilter: nft_ct: fix compilation warning if NF_CONNTRACK_MARK is not set
+
+Pablo Neira Ayuso (1):
+      netfilter: nf_tables: fix missing byteorder conversion in policy
+
+Paul Gortmaker (1):
+      netfilter: Add dependency on IPV6 for NF_TABLES_INET
+
