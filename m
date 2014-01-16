@@ -1,73 +1,72 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 2/2] r6040: use ETH_ZLEN instead of MISR for
- SKB length checking
-Date: Thu, 16 Jan 2014 17:33:24 +0000
-Message-ID: <1389893604.11912.47.camel@bwh-desktop.uk.level5networks.com>
-References: <1389819866-32142-1-git-send-email-florian@openwrt.org>
-	 <1389819866-32142-3-git-send-email-florian@openwrt.org>
-	 <1389857001.19462.33.camel@deadeye.wl.decadent.org.uk>
-	 <063D6719AE5E284EB5DD2968C1650D6D45D812@AcuExch.aculab.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 68821] New: splittcp with tproxy has issues when timestamp
+ is enabled
+Date: Thu, 16 Jan 2014 09:34:54 -0800
+Message-ID: <20140116093454.3880cb4c@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: 'Ben Hutchings' <ben@decadent.org.uk>,
-	Florian Fainelli <florian@openwrt.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: David Laight <David.Laight@ACULAB.COM>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:32644 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750906AbaAPRd3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 12:33:29 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D45D812@AcuExch.aculab.com>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:46919 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750750AbaAPRe7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 12:34:59 -0500
+Received: by mail-pd0-f169.google.com with SMTP id v10so2865852pde.14
+        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 09:34:59 -0800 (PST)
+Received: from nehalam.linuxnetplumber.net (static-50-53-83-51.bvtn.or.frontiernet.net. [50.53.83.51])
+        by mx.google.com with ESMTPSA id sy10sm21701415pac.15.2014.01.16.09.34.58
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Thu, 16 Jan 2014 09:34:59 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-01-16 at 09:10 +0000, David Laight wrote:
-> From: Ben Hutchings
-> > On Wed, 2014-01-15 at 13:04 -0800, Florian Fainelli wrote:
-> > > Ever since this driver was merged the following code was included:
-> ...
-> > > -	if (skb->len < MISR)
-> > > -		descptr->len = MISR;
-> > > +	if (skb->len < ETH_ZLEN)
-> > > +		descptr->len = ETH_ZLEN;
-> > 
-> > It looks like this is just increasing the TX descriptor length so the
-> > packet is tail-padded with whatever happens to come next in the skb.
-> > This is absolutely incorrect behaviour and may leak sensitive
-> > information.
-> 
-> And possibly page fault if the data is right at the end of a page.
 
-If the CPU was accessing it, it would be fine as the skb linear area
-ends with struct skb_shared_info.  (sfc actually takes advantage of that
-in efx_enqueue_skb_pio() which can add padding (*not* transmitted) to
-ensure that the CPU does write-combining.)
 
-But the NIC, if it's connected through an IOMMU, might get a page fault
-due to the incorrect length of the DMA mapping.
+Begin forwarded message:
 
-> > Presumably it is necessary to pad the frame because the MAC is too lame
-> > to do it, and the correct way to do that is using skb_padto(skb,
-> > ETH_ZLEN).  But this may fail as it might have to allocate memory
-> 
-> Alternatively use two ring entries with the 'more' bit set on
-> the first one and transmit the padding from a permanently allocated
-> and dma-mapped block of zeros.
-> Assuming the hardware support SG transmit and doesn't have a
-> constraint on the length of the first fragment.
+Date: Thu, 16 Jan 2014 05:39:52 -0800
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 68821] New: splittcp with tproxy has issues when timestamp is enabled
 
-Do you see NETIF_F_SG in this driver?
 
-Ben.
+https://bugzilla.kernel.org/show_bug.cgi?id=68821
 
-> Or have a pre-allocated an dma-mapped array of short buffers (one
-> for each ring slot) and copy short packets into the array instead
-> of dma-mapping the skb data.
+            Bug ID: 68821
+           Summary: splittcp with tproxy has issues when timestamp is
+                    enabled
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.2
+          Hardware: All
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+          Assignee: shemminger@linux-foundation.org
+          Reporter: shailendra7479@gmail.com
+        Regression: No
+
+Hi,
+
+I am having an application which does splittcp with transparency. I have a NAT
+box which reuses the 5-tuple frequently. Due to this there is a possibility
+that some connections with the same tuple go through our splittcp and some may
+go directly to the webserver.
+Due to this, the webserver is getting confused and not responding with
+SYN-ACKs.
+Is there a way to enable transparency in TIMESTAMPs when tproxy is involved for
+eg., preserve the incoming timestamp in the outgoing SYN.
+Shouldn't the kernel be using the client's timestamp in the outgoing SYNs when
+transparency is enabled?
+
+Thanks
+Shailendra
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+You are receiving this mail because:
+You are the assignee for the bug.
