@@ -1,37 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: stmmac: fix NULL pointer dereference in
- stmmac_get_tx_hwtstamp
-Date: Wed, 15 Jan 2014 16:58:45 -0800 (PST)
-Message-ID: <20140115.165845.1813878173743840445.davem@davemloft.net>
-References: <1389795967-2452-1-git-send-email-damuzi000@gmail.com>
+Subject: Re: [PATCH v5 0/2] ipv6 addrconf: add IFA_F_NOPREFIXROUTE flag to
+ suppress creation of IP6 routes
+Date: Wed, 15 Jan 2014 17:01:12 -0800 (PST)
+Message-ID: <20140115.170112.1340729897073468646.davem@davemloft.net>
+References: <20140110.181030.2081631538801450145.davem@davemloft.net>
+	<1389796619-13440-1-git-send-email-thaller@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: damuzi000@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389795967-2452-1-git-send-email-damuzi000@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: hannes@stressinduktion.org, jiri@resnulli.us,
+	netdev@vger.kernel.org, stephen@networkplumber.org, dcbw@redhat.com
+To: thaller@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43230 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750900AbaAPBBO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 20:01:14 -0500
+In-Reply-To: <1389796619-13440-1-git-send-email-thaller@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Liu <damuzi000@gmail.com>
-Date: Wed, 15 Jan 2014 22:26:07 +0800
+From: Thomas Haller <thaller@redhat.com>
+Date: Wed, 15 Jan 2014 15:36:57 +0100
 
-> When timestamping is enabled, stmmac_tx_clean will call
-> stmmac_get_tx_hwtstamp to get tx TS.
-> But the skb can be NULL because the last of its tx_skbuff is NULL
-> if this packet frame is filled in more than one descriptors.
-> 
-> Signed-off-by: Bruce Liu <damuzi000@gmail.com>
+> v1 -> v2: add a second commit, handling NOPREFIXROUTE in ip6_del_addr.
+> v2 -> v3: reword commit messages, code comments and some refactoring.
+> v3 -> v4: refactor, rename variables, add enum
+> v4 -> v5: rebase, so that patch applies cleanly to current net-next/master
 
-Sometimes the cure is worse than the disease.
-
-Your change means that every multi-segment packet will never have
-it's timestamp properly recorded, which is of course bogus.
-
-You need to change this code such that the SKB from the first
-descriptor is maintained so that we can pass it into
-stmmac_get_tx_hwtstamp() at the appropriate time.
-
-Thanks.
+Applied, sorry for not pushing these out properly last time.
