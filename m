@@ -1,120 +1,79 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH] net: introduce SO_BPF_EXTENSIONS
-Date: Thu, 16 Jan 2014 17:41:46 +0100
-Message-ID: <52D80BCA.7030400@redhat.com>
-References: <1389888898-31744-1-git-send-email-msekleta@redhat.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v2] net: can: Disable flexcan driver build for big endian
+ CPU on ARM
+Date: Thu, 16 Jan 2014 17:49:13 +0100
+Message-ID: <52D80D89.1040706@pengutronix.de>
+References: <3157541.PQSkPAVrH7@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Michael Kerrisk <mtk.manpages@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: Michal Sekletar <msekleta@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42875 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751890AbaAPQl7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jan 2014 11:41:59 -0500
-In-Reply-To: <1389888898-31744-1-git-send-email-msekleta@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="t2uQI9eqIGN3r3LOR0okSw4W3AEEu4WO4"
+Cc: Wolfgang Grandegger <wg@grandegger.com>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <3157541.PQSkPAVrH7@wuerfel>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/16/2014 05:14 PM, Michal Sekletar wrote:
-> userspace packet capturing libraries (e.g. libpcap) don't have a way how to find
-> out which BPF extensions are supported by the kernel, except compiling a filter
-> which uses extensions and trying to apply filter to the socket. This is very
-> inconvenient.
->
-> Therefore this commit introduces new option which can be used as an argument for
-> getsockopt() and allows one to obtain information about which BPF extensions are
-> supported by the kernel.
->
-> On Tue, Dec 10, 2013 at 1:25 AM, David Miller <davem@davemloft.net> wrote:
->
->> And therefore, you do not need to define any actual bits yet. The
->> socket option will for now just return "0", and that will mean that
->> all the extensions Linux implements currently are presnet.
->
-> Signed-off-by: Michal Sekletar <msekleta@redhat.com>
-> Cc: Michael Kerrisk <mtk.manpages@gmail.com>
-> Cc: Daniel Borkmann <dborkman@redhat.com>
-> Cc: David Miller <davem@davemloft.net>
-> ---
->   arch/alpha/include/uapi/asm/socket.h   | 2 ++
->   arch/avr32/include/uapi/asm/socket.h   | 2 ++
->   arch/cris/include/uapi/asm/socket.h    | 2 ++
->   arch/frv/include/uapi/asm/socket.h     | 2 ++
->   arch/ia64/include/uapi/asm/socket.h    | 2 ++
->   arch/m32r/include/uapi/asm/socket.h    | 2 ++
->   arch/mips/include/uapi/asm/socket.h    | 2 ++
->   arch/mn10300/include/uapi/asm/socket.h | 2 ++
->   arch/parisc/include/uapi/asm/socket.h  | 2 ++
->   arch/powerpc/include/uapi/asm/socket.h | 2 ++
->   arch/s390/include/uapi/asm/socket.h    | 2 ++
->   arch/sparc/include/uapi/asm/socket.h   | 2 ++
->   arch/xtensa/include/uapi/asm/socket.h  | 2 ++
->   include/net/sock.h                     | 5 +++++
->   include/uapi/asm-generic/socket.h      | 2 ++
->   net/core/sock.c                        | 4 ++++
->   16 files changed, 37 insertions(+)
->
-...
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -2292,4 +2292,9 @@ extern int sysctl_optmem_max;
->   extern __u32 sysctl_wmem_default;
->   extern __u32 sysctl_rmem_default;
->
-> +static inline int bpf_get_extensions(void)
-> +{
-> +	return 0;
-> +}
-> +
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--t2uQI9eqIGN3r3LOR0okSw4W3AEEu4WO4
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-This should rather be in: include/linux/filter.h
+On 01/14/2014 11:44 AM, Arnd Bergmann wrote:
+>> On 01/06/2014 02:21 PM, Guenter Roeck wrote:
+>>> Building arm:allmodconfig fails with
+>>>
+>>> flexcan.c: In function 'flexcan_read':
+>>> flexcan.c:243:2: error: implicit declaration of function 'in_be32'
+>>> flexcan.c: In function 'flexcan_write':
+>>> flexcan.c:248:2: error: implicit declaration of function 'out_be32'
+>>>
+>>> in_be32 and out_be32 do not (or no longer) exist for ARM targets.
+>>> Disable the build for ARM on big endian CPUs.
+>>>
+>>> Signed-off-by: Guenter Roeck <linux@xxxxxxxxxxxx>
+>>
+>> Applied to can-next.
+>=20
+> Sorry, this patch was wrong.
+>=20
+> There is no reason to disallow building the driver on big-endian
+> ARM kernels. Furthermore, the current behavior is actually broken
+> on little-endian PowerPC as well.
+> The choice of register accessor functions must purely depend
+> on the CPU architecture, not which endianess the CPU is running
+> on. Note that we nowadays allow both big-endian ARM and little-endian
+> PowerPC kernels.
+> With this patch applied, we will do the right thing in all four
+> combinations.
+>=20
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-And then, maybe be renamed into something like bpf_tell_extensions()
-for example, but that's just nit.
+Thanks Arnd, I've squashed in the revert of Guenter's patch.
 
-Also, please add a comment, saying if people add new extensions, they
-need to enumerate them within this function from now on so that user
-space who enquires for that can be made aware of.
+Marc
 
-Still, grepping through latest libpcap sources, tells me, so far over
-the years they have included SKF_AD_PROTOCOL and SKF_AD_PKTTYPE, wow!
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-That's very disappointing, so I have high hopes with this getsockopt().
 
-;)
+--t2uQI9eqIGN3r3LOR0okSw4W3AEEu4WO4
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-Thanks,
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
 
-Daniel
+iEYEARECAAYFAlLYDYkACgkQjTAFq1RaXHOqygCcCUSmhFR6jI383yeXjJMMWqVu
++FAAn3Ihf3a9iiYYGaXdKZyp2IFuBsGp
+=v3uu
+-----END PGP SIGNATURE-----
 
->   #endif	/* _SOCK_H */
-> diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
-> index 38f14d0..ea0796b 100644
-> --- a/include/uapi/asm-generic/socket.h
-> +++ b/include/uapi/asm-generic/socket.h
-> @@ -80,4 +80,6 @@
->
->   #define SO_MAX_PACING_RATE	47
->
-> +#define SO_BPF_EXTENSIONS	48
-> +
->   #endif /* __ASM_GENERIC_SOCKET_H */
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index 85ad6f0..70e5a6e 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -1167,6 +1167,10 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
->   		v.val = sock_flag(sk, SOCK_FILTER_LOCKED);
->   		break;
->
-> +	case SO_BPF_EXTENSIONS:
-> +		v.val = bpf_get_extensions();
-> +		break;
-> +
->   	case SO_SELECT_ERR_QUEUE:
->   		v.val = sock_flag(sk, SOCK_SELECT_ERR_QUEUE);
->   		break;
->
+--t2uQI9eqIGN3r3LOR0okSw4W3AEEu4WO4--
