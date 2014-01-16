@@ -1,89 +1,111 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 2/2] qlcnic: remove unused code
-Date: Thu, 16 Jan 2014 10:32:21 -0800
-Message-ID: <20140116103221.41637f8f@nehalam.linuxnetplumber.net>
-References: <20140116103127.121855af@nehalam.linuxnetplumber.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] net: introduce SO_BPF_EXTENSIONS
+Date: Thu, 16 Jan 2014 19:34:14 +0100
+Message-ID: <52D82626.5060701@redhat.com>
+References: <1389888898-31744-1-git-send-email-msekleta@redhat.com> <52D80BCA.7030400@redhat.com> <20140116172631.GA5206@loki.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Himanshu Madhani <himanshu.madhani@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
-	David Miller <davem@davemloft.net>, linux-driver@qlogic.com,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: netdev@vger.kernel.org, Michael Kerrisk <mtk.manpages@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Michal Sekletar <msekleta@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:44923 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751065AbaAPSc2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 13:32:28 -0500
-Received: by mail-pa0-f50.google.com with SMTP id kp14so3005829pab.23
-        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 10:32:28 -0800 (PST)
-In-Reply-To: <20140116103127.121855af@nehalam.linuxnetplumber.net>
+Received: from mx1.redhat.com ([209.132.183.28]:56026 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751502AbaAPSeW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jan 2014 13:34:22 -0500
+In-Reply-To: <20140116172631.GA5206@loki.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove function  qlcnic_enable_eswitch which was defined
-but never used in current code.
+On 01/16/2014 06:26 PM, Michal Sekletar wrote:
+> On Thu, Jan 16, 2014 at 05:41:46PM +0100, Daniel Borkmann wrote:
+>> On 01/16/2014 05:14 PM, Michal Sekletar wrote:
+>>> userspace packet capturing libraries (e.g. libpcap) don't have a way how to find
+>>> out which BPF extensions are supported by the kernel, except compiling a filter
+>>> which uses extensions and trying to apply filter to the socket. This is very
+>>> inconvenient.
+>>>
+>>> Therefore this commit introduces new option which can be used as an argument for
+>>> getsockopt() and allows one to obtain information about which BPF extensions are
+>>> supported by the kernel.
+>>>
+>>> On Tue, Dec 10, 2013 at 1:25 AM, David Miller <davem@davemloft.net> wrote:
+>>>
+>>>> And therefore, you do not need to define any actual bits yet. The
+>>>> socket option will for now just return "0", and that will mean that
+>>>> all the extensions Linux implements currently are presnet.
+>>>
+>>> Signed-off-by: Michal Sekletar <msekleta@redhat.com>
+>>> Cc: Michael Kerrisk <mtk.manpages@gmail.com>
+>>> Cc: Daniel Borkmann <dborkman@redhat.com>
+>>> Cc: David Miller <davem@davemloft.net>
+>>> ---
+>>>   arch/alpha/include/uapi/asm/socket.h   | 2 ++
+>>>   arch/avr32/include/uapi/asm/socket.h   | 2 ++
+>>>   arch/cris/include/uapi/asm/socket.h    | 2 ++
+>>>   arch/frv/include/uapi/asm/socket.h     | 2 ++
+>>>   arch/ia64/include/uapi/asm/socket.h    | 2 ++
+>>>   arch/m32r/include/uapi/asm/socket.h    | 2 ++
+>>>   arch/mips/include/uapi/asm/socket.h    | 2 ++
+>>>   arch/mn10300/include/uapi/asm/socket.h | 2 ++
+>>>   arch/parisc/include/uapi/asm/socket.h  | 2 ++
+>>>   arch/powerpc/include/uapi/asm/socket.h | 2 ++
+>>>   arch/s390/include/uapi/asm/socket.h    | 2 ++
+>>>   arch/sparc/include/uapi/asm/socket.h   | 2 ++
+>>>   arch/xtensa/include/uapi/asm/socket.h  | 2 ++
+>>>   include/net/sock.h                     | 5 +++++
+>>>   include/uapi/asm-generic/socket.h      | 2 ++
+>>>   net/core/sock.c                        | 4 ++++
+>>>   16 files changed, 37 insertions(+)
+>>>
+>> ...
+>>> --- a/include/net/sock.h
+>>> +++ b/include/net/sock.h
+>>> @@ -2292,4 +2292,9 @@ extern int sysctl_optmem_max;
+>>>   extern __u32 sysctl_wmem_default;
+>>>   extern __u32 sysctl_rmem_default;
+>>>
+>>> +static inline int bpf_get_extensions(void)
+>>> +{
+>>> +	return 0;
+>>> +}
+>>> +
+>>
+>> This should rather be in: include/linux/filter.h
+>
+> Yes, having that function there makes more sense.
+>
+>>
+>> And then, maybe be renamed into something like bpf_tell_extensions()
+>> for example, but that's just nit.
+>
+> Renamed.
+>
+>>
+>> Also, please add a comment, saying if people add new extensions, they
+>> need to enumerate them within this function from now on so that user
+>> space who enquires for that can be made aware of.
+>
+> Let me know if even more explanatory comment is desired.
 
-Compile tested only.
+I think that looks good.
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+>> Still, grepping through latest libpcap sources, tells me, so far over
+>> the years they have included SKF_AD_PROTOCOL and SKF_AD_PKTTYPE, wow!
+>>
+>> That's very disappointing, so I have high hopes with this getsockopt().
+>>
+>> ;)
+>>
+>> Thanks,
+>
+> Thank you for the review. Btw, what do you think about define for parisc? I am
 
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c |   30 --------------------
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h |    1 
- 2 files changed, 31 deletions(-)
+Yes, saw that in the patch and had similar thoughts.
 
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c	2014-01-16 09:59:06.005043766 -0800
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c	2014-01-16 09:59:20.612876755 -0800
-@@ -2196,36 +2196,6 @@ out:
- 	return IRQ_HANDLED;
- }
- 
--int qlcnic_enable_eswitch(struct qlcnic_adapter *adapter, u8 port, u8 enable)
--{
--	int err = -EIO;
--	struct qlcnic_cmd_args cmd;
--
--	if (adapter->ahw->op_mode != QLCNIC_MGMT_FUNC) {
--		dev_err(&adapter->pdev->dev,
--			"%s: Error, invoked by non management func\n",
--			__func__);
--		return err;
--	}
--
--	err = qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_TOGGLE_ESWITCH);
--	if (err)
--		return err;
--
--	cmd.req.arg[1] = (port & 0xf) | BIT_4;
--	err = qlcnic_issue_cmd(adapter, &cmd);
--
--	if (err != QLCNIC_RCODE_SUCCESS) {
--		dev_err(&adapter->pdev->dev, "Failed to enable eswitch%d\n",
--			err);
--		err = -EIO;
--	}
--	qlcnic_free_mbx_args(&cmd);
--
--	return err;
--
--}
--
- int qlcnic_83xx_set_nic_info(struct qlcnic_adapter *adapter,
- 			     struct qlcnic_info *nic)
- {
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h	2014-01-16 09:58:55.213189820 -0800
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h	2014-01-16 09:59:20.612876755 -0800
-@@ -590,7 +590,6 @@ void qlcnic_83xx_disable_intr(struct qlc
- 			     struct qlcnic_host_sds_ring *);
- void qlcnic_83xx_check_vf(struct qlcnic_adapter *,
- 			  const struct pci_device_id *);
--int qlcnic_enable_eswitch(struct qlcnic_adapter *, u8, u8);
- int qlcnic_83xx_config_default_opmode(struct qlcnic_adapter *);
- int qlcnic_83xx_setup_mbx_intr(struct qlcnic_adapter *);
- void qlcnic_83xx_free_mbx_intr(struct qlcnic_adapter *);
+> not sure I grok 0x4048 for SO_MAX_PACING_RATE and hence not sure about 0x4029
+> for SO_BPF_EXTENSIONS.
+
+Hmm, maybe typo; SO_MAX_PACING_RATE should have been a 0x4028 ?
