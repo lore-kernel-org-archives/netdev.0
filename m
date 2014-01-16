@@ -1,94 +1,68 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH v4 net-next] bonding: handle slave's name change with
- primary_slave logic
-Date: Thu, 16 Jan 2014 09:38:50 +0800
-Message-ID: <52D7382A.1090607@huawei.com>
-References: <1389834269-4740-1-git-send-email-vfalico@redhat.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the uml tree
+Date: Thu, 16 Jan 2014 12:42:15 +1100
+Message-ID: <20140116124215.78ed8795c91309badc844566@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Veaceslav Falico <vfalico@redhat.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:5325 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751314AbaAPBjC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jan 2014 20:39:02 -0500
-In-Reply-To: <1389834269-4740-1-git-send-email-vfalico@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Thu__16_Jan_2014_12_42_15_+1100_=HeLZ+GHKpMY2Mni"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Richard Weinberger <richard@nod.at>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/1/16 9:04, Veaceslav Falico wrote:
-> Currently, if a slave's name change, we just pass it by. However, if the
-> slave is a current primary_slave, then we end up with using a slave, whose
-> name != params.primary, for primary_slave. And vice-versa, if we don't have
-> a primary_slave but have params.primary set - we will not detected a new
-> primary_slave.
-> 
-> Fix this by catching the NETDEV_CHANGENAME event and setting primary_slave
-> accordingly. Also, if the primary_slave was changed, issue a reselection of
-> the active slave, cause the priorities have changed.
-> 
-> Reported-by: Ding Tianhong <dingtianhong@huawei.com>
-> CC: Ding Tianhong <dingtianhong@huawei.com>
-> CC: Jay Vosburgh <fubar@us.ibm.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-> ---
-> 
-> Notes:
->     v3->v4:
->     Fix style issue.
->     
->     v2->v3:
->     Reword the info message, per Jay's comment.
->     
->     v1->v2:
->     Proper patch
-> 
->  drivers/net/bonding/bond_main.c | 24 +++++++++++++++++++++---
->  1 file changed, 21 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index f2fe6cb..f00dd45 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -2860,9 +2860,27 @@ static int bond_slave_netdev_event(unsigned long event,
->  		 */
->  		break;
->  	case NETDEV_CHANGENAME:
-> -		/*
-> -		 * TODO: handle changing the primary's name
-> -		 */
-> +		/* we don't care if we don't have primary set */
-> +		if (!USES_PRIMARY(bond->params.mode) ||
-> +		    !bond->params.primary[0])
-> +			break;
-> +
-> +		if (slave == bond->primary_slave) {
-> +			/* slave's name changed - he's no longer primary */
-> +			bond->primary_slave = NULL;
-> +		} else if (!strcmp(slave_dev->name, bond->params.primary)) {
-> +			/* we have a new primary slave */
-> +			bond->primary_slave = slave;
-> +		} else { /* we didn't change primary - exit */
-> +			break;
-> +		}
-> +
-why not remove all the { } for the if else, there are only one line for each if.
+--Signature=_Thu__16_Jan_2014_12_42_15_+1100_=HeLZ+GHKpMY2Mni
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-but seems good for logic.
+Hi all,
 
-Acked-by: Ding Tianhong <dingtianhong@huawei.com>
+Today's linux-next merge of the net-next tree got a conflict in
+arch/um/include/asm/Kbuild between commit 989e59fa41c5 ("um: Include
+generic barrier.h") from the uml tree and commit e3fec2f74f7f ("lib: Add
+missing arch generic-y entries for asm-generic/hash.h") from the net-next
+tree.
 
-> +		pr_info("%s: Primary slave changed to %s, reselecting active slave.\n",
-> +			bond->dev->name, bond->primary_slave ? slave_dev->name :
-> +							       "none");
-> +		write_lock_bh(&bond->curr_slave_lock);
-> +		bond_select_active_slave(bond);
-> +		write_unlock_bh(&bond->curr_slave_lock);
->  		break;
->  	case NETDEV_FEAT_CHANGE:
->  		bond_compute_features(bond);
-> 
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc arch/um/include/asm/Kbuild
+index fb3a6cc23015,75de4abe4f94..000000000000
+--- a/arch/um/include/asm/Kbuild
++++ b/arch/um/include/asm/Kbuild
+@@@ -4,4 -4,4 +4,5 @@@ generic-y +=3D ftrace.h pci.h io.h param.
+  generic-y +=3D switch_to.h clkdev.h
+  generic-y +=3D trace_clock.h
+  generic-y +=3D preempt.h
+ +generic-y +=3D barrier.h
++ generic-y +=3D hash.h
+
+--Signature=_Thu__16_Jan_2014_12_42_15_+1100_=HeLZ+GHKpMY2Mni
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJS1zj8AAoJEMDTa8Ir7ZwVu2EP/iksyZxhZyelCYN4WBCV/Xtr
+p46fkgA9APqife4RKErkoc21/+nof0YG0PYNT9bkAFgaSXq/DNQ5sRqdjPX7r1gM
+dqHKz9t9WibgYL2pCJhES61l0fBJq1Ed1TLu4jQsJE2sTxZ3yE05RYzLV9aAPaPg
+I1B0BfAoHPUooNECsiJtPftFK7yPwrHgpEagzd5Ld4/cjIBKsj4J/gmEe4f5mDXv
+LesGUaICi1O6OGgCa0YtFyMxbgm9BOJXyxfYYH27DoNoJqXkiKc44FNJ3yfAIKEb
+mv2PLbw5HdaC5QcTRdTUhW2NHxsnt5MnucqHTjinHzXvvIXuJg7kiSssjtyIcyVJ
+xg1ajDm9KbVccpPQGRvjsRklb5rvZYQzs/Y2YqxcG9jBjFofew2MF9m2j8HM97vG
+EVINnoMz4c7citU4UKdLe+sxN1KLvDIU3MXwvZkTlHoWzlVwvgKZugSysy5ihn2a
+XB/xqVjZQxUCEKYSxIZfRg/HsVMAkrN7C4ivFPDaHMe2fPP+UrWnAiFcDdZLk/DG
+1FEvcpgb3/WFZXLDKykH7CT2XAcbO5JsMNRyh579r5kE6wcKc4gnbKSoeXhHP615
+lmCZ+Nm5/V1/aI6m72iqdAaX/BoVfrPe1pnbl98Wv/ogY30Oa8Fewaf2MwPrUM6x
+GshqgaTxOWF3MKG489uF
+=suFf
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__16_Jan_2014_12_42_15_+1100_=HeLZ+GHKpMY2Mni--
