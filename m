@@ -1,103 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] reciprocal_divide: correction/update of
- the algorithm
-Date: Wed, 15 Jan 2014 19:07:26 -0800
-Message-ID: <1389841646.31367.391.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1389828228-30312-1-git-send-email-dborkman@redhat.com>
-	 <1389828228-30312-3-git-send-email-dborkman@redhat.com>
+From: Ethan Zhao <ethan.kernel@gmail.com>
+Subject: Re: [PATCH 1/2 v3] ixgbe: define IXGBE_MAX_VFS_DRV_LIMIT macro and
+ cleanup const 63
+Date: Thu, 16 Jan 2014 11:08:39 +0800
+Message-ID: <CABawtvPJ1ObkwbKjVtzajQnn_181CTo-jmLc0uGY2nqZw9_jtg@mail.gmail.com>
+References: <1389795148-341-1-git-send-email-ethan.kernel@gmail.com>
+	<309B89C4C689E141A5FF6A0C5FB2118B7312DA20@ORSMSX101.amr.corp.intel.com>
+	<CABawtvNEDjTJAjJ9TeEvZd7+2kD=H6zA23T-aQo3uVm5SUEhCQ@mail.gmail.com>
+	<309B89C4C689E141A5FF6A0C5FB2118B7312DE7D@ORSMSX101.amr.corp.intel.com>
+	<CABawtvNSpDU+pjdJOpCB8kyQqA7B9N4g0S_yPgQaZnB3h0+nFg@mail.gmail.com>
+	<309B89C4C689E141A5FF6A0C5FB2118B7312DF41@ORSMSX101.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Austin S Hemmelgarn <ahferroin7@gmail.com>,
-	Jesse Gross <jesse@nicira.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Matt Mackall <mpm@selenic.com>,
-	Pekka Enberg <penberg@kernel.org>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Jakub Zawadzki <darkjames-ws@darkjames.pl>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Brown, Aaron F" <aaron.f.brown@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389828228-30312-3-git-send-email-dborkman@redhat.com>
+In-Reply-To: <309B89C4C689E141A5FF6A0C5FB2118B7312DF41@ORSMSX101.amr.corp.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-01-16 at 00:23 +0100, Daniel Borkmann wrote:
+Aaron,
+    Ok, Dave Miler's net-next tree.
 
-> Also, reciprocal_value() and reciprocal_divide() always return 0
-> for divisions by 1. This is a bit worrisome as those functions
-> also get used in mm/slab.c and lib/flex_array.c, apparently for
-> index calculation to access array slots. 
+Thanks,
+Etan
 
-Hi Daniel
-
-This off-by-one limitation is a known one,
-and mm/slab.c does not have an issue with it because :
-
-- Minimal object size is not 1 byte, but 8 (or maybe 4)
-- We always divide a multiple of the divisor,
-  so there is no off-by-one effect.
-
-Little attached prog does a brute force check if needed.
-
-So far, the only relevant issue was about BPF, and a better
-documentation of reciprocal_divide() use cases.
-
-(I let Jesse comment on the flex_array case)
-
-I am unsure we want to 'fix' things, we tried hard in the past to avoid
-divides, so the ones we use are usually because the divisor is not
-constant, so the reciprocal doesn't help.
-
-(BPF is fixed in David tree)
-
-Thanks !
-
-#include <stdio.h>
-
-typedef unsigned int u32;
-typedef unsigned long long u64;
-
-static u32 reciprocal_value(u32 k)
-{
-	u64 val = (1LL << 32) + (k - 1);
-	val /= k;
-	return (u32)val;
-}
-
-static inline u32 reciprocal_divide(u32 A, u32 R)
-{
-	return (u32)(((u64)A * R) >> 32);
-}
-
-#define LIMIT 1000*1000*1000
-
-int main()
-{
-	u32 divisor, dividend, reciprocal, next;
-	int res = 0;
-
-	for (divisor = 2; divisor < LIMIT; divisor++) {
-		reciprocal = reciprocal_value(divisor);
-		for (dividend = 0; ; dividend = next) {
-			if (reciprocal_divide(dividend, reciprocal) != (dividend / divisor)) {
-				printf("Arg: %u/%u was not properly computed (%u/%u)\n",
-					dividend, divisor,
-					reciprocal_divide(dividend, reciprocal),
-					dividend / divisor);
-				res = 1;
-				break;
-			}
-			next = dividend + divisor;
-			if (next < dividend)
-				break;
-		}
-	}
-	return res;
-}
+On Thu, Jan 16, 2014 at 10:51 AM, Brown, Aaron F
+<aaron.f.brown@intel.com> wrote:
+> On Thu, 2014-01-16 at 09:58 +0800, Ethan Zhao wrote:
+>> Aaron,
+>>
+>> Is this your net-next repo ? if so, I rebuild the patch with this repo
+>> right now .
+>> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
+>>
+>> Thanks,
+>> Ethan
+>>
+> Only sort of.  Jeff uses it to push patches up, but I don't have an
+> account there so am simply sending them up the old fashioned way, via
+> email, hence it is probably not getting updated while Jeff is out.
+>
+> As long as your patch can apply cleanly to Dave Miller's net-next tree I
+> should be able to pull it into our internal ones.
