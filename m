@@ -1,47 +1,32 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 1/2] random32: add prandom_u32_lt_N and convert
- "misuses" of reciprocal_divide
-Date: Wed, 15 Jan 2014 16:29:32 -0800
-Message-ID: <1389832172.14001.41.camel@joe-AO722>
-References: <1389828228-30312-1-git-send-email-dborkman@redhat.com>
-	 <1389828228-30312-2-git-send-email-dborkman@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH net-next] etherdevice: Use ether_addr_copy to copy
+ an Ethernet address
+Date: Wed, 15 Jan 2014 16:45:40 -0800 (PST)
+Message-ID: <20140115.164540.450877805879786067.davem@davemloft.net>
+References: <1389741527.24849.68.camel@joe-AO722>
+	<20140115.153951.743060257410154565.davem@davemloft.net>
+	<1389830878.14001.39.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Jakub Zawadzki <darkjames-ws@darkjames.pl>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389828228-30312-2-git-send-email-dborkman@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-arch@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <1389830878.14001.39.camel@joe-AO722>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-01-16 at 00:23 +0100, Daniel Borkmann wrote:
-> Many functions have open coded a function that return a random
-> number in range [0,N-1]. Also, only because we have a function
-> that is named reciprocal_divide(), it has not much to do with
-> the pupose where it is being used when a previous reciprocal_value()
-> has not been obtained.
+From: Joe Perches <joe@perches.com>
+Date: Wed, 15 Jan 2014 16:07:58 -0800
 
-prandom_u32_lt_N?
+> If you want the ones for net-next net/ now (but not
+> for batman-adv, that maybe could use a new function like
+> ether_addr_copy_unaligned) here's a changestat.
+> 
+> Otherwise, I'll wait for the next cycle.
 
-I do not like the camelcase name and thought the
-prandom_u32_max was better.
+This looks fine, why don't you toss it my way over the weekend as I
+still have some backlog to process at the moment?
 
-How about using
-
-u32 prandom_u32_max(u32 max)
-{
-	return (u32)(((u64)prandom_u32() * max) >> 32);
-}
-
-u32 prandom_u32_range(u32 a, u32 b)
-{
-	if (b < a)
-		swap(a, b);
-
-	return a + (u32)(((u64)prandom_u32() * (b - a)) >> 32);
-}
+Thanks.
