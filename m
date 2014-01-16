@@ -1,38 +1,47 @@
-From: Michael Dalton <mwdalton@google.com>
-Subject: Re: [PATCH net-next v3 4/5] net-sysfs: add support for
-	device-specific rx queue sysfs attributes
-Date: Thu, 16 Jan 2014 11:07:36 -0800
-Message-ID: <CANJ5vP+nDgi7vWOd=RSuZ=NS5Z_txEkEsoYYm_33sFPh6rr=gg@mail.gmail.com>
-References: <1389865126-26225-1-git-send-email-mwdalton@google.com>
-	<1389865126-26225-4-git-send-email-mwdalton@google.com>
-	<1389898650.11912.65.camel@bwh-desktop.uk.level5networks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: introduce SO_BPF_EXTENSIONS
+Date: Thu, 16 Jan 2014 11:09:48 -0800
+Message-ID: <1389899388.31367.414.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1389888898-31744-1-git-send-email-msekleta@redhat.com>
+	  <52D80BCA.7030400@redhat.com> <20140116172631.GA5206@loki.brq.redhat.com>
+	  <52D82626.5060701@redhat.com>
+	 <1389898146.31367.413.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <52D82A7A.3090106@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	lf-virt <virtualization@lists.linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1389898650.11912.65.camel@bwh-desktop.uk.level5networks.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Michal Sekletar <msekleta@redhat.com>, netdev@vger.kernel.org,
+	Michael Kerrisk <mtk.manpages@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f47.google.com ([209.85.213.47]:50778 "EHLO
+	mail-yh0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750946AbaAPTJy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 14:09:54 -0500
+Received: by mail-yh0-f47.google.com with SMTP id c41so1081170yho.20
+        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 11:09:53 -0800 (PST)
+In-Reply-To: <52D82A7A.3090106@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Jan 16, 2014 at 10:57 AM, Ben Hutchings <bhutchings@solarflare.com> wrote:
-> Why write a loop when you can do:
->         i = queue - dev->_rx;
-Good point, the loop approach was done in get_netdev_queue_index --
-I agree your fix is faster and simpler. I'll fix in next patchset.
-Thanks!
+On Thu, 2014-01-16 at 19:52 +0100, Daniel Borkmann wrote:
+> On 01/16/2014 07:49 PM, Eric Dumazet wrote:
+> > On Thu, 2014-01-16 at 19:34 +0100, Daniel Borkmann wrote:
+> >
+> >>> Thank you for the review. Btw, what do you think about define for parisc? I am
+> >>
+> >> Yes, saw that in the patch and had similar thoughts.
+> >>
+> >>> not sure I grok 0x4048 for SO_MAX_PACING_RATE and hence not sure about 0x4029
+> >>> for SO_BPF_EXTENSIONS.
+> >>
+> >> Hmm, maybe typo; SO_MAX_PACING_RATE should have been a 0x4028 ?
+> >
+> > Indeed it was a typo.
+> >
+> > I think its time to change this, as this was added for linux-3.13
+> 
+> Ok, are you sending out a patch?
 
-Best,
-
-Mike
+Yes, I will, thanks !
