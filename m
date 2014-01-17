@@ -1,51 +1,33 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH net-next 3/3] virtio-net: Add accelerated RFS support
-Date: Fri, 17 Jan 2014 17:20:08 +0000
-Message-ID: <1389979208.27141.11.camel@bwh-desktop.uk.level5networks.com>
-References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
-	 <1389795654-28381-4-git-send-email-zwu.kernel@gmail.com>
-	 <1389907887.11912.87.camel@bwh-desktop.uk.level5networks.com>
-	 <CAEH94LjHcxkXLvs6AMNop_yzKG0zaT2mAgsAb21i+RtMbkXbmQ@mail.gmail.com>
-	 <1389914188.11912.146.camel@bwh-desktop.uk.level5networks.com>
-	 <CAEH94LgKJ0qThGHS-hqXsYKqOe+ns2pRi-wfZy=af1RMejOZ5A@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] net: vxlan: do not use vxlan_net before checking
+ event type
+Date: Fri, 17 Jan 2014 09:30:24 -0800
+Message-ID: <CAM_iQpV4FGdbHo9UVFhN9yqhZuGEZdrynikvrTZ0YZJTPVCmLg@mail.gmail.com>
+References: <1389959706-30976-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stefan Hajnoczi <stefanha@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: Zhi Yong Wu <zwu.kernel@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:43760 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751788AbaAQRUO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 12:20:14 -0500
-In-Reply-To: <CAEH94LgKJ0qThGHS-hqXsYKqOe+ns2pRi-wfZy=af1RMejOZ5A@mail.gmail.com>
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:49832 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752331AbaAQRaZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 12:30:25 -0500
+Received: by mail-ob0-f176.google.com with SMTP id gq1so2579822obb.7
+        for <netdev@vger.kernel.org>; Fri, 17 Jan 2014 09:30:24 -0800 (PST)
+In-Reply-To: <1389959706-30976-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-01-18 at 00:54 +0800, Zhi Yong Wu wrote:
-> On Fri, Jan 17, 2014 at 7:16 AM, Ben Hutchings
-> <bhutchings@solarflare.com> wrote:
-[...]
-> > However, to take advantage of ARFS on a physical net driver, it would be
-> > necessary to send a control request for part 2.
-> aRFS on a physical net driver? What is this physical net driver? I
-> thought that in order to enable aRFS, guest virtio_net driver should
-> send a control request to its emulated virtio_net NIC.
-[...]
+On Fri, Jan 17, 2014 at 3:55 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> -       if (event == NETDEV_UNREGISTER)
+> +       if (event == NETDEV_UNREGISTER) {
+> +               vn = net_generic(dev_net(dev), vxlan_net_id);
+>                 vxlan_handle_lowerdev_unregister(vn, dev);
+> +       }
 
-If the backend is connected to a macvlan device on top of a physical net
-device that supports ARFS, then there is further potential for improving
-performance by steering to the best physical RX queue and CPU as well as
-the best virtio_net RX queue and vCPU.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+There is no need to keep vxlan_handle_lowerdev_unregister(),
+it is too short. So, just use my patch.
