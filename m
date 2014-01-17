@@ -1,48 +1,69 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 1/9] i40e: fix compile warning on checksum_local
-Date: Fri, 17 Jan 2014 15:36:31 -0800
-Message-ID: <1390001799-19425-2-git-send-email-aaron.f.brown@intel.com>
+Subject: [net-next 2/9] i40e: Change firmware workaround
+Date: Fri, 17 Jan 2014 15:36:32 -0800
+Message-ID: <1390001799-19425-3-git-send-email-aaron.f.brown@intel.com>
 References: <1390001799-19425-1-git-send-email-aaron.f.brown@intel.com>
 Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Shannon Nelson <shannon.nelson@intel.com>,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:55373 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:55439 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751897AbaAQXhB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jan 2014 18:37:01 -0500
+	id S1753536AbaAQXhD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jan 2014 18:37:03 -0500
 In-Reply-To: <1390001799-19425-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Compile testing with higher warning levels found this complaint: 
-i40e_nvm.c: warning: 'checksum_local' may be used uninitialized in
-this function
+Remove a workaround that is no longer necessary and implement
+a better understanding of what firmware is returning in the MSI-X
+vector count.  This makes it so that the driver ends up with the 
+right amount of queues when using all available MSI-X vectors.
 
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: I34e60cc71dcfb1b5412f37df956fedcc49ade187
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_nvm.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      | 1 -
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 8 ++------
+ 2 files changed, 2 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-index e12bf07..73f95b0 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-@@ -323,7 +323,7 @@ i40e_status i40e_validate_nvm_checksum(struct i40e_hw *hw,
- {
- 	i40e_status ret_code = 0;
- 	u16 checksum_sr = 0;
--	u16 checksum_local;
-+	u16 checksum_local = 0;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index dff4447..6d0a702 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -63,7 +63,6 @@
+ #define I40E_BASE_VSI_SEID    512
+ #define I40E_BASE_VEB_SEID    288
+ #define I40E_MAX_VEB          16
+-#define I40E_MAX_NPAR_QPS     32
  
- 	ret_code = i40e_acquire_nvm(hw, I40E_RESOURCE_READ);
- 	if (ret_code)
+ #define I40E_MAX_NUM_DESCRIPTORS      4096
+ #define I40E_MAX_REGISTER     0x800000
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 7bfa789..ff4aa74 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -4704,12 +4704,8 @@ static int i40e_get_capabilities(struct i40e_pf *pf)
+ 		}
+ 	} while (err);
+ 
+-	if (pf->hw.revision_id == 0 && (pf->flags & I40E_FLAG_MFP_ENABLED)) {
+-		pf->hw.func_caps.num_msix_vectors += 1;
+-		pf->hw.func_caps.num_tx_qp =
+-			min_t(int, pf->hw.func_caps.num_tx_qp,
+-			      I40E_MAX_NPAR_QPS);
+-	}
++	/* increment MSI-X count because current FW skips one */
++	pf->hw.func_caps.num_msix_vectors++;
+ 
+ 	if (pf->hw.debug_mask & I40E_DEBUG_USER)
+ 		dev_info(&pf->pdev->dev,
 -- 
 1.8.5.GIT
