@@ -1,211 +1,259 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: Fwd: [RFC PATCH net-next 0/3] virtio_net: add aRFS support
-Date: Fri, 17 Jan 2014 08:03:48 -0800
-Message-ID: <CA+mtBx-y3BL_hQBh15jX26Zht29NtAywq95B7YxXWH5brXVsGA@mail.gmail.com>
-References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
-	<52D75EA5.1050000@redhat.com>
-	<CAEH94Lg7ygXgHqE8ubE+nuunicDqgmnCfO2AuDSS2nXgv5GikQ@mail.gmail.com>
-	<20140116085253.GA32073@stefanha-thinkpad.redhat.com>
-	<CA+mtBx9PBtYurdnhCKL0MLL8i+_+3yPNWFVj5h6SPJH+YDBCjw@mail.gmail.com>
-	<52D8A2D5.4040807@redhat.com>
-	<CA+mtBx8U1sYzH--QDnLnmSLpisn0DZPSdewUPCEhQkjTMmvb6w@mail.gmail.com>
-	<52D8CF65.1090100@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stefan Hajnoczi <stefanha@redhat.com>,
-	Zhi Yong Wu <zwu.kernel@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Rusty Russell <rusty@rustcorp.com.au>
-To: Jason Wang <jasowang@redhat.com>
+From: Michal Sekletar <msekleta@redhat.com>
+Subject: [PATCH net-next v3] net: introduce SO_BPF_EXTENSIONS
+Date: Fri, 17 Jan 2014 17:09:45 +0100
+Message-ID: <1389974985-21160-1-git-send-email-msekleta@redhat.com>
+Cc: Michal Sekletar <msekleta@redhat.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:60708 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751511AbaAQQDt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 11:03:49 -0500
-Received: by mail-ie0-f169.google.com with SMTP id tq11so3734089ieb.28
-        for <netdev@vger.kernel.org>; Fri, 17 Jan 2014 08:03:48 -0800 (PST)
-In-Reply-To: <52D8CF65.1090100@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:1557 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752027AbaAQQKU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jan 2014 11:10:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 16, 2014 at 10:36 PM, Jason Wang <jasowang@redhat.com> wrote:
-> On 01/17/2014 01:08 PM, Tom Herbert wrote:
->> On Thu, Jan 16, 2014 at 7:26 PM, Jason Wang <jasowang@redhat.com> wrote:
->>> On 01/17/2014 01:12 AM, Tom Herbert wrote:
->>>> On Thu, Jan 16, 2014 at 12:52 AM, Stefan Hajnoczi <stefanha@redhat.com> wrote:
->>>>> On Thu, Jan 16, 2014 at 04:34:10PM +0800, Zhi Yong Wu wrote:
->>>>>> CC: stefanha, MST, Rusty Russel
->>>>>>
->>>>>> ---------- Forwarded message ----------
->>>>>> From: Jason Wang <jasowang@redhat.com>
->>>>>> Date: Thu, Jan 16, 2014 at 12:23 PM
->>>>>> Subject: Re: [RFC PATCH net-next 0/3] virtio_net: add aRFS support
->>>>>> To: Zhi Yong Wu <zwu.kernel@gmail.com>
->>>>>> Cc: netdev@vger.kernel.org, therbert@google.com, edumazet@google.com,
->>>>>> davem@davemloft.net, Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
->>>>>>
->>>>>>
->>>>>> On 01/15/2014 10:20 PM, Zhi Yong Wu wrote:
->>>>>>> From: Zhi Yong Wu<wuzhy@linux.vnet.ibm.com>
->>>>>>>
->>>>>>> HI, folks
->>>>>>>
->>>>>>> The patchset is trying to integrate aRFS support to virtio_net. In this case,
->>>>>>> aRFS will be used to select the RX queue. To make sure that it's going ahead
->>>>>>> in the correct direction, although it is still one RFC and isn't tested, it's
->>>>>>> post out ASAP. Any comment are appreciated, thanks.
->>>>>>>
->>>>>>> If anyone is interested in playing with it, you can get this patchset from my
->>>>>>> dev git on github:
->>>>>>>    git://github.com/wuzhy/kernel.git virtnet_rfs
->>>>>>>
->>>>>>> Zhi Yong Wu (3):
->>>>>>>    virtio_pci: Introduce one new config api vp_get_vq_irq()
->>>>>>>    virtio_net: Introduce one dummy function virtnet_filter_rfs()
->>>>>>>    virtio-net: Add accelerated RFS support
->>>>>>>
->>>>>>>   drivers/net/virtio_net.c      |   67 ++++++++++++++++++++++++++++++++++++++++-
->>>>>>>   drivers/virtio/virtio_pci.c   |   11 +++++++
->>>>>>>   include/linux/virtio_config.h |   12 +++++++
->>>>>>>   3 files changed, 89 insertions(+), 1 deletions(-)
->>>>>>>
->>>>>> Please run get_maintainter.pl before sending the patch. You'd better
->>>>>> at least cc virtio maintainer/list for this.
->>>>>>
->>>>>> The core aRFS method is a noop in this RFC which make this series no
->>>>>> much sense to discuss. You should at least mention the big picture
->>>>>> here in the cover letter. I suggest you should post a RFC which can
->>>>>> run and has expected result or you can just raise a thread for the
->>>>>> design discussion.
->>>>>>
->>>>>> And this method has been discussed before, you can search "[net-next
->>>>>> RFC PATCH 5/5] virtio-net: flow director support" in netdev archive
->>>>>> for a very old prototype implemented by me. It can work and looks like
->>>>>> most of this RFC have already done there.
->>>>>>
->>>>>> A basic question is whether or not we need this, not all the mq cards
->>>>>> use aRFS (see ixgbe ATR). And whether or not it can bring extra
->>>>>> overheads? For virtio, we want to reduce the vmexits as much as
->>>>>> possible but this aRFS seems introduce a lot of more of this. Making a
->>>>>> complex interfaces just for an virtual device may not be good, simple
->>>>>> method may works for most of the cases.
->>>>>>
->>>>>> We really should consider to offload this to real nic. VMDq and L2
->>>>>> forwarding offload may help in this case.
->>>> Adding flow director support would be a good step, Zhi's patches for
->>>> support in tun have been merged, so support in virtio-net would be a
->>>> good follow on. But, flow-director does have some limitations and
->>>> performance issues of it's own (forced pairing between TX and RX
->>>> queues, lookup on every TX packet).
->>> True. But the pairing was designed to work without guest involving since
->>> we really want to reduce the vmexits from guest. And lookup on every TX
->>> packets could be released to every N packets. But I agree exposing the
->>> API to guest may bring lots of flexibility.
->>>> In the case of virtualization,
->>>> aRFS, RSS, ntuple filtering, LRO, etc. can be implemented as software
->>>> emulations and so far seems to be wins in most cases. Extending these
->>>> down into the stack so that they can leverage HW mechanisms is a good
->>>> goal for best performance. It's probably generally true that most of
->>>> the offloads commonly available for NICs we'll want in virtualization
->>>> path. Of course, we need to deomonstrate that they provide real
->>>> performance benefit in this use case.
->>> Yes, we need a prototype to see how much it can help.
->>>> I believe tying in aRFS (or flow director) into a real aRFS is just a
->>>> matter of programming the RFS table properly. This is not the complex
->>>> side of the interface, I believe this already works with the tun
->>>> patches.
->>> Right, what we may needs is
->>>
->>> - exposing new tun ioctls for qemu adding or removing a flow
->>> - new virtqueue command for guest driver to adding or removing a flow
->>> (btw, current control virtqueue is really slow, we may need to improve it).
->>> - an agreement of host and guest to use the same hash method, or just
->>> compute software hash in host and pass it to guest (which needs extra
->>> API to do)
->> The model to get RX hash from a device is well known, the guest can
->> use that to reflect information about a flow back to the host, and for
->> performance we might piggyback RX queue selection on the TX
->> descriptors of a flow. Probably some limitations with real HW, but I
->> assume would have less issues in SW.
->
-> It may work but may need extending the current virtio-net TX descriptor
-> or extra API such as vnet header.
->>
->> IMO, if we have a flow state on the host we should *never* need to
->> perform any hash computation on TX (a host is not a switch :-) ), we
->> may want to have some mirrored flow state in the kernel for these
->> flows which are indexed by the hash provided in TX.
->
-> The problem is host may have several different type cards, so the it was
-> not guaranteed that they can provide the same rxhash.
+For user space packet capturing libraries such as libpcap, there's
+currently only one way to check which BPF extensions are supported
+by the kernel, that is, commit aa1113d9f85d ("net: filter: return
+-EINVAL if BPF_S_ANC* operation is not supported"). For querying all
+extensions at once this might be rather inconvenient.
 
-RIght, that property has to be taken into account with all the uses of
-rxhash, we can never compute a hash on the host with the expectation
-it to match a HW rxhash (this was a problem with the original tun flow
-mapping code). What is done is to cache the rxhash in the flow state
-(e.g. TCP). This is the value that is used to program the RFS table
-and can be sent back to the device to map match the flow. With a
-guest, the HW hash can be propagated all the way to the guest flow
-state, aRFS is one way to reflect this back to the kernel and
-potentially all the way to the device.
+Therefore, this patch introduces a new option which can be used as
+an argument for getsockopt(), and allows one to obtain information
+about which BPF extensions are supported by the current kernel.
 
->>
->>> - change guest driver to use aRFS
->>>
->>> Some of the above has been implemented in my old RFC.
->> Looks pretty similar to Zhi's tun work. Are you planning to refresh
->> those patches?
->
-> I have the plan. But there's another concern:
->
-> During my testing ( and also tested by some IBM engineers in the past),
-> we find it's better for a single vhost thread to handle both rx and tx
-> for a single flow. Using two different vhost threads to handle a flow
-> may damage the performance in most of the cases. That's why we enforce
-> the pairing of rx and tx in tun currently. But looks like aRFS can't
-> guarantee this. If we want to enforce this paring through XPS/irq
-> affinity, there's no need for aRFS.
->>
->>>>> Zhi Yong and I had an IRC chat.  I wanted to post my questions on the
->>>>> list - it's still the same concern I had in the old email thread that
->>>>> Jason mentioned.
->>>>>
->>>>> In order for virtio-net aRFS to make sense there needs to be an overall
->>>>> plan for pushing flow mapping information down to the physical NIC.
->>>>> That's the only way to actually achieve the benefit of steering:
->>>>> processing the packet on the CPU where the application is running.
->>>>>
->>>> I don't think this is necessarily true. Per flow steering amongst
->>>> virtual queues should be beneficial in itself. virtio-net can leverage
->>>> RFS or aRFS where it's available.
->>>>
->>>>> If it's not possible or too hard to implement aRFS down the entire
->>>>> stack, we won't be able to process the packet on the right CPU.
->>>>> Then we might as well not bother with aRFS and just distribute uniformly
->>>>> across the rx virtqueues.
->>>>>
->>>>> Please post an outline of how rx packets will be steered up the stack so
->>>>> we can discuss whether aRFS can bring any benefit.
->>>>>
->>>> 1. The aRFS interface for the guest to specify which virtual queue to
->>>> receive a packet on is fairly straight forward.
->>>> 2. To hook into RFS, we need to match the virtual queue to the real
->>>> CPU it will processed on, and then program the RFS table for that flow
->>>> and CPU.
->>>> 3. NIC aRFS keys off the RFS tables so it can program the HW with the
->>>> correct queue for the CPU.
->>>>
->>>>> Stefan
->>>> --
->>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>> the body of a message to majordomo@vger.kernel.org
->>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+As David Miller suggests, we do not need to define any bits right
+now and status quo can just return 0 in order to state that this
+versions supports SKF_AD_PROTOCOL up to SKF_AD_PAY_OFFSET. Later
+additions to BPF extensions need to add their bits to the
+bpf_tell_extensions() function, as documented in the comment.
+
+Signed-off-by: Michal Sekletar <msekleta@redhat.com>
+Cc: David Miller <davem@davemloft.net>
+Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
+---
+
+Dave, this will create a minor merge conflict with the net                                                                                                                                                                                   
+tree when net-next is merged into Linus tree. The socket.h                                                                                                                                                                                   
+in parisc architecture has for SO_MAX_PACING_RATE 0x4048                                                                                                                                                                                     
+which should be merged to take the newly submitted 0x4028.                                                                                                                                                                                   
+
+Thanks!
+
+ arch/alpha/include/uapi/asm/socket.h   |  2 ++
+ arch/avr32/include/uapi/asm/socket.h   |  2 ++
+ arch/cris/include/uapi/asm/socket.h    |  2 ++
+ arch/frv/include/uapi/asm/socket.h     |  2 ++
+ arch/ia64/include/uapi/asm/socket.h    |  2 ++
+ arch/m32r/include/uapi/asm/socket.h    |  2 ++
+ arch/mips/include/uapi/asm/socket.h    |  2 ++
+ arch/mn10300/include/uapi/asm/socket.h |  2 ++
+ arch/parisc/include/uapi/asm/socket.h  |  2 ++
+ arch/powerpc/include/uapi/asm/socket.h |  2 ++
+ arch/s390/include/uapi/asm/socket.h    |  2 ++
+ arch/sparc/include/uapi/asm/socket.h   |  2 ++
+ arch/xtensa/include/uapi/asm/socket.h  |  2 ++
+ include/linux/filter.h                 | 11 +++++++++++
+ include/uapi/asm-generic/socket.h      |  2 ++
+ net/core/sock.c                        |  4 ++++
+ 16 files changed, 43 insertions(+)
+
+diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
+index e3a1491..3de1394 100644
+--- a/arch/alpha/include/uapi/asm/socket.h
++++ b/arch/alpha/include/uapi/asm/socket.h
+@@ -85,4 +85,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/avr32/include/uapi/asm/socket.h b/arch/avr32/include/uapi/asm/socket.h
+index cbf902e..6e6cd15 100644
+--- a/arch/avr32/include/uapi/asm/socket.h
++++ b/arch/avr32/include/uapi/asm/socket.h
+@@ -78,4 +78,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* _UAPI__ASM_AVR32_SOCKET_H */
+diff --git a/arch/cris/include/uapi/asm/socket.h b/arch/cris/include/uapi/asm/socket.h
+index 13829aa..ed94e5e 100644
+--- a/arch/cris/include/uapi/asm/socket.h
++++ b/arch/cris/include/uapi/asm/socket.h
+@@ -80,6 +80,8 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* _ASM_SOCKET_H */
+ 
+ 
+diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
+index 5d42997..ca2c6e6 100644
+--- a/arch/frv/include/uapi/asm/socket.h
++++ b/arch/frv/include/uapi/asm/socket.h
+@@ -78,5 +78,7 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* _ASM_SOCKET_H */
+ 
+diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
+index c25302f..a1b49ba 100644
+--- a/arch/ia64/include/uapi/asm/socket.h
++++ b/arch/ia64/include/uapi/asm/socket.h
+@@ -87,4 +87,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* _ASM_IA64_SOCKET_H */
+diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
+index 5296665..6c9a24b 100644
+--- a/arch/m32r/include/uapi/asm/socket.h
++++ b/arch/m32r/include/uapi/asm/socket.h
+@@ -78,4 +78,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* _ASM_M32R_SOCKET_H */
+diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
+index 0df9787..a14baa2 100644
+--- a/arch/mips/include/uapi/asm/socket.h
++++ b/arch/mips/include/uapi/asm/socket.h
+@@ -96,4 +96,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
+index 71dedca..6aa3ce1 100644
+--- a/arch/mn10300/include/uapi/asm/socket.h
++++ b/arch/mn10300/include/uapi/asm/socket.h
+@@ -78,4 +78,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
+index f33113a..a586f61 100644
+--- a/arch/parisc/include/uapi/asm/socket.h
++++ b/arch/parisc/include/uapi/asm/socket.h
+@@ -77,4 +77,6 @@
+ 
+ #define SO_MAX_PACING_RATE	0x4048
+ 
++#define SO_BPF_EXTENSIONS	0x4029
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
+index fa69832..a9c3e2e 100644
+--- a/arch/powerpc/include/uapi/asm/socket.h
++++ b/arch/powerpc/include/uapi/asm/socket.h
+@@ -85,4 +85,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif	/* _ASM_POWERPC_SOCKET_H */
+diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
+index c286c2e..e031332 100644
+--- a/arch/s390/include/uapi/asm/socket.h
++++ b/arch/s390/include/uapi/asm/socket.h
+@@ -84,4 +84,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
+index 0f21e9a..54d9608 100644
+--- a/arch/sparc/include/uapi/asm/socket.h
++++ b/arch/sparc/include/uapi/asm/socket.h
+@@ -74,6 +74,8 @@
+ 
+ #define SO_MAX_PACING_RATE	0x0031
+ 
++#define SO_BPF_EXTENSIONS	0x0032
++
+ /* Security levels - as per NRL IPv6 - don't actually do anything */
+ #define SO_SECURITY_AUTHENTICATION		0x5001
+ #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
+diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
+index 7db5c22..39acec0 100644
+--- a/arch/xtensa/include/uapi/asm/socket.h
++++ b/arch/xtensa/include/uapi/asm/socket.h
+@@ -89,4 +89,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif	/* _XTENSA_SOCKET_H */
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index ff4e40c..1a95a2d 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -83,6 +83,17 @@ static inline void bpf_jit_free(struct sk_filter *fp)
+ #define SK_RUN_FILTER(FILTER, SKB) sk_run_filter(SKB, FILTER->insns)
+ #endif
+ 
++static inline int bpf_tell_extensions(void)
++{
++	/* When adding new BPF extension it is necessary to enumerate
++	 * it here, so userspace software which wants to know what is
++	 * supported can do so by inspecting return value of this
++	 * function
++	 */
++
++	return 0;
++}
++
+ enum {
+ 	BPF_S_RET_K = 1,
+ 	BPF_S_RET_A,
+diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
+index 38f14d0..ea0796b 100644
+--- a/include/uapi/asm-generic/socket.h
++++ b/include/uapi/asm-generic/socket.h
+@@ -80,4 +80,6 @@
+ 
+ #define SO_MAX_PACING_RATE	47
+ 
++#define SO_BPF_EXTENSIONS	48
++
+ #endif /* __ASM_GENERIC_SOCKET_H */
+diff --git a/net/core/sock.c b/net/core/sock.c
+index b3f7ee3..0c127dc 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1167,6 +1167,10 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 		v.val = sock_flag(sk, SOCK_FILTER_LOCKED);
+ 		break;
+ 
++	case SO_BPF_EXTENSIONS:
++		v.val = bpf_tell_extensions();
++		break;
++
+ 	case SO_SELECT_ERR_QUEUE:
+ 		v.val = sock_flag(sk, SOCK_SELECT_ERR_QUEUE);
+ 		break;
+-- 
+1.8.4.2
