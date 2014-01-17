@@ -1,83 +1,84 @@
-From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: Re: [PATCH RFC 4/6] net: rfkill: gpio: add device tree support
-Date: Sat, 18 Jan 2014 01:43:31 +0800
-Message-ID: <CAGb2v67UKiyfJbKZ_Frk3OwZupMPoA2Ck3Hj2zsRFXBQPztavg@mail.gmail.com>
-References: <1389941251-32692-1-git-send-email-wens@csie.org>
- <1389941251-32692-5-git-send-email-wens@csie.org> <201401171747.46332.arnd@arndb.de>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next v2] xen-netfront: clean up code in
+ xennet_release_rx_bufs
+Date: Fri, 17 Jan 2014 17:50:43 +0000
+Message-ID: <52D96D73.1030803@citrix.com>
+References: <1389830228-2381-1-git-send-email-Annie.li@oracle.com> <52D7BE19.2010009@citrix.com> <52D8CCE4.9010804@oracle.com> <20140117120810.GA11681@zion.uk.xensource.com> <52D922DD.2060407@oracle.com> <20140117140246.GB11681@zion.uk.xensource.com> <52D94F8C.7060509@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-sunxi+bncBCMILY6JWQBBBWGX4WLAKGQEZNLIT5Q-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <201401171747.46332.arnd-r2nGTMty4D4@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
+	<andrew.bennieston@citrix.com>, <davem@davemloft.net>
+To: annie li <annie.li@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:44913 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750937AbaAQRur (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jan 2014 12:50:47 -0500
+In-Reply-To: <52D94F8C.7060509@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 18, 2014 at 12:47 AM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
-> On Friday 17 January 2014, Chen-Yu Tsai wrote:
->> diff --git a/Documentation/devicetree/bindings/rfkill/rfkill-gpio.txt b/Documentation/devicetree/bindings/rfkill/rfkill-gpio.txt
->> new file mode 100644
->> index 0000000..8a07ea4
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/rfkill/rfkill-gpio.txt
->> @@ -0,0 +1,26 @@
->> +GPIO controlled RFKILL devices
->> +
->> +Required properties:
->> +- compatible   : Must be "rfkill-gpio".
->> +- rfkill-name  : Name of RFKILL device
->> +- rfkill-type  : Type of RFKILL device: 1 for WiFi, 2 for BlueTooth
->> +- NAME_shutdown-gpios  : GPIO phandle to shutdown control
->> +                         (phandle must be the second)
->> +- NAME_reset-gpios     : GPIO phandle to reset control
->> +
->> +NAME must match the rfkill-name property. NAME_shutdown-gpios or
->> +NAME_reset-gpios, or both, must be defined.
->> +
->
-> I don't understand this part. Why do you include the name in the
-> gpios property, rather than just hardcoding the property strings
-> to "shutdown-gpios" and "reset-gpios"?
+On 17/01/14 15:43, annie li wrote:
+> 
+> No, I am trying to implement 2 patches.
 
-This quirk is a result of how gpiod_get_index implements device tree
-lookup. You'll also notice that the shutdown GPIO must be the second
-phandle, as the driver uses indexed lookup to support ACPI cases.
-If con_id is given, it is prepended to "gpios" as the property string.
-con_id is also used as the label passed to gpiod_request, which is
-then shown in /sys/kernel/debug/gpio.
+I don't understand the need for two patches here, particularly when
+the first patch introduces a security issue.  You can fold the following 
+(untested) patch into your v2 patch and give it a try?
 
-I can do a seperate lookup for the device tree case, with or without
-fallback to platform lookup tables. Then the names can be "reset-gpio"
-and "shutdown-gpio". Need to promote gpiod_request to non-static so
-we can register usage of the gpio, to match non-dt code path.
+Thanks.
 
-Personally I prefer adding a "label" parameter to gpiod_get_index, so
-we can use a different name than con_id. con_id isn't used in the ACPI
-case, and is optional in platform lookup case. However device tree
-lookup is dependent on this. What I see is non-uniform behavior
-between the three. In my opinion this is undesirable, but I haven't
-come up with a good solution yet.
+David
 
-About the property string, is the plural form required, even though we
-only want one?
+8<----------------------
+xen-netfront: prevent unsafe reuse of rx buf pages after uninit
 
-Thanks!
+---
+ drivers/net/xen-netfront.c |   21 +++++++++++++++++----
+ 1 files changed, 17 insertions(+), 4 deletions(-)
 
-ChenYu
-
-> The description of hte "rfkill-name" property seems to suggest
-> that you can only have one logical RFKILL device per device node,
-> so he names would not be ambiguous.
->
->         Arnd
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 692589e..47aa599 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -1134,19 +1134,32 @@ static void xennet_release_tx_bufs(struct netfront_info *np)
+ 
+ static void xennet_release_rx_bufs(struct netfront_info *np)
+ {
+-	struct sk_buff *skb;
+ 	int id, ref;
+ 
+ 	spin_lock_bh(&np->rx_lock);
+ 
+ 	for (id = 0; id < NET_RX_RING_SIZE; id++) {
++		struct sk_buff *skb;
++		skb_frag_t *frag;
++		const struct page *page;
++
++		skb = np->rx_skbs[id];
++		if (!skb)
++			continue;
++
+ 		ref = np->grant_rx_ref[id];
+ 		if (ref == GRANT_INVALID_REF)
+ 			continue;
+ 
+-		skb = np->rx_skbs[id];
+-		gnttab_end_foreign_access_ref(ref, 0);
+-		gnttab_release_grant_reference(&np->gref_rx_head, ref);
++		frag = &skb_shinfo(skb)->frags[0];
++		page = skb_frag_page(frag);
++
++		/* gnttab_end_foreign_access() needs a page ref until
++		 * foreign access is ended (which may be deferred).
++		 */
++		get_page(page);
++
++		gnttab_end_foreign_access(ref, 0, page);
+ 		np->grant_rx_ref[id] = GRANT_INVALID_REF;
+ 
+ 		kfree_skb(skb);
+-- 
+1.7.2.5
