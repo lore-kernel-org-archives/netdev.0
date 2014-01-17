@@ -1,95 +1,96 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v4 net-next 2/4] sh_eth: Add support for r7s72100
-Date: Fri, 17 Jan 2014 18:05:12 +0400
-Message-ID: <52D93898.5040500@cogentembedded.com>
-References: <1389168152-9434-1-git-send-email-horms+renesas@verge.net.au> <1389168152-9434-3-git-send-email-horms+renesas@verge.net.au> <52CDBBE1.1010301@cogentembedded.com> <20140109050351.GE2132@verge.net.au> <52D70F12.9080800@cogentembedded.com> <20140116004943.GF12550@verge.net.au> <52D7FC8D.7000800@cogentembedded.com> <20140117061301.GD16455@verge.net.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net: core: orphan frags before queuing to slow qdisc
+Date: Fri, 17 Jan 2014 06:28:17 -0800
+Message-ID: <1389968897.31367.489.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1389951734-13234-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20140117061301.GD16455@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1389951734-13234-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Fri, 2014-01-17 at 17:42 +0800, Jason Wang wrote:
+> Many qdiscs can queue a packet for a long time, this will lead an issue
+> with zerocopy skb. It means the frags will not be orphaned in an expected
+> short time, this breaks the assumption that virtio-net will transmit the
+> packet in time.
+> 
+> So if guest packets were queued through such kind of qdisc and hit the
+> limitation of the max pending packets for virtio/vhost. All packets that
+> go to another destination from guest will also be blocked.
+> 
+> A case for reproducing the issue:
+> 
+> - Boot two VMs and connect them to the same bridge kvmbr.
+> - Setup tbf with a very low rate/burst on eth0 which is a port of kvmbr.
+> - Let VM1 send lots of packets thorugh eth0
+> - After a while, VM1 is unable to send any packets out since the number of
+>   pending packets (queued to tbf) were exceeds the limitation of vhost/virito
 
-On 17-01-2014 10:13, Simon Horman wrote:
+So whats the problem ? If the limit is low, you cannot sent packets.
 
->>>>>>> This is a fast ethernet controller.
+Solution : increase the limit, or tell the vm to lower its rate.
 
->>>>>>> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+Oh wait, are you bitten because you did some prior skb_orphan() to allow
+the vm to send unlimited number of skbs ???
 
->>>>>> [...]
+> 
+> Solve this issue by orphaning the frags before queuing it to a slow qdisc (the
+> one without TCQ_F_CAN_BYPASS).
 
->>>>>>> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
->>>>>>> index 4b38533..cc6d4af 100644
->>>>>>> --- a/drivers/net/ethernet/renesas/sh_eth.c
->>>>>>> +++ b/drivers/net/ethernet/renesas/sh_eth.c
->>>>>>> @@ -190,6 +190,59 @@ static const u16 sh_eth_offset_fast_rcar[SH_ETH_MAX_REGISTER_OFFSET] = {
->>>> [...]
->>>>>>> @@ -701,6 +762,35 @@ static struct sh_eth_cpu_data r8a7740_data = {
->>>>>>>   	.shift_rd0	= 1,
->>>>>>>   };
->>>>>>>
->>>>>>> +/* R7S72100 */
->>>>>>> +static struct sh_eth_cpu_data r7s72100_data = {
->>>>>>> +	.chip_reset	= sh_eth_chip_reset,
->>>>>>> +	.set_duplex	= sh_eth_set_duplex,
->>>>>>> +
->>>>>>> +	.register_type	= SH_ETH_REG_FAST_RZ,
->>>>>>> +
->>>>>>> +	.ecsr_value	= ECSR_ICD,
->>>>>>> +	.ecsipr_value	= ECSIPR_ICDIP,
->>>>>>> +	.eesipr_value	= 0xff7f009f,
->>>>>>> +
->>>>>>> +	.tx_check	= EESR_TC1 | EESR_FTC,
->>>>>>> +	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
->>>>>>> +			  EESR_RFE | EESR_RDE | EESR_RFRMER | EESR_TFE |
->>>>>>> +			  EESR_TDE | EESR_ECI,
->>>>>>> +	.fdr_value	= 0x0000070f,
->>>>>>> +	.rmcr_value	= RMCR_RNC,
->>>>>>> +
->>>>>>> +	.apr		= 1,
->>>>>>> +	.mpr		= 1,
->>>>>>> +	.tpauser	= 1,
->>>>>>> +	.hw_swap	= 1,
->>>>>>> +	.rpadir		= 1,
->>>>>>> +	.rpadir_value   = 2 << 16,
->>>>>>> +	.no_trimd	= 1,
->>>>>>> +	.tsu		= 1,
->>>>>>> +	.shift_rd0	= 1,
+Why orphaning the frags only solves the problem ? A skb without zerocopy
+frags should also be blocked for a while.
 
->>>>>>     Perhaps this field should be renamed to something talking about
->>>>>> check summing support (since bits 0..15 of RD0 contain a frame check
->>>>>> sum for those SoCs). Or maybe it should be just merged with the
->>>>>> 'hw_crc' field...
+Seriously, lets admit this zero copy stuff is utterly broken.
 
->>>>> I have no feelings about that one way or another.
 
->>>>     Do you happen to have R8A7740 manual by chance? If so, does it
->>>> talk about RX check summing support and using RD0 for that?
+TCQ_F_CAN_BYPASS is not enough. Some NIC have separate queues with
+strict priorities.
 
->>> Yes and yes.
+It seems to me that you are pushing to use FIFO (the only qdisc setting
+TCQ_F_CAN_BYPASS), by adding yet another test in fast path (I do not
+know how we can still call it a fast path), while we already have smart
+qdisc to avoid the inherent HOL and unfairness problems of FIFO.
 
->>> I have taken a quick look and the documentation for RX checksumming on the
->>> R8A7740 appears to be very similar if not the same as that of the R7S72100.
+> 
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  net/core/dev.c | 7 +++++++
+>  1 file changed, 7 insertions(+)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 0ce469e..1209774 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2700,6 +2700,12 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+>  	contended = qdisc_is_running(q);
+>  	if (unlikely(contended))
+>  		spin_lock(&q->busylock);
+> +	if (!(q->flags & TCQ_F_CAN_BYPASS) &&
+> +	    unlikely(skb_orphan_frags(skb, GFP_ATOMIC))) {
+> +		kfree_skb(skb);
+> +		rc = NET_XMIT_DROP;
+> +		goto out;
+> +	}
 
->>> In particular both refer to using the bottom 16 bits of RD0 as
->>> containing the packet checksum.
+Are you aware that copying stuff takes time ?
 
->>     OK, now if you had SH7734 manual to completely confirm that check
->> sum is stored in the same place there... most probably it is, of
->> course, and we should merge 'hw_crc' and 'shift_rd0' into a single
->> field.
+If yes, why is it done after taking the busylock spinlock ?
 
-> Unfortunately I don't have access to that manual.
-
-    Anyway, we also need Gen2 manuals accepting the fact that checksumming is 
-also supported (they also set 'shift_rd0' field) and giving the mapping of CSMR...
-
-WBR, Sergei
-
+>  
+>  	spin_lock(root_lock);
+>  	if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
+> @@ -2739,6 +2745,7 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+>  		}
+>  	}
+>  	spin_unlock(root_lock);
+> +out:
+>  	if (unlikely(contended))
+>  		spin_unlock(&q->busylock);
+>  	return rc;
