@@ -1,65 +1,56 @@
-From: saeed bishara <saeed.bishara@gmail.com>
-Subject: Re: [PATCH v3 1/4] net_dma: simple removal
-Date: Fri, 17 Jan 2014 22:16:06 +0200
-Message-ID: <CAMAG_efOD03wLtetfNAfymsCs6kVEqoJx6e7qY2txBBMDgbmfQ@mail.gmail.com>
-References: <20140114004509.27138.50345.stgit@viggo.jf.intel.com>
- <20140114004622.27138.54103.stgit@viggo.jf.intel.com> <CAMAG_eduH4M2OPVh-R4Q6KG1DDcinEDzC-fQyXj1mLdZG=49hw@mail.gmail.com>
- <CAPcyv4hzNT15R41zSOM98f-0aQ60HBZoD_DAvf6VED7iXoCZ8w@mail.gmail.com> <CAPcyv4ixMVV5-9NPR_Nx-hgwAGBS8uh1DQabjimCaNfYt30kiA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "dmaengine@vger.kernel.org" <dmaengine@vger.kernel.org>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Dave Jiang <dave.jiang@intel.com>,
-	Vinod Koul <vinod.koul@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Whipple <whipple@securedatainnovations.ch>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Dan Williams <dan.j.williams@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAPcyv4ixMVV5-9NPR_Nx-hgwAGBS8uh1DQabjimCaNfYt30kiA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] Bluetooth: remove direct compilation of 6lowpan_iphc.c
+Date: Fri, 17 Jan 2014 12:19:54 -0800
+Message-ID: <4406CE8B-CB98-418A-98C7-2BB160A54ED5@holtmann.org>
+References: <1389986964-5177-1-git-send-email-swarren@wwwdotorg.org>
+Mime-Version: 1.0 (Mac OS X Mail 7.1 \(1827\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-zigbee-devel@lists.sourceforge.net,
+	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	Network Development <netdev@vger.kernel.org>,
+	Jukka Rissanen <jukka.rissanen@linux.intel.com>,
+	Stephen Warren <swarren@nvidia.com>
+To: Stephen Warren <swarren@wwwdotorg.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1389986964-5177-1-git-send-email-swarren@wwwdotorg.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dan,
+Hi Stephen,
 
-isn't this issue similar to direct io case?
-can you please look at the following article
-http://lwn.net/Articles/322795/
+> It's now built as a separate utility module, and enabling BT selects
+> that module in Kconfig. This fixes:
+> 
+> net/ieee802154/built-in.o:(___ksymtab_gpl+lowpan_process_data+0x0): multiple definition of `__ksymtab_lowpan_process_data'
+> net/bluetooth/built-in.o:(___ksymtab_gpl+lowpan_process_data+0x0): first defined here
+> net/ieee802154/built-in.o:(___ksymtab_gpl+lowpan_header_compress+0x0): multiple definition of `__ksymtab_lowpan_header_compress'
+> net/bluetooth/built-in.o:(___ksymtab_gpl+lowpan_header_compress+0x0): first defined here
+> net/ieee802154/built-in.o: In function `lowpan_header_compress':
+> net/ieee802154/6lowpan_iphc.c:606: multiple definition of `lowpan_header_compress'
+> net/bluetooth/built-in.o:/home/swarren/shared/git_wa/kernel/kernel.git/net/bluetooth/../ieee802154/6lowpan_iphc.c:606: first defined here
+> net/ieee802154/built-in.o: In function `lowpan_process_data':
+> net/ieee802154/6lowpan_iphc.c:344: multiple definition of `lowpan_process_data'
+> net/bluetooth/built-in.o:/home/swarren/shared/git_wa/kernel/kernel.git/net/bluetooth/../ieee802154/6lowpan_iphc.c:344: first defined here
+> make[1]: *** [net/built-in.o] Error 1
+> 
+> (this change probably simply wasn't "git add"d to a53d34c3465b)
+> 
+> Fixes: a53d34c3465b ("net: move 6lowpan compression code to separate module")
+> Fixes: 18722c247023 ("Bluetooth: Enable 6LoWPAN support for BT LE devices")
+> Signed-off-by: Stephen Warren <swarren@nvidia.com>
 
-regarding performance improvement using NET_DMA, I don't have concrete
-numbers, but it should be around 15-20%. my system is i/o coherent.
+seems that I missed the initial patch that changes this to build this as separate module. Please CC linux-bluetooth@vger.kernel.org so that we do not accidentally miss these changes.
 
-saeed
+Our initial idea was to create net/core/6lowpan_iphc.c or maybe net/6lowpan/iphc.c module to make it clear that this is independent from IEEE 802.15.4 and Bluetooth. However we started to do this inside net/ieee802154 to this started.
 
-On Wed, Jan 15, 2014 at 11:33 PM, Dan Williams <dan.j.williams@intel.com> wrote:
-> On Wed, Jan 15, 2014 at 1:31 PM, Dan Williams <dan.j.williams@intel.com> wrote:
->> On Wed, Jan 15, 2014 at 1:20 PM, saeed bishara <saeed.bishara@gmail.com> wrote:
->>> Hi Dan,
->>>
->>> I'm using net_dma on my system and I achieve meaningful performance
->>> boost when running Iperf receive.
->>>
->>> As far as I know the net_dma is used by many embedded systems out
->>> there and might effect their performance.
->>> Can you please elaborate on the exact scenario that cause the memory corruption?
->>>
->>> Is the scenario mentioned here caused by "real life" application or
->>> this is more of theoretical issue found through manual testing, I was
->>> trying to find the thread describing the failing scenario and couldn't
->>> find it, any pointer will be appreciated.
->>
->> Did you see the referenced commit?
->>
->> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=77873803363c
->>
->> This is a real issue in that any app that forks() while receiving data
->> can cause the dma data to be lost.  The problem is that the copy
->> operation falls back to cpu at many locations.  Any one of those
->> instance could touch a mapped page and trigger a copy-on-write event.
->> The dma completes to the wrong location.
->>
->
-> Btw, do you have benchmark data showing that NET_DMA is beneficial on
-> these platforms?  I would have expected worse performance on platforms
-> without i/o coherent caches.
+Should we do the change now and move it into its separate directory.
+
+Regards
+
+Marcel
