@@ -1,164 +1,81 @@
-From: Chen-Yu Tsai <wens@csie.org>
-Subject: Re: [PATCH v2 01/16] reset: add non CONFIG_RESET_CONTROLLER routines
-Date: Fri, 17 Jan 2014 11:46:02 +0800
-Message-ID: <CAGb2v647_Am_spers6X0+16JShNa-Xo9Fozc1eZnYzbeU-wgoQ@mail.gmail.com>
-References: <1389337217-29032-1-git-send-email-wens@csie.org>
- <1389337217-29032-2-git-send-email-wens@csie.org> <1389360637.5854.53.camel@pizza.hi.pengutronix.de>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: PANIC in vxlan <debugging now>
+Date: Thu, 16 Jan 2014 19:47:43 -0800
+Message-ID: <CAHA+R7N-FbNVSY-fjObfSrzc3UFMdAT-h-TPnX09EuA4R79U0g@mail.gmail.com>
+References: <20140116171428.00004da1@unknown>
+	<20140116180318.00004f53@unknown>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Srinivas Kandagatla <srinivas.kandagatla@st.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-	linux-sunxi <linux-sunxi@googlegroups.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Emilio Lopez <emilio@elopez.com.ar>,
-	Mike Turquette <mturquette@linaro.org>,
-	"Ivan T. Ivanov" <iivanov@mm-sol.com>,
-	Barry Song <Baohua.Song@csr.com>,
-	Stephen Warren <swarren@wwwdotorg.org>
-To: Philipp Zabel <p.zabel@pengutronix.de>
+Content-Type: multipart/mixed; boundary=089e01493f648e515604f02267f1
+Cc: netdev <netdev@vger.kernel.org>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f175.google.com ([209.85.128.175]:53410 "EHLO
-	mail-ve0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750898AbaAQDqX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 22:46:23 -0500
-In-Reply-To: <1389360637.5854.53.camel@pizza.hi.pengutronix.de>
+Received: from mail-la0-f50.google.com ([209.85.215.50]:38595 "EHLO
+	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750898AbaAQDrp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 22:47:45 -0500
+Received: by mail-la0-f50.google.com with SMTP id ec20so3258037lab.9
+        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 19:47:43 -0800 (PST)
+In-Reply-To: <20140116180318.00004f53@unknown>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+--089e01493f648e515604f02267f1
+Content-Type: text/plain; charset=ISO-8859-1
 
-On Fri, Jan 10, 2014 at 9:30 PM, Philipp Zabel <p.zabel@pengutronix.de> wrote:
-> Hi,
+On Thu, Jan 16, 2014 at 6:03 PM, Jesse Brandeburg
+<jesse.brandeburg@intel.com> wrote:
 >
-> [Added Ivan, Stephen and Barry to Cc:]
+> It appears that the bug is in acaf4e70997f (net: vxlan: when lower dev
+> unregisters remove vxlan dev as well).
 >
-> Am Freitag, den 10.01.2014, 15:00 +0800 schrieb Chen-Yu Tsai:
->> Some drivers are shared between platforms that may or may not
->> have RESET_CONTROLLER selected for them.
->
-> I expected that drivers compiled for platforms without reset controllers
-> but use the reset API should select or depend on RESET_CONTROLLER.
-> Stubbing out device_reset and reset_control_get will turn a compile time
-> error into a runtime error for everyone forgetting to do this when
-> writing a new driver that needs the reset.
+> reverting that patch avoids the panic.  I wasn't able to see
+> immediately what was wrong in the patch.
 
-Since this was the intended behavior, I'll drop this patch and select
-RESET_CONTROLLER for the stmmac driver for now.
+It seems vxlan pernet ops is run after loopback register.
 
+Please try the attached (totally untested) patch?
 
-Thanks
-ChenYu
+--089e01493f648e515604f02267f1
+Content-Type: text/plain; charset=US-ASCII; name="vxlan.diff"
+Content-Disposition: attachment; filename="vxlan.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hqiwp57w0
 
->
->>  Add dummy functions
->> when RESET_CONTROLLER is not selected, thereby eliminating the
->> need for drivers to enclose reset_control_*() calls within
->> #ifdef CONFIG_RESET_CONTROLLER, #endif
->>
->> Signed-off-by: Chen-Yu Tsai <wens@csie.org>
->
-> This was already proposed by Ivan and Barry earlier, and so far we
-> didn't get to a proper conclusion:
->
-> https://lkml.org/lkml/2013/10/10/179
-> http://lists.infradead.org/pipermail/linux-arm-kernel/2013-June/174758.html
->
-> If included, the stubs should at least return an error to indicate a
-> reset couldn't be performed, but then I lose the compile time error for
-> drivers which should select RESET_CONTROLLER but don't.
->
-> Also this alone won't help you if you build multi-arch kernels where one
-> platform enables RESET_CONTROLLER and the other expects it to be
-> disabled.
->
-> regards
-> Philipp
->
->> ---
->>  include/linux/reset.h | 39 +++++++++++++++++++++++++++++++++++++++
->>  1 file changed, 39 insertions(+)
->>
->> diff --git a/include/linux/reset.h b/include/linux/reset.h
->> index 6082247..38aa616 100644
->> --- a/include/linux/reset.h
->> +++ b/include/linux/reset.h
->> @@ -4,6 +4,8 @@
->>  struct device;
->>  struct reset_control;
->>
->> +#ifdef CONFIG_RESET_CONTROLLER
->> +
->>  int reset_control_reset(struct reset_control *rstc);
->>  int reset_control_assert(struct reset_control *rstc);
->>  int reset_control_deassert(struct reset_control *rstc);
->> @@ -14,4 +16,41 @@ struct reset_control *devm_reset_control_get(struct device *dev, const char *id)
->>
->>  int device_reset(struct device *dev);
->>
->> +#else /* !CONFIG_RESET_CONTROLLER */
->> +
->> +static inline int reset_control_reset(struct reset_control *rstc)
->> +{
->> +     return 0;
->> +}
->> +
->> +static inline int reset_control_assert(struct reset_control *rstc)
->> +{
->> +     return 0;
->> +}
->> +
->> +static inline int reset_control_deassert(struct reset_control *rstc)
->> +{
->> +     return 0;
->> +}
->
-> Those should probably have a WARN_ON(1) like the GPIO API stubs.
->
->> +
->> +static inline struct reset_control *reset_control_get(struct device *dev,
->> +             const char *id)
->> +{
->> +     return NULL;
->> +}
-> [...]
->> +static inline struct reset_control *devm_reset_control_get(struct device *dev,
->> +             const char *id)
->> +{
->> +     return NULL;
->> +}
->
-> These should return ERR_PTR(-ENOSYS).
->
->> +
->> +static inline int device_reset(struct device *dev)
->> +{
->> +     return 0;
->> +}
->
-> And this should return -ENOSYS.
->
-> Drivers that also need to run on platforms with CONFIG_RESET_CONTROLLER
-> disabled (and that don't need the reset) should ignore -ENOSYS and
-> -ENOENT return values from device_reset/(devm_)reset_control_get.
->
-> I wonder if it might be a good idea to add a RESET_CONTROLLER_OPTIONAL
-> that drivers need to select to enable the API stubs? That way we could
-> keep the compile time error for new drivers that need resets but forget
-> to select RESET_CONTROLLER.
-> Or add a
-> #warning If this driver can work without reset, please select CONFIG_RESET_CONTROLLER_OPTIONAL
->
-> Another possibility would be to add device_reset_optional and
-> (devm_)reset_control_get_optional variants and only provide stubs for
-> those, but not for device_reset/(devm_)reset_control_get. Then drivers
-> that need to work on platforms without the reset controller API enabled
-> could explicitly use the _optional variants, and all other drivers would
-> still be checked at compile time.
->
-> regards
-> Philipp
->
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3Z4bGFuLmMgYi9kcml2ZXJzL25ldC92eGxhbi5jCmlu
+ZGV4IGEyZGVlODAuLjI4MTI1NTkgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3Z4bGFuLmMKKysr
+IGIvZHJpdmVycy9uZXQvdnhsYW4uYwpAQCAtMjY1NSwzNiArMjY1NSwzMCBAQCBzdGF0aWMgc3Ry
+dWN0IHJ0bmxfbGlua19vcHMgdnhsYW5fbGlua19vcHMgX19yZWFkX21vc3RseSA9IHsKIAkuZmls
+bF9pbmZvCT0gdnhsYW5fZmlsbF9pbmZvLAogfTsKIAotc3RhdGljIHZvaWQgdnhsYW5faGFuZGxl
+X2xvd2VyZGV2X3VucmVnaXN0ZXIoc3RydWN0IHZ4bGFuX25ldCAqdm4sCi0JCQkJCSAgICAgc3Ry
+dWN0IG5ldF9kZXZpY2UgKmRldikKLXsKLQlzdHJ1Y3QgdnhsYW5fZGV2ICp2eGxhbiwgKm5leHQ7
+Ci0JTElTVF9IRUFEKGxpc3Rfa2lsbCk7Ci0KLQlsaXN0X2Zvcl9lYWNoX2VudHJ5X3NhZmUodnhs
+YW4sIG5leHQsICZ2bi0+dnhsYW5fbGlzdCwgbmV4dCkgewotCQlzdHJ1Y3QgdnhsYW5fcmRzdCAq
+ZHN0ID0gJnZ4bGFuLT5kZWZhdWx0X2RzdDsKLQotCQkvKiBJbiBjYXNlIHdlIGNyZWF0ZWQgdnhs
+YW4gZGV2aWNlIHdpdGggY2FycmllcgotCQkgKiBhbmQgd2UgbG9vc2UgdGhlIGNhcnJpZXIgZHVl
+IHRvIG1vZHVsZSB1bmxvYWQKLQkJICogd2UgYWxzbyBuZWVkIHRvIHJlbW92ZSB2eGxhbiBkZXZp
+Y2UuIEluIG90aGVyCi0JCSAqIGNhc2VzLCBpdCdzIG5vdCBuZWNlc3NhcnkgYW5kIHJlbW90ZV9p
+ZmluZGV4Ci0JCSAqIGlzIDAgaGVyZSwgc28gbm8gbWF0Y2hlcy4KLQkJICovCi0JCWlmIChkc3Qt
+PnJlbW90ZV9pZmluZGV4ID09IGRldi0+aWZpbmRleCkKLQkJCXZ4bGFuX2RlbGxpbmsodnhsYW4t
+PmRldiwgJmxpc3Rfa2lsbCk7Ci0JfQotCi0JdW5yZWdpc3Rlcl9uZXRkZXZpY2VfbWFueSgmbGlz
+dF9raWxsKTsKLX0KLQogc3RhdGljIGludCB2eGxhbl9sb3dlcmRldl9ldmVudChzdHJ1Y3Qgbm90
+aWZpZXJfYmxvY2sgKnVudXNlZCwKIAkJCQl1bnNpZ25lZCBsb25nIGV2ZW50LCB2b2lkICpwdHIp
+CiB7Ci0Jc3RydWN0IG5ldF9kZXZpY2UgKmRldiA9IG5ldGRldl9ub3RpZmllcl9pbmZvX3RvX2Rl
+dihwdHIpOwotCXN0cnVjdCB2eGxhbl9uZXQgKnZuID0gbmV0X2dlbmVyaWMoZGV2X25ldChkZXYp
+LCB2eGxhbl9uZXRfaWQpOworCWlmIChldmVudCA9PSBORVRERVZfVU5SRUdJU1RFUikgeworCQlz
+dHJ1Y3QgbmV0X2RldmljZSAqZGV2ID0gbmV0ZGV2X25vdGlmaWVyX2luZm9fdG9fZGV2KHB0cik7
+CisJCXN0cnVjdCB2eGxhbl9uZXQgKnZuID0gbmV0X2dlbmVyaWMoZGV2X25ldChkZXYpLCB2eGxh
+bl9uZXRfaWQpOworCQlzdHJ1Y3QgdnhsYW5fZGV2ICp2eGxhbiwgKm5leHQ7CisJCUxJU1RfSEVB
+RChsaXN0X2tpbGwpOworCisJCWxpc3RfZm9yX2VhY2hfZW50cnlfc2FmZSh2eGxhbiwgbmV4dCwg
+JnZuLT52eGxhbl9saXN0LCBuZXh0KSB7CisJCQlzdHJ1Y3QgdnhsYW5fcmRzdCAqZHN0ID0gJnZ4
+bGFuLT5kZWZhdWx0X2RzdDsKKworCQkJLyogSW4gY2FzZSB3ZSBjcmVhdGVkIHZ4bGFuIGRldmlj
+ZSB3aXRoIGNhcnJpZXIKKwkJCSAqIGFuZCB3ZSBsb29zZSB0aGUgY2FycmllciBkdWUgdG8gbW9k
+dWxlIHVubG9hZAorCQkJICogd2UgYWxzbyBuZWVkIHRvIHJlbW92ZSB2eGxhbiBkZXZpY2UuIElu
+IG90aGVyCisJCQkgKiBjYXNlcywgaXQncyBub3QgbmVjZXNzYXJ5IGFuZCByZW1vdGVfaWZpbmRl
+eAorCQkJICogaXMgMCBoZXJlLCBzbyBubyBtYXRjaGVzLgorCQkJICovCisJCQlpZiAoZHN0LT5y
+ZW1vdGVfaWZpbmRleCA9PSBkZXYtPmlmaW5kZXgpCisJCQkJdnhsYW5fZGVsbGluayh2eGxhbi0+
+ZGV2LCAmbGlzdF9raWxsKTsKKwkJfQogCi0JaWYgKGV2ZW50ID09IE5FVERFVl9VTlJFR0lTVEVS
+KQotCQl2eGxhbl9oYW5kbGVfbG93ZXJkZXZfdW5yZWdpc3Rlcih2biwgZGV2KTsKKwkJdW5yZWdp
+c3Rlcl9uZXRkZXZpY2VfbWFueSgmbGlzdF9raWxsKTsKKwl9CiAKIAlyZXR1cm4gTk9USUZZX0RP
+TkU7CiB9Cg==
+--089e01493f648e515604f02267f1--
