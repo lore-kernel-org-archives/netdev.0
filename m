@@ -1,8 +1,8 @@
 From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: [PATCH net-next v3 1/8] net: stmmac: Enable stmmac main
- clock when probing hardware
-Date: Fri, 17 Jan 2014 21:24:40 +0800
-Message-ID: <1389965087-21971-2-git-send-email-wens@csie.org>
+Subject: [PATCH net-next v3 7/8] net: stmmac: Use driver data
+ and callbacks tied with compatible strings
+Date: Fri, 17 Jan 2014 21:24:46 +0800
+Message-ID: <1389965087-21971-8-git-send-email-wens@csie.org>
 References: <1389965087-21971-1-git-send-email-wens@csie.org>
 Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
@@ -15,7 +15,7 @@ Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
 	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-sunxi+bncBCMILY6JWQBBBKW64SLAKGQE3NNHNOY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBCMILY6JWQBBBK664SLAKGQE6BTLQMY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 In-Reply-To: <1389965087-21971-1-git-send-email-wens-jdAy2FN1RRM@public.gmane.org>
 List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -25,92 +25,118 @@ List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:
 List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-The stmmac driver does not enable the main clock during the probe phase.
-If the clock was not enabled by the boot loader or was disabled by the
-kernel, hardware features and the MDIO bus would not be probed properly.
+The stmmac driver core allows passing feature flags and callbacks via
+platform data. Add a similar stmmac_of_data to pass flags and callbacks
+tied to compatible strings. This allows us to extend stmmac with glue
+layers for different SoCs.
 
 Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 26 +++++++++++------------
- 1 file changed, 13 insertions(+), 13 deletions(-)
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 44 +++++++++++++++++-----
+ include/linux/stmmac.h                             | 18 +++++++++
+ 2 files changed, 52 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index cddcf76..0d2c4cb 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1680,8 +1680,6 @@ static int stmmac_open(struct net_device *dev)
- 	struct stmmac_priv *priv = netdev_priv(dev);
- 	int ret;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 82110f1..bf119db 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -26,8 +26,20 @@
+ #include <linux/io.h>
+ #include <linux/of.h>
+ #include <linux/of_net.h>
++#include <linux/of_device.h>
+ #include "stmmac.h"
  
--	clk_prepare_enable(priv->stmmac_clk);
--
- 	stmmac_check_ether_addr(priv);
- 
- 	if (priv->pcs != STMMAC_PCS_RGMII && priv->pcs != STMMAC_PCS_TBI &&
-@@ -1819,7 +1817,6 @@ static int stmmac_release(struct net_device *dev)
- #ifdef CONFIG_STMMAC_DEBUG_FS
- 	stmmac_exit_fs();
- #endif
--	clk_disable_unprepare(priv->stmmac_clk);
- 
- 	stmmac_release_ptp(priv);
- 
-@@ -2727,10 +2724,18 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
- 	if ((phyaddr >= 0) && (phyaddr <= 31))
- 		priv->plat->phy_addr = phyaddr;
- 
-+	priv->stmmac_clk = devm_clk_get(priv->device, STMMAC_RESOURCE_NAME);
-+	if (IS_ERR(priv->stmmac_clk)) {
-+		dev_warn(priv->device, "%s: warning: cannot get CSR clock\n",
-+			 __func__);
-+		goto error_clk_get;
-+	}
-+	clk_prepare_enable(priv->stmmac_clk);
++static const struct of_device_id stmmac_dt_ids[] = {
++	/* SoC specific glue layers should come before generic bindings */
++	{ .compatible = "st,spear600-gmac"},
++	{ .compatible = "snps,dwmac-3.610"},
++	{ .compatible = "snps,dwmac-3.70a"},
++	{ .compatible = "snps,dwmac-3.710"},
++	{ .compatible = "snps,dwmac"},
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, stmmac_dt_ids);
 +
- 	/* Init MAC and get the capabilities */
- 	ret = stmmac_hw_init(priv);
- 	if (ret)
--		goto error_free_netdev;
-+		goto error_hw_init;
+ #ifdef CONFIG_OF
+ static int stmmac_probe_config_dt(struct platform_device *pdev,
+ 				  struct plat_stmmacenet_data *plat,
+@@ -35,10 +47,32 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
+ {
+ 	struct device_node *np = pdev->dev.of_node;
+ 	struct stmmac_dma_cfg *dma_cfg;
++	const struct of_device_id *device;
  
- 	ndev->netdev_ops = &stmmac_netdev_ops;
+ 	if (!np)
+ 		return -ENODEV;
  
-@@ -2768,12 +2773,6 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
- 		goto error_netdev_register;
- 	}
++	device = of_match_device(stmmac_dt_ids, &pdev->dev);
++	if (!device)
++		return -ENODEV;
++
++	if (device->data) {
++		const struct stmmac_of_data *data = device->data;
++		plat->has_gmac = data->has_gmac;
++		plat->enh_desc = data->enh_desc;
++		plat->tx_coe = data->tx_coe;
++		plat->rx_coe = data->rx_coe;
++		plat->bugged_jumbo = data->bugged_jumbo;
++		plat->pmt = data->pmt;
++		plat->riwt_off = data->riwt_off;
++		plat->fix_mac_speed = data->fix_mac_speed;
++		plat->bus_setup = data->bus_setup;
++		plat->setup = data->setup;
++		plat->free = data->free;
++		plat->init = data->init;
++		plat->exit = data->exit;
++	}
++
+ 	*mac = of_get_mac_address(np);
+ 	plat->interface = of_get_phy_mode(np);
  
--	priv->stmmac_clk = clk_get(priv->device, STMMAC_RESOURCE_NAME);
--	if (IS_ERR(priv->stmmac_clk)) {
--		pr_warn("%s: warning: cannot get CSR clock\n", __func__);
--		goto error_clk_get;
--	}
+@@ -259,16 +293,6 @@ static int stmmac_pltfr_resume(struct device *dev)
+ static SIMPLE_DEV_PM_OPS(stmmac_pltfr_pm_ops,
+ 			stmmac_pltfr_suspend, stmmac_pltfr_resume);
+ 
+-static const struct of_device_id stmmac_dt_ids[] = {
+-	{ .compatible = "st,spear600-gmac"},
+-	{ .compatible = "snps,dwmac-3.610"},
+-	{ .compatible = "snps,dwmac-3.70a"},
+-	{ .compatible = "snps,dwmac-3.710"},
+-	{ .compatible = "snps,dwmac"},
+-	{ /* sentinel */ }
+-};
+-MODULE_DEVICE_TABLE(of, stmmac_dt_ids);
 -
- 	/* If a specific clk_csr value is passed from the platform
- 	 * this means that the CSR Clock Range selection cannot be
- 	 * changed at run-time and it is fixed. Viceversa the driver'll try to
-@@ -2801,12 +2800,12 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
- 	return priv;
- 
- error_mdio_register:
--	clk_put(priv->stmmac_clk);
--error_clk_get:
- 	unregister_netdev(ndev);
- error_netdev_register:
- 	netif_napi_del(&priv->napi);
--error_free_netdev:
-+error_hw_init:
-+	clk_disable_unprepare(priv->stmmac_clk);
-+error_clk_get:
- 	free_netdev(ndev);
- 
- 	return NULL;
-@@ -2833,6 +2832,7 @@ int stmmac_dvr_remove(struct net_device *ndev)
- 		stmmac_mdio_unregister(ndev);
- 	netif_carrier_off(ndev);
- 	unregister_netdev(ndev);
-+	clk_disable_unprepare(priv->stmmac_clk);
- 	free_netdev(ndev);
- 
- 	return 0;
+ struct platform_driver stmmac_pltfr_driver = {
+ 	.probe = stmmac_pltfr_probe,
+ 	.remove = stmmac_pltfr_remove,
+diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+index 0a5a7ac..1367974 100644
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -121,4 +121,22 @@ struct plat_stmmacenet_data {
+ 	void *custom_data;
+ 	void *bsp_priv;
+ };
++
++/* of_data for SoC glue layer device tree bindings */
++
++struct stmmac_of_data {
++	int has_gmac;
++	int enh_desc;
++	int tx_coe;
++	int rx_coe;
++	int bugged_jumbo;
++	int pmt;
++	int riwt_off;
++	void (*fix_mac_speed)(void *priv, unsigned int speed);
++	void (*bus_setup)(void __iomem *ioaddr);
++	void *(*setup)(struct platform_device *pdev);
++	void (*free)(struct platform_device *pdev, void *priv);
++	int (*init)(struct platform_device *pdev, void *priv);
++	void (*exit)(struct platform_device *pdev, void *priv);
++};
+ #endif
 -- 
 1.8.5.2
