@@ -1,93 +1,39 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next] vxlan: do not use vxlan_net before checking event type
-Date: Thu, 16 Jan 2014 20:20:10 -0800
-Message-ID: <1389932410-21080-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <xiyou.wangcong@gmail.com>
-To: netdev@vger.kernel.org
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: PANIC in vxlan <debugging now>
+Date: Thu, 16 Jan 2014 20:24:18 -0800
+Message-ID: <CAHA+R7NWMu_w1f+6Fh3kx+95-+VgsqqXKAdx=pzwqmYK6E3nKg@mail.gmail.com>
+References: <20140116171428.00004da1@unknown>
+	<20140116180318.00004f53@unknown>
+	<CAHA+R7N-FbNVSY-fjObfSrzc3UFMdAT-h-TPnX09EuA4R79U0g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:58440 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751194AbaAQEUh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 23:20:37 -0500
-Received: by mail-pa0-f51.google.com with SMTP id ld10so1272251pab.24
-        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 20:20:36 -0800 (PST)
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:63898 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751369AbaAQEYU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 23:24:20 -0500
+Received: by mail-lb0-f179.google.com with SMTP id l4so964371lbv.24
+        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 20:24:18 -0800 (PST)
+In-Reply-To: <CAHA+R7N-FbNVSY-fjObfSrzc3UFMdAT-h-TPnX09EuA4R79U0g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When cloning a netns, loopback device will be registered
-and therefore an event will be notified. Of course
-vxlan doesn't care about it, therefore should check if it
-is NETDEV_UNREGISTER before getting the vxlan_net struct.
-Otherwise, vxlan_net is probably not initialized yet at
-this point.
+On Thu, Jan 16, 2014 at 7:47 PM, Cong Wang <cwang@twopensource.com> wrote:
+> On Thu, Jan 16, 2014 at 6:03 PM, Jesse Brandeburg
+> <jesse.brandeburg@intel.com> wrote:
+>>
+>> It appears that the bug is in acaf4e70997f (net: vxlan: when lower dev
+>> unregisters remove vxlan dev as well).
+>>
+>> reverting that patch avoids the panic.  I wasn't able to see
+>> immediately what was wrong in the patch.
+>
+> It seems vxlan pernet ops is run after loopback register.
+>
+> Please try the attached (totally untested) patch?
 
-Fixes: commit acaf4e70997ff5ef3588f5a 
-Reported-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Cc: Daniel Borkmann <dborkman@redhat.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-
----
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index a2dee80..2812559 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2655,36 +2655,30 @@ static struct rtnl_link_ops vxlan_link_ops __read_mostly = {
- 	.fill_info	= vxlan_fill_info,
- };
- 
--static void vxlan_handle_lowerdev_unregister(struct vxlan_net *vn,
--					     struct net_device *dev)
--{
--	struct vxlan_dev *vxlan, *next;
--	LIST_HEAD(list_kill);
--
--	list_for_each_entry_safe(vxlan, next, &vn->vxlan_list, next) {
--		struct vxlan_rdst *dst = &vxlan->default_dst;
--
--		/* In case we created vxlan device with carrier
--		 * and we loose the carrier due to module unload
--		 * we also need to remove vxlan device. In other
--		 * cases, it's not necessary and remote_ifindex
--		 * is 0 here, so no matches.
--		 */
--		if (dst->remote_ifindex == dev->ifindex)
--			vxlan_dellink(vxlan->dev, &list_kill);
--	}
--
--	unregister_netdevice_many(&list_kill);
--}
--
- static int vxlan_lowerdev_event(struct notifier_block *unused,
- 				unsigned long event, void *ptr)
- {
--	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
--	struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
-+	if (event == NETDEV_UNREGISTER) {
-+		struct net_device *dev = netdev_notifier_info_to_dev(ptr);
-+		struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
-+		struct vxlan_dev *vxlan, *next;
-+		LIST_HEAD(list_kill);
-+
-+		list_for_each_entry_safe(vxlan, next, &vn->vxlan_list, next) {
-+			struct vxlan_rdst *dst = &vxlan->default_dst;
-+
-+			/* In case we created vxlan device with carrier
-+			 * and we loose the carrier due to module unload
-+			 * we also need to remove vxlan device. In other
-+			 * cases, it's not necessary and remote_ifindex
-+			 * is 0 here, so no matches.
-+			 */
-+			if (dst->remote_ifindex == dev->ifindex)
-+				vxlan_dellink(vxlan->dev, &list_kill);
-+		}
- 
--	if (event == NETDEV_UNREGISTER)
--		vxlan_handle_lowerdev_unregister(vn, dev);
-+		unregister_netdevice_many(&list_kill);
-+	}
- 
- 	return NOTIFY_DONE;
- }
+Never mind, I already verified it by myself.
+A formal patch was just sent out.
