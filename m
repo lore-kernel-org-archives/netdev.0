@@ -1,55 +1,61 @@
-From: Michael Dalton <mwdalton@google.com>
-Subject: [PATCH net-next v6 5/6] lib: Ensure EWMA does not store wrong intermediate values
-Date: Thu, 16 Jan 2014 22:23:29 -0800
-Message-ID: <1389939810-14998-6-git-send-email-mwdalton@google.com>
-References: <1389939810-14998-1-git-send-email-mwdalton@google.com>
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	virtualization@lists.linux-foundation.org,
-	Michael Dalton <mwdalton@google.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: annie li <annie.li@oracle.com>
+Subject: Re: [Xen-devel] [PATCH net-next v2] xen-netfront: clean up code in
+ xennet_release_rx_bufs
+Date: Fri, 17 Jan 2014 14:25:40 +0800
+Message-ID: <52D8CCE4.9010804@oracle.com>
+References: <1389830228-2381-1-git-send-email-Annie.li@oracle.com> <52D7BE19.2010009@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: wei.liu2@citrix.com, ian.campbell@citrix.com,
+	netdev@vger.kernel.org, xen-devel@lists.xen.org,
+	andrew.bennieston@citrix.com, davem@davemloft.net
+To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f201.google.com ([209.85.192.201]:45711 "EHLO
-	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751064AbaAQGXm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 01:23:42 -0500
-Received: by mail-pd0-f201.google.com with SMTP id q10so193327pdj.0
-        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 22:23:42 -0800 (PST)
-In-Reply-To: <1389939810-14998-1-git-send-email-mwdalton@google.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:37255 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751079AbaAQGZw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 01:25:52 -0500
+In-Reply-To: <52D7BE19.2010009@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To ensure ewma_read() without a lock returns a valid but possibly
-out of date average, modify ewma_add() by using ACCESS_ONCE to prevent
-intermediate wrong values from being written to avg->internal.
 
-Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Michael Dalton <mwdalton@google.com>
----
- lib/average.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+On 2014/1/16 19:10, David Vrabel wrote:
+> On 15/01/14 23:57, Annie Li wrote:
+>> This patch implements two things:
+>>
+>> * release grant reference and skb for rx path, this fixex resource leaking.
+>> * clean up grant transfer code kept from old netfront(2.6.18) which grants
+>> pages for access/map and transfer. But grant transfer is deprecated in current
+>> netfront, so remove corresponding release code for transfer.
+>>
+>> gnttab_end_foreign_access_ref may fail when the grant entry is currently used
+>> for reading or writing. But this patch does not cover this and improvement for
+>> this failure may be implemented in a separate patch.
+> I don't think replacing a resource leak with a security bug is a good idea.
+>
+> If you would prefer not to fix the gnttab_end_foreign_access() call, I
+> think you can fix this in netfront by taking a reference to the page
+> before calling gnttab_end_foreign_access().  This will ensure the page
+> isn't freed until the subsequent kfree_skb(), or the gref is released by
+> the foreign domain (whichever is later).
 
-diff --git a/lib/average.c b/lib/average.c
-index 99a67e6..114d1be 100644
---- a/lib/average.c
-+++ b/lib/average.c
-@@ -53,8 +53,10 @@ EXPORT_SYMBOL(ewma_init);
-  */
- struct ewma *ewma_add(struct ewma *avg, unsigned long val)
- {
--	avg->internal = avg->internal  ?
--		(((avg->internal << avg->weight) - avg->internal) +
-+	unsigned long internal = ACCESS_ONCE(avg->internal);
-+
-+	ACCESS_ONCE(avg->internal) = internal ?
-+		(((internal << avg->weight) - internal) +
- 			(val << avg->factor)) >> avg->weight :
- 		(val << avg->factor);
- 	return avg;
--- 
-1.8.5.2
+Taking a reference to the page before calling 
+gnttab_end_foreign_access() delays the free work until kfree_skb(). 
+Simply adding put_page before kfree_skb() does not make things different 
+from gnttab_end_foreign_access_ref(), and the pages will be freed by 
+kfree_skb(), problem will be hit in gnttab_handle_deferred() when 
+freeing pages which already be freed.
+
+So put_page is required in gnttab_end_foreign_access(), this will ensure 
+either free is taken by kfree_skb or gnttab_handle_deferred. This 
+involves changes in blkfront/pcifront/tpmfront(just like your patch), 
+this way ensure page is released when ref is end.
+
+Another solution I am thinking is calling gnttab_end_foreign_access() 
+with page parameter as NULL, then gnttab_end_foreign_access will only do 
+ending grant reference work and releasing page work is done by kfree_skb().
+
+Thanks
+Annie
