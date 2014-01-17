@@ -1,56 +1,41 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] Bluetooth: remove direct compilation of 6lowpan_iphc.c
-Date: Fri, 17 Jan 2014 12:19:54 -0800
-Message-ID: <4406CE8B-CB98-418A-98C7-2BB160A54ED5@holtmann.org>
-References: <1389986964-5177-1-git-send-email-swarren@wwwdotorg.org>
-Mime-Version: 1.0 (Mac OS X Mail 7.1 \(1827\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-zigbee-devel@lists.sourceforge.net,
-	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Network Development <netdev@vger.kernel.org>,
-	Jukka Rissanen <jukka.rissanen@linux.intel.com>,
-	Stephen Warren <swarren@nvidia.com>
-To: Stephen Warren <swarren@wwwdotorg.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1389986964-5177-1-git-send-email-swarren@wwwdotorg.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH RFC 0/6] net: rfkill: gpio: Add device tree support
+Date: Fri, 17 Jan 2014 21:26:32 +0100
+Message-ID: <1389990392.10404.10.camel@jlt4.sipsolutions.net>
+References: <1389941251-32692-1-git-send-email-wens@csie.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-sunxi@googlegroups.com,
+	Maxime Ripard <maxime.ripard@free-electrons.com>,
+	linux-wireless@vger.kernel.org
+To: Chen-Yu Tsai <wens@csie.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([144.76.43.152]:48392 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753332AbaAQU0q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 15:26:46 -0500
+In-Reply-To: <1389941251-32692-1-git-send-email-wens@csie.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+On Fri, 2014-01-17 at 14:47 +0800, Chen-Yu Tsai wrote:
 
-> It's now built as a separate utility module, and enabling BT selects
-> that module in Kconfig. This fixes:
-> 
-> net/ieee802154/built-in.o:(___ksymtab_gpl+lowpan_process_data+0x0): multiple definition of `__ksymtab_lowpan_process_data'
-> net/bluetooth/built-in.o:(___ksymtab_gpl+lowpan_process_data+0x0): first defined here
-> net/ieee802154/built-in.o:(___ksymtab_gpl+lowpan_header_compress+0x0): multiple definition of `__ksymtab_lowpan_header_compress'
-> net/bluetooth/built-in.o:(___ksymtab_gpl+lowpan_header_compress+0x0): first defined here
-> net/ieee802154/built-in.o: In function `lowpan_header_compress':
-> net/ieee802154/6lowpan_iphc.c:606: multiple definition of `lowpan_header_compress'
-> net/bluetooth/built-in.o:/home/swarren/shared/git_wa/kernel/kernel.git/net/bluetooth/../ieee802154/6lowpan_iphc.c:606: first defined here
-> net/ieee802154/built-in.o: In function `lowpan_process_data':
-> net/ieee802154/6lowpan_iphc.c:344: multiple definition of `lowpan_process_data'
-> net/bluetooth/built-in.o:/home/swarren/shared/git_wa/kernel/kernel.git/net/bluetooth/../ieee802154/6lowpan_iphc.c:344: first defined here
-> make[1]: *** [net/built-in.o] Error 1
-> 
-> (this change probably simply wasn't "git add"d to a53d34c3465b)
-> 
-> Fixes: a53d34c3465b ("net: move 6lowpan compression code to separate module")
-> Fixes: 18722c247023 ("Bluetooth: Enable 6LoWPAN support for BT LE devices")
-> Signed-off-by: Stephen Warren <swarren@nvidia.com>
+> This patch series adds device tree support to rfkill-gpio, and
+> fixes some issues I ran into. This is so we can define and control
+> RF devices through the device tree, such as the Broadcom BCM20710
+> UART-based Bluetooth device found on the CubieTruck,
 
-seems that I missed the initial patch that changes this to build this as separate module. Please CC linux-bluetooth@vger.kernel.org so that we do not accidentally miss these changes.
+> Comments, please?
 
-Our initial idea was to create net/core/6lowpan_iphc.c or maybe net/6lowpan/iphc.c module to make it clear that this is independent from IEEE 802.15.4 and Bluetooth. However we started to do this inside net/ieee802154 to this started.
+Does anyone else want to maintain rfkill-gpio? :)
 
-Should we do the change now and move it into its separate directory.
+I'm not up to par on all the DT, ACPI and even GPIO stuff it does, and
+the rfkill bits in it are really small ...
 
-Regards
+I'll happily apply the patches if everyone else is happy with them, but
+please don't expect me to actually be able to say anything about them.
 
-Marcel
+johannes
