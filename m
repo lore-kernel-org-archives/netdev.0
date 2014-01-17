@@ -1,122 +1,123 @@
-From: Michael Dalton <mwdalton@google.com>
-Subject: [PATCH net-next v5 6/6] virtio-net: initial rx sysfs support,
-	export mergeable rx buffer size
-Date: Thu, 16 Jan 2014 18:36:16 -0800
-Message-ID: <1389926176-6699-7-git-send-email-mwdalton@google.com>
-References: <1389926176-6699-1-git-send-email-mwdalton@google.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: Fwd: [RFC PATCH net-next 0/3] virtio_net: add aRFS support
+Date: Fri, 17 Jan 2014 11:04:00 +0800
+Message-ID: <52D89DA0.1020804@redhat.com>
+References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com> <52D75EA5.1050000@redhat.com> <CAEH94Lg7ygXgHqE8ubE+nuunicDqgmnCfO2AuDSS2nXgv5GikQ@mail.gmail.com> <20140116085253.GA32073@stefanha-thinkpad.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
 	Eric Dumazet <edumazet@google.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1389926176-6699-1-git-send-email-mwdalton@google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+	"David S. Miller" <davem@davemloft.net>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: Stefan Hajnoczi <stefanha@redhat.com>,
+	Zhi Yong Wu <zwu.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:58176 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751899AbaAQDE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jan 2014 22:04:29 -0500
+In-Reply-To: <20140116085253.GA32073@stefanha-thinkpad.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add initial support for per-rx queue sysfs attributes to virtio-net. If
-mergeable packet buffers are enabled, adds a read-only mergeable packet
-buffer size sysfs attribute for each RX queue.
+On 01/16/2014 04:52 PM, Stefan Hajnoczi wrote:
+> On Thu, Jan 16, 2014 at 04:34:10PM +0800, Zhi Yong Wu wrote:
+>> CC: stefanha, MST, Rusty Russel
+>>
+>> ---------- Forwarded message ----------
+>> From: Jason Wang <jasowang@redhat.com>
+>> Date: Thu, Jan 16, 2014 at 12:23 PM
+>> Subject: Re: [RFC PATCH net-next 0/3] virtio_net: add aRFS support
+>> To: Zhi Yong Wu <zwu.kernel@gmail.com>
+>> Cc: netdev@vger.kernel.org, therbert@google.com, edumazet@google.com,
+>> davem@davemloft.net, Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+>>
+>>
+>> On 01/15/2014 10:20 PM, Zhi Yong Wu wrote:
+>>> From: Zhi Yong Wu<wuzhy@linux.vnet.ibm.com>
+>>>
+>>> HI, folks
+>>>
+>>> The patchset is trying to integrate aRFS support to virtio_net. In this case,
+>>> aRFS will be used to select the RX queue. To make sure that it's going ahead
+>>> in the correct direction, although it is still one RFC and isn't tested, it's
+>>> post out ASAP. Any comment are appreciated, thanks.
+>>>
+>>> If anyone is interested in playing with it, you can get this patchset from my
+>>> dev git on github:
+>>>    git://github.com/wuzhy/kernel.git virtnet_rfs
+>>>
+>>> Zhi Yong Wu (3):
+>>>    virtio_pci: Introduce one new config api vp_get_vq_irq()
+>>>    virtio_net: Introduce one dummy function virtnet_filter_rfs()
+>>>    virtio-net: Add accelerated RFS support
+>>>
+>>>   drivers/net/virtio_net.c      |   67 ++++++++++++++++++++++++++++++++++++++++-
+>>>   drivers/virtio/virtio_pci.c   |   11 +++++++
+>>>   include/linux/virtio_config.h |   12 +++++++
+>>>   3 files changed, 89 insertions(+), 1 deletions(-)
+>>>
+>> Please run get_maintainter.pl before sending the patch. You'd better
+>> at least cc virtio maintainer/list for this.
+>>
+>> The core aRFS method is a noop in this RFC which make this series no
+>> much sense to discuss. You should at least mention the big picture
+>> here in the cover letter. I suggest you should post a RFC which can
+>> run and has expected result or you can just raise a thread for the
+>> design discussion.
+>>
+>> And this method has been discussed before, you can search "[net-next
+>> RFC PATCH 5/5] virtio-net: flow director support" in netdev archive
+>> for a very old prototype implemented by me. It can work and looks like
+>> most of this RFC have already done there.
+>>
+>> A basic question is whether or not we need this, not all the mq cards
+>> use aRFS (see ixgbe ATR). And whether or not it can bring extra
+>> overheads? For virtio, we want to reduce the vmexits as much as
+>> possible but this aRFS seems introduce a lot of more of this. Making a
+>> complex interfaces just for an virtual device may not be good, simple
+>> method may works for most of the cases.
+>>
+>> We really should consider to offload this to real nic. VMDq and L2
+>> forwarding offload may help in this case.
+> Zhi Yong and I had an IRC chat.  I wanted to post my questions on the
+> list - it's still the same concern I had in the old email thread that
+> Jason mentioned.
+>
+> In order for virtio-net aRFS to make sense there needs to be an overall
+> plan for pushing flow mapping information down to the physical NIC.
+> That's the only way to actually achieve the benefit of steering:
+> processing the packet on the CPU where the application is running.
 
-Suggested-by: Michael S. Tsirkin <mst@redhat.com>
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Michael Dalton <mwdalton@google.com>
----
-v3->v4: Remove seqcount due to EWMA changes in patch 5.
-        Add missing Suggested-By. 
+There are several places that the packet needs to be processing:
+1) If you mean send the interrupt of virtio-net to the vcpu that the
+application is running, current virito-net has already had the ability
+with the help of flow caches of tun and the vcpu private queue
+configuration of XPS and irq affinity hint which is automatically done
+through the driver itself.
+2) If you mean send the interrupt or doing the softirq of the host card
+to the cpu where vhost thread is running, recent RFS support of tun can
+do this.
+3) And about the affinity of vhost thread and vcpu thread, this seems
+beyond the scope of aRFS.
 
- drivers/net/virtio_net.c | 46 ++++++++++++++++++++++++++++++++++++++++++----
- 1 file changed, 42 insertions(+), 4 deletions(-)
+So it looks like current code works (though may have some drawbacks).
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 3e82311..968eacd 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -604,18 +604,25 @@ static int add_recvbuf_big(struct receive_queue *rq, gfp_t gfp)
- 	return err;
- }
- 
--static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
-+static unsigned int get_mergeable_buf_len(struct ewma *avg_pkt_len)
- {
- 	const size_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-+	unsigned int len;
-+
-+	len = hdr_len + clamp_t(unsigned int, ewma_read(avg_pkt_len),
-+			GOOD_PACKET_LEN, PAGE_SIZE - hdr_len);
-+	return ALIGN(len, MERGEABLE_BUFFER_ALIGN);
-+}
-+
-+static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
-+{
- 	struct page_frag *alloc_frag = &rq->alloc_frag;
- 	char *buf;
- 	unsigned long ctx;
- 	int err;
- 	unsigned int len, hole;
- 
--	len = hdr_len + clamp_t(unsigned int, ewma_read(&rq->mrg_avg_pkt_len),
--				GOOD_PACKET_LEN, PAGE_SIZE - hdr_len);
--	len = ALIGN(len, MERGEABLE_BUFFER_ALIGN);
-+	len = get_mergeable_buf_len(&rq->mrg_avg_pkt_len);
- 	if (unlikely(!skb_page_frag_refill(len, alloc_frag, gfp)))
- 		return -ENOMEM;
- 
-@@ -1594,6 +1601,33 @@ err:
- 	return ret;
- }
- 
-+#ifdef CONFIG_SYSFS
-+static ssize_t mergeable_rx_buffer_size_show(struct netdev_rx_queue *queue,
-+		struct rx_queue_attribute *attribute, char *buf)
-+{
-+	struct virtnet_info *vi = netdev_priv(queue->dev);
-+	unsigned int queue_index = get_netdev_rx_queue_index(queue);
-+	struct ewma *avg;
-+
-+	BUG_ON(queue_index >= vi->max_queue_pairs);
-+	avg = &vi->rq[queue_index].mrg_avg_pkt_len;
-+	return sprintf(buf, "%u\n", get_mergeable_buf_len(avg));
-+}
-+
-+static struct rx_queue_attribute mergeable_rx_buffer_size_attribute =
-+	__ATTR_RO(mergeable_rx_buffer_size);
-+
-+static struct attribute *virtio_net_mrg_rx_attrs[] = {
-+	&mergeable_rx_buffer_size_attribute.attr,
-+	NULL
-+};
-+
-+static const struct attribute_group virtio_net_mrg_rx_group = {
-+	.name = "virtio_net",
-+	.attrs = virtio_net_mrg_rx_attrs
-+};
-+#endif
-+
- static int virtnet_probe(struct virtio_device *vdev)
- {
- 	int i, err;
-@@ -1708,6 +1742,10 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	if (err)
- 		goto free_stats;
- 
-+#ifdef CONFIG_SYSFS
-+	if (vi->mergeable_rx_bufs)
-+		dev->sysfs_rx_queue_group = &virtio_net_mrg_rx_group;
-+#endif
- 	netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
- 	netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
- 
--- 
-1.8.5.2
+aRFS just another method of doing 1) by letting the driver can control
+the flow to queue mapping. Currently tun do it silently and does not
+expose an API for userspace to configure. The question is whether or not
+we need this and if yes how can implement it efficiently.
+>
+> If it's not possible or too hard to implement aRFS down the entire
+> stack, we won't be able to process the packet on the right CPU.
+> Then we might as well not bother with aRFS and just distribute uniformly
+> across the rx virtqueues.
+>
+> Please post an outline of how rx packets will be steered up the stack so
+> we can discuss whether aRFS can bring any benefit.
+>
+> Stefan
