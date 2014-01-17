@@ -1,53 +1,65 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 11/13] net: mvneta: implement rx_copybreak
-Date: Fri, 17 Jan 2014 09:32:09 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D45EA59@AcuExch.aculab.com>
-References: <1389856819-6503-12-git-send-email-w@1wt.eu>
-	<063D6719AE5E284EB5DD2968C1650D6D45D866@AcuExch.aculab.com>
-	<20140116093640.GA16457@1wt.eu>
- <20140116.114905.1582218754259744747.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"thomas.petazzoni@free-electrons.com"
-	<thomas.petazzoni@free-electrons.com>,
-	"gregory.clement@free-electrons.com"
-	<gregory.clement@free-electrons.com>
-To: 'David Miller' <davem@davemloft.net>, "w@1wt.eu" <w@1wt.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:39100 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751336AbaAQJeY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 04:34:24 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 01362-03 for <netdev@vger.kernel.org>;
- Fri, 17 Jan 2014 09:34:22 +0000 (GMT)
-In-Reply-To: <20140116.114905.1582218754259744747.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net] net: core: orphan frags before queuing to slow qdisc
+Date: Fri, 17 Jan 2014 17:42:14 +0800
+Message-ID: <1389951734-13234-1-git-send-email-jasowang@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller
-> I don't know if this is relevant for your hardware, but there is a trick
-> with IOMMUs that I at least at one point was doing on sparc64.
-> 
-> I never flushed the IOMMU mappings explicitly on a dma_unmap call.
-> 
-> Instead I always allocate by moving the allocation cursor to higher
-> addresses in the IOMMU range looking for free space.
-> 
-> Then when I hit the end of the range and had to wrap the allocation
-> cursor back to the beginning, I flush the entire IOMMU.
-> 
-> So for %99 of IOMMU mapping creation and teardown calls, I didn't even
-> touch the hardware.
+Many qdiscs can queue a packet for a long time, this will lead an issue
+with zerocopy skb. It means the frags will not be orphaned in an expected
+short time, this breaks the assumption that virtio-net will transmit the
+packet in time.
 
-Another option that ought to work is splitting the allocation of
-the io address space and the mapping of the addresses to physical
-memory.
-So for rx you'd leave the rx ring pointers constant and change the
-iommu to refer to the correct buffer.
+So if guest packets were queued through such kind of qdisc and hit the
+limitation of the max pending packets for virtio/vhost. All packets that
+go to another destination from guest will also be blocked.
 
-	David
+A case for reproducing the issue:
+
+- Boot two VMs and connect them to the same bridge kvmbr.
+- Setup tbf with a very low rate/burst on eth0 which is a port of kvmbr.
+- Let VM1 send lots of packets thorugh eth0
+- After a while, VM1 is unable to send any packets out since the number of
+  pending packets (queued to tbf) were exceeds the limitation of vhost/virito
+
+Solve this issue by orphaning the frags before queuing it to a slow qdisc (the
+one without TCQ_F_CAN_BYPASS).
+
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ net/core/dev.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0ce469e..1209774 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2700,6 +2700,12 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+ 	contended = qdisc_is_running(q);
+ 	if (unlikely(contended))
+ 		spin_lock(&q->busylock);
++	if (!(q->flags & TCQ_F_CAN_BYPASS) &&
++	    unlikely(skb_orphan_frags(skb, GFP_ATOMIC))) {
++		kfree_skb(skb);
++		rc = NET_XMIT_DROP;
++		goto out;
++	}
+ 
+ 	spin_lock(root_lock);
+ 	if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
+@@ -2739,6 +2745,7 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+ 		}
+ 	}
+ 	spin_unlock(root_lock);
++out:
+ 	if (unlikely(contended))
+ 		spin_unlock(&q->busylock);
+ 	return rc;
+-- 
+1.8.3.2
