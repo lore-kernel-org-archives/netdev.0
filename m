@@ -1,61 +1,190 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] [PATCH net-next v2] xen-netfront: clean up code in
- xennet_release_rx_bufs
-Date: Fri, 17 Jan 2014 14:25:40 +0800
-Message-ID: <52D8CCE4.9010804@oracle.com>
-References: <1389830228-2381-1-git-send-email-Annie.li@oracle.com> <52D7BE19.2010009@citrix.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: Fwd: [RFC PATCH net-next 0/3] virtio_net: add aRFS support
+Date: Fri, 17 Jan 2014 14:36:21 +0800
+Message-ID: <52D8CF65.1090100@redhat.com>
+References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>	<52D75EA5.1050000@redhat.com>	<CAEH94Lg7ygXgHqE8ubE+nuunicDqgmnCfO2AuDSS2nXgv5GikQ@mail.gmail.com>	<20140116085253.GA32073@stefanha-thinkpad.redhat.com>	<CA+mtBx9PBtYurdnhCKL0MLL8i+_+3yPNWFVj5h6SPJH+YDBCjw@mail.gmail.com>	<52D8A2D5.4040807@redhat.com> <CA+mtBx8U1sYzH--QDnLnmSLpisn0DZPSdewUPCEhQkjTMmvb6w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: wei.liu2@citrix.com, ian.campbell@citrix.com,
-	netdev@vger.kernel.org, xen-devel@lists.xen.org,
-	andrew.bennieston@citrix.com, davem@davemloft.net
-To: David Vrabel <david.vrabel@citrix.com>
+Cc: Stefan Hajnoczi <stefanha@redhat.com>,
+	Zhi Yong Wu <zwu.kernel@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:37255 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751079AbaAQGZw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 01:25:52 -0500
-In-Reply-To: <52D7BE19.2010009@citrix.com>
+Received: from mx1.redhat.com ([209.132.183.28]:45848 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751868AbaAQGgt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jan 2014 01:36:49 -0500
+In-Reply-To: <CA+mtBx8U1sYzH--QDnLnmSLpisn0DZPSdewUPCEhQkjTMmvb6w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 01/17/2014 01:08 PM, Tom Herbert wrote:
+> On Thu, Jan 16, 2014 at 7:26 PM, Jason Wang <jasowang@redhat.com> wrote:
+>> On 01/17/2014 01:12 AM, Tom Herbert wrote:
+>>> On Thu, Jan 16, 2014 at 12:52 AM, Stefan Hajnoczi <stefanha@redhat.com> wrote:
+>>>> On Thu, Jan 16, 2014 at 04:34:10PM +0800, Zhi Yong Wu wrote:
+>>>>> CC: stefanha, MST, Rusty Russel
+>>>>>
+>>>>> ---------- Forwarded message ----------
+>>>>> From: Jason Wang <jasowang@redhat.com>
+>>>>> Date: Thu, Jan 16, 2014 at 12:23 PM
+>>>>> Subject: Re: [RFC PATCH net-next 0/3] virtio_net: add aRFS support
+>>>>> To: Zhi Yong Wu <zwu.kernel@gmail.com>
+>>>>> Cc: netdev@vger.kernel.org, therbert@google.com, edumazet@google.com,
+>>>>> davem@davemloft.net, Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+>>>>>
+>>>>>
+>>>>> On 01/15/2014 10:20 PM, Zhi Yong Wu wrote:
+>>>>>> From: Zhi Yong Wu<wuzhy@linux.vnet.ibm.com>
+>>>>>>
+>>>>>> HI, folks
+>>>>>>
+>>>>>> The patchset is trying to integrate aRFS support to virtio_net. In this case,
+>>>>>> aRFS will be used to select the RX queue. To make sure that it's going ahead
+>>>>>> in the correct direction, although it is still one RFC and isn't tested, it's
+>>>>>> post out ASAP. Any comment are appreciated, thanks.
+>>>>>>
+>>>>>> If anyone is interested in playing with it, you can get this patchset from my
+>>>>>> dev git on github:
+>>>>>>    git://github.com/wuzhy/kernel.git virtnet_rfs
+>>>>>>
+>>>>>> Zhi Yong Wu (3):
+>>>>>>    virtio_pci: Introduce one new config api vp_get_vq_irq()
+>>>>>>    virtio_net: Introduce one dummy function virtnet_filter_rfs()
+>>>>>>    virtio-net: Add accelerated RFS support
+>>>>>>
+>>>>>>   drivers/net/virtio_net.c      |   67 ++++++++++++++++++++++++++++++++++++++++-
+>>>>>>   drivers/virtio/virtio_pci.c   |   11 +++++++
+>>>>>>   include/linux/virtio_config.h |   12 +++++++
+>>>>>>   3 files changed, 89 insertions(+), 1 deletions(-)
+>>>>>>
+>>>>> Please run get_maintainter.pl before sending the patch. You'd better
+>>>>> at least cc virtio maintainer/list for this.
+>>>>>
+>>>>> The core aRFS method is a noop in this RFC which make this series no
+>>>>> much sense to discuss. You should at least mention the big picture
+>>>>> here in the cover letter. I suggest you should post a RFC which can
+>>>>> run and has expected result or you can just raise a thread for the
+>>>>> design discussion.
+>>>>>
+>>>>> And this method has been discussed before, you can search "[net-next
+>>>>> RFC PATCH 5/5] virtio-net: flow director support" in netdev archive
+>>>>> for a very old prototype implemented by me. It can work and looks like
+>>>>> most of this RFC have already done there.
+>>>>>
+>>>>> A basic question is whether or not we need this, not all the mq cards
+>>>>> use aRFS (see ixgbe ATR). And whether or not it can bring extra
+>>>>> overheads? For virtio, we want to reduce the vmexits as much as
+>>>>> possible but this aRFS seems introduce a lot of more of this. Making a
+>>>>> complex interfaces just for an virtual device may not be good, simple
+>>>>> method may works for most of the cases.
+>>>>>
+>>>>> We really should consider to offload this to real nic. VMDq and L2
+>>>>> forwarding offload may help in this case.
+>>> Adding flow director support would be a good step, Zhi's patches for
+>>> support in tun have been merged, so support in virtio-net would be a
+>>> good follow on. But, flow-director does have some limitations and
+>>> performance issues of it's own (forced pairing between TX and RX
+>>> queues, lookup on every TX packet).
+>> True. But the pairing was designed to work without guest involving since
+>> we really want to reduce the vmexits from guest. And lookup on every TX
+>> packets could be released to every N packets. But I agree exposing the
+>> API to guest may bring lots of flexibility.
+>>> In the case of virtualization,
+>>> aRFS, RSS, ntuple filtering, LRO, etc. can be implemented as software
+>>> emulations and so far seems to be wins in most cases. Extending these
+>>> down into the stack so that they can leverage HW mechanisms is a good
+>>> goal for best performance. It's probably generally true that most of
+>>> the offloads commonly available for NICs we'll want in virtualization
+>>> path. Of course, we need to deomonstrate that they provide real
+>>> performance benefit in this use case.
+>> Yes, we need a prototype to see how much it can help.
+>>> I believe tying in aRFS (or flow director) into a real aRFS is just a
+>>> matter of programming the RFS table properly. This is not the complex
+>>> side of the interface, I believe this already works with the tun
+>>> patches.
+>> Right, what we may needs is
+>>
+>> - exposing new tun ioctls for qemu adding or removing a flow
+>> - new virtqueue command for guest driver to adding or removing a flow
+>> (btw, current control virtqueue is really slow, we may need to improve it).
+>> - an agreement of host and guest to use the same hash method, or just
+>> compute software hash in host and pass it to guest (which needs extra
+>> API to do)
+> The model to get RX hash from a device is well known, the guest can
+> use that to reflect information about a flow back to the host, and for
+> performance we might piggyback RX queue selection on the TX
+> descriptors of a flow. Probably some limitations with real HW, but I
+> assume would have less issues in SW.
 
-On 2014/1/16 19:10, David Vrabel wrote:
-> On 15/01/14 23:57, Annie Li wrote:
->> This patch implements two things:
->>
->> * release grant reference and skb for rx path, this fixex resource leaking.
->> * clean up grant transfer code kept from old netfront(2.6.18) which grants
->> pages for access/map and transfer. But grant transfer is deprecated in current
->> netfront, so remove corresponding release code for transfer.
->>
->> gnttab_end_foreign_access_ref may fail when the grant entry is currently used
->> for reading or writing. But this patch does not cover this and improvement for
->> this failure may be implemented in a separate patch.
-> I don't think replacing a resource leak with a security bug is a good idea.
+It may work but may need extending the current virtio-net TX descriptor
+or extra API such as vnet header.
 >
-> If you would prefer not to fix the gnttab_end_foreign_access() call, I
-> think you can fix this in netfront by taking a reference to the page
-> before calling gnttab_end_foreign_access().  This will ensure the page
-> isn't freed until the subsequent kfree_skb(), or the gref is released by
-> the foreign domain (whichever is later).
+> IMO, if we have a flow state on the host we should *never* need to
+> perform any hash computation on TX (a host is not a switch :-) ), we
+> may want to have some mirrored flow state in the kernel for these
+> flows which are indexed by the hash provided in TX.
 
-Taking a reference to the page before calling 
-gnttab_end_foreign_access() delays the free work until kfree_skb(). 
-Simply adding put_page before kfree_skb() does not make things different 
-from gnttab_end_foreign_access_ref(), and the pages will be freed by 
-kfree_skb(), problem will be hit in gnttab_handle_deferred() when 
-freeing pages which already be freed.
+The problem is host may have several different type cards, so the it was
+not guaranteed that they can provide the same rxhash.
+>
+>> - change guest driver to use aRFS
+>>
+>> Some of the above has been implemented in my old RFC.
+> Looks pretty similar to Zhi's tun work. Are you planning to refresh
+> those patches?
 
-So put_page is required in gnttab_end_foreign_access(), this will ensure 
-either free is taken by kfree_skb or gnttab_handle_deferred. This 
-involves changes in blkfront/pcifront/tpmfront(just like your patch), 
-this way ensure page is released when ref is end.
+I have the plan. But there's another concern:
 
-Another solution I am thinking is calling gnttab_end_foreign_access() 
-with page parameter as NULL, then gnttab_end_foreign_access will only do 
-ending grant reference work and releasing page work is done by kfree_skb().
-
-Thanks
-Annie
+During my testing ( and also tested by some IBM engineers in the past),
+we find it's better for a single vhost thread to handle both rx and tx
+for a single flow. Using two different vhost threads to handle a flow
+may damage the performance in most of the cases. That's why we enforce
+the pairing of rx and tx in tun currently. But looks like aRFS can't
+guarantee this. If we want to enforce this paring through XPS/irq
+affinity, there's no need for aRFS.
+>
+>>>> Zhi Yong and I had an IRC chat.  I wanted to post my questions on the
+>>>> list - it's still the same concern I had in the old email thread that
+>>>> Jason mentioned.
+>>>>
+>>>> In order for virtio-net aRFS to make sense there needs to be an overall
+>>>> plan for pushing flow mapping information down to the physical NIC.
+>>>> That's the only way to actually achieve the benefit of steering:
+>>>> processing the packet on the CPU where the application is running.
+>>>>
+>>> I don't think this is necessarily true. Per flow steering amongst
+>>> virtual queues should be beneficial in itself. virtio-net can leverage
+>>> RFS or aRFS where it's available.
+>>>
+>>>> If it's not possible or too hard to implement aRFS down the entire
+>>>> stack, we won't be able to process the packet on the right CPU.
+>>>> Then we might as well not bother with aRFS and just distribute uniformly
+>>>> across the rx virtqueues.
+>>>>
+>>>> Please post an outline of how rx packets will be steered up the stack so
+>>>> we can discuss whether aRFS can bring any benefit.
+>>>>
+>>> 1. The aRFS interface for the guest to specify which virtual queue to
+>>> receive a packet on is fairly straight forward.
+>>> 2. To hook into RFS, we need to match the virtual queue to the real
+>>> CPU it will processed on, and then program the RFS table for that flow
+>>> and CPU.
+>>> 3. NIC aRFS keys off the RFS tables so it can program the HW with the
+>>> correct queue for the CPU.
+>>>
+>>>> Stefan
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
