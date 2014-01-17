@@ -1,157 +1,38 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v2 1/3] random32: add prandom_u32_max and convert open coded users
-Date: Fri, 17 Jan 2014 01:28:37 +0100
-Message-ID: <1389918519-23779-2-git-send-email-hannes@stressinduktion.org>
-References: <1389918519-23779-1-git-send-email-hannes@stressinduktion.org>
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	Jakub Zawadzki <darkjames-ws@darkjames.pl>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389918519-23779-1-git-send-email-hannes@stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michael Dalton <mwdalton@google.com>
+Subject: Re: [PATCH net-next v4 1/6] net: allow > 0 order atomic page alloc in skb_page_frag_refill
+Date: Thu, 16 Jan 2014 16:30:11 -0800
+Message-ID: <CANJ5vPLZZKqPxZ6yC4sympZODy5h0NjrOTkNS3g+ZG6_9KUi=w@mail.gmail.com>
+References: <1389901950-3854-1-git-send-email-mwdalton@google.com>
+ <20140116.152800.901405996505782677.davem@davemloft.net> <20140116.153020.587523865163482894.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Jason Wang <jasowang@redhat.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	lf-virt <virtualization@lists.linux-foundation.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f48.google.com ([209.85.219.48]:57436 "EHLO
+	mail-oa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751333AbaAQAac (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 19:30:32 -0500
+Received: by mail-oa0-f48.google.com with SMTP id i11so3815254oag.35
+        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 16:30:31 -0800 (PST)
+In-Reply-To: <20140116.153020.587523865163482894.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
+On Thu, Jan 16, 2014 at 3:30 PM, David Miller <davem@davemloft.net> wrote:
+> Actually, I reverted, please resubmit this series with the following
+> build warning corrected:
 
-Many functions have open coded a function that returns a random
-number in range [0,N-1]. Under the assumption that we have a PRNG
-such as taus113 with being well distributed in [0, ~0U] space,
-we can implement such a function as uword t = (n*m')>>32, where
-m' is a random number obtained from PRNG, n the right open interval
-border and t our resulting random number, with n,m',t in u32 universe.
+Thanks David, I will send out another patchset shortly with the warning
+resolved and a header e-mail (and one other sysfs group fix that I just
+found in the same file). Sorry I didn't include a header e-mail
+initially.
 
-Lets go with Joe and simply call it prandom_u32_max(), although
-technically we have an right open interval endpoint, but that we
-have documented. Other users can further be migrated to the new
-prandom_u32_max() function later on; for now, we need to make sure
-to migrate reciprocal_divide() users for the reciprocal_divide()
-follow-up fixup since their function signatures are going to change.
+Best,
 
-Joint work with Hannes Frederic Sowa.
-
-Cc: Jakub Zawadzki <darkjames-ws@darkjames.pl>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- drivers/net/team/team_mode_random.c |  8 +-------
- include/linux/random.h              | 19 ++++++++++++++++++-
- net/packet/af_packet.c              |  2 +-
- net/sched/sch_choke.c               |  9 +--------
- 4 files changed, 21 insertions(+), 17 deletions(-)
-
-diff --git a/drivers/net/team/team_mode_random.c b/drivers/net/team/team_mode_random.c
-index 7f032e2..cd2f692 100644
---- a/drivers/net/team/team_mode_random.c
-+++ b/drivers/net/team/team_mode_random.c
-@@ -13,20 +13,14 @@
- #include <linux/module.h>
- #include <linux/init.h>
- #include <linux/skbuff.h>
--#include <linux/reciprocal_div.h>
- #include <linux/if_team.h>
- 
--static u32 random_N(unsigned int N)
--{
--	return reciprocal_divide(prandom_u32(), N);
--}
--
- static bool rnd_transmit(struct team *team, struct sk_buff *skb)
- {
- 	struct team_port *port;
- 	int port_index;
- 
--	port_index = random_N(team->en_port_count);
-+	port_index = prandom_u32_max(team->en_port_count);
- 	port = team_get_port_by_index_rcu(team, port_index);
- 	if (unlikely(!port))
- 		goto drop;
-diff --git a/include/linux/random.h b/include/linux/random.h
-index 4002b3d..f763a63 100644
---- a/include/linux/random.h
-+++ b/include/linux/random.h
-@@ -8,7 +8,6 @@
- 
- #include <uapi/linux/random.h>
- 
--
- extern void add_device_randomness(const void *, unsigned int);
- extern void add_input_randomness(unsigned int type, unsigned int code,
- 				 unsigned int value);
-@@ -38,6 +37,24 @@ struct rnd_state {
- u32 prandom_u32_state(struct rnd_state *state);
- void prandom_bytes_state(struct rnd_state *state, void *buf, int nbytes);
- 
-+/**
-+ * prandom_u32_max - returns a random number in interval [0, ep_ro), the
-+ *                   upper interval endpoint is right-open. This is useful
-+ *                   when requesting a random index of an array containing
-+ *                   ep_ro elements, for example.
-+ *
-+ * @ep_ro: right open interval endpoint
-+ *
-+ * Returns a pseduo-random number that is in interval [0, ep_ro). Note
-+ * that the result depends on PRNG being well distributed in [0, ~0U]
-+ * u32 space. Here we use maximally equidistributed combined Tausworthe
-+ * generator, that is, prandom_u32().
-+ */
-+static inline u32 prandom_u32_max(u32 ep_ro)
-+{
-+	return (u32)(((u64) prandom_u32() * ep_ro) >> 32);
-+}
-+
- /*
-  * Handle minimum values for seeds
-  */
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 279467b..91daa01 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1247,7 +1247,7 @@ static unsigned int fanout_demux_rnd(struct packet_fanout *f,
- 				     struct sk_buff *skb,
- 				     unsigned int num)
- {
--	return reciprocal_divide(prandom_u32(), num);
-+	return prandom_u32_max(num);
- }
- 
- static unsigned int fanout_demux_rollover(struct packet_fanout *f,
-diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
-index ddd73cb..2aee028 100644
---- a/net/sched/sch_choke.c
-+++ b/net/sched/sch_choke.c
-@@ -14,7 +14,6 @@
- #include <linux/types.h>
- #include <linux/kernel.h>
- #include <linux/skbuff.h>
--#include <linux/reciprocal_div.h>
- #include <linux/vmalloc.h>
- #include <net/pkt_sched.h>
- #include <net/inet_ecn.h>
-@@ -77,12 +76,6 @@ struct choke_sched_data {
- 	struct sk_buff **tab;
- };
- 
--/* deliver a random number between 0 and N - 1 */
--static u32 random_N(unsigned int N)
--{
--	return reciprocal_divide(prandom_u32(), N);
--}
--
- /* number of elements in queue including holes */
- static unsigned int choke_len(const struct choke_sched_data *q)
- {
-@@ -233,7 +226,7 @@ static struct sk_buff *choke_peek_random(const struct choke_sched_data *q,
- 	int retrys = 3;
- 
- 	do {
--		*pidx = (q->head + random_N(choke_len(q))) & q->tab_mask;
-+		*pidx = (q->head + prandom_u32_max(choke_len(q))) & q->tab_mask;
- 		skb = q->tab[*pidx];
- 		if (skb)
- 			return skb;
--- 
-1.8.4.2
+Mike
