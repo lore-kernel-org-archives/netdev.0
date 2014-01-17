@@ -1,51 +1,34 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next v2 2/3] net: add trim helper and convert users
-Date: Fri, 17 Jan 2014 18:15:49 +0000
-Message-ID: <1389982549.27141.15.camel@bwh-desktop.uk.level5networks.com>
-References: <1389918519-23779-1-git-send-email-hannes@stressinduktion.org>
-	 <1389918519-23779-3-git-send-email-hannes@stressinduktion.org>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH net-next] net: vxlan: do not use vxlan_net before
+ checking event type
+Date: Fri, 17 Jan 2014 10:20:31 -0800
+Message-ID: <20140117102031.00002a33@unknown>
+References: <1389959706-30976-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Daniel Borkmann <dborkman@redhat.com>,
-	"Jakub Zawadzki" <darkjames-ws@darkjames.pl>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	<linux-kernel@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389918519-23779-3-git-send-email-hannes@stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:63031 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752155AbaAQSUv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jan 2014 13:20:51 -0500
+In-Reply-To: <1389959706-30976-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-01-17 at 01:28 +0100, Hannes Frederic Sowa wrote:
-[...]
-> --- a/include/linux/kernel.h
-> +++ b/include/linux/kernel.h
-> @@ -193,6 +193,25 @@ extern int _cond_resched(void);
->  		(__x < 0) ? -__x : __x;		\
->  	})
->  
-> +/**
-> + * trim - perform a reciprocal multiplication in order to "clamp" a
-> + *        value into range [0, ep_ro), where the upper interval
-> + *        endpoint is right-open. This is useful, e.g. for accessing
-> + *        a index of an array containing ep_ro elements, for example.
-> + *        Think of it as sort of modulus, only that the result isn't
-> + *        that of modulo. ;)
-> + *        More: http://homepage.cs.uiowa.edu/~jones/bcd/divide.html
-[...]
+On Fri, 17 Jan 2014 12:55:06 +0100
+Daniel Borkmann <dborkman@redhat.com> wrote:
 
-And you think trim() is an obvious name for that?!
-How about: scale_u32_to_range().
+> Jesse Brandeburg reported that commit acaf4e70997f caused a panic
+> when adding a network namespace while vxlan module was present in
+> the system:
 
-Also the first physical line of a kernel-doc comment (after the name) is
-a summary which is used, for example, in the summary line on a manual
-page.  It seems like you have the summary and full description the wrong
-way round here.
+I ran a quick test and the namespace issue no longer occurs once this
+patch is applied.  As for this one vs Cong's, you guys can fight that
+out.  Thanks for fixing this.
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Tested-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
