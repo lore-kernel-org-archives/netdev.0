@@ -1,8 +1,8 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 4/5] tipc: standardize sendmsg
-	routine of connected socket
-Date: Fri, 17 Jan 2014 09:50:06 +0800
-Message-ID: <1389923407-26969-5-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next 2/5] tipc: standardize accept
+	routine
+Date: Fri, 17 Jan 2014 09:50:04 +0800
+Message-ID: <1389923407-26969-3-git-send-email-ying.xue@windriver.com>
 References: <1389923407-26969-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,109 +22,103 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Standardize the behaviour of waiting for events in TIPC send_packet()
-so that all variables of socket or port structures are protected within
-socket lock, allowing the process of calling sendmsg() to be woken up
-at appropriate time.
+Comparing the behaviour of how to wait for events in TIPC accept()
+with other stacks, the TIPC implementation might be perceived as
+different, and sometimes even incorrect. As sk_sleep() and
+sk->sk_receive_queue variables associated with socket are not
+protected by socket lock, the process of calling accept() may be
+woken up improperly or sometimes cannot be woken up at all. After
+standardizing it with inet_csk_wait_for_connect routine, we can
+get benefits including: avoiding 'thundering herd' phenomenon,
+adding a timeout mechanism for accept(), coping with a pending
+signal, and having sk_sleep() and sk->sk_receive_queue being
+always protected within socket lock scope and so on.
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/socket.c |   60 ++++++++++++++++++++++++++++++++++++-----------------
- 1 file changed, 41 insertions(+), 19 deletions(-)
+ net/tipc/socket.c |   54 ++++++++++++++++++++++++++++++++++++++++-------------
+ 1 file changed, 41 insertions(+), 13 deletions(-)
 
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 3e01973..c480310 100644
+index b2ae25a..008f6fd 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -695,6 +695,34 @@ exit:
+@@ -1566,6 +1566,42 @@ static int listen(struct socket *sock, int len)
  	return res;
  }
  
-+static int tipc_wait_for_sndpkt(struct socket *sock, long *timeo_p)
++static int tipc_wait_for_accept(struct socket *sock, long timeo)
 +{
 +	struct sock *sk = sock->sk;
-+	struct tipc_port *tport = tipc_sk_port(sk);
 +	DEFINE_WAIT(wait);
-+	int done;
++	int err;
 +
-+	do {
-+		int err = sock_error(sk);
-+		if (err)
-+			return err;
-+		if (sock->state == SS_DISCONNECTING)
-+			return -EPIPE;
-+		else if (sock->state != SS_CONNECTED)
-+			return -ENOTCONN;
-+		if (!*timeo_p)
-+			return -EAGAIN;
++	/* True wake-one mechanism for incoming connections: only
++	 * one process gets woken up, not the 'whole herd'.
++	 * Since we do not 'race & poll' for established sockets
++	 * anymore, the common case will execute the loop only once.
++	*/
++	for (;;) {
++		prepare_to_wait_exclusive(sk_sleep(sk), &wait,
++					  TASK_INTERRUPTIBLE);
++		if (skb_queue_empty(&sk->sk_receive_queue)) {
++			release_sock(sk);
++			timeo = schedule_timeout(timeo);
++			lock_sock(sk);
++		}
++		err = 0;
++		if (!skb_queue_empty(&sk->sk_receive_queue))
++			break;
++		err = -EINVAL;
++		if (sock->state != SS_LISTENING)
++			break;
++		err = sock_intr_errno(timeo);
 +		if (signal_pending(current))
-+			return sock_intr_errno(*timeo_p);
-+
-+		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
-+		done = sk_wait_event(sk, timeo_p,
-+				     (!tport->congested || !tport->connected));
-+		finish_wait(sk_sleep(sk), &wait);
-+	} while (!done);
-+	return 0;
++			break;
++		err = -EAGAIN;
++		if (!timeo)
++			break;
++	}
++	finish_wait(sk_sleep(sk), &wait);
++	return err;
 +}
 +
  /**
-  * send_packet - send a connection-oriented message
-  * @iocb: if NULL, indicates that socket lock is already held
-@@ -712,8 +740,8 @@ static int send_packet(struct kiocb *iocb, struct socket *sock,
- 	struct sock *sk = sock->sk;
- 	struct tipc_port *tport = tipc_sk_port(sk);
- 	struct sockaddr_tipc *dest = (struct sockaddr_tipc *)m->msg_name;
--	long timeout_val;
--	int res;
-+	int res = -EINVAL;
-+	long timeo;
- 
- 	/* Handle implied connection establishment */
- 	if (unlikely(dest))
-@@ -725,30 +753,24 @@ static int send_packet(struct kiocb *iocb, struct socket *sock,
- 	if (iocb)
- 		lock_sock(sk);
- 
--	timeout_val = sock_sndtimeo(sk, m->msg_flags & MSG_DONTWAIT);
-+	if (unlikely(sock->state != SS_CONNECTED)) {
-+		if (sock->state == SS_DISCONNECTING)
-+			res = -EPIPE;
-+		else
-+			res = -ENOTCONN;
-+		goto exit;
-+	}
- 
-+	timeo = sock_sndtimeo(sk, m->msg_flags & MSG_DONTWAIT);
- 	do {
--		if (unlikely(sock->state != SS_CONNECTED)) {
--			if (sock->state == SS_DISCONNECTING)
--				res = -EPIPE;
--			else
--				res = -ENOTCONN;
--			break;
--		}
+  * accept - wait for connection request
+  * @sock: listening socket
+@@ -1582,7 +1618,7 @@ static int accept(struct socket *sock, struct socket *new_sock, int flags)
+ 	struct tipc_port *new_tport;
+ 	struct tipc_msg *msg;
+ 	u32 new_ref;
 -
- 		res = tipc_send(tport->ref, m->msg_iov, total_len);
- 		if (likely(res != -ELINKCONG))
- 			break;
--		if (timeout_val <= 0L) {
--			res = timeout_val ? timeout_val : -EWOULDBLOCK;
-+		res = tipc_wait_for_sndpkt(sock, &timeo);
-+		if (res)
- 			break;
++	long timeo;
+ 	int res;
+ 
+ 	lock_sock(sk);
+@@ -1592,18 +1628,10 @@ static int accept(struct socket *sock, struct socket *new_sock, int flags)
+ 		goto exit;
+ 	}
+ 
+-	while (skb_queue_empty(&sk->sk_receive_queue)) {
+-		if (flags & O_NONBLOCK) {
+-			res = -EWOULDBLOCK;
+-			goto exit;
 -		}
 -		release_sock(sk);
--		timeout_val = wait_event_interruptible_timeout(*sk_sleep(sk),
--			(!tport->congested || !tport->connected), timeout_val);
+-		res = wait_event_interruptible(*sk_sleep(sk),
+-				(!skb_queue_empty(&sk->sk_receive_queue)));
 -		lock_sock(sk);
- 	} while (1);
--
-+exit:
- 	if (iocb)
- 		release_sock(sk);
- 	return res;
+-		if (res)
+-			goto exit;
+-	}
++	timeo = sock_rcvtimeo(sk, flags & O_NONBLOCK);
++	res = tipc_wait_for_accept(sock, timeo);
++	if (res)
++		goto exit;
+ 
+ 	buf = skb_peek(&sk->sk_receive_queue);
+ 
 -- 
 1.7.9.5
 
