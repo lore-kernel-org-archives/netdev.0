@@ -1,57 +1,62 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next 0/6] bonding: only rely on arp packets if arp
- monitor is used
-Date: Fri, 17 Jan 2014 09:02:41 +0100
-Message-ID: <20140117080241.GB5699@redhat.com>
-References: <1389837916-5377-1-git-send-email-vfalico@redhat.com>
- <15764.1389848997@death.nxdomain>
- <20140115.220132.1518410490710218099.davem@davemloft.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: Linux kernel patch: elide fib_validate_source() completely when
+ possible - bad side effect?
+Date: Fri, 17 Jan 2014 10:24:12 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1401170953370.1827@ja.home.ssi.bg>
+References: <52D945400200005D00047758@gwia2.atlnz.lc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: fubar@us.ibm.com, netdev@vger.kernel.org, andy@greyhouse.net
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: gregory hoggarth <gregory.hoggarth@alliedtelesis.co.nz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56907 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751215AbaAQIFj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jan 2014 03:05:39 -0500
-Content-Disposition: inline
-In-Reply-To: <20140115.220132.1518410490710218099.davem@davemloft.net>
+Received: from ja.ssi.bg ([178.16.129.10]:49331 "EHLO ja.home.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751079AbaAQIYw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jan 2014 03:24:52 -0500
+In-Reply-To: <52D945400200005D00047758@gwia2.atlnz.lc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 15, 2014 at 10:01:32PM -0800, David Miller wrote:
->From: Jay Vosburgh <fubar@us.ibm.com>
->Date: Wed, 15 Jan 2014 21:09:57 -0800
->
->> 	The main reason for preserving the non-validate behavior (any
->> traffic counts) is for the loadbalance (xor and rr) modes.  In those
->> modes, the switch decides which slave receives the incoming traffic, and
->> so it's to our advantage to permit any incoming traffic to count for
->> "up-ness."  The arp_validate option is not allowed in these modes
->> because it won't work.
->>
->> 	With these changes, I suspect that the loadbalance ARP monitor
->> will be less reliable with these changes (granted that it's already a
->> bit dodgy in its dependence on the switch to hit all slaves with
->> incoming packets regularly).  Particularly if the switch ports are
->> configured into an Etherchannel ("static link aggregation") group, in
->> which case only one slave will receive any given frame (broadcast /
->> multicast traffic will not be duplicated across all slaves).
->>
->> 	I'm not sure that this change (the "only count ARPs even without
->> arp_validate" bit) won't break existing configurations.  Did you test
->> the -rr and -xor modes with ARP monitor after your changes (with and
->> without configuring a channel group on the switch ports)?
->
->Sorry Jay, I only read this just now.  I won't push these changes
->out until you've had some time to discuss them.
 
-Sorry David, this change indeed might break some configurations (leaving
-aside the question if they're legit or not...). So, please, drop them, I'll
-discuss with Jay and send a v2.
+	Hello,
 
-Thanks a lot, and sorry for the noise.
+On Fri, 17 Jan 2014, gregory hoggarth wrote:
 
->
->To my untrained eye they looked rather straightforward :-)
+> Hi,
+> 
+> I work for Allied Telesis, a company that manufactures and sells routers and switches.
+> 
+> Earlier in the year we upgraded the linux kernel on our L3 switch firmware to v3.6.2 which includes this patch. Our testers have picked up a change in behaviour which I have traced back to this patch and I'd like to get comments on whether this is a bug or not.
+> 
+> We found that in a configuration with a device under test (DUT) that has an IP address 192.168.0.1 / 24, sending an ICMP echo request with a source IP address of 192.168.0.255 will now be accepted by the DUT, which will send an ICMP echo reply back to the 192.168.0.255 address with a broadcast MAC address of FFFF.FFFF.FFFF, meaning any other devices in the L2 domain will pick up and process the ICMP reply.
+
+...
+
+> Initially we were thinking that a device configured with 192.168.0.255 / 23 sending a ping to 192.168.0.1 / 24 should expect to get a reply, even though this is somewhat of a misconfiguration in that the subnets aren't matching and that some things may not work properly. For example ping from a device with IP address 192.168.0.254 would behave correctly, so it seemed correct that a ping from 192.168.0.255 should also work properly. However it appears that some other part of the kernel is detecting that the echo reply packet sent by the DUT has a destination IP address of the subnet broadcast, so instead of sending it with a unicast MAC address it sends it with the broadcast MAC address, which means all other devices on the subnet would process the ICMP echo reply. This therefore makes it
+  seem like the ICMP echo request should have been dropped in the first place.
+> 
+> The patch added the "if (!r && !fib_num_tclassid_users)" check to fib_validate_source, which for our devices evaluates to true, hence returning early and the source address check inside __fib_validate_source is not carried out.
+> 
+> 
+> Does anyone have comments as to what the correct behaviour should be in this case, and whether this is an unexpected side-effect from the patch or not?
+
+	It seems only __fib_validate_source can reject all kind
+of broadcast addresses in saddr. ip_route_input_slow() rejects
+only the well known broadcasts. Without rp_filter may be we
+can at least drop attempts to send replies back to broadcast
+addresses? For example, checking result of ip_route_output_key() in
+icmp_reply():
+
+	if (rt->rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST))
+		=> ip_rt_put()
+
+	For icmp_send() in icmp_route_lookup() ?
+
+	For TCP in inet_csk_route_req() ?
+
+	I did not checked all places...
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
