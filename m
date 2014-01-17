@@ -1,55 +1,44 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] virtio-net: fix build error when CONFIG_AVERAGE
-	is not enabled
-Date: Fri, 17 Jan 2014 17:51:32 +0800
-Message-ID: <52D8FD24.2090709@redhat.com>
-References: <1389950828-24039-1-git-send-email-mwdalton@google.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next v2 2/3] net: add trim helper and convert users
+Date: Fri, 17 Jan 2014 09:52:58 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D45EAC0@AcuExch.aculab.com>
+References: <1389918519-23779-1-git-send-email-hannes@stressinduktion.org>
+ <1389918519-23779-3-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	virtualization@lists.linux-foundation.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Michael Dalton <mwdalton@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1389950828-24039-1-git-send-email-mwdalton@google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	Jakub Zawadzki <darkjames-ws@darkjames.pl>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Hannes Frederic Sowa' <hannes@stressinduktion.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:39386 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752066AbaAQJzR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 04:55:17 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 02154-06 for <netdev@vger.kernel.org>;
+ Fri, 17 Jan 2014 09:55:11 +0000 (GMT)
+In-Reply-To: <1389918519-23779-3-git-send-email-hannes@stressinduktion.org>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/17/2014 05:27 PM, Michael Dalton wrote:
-> Commit ab7db91705e9 ("virtio-net: auto-tune mergeable rx buffer size for
-> improved performance") introduced a virtio-net dependency on EWMA.
-> The inclusion of EWMA is controlled by CONFIG_AVERAGE. Fix build error
-> when CONFIG_AVERAGE is not enabled by adding select AVERAGE to
-> virtio-net's Kconfig entry.
->
-> Build failure reported using config make ARCH=s390 defconfig.
->
-> Signed-off-by: Michael Dalton <mwdalton@google.com>
-> ---
->  drivers/net/Kconfig | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index b45b240..f342278 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -236,6 +236,7 @@ config VETH
->  config VIRTIO_NET
->  	tristate "Virtio network driver"
->  	depends on VIRTIO
-> +	select AVERAGE
->  	---help---
->  	  This is the virtual network driver for virtio.  It can be used with
->  	  lguest or QEMU based VMMs (like KVM or Xen).  Say Y or M.
+From: Hannes Frederic Sowa
+...
+> +/**
+> + * trim - perform a reciprocal multiplication in order to "clamp" a
+> + *        value into range [0, ep_ro), where the upper interval
+> + *        endpoint is right-open. This is useful, e.g. for accessing
+> + *        a index of an array containing ep_ro elements, for example.
+> + *        Think of it as sort of modulus, only that the result isn't
+> + *        that of modulo. ;)
+> + *        More: http://homepage.cs.uiowa.edu/~jones/bcd/divide.html
 
-Acked-by: Jason Wang <jasowang@redhat.com>
+It isn't appropriate to put urls into code comments (or commit messages).
+They are very likely to get out of date.
+
+	David
