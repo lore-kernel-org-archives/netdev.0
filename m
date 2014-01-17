@@ -1,277 +1,859 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 9/9] i40e: Fix device ID define names to align to standard
-Date: Fri, 17 Jan 2014 15:36:39 -0800
-Message-ID: <1390001799-19425-10-git-send-email-aaron.f.brown@intel.com>
+Subject: [net-next 6/9] i40e: implement DCB support infastructure
+Date: Fri, 17 Jan 2014 15:36:36 -0800
+Message-ID: <1390001799-19425-7-git-send-email-aaron.f.brown@intel.com>
 References: <1390001799-19425-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Cc: Neerav Parikh <Neerav.Parikh@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:41837 "EHLO mga02.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:55373 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751897AbaAQXgq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jan 2014 18:36:46 -0500
+	id S1751897AbaAQXhE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jan 2014 18:37:04 -0500
 In-Reply-To: <1390001799-19425-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Neerav Parikh <Neerav.Parikh@intel.com>
 
-Rework the device ID #defines to follow the _DEV_ID convention
-already established in the other Intel drivers.
+Intel XL710 series of adapters support QoS as per the
+IEEE 802.1 DCB (Data Center Bridging) standard.
+This is supported in conjuction with:
+- Enhanced Transmission Selection (ETS) - IEEE 802.1Qaz
+- Priority Flow Control (PFC) - IEEE 802.1Qbb
+- DCB eXchange Protocol (DCBX) - IEEE 802.1Qaz
 
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+On Intel XL710 adapters DCBX is performed by the adapter
+firmware. The firmware runs DCBX in willing mode and configures
+the port as per the DCB settings recommended by it's link
+partner.
+
+By default in absence of any DCBX; firmware would configure the
+port with a single traffic class and all of the port bandwith
+will be allocated to that traffic class.
+
+This patch adds functions and calls to support querying and
+configuring DCB using firmware APIs.
+
+Signed-off-by: Neerav Parikh <Neerav.Parikh@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Tested-By: Jack Morgan<jack.morgan@intel.com>
 Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c      | 24 ++++++++--------
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 22 +++++++--------
- drivers/net/ethernet/intel/i40e/i40e_type.h        | 32 +++++++++++-----------
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  4 +--
- drivers/net/ethernet/intel/i40evf/i40e_common.c    | 24 ++++++++--------
- drivers/net/ethernet/intel/i40evf/i40e_type.h      | 32 +++++++++++-----------
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  2 +-
- 7 files changed, 70 insertions(+), 70 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c    | 119 ++++++
+ drivers/net/ethernet/intel/i40e/i40e_dcb.c       | 469 +++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_dcb.h       | 107 ++++++
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h |  19 +-
+ drivers/net/ethernet/intel/i40e/i40e_type.h      |  13 -
+ 5 files changed, 712 insertions(+), 15 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_dcb.c
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_dcb.h
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 3f9f69b..e7f38b5 100644
+index cfcee4b..3f9f69b 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_common.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -42,20 +42,20 @@ static i40e_status i40e_set_mac_type(struct i40e_hw *hw)
+@@ -1804,6 +1804,28 @@ i40e_status i40e_aq_delete_element(struct i40e_hw *hw, u16 seid,
+ }
  
- 	if (hw->vendor_id == PCI_VENDOR_ID_INTEL) {
- 		switch (hw->device_id) {
--		case I40E_SFP_XL710_DEVICE_ID:
--		case I40E_SFP_X710_DEVICE_ID:
--		case I40E_QEMU_DEVICE_ID:
--		case I40E_KX_A_DEVICE_ID:
--		case I40E_KX_B_DEVICE_ID:
--		case I40E_KX_C_DEVICE_ID:
--		case I40E_KX_D_DEVICE_ID:
--		case I40E_QSFP_A_DEVICE_ID:
--		case I40E_QSFP_B_DEVICE_ID:
--		case I40E_QSFP_C_DEVICE_ID:
-+		case I40E_DEV_ID_SFP_XL710:
-+		case I40E_DEV_ID_SFP_X710:
-+		case I40E_DEV_ID_QEMU:
-+		case I40E_DEV_ID_KX_A:
-+		case I40E_DEV_ID_KX_B:
-+		case I40E_DEV_ID_KX_C:
-+		case I40E_DEV_ID_KX_D:
-+		case I40E_DEV_ID_QSFP_A:
-+		case I40E_DEV_ID_QSFP_B:
-+		case I40E_DEV_ID_QSFP_C:
- 			hw->mac.type = I40E_MAC_XL710;
- 			break;
--		case I40E_VF_DEVICE_ID:
--		case I40E_VF_HV_DEVICE_ID:
-+		case I40E_DEV_ID_VF:
-+		case I40E_DEV_ID_VF_HV:
- 			hw->mac.type = I40E_MAC_VF;
- 			break;
- 		default:
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 3a9ede6..a4b9408 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -65,16 +65,16 @@ static int i40e_veb_get_bw_info(struct i40e_veb *veb);
-  *   Class, Class Mask, private data (not used) }
-  */
- static DEFINE_PCI_DEVICE_TABLE(i40e_pci_tbl) = {
--	{PCI_VDEVICE(INTEL, I40E_SFP_XL710_DEVICE_ID), 0},
--	{PCI_VDEVICE(INTEL, I40E_SFP_X710_DEVICE_ID), 0},
--	{PCI_VDEVICE(INTEL, I40E_QEMU_DEVICE_ID), 0},
--	{PCI_VDEVICE(INTEL, I40E_KX_A_DEVICE_ID), 0},
--	{PCI_VDEVICE(INTEL, I40E_KX_B_DEVICE_ID), 0},
--	{PCI_VDEVICE(INTEL, I40E_KX_C_DEVICE_ID), 0},
--	{PCI_VDEVICE(INTEL, I40E_KX_D_DEVICE_ID), 0},
--	{PCI_VDEVICE(INTEL, I40E_QSFP_A_DEVICE_ID), 0},
--	{PCI_VDEVICE(INTEL, I40E_QSFP_B_DEVICE_ID), 0},
--	{PCI_VDEVICE(INTEL, I40E_QSFP_C_DEVICE_ID), 0},
-+	{PCI_VDEVICE(INTEL, I40E_DEV_ID_SFP_XL710), 0},
-+	{PCI_VDEVICE(INTEL, I40E_DEV_ID_SFP_X710), 0},
-+	{PCI_VDEVICE(INTEL, I40E_DEV_ID_QEMU), 0},
-+	{PCI_VDEVICE(INTEL, I40E_DEV_ID_KX_A), 0},
-+	{PCI_VDEVICE(INTEL, I40E_DEV_ID_KX_B), 0},
-+	{PCI_VDEVICE(INTEL, I40E_DEV_ID_KX_C), 0},
-+	{PCI_VDEVICE(INTEL, I40E_DEV_ID_KX_D), 0},
-+	{PCI_VDEVICE(INTEL, I40E_DEV_ID_QSFP_A), 0},
-+	{PCI_VDEVICE(INTEL, I40E_DEV_ID_QSFP_B), 0},
-+	{PCI_VDEVICE(INTEL, I40E_DEV_ID_QSFP_C), 0},
- 	/* required last entry */
- 	{0, }
- };
-@@ -469,7 +469,7 @@ static void i40e_stat_update48(struct i40e_hw *hw, u32 hireg, u32 loreg,
- {
- 	u64 new_data;
+ /**
++ * i40e_aq_dcb_updated - DCB Updated Command
++ * @hw: pointer to the hw struct
++ * @cmd_details: pointer to command details structure or NULL
++ *
++ * EMP will return when the shared RPB settings have been
++ * recomputed and modified. The retval field in the descriptor
++ * will be set to 0 when RPB is modified.
++ **/
++i40e_status i40e_aq_dcb_updated(struct i40e_hw *hw,
++				struct i40e_asq_cmd_details *cmd_details)
++{
++	struct i40e_aq_desc desc;
++	i40e_status status;
++
++	i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_dcb_updated);
++
++	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
++
++	return status;
++}
++
++/**
+  * i40e_aq_tx_sched_cmd - generic Tx scheduler AQ command handler
+  * @hw: pointer to the hw struct
+  * @seid: seid for the physical port/switching component/vsi
+@@ -1882,6 +1904,40 @@ i40e_status i40e_aq_config_vsi_tc_bw(struct i40e_hw *hw,
+ }
  
--	if (hw->device_id == I40E_QEMU_DEVICE_ID) {
-+	if (hw->device_id == I40E_DEV_ID_QEMU) {
- 		new_data = rd32(hw, loreg);
- 		new_data |= ((u64)(rd32(hw, hireg) & 0xFFFF)) << 32;
- 	} else {
+ /**
++ * i40e_aq_config_switch_comp_ets - Enable/Disable/Modify ETS on the port
++ * @hw: pointer to the hw struct
++ * @seid: seid of the switching component connected to Physical Port
++ * @ets_data: Buffer holding ETS parameters
++ * @cmd_details: pointer to command details structure or NULL
++ **/
++i40e_status i40e_aq_config_switch_comp_ets(struct i40e_hw *hw,
++		u16 seid,
++		struct i40e_aqc_configure_switching_comp_ets_data *ets_data,
++		enum i40e_admin_queue_opc opcode,
++		struct i40e_asq_cmd_details *cmd_details)
++{
++	return i40e_aq_tx_sched_cmd(hw, seid, (void *)ets_data,
++				    sizeof(*ets_data), opcode, cmd_details);
++}
++
++/**
++ * i40e_aq_config_switch_comp_bw_config - Config Switch comp BW Alloc per TC
++ * @hw: pointer to the hw struct
++ * @seid: seid of the switching component
++ * @bw_data: Buffer holding enabled TCs, relative/absolute TC BW limit/credits
++ * @cmd_details: pointer to command details structure or NULL
++ **/
++i40e_status i40e_aq_config_switch_comp_bw_config(struct i40e_hw *hw,
++	u16 seid,
++	struct i40e_aqc_configure_switching_comp_bw_config_data *bw_data,
++	struct i40e_asq_cmd_details *cmd_details)
++{
++	return i40e_aq_tx_sched_cmd(hw, seid, (void *)bw_data, sizeof(*bw_data),
++			    i40e_aqc_opc_configure_switching_comp_bw_config,
++			    cmd_details);
++}
++
++/**
+  * i40e_aq_query_vsi_bw_config - Query VSI BW configuration
+  * @hw: pointer to the hw struct
+  * @seid: seid of the VSI
+@@ -2134,6 +2190,69 @@ i40e_status i40e_set_filter_control(struct i40e_hw *hw,
+ 
+ 	return 0;
+ }
++
++/**
++ * i40e_aq_add_rem_control_packet_filter - Add or Remove Control Packet Filter
++ * @hw: pointer to the hw struct
++ * @mac_addr: MAC address to use in the filter
++ * @ethtype: Ethertype to use in the filter
++ * @flags: Flags that needs to be applied to the filter
++ * @vsi_seid: seid of the control VSI
++ * @queue: VSI queue number to send the packet to
++ * @is_add: Add control packet filter if True else remove
++ * @stats: Structure to hold information on control filter counts
++ * @cmd_details: pointer to command details structure or NULL
++ *
++ * This command will Add or Remove control packet filter for a control VSI.
++ * In return it will update the total number of perfect filter count in
++ * the stats member.
++ **/
++i40e_status i40e_aq_add_rem_control_packet_filter(struct i40e_hw *hw,
++				u8 *mac_addr, u16 ethtype, u16 flags,
++				u16 vsi_seid, u16 queue, bool is_add,
++				struct i40e_control_filter_stats *stats,
++				struct i40e_asq_cmd_details *cmd_details)
++{
++	struct i40e_aq_desc desc;
++	struct i40e_aqc_add_remove_control_packet_filter *cmd =
++		(struct i40e_aqc_add_remove_control_packet_filter *)
++		&desc.params.raw;
++	struct i40e_aqc_add_remove_control_packet_filter_completion *resp =
++		(struct i40e_aqc_add_remove_control_packet_filter_completion *)
++		&desc.params.raw;
++	i40e_status status;
++
++	if (vsi_seid == 0)
++		return I40E_ERR_PARAM;
++
++	if (is_add) {
++		i40e_fill_default_direct_cmd_desc(&desc,
++				i40e_aqc_opc_add_control_packet_filter);
++		cmd->queue = cpu_to_le16(queue);
++	} else {
++		i40e_fill_default_direct_cmd_desc(&desc,
++				i40e_aqc_opc_remove_control_packet_filter);
++	}
++
++	if (mac_addr)
++		memcpy(cmd->mac, mac_addr, ETH_ALEN);
++
++	cmd->etype = cpu_to_le16(ethtype);
++	cmd->flags = cpu_to_le16(flags);
++	cmd->seid = cpu_to_le16(vsi_seid);
++
++	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
++
++	if (!status && stats) {
++		stats->mac_etype_used = le16_to_cpu(resp->mac_etype_used);
++		stats->etype_used = le16_to_cpu(resp->etype_used);
++		stats->mac_etype_free = le16_to_cpu(resp->mac_etype_free);
++		stats->etype_free = le16_to_cpu(resp->etype_free);
++	}
++
++	return status;
++}
++
+ /**
+  * i40e_set_pci_config_data - store PCI bus info
+  * @hw: pointer to hardware structure
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_dcb.c b/drivers/net/ethernet/intel/i40e/i40e_dcb.c
+new file mode 100644
+index 0000000..5073014
+--- /dev/null
++++ b/drivers/net/ethernet/intel/i40e/i40e_dcb.c
+@@ -0,0 +1,469 @@
++/*******************************************************************************
++ *
++ * Intel Ethernet Controller XL710 Family Linux Driver
++ * Copyright(c) 2013 - 2014 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ *
++ ******************************************************************************/
++
++#include "i40e_adminq.h"
++#include "i40e_prototype.h"
++#include "i40e_dcb.h"
++
++/**
++ * i40e_get_dcbx_status
++ * @hw: pointer to the hw struct
++ * @status: Embedded DCBX Engine Status
++ *
++ * Get the DCBX status from the Firmware
++ **/
++i40e_status i40e_get_dcbx_status(struct i40e_hw *hw, u16 *status)
++{
++	u32 reg;
++
++	if (!status)
++		return I40E_ERR_PARAM;
++
++	reg = rd32(hw, I40E_PRTDCB_GENS);
++	*status = (u16)((reg & I40E_PRTDCB_GENS_DCBX_STATUS_MASK) >>
++			I40E_PRTDCB_GENS_DCBX_STATUS_SHIFT);
++
++	return 0;
++}
++
++/**
++ * i40e_parse_ieee_etscfg_tlv
++ * @tlv: IEEE 802.1Qaz ETS CFG TLV
++ * @dcbcfg: Local store to update ETS CFG data
++ *
++ * Parses IEEE 802.1Qaz ETS CFG TLV
++ **/
++static void i40e_parse_ieee_etscfg_tlv(struct i40e_lldp_org_tlv *tlv,
++				       struct i40e_dcbx_config *dcbcfg)
++{
++	struct i40e_ieee_ets_config *etscfg;
++	u8 *buf = tlv->tlvinfo;
++	u16 offset = 0;
++	u8 priority;
++	int i;
++
++	/* First Octet post subtype
++	 * --------------------------
++	 * |will-|CBS  | Re-  | Max |
++	 * |ing  |     |served| TCs |
++	 * --------------------------
++	 * |1bit | 1bit|3 bits|3bits|
++	 */
++	etscfg = &dcbcfg->etscfg;
++	etscfg->willing = (u8)((buf[offset] & I40E_IEEE_ETS_WILLING_MASK) >>
++			       I40E_IEEE_ETS_WILLING_SHIFT);
++	etscfg->cbs = (u8)((buf[offset] & I40E_IEEE_ETS_CBS_MASK) >>
++			   I40E_IEEE_ETS_CBS_SHIFT);
++	etscfg->maxtcs = (u8)((buf[offset] & I40E_IEEE_ETS_MAXTC_MASK) >>
++			      I40E_IEEE_ETS_MAXTC_SHIFT);
++
++	/* Move offset to Priority Assignment Table */
++	offset++;
++
++	/* Priority Assignment Table (4 octets)
++	 * Octets:|    1    |    2    |    3    |    4    |
++	 *        -----------------------------------------
++	 *        |pri0|pri1|pri2|pri3|pri4|pri5|pri6|pri7|
++	 *        -----------------------------------------
++	 *   Bits:|7  4|3  0|7  4|3  0|7  4|3  0|7  4|3  0|
++	 *        -----------------------------------------
++	 */
++	for (i = 0; i < 4; i++) {
++		priority = (u8)((buf[offset] & I40E_IEEE_ETS_PRIO_1_MASK) >>
++				I40E_IEEE_ETS_PRIO_1_SHIFT);
++		etscfg->prioritytable[i * 2] =  priority;
++		priority = (u8)((buf[offset] & I40E_IEEE_ETS_PRIO_0_MASK) >>
++				I40E_IEEE_ETS_PRIO_0_SHIFT);
++		etscfg->prioritytable[i * 2 + 1] = priority;
++		offset++;
++	}
++
++	/* TC Bandwidth Table (8 octets)
++	 * Octets:| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
++	 *        ---------------------------------
++	 *        |tc0|tc1|tc2|tc3|tc4|tc5|tc6|tc7|
++	 *        ---------------------------------
++	 */
++	for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++)
++		etscfg->tcbwtable[i] = buf[offset++];
++
++	/* TSA Assignment Table (8 octets)
++	 * Octets:| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
++	 *        ---------------------------------
++	 *        |tc0|tc1|tc2|tc3|tc4|tc5|tc6|tc7|
++	 *        ---------------------------------
++	 */
++	for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++)
++		etscfg->tsatable[i] = buf[offset++];
++}
++
++/**
++ * i40e_parse_ieee_etsrec_tlv
++ * @tlv: IEEE 802.1Qaz ETS REC TLV
++ * @dcbcfg: Local store to update ETS REC data
++ *
++ * Parses IEEE 802.1Qaz ETS REC TLV
++ **/
++static void i40e_parse_ieee_etsrec_tlv(struct i40e_lldp_org_tlv *tlv,
++				       struct i40e_dcbx_config *dcbcfg)
++{
++	u8 *buf = tlv->tlvinfo;
++	u16 offset = 0;
++	u8 priority;
++	int i;
++
++	/* Move offset to priority table */
++	offset++;
++
++	/* Priority Assignment Table (4 octets)
++	 * Octets:|    1    |    2    |    3    |    4    |
++	 *        -----------------------------------------
++	 *        |pri0|pri1|pri2|pri3|pri4|pri5|pri6|pri7|
++	 *        -----------------------------------------
++	 *   Bits:|7  4|3  0|7  4|3  0|7  4|3  0|7  4|3  0|
++	 *        -----------------------------------------
++	 */
++	for (i = 0; i < 4; i++) {
++		priority = (u8)((buf[offset] & I40E_IEEE_ETS_PRIO_1_MASK) >>
++				I40E_IEEE_ETS_PRIO_1_SHIFT);
++		dcbcfg->etsrec.prioritytable[i*2] =  priority;
++		priority = (u8)((buf[offset] & I40E_IEEE_ETS_PRIO_0_MASK) >>
++				I40E_IEEE_ETS_PRIO_0_SHIFT);
++		dcbcfg->etsrec.prioritytable[i*2 + 1] = priority;
++		offset++;
++	}
++
++	/* TC Bandwidth Table (8 octets)
++	 * Octets:| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
++	 *        ---------------------------------
++	 *        |tc0|tc1|tc2|tc3|tc4|tc5|tc6|tc7|
++	 *        ---------------------------------
++	 */
++	for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++)
++		dcbcfg->etsrec.tcbwtable[i] = buf[offset++];
++
++	/* TSA Assignment Table (8 octets)
++	 * Octets:| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
++	 *        ---------------------------------
++	 *        |tc0|tc1|tc2|tc3|tc4|tc5|tc6|tc7|
++	 *        ---------------------------------
++	 */
++	for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++)
++		dcbcfg->etsrec.tsatable[i] = buf[offset++];
++}
++
++/**
++ * i40e_parse_ieee_pfccfg_tlv
++ * @tlv: IEEE 802.1Qaz PFC CFG TLV
++ * @dcbcfg: Local store to update PFC CFG data
++ *
++ * Parses IEEE 802.1Qaz PFC CFG TLV
++ **/
++static void i40e_parse_ieee_pfccfg_tlv(struct i40e_lldp_org_tlv *tlv,
++				       struct i40e_dcbx_config *dcbcfg)
++{
++	u8 *buf = tlv->tlvinfo;
++
++	/* ----------------------------------------
++	 * |will-|MBC  | Re-  | PFC |  PFC Enable  |
++	 * |ing  |     |served| cap |              |
++	 * -----------------------------------------
++	 * |1bit | 1bit|2 bits|4bits| 1 octet      |
++	 */
++	dcbcfg->pfc.willing = (u8)((buf[0] & I40E_IEEE_PFC_WILLING_MASK) >>
++				   I40E_IEEE_PFC_WILLING_SHIFT);
++	dcbcfg->pfc.mbc = (u8)((buf[0] & I40E_IEEE_PFC_MBC_MASK) >>
++			       I40E_IEEE_PFC_MBC_SHIFT);
++	dcbcfg->pfc.pfccap = (u8)((buf[0] & I40E_IEEE_PFC_CAP_MASK) >>
++				  I40E_IEEE_PFC_CAP_SHIFT);
++	dcbcfg->pfc.pfcenable = buf[1];
++}
++
++/**
++ * i40e_parse_ieee_app_tlv
++ * @tlv: IEEE 802.1Qaz APP TLV
++ * @dcbcfg: Local store to update APP PRIO data
++ *
++ * Parses IEEE 802.1Qaz APP PRIO TLV
++ **/
++static void i40e_parse_ieee_app_tlv(struct i40e_lldp_org_tlv *tlv,
++				    struct i40e_dcbx_config *dcbcfg)
++{
++	u16 typelength;
++	u16 offset = 0;
++	u16 length;
++	int i = 0;
++	u8 *buf;
++
++	typelength = ntohs(tlv->typelength);
++	length = (u16)((typelength & I40E_LLDP_TLV_LEN_MASK) >>
++		       I40E_LLDP_TLV_LEN_SHIFT);
++	buf = tlv->tlvinfo;
++
++	/* The App priority table starts 5 octets after TLV header */
++	length -= (sizeof(tlv->ouisubtype) + 1);
++
++	/* Move offset to App Priority Table */
++	offset++;
++
++	/* Application Priority Table (3 octets)
++	 * Octets:|         1          |    2    |    3    |
++	 *        -----------------------------------------
++	 *        |Priority|Rsrvd| Sel |    Protocol ID    |
++	 *        -----------------------------------------
++	 *   Bits:|23    21|20 19|18 16|15                0|
++	 *        -----------------------------------------
++	 */
++	while (offset < length) {
++		dcbcfg->app[i].priority = (u8)((buf[offset] &
++						I40E_IEEE_APP_PRIO_MASK) >>
++					       I40E_IEEE_APP_PRIO_SHIFT);
++		dcbcfg->app[i].selector = (u8)((buf[offset] &
++						I40E_IEEE_APP_SEL_MASK) >>
++					       I40E_IEEE_APP_SEL_SHIFT);
++		dcbcfg->app[i].protocolid = (buf[offset + 1] << 0x8) |
++					     buf[offset + 2];
++		/* Move to next app */
++		offset += 3;
++		i++;
++		if (i >= I40E_DCBX_MAX_APPS)
++			break;
++	}
++
++	dcbcfg->numapps = i;
++}
++
++/**
++ * i40e_parse_ieee_etsrec_tlv
++ * @tlv: IEEE 802.1Qaz TLV
++ * @dcbcfg: Local store to update ETS REC data
++ *
++ * Get the TLV subtype and send it to parsing function
++ * based on the subtype value
++ **/
++static void i40e_parse_ieee_tlv(struct i40e_lldp_org_tlv *tlv,
++				struct i40e_dcbx_config *dcbcfg)
++{
++	u32 ouisubtype;
++	u8 subtype;
++
++	ouisubtype = ntohl(tlv->ouisubtype);
++	subtype = (u8)((ouisubtype & I40E_LLDP_TLV_SUBTYPE_MASK) >>
++		       I40E_LLDP_TLV_SUBTYPE_SHIFT);
++	switch (subtype) {
++	case I40E_IEEE_SUBTYPE_ETS_CFG:
++		i40e_parse_ieee_etscfg_tlv(tlv, dcbcfg);
++		break;
++	case I40E_IEEE_SUBTYPE_ETS_REC:
++		i40e_parse_ieee_etsrec_tlv(tlv, dcbcfg);
++		break;
++	case I40E_IEEE_SUBTYPE_PFC_CFG:
++		i40e_parse_ieee_pfccfg_tlv(tlv, dcbcfg);
++		break;
++	case I40E_IEEE_SUBTYPE_APP_PRI:
++		i40e_parse_ieee_app_tlv(tlv, dcbcfg);
++		break;
++	default:
++		break;
++	}
++}
++
++/**
++ * i40e_parse_org_tlv
++ * @tlv: Organization specific TLV
++ * @dcbcfg: Local store to update ETS REC data
++ *
++ * Currently only IEEE 802.1Qaz TLV is supported, all others
++ * will be returned
++ **/
++static void i40e_parse_org_tlv(struct i40e_lldp_org_tlv *tlv,
++			       struct i40e_dcbx_config *dcbcfg)
++{
++	u32 ouisubtype;
++	u32 oui;
++
++	ouisubtype = ntohl(tlv->ouisubtype);
++	oui = (u32)((ouisubtype & I40E_LLDP_TLV_OUI_MASK) >>
++		    I40E_LLDP_TLV_OUI_SHIFT);
++	switch (oui) {
++	case I40E_IEEE_8021QAZ_OUI:
++		i40e_parse_ieee_tlv(tlv, dcbcfg);
++		break;
++	default:
++		break;
++	}
++}
++
++/**
++ * i40e_lldp_to_dcb_config
++ * @lldpmib: LLDPDU to be parsed
++ * @dcbcfg: store for LLDPDU data
++ *
++ * Parse DCB configuration from the LLDPDU
++ **/
++i40e_status i40e_lldp_to_dcb_config(u8 *lldpmib,
++				    struct i40e_dcbx_config *dcbcfg)
++{
++	i40e_status ret = 0;
++	struct i40e_lldp_org_tlv *tlv;
++	u16 type;
++	u16 length;
++	u16 typelength;
++
++	if (!lldpmib || !dcbcfg)
++		return I40E_ERR_PARAM;
++
++	/* set to the start of LLDPDU */
++	lldpmib += ETH_HLEN;
++	tlv = (struct i40e_lldp_org_tlv *)lldpmib;
++	while (tlv) {
++		typelength = ntohs(tlv->typelength);
++		type = (u16)((typelength & I40E_LLDP_TLV_TYPE_MASK) >>
++			     I40E_LLDP_TLV_TYPE_SHIFT);
++		length = (u16)((typelength & I40E_LLDP_TLV_LEN_MASK) >>
++			       I40E_LLDP_TLV_LEN_SHIFT);
++
++		if (type == I40E_TLV_TYPE_END)
++			break;/* END TLV break out */
++
++		switch (type) {
++		case I40E_TLV_TYPE_ORG:
++			i40e_parse_org_tlv(tlv, dcbcfg);
++			break;
++		default:
++			break;
++		}
++
++		/* Move to next TLV */
++		tlv = (struct i40e_lldp_org_tlv *)((char *)tlv +
++						    sizeof(tlv->typelength) +
++						    length);
++	}
++
++	return ret;
++}
++
++/**
++ * i40e_aq_get_dcb_config
++ * @hw: pointer to the hw struct
++ * @mib_type: mib type for the query
++ * @bridgetype: bridge type for the query (remote)
++ * @dcbcfg: store for LLDPDU data
++ *
++ * Query DCB configuration from the Firmware
++ **/
++i40e_status i40e_aq_get_dcb_config(struct i40e_hw *hw, u8 mib_type,
++				   u8 bridgetype,
++				   struct i40e_dcbx_config *dcbcfg)
++{
++	i40e_status ret = 0;
++	struct i40e_virt_mem mem;
++	u8 *lldpmib;
++
++	/* Allocate the LLDPDU */
++	ret = i40e_allocate_virt_mem(hw, &mem, I40E_LLDPDU_SIZE);
++	if (ret)
++		return ret;
++
++	lldpmib = (u8 *)mem.va;
++	ret = i40e_aq_get_lldp_mib(hw, bridgetype, mib_type,
++				   (void *)lldpmib, I40E_LLDPDU_SIZE,
++				   NULL, NULL, NULL);
++	if (ret)
++		goto free_mem;
++
++	/* Parse LLDP MIB to get dcb configuration */
++	ret = i40e_lldp_to_dcb_config(lldpmib, dcbcfg);
++
++free_mem:
++	i40e_free_virt_mem(hw, &mem);
++	return ret;
++}
++
++/**
++ * i40e_get_dcb_config
++ * @hw: pointer to the hw struct
++ *
++ * Get DCB configuration from the Firmware
++ **/
++i40e_status i40e_get_dcb_config(struct i40e_hw *hw)
++{
++	i40e_status ret = 0;
++
++	/* Get Local DCB Config */
++	ret = i40e_aq_get_dcb_config(hw, I40E_AQ_LLDP_MIB_LOCAL, 0,
++				     &hw->local_dcbx_config);
++	if (ret)
++		goto out;
++
++	/* Get Remote DCB Config */
++	ret = i40e_aq_get_dcb_config(hw, I40E_AQ_LLDP_MIB_REMOTE,
++				     I40E_AQ_LLDP_BRIDGE_TYPE_NEAREST_BRIDGE,
++				     &hw->remote_dcbx_config);
++out:
++	return ret;
++}
++
++/**
++ * i40e_init_dcb
++ * @hw: pointer to the hw struct
++ *
++ * Update DCB configuration from the Firmware
++ **/
++i40e_status i40e_init_dcb(struct i40e_hw *hw)
++{
++	i40e_status ret = 0;
++
++	if (!hw->func_caps.dcb)
++		return ret;
++
++	/* Get DCBX status */
++	ret = i40e_get_dcbx_status(hw, &hw->dcbx_status);
++	if (ret)
++		return ret;
++
++	/* Check the DCBX Status */
++	switch (hw->dcbx_status) {
++	case I40E_DCBX_STATUS_DONE:
++	case I40E_DCBX_STATUS_IN_PROGRESS:
++		/* Get current DCBX configuration */
++		ret = i40e_get_dcb_config(hw);
++		break;
++	case I40E_DCBX_STATUS_DISABLED:
++		return ret;
++	case I40E_DCBX_STATUS_NOT_STARTED:
++	case I40E_DCBX_STATUS_MULTIPLE_PEERS:
++	default:
++		break;
++	}
++
++	/* Configure the LLDP MIB change event */
++	ret = i40e_aq_cfg_lldp_mib_change_event(hw, true, NULL);
++	if (ret)
++		return ret;
++
++	return ret;
++}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_dcb.h b/drivers/net/ethernet/intel/i40e/i40e_dcb.h
+new file mode 100644
+index 0000000..34cf1c3
+--- /dev/null
++++ b/drivers/net/ethernet/intel/i40e/i40e_dcb.h
+@@ -0,0 +1,107 @@
++/*******************************************************************************
++ *
++ * Intel Ethernet Controller XL710 Family Linux Driver
++ * Copyright(c) 2013 - 2014 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ *
++ ******************************************************************************/
++
++#ifndef _I40E_DCB_H_
++#define _I40E_DCB_H_
++
++#include "i40e_type.h"
++
++#define I40E_DCBX_STATUS_NOT_STARTED	0
++#define I40E_DCBX_STATUS_IN_PROGRESS	1
++#define I40E_DCBX_STATUS_DONE		2
++#define I40E_DCBX_STATUS_MULTIPLE_PEERS	3
++#define I40E_DCBX_STATUS_DISABLED	7
++
++#define I40E_TLV_TYPE_END		0
++#define I40E_TLV_TYPE_ORG		127
++
++#define I40E_IEEE_8021QAZ_OUI		0x0080C2
++#define I40E_IEEE_SUBTYPE_ETS_CFG	9
++#define I40E_IEEE_SUBTYPE_ETS_REC	10
++#define I40E_IEEE_SUBTYPE_PFC_CFG	11
++#define I40E_IEEE_SUBTYPE_APP_PRI	12
++
++/* Defines for LLDP TLV header */
++#define I40E_LLDP_TLV_LEN_SHIFT		0
++#define I40E_LLDP_TLV_LEN_MASK		(0x01FF << I40E_LLDP_TLV_LEN_SHIFT)
++#define I40E_LLDP_TLV_TYPE_SHIFT	9
++#define I40E_LLDP_TLV_TYPE_MASK		(0x7F << I40E_LLDP_TLV_TYPE_SHIFT)
++#define I40E_LLDP_TLV_SUBTYPE_SHIFT	0
++#define I40E_LLDP_TLV_SUBTYPE_MASK	(0xFF << I40E_LLDP_TLV_SUBTYPE_SHIFT)
++#define I40E_LLDP_TLV_OUI_SHIFT		8
++#define I40E_LLDP_TLV_OUI_MASK		(0xFFFFFF << I40E_LLDP_TLV_OUI_SHIFT)
++
++/* Defines for IEEE ETS TLV */
++#define I40E_IEEE_ETS_MAXTC_SHIFT	0
++#define I40E_IEEE_ETS_MAXTC_MASK	(0x7 << I40E_IEEE_ETS_MAXTC_SHIFT)
++#define I40E_IEEE_ETS_CBS_SHIFT		6
++#define I40E_IEEE_ETS_CBS_MASK		(0x1 << I40E_IEEE_ETS_CBS_SHIFT)
++#define I40E_IEEE_ETS_WILLING_SHIFT	7
++#define I40E_IEEE_ETS_WILLING_MASK	(0x1 << I40E_IEEE_ETS_WILLING_SHIFT)
++#define I40E_IEEE_ETS_PRIO_0_SHIFT	0
++#define I40E_IEEE_ETS_PRIO_0_MASK	(0x7 << I40E_IEEE_ETS_PRIO_0_SHIFT)
++#define I40E_IEEE_ETS_PRIO_1_SHIFT	4
++#define I40E_IEEE_ETS_PRIO_1_MASK	(0x7 << I40E_IEEE_ETS_PRIO_1_SHIFT)
++
++/* Defines for IEEE TSA types */
++#define I40E_IEEE_TSA_STRICT		0
++#define I40E_IEEE_TSA_ETS		2
++
++/* Defines for IEEE PFC TLV */
++#define I40E_IEEE_PFC_CAP_SHIFT		0
++#define I40E_IEEE_PFC_CAP_MASK		(0xF << I40E_IEEE_PFC_CAP_SHIFT)
++#define I40E_IEEE_PFC_MBC_SHIFT		6
++#define I40E_IEEE_PFC_MBC_MASK		(0x1 << I40E_IEEE_PFC_MBC_SHIFT)
++#define I40E_IEEE_PFC_WILLING_SHIFT	7
++#define I40E_IEEE_PFC_WILLING_MASK	(0x1 << I40E_IEEE_PFC_WILLING_SHIFT)
++
++/* Defines for IEEE APP TLV */
++#define I40E_IEEE_APP_SEL_SHIFT		0
++#define I40E_IEEE_APP_SEL_MASK		(0x7 << I40E_IEEE_APP_SEL_SHIFT)
++#define I40E_IEEE_APP_PRIO_SHIFT	5
++#define I40E_IEEE_APP_PRIO_MASK		(0x7 << I40E_IEEE_APP_PRIO_SHIFT)
++
++
++#pragma pack(1)
++
++/* IEEE 802.1AB LLDP Organization specific TLV */
++struct i40e_lldp_org_tlv {
++	__be16 typelength;
++	__be32 ouisubtype;
++	u8 tlvinfo[1];
++};
++#pragma pack()
++
++i40e_status i40e_get_dcbx_status(struct i40e_hw *hw,
++					   u16 *status);
++i40e_status i40e_lldp_to_dcb_config(u8 *lldpmib,
++					      struct i40e_dcbx_config *dcbcfg);
++i40e_status i40e_aq_get_dcb_config(struct i40e_hw *hw, u8 mib_type,
++					     u8 bridgetype,
++					     struct i40e_dcbx_config *dcbcfg);
++i40e_status i40e_get_dcb_config(struct i40e_hw *hw);
++i40e_status i40e_init_dcb(struct i40e_hw *hw);
++#endif /* _I40E_DCB_H_ */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+index 8c426f4..ed91f93 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+@@ -167,6 +167,8 @@ i40e_status i40e_aq_delete_element(struct i40e_hw *hw, u16 seid,
+ i40e_status i40e_aq_mac_address_write(struct i40e_hw *hw,
+ 				    u16 flags, u8 *mac_addr,
+ 				    struct i40e_asq_cmd_details *cmd_details);
++i40e_status i40e_aq_dcb_updated(struct i40e_hw *hw,
++				struct i40e_asq_cmd_details *cmd_details);
+ i40e_status i40e_aq_set_hmc_resource_profile(struct i40e_hw *hw,
+ 				enum i40e_aq_hmc_profile profile,
+ 				u8 pe_vf_enabled_count,
+@@ -177,6 +179,15 @@ i40e_status i40e_aq_config_switch_comp_bw_limit(struct i40e_hw *hw,
+ i40e_status i40e_aq_config_vsi_tc_bw(struct i40e_hw *hw, u16 seid,
+ 			struct i40e_aqc_configure_vsi_tc_bw_data *bw_data,
+ 			struct i40e_asq_cmd_details *cmd_details);
++i40e_status i40e_aq_config_switch_comp_ets(struct i40e_hw *hw,
++		u16 seid,
++		struct i40e_aqc_configure_switching_comp_ets_data *ets_data,
++		enum i40e_admin_queue_opc opcode,
++		struct i40e_asq_cmd_details *cmd_details);
++i40e_status i40e_aq_config_switch_comp_bw_config(struct i40e_hw *hw,
++	u16 seid,
++	struct i40e_aqc_configure_switching_comp_bw_config_data *bw_data,
++	struct i40e_asq_cmd_details *cmd_details);
+ i40e_status i40e_aq_query_vsi_bw_config(struct i40e_hw *hw,
+ 			u16 seid,
+ 			struct i40e_aqc_query_vsi_bw_config_resp *bw_data,
+@@ -204,8 +215,7 @@ void i40e_clear_pxe_mode(struct i40e_hw *hw);
+ bool i40e_get_link_status(struct i40e_hw *hw);
+ i40e_status i40e_get_mac_addr(struct i40e_hw *hw,
+ 						u8 *mac_addr);
+-i40e_status i40e_read_lldp_cfg(struct i40e_hw *hw,
+-					struct i40e_lldp_variables *lldp_cfg);
++i40e_status i40e_validate_mac_addr(u8 *mac_addr);
+ /* prototype for functions used for NVM access */
+ i40e_status i40e_init_nvm(struct i40e_hw *hw);
+ i40e_status i40e_acquire_nvm(struct i40e_hw *hw,
+@@ -234,4 +244,9 @@ i40e_status i40e_aq_send_msg_to_pf(struct i40e_hw *hw,
+ 				struct i40e_asq_cmd_details *cmd_details);
+ i40e_status i40e_set_filter_control(struct i40e_hw *hw,
+ 				struct i40e_filter_control_settings *settings);
++i40e_status i40e_aq_add_rem_control_packet_filter(struct i40e_hw *hw,
++				u8 *mac_addr, u16 ethtype, u16 flags,
++				u16 vsi_seid, u16 queue, bool is_add,
++				struct i40e_control_filter_stats *stats,
++				struct i40e_asq_cmd_details *cmd_details);
+ #endif /* _I40E_PROTOTYPE_H_ */
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index d33ede9..181a825 100644
+index ccfc52d..d33ede9 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_type.h
 +++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -35,22 +35,22 @@
- #include "i40e_lan_hmc.h"
- 
- /* Device IDs */
--#define I40E_SFP_XL710_DEVICE_ID	0x1572
--#define I40E_SFP_X710_DEVICE_ID		0x1573
--#define I40E_QEMU_DEVICE_ID		0x1574
--#define I40E_KX_A_DEVICE_ID		0x157F
--#define I40E_KX_B_DEVICE_ID		0x1580
--#define I40E_KX_C_DEVICE_ID		0x1581
--#define I40E_KX_D_DEVICE_ID		0x1582
--#define I40E_QSFP_A_DEVICE_ID		0x1583
--#define I40E_QSFP_B_DEVICE_ID		0x1584
--#define I40E_QSFP_C_DEVICE_ID		0x1585
--#define I40E_VF_DEVICE_ID		0x154C
--#define I40E_VF_HV_DEVICE_ID		0x1571
--
--#define i40e_is_40G_device(d)		((d) == I40E_QSFP_A_DEVICE_ID  || \
--					 (d) == I40E_QSFP_B_DEVICE_ID  || \
--					 (d) == I40E_QSFP_C_DEVICE_ID)
-+#define I40E_DEV_ID_SFP_XL710		0x1572
-+#define I40E_DEV_ID_SFP_X710		0x1573
-+#define I40E_DEV_ID_QEMU		0x1574
-+#define I40E_DEV_ID_KX_A		0x157F
-+#define I40E_DEV_ID_KX_B		0x1580
-+#define I40E_DEV_ID_KX_C		0x1581
-+#define I40E_DEV_ID_KX_D		0x1582
-+#define I40E_DEV_ID_QSFP_A		0x1583
-+#define I40E_DEV_ID_QSFP_B		0x1584
-+#define I40E_DEV_ID_QSFP_C		0x1585
-+#define I40E_DEV_ID_VF			0x154C
-+#define I40E_DEV_ID_VF_HV		0x1571
-+
-+#define i40e_is_40G_device(d)		((d) == I40E_DEV_ID_QSFP_A  || \
-+					 (d) == I40E_DEV_ID_QSFP_B  || \
-+					 (d) == I40E_DEV_ID_QSFP_C)
- 
- #define I40E_MAX_VSI_QP			16
- #define I40E_MAX_VF_VSI			3
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 44bb359..b9d1c1c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -700,7 +700,7 @@ static bool i40e_vfs_are_assigned(struct i40e_pf *pf)
- 	struct pci_dev *vfdev;
- 
- 	/* loop through all the VFs to see if we own any that are assigned */
--	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, I40E_VF_DEVICE_ID , NULL);
-+	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, I40E_DEV_ID_VF , NULL);
- 	while (vfdev) {
- 		/* if we don't own it we don't care */
- 		if (vfdev->is_virtfn && pci_physfn(vfdev) == pdev) {
-@@ -710,7 +710,7 @@ static bool i40e_vfs_are_assigned(struct i40e_pf *pf)
- 		}
- 
- 		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL,
--				       I40E_VF_DEVICE_ID,
-+				       I40E_DEV_ID_VF,
- 				       vfdev);
- 	}
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-index 44b90b3..7b13953 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-@@ -39,20 +39,20 @@ i40e_status i40e_set_mac_type(struct i40e_hw *hw)
- 
- 	if (hw->vendor_id == PCI_VENDOR_ID_INTEL) {
- 		switch (hw->device_id) {
--		case I40E_SFP_XL710_DEVICE_ID:
--		case I40E_SFP_X710_DEVICE_ID:
--		case I40E_QEMU_DEVICE_ID:
--		case I40E_KX_A_DEVICE_ID:
--		case I40E_KX_B_DEVICE_ID:
--		case I40E_KX_C_DEVICE_ID:
--		case I40E_KX_D_DEVICE_ID:
--		case I40E_QSFP_A_DEVICE_ID:
--		case I40E_QSFP_B_DEVICE_ID:
--		case I40E_QSFP_C_DEVICE_ID:
-+		case I40E_DEV_ID_SFP_XL710:
-+		case I40E_DEV_ID_SFP_X710:
-+		case I40E_DEV_ID_QEMU:
-+		case I40E_DEV_ID_KX_A:
-+		case I40E_DEV_ID_KX_B:
-+		case I40E_DEV_ID_KX_C:
-+		case I40E_DEV_ID_KX_D:
-+		case I40E_DEV_ID_QSFP_A:
-+		case I40E_DEV_ID_QSFP_B:
-+		case I40E_DEV_ID_QSFP_C:
- 			hw->mac.type = I40E_MAC_XL710;
- 			break;
--		case I40E_VF_DEVICE_ID:
--		case I40E_VF_HV_DEVICE_ID:
-+		case I40E_DEV_ID_VF:
-+		case I40E_DEV_ID_VF_HV:
- 			hw->mac.type = I40E_MAC_VF;
- 			break;
- 		default:
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index beb3fa7..3bffac0 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -32,22 +32,22 @@
- #include "i40e_lan_hmc.h"
- 
- /* Device IDs */
--#define I40E_SFP_XL710_DEVICE_ID	0x1572
--#define I40E_SFP_X710_DEVICE_ID		0x1573
--#define I40E_QEMU_DEVICE_ID		0x1574
--#define I40E_KX_A_DEVICE_ID		0x157F
--#define I40E_KX_B_DEVICE_ID		0x1580
--#define I40E_KX_C_DEVICE_ID		0x1581
--#define I40E_KX_D_DEVICE_ID		0x1582
--#define I40E_QSFP_A_DEVICE_ID		0x1583
--#define I40E_QSFP_B_DEVICE_ID		0x1584
--#define I40E_QSFP_C_DEVICE_ID		0x1585
--#define I40E_VF_DEVICE_ID		0x154C
--#define I40E_VF_HV_DEVICE_ID		0x1571
--
--#define i40e_is_40G_device(d)		((d) == I40E_QSFP_A_DEVICE_ID  || \
--					 (d) == I40E_QSFP_B_DEVICE_ID  || \
--					 (d) == I40E_QSFP_C_DEVICE_ID)
-+#define I40E_DEV_ID_SFP_XL710	0x1572
-+#define I40E_DEV_ID_SFP_X710		0x1573
-+#define I40E_DEV_ID_QEMU		0x1574
-+#define I40E_DEV_ID_KX_A		0x157F
-+#define I40E_DEV_ID_KX_B		0x1580
-+#define I40E_DEV_ID_KX_C		0x1581
-+#define I40E_DEV_ID_KX_D		0x1582
-+#define I40E_DEV_ID_QSFP_A		0x1583
-+#define I40E_DEV_ID_QSFP_B		0x1584
-+#define I40E_DEV_ID_QSFP_C		0x1585
-+#define I40E_DEV_ID_VF		0x154C
-+#define I40E_DEV_ID_VF_HV		0x1571
-+
-+#define i40e_is_40G_device(d)		((d) == I40E_DEV_ID_QSFP_A  || \
-+					 (d) == I40E_DEV_ID_QSFP_B  || \
-+					 (d) == I40E_DEV_ID_QSFP_C)
- 
- #define I40E_MAX_VSI_QP			16
- #define I40E_MAX_VF_VSI			3
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 06bf8253..f5caf44 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -45,7 +45,7 @@ static const char i40evf_copyright[] =
-  *   Class, Class Mask, private data (not used) }
-  */
- static DEFINE_PCI_DEVICE_TABLE(i40evf_pci_tbl) = {
--	{PCI_VDEVICE(INTEL, I40E_VF_DEVICE_ID), 0},
-+	{PCI_VDEVICE(INTEL, I40E_DEV_ID_VF), 0},
- 	/* required last entry */
- 	{0, }
+@@ -1141,17 +1141,4 @@ enum i40e_reset_type {
+ 	I40E_RESET_GLOBR	= 2,
+ 	I40E_RESET_EMPR		= 3,
  };
+-
+-/* IEEE 802.1AB LLDP Agent Variables from NVM */
+-#define I40E_NVM_LLDP_CFG_PTR		0xF
+-struct i40e_lldp_variables {
+-	u16 length;
+-	u16 adminstatus;
+-	u16 msgfasttx;
+-	u16 msgtxinterval;
+-	u16 txparams;
+-	u16 timers;
+-	u16 crc8;
+-};
+-
+ #endif /* _I40E_TYPE_H_ */
 -- 
 1.8.5.GIT
