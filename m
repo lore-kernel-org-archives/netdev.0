@@ -1,85 +1,92 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH] net: Correctly sync addresses from multiple sources to single device
-Date: Fri, 17 Jan 2014 14:52:12 -0500
-Message-ID: <1389988332-22472-1-git-send-email-vyasevic@redhat.com>
-Cc: Vlad Yasevich <vyasevic@redhat.com>,
-	Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54881 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752805AbaAQTwf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jan 2014 14:52:35 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH RFC 4/6] net: rfkill: gpio: add device tree support
+Date: Fri, 17 Jan 2014 21:13:13 +0100
+Message-ID: <201401172113.14322.arnd@arndb.de>
+References: <1389941251-32692-1-git-send-email-wens@csie.org> <201401171747.46332.arnd@arndb.de> <CAGb2v67UKiyfJbKZ_Frk3OwZupMPoA2Ck3Hj2zsRFXBQPztavg@mail.gmail.com>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=ISO-8859-1
+Cc: "linux-arm-kernel" <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+ Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ "linux-wireless" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ "linux-sunxi" <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ "linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+ Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Chen-Yu Tsai" <wens-jdAy2FN1RRM@public.gmane.org>,
+ Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Return-path: <linux-sunxi+bncBDEKVJM7XAHRBYU542LAKGQEEMDUROY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <CAGb2v67UKiyfJbKZ_Frk3OwZupMPoA2Ck3Hj2zsRFXBQPztavg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-When we have multiple devices attempting to sync the same address
-to a single destination, each device should be permitted to sync
-it once.  To accomplish this, pass the sync count of the source
-address to __hw_addr_add_ex().  'sync_cnt' tracks how many time
-a given address has been successfully synced.  If the address
-is found in the destination list, but the 'sync_cnt' of the source
-is 0, then this address has not been synced from this interface
-and we need to allow the sync operation to succeed thus incrementing
-reference counts.
+On Friday 17 January 2014, Chen-Yu Tsai wrote:
+> On Sat, Jan 18, 2014 at 12:47 AM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
+> > On Friday 17 January 2014, Chen-Yu Tsai wrote:
+> >> diff --git a/Documentation/devicetree/bindings/rfkill/rfkill-gpio.txt b/Documentation/devicetree/bindings/rfkill/rfkill-gpio.txt
+> >> new file mode 100644
+> >> index 0000000..8a07ea4
+> >> --- /dev/null
+> >> +++ b/Documentation/devicetree/bindings/rfkill/rfkill-gpio.txt
+> >> @@ -0,0 +1,26 @@
+> >> +GPIO controlled RFKILL devices
+> >> +
+> >> +Required properties:
+> >> +- compatible   : Must be "rfkill-gpio".
+> >> +- rfkill-name  : Name of RFKILL device
+> >> +- rfkill-type  : Type of RFKILL device: 1 for WiFi, 2 for BlueTooth
+> >> +- NAME_shutdown-gpios  : GPIO phandle to shutdown control
+> >> +                         (phandle must be the second)
+> >> +- NAME_reset-gpios     : GPIO phandle to reset control
+> >> +
+> >> +NAME must match the rfkill-name property. NAME_shutdown-gpios or
+> >> +NAME_reset-gpios, or both, must be defined.
+> >> +
+> >
+> > I don't understand this part. Why do you include the name in the
+> > gpios property, rather than just hardcoding the property strings
+> > to "shutdown-gpios" and "reset-gpios"?
+> 
+> This quirk is a result of how gpiod_get_index implements device tree
+> lookup. You'll also notice that the shutdown GPIO must be the second
+> phandle, as the driver uses indexed lookup to support ACPI cases.
+> If con_id is given, it is prepended to "gpios" as the property string.
+> con_id is also used as the label passed to gpiod_request, which is
+> then shown in /sys/kernel/debug/gpio.
 
-Reported-by: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
-CC: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- net/core/dev_addr_lists.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+The Linux implementation should not enforce an inferior DT binding.
+I think it would be better to change the code instead and make this
+work with a more sensible representation.
 
-diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
-index ec40a84..bd1b880 100644
---- a/net/core/dev_addr_lists.c
-+++ b/net/core/dev_addr_lists.c
-@@ -48,7 +48,8 @@ static int __hw_addr_create_ex(struct netdev_hw_addr_list *list,
- 
- static int __hw_addr_add_ex(struct netdev_hw_addr_list *list,
- 			    const unsigned char *addr, int addr_len,
--			    unsigned char addr_type, bool global, bool sync)
-+			    unsigned char addr_type, bool global, bool sync,
-+			    int sync_count)
- {
- 	struct netdev_hw_addr *ha;
- 
-@@ -66,7 +67,7 @@ static int __hw_addr_add_ex(struct netdev_hw_addr_list *list,
- 					ha->global_use = true;
- 			}
- 			if (sync) {
--				if (ha->synced)
-+				if (ha->synced && sync_count)
- 					return -EEXIST;
- 				else
- 					ha->synced = true;
-@@ -84,7 +85,8 @@ static int __hw_addr_add(struct netdev_hw_addr_list *list,
- 			 const unsigned char *addr, int addr_len,
- 			 unsigned char addr_type)
- {
--	return __hw_addr_add_ex(list, addr, addr_len, addr_type, false, false);
-+	return __hw_addr_add_ex(list, addr, addr_len, addr_type, false, false,
-+				0);
- }
- 
- static int __hw_addr_del_entry(struct netdev_hw_addr_list *list,
-@@ -139,7 +141,7 @@ static int __hw_addr_sync_one(struct netdev_hw_addr_list *to_list,
- 	int err;
- 
- 	err = __hw_addr_add_ex(to_list, ha->addr, addr_len, ha->type,
--			       false, true);
-+			       false, true, ha->sync_count);
- 	if (err && err != -EEXIST)
- 		return err;
- 
-@@ -676,7 +678,7 @@ static int __dev_mc_add(struct net_device *dev, const unsigned char *addr,
- 
- 	netif_addr_lock_bh(dev);
- 	err = __hw_addr_add_ex(&dev->mc, addr, dev->addr_len,
--			       NETDEV_HW_ADDR_T_MULTICAST, global, false);
-+			       NETDEV_HW_ADDR_T_MULTICAST, global, false, 0);
- 	if (!err)
- 		__dev_set_rx_mode(dev);
- 	netif_addr_unlock_bh(dev);
--- 
-1.8.4.2
+> I can do a seperate lookup for the device tree case, with or without
+> fallback to platform lookup tables. Then the names can be "reset-gpio"
+> and "shutdown-gpio". Need to promote gpiod_request to non-static so
+> we can register usage of the gpio, to match non-dt code path.
+> 
+> Personally I prefer adding a "label" parameter to gpiod_get_index, so
+> we can use a different name than con_id. con_id isn't used in the ACPI
+> case, and is optional in platform lookup case. However device tree
+> lookup is dependent on this. What I see is non-uniform behavior
+> between the three. In my opinion this is undesirable, but I haven't
+> come up with a good solution yet.
+
+(adding the gpio people here). I don't understand enough of the
+current API to make a good call here, but I agree that we should try
+to make it more uniform and do it in a way that allows simpler DT
+bindings for devices using it.
+
+> About the property string, is the plural form required, even though we
+> only want one?
+
+I would keep the plural form for consistency.
+
+	Arnd
