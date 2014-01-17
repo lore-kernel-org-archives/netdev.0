@@ -1,76 +1,53 @@
-From: ethan zhao <ethan.zhao@oracle.com>
-Subject: Re: [Patch 2/2 net-next v6] ixgbe: set driver_max_VFs should be done
- before enabling SRIOV
-Date: Fri, 17 Jan 2014 14:51:58 +0800
-Message-ID: <52D8D30E.7090101@oracle.com>
-References: <1389930065-3330-1-git-send-email-aaron.f.brown@intel.com> <1389930065-3330-3-git-send-email-aaron.f.brown@intel.com>
+From: Scott Feldman <sfeldma@cumulusnetworks.com>
+Subject: [PATCH net-next v2 0/2] bonding: add slave netlink and sysfs support
+Date: Thu, 16 Jan 2014 22:57:42 -0800
+Message-ID: <20140117065316.3194.94624.stgit@monster-03.cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	sassmann@redhat.com, ethan.kernel@gmail.com
-To: Aaron Brown <aaron.f.brown@intel.com>
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	shm@cumulusnetworks.com, dingtianhong@huawei.com
+To: vfalico@redhat.com, fubar@us.ibm.com, andy@greyhouse.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:46523 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751092AbaAQGwK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 01:52:10 -0500
-In-Reply-To: <1389930065-3330-3-git-send-email-aaron.f.brown@intel.com>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:36368 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751094AbaAQG5s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 01:57:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Great job. Thanks a lot.
+v2:
 
-Ethan
+  - Address review comment from Ding (and Veacesiav): handle kobj cleanup
+    if sysfs_create_file() fails when adding slave attribute nodes.
 
-On 2014/1/17 11:41, Aaron Brown wrote:
-> From: "ethan.zhao" <ethan.zhao@oracle.com>
->
-> commit 43dc4e01 Limit number of reported VFs to device
->   specific value It doesn't work and always returns -EBUSY because VFs are
->   already enabled.
->
-> ixgbe_enable_sriov()
->          pci_enable_sriov()
->                  sriov_enable()
->                  {
->                  ... ..
->                  iov->ctrl |= PCI_SRIOV_CTRL_VFE | PCI_SRIOV_CTRL_MSE;
->                  pci_cfg_access_lock(dev);
->                  ... ...
->                  }
->
-> pci_sriov_set_totalvfs()
-> {
-> ... ...
-> if (dev->sriov->ctrl & PCI_SRIOV_CTRL_VFE)
->                  return -EBUSY;
-> ...
-> }
->
-> So should set driver_max_VFs with pci_sriov_set_totalvfs() before
-> enable VFs with ixgbe_enable_sriov().
->
-> V2: revised for net-next tree.
->
-> Signed-off-by: Ethan Zhao <ethan.kernel@gmail.com>
-> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-> Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
-> ---
->   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index 3fd4d3f..61d985c 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -8019,8 +8019,8 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
->   	/* Mailbox */
->   	ixgbe_init_mbx_params_pf(hw);
->   	memcpy(&hw->mbx.ops, ii->mbx_ops, sizeof(hw->mbx.ops));
-> -	ixgbe_enable_sriov(adapter);
->   	pci_sriov_set_totalvfs(pdev, IXGBE_MAX_VFS_DRV_LIMIT);
-> +	ixgbe_enable_sriov(adapter);
->   skip_sriov:
->   
->   #endif
+v1:
+
+  The following series adds bonding slave netlink and sysfs interfaces.
+  Slave interfaces get a new IFLA_SLAVE set of netlink attributes, along
+  with RTM_NEWLINK notification when slave's active status changes.  The
+  sysfs interface adds read-only nodes for slave attributes under a /slave
+  dir, simliar to how bond interfaces get a /bonding dir for bonding
+  attributes.
+
+---
+
+Scott Feldman (2):
+      bonding: add sysfs /slave dir for bond slave devices.
+      bonding: add netlink attributes to slave link dev
+
+
+ drivers/net/bonding/Makefile           |    2 
+ drivers/net/bonding/bond_main.c        |   28 ++++++
+ drivers/net/bonding/bond_netlink.c     |   36 ++++++++
+ drivers/net/bonding/bond_procfs.c      |   12 ---
+ drivers/net/bonding/bond_sysfs_slave.c |  144 ++++++++++++++++++++++++++++++++
+ drivers/net/bonding/bonding.h          |   15 +++
+ include/linux/netdevice.h              |    5 +
+ include/uapi/linux/if_link.h           |   13 +++
+ net/core/rtnetlink.c                   |   54 ++++++++++++
+ 9 files changed, 294 insertions(+), 15 deletions(-)
+ create mode 100644 drivers/net/bonding/bond_sysfs_slave.c
+
+-- 
+Signature
