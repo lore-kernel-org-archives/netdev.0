@@ -1,55 +1,122 @@
 From: Michael Dalton <mwdalton@google.com>
-Subject: [PATCH net-next v5 5/6] lib: Ensure EWMA does not store wrong intermediate values
-Date: Thu, 16 Jan 2014 18:36:15 -0800
-Message-ID: <1389926176-6699-6-git-send-email-mwdalton@google.com>
+Subject: [PATCH net-next v5 6/6] virtio-net: initial rx sysfs support,
+	export mergeable rx buffer size
+Date: Thu, 16 Jan 2014 18:36:16 -0800
+Message-ID: <1389926176-6699-7-git-send-email-mwdalton@google.com>
 References: <1389926176-6699-1-git-send-email-mwdalton@google.com>
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	virtualization@lists.linux-foundation.org,
-	Michael Dalton <mwdalton@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Michael Dalton <mwdalton@google.com>, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f202.google.com ([209.85.214.202]:36965 "EHLO
-	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751557AbaAQCge (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 21:36:34 -0500
-Received: by mail-ob0-f202.google.com with SMTP id vb8so731416obc.5
-        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 18:36:33 -0800 (PST)
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 In-Reply-To: <1389926176-6699-1-git-send-email-mwdalton@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-To ensure ewma_read() without a lock returns a valid but possibly
-out of date average, modify ewma_add() by using ACCESS_ONCE to prevent
-intermediate wrong values from being written to avg->internal.
+Add initial support for per-rx queue sysfs attributes to virtio-net. If
+mergeable packet buffers are enabled, adds a read-only mergeable packet
+buffer size sysfs attribute for each RX queue.
 
-Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+Suggested-by: Michael S. Tsirkin <mst@redhat.com>
 Acked-by: Michael S. Tsirkin <mst@redhat.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Michael Dalton <mwdalton@google.com>
 ---
- lib/average.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+v3->v4: Remove seqcount due to EWMA changes in patch 5.
+        Add missing Suggested-By. 
 
-diff --git a/lib/average.c b/lib/average.c
-index 99a67e6..114d1be 100644
---- a/lib/average.c
-+++ b/lib/average.c
-@@ -53,8 +53,10 @@ EXPORT_SYMBOL(ewma_init);
-  */
- struct ewma *ewma_add(struct ewma *avg, unsigned long val)
+ drivers/net/virtio_net.c | 46 ++++++++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 42 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 3e82311..968eacd 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -604,18 +604,25 @@ static int add_recvbuf_big(struct receive_queue *rq, gfp_t gfp)
+ 	return err;
+ }
+ 
+-static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
++static unsigned int get_mergeable_buf_len(struct ewma *avg_pkt_len)
  {
--	avg->internal = avg->internal  ?
--		(((avg->internal << avg->weight) - avg->internal) +
-+	unsigned long internal = ACCESS_ONCE(avg->internal);
+ 	const size_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
++	unsigned int len;
 +
-+	ACCESS_ONCE(avg->internal) = internal ?
-+		(((internal << avg->weight) - internal) +
- 			(val << avg->factor)) >> avg->weight :
- 		(val << avg->factor);
- 	return avg;
++	len = hdr_len + clamp_t(unsigned int, ewma_read(avg_pkt_len),
++			GOOD_PACKET_LEN, PAGE_SIZE - hdr_len);
++	return ALIGN(len, MERGEABLE_BUFFER_ALIGN);
++}
++
++static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
++{
+ 	struct page_frag *alloc_frag = &rq->alloc_frag;
+ 	char *buf;
+ 	unsigned long ctx;
+ 	int err;
+ 	unsigned int len, hole;
+ 
+-	len = hdr_len + clamp_t(unsigned int, ewma_read(&rq->mrg_avg_pkt_len),
+-				GOOD_PACKET_LEN, PAGE_SIZE - hdr_len);
+-	len = ALIGN(len, MERGEABLE_BUFFER_ALIGN);
++	len = get_mergeable_buf_len(&rq->mrg_avg_pkt_len);
+ 	if (unlikely(!skb_page_frag_refill(len, alloc_frag, gfp)))
+ 		return -ENOMEM;
+ 
+@@ -1594,6 +1601,33 @@ err:
+ 	return ret;
+ }
+ 
++#ifdef CONFIG_SYSFS
++static ssize_t mergeable_rx_buffer_size_show(struct netdev_rx_queue *queue,
++		struct rx_queue_attribute *attribute, char *buf)
++{
++	struct virtnet_info *vi = netdev_priv(queue->dev);
++	unsigned int queue_index = get_netdev_rx_queue_index(queue);
++	struct ewma *avg;
++
++	BUG_ON(queue_index >= vi->max_queue_pairs);
++	avg = &vi->rq[queue_index].mrg_avg_pkt_len;
++	return sprintf(buf, "%u\n", get_mergeable_buf_len(avg));
++}
++
++static struct rx_queue_attribute mergeable_rx_buffer_size_attribute =
++	__ATTR_RO(mergeable_rx_buffer_size);
++
++static struct attribute *virtio_net_mrg_rx_attrs[] = {
++	&mergeable_rx_buffer_size_attribute.attr,
++	NULL
++};
++
++static const struct attribute_group virtio_net_mrg_rx_group = {
++	.name = "virtio_net",
++	.attrs = virtio_net_mrg_rx_attrs
++};
++#endif
++
+ static int virtnet_probe(struct virtio_device *vdev)
+ {
+ 	int i, err;
+@@ -1708,6 +1742,10 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	if (err)
+ 		goto free_stats;
+ 
++#ifdef CONFIG_SYSFS
++	if (vi->mergeable_rx_bufs)
++		dev->sysfs_rx_queue_group = &virtio_net_mrg_rx_group;
++#endif
+ 	netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
+ 	netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
+ 
 -- 
 1.8.5.2
