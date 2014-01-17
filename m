@@ -1,57 +1,50 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next v2 0/2] bonding: add slave netlink and sysfs
- support
-Date: Fri, 17 Jan 2014 15:47:10 +0800
-Message-ID: <52D8DFFE.20603@huawei.com>
-References: <20140117065316.3194.94624.stgit@monster-03.cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v6 0/6] virtio-net: mergeable rx buffer size
+	auto-tuning
+Date: Thu, 16 Jan 2014 23:51:20 -0800 (PST)
+Message-ID: <20140116.235120.414403159336172289.davem@davemloft.net>
+References: <1389939810-14998-1-git-send-email-mwdalton@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <roopa@cumulusnetworks.com>,
-	<shm@cumulusnetworks.com>
-To: Scott Feldman <sfeldma@cumulusnetworks.com>, <vfalico@redhat.com>,
-	<fubar@us.ibm.com>, <andy@greyhouse.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:40533 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751155AbaAQHsB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 02:48:01 -0500
-In-Reply-To: <20140117065316.3194.94624.stgit@monster-03.cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mst@redhat.com, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, edumazet@google.com,
+	bhutchings@solarflare.com
+To: mwdalton@google.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1389939810-14998-1-git-send-email-mwdalton@google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/1/17 14:57, Scott Feldman wrote:
-> v2:
+From: Michael Dalton <mwdalton@google.com>
+Date: Thu, 16 Jan 2014 22:23:24 -0800
+
+> The virtio-net device currently uses aligned MTU-sized mergeable receive
+> packet buffers. Network throughput for workloads with large average
+> packet size can be improved by posting larger receive packet buffers.
+> However, due to SKB truesize effects, posting large (e.g, PAGE_SIZE)
+> buffers reduces the throughput of workloads that do not benefit from GRO
+> and have no large inbound packets.
 > 
->   - Address review comment from Ding (and Veacesiav): handle kobj cleanup
->     if sysfs_create_file() fails when adding slave attribute nodes.
+> This patchset introduces virtio-net mergeable buffer size auto-tuning,
+> with buffer sizes ranging from aligned MTU-size to PAGE_SIZE. Packet
+> buffer size is chosen based on a per-receive queue EWMA of incoming
+> packet size.
 > 
-> v1:
+> To unify mergeable receive buffer memory allocation and improve
+> SKB frag coalescing, all mergeable buffer memory allocation is
+> migrated to per-receive queue page frag allocators.
 > 
->   The following series adds bonding slave netlink and sysfs interfaces.
->   Slave interfaces get a new IFLA_SLAVE set of netlink attributes, along
->   with RTM_NEWLINK notification when slave's active status changes.  The
->   sysfs interface adds read-only nodes for slave attributes under a /slave
->   dir, simliar to how bond interfaces get a /bonding dir for bonding
->   attributes.
-> 
-> ---
-> 
-> Scott Feldman (2):
->       bonding: add sysfs /slave dir for bond slave devices.
->       bonding: add netlink attributes to slave link dev
-> 
-> 
->  drivers/net/bonding/Makefile           |    2 
->  drivers/net/bonding/bond_main.c        |   28 ++++++
->  drivers/net/bonding/bond_netlink.c     |   36 ++++++++
->  drivers/net/bonding/bond_procfs.c      |   12 ---
->  drivers/net/bonding/bond_sysfs_slave.c |  144 ++++++++++++++++++++++++++++++++
->  drivers/net/bonding/bonding.h          |   15 +++
->  include/linux/netdevice.h              |    5 +
->  include/uapi/linux/if_link.h           |   13 +++
->  net/core/rtnetlink.c                   |   54 ++++++++++++
->  9 files changed, 294 insertions(+), 15 deletions(-)
->  create mode 100644 drivers/net/bonding/bond_sysfs_slave.c
-> 
-Reviewed-by: Ding Tianhong <dingtianhong@huawei.com>
+> The per-receive queue mergeable packet buffer size is exported via
+> sysfs, and the network device sysfs layer has been extended to add
+> support for device-specific per-receive queue sysfs attribute groups.
+
+Series applied, thanks.
