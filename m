@@ -1,45 +1,64 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 3/3] ixgbevf: bump version
-Date: Fri, 17 Jan 2014 01:21:38 -0800
-Message-ID: <1389950498-8820-4-git-send-email-aaron.f.brown@intel.com>
+Subject: [net-next 1/3] ixgbe: add braces around else condition in ixgbe_qv_lock_* calls
+Date: Fri, 17 Jan 2014 01:21:36 -0800
+Message-ID: <1389950498-8820-2-git-send-email-aaron.f.brown@intel.com>
 References: <1389950498-8820-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:64977 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:63565 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752131AbaAQJVr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jan 2014 04:21:47 -0500
+	id S1751784AbaAQJVq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jan 2014 04:21:46 -0500
 In-Reply-To: <1389950498-8820-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Bump the version number to better match functionality provided with out of
-tree driver of the same version.
+This patch adds braces around the ixgbe_qv_lock_* calls which previously only
+had braces around the if portion. Kernel style guidelines for this require
+parenthesis around all conditions if they are required around one. In addition
+the comment while not illegal C syntax makes the code look wrong at a cursory
+glance. This patch corrects the style and adds braces so that the full if-else
+block is uniform.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 6cf4120..9c92918 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -58,7 +58,7 @@ const char ixgbevf_driver_name[] = "ixgbevf";
- static const char ixgbevf_driver_string[] =
- 	"Intel(R) 10 Gigabit PCI Express Virtual Function Network Driver";
- 
--#define DRV_VERSION "2.11.3-k"
-+#define DRV_VERSION "2.12.1-k"
- const char ixgbevf_driver_version[] = DRV_VERSION;
- static char ixgbevf_copyright[] =
- 	"Copyright (c) 2009 - 2012 Intel Corporation.";
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 3a4373f..0186ea2 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -424,9 +424,10 @@ static inline bool ixgbe_qv_lock_napi(struct ixgbe_q_vector *q_vector)
+ #ifdef BP_EXTENDED_STATS
+ 		q_vector->tx.ring->stats.yields++;
+ #endif
+-	} else
++	} else {
+ 		/* we don't care if someone yielded */
+ 		q_vector->state = IXGBE_QV_STATE_NAPI;
++	}
+ 	spin_unlock_bh(&q_vector->lock);
+ 	return rc;
+ }
+@@ -458,9 +459,10 @@ static inline bool ixgbe_qv_lock_poll(struct ixgbe_q_vector *q_vector)
+ #ifdef BP_EXTENDED_STATS
+ 		q_vector->rx.ring->stats.yields++;
+ #endif
+-	} else
++	} else {
+ 		/* preserve yield marks */
+ 		q_vector->state |= IXGBE_QV_STATE_POLL;
++	}
+ 	spin_unlock_bh(&q_vector->lock);
+ 	return rc;
+ }
 -- 
 1.8.5.GIT
