@@ -1,344 +1,270 @@
 From: Scott Feldman <sfeldma@cumulusnetworks.com>
-Subject: [PATCH net-next v2 1/2] bonding: add sysfs /slave dir for bond slave
- devices.
-Date: Thu, 16 Jan 2014 22:57:49 -0800
-Message-ID: <20140117065749.3194.440.stgit@monster-03.cumulusnetworks.com>
+Subject: [PATCH net-next v2 2/2] bonding: add netlink attributes to slave link
+ dev
+Date: Thu, 16 Jan 2014 22:57:56 -0800
+Message-ID: <20140117065756.3194.70179.stgit@monster-03.cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
 	shm@cumulusnetworks.com, dingtianhong@huawei.com
 To: vfalico@redhat.com, fubar@us.ibm.com, andy@greyhouse.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:36384 "EHLO
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:36405 "EHLO
 	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751094AbaAQG5z convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 01:57:55 -0500
+	with ESMTP id S1751679AbaAQG6D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 01:58:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add sub-directory under /sys/class/net/<interface>/slave with
-read-only attributes for slave.  Directory only appears when
-<interface> is a slave.
+If link is IFF_SLAVE, extend link dev netlink attributes to include
+slave attributes with new IFLA_SLAVE nest.  Add netlink notification
+(RTM_NEWLINK) when slave status changes from backup to active, or
+visa-versa.
 
-$ tree /sys/class/net/eth2/slave/
-/sys/class/net/eth2/slave/
-=E2=94=9C=E2=94=80=E2=94=80 ad_aggregator_id
-=E2=94=9C=E2=94=80=E2=94=80 link_failure_count
-=E2=94=9C=E2=94=80=E2=94=80 mii_status
-=E2=94=9C=E2=94=80=E2=94=80 perm_hwaddr
-=E2=94=9C=E2=94=80=E2=94=80 queue_id
-=E2=94=94=E2=94=80=E2=94=80 state
-
-$ cat /sys/class/net/eth2/slave/*
-2
-0
-up
-40:02:10:ef:06:01
-0
-active
+Adds new ndo_get_slave op to net_device_ops to fill skb with IFLA_SLAVE
+attributes.  Currently only used by bonding driver, but could be
+used by other aggregating devices with slaves.
 
 Signed-off-by: Scott Feldman <sfeldma@cumulusnetworks.com>
 ---
- drivers/net/bonding/Makefile           |    2=20
- drivers/net/bonding/bond_main.c        |   27 ++++++
- drivers/net/bonding/bond_procfs.c      |   12 ---
- drivers/net/bonding/bond_sysfs_slave.c |  144 ++++++++++++++++++++++++=
-++++++++
- drivers/net/bonding/bonding.h          |    4 +
- 5 files changed, 176 insertions(+), 13 deletions(-)
- create mode 100644 drivers/net/bonding/bond_sysfs_slave.c
+ drivers/net/bonding/bond_main.c    |    1 +
+ drivers/net/bonding/bond_netlink.c |   36 ++++++++++++++++++++++++
+ drivers/net/bonding/bonding.h      |   11 ++++++-
+ include/linux/netdevice.h          |    5 +++
+ include/uapi/linux/if_link.h       |   13 +++++++++
+ net/core/rtnetlink.c               |   54 ++++++++++++++++++++++++++++++++++++
+ 6 files changed, 118 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/bonding/Makefile b/drivers/net/bonding/Makefil=
-e
-index 5a5d720..6f4e808 100644
---- a/drivers/net/bonding/Makefile
-+++ b/drivers/net/bonding/Makefile
-@@ -4,7 +4,7 @@
-=20
- obj-$(CONFIG_BONDING) +=3D bonding.o
-=20
--bonding-objs :=3D bond_main.o bond_3ad.o bond_alb.o bond_sysfs.o bond_=
-debugfs.o bond_netlink.o bond_options.o
-+bonding-objs :=3D bond_main.o bond_3ad.o bond_alb.o bond_sysfs.o bond_=
-sysfs_slave.o bond_debugfs.o bond_netlink.o bond_options.o
-=20
- proc-$(CONFIG_PROC_FS) +=3D bond_procfs.o
- bonding-objs +=3D $(proc-y)
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
-_main.c
-index f00dd45..df85cec 100644
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index df85cec..3220b48 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -466,6 +466,22 @@ static void bond_update_speed_duplex(struct slave =
-*slave)
- 	return;
- }
-=20
-+const char *bond_slave_link_status(s8 link)
+@@ -3883,6 +3883,7 @@ static const struct net_device_ops bond_netdev_ops = {
+ #endif
+ 	.ndo_add_slave		= bond_enslave,
+ 	.ndo_del_slave		= bond_release,
++	.ndo_get_slave		= bond_get_slave,
+ 	.ndo_fix_features	= bond_fix_features,
+ };
+ 
+diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
+index 555c783..21c6488 100644
+--- a/drivers/net/bonding/bond_netlink.c
++++ b/drivers/net/bonding/bond_netlink.c
+@@ -22,6 +22,42 @@
+ #include <linux/reciprocal_div.h>
+ #include "bonding.h"
+ 
++int bond_get_slave(struct net_device *slave_dev, struct sk_buff *skb)
 +{
-+	switch (link) {
-+	case BOND_LINK_UP:
-+		return "up";
-+	case BOND_LINK_FAIL:
-+		return "going down";
-+	case BOND_LINK_DOWN:
-+		return "down";
-+	case BOND_LINK_BACK:
-+		return "going back";
-+	default:
-+		return "unknown";
-+	}
-+}
-+
- /*
-  * if <dev> supports MII link status reporting, check its link status.
-  *
-@@ -1576,6 +1592,12 @@ int bond_enslave(struct net_device *bond_dev, st=
-ruct net_device *slave_dev)
- 		goto err_unregister;
- 	}
-=20
-+	res =3D bond_sysfs_slave_add(new_slave);
-+	if (res) {
-+		pr_debug("Error %d calling bond_sysfs_slave_add\n", res);
-+		goto err_upper_unlink;
-+	}
-+
- 	bond->slave_cnt++;
- 	bond_compute_features(bond);
- 	bond_set_carrier(bond);
-@@ -1595,6 +1617,9 @@ int bond_enslave(struct net_device *bond_dev, str=
-uct net_device *slave_dev)
- 	return 0;
-=20
- /* Undo stages on error */
-+err_upper_unlink:
-+	bond_upper_dev_unlink(bond_dev, slave_dev);
-+
- err_unregister:
- 	netdev_rx_handler_unregister(slave_dev);
-=20
-@@ -1687,6 +1712,8 @@ static int __bond_release_one(struct net_device *=
-bond_dev,
- 	/* release the slave from its bond */
- 	bond->slave_cnt--;
-=20
-+	bond_sysfs_slave_del(slave);
-+
- 	bond_upper_dev_unlink(bond_dev, slave_dev);
- 	/* unregister rx_handler early so bond_handle_frame wouldn't be calle=
-d
- 	 * for this slave anymore.
-diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bo=
-nd_procfs.c
-index fb868d6..8515b344 100644
---- a/drivers/net/bonding/bond_procfs.c
-+++ b/drivers/net/bonding/bond_procfs.c
-@@ -159,18 +159,6 @@ static void bond_info_show_master(struct seq_file =
-*seq)
- 	}
- }
-=20
--static const char *bond_slave_link_status(s8 link)
--{
--	static const char * const status[] =3D {
--		[BOND_LINK_UP] =3D "up",
--		[BOND_LINK_FAIL] =3D "going down",
--		[BOND_LINK_DOWN] =3D "down",
--		[BOND_LINK_BACK] =3D "going back",
--	};
--
--	return status[link];
--}
--
- static void bond_info_show_slave(struct seq_file *seq,
- 				 const struct slave *slave)
- {
-diff --git a/drivers/net/bonding/bond_sysfs_slave.c b/drivers/net/bondi=
-ng/bond_sysfs_slave.c
-new file mode 100644
-index 0000000..7cb97de
---- /dev/null
-+++ b/drivers/net/bonding/bond_sysfs_slave.c
-@@ -0,0 +1,144 @@
-+/*	Sysfs attributes of bond slaves
-+ *
-+ *      Copyright (c) 2014 Scott Feldman <sfeldma@cumulusnetworks.com>
-+ *
-+ *	This program is free software; you can redistribute it and/or
-+ *	modify it under the terms of the GNU General Public License
-+ *	as published by the Free Software Foundation; either version
-+ *	2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/capability.h>
-+#include <linux/kernel.h>
-+#include <linux/netdevice.h>
-+
-+#include "bonding.h"
-+
-+struct slave_attribute {
-+	struct attribute attr;
-+	ssize_t (*show)(struct slave *, char *);
-+};
-+
-+#define SLAVE_ATTR(_name, _mode, _show)				\
-+const struct slave_attribute slave_attr_##_name =3D {		\
-+	.attr =3D {.name =3D __stringify(_name),			\
-+		 .mode =3D _mode },				\
-+	.show	=3D _show,					\
-+};
-+#define SLAVE_ATTR_RO(_name) \
-+	SLAVE_ATTR(_name, S_IRUGO, _name##_show)
-+
-+static ssize_t state_show(struct slave *slave, char *buf)
-+{
-+	switch (bond_slave_state(slave)) {
-+	case BOND_STATE_ACTIVE:
-+		return sprintf(buf, "active\n");
-+	case BOND_STATE_BACKUP:
-+		return sprintf(buf, "backup\n");
-+	default:
-+		return sprintf(buf, "UNKONWN\n");
-+	}
-+}
-+static SLAVE_ATTR_RO(state);
-+
-+static ssize_t mii_status_show(struct slave *slave, char *buf)
-+{
-+	return sprintf(buf, "%s\n", bond_slave_link_status(slave->link));
-+}
-+static SLAVE_ATTR_RO(mii_status);
-+
-+static ssize_t link_failure_count_show(struct slave *slave, char *buf)
-+{
-+	return sprintf(buf, "%d\n", slave->link_failure_count);
-+}
-+static SLAVE_ATTR_RO(link_failure_count);
-+
-+static ssize_t perm_hwaddr_show(struct slave *slave, char *buf)
-+{
-+	return sprintf(buf, "%pM\n", slave->perm_hwaddr);
-+}
-+static SLAVE_ATTR_RO(perm_hwaddr);
-+
-+static ssize_t queue_id_show(struct slave *slave, char *buf)
-+{
-+	return sprintf(buf, "%d\n", slave->queue_id);
-+}
-+static SLAVE_ATTR_RO(queue_id);
-+
-+static ssize_t ad_aggregator_id_show(struct slave *slave, char *buf)
-+{
++	struct slave *slave = bond_slave_get_rtnl(slave_dev);
 +	const struct aggregator *agg;
 +
-+	if (slave->bond->params.mode =3D=3D BOND_MODE_8023AD) {
-+		agg =3D SLAVE_AD_INFO(slave).port.aggregator;
++	if (nla_put_u8(skb, IFLA_SLAVE_STATE, bond_slave_state(slave)))
++		goto nla_put_failure;
++
++	if (nla_put_u8(skb, IFLA_SLAVE_MII_STATUS, slave->link))
++		goto nla_put_failure;
++
++	if (nla_put_u32(skb, IFLA_SLAVE_LINK_FAILURE_COUNT,
++			slave->link_failure_count))
++		goto nla_put_failure;
++
++	if (nla_put(skb, IFLA_SLAVE_PERM_HWADDR,
++		    slave_dev->addr_len, slave->perm_hwaddr))
++		goto nla_put_failure;
++
++	if (nla_put_u16(skb, IFLA_SLAVE_QUEUE_ID, slave->queue_id))
++		goto nla_put_failure;
++
++	if (slave->bond->params.mode == BOND_MODE_8023AD) {
++		agg = SLAVE_AD_INFO(slave).port.aggregator;
 +		if (agg)
-+			return sprintf(buf, "%d\n",
-+				       agg->aggregator_identifier);
++			if (nla_put_u16(skb, IFLA_SLAVE_AD_AGGREGATOR_ID,
++					agg->aggregator_identifier))
++				goto nla_put_failure;
 +	}
 +
-+	return sprintf(buf, "N/A\n");
-+}
-+static SLAVE_ATTR_RO(ad_aggregator_id);
++	return 0;
 +
-+static const struct slave_attribute *slave_attrs[] =3D {
-+	&slave_attr_state,
-+	&slave_attr_mii_status,
-+	&slave_attr_link_failure_count,
-+	&slave_attr_perm_hwaddr,
-+	&slave_attr_queue_id,
-+	&slave_attr_ad_aggregator_id,
-+	NULL
-+};
-+
-+#define to_slave_attr(_at) container_of(_at, struct slave_attribute, a=
-ttr)
-+#define to_slave(obj)	container_of(obj, struct slave, kobj)
-+
-+static ssize_t slave_show(struct kobject *kobj,
-+			  struct attribute *attr, char *buf)
-+{
-+	struct slave_attribute *slave_attr =3D to_slave_attr(attr);
-+	struct slave *slave =3D to_slave(kobj);
-+
-+	return slave_attr->show(slave, buf);
++nla_put_failure:
++	return -EMSGSIZE;
 +}
 +
-+const struct sysfs_ops slave_sysfs_ops =3D {
-+	.show =3D slave_show,
+ static const struct nla_policy bond_policy[IFLA_BOND_MAX + 1] = {
+ 	[IFLA_BOND_MODE]		= { .type = NLA_U8 },
+ 	[IFLA_BOND_ACTIVE_SLAVE]	= { .type = NLA_U32 },
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 309757d..8a935f8 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -285,12 +285,18 @@ static inline bool bond_is_lb(const struct bonding *bond)
+ 
+ static inline void bond_set_active_slave(struct slave *slave)
+ {
+-	slave->backup = 0;
++	if (slave->backup) {
++		slave->backup = 0;
++		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_KERNEL);
++	}
+ }
+ 
+ static inline void bond_set_backup_slave(struct slave *slave)
+ {
+-	slave->backup = 1;
++	if (!slave->backup) {
++		slave->backup = 1;
++		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_KERNEL);
++	}
+ }
+ 
+ static inline int bond_slave_state(struct slave *slave)
+@@ -426,6 +432,7 @@ int bond_sysfs_slave_add(struct slave *slave);
+ void bond_sysfs_slave_del(struct slave *slave);
+ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev);
+ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev);
++int bond_get_slave(struct net_device *slave_dev, struct sk_buff *skb);
+ int bond_xmit_hash(struct bonding *bond, struct sk_buff *skb, int count);
+ int bond_parse_parm(const char *mode_arg, const struct bond_parm_tbl *tbl);
+ int bond_parm_tbl_lookup(int mode, const struct bond_parm_tbl *tbl);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index d7668b88..22c8698 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -908,6 +908,9 @@ struct netdev_phys_port_id {
+  * int (*ndo_del_slave)(struct net_device *dev, struct net_device *slave_dev);
+  *	Called to release previously enslaved netdev.
+  *
++ * int (*ndo_get_slave)(struct net_device *slave_dev, struct sk_buff *skb);
++ *	Called to fill netlink skb with slave info.
++ *
+  *      Feature/offload setting functions.
+  * netdev_features_t (*ndo_fix_features)(struct net_device *dev,
+  *		netdev_features_t features);
+@@ -1080,6 +1083,8 @@ struct net_device_ops {
+ 						 struct net_device *slave_dev);
+ 	int			(*ndo_del_slave)(struct net_device *dev,
+ 						 struct net_device *slave_dev);
++	int			(*ndo_get_slave)(struct net_device *slave_dev,
++						 struct sk_buff *skb);
+ 	netdev_features_t	(*ndo_fix_features)(struct net_device *dev,
+ 						    netdev_features_t features);
+ 	int			(*ndo_set_features)(struct net_device *dev,
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 3e6bd3c..ba2f3bf 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -144,6 +144,7 @@ enum {
+ 	IFLA_NUM_RX_QUEUES,
+ 	IFLA_CARRIER,
+ 	IFLA_PHYS_PORT_ID,
++	IFLA_SLAVE,
+ 	__IFLA_MAX
+ };
+ 
+@@ -368,6 +369,18 @@ enum {
+ 
+ #define IFLA_BOND_AD_INFO_MAX	(__IFLA_BOND_AD_INFO_MAX - 1)
+ 
++enum {
++	IFLA_SLAVE_STATE,
++	IFLA_SLAVE_MII_STATUS,
++	IFLA_SLAVE_LINK_FAILURE_COUNT,
++	IFLA_SLAVE_PERM_HWADDR,
++	IFLA_SLAVE_QUEUE_ID,
++	IFLA_SLAVE_AD_AGGREGATOR_ID,
++	__IFLA_SLAVE_MAX,
 +};
 +
-+static struct kobj_type slave_ktype =3D {
-+#ifdef CONFIG_SYSFS
-+	.sysfs_ops =3D &slave_sysfs_ops,
-+#endif
-+};
++#define IFLA_SLAVE_MAX	(__IFLA_SLAVE_MAX - 1)
 +
-+int bond_sysfs_slave_add(struct slave *slave)
+ /* SR-IOV virtual function management section */
+ 
+ enum {
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index e6e7d58..4f85de7 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -721,6 +721,28 @@ static size_t rtnl_port_size(const struct net_device *dev)
+ 		return port_self_size;
+ }
+ 
++static size_t rtnl_bond_slave_size(const struct net_device *dev)
 +{
-+	const struct slave_attribute **a;
-+	int err;
++	struct net_device *bond;
++	size_t slave_size =
++		nla_total_size(sizeof(struct nlattr)) +	/* IFLA_SLAVE */
++		nla_total_size(1) +	/* IFLA_SLAVE_STATE */
++		nla_total_size(1) +	/* IFLA_SLAVE_MII_STATUS */
++		nla_total_size(4) +	/* IFLA_SLAVE_LINK_FAILURE_COUNT */
++		nla_total_size(MAX_ADDR_LEN) +	/* IFLA_SLAVE_PERM_HWADDR */
++		nla_total_size(2) +	/* IFLA_SLAVE_QUEUE_ID */
++		nla_total_size(2) +	/* IFLA_SLAVE_AD_AGGREGATOR_ID */
++		0;
 +
-+	err =3D kobject_init_and_add(&slave->kobj, &slave_ktype,
-+				   &(slave->dev->dev.kobj), "slave");
-+	if (err)
-+		return err;
-+
-+	for (a =3D slave_attrs; *a; ++a) {
-+		err =3D sysfs_create_file(&slave->kobj, &((*a)->attr));
-+		if (err) {
-+			kobject_del(&slave->kobj);
-+			return err;
-+		}
++	if (netif_is_bond_slave((struct net_device *)dev)) {
++		bond = netdev_master_upper_dev_get((struct net_device *)dev);
++		if (bond && bond->netdev_ops->ndo_get_slave)
++			return slave_size;
 +	}
 +
 +	return 0;
 +}
 +
-+void bond_sysfs_slave_del(struct slave *slave)
+ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 				     u32 ext_filter_mask)
+ {
+@@ -750,6 +772,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 	       + rtnl_port_size(dev) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
+ 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
+ 	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
++	       + rtnl_bond_slave_size(dev) /* IFLA_SLAVE */
+ 	       + nla_total_size(MAX_PHYS_PORT_ID_LEN); /* IFLA_PHYS_PORT_ID */
+ }
+ 
+@@ -847,6 +870,34 @@ static int rtnl_phys_port_id_fill(struct sk_buff *skb, struct net_device *dev)
+ 	return 0;
+ }
+ 
++static size_t rtnl_bond_slave_fill(struct sk_buff *skb, struct net_device *dev)
 +{
-+	const struct slave_attribute **a;
++	struct net_device *bond;
++	struct nlattr *nest;
++	int err;
 +
-+	for (a =3D slave_attrs; *a; ++a)
-+		sysfs_remove_file(&slave->kobj, &((*a)->attr));
++	if (!netif_is_bond_slave(dev))
++		return 0;
 +
-+	kobject_del(&slave->kobj);
++	bond = netdev_master_upper_dev_get(dev);
++	if (!bond || !bond->netdev_ops->ndo_get_slave)
++		return 0;
++
++	nest = nla_nest_start(skb, IFLA_SLAVE);
++	if (!nest)
++		return -EMSGSIZE;
++
++	err = bond->netdev_ops->ndo_get_slave(dev, skb);
++	if (err) {
++		nla_nest_cancel(skb, nest);
++		return (err == -EMSGSIZE) ? err : 0;
++	}
++
++	nla_nest_end(skb, nest);
++
++	return 0;
 +}
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bondin=
-g.h
-index 955dc48..309757d 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -203,6 +203,7 @@ struct slave {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	struct netpoll *np;
- #endif
-+	struct kobject kobj;
- };
-=20
- /*
-@@ -421,6 +422,8 @@ int bond_create(struct net *net, const char *name);
- int bond_create_sysfs(struct bond_net *net);
- void bond_destroy_sysfs(struct bond_net *net);
- void bond_prepare_sysfs_group(struct bonding *bond);
-+int bond_sysfs_slave_add(struct slave *slave);
-+void bond_sysfs_slave_del(struct slave *slave);
- int bond_enslave(struct net_device *bond_dev, struct net_device *slave=
-_dev);
- int bond_release(struct net_device *bond_dev, struct net_device *slave=
-_dev);
- int bond_xmit_hash(struct bonding *bond, struct sk_buff *skb, int coun=
-t);
-@@ -469,6 +472,7 @@ int bond_option_lacp_rate_set(struct bonding *bond,=
- int lacp_rate);
- int bond_option_ad_select_set(struct bonding *bond, int ad_select);
- struct net_device *bond_option_active_slave_get_rcu(struct bonding *bo=
-nd);
- struct net_device *bond_option_active_slave_get(struct bonding *bond);
-+const char *bond_slave_link_status(s8 link);
-=20
- struct bond_net {
- 	struct net *		net;	/* Associated network namespace */
++
+ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			    int type, u32 pid, u32 seq, u32 change,
+ 			    unsigned int flags, u32 ext_filter_mask)
+@@ -1001,6 +1052,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	if (rtnl_port_fill(skb, dev))
+ 		goto nla_put_failure;
+ 
++	if (rtnl_bond_slave_fill(skb, dev))
++		goto nla_put_failure;
++
+ 	if (dev->rtnl_link_ops) {
+ 		if (rtnl_link_fill(skb, dev) < 0)
+ 			goto nla_put_failure;
