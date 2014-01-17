@@ -1,46 +1,51 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next 0/6] bonding: only rely on arp packets if arp
- monitor is used
-Date: Fri, 17 Jan 2014 18:07:56 +0100
-Message-ID: <20140117170755.GL1896@redhat.com>
-References: <1389837916-5377-1-git-send-email-vfalico@redhat.com>
- <15764.1389848997@death.nxdomain>
- <20140116084102.GM1867@redhat.com>
- <21868.1389911939@death.nxdomain>
- <20140117065718.GA5699@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC PATCH net-next 3/3] virtio-net: Add accelerated RFS support
+Date: Fri, 17 Jan 2014 17:20:08 +0000
+Message-ID: <1389979208.27141.11.camel@bwh-desktop.uk.level5networks.com>
+References: <1389795654-28381-1-git-send-email-zwu.kernel@gmail.com>
+	 <1389795654-28381-4-git-send-email-zwu.kernel@gmail.com>
+	 <1389907887.11912.87.camel@bwh-desktop.uk.level5networks.com>
+	 <CAEH94LjHcxkXLvs6AMNop_yzKG0zaT2mAgsAb21i+RtMbkXbmQ@mail.gmail.com>
+	 <1389914188.11912.146.camel@bwh-desktop.uk.level5networks.com>
+	 <CAEH94LgKJ0qThGHS-hqXsYKqOe+ns2pRi-wfZy=af1RMejOZ5A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stefan Hajnoczi <stefanha@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: Zhi Yong Wu <zwu.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35386 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751965AbaAQRKz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jan 2014 12:10:55 -0500
-Content-Disposition: inline
-In-Reply-To: <20140117065718.GA5699@redhat.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:43760 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751788AbaAQRUO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 12:20:14 -0500
+In-Reply-To: <CAEH94LgKJ0qThGHS-hqXsYKqOe+ns2pRi-wfZy=af1RMejOZ5A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 17, 2014 at 07:57:18AM +0100, Veaceslav Falico wrote:
-...snip...
->What do you think about this*? It's on top of this series, extends
->arp_validate to (not) filter out ARPs on not-validated slaves and permits
->it to be used in non-AB mode (also, we don't need that bond->lock, we're
->always under RCU).
+On Sat, 2014-01-18 at 00:54 +0800, Zhi Yong Wu wrote:
+> On Fri, Jan 17, 2014 at 7:16 AM, Ben Hutchings
+> <bhutchings@solarflare.com> wrote:
+[...]
+> > However, to take advantage of ARFS on a physical net driver, it would be
+> > necessary to send a control request for part 2.
+> aRFS on a physical net driver? What is this physical net driver? I
+> thought that in order to enable aRFS, guest virtio_net driver should
+> send a control request to its emulated virtio_net NIC.
+[...]
 
-Hi Jay,
+If the backend is connected to a macvlan device on top of a physical net
+device that supports ARFS, then there is further potential for improving
+performance by steering to the best physical RX queue and CPU as well as
+the best virtio_net RX queue and vCPU.
 
-In the meanwhile I've integrated this approach (adding new arp_validate
-options) and sent v2.
+Ben.
 
-The new version, when used with arp_validate=0/1/2/3 (old values) behaves
-exactly the same, while adding 3 new options - only unvalidated ARPs,
-validated ARPs on active and unvalidated ARPs on slave and vice versa
-(there's no analogue for ALL_ARP cause it doesn't make much sense - as the
-validated ARPs for both slaves are already ARPs :) ).
-
-Hope that helps, and sorry that I didn't do my homework in the first time.
-
-Thank you!
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
