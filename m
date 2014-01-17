@@ -1,72 +1,229 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] [PATCH net-next v2] xen-netfront: clean up code in
- xennet_release_rx_bufs
-Date: Fri, 17 Jan 2014 14:58:30 +0800
-Message-ID: <52D8D496.6070609@oracle.com>
-References: <1389830228-2381-1-git-send-email-Annie.li@oracle.com> <52D7BE19.2010009@citrix.com> <52D8CCE4.9010804@oracle.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next 0/6] bonding: only rely on arp packets if arp
+ monitor is used
+Date: Fri, 17 Jan 2014 07:57:18 +0100
+Message-ID: <20140117065718.GA5699@redhat.com>
+References: <1389837916-5377-1-git-send-email-vfalico@redhat.com>
+ <15764.1389848997@death.nxdomain>
+ <20140116084102.GM1867@redhat.com>
+ <21868.1389911939@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: wei.liu2@citrix.com, ian.campbell@citrix.com,
-	netdev@vger.kernel.org, xen-devel@lists.xen.org,
-	andrew.bennieston@citrix.com, davem@davemloft.net
-To: David Vrabel <david.vrabel@citrix.com>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:48346 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751064AbaAQG6k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 01:58:40 -0500
-In-Reply-To: <52D8CCE4.9010804@oracle.com>
+Received: from mx1.redhat.com ([209.132.183.28]:7956 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751079AbaAQHA2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jan 2014 02:00:28 -0500
+Content-Disposition: inline
+In-Reply-To: <21868.1389911939@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Jan 16, 2014 at 02:38:59PM -0800, Jay Vosburgh wrote:
+=2E..snip...
+>	I think the bottom line here is pretty simple:
+>
+>	Using the ARP monitor with the loadbalance modes is not a common
+>configuration in my experience, and making it work is tricky.  However=
+,
+>anyone using it today will be relying on the current behavior, which w=
+e
+>therefore must not change.
 
-On 2014/1/17 14:25, annie li wrote:
->
-> On 2014/1/16 19:10, David Vrabel wrote:
->> On 15/01/14 23:57, Annie Li wrote:
->>> This patch implements two things:
->>>
->>> * release grant reference and skb for rx path, this fixex resource 
->>> leaking.
->>> * clean up grant transfer code kept from old netfront(2.6.18) which 
->>> grants
->>> pages for access/map and transfer. But grant transfer is deprecated 
->>> in current
->>> netfront, so remove corresponding release code for transfer.
->>>
->>> gnttab_end_foreign_access_ref may fail when the grant entry is 
->>> currently used
->>> for reading or writing. But this patch does not cover this and 
->>> improvement for
->>> this failure may be implemented in a separate patch.
->> I don't think replacing a resource leak with a security bug is a good 
->> idea.
->>
->> If you would prefer not to fix the gnttab_end_foreign_access() call, I
->> think you can fix this in netfront by taking a reference to the page
->> before calling gnttab_end_foreign_access().  This will ensure the page
->> isn't freed until the subsequent kfree_skb(), or the gref is released by
->> the foreign domain (whichever is later).
->
-> Taking a reference to the page before calling 
-> gnttab_end_foreign_access() delays the free work until kfree_skb(). 
-> Simply adding put_page before kfree_skb() does not make things 
-> different from gnttab_end_foreign_access_ref(), and the pages will be 
-> freed by kfree_skb(), problem will be hit in gnttab_handle_deferred() 
-> when freeing pages which already be freed.
->
-> So put_page is required in gnttab_end_foreign_access(), this will 
-> ensure either free is taken by kfree_skb or gnttab_handle_deferred. 
-> This involves changes in blkfront/pcifront/tpmfront(just like your 
-> patch), this way ensure page is released when ref is end.
->
-> Another solution I am thinking is calling gnttab_end_foreign_access() 
-> with page parameter as NULL, then gnttab_end_foreign_access will only 
-> do ending grant reference work and releasing page work is done by 
-> kfree_skb().
+Yep, agreed. It might be against the documentation, these use cases mig=
+ht
+be weird/illogical - but they (kind of) work, and we both agree that th=
+is
+change might break them, so it's definitely a no go.
 
-Not NULL above, it should be 0UL.
+OTOH, I'd still like to help people who have some kind of broadcast tra=
+ffic
+(STP, CDP, some routing etc.) running over network and keeping their sl=
+aves
+up (and those that cannot/don't want to use arp_validate=3D3).
 
-Thanks
-Annie
+What do you think about this*? It's on top of this series, extends
+arp_validate to (not) filter out ARPs on not-validated slaves and permi=
+ts
+it to be used in non-AB mode (also, we don't need that bond->lock, we'r=
+e
+always under RCU).
+
+*:
+
+diff --git a/Documentation/networking/bonding.txt b/Documentation/netwo=
+rking/bonding.txt
+index a4d925e..7223ef4 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -279,19 +279,45 @@ arp_validate
+ =20
+  	none or 0
+ =20
+-		No validation is performed.  This is the default.
++		No validation is performed.  This is the default. Any arriving
++		traffic (arp or non-arp) is considered a proof that the slave
++		is up.
+ =20
+  	active or 1
+ =20
+-		Validation is performed only for the active slave.
++		Validation is performed only for the active slave. Only ARPs
++		that arrive from any arp_ip_target are considered legit. The
++		backup slave still does no validation (as if arp_validate=3D0).
+ =20
+  	backup or 2
+ =20
+-		Validation is performed only for backup slaves.
++		Validation is performed only for backup slaves. Only ARPs
++		that arrive from any arp_ip_target are considered legit. The
++		active slave still has no validation (as if arp_validate=3D0).
+ =20
+  	all or 3
+ =20
+-		Validation is performed for all slaves.
++		Validation is performed for all slaves. Only ARPs
++		that arrive from any arp_ip_target are considered legit.
++
++	arp or 4
++
++		Any arp packet is accepted as a proof that any slave is up,
++		but no IP-based validation is made.
++
++	active_arp or 5
++
++		Validation is performed only for the active slave. Only ARPs
++		that arrive from any arp_ip_target are considered legit. The
++		backup slave validates only arp packets, but doesn't check the
++		source (as if arp_validate=3D4).
++
++	backup_any or 6
++
++		Validation is performed only for backup slaves. Only ARPs
++		that arrive from any arp_ip_target are considered legit. The
++		active slave validates only arp packets, but doesn't check the
++		source (as if arp_validate=3D4).
+ =20
+  	For the active slave, the validation checks ARP replies to
+  	confirm that they were generated by an arp_ip_target.  Since
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
+_main.c
+index 0f613ae..2ef1d5a 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -246,6 +246,9 @@ const struct bond_parm_tbl arp_validate_tbl[] =3D {
+  {	"active",		BOND_ARP_VALIDATE_ACTIVE},
+  {	"backup",		BOND_ARP_VALIDATE_BACKUP},
+  {	"all",			BOND_ARP_VALIDATE_ALL},
++{	"arp",			BOND_ARP_VALIDATE_ARP},
++{	"active_arp",		BOND_ARP_VALIDATE_ACTIVE_ARP},
++{	"backup_arp",		BOND_ARP_VALIDATE_BACKUP_ARP},
+  {	NULL,			-1},
+  };
+ =20
+@@ -2284,16 +2287,15 @@ int bond_arp_rcv(const struct sk_buff *skb, str=
+uct bonding *bond,
+  	struct arphdr *arp =3D (struct arphdr *)skb->data;
+  	unsigned char *arp_ptr;
+  	__be32 sip, tip;
+-	int alen;
+-
+-	if (skb->protocol !=3D __cpu_to_be16(ETH_P_ARP))
+-		return RX_HANDLER_ANOTHER;
+-
+-	read_lock(&bond->lock);
++	int alen, is_arp =3D skb->protocol =3D=3D __cpu_to_be16(ETH_P_ARP);
+ =20
+  	if (!slave_do_arp_validate(bond, slave)) {
+-		slave->last_arp_rx =3D jiffies;
+-		goto out_unlock;
++		if ((slave_do_arp_validate_only(bond, slave) && is_arp) ||
++		    !slave_do_arp_validate_only(bond, slave))
++			slave->last_arp_rx =3D jiffies;
++		return RX_HANDLER_ANOTHER;
++	} else if (!is_arp) {
++		return RX_HANDLER_ANOTHER;
+  	}
+ =20
+  	alen =3D arp_hdr_len(bond->dev);
+@@ -2349,7 +2351,6 @@ int bond_arp_rcv(const struct sk_buff *skb, struc=
+t bonding *bond,
+  		bond_validate_arp(bond, slave, tip, sip);
+ =20
+  out_unlock:
+-	read_unlock(&bond->lock);
+  	if (arp !=3D (struct arphdr *)skb->data)
+  		kfree(arp);
+  	return RX_HANDLER_ANOTHER;
+@@ -4181,10 +4182,6 @@ static int bond_check_params(struct bond_params =
+*params)
+  	}
+ =20
+  	if (arp_validate) {
+-		if (bond_mode !=3D BOND_MODE_ACTIVEBACKUP) {
+-			pr_err("arp_validate only supported in active-backup mode\n");
+-			return -EINVAL;
+-		}
+  		if (!arp_interval) {
+  			pr_err("arp_validate requires arp_interval\n");
+  			return -EINVAL;
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/b=
+ond_options.c
+index 1bab20e..9d6d231 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -434,12 +434,6 @@ int bond_option_arp_validate_set(struct bonding *b=
+ond, int arp_validate)
+  		return -EINVAL;
+  	}
+ =20
+-	if (bond->params.mode !=3D BOND_MODE_ACTIVEBACKUP) {
+-		pr_err("%s: arp_validate only supported in active-backup mode.\n",
+-		       bond->dev->name);
+-		return -EINVAL;
+-	}
+-
+  	pr_info("%s: setting arp_validate to %s (%d).\n",
+  		bond->dev->name, arp_validate_tbl[arp_validate].modename,
+  		arp_validate);
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bondin=
+g.h
+index 9f07af1..19eb023 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -319,6 +319,11 @@ static inline bool bond_is_active_slave(struct sla=
+ve *slave)
+  #define BOND_ARP_VALIDATE_BACKUP	(1 << BOND_STATE_BACKUP)
+  #define BOND_ARP_VALIDATE_ALL		(BOND_ARP_VALIDATE_ACTIVE | \
+  					 BOND_ARP_VALIDATE_BACKUP)
++#define BOND_ARP_VALIDATE_ARP		(BOND_ARP_VALIDATE_ALL + 1) /* =D0=B1=D0=
+=BB=D1=8F... */
++#define BOND_ARP_VALIDATE_ACTIVE_ARP	(BOND_ARP_VALIDATE_ACTIVE | \
++					 BOND_ARP_VALIDATE_ARP)
++#define BOND_ARP_VALIDATE_BACKUP_ARP	(BOND_ARP_VALIDATE_BACKUP | \
++					 BOND_ARP_VALIDATE_ARP)
+ =20
+  static inline int slave_do_arp_validate(struct bonding *bond,
+  					struct slave *slave)
+@@ -326,6 +331,12 @@ static inline int slave_do_arp_validate(struct bon=
+ding *bond,
+  	return bond->params.arp_validate & (1 << bond_slave_state(slave));
+  }
+ =20
++static inline int slave_do_arp_validate_only(struct bonding *bond,
++					     struct slave *slave)
++{
++	return bond->params.arp_validate & BOND_ARP_VALIDATE_ARP;
++}
++
+  /* Get the oldest arp which we've received on this slave for bond's
+   * arp_targets.
+   */
+
+>
+>	-J
