@@ -1,99 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] sch_htb: let skb->priority refer to non-leaf class
-Date: Fri, 17 Jan 2014 06:35:40 -0800
-Message-ID: <1389969340.31367.494.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1389883519.4703.5.camel@azathoth.dev.smoothwall.net>
-	 <1389889520.31367.403.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1389953999.4698.18.camel@azathoth.dev.smoothwall.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: PROBLEM: usbnet / ax88179_178a: Panic in usb_hcd_map_urb_for_dma
+Date: Fri, 17 Jan 2014 14:46:24 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D45EDC1@AcuExch.aculab.com>
+References: <CAHNSM4Kv5gcJn=H4k8QjPggWzjF0zRm_t_icAYXjCTqXx4xL2w@mail.gmail.com>
+	<1389385824.2025.95.camel@bwh-desktop.uk.level5networks.com>
+	<87ob3j1ocb.fsf@nemi.mork.no>
+	<CAHNSM4KU8QEybpHgAcCjQoWuRjU8=wd1O7KUVMnrRJKQ-xr=Gg@mail.gmail.com>
+	<87zjn3z6d5.fsf@nemi.mork.no>
+	<063D6719AE5E284EB5DD2968C1650D6D458FEE@AcuExch.aculab.com>
+	<87zjn086iz.fsf@nemi.mork.no>
+	<063D6719AE5E284EB5DD2968C1650D6D45904D@AcuExch.aculab.com>
+	<87vbxo83wp.fsf@nemi.mork.no>
+	<063D6719AE5E284EB5DD2968C1650D6D4590AF@AcuExch.aculab.com>
+ <CACVXFVOGxWe5+o0hLROiPN43OCDekV2Ovz1yXr95H1m+yHGn4w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <hadi@mojatatu.com>,
-	linux-netdev <netdev@vger.kernel.org>
-To: Harry Mason <harry.mason@smoothwall.net>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: =?Windows-1252?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
+	Thomas Kear <thomas@kear.co.nz>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: 'Ming Lei' <tom.leiming@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:50371 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751989AbaAQOfm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 09:35:42 -0500
-Received: by mail-pa0-f45.google.com with SMTP id lf10so1927264pab.32
-        for <netdev@vger.kernel.org>; Fri, 17 Jan 2014 06:35:42 -0800 (PST)
-In-Reply-To: <1389953999.4698.18.camel@azathoth.dev.smoothwall.net>
+Received: from mx0.aculab.com ([213.249.233.131]:44527 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750937AbaAQOsk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 09:48:40 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 11246-01 for <netdev@vger.kernel.org>;
+ Fri, 17 Jan 2014 14:48:38 +0000 (GMT)
+In-Reply-To: <CACVXFVOGxWe5+o0hLROiPN43OCDekV2Ovz1yXr95H1m+yHGn4w@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-01-17 at 10:19 +0000, Harry Mason wrote:
-> If the class in skb->priority is not a leaf, apply filters from the
-> selected class, not the qdisc. This lets netfilter or user space
-> partially classify the packet.
+From: Ming Lei
+> On Mon, Jan 13, 2014 at 9:26 PM, David Laight <David.Laight@aculab.com> wrote:
+> >>
+> >> I believe all processing use the urb->num_sgs field to limit the number
+> >> of entries.  Common interfaces like dma_map_sg() and for_each_sg() limit
+> >> their processing to "nents" entries, and the USB code use the value of
+> >> urb->num_sgs for this parameter.
+> >
+> > Which mostly means that the sg_xxx functions are doing a whole load
+> > of unnecessary instructions and memory accesses...
+> >
+> > This probably has a lot to do with the significant difference in the
+> > cpu use for the usb3 and 'normal' ethernet interfaces.
+> >
+> > While each bit doesn't seem significant, they soon add up.
 > 
-> Signed-off-by: Harry Mason <harry.mason@smoothwall.net>
-> ---
-> 
-> On Thu, 2014-01-16 at 08:25 -0800, Eric Dumazet wrote:
-> > On Thu, 2014-01-16 at 14:45 +0000, Harry Mason wrote:
-> > 
-> >> + /* Start with inner filter chain if a non-leaf class is selected */
-> >> + if (cl)
-> >> +     tcf = cl->filter_list;
-> >> + else
-> >> +     tcf = q->filter_list;
-> > 
-> > Could this break some existing htb setups ?
-> 
-> I think it is unlikely. Setting skb->priority to a non-leaf class would
-> be equivalent to setting it to the base qdisc. In theory an application
-> might rely on this if it expects the classes to be dynamic, but adding
-> a filter could restore the old behaviour.
-> 
+> If you plan to remove the 'nents' parameter, I am wondering if it is
+> a good idea, because sg_nents() should be more heavy. Not mention
+> sometimes the callers just want to map/unmap part of entries.
 
-Problem is : Your patch is one patch among thousands of patches, and
-people will install new kernels without knowing this could have an
-impact on their setup and might discover the problems too late
-(after some failure)
+I was thinking of using a simple address/length array without all
+the extra fields and flags 'overpunched' in the low address bits.
 
-> To me this is intuitively how it should behave, and reproduces what would
-> happen if a tc filter instead of netfilter had first assigned the
-> non-leaf class.
+I'm not even sure the current use is strictly correct.
+The field names of the scatterlist have a page address and offset
+but the buffers passed to xhci (at least by usbnet) can span multiple
+pages - they are physically contiguous.
 
-This is definitely a patch for net-next, not net tree.
+IIRC some traces of requests for USB disks show a separate SG entry
+for each 4k page - even for both virtually and physically adjacent
+pages.
 
-> 
-> > Also we test cl being NULL at line 222, it would be nice to not
-> > test it again...
-> 
-> Updated below.
-> 
->  net/sched/sch_htb.c |   10 +++++++---
->  1 file changed, 7 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-> index 717b210..8073d92 100644
-> --- a/net/sched/sch_htb.c
-> +++ b/net/sched/sch_htb.c
-> @@ -219,11 +219,15 @@ static struct htb_class *htb_classify(struct sk_buff *skb, struct Qdisc *sch,
->  	if (skb->priority == sch->handle)
->  		return HTB_DIRECT;	/* X:0 (direct flow) selected */
->  	cl = htb_find(skb->priority, sch);
-> -	if (cl && cl->level == 0)
-> -		return cl;
-> +	if (cl) {
-> +		if (cl->level == 0)
-> +			return cl;
-> +		/* Start with inner filter chain if a non-leaf class is selected */
-> +		tcf = cl->filter_list;
-> +	} else
-> +		tcf = q->filter_list;
->  
-
-	} else {
-        	tcf = q->filter_list;
-	}
-
-(Documentation/CodingStyle line 169)
-
->  	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
-> -	tcf = q->filter_list;
->  	while (tcf && (result = tc_classify(skb, tcf, &res)) >= 0) {
->  #ifdef CONFIG_NET_CLS_ACT
->  		switch (result) {
+	David
