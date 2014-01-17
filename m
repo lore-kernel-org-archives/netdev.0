@@ -1,81 +1,31 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: PANIC in vxlan <debugging now>
-Date: Thu, 16 Jan 2014 19:47:43 -0800
-Message-ID: <CAHA+R7N-FbNVSY-fjObfSrzc3UFMdAT-h-TPnX09EuA4R79U0g@mail.gmail.com>
-References: <20140116171428.00004da1@unknown>
-	<20140116180318.00004f53@unknown>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: don't call addrconf_dst_alloc again when enable lo
+Date: Fri, 17 Jan 2014 05:09:18 +0100
+Message-ID: <20140117040918.GA26022@order.stressinduktion.org>
+References: <20140102065429.GB22494@order.stressinduktion.org> <52C51C1E.9040603@huawei.com> <20140102082325.GC22494@order.stressinduktion.org> <52C5325B.8020900@huawei.com> <20140103065349.GK22494@order.stressinduktion.org> <52CD0331.8040204@cn.fujitsu.com> <20140108080528.GD9007@order.stressinduktion.org> <52CD0F86.30605@cn.fujitsu.com> <20140108085554.GF9007@order.stressinduktion.org> <52D88F29.5010404@huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=089e01493f648e515604f02267f1
-Cc: netdev <netdev@vger.kernel.org>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Gao feng <gaofeng@cn.fujitsu.com>,
+	David Miller <davem@davemloft.net>, kumaran.4353@gmail.com,
+	netdev@vger.kernel.org
+To: chenweilong <chenweilong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:38595 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750898AbaAQDrp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 22:47:45 -0500
-Received: by mail-la0-f50.google.com with SMTP id ec20so3258037lab.9
-        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 19:47:43 -0800 (PST)
-In-Reply-To: <20140116180318.00004f53@unknown>
+Received: from order.stressinduktion.org ([87.106.68.36]:44500 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750994AbaAQEJU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 23:09:20 -0500
+Content-Disposition: inline
+In-Reply-To: <52D88F29.5010404@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---089e01493f648e515604f02267f1
-Content-Type: text/plain; charset=ISO-8859-1
+On Fri, Jan 17, 2014 at 10:02:17AM +0800, chenweilong wrote:
+> It's quite a long time, How's your patch going on?
 
-On Thu, Jan 16, 2014 at 6:03 PM, Jesse Brandeburg
-<jesse.brandeburg@intel.com> wrote:
->
-> It appears that the bug is in acaf4e70997f (net: vxlan: when lower dev
-> unregisters remove vxlan dev as well).
->
-> reverting that patch avoids the panic.  I wasn't able to see
-> immediately what was wrong in the patch.
+I apologize, it has gotten a bit off my radar lately, but I have the branch
+still around and will resurrect it asap. I think it is a problem which really
+should be solved.
 
-It seems vxlan pernet ops is run after loopback register.
+Thanks,
 
-Please try the attached (totally untested) patch?
-
---089e01493f648e515604f02267f1
-Content-Type: text/plain; charset=US-ASCII; name="vxlan.diff"
-Content-Disposition: attachment; filename="vxlan.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_hqiwp57w0
-
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3Z4bGFuLmMgYi9kcml2ZXJzL25ldC92eGxhbi5jCmlu
-ZGV4IGEyZGVlODAuLjI4MTI1NTkgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3Z4bGFuLmMKKysr
-IGIvZHJpdmVycy9uZXQvdnhsYW4uYwpAQCAtMjY1NSwzNiArMjY1NSwzMCBAQCBzdGF0aWMgc3Ry
-dWN0IHJ0bmxfbGlua19vcHMgdnhsYW5fbGlua19vcHMgX19yZWFkX21vc3RseSA9IHsKIAkuZmls
-bF9pbmZvCT0gdnhsYW5fZmlsbF9pbmZvLAogfTsKIAotc3RhdGljIHZvaWQgdnhsYW5faGFuZGxl
-X2xvd2VyZGV2X3VucmVnaXN0ZXIoc3RydWN0IHZ4bGFuX25ldCAqdm4sCi0JCQkJCSAgICAgc3Ry
-dWN0IG5ldF9kZXZpY2UgKmRldikKLXsKLQlzdHJ1Y3QgdnhsYW5fZGV2ICp2eGxhbiwgKm5leHQ7
-Ci0JTElTVF9IRUFEKGxpc3Rfa2lsbCk7Ci0KLQlsaXN0X2Zvcl9lYWNoX2VudHJ5X3NhZmUodnhs
-YW4sIG5leHQsICZ2bi0+dnhsYW5fbGlzdCwgbmV4dCkgewotCQlzdHJ1Y3QgdnhsYW5fcmRzdCAq
-ZHN0ID0gJnZ4bGFuLT5kZWZhdWx0X2RzdDsKLQotCQkvKiBJbiBjYXNlIHdlIGNyZWF0ZWQgdnhs
-YW4gZGV2aWNlIHdpdGggY2FycmllcgotCQkgKiBhbmQgd2UgbG9vc2UgdGhlIGNhcnJpZXIgZHVl
-IHRvIG1vZHVsZSB1bmxvYWQKLQkJICogd2UgYWxzbyBuZWVkIHRvIHJlbW92ZSB2eGxhbiBkZXZp
-Y2UuIEluIG90aGVyCi0JCSAqIGNhc2VzLCBpdCdzIG5vdCBuZWNlc3NhcnkgYW5kIHJlbW90ZV9p
-ZmluZGV4Ci0JCSAqIGlzIDAgaGVyZSwgc28gbm8gbWF0Y2hlcy4KLQkJICovCi0JCWlmIChkc3Qt
-PnJlbW90ZV9pZmluZGV4ID09IGRldi0+aWZpbmRleCkKLQkJCXZ4bGFuX2RlbGxpbmsodnhsYW4t
-PmRldiwgJmxpc3Rfa2lsbCk7Ci0JfQotCi0JdW5yZWdpc3Rlcl9uZXRkZXZpY2VfbWFueSgmbGlz
-dF9raWxsKTsKLX0KLQogc3RhdGljIGludCB2eGxhbl9sb3dlcmRldl9ldmVudChzdHJ1Y3Qgbm90
-aWZpZXJfYmxvY2sgKnVudXNlZCwKIAkJCQl1bnNpZ25lZCBsb25nIGV2ZW50LCB2b2lkICpwdHIp
-CiB7Ci0Jc3RydWN0IG5ldF9kZXZpY2UgKmRldiA9IG5ldGRldl9ub3RpZmllcl9pbmZvX3RvX2Rl
-dihwdHIpOwotCXN0cnVjdCB2eGxhbl9uZXQgKnZuID0gbmV0X2dlbmVyaWMoZGV2X25ldChkZXYp
-LCB2eGxhbl9uZXRfaWQpOworCWlmIChldmVudCA9PSBORVRERVZfVU5SRUdJU1RFUikgeworCQlz
-dHJ1Y3QgbmV0X2RldmljZSAqZGV2ID0gbmV0ZGV2X25vdGlmaWVyX2luZm9fdG9fZGV2KHB0cik7
-CisJCXN0cnVjdCB2eGxhbl9uZXQgKnZuID0gbmV0X2dlbmVyaWMoZGV2X25ldChkZXYpLCB2eGxh
-bl9uZXRfaWQpOworCQlzdHJ1Y3QgdnhsYW5fZGV2ICp2eGxhbiwgKm5leHQ7CisJCUxJU1RfSEVB
-RChsaXN0X2tpbGwpOworCisJCWxpc3RfZm9yX2VhY2hfZW50cnlfc2FmZSh2eGxhbiwgbmV4dCwg
-JnZuLT52eGxhbl9saXN0LCBuZXh0KSB7CisJCQlzdHJ1Y3QgdnhsYW5fcmRzdCAqZHN0ID0gJnZ4
-bGFuLT5kZWZhdWx0X2RzdDsKKworCQkJLyogSW4gY2FzZSB3ZSBjcmVhdGVkIHZ4bGFuIGRldmlj
-ZSB3aXRoIGNhcnJpZXIKKwkJCSAqIGFuZCB3ZSBsb29zZSB0aGUgY2FycmllciBkdWUgdG8gbW9k
-dWxlIHVubG9hZAorCQkJICogd2UgYWxzbyBuZWVkIHRvIHJlbW92ZSB2eGxhbiBkZXZpY2UuIElu
-IG90aGVyCisJCQkgKiBjYXNlcywgaXQncyBub3QgbmVjZXNzYXJ5IGFuZCByZW1vdGVfaWZpbmRl
-eAorCQkJICogaXMgMCBoZXJlLCBzbyBubyBtYXRjaGVzLgorCQkJICovCisJCQlpZiAoZHN0LT5y
-ZW1vdGVfaWZpbmRleCA9PSBkZXYtPmlmaW5kZXgpCisJCQkJdnhsYW5fZGVsbGluayh2eGxhbi0+
-ZGV2LCAmbGlzdF9raWxsKTsKKwkJfQogCi0JaWYgKGV2ZW50ID09IE5FVERFVl9VTlJFR0lTVEVS
-KQotCQl2eGxhbl9oYW5kbGVfbG93ZXJkZXZfdW5yZWdpc3Rlcih2biwgZGV2KTsKKwkJdW5yZWdp
-c3Rlcl9uZXRkZXZpY2VfbWFueSgmbGlzdF9raWxsKTsKKwl9CiAKIAlyZXR1cm4gTk9USUZZX0RP
-TkU7CiB9Cg==
---089e01493f648e515604f02267f1--
+  Hannes
