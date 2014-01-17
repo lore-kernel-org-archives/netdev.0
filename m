@@ -1,129 +1,74 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next 6/6] net_sched: act: refuse to remove bound action outside
-Date: Fri, 17 Jan 2014 11:37:07 -0800
-Message-ID: <1389987427-14085-7-git-send-email-xiyou.wangcong@gmail.com>
-References: <1389987427-14085-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: [PATCH] Bluetooth: remove direct compilation of 6lowpan_iphc.c
+Date: Fri, 17 Jan 2014 11:41:32 -0800
+Message-ID: <52D9876C.3070705@infradead.org>
+References: <1389986964-5177-1-git-send-email-swarren@wwwdotorg.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-zigbee-devel@lists.sourceforge.net,
+	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	netdev@vger.kernel.org,
+	Jukka Rissanen <jukka.rissanen@linux.intel.com>,
+	Stephen Warren <swarren@nvidia.com>
+To: Stephen Warren <swarren@wwwdotorg.org>,
 	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:37120 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752886AbaAQTh2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 14:37:28 -0500
-Received: by mail-pa0-f46.google.com with SMTP id rd3so4538556pab.33
-        for <netdev@vger.kernel.org>; Fri, 17 Jan 2014 11:37:28 -0800 (PST)
-In-Reply-To: <1389987427-14085-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1389986964-5177-1-git-send-email-swarren@wwwdotorg.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When an action is bonnd to a filter, there is no point to
-remove it outside. Currently we just silently decrease the refcnt,
-we should reject this explicitly with EPERM.
+On 01/17/2014 11:29 AM, Stephen Warren wrote:
+> From: Stephen Warren <swarren@nvidia.com>
+> 
+> It's now built as a separate utility module, and enabling BT selects
+> that module in Kconfig. This fixes:
+> 
+> net/ieee802154/built-in.o:(___ksymtab_gpl+lowpan_process_data+0x0): multiple definition of `__ksymtab_lowpan_process_data'
+> net/bluetooth/built-in.o:(___ksymtab_gpl+lowpan_process_data+0x0): first defined here
+> net/ieee802154/built-in.o:(___ksymtab_gpl+lowpan_header_compress+0x0): multiple definition of `__ksymtab_lowpan_header_compress'
+> net/bluetooth/built-in.o:(___ksymtab_gpl+lowpan_header_compress+0x0): first defined here
+> net/ieee802154/built-in.o: In function `lowpan_header_compress':
+> net/ieee802154/6lowpan_iphc.c:606: multiple definition of `lowpan_header_compress'
+> net/bluetooth/built-in.o:/home/swarren/shared/git_wa/kernel/kernel.git/net/bluetooth/../ieee802154/6lowpan_iphc.c:606: first defined here
+> net/ieee802154/built-in.o: In function `lowpan_process_data':
+> net/ieee802154/6lowpan_iphc.c:344: multiple definition of `lowpan_process_data'
+> net/bluetooth/built-in.o:/home/swarren/shared/git_wa/kernel/kernel.git/net/bluetooth/../ieee802154/6lowpan_iphc.c:344: first defined here
+> make[1]: *** [net/built-in.o] Error 1
+> 
+> (this change probably simply wasn't "git add"d to a53d34c3465b)
+> 
+> Fixes: a53d34c3465b ("net: move 6lowpan compression code to separate module")
+> Fixes: 18722c247023 ("Bluetooth: Enable 6LoWPAN support for BT LE devices")
+> Signed-off-by: Stephen Warren <swarren@nvidia.com>
 
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- include/net/act_api.h |  2 +-
- net/sched/act_api.c   | 26 ++++++++++++++++++++------
- 2 files changed, 21 insertions(+), 7 deletions(-)
+Acked-by: Randy Dunlap <rdunlap@infradead.org>
 
-diff --git a/include/net/act_api.h b/include/net/act_api.h
-index 3198b0a..982d528 100644
---- a/include/net/act_api.h
-+++ b/include/net/act_api.h
-@@ -111,7 +111,7 @@ void tcf_hash_insert(struct tc_action *a);
- 
- int tcf_register_action(struct tc_action_ops *a, unsigned int mask);
- int tcf_unregister_action(struct tc_action_ops *a);
--void tcf_action_destroy(struct list_head *actions, int bind);
-+int tcf_action_destroy(struct list_head *actions, int bind);
- int tcf_action_exec(struct sk_buff *skb, const struct list_head *actions,
- 		    struct tcf_result *res);
- int tcf_action_init(struct net *net, struct nlattr *nla,
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 5ac0392..fd9042b 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -53,6 +53,8 @@ int tcf_hash_release(struct tc_action *a, int bind)
- 	if (p) {
- 		if (bind)
- 			p->tcfc_bindcnt--;
-+		else if (p->tcfc_bindcnt > 0)
-+			return -EPERM;
- 
- 		p->tcfc_refcnt--;
- 		if (p->tcfc_bindcnt <= 0 && p->tcfc_refcnt <= 0) {
-@@ -123,6 +125,7 @@ static int tcf_del_walker(struct sk_buff *skb, struct tc_action *a)
- 	struct tcf_common *p;
- 	struct nlattr *nest;
- 	int i = 0, n_i = 0;
-+	int ret = -EINVAL;
- 
- 	nest = nla_nest_start(skb, a->order);
- 	if (nest == NULL)
-@@ -132,10 +135,12 @@ static int tcf_del_walker(struct sk_buff *skb, struct tc_action *a)
- 	for (i = 0; i < (hinfo->hmask + 1); i++) {
- 		head = &hinfo->htab[tcf_hash(i, hinfo->hmask)];
- 		hlist_for_each_entry_safe(p, n, head, tcfc_head) {
--			if (ACT_P_DELETED == tcf_hash_release(a, 0)) {
-+			ret = tcf_hash_release(a, 0);
-+			if (ret == ACT_P_DELETED) {
- 				module_put(a->ops->owner);
- 				n_i++;
--			}
-+			} else if (ret < 0)
-+				goto nla_put_failure;
- 		}
- 	}
- 	if (nla_put_u32(skb, TCA_FCNT, n_i))
-@@ -145,7 +150,7 @@ static int tcf_del_walker(struct sk_buff *skb, struct tc_action *a)
- 	return n_i;
- nla_put_failure:
- 	nla_nest_cancel(skb, nest);
--	return -EINVAL;
-+	return ret;
- }
- 
- static int tcf_generic_walker(struct sk_buff *skb, struct netlink_callback *cb,
-@@ -392,16 +397,21 @@ exec_done:
- }
- EXPORT_SYMBOL(tcf_action_exec);
- 
--void tcf_action_destroy(struct list_head *actions, int bind)
-+int tcf_action_destroy(struct list_head *actions, int bind)
- {
- 	struct tc_action *a, *tmp;
-+	int ret = 0;
- 
- 	list_for_each_entry_safe(a, tmp, actions, list) {
--		if (tcf_hash_release(a, bind) == ACT_P_DELETED)
-+		ret = tcf_hash_release(a, bind);
-+		if (ret == ACT_P_DELETED)
- 			module_put(a->ops->owner);
-+		else if (ret < 0)
-+			return ret;
- 		list_del(&a->list);
- 		kfree(a);
- 	}
-+	return ret;
- }
- 
- int
-@@ -829,7 +839,11 @@ tcf_del_notify(struct net *net, struct nlmsghdr *n, struct list_head *actions,
- 	}
- 
- 	/* now do the delete */
--	tcf_action_destroy(actions, 0);
-+	ret = tcf_action_destroy(actions, 0);
-+	if (ret < 0) {
-+		kfree_skb(skb);
-+		return ret;
-+	}
- 
- 	ret = rtnetlink_send(skb, net, portid, RTNLGRP_TC,
- 			     n->nlmsg_flags & NLM_F_ECHO);
+Thanks.
+
+> ---
+>  net/bluetooth/Makefile | 4 ----
+>  1 file changed, 4 deletions(-)
+> 
+> diff --git a/net/bluetooth/Makefile b/net/bluetooth/Makefile
+> index cc6827e2ce68..80cb215826e8 100644
+> --- a/net/bluetooth/Makefile
+> +++ b/net/bluetooth/Makefile
+> @@ -12,8 +12,4 @@ bluetooth-y := af_bluetooth.o hci_core.o hci_conn.o hci_event.o mgmt.o \
+>  	hci_sock.o hci_sysfs.o l2cap_core.o l2cap_sock.o smp.o sco.o lib.o \
+>  	a2mp.o amp.o 6lowpan.o
+>  
+> -ifeq ($(CONFIG_IEEE802154_6LOWPAN),)
+> -  bluetooth-y +=  ../ieee802154/6lowpan_iphc.o
+> -endif
+> -
+>  subdir-ccflags-y += -D__CHECK_ENDIAN__
+> 
+
+
 -- 
-1.8.3.1
+~Randy
