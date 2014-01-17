@@ -1,62 +1,52 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH 11/13] net: mvneta: implement rx_copybreak
-Date: Fri, 17 Jan 2014 10:48:04 +0100
-Message-ID: <20140117094804.GB23276@1wt.eu>
-References: <1389856819-6503-12-git-send-email-w@1wt.eu> <063D6719AE5E284EB5DD2968C1650D6D45D866@AcuExch.aculab.com> <20140116093640.GA16457@1wt.eu> <20140116.114905.1582218754259744747.davem@davemloft.net> <20140116200757.GA19969@1wt.eu> <063D6719AE5E284EB5DD2968C1650D6D45EA2B@AcuExch.aculab.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH RFC 1/6] net: rfkill: gpio: fix gpio name buffer size
+ off by 1
+Date: Fri, 17 Jan 2014 09:46:08 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D45EA9D@AcuExch.aculab.com>
+References: <1389941251-32692-1-git-send-email-wens@csie.org>
+ <1389941251-32692-2-git-send-email-wens@csie.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"thomas.petazzoni@free-electrons.com"
-	<thomas.petazzoni@free-electrons.com>,
-	"gregory.clement@free-electrons.com"
-	<gregory.clement@free-electrons.com>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-sunxi@googlegroups.com" <linux-sunxi@googlegroups.com>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
+To: 'Chen-Yu Tsai' <wens@csie.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:55543 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751051AbaAQJsK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jan 2014 04:48:10 -0500
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D45EA2B@AcuExch.aculab.com>
+Received: from mx0.aculab.com ([213.249.233.131]:39297 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752118AbaAQJsX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 04:48:23 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 03716-01 for <netdev@vger.kernel.org>;
+ Fri, 17 Jan 2014 09:48:20 +0000 (GMT)
+In-Reply-To: <1389941251-32692-2-git-send-email-wens@csie.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 17, 2014 at 09:28:13AM +0000, David Laight wrote:
-> From: Willy Tarreau 
-> ..
-> > Ah that's an interesting trick! We don't have an IOMMU on this platform
-> > so the call is cheap. However, it relies on an I/O barrier to wait for
-> > a cache snoop completion. From what I read, it's not needed when going
-> > to the device. But when going to the CPU for the Rx case, we're calling
-> > it for every packet which is counter productive because I'd like to do
-> > it only once when entering the rx loop and avoid any other call during
-> > the loop. I measured that I could save 300 ns per packet by doing this
-> > (thus slightly modifying the DMA API to add a new dma_io_barrier function).
-> > 
-> > I think it could be interesting (at least for this platform, I don't know
-> > if other platforms work with cache coherent DMA which only require to
-> > verify end of snooping), to have two distinct set of DMA calls, something
-> > like this :
-> > 
-> >     rx_loop(napi, budget)
-> >     {
-> >          dma_wait_for_snoop_completion(dev);
-> >          ...
-> >          for_each_rx_packet(pkt) {
-> >              dma_sync_single_range_for_cpu_unless_completed(dev, pkt->addr);
-> >              /* use packet */
-> >          }
-> >     }
-> 
-> You'd need to scan the rx ring for completed entries before the waiting
-> for the snoop to complete - and then only process those entries.
-> (Or read a block of rx ring entries...)
-> 
-> Otherwise you might try to process a rx that finished after you
-> waited for the snoop to complete.
+From: Chen-Yu Tsai
+> snprintf should be passed the complete size of the buffer, including
+> the space for '\0'. The previous code resulted in the *_reset and
+> *_shutdown strings being truncated.
+...
+> diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
+...
+> -	snprintf(rfkill->reset_name, len + 6 , "%s_reset", rfkill->name);
+> -	snprintf(rfkill->shutdown_name, len + 9, "%s_shutdown", rfkill->name);
+> +	snprintf(rfkill->reset_name, len + 7 , "%s_reset", rfkill->name);
+> +	snprintf(rfkill->shutdown_name, len + 10, "%s_shutdown", rfkill->name);
 
-That's already the case, the number of descs to use is computed first
-thing when entering the function. That's why it's already safe.
+I can't find the context for the above, but they look very dubious.
+I'd expect: snprintf(foo, sizeof foo, ...).
+If you are trying to truncate rfkill->name you need to use %.*s.
 
-Willy
+	David
