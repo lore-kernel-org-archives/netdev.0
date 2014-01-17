@@ -1,74 +1,99 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 0/9] Intel Wired LAN Driver Updates
-Date: Fri, 17 Jan 2014 15:36:30 -0800
-Message-ID: <1390001799-19425-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Aaron Brown <aaron.f.brown@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 3/9] i40e: whitespace fixes
+Date: Fri, 17 Jan 2014 15:36:33 -0800
+Message-ID: <1390001799-19425-4-git-send-email-aaron.f.brown@intel.com>
+References: <1390001799-19425-1-git-send-email-aaron.f.brown@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:55373 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:5822 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752734AbaAQXhB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jan 2014 18:37:01 -0500
+	id S1753545AbaAQXhE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jan 2014 18:37:04 -0500
+In-Reply-To: <1390001799-19425-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e.  
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Neerav implements DCB and DCBNL support and adds DCB options
-to Kconfig.  DCB is disabled by default.
+Fix more whitespace issues, including making some locals declared
+in a nicer order.
 
-Anjali refactors flow control director to fix inconsistencies
-that were preventing clean unloads of the driver, move the
-queues for handling flow director error into their own hardware
-VSI and implement a corrected version of the basic ethtool add 
-ntuple rule.
+Also update Copyright string printed when the driver loads.
 
-Jesse provides fixes for a compiler warning, firmware workaround,
-white space fixes and renames some defines.
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_common.c    | 2 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c   | 1 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c      | 4 ++--
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h | 3 +--
+ 4 files changed, 5 insertions(+), 5 deletions(-)
 
-Shannon reworks the device ID #defines to follow the
-DEV_ID_ convention followed by our other drivers.
-
-Jesse Brandeburg (4):
-  i40e: fix compile warning on checksum_local
-  i40e: Change firmware workaround
-  i40e: whitespace fixes
-  i40e: rename defines
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 529ecb4..cfcee4b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -1557,8 +1557,8 @@ i40e_status i40e_aq_discover_capabilities(struct i40e_hw *hw,
+ 				struct i40e_asq_cmd_details *cmd_details)
+ {
+ 	struct i40e_aqc_list_capabilites *cmd;
+-	i40e_status status = 0;
+ 	struct i40e_aq_desc desc;
++	i40e_status status = 0;
  
-Anjali Singhai Jain (1):
-  i40e: refactor flow director
-
-Neerav Parikh (3):
-  i40e: implement DCB support infastructure
-  i40e: add DCB and DCBNL support
-  i40e: add DCB option to Kconfig
-
-Shannon Nelson (1):
-  i40e: Fix device ID define names to align to standard
-
- drivers/net/ethernet/intel/Kconfig                 |   8 +
- drivers/net/ethernet/intel/i40e/Makefile           |   2 +
- drivers/net/ethernet/intel/i40e/i40e.h             |  21 +-
- drivers/net/ethernet/intel/i40e/i40e_common.c      | 145 +++-
- drivers/net/ethernet/intel/i40e/i40e_dcb.c         | 469 +++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_dcb.h         | 107 +++
- drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c      | 316 +++++++++
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |  59 ++
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  17 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 733 +++++++++++++++------
- drivers/net/ethernet/intel/i40e/i40e_nvm.c         |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |  22 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_type.h        |  45 +-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   4 +-
- drivers/net/ethernet/intel/i40evf/i40e_common.c    |  24 +-
- drivers/net/ethernet/intel/i40evf/i40e_type.h      |  32 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |   2 +-
- 18 files changed, 1711 insertions(+), 299 deletions(-)
- create mode 100644 drivers/net/ethernet/intel/i40e/i40e_dcb.c
- create mode 100644 drivers/net/ethernet/intel/i40e/i40e_dcb.h
- create mode 100644 drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c
-
+ 	cmd = (struct i40e_aqc_list_capabilites *)&desc.params.raw;
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 7b87d51..151f9ff 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1552,6 +1552,7 @@ static int i40e_add_del_fdir_ethtool(struct i40e_vsi *vsi,
+ 
+ 	return ret;
+ }
++
+ /**
+  * i40e_set_rxnfc - command to set RX flow classification rules
+  * @netdev: network interface device structure
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index ff4aa74..adebf73 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -43,7 +43,7 @@ static const char i40e_driver_string[] =
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+ const char i40e_driver_version_str[] = DRV_VERSION;
+-static const char i40e_copyright[] = "Copyright (c) 2013 Intel Corporation.";
++static const char i40e_copyright[] = "Copyright (c) 2013 - 2014 Intel Corporation.";
+ 
+ /* a bit of forward declarations */
+ static void i40e_vsi_reinit_locked(struct i40e_vsi *vsi);
+@@ -1072,7 +1072,7 @@ struct i40e_mac_filter *i40e_put_mac_in_vlan(struct i40e_vsi *vsi, u8 *macaddr,
+ 		if (!i40e_find_filter(vsi, macaddr, f->vlan,
+ 				      is_vf, is_netdev)) {
+ 			if (!i40e_add_filter(vsi, macaddr, f->vlan,
+-						is_vf, is_netdev))
++					     is_vf, is_netdev))
+ 				return NULL;
+ 		}
+ 	}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+index f8c53a6..8c426f4 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+@@ -59,8 +59,7 @@ void i40e_debug_aq(struct i40e_hw *hw,
+ 
+ void i40e_idle_aq(struct i40e_hw *hw);
+ bool i40e_check_asq_alive(struct i40e_hw *hw);
+-i40e_status i40e_aq_queue_shutdown(struct i40e_hw *hw,
+-				   bool unloading);
++i40e_status i40e_aq_queue_shutdown(struct i40e_hw *hw, bool unloading);
+ 
+ u32 i40e_led_get(struct i40e_hw *hw);
+ void i40e_led_set(struct i40e_hw *hw, u32 mode, bool blink);
 -- 
 1.8.5.GIT
