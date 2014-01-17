@@ -1,27 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vxge: make local functions static
-Date: Thu, 16 Jan 2014 16:23:23 -0800 (PST)
-Message-ID: <20140116.162323.781932230537533513.davem@davemloft.net>
-References: <20140115082854.34b56f21@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH net-next v3 1/2] net: Add skb_get_hash_raw
+Date: Thu, 16 Jan 2014 16:23:30 -0800 (PST)
+Message-ID: <20140116.162330.1698441621188924836.davem@davemloft.net>
+References: <alpine.DEB.2.02.1401150853090.14881@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jdmason@kudzu.us, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55401 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55405 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751480AbaAQAXY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 19:23:24 -0500
-In-Reply-To: <20140115082854.34b56f21@nehalam.linuxnetplumber.net>
+	with ESMTP id S1750994AbaAQAXb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 19:23:31 -0500
+In-Reply-To: <alpine.DEB.2.02.1401150853090.14881@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Wed, 15 Jan 2014 08:28:54 -0800
+From: Tom Herbert <therbert@google.com>
+Date: Wed, 15 Jan 2014 08:57:54 -0800 (PST)
 
-> Remove unused function vxge_hw_vpath_vid_get
+> Function to just return skb->rxhash without checking to see if it needs
+> to be recomputed.
 > 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
 Applied.
