@@ -1,66 +1,59 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next v4 8/9] xen-netback: Timeout packets in RX path
-Date: Fri, 17 Jan 2014 19:27:35 +0000
-Message-ID: <52D98427.1060103@citrix.com>
-References: <1389731995-9887-1-git-send-email-zoltan.kiss@citrix.com> <1389731995-9887-9-git-send-email-zoltan.kiss@citrix.com> <20140116000334.GE5331@zion.uk.xensource.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<jonathan.davies@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:23835 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753508AbaAQT1i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 14:27:38 -0500
-In-Reply-To: <20140116000334.GE5331@zion.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Warren <swarren@wwwdotorg.org>
+Subject: [PATCH] Bluetooth: remove direct compilation of 6lowpan_iphc.c
+Date: Fri, 17 Jan 2014 12:29:24 -0700
+Message-ID: <1389986964-5177-1-git-send-email-swarren@wwwdotorg.org>
+Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-zigbee-devel@lists.sourceforge.net,
+	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	netdev@vger.kernel.org,
+	Jukka Rissanen <jukka.rissanen@linux.intel.com>,
+	Stephen Warren <swarren@nvidia.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16/01/14 00:03, Wei Liu wrote:
-> On Tue, Jan 14, 2014 at 08:39:54PM +0000, Zoltan Kiss wrote:
-> [...]
->> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
->> index 109c29f..d1cd8ce 100644
->> --- a/drivers/net/xen-netback/common.h
->> +++ b/drivers/net/xen-netback/common.h
->> @@ -129,6 +129,9 @@ struct xenvif {
->>   	struct xen_netif_rx_back_ring rx;
->>   	struct sk_buff_head rx_queue;
->>   	RING_IDX rx_last_skb_slots;
->
-> Hmm... You seemed to mix your other patch with this series. :-)
-Yep, this series doesn't work without that patch (actually that is a bug 
-in netback even without my series), so at the moment it is based on it.
+From: Stephen Warren <swarren@nvidia.com>
 
->
->> +	bool rx_queue_purge;
->> +
->> +	struct timer_list wake_queue;
->>
->>   	/* This array is allocated seperately as it is large */
->>   	struct gnttab_copy *grant_copy_op;
->> @@ -225,4 +228,7 @@ void xenvif_idx_unmap(struct xenvif *vif, u16 pending_idx);
->>
->>   extern bool separate_tx_rx_irq;
->>
-> [...]
->> @@ -559,7 +579,7 @@ void xenvif_free(struct xenvif *vif)
->>   		if (vif->grant_tx_handle[i] != NETBACK_INVALID_HANDLE) {
->>   			unmap_timeout++;
->>   			schedule_timeout(msecs_to_jiffies(1000));
->> -			if (unmap_timeout > 9 &&
->> +			if (unmap_timeout > ((rx_drain_timeout_msecs/1000) * DIV_ROUND_UP(XENVIF_QUEUE_LENGTH, (XEN_NETIF_RX_RING_SIZE / MAX_SKB_FRAGS))) &&
->
-> This line is really too long. And what's the rationale behind this long
-> expression?
-It calculates how many times you should ditch the internal queue of an 
-another (maybe stucked) vif before Qdisc empties it's actual content. 
-After that there shouldn't be any mapped handle left, so we should start 
-printing these messages. Actually it should use vif->dev->tx_queue_len, 
-and yes, it is probably better to move it to the beginning of the 
-function into a new variable, and use that here.
+It's now built as a separate utility module, and enabling BT selects
+that module in Kconfig. This fixes:
 
-Zoli
+net/ieee802154/built-in.o:(___ksymtab_gpl+lowpan_process_data+0x0): multiple definition of `__ksymtab_lowpan_process_data'
+net/bluetooth/built-in.o:(___ksymtab_gpl+lowpan_process_data+0x0): first defined here
+net/ieee802154/built-in.o:(___ksymtab_gpl+lowpan_header_compress+0x0): multiple definition of `__ksymtab_lowpan_header_compress'
+net/bluetooth/built-in.o:(___ksymtab_gpl+lowpan_header_compress+0x0): first defined here
+net/ieee802154/built-in.o: In function `lowpan_header_compress':
+net/ieee802154/6lowpan_iphc.c:606: multiple definition of `lowpan_header_compress'
+net/bluetooth/built-in.o:/home/swarren/shared/git_wa/kernel/kernel.git/net/bluetooth/../ieee802154/6lowpan_iphc.c:606: first defined here
+net/ieee802154/built-in.o: In function `lowpan_process_data':
+net/ieee802154/6lowpan_iphc.c:344: multiple definition of `lowpan_process_data'
+net/bluetooth/built-in.o:/home/swarren/shared/git_wa/kernel/kernel.git/net/bluetooth/../ieee802154/6lowpan_iphc.c:344: first defined here
+make[1]: *** [net/built-in.o] Error 1
+
+(this change probably simply wasn't "git add"d to a53d34c3465b)
+
+Fixes: a53d34c3465b ("net: move 6lowpan compression code to separate module")
+Fixes: 18722c247023 ("Bluetooth: Enable 6LoWPAN support for BT LE devices")
+Signed-off-by: Stephen Warren <swarren@nvidia.com>
+---
+ net/bluetooth/Makefile | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/net/bluetooth/Makefile b/net/bluetooth/Makefile
+index cc6827e2ce68..80cb215826e8 100644
+--- a/net/bluetooth/Makefile
++++ b/net/bluetooth/Makefile
+@@ -12,8 +12,4 @@ bluetooth-y := af_bluetooth.o hci_core.o hci_conn.o hci_event.o mgmt.o \
+ 	hci_sock.o hci_sysfs.o l2cap_core.o l2cap_sock.o smp.o sco.o lib.o \
+ 	a2mp.o amp.o 6lowpan.o
+ 
+-ifeq ($(CONFIG_IEEE802154_6LOWPAN),)
+-  bluetooth-y +=  ../ieee802154/6lowpan_iphc.o
+-endif
+-
+ subdir-ccflags-y += -D__CHECK_ENDIAN__
+-- 
+1.8.1.5
