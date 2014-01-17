@@ -1,62 +1,106 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: Linux kernel patch: elide fib_validate_source() completely when
- possible - bad side effect?
-Date: Fri, 17 Jan 2014 10:24:12 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1401170953370.1827@ja.home.ssi.bg>
-References: <52D945400200005D00047758@gwia2.atlnz.lc>
+From: sohny thomas <sohny.kernel@gmail.com>
+Subject: Re: ipv6: default route for link local address is not added while
+ assigning a address
+Date: Fri, 17 Jan 2014 14:04:26 +0530
+Message-ID: <52D8EB12.6070901@gmail.com>
+References: <52D2F201.1090903@gmail.com> <52D3A885.2080107@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: gregory hoggarth <gregory.hoggarth@alliedtelesis.co.nz>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, davem@davemloft.net,
+	kumuda <kumuda@linux.vnet.ibm.com>, hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:49331 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751079AbaAQIYw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jan 2014 03:24:52 -0500
-In-Reply-To: <52D945400200005D00047758@gwia2.atlnz.lc>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:44950 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751064AbaAQIed (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 03:34:33 -0500
+In-Reply-To: <52D3A885.2080107@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi All,
 
-	Hello,
+Any updates on my reply, Any more info is required.
+Can this be pulled into the kernel tree?
 
-On Fri, 17 Jan 2014, gregory hoggarth wrote:
+Thanks & Regards,
+Sohny
 
-> Hi,
-> 
-> I work for Allied Telesis, a company that manufactures and sells routers and switches.
-> 
-> Earlier in the year we upgraded the linux kernel on our L3 switch firmware to v3.6.2 which includes this patch. Our testers have picked up a change in behaviour which I have traced back to this patch and I'd like to get comments on whether this is a bug or not.
-> 
-> We found that in a configuration with a device under test (DUT) that has an IP address 192.168.0.1 / 24, sending an ICMP echo request with a source IP address of 192.168.0.255 will now be accepted by the DUT, which will send an ICMP echo reply back to the 192.168.0.255 address with a broadcast MAC address of FFFF.FFFF.FFFF, meaning any other devices in the L2 domain will pick up and process the ICMP reply.
 
-...
-
-> Initially we were thinking that a device configured with 192.168.0.255 / 23 sending a ping to 192.168.0.1 / 24 should expect to get a reply, even though this is somewhat of a misconfiguration in that the subnets aren't matching and that some things may not work properly. For example ping from a device with IP address 192.168.0.254 would behave correctly, so it seemed correct that a ping from 192.168.0.255 should also work properly. However it appears that some other part of the kernel is detecting that the echo reply packet sent by the DUT has a destination IP address of the subnet broadcast, so instead of sending it with a unicast MAC address it sends it with the broadcast MAC address, which means all other devices on the subnet would process the ICMP echo reply. This therefore makes it
-  seem like the ICMP echo request should have been dropped in the first place.
-> 
-> The patch added the "if (!r && !fib_num_tclassid_users)" check to fib_validate_source, which for our devices evaluates to true, hence returning early and the source address check inside __fib_validate_source is not carried out.
-> 
-> 
-> Does anyone have comments as to what the correct behaviour should be in this case, and whether this is an unexpected side-effect from the patch or not?
-
-	It seems only __fib_validate_source can reject all kind
-of broadcast addresses in saddr. ip_route_input_slow() rejects
-only the well known broadcasts. Without rp_filter may be we
-can at least drop attempts to send replies back to broadcast
-addresses? For example, checking result of ip_route_output_key() in
-icmp_reply():
-
-	if (rt->rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST))
-		=> ip_rt_put()
-
-	For icmp_send() in icmp_route_lookup() ?
-
-	For TCP in inet_csk_route_req() ?
-
-	I did not checked all places...
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+On Monday 13 January 2014 02:19 PM, sohny thomas wrote:
+> On Friday 10 January 2014 10:46 PM, Hannes Frederic Sowa wrote:
+>> On Fri, Jan 10, 2014 at 05:33:08PM +0100, Nicolas Dichtel wrote:
+>>> CC: netdev
+>>>
+>>> Le 10/01/2014 13:20, sohny thomas a =C3=A9crit :
+>>>> Default route for link local address is configured automatically i=
+f
+>>>> NETWORKING_IPV6=3Dyes is in ifcfg-eth*.
+>>>> When the route table for the interface is flushed and a new addres=
+s is
+>>>> added to
+>>>> the same device with out removing linklocal addr, default route fo=
+r
+>>>> link
+>>>> local
+>>>> address has to added by default.
+>>> I would say that removing the link local route but not the link loc=
+al
+>>> address
+>>> is a configuration problem.
+>>> If you remove a connected route but not the associated address, you=
+ will
+>>> have
+>>> the same problem.
+>> We have some user accessible routes that are essential for IPv6 stac=
+k
+>> to work at all. So I don't know if I can agree with that.
+>>
+>> Maybe flush is a bit too aggressive?
+>>
+> Hi ,
+>
+> Thank you for the inputs.
+>
+> In the test for ipv6 default address selection , we are testing the r=
+ule
+> 2 as specified in RFC 6724
+>
+>    If Scope(SA) < Scope(SB): If Scope(SA) < Scope(D), then prefer SB
+>      and otherwise prefer SA.
+>      Similarly, if Scope(SB) < Scope(SA): If Scope(SB) < Scope(D), th=
+en
+>      prefer SA and otherwise prefer SB.
+>
+> Test:
+>
+>    Check 04:
+>       Destination: ff08::2(OS)
+>       Candidate Source Addresses: fec0::1(SS) or LLA(LS)
+>       Result: fec0::1(SS)
+>
+>       Scope(LLA) < Scope(fec0::1): If Scope(LLA) < Scope(ff08::2),  y=
+es,
+> prefer fec0::1
+>
+>
+> Now in the test its flushing all the routes and adding an address ,
+> which in causes to add route into the routing table including the lin=
+k
+> local routes.
+> Earlier in 2.6.32 it used to work fine now due to the above mentioned
+> check-in this is not happening
+>
+> Of course we can still just delete a route and add , but even if we
+> delete the link local route, IMHO i think it should update the LLA ro=
+ute
+> when the interface is next added an address or bought up which ever i=
+s
+> the case.
+>
+> Regards,
+> Sohny
+>
+>
