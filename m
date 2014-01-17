@@ -1,74 +1,83 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v2 net-next 0/12] bonding: add an option to rely on unvalidated arp packets
-Date: Fri, 17 Jan 2014 17:56:47 +0100
-Message-ID: <1389977819-16093-1-git-send-email-vfalico@redhat.com>
-Cc: Rob Landley <rob@landley.net>, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Ding Tianhong <dingtianhong@huawei.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Veaceslav Falico <vfalico@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62383 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752100AbaAQRjH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jan 2014 12:39:07 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Subject: Re: [PATCH RFC 4/6] net: rfkill: gpio: add device tree support
+Date: Sat, 18 Jan 2014 01:43:31 +0800
+Message-ID: <CAGb2v67UKiyfJbKZ_Frk3OwZupMPoA2Ck3Hj2zsRFXBQPztavg@mail.gmail.com>
+References: <1389941251-32692-1-git-send-email-wens@csie.org>
+ <1389941251-32692-5-git-send-email-wens@csie.org> <201401171747.46332.arnd@arndb.de>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <linux-sunxi+bncBCMILY6JWQBBBWGX4WLAKGQEZNLIT5Q-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <201401171747.46332.arnd-r2nGTMty4D4@public.gmane.org>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi>
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Sat, Jan 18, 2014 at 12:47 AM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
+> On Friday 17 January 2014, Chen-Yu Tsai wrote:
+>> diff --git a/Documentation/devicetree/bindings/rfkill/rfkill-gpio.txt b/Documentation/devicetree/bindings/rfkill/rfkill-gpio.txt
+>> new file mode 100644
+>> index 0000000..8a07ea4
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/rfkill/rfkill-gpio.txt
+>> @@ -0,0 +1,26 @@
+>> +GPIO controlled RFKILL devices
+>> +
+>> +Required properties:
+>> +- compatible   : Must be "rfkill-gpio".
+>> +- rfkill-name  : Name of RFKILL device
+>> +- rfkill-type  : Type of RFKILL device: 1 for WiFi, 2 for BlueTooth
+>> +- NAME_shutdown-gpios  : GPIO phandle to shutdown control
+>> +                         (phandle must be the second)
+>> +- NAME_reset-gpios     : GPIO phandle to reset control
+>> +
+>> +NAME must match the rfkill-name property. NAME_shutdown-gpios or
+>> +NAME_reset-gpios, or both, must be defined.
+>> +
+>
+> I don't understand this part. Why do you include the name in the
+> gpios property, rather than just hardcoding the property strings
+> to "shutdown-gpios" and "reset-gpios"?
 
-v1 -> v2:
-Don't remove the 'all traffic' functionality - rather, add new arp_validate
-options to specify that we want *only* unvalidated arps.
+This quirk is a result of how gpiod_get_index implements device tree
+lookup. You'll also notice that the shutdown GPIO must be the second
+phandle, as the driver uses indexed lookup to support ACPI cases.
+If con_id is given, it is prepended to "gpios" as the property string.
+con_id is also used as the label passed to gpiod_request, which is
+then shown in /sys/kernel/debug/gpio.
 
-Currently, if arp_validate is off (0), slave_last_rx() returns the
-slave->dev->last_rx, which is always updated on *any* packet received by
-slave, and not only arps. This means that, if the validation of arps is
-off, we're treating *any* incoming packet as a proof of slave being up, and
-not only arps.
+I can do a seperate lookup for the device tree case, with or without
+fallback to platform lookup tables. Then the names can be "reset-gpio"
+and "shutdown-gpio". Need to promote gpiod_request to non-static so
+we can register usage of the gpio, to match non-dt code path.
 
-This might seem logical at the first glance, however it can cause a lot of
-troubles and false-positives, one example would be:
+Personally I prefer adding a "label" parameter to gpiod_get_index, so
+we can use a different name than con_id. con_id isn't used in the ACPI
+case, and is optional in platform lookup case. However device tree
+lookup is dependent on this. What I see is non-uniform behavior
+between the three. In my opinion this is undesirable, but I haven't
+come up with a good solution yet.
 
-The arp_ip_target is NOT accessible, however someone in the broadcast domain
-spams with any broadcast traffic. This way bonding will be tricked that the
-slave is still up (as in - can access arp_ip_target), while it's not.
+About the property string, is the plural form required, even though we
+only want one?
 
-The net_device->last_rx is already used in a lot of drivers (even though the
-comment states to NOT do it :)), and it's also ugly to modify it from bonding.
+Thanks!
 
-However, some loadbalance setups might rely on the fact that even non-arp
-traffic is a sign of slave being up - and we definitely can't break anyones
-config - so an extension to arp_validate is needed.
+ChenYu
 
-So, to fix this, add an option for the user to specify if he wants to
-filter out non-arp traffic on unvalidated slaves, remove the last_rx from
-bonding, *always* call bond_arp_rcv() in slave's rx_handler (which is
-bond_handle_frame), and if we spot an arp there with this option on - update
-the slave->last_arp_rx - and use it instead of net_device->last_rx. Finally,
-rename last_arp_rx to last_rx to reflect the changes.
-
-Also rename slave->jiffies to ->last_link_up, to reflect better its
-meaning, add the new option's documentation and update the arp_validate one
-to be a bit more descriptive.
-
-CC: Rob Landley <rob@landley.net>
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Nikolay Aleksandrov <nikolay@redhat.com>
-CC: Ding Tianhong <dingtianhong@huawei.com>
-CC: Neil Horman <nhorman@tuxdriver.com>
-CC: netdev@vger.kernel.org
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-
----
- Documentation/networking/bonding.txt | 40 ++++++++++++++++++++++-----
- drivers/net/bonding/bond_main.c      | 53 ++++++++++++++++--------------------
- drivers/net/bonding/bond_options.c   | 18 ++----------
- drivers/net/bonding/bonding.h        | 26 ++++++++++++------
- include/linux/netdevice.h            |  8 +-----
- 5 files changed, 77 insertions(+), 68 deletions(-)
+> The description of hte "rfkill-name" property seems to suggest
+> that you can only have one logical RFKILL device per device node,
+> so he names would not be ambiguous.
+>
+>         Arnd
