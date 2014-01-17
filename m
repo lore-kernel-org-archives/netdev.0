@@ -1,293 +1,104 @@
-From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: [PATCH net-next v3 8/8] net: stmmac: sunxi platform
- extensions for GMAC in Allwinner A20 SoC's
-Date: Fri, 17 Jan 2014 21:24:47 +0800
-Message-ID: <1389965087-21971-9-git-send-email-wens@csie.org>
-References: <1389965087-21971-1-git-send-email-wens@csie.org>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next v2] xen-netfront: clean up code in
+ xennet_release_rx_bufs
+Date: Fri, 17 Jan 2014 14:02:46 +0000
+Message-ID: <20140117140246.GB11681@zion.uk.xensource.com>
+References: <1389830228-2381-1-git-send-email-Annie.li@oracle.com>
+ <52D7BE19.2010009@citrix.com>
+ <52D8CCE4.9010804@oracle.com>
+ <20140117120810.GA11681@zion.uk.xensource.com>
+ <52D922DD.2060407@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
-	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-	Srinivas Kandagatla <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-sunxi+bncBCMILY6JWQBBBK664SLAKGQE6BTLQMY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <1389965087-21971-1-git-send-email-wens-jdAy2FN1RRM@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	<ian.campbell@citrix.com>, <netdev@vger.kernel.org>,
+	<xen-devel@lists.xen.org>, <andrew.bennieston@citrix.com>,
+	<davem@davemloft.net>
+To: annie li <annie.li@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:54332 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750971AbaAQOCt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 09:02:49 -0500
+Content-Disposition: inline
+In-Reply-To: <52D922DD.2060407@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The Allwinner A20 has an ethernet controller that seems to be
-an early version of Synopsys DesignWare MAC 10/100/1000 Universal,
-which is supported by the stmmac driver.
+On Fri, Jan 17, 2014 at 08:32:29PM +0800, annie li wrote:
+> 
+> On 2014-1-17 20:08, Wei Liu wrote:
+> >On Fri, Jan 17, 2014 at 02:25:40PM +0800, annie li wrote:
+> >>On 2014/1/16 19:10, David Vrabel wrote:
+> >>>On 15/01/14 23:57, Annie Li wrote:
+> >>>>This patch implements two things:
+> >>>>
+> >>>>* release grant reference and skb for rx path, this fixex resource leaking.
+> >>>>* clean up grant transfer code kept from old netfront(2.6.18) which grants
+> >>>>pages for access/map and transfer. But grant transfer is deprecated in current
+> >>>>netfront, so remove corresponding release code for transfer.
+> >>>>
+> >>>>gnttab_end_foreign_access_ref may fail when the grant entry is currently used
+> >>>>for reading or writing. But this patch does not cover this and improvement for
+> >>>>this failure may be implemented in a separate patch.
+> >>>I don't think replacing a resource leak with a security bug is a good idea.
+> >>>
+> >>>If you would prefer not to fix the gnttab_end_foreign_access() call, I
+> >>>think you can fix this in netfront by taking a reference to the page
+> >>>before calling gnttab_end_foreign_access().  This will ensure the page
+> >>>isn't freed until the subsequent kfree_skb(), or the gref is released by
+> >>>the foreign domain (whichever is later).
+> >>Taking a reference to the page before calling
+> >>gnttab_end_foreign_access() delays the free work until kfree_skb().
+> >>Simply adding put_page before kfree_skb() does not make things
+> >>different from gnttab_end_foreign_access_ref(), and the pages will
+> >>be freed by kfree_skb(), problem will be hit in
+> >>gnttab_handle_deferred() when freeing pages which already be freed.
+> >>
+> >I think David's idea is:
+> >
+> >	get_page
+> >	gnttab_end_foreign_access
+> >	kfree_skb
+> >
+> >The get_page is to offset put_page in gnttab_end_foreign_access. You
+> >don't need to put page before kfree_skb.
+> 
+> Yes, this is what I described as following about David's patch.
+> 
+> >>So put_page is required in gnttab_end_foreign_access(), this will
+> >>ensure either free is taken by kfree_skb or gnttab_handle_deferred.
+> >>This involves changes in blkfront/pcifront/tpmfront(just like your
+> >>patch), this way ensure page is released when ref is end.
+> 
+> But this would has some issue in netfront tx path. Netfront ends all
 
-Allwinner's GMAC requires setting additional registers in the SoC's
-clock control unit.
+What issue with tx path? Your patch only touches rx skbs, doesn't it?
 
-The exact version of the DWMAC IP that Allwinner uses is unknown,
-thus the exact feature set is unknown.
+> grant reference of one skb first and then release this skb. If the
+> gnttab_end_foreign_access_ref fails in gnttab_end_foreign_access(),
+> this frag page and corresponding grant reference will be put in
+> entry and release work will be done in the timer routine. If some
 
-Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
----
- .../bindings/net/allwinner,sun7i-a20-gmac.txt      |  27 ++++
- drivers/net/ethernet/stmicro/stmmac/Kconfig        |  11 ++
- drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
- drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c  | 141 +++++++++++++++++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |   3 +
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   3 +
- 6 files changed, 186 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/allwinner,sun7i-a20-gmac.txt
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
+I understand up to this point.
 
-diff --git a/Documentation/devicetree/bindings/net/allwinner,sun7i-a20-gmac.txt b/Documentation/devicetree/bindings/net/allwinner,sun7i-a20-gmac.txt
-new file mode 100644
-index 0000000..ea4d752
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/allwinner,sun7i-a20-gmac.txt
-@@ -0,0 +1,27 @@
-+* Allwinner GMAC ethernet controller
-+
-+This device is a platform glue layer for stmmac.
-+Please see stmmac.txt for the other unchanged properties.
-+
-+Required properties:
-+ - compatible:  Should be "allwinner,sun7i-a20-gmac"
-+ - clocks: Should contain the GMAC main clock, and tx clock
-+   The tx clock type should be "allwinner,sun7i-a20-gmac-clk"
-+ - clock-names: Should contain the clock names "stmmaceth",
-+   and "allwinner_gmac_tx"
-+
-+Optional properties:
-+- phy-supply: phandle to a regulator if the PHY needs one
-+
-+Examples:
-+
-+	gmac: ethernet@01c50000 {
-+		compatible = "allwinner,sun7i-a20-gmac";
-+		reg = <0x01c50000 0x10000>,
-+		      <0x01c20164 0x4>;
-+		interrupts = <0 85 1>;
-+		interrupt-names = "macirq";
-+		clocks = <&ahb_gates 49>, <&gmac_tx>;
-+		clock-names = "stmmaceth", "allwinner_gmac_tx";
-+		phy-mode = "mii";
-+	};
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-index b59d1ef..e2f202e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
-+++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-@@ -26,6 +26,17 @@ config STMMAC_PLATFORM
- 
- 	  If unsure, say N.
- 
-+config DWMAC_SUNXI
-+	bool "Allwinner GMAC support"
-+	depends on STMMAC_PLATFORM && ARCH_SUNXI
-+	default y
-+	---help---
-+	  Support for Allwinner A20/A31 GMAC ethernet controllers.
-+
-+	  This selects Allwinner SoC glue layer support for the
-+	  stmmac device driver. This driver is used for A20/A31
-+	  GMAC 	  ethernet controller.
-+
- config STMMAC_PCI
- 	bool "STMMAC PCI bus support"
- 	depends on STMMAC_ETH && PCI
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
-index 356a9dd..ecadece 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Makefile
-+++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
-@@ -1,6 +1,7 @@
- obj-$(CONFIG_STMMAC_ETH) += stmmac.o
- stmmac-$(CONFIG_STMMAC_PLATFORM) += stmmac_platform.o
- stmmac-$(CONFIG_STMMAC_PCI) += stmmac_pci.o
-+stmmac-$(CONFIG_DWMAC_SUNXI) += dwmac-sunxi.o
- stmmac-objs:= stmmac_main.o stmmac_ethtool.o stmmac_mdio.o ring_mode.o	\
- 	      chain_mode.o dwmac_lib.o dwmac1000_core.o  dwmac1000_dma.o \
- 	      dwmac100_core.o dwmac100_dma.o enh_desc.o  norm_desc.o \
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
-new file mode 100644
-index 0000000..dc4f8ae
---- /dev/null
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
-@@ -0,0 +1,141 @@
-+/**
-+ * dwmac-sunxi.c - Allwinner sunxi DWMAC specific glue layer
-+ *
-+ * Copyright (C) 2013 Chen-Yu Tsai
-+ *
-+ * Chen-Yu Tsai  <wens-jdAy2FN1RRM@public.gmane.org>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/stmmac.h>
-+#include <linux/clk.h>
-+#include <linux/phy.h>
-+#include <linux/of_net.h>
-+#include <linux/regulator/consumer.h>
-+
-+struct sunxi_priv_data {
-+	int interface;
-+	int clk_enabled;
-+	struct clk *tx_clk;
-+	struct regulator *regulator;
-+};
-+
-+static void *sun7i_gmac_setup(struct platform_device *pdev)
-+{
-+	struct sunxi_priv_data *gmac;
-+	struct device *dev = &pdev->dev;
-+
-+	gmac = devm_kzalloc(dev, sizeof(*gmac), GFP_KERNEL);
-+	if (!gmac)
-+		return ERR_PTR(-ENOMEM);
-+
-+	gmac->interface = of_get_phy_mode(dev->of_node);
-+
-+	gmac->tx_clk = devm_clk_get(dev, "allwinner_gmac_tx");
-+	if (IS_ERR(gmac->tx_clk)) {
-+		dev_err(dev, "could not get tx clock\n");
-+		return gmac->tx_clk;
-+	}
-+
-+	/* Optional regulator for PHY */
-+	gmac->regulator = devm_regulator_get_optional(dev, "phy");
-+	if (IS_ERR(gmac->regulator)) {
-+		if (PTR_ERR(gmac->regulator) == -EPROBE_DEFER)
-+			return ERR_PTR(-EPROBE_DEFER);
-+		dev_info(dev, "no regulator found\n");
-+		gmac->regulator = NULL;
-+	}
-+
-+	return gmac;
-+}
-+
-+#define SUN7I_GMAC_GMII_RGMII_RATE	125000000
-+#define SUN7I_GMAC_MII_RATE		25000000
-+
-+static int sun7i_gmac_init(struct platform_device *pdev, void *priv)
-+{
-+	struct sunxi_priv_data *gmac = priv;
-+	int ret;
-+
-+	if (gmac->regulator) {
-+		ret = regulator_enable(gmac->regulator);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	/* Set GMAC interface port mode
-+	 *
-+	 * The GMAC TX clock lines are configured by setting the clock
-+	 * rate, which then uses the auto-reparenting feature of the
-+	 * clock driver, and enabling/disabling the clock.
-+	 */
-+	if (gmac->interface == PHY_INTERFACE_MODE_RGMII) {
-+		clk_set_rate(gmac->tx_clk, SUN7I_GMAC_GMII_RGMII_RATE);
-+		clk_prepare_enable(gmac->tx_clk);
-+		gmac->clk_enabled = 1;
-+	} else {
-+		clk_set_rate(gmac->tx_clk, SUN7I_GMAC_MII_RATE);
-+		clk_prepare(gmac->tx_clk);
-+	}
-+
-+	return 0;
-+}
-+
-+static void sun7i_gmac_exit(struct platform_device *pdev, void *priv)
-+{
-+	struct sunxi_priv_data *gmac = priv;
-+
-+	if (gmac->clk_enabled) {
-+		clk_disable(gmac->tx_clk);
-+		gmac->clk_enabled = 0;
-+	}
-+	clk_unprepare(gmac->tx_clk);
-+
-+	if (gmac->regulator)
-+		regulator_disable(gmac->regulator);
-+}
-+
-+static void sun7i_fix_speed(void *priv, unsigned int speed)
-+{
-+	struct sunxi_priv_data *gmac = priv;
-+
-+	/* only GMII mode requires us to reconfigure the clock lines */
-+	if (gmac->interface != PHY_INTERFACE_MODE_GMII)
-+		return;
-+
-+	if (gmac->clk_enabled) {
-+		clk_disable(gmac->tx_clk);
-+		gmac->clk_enabled = 0;
-+	}
-+	clk_unprepare(gmac->tx_clk);
-+
-+	if (speed == 1000) {
-+		clk_set_rate(gmac->tx_clk, SUN7I_GMAC_GMII_RGMII_RATE);
-+		clk_prepare_enable(gmac->tx_clk);
-+		gmac->clk_enabled = 1;
-+	} else {
-+		clk_set_rate(gmac->tx_clk, SUN7I_GMAC_MII_RATE);
-+		clk_prepare(gmac->tx_clk);
-+	}
-+}
-+
-+/* of_data specifying hardware features and callbacks.
-+ * hardware features were copied from Allwinner drivers. */
-+const struct stmmac_of_data sun7i_gmac_data = {
-+	.has_gmac = 1,
-+	.tx_coe = 1,
-+	.fix_mac_speed = sun7i_fix_speed,
-+	.setup = sun7i_gmac_setup,
-+	.init = sun7i_gmac_init,
-+	.exit = sun7i_gmac_exit,
-+};
-+
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index c1c141f..d9af26e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -130,6 +130,9 @@ void stmmac_disable_eee_mode(struct stmmac_priv *priv);
- bool stmmac_eee_init(struct stmmac_priv *priv);
- 
- #ifdef CONFIG_STMMAC_PLATFORM
-+#ifdef CONFIG_DWMAC_SUNXI
-+extern const struct stmmac_of_data sun7i_gmac_data;
-+#endif
- extern struct platform_driver stmmac_pltfr_driver;
- static inline int stmmac_register_platform(void)
- {
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index bf119db..9d4baa8 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -30,6 +30,9 @@
- #include "stmmac.h"
- 
- static const struct of_device_id stmmac_dt_ids[] = {
-+#ifdef CONFIG_DWMAC_SUNXI
-+	{ .compatible = "allwinner,sun7i-a20-gmac", .data = &sun7i_gmac_data},
-+#endif
- 	/* SoC specific glue layers should come before generic bindings */
- 	{ .compatible = "st,spear600-gmac"},
- 	{ .compatible = "snps,dwmac-3.610"},
--- 
-1.8.5.2
+> frag pages of one skb is free in this timer routine, then
+> dev_kfree_skb_irq will free pages which have been freed.
+
+Why is dev_kfree_skb_irq involved? It is used in tx path not rx path.
+Even if we look at dev_kfree_skb_irq, it calls __kfree_skb for dropped
+packet eventually, which should do the right thing if we don't mess up
+ref counts.
+
+Wei.
+
+> So I prefer following way I mentioned, suggestions?
+> 
+> >>Another solution I am thinking is calling
+> >>gnttab_end_foreign_access() with page parameter as NULL, then
+> >>gnttab_end_foreign_access will only do ending grant reference work
+> >>and releasing page work is done by kfree_skb().
+> 
+> Thanks
+> Annie
