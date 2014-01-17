@@ -1,324 +1,214 @@
 From: Michael Dalton <mwdalton@google.com>
-Subject: [PATCH net-next v6 4/6] net-sysfs: add support for device-specific rx queue sysfs attributes
-Date: Thu, 16 Jan 2014 22:23:28 -0800
-Message-ID: <1389939810-14998-5-git-send-email-mwdalton@google.com>
+Subject: [PATCH net-next v6 2/6] virtio-net: use per-receive queue page frag
+	alloc for mergeable bufs
+Date: Thu, 16 Jan 2014 22:23:26 -0800
+Message-ID: <1389939810-14998-3-git-send-email-mwdalton@google.com>
 References: <1389939810-14998-1-git-send-email-mwdalton@google.com>
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	virtualization@lists.linux-foundation.org,
-	Michael Dalton <mwdalton@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Michael Dalton <mwdalton@google.com>, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f202.google.com ([209.85.223.202]:44752 "EHLO
-	mail-ie0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751374AbaAQGXl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 01:23:41 -0500
-Received: by mail-ie0-f202.google.com with SMTP id x13so905707ief.5
-        for <netdev@vger.kernel.org>; Thu, 16 Jan 2014 22:23:40 -0800 (PST)
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 In-Reply-To: <1389939810-14998-1-git-send-email-mwdalton@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Extend existing support for netdevice receive queue sysfs attributes to
-permit a device-specific attribute group. Initial use case for this
-support will be to allow the virtio-net device to export per-receive
-queue mergeable receive buffer size.
+The virtio-net driver currently uses netdev_alloc_frag() for GFP_ATOMIC
+mergeable rx buffer allocations. This commit migrates virtio-net to use
+per-receive queue page frags for GFP_ATOMIC allocation. This change unifies
+mergeable rx buffer memory allocation, which now will use skb_refill_frag()
+for both atomic and GFP-WAIT buffer allocations.
 
+To address fragmentation concerns, if after buffer allocation there
+is too little space left in the page frag to allocate a subsequent
+buffer, the remaining space is added to the current allocated buffer
+so that the remaining space can be used to store packet data.
+
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 Signed-off-by: Michael Dalton <mwdalton@google.com>
 ---
-v4->v5: Handle sysfs_create_group failure. Call sysfs_remove_group when
-        removing a RX queue kobj if a device-specific group exists.
-v3->v4: Simplify by removing loop in get_netdev_rx_queue_index.
+v1->v2: Use GFP_COLD for RX buffer allocations (as in netdev_alloc_frag()).
+        Remove per-netdev GFP_KERNEL page_frag allocator.
 
- include/linux/netdevice.h | 35 +++++++++++++++++++++++++++++----
- net/core/dev.c            | 12 ++++++------
- net/core/net-sysfs.c      | 50 +++++++++++++++++++++++++++--------------------
- 3 files changed, 66 insertions(+), 31 deletions(-)
+ drivers/net/virtio_net.c | 69 ++++++++++++++++++++++++------------------------
+ 1 file changed, 35 insertions(+), 34 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index d7668b88..e985231 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -668,15 +668,28 @@ extern struct rps_sock_flow_table __rcu *rps_sock_flow_table;
- bool rps_may_expire_flow(struct net_device *dev, u16 rxq_index, u32 flow_id,
- 			 u16 filter_id);
- #endif
-+#endif /* CONFIG_RPS */
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 9bd70aa..5ee71dc 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -75,6 +75,9 @@ struct receive_queue {
+ 	/* Chain pages by the private ptr. */
+ 	struct page *pages;
  
- /* This structure contains an instance of an RX queue. */
- struct netdev_rx_queue {
-+#ifdef CONFIG_RPS
- 	struct rps_map __rcu		*rps_map;
- 	struct rps_dev_flow_table __rcu	*rps_flow_table;
-+#endif
- 	struct kobject			kobj;
- 	struct net_device		*dev;
- } ____cacheline_aligned_in_smp;
--#endif /* CONFIG_RPS */
++	/* Page frag for packet buffer allocation. */
++	struct page_frag alloc_frag;
 +
-+/*
-+ * RX queue sysfs structures and functions.
-+ */
-+struct rx_queue_attribute {
-+	struct attribute attr;
-+	ssize_t (*show)(struct netdev_rx_queue *queue,
-+	    struct rx_queue_attribute *attr, char *buf);
-+	ssize_t (*store)(struct netdev_rx_queue *queue,
-+	    struct rx_queue_attribute *attr, const char *buf, size_t len);
-+};
+ 	/* RX: fragments + linear part + virtio header */
+ 	struct scatterlist sg[MAX_SKB_FRAGS + 2];
  
- #ifdef CONFIG_XPS
- /*
-@@ -1313,7 +1326,7 @@ struct net_device {
- 						   unicast) */
+@@ -123,11 +126,6 @@ struct virtnet_info {
+ 	/* Lock for config space updates */
+ 	struct mutex config_lock;
  
+-	/* Page_frag for GFP_KERNEL packet buffer allocation when we run
+-	 * low on memory.
+-	 */
+-	struct page_frag alloc_frag;
+-
+ 	/* Does the affinity hint is set for virtqueues? */
+ 	bool affinity_hint_set;
  
--#ifdef CONFIG_RPS
-+#ifdef CONFIG_SYSFS
- 	struct netdev_rx_queue	*_rx;
+@@ -333,8 +331,8 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 	int num_buf = hdr->mhdr.num_buffers;
+ 	struct page *page = virt_to_head_page(buf);
+ 	int offset = buf - page_address(page);
+-	struct sk_buff *head_skb = page_to_skb(rq, page, offset, len,
+-					       MERGE_BUFFER_LEN);
++	unsigned int truesize = max_t(unsigned int, len, MERGE_BUFFER_LEN);
++	struct sk_buff *head_skb = page_to_skb(rq, page, offset, len, truesize);
+ 	struct sk_buff *curr_skb = head_skb;
  
- 	/* Number of RX queues allocated at register_netdev() time */
-@@ -1424,6 +1437,8 @@ struct net_device {
- 	struct device		dev;
- 	/* space for optional device, statistics, and wireless sysfs groups */
- 	const struct attribute_group *sysfs_groups[4];
-+	/* space for optional per-rx queue attributes */
-+	const struct attribute_group *sysfs_rx_queue_group;
+ 	if (unlikely(!curr_skb))
+@@ -350,11 +348,6 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 			dev->stats.rx_length_errors++;
+ 			goto err_buf;
+ 		}
+-		if (unlikely(len > MERGE_BUFFER_LEN)) {
+-			pr_debug("%s: rx error: merge buffer too long\n",
+-				 dev->name);
+-			len = MERGE_BUFFER_LEN;
+-		}
  
- 	/* rtnetlink link ops */
- 	const struct rtnl_link_ops *rtnl_link_ops;
-@@ -2375,7 +2390,7 @@ static inline bool netif_is_multiqueue(const struct net_device *dev)
+ 		page = virt_to_head_page(buf);
  
- int netif_set_real_num_tx_queues(struct net_device *dev, unsigned int txq);
- 
--#ifdef CONFIG_RPS
-+#ifdef CONFIG_SYSFS
- int netif_set_real_num_rx_queues(struct net_device *dev, unsigned int rxq);
- #else
- static inline int netif_set_real_num_rx_queues(struct net_device *dev,
-@@ -2394,7 +2409,7 @@ static inline int netif_copy_real_num_queues(struct net_device *to_dev,
- 					   from_dev->real_num_tx_queues);
- 	if (err)
- 		return err;
--#ifdef CONFIG_RPS
-+#ifdef CONFIG_SYSFS
- 	return netif_set_real_num_rx_queues(to_dev,
- 					    from_dev->real_num_rx_queues);
- #else
-@@ -2402,6 +2417,18 @@ static inline int netif_copy_real_num_queues(struct net_device *to_dev,
- #endif
- }
- 
-+#ifdef CONFIG_SYSFS
-+static inline unsigned int get_netdev_rx_queue_index(
-+		struct netdev_rx_queue *queue)
-+{
-+	struct net_device *dev = queue->dev;
-+	int index = queue - dev->_rx;
-+
-+	BUG_ON(index >= dev->num_rx_queues);
-+	return index;
-+}
-+#endif
-+
- #define DEFAULT_MAX_NUM_RSS_QUEUES	(8)
- int netif_get_num_default_rss_queues(void);
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f87bedd..288df62 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2083,7 +2083,7 @@ int netif_set_real_num_tx_queues(struct net_device *dev, unsigned int txq)
- }
- EXPORT_SYMBOL(netif_set_real_num_tx_queues);
- 
--#ifdef CONFIG_RPS
-+#ifdef CONFIG_SYSFS
- /**
-  *	netif_set_real_num_rx_queues - set actual number of RX queues used
-  *	@dev: Network device
-@@ -5764,7 +5764,7 @@ void netif_stacked_transfer_operstate(const struct net_device *rootdev,
- }
- EXPORT_SYMBOL(netif_stacked_transfer_operstate);
- 
--#ifdef CONFIG_RPS
-+#ifdef CONFIG_SYSFS
- static int netif_alloc_rx_queues(struct net_device *dev)
- {
- 	unsigned int i, count = dev->num_rx_queues;
-@@ -6309,7 +6309,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
- 		return NULL;
- 	}
- 
--#ifdef CONFIG_RPS
-+#ifdef CONFIG_SYSFS
- 	if (rxqs < 1) {
- 		pr_err("alloc_netdev: Unable to allocate device with zero RX queues\n");
- 		return NULL;
-@@ -6365,7 +6365,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
- 	if (netif_alloc_netdev_queues(dev))
- 		goto free_all;
- 
--#ifdef CONFIG_RPS
-+#ifdef CONFIG_SYSFS
- 	dev->num_rx_queues = rxqs;
- 	dev->real_num_rx_queues = rxqs;
- 	if (netif_alloc_rx_queues(dev))
-@@ -6385,7 +6385,7 @@ free_all:
- free_pcpu:
- 	free_percpu(dev->pcpu_refcnt);
- 	netif_free_tx_queues(dev);
--#ifdef CONFIG_RPS
-+#ifdef CONFIG_SYSFS
- 	kfree(dev->_rx);
- #endif
- 
-@@ -6410,7 +6410,7 @@ void free_netdev(struct net_device *dev)
- 	release_net(dev_net(dev));
- 
- 	netif_free_tx_queues(dev);
--#ifdef CONFIG_RPS
-+#ifdef CONFIG_SYSFS
- 	kfree(dev->_rx);
- #endif
- 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 49843bf..7eeadee 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -498,17 +498,7 @@ static struct attribute_group wireless_group = {
- #define net_class_groups	NULL
- #endif /* CONFIG_SYSFS */
- 
--#ifdef CONFIG_RPS
--/*
-- * RX queue sysfs structures and functions.
-- */
--struct rx_queue_attribute {
--	struct attribute attr;
--	ssize_t (*show)(struct netdev_rx_queue *queue,
--	    struct rx_queue_attribute *attr, char *buf);
--	ssize_t (*store)(struct netdev_rx_queue *queue,
--	    struct rx_queue_attribute *attr, const char *buf, size_t len);
--};
-+#ifdef CONFIG_SYSFS
- #define to_rx_queue_attr(_attr) container_of(_attr,		\
-     struct rx_queue_attribute, attr)
- 
-@@ -543,6 +533,7 @@ static const struct sysfs_ops rx_queue_sysfs_ops = {
- 	.store = rx_queue_attr_store,
- };
- 
-+#ifdef CONFIG_RPS
- static ssize_t show_rps_map(struct netdev_rx_queue *queue,
- 			    struct rx_queue_attribute *attribute, char *buf)
- {
-@@ -718,16 +709,20 @@ static struct rx_queue_attribute rps_cpus_attribute =
- static struct rx_queue_attribute rps_dev_flow_table_cnt_attribute =
- 	__ATTR(rps_flow_cnt, S_IRUGO | S_IWUSR,
- 	    show_rps_dev_flow_table_cnt, store_rps_dev_flow_table_cnt);
-+#endif /* CONFIG_RPS */
- 
- static struct attribute *rx_queue_default_attrs[] = {
-+#ifdef CONFIG_RPS
- 	&rps_cpus_attribute.attr,
- 	&rps_dev_flow_table_cnt_attribute.attr,
-+#endif
- 	NULL
- };
- 
- static void rx_queue_release(struct kobject *kobj)
- {
- 	struct netdev_rx_queue *queue = to_rx_queue(kobj);
-+#ifdef CONFIG_RPS
- 	struct rps_map *map;
- 	struct rps_dev_flow_table *flow_table;
- 
-@@ -743,6 +738,7 @@ static void rx_queue_release(struct kobject *kobj)
- 		RCU_INIT_POINTER(queue->rps_flow_table, NULL);
- 		call_rcu(&flow_table->rcu, rps_dev_flow_table_release);
- 	}
-+#endif
- 
- 	memset(kobj, 0, sizeof(*kobj));
- 	dev_put(queue->dev);
-@@ -763,25 +759,36 @@ static int rx_queue_add_kobject(struct net_device *net, int index)
- 	kobj->kset = net->queues_kset;
- 	error = kobject_init_and_add(kobj, &rx_queue_ktype, NULL,
- 	    "rx-%u", index);
--	if (error) {
--		kobject_put(kobj);
--		return error;
-+	if (error)
-+		goto exit;
-+
-+	if (net->sysfs_rx_queue_group) {
-+		error = sysfs_create_group(kobj, net->sysfs_rx_queue_group);
-+		if (error)
-+			goto exit;
- 	}
- 
- 	kobject_uevent(kobj, KOBJ_ADD);
- 	dev_hold(queue->dev);
- 
- 	return error;
-+exit:
-+	kobject_put(kobj);
-+	return error;
- }
--#endif /* CONFIG_RPS */
-+#endif /* CONFIG_SYFS */
- 
- int
- net_rx_queue_update_kobjects(struct net_device *net, int old_num, int new_num)
- {
--#ifdef CONFIG_RPS
-+#ifdef CONFIG_SYSFS
- 	int i;
- 	int error = 0;
- 
-+#ifndef CONFIG_RPS
-+	if (!net->sysfs_rx_queue_group)
-+		return 0;
-+#endif
- 	for (i = old_num; i < new_num; i++) {
- 		error = rx_queue_add_kobject(net, i);
- 		if (error) {
-@@ -790,8 +797,12 @@ net_rx_queue_update_kobjects(struct net_device *net, int old_num, int new_num)
+@@ -372,19 +365,20 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 			head_skb->truesize += nskb->truesize;
+ 			num_skb_frags = 0;
+ 		}
++		truesize = max_t(unsigned int, len, MERGE_BUFFER_LEN);
+ 		if (curr_skb != head_skb) {
+ 			head_skb->data_len += len;
+ 			head_skb->len += len;
+-			head_skb->truesize += MERGE_BUFFER_LEN;
++			head_skb->truesize += truesize;
+ 		}
+ 		offset = buf - page_address(page);
+ 		if (skb_can_coalesce(curr_skb, num_skb_frags, page, offset)) {
+ 			put_page(page);
+ 			skb_coalesce_rx_frag(curr_skb, num_skb_frags - 1,
+-					     len, MERGE_BUFFER_LEN);
++					     len, truesize);
+ 		} else {
+ 			skb_add_rx_frag(curr_skb, num_skb_frags, page,
+-					offset, len, MERGE_BUFFER_LEN);
++					offset, len, truesize);
  		}
  	}
  
--	while (--i >= new_num)
-+	while (--i >= new_num) {
-+		if (net->sysfs_rx_queue_group)
-+			sysfs_remove_group(&net->_rx[i].kobj,
-+					   net->sysfs_rx_queue_group);
- 		kobject_put(&net->_rx[i].kobj);
+@@ -573,25 +567,24 @@ static int add_recvbuf_big(struct receive_queue *rq, gfp_t gfp)
+ 
+ static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
+ {
+-	struct virtnet_info *vi = rq->vq->vdev->priv;
+-	char *buf = NULL;
++	struct page_frag *alloc_frag = &rq->alloc_frag;
++	char *buf;
+ 	int err;
++	unsigned int len, hole;
+ 
+-	if (gfp & __GFP_WAIT) {
+-		if (skb_page_frag_refill(MERGE_BUFFER_LEN, &vi->alloc_frag,
+-					 gfp)) {
+-			buf = (char *)page_address(vi->alloc_frag.page) +
+-			      vi->alloc_frag.offset;
+-			get_page(vi->alloc_frag.page);
+-			vi->alloc_frag.offset += MERGE_BUFFER_LEN;
+-		}
+-	} else {
+-		buf = netdev_alloc_frag(MERGE_BUFFER_LEN);
+-	}
+-	if (!buf)
++	if (unlikely(!skb_page_frag_refill(MERGE_BUFFER_LEN, alloc_frag, gfp)))
+ 		return -ENOMEM;
++	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
++	get_page(alloc_frag->page);
++	len = MERGE_BUFFER_LEN;
++	alloc_frag->offset += len;
++	hole = alloc_frag->size - alloc_frag->offset;
++	if (hole < MERGE_BUFFER_LEN) {
++		len += hole;
++		alloc_frag->offset += hole;
 +	}
  
- 	return error;
- #else
-@@ -1155,9 +1166,6 @@ static int register_queue_kobjects(struct net_device *net)
- 	    NULL, &net->dev.kobj);
- 	if (!net->queues_kset)
- 		return -ENOMEM;
--#endif
--
--#ifdef CONFIG_RPS
- 	real_rx = net->real_num_rx_queues;
- #endif
- 	real_tx = net->real_num_tx_queues;
-@@ -1184,7 +1192,7 @@ static void remove_queue_kobjects(struct net_device *net)
- {
- 	int real_rx = 0, real_tx = 0;
+-	sg_init_one(rq->sg, buf, MERGE_BUFFER_LEN);
++	sg_init_one(rq->sg, buf, len);
+ 	err = virtqueue_add_inbuf(rq->vq, rq->sg, 1, buf, gfp);
+ 	if (err < 0)
+ 		put_page(virt_to_head_page(buf));
+@@ -612,6 +605,7 @@ static bool try_fill_recv(struct receive_queue *rq, gfp_t gfp)
+ 	int err;
+ 	bool oom;
  
--#ifdef CONFIG_RPS
-+#ifdef CONFIG_SYSFS
- 	real_rx = net->real_num_rx_queues;
- #endif
- 	real_tx = net->real_num_tx_queues;
++	gfp |= __GFP_COLD;
+ 	do {
+ 		if (vi->mergeable_rx_bufs)
+ 			err = add_recvbuf_mergeable(rq, gfp);
+@@ -1368,6 +1362,14 @@ static void free_receive_bufs(struct virtnet_info *vi)
+ 	}
+ }
+ 
++static void free_receive_page_frags(struct virtnet_info *vi)
++{
++	int i;
++	for (i = 0; i < vi->max_queue_pairs; i++)
++		if (vi->rq[i].alloc_frag.page)
++			put_page(vi->rq[i].alloc_frag.page);
++}
++
+ static void free_unused_bufs(struct virtnet_info *vi)
+ {
+ 	void *buf;
+@@ -1695,9 +1697,8 @@ free_recv_bufs:
+ 	unregister_netdev(dev);
+ free_vqs:
+ 	cancel_delayed_work_sync(&vi->refill);
++	free_receive_page_frags(vi);
+ 	virtnet_del_vqs(vi);
+-	if (vi->alloc_frag.page)
+-		put_page(vi->alloc_frag.page);
+ free_stats:
+ 	free_percpu(vi->stats);
+ free:
+@@ -1714,6 +1715,8 @@ static void remove_vq_common(struct virtnet_info *vi)
+ 
+ 	free_receive_bufs(vi);
+ 
++	free_receive_page_frags(vi);
++
+ 	virtnet_del_vqs(vi);
+ }
+ 
+@@ -1731,8 +1734,6 @@ static void virtnet_remove(struct virtio_device *vdev)
+ 	unregister_netdev(vi->dev);
+ 
+ 	remove_vq_common(vi);
+-	if (vi->alloc_frag.page)
+-		put_page(vi->alloc_frag.page);
+ 
+ 	flush_work(&vi->config_work);
+ 
 -- 
 1.8.5.2
