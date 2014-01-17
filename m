@@ -1,62 +1,116 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v2 0/3] reciprocal_divide updates
-Date: Fri, 17 Jan 2014 01:28:36 +0100
-Message-ID: <1389918519-23779-1-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net-next v2 2/3] net: add trim helper and convert users
+Date: Fri, 17 Jan 2014 01:28:38 +0100
+Message-ID: <1389918519-23779-3-git-send-email-hannes@stressinduktion.org>
+References: <1389918519-23779-1-git-send-email-hannes@stressinduktion.org>
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	Jakub Zawadzki <darkjames-ws@darkjames.pl>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:44123 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:44131 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751298AbaAQA2p (ORCPT
+	with ESMTP id S1751937AbaAQA2p (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 19:28:45 -0500
-Received: from stressinduktion.org (localhost.localdomain [127.0.0.1])
-	by order.stressinduktion.org (Postfix) with ESMTP id 75C0C1A0C287
-	for <netdev@vger.kernel.org>; Fri, 17 Jan 2014 01:28:43 +0100 (CET)
+In-Reply-To: <1389918519-23779-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This set is on top of Eric's BPF fix, that is:
-  
-  <http://patchwork.ozlabs.org/patch/311163/>
+From: Daniel Borkmann <dborkman@redhat.com>
 
-This fix is currently in the net repository; a merge of net to net-next
-would be needed for this series. 
+As David Laight suggests, we shouldn't necessarily call this
+reciprocal_divide() when users didn't requested a reciprocal_value().
+Lets make the name short and nifty, put this where we have other
+generic helpers of similar kind and convert users.
 
-Included Patches:
+Joint work with Hannes Frederic Sowa.
 
-Daniel Borkmann (2):
-      random32: add prandom_u32_max and convert open coded users
-      net: add trim helper and convert users
+Cc: Jakub Zawadzki <darkjames-ws@darkjames.pl>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ include/linux/kernel.h | 19 +++++++++++++++++++
+ include/net/codel.h    |  4 +---
+ net/packet/af_packet.c |  3 +--
+ 3 files changed, 21 insertions(+), 5 deletions(-)
 
-Hannes Frederic Sowa (1):
-      reciprocal_divide: correction/update of the algorithm
-
-Diffstat:
- drivers/net/bonding/bond_main.c     | 24 +++++++++++++++++-------
- drivers/net/bonding/bond_netlink.c  |  4 ----
- drivers/net/bonding/bond_options.c  | 15 ++++++++++----- 
- drivers/net/bonding/bond_sysfs.c    |  5 -----
- drivers/net/bonding/bonding.h       |  3 +++
- drivers/net/team/team_mode_random.c |  8 +-------
- include/linux/flex_array.h          |  3 ++-
- include/linux/kernel.h              | 19 +++++++++++++++++++
- include/linux/random.h              | 19 ++++++++++++++++++-
- include/linux/reciprocal_div.h      | 39 +++++++++++++++++++++------------------
- include/linux/slab_def.h            |  4 +++-
- include/net/codel.h                 |  4 +---
- include/net/red.h                   |  3 ++-
- lib/flex_array.c                    |  7 ++++++-
- lib/reciprocal_div.c                | 24 ++++++++++++++++++++----
- net/packet/af_packet.c              |  5 ++---
- net/sched/sch_choke.c               |  9 +--------
- net/sched/sch_netem.c               |  6 ++++--
- 18 files changed, 130 insertions(+), 71 deletions(-)
-
-Changelog:
-v2)
-* change function name to prandom_u32_max as suggested by Joe Perches
-* first patch split into two patches, second one introduces helper
-  function trim (suggested by Eric Dumazet to not go back to open-coded
-  version and David Laight to rename reciprocal_divide())
-* removed RECIPROCAL_VALUE_RESULT_TO_ZERO as it causes undefined behaviour
-  and is broken (thanks Ben Hutchings!)
-* reworded
+diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+index ecb8754..62ecbfa 100644
+--- a/include/linux/kernel.h
++++ b/include/linux/kernel.h
+@@ -193,6 +193,25 @@ extern int _cond_resched(void);
+ 		(__x < 0) ? -__x : __x;		\
+ 	})
+ 
++/**
++ * trim - perform a reciprocal multiplication in order to "clamp" a
++ *        value into range [0, ep_ro), where the upper interval
++ *        endpoint is right-open. This is useful, e.g. for accessing
++ *        a index of an array containing ep_ro elements, for example.
++ *        Think of it as sort of modulus, only that the result isn't
++ *        that of modulo. ;)
++ *        More: http://homepage.cs.uiowa.edu/~jones/bcd/divide.html
++ *
++ * @val: value to 'trim'
++ * @ep_ro: right open interval endpoint
++ *
++ * Returns a result based on val in interval [0, ep_ro).
++ */
++static inline u32 trim(u32 val, u32 ep_ro)
++{
++	return (u32)(((u64) val * ep_ro) >> 32);
++}
++
+ #if defined(CONFIG_MMU) && \
+ 	(defined(CONFIG_PROVE_LOCKING) || defined(CONFIG_DEBUG_ATOMIC_SLEEP))
+ void might_fault(void);
+diff --git a/include/net/codel.h b/include/net/codel.h
+index 3b04ff5..d302b4c 100644
+--- a/include/net/codel.h
++++ b/include/net/codel.h
+@@ -46,7 +46,6 @@
+ #include <linux/skbuff.h>
+ #include <net/pkt_sched.h>
+ #include <net/inet_ecn.h>
+-#include <linux/reciprocal_div.h>
+ 
+ /* Controlling Queue Delay (CoDel) algorithm
+  * =========================================
+@@ -211,10 +210,9 @@ static codel_time_t codel_control_law(codel_time_t t,
+ 				      codel_time_t interval,
+ 				      u32 rec_inv_sqrt)
+ {
+-	return t + reciprocal_divide(interval, rec_inv_sqrt << REC_INV_SQRT_SHIFT);
++	return t + trim(interval, rec_inv_sqrt << REC_INV_SQRT_SHIFT);
+ }
+ 
+-
+ static bool codel_should_drop(const struct sk_buff *skb,
+ 			      struct Qdisc *sch,
+ 			      struct codel_vars *vars,
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 91daa01..d327774 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -88,7 +88,6 @@
+ #include <linux/virtio_net.h>
+ #include <linux/errqueue.h>
+ #include <linux/net_tstamp.h>
+-#include <linux/reciprocal_div.h>
+ #ifdef CONFIG_INET
+ #include <net/inet_common.h>
+ #endif
+@@ -1220,7 +1219,7 @@ static unsigned int fanout_demux_hash(struct packet_fanout *f,
+ 				      struct sk_buff *skb,
+ 				      unsigned int num)
+ {
+-	return reciprocal_divide(skb->rxhash, num);
++	return trim(skb->rxhash, num);
+ }
+ 
+ static unsigned int fanout_demux_lb(struct packet_fanout *f,
+-- 
+1.8.4.2
