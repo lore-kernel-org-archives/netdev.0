@@ -1,96 +1,99 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: core: orphan frags before queuing to slow qdisc
-Date: Fri, 17 Jan 2014 06:28:17 -0800
-Message-ID: <1389968897.31367.489.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1389951734-13234-1-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH v2] sch_htb: let skb->priority refer to non-leaf class
+Date: Fri, 17 Jan 2014 06:35:40 -0800
+Message-ID: <1389969340.31367.494.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1389883519.4703.5.camel@azathoth.dev.smoothwall.net>
+	 <1389889520.31367.403.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1389953999.4698.18.camel@azathoth.dev.smoothwall.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1389951734-13234-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jamal Hadi Salim <hadi@mojatatu.com>,
+	linux-netdev <netdev@vger.kernel.org>
+To: Harry Mason <harry.mason@smoothwall.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:50371 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751989AbaAQOfm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 09:35:42 -0500
+Received: by mail-pa0-f45.google.com with SMTP id lf10so1927264pab.32
+        for <netdev@vger.kernel.org>; Fri, 17 Jan 2014 06:35:42 -0800 (PST)
+In-Reply-To: <1389953999.4698.18.camel@azathoth.dev.smoothwall.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-01-17 at 17:42 +0800, Jason Wang wrote:
-> Many qdiscs can queue a packet for a long time, this will lead an issue
-> with zerocopy skb. It means the frags will not be orphaned in an expected
-> short time, this breaks the assumption that virtio-net will transmit the
-> packet in time.
+On Fri, 2014-01-17 at 10:19 +0000, Harry Mason wrote:
+> If the class in skb->priority is not a leaf, apply filters from the
+> selected class, not the qdisc. This lets netfilter or user space
+> partially classify the packet.
 > 
-> So if guest packets were queued through such kind of qdisc and hit the
-> limitation of the max pending packets for virtio/vhost. All packets that
-> go to another destination from guest will also be blocked.
-> 
-> A case for reproducing the issue:
-> 
-> - Boot two VMs and connect them to the same bridge kvmbr.
-> - Setup tbf with a very low rate/burst on eth0 which is a port of kvmbr.
-> - Let VM1 send lots of packets thorugh eth0
-> - After a while, VM1 is unable to send any packets out since the number of
->   pending packets (queued to tbf) were exceeds the limitation of vhost/virito
-
-So whats the problem ? If the limit is low, you cannot sent packets.
-
-Solution : increase the limit, or tell the vm to lower its rate.
-
-Oh wait, are you bitten because you did some prior skb_orphan() to allow
-the vm to send unlimited number of skbs ???
-
-> 
-> Solve this issue by orphaning the frags before queuing it to a slow qdisc (the
-> one without TCQ_F_CAN_BYPASS).
-
-Why orphaning the frags only solves the problem ? A skb without zerocopy
-frags should also be blocked for a while.
-
-Seriously, lets admit this zero copy stuff is utterly broken.
-
-
-TCQ_F_CAN_BYPASS is not enough. Some NIC have separate queues with
-strict priorities.
-
-It seems to me that you are pushing to use FIFO (the only qdisc setting
-TCQ_F_CAN_BYPASS), by adding yet another test in fast path (I do not
-know how we can still call it a fast path), while we already have smart
-qdisc to avoid the inherent HOL and unfairness problems of FIFO.
-
-> 
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Signed-off-by: Harry Mason <harry.mason@smoothwall.net>
 > ---
->  net/core/dev.c | 7 +++++++
->  1 file changed, 7 insertions(+)
 > 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 0ce469e..1209774 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2700,6 +2700,12 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
->  	contended = qdisc_is_running(q);
->  	if (unlikely(contended))
->  		spin_lock(&q->busylock);
-> +	if (!(q->flags & TCQ_F_CAN_BYPASS) &&
-> +	    unlikely(skb_orphan_frags(skb, GFP_ATOMIC))) {
-> +		kfree_skb(skb);
-> +		rc = NET_XMIT_DROP;
-> +		goto out;
-> +	}
+> On Thu, 2014-01-16 at 08:25 -0800, Eric Dumazet wrote:
+> > On Thu, 2014-01-16 at 14:45 +0000, Harry Mason wrote:
+> > 
+> >> + /* Start with inner filter chain if a non-leaf class is selected */
+> >> + if (cl)
+> >> +     tcf = cl->filter_list;
+> >> + else
+> >> +     tcf = q->filter_list;
+> > 
+> > Could this break some existing htb setups ?
+> 
+> I think it is unlikely. Setting skb->priority to a non-leaf class would
+> be equivalent to setting it to the base qdisc. In theory an application
+> might rely on this if it expects the classes to be dynamic, but adding
+> a filter could restore the old behaviour.
+> 
 
-Are you aware that copying stuff takes time ?
+Problem is : Your patch is one patch among thousands of patches, and
+people will install new kernels without knowing this could have an
+impact on their setup and might discover the problems too late
+(after some failure)
 
-If yes, why is it done after taking the busylock spinlock ?
+> To me this is intuitively how it should behave, and reproduces what would
+> happen if a tc filter instead of netfilter had first assigned the
+> non-leaf class.
 
+This is definitely a patch for net-next, not net tree.
+
+> 
+> > Also we test cl being NULL at line 222, it would be nice to not
+> > test it again...
+> 
+> Updated below.
+> 
+>  net/sched/sch_htb.c |   10 +++++++---
+>  1 file changed, 7 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+> index 717b210..8073d92 100644
+> --- a/net/sched/sch_htb.c
+> +++ b/net/sched/sch_htb.c
+> @@ -219,11 +219,15 @@ static struct htb_class *htb_classify(struct sk_buff *skb, struct Qdisc *sch,
+>  	if (skb->priority == sch->handle)
+>  		return HTB_DIRECT;	/* X:0 (direct flow) selected */
+>  	cl = htb_find(skb->priority, sch);
+> -	if (cl && cl->level == 0)
+> -		return cl;
+> +	if (cl) {
+> +		if (cl->level == 0)
+> +			return cl;
+> +		/* Start with inner filter chain if a non-leaf class is selected */
+> +		tcf = cl->filter_list;
+> +	} else
+> +		tcf = q->filter_list;
 >  
->  	spin_lock(root_lock);
->  	if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
-> @@ -2739,6 +2745,7 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
->  		}
->  	}
->  	spin_unlock(root_lock);
-> +out:
->  	if (unlikely(contended))
->  		spin_unlock(&q->busylock);
->  	return rc;
+
+	} else {
+        	tcf = q->filter_list;
+	}
+
+(Documentation/CodingStyle line 169)
+
+>  	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+> -	tcf = q->filter_list;
+>  	while (tcf && (result = tc_classify(skb, tcf, &res)) >= 0) {
+>  #ifdef CONFIG_NET_CLS_ACT
+>  		switch (result) {
