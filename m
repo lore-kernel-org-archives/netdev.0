@@ -1,44 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] virtio-net: drop rq->max and rq->num
-Date: Thu, 16 Jan 2014 17:37:37 -0800 (PST)
-Message-ID: <20140116.173737.429918297549548812.davem@davemloft.net>
-References: <1389854724-48411-1-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH net-next] sctp: remove the unnecessary assignment
+Date: Thu, 16 Jan 2014 17:37:46 -0800 (PST)
+Message-ID: <20140116.173746.1014767500836972443.davem@davemloft.net>
+References: <52D7976F.7070708@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: jasowang@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1389854724-48411-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: nhorman@tuxdriver.com, vyasevich@gmail.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: wangweidong1@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55915 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751770AbaAQBhq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 20:37:46 -0500
+In-Reply-To: <52D7976F.7070708@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Thu, 16 Jan 2014 14:45:24 +0800
+From: Wang Weidong <wangweidong1@huawei.com>
+Date: Thu, 16 Jan 2014 16:25:19 +0800
 
-> It looks like there's no need for those two fields:
+> When go the right path, the status is 0, no need to assign it again.
+> So just remove the assignment.
 > 
-> - Unless there's a failure for the first refill try, rq->max should be always
->   equal to the vring size.
-> - rq->num is only used to determine the condition that we need to do the refill,
->   we could check vq->num_free instead.
-> - rq->num was required to be increased or decreased explicitly after each
->   get/put which results a bad API.
-> 
-> So this patch removes them both to make the code simpler.
-> 
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 
-Applied, thanks.
+Applied, thank you.
