@@ -1,8 +1,8 @@
 From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: [PATCH net-next v3 2/8] net: stmmac: Add support for
- optional reset control
-Date: Fri, 17 Jan 2014 21:24:41 +0800
-Message-ID: <1389965087-21971-3-git-send-email-wens@csie.org>
+Subject: [PATCH net-next v3 3/8] net: stmmac: Allocate and pass
+ soc/board specific data to callbacks
+Date: Fri, 17 Jan 2014 21:24:42 +0800
+Message-ID: <1389965087-21971-4-git-send-email-wens@csie.org>
 References: <1389965087-21971-1-git-send-email-wens@csie.org>
 Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
@@ -25,154 +25,119 @@ List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:
 List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-The DWMAC has a reset assert line, which is used on some SoCs. Add an
-optional reset control to stmmac driver core.
+The current .init and .exit callbacks requires access to driver
+private data structures. This is not a good seperation and abstraction.
 
-To support reset control deferred probing, this patch changes the driver
-probe function to return the actual error, instead of just -EINVAL.
+Instead, we add a new .setup callback for allocating private data, and
+pass the returned pointer to the other callbacks.
 
 Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
 ---
- Documentation/devicetree/bindings/net/stmmac.txt      |  3 +++
- drivers/net/ethernet/stmicro/stmmac/Kconfig           |  1 +
- drivers/net/ethernet/stmicro/stmmac/stmmac.h          |  2 ++
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     | 19 ++++++++++++++++++-
- drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c      |  4 ++--
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c |  4 ++--
- 6 files changed, 28 insertions(+), 5 deletions(-)
+ Documentation/networking/stmmac.txt                   | 12 ++++++++----
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 18 ++++++++++++++----
+ include/linux/stmmac.h                                |  6 ++++--
+ 3 files changed, 26 insertions(+), 10 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index eba0e5e..d132513 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -30,6 +30,9 @@ Required properties:
- 
- Optional properties:
- - mac-address: 6 bytes, mac address
-+- resets: Should contain a phandle to the STMMAC reset signal, if any
-+- reset-names: Should contain the reset signal name "stmmaceth", if a
-+	reset phandle is given
- 
- Examples:
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-index 6e52c0f..b59d1ef 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
-+++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-@@ -5,6 +5,7 @@ config STMMAC_ETH
- 	select PHYLIB
- 	select CRC32
- 	select PTP_1588_CLOCK
-+	select RESET_CONTROLLER
- 	---help---
- 	  This is the driver for the Ethernet IPs are built around a
- 	  Synopsys IP Core and only tested on the STMicroelectronics
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 73709e9..c1c141f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -32,6 +32,7 @@
- #include <linux/pci.h>
- #include "common.h"
- #include <linux/ptp_clock_kernel.h>
-+#include <linux/reset.h>
- 
- struct stmmac_priv {
- 	/* Frequently used values are kept adjacent for cache effect */
-@@ -91,6 +92,7 @@ struct stmmac_priv {
- 	int wolopts;
- 	int wol_irq;
- 	struct clk *stmmac_clk;
-+	struct reset_control *stmmac_rst;
- 	int clk_csr;
- 	struct timer_list eee_ctrl_timer;
- 	int lpi_irq;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 0d2c4cb..0c5c120 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -51,6 +51,7 @@
- #include <linux/net_tstamp.h>
- #include "stmmac_ptp.h"
- #include "stmmac.h"
-+#include <linux/reset.h>
- 
- #define STMMAC_ALIGN(x)	L1_CACHE_ALIGN(x)
- #define JUMBO_LEN	9000
-@@ -2728,10 +2729,24 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
- 	if (IS_ERR(priv->stmmac_clk)) {
- 		dev_warn(priv->device, "%s: warning: cannot get CSR clock\n",
- 			 __func__);
-+		ret = PTR_ERR(priv->stmmac_clk);
- 		goto error_clk_get;
- 	}
- 	clk_prepare_enable(priv->stmmac_clk);
- 
-+	priv->stmmac_rst = devm_reset_control_get(priv->device,
-+						  STMMAC_RESOURCE_NAME);
-+	if (IS_ERR(priv->stmmac_rst)) {
-+		if (PTR_ERR(priv->stmmac_rst) == -EPROBE_DEFER) {
-+			ret = -EPROBE_DEFER;
-+			goto error_hw_init;
-+		}
-+		dev_info(priv->device, "no reset control found\n");
-+		priv->stmmac_rst = NULL;
-+	}
-+	if (priv->stmmac_rst)
-+		reset_control_deassert(priv->stmmac_rst);
-+
- 	/* Init MAC and get the capabilities */
- 	ret = stmmac_hw_init(priv);
- 	if (ret)
-@@ -2808,7 +2823,7 @@ error_hw_init:
- error_clk_get:
- 	free_netdev(ndev);
- 
--	return NULL;
-+	return ERR_PTR(ret);
- }
- 
- /**
-@@ -2832,6 +2847,8 @@ int stmmac_dvr_remove(struct net_device *ndev)
- 		stmmac_mdio_unregister(ndev);
- 	netif_carrier_off(ndev);
- 	unregister_netdev(ndev);
-+	if (priv->stmmac_rst)
-+		reset_control_assert(priv->stmmac_rst);
- 	clk_disable_unprepare(priv->stmmac_clk);
- 	free_netdev(ndev);
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-index 37ba2e0..2916089 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-@@ -100,9 +100,9 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
- 	stmmac_default_data();
- 
- 	priv = stmmac_dvr_probe(&(pdev->dev), &plat_dat, addr);
--	if (!priv) {
-+	if (IS_ERR(priv)) {
- 		pr_err("%s: main driver probe failed", __func__);
--		ret = -ENODEV;
-+		ret = PTR_ERR(priv);
- 		goto err_out;
- 	}
- 	priv->dev->irq = pdev->irq;
+diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
+index cdd916d..2090895 100644
+--- a/Documentation/networking/stmmac.txt
++++ b/Documentation/networking/stmmac.txt
+@@ -127,8 +127,9 @@ struct plat_stmmacenet_data {
+ 	int riwt_off;
+ 	void (*fix_mac_speed)(void *priv, unsigned int speed);
+ 	void (*bus_setup)(void __iomem *ioaddr);
+-	int (*init)(struct platform_device *pdev);
+-	void (*exit)(struct platform_device *pdev);
++	void *(*setup)(struct platform_device *pdev);
++	int (*init)(struct platform_device *pdev, void *priv);
++	void (*exit)(struct platform_device *pdev, void *priv);
+ 	void *custom_cfg;
+ 	void *custom_data;
+ 	void *bsp_priv;
+@@ -169,10 +170,13 @@ Where:
+  o bus_setup: perform HW setup of the bus. For example, on some ST platforms
+ 	     this field is used to configure the AMBA  bridge to generate more
+ 	     efficient STBus traffic.
+- o init/exit: callbacks used for calling a custom initialization;
++ o setup/init/exit: callbacks used for calling a custom initialization;
+ 	     this is sometime necessary on some platforms (e.g. ST boxes)
+ 	     where the HW needs to have set some PIO lines or system cfg
+-	     registers.
++	     registers. setup should return a pointer to private data,
++	     which will be stored in bsp_priv, and then passed to init and
++	     exit callbacks. init/exit callbacks should not use or modify
++	     platform data.
+  o custom_cfg/custom_data: this is a custom configuration that can be passed
+ 			   while initializing the resources.
+  o bsp_priv: another private pointer.
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 6d0bf22..cc6b89a7 100644
+index cc6b89a7..704a5e0 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -152,9 +152,9 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
+@@ -144,9 +144,16 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
+ 		}
  	}
  
- 	priv = stmmac_dvr_probe(&(pdev->dev), plat_dat, addr);
--	if (!priv) {
-+	if (IS_ERR(priv)) {
- 		pr_err("%s: main driver probe failed", __func__);
--		return -ENODEV;
-+		return PTR_ERR(priv);
++	/* Custom setup (if needed) */
++	if (plat_dat->setup) {
++		plat_dat->bsp_priv = plat_dat->setup(pdev);
++		if (IS_ERR(plat_dat->bsp_priv))
++			return PTR_ERR(plat_dat->bsp_priv);
++	}
++
+ 	/* Custom initialisation (if needed)*/
+ 	if (plat_dat->init) {
+-		ret = plat_dat->init(pdev);
++		ret = plat_dat->init(pdev, plat_dat->bsp_priv);
+ 		if (unlikely(ret))
+ 			return ret;
  	}
+@@ -203,7 +210,10 @@ static int stmmac_pltfr_remove(struct platform_device *pdev)
+ 	int ret = stmmac_dvr_remove(ndev);
  
- 	/* Get MAC address if available (DT) */
+ 	if (priv->plat->exit)
+-		priv->plat->exit(pdev);
++		priv->plat->exit(pdev, priv->plat->bsp_priv);
++
++	if (priv->plat->free)
++		priv->plat->free(pdev, priv->plat->bsp_priv);
+ 
+ 	return ret;
+ }
+@@ -218,7 +228,7 @@ static int stmmac_pltfr_suspend(struct device *dev)
+ 
+ 	ret = stmmac_suspend(ndev);
+ 	if (priv->plat->exit)
+-		priv->plat->exit(pdev);
++		priv->plat->exit(pdev, priv->plat->bsp_priv);
+ 
+ 	return ret;
+ }
+@@ -230,7 +240,7 @@ static int stmmac_pltfr_resume(struct device *dev)
+ 	struct platform_device *pdev = to_platform_device(dev);
+ 
+ 	if (priv->plat->init)
+-		priv->plat->init(pdev);
++		priv->plat->init(pdev, priv->plat->bsp_priv);
+ 
+ 	return stmmac_resume(ndev);
+ }
+diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+index 33ace71..0a5a7ac 100644
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -113,8 +113,10 @@ struct plat_stmmacenet_data {
+ 	int max_speed;
+ 	void (*fix_mac_speed)(void *priv, unsigned int speed);
+ 	void (*bus_setup)(void __iomem *ioaddr);
+-	int (*init)(struct platform_device *pdev);
+-	void (*exit)(struct platform_device *pdev);
++	void *(*setup)(struct platform_device *pdev);
++	void (*free)(struct platform_device *pdev, void *priv);
++	int (*init)(struct platform_device *pdev, void *priv);
++	void (*exit)(struct platform_device *pdev, void *priv);
+ 	void *custom_cfg;
+ 	void *custom_data;
+ 	void *bsp_priv;
 -- 
 1.8.5.2
