@@ -1,12 +1,11 @@
 From: David Laight <David.Laight@ACULAB.COM>
 Subject: RE: [PATCH 11/13] net: mvneta: implement rx_copybreak
-Date: Fri, 17 Jan 2014 09:28:13 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D45EA2B@AcuExch.aculab.com>
+Date: Fri, 17 Jan 2014 09:32:09 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D45EA59@AcuExch.aculab.com>
 References: <1389856819-6503-12-git-send-email-w@1wt.eu>
- <063D6719AE5E284EB5DD2968C1650D6D45D866@AcuExch.aculab.com>
- <20140116093640.GA16457@1wt.eu>
+	<063D6719AE5E284EB5DD2968C1650D6D45D866@AcuExch.aculab.com>
+	<20140116093640.GA16457@1wt.eu>
  <20140116.114905.1582218754259744747.davem@davemloft.net>
- <20140116200757.GA19969@1wt.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="Windows-1252"
 Content-Transfer-Encoding: 8BIT
@@ -15,52 +14,40 @@ Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	<thomas.petazzoni@free-electrons.com>,
 	"gregory.clement@free-electrons.com"
 	<gregory.clement@free-electrons.com>
-To: 'Willy Tarreau' <w@1wt.eu>, David Miller <davem@davemloft.net>
+To: 'David Miller' <davem@davemloft.net>, "w@1wt.eu" <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:39042 "HELO mx0.aculab.com"
+Received: from mx0.aculab.com ([213.249.233.131]:39100 "HELO mx0.aculab.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750775AbaAQJa3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 04:30:29 -0500
+	id S1751336AbaAQJeY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 04:34:24 -0500
 Received: from mx0.aculab.com ([127.0.0.1])
  by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 32228-02 for <netdev@vger.kernel.org>;
- Fri, 17 Jan 2014 09:30:26 +0000 (GMT)
-In-Reply-To: <20140116200757.GA19969@1wt.eu>
+ id 01362-03 for <netdev@vger.kernel.org>;
+ Fri, 17 Jan 2014 09:34:22 +0000 (GMT)
+In-Reply-To: <20140116.114905.1582218754259744747.davem@davemloft.net>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willy Tarreau 
-..
-> Ah that's an interesting trick! We don't have an IOMMU on this platform
-> so the call is cheap. However, it relies on an I/O barrier to wait for
-> a cache snoop completion. From what I read, it's not needed when going
-> to the device. But when going to the CPU for the Rx case, we're calling
-> it for every packet which is counter productive because I'd like to do
-> it only once when entering the rx loop and avoid any other call during
-> the loop. I measured that I could save 300 ns per packet by doing this
-> (thus slightly modifying the DMA API to add a new dma_io_barrier function).
+From: David Miller
+> I don't know if this is relevant for your hardware, but there is a trick
+> with IOMMUs that I at least at one point was doing on sparc64.
 > 
-> I think it could be interesting (at least for this platform, I don't know
-> if other platforms work with cache coherent DMA which only require to
-> verify end of snooping), to have two distinct set of DMA calls, something
-> like this :
+> I never flushed the IOMMU mappings explicitly on a dma_unmap call.
 > 
->     rx_loop(napi, budget)
->     {
->          dma_wait_for_snoop_completion(dev);
->          ...
->          for_each_rx_packet(pkt) {
->              dma_sync_single_range_for_cpu_unless_completed(dev, pkt->addr);
->              /* use packet */
->          }
->     }
+> Instead I always allocate by moving the allocation cursor to higher
+> addresses in the IOMMU range looking for free space.
+> 
+> Then when I hit the end of the range and had to wrap the allocation
+> cursor back to the beginning, I flush the entire IOMMU.
+> 
+> So for %99 of IOMMU mapping creation and teardown calls, I didn't even
+> touch the hardware.
 
-You'd need to scan the rx ring for completed entries before the waiting
-for the snoop to complete - and then only process those entries.
-(Or read a block of rx ring entries...)
-
-Otherwise you might try to process a rx that finished after you
-waited for the snoop to complete.
+Another option that ought to work is splitting the allocation of
+the io address space and the mapping of the addresses to physical
+memory.
+So for rx you'd leave the rx ring pointers constant and change the
+iommu to refer to the correct buffer.
 
 	David
