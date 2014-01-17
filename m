@@ -1,35 +1,41 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH V3 net-next 1/3] ipv6: add the IPV6_FL_F_REFLECT flag to IPV6_FL_A_GET
-Date: Fri, 17 Jan 2014 02:27:22 +0100
-Message-ID: <20140117012722.GA24345@order.stressinduktion.org>
-References: <1389889158-1710-1-git-send-email-florent.fourcot@enst-bretagne.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 net-next] bonding: handle slave's name change with
+ primary_slave logic
+Date: Thu, 16 Jan 2014 17:27:50 -0800 (PST)
+Message-ID: <20140116.172750.117356776052290343.davem@davemloft.net>
+References: <1389834269-4740-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dingtianhong@huawei.com, fubar@us.ibm.com,
+	andy@greyhouse.net
+To: vfalico@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:44243 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750898AbaAQB1X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 20:27:23 -0500
-Content-Disposition: inline
-In-Reply-To: <1389889158-1710-1-git-send-email-florent.fourcot@enst-bretagne.fr>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55846 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751194AbaAQB1v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 20:27:51 -0500
+In-Reply-To: <1389834269-4740-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 16, 2014 at 05:19:16PM +0100, Florent Fourcot wrote:
-> @@ -1000,6 +1002,8 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
->  	ireq = inet_rsk(req);
->  	ireq->ir_v6_rmt_addr = ipv6_hdr(skb)->saddr;
->  	ireq->ir_v6_loc_addr = ipv6_hdr(skb)->daddr;
-> +	if (np->repflow)
-> +		np->flow_label = ip6_flowlabel(ipv6_hdr(skb));
->  	if (!want_cookie || tmp_opt.tstamp_ok)
->  		TCP_ECN_create_request(req, skb, sock_net(sk));
->  
+From: Veaceslav Falico <vfalico@redhat.com>
+Date: Thu, 16 Jan 2014 02:04:29 +0100
 
-I am not sure here, do you write the flow_label on the listening socket?
+> Currently, if a slave's name change, we just pass it by. However, if the
+> slave is a current primary_slave, then we end up with using a slave, whose
+> name != params.primary, for primary_slave. And vice-versa, if we don't have
+> a primary_slave but have params.primary set - we will not detected a new
+> primary_slave.
+> 
+> Fix this by catching the NETDEV_CHANGENAME event and setting primary_slave
+> accordingly. Also, if the primary_slave was changed, issue a reselection of
+> the active slave, cause the priorities have changed.
+> 
+> Reported-by: Ding Tianhong <dingtianhong@huawei.com>
+> CC: Ding Tianhong <dingtianhong@huawei.com>
+> CC: Jay Vosburgh <fubar@us.ibm.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 
-Greetings,
-
-  Hannes
+Applied, thanks.
