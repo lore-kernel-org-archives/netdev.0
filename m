@@ -1,114 +1,53 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: PANIC in vxlan <debugging now>
-Date: Thu, 16 Jan 2014 18:03:18 -0800
-Message-ID: <20140116180318.00004f53@unknown>
-References: <20140116171428.00004da1@unknown>
+From: "gregory hoggarth" <gregory.hoggarth@alliedtelesis.co.nz>
+Subject: Linux kernel patch: elide fib_validate_source() completely
+ when possible - bad side effect?
+Date: Fri, 17 Jan 2014 14:59:12 +1300
+Message-ID: <52D945400200005D00047758@gwia2.atlnz.lc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>, dborkman@redhat.com
+Content-Transfer-Encoding: 8BIT
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:40056 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751310AbaAQCDT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jan 2014 21:03:19 -0500
-In-Reply-To: <20140116171428.00004da1@unknown>
+Received: from gate.alliedtelesis.co.nz ([202.36.163.21]:34323 "EHLO
+	gate.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751310AbaAQCIu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jan 2014 21:08:50 -0500
+Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
+	(using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
+	(Client did not present a certificate)
+	by gate.alliedtelesis.co.nz (Postfix) with ESMTPS id CDE246110A
+	for <netdev@vger.kernel.org>; Fri, 17 Jan 2014 14:59:18 +1300 (NZDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-+dborkman@redhat.com and left the full text of the message for him to
-see.  Bad commit below.
+Hi,
 
-On Thu, 16 Jan 2014 17:14:28 -0800
-Jesse Brandeburg <jesse.brandeburg@intel.com> wrote:
+I work for Allied Telesis, a company that manufactures and sells routers and switches.
 
-> I'm currently debugging this but given where the kernel release cycle
-> is I wanted to let the list know.
-> 
-> It may well be a bug in our code, and if it is we'll find it, but here is 
-> the panic, it doesn't occur when vxlan is not enabled.
-> 
-> Jan 16 13:46:44 jbrandeb-cp2 kernel: [   17.331010] cgroup: libvirtd (1387) created nested cgroup for controller "memory" which has incomplete hierarchy supp
-> ort. Nested cgroups may change behavior in the future.
-> Jan 16 13:46:44 jbrandeb-cp2 kernel: [   17.331014] cgroup: "memory" requires setting use_hierarchy to 1 on the root.
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.576568] ------------[ cut here ]------------
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.586411] kernel BUG at include/net/netns/generic.h:45!
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.596336] invalid opcode: 0000 [#1] SMP
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.606268] Modules linked in: lockd sunrpc i40e igb iTCO_wdt iTCO_vendor_support sb_edac ioatdma ptp microcode lpc_ich edac_core i2c_i801 mfd_core dca pps_core wmi kvm uinput isci firewire_ohci libsas firewire_core crc_itu_t scsi_transport_sas mgag200 drm_kms_helper ttm
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.637923] CPU: 0 PID: 1387 Comm: libvirtd Not tainted 3.13.0-rc7+ #30
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.648599] Hardware name: Intel Corporation S2600CO ........../S2600CO, BIOS SE5C600.86B.01.08.6003.062420131549 06/24/2013
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.659612] task: ffff88063b5c6000 ti: ffff8806333ca000 task.ti: ffff8806333ca000
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.670661] RIP: 0010:[<ffffffff816df92f>]  [<ffffffff816df92f>] net_generic.isra.34.part.35+0x4/0x6
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.681738] RSP: 0018:ffff8806333cbb80  EFLAGS: 00010246
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.692536] RAX: 0000000000000000 RBX: 00000000ffffffed RCX: 0000000000000010
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.703577] RDX: ffff88063d03d380 RSI: 0000000000000010 RDI: ffffffff81cfd9f0
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.714612] RBP: ffff8806333cbb80 R08: 0000000000000000 R09: ffffffff81cfd9f0
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.725531] R10: 00000000000002cc R11: 0000000000000004 R12: 0000000000000000
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.736448] R13: ffff880639118000 R14: ffff8806333cbc68 R15: 0000000000000000
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.747292] FS:  00007f6381830700(0000) GS:ffff880647600000(0000) knlGS:0000000000000000
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.758248] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.769263] CR2: 00007f637c04b000 CR3: 0000000c3aa1f000 CR4: 00000000000407f0
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.780402] Stack:
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.791386]  ffff8806333cbbc0 ffffffff814d0865 ffff8806333cbc40 00000000ffffffef
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.802702]  00000000ffffffed ffffffff81cc67d0 0000000000000010 ffff8806333cbc68
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.814021]  ffff8806333cbc00 ffffffff816e9e5d 0000000000000004 ffff8806333cbc68
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.825185] Call Trace:
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.836106]  [<ffffffff814d0865>] vxlan_lowerdev_event+0xf5/0x100
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.847254]  [<ffffffff816e9e5d>] notifier_call_chain+0x4d/0x70
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.858457]  [<ffffffff810912be>] __raw_notifier_call_chain+0xe/0x10
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.869696]  [<ffffffff810912d6>] raw_notifier_call_chain+0x16/0x20
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.880896]  [<ffffffff815d9610>] call_netdevice_notifiers_info+0x40/0x70
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.892063]  [<ffffffff815d9656>] call_netdevice_notifiers+0x16/0x20
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.903107]  [<ffffffff815e1bce>] register_netdevice+0x1be/0x3a0
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.914128]  [<ffffffff815e1dce>] register_netdev+0x1e/0x30
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.925072]  [<ffffffff814cb94a>] loopback_net_init+0x4a/0xb0
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.936048]  [<ffffffffa016ed6e>] ? lockd_init_net+0x6e/0xb0 [lockd]
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.947081]  [<ffffffff815d6bac>] ops_init+0x4c/0x150
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.958070]  [<ffffffff815d6d23>] setup_net+0x73/0x110
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.969006]  [<ffffffff815d725b>] copy_net_ns+0x7b/0x100
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.979897]  [<ffffffff81090e11>] create_new_namespaces+0x101/0x1b0
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   17.990855]  [<ffffffff81090f45>] copy_namespaces+0x85/0xb0
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.001656]  [<ffffffff810693d5>] copy_process.part.26+0x935/0x1500
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.012370]  [<ffffffff811d5186>] ? mntput+0x26/0x40
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.022924]  [<ffffffff8106a15c>] do_fork+0xbc/0x2e0
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.033331]  [<ffffffff811b7f2e>] ? ____fput+0xe/0x10
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.043622]  [<ffffffff81089c5c>] ? task_work_run+0xac/0xe0
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.053905]  [<ffffffff8106a406>] SyS_clone+0x16/0x20
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.064265]  [<ffffffff816ee689>] stub_clone+0x69/0x90
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.074600]  [<ffffffff816ee329>] ? system_call_fastpath+0x16/0x1b
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.084879] Code: 00 75 1d 55 be 2f 00 00 00 48 c7 c7 65 93 a2 81 48 89 e5 e8 f4 b5 98 ff 5d c6 05 30 aa 5f 00 01 c3 55 48 89 e5 0f 0b 55 48 89 e5 <0f> 0b 55 48 89 e5 0f 0b 66 66 66 66 90 55 48 c7 c7 c0 4c cb 81
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.105818] RIP  [<ffffffff816df92f>] net_generic.isra.34.part.35+0x4/0x6
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.116106]  RSP <ffff8806333cbb80>
-> Jan 16 13:46:45 jbrandeb-cp2 kernel: [   18.172366] ---[ end trace 0bb84cf9aa76a384 ]---
-> Jan 16 13:46:47 jbrandeb-cp2 systemd[1]: Startup finished in 4s 918ms 164us (kernel) + 3s 548ms 460us (initrd) + 11s 2ms 474us (userspace) = 19s 469ms 98us.
-> Jan 16 13:46:47 jbrandeb-cp2 dbus-daemon[989]: dbus[989]: [system] Activating via systemd: service name='org.freedesktop.Accounts' unit='accounts-daemon.service'
-> 
-> code says:
-> (gdb) l *(vxlan_lowerdev_event+0xf5)
-> 0xffffffff814d0865 is at include/net/netns/generic.h:41.
-> 34      static inline void *net_generic(const struct net *net, int id)
-> 35      {
-> 36              struct net_generic *ng;
-> 37              void *ptr;
-> 38
-> 39              rcu_read_lock();
-> 40              ng = rcu_dereference(net->gen);
-> 41              BUG_ON(id == 0 || id > ng->len);
-> 42              ptr = ng->ptr[id - 1];
-> 43              rcu_read_unlock();
-> 44
-> >>>> 45              BUG_ON(!ptr);
-> 46              return ptr;
-> 47      }
-> 48      #endif
-> 
+Earlier in the year we upgraded the linux kernel on our L3 switch firmware to v3.6.2 which includes this patch. Our testers have picked up a change in behaviour which I have traced back to this patch and I'd like to get comments on whether this is a bug or not.
+
+We found that in a configuration with a device under test (DUT) that has an IP address 192.168.0.1 / 24, sending an ICMP echo request with a source IP address of 192.168.0.255 will now be accepted by the DUT, which will send an ICMP echo reply back to the 192.168.0.255 address with a broadcast MAC address of FFFF.FFFF.FFFF, meaning any other devices in the L2 domain will pick up and process the ICMP reply.
+
+Prior to the upgrade, our device was running on linux kernel 2.6.38.2, and in that version the DUT would reject the packet with a martian source address error:
+11:20:54 awplus kernel: RxPkt(00001) Q:1 dev:8 lport:00000a00 cpuC:154 encap:0 len:98 bufs:1
+11:20:54 awplus kernel: RxPkt(00001) vid:1 port2.0.23
+11:20:54 awplus kernel: <7>   0000cd29 980d0000 cd27c1eb 08004500 
+11:20:54 awplus kernel: <7>   00540000 40004001 b858c0a8 00ffc0a8 
+11:20:54 awplus kernel: <7>   00010800 a4cf588c 000552dd c9990000 
+11:20:54 awplus kernel: <7>   f3240809 0a0b0c0d 0e0f1011 12131415 
+11:20:54 awplus kernel: <7>   (...)
+11:20:54 awplus kernel: martian source 192.168.0.1 from 192.168.0.255, on dev vlan1
+11:20:54 awplus kernel: ll header: 00:00:cd:29:98:0d:00:00:cd:27:c1:eb:08:00:45:00
 
 
-It appears that the bug is in acaf4e70997f (net: vxlan: when lower dev
-unregisters remove vxlan dev as well).
+Initially we were thinking that a device configured with 192.168.0.255 / 23 sending a ping to 192.168.0.1 / 24 should expect to get a reply, even though this is somewhat of a misconfiguration in that the subnets aren't matching and that some things may not work properly. For example ping from a device with IP address 192.168.0.254 would behave correctly, so it seemed correct that a ping from 192.168.0.255 should also work properly. However it appears that some other part of the kernel is detecting that the echo reply packet sent by the DUT has a destination IP address of the subnet broadcast, so instead of sending it with a unicast MAC address it sends it with the broadcast MAC address, which means all other devices on the subnet would process the ICMP echo reply. This therefore makes it s
+ eem like the ICMP echo request should have been dropped in the first place.
 
-reverting that patch avoids the panic.  I wasn't able to see
-immediately what was wrong in the patch.
--- 
-Jesse
+The patch added the "if (!r && !fib_num_tclassid_users)" check to fib_validate_source, which for our devices evaluates to true, hence returning early and the source address check inside __fib_validate_source is not carried out.
+
+
+Does anyone have comments as to what the correct behaviour should be in this case, and whether this is an unexpected side-effect from the patch or not?
+
+Thanks,
+Greg
