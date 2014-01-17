@@ -1,83 +1,146 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] [PATCH net-next v2] xen-netfront: clean up code in
- xennet_release_rx_bufs
-Date: Fri, 17 Jan 2014 20:32:29 +0800
-Message-ID: <52D922DD.2060407@oracle.com>
-References: <1389830228-2381-1-git-send-email-Annie.li@oracle.com> <52D7BE19.2010009@citrix.com> <52D8CCE4.9010804@oracle.com> <20140117120810.GA11681@zion.uk.xensource.com>
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Subject: Re: [PATCH] net: sk == 0xffffffff fix - not for commit
+Date: Fri, 17 Jan 2014 13:47:28 +0100
+Message-ID: <52D92660.5060308@samsung.com>
+References: <1386589672-5830-1-git-send-email-andrzej.p@samsung.com>
+ <1386603119.30495.331.camel@edumazet-glaptop2.roam.corp.google.com>
+ <52A6BAC6.4090407@samsung.com>
+ <1386685557.30495.344.camel@edumazet-glaptop2.roam.corp.google.com>
+ <52D7F8EF.1050407@samsung.com>
+ <1389889754.31367.406.camel@edumazet-glaptop2.roam.corp.google.com>
+ <52D91FAF.8090109@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Vrabel <david.vrabel@citrix.com>, ian.campbell@citrix.com,
-	netdev@vger.kernel.org, xen-devel@lists.xen.org,
-	andrew.bennieston@citrix.com, davem@davemloft.net
-To: Wei Liu <wei.liu2@citrix.com>
+Cc: linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+	Kyungmin Park <kyungmin.park@samsung.com>,
+	Felipe Balbi <balbi@ti.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Marek Szyprowski <m.szyprowski@samsung.com>,
+	Michal Nazarewicz <mina86@mina86.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:40991 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752068AbaAQMco (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 07:32:44 -0500
-In-Reply-To: <20140117120810.GA11681@zion.uk.xensource.com>
+Received: from mailout4.w1.samsung.com ([210.118.77.14]:42610 "EHLO
+	mailout4.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751513AbaAQMrd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jan 2014 07:47:33 -0500
+In-reply-to: <52D91FAF.8090109@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On 2014-1-17 20:08, Wei Liu wrote:
-> On Fri, Jan 17, 2014 at 02:25:40PM +0800, annie li wrote:
->> On 2014/1/16 19:10, David Vrabel wrote:
->>> On 15/01/14 23:57, Annie Li wrote:
->>>> This patch implements two things:
+W dniu 17.01.2014 13:18, Andrzej Pietrasiewicz pisze:
+> W dniu 16.01.2014 17:29, Eric Dumazet pisze:
+>> On Thu, 2014-01-16 at 16:21 +0100, Andrzej Pietrasiewicz wrote:
+>>> W dniu 10.12.2013 15:25, Eric Dumazet pisze:
+>>>> On Tue, 2013-12-10 at 07:55 +0100, Andrzej Pietrasiewicz wrote:
+>>>>> W dniu 09.12.2013 16:31, Eric Dumazet pisze:
+>>>>>> On Mon, 2013-12-09 at 12:47 +0100, Andrzej Pietrasiewicz wrote:
+>>>>>>> NOT FOR COMMITTING TO MAINLINE.
+>>>>>>>
+>>>>>>> With g_ether loaded the sk occasionally becomes 0xffffffff.
+>>>>>>> It happens usually after transferring few hundreds of kilobytes to few
+>>>>>>> tens of megabytes. If sk is 0xffffffff then dereferencing it causes
+>>>>>>> kernel panic.
+>>>>>>>
+>>>>>>> This is a *workaround*. I don't know enough net code to understand the core
+>>>>>>> of the problem. However, with this patch applied the problems are gone,
+>>>>>>> or at least pushed farther away.
+>>>>>>
+>>>>>> Is it happening on SMP or UP ?
+>>>>>
+>>>>> UP build, S5PC110
 >>>>
->>>> * release grant reference and skb for rx path, this fixex resource leaking.
->>>> * clean up grant transfer code kept from old netfront(2.6.18) which grants
->>>> pages for access/map and transfer. But grant transfer is deprecated in current
->>>> netfront, so remove corresponding release code for transfer.
+>>>> OK
 >>>>
->>>> gnttab_end_foreign_access_ref may fail when the grant entry is currently used
->>>> for reading or writing. But this patch does not cover this and improvement for
->>>> this failure may be implemented in a separate patch.
->>> I don't think replacing a resource leak with a security bug is a good idea.
+>>>> I believe you need additional debugging to track the exact moment
+>>>> 0xffffffff is fed to 'sk'
+>>>>
+>>>> It looks like a very strange bug, involving a problem in some assembly
+>>>> helper, register save/restore, compiler bug or stack corruption or
+>>>> something.
+>>>>
 >>>
->>> If you would prefer not to fix the gnttab_end_foreign_access() call, I
->>> think you can fix this in netfront by taking a reference to the page
->>> before calling gnttab_end_foreign_access().  This will ensure the page
->>> isn't freed until the subsequent kfree_skb(), or the gref is released by
->>> the foreign domain (whichever is later).
->> Taking a reference to the page before calling
->> gnttab_end_foreign_access() delays the free work until kfree_skb().
->> Simply adding put_page before kfree_skb() does not make things
->> different from gnttab_end_foreign_access_ref(), and the pages will
->> be freed by kfree_skb(), problem will be hit in
->> gnttab_handle_deferred() when freeing pages which already be freed.
+>>> I started with adding WARN_ON(sk == 0xffffffff); just before return in
+>>> __inet_lookup_established(), and the problem was gone. So this looks
+>>> very strange, like a toolchain problem.
 >>
-> I think David's idea is:
+>> Or a timing issue. Adding a WARN_ON() adds extra instructions and might
+>> really change the assembly output.
+>>
+>>>
+>>> I used gcc-linaro-arm-linux-gnueabihf-4.8-2013.05.
+>>>
+>>> If I change the toolchain to
+>>>
+>>> gcc-linaro-arm-linux-gnueabihf-4.7-2013.04-20130415
+>>>
+>>> the problem seems to have gone away.
+>>
+>> Its totally possible some barrier was not properly handled by the
+>> compiler. You could disassemble the function on both toolchains and
+>> try to spot the issue.
+>>
 >
-> 	get_page
-> 	gnttab_end_foreign_access
-> 	kfree_skb
+> So I gave it a try.
 >
-> The get_page is to offset put_page in gnttab_end_foreign_access. You
-> don't need to put page before kfree_skb.
+> Below is a part of assembly code (ARM) which corresponds to the last
+> lines of the __inet_lookup_established():
+>
+> C source:
+> =========
+> found:
+> 	rcu_read_unlock();
+> 	return sk;
+> }
+>
+> assembly for toolchain 4.7:
+> ===========================
+> c0333bb8:	ebf4bb6e 	bl	c0062978 <__rcu_read_unlock>
+> c0333bbc:	e51b0030 	ldr	r0, [fp, #-48]	; 0x30
+> c0333bc0:	e24bd028 	sub	sp, fp, #40	; 0x28
+> c0333bc4:	e89daff0 	ldm	sp, {r4, r5, r6, r7, r8, r9, sl, fp, sp, pc}
+> c0333bc8:	e5132018 	ldr	r2, [r3, #-24]
+>
+>
+> assembly for toolchain 4.8:
+> ===========================
+> c033ff5c:	ebf4927e 	bl	c006495c <__rcu_read_unlock>
+> c033ff60:	e24bd028 	sub	sp, fp, #40	; 0x28
+> c033ff64:	e51b0030 	ldr	r0, [fp, #-48]	; 0x30
+> c033ff68:	e89daff0 	ldm	sp, {r4, r5, r6, r7, r8, r9, sl, fp, sp, pc}
+> c033ff6c:	e5113018 	ldr	r3, [r1, #-24]
+>
+> What can be seen is that the usage of registers is slightly different,
+> and, what is more important, the _order_ of ldr/sub is different.
+> Now, if I swap the instructions at offsets c033ff60 and c033ff64
+> in the 4.8-generated vmlinux, the problem seems gone! Well, at least
+> the binary behaves the same way as the 4.7-generated one.
+>
+> Here is a _hypothesis_ of what _might_ be happening:
+>
+> The function in question puts its return value in the register r0.
+> In both cases the return value is fetched from a memory location
+> relative #-48 to what the frame pointer points to. However,
+> in the 4.7-generated binary the ldr executes in the branch delay slot,
+> whereas in the 4.8-generated binary it is the sub which executes
+> in the branch delay slot. That way, in the 4.7-generated binary the return
+> value is fetched before __rcu_read_unlock begins, but in the
+> 4.8-generated binary it is fetched some time later. Which might be
+> enough for someone else to schedule in and break the data to be
+> copied to r0 and returned from the function.
+>
+> As I said, this is just a hypothesis.
+>
 
-Yes, this is what I described as following about David's patch.
+Please disregard what I have written.
 
->> So put_page is required in gnttab_end_foreign_access(), this will
->> ensure either free is taken by kfree_skb or gnttab_handle_deferred.
->> This involves changes in blkfront/pcifront/tpmfront(just like your
->> patch), this way ensure page is released when ref is end.
+There is no delay slot on ARM :O
 
-But this would has some issue in netfront tx path. Netfront ends all 
-grant reference of one skb first and then release this skb. If the 
-gnttab_end_foreign_access_ref fails in gnttab_end_foreign_access(), this 
-frag page and corresponding grant reference will be put in entry and 
-release work will be done in the timer routine. If some frag pages of 
-one skb is free in this timer routine, then dev_kfree_skb_irq will free 
-pages which have been freed.
-So I prefer following way I mentioned, suggestions?
+A nice hypothesis, though ;)
 
->> Another solution I am thinking is calling
->> gnttab_end_foreign_access() with page parameter as NULL, then
->> gnttab_end_foreign_access will only do ending grant reference work
->> and releasing page work is done by kfree_skb().
-
-Thanks
-Annie
+AP
